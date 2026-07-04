@@ -253,24 +253,24 @@ defensive assertion or validation at these send points if it improves the failur
 
 ### Test Plan
 
-Replace preservation tests with rejection tests:
+Replace preservation tests with rejection tests for config/read, thread
+start/resume responses, persisted/effective settings, and send-point values.
+Keep supported `on-request`/`never` coverage. Run deterministic Electron
+coverage through production app paths with a fake Codex provider returning
+`on-failure`. Attempt live Codex E2E only with ChatGPT auth and no
+`OPENAI_API_KEY`; developers must update any global `on-failure` config
+themselves.
 
-- `config/read` with `approval_policy: "on-failure"` fails with an unsupported approval-policy error.
-- `thread/start` response with `approvalPolicy: "on-failure"` fails as provider drift.
-- `thread/resume` response with `approvalPolicy: "on-failure"` fails as provider drift.
-- conversation settings containing `on-failure` fail validation.
-- effective settings containing `on-failure` fail validation.
-- supported policies `on-request` and `never` continue through config, command, start/resume, and permission-picker paths.
-- generated protocol tests may still prove deprecated upstream values are not emitted in Setta-owned generated surfaces where that is already the local
-  contract. Do not force generated upstream Codex wire types to diverge from the upstream schema just to reject values that Setta rejects at its runtime
-  boundary.
-
-Because this change touches provider protocol handling and chat behavior, the implementation needs deterministic end-to-end app workflow coverage through the
-production Electron/main/preload/renderer/HTTP/store paths. The E2E should use temporary app data and a scripted fake Codex/provider harness that returns
-`on-failure` from the relevant provider/config path.
-
-Run the live Codex E2E tests only when local Codex CLI ChatGPT auth is available. Do not use `OPENAI_API_KEY` for those tests. Developers whose global Codex
-config still contains `approval_policy = "on-failure"` should update that config before live-provider verification; Setta should not auto-edit it.
+### Progress
+Status: Completed 2026-07-03. Setta-owned validation now accepts only
+`on-request` and `never` across Codex config, thread start/resume responses,
+thread settings notifications, persisted settings/defaults, and defensive
+request construction. Unsupported policies no longer render as `Custom`, persist
+as Setta permission state, or get sent back to Codex. Verification:
+`./scripts/go.sh test ./internal/chat`, focused approval-policy Go tests, and
+`node desktop/tests/electron/chat-workflows.test.mjs --codex-approval-policy-removal-only`.
+Live E2E with `OPENAI_API_KEY` unset was attempted but blocked because local
+Codex config still returns `approval_policy = "on-failure"`. Remaining: Track 8.
 
 ## Track 3: Codex App-Server Process Lifecycle Ownership
 

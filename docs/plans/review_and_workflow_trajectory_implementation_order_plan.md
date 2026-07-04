@@ -254,6 +254,32 @@ approval state only. Deprecated provider policy values such as `on-failure`
 must be rejected at Setta runtime boundaries rather than preserved as custom UI
 state.
 
+Status: completed 2026-07-03. Chat-domain approval-policy validation now
+accepts only `on-request` and `never` across Codex config, thread start/resume
+responses, thread settings notifications, conversation settings, effective
+settings, defaults, and thread start/resume request construction. Unsupported
+provider values no longer become `Custom` permission display state and are not
+sent back to Codex. Focused Go tests cover config, start/resume response,
+notification, persisted-state, display, and send-point rejection. Deterministic
+Electron coverage verifies an `on-failure` thread-start response through
+production app paths fails the run without a linked ref and allows a later
+supported send to succeed.
+
+Verification:
+
+- `./scripts/go.sh test ./internal/chat -run 'Test(SettaApprovalPolicyValidatorRejectsUnsupportedValues|ConfigResponseRejectsOnFailureApprovalPolicy|ConfigResponseDoesNotInferPermissionFromSandboxMode|UnsupportedApprovalPolicyDoesNotUseCustomDisplay|CodexThreadResponsesRejectOnFailureApprovalPolicy|CodexThreadSettingsNotificationRejectsOnFailureApprovalPolicy|Conversation(Settings|EffectiveSettings)RejectOnFailureApprovalPolicy|ThreadRequestsRejectUnsupportedApprovalPolicyBeforeSend|CodexHarness(AppliesConversationPermissionSettingsToThread(Start|Resume)|FailsWhenInitialThreadIgnoresPermissionSettings|FailsCommandThreadWhenPermissionSettingsIgnored))'`
+- `./scripts/go.sh test ./internal/chat`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-approval-policy-removal-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only` was attempted, but local Codex `config/read` returned
+  `approval_policy = "on-failure"`, so Setta rejected conversation creation as
+  expected. This failed live-provider attempt is not provider-integration proof;
+  live verification remains blocked until the developer updates global Codex
+  config to `on-request` or `never`.
+
+Remaining notes: Track 8, HTTP request boundary limits, is the next ordered
+remediation track before adding new trajectory, output-loading, approval,
+steering, metadata, or image-path endpoints.
+
 ### 2. HTTP Request Boundary Limits
 
 Implement Track 8 before or with any new trajectory, output-loading, approval,

@@ -84,6 +84,7 @@ import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-wor
 import { runWorkflowRunnerPostStartFailureWorkflowLaunch } from "./workflow-runner-post-start-cases.mjs";
 import { runWorkflowVersionCommitOrderingWorkflowLaunch } from "./workflow-version-commit-ordering-cases.mjs";
 import { runWorkflowDefinitionFileAtomicityWorkflowLaunch } from "./workflow-definition-file-atomicity-cases.mjs";
+import { runCodexApprovalPolicyRemovalWorkflowLaunch } from "./chat-workflow-approval-policy-cases.mjs";
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
@@ -103,6 +104,7 @@ const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
 const singleWorkflowArgs = new Map([
   ["--codex-protocol-only", "codexProtocolOnly"],
+  ["--codex-approval-policy-removal-only", "codexApprovalPolicyRemovalOnly"],
   ["--codex-app-server-lifecycle-only", "codexAppServerLifecycleOnly"],
   ["--post-commit-startup-failure-only", "postCommitStartupFailureOnly"],
   ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
@@ -116,6 +118,10 @@ const singleWorkflowRunners = [
   {
     option: "codexProtocolOnly",
     run: (results) => runCodexProtocolWorkflow(results),
+  },
+  {
+    option: "codexApprovalPolicyRemovalOnly",
+    run: (results) => runCodexApprovalPolicyRemovalWorkflowLaunch(results, { recordingRoot }),
   },
   {
     option: "codexAppServerLifecycleOnly",
@@ -142,6 +148,7 @@ const singleWorkflowRunners = [
 function parseArgs(args) {
   const parsed = {
     codexAppServerLifecycleOnly: false,
+    codexApprovalPolicyRemovalOnly: false,
     codexProtocolOnly: false,
     deterministic: true,
     keepArtifacts: false,
@@ -186,6 +193,7 @@ function parseArgs(args) {
 
 function selectSingleWorkflow(parsed, selected) {
   parsed.codexAppServerLifecycleOnly = selected === "codexAppServerLifecycleOnly";
+  parsed.codexApprovalPolicyRemovalOnly = selected === "codexApprovalPolicyRemovalOnly";
   parsed.codexProtocolOnly = selected === "codexProtocolOnly";
   parsed.postCommitStartupFailureOnly = selected === "postCommitStartupFailureOnly";
   parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
@@ -221,6 +229,7 @@ async function main() {
     await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
     await runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot });
     await runWorkflowDefinitionFileAtomicityWorkflowLaunch(results, { recordingRoot });
+    await runCodexApprovalPolicyRemovalWorkflowLaunch(results, { recordingRoot });
     await runCodexAppServerLifecycleWorkflowLaunch(results, { recordingRoot });
     await runTranscriptSearchWorkflowLaunch(results, {
       recordingRoot,

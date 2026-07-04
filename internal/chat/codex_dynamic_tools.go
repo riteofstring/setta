@@ -53,7 +53,7 @@ func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string) (map[s
 	return params, nil
 }
 
-func codexThreadResumeParams(workspaceRoot string, threadID string, conversation Conversation) map[string]any {
+func codexThreadResumeParams(workspaceRoot string, threadID string, conversation Conversation) (map[string]any, error) {
 	params := map[string]any{
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceRoot,
@@ -61,17 +61,26 @@ func codexThreadResumeParams(workspaceRoot string, threadID string, conversation
 		"runtimeWorkspaceRoots": []string{workspaceRoot},
 		"threadId":              threadID,
 	}
-	applyCodexThreadResumeSettings(params, conversation)
-	return params
+	if err := applyCodexThreadResumeSettings(params, conversation); err != nil {
+		return nil, err
+	}
+	return params, nil
 }
 
-func applyCodexThreadResumeSettings(params map[string]any, conversation Conversation) {
-	permission, ok := codexConversationPermissionSettings(conversation)
+func applyCodexThreadResumeSettings(params map[string]any, conversation Conversation) error {
+	permission, ok, err := codexConversationPermissionSettings(conversation)
+	if err != nil {
+		return err
+	}
 	if !ok {
-		return
+		return nil
+	}
+	if err := validateSettaCodexApprovalPolicy(permission.ApprovalPolicy, "thread/resume request approvalPolicy"); err != nil {
+		return err
 	}
 	params["approvalPolicy"] = permission.ApprovalPolicy
 	params["permissions"] = permission.Permissions
+	return nil
 }
 
 func codexDynamicToolSpecs(registry *AgentToolRegistry) ([]codexDynamicToolSpec, error) {
