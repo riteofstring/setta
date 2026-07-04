@@ -489,9 +489,8 @@ Verification performed:
 
 Remaining work:
 
-- Phase 4 should add explicit deterministic Electron assertions for the
-  conversation-switching liveness navigation regression and the degraded-health
-  case, even though the existing deterministic chat workflow gate passes.
+- Phase 4 dedicated Electron assertions were added in the conversation-switch
+  liveness coverage entry below.
 
 ### 2026-07-03: Renderer Liveness Presentation Classification
 
@@ -536,13 +535,41 @@ Follow-up audit verification:
 
 Remaining work:
 
-- Phase 4 should add explicit deterministic Electron assertions for the
-  conversation-switching liveness navigation regression and degraded-health
-  case as dedicated coverage rather than relying only on the broader protocol
-  workflow.
+- Phase 4 dedicated Electron assertions were added in the conversation-switch
+  liveness coverage entry below.
 - Phase 7 remains required as product work from the recorded scroll-follow
   symptom, but it is not currently blocking the deterministic chat workflow
   gate.
+
+### 2026-07-02: Conversation-Switch Liveness Regression Coverage
+
+Implemented Phase 4 as dedicated production-path Electron coverage:
+
+- added a Codex protocol workflow that starts an active run, navigates to a new
+  empty conversation, asserts the original conversation sidebar row still shows
+  the working indicator, switches back through `/chat/runs/active` snapshot
+  loading, asserts the transcript and composer still present working state, then
+  steers the run to completion;
+- extended the degraded-health protocol workflows so provider restart,
+  retryable stream resync, and nonretryable stream loss assert the sidebar DOM
+  indicator matches the transcript state;
+- extended the fake Codex app-server fixture with a controlled
+  `liveness navigation workflow` active turn and `turn/steer` completion path
+  for that scenario.
+
+Verification performed:
+
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/format.sh`
+- `./scripts/test_chat_workflows.sh --deterministic-only`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+- `./check_quality.sh --git-changes`
+
+Remaining work:
+
+- Phase 5 live-provider sanity was completed for this slice.
+- Next implementation work starts at Phase 6 unless Phase 7 scroll-follow
+  detach behavior is prioritized first.
 
 ## Open Decisions
 

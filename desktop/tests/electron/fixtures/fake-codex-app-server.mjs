@@ -68,6 +68,7 @@ const methodHandlers = {
   "thread/start": handleThreadStart,
   "turn/interrupt": handleTurnInterrupt,
   "turn/start": handleTurnStart,
+  "turn/steer": handleTurnSteer,
 };
 
 function handleInitialize(message) {
@@ -143,6 +144,11 @@ function handleTurnStart(message) {
   if (text.includes("liveness reconciliation workflow")) {
     activeSilentLivenessTurn = fakeTurn("inProgress");
     setTimeout(emitSilentLivenessTurn, 5);
+    return;
+  }
+  if (text.includes("liveness navigation workflow")) {
+    activeSilentLivenessTurn = fakeTurn("inProgress");
+    setTimeout(emitNavigationLivenessTurn, 5);
     return;
   }
   if (text.includes("nonretryable stream error workflow")) {
@@ -380,6 +386,13 @@ function handleTurnInterrupt(message) {
   respond(message.id, {});
 }
 
+function handleTurnSteer(message) {
+  if (handleNavigationLivenessSteer(message)) {
+    return;
+  }
+  respond(message.id, {});
+}
+
 function handleGoalTurnInterrupt(message) {
   if (currentGoal?.objective !== "phase4 codex cancel") {
     return false;
@@ -425,6 +438,29 @@ function handleRestartLivenessInterrupt(message) {
   notify("turn/completed", {
     threadId,
     turn: fakeTurn("interrupted"),
+  });
+  return true;
+}
+
+function handleNavigationLivenessSteer(message) {
+  if (activeSilentLivenessTurn?.id !== message.params?.expectedTurnId) {
+    return false;
+  }
+  const text = turnInputText(message);
+  if (!text.includes("finish liveness navigation workflow")) {
+    return false;
+  }
+  activeSilentLivenessTurn = null;
+  respond(message.id, {});
+  notify("item/agentMessage/delta", {
+    delta: "Navigation liveness complete. ",
+    itemId: "navigation_liveness_message_fake",
+    threadId,
+    turnId,
+  });
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurn("completed"),
   });
   return true;
 }
@@ -740,6 +776,15 @@ function emitSilentLivenessTurn() {
   notify("item/agentMessage/delta", {
     delta: "Liveness stream started. ",
     itemId: "liveness_message_fake",
+    threadId,
+    turnId,
+  });
+}
+
+function emitNavigationLivenessTurn() {
+  notify("item/agentMessage/delta", {
+    delta: "Navigation liveness started. ",
+    itemId: "navigation_liveness_message_fake",
     threadId,
     turnId,
   });

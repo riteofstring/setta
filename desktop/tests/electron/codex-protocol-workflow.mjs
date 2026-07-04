@@ -8,6 +8,7 @@ import {
   assertAssistantCompleted,
   assertNoActiveRun,
   clickButtonByAria,
+  clickButtonContainingText,
   createChat,
   setInputValue,
   submitComposer,
@@ -553,6 +554,39 @@ export async function runProtocolLivenessReconciliationWorkflow(client, backend,
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
   await assertNoActiveRun(backend, workspaceId, conversationId);
+  await runProtocolConversationSwitchLivenessWorkflow(client, backend, workspaceId);
+}
+
+async function runProtocolConversationSwitchLivenessWorkflow(client, backend, workspaceId) {
+  const prompt = "liveness navigation workflow";
+  const firstConversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, prompt, "Send message");
+  const run = await waitForRunStatusForPrompt(
+    backend,
+    workspaceId,
+    firstConversationId,
+    prompt,
+    "running",
+  );
+  await waitForTexts(client, [prompt, "Navigation liveness started."]);
+  await waitForRendererLiveness(client, run.id, "attached", "working");
+  await assertConversationSidebarIndicator(client, prompt, "Chat response running");
+
+  const secondConversationId = await createChat(client, backend, workspaceId);
+  await waitForSelectedConversation(client, secondConversationId);
+  await assertConversationSidebarIndicator(client, prompt, "Chat response running");
+
+  await clickButtonContainingText(client, prompt);
+  await waitForSelectedConversation(client, firstConversationId);
+  await waitForRendererRunMode(client, run.id, "working");
+  await assertConversationSidebarIndicator(client, prompt, "Chat response running");
+  await assertRunLivenessControls(client, { retry: false, stop: true });
+
+  await submitComposer(client, "finish liveness navigation workflow", "Send steering message");
+  await waitForTexts(client, ["Navigation liveness complete."]);
+  await waitForRunStatus(backend, workspaceId, firstConversationId, run.id, "completed");
+  await assertAssistantCompleted(backend, workspaceId, firstConversationId, run.id);
+  await assertNoActiveRun(backend, workspaceId, firstConversationId);
 }
 
 export async function runProtocolProviderRestartLivenessWorkflow(client, backend, workspaceId) {
@@ -567,6 +601,11 @@ export async function runProtocolProviderRestartLivenessWorkflow(client, backend
   );
   await waitForTexts(client, ["Partial before provider restart."]);
   await waitForRendererLiveness(client, run.id, "reconciling", "reconnecting");
+  await assertConversationSidebarIndicator(
+    client,
+    "app-server exit workflow",
+    "Chat response reconnecting",
+  );
   const list = await backend.post("/chat/conversations/list", { workspaceId });
   const item = list.conversations.find((candidate) => candidate.conversation.id === conversationId);
   assertProviderRestartLivenessItem(item, run.id);
@@ -589,6 +628,11 @@ export async function runProtocolStreamErrorLivenessWorkflow(client, backend, wo
   );
   await waitForTexts(client, ["Retryable stream started."]);
   await waitForRendererLiveness(client, retryingRun.id, "reconciling", "reconnecting");
+  await assertConversationSidebarIndicator(
+    client,
+    "retryable stream error workflow",
+    "Chat response reconnecting",
+  );
   await waitForTexts(client, ["Reconnecting"]);
   await assertStreamErrorLivenessItem(
     backend,
@@ -635,6 +679,11 @@ export async function runProtocolStreamErrorLivenessWorkflow(client, backend, wo
   );
   await waitForTexts(client, ["Partial before stream loss."]);
   await waitForRendererLiveness(client, lostRun.id, "lost", "lost");
+  await assertConversationSidebarIndicator(
+    client,
+    "nonretryable stream error workflow",
+    "Chat connection lost",
+  );
   await waitForTexts(client, ["Connection lost", "stream disconnected before completion"]);
   await assertStreamErrorLivenessItem(backend, workspaceId, lostConversationId, lostRun.id, {
     error: "stream disconnected before completion",
@@ -901,6 +950,54 @@ async function waitForRendererLiveness(client, runId, status, rowMode) {
       };
     })()`,
     (value) => value.liveness === status && value.mode === rowMode,
+  );
+}
+
+async function waitForRendererRunMode(client, runId, rowMode) {
+  await waitForState(
+    client,
+    `(() => {
+      const runId = ${JSON.stringify(runId)};
+      const rows = Array.from(document.querySelectorAll('[data-block-kind="run_status"]'));
+      const target = rows.find((row) => row.getAttribute("data-run-id") === runId);
+      return {
+        mode: target?.getAttribute("data-run-status-mode") ?? "",
+        text: target?.textContent ?? "",
+      };
+    })()`,
+    (value) => value.mode === rowMode,
+  );
+}
+
+async function waitForSelectedConversation(client, conversationId) {
+  await waitForState(
+    client,
+    `(() => {
+      const panel = document.querySelector('[data-testid="chat-detail-pane"]');
+      return { conversationId: panel?.getAttribute("data-conversation-id") ?? "" };
+    })()`,
+    (value) => value.conversationId === conversationId,
+  );
+}
+
+async function assertConversationSidebarIndicator(client, conversationTitle, expectedLabel) {
+  await waitForState(
+    client,
+    `(() => {
+      const conversationTitle = ${JSON.stringify(conversationTitle)};
+      const rows = Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]'));
+      const row = rows.find((candidate) => candidate.innerText.includes(conversationTitle));
+      const status = row?.querySelector('[role="status"]')?.getAttribute("aria-label") ?? "";
+      return {
+        ok: status === ${JSON.stringify(expectedLabel)},
+        rows: rows.map((candidate) => ({
+          status: candidate.querySelector('[role="status"]')?.getAttribute("aria-label") ?? "",
+          text: candidate.innerText,
+        })),
+        status,
+      };
+    })()`,
+    (value) => value.ok,
   );
 }
 
