@@ -121,39 +121,20 @@ with temporary app data and a scripted fake provider. The E2E should cover a pos
 conversation.
 
 ### Progress
-Progress 2026-07-03:
+Status: Shared cleanup slice completed 2026-07-03. Normal sends,
+workflow-agent sends, and queued promotion now use a shared post-commit starter
+and locked terminal cleanup path. Startup failures after `CreateRunningTurn` or
+`PromoteQueuedTurn` fail the run, assistant message, and liveness state instead
+of leaving a non-executing `running` run. Audit follow-up fixed queued promotion
+to pass the committed promoted run into the starter.
 
-- Added a shared post-commit harness-turn starter for normal sends, workflow agent sends, and queued promotion. The helper records the active turn before fallible
-  transcript startup work, publishes start events, builds delivery input, reserves/launches the harness, and routes synchronous startup failure to terminal state.
-- Split `failTurn` into a locked terminal transition helper so post-commit startup cleanup reuses failed-run persistence, assistant-message failure, liveness
-  terminal publication, active-state cleanup, and pending-steering cleanup behavior.
-- Moved normal-send and queued-promotion start traces/events out of durable commit helpers, so failures after `CreateRunningTurn` or `PromoteQueuedTurn` no
-  longer leave a durable `running` run behind.
-- Added focused Go coverage for normal send, workflow-agent send, and queued-promotion startup failures. The tests assert failed terminal runs, assistant error
-  state, no active run/liveness, no harness launch for failed starts, preserved queued semantics, and successful later sends.
-- Added deterministic Electron coverage for a post-commit transcript-start failure followed by a successful later send through the production
-  Electron/main/preload/renderer/HTTP/store path. The test uses a narrow E2E-only backend ID-generation fault injection and verifies the failed run, assistant
-  error state, no active run, and retry success.
-- Audit follow-up: queued promotion now passes the committed promoted run record into the shared post-commit starter, so start events and harness requests carry
-  the durable `running` status, `startedAt`, and `assistantMessageId` instead of the stale queued run copy. Focused queue coverage now asserts this handoff.
-
-Verification performed:
-
-- `./scripts/go.sh test ./internal/chat`
-- `./scripts/go.sh test ./internal/runtime`
-- Audit follow-up: `./scripts/go.sh test ./internal/chat -run 'TestServiceEditsQueuedMessageAndUsesEditedTextOnPromotion|TestServicePostCommitStartupFailure'`
-- Audit follow-up: `./scripts/go.sh test ./internal/runtime -run 'Test(Start|InvalidStartupConfiguration|GracefulShutdown|ShutdownDrainsActiveChatTurnBeforeClosingEvents)'`
-- `./scripts/format.sh`; `./check_quality.sh --git-changes`
-- `node desktop/tests/electron/chat-workflows.test.mjs --post-commit-startup-failure-only`
-- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
-
-Notes:
-
-- Remaining Track 1 test depth: add focused injections for transcript-block save/working-status publish, liveness/conversation publish, queued delivery-input rebuild, and synchronous harness reservation/setup failure if that path is made injectable. Two broader `node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only` attempts passed the new post-commit startup-failure case and then failed later in pre-existing long-suite scenarios (`transcript-scroll` on one run, Codex protocol row waiting on another).
-- Audit follow-up: a full `./scripts/go.sh test ./internal/runtime` attempt reached signed-in live Codex coverage and timed out in
-  `TestBackendLiveCodexRunLivenessReconcileDuringActiveTurn`; the focused non-live runtime startup/shutdown coverage above passed.
-- Audit follow-up: `node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only` passed the happy path, queued controls, cancel/fail queue,
-  post-commit startup-failure, transcript search, and transcript scroll scenarios, then failed later in a Codex-protocol workflow wait with `rows: []`.
+Verification covered focused/full `internal/chat`, focused runtime
+startup/shutdown tests, the deterministic Electron workflow, format/quality
+gates, and live Codex E2E with `OPENAI_API_KEY` unset. Remaining depth: add
+focused injections for publish, delivery-rebuild, and synchronous
+reservation/setup failures where injectable. Broader deterministic/runtime
+attempts exposed unrelated long-suite/live failures; exact commands and
+failures are recorded in the implementation order plan.
 
 ## Track 2: Codex On-Failure Approval Policy Removal
 
@@ -480,27 +461,17 @@ After the extraction is complete, run the targeted Electron tests that owned the
 
 ### Progress
 
-Progress 2026-07-03:
+Status: First extraction slice completed 2026-07-03. A reusable CDP extension
+loader now installs the DOM pane snapshot/scroll driver, and the workflow test
+calls named driver functions with structured arguments instead of
+multi-kilobyte executable template literals. `cdp-client.mjs` now preserves
+underlying exception descriptions for extracted driver failures.
 
-- Added a reusable CDP browser-driver extension loader and extracted the DOM pane snapshot/scroll workflow's browser-side DOM traversal, overview snapshot
-  inspection, scroll restoration sampling, and UI click helpers into `desktop/tests/electron/dom-pane-snapshot-scroll-driver.js`.
-- Updated `desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs` so CDP evaluation now uses named installed driver calls and structured arguments
-  instead of multi-kilobyte executable template literals.
-- Kept the base `browser-driver.js` at its existing file-length boundary by installing the workflow-specific extension onto the same `__settaE2EDriver`
-  surface. Browser-side exception reporting in `cdp-client.mjs` now preserves the underlying exception description so extracted driver failures remain
-  diagnosable.
-
-Verification performed:
-
-- `node desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs --skip-build`
-- `./scripts/format.sh`
-- `./check_quality.sh --git-changes`
-
-Remaining:
-
-- Continue Track 4 with the next large browser-side programs called out above: chat stream performance, semantic graph editing, overview zoom performance
-  helpers, and long transcript performance.
-- Add the deterministic guardrail for future large executable template literals after the extraction pattern covers the remaining listed workflows.
+Verification: `node desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs --skip-build`;
+`./scripts/format.sh`; `./check_quality.sh --git-changes`. Remaining: extract
+the chat stream performance, semantic graph editing, overview zoom performance,
+and long transcript performance browser programs; then add the deterministic
+guardrail for future large executable template literals.
 
 ## Track 5: Workflow Version Commit Ordering
 
