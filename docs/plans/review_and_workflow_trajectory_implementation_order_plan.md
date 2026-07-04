@@ -392,7 +392,9 @@ the chat stream performance measurement loop, mutation observation,
 long-task/frame aggregation, and snapshot construction into
 `desktop/tests/electron/chat-stream-performance-driver.js`, leaving
 `chat-stream-performance.test.mjs` to call named driver methods with structured
-arguments.
+arguments. Audit follow-up repaired the scripted chat performance turn so the
+completion result is emitted through typed `commandExecution` details instead
+of the rejected legacy flat `RunItem.Result` field.
 
 Verification:
 
@@ -405,6 +407,13 @@ Verification:
   and started, but the run then failed in the existing scripted fake Codex path
   with `commandExecution flat result must be empty after typed details cutover`
   before measurement settlement.
+- `./scripts/go.sh test ./internal/chat -run 'TestScripted' -count=1`
+- Audit follow-up reran `node --check` for the chat performance driver, chat
+  performance test, and `cdp-client.mjs`.
+- After the fixture repair,
+  `node desktop/tests/electron/chat-stream-performance.test.mjs --skip-build`
+  completed measurement twice but failed the existing frame-budget assertion
+  with one or two frames over 50ms.
 - `node desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs --skip-build`
   passed after registering the new driver extension.
 - `./scripts/format.sh`
@@ -413,8 +422,8 @@ Verification:
 Remaining notes: continue Track 4 with the remaining large browser-side
 programs in semantic graph workflow editing, overview zoom performance helpers,
 and long transcript performance. The chat stream performance workflow still
-needs a clean focused rerun after the existing fake Codex typed-details fixture
-is repaired. Add the guardrail for future large executable template literals
+needs the frame-budget failure resolved or baselined before it has a clean
+focused rerun. Add the guardrail for future large executable template literals
 after the extraction pattern covers the remaining listed workflows. Phase 4
 backend trajectory contracts should wait until this test-driver extraction work
 is complete enough that new trajectory E2E scenarios do not add new large

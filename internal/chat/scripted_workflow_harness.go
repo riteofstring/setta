@@ -542,7 +542,9 @@ func scriptedPerformanceStreamTurn(_ *ScriptedWorkflowHarness, ctx context.Conte
 		}
 	}
 	item.Status = RunItemStatusCompleted
-	item.Result = fmt.Sprintf("streamed %d assistant chunks", chunkCount)
+	item.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+		Result: fmt.Sprintf("streamed %d assistant chunks", chunkCount),
+	})
 	if err := sink.RunItemUpsert(item); err != nil {
 		return TurnCompletion{}, err
 	}

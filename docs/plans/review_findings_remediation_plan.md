@@ -462,20 +462,21 @@ After the extraction is complete, run the targeted Electron tests that owned the
 ### Progress
 
 Status: Extraction in progress. The CDP extension loader now installs the DOM
-pane snapshot/scroll driver and chat stream performance driver, so both tests
-call named browser-driver functions with structured arguments instead of
-multi-kilobyte executable template literals. `cdp-client.mjs` preserves
-underlying exception descriptions for extracted driver failures.
+pane snapshot/scroll and chat stream performance drivers; both tests call named
+driver functions with structured arguments. Audit follow-up also repaired the
+scripted chat performance turn so its completion result uses typed
+`commandExecution` details instead of legacy flat `RunItem.Result`.
 
-Verification: DOM pane snapshot/scroll passed before and after the chat stream
-extension registration; `node --check` passed for the new driver, the updated
-performance test, and `cdp-client.mjs`; `chat-stream-performance.test.mjs
---skip-build` confirmed the extracted driver installed and started, then hit an
-existing fake Codex typed-details fixture failure before measurement settlement.
-`./scripts/format.sh`; `./check_quality.sh --git-changes`. Remaining: extract
-semantic graph editing, overview zoom performance, and long transcript
-performance; repair the existing chat stream fake Codex typed-details fixture
-for a clean focused rerun; then add the large-template-literal guardrail.
+Verification: DOM pane snapshot/scroll passed; `node --check` passed for the
+chat performance driver, test, and `cdp-client.mjs`; the focused scripted
+harness check passed. After the fixture repair,
+`node desktop/tests/electron/chat-stream-performance.test.mjs --skip-build`
+completed measurement twice but failed the existing frame-budget assertion with
+one or two frames over 50ms. `./scripts/format.sh`;
+`./check_quality.sh --git-changes`. Remaining: extract semantic graph editing,
+overview zoom performance, and long transcript performance; resolve or baseline
+the chat stream frame-budget failure; then add the large-template-literal
+guardrail.
 
 ## Track 5: Workflow Version Commit Ordering
 
