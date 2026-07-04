@@ -17,7 +17,6 @@ interface FrameSchedulerDependencies {
   engine: WorkspaceLikeLayoutEngine;
   layoutStore: WorkspaceLayoutStore;
   metrics: WorkspaceMetricsCollector;
-  movementOverride?: () => boolean;
   presentation: PresentationEngine;
   reportWriter: PerformanceReportWriter | null;
   runtimePolicy: PaneRuntimePolicy;
@@ -28,14 +27,6 @@ interface ZoomEndpointFrames {
   key: string;
   normalItems: PaneRenderItem[];
   overviewItems: PaneRenderItem[];
-}
-
-interface RenderFrameState {
-  frameInput: Omit<LayoutFrameInput, "presentationMode">;
-  moving: boolean;
-  renderMovementPhase: "idle" | "moving";
-  snapshot: WorkspaceLayoutSnapshot;
-  zooming: boolean;
 }
 
 export class FrameScheduler {
@@ -62,7 +53,6 @@ export class FrameScheduler {
   private readonly engine: WorkspaceLikeLayoutEngine;
   private readonly layoutStore: WorkspaceLayoutStore;
   private readonly metrics: WorkspaceMetricsCollector;
-  private readonly movementOverride: () => boolean;
   private readonly presentation: PresentationEngine;
   private readonly reportWriter: PerformanceReportWriter | null;
   private readonly runtimePolicy: PaneRuntimePolicy;
@@ -73,7 +63,6 @@ export class FrameScheduler {
     this.engine = dependencies.engine;
     this.layoutStore = dependencies.layoutStore;
     this.metrics = dependencies.metrics;
-    this.movementOverride = dependencies.movementOverride ?? (() => false);
     this.presentation = dependencies.presentation;
     this.reportWriter = dependencies.reportWriter;
     this.runtimePolicy = dependencies.runtimePolicy;
@@ -159,79 +148,42 @@ export class FrameScheduler {
     const initialSnapshot = this.layoutStore.getSnapshot();
     const focusViewport = this.focusVisibilityViewport(initialSnapshot, viewport);
     this.layoutStore.ensureFocusedPaneVisible(focusViewport);
-    const frameState = this.renderFrameState(deltaMs, viewport, resizePhase);
-    this.lastFrameNeedsContinuation = frameState.moving || resizePhase === "active";
+    if (resizePhase === "active") {
+      this.layoutStore.snapScrollToTarget();
+    }
+    const movementPhase =
+      resizePhase === "active" ? "moving" : this.layoutStore.advanceFrame(deltaMs);
+    const snapshot = this.layoutStore.getSnapshot();
+    this.syncOverviewViewport(snapshot, viewport);
+    const targetOverviewProgress = snapshot.presentationMode === "overview" ? 1 : 0;
+    const zooming = Math.abs(snapshot.overviewProgress - targetOverviewProgress) > 0.001;
+    const renderMovementPhase = zooming ? "moving" : movementPhase;
+    this.lastFrameNeedsContinuation = renderMovementPhase === "moving" || resizePhase === "active";
     this.items.length = 0;
-    this.metrics.beginFrame({ moving: frameState.moving, resizePhase });
-    this.renderPaneItems({
-      frameInput: frameState.frameInput,
-      resizePhase,
-      snapshot: frameState.snapshot,
+    this.metrics.beginFrame({ moving: renderMovementPhase === "moving", resizePhase });
+    const frameInput = {
+      focusedPaneId: snapshot.focusedPaneId,
+      maximizedPaneId: snapshot.maximizedPaneId,
+      movementPhase: renderMovementPhase,
+      scrollColumn: snapshot.scrollColumn,
+      scrollRow: snapshot.scrollRow,
       viewport,
-      zooming: frameState.zooming,
+    } as const;
+    this.renderPaneItems({
+      frameInput,
+      resizePhase,
+      snapshot,
+      viewport,
+      zooming,
     });
     for (const item of this.items) {
       item.resizing = resizePhase === "active";
     }
-    this.runtimePolicy.apply(
-      this.items,
-      resizePhase === "active" ? "moving" : frameState.renderMovementPhase,
-    );
+    this.runtimePolicy.apply(this.items, resizePhase === "active" ? "moving" : renderMovementPhase);
     if (resizePhase === "settled") {
       this.metrics.recordResizeFinalViewport(viewport);
     }
     return resizePhase;
-  }
-
-  private renderFrameState(
-    deltaMs: number,
-    viewport: Rect,
-    resizePhase: "active" | "idle" | "settled",
-  ): RenderFrameState {
-    const movementPhase = this.sampleMovementPhase(deltaMs, resizePhase);
-    const snapshot = this.layoutStore.getSnapshot();
-    this.syncOverviewViewport(snapshot, viewport);
-    const zooming = this.snapshotIsZooming(snapshot);
-    const renderMovementPhase = this.renderMovementPhase(movementPhase, zooming);
-    return {
-      frameInput: {
-        focusedPaneId: snapshot.focusedPaneId,
-        maximizedPaneId: snapshot.maximizedPaneId,
-        movementPhase: renderMovementPhase,
-        scrollColumn: snapshot.scrollColumn,
-        scrollRow: snapshot.scrollRow,
-        viewport,
-      },
-      moving: renderMovementPhase === "moving",
-      renderMovementPhase,
-      snapshot,
-      zooming,
-    };
-  }
-
-  private renderMovementPhase(
-    movementPhase: "idle" | "moving",
-    zooming: boolean,
-  ): "idle" | "moving" {
-    return zooming || this.layoutStore.hasPaneDropPreview() || this.movementOverride()
-      ? "moving"
-      : movementPhase;
-  }
-
-  private sampleMovementPhase(
-    deltaMs: number,
-    resizePhase: "active" | "idle" | "settled",
-  ): "idle" | "moving" {
-    if (resizePhase !== "active") {
-      return this.layoutStore.advanceFrame(deltaMs);
-    }
-    this.layoutStore.snapScrollToTarget();
-    return "moving";
-  }
-
-  private snapshotIsZooming(snapshot: WorkspaceLayoutSnapshot): boolean {
-    const targetOverviewProgress = snapshot.presentationMode === "overview" ? 1 : 0;
-    return Math.abs(snapshot.overviewProgress - targetOverviewProgress) > 0.001;
   }
 
   private renderPaneItems({
@@ -257,9 +209,6 @@ export class FrameScheduler {
         presentationMode: snapshot.presentationMode,
         ...(snapshot.presentationMode === "overview"
           ? {
-              overviewPanX: snapshot.overviewPanX,
-              overviewPanY: snapshot.overviewPanY,
-              overviewZoom: snapshot.overviewZoom,
               scrollColumn: 0,
               scrollRow: 0,
               viewport: this.overviewEndpointViewport(viewport),
@@ -286,9 +235,6 @@ export class FrameScheduler {
       normalFrameInput: frameInput,
       overviewFrameInput: {
         ...frameInput,
-        overviewPanX: snapshot.overviewPanX,
-        overviewPanY: snapshot.overviewPanY,
-        overviewZoom: snapshot.overviewZoom,
         scrollColumn: 0,
         scrollRow: 0,
         viewport: this.overviewEndpointViewport(viewport),
@@ -363,9 +309,6 @@ export class FrameScheduler {
       focusedPaneId: string;
       maximizedPaneId: string | null;
       movementPhase: "idle" | "moving";
-      overviewPanX?: number;
-      overviewPanY?: number;
-      overviewZoom?: number;
       scrollColumn: number;
       scrollRow: number;
       viewport: Rect;
@@ -417,9 +360,6 @@ export class FrameScheduler {
       focusedPaneId: string;
       maximizedPaneId: string | null;
       movementPhase: "idle" | "moving";
-      overviewPanX?: number;
-      overviewPanY?: number;
-      overviewZoom?: number;
       scrollColumn: number;
       scrollRow: number;
       viewport: Rect;
@@ -433,7 +373,6 @@ export class FrameScheduler {
       normalFrameInput.maximizedPaneId ?? "",
       normalFrameInput.movementPhase,
       resizePhase,
-      (overviewFrameInput.overviewZoom ?? 1).toFixed(3),
       normalFrameInput.scrollColumn.toFixed(3),
       normalFrameInput.scrollRow.toFixed(3),
       normalFrameInput.viewport.x.toFixed(1),

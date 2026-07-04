@@ -1,20 +1,22 @@
-import type { ChatMessage } from "@generated/backend";
 import { ArrowDown, ChevronUp, Search, X } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
-import { chatMessageText } from "./chat-message-text";
-import {
-  isVisibleMessage,
-  timelineRowForMessage,
-  type TranscriptTimelineRow,
-} from "./chat-transcript-timeline";
 import { chatReadableColumnAttributes, chatReadableColumnClass } from "./chat-layout";
 import { Input } from "./ui/input";
 
+// Search runs over transcript-visible text entries (assistant text and user
+// messages, including queued tails). Each entry's id is the same id the matching
+// row exposes as data-message-id, so highlighting and scroll keying stay aligned
+// with the block renderer without re-reading the message store.
+export interface TranscriptSearchEntry {
+  id: string;
+  text: string;
+}
+
 export interface TranscriptSearchController {
   activeIndex: number;
-  activeMessageId: string | null;
+  activeSearchId: string | null;
   close: () => void;
   inputRef: { current: HTMLInputElement | null };
   matchCount: number;
@@ -26,32 +28,23 @@ export interface TranscriptSearchController {
 }
 
 export function useTranscriptSearch({
-  messagesById,
-  messageIds,
+  entries,
   open,
+  rowIndexById,
   setOpen,
-  timeline,
   virtuosoRef,
 }: {
-  messagesById: Record<string, ChatMessage>;
-  messageIds: string[];
+  entries: TranscriptSearchEntry[];
   open: boolean;
+  rowIndexById: Map<string, number>;
   setOpen: (open: boolean) => void;
-  timeline: TranscriptTimelineRow[];
   virtuosoRef: { current: VirtuosoHandle | null };
 }): TranscriptSearchController {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [query, setQueryValue] = useState("");
-  const matches = useMemo(
-    () =>
-      transcriptSearchMatches(
-        messageIds.map((messageId) => messagesById[messageId]),
-        query,
-      ),
-    [messageIds, messagesById, query],
-  );
-  const activeMessageId = matches[activeIndex]?.messageId ?? null;
+  const matches = useMemo(() => transcriptSearchMatches(entries, query), [entries, query]);
+  const activeSearchId = matches[activeIndex]?.id ?? null;
 
   useEffect(() => {
     if (!open) {
@@ -71,15 +64,15 @@ export function useTranscriptSearch({
   }, [activeIndex, matches.length]);
 
   useEffect(() => {
-    if (!activeMessageId) {
+    if (!activeSearchId) {
       return;
     }
-    const row = timelineRowForMessage(timeline, activeMessageId);
-    if (!row) {
+    const index = rowIndexById.get(activeSearchId);
+    if (index === undefined) {
       return;
     }
-    virtuosoRef.current?.scrollToIndex({ align: "center", index: row.index });
-  }, [activeMessageId, timeline, virtuosoRef]);
+    virtuosoRef.current?.scrollToIndex({ align: "center", index });
+  }, [activeSearchId, rowIndexById, virtuosoRef]);
 
   function move(direction: "next" | "previous") {
     if (matches.length === 0) {
@@ -93,7 +86,7 @@ export function useTranscriptSearch({
 
   return {
     activeIndex,
-    activeMessageId,
+    activeSearchId,
     close: () => setOpen(false),
     inputRef,
     matchCount: matches.length,
@@ -108,16 +101,18 @@ export function useTranscriptSearch({
   };
 }
 
-export function transcriptSearchMatches(messages: Array<ChatMessage | undefined>, query: string) {
+export function transcriptSearchMatches(
+  entries: Array<TranscriptSearchEntry | undefined>,
+  query: string,
+) {
   const normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery === "") {
     return [];
   }
-  return messages
-    .filter((message): message is ChatMessage => message !== undefined)
-    .filter(isVisibleMessage)
-    .filter((message) => chatMessageText(message).toLowerCase().includes(normalizedQuery))
-    .map((message) => ({ messageId: message.id }));
+  return entries
+    .filter((entry): entry is TranscriptSearchEntry => entry !== undefined)
+    .filter((entry) => entry.text.toLowerCase().includes(normalizedQuery))
+    .map((entry) => ({ id: entry.id }));
 }
 
 export function ChatSearchBar({ search }: { search: TranscriptSearchController }) {

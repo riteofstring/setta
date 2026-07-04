@@ -10,13 +10,11 @@ import {
 import type { SessionRecorder } from "./session-recorder";
 
 export function startWorkspaceActivityEventForwarding(options: {
-  authToken: string;
   baseURL: string;
   fetchImpl: BackendFetch;
   recorder: SessionRecorder | null;
 }): WorkspaceActivityEventStream {
   return startWorkspaceActivityEventStream({
-    authToken: options.authToken,
     baseURL: options.baseURL,
     fetchImpl: options.fetchImpl,
     sendEvent: (event) => forwardWorkspaceActivityEvent(event, options.recorder),

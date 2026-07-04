@@ -558,8 +558,7 @@ export class SurfaceRegistry {
       item.runtimeState !== "live" ||
       item.moving ||
       options.resizePhase !== "idle" ||
-      !bitmapSnapshotSurfaceKind(item.surfaceKind) ||
-      workspacePaneDragSourceActive(host)
+      !bitmapSnapshotSurfaceKind(item.surfaceKind)
     ) {
       return;
     }
@@ -732,23 +731,6 @@ function bitmapSnapshotSurfaceKind(kind: SurfaceKind): boolean {
     kind === "workflow-graph" ||
     kind === "workflow-node-details" ||
     kind === "workflow-settings"
-  );
-}
-
-function workspacePaneDragSourceActive(host: HTMLElement): boolean {
-  if (typeof host.closest !== "function") {
-    return false;
-  }
-  const workspace = host.closest<HTMLElement>('[data-testid="workspace-layout-area"]');
-  const activeDragSession =
-    typeof workspace?.hasAttribute === "function" &&
-    (workspace.hasAttribute("data-pane-dragging") ||
-      workspace.hasAttribute("data-overview-dragging"));
-  return Boolean(
-    workspace &&
-    (activeDragSession ||
-      (typeof workspace.querySelector === "function" &&
-        workspace.querySelector('[data-drag-source="true"]'))),
   );
 }
 

@@ -62,14 +62,11 @@ export function seedPalettePreview(seedColor: string): string[] {
 }
 
 function tailwindPaletteFromSeed(seedColor: string): AppearanceTailwindPalette {
-  const seed = parseOKLCHSeed(seedColor);
-  if (!seed) {
-    throw new Error("Seed color must be an OKLCH value");
-  }
-  const chromaFactor = Math.min(Math.max(seed.chroma / 0.1292, 0.45), 1.35);
+  const { hue, saturation } = hexToHsl(seedColor);
+  const chromaFactor = Math.max(0.45, saturation);
   const palette: Partial<AppearanceTailwindPalette> = {};
   for (const { chroma, lightness, name } of seedPaletteStops) {
-    palette[name] = formatOKLCH(lightness, chroma * chromaFactor, seed.hue);
+    palette[name] = formatOKLCH(lightness, chroma * chromaFactor, hue);
   }
   return palette as AppearanceTailwindPalette;
 }
@@ -129,17 +126,6 @@ function lightSchemeFromTailwind(
       warningForeground: safeHighContrastForeground(status.warning, status.warningForeground),
     },
     tailwind,
-    workspace: {
-      dotGrid: tailwind.setta500,
-      dragTargetOutline: tailwind.setta500,
-      dragTargetSurface: tailwind.setta200,
-      paneEdge: tailwind.setta200,
-      paneSelectedGlow: tailwind.setta300,
-      paneSelectedOutline: tailwind.setta500,
-      paneSurface: tailwind.setta50,
-      paneTitleBarSurface: tailwind.setta100,
-      surface: tailwind.setta100,
-    },
   };
 }
 
@@ -192,35 +178,38 @@ function darkSchemeFromTailwind(
       warningForeground: safeHighContrastForeground(status.warning, status.warningForeground),
     },
     tailwind,
-    workspace: {
-      dotGrid: "oklch(0.8460 0.1292 213.38)",
-      dragTargetOutline: tailwind.setta300,
-      dragTargetSurface: tailwind.setta850,
-      paneEdge: tailwind.setta850,
-      paneSelectedGlow: tailwind.setta700,
-      paneSelectedOutline: "oklch(0.4880 0.1700 264.38)",
-      paneSurface: tailwind.setta975,
-      paneTitleBarSurface: tailwind.setta950,
-      surface: tailwind.setta850,
-    },
   };
 }
 
-export function isOKLCHColor(value: string): boolean {
-  return parseOKLCHSeed(value) !== null;
+export function isHexColor(value: string): boolean {
+  return /^#[0-9a-f]{6}$/i.test(value);
 }
 
-function parseOKLCHSeed(value: string): { chroma: number; hue: number } | null {
-  const match = value.trim().match(/^oklch\(\s*([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s*\)$/i);
-  if (!match) {
-    return null;
+function hexToHsl(value: string): { hue: number; saturation: number } {
+  const red = Number.parseInt(value.slice(1, 3), 16) / 255;
+  const green = Number.parseInt(value.slice(3, 5), 16) / 255;
+  const blue = Number.parseInt(value.slice(5, 7), 16) / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+  const lightness = (max + min) / 2;
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
+  if (delta === 0) {
+    return { hue: 0, saturation };
   }
-  const chroma = Number(match[2]);
-  const hue = Number(match[3]);
-  if (!Number.isFinite(chroma) || !Number.isFinite(hue)) {
-    return null;
+  let hue: number;
+  switch (max) {
+    case red:
+      hue = ((green - blue) / delta) % 6;
+      break;
+    case green:
+      hue = (blue - red) / delta + 2;
+      break;
+    default:
+      hue = (red - green) / delta + 4;
+      break;
   }
-  return { chroma, hue: ((hue % 360) + 360) % 360 };
+  return { hue: (hue * 60 + 360) % 360, saturation };
 }
 
 function formatOKLCH(lightness: number, chroma: number, hue: number): string {
