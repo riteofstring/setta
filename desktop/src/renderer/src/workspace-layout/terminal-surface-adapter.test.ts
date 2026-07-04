@@ -3,11 +3,14 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
 } from "@generated/backend";
+import type { RuntimeConnectionStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
+import { dispatchTerminalProfilesChanged } from "./terminal-profiles";
 import { createFakeHost } from "./test-dom-fakes";
 import { useAppearanceStore } from "../stores/appearance-store";
+import { useRuntimeStore } from "../stores/runtime-store";
 import type { WorkspacePane } from "./types";
 
 const terminalMock = vi.hoisted(() => ({
@@ -163,6 +166,7 @@ describe("terminal surface adapter", () => {
       settings: null,
       status: "idle",
     });
+    useRuntimeStore.setState(useRuntimeStore.getInitialState(), true);
   });
 
   afterEach(() => {
@@ -229,6 +233,73 @@ describe("terminal surface adapter", () => {
     expect(api.terminal.attach).toHaveBeenCalledTimes(1);
     expect(api.terminal.create).toHaveBeenCalledTimes(1);
     expect(host.dataset.surfaceFocused).toBe("false");
+  });
+
+  test("retries visible auto-start when late profile data marks the pane safe", async () => {
+    const api = installSettaAPI({
+      attach: vi.fn(async () => {
+        throw new Error("terminal session not found");
+      }),
+      create: vi.fn(async () => terminalResponse("terminal_created", "running")),
+      profiles: terminalProfileList({
+        defaultProfileId: "custom",
+        safeAutoStart: false,
+      }),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => host.dataset.terminalStatus === "waiting");
+
+    expect(api.terminal.create).not.toHaveBeenCalled();
+
+    dispatchTerminalProfilesChanged(terminalProfileList());
+    await waitFor(() => host.dataset.terminalSessionId === "terminal_created");
+
+    expect(api.terminal.create).toHaveBeenCalledTimes(1);
+    expect(host.dataset.terminalStatus).toBe("running");
+  });
+
+  test("auto-starts after runtime switch when new runtime profiles load after the pane is visible", async () => {
+    useRuntimeStore.setState({
+      snapshot: runtimeSnapshot("local-runtime", "connected"),
+      status: "ready",
+    });
+    let profiles: TerminalProfileList | Promise<TerminalProfileList> = terminalProfileList({
+      defaultProfileId: "custom",
+      safeAutoStart: false,
+    });
+    const switchedProfiles = deferred<TerminalProfileList>();
+    const api = installSettaAPI({
+      attach: vi.fn(async () => {
+        throw new Error("terminal session not found");
+      }),
+      create: vi.fn(async () => terminalResponse("terminal_created", "running")),
+      listProfiles: vi.fn(async () => profiles),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => host.dataset.terminalStatus === "waiting");
+
+    profiles = switchedProfiles.promise;
+    useRuntimeStore.setState({
+      snapshot: runtimeSnapshot("remote-runtime", "connected"),
+      status: "ready",
+    });
+    await waitFor(() => api.terminal.listProfiles.mock.calls.length >= 2);
+
+    expect(api.terminal.create).not.toHaveBeenCalled();
+
+    switchedProfiles.resolve(terminalProfileList());
+    await waitFor(() => host.dataset.terminalSessionId === "terminal_created");
+
+    expect(api.terminal.create).toHaveBeenCalledTimes(1);
+    expect(host.dataset.terminalProfileId).toBe("default");
   });
 
   test("keeps visible auto-start discovery in flight across remount before creating", async () => {
@@ -623,6 +694,7 @@ describe("terminal surface adapter", () => {
   function installSettaAPI(overrides: {
     attach?: ReturnType<typeof vi.fn>;
     create?: ReturnType<typeof vi.fn>;
+    listProfiles?: ReturnType<typeof vi.fn>;
     openExternalUrl?: ReturnType<typeof vi.fn>;
     platform?: string;
     profiles?: TerminalProfileList;
@@ -641,7 +713,8 @@ describe("terminal surface adapter", () => {
       create:
         overrides.create ?? vi.fn(async () => terminalResponse("terminal_created", "running")),
       input: vi.fn(async () => ({ acceptedBytes: 0 })),
-      listProfiles: vi.fn(async () => overrides.profiles ?? terminalProfileList()),
+      listProfiles:
+        overrides.listProfiles ?? vi.fn(async () => overrides.profiles ?? terminalProfileList()),
       onEvent: vi.fn((listener: (event: TerminalEvent) => void) => {
         terminalListeners.push(listener);
         return () => {
@@ -767,6 +840,35 @@ function terminalProfileList({
         updatedAt: "2026-06-06T12:00:00Z",
       },
     ],
+  };
+}
+
+function runtimeSnapshot(
+  activeRuntimeId: string,
+  connectionStatus: RuntimeConnectionStatus,
+): RuntimeRegistrySnapshot {
+  return {
+    activeRuntimeId,
+    connection: {
+      message: "",
+      protocolVersion: 1,
+      runtimeId: activeRuntimeId,
+      status: connectionStatus,
+      updatedAt: "2026-06-06T12:00:00Z",
+    },
+    runtimes: [
+      {
+        active: true,
+        baseUrl: "https://runtime.example.test",
+        connectionMessage: "",
+        connectionStatus,
+        displayName: activeRuntimeId,
+        isLocal: activeRuntimeId === "local-runtime",
+        lastConnected: null,
+        runtimeId: activeRuntimeId,
+      },
+    ],
+    switching: false,
   };
 }
 
