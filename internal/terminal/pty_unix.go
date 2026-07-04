@@ -225,6 +225,7 @@ type unixProcessInfo struct {
 	pgid int
 	pid  int
 	ppid int
+	sid  int
 }
 
 func unixShellCloseSafetyAssessment(
@@ -238,7 +239,9 @@ func unixShellCloseSafetyAssessment(
 		return terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentAlreadyClosed)
 	}
 	descendants := unixProcessDescendants(shell.pid, processes)
-	if len(descendants) == 0 {
+	sessionProcesses := unixSameSessionProcesses(shell, descendants, processes)
+	riskyProcesses := append(append([]*unixProcessInfo{}, descendants...), sessionProcesses...)
+	if len(riskyProcesses) == 0 {
 		return terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentIdleShell)
 	}
 	if !foregroundProcessGroupKnown {
@@ -247,7 +250,7 @@ func unixShellCloseSafetyAssessment(
 			TerminalCloseAssessmentForegroundProcess,
 		)
 	}
-	for _, process := range descendants {
+	for _, process := range riskyProcesses {
 		if process.pgid == foregroundProcessGroup {
 			return terminalCloseAssessment(
 				TerminalCloseSafetyDestructive,
@@ -262,14 +265,14 @@ func unixShellCloseSafetyAssessment(
 }
 
 func unixProcessTable() (map[int]*unixProcessInfo, error) {
-	output, err := exec.Command("ps", "-axo", "pid=,ppid=,pgid=").Output()
+	output, err := exec.Command("ps", "-axo", "pid=,ppid=,pgid=,sess=").Output()
 	if err != nil {
 		return nil, fmt.Errorf("inspect process table: %w", err)
 	}
 	processes := map[int]*unixProcessInfo{}
 	for _, line := range strings.Split(string(output), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) != 3 {
+		if len(fields) != 4 {
 			continue
 		}
 		pid, err := strconv.Atoi(fields[0])
@@ -284,7 +287,11 @@ func unixProcessTable() (map[int]*unixProcessInfo, error) {
 		if err != nil {
 			continue
 		}
-		processes[pid] = &unixProcessInfo{pgid: pgid, pid: pid, ppid: ppid}
+		sid, err := strconv.Atoi(fields[3])
+		if err != nil {
+			continue
+		}
+		processes[pid] = &unixProcessInfo{pgid: pgid, pid: pid, ppid: ppid, sid: sid}
 	}
 	return processes, nil
 }
@@ -304,6 +311,31 @@ func unixProcessDescendants(rootPID int, processes map[int]*unixProcessInfo) []*
 		stack = append(stack, childrenByParent[process.pid]...)
 	}
 	return descendants
+}
+
+func unixSameSessionProcesses(
+	shell *unixProcessInfo,
+	descendants []*unixProcessInfo,
+	processes map[int]*unixProcessInfo,
+) []*unixProcessInfo {
+	if shell.sid <= 0 {
+		return nil
+	}
+	descendantPIDs := map[int]struct{}{}
+	for _, process := range descendants {
+		descendantPIDs[process.pid] = struct{}{}
+	}
+	sessionProcesses := []*unixProcessInfo{}
+	for _, process := range processes {
+		if process.pid == shell.pid || process.sid != shell.sid {
+			continue
+		}
+		if _, ok := descendantPIDs[process.pid]; ok {
+			continue
+		}
+		sessionProcesses = append(sessionProcesses, process)
+	}
+	return sessionProcesses
 }
 
 func foregroundProcessGroup(file *os.File) (int, bool) {

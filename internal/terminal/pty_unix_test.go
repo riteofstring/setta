@@ -123,6 +123,18 @@ func TestUnixShellCloseSafetyAssessment(t *testing.T) {
 			wantSafety:                  TerminalCloseSafetyDestructive,
 		},
 		{
+			name: "same session orphan process is destructive",
+			processes: map[int]*unixProcessInfo{
+				100: {pgid: 100, pid: 100, ppid: 1, sid: 200},
+				101: {pgid: 101, pid: 101, ppid: 1, sid: 200},
+			},
+			foregroundProcessGroup:      100,
+			foregroundProcessGroupKnown: true,
+			wantReason:                  TerminalCloseAssessmentBackgroundJobs,
+			wantRequiresConfirmation:    true,
+			wantSafety:                  TerminalCloseSafetyDestructive,
+		},
+		{
 			name: "unknown foreground process group treats child process as foreground risk",
 			processes: map[int]*unixProcessInfo{
 				100: {pgid: 100, pid: 100, ppid: 1},

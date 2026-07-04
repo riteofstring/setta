@@ -366,6 +366,45 @@ func TestManagerCloseTerminatesThenKillsAfterTimeout(t *testing.T) {
 	}
 }
 
+func TestManagerSafeCloseReturnsWithoutWaitingForCloseTimeout(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		CloseKillTimeout: 250 * time.Millisecond,
+	})
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	handle := starter.handleAt(t, 0)
+	handle.closeAssessment = terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentIdleShell)
+	handle.terminateCloses = false
+
+	type closeOutcome struct {
+		result TerminalCloseResult
+		err    error
+	}
+	done := make(chan closeOutcome, 1)
+	go func() {
+		result, err := manager.Close(context.Background(), created.ID, false)
+		done <- closeOutcome{result: result, err: err}
+	}()
+
+	select {
+	case outcome := <-done:
+		if outcome.err != nil {
+			t.Fatalf("close terminal session: %v", outcome.err)
+		}
+		if outcome.result.Kind != TerminalCloseResultClosed ||
+			outcome.result.Session == nil ||
+			outcome.result.Session.Status != SessionStatusClosed {
+			t.Fatalf("safe close result = %+v, want closed", outcome.result)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("safe close waited for the process close timeout")
+	}
+	if handle.wasTerminated() || handle.wasKilled() {
+		t.Fatalf("safe close terminated/killed = %t/%t, want false/false", handle.wasTerminated(), handle.wasKilled())
+	}
+}
+
 func TestManagerCloseRequiresConfirmationForDestructiveOrUnknownSessions(t *testing.T) {
 	root := t.TempDir()
 	starter := &recordingPTYStarter{}
