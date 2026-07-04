@@ -40,6 +40,17 @@ func TestServiceEditsQueuedMessageAndUsesEditedTextOnPromotion(t *testing.T) {
 	if promoted.PromptSummary != "Q1 edited" {
 		t.Fatalf("promoted prompt summary = %q, want edited text", promoted.PromptSummary)
 	}
+	requests := harness.TurnRequests()
+	if len(requests) != 2 {
+		t.Fatalf("harness requests = %+v, want active and promoted queued turns", requests)
+	}
+	promotedRequest := requests[1].Run
+	if promotedRequest.ID != promoted.ID ||
+		promotedRequest.Status != RunStatusRunning ||
+		promotedRequest.AssistantMessageID != promoted.AssistantMessageID ||
+		promotedRequest.StartedAt != promoted.StartedAt {
+		t.Fatalf("promoted harness run = %+v, want committed promoted run %+v", promotedRequest, promoted)
+	}
 	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
 	if err != nil {
 		t.Fatalf("load page: %v", err)

@@ -706,7 +706,7 @@ func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.Wo
 	if err != nil || !ok {
 		return err
 	}
-	conversation, assistantMessage, err := service.persistQueuedPromotionLocked(workspaceSummary.ID, conversationID, run, userMessage)
+	conversation, assistantMessage, run, err := service.persistQueuedPromotionLocked(workspaceSummary.ID, conversationID, run, userMessage)
 	if err != nil {
 		return err
 	}
@@ -730,10 +730,10 @@ func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.Wo
 	return nil
 }
 
-func (service *Service) persistQueuedPromotionLocked(workspaceID string, conversationID string, run Run, userMessage ChatMessage) (Conversation, ChatMessage, error) {
+func (service *Service) persistQueuedPromotionLocked(workspaceID string, conversationID string, run Run, userMessage ChatMessage) (Conversation, ChatMessage, Run, error) {
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
-		return Conversation{}, ChatMessage{}, err
+		return Conversation{}, ChatMessage{}, Run{}, err
 	}
 	now := timestamp(service.now())
 	run.Status = RunStatusRunning
@@ -743,13 +743,13 @@ func (service *Service) persistQueuedPromotionLocked(workspaceID string, convers
 	userMessage.UpdatedAt = now
 	assistantMessage, err := service.newAssistantMessage(workspaceID, conversationID, run.ID, now)
 	if err != nil {
-		return Conversation{}, ChatMessage{}, err
+		return Conversation{}, ChatMessage{}, Run{}, err
 	}
 	run.AssistantMessageID = assistantMessage.ID
 	if err := service.saveQueuedPromotionLocked(workspaceID, conversation, userMessage, assistantMessage, run, now); err != nil {
-		return Conversation{}, ChatMessage{}, err
+		return Conversation{}, ChatMessage{}, Run{}, err
 	}
-	return conversation, assistantMessage, nil
+	return conversation, assistantMessage, run, nil
 }
 
 func (service *Service) saveQueuedPromotionLocked(workspaceID string, conversation Conversation, userMessage ChatMessage, assistantMessage ChatMessage, run Run, now string) error {

@@ -124,22 +124,25 @@ conversation.
 Progress 2026-07-03:
 
 - Added a shared post-commit harness-turn starter for normal sends, workflow agent sends, and queued promotion. The helper records the active turn before fallible
-  transcript startup work, publishes the path-specific start events, builds delivery input, reserves/launches the harness, and routes any synchronous startup
-  failure through the terminal run failure path.
-- Split `failTurn` into a locked terminal transition helper so post-commit startup cleanup reuses the existing failed-run persistence, assistant-message
-  failure, liveness terminal publication, active-state cleanup, and pending-steering cleanup behavior.
-- Moved normal-send and queued-promotion start traces/events out of the durable commit helpers so failures after `CreateRunningTurn` or `PromoteQueuedTurn`
-  are no longer returned with a durable `running` run left behind.
-- Added focused Go coverage for normal send, workflow-agent send, and queued-promotion startup failures. The tests assert failed terminal runs, assistant
-  message error state, no active run/liveness, no harness launch for failed starts, preserved queued semantics, and successful later sends.
+  transcript startup work, publishes start events, builds delivery input, reserves/launches the harness, and routes synchronous startup failure to terminal state.
+- Split `failTurn` into a locked terminal transition helper so post-commit startup cleanup reuses failed-run persistence, assistant-message failure, liveness
+  terminal publication, active-state cleanup, and pending-steering cleanup behavior.
+- Moved normal-send and queued-promotion start traces/events out of durable commit helpers, so failures after `CreateRunningTurn` or `PromoteQueuedTurn` no
+  longer leave a durable `running` run behind.
+- Added focused Go coverage for normal send, workflow-agent send, and queued-promotion startup failures. The tests assert failed terminal runs, assistant error
+  state, no active run/liveness, no harness launch for failed starts, preserved queued semantics, and successful later sends.
 - Added deterministic Electron coverage for a post-commit transcript-start failure followed by a successful later send through the production
   Electron/main/preload/renderer/HTTP/store path. The test uses a narrow E2E-only backend ID-generation fault injection and verifies the failed run, assistant
   error state, no active run, and retry success.
+- Audit follow-up: queued promotion now passes the committed promoted run record into the shared post-commit starter, so start events and harness requests carry
+  the durable `running` status, `startedAt`, and `assistantMessageId` instead of the stale queued run copy. Focused queue coverage now asserts this handoff.
 
 Verification performed:
 
 - `./scripts/go.sh test ./internal/chat`
 - `./scripts/go.sh test ./internal/runtime`
+- Audit follow-up: `./scripts/go.sh test ./internal/chat -run 'TestServiceEditsQueuedMessageAndUsesEditedTextOnPromotion|TestServicePostCommitStartupFailure'`
+- Audit follow-up: `./scripts/go.sh test ./internal/runtime -run 'Test(Start|InvalidStartupConfiguration|GracefulShutdown|ShutdownDrainsActiveChatTurnBeforeClosingEvents)'`
 - `./scripts/format.sh`; `./check_quality.sh --git-changes`
 - `node desktop/tests/electron/chat-workflows.test.mjs --post-commit-startup-failure-only`
 - `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
@@ -147,6 +150,10 @@ Verification performed:
 Notes:
 
 - Remaining Track 1 test depth: add focused injections for transcript-block save/working-status publish, liveness/conversation publish, queued delivery-input rebuild, and synchronous harness reservation/setup failure if that path is made injectable. Two broader `node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only` attempts passed the new post-commit startup-failure case and then failed later in pre-existing long-suite scenarios (`transcript-scroll` on one run, Codex protocol row waiting on another).
+- Audit follow-up: a full `./scripts/go.sh test ./internal/runtime` attempt reached signed-in live Codex coverage and timed out in
+  `TestBackendLiveCodexRunLivenessReconcileDuringActiveTurn`; the focused non-live runtime startup/shutdown coverage above passed.
+- Audit follow-up: `node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only` passed the happy path, queued controls, cancel/fail queue,
+  post-commit startup-failure, transcript search, and transcript scroll scenarios, then failed later in a Codex-protocol workflow wait with `rows: []`.
 
 ## Track 2: Codex On-Failure Approval Policy Removal
 
@@ -978,8 +985,7 @@ or disappear from the interface. Do not keep fake affordances as a placeholder.
 - Do not add compatibility support for deprecated Codex values.
 - Do not use renderer-only patches to hide backend state problems.
 - Do not weaken E2E coverage while cleaning up test code.
-- Do not add unowned TypeScript mirrors of Go-owned request or attachment size limits.
-- Do not hide terminal process lifecycle failures by removing the pane before backend close succeeds.
+- Do not add unowned TypeScript mirrors or hide terminal lifecycle failures by removing the pane before backend close succeeds.
 - Do not add migrations or silent repair paths for workflow definition files unless that exact repair work is explicitly requested.
 
 ## Overall Done Criteria
@@ -988,11 +994,7 @@ or disappear from the interface. Do not keep fake affordances as a placeholder.
 - `on-failure` is rejected at Setta-owned runtime boundaries and is never sent back to Codex.
 - Codex app-server read/protocol/shutdown failures cannot leave a live or unreaped child process behind the finished client.
 - Large browser-side Electron test programs live in normal source modules, not multi-kilobyte string literals.
-- Failed workflow run attempts do not create durable definition versions, and a first successful run after failed attempts is still `v1`.
-- Workflow action dispatch cannot leave an external runner live without durable refs, cleanup, or manual-recovery state.
-- Workflow definition display-name updates cannot leave duplicate authoritative files for one definition ID.
-- HTTP request bodies are bounded before JSON decoding, and server read/header behavior is time/size limited without breaking event streams.
-- Chat image selection rejects oversized files before full read, base64 encode, IPC, or backend persistence work.
-- Terminal panes are removed only after backend terminal close succeeds, and close failures remain visible and retryable.
-- New tests cover the failure paths and guardrails above.
-- Final verification follows the relevant workflow requirements in `AGENTS.md`.
+- Failed workflow run attempts do not create durable definition versions, and workflow action dispatch cannot leave a runner live without refs/cleanup/recovery.
+- Workflow definition display-name updates cannot leave duplicate authoritative files for one definition ID; HTTP request bodies are bounded before JSON decoding.
+- Chat image selection rejects oversized files before full read/base64/IPC/backend persistence; terminal panes are removed only after backend close succeeds.
+- New tests cover the failure paths and guardrails above, and final verification follows the relevant workflow requirements in `AGENTS.md`.

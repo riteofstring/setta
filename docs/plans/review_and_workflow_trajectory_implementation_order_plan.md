@@ -79,13 +79,17 @@ workflow-agent sends, and queued promotion now use the shared post-commit
 harness-turn starter and cleanup path from Track 1. Focused Go tests cover
 post-commit transcript-start failures for all three paths, and deterministic
 Electron coverage verifies a failed post-commit start followed by a successful
-later send through production app paths. Live Codex Electron coverage was run
-with `OPENAI_API_KEY` unset and passed.
+later send through production app paths. Audit follow-up fixed queued promotion
+to pass the committed promoted run into the shared starter and harness request,
+rather than the stale queued run copy. Live Codex Electron coverage was run with
+`OPENAI_API_KEY` unset and passed.
 
 Verification:
 
 - `./scripts/go.sh test ./internal/chat`
 - `./scripts/go.sh test ./internal/runtime`
+- `./scripts/go.sh test ./internal/chat -run 'TestServiceEditsQueuedMessageAndUsesEditedTextOnPromotion|TestServicePostCommitStartupFailure'`
+- `./scripts/go.sh test ./internal/runtime -run 'Test(Start|InvalidStartupConfiguration|GracefulShutdown|ShutdownDrainsActiveChatTurnBeforeClosingEvents)'`
 - `./scripts/format.sh`; `./check_quality.sh --git-changes`
 - `node desktop/tests/electron/chat-workflows.test.mjs --post-commit-startup-failure-only`
 - `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
@@ -95,7 +99,16 @@ startup-failure case, then failed later in unrelated existing long-suite
 scenarios (`transcript-scroll` once, Codex protocol row waiting once). Remaining
 Track 1 hardening is deeper injection coverage for publish, delivery-rebuild,
 and synchronous harness-reservation/setup failure classes; after that, Track 2
-is the next remediation track before shared UI work.
+is the next remediation track before shared UI work. A full audit rerun of
+`./scripts/go.sh test ./internal/runtime` reached signed-in live Codex coverage
+and timed out in
+`TestBackendLiveCodexRunLivenessReconcileDuringActiveTurn`; focused non-live
+runtime startup/shutdown coverage passed.
+An audit rerun of
+`node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only`
+passed the happy path, queued controls, cancel/fail queue, post-commit
+startup-failure, transcript search, and transcript scroll scenarios before
+failing later in a Codex-protocol workflow wait with `rows: []`.
 
 ### 2. Workflow Runner Post-Start Cleanup
 
