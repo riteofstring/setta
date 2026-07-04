@@ -101,6 +101,16 @@ export function useTranscriptScrollFollow({
     tailRevisionRef.current = tailRevision;
   }, [rowCount, tailRevision]);
 
+  const clearDirectionalScrollIntent = useCallback(() => {
+    tailScrollIntentRef.current = false;
+    wheelScrollIntentRef.current = false;
+  }, []);
+
+  const clearScrollIntent = useCallback(() => {
+    clearDirectionalScrollIntent();
+    pointerScrollIntentRef.current = false;
+  }, [clearDirectionalScrollIntent]);
+
   const cancelAutoScrollToLatest = useCallback(() => {
     if (autoScrollFrameRef.current !== null) {
       cancelAnimationFrame(autoScrollFrameRef.current);
@@ -111,7 +121,9 @@ export function useTranscriptScrollFollow({
 
   const setMode = useCallback(
     (next: TranscriptScrollFollowMode) => {
-      if (next !== "auto_follow") {
+      if (next === "auto_follow") {
+        clearDirectionalScrollIntent();
+      } else {
         cancelAutoScrollToLatest();
       }
       if (modeRef.current === next) {
@@ -120,7 +132,7 @@ export function useTranscriptScrollFollow({
       modeRef.current = next;
       setModeState(next);
     },
-    [cancelAutoScrollToLatest],
+    [cancelAutoScrollToLatest, clearDirectionalScrollIntent],
   );
 
   const updateMetricsFromElement = useCallback((element: HTMLElement) => {
@@ -202,6 +214,7 @@ export function useTranscriptScrollFollow({
 
   const scrollToIndexAsProgrammaticAnchor = useCallback(
     (location: ScrollToIndexLocation) => {
+      clearDirectionalScrollIntent();
       setMode("programmatic_anchor");
       if (programmaticScrollFrameRef.current !== null) {
         cancelAnimationFrame(programmaticScrollFrameRef.current);
@@ -212,7 +225,7 @@ export function useTranscriptScrollFollow({
         finishProgrammaticAnchor();
       });
     },
-    [finishProgrammaticAnchor, setMode, virtuosoRef],
+    [clearDirectionalScrollIntent, finishProgrammaticAnchor, setMode, virtuosoRef],
   );
 
   const handleScroll = useCallback(
@@ -245,9 +258,11 @@ export function useTranscriptScrollFollow({
   const handleWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
       if (event.deltaY < 0) {
+        tailScrollIntentRef.current = false;
         wheelScrollIntentRef.current = true;
         setMode("user_detached");
       } else if (event.deltaY > 0) {
+        wheelScrollIntentRef.current = false;
         tailScrollIntentRef.current = true;
       }
     },
@@ -275,12 +290,14 @@ export function useTranscriptScrollFollow({
         ["ArrowUp", "Home", "PageUp"].includes(event.key) ||
         (event.key === " " && event.shiftKey)
       ) {
+        clearDirectionalScrollIntent();
         setMode("user_detached");
       } else if (["ArrowDown", "End", "PageDown"].includes(event.key) || event.key === " ") {
+        wheelScrollIntentRef.current = false;
         tailScrollIntentRef.current = true;
       }
     },
-    [setMode],
+    [clearDirectionalScrollIntent, setMode],
   );
 
   const handleRangeChanged = useCallback(
@@ -327,14 +344,16 @@ export function useTranscriptScrollFollow({
   );
 
   const detach = useCallback(() => {
+    clearDirectionalScrollIntent();
     setMode("user_detached");
-  }, [setMode]);
+  }, [clearDirectionalScrollIntent, setMode]);
 
   const jumpToLatest = useCallback(() => {
+    clearScrollIntent();
     setMode("auto_follow");
     scrollToLatest();
     scheduleAutoScrollToLatest();
-  }, [scheduleAutoScrollToLatest, scrollToLatest, setMode]);
+  }, [clearScrollIntent, scheduleAutoScrollToLatest, scrollToLatest, setMode]);
 
   const getDebugSnapshot = useCallback((): ChatTranscriptScrollDebugSnapshot => {
     updateMetricsFromScroller();

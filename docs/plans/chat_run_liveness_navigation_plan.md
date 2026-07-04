@@ -648,10 +648,21 @@ Notes:
   did not dispatch upward wheel intent when it was already at `scrollTop=0`; the
   helper now emits top/bottom wheel intent for requested user scrolls even when
   no DOM scroll delta is needed.
+- Follow-up audit found one remaining transient-intent edge: an upward no-op
+  wheel could leave stale history intent that interfered with an explicit
+  Jump-to-latest reattach. Directional wheel/key intent is now cleared on
+  direction changes, programmatic anchors, manual detach, and Jump to latest.
+- The deterministic transcript-scroll workflow now computes near-bottom scroll
+  targets in the renderer at action time, covers top no-op wheel followed by
+  Jump to latest, and asserts older-page anchor preservation using DOM position
+  and visible anchor rows instead of tolerant bottom debug state.
 - Final live Electron Codex retries failed three times in the existing live
   semantic cartographer workflow while the live backend Codex checks passed.
   This failure is outside the Phase 7 scroll-follow path and is not treated as
   proof of live-provider integration for this slice.
+- The follow-up audit reran live provider checks with the same outcome: live
+  backend Codex checks passed, and live Electron failed in the existing semantic
+  cartographer backend-state wait.
 
 Remaining work:
 

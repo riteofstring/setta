@@ -153,49 +153,9 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
     () => messagePage(backend, workspaceId, conversationId),
     (page) => pageText(page).includes("Scroll stickiness chunk 030"),
   );
-  const scrollable = await waitForTranscriptScrollSnapshot(
-    client,
-    (snapshot) =>
-      snapshot.debug.mode === "auto_follow" &&
-      snapshot.debug.atBottom &&
-      snapshot.debug.scrollHeight > snapshot.debug.clientHeight + 240,
-    "initial auto-follow scrollable transcript",
-  );
-
-  const nearBottomTop = Math.max(0, scrollable.maxScrollTop - 12);
-  const nearBottomScrolled = await scrollChatTranscript(client, { scrollTop: nearBottomTop });
-  if (!nearBottomScrolled.ok) {
-    throw new Error(
-      `transcript did not perform near-bottom history scroll: ${JSON.stringify(nearBottomScrolled)}`,
-    );
-  }
-  const nearBottomDetached = await waitForTranscriptScrollSnapshot(
-    client,
-    (snapshot) =>
-      snapshot.debug.mode === "user_detached" &&
-      snapshot.debug.atBottom &&
-      snapshot.debug.distanceFromBottom > 0 &&
-      snapshot.debug.distanceFromBottom <= 24,
-    "detached inside bottom tolerance band",
-  );
-  const afterNearBottomGrowth = await waitForTranscriptScrollSnapshot(
-    client,
-    (snapshot) =>
-      snapshot.debug.tailRevision !== nearBottomDetached.debug.tailRevision &&
-      snapshot.debug.mode === "user_detached",
-    "still detached inside bottom tolerance band while streaming grows tail",
-  );
-  if (afterNearBottomGrowth.debug.scrollTop > nearBottomDetached.debug.scrollTop + 4) {
-    throw new Error(
-      `near-bottom detached transcript unexpectedly followed the tail: before=${JSON.stringify(nearBottomDetached.debug)} after=${JSON.stringify(afterNearBottomGrowth.debug)}`,
-    );
-  }
-  await clickButtonByAria(client, "Jump to latest");
-  await waitForTranscriptScrollSnapshot(
-    client,
-    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
-    "auto-follow after near-bottom jump to latest",
-  );
+  const scrollable = await waitForInitialScrollableTranscript(client);
+  await assertNearBottomDetachWhileStreaming(client);
+  await assertTopNoOpWheelJumpToLatest(client);
 
   const detachedTop = Math.max(0, Math.floor(scrollable.maxScrollTop * 0.35));
   const scrolled = await scrollChatTranscript(client, { scrollTop: detachedTop });
@@ -262,6 +222,82 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
   await clickButtonByAria(client, "Close chat search");
 }
 
+async function waitForInitialScrollableTranscript(client) {
+  return waitForTranscriptScrollSnapshot(
+    client,
+    (snapshot) =>
+      snapshot.debug.mode === "auto_follow" &&
+      snapshot.debug.atBottom &&
+      snapshot.debug.scrollHeight > snapshot.debug.clientHeight + 240,
+    "initial auto-follow scrollable transcript",
+  );
+}
+
+async function assertNearBottomDetachWhileStreaming(client) {
+  const nearBottomScrolled = await scrollChatTranscript(client, { distanceFromBottom: 12 });
+  if (!nearBottomScrolled.ok) {
+    throw new Error(
+      `transcript did not perform near-bottom history scroll: ${JSON.stringify(nearBottomScrolled)}`,
+    );
+  }
+  const nearBottomDetached = nearBottomScrolled.snapshot;
+  if (
+    nearBottomDetached.debug.mode !== "user_detached" ||
+    !nearBottomDetached.debug.atBottom ||
+    nearBottomDetached.debug.distanceFromBottom <= 0 ||
+    nearBottomDetached.debug.distanceFromBottom > 24
+  ) {
+    throw new Error(
+      `transcript did not detach inside bottom tolerance band: ${JSON.stringify(nearBottomDetached)}`,
+    );
+  }
+  const afterNearBottomGrowth = await waitForTranscriptScrollSnapshot(
+    client,
+    (snapshot) =>
+      snapshot.debug.tailRevision !== nearBottomDetached.debug.tailRevision &&
+      snapshot.debug.mode === "user_detached",
+    "still detached inside bottom tolerance band while streaming grows tail",
+  );
+  if (afterNearBottomGrowth.debug.scrollTop > nearBottomDetached.debug.scrollTop + 4) {
+    throw new Error(
+      `near-bottom detached transcript unexpectedly followed the tail: before=${JSON.stringify(nearBottomDetached.debug)} after=${JSON.stringify(afterNearBottomGrowth.debug)}`,
+    );
+  }
+  await clickButtonByAria(client, "Jump to latest");
+  await waitForTranscriptScrollSnapshot(
+    client,
+    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    "auto-follow after near-bottom jump to latest",
+  );
+}
+
+async function assertTopNoOpWheelJumpToLatest(client) {
+  const topScroll = await scrollChatTranscript(client, { position: "top" });
+  if (!topScroll.ok) {
+    throw new Error(`transcript did not scroll to the top: ${JSON.stringify(topScroll)}`);
+  }
+  await waitForTranscriptScrollSnapshot(
+    client,
+    (snapshot) =>
+      snapshot.debug.mode === "user_detached" &&
+      !snapshot.debug.atBottom &&
+      snapshot.debug.scrollTop === 0,
+    "detached at transcript top",
+  );
+  const noOpUpwardWheel = await wheelChatTranscript(client, -1);
+  if (!noOpUpwardWheel.ok) {
+    throw new Error(
+      `transcript did not dispatch top no-op wheel: ${JSON.stringify(noOpUpwardWheel)}`,
+    );
+  }
+  await clickButtonByAria(client, "Jump to latest");
+  await waitForTranscriptScrollSnapshot(
+    client,
+    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    "auto-follow after top no-op wheel jump to latest",
+  );
+}
+
 async function seedTranscriptOlderPageWorkflow(client, backend, workspaceId, conversationId) {
   await submitComposer(client, "transcript older page workflow", "Send message");
   await waitForRunWithPrompt(
@@ -292,23 +328,22 @@ async function runTranscriptOlderPageWorkflow(client, backend, workspaceId, conv
   if (!topScroll.ok) {
     throw new Error(`transcript older-page setup did not scroll: ${JSON.stringify(topScroll)}`);
   }
-  const before = await waitForTranscriptScrollSnapshot(
-    client,
-    (snapshot) =>
-      snapshot.debug.mode === "user_detached" &&
-      !snapshot.debug.atBottom &&
-      snapshot.visibleRows.some((row) => row.text.includes("Older page block")),
-    "older-page detached before loading older blocks",
-  );
+  const before = topScroll.snapshot;
+  if (
+    !before.ready ||
+    before.scrollTop !== 0 ||
+    before.maxScrollTop <= 0 ||
+    !before.visibleRows.some((row) => row.text.includes("Older page block"))
+  ) {
+    throw new Error(`older-page setup did not reach transcript top: ${JSON.stringify(before)}`);
+  }
   const anchorText = firstVisibleOlderPageBlock(before);
   await clickButtonByText(client, "Older");
   await waitForText(client, "Older page block 000");
   await waitForTranscriptScrollSnapshot(
     client,
     (snapshot) =>
-      snapshot.debug.mode === "user_detached" &&
-      !snapshot.debug.atBottom &&
-      snapshot.visibleRows.some((row) => row.text.includes(anchorText)),
+      snapshot.scrollTop > 0 && snapshot.visibleRows.some((row) => row.text.includes(anchorText)),
     "older-page anchor preserved after loading older blocks",
   );
 }
@@ -327,6 +362,10 @@ async function waitForTranscriptScrollSnapshot(client, predicate, label) {
 
 async function scrollChatTranscript(client, options) {
   return client.evaluate(scrollChatTranscriptExpression(options));
+}
+
+async function wheelChatTranscript(client, deltaY) {
+  return client.evaluate(wheelChatTranscriptExpression(deltaY));
 }
 
 async function openChatSearch(client) {
@@ -428,10 +467,14 @@ function transcriptScrollSnapshotExpression() {
   })()`;
 }
 
-function scrollChatTranscriptExpression({ position = null, scrollTop = null }) {
+function scrollChatTranscriptExpression({
+  distanceFromBottom = null,
+  position = null,
+  scrollTop = null,
+}) {
   return `(() => {
     ${transcriptScrollSnapshotFunctionSource()}
-    const options = ${JSON.stringify({ position, scrollTop })};
+    const options = ${JSON.stringify({ distanceFromBottom, position, scrollTop })};
     const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
     if (!(scroller instanceof HTMLElement)) {
       return { ok: false, reason: "missing-scroller" };
@@ -443,6 +486,11 @@ function scrollChatTranscriptExpression({ position = null, scrollTop = null }) {
       nextScrollTop = scroller.scrollHeight;
     } else if (options.position === "top") {
       nextScrollTop = 0;
+    } else if (typeof options.distanceFromBottom === "number") {
+      nextScrollTop = Math.max(
+        0,
+        scroller.scrollHeight - scroller.clientHeight - options.distanceFromBottom,
+      );
     } else if (typeof options.scrollTop === "number") {
       nextScrollTop = options.scrollTop;
     } else {
@@ -459,6 +507,21 @@ function scrollChatTranscriptExpression({ position = null, scrollTop = null }) {
     }
     scroller.scrollTop = nextScrollTop;
     scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return { ok: true, snapshot: chatTranscriptScrollSnapshot() };
+  })()`;
+}
+
+function wheelChatTranscriptExpression(deltaY) {
+  return `(() => {
+    ${transcriptScrollSnapshotFunctionSource()}
+    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
+    if (!(scroller instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-scroller" };
+    }
+    scroller.dispatchEvent(new WheelEvent("wheel", {
+      bubbles: true,
+      deltaY: ${JSON.stringify(deltaY)},
+    }));
     return { ok: true, snapshot: chatTranscriptScrollSnapshot() };
   })()`;
 }
