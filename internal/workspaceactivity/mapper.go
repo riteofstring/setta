@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	commandPreviewLimit = 180
-	messagePreviewLimit = 180
-	maxFilePaths        = 12
+	approvalRequestedPatchStatus = "approval_requested"
+	commandPreviewLimit          = 180
+	messagePreviewLimit          = 180
+	maxFilePaths                 = 12
 )
 
 type ChatRunItemContext struct {
@@ -38,6 +39,8 @@ func ActivityRecordFromChatRunItem(item chat.RunItem, context ChatRunItemContext
 	case chat.RunItemTypeFileChange:
 		record, err := fileChangeActivityFromRunItem(item, context)
 		return record, true, err
+	case chat.RunItemTypeApprovalRequest:
+		return activityRecordFromApprovalRequestRunItem(item, context)
 	default:
 		return WorkspaceActivityRecord{}, false, nil
 	}
@@ -258,12 +261,61 @@ func fileChangeActivityFromRunItem(item chat.RunItem, context ChatRunItemContext
 	return record, nil
 }
 
+func activityRecordFromApprovalRequestRunItem(item chat.RunItem, context ChatRunItemContext) (WorkspaceActivityRecord, bool, error) {
+	details, ok := item.ApprovalDetails()
+	if !ok {
+		return WorkspaceActivityRecord{}, false, fmt.Errorf("run item %s approval details are required for workspace activity", item.ID)
+	}
+	if details.ApprovalKind == nil {
+		return WorkspaceActivityRecord{}, false, fmt.Errorf("run item %s approval approvalKind is required for workspace activity", item.ID)
+	}
+	switch *details.ApprovalKind {
+	case chat.ApprovalKindCommand:
+		return commandActivityFromApprovalRequestRunItem(item, details, context), true, nil
+	case chat.ApprovalKindFileChange:
+		return fileChangeActivityFromApprovalRequestRunItem(item, details, context), true, nil
+	default:
+		return WorkspaceActivityRecord{}, false, nil
+	}
+}
+
+func commandActivityFromApprovalRequestRunItem(item chat.RunItem, details *chat.RunItemApprovalDetails, context ChatRunItemContext) WorkspaceActivityRecord {
+	record := baseChatRunItemRecord(item, context, ActivityKindCommand, statusFromRunItem(item.Status))
+	record.Command = &WorkspaceActivityCommand{
+		CommandPreview: truncateText(details.Command, commandPreviewLimit),
+		Cwd:            details.Cwd,
+		RunItemStatus:  item.Status,
+	}
+	return record
+}
+
+func fileChangeActivityFromApprovalRequestRunItem(item chat.RunItem, details *chat.RunItemApprovalDetails, context ChatRunItemContext) WorkspaceActivityRecord {
+	filePaths := approvalFileChangePaths(details)
+	paths, truncated := boundedStrings(filePaths, maxFilePaths)
+	record := baseChatRunItemRecord(item, context, ActivityKindFileChange, statusFromRunItem(item.Status))
+	record.FileChange = &WorkspaceActivityFileChange{
+		PathCount:      len(filePaths),
+		Paths:          paths,
+		PathsTruncated: truncated,
+		PatchStatus:    approvalRequestedPatchStatus,
+		RunItemStatus:  item.Status,
+	}
+	return record
+}
+
 func fileChangeDetailPaths(details *chat.RunItemFileChangeDetails) []string {
 	paths := make([]string, 0, len(details.Paths))
 	for _, path := range details.Paths {
 		paths = append(paths, path.Path)
 	}
 	return paths
+}
+
+func approvalFileChangePaths(details *chat.RunItemApprovalDetails) []string {
+	if details.FilePath == "" {
+		return []string{}
+	}
+	return []string{details.FilePath}
 }
 
 func baseChatRunItemRecord(item chat.RunItem, context ChatRunItemContext, kind WorkspaceActivityKind, status WorkspaceActivityStatus) WorkspaceActivityRecord {
