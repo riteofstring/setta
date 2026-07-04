@@ -29,6 +29,8 @@ import {
   openTerminalFromShortcut,
   terminalScrollbackSearchExpression,
   terminalSnapshotExpression,
+  terminalSnapshotsExpression,
+  waitForTerminalPaneStageContained,
 } from "./terminal-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -73,19 +75,20 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await openWorkspaceFromSidebar(context.client);
-  await openTerminalFromShortcut(context.client, terminalWorkflowTimeoutMs);
-  await waitForTerminalReady(context.client);
-  await focusNonTerminalPane(context.client);
-  await clickTerminalForInput(context.client);
-  await sendTerminalCommand(context.client, terminalSingleClickCommand);
-  await waitForTerminalText(context.client, terminalSingleClickOutput);
-  await maximizeTerminalPane(context.client);
-  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
-  await waitForTerminalReady(context.client);
-  await assertTerminalBackspaceKey(context.client);
-  await assertTerminalCtrlCKey(context.client);
-  await sendTerminalCommand(context.client, terminalCommand);
-  terminalState = await waitForTerminalText(context.client, terminalOutputPrefix);
+  const openedTerminal = await openTerminalFromShortcut(context.client, terminalWorkflowTimeoutMs);
+  const openedPaneId = requireTerminalPaneId(openedTerminal, "opened terminal");
+  await waitForTerminalReady(context.client, openedPaneId);
+  await focusNonTerminalPane(context.client, openedPaneId);
+  await clickTerminalForInput(context.client, openedPaneId);
+  await sendTerminalCommand(context.client, openedPaneId, terminalSingleClickCommand);
+  await waitForTerminalText(context.client, terminalSingleClickOutput, openedPaneId);
+  await maximizeTerminalPane(context.client, openedPaneId);
+  await focusTerminal(context.client, terminalWorkflowTimeoutMs, { paneId: openedPaneId });
+  await waitForTerminalReady(context.client, openedPaneId);
+  await assertTerminalBackspaceKey(context.client, openedPaneId);
+  await assertTerminalCtrlCKey(context.client, openedPaneId);
+  await sendTerminalCommand(context.client, openedPaneId, terminalCommand);
+  terminalState = await waitForTerminalText(context.client, terminalOutputPrefix, openedPaneId);
   const commandPaneId = requireTerminalPaneId(terminalState, terminalOutputPrefix);
   const terminalSessionsBeforeReload = await waitForVisibleTerminalSessionMap(context.client, 2);
   if (terminalSessionsBeforeReload.get(commandPaneId) !== terminalState.sessionId) {
@@ -109,7 +112,7 @@ try {
   );
   await focusTerminalPane(context.client, interactivePaneId);
   terminalState = await waitForTerminalPaneReady(context.client, interactivePaneId);
-  await sendTerminalCommand(context.client, terminalLongRunningCommand);
+  await sendTerminalCommand(context.client, interactivePaneId, terminalLongRunningCommand);
   longRunningPid = await waitForLongRunningPid(fixture.workspaceRoot);
   await closeTerminalFromRenderer(context.client, terminalState.sessionId);
   await waitForTerminalClosed(context.client, terminalState.sessionId, interactivePaneId);
@@ -141,10 +144,10 @@ await writeJson(join(artifactDir, "summary.json"), {
 });
 console.log(`Electron terminal workflow passed: ${artifactDir}`);
 
-async function waitForTerminalReady(client) {
+async function waitForTerminalReady(client, paneId) {
   return waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId }),
     (snapshot) =>
       snapshot.exists &&
       snapshot.visible &&
@@ -154,10 +157,6 @@ async function waitForTerminalReady(client) {
       snapshot.statusText !== "Starting shell",
     terminalWorkflowTimeoutMs,
   );
-}
-
-function terminalSnapshotsExpression() {
-  return "globalThis.__settaE2EDriver?.terminalSnapshots ? globalThis.__settaE2EDriver.terminalSnapshots() : []";
 }
 
 async function waitForVisibleTerminalSessionMap(client, minimumCount) {
@@ -237,27 +236,27 @@ async function openWorkspaceFromSidebar(client) {
   );
 }
 
-async function maximizeTerminalPane(client) {
-  const result = await client.driver("maximizeTerminalPane");
+async function maximizeTerminalPane(client, paneId) {
+  const result = await client.driver("maximizeTerminalPane", { paneId });
   if (!result.ok) {
     throw new Error(`terminal pane maximize failed: ${JSON.stringify(result)}`);
   }
   await waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId }),
     (snapshot) => snapshot.maximized,
     terminalWorkflowTimeoutMs,
   );
 }
 
-async function focusNonTerminalPane(client) {
+async function focusNonTerminalPane(client, terminalPaneId) {
   const result = await client.driver("focusNonTerminalPane");
   if (!result.ok) {
     throw new Error(`non-terminal pane focus failed: ${JSON.stringify(result)}`);
   }
   await waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId: terminalPaneId }),
     (snapshot) => !snapshot.focused,
     terminalWorkflowTimeoutMs,
   );
@@ -278,6 +277,7 @@ async function focusTerminalPane(client, paneId) {
     },
     terminalWorkflowTimeoutMs,
   );
+  await waitForTerminalPaneStageContained(client, paneId, terminalWorkflowTimeoutMs);
   const result = await client.driver("focusTerminalTextarea", { paneId });
   if (!result.ok) {
     throw new Error(`terminal pane ${paneId} focus failed: ${JSON.stringify(result)}`);
@@ -307,43 +307,50 @@ async function waitForTerminalPaneReady(client, paneId) {
   return snapshot;
 }
 
-async function clickTerminalForInput(client) {
-  const point = await client.driver("terminalInputPoint");
+async function clickTerminalForInput(client, paneId) {
+  await waitForTerminalPaneStageContained(client, paneId, terminalWorkflowTimeoutMs);
+  const point = await client.driver("terminalInputPoint", { paneId });
   if (!point.ok) {
     throw new Error(`terminal input point unavailable: ${JSON.stringify(point)}`);
   }
   await dispatchMouseClick(client, point);
   await waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId }),
     (snapshot) => snapshot.focused && snapshot.visible && snapshot.xtermReady,
     terminalWorkflowTimeoutMs,
   );
 }
 
-async function sendTerminalCommand(client, text) {
+async function sendTerminalCommand(client, paneId, text) {
+  await waitForState(
+    client,
+    terminalSnapshotExpression({ paneId }),
+    (snapshot) => snapshot.focused && snapshot.visible && snapshot.xtermReady,
+    terminalWorkflowTimeoutMs,
+  );
   await client.call("Input.insertText", { text });
   await pressTerminalEnter(client);
   await delay(100);
 }
 
-async function assertTerminalBackspaceKey(client) {
+async function assertTerminalBackspaceKey(client, paneId) {
   await client.call("Input.insertText", { text: terminalBackspaceCommandPrefix });
   await dispatchTerminalBackspace(client);
   await dispatchTerminalBackspace(client);
   await dispatchTerminalBackspace(client);
   await client.call("Input.insertText", { text: terminalBackspaceCommandSuffix });
   await pressTerminalEnter(client);
-  await waitForTerminalText(client, terminalBackspaceOutput);
+  await waitForTerminalText(client, terminalBackspaceOutput, paneId);
 }
 
-async function assertTerminalCtrlCKey(client) {
-  await sendTerminalCommand(client, "sleep 30");
+async function assertTerminalCtrlCKey(client, paneId) {
+  await sendTerminalCommand(client, paneId, "sleep 30");
   await delay(300);
   await dispatchTerminalCtrlC(client);
   await delay(100);
-  await sendTerminalCommand(client, "printf 'SETTA_TERMINAL_%s_C_OK\\n' CTRL");
-  await waitForTerminalText(client, terminalCtrlCOutput);
+  await sendTerminalCommand(client, paneId, "printf 'SETTA_TERMINAL_%s_C_OK\\n' CTRL");
+  await waitForTerminalText(client, terminalCtrlCOutput, paneId);
 }
 
 async function pressTerminalEnter(client) {
@@ -449,16 +456,16 @@ function processIsRunning(pid) {
   }
 }
 
-async function waitForTerminalText(client, expectedText) {
+async function waitForTerminalText(client, expectedText, paneId) {
   return waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId }),
     (snapshot) => snapshot.text.includes(expectedText),
     terminalWorkflowTimeoutMs,
   );
 }
 
-async function waitForTerminalTextInScrollback(client, expectedText, paneId = null) {
+async function waitForTerminalTextInScrollback(client, expectedText, paneId) {
   return waitForState(
     client,
     terminalScrollbackSearchExpression(expectedText, { paneId }),
@@ -553,14 +560,8 @@ async function closeTerminalFromRenderer(client, sessionId) {
 }
 
 async function waitForTerminalClosed(client, sessionId, paneId = null) {
-  if (paneId === null) {
-    return waitForState(
-      client,
-      terminalSnapshotExpression(),
-      (snapshot) =>
-        snapshot.sessionId === sessionId && snapshot.statusText.includes("Terminal closed"),
-      terminalWorkflowTimeoutMs,
-    );
+  if (paneId === null || paneId === "") {
+    throw new Error("waitForTerminalClosed requires an explicit terminal pane id");
   }
   return waitForState(
     client,
@@ -574,7 +575,7 @@ async function waitForTerminalClosed(client, sessionId, paneId = null) {
 }
 
 async function writeTerminalSnapshot(client, path) {
-  await writeJson(path, await client.evaluate(terminalSnapshotExpression()));
+  await writeJson(path, await client.evaluate(terminalSnapshotsExpression()));
 }
 
 async function assertTerminalRecordingEvidence(recordingDir) {

@@ -22,6 +22,7 @@ import {
 import {
   terminalScrollbackSearchExpression,
   terminalSnapshotExpression,
+  terminalSnapshotsExpression,
 } from "./terminal-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -78,7 +79,7 @@ try {
     "terminal focused after content click",
     (state) => state.layout.focusedPaneId === scenario.terminalPaneId,
   );
-  await sendTerminalCommand(context.client, terminalContentClickCommand);
+  await sendTerminalCommand(context.client, scenario.terminalPaneId, terminalContentClickCommand);
   await waitForTerminalText(context.client, terminalContentClickOutput, scenario.terminalPaneId);
   const afterContentState = await readPaneFocusState(context.client);
   assertLayoutPositionUnchanged(
@@ -147,16 +148,22 @@ async function waitForWorkspaceLayoutArea(client) {
 async function waitForTerminalReady(client) {
   return waitForLoggedState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotsExpression(),
     "terminal ready",
-    (snapshot) =>
-      snapshot.exists &&
-      snapshot.visible &&
-      snapshot.xtermReady &&
-      snapshot.sessionId.startsWith("terminal_") &&
-      snapshot.statusText !== "" &&
-      snapshot.statusText !== "Starting shell",
-    summarizeTerminalSnapshot,
+    (snapshots) =>
+      Array.isArray(snapshots) &&
+      snapshots.some(
+        (snapshot) =>
+          snapshot.exists &&
+          snapshot.visible &&
+          snapshot.xtermReady &&
+          snapshot.sessionId.startsWith("terminal_") &&
+          snapshot.statusText !== "" &&
+          snapshot.statusText !== "Starting shell",
+      ),
+    (snapshots) => ({
+      terminals: Array.isArray(snapshots) ? snapshots.map(summarizeTerminalSnapshot) : snapshots,
+    }),
   );
 }
 
@@ -262,7 +269,14 @@ async function paneClickPoint(client, paneId, targetKind) {
   return client.evaluate(paneClickPointExpression(paneId, targetKind));
 }
 
-async function sendTerminalCommand(client, text) {
+async function sendTerminalCommand(client, paneId, text) {
+  await waitForLoggedState(
+    client,
+    terminalSnapshotExpression({ paneId }),
+    "terminal focused for command",
+    (snapshot) => snapshot.focused && snapshot.visible && snapshot.xtermReady,
+    summarizeTerminalSnapshot,
+  );
   await client.call("Input.insertText", { text });
   await pressTerminalEnter(client);
 }

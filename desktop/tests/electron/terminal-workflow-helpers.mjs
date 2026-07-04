@@ -17,17 +17,26 @@ const emptyTerminalSnapshot = {
   xtermReady: false,
 };
 
-export function terminalSnapshotExpression() {
-  return `globalThis.__settaE2EDriver?.terminalSnapshot ? globalThis.__settaE2EDriver.terminalSnapshot() : ${JSON.stringify(
-    emptyTerminalSnapshot,
-  )}`;
+export function terminalSnapshotExpression({ paneId = null } = {}) {
+  const requiredPaneId = requirePaneId(paneId, "terminalSnapshotExpression");
+  return `(() => {
+    const snapshots = globalThis.__settaE2EDriver?.terminalSnapshots ? globalThis.__settaE2EDriver.terminalSnapshots() : [];
+    return snapshots.find((snapshot) => snapshot.paneId === ${JSON.stringify(requiredPaneId)}) ?? ${JSON.stringify(
+      emptyTerminalSnapshot,
+    )};
+  })()`;
+}
+
+export function terminalSnapshotsExpression() {
+  return "globalThis.__settaE2EDriver?.terminalSnapshots ? globalThis.__settaE2EDriver.terminalSnapshots() : []";
 }
 
 export function terminalScrollbackSearchExpression(expectedText, { paneId = null } = {}) {
+  const requiredPaneId = requirePaneId(paneId, "terminalScrollbackSearchExpression");
   return `globalThis.__settaE2EDriver?.terminalScrollbackSearch ? globalThis.__settaE2EDriver.terminalScrollbackSearch(${JSON.stringify(
     {
       expectedText,
-      paneId,
+      paneId: requiredPaneId,
     },
   )}) : ${JSON.stringify({
     ...emptyTerminalSnapshot,
@@ -38,6 +47,14 @@ export function terminalScrollbackSearchExpression(expectedText, { paneId = null
 
 export async function openTerminalFromShortcut(client, timeoutMs) {
   await client.installDriver();
+  const beforeSnapshots = await client.evaluate(terminalSnapshotsExpression());
+  const beforePaneIds = new Set(
+    Array.isArray(beforeSnapshots)
+      ? beforeSnapshots
+          .map((snapshot) => snapshot?.paneId)
+          .filter((paneId) => typeof paneId === "string" && paneId !== "")
+      : [],
+  );
   await dispatchKeyEvent(client, {
     code: "KeyT",
     key: "t",
@@ -50,23 +67,31 @@ export async function openTerminalFromShortcut(client, timeoutMs) {
     modifiers: cdpAltMetaModifier,
     type: "keyUp",
   });
-  await waitForState(
+  const snapshots = await waitForState(
     client,
-    terminalSnapshotExpression(),
-    (snapshot) => snapshot.exists && snapshot.focused && snapshot.visible && snapshot.xtermReady,
+    terminalSnapshotsExpression(),
+    (candidateSnapshots) => newTerminalSnapshot(candidateSnapshots, beforePaneIds) !== null,
     timeoutMs,
   );
+  const snapshot = newTerminalSnapshot(snapshots, beforePaneIds);
+  if (!snapshot) {
+    throw new Error(
+      `terminal shortcut did not produce an explicit pane: ${JSON.stringify(snapshots)}`,
+    );
+  }
+  return snapshot;
 }
 
-export async function focusTerminal(client, timeoutMs) {
+export async function focusTerminal(client, timeoutMs, { paneId = null } = {}) {
+  const requiredPaneId = requirePaneId(paneId, "focusTerminal");
   await client.installDriver();
   await waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId: requiredPaneId }),
     (snapshot) => snapshot.exists && snapshot.visible && snapshot.xtermReady,
     timeoutMs,
   );
-  const point = await client.driver("terminalPaneFocusPoint");
+  const point = await client.driver("terminalPaneFocusPoint", { paneId: requiredPaneId });
   if (!point.ok) {
     throw new Error(`terminal pane focus point unavailable: ${JSON.stringify(point)}`);
   }
@@ -88,20 +113,22 @@ export async function focusTerminal(client, timeoutMs) {
   });
   await waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId: requiredPaneId }),
     (snapshot) => snapshot.focused,
     timeoutMs,
   );
-  const result = await client.driver("focusTerminalTextarea");
+  await waitForTerminalPaneStageContained(client, requiredPaneId, timeoutMs);
+  const result = await client.driver("focusTerminalTextarea", { paneId: requiredPaneId });
   if (!result.ok) {
     throw new Error(`terminal focus failed: ${JSON.stringify(result)}`);
   }
 }
 
-export async function waitForTerminalReady(client, timeoutMs) {
+export async function waitForTerminalReady(client, timeoutMs, { paneId = null } = {}) {
+  const requiredPaneId = requirePaneId(paneId, "waitForTerminalReady");
   return waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId: requiredPaneId }),
     (snapshot) =>
       snapshot.exists &&
       snapshot.visible &&
@@ -113,28 +140,83 @@ export async function waitForTerminalReady(client, timeoutMs) {
   );
 }
 
-export async function waitForTerminalText(client, expectedText, timeoutMs) {
+export async function waitForTerminalText(client, expectedText, timeoutMs, { paneId = null } = {}) {
+  const requiredPaneId = requirePaneId(paneId, "waitForTerminalText");
   return waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId: requiredPaneId }),
     (snapshot) => snapshot.text.includes(expectedText),
     timeoutMs,
   );
 }
 
-export async function waitForTerminalTextInScrollback(client, expectedText, timeoutMs) {
+export async function waitForTerminalTextInScrollback(
+  client,
+  expectedText,
+  timeoutMs,
+  { paneId = null } = {},
+) {
+  const requiredPaneId = requirePaneId(paneId, "waitForTerminalTextInScrollback");
   return waitForState(
     client,
-    terminalScrollbackSearchExpression(expectedText),
+    terminalScrollbackSearchExpression(expectedText, { paneId: requiredPaneId }),
     (snapshot) => snapshot.found,
     timeoutMs,
   );
 }
 
-export async function sendTerminalCommand(client, text) {
+export async function sendTerminalCommand(client, paneId, text, timeoutMs = 5_000) {
+  const requiredPaneId = requirePaneId(paneId, "sendTerminalCommand");
+  await waitForState(
+    client,
+    terminalSnapshotExpression({ paneId: requiredPaneId }),
+    (snapshot) => snapshot.focused && snapshot.visible && snapshot.xtermReady,
+    timeoutMs,
+  );
   await client.call("Input.insertText", { text });
   await pressTerminalEnter(client);
   await delay(100);
+}
+
+export async function waitForTerminalPaneStageContained(client, paneId, timeoutMs) {
+  const requiredPaneId = requirePaneId(paneId, "waitForTerminalPaneStageContained");
+  return waitForState(
+    client,
+    `globalThis.__settaE2EDriver?.terminalPaneStageState ? globalThis.__settaE2EDriver.terminalPaneStageState(${JSON.stringify(
+      { paneId: requiredPaneId },
+    )}) : { ok: false, reason: "driver-unavailable" }`,
+    (state) => state.ok && state.visible && state.contained,
+    timeoutMs,
+  );
+}
+
+function newTerminalSnapshot(snapshots, beforePaneIds) {
+  if (!Array.isArray(snapshots)) {
+    return null;
+  }
+  return (
+    snapshots.find(
+      (snapshot) =>
+        snapshot &&
+        typeof snapshot.paneId === "string" &&
+        snapshot.paneId !== "" &&
+        !beforePaneIds.has(snapshot.paneId) &&
+        snapshot.focused &&
+        snapshot.visible &&
+        snapshot.xtermReady &&
+        typeof snapshot.sessionId === "string" &&
+        snapshot.sessionId.startsWith("terminal_") &&
+        snapshot.statusText !== "" &&
+        snapshot.statusText !== "Starting shell",
+    ) ?? null
+  );
+}
+
+function requirePaneId(paneId, caller) {
+  if (typeof paneId === "string" && paneId !== "") {
+    return paneId;
+  }
+  throw new Error(`${caller} requires an explicit terminal pane id`);
 }
 
 async function pressTerminalEnter(client) {

@@ -13,7 +13,7 @@ import {
   focusTerminal,
   openTerminalFromShortcut,
   sendTerminalCommand,
-  terminalSnapshotExpression,
+  terminalSnapshotsExpression,
   waitForTerminalReady,
   waitForTerminalText,
 } from "./terminal-workflow-helpers.mjs";
@@ -80,11 +80,18 @@ try {
 
   await openWorkspaceFromSidebar(context.client);
   const localWorkspace = await waitForSelectedWorkspaceLayout(context.client);
-  await openTerminalFromShortcut(context.client, workflowTimeoutMs);
-  await focusTerminal(context.client, workflowTimeoutMs);
-  const localTerminal = await waitForTerminalReady(context.client, workflowTimeoutMs);
-  await sendTerminalCommand(context.client, `printf '${localTerminalOutput}:%s\\n' "$PWD"`);
-  await waitForTerminalText(context.client, localTerminalOutput, workflowTimeoutMs);
+  const localTerminal = await openTerminalFromShortcut(context.client, workflowTimeoutMs);
+  await focusTerminal(context.client, workflowTimeoutMs, { paneId: localTerminal.paneId });
+  await waitForTerminalReady(context.client, workflowTimeoutMs, { paneId: localTerminal.paneId });
+  await sendTerminalCommand(
+    context.client,
+    localTerminal.paneId,
+    `printf '${localTerminalOutput}:%s\\n' "$PWD"`,
+    workflowTimeoutMs,
+  );
+  await waitForTerminalText(context.client, localTerminalOutput, workflowTimeoutMs, {
+    paneId: localTerminal.paneId,
+  });
 
   await addRuntimeThroughPicker(context.client, remoteServe.pairingURL);
   const remoteConnected = await waitForRuntimeStatus(context.client, "connected", {
@@ -104,11 +111,18 @@ try {
   const canonicalWorkspaceRoot = await realpath(fixture.workspaceRoot);
   const remoteSession = await waitForRemoteWorkspace(probe, canonicalWorkspaceRoot);
   await waitForSelectedWorkspaceLayout(context.client, remoteSession.selectedWorkspaceId);
-  await openTerminalFromShortcut(context.client, workflowTimeoutMs);
-  await focusTerminal(context.client, workflowTimeoutMs);
-  await waitForTerminalReady(context.client, workflowTimeoutMs);
-  await sendTerminalCommand(context.client, `printf '${remoteTerminalOutput}:%s\\n' "$PWD"`);
-  await waitForTerminalText(context.client, remoteTerminalOutput, workflowTimeoutMs);
+  const remoteTerminal = await openTerminalFromShortcut(context.client, workflowTimeoutMs);
+  await focusTerminal(context.client, workflowTimeoutMs, { paneId: remoteTerminal.paneId });
+  await waitForTerminalReady(context.client, workflowTimeoutMs, { paneId: remoteTerminal.paneId });
+  await sendTerminalCommand(
+    context.client,
+    remoteTerminal.paneId,
+    `printf '${remoteTerminalOutput}:%s\\n' "$PWD"`,
+    workflowTimeoutMs,
+  );
+  await waitForTerminalText(context.client, remoteTerminalOutput, workflowTimeoutMs, {
+    paneId: remoteTerminal.paneId,
+  });
   await appendSummary("remote-workspace-opened", {
     remoteRuntimeId: remote.runtimeId,
     selectedWorkspaceId: remoteSession.selectedWorkspaceId,
@@ -122,8 +136,10 @@ try {
   await clickButtonByAria(context.client, `Switch to ${local.displayName}`);
   await waitForRuntimeStatus(context.client, "connected", { runtimeId: local.runtimeId });
   await waitForSelectedWorkspaceLayout(context.client, localWorkspace.selectedWorkspaceId);
-  await focusTerminal(context.client, workflowTimeoutMs);
-  const returnedLocalTerminal = await waitForTerminalReady(context.client, workflowTimeoutMs);
+  await focusTerminal(context.client, workflowTimeoutMs, { paneId: localTerminal.paneId });
+  const returnedLocalTerminal = await waitForTerminalReady(context.client, workflowTimeoutMs, {
+    paneId: localTerminal.paneId,
+  });
   if (returnedLocalTerminal.sessionId !== localTerminal.sessionId) {
     throw new Error(
       `local terminal session after runtime switch = ${returnedLocalTerminal.sessionId}, want ${localTerminal.sessionId}`,
@@ -306,8 +322,8 @@ async function waitForRendererEmptyWorkspace(client) {
 async function waitForNoTerminalPane(client) {
   return waitForState(
     client,
-    terminalSnapshotExpression(),
-    (snapshot) => !snapshot.exists,
+    terminalSnapshotsExpression(),
+    (snapshots) => Array.isArray(snapshots) && snapshots.length === 0,
     workflowTimeoutMs,
   );
 }

@@ -310,8 +310,11 @@
     return { ok: document.activeElement === textarea };
   }
 
-  function maximizeTerminalPane() {
-    const host = activeTerminalHost();
+  function maximizeTerminalPane({ paneId = null } = {}) {
+    if (paneId === null || paneId === "") {
+      return { ok: false, reason: "missing-pane-id" };
+    }
+    const host = activeTerminalHost({ paneId });
     const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
     if (!(button instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-maximize-button" };
@@ -320,6 +323,34 @@
       button.click();
     }
     return { ok: true };
+  }
+
+  function terminalPaneStageState({ paneId }) {
+    if (!paneId) {
+      return { ok: false, reason: "missing-pane-id" };
+    }
+    const host = activeTerminalHost({ paneId });
+    if (!(host instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-terminal-host" };
+    }
+    const stage =
+      document.querySelector('[data-testid="workspace-layout-area"]') ?? document.documentElement;
+    const rect = host.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const contained =
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.left >= stageRect.left &&
+      rect.right <= stageRect.right &&
+      rect.top >= stageRect.top &&
+      rect.bottom <= stageRect.bottom;
+    return {
+      contained,
+      ok: true,
+      rect: elementRect(host),
+      stageRect: elementRect(stage),
+      visible: terminalHostIntersectsViewport(host),
+    };
   }
 
   async function terminalScrollbackSearch({ expectedText, paneId = null }) {
@@ -1445,6 +1476,7 @@
     setInputValue,
     sidebarMetrics,
     terminalPaneFocusPoint,
+    terminalPaneStageState,
     terminalSnapshots,
     terminalInputPoint,
     terminalScrollbackSearch,
