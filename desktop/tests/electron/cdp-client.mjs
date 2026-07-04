@@ -15,6 +15,11 @@ const driverExtensionScripts = [
       'globalThis.__settaE2EDriver?.domPaneSnapshotScrollVersion === "setta-dom-pane-snapshot-scroll-driver-v1"',
     path: join(driverScriptDir, "dom-pane-snapshot-scroll-driver.js"),
   },
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.semanticGraphWorkflowVersion === "setta-semantic-graph-workflow-driver-v1"',
+    path: join(driverScriptDir, "semantic-graph-workflow-driver.js"),
+  },
 ];
 
 export class CDPClient {

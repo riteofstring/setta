@@ -461,11 +461,10 @@ After the extraction is complete, run the targeted Electron tests that owned the
 
 ### Progress
 
-Status: Extraction in progress. The CDP extension loader now installs the DOM
-pane snapshot/scroll and chat stream performance drivers; both tests call named
-driver functions with structured arguments. Audit follow-up also repaired the
-scripted chat performance turn so its completion result uses typed
-`commandExecution` details instead of legacy flat `RunItem.Result`.
+Status: Extraction in progress. DOM pane snapshot/scroll, chat stream performance, and semantic graph workflow now install driver modules and call
+named driver functions with structured arguments. Audit follow-up repaired the
+scripted chat performance turn so completion uses typed `commandExecution`
+details instead of legacy flat `RunItem.Result`.
 
 Verification: DOM pane snapshot/scroll passed; `node --check` passed for the
 chat performance driver, test, and `cdp-client.mjs`; the focused scripted
@@ -473,10 +472,11 @@ harness check passed. After the fixture repair,
 `node desktop/tests/electron/chat-stream-performance.test.mjs --skip-build`
 completed measurement twice but failed the existing frame-budget assertion with
 one or two frames over 50ms. `./scripts/format.sh`;
-`./check_quality.sh --git-changes`. Remaining: extract semantic graph editing,
-overview zoom performance, and long transcript performance; resolve or baseline
-the chat stream frame-budget failure; then add the large-template-literal
-guardrail.
+`./check_quality.sh --git-changes`. Semantic graph verification: `node --check`
+for the semantic driver/test and `cdp-client.mjs`, plus the semantic graph
+workflow with `--skip-build`. Remaining: extract overview zoom performance and
+long transcript performance; resolve or baseline the chat stream frame-budget
+failure; add the large-template-literal guardrail.
 
 ## Track 5: Workflow Version Commit Ordering
 

@@ -394,7 +394,12 @@ long-task/frame aggregation, and snapshot construction into
 `chat-stream-performance.test.mjs` to call named driver methods with structured
 arguments. Audit follow-up repaired the scripted chat performance turn so the
 completion result is emitted through typed `commandExecution` details instead
-of the rejected legacy flat `RunItem.Result` field.
+of the rejected legacy flat `RunItem.Result` field. This slice moved the
+semantic graph workflow's browser-side semantic attachment, editing,
+cartographer audit/readback, and node-details click/text helpers into
+`desktop/tests/electron/semantic-graph-workflow-driver.js`; the semantic graph
+workflow test now reaches those paths through named CDP driver calls with
+structured arguments.
 
 Verification:
 
@@ -416,18 +421,21 @@ Verification:
   with one or two frames over 50ms.
 - `node desktop/tests/electron/dom-pane-snapshot-scroll-workflow.test.mjs --skip-build`
   passed after registering the new driver extension.
+- `node --check desktop/tests/electron/semantic-graph-workflow-driver.js`
+- `node --check desktop/tests/electron/semantic-graph-workflow.test.mjs`
+- `node --check desktop/tests/electron/cdp-client.mjs`
+- `node desktop/tests/electron/semantic-graph-workflow.test.mjs --skip-build`
 - `./scripts/format.sh`
 - `./check_quality.sh --git-changes`
 
 Remaining notes: continue Track 4 with the remaining large browser-side
-programs in semantic graph workflow editing, overview zoom performance helpers,
-and long transcript performance. The chat stream performance workflow still
-needs the frame-budget failure resolved or baselined before it has a clean
-focused rerun. Add the guardrail for future large executable template literals
-after the extraction pattern covers the remaining listed workflows. Phase 4
-backend trajectory contracts should wait until this test-driver extraction work
-is complete enough that new trajectory E2E scenarios do not add new large
-inline browser programs.
+programs in overview zoom performance helpers and long transcript performance.
+The chat stream performance workflow still needs the frame-budget failure
+resolved or baselined before it has a clean focused rerun. Add the guardrail for
+future large executable template literals after the extraction pattern covers
+the remaining listed workflows. Phase 4 backend trajectory contracts should
+wait until this test-driver extraction work is complete enough that new
+trajectory E2E scenarios do not add new large inline browser programs.
 
 ## Phase 4: Backend Trajectory Contracts
 
