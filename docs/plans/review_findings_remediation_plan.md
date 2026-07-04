@@ -15,7 +15,12 @@ Resolve the in-scope repo-review findings:
 - failed workflow run attempts can create durable definition versions;
 - workflow action runners can be live without durable runner refs after
   post-start persistence failures;
-- workflow definition renames can leave duplicate files for one definition ID.
+- workflow definition renames can leave duplicate files for one definition ID;
+- local HTTP API request bodies can be decoded without boundary limits or read
+  timeouts;
+- chat image selection can read and base64-encode oversized files before
+  validation;
+- terminal panes can be removed before backend terminal close succeeds.
 
 The fixes should cut to durable contracts. Do not add migrations,
 compatibility shims, old-field aliases, dual-read/write paths, or silent
@@ -825,6 +830,273 @@ Because this affects workflow persistence read/write behavior, add deterministic
 Electron workflow coverage that renames a workflow and reloads the workspace with
 temporary app data. Verify the workflow list and graph projection still load.
 
+## Track 8: HTTP Request Boundary Limits
+
+### Problem
+
+The backend HTTP API decodes request bodies before applying any shared request
+size limit. `decodeRequest` passes `request.Body` directly into
+`jsonio.DecodeSingle`, which creates a `json.Decoder` over the unbounded reader.
+The runtime HTTP server is also created without read/header timeouts or
+`MaxHeaderBytes`.
+
+This is broader than one endpoint because the endpoint registry routes most POST
+handlers through the same decode helper. A concrete failure is the chat image
+bytes endpoint:
+
+- a local client posts a JSON payload with `dataBase64` containing hundreds of
+  megabytes of text;
+- the shared decoder reads the full JSON value;
+- `createChatImageAttachmentFromBytes` base64-decodes the full string;
+- only then does the chat image domain reject payloads over the 20 MB image cap.
+
+The terminal input path already shows the intended shape: it checks
+`base64.StdEncoding.DecodedLen` before decoding, then validates the decoded byte
+length again.
+
+### Product Contract
+
+- Every HTTP request body must have a size limit before JSON decoding begins.
+- The request size contract must be owned by the endpoint registry or the
+  request-contract boundary, not by a separate hardcoded endpoint list.
+- Upload-like endpoints may have explicit larger limits; ordinary JSON endpoints
+  should use a small default limit.
+- Base64 fields must be checked for encoded/decoded size before decoding, and
+  must still be validated by the owning domain after decoding.
+- The backend server must have bounded read/header behavior for local clients.
+- Event-stream routes must remain compatible with long-lived responses; do not
+  add a write timeout that breaks SSE.
+
+### Implementation Plan
+
+#### 1. Add request-size metadata to the endpoint registry
+
+Extend the endpoint contract with an optional or required request body limit.
+Use a conservative default for ordinary POST endpoints, and set explicit limits
+for endpoints that legitimately carry larger payloads.
+
+Keep this metadata beside the endpoint registration so generated contract
+surfaces and handler behavior stay aligned with the Go-owned registry.
+
+#### 2. Enforce the limit before decoding
+
+Wrap POST request bodies with `http.MaxBytesReader` before calling
+`jsonio.DecodeSingle`. Oversized bodies should fail with a specific 413-style
+error before handler code or domain services run.
+
+Make the limit visible in error messages and tests, so failures are diagnosable
+without inspecting server logs.
+
+#### 3. Harden base64 decoding at each bytes boundary
+
+For `CreateChatImageAttachmentFromBytes`, reject `dataBase64` whose encoded or
+decoded length can exceed the image attachment byte cap before calling
+`DecodeString`. Keep the existing domain validation after decode.
+
+Use the terminal input handler as the local pattern:
+
+- compute the decoded upper bound from the encoded string length;
+- reject if it exceeds the domain maximum;
+- decode;
+- verify the exact decoded length.
+
+#### 4. Add server read protections
+
+Configure the backend `http.Server` with at least:
+
+- `ReadHeaderTimeout`;
+- `ReadTimeout` or an equivalent request-body read deadline strategy;
+- `MaxHeaderBytes`.
+
+Avoid a blanket `WriteTimeout` unless long-lived streaming routes are excluded
+or proven unaffected.
+
+### Test Plan
+
+Add focused HTTP tests:
+
+- an oversized ordinary JSON request returns the chosen oversized-body error
+  before the handler runs;
+- an oversized chat image bytes request is rejected before base64 decode and
+  before chat service persistence;
+- a malformed but within-limit JSON request still returns the existing invalid
+  JSON error shape;
+- terminal input continues to reject oversized base64 data with its current
+  specific error;
+- the server exposes read/header timeout configuration without breaking event
+  streams.
+
+Because this touches generated backend contracts if endpoint metadata is added,
+regenerate affected TypeScript surfaces from the Go-owned endpoint registry.
+
+## Track 9: Chat Image Attachment File Selection Limits
+
+### Problem
+
+The Electron main process handles image selection by reading each chosen file
+fully into memory and then base64-encoding it before sending it to the backend.
+This means a user can select a very large `.png`, `.jpg`, `.jpeg`, or `.gif` and
+freeze or crash Electron main before the backend applies the 20 MB image
+attachment cap.
+
+The backend already has the safer shape for path-based image creation: stat the
+source path, reject files over `maxImageAttachmentBytes`, then read with a
+bounded reader. The picker path bypasses that shape by converting the file to a
+bytes payload in Electron main.
+
+### Product Contract
+
+- Selecting an oversized image must fail quickly with a user-visible validation
+  error.
+- Electron main must not read or base64-encode files that the backend will
+  reject as too large.
+- The image size limit must be owned by the Go chat/image attachment domain and
+  exposed to TypeScript through a generated or explicit backend contract, not
+  duplicated as an untracked constant.
+- File selection must still use normal OS dialogs and temporary app data in
+  tests.
+
+### Implementation Plan
+
+#### 1. Prefer a backend path-based attachment endpoint
+
+Add a `CreateChatImageAttachmentFromPath`-style endpoint that accepts
+`workspaceID`, `conversationID`, and the selected local path. The Go service
+should own:
+
+- path cleaning and validation;
+- stat-before-read size enforcement;
+- image decoding and dimension validation;
+- persistence into the attachment store.
+
+The Electron picker should pass selected paths to that endpoint instead of
+reading file bytes.
+
+#### 2. If the IPC surface stays byte-based, stat before read
+
+If product constraints require keeping the current bytes IPC path, Electron main
+must call `stat` first, reject files over the generated image max byte limit,
+and only then call `readFile`.
+
+This is the fallback shape, not the preferred design, because it still
+duplicates validation in Electron main and sends large base64 payloads through
+IPC/HTTP.
+
+#### 3. Expose attachment limits from the owned domain
+
+Publish image attachment limits through a small backend metadata endpoint or a
+generated contract surface. The renderer/main code can use that value for
+messages and preflight validation, while Go remains the source of truth.
+
+Do not manually mirror `20 MB` in TypeScript.
+
+### Test Plan
+
+Add deterministic Electron coverage:
+
+- create a temporary oversized image-like file with an allowed extension;
+- select it through the picker path or invoke the picker handler with a
+  controlled dialog result;
+- assert the app rejects it before attempting full read/base64 conversion;
+- assert the error is visible to the user and no attachment is persisted;
+- assert a small valid image still attaches successfully.
+
+Add Go HTTP/service tests for the new path endpoint if introduced:
+
+- oversized path input is rejected after `stat` and before file read;
+- directories and missing files fail with specific errors;
+- valid images still produce the same attachment records as the bytes path.
+
+Because this touches chat behavior and generated backend contracts if a new
+endpoint is added, regenerate affected TypeScript surfaces and run the required
+deterministic app workflow coverage through Electron/main/preload/renderer/HTTP
+paths.
+
+## Track 10: Terminal Pane Close Transaction
+
+### Problem
+
+The renderer removes a terminal pane before the backend confirms the terminal
+session was closed. `closePaneWithConfirmation` calls
+`terminateTerminalSessionForPane`, then immediately closes the focused pane.
+`terminateTerminalSessionForPane` fire-and-forgets
+`window.setta.terminal.close(sessionId, "terminate")`; failures are logged only
+to the console.
+
+The backend `Manager.Close` marks and removes the session only after
+`closeProcess` succeeds. If the IPC/backend call rejects, times out, or fails to
+terminate the process, the pane can disappear while the terminal session or
+child process remains alive. The user then loses the visible control needed to
+retry termination.
+
+Concrete failure:
+
+- open a terminal pane and run `sleep 600`;
+- simulate `window.setta.terminal.close` rejecting, or restart/unavailable the
+  backend during close;
+- close the pane and confirm;
+- the pane is removed, the error is console-only, and the terminal process can
+  remain live.
+
+### Product Contract
+
+- Renderer layout must not persistently remove a live terminal pane until the
+  backend reports the session is closed.
+- Terminal close failure must be visible and retryable from the pane UI.
+- Backend terminal session state is the source of truth for whether the pane can
+  be removed.
+- Closing a non-terminal pane can remain synchronous; terminal panes need an
+  async close transaction.
+- Do not add a renderer-only cleanup illusion that hides backend/process
+  lifecycle failure.
+
+### Implementation Plan
+
+#### 1. Make terminal pane close asynchronous
+
+Split pane close handling by surface kind. For terminal panes:
+
+- confirm if the session is running or starting;
+- mark the pane as closing or disable destructive controls;
+- await `window.setta.terminal.close(sessionId, "terminate")`;
+- remove the pane only after the returned session status is closed.
+
+If the close call fails, keep the pane visible and show a specific error with a
+retry affordance.
+
+#### 2. Model terminal close state explicitly in renderer state
+
+Avoid relying on a detached DOM dataset as the only source of close state.
+Track the terminal session ID/status in the pane or terminal adapter state that
+drives rendering, and use that state for close decisions and retry UI.
+
+The DOM dataset can remain an implementation detail for integration with the
+terminal host, but it should not be the only durable source for a destructive
+action.
+
+#### 3. Add force-kill escalation only as explicit product behavior
+
+If graceful terminate fails, offer an explicit force-kill action only after the
+backend exposes and tests that path. Do not silently convert failed terminate
+into kill without user-visible state and backend confirmation.
+
+### Test Plan
+
+Add deterministic Electron coverage through the production app path:
+
+- closing a running terminal with a successful backend close removes the pane;
+- forcing `terminal.close` to reject keeps the pane visible and shows a
+  retryable error;
+- after a failed close, retrying with a successful backend response removes the
+  pane;
+- the terminal process is not left running after successful close;
+- reload/restart behavior preserves or reconciles a terminal pane whose close
+  failed before removal.
+
+Keep existing backend terminal manager tests for close success/failure, but do
+not treat direct IPC/backend happy-path close tests as sufficient for this UI
+lifecycle contract.
+
 ## Deferred Findings
 
 The repo review also identified seven issues that are intentionally out of scope
@@ -951,6 +1223,10 @@ placeholder.
 - Do not add compatibility support for deprecated Codex values.
 - Do not use renderer-only patches to hide backend state problems.
 - Do not weaken E2E coverage while cleaning up test code.
+- Do not add unowned TypeScript mirrors of Go-owned request or attachment size
+  limits.
+- Do not hide terminal process lifecycle failures by removing the pane before
+  backend close succeeds.
 - Do not add migrations or silent repair paths for workflow definition files
   unless that exact repair work is explicitly requested.
 
@@ -970,5 +1246,11 @@ placeholder.
   refs, cleanup, or manual-recovery state.
 - Workflow definition display-name updates cannot leave duplicate authoritative
   files for one definition ID.
+- HTTP request bodies are bounded before JSON decoding, and server read/header
+  behavior is time/size limited without breaking event streams.
+- Chat image selection rejects oversized files before full read, base64 encode,
+  IPC, or backend persistence work.
+- Terminal panes are removed only after backend terminal close succeeds, and
+  close failures remain visible and retryable.
 - New tests cover the failure paths and guardrails above.
 - Final verification follows the relevant workflow requirements in `AGENTS.md`.
