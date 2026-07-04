@@ -704,10 +704,10 @@
 .workspace-terminal-surface {
   background: var(--workspace-terminal-background, #09090b);
   color: color-mix(in oklch, var(--foreground) 88%, var(--primary));
-  display: grid;
+}
+
+.workspace-terminal-surface:not(.workspace-xterm-surface) {
   gap: 7px;
-  grid-template-rows: minmax(0, 1fr);
-  min-height: 0;
   padding: 8px;
 }
 
