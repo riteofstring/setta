@@ -4,12 +4,16 @@ Date: 2026-07-03
 
 ## Goal
 
-Resolve the three repo-review findings that remain in scope:
+Resolve the in-scope repo-review findings:
 
 - chat turns can be stranded as `running` when startup fails after the run is
   persisted;
 - Setta still preserves deprecated Codex `on-failure` approval policy values;
-- several Electron tests embed large browser-side programs in string literals.
+- several Electron tests embed large browser-side programs in string literals;
+- failed workflow run attempts can create durable definition versions;
+- workflow action runners can be live without durable runner refs after
+  post-start persistence failures;
+- workflow definition renames can leave duplicate files for one definition ID.
 
 The fixes should cut to durable contracts. Do not add migrations,
 compatibility shims, old-field aliases, dual-read/write paths, or silent
@@ -405,6 +409,272 @@ For each extracted workflow:
 After the extraction is complete, run the targeted Electron tests that owned the
 large string programs and then `./check_quality.sh --git-changes`.
 
+## Track 4: Workflow Version Commit Ordering
+
+### Problem
+
+Workflow definition versions are immutable execution snapshots. They should mean
+"this graph was accepted as runnable and used to start an execution," not "a Run
+button was clicked."
+
+`internal/orchestrator/service.go` currently creates and saves a definition
+version before executable graph validation:
+
+- `StartExecution` calls `startExecutionVersionLocked`;
+- `startExecutionVersionLocked` loads the draft, allocates a version ID,
+  reads the latest version number, and calls `SaveDefinitionVersion`;
+- only after that does `StartExecution` call `ValidateExecutableGraph`.
+
+Concrete failure:
+
+- create a blank workflow draft;
+- press Run;
+- the API returns `blank workflow cannot be run`;
+- `workflow_versions` now contains `v1` even though no execution used it;
+- after the user fixes the draft and runs it, the first real execution is `v2`.
+
+That breaks run history semantics and leaves orphan version rows that make the UI
+version labels misleading.
+
+### Product Contract
+
+- A workflow version is created only when an execution is successfully committed.
+- Failed validation must not consume a version number.
+- A failed execution-start persistence step must not leave an orphan version.
+- Version numbers should be contiguous over successful execution snapshots for a
+  definition.
+- Draft saves remain separate from immutable run snapshots.
+
+### Implementation Plan
+
+#### 1. Move executable validation before version persistence
+
+When `versionID == ""`, load the current definition and build the candidate
+`WorkflowDefinitionVersion` in memory. Run `ValidateExecutableGraph` against the
+candidate graph before calling any store write.
+
+When `versionID != ""`, load the existing version and validate it before
+creating an execution.
+
+#### 2. Commit the version and execution in one store operation
+
+Add an owned store operation for starting an execution from a new version, such
+as `PersistExecutionStart(version, transition)`, or an equivalent transaction
+boundary. It should:
+
+- insert the definition version;
+- insert the execution materialized state;
+- insert the initial workflow events;
+- commit all three together.
+
+If the transaction fails, neither the version nor the execution should remain.
+Do not keep `SaveDefinitionVersion` as a separate pre-commit step for new runs.
+
+#### 3. Keep historical version starts read-only
+
+Starting from an explicit `versionID` should not create a new version. It should
+load the existing immutable snapshot, validate it, and commit only the new
+execution and initial events.
+
+### Test Plan
+
+Add focused Go coverage:
+
+- blank workflow `StartExecution` returns a validation error and leaves
+  `LatestDefinitionVersionNumber` at `0`;
+- an invalid nonblank executable graph also leaves no version row;
+- after a failed run attempt, the first successful run creates `v1`;
+- injected transition-persist failure rolls back the newly allocated version;
+- explicit historical-version starts do not create another definition version.
+
+Because this touches workflow run lifecycle and production workflow state, add
+deterministic Electron app workflow coverage through the production
+Electron/main/preload/renderer/HTTP/store paths. The E2E should attempt an
+invalid run, then repair the draft and verify the first successful run is `v1`.
+
+## Track 5: Workflow Runner Post-Start Cleanup
+
+### Problem
+
+Workflow action dispatch has a post-start failure window similar to the chat
+startup issue, but at the orchestrator runner boundary.
+
+`internal/orchestrator/service_actions.go` persists the node execution as
+running, calls `runner.Start`, then separately persists runner events and runner
+refs through `attachRunnerRefsAfterStart`. If that attach/persist step fails,
+the function returns an error after the external runner may already be live.
+
+For the Codex runner, `Start` calls `SendWorkflowAgentTurn` before returning
+refs. A failure while attaching those refs can leave:
+
+- a workflow execution with a running node;
+- a live workflow-owned Codex chat run;
+- no durable `chat.conversation` or `chat.run` refs on the node execution.
+
+Cancellation and recovery both rely on those refs. Without them, `Cancel` can
+no-op and `Recover` can only fall back to manual recovery because it has no
+committed external identity.
+
+### Product Contract
+
+- Once a runner side effect has started, Setta must either durably attach the
+  runner identity or run a deterministic cleanup path.
+- The service must not return with an external runner live while the workflow has
+  no durable refs for it.
+- Runner start, runner refs, activity refs, and runner attempt-start events must
+  share one clear post-start commit contract.
+- If cleanup cannot prove the external runner was stopped, the workflow should
+  become manual-recovery-required rather than ordinary `running`.
+- Recovery must not rely on restarting the app to notice a normal synchronous
+  attach failure.
+
+### Implementation Plan
+
+#### 1. Define runner start phases
+
+Split action dispatch into:
+
+- preflight: graph/node/action validation and input construction;
+- durable action start: mark the node execution `running` before side effects;
+- external start: call `runner.Start`;
+- post-start commit: persist returned refs, runner attempt events, and activity
+  refs;
+- cleanup: cancel or mark recovery-required if post-start commit fails.
+
+Keep this sequence in one service helper instead of scattering attach/cancel
+logic across dispatch paths.
+
+#### 2. Make returned runner identity usable for cleanup
+
+Treat `ActionStartResult.RunnerRefs` as the minimum cleanup identity. For Codex,
+that must include enough information to cancel the just-created chat run. If a
+runner cannot provide cleanup identity after starting side effects, update the
+runner contract before adding more runners.
+
+#### 3. Add a post-start failure cleanup path
+
+If `attachRunnerRefsAfterStart` or equivalent post-start persistence fails:
+
+- use the returned refs to call `runner.Cancel` best-effort;
+- persist the node as failed when cancellation succeeds or the runner never
+  became externally live;
+- persist manual recovery required when cancellation fails or external side
+  effects are uncertain;
+- include the original post-start error and any cancellation error in the
+  workflow events/diagnostics.
+
+If the store itself is unavailable and terminal/manual-recovery state cannot be
+persisted, surface a specific persistence error after best-effort cancellation.
+On the next recovery pass, a running node with missing refs should become manual
+recovery required with a clear "runner identity was not committed" message.
+
+#### 4. Consider a future prepare/commit runner API
+
+The durable long-term shape is a runner lifecycle that can reserve or prepare
+external identity before side effects begin, then start after Setta has committed
+the identity. Implement that only if the current cleanup contract cannot make the
+Codex runner robust enough.
+
+### Test Plan
+
+Add Go tests with a runner that succeeds `Start` but forces failures afterward:
+
+- runner refs persistence failure cancels the runner and marks the node failed or
+  manual-recovery-required;
+- runner attempt-start event persistence failure follows the same cleanup path;
+- cancel failure after post-start commit failure records manual recovery
+  required;
+- missing returned refs after a started side effect is rejected or recovered with
+  a specific manual-recovery message;
+- a subsequent workflow run is not blocked by a non-executing active run.
+
+For Codex workflow actions, add deterministic Electron workflow coverage with a
+scripted fake Codex harness that creates a workflow-owned chat run and then
+triggers the post-start persistence failure. The test should verify the workflow
+does not stay silently running without refs, and that Stop/recovery behavior is
+deterministic.
+
+## Track 6: Workflow Definition File Atomicity
+
+### Problem
+
+Workflow definitions are stored as JSON files under `.setta/workflows`. The
+file contains the durable definition ID; the filename is derived from the display
+name slug and the ID.
+
+`internal/orchestrator/service_definition_files.go` currently handles a rename
+by writing the new file path and then deleting the old file path. A crash or
+`os.Remove` failure after the new file is committed leaves two `.json` files with
+the same internal definition ID.
+
+Subsequent listing and loading hard-fail when they see duplicate IDs. One partial
+rename can therefore wedge normal workflow reads for that workspace.
+
+Concrete failure:
+
+- existing file: `.setta/workflows/review--workflow_definition_123.json`;
+- rename the workflow to `Review v2`;
+- new file is written:
+  `.setta/workflows/review-v2--workflow_definition_123.json`;
+- app crashes or deleting the old file fails;
+- both files remain and reads fail with "workflow definition id ... appears in
+  both ...".
+
+### Product Contract
+
+- For each workflow definition ID, there must be exactly one authoritative JSON
+  file after every successful operation.
+- A failed write must leave the previous authoritative definition intact.
+- Updating a definition's display name must not require a two-file commit.
+- The loader should fail loudly on real duplicate corruption, but ordinary update
+  code must not create that corruption.
+- Do not add migrations or compatibility aliases for old filenames.
+
+### Implementation Plan
+
+#### 1. Decouple display-name edits from file renames
+
+Treat the definition ID and current path as the storage identity for existing
+definitions. On `UpdateDefinition`, write the new payload back to `currentPath`
+with the normal temp-file-plus-rename replacement. The JSON `name` field changes;
+the filename does not have to.
+
+For new definitions, continue choosing an initial filename from the name and ID,
+or switch new files to an ID-stable filename such as `<definition_id>.json`. Do
+not rename existing files just because the display name changed.
+
+#### 2. Keep same-path writes atomic
+
+Use the existing temp file in the workflow directory and `os.Rename(tempPath,
+currentPath)` for updates. That gives the desired invariant:
+
+- before commit, the old file is authoritative;
+- after commit, the same path contains the new payload;
+- if the operation fails, there is still only one scanned `.json` file for the
+  definition ID.
+
+#### 3. Preserve duplicate detection as corruption handling
+
+Keep the current duplicate-ID checks in listing/loading. They are useful for
+corrupt workspaces and manually edited files. The fix is to remove the normal
+write path that creates duplicates, not to silently choose one duplicate file.
+
+### Test Plan
+
+Add focused Go tests:
+
+- renaming a definition updates the JSON `name` but leaves only one `.json` file
+  for the definition ID;
+- update failures during temp write/rename leave the original file readable;
+- a manually created duplicate ID still fails loudly with both paths in the
+  error;
+- repeated renames do not accumulate stale files;
+- listing definitions after a rename succeeds and returns one definition.
+
+Because this affects workflow persistence read/write behavior, add deterministic
+Electron workflow coverage that renames a workflow and reloads the workspace with
+temporary app data. Verify the workflow list and graph projection still load.
+
 ## Deferred Findings
 
 The repo review also identified two issues that are intentionally out of scope
@@ -444,6 +714,8 @@ placeholder.
 - Do not add compatibility support for deprecated Codex values.
 - Do not use renderer-only patches to hide backend state problems.
 - Do not weaken E2E coverage while cleaning up test code.
+- Do not add migrations or silent repair paths for workflow definition files
+  unless that exact repair work is explicitly requested.
 
 ## Overall Done Criteria
 
@@ -453,5 +725,11 @@ placeholder.
   back to Codex.
 - Large browser-side Electron test programs live in normal source modules, not
   multi-kilobyte string literals.
+- Failed workflow run attempts do not create durable definition versions, and a
+  first successful run after failed attempts is still `v1`.
+- Workflow action dispatch cannot leave an external runner live without durable
+  refs, cleanup, or manual-recovery state.
+- Workflow definition display-name updates cannot leave duplicate authoritative
+  files for one definition ID.
 - New tests cover the failure paths and guardrails above.
 - Final verification follows the relevant workflow requirements in `AGENTS.md`.
