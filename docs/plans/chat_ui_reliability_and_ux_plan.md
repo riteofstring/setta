@@ -666,6 +666,10 @@ Status after the MCP typed-details cutover:
   Electron path. Search now indexes MCP result content and metadata, and focused
   activity-row expansion is idempotent so search/focus reveal does not trigger a
   renderer update loop.
+- Done: MCP validation now rejects legacy flat server, tool, progress, duration,
+  result, and error fields when the typed `mcp_tool_call` details branch is
+  present, matching the no-dual-source cutover rule used by the later activity
+  families.
 - Done: raw JSON details for activity families that have not been cut over yet
   moved to `RunItem.rawDetails`; MCP items reject raw details during validation.
 - Done: command execution now writes `RunItem.details.commandExecution` for

@@ -175,7 +175,23 @@ func validateRunItemMCPToolCallDetailsBranch(item RunItem) error {
 	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindMCPToolCall, "mcpToolCall"); err != nil {
 		return err
 	}
+	if err := validateRunItemMCPToolCallFlatFieldsEmpty(item); err != nil {
+		return err
+	}
 	return validateRunItemMCPToolCallDetails(item, *item.Details.MCPToolCall)
+}
+
+func validateRunItemMCPToolCallFlatFieldsEmpty(item RunItem) error {
+	if item.DurationMs != 0 {
+		return fmt.Errorf("run item %s mcpToolCall flat durationMs must be zero after typed details cutover", item.ID)
+	}
+	return validateRunItemFlatStringFieldsEmpty(item, "mcpToolCall", []runItemFlatStringField{
+		{name: "serverName", value: item.ServerName},
+		{name: "toolName", value: item.ToolName},
+		{name: "progress", value: item.Progress},
+		{name: "result", value: item.Result},
+		{name: "error", value: item.Error},
+	})
 }
 
 func validateRunItemDynamicToolCallDetailsBranch(item RunItem) error {

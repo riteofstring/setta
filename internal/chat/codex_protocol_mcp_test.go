@@ -77,6 +77,28 @@ func TestCodexFailedMCPToolCallProjectsFailedRow(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallDetailsRejectsFlatFields(t *testing.T) {
+	item := RunItem{
+		ID:             "run_item_mcp_flat",
+		ProviderItemID: "provider_mcp_flat",
+		Type:           RunItemTypeMCPToolCall,
+		Status:         RunItemStatusCompleted,
+		ServerName:     "legacy_server",
+		Details: NewRunItemMCPToolCallDetails(RunItemMCPToolCallDetails{
+			ServerName: "github",
+			ToolName:   "search",
+		}),
+	}
+
+	err := validateRunItemDetails(item)
+	if err == nil {
+		t.Fatal("validation succeeded, want flat serverName rejection")
+	}
+	if !strings.Contains(err.Error(), "mcpToolCall flat serverName must be empty") {
+		t.Fatalf("error = %q, want flat serverName rejection", err)
+	}
+}
+
 func TestCodexMCPToolCallRejectsMalformedContentBlock(t *testing.T) {
 	item := decodeCodexThreadItemForTest(t, `{
 		"arguments": {},
