@@ -161,6 +161,42 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
       snapshot.debug.scrollHeight > snapshot.debug.clientHeight + 240,
     "initial auto-follow scrollable transcript",
   );
+
+  const nearBottomTop = Math.max(0, scrollable.maxScrollTop - 12);
+  const nearBottomScrolled = await scrollChatTranscript(client, { scrollTop: nearBottomTop });
+  if (!nearBottomScrolled.ok) {
+    throw new Error(
+      `transcript did not perform near-bottom history scroll: ${JSON.stringify(nearBottomScrolled)}`,
+    );
+  }
+  const nearBottomDetached = await waitForTranscriptScrollSnapshot(
+    client,
+    (snapshot) =>
+      snapshot.debug.mode === "user_detached" &&
+      snapshot.debug.atBottom &&
+      snapshot.debug.distanceFromBottom > 0 &&
+      snapshot.debug.distanceFromBottom <= 24,
+    "detached inside bottom tolerance band",
+  );
+  const afterNearBottomGrowth = await waitForTranscriptScrollSnapshot(
+    client,
+    (snapshot) =>
+      snapshot.debug.tailRevision !== nearBottomDetached.debug.tailRevision &&
+      snapshot.debug.mode === "user_detached",
+    "still detached inside bottom tolerance band while streaming grows tail",
+  );
+  if (afterNearBottomGrowth.debug.scrollTop > nearBottomDetached.debug.scrollTop + 4) {
+    throw new Error(
+      `near-bottom detached transcript unexpectedly followed the tail: before=${JSON.stringify(nearBottomDetached.debug)} after=${JSON.stringify(afterNearBottomGrowth.debug)}`,
+    );
+  }
+  await clickButtonByAria(client, "Jump to latest");
+  await waitForTranscriptScrollSnapshot(
+    client,
+    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    "auto-follow after near-bottom jump to latest",
+  );
+
   const detachedTop = Math.max(0, Math.floor(scrollable.maxScrollTop * 0.35));
   const scrolled = await scrollChatTranscript(client, { scrollTop: detachedTop });
   if (!scrolled.ok) {
@@ -412,7 +448,12 @@ function scrollChatTranscriptExpression({ position = null, scrollTop = null }) {
     } else {
       return { ok: false, reason: "missing-position" };
     }
-    const deltaY = nextScrollTop < previousScrollTop ? -1 : nextScrollTop > previousScrollTop ? 1 : 0;
+    let deltaY = nextScrollTop < previousScrollTop ? -1 : nextScrollTop > previousScrollTop ? 1 : 0;
+    if (deltaY === 0 && options.position === "top") {
+      deltaY = -1;
+    } else if (deltaY === 0 && options.position === "bottom") {
+      deltaY = 1;
+    }
     if (deltaY !== 0) {
       scroller.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY }));
     }

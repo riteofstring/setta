@@ -1,7 +1,89 @@
 import type { ApprovalRequest, Run } from "@generated/backend";
 import { describe, expect, it } from "vitest";
 
-import { transcriptTailRevision } from "./chat-transcript-scroll-follow";
+import {
+  decideTranscriptScrollFollowAfterAtBottomStateChange,
+  decideTranscriptScrollFollowAfterRangeChanged,
+  decideTranscriptScrollFollowAfterScroll,
+  transcriptAtAutoFollowBottom,
+  transcriptAtStrictBottom,
+  transcriptTailRevision,
+  type TranscriptScrollMetrics,
+} from "./chat-transcript-scroll-follow";
+
+describe("transcript scroll follow decisions", () => {
+  it("keeps auto-follow tolerant near the virtual tail", () => {
+    expect(
+      transcriptAtAutoFollowBottom({
+        lastVisibleIndex: 9,
+        metrics: scrollMetrics({ distanceFromBottom: 80, scrollTop: 920 }),
+        rowCount: 10,
+      }),
+    ).toBe(true);
+  });
+
+  it("uses a stricter bottom for detached reattach than auto-follow tolerance", () => {
+    expect(transcriptAtStrictBottom(scrollMetrics({ distanceFromBottom: 8 }))).toBe(false);
+    expect(transcriptAtStrictBottom(scrollMetrics({ distanceFromBottom: 0 }))).toBe(true);
+  });
+
+  it("detaches on upward scroll intent even inside the auto-follow tolerance band", () => {
+    expect(
+      decideTranscriptScrollFollowAfterScroll({
+        metrics: scrollMetrics({ distanceFromBottom: 12, scrollTop: 988 }),
+        mode: "auto_follow",
+        pointerScrollIntent: false,
+        previousScrollTop: 1000,
+        tailScrollIntent: false,
+        wheelScrollIntent: true,
+      }),
+    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
+  });
+
+  it("does not reattach detached mode from tolerant range or at-bottom callbacks", () => {
+    expect(
+      decideTranscriptScrollFollowAfterRangeChanged({
+        lastVisibleIndex: 9,
+        metrics: scrollMetrics({ distanceFromBottom: 12, scrollTop: 988 }),
+        mode: "user_detached",
+        rowCount: 10,
+      }),
+    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
+
+    expect(
+      decideTranscriptScrollFollowAfterAtBottomStateChange({
+        isAtBottom: true,
+        mode: "user_detached",
+      }),
+    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
+  });
+
+  it("reattaches detached mode when the user scrolls back to the strict bottom", () => {
+    expect(
+      decideTranscriptScrollFollowAfterScroll({
+        metrics: scrollMetrics({ distanceFromBottom: 0, scrollTop: 1000 }),
+        mode: "user_detached",
+        pointerScrollIntent: false,
+        previousScrollTop: 988,
+        tailScrollIntent: true,
+        wheelScrollIntent: false,
+      }),
+    ).toEqual({ mode: "auto_follow", shouldScrollToLatest: true });
+  });
+
+  it("does not reattach detached mode at strict bottom without tail-directed input", () => {
+    expect(
+      decideTranscriptScrollFollowAfterScroll({
+        metrics: scrollMetrics({ distanceFromBottom: 0, scrollTop: 1000 }),
+        mode: "user_detached",
+        pointerScrollIntent: false,
+        previousScrollTop: 988,
+        tailScrollIntent: false,
+        wheelScrollIntent: false,
+      }),
+    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
+  });
+});
 
 describe("transcriptTailRevision", () => {
   it("changes when pending approval footer content changes", () => {
@@ -60,5 +142,15 @@ function runWithApproval(approvalOverrides: Partial<ApprovalRequest>): Run {
     status: "running",
     triggerMessageId: "message_user",
     workspaceId: "workspace_scroll",
+  };
+}
+
+function scrollMetrics(overrides: Partial<TranscriptScrollMetrics> = {}): TranscriptScrollMetrics {
+  return {
+    clientHeight: 600,
+    distanceFromBottom: 0,
+    scrollHeight: 1600,
+    scrollTop: 1000,
+    ...overrides,
   };
 }

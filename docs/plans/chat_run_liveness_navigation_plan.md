@@ -607,7 +607,58 @@ Remaining work:
 - Phase 6 may still need visual QA or additional Electron assertions if later
   activity detail variants expose layout issues, but the structured opened-row
   transcript path is now covered.
-- Next implementation work starts at Phase 7 scroll-follow detach behavior.
+- Phase 7 scroll-follow detach behavior is covered by the next progress entry.
+
+### 2026-07-02: Scroll-Follow Detach Fix
+
+Implemented Phase 7:
+
+- split transcript auto-follow tolerance from detached-mode reattach rules in
+  `desktop/src/renderer/src/components/chat-transcript-scroll-follow.ts`;
+- upward wheel, upward keyboard, and scrollbar-history movement now detach and
+  cancel pending auto-scroll immediately;
+- detached mode ignores Virtuoso range and at-bottom callbacks, so being inside
+  the bottom tolerance band no longer reattaches by itself;
+- detached mode reattaches only through Jump to latest or tail-directed user
+  input that reaches the strict bottom;
+- extracted the scroll-follow decision rules into testable helpers and covered
+  tolerant auto-follow, strict reattach, upward detach, ignored range/at-bottom
+  callbacks, and content-growth strict-bottom events without tail-directed input;
+- extended the deterministic Electron transcript-scroll workflow with a
+  near-bottom tolerance-band detach case while streamed content continues to
+  grow.
+
+Verification performed:
+
+- `pnpm vitest run src/renderer/src/components/chat-transcript-scroll-follow.test.ts`
+- `./scripts/test_chat_workflows.sh --deterministic-only`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+- `./scripts/test_chat_workflows.sh --skip-build --deterministic-only`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`:
+  live Codex backend passed, but the live Electron workflow failed on final
+  reruns in an unrelated semantic cartographer backend-state wait.
+
+Notes:
+
+- The first deterministic Electron run exposed that content growth could produce
+  a strict-bottom scroll event while detached. The final implementation requires
+  explicit tail-directed user input before that path can reattach.
+- A later deterministic rerun exposed that the transcript-scroll workflow helper
+  did not dispatch upward wheel intent when it was already at `scrollTop=0`; the
+  helper now emits top/bottom wheel intent for requested user scrolls even when
+  no DOM scroll delta is needed.
+- Final live Electron Codex retries failed three times in the existing live
+  semantic cartographer workflow while the live backend Codex checks passed.
+  This failure is outside the Phase 7 scroll-follow path and is not treated as
+  proof of live-provider integration for this slice.
+
+Remaining work:
+
+- Resolve or explicitly waive the unrelated live Electron semantic cartographer
+  failure before treating final live-provider verification as clean.
+- Next implementation work starts at Phase 8 current todo list surface.
+- Phase 9 active-work stack and dwell behavior remains open after Phase 8.
 
 ## Open Decisions
 

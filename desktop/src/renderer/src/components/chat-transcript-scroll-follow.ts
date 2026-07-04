@@ -31,11 +31,31 @@ export interface ChatTranscriptScrollDebugSnapshot {
 
 type ScrollToIndexLocation = Parameters<VirtuosoHandle["scrollToIndex"]>[0];
 
-interface ScrollMetrics {
+export interface TranscriptScrollMetrics {
   clientHeight: number;
   distanceFromBottom: number;
   scrollHeight: number;
   scrollTop: number;
+}
+
+export interface TranscriptScrollFollowDecision {
+  mode: TranscriptScrollFollowMode;
+  shouldScrollToLatest: boolean;
+}
+
+interface TranscriptScrollFollowBottomInput {
+  lastVisibleIndex: number;
+  metrics: TranscriptScrollMetrics;
+  rowCount: number;
+}
+
+interface TranscriptScrollFollowScrollDecisionInput {
+  metrics: TranscriptScrollMetrics;
+  mode: TranscriptScrollFollowMode;
+  pointerScrollIntent: boolean;
+  previousScrollTop: number;
+  tailScrollIntent: boolean;
+  wheelScrollIntent: boolean;
 }
 
 interface TranscriptScrollFollowInput {
@@ -45,6 +65,8 @@ interface TranscriptScrollFollowInput {
 }
 
 const strictBottomDistancePx = 24;
+const reattachBottomDistancePx = 2;
+const scrollDirectionThresholdPx = 1;
 const scrollbarPointerIntentEdgePx = 24;
 const tailRevisionRowCount = 24;
 const virtualBottomDistancePx = 96;
@@ -64,9 +86,10 @@ export function useTranscriptScrollFollow({
   const rowCountRef = useRef(rowCount);
   const scrollerRef = useRef<HTMLElement | null>(null);
   const tailRevisionRef = useRef(tailRevision);
+  const tailScrollIntentRef = useRef(false);
   const visibleEndIndexRef = useRef(rowCount - 1);
   const wheelScrollIntentRef = useRef(false);
-  const metricsRef = useRef<ScrollMetrics>({
+  const metricsRef = useRef<TranscriptScrollMetrics>({
     clientHeight: 0,
     distanceFromBottom: 0,
     scrollHeight: 0,
@@ -78,18 +101,27 @@ export function useTranscriptScrollFollow({
     tailRevisionRef.current = tailRevision;
   }, [rowCount, tailRevision]);
 
-  const setMode = useCallback((next: TranscriptScrollFollowMode) => {
-    if (modeRef.current === next) {
-      return;
-    }
-    if (next !== "auto_follow" && autoScrollFrameRef.current !== null) {
+  const cancelAutoScrollToLatest = useCallback(() => {
+    if (autoScrollFrameRef.current !== null) {
       cancelAnimationFrame(autoScrollFrameRef.current);
       autoScrollFrameRef.current = null;
       pendingScrollCountRef.current = 0;
     }
-    modeRef.current = next;
-    setModeState(next);
   }, []);
+
+  const setMode = useCallback(
+    (next: TranscriptScrollFollowMode) => {
+      if (next !== "auto_follow") {
+        cancelAutoScrollToLatest();
+      }
+      if (modeRef.current === next) {
+        return;
+      }
+      modeRef.current = next;
+      setModeState(next);
+    },
+    [cancelAutoScrollToLatest],
+  );
 
   const updateMetricsFromElement = useCallback((element: HTMLElement) => {
     const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
@@ -110,7 +142,7 @@ export function useTranscriptScrollFollow({
   }, [updateMetricsFromElement]);
 
   const atBottom = useCallback(() => {
-    return transcriptAtTolerantBottom({
+    return transcriptAtAutoFollowBottom({
       lastVisibleIndex: visibleEndIndexRef.current,
       metrics: metricsRef.current,
       rowCount: rowCountRef.current,
@@ -139,6 +171,16 @@ export function useTranscriptScrollFollow({
       });
     });
   }, [scrollToLatest, updateMetricsFromScroller]);
+
+  const applyDecision = useCallback(
+    (decision: TranscriptScrollFollowDecision) => {
+      setMode(decision.mode);
+      if (decision.shouldScrollToLatest) {
+        scheduleAutoScrollToLatest();
+      }
+    },
+    [scheduleAutoScrollToLatest, setMode],
+  );
 
   const finishProgrammaticAnchor = useCallback(() => {
     if (programmaticAnchorFrameRef.current !== null) {
@@ -180,27 +222,24 @@ export function useTranscriptScrollFollow({
         return;
       }
       const previousScrollTop = metricsRef.current.scrollTop;
-      const userScrollIntent = wheelScrollIntentRef.current || pointerScrollIntentRef.current;
+      const tailScrollIntent = tailScrollIntentRef.current;
+      const wheelScrollIntent = wheelScrollIntentRef.current;
+      const pointerScrollIntent = pointerScrollIntentRef.current;
+      tailScrollIntentRef.current = false;
       wheelScrollIntentRef.current = false;
       updateMetricsFromElement(target);
-      const scrolledTowardHistory = metricsRef.current.scrollTop < previousScrollTop - 1;
-      if (modeRef.current === "programmatic_anchor") {
-        return;
-      }
-      if (atBottom()) {
-        setMode("auto_follow");
-        scheduleAutoScrollToLatest();
-        return;
-      }
-      if (modeRef.current === "auto_follow") {
-        if (userScrollIntent || scrolledTowardHistory) {
-          setMode("user_detached");
-        } else {
-          scheduleAutoScrollToLatest();
-        }
-      }
+      applyDecision(
+        decideTranscriptScrollFollowAfterScroll({
+          metrics: metricsRef.current,
+          mode: modeRef.current,
+          pointerScrollIntent,
+          previousScrollTop,
+          tailScrollIntent,
+          wheelScrollIntent,
+        }),
+      );
     },
-    [atBottom, scheduleAutoScrollToLatest, setMode, updateMetricsFromElement],
+    [applyDecision, updateMetricsFromElement],
   );
 
   const handleWheel = useCallback(
@@ -208,6 +247,8 @@ export function useTranscriptScrollFollow({
       if (event.deltaY < 0) {
         wheelScrollIntentRef.current = true;
         setMode("user_detached");
+      } else if (event.deltaY > 0) {
+        tailScrollIntentRef.current = true;
       }
     },
     [setMode],
@@ -230,8 +271,13 @@ export function useTranscriptScrollFollow({
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
-      if (["ArrowUp", "Home", "PageUp"].includes(event.key)) {
+      if (
+        ["ArrowUp", "Home", "PageUp"].includes(event.key) ||
+        (event.key === " " && event.shiftKey)
+      ) {
         setMode("user_detached");
+      } else if (["ArrowDown", "End", "PageDown"].includes(event.key) || event.key === " ") {
+        tailScrollIntentRef.current = true;
       }
     },
     [setMode],
@@ -240,26 +286,29 @@ export function useTranscriptScrollFollow({
   const handleRangeChanged = useCallback(
     (range: ListRange) => {
       visibleEndIndexRef.current = range.endIndex;
-      if (modeRef.current === "programmatic_anchor") {
-        return;
-      }
-      if (atBottom()) {
-        setMode("auto_follow");
-        scheduleAutoScrollToLatest();
-      }
+      applyDecision(
+        decideTranscriptScrollFollowAfterRangeChanged({
+          lastVisibleIndex: range.endIndex,
+          metrics: metricsRef.current,
+          mode: modeRef.current,
+          rowCount: rowCountRef.current,
+        }),
+      );
     },
-    [atBottom, scheduleAutoScrollToLatest, setMode],
+    [applyDecision],
   );
 
   const handleAtBottomStateChange = useCallback(
     (isAtBottom: boolean) => {
-      if (isAtBottom && modeRef.current !== "programmatic_anchor") {
-        updateMetricsFromScroller();
-        setMode("auto_follow");
-        scheduleAutoScrollToLatest();
-      }
+      updateMetricsFromScroller();
+      applyDecision(
+        decideTranscriptScrollFollowAfterAtBottomStateChange({
+          isAtBottom,
+          mode: modeRef.current,
+        }),
+      );
     },
-    [scheduleAutoScrollToLatest, setMode, updateMetricsFromScroller],
+    [applyDecision, updateMetricsFromScroller],
   );
 
   const handleTotalListHeightChanged = useCallback(() => {
@@ -353,15 +402,115 @@ export function useTranscriptScrollFollow({
   };
 }
 
-function transcriptAtTolerantBottom({
+export function decideTranscriptScrollFollowAfterScroll({
+  metrics,
+  mode,
+  pointerScrollIntent,
+  previousScrollTop,
+  tailScrollIntent,
+  wheelScrollIntent,
+}: TranscriptScrollFollowScrollDecisionInput): TranscriptScrollFollowDecision {
+  const scrollDirection = transcriptScrollDirection(metrics.scrollTop, previousScrollTop);
+
+  switch (mode) {
+    case "programmatic_anchor":
+      return { mode, shouldScrollToLatest: false };
+    case "user_detached":
+      if (
+        shouldReattachDetachedFromScroll({
+          metrics,
+          pointerScrollIntent,
+          scrollDirection,
+          tailScrollIntent,
+        })
+      ) {
+        return { mode: "auto_follow", shouldScrollToLatest: true };
+      }
+      return { mode, shouldScrollToLatest: false };
+    case "auto_follow":
+      if (shouldDetachAutoFollowFromScroll({ scrollDirection, wheelScrollIntent })) {
+        return { mode: "user_detached", shouldScrollToLatest: false };
+      }
+      return { mode, shouldScrollToLatest: true };
+  }
+}
+
+type TranscriptScrollDirection = "history" | "tail" | "none";
+
+function transcriptScrollDirection(
+  currentScrollTop: number,
+  previousScrollTop: number,
+): TranscriptScrollDirection {
+  if (currentScrollTop < previousScrollTop - scrollDirectionThresholdPx) {
+    return "history";
+  }
+  if (currentScrollTop > previousScrollTop + scrollDirectionThresholdPx) {
+    return "tail";
+  }
+  return "none";
+}
+
+function shouldDetachAutoFollowFromScroll({
+  scrollDirection,
+  wheelScrollIntent,
+}: {
+  scrollDirection: TranscriptScrollDirection;
+  wheelScrollIntent: boolean;
+}) {
+  return wheelScrollIntent || scrollDirection === "history";
+}
+
+function shouldReattachDetachedFromScroll({
+  metrics,
+  pointerScrollIntent,
+  scrollDirection,
+  tailScrollIntent,
+}: {
+  metrics: TranscriptScrollMetrics;
+  pointerScrollIntent: boolean;
+  scrollDirection: TranscriptScrollDirection;
+  tailScrollIntent: boolean;
+}) {
+  const hasTailDirectedIntent =
+    tailScrollIntent || (pointerScrollIntent && scrollDirection === "tail");
+  return hasTailDirectedIntent && transcriptAtStrictBottom(metrics);
+}
+
+export function decideTranscriptScrollFollowAfterRangeChanged({
+  lastVisibleIndex,
+  metrics,
+  mode,
+  rowCount,
+}: TranscriptScrollFollowBottomInput & {
+  mode: TranscriptScrollFollowMode;
+}): TranscriptScrollFollowDecision {
+  if (
+    mode === "auto_follow" &&
+    transcriptAtAutoFollowBottom({ lastVisibleIndex, metrics, rowCount })
+  ) {
+    return { mode, shouldScrollToLatest: true };
+  }
+  return { mode, shouldScrollToLatest: false };
+}
+
+export function decideTranscriptScrollFollowAfterAtBottomStateChange({
+  isAtBottom,
+  mode,
+}: {
+  isAtBottom: boolean;
+  mode: TranscriptScrollFollowMode;
+}): TranscriptScrollFollowDecision {
+  if (mode === "auto_follow" && isAtBottom) {
+    return { mode, shouldScrollToLatest: true };
+  }
+  return { mode, shouldScrollToLatest: false };
+}
+
+export function transcriptAtAutoFollowBottom({
   lastVisibleIndex,
   metrics,
   rowCount,
-}: {
-  lastVisibleIndex: number;
-  metrics: ScrollMetrics;
-  rowCount: number;
-}) {
+}: TranscriptScrollFollowBottomInput) {
   if (rowCount <= 0) {
     return true;
   }
@@ -369,6 +518,10 @@ function transcriptAtTolerantBottom({
     return true;
   }
   return lastVisibleIndex >= rowCount - 1 && metrics.distanceFromBottom <= virtualBottomDistancePx;
+}
+
+export function transcriptAtStrictBottom(metrics: TranscriptScrollMetrics) {
+  return metrics.distanceFromBottom <= reattachBottomDistancePx;
 }
 
 export function transcriptTailRevision({
