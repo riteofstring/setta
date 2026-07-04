@@ -552,9 +552,9 @@ Electron/main/preload/renderer/HTTP/store paths. The E2E should attempt an inval
 Status: Completed 2026-07-03.
 
 Implemented deterministic cleanup after `runner.Start` succeeds but post-start persistence fails: returned runner refs are now treated as required cleanup
-identity, missing refs become explicit manual recovery, successful cleanup cancels and fails the action while preserving refs, and cancel failure records manual
-recovery with both the post-start and cancel errors. Startup recovery also marks active action nodes without committed runner refs as manual recovery required
-with `workflow action runner identity was not committed` instead of asking runners to infer missing identity.
+identity, missing refs become explicit manual recovery without issuing a ref-less cancel request, successful cleanup cancels and fails the action while
+preserving refs, and cancel failure records manual recovery with both the post-start and cancel errors. Startup recovery also marks active action nodes without
+committed runner refs as manual recovery required with `workflow action runner identity was not committed` instead of asking runners to infer missing identity.
 
 Coverage added:
 
@@ -562,6 +562,7 @@ Coverage added:
   recovery for missing committed refs, and a subsequent execution after cleaned-up failure.
 - Deterministic Electron workflow coverage through production Electron/main/preload/HTTP/store paths, injecting post-start runner-ref persistence failure after a
   workflow-owned Codex chat run starts and verifying the run is cancelled and later execution can start.
+- Audit follow-up coverage asserts that a runner returning no cleanup refs enters manual recovery without dispatching runner cancellation.
 
 Verification performed:
 

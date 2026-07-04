@@ -130,8 +130,10 @@ runner event/ref commit failures through a cleanup path. Returned runner refs ar
 used to cancel the live runner before returning; successful cancellation fails
 the action and commits the returned refs for diagnostics, while cancellation
 failure or missing returned refs records manual recovery required with the
-original post-start error. Startup recovery now records explicit manual recovery
-for active workflow actions whose runner identity was not committed.
+original post-start error. Audit follow-up fixed the missing-ref path so it
+records manual recovery without dispatching a ref-less runner cancel request.
+Startup recovery now records explicit manual recovery for active workflow
+actions whose runner identity was not committed.
 
 Verification:
 

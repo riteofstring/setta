@@ -109,8 +109,11 @@ func (service *Service) dispatchReadyActions(workspaceID string, executionID str
 
 func (service *Service) cleanupActionRunnerPostStartFailure(workspaceID string, executionID string, request ActionStartRequest, refs []WorkflowActionRunnerRef, runner ActionRunner, postStartErr error, identityMissing bool) (WorkflowExecution, error) {
 	cancelDispatch := actionCancelDispatchForStartedRunner(workspaceID, executionID, request, refs, runner)
-	cancelFailures := service.cancelActionRunnersCollectFailures([]actionCancelDispatch{cancelDispatch})
-	cancelErr := actionCancelFailuresError(cancelFailures)
+	var cancelErr error
+	if !identityMissing {
+		cancelFailures := service.cancelActionRunnersCollectFailures([]actionCancelDispatch{cancelDispatch})
+		cancelErr = actionCancelFailuresError(cancelFailures)
+	}
 	if identityMissing || cancelErr != nil {
 		message := postStartManualRecoveryMessage(postStartErr, cancelErr, identityMissing)
 		execution, err := service.recordManualRecoveryRequired(workspaceID, executionID, request.NodeExecution.ID, refs, nil, cancelDispatch.request.NodeExecution, message)

@@ -542,6 +542,9 @@ func TestServiceStartedRunnerWithoutCleanupIdentityRecordsManualRecovery(t *test
 	if len(work.RunnerRefs) != 0 {
 		t.Fatalf("runner refs = %+v, want none", work.RunnerRefs)
 	}
+	if cancelled := runner.cancelRequestForNodeExecution(work.ID); cancelled.NodeExecution.ID != "" {
+		t.Fatalf("cancel request = %+v, want none without runner refs", cancelled)
+	}
 	if len(runner.recoverRequests()) != 0 {
 		t.Fatalf("recover requests = %+v, want none during immediate cleanup", runner.recoverRequests())
 	}
