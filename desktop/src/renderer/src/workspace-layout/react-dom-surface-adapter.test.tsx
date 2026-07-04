@@ -307,6 +307,7 @@ describe("workspace React DOM surface adapter", () => {
       __settaWorkflowGraphDebug: {
         getSnapshot,
         getSurfaceIds: () => ["surface"],
+        tryGetSnapshot: getSnapshot,
       },
     });
     const rootFactory: ReactSurfaceRootFactory = {

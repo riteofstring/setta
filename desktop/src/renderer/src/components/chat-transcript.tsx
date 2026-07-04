@@ -1,7 +1,17 @@
-import type { ChatMessage, Run, RunItem, RunItemOutput, TranscriptTurn } from "@generated/backend";
+import type {
+  ChatInput,
+  ChatMessage,
+  MessagePart,
+  Run,
+  RunLiveness,
+  RunActivityDetailsProjection,
+  RunItemOutput,
+  TranscriptBlock,
+} from "@generated/backend";
 import { ArrowDown, ChevronUp } from "lucide-react";
 import {
   type KeyboardEvent,
+  type PointerEvent,
   type UIEvent,
   type WheelEvent,
   useCallback,
@@ -12,6 +22,10 @@ import {
 } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
+import { cn } from "../lib/utils";
+import type { RunItemOutputPageState } from "../stores/chat-store";
+import { chatMessagePartsText } from "../lib/chat-input";
+import { transcriptRenderRows, type TranscriptRenderRow } from "../lib/chat-transcript-render-rows";
 import { Button } from "./ui/button";
 import { ApprovalCard, type SubmitApproval } from "./chat-transcript-approvals";
 import {
@@ -19,194 +33,524 @@ import {
   chatReadableColumnClass,
   chatReadableColumnPaddedClass,
 } from "./chat-layout";
-import {
-  transcriptTimelineRows,
-  type TranscriptTimelineSource,
-  type TranscriptTimelineRow,
-} from "./chat-transcript-timeline";
+import { chatMessageText } from "./chat-message-text";
+import { TranscriptRenderRowView, type TranscriptRowContext } from "./chat-transcript-block";
 import { ChatSearchBar, useTranscriptSearch } from "./chat-transcript-search";
-import { type TranscriptRowActions } from "./chat-transcript-row-actions";
-import { AssistantMessageChunkRow, MessageRow, TranscriptTurnRow } from "./chat-transcript-rows";
+import type { LoadRunItemOutput } from "./chat-transcript-activity";
+import type { TranscriptRowActions } from "./chat-transcript-row-actions";
+import { transcriptTailRevision, useTranscriptScrollFollow } from "./chat-transcript-scroll-follow";
 import {
-  stableTranscriptTimelineRows,
-  timestampMessageIdsForTimeline,
-  type StableTranscriptTimelineRowsState,
-} from "./chat-transcript-render-helpers";
-import { cn } from "../lib/utils";
-import type { RunItemOutputPageState } from "../stores/chat-store";
+  currentPlanFromTranscript,
+  type CurrentPlanSurfaceTarget,
+} from "./chat-current-plan-surface";
+
+type TranscriptActivityApprovalDetails = NonNullable<RunActivityDetailsProjection["approval"]>;
+
+export interface ChatTranscriptCapabilities {
+  loadOlderHistory: boolean;
+  loadRunItemOutput: boolean;
+  queuedMessageActions: boolean;
+  sendSteering: boolean;
+  submitApproval: boolean;
+}
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
-  editQueuedMessage: (messageId: string, prompt: string) => Promise<void>;
+  activeRunLiveness: RunLiveness | null;
+  activeCurrentPlanTarget?: CurrentPlanSurfaceTarget | null;
+  blocks: TranscriptBlock[];
+  capabilities?: ChatTranscriptCapabilities;
+  editQueuedMessage?: (messageId: string, input: ChatInput) => Promise<void>;
   editingQueuedMessageId: string | null;
+  focusedSourceRunItemId?: string | null;
   hasMoreOlder: boolean;
-  loadOlder: () => Promise<void>;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
-  messageIds: string[];
-  messagesById: Record<string, ChatMessage>;
+  loadOlder?: () => Promise<void>;
+  loadRunItemOutput?: LoadRunItemOutput;
+  messages: ChatMessage[];
   operation: string | null;
-  removeQueuedMessage: (messageId: string) => Promise<void>;
+  queuedMessages: ChatMessage[];
+  removeQueuedMessage?: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
-  runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
   searchOpen?: boolean;
-  sendSteeringImmediately: (prompt?: string) => Promise<void>;
+  sendSteeringImmediately?: (input?: ChatInput) => Promise<void>;
   setSearchOpen?: (open: boolean) => void;
-  submitApproval: SubmitApproval;
-  transcript: TranscriptTurn[];
+  onOpenCurrentPlanSurface?: (target: CurrentPlanSurfaceTarget) => void;
+  submitApproval?: SubmitApproval;
 }
 
-interface TranscriptIndexes {
-  messageIds: string[];
-  messagesById: Record<string, ChatMessage>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
-  turns: TranscriptTurn[];
-}
-
-function transcriptIndexes(props: {
-  messageIds: string[];
-  messagesById: Record<string, ChatMessage>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
-  transcript: TranscriptTurn[];
-}): TranscriptIndexes {
-  return {
-    messageIds: props.messageIds,
-    messagesById: props.messagesById,
-    runItemIdsByRunId: props.runItemIdsByRunId,
-    runItemOutputIdsByRunItemId: props.runItemOutputIdsByRunItemId,
-    runItemOutputsById: props.runItemOutputsById,
-    runItemsById: props.runItemsById,
-    turns: props.transcript,
-  };
-}
+const defaultChatTranscriptCapabilities = {
+  loadOlderHistory: true,
+  loadRunItemOutput: true,
+  queuedMessageActions: true,
+  sendSteering: true,
+  submitApproval: true,
+} satisfies ChatTranscriptCapabilities;
 
 export function transcriptVirtualItemKey(
-  timeline: ReadonlyArray<Pick<TranscriptTimelineRow, "key">>,
+  rows: ReadonlyArray<Pick<TranscriptRenderRow, "key">>,
   index: number,
-  item: Pick<TranscriptTimelineRow, "key"> | undefined,
+  item: Pick<TranscriptRenderRow, "key"> | undefined,
 ) {
-  return item?.key ?? timeline[index]?.key ?? `transcript-row:${index}`;
+  return item?.key ?? rows[index]?.key ?? `transcript-row:${index}`;
 }
 
-export function transcriptVirtualItem(
-  timeline: readonly TranscriptTimelineRow[],
-  index: number,
-  item: TranscriptTimelineRow | undefined,
+function transcriptSearchIndex(rows: TranscriptRenderRow[]) {
+  const entries: { id: string; text: string }[] = [];
+  const rowIndexById = new Map<string, number>();
+  for (const row of rows) {
+    for (const entry of transcriptSearchEntries(row)) {
+      entries.push(entry);
+      rowIndexById.set(entry.id, row.index);
+    }
+  }
+  return { entries, rowIndexById };
+}
+
+function transcriptSearchEntries(row: TranscriptRenderRow): { id: string; text: string }[] {
+  switch (row.kind) {
+    case "message":
+    case "queued":
+      return [{ id: row.message.id, text: chatMessageText(row.message) }];
+    case "activity-group":
+      return row.expanded
+        ? []
+        : row.members.flatMap((member) => transcriptActivitySearchEntry(member));
+    case "activity-item":
+      return transcriptActivitySearchEntry(row.block);
+    case "block":
+      return transcriptBlockSearchEntries(row.block);
+  }
+}
+
+function transcriptBlockSearchEntries(block: TranscriptBlock): { id: string; text: string }[] {
+  if (block.kind === "user_message" && block.userMessage) {
+    return [{ id: block.userMessage.messageId, text: messagePartsText(block.userMessage.parts) }];
+  }
+  if (block.kind === "assistant_text" && block.assistantText) {
+    return [{ id: block.id, text: block.assistantText.text }];
+  }
+  return [];
+}
+
+function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; text: string }[] {
+  const activity = block.activity;
+  if (block.kind !== "activity_item" || !activity) {
+    return [];
+  }
+  const details = activity.details;
+  return [
+    {
+      id: block.id,
+      text: [
+        activity.title,
+        details.command,
+        details.cwd,
+        details.filePaths.join("\n"),
+        details.summary,
+        details.progress,
+        details.result,
+        details.error,
+        details.noticeKind,
+        details.noticeMessage,
+        details.serverName,
+        details.toolName,
+        details.namespace,
+        details.processId,
+        details.requestId,
+        details.reviewId,
+        details.patchStatus,
+        ...transcriptActivityCommandExecutionSearchText(details),
+        ...transcriptActivityCommandStartFailureSearchText(details),
+        ...transcriptActivityMCPSearchText(details),
+        ...transcriptActivityDynamicToolSearchText(details),
+        ...transcriptActivityFileChangeSearchText(details),
+        ...transcriptActivityDiffSearchText(details),
+        ...transcriptActivityApprovalSearchText(details),
+        ...transcriptActivityProviderStreamLifecycleSearchText(details),
+      ]
+        .filter((item) => item !== "")
+        .join("\n"),
+    },
+  ];
+}
+
+function transcriptActivityCommandExecutionSearchText(details: RunActivityDetailsProjection) {
+  const command = details.commandExecution;
+  if (command === null) {
+    return [];
+  }
+  return [
+    command.command,
+    command.cwd,
+    command.durationMs > 0 ? String(command.durationMs) : "",
+    command.exitCode !== 0 ? String(command.exitCode) : "",
+    command.processId,
+    command.source ?? "",
+    command.result,
+    command.error,
+  ];
+}
+
+function transcriptActivityCommandStartFailureSearchText(details: RunActivityDetailsProjection) {
+  const failure = details.commandStartFailure;
+  if (failure === null) {
+    return [];
+  }
+  return [
+    failure.command,
+    failure.cwd,
+    failure.source ?? "",
+    failure.failureClass,
+    failure.message,
+    failure.osError,
+    failure.providerErrorId,
+    failure.sandbox,
+    failure.approvalPolicy,
+  ];
+}
+
+function transcriptActivityFileChangeSearchText(details: RunActivityDetailsProjection) {
+  const fileChange = details.fileChange;
+  if (fileChange === null) {
+    return [];
+  }
+  return [
+    fileChange.patchStatus,
+    fileChange.additions > 0 ? String(fileChange.additions) : "",
+    fileChange.deletions > 0 ? String(fileChange.deletions) : "",
+    ...fileChange.paths.flatMap((path) => [
+      path.path,
+      path.operation ?? "",
+      path.movePath,
+      path.additions > 0 ? String(path.additions) : "",
+      path.deletions > 0 ? String(path.deletions) : "",
+      path.patch,
+      path.patchTruncated ? "patch truncated" : "",
+    ]),
+  ];
+}
+
+function transcriptActivityDiffSearchText(details: RunActivityDetailsProjection) {
+  const diff = details.diff;
+  if (diff === null) {
+    return [];
+  }
+  return [
+    diff.summary,
+    diff.additions > 0 ? String(diff.additions) : "",
+    diff.deletions > 0 ? String(diff.deletions) : "",
+    diff.patch,
+    diff.patchTruncated ? "patch truncated" : "",
+    ...diff.paths.flatMap((path) => [
+      path.path,
+      path.operation ?? "",
+      path.movePath,
+      path.additions > 0 ? String(path.additions) : "",
+      path.deletions > 0 ? String(path.deletions) : "",
+    ]),
+  ];
+}
+
+function transcriptActivityMCPSearchText(details: RunActivityDetailsProjection) {
+  const mcp = details.mcpToolCall;
+  if (mcp === null) {
+    return [];
+  }
+  return [
+    mcp.displayTitle,
+    mcp.serverName,
+    mcp.toolName,
+    mcp.progress,
+    mcp.durationMs > 0 ? String(mcp.durationMs) : "",
+    mcp.resultSummary,
+    mcp.error,
+    transcriptJSONSearchText(mcp.appContext),
+    mcp.pluginId,
+    mcp.mcpAppResourceUri,
+    transcriptJSONSearchText(mcp.arguments),
+    transcriptJSONSearchText(mcp.result?.content),
+    transcriptJSONSearchText(mcp.result?.structuredContent),
+    transcriptJSONSearchText(mcp.result?._meta),
+  ];
+}
+
+function transcriptActivityDynamicToolSearchText(details: RunActivityDetailsProjection) {
+  const tool = details.dynamicToolCall;
+  if (tool === null) {
+    return [];
+  }
+  return [
+    tool.displayTitle,
+    tool.description,
+    tool.category,
+    tool.namespace,
+    tool.toolName,
+    tool.durationMs > 0 ? String(tool.durationMs) : "",
+    tool.resultSummary,
+    tool.error,
+    transcriptJSONSearchText(tool.arguments),
+    transcriptJSONSearchText(tool.result),
+  ];
+}
+
+function transcriptActivityApprovalSearchText(details: RunActivityDetailsProjection) {
+  const approval = details.approval;
+  if (approval === null) {
+    return [];
+  }
+  return [
+    ...transcriptActivityApprovalPrimarySearchText(approval),
+    ...transcriptActivityApprovalQuestionsSearchText(approval),
+    ...transcriptActivityApprovalStructuredInputSearchText(approval),
+    transcriptJSONSearchText(approval.review),
+    transcriptJSONSearchText(approval.action),
+  ];
+}
+
+function transcriptActivityProviderStreamLifecycleSearchText(
+  details: RunActivityDetailsProjection,
 ) {
-  return item ?? timeline[index] ?? null;
+  const lifecycle = details.providerStreamLifecycle;
+  if (lifecycle === null) {
+    return [];
+  }
+  return [
+    lifecycle.message,
+    lifecycle.additionalDetails,
+    lifecycle.codexErrorKind,
+    lifecycle.willRetry ? "will retry" : "",
+    lifecycle.streamFailure ? "stream failure" : "",
+    lifecycle.livenessStatus,
+    lifecycle.livenessReason,
+    lifecycle.providerThreadId,
+    lifecycle.providerTurnId,
+    transcriptJSONSearchText(lifecycle.codexErrorInfo),
+  ];
+}
+
+function transcriptActivityApprovalPrimarySearchText(approval: TranscriptActivityApprovalDetails) {
+  return [
+    approval.approvalId,
+    approval.approvalKind ?? "",
+    approval.approvalStatus ?? "",
+    approval.providerRequestId,
+    approval.reviewId,
+    approval.reviewStatus,
+    approval.actionType,
+    approval.title,
+    approval.body,
+    approval.command,
+    approval.cwd,
+    approval.filePath,
+    approval.permission,
+    approval.question,
+    approval.options.join("\n"),
+  ];
+}
+
+function transcriptActivityApprovalQuestionsSearchText(
+  approval: TranscriptActivityApprovalDetails,
+) {
+  return approval.questions.flatMap((question) => [
+    question.id,
+    question.header,
+    question.question,
+    question.options.join("\n"),
+  ]);
+}
+
+function transcriptActivityApprovalStructuredInputSearchText(
+  approval: TranscriptActivityApprovalDetails,
+) {
+  const structuredInput = approval.structuredInput;
+  if (structuredInput === null) {
+    return [];
+  }
+  return [
+    structuredInput.serverName,
+    structuredInput.mode,
+    structuredInput.message,
+    structuredInput.url,
+    transcriptJSONSearchText(structuredInput.schema),
+    transcriptJSONSearchText(structuredInput.meta),
+  ];
+}
+
+function transcriptJSONSearchText(value: unknown) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  const text = JSON.stringify(value);
+  return text.length > 1000 ? text.slice(0, 1000) : text;
+}
+
+function messagePartsText(parts: MessagePart[]) {
+  return chatMessagePartsText(parts);
 }
 
 export function ChatTranscript({
   activeRun,
+  activeRunLiveness,
+  activeCurrentPlanTarget = null,
+  blocks,
+  capabilities = defaultChatTranscriptCapabilities,
   editQueuedMessage,
   editingQueuedMessageId,
+  focusedSourceRunItemId = null,
   hasMoreOlder,
   loadOlder,
   loadRunItemOutput,
-  messageIds,
-  messagesById,
+  messages,
   operation,
+  queuedMessages,
   removeQueuedMessage,
   removingQueuedMessageId,
-  runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
   runItemOutputsById,
-  runItemsById,
   searchOpen = false,
   sendSteeringImmediately,
   setSearchOpen = () => {},
+  onOpenCurrentPlanSurface,
   submitApproval,
-  transcript: backendTranscript,
 }: ChatTranscriptProps) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
-  const pinnedScrollFrameRef = useRef<number | null>(null);
-  const stableTimelineRef = useRef<StableTranscriptTimelineRowsState>({
-    byKey: new Map(),
-    result: [],
-  });
-  const scrollTopRef = useRef(0);
   const visibleStartIndexRef = useRef(0);
-  const [pinned, setPinned] = useState(true);
+  const [expandedActivityBlockIds, setExpandedActivityBlockIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [expandedActivityGroupIds, setExpandedActivityGroupIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [pendingScrollAnchor, setPendingScrollAnchor] = useState<{
     key: string;
     previousFirstKey: string | null;
     previousLength: number;
   } | null>(null);
-  const transcript = useMemo(
+  const resolvedActiveCurrentPlanTarget = useMemo(
+    () => activeCurrentPlanTarget ?? currentPlanSurfaceTargetFromTranscript(blocks, activeRun),
+    [activeCurrentPlanTarget, activeRun, blocks],
+  );
+
+  const focusedActivitySourceRunItemIds = useMemo(
+    () => (focusedSourceRunItemId ? new Set([focusedSourceRunItemId]) : undefined),
+    [focusedSourceRunItemId],
+  );
+  const baseRows = useMemo(
     () =>
-      transcriptIndexes({
-        messageIds,
-        messagesById,
-        runItemIdsByRunId,
-        runItemOutputIdsByRunItemId,
-        runItemOutputsById,
-        runItemsById,
-        transcript: backendTranscript,
+      transcriptRenderRows({
+        blocks,
+        expandedActivityGroupIds,
+        forceExpandedActivitySourceRunItemIds: focusedActivitySourceRunItemIds,
+        messages,
+        queuedMessages,
       }),
-    [
-      messageIds,
-      messagesById,
-      runItemIdsByRunId,
-      runItemOutputIdsByRunItemId,
-      runItemOutputsById,
-      runItemsById,
-      backendTranscript,
-    ],
+    [blocks, expandedActivityGroupIds, focusedActivitySourceRunItemIds, messages, queuedMessages],
   );
-  const timelineSource = useMemo(
-    () =>
-      ({
-        messageIds,
-        messagesById,
-        turns: backendTranscript,
-      }) satisfies TranscriptTimelineSource,
-    [messageIds, messagesById, backendTranscript],
-  );
-  const timeline = useMemo(() => {
-    const nextState = stableTranscriptTimelineRows(
-      transcriptTimelineRows(timelineSource),
-      stableTimelineRef.current,
-    );
-    stableTimelineRef.current = nextState;
-    return nextState.result;
-  }, [timelineSource]);
-  const timestampMessageIds = useMemo(() => timestampMessageIdsForTimeline(timeline), [timeline]);
+  const baseSearchIndex = useMemo(() => transcriptSearchIndex(baseRows), [baseRows]);
   const search = useTranscriptSearch({
-    messagesById,
-    messageIds,
+    entries: baseSearchIndex.entries,
     open: searchOpen,
+    rowIndexById: baseSearchIndex.rowIndexById,
     setOpen: setSearchOpen,
-    timeline,
     virtuosoRef,
   });
+  const activityBlockIds = useMemo(
+    () =>
+      new Set(
+        blocks
+          .filter((block) => block.kind === "activity_item" && block.activity)
+          .map((block) => block.id),
+      ),
+    [blocks],
+  );
+  const forceExpandedActivityBlockIds = useMemo(
+    () =>
+      search.activeSearchId && activityBlockIds.has(search.activeSearchId)
+        ? new Set([search.activeSearchId])
+        : undefined,
+    [activityBlockIds, search.activeSearchId],
+  );
+  const rows = useMemo(
+    () =>
+      transcriptRenderRows({
+        blocks,
+        expandedActivityGroupIds,
+        forceExpandedActivityBlockIds,
+        forceExpandedActivitySourceRunItemIds: focusedActivitySourceRunItemIds,
+        messages,
+        queuedMessages,
+      }),
+    [
+      blocks,
+      expandedActivityGroupIds,
+      focusedActivitySourceRunItemIds,
+      forceExpandedActivityBlockIds,
+      messages,
+      queuedMessages,
+    ],
+  );
+  const finalSearchIndex = useMemo(() => transcriptSearchIndex(rows), [rows]);
+  const tailRevision = useMemo(
+    () =>
+      transcriptTailRevision({
+        activeRun,
+        rows,
+        runItemOutputIdsByRunItemId,
+        runItemOutputPagesByRunItemId,
+        runItemOutputsById,
+      }),
+    [
+      activeRun,
+      rows,
+      runItemOutputIdsByRunItemId,
+      runItemOutputPagesByRunItemId,
+      runItemOutputsById,
+    ],
+  );
+  const scrollFollow = useTranscriptScrollFollow({
+    rowCount: rows.length,
+    tailRevision,
+    virtuosoRef,
+  });
+
+  useEffect(() => {
+    if (!search.activeSearchId) {
+      return;
+    }
+    const index = finalSearchIndex.rowIndexById.get(search.activeSearchId);
+    if (index === undefined) {
+      return;
+    }
+    scrollFollow.scrollToIndexAsProgrammaticAnchor({ align: "center", index });
+  }, [
+    finalSearchIndex.rowIndexById,
+    scrollFollow.scrollToIndexAsProgrammaticAnchor,
+    search.activeSearchId,
+  ]);
+
   const rowActions = useMemo(
     () =>
       ({
         activeRun,
+        activeRunLiveness,
+        canSendSteering: capabilities.sendSteering,
         editQueuedMessage,
         editingQueuedMessageId,
         operation,
+        queuedMessageActions: capabilities.queuedMessageActions,
         removeQueuedMessage,
         removingQueuedMessageId,
         sendSteeringImmediately,
       }) satisfies TranscriptRowActions,
     [
       activeRun,
+      activeRunLiveness,
+      capabilities.queuedMessageActions,
+      capabilities.sendSteering,
       editQueuedMessage,
       editingQueuedMessageId,
       operation,
@@ -216,236 +560,227 @@ export function ChatTranscript({
     ],
   );
 
-  const scrollToLatest = useCallback(() => {
-    virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
+  const setActivityRowExpanded = useCallback((blockId: string, open: boolean) => {
+    setExpandedActivityBlockIds((current) => withIdsExpanded(current, [blockId], open));
+  }, []);
+  const setActivityRowsExpanded = useCallback((blockIds: string[], open: boolean) => {
+    setExpandedActivityBlockIds((current) => withIdsExpanded(current, blockIds, open));
+  }, []);
+  const setActivityGroupExpanded = useCallback((groupId: string, open: boolean) => {
+    setExpandedActivityGroupIds((current) => withIdsExpanded(current, [groupId], open));
   }, []);
 
-  const schedulePinnedScrollToLatest = useCallback(() => {
-    if (pinnedScrollFrameRef.current !== null) {
-      return;
-    }
-    pinnedScrollFrameRef.current = requestAnimationFrame(() => {
-      pinnedScrollFrameRef.current = null;
-      scrollToLatest();
-    });
-  }, [scrollToLatest]);
-
-  useEffect(
-    () => () => {
-      if (pinnedScrollFrameRef.current !== null) {
-        cancelAnimationFrame(pinnedScrollFrameRef.current);
-      }
-    },
-    [],
+  const context = useMemo<TranscriptRowContext>(
+    () => ({
+      activeSearchId: search.activeSearchId,
+      activeRunLiveness,
+      activeCurrentPlanTarget: resolvedActiveCurrentPlanTarget,
+      detachTranscriptScroll: scrollFollow.detach,
+      expandedActivityBlockIds,
+      expandedActivityGroupIds,
+      focusedSourceRunItemId,
+      loadRunItemOutput: capabilities.loadRunItemOutput ? loadRunItemOutput : undefined,
+      outputIdsByRunItemId: runItemOutputIdsByRunItemId,
+      outputPagesByRunItemId: runItemOutputPagesByRunItemId,
+      outputsById: runItemOutputsById,
+      onOpenCurrentPlanSurface,
+      rowActions,
+      setActivityGroupExpanded,
+      setActivityRowExpanded,
+      setActivityRowsExpanded,
+    }),
+    [
+      expandedActivityBlockIds,
+      expandedActivityGroupIds,
+      activeRunLiveness,
+      capabilities.loadRunItemOutput,
+      focusedSourceRunItemId,
+      loadRunItemOutput,
+      rowActions,
+      runItemOutputIdsByRunItemId,
+      runItemOutputPagesByRunItemId,
+      runItemOutputsById,
+      scrollFollow.detach,
+      onOpenCurrentPlanSurface,
+      resolvedActiveCurrentPlanTarget,
+      search.activeSearchId,
+      setActivityGroupExpanded,
+      setActivityRowExpanded,
+      setActivityRowsExpanded,
+    ],
   );
-
-  useEffect(() => {
-    if (!pinned) {
-      return;
-    }
-    schedulePinnedScrollToLatest();
-  }, [
-    activeRun?.id,
-    pinned,
-    schedulePinnedScrollToLatest,
-    timeline.length,
-    transcript.runItemIdsByRunId,
-    transcript.runItemOutputIdsByRunItemId,
-    runItemOutputPagesByRunItemId,
-    transcript.runItemOutputsById,
-    transcript.runItemsById,
-  ]);
 
   useEffect(() => {
     if (!pendingScrollAnchor) {
       return;
     }
-    const currentFirstKey = timeline[0]?.key ?? null;
+    const currentFirstKey = rows[0]?.key ?? null;
     if (
       currentFirstKey === pendingScrollAnchor.previousFirstKey &&
-      timeline.length <= pendingScrollAnchor.previousLength
+      rows.length <= pendingScrollAnchor.previousLength
     ) {
       return;
     }
-    const index = timeline.findIndex((row) => row.key === pendingScrollAnchor.key);
+    const index = rows.findIndex((row) => row.key === pendingScrollAnchor.key);
     setPendingScrollAnchor(null);
     if (index === -1) {
       return;
     }
-    requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({ align: "start", index });
-    });
-  }, [pendingScrollAnchor, timeline, virtuosoRef]);
-
-  function updatePinnedFromScroll(scrollTop: number, scrollHeight: number, clientHeight: number) {
-    const distanceFromBottom = scrollHeight - clientHeight - scrollTop;
-    if (distanceFromBottom <= 8) {
-      setPinned(true);
-    }
-    scrollTopRef.current = scrollTop;
-  }
+    scrollFollow.scrollToIndexAsProgrammaticAnchor({ align: "start", index });
+  }, [pendingScrollAnchor, rows, scrollFollow.scrollToIndexAsProgrammaticAnchor]);
 
   function handleScroll(event: UIEvent<HTMLDivElement>) {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-    updatePinnedFromScroll(target.scrollTop, target.scrollHeight, target.clientHeight);
+    scrollFollow.handleScroll(event);
   }
 
   function handleWheel(event: WheelEvent<HTMLDivElement>) {
-    if (event.deltaY < 0) {
-      setPinned(false);
-    }
+    scrollFollow.handleWheel(event);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (["ArrowUp", "Home", "PageUp"].includes(event.key)) {
-      setPinned(false);
-    }
+    scrollFollow.handleKeyDown(event);
+  }
+
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    scrollFollow.handlePointerDown(event);
+  }
+
+  function handlePointerUp() {
+    scrollFollow.handlePointerUp();
+  }
+
+  function handlePointerCancel() {
+    scrollFollow.handlePointerCancel();
   }
 
   const loadOlderAndPreserveScroll = useCallback(async () => {
-    const anchorKey = timeline[visibleStartIndexRef.current]?.key ?? timeline[0]?.key ?? null;
-    const previousFirstKey = timeline[0]?.key ?? null;
-    const previousLength = timeline.length;
-    setPinned(false);
+    if (!loadOlder) {
+      return;
+    }
+    const anchorKey = rows[visibleStartIndexRef.current]?.key ?? rows[0]?.key ?? null;
+    const previousFirstKey = rows[0]?.key ?? null;
+    const previousLength = rows.length;
+    scrollFollow.detach();
     await loadOlder();
     if (anchorKey) {
       setPendingScrollAnchor({ key: anchorKey, previousFirstKey, previousLength });
     }
-  }, [loadOlder, timeline]);
+  }, [loadOlder, rows, scrollFollow.detach]);
 
   const virtuosoComponents = useMemo(
     () => ({
-      Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
+      Footer: () => (
+        <TranscriptFooter
+          activeRun={activeRun}
+          submitApproval={capabilities.submitApproval ? submitApproval : undefined}
+        />
+      ),
       Header: () => (
-        <TranscriptHeader hasMoreOlder={hasMoreOlder} loadOlder={loadOlderAndPreserveScroll} />
+        <TranscriptHeader
+          hasMoreOlder={hasMoreOlder}
+          loadOlder={capabilities.loadOlderHistory ? loadOlderAndPreserveScroll : undefined}
+        />
       ),
     }),
-    [activeRun, hasMoreOlder, loadOlderAndPreserveScroll, submitApproval],
-  );
-
-  const renderTranscriptItem = useCallback(
-    (index: number, item: TranscriptTimelineRow | undefined) => {
-      const row = transcriptVirtualItem(timeline, index, item);
-      if (!row) {
-        return null;
-      }
-      if (row.kind === "message") {
-        return (
-          <MessageRow
-            loadRunItemOutput={loadRunItemOutput}
-            activeSearchMessageId={search.activeMessageId}
-            message={row.message}
-            rowActions={rowActions}
-            showTimestamp={timestampMessageIds.has(row.message.id)}
-            runItemIdsByRunId={transcript.runItemIdsByRunId}
-            runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-            runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-            runItemOutputsById={transcript.runItemOutputsById}
-            runItemsById={transcript.runItemsById}
-          />
-        );
-      }
-      if (row.kind === "turn-message") {
-        return (
-          <MessageRow
-            loadRunItemOutput={loadRunItemOutput}
-            activeSearchMessageId={search.activeMessageId}
-            message={row.message}
-            rowActions={rowActions}
-            showTimestamp={timestampMessageIds.has(row.message.id)}
-            runItemIdsByRunId={transcript.runItemIdsByRunId}
-            runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-            runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-            runItemOutputsById={transcript.runItemOutputsById}
-            runItemsById={transcript.runItemsById}
-          />
-        );
-      }
-      if (row.kind === "assistant-chunk") {
-        return (
-          <AssistantMessageChunkRow
-            loadRunItemOutput={loadRunItemOutput}
-            activeSearchMessageId={search.activeMessageId}
-            chunk={row.chunk}
-            message={row.message}
-            rowActions={rowActions}
-            showTimestamp={row.chunk.isLast && timestampMessageIds.has(row.message.id)}
-            runItemIdsByRunId={transcript.runItemIdsByRunId}
-            runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-            runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-            runItemOutputsById={transcript.runItemOutputsById}
-            runItemsById={transcript.runItemsById}
-          />
-        );
-      }
-      return (
-        <TranscriptTurnRow
-          loadRunItemOutput={loadRunItemOutput}
-          activeSearchMessageId={search.activeMessageId}
-          runItemIdsByRunId={transcript.runItemIdsByRunId}
-          runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-          runItemOutputsById={transcript.runItemOutputsById}
-          runItemsById={transcript.runItemsById}
-          turn={row.turn}
-          rowActions={rowActions}
-          timestampMessageIds={timestampMessageIds}
-        />
-      );
-    },
     [
-      loadRunItemOutput,
-      runItemOutputPagesByRunItemId,
-      rowActions,
-      search.activeMessageId,
-      timestampMessageIds,
-      timeline,
-      transcript.runItemIdsByRunId,
-      transcript.runItemOutputIdsByRunItemId,
-      transcript.runItemOutputsById,
-      transcript.runItemsById,
+      activeRun,
+      capabilities.loadOlderHistory,
+      capabilities.submitApproval,
+      hasMoreOlder,
+      loadOlderAndPreserveScroll,
+      submitApproval,
     ],
   );
 
-  if (timeline.length === 0) {
-    return <EmptyChatTranscript activeRun={activeRun} submitApproval={submitApproval} />;
+  const renderTranscriptItem = useCallback(
+    (index: number, item: TranscriptRenderRow | undefined) => {
+      const row = item ?? rows[index] ?? null;
+      if (!row) {
+        return null;
+      }
+      return <TranscriptRenderRowView context={context} row={row} />;
+    },
+    [context, rows],
+  );
+
+  if (rows.length === 0) {
+    return (
+      <EmptyChatTranscript
+        activeRun={activeRun}
+        submitApproval={capabilities.submitApproval ? submitApproval : undefined}
+      />
+    );
   }
 
   return (
     <div
       className="relative h-full min-h-0 min-w-0 overflow-hidden"
       onKeyDownCapture={handleKeyDown}
+      onPointerCancelCapture={handlePointerCancel}
+      onPointerDownCapture={handlePointerDown}
+      onPointerUpCapture={handlePointerUp}
       onScrollCapture={handleScroll}
       onWheelCapture={handleWheel}
     >
       <ChatSearchBar search={search} />
       <Virtuoso
-        atBottomStateChange={(atBottom) => {
-          if (atBottom) {
-            setPinned(true);
-          }
-        }}
+        atBottomStateChange={scrollFollow.handleAtBottomStateChange}
         className="workspace-chat-pane-surface h-full min-h-0 min-w-0 overflow-x-hidden pt-4 pb-2"
         components={virtuosoComponents}
-        data={timeline}
+        data={rows}
         data-testid="chat-transcript-scroller"
-        computeItemKey={(index, item) => transcriptVirtualItemKey(timeline, index, item)}
+        computeItemKey={(index, item) => transcriptVirtualItemKey(rows, index, item)}
         followOutput={false}
         increaseViewportBy={{ bottom: 800, top: 400 }}
-        initialItemCount={Math.min(timeline.length, 30)}
+        initialItemCount={Math.min(rows.length, 30)}
         itemContent={renderTranscriptItem}
         overscan={200}
         rangeChanged={(range) => {
           visibleStartIndexRef.current = range.startIndex;
+          scrollFollow.handleRangeChanged(range);
         }}
         ref={virtuosoRef}
+        scrollerRef={scrollFollow.setScrollerRef}
+        totalListHeightChanged={scrollFollow.handleTotalListHeightChanged}
       />
-      <JumpToLatestButton pinned={pinned} setPinned={setPinned} virtuosoRef={virtuosoRef} />
+      <JumpToLatestButton
+        onJumpToLatest={scrollFollow.jumpToLatest}
+        visible={scrollFollow.mode !== "auto_follow"}
+      />
     </div>
   );
+}
+
+function currentPlanSurfaceTargetFromTranscript(
+  blocks: TranscriptBlock[],
+  activeRun: Run | null,
+): CurrentPlanSurfaceTarget | null {
+  const plan = currentPlanFromTranscript(blocks, activeRun);
+  if (plan === null) {
+    return null;
+  }
+  return {
+    runId: plan.runId,
+    sourceRunItemId: plan.sourceRunItemId,
+  };
+}
+
+function withIdsExpanded(current: Set<string>, blockIds: string[], open: boolean) {
+  const next = new Set(current);
+  let changed = false;
+  for (const blockId of blockIds) {
+    if (open) {
+      if (next.has(blockId)) {
+        continue;
+      }
+      next.add(blockId);
+      changed = true;
+    } else if (next.has(blockId)) {
+      next.delete(blockId);
+      changed = true;
+    }
+  }
+  return changed ? next : current;
 }
 
 function EmptyChatTranscript({
@@ -453,7 +788,7 @@ function EmptyChatTranscript({
   submitApproval,
 }: {
   activeRun: Run | null;
-  submitApproval: SubmitApproval;
+  submitApproval?: SubmitApproval;
 }) {
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
@@ -474,11 +809,22 @@ function EmptyChatTranscript({
   );
 }
 
-type TranscriptHeaderProps = { hasMoreOlder: boolean; loadOlder: () => Promise<void> };
+type TranscriptHeaderProps = { hasMoreOlder: boolean; loadOlder?: () => Promise<void> };
 
 function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
   if (!hasMoreOlder) {
     return null;
+  }
+  if (!loadOlder) {
+    return (
+      <div
+        {...chatReadableColumnAttributes}
+        className={cn(chatReadableColumnPaddedClass, "mb-2 flex justify-center")}
+        data-testid="chat-transcript-header"
+      >
+        <span className="text-xs text-muted-foreground">Older history available</span>
+      </div>
+    );
   }
   return (
     <div
@@ -498,7 +844,7 @@ function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
   );
 }
 
-type TranscriptFooterProps = { activeRun: Run | null; submitApproval: SubmitApproval };
+type TranscriptFooterProps = { activeRun: Run | null; submitApproval?: SubmitApproval };
 
 function TranscriptFooter({ activeRun, submitApproval }: TranscriptFooterProps) {
   if (!activeRun?.pendingApproval) {
@@ -516,7 +862,7 @@ function PendingApproval({
   submitApproval,
 }: {
   activeRun: Run | null;
-  submitApproval: SubmitApproval;
+  submitApproval?: SubmitApproval;
 }) {
   if (!activeRun?.pendingApproval) {
     return null;
@@ -531,15 +877,13 @@ function PendingApproval({
 }
 
 function JumpToLatestButton({
-  pinned,
-  setPinned,
-  virtuosoRef,
+  onJumpToLatest,
+  visible,
 }: {
-  pinned: boolean;
-  setPinned: (pinned: boolean) => void;
-  virtuosoRef: { current: VirtuosoHandle | null };
+  onJumpToLatest: () => void;
+  visible: boolean;
 }) {
-  if (pinned) {
+  if (!visible) {
     return null;
   }
   return (
@@ -551,10 +895,7 @@ function JumpToLatestButton({
         <Button
           aria-label="Jump to latest"
           className="pointer-events-auto h-7 w-7 rounded-sm border-border bg-muted/95 px-0 text-foreground shadow-lg shadow-black/30 hover:bg-accent hover:text-foreground"
-          onClick={() => {
-            virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
-            setPinned(true);
-          }}
+          onClick={onJumpToLatest}
           variant="secondary"
         >
           <ArrowDown className="h-4 w-4" />

@@ -306,7 +306,7 @@ func (service *Service) startExecutionLocked(workspaceSummary workspace.Workspac
 	if err := service.rejectActiveExecutionForDefinitionLocked(workspaceID, definitionID); err != nil {
 		return "", err
 	}
-	version, err := service.startExecutionVersionLocked(workspaceSummary, workspaceID, definitionID, versionID)
+	version, createVersion, err := service.startExecutionVersionLocked(workspaceSummary, workspaceID, definitionID, versionID)
 	if err != nil {
 		return "", err
 	}
@@ -317,7 +317,12 @@ func (service *Service) startExecutionLocked(workspaceSummary workspace.Workspac
 	if err != nil {
 		return "", err
 	}
-	if err := service.persistTransition(transition); err != nil {
+	if createVersion {
+		err = service.persistExecutionStart(version, transition)
+	} else {
+		err = service.persistTransition(transition)
+	}
+	if err != nil {
 		return "", err
 	}
 	return transition.Execution.ID, nil
@@ -338,27 +343,25 @@ func (service *Service) rejectActiveExecutionForDefinitionLocked(workspaceID str
 	return nil
 }
 
-func (service *Service) startExecutionVersionLocked(workspaceSummary workspace.WorkspaceSummary, workspaceID string, definitionID string, versionID string) (WorkflowDefinitionVersion, error) {
+func (service *Service) startExecutionVersionLocked(workspaceSummary workspace.WorkspaceSummary, workspaceID string, definitionID string, versionID string) (WorkflowDefinitionVersion, bool, error) {
 	if versionID == "" {
 		definition, _, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
 		if err != nil {
-			return WorkflowDefinitionVersion{}, err
+			return WorkflowDefinitionVersion{}, false, err
 		}
 		versionID, err = service.newID("workflow_version")
 		if err != nil {
-			return WorkflowDefinitionVersion{}, fmt.Errorf("create workflow version id: %w", err)
+			return WorkflowDefinitionVersion{}, false, fmt.Errorf("create workflow version id: %w", err)
 		}
 		latestVersionNumber, err := service.store.LatestDefinitionVersionNumber(workspaceID, definitionID)
 		if err != nil {
-			return WorkflowDefinitionVersion{}, err
+			return WorkflowDefinitionVersion{}, false, err
 		}
 		version := workflowDefinitionVersionFromDefinition(definition, versionID, latestVersionNumber+1, service.now())
-		if err := service.store.SaveDefinitionVersion(version); err != nil {
-			return WorkflowDefinitionVersion{}, err
-		}
-		return version, nil
+		return version, true, nil
 	}
-	return service.store.LoadDefinitionVersion(workspaceID, definitionID, versionID)
+	version, err := service.store.LoadDefinitionVersion(workspaceID, definitionID, versionID)
+	return version, false, err
 }
 
 func (service *Service) workflowExecutionSummaryLocked(execution WorkflowExecution) (WorkflowExecutionSummary, error) {
@@ -594,6 +597,15 @@ func (service *Service) loadExecutionAndVersion(workspaceID string, executionID 
 
 func (service *Service) persistTransition(transition WorkflowTransition) error {
 	events, err := service.store.PersistTransition(transition)
+	if err != nil {
+		return err
+	}
+	service.events.Publish(events)
+	return nil
+}
+
+func (service *Service) persistExecutionStart(version WorkflowDefinitionVersion, transition WorkflowTransition) error {
+	events, err := service.store.PersistExecutionStart(version, transition)
 	if err != nil {
 		return err
 	}

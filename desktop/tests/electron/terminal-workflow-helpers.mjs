@@ -73,3 +73,19 @@ export async function focusTerminal(client, timeoutMs) {
     throw new Error(`terminal focus failed: ${JSON.stringify(result)}`);
   }
 }
+
+export async function closeTerminalPaneFromChrome(client, timeoutMs, { accept = true } = {}) {
+  void timeoutMs;
+  await client.installDriver();
+  const removeDialogListener = client.on("Page.javascriptDialogOpening", () => {
+    void client.call("Page.handleJavaScriptDialog", { accept });
+  });
+  try {
+    const result = await client.driver("closeTerminalPane");
+    if (!result.ok) {
+      throw new Error(`terminal pane close failed: ${JSON.stringify(result)}`);
+    }
+  } finally {
+    removeDialogListener();
+  }
+}

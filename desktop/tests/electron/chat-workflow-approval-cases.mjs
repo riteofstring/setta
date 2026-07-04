@@ -132,6 +132,16 @@ async function answerUserInputApproval({
   });
   await waitForText(client, "User input approval resolved.");
   await waitForApprovalCardAbsent(client, waitForState);
+  await waitForRunActivityItem(
+    backend,
+    workspaceId,
+    pendingRun.id,
+    (item) =>
+      item.type === "approval_request" &&
+      item.details?.approval?.approvalKind === "user_input" &&
+      item.details.approval.approvalStatus === "answered" &&
+      item.details.approval.questions.some((question) => question.id === "scripted_answer"),
+  );
 }
 
 async function acceptStructuredFormApproval({
@@ -172,7 +182,10 @@ async function acceptStructuredFormApproval({
     backend,
     workspaceId,
     run.id,
-    (item) => item.type === "structured_input" && item.serverName === "deploy",
+    (item) =>
+      item.type === "approval_request" &&
+      item.details?.approval?.approvalKind === "structured_input" &&
+      item.details.approval.structuredInput?.serverName === "deploy",
   );
 }
 
@@ -239,9 +252,9 @@ async function runDynamicToolWorkflow({
     (item) =>
       item.type === "dynamic_tool_call" &&
       item.status === "completed" &&
-      item.namespace === "setta" &&
-      item.toolName === "fakeTool" &&
-      item.result.includes("tool ok"),
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "fakeTool" &&
+      item.details.dynamicToolCall.resultSummary.includes("tool ok"),
   );
 }
 

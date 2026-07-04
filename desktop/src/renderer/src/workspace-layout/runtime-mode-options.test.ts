@@ -3,6 +3,8 @@ import { describe, expect, test } from "vitest";
 import { generateBenchmarkScene, phaseOneVisiblePaneCount } from "./benchmark-scene";
 import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
 import {
+  benchmarkHostPoolSizeFromSearch,
+  benchmarkSceneOptionsFromSearch,
   hostPoolSizeForRuntime,
   presentationOptionsForRuntime,
   runtimePolicyBudgetForRuntime,
@@ -110,6 +112,31 @@ describe("workspace runtime mode options", () => {
       nodeCount: 500,
     });
     expect(workflowGraphSyntheticGraphFallbackForRuntime("workspace")).toBeUndefined();
+  });
+
+  test("parses explicit benchmark scene sizing from the URL search", () => {
+    expect(
+      benchmarkSceneOptionsFromSearch(
+        "?workspaceBenchmarkPaneCount=17&workspaceBenchmarkVisiblePanes=17",
+      ),
+    ).toStrictEqual({
+      paneCount: 17,
+      targetVisiblePanes: 17,
+    });
+    expect(
+      benchmarkHostPoolSizeFromSearch(
+        "?workspaceBenchmarkPaneCount=17&workspaceBenchmarkVisiblePanes=17",
+      ),
+    ).toBe(17);
+  });
+
+  test("rejects invalid benchmark scene sizing", () => {
+    expect(() => benchmarkSceneOptionsFromSearch("?workspaceBenchmarkPaneCount=0")).toThrow(
+      "workspaceBenchmarkPaneCount must be a positive integer: 0",
+    );
+    expect(() =>
+      benchmarkSceneOptionsFromSearch("?workspaceBenchmarkVisiblePanes=not-a-number"),
+    ).toThrow("workspaceBenchmarkVisiblePanes must be a positive integer: not-a-number");
   });
 });
 

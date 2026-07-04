@@ -46,6 +46,18 @@
     return { body: document.body.innerText, clicked: true };
   }
 
+  function clickButtonContainingTextByRole({ role, text }) {
+    const selector = `button[role="${cssEscape(role)}"]`;
+    const button = Array.from(document.querySelectorAll(selector)).find((candidate) =>
+      candidate.innerText.includes(text),
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { body: document.body.innerText, clicked: false };
+    }
+    button.click();
+    return { body: document.body.innerText, clicked: true };
+  }
+
   function composerReady() {
     const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
     return { ready: Boolean(textarea && !textarea.disabled) };
@@ -80,6 +92,75 @@
         text: row.innerText.trim(),
       })),
     };
+  }
+
+  // chatTranscriptBlockOrder returns the recognized transcript blocks in document order. It is
+  // the cross-phase diagnostic used to compare provider chronology, backend order, and DOM order.
+  // Today it reads the current DOM
+  // hooks (message role plus the run-activity-group/row test ids), so the order is flattened.
+  // Those hooks disappear in the Phase 5 refactor, so it also prefers a stable
+  // data-transcript-block + data-block-kind tagging when present; Phase 5 should add that so the
+  // characterization flip becomes a one-line expectation change instead of a driver rewrite.
+  function chatTranscriptBlockOrder() {
+    const blockSelector =
+      '[data-transcript-block], [data-chat-message="true"], [data-testid="run-activity-group"], [data-testid="run-activity-row"]';
+    const region =
+      document.querySelector('[data-testid="chat-transcript-region"]') ?? document.body;
+    const nodes = Array.from(region.querySelectorAll(blockSelector));
+    return {
+      blocks: nodes.map((node) => {
+        const kind = transcriptBlockKind(node);
+        return {
+          kind,
+          role: node.getAttribute("data-message-role") ?? "",
+          runId: node.closest("[data-run-id]")?.getAttribute("data-run-id") ?? "",
+          sourceRunItemId: node.getAttribute("data-run-item-id") ?? "",
+          text: transcriptBlockText(node, kind, blockSelector),
+        };
+      }),
+    };
+  }
+
+  function transcriptBlockKind(node) {
+    // Prefer the stable Phase 5 tagging when present; otherwise infer from the current hooks.
+    const blockKind = node.getAttribute("data-block-kind");
+    if (blockKind) {
+      return blockKind;
+    }
+    const testId = node.getAttribute("data-testid");
+    if (testId === "run-activity-group") {
+      return "activity_group";
+    }
+    if (testId === "run-activity-row") {
+      return "activity_row";
+    }
+    const role = node.getAttribute("data-message-role");
+    if (role === "user") {
+      return "user_message";
+    }
+    if (role === "assistant") {
+      return "assistant_text";
+    }
+    return role ? `message:${role}` : "message";
+  }
+
+  function transcriptBlockText(node, kind, blockSelector) {
+    if (kind === "assistant_text" || kind === "user_message") {
+      const role = node.getAttribute("data-message-role");
+      const content = node.querySelector(`[data-testid="chat-${role}-message-content"]`);
+      if (content instanceof HTMLElement) {
+        return collapseTranscriptWhitespace(content.textContent).slice(0, 240);
+      }
+    }
+    const clone = node.cloneNode(true);
+    for (const nested of Array.from(clone.querySelectorAll(blockSelector))) {
+      nested.remove();
+    }
+    return collapseTranscriptWhitespace(clone.textContent).slice(0, 240);
+  }
+
+  function collapseTranscriptWhitespace(text) {
+    return (text ?? "").replace(/\s+/g, " ").trim();
   }
 
   function visibleUserMessageTexts() {
@@ -129,6 +210,14 @@
   function modelPicker() {
     const picker = document.querySelector('[data-testid="model-picker"]');
     return { body: document.body.innerText, open: Boolean(picker), ready: Boolean(picker) };
+  }
+
+  function modelPickerSummaryButton() {
+    const button = document.querySelector('[aria-label="Open model and reasoning picker"]');
+    return {
+      ready: Boolean(button),
+      text: button instanceof HTMLElement ? button.innerText : "",
+    };
   }
 
   function modelPickerButtonReady({ text }) {
@@ -210,12 +299,14 @@
   }
 
   function sidebarMetrics() {
+    const sidebar =
+      document.querySelector('[data-testid="sidebar-scrollable-sections"]') ?? document;
     return {
-      activeRows: document.querySelectorAll('[data-testid="active-workspace-item"]').length,
-      conversationRows: document.querySelectorAll('[data-testid="conversation-sidebar-item"]')
+      activeRows: sidebar.querySelectorAll('[data-testid="active-workspace-item"]').length,
+      conversationRows: sidebar.querySelectorAll('[data-testid="conversation-sidebar-item"]')
         .length,
-      recentRows: document.querySelectorAll('[data-testid="recent-workspace-item"]').length,
-      totalElements: document.querySelectorAll("*").length,
+      recentRows: sidebar.querySelectorAll('[data-testid="recent-workspace-item"]').length,
+      totalElements: sidebar.querySelectorAll("*").length,
     };
   }
 
@@ -878,11 +969,6 @@
     };
   }
 
-  function workflowRunDetailsText() {
-    const details = document.querySelector('[data-testid="workflow-node-run-details"]');
-    return details?.textContent ?? "";
-  }
-
   function workflowGraphPaneSettled({ surfaceId }) {
     const root = workflowGraphSurfaceById(surfaceId);
     const host = root?.closest('[data-testid="workspace-pane-host"]');
@@ -1334,9 +1420,11 @@
     bodyText,
     clickButton,
     clickButtonContainingText,
+    clickButtonContainingTextByRole,
     clickModelPickerButton,
     buttonReady,
     chatLayoutMetrics,
+    chatTranscriptBlockOrder,
     chatTranscriptRows,
     composerFocus,
     composerReady,
@@ -1347,6 +1435,7 @@
     focusTerminalTextarea,
     maximizeTerminalPane,
     modelPicker,
+    modelPickerSummaryButton,
     modelPickerButtonReady,
     paneChromeEdgeFocusPoint,
     rendererWorkspace,
@@ -1363,7 +1452,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v8",
+    version: "setta-e2e-driver-v9",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
@@ -1397,7 +1486,6 @@
     workflowNodeDetailsButtonRect,
     workflowNodeDetailsButtonState,
     workflowNodeDetailsSurfaceState,
-    workflowRunDetailsText,
     workflowRunSelectorState,
     workflowToolbarButtonState,
     workflowToolbarSlotRects,

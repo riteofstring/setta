@@ -8,6 +8,9 @@ import type {
   AttachSemanticNodeToWorkflowExecutionRequest,
   AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
+  BackgroundTerminalListProjection,
+  BackgroundTerminalOutputPage,
+  BackgroundTerminalProcess,
   BuildCartographerWindowRequest,
   CancelCodexLoginRequest,
   CartographerCursorList,
@@ -21,8 +24,12 @@ import type {
   CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
+  ChatCodexDefaultsView,
   ChatEvent,
+  ChatInput,
+  ChatPermissionPresetID,
   CodexAccountState,
+  ComposerPromptHistoryPage,
   Conversation,
   ConversationListItem,
   CreateSemanticEdgeRequest,
@@ -34,6 +41,7 @@ import type {
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
+  ImageAttachment,
   ListCartographerCursorsRequest,
   ListCartographerPatchesRequest,
   ListCartographerRunsRequest,
@@ -51,6 +59,8 @@ import type {
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
+  ReconcileChatRunsRequest,
+  ReconcileChatRunsResponse,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -61,12 +71,15 @@ import type {
   ReadSemanticNodeDetailResponse,
   ReadSemanticSteeringStateRequest,
   ReadWorkflowGraphProjectionResponse,
+  ReadWorkflowNodeTrajectoryRequest,
   ReasoningEffort,
   RefreshCodexAccountRequest,
+  RetryWorkflowNodeRunLivenessRequest,
   ResizeTerminalRequest,
   ReviewCartographerPatchRequest,
   Run,
   RunActivityPage,
+  RunLivenessReconciliationResult,
   RunItemOutputPage,
   ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
@@ -92,8 +105,10 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
+  SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
+  StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
   TerminalInputRequest,
@@ -101,11 +116,13 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateChatCodexDefaultsRequest,
   UpdateSemanticEdgeRequest,
   UpdateSemanticLayoutPositionsRequest,
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  WorkflowAgentTrajectoryPage,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowExecution,
@@ -379,6 +396,7 @@ export interface SettaAPI {
   chat: {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
+    reconcileRuns: (request: ReconcileChatRunsRequest) => Promise<ReconcileChatRunsResponse>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
     deleteConversation: (
       workspaceId: string,
@@ -388,24 +406,53 @@ export interface SettaAPI {
       workspaceId: string,
       conversationId: string,
       messageId: string,
-      prompt: string,
+      input: ChatInput,
     ) => Promise<QueueEditResult>;
+    createImageAttachmentFromBytes: (
+      workspaceId: string,
+      conversationId: string,
+      fileName: string,
+      dataBase64: string,
+    ) => Promise<ImageAttachment>;
+    selectImageAttachments: (
+      workspaceId: string,
+      conversationId: string,
+      maxCount: number,
+    ) => Promise<ImageAttachment[]>;
     executeCommand: (
       workspaceId: string,
       conversationId: string,
       raw: string,
       options?: ChatCommandExecutionOptions,
     ) => Promise<ChatCommandExecuteResult>;
+    readCodexDefaults: () => Promise<ChatCodexDefaultsView>;
+    openCodexModelPicker: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ChatCommandExecuteResult>;
+    openCodexPermissionPicker: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ChatCommandExecuteResult>;
     setCodexModel: (
       workspaceId: string,
       conversationId: string,
       modelId: string,
+    ) => Promise<ChatCommandExecuteResult>;
+    setCodexPermissionPreset: (
+      workspaceId: string,
+      conversationId: string,
+      preset: ChatPermissionPresetID,
+      confirmed: boolean,
     ) => Promise<ChatCommandExecuteResult>;
     setCodexReasoningEffort: (
       workspaceId: string,
       conversationId: string,
       effort: ReasoningEffort,
     ) => Promise<ChatCommandExecuteResult>;
+    updateCodexDefaults: (
+      request: UpdateChatCodexDefaultsRequest,
+    ) => Promise<ChatCodexDefaultsView>;
     setConversationPinned: (
       workspaceId: string,
       conversationId: string,
@@ -420,20 +467,31 @@ export interface SettaAPI {
     messagePage: (
       workspaceId: string,
       conversationId: string,
-      beforeOrdinal: number,
+      beforeBlockOrdinal: number,
       limit: number,
     ) => Promise<MessagePage>;
+    listComposerPromptHistory: (
+      workspaceId: string,
+      conversationId: string,
+      beforeOrdinal: number,
+      limit: number,
+    ) => Promise<ComposerPromptHistoryPage>;
     queueMessage: (
       workspaceId: string,
       conversationId: string,
-      prompt: string,
+      input: ChatInput,
     ) => Promise<QueueMessageResult>;
     removeQueuedMessage: (
       workspaceId: string,
       conversationId: string,
       messageId: string,
     ) => Promise<QueueRemoveResult>;
-    runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
+    runActivity: (
+      workspaceId: string,
+      runId: string,
+      afterItemId: string,
+      limit: number,
+    ) => Promise<RunActivityPage>;
     runItemOutput: (
       workspaceId: string,
       runId: string,
@@ -441,20 +499,40 @@ export interface SettaAPI {
       afterOrdinal: number,
       limit: number,
     ) => Promise<RunItemOutputPage>;
+    listBackgroundTerminals: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<BackgroundTerminalListProjection>;
+    getBackgroundTerminalOutput: (
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+      afterOrdinal: number,
+      limit: number,
+    ) => Promise<BackgroundTerminalOutputPage>;
+    killBackgroundTerminal: (
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+    ) => Promise<BackgroundTerminalProcess>;
+    killAllBackgroundTerminals: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<BackgroundTerminalListProjection>;
     sendMessage: (
       workspaceId: string,
       conversationId: string,
-      prompt: string,
+      input: ChatInput,
     ) => Promise<SendMessageResult>;
     sendSteeringImmediately: (
       workspaceId: string,
       conversationId: string,
-      prompt?: string,
+      input?: ChatInput,
     ) => Promise<ImmediateSteeringResult>;
     steerMessage: (
       workspaceId: string,
       conversationId: string,
-      prompt: string,
+      input: ChatInput,
     ) => Promise<SteerMessageResult>;
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
@@ -588,11 +666,19 @@ export interface SettaAPI {
     onEvent: (listener: (event: WorkflowEvent) => void) => () => void;
     readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
     readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
+    readNodeTrajectory: (
+      request: ReadWorkflowNodeTrajectoryRequest,
+    ) => Promise<WorkflowAgentTrajectoryPage>;
+    retryNodeRunLiveness: (
+      request: RetryWorkflowNodeRunLivenessRequest,
+    ) => Promise<RunLivenessReconciliationResult>;
     startExecution: (
       workspaceId: string,
       definitionId: string,
       versionId?: string,
     ) => Promise<WorkflowExecution>;
+    steerNodeRun: (request: SteerWorkflowNodeRunRequest) => Promise<SteerMessageResult>;
+    stopNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
     submitApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
     updateDefinition: (
       workspaceId: string,

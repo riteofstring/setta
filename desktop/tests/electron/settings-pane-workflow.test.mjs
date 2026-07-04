@@ -239,5 +239,6 @@ function storedPane(pane) {
     ...pane,
     heat: (pane.sequence * 37) % 100,
     terminalConfig: null,
+    workflowNodeDetailsConfig: null,
   };
 }

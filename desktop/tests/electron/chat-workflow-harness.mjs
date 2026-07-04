@@ -126,6 +126,18 @@ export async function clickButtonContainingText(client, text) {
   });
 }
 
+export async function clickButtonContainingTextByRole(client, role, text) {
+  await waitForState(
+    client,
+    buttonContainingTextByRoleClickExpression(role, text),
+    (value) => value.clicked,
+  ).catch((error) => {
+    throw new Error(
+      `button with role ${role} containing text was not clickable: ${text}: ${error.message}`,
+    );
+  });
+}
+
 export async function scrollSidebarNavigationTo(client, scrollTop) {
   const scrolled = await client.driver("scrollSidebarNavigationTo", { scrollTop });
   if (!scrolled) {
@@ -152,6 +164,10 @@ function buttonClickExpression(kind, value) {
 
 function buttonContainingTextClickExpression(text) {
   return driverCallExpression("clickButtonContainingText", { text });
+}
+
+function buttonContainingTextByRoleClickExpression(role, text) {
+  return driverCallExpression("clickButtonContainingTextByRole", { role, text });
 }
 
 export async function waitForText(client, text, timeoutMs = workflowTimeoutMs) {
@@ -188,6 +204,16 @@ export async function waitForState(client, expression, isReady, timeoutMs = work
     await delay(100);
   }
   throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
+}
+
+export async function waitForDriverState(
+  client,
+  method,
+  args,
+  isReady,
+  timeoutMs = workflowTimeoutMs,
+) {
+  return waitForState(client, driverCallExpression(method, args), isReady, timeoutMs);
 }
 
 export async function backendProbe(recordingDir) {
@@ -493,7 +519,9 @@ export async function assertAssistantCompleted(backend, workspaceId, conversatio
 }
 
 function messageText(message) {
-  return message.parts.map((part) => part.text).join("");
+  return message.parts
+    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
+    .join("");
 }
 
 export async function launchContext(fixture, recordingDir, options = {}) {
@@ -766,7 +794,7 @@ export function failureWithLogs(error, logs) {
 }
 
 export async function assertRecordingEvidence(recordingDir, expected) {
-  await assertNoIpcFailures(recordingDir);
+  await assertNoIpcFailures(recordingDir, expected.expectedIpcFailures ?? []);
   await assertLayoutSnapshotsRecorded(recordingDir);
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   for (const channel of expected.ipcChannels) {
@@ -817,10 +845,14 @@ async function waitForLayoutSnapshots(recordingDir) {
   return snapshots;
 }
 
-async function assertNoIpcFailures(recordingDir) {
+async function assertNoIpcFailures(recordingDir, expectedIpcFailures) {
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   const failures = ipc.filter(
-    (entry) => entry.type === "ipc_failure" && !isExpectedInitialTerminalAttachMiss(entry),
+    (entry) =>
+      entry.type === "ipc_failure" &&
+      !isExpectedInitialTerminalAttachMiss(entry) &&
+      !isExpectedBackgroundTerminalUnsupportedKill(entry) &&
+      !expectedIpcFailures.some((isExpected) => isExpected(entry)),
   );
   if (failures.length > 0) {
     throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
@@ -832,6 +864,15 @@ function isExpectedInitialTerminalAttachMiss(entry) {
     entry.channel === "terminal:attach" &&
     typeof entry.error?.message === "string" &&
     entry.error.message.includes("terminal session not found")
+  );
+}
+
+function isExpectedBackgroundTerminalUnsupportedKill(entry) {
+  return (
+    (entry.channel === "chat:kill-background-terminal" ||
+      entry.channel === "chat:kill-all-background-terminals") &&
+    typeof entry.error?.message === "string" &&
+    entry.error.message.includes("does not support provider termination")
   );
 }
 

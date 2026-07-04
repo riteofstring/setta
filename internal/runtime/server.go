@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,8 +11,10 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"setta/internal/appearance"
@@ -47,6 +51,19 @@ const (
 	ChatHarnessScriptedWorkflow ChatHarnessMode = "scripted-workflow"
 )
 
+const (
+	e2eChatFailFirstTranscriptBlockIDEnv          = "SETTA_E2E_CHAT_FAIL_FIRST_TRANSCRIPT_BLOCK_ID"
+	e2eChatFailPostCommitStartupPointEnv          = "SETTA_E2E_CHAT_FAIL_POST_COMMIT_STARTUP_POINT"
+	e2eChatFailPostCommitStartupAttemptEnv        = "SETTA_E2E_CHAT_FAIL_POST_COMMIT_STARTUP_ATTEMPT"
+	e2eWorkflowFailFirstRunnerPostStartPersistEnv = "SETTA_E2E_WORKFLOW_FAIL_FIRST_RUNNER_POST_START_PERSIST"
+)
+
+const (
+	httpMaxHeaderBytes    = 1 * 1024 * 1024
+	httpReadHeaderTimeout = 5 * time.Second
+	httpReadTimeout       = 30 * time.Second
+)
+
 type ReadyEvent struct {
 	Event string `json:"event"`
 	Addr  string `json:"addr"`
@@ -60,6 +77,7 @@ type Server struct {
 	closeWorkflowStore      func() error
 	closeEvents             func()
 	closeWorkflowEvents     func()
+	drainChatTurns          func(context.Context) error
 	codexManager            *codexapp.Manager
 	server                  *http.Server
 	listener                net.Listener
@@ -151,6 +169,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeWorkflowStore:      services.workflowStore.Close,
 		closeEvents:             services.chatService.CloseEvents,
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
+		drainChatTurns:          services.chatService.ShutdownActiveTurns,
 		codexManager:            services.codexManager,
 		server:                  newHTTPServer(config, services),
 		listener:                listener,
@@ -357,11 +376,94 @@ func newChatService(
 	if err != nil {
 		return nil, err
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, harness)
+	options, err := chatServiceOptionsFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, harness, options...)
 	if err != nil {
 		return nil, fmt.Errorf("create chat service: %w", err)
 	}
 	return chatService, nil
+}
+
+func chatServiceOptionsFromEnv() ([]chat.Option, error) {
+	var options []chat.Option
+	if os.Getenv(e2eChatFailFirstTranscriptBlockIDEnv) == "1" {
+		options = append(options, chat.WithIDGenerator(e2eFailFirstTranscriptBlockIDGenerator()))
+	}
+	startupFailureOption, ok, err := e2eChatPostCommitStartupFailureOptionFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		options = append(options, startupFailureOption)
+	}
+	return options, nil
+}
+
+func e2eFailFirstTranscriptBlockIDGenerator() func(string) (string, error) {
+	var mu sync.Mutex
+	prefixCounts := map[string]int{}
+	return func(prefix string) (string, error) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		prefixCounts[prefix]++
+		if prefix == "transcript_block" && prefixCounts[prefix] == 1 {
+			return "", errors.New("e2e injected transcript block id failure")
+		}
+		return e2eRandomID(prefix)
+	}
+}
+
+func e2eChatPostCommitStartupFailureOptionFromEnv() (chat.Option, bool, error) {
+	rawPoint := os.Getenv(e2eChatFailPostCommitStartupPointEnv)
+	if rawPoint == "" {
+		return nil, false, nil
+	}
+	point, err := e2eChatPostCommitStartupFailurePoint(rawPoint)
+	if err != nil {
+		return nil, false, err
+	}
+	attempt := 1
+	if rawAttempt := os.Getenv(e2eChatFailPostCommitStartupAttemptEnv); rawAttempt != "" {
+		parsed, err := strconv.Atoi(rawAttempt)
+		if err != nil || parsed <= 0 {
+			return nil, false, fmt.Errorf("invalid %s value %q: must be a positive integer", e2eChatFailPostCommitStartupAttemptEnv, rawAttempt)
+		}
+		attempt = parsed
+	}
+	option, err := chat.WithPostCommitTurnStartFailure(
+		point,
+		attempt,
+		fmt.Errorf("e2e injected post-commit %s failure", rawPoint),
+	)
+	if err != nil {
+		return nil, false, err
+	}
+	return option, true, nil
+}
+
+func e2eChatPostCommitStartupFailurePoint(raw string) (chat.PostCommitTurnStartFailurePoint, error) {
+	switch raw {
+	case string(chat.PostCommitTurnStartFailurePublish):
+		return chat.PostCommitTurnStartFailurePublish, nil
+	case string(chat.PostCommitTurnStartFailureDeliveryInput):
+		return chat.PostCommitTurnStartFailureDeliveryInput, nil
+	case string(chat.PostCommitTurnStartFailureLaunch):
+		return chat.PostCommitTurnStartFailureLaunch, nil
+	default:
+		return "", fmt.Errorf("unsupported %s value %q", e2eChatFailPostCommitStartupPointEnv, raw)
+	}
+}
+
+func e2eRandomID(prefix string) (string, error) {
+	var bytes [16]byte
+	if _, err := rand.Read(bytes[:]); err != nil {
+		return "", err
+	}
+	return prefix + "_" + hex.EncodeToString(bytes[:]), nil
 }
 
 func newWorkflowService(
@@ -373,8 +475,12 @@ func newWorkflowService(
 	if err != nil {
 		return nil, nil, fmt.Errorf("create workflow store: %w", err)
 	}
+	serviceStore := orchestrator.WorkflowStore(workflowStore)
+	if os.Getenv(e2eWorkflowFailFirstRunnerPostStartPersistEnv) == "1" {
+		serviceStore = &e2eWorkflowRunnerPostStartPersistFailStore{Store: workflowStore}
+	}
 	workflowService, err := orchestrator.NewService(
-		workflowStore,
+		serviceStore,
 		workspaceService,
 		orchestrator.WithCodexChatService(chatService),
 	)
@@ -383,6 +489,34 @@ func newWorkflowService(
 		return nil, nil, fmt.Errorf("create workflow service: %w", err)
 	}
 	return workflowService, workflowStore, nil
+}
+
+type e2eWorkflowRunnerPostStartPersistFailStore struct {
+	*orchestrator.Store
+	mu     sync.Mutex
+	failed bool
+}
+
+func (store *e2eWorkflowRunnerPostStartPersistFailStore) PersistTransition(transition orchestrator.WorkflowTransition) ([]orchestrator.WorkflowEventEnvelope, error) {
+	store.mu.Lock()
+	shouldFail := !store.failed && transitionIncludesWorkflowRunnerRefsAttached(transition)
+	if shouldFail {
+		store.failed = true
+	}
+	store.mu.Unlock()
+	if shouldFail {
+		return nil, errors.New("e2e injected workflow runner post-start persistence failure")
+	}
+	return store.Store.PersistTransition(transition)
+}
+
+func transitionIncludesWorkflowRunnerRefsAttached(transition orchestrator.WorkflowTransition) bool {
+	for _, event := range transition.Events {
+		if event.Type == orchestrator.EventRunnerRefsAttached {
+			return true
+		}
+	}
+	return false
 }
 
 func newSemanticGraphService(
@@ -443,6 +577,9 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 			WorkspaceService:         services.workspaceService,
 			WorkflowService:          services.workflowService,
 		}),
+		MaxHeaderBytes:    httpMaxHeaderBytes,
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		ReadTimeout:       httpReadTimeout,
 	}
 }
 
@@ -455,13 +592,39 @@ func (server *Server) Shutdown(ctx context.Context) error {
 		return errors.New("shutdown context is required")
 	}
 	var shutdownErr error
+	httpShutdown := server.startHTTPShutdown(ctx)
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownChatTurns(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.closeEventStreams(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))
-	shutdownErr = firstShutdownError(shutdownErr, server.server.Shutdown(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownSemanticStore())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownWorkflowStore())
 	return shutdownErr
+}
+
+func (server *Server) startHTTPShutdown(ctx context.Context) <-chan error {
+	done := make(chan error, 1)
+	go func() {
+		done <- server.server.Shutdown(ctx)
+	}()
+	return done
+}
+
+func waitHTTPShutdown(ctx context.Context, done <-chan error) error {
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (server *Server) shutdownChatTurns(ctx context.Context) error {
+	if server.drainChatTurns == nil {
+		return nil
+	}
+	return server.drainChatTurns(ctx)
 }
 
 func (server *Server) closeEventStreams(ctx context.Context) error {

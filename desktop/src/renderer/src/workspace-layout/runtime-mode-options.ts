@@ -1,6 +1,10 @@
 import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import type { WorkspaceUILayout } from "@generated/backend";
-import { generateBenchmarkScene, phaseOneVisiblePaneCount } from "./benchmark-scene";
+import {
+  generateBenchmarkScene,
+  phaseOneVisiblePaneCount,
+  type BenchmarkSceneOptions,
+} from "./benchmark-scene";
 import type { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { LocalStoragePerformanceReportWriter } from "./performance-report";
 import { DEFAULT_PANE_BUDGET } from "./runtime-policy";
@@ -89,7 +93,9 @@ export function paneLimitsForRuntime(mode: WorkspaceSceneMode) {
 }
 
 export function hostPoolSizeForRuntime(mode: WorkspaceSceneMode, scene: WorkspaceScene): number {
-  return mode === "benchmark" ? phaseOneVisiblePaneCount : scene.totalPanes;
+  return mode === "benchmark"
+    ? benchmarkHostPoolSizeFromSearch(currentLocationSearch())
+    : scene.totalPanes;
 }
 
 export function presentationOptionsForRuntime(mode: WorkspaceSceneMode) {
@@ -114,8 +120,30 @@ export function runtimePolicyBudgetForRuntime(
   return workspaceRuntimeBudgetForScene(scene);
 }
 
-export function sceneForRuntime(realScene: RealWorkspaceSceneResult | null): WorkspaceScene {
-  return realScene?.scene ?? generateBenchmarkScene();
+export function benchmarkSceneOptionsFromSearch(search: string): BenchmarkSceneOptions {
+  const params = new URLSearchParams(search);
+  const paneCount = optionalPositiveIntegerParam(params, "workspaceBenchmarkPaneCount");
+  const targetVisiblePanes = optionalPositiveIntegerParam(params, "workspaceBenchmarkVisiblePanes");
+  return {
+    ...(paneCount === undefined ? {} : { paneCount }),
+    ...(targetVisiblePanes === undefined ? {} : { targetVisiblePanes }),
+  };
+}
+
+export function benchmarkHostPoolSizeFromSearch(search: string): number {
+  return benchmarkSceneOptionsFromSearch(search).targetVisiblePanes ?? phaseOneVisiblePaneCount;
+}
+
+export function sceneForRuntime(
+  realScene: RealWorkspaceSceneResult | null,
+  mode: WorkspaceSceneMode,
+): WorkspaceScene {
+  if (realScene) {
+    return realScene.scene;
+  }
+  return mode === "benchmark"
+    ? generateBenchmarkScene(benchmarkSceneOptionsFromSearch(currentLocationSearch()))
+    : generateBenchmarkScene();
 }
 
 export function snapshotStaticFallbackForRuntime(mode: WorkspaceSceneMode): boolean {
@@ -137,4 +165,23 @@ function workspaceRuntimeBudgetForScene(scene: WorkspaceScene): PaneRuntimeBudge
     maxLiveWebGpuCanvases: visiblePaneBudget,
     maxSnapshotPanes: visiblePaneBudget,
   };
+}
+
+function optionalPositiveIntegerParam(params: URLSearchParams, key: string): number | undefined {
+  const raw = params.get(key);
+  if (raw === null) {
+    return undefined;
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${key} must be a positive integer: ${raw}`);
+  }
+  return value;
+}
+
+function currentLocationSearch(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.location?.search ?? "";
 }

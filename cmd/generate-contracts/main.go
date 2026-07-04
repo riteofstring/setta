@@ -11,15 +11,8 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/appearance"
 	"setta/internal/chat"
-	"setta/internal/codexaccount"
 	"setta/internal/httpapi"
-	"setta/internal/orchestrator"
-	"setta/internal/semanticgraph"
-	"setta/internal/terminal"
-	"setta/internal/workspaceactivity"
-	"setta/internal/workspaceui"
 )
 
 type contractSpec struct {
@@ -27,23 +20,38 @@ type contractSpec struct {
 	ErrorResponse reflect.Type
 	Events        []eventSpec
 	Interfaces    []interfaceSpec
+	Unions        []unionSpec
 	ValueSets     []valueSetSpec
 }
 
 type endpointSpec struct {
-	Method        string
-	Name          string
-	OperationName string
-	Path          string
-	Request       reflect.Type
-	Response      reflect.Type
-	StreamEvent   reflect.Type
-	Streaming     bool
+	Method                string
+	Name                  string
+	OperationName         string
+	Path                  string
+	Request               reflect.Type
+	Response              reflect.Type
+	StreamEvent           reflect.Type
+	Streaming             bool
+	RequestBodyLimitBytes int64
 }
 
 type interfaceSpec struct {
 	Name string
 	Type reflect.Type
+}
+
+type unionSpec struct {
+	Discriminator string
+	Name          string
+	Type          reflect.Type
+	Variants      []unionVariantSpec
+}
+
+type unionVariantSpec struct {
+	KindValue string
+	Name      string
+	Type      reflect.Type
 }
 
 type valueSetSpec struct {
@@ -61,6 +69,9 @@ type contractCollector struct {
 	specs          []interfaceSpec
 	states         map[reflect.Type]visitState
 	names          map[string]reflect.Type
+	unionRegistry  map[reflect.Type]unionSpec
+	unions         []unionSpec
+	usedUnions     map[reflect.Type]bool
 	valueSets      map[string]valueSetSpec
 	usedValueSets  []valueSetSpec
 	usedValueNames map[string]bool
@@ -107,6 +118,8 @@ func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContract
 	collector := contractCollector{
 		states:         map[reflect.Type]visitState{},
 		names:          map[string]reflect.Type{},
+		unionRegistry:  contractUnions(),
+		usedUnions:     map[reflect.Type]bool{},
 		valueSets:      valueSets,
 		usedValueNames: map[string]bool{},
 	}
@@ -127,63 +140,9 @@ func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContract
 		ErrorResponse: errorResponse,
 		Events:        events,
 		Interfaces:    collector.specs,
+		Unions:        collector.unions,
 		ValueSets:     collector.usedValueSets,
 	}, nil
-}
-
-func contractValueSets() []chat.ContractValueSet {
-	sets := chat.ContractValueSets()
-	for _, set := range appearance.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range codexaccount.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range orchestrator.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range semanticgraph.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range terminal.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range workspaceactivity.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range workspaceui.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	return sets
-}
-
-func valueSetSpecs(registry []chat.ContractValueSet) (map[string]valueSetSpec, error) {
-	specs := map[string]valueSetSpec{}
-	for _, valueSet := range registry {
-		if !isTypeScriptIdentifier(valueSet.Name) || !isUpperASCII(valueSet.Name[0]) {
-			return nil, fmt.Errorf("unsupported value set name %s", valueSet.Name)
-		}
-		if _, exists := specs[valueSet.Name]; exists {
-			return nil, fmt.Errorf("duplicate value set %s", valueSet.Name)
-		}
-		if len(valueSet.Values) == 0 {
-			return nil, fmt.Errorf("%s value set is empty", valueSet.Name)
-		}
-		seenValues := map[string]bool{}
-		values := make([]string, 0, len(valueSet.Values))
-		for _, value := range valueSet.Values {
-			if value == "" {
-				return nil, fmt.Errorf("%s value set contains an empty value", valueSet.Name)
-			}
-			if seenValues[value] {
-				return nil, fmt.Errorf("%s value set contains duplicate value %q", valueSet.Name, value)
-			}
-			seenValues[value] = true
-			values = append(values, value)
-		}
-		specs[valueSet.Name] = valueSetSpec{Name: valueSet.Name, Values: values}
-	}
-	return specs, nil
 }
 
 func endpointSpecs(endpoints []httpapi.ContractEndpoint, collector *contractCollector) ([]endpointSpec, error) {
@@ -233,14 +192,15 @@ func validateEndpoint(index int, endpoint httpapi.ContractEndpoint, names map[st
 	}
 	routes[routeKey] = true
 	return endpointSpec{
-		Method:        endpoint.Method,
-		Name:          endpoint.Name,
-		OperationName: lowerCamel(endpoint.Name),
-		Path:          endpoint.Path,
-		Request:       endpoint.Request,
-		Response:      endpoint.Response,
-		StreamEvent:   endpoint.StreamEvent,
-		Streaming:     endpoint.Streaming,
+		Method:                endpoint.Method,
+		Name:                  endpoint.Name,
+		OperationName:         lowerCamel(endpoint.Name),
+		Path:                  endpoint.Path,
+		Request:               endpoint.Request,
+		Response:              endpoint.Response,
+		StreamEvent:           endpoint.StreamEvent,
+		Streaming:             endpoint.Streaming,
+		RequestBodyLimitBytes: endpoint.RequestBodyLimitBytes,
 	}, nil
 }
 
@@ -278,8 +238,14 @@ func validateRouteRequestContract(endpoint httpapi.ContractEndpoint) error {
 	if endpoint.Method == http.MethodGet && endpoint.Request != nil {
 		return fmt.Errorf("%s GET endpoint must not declare a request body", endpoint.Name)
 	}
+	if endpoint.Method == http.MethodGet && endpoint.RequestBodyLimitBytes != 0 {
+		return fmt.Errorf("%s GET endpoint must not declare a request body limit", endpoint.Name)
+	}
 	if endpoint.Method == http.MethodPost && endpoint.Request == nil {
 		return fmt.Errorf("%s POST endpoint must declare a request body", endpoint.Name)
+	}
+	if endpoint.Method == http.MethodPost && endpoint.RequestBodyLimitBytes <= 0 {
+		return fmt.Errorf("%s POST endpoint must declare a positive request body limit", endpoint.Name)
 	}
 	return nil
 }
@@ -384,9 +350,32 @@ func (collector *contractCollector) add(goType reflect.Type) error {
 		return collector.add(goType.Elem())
 	case reflect.Struct:
 		return collector.addStruct(goType)
+	case reflect.Interface:
+		return collector.addUnion(goType)
 	default:
 		return fmt.Errorf("unsupported Go type %s", goType)
 	}
+}
+
+func (collector *contractCollector) addUnion(goType reflect.Type) error {
+	spec, ok := collector.unionRegistry[goType]
+	if !ok {
+		return fmt.Errorf("unsupported Go interface contract type %s", goType)
+	}
+	if err := collector.registerStructName(spec.Name, goType); err != nil {
+		return err
+	}
+	if collector.usedUnions[goType] {
+		return nil
+	}
+	collector.usedUnions[goType] = true
+	for _, variant := range spec.Variants {
+		if err := collector.add(variant.Type); err != nil {
+			return fmt.Errorf("%s.%s variant: %w", spec.Name, variant.Name, err)
+		}
+	}
+	collector.unions = append(collector.unions, spec)
+	return nil
 }
 
 func (collector *contractCollector) addStringAlias(goType reflect.Type) error {
@@ -495,11 +484,13 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 	if err := renderInterfaces(buffer, specs.Interfaces); err != nil {
 		return err
 	}
+	renderUnions(buffer, specs.Unions)
 	renderEventUnion(buffer, specs.Events)
 	renderEndpointDescriptors(buffer, specs.Endpoints)
 	if err := renderDecoders(buffer, specs.Interfaces); err != nil {
 		return err
 	}
+	renderUnionDecoders(buffer, specs.Unions)
 	renderEventDecoders(buffer, specs.Events)
 	renderClient(buffer, specs)
 	return nil
@@ -562,6 +553,20 @@ func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec) error {
 	return nil
 }
 
+func renderUnions(buffer *bytes.Buffer, specs []unionSpec) {
+	for _, spec := range specs {
+		fmt.Fprintf(buffer, "export type %s =\n", spec.Name)
+		for index, variant := range spec.Variants {
+			prefix := "  | "
+			if index == 0 {
+				prefix = "  "
+			}
+			fmt.Fprintf(buffer, "%s%s\n", prefix, variant.Name)
+		}
+		buffer.WriteString(";\n\n")
+	}
+}
+
 func renderEventUnion(buffer *bytes.Buffer, events []eventSpec) {
 	if len(events) == 0 {
 		return
@@ -591,17 +596,6 @@ func renderEventUnion(buffer *bytes.Buffer, events []eventSpec) {
 	}
 }
 
-func renderEndpointDescriptors(buffer *bytes.Buffer, endpoints []endpointSpec) {
-	buffer.WriteString("export const backendEndpoints = {\n")
-	for _, endpoint := range endpoints {
-		fmt.Fprintf(buffer, "  %s: {\n", endpoint.Name)
-		fmt.Fprintf(buffer, "    method: %q,\n", endpoint.Method)
-		fmt.Fprintf(buffer, "    path: %q,\n", endpoint.Path)
-		buffer.WriteString("  },\n")
-	}
-	buffer.WriteString("} as const;\n\n")
-}
-
 func renderDecoders(buffer *bytes.Buffer, specs []interfaceSpec) error {
 	for _, spec := range specs {
 		if err := renderStructDecoder(buffer, spec); err != nil {
@@ -609,6 +603,23 @@ func renderDecoders(buffer *bytes.Buffer, specs []interfaceSpec) error {
 		}
 	}
 	return nil
+}
+
+func renderUnionDecoders(buffer *bytes.Buffer, specs []unionSpec) {
+	for _, spec := range specs {
+		fmt.Fprintf(buffer, "export function %s(value: unknown): %s {\n", decoderFunctionName(spec.Type), spec.Name)
+		fmt.Fprintf(buffer, "  const record = assertRecord(value, %q);\n", spec.Name)
+		fmt.Fprintf(buffer, "  const discriminator = decodeString(requireField(record, %q, %q), %q);\n", spec.Discriminator, spec.Name, spec.Name+"."+spec.Discriminator)
+		buffer.WriteString("  switch (discriminator) {\n")
+		for _, variant := range spec.Variants {
+			fmt.Fprintf(buffer, "    case %q:\n", variant.KindValue)
+			fmt.Fprintf(buffer, "      return %s(value);\n", decoderFunctionName(variant.Type))
+		}
+		buffer.WriteString("    default:\n")
+		fmt.Fprintf(buffer, "      throw new Error(%q + \" is unsupported: \" + discriminator);\n", spec.Name+"."+spec.Discriminator)
+		buffer.WriteString("  }\n")
+		buffer.WriteString("}\n\n")
+	}
 }
 
 func renderEventDecoders(buffer *bytes.Buffer, events []eventSpec) {
@@ -649,7 +660,26 @@ func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
 	fmt.Fprintf(buffer, "export function %s(value: unknown): %s {\n", decoderFunctionName(spec.Type), spec.Name)
 	fmt.Fprintf(buffer, "  const record = assertRecord(value, %q);\n", spec.Name)
 	fmt.Fprintf(buffer, "  assertKnownFields(record, %q, [%s]);\n", spec.Name, fieldNameLiterals(spec.Type))
-	buffer.WriteString("  return {\n")
+	taggedUnion, isTagged := contractTaggedUnionForType(spec.Type)
+	if !isTagged {
+		buffer.WriteString("  return {\n")
+		if err := renderStructDecoderFields(buffer, spec); err != nil {
+			return err
+		}
+		buffer.WriteString("  };\n}\n\n")
+		return nil
+	}
+	fmt.Fprintf(buffer, "  const result: %s = {\n", spec.Name)
+	if err := renderStructDecoderFields(buffer, spec); err != nil {
+		return err
+	}
+	buffer.WriteString("  };\n")
+	renderTaggedUnionAssertion(buffer, spec.Name, taggedUnion)
+	buffer.WriteString("  return result;\n}\n\n")
+	return nil
+}
+
+func renderStructDecoderFields(buffer *bytes.Buffer, spec interfaceSpec) error {
 	for index := range spec.Type.NumField() {
 		field := spec.Type.Field(index)
 		name := jsonName(field)
@@ -663,8 +693,6 @@ func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
 		}
 		fmt.Fprintf(buffer, "    %s: %s,\n", name, decoded)
 	}
-	buffer.WriteString("  };\n")
-	buffer.WriteString("}\n\n")
 	return nil
 }
 
@@ -736,6 +764,8 @@ func decoderExpression(goType reflect.Type, valueExpr string, label string) (str
 		return pointerDecoderExpression(goType, valueExpr, label)
 	case reflect.Struct:
 		return structDecoderExpression(goType, valueExpr), nil
+	case reflect.Interface:
+		return unionDecoderExpression(goType, valueExpr)
 	default:
 		return "", fmt.Errorf("unsupported Go type %s", goType)
 	}
@@ -793,6 +823,13 @@ func structDecoderExpression(goType reflect.Type, valueExpr string) string {
 	return fmt.Sprintf("%s(%s)", decoderFunctionName(goType), valueExpr)
 }
 
+func unionDecoderExpression(goType reflect.Type, valueExpr string) (string, error) {
+	if _, ok := contractUnionForType(goType); !ok {
+		return "", fmt.Errorf("unsupported Go interface contract type %s", goType)
+	}
+	return fmt.Sprintf("%s(%s)", decoderFunctionName(goType), valueExpr), nil
+}
+
 func fieldNameLiterals(goType reflect.Type) string {
 	names := make([]string, 0, goType.NumField())
 	for index := range goType.NumField() {
@@ -833,6 +870,8 @@ func typeScriptType(goType reflect.Type) (string, error) {
 		return pointerTypeScriptType(goType)
 	case reflect.Struct:
 		return structTypeScriptType(goType)
+	case reflect.Interface:
+		return unionTypeScriptType(goType)
 	default:
 		return "", fmt.Errorf("unsupported Go type %s", goType)
 	}
@@ -891,6 +930,19 @@ func structTypeScriptType(goType reflect.Type) (string, error) {
 		return "", fmt.Errorf("unsupported anonymous Go struct %s", goType)
 	}
 	return goType.Name(), nil
+}
+
+func unionTypeScriptType(goType reflect.Type) (string, error) {
+	spec, ok := contractUnionForType(goType)
+	if !ok {
+		return "", fmt.Errorf("unsupported Go interface contract type %s", goType)
+	}
+	return spec.Name, nil
+}
+
+func contractUnionForType(goType reflect.Type) (unionSpec, bool) {
+	spec, ok := contractUnions()[goType]
+	return spec, ok
 }
 
 func decoderFunctionName(goType reflect.Type) string {

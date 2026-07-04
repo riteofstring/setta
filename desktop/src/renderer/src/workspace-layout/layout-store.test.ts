@@ -13,7 +13,13 @@ import {
   paneResizePreviewForPointerMove,
   type PaneResizeSession,
 } from "./pane-resize-session";
-import type { WorkspaceColumn, WorkspaceScene, PaneLimitPolicy, Rect } from "./types";
+import type {
+  WorkspaceColumn,
+  WorkspacePane,
+  WorkspaceScene,
+  PaneLimitPolicy,
+  Rect,
+} from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
 const viewport: Rect = {
@@ -298,6 +304,51 @@ describe("workspace layout store", () => {
       }),
     ).toThrow("workspace pane limit reached for settings-dom");
     expect(store.toScene().paneById.get(emptyPaneId)?.surfaceKind).toBe("empty-frame");
+  });
+
+  test("allows reconfiguring a pane that already owns a limited surface kind", () => {
+    const store = createStore({ "settings-dom": 1 });
+    const paneId = "workspace_pane_3";
+    const before = store.toScene().paneById.get(paneId);
+
+    expect(() =>
+      store.configurePane(paneId, {
+        surfaceKind: "settings-dom",
+        title: "Settings Reloaded",
+      }),
+    ).not.toThrow();
+
+    const configured = store.toScene().paneById.get(paneId);
+    expect(configured).toMatchObject({
+      paneId,
+      surfaceKind: "settings-dom",
+      title: "Settings Reloaded",
+    });
+    expect(configured?.surfaceId).not.toBe(before?.surfaceId);
+  });
+
+  test("reconfigures a workflow node details pane target despite the one-pane limit", () => {
+    const store = createStore({ "workflow-node-details": 1 });
+    const firstTarget = workflowNodeDetailsConfig("workspace_api", "activity");
+    const secondTarget = workflowNodeDetailsConfig("workspace_api", "review");
+    const paneId = store.openPane({
+      surfaceKind: "workflow-node-details",
+      title: "Workflow Node",
+      workflowNodeDetailsConfig: firstTarget,
+    });
+    const before = store.toScene().paneById.get(paneId);
+
+    expect(() =>
+      store.configurePane(paneId, {
+        surfaceKind: "workflow-node-details",
+        title: "Workflow Node",
+        workflowNodeDetailsConfig: secondTarget,
+      }),
+    ).not.toThrow();
+
+    const configured = store.toScene().paneById.get(paneId);
+    expect(configured?.workflowNodeDetailsConfig).toEqual(secondTarget);
+    expect(configured?.surfaceId).not.toBe(before?.surfaceId);
   });
 
   test("uses the current row count inside a stacked column", () => {
@@ -1006,6 +1057,29 @@ function createStore(paneLimits?: PaneLimitPolicy): WorkspaceLayoutStore {
   return new WorkspaceLayoutStore(new WorkspaceLikeLayoutEngine(scene), scene, focusedPaneId, {
     paneLimits,
   });
+}
+
+function workflowNodeDetailsConfig(
+  workspaceId: string,
+  nodeId: string,
+): NonNullable<WorkspacePane["workflowNodeDetailsConfig"]> {
+  return {
+    definitionId: "workflow_definition_test",
+    definitionName: "Review Workflow",
+    definitionVersionId: "workflow_version_test",
+    definitionVersionNumber: 1,
+    executionId: "workflow_execution_test",
+    nodeId,
+    nodeExecutionId: `workflow_node_execution_${nodeId}`,
+    nodeKind: "action",
+    nodeLabel: nodeId,
+    nodeStatus: "succeeded",
+    projectionIncomingEdges: [],
+    projectionOutgoingEdges: [],
+    versionMismatch: false,
+    viewMode: "run",
+    workspaceId,
+  };
 }
 
 function createOverviewZoomFixture(): {
