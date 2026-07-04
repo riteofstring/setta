@@ -198,6 +198,37 @@ export function ActivityApprovalDetails({ details }: { details: RunActivityDetai
   );
 }
 
+export function ActivityProviderStreamLifecycleDetails({
+  details,
+}: {
+  details: RunActivityDetailsProjection;
+}) {
+  const lifecycle = details.providerStreamLifecycle;
+  if (lifecycle === null) {
+    return null;
+  }
+  return (
+    <>
+      <ActivityTextBlock
+        title="Message"
+        tone={lifecycle.willRetry ? "normal" : "error"}
+        value={lifecycle.message}
+      />
+      <ActivityTextBlock title="Additional Details" value={lifecycle.additionalDetails} />
+      <ActivityTextBlock title="Codex Error" value={lifecycle.codexErrorKind} />
+      <ActivityTextBlock title="Will Retry" value={String(lifecycle.willRetry)} />
+      <ActivityTextBlock title="Stream Failure" value={String(lifecycle.streamFailure)} />
+      <ActivityTextBlock
+        title="Liveness"
+        value={`${lifecycle.livenessStatus} / ${lifecycle.livenessReason}`}
+      />
+      <ActivityTextBlock title="Thread" monospace value={lifecycle.providerThreadId} />
+      <ActivityTextBlock title="Turn" monospace value={lifecycle.providerTurnId} />
+      <ActivityJSONBlock details={lifecycle.codexErrorInfo} title="Codex Error Info" />
+    </>
+  );
+}
+
 function dynamicToolSuccessText(success: boolean | null) {
   if (success === null) {
     return "";

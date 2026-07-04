@@ -3,41 +3,43 @@ package chat
 import "encoding/json"
 
 type RunItemDetails struct {
-	Kind             RunItemDetailsKind              `json:"kind"`
-	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
-	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
-	DynamicToolCall  *RunItemDynamicToolCallDetails  `json:"dynamicToolCall"`
-	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
-	Diff             *RunItemDiffDetails             `json:"diff"`
-	Approval         *RunItemApprovalDetails         `json:"approval"`
+	Kind                    RunItemDetailsKind                     `json:"kind"`
+	CommandExecution        *RunItemCommandExecutionDetails        `json:"commandExecution"`
+	MCPToolCall             *RunItemMCPToolCallDetails             `json:"mcpToolCall"`
+	DynamicToolCall         *RunItemDynamicToolCallDetails         `json:"dynamicToolCall"`
+	FileChange              *RunItemFileChangeDetails              `json:"fileChange"`
+	Diff                    *RunItemDiffDetails                    `json:"diff"`
+	Approval                *RunItemApprovalDetails                `json:"approval"`
+	ProviderStreamLifecycle *RunItemProviderStreamLifecycleDetails `json:"providerStreamLifecycle"`
 }
 
 type RunActivityDetailsProjection struct {
-	Summary          string                          `json:"summary"`
-	Command          string                          `json:"command"`
-	Cwd              string                          `json:"cwd"`
-	ExitCode         int                             `json:"exitCode"`
-	DurationMs       int                             `json:"durationMs"`
-	FilePaths        []string                        `json:"filePaths"`
-	PatchStatus      string                          `json:"patchStatus"`
-	ServerName       string                          `json:"serverName"`
-	ToolName         string                          `json:"toolName"`
-	Progress         string                          `json:"progress"`
-	Result           string                          `json:"result"`
-	Error            string                          `json:"error"`
-	NoticeKind       string                          `json:"noticeKind"`
-	NoticeMessage    string                          `json:"noticeMessage"`
-	Namespace        string                          `json:"namespace"`
-	ProcessID        string                          `json:"processId"`
-	RequestID        string                          `json:"requestId"`
-	ReviewID         string                          `json:"reviewId"`
-	Details          json.RawMessage                 `json:"details"`
-	CommandExecution *RunItemCommandExecutionDetails `json:"commandExecution"`
-	MCPToolCall      *RunItemMCPToolCallDetails      `json:"mcpToolCall"`
-	DynamicToolCall  *RunItemDynamicToolCallDetails  `json:"dynamicToolCall"`
-	FileChange       *RunItemFileChangeDetails       `json:"fileChange"`
-	Diff             *RunItemDiffDetails             `json:"diff"`
-	Approval         *RunItemApprovalDetails         `json:"approval"`
+	Summary                 string                                 `json:"summary"`
+	Command                 string                                 `json:"command"`
+	Cwd                     string                                 `json:"cwd"`
+	ExitCode                int                                    `json:"exitCode"`
+	DurationMs              int                                    `json:"durationMs"`
+	FilePaths               []string                               `json:"filePaths"`
+	PatchStatus             string                                 `json:"patchStatus"`
+	ServerName              string                                 `json:"serverName"`
+	ToolName                string                                 `json:"toolName"`
+	Progress                string                                 `json:"progress"`
+	Result                  string                                 `json:"result"`
+	Error                   string                                 `json:"error"`
+	NoticeKind              string                                 `json:"noticeKind"`
+	NoticeMessage           string                                 `json:"noticeMessage"`
+	Namespace               string                                 `json:"namespace"`
+	ProcessID               string                                 `json:"processId"`
+	RequestID               string                                 `json:"requestId"`
+	ReviewID                string                                 `json:"reviewId"`
+	Details                 json.RawMessage                        `json:"details"`
+	CommandExecution        *RunItemCommandExecutionDetails        `json:"commandExecution"`
+	MCPToolCall             *RunItemMCPToolCallDetails             `json:"mcpToolCall"`
+	DynamicToolCall         *RunItemDynamicToolCallDetails         `json:"dynamicToolCall"`
+	FileChange              *RunItemFileChangeDetails              `json:"fileChange"`
+	Diff                    *RunItemDiffDetails                    `json:"diff"`
+	Approval                *RunItemApprovalDetails                `json:"approval"`
+	ProviderStreamLifecycle *RunItemProviderStreamLifecycleDetails `json:"providerStreamLifecycle"`
 }
 
 type RunItemCommandExecutionDetails struct {
@@ -164,75 +166,107 @@ type RunItemApprovalDetails struct {
 	Action            json.RawMessage         `json:"action"`
 }
 
+type RunItemProviderStreamLifecycleDetails struct {
+	Message           string            `json:"message"`
+	AdditionalDetails string            `json:"additionalDetails"`
+	CodexErrorKind    string            `json:"codexErrorKind"`
+	CodexErrorInfo    json.RawMessage   `json:"codexErrorInfo"`
+	WillRetry         bool              `json:"willRetry"`
+	StreamFailure     bool              `json:"streamFailure"`
+	LivenessStatus    RunLivenessStatus `json:"livenessStatus"`
+	LivenessReason    RunLivenessReason `json:"livenessReason"`
+	ProviderThreadID  string            `json:"providerThreadId"`
+	ProviderTurnID    string            `json:"providerTurnId"`
+}
+
 func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDetails {
 	return &RunItemDetails{
-		Kind:             RunItemDetailsKindMCPToolCall,
-		CommandExecution: nil,
-		MCPToolCall:      &details,
-		DynamicToolCall:  nil,
-		FileChange:       nil,
-		Diff:             nil,
-		Approval:         nil,
+		Kind:                    RunItemDetailsKindMCPToolCall,
+		CommandExecution:        nil,
+		MCPToolCall:             &details,
+		DynamicToolCall:         nil,
+		FileChange:              nil,
+		Diff:                    nil,
+		Approval:                nil,
+		ProviderStreamLifecycle: nil,
 	}
 }
 
 func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *RunItemDetails {
 	return &RunItemDetails{
-		Kind:             RunItemDetailsKindCommandExecution,
-		CommandExecution: &details,
-		MCPToolCall:      nil,
-		DynamicToolCall:  nil,
-		FileChange:       nil,
-		Diff:             nil,
-		Approval:         nil,
+		Kind:                    RunItemDetailsKindCommandExecution,
+		CommandExecution:        &details,
+		MCPToolCall:             nil,
+		DynamicToolCall:         nil,
+		FileChange:              nil,
+		Diff:                    nil,
+		Approval:                nil,
+		ProviderStreamLifecycle: nil,
 	}
 }
 
 func NewRunItemDynamicToolCallDetails(details RunItemDynamicToolCallDetails) *RunItemDetails {
 	return &RunItemDetails{
-		Kind:             RunItemDetailsKindDynamicToolCall,
-		CommandExecution: nil,
-		MCPToolCall:      nil,
-		DynamicToolCall:  &details,
-		FileChange:       nil,
-		Diff:             nil,
-		Approval:         nil,
+		Kind:                    RunItemDetailsKindDynamicToolCall,
+		CommandExecution:        nil,
+		MCPToolCall:             nil,
+		DynamicToolCall:         &details,
+		FileChange:              nil,
+		Diff:                    nil,
+		Approval:                nil,
+		ProviderStreamLifecycle: nil,
 	}
 }
 
 func NewRunItemFileChangeDetails(details RunItemFileChangeDetails) *RunItemDetails {
 	return &RunItemDetails{
-		Kind:             RunItemDetailsKindFileChange,
-		CommandExecution: nil,
-		MCPToolCall:      nil,
-		DynamicToolCall:  nil,
-		FileChange:       &details,
-		Diff:             nil,
-		Approval:         nil,
+		Kind:                    RunItemDetailsKindFileChange,
+		CommandExecution:        nil,
+		MCPToolCall:             nil,
+		DynamicToolCall:         nil,
+		FileChange:              &details,
+		Diff:                    nil,
+		Approval:                nil,
+		ProviderStreamLifecycle: nil,
 	}
 }
 
 func NewRunItemDiffDetails(details RunItemDiffDetails) *RunItemDetails {
 	return &RunItemDetails{
-		Kind:             RunItemDetailsKindDiff,
-		CommandExecution: nil,
-		MCPToolCall:      nil,
-		DynamicToolCall:  nil,
-		FileChange:       nil,
-		Diff:             &details,
-		Approval:         nil,
+		Kind:                    RunItemDetailsKindDiff,
+		CommandExecution:        nil,
+		MCPToolCall:             nil,
+		DynamicToolCall:         nil,
+		FileChange:              nil,
+		Diff:                    &details,
+		Approval:                nil,
+		ProviderStreamLifecycle: nil,
 	}
 }
 
 func NewRunItemApprovalDetails(details RunItemApprovalDetails) *RunItemDetails {
 	return &RunItemDetails{
-		Kind:             RunItemDetailsKindApproval,
-		CommandExecution: nil,
-		MCPToolCall:      nil,
-		DynamicToolCall:  nil,
-		FileChange:       nil,
-		Diff:             nil,
-		Approval:         &details,
+		Kind:                    RunItemDetailsKindApproval,
+		CommandExecution:        nil,
+		MCPToolCall:             nil,
+		DynamicToolCall:         nil,
+		FileChange:              nil,
+		Diff:                    nil,
+		Approval:                &details,
+		ProviderStreamLifecycle: nil,
+	}
+}
+
+func NewRunItemProviderStreamLifecycleDetails(details RunItemProviderStreamLifecycleDetails) *RunItemDetails {
+	return &RunItemDetails{
+		Kind:                    RunItemDetailsKindProviderStreamLifecycle,
+		CommandExecution:        nil,
+		MCPToolCall:             nil,
+		DynamicToolCall:         nil,
+		FileChange:              nil,
+		Diff:                    nil,
+		Approval:                nil,
+		ProviderStreamLifecycle: &details,
 	}
 }
 
@@ -297,6 +331,16 @@ func (item RunItem) ApprovalDetails() (*RunItemApprovalDetails, bool) {
 		return nil, false
 	}
 	return item.Details.Approval, true
+}
+
+func (item RunItem) ProviderStreamLifecycleDetails() (*RunItemProviderStreamLifecycleDetails, bool) {
+	if item.Type != RunItemTypeProviderStreamLifecycle ||
+		item.Details == nil ||
+		item.Details.Kind != RunItemDetailsKindProviderStreamLifecycle ||
+		item.Details.ProviderStreamLifecycle == nil {
+		return nil, false
+	}
+	return item.Details.ProviderStreamLifecycle, true
 }
 
 type RunActivityPage struct {

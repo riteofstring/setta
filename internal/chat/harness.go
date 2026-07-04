@@ -264,6 +264,8 @@ type ProviderTurnError struct {
 	AdditionalDetails string
 	CodexErrorInfo    json.RawMessage
 	CodexErrorKind    string
+	ProviderThreadID  string
+	ProviderTurnID    string
 	Retryable         bool
 	StreamFailure     bool
 }

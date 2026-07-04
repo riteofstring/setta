@@ -230,6 +230,14 @@ func TestServiceRetryableProviderTurnErrorMarksStreamResync(t *testing.T) {
 	assertActiveRunLiveness(t, service, conversation.ID, liveness)
 	assertProviderTurnErrorDiagnostic(t, service, conversation.ID, result.Run.ID, "codex_turn_error_retrying", DiagnosticSeverityWarning)
 	assertProviderTurnErrorPartialAssistantText(t, service, conversation.ID)
+	assertProviderStreamLifecycleActivity(t, service, conversation.ID, result.Run.ID, providerStreamLifecycleActivityAssertion{
+		title:          "Codex connection retrying",
+		itemStatus:     RunItemStatusRunning,
+		message:        "response stream disconnected before completion",
+		willRetry:      true,
+		livenessStatus: RunLivenessReconciling,
+		livenessReason: RunLivenessReasonStreamResync,
+	})
 
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
 		t.Fatalf("cancel active run: %v", err)
@@ -264,6 +272,14 @@ func TestServiceNonRetryableStreamTurnErrorMarksActiveRunLost(t *testing.T) {
 	assertActiveRunLiveness(t, service, conversation.ID, liveness)
 	assertProviderTurnErrorDiagnostic(t, service, conversation.ID, result.Run.ID, "codex_stream_error", DiagnosticSeverityCritical)
 	assertProviderTurnErrorPartialAssistantText(t, service, conversation.ID)
+	assertProviderStreamLifecycleActivity(t, service, conversation.ID, result.Run.ID, providerStreamLifecycleActivityAssertion{
+		title:          "Codex stream failed",
+		itemStatus:     RunItemStatusRunning,
+		message:        "stream disconnected before completion",
+		willRetry:      false,
+		livenessStatus: RunLivenessLost,
+		livenessReason: RunLivenessReasonProviderUnavailable,
+	})
 
 	run, err := service.store.LoadRun("workspace_api", result.Run.ID)
 	if err != nil {
@@ -372,6 +388,48 @@ func assertProviderTurnErrorDiagnostic(t *testing.T, service *Service, conversat
 		}
 	}
 	t.Fatalf("diagnostics = %+v, want %s/%s", diagnostics, code, severity)
+}
+
+type providerStreamLifecycleActivityAssertion struct {
+	title          string
+	itemStatus     RunItemStatus
+	message        string
+	willRetry      bool
+	livenessStatus RunLivenessStatus
+	livenessReason RunLivenessReason
+}
+
+func assertProviderStreamLifecycleActivity(t *testing.T, service *Service, conversationID string, runID string, want providerStreamLifecycleActivityAssertion) {
+	t.Helper()
+
+	page, err := service.LoadRunActivityPage("workspace_api", runID, 20)
+	if err != nil {
+		t.Fatalf("load run activity: %v", err)
+	}
+	for _, activity := range page.Activity {
+		if activity.Type != RunItemTypeProviderStreamLifecycle {
+			continue
+		}
+		if activity.Title != want.title || activity.Status != want.itemStatus {
+			t.Fatalf("provider stream activity = %+v, want title %q status %s", activity, want.title, want.itemStatus)
+		}
+		details := activity.Details.ProviderStreamLifecycle
+		if details == nil {
+			t.Fatalf("provider stream activity details missing: %+v", activity.Details)
+		}
+		if details.Message != want.message ||
+			details.CodexErrorKind != "responseStreamDisconnected" ||
+			details.WillRetry != want.willRetry ||
+			!details.StreamFailure ||
+			details.LivenessStatus != want.livenessStatus ||
+			details.LivenessReason != want.livenessReason ||
+			details.ProviderThreadID != "thread_provider_error" ||
+			details.ProviderTurnID != "turn_provider_error" {
+			t.Fatalf("provider stream details = %+v, want message %q retry %t liveness %s/%s", *details, want.message, want.willRetry, want.livenessStatus, want.livenessReason)
+		}
+		return
+	}
+	t.Fatalf("run %s activity = %+v, want provider stream lifecycle row for conversation %s", runID, page.Activity, conversationID)
 }
 
 type providerRestartLifecycleHarness struct {

@@ -125,6 +125,7 @@ function emptyDetails() {
     noticeMessage: "",
     patchStatus: "",
     processId: "",
+    providerStreamLifecycle: null,
     progress: "",
     requestId: "",
     result: "",

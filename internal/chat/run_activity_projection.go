@@ -5,21 +5,22 @@ import (
 )
 
 var runActivityDefaultTitles = map[RunItemType]string{
-	RunItemTypeCommandExecution:    "command execution",
-	RunItemTypeWebSearch:           "web search",
-	RunItemTypeImageView:           "image view",
-	RunItemTypeImageGeneration:     "image generation",
-	RunItemTypeFileChange:          "file change",
-	RunItemTypeTerminalInteraction: "terminal interaction",
-	RunItemTypeDiff:                "Diff updated",
-	RunItemTypeContextCompaction:   "context compaction",
-	RunItemTypePlan:                "Plan update",
-	RunItemTypeReasoning:           "Reasoning summary",
-	RunItemTypeApprovalRequest:     "approval request",
-	RunItemTypeApprovalReview:      "approval review",
-	RunItemTypeHook:                "hook",
-	RunItemTypeStructuredInput:     "structured input",
-	RunItemTypeAgentMessage:        "Assistant message",
+	RunItemTypeCommandExecution:        "command execution",
+	RunItemTypeWebSearch:               "web search",
+	RunItemTypeImageView:               "image view",
+	RunItemTypeImageGeneration:         "image generation",
+	RunItemTypeFileChange:              "file change",
+	RunItemTypeTerminalInteraction:     "terminal interaction",
+	RunItemTypeDiff:                    "Diff updated",
+	RunItemTypeProviderStreamLifecycle: "Codex stream event",
+	RunItemTypeContextCompaction:       "context compaction",
+	RunItemTypePlan:                    "Plan update",
+	RunItemTypeReasoning:               "Reasoning summary",
+	RunItemTypeApprovalRequest:         "approval request",
+	RunItemTypeApprovalReview:          "approval review",
+	RunItemTypeHook:                    "hook",
+	RunItemTypeStructuredInput:         "structured input",
+	RunItemTypeAgentMessage:            "Assistant message",
 }
 
 func effectiveRunActivityRowStatus(runStatus RunStatus, itemStatus RunItemStatus) RunItemStatus {
@@ -59,6 +60,7 @@ func runItemDisplayable(item RunItem, status RunItemStatus, hasDetails bool, has
 		RunItemTypeImageGeneration,
 		RunItemTypeTerminalInteraction,
 		RunItemTypeDiff,
+		RunItemTypeProviderStreamLifecycle,
 		RunItemTypeContextCompaction,
 		RunItemTypeApprovalRequest,
 		RunItemTypeApprovalReview,
@@ -123,6 +125,8 @@ func runActivityTypedTitle(item RunItem) (string, bool) {
 		return runActivityToolTitle(item), true
 	case RunItemTypeApprovalRequest, RunItemTypeApprovalReview:
 		return runActivityApprovalTitle(item), true
+	case RunItemTypeProviderStreamLifecycle:
+		return runActivityProviderStreamLifecycleTitle(item), true
 	case RunItemTypeNotice:
 		return runActivityNoticeTitle(item), true
 	default:
@@ -245,38 +249,51 @@ func runActivityNoticeTitle(item RunItem) string {
 	return "notice"
 }
 
+func runActivityProviderStreamLifecycleTitle(item RunItem) string {
+	details, ok := item.ProviderStreamLifecycleDetails()
+	if !ok {
+		return "Codex stream event"
+	}
+	if details.WillRetry {
+		return "Codex connection retrying"
+	}
+	return "Codex stream failed"
+}
+
 func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 	commandExecution := runItemCommandExecutionDetailsProjection(item)
 	dynamicToolCall := runItemDynamicToolCallDetailsProjection(item)
 	fileChange := runItemFileChangeDetailsProjection(item)
 	diff := runItemDiffDetailsProjection(item)
 	approval := runItemApprovalDetailsProjection(item)
+	providerStreamLifecycle := runItemProviderStreamLifecycleDetailsProjection(item)
 	return RunActivityDetailsProjection{
-		Summary:          publicRunActivitySummary(item),
-		Command:          runActivityCommand(item, commandExecution),
-		Cwd:              runActivityCwd(item, commandExecution),
-		ExitCode:         runActivityExitCode(item, commandExecution),
-		DurationMs:       runActivityDurationMs(item, commandExecution),
-		FilePaths:        runActivityFilePaths(item, fileChange, diff),
-		PatchStatus:      runActivityPatchStatus(item, fileChange),
-		ServerName:       item.ServerName,
-		ToolName:         item.ToolName,
-		Progress:         item.Progress,
-		Result:           runActivityResult(item, commandExecution),
-		Error:            runActivityError(item, commandExecution),
-		NoticeKind:       item.NoticeKind,
-		NoticeMessage:    item.NoticeMessage,
-		Namespace:        item.Namespace,
-		ProcessID:        runActivityProcessID(item, commandExecution),
-		RequestID:        runActivityRequestID(item),
-		ReviewID:         runActivityReviewID(item),
-		Details:          cloneRawMessage(item.RawDetails),
-		CommandExecution: commandExecution,
-		MCPToolCall:      runItemMCPToolCallDetailsProjection(item),
-		DynamicToolCall:  dynamicToolCall,
-		FileChange:       fileChange,
-		Diff:             diff,
-		Approval:         approval,
+		Summary:                 publicRunActivitySummary(item),
+		Command:                 runActivityCommand(item, commandExecution),
+		Cwd:                     runActivityCwd(item, commandExecution),
+		ExitCode:                runActivityExitCode(item, commandExecution),
+		DurationMs:              runActivityDurationMs(item, commandExecution),
+		FilePaths:               runActivityFilePaths(item, fileChange, diff),
+		PatchStatus:             runActivityPatchStatus(item, fileChange),
+		ServerName:              item.ServerName,
+		ToolName:                item.ToolName,
+		Progress:                item.Progress,
+		Result:                  runActivityResult(item, commandExecution),
+		Error:                   runActivityError(item, commandExecution),
+		NoticeKind:              item.NoticeKind,
+		NoticeMessage:           item.NoticeMessage,
+		Namespace:               item.Namespace,
+		ProcessID:               runActivityProcessID(item, commandExecution),
+		RequestID:               runActivityRequestID(item),
+		ReviewID:                runActivityReviewID(item),
+		Details:                 cloneRawMessage(item.RawDetails),
+		CommandExecution:        commandExecution,
+		MCPToolCall:             runItemMCPToolCallDetailsProjection(item),
+		DynamicToolCall:         dynamicToolCall,
+		FileChange:              fileChange,
+		Diff:                    diff,
+		Approval:                approval,
+		ProviderStreamLifecycle: providerStreamLifecycle,
 	}
 }
 
@@ -347,6 +364,11 @@ func cloneApprovalDetails(details RunItemApprovalDetails) RunItemApprovalDetails
 	return details
 }
 
+func cloneProviderStreamLifecycleDetails(details RunItemProviderStreamLifecycleDetails) RunItemProviderStreamLifecycleDetails {
+	details.CodexErrorInfo = cloneRawMessage(details.CodexErrorInfo)
+	return details
+}
+
 func cloneApprovalQuestions(questions []ApprovalQuestion) []ApprovalQuestion {
 	if questions == nil {
 		return nil
@@ -370,16 +392,25 @@ func cloneDynamicToolContentItems(items []RunItemDynamicToolContentItem) []RunIt
 
 func runActivityDetailsInspectable(details RunActivityDetailsProjection) bool {
 	return runActivityStringDetailsInspectable(details) ||
-		details.ExitCode != 0 ||
+		runActivityScalarDetailsInspectable(details) ||
+		runActivityStructuredDetailsInspectable(details)
+}
+
+func runActivityScalarDetailsInspectable(details RunActivityDetailsProjection) bool {
+	return details.ExitCode != 0 ||
 		details.DurationMs != 0 ||
-		len(details.FilePaths) > 0 ||
-		rawDetailsInspectable(details.Details) ||
+		len(details.FilePaths) > 0
+}
+
+func runActivityStructuredDetailsInspectable(details RunActivityDetailsProjection) bool {
+	return rawDetailsInspectable(details.Details) ||
 		details.CommandExecution != nil ||
 		details.MCPToolCall != nil ||
 		details.DynamicToolCall != nil ||
 		details.FileChange != nil ||
 		details.Diff != nil ||
-		details.Approval != nil
+		details.Approval != nil ||
+		details.ProviderStreamLifecycle != nil
 }
 
 func runActivityStringDetailsInspectable(details RunActivityDetailsProjection) bool {
@@ -469,6 +500,15 @@ func runItemApprovalDetailsProjection(item RunItem) *RunItemApprovalDetails {
 		return nil
 	}
 	cloned := cloneApprovalDetails(*details)
+	return &cloned
+}
+
+func runItemProviderStreamLifecycleDetailsProjection(item RunItem) *RunItemProviderStreamLifecycleDetails {
+	details, ok := item.ProviderStreamLifecycleDetails()
+	if !ok {
+		return nil
+	}
+	cloned := cloneProviderStreamLifecycleDetails(*details)
 	return &cloned
 }
 

@@ -35,6 +35,7 @@ import {
   ActivityMCPDetails,
   ActivityApprovalDetails,
   ActivityPreBlock,
+  ActivityProviderStreamLifecycleDetails,
   ActivityTextBlock,
 } from "./chat-transcript-activity-details";
 import { ActivityDiffDetails } from "./chat-transcript-diff-details";
@@ -65,6 +66,7 @@ const activityIconByType = {
   reasoning: ListChecks,
   structured_input: ListChecks,
   terminal_interaction: Terminal,
+  provider_stream_lifecycle: CircleAlert,
   web_search: Globe,
 } satisfies Record<RunItemType, LucideIcon>;
 
@@ -87,6 +89,7 @@ const activityIconClassByType = {
   reasoning: "h-4 w-4 shrink-0 text-muted-foreground",
   structured_input: "h-4 w-4 shrink-0 text-muted-foreground",
   terminal_interaction: "h-4 w-4 shrink-0 text-muted-foreground",
+  provider_stream_lifecycle: "h-4 w-4 shrink-0 text-status-warning",
   web_search: "h-4 w-4 shrink-0 text-muted-foreground",
 } satisfies Record<RunItemType, string>;
 
@@ -195,6 +198,7 @@ const activityLabelResolvers = {
   reasoning: noActivityDisplayLabel,
   structured_input: noActivityDisplayLabel,
   terminal_interaction: commandActivityDisplayLabel,
+  provider_stream_lifecycle: providerStreamLifecycleActivityDisplayLabel,
   web_search: webSearchActivityDisplayLabel,
 } satisfies Record<RunItemType, ActivityLabelResolver>;
 
@@ -254,6 +258,12 @@ function noticeActivityDisplayLabel(activity: ActivityItemBlockProjection) {
 
 function approvalActivityDisplayLabel(activity: ActivityItemBlockProjection) {
   return activity.details.approval === null ? null : { monospace: false, text: activity.title };
+}
+
+function providerStreamLifecycleActivityDisplayLabel(activity: ActivityItemBlockProjection) {
+  return activity.details.providerStreamLifecycle === null
+    ? null
+    : { monospace: false, text: activity.title };
 }
 
 function filePathsDisplayLabel(paths: string[]) {
@@ -597,7 +607,8 @@ function ActivityDetails({
     details.commandExecution === null &&
     details.fileChange === null &&
     details.diff === null &&
-    details.approval === null;
+    details.approval === null &&
+    details.providerStreamLifecycle === null;
   return (
     <div className="mt-1.5 w-full max-w-full min-w-0 overflow-hidden border-l border-border/70 pl-2">
       <div className="w-full max-w-full min-w-0 space-y-1.5 overflow-hidden text-xs text-muted-foreground">
@@ -617,6 +628,7 @@ function ActivityDetails({
         <ActivityFileChangeDetails details={details} />
         <ActivityDiffDetails details={details} />
         <ActivityApprovalDetails details={details} />
+        <ActivityProviderStreamLifecycleDetails details={details} />
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />
         <ActivityMCPDetails details={details} />
         <ActivityDynamicToolDetails details={details} />
@@ -769,6 +781,14 @@ function activityMetadata(details: RunActivityDetailsProjection) {
       { label: "request", value: details.approval.providerRequestId },
       { label: "review", value: details.approval.reviewId },
       { label: "action", value: details.approval.actionType },
+    );
+  }
+  if (details.providerStreamLifecycle !== null) {
+    entries.push(
+      { label: "thread", value: details.providerStreamLifecycle.providerThreadId },
+      { label: "turn", value: details.providerStreamLifecycle.providerTurnId },
+      { label: "liveness", value: details.providerStreamLifecycle.livenessStatus },
+      { label: "reason", value: details.providerStreamLifecycle.livenessReason },
     );
   }
   return entries.filter((entry) => entry.value !== "");

@@ -145,6 +145,7 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
         ...transcriptActivityFileChangeSearchText(details),
         ...transcriptActivityDiffSearchText(details),
         ...transcriptActivityApprovalSearchText(details),
+        ...transcriptActivityProviderStreamLifecycleSearchText(details),
       ]
         .filter((item) => item !== "")
         .join("\n"),
@@ -264,6 +265,27 @@ function transcriptActivityApprovalSearchText(details: RunActivityDetailsProject
     ...transcriptActivityApprovalStructuredInputSearchText(approval),
     transcriptJSONSearchText(approval.review),
     transcriptJSONSearchText(approval.action),
+  ];
+}
+
+function transcriptActivityProviderStreamLifecycleSearchText(
+  details: RunActivityDetailsProjection,
+) {
+  const lifecycle = details.providerStreamLifecycle;
+  if (lifecycle === null) {
+    return [];
+  }
+  return [
+    lifecycle.message,
+    lifecycle.additionalDetails,
+    lifecycle.codexErrorKind,
+    lifecycle.willRetry ? "will retry" : "",
+    lifecycle.streamFailure ? "stream failure" : "",
+    lifecycle.livenessStatus,
+    lifecycle.livenessReason,
+    lifecycle.providerThreadId,
+    lifecycle.providerTurnId,
+    transcriptJSONSearchText(lifecycle.codexErrorInfo),
   ];
 }
 

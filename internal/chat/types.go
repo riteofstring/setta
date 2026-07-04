@@ -94,25 +94,26 @@ const (
 	RunItemStatusFailed    RunItemStatus = "failed"
 	RunItemStatusCancelled RunItemStatus = "cancelled"
 
-	RunItemTypeAgentMessage        RunItemType = "agent_message"
-	RunItemTypePlan                RunItemType = "plan"
-	RunItemTypeReasoning           RunItemType = "reasoning"
-	RunItemTypeCommandExecution    RunItemType = "command_execution"
-	RunItemTypeFileChange          RunItemType = "file_change"
-	RunItemTypeMCPToolCall         RunItemType = "mcp_tool_call"
-	RunItemTypeDynamicToolCall     RunItemType = "dynamic_tool_call"
-	RunItemTypeCollabAgentToolCall RunItemType = "collab_agent_tool_call"
-	RunItemTypeWebSearch           RunItemType = "web_search"
-	RunItemTypeImageView           RunItemType = "image_view"
-	RunItemTypeImageGeneration     RunItemType = "image_generation"
-	RunItemTypeTerminalInteraction RunItemType = "terminal_interaction"
-	RunItemTypeDiff                RunItemType = "diff"
-	RunItemTypeContextCompaction   RunItemType = "context_compaction"
-	RunItemTypeNotice              RunItemType = "notice"
-	RunItemTypeApprovalRequest     RunItemType = "approval_request"
-	RunItemTypeApprovalReview      RunItemType = "approval_review"
-	RunItemTypeHook                RunItemType = "hook"
-	RunItemTypeStructuredInput     RunItemType = "structured_input"
+	RunItemTypeAgentMessage            RunItemType = "agent_message"
+	RunItemTypePlan                    RunItemType = "plan"
+	RunItemTypeReasoning               RunItemType = "reasoning"
+	RunItemTypeCommandExecution        RunItemType = "command_execution"
+	RunItemTypeFileChange              RunItemType = "file_change"
+	RunItemTypeMCPToolCall             RunItemType = "mcp_tool_call"
+	RunItemTypeDynamicToolCall         RunItemType = "dynamic_tool_call"
+	RunItemTypeCollabAgentToolCall     RunItemType = "collab_agent_tool_call"
+	RunItemTypeWebSearch               RunItemType = "web_search"
+	RunItemTypeImageView               RunItemType = "image_view"
+	RunItemTypeImageGeneration         RunItemType = "image_generation"
+	RunItemTypeTerminalInteraction     RunItemType = "terminal_interaction"
+	RunItemTypeDiff                    RunItemType = "diff"
+	RunItemTypeProviderStreamLifecycle RunItemType = "provider_stream_lifecycle"
+	RunItemTypeContextCompaction       RunItemType = "context_compaction"
+	RunItemTypeNotice                  RunItemType = "notice"
+	RunItemTypeApprovalRequest         RunItemType = "approval_request"
+	RunItemTypeApprovalReview          RunItemType = "approval_review"
+	RunItemTypeHook                    RunItemType = "hook"
+	RunItemTypeStructuredInput         RunItemType = "structured_input"
 
 	// RunItemCommandSource preserves the Codex app-server CommandExecutionSource
 	// discriminator so the backend can tell a normal agent command from a
@@ -247,6 +248,7 @@ var (
 		RunItemTypeImageGeneration,
 		RunItemTypeTerminalInteraction,
 		RunItemTypeDiff,
+		RunItemTypeProviderStreamLifecycle,
 		RunItemTypeContextCompaction,
 		RunItemTypeNotice,
 		RunItemTypeApprovalRequest,

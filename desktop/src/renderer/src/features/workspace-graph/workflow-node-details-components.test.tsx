@@ -262,6 +262,7 @@ function runActivityPage(): RunActivityPage {
           noticeMessage: "",
           patchStatus: "",
           processId: "",
+          providerStreamLifecycle: null,
           progress: "",
           requestId: "",
           result: "passed",

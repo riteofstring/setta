@@ -600,6 +600,25 @@ export async function runProtocolStreamErrorLivenessWorkflow(client, backend, wo
       status: "reconciling",
     },
   );
+  const retryingActivity = await assertProviderStreamLifecycleActivity(
+    backend,
+    workspaceId,
+    retryingRun.id,
+    {
+      livenessReason: "stream_resync",
+      livenessStatus: "reconciling",
+      message: "Codex connection retrying",
+      status: "running",
+      title: "Codex connection retrying",
+      willRetry: true,
+    },
+  );
+  await assertProviderStreamLifecycleActivityRendered(
+    client,
+    retryingActivity.sourceRunItemId,
+    "Codex connection retrying",
+    "stream_resync",
+  );
   await assertDegradedRunControls(client, { retry: true, stop: true });
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, retryingConversationId, retryingRun.id, "cancelled");
@@ -622,6 +641,26 @@ export async function runProtocolStreamErrorLivenessWorkflow(client, backend, wo
     reason: "provider_unavailable",
     status: "lost",
   });
+  const lostActivity = await assertProviderStreamLifecycleActivity(
+    backend,
+    workspaceId,
+    lostRun.id,
+    {
+      livenessReason: "provider_unavailable",
+      livenessStatus: "lost",
+      message: "stream disconnected before completion",
+      status: "running",
+      title: "Codex stream failed",
+      willRetry: false,
+    },
+  );
+  await assertProviderStreamLifecycleActivityRendered(
+    client,
+    lostActivity.sourceRunItemId,
+    "Codex stream failed",
+    "provider_unavailable",
+  );
+  await assertProviderStreamLifecycleActivitySearchable(client, lostActivity.sourceRunItemId);
   await assertDegradedRunControls(client, { retry: true, stop: true });
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, lostConversationId, lostRun.id, "cancelled");
@@ -701,6 +740,150 @@ function assertStreamErrorLiveness(liveness, expected) {
   if (!liveness.retryable || !liveness.cancellable) {
     throw new Error(`stream error liveness capabilities mismatch: ${JSON.stringify(liveness)}`);
   }
+}
+
+async function assertProviderStreamLifecycleActivity(backend, workspaceId, runId, expected) {
+  return waitForBackendState(async () => {
+    const page = await backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId });
+    const row = providerStreamLifecycleActivity(page, expected.livenessReason);
+    if (!row) {
+      return null;
+    }
+    assertProviderStreamLifecycleActivityMatches(row, expected);
+    return row;
+  }, Boolean);
+}
+
+function providerStreamLifecycleActivity(page, livenessReason) {
+  return (page.activity ?? []).find(
+    (candidate) =>
+      candidate.type === "provider_stream_lifecycle" &&
+      candidate.details?.providerStreamLifecycle?.livenessReason === livenessReason,
+  );
+}
+
+function assertProviderStreamLifecycleActivityMatches(row, expected) {
+  const details = row.details.providerStreamLifecycle;
+  const checks = [
+    ["title", row.title, expected.title],
+    ["status", row.status, expected.status],
+    ["message", details.message, expected.message],
+    ["codexErrorKind", details.codexErrorKind, "responseStreamDisconnected"],
+    ["additionalDetails", details.additionalDetails, "fake response stream disconnect"],
+    ["willRetry", details.willRetry, expected.willRetry],
+    ["streamFailure", details.streamFailure, true],
+    ["livenessStatus", details.livenessStatus, expected.livenessStatus],
+    ["providerThreadId", details.providerThreadId, "thread_fake"],
+    ["providerTurnId", details.providerTurnId, "turn_fake"],
+  ];
+  const mismatch = checks.find(([, actual, want]) => actual !== want);
+  if (mismatch) {
+    throw new Error(
+      `provider stream lifecycle activity ${mismatch[0]} mismatch: ${JSON.stringify({
+        actual: mismatch[1],
+        expected: mismatch[2],
+        row,
+      })}`,
+    );
+  }
+}
+
+async function assertProviderStreamLifecycleActivityRendered(
+  client,
+  sourceRunItemId,
+  title,
+  livenessReason,
+) {
+  await waitForState(
+    client,
+    `(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
+      const isVisible = (element) => {
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      };
+      const groupHeader = Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]'))
+        .find((candidate) =>
+          isVisible(candidate) &&
+          (candidate.getAttribute("data-activity-group-source-run-item-ids") ?? "")
+            .split(/\\s+/)
+            .includes(sourceRunItemId)
+        );
+      if (
+        groupHeader instanceof HTMLButtonElement &&
+        groupHeader.getAttribute("data-activity-group-expanded") !== "true"
+      ) {
+        groupHeader.click();
+        return {
+          ok: false,
+          reason: "expanding-group",
+          groupText: groupHeader.innerText,
+        };
+      }
+      const row = Array.from(transcript.querySelectorAll('[data-testid="run-activity-row"]'))
+        .find(
+          (candidate) =>
+            isVisible(candidate) &&
+            candidate.getAttribute("data-run-item-id") === sourceRunItemId,
+        );
+      if (!(row instanceof HTMLDetailsElement)) {
+        return {
+          ok: false,
+          reason: row ? "compact-row" : "missing-row",
+          groupExpanded: groupHeader?.getAttribute("data-activity-group-expanded") ?? "",
+          groupText: groupHeader?.innerText ?? "",
+          rowText: row?.innerText ?? "",
+        };
+      }
+      if (!row.open) {
+        row.querySelector("summary")?.click();
+        return {
+          ok: false,
+          reason: "opening-row",
+          groupExpanded: groupHeader?.getAttribute("data-activity-group-expanded") ?? "",
+          text: row.innerText,
+        };
+      }
+      const text = row?.innerText ?? "";
+      return {
+        ok:
+          text.includes(${JSON.stringify(title)}) &&
+          text.includes("responseStreamDisconnected") &&
+          text.includes("fake response stream disconnect") &&
+          text.includes(${JSON.stringify(livenessReason)}) &&
+          text.includes("thread_fake") &&
+          text.includes("turn_fake"),
+        reason: "waiting-for-details",
+        groupExpanded: groupHeader?.getAttribute("data-activity-group-expanded") ?? "",
+        text,
+      };
+    })()`,
+    (value) => value.ok,
+  );
+}
+
+async function assertProviderStreamLifecycleActivitySearchable(client, sourceRunItemId) {
+  await openProtocolChatSearch(client);
+  await setInputValue(client, 'input[placeholder="Search chat"]', "responseStreamDisconnected");
+  await waitForState(
+    client,
+    `(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const row = document.querySelector('[data-activity-focused="true"]');
+      return {
+        ok:
+          row?.getAttribute("data-run-item-id") === sourceRunItemId &&
+          row?.innerText.includes("responseStreamDisconnected") &&
+          row?.innerText.includes("provider_unavailable"),
+        sourceRunItemId: row?.getAttribute("data-run-item-id") ?? "",
+        text: row?.innerText ?? "",
+      };
+    })()`,
+    (value) => value.ok,
+  );
+  await clickButtonByAria(client, "Close chat search");
 }
 
 async function waitForRendererLiveness(client, runId, status, rowMode) {

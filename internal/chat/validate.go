@@ -748,6 +748,13 @@ func validateRunItemTimestamps(item RunItem) error {
 }
 
 func validateRunItemDetails(item RunItem) error {
+	if err := validateRunItemLegacyMetrics(item); err != nil {
+		return err
+	}
+	return validateRunItemTypedDetails(item)
+}
+
+func validateRunItemLegacyMetrics(item RunItem) error {
 	if item.Type != RunItemTypeCommandExecution {
 		if item.ExitCode < 0 {
 			return fmt.Errorf("run item %s exitCode must be non-negative", item.ID)
@@ -756,6 +763,10 @@ func validateRunItemDetails(item RunItem) error {
 			return fmt.Errorf("run item %s durationMs must be non-negative", item.ID)
 		}
 	}
+	return nil
+}
+
+func validateRunItemTypedDetails(item RunItem) error {
 	switch item.Type {
 	case RunItemTypeCommandExecution:
 		return validateRunItemCommandExecutionDetails(item)
@@ -769,6 +780,8 @@ func validateRunItemDetails(item RunItem) error {
 		return validateRunItemDiffDetailsBranch(item)
 	case RunItemTypeApprovalRequest, RunItemTypeApprovalReview:
 		return validateRunItemApprovalDetailsBranch(item)
+	case RunItemTypeProviderStreamLifecycle:
+		return validateRunItemProviderStreamLifecycleDetailsBranch(item)
 	default:
 		if item.Details != nil {
 			return fmt.Errorf("run item %s type %s does not support typed details kind %s", item.ID, item.Type, item.Details.Kind)

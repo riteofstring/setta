@@ -3,34 +3,74 @@ package chat
 import "fmt"
 
 func validateRunItemCommandExecutionDetails(item RunItem) error {
-	if rawDetailsInspectable(item.RawDetails) {
-		return fmt.Errorf("run item %s commandExecution rawDetails must be empty after typed details cutover", item.ID)
-	}
-	if item.Details == nil {
-		return fmt.Errorf("run item %s commandExecution details are required", item.ID)
-	}
-	if item.Details.Kind != RunItemDetailsKindCommandExecution || item.Details.CommandExecution == nil {
-		return fmt.Errorf("run item %s commandExecution details must contain the commandExecution branch", item.ID)
-	}
-	if item.Details.MCPToolCall != nil {
-		return fmt.Errorf("run item %s commandExecution details must not contain the mcpToolCall branch", item.ID)
-	}
-	if item.Details.DynamicToolCall != nil {
-		return fmt.Errorf("run item %s commandExecution details must not contain the dynamicToolCall branch", item.ID)
-	}
-	if item.Details.FileChange != nil {
-		return fmt.Errorf("run item %s commandExecution details must not contain the fileChange branch", item.ID)
-	}
-	if item.Details.Diff != nil {
-		return fmt.Errorf("run item %s commandExecution details must not contain the diff branch", item.ID)
-	}
-	if item.Details.Approval != nil {
-		return fmt.Errorf("run item %s commandExecution details must not contain the approval branch", item.ID)
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindCommandExecution, "commandExecution"); err != nil {
+		return err
 	}
 	if err := validateRunItemCommandExecutionFlatFieldsEmpty(item); err != nil {
 		return err
 	}
 	return validateRunItemCommandExecutionDetailsPayload(item, *item.Details.CommandExecution)
+}
+
+func validateRunItemDetailsBranch(item RunItem, kind RunItemDetailsKind, branch string) error {
+	if rawDetailsInspectable(item.RawDetails) {
+		return fmt.Errorf("run item %s %s rawDetails must be empty after typed details cutover", item.ID, branch)
+	}
+	if item.Details == nil {
+		return fmt.Errorf("run item %s %s details are required", item.ID, branch)
+	}
+	if item.Details.Kind != kind {
+		return fmt.Errorf("run item %s %s details must contain the %s branch", item.ID, branch, branch)
+	}
+	if !runItemDetailsBranchPresent(item.Details, kind) {
+		return fmt.Errorf("run item %s %s details must contain the %s branch", item.ID, branch, branch)
+	}
+	return validateRunItemDetailsBranchExclusive(item, *item.Details, branch)
+}
+
+func runItemDetailsBranchPresent(details *RunItemDetails, kind RunItemDetailsKind) bool {
+	switch kind {
+	case RunItemDetailsKindCommandExecution:
+		return details.CommandExecution != nil
+	case RunItemDetailsKindMCPToolCall:
+		return details.MCPToolCall != nil
+	case RunItemDetailsKindDynamicToolCall:
+		return details.DynamicToolCall != nil
+	case RunItemDetailsKindFileChange:
+		return details.FileChange != nil
+	case RunItemDetailsKindDiff:
+		return details.Diff != nil
+	case RunItemDetailsKindApproval:
+		return details.Approval != nil
+	case RunItemDetailsKindProviderStreamLifecycle:
+		return details.ProviderStreamLifecycle != nil
+	default:
+		return false
+	}
+}
+
+func validateRunItemDetailsBranchExclusive(item RunItem, details RunItemDetails, branch string) error {
+	branches := []struct {
+		name string
+		set  bool
+	}{
+		{name: "commandExecution", set: details.CommandExecution != nil},
+		{name: "mcpToolCall", set: details.MCPToolCall != nil},
+		{name: "dynamicToolCall", set: details.DynamicToolCall != nil},
+		{name: "fileChange", set: details.FileChange != nil},
+		{name: "diff", set: details.Diff != nil},
+		{name: "approval", set: details.Approval != nil},
+		{name: "providerStreamLifecycle", set: details.ProviderStreamLifecycle != nil},
+	}
+	for _, candidate := range branches {
+		if candidate.name == branch {
+			continue
+		}
+		if candidate.set {
+			return fmt.Errorf("run item %s %s details must not contain the %s branch", item.ID, branch, candidate.name)
+		}
+	}
+	return nil
 }
 
 func validateRunItemCommandExecutionFlatFieldsEmpty(item RunItem) error {
@@ -78,57 +118,15 @@ func validateRunItemCommandExecutionDetailsPayload(item RunItem, details RunItem
 }
 
 func validateRunItemMCPToolCallDetailsBranch(item RunItem) error {
-	if rawDetailsInspectable(item.RawDetails) {
-		return fmt.Errorf("run item %s mcpToolCall rawDetails must be empty after typed details cutover", item.ID)
-	}
-	if item.Details == nil {
-		return fmt.Errorf("run item %s mcpToolCall details are required", item.ID)
-	}
-	if item.Details.Kind != RunItemDetailsKindMCPToolCall || item.Details.MCPToolCall == nil {
-		return fmt.Errorf("run item %s mcpToolCall details must contain the mcpToolCall branch", item.ID)
-	}
-	if item.Details.CommandExecution != nil {
-		return fmt.Errorf("run item %s mcpToolCall details must not contain the commandExecution branch", item.ID)
-	}
-	if item.Details.DynamicToolCall != nil {
-		return fmt.Errorf("run item %s mcpToolCall details must not contain the dynamicToolCall branch", item.ID)
-	}
-	if item.Details.FileChange != nil {
-		return fmt.Errorf("run item %s mcpToolCall details must not contain the fileChange branch", item.ID)
-	}
-	if item.Details.Diff != nil {
-		return fmt.Errorf("run item %s mcpToolCall details must not contain the diff branch", item.ID)
-	}
-	if item.Details.Approval != nil {
-		return fmt.Errorf("run item %s mcpToolCall details must not contain the approval branch", item.ID)
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindMCPToolCall, "mcpToolCall"); err != nil {
+		return err
 	}
 	return validateRunItemMCPToolCallDetails(item, *item.Details.MCPToolCall)
 }
 
 func validateRunItemDynamicToolCallDetailsBranch(item RunItem) error {
-	if rawDetailsInspectable(item.RawDetails) {
-		return fmt.Errorf("run item %s dynamicToolCall rawDetails must be empty after typed details cutover", item.ID)
-	}
-	if item.Details == nil {
-		return fmt.Errorf("run item %s dynamicToolCall details are required", item.ID)
-	}
-	if item.Details.Kind != RunItemDetailsKindDynamicToolCall || item.Details.DynamicToolCall == nil {
-		return fmt.Errorf("run item %s dynamicToolCall details must contain the dynamicToolCall branch", item.ID)
-	}
-	if item.Details.CommandExecution != nil {
-		return fmt.Errorf("run item %s dynamicToolCall details must not contain the commandExecution branch", item.ID)
-	}
-	if item.Details.MCPToolCall != nil {
-		return fmt.Errorf("run item %s dynamicToolCall details must not contain the mcpToolCall branch", item.ID)
-	}
-	if item.Details.FileChange != nil {
-		return fmt.Errorf("run item %s dynamicToolCall details must not contain the fileChange branch", item.ID)
-	}
-	if item.Details.Diff != nil {
-		return fmt.Errorf("run item %s dynamicToolCall details must not contain the diff branch", item.ID)
-	}
-	if item.Details.Approval != nil {
-		return fmt.Errorf("run item %s dynamicToolCall details must not contain the approval branch", item.ID)
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindDynamicToolCall, "dynamicToolCall"); err != nil {
+		return err
 	}
 	if err := validateRunItemDynamicToolCallFlatFieldsEmpty(item); err != nil {
 		return err
@@ -159,29 +157,8 @@ func validateRunItemDynamicToolCallFlatFieldsEmpty(item RunItem) error {
 }
 
 func validateRunItemFileChangeDetailsBranch(item RunItem) error {
-	if rawDetailsInspectable(item.RawDetails) {
-		return fmt.Errorf("run item %s fileChange rawDetails must be empty after typed details cutover", item.ID)
-	}
-	if item.Details == nil {
-		return fmt.Errorf("run item %s fileChange details are required", item.ID)
-	}
-	if item.Details.Kind != RunItemDetailsKindFileChange || item.Details.FileChange == nil {
-		return fmt.Errorf("run item %s fileChange details must contain the fileChange branch", item.ID)
-	}
-	if item.Details.CommandExecution != nil {
-		return fmt.Errorf("run item %s fileChange details must not contain the commandExecution branch", item.ID)
-	}
-	if item.Details.MCPToolCall != nil {
-		return fmt.Errorf("run item %s fileChange details must not contain the mcpToolCall branch", item.ID)
-	}
-	if item.Details.DynamicToolCall != nil {
-		return fmt.Errorf("run item %s fileChange details must not contain the dynamicToolCall branch", item.ID)
-	}
-	if item.Details.Diff != nil {
-		return fmt.Errorf("run item %s fileChange details must not contain the diff branch", item.ID)
-	}
-	if item.Details.Approval != nil {
-		return fmt.Errorf("run item %s fileChange details must not contain the approval branch", item.ID)
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindFileChange, "fileChange"); err != nil {
+		return err
 	}
 	if err := validateRunItemFileChangeFlatFieldsEmpty(item); err != nil {
 		return err
@@ -203,29 +180,8 @@ func validateRunItemFileChangeFlatFieldsEmpty(item RunItem) error {
 }
 
 func validateRunItemDiffDetailsBranch(item RunItem) error {
-	if rawDetailsInspectable(item.RawDetails) {
-		return fmt.Errorf("run item %s diff rawDetails must be empty after typed details cutover", item.ID)
-	}
-	if item.Details == nil {
-		return fmt.Errorf("run item %s diff details are required", item.ID)
-	}
-	if item.Details.Kind != RunItemDetailsKindDiff || item.Details.Diff == nil {
-		return fmt.Errorf("run item %s diff details must contain the diff branch", item.ID)
-	}
-	if item.Details.CommandExecution != nil {
-		return fmt.Errorf("run item %s diff details must not contain the commandExecution branch", item.ID)
-	}
-	if item.Details.MCPToolCall != nil {
-		return fmt.Errorf("run item %s diff details must not contain the mcpToolCall branch", item.ID)
-	}
-	if item.Details.DynamicToolCall != nil {
-		return fmt.Errorf("run item %s diff details must not contain the dynamicToolCall branch", item.ID)
-	}
-	if item.Details.FileChange != nil {
-		return fmt.Errorf("run item %s diff details must not contain the fileChange branch", item.ID)
-	}
-	if item.Details.Approval != nil {
-		return fmt.Errorf("run item %s diff details must not contain the approval branch", item.ID)
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindDiff, "diff"); err != nil {
+		return err
 	}
 	if err := validateRunItemDiffFlatFieldsEmpty(item); err != nil {
 		return err
@@ -244,34 +200,55 @@ func validateRunItemDiffFlatFieldsEmpty(item RunItem) error {
 }
 
 func validateRunItemApprovalDetailsBranch(item RunItem) error {
-	if rawDetailsInspectable(item.RawDetails) {
-		return fmt.Errorf("run item %s approval rawDetails must be empty after typed details cutover", item.ID)
-	}
-	if item.Details == nil {
-		return fmt.Errorf("run item %s approval details are required", item.ID)
-	}
-	if item.Details.Kind != RunItemDetailsKindApproval || item.Details.Approval == nil {
-		return fmt.Errorf("run item %s approval details must contain the approval branch", item.ID)
-	}
-	if item.Details.CommandExecution != nil {
-		return fmt.Errorf("run item %s approval details must not contain the commandExecution branch", item.ID)
-	}
-	if item.Details.MCPToolCall != nil {
-		return fmt.Errorf("run item %s approval details must not contain the mcpToolCall branch", item.ID)
-	}
-	if item.Details.DynamicToolCall != nil {
-		return fmt.Errorf("run item %s approval details must not contain the dynamicToolCall branch", item.ID)
-	}
-	if item.Details.FileChange != nil {
-		return fmt.Errorf("run item %s approval details must not contain the fileChange branch", item.ID)
-	}
-	if item.Details.Diff != nil {
-		return fmt.Errorf("run item %s approval details must not contain the diff branch", item.ID)
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindApproval, "approval"); err != nil {
+		return err
 	}
 	if err := validateRunItemApprovalFlatFieldsEmpty(item); err != nil {
 		return err
 	}
 	return validateRunItemApprovalDetails(item, *item.Details.Approval)
+}
+
+func validateRunItemProviderStreamLifecycleDetailsBranch(item RunItem) error {
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindProviderStreamLifecycle, "providerStreamLifecycle"); err != nil {
+		return err
+	}
+	if err := validateRunItemProviderStreamLifecycleFlatFieldsEmpty(item); err != nil {
+		return err
+	}
+	return validateRunItemProviderStreamLifecycleDetails(item, *item.Details.ProviderStreamLifecycle)
+}
+
+func validateRunItemProviderStreamLifecycleFlatFieldsEmpty(item RunItem) error {
+	if item.ExitCode != 0 {
+		return fmt.Errorf("run item %s providerStreamLifecycle flat exitCode must be zero after typed details cutover", item.ID)
+	}
+	if item.DurationMs != 0 {
+		return fmt.Errorf("run item %s providerStreamLifecycle flat durationMs must be zero after typed details cutover", item.ID)
+	}
+	if len(item.FilePaths) != 0 {
+		return fmt.Errorf("run item %s providerStreamLifecycle flat filePaths must be empty after typed details cutover", item.ID)
+	}
+	if item.Source != nil {
+		return fmt.Errorf("run item %s providerStreamLifecycle flat source must be empty after typed details cutover", item.ID)
+	}
+	return validateRunItemFlatStringFieldsEmpty(item, "providerStreamLifecycle", []runItemFlatStringField{
+		{name: "command", value: item.Command},
+		{name: "cwd", value: item.Cwd},
+		{name: "patchStatus", value: item.PatchStatus},
+		{name: "serverName", value: item.ServerName},
+		{name: "toolName", value: item.ToolName},
+		{name: "progress", value: item.Progress},
+		{name: "result", value: item.Result},
+		{name: "error", value: item.Error},
+		{name: "noticeKind", value: item.NoticeKind},
+		{name: "noticeMessage", value: item.NoticeMessage},
+		{name: "diffSummary", value: item.DiffSummary},
+		{name: "namespace", value: item.Namespace},
+		{name: "processId", value: item.ProcessID},
+		{name: "requestId", value: item.RequestID},
+		{name: "reviewId", value: item.ReviewID},
+	})
 }
 
 func validateRunItemApprovalFlatFieldsEmpty(item RunItem) error {
@@ -456,6 +433,45 @@ func validateRunItemDiffDetails(item RunItem, details RunItemDiffDetails) error 
 	}
 	if details.PatchTruncated && details.Patch == "" {
 		return fmt.Errorf("run item %s diff patch is required when patchTruncated is true", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemProviderStreamLifecycleDetails(item RunItem, details RunItemProviderStreamLifecycleDetails) error {
+	if details.Message == "" {
+		return fmt.Errorf("run item %s providerStreamLifecycle message is required", item.ID)
+	}
+	if details.CodexErrorKind == "" {
+		return fmt.Errorf("run item %s providerStreamLifecycle codexErrorKind is required", item.ID)
+	}
+	if !details.StreamFailure {
+		return fmt.Errorf("run item %s providerStreamLifecycle streamFailure must be true", item.ID)
+	}
+	if !validValue(details.LivenessStatus, runLivenessStatusValues) {
+		return fmt.Errorf("run item %s providerStreamLifecycle has unsupported livenessStatus %s", item.ID, details.LivenessStatus)
+	}
+	if !validValue(details.LivenessReason, runLivenessReasonValues) {
+		return fmt.Errorf("run item %s providerStreamLifecycle has unsupported livenessReason %s", item.ID, details.LivenessReason)
+	}
+	if err := validateRunItemProviderStreamLifecycleLiveness(item, details); err != nil {
+		return err
+	}
+	if details.ProviderThreadID == "" {
+		return fmt.Errorf("run item %s providerStreamLifecycle providerThreadId is required", item.ID)
+	}
+	if details.ProviderTurnID == "" {
+		return fmt.Errorf("run item %s providerStreamLifecycle providerTurnId is required", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemProviderStreamLifecycleLiveness(item RunItem, details RunItemProviderStreamLifecycleDetails) error {
+	if details.WillRetry {
+		if details.LivenessStatus != RunLivenessReconciling || details.LivenessReason != RunLivenessReasonStreamResync {
+			return fmt.Errorf("run item %s providerStreamLifecycle retrying stream errors must use %s/%s liveness", item.ID, RunLivenessReconciling, RunLivenessReasonStreamResync)
+		}
+	} else if details.LivenessStatus != RunLivenessLost || details.LivenessReason != RunLivenessReasonProviderUnavailable {
+		return fmt.Errorf("run item %s providerStreamLifecycle non-retryable stream errors must use %s/%s liveness", item.ID, RunLivenessLost, RunLivenessReasonProviderUnavailable)
 	}
 	return nil
 }

@@ -25,6 +25,7 @@ export function activityDetails(
     noticeMessage: "",
     patchStatus: "",
     processId: "",
+    providerStreamLifecycle: null,
     progress: "",
     requestId: "",
     result: "",

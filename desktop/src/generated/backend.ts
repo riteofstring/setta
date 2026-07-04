@@ -909,9 +909,9 @@ export function decodeReasoningBlockMode(value: unknown, label = "ReasoningBlock
   }
 }
 
-export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "context_compaction" | "notice" | "approval_request" | "approval_review" | "hook" | "structured_input";
+export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "provider_stream_lifecycle" | "context_compaction" | "notice" | "approval_request" | "approval_review" | "hook" | "structured_input";
 
-export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "context_compaction", "notice", "approval_request", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
+export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "provider_stream_lifecycle", "context_compaction", "notice", "approval_request", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
 
 export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
   const decoded = decodeString(value, label);
@@ -941,6 +941,8 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
     case "terminal_interaction":
       return decoded;
     case "diff":
+      return decoded;
+    case "provider_stream_lifecycle":
       return decoded;
     case "context_compaction":
       return decoded;
@@ -1099,9 +1101,9 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
   }
 }
 
-export type RunItemDetailsKind = "command_execution" | "mcp_tool_call" | "dynamic_tool_call" | "file_change" | "diff" | "approval";
+export type RunItemDetailsKind = "command_execution" | "mcp_tool_call" | "dynamic_tool_call" | "file_change" | "diff" | "approval" | "provider_stream_lifecycle";
 
-export const runItemDetailsKindValues = ["command_execution", "mcp_tool_call", "dynamic_tool_call", "file_change", "diff", "approval"] as const satisfies readonly RunItemDetailsKind[];
+export const runItemDetailsKindValues = ["command_execution", "mcp_tool_call", "dynamic_tool_call", "file_change", "diff", "approval", "provider_stream_lifecycle"] as const satisfies readonly RunItemDetailsKind[];
 
 export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetailsKind"): RunItemDetailsKind {
   const decoded = decodeString(value, label);
@@ -1117,6 +1119,8 @@ export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetails
     case "diff":
       return decoded;
     case "approval":
+      return decoded;
+    case "provider_stream_lifecycle":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3290,6 +3294,19 @@ export interface RunItemApprovalDetails {
   action: unknown;
 }
 
+export interface RunItemProviderStreamLifecycleDetails {
+  message: string;
+  additionalDetails: string;
+  codexErrorKind: string;
+  codexErrorInfo: unknown;
+  willRetry: boolean;
+  streamFailure: boolean;
+  livenessStatus: RunLivenessStatus;
+  livenessReason: RunLivenessReason;
+  providerThreadId: string;
+  providerTurnId: string;
+}
+
 export interface RunActivityDetailsProjection {
   summary: string;
   command: string;
@@ -3316,6 +3333,7 @@ export interface RunActivityDetailsProjection {
   fileChange: RunItemFileChangeDetails | null;
   diff: RunItemDiffDetails | null;
   approval: RunItemApprovalDetails | null;
+  providerStreamLifecycle: RunItemProviderStreamLifecycleDetails | null;
 }
 
 export interface ActivityItemBlockProjection {
@@ -3734,6 +3752,7 @@ export interface RunItemDetails {
   fileChange: RunItemFileChangeDetails | null;
   diff: RunItemDiffDetails | null;
   approval: RunItemApprovalDetails | null;
+  providerStreamLifecycle: RunItemProviderStreamLifecycleDetails | null;
 }
 
 export interface RunItem {
@@ -7729,9 +7748,26 @@ export function decodeRunItemApprovalDetails(value: unknown): RunItemApprovalDet
   };
 }
 
+export function decodeRunItemProviderStreamLifecycleDetails(value: unknown): RunItemProviderStreamLifecycleDetails {
+  const record = assertRecord(value, "RunItemProviderStreamLifecycleDetails");
+  assertKnownFields(record, "RunItemProviderStreamLifecycleDetails", ["message", "additionalDetails", "codexErrorKind", "codexErrorInfo", "willRetry", "streamFailure", "livenessStatus", "livenessReason", "providerThreadId", "providerTurnId"]);
+  return {
+    message: decodeString(requireField(record, "message", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.message"),
+    additionalDetails: decodeString(requireField(record, "additionalDetails", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.additionalDetails"),
+    codexErrorKind: decodeString(requireField(record, "codexErrorKind", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.codexErrorKind"),
+    codexErrorInfo: decodeUnknown(requireField(record, "codexErrorInfo", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.codexErrorInfo"),
+    willRetry: decodeBoolean(requireField(record, "willRetry", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.willRetry"),
+    streamFailure: decodeBoolean(requireField(record, "streamFailure", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.streamFailure"),
+    livenessStatus: decodeRunLivenessStatus(requireField(record, "livenessStatus", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.livenessStatus"),
+    livenessReason: decodeRunLivenessReason(requireField(record, "livenessReason", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.livenessReason"),
+    providerThreadId: decodeString(requireField(record, "providerThreadId", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.providerThreadId"),
+    providerTurnId: decodeString(requireField(record, "providerTurnId", "RunItemProviderStreamLifecycleDetails"), "RunItemProviderStreamLifecycleDetails.providerTurnId"),
+  };
+}
+
 export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
   const record = assertRecord(value, "RunActivityDetailsProjection");
-  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval"]);
+  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
   return {
     summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
     command: decodeString(requireField(record, "command", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.command"),
@@ -7758,6 +7794,7 @@ export function decodeRunActivityDetailsProjection(value: unknown): RunActivityD
     fileChange: decodeNullable(requireField(record, "fileChange", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
     diff: decodeNullable(requireField(record, "diff", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.diff", (item) => decodeRunItemDiffDetails(item)),
     approval: decodeNullable(requireField(record, "approval", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.approval", (item) => decodeRunItemApprovalDetails(item)),
+    providerStreamLifecycle: decodeNullable(requireField(record, "providerStreamLifecycle", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.providerStreamLifecycle", (item) => decodeRunItemProviderStreamLifecycleDetails(item)),
   };
 }
 
@@ -8409,7 +8446,7 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
 
 export function decodeRunItemDetails(value: unknown): RunItemDetails {
   const record = assertRecord(value, "RunItemDetails");
-  assertKnownFields(record, "RunItemDetails", ["kind", "commandExecution", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval"]);
+  assertKnownFields(record, "RunItemDetails", ["kind", "commandExecution", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
   const result: RunItemDetails = {
     kind: decodeRunItemDetailsKind(requireField(record, "kind", "RunItemDetails"), "RunItemDetails.kind"),
     commandExecution: decodeNullable(requireField(record, "commandExecution", "RunItemDetails"), "RunItemDetails.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
@@ -8418,6 +8455,7 @@ export function decodeRunItemDetails(value: unknown): RunItemDetails {
     fileChange: decodeNullable(requireField(record, "fileChange", "RunItemDetails"), "RunItemDetails.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
     diff: decodeNullable(requireField(record, "diff", "RunItemDetails"), "RunItemDetails.diff", (item) => decodeRunItemDiffDetails(item)),
     approval: decodeNullable(requireField(record, "approval", "RunItemDetails"), "RunItemDetails.approval", (item) => decodeRunItemApprovalDetails(item)),
+    providerStreamLifecycle: decodeNullable(requireField(record, "providerStreamLifecycle", "RunItemDetails"), "RunItemDetails.providerStreamLifecycle", (item) => decodeRunItemProviderStreamLifecycleDetails(item)),
   };
   assertTaggedUnionBranch("RunItemDetails", result.kind, {
     "command_execution": result.commandExecution,
@@ -8426,6 +8464,7 @@ export function decodeRunItemDetails(value: unknown): RunItemDetails {
     "file_change": result.fileChange,
     "diff": result.diff,
     "approval": result.approval,
+    "provider_stream_lifecycle": result.providerStreamLifecycle,
   });
   return result;
 }

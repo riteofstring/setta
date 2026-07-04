@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import {
   ActivityApprovalDetails,
   ActivityDynamicToolDetails,
+  ActivityProviderStreamLifecycleDetails,
 } from "./chat-transcript-activity-details";
 
 describe("ActivityDynamicToolDetails", () => {
@@ -24,6 +25,19 @@ describe("ActivityApprovalDetails", () => {
     expect(html).toContain("Command approval");
     expect(html).toContain("request_1");
     expect(html).toContain("go test ./...");
+  });
+});
+
+describe("ActivityProviderStreamLifecycleDetails", () => {
+  test("renders typed provider stream lifecycle details", () => {
+    const html = renderToString(
+      <ActivityProviderStreamLifecycleDetails details={providerStreamLifecycleDetails()} />,
+    );
+
+    expect(html).toContain("stream disconnected before completion");
+    expect(html).toContain("responseStreamDisconnected");
+    expect(html).toContain("provider_unavailable");
+    expect(html).toContain("thread_provider");
   });
 });
 
@@ -73,6 +87,23 @@ function approvalDetails(): RunActivityDetailsProjection {
   });
 }
 
+function providerStreamLifecycleDetails(): RunActivityDetailsProjection {
+  return baseDetails({
+    providerStreamLifecycle: {
+      additionalDetails: "fake response stream disconnect",
+      codexErrorInfo: { responseStreamDisconnected: { httpStatusCode: null } },
+      codexErrorKind: "responseStreamDisconnected",
+      livenessReason: "provider_unavailable",
+      livenessStatus: "lost",
+      message: "stream disconnected before completion",
+      providerThreadId: "thread_provider",
+      providerTurnId: "turn_provider",
+      streamFailure: true,
+      willRetry: false,
+    },
+  });
+}
+
 function baseDetails(
   overrides: Partial<RunActivityDetailsProjection> = {},
 ): RunActivityDetailsProjection {
@@ -95,6 +126,7 @@ function baseDetails(
     noticeMessage: "",
     patchStatus: "",
     processId: "",
+    providerStreamLifecycle: null,
     progress: "",
     requestId: "",
     result: "",

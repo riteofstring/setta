@@ -77,6 +77,7 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 				{Field: "fileChange", KindValue: string(chat.RunItemDetailsKindFileChange)},
 				{Field: "diff", KindValue: string(chat.RunItemDetailsKindDiff)},
 				{Field: "approval", KindValue: string(chat.RunItemDetailsKindApproval)},
+				{Field: "providerStreamLifecycle", KindValue: string(chat.RunItemDetailsKindProviderStreamLifecycle)},
 			},
 		},
 	}

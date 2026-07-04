@@ -233,9 +233,11 @@ func handleCodexErrorNotification(message jsonRPCMessage, threadID string, turnI
 
 func providerTurnErrorFromCodexErrorNotification(params codexapp.ErrorNotification) (ProviderTurnError, error) {
 	providerError := ProviderTurnError{
-		Message:       params.Error.Message,
-		Retryable:     params.WillRetry,
-		StreamFailure: false,
+		Message:          params.Error.Message,
+		ProviderThreadID: params.ThreadID,
+		ProviderTurnID:   params.TurnID,
+		Retryable:        params.WillRetry,
+		StreamFailure:    false,
 	}
 	if params.Error.AdditionalDetails != nil {
 		providerError.AdditionalDetails = *params.Error.AdditionalDetails
