@@ -252,8 +252,12 @@
     return terminalSnapshotForHost(host);
   }
 
-  function terminalPaneFocusPoint() {
-    const host = activeTerminalHost();
+  function terminalSnapshots() {
+    return terminalHosts().map((host) => terminalSnapshotForHost(host));
+  }
+
+  function terminalPaneFocusPoint({ paneId = null } = {}) {
+    const host = activeTerminalHost({ paneId });
     if (!host) {
       return { ok: false, reason: "missing-terminal-host" };
     }
@@ -268,8 +272,28 @@
     };
   }
 
-  function focusTerminalTextarea() {
-    const host = activeTerminalHost();
+  function terminalInputPoint({ paneId = null } = {}) {
+    const host = activeTerminalHost({ paneId });
+    if (!host) {
+      return { ok: false, reason: "missing-terminal-host" };
+    }
+    const viewport = host.querySelector(".workspace-xterm-viewport");
+    if (!(viewport instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-terminal-viewport" };
+    }
+    if (!terminalHostIntersectsViewport(host)) {
+      return { ok: false, reason: "terminal-host-outside-viewport", rect: elementRect(host) };
+    }
+    const rect = viewport.getBoundingClientRect();
+    return {
+      ok: true,
+      x: Math.round(clamp(rect.left + rect.width / 2, 8, window.innerWidth - 8)),
+      y: Math.round(clamp(rect.top + rect.height / 2, 8, window.innerHeight - 8)),
+    };
+  }
+
+  function focusTerminalTextarea({ paneId = null } = {}) {
+    const host = activeTerminalHost({ paneId });
     const viewport = host?.querySelector(".workspace-xterm-viewport");
     const textarea = host?.querySelector(".xterm-helper-textarea");
     if (!(viewport instanceof HTMLElement) || !(textarea instanceof HTMLTextAreaElement)) {
@@ -292,8 +316,8 @@
     return { ok: true };
   }
 
-  async function terminalScrollbackSearch({ expectedText }) {
-    const host = activeTerminalHost();
+  async function terminalScrollbackSearch({ expectedText, paneId = null }) {
+    const host = activeTerminalHost({ paneId });
     if (!host) {
       return { ...emptyTerminalSnapshot(false), found: false, source: "missing-host" };
     }
@@ -798,6 +822,43 @@
     return true;
   }
 
+  function focusNonTerminalPane() {
+    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .filter((candidate) => candidate instanceof HTMLElement)
+      .find(
+        (candidate) =>
+          candidate.dataset.visible === "true" &&
+          candidate.dataset.surfaceKind !== "terminal" &&
+          elementIntersectsViewport(candidate),
+      );
+    if (!(host instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-visible-non-terminal-pane" };
+    }
+    const rect = host.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return { ok: false, reason: "non-terminal-pane-empty", rect: elementRect(host) };
+    }
+    const x = Math.round(clamp(rect.left + rect.width / 2, 8, window.innerWidth - 8));
+    const y = Math.round(
+      clamp(rect.top + Math.min(15, rect.height / 2), 8, window.innerHeight - 8),
+    );
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      view: window,
+    });
+    host.dispatchEvent(event);
+    return {
+      defaultPrevented: event.defaultPrevented,
+      ok: true,
+      paneId: host.dataset.paneId ?? "",
+      x,
+      y,
+    };
+  }
+
   function workflowGraphPaneState({ surfaceId = null } = {}) {
     const host = workflowGraphHostBySurfaceId(surfaceId) ?? activeWorkflowGraphHost();
     return {
@@ -1170,12 +1231,19 @@
     );
   }
 
-  function activeTerminalHost() {
-    const hosts = Array.from(
+  function terminalHosts() {
+    return Array.from(
       document.querySelectorAll(
         '[data-testid="workspace-pane-host"][data-surface-kind="terminal"]',
       ),
     ).filter((host) => host instanceof HTMLElement);
+  }
+
+  function activeTerminalHost({ paneId = null } = {}) {
+    const hosts = terminalHosts();
+    if (paneId !== null) {
+      return hosts.find((host) => host.dataset.paneId === paneId) ?? null;
+    }
     return (
       hosts.find((host) => host.dataset.focused === "true") ??
       hosts.find((host) => terminalHostIntersectsViewport(host)) ??
@@ -1239,6 +1307,7 @@
       exists,
       focused: false,
       maximized: false,
+      paneId: "",
       profileId: "",
       sessionId: "",
       statusText: "",
@@ -1254,6 +1323,7 @@
       exists: true,
       focused: host.dataset.focused === "true",
       maximized: host.dataset.maximized === "true",
+      paneId: host.dataset.paneId ?? "",
       profileId: host.dataset.terminalProfileId ?? "",
       sessionId: host.dataset.terminalSessionId ?? "",
       statusText: host.querySelector(".workspace-terminal-status")?.textContent?.trim() ?? "",
@@ -1350,6 +1420,7 @@
     dispatchLayoutSnapshot,
     dispatchDocumentEscape,
     elementValue,
+    focusNonTerminalPane,
     focusTerminalTextarea,
     maximizeTerminalPane,
     modelPicker,
@@ -1362,6 +1433,8 @@
     setInputValue,
     sidebarMetrics,
     terminalPaneFocusPoint,
+    terminalSnapshots,
+    terminalInputPoint,
     terminalScrollbackSearch,
     terminalSnapshot,
     maximizeWorkflowGraphPane,
@@ -1369,7 +1442,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v8",
+    version: "setta-e2e-driver-v10",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,

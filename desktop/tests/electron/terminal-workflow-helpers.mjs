@@ -3,15 +3,37 @@ import { setTimeout as delay } from "node:timers/promises";
 import { dispatchKeyEvent, waitForState } from "./electron-cdp-harness.mjs";
 
 const cdpAltMetaModifier = 5;
+const emptyTerminalSnapshot = {
+  exists: false,
+  focused: false,
+  maximized: false,
+  paneId: "",
+  profileId: "",
+  sessionId: "",
+  statusText: "",
+  terminalLost: false,
+  text: "",
+  visible: false,
+  xtermReady: false,
+};
 
 export function terminalSnapshotExpression() {
-  return "globalThis.__settaE2EDriver.terminalSnapshot()";
+  return `globalThis.__settaE2EDriver?.terminalSnapshot ? globalThis.__settaE2EDriver.terminalSnapshot() : ${JSON.stringify(
+    emptyTerminalSnapshot,
+  )}`;
 }
 
-export function terminalScrollbackSearchExpression(expectedText) {
-  return `globalThis.__settaE2EDriver.terminalScrollbackSearch(${JSON.stringify({
-    expectedText,
-  })})`;
+export function terminalScrollbackSearchExpression(expectedText, { paneId = null } = {}) {
+  return `globalThis.__settaE2EDriver?.terminalScrollbackSearch ? globalThis.__settaE2EDriver.terminalScrollbackSearch(${JSON.stringify(
+    {
+      expectedText,
+      paneId,
+    },
+  )}) : ${JSON.stringify({
+    ...emptyTerminalSnapshot,
+    found: false,
+    source: "driver-unavailable",
+  })}`;
 }
 
 export async function openTerminalFromShortcut(client, timeoutMs) {
