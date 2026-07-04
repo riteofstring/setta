@@ -1,7 +1,7 @@
-/* global document */
+/* global HTMLButtonElement, HTMLDetailsElement, document */
 
 (() => {
-  const version = "setta-workflow-node-details-driver-v1";
+  const version = "setta-workflow-node-details-driver-v2";
 
   function installWorkflowNodeDetailsDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -9,7 +9,11 @@
       throw new Error("base Setta E2E driver is not installed");
     }
     Object.assign(driver, {
+      clickWorkflowNodeTrajectoryLoadMoreOutput,
+      expandWorkflowNodeTrajectoryActivityGroup,
+      expandWorkflowNodeTrajectoryCommandOutput,
       workflowNodeDetailsVersion: version,
+      workflowNodeTrajectoryState,
       workflowRunDetailsState,
     });
   }
@@ -29,8 +33,80 @@
       present: surface !== null,
       runActivityRowCount: countSelector(details, '[data-testid="run-activity-row"]'),
       text: elementText(details),
+      trajectory: workflowNodeTrajectoryStateForDetails(details),
       workflowTrajectorySurfaceCount: scopedTrajectoryCount(trajectories, "workflowNodeExecution"),
     };
+  }
+
+  function workflowNodeTrajectoryState() {
+    const details = document.querySelector('[data-testid="workflow-node-run-details"]');
+    return workflowNodeTrajectoryStateForDetails(details);
+  }
+
+  function workflowNodeTrajectoryStateForDetails(details) {
+    const trajectory = details?.querySelector('[data-testid="workflow-node-agent-trajectory"]');
+    const outputButtons = queryAll(trajectory, "button").filter(
+      (button) => button.textContent?.trim() === "Load more",
+    );
+    return {
+      approvalCardCount: countSelector(trajectory, '[data-testid="approval-card"]'),
+      disabledLoadMoreButtonCount: outputButtons.filter((button) => button.disabled).length,
+      loadMoreButtonCount: outputButtons.length,
+      outputText: outputTextForTrajectory(trajectory),
+      text: elementText(trajectory),
+      trajectoryPresent: trajectory !== null,
+    };
+  }
+
+  function expandWorkflowNodeTrajectoryActivityGroup() {
+    const trajectory = workflowNodeTrajectoryElement();
+    const groupButton = queryAll(trajectory, '[data-testid="activity-group-header"]').find(
+      (candidate) =>
+        candidate instanceof HTMLButtonElement &&
+        candidate.getAttribute("aria-expanded") === "false",
+    );
+    if (groupButton instanceof HTMLButtonElement) {
+      groupButton.click();
+    }
+    return workflowNodeTrajectoryState();
+  }
+
+  function expandWorkflowNodeTrajectoryCommandOutput() {
+    const trajectory = workflowNodeTrajectoryElement();
+    const rows = queryAll(trajectory, 'details[data-testid="run-activity-row"]');
+    const row =
+      rows.find((candidate) => elementText(candidate).includes("Projection command")) ?? rows[0];
+    if (row instanceof HTMLDetailsElement && !row.open) {
+      row.querySelector("summary")?.click();
+    }
+    return workflowNodeTrajectoryState();
+  }
+
+  function clickWorkflowNodeTrajectoryLoadMoreOutput() {
+    const trajectory = workflowNodeTrajectoryElement();
+    const button = queryAll(trajectory, "button").find(
+      (candidate) => candidate.textContent?.trim() === "Load more" && !candidate.disabled,
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return { clicked: false, state: workflowNodeTrajectoryStateForDetails(null) };
+    }
+    button.click();
+    return {
+      clicked: true,
+      state: workflowNodeTrajectoryStateForDetails(
+        document.querySelector('[data-testid="workflow-node-run-details"]'),
+      ),
+    };
+  }
+
+  function outputTextForTrajectory(trajectory) {
+    return queryAll(trajectory, "pre")
+      .map((pre) => pre.textContent ?? "")
+      .join("\n");
+  }
+
+  function workflowNodeTrajectoryElement() {
+    return document.querySelector('[data-testid="workflow-node-agent-trajectory"]');
   }
 
   function lastSurface(surfaces) {

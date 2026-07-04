@@ -543,6 +543,25 @@ node-scoped queue/replay contract exists end to end.
 Progress 2026-07-03: completed for the preview-removal cleanup owned by Slice
 3. No generated contracts changed in this renderer-only slice.
 
+Progress 2026-07-04: Phase 8 verification added rendered workflow-node output
+pagination coverage to the deterministic Electron
+`--workflow-node-trajectory-contract-only` workflow. The test now starts the
+long-output workflow through the real graph toolbar, opens canonical node
+details, expands the shared workflow-node trajectory activity, verifies the
+initial page stops at `projection output chunk 040` with a real `Load more`
+control, clicks it, and verifies `projection output chunk 041` renders through
+the `chat:run-item-output` / `/chat/runs/item-output` path. The
+workflow-node-details browser driver now exposes scoped trajectory state,
+activity expansion, and load-more helpers. Remaining deterministic coverage
+gaps are approval submission from node details, steering through the rendered
+node composer, reload/restart while already viewing node details, and
+historical-attempt paging.
+Verification 2026-07-04: `node --check` covered the touched Electron helper
+files, the Electron template guard covered the changed browser-program files,
+`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+passed, and the final repository gates were `./scripts/format.sh` plus
+`./check_quality.sh --git-changes`.
+
 ## Verification Plan
 
 Start narrow, then broaden.
@@ -627,3 +646,8 @@ Before committing source, generated contracts, tests, or scripts:
 - Generated TypeScript contracts are regenerated from Go-owned types.
 - Required deterministic Electron workflow tests cover trajectory rendering,
   pagination, approval, steering, and restart/reload behavior.
+
+Progress 2026-07-04: deterministic Electron coverage now explicitly covers
+rendered workflow-node trajectory pagination through node details and the real
+run-item output endpoint. Approval, rendered composer steering,
+restart/reload-while-viewing, and historical-attempt paging remain to be added.

@@ -32,7 +32,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.workflowNodeDetailsVersion === "setta-workflow-node-details-driver-v1"',
+      'globalThis.__settaE2EDriver?.workflowNodeDetailsVersion === "setta-workflow-node-details-driver-v2"',
     path: join(driverScriptDir, "workflow-node-details-driver.js"),
   },
   {

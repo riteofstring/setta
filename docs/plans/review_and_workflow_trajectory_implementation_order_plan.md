@@ -914,6 +914,34 @@ source plans:
 
 One clean final selected gate run is enough unless new edits are made after it.
 
+Progress 2026-07-04: added deterministic rendered node-details pagination
+coverage to the existing `--workflow-node-trajectory-contract-only` Electron
+workflow. The scenario now opens the real workflow graph, starts the long-output
+workflow through the graph toolbar, opens the canonical workflow node details
+pane, expands the shared node-scoped agent trajectory activity, verifies the
+initial output page stops at chunk 040 with a real `Load more` control, clicks
+that control, and verifies chunk 041 renders with no remaining load-more button.
+The coverage runs through production Electron renderer/main/preload/IPC/HTTP
+and store paths and records `/chat/runs/item-output` plus
+`chat:run-item-output` evidence. The workflow node details browser driver was
+extended with scoped trajectory expansion and load-more helpers.
+
+Verification:
+
+- `node --check desktop/tests/electron/workflow-node-details-driver.js`
+- `node --check desktop/tests/electron/workflow-node-trajectory-contract-cases.mjs`
+- `node --check desktop/tests/electron/cdp-client.mjs`
+- `node scripts/check_electron_test_template_literals.mjs desktop/tests/electron/workflow-node-trajectory-contract-cases.mjs desktop/tests/electron/workflow-node-details-driver.js desktop/tests/electron/cdp-client.mjs`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Remaining notes: this slice covers rendered workflow-node output pagination and
+renderer reload before opening the graph. Approval submission from node details,
+steering through the rendered node composer, explicit reload/restart recovery
+while already viewing node details, and historical-attempt paging remain the
+remaining deterministic workflow-node trajectory coverage gaps.
+
 ## Parallel Work Guidance
 
 Safe to parallelize only when ownership boundaries do not overlap:

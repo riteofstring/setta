@@ -1,7 +1,9 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
 
+import { driverCallExpression } from "./cdp-client.mjs";
 import {
   appendWorkflowState,
   assertRecordingEvidence,
@@ -14,7 +16,13 @@ import {
   openWorkspace,
   stopElectron,
   waitForBackendState,
+  waitForState,
 } from "./chat-workflow-harness.mjs";
+import {
+  dispatchWorkflowGraphMouseClick,
+  maximizeWorkflowGraphPane,
+  openWorkflowGraphPane,
+} from "./workflow-graph-layout-helpers.mjs";
 import { activityWorkflowGraph } from "./workflow-activity-feed-fixtures.mjs";
 
 const trajectoryPrompt = "chat activity projection reload workflow";
@@ -23,7 +31,9 @@ const stoppableTrajectoryPrompt = "workflow hold for queue and steering";
 export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot }) {
   const fixture = await createFixture("workflow-node-trajectory-contract");
   const recordingDir = join(recordingRoot, "workflow-node-trajectory-contract");
-  const context = await launchContext(fixture, recordingDir);
+  const context = await launchContext(fixture, recordingDir, {
+    extraEnv: { SETTA_WORKFLOW_GRAPH_DEBUG: "1" },
+  });
   let failure = null;
 
   try {
@@ -44,15 +54,24 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "Verifies workflow node-scoped chat trajectory contracts.",
       graph,
     ]);
-    const started = await rendererWorkflow(context.client, "startExecution", [
-      workspaceId,
+    const graphSurfaceId = await openWorkflowGraphForDefinition(context.client, definition.id);
+    const startedExecutionId = await startWorkflowRunFromToolbar(
+      context.client,
+      graphSurfaceId,
       definition.id,
-    ]);
+    );
     const completed = await waitForWorkflowExecution(
       context.client,
       workspaceId,
-      started.id,
+      startedExecutionId,
       (execution) => execution.status === "completed",
+    );
+    const completedGraph = await waitForWorkflowGraphSnapshot(
+      context.client,
+      graphSurfaceId,
+      (snapshot) =>
+        snapshot.graph.workflow?.executionId === completed.id &&
+        snapshot.graph.workflow?.executionStatus === "completed",
     );
     const activityNode = latestNodeExecution(completed, "activity");
     if (!activityNode) {
@@ -75,6 +94,12 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       nodeExecution: activityNode,
       workspaceId,
     });
+    await assertWorkflowNodeDetailsOutputPagination(
+      context.client,
+      graphSurfaceId,
+      completedGraph,
+      activityNode.id,
+    );
     await appendWorkflowState(recordingDir, {
       executionId: completed.id,
       nodeExecutionId: activityNode.id,
@@ -185,6 +210,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "/workflows/executions/start",
       "/workflows/executions/read",
       "/workflows/nodes/trajectory",
+      "/chat/runs/item-output",
       "/chat/runs/reconcile",
       "/workflows/nodes/runs/retry-liveness",
       "/workflows/nodes/runs/steer",
@@ -198,6 +224,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "workflow:start-execution",
       "workflow:read-execution",
       "workflow:read-node-trajectory",
+      "chat:run-item-output",
       "chat:reconcile-runs",
       "workflow:retry-node-run-liveness",
       "workflow:steer-node-run",
@@ -206,6 +233,191 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
   });
   results.push("workflow-node-trajectory-contract");
   process.stdout.write("Electron chat workflow passed: workflow-node-trajectory-contract\n");
+}
+
+async function openWorkflowGraphForDefinition(client, definitionId) {
+  await reloadRendererWithSelectedWorkspace(client);
+  await openWorkflowGraphPane(client);
+  const surfaceId = await maximizeWorkflowGraphPane(client);
+  await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionId === definitionId &&
+      snapshot.graph.workflow?.viewMode === "draft",
+  );
+  return surfaceId;
+}
+
+async function reloadRendererWithSelectedWorkspace(client) {
+  try {
+    await client.call("Page.reload", { ignoreCache: true });
+  } catch (error) {
+    if (!isRendererNavigationError(error)) {
+      throw error;
+    }
+  }
+  const startedAt = Date.now();
+  let lastError = null;
+  let lastState = null;
+  while (Date.now() - startedAt < 20_000) {
+    try {
+      lastState = await client.evaluate(`(() => {
+      const workspaceLayoutWorkspaceId = () =>
+        document
+          .querySelector('[data-testid="workspace-layout-area"]')
+          ?.getAttribute("data-workspace-id") ?? "";
+      if (!window.setta?.workspace?.session) {
+        return {
+          selectedWorkspaceId: "",
+          workspaceLayoutWorkspaceId: workspaceLayoutWorkspaceId(),
+        };
+      }
+      return window.setta.workspace.session().then((session) => ({
+        selectedWorkspaceId: session.selectedWorkspaceId,
+        workspaceLayoutWorkspaceId: workspaceLayoutWorkspaceId(),
+      }));
+    })()`);
+      if (
+        lastState.selectedWorkspaceId !== "" &&
+        lastState.workspaceLayoutWorkspaceId === lastState.selectedWorkspaceId
+      ) {
+        return;
+      }
+    } catch (error) {
+      lastError = error;
+      if (!isRendererNavigationError(error)) {
+        throw error;
+      }
+    }
+    await delay(100);
+  }
+  throw new Error(
+    `renderer workflow API did not recover after reload: ${JSON.stringify({
+      lastError: lastError instanceof Error ? lastError.message : String(lastError),
+      lastState,
+    })}`,
+  );
+}
+
+function isRendererNavigationError(error) {
+  return error instanceof Error && error.message.includes("Inspected target navigated or closed");
+}
+
+async function startWorkflowRunFromToolbar(client, surfaceId, definitionId) {
+  await waitForState(
+    client,
+    driverCallExpression("workflowToolbarButtonState", { testId: "workflow-run-button" }),
+    (state) => state.exists && !state.disabled && state.text.includes("Run"),
+  );
+  const clicked = await client.driver("clickWorkflowToolbarButton", {
+    testId: "workflow-run-button",
+  });
+  if (!clicked.ok) {
+    throw new Error(`workflow run button was not clickable: ${JSON.stringify(clicked)}`);
+  }
+  const runProjection = await waitForWorkflowGraphSnapshot(
+    client,
+    surfaceId,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionId === definitionId &&
+      snapshot.graph.workflow?.viewMode === "run" &&
+      snapshot.graph.workflow?.executionId !== "",
+  );
+  return runProjection.graph.workflow.executionId;
+}
+
+async function assertWorkflowNodeDetailsOutputPagination(
+  client,
+  surfaceId,
+  snapshot,
+  nodeExecutionId,
+) {
+  await openWorkflowNodeRunDetails(client, surfaceId, snapshot, "activity");
+  await client.driver("expandWorkflowNodeTrajectoryActivityGroup");
+  await waitForState(
+    client,
+    driverCallExpression("workflowRunDetailsState"),
+    (state) => state.runActivityRowCount > 0,
+  );
+  await client.driver("expandWorkflowNodeTrajectoryCommandOutput");
+  const initial = await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryState"),
+    (state) =>
+      state.trajectoryPresent &&
+      state.loadMoreButtonCount === 1 &&
+      state.outputText.includes("projection output chunk 001") &&
+      state.outputText.includes("projection output chunk 040") &&
+      !state.outputText.includes("projection output chunk 041"),
+  );
+  const loaded = await client.driver("clickWorkflowNodeTrajectoryLoadMoreOutput");
+  if (!loaded.clicked) {
+    throw new Error(
+      `workflow node trajectory load-more was unavailable: ${JSON.stringify(initial)}`,
+    );
+  }
+  await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryState"),
+    (state) =>
+      state.trajectoryPresent &&
+      state.loadMoreButtonCount === 0 &&
+      state.outputText.includes("projection output chunk 041"),
+  );
+  assertWorkflowNodeDetailsEvidence(
+    await client.driver("workflowRunDetailsState"),
+    nodeExecutionId,
+  );
+}
+
+async function openWorkflowNodeRunDetails(client, surfaceId, snapshot, nodeId) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(`workflow graph node ${nodeId} missing: ${JSON.stringify(snapshot.graph)}`);
+  }
+  await dispatchWorkflowGraphMouseClick(client, surfaceId, {
+    x: node.screenX,
+    y: node.screenY,
+  });
+  await waitForState(
+    client,
+    driverCallExpression("workflowNodeDetailsButtonState"),
+    (state) => state.disabled === false && state.text.includes("Activity"),
+  );
+  const clicked = await client.driver("clickWorkflowNodeDetailsButton");
+  if (!clicked.ok) {
+    throw new Error(`workflow node details button was not clickable: ${JSON.stringify(clicked)}`);
+  }
+  await waitForState(
+    client,
+    driverCallExpression("workflowRunDetailsState"),
+    (state) =>
+      state.present &&
+      state.workflowTrajectorySurfaceCount === 1 &&
+      state.chatConversationTrajectoryCount === 0,
+  );
+}
+
+function assertWorkflowNodeDetailsEvidence(state, nodeExecutionId) {
+  if (!state.text.includes("Agent Trajectory") || !state.trajectory?.trajectoryPresent) {
+    throw new Error(`workflow node details evidence missing: ${JSON.stringify(state)}`);
+  }
+  if (nodeExecutionId === "") {
+    throw new Error("workflow node execution id is required for details evidence");
+  }
+}
+
+async function waitForWorkflowGraphSnapshot(client, surfaceId, predicate) {
+  const state = await waitForState(
+    client,
+    driverCallExpression("workflowGraphDebugSnapshotReady", {
+      includeVisual: false,
+      surfaceId,
+    }),
+    (value) => value.ready && predicate(value.snapshot),
+  );
+  return state.snapshot;
 }
 
 async function assertSteerWorkflowNodeTrajectoryContract(client, workspaceId, recordingDir) {
