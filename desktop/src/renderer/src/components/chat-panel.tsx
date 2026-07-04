@@ -125,8 +125,7 @@ function ChatWorkspace({
           setSearchOpen={setSearchOpen}
           switchingWorkspace={switchingWorkspace}
         />
-        {switchingWorkspace ? null : <CurrentPlanSurface chat={chat} />}
-        <BackgroundTerminalSurface chat={chat} />
+        <ActiveWorkStack chat={chat} switchingWorkspace={switchingWorkspace} />
         <ChatError message={selectedConversationChatError(chat)} />
         <ComposerSlot
           blocked={blocked}
@@ -137,6 +136,21 @@ function ChatWorkspace({
         />
       </div>
     </section>
+  );
+}
+
+function ActiveWorkStack({
+  chat,
+  switchingWorkspace,
+}: {
+  chat: ChatView;
+  switchingWorkspace: boolean;
+}) {
+  return (
+    <div className="contents" data-testid="chat-active-work-stack">
+      {switchingWorkspace ? null : <CurrentPlanSurface chat={chat} />}
+      <BackgroundTerminalSurface chat={chat} />
+    </div>
   );
 }
 

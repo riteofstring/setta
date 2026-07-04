@@ -732,6 +732,7 @@ describe("background terminal surface", () => {
     );
 
     expect(html).toContain('data-testid="current-plan-surface"');
+    expect(html).toContain('data-testid="chat-active-work-stack"');
     expect(html).toContain('data-run-id="run_plan"');
     expect(html).toContain('data-run-item-id="run_item_plan"');
     expect(html).toContain('data-plan-state="active"');

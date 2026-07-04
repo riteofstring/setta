@@ -806,12 +806,49 @@ Verification performed:
 
 Remaining work:
 
-- formalize the shared active-work stack with current-plan/background-terminal
-  coexistence assertions;
 - implement Phase 9 background-terminal completion dwell, including failed/lost
   persistence and expanded/hovered/focused auto-dismiss protection;
 - the live Electron semantic cartographer timeout remains a residual live-gate
   blocker outside this current-plan completion slice.
+
+### 2026-07-03: Active-Work Stack Coexistence
+
+Implemented the first focused Phase 9 active-work stack slice:
+
+- introduced an explicit `chat-active-work-stack` wrapper above the composer,
+  with current plan rendered before background terminals and without moving goal
+  status out of its top conversation chrome;
+- kept the existing compact current-plan and background-terminal rows visually
+  unchanged while giving the shared stack a stable production-path DOM anchor;
+- extended the fake Codex app-server goal background-terminal workflow with a
+  typed `turn/plan/updated` notification during the second active goal turn, so
+  the deterministic Electron workflow observes a current plan and a running
+  background terminal at the same time;
+- added production-path Codex protocol assertions that the shared stack contains
+  the current plan row first and the background-terminal footer second while the
+  background terminal is still running.
+
+Verification performed:
+
+- `pnpm vitest run src/renderer/src/components/chat-panel.test.tsx`
+- `pnpm typecheck`
+- `pnpm build`
+- `node desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/format.sh`
+- `./scripts/test_chat_workflows.sh --skip-build --deterministic-only`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`: live Codex
+  backend passed; live Electron again failed in the existing semantic
+  cartographer backend-state wait after earlier live chat steps.
+- `./check_quality.sh --git-changes`
+
+Remaining work:
+
+- implement Phase 9 background-terminal completion dwell, including successful
+  exit dwell, failed/lost persistence, and expanded/hovered/focused
+  auto-dismiss protection;
+- add deterministic Electron coverage for background-terminal completion dwell;
+- the live Electron semantic cartographer timeout remains a residual live-gate
+  blocker outside this active-work stack slice.
 
 ## Open Decisions
 

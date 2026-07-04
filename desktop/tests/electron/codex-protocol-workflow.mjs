@@ -454,6 +454,7 @@ export async function runProtocolGoalBackgroundTerminalWorkflow(
     "Goal set: phase5 codex background terminal",
   );
   const runId = goalRunIDFromCommandPage(commandPage);
+  await assertProtocolGoalActiveWorkStack(client, runId);
   await assertProtocolGoalBackgroundTerminalMonitor(client);
   const run = await waitForRunStatus(backend, workspaceId, conversationId, runId, "completed");
   await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
@@ -468,6 +469,55 @@ export async function runProtocolGoalBackgroundTerminalWorkflow(
     conversationId,
   );
   await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+async function assertProtocolGoalActiveWorkStack(client, runId) {
+  await waitForState(
+    client,
+    `(() => {
+      const stack = document.querySelector('[data-testid="chat-active-work-stack"]');
+      const rows = stack
+        ? Array.from(stack.querySelectorAll('[data-testid="current-plan-surface"], [data-testid="background-terminals-footer"]')).map((row) => ({
+            completedCount: row.getAttribute("data-plan-completed-count") ?? "",
+            currentStep: row.getAttribute("data-current-step") ?? "",
+            runId: row.getAttribute("data-run-id") ?? "",
+            stepCount: row.getAttribute("data-plan-step-count") ?? "",
+            testId: row.getAttribute("data-testid") ?? "",
+            text: row.innerText,
+          }))
+        : [];
+      return { present: Boolean(stack), rows };
+    })()`,
+    (value) => activeWorkStackMatches(value, runId),
+  );
+}
+
+function activeWorkStackMatches(value, runId) {
+  return (
+    value.present &&
+    value.rows.length === 2 &&
+    currentPlanStackRowMatches(value.rows[0], runId) &&
+    backgroundTerminalStackRowMatches(value.rows[1])
+  );
+}
+
+function currentPlanStackRowMatches(row, runId) {
+  return (
+    row.testId === "current-plan-surface" &&
+    row.runId === runId &&
+    row.completedCount === "1" &&
+    row.stepCount === "3" &&
+    row.currentStep === "Watch the background terminal" &&
+    row.text.includes("Current plan") &&
+    row.text.includes("Watch the background terminal")
+  );
+}
+
+function backgroundTerminalStackRowMatches(row) {
+  return (
+    row.testId === "background-terminals-footer" &&
+    row.text.includes("1 background terminal running")
+  );
 }
 
 async function runProtocolCurrentPlanWorkflow(client, backend, workspaceId) {

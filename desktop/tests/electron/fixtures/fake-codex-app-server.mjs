@@ -864,7 +864,7 @@ function emitCurrentPlanInitialTurn() {
   });
 }
 
-function notifyCurrentPlanUpdate({ explanation, steps }) {
+function notifyCurrentPlanUpdate({ explanation, steps, turnID = turnId }) {
   notify("turn/plan/updated", {
     explanation,
     plan: steps.map((step) => ({
@@ -873,7 +873,7 @@ function notifyCurrentPlanUpdate({ explanation, steps }) {
     })),
     summary: "legacy summary that must not be used",
     threadId,
-    turnId,
+    turnId: turnID,
   });
 }
 
@@ -1066,6 +1066,15 @@ function emitGoalOperationBackgroundTerminal(objective) {
       threadId,
       turnId: "turn_goal_b",
     });
+    notifyCurrentPlanUpdate({
+      explanation: "Coordinating active work surfaces during the goal turn.",
+      steps: [
+        { status: "completed", step: "Start the background terminal" },
+        { status: "inProgress", step: "Watch the background terminal" },
+        { status: "pending", step: "Finish the goal turn" },
+      ],
+      turnID: "turn_goal_b",
+    });
     setTimeout(() => {
       notifyGoalBackgroundTerminalOutput("turn_goal_a", goalBackgroundTerminal.secondTurnOutput);
       notifyGoalBackgroundTerminalCompleted("turn_goal_a");
@@ -1075,7 +1084,7 @@ function emitGoalOperationBackgroundTerminal(objective) {
         threadId,
         turn: fakeTurnWithID("turn_goal_b", "completed"),
       });
-    }, 350);
+    }, 800);
   }, 350);
 }
 
