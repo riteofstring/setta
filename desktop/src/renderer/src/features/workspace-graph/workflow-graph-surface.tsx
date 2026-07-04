@@ -638,10 +638,12 @@ export function WorkflowGraphSurface({
     },
     [openWorkflowNodeDetails, workflowProjection],
   );
-  useEffect(
-    () => registerWorkflowNodeDetailsDebugSurface(surfaceId, openWorkflowNodeDetailsFromDebug),
-    [openWorkflowNodeDetailsFromDebug, surfaceId],
-  );
+  useEffect(() => {
+    if (!debugEnabled) {
+      return undefined;
+    }
+    return registerWorkflowNodeDetailsDebugSurface(surfaceId, openWorkflowNodeDetailsFromDebug);
+  }, [debugEnabled, openWorkflowNodeDetailsFromDebug, surfaceId]);
   const openWorkflowActivityChipDetails = useCallback(
     (chip: WorkflowGraphActivityChipTarget) => {
       openWorkflowNodeDetails(chip.nodeId, activityFocusFromChip(chip));

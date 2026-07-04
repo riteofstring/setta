@@ -616,6 +616,16 @@ passed. Live Codex verification was attempted with ChatGPT auth available and
 Remaining deterministic coverage gaps are reload/restart while already viewing
 node details and historical-attempt paging.
 
+Audit follow-up 2026-07-04: no steering behavior gaps were found, but the
+typed node-details debug opener was initially registered outside graph debug
+mode. It is now gated by the existing `debugEnabled` graph flag so the focused
+Electron workflow keeps its deterministic opener only in debug-mode launches.
+Focused reruns passed projection-state Vitest, desktop typecheck/build, touched
+Electron syntax checks, the Electron template-literal guard, and
+`node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`.
+Remaining deterministic coverage gaps are unchanged: reload/restart while
+already viewing node details and historical-attempt paging.
+
 ## Verification Plan
 
 Start narrow, then broaden.

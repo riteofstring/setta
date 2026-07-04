@@ -953,14 +953,14 @@ output with the approval card removed. Verification passed for touched
 `node --check` files, the Electron template-literal guard, and focused Electron.
 
 Progress 2026-07-04: added deterministic rendered workflow-node composer
-steering coverage to `--workflow-node-trajectory-contract-only`: real sidebar,
-graph toolbar startup, production run selection, canonical node details, scoped
-composer enable/send behavior, steering submission, and rendered node-scoped
-output. The slice also preserves explicitly selected runs during
-selected-definition auto-loading and adds a typed node-details debug opener.
-Verification passed for touched `node --check`, projection-state Vitest, `pnpm build`, and focused Electron. Live Codex was blocked by local
-deprecated `config.approval_policy = "on-failure"`. Remaining gaps:
-reload/restart while already viewing node details and historical-attempt paging.
+steering coverage to `--workflow-node-trajectory-contract-only`, preserving
+selected runs during definition auto-loading and opening canonical node details
+through a typed graph debug opener. Audit follow-up gated that opener behind the
+existing graph `debugEnabled` flag after finding it was registered in normal
+runtime. Focused reruns passed projection-state Vitest, desktop typecheck/build,
+touched Electron syntax checks, the Electron template-literal guard, and focused
+Electron. Live Codex remains blocked by local deprecated
+`config.approval_policy = "on-failure"`. Remaining gaps: reload/restart while viewing node details and historical-attempt paging.
 
 ## Parallel Work Guidance
 
