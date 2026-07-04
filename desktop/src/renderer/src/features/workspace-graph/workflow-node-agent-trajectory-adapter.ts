@@ -1,7 +1,9 @@
 import type {
+  ChatInput,
   Run,
   RunItemOutput,
   RunItemOutputPage,
+  SteerMessageResult,
   WorkflowAgentTrajectoryCapabilities,
   WorkflowAgentTrajectoryPage,
 } from "@generated/backend";
@@ -14,6 +16,7 @@ import type {
 import type { ComposerActions, ComposerViewModel } from "../../components/chat-composer-contract";
 import type { LoadRunItemOutput } from "../../components/chat-transcript-activity";
 import type { SubmitApproval } from "../../components/chat-transcript-approvals";
+import { activeRunPresentation, type ActiveRunPresentation } from "../../lib/chat-run-liveness";
 import type { RunItemOutputPageState } from "../../stores/chat-store";
 import {
   outputPageLoadedState,
@@ -123,14 +126,31 @@ export function workflowNodeComposerViewModel({
 
 export function workflowNodeComposerActions({
   state,
+  steerMessage,
   stopRun,
 }: {
   state: WorkflowNodeTrajectoryState;
+  steerMessage: (input: ChatInput) => Promise<SteerMessageResult | null>;
   stopRun: () => Promise<void>;
 }): ComposerActions {
   return {
+    steerMessage: state.page.capabilities.canSteer ? steerMessage : undefined,
     stopActiveRun: state.page.capabilities.canStopRun ? stopRun : undefined,
   };
+}
+
+export function workflowNodeComposerRunPresentation(
+  state: WorkflowNodeTrajectoryState,
+): ActiveRunPresentation {
+  return activeRunPresentation(
+    activeRunForWorkflowNodeTrajectory(state.page),
+    state.page.activeRunLiveness,
+    {
+      retryLiveness: false,
+      sendSteering: state.page.capabilities.canSteer,
+      stopRun: state.page.capabilities.canStopRun,
+    },
+  );
 }
 
 export function workflowNodeTrajectoryWithOlderPage(
@@ -234,9 +254,6 @@ function assertSupportedWorkflowNodeTrajectoryCapabilities(
 ) {
   if (capabilities.canRetryLiveness) {
     throw new Error("Workflow node trajectory retry liveness requires a node-scoped action.");
-  }
-  if (capabilities.canSteer) {
-    throw new Error("Workflow node trajectory steering requires a node-scoped action.");
   }
 }
 

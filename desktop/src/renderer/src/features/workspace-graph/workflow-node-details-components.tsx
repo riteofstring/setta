@@ -8,10 +8,7 @@ import type {
 } from "@generated/backend";
 import { useEffect, useRef, type ReactNode } from "react";
 
-import {
-  AgentTrajectorySurface,
-  activeRunPresentationForAgentTrajectory,
-} from "../../components/agent-trajectory";
+import { AgentTrajectorySurface } from "../../components/agent-trajectory";
 import { Composer } from "../../components/chat-composer";
 import type { LoadRunItemOutput } from "../../components/chat-transcript-activity";
 import type { SubmitApproval } from "../../components/chat-transcript-approvals";
@@ -28,6 +25,7 @@ import {
 import {
   workflowNodeTrajectoryActions,
   workflowNodeComposerActions,
+  workflowNodeComposerRunPresentation,
   workflowNodeComposerViewModel,
   workflowNodeTrajectoryViewModel,
   type WorkflowNodeTrajectoryState,
@@ -39,6 +37,7 @@ import {
   workflowNodeEvents,
   workflowNodeKindLabel,
 } from "./workflow-node-details-helpers";
+import type { ComposerActions } from "../../components/chat-composer-contract";
 
 export interface WorkflowRunInspectionState {
   events: WorkflowEvent[];
@@ -53,6 +52,7 @@ export interface WorkflowRunInspectionState {
 export interface WorkflowRunTrajectoryActions {
   loadOlder: () => Promise<void>;
   loadRunItemOutput: LoadRunItemOutput;
+  steerMessage: NonNullable<ComposerActions["steerMessage"]>;
   stopRun: () => Promise<void>;
   submitApproval: SubmitApproval;
 }
@@ -313,13 +313,14 @@ function WorkflowAgentTrajectorySection({
     operation: inspection.operation,
     state: inspection.trajectory,
   });
-  const runPresentation = activeRunPresentationForAgentTrajectory(viewModel);
+  const runPresentation = workflowNodeComposerRunPresentation(inspection.trajectory);
   const composerViewModel = workflowNodeComposerViewModel({
     operation: inspection.operation,
     state: inspection.trajectory,
   });
   const composerActions = workflowNodeComposerActions({
     state: inspection.trajectory,
+    steerMessage: actions.steerMessage,
     stopRun: actions.stopRun,
   });
   const showComposer = composerViewModel.session !== null;

@@ -160,6 +160,8 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       runId: terminalTrajectory.runId,
       type: "workflow_node_trajectory_stop_contract_verified",
     });
+
+    await assertSteerWorkflowNodeTrajectoryContract(context.client, workspaceId, recordingDir);
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -182,6 +184,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "/workflows/executions/start",
       "/workflows/executions/read",
       "/workflows/nodes/trajectory",
+      "/workflows/nodes/runs/steer",
       "/workflows/nodes/runs/stop",
     ],
     ipcChannels: [
@@ -192,11 +195,84 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "workflow:start-execution",
       "workflow:read-execution",
       "workflow:read-node-trajectory",
+      "workflow:steer-node-run",
       "workflow:stop-node-run",
     ],
   });
   results.push("workflow-node-trajectory-contract");
   process.stdout.write("Electron chat workflow passed: workflow-node-trajectory-contract\n");
+}
+
+async function assertSteerWorkflowNodeTrajectoryContract(client, workspaceId, recordingDir) {
+  const steerGraph = activityWorkflowGraph(stoppableTrajectoryPrompt);
+  const steerValidation = await rendererWorkflow(client, "validateDefinition", [
+    workspaceId,
+    steerGraph,
+  ]);
+  if (!steerValidation.valid) {
+    throw new Error(
+      `steerable trajectory workflow graph invalid: ${JSON.stringify(steerValidation)}`,
+    );
+  }
+  const steerDefinition = await rendererWorkflow(client, "createDefinition", [
+    workspaceId,
+    "Node trajectory steering contract",
+    "Verifies workflow node-scoped steering contracts.",
+    steerGraph,
+  ]);
+  const steerStarted = await rendererWorkflow(client, "startExecution", [
+    workspaceId,
+    steerDefinition.id,
+  ]);
+  const steerRunning = await waitForWorkflowExecution(
+    client,
+    workspaceId,
+    steerStarted.id,
+    workflowActivityNodeRunning,
+  );
+  const steerNode = latestNodeExecution(steerRunning, "activity");
+  if (!steerNode) {
+    throw new Error(`steering workflow missing activity node: ${JSON.stringify(steerRunning)}`);
+  }
+  const steerTrajectory = await waitForWorkflowNodeTrajectory(
+    client,
+    workspaceId,
+    steerStarted.id,
+    steerNode.id,
+    (page) => page.capabilities.canSteer,
+  );
+  const steered = await rendererWorkflow(client, "steerNodeRun", [
+    {
+      executionId: steerStarted.id,
+      input: textInput("finish node trajectory steering"),
+      nodeExecutionId: steerNode.id,
+      workspaceId,
+    },
+  ]);
+  assertSteeringResult(steered, steerTrajectory);
+  const steerCompleted = await waitForWorkflowExecution(
+    client,
+    workspaceId,
+    steerStarted.id,
+    (execution) => execution.status === "completed",
+  );
+  const steeredTrajectory = await rendererWorkflow(client, "readNodeTrajectory", [
+    {
+      beforeBlockOrdinal: 0,
+      executionId: steerCompleted.id,
+      nodeExecutionId: steerNode.id,
+      outputLimit: 5,
+      transcriptLimit: 20,
+      workspaceId,
+    },
+  ]);
+  assertSteeredTrajectoryPage(steeredTrajectory, steerNode.id);
+  await appendWorkflowState(recordingDir, {
+    executionId: steerCompleted.id,
+    nodeExecutionId: steerNode.id,
+    runId: steeredTrajectory.runId,
+    type: "workflow_node_trajectory_steering_contract_verified",
+  });
 }
 
 async function waitForWorkflowExecution(client, workspaceId, executionId, isReady) {
@@ -301,11 +377,40 @@ function assertStoppableTrajectoryCapabilities(trajectory) {
   if (
     !capabilities.canStopRun ||
     capabilities.canRetryLiveness ||
-    capabilities.canSteer ||
+    !capabilities.canSteer ||
     capabilities.canSubmitApproval
   ) {
     throw new Error(
       `stoppable trajectory capabilities mismatch: ${JSON.stringify(trajectory.capabilities)}`,
+    );
+  }
+}
+
+function assertSteeredTrajectoryPage(trajectory, nodeExecutionId) {
+  if (
+    trajectory.scope.nodeExecutionId !== nodeExecutionId ||
+    trajectory.run.status !== "completed" ||
+    trajectory.activeRun !== null ||
+    trajectory.activeRunLiveness !== null ||
+    trajectory.capabilities.canSteer ||
+    !trajectory.blocks.some(
+      (block) =>
+        block.assistantText?.text?.includes("Steered with finish node trajectory steering.") ===
+        true,
+    )
+  ) {
+    throw new Error(`steered trajectory mismatch: ${JSON.stringify(trajectory)}`);
+  }
+}
+
+function assertSteeringResult(steered, steerTrajectory) {
+  if (
+    steered.run.id !== steerTrajectory.runId ||
+    steered.userMessage.runId !== steerTrajectory.runId ||
+    steered.userMessage.delivery !== "steering"
+  ) {
+    throw new Error(
+      `workflow node steering result mismatch: ${JSON.stringify({ steered, steerTrajectory })}`,
     );
   }
 }
@@ -495,6 +600,18 @@ function workflowActivityNodeRunning(execution) {
 
 function runnerRef(nodeExecution, kind) {
   return nodeExecution.runnerRefs.find((ref) => ref.kind === kind) ?? null;
+}
+
+function textInput(text) {
+  return {
+    parts: [
+      {
+        image: null,
+        text: { format: "plain", text },
+        type: "text",
+      },
+    ],
+  };
 }
 
 async function rendererWorkflow(client, method, args) {

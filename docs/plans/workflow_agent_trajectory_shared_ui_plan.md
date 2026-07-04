@@ -396,10 +396,9 @@ Verification:
   still returned unsupported `approval_policy = "on-failure"`, so Setta
   rejected conversation creation before live-provider execution.
 
-Remaining: Slice 4 still owns workflow-node immediate steering, retry-liveness,
-and composer send/steering controls once node-scoped backend actions exist.
-Queue affordances remain hidden until a node-scoped queue contract exists end
-to end.
+Remaining: Slice 4 still owns workflow-node retry-liveness. Queue affordances
+and pending-steering replay remain hidden until a node-scoped queue/replay
+contract exists end to end.
 
 ### Slice 4: Node Composer, Liveness, And Approvals
 
@@ -458,9 +457,48 @@ Verification:
   remained blocked by local Codex `config/read` returning unsupported
   `approval_policy = "on-failure"` before live-provider execution.
 
-Remaining: workflow-node immediate steering, retry-liveness, and composer
-send/steering behavior remain. Queue affordances remain hidden until a
-node-scoped queue contract exists end to end.
+Progress 2026-07-03: workflow-node steering controls completed. Added the
+Go-owned `SteerWorkflowNodeRun` request and `/workflows/nodes/runs/steer`
+endpoint, regenerated TypeScript, and exposed the generated client through
+Electron main/preload/shared IPC as `workflow.steerNodeRun`. Workflow node
+trajectory capabilities now advertise `canSteer` only for attached, running,
+non-approval-blocked workflow-owned runs. The renderer maps that capability into
+the node-scoped composer `steerMessage` action and reloads the node trajectory
+after steering. The chat service exact-run steering boundary rejects active-run
+mismatches before any provider steering request or steering-message persistence,
+so reused workflow conversations cannot steer the wrong run.
+
+The shared transcript `sendSteering` capability remains disabled for workflow
+nodes because it also exposes the selected-chat pending-steering replay
+affordance. The workflow node composer can steer through the node-scoped
+endpoint, but selected-chat queue controls and pending-steering replay remain
+hidden until a node-scoped queue/replay contract exists.
+
+Verification:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./cmd/generate-contracts -count=1`
+- `./scripts/go.sh test ./internal/chat -run 'TestService(SteeringPersistsMessageAndCallsHarness|SteerActiveRunByIDRejectsDifferentActiveRunBeforeProviderSteer)' -count=1`
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(ReadWorkflowNodeTrajectory|StopWorkflowNodeRun|SteerWorkflowNodeRun)' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'TestWorkflow(NodeTrajectoryEndpoint|Endpoint(Steers|Stops)NodeScopedRun)' -count=1`
+- `pnpm -C desktop exec vitest run src/renderer/src/components/chat-composer.test.tsx src/renderer/src/features/workspace-graph/workflow-node-agent-trajectory-adapter.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-components.test.tsx src/preload/index.test.ts --reporter=dot`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop deadcode`
+- `pnpm -C desktop build`
+- `node --check desktop/tests/electron/workflow-node-trajectory-contract-cases.mjs`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+  was attempted with ChatGPT auth available, but local Codex `config/read`
+  still returned unsupported `approval_policy = "on-failure"`, so Setta
+  rejected conversation creation before live-provider execution. This failed
+  live-provider attempt is not provider-integration proof.
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Remaining: workflow-node retry-liveness remains. Queue affordances and
+pending-steering replay remain hidden until a node-scoped queue/replay contract
+exists end to end.
 
 ### Slice 5: Cleanup
 

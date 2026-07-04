@@ -158,6 +158,14 @@ export function registerWorkflowIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "workflowSteerNodeRun",
+    async (_event, request) => {
+      return requireBackendClient().steerWorkflowNodeRun(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workflowStopNodeRun",
     async (_event, request) => {
       return requireBackendClient().stopWorkflowNodeRun(request);

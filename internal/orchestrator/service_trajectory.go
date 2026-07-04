@@ -67,6 +67,18 @@ func (service *Service) StopWorkflowNodeRun(workspaceID string, executionID stri
 	return service.completeStoppedWorkflowNodeRun(workspaceID, executionID, cancelledRun)
 }
 
+func (service *Service) SteerWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string, input chat.ChatInput) (chat.SteerMessageResult, error) {
+	context, err := service.workflowNodeSteerContext(workspaceID, executionID, nodeExecutionID)
+	if err != nil {
+		return chat.SteerMessageResult{}, err
+	}
+	result, err := service.codexChatService.SteerActiveRunInputByID(workspaceID, context.ConversationID, context.RunID, input)
+	if err != nil {
+		return chat.SteerMessageResult{}, fmt.Errorf("steer workflow node chat run: %w", err)
+	}
+	return result, nil
+}
+
 func (service *Service) workflowNodeStopContext(workspaceID string, executionID string, nodeExecutionID string) (workflowAgentTrajectoryContext, error) {
 	if service.codexChatService == nil {
 		return workflowAgentTrajectoryContext{}, errors.New("workflow node stop requires Codex chat service")
@@ -90,6 +102,30 @@ func (service *Service) workflowNodeStopContext(workspaceID string, executionID 
 	}
 	if liveness == nil || !liveness.Cancellable {
 		return workflowAgentTrajectoryContext{}, fmt.Errorf("workflow node execution %s run %s is not cancellable", nodeExecutionID, context.RunID)
+	}
+	return context, nil
+}
+
+func (service *Service) workflowNodeSteerContext(workspaceID string, executionID string, nodeExecutionID string) (workflowAgentTrajectoryContext, error) {
+	if service.codexChatService == nil {
+		return workflowAgentTrajectoryContext{}, errors.New("workflow node steering requires Codex chat service")
+	}
+	if err := validateSteerWorkflowNodeRunRequest(executionID, nodeExecutionID); err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	context, err := service.workflowAgentTrajectoryContext(workspaceID, executionID, nodeExecutionID)
+	if err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	activeRun, liveness, err := service.workflowAgentTrajectoryActiveRun(workspaceID, context.ConversationID, context.RunID)
+	if err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	if !workflowAgentTrajectoryCanSteer(activeRun, liveness) {
+		return workflowAgentTrajectoryContext{}, fmt.Errorf("workflow node execution %s run %s is not steerable", nodeExecutionID, context.RunID)
 	}
 	return context, nil
 }
@@ -166,6 +202,7 @@ func (service *Service) workflowAgentTrajectoryTranscript(workspaceID string, co
 func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run chat.Run, transcript chat.RunTranscriptPage, activity chat.RunActivityPage, outputPages []WorkflowAgentTrajectoryRunItemOutputPageState, outputs []chat.RunItemOutput, activeRun *chat.Run, activeRunLiveness *chat.RunLiveness) WorkflowAgentTrajectoryPage {
 	pendingApproval := workflowAgentTrajectoryPendingApproval(context.NodeExecution)
 	canStopRun := activeRun != nil && activeRunLiveness != nil && activeRunLiveness.Cancellable
+	canSteer := workflowAgentTrajectoryCanSteer(activeRun, activeRunLiveness)
 	return WorkflowAgentTrajectoryPage{
 		SchemaVersion: SchemaVersion,
 		Scope: WorkflowAgentTrajectoryScope{
@@ -194,10 +231,19 @@ func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run cha
 		Capabilities: WorkflowAgentTrajectoryCapabilities{
 			CanLoadOlderHistory:  transcript.HasMoreOlder,
 			CanLoadRunItemOutput: true,
+			CanSteer:             canSteer,
 			CanStopRun:           canStopRun,
 			CanSubmitApproval:    pendingApproval != nil,
 		},
 	}
+}
+
+func workflowAgentTrajectoryCanSteer(activeRun *chat.Run, liveness *chat.RunLiveness) bool {
+	return activeRun != nil &&
+		liveness != nil &&
+		activeRun.Status == chat.RunStatusRunning &&
+		activeRun.PendingApproval == nil &&
+		liveness.Status == chat.RunLivenessAttached
 }
 
 func validateWorkflowNodeTrajectoryRequest(executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, outputLimit int) error {
@@ -220,6 +266,16 @@ func validateWorkflowNodeTrajectoryRequest(executionID string, nodeExecutionID s
 }
 
 func validateStopWorkflowNodeRunRequest(executionID string, nodeExecutionID string) error {
+	if err := validateStorageID("workflow execution id", executionID); err != nil {
+		return err
+	}
+	if err := validateStorageID("workflow node execution id", nodeExecutionID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateSteerWorkflowNodeRunRequest(executionID string, nodeExecutionID string) error {
 	if err := validateStorageID("workflow execution id", executionID); err != nil {
 		return err
 	}

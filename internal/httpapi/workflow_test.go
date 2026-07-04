@@ -377,6 +377,52 @@ func TestWorkflowEndpointStopsNodeScopedRun(t *testing.T) {
 	}
 }
 
+func TestWorkflowEndpointSteersNodeScopedRun(t *testing.T) {
+	handler := newScriptedWorkflowHandler(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Steered trajectory workflow",
+		Graph:       httpWorkflowHoldGraph(),
+	}, http.StatusOK)
+	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	work := latestHTTPNodeExecution(t, started, "work")
+
+	page := waitForHTTPWorkflowNodeTrajectory(t, handler, opened.Workspace.ID, started.ID, work.ID, func(page orchestrator.WorkflowAgentTrajectoryPage) bool {
+		return page.Capabilities.CanSteer
+	})
+	steered := postJSON[chat.SteerMessageResult](t, handler, "/workflows/nodes/runs/steer", SteerWorkflowNodeRunRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+		Input:           chat.TextChatInput("finish HTTP node steering"),
+	}, http.StatusOK)
+	if steered.Run.ID != page.RunID || steered.UserMessage.RunID != page.RunID || steered.UserMessage.Delivery != chat.MessageDeliverySteering {
+		t.Fatalf("steering result = %+v, want steering for run %s", steered, page.RunID)
+	}
+	completed := waitForHTTPWorkflowStatus(t, handler, opened.Workspace.ID, started.ID, orchestrator.ExecutionStatusCompleted)
+	completedWork := latestHTTPNodeExecution(t, completed, "work")
+	if completedWork.ID != work.ID || completedWork.Status != orchestrator.NodeExecutionStatusSucceeded {
+		t.Fatalf("completed node = %+v, want succeeded node %s", completedWork, work.ID)
+	}
+	terminalPage := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     completed.ID,
+		NodeExecutionID: completedWork.ID,
+		TranscriptLimit: 20,
+		OutputLimit:     5,
+	}, http.StatusOK)
+	if terminalPage.ActiveRun != nil || terminalPage.Capabilities.CanSteer {
+		t.Fatalf("terminal trajectory = active %+v capabilities %+v, want no active steering", terminalPage.ActiveRun, terminalPage.Capabilities)
+	}
+	if !httpTrajectoryBlocksContainAssistantText(terminalPage.Blocks, "Steered with finish HTTP node steering.") {
+		t.Fatalf("terminal trajectory blocks = %+v, want steered assistant text", terminalPage.Blocks)
+	}
+}
+
 func TestWorkflowEventStreamPushesWorkflowEvents(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	server := httptest.NewServer(handler)
@@ -586,6 +632,27 @@ func waitForHTTPWorkflow(t *testing.T, handler http.Handler, workspaceID string,
 	return orchestrator.WorkflowExecution{}
 }
 
+func waitForHTTPWorkflowNodeTrajectory(t *testing.T, handler http.Handler, workspaceID string, executionID string, nodeExecutionID string, matches func(orchestrator.WorkflowAgentTrajectoryPage) bool) orchestrator.WorkflowAgentTrajectoryPage {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	var page orchestrator.WorkflowAgentTrajectoryPage
+	for time.Now().Before(deadline) {
+		page = postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
+			WorkspaceID:     workspaceID,
+			ExecutionID:     executionID,
+			NodeExecutionID: nodeExecutionID,
+			TranscriptLimit: 20,
+			OutputLimit:     5,
+		}, http.StatusOK)
+		if matches(page) {
+			return page
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for workflow node trajectory %s, last state %+v", nodeExecutionID, page)
+	return orchestrator.WorkflowAgentTrajectoryPage{}
+}
+
 func latestHTTPNodeExecution(t *testing.T, execution orchestrator.WorkflowExecution, nodeID string) orchestrator.WorkflowNodeExecution {
 	t.Helper()
 	for index := len(execution.NodeExecutions) - 1; index >= 0; index-- {
@@ -595,6 +662,15 @@ func latestHTTPNodeExecution(t *testing.T, execution orchestrator.WorkflowExecut
 	}
 	t.Fatalf("node execution for %s was not found in %+v", nodeID, execution.NodeExecutions)
 	return orchestrator.WorkflowNodeExecution{}
+}
+
+func httpTrajectoryBlocksContainAssistantText(blocks []chat.TranscriptBlock, text string) bool {
+	for _, block := range blocks {
+		if block.AssistantText != nil && strings.Contains(block.AssistantText.Text, text) {
+			return true
+		}
+	}
+	return false
 }
 
 func projectedHTTPNode(t *testing.T, projection *orchestrator.WorkflowGraphProjection, nodeID string) orchestrator.WorkflowGraphNode {

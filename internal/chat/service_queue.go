@@ -311,6 +311,17 @@ func (service *Service) queueRemoveResultLocked(workspaceID string, conversation
 }
 
 func (service *Service) SteerActiveRunInput(workspaceID string, conversationID string, input ChatInput) (SteerMessageResult, error) {
+	return service.steerActiveRunInput(workspaceID, conversationID, "", input)
+}
+
+func (service *Service) SteerActiveRunInputByID(workspaceID string, conversationID string, runID string, input ChatInput) (SteerMessageResult, error) {
+	if err := validateStorageID("run id", runID); err != nil {
+		return SteerMessageResult{}, err
+	}
+	return service.steerActiveRunInput(workspaceID, conversationID, runID, input)
+}
+
+func (service *Service) steerActiveRunInput(workspaceID string, conversationID string, expectedRunID string, input ChatInput) (SteerMessageResult, error) {
 	input, err := prepareMessageEndpointInput(input)
 	if err != nil {
 		return SteerMessageResult{}, err
@@ -327,7 +338,7 @@ func (service *Service) SteerActiveRunInput(workspaceID string, conversationID s
 		return SteerMessageResult{}, err
 	}
 
-	message, run, err := service.submitSteeringMessage(workspaceID, conversationID, input)
+	message, run, err := service.submitSteeringMessageForRun(workspaceID, conversationID, expectedRunID, input)
 	if err != nil {
 		return SteerMessageResult{}, err
 	}
@@ -335,7 +346,11 @@ func (service *Service) SteerActiveRunInput(workspaceID string, conversationID s
 }
 
 func (service *Service) submitSteeringMessage(workspaceID string, conversationID string, input ChatInput) (ChatMessage, Run, error) {
-	message, run, threadID, turnID, err := service.persistSteeringMessage(workspaceID, conversationID, input)
+	return service.submitSteeringMessageForRun(workspaceID, conversationID, "", input)
+}
+
+func (service *Service) submitSteeringMessageForRun(workspaceID string, conversationID string, expectedRunID string, input ChatInput) (ChatMessage, Run, error) {
+	message, run, threadID, turnID, err := service.persistSteeringMessageForRun(workspaceID, conversationID, expectedRunID, input)
 	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
@@ -782,13 +797,16 @@ func (service *Service) publishQueuedPromotionLocked(workspaceID string, convers
 	return service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID)
 }
 
-func (service *Service) persistSteeringMessage(workspaceID string, conversationID string, input ChatInput) (ChatMessage, Run, string, string, error) {
+func (service *Service) persistSteeringMessageForRun(workspaceID string, conversationID string, expectedRunID string, input ChatInput) (ChatMessage, Run, string, string, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
 	active, err := service.attachedActiveTurnLocked(workspaceID, conversationID)
 	if err != nil {
 		return ChatMessage{}, Run{}, "", "", err
+	}
+	if expectedRunID != "" && active.runID != expectedRunID {
+		return ChatMessage{}, Run{}, "", "", fmt.Errorf("active run %s does not match requested run %s", active.runID, expectedRunID)
 	}
 	run, err := service.store.LoadRun(workspaceID, active.runID)
 	if err != nil {

@@ -125,6 +125,114 @@ func TestServiceStopWorkflowNodeRunCancelsWorkflowOwnedRun(t *testing.T) {
 	waitForScriptedHarnessIdle(t, harness)
 }
 
+func TestServiceSteerWorkflowNodeRunSteersWorkflowOwnedRun(t *testing.T) {
+	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
+	definition, err := workflowService.CreateDefinition(workspaceID, "Trajectory steer", "", codexActionGraph("workflow hold for queue and steering", true))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	subscription, err := workflowService.SubscribeEvents(WorkflowEventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe workflow events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, started, "work")
+	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
+	runID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
+
+	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, started.ID, work.ID, 0, 20, 5)
+	if err != nil {
+		t.Fatalf("read running trajectory: %v", err)
+	}
+	if !page.Capabilities.CanSteer {
+		t.Fatalf("running trajectory capabilities = %+v, want steer", page.Capabilities)
+	}
+
+	steered, err := workflowService.SteerWorkflowNodeRun(workspaceID, started.ID, work.ID, chat.TextChatInput("finish node steering"))
+	if err != nil {
+		t.Fatalf("steer workflow node: %v", err)
+	}
+	if steered.Run.ID != runID || steered.UserMessage.RunID != runID || steered.UserMessage.Delivery != chat.MessageDeliverySteering {
+		t.Fatalf("steering result = %+v, want steering message for run %s", steered, runID)
+	}
+
+	waitForWorkflowEvent(t, subscription, started.ID, EventExecutionCompleted)
+	completed, err := workflowService.ReadExecution(workspaceID, started.ID)
+	if err != nil {
+		t.Fatalf("read completed execution: %v", err)
+	}
+	completedWork := latestNodeExecutionForTest(t, completed, "work")
+	if completedWork.ID != work.ID || completedWork.Status != NodeExecutionStatusSucceeded {
+		t.Fatalf("completed node = %+v, want succeeded node %s", completedWork, work.ID)
+	}
+	run := waitForWorkflowChatRunStatus(t, chatService, workspaceID, conversationID, runID, chat.RunStatusCompleted)
+	if run.ID != runID {
+		t.Fatalf("completed chat run = %+v, want %s", run, runID)
+	}
+	terminalPage, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, completed.ID, work.ID, 0, 20, 5)
+	if err != nil {
+		t.Fatalf("read terminal trajectory: %v", err)
+	}
+	if terminalPage.ActiveRun != nil || terminalPage.ActiveRunLiveness != nil || terminalPage.Capabilities.CanSteer {
+		t.Fatalf("terminal trajectory active state = run %+v liveness %+v capabilities %+v", terminalPage.ActiveRun, terminalPage.ActiveRunLiveness, terminalPage.Capabilities)
+	}
+	if !trajectoryBlocksContainAssistantText(terminalPage.Blocks, "Steered with finish node steering.") {
+		t.Fatalf("terminal trajectory blocks = %+v, want steered assistant text", terminalPage.Blocks)
+	}
+	waitForScriptedHarnessIdle(t, harness)
+}
+
+func TestServiceSteerWorkflowNodeRunRejectsWrongActiveRun(t *testing.T) {
+	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
+	definition, err := workflowService.CreateDefinition(workspaceID, "Trajectory steer wrong run", "", codexActionGraph("workflow hold for queue and steering", true))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, started, "work")
+	runID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
+	mutated := started
+	for index := range mutated.NodeExecutions {
+		if mutated.NodeExecutions[index].ID == work.ID {
+			mutated.NodeExecutions[index].RunnerRefs = mergeRunnerRefs(mutated.NodeExecutions[index].RunnerRefs, []WorkflowActionRunnerRef{
+				{Kind: RunnerRefChatRun, ID: "run_other"},
+			})
+		}
+	}
+	transition, err := AttachRunnerRefs(mutated, work.ID, []WorkflowActionRunnerRef{
+		{Kind: RunnerRefChatRun, ID: "run_other"},
+	}, workflowService.transitionContext())
+	if err != nil {
+		t.Fatalf("build mutated runner refs transition: %v", err)
+	}
+	workflowService.mu.Lock()
+	if err := workflowService.persistTransition(transition); err != nil {
+		workflowService.mu.Unlock()
+		t.Fatalf("save mutated runner refs: %v", err)
+	}
+	workflowService.mu.Unlock()
+
+	_, err = workflowService.SteerWorkflowNodeRun(workspaceID, started.ID, work.ID, chat.TextChatInput("wrong run"))
+	if err == nil || !strings.Contains(err.Error(), "not steerable") {
+		t.Fatalf("steer wrong run error = %v, want not steerable", err)
+	}
+	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
+	run := waitForWorkflowChatRunStatus(t, chatService, workspaceID, conversationID, runID, chat.RunStatusRunning)
+	if run.ID != runID {
+		t.Fatalf("active run = %+v, want original run %s", run, runID)
+	}
+	steerWorkflowChatWhenReady(t, chatService, workspaceID, conversationID, "finish after wrong run")
+	waitForScriptedHarnessIdle(t, harness)
+}
+
 func TestServiceReadWorkflowNodeTrajectoryRejectsNonChatBackedNode(t *testing.T) {
 	workflowService, _, _, workspaceID := newCodexRunnerTestServices(t)
 	definition, err := workflowService.CreateDefinition(workspaceID, "Control only", "", startEndGraph())
@@ -266,4 +374,13 @@ func trajectoryOutputByID(outputs []chat.RunItemOutput, outputID string) (chat.R
 		}
 	}
 	return chat.RunItemOutput{}, false
+}
+
+func trajectoryBlocksContainAssistantText(blocks []chat.TranscriptBlock, text string) bool {
+	for _, block := range blocks {
+		if block.AssistantText != nil && strings.Contains(block.AssistantText.Text, text) {
+			return true
+		}
+	}
+	return false
 }

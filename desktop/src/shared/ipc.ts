@@ -106,6 +106,7 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
+  SteerWorkflowNodeRunRequest,
   SubmitApprovalRequest,
   StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
@@ -259,6 +260,7 @@ export const ipcChannels = {
   workflowReadExecution: "workflow:read-execution",
   workflowReadNodeTrajectory: "workflow:read-node-trajectory",
   workflowStartExecution: "workflow:start-execution",
+  workflowSteerNodeRun: "workflow:steer-node-run",
   workflowStopNodeRun: "workflow:stop-node-run",
   workflowSubmitApproval: "workflow:submit-approval",
   workflowUpdateDefinition: "workflow:update-definition",
@@ -790,6 +792,10 @@ interface IpcContract {
   workflowStartExecution: {
     args: [workspaceId: string, definitionId: string, versionId: string];
     result: WorkflowExecution;
+  };
+  workflowSteerNodeRun: {
+    args: [request: SteerWorkflowNodeRunRequest];
+    result: SteerMessageResult;
   };
   workflowStopNodeRun: {
     args: [request: StopWorkflowNodeRunRequest];

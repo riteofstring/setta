@@ -770,12 +770,46 @@ Verification:
   remained blocked by local Codex `config/read` returning unsupported
   `approval_policy = "on-failure"` before live-provider execution.
 
-Remaining notes: workflow-node immediate steering, retry-liveness, and composer
-send/steering behavior remain for the next controls slice once node-scoped
-backend actions exist. Queue controls remain hidden until a node-scoped queue
-contract exists end to end. The activity-feed Electron warning is unrelated to
-this adapter slice and remains a blocker for using that broad workflow as a
-clean gate.
+Progress 2026-07-03: workflow-node steering controls completed. Added the
+Go-owned `SteerWorkflowNodeRun` request and `/workflows/nodes/runs/steer`
+endpoint, regenerated TypeScript contracts, and exposed the generated client
+through Electron main/preload/shared IPC as `workflow.steerNodeRun`. The chat
+service now has an exact-run steering boundary so a workflow node can steer only
+the committed `chat.run` runner ref; mismatched active runs are rejected before
+provider steering or steering-message persistence. Workflow node trajectory
+capabilities now advertise `canSteer` only for attached, running,
+non-approval-blocked workflow-owned runs. The renderer maps that capability into
+the workflow node composer `steerMessage` action while keeping selected-chat
+queue controls and pending-steering replay hidden because no node-scoped queue
+or replay contract exists.
+
+Verification:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./cmd/generate-contracts -count=1`
+- `./scripts/go.sh test ./internal/chat -run 'TestService(SteeringPersistsMessageAndCallsHarness|SteerActiveRunByIDRejectsDifferentActiveRunBeforeProviderSteer)' -count=1`
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(ReadWorkflowNodeTrajectory|StopWorkflowNodeRun|SteerWorkflowNodeRun)' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'TestWorkflow(NodeTrajectoryEndpoint|Endpoint(Steers|Stops)NodeScopedRun)' -count=1`
+- `pnpm -C desktop exec vitest run src/renderer/src/components/chat-composer.test.tsx src/renderer/src/features/workspace-graph/workflow-node-agent-trajectory-adapter.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-components.test.tsx src/preload/index.test.ts --reporter=dot`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop deadcode`
+- `pnpm -C desktop build`
+- `node --check desktop/tests/electron/workflow-node-trajectory-contract-cases.mjs`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-node-trajectory-contract-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+  was attempted with ChatGPT auth available, but local Codex `config/read`
+  still returned unsupported `approval_policy = "on-failure"`, so Setta
+  rejected conversation creation before live-provider execution. This failed
+  live-provider attempt is not provider-integration proof.
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Remaining notes: workflow-node retry-liveness remains. Queue controls and
+pending-steering replay remain hidden until a node-scoped queue/replay contract
+exists end to end. The activity-feed Electron warning is unrelated to this
+adapter slice and remains a blocker for using that broad workflow as a clean
+gate.
 
 ## Phase 7: Terminal Pane Close Transaction
 

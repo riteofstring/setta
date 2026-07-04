@@ -412,6 +412,13 @@ type StopWorkflowNodeRunRequest struct {
 	NodeExecutionID string `json:"nodeExecutionId"`
 }
 
+type SteerWorkflowNodeRunRequest struct {
+	WorkspaceID     string         `json:"workspaceId"`
+	ExecutionID     string         `json:"executionId"`
+	NodeExecutionID string         `json:"nodeExecutionId"`
+	Input           chat.ChatInput `json:"input"`
+}
+
 type SubmitWorkflowApprovalRequest struct {
 	WorkspaceID     string                `json:"workspaceId"`
 	ExecutionID     string                `json:"executionId"`

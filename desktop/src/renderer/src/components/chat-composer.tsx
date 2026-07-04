@@ -836,7 +836,9 @@ function ComposerComponent({
       session={session}
       selectedSuggestionIndex={selectedSuggestionIndex}
       sendDraft={sendDraft}
-      sendImmediateSteering={sendImmediateSteering}
+      sendImmediateSteering={
+        actions.sendSteeringImmediately === undefined ? undefined : sendImmediateSteering
+      }
       stopActiveRun={actions.stopActiveRun}
       supportsImages={supportsImages}
       textareaRef={textareaRef}

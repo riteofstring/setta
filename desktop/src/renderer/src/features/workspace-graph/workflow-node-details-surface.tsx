@@ -343,6 +343,34 @@ function useWorkflowRunInspection(target: WorkflowNodeDetailsTarget | null) {
     [reloadCurrentInspection, state.trajectory],
   );
 
+  const steerMessage = useCallback<WorkflowRunTrajectoryActions["steerMessage"]>(
+    async (input) => {
+      const current = state.trajectory;
+      if (current === null) {
+        return null;
+      }
+      setState((previous) => ({ ...previous, operation: "steering" }));
+      try {
+        const result = await window.setta.workflow.steerNodeRun({
+          executionId: current.page.scope.executionId,
+          input,
+          nodeExecutionId: current.page.scope.nodeExecutionId,
+          workspaceId: current.page.scope.workspaceId,
+        });
+        await reloadCurrentInspection();
+        return result;
+      } catch (error: unknown) {
+        setState((previous) => ({
+          ...previous,
+          loadError: errorMessage(error),
+          operation: null,
+        }));
+        return null;
+      }
+    },
+    [reloadCurrentInspection, state.trajectory],
+  );
+
   const stopRun = useCallback<WorkflowRunTrajectoryActions["stopRun"]>(async () => {
     const current = state.trajectory;
     if (current === null) {
@@ -369,6 +397,7 @@ function useWorkflowRunInspection(target: WorkflowNodeDetailsTarget | null) {
     actions: {
       loadOlder,
       loadRunItemOutput,
+      steerMessage,
       stopRun,
       submitApproval,
     },

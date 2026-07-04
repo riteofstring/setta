@@ -70,7 +70,7 @@ export interface ComposerFrameProps {
   session: ComposerSessionViewModel | null;
   selectedSuggestionIndex: number;
   sendDraft: () => Promise<void>;
-  sendImmediateSteering: () => Promise<void>;
+  sendImmediateSteering?: () => Promise<void>;
   stopActiveRun?: () => Promise<void>;
   supportsImages: boolean;
   textareaRef: RefObject<HTMLTextAreaElement | null>;

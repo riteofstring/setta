@@ -490,7 +490,7 @@ export function ComposerButton({
   retryActiveRunLiveness?: () => Promise<void>;
   running: boolean;
   runPresentation: ActiveRunPresentation;
-  sendImmediateSteering: () => Promise<void>;
+  sendImmediateSteering?: () => Promise<void>;
   stopActiveRun?: () => Promise<void>;
 }) {
   if (running && runPresentation.kind !== "working") {
@@ -587,7 +587,7 @@ function WorkingRunButtons({
   operation: string | null;
   queueDraft?: () => Promise<void>;
   runPresentation: ActiveRunPresentation;
-  sendImmediateSteering: () => Promise<void>;
+  sendImmediateSteering?: () => Promise<void>;
   stopActiveRun?: () => Promise<void>;
 }) {
   return (
@@ -617,17 +617,19 @@ function WorkingRunButtons({
           <MessageSquarePlus className="h-3.5 w-3.5" />
         </Button>
       ) : null}
-      <Button
-        aria-label="Interrupt and send pending steering"
-        className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
-        disabled={!canSendImmediately || operation === "sendingSteeringImmediately"}
-        onClick={() => void sendImmediateSteering()}
-        title="Interrupt and send pending steering"
-        type="button"
-        variant="secondary"
-      >
-        <Zap className="h-3.5 w-3.5" />
-      </Button>
+      {sendImmediateSteering !== undefined ? (
+        <Button
+          aria-label="Interrupt and send pending steering"
+          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+          disabled={!canSendImmediately || operation === "sendingSteeringImmediately"}
+          onClick={() => void sendImmediateSteering()}
+          title="Interrupt and send pending steering"
+          type="button"
+          variant="secondary"
+        >
+          <Zap className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
       {stopActiveRun !== undefined ? (
         <Button
           aria-label="Stop run"

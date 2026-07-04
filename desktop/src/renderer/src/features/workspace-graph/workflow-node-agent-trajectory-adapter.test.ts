@@ -10,6 +10,7 @@ import { activityBlock, userMessageBlock } from "../../stores/chat-store-events.
 import { testRun } from "../../stores/chat-store.test.fixtures";
 import {
   workflowNodeComposerActions,
+  workflowNodeComposerRunPresentation,
   workflowNodeComposerViewModel,
   workflowNodeTrajectoryActions,
   workflowNodeTrajectoryStateFromPage,
@@ -75,6 +76,7 @@ describe("workflow node agent trajectory adapter", () => {
   test("maps node-scoped stop capability to trajectory and composer actions", () => {
     const state = workflowNodeTrajectoryStateFromPage(stoppableTrajectoryPage());
     const stopRun = async () => {};
+    const steerMessage = async () => null;
     const viewModel = workflowNodeTrajectoryViewModel({
       focusedSourceRunItemId: null,
       operation: "cancelling",
@@ -99,7 +101,29 @@ describe("workflow node agent trajectory adapter", () => {
         workspaceId: "workspace_test",
       },
     });
-    expect(workflowNodeComposerActions({ state, stopRun }).stopActiveRun).toBe(stopRun);
+    expect(workflowNodeComposerActions({ state, steerMessage, stopRun }).stopActiveRun).toBe(
+      stopRun,
+    );
+  });
+
+  test("maps node-scoped steering to the composer without enabling transcript replay", () => {
+    const state = workflowNodeTrajectoryStateFromPage(steerableTrajectoryPage());
+    const steerMessage = async () => null;
+    const stopRun = async () => {};
+    const viewModel = workflowNodeTrajectoryViewModel({
+      focusedSourceRunItemId: null,
+      operation: null,
+      state,
+    });
+
+    expect(viewModel.capabilities.sendSteering).toBe(false);
+    expect(workflowNodeComposerRunPresentation(state)).toMatchObject({
+      canSteer: true,
+      running: true,
+    });
+    expect(workflowNodeComposerActions({ state, steerMessage, stopRun }).steerMessage).toBe(
+      steerMessage,
+    );
   });
 
   test("prepends older workflow-node blocks without replacing loaded output state", () => {
@@ -250,6 +274,36 @@ function stoppableTrajectoryPage() {
       canLoadRunItemOutput: true,
       canRetryLiveness: false,
       canSteer: false,
+      canStopRun: true,
+      canSubmitApproval: false,
+    },
+    run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+  });
+}
+
+function steerableTrajectoryPage() {
+  return trajectoryPage({
+    activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+    activeRunLiveness: {
+      cancellable: true,
+      conversationId: "conversation_api",
+      error: "",
+      harness: "codex",
+      lastProviderEventAt: "2026-06-07T00:00:01Z",
+      lastReconciledAt: "",
+      providerThreadId: "thread_api",
+      providerTurnId: "turn_api",
+      reason: "provider_turn_linked",
+      retryable: false,
+      runId: "run_a",
+      status: "attached",
+      workspaceId: "workspace_test",
+    },
+    capabilities: {
+      canLoadOlderHistory: true,
+      canLoadRunItemOutput: true,
+      canRetryLiveness: false,
+      canSteer: true,
       canStopRun: true,
       canSubmitApproval: false,
     },

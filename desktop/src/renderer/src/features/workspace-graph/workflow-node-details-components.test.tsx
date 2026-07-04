@@ -57,6 +57,23 @@ describe("WorkflowRunDetailsContent activity focus", () => {
     expect(html).toContain("Steering is not available for this workflow node.");
   });
 
+  test("renders a node-scoped steering composer for a steerable active run", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection({
+          trajectory: workflowNodeTrajectoryStateFromPage(steerablePage()),
+        })}
+        target={target()}
+      />,
+    );
+
+    expect(html).toContain('aria-label="Send steering message"');
+    expect(html).not.toContain('aria-label="Interrupt and send pending steering"');
+    expect(html).not.toContain("Steering is not available for this workflow node.");
+  });
+
   test("highlights and deep-links the matching run item from a chat_run_item focus", () => {
     const html = renderToString(
       <WorkflowRunDetailsContent
@@ -144,6 +161,7 @@ function trajectoryActions(): WorkflowRunTrajectoryActions {
   return {
     loadOlder: async () => {},
     loadRunItemOutput: async () => {},
+    steerMessage: async () => null,
     stopRun: async () => {},
     submitApproval: async () => {},
   };
@@ -414,6 +432,36 @@ function stoppablePage(): WorkflowAgentTrajectoryPage {
       canLoadRunItemOutput: true,
       canRetryLiveness: false,
       canSteer: false,
+      canStopRun: true,
+      canSubmitApproval: false,
+    },
+    run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+  });
+}
+
+function steerablePage(): WorkflowAgentTrajectoryPage {
+  return trajectoryPage({
+    activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+    activeRunLiveness: {
+      cancellable: true,
+      conversationId: "conversation_api",
+      error: "",
+      harness: "codex",
+      lastProviderEventAt: "2026-06-07T00:00:01Z",
+      lastReconciledAt: "",
+      providerThreadId: "thread_api",
+      providerTurnId: "turn_api",
+      reason: "provider_turn_linked",
+      retryable: false,
+      runId: "run_a",
+      status: "attached",
+      workspaceId: "workspace_test",
+    },
+    capabilities: {
+      canLoadOlderHistory: false,
+      canLoadRunItemOutput: true,
+      canRetryLiveness: false,
+      canSteer: true,
       canStopRun: true,
       canSubmitApproval: false,
     },

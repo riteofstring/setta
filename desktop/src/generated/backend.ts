@@ -4486,6 +4486,13 @@ export interface WorkflowAgentTrajectoryPage {
   capabilities: WorkflowAgentTrajectoryCapabilities;
 }
 
+export interface SteerWorkflowNodeRunRequest {
+  workspaceId: string;
+  executionId: string;
+  nodeExecutionId: string;
+  input: ChatInput;
+}
+
 export interface StopWorkflowNodeRunRequest {
   workspaceId: string;
   executionId: string;
@@ -6557,6 +6564,11 @@ export const backendEndpoints = {
   ReadWorkflowNodeTrajectory: {
     method: "POST",
     path: "/workflows/nodes/trajectory",
+    requestBodyLimitBytes: 4194304,
+  },
+  SteerWorkflowNodeRun: {
+    method: "POST",
+    path: "/workflows/nodes/runs/steer",
     requestBodyLimitBytes: 4194304,
   },
   StopWorkflowNodeRun: {
@@ -9744,6 +9756,17 @@ export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgent
   };
 }
 
+export function decodeSteerWorkflowNodeRunRequest(value: unknown): SteerWorkflowNodeRunRequest {
+  const record = assertRecord(value, "SteerWorkflowNodeRunRequest");
+  assertKnownFields(record, "SteerWorkflowNodeRunRequest", ["workspaceId", "executionId", "nodeExecutionId", "input"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SteerWorkflowNodeRunRequest"), "SteerWorkflowNodeRunRequest.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "SteerWorkflowNodeRunRequest"), "SteerWorkflowNodeRunRequest.executionId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "SteerWorkflowNodeRunRequest"), "SteerWorkflowNodeRunRequest.nodeExecutionId"),
+    input: decodeChatInput(requireField(record, "input", "SteerWorkflowNodeRunRequest")),
+  };
+}
+
 export function decodeStopWorkflowNodeRunRequest(value: unknown): StopWorkflowNodeRunRequest {
   const record = assertRecord(value, "StopWorkflowNodeRunRequest");
   assertKnownFields(record, "StopWorkflowNodeRunRequest", ["workspaceId", "executionId", "nodeExecutionId"]);
@@ -12213,6 +12236,7 @@ export interface BackendClient {
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
   readWorkflowNodeTrajectory: (request: ReadWorkflowNodeTrajectoryRequest) => Promise<WorkflowAgentTrajectoryPage>;
+  steerWorkflowNodeRun: (request: SteerWorkflowNodeRunRequest) => Promise<SteerMessageResult>;
   stopWorkflowNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
   submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
   readSemanticGraph: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
@@ -12791,6 +12815,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowAgentTrajectoryPage,
       endpoint: backendEndpoints.ReadWorkflowNodeTrajectory,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    steerWorkflowNodeRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSteerMessageResult,
+      endpoint: backendEndpoints.SteerWorkflowNodeRun,
       fetchImpl,
       requestPayload: request,
     }),

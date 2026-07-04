@@ -129,6 +129,10 @@ func (client *recordingCodexChatClient) SendWorkflowAgentTurn(workspaceID string
 	return client.send(workspaceID, request)
 }
 
+func (client *recordingCodexChatClient) SteerActiveRunInputByID(string, string, string, chat.ChatInput) (chat.SteerMessageResult, error) {
+	return chat.SteerMessageResult{}, nil
+}
+
 func (client *recordingCodexChatClient) SubscribeEvents(chat.EventCursor) (*chat.EventSubscription, error) {
 	return nil, nil
 }

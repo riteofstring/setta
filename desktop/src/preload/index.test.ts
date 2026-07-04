@@ -1316,6 +1316,7 @@ describe("preload workspace API", () => {
       "readExecution",
       "readNodeTrajectory",
       "startExecution",
+      "steerNodeRun",
       "stopNodeRun",
       "submitApproval",
       "updateDefinition",
@@ -1352,6 +1353,12 @@ describe("preload workspace API", () => {
       "workflow_version_api",
       "workflow_execution_api",
     );
+    await api.workflow.steerNodeRun({
+      executionId: "workflow_execution_api",
+      input: { parts: [{ image: null, text: { format: "plain", text: "steer" }, type: "text" }] },
+      nodeExecutionId: "workflow_node_execution_api",
+      workspaceId: "workspace_api",
+    });
     await api.workflow.stopNodeRun({
       executionId: "workflow_execution_api",
       nodeExecutionId: "workflow_node_execution_api",
@@ -1411,6 +1418,17 @@ describe("preload workspace API", () => {
         "workflow_definition_api",
         "workflow_version_api",
         "workflow_execution_api",
+      ],
+      [
+        ipcChannels.workflowSteerNodeRun,
+        {
+          executionId: "workflow_execution_api",
+          input: {
+            parts: [{ image: null, text: { format: "plain", text: "steer" }, type: "text" }],
+          },
+          nodeExecutionId: "workflow_node_execution_api",
+          workspaceId: "workspace_api",
+        },
       ],
       [
         ipcChannels.workflowStopNodeRun,

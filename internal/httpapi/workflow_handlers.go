@@ -243,6 +243,23 @@ func (handler handler) stopWorkflowNodeRun(response http.ResponseWriter, request
 	writeJSON(response, http.StatusOK, execution)
 }
 
+func (handler handler) steerWorkflowNodeRun(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload SteerWorkflowNodeRunRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.SteerWorkflowNodeRun(payload.WorkspaceID, payload.ExecutionID, payload.NodeExecutionID, payload.Input)
+	if err != nil {
+		writeWorkflowError(response, "steer_workflow_node_run_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) submitWorkflowApproval(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

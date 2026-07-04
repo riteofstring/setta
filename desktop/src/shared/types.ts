@@ -103,6 +103,7 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
+  SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
   StopWorkflowNodeRunRequest,
@@ -666,6 +667,7 @@ export interface SettaAPI {
       definitionId: string,
       versionId?: string,
     ) => Promise<WorkflowExecution>;
+    steerNodeRun: (request: SteerWorkflowNodeRunRequest) => Promise<SteerMessageResult>;
     stopNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
     submitApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
     updateDefinition: (
