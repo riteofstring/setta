@@ -66,7 +66,6 @@ describe("generated backend client", () => {
     const client = createBackendClient("http://127.0.0.1:41000", async () =>
       jsonResponse({
         hasActiveRun: false,
-        liveness: null,
         run: null,
       }),
     );
