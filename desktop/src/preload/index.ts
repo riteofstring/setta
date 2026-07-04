@@ -368,6 +368,7 @@ const api: SettaAPI = {
     readExecution: (workspaceId, executionId) =>
       invoke("workflowReadExecution", workspaceId, executionId),
     readNodeTrajectory: (request) => invoke("workflowReadNodeTrajectory", request),
+    retryNodeRunLiveness: (request) => invoke("workflowRetryNodeRunLiveness", request),
     startExecution: (workspaceId, definitionId, versionId = "") =>
       invoke("workflowStartExecution", workspaceId, definitionId, versionId),
     steerNodeRun: (request) => invoke("workflowSteerNodeRun", request),

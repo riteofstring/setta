@@ -1,8 +1,10 @@
 package orchestrator
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/chat"
 )
@@ -233,6 +235,109 @@ func TestServiceSteerWorkflowNodeRunRejectsWrongActiveRun(t *testing.T) {
 	waitForScriptedHarnessIdle(t, harness)
 }
 
+func TestServiceRetryWorkflowNodeRunLivenessRetriesWorkflowOwnedRun(t *testing.T) {
+	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
+	target := startWorkflowNodeRetryLivenessRun(t, workflowService, workspaceID)
+
+	markWorkflowNodeRunLiveness(t, chatService, workspaceID, target, chat.RunLivenessReasonStreamResync)
+	retryablePage := readWorkflowNodeTrajectoryForTest(t, workflowService, workspaceID, target)
+	assertWorkflowNodeRetryLivenessPage(t, retryablePage, target.RunID, chat.RunLivenessReasonStreamResync)
+
+	reconciled := retryWorkflowNodeRunLivenessForTest(t, workflowService, workspaceID, target)
+	assertWorkflowNodeReconciledLiveness(t, reconciled, target.RunID, chat.RunLivenessReasonUserRetry)
+	userRetryPage := readWorkflowNodeTrajectoryForTest(t, workflowService, workspaceID, target)
+	assertWorkflowNodeRetryLivenessPage(t, userRetryPage, target.RunID, chat.RunLivenessReasonUserRetry)
+
+	stopWorkflowNodeRunForTest(t, workflowService, workspaceID, target)
+	waitForScriptedHarnessIdle(t, harness)
+}
+
+type workflowNodeRetryLivenessTarget struct {
+	ConversationID  string
+	ExecutionID     string
+	NodeExecutionID string
+	RunID           string
+}
+
+func startWorkflowNodeRetryLivenessRun(t *testing.T, workflowService *Service, workspaceID string) workflowNodeRetryLivenessTarget {
+	t.Helper()
+	definition, err := workflowService.CreateDefinition(workspaceID, "Trajectory retry liveness", "", codexActionGraph("workflow hold for queue and steering", true))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, started, "work")
+	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
+	runID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
+	waitForWorkflowNodeTrajectory(t, workflowService, workspaceID, started.ID, work.ID, func(page WorkflowAgentTrajectoryPage) bool {
+		return workflowNodeLivenessAttached(page)
+	})
+	return workflowNodeRetryLivenessTarget{
+		ConversationID:  conversationID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+		RunID:           runID,
+	}
+}
+
+func workflowNodeLivenessAttached(page WorkflowAgentTrajectoryPage) bool {
+	return page.ActiveRunLiveness != nil && page.ActiveRunLiveness.Status == chat.RunLivenessAttached
+}
+
+func markWorkflowNodeRunLiveness(t *testing.T, chatService *chat.Service, workspaceID string, target workflowNodeRetryLivenessTarget, reason chat.RunLivenessReason) {
+	t.Helper()
+	_, err := chatService.ReconcileActiveRunByID(context.Background(), workspaceID, target.ConversationID, target.RunID, reason)
+	if err != nil {
+		t.Fatalf("mark workflow node liveness retryable: %v", err)
+	}
+}
+
+func readWorkflowNodeTrajectoryForTest(t *testing.T, workflowService *Service, workspaceID string, target workflowNodeRetryLivenessTarget) WorkflowAgentTrajectoryPage {
+	t.Helper()
+	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, target.ExecutionID, target.NodeExecutionID, 0, 20, 5)
+	if err != nil {
+		t.Fatalf("read workflow node trajectory: %v", err)
+	}
+	return page
+}
+
+func retryWorkflowNodeRunLivenessForTest(t *testing.T, workflowService *Service, workspaceID string, target workflowNodeRetryLivenessTarget) chat.RunLivenessReconciliationResult {
+	t.Helper()
+	reconciled, err := workflowService.RetryWorkflowNodeRunLiveness(context.Background(), workspaceID, target.ExecutionID, target.NodeExecutionID)
+	if err != nil {
+		t.Fatalf("retry workflow node liveness: %v", err)
+	}
+	return reconciled
+}
+
+func stopWorkflowNodeRunForTest(t *testing.T, workflowService *Service, workspaceID string, target workflowNodeRetryLivenessTarget) {
+	t.Helper()
+	if _, err := workflowService.StopWorkflowNodeRun(workspaceID, target.ExecutionID, target.NodeExecutionID); err != nil {
+		t.Fatalf("stop retry workflow node run: %v", err)
+	}
+}
+
+func assertWorkflowNodeRetryLivenessPage(t *testing.T, page WorkflowAgentTrajectoryPage, runID string, reason chat.RunLivenessReason) {
+	t.Helper()
+	liveness := page.ActiveRunLiveness
+	if liveness == nil {
+		t.Fatalf("workflow node liveness = nil, want retryable %s for %s", reason, runID)
+	}
+	if liveness.RunID != runID || liveness.Reason != reason || !page.Capabilities.CanRetryLiveness {
+		t.Fatalf("workflow node liveness = %+v capabilities %+v, want retryable %s for %s", liveness, page.Capabilities, reason, runID)
+	}
+}
+
+func assertWorkflowNodeReconciledLiveness(t *testing.T, result chat.RunLivenessReconciliationResult, runID string, reason chat.RunLivenessReason) {
+	t.Helper()
+	if len(result.Runs) != 1 || result.Runs[0].RunID != runID || result.Runs[0].Reason != reason {
+		t.Fatalf("retried liveness = %+v, want %s for %s", result.Runs, reason, runID)
+	}
+}
+
 func TestServiceReadWorkflowNodeTrajectoryRejectsNonChatBackedNode(t *testing.T) {
 	workflowService, _, _, workspaceID := newCodexRunnerTestServices(t)
 	definition, err := workflowService.CreateDefinition(workspaceID, "Control only", "", startEndGraph())
@@ -292,6 +397,22 @@ func readCompletedTrajectoryForPrompt(t *testing.T, workflowService *Service, wo
 		t.Fatalf("read trajectory: %v", err)
 	}
 	return page, execution, work
+}
+
+func waitForWorkflowNodeTrajectory(t *testing.T, workflowService *Service, workspaceID string, executionID string, nodeExecutionID string, matches func(WorkflowAgentTrajectoryPage) bool) WorkflowAgentTrajectoryPage {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	var page WorkflowAgentTrajectoryPage
+	for time.Now().Before(deadline) {
+		var err error
+		page, err = workflowService.ReadWorkflowNodeTrajectory(workspaceID, executionID, nodeExecutionID, 0, 20, 5)
+		if err == nil && matches(page) {
+			return page
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for workflow node trajectory %s, last page %+v", nodeExecutionID, page)
+	return WorkflowAgentTrajectoryPage{}
 }
 
 func assertTrajectoryRunnerRefs(t *testing.T, page WorkflowAgentTrajectoryPage, nodeExecution WorkflowNodeExecution) {

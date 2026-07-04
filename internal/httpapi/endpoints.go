@@ -111,6 +111,7 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkflowGraphProjectionRequest, ReadWorkflowGraphProjectionResponse]("ReadWorkflowGraphProjection", "/workflows/graph/read", handler.readWorkflowGraphProjection),
 	post[GetWorkflowExecutionEventsRequest, orchestrator.WorkflowExecutionEventPage]("GetWorkflowExecutionEvents", "/workflows/executions/events", handler.getWorkflowExecutionEvents),
 	post[ReadWorkflowNodeTrajectoryRequest, orchestrator.WorkflowAgentTrajectoryPage]("ReadWorkflowNodeTrajectory", "/workflows/nodes/trajectory", handler.readWorkflowNodeTrajectory),
+	post[RetryWorkflowNodeRunLivenessRequest, chat.RunLivenessReconciliationResult]("RetryWorkflowNodeRunLiveness", "/workflows/nodes/runs/retry-liveness", handler.retryWorkflowNodeRunLiveness),
 	post[SteerWorkflowNodeRunRequest, chat.SteerMessageResult]("SteerWorkflowNodeRun", "/workflows/nodes/runs/steer", handler.steerWorkflowNodeRun),
 	post[StopWorkflowNodeRunRequest, orchestrator.WorkflowExecution]("StopWorkflowNodeRun", "/workflows/nodes/runs/stop", handler.stopWorkflowNodeRun),
 	post[SubmitWorkflowApprovalRequest, orchestrator.WorkflowExecution]("SubmitWorkflowApproval", "/workflows/approvals/submit", handler.submitWorkflowApproval),

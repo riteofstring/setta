@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -79,6 +80,18 @@ func (service *Service) SteerWorkflowNodeRun(workspaceID string, executionID str
 	return result, nil
 }
 
+func (service *Service) RetryWorkflowNodeRunLiveness(ctx context.Context, workspaceID string, executionID string, nodeExecutionID string) (chat.RunLivenessReconciliationResult, error) {
+	context, err := service.workflowNodeRetryLivenessContext(workspaceID, executionID, nodeExecutionID)
+	if err != nil {
+		return chat.RunLivenessReconciliationResult{}, err
+	}
+	result, err := service.codexChatService.ReconcileActiveRunByID(ctx, workspaceID, context.ConversationID, context.RunID, chat.RunLivenessReasonUserRetry)
+	if err != nil {
+		return chat.RunLivenessReconciliationResult{}, fmt.Errorf("retry workflow node chat run liveness: %w", err)
+	}
+	return result, nil
+}
+
 func (service *Service) workflowNodeStopContext(workspaceID string, executionID string, nodeExecutionID string) (workflowAgentTrajectoryContext, error) {
 	if service.codexChatService == nil {
 		return workflowAgentTrajectoryContext{}, errors.New("workflow node stop requires Codex chat service")
@@ -126,6 +139,30 @@ func (service *Service) workflowNodeSteerContext(workspaceID string, executionID
 	}
 	if !workflowAgentTrajectoryCanSteer(activeRun, liveness) {
 		return workflowAgentTrajectoryContext{}, fmt.Errorf("workflow node execution %s run %s is not steerable", nodeExecutionID, context.RunID)
+	}
+	return context, nil
+}
+
+func (service *Service) workflowNodeRetryLivenessContext(workspaceID string, executionID string, nodeExecutionID string) (workflowAgentTrajectoryContext, error) {
+	if service.codexChatService == nil {
+		return workflowAgentTrajectoryContext{}, errors.New("workflow node retry liveness requires Codex chat service")
+	}
+	if err := validateRetryWorkflowNodeRunLivenessRequest(executionID, nodeExecutionID); err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	context, err := service.workflowAgentTrajectoryContext(workspaceID, executionID, nodeExecutionID)
+	if err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	activeRun, liveness, err := service.workflowAgentTrajectoryActiveRun(workspaceID, context.ConversationID, context.RunID)
+	if err != nil {
+		return workflowAgentTrajectoryContext{}, err
+	}
+	if !workflowAgentTrajectoryCanRetryLiveness(activeRun, liveness) {
+		return workflowAgentTrajectoryContext{}, fmt.Errorf("workflow node execution %s run %s liveness is not retryable", nodeExecutionID, context.RunID)
 	}
 	return context, nil
 }
@@ -201,6 +238,7 @@ func (service *Service) workflowAgentTrajectoryTranscript(workspaceID string, co
 
 func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run chat.Run, transcript chat.RunTranscriptPage, activity chat.RunActivityPage, outputPages []WorkflowAgentTrajectoryRunItemOutputPageState, outputs []chat.RunItemOutput, activeRun *chat.Run, activeRunLiveness *chat.RunLiveness) WorkflowAgentTrajectoryPage {
 	pendingApproval := workflowAgentTrajectoryPendingApproval(context.NodeExecution)
+	canRetryLiveness := workflowAgentTrajectoryCanRetryLiveness(activeRun, activeRunLiveness)
 	canStopRun := activeRun != nil && activeRunLiveness != nil && activeRunLiveness.Cancellable
 	canSteer := workflowAgentTrajectoryCanSteer(activeRun, activeRunLiveness)
 	return WorkflowAgentTrajectoryPage{
@@ -231,11 +269,19 @@ func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run cha
 		Capabilities: WorkflowAgentTrajectoryCapabilities{
 			CanLoadOlderHistory:  transcript.HasMoreOlder,
 			CanLoadRunItemOutput: true,
+			CanRetryLiveness:     canRetryLiveness,
 			CanSteer:             canSteer,
 			CanStopRun:           canStopRun,
 			CanSubmitApproval:    pendingApproval != nil,
 		},
 	}
+}
+
+func workflowAgentTrajectoryCanRetryLiveness(activeRun *chat.Run, liveness *chat.RunLiveness) bool {
+	return activeRun != nil &&
+		liveness != nil &&
+		activeRun.Status == chat.RunStatusRunning &&
+		liveness.Retryable
 }
 
 func workflowAgentTrajectoryCanSteer(activeRun *chat.Run, liveness *chat.RunLiveness) bool {
@@ -276,6 +322,16 @@ func validateStopWorkflowNodeRunRequest(executionID string, nodeExecutionID stri
 }
 
 func validateSteerWorkflowNodeRunRequest(executionID string, nodeExecutionID string) error {
+	if err := validateStorageID("workflow execution id", executionID); err != nil {
+		return err
+	}
+	if err := validateStorageID("workflow node execution id", nodeExecutionID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateRetryWorkflowNodeRunLivenessRequest(executionID string, nodeExecutionID string) error {
 	if err := validateStorageID("workflow execution id", executionID); err != nil {
 		return err
 	}

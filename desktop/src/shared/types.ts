@@ -74,10 +74,12 @@ import type {
   ReadWorkflowNodeTrajectoryRequest,
   ReasoningEffort,
   RefreshCodexAccountRequest,
+  RetryWorkflowNodeRunLivenessRequest,
   ResizeTerminalRequest,
   ReviewCartographerPatchRequest,
   Run,
   RunActivityPage,
+  RunLivenessReconciliationResult,
   RunItemOutputPage,
   ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
@@ -662,6 +664,9 @@ export interface SettaAPI {
     readNodeTrajectory: (
       request: ReadWorkflowNodeTrajectoryRequest,
     ) => Promise<WorkflowAgentTrajectoryPage>;
+    retryNodeRunLiveness: (
+      request: RetryWorkflowNodeRunLivenessRequest,
+    ) => Promise<RunLivenessReconciliationResult>;
     startExecution: (
       workspaceId: string,
       definitionId: string,

@@ -52,6 +52,7 @@ export interface WorkflowRunInspectionState {
 export interface WorkflowRunTrajectoryActions {
   loadOlder: () => Promise<void>;
   loadRunItemOutput: LoadRunItemOutput;
+  retryLiveness: () => Promise<void>;
   steerMessage: NonNullable<ComposerActions["steerMessage"]>;
   stopRun: () => Promise<void>;
   submitApproval: SubmitApproval;
@@ -304,6 +305,7 @@ function WorkflowAgentTrajectorySection({
   const trajectoryActions = workflowNodeTrajectoryActions({
     loadOlder: actions.loadOlder,
     loadRunItemOutput: actions.loadRunItemOutput,
+    retryLiveness: actions.retryLiveness,
     state: inspection.trajectory,
     stopRun: actions.stopRun,
     submitApproval: actions.submitApproval,
@@ -319,6 +321,7 @@ function WorkflowAgentTrajectorySection({
     state: inspection.trajectory,
   });
   const composerActions = workflowNodeComposerActions({
+    retryLiveness: actions.retryLiveness,
     state: inspection.trajectory,
     steerMessage: actions.steerMessage,
     stopRun: actions.stopRun,

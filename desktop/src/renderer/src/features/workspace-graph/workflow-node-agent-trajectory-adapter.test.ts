@@ -88,6 +88,7 @@ describe("workflow node agent trajectory adapter", () => {
       workflowNodeTrajectoryActions({
         loadOlder: async () => {},
         loadRunItemOutput: async () => {},
+        retryLiveness: async () => {},
         state,
         stopRun,
         submitApproval: async () => {},
@@ -101,9 +102,14 @@ describe("workflow node agent trajectory adapter", () => {
         workspaceId: "workspace_test",
       },
     });
-    expect(workflowNodeComposerActions({ state, steerMessage, stopRun }).stopActiveRun).toBe(
-      stopRun,
-    );
+    expect(
+      workflowNodeComposerActions({
+        retryLiveness: async () => {},
+        state,
+        steerMessage,
+        stopRun,
+      }).stopActiveRun,
+    ).toBe(stopRun);
   });
 
   test("maps node-scoped steering to the composer without enabling transcript replay", () => {
@@ -121,9 +127,51 @@ describe("workflow node agent trajectory adapter", () => {
       canSteer: true,
       running: true,
     });
-    expect(workflowNodeComposerActions({ state, steerMessage, stopRun }).steerMessage).toBe(
-      steerMessage,
-    );
+    expect(
+      workflowNodeComposerActions({
+        retryLiveness: async () => {},
+        state,
+        steerMessage,
+        stopRun,
+      }).steerMessage,
+    ).toBe(steerMessage);
+  });
+
+  test("maps node-scoped retry liveness to trajectory and composer controls", () => {
+    const state = workflowNodeTrajectoryStateFromPage(retryableTrajectoryPage());
+    const retryLiveness = async () => {};
+    const stopRun = async () => {};
+    const steerMessage = async () => null;
+    const viewModel = workflowNodeTrajectoryViewModel({
+      focusedSourceRunItemId: null,
+      operation: "refreshing",
+      state,
+    });
+
+    expect(viewModel.capabilities.retryLiveness).toBe(true);
+    expect(workflowNodeComposerRunPresentation(state)).toMatchObject({
+      canRetry: true,
+      kind: "reconnecting",
+      running: true,
+    });
+    expect(
+      workflowNodeTrajectoryActions({
+        loadOlder: async () => {},
+        loadRunItemOutput: async () => {},
+        retryLiveness,
+        state,
+        stopRun,
+        submitApproval: async () => {},
+      }).retryLiveness,
+    ).toBe(retryLiveness);
+    expect(
+      workflowNodeComposerActions({
+        retryLiveness,
+        state,
+        steerMessage,
+        stopRun,
+      }).retryActiveRunLiveness,
+    ).toBe(retryLiveness);
   });
 
   test("prepends older workflow-node blocks without replacing loaded output state", () => {
@@ -304,6 +352,36 @@ function steerableTrajectoryPage() {
       canLoadRunItemOutput: true,
       canRetryLiveness: false,
       canSteer: true,
+      canStopRun: true,
+      canSubmitApproval: false,
+    },
+    run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+  });
+}
+
+function retryableTrajectoryPage() {
+  return trajectoryPage({
+    activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+    activeRunLiveness: {
+      cancellable: true,
+      conversationId: "conversation_api",
+      error: "stream disconnected before completion",
+      harness: "codex",
+      lastProviderEventAt: "2026-06-07T00:00:01Z",
+      lastReconciledAt: "2026-06-07T00:00:02Z",
+      providerThreadId: "thread_api",
+      providerTurnId: "turn_api",
+      reason: "user_retry",
+      retryable: true,
+      runId: "run_a",
+      status: "reconciling",
+      workspaceId: "workspace_test",
+    },
+    capabilities: {
+      canLoadOlderHistory: true,
+      canLoadRunItemOutput: true,
+      canRetryLiveness: true,
+      canSteer: false,
       canStopRun: true,
       canSubmitApproval: false,
     },

@@ -87,12 +87,14 @@ export function workflowNodeTrajectoryViewModel({
 export function workflowNodeTrajectoryActions({
   loadOlder,
   loadRunItemOutput,
+  retryLiveness,
   state,
   stopRun,
   submitApproval,
 }: {
   loadOlder: () => Promise<void>;
   loadRunItemOutput: LoadRunItemOutput;
+  retryLiveness: () => Promise<void>;
   state: WorkflowNodeTrajectoryState;
   stopRun: () => Promise<void>;
   submitApproval: SubmitApproval;
@@ -100,6 +102,7 @@ export function workflowNodeTrajectoryActions({
   return {
     loadOlder: state.page.capabilities.canLoadOlderHistory ? loadOlder : undefined,
     loadRunItemOutput: state.page.capabilities.canLoadRunItemOutput ? loadRunItemOutput : undefined,
+    retryLiveness: state.page.capabilities.canRetryLiveness ? retryLiveness : undefined,
     stopRun: state.page.capabilities.canStopRun ? stopRun : undefined,
     submitApproval: state.page.capabilities.canSubmitApproval ? submitApproval : undefined,
   };
@@ -126,14 +129,17 @@ export function workflowNodeComposerViewModel({
 
 export function workflowNodeComposerActions({
   state,
+  retryLiveness,
   steerMessage,
   stopRun,
 }: {
   state: WorkflowNodeTrajectoryState;
+  retryLiveness: () => Promise<void>;
   steerMessage: (input: ChatInput) => Promise<SteerMessageResult | null>;
   stopRun: () => Promise<void>;
 }): ComposerActions {
   return {
+    retryActiveRunLiveness: state.page.capabilities.canRetryLiveness ? retryLiveness : undefined,
     steerMessage: state.page.capabilities.canSteer ? steerMessage : undefined,
     stopActiveRun: state.page.capabilities.canStopRun ? stopRun : undefined,
   };
@@ -146,7 +152,7 @@ export function workflowNodeComposerRunPresentation(
     activeRunForWorkflowNodeTrajectory(state.page),
     state.page.activeRunLiveness,
     {
-      retryLiveness: false,
+      retryLiveness: state.page.capabilities.canRetryLiveness,
       sendSteering: state.page.capabilities.canSteer,
       stopRun: state.page.capabilities.canStopRun,
     },
@@ -242,7 +248,7 @@ function workflowNodeTrajectoryCapabilities(
     loadOlderHistory: capabilities.canLoadOlderHistory,
     loadRunItemOutput: capabilities.canLoadRunItemOutput,
     queuedMessageActions: false,
-    retryLiveness: false,
+    retryLiveness: capabilities.canRetryLiveness,
     sendSteering: false,
     stopRun: capabilities.canStopRun,
     submitApproval: capabilities.canSubmitApproval,
@@ -252,9 +258,7 @@ function workflowNodeTrajectoryCapabilities(
 function assertSupportedWorkflowNodeTrajectoryCapabilities(
   capabilities: WorkflowAgentTrajectoryCapabilities,
 ) {
-  if (capabilities.canRetryLiveness) {
-    throw new Error("Workflow node trajectory retry liveness requires a node-scoped action.");
-  }
+  void capabilities;
 }
 
 function activeRunForWorkflowNodeTrajectory(page: WorkflowAgentTrajectoryPage): Run | null {

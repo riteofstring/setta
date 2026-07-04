@@ -1315,6 +1315,7 @@ describe("preload workspace API", () => {
       "readDefinition",
       "readExecution",
       "readNodeTrajectory",
+      "retryNodeRunLiveness",
       "startExecution",
       "steerNodeRun",
       "stopNodeRun",
@@ -1345,6 +1346,11 @@ describe("preload workspace API", () => {
     await api.workflow.cancelExecution("workspace_api", "workflow_execution_api");
     await api.workflow.readExecution("workspace_api", "workflow_execution_api");
     await api.workflow.readNodeTrajectory(trajectoryRequest);
+    await api.workflow.retryNodeRunLiveness({
+      executionId: "workflow_execution_api",
+      nodeExecutionId: "workflow_node_execution_api",
+      workspaceId: "workspace_api",
+    });
     await api.workflow.executionEvents("workspace_api", "workflow_execution_api", 10, 20);
     await api.workflow.graphProjection("workspace_api");
     await api.workflow.graphProjection(
@@ -1410,6 +1416,14 @@ describe("preload workspace API", () => {
       [ipcChannels.workflowCancelExecution, "workspace_api", "workflow_execution_api"],
       [ipcChannels.workflowReadExecution, "workspace_api", "workflow_execution_api"],
       [ipcChannels.workflowReadNodeTrajectory, trajectoryRequest],
+      [
+        ipcChannels.workflowRetryNodeRunLiveness,
+        {
+          executionId: "workflow_execution_api",
+          nodeExecutionId: "workflow_node_execution_api",
+          workspaceId: "workspace_api",
+        },
+      ],
       [ipcChannels.workflowExecutionEvents, "workspace_api", "workflow_execution_api", 10, 20],
       [ipcChannels.workflowGraphProjection, "workspace_api", "", "", ""],
       [

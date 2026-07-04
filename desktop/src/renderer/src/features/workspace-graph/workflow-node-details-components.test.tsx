@@ -161,6 +161,7 @@ function trajectoryActions(): WorkflowRunTrajectoryActions {
   return {
     loadOlder: async () => {},
     loadRunItemOutput: async () => {},
+    retryLiveness: async () => {},
     steerMessage: async () => null,
     stopRun: async () => {},
     submitApproval: async () => {},

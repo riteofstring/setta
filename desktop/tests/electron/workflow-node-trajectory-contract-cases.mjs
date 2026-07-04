@@ -162,6 +162,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
     });
 
     await assertSteerWorkflowNodeTrajectoryContract(context.client, workspaceId, recordingDir);
+    await assertRetryWorkflowNodeTrajectoryContract(context.client, workspaceId, recordingDir);
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -184,6 +185,8 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "/workflows/executions/start",
       "/workflows/executions/read",
       "/workflows/nodes/trajectory",
+      "/chat/runs/reconcile",
+      "/workflows/nodes/runs/retry-liveness",
       "/workflows/nodes/runs/steer",
       "/workflows/nodes/runs/stop",
     ],
@@ -195,6 +198,8 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       "workflow:start-execution",
       "workflow:read-execution",
       "workflow:read-node-trajectory",
+      "chat:reconcile-runs",
+      "workflow:retry-node-run-liveness",
       "workflow:steer-node-run",
       "workflow:stop-node-run",
     ],
@@ -275,6 +280,94 @@ async function assertSteerWorkflowNodeTrajectoryContract(client, workspaceId, re
   });
 }
 
+async function assertRetryWorkflowNodeTrajectoryContract(client, workspaceId, recordingDir) {
+  const retryGraph = activityWorkflowGraph(stoppableTrajectoryPrompt);
+  const retryValidation = await rendererWorkflow(client, "validateDefinition", [
+    workspaceId,
+    retryGraph,
+  ]);
+  if (!retryValidation.valid) {
+    throw new Error(
+      `retryable trajectory workflow graph invalid: ${JSON.stringify(retryValidation)}`,
+    );
+  }
+  const retryDefinition = await rendererWorkflow(client, "createDefinition", [
+    workspaceId,
+    "Node trajectory retry liveness contract",
+    "Verifies workflow node-scoped liveness retry contracts.",
+    retryGraph,
+  ]);
+  const retryStarted = await rendererWorkflow(client, "startExecution", [
+    workspaceId,
+    retryDefinition.id,
+  ]);
+  const retryRunning = await waitForWorkflowExecution(
+    client,
+    workspaceId,
+    retryStarted.id,
+    workflowActivityNodeRunning,
+  );
+  const retryNode = latestNodeExecution(retryRunning, "activity");
+  if (!retryNode) {
+    throw new Error(`retry workflow missing activity node: ${JSON.stringify(retryRunning)}`);
+  }
+  const activeTrajectory = await waitForWorkflowNodeTrajectory(
+    client,
+    workspaceId,
+    retryStarted.id,
+    retryNode.id,
+    (page) => page.capabilities.canStopRun && page.activeRunLiveness?.status === "attached",
+  );
+  const streamReconcile = await rendererChat(client, "reconcileRuns", [
+    {
+      conversationId: activeTrajectory.conversationId,
+      reason: "stream_resync",
+      workspaceId,
+    },
+  ]);
+  assertWorkflowNodeLivenessResult(streamReconcile.result, activeTrajectory.runId, "stream_resync");
+
+  const retryableTrajectory = await waitForWorkflowNodeTrajectory(
+    client,
+    workspaceId,
+    retryStarted.id,
+    retryNode.id,
+    (page) => page.capabilities.canRetryLiveness,
+  );
+  assertRetryableTrajectoryPage(retryableTrajectory, activeTrajectory.runId, "stream_resync");
+  const retried = await rendererWorkflow(client, "retryNodeRunLiveness", [
+    {
+      executionId: retryStarted.id,
+      nodeExecutionId: retryNode.id,
+      workspaceId,
+    },
+  ]);
+  assertWorkflowNodeLivenessResult(retried, activeTrajectory.runId, "user_retry");
+  const userRetryTrajectory = await waitForWorkflowNodeTrajectory(
+    client,
+    workspaceId,
+    retryStarted.id,
+    retryNode.id,
+    (page) => page.activeRunLiveness?.reason === "user_retry",
+  );
+  assertRetryableTrajectoryPage(userRetryTrajectory, activeTrajectory.runId, "user_retry");
+
+  const stopped = await rendererWorkflow(client, "stopNodeRun", [
+    {
+      executionId: retryStarted.id,
+      nodeExecutionId: retryNode.id,
+      workspaceId,
+    },
+  ]);
+  assertStoppedWorkflowExecution(stopped, retryNode.id);
+  await appendWorkflowState(recordingDir, {
+    executionId: retryStarted.id,
+    nodeExecutionId: retryNode.id,
+    runId: userRetryTrajectory.runId,
+    type: "workflow_node_trajectory_retry_liveness_contract_verified",
+  });
+}
+
 async function waitForWorkflowExecution(client, workspaceId, executionId, isReady) {
   return waitForBackendState(
     async () => rendererWorkflow(client, "readExecution", [workspaceId, executionId]),
@@ -303,6 +396,39 @@ async function waitForWorkflowNodeTrajectory(
       ]),
     isReady,
   );
+}
+
+function assertRetryableTrajectoryPage(trajectory, runId, reason) {
+  const evidence = retryableTrajectoryEvidence(trajectory, runId, reason);
+  const failed = Object.entries(evidence)
+    .filter(([, passed]) => !passed)
+    .map(([name]) => name);
+  if (failed.length > 0) {
+    throw new Error(
+      `retryable trajectory mismatch: ${JSON.stringify({ failed, reason, runId, trajectory })}`,
+    );
+  }
+}
+
+function retryableTrajectoryEvidence(trajectory, runId, reason) {
+  return {
+    activeRunMatches: trajectory.activeRun?.id === runId,
+    livenessMatches: trajectory.activeRunLiveness?.runId === runId,
+    livenessReasonMatches: trajectory.activeRunLiveness?.reason === reason,
+    retryCapabilityEnabled: trajectory.capabilities.canRetryLiveness === true,
+    runMatches: trajectory.runId === runId,
+    stopCapabilityEnabled: trajectory.capabilities.canStopRun === true,
+    stillRetryable: trajectory.activeRunLiveness?.retryable === true,
+  };
+}
+
+function assertWorkflowNodeLivenessResult(result, runId, reason) {
+  const liveness = result.runs?.find((candidate) => candidate.runId === runId);
+  if (!liveness || liveness.reason !== reason || liveness.retryable !== true) {
+    throw new Error(
+      `workflow node liveness result mismatch: ${JSON.stringify({ reason, result, runId })}`,
+    );
+  }
 }
 
 function assertTrajectoryPage(trajectory, { definition, execution, nodeExecution, workspaceId }) {
@@ -617,5 +743,11 @@ function textInput(text) {
 async function rendererWorkflow(client, method, args) {
   return client.evaluate(
     `window.setta.workflow[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
+  );
+}
+
+async function rendererChat(client, method, args) {
+  return client.evaluate(
+    `window.setta.chat[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
   );
 }

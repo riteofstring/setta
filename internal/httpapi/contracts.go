@@ -412,6 +412,12 @@ type StopWorkflowNodeRunRequest struct {
 	NodeExecutionID string `json:"nodeExecutionId"`
 }
 
+type RetryWorkflowNodeRunLivenessRequest struct {
+	WorkspaceID     string `json:"workspaceId"`
+	ExecutionID     string `json:"executionId"`
+	NodeExecutionID string `json:"nodeExecutionId"`
+}
+
 type SteerWorkflowNodeRunRequest struct {
 	WorkspaceID     string         `json:"workspaceId"`
 	ExecutionID     string         `json:"executionId"`

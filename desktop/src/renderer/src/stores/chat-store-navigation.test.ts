@@ -689,6 +689,7 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     readDefinition: unavailable,
     readExecution: unavailable,
     readNodeTrajectory: unavailable,
+    retryNodeRunLiveness: unavailable,
     startExecution: unavailable,
     steerNodeRun: unavailable,
     stopNodeRun: unavailable,

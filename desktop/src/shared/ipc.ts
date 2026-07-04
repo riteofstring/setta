@@ -77,10 +77,12 @@ import type {
   ReadWorkspaceActivitySnapshotResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
+  RetryWorkflowNodeRunLivenessRequest,
   ResizeTerminalRequest,
   ReviewCartographerPatchRequest,
   Run,
   RunActivityPage,
+  RunLivenessReconciliationResult,
   RunItemOutputPage,
   ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
@@ -259,6 +261,7 @@ export const ipcChannels = {
   workflowReadDefinition: "workflow:read-definition",
   workflowReadExecution: "workflow:read-execution",
   workflowReadNodeTrajectory: "workflow:read-node-trajectory",
+  workflowRetryNodeRunLiveness: "workflow:retry-node-run-liveness",
   workflowStartExecution: "workflow:start-execution",
   workflowSteerNodeRun: "workflow:steer-node-run",
   workflowStopNodeRun: "workflow:stop-node-run",
@@ -788,6 +791,10 @@ interface IpcContract {
   workflowReadNodeTrajectory: {
     args: [request: ReadWorkflowNodeTrajectoryRequest];
     result: WorkflowAgentTrajectoryPage;
+  };
+  workflowRetryNodeRunLiveness: {
+    args: [request: RetryWorkflowNodeRunLivenessRequest];
+    result: RunLivenessReconciliationResult;
   };
   workflowStartExecution: {
     args: [workspaceId: string, definitionId: string, versionId: string];

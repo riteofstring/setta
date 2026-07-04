@@ -124,6 +124,10 @@ func (client *recordingCodexChatClient) LoadRunTranscriptPage(string, string, in
 	return chat.RunTranscriptPage{}, nil
 }
 
+func (client *recordingCodexChatClient) ReconcileActiveRunByID(context.Context, string, string, string, chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error) {
+	return chat.RunLivenessReconciliationResult{}, nil
+}
+
 func (client *recordingCodexChatClient) SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error) {
 	client.sendCount++
 	return client.send(workspaceID, request)

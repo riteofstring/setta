@@ -260,6 +260,23 @@ func (handler handler) steerWorkflowNodeRun(response http.ResponseWriter, reques
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) retryWorkflowNodeRunLiveness(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload RetryWorkflowNodeRunLivenessRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.RetryWorkflowNodeRunLiveness(request.Context(), payload.WorkspaceID, payload.ExecutionID, payload.NodeExecutionID)
+	if err != nil {
+		writeWorkflowError(response, "retry_workflow_node_run_liveness_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) submitWorkflowApproval(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

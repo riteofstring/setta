@@ -423,6 +423,61 @@ func TestWorkflowEndpointSteersNodeScopedRun(t *testing.T) {
 	}
 }
 
+func TestWorkflowEndpointRetriesNodeRunLiveness(t *testing.T) {
+	handler := newScriptedWorkflowHandler(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Retry trajectory workflow",
+		Graph:       httpWorkflowHoldGraph(),
+	}, http.StatusOK)
+	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	work := latestHTTPNodeExecution(t, started, "work")
+
+	page := waitForHTTPWorkflowNodeTrajectory(t, handler, opened.Workspace.ID, started.ID, work.ID, func(page orchestrator.WorkflowAgentTrajectoryPage) bool {
+		return page.ActiveRunLiveness != nil && page.ActiveRunLiveness.Status == chat.RunLivenessAttached
+	})
+	reconciled := postJSON[ReconcileChatRunsResponse](t, handler, "/chat/runs/reconcile", ReconcileChatRunsRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: page.ConversationID,
+		Reason:         chat.RunLivenessReasonStreamResync,
+	}, http.StatusOK)
+	if len(reconciled.Result.Runs) != 1 || reconciled.Result.Runs[0].RunID != page.RunID || reconciled.Result.Runs[0].Reason != chat.RunLivenessReasonStreamResync {
+		t.Fatalf("stream reconcile = %+v, want stream resync for %s", reconciled.Result.Runs, page.RunID)
+	}
+	retryablePage := postJSON[orchestrator.WorkflowAgentTrajectoryPage](t, handler, "/workflows/nodes/trajectory", ReadWorkflowNodeTrajectoryRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+		TranscriptLimit: 20,
+		OutputLimit:     5,
+	}, http.StatusOK)
+	if !retryablePage.Capabilities.CanRetryLiveness {
+		t.Fatalf("retryable trajectory capabilities = %+v, want retry liveness", retryablePage.Capabilities)
+	}
+
+	retried := postJSON[chat.RunLivenessReconciliationResult](t, handler, "/workflows/nodes/runs/retry-liveness", RetryWorkflowNodeRunLivenessRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+	}, http.StatusOK)
+	if len(retried.Runs) != 1 || retried.Runs[0].RunID != page.RunID || retried.Runs[0].Reason != chat.RunLivenessReasonUserRetry {
+		t.Fatalf("retried liveness = %+v, want user retry for %s", retried.Runs, page.RunID)
+	}
+
+	stopped := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/nodes/runs/stop", StopWorkflowNodeRunRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+	}, http.StatusOK)
+	if stopped.Status != orchestrator.ExecutionStatusCancelled {
+		t.Fatalf("stopped execution status = %s, want cancelled", stopped.Status)
+	}
+}
+
 func TestWorkflowEventStreamPushesWorkflowEvents(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	server := httptest.NewServer(handler)
