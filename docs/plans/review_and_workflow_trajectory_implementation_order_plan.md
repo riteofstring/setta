@@ -125,6 +125,26 @@ The durable requirement is:
 The workflow trajectory page may surface manual-recovery state, but it must not
 paper over missing refs as an ordinary live run.
 
+Status: completed 2026-07-03. Workflow action dispatch now routes post-start
+runner event/ref commit failures through a cleanup path. Returned runner refs are
+used to cancel the live runner before returning; successful cancellation fails
+the action and commits the returned refs for diagnostics, while cancellation
+failure or missing returned refs records manual recovery required with the
+original post-start error. Startup recovery now records explicit manual recovery
+for active workflow actions whose runner identity was not committed.
+
+Verification:
+
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(PostStartCommitFailure|StartedRunnerWithoutCleanupIdentity|StartupRecoveryRequiresManualStateWhenRunnerIdentityMissing)'`
+- `./scripts/go.sh test ./internal/runtime -run 'Test(Start|InvalidStartupConfiguration|GracefulShutdown|ShutdownDrainsActiveChatTurnBeforeClosingEvents)'`
+- `./scripts/go.sh test ./internal/orchestrator`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-runner-post-start-failure-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+
+Remaining notes: the future prepare/commit runner API was not needed for the
+current Codex runner contract. Track 5, workflow version commit ordering, is the
+next Phase 1 remediation track before broad workflow trajectory E2E expansion.
+
 ### 3. Workflow Version Commit Ordering
 
 Implement Track 5 before adding broad workflow trajectory E2E scenarios that

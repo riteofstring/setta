@@ -51,7 +51,10 @@ const (
 	ChatHarnessScriptedWorkflow ChatHarnessMode = "scripted-workflow"
 )
 
-const e2eChatFailFirstTranscriptBlockIDEnv = "SETTA_E2E_CHAT_FAIL_FIRST_TRANSCRIPT_BLOCK_ID"
+const (
+	e2eChatFailFirstTranscriptBlockIDEnv          = "SETTA_E2E_CHAT_FAIL_FIRST_TRANSCRIPT_BLOCK_ID"
+	e2eWorkflowFailFirstRunnerPostStartPersistEnv = "SETTA_E2E_WORKFLOW_FAIL_FIRST_RUNNER_POST_START_PERSIST"
+)
 
 type ReadyEvent struct {
 	Event string `json:"event"`
@@ -411,8 +414,12 @@ func newWorkflowService(
 	if err != nil {
 		return nil, nil, fmt.Errorf("create workflow store: %w", err)
 	}
+	serviceStore := orchestrator.WorkflowStore(workflowStore)
+	if os.Getenv(e2eWorkflowFailFirstRunnerPostStartPersistEnv) == "1" {
+		serviceStore = &e2eWorkflowRunnerPostStartPersistFailStore{Store: workflowStore}
+	}
 	workflowService, err := orchestrator.NewService(
-		workflowStore,
+		serviceStore,
 		workspaceService,
 		orchestrator.WithCodexChatService(chatService),
 	)
@@ -421,6 +428,34 @@ func newWorkflowService(
 		return nil, nil, fmt.Errorf("create workflow service: %w", err)
 	}
 	return workflowService, workflowStore, nil
+}
+
+type e2eWorkflowRunnerPostStartPersistFailStore struct {
+	*orchestrator.Store
+	mu     sync.Mutex
+	failed bool
+}
+
+func (store *e2eWorkflowRunnerPostStartPersistFailStore) PersistTransition(transition orchestrator.WorkflowTransition) ([]orchestrator.WorkflowEventEnvelope, error) {
+	store.mu.Lock()
+	shouldFail := !store.failed && transitionIncludesWorkflowRunnerRefsAttached(transition)
+	if shouldFail {
+		store.failed = true
+	}
+	store.mu.Unlock()
+	if shouldFail {
+		return nil, errors.New("e2e injected workflow runner post-start persistence failure")
+	}
+	return store.Store.PersistTransition(transition)
+}
+
+func transitionIncludesWorkflowRunnerRefsAttached(transition orchestrator.WorkflowTransition) bool {
+	for _, event := range transition.Events {
+		if event.Type == orchestrator.EventRunnerRefsAttached {
+			return true
+		}
+	}
+	return false
 }
 
 func newSemanticGraphService(

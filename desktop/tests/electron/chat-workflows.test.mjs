@@ -81,6 +81,7 @@ import { runTranscriptSearchWorkflowLaunch } from "./chat-workflow-transcript-se
 import { runTranscriptScrollWorkflowLaunch } from "./chat-workflow-transcript-scroll-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
+import { runWorkflowRunnerPostStartFailureWorkflowLaunch } from "./workflow-runner-post-start-cases.mjs";
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
@@ -97,6 +98,11 @@ import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
+const singleWorkflowArgs = new Map([
+  ["--codex-protocol-only", "codexProtocolOnly"],
+  ["--post-commit-startup-failure-only", "postCommitStartupFailureOnly"],
+  ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
+]);
 const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = chatWorkflowRecordingRoot(options);
@@ -109,8 +115,14 @@ function parseArgs(args) {
     live: false,
     postCommitStartupFailureOnly: false,
     visible: process.env.SETTA_E2E_VISIBLE === "1",
+    workflowRunnerPostStartFailureOnly: false,
   };
   for (const arg of args) {
+    const singleWorkflow = singleWorkflowArgs.get(arg);
+    if (singleWorkflow) {
+      selectSingleWorkflow(parsed, singleWorkflow);
+      continue;
+    }
     switch (arg) {
       case "--deterministic-only":
         parsed.deterministic = true;
@@ -124,17 +136,6 @@ function parseArgs(args) {
         parsed.deterministic = true;
         parsed.live = true;
         break;
-      case "--codex-protocol-only":
-        parsed.codexProtocolOnly = true;
-        parsed.deterministic = false;
-        parsed.live = false;
-        break;
-      case "--post-commit-startup-failure-only":
-        parsed.postCommitStartupFailureOnly = true;
-        parsed.codexProtocolOnly = false;
-        parsed.deterministic = false;
-        parsed.live = false;
-        break;
       case "--keep-artifacts":
         parsed.keepArtifacts = true;
         break;
@@ -146,6 +147,14 @@ function parseArgs(args) {
     }
   }
   return parsed;
+}
+
+function selectSingleWorkflow(parsed, selected) {
+  parsed.codexProtocolOnly = selected === "codexProtocolOnly";
+  parsed.postCommitStartupFailureOnly = selected === "postCommitStartupFailureOnly";
+  parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
+  parsed.deterministic = false;
+  parsed.live = false;
 }
 
 function chatWorkflowRecordingRoot(parsed) {
@@ -174,9 +183,15 @@ async function main() {
     printWorkflowResults(results);
     return;
   }
+  if (options.workflowRunnerPostStartFailureOnly) {
+    await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
+    printWorkflowResults(results);
+    return;
+  }
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
     await runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot });
+    await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
     await runTranscriptSearchWorkflowLaunch(results, {
       recordingRoot,
       runHappyPathWorkflow,

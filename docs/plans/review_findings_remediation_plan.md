@@ -549,81 +549,29 @@ Electron/main/preload/renderer/HTTP/store paths. The E2E should attempt an inval
 
 ## Track 6: Workflow Runner Post-Start Cleanup
 
-### Problem
+Status: Completed 2026-07-03.
 
-Workflow action dispatch has a post-start failure window similar to the chat startup issue, but at the orchestrator runner boundary.
+Implemented deterministic cleanup after `runner.Start` succeeds but post-start persistence fails: returned runner refs are now treated as required cleanup
+identity, missing refs become explicit manual recovery, successful cleanup cancels and fails the action while preserving refs, and cancel failure records manual
+recovery with both the post-start and cancel errors. Startup recovery also marks active action nodes without committed runner refs as manual recovery required
+with `workflow action runner identity was not committed` instead of asking runners to infer missing identity.
 
-`internal/orchestrator/service_actions.go` persists the node execution as running, calls `runner.Start`, then separately persists runner events and runner refs
-through `attachRunnerRefsAfterStart`. If that attach/persist step fails, the function returns an error after the external runner may already be live.
+Coverage added:
 
-For the Codex runner, `Start` calls `SendWorkflowAgentTurn` before returning refs. A failure while attaching those refs can leave:
+- Go tests for runner-ref persistence failure, attempt-start event persistence failure, cancel failure after post-start failure, missing returned refs, restart
+  recovery for missing committed refs, and a subsequent execution after cleaned-up failure.
+- Deterministic Electron workflow coverage through production Electron/main/preload/HTTP/store paths, injecting post-start runner-ref persistence failure after a
+  workflow-owned Codex chat run starts and verifying the run is cancelled and later execution can start.
 
-- a workflow execution with a running node;
-- a live workflow-owned Codex chat run;
-- no durable `chat.conversation` or `chat.run` refs on the node execution.
+Verification performed:
 
-Cancellation and recovery both rely on those refs. Without them, `Cancel` can no-op and `Recover` can only fall back to manual recovery because it has no
-committed external identity.
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(PostStartCommitFailure|StartedRunnerWithoutCleanupIdentity|StartupRecoveryRequiresManualStateWhenRunnerIdentityMissing)'`
+- `./scripts/go.sh test ./internal/runtime -run 'Test(Start|InvalidStartupConfiguration|GracefulShutdown|ShutdownDrainsActiveChatTurnBeforeClosingEvents)'`
+- `./scripts/go.sh test ./internal/orchestrator`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-runner-post-start-failure-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
 
-### Product Contract
-
-- Once a runner side effect has started, Setta must either durably attach the runner identity or run a deterministic cleanup path.
-- The service must not return with an external runner live while the workflow has no durable refs for it.
-- Runner start, runner refs, activity refs, and runner attempt-start events must share one clear post-start commit contract.
-- If cleanup cannot prove the external runner was stopped, the workflow should become manual-recovery-required rather than ordinary `running`.
-- Recovery must not rely on restarting the app to notice a normal synchronous attach failure.
-
-### Implementation Plan
-
-#### 1. Define runner start phases
-
-Split action dispatch into:
-
-- preflight: graph/node/action validation and input construction;
-- durable action start: mark the node execution `running` before side effects;
-- external start: call `runner.Start`;
-- post-start commit: persist returned refs, runner attempt events, and activity refs;
-- cleanup: cancel or mark recovery-required if post-start commit fails.
-
-Keep this sequence in one service helper instead of scattering attach/cancel logic across dispatch paths.
-
-#### 2. Make returned runner identity usable for cleanup
-
-Treat `ActionStartResult.RunnerRefs` as the minimum cleanup identity. For Codex, that must include enough information to cancel the just-created chat run. If a
-runner cannot provide cleanup identity after starting side effects, update the runner contract before adding more runners.
-
-#### 3. Add a post-start failure cleanup path
-
-If `attachRunnerRefsAfterStart` or equivalent post-start persistence fails:
-
-- use the returned refs to call `runner.Cancel` best-effort;
-- persist the node as failed when cancellation succeeds or the runner never became externally live;
-- persist manual recovery required when cancellation fails or external side effects are uncertain;
-- include the original post-start error and any cancellation error in the workflow events/diagnostics.
-
-If the store itself is unavailable and terminal/manual-recovery state cannot be persisted, surface a specific persistence error after best-effort cancellation.
-On the next recovery pass, a running node with missing refs should become manual recovery required with a clear "runner identity was not committed" message.
-That recovery-pass clause is a last-resort path for cases where Setta cannot persist the immediate cleanup outcome. It is not a substitute for handling ordinary
-synchronous post-start commit failures before returning from dispatch.
-
-#### 4. Consider a future prepare/commit runner API
-
-The durable long-term shape is a runner lifecycle that can reserve or prepare external identity before side effects begin, then start after Setta has committed
-the identity. Implement that only if the current cleanup contract cannot make the Codex runner robust enough.
-
-### Test Plan
-
-Add Go tests with a runner that succeeds `Start` but forces failures afterward:
-
-- runner refs persistence failure cancels the runner and marks the node failed or manual-recovery-required;
-- runner attempt-start event persistence failure follows the same cleanup path;
-- cancel failure after post-start commit failure records manual recovery required;
-- missing returned refs after a started side effect is rejected or recovered with a specific manual-recovery message;
-- a subsequent workflow run is not blocked by a non-executing active run.
-
-For Codex workflow actions, add deterministic Electron workflow coverage with a scripted fake Codex harness that creates a workflow-owned chat run and then
-triggers the post-start persistence failure. The test should verify the workflow does not stay silently running without refs, and that Stop/recovery behavior is
-deterministic.
+Remaining: the future prepare/commit runner API is not needed for the current Codex runner because returned runner refs are sufficient cleanup identity.
 
 ## Track 7: Workflow Definition File Atomicity
 
