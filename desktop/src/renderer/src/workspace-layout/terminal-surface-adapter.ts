@@ -12,14 +12,15 @@ import "./workspace-terminal.css";
 
 import {
   base64FromBytes,
-  browserClipboard,
   bytesFromBase64,
+  copyTerminalSelectionToClipboard,
   errorMessage,
   exitStatusLabel,
   formatBytes,
   isTerminalCopyShortcut,
   isTerminalPasteShortcut,
   isTerminalSearchShortcut,
+  readTerminalClipboard,
   statusLabel,
 } from "./terminal-ergonomics";
 import {
@@ -37,6 +38,7 @@ import {
 import { terminalFitContext, terminalFitReady } from "./terminal-fit-context";
 import {
   attachOrCreateTerminalSession,
+  TerminalStartCancelled,
   TerminalStartDeferred,
   terminalAPI,
 } from "./terminal-surface-session";
@@ -45,6 +47,7 @@ import { TerminalSearchController } from "./terminal-surface-search";
 import { mountXtermTerminal, type TerminalDisposable } from "./terminal-surface-xterm";
 import { assertNever, emptyTerminalStats, performanceNow } from "./terminal-surface-utils";
 import {
+  syncTerminalHostState,
   terminalSurfaceLimits as limits,
   type PendingPaste,
   type PendingTerminalOutput,
@@ -166,6 +169,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     void this.loadProfiles()
       .then(() => this.mountTerminal(content.viewport))
       .then(() => {
+        if (this.destroyed || !this.host) {
+          return;
+        }
         this.startSessionIfFocused();
       })
       .catch((error: unknown) => {
@@ -262,11 +268,12 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       api: terminalAPI(),
       applySessionSummary: (session) => this.applySessionSummary(session),
       confirm,
+      getSessionId: () => this.sessionId,
+      getSessionStatus: () => this.sessionStatus,
       owner: this,
-      sessionId: this.sessionId,
-      sessionStatus: this.sessionStatus,
       showExitOverlay: (message) => this.showExitOverlay(message),
       showStatus: (message) => this.showStatus(message),
+      waitForPendingSessionStart: () => (this.sessionId ? null : this.startPromise),
     });
   }
 
@@ -349,6 +356,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
 
   private startSession(): void {
+    if (this.destroyed || !this.host) {
+      return;
+    }
     if (this.startPromise) {
       return;
     }
@@ -366,12 +376,15 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.showStatus(this.sessionId ? "Attaching shell" : "Starting shell");
     this.startPromise = this.attachOrCreateSession(api, dimensions)
       .then((response) => {
+        if (this.destroyed) {
+          return;
+        }
         this.allowExplicitProfileStart = false;
         this.applySessionSummary(response.session);
         this.fitAndResize();
       })
       .catch((error: unknown) => {
-        if (error instanceof TerminalStartDeferred) {
+        if (error instanceof TerminalStartDeferred || error instanceof TerminalStartCancelled) {
           return;
         }
         this.allowExplicitProfileStart = false;
@@ -397,10 +410,14 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     dimensions: { cols: number; rows: number },
   ) {
     const profile = this.selectedProfile ?? (await this.loadSelectedProfile());
+    if (this.destroyed || !this.host) {
+      throw new TerminalStartCancelled("terminal surface is no longer current");
+    }
     return attachOrCreateTerminalSession(api, {
       allowExplicitProfileStart: this.allowExplicitProfileStart,
       cwdOverride: this.pane.terminalConfig?.cwdOverride ?? "",
       dimensions,
+      isCurrent: () => !this.destroyed && Boolean(this.host),
       paneId: this.pane.paneId,
       profile,
       profileId: this.selectedProfileId,
@@ -590,35 +607,14 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
 
   private async copySelectionToClipboard(): Promise<void> {
-    const terminal = this.terminal;
-    if (!terminal?.hasSelection()) {
-      return;
-    }
-    const clipboard = browserClipboard();
-    if (!clipboard?.writeText) {
-      this.showStatus("Clipboard write is unavailable.");
-      return;
-    }
-    try {
-      await clipboard.writeText(terminal.getSelection());
-      terminal.clearSelection();
-      this.showStatus("Copied selection");
-    } catch (error) {
-      this.showStatus(`Copy failed: ${errorMessage(error)}`);
-    }
+    await copyTerminalSelectionToClipboard(this.terminal, (message) => this.showStatus(message));
   }
 
   private async pasteFromClipboard(): Promise<void> {
-    const clipboard = browserClipboard();
-    if (!clipboard?.readText) {
-      this.showStatus("Clipboard read is unavailable.");
-      return;
-    }
-    try {
-      this.requestPaste(await clipboard.readText());
-    } catch (error) {
-      this.showStatus(`Paste failed: ${errorMessage(error)}`);
-    }
+    await readTerminalClipboard(
+      (text) => this.requestPaste(text),
+      (message) => this.showStatus(message),
+    );
   }
 
   private requestPaste(text: string): void {
@@ -975,20 +971,18 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
 
   private syncHostState(): void {
-    if (!this.host) {
-      return;
-    }
-    this.host.dataset.surfaceFocused = String(this.focused);
-    this.host.dataset.surfaceFrozen = String(this.frozen);
-    this.host.dataset.surfaceVisible = String(this.visible);
-    this.host.dataset.terminalDirtyRows = String(this.stats.dirtyRows);
-    this.host.dataset.terminalLost = String(this.lostSession);
-    this.host.dataset.terminalPendingChunks = String(this.stats.pendingOutputChunks);
-    this.host.dataset.terminalProfileId = this.selectedProfileId;
-    this.host.dataset.terminalSessionId = this.sessionId ?? "";
-    this.host.dataset.terminalStatus = this.sessionStatus;
-    this.host.dataset.terminalScrollbackRows = String(this.stats.scrollbackRows);
-    this.host.dataset.terminalVirtualRows = String(this.stats.renderedRows);
-    this.host.style.visibility = this.visible ? "visible" : "hidden";
+    syncTerminalHostState(this.host, {
+      dirtyRows: this.stats.dirtyRows,
+      focused: this.focused,
+      frozen: this.frozen,
+      lostSession: this.lostSession,
+      pendingOutputChunks: this.stats.pendingOutputChunks,
+      profileId: this.selectedProfileId,
+      renderedRows: this.stats.renderedRows,
+      scrollbackRows: this.stats.scrollbackRows,
+      sessionId: this.sessionId,
+      sessionStatus: this.sessionStatus,
+      visible: this.visible,
+    });
   }
 }

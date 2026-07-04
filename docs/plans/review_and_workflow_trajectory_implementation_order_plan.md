@@ -748,6 +748,13 @@ helper owns the duplicate-close guard. Failed backend close attempts keep the
 pane visible with status/overlay feedback and allow a later close retry.
 Non-terminal panes continue through the existing synchronous layout path.
 
+Audit follow-up fixed close-during-startup races. If a close request arrives
+while terminal attach/create is still unresolved and no session ID has been
+applied yet, the adapter now waits for the pending start, closes the resulting
+backend session, and only then allows pane removal. Destroyed adapters also
+cancel delayed startup continuations before they can attach or create a backend
+session after the pane is removed.
+
 Verification:
 
 - `pnpm -C desktop exec vitest run src/renderer/src/workspace-layout/terminal-surface-adapter.test.ts src/renderer/src/workspace-layout/presentation-engine.test.ts src/renderer/src/workspace-layout/workspace-interactions.test.ts`
@@ -756,6 +763,11 @@ Verification:
 - `pnpm -C desktop build`
 - `node desktop/tests/electron/terminal-workflow.test.mjs --skip-build`
 - `node desktop/tests/electron/terminal-backend-crash-workflow.test.mjs --skip-build`
+- Audit follow-up reruns passed
+  `pnpm -C desktop exec vitest run src/renderer/src/workspace-layout/terminal-surface-adapter.test.ts src/renderer/src/workspace-layout/presentation-engine.test.ts src/renderer/src/workspace-layout/workspace-interactions.test.ts`,
+  `pnpm -C desktop typecheck`, `pnpm -C desktop build`,
+  `node desktop/tests/electron/terminal-workflow.test.mjs --skip-build`, and
+  `node desktop/tests/electron/terminal-backend-crash-workflow.test.mjs --skip-build`.
 - `./scripts/format.sh`; `./check_quality.sh --git-changes`
 
 Remaining notes: this slice did not add force-kill escalation and did not touch

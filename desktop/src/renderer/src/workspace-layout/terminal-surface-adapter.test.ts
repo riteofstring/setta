@@ -347,6 +347,70 @@ describe("terminal surface adapter", () => {
     expect(host.querySelector('[data-terminal-status="true"]')?.textContent).toBe("closed");
   });
 
+  test("waits for pending terminal start before closing the created session", async () => {
+    const createStarted = deferred<void>();
+    const createDeferred = deferred<TerminalSessionResponse>();
+    const close = vi.fn(async (sessionId: string) => terminalResponse(sessionId, "closed"));
+    const api = installSettaAPI({
+      attach: vi.fn(async () => {
+        throw new Error("terminal session not found");
+      }),
+      close,
+      create: vi.fn(() => {
+        createStarted.resolve();
+        return createDeferred.promise;
+      }),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setFocused(true);
+    await createStarted.promise;
+
+    const confirm = vi.fn(() => true);
+    let closeSettled = false;
+    const closeResult = adapter.requestPaneClose({ confirm }).then((result) => {
+      closeSettled = true;
+      return result;
+    });
+    await Promise.resolve();
+
+    expect(closeSettled).toBe(false);
+    expect(api.terminal.close).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledWith("Close running terminal session?");
+
+    createDeferred.resolve(terminalResponse("terminal_created", "running"));
+
+    await expect(closeResult).resolves.toEqual({ removePane: true });
+    expect(api.terminal.close).toHaveBeenCalledWith("terminal_created", "terminate");
+    expect(host.dataset.terminalStatus).toBe("closed");
+  });
+
+  test("does not start a backend session after the adapter is destroyed before startup", async () => {
+    const profilesDeferred = deferred<TerminalProfileList>();
+    const attach = vi.fn(async () => terminalResponse("terminal_existing", "running"));
+    const create = vi.fn(async () => terminalResponse("terminal_created", "running"));
+    installSettaAPI({
+      attach,
+      create,
+      listProfiles: vi.fn(() => profilesDeferred.promise),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setFocused(true);
+    adapter.destroy();
+
+    profilesDeferred.resolve(terminalProfileList());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(attach).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   test("keeps terminal pane visible and retryable when backend close rejects", async () => {
     const close = vi
       .fn()
@@ -612,6 +676,7 @@ describe("terminal surface adapter", () => {
     attach?: ReturnType<typeof vi.fn>;
     close?: ReturnType<typeof vi.fn>;
     create?: ReturnType<typeof vi.fn>;
+    listProfiles?: ReturnType<typeof vi.fn>;
     openExternalUrl?: ReturnType<typeof vi.fn>;
     platform?: string;
     readClipboardText?: ReturnType<typeof vi.fn>;
@@ -631,7 +696,7 @@ describe("terminal surface adapter", () => {
       create:
         overrides.create ?? vi.fn(async () => terminalResponse("terminal_created", "running")),
       input: vi.fn(async () => ({ acceptedBytes: 0 })),
-      listProfiles: vi.fn(async () => terminalProfileList()),
+      listProfiles: overrides.listProfiles ?? vi.fn(async () => terminalProfileList()),
       onEvent: vi.fn((listener: (event: TerminalEvent) => void) => {
         terminalListeners.push(listener);
         return () => {
@@ -886,6 +951,14 @@ async function waitFor(done: () => boolean): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolvePromise: (value: T) => void = () => {};
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
 }
 
 class MemoryStorage implements Storage {

@@ -893,13 +893,13 @@ this UI lifecycle contract.
 
 ### Progress
 
-Status: Completed 2026-07-03. Terminal pane close is now an async surface-adapter transaction: workspace close removes a terminal pane only after backend
-`terminal.close` reports `closed`; failed or non-closed backend responses keep the pane visible with retryable status/overlay feedback. Non-terminal pane
-close remains synchronous.
+Status: Completed 2026-07-03. Terminal pane close now removes a pane only after backend `terminal.close` reports `closed`; failed or non-closed responses keep
+the pane visible with retryable status/overlay feedback. Non-terminal pane close remains synchronous.
 
-Verification covered focused renderer tests, Electron driver syntax checks, desktop typecheck/build, terminal workflow pane-chrome close/process-exit
-coverage, and backend-crash failed-close retention plus relaunch/retry coverage. Exact commands are recorded in the implementation order plan. No generated
-contracts changed.
+Audit follow-up fixed startup races: close now waits for unresolved `terminal.attach`/`terminal.create`, closes the concrete session before pane removal, and
+destroyed adapters cancel delayed startup continuations before attach/create can run after pane removal.
+Verification covered focused renderer tests, Electron driver syntax checks, desktop typecheck/build, terminal close/process-exit coverage, and backend-crash
+failed-close retention plus relaunch/retry coverage.
 
 ## Deferred Findings
 
