@@ -710,31 +710,21 @@ func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.Wo
 	if err != nil {
 		return err
 	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceSummary.ID, run)
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	service.activateTurnLocked(workspaceSummary.ID, conversationID, activeTurn{
-		assistantMessage: assistantMessage,
-		cancel:           cancel,
-		transcript:       ingest,
-	}, run)
-	if err := service.publishQueuedPromotionLocked(workspaceSummary.ID, conversationID, userMessage, assistantMessage, run); err != nil {
-		return err
-	}
-	deliveryInput, err := service.deliveryInputFromMessage(workspaceSummary.ID, conversationID, userMessage)
-	if err != nil {
-		return err
-	}
-	request := TurnRequest{
-		Workspace:    workspaceSummary,
-		Conversation: conversation,
-		Run:          run,
-		Input:        deliveryInput,
-		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
-	}
-	if err := service.launchHarnessTurnLocked(ctx, request); err != nil {
+	if err := service.startPostCommitHarnessTurnLocked(postCommitHarnessTurnStart{
+		Workspace:        workspaceSummary,
+		Conversation:     conversation,
+		Run:              run,
+		AssistantMessage: assistantMessage,
+		Publish: func() error {
+			if err := service.traceLocked(workspaceSummary.ID, run.ID, "queued_turn_promoted", "Queued message promoted"); err != nil {
+				return err
+			}
+			return service.publishQueuedPromotionLocked(workspaceSummary.ID, conversationID, userMessage, assistantMessage, run)
+		},
+		DeliveryInput: func() (ChatInput, error) {
+			return service.deliveryInputFromMessage(workspaceSummary.ID, conversationID, userMessage)
+		},
+	}); err != nil {
 		return err
 	}
 	return nil
@@ -773,7 +763,7 @@ func (service *Service) saveQueuedPromotionLocked(workspaceID string, conversati
 	if err != nil {
 		return err
 	}
-	return service.traceLocked(workspaceID, run.ID, "queued_turn_promoted", "Queued message promoted")
+	return nil
 }
 
 func (service *Service) publishQueuedPromotionLocked(workspaceID string, conversationID string, userMessage ChatMessage, assistantMessage ChatMessage, run Run) error {

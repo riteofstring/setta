@@ -72,10 +72,12 @@ import {
   exerciseLinkedCodexPermissionPicker,
 } from "./chat-workflow-codex-permission-cases.mjs";
 import { runPermissionModeWorkflow } from "./chat-workflow-permission-cases.mjs";
+import { runPostCommitStartupFailureWorkflowLaunch } from "./chat-workflow-post-commit-startup-cases.mjs";
 import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
 import { runRestartRecoveryWorkflow } from "./chat-workflow-restart-recovery-cases.mjs";
 import { runShutdownDrainWorkflow } from "./chat-workflow-shutdown-drain-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
+import { runTranscriptSearchWorkflowLaunch } from "./chat-workflow-transcript-search-cases.mjs";
 import { runTranscriptScrollWorkflowLaunch } from "./chat-workflow-transcript-scroll-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
@@ -105,6 +107,7 @@ function parseArgs(args) {
     deterministic: true,
     keepArtifacts: false,
     live: false,
+    postCommitStartupFailureOnly: false,
     visible: process.env.SETTA_E2E_VISIBLE === "1",
   };
   for (const arg of args) {
@@ -123,6 +126,12 @@ function parseArgs(args) {
         break;
       case "--codex-protocol-only":
         parsed.codexProtocolOnly = true;
+        parsed.deterministic = false;
+        parsed.live = false;
+        break;
+      case "--post-commit-startup-failure-only":
+        parsed.postCommitStartupFailureOnly = true;
+        parsed.codexProtocolOnly = false;
         parsed.deterministic = false;
         parsed.live = false;
         break;
@@ -160,9 +169,19 @@ async function main() {
     printWorkflowResults(results);
     return;
   }
+  if (options.postCommitStartupFailureOnly) {
+    await runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot });
+    printWorkflowResults(results);
+    return;
+  }
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
-    await runTranscriptSearchWorkflowLaunch(results);
+    await runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot });
+    await runTranscriptSearchWorkflowLaunch(results, {
+      recordingRoot,
+      runHappyPathWorkflow,
+      runWorkflowStep,
+    });
     await runTranscriptScrollWorkflowLaunch(results, { recordingRoot });
     await runSidebarNavigationWorkflow(results);
     await runCrossWorkspaceSidebarSummaryWorkflow({
@@ -925,105 +944,6 @@ async function runHappyPathWorkflow(
     });
     await assertNoActiveRun(backend, workspaceId, conversationId);
   }
-}
-
-async function runTranscriptSearchWorkflowLaunch(results) {
-  const fixture = await createFixture("transcript-search");
-  const fakeCodex = await installFakeCodexAppServer(fixture);
-  const recordingDir = join(recordingRoot, "transcript-search");
-  const context = await launchContext(fixture, recordingDir, {
-    extraEnv: {
-      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-    },
-  });
-  let failure = null;
-
-  try {
-    const backend = await backendProbe(recordingDir);
-    const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
-    await runWorkflowStep(results, recordingDir, "transcript-search", context.client, async () => {
-      const conversationId = await createChat(context.client, backend, workspaceId);
-      await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId, {
-        postCompletionActiveRun: false,
-      });
-      await runTranscriptSearchWorkflow(context.client);
-    });
-  } catch (error) {
-    failure = error;
-    await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
-  } finally {
-    context.client?.close();
-    await stopElectron(context.electron);
-    await rm(fixture.tempRoot, { force: true, recursive: true });
-  }
-
-  if (failure) {
-    throw failureWithLogs(failure, context.electron.logs);
-  }
-  await assertRecordingEvidence(recordingDir, {
-    backendPaths: [
-      "/workspaces/open",
-      "/chat/conversations/create",
-      "/chat/messages/send",
-      "/chat/messages/queue",
-      "/chat/messages/steer",
-      "/chat/runs/list",
-    ],
-    ipcChannels: [
-      "workspace:open-local-folder",
-      "chat:create-conversation",
-      "chat:send-message",
-      "chat:queue-message",
-      "chat:steer-message",
-    ],
-  });
-}
-
-async function runTranscriptSearchWorkflow(client) {
-  await openChatSearch(client);
-  const lateAssistant = "Queued response for queued follow-up three from active run.";
-  await setInputValue(client, 'input[placeholder="Search chat"]', lateAssistant);
-  await waitForActiveSearchMessage(client, lateAssistant);
-
-  const firstPrompt = "workflow hold for queue and steering";
-  await setInputValue(client, 'input[placeholder="Search chat"]', firstPrompt);
-  await waitForActiveSearchMessage(client, firstPrompt);
-  await clickButtonByAria(client, "Close chat search");
-  await waitForState(
-    client,
-    `(() => ({ open: Boolean(document.querySelector('input[placeholder="Search chat"]')) }))()`,
-    (value) => !value.open,
-  );
-}
-
-async function openChatSearch(client) {
-  await client.evaluate(`(() => {
-    window.dispatchEvent(new KeyboardEvent("keydown", {
-      bubbles: true,
-      ctrlKey: true,
-      key: "f",
-      metaKey: true,
-    }));
-  })()`);
-  await waitForState(
-    client,
-    `(() => ({ open: Boolean(document.querySelector('input[placeholder="Search chat"]')) }))()`,
-    (value) => value.open,
-  );
-}
-
-async function waitForActiveSearchMessage(client, expectedText) {
-  await waitForState(
-    client,
-    `(() => {
-      const row = document.querySelector('[data-search-active="true"]');
-      return {
-        activeMessageId: row?.getAttribute("data-message-id") ?? "",
-        text: row?.innerText ?? "",
-      };
-    })()`,
-    (value) => value.text.includes(expectedText),
-  );
 }
 
 async function runCancelWorkflow(client, backend, workspaceId, conversationId) {

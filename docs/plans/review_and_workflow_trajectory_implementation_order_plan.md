@@ -74,6 +74,29 @@ This creates the reliable post-commit startup contract for:
 The workflow trajectory UI must not assume a workflow-owned run is attached,
 cancellable, steerable, or terminal until this startup contract is reliable.
 
+Status: shared cleanup slice completed 2026-07-03. Normal chat sends,
+workflow-agent sends, and queued promotion now use the shared post-commit
+harness-turn starter and cleanup path from Track 1. Focused Go tests cover
+post-commit transcript-start failures for all three paths, and deterministic
+Electron coverage verifies a failed post-commit start followed by a successful
+later send through production app paths. Live Codex Electron coverage was run
+with `OPENAI_API_KEY` unset and passed.
+
+Verification:
+
+- `./scripts/go.sh test ./internal/chat`
+- `./scripts/go.sh test ./internal/runtime`
+- `./scripts/format.sh`; `./check_quality.sh --git-changes`
+- `node desktop/tests/electron/chat-workflows.test.mjs --post-commit-startup-failure-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+
+Remaining notes: broader deterministic chat workflow attempts passed the new
+startup-failure case, then failed later in unrelated existing long-suite
+scenarios (`transcript-scroll` once, Codex protocol row waiting once). Remaining
+Track 1 hardening is deeper injection coverage for publish, delivery-rebuild,
+and synchronous harness-reservation/setup failure classes; after that, Track 2
+is the next remediation track before shared UI work.
+
 ### 2. Workflow Runner Post-Start Cleanup
 
 Implement Track 6 before wiring workflow-node liveness, steering, approvals, or

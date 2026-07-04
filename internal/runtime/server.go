@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,8 +11,10 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"setta/internal/appearance"
@@ -46,6 +50,8 @@ const (
 	ChatHarnessCodex            ChatHarnessMode = "codex"
 	ChatHarnessScriptedWorkflow ChatHarnessMode = "scripted-workflow"
 )
+
+const e2eChatFailFirstTranscriptBlockIDEnv = "SETTA_E2E_CHAT_FAIL_FIRST_TRANSCRIPT_BLOCK_ID"
 
 type ReadyEvent struct {
 	Event string `json:"event"`
@@ -359,11 +365,41 @@ func newChatService(
 	if err != nil {
 		return nil, err
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, harness)
+	chatService, err := chat.NewService(chatStore, workspaceService, harness, chatServiceOptionsFromEnv()...)
 	if err != nil {
 		return nil, fmt.Errorf("create chat service: %w", err)
 	}
 	return chatService, nil
+}
+
+func chatServiceOptionsFromEnv() []chat.Option {
+	if os.Getenv(e2eChatFailFirstTranscriptBlockIDEnv) != "1" {
+		return nil
+	}
+	return []chat.Option{chat.WithIDGenerator(e2eFailFirstTranscriptBlockIDGenerator())}
+}
+
+func e2eFailFirstTranscriptBlockIDGenerator() func(string) (string, error) {
+	var mu sync.Mutex
+	prefixCounts := map[string]int{}
+	return func(prefix string) (string, error) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		prefixCounts[prefix]++
+		if prefix == "transcript_block" && prefixCounts[prefix] == 1 {
+			return "", errors.New("e2e injected transcript block id failure")
+		}
+		return e2eRandomID(prefix)
+	}
+}
+
+func e2eRandomID(prefix string) (string, error) {
+	var bytes [16]byte
+	if _, err := rand.Read(bytes[:]); err != nil {
+		return "", err
+	}
+	return prefix + "_" + hex.EncodeToString(bytes[:]), nil
 }
 
 func newWorkflowService(

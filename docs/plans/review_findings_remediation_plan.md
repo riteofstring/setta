@@ -120,6 +120,34 @@ Because this touches chat behavior, run deterministic end-to-end app workflow co
 with temporary app data and a scripted fake provider. The E2E should cover a post-commit startup failure and then a successful later send in the same
 conversation.
 
+### Progress
+Progress 2026-07-03:
+
+- Added a shared post-commit harness-turn starter for normal sends, workflow agent sends, and queued promotion. The helper records the active turn before fallible
+  transcript startup work, publishes the path-specific start events, builds delivery input, reserves/launches the harness, and routes any synchronous startup
+  failure through the terminal run failure path.
+- Split `failTurn` into a locked terminal transition helper so post-commit startup cleanup reuses the existing failed-run persistence, assistant-message
+  failure, liveness terminal publication, active-state cleanup, and pending-steering cleanup behavior.
+- Moved normal-send and queued-promotion start traces/events out of the durable commit helpers so failures after `CreateRunningTurn` or `PromoteQueuedTurn`
+  are no longer returned with a durable `running` run left behind.
+- Added focused Go coverage for normal send, workflow-agent send, and queued-promotion startup failures. The tests assert failed terminal runs, assistant
+  message error state, no active run/liveness, no harness launch for failed starts, preserved queued semantics, and successful later sends.
+- Added deterministic Electron coverage for a post-commit transcript-start failure followed by a successful later send through the production
+  Electron/main/preload/renderer/HTTP/store path. The test uses a narrow E2E-only backend ID-generation fault injection and verifies the failed run, assistant
+  error state, no active run, and retry success.
+
+Verification performed:
+
+- `./scripts/go.sh test ./internal/chat`
+- `./scripts/go.sh test ./internal/runtime`
+- `./scripts/format.sh`; `./check_quality.sh --git-changes`
+- `node desktop/tests/electron/chat-workflows.test.mjs --post-commit-startup-failure-only`
+- `env -u OPENAI_API_KEY node desktop/tests/electron/chat-workflows.test.mjs --live-only`
+
+Notes:
+
+- Remaining Track 1 test depth: add focused injections for transcript-block save/working-status publish, liveness/conversation publish, queued delivery-input rebuild, and synchronous harness reservation/setup failure if that path is made injectable. Two broader `node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only` attempts passed the new post-commit startup-failure case and then failed later in pre-existing long-suite scenarios (`transcript-scroll` on one run, Codex protocol row waiting on another).
+
 ## Track 2: Codex On-Failure Approval Policy Removal
 
 ### Problem
