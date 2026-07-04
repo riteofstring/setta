@@ -83,6 +83,7 @@ import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs"
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
 import { runWorkflowRunnerPostStartFailureWorkflowLaunch } from "./workflow-runner-post-start-cases.mjs";
 import { runWorkflowVersionCommitOrderingWorkflowLaunch } from "./workflow-version-commit-ordering-cases.mjs";
+import { runWorkflowDefinitionFileAtomicityWorkflowLaunch } from "./workflow-definition-file-atomicity-cases.mjs";
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
@@ -104,10 +105,33 @@ const singleWorkflowArgs = new Map([
   ["--post-commit-startup-failure-only", "postCommitStartupFailureOnly"],
   ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
   ["--workflow-version-commit-ordering-only", "workflowVersionCommitOrderingOnly"],
+  ["--workflow-definition-file-atomicity-only", "workflowDefinitionFileAtomicityOnly"],
 ]);
 const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = chatWorkflowRecordingRoot(options);
+const singleWorkflowRunners = [
+  {
+    option: "codexProtocolOnly",
+    run: (results) => runCodexProtocolWorkflow(results),
+  },
+  {
+    option: "postCommitStartupFailureOnly",
+    run: (results) => runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "workflowRunnerPostStartFailureOnly",
+    run: (results) => runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "workflowVersionCommitOrderingOnly",
+    run: (results) => runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "workflowDefinitionFileAtomicityOnly",
+    run: (results) => runWorkflowDefinitionFileAtomicityWorkflowLaunch(results, { recordingRoot }),
+  },
+];
 
 function parseArgs(args) {
   const parsed = {
@@ -118,6 +142,7 @@ function parseArgs(args) {
     postCommitStartupFailureOnly: false,
     visible: process.env.SETTA_E2E_VISIBLE === "1",
     workflowRunnerPostStartFailureOnly: false,
+    workflowDefinitionFileAtomicityOnly: false,
     workflowVersionCommitOrderingOnly: false,
   };
   for (const arg of args) {
@@ -157,6 +182,7 @@ function selectSingleWorkflow(parsed, selected) {
   parsed.postCommitStartupFailureOnly = selected === "postCommitStartupFailureOnly";
   parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
   parsed.workflowVersionCommitOrderingOnly = selected === "workflowVersionCommitOrderingOnly";
+  parsed.workflowDefinitionFileAtomicityOnly = selected === "workflowDefinitionFileAtomicityOnly";
   parsed.deterministic = false;
   parsed.live = false;
 }
@@ -177,23 +203,7 @@ async function main() {
   await mkdir(recordingRoot, { recursive: true });
 
   const results = [];
-  if (options.codexProtocolOnly) {
-    await runCodexProtocolWorkflow(results);
-    printWorkflowResults(results);
-    return;
-  }
-  if (options.postCommitStartupFailureOnly) {
-    await runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot });
-    printWorkflowResults(results);
-    return;
-  }
-  if (options.workflowRunnerPostStartFailureOnly) {
-    await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
-    printWorkflowResults(results);
-    return;
-  }
-  if (options.workflowVersionCommitOrderingOnly) {
-    await runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot });
+  if (await runSelectedSingleWorkflow(results)) {
     printWorkflowResults(results);
     return;
   }
@@ -202,6 +212,7 @@ async function main() {
     await runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot });
     await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
     await runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot });
+    await runWorkflowDefinitionFileAtomicityWorkflowLaunch(results, { recordingRoot });
     await runTranscriptSearchWorkflowLaunch(results, {
       recordingRoot,
       runHappyPathWorkflow,
@@ -287,6 +298,15 @@ async function main() {
   }
 
   printWorkflowResults(results);
+}
+
+async function runSelectedSingleWorkflow(results) {
+  const selected = singleWorkflowRunners.find(({ option }) => options[option]);
+  if (!selected) {
+    return false;
+  }
+  await selected.run(results);
+  return true;
 }
 
 function printWorkflowResults(results) {

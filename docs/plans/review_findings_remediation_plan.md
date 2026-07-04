@@ -672,6 +672,22 @@ Add focused Go tests:
 Because this affects workflow persistence read/write behavior, add deterministic Electron workflow coverage that renames a workflow and reloads the workspace
 with temporary app data. Verify the workflow list and graph projection still load.
 
+### Progress 2026-07-03
+
+- `UpdateDefinition` writes back to the loaded current JSON path; same-path
+  temp-file-plus-rename updates leave the prior file readable on commit failure,
+  new definitions keep the existing slug-plus-ID initial filename, and duplicate
+  detection remains loud for corrupt/manual duplicates.
+- Focused Go and deterministic Electron coverage now cover stable/repeated
+  renames, injected commit failure, duplicate corruption, one on-disk JSON file,
+  renderer reload, and list/read/graph projection after reload.
+
+Verification performed:
+
+- `./scripts/go.sh test ./internal/orchestrator -run 'TestService(StoresDefinitionsAsWorkspaceJSONAndSnapshotsOnStart|WorkflowDefinitionRenameKeepsSingleStableFile|WorkflowDefinitionUpdateCommitFailureLeavesOriginalReadable|WorkflowDefinitionDuplicateIDFailsLoudly)'`
+- `./scripts/go.sh test ./internal/orchestrator`
+- `node desktop/tests/electron/chat-workflows.test.mjs --workflow-definition-file-atomicity-only`
+
 ## Track 8: HTTP Request Boundary Limits
 
 ### Problem

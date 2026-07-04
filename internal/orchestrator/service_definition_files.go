@@ -157,9 +157,6 @@ func writeWorkflowDefinitionFile(workspaceRoot string, definition WorkflowDefini
 	if err := writeWorkflowDefinitionPayload(targetPath, payload); err != nil {
 		return WorkflowDefinition{}, err
 	}
-	if err := removeRenamedWorkflowDefinitionFile(currentPath, targetPath); err != nil {
-		return WorkflowDefinition{}, err
-	}
 	return workflowDefinitionWithFileTimestamps(definition, targetPath)
 }
 
@@ -170,6 +167,9 @@ func workflowDefinitionWriteTarget(workspaceRoot string, definition WorkflowDefi
 	dir := workflowDefinitionsDir(workspaceRoot)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create workflow definition directory %s: %w", dir, err)
+	}
+	if currentPath != "" {
+		return currentPath, nil
 	}
 	targetPath := workflowDefinitionPath(workspaceRoot, definition.Name, definition.ID)
 	if err := ensureWorkflowDefinitionWriteTargetAvailable(targetPath, currentPath); err != nil {
@@ -192,7 +192,7 @@ func ensureWorkflowDefinitionWriteTargetAvailable(targetPath string, currentPath
 
 func writeWorkflowDefinitionPayload(targetPath string, payload []byte) error {
 	dir := filepath.Dir(targetPath)
-	tempFile, err := os.CreateTemp(dir, "."+filepath.Base(targetPath)+".*.tmp")
+	tempFile, err := createWorkflowDefinitionTempFile(dir, "."+filepath.Base(targetPath)+".*.tmp")
 	if err != nil {
 		return fmt.Errorf("create workflow definition temp file %s: %w", dir, err)
 	}
@@ -210,20 +210,10 @@ func writeWorkflowDefinitionPayload(targetPath string, payload []byte) error {
 	if err := tempFile.Close(); err != nil {
 		return fmt.Errorf("close workflow definition temp file %s: %w", tempPath, err)
 	}
-	if err := os.Rename(tempPath, targetPath); err != nil {
+	if err := renameWorkflowDefinitionFile(tempPath, targetPath); err != nil {
 		return fmt.Errorf("commit workflow definition file %s: %w", targetPath, err)
 	}
 	committed = true
-	return nil
-}
-
-func removeRenamedWorkflowDefinitionFile(currentPath string, targetPath string) error {
-	if currentPath == "" || currentPath == targetPath {
-		return nil
-	}
-	if err := os.Remove(currentPath); err != nil {
-		return fmt.Errorf("remove previous workflow definition file %s: %w", currentPath, err)
-	}
 	return nil
 }
 
@@ -236,6 +226,11 @@ func workflowDefinitionWithFileTimestamps(definition WorkflowDefinition, targetP
 	definition.UpdatedAt = timestamp(info.ModTime())
 	return definition, nil
 }
+
+var (
+	createWorkflowDefinitionTempFile = os.CreateTemp
+	renameWorkflowDefinitionFile     = os.Rename
+)
 
 func deleteWorkflowDefinitionFile(path string) error {
 	if err := os.Remove(path); err != nil {
