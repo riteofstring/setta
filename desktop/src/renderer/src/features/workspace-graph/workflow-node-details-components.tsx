@@ -1,6 +1,4 @@
 import type {
-  RunActivityPage,
-  WorkflowActivityRef,
   WorkflowEvent,
   WorkflowExecution,
   WorkflowGraphEdge,
@@ -10,7 +8,10 @@ import type {
 } from "@generated/backend";
 import { useEffect, useRef, type ReactNode } from "react";
 
-import { RunItemActivityList } from "../../components/chat-transcript-activity";
+import { AgentTrajectorySurface } from "../../components/agent-trajectory";
+import { Composer } from "../../components/chat-composer";
+import type { LoadRunItemOutput } from "../../components/chat-transcript-activity";
+import type { SubmitApproval } from "../../components/chat-transcript-approvals";
 import { cn } from "../../lib/utils";
 import type {
   WorkflowNodeActivityFocus,
@@ -22,35 +23,48 @@ import {
   workflowActivityFocusWorkflowEventId,
 } from "./workflow-node-activity-focus";
 import {
-  latestWorkflowNodeExecution,
-  runActivityOutputStateFromPage,
+  workflowNodeTrajectoryActions,
+  workflowNodeComposerActions,
+  workflowNodeComposerRunPresentation,
+  workflowNodeComposerViewModel,
+  workflowNodeTrajectoryViewModel,
+  type WorkflowNodeTrajectoryState,
+} from "./workflow-node-agent-trajectory-adapter";
+import {
   shortIdentifier,
   workflowJsonText,
+  workflowNodeExecutionForDetailsTarget,
   workflowNodeEvents,
   workflowNodeKindLabel,
 } from "./workflow-node-details-helpers";
-
-const noopLoadRunActivityOutput = async () => {};
+import type { ComposerActions } from "../../components/chat-composer-contract";
 
 export interface WorkflowRunInspectionState {
-  activityPages: WorkflowNodeActivityPage[];
   events: WorkflowEvent[];
   execution: WorkflowExecution | null;
   loadError: string;
   loading: boolean;
+  operation: string | null;
+  trajectory: WorkflowNodeTrajectoryState | null;
+  trajectoryError: string;
 }
 
-export interface WorkflowNodeActivityPage {
-  error: string;
-  page: RunActivityPage | null;
-  ref: WorkflowActivityRef;
+export interface WorkflowRunTrajectoryActions {
+  loadOlder: () => Promise<void>;
+  loadRunItemOutput: LoadRunItemOutput;
+  retryLiveness: () => Promise<void>;
+  steerMessage: NonNullable<ComposerActions["steerMessage"]>;
+  stopRun: () => Promise<void>;
+  submitApproval: SubmitApproval;
 }
 
 export function WorkflowRunDetailsContent({
+  actions,
   focus,
   inspection,
   target,
 }: {
+  actions: WorkflowRunTrajectoryActions;
   focus: WorkflowNodeActivityFocus | null;
   inspection: WorkflowRunInspectionState;
   target: WorkflowNodeDetailsTarget;
@@ -61,7 +75,7 @@ export function WorkflowRunDetailsContent({
   if (inspection.loading || inspection.execution === null) {
     return <WorkflowDetailsEmpty message="Loading run details" />;
   }
-  const nodeExecution = latestWorkflowNodeExecution(inspection.execution, target.nodeId);
+  const nodeExecution = workflowNodeExecutionForDetailsTarget(inspection.execution, target);
   const nodeEvents = workflowNodeEvents(inspection.events, target.nodeId, nodeExecution?.id ?? "");
   return (
     <div
@@ -75,7 +89,7 @@ export function WorkflowRunDetailsContent({
       />
       <WorkflowNodeExecutionSection nodeExecution={nodeExecution} target={target} />
       <WorkflowActionResultSection focus={focus} nodeExecution={nodeExecution} />
-      <WorkflowActivitySection activityPages={inspection.activityPages} focus={focus} />
+      <WorkflowAgentTrajectorySection actions={actions} focus={focus} inspection={inspection} />
       <WorkflowProjectionFlowSection target={target} />
       <WorkflowTokenFlowSection execution={inspection.execution} nodeId={target.nodeId} />
       <WorkflowEventSection events={nodeEvents} focus={focus} />
@@ -267,84 +281,79 @@ function WorkflowPendingApprovalRow({
   );
 }
 
-function WorkflowActivitySection({
-  activityPages,
+function WorkflowAgentTrajectorySection({
+  actions,
   focus,
+  inspection,
 }: {
-  activityPages: WorkflowNodeActivityPage[];
+  actions: WorkflowRunTrajectoryActions;
   focus: WorkflowNodeActivityFocus | null;
+  inspection: WorkflowRunInspectionState;
 }) {
-  if (activityPages.length === 0) {
+  if (inspection.trajectoryError !== "") {
+    return (
+      <WorkflowDetailsSection title="Agent Trajectory">
+        <WorkflowDetailsError message={inspection.trajectoryError} />
+      </WorkflowDetailsSection>
+    );
+  }
+  if (inspection.trajectory === null) {
     return null;
   }
-  const highlightedRunItemId =
+  const focusedSourceRunItemId =
     focus?.detailKind === "chat_run_item" && focus.runItemId !== "" ? focus.runItemId : undefined;
+  const trajectoryActions = workflowNodeTrajectoryActions({
+    loadOlder: actions.loadOlder,
+    loadRunItemOutput: actions.loadRunItemOutput,
+    retryLiveness: actions.retryLiveness,
+    state: inspection.trajectory,
+    stopRun: actions.stopRun,
+    submitApproval: actions.submitApproval,
+  });
+  const viewModel = workflowNodeTrajectoryViewModel({
+    focusedSourceRunItemId: focusedSourceRunItemId ?? null,
+    operation: inspection.operation,
+    state: inspection.trajectory,
+  });
+  const runPresentation = workflowNodeComposerRunPresentation(inspection.trajectory);
+  const composerViewModel = workflowNodeComposerViewModel({
+    operation: inspection.operation,
+    state: inspection.trajectory,
+  });
+  const composerActions = workflowNodeComposerActions({
+    retryLiveness: actions.retryLiveness,
+    state: inspection.trajectory,
+    steerMessage: actions.steerMessage,
+    stopRun: actions.stopRun,
+  });
+  const showComposer = composerViewModel.session !== null;
   return (
-    <WorkflowDetailsSection title="Activity">
-      <div className="space-y-3">
-        {activityPages.map((activity) => (
-          <WorkflowActivityRefDetails
-            activity={activity}
-            highlightedRunItemId={highlightedRunItemId}
-            key={activity.ref.id}
+    <WorkflowDetailsSection title="Agent Trajectory">
+      <div
+        className="flex h-[36rem] min-h-80 flex-col overflow-hidden rounded-sm border border-zinc-800 bg-zinc-950/60"
+        data-workflow-node-execution-id={inspection.trajectory.page.scope.nodeExecutionId}
+        data-workflow-node-run-id={inspection.trajectory.page.runId}
+        data-testid="workflow-node-agent-trajectory"
+      >
+        <div className="min-h-0 flex-1">
+          <AgentTrajectorySurface actions={trajectoryActions} viewModel={viewModel} />
+        </div>
+        {showComposer ? (
+          <Composer
+            actions={composerActions}
+            busy={inspection.operation !== null}
+            disabled={!runPresentation.canSteer}
+            frameClassName="border-zinc-800 bg-zinc-950/80 shadow-none"
+            placeholder={
+              runPresentation.canSteer ? "" : "Steering is not available for this workflow node."
+            }
+            running={runPresentation.running}
+            runPresentation={runPresentation}
+            viewModel={composerViewModel}
           />
-        ))}
+        ) : null}
       </div>
     </WorkflowDetailsSection>
-  );
-}
-
-function WorkflowActivityRefDetails({
-  activity,
-  highlightedRunItemId,
-}: {
-  activity: WorkflowNodeActivityPage;
-  highlightedRunItemId: string | undefined;
-}) {
-  return (
-    <div className="space-y-2 rounded-sm border border-zinc-800 bg-zinc-950/60 p-3">
-      <WorkflowDetailsRows
-        rows={[
-          { label: "Kind", value: activity.ref.kind },
-          { label: "Ref", value: shortIdentifier(activity.ref.ref) },
-          { label: "Cursor", value: activity.ref.endCursor || activity.ref.startCursor },
-          { label: "Error", value: activity.error, hidden: activity.error === "" },
-        ]}
-      />
-      {activity.page ? (
-        <WorkflowRunActivityPageDetails
-          highlightedRunItemId={highlightedRunItemId}
-          page={activity.page}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-// Renders node-scoped agent/tool activity through the shared activity rows so the workflow node
-// details reuse the canonical rendering path. The activity items are projected by the backend from
-// the run's items, so this surface never infers displayability from raw run-item protocol.
-function WorkflowRunActivityPageDetails({
-  highlightedRunItemId,
-  page,
-}: {
-  highlightedRunItemId: string | undefined;
-  page: RunActivityPage;
-}) {
-  if (page.activity.length === 0) {
-    return <div className="text-xs text-zinc-500">No activity items recorded.</div>;
-  }
-  const outputState = runActivityOutputStateFromPage(page);
-  return (
-    <RunItemActivityList
-      activity={page.activity}
-      highlightedRunItemId={highlightedRunItemId}
-      loadRunItemOutput={noopLoadRunActivityOutput}
-      outputIdsByRunItemId={outputState.outputIdsByRunItemId}
-      outputPagesByRunItemId={outputState.outputPagesByRunItemId}
-      outputsById={outputState.outputsById}
-      runId={page.runId}
-    />
   );
 }
 

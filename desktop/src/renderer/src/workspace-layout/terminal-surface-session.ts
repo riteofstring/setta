@@ -5,6 +5,7 @@ import type { SettaAPI } from "@shared/types";
 type TerminalAPI = SettaAPI["terminal"];
 
 export class TerminalStartDeferred extends Error {}
+export class TerminalStartCancelled extends Error {}
 
 interface AttachOrCreateTerminalSessionOptions {
   allowExplicitProfileStart: boolean;
@@ -16,6 +17,7 @@ interface AttachOrCreateTerminalSessionOptions {
   sessionId: string | null;
   showDeferredProfileStart: (profile: TerminalProfile) => void;
   showStartingStatus: () => void;
+  isCurrent?: () => boolean;
   workspaceId: string;
 }
 
@@ -31,12 +33,15 @@ export async function attachOrCreateTerminalSession(
     sessionId,
     showDeferredProfileStart,
     showStartingStatus,
+    isCurrent,
     workspaceId,
   }: AttachOrCreateTerminalSessionOptions,
 ) {
+  assertTerminalStartCurrent(isCurrent);
   try {
     return await api.attach(workspaceId, paneId);
   } catch (error: unknown) {
+    assertTerminalStartCurrent(isCurrent);
     if (sessionId) {
       throw error;
     }
@@ -45,12 +50,19 @@ export async function attachOrCreateTerminalSession(
       throw new TerminalStartDeferred("custom command profile requires explicit start");
     }
     showStartingStatus();
+    assertTerminalStartCurrent(isCurrent);
     return api.create(workspaceId, paneId, {
       cols: dimensions.cols,
       cwd: cwdOverride,
       profileId: profile?.id ?? profileId,
       rows: dimensions.rows,
     });
+  }
+}
+
+function assertTerminalStartCurrent(isCurrent: (() => boolean) | undefined): void {
+  if (isCurrent && !isCurrent()) {
+    throw new TerminalStartCancelled("terminal surface is no longer current");
   }
 }
 

@@ -242,8 +242,8 @@ const api: SettaAPI = {
       invoke("chatQueueMessage", workspaceId, conversationId, input),
     removeQueuedMessage: (workspaceId: string, conversationId: string, messageId: string) =>
       invoke("chatRemoveQueuedMessage", workspaceId, conversationId, messageId),
-    runActivity: (workspaceId: string, runId: string, limit: number) =>
-      invoke("chatRunActivity", workspaceId, runId, limit),
+    runActivity: (workspaceId: string, runId: string, afterItemId: string, limit: number) =>
+      invoke("chatRunActivity", workspaceId, runId, afterItemId, limit),
     runItemOutput: (
       workspaceId: string,
       runId: string,
@@ -367,8 +367,12 @@ const api: SettaAPI = {
       invoke("workflowReadDefinition", workspaceId, definitionId),
     readExecution: (workspaceId, executionId) =>
       invoke("workflowReadExecution", workspaceId, executionId),
+    readNodeTrajectory: (request) => invoke("workflowReadNodeTrajectory", request),
+    retryNodeRunLiveness: (request) => invoke("workflowRetryNodeRunLiveness", request),
     startExecution: (workspaceId, definitionId, versionId = "") =>
       invoke("workflowStartExecution", workspaceId, definitionId, versionId),
+    steerNodeRun: (request) => invoke("workflowSteerNodeRun", request),
+    stopNodeRun: (request) => invoke("workflowStopNodeRun", request),
     submitApproval: (request) => invoke("workflowSubmitApproval", request),
     updateDefinition: (workspaceId, definitionId, name, description, graph) =>
       invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),

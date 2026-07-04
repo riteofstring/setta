@@ -71,12 +71,15 @@ import type {
   ReadSemanticNodeDetailResponse,
   ReadSemanticSteeringStateRequest,
   ReadWorkflowGraphProjectionResponse,
+  ReadWorkflowNodeTrajectoryRequest,
   ReasoningEffort,
   RefreshCodexAccountRequest,
+  RetryWorkflowNodeRunLivenessRequest,
   ResizeTerminalRequest,
   ReviewCartographerPatchRequest,
   Run,
   RunActivityPage,
+  RunLivenessReconciliationResult,
   RunItemOutputPage,
   ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
@@ -102,8 +105,10 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
+  SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
+  StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
   TerminalInputRequest,
@@ -117,6 +122,7 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  WorkflowAgentTrajectoryPage,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowExecution,
@@ -480,7 +486,12 @@ export interface SettaAPI {
       conversationId: string,
       messageId: string,
     ) => Promise<QueueRemoveResult>;
-    runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
+    runActivity: (
+      workspaceId: string,
+      runId: string,
+      afterItemId: string,
+      limit: number,
+    ) => Promise<RunActivityPage>;
     runItemOutput: (
       workspaceId: string,
       runId: string,
@@ -655,11 +666,19 @@ export interface SettaAPI {
     onEvent: (listener: (event: WorkflowEvent) => void) => () => void;
     readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
     readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
+    readNodeTrajectory: (
+      request: ReadWorkflowNodeTrajectoryRequest,
+    ) => Promise<WorkflowAgentTrajectoryPage>;
+    retryNodeRunLiveness: (
+      request: RetryWorkflowNodeRunLivenessRequest,
+    ) => Promise<RunLivenessReconciliationResult>;
     startExecution: (
       workspaceId: string,
       definitionId: string,
       versionId?: string,
     ) => Promise<WorkflowExecution>;
+    steerNodeRun: (request: SteerWorkflowNodeRunRequest) => Promise<SteerMessageResult>;
+    stopNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
     submitApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
     updateDefinition: (
       workspaceId: string,

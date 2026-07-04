@@ -86,15 +86,21 @@ async function assertProtocolGoalActiveWorkStack(client, runId) {
 }
 
 function activeWorkStackMatches(value, runId) {
+  if (!value.present) {
+    return false;
+  }
+  const currentPlan = value.rows.find((row) => row.testId === "current-plan-surface");
+  const backgroundTerminal = value.rows.find((row) => row.testId === "background-terminals-footer");
   return (
-    value.present &&
-    value.rows.length === 2 &&
-    currentPlanStackRowMatches(value.rows[0], runId) &&
-    backgroundTerminalStackRowMatches(value.rows[1])
+    currentPlanStackRowMatches(currentPlan, runId) &&
+    backgroundTerminalStackRowMatches(backgroundTerminal)
   );
 }
 
 function currentPlanStackRowMatches(row, runId) {
+  if (row === undefined) {
+    return false;
+  }
   return (
     row.testId === "current-plan-surface" &&
     row.runId === runId &&
@@ -107,6 +113,9 @@ function currentPlanStackRowMatches(row, runId) {
 }
 
 function backgroundTerminalStackRowMatches(row) {
+  if (row === undefined) {
+    return false;
+  }
   return (
     row.testId === "background-terminals-footer" &&
     row.text.includes("1 background terminal running")

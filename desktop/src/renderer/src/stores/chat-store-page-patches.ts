@@ -125,18 +125,31 @@ export function commandOperationPatch(
   result: ChatCommandExecuteResult,
   fallbackActiveRun: RunningRun | null,
 ): ChatPatch {
-  const terminalRunIds = terminalRunIdsFromBlocks(
-    current.transcriptBlocks,
-    current.activeRun?.id ?? null,
+  const activeRunId =
+    result.activeRun?.status === "running" ? result.activeRun.id : (current.activeRun?.id ?? null);
+  const terminalRunIds = terminalRunIdsFromBlocks(current.transcriptBlocks, activeRunId);
+  const activeRun = activeRunFromCandidates(
+    terminalRunIds,
+    result.activeRun,
+    current.activeRun,
+    fallbackActiveRun,
   );
-  const activeRun = activeRunFromCandidates(terminalRunIds, current.activeRun, fallbackActiveRun);
   return terminalPreservingPagePatch({
     current,
     page: result.page,
     activeRun,
-    activeRunLiveness: activeRunLivenessFromCandidates(activeRun, current.activeRunLiveness),
+    activeRunLiveness: activeRunLivenessFromCandidates(
+      activeRun,
+      result.activeRunLiveness,
+      current.activeRunLiveness,
+    ),
     terminalRunIds,
-    observedRuns: [current.activeRun, fallbackActiveRun, ...result.page.queue.runs],
+    observedRuns: [
+      result.activeRun,
+      current.activeRun,
+      fallbackActiveRun,
+      ...result.page.queue.runs,
+    ],
   });
 }
 

@@ -1,8 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, powerMonitor } from "electron";
 import type { OpenDialogOptions } from "electron";
-import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 import {
   createBackendClient,
@@ -20,6 +19,7 @@ import { startBackendEventStream, type BackendEventStream } from "./backend-even
 import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
+import { selectChatImageAttachmentPaths } from "./chat-image-attachment-picker";
 import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
@@ -710,25 +710,20 @@ function registerIpc() {
       if (!Number.isInteger(maxCount) || maxCount <= 0) {
         throw new Error("No image attachment slots remaining.");
       }
-      const selection = await dialog.showOpenDialog({
-        filters: [{ extensions: ["png", "jpg", "jpeg", "gif"], name: "Images" }],
-        properties: ["openFile", "multiSelections"],
-      });
-      if (selection.canceled) {
+      const selectedPaths = await selectChatImageAttachmentPaths();
+      if (selectedPaths === null) {
         return [];
       }
-      if (selection.filePaths.length > maxCount) {
+      if (selectedPaths.length > maxCount) {
         throw new Error(`Select at most ${maxCount} images.`);
       }
       const client = requireBackendClient();
       const attachments = [];
-      for (const path of selection.filePaths) {
-        const data = await readFile(path);
+      for (const path of selectedPaths) {
         attachments.push(
-          await client.createChatImageAttachmentFromBytes({
+          await client.createChatImageAttachmentFromPath({
             conversationId,
-            dataBase64: data.toString("base64"),
-            fileName: basename(path),
+            sourcePath: path,
             workspaceId,
           }),
         );
@@ -764,8 +759,8 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatRunActivity",
-    async (_event, workspaceId, runId, limit) => {
-      return requireBackendClient().getRunActivity({ limit, runId, workspaceId });
+    async (_event, workspaceId, runId, afterItemId, limit) => {
+      return requireBackendClient().getRunActivity({ afterItemId, limit, runId, workspaceId });
     },
     ipcObserver,
   );

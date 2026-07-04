@@ -121,6 +121,8 @@ function commandExecuteResult(
   result: ChatCommandResult,
 ): ChatCommandExecuteResult {
   return {
+    activeRun: null,
+    activeRunLiveness: null,
     conversation,
     message: null,
     page: testPage(conversation),

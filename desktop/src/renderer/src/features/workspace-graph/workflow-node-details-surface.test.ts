@@ -1,18 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import type {
-  RunActivityPage,
-  RunItem,
-  RunItemOutput,
-  WorkflowEvent,
-  WorkflowExecution,
-  WorkflowNodeExecution,
-} from "@generated/backend";
+import type { WorkflowEvent, WorkflowExecution, WorkflowNodeExecution } from "@generated/backend";
 import {
   latestWorkflowNodeExecution,
-  runActivityOutputStateFromPage,
   workflowConditionText,
   workflowGraphWithUpdatedAgentTask,
+  workflowNodeExecutionForDetailsTarget,
   workflowNodeEvents,
 } from "./workflow-node-details-helpers";
 
@@ -87,6 +80,29 @@ describe("workflow node details surface helpers", () => {
     expect(latestWorkflowNodeExecution(execution, "missing")).toBeNull();
   });
 
+  test("selects an explicit node execution for details when provided", () => {
+    const execution = testExecution([
+      nodeExecution("node_execution_first", "work", 1, 1, "succeeded"),
+      nodeExecution("node_execution_second", "work", 2, 2, "succeeded"),
+    ]);
+
+    expect(
+      workflowNodeExecutionForDetailsTarget(execution, {
+        nodeExecutionId: "node_execution_first",
+        nodeId: "work",
+      })?.id,
+    ).toBe("node_execution_first");
+    expect(
+      workflowNodeExecutionForDetailsTarget(execution, { nodeExecutionId: "", nodeId: "work" })?.id,
+    ).toBe("node_execution_second");
+    expect(
+      workflowNodeExecutionForDetailsTarget(execution, {
+        nodeExecutionId: "node_execution_first",
+        nodeId: "other",
+      }),
+    ).toBeNull();
+  });
+
   test("filters node run events by node and node execution id", () => {
     const events = [
       workflowEvent("event_node", "work", "", 1),
@@ -97,36 +113,6 @@ describe("workflow node details surface helpers", () => {
     expect(
       workflowNodeEvents(events, "work", "node_execution_work").map((event) => event.id),
     ).toEqual(["event_node", "event_attempt"]);
-  });
-
-  test("adapts a preloaded run activity page into shared run-activity output state", () => {
-    const page: RunActivityPage = {
-      activity: [],
-      items: [runItem("run_item_a"), runItem("run_item_b")],
-      output: [
-        runOutput("output_a2", "run_item_a", 2, "second"),
-        runOutput("output_a1", "run_item_a", 1, "first"),
-      ],
-      runId: "run_a",
-    };
-
-    const state = runActivityOutputStateFromPage(page);
-
-    // Output ids are ordered by ordinal so the concatenated text reads in order.
-    expect(state.outputIdsByRunItemId).toEqual({ run_item_a: ["output_a1", "output_a2"] });
-    expect(state.outputsById.output_a1?.text).toBe("first");
-    // Every item gets a complete page so the shared rows never trigger a lazy output load.
-    expect(state.outputPagesByRunItemId.run_item_a).toEqual({
-      error: null,
-      hasMore: false,
-      loadedThroughOrdinal: 2,
-      loading: false,
-      nextOrdinal: 2,
-    });
-    expect(state.outputPagesByRunItemId.run_item_b).toMatchObject({
-      hasMore: false,
-      loadedThroughOrdinal: 0,
-    });
   });
 
   test("summarizes workflow edge conditions for details panes", () => {
@@ -212,58 +198,6 @@ function nodeExecution(
     sideEffectPolicy: null,
     startedAt: "",
     status,
-  };
-}
-
-function runItem(id: string): RunItem {
-  return {
-    command: "",
-    completedAt: "",
-    conversationId: "conversation_a",
-    createdAt: "2026-06-07T00:00:00Z",
-    cwd: "",
-    details: null,
-    rawDetails: null,
-    diffSummary: "",
-    durationMs: 0,
-    error: "",
-    exitCode: 0,
-    filePaths: [],
-    hiddenText: "",
-    id,
-    namespace: "",
-    noticeKind: "",
-    noticeMessage: "",
-    patchStatus: "",
-    processId: "",
-    progress: "",
-    providerItemId: "",
-    requestId: "",
-    result: "",
-    reviewId: "",
-    runId: "run_a",
-    schemaVersion: 1,
-    serverName: "",
-    source: null,
-    startedAt: "",
-    status: "completed",
-    summary: "",
-    title: id,
-    toolName: "",
-    type: "command_execution",
-    workspaceId: "workspace_test",
-  };
-}
-
-function runOutput(id: string, runItemId: string, ordinal: number, text: string): RunItemOutput {
-  return {
-    createdAt: "2026-06-07T00:00:00Z",
-    id,
-    ordinal,
-    runItemId,
-    schemaVersion: 1,
-    stream: "stdout",
-    text,
   };
 }
 

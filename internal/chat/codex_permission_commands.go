@@ -120,5 +120,9 @@ func optionalApprovalPolicy(value map[string]any, name string, label string) (st
 	if err != nil {
 		return "", err
 	}
-	return codexApprovalPolicyString(codexapp.AskForApproval(raw)), nil
+	policy := codexApprovalPolicyString(codexapp.AskForApproval(raw))
+	if err := validateSettaCodexApprovalPolicy(policy, label+"."+name); err != nil {
+		return "", err
+	}
+	return policy, nil
 }

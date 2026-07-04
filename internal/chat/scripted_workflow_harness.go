@@ -60,6 +60,8 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "chat performance stream", Run: scriptedPerformanceStreamTurn},
 	{Prompt: "transcript scroll stickiness workflow", Run: (*ScriptedWorkflowHarness).transcriptScrollStickinessTurn},
 	{Prompt: "transcript older page workflow", Run: (*ScriptedWorkflowHarness).transcriptOlderPageTurn},
+	{Prompt: "workflow trajectory page limit workflow", Run: scriptedWorkflowTrajectoryPageLimitTurn},
+	{Prompt: "workflow trajectory activity item page workflow", Run: scriptedWorkflowTrajectoryActivityItemPageTurn},
 	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
 	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
@@ -542,7 +544,9 @@ func scriptedPerformanceStreamTurn(_ *ScriptedWorkflowHarness, ctx context.Conte
 		}
 	}
 	item.Status = RunItemStatusCompleted
-	item.Result = fmt.Sprintf("streamed %d assistant chunks", chunkCount)
+	item.Details = NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
+		Result: fmt.Sprintf("streamed %d assistant chunks", chunkCount),
+	})
 	if err := sink.RunItemUpsert(item); err != nil {
 		return TurnCompletion{}, err
 	}

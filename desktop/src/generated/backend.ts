@@ -183,6 +183,168 @@ export function decodePaneTone(value: unknown, label = "PaneTone"): PaneTone {
   }
 }
 
+export type WorkflowNodeKind = "start" | "end" | "action" | "gateway.and" | "gateway.or" | "gateway.xor" | "loop.guard";
+
+export const workflowNodeKindValues = ["start", "end", "action", "gateway.and", "gateway.or", "gateway.xor", "loop.guard"] as const satisfies readonly WorkflowNodeKind[];
+
+export function decodeWorkflowNodeKind(value: unknown, label = "WorkflowNodeKind"): WorkflowNodeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "start":
+      return decoded;
+    case "end":
+      return decoded;
+    case "action":
+      return decoded;
+    case "gateway.and":
+      return decoded;
+    case "gateway.or":
+      return decoded;
+    case "gateway.xor":
+      return decoded;
+    case "loop.guard":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
+
+export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowGraphNodeStatus[];
+
+export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowGraphNodeStatus"): WorkflowGraphNodeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "not_started":
+      return decoded;
+    case "pending":
+      return decoded;
+    case "ready":
+      return decoded;
+    case "running":
+      return decoded;
+    case "succeeded":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "waiting_approval":
+      return decoded;
+    case "recovery_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowEdgeKind = "normal" | "loop_continue" | "loop_exit";
+
+export const workflowEdgeKindValues = ["normal", "loop_continue", "loop_exit"] as const satisfies readonly WorkflowEdgeKind[];
+
+export function decodeWorkflowEdgeKind(value: unknown, label = "WorkflowEdgeKind"): WorkflowEdgeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "normal":
+      return decoded;
+    case "loop_continue":
+      return decoded;
+    case "loop_exit":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowConditionKind = "always" | "action_status" | "default" | "action_signal" | "script_exit_code";
+
+export const workflowConditionKindValues = ["always", "action_status", "default", "action_signal", "script_exit_code"] as const satisfies readonly WorkflowConditionKind[];
+
+export function decodeWorkflowConditionKind(value: unknown, label = "WorkflowConditionKind"): WorkflowConditionKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "always":
+      return decoded;
+    case "action_status":
+      return decoded;
+    case "default":
+      return decoded;
+    case "action_signal":
+      return decoded;
+    case "script_exit_code":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowNodeExecutionStatus = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
+
+export const workflowNodeExecutionStatusValues = ["pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowNodeExecutionStatus[];
+
+export function decodeWorkflowNodeExecutionStatus(value: unknown, label = "WorkflowNodeExecutionStatus"): WorkflowNodeExecutionStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "ready":
+      return decoded;
+    case "running":
+      return decoded;
+    case "succeeded":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "waiting_approval":
+      return decoded;
+    case "recovery_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphEdgeStatus = "inactive" | "active" | "completed" | "cancelled";
+
+export const workflowGraphEdgeStatusValues = ["inactive", "active", "completed", "cancelled"] as const satisfies readonly WorkflowGraphEdgeStatus[];
+
+export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowGraphEdgeStatus"): WorkflowGraphEdgeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "inactive":
+      return decoded;
+    case "active":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphViewMode = "draft" | "version" | "run";
+
+export const workflowGraphViewModeValues = ["draft", "version", "run"] as const satisfies readonly WorkflowGraphViewMode[];
+
+export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGraphViewMode"): WorkflowGraphViewMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "draft":
+      return decoded;
+    case "version":
+      return decoded;
+    case "run":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type WorkspaceActivityKind = "workflow_status" | "command" | "file_change" | "approval";
 
 export const workspaceActivityKindValues = ["workflow_status", "command", "file_change", "approval"] as const satisfies readonly WorkspaceActivityKind[];
@@ -1171,32 +1333,6 @@ export function decodeBackgroundTerminalStatus(value: unknown, label = "Backgrou
   }
 }
 
-export type WorkflowNodeKind = "start" | "end" | "action" | "gateway.and" | "gateway.or" | "gateway.xor" | "loop.guard";
-
-export const workflowNodeKindValues = ["start", "end", "action", "gateway.and", "gateway.or", "gateway.xor", "loop.guard"] as const satisfies readonly WorkflowNodeKind[];
-
-export function decodeWorkflowNodeKind(value: unknown, label = "WorkflowNodeKind"): WorkflowNodeKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "start":
-      return decoded;
-    case "end":
-      return decoded;
-    case "action":
-      return decoded;
-    case "gateway.and":
-      return decoded;
-    case "gateway.or":
-      return decoded;
-    case "gateway.xor":
-      return decoded;
-    case "loop.guard":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type WorkflowLoopLimitPolicy = "completed" | "failed" | "stopped";
 
 export const workflowLoopLimitPolicyValues = ["completed", "failed", "stopped"] as const satisfies readonly WorkflowLoopLimitPolicy[];
@@ -1209,74 +1345,6 @@ export function decodeWorkflowLoopLimitPolicy(value: unknown, label = "WorkflowL
     case "failed":
       return decoded;
     case "stopped":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowConditionKind = "always" | "action_status" | "default" | "action_signal" | "script_exit_code";
-
-export const workflowConditionKindValues = ["always", "action_status", "default", "action_signal", "script_exit_code"] as const satisfies readonly WorkflowConditionKind[];
-
-export function decodeWorkflowConditionKind(value: unknown, label = "WorkflowConditionKind"): WorkflowConditionKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "always":
-      return decoded;
-    case "action_status":
-      return decoded;
-    case "default":
-      return decoded;
-    case "action_signal":
-      return decoded;
-    case "script_exit_code":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowNodeExecutionStatus = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
-
-export const workflowNodeExecutionStatusValues = ["pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowNodeExecutionStatus[];
-
-export function decodeWorkflowNodeExecutionStatus(value: unknown, label = "WorkflowNodeExecutionStatus"): WorkflowNodeExecutionStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "pending":
-      return decoded;
-    case "ready":
-      return decoded;
-    case "running":
-      return decoded;
-    case "succeeded":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    case "waiting_approval":
-      return decoded;
-    case "recovery_required":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowEdgeKind = "normal" | "loop_continue" | "loop_exit";
-
-export const workflowEdgeKindValues = ["normal", "loop_continue", "loop_exit"] as const satisfies readonly WorkflowEdgeKind[];
-
-export function decodeWorkflowEdgeKind(value: unknown, label = "WorkflowEdgeKind"): WorkflowEdgeKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "normal":
-      return decoded;
-    case "loop_continue":
-      return decoded;
-    case "loop_exit":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1642,74 +1710,6 @@ export const workflowTokenStatusValues = ["active", "completed", "cancelled"] as
 export function decodeWorkflowTokenStatus(value: unknown, label = "WorkflowTokenStatus"): WorkflowTokenStatus {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "active":
-      return decoded;
-    case "completed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphViewMode = "draft" | "version" | "run";
-
-export const workflowGraphViewModeValues = ["draft", "version", "run"] as const satisfies readonly WorkflowGraphViewMode[];
-
-export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGraphViewMode"): WorkflowGraphViewMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "draft":
-      return decoded;
-    case "version":
-      return decoded;
-    case "run":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
-
-export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowGraphNodeStatus[];
-
-export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowGraphNodeStatus"): WorkflowGraphNodeStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "not_started":
-      return decoded;
-    case "pending":
-      return decoded;
-    case "ready":
-      return decoded;
-    case "running":
-      return decoded;
-    case "succeeded":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    case "waiting_approval":
-      return decoded;
-    case "recovery_required":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphEdgeStatus = "inactive" | "active" | "completed" | "cancelled";
-
-export const workflowGraphEdgeStatusValues = ["inactive", "active", "completed", "cancelled"] as const satisfies readonly WorkflowGraphEdgeStatus[];
-
-export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowGraphEdgeStatus"): WorkflowGraphEdgeStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "inactive":
-      return decoded;
     case "active":
       return decoded;
     case "completed":
@@ -2750,6 +2750,47 @@ export interface TerminalPaneConfig {
   titleOverride: string;
 }
 
+export interface WorkflowCondition {
+  kind: WorkflowConditionKind;
+  nodeId: string;
+  status: WorkflowNodeExecutionStatus | null;
+  signalName: string;
+  signalValue: string;
+  exitCode: number | null;
+  invert: boolean;
+}
+
+export interface WorkflowGraphEdge {
+  id: string;
+  kind: WorkflowEdgeKind;
+  fromNodeId: string;
+  toNodeId: string;
+  condition: WorkflowCondition | null;
+  label: string;
+  status: WorkflowGraphEdgeStatus;
+  activeTokenCount: number;
+  completedTokenCount: number;
+  cancelledTokenCount: number;
+}
+
+export interface WorkflowNodeDetailsPaneConfig {
+  definitionId: string;
+  definitionName: string;
+  definitionVersionId: string;
+  definitionVersionNumber: number;
+  executionId: string;
+  nodeId: string;
+  nodeExecutionId: string;
+  nodeKind: WorkflowNodeKind;
+  nodeLabel: string;
+  nodeStatus: WorkflowGraphNodeStatus;
+  projectionIncomingEdges: WorkflowGraphEdge[];
+  projectionOutgoingEdges: WorkflowGraphEdge[];
+  versionMismatch: boolean;
+  viewMode: WorkflowGraphViewMode;
+  workspaceId: string;
+}
+
 export interface WorkspaceUIPane {
   columnId: string;
   heat: number;
@@ -2762,6 +2803,7 @@ export interface WorkspaceUIPane {
   title: string;
   tone: PaneTone;
   weight: number;
+  workflowNodeDetailsConfig: WorkflowNodeDetailsPaneConfig | null;
 }
 
 export interface WorkspaceUILayout {
@@ -3609,6 +3651,12 @@ export interface CreateChatImageAttachmentFromBytesRequest {
   dataBase64: string;
 }
 
+export interface CreateChatImageAttachmentFromPathRequest {
+  workspaceId: string;
+  conversationId: string;
+  sourcePath: string;
+}
+
 export interface ListChatCommandsRequest {
   workspaceId: string;
   conversationId: string;
@@ -3710,6 +3758,8 @@ export interface ChatCommandResult {
 export interface ChatCommandExecuteResult {
   conversation: Conversation;
   message: ChatMessage | null;
+  activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
   page: MessagePage;
   result: ChatCommandResult;
 }
@@ -3802,6 +3852,7 @@ export interface ListRunsResponse {
 export interface GetRunActivityRequest {
   workspaceId: string;
   runId: string;
+  afterItemId: string;
   limit: number;
 }
 
@@ -3871,6 +3922,8 @@ export interface RunActivityPage {
   items: RunItem[];
   output: RunItemOutput[];
   activity: ActivityItemBlockProjection[];
+  hasMoreItems: boolean;
+  nextItemId: string;
 }
 
 export interface GetRunItemOutputRequest {
@@ -3999,16 +4052,6 @@ export interface WorkflowActionConfig {
 
 export interface WorkflowGatewayConfig {
   requiredIncoming: string[];
-}
-
-export interface WorkflowCondition {
-  kind: WorkflowConditionKind;
-  nodeId: string;
-  status: WorkflowNodeExecutionStatus | null;
-  signalName: string;
-  signalValue: string;
-  exitCode: number | null;
-  invert: boolean;
 }
 
 export interface WorkflowLoopGuardConfig {
@@ -4350,19 +4393,6 @@ export interface WorkflowGraphNode {
   recoveryMessage: string;
 }
 
-export interface WorkflowGraphEdge {
-  id: string;
-  kind: WorkflowEdgeKind;
-  fromNodeId: string;
-  toNodeId: string;
-  condition: WorkflowCondition | null;
-  label: string;
-  status: WorkflowGraphEdgeStatus;
-  activeTokenCount: number;
-  completedTokenCount: number;
-  cancelledTokenCount: number;
-}
-
 export interface WorkflowGraphProjection {
   schemaVersion: number;
   workspaceId: string;
@@ -4421,6 +4451,87 @@ export interface WorkflowExecutionEventPage {
   events: WorkflowEvent[];
   hasMoreOlder: boolean;
   olderBeforeOrdinal: number;
+}
+
+export interface ReadWorkflowNodeTrajectoryRequest {
+  workspaceId: string;
+  executionId: string;
+  nodeExecutionId: string;
+  beforeBlockOrdinal: number;
+  transcriptLimit: number;
+  afterItemId: string;
+  itemLimit: number;
+  outputLimit: number;
+}
+
+export interface WorkflowAgentTrajectoryScope {
+  workspaceId: string;
+  definitionId: string;
+  definitionVersionId: string;
+  executionId: string;
+  nodeId: string;
+  nodeExecutionId: string;
+  attempt: number;
+  iteration: number;
+}
+
+export interface WorkflowAgentTrajectoryRunItemOutputPageState {
+  runId: string;
+  runItemId: string;
+  outputIds: string[];
+  hasMore: boolean;
+  loadedThroughOrdinal: number;
+  nextOrdinal: number;
+}
+
+export interface WorkflowAgentTrajectoryCapabilities {
+  canLoadOlderHistory: boolean;
+  canLoadMoreActivity: boolean;
+  canLoadRunItemOutput: boolean;
+  canRetryLiveness: boolean;
+  canSteer: boolean;
+  canStopRun: boolean;
+  canSubmitApproval: boolean;
+}
+
+export interface WorkflowAgentTrajectoryPage {
+  schemaVersion: number;
+  scope: WorkflowAgentTrajectoryScope;
+  conversationId: string;
+  runId: string;
+  run: Run;
+  activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
+  blocks: TranscriptBlock[];
+  items: RunItem[];
+  activity: ActivityItemBlockProjection[];
+  outputPages: WorkflowAgentTrajectoryRunItemOutputPageState[];
+  outputs: RunItemOutput[];
+  pendingApproval: WorkflowPendingApproval | null;
+  hasMoreOlder: boolean;
+  olderBeforeBlockOrdinal: number;
+  hasMoreItems: boolean;
+  nextItemId: string;
+  capabilities: WorkflowAgentTrajectoryCapabilities;
+}
+
+export interface RetryWorkflowNodeRunLivenessRequest {
+  workspaceId: string;
+  executionId: string;
+  nodeExecutionId: string;
+}
+
+export interface SteerWorkflowNodeRunRequest {
+  workspaceId: string;
+  executionId: string;
+  nodeExecutionId: string;
+  input: ChatInput;
+}
+
+export interface StopWorkflowNodeRunRequest {
+  workspaceId: string;
+  executionId: string;
+  nodeExecutionId: string;
 }
 
 export interface SubmitWorkflowApprovalRequest {
@@ -6182,6 +6293,7 @@ export const backendEndpoints = {
   UpdateAppearanceSettings: {
     method: "POST",
     path: "/appearance/settings",
+    requestBodyLimitBytes: 4194304,
   },
   WorkspaceSession: {
     method: "GET",
@@ -6194,42 +6306,52 @@ export const backendEndpoints = {
   OpenWorkspace: {
     method: "POST",
     path: "/workspaces/open",
+    requestBodyLimitBytes: 4194304,
   },
   SelectWorkspace: {
     method: "POST",
     path: "/workspaces/select",
+    requestBodyLimitBytes: 4194304,
   },
   SetWorkspaceSelectedConversation: {
     method: "POST",
     path: "/workspaces/selected-conversation",
+    requestBodyLimitBytes: 4194304,
   },
   CloseWorkspace: {
     method: "POST",
     path: "/workspaces/close",
+    requestBodyLimitBytes: 4194304,
   },
   ReorderWorkspace: {
     method: "POST",
     path: "/workspaces/reorder",
+    requestBodyLimitBytes: 4194304,
   },
   RemoveRecentWorkspace: {
     method: "POST",
     path: "/workspaces/remove-recent",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/read",
+    requestBodyLimitBytes: 4194304,
   },
   SaveWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/save",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkspaceActivitySnapshot: {
     method: "POST",
     path: "/workspace-activity/snapshot",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowExecutionActivity: {
     method: "POST",
     path: "/workspace-activity/execution-snapshot",
+    requestBodyLimitBytes: 4194304,
   },
   WorkspaceActivityEventStream: {
     method: "GET",
@@ -6238,66 +6360,87 @@ export const backendEndpoints = {
   ListConversations: {
     method: "POST",
     path: "/chat/conversations/list",
+    requestBodyLimitBytes: 4194304,
   },
   CreateConversation: {
     method: "POST",
     path: "/chat/conversations/create",
+    requestBodyLimitBytes: 4194304,
   },
   DeleteConversation: {
     method: "POST",
     path: "/chat/conversations/delete",
+    requestBodyLimitBytes: 4194304,
   },
   MarkConversationRead: {
     method: "POST",
     path: "/chat/conversations/mark-read",
+    requestBodyLimitBytes: 4194304,
   },
   SetConversationPinned: {
     method: "POST",
     path: "/chat/conversations/pin",
+    requestBodyLimitBytes: 4194304,
   },
   GetMessagePage: {
     method: "POST",
     path: "/chat/messages/page",
+    requestBodyLimitBytes: 4194304,
   },
   ListComposerPromptHistory: {
     method: "POST",
     path: "/chat/composer/history",
+    requestBodyLimitBytes: 4194304,
   },
   SendChatMessage: {
     method: "POST",
     path: "/chat/messages/send",
+    requestBodyLimitBytes: 4194304,
   },
   QueueChatMessage: {
     method: "POST",
     path: "/chat/messages/queue",
+    requestBodyLimitBytes: 4194304,
   },
   EditQueuedChatMessage: {
     method: "POST",
     path: "/chat/messages/queue/edit",
+    requestBodyLimitBytes: 4194304,
   },
   RemoveQueuedChatMessage: {
     method: "POST",
     path: "/chat/messages/queue/remove",
+    requestBodyLimitBytes: 4194304,
   },
   SteerChatMessage: {
     method: "POST",
     path: "/chat/messages/steer",
+    requestBodyLimitBytes: 4194304,
   },
   SendSteeringImmediately: {
     method: "POST",
     path: "/chat/messages/steer/immediate",
+    requestBodyLimitBytes: 4194304,
   },
   CreateChatImageAttachmentFromBytes: {
     method: "POST",
     path: "/chat/attachments/images/from-bytes",
+    requestBodyLimitBytes: 28224172,
+  },
+  CreateChatImageAttachmentFromPath: {
+    method: "POST",
+    path: "/chat/attachments/images/from-path",
+    requestBodyLimitBytes: 4194304,
   },
   ListChatCommands: {
     method: "POST",
     path: "/chat/commands/list",
+    requestBodyLimitBytes: 4194304,
   },
   ExecuteChatCommand: {
     method: "POST",
     path: "/chat/commands/execute",
+    requestBodyLimitBytes: 4194304,
   },
   ReadChatCodexDefaults: {
     method: "GET",
@@ -6306,126 +6449,177 @@ export const backendEndpoints = {
   UpdateChatCodexDefaults: {
     method: "POST",
     path: "/chat/codex/defaults",
+    requestBodyLimitBytes: 4194304,
   },
   OpenChatCodexModelPicker: {
     method: "POST",
     path: "/chat/codex/model/picker",
+    requestBodyLimitBytes: 4194304,
   },
   OpenChatCodexPermissionPicker: {
     method: "POST",
     path: "/chat/codex/permission/picker",
+    requestBodyLimitBytes: 4194304,
   },
   SetChatCodexModel: {
     method: "POST",
     path: "/chat/codex/model/set",
+    requestBodyLimitBytes: 4194304,
   },
   SetChatCodexPermissionPreset: {
     method: "POST",
     path: "/chat/codex/permission/set",
+    requestBodyLimitBytes: 4194304,
   },
   SetChatCodexReasoningEffort: {
     method: "POST",
     path: "/chat/codex/reasoning-effort/set",
+    requestBodyLimitBytes: 4194304,
   },
   CancelRun: {
     method: "POST",
     path: "/chat/runs/cancel",
+    requestBodyLimitBytes: 4194304,
   },
   GetActiveRun: {
     method: "POST",
     path: "/chat/runs/active",
+    requestBodyLimitBytes: 4194304,
   },
   ReconcileChatRuns: {
     method: "POST",
     path: "/chat/runs/reconcile",
+    requestBodyLimitBytes: 4194304,
   },
   ListRuns: {
     method: "POST",
     path: "/chat/runs/list",
+    requestBodyLimitBytes: 4194304,
   },
   GetRunActivity: {
     method: "POST",
     path: "/chat/runs/activity",
+    requestBodyLimitBytes: 4194304,
   },
   GetRunItemOutputPage: {
     method: "POST",
     path: "/chat/runs/item-output",
+    requestBodyLimitBytes: 4194304,
   },
   ListBackgroundTerminals: {
     method: "POST",
     path: "/chat/background-terminals/list",
+    requestBodyLimitBytes: 4194304,
   },
   GetBackgroundTerminalOutput: {
     method: "POST",
     path: "/chat/background-terminals/output",
+    requestBodyLimitBytes: 4194304,
   },
   KillBackgroundTerminal: {
     method: "POST",
     path: "/chat/background-terminals/kill",
+    requestBodyLimitBytes: 4194304,
   },
   KillAllBackgroundTerminals: {
     method: "POST",
     path: "/chat/background-terminals/kill-all",
+    requestBodyLimitBytes: 4194304,
   },
   ListDiagnostics: {
     method: "POST",
     path: "/chat/diagnostics/list",
+    requestBodyLimitBytes: 4194304,
   },
   SubmitApproval: {
     method: "POST",
     path: "/chat/approvals/submit",
+    requestBodyLimitBytes: 4194304,
   },
   ListWorkflowDefinitions: {
     method: "POST",
     path: "/workflows/definitions/list",
+    requestBodyLimitBytes: 4194304,
   },
   CreateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/create",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/read",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/update",
+    requestBodyLimitBytes: 4194304,
   },
   DeleteWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/delete",
+    requestBodyLimitBytes: 4194304,
   },
   ValidateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/validate",
+    requestBodyLimitBytes: 4194304,
   },
   ListWorkflowExecutions: {
     method: "POST",
     path: "/workflows/executions/list",
+    requestBodyLimitBytes: 4194304,
   },
   StartWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/start",
+    requestBodyLimitBytes: 4194304,
   },
   CancelWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/cancel",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/read",
+    requestBodyLimitBytes: 4194304,
   },
   ReadWorkflowGraphProjection: {
     method: "POST",
     path: "/workflows/graph/read",
+    requestBodyLimitBytes: 4194304,
   },
   GetWorkflowExecutionEvents: {
     method: "POST",
     path: "/workflows/executions/events",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadWorkflowNodeTrajectory: {
+    method: "POST",
+    path: "/workflows/nodes/trajectory",
+    requestBodyLimitBytes: 4194304,
+  },
+  RetryWorkflowNodeRunLiveness: {
+    method: "POST",
+    path: "/workflows/nodes/runs/retry-liveness",
+    requestBodyLimitBytes: 4194304,
+  },
+  SteerWorkflowNodeRun: {
+    method: "POST",
+    path: "/workflows/nodes/runs/steer",
+    requestBodyLimitBytes: 4194304,
+  },
+  StopWorkflowNodeRun: {
+    method: "POST",
+    path: "/workflows/nodes/runs/stop",
+    requestBodyLimitBytes: 4194304,
   },
   SubmitWorkflowApproval: {
     method: "POST",
     path: "/workflows/approvals/submit",
+    requestBodyLimitBytes: 4194304,
   },
   WorkflowEventStream: {
     method: "GET",
@@ -6434,162 +6628,202 @@ export const backendEndpoints = {
   ReadSemanticGraph: {
     method: "POST",
     path: "/semantic-graph/read",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticNodeDetail: {
     method: "POST",
     path: "/semantic-graph/nodes/detail",
+    requestBodyLimitBytes: 4194304,
   },
   ListSemanticEvidence: {
     method: "POST",
     path: "/semantic-graph/evidence/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListSemanticActivity: {
     method: "POST",
     path: "/semantic-graph/activity/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListSemanticActivityPage: {
     method: "POST",
     path: "/semantic-graph/activity/page",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticActivitySummary: {
     method: "POST",
     path: "/semantic-graph/activity/summary",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticSteeringState: {
     method: "POST",
     path: "/semantic-graph/steering/read",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticEventHistory: {
     method: "POST",
     path: "/semantic-graph/events/history",
+    requestBodyLimitBytes: 4194304,
   },
   ReadSemanticContextPack: {
     method: "POST",
     path: "/semantic-graph/context-packs/read",
+    requestBodyLimitBytes: 4194304,
   },
   ListSemanticContextPacks: {
     method: "POST",
     path: "/semantic-graph/context-packs/list",
+    requestBodyLimitBytes: 4194304,
   },
   BuildCartographerWindow: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/build",
+    requestBodyLimitBytes: 4194304,
   },
   ProcessCartographerWindow: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/process",
+    requestBodyLimitBytes: 4194304,
   },
   ReadCartographerProcessingState: {
     method: "POST",
     path: "/semantic-graph/cartographer/processing/state",
+    requestBodyLimitBytes: 4194304,
   },
   ReadCartographerRun: {
     method: "POST",
     path: "/semantic-graph/cartographer/runs/read",
+    requestBodyLimitBytes: 4194304,
   },
   ListCartographerRuns: {
     method: "POST",
     path: "/semantic-graph/cartographer/runs/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListCartographerWindows: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListCartographerCursors: {
     method: "POST",
     path: "/semantic-graph/cartographer/cursors/list",
+    requestBodyLimitBytes: 4194304,
   },
   ListCartographerPatches: {
     method: "POST",
     path: "/semantic-graph/cartographer/patches/list",
+    requestBodyLimitBytes: 4194304,
   },
   AcceptCartographerPatch: {
     method: "POST",
     path: "/semantic-graph/cartographer/patches/accept",
+    requestBodyLimitBytes: 4194304,
   },
   RejectCartographerPatch: {
     method: "POST",
     path: "/semantic-graph/cartographer/patches/reject",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticLayoutPositions: {
     method: "POST",
     path: "/semantic-graph/layout/update",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToWorkflowExecution: {
     method: "POST",
     path: "/semantic-graph/attachments/workflow-execution",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToWorkflowNode: {
     method: "POST",
     path: "/semantic-graph/attachments/workflow-node",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToChatRun: {
     method: "POST",
     path: "/semantic-graph/attachments/chat-run",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToChatMessage: {
     method: "POST",
     path: "/semantic-graph/attachments/chat-message",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToRunItem: {
     method: "POST",
     path: "/semantic-graph/attachments/run-item",
+    requestBodyLimitBytes: 4194304,
   },
   AttachSemanticNodeToFileRange: {
     method: "POST",
     path: "/semantic-graph/attachments/file-range",
+    requestBodyLimitBytes: 4194304,
   },
   EndSemanticActivity: {
     method: "POST",
     path: "/semantic-graph/activity/end",
+    requestBodyLimitBytes: 4194304,
   },
   RenameSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/rename",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/update",
+    requestBodyLimitBytes: 4194304,
   },
   DismissSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/dismiss",
+    requestBodyLimitBytes: 4194304,
   },
   PromoteSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/promote",
+    requestBodyLimitBytes: 4194304,
   },
   SplitSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/split",
+    requestBodyLimitBytes: 4194304,
   },
   MergeSemanticNodes: {
     method: "POST",
     path: "/semantic-graph/nodes/merge",
+    requestBodyLimitBytes: 4194304,
   },
   CreateSemanticNode: {
     method: "POST",
     path: "/semantic-graph/nodes/create",
+    requestBodyLimitBytes: 4194304,
   },
   CreateSemanticEdge: {
     method: "POST",
     path: "/semantic-graph/edges/create",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticEdge: {
     method: "POST",
     path: "/semantic-graph/edges/update",
+    requestBodyLimitBytes: 4194304,
   },
   RemoveSemanticEdge: {
     method: "POST",
     path: "/semantic-graph/edges/remove",
+    requestBodyLimitBytes: 4194304,
   },
   CreateSemanticSteeringDirective: {
     method: "POST",
     path: "/semantic-graph/steering/create",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateSemanticSteeringDirective: {
     method: "POST",
     path: "/semantic-graph/steering/update",
+    requestBodyLimitBytes: 4194304,
   },
   SemanticGraphChangeEventStream: {
     method: "GET",
@@ -6598,22 +6832,27 @@ export const backendEndpoints = {
   CreateTerminal: {
     method: "POST",
     path: "/terminals/create",
+    requestBodyLimitBytes: 4194304,
   },
   AttachTerminal: {
     method: "POST",
     path: "/terminals/attach",
+    requestBodyLimitBytes: 4194304,
   },
   TerminalInput: {
     method: "POST",
     path: "/terminals/input",
+    requestBodyLimitBytes: 4194304,
   },
   ResizeTerminal: {
     method: "POST",
     path: "/terminals/resize",
+    requestBodyLimitBytes: 4194304,
   },
   CloseTerminal: {
     method: "POST",
     path: "/terminals/close",
+    requestBodyLimitBytes: 4194304,
   },
   ListTerminalProfiles: {
     method: "GET",
@@ -6622,18 +6861,22 @@ export const backendEndpoints = {
   CreateTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/create",
+    requestBodyLimitBytes: 4194304,
   },
   UpdateTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/update",
+    requestBodyLimitBytes: 4194304,
   },
   DeleteTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/delete",
+    requestBodyLimitBytes: 4194304,
   },
   SelectDefaultTerminalProfile: {
     method: "POST",
     path: "/terminals/profiles/default",
+    requestBodyLimitBytes: 4194304,
   },
   TerminalEventStream: {
     method: "GET",
@@ -6646,18 +6889,22 @@ export const backendEndpoints = {
   RefreshCodexAccount: {
     method: "POST",
     path: "/codex/account/refresh",
+    requestBodyLimitBytes: 4194304,
   },
   StartCodexLogin: {
     method: "POST",
     path: "/codex/account/login/start",
+    requestBodyLimitBytes: 4194304,
   },
   CancelCodexLogin: {
     method: "POST",
     path: "/codex/account/login/cancel",
+    requestBodyLimitBytes: 4194304,
   },
   LogoutCodexAccount: {
     method: "POST",
     path: "/codex/account/logout",
+    requestBodyLimitBytes: 4194304,
   },
   EventStream: {
     method: "GET",
@@ -6990,9 +7237,62 @@ export function decodeTerminalPaneConfig(value: unknown): TerminalPaneConfig {
   };
 }
 
+export function decodeWorkflowCondition(value: unknown): WorkflowCondition {
+  const record = assertRecord(value, "WorkflowCondition");
+  assertKnownFields(record, "WorkflowCondition", ["kind", "nodeId", "status", "signalName", "signalValue", "exitCode", "invert"]);
+  return {
+    kind: decodeWorkflowConditionKind(requireField(record, "kind", "WorkflowCondition"), "WorkflowCondition.kind"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowCondition"), "WorkflowCondition.nodeId"),
+    status: decodeNullable(requireField(record, "status", "WorkflowCondition"), "WorkflowCondition.status", (item) => decodeWorkflowNodeExecutionStatus(item, "WorkflowCondition.status")),
+    signalName: decodeString(requireField(record, "signalName", "WorkflowCondition"), "WorkflowCondition.signalName"),
+    signalValue: decodeString(requireField(record, "signalValue", "WorkflowCondition"), "WorkflowCondition.signalValue"),
+    exitCode: decodeNullable(requireField(record, "exitCode", "WorkflowCondition"), "WorkflowCondition.exitCode", (item) => decodeInteger(item, "WorkflowCondition.exitCode")),
+    invert: decodeBoolean(requireField(record, "invert", "WorkflowCondition"), "WorkflowCondition.invert"),
+  };
+}
+
+export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
+  const record = assertRecord(value, "WorkflowGraphEdge");
+  assertKnownFields(record, "WorkflowGraphEdge", ["id", "kind", "fromNodeId", "toNodeId", "condition", "label", "status", "activeTokenCount", "completedTokenCount", "cancelledTokenCount"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkflowGraphEdge"), "WorkflowGraphEdge.id"),
+    kind: decodeWorkflowEdgeKind(requireField(record, "kind", "WorkflowGraphEdge"), "WorkflowGraphEdge.kind"),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.fromNodeId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.toNodeId"),
+    condition: decodeNullable(requireField(record, "condition", "WorkflowGraphEdge"), "WorkflowGraphEdge.condition", (item) => decodeWorkflowCondition(item)),
+    label: decodeString(requireField(record, "label", "WorkflowGraphEdge"), "WorkflowGraphEdge.label"),
+    status: decodeWorkflowGraphEdgeStatus(requireField(record, "status", "WorkflowGraphEdge"), "WorkflowGraphEdge.status"),
+    activeTokenCount: decodeInteger(requireField(record, "activeTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.activeTokenCount"),
+    completedTokenCount: decodeInteger(requireField(record, "completedTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.completedTokenCount"),
+    cancelledTokenCount: decodeInteger(requireField(record, "cancelledTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.cancelledTokenCount"),
+  };
+}
+
+export function decodeWorkflowNodeDetailsPaneConfig(value: unknown): WorkflowNodeDetailsPaneConfig {
+  const record = assertRecord(value, "WorkflowNodeDetailsPaneConfig");
+  assertKnownFields(record, "WorkflowNodeDetailsPaneConfig", ["definitionId", "definitionName", "definitionVersionId", "definitionVersionNumber", "executionId", "nodeId", "nodeExecutionId", "nodeKind", "nodeLabel", "nodeStatus", "projectionIncomingEdges", "projectionOutgoingEdges", "versionMismatch", "viewMode", "workspaceId"]);
+  return {
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionId"),
+    definitionName: decodeString(requireField(record, "definitionName", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionName"),
+    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionVersionId"),
+    definitionVersionNumber: decodeInteger(requireField(record, "definitionVersionNumber", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.definitionVersionNumber"),
+    executionId: decodeString(requireField(record, "executionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.executionId"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeExecutionId"),
+    nodeKind: decodeWorkflowNodeKind(requireField(record, "nodeKind", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeKind"),
+    nodeLabel: decodeString(requireField(record, "nodeLabel", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeLabel"),
+    nodeStatus: decodeWorkflowGraphNodeStatus(requireField(record, "nodeStatus", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.nodeStatus"),
+    projectionIncomingEdges: decodeArray(requireField(record, "projectionIncomingEdges", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.projectionIncomingEdges", (item) => decodeWorkflowGraphEdge(item)),
+    projectionOutgoingEdges: decodeArray(requireField(record, "projectionOutgoingEdges", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.projectionOutgoingEdges", (item) => decodeWorkflowGraphEdge(item)),
+    versionMismatch: decodeBoolean(requireField(record, "versionMismatch", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.versionMismatch"),
+    viewMode: decodeWorkflowGraphViewMode(requireField(record, "viewMode", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.viewMode"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowNodeDetailsPaneConfig"), "WorkflowNodeDetailsPaneConfig.workspaceId"),
+  };
+}
+
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
-  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight"]);
+  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight", "workflowNodeDetailsConfig"]);
   return {
     columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
     heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
@@ -7005,6 +7305,7 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
     title: decodeString(requireField(record, "title", "WorkspaceUIPane"), "WorkspaceUIPane.title"),
     tone: decodePaneTone(requireField(record, "tone", "WorkspaceUIPane"), "WorkspaceUIPane.tone"),
     weight: decodeNumber(requireField(record, "weight", "WorkspaceUIPane"), "WorkspaceUIPane.weight"),
+    workflowNodeDetailsConfig: decodeNullable(requireField(record, "workflowNodeDetailsConfig", "WorkspaceUIPane"), "WorkspaceUIPane.workflowNodeDetailsConfig", (item) => decodeWorkflowNodeDetailsPaneConfig(item)),
   };
 }
 
@@ -8248,6 +8549,16 @@ export function decodeCreateChatImageAttachmentFromBytesRequest(value: unknown):
   };
 }
 
+export function decodeCreateChatImageAttachmentFromPathRequest(value: unknown): CreateChatImageAttachmentFromPathRequest {
+  const record = assertRecord(value, "CreateChatImageAttachmentFromPathRequest");
+  assertKnownFields(record, "CreateChatImageAttachmentFromPathRequest", ["workspaceId", "conversationId", "sourcePath"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateChatImageAttachmentFromPathRequest"), "CreateChatImageAttachmentFromPathRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "CreateChatImageAttachmentFromPathRequest"), "CreateChatImageAttachmentFromPathRequest.conversationId"),
+    sourcePath: decodeString(requireField(record, "sourcePath", "CreateChatImageAttachmentFromPathRequest"), "CreateChatImageAttachmentFromPathRequest.sourcePath"),
+  };
+}
+
 export function decodeListChatCommandsRequest(value: unknown): ListChatCommandsRequest {
   const record = assertRecord(value, "ListChatCommandsRequest");
   assertKnownFields(record, "ListChatCommandsRequest", ["workspaceId", "conversationId"]);
@@ -8396,10 +8707,12 @@ export function decodeChatCommandResult(value: unknown): ChatCommandResult {
 
 export function decodeChatCommandExecuteResult(value: unknown): ChatCommandExecuteResult {
   const record = assertRecord(value, "ChatCommandExecuteResult");
-  assertKnownFields(record, "ChatCommandExecuteResult", ["conversation", "message", "page", "result"]);
+  assertKnownFields(record, "ChatCommandExecuteResult", ["conversation", "message", "activeRun", "activeRunLiveness", "page", "result"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "ChatCommandExecuteResult")),
     message: decodeNullable(requireField(record, "message", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.message", (item) => decodeChatMessage(item)),
+    activeRun: decodeNullable(requireField(record, "activeRun", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.activeRun", (item) => decodeRun(item)),
+    activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.activeRunLiveness", (item) => decodeRunLiveness(item)),
     page: decodeMessagePage(requireField(record, "page", "ChatCommandExecuteResult")),
     result: decodeChatCommandResult(requireField(record, "result", "ChatCommandExecuteResult")),
   };
@@ -8552,10 +8865,11 @@ export function decodeListRunsResponse(value: unknown): ListRunsResponse {
 
 export function decodeGetRunActivityRequest(value: unknown): GetRunActivityRequest {
   const record = assertRecord(value, "GetRunActivityRequest");
-  assertKnownFields(record, "GetRunActivityRequest", ["workspaceId", "runId", "limit"]);
+  assertKnownFields(record, "GetRunActivityRequest", ["workspaceId", "runId", "afterItemId", "limit"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "GetRunActivityRequest"), "GetRunActivityRequest.workspaceId"),
     runId: decodeString(requireField(record, "runId", "GetRunActivityRequest"), "GetRunActivityRequest.runId"),
+    afterItemId: decodeString(requireField(record, "afterItemId", "GetRunActivityRequest"), "GetRunActivityRequest.afterItemId"),
     limit: decodeInteger(requireField(record, "limit", "GetRunActivityRequest"), "GetRunActivityRequest.limit"),
   };
 }
@@ -8647,12 +8961,14 @@ export function decodeRunItemOutput(value: unknown): RunItemOutput {
 
 export function decodeRunActivityPage(value: unknown): RunActivityPage {
   const record = assertRecord(value, "RunActivityPage");
-  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output", "activity"]);
+  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output", "activity", "hasMoreItems", "nextItemId"]);
   return {
     runId: decodeString(requireField(record, "runId", "RunActivityPage"), "RunActivityPage.runId"),
     items: decodeArray(requireField(record, "items", "RunActivityPage"), "RunActivityPage.items", (item) => decodeRunItem(item)),
     output: decodeArray(requireField(record, "output", "RunActivityPage"), "RunActivityPage.output", (item) => decodeRunItemOutput(item)),
     activity: decodeArray(requireField(record, "activity", "RunActivityPage"), "RunActivityPage.activity", (item) => decodeActivityItemBlockProjection(item)),
+    hasMoreItems: decodeBoolean(requireField(record, "hasMoreItems", "RunActivityPage"), "RunActivityPage.hasMoreItems"),
+    nextItemId: decodeString(requireField(record, "nextItemId", "RunActivityPage"), "RunActivityPage.nextItemId"),
   };
 }
 
@@ -8853,20 +9169,6 @@ export function decodeWorkflowGatewayConfig(value: unknown): WorkflowGatewayConf
   assertKnownFields(record, "WorkflowGatewayConfig", ["requiredIncoming"]);
   return {
     requiredIncoming: decodeArray(requireField(record, "requiredIncoming", "WorkflowGatewayConfig"), "WorkflowGatewayConfig.requiredIncoming", (item) => decodeString(item, "WorkflowGatewayConfig.requiredIncoming item")),
-  };
-}
-
-export function decodeWorkflowCondition(value: unknown): WorkflowCondition {
-  const record = assertRecord(value, "WorkflowCondition");
-  assertKnownFields(record, "WorkflowCondition", ["kind", "nodeId", "status", "signalName", "signalValue", "exitCode", "invert"]);
-  return {
-    kind: decodeWorkflowConditionKind(requireField(record, "kind", "WorkflowCondition"), "WorkflowCondition.kind"),
-    nodeId: decodeString(requireField(record, "nodeId", "WorkflowCondition"), "WorkflowCondition.nodeId"),
-    status: decodeNullable(requireField(record, "status", "WorkflowCondition"), "WorkflowCondition.status", (item) => decodeWorkflowNodeExecutionStatus(item, "WorkflowCondition.status")),
-    signalName: decodeString(requireField(record, "signalName", "WorkflowCondition"), "WorkflowCondition.signalName"),
-    signalValue: decodeString(requireField(record, "signalValue", "WorkflowCondition"), "WorkflowCondition.signalValue"),
-    exitCode: decodeNullable(requireField(record, "exitCode", "WorkflowCondition"), "WorkflowCondition.exitCode", (item) => decodeInteger(item, "WorkflowCondition.exitCode")),
-    invert: decodeBoolean(requireField(record, "invert", "WorkflowCondition"), "WorkflowCondition.invert"),
   };
 }
 
@@ -9365,23 +9667,6 @@ export function decodeWorkflowGraphNode(value: unknown): WorkflowGraphNode {
   };
 }
 
-export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
-  const record = assertRecord(value, "WorkflowGraphEdge");
-  assertKnownFields(record, "WorkflowGraphEdge", ["id", "kind", "fromNodeId", "toNodeId", "condition", "label", "status", "activeTokenCount", "completedTokenCount", "cancelledTokenCount"]);
-  return {
-    id: decodeString(requireField(record, "id", "WorkflowGraphEdge"), "WorkflowGraphEdge.id"),
-    kind: decodeWorkflowEdgeKind(requireField(record, "kind", "WorkflowGraphEdge"), "WorkflowGraphEdge.kind"),
-    fromNodeId: decodeString(requireField(record, "fromNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.fromNodeId"),
-    toNodeId: decodeString(requireField(record, "toNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.toNodeId"),
-    condition: decodeNullable(requireField(record, "condition", "WorkflowGraphEdge"), "WorkflowGraphEdge.condition", (item) => decodeWorkflowCondition(item)),
-    label: decodeString(requireField(record, "label", "WorkflowGraphEdge"), "WorkflowGraphEdge.label"),
-    status: decodeWorkflowGraphEdgeStatus(requireField(record, "status", "WorkflowGraphEdge"), "WorkflowGraphEdge.status"),
-    activeTokenCount: decodeInteger(requireField(record, "activeTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.activeTokenCount"),
-    completedTokenCount: decodeInteger(requireField(record, "completedTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.completedTokenCount"),
-    cancelledTokenCount: decodeInteger(requireField(record, "cancelledTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.cancelledTokenCount"),
-  };
-}
-
 export function decodeWorkflowGraphProjection(value: unknown): WorkflowGraphProjection {
   const record = assertRecord(value, "WorkflowGraphProjection");
   assertKnownFields(record, "WorkflowGraphProjection", ["schemaVersion", "workspaceId", "definitionId", "definitionVersionId", "definitionVersionNumber", "definitionVersionCreatedAt", "definitionName", "definitionDescription", "viewMode", "editable", "draftUpdatedAt", "draftMatchesVersion", "versionMismatch", "executionId", "executionStatus", "terminalReason", "lastEventOrdinal", "updatedAt", "layout", "nodes", "edges"]);
@@ -9459,6 +9744,119 @@ export function decodeWorkflowExecutionEventPage(value: unknown): WorkflowExecut
     events: decodeArray(requireField(record, "events", "WorkflowExecutionEventPage"), "WorkflowExecutionEventPage.events", (item) => decodeWorkflowEvent(item)),
     hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "WorkflowExecutionEventPage"), "WorkflowExecutionEventPage.hasMoreOlder"),
     olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "WorkflowExecutionEventPage"), "WorkflowExecutionEventPage.olderBeforeOrdinal"),
+  };
+}
+
+export function decodeReadWorkflowNodeTrajectoryRequest(value: unknown): ReadWorkflowNodeTrajectoryRequest {
+  const record = assertRecord(value, "ReadWorkflowNodeTrajectoryRequest");
+  assertKnownFields(record, "ReadWorkflowNodeTrajectoryRequest", ["workspaceId", "executionId", "nodeExecutionId", "beforeBlockOrdinal", "transcriptLimit", "afterItemId", "itemLimit", "outputLimit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.executionId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.nodeExecutionId"),
+    beforeBlockOrdinal: decodeInteger(requireField(record, "beforeBlockOrdinal", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.beforeBlockOrdinal"),
+    transcriptLimit: decodeInteger(requireField(record, "transcriptLimit", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.transcriptLimit"),
+    afterItemId: decodeString(requireField(record, "afterItemId", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.afterItemId"),
+    itemLimit: decodeInteger(requireField(record, "itemLimit", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.itemLimit"),
+    outputLimit: decodeInteger(requireField(record, "outputLimit", "ReadWorkflowNodeTrajectoryRequest"), "ReadWorkflowNodeTrajectoryRequest.outputLimit"),
+  };
+}
+
+export function decodeWorkflowAgentTrajectoryScope(value: unknown): WorkflowAgentTrajectoryScope {
+  const record = assertRecord(value, "WorkflowAgentTrajectoryScope");
+  assertKnownFields(record, "WorkflowAgentTrajectoryScope", ["workspaceId", "definitionId", "definitionVersionId", "executionId", "nodeId", "nodeExecutionId", "attempt", "iteration"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.definitionId"),
+    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.definitionVersionId"),
+    executionId: decodeString(requireField(record, "executionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.executionId"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.nodeId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.nodeExecutionId"),
+    attempt: decodeInteger(requireField(record, "attempt", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.attempt"),
+    iteration: decodeInteger(requireField(record, "iteration", "WorkflowAgentTrajectoryScope"), "WorkflowAgentTrajectoryScope.iteration"),
+  };
+}
+
+export function decodeWorkflowAgentTrajectoryRunItemOutputPageState(value: unknown): WorkflowAgentTrajectoryRunItemOutputPageState {
+  const record = assertRecord(value, "WorkflowAgentTrajectoryRunItemOutputPageState");
+  assertKnownFields(record, "WorkflowAgentTrajectoryRunItemOutputPageState", ["runId", "runItemId", "outputIds", "hasMore", "loadedThroughOrdinal", "nextOrdinal"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.runId"),
+    runItemId: decodeString(requireField(record, "runItemId", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.runItemId"),
+    outputIds: decodeArray(requireField(record, "outputIds", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.outputIds", (item) => decodeString(item, "WorkflowAgentTrajectoryRunItemOutputPageState.outputIds item")),
+    hasMore: decodeBoolean(requireField(record, "hasMore", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.hasMore"),
+    loadedThroughOrdinal: decodeInteger(requireField(record, "loadedThroughOrdinal", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.loadedThroughOrdinal"),
+    nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "WorkflowAgentTrajectoryRunItemOutputPageState"), "WorkflowAgentTrajectoryRunItemOutputPageState.nextOrdinal"),
+  };
+}
+
+export function decodeWorkflowAgentTrajectoryCapabilities(value: unknown): WorkflowAgentTrajectoryCapabilities {
+  const record = assertRecord(value, "WorkflowAgentTrajectoryCapabilities");
+  assertKnownFields(record, "WorkflowAgentTrajectoryCapabilities", ["canLoadOlderHistory", "canLoadMoreActivity", "canLoadRunItemOutput", "canRetryLiveness", "canSteer", "canStopRun", "canSubmitApproval"]);
+  return {
+    canLoadOlderHistory: decodeBoolean(requireField(record, "canLoadOlderHistory", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canLoadOlderHistory"),
+    canLoadMoreActivity: decodeBoolean(requireField(record, "canLoadMoreActivity", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canLoadMoreActivity"),
+    canLoadRunItemOutput: decodeBoolean(requireField(record, "canLoadRunItemOutput", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canLoadRunItemOutput"),
+    canRetryLiveness: decodeBoolean(requireField(record, "canRetryLiveness", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canRetryLiveness"),
+    canSteer: decodeBoolean(requireField(record, "canSteer", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canSteer"),
+    canStopRun: decodeBoolean(requireField(record, "canStopRun", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canStopRun"),
+    canSubmitApproval: decodeBoolean(requireField(record, "canSubmitApproval", "WorkflowAgentTrajectoryCapabilities"), "WorkflowAgentTrajectoryCapabilities.canSubmitApproval"),
+  };
+}
+
+export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgentTrajectoryPage {
+  const record = assertRecord(value, "WorkflowAgentTrajectoryPage");
+  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "run", "activeRun", "activeRunLiveness", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.schemaVersion"),
+    scope: decodeWorkflowAgentTrajectoryScope(requireField(record, "scope", "WorkflowAgentTrajectoryPage")),
+    conversationId: decodeString(requireField(record, "conversationId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.conversationId"),
+    runId: decodeString(requireField(record, "runId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runId"),
+    run: decodeRun(requireField(record, "run", "WorkflowAgentTrajectoryPage")),
+    activeRun: decodeNullable(requireField(record, "activeRun", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRun", (item) => decodeRun(item)),
+    activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRunLiveness", (item) => decodeRunLiveness(item)),
+    blocks: decodeArray(requireField(record, "blocks", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.blocks", (item) => decodeTranscriptBlock(item)),
+    items: decodeArray(requireField(record, "items", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.items", (item) => decodeRunItem(item)),
+    activity: decodeArray(requireField(record, "activity", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activity", (item) => decodeActivityItemBlockProjection(item)),
+    outputPages: decodeArray(requireField(record, "outputPages", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.outputPages", (item) => decodeWorkflowAgentTrajectoryRunItemOutputPageState(item)),
+    outputs: decodeArray(requireField(record, "outputs", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.outputs", (item) => decodeRunItemOutput(item)),
+    pendingApproval: decodeNullable(requireField(record, "pendingApproval", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.pendingApproval", (item) => decodeWorkflowPendingApproval(item)),
+    hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.hasMoreOlder"),
+    olderBeforeBlockOrdinal: decodeInteger(requireField(record, "olderBeforeBlockOrdinal", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.olderBeforeBlockOrdinal"),
+    hasMoreItems: decodeBoolean(requireField(record, "hasMoreItems", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.hasMoreItems"),
+    nextItemId: decodeString(requireField(record, "nextItemId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.nextItemId"),
+    capabilities: decodeWorkflowAgentTrajectoryCapabilities(requireField(record, "capabilities", "WorkflowAgentTrajectoryPage")),
+  };
+}
+
+export function decodeRetryWorkflowNodeRunLivenessRequest(value: unknown): RetryWorkflowNodeRunLivenessRequest {
+  const record = assertRecord(value, "RetryWorkflowNodeRunLivenessRequest");
+  assertKnownFields(record, "RetryWorkflowNodeRunLivenessRequest", ["workspaceId", "executionId", "nodeExecutionId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "RetryWorkflowNodeRunLivenessRequest"), "RetryWorkflowNodeRunLivenessRequest.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "RetryWorkflowNodeRunLivenessRequest"), "RetryWorkflowNodeRunLivenessRequest.executionId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "RetryWorkflowNodeRunLivenessRequest"), "RetryWorkflowNodeRunLivenessRequest.nodeExecutionId"),
+  };
+}
+
+export function decodeSteerWorkflowNodeRunRequest(value: unknown): SteerWorkflowNodeRunRequest {
+  const record = assertRecord(value, "SteerWorkflowNodeRunRequest");
+  assertKnownFields(record, "SteerWorkflowNodeRunRequest", ["workspaceId", "executionId", "nodeExecutionId", "input"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SteerWorkflowNodeRunRequest"), "SteerWorkflowNodeRunRequest.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "SteerWorkflowNodeRunRequest"), "SteerWorkflowNodeRunRequest.executionId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "SteerWorkflowNodeRunRequest"), "SteerWorkflowNodeRunRequest.nodeExecutionId"),
+    input: decodeChatInput(requireField(record, "input", "SteerWorkflowNodeRunRequest")),
+  };
+}
+
+export function decodeStopWorkflowNodeRunRequest(value: unknown): StopWorkflowNodeRunRequest {
+  const record = assertRecord(value, "StopWorkflowNodeRunRequest");
+  assertKnownFields(record, "StopWorkflowNodeRunRequest", ["workspaceId", "executionId", "nodeExecutionId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "StopWorkflowNodeRunRequest"), "StopWorkflowNodeRunRequest.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "StopWorkflowNodeRunRequest"), "StopWorkflowNodeRunRequest.executionId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "StopWorkflowNodeRunRequest"), "StopWorkflowNodeRunRequest.nodeExecutionId"),
   };
 }
 
@@ -11886,6 +12284,7 @@ export interface BackendClient {
   steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
   sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
   createChatImageAttachmentFromBytes: (request: CreateChatImageAttachmentFromBytesRequest) => Promise<ImageAttachment>;
+  createChatImageAttachmentFromPath: (request: CreateChatImageAttachmentFromPathRequest) => Promise<ImageAttachment>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
   readChatCodexDefaults: () => Promise<ChatCodexDefaultsView>;
@@ -11919,6 +12318,10 @@ export interface BackendClient {
   readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
+  readWorkflowNodeTrajectory: (request: ReadWorkflowNodeTrajectoryRequest) => Promise<WorkflowAgentTrajectoryPage>;
+  retryWorkflowNodeRunLiveness: (request: RetryWorkflowNodeRunLivenessRequest) => Promise<RunLivenessReconciliationResult>;
+  steerWorkflowNodeRun: (request: SteerWorkflowNodeRunRequest) => Promise<SteerMessageResult>;
+  stopWorkflowNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
   submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
   readSemanticGraph: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
   readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest) => Promise<ReadSemanticNodeDetailResponse>;
@@ -12219,6 +12622,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    createChatImageAttachmentFromPath: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeImageAttachment,
+      endpoint: backendEndpoints.CreateChatImageAttachmentFromPath,
+      fetchImpl,
+      requestPayload: request,
+    }),
     listChatCommands: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -12480,6 +12891,38 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecutionEventPage,
       endpoint: backendEndpoints.GetWorkflowExecutionEvents,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkflowNodeTrajectory: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowAgentTrajectoryPage,
+      endpoint: backendEndpoints.ReadWorkflowNodeTrajectory,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    retryWorkflowNodeRunLiveness: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRunLivenessReconciliationResult,
+      endpoint: backendEndpoints.RetryWorkflowNodeRunLiveness,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    steerWorkflowNodeRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSteerMessageResult,
+      endpoint: backendEndpoints.SteerWorkflowNodeRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    stopWorkflowNodeRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowExecution,
+      endpoint: backendEndpoints.StopWorkflowNodeRun,
       fetchImpl,
       requestPayload: request,
     }),

@@ -441,6 +441,65 @@ func TestJSONRPCCanceledCallDoesNotRetainPendingWithoutResponse(t *testing.T) {
 	}
 }
 
+func TestJSONRPCMalformedJSONTerminatesAndReapsProcess(t *testing.T) {
+	client := startProtocolFailureClient(t, "malformed-json")
+	defer client.Close()
+
+	callClientAndExpectError(t, client, "breakProtocol", "decode codex app-server message")
+	requireClientProcessReaped(t, client)
+}
+
+func TestJSONRPCNonIntegerResponseIDTerminatesAndReapsProcess(t *testing.T) {
+	client := startProtocolFailureClient(t, "non-integer-response-id")
+	defer client.Close()
+
+	callClientAndExpectError(t, client, "breakProtocol", "codex response id must be an integer")
+	requireClientProcessReaped(t, client)
+}
+
+func TestJSONRPCUnknownResponseIDTerminatesAndReapsProcess(t *testing.T) {
+	client := startProtocolFailureClient(t, "unknown-response-id")
+	defer client.Close()
+
+	callClientAndExpectError(t, client, "breakProtocol", "codex response id has no pending request")
+	requireClientProcessReaped(t, client)
+}
+
+func TestJSONRPCOversizedLineTerminatesAndReapsProcess(t *testing.T) {
+	client := startProtocolFailureClient(t, "oversized-line")
+	defer client.Close()
+
+	callClientAndExpectError(t, client, "breakProtocol", "token too long")
+	requireClientProcessReaped(t, client)
+}
+
+func TestJSONRPCNoisyChildAfterMalformedJSONTerminatesAndReapsProcess(t *testing.T) {
+	client := startProtocolFailureClient(t, "noisy-after-malformed-json")
+	defer client.Close()
+
+	callClientAndExpectError(t, client, "breakProtocol", "decode codex app-server message")
+	requireClientProcessReaped(t, client)
+}
+
+func TestJSONRPCProcessCleanupIsIdempotent(t *testing.T) {
+	client := startProtocolFailureClient(t, "never-response")
+	done := make(chan struct{}, 3)
+	for range 3 {
+		go func() {
+			client.Close()
+			done <- struct{}{}
+		}()
+	}
+	for range 3 {
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatal("timed out waiting for concurrent client close")
+		}
+	}
+	requireClientProcessReaped(t, client)
+}
+
 func TestBoundedBufferKeepsTail(t *testing.T) {
 	buffer := newBoundedBuffer(5)
 	if _, err := buffer.Write([]byte("abcdef")); err != nil {
@@ -477,6 +536,47 @@ func testProcessConfig(mode string) ProcessConfig {
 		Args:    []string{"-test.run=TestCodexAppFakeServer", "--"},
 		Command: os.Args[0],
 		Env:     []string{"SETTA_CODEXAPP_FAKE=" + mode},
+	}
+}
+
+func protocolFailureProcessConfig(mode string) ProcessConfig {
+	config := testProcessConfig(mode)
+	config.ShutdownGracePeriod = 25 * time.Millisecond
+	config.ShutdownKillPeriod = 2 * time.Second
+	return config
+}
+
+func startProtocolFailureClient(t *testing.T, mode string) *Client {
+	t.Helper()
+	client, err := StartProcess(protocolFailureProcessConfig(mode))
+	if err != nil {
+		t.Fatalf("start client: %v", err)
+	}
+	return client
+}
+
+func callClientAndExpectError(t *testing.T, client *Client, method string, want string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err := client.Call(ctx, method, map[string]any{})
+	if err == nil {
+		t.Fatalf("%s succeeded, want error containing %q", method, want)
+	}
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("%s error = %q, want %q", method, err, want)
+	}
+}
+
+func requireClientProcessReaped(t *testing.T, client *Client) {
+	t.Helper()
+	select {
+	case <-client.Done():
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for client process completion")
+	}
+	if client.cmd.ProcessState == nil {
+		t.Fatal("client process was not waited")
 	}
 }
 
@@ -624,10 +724,37 @@ func handleFakeMessage(mode string, state *fakeState, message map[string]any) bo
 		return true
 	case "exit":
 		return true
+	case "breakProtocol":
+		writeFakeProtocolFailure(mode)
 	default:
 		writeFakeResponse(message["id"], map[string]any{})
 	}
 	return false
+}
+
+func writeFakeProtocolFailure(mode string) {
+	switch mode {
+	case "malformed-json":
+		_, _ = os.Stdout.Write([]byte("{not-json\n"))
+	case "non-integer-response-id":
+		writeFakeMessage(map[string]any{"id": "not-an-int", "result": map[string]any{}})
+	case "unknown-response-id":
+		writeFakeResponse(999, map[string]any{})
+	case "oversized-line":
+		_, _ = os.Stdout.Write([]byte(strings.Repeat("x", 17*1024*1024) + "\n"))
+	case "noisy-after-malformed-json":
+		writeNoisyMalformedProtocolForever()
+	}
+}
+
+func writeNoisyMalformedProtocolForever() {
+	_, _ = os.Stdout.Write([]byte("{not-json\n"))
+	payload := []byte(`{"method":"thread/settings/updated","params":{}}` + "\n")
+	for {
+		if _, err := os.Stdout.Write(payload); err != nil {
+			os.Exit(0)
+		}
+	}
 }
 
 func writeFakeResponse(id any, result any) {

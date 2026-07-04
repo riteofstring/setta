@@ -53,13 +53,10 @@ func TestMissingPermissionMetadataUsesAskForApprovalDisplay(t *testing.T) {
 	}
 }
 
-func TestOnFailureApprovalUsesCustomDisplay(t *testing.T) {
+func TestUnsupportedApprovalPolicyDoesNotUseCustomDisplay(t *testing.T) {
 	permission := chatCodexEffectivePermissionSettings("on-failure", "", "")
-	if permission == nil || permission.Preset != nil || permission.DisplayLabel != "Custom" || permission.BuiltIn {
-		t.Fatalf("on-failure effective permission = %+v, want custom display", permission)
-	}
-	if permission.ApprovalPolicy != "on-failure" || permission.ActivePermissionProfileID != "" {
-		t.Fatalf("on-failure effective permission = %+v, want raw on-failure fields", permission)
+	if permission != nil {
+		t.Fatalf("on-failure effective permission = %+v, want no displayable permission", permission)
 	}
 }
 

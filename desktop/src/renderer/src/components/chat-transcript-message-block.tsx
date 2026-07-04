@@ -186,8 +186,8 @@ const MessageRow = memo(function MessageRow({
   const [editMode, setEditMode] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [draft, setDraft] = useState(text);
-  const queuedEditable = isQueuedEditableMessage(message);
-  const pendingSteering = isPendingSteeringMessage(message, rowActions.activeRun);
+  const queuedEditable = queuedMessageEditable(message, rowActions);
+  const pendingSteering = pendingSteeringActionable(message, rowActions);
   const rowBusy = messageRowBusy(message, rowActions);
   const activeSearchMatch = message.id === activeSearchId;
 
@@ -205,7 +205,7 @@ const MessageRow = memo(function MessageRow({
   }, [editMode, text]);
 
   async function saveQueuedEdit() {
-    if (!canSaveQueuedEdit(message, draft, rowBusy)) {
+    if (!rowActions.editQueuedMessage || !canSaveQueuedEdit(message, draft, rowBusy)) {
       return;
     }
     await rowActions.editQueuedMessage(message.id, chatInputFromMessageEdit(message, draft.trim()));
@@ -213,7 +213,7 @@ const MessageRow = memo(function MessageRow({
   }
 
   async function removeQueued() {
-    if (rowBusy) {
+    if (!rowActions.removeQueuedMessage || rowBusy) {
       return;
     }
     await rowActions.removeQueuedMessage(message.id);
@@ -285,6 +285,26 @@ function messageRowPropsEqual(previous: MessageRowProps, next: MessageRowProps) 
     previous.rowActions === next.rowActions &&
     previous.showTimestamp === next.showTimestamp &&
     (previous.message.id === previous.activeSearchId) === (next.message.id === next.activeSearchId)
+  );
+}
+
+function queuedMessageEditable(message: ChatMessage, rowActions: TranscriptRowActions) {
+  return (
+    queuedMessageActionsAvailable(rowActions) &&
+    rowActions.queuedMessageActions &&
+    isQueuedEditableMessage(message)
+  );
+}
+
+function queuedMessageActionsAvailable(rowActions: TranscriptRowActions) {
+  return rowActions.editQueuedMessage !== undefined && rowActions.removeQueuedMessage !== undefined;
+}
+
+function pendingSteeringActionable(message: ChatMessage, rowActions: TranscriptRowActions) {
+  return (
+    rowActions.canSendSteering &&
+    rowActions.sendSteeringImmediately !== undefined &&
+    isPendingSteeringMessage(message, rowActions.activeRun)
   );
 }
 

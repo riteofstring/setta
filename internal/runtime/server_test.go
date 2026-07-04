@@ -50,6 +50,23 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 	}
 }
 
+func TestHTTPServerUsesBoundedReadConfiguration(t *testing.T) {
+	server := newHTTPServer(DefaultConfig(), runtimeServices{})
+
+	if server.ReadHeaderTimeout != httpReadHeaderTimeout {
+		t.Fatalf("ReadHeaderTimeout = %s, want %s", server.ReadHeaderTimeout, httpReadHeaderTimeout)
+	}
+	if server.ReadTimeout != httpReadTimeout {
+		t.Fatalf("ReadTimeout = %s, want %s", server.ReadTimeout, httpReadTimeout)
+	}
+	if server.MaxHeaderBytes != httpMaxHeaderBytes {
+		t.Fatalf("MaxHeaderBytes = %d, want %d", server.MaxHeaderBytes, httpMaxHeaderBytes)
+	}
+	if server.WriteTimeout != 0 {
+		t.Fatalf("WriteTimeout = %s, want zero for event streams", server.WriteTimeout)
+	}
+}
+
 func TestInvalidStartupConfigurationFails(t *testing.T) {
 	tests := map[string]Config{
 		"empty app data":    withAppDataDir(t, ""),
@@ -69,6 +86,15 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 				t.Fatal("start succeeded, want error")
 			}
 		})
+	}
+}
+
+func TestInvalidStartupConfigurationFailsForE2EPostCommitStartupFailureEnv(t *testing.T) {
+	t.Setenv(e2eChatFailPostCommitStartupPointEnv, "unsupported")
+
+	_, err := Start(context.Background(), testConfig(t))
+	if err == nil || !strings.Contains(err.Error(), "unsupported "+e2eChatFailPostCommitStartupPointEnv) {
+		t.Fatalf("start error = %v, want unsupported post-commit startup failure point", err)
 	}
 }
 

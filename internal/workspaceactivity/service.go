@@ -16,15 +16,16 @@ import (
 )
 
 const (
-	defaultSnapshotLimit = 200
-	maxSnapshotLimit     = 500
+	defaultSnapshotLimit         = 200
+	maxSnapshotLimit             = 500
+	snapshotRunActivityPageLimit = maxSnapshotLimit
 )
 
 type ChatSource interface {
 	ListWorkflowConversations(workspaceID string) ([]chat.Conversation, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
-	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
+	LoadRunActivityItemsBefore(workspaceID string, runID string, beforeItemID string, limit int) ([]chat.RunItem, string, bool, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 }
 
@@ -140,9 +141,9 @@ func (service *Service) ReadSnapshot(workspaceID string, limit int) (WorkspaceAc
 // workflow execution. It is the durable source for historical run activity: the
 // workspace-wide snapshot is bounded across every execution, so an older run's chips
 // can be evicted by newer activity, and its records skew toward transient
-// scheduled/started entries. Scoping to one execution guarantees the selected run's
-// terminal, command, file-change, and approval activity is present regardless of how
-// much other activity exists.
+// scheduled/started entries. Scoping to one execution lets the builder page through
+// the selected run's terminal, command, file-change, and approval activity before the
+// final snapshot limit is applied.
 func (service *Service) ReadExecutionSnapshot(workspaceID string, executionID string, limit int) (WorkspaceActivitySnapshot, error) {
 	limit = normalizeLimit(limit)
 	state := service.hub.State()
@@ -434,24 +435,53 @@ func (service *Service) addConversationSnapshotRecords(builder *snapshotBuilder,
 		return err
 	}
 	for _, run := range runs {
-		page, err := service.chat.LoadRunActivityPage(workspaceID, run.ID, limit)
-		if err != nil {
+		if err := service.addRunSnapshotRecords(builder, workspaceID, conversation, run, limit); err != nil {
 			return err
-		}
-		for _, runItem := range page.Items {
-			record, ok, err := ActivityRecordFromChatRunItem(runItem, ChatRunItemContext{
-				ConversationWorkflow: conversation.Workflow,
-				Revision:             builder.revision,
-			})
-			if err != nil {
-				return err
-			}
-			if ok {
-				builder.upsert(record)
-			}
 		}
 	}
 	return nil
+}
+
+func (service *Service) addRunSnapshotRecords(builder *snapshotBuilder, workspaceID string, conversation chat.Conversation, run chat.Run, limit int) error {
+	beforeItemID := ""
+	added := 0
+	for added < limit {
+		items, nextBeforeItemID, hasMoreItems, err := service.chat.LoadRunActivityItemsBefore(workspaceID, run.ID, beforeItemID, snapshotRunActivityPageLimit)
+		if err != nil {
+			return err
+		}
+		recordsAdded, err := addRunItemSnapshotRecords(builder, conversation, items)
+		if err != nil {
+			return err
+		}
+		added += recordsAdded
+		if !hasMoreItems {
+			return nil
+		}
+		if nextBeforeItemID == "" {
+			return errors.New("run activity item tail page indicated more items without a next before item id")
+		}
+		beforeItemID = nextBeforeItemID
+	}
+	return nil
+}
+
+func addRunItemSnapshotRecords(builder *snapshotBuilder, conversation chat.Conversation, items []chat.RunItem) (int, error) {
+	added := 0
+	for _, runItem := range items {
+		record, ok, err := ActivityRecordFromChatRunItem(runItem, ChatRunItemContext{
+			ConversationWorkflow: conversation.Workflow,
+			Revision:             builder.revision,
+		})
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			builder.upsert(record)
+			added++
+		}
+	}
+	return added, nil
 }
 
 type snapshotBuilder struct {

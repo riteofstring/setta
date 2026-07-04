@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -82,32 +81,25 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 	if err != nil {
 		return SendMessageResult{}, err
 	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceID, run)
-	if err != nil {
-		return SendMessageResult{}, err
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	service.activateTurnLocked(workspaceID, conversation.ID, activeTurn{
-		assistantMessage: assistantMessage,
-		cancel:           cancel,
-		transcript:       ingest,
-	}, run)
-	if err := service.publishActiveRunLivenessAndConversationLocked(workspaceID, conversation.ID, run.ID); err != nil {
-		return SendMessageResult{}, err
-	}
-	deliveryInput, err := service.deliveryInputFromMessage(workspaceID, conversation.ID, userMessage)
-	if err != nil {
-		return SendMessageResult{}, err
-	}
-	turnRequest := TurnRequest{
-		Workspace:       workspaceSummary,
-		Conversation:    conversation,
-		Run:             run,
-		Input:           deliveryInput,
-		SemanticContext: request.SemanticContext,
-		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),
-	}
-	if err := service.launchHarnessTurnLocked(ctx, turnRequest); err != nil {
+	if err := service.startPostCommitHarnessTurnLocked(postCommitHarnessTurnStart{
+		Workspace:        workspaceSummary,
+		Conversation:     conversation,
+		Run:              run,
+		AssistantMessage: assistantMessage,
+		SemanticContext:  request.SemanticContext,
+		Publish: func() error {
+			if err := service.traceLocked(workspaceID, run.ID, "turn_started", "Codex turn started"); err != nil {
+				return err
+			}
+			if err := service.publishTurnStartEventsLocked(workspaceID, conversation.ID, userMessage, assistantMessage, run); err != nil {
+				return err
+			}
+			return service.publishActiveRunLivenessAndConversationLocked(workspaceID, conversation.ID, run.ID)
+		},
+		DeliveryInput: func() (ChatInput, error) {
+			return service.deliveryInputFromMessage(workspaceID, conversation.ID, userMessage)
+		},
+	}); err != nil {
 		return SendMessageResult{}, err
 	}
 

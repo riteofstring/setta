@@ -35,10 +35,14 @@ type Client struct {
 	stdin               io.WriteCloser
 	notifications       chan Message
 	requests            chan Message
+	protocol            *Lifecycle
 	lifecycle           *Lifecycle
-	waitDone            chan struct{}
 	shutdownGracePeriod time.Duration
 	shutdownKillPeriod  time.Duration
+	closeStdinOnce      sync.Once
+	processShutdownOnce sync.Once
+	processShutdownDone chan struct{}
+	processShutdownErr  error
 
 	mu      sync.Mutex
 	nextID  int
@@ -133,10 +137,11 @@ func StartProcess(config ProcessConfig) (*Client, error) {
 		stdin:               stdin,
 		notifications:       make(chan Message, 128),
 		requests:            make(chan Message, 32),
+		protocol:            newLifecycle(),
 		lifecycle:           newLifecycle(),
-		waitDone:            make(chan struct{}),
 		shutdownGracePeriod: config.ShutdownGracePeriod,
 		shutdownKillPeriod:  config.ShutdownKillPeriod,
+		processShutdownDone: make(chan struct{}),
 		pending:             map[int]*pendingCall{},
 		canceledResponseIDs: map[int]struct{}{},
 	}
@@ -171,8 +176,8 @@ func (client *Client) Call(ctx context.Context, method string, params any) (json
 			return nil, &RPCError{Method: method, Code: message.Error.Code, Data: message.Error.Data, Message: message.Error.Message}
 		}
 		return message.Result, nil
-	case <-client.lifecycle.Done():
-		return nil, fmt.Errorf("%s failed: %w", method, client.lifecycleError("codex app-server exited"))
+	case <-client.protocol.Done():
+		return nil, fmt.Errorf("%s failed: %w", method, client.protocolError("codex app-server exited"))
 	}
 }
 
@@ -232,15 +237,15 @@ func (client *Client) LifecycleError(message string) error {
 
 func (client *Client) registerPending() (int, chan response, error) {
 	select {
-	case <-client.lifecycle.Done():
-		return 0, nil, client.lifecycleError("codex app-server exited")
+	case <-client.protocol.Done():
+		return 0, nil, client.protocolError("codex app-server exited")
 	default:
 	}
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	select {
-	case <-client.lifecycle.Done():
-		return 0, nil, client.lifecycleError("codex app-server exited")
+	case <-client.protocol.Done():
+		return 0, nil, client.protocolError("codex app-server exited")
 	default:
 	}
 	client.nextID++
@@ -269,12 +274,17 @@ func (client *Client) cancelPending(id int) {
 
 func (client *Client) write(payload any) error {
 	select {
-	case <-client.lifecycle.Done():
-		return client.lifecycleError("codex app-server exited")
+	case <-client.protocol.Done():
+		return client.protocolError("codex app-server exited")
 	default:
 	}
 	client.mu.Lock()
 	defer client.mu.Unlock()
+	select {
+	case <-client.protocol.Done():
+		return client.protocolError("codex app-server exited")
+	default:
+	}
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encode codex app-server message: %w", err)
@@ -286,39 +296,60 @@ func (client *Client) write(payload any) error {
 }
 
 func (client *Client) readLoop(stdout io.Reader, stderr fmt.Stringer) {
-	var terminalErr error
-	defer func() {
-		client.finish(terminalErr)
-		close(client.waitDone)
-	}()
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 4096), 16*1024*1024)
 	for scanner.Scan() {
+		if client.protocolTerminated() {
+			continue
+		}
 		var message Message
 		if err := json.Unmarshal(scanner.Bytes(), &message); err != nil {
-			terminalErr = fmt.Errorf("decode codex app-server message: %w", err)
-			return
+			client.handleReadLoopTerminalError(fmt.Errorf("decode codex app-server message: %w", err))
+			continue
 		}
 		message.client = client
 		if err := client.routeMessage(message); err != nil {
-			terminalErr = err
-			return
+			client.handleReadLoopTerminalError(err)
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		terminalErr = err
-		return
+		client.handleReadLoopTerminalError(err)
 	}
+	client.finishProcessLifecycle(stderr)
+}
+
+func (client *Client) protocolTerminated() bool {
+	select {
+	case <-client.protocol.Done():
+		return true
+	default:
+		return false
+	}
+}
+
+func (client *Client) handleReadLoopTerminalError(err error) {
+	client.beginTerminal(err)
+	client.startProcessShutdown()
+}
+
+func (client *Client) finishProcessLifecycle(stderr fmt.Stringer) {
 	waitErr := client.cmd.Wait()
+	terminalErr := client.protocol.Err()
 	if waitErr != nil {
-		message := stderr.String()
-		if message != "" {
-			terminalErr = fmt.Errorf("%w: %s", waitErr, message)
-			return
+		if terminalErr == nil {
+			terminalErr = processExitTerminalError(waitErr, stderr)
 		}
-		terminalErr = waitErr
-		return
 	}
+	client.beginTerminal(terminalErr)
+	client.lifecycle.close(terminalErr)
+}
+
+func processExitTerminalError(waitErr error, stderr fmt.Stringer) error {
+	message := stderr.String()
+	if message != "" {
+		return fmt.Errorf("%w: %s", waitErr, message)
+	}
+	return waitErr
 }
 
 func (client *Client) routeMessage(message Message) error {
@@ -326,16 +357,16 @@ func (client *Client) routeMessage(message Message) error {
 		select {
 		case client.requests <- message:
 			return nil
-		case <-client.lifecycle.Done():
-			return client.lifecycleError("codex app-server exited")
+		case <-client.protocol.Done():
+			return client.protocolError("codex app-server exited")
 		}
 	}
 	if message.Method != "" {
 		select {
 		case client.notifications <- message:
 			return nil
-		case <-client.lifecycle.Done():
-			return client.lifecycleError("codex app-server exited")
+		case <-client.protocol.Done():
+			return client.protocolError("codex app-server exited")
 		}
 	}
 	if message.ID == nil {
@@ -375,29 +406,54 @@ func (client *Client) shutdown(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("shutdown context is required")
 	}
-	client.finish(errors.New("codex app-server client closed"))
-	_ = client.stdin.Close()
-	if client.cmd == nil || client.cmd.Process == nil {
-		return client.waitForProcessExit(ctx, client.shutdownKillPeriod)
-	}
-	return client.shutdownProcess(ctx)
+	client.beginTerminal(errors.New("codex app-server client closed"))
+	client.startProcessShutdown()
+	return client.waitForProcessShutdown(ctx)
 }
 
-func (client *Client) shutdownProcess(ctx context.Context) error {
+func (client *Client) startProcessShutdown() {
+	client.processShutdownOnce.Do(func() {
+		go func() {
+			client.processShutdownErr = client.shutdownProcess()
+			close(client.processShutdownDone)
+		}()
+	})
+}
+
+func (client *Client) waitForProcessShutdown(ctx context.Context) error {
+	select {
+	case <-client.processShutdownDone:
+		return client.processShutdownErr
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (client *Client) shutdownProcess() error {
+	client.closeStdin()
+	if client.cmd == nil || client.cmd.Process == nil {
+		return client.waitForProcessExit(context.Background(), client.shutdownKillPeriod)
+	}
 	terminateErr := processSignalShutdownError(terminateCommandProcess(client.cmd))
-	graceErr := client.waitForProcessExit(ctx, client.shutdownGracePeriod)
+	graceErr := client.waitForProcessExit(context.Background(), client.shutdownGracePeriod)
 	if graceErr == nil {
 		_ = killCommandProcess(client.cmd)
 		return nil
 	}
 	killErr := processSignalShutdownError(killCommandProcess(client.cmd))
-	killWaitErr := client.waitForProcessExit(ctx, client.shutdownKillPeriod)
+	killWaitErr := client.waitForProcessExit(context.Background(), client.shutdownKillPeriod)
 	return firstClientShutdownError(
 		terminateErr,
 		processWaitShutdownError(graceErr),
 		killWaitErr,
 		killErr,
 	)
+}
+
+func (client *Client) closeStdin() {
+	client.closeStdinOnce.Do(func() {
+		_ = client.stdin.Close()
+	})
 }
 
 func processSignalShutdownError(err error) error {
@@ -430,7 +486,7 @@ func (client *Client) waitForProcessExit(ctx context.Context, timeout time.Durat
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
-	case <-client.waitDone:
+	case <-client.lifecycle.Done():
 		return nil
 	case <-timer.C:
 		return errProcessExitTimeout
@@ -462,9 +518,9 @@ func (lifecycle *Lifecycle) close(err error) {
 	})
 }
 
-func (client *Client) finish(err error) {
-	client.lifecycle.close(err)
-	client.failPending(err)
+func (client *Client) beginTerminal(err error) {
+	client.protocol.close(err)
+	client.failPending(client.protocol.Err())
 }
 
 func (client *Client) failPending(err error) {
@@ -512,6 +568,10 @@ func (client *Client) compactCanceledResponsesIfNeededLocked() {
 
 func (client *Client) lifecycleError(message string) error {
 	return client.terminalError(message, client.lifecycle.Err())
+}
+
+func (client *Client) protocolError(message string) error {
+	return client.terminalError(message, client.protocol.Err())
 }
 
 func (client *Client) terminalError(message string, err error) error {

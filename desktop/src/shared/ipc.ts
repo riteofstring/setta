@@ -67,6 +67,7 @@ import type {
   ReadSemanticActivitySummaryRequest,
   ReadSemanticContextPackRequest,
   ReadWorkflowGraphProjectionResponse,
+  ReadWorkflowNodeTrajectoryRequest,
   ReadSemanticEventHistoryRequest,
   ReadSemanticGraphRequest,
   ReadSemanticNodeDetailRequest,
@@ -76,10 +77,12 @@ import type {
   ReadWorkspaceActivitySnapshotResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
+  RetryWorkflowNodeRunLivenessRequest,
   ResizeTerminalRequest,
   ReviewCartographerPatchRequest,
   Run,
   RunActivityPage,
+  RunLivenessReconciliationResult,
   RunItemOutputPage,
   ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
@@ -105,7 +108,9 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
+  SteerWorkflowNodeRunRequest,
   SubmitApprovalRequest,
+  StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalInputRequest,
   TerminalInputResponse,
@@ -118,6 +123,7 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  WorkflowAgentTrajectoryPage,
   WorkflowDefinition,
   WorkflowExecution,
   WorkflowExecutionEventPage,
@@ -254,7 +260,11 @@ export const ipcChannels = {
   workflowListExecutions: "workflow:list-executions",
   workflowReadDefinition: "workflow:read-definition",
   workflowReadExecution: "workflow:read-execution",
+  workflowReadNodeTrajectory: "workflow:read-node-trajectory",
+  workflowRetryNodeRunLiveness: "workflow:retry-node-run-liveness",
   workflowStartExecution: "workflow:start-execution",
+  workflowSteerNodeRun: "workflow:steer-node-run",
+  workflowStopNodeRun: "workflow:stop-node-run",
   workflowSubmitApproval: "workflow:submit-approval",
   workflowUpdateDefinition: "workflow:update-definition",
   workflowValidateDefinition: "workflow:validate-definition",
@@ -448,7 +458,7 @@ interface IpcContract {
     result: QueueRemoveResult;
   };
   chatRunActivity: {
-    args: [workspaceId: string, runId: string, limit: number];
+    args: [workspaceId: string, runId: string, afterItemId: string, limit: number];
     result: RunActivityPage;
   };
   chatRunItemOutput: {
@@ -778,8 +788,24 @@ interface IpcContract {
     args: [workspaceId: string, executionId: string];
     result: WorkflowExecution;
   };
+  workflowReadNodeTrajectory: {
+    args: [request: ReadWorkflowNodeTrajectoryRequest];
+    result: WorkflowAgentTrajectoryPage;
+  };
+  workflowRetryNodeRunLiveness: {
+    args: [request: RetryWorkflowNodeRunLivenessRequest];
+    result: RunLivenessReconciliationResult;
+  };
   workflowStartExecution: {
     args: [workspaceId: string, definitionId: string, versionId: string];
+    result: WorkflowExecution;
+  };
+  workflowSteerNodeRun: {
+    args: [request: SteerWorkflowNodeRunRequest];
+    result: SteerMessageResult;
+  };
+  workflowStopNodeRun: {
+    args: [request: StopWorkflowNodeRunRequest];
     result: WorkflowExecution;
   };
   workflowSubmitApproval: {

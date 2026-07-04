@@ -4,6 +4,7 @@ import type { WorkflowEvent, WorkflowGraphProjection } from "@generated/backend"
 import {
   type WorkflowProjectionState,
   initialWorkflowProjectionState,
+  workflowAutoDraftLoadShouldPreserveRunTarget,
   workflowEventMatchesProjectionTarget,
   workflowEventRefreshesProjectionTarget,
   workflowGraphDraftTarget,
@@ -89,6 +90,40 @@ describe("workflow projection event targeting", () => {
       workflowEventMatchesProjectionTarget(
         draftTarget({ definitionId: "definition_a" }),
         event({ definitionId: "definition_b", executionId: "execution", versionId: "version" }),
+      ),
+    ).toBe(false);
+  });
+
+  test("keeps an explicitly selected run when the selected definition auto-loader catches up", () => {
+    const selectedRun = runTarget({
+      definitionId: "definition",
+      executionId: "execution",
+      versionId: "version",
+    });
+
+    expect(
+      workflowAutoDraftLoadShouldPreserveRunTarget(selectedRun, "workspace", "definition"),
+    ).toBe(true);
+    expect(
+      workflowAutoDraftLoadShouldPreserveRunTarget(selectedRun, "workspace", "other_definition"),
+    ).toBe(false);
+    expect(
+      workflowAutoDraftLoadShouldPreserveRunTarget(
+        runTarget({
+          definitionId: "definition",
+          executionId: "execution",
+          versionId: "version",
+          workspaceId: "workspace_other",
+        }),
+        "workspace",
+        "definition",
+      ),
+    ).toBe(false);
+    expect(
+      workflowAutoDraftLoadShouldPreserveRunTarget(
+        draftTarget({ definitionId: "definition" }),
+        "workspace",
+        "definition",
       ),
     ).toBe(false);
   });

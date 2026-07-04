@@ -1,11 +1,9 @@
 import type {
   ChatCommandExecuteResult,
-  ChatCodexEffectiveSettings,
   ChatModelOption,
   ChatPermissionPreset,
   ChatPermissionPresetID,
   ChatReasoningEffortOption,
-  Conversation,
   ReasoningEffort,
 } from "@generated/backend";
 import {
@@ -28,6 +26,7 @@ import { Button } from "./ui/button";
 
 export interface ComposerKeyActions {
   completeCommand: () => void;
+  canQueue?: boolean;
   canStop: boolean;
   draftEmpty: boolean;
   hasPendingSteering: boolean;
@@ -63,11 +62,15 @@ export function handleComposerKeyDown(
     return;
   }
   if (isQueueShortcut(event)) {
-    event.preventDefault();
     if (actions.slashDraft) {
+      event.preventDefault();
       actions.completeCommand();
       return;
     }
+    if (actions.canQueue === false) {
+      return;
+    }
+    event.preventDefault();
     focusTextareaSoon(event.currentTarget);
     void actions.queueDraft();
     return;
@@ -128,22 +131,24 @@ export function PermissionPickerButton({
   onOpen,
   onSelect,
   permissionPicker,
+  permissionLabel,
   running,
-  selectedConversation,
+  selected,
 }: {
   disabled: boolean;
   onOpen: () => void;
   onSelect: (preset: ChatPermissionPresetID) => void;
   permissionPicker: ChatCommandExecuteResult | null;
+  permissionLabel: string;
   running: boolean;
-  selectedConversation: Conversation | null;
+  selected: boolean;
 }) {
   const open = permissionPicker?.result.action === "permission_picker";
-  const label = permissionPickerLabel(permissionPicker, selectedConversation);
+  const label = permissionPickerLabel(permissionPicker, permissionLabel);
   const disabledReason = permissionPickerDisabledReason({
     disabled,
     running,
-    selected: selectedConversation !== null,
+    selected,
   });
   return (
     <div className="relative inline-flex min-w-0">
@@ -265,14 +270,12 @@ export function PermissionConfirmationDialog({
 
 function permissionPickerLabel(
   permissionPicker: ChatCommandExecuteResult | null,
-  selectedConversation: Conversation | null,
+  permissionLabel: string,
 ) {
   if (permissionPicker?.result.action === "permission_picker") {
     return permissionPicker.result.currentPermission?.displayLabel ?? "Ask for approval";
   }
-  return (
-    selectedConversation?.codexEffectiveSettings?.permission?.displayLabel ?? "Ask for approval"
-  );
+  return permissionLabel;
 }
 
 function permissionPickerDisabledReason({
@@ -337,22 +340,26 @@ function DisabledIconButton({
 
 export function ModelPickerButton({
   disabled,
+  modelLabel,
   modelPicker,
   onOpen,
+  reasoningLabel,
   running,
-  selectedConversation,
+  selected,
 }: {
   disabled: boolean;
+  modelLabel: string;
   modelPicker: ChatCommandExecuteResult | null;
   onOpen: () => void;
+  reasoningLabel: string;
   running: boolean;
-  selectedConversation: Conversation | null;
+  selected: boolean;
 }) {
-  const summary = modelPickerSummary(modelPicker, selectedConversation);
+  const summary = modelPickerSummary(modelPicker, modelLabel, reasoningLabel);
   const disabledReason = modelPickerDisabledReason({
     disabled,
     running,
-    selected: selectedConversation !== null,
+    selected,
   });
   return (
     <button
@@ -400,12 +407,16 @@ function modelPickerDisabledReason({
 
 function modelPickerSummary(
   modelPicker: ChatCommandExecuteResult | null,
-  selectedConversation: Conversation | null,
+  modelLabel: string,
+  reasoningLabel: string,
 ) {
   if (modelPicker?.result.action === "model_picker") {
     return modelPickerResultSummary(modelPicker);
   }
-  return conversationModelSummary(selectedConversation);
+  return {
+    model: modelLabel,
+    reasoning: reasoningLabel,
+  };
 }
 
 function modelPickerResultSummary(modelPicker: ChatCommandExecuteResult) {
@@ -441,37 +452,6 @@ function selectedReasoningEffortOption(modelPicker: ChatCommandExecuteResult) {
   );
 }
 
-function conversationModelSummary(selectedConversation: Conversation | null) {
-  const effectiveSettings = conversationEffectiveSettings(selectedConversation);
-  return {
-    model: conversationModelLabel(effectiveSettings),
-    reasoning: conversationReasoningSummary(effectiveSettings),
-  };
-}
-
-function conversationEffectiveSettings(
-  selectedConversation: Conversation | null,
-): ChatCodexEffectiveSettings | null {
-  if (selectedConversation === null) {
-    return null;
-  }
-  return selectedConversation.codexEffectiveSettings;
-}
-
-function conversationModelLabel(effectiveSettings: ChatCodexEffectiveSettings | null) {
-  if (effectiveSettings !== null) {
-    return effectiveSettings.modelDisplayName;
-  }
-  return "Model";
-}
-
-function conversationReasoningSummary(effectiveSettings: ChatCodexEffectiveSettings | null) {
-  if (effectiveSettings === null) {
-    return "Reasoning";
-  }
-  return effectiveSettings.reasoningEffortDisplayName;
-}
-
 export function modelPickerOptionSelected(
   model: Pick<ChatModelOption, "isDefault" | "model">,
   selectedModel: string,
@@ -495,36 +475,44 @@ export function reasoningEffortOptionSelected(
 export function ComposerButton({
   canSend,
   canSendImmediately,
-  chat,
+  operation,
   queueDraft,
+  retryActiveRunLiveness,
   running,
   runPresentation,
   sendImmediateSteering,
+  stopActiveRun,
 }: {
   canSend: boolean;
   canSendImmediately: boolean;
-  chat: {
-    operation: string | null;
-    retryActiveRunLiveness: () => Promise<void>;
-    stopActiveRun: () => Promise<void>;
-  };
-  queueDraft: () => Promise<void>;
+  operation: string | null;
+  queueDraft?: () => Promise<void>;
+  retryActiveRunLiveness?: () => Promise<void>;
   running: boolean;
   runPresentation: ActiveRunPresentation;
-  sendImmediateSteering: () => Promise<void>;
+  sendImmediateSteering?: () => Promise<void>;
+  stopActiveRun?: () => Promise<void>;
 }) {
   if (running && runPresentation.kind !== "working") {
-    return <DegradedRunButtons chat={chat} runPresentation={runPresentation} />;
+    return (
+      <DegradedRunButtons
+        operation={operation}
+        retryActiveRunLiveness={retryActiveRunLiveness}
+        runPresentation={runPresentation}
+        stopActiveRun={stopActiveRun}
+      />
+    );
   }
   if (running) {
     return (
       <WorkingRunButtons
         canSend={canSend}
         canSendImmediately={canSendImmediately}
-        chat={chat}
+        operation={operation}
         queueDraft={queueDraft}
         runPresentation={runPresentation}
         sendImmediateSteering={sendImmediateSteering}
+        stopActiveRun={stopActiveRun}
       />
     );
   }
@@ -543,24 +531,24 @@ export function ComposerButton({
 }
 
 function DegradedRunButtons({
-  chat,
+  operation,
+  retryActiveRunLiveness,
   runPresentation,
+  stopActiveRun,
 }: {
-  chat: {
-    operation: string | null;
-    retryActiveRunLiveness: () => Promise<void>;
-    stopActiveRun: () => Promise<void>;
-  };
+  operation: string | null;
+  retryActiveRunLiveness?: () => Promise<void>;
   runPresentation: ActiveRunPresentation;
+  stopActiveRun?: () => Promise<void>;
 }) {
   return (
     <div className="flex items-center gap-1">
-      {runPresentation.canRetry ? (
+      {runPresentation.canRetry && retryActiveRunLiveness !== undefined ? (
         <Button
           aria-label="Retry run liveness check"
           className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
-          disabled={chat.operation === "refreshing" || chat.operation === "cancelling"}
-          onClick={() => void chat.retryActiveRunLiveness()}
+          disabled={operation === "refreshing" || operation === "cancelling"}
+          onClick={() => void retryActiveRunLiveness()}
           title="Retry run liveness check"
           type="button"
           variant="secondary"
@@ -568,12 +556,12 @@ function DegradedRunButtons({
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
       ) : null}
-      {runPresentation.canStop ? (
+      {runPresentation.canStop && stopActiveRun !== undefined ? (
         <Button
           aria-label="Stop run"
           className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
-          disabled={chat.operation === "cancelling" || chat.operation === "refreshing"}
-          onClick={() => void chat.stopActiveRun()}
+          disabled={operation === "cancelling" || operation === "refreshing"}
+          onClick={() => void stopActiveRun()}
           title="Stop run"
           type="button"
           variant="secondary"
@@ -588,20 +576,19 @@ function DegradedRunButtons({
 function WorkingRunButtons({
   canSend,
   canSendImmediately,
-  chat,
+  operation,
   queueDraft,
   runPresentation,
   sendImmediateSteering,
+  stopActiveRun,
 }: {
   canSend: boolean;
   canSendImmediately: boolean;
-  chat: {
-    operation: string | null;
-    stopActiveRun: () => Promise<void>;
-  };
-  queueDraft: () => Promise<void>;
+  operation: string | null;
+  queueDraft?: () => Promise<void>;
   runPresentation: ActiveRunPresentation;
-  sendImmediateSteering: () => Promise<void>;
+  sendImmediateSteering?: () => Promise<void>;
+  stopActiveRun?: () => Promise<void>;
 }) {
   return (
     <div className="flex items-center gap-1">
@@ -615,47 +602,51 @@ function WorkingRunButtons({
       >
         <ArrowUp className="h-4 w-4" />
       </Button>
-      <Button
-        aria-label="Queue follow-up"
-        className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
-        disabled={
-          !canSend ||
-          chat.operation === "queueing" ||
-          chat.operation === "sendingSteeringImmediately"
-        }
-        onClick={() => void queueDraft()}
-        title="Queue follow-up"
-        type="button"
-        variant="secondary"
-      >
-        <MessageSquarePlus className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        aria-label="Interrupt and send pending steering"
-        className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
-        disabled={!canSendImmediately || chat.operation === "sendingSteeringImmediately"}
-        onClick={() => void sendImmediateSteering()}
-        title="Interrupt and send pending steering"
-        type="button"
-        variant="secondary"
-      >
-        <Zap className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        aria-label="Stop run"
-        className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
-        disabled={
-          !runPresentation.canStop ||
-          chat.operation === "cancelling" ||
-          chat.operation === "sendingSteeringImmediately"
-        }
-        onClick={() => void chat.stopActiveRun()}
-        title="Stop run"
-        type="button"
-        variant="secondary"
-      >
-        <Square className="h-3.5 w-3.5" />
-      </Button>
+      {queueDraft !== undefined ? (
+        <Button
+          aria-label="Queue follow-up"
+          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+          disabled={
+            !canSend || operation === "queueing" || operation === "sendingSteeringImmediately"
+          }
+          onClick={() => void queueDraft()}
+          title="Queue follow-up"
+          type="button"
+          variant="secondary"
+        >
+          <MessageSquarePlus className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
+      {sendImmediateSteering !== undefined ? (
+        <Button
+          aria-label="Interrupt and send pending steering"
+          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+          disabled={!canSendImmediately || operation === "sendingSteeringImmediately"}
+          onClick={() => void sendImmediateSteering()}
+          title="Interrupt and send pending steering"
+          type="button"
+          variant="secondary"
+        >
+          <Zap className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
+      {stopActiveRun !== undefined ? (
+        <Button
+          aria-label="Stop run"
+          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+          disabled={
+            !runPresentation.canStop ||
+            operation === "cancelling" ||
+            operation === "sendingSteeringImmediately"
+          }
+          onClick={() => void stopActiveRun()}
+          title="Stop run"
+          type="button"
+          variant="secondary"
+        >
+          <Square className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
     </div>
   );
 }

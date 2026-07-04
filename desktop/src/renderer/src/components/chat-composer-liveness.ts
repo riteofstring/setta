@@ -2,7 +2,6 @@ import type { ChatInput } from "@generated/backend";
 
 import { chatInputHasContent } from "../lib/chat-input";
 import type { ActiveRunPresentation } from "../lib/chat-run-liveness";
-import type { ChatView } from "./chat-panel";
 
 export function composerCanSteer(running: boolean, runPresentation: ActiveRunPresentation) {
   return running && runPresentation.canSteer;
@@ -34,7 +33,7 @@ export function canQueueComposerDraft({
   input,
   running,
   runPresentation,
-  selectedConversation,
+  sessionAvailable,
   submitting,
   supportsAttachments,
 }: {
@@ -43,13 +42,13 @@ export function canQueueComposerDraft({
   input: ChatInput;
   running: boolean;
   runPresentation: ActiveRunPresentation;
-  selectedConversation: ChatView["selectedConversation"];
+  sessionAvailable: boolean;
   submitting: boolean;
   supportsAttachments: boolean;
 }) {
   return (
     chatInputHasContent(input) &&
-    selectedConversation !== null &&
+    sessionAvailable &&
     !disabled &&
     !attaching &&
     supportsAttachments &&

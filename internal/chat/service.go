@@ -34,6 +34,8 @@ type Service struct {
 	newID             func(prefix string) (string, error)
 	now               func() time.Time
 
+	postCommitTurnStartInterceptor func(postCommitHarnessTurnStart) postCommitHarnessTurnStart
+
 	mu       sync.Mutex
 	active   map[string]activeTurn
 	liveness map[string]RunLiveness
@@ -223,31 +225,24 @@ func (service *Service) SendUserInput(workspaceID string, conversationID string,
 	if err != nil {
 		return SendMessageResult{}, err
 	}
-	deliveryInput, err := service.deliveryInputFromMessage(workspaceID, conversationID, userMessage)
-	if err != nil {
-		return SendMessageResult{}, err
-	}
-	ingest, err := service.newTranscriptIngestLocked(workspaceID, run)
-	if err != nil {
-		return SendMessageResult{}, err
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	service.activateTurnLocked(workspaceID, conversationID, activeTurn{
-		assistantMessage: assistantMessage,
-		cancel:           cancel,
-		transcript:       ingest,
-	}, run)
-	if err := service.publishActiveRunLivenessAndConversationLocked(workspaceID, conversationID, run.ID); err != nil {
-		return SendMessageResult{}, err
-	}
-	request := TurnRequest{
-		Workspace:    workspaceSummary,
-		Conversation: conversation,
-		Run:          run,
-		Input:        deliveryInput,
-		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
-	}
-	if err := service.launchHarnessTurnLocked(ctx, request); err != nil {
+	if err := service.startPostCommitHarnessTurnLocked(postCommitHarnessTurnStart{
+		Workspace:        workspaceSummary,
+		Conversation:     conversation,
+		Run:              run,
+		AssistantMessage: assistantMessage,
+		Publish: func() error {
+			if err := service.traceLocked(workspaceID, run.ID, "turn_started", "Codex turn started"); err != nil {
+				return err
+			}
+			if err := service.publishTurnStartEventsLocked(workspaceID, conversationID, userMessage, assistantMessage, run); err != nil {
+				return err
+			}
+			return service.publishActiveRunLivenessAndConversationLocked(workspaceID, conversationID, run.ID)
+		},
+		DeliveryInput: func() (ChatInput, error) {
+			return service.deliveryInputFromMessage(workspaceID, conversationID, userMessage)
+		},
+	}); err != nil {
 		return SendMessageResult{}, err
 	}
 
@@ -302,12 +297,6 @@ func (service *Service) persistTurnStartForConversationLocked(conversation Conve
 	conversation = records.Conversation
 	run = records.Run
 	userMessage = records.UserMessage
-	if err := service.traceLocked(workspaceID, run.ID, "turn_started", "Codex turn started"); err != nil {
-		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
-	}
-	if err := service.publishTurnStartEventsLocked(workspaceID, conversationID, userMessage, assistantMessage, run); err != nil {
-		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
-	}
 	return conversation, userMessage, assistantMessage, run, nil
 }
 
@@ -721,6 +710,10 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
+	return service.failTurnLocked(workspaceID, conversationID, runID, message)
+}
+
+func (service *Service) failTurnLocked(workspaceID string, conversationID string, runID string, message string) error {
 	run, err := service.store.LoadRun(workspaceID, runID)
 	if err != nil {
 		return err

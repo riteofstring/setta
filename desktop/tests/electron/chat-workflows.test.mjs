@@ -66,19 +66,27 @@ import { runChatDefaultsSettingsWorkflow } from "./chat-workflow-defaults-cases.
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runImageAttachmentWorkflow } from "./chat-workflow-image-attachment-cases.mjs";
+import { runImageAttachmentWorkflowLaunch } from "./chat-workflow-image-attachment-launch.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
 import {
   assertCodexProtocolNewChatPermissionContract,
   exerciseLinkedCodexPermissionPicker,
 } from "./chat-workflow-codex-permission-cases.mjs";
 import { runPermissionModeWorkflow } from "./chat-workflow-permission-cases.mjs";
+import { runPostCommitStartupFailureWorkflowLaunch } from "./chat-workflow-post-commit-startup-cases.mjs";
 import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
 import { runRestartRecoveryWorkflow } from "./chat-workflow-restart-recovery-cases.mjs";
 import { runShutdownDrainWorkflow } from "./chat-workflow-shutdown-drain-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
+import { runTranscriptSearchWorkflowLaunch } from "./chat-workflow-transcript-search-cases.mjs";
 import { runTranscriptScrollWorkflowLaunch } from "./chat-workflow-transcript-scroll-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
+import { runWorkflowRunnerPostStartFailureWorkflowLaunch } from "./workflow-runner-post-start-cases.mjs";
+import { runWorkflowVersionCommitOrderingWorkflowLaunch } from "./workflow-version-commit-ordering-cases.mjs";
+import { runWorkflowDefinitionFileAtomicityWorkflowLaunch } from "./workflow-definition-file-atomicity-cases.mjs";
+import { runWorkflowNodeTrajectoryContractWorkflowLaunch } from "./workflow-node-trajectory-contract-cases.mjs";
+import { runCodexApprovalPolicyRemovalWorkflowLaunch } from "./chat-workflow-approval-policy-cases.mjs";
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
@@ -89,25 +97,92 @@ import {
   runProtocolProviderRestartLivenessWorkflow,
   runProtocolStreamErrorLivenessWorkflow,
 } from "./codex-protocol-workflow.mjs";
+import { runCodexAppServerLifecycleWorkflowLaunch } from "./codex-app-server-lifecycle-cases.mjs";
 import { runProtocolGoalBackgroundTerminalWorkflow } from "./codex-protocol-background-terminal-cases.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
-
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
+const singleWorkflowArgs = new Map([
+  ["--codex-protocol-only", "codexProtocolOnly"],
+  ["--codex-approval-policy-removal-only", "codexApprovalPolicyRemovalOnly"],
+  ["--codex-app-server-lifecycle-only", "codexAppServerLifecycleOnly"],
+  ["--image-attachment-only", "imageAttachmentOnly"],
+  ["--post-commit-startup-failure-only", "postCommitStartupFailureOnly"],
+  ["--transcript-scroll-only", "transcriptScrollOnly"],
+  ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
+  ["--workflow-version-commit-ordering-only", "workflowVersionCommitOrderingOnly"],
+  ["--workflow-definition-file-atomicity-only", "workflowDefinitionFileAtomicityOnly"],
+  ["--workflow-node-trajectory-contract-only", "workflowNodeTrajectoryContractOnly"],
+]);
 const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = chatWorkflowRecordingRoot(options);
-
+const singleWorkflowRunners = [
+  {
+    option: "codexProtocolOnly",
+    run: (results) => runCodexProtocolWorkflow(results),
+  },
+  {
+    option: "codexApprovalPolicyRemovalOnly",
+    run: (results) => runCodexApprovalPolicyRemovalWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "codexAppServerLifecycleOnly",
+    run: (results) => runCodexAppServerLifecycleWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "imageAttachmentOnly",
+    run: (results) => runImageAttachmentWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "postCommitStartupFailureOnly",
+    run: (results) => runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "transcriptScrollOnly",
+    run: (results) => runTranscriptScrollWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "workflowRunnerPostStartFailureOnly",
+    run: (results) => runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "workflowVersionCommitOrderingOnly",
+    run: (results) => runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "workflowDefinitionFileAtomicityOnly",
+    run: (results) => runWorkflowDefinitionFileAtomicityWorkflowLaunch(results, { recordingRoot }),
+  },
+  {
+    option: "workflowNodeTrajectoryContractOnly",
+    run: (results) => runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot }),
+  },
+];
 function parseArgs(args) {
   const parsed = {
+    codexAppServerLifecycleOnly: false,
+    codexApprovalPolicyRemovalOnly: false,
     codexProtocolOnly: false,
     deterministic: true,
+    imageAttachmentOnly: false,
     keepArtifacts: false,
     live: false,
+    postCommitStartupFailureOnly: false,
+    transcriptScrollOnly: false,
     visible: process.env.SETTA_E2E_VISIBLE === "1",
+    workflowRunnerPostStartFailureOnly: false,
+    workflowDefinitionFileAtomicityOnly: false,
+    workflowNodeTrajectoryContractOnly: false,
+    workflowVersionCommitOrderingOnly: false,
   };
   for (const arg of args) {
+    const singleWorkflow = singleWorkflowArgs.get(arg);
+    if (singleWorkflow) {
+      selectSingleWorkflow(parsed, singleWorkflow);
+      continue;
+    }
     switch (arg) {
       case "--deterministic-only":
         parsed.deterministic = true;
@@ -121,11 +196,6 @@ function parseArgs(args) {
         parsed.deterministic = true;
         parsed.live = true;
         break;
-      case "--codex-protocol-only":
-        parsed.codexProtocolOnly = true;
-        parsed.deterministic = false;
-        parsed.live = false;
-        break;
       case "--keep-artifacts":
         parsed.keepArtifacts = true;
         break;
@@ -138,7 +208,20 @@ function parseArgs(args) {
   }
   return parsed;
 }
-
+function selectSingleWorkflow(parsed, selected) {
+  parsed.codexAppServerLifecycleOnly = selected === "codexAppServerLifecycleOnly";
+  parsed.codexApprovalPolicyRemovalOnly = selected === "codexApprovalPolicyRemovalOnly";
+  parsed.codexProtocolOnly = selected === "codexProtocolOnly";
+  parsed.imageAttachmentOnly = selected === "imageAttachmentOnly";
+  parsed.postCommitStartupFailureOnly = selected === "postCommitStartupFailureOnly";
+  parsed.transcriptScrollOnly = selected === "transcriptScrollOnly";
+  parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
+  parsed.workflowVersionCommitOrderingOnly = selected === "workflowVersionCommitOrderingOnly";
+  parsed.workflowDefinitionFileAtomicityOnly = selected === "workflowDefinitionFileAtomicityOnly";
+  parsed.workflowNodeTrajectoryContractOnly = selected === "workflowNodeTrajectoryContractOnly";
+  parsed.deterministic = false;
+  parsed.live = false;
+}
 function chatWorkflowRecordingRoot(parsed) {
   const base = join(repoRoot, "test-results", "electron-integration", "chat-workflows");
   if (!parsed.keepArtifacts) {
@@ -146,7 +229,6 @@ function chatWorkflowRecordingRoot(parsed) {
   }
   return join(base, pathTimestamp());
 }
-
 async function main() {
   assertBuildExists();
   if (!options.keepArtifacts && options.deterministic) {
@@ -155,14 +237,24 @@ async function main() {
   await mkdir(recordingRoot, { recursive: true });
 
   const results = [];
-  if (options.codexProtocolOnly) {
-    await runCodexProtocolWorkflow(results);
+  if (await runSelectedSingleWorkflow(results)) {
     printWorkflowResults(results);
     return;
   }
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
-    await runTranscriptSearchWorkflowLaunch(results);
+    await runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot });
+    await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
+    await runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot });
+    await runWorkflowDefinitionFileAtomicityWorkflowLaunch(results, { recordingRoot });
+    await runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot });
+    await runCodexApprovalPolicyRemovalWorkflowLaunch(results, { recordingRoot });
+    await runCodexAppServerLifecycleWorkflowLaunch(results, { recordingRoot });
+    await runTranscriptSearchWorkflowLaunch(results, {
+      recordingRoot,
+      runHappyPathWorkflow,
+      runWorkflowStep,
+    });
     await runTranscriptScrollWorkflowLaunch(results, { recordingRoot });
     await runSidebarNavigationWorkflow(results);
     await runCrossWorkspaceSidebarSummaryWorkflow({
@@ -244,14 +336,20 @@ async function main() {
 
   printWorkflowResults(results);
 }
-
+async function runSelectedSingleWorkflow(results) {
+  const selected = singleWorkflowRunners.find(({ option }) => options[option]);
+  if (!selected) {
+    return false;
+  }
+  await selected.run(results);
+  return true;
+}
 function printWorkflowResults(results) {
   process.stdout.write("Electron chat workflow results:\n");
   for (const result of results) {
     process.stdout.write(`  passed: ${result}\n`);
   }
 }
-
 async function runDeterministicWorkflowLaunch(results) {
   const fixture = await createFixture("deterministic");
   const fakeCodex = await installFakeCodexAppServer(fixture);
@@ -925,105 +1023,6 @@ async function runHappyPathWorkflow(
     });
     await assertNoActiveRun(backend, workspaceId, conversationId);
   }
-}
-
-async function runTranscriptSearchWorkflowLaunch(results) {
-  const fixture = await createFixture("transcript-search");
-  const fakeCodex = await installFakeCodexAppServer(fixture);
-  const recordingDir = join(recordingRoot, "transcript-search");
-  const context = await launchContext(fixture, recordingDir, {
-    extraEnv: {
-      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-    },
-  });
-  let failure = null;
-
-  try {
-    const backend = await backendProbe(recordingDir);
-    const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
-    await runWorkflowStep(results, recordingDir, "transcript-search", context.client, async () => {
-      const conversationId = await createChat(context.client, backend, workspaceId);
-      await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId, {
-        postCompletionActiveRun: false,
-      });
-      await runTranscriptSearchWorkflow(context.client);
-    });
-  } catch (error) {
-    failure = error;
-    await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
-  } finally {
-    context.client?.close();
-    await stopElectron(context.electron);
-    await rm(fixture.tempRoot, { force: true, recursive: true });
-  }
-
-  if (failure) {
-    throw failureWithLogs(failure, context.electron.logs);
-  }
-  await assertRecordingEvidence(recordingDir, {
-    backendPaths: [
-      "/workspaces/open",
-      "/chat/conversations/create",
-      "/chat/messages/send",
-      "/chat/messages/queue",
-      "/chat/messages/steer",
-      "/chat/runs/list",
-    ],
-    ipcChannels: [
-      "workspace:open-local-folder",
-      "chat:create-conversation",
-      "chat:send-message",
-      "chat:queue-message",
-      "chat:steer-message",
-    ],
-  });
-}
-
-async function runTranscriptSearchWorkflow(client) {
-  await openChatSearch(client);
-  const lateAssistant = "Queued response for queued follow-up three from active run.";
-  await setInputValue(client, 'input[placeholder="Search chat"]', lateAssistant);
-  await waitForActiveSearchMessage(client, lateAssistant);
-
-  const firstPrompt = "workflow hold for queue and steering";
-  await setInputValue(client, 'input[placeholder="Search chat"]', firstPrompt);
-  await waitForActiveSearchMessage(client, firstPrompt);
-  await clickButtonByAria(client, "Close chat search");
-  await waitForState(
-    client,
-    `(() => ({ open: Boolean(document.querySelector('input[placeholder="Search chat"]')) }))()`,
-    (value) => !value.open,
-  );
-}
-
-async function openChatSearch(client) {
-  await client.evaluate(`(() => {
-    window.dispatchEvent(new KeyboardEvent("keydown", {
-      bubbles: true,
-      ctrlKey: true,
-      key: "f",
-      metaKey: true,
-    }));
-  })()`);
-  await waitForState(
-    client,
-    `(() => ({ open: Boolean(document.querySelector('input[placeholder="Search chat"]')) }))()`,
-    (value) => value.open,
-  );
-}
-
-async function waitForActiveSearchMessage(client, expectedText) {
-  await waitForState(
-    client,
-    `(() => {
-      const row = document.querySelector('[data-search-active="true"]');
-      return {
-        activeMessageId: row?.getAttribute("data-message-id") ?? "",
-        text: row?.innerText ?? "",
-      };
-    })()`,
-    (value) => value.text.includes(expectedText),
-  );
 }
 
 async function runCancelWorkflow(client, backend, workspaceId, conversationId) {

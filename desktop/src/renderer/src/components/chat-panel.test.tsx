@@ -1,4 +1,4 @@
-import type { ChatCommandDescriptor } from "@generated/backend";
+import type { ChatCommandDescriptor, Conversation } from "@generated/backend";
 import type { KeyboardEvent } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -15,6 +15,10 @@ import {
 import { testRun } from "../stores/chat-store.test.fixtures";
 import { BackgroundTerminalMonitor } from "./chat-background-terminal-monitor";
 import { Composer } from "./chat-composer";
+import {
+  selectedChatComposerActions,
+  selectedChatComposerViewModel,
+} from "./chat-composer-selected-adapter";
 import { commandComposerState } from "./chat-command-composer-controller";
 import {
   canDismissCompletedCurrentPlan,
@@ -153,6 +157,32 @@ describe("composer keyboard behavior", () => {
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(completeCommand).toHaveBeenCalledOnce();
+    expect(queueDraft).not.toHaveBeenCalled();
+  });
+
+  test("does not capture Tab for queueing when queue capability is absent", () => {
+    const event = keyboardEvent("Tab");
+    const completeCommand = vi.fn();
+    const queueDraft = vi.fn();
+
+    handleComposerKeyDown(event, {
+      canQueue: false,
+      canStop: false,
+      completeCommand,
+      draftEmpty: false,
+      dismissPicker: vi.fn(),
+      hasPendingSteering: false,
+      pickerOpen: false,
+      queueDraft,
+      running: false,
+      sendImmediateSteering: vi.fn(),
+      sendDraft: vi.fn(),
+      slashDraft: false,
+      stopRun: vi.fn(),
+    });
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(completeCommand).not.toHaveBeenCalled();
     expect(queueDraft).not.toHaveBeenCalled();
   });
 
@@ -489,26 +519,12 @@ describe("composer controls", () => {
     const html = renderToString(
       <ModelPickerButton
         disabled={false}
+        modelLabel="Scripted Careful"
         modelPicker={null}
         onOpen={vi.fn()}
+        reasoningLabel="High"
         running={false}
-        selectedConversation={
-          {
-            codexEffectiveSettings: {
-              model: "scripted-careful",
-              modelDisplayName: "Scripted Careful",
-              permission: defaultEffectivePermissionSettings(),
-              reasoningEffort: "high",
-              reasoningEffortDisplayName: "High",
-              supportsImages: true,
-            },
-            codexSettings: {
-              model: "scripted-careful",
-              permission: null,
-              reasoningEffort: "high",
-            },
-          } as Parameters<typeof ModelPickerButton>[0]["selectedConversation"]
-        }
+        selected
       />,
     );
 
@@ -524,8 +540,9 @@ describe("composer controls", () => {
         onOpen={vi.fn()}
         onSelect={vi.fn()}
         permissionPicker={permissionPickerResult()}
+        permissionLabel="Ask for approval"
         running={false}
-        selectedConversation={selectedConversationWithPermission("Ask for approval")}
+        selected
       />,
     );
 
@@ -562,8 +579,9 @@ describe("composer controls", () => {
         onOpen={vi.fn()}
         onSelect={vi.fn()}
         permissionPicker={null}
+        permissionLabel="Ask for approval"
         running
-        selectedConversation={selectedConversationWithPermission("Ask for approval")}
+        selected
       />,
     );
 
@@ -575,11 +593,13 @@ describe("composer controls", () => {
       <ComposerButton
         canSend
         canSendImmediately={false}
-        chat={composerButtonChat()}
+        operation={null}
         queueDraft={async () => {}}
+        retryActiveRunLiveness={async () => {}}
         running={false}
         runPresentation={idleRunPresentation}
         sendImmediateSteering={async () => {}}
+        stopActiveRun={async () => {}}
       />,
     );
 
@@ -593,11 +613,13 @@ describe("composer controls", () => {
       <ComposerButton
         canSend
         canSendImmediately
-        chat={composerButtonChat()}
+        operation={null}
         queueDraft={async () => {}}
+        retryActiveRunLiveness={async () => {}}
         running
         runPresentation={workingRunPresentation}
         sendImmediateSteering={async () => {}}
+        stopActiveRun={async () => {}}
       />,
     );
 
@@ -612,11 +634,13 @@ describe("composer controls", () => {
       <ComposerButton
         canSend
         canSendImmediately
-        chat={composerButtonChat()}
+        operation={null}
         queueDraft={async () => {}}
+        retryActiveRunLiveness={async () => {}}
         running
         runPresentation={lostRunPresentation}
         sendImmediateSteering={async () => {}}
+        stopActiveRun={async () => {}}
       />,
     );
 
@@ -687,6 +711,26 @@ describe("conversation body states", () => {
 
     expect(html).toContain("Loading workspace chats.");
     expect(html).not.toContain("What should we build in setta?");
+  });
+
+  test("renders selected chat through an explicit agent trajectory scope", () => {
+    const html = renderToString(
+      <ConversationBody
+        chat={conversationBodyChat({
+          transcriptBlocks: [
+            userMessageBlock({ id: "block_user", runId: "run_api", ordinal: 1, text: "hello" }),
+          ],
+        })}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+      />,
+    );
+
+    expect(html).toContain('data-testid="agent-trajectory-surface"');
+    expect(html).toContain('data-agent-trajectory-scope="chatConversation"');
+    expect(html).toContain('data-agent-trajectory-workspace-id="workspace_api"');
+    expect(html).toContain('data-agent-trajectory-conversation-id="conversation_api"');
+    expect(html).toContain("hello");
   });
 });
 
@@ -1017,10 +1061,11 @@ describe("chat readable width contract", () => {
     const searchHtml = renderToString(<ChatSearchBar search={openSearchController()} />);
     const composerHtml = renderToString(
       <Composer
+        actions={selectedChatComposerActions(composerChat())}
         busy={false}
-        chat={composerChat()}
         running={false}
         runPresentation={idleRunPresentation}
+        viewModel={selectedChatComposerViewModel(composerChat())}
       />,
     );
     const goalHtml = renderToString(
@@ -1182,7 +1227,7 @@ function composerChat() {
     sendSteeringImmediately: async () => {},
     status: "ready",
     steerMessage: async () => {},
-  } as unknown as Parameters<typeof Composer>[0]["chat"];
+  } as unknown as ConversationBodyProps["chat"];
 }
 
 function conversationBodyChat(
@@ -1309,11 +1354,13 @@ function selectedConversationWithPermission(displayLabel: string) {
     updatedAt: "2026-05-29T20:00:00Z",
     workflow: null,
     workspaceId: "workspace_api",
-  } as Parameters<typeof PermissionPickerButton>[0]["selectedConversation"];
+  } satisfies Conversation;
 }
 
 function permissionPickerResult() {
   return {
+    activeRun: null,
+    activeRunLiveness: null,
     conversation: selectedConversationWithPermission("Ask for approval"),
     message: null,
     page: {

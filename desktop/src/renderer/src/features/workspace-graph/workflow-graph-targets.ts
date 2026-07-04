@@ -20,6 +20,9 @@ export function workflowNodeDetailsTarget(
   nodeId: string,
 ): WorkflowNodeDetailsTarget {
   const node = projection.nodes.find((candidate) => candidate.id === nodeId);
+  if (node === undefined) {
+    throw new Error(`workflow node ${nodeId} is not present in the current projection`);
+  }
   return {
     definitionId: projection.definitionId,
     definitionName: projection.definitionName,
@@ -27,9 +30,10 @@ export function workflowNodeDetailsTarget(
     definitionVersionNumber: projection.definitionVersionNumber,
     executionId: projection.executionId,
     nodeId,
-    nodeKind: node?.kind ?? "",
-    nodeLabel: node?.label ?? nodeId,
-    nodeStatus: node?.status ?? "",
+    nodeExecutionId: node.latestNodeExecutionId,
+    nodeKind: node.kind,
+    nodeLabel: node.label,
+    nodeStatus: node.status,
     projectionIncomingEdges: projection.edges.filter((edge) => edge.toNodeId === nodeId),
     projectionOutgoingEdges: projection.edges.filter((edge) => edge.fromNodeId === nodeId),
     versionMismatch: projection.versionMismatch,
