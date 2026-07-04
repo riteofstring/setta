@@ -123,9 +123,11 @@ func runActivityTypedTitle(item RunItem) (string, bool) {
 }
 
 func runActivityCommandTitle(item RunItem) string {
-	command := item.Command
+	command := ""
 	if commandDetails, ok := item.CommandExecutionDetails(); ok {
 		command = commandDetails.Command
+	} else if item.Type != RunItemTypeCommandExecution {
+		command = item.Command
 	}
 	if command != "" {
 		return summarizeCommandLabel(command)
@@ -297,12 +299,18 @@ func runActivityCommand(item RunItem, commandExecution *RunItemCommandExecutionD
 	if commandExecution != nil {
 		return commandExecution.Command
 	}
+	if item.Type == RunItemTypeCommandExecution {
+		return ""
+	}
 	return item.Command
 }
 
 func runActivityCwd(item RunItem, commandExecution *RunItemCommandExecutionDetails) string {
 	if commandExecution != nil {
 		return commandExecution.Cwd
+	}
+	if item.Type == RunItemTypeCommandExecution {
+		return ""
 	}
 	return item.Cwd
 }
@@ -311,12 +319,18 @@ func runActivityExitCode(item RunItem, commandExecution *RunItemCommandExecution
 	if commandExecution != nil {
 		return commandExecution.ExitCode
 	}
+	if item.Type == RunItemTypeCommandExecution {
+		return 0
+	}
 	return item.ExitCode
 }
 
 func runActivityDurationMs(item RunItem, commandExecution *RunItemCommandExecutionDetails) int {
 	if commandExecution != nil {
 		return commandExecution.DurationMs
+	}
+	if item.Type == RunItemTypeCommandExecution {
+		return 0
 	}
 	return item.DurationMs
 }
@@ -325,6 +339,9 @@ func runActivityProcessID(item RunItem, commandExecution *RunItemCommandExecutio
 	if commandExecution != nil {
 		return commandExecution.ProcessID
 	}
+	if item.Type == RunItemTypeCommandExecution {
+		return ""
+	}
 	return item.ProcessID
 }
 
@@ -332,12 +349,18 @@ func runActivityResult(item RunItem, commandExecution *RunItemCommandExecutionDe
 	if commandExecution != nil {
 		return commandExecution.Result
 	}
+	if item.Type == RunItemTypeCommandExecution {
+		return ""
+	}
 	return item.Result
 }
 
 func runActivityError(item RunItem, commandExecution *RunItemCommandExecutionDetails) string {
 	if commandExecution != nil {
 		return commandExecution.Error
+	}
+	if item.Type == RunItemTypeCommandExecution {
+		return ""
 	}
 	return item.Error
 }

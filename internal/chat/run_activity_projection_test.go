@@ -61,3 +61,39 @@ func TestRunActivityItemProjectionsInheritsTerminalRunStatus(t *testing.T) {
 		t.Fatalf("expected the running item to inherit the completed run status, got %q", projections[0].Status)
 	}
 }
+
+func TestRunActivityProjectionDoesNotReadLegacyCommandExecutionFields(t *testing.T) {
+	item := RunItem{
+		ID:         "item_cmd",
+		Type:       RunItemTypeCommandExecution,
+		Status:     RunItemStatusCompleted,
+		Command:    "legacy command",
+		Cwd:        "/legacy",
+		ExitCode:   7,
+		DurationMs: 42,
+		ProcessID:  "legacy-process",
+		Result:     "legacy result",
+		Error:      "legacy error",
+	}
+
+	projection, ok := activityItemBlockProjection(item, RunStatusCompleted, false, false)
+	if !ok {
+		t.Fatal("expected a projection for the command item")
+	}
+	if projection.Title != "command execution" {
+		t.Fatalf("title = %q, want typed-details fallback title", projection.Title)
+	}
+	details := projection.Details
+	if details.Command != "" ||
+		details.Cwd != "" ||
+		details.ExitCode != 0 ||
+		details.DurationMs != 0 ||
+		details.ProcessID != "" ||
+		details.Result != "" ||
+		details.Error != "" {
+		t.Fatalf("legacy command fields leaked into projection: %+v", details)
+	}
+	if details.CommandExecution != nil {
+		t.Fatalf("unexpected typed command details synthesized from legacy fields: %+v", details.CommandExecution)
+	}
+}
