@@ -97,6 +97,13 @@ Rollout order: auth middleware + local bootstrap (desktop unchanged) → `cmd/se
 
 Sizing note on the picker step: the main process today has exactly one module-level backend handle plus five singleton SSE forwarders (`desktop/src/main/index.ts`), and no Electron `userData` persistence at all. The picker step therefore includes: a runtime registry with an active selection, KnownRuntime storage (greenfield), auth headers on the `fetchImpl` passed to `createBackendClient`, relaxing the loopback-only URL validation in `backend-supervisor.ts` for remote entries, and tearing down/restarting all SSE forwarders on switch. Straightforward, but it is the largest desktop chunk before the demo.
 
+## Findings from the first live demo (AWS box over Tailscale, 2026-07-03/04)
+
+- **Runtime/desktop version awareness is needed beyond the protocol number.** A runtime binary built one day earlier than the desktop spoke the same protocol version but lacked terminal replay-on-attach, producing silently blank terminals. `/runtime/info` should report a build/feature identity the desktop can compare and surface ("runtime older than this app — update it").
+- **The agent-spawning environment is a real gap `setta doctor` must cover.** Chat failed twice on the box for environment reasons invisible to the UI: the codex binary was off the serve process's PATH (node under nvm), then its ChatGPT credentials were stale. Capability checks ("agent installed / on PATH / authenticated") belong in doctor and in a clearer chat-error surface.
+- **Self-update through setta works.** The `curl | sh` installer and a runtime restart were executed over setta's own terminal API — evidence the deferred "AI-guided setup session" is viable with existing primitives.
+- Demo box ops note: on the AWS devbox the runtime runs as a systemd user service (`~/.config/systemd/user/setta-serve.service`, linger enabled) so it survives reboots.
+
 ## Deferred (in rough order of expected pull — none gate the PoC)
 
 - `setta remote add user@host` one-shot installer, then an AI-guided setup session in Setta itself (agent runs the installer via existing terminal + approval UX). Design rule when it lands: AI orchestrates idempotent JSON-output commands; it never improvises security-critical config.
