@@ -677,8 +677,35 @@ temporary app data. Verify the workflow list and graph projection still load.
 
 ## Deferred Findings
 
-The repo review also identified two issues that are intentionally out of scope
+The repo review also identified five issues that are intentionally out of scope
 for this remediation plan.
+
+### Cartographer automatic review bypass
+
+Automatic cartographer processing can apply semantic graph patches even when the
+model marks them as review-required, low-confidence, or high-impact. The
+automatic worker passes `AutoApplyValidatedPatches: true`, the risk metadata is
+recorded as warnings, and the status decision still marks deterministic-valid
+patches as applied.
+
+This plan does not change automatic cartographer behavior. When it is picked up,
+treat it as a semantic graph safety issue: automatic processing should respect
+review-required and risk metadata instead of turning it into audit-only
+diagnostics.
+
+### Cartographer output contract drift
+
+The semantic cartographer live-provider schema and Setta's accepted envelope
+contract have drifted. The provider receives a large strict JSON schema that
+requires fields such as `modelInfo.provider`, `modelInfo.model`,
+`modelInfo.responseId`, and every payload key, while Setta's decoder and
+application validation accept a smaller Go-shaped envelope. The scripted harness
+exercises the smaller accepted shape, so deterministic tests can pass without
+proving the live provider contract works.
+
+This plan does not change the cartographer schema, decoder, or tests. When it is
+picked up, make one owner-defined contract authoritative and generate or validate
+all provider, scripted-harness, and application surfaces from that contract.
 
 ### Workspace browser snapshot retry behavior
 
@@ -691,6 +718,25 @@ invalidates the key.
 This plan does not change that behavior. When it is picked up, treat it as a
 browser-pane visual freshness bug, not as part of chat run startup, Codex
 permission policy, or Electron test-driver cleanup.
+
+### Workspace activity projection panics
+
+`internal/workspaceactivity/service.go` panics when chat or workflow event
+projection fails. Those projection errors are reachable from ordinary bad
+persisted or provider-derived data, such as a `command_execution` run item that
+is missing typed command details, malformed runner approval payloads, unsupported
+approval statuses, or a failed metadata lookup. Because workspace activity is a
+derived projection over chat and workflow state, one bad projected row should not
+terminate the backend process.
+
+When this is picked up, treat workspace activity as a fallible projection
+boundary. Replace the `panic(err)` paths with typed, attributable projection
+errors that include the source kind, event ID or stream cursor, workspace ID, and
+any known conversation, run, workflow execution, or run-item IDs. Publish a
+workspace-activity diagnostic or resync event so the UI and logs show the
+projection is degraded, then continue consuming events or trigger a bounded
+snapshot rebuild from the chat/workflow source of truth. Do not silently drop the
+bad event, but do not crash the process for a derived-record failure.
 
 ### Unwired chat controls
 
@@ -708,8 +754,8 @@ placeholder.
 
 ## Overall Non-Goals
 
-- Do not fix unrelated UI controls or browser snapshot retry behavior in this
-  plan.
+- Do not fix unrelated UI controls, browser snapshot retry behavior, or other
+  deferred findings in this plan.
 - Do not change generated outputs manually.
 - Do not add compatibility support for deprecated Codex values.
 - Do not use renderer-only patches to hide backend state problems.
