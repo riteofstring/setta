@@ -399,7 +399,13 @@ semantic graph workflow's browser-side semantic attachment, editing,
 cartographer audit/readback, and node-details click/text helpers into
 `desktop/tests/electron/semantic-graph-workflow-driver.js`; the semantic graph
 workflow test now reaches those paths through named CDP driver calls with
-structured arguments.
+structured arguments. This slice moved overview performance state, button,
+native BrowserView, pane-host, snapshot-image, and transition measurement logic
+into `desktop/tests/electron/overview-performance-driver.js`. Both
+`workspace-overview-performance-helpers.mjs` and
+`overview-zoom-performance.test.mjs` now call named driver methods or tiny
+`driverCallExpression` wait predicates instead of embedding those browser-side
+programs.
 
 Verification:
 
@@ -425,17 +431,28 @@ Verification:
 - `node --check desktop/tests/electron/semantic-graph-workflow.test.mjs`
 - `node --check desktop/tests/electron/cdp-client.mjs`
 - `node desktop/tests/electron/semantic-graph-workflow.test.mjs --skip-build`
+- `node --check desktop/tests/electron/overview-performance-driver.js`
+- `node --check desktop/tests/electron/workspace-overview-performance-helpers.mjs`
+- `node --check desktop/tests/electron/overview-zoom-performance.test.mjs`
+- `node --check desktop/tests/electron/cdp-client.mjs`
+- `node desktop/tests/electron/workflow-graph-maximized-4k-overview.test.mjs --skip-build`
+- `node desktop/tests/electron/overview-zoom-performance.test.mjs --skip-build`
+  was attempted twice after extraction and still fails in the documented
+  pre-existing browser-pane setup path with visible browser pane count stuck at
+  `0`.
 - `./scripts/format.sh`
 - `./check_quality.sh --git-changes`
 
 Remaining notes: continue Track 4 with the remaining large browser-side
-programs in overview zoom performance helpers and long transcript performance.
-The chat stream performance workflow still needs the frame-budget failure
-resolved or baselined before it has a clean focused rerun. Add the guardrail for
-future large executable template literals after the extraction pattern covers
-the remaining listed workflows. Phase 4 backend trajectory contracts should
-wait until this test-driver extraction work is complete enough that new
-trajectory E2E scenarios do not add new large inline browser programs.
+programs in long transcript performance. The overview zoom workflow still needs
+its previously recorded browser-pane setup failure resolved or explicitly
+baselined before it can produce a clean focused run. The chat stream performance
+workflow still needs the frame-budget failure resolved or baselined before it
+has a clean focused rerun. Add the guardrail for future large executable
+template literals after the extraction pattern covers the remaining listed
+workflow extraction. Phase 4 backend trajectory contracts should wait until this
+test-driver extraction work is complete enough that new trajectory E2E
+scenarios do not add new large inline browser programs.
 
 ## Phase 4: Backend Trajectory Contracts
 

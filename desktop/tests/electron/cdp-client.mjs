@@ -20,6 +20,11 @@ const driverExtensionScripts = [
       'globalThis.__settaE2EDriver?.semanticGraphWorkflowVersion === "setta-semantic-graph-workflow-driver-v1"',
     path: join(driverScriptDir, "semantic-graph-workflow-driver.js"),
   },
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.overviewPerformanceVersion === "setta-overview-performance-driver-v1"',
+    path: join(driverScriptDir, "overview-performance-driver.js"),
+  },
 ];
 
 export class CDPClient {
