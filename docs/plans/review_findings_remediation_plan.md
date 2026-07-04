@@ -9,6 +9,8 @@ Resolve the in-scope repo-review findings:
 - chat turns can be stranded as `running` when startup fails after the run is
   persisted;
 - Setta still preserves deprecated Codex `on-failure` approval policy values;
+- Codex app-server protocol/read failures can close the client without
+  terminating or reaping the child process;
 - several Electron tests embed large browser-side programs in string literals;
 - failed workflow run attempts can create durable definition versions;
 - workflow action runners can be live without durable runner refs after
@@ -296,7 +298,155 @@ available. Do not use `OPENAI_API_KEY` for those tests. Developers whose global
 Codex config still contains `approval_policy = "on-failure"` should update that
 config before live-provider verification; Setta should not auto-edit it.
 
-## Track 3: Browser Test Driver Code Extraction
+## Track 3: Codex App-Server Process Lifecycle Ownership
+
+### Problem
+
+`internal/codexapp/jsonrpc.go` lets the JSON-RPC read loop become the process
+lifecycle boundary, but only the clean stdout EOF path waits for the child
+process.
+
+Current terminal paths differ:
+
+- clean EOF from stdout calls `cmd.Wait()` before the read loop returns;
+- malformed JSON, oversized scanner tokens, scanner errors, non-integer
+  response IDs, and unknown response IDs return from `readLoop` immediately;
+- the deferred cleanup calls `finish` and closes `waitDone`, but does not close
+  stdin, signal the process, kill the process group, or reap the child;
+- the manager observes `client.Done()`, clears the active client, and can start a
+  replacement even though the old process may still be alive.
+
+`waitDone` is therefore misleading: on error paths it means "the read loop
+stopped," not "the Codex app-server process exited and was waited." Explicit
+shutdown is also too coupled to this read-loop signal. If shutdown closes the
+client lifecycle and the process emits another message before EOF, routing can
+return early and close `waitDone` without proving the process exited.
+
+Concrete failure:
+
+- Codex app-server writes a truncated JSON-RPC line or a response with an
+  unexpected ID;
+- `readLoop` records a terminal protocol error and returns;
+- pending requests fail and the manager treats the app-server as stopped;
+- the child process can continue running with open resources while Setta starts
+  a new app-server client.
+
+### Product Contract
+
+- `jsonrpc.Client` owns the Codex app-server subprocess lifecycle. The manager
+  should not need protocol-specific cleanup knowledge.
+- Every terminal client path must initiate subprocess cleanup exactly once:
+  clean EOF, protocol decode errors, route errors, scanner errors, explicit
+  shutdown, and shutdown/read-loop races.
+- A client must not report manager-visible completion while its child process is
+  still live or unreaped.
+- Pending calls should fail promptly with the terminal protocol/shutdown error,
+  but process cleanup must still continue deterministically.
+- Stopping normal message routing must not prevent stdout from being drained or
+  the process from being reaped.
+- The cleanup path should use the existing process-group terminate/kill behavior
+  and timeout settings.
+
+### Implementation Plan
+
+#### 1. Separate protocol termination from process reaping
+
+Replace the current `waitDone` meaning with an explicit process-exit signal, or
+add a separate `processDone` signal and make manager-visible completion wait for
+that signal.
+
+The implementation should distinguish:
+
+- protocol termination: no new calls/writes/routes should be accepted and
+  pending calls receive the terminal error;
+- process termination: stdin has been closed as appropriate, the process group
+  has been terminated or killed when needed, and `cmd.Wait()` has returned.
+
+Avoid treating read-loop return as proof that the subprocess exited.
+
+#### 2. Add one terminal cleanup owner
+
+Create a single `Client` method that owns terminal cleanup, for example
+`terminateAndWait(reason error)`. It should be guarded by `sync.Once` or an
+equivalent state machine and should:
+
+- record the terminal error and fail pending calls once;
+- close stdin to request normal app-server exit when that is still useful;
+- terminate the process group after the configured grace period when the process
+  does not exit;
+- kill the process group after the configured kill period when termination is
+  insufficient;
+- call `cmd.Wait()` exactly once, or otherwise prove the process was already
+  reaped;
+- publish manager-visible `Done` only after process cleanup is complete.
+
+Do not add a second cleanup implementation in `manager.go`. The manager should
+continue to reason in terms of client lifecycle, not pipes, JSON-RPC scanner
+state, or process groups.
+
+#### 3. Keep stdout handling deadlock-free
+
+On fatal protocol/read errors, stop routing messages but do not leave the child
+able to block forever on an unread stdout pipe while cleanup waits for process
+exit.
+
+Acceptable shapes include:
+
+- continue draining stdout to discard while the terminal cleanup method closes
+  stdin and signals the process; or
+- close/interrupt the stdout reader as part of a coordinated process-group
+  shutdown that guarantees `cmd.Wait()` cannot block on an unread pipe.
+
+The chosen implementation should make this invariant obvious in tests: a noisy
+child that keeps writing after a malformed message must still be terminated and
+reaped.
+
+#### 4. Route explicit shutdown through the same path
+
+Update `Close` and `shutdown(ctx)` to use the same terminal cleanup owner as
+read/protocol failures.
+
+Explicit shutdown may use a different terminal error message, but it should not
+have a separate interpretation of `waitDone`, and it should not be possible for
+post-shutdown output to make the read loop report process completion early.
+
+#### 5. Preserve useful error reporting
+
+Keep the original protocol/read error as the client lifecycle error that callers
+and pending requests see. If process termination or `Wait` also fails, attach it
+to diagnostics or wrap it where the shutdown caller can observe it without
+discarding the original protocol failure.
+
+### Test Plan
+
+Add focused Go coverage under `internal/codexapp` with helper child processes
+that exercise process lifecycle, not only RPC return values:
+
+- malformed JSON causes pending calls to fail and the child process to be
+  terminated and reaped;
+- non-integer or unknown response IDs follow the same cleanup path;
+- scanner errors, including an oversized line, terminate and reap the child;
+- a child that keeps writing after a malformed message cannot deadlock cleanup;
+- explicit shutdown still terminates process-group children and waits for the
+  app-server process;
+- cleanup is idempotent when `Close`, read-loop failure, and context
+  cancellation race.
+
+The tests should assert process exit directly where the platform supports it,
+not only that `client.Done()` closes.
+
+Because this touches Codex harness behavior and provider protocol handling, add
+deterministic end-to-end app workflow coverage through the production
+Electron/main/preload/renderer/HTTP/store paths with temporary app data and a
+scripted fake Codex app-server that emits a malformed protocol message. The E2E
+should verify that the UI surfaces a failed run, the app can start a later chat
+turn successfully, and no old fake app-server process remains alive.
+
+Run live Codex E2E tests only when the local Codex CLI is signed in with ChatGPT
+auth. Do not use `OPENAI_API_KEY`; if ChatGPT auth is unavailable, record the
+live-provider skip without treating it as provider-integration proof.
+
+## Track 4: Browser Test Driver Code Extraction
 
 ### Problem
 
@@ -409,7 +559,7 @@ For each extracted workflow:
 After the extraction is complete, run the targeted Electron tests that owned the
 large string programs and then `./check_quality.sh --git-changes`.
 
-## Track 4: Workflow Version Commit Ordering
+## Track 5: Workflow Version Commit Ordering
 
 ### Problem
 
@@ -492,7 +642,7 @@ deterministic Electron app workflow coverage through the production
 Electron/main/preload/renderer/HTTP/store paths. The E2E should attempt an
 invalid run, then repair the draft and verify the first successful run is `v1`.
 
-## Track 5: Workflow Runner Post-Start Cleanup
+## Track 6: Workflow Runner Post-Start Cleanup
 
 ### Problem
 
@@ -594,7 +744,7 @@ triggers the post-start persistence failure. The test should verify the workflow
 does not stay silently running without refs, and that Stop/recovery behavior is
 deterministic.
 
-## Track 6: Workflow Definition File Atomicity
+## Track 7: Workflow Definition File Atomicity
 
 ### Problem
 
@@ -810,6 +960,8 @@ placeholder.
   non-executing `running` run.
 - `on-failure` is rejected at Setta-owned runtime boundaries and is never sent
   back to Codex.
+- Codex app-server read/protocol/shutdown failures cannot leave a live or
+  unreaped child process behind the finished client.
 - Large browser-side Electron test programs live in normal source modules, not
   multi-kilobyte string literals.
 - Failed workflow run attempts do not create durable definition versions, and a

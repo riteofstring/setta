@@ -26,6 +26,11 @@ the loop stops only when Agent 2's final message is exactly:
 Agent 2 may also use that sentinel when the plan is implemented as much as
 possible and the remaining work is blocked.
 
+This dedicated automation helper intentionally runs Codex in the current
+repository checkout with approvals and sandbox bypassed. That behavior is
+acceptable here because the loop is for unattended repo-local plan execution
+where agents are expected to edit and commit directly in the working tree.
+
 Codex transcripts are written to per-agent log files. The terminal prints only
 loop status and periodic progress updates.
 
@@ -78,6 +83,8 @@ run_agent() {
 
   log_info "Starting ${agent_name}. Transcript: ${transcript_file}. Last message: ${last_message_file}"
 
+  # This dedicated plan loop is intentionally allowed to mutate and commit in
+  # the current checkout without approval prompts or filesystem sandboxing.
   codex exec \
     --color never \
     --cd "${ROOT_DIR}" \

@@ -9,5 +9,7 @@ Use `run-codex-plan-loop.sh` for generic plan-driven fresh-session loops and
 
 Use `run-chat-run-liveness-navigation-steps-loop.sh` for the dedicated chat run
 liveness navigation plan loop. It follows the older two-agent step/audit style
-and runs with approvals and sandbox bypassed, because it is intended for long
-unattended repo-local execution.
+and intentionally runs in the current repository checkout with approvals and
+sandbox bypassed. That behavior is acceptable for this dedicated automation
+helper because its purpose is long unattended repo-local execution where agents
+are expected to edit and commit directly in the working tree.
