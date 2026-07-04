@@ -413,6 +413,27 @@ export async function runProtocolLivenessReconciliationWorkflow(client, backend,
   await assertNoActiveRun(backend, workspaceId, conversationId);
 }
 
+export async function runProtocolProviderRestartLivenessWorkflow(client, backend, workspaceId) {
+  const conversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "app-server exit workflow", "Send message");
+  const run = await waitForRunStatusForPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "app-server exit workflow",
+    "running",
+  );
+  await waitForRendererLiveness(client, run.id, "reconciling", "reconnecting");
+  const list = await backend.post("/chat/conversations/list", { workspaceId });
+  const item = list.conversations.find((candidate) => candidate.conversation.id === conversationId);
+  assertProviderRestartLivenessItem(item, run.id);
+  await waitForTexts(client, ["Reconnecting"]);
+  await assertDegradedRunControls(client, { retry: true, stop: true });
+  await clickButtonByAria(client, "Stop run");
+  await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
 async function waitForRunStatusForPrompt(backend, workspaceId, conversationId, prompt, status) {
   return waitForBackendState(async () => {
     const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
@@ -430,6 +451,25 @@ function assertReconciledRunLiveness(response, runId) {
   }
   if (!liveness.retryable || !liveness.cancellable) {
     throw new Error(`reconciled liveness capabilities mismatch: ${JSON.stringify(liveness)}`);
+  }
+}
+
+function assertProviderRestartLivenessItem(item, runId) {
+  if (!item) {
+    throw new Error(`provider restart conversation missing for run ${runId}`);
+  }
+  const liveness = item.activeRunLiveness;
+  if (item.activeRunId !== runId) {
+    throw new Error(`provider restart active run mismatch: ${JSON.stringify(item)}`);
+  }
+  if (!liveness) {
+    throw new Error(`provider restart liveness missing: ${JSON.stringify(item)}`);
+  }
+  if (liveness.status !== "reconciling" || liveness.reason !== "provider_restarted") {
+    throw new Error(`provider restart liveness status mismatch: ${JSON.stringify(liveness)}`);
+  }
+  if (!liveness.retryable || !liveness.cancellable) {
+    throw new Error(`provider restart liveness capabilities mismatch: ${JSON.stringify(liveness)}`);
   }
 }
 

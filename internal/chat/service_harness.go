@@ -200,6 +200,10 @@ func (service *Service) handleHarnessTurnError(ctx context.Context, request Turn
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return
 	}
+	var lifecycleErr *HarnessProviderLifecycleError
+	if errors.As(err, &lifecycleErr) && service.handleHarnessProviderLifecycleError(ctx, request, lifecycleErr) {
+		return
+	}
 	var refErr *HarnessRefUnavailableError
 	if errors.As(err, &refErr) {
 		if markErr := service.markHarnessRefUnavailable(request.Workspace.ID, request.Conversation.ID, request.Run.ID, refErr); markErr != nil {
@@ -209,6 +213,26 @@ func (service *Service) handleHarnessTurnError(ctx context.Context, request Turn
 	if failErr := service.failTurn(request.Workspace.ID, request.Conversation.ID, request.Run.ID, err.Error()); failErr != nil {
 		service.recordBackgroundFailure(request, "fail_turn_transition_failed", failErr)
 	}
+}
+
+func (service *Service) handleHarnessProviderLifecycleError(ctx context.Context, request TurnRequest, err *HarnessProviderLifecycleError) bool {
+	if err.Reason == "" || !validRunLivenessReconcileReason(err.Reason) {
+		service.recordBackgroundFailure(request, "provider_lifecycle_reason_unsupported", err)
+		return false
+	}
+	reconciled, reconcileErr := service.ReconcileActiveRuns(ctx, request.Workspace.ID, request.Conversation.ID, err.Reason)
+	if reconcileErr != nil {
+		service.recordBackgroundFailure(request, "provider_lifecycle_reconcile_failed", reconcileErr)
+		return false
+	}
+	for _, liveness := range reconciled.Runs {
+		if liveness.WorkspaceID == request.Workspace.ID &&
+			liveness.ConversationID == request.Conversation.ID &&
+			liveness.RunID == request.Run.ID {
+			return true
+		}
+	}
+	return false
 }
 
 func (service *Service) handleHarnessTurnCompletion(request TurnRequest, completion TurnCompletion) {

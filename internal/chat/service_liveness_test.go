@@ -1,8 +1,13 @@
 package chat
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
+
+	"setta/internal/workspace"
 )
 
 func TestServiceProjectsActiveRunLivenessBeforeProviderRef(t *testing.T) {
@@ -152,6 +157,156 @@ func TestServicePublishesTerminalRunLiveness(t *testing.T) {
 	if len(list.Conversations) != 1 || list.Conversations[0].ActiveRunID != "" || list.Conversations[0].ActiveRunLiveness != nil {
 		t.Fatalf("conversation list after completion = %+v, want no active liveness", list.Conversations)
 	}
+}
+
+func TestServiceProviderLifecycleErrorReconcilesWithProviderRestartedReason(t *testing.T) {
+	harness := newProviderRestartLifecycleHarness()
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	subscription, err := service.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("restart"))
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+
+	restarted := waitForProviderRestartedLiveness(t, subscription, result.Run.ID)
+	assertRunLiveness(t, &restarted, RunLiveness{
+		WorkspaceID:         "workspace_api",
+		ConversationID:      conversation.ID,
+		RunID:               result.Run.ID,
+		Harness:             HarnessCodex,
+		Status:              RunLivenessReconciling,
+		Reason:              RunLivenessReasonProviderRestarted,
+		Retryable:           true,
+		Cancellable:         true,
+		ProviderThreadID:    "thread_restart",
+		ProviderTurnID:      "turn_restart",
+		LastProviderEventAt: "2026-05-29T20:00:00Z",
+		LastReconciledAt:    "2026-05-29T20:00:00Z",
+	})
+	assertProviderRestartReconcileRequest(t, harness)
+	assertActiveRunLiveness(t, service, conversation.ID, restarted)
+	assertSnapshotPreservesProviderRestartReason(t, service, conversation.ID)
+	assertProviderRestartPartialAssistantText(t, service, conversation.ID)
+
+	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
+		t.Fatalf("cancel active run: %v", err)
+	}
+}
+
+func waitForProviderRestartedLiveness(t *testing.T, subscription *EventSubscription, runID string) RunLiveness {
+	t.Helper()
+	events := receiveEventsUntil(t, subscription, func(event Event) bool {
+		if event.Type != EventTypeRunLivenessUpdated || event.RunID != runID {
+			return false
+		}
+		liveness := requireRunLivenessPayload(t, event)
+		return liveness.Status == RunLivenessReconciling && liveness.Reason == RunLivenessReasonProviderRestarted
+	})
+	return requireRunLivenessPayload(t, events[len(events)-1])
+}
+
+func assertProviderRestartReconcileRequest(t *testing.T, harness *providerRestartLifecycleHarness) {
+	t.Helper()
+	var request HarnessRunLivenessRequest
+	select {
+	case request = <-harness.reconciled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for provider restart liveness reconciliation")
+	}
+	if request.ThreadID != "thread_restart" || request.TurnID != "turn_restart" {
+		t.Fatalf("reconcile request = %+v, want linked provider refs", request)
+	}
+}
+
+func assertActiveRunLiveness(t *testing.T, service *Service, conversationID string, want RunLiveness) {
+	t.Helper()
+	_, activeLiveness, ok, err := service.ActiveRunWithLiveness("workspace_api", conversationID)
+	if err != nil || !ok {
+		t.Fatalf("active run after provider restart ok=%v err=%v", ok, err)
+	}
+	assertRunLiveness(t, activeLiveness, want)
+}
+
+func assertSnapshotPreservesProviderRestartReason(t *testing.T, service *Service, conversationID string) {
+	t.Helper()
+	snapshot, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversationID, RunLivenessReasonSnapshotLoad)
+	if err != nil {
+		t.Fatalf("snapshot reconcile after provider restart: %v", err)
+	}
+	if len(snapshot.Runs) != 1 || snapshot.Runs[0].Reason != RunLivenessReasonProviderRestarted {
+		t.Fatalf("snapshot reconcile liveness = %+v, want provider restart reason preserved", snapshot.Runs)
+	}
+}
+
+func assertProviderRestartPartialAssistantText(t *testing.T, service *Service, conversationID string) {
+	t.Helper()
+	page, err := service.LoadMessagePage("workspace_api", conversationID, 0, 20)
+	if err != nil {
+		t.Fatalf("load message page: %v", err)
+	}
+	if len(page.Messages) < 2 ||
+		len(page.Messages[1].Parts) == 0 ||
+		page.Messages[1].Parts[0].Text == nil ||
+		page.Messages[1].Parts[0].Text.Text != "partial before restart" {
+		t.Fatalf("page messages = %+v, want preserved partial assistant text", page.Messages)
+	}
+}
+
+type providerRestartLifecycleHarness struct {
+	reconciled chan HarnessRunLivenessRequest
+}
+
+func newProviderRestartLifecycleHarness() *providerRestartLifecycleHarness {
+	return &providerRestartLifecycleHarness{reconciled: make(chan HarnessRunLivenessRequest, 1)}
+}
+
+func (harness *providerRestartLifecycleHarness) StartTurn(_ context.Context, _ TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.ThreadLinked("thread_restart", "session_restart", "turn_restart", nil); err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := sink.AssistantTextDelta("answer", "partial before restart"); err != nil {
+		return TurnCompletion{}, err
+	}
+	return TurnCompletion{}, &HarnessProviderLifecycleError{
+		Err:     errors.New("codex app-server exited"),
+		Message: "codex app-server exited before turn completed",
+		Reason:  RunLivenessReasonProviderRestarted,
+	}
+}
+
+func (harness *providerRestartLifecycleHarness) ReconcileRunLiveness(_ context.Context, request HarnessRunLivenessRequest) (HarnessRunLivenessResult, error) {
+	harness.reconciled <- request
+	return HarnessRunLivenessResult{
+		ThreadID:     request.ThreadID,
+		ThreadStatus: HarnessThreadRuntimeActive,
+		TurnID:       request.TurnID,
+		TurnFound:    true,
+		TurnStatus:   HarnessTurnRuntimeInProgress,
+	}, nil
+}
+
+func (harness *providerRestartLifecycleHarness) CancelTurn(context.Context, CancelRequest) error {
+	return ErrTurnNotStarted
+}
+
+func (harness *providerRestartLifecycleHarness) SteerTurn(context.Context, SteerRequest) error {
+	return ErrTurnNotStarted
+}
+
+func (harness *providerRestartLifecycleHarness) SubmitApproval(context.Context, ApprovalResponse) error {
+	return nil
+}
+
+func (harness *providerRestartLifecycleHarness) ResolveCodexEffectiveSettings(context.Context, workspace.WorkspaceSummary, Conversation) (*ChatCodexEffectiveSettings, error) {
+	return nil, nil
 }
 
 func assertRunLiveness(t *testing.T, got *RunLiveness, want RunLiveness) {

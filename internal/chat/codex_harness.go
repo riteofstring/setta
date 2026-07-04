@@ -324,7 +324,11 @@ func (harness *CodexHarness) handleCodexSessionEvent(ctx context.Context, sessio
 	case codexapp.EventNotification:
 		return harness.handleCodexNotificationForTurn(ctx, session, event.Message, runID, threadID, activeTurnID, sink)
 	case codexapp.EventLifecycle:
-		return codexTurnWaitResult{}, fmt.Errorf("codex app-server exited before turn completed: %w", event.Err)
+		return codexTurnWaitResult{}, &HarnessProviderLifecycleError{
+			Err:     event.Err,
+			Message: "codex app-server exited before turn completed",
+			Reason:  RunLivenessReasonProviderRestarted,
+		}
 	default:
 		return codexTurnWaitResult{}, fmt.Errorf("unsupported codex app-server session event: %s", event.Kind)
 	}

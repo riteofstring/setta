@@ -1,4 +1,6 @@
 import { Buffer } from "node:buffer";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import process from "node:process";
 import readline from "node:readline";
 import { setTimeout } from "node:timers";
@@ -17,6 +19,11 @@ const goalForegroundUnifiedExec = {
   itemId: "goal_fg_command",
   processId: "goal_fg_process",
 };
+const statePath =
+  process.env.SETTA_FAKE_CODEX_STATE_PATH ??
+  (process.env.SETTA_APP_DATA_DIR
+    ? join(process.env.SETTA_APP_DATA_DIR, "fake-codex-app-server-state.json")
+    : "");
 let account = null;
 let activeSilentLivenessTurn = null;
 let currentGoal = null;
@@ -116,7 +123,7 @@ function handleThreadRead(message) {
   if (message.params?.threadId !== threadId) {
     throw new Error(`unexpected thread/read threadId: ${message.params?.threadId}`);
   }
-  respond(message.id, { thread: fakeThread({ activeTurn: activeSilentLivenessTurn }) });
+  respond(message.id, { thread: fakeThread({ activeTurn: activeTurnForThreadRead() }) });
 }
 
 function handleTurnStart(message) {
@@ -128,6 +135,7 @@ function handleTurnStart(message) {
   }
   const text = turnInputText(message);
   if (text.includes("app-server exit workflow")) {
+    writeFakeState({ activeRestartTurn: true });
     setTimeout(() => process.exit(42), 5);
     return;
   }
@@ -199,6 +207,29 @@ function fakeTurn(status) {
     items: [],
     status,
   };
+}
+
+function activeTurnForThreadRead() {
+  if (activeSilentLivenessTurn !== null) {
+    return activeSilentLivenessTurn;
+  }
+  const state = readFakeState();
+  return state.activeRestartTurn === true ? fakeTurn("inProgress") : null;
+}
+
+function readFakeState() {
+  if (statePath === "" || !existsSync(statePath)) {
+    return {};
+  }
+  return JSON.parse(readFileSync(statePath, "utf8"));
+}
+
+function writeFakeState(state) {
+  if (statePath === "") {
+    return;
+  }
+  mkdirSync(dirname(statePath), { recursive: true });
+  writeFileSync(statePath, JSON.stringify(state), "utf8");
 }
 
 function handleConfigRead(message) {
@@ -332,6 +363,9 @@ function handleTurnInterrupt(message) {
   if (handleSilentLivenessInterrupt(message)) {
     return;
   }
+  if (handleRestartLivenessInterrupt(message)) {
+    return;
+  }
   respond(message.id, {});
 }
 
@@ -360,6 +394,22 @@ function handleSilentLivenessInterrupt(message) {
     return false;
   }
   activeSilentLivenessTurn = null;
+  respond(message.id, {});
+  notify("turn/completed", {
+    threadId,
+    turn: fakeTurn("interrupted"),
+  });
+  return true;
+}
+
+function handleRestartLivenessInterrupt(message) {
+  if (message.params?.turnId !== turnId) {
+    return false;
+  }
+  if (readFakeState().activeRestartTurn !== true) {
+    return false;
+  }
+  writeFakeState({ activeRestartTurn: false });
   respond(message.id, {});
   notify("turn/completed", {
     threadId,

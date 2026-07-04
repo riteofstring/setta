@@ -58,6 +58,35 @@ type HarnessRunLivenessResult struct {
 	TurnError    string
 }
 
+type HarnessProviderLifecycleError struct {
+	Reason  RunLivenessReason
+	Message string
+	Err     error
+}
+
+func (err *HarnessProviderLifecycleError) Error() string {
+	if err == nil {
+		return "provider lifecycle error"
+	}
+	if err.Message == "" {
+		if err.Err != nil {
+			return err.Err.Error()
+		}
+		return "provider lifecycle error"
+	}
+	if err.Err == nil {
+		return err.Message
+	}
+	return fmt.Sprintf("%s: %v", err.Message, err.Err)
+}
+
+func (err *HarnessProviderLifecycleError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.Err
+}
+
 type HarnessTaskRunner interface {
 	RunTask(context.Context, HarnessTaskRequest) (HarnessTaskResult, error)
 }

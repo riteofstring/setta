@@ -84,6 +84,7 @@ import {
   runProtocolGoalForegroundUnifiedExecWorkflow,
   runProtocolLivenessReconciliationWorkflow,
   runProtocolGoalMultiTurnWorkflow,
+  runProtocolProviderRestartLivenessWorkflow,
 } from "./codex-protocol-workflow.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 
@@ -1276,22 +1277,7 @@ async function runCodexProtocolWorkflow(results) {
     await runProtocolGoalBackgroundTerminalWorkflow(context.client, backend, workspaceId, fixture);
     await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);
     await runProtocolLivenessReconciliationWorkflow(context.client, backend, workspaceId);
-
-    const exitConversationId = await createChat(context.client, backend, workspaceId);
-    await submitComposer(context.client, "app-server exit workflow", "Send message");
-    const failedRun = await waitForRunWithPrompt(
-      backend,
-      workspaceId,
-      exitConversationId,
-      "app-server exit workflow",
-      "failed",
-    );
-    if (!failedRun.error.includes("codex app-server exited")) {
-      throw new Error(
-        `app-server exit run error did not mention exit: ${JSON.stringify(failedRun)}`,
-      );
-    }
-    await assertNoActiveRun(backend, workspaceId, exitConversationId);
+    await runProtocolProviderRestartLivenessWorkflow(context.client, backend, workspaceId);
     await captureScreenshot(context.client, join(recordingDir, "success.png"));
   } catch (error) {
     failure = error;

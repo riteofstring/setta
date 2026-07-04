@@ -67,13 +67,22 @@ func (service *Service) markRunLivenessAttachedLocked(workspaceID string, conver
 func (service *Service) markActiveRunLivenessReconcilingLocked(workspaceID string, conversationID string, run Run, active activeTurn, reason RunLivenessReason, reconciledAt string) RunLiveness {
 	liveness := service.activeRunLivenessValueLocked(workspaceID, conversationID, run, active)
 	liveness.Status = RunLivenessReconciling
-	liveness.Reason = reason
+	liveness.Reason = reconcilingRunLivenessReason(liveness, reason)
 	liveness.Retryable = true
 	liveness.Cancellable = true
 	liveness.LastReconciledAt = reconciledAt
 	liveness.Error = ""
 	service.liveness[activeKey(workspaceID, conversationID)] = liveness
 	return liveness
+}
+
+func reconcilingRunLivenessReason(current RunLiveness, next RunLivenessReason) RunLivenessReason {
+	if current.Status == RunLivenessReconciling &&
+		current.Reason == RunLivenessReasonProviderRestarted &&
+		next == RunLivenessReasonSnapshotLoad {
+		return current.Reason
+	}
+	return next
 }
 
 func (service *Service) markActiveRunLivenessLostLocked(workspaceID string, conversationID string, run Run, active activeTurn, reason RunLivenessReason, reconciledAt string, message string) RunLiveness {
