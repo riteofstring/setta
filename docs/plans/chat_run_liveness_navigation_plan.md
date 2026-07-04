@@ -151,6 +151,17 @@ stream.
   agent is working, update in place as steps change, and remain linked to the
   chronological transcript without being accessible only through a tool-call
   group.
+- When the todo list completes, the current-plan surface should briefly show a
+  completed presentation instead of disappearing instantly.
+- The active goal remains top-level conversation context. It acts like the
+  conversation subject, so it should stay above the transcript rather than move
+  into the above-input active-work stack.
+- Current plan and background terminals share the above-input active-work stack.
+  If both are present, render them in a stable order as separate compact rows:
+  current plan first, then background terminals, then the composer.
+- Background terminal completion should also have dwell behavior. Successful
+  exits may dismiss after a short completed presentation; failed or lost
+  terminals should remain until inspected or dismissed.
 
 ## Non-Goals
 
@@ -351,16 +362,55 @@ Backend contract work:
 Renderer work:
 
 - add a compact current-plan footer/surface near the composer, in the same
-  active-work area as background terminals;
+  active-work stack as background terminals;
 - show progress and the current in-progress step in the collapsed affordance;
 - expand to a readable list with completed, in-progress, and pending states;
 - update in place as plan updates arrive, even while other activity rows stream;
+- when the owning turn completes, transition to a `complete` presentation with
+  checked items and a clear completed indicator for a short minimum dwell, such
+  as 1500ms;
+- do not auto-dismiss the completed surface while it is expanded, hovered, or
+  keyboard focus is inside it;
 - keep transcript plan rows as chronological anchors, with a path from the row
   to the current-plan surface when the run is active.
 
 The current-plan surface should be conversation-scoped and disappear when there
-is no active plan for the selected conversation. Completed plans remain available
-through the transcript history rather than a permanent footer.
+is no active or recently completed plan for the selected conversation. Completed
+plans remain available through the transcript history rather than a permanent
+footer.
+
+### Phase 9: Active Work Stack And Dwell
+
+Introduce a single above-input active-work stack for turn-local live work:
+
+- current plan;
+- background terminals;
+- any future active-run surfaces with the same lifecycle semantics.
+
+Keep `GoalStatus` as top conversation chrome. The goal frames the whole
+conversation and should not be duplicated in the active-work stack. Pending goal
+submission, active, paused, blocked, budget-limited, usage-limited, and complete
+goal states remain in the top strip.
+
+Stack behavior:
+
+- render current plan above background terminals when both are present;
+- keep each collapsed row compact and independently readable;
+- cap expanded panel height so the composer remains reachable;
+- allow one large expanded panel at a time unless implementation proves multiple
+  expanded panels remain usable on small viewports;
+- preserve keyboard focus and hover state when deciding whether an item may
+  auto-dismiss.
+
+Terminal dwell behavior:
+
+- when the last running terminal exits successfully, show an exited/completed
+  presentation for a short minimum dwell, such as 1500-3000ms;
+- do not auto-dismiss while the terminal monitor is open, hovered, or focused;
+- keep failed or lost terminals visible until the user inspects or dismisses
+  them, because those states are actionable;
+- keep chronological background-terminal transcript markers as history, while
+  live terminal state belongs to the active-work stack.
 
 ## Verification Plan
 
@@ -380,7 +430,18 @@ Then run production-path workflow coverage:
   output continues to stream, asserting the transcript stays detached until the
   user returns to the bottom or jumps to latest;
 - deterministic Electron chat workflow for plan updates, asserting the current
-  todo surface appears, updates steps in place, and clears after run completion;
+  todo surface appears, updates steps in place, shows a completed presentation
+  on run completion, respects the minimum dwell, and then clears when the user is
+  not interacting with it;
+- deterministic Electron chat workflow where a current plan and a background
+  terminal are active together, asserting both compact rows appear in the shared
+  above-input stack in the stable order;
+- deterministic Electron chat workflow for background terminal completion,
+  asserting successful exits dwell briefly, failed/lost terminals persist until
+  inspected or dismissed, and no auto-dismiss occurs while hovered, focused, or
+  expanded;
+- renderer/component coverage asserting goal status remains above the transcript
+  and is not duplicated in the active-work stack;
 - renderer/component coverage for opened activity group and opened activity row
   markup, with stable assertions for the detail sections and command/output
   blocks.
@@ -404,9 +465,6 @@ contracts, or code paths change.
 - Which typed evidence should count as enough to preserve working state:
   matching active run, active-turn provider refs, current `RunLivenessAttached`,
   explicit provider reconciliation result, or a combination of those fields?
-- Should the current-plan surface stack above or below the background-terminal
-  surface when both are active? The default should be the order that keeps the
-  composer closest to the most frequently changing active-work control.
 - Should clicking a chronological plan row open the current-plan surface when
   the run is active, or only focus the transcript row?
 
@@ -423,6 +481,13 @@ contracts, or code paths change.
 - Scrolling upward from the bottom detaches immediately and does not snap back
   while streaming continues.
 - Active Codex todo lists are visible in a persistent current-plan surface,
-  update in place, and are no longer discoverable only as generic tool activity.
+  update in place, briefly show completion before dismissing, and are no longer
+  discoverable only as generic tool activity.
+- Current plan and background terminals coexist in one above-input active-work
+  stack without crowding or competing footers.
+- Background terminal success, failure, and lost states do not vanish before the
+  user can perceive or inspect them.
+- Active goal state remains top conversation context rather than being mixed
+  with turn-local active-work surfaces.
 - The implementation remains contract-driven and typed across Go, generated
   TypeScript, renderer state, transcript UI, and sidebar UI.
