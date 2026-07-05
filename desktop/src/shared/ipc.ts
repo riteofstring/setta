@@ -10,6 +10,9 @@ import type {
   AttachSemanticNodeToWorkflowExecutionRequest,
   AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
+  BackgroundTerminalListProjection,
+  BackgroundTerminalOutputPage,
+  BackgroundTerminalProcess,
   BuildCartographerWindowRequest,
   CancelCodexLoginRequest,
   CartographerCursorList,
@@ -23,18 +26,25 @@ import type {
   CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
+  ChatCodexDefaultsView,
+  ChatInput,
+  ChatPermissionPresetID,
   CodexAccountState,
+  ComposerPromptHistoryPage,
   Conversation,
   ConversationListItem,
   CreateSemanticEdgeRequest,
   CreateSemanticNodeRequest,
   CreateSemanticSteeringDirectiveRequest,
+  CloseTerminalRequest,
+  CloseTerminalResponse,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
+  ImageAttachment,
   ListCartographerCursorsRequest,
   ListCartographerPatchesRequest,
   ListCartographerRunsRequest,
@@ -52,11 +62,14 @@ import type {
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
+  ReconcileChatRunsRequest,
+  ReconcileChatRunsResponse,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
   ReadSemanticContextPackRequest,
   ReadWorkflowGraphProjectionResponse,
+  ReadWorkflowNodeTrajectoryRequest,
   ReadSemanticEventHistoryRequest,
   ReadSemanticGraphRequest,
   ReadSemanticNodeDetailRequest,
@@ -66,10 +79,12 @@ import type {
   ReadWorkspaceActivitySnapshotResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
+  RetryWorkflowNodeRunLivenessRequest,
   ResizeTerminalRequest,
   ReviewCartographerPatchRequest,
   Run,
   RunActivityPage,
+  RunLivenessReconciliationResult,
   RunItemOutputPage,
   ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
@@ -95,18 +110,22 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
+  SteerWorkflowNodeRunRequest,
   SubmitApprovalRequest,
+  StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalInputRequest,
   TerminalInputResponse,
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateChatCodexDefaultsRequest,
   UpdateSemanticEdgeRequest,
   UpdateSemanticLayoutPositionsRequest,
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  WorkflowAgentTrajectoryPage,
   WorkflowDefinition,
   WorkflowExecution,
   WorkflowExecutionEventPage,
@@ -150,23 +169,36 @@ export const ipcChannels = {
   runtimeSwitch: "runtimes:switch",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
+  chatReconcileRuns: "chat:reconcile-runs",
+  chatCreateImageAttachmentFromBytes: "chat:create-image-attachment-from-bytes",
   chatCreateConversation: "chat:create-conversation",
   chatDeleteConversation: "chat:delete-conversation",
   chatEditQueuedMessage: "chat:edit-queued-message",
   chatExecuteCommand: "chat:execute-command",
+  chatReadCodexDefaults: "chat:read-codex-defaults",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
+  chatListBackgroundTerminals: "chat:list-background-terminals",
+  chatGetBackgroundTerminalOutput: "chat:get-background-terminal-output",
+  chatKillBackgroundTerminal: "chat:kill-background-terminal",
+  chatKillAllBackgroundTerminals: "chat:kill-all-background-terminals",
   chatMarkConversationRead: "chat:mark-conversation-read",
   chatMessagePage: "chat:message-page",
+  chatListComposerPromptHistory: "chat:list-composer-prompt-history",
   chatQueueMessage: "chat:queue-message",
   chatRemoveQueuedMessage: "chat:remove-queued-message",
   chatRunActivity: "chat:run-activity",
   chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
   chatSendSteeringImmediately: "chat:send-steering-immediately",
+  chatOpenCodexModelPicker: "chat:open-codex-model-picker",
+  chatOpenCodexPermissionPicker: "chat:open-codex-permission-picker",
   chatSetCodexModel: "chat:set-codex-model",
+  chatSetCodexPermissionPreset: "chat:set-codex-permission-preset",
   chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
+  chatUpdateCodexDefaults: "chat:update-codex-defaults",
   chatSetConversationPinned: "chat:set-conversation-pinned",
+  chatSelectImageAttachments: "chat:select-image-attachments",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
   codexAccountCancelLogin: "codex-account:cancel-login",
@@ -237,7 +269,11 @@ export const ipcChannels = {
   workflowListExecutions: "workflow:list-executions",
   workflowReadDefinition: "workflow:read-definition",
   workflowReadExecution: "workflow:read-execution",
+  workflowReadNodeTrajectory: "workflow:read-node-trajectory",
+  workflowRetryNodeRunLiveness: "workflow:retry-node-run-liveness",
   workflowStartExecution: "workflow:start-execution",
+  workflowSteerNodeRun: "workflow:steer-node-run",
+  workflowStopNodeRun: "workflow:stop-node-run",
   workflowSubmitApproval: "workflow:submit-approval",
   workflowUpdateDefinition: "workflow:update-definition",
   workflowValidateDefinition: "workflow:validate-definition",
@@ -353,6 +389,10 @@ interface IpcContract {
     args: [workspaceId: string, conversationId: string];
     result: Run;
   };
+  chatReconcileRuns: {
+    args: [request: ReconcileChatRunsRequest];
+    result: ReconcileChatRunsResponse;
+  };
   chatCreateConversation: {
     args: [workspaceId: string, title: string];
     result: Conversation;
@@ -362,8 +402,16 @@ interface IpcContract {
     result: ListConversationsResponse;
   };
   chatEditQueuedMessage: {
-    args: [workspaceId: string, conversationId: string, messageId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, messageId: string, input: ChatInput];
     result: QueueEditResult;
+  };
+  chatCreateImageAttachmentFromBytes: {
+    args: [workspaceId: string, conversationId: string, fileName: string, dataBase64: string];
+    result: ImageAttachment;
+  };
+  chatSelectImageAttachments: {
+    args: [workspaceId: string, conversationId: string, maxCount: number];
+    result: ImageAttachment[];
   };
   chatExecuteCommand: {
     args: [
@@ -374,13 +422,38 @@ interface IpcContract {
     ];
     result: ChatCommandExecuteResult;
   };
+  chatReadCodexDefaults: {
+    args: [];
+    result: ChatCodexDefaultsView;
+  };
+  chatOpenCodexModelPicker: {
+    args: [workspaceId: string, conversationId: string];
+    result: ChatCommandExecuteResult;
+  };
+  chatOpenCodexPermissionPicker: {
+    args: [workspaceId: string, conversationId: string];
+    result: ChatCommandExecuteResult;
+  };
   chatSetCodexModel: {
     args: [workspaceId: string, conversationId: string, modelId: string];
+    result: ChatCommandExecuteResult;
+  };
+  chatSetCodexPermissionPreset: {
+    args: [
+      workspaceId: string,
+      conversationId: string,
+      preset: ChatPermissionPresetID,
+      confirmed: boolean,
+    ];
     result: ChatCommandExecuteResult;
   };
   chatSetCodexReasoningEffort: {
     args: [workspaceId: string, conversationId: string, effort: ReasoningEffort];
     result: ChatCommandExecuteResult;
+  };
+  chatUpdateCodexDefaults: {
+    args: [request: UpdateChatCodexDefaultsRequest];
+    result: ChatCodexDefaultsView;
   };
   chatSetConversationPinned: {
     args: [workspaceId: string, conversationId: string, pinned: boolean];
@@ -399,11 +472,15 @@ interface IpcContract {
     result: ConversationListItem;
   };
   chatMessagePage: {
-    args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
+    args: [workspaceId: string, conversationId: string, beforeBlockOrdinal: number, limit: number];
     result: MessagePage;
   };
+  chatListComposerPromptHistory: {
+    args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
+    result: ComposerPromptHistoryPage;
+  };
   chatQueueMessage: {
-    args: [workspaceId: string, conversationId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, input: ChatInput];
     result: QueueMessageResult;
   };
   chatRemoveQueuedMessage: {
@@ -411,7 +488,7 @@ interface IpcContract {
     result: QueueRemoveResult;
   };
   chatRunActivity: {
-    args: [workspaceId: string, runId: string, limit: number];
+    args: [workspaceId: string, runId: string, afterItemId: string, limit: number];
     result: RunActivityPage;
   };
   chatRunItemOutput: {
@@ -424,16 +501,38 @@ interface IpcContract {
     ];
     result: RunItemOutputPage;
   };
+  chatListBackgroundTerminals: {
+    args: [workspaceId: string, conversationId: string];
+    result: BackgroundTerminalListProjection;
+  };
+  chatGetBackgroundTerminalOutput: {
+    args: [
+      workspaceId: string,
+      conversationId: string,
+      processId: string,
+      afterOrdinal: number,
+      limit: number,
+    ];
+    result: BackgroundTerminalOutputPage;
+  };
+  chatKillBackgroundTerminal: {
+    args: [workspaceId: string, conversationId: string, processId: string];
+    result: BackgroundTerminalProcess;
+  };
+  chatKillAllBackgroundTerminals: {
+    args: [workspaceId: string, conversationId: string];
+    result: BackgroundTerminalListProjection;
+  };
   chatSendMessage: {
-    args: [workspaceId: string, conversationId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, input: ChatInput];
     result: SendMessageResult;
   };
   chatSendSteeringImmediately: {
-    args: [workspaceId: string, conversationId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, input: ChatInput | null];
     result: ImmediateSteeringResult;
   };
   chatSteerMessage: {
-    args: [workspaceId: string, conversationId: string, prompt: string];
+    args: [workspaceId: string, conversationId: string, input: ChatInput];
     result: SteerMessageResult;
   };
   chatSubmitApproval: {
@@ -641,8 +740,8 @@ interface IpcContract {
     result: TerminalSessionResponse;
   };
   terminalClose: {
-    args: [sessionId: string, mode: "terminate" | "kill"];
-    result: TerminalSessionResponse;
+    args: [request: CloseTerminalRequest];
+    result: CloseTerminalResponse;
   };
   terminalCreate: {
     args: [
@@ -719,8 +818,24 @@ interface IpcContract {
     args: [workspaceId: string, executionId: string];
     result: WorkflowExecution;
   };
+  workflowReadNodeTrajectory: {
+    args: [request: ReadWorkflowNodeTrajectoryRequest];
+    result: WorkflowAgentTrajectoryPage;
+  };
+  workflowRetryNodeRunLiveness: {
+    args: [request: RetryWorkflowNodeRunLivenessRequest];
+    result: RunLivenessReconciliationResult;
+  };
   workflowStartExecution: {
     args: [workspaceId: string, definitionId: string, versionId: string];
+    result: WorkflowExecution;
+  };
+  workflowSteerNodeRun: {
+    args: [request: SteerWorkflowNodeRunRequest];
+    result: SteerMessageResult;
+  };
+  workflowStopNodeRun: {
+    args: [request: StopWorkflowNodeRunRequest];
     result: WorkflowExecution;
   };
   workflowSubmitApproval: {

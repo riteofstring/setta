@@ -57,11 +57,14 @@ interface RendererUnhandledRejectionEvent extends RendererRecordedEventBase {
 
 interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
   activeRunStatus: string;
+  backgroundTerminalSurface: RendererBackgroundTerminalSurfaceSnapshot;
   chatDetailPane: RendererRect | null;
   composer: RendererRect | null;
+  jumpToLatestButton: RendererVisibleRect | null;
   queueSize: number;
   selectedConversationId: string;
   transcript: RendererScrollRect | null;
+  transcriptScrollDebug: RendererTranscriptScrollDebugSnapshot | null;
   trigger: string;
   type: "layout_snapshot";
   viewport: {
@@ -69,6 +72,14 @@ interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
     width: number;
   };
   visibleTurnIds: string[];
+}
+
+interface RendererBackgroundTerminalSurfaceSnapshot {
+  footerPhase: string;
+  footerVisible: boolean;
+  monitorOpen: boolean;
+  visibleTerminalIds: string[];
+  visibleTerminalStatuses: string[];
 }
 
 interface RendererRect {
@@ -82,5 +93,38 @@ interface RendererRect {
 
 interface RendererScrollRect extends RendererRect {
   clientHeight: number;
+  distanceFromBottom: number;
+  scrollTop: number;
   scrollHeight: number;
 }
+
+interface RendererVisibleRect extends RendererRect {
+  visible: boolean;
+}
+
+interface RendererTranscriptScrollDebugTraceEntry {
+  [key: string]: boolean | number | string | null;
+}
+
+type RendererTranscriptScrollDebugSnapshot =
+  | {
+      awayFromBottom: boolean;
+      atBottom: boolean;
+      clientHeight: number;
+      distanceFromBottom: number;
+      hasScrollableOverflow: boolean;
+      lastVisibleIndex: number;
+      mode: string;
+      pendingScrollCount: number;
+      programmaticScrollCount: number;
+      rowCount: number;
+      scrollHeight: number;
+      source: string;
+      scrollTop: number;
+      tailRevision: string;
+      trace: RendererTranscriptScrollDebugTraceEntry[];
+    }
+  | {
+      error: string;
+      source: string;
+    };

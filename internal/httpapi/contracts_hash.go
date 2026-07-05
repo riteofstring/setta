@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"setta/internal/chat"
 )
 
 type contractSchemaHashInput struct {
@@ -25,12 +27,20 @@ type contractEndpointHashInput struct {
 }
 
 type contractTypeHashInput struct {
-	Elem    *contractTypeHashInput   `json:"elem,omitempty"`
-	Fields  []contractFieldHashInput `json:"fields,omitempty"`
-	Key     *contractTypeHashInput   `json:"key,omitempty"`
-	Kind    string                   `json:"kind"`
-	Name    string                   `json:"name,omitempty"`
-	PkgPath string                   `json:"pkgPath,omitempty"`
+	Discriminator string                          `json:"discriminator,omitempty"`
+	Elem          *contractTypeHashInput          `json:"elem,omitempty"`
+	Fields        []contractFieldHashInput        `json:"fields,omitempty"`
+	Key           *contractTypeHashInput          `json:"key,omitempty"`
+	Kind          string                          `json:"kind"`
+	Name          string                          `json:"name,omitempty"`
+	PkgPath       string                          `json:"pkgPath,omitempty"`
+	Variants      []contractUnionVariantHashInput `json:"variants,omitempty"`
+}
+
+type contractUnionVariantHashInput struct {
+	KindValue string                `json:"kindValue"`
+	Name      string                `json:"name"`
+	Type      contractTypeHashInput `json:"type"`
 }
 
 type contractFieldHashInput struct {
@@ -118,6 +128,9 @@ func contractTypeHashInputFor(
 	if goType == reflect.TypeFor[json.RawMessage]() {
 		return contractTypeHashInput{Kind: "raw_json"}, nil
 	}
+	if _, ok := contractUnionForType(goType); ok {
+		return unionContractTypeHashInput(goType, stack)
+	}
 	switch goType.Kind() {
 	case reflect.Bool, reflect.Float32, reflect.Float64, reflect.Int, reflect.String:
 		return scalarContractTypeHashInput(goType), nil
@@ -127,6 +140,8 @@ func contractTypeHashInputFor(
 		return mapContractTypeHashInput(goType, stack)
 	case reflect.Struct:
 		return structContractTypeHashInput(goType, stack)
+	case reflect.Interface:
+		return unionContractTypeHashInput(goType, stack)
 	default:
 		return contractTypeHashInput{}, fmt.Errorf("unsupported Go type %s", goType)
 	}
@@ -171,6 +186,49 @@ func mapContractTypeHashInput(
 		Key:  &key,
 		Elem: &elem,
 	}, nil
+}
+
+func unionContractTypeHashInput(
+	goType reflect.Type,
+	stack map[reflect.Type]bool,
+) (contractTypeHashInput, error) {
+	union, ok := contractUnionForType(goType)
+	if !ok {
+		return contractTypeHashInput{}, fmt.Errorf("unsupported Go interface contract type %s", goType)
+	}
+	if stack[goType] {
+		return contractTypeHashInput{}, fmt.Errorf("recursive contract type %s is unsupported", goType)
+	}
+	stack[goType] = true
+	defer delete(stack, goType)
+	variants := make([]contractUnionVariantHashInput, 0, len(union.Variants))
+	for _, variant := range union.Variants {
+		variantType, err := contractTypeHashInputFor(variant.Type, stack)
+		if err != nil {
+			return contractTypeHashInput{}, fmt.Errorf("%s.%s variant: %w", union.Name, variant.Name, err)
+		}
+		variants = append(variants, contractUnionVariantHashInput{
+			KindValue: variant.KindValue,
+			Name:      variant.Name,
+			Type:      variantType,
+		})
+	}
+	return contractTypeHashInput{
+		Discriminator: union.Discriminator,
+		Kind:          goType.Kind().String(),
+		Name:          goType.Name(),
+		PkgPath:       goType.PkgPath(),
+		Variants:      variants,
+	}, nil
+}
+
+func contractUnionForType(goType reflect.Type) (chat.ContractUnion, bool) {
+	for _, union := range chat.ContractUnions() {
+		if union.Type == goType {
+			return union, true
+		}
+	}
+	return chat.ContractUnion{}, false
 }
 
 func structContractTypeHashInput(

@@ -98,7 +98,14 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
   try {
     ready = await readyPromise;
   } catch (error) {
-    await stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise);
+    try {
+      await stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise);
+    } catch (cleanupError) {
+      appendLog(
+        logs,
+        `backend cleanup after startup failure failed: ${errorMessage(cleanupError)}`,
+      );
+    }
     throw startupErrorWithLogs(error, logs);
   }
 
@@ -271,12 +278,30 @@ function signalBackendProcess(child: BackendChild, signal: NodeJS.Signals): bool
     if (isMissingProcessError(error)) {
       return false;
     }
+    if (isPermissionError(error)) {
+      return signalChildProcess(child, signal);
+    }
     throw error;
   }
 }
 
 function isMissingProcessError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error && error.code === "ESRCH";
+}
+
+function isPermissionError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "EPERM";
+}
+
+function signalChildProcess(child: BackendChild, signal: NodeJS.Signals): boolean {
+  try {
+    return child.kill(signal);
+  } catch (error) {
+    if (isMissingProcessError(error)) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 function collectLines(
@@ -315,11 +340,15 @@ function appendLog(logs: string[], line: string) {
 }
 
 function startupErrorWithLogs(error: unknown, logs: string[]): Error {
-  const message = error instanceof Error ? error.message : "backend failed before ready";
+  const message = errorMessage(error);
   if (logs.length === 0) {
     return new Error(message);
   }
   return new Error(`${message}\nRecent backend logs:\n${logs.join("\n")}`);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "backend failed before ready";
 }
 
 function positiveIntegerEnv(rawValue: string | undefined, fallback: number): number {
@@ -341,7 +370,10 @@ function validateExternalURL(rawURL: string): string {
   if (!isLoopbackHost(url.hostname)) {
     throw new Error(`SETTA_BACKEND_URL must point at a loopback host: ${rawURL}`);
   }
-  return url.toString();
+  if ((url.pathname !== "" && url.pathname !== "/") || url.search !== "" || url.hash !== "") {
+    throw new Error(`SETTA_BACKEND_URL must not include a path, query, or fragment: ${rawURL}`);
+  }
+  return `${url.protocol}//${url.host}`;
 }
 
 function isLoopbackHost(hostname: string): boolean {

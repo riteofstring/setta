@@ -46,6 +46,19 @@
     button.click();
     return { body: document.body.innerText, clicked: true, reason: "clicked" };
   }
+
+  function clickButtonContainingTextByRole({ role, text }) {
+    const selector = `button[role="${cssEscape(role)}"]`;
+    const button = Array.from(document.querySelectorAll(selector)).find((candidate) =>
+      candidate.innerText.includes(text),
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { body: document.body.innerText, clicked: false };
+    }
+    button.click();
+    return { body: document.body.innerText, clicked: true };
+  }
+
   function composerReady() {
     const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
     return { ready: Boolean(textarea && !textarea.disabled) };
@@ -78,6 +91,7 @@
       })),
     };
   }
+
   function visibleUserMessageTexts() {
     return {
       rows: Array.from(document.querySelectorAll('[data-chat-message="true"]'))
@@ -121,6 +135,15 @@
     const picker = document.querySelector('[data-testid="model-picker"]');
     return { body: document.body.innerText, open: Boolean(picker), ready: Boolean(picker) };
   }
+
+  function modelPickerSummaryButton() {
+    const button = document.querySelector('[aria-label="Open model and reasoning picker"]');
+    return {
+      ready: Boolean(button),
+      text: button instanceof HTMLElement ? button.innerText : "",
+    };
+  }
+
   function modelPickerButtonReady({ text }) {
     const picker = document.querySelector('[data-testid="model-picker"]');
     const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
@@ -200,12 +223,14 @@
     return element.value === value;
   }
   function sidebarMetrics() {
+    const sidebar =
+      document.querySelector('[data-testid="sidebar-scrollable-sections"]') ?? document;
     return {
-      activeRows: document.querySelectorAll('[data-testid="active-workspace-item"]').length,
-      conversationRows: document.querySelectorAll('[data-testid="conversation-sidebar-item"]')
+      activeRows: sidebar.querySelectorAll('[data-testid="active-workspace-item"]').length,
+      conversationRows: sidebar.querySelectorAll('[data-testid="conversation-sidebar-item"]')
         .length,
-      recentRows: document.querySelectorAll('[data-testid="recent-workspace-item"]').length,
-      totalElements: document.querySelectorAll("*").length,
+      recentRows: sidebar.querySelectorAll('[data-testid="recent-workspace-item"]').length,
+      totalElements: sidebar.querySelectorAll("*").length,
     };
   }
   function visibleAssistantTexts() {
@@ -904,6 +929,7 @@
       toolbar: workflowNodeDetailsButtonState(),
     };
   }
+
   function workflowRunDetailsText() {
     const details = document.querySelector('[data-testid="workflow-node-run-details"]');
     return details?.textContent ?? "";
@@ -1352,6 +1378,7 @@
     bodyText,
     clickButton,
     clickButtonContainingText,
+    clickButtonContainingTextByRole,
     clickModelPickerButton,
     buttonReady,
     chatLayoutMetrics,
@@ -1366,6 +1393,7 @@
     focusTerminalTextarea,
     maximizeTerminalPane,
     modelPicker,
+    modelPickerSummaryButton,
     modelPickerButtonReady,
     layoutState,
     paneChromeEdgeFocusPoint,

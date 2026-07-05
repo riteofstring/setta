@@ -24,7 +24,7 @@ import {
   terminalProfileDisplaySettings,
 } from "./terminal-profiles";
 import { runtimeProfileScopeKey } from "./terminal-runtime-scope";
-import { terminalFitContext } from "./terminal-fit-context";
+import { terminalFitContext, terminalFitReady } from "./terminal-fit-context";
 import {
   TerminalSurfaceFitScheduler,
   snapTerminalViewportToWholeRows,
@@ -39,10 +39,11 @@ import {
 import {
   attachOrCreateTerminalSession,
   TerminalProfileUnavailable,
+  TerminalStartCancelled,
   TerminalStartDeferred,
   terminalAPI,
 } from "./terminal-surface-session";
-import { renderXtermContent, type TerminalPasteElements } from "./terminal-surface-dom";
+import { renderXtermContent, TerminalSurfaceChrome } from "./terminal-surface-dom";
 import { TerminalOutputBuffer } from "./terminal-surface-output-buffer";
 import { TerminalPasteController } from "./terminal-surface-paste";
 import { TerminalSurfaceSessionResizer } from "./terminal-surface-resize-scheduler";
@@ -50,6 +51,12 @@ import { TerminalSearchController } from "./terminal-surface-search";
 import { mountXtermTerminal, type TerminalDisposable } from "./terminal-surface-xterm";
 import { setHostPaneChromeTitle, terminalPaneTitle } from "./pane-title-metadata";
 import { assertNever, emptyTerminalStats, performanceNow } from "./terminal-surface-utils";
+import { requestTerminalPaneClose } from "./terminal-pane-close";
+import {
+  syncTerminalHostState,
+  terminalSurfaceLimits,
+  type TerminalStatusEvent,
+} from "./terminal-surface-state";
 import { useRuntimeStore } from "../stores/runtime-store";
 import type {
   FreezeReason,
@@ -59,27 +66,23 @@ import type {
   ResumeReason,
   SurfaceAdapter,
   SurfaceId,
+  SurfacePaneCloseRequest,
   ViewportChangeReason,
   TerminalSurfaceStats,
 } from "./types";
 
-const defaultCols = 80;
-const defaultRows = 24;
-const resizeDebounceMs = 80;
+const { defaultCols, defaultRows, resizeDebounceMs } = terminalSurfaceLimits;
 const sessionStartFitWaitMs = 250;
-
-type TerminalStatusEvent = TerminalEvent & {
-  type: Exclude<TerminalEvent["type"], "terminal.output">;
-};
 
 type FitWaiter = (dimensions: { cols: number; rows: number } | null) => void;
 
 export class TerminalSurfaceAdapter implements SurfaceAdapter {
   readonly kind = "terminal" as const;
   private destroyed = false;
-  private exitOverlay: HTMLElement | null = null;
-  private exitOverlayMessage: HTMLElement | null = null;
+  private readonly chrome = new TerminalSurfaceChrome();
   private fitAddon: XtermFitAddon | null = null;
+  private fitReadinessRetryCount = 0;
+  private fitRetryTimer: number | null = null;
   private focused = false;
   private frozen = false;
   private host: HTMLElement | null = null;
@@ -90,15 +93,13 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private profilesLoaded = false;
   private reattachRequired = false;
   private resetTerminalBeforeReplayDrain = false;
-  private pasteOverlay: TerminalPasteElements | null = null;
-  private restartButton: HTMLButtonElement | null = null;
   private readonly pasteController = new TerminalPasteController({
     getSessionId: () => this.sessionId,
     getTerminal: () => this.terminal,
-    hidePasteOverlay: () => this.hidePasteOverlay(),
+    hidePasteOverlay: () => this.chrome.hidePasteOverlay(),
     sendInput: (data) => this.sendInput(data),
-    showPasteOverlay: (message, confirmable) => this.showPasteOverlay(message, confirmable),
-    showStatus: (message) => this.showStatus(message),
+    showPasteOverlay: (message, confirmable) => this.chrome.showPasteOverlay(message, confirmable),
+    showStatus: (message) => this.chrome.showStatus(message),
   });
   private readonly searchController = new TerminalSearchController();
   private selectedProfile: TerminalProfile | null = null;
@@ -107,7 +108,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private sessionStatus = "";
   private settings: TerminalDisplaySettings = defaultTerminalDisplaySettings;
   private startPromise: Promise<void> | null = null;
-  private terminalStatusText = "";
   private terminal: XtermTerminal | null = null;
   private terminalDisposables: TerminalDisposable[] = [];
   private allowExplicitProfileStart = false;
@@ -128,7 +128,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       sessionId: this.sessionId,
       status: this.sessionStatus,
     }),
-    showStatus: (message) => this.showStatus(message),
+    showStatus: (message) => this.chrome.showStatus(message),
   });
   constructor(
     private readonly pane: WorkspacePane,
@@ -144,11 +144,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     host.dataset.surfaceKind = this.kind;
     setHostPaneChromeTitle(host, terminalPaneTitle(this.pane.terminalConfig?.cwdOverride ?? ""));
     const content = renderXtermContent(host, this.pane);
-    this.exitOverlay = content.exitOverlay;
-    this.exitOverlayMessage = content.exitOverlayMessage;
-    this.restartButton = content.restartButton;
+    this.chrome.mount(host, content);
     this.searchController.setElements(content.search);
-    this.pasteOverlay = content.pasteOverlay;
     this.fitScheduler.setViewport(content.viewport);
     content.viewport.addEventListener(
       "copy",
@@ -187,7 +184,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.syncHostState();
     const api = terminalAPI();
     if (!api) {
-      this.showStatus("Terminal preload API is unavailable.");
+      this.chrome.showStatus("Terminal preload API is unavailable.");
       return;
     }
     this.unsubscribeEvents = api.onEvent((event) => this.handleTerminalEvent(event));
@@ -209,17 +206,21 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     void this.loadProfiles(runtimeVersion)
       .then(() => this.mountTerminal(content.viewport))
       .then(() => {
+        if (this.destroyed || !this.host) {
+          return;
+        }
         this.startSessionIfActive();
       })
       .catch((error: unknown) => {
         if (runtimeVersion === this.runtimeProfileVersion) {
-          this.showStatus(errorMessage(error));
+          this.chrome.showStatus(errorMessage(error));
         }
       });
   }
   unmount(): void {
     this.sessionResizer.clear();
     this.fitScheduler.clear();
+    this.clearFitRetry();
     this.resolveFitWaiters(null);
     this.unsubscribeEvents?.();
     this.unsubscribeEvents = null;
@@ -236,11 +237,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.host?.replaceChildren();
     this.host = null;
     this.fitScheduler.setViewport(null);
-    this.exitOverlay = null;
-    this.exitOverlayMessage = null;
-    this.restartButton = null;
+    this.chrome.unmount();
     this.searchController.setElements(null);
-    this.pasteOverlay = null;
     this.pasteController.clearPendingPaste();
     this.visible = false;
     this.writeStats(0);
@@ -303,6 +301,19 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   getTerminalStats(): TerminalSurfaceStats {
     return this.stats;
   }
+  requestPaneClose({ confirm }: SurfacePaneCloseRequest) {
+    return requestTerminalPaneClose({
+      api: terminalAPI(),
+      applySessionSummary: (session) => this.applySessionSummary(session),
+      confirm,
+      getSessionId: () => this.sessionId,
+      getSessionStatus: () => this.sessionStatus,
+      owner: this,
+      showExitOverlay: (message) => this.chrome.showExitOverlay(message),
+      showStatus: (message) => this.chrome.showStatus(message),
+      waitForPendingSessionStart: () => (this.sessionId ? null : this.startPromise),
+    });
+  }
   destroy(): void {
     if (this.destroyed) {
       return;
@@ -312,7 +323,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
   private async loadProfiles(runtimeVersion = this.runtimeProfileVersion): Promise<void> {
     if (!this.runtimeProfileLoadAvailable()) {
-      this.showStatus("Waiting for runtime connection.");
+      this.chrome.showStatus("Waiting for runtime connection.");
       return;
     }
     const profile = await this.loadSelectedProfile(runtimeVersion);
@@ -320,7 +331,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     if (!profile) {
-      this.showStatus("Terminal profiles are unavailable.");
+      this.chrome.showStatus("Terminal profiles are unavailable.");
     }
   }
   private async loadSelectedProfile(
@@ -354,8 +365,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
   private showDeferredProfileStart(profile: TerminalProfile): void {
     this.sessionStatus = "waiting";
-    this.showStatus(`${profile.name} requires start`);
-    this.showExitOverlayWithAction(`Start ${profile.name}?`, "Start");
+    this.chrome.showStatus(`${profile.name} requires start`);
+    this.chrome.showExitOverlayWithAction(`Start ${profile.name}?`, "Start");
     this.syncHostState();
   }
   private clearDeferredProfileStartIfAutoStartAllowed(): void {
@@ -369,7 +380,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     this.sessionStatus = "";
-    this.hideExitOverlay();
+    this.chrome.hideExitOverlay();
     this.syncHostState();
   }
   private async mountTerminal(viewport: HTMLElement): Promise<void> {
@@ -404,22 +415,25 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.drainPendingOutput();
   }
   private startSession(): void {
+    if (this.destroyed || !this.host) {
+      return;
+    }
     if (this.shouldSkipSessionStart()) {
       return;
     }
     const blockedMessage = this.sessionStartBlockedMessage();
     if (blockedMessage) {
-      this.showStatus(blockedMessage);
+      this.chrome.showStatus(blockedMessage);
       return;
     }
     const api = terminalAPI();
     if (!api) {
-      this.showStatus("Terminal preload API is unavailable.");
+      this.chrome.showStatus("Terminal preload API is unavailable.");
       return;
     }
     const dimensions = this.currentDimensions();
-    this.hideExitOverlay();
-    this.showStatus(this.sessionId ? "Attaching shell" : "Starting shell");
+    this.chrome.hideExitOverlay();
+    this.chrome.showStatus(this.sessionId ? "Attaching shell" : "Starting shell");
     this.deferOutputUntilSessionReady = true;
     const runtimeVersion = this.runtimeProfileVersion;
     const startPromise = this.attachOrCreateSession(api, dimensions, runtimeVersion)
@@ -476,11 +490,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     this.deferOutputUntilSessionReady = false;
-    if (error instanceof TerminalStartDeferred) {
+    if (error instanceof TerminalStartDeferred || error instanceof TerminalStartCancelled) {
       return;
     }
     if (error instanceof TerminalProfileUnavailable) {
-      this.showStatus(error.message);
+      this.chrome.showStatus(error.message);
       return;
     }
     this.allowExplicitProfileStart = false;
@@ -489,8 +503,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     const message = errorMessage(error);
-    this.showStatus(message);
-    this.showExitOverlay(message);
+    this.chrome.showStatus(message);
+    this.chrome.showExitOverlay(message);
   }
   private startSessionIfActive(): void {
     if (!this.visible || this.frozen) {
@@ -514,7 +528,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       allowExplicitProfileStart: this.allowExplicitProfileStart,
       cwdOverride: this.pane.terminalConfig?.cwdOverride ?? "",
       dimensions,
-      isCurrent: () => !this.destroyed && runtimeVersion === this.runtimeProfileVersion,
+      isCurrent: () =>
+        !this.destroyed && Boolean(this.host) && runtimeVersion === this.runtimeProfileVersion,
       paneId: this.pane.paneId,
       profile,
       profileId: this.selectedProfileId,
@@ -523,7 +538,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
         this.showDeferredProfileStart(deferredProfile);
       },
       showStartingStatus: () => {
-        this.showStatus("Starting shell");
+        this.chrome.showStatus("Starting shell");
       },
       workspaceId: this.workspaceId,
     });
@@ -539,7 +554,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.startPromise = null;
     if (!this.sessionId) {
       this.sessionStatus = "";
-      this.hideExitOverlay();
+      this.chrome.hideExitOverlay();
       this.syncHostState();
     }
     const runtimeVersion = this.runtimeProfileVersion;
@@ -551,7 +566,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       })
       .catch((error: unknown) => {
         if (runtimeVersion === this.runtimeProfileVersion) {
-          this.showStatus(errorMessage(error));
+          this.chrome.showStatus(errorMessage(error));
         }
       });
   }
@@ -570,15 +585,15 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       rows: session.rows,
     });
     this.showTerminalCwd(session.cwd);
-    this.showStatus(statusLabel(session.status, session.cwd));
+    this.chrome.showStatus(statusLabel(session.status, session.cwd));
     if (session.status === "exited") {
-      this.showExitOverlay(exitStatusLabel(session.exitCode, session.message));
+      this.chrome.showExitOverlay(exitStatusLabel(session.exitCode, session.message));
     } else if (session.status === "error") {
-      this.showExitOverlay(session.message || "Terminal failed");
+      this.chrome.showExitOverlay(session.message || "Terminal failed");
     } else if (session.status === "closed") {
-      this.showExitOverlay("Terminal closed");
+      this.chrome.showExitOverlay("Terminal closed");
     } else {
-      this.hideExitOverlay();
+      this.chrome.hideExitOverlay();
     }
     if (!this.sessionResizer.currentCanResize()) {
       this.cancelPendingSessionSizing();
@@ -592,7 +607,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.sessionId = event.sessionId;
     this.sessionStatus = event.payload.status;
     if (event.type === "terminal.output") {
-      this.hideExitOverlay();
+      this.chrome.hideExitOverlay();
       this.writeOutput(event.payload.dataBase64, event.payload.byteCount);
       this.syncHostState();
       return;
@@ -604,27 +619,27 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     switch (event.type) {
       case "terminal.started":
         this.showTerminalCwd(event.payload.cwd);
-        this.showStatus(statusLabel(event.payload.status, event.payload.cwd));
-        this.hideExitOverlay();
+        this.chrome.showStatus(statusLabel(event.payload.status, event.payload.cwd));
+        this.chrome.hideExitOverlay();
         break;
       case "terminal.exited":
-        this.showStatus(exitStatusLabel(event.payload.exitCode, event.payload.message));
-        this.showExitOverlay(exitStatusLabel(event.payload.exitCode, event.payload.message));
+        this.chrome.showStatus(exitStatusLabel(event.payload.exitCode, event.payload.message));
+        this.chrome.showExitOverlay(exitStatusLabel(event.payload.exitCode, event.payload.message));
         this.cancelPendingSessionSizing();
         break;
       case "terminal.closed":
-        this.showStatus("Terminal closed");
-        this.showExitOverlay("Terminal closed");
+        this.chrome.showStatus("Terminal closed");
+        this.chrome.showExitOverlay("Terminal closed");
         this.cancelPendingSessionSizing();
         break;
       case "terminal.error":
-        this.showStatus(event.payload.message || "Terminal failed");
-        this.showExitOverlay(event.payload.message || "Terminal failed");
+        this.chrome.showStatus(event.payload.message || "Terminal failed");
+        this.chrome.showExitOverlay(event.payload.message || "Terminal failed");
         this.cancelPendingSessionSizing();
         break;
       case "terminal.bufferTruncated":
         this.outputBuffer.addDroppedChunks(Math.max(1, event.payload.droppedChunks));
-        this.showStatus(event.payload.message || "Terminal replay history truncated");
+        this.chrome.showStatus(event.payload.message || "Terminal replay history truncated");
         this.writeStats(this.stats.dirtyRows);
         break;
       default:
@@ -689,12 +704,12 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
   private sendInput(data: string): void {
     sendTerminalInput(data, this.sessionId, {
-      showStatus: (message) => this.showStatus(message),
+      showStatus: (message) => this.chrome.showStatus(message),
     });
   }
   private openExternalUrl(event: MouseEvent, uri: string): void {
     openTerminalExternalUrl(event, uri, {
-      showStatus: (message) => this.showStatus(message),
+      showStatus: (message) => this.chrome.showStatus(message),
     });
   }
   private handleBackendProcessStatus(status: BackendProcessStatus): void {
@@ -741,11 +756,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.startPromise = null;
     this.outputBuffer.resetDroppedChunks();
     this.terminal?.clear();
-    this.hideExitOverlay();
+    this.chrome.hideExitOverlay();
     const api = terminalAPI();
     const closePrevious =
       previousSessionId && api
-        ? api.close(previousSessionId, "terminate").catch(() => undefined)
+        ? api.close({ confirmed: true, sessionId: previousSessionId }).catch(() => undefined)
         : Promise.resolve();
     void closePrevious.then(() => {
       this.startSession();
@@ -759,19 +774,21 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     void api
-      .close(sessionId, "terminate")
+      .close({ confirmed: false, sessionId })
       .then((response) => {
-        this.applySessionSummary(response.session);
+        if (response.session !== null) {
+          this.applySessionSummary(response.session);
+        }
       })
       .catch((error: unknown) => {
-        this.showStatus(errorMessage(error));
+        this.chrome.showStatus(errorMessage(error));
       });
   }
   private showLostSession(message: string): void {
     this.lostSession = true;
     this.sessionStatus = "lost";
-    this.showStatus(message);
-    this.showExitOverlay(message);
+    this.chrome.showStatus(message);
+    this.chrome.showExitOverlay(message);
     this.syncHostState();
   }
   private fitAndResize(): void {
@@ -798,6 +815,12 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (!terminalViewportHasSize(fitContext.viewport)) {
       return null;
     }
+    if (!terminalFitReady(fitContext.terminal)) {
+      this.scheduleFitRetry();
+      this.writeStats(0);
+      return null;
+    }
+    this.fitReadinessRetryCount = 0;
     warnIfTerminalViewportSuspiciouslySmall(fitContext.viewport);
     fitContext.fitAddon.fit();
     snapTerminalViewportToWholeRows(fitContext.viewport, fitContext.terminal.rows);
@@ -853,8 +876,29 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private scheduleResize(cols: number, rows: number): void {
     this.sessionResizer.schedule(cols, rows);
   }
+  private scheduleFitRetry(): void {
+    if (
+      this.fitRetryTimer !== null ||
+      this.fitReadinessRetryCount >= terminalSurfaceLimits.maxFitReadinessRetries
+    ) {
+      return;
+    }
+    this.fitReadinessRetryCount += 1;
+    this.fitRetryTimer = window.setTimeout(() => {
+      this.fitRetryTimer = null;
+      this.fitAndResize();
+    }, 16);
+  }
+  private clearFitRetry(): void {
+    if (this.fitRetryTimer !== null) {
+      window.clearTimeout(this.fitRetryTimer);
+      this.fitRetryTimer = null;
+    }
+    this.fitReadinessRetryCount = 0;
+  }
   private cancelPendingSessionSizing(): void {
     this.fitScheduler.clear();
+    this.clearFitRetry();
     this.sessionResizer.clear();
     this.resolveFitWaiters(null);
   }
@@ -893,44 +937,10 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     terminal.reset();
     return true;
   }
-  private showStatus(message: string): void {
-    this.terminalStatusText = message;
-    if (this.host) {
-      this.host.dataset.terminalStatusText = message;
-    }
-  }
   private showTerminalCwd(cwd: string): void {
     if (this.host) {
       setHostPaneChromeTitle(this.host, terminalPaneTitle(cwd));
     }
-  }
-  private showExitOverlay(message: string): void {
-    this.showExitOverlayWithAction(message, "Restart");
-  }
-  private showExitOverlayWithAction(message: string, actionLabel: string): void {
-    if (this.exitOverlayMessage) {
-      this.exitOverlayMessage.textContent = message;
-    }
-    if (this.restartButton) {
-      this.restartButton.textContent = actionLabel;
-    }
-    this.exitOverlay?.removeAttribute("hidden");
-  }
-  private hideExitOverlay(): void {
-    this.exitOverlay?.setAttribute("hidden", "true");
-  }
-  private showPasteOverlay(message: string, confirmable: boolean): void {
-    if (!this.pasteOverlay) {
-      return;
-    }
-    this.pasteOverlay.message.textContent = message;
-    this.pasteOverlay.confirmButton.hidden = !confirmable;
-    this.pasteOverlay.cancelButton.textContent = confirmable ? "Cancel" : "Dismiss";
-    this.pasteOverlay.root.removeAttribute("hidden");
-    this.pasteOverlay.cancelButton.focus?.();
-  }
-  private hidePasteOverlay(): void {
-    this.pasteOverlay?.root.setAttribute("hidden", "true");
   }
   private writeStats(dirtyRows: number): void {
     const bufferLength = this.terminal?.buffer.active.length ?? 0;
@@ -949,21 +959,19 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
   }
   private syncHostState(): void {
-    if (!this.host) {
-      return;
-    }
-    this.host.dataset.surfaceFocused = String(this.focused);
-    this.host.dataset.surfaceFrozen = String(this.frozen);
-    this.host.dataset.surfaceVisible = String(this.visible);
-    this.host.dataset.terminalDirtyRows = String(this.stats.dirtyRows);
-    this.host.dataset.terminalLost = String(this.lostSession);
-    this.host.dataset.terminalPendingChunks = String(this.stats.pendingOutputChunks);
-    this.host.dataset.terminalProfileId = this.selectedProfileId;
-    this.host.dataset.terminalSessionId = this.sessionId ?? "";
-    this.host.dataset.terminalStatus = this.sessionStatus;
-    this.host.dataset.terminalStatusText = this.terminalStatusText;
-    this.host.dataset.terminalScrollbackRows = String(this.stats.scrollbackRows);
-    this.host.dataset.terminalVirtualRows = String(this.stats.renderedRows);
-    this.host.style.visibility = this.visible ? "visible" : "hidden";
+    syncTerminalHostState(this.host, {
+      dirtyRows: this.stats.dirtyRows,
+      focused: this.focused,
+      frozen: this.frozen,
+      lostSession: this.lostSession,
+      pendingOutputChunks: this.stats.pendingOutputChunks,
+      profileId: this.selectedProfileId,
+      renderedRows: this.stats.renderedRows,
+      scrollbackRows: this.stats.scrollbackRows,
+      sessionId: this.sessionId,
+      sessionStatus: this.sessionStatus,
+      visible: this.visible,
+    });
+    this.chrome.syncHostStatus();
   }
 }

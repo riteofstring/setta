@@ -112,6 +112,26 @@ describe("workspace pane runtime policy", () => {
     expect(summary.liveThrottled).toBe(2);
   });
 
+  test("keeps a focused workflow graph live when unfocused graph canvases are frozen", () => {
+    const noUnfocusedCanvases = {
+      ...budget,
+      maxLiveWebGpuCanvases: 0,
+    };
+    const items = [
+      renderItem("focused-graph", "workflow-graph", true),
+      renderItem("background-graph", "workflow-graph", false),
+    ];
+
+    const summary = new PaneRuntimePolicy(noUnfocusedCanvases).apply(items, "idle");
+
+    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["focused-graph", "live"],
+      ["background-graph", "snapshot"],
+    ]);
+    expect(summary.live).toBe(1);
+    expect(summary.snapshot).toBe(1);
+  });
+
   test("keeps all visible browser panes live without applying the browser budget", () => {
     const items = [
       renderItem("focused-browser", "browser", true),

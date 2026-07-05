@@ -57,8 +57,8 @@ export function registerTerminalIpcHandlers({
   handleIpc(
     ipcMain,
     "terminalClose",
-    async (_event, sessionId, mode) => {
-      return requireBackendClient().closeTerminal({ mode, sessionId });
+    async (_event, request) => {
+      return requireBackendClient().closeTerminal(request);
     },
     ipcObserver,
   );

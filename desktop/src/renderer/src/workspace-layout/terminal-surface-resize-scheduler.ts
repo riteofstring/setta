@@ -43,6 +43,16 @@ export class TerminalSurfaceSessionResizer {
 
   setLastResize(dimensions: TerminalDimensions): void {
     this.lastResize = dimensions;
+    if (
+      this.pendingResize?.cols === dimensions.cols &&
+      this.pendingResize.rows === dimensions.rows
+    ) {
+      this.pendingResize = null;
+      if (this.resizeTimer !== null) {
+        window.clearTimeout(this.resizeTimer);
+        this.resizeTimer = null;
+      }
+    }
   }
 
   currentCanResize(): boolean {

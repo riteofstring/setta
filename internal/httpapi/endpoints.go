@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/base64"
 	"net/http"
 	"reflect"
 	"strings"
@@ -22,13 +23,14 @@ type ContractSchema struct {
 }
 
 type ContractEndpoint struct {
-	Name        string
-	Method      string
-	Path        string
-	Request     reflect.Type
-	Response    reflect.Type
-	StreamEvent reflect.Type
-	Streaming   bool
+	Name                  string
+	Method                string
+	Path                  string
+	Request               reflect.Type
+	Response              reflect.Type
+	StreamEvent           reflect.Type
+	Streaming             bool
+	RequestBodyLimitBytes int64
 }
 
 type endpoint struct {
@@ -38,6 +40,11 @@ type endpoint struct {
 }
 
 type routeHandler func(handler, http.ResponseWriter, *http.Request)
+
+const (
+	defaultRequestBodyLimitBytes      int64 = 4 * 1024 * 1024
+	requestBodyLimitJSONEnvelopeBytes int64 = 256 * 1024
+)
 
 var apiEndpoints = []endpoint{
 	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
@@ -70,21 +77,34 @@ var apiEndpoints = []endpoint{
 	post[MarkConversationReadRequest, chat.ConversationListItem]("MarkConversationRead", "/chat/conversations/mark-read", handler.markConversationRead),
 	post[SetConversationPinnedRequest, chat.ConversationListItem]("SetConversationPinned", "/chat/conversations/pin", handler.setConversationPinned),
 	post[GetMessagePageRequest, chat.MessagePage]("GetMessagePage", "/chat/messages/page", handler.getMessagePage),
+	post[ListComposerPromptHistoryRequest, chat.ComposerPromptHistoryPage]("ListComposerPromptHistory", "/chat/composer/history", handler.listComposerPromptHistory),
 	post[SendChatMessageRequest, chat.SendMessageResult]("SendChatMessage", "/chat/messages/send", handler.sendChatMessage),
 	post[QueueChatMessageRequest, chat.QueueMessageResult]("QueueChatMessage", "/chat/messages/queue", handler.queueChatMessage),
 	post[EditQueuedChatMessageRequest, chat.QueueEditResult]("EditQueuedChatMessage", "/chat/messages/queue/edit", handler.editQueuedChatMessage),
 	post[RemoveQueuedChatMessageRequest, chat.QueueRemoveResult]("RemoveQueuedChatMessage", "/chat/messages/queue/remove", handler.removeQueuedChatMessage),
 	post[SteerChatMessageRequest, chat.SteerMessageResult]("SteerChatMessage", "/chat/messages/steer", handler.steerChatMessage),
 	post[SendSteeringImmediatelyRequest, chat.ImmediateSteeringResult]("SendSteeringImmediately", "/chat/messages/steer/immediate", handler.sendSteeringImmediately),
+	postWithRequestBodyLimit[CreateChatImageAttachmentFromBytesRequest, chat.ImageAttachment]("CreateChatImageAttachmentFromBytes", "/chat/attachments/images/from-bytes", chatImageAttachmentRequestBodyLimitBytes(), handler.createChatImageAttachmentFromBytes),
+	post[CreateChatImageAttachmentFromPathRequest, chat.ImageAttachment]("CreateChatImageAttachmentFromPath", "/chat/attachments/images/from-path", handler.createChatImageAttachmentFromPath),
 	post[ListChatCommandsRequest, chat.ChatCommandListResult]("ListChatCommands", "/chat/commands/list", handler.listChatCommands),
 	post[ExecuteChatCommandRequest, chat.ChatCommandExecuteResult]("ExecuteChatCommand", "/chat/commands/execute", handler.executeChatCommand),
+	get[chat.ChatCodexDefaultsView]("ReadChatCodexDefaults", "/chat/codex/defaults", handler.readChatCodexDefaults),
+	post[UpdateChatCodexDefaultsRequest, chat.ChatCodexDefaultsView]("UpdateChatCodexDefaults", "/chat/codex/defaults", handler.updateChatCodexDefaults),
+	post[OpenChatCodexModelPickerRequest, chat.ChatCommandExecuteResult]("OpenChatCodexModelPicker", "/chat/codex/model/picker", handler.openChatCodexModelPicker),
+	post[OpenChatCodexPermissionPickerRequest, chat.ChatCommandExecuteResult]("OpenChatCodexPermissionPicker", "/chat/codex/permission/picker", handler.openChatCodexPermissionPicker),
 	post[SetChatCodexModelRequest, chat.ChatCommandExecuteResult]("SetChatCodexModel", "/chat/codex/model/set", handler.setChatCodexModel),
+	post[SetChatCodexPermissionPresetRequest, chat.ChatCommandExecuteResult]("SetChatCodexPermissionPreset", "/chat/codex/permission/set", handler.setChatCodexPermissionPreset),
 	post[SetChatCodexReasoningEffortRequest, chat.ChatCommandExecuteResult]("SetChatCodexReasoningEffort", "/chat/codex/reasoning-effort/set", handler.setChatCodexReasoningEffort),
 	post[CancelRunRequest, chat.Run]("CancelRun", "/chat/runs/cancel", handler.cancelRun),
 	post[GetActiveRunRequest, GetActiveRunResponse]("GetActiveRun", "/chat/runs/active", handler.getActiveRun),
+	post[ReconcileChatRunsRequest, ReconcileChatRunsResponse]("ReconcileChatRuns", "/chat/runs/reconcile", handler.reconcileChatRuns),
 	post[ListRunsRequest, ListRunsResponse]("ListRuns", "/chat/runs/list", handler.listRuns),
 	post[GetRunActivityRequest, chat.RunActivityPage]("GetRunActivity", "/chat/runs/activity", handler.getRunActivity),
 	post[GetRunItemOutputRequest, chat.RunItemOutputPage]("GetRunItemOutputPage", "/chat/runs/item-output", handler.getRunItemOutput),
+	post[ListBackgroundTerminalsRequest, chat.BackgroundTerminalListProjection]("ListBackgroundTerminals", "/chat/background-terminals/list", handler.listBackgroundTerminals),
+	post[GetBackgroundTerminalOutputRequest, chat.BackgroundTerminalOutputPage]("GetBackgroundTerminalOutput", "/chat/background-terminals/output", handler.getBackgroundTerminalOutput),
+	post[KillBackgroundTerminalRequest, chat.BackgroundTerminalProcess]("KillBackgroundTerminal", "/chat/background-terminals/kill", handler.killBackgroundTerminal),
+	post[KillAllBackgroundTerminalsRequest, chat.BackgroundTerminalListProjection]("KillAllBackgroundTerminals", "/chat/background-terminals/kill-all", handler.killAllBackgroundTerminals),
 	post[ListDiagnosticsRequest, ListDiagnosticsResponse]("ListDiagnostics", "/chat/diagnostics/list", handler.listDiagnostics),
 	post[SubmitApprovalRequest, chat.Run]("SubmitApproval", "/chat/approvals/submit", handler.submitApproval),
 	post[ListWorkflowDefinitionsRequest, ListWorkflowDefinitionsResponse]("ListWorkflowDefinitions", "/workflows/definitions/list", handler.listWorkflowDefinitions),
@@ -99,6 +119,10 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkflowExecutionRequest, orchestrator.WorkflowExecution]("ReadWorkflowExecution", "/workflows/executions/read", handler.readWorkflowExecution),
 	post[ReadWorkflowGraphProjectionRequest, ReadWorkflowGraphProjectionResponse]("ReadWorkflowGraphProjection", "/workflows/graph/read", handler.readWorkflowGraphProjection),
 	post[GetWorkflowExecutionEventsRequest, orchestrator.WorkflowExecutionEventPage]("GetWorkflowExecutionEvents", "/workflows/executions/events", handler.getWorkflowExecutionEvents),
+	post[ReadWorkflowNodeTrajectoryRequest, orchestrator.WorkflowAgentTrajectoryPage]("ReadWorkflowNodeTrajectory", "/workflows/nodes/trajectory", handler.readWorkflowNodeTrajectory),
+	post[RetryWorkflowNodeRunLivenessRequest, chat.RunLivenessReconciliationResult]("RetryWorkflowNodeRunLiveness", "/workflows/nodes/runs/retry-liveness", handler.retryWorkflowNodeRunLiveness),
+	post[SteerWorkflowNodeRunRequest, chat.SteerMessageResult]("SteerWorkflowNodeRun", "/workflows/nodes/runs/steer", handler.steerWorkflowNodeRun),
+	post[StopWorkflowNodeRunRequest, orchestrator.WorkflowExecution]("StopWorkflowNodeRun", "/workflows/nodes/runs/stop", handler.stopWorkflowNodeRun),
 	post[SubmitWorkflowApprovalRequest, orchestrator.WorkflowExecution]("SubmitWorkflowApproval", "/workflows/approvals/submit", handler.submitWorkflowApproval),
 	stream("WorkflowEventStream", "/workflows/events", handler.workflowEventStream),
 	post[ReadSemanticGraphRequest, semanticgraph.SemanticGraph]("ReadSemanticGraph", "/semantic-graph/read", handler.readSemanticGraph),
@@ -146,7 +170,7 @@ var apiEndpoints = []endpoint{
 	post[AttachTerminalRequest, TerminalSessionResponse]("AttachTerminal", "/terminals/attach", handler.attachTerminal),
 	post[TerminalInputRequest, TerminalInputResponse]("TerminalInput", "/terminals/input", handler.terminalInput),
 	post[ResizeTerminalRequest, TerminalSessionResponse]("ResizeTerminal", "/terminals/resize", handler.resizeTerminal),
-	post[CloseTerminalRequest, TerminalSessionResponse]("CloseTerminal", "/terminals/close", handler.closeTerminal),
+	post[CloseTerminalRequest, CloseTerminalResponse]("CloseTerminal", "/terminals/close", handler.closeTerminal),
 	get[terminal.TerminalProfileList]("ListTerminalProfiles", "/terminals/profiles", handler.listTerminalProfiles),
 	post[CreateTerminalProfileRequest, terminal.TerminalProfileList]("CreateTerminalProfile", "/terminals/profiles/create", handler.createTerminalProfile),
 	post[UpdateTerminalProfileRequest, terminal.TerminalProfileList]("UpdateTerminalProfile", "/terminals/profiles/update", handler.updateTerminalProfile),
@@ -176,6 +200,9 @@ func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 	for _, endpoint := range apiEndpoints {
 		route := endpoint
 		mux.HandleFunc(route.Method+" "+route.Path, func(response http.ResponseWriter, request *http.Request) {
+			if route.RequestBodyLimitBytes > 0 && !enforceRequestBodyLimit(response, request, route.RequestBodyLimitBytes) {
+				return
+			}
 			apiHandler.dispatch(route, response, request)
 		})
 	}
@@ -243,14 +270,23 @@ func streamEvent[StreamEvent any](name string, path string, handler routeHandler
 }
 
 func post[Request any, Response any](name string, path string, handler routeHandler) endpoint {
+	return postWithRequestBodyLimit[Request, Response](name, path, defaultRequestBodyLimitBytes, handler)
+}
+
+func postWithRequestBodyLimit[Request any, Response any](name string, path string, requestBodyLimitBytes int64, handler routeHandler) endpoint {
 	return endpoint{
 		ContractEndpoint: ContractEndpoint{
-			Name:     name,
-			Method:   http.MethodPost,
-			Path:     path,
-			Request:  reflect.TypeFor[Request](),
-			Response: reflect.TypeFor[Response](),
+			Name:                  name,
+			Method:                http.MethodPost,
+			Path:                  path,
+			Request:               reflect.TypeFor[Request](),
+			Response:              reflect.TypeFor[Response](),
+			RequestBodyLimitBytes: requestBodyLimitBytes,
 		},
 		Handler: handler,
 	}
+}
+
+func chatImageAttachmentRequestBodyLimitBytes() int64 {
+	return int64(base64.StdEncoding.EncodedLen(chat.MaxImageAttachmentBytes)) + requestBodyLimitJSONEnvelopeBytes
 }

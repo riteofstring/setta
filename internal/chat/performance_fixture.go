@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -151,6 +150,9 @@ func seedPerformanceTurns(store *Store, workspaceID string, seededAt time.Time, 
 		if err != nil {
 			return performanceSeedCounts{}, err
 		}
+		if err := savePerformanceTranscriptBlocks(store, workspaceID, records); err != nil {
+			return performanceSeedCounts{}, err
+		}
 		counts.messages += messageCount
 		counts.runs++
 		counts.runItems += runItemCount
@@ -190,6 +192,158 @@ func savePerformanceRunItems(store *Store, workspaceID string, runID string, ite
 		}
 	}
 	return len(items), nil
+}
+
+func savePerformanceTranscriptBlocks(store *Store, workspaceID string, records performanceTurn) error {
+	runAnchorOrdinal := performanceRunAnchorOrdinal(records.run, records.messages)
+	ordinal := 1
+	for _, message := range records.messages {
+		switch message.Role {
+		case RoleUser, RoleCommand:
+			block := performanceUserMessageBlock(records.run, message, ordinal, runAnchorOrdinal)
+			if err := store.SaveTranscriptBlock(workspaceID, records.run.ID, block); err != nil {
+				return err
+			}
+			ordinal++
+		case RoleAssistant:
+			block := performanceAssistantTextBlock(records.run, message, ordinal, runAnchorOrdinal)
+			if err := store.SaveTranscriptBlock(workspaceID, records.run.ID, block); err != nil {
+				return err
+			}
+			ordinal++
+		}
+	}
+	for _, item := range records.runItems {
+		block, ok := performanceRunItemBlock(records.run, item, ordinal, runAnchorOrdinal)
+		if !ok {
+			continue
+		}
+		if err := store.SaveTranscriptBlock(workspaceID, records.run.ID, block); err != nil {
+			return err
+		}
+		ordinal++
+	}
+	return nil
+}
+
+func performanceRunAnchorOrdinal(run Run, messages []ChatMessage) int {
+	for _, message := range messages {
+		if message.ID == run.TriggerMessageID {
+			return message.Ordinal
+		}
+	}
+	return 1
+}
+
+func performanceUserMessageBlock(run Run, message ChatMessage, ordinal int, runAnchorOrdinal int) TranscriptBlock {
+	return performanceTranscriptBlockBase(
+		run,
+		"transcript_block_"+message.ID,
+		TranscriptBlockKindUserMessage,
+		ordinal,
+		runAnchorOrdinal,
+		performanceTranscriptStatusForMessage(message.Status),
+		message.CreatedAt,
+		&TranscriptBlock{UserMessage: userMessageProjection(message)},
+	)
+}
+
+func performanceAssistantTextBlock(run Run, message ChatMessage, ordinal int, runAnchorOrdinal int) TranscriptBlock {
+	return performanceTranscriptBlockBase(
+		run,
+		"transcript_block_"+message.ID,
+		TranscriptBlockKindAssistantText,
+		ordinal,
+		runAnchorOrdinal,
+		performanceTranscriptStatusForMessage(message.Status),
+		message.CreatedAt,
+		&TranscriptBlock{AssistantText: &AssistantTextBlockProjection{Text: messageText(message), Format: TextFormatMarkdown}},
+	)
+}
+
+func performanceRunItemBlock(run Run, item RunItem, ordinal int, runAnchorOrdinal int) (TranscriptBlock, bool) {
+	if item.Type == RunItemTypeAgentMessage {
+		return TranscriptBlock{}, false
+	}
+	if item.Type == RunItemTypeReasoning {
+		headline := reasoningHeadline(item)
+		if headline == "" {
+			return TranscriptBlock{}, false
+		}
+		body := reasoningBody(item)
+		mode := ReasoningBlockModeThinking
+		if body != "" {
+			mode = ReasoningBlockModeSummary
+		}
+		status := transcriptBlockStatusForItem(runActivityProjectionStatus(item, run.Status))
+		return performanceTranscriptBlockBase(
+			run,
+			"transcript_block_"+item.ID,
+			TranscriptBlockKindReasoning,
+			ordinal,
+			runAnchorOrdinal,
+			status,
+			item.CreatedAt,
+			&TranscriptBlock{Reasoning: &ReasoningBlockProjection{
+				SourceRunItemID: item.ID,
+				Mode:            mode,
+				Headline:        headline,
+				Summary:         body,
+			}},
+		), true
+	}
+	hasOutput := uiShowcaseOutput(item.Type) != ""
+	projection, ok := activityItemBlockProjection(item, run.Status, hasOutput, true)
+	if !ok {
+		return TranscriptBlock{}, false
+	}
+	return performanceTranscriptBlockBase(
+		run,
+		"transcript_block_"+item.ID,
+		TranscriptBlockKindActivityItem,
+		ordinal,
+		runAnchorOrdinal,
+		transcriptBlockStatusForItem(projection.Status),
+		item.CreatedAt,
+		&TranscriptBlock{Activity: &projection},
+	), true
+}
+
+func performanceTranscriptBlockBase(run Run, id string, kind TranscriptBlockKind, ordinal int, runAnchorOrdinal int, status TranscriptBlockStatus, stamp string, branch *TranscriptBlock) TranscriptBlock {
+	block := TranscriptBlock{
+		SchemaVersion:    SchemaVersion,
+		ID:               id,
+		ConversationID:   run.ConversationID,
+		RunID:            run.ID,
+		Kind:             kind,
+		Ordinal:          ordinal,
+		RunAnchorOrdinal: runAnchorOrdinal,
+		Status:           status,
+		CreatedAt:        stamp,
+		UpdatedAt:        stamp,
+	}
+	if branch != nil {
+		block.UserMessage = branch.UserMessage
+		block.AssistantText = branch.AssistantText
+		block.Reasoning = branch.Reasoning
+		block.Activity = branch.Activity
+		block.RunStatus = branch.RunStatus
+		block.BackgroundTerminal = branch.BackgroundTerminal
+	}
+	return block
+}
+
+func performanceTranscriptStatusForMessage(status MessageStatus) TranscriptBlockStatus {
+	switch status {
+	case MessageStatusError:
+		return TranscriptBlockStatusFailed
+	case MessageStatusCancelled:
+		return TranscriptBlockStatusCancelled
+	case MessageStatusComplete:
+		return TranscriptBlockStatusComplete
+	default:
+		return TranscriptBlockStatusStreaming
+	}
 }
 
 func performanceStandaloneMessages(seededAt time.Time, ordinal *int) []ChatMessage {
@@ -378,10 +532,12 @@ func performanceMessage(id string, runID string, role MessageRole, delivery Mess
 		UpdatedAt:      timestamp(createdAt),
 		Status:         status,
 		Parts: []MessagePart{{
-			ID:     id + "_part",
-			Type:   MessagePartText,
-			Text:   text,
-			Format: format,
+			ID:   id + "_part",
+			Type: MessagePartText,
+			Text: &MessageTextPart{
+				Text:   text,
+				Format: format,
+			},
 		}},
 	}
 }
@@ -424,11 +580,15 @@ func performanceRunItems(workspaceID string, runID string, turnIndex int, starte
 		}
 		item.Title = fmt.Sprintf("%s %03d", item.Title, turnIndex)
 		item.Summary = performanceStringWithTurn(item.Summary, turnIndex)
-		item.Progress = performanceStringWithTurn(item.Progress, turnIndex)
-		item.Result = performanceStringWithTurn(item.Result, turnIndex)
-		item.Command = performanceCommandWithTurn(item.Command, turnIndex)
-		item.Cwd = filepath.Join("/tmp/setta-performance-workspace", fmt.Sprintf("turn-%03d", turnIndex))
-		item.FilePaths = performanceFilePaths(item.FilePaths, turnIndex)
+		if item.Details == nil {
+			item.Progress = performanceStringWithTurn(item.Progress, turnIndex)
+			item.Result = performanceStringWithTurn(item.Result, turnIndex)
+			item.Command = performanceCommandWithTurn(item.Command, turnIndex)
+			if item.Cwd != "" {
+				item.Cwd = performanceWorkspaceDir(turnIndex)
+			}
+			item.FilePaths = performanceFilePaths(item.FilePaths, turnIndex)
+		}
 		item.Details = performanceDetails(item.Details, turnIndex)
 		items = append(items, item)
 	}
@@ -479,25 +639,180 @@ func performanceFilePaths(paths []string, turnIndex int) []string {
 	}
 	result := make([]string, 0, len(paths))
 	for _, path := range paths {
-		result = append(result, filepath.Join("/tmp/setta-performance-workspace", fmt.Sprintf("turn-%03d", turnIndex), filepath.Base(path)))
+		result = append(result, performanceWorkspacePath(path, turnIndex))
 	}
 	return result
 }
 
-func performanceDetails(raw json.RawMessage, turnIndex int) json.RawMessage {
-	if len(raw) == 0 {
+func performanceWorkspaceDir(turnIndex int) string {
+	return filepath.Join("/tmp/setta-performance-workspace", fmt.Sprintf("turn-%03d", turnIndex))
+}
+
+func performanceWorkspacePath(path string, turnIndex int) string {
+	if path == "" {
+		return ""
+	}
+	return filepath.Join(performanceWorkspaceDir(turnIndex), filepath.Base(path))
+}
+
+func performanceDetails(details *RunItemDetails, turnIndex int) *RunItemDetails {
+	if details == nil {
 		return nil
 	}
-	var details map[string]any
-	if err := json.Unmarshal(raw, &details); err != nil {
-		return raw
+	copied := *details
+	switch details.Kind {
+	case RunItemDetailsKindPlan:
+		copied.Plan = performancePlanDetails(details.Plan, turnIndex)
+	case RunItemDetailsKindCommandExecution:
+		copied.CommandExecution = performanceCommandExecutionDetails(details.CommandExecution, turnIndex)
+	case RunItemDetailsKindCommandStartFailure:
+		copied.CommandStartFailure = performanceCommandStartFailureDetails(details.CommandStartFailure, turnIndex)
+	case RunItemDetailsKindMCPToolCall:
+		copied.MCPToolCall = performanceMCPToolCallDetails(details.MCPToolCall, turnIndex)
+	case RunItemDetailsKindDynamicToolCall:
+		copied.DynamicToolCall = performanceDynamicToolCallDetails(details.DynamicToolCall, turnIndex)
+	case RunItemDetailsKindFileChange:
+		copied.FileChange = performanceFileChangeDetails(details.FileChange, turnIndex)
+	case RunItemDetailsKindDiff:
+		copied.Diff = performanceDiffDetails(details.Diff, turnIndex)
+	case RunItemDetailsKindApproval:
+		copied.Approval = performanceApprovalDetails(details.Approval, turnIndex)
+	case RunItemDetailsKindProviderStreamLifecycle:
+		copied.ProviderStreamLifecycle = performanceProviderStreamLifecycleDetails(details.ProviderStreamLifecycle, turnIndex)
 	}
-	details["turn"] = turnIndex
-	data, err := json.Marshal(details)
-	if err != nil {
-		return raw
+	return &copied
+}
+
+func performancePlanDetails(details *RunItemPlanDetails, turnIndex int) *RunItemPlanDetails {
+	if details == nil {
+		return nil
 	}
-	return data
+	plan := *details
+	plan.Explanation = performanceStringWithTurn(plan.Explanation, turnIndex)
+	plan.Steps = append([]RunItemPlanStep(nil), plan.Steps...)
+	for index := range plan.Steps {
+		plan.Steps[index].Step = performanceStringWithTurn(plan.Steps[index].Step, turnIndex)
+	}
+	return &plan
+}
+
+func performanceCommandExecutionDetails(details *RunItemCommandExecutionDetails, turnIndex int) *RunItemCommandExecutionDetails {
+	if details == nil {
+		return nil
+	}
+	command := *details
+	command.Command = performanceCommandWithTurn(command.Command, turnIndex)
+	command.Cwd = performanceWorkspaceDir(turnIndex)
+	command.ProcessID = performanceStringWithTurn(command.ProcessID, turnIndex)
+	command.Result = performanceStringWithTurn(command.Result, turnIndex)
+	command.Error = performanceStringWithTurn(command.Error, turnIndex)
+	return &command
+}
+
+func performanceCommandStartFailureDetails(details *RunItemCommandStartFailureDetails, turnIndex int) *RunItemCommandStartFailureDetails {
+	if details == nil {
+		return nil
+	}
+	failure := *details
+	failure.Command = performanceCommandWithTurn(failure.Command, turnIndex)
+	failure.Cwd = performanceWorkspaceDir(turnIndex)
+	failure.Message = performanceStringWithTurn(failure.Message, turnIndex)
+	failure.ProviderErrorID = performanceStringWithTurn(failure.ProviderErrorID, turnIndex)
+	return &failure
+}
+
+func performanceMCPToolCallDetails(details *RunItemMCPToolCallDetails, turnIndex int) *RunItemMCPToolCallDetails {
+	if details == nil {
+		return nil
+	}
+	toolCall := *details
+	toolCall.DisplayTitle = performanceStringWithTurn(toolCall.DisplayTitle, turnIndex)
+	toolCall.Progress = performanceStringWithTurn(toolCall.Progress, turnIndex)
+	toolCall.ResultSummary = performanceStringWithTurn(toolCall.ResultSummary, turnIndex)
+	toolCall.Error = performanceStringWithTurn(toolCall.Error, turnIndex)
+	return &toolCall
+}
+
+func performanceDynamicToolCallDetails(details *RunItemDynamicToolCallDetails, turnIndex int) *RunItemDynamicToolCallDetails {
+	if details == nil {
+		return nil
+	}
+	toolCall := *details
+	toolCall.DisplayTitle = performanceStringWithTurn(toolCall.DisplayTitle, turnIndex)
+	toolCall.Description = performanceStringWithTurn(toolCall.Description, turnIndex)
+	toolCall.ResultSummary = performanceStringWithTurn(toolCall.ResultSummary, turnIndex)
+	toolCall.Error = performanceStringWithTurn(toolCall.Error, turnIndex)
+	toolCall.Result = performanceDynamicToolResult(toolCall.Result, turnIndex)
+	return &toolCall
+}
+
+func performanceDynamicToolResult(details *RunItemDynamicToolResult, turnIndex int) *RunItemDynamicToolResult {
+	if details == nil {
+		return nil
+	}
+	result := *details
+	result.ContentItems = append([]RunItemDynamicToolContentItem(nil), result.ContentItems...)
+	for index := range result.ContentItems {
+		result.ContentItems[index].Text = performanceStringWithTurn(result.ContentItems[index].Text, turnIndex)
+	}
+	return &result
+}
+
+func performanceFileChangeDetails(details *RunItemFileChangeDetails, turnIndex int) *RunItemFileChangeDetails {
+	if details == nil {
+		return nil
+	}
+	fileChange := *details
+	fileChange.Paths = append([]RunItemFileChangePath(nil), fileChange.Paths...)
+	for index := range fileChange.Paths {
+		fileChange.Paths[index].Path = performanceWorkspacePath(fileChange.Paths[index].Path, turnIndex)
+		fileChange.Paths[index].MovePath = performanceWorkspacePath(fileChange.Paths[index].MovePath, turnIndex)
+	}
+	return &fileChange
+}
+
+func performanceDiffDetails(details *RunItemDiffDetails, turnIndex int) *RunItemDiffDetails {
+	if details == nil {
+		return nil
+	}
+	diff := *details
+	diff.Summary = performanceStringWithTurn(diff.Summary, turnIndex)
+	diff.Paths = append([]RunItemDiffPath(nil), diff.Paths...)
+	for index := range diff.Paths {
+		diff.Paths[index].Path = performanceWorkspacePath(diff.Paths[index].Path, turnIndex)
+		diff.Paths[index].MovePath = performanceWorkspacePath(diff.Paths[index].MovePath, turnIndex)
+	}
+	return &diff
+}
+
+func performanceApprovalDetails(details *RunItemApprovalDetails, turnIndex int) *RunItemApprovalDetails {
+	if details == nil {
+		return nil
+	}
+	approval := *details
+	approval.ApprovalID = performanceStringWithTurn(approval.ApprovalID, turnIndex)
+	approval.ProviderRequestID = performanceStringWithTurn(approval.ProviderRequestID, turnIndex)
+	approval.ReviewID = performanceStringWithTurn(approval.ReviewID, turnIndex)
+	approval.Title = performanceStringWithTurn(approval.Title, turnIndex)
+	approval.Body = performanceStringWithTurn(approval.Body, turnIndex)
+	approval.Command = performanceCommandWithTurn(approval.Command, turnIndex)
+	if approval.Cwd != "" {
+		approval.Cwd = performanceWorkspaceDir(turnIndex)
+	}
+	approval.FilePath = performanceWorkspacePath(approval.FilePath, turnIndex)
+	return &approval
+}
+
+func performanceProviderStreamLifecycleDetails(details *RunItemProviderStreamLifecycleDetails, turnIndex int) *RunItemProviderStreamLifecycleDetails {
+	if details == nil {
+		return nil
+	}
+	lifecycle := *details
+	lifecycle.Message = performanceStringWithTurn(lifecycle.Message, turnIndex)
+	lifecycle.AdditionalDetails = performanceStringWithTurn(lifecycle.AdditionalDetails, turnIndex)
+	lifecycle.ProviderThreadID = performanceStringWithTurn(lifecycle.ProviderThreadID, turnIndex)
+	lifecycle.ProviderTurnID = performanceStringWithTurn(lifecycle.ProviderTurnID, turnIndex)
+	return &lifecycle
 }
 
 func performanceRunID(turnIndex int) string {

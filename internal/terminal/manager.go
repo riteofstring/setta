@@ -256,37 +256,65 @@ func (manager *Manager) Resize(
 func (manager *Manager) Close(
 	ctx context.Context,
 	sessionID string,
-	mode CloseMode,
-) (SessionSummary, error) {
+	confirmed bool,
+) (TerminalCloseResult, error) {
 	if sessionID == "" {
-		return SessionSummary{}, errors.New("session id is required")
-	}
-	if err := validateCloseMode(mode); err != nil {
-		return SessionSummary{}, err
+		return TerminalCloseResult{}, errors.New("session id is required")
 	}
 	terminalSession, err := manager.sessionForClose(sessionID)
 	if err != nil {
-		return SessionSummary{}, err
+		if errors.Is(err, errTerminalSessionNotFound) {
+			return TerminalCloseResult{
+				Kind:       TerminalCloseResultClosed,
+				Assessment: terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentNoSession),
+			}, nil
+		}
+		return TerminalCloseResult{}, err
 	}
-	switch mode {
-	case CloseModeTerminate, CloseModeKill:
-		err = manager.closeProcess(ctx, terminalSession)
-	default:
-		panic("validated terminal close mode was not exhaustive")
+	assessment := manager.assessCloseSafety(terminalSession)
+	if assessment.RequiresConfirmation && !confirmed {
+		summary := terminalSession.summary()
+		return TerminalCloseResult{
+			Kind:       TerminalCloseResultConfirmationRequired,
+			Session:    &summary,
+			Assessment: assessment,
+		}, nil
 	}
-	if err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return SessionSummary{}, fmt.Errorf("close terminal session: %w", err)
+	if assessment.Safety == TerminalCloseSafetySafe {
+		return manager.closeSafeSession(terminalSession, assessment), nil
 	}
+	if err := manager.closeProcess(ctx, terminalSession); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return TerminalCloseResult{}, fmt.Errorf("close terminal session: %w", err)
+	}
+	return manager.closeSessionAfterProcessClose(terminalSession, assessment, "confirmed"), nil
+}
+
+func (manager *Manager) closeSafeSession(
+	terminalSession *session,
+	assessment TerminalCloseAssessment,
+) TerminalCloseResult {
+	return manager.closeSessionAfterProcessClose(terminalSession, assessment, string(assessment.Reason))
+}
+
+func (manager *Manager) closeSessionAfterProcessClose(
+	terminalSession *session,
+	assessment TerminalCloseAssessment,
+	message string,
+) TerminalCloseResult {
 	manager.mu.Lock()
 	terminalSession.status = SessionStatusClosed
-	terminalSession.message = string(mode)
+	terminalSession.message = message
 	terminalSession.updatedAt = manager.clock().UTC()
 	summary := terminalSession.summary()
 	manager.removeSessionLocked(terminalSession)
 	manager.mu.Unlock()
 	_ = terminalSession.handle.Close()
-	manager.publishLifecycle(terminalSession, TerminalEventClosed, string(mode))
-	return summary, nil
+	manager.publishLifecycle(terminalSession, TerminalEventClosed, message)
+	return TerminalCloseResult{
+		Kind:       TerminalCloseResultClosed,
+		Session:    &summary,
+		Assessment: assessment,
+	}
 }
 
 func (manager *Manager) SubscribeEvents(cursor EventCursor) (*EventSubscription, error) {
@@ -380,15 +408,16 @@ func (manager *Manager) resolveSessionProfile(
 		return Profile{}, err
 	}
 	return Profile{
-		ID:        profile.ID,
-		Name:      profile.Name,
-		ShellPath: profile.ShellPath,
-		Args:      append([]string{}, profile.Args...),
-		Env:       copyEnv(profile.Env),
-		CWD:       cwd,
-		Term:      DefaultTerm,
-		Cols:      cols,
-		Rows:      rows,
+		ID:         profile.ID,
+		Name:       profile.Name,
+		LaunchMode: profile.LaunchMode,
+		ShellPath:  profile.ShellPath,
+		Args:       append([]string{}, profile.Args...),
+		Env:        copyEnv(profile.Env),
+		CWD:        cwd,
+		Term:       DefaultTerm,
+		Cols:       cols,
+		Rows:       rows,
 	}, nil
 }
 
@@ -433,14 +462,92 @@ func (manager *Manager) runningSession(sessionID string) (*session, error) {
 	return terminalSession, nil
 }
 
+var errTerminalSessionNotFound = errors.New("terminal session not found")
+
 func (manager *Manager) sessionForClose(sessionID string) (*session, error) {
 	manager.mu.Lock()
 	defer manager.mu.Unlock()
 	terminalSession := manager.sessionByID[sessionID]
 	if terminalSession == nil {
-		return nil, fmt.Errorf("terminal session not found: %s", sessionID)
+		return nil, fmt.Errorf("%w: %s", errTerminalSessionNotFound, sessionID)
 	}
 	return terminalSession, nil
+}
+
+func (manager *Manager) assessCloseSafety(terminalSession *session) TerminalCloseAssessment {
+	switch terminalSession.status {
+	case SessionStatusClosed, SessionStatusExited, SessionStatusError:
+		return terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentAlreadyClosed)
+	case SessionStatusRunning, SessionStatusStarting:
+	default:
+		return terminalCloseAssessment(TerminalCloseSafetyUnknown, TerminalCloseAssessmentInspectionFailed)
+	}
+	assessor, ok := terminalSession.handle.(PTYCloseSafetyAssessor)
+	if !ok {
+		return terminalCloseAssessment(TerminalCloseSafetyUnknown, TerminalCloseAssessmentInspectionFailed)
+	}
+	return normalizeTerminalCloseAssessment(assessor.CloseSafetyAssessment())
+}
+
+func normalizeTerminalCloseAssessment(assessment TerminalCloseAssessment) TerminalCloseAssessment {
+	switch assessment.Safety {
+	case TerminalCloseSafetySafe, TerminalCloseSafetyDestructive, TerminalCloseSafetyUnknown:
+	default:
+		assessment.Safety = TerminalCloseSafetyUnknown
+	}
+	switch assessment.Reason {
+	case TerminalCloseAssessmentNoSession,
+		TerminalCloseAssessmentAlreadyClosed,
+		TerminalCloseAssessmentIdleShell,
+		TerminalCloseAssessmentForegroundProcess,
+		TerminalCloseAssessmentBackgroundJobs,
+		TerminalCloseAssessmentInspectionFailed:
+	default:
+		assessment.Reason = TerminalCloseAssessmentInspectionFailed
+	}
+	assessment.RequiresConfirmation = assessment.Safety != TerminalCloseSafetySafe
+	if assessment.Summary == "" {
+		assessment.Summary = terminalCloseSummary(assessment.Safety, assessment.Reason)
+	}
+	return assessment
+}
+
+func terminalCloseAssessment(
+	safety TerminalCloseSafety,
+	reason TerminalCloseAssessmentReason,
+) TerminalCloseAssessment {
+	return normalizeTerminalCloseAssessment(TerminalCloseAssessment{
+		Safety: safety,
+		Reason: reason,
+	})
+}
+
+func terminalCloseSummary(
+	safety TerminalCloseSafety,
+	reason TerminalCloseAssessmentReason,
+) string {
+	if safety == TerminalCloseSafetySafe {
+		switch reason {
+		case TerminalCloseAssessmentNoSession:
+			return "Terminal session is already gone."
+		case TerminalCloseAssessmentAlreadyClosed:
+			return "Terminal session is already stopped."
+		case TerminalCloseAssessmentIdleShell:
+			return "Terminal shell is idle."
+		default:
+			return "Closing this terminal is safe."
+		}
+	}
+	switch reason {
+	case TerminalCloseAssessmentForegroundProcess:
+		return "Closing this terminal may terminate a foreground process."
+	case TerminalCloseAssessmentBackgroundJobs:
+		return "Closing this terminal may terminate background jobs."
+	case TerminalCloseAssessmentInspectionFailed:
+		return "Setta cannot verify whether closing this terminal is safe."
+	default:
+		return "Closing this terminal may terminate running work."
+	}
 }
 
 var errCloseProcessTimeout = errors.New("terminal process did not exit before close timeout")
@@ -658,15 +765,6 @@ func validateDimensions(cols int, rows int) error {
 		return fmt.Errorf("terminal rows must be between 1 and %d: %d", MaxRows, rows)
 	}
 	return nil
-}
-
-func validateCloseMode(mode CloseMode) error {
-	switch mode {
-	case CloseModeTerminate, CloseModeKill:
-		return nil
-	default:
-		return fmt.Errorf("unsupported terminal close mode: %s", mode)
-	}
 }
 
 func validateCWD(cwd string) (string, error) {

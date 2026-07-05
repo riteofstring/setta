@@ -58,7 +58,7 @@ func (service *Service) StartAutomaticCartographerProcessing(ctx context.Context
 		return errors.New("context is required")
 	}
 	service.automaticCartographerMu.Lock()
-	if !service.automaticCartographer.enabled {
+	if service.semanticCartographerDisabled() || !service.automaticCartographer.enabled {
 		service.automaticCartographer.started = false
 		service.automaticCartographerMu.Unlock()
 		return nil
@@ -119,6 +119,13 @@ func (service *Service) ReadCartographerProcessingState(context.Context) (Cartog
 func (service *Service) RecoverAutomaticCartographerWindows(ctx context.Context) (CartographerProcessingRecoveryResult, error) {
 	if ctx == nil {
 		return CartographerProcessingRecoveryResult{}, errors.New("context is required")
+	}
+	if service.semanticCartographerDisabled() {
+		state, err := service.ReadCartographerProcessingState(ctx)
+		if err != nil {
+			return CartographerProcessingRecoveryResult{}, err
+		}
+		return CartographerProcessingRecoveryResult{State: state}, nil
 	}
 	windows, err := service.store.ListClosedPendingCartographerWindows(ctx)
 	if err != nil {

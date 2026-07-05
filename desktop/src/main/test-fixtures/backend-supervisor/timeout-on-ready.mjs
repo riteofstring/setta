@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 
 const markerPath = process.env.SETTA_BACKEND_SUPERVISOR_TERMINATED;
+const pidPath = process.env.SETTA_BACKEND_SUPERVISOR_PID;
 const readyForSignalPath = process.env.SETTA_BACKEND_SUPERVISOR_READY_FOR_SIGNAL;
 
 if (!markerPath || !readyForSignalPath) {
@@ -13,5 +14,8 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
+if (pidPath) {
+  writeFileSync(pidPath, String(process.pid));
+}
 writeFileSync(readyForSignalPath, "ready");
 setInterval(() => {}, 1000);

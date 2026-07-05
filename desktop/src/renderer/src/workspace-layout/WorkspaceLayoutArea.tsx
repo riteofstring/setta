@@ -41,6 +41,7 @@ import {
   observeStageResize,
   requireWorkspaceLayoutElements,
 } from "./workspace-layout-area-mount";
+import { viewportRect } from "./workspace-layout-area-geometry";
 import {
   focusOrOpenPaneBySurfaceKind,
   WorkspaceMobileControlsLayer,
@@ -233,6 +234,7 @@ function WorkspaceLayoutRuntimeArea({
   const [overviewGhostTarget, setOverviewGhostTargetState] = useState<OverviewGhostTarget | null>(
     null,
   );
+  const [nativeViewOverlayActive, setNativeViewOverlayActive] = useState(false);
   const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
     if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
       return;
@@ -278,6 +280,9 @@ function WorkspaceLayoutRuntimeArea({
     }
     schedulerRef.current?.requestFrame();
   }, [projectPaneWidth, runtime, stageViewport]);
+  useEffect(() => {
+    schedulerRef.current?.requestFrame();
+  }, [nativeViewOverlayActive]);
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
       clearOverviewInsertPreview();
@@ -318,7 +323,10 @@ function WorkspaceLayoutRuntimeArea({
         if (runtime.store.canOpenPane(request)) {
           runtime.store.openPane(request);
         } else {
-          runtime.store.focusPaneBySurfaceKind(surfaceKind);
+          const paneId = runtime.store.focusPaneBySurfaceKind(surfaceKind);
+          if (paneId !== null && request.workflowNodeDetailsConfig) {
+            runtime.store.configurePane(paneId, request);
+          }
         }
         runtime.store.ensureFocusedColumnVisible(stageViewport());
         runtime.store.snapScrollToTarget();
@@ -864,6 +872,8 @@ function WorkspaceLayoutRuntimeArea({
       data-compact-layout={mobileLayout}
       data-desktop-platform={platform}
       data-maximized-pane-id={layoutSnapshot.maximizedPaneId ?? ""}
+      data-native-view-clip-left={projectPaneWidth}
+      data-native-view-overlay-active={nativeViewOverlayActive}
       data-pane-count={currentScene.totalPanes}
       data-presentation-mode={layoutSnapshot.presentationMode}
       data-workspace-mode={runtime.mode}
@@ -908,6 +918,7 @@ function WorkspaceLayoutRuntimeArea({
       <WorkspaceToolbarLayer
         debugRef={debugRef}
         mobileLayout={mobileLayout}
+        onNativeOverlayActiveChange={setNativeViewOverlayActive}
         overviewActive={layoutSnapshot.presentationMode === "overview"}
         runLayoutAction={runLayoutAction}
         runtime={runtime}
@@ -981,15 +992,4 @@ function sameOverviewGhostTarget(
     left.placement === right.placement &&
     frameFields.every((field) => left[field] === right[field])
   );
-}
-
-function viewportRect(element: HTMLElement, reservedLeftWidth = 0): Rect {
-  const rect = element.getBoundingClientRect();
-  const reservedWidth = Math.max(0, Math.min(rect.width - 1, reservedLeftWidth));
-  return {
-    height: rect.height,
-    width: rect.width - reservedWidth,
-    x: reservedWidth,
-    y: 0,
-  };
 }

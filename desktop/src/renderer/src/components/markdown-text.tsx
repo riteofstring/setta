@@ -1,160 +1,302 @@
 import { memo, useMemo } from "react";
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, MouseEvent, ReactNode } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-const plainTextSegmentLength = 512;
-const segmentedPlainTextThreshold = plainTextSegmentLength * 4;
+import { highlightCode } from "../lib/syntax-highlight";
+import { cn } from "../lib/utils";
+
+const markdownPlugins = [remarkGfm];
+
+const markdownRootClass =
+  "min-w-0 max-w-full space-y-2 overflow-hidden text-[13px] leading-5 break-words text-inherit [overflow-wrap:anywhere]";
 
 export const MarkdownText = memo(function MarkdownText({ text }: { text: string }) {
-  const markdownSyntax = hasMarkdownSyntax(text);
-  const blocks = useMemo(() => (markdownSyntax ? parseBlocks(text) : []), [markdownSyntax, text]);
-  if (!markdownSyntax) {
-    return (
-      <div className="min-w-0 max-w-full space-y-2 overflow-hidden text-[13px] leading-5 break-words text-inherit [overflow-wrap:anywhere]">
-        <p className="max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-          <PlainTextContent text={text} />
-        </p>
-      </div>
-    );
-  }
   return (
-    <div className="min-w-0 max-w-full space-y-2 overflow-hidden text-[13px] leading-5 break-words text-inherit [overflow-wrap:anywhere]">
-      {blocks.map((block, index) => {
-        if (block.kind === "code") {
-          return (
-            <pre
-              className="w-full min-w-0 max-w-full overflow-hidden whitespace-pre-wrap rounded-sm border border-border bg-background p-2 text-xs leading-5 break-words text-foreground [overflow-wrap:anywhere]"
-              key={index}
-            >
-              <code className="block min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                {block.text}
-              </code>
-            </pre>
-          );
-        }
-        return (
-          <p
-            className="max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
-            key={index}
-          >
-            {renderInlineMarkdown(block.text)}
-          </p>
-        );
-      })}
+    <div className={markdownRootClass}>
+      <ReactMarkdown
+        components={markdownComponents}
+        remarkPlugins={markdownPlugins}
+        skipHtml={false}
+        urlTransform={(url) => url}
+      >
+        {text}
+      </ReactMarkdown>
     </div>
   );
 });
 
-function PlainTextContent({ text }: { text: string }) {
-  if (text.length < segmentedPlainTextThreshold) {
-    return text;
+const markdownComponents = {
+  p({ children }) {
+    return <p className="max-w-full break-words [overflow-wrap:anywhere]">{children}</p>;
+  },
+  ul({ children }) {
+    return (
+      <ul className="max-w-full list-disc space-y-1 pl-5 break-words [overflow-wrap:anywhere]">
+        {children}
+      </ul>
+    );
+  },
+  ol({ children }) {
+    return (
+      <ol className="max-w-full list-decimal space-y-1 pl-5 break-words [overflow-wrap:anywhere]">
+        {children}
+      </ol>
+    );
+  },
+  li({ children }) {
+    return <li className="min-w-0 pl-1 break-words [overflow-wrap:anywhere]">{children}</li>;
+  },
+  blockquote({ children }) {
+    return (
+      <blockquote className="max-w-full border-l border-border/80 pl-3 text-muted-foreground">
+        {children}
+      </blockquote>
+    );
+  },
+  pre({ node, children }) {
+    const codeBlock = codeBlockFromPreNode(node);
+    if (codeBlock) {
+      return <CodeBlock language={codeBlock.language} text={codeBlock.text} />;
+    }
+    return <pre className={codeBlockPreClass}>{children}</pre>;
+  },
+  code({ children }) {
+    return (
+      <code className="rounded bg-secondary px-1 py-0.5 text-[0.85em] break-words text-accent-teal [overflow-wrap:anywhere]">
+        {children}
+      </code>
+    );
+  },
+  table({ children }) {
+    return (
+      <div className="max-w-full min-w-0 overflow-hidden rounded-sm border border-border">
+        <table className="w-full table-auto border-collapse text-xs">{children}</table>
+      </div>
+    );
+  },
+  thead({ children }) {
+    return <thead className="bg-muted/70 text-muted-foreground">{children}</thead>;
+  },
+  tbody({ children }) {
+    return <tbody>{children}</tbody>;
+  },
+  tr({ children }) {
+    return <tr className="border-t border-border first:border-t-0">{children}</tr>;
+  },
+  th({ children }) {
+    return (
+      <th className="min-w-0 border-r border-border px-2 py-1 text-left font-semibold break-words last:border-r-0 [overflow-wrap:anywhere]">
+        {children}
+      </th>
+    );
+  },
+  td({ children }) {
+    return (
+      <td className="min-w-0 border-r border-border px-2 py-1 align-top break-words last:border-r-0 [overflow-wrap:anywhere]">
+        {children}
+      </td>
+    );
+  },
+  a({ children, href, title }) {
+    return (
+      <MarkdownLink href={href} title={title}>
+        {children}
+      </MarkdownLink>
+    );
+  },
+  h1({ children }) {
+    return <MarkdownHeading level={1}>{children}</MarkdownHeading>;
+  },
+  h2({ children }) {
+    return <MarkdownHeading level={2}>{children}</MarkdownHeading>;
+  },
+  h3({ children }) {
+    return <MarkdownHeading level={3}>{children}</MarkdownHeading>;
+  },
+  h4({ children }) {
+    return <MarkdownHeading level={4}>{children}</MarkdownHeading>;
+  },
+  h5({ children }) {
+    return <MarkdownHeading level={5}>{children}</MarkdownHeading>;
+  },
+  h6({ children }) {
+    return <MarkdownHeading level={6}>{children}</MarkdownHeading>;
+  },
+  img({ alt }) {
+    return alt ? <span className="text-muted-foreground">{alt}</span> : null;
+  },
+  br() {
+    return <br />;
+  },
+} satisfies Components;
+
+function MarkdownHeading({
+  children,
+  level,
+}: {
+  children: ReactNode;
+  level: 1 | 2 | 3 | 4 | 5 | 6;
+}) {
+  const className = cn(
+    "max-w-full break-words font-semibold text-foreground [overflow-wrap:anywhere]",
+    level <= 2 ? "text-sm leading-6" : "text-[13px] leading-5",
+  );
+  if (level === 1) {
+    return <h1 className={className}>{children}</h1>;
   }
-  return <SegmentedPlainText text={text} />;
+  if (level === 2) {
+    return <h2 className={className}>{children}</h2>;
+  }
+  if (level === 3) {
+    return <h3 className={className}>{children}</h3>;
+  }
+  if (level === 4) {
+    return <h4 className={className}>{children}</h4>;
+  }
+  if (level === 5) {
+    return <h5 className={className}>{children}</h5>;
+  }
+  return <h6 className={className}>{children}</h6>;
 }
 
-function SegmentedPlainText({ text }: { text: string }) {
-  const segments = useMemo(() => splitPlainTextSegments(text), [text]);
-  return segments.map((segment, index) => <PlainTextSegment key={index} text={segment} />);
+function MarkdownLink({
+  children,
+  href,
+  title,
+}: Pick<ComponentPropsWithoutRef<"a">, "children" | "href" | "title">) {
+  const safeHref = safeExternalHttpUrl(href);
+  if (!safeHref) {
+    return (
+      <span className="break-words text-muted-foreground underline decoration-dotted underline-offset-2 [overflow-wrap:anywhere]">
+        {children}
+      </span>
+    );
+  }
+  return (
+    <a
+      className="break-words text-accent-cyan underline underline-offset-2 hover:text-primary [overflow-wrap:anywhere]"
+      href={safeHref}
+      onAuxClick={preventMarkdownLinkNavigation}
+      onClick={(event) => openMarkdownExternalLink(event, safeHref)}
+      rel="noreferrer"
+      title={title}
+    >
+      {children}
+    </a>
+  );
 }
 
-const PlainTextSegment = memo(function PlainTextSegment({ text }: { text: string }) {
-  return <span>{text}</span>;
+function openMarkdownExternalLink(event: MouseEvent<HTMLAnchorElement>, href: string) {
+  event.preventDefault();
+  event.stopPropagation();
+  void window.setta.app.openExternalUrl(href).catch((error: unknown) => {
+    console.error("Markdown link blocked:", error);
+  });
+}
+
+function preventMarkdownLinkNavigation(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function safeExternalHttpUrl(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+  try {
+    const url = new URL(value);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return url.toString();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+// CodeBlock renders a fenced code block, syntax-highlighted when the fence named a
+// known language. Highlighting is memoized per (text, language) so streaming
+// re-renders don't re-tokenize unchanged blocks. highlight.js escapes the source,
+// so the highlighted HTML is safe to inject; unhighlighted code stays plain text.
+const codeBlockPreClass =
+  "w-full min-w-0 max-w-full overflow-hidden whitespace-pre-wrap rounded-sm border border-border bg-background p-2 text-xs leading-5 break-words [overflow-wrap:anywhere]";
+const codeBlockCodeClass =
+  "hljs block min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]";
+
+const CodeBlock = memo(function CodeBlock({ language, text }: { language?: string; text: string }) {
+  const highlighted = useMemo(() => highlightCode(text, language), [language, text]);
+  if (highlighted === null) {
+    return (
+      <pre className={codeBlockPreClass}>
+        <code className={`${codeBlockCodeClass} text-foreground`}>{text}</code>
+      </pre>
+    );
+  }
+  return (
+    <pre className={codeBlockPreClass}>
+      <code className={codeBlockCodeClass} dangerouslySetInnerHTML={{ __html: highlighted }} />
+    </pre>
+  );
 });
 
-function splitPlainTextSegments(text: string) {
-  const segments: string[] = [];
-  for (let index = 0; index < text.length; index += plainTextSegmentLength) {
-    segments.push(text.slice(index, index + plainTextSegmentLength));
+function codeBlockFromPreNode(node: unknown) {
+  const pre = hastElement(node);
+  const code = hastElement(pre?.children[0]);
+  if (!code || code.tagName !== "code") {
+    return null;
   }
-  return segments;
+  return {
+    language: codeLanguage(code.properties.className),
+    text: hastTextContent(code),
+  };
 }
 
-function hasMarkdownSyntax(text: string) {
-  return text.includes("`") || text.includes("**");
+interface HastElementLike {
+  tagName: string;
+  properties: Record<string, unknown>;
+  children: unknown[];
 }
 
-type MarkdownBlock = { kind: "code" | "paragraph"; text: string };
-
-function parseBlocks(text: string): MarkdownBlock[] {
-  const blocks: MarkdownBlock[] = [];
-  const lines = text.split(/\r?\n/);
-  let paragraph: string[] = [];
-  let code: string[] = [];
-  let inCode = false;
-
-  function flushParagraph() {
-    if (paragraph.length === 0) {
-      return;
-    }
-    blocks.push({ kind: "paragraph", text: paragraph.join("\n") });
-    paragraph = [];
+function hastElement(value: unknown): HastElementLike | null {
+  if (!isRecord(value) || typeof value.tagName !== "string" || !Array.isArray(value.children)) {
+    return null;
   }
+  return {
+    children: value.children,
+    properties: isRecord(value.properties) ? value.properties : {},
+    tagName: value.tagName,
+  };
+}
 
-  function flushCode() {
-    blocks.push({ kind: "code", text: code.join("\n") });
-    code = [];
-  }
-
-  for (const line of lines) {
-    if (line.trim().startsWith("```")) {
-      if (inCode) {
-        flushCode();
-        inCode = false;
-      } else {
-        flushParagraph();
-        inCode = true;
+function hastTextContent(node: HastElementLike) {
+  return node.children
+    .map((child) => {
+      if (!isRecord(child) || child.type !== "text" || typeof child.value !== "string") {
+        return "";
       }
-      continue;
-    }
-    if (inCode) {
-      code.push(line);
-      continue;
-    }
-    if (line.trim() === "") {
-      flushParagraph();
-      continue;
-    }
-    paragraph.push(line);
-  }
-  if (inCode) {
-    flushCode();
-  }
-  flushParagraph();
-  if (blocks.length === 0) {
-    return [{ kind: "paragraph", text: "" }];
-  }
-  return blocks;
+      return child.value;
+    })
+    .join("")
+    .replace(/\n$/, "");
 }
 
-function renderInlineMarkdown(text: string) {
-  const nodes: ReactNode[] = [];
-  const pattern = /(`[^`]+`|\*\*[^*]+\*\*)/g;
-  let cursor = 0;
-  for (const match of text.matchAll(pattern)) {
-    const index = match.index ?? 0;
-    if (index > cursor) {
-      nodes.push(text.slice(cursor, index));
+function codeLanguage(className: unknown) {
+  const classes =
+    typeof className === "string"
+      ? className.split(/\s+/)
+      : Array.isArray(className)
+        ? className.filter((item): item is string => typeof item === "string")
+        : [];
+  for (const item of classes) {
+    const match = /^language-([A-Za-z0-9_+-]+)$/.exec(item);
+    if (match) {
+      return match[1];
     }
-    const token = match[0];
-    if (token.startsWith("`")) {
-      nodes.push(
-        <code
-          className="rounded bg-secondary px-1 py-0.5 text-[0.85em] break-words text-accent-teal [overflow-wrap:anywhere]"
-          key={index}
-        >
-          {token.slice(1, -1)}
-        </code>,
-      );
-    } else {
-      nodes.push(
-        <strong className="font-semibold text-inherit" key={index}>
-          {token.slice(2, -2)}
-        </strong>,
-      );
-    }
-    cursor = index + token.length;
   }
-  if (cursor < text.length) {
-    nodes.push(text.slice(cursor));
-  }
-  return nodes;
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, powerMonitor } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
@@ -7,6 +7,7 @@ import {
   createBackendClient,
   type BackendClient,
   type ChatEvent,
+  type RunLivenessReason,
   type TerminalEvent,
   type WorkflowEvent,
 } from "@generated/backend";
@@ -25,7 +26,10 @@ import { attachBackendObservers } from "./backend-main-observers";
 import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
+import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
+import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
+import { registerChatIpcHandlers } from "./chat-ipc";
 import { KnownRuntimeStore } from "./known-runtime-store";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
@@ -63,15 +67,12 @@ const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
 const backendRequestDrainTimeoutMs = 1_500;
 const workspaceBrowserViews = createElectronWebContentsViewRegistry();
-
 function desktopRoot() {
   return process.cwd();
 }
-
 function repoRoot() {
   return resolve(desktopRoot(), "..");
 }
-
 async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
@@ -170,6 +171,9 @@ function startChatEventStream() {
       lifecycle: (event) => {
         emitBackendEventStreamStatus(event);
         recorder?.recordAppEvent("chat_event_stream_" + event.status, event);
+        if (event.status === "reconnecting" || event.status === "resyncing") {
+          void reconcileChatRunsInBackground("stream_resync");
+        }
       },
     },
     sendEvent: forwardChatEvent,
@@ -622,216 +626,8 @@ function registerIpc() {
     ipcObserver,
   );
   registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
-  handleIpc(
-    ipcMain,
-    "chatListConversations",
-    async (_event, workspaceId) => {
-      return requireBackendClient().listConversations({ workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatCreateConversation",
-    async (_event, workspaceId, title) => {
-      return requireBackendClient().createConversation({ title, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatDeleteConversation",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().deleteConversation({ conversationId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatMarkConversationRead",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().markConversationRead({ conversationId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSetConversationPinned",
-    async (_event, workspaceId, conversationId, pinned) => {
-      return requireBackendClient().setConversationPinned({
-        conversationId,
-        pinned,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatMessagePage",
-    async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
-      return requireBackendClient().getMessagePage({
-        beforeOrdinal,
-        conversationId,
-        limit,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatListCommands",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().listChatCommands({ conversationId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatExecuteCommand",
-    async (_event, workspaceId, conversationId, raw, confirmGoalReplacement) => {
-      return requireBackendClient().executeChatCommand({
-        confirmGoalReplacement,
-        conversationId,
-        raw,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSetCodexModel",
-    async (_event, workspaceId, conversationId, modelId) => {
-      return requireBackendClient().setChatCodexModel({
-        conversationId,
-        modelId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSetCodexReasoningEffort",
-    async (_event, workspaceId, conversationId, reasoningEffort) => {
-      return requireBackendClient().setChatCodexReasoningEffort({
-        conversationId,
-        reasoningEffort,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSendMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().sendChatMessage({ conversationId, prompt, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatQueueMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().queueChatMessage({ conversationId, prompt, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatEditQueuedMessage",
-    async (_event, workspaceId, conversationId, messageId, prompt) => {
-      return requireBackendClient().editQueuedChatMessage({
-        conversationId,
-        messageId,
-        prompt,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatRemoveQueuedMessage",
-    async (_event, workspaceId, conversationId, messageId) => {
-      return requireBackendClient().removeQueuedChatMessage({
-        conversationId,
-        messageId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSteerMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().steerChatMessage({ conversationId, prompt, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSendSteeringImmediately",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().sendSteeringImmediately({
-        conversationId,
-        prompt,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatCancelRun",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().cancelRun({ conversationId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatActiveRun",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().getActiveRun({ conversationId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatRunActivity",
-    async (_event, workspaceId, runId, limit) => {
-      return requireBackendClient().getRunActivity({ limit, runId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatRunItemOutput",
-    async (_event, ...args) => {
-      const [workspaceId, runId, runItemId, afterOrdinal, limit] = args;
-      return requireBackendClient().getRunItemOutputPage({
-        afterOrdinal,
-        limit,
-        runId,
-        runItemId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSubmitApproval",
-    async (_event, input) => {
-      return requireBackendClient().submitApproval(input);
-    },
-    ipcObserver,
-  );
+  registerChatIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
@@ -941,16 +737,43 @@ function requestQuit() {
   app.quit();
 }
 
+function registerPowerMonitorHandlers() {
+  powerMonitor.on("resume", () => {
+    void reconcileChatRunsInBackground("wake_recheck");
+  });
+}
+
+async function reconcileChatRunsInBackground(reason: RunLivenessReason) {
+  if (!backend) {
+    return;
+  }
+  try {
+    await requireBackendClient().reconcileChatRuns({
+      conversationId: "",
+      reason,
+      workspaceId: "",
+    });
+    recorder?.recordAppEvent("chat_runs_reconciled", { reason });
+  } catch (error) {
+    recorder?.recordAppEvent("chat_runs_reconcile_failed", {
+      message: error instanceof Error ? error.message : String(error),
+      reason,
+    });
+  }
+}
+
 app.whenReady().then(async () => {
   if (isE2E() && !isVisibleE2E()) {
     app.dock?.hide();
   }
+  registerPowerMonitorHandlers();
   const appDataDir = settaAppDataDir();
   recorder = createSessionRecorder(process.env, {
     appDataDir,
     desktopRoot: desktopRoot(),
     repoRoot: repoRoot(),
   });
+  registerChatAttachmentProtocol(appDataDir);
   await prepareBackend(appDataDir);
   await createWindow();
 });

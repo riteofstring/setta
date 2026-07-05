@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"setta/internal/chat"
 	"setta/internal/httpapi"
 	"setta/internal/runtimeauth"
 )
@@ -52,6 +54,23 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("health status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+}
+
+func TestHTTPServerUsesBoundedReadConfiguration(t *testing.T) {
+	server := newHTTPServer(DefaultConfig(), runtimeServices{})
+
+	if server.ReadHeaderTimeout != httpReadHeaderTimeout {
+		t.Fatalf("ReadHeaderTimeout = %s, want %s", server.ReadHeaderTimeout, httpReadHeaderTimeout)
+	}
+	if server.ReadTimeout != httpReadTimeout {
+		t.Fatalf("ReadTimeout = %s, want %s", server.ReadTimeout, httpReadTimeout)
+	}
+	if server.MaxHeaderBytes != httpMaxHeaderBytes {
+		t.Fatalf("MaxHeaderBytes = %d, want %d", server.MaxHeaderBytes, httpMaxHeaderBytes)
+	}
+	if server.WriteTimeout != 0 {
+		t.Fatalf("WriteTimeout = %s, want zero for event streams", server.WriteTimeout)
 	}
 }
 
@@ -124,6 +143,15 @@ func TestStartCanSkipBootstrapDeviceSession(t *testing.T) {
 	}
 }
 
+func TestInvalidStartupConfigurationFailsForE2EPostCommitStartupFailureEnv(t *testing.T) {
+	t.Setenv(e2eChatFailPostCommitStartupPointEnv, "unsupported")
+
+	_, err := Start(context.Background(), testConfig(t))
+	if err == nil || !strings.Contains(err.Error(), "unsupported "+e2eChatFailPostCommitStartupPointEnv) {
+		t.Fatalf("start error = %v, want unsupported post-commit startup failure point", err)
+	}
+}
+
 func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
 	var stdout bytes.Buffer
 	config := testConfig(t)
@@ -169,9 +197,83 @@ func TestGracefulShutdownStopsServing(t *testing.T) {
 	}
 }
 
+func TestShutdownDrainsActiveChatTurnBeforeClosingEvents(t *testing.T) {
+	config := testConfig(t)
+	config.ChatHarness = ChatHarnessScriptedWorkflow
+	server, ready := startRuntimeTestServer(t, config)
+	shutdown := false
+	defer func() {
+		if !shutdown {
+			shutdownServer(t, server)
+		}
+	}()
+
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 5*time.Second)
+	baseURL := "http://" + server.Addr()
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	conversation := postRuntimeJSON[chat.Conversation](t, client, baseURL, "/chat/conversations/create", httpapi.CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	result := postRuntimeJSON[chat.SendMessageResult](t, client, baseURL, "/chat/messages/send", httpapi.SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Input:          chat.TextChatInput("workflow hold for queue and steering"),
+	}, http.StatusOK)
+	waitForRuntimeAssistantText(t, client, baseURL, opened.Workspace.ID, conversation.ID, result.Run.ID, "Workflow stream started.")
+
+	shutdownServer(t, server)
+	shutdown = true
+
+	store, err := chat.NewStore(config.AppDataDir)
+	if err != nil {
+		t.Fatalf("open chat store: %v", err)
+	}
+	run, err := store.LoadRun(opened.Workspace.ID, result.Run.ID)
+	if err != nil {
+		t.Fatalf("load run after shutdown: %v", err)
+	}
+	if run.Status != chat.RunStatusFailed || run.Error != "run interrupted by backend shutdown" {
+		t.Fatalf("run after shutdown = %+v, want backend shutdown failure", run)
+	}
+	diagnostics, err := store.ListDiagnostics()
+	if err != nil {
+		t.Fatalf("list diagnostics: %v", err)
+	}
+	for _, diagnostic := range diagnostics {
+		switch diagnostic.Code {
+		case "fail_turn_transition_failed", "complete_turn_transition_failed", "cancel_turn_transition_failed", "terminal_turn_publish_failed":
+			t.Fatalf("unexpected terminal transition diagnostic after shutdown: %+v", diagnostic)
+		}
+	}
+}
+
+func waitForRuntimeAssistantText(t *testing.T, client *http.Client, baseURL string, workspaceID string, conversationID string, runID string, want string) {
+	t.Helper()
+
+	deadline := time.Now().Add(3 * time.Second)
+	var lastPage chat.MessagePage
+	for time.Now().Before(deadline) {
+		page := postRuntimeJSON[chat.MessagePage](t, client, baseURL, "/chat/messages/page", httpapi.GetMessagePageRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+			Limit:          40,
+		}, http.StatusOK)
+		lastPage = page
+		for _, message := range page.Messages {
+			if message.RunID == runID && message.Role == chat.RoleAssistant && strings.Contains(runtimeMessageText(t, message), want) {
+				return
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for assistant text %q; last page = %+v", want, lastPage)
+}
+
 func shutdownServer(t *testing.T, server *Server) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultConfig().ShutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
@@ -180,6 +282,48 @@ func shutdownServer(t *testing.T, server *Server) {
 	if err := server.Wait(); err != nil {
 		t.Fatalf("wait for backend: %v", err)
 	}
+}
+
+func startRuntimeTestServer(t *testing.T, config Config) (*Server, ReadyEvent) {
+	t.Helper()
+
+	var stdout bytes.Buffer
+	config.Stdout = &stdout
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	var ready ReadyEvent
+	if err := json.NewDecoder(&stdout).Decode(&ready); err != nil {
+		shutdownServer(t, server)
+		t.Fatalf("decode ready event: %v", err)
+	}
+	return server, ready
+}
+
+func authenticatedRuntimeTestClient(token string, timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		Transport: runtimeTestAuthTransport{
+			token: token,
+			base:  http.DefaultTransport,
+		},
+	}
+}
+
+type runtimeTestAuthTransport struct {
+	token string
+	base  http.RoundTripper
+}
+
+func (transport runtimeTestAuthTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if transport.token == "" || request.Header.Get("Authorization") != "" {
+		return transport.base.RoundTrip(request)
+	}
+	clone := request.Clone(request.Context())
+	clone.Header = request.Header.Clone()
+	clone.Header.Set("Authorization", "Bearer "+transport.token)
+	return transport.base.RoundTrip(clone)
 }
 
 func testConfig(t *testing.T) Config {

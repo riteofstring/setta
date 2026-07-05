@@ -1,6 +1,7 @@
 package workspaceactivity
 
 import (
+	"fmt"
 	"testing"
 
 	"setta/internal/chat"
@@ -92,6 +93,39 @@ func TestReadExecutionSnapshotScopesToExecutionAndSynthesizesTerminalNodes(t *te
 	}
 }
 
+func TestReadExecutionSnapshotLoadsNewestRunActivity(t *testing.T) {
+	service := newExecutionSnapshotTestService(t, []chat.RunItem{
+		commandRunItemAt("run_item_old", "conversation_run", "run_run", "2026-06-21T12:00:01Z"),
+		commandRunItemAt("run_item_new", "conversation_run", "run_run", "2026-06-21T12:00:10Z"),
+	})
+
+	snapshot, err := service.ReadExecutionSnapshot("workspace", "execution_run", 1)
+	if err != nil {
+		t.Fatalf("read execution snapshot: %v", err)
+	}
+
+	if len(snapshot.Activities) != 1 || snapshot.Activities[0].ActivityID != "chat_run_item:run_item_new" {
+		t.Fatalf("snapshot activities = %+v, want newest run item activity", snapshot.Activities)
+	}
+}
+
+func TestReadExecutionSnapshotPagesPastNonActivityRunItemTail(t *testing.T) {
+	items := []chat.RunItem{commandRunItemAt("run_item_command", "conversation_run", "run_run", "2026-06-21T12:00:01Z")}
+	for index := 0; index < snapshotRunActivityPageLimit; index++ {
+		items = append(items, agentMessageRunItem(index))
+	}
+	service := newExecutionSnapshotTestService(t, items)
+
+	snapshot, err := service.ReadExecutionSnapshot("workspace", "execution_run", 1)
+	if err != nil {
+		t.Fatalf("read execution snapshot: %v", err)
+	}
+
+	if len(snapshot.Activities) != 1 || snapshot.Activities[0].ActivityID != "chat_run_item:run_item_command" {
+		t.Fatalf("snapshot activities = %+v, want command before non-activity tail", snapshot.Activities)
+	}
+}
+
 func workflowStatusEvent(id string, eventType orchestrator.WorkflowEventType, executionID string, nodeID string, nodeExecutionID string, createdAt string) orchestrator.WorkflowEvent {
 	return orchestrator.WorkflowEvent{
 		ID:                  id,
@@ -104,6 +138,34 @@ func workflowStatusEvent(id string, eventType orchestrator.WorkflowEventType, ex
 		Type:                eventType,
 		CreatedAt:           createdAt,
 	}
+}
+
+func newExecutionSnapshotTestService(t *testing.T, runItems []chat.RunItem) *Service {
+	t.Helper()
+	execution := orchestrator.WorkflowExecution{
+		ID:                  "execution_run",
+		WorkspaceID:         "workspace",
+		DefinitionID:        "workflow_definition",
+		DefinitionVersionID: "workflow_version",
+		Status:              orchestrator.ExecutionStatusRunning,
+	}
+	chatSource := &fakeChatSource{
+		conversations: []chat.Conversation{
+			workflowConversation("conversation_run", "execution_run", "node_build", "node_execution_build"),
+		},
+		runs:     map[string][]chat.Run{"conversation_run": {{ID: "run_run"}}},
+		runItems: map[string][]chat.RunItem{"run_run": runItems},
+	}
+	workflowSource := &fakeWorkflowSource{
+		executions:  map[string]orchestrator.WorkflowExecution{"execution_run": execution},
+		eventsByExe: map[string][]orchestrator.WorkflowEvent{"execution_run": []orchestrator.WorkflowEvent{}},
+	}
+	hub, err := NewEventHub("workspace_activity_stream_test")
+	if err != nil {
+		t.Fatalf("create event hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	return &Service{chat: chatSource, workflow: workflowSource, hub: hub}
 }
 
 func workflowConversation(id string, executionID string, nodeID string, nodeExecutionID string) chat.Conversation {
@@ -122,14 +184,32 @@ func workflowConversation(id string, executionID string, nodeID string, nodeExec
 }
 
 func commandRunItem(id string, conversationID string, runID string) chat.RunItem {
+	return commandRunItemAt(id, conversationID, runID, "2026-06-21T12:00:03Z")
+}
+
+func commandRunItemAt(id string, conversationID string, runID string, createdAt string) chat.RunItem {
 	return chat.RunItem{
 		ID:             id,
 		ConversationID: conversationID,
 		RunID:          runID,
-		Command:        "npm test",
-		CreatedAt:      "2026-06-21T12:00:03Z",
+		CreatedAt:      createdAt,
 		Status:         chat.RunItemStatusCompleted,
 		Type:           chat.RunItemTypeCommandExecution,
+		WorkspaceID:    "workspace",
+		Details: chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{
+			Command: "npm test",
+		}),
+	}
+}
+
+func agentMessageRunItem(index int) chat.RunItem {
+	return chat.RunItem{
+		ID:             fmt.Sprintf("run_item_agent_%03d", index),
+		ConversationID: "conversation_run",
+		RunID:          "run_run",
+		CreatedAt:      fmt.Sprintf("2026-06-21T12:%02d:%02dZ", 1+index/60, index%60),
+		Status:         chat.RunItemStatusCompleted,
+		Type:           chat.RunItemTypeAgentMessage,
 		WorkspaceID:    "workspace",
 	}
 }
@@ -152,8 +232,36 @@ func (source *fakeChatSource) LoadMessagePage(string, string, int, int) (chat.Me
 	return chat.MessagePage{}, nil
 }
 
-func (source *fakeChatSource) LoadRunActivityPage(_ string, runID string, _ int) (chat.RunActivityPage, error) {
-	return chat.RunActivityPage{RunID: runID, Items: source.runItems[runID]}, nil
+func (source *fakeChatSource) LoadRunActivityItemsBefore(_ string, runID string, beforeItemID string, limit int) ([]chat.RunItem, string, bool, error) {
+	items := source.runItems[runID]
+	end := len(items)
+	if beforeItemID != "" {
+		index, ok := runItemIndexByID(items, beforeItemID)
+		if !ok {
+			return nil, "", false, fmt.Errorf("run item %s not found", beforeItemID)
+		}
+		end = index
+	}
+	start := end - limit
+	if start < 0 {
+		start = 0
+	}
+	page := append([]chat.RunItem{}, items[start:end]...)
+	hasMore := start > 0
+	nextBeforeItemID := ""
+	if hasMore && len(page) > 0 {
+		nextBeforeItemID = page[0].ID
+	}
+	return page, nextBeforeItemID, hasMore, nil
+}
+
+func runItemIndexByID(items []chat.RunItem, itemID string) (int, bool) {
+	for index, item := range items {
+		if item.ID == itemID {
+			return index, true
+		}
+	}
+	return 0, false
 }
 
 func (source *fakeChatSource) SubscribeEvents(chat.EventCursor) (*chat.EventSubscription, error) {

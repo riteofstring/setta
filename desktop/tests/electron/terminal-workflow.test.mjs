@@ -25,6 +25,7 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import {
+  closeTerminalPaneFromChrome,
   focusTerminal,
   openTerminalFromShortcut,
   terminalScrollbackSearchExpression,
@@ -114,8 +115,8 @@ try {
   terminalState = await waitForTerminalPaneReady(context.client, interactivePaneId);
   await sendTerminalCommand(context.client, interactivePaneId, terminalLongRunningCommand);
   longRunningPid = await waitForLongRunningPid(fixture.workspaceRoot);
-  await closeTerminalFromRenderer(context.client, terminalState.sessionId);
-  await waitForTerminalClosed(context.client, terminalState.sessionId, interactivePaneId);
+  await closeTerminalPaneFromChrome(context.client, terminalWorkflowTimeoutMs);
+  await waitForTerminalPaneRemoved(context.client, terminalState.sessionId);
   await waitForProcessExit(longRunningPid);
   await captureScreenshot(context.client, join(artifactDir, "terminal-closed.png"));
 } catch (error) {
@@ -557,31 +558,11 @@ function formatTerminalSessionMap(sessions) {
   return JSON.stringify(Object.fromEntries(sessions));
 }
 
-async function closeTerminalFromRenderer(client, sessionId) {
-  if (!sessionId) {
-    throw new Error("terminal session id is missing");
-  }
-  const result = await client.evaluate(
-    `window.setta.terminal.close(${JSON.stringify(
-      sessionId,
-    )}, "terminate").then((response) => ({ ok: true, status: response.session.status })).catch((error) => ({ ok: false, message: error instanceof Error ? error.message : String(error) }))`,
-  );
-  if (!result.ok) {
-    throw new Error(`terminal close failed: ${JSON.stringify(result)}`);
-  }
-}
-
-async function waitForTerminalClosed(client, sessionId, paneId = null) {
-  if (paneId === null || paneId === "") {
-    throw new Error("waitForTerminalClosed requires an explicit terminal pane id");
-  }
+async function waitForTerminalPaneRemoved(client, sessionId) {
   return waitForState(
     client,
-    terminalSnapshotsExpression(),
-    (snapshots) => {
-      const snapshot = terminalSnapshotForPane(snapshots, paneId);
-      return snapshot?.sessionId === sessionId && snapshot.statusText.includes("Terminal closed");
-    },
+    `globalThis.__settaE2EDriver.terminalSessionState(${JSON.stringify({ sessionId })})`,
+    (state) => !state.visible,
     terminalWorkflowTimeoutMs,
   );
 }

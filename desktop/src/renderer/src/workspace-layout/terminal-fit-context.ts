@@ -9,6 +9,15 @@ interface TerminalFitState {
   visible: boolean;
 }
 
+interface XtermTerminalWithCore extends XtermTerminal {
+  _core?: {
+    _renderService?: {
+      dimensions?: unknown;
+    };
+    viewport?: unknown;
+  };
+}
+
 export interface TerminalFitContext {
   fitAddon: XtermFitAddon;
   terminal: XtermTerminal;
@@ -30,4 +39,9 @@ export function terminalFitContext(state: TerminalFitState): TerminalFitContext 
     terminal: state.terminal,
     viewport: state.viewport,
   };
+}
+
+export function terminalFitReady(terminal: XtermTerminal): boolean {
+  const core = (terminal as XtermTerminalWithCore)._core;
+  return core?._renderService?.dimensions !== undefined && core.viewport !== undefined;
 }

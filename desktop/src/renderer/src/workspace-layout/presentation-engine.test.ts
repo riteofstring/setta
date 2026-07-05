@@ -566,7 +566,11 @@ describe("workspace presentation engine", () => {
     expect(paneChromeSnapshot(host)).toEqual({
       buttonLabel: "Restore pane size",
       buttonPaneId: "workspace_pane_0",
-      chromeOrder: ["workspace-pane-title-slot", "workspace-pane-action-strip app-no-drag"],
+      chromeOrder: [
+        "workspace-pane-title-slot",
+        "workspace-pane-drag-handle app-no-drag",
+        "workspace-pane-action-strip app-no-drag",
+      ],
       controlsVisible: "true",
       hostMaximized: "true",
       titleEditorPresent: false,

@@ -7,15 +7,16 @@ import (
 )
 
 type Profile struct {
-	ID        string
-	Name      string
-	ShellPath string
-	Args      []string
-	Env       map[string]string
-	CWD       string
-	Term      string
-	Cols      int
-	Rows      int
+	ID         string
+	Name       string
+	LaunchMode ProfileLaunchMode
+	ShellPath  string
+	Args       []string
+	Env        map[string]string
+	CWD        string
+	Term       string
+	Cols       int
+	Rows       int
 }
 
 type PTYStarter interface {
@@ -30,6 +31,10 @@ type PTYHandle interface {
 	Kill() error
 	Close() error
 	Wait() error
+}
+
+type PTYCloseSafetyAssessor interface {
+	CloseSafetyAssessment() TerminalCloseAssessment
 }
 
 type UnsupportedPlatformError struct {

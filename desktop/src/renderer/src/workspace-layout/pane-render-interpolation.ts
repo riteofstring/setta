@@ -1,6 +1,7 @@
 import type { WorkspacePresentationMode, PaneId, PaneRenderItem } from "./types";
 
 interface PaneRenderInterpolationInput {
+  includeSecondaryOnlyItems?: boolean;
   normalItems: readonly PaneRenderItem[];
   overviewItems: readonly PaneRenderItem[];
   overviewProgress: number;
@@ -8,6 +9,7 @@ interface PaneRenderInterpolationInput {
 }
 
 export function interpolatePaneRenderItems({
+  includeSecondaryOnlyItems = true,
   normalItems,
   overviewItems,
   overviewProgress,
@@ -23,7 +25,12 @@ export function interpolatePaneRenderItems({
 
   const normalByPaneId = itemMap(normalItems);
   const overviewByPaneId = itemMap(overviewItems);
-  return orderedPaneIds(normalItems, overviewItems, presentationMode).map((paneId) =>
+  return orderedPaneIds(
+    normalItems,
+    overviewItems,
+    presentationMode,
+    includeSecondaryOnlyItems,
+  ).map((paneId) =>
     interpolatePaneRenderItem({
       normalItem: normalByPaneId.get(paneId),
       overviewItem: overviewByPaneId.get(paneId),
@@ -85,6 +92,7 @@ function orderedPaneIds(
   normalItems: readonly PaneRenderItem[],
   overviewItems: readonly PaneRenderItem[],
   presentationMode: WorkspacePresentationMode,
+  includeSecondaryOnlyItems: boolean,
 ): PaneId[] {
   const primaryItems = presentationMode === "overview" ? overviewItems : normalItems;
   const secondaryItems = presentationMode === "overview" ? normalItems : overviewItems;
@@ -92,8 +100,10 @@ function orderedPaneIds(
   for (const item of primaryItems) {
     paneIds.add(item.paneId);
   }
-  for (const item of secondaryItems) {
-    paneIds.add(item.paneId);
+  if (includeSecondaryOnlyItems) {
+    for (const item of secondaryItems) {
+      paneIds.add(item.paneId);
+    }
   }
   return [...paneIds];
 }

@@ -7,11 +7,11 @@ import {
   maximizeWorkflowGraphPane,
 } from "./workflow-graph-layout-helpers.mjs";
 
-// Phase 3.5B production-path coverage: a chip click routes through the real Pixi hit-test -> renderer
-// handler -> editor-store focus -> workflow node details Niri pane, deep-linking the matching detail
-// row. Two chip kinds are exercised end-to-end:
+// Production-path coverage: a chip click routes through the real Pixi hit-test -> renderer handler
+// -> editor-store focus -> workflow node details Niri pane, deep-linking the matching detail row.
+// Two chip kinds are exercised end-to-end:
 //   - the command chip (chat_run_item ref) opens the owning node details and highlights the matching
-//     run activity row rendered through the shared chat run-activity path;
+//     run activity row rendered through the workflow-node-scoped shared agent trajectory surface;
 //   - the workflow-status chip (workflow_event ref) focuses the matching workflow event row.
 // The graph pane is scrolled off-screen once the details pane is focused, so the details pane is
 // closed between clicks to make the graph hittable again. The approval deep-link (no pending approval
@@ -103,17 +103,19 @@ function onCanvasChipClickPoint(chip, canvas) {
 }
 
 function assertWorkflowNodeDetailsIsCanonical(details) {
-  // The chip click must route into the canonical workflow node details surface (the focused element
-  // lives inside [data-testid="workflow-node-details-surface"]), not a separate chip-only details
-  // surface, and it must not embed the full chat transcript.
+  // The chip click must route into the canonical workflow node details surface and render the shared
+  // trajectory with an explicit workflow-node scope, not through selected-chat state.
   if (!details.present) {
     throw new Error(
       `chip click did not open the workflow node details surface: ${JSON.stringify(details)}`,
     );
   }
-  if (details.chatMessageCount !== 0) {
+  if (
+    details.workflowTrajectorySurfaceCount !== 1 ||
+    details.chatConversationTrajectoryCount !== 0
+  ) {
     throw new Error(
-      `workflow node details embedded a chat transcript on chip click-through: ${JSON.stringify(details)}`,
+      `workflow node details did not render a node-scoped trajectory: ${JSON.stringify(details)}`,
     );
   }
 }
@@ -140,24 +142,11 @@ async function closeWorkflowNodeDetailsPane(client) {
 }
 
 async function waitForWorkflowNodeDetailsState(client, predicate, timeoutMs = 20_000) {
-  return waitForState(client, workflowNodeDetailsStateExpression(), predicate, timeoutMs);
-}
-
-function workflowNodeDetailsStateExpression() {
-  return `(() => {
-    const surfaces = document.querySelectorAll('[data-testid="workflow-node-details-surface"]');
-    const surface = surfaces[surfaces.length - 1] ?? null;
-    if (surface === null) {
-      return { present: false };
-    }
-    const focused = surface.querySelector('[data-activity-focused="true"]');
-    return {
-      chatMessageCount: surface.querySelectorAll('[data-chat-message]').length,
-      detailsSurfaceCount: surfaces.length,
-      focusElementId: focused ? focused.getAttribute('data-activity-focus-id') || '' : '',
-      nodeId: surface.querySelector('[data-testid="workflow-node-details-node-id"]')?.textContent?.trim() || '',
-      present: true,
-      runActivityRowCount: surface.querySelectorAll('[data-testid="run-activity-row"]').length,
-    };
-  })()`;
+  await client.installDriver();
+  return waitForState(
+    client,
+    driverCallExpression("workflowRunDetailsState"),
+    predicate,
+    timeoutMs,
+  );
 }

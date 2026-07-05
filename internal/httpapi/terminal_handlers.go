@@ -100,12 +100,12 @@ func (handler handler) closeTerminal(response http.ResponseWriter, request *http
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	session, err := service.Close(request.Context(), payload.SessionID, payload.Mode)
+	result, err := service.Close(request.Context(), payload.SessionID, payload.Confirmed)
 	if err != nil {
 		writeTerminalError(response, "close_terminal_failed", err)
 		return
 	}
-	writeJSON(response, http.StatusOK, TerminalSessionResponse{Session: terminalSessionSummary(session)})
+	writeJSON(response, http.StatusOK, closeTerminalResponse(result))
 }
 
 func (handler handler) listTerminalProfiles(response http.ResponseWriter, _ *http.Request) {
@@ -297,5 +297,18 @@ func terminalSessionSummary(summary terminal.SessionSummary) TerminalSessionSumm
 		UpdatedAt:   summary.UpdatedAt,
 		ExitCode:    summary.ExitCode,
 		Message:     summary.Message,
+	}
+}
+
+func closeTerminalResponse(result terminal.TerminalCloseResult) CloseTerminalResponse {
+	var session *TerminalSessionSummary
+	if result.Session != nil {
+		summary := terminalSessionSummary(*result.Session)
+		session = &summary
+	}
+	return CloseTerminalResponse{
+		Kind:       result.Kind,
+		Session:    session,
+		Assessment: result.Assessment,
 	}
 }

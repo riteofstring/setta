@@ -1,6 +1,5 @@
 import type { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { OVERVIEW_MAX_ZOOM_SCALE, OVERVIEW_MIN_ZOOM } from "./layout-engine-helpers";
-import type { PaneReorderPlacement } from "./layout-reorder";
 import type { OverviewGhostTarget } from "./workspace-overview-ghost";
 import type {
   ColumnId,
@@ -308,13 +307,21 @@ export class WorkspaceLayoutStore {
 
   configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId {
     const limitState = this.paneLimitState(request);
-    if (!limitState.allowed) {
+    if (!limitState.allowed && !this.configureKeepsPaneSurfaceKind(paneId, request)) {
       throw new Error(`workspace pane limit reached for ${limitState.surfaceKind}`);
     }
     const configuredPaneId = this.engine.configurePane(paneId, request);
     this.setFocusedPane(configuredPaneId);
     this.notify();
     return configuredPaneId;
+  }
+
+  private configureKeepsPaneSurfaceKind(paneId: PaneId, request: OpenPaneRequest): boolean {
+    const currentSurfaceKind = this.toScene().paneById.get(paneId)?.surfaceKind;
+    if (!currentSurfaceKind) {
+      return false;
+    }
+    return (request.surfaceKind ?? currentSurfaceKind) === currentSurfaceKind;
   }
 
   configureFocusedPane(request: OpenPaneRequest): PaneId {
@@ -513,18 +520,6 @@ export class WorkspaceLayoutStore {
     return true;
   }
 
-  previewPaneDrop(
-    sourcePaneId: PaneId,
-    targetPaneId: PaneId,
-    placement: PaneReorderPlacement,
-  ): boolean {
-    return this.previewPaneDropIntent(sourcePaneId, {
-      kind: "row",
-      placement,
-      targetPaneId,
-    });
-  }
-
   previewPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {
     if (!this.engine.previewPaneDropIntent(sourcePaneId, intent)) {
       return false;
@@ -558,14 +553,6 @@ export class WorkspaceLayoutStore {
     this.engine.resizeColumn(columnId, width);
     this.notify();
     return columnId;
-  }
-
-  reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
-    return this.applyPaneDropIntent(sourcePaneId, {
-      kind: "row",
-      placement: "before",
-      targetPaneId,
-    });
   }
 
   applyPaneDropIntent(sourcePaneId: PaneId, intent: PaneDropIntent): boolean {

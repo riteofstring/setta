@@ -9,7 +9,6 @@ import {
   decodeWorkflowEvent,
   type BackendClient,
   type RuntimeInfoResponse,
-  type WebPushSubscription,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { parseServerSentEvents, type ServerSentEvent } from "@shared/server-sent-events";
@@ -27,6 +26,7 @@ import {
   webDeviceDisplayName,
   webRuntimeVersions,
 } from "./setta-web-api-utils";
+import { subscribeForWebPush } from "./setta-web-push";
 
 const webDeviceStorageKey = "setta.web.device-session.v1";
 const reconnectDelayMs = 500;
@@ -147,12 +147,21 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         requireClient().getActiveRun({ conversationId, workspaceId }),
       cancelRun: (workspaceId, conversationId) =>
         requireClient().cancelRun({ conversationId, workspaceId }),
+      reconcileRuns: (request) => requireClient().reconcileChatRuns(request),
       createConversation: (workspaceId, title) =>
         requireClient().createConversation({ title, workspaceId }),
       deleteConversation: (workspaceId, conversationId) =>
         requireClient().deleteConversation({ conversationId, workspaceId }),
-      editQueuedMessage: (workspaceId, conversationId, messageId, prompt) =>
-        requireClient().editQueuedChatMessage({ conversationId, messageId, prompt, workspaceId }),
+      editQueuedMessage: (workspaceId, conversationId, messageId, input) =>
+        requireClient().editQueuedChatMessage({ conversationId, input, messageId, workspaceId }),
+      createImageAttachmentFromBytes: (workspaceId, conversationId, fileName, dataBase64) =>
+        requireClient().createChatImageAttachmentFromBytes({
+          conversationId,
+          dataBase64,
+          fileName,
+          workspaceId,
+        }),
+      selectImageAttachments: async () => [],
       executeCommand: (workspaceId, conversationId, raw, commandOptions) =>
         requireClient().executeChatCommand({
           confirmGoalReplacement: commandOptions?.confirmGoalReplacement ?? false,
@@ -160,13 +169,25 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           raw,
           workspaceId,
         }),
+      readCodexDefaults: () => requireClient().readChatCodexDefaults(),
+      openCodexModelPicker: (workspaceId, conversationId) =>
+        requireClient().openChatCodexModelPicker({ conversationId, workspaceId }),
+      openCodexPermissionPicker: (workspaceId, conversationId) =>
+        requireClient().openChatCodexPermissionPicker({ conversationId, workspaceId }),
       listCommands: (workspaceId, conversationId) =>
         requireClient().listChatCommands({ conversationId, workspaceId }),
       listConversations: (workspaceId) => requireClient().listConversations({ workspaceId }),
       markConversationRead: (workspaceId, conversationId) =>
         requireClient().markConversationRead({ conversationId, workspaceId }),
-      messagePage: (workspaceId, conversationId, beforeOrdinal, limit) =>
-        requireClient().getMessagePage({ beforeOrdinal, conversationId, limit, workspaceId }),
+      messagePage: (workspaceId, conversationId, beforeBlockOrdinal, limit) =>
+        requireClient().getMessagePage({ beforeBlockOrdinal, conversationId, limit, workspaceId }),
+      listComposerPromptHistory: (workspaceId, conversationId, beforeOrdinal, limit) =>
+        requireClient().listComposerPromptHistory({
+          beforeOrdinal,
+          conversationId,
+          limit,
+          workspaceId,
+        }),
       onEvent: (listener) =>
         subscribeWebBackendEventStream({
           baseURL,
@@ -182,12 +203,12 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           sendEvent: listener,
           streamName: "backend event stream",
         }),
-      queueMessage: (workspaceId, conversationId, prompt) =>
-        requireClient().queueChatMessage({ conversationId, prompt, workspaceId }),
+      queueMessage: (workspaceId, conversationId, input) =>
+        requireClient().queueChatMessage({ conversationId, input, workspaceId }),
       removeQueuedMessage: (workspaceId, conversationId, messageId) =>
         requireClient().removeQueuedChatMessage({ conversationId, messageId, workspaceId }),
-      runActivity: (workspaceId, runId, limit) =>
-        requireClient().getRunActivity({ limit, runId, workspaceId }),
+      runActivity: (workspaceId, runId, afterItemId, limit) =>
+        requireClient().getRunActivity({ afterItemId, limit, runId, workspaceId }),
       runItemOutput: (workspaceId, runId, runItemId, afterOrdinal, limit) =>
         requireClient().getRunItemOutputPage({
           afterOrdinal,
@@ -196,22 +217,48 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           runItemId,
           workspaceId,
         }),
-      sendMessage: (workspaceId, conversationId, prompt) =>
-        requireClient().sendChatMessage({ conversationId, prompt, workspaceId }),
-      sendSteeringImmediately: (workspaceId, conversationId, prompt = "") =>
-        requireClient().sendSteeringImmediately({ conversationId, prompt, workspaceId }),
+      listBackgroundTerminals: (workspaceId, conversationId) =>
+        requireClient().listBackgroundTerminals({ conversationId, workspaceId }),
+      getBackgroundTerminalOutput: (workspaceId, conversationId, processId, afterOrdinal, limit) =>
+        requireClient().getBackgroundTerminalOutput({
+          afterOrdinal,
+          conversationId,
+          limit,
+          processId,
+          workspaceId,
+        }),
+      killBackgroundTerminal: (workspaceId, conversationId, processId) =>
+        requireClient().killBackgroundTerminal({ conversationId, processId, workspaceId }),
+      killAllBackgroundTerminals: (workspaceId, conversationId) =>
+        requireClient().killAllBackgroundTerminals({ conversationId, workspaceId }),
+      sendMessage: (workspaceId, conversationId, input) =>
+        requireClient().sendChatMessage({ conversationId, input, workspaceId }),
+      sendSteeringImmediately: (workspaceId, conversationId, input) =>
+        requireClient().sendSteeringImmediately({
+          conversationId,
+          input: input ?? null,
+          workspaceId,
+        }),
       setCodexModel: (workspaceId, conversationId, modelId) =>
         requireClient().setChatCodexModel({ conversationId, modelId, workspaceId }),
+      setCodexPermissionPreset: (workspaceId, conversationId, preset, confirmed) =>
+        requireClient().setChatCodexPermissionPreset({
+          confirmed,
+          conversationId,
+          preset,
+          workspaceId,
+        }),
       setCodexReasoningEffort: (workspaceId, conversationId, effort) =>
         requireClient().setChatCodexReasoningEffort({
           conversationId,
           reasoningEffort: effort,
           workspaceId,
         }),
+      updateCodexDefaults: (request) => requireClient().updateChatCodexDefaults(request),
       setConversationPinned: (workspaceId, conversationId, pinned) =>
         requireClient().setConversationPinned({ conversationId, pinned, workspaceId }),
-      steerMessage: (workspaceId, conversationId, prompt) =>
-        requireClient().steerChatMessage({ conversationId, prompt, workspaceId }),
+      steerMessage: (workspaceId, conversationId, input) =>
+        requireClient().steerChatMessage({ conversationId, input, workspaceId }),
       submitApproval: (input) => requireClient().submitApproval(input),
     },
     codexAccount: {
@@ -337,7 +384,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     },
     terminal: {
       attach: (workspaceId, paneId) => requireClient().attachTerminal({ paneId, workspaceId }),
-      close: (sessionId, mode) => requireClient().closeTerminal({ mode, sessionId }),
+      close: (request) => requireClient().closeTerminal(request),
       create: (workspaceId, paneId, options) =>
         requireClient().createTerminal({
           cols: options.cols,
@@ -404,8 +451,12 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         requireClient().readWorkflowDefinition({ definitionId, workspaceId }),
       readExecution: (workspaceId, executionId) =>
         requireClient().readWorkflowExecution({ executionId, workspaceId }),
+      readNodeTrajectory: (request) => requireClient().readWorkflowNodeTrajectory(request),
+      retryNodeRunLiveness: (request) => requireClient().retryWorkflowNodeRunLiveness(request),
       startExecution: (workspaceId, definitionId, versionId = "") =>
         requireClient().startWorkflowExecution({ definitionId, versionId, workspaceId }),
+      steerNodeRun: (request) => requireClient().steerWorkflowNodeRun(request),
+      stopNodeRun: (request) => requireClient().stopWorkflowNodeRun(request),
       submitApproval: (request) => requireClient().submitWorkflowApproval(request),
       updateDefinition: (workspaceId, definitionId, name, description, graph) =>
         requireClient().updateWorkflowDefinition({
@@ -926,64 +977,4 @@ async function applyNotificationNavigation(url: URL, api: SettaAPI) {
     url.searchParams.delete("approvalId");
     window.history.replaceState({}, "", url);
   }
-}
-
-async function subscribeForWebPush(
-  info: RuntimeInfoResponse,
-  client: BackendClient,
-  requestPermission: boolean,
-) {
-  if (
-    !("serviceWorker" in navigator) ||
-    !("PushManager" in window) ||
-    !("Notification" in window)
-  ) {
-    return;
-  }
-  let permission = Notification.permission;
-  if (permission === "default" && requestPermission) {
-    permission = await Notification.requestPermission();
-  }
-  if (permission !== "granted" || info.vapidPublicKey === "") {
-    return;
-  }
-  const registration = await navigator.serviceWorker.ready;
-  const existing = await registration.pushManager.getSubscription();
-  const subscription =
-    existing ??
-    (await registration.pushManager.subscribe({
-      applicationServerKey: urlBase64ToArrayBuffer(info.vapidPublicKey),
-      userVisibleOnly: true,
-    }));
-  await client.pushSubscribe({ subscription: pushSubscriptionJSON(subscription) });
-}
-
-function pushSubscriptionJSON(subscription: PushSubscription): WebPushSubscription {
-  const json = subscription.toJSON();
-  if (typeof json.endpoint !== "string" || !json.keys) {
-    throw new Error("push subscription JSON is missing endpoint or keys");
-  }
-  const keys = json.keys as Record<string, unknown>;
-  if (typeof keys.auth !== "string" || typeof keys.p256dh !== "string") {
-    throw new Error("push subscription JSON is missing auth or p256dh keys");
-  }
-  return {
-    endpoint: json.endpoint,
-    keys: {
-      auth: keys.auth,
-      p256dh: keys.p256dh,
-    },
-  };
-}
-
-function urlBase64ToArrayBuffer(value: string): ArrayBuffer {
-  const padding = "=".repeat((4 - (value.length % 4)) % 4);
-  const base64 = (value + padding).replaceAll("-", "+").replaceAll("_", "/");
-  const raw = window.atob(base64);
-  const buffer = new ArrayBuffer(raw.length);
-  const output = new Uint8Array(buffer);
-  for (let index = 0; index < raw.length; index += 1) {
-    output[index] = raw.charCodeAt(index);
-  }
-  return buffer;
 }

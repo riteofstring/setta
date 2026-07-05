@@ -192,6 +192,22 @@ export async function waitForTerminalPaneStageContained(client, paneId, timeoutM
   );
 }
 
+export async function closeTerminalPaneFromChrome(client, timeoutMs, { accept = true } = {}) {
+  void timeoutMs;
+  await client.installDriver();
+  const removeDialogListener = client.on("Page.javascriptDialogOpening", () => {
+    void client.call("Page.handleJavaScriptDialog", { accept });
+  });
+  try {
+    const result = await client.driver("closeTerminalPane");
+    if (!result.ok) {
+      throw new Error(`terminal pane close failed: ${JSON.stringify(result)}`);
+    }
+  } finally {
+    removeDialogListener();
+  }
+}
+
 function newTerminalSnapshot(snapshots, beforePaneIds) {
   if (!Array.isArray(snapshots)) {
     return null;

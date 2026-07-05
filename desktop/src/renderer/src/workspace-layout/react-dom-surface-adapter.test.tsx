@@ -39,7 +39,7 @@ describe("workspace React DOM surface adapter", () => {
     adapter.freeze("snapshot");
     adapter.resume("focused");
 
-    expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render"]);
+    expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render", "render"]);
     expect(host.dataset.surfaceKind).toBe("fake-long-chat");
     expect(host.dataset.surfaceViewport).toBe("180x120");
     expect(host.dataset.surfaceFocused).toBe("true");
@@ -57,18 +57,24 @@ describe("workspace React DOM surface adapter", () => {
     adapter.unmount();
     await waitForMicrotask();
 
-    expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render"]);
+    expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render", "render"]);
     expect(adapter.lifecycleState.mounted).toBe(false);
 
     adapter.mount(host);
 
-    expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render"]);
+    expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render", "render"]);
     expect(adapter.lifecycleState.mounted).toBe(true);
 
     adapter.destroy();
     await waitForMicrotask();
 
-    expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render", "unmount"]);
+    expect(events).toEqual([
+      "create:workspace-react-dom-surface",
+      "render",
+      "render",
+      "render",
+      "unmount",
+    ]);
     expect(adapter.lifecycleState.mounted).toBe(false);
   });
 
@@ -133,8 +139,8 @@ describe("workspace React DOM surface adapter", () => {
     expect(fakeChildrenOf(host)).toHaveLength(1);
   });
 
-  test("rerenders React DOM surfaces when focus changes", () => {
-    const surfaceStates: Array<{ activated: boolean; focused: boolean }> = [];
+  test("activates React DOM surfaces when visible without pane focus", () => {
+    const surfaceStates: Array<{ activated: boolean; focused: boolean; interactive: boolean }> = [];
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot() {
         return new RecordingRoot([]);
@@ -143,8 +149,36 @@ describe("workspace React DOM surface adapter", () => {
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
       fakePane("settings-dom"),
-      ({ activated, focused }) => {
-        surfaceStates.push({ activated, focused });
+      ({ activated, focused, interactive }) => {
+        surfaceStates.push({ activated, focused, interactive });
+        return activated ? "loaded settings" : "unloaded settings";
+      },
+      rootFactory,
+    );
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+
+    expect(surfaceStates).toEqual([
+      { activated: false, focused: false, interactive: false },
+      { activated: true, focused: false, interactive: false },
+    ]);
+    expect(host.dataset.surfaceFocused).toBe("false");
+    expect(host.dataset.surfaceVisible).toBe("true");
+  });
+
+  test("rerenders React DOM surfaces when focus changes", () => {
+    const surfaceStates: Array<{ activated: boolean; focused: boolean; interactive: boolean }> = [];
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return new RecordingRoot([]);
+      },
+    };
+    const host = createFakeHost();
+    const adapter = new ReactDomSurfaceAdapter(
+      fakePane("settings-dom"),
+      ({ activated, focused, interactive }) => {
+        surfaceStates.push({ activated, focused, interactive });
         return focused ? "active settings" : "inactive settings";
       },
       rootFactory,
@@ -156,9 +190,9 @@ describe("workspace React DOM surface adapter", () => {
     adapter.setFocused(false);
 
     expect(surfaceStates).toEqual([
-      { activated: false, focused: false },
-      { activated: true, focused: true },
-      { activated: true, focused: false },
+      { activated: false, focused: false, interactive: false },
+      { activated: true, focused: true, interactive: false },
+      { activated: true, focused: false, interactive: false },
     ]);
   });
 
@@ -222,10 +256,14 @@ describe("workspace React DOM surface adapter", () => {
     });
   });
 
-  test("forwards workflow graph freeze state to the renderer runtime handle", () => {
+  test("forwards workflow graph visible live state to the renderer runtime handle", () => {
     vi.stubGlobal("window", {});
+    const focusedStates: boolean[] = [];
     const frozenStates: boolean[] = [];
     const unregister = registerWorkflowGraphRuntimeHandle("surface", {
+      setFocused(focused) {
+        focusedStates.push(focused);
+      },
       setFrozen(frozen) {
         frozenStates.push(frozen);
       },
@@ -240,10 +278,13 @@ describe("workspace React DOM surface adapter", () => {
 
     try {
       adapter.mount(host);
+      adapter.setVisible(true);
       adapter.freeze("snapshot");
       adapter.resume("visible");
+      adapter.setVisible(false);
 
-      expect(frozenStates).toEqual([true, false]);
+      expect(focusedStates).toEqual([true, false, true, false]);
+      expect(frozenStates).toEqual([false, true, false, false]);
     } finally {
       unregister();
     }
@@ -266,6 +307,7 @@ describe("workspace React DOM surface adapter", () => {
       __settaWorkflowGraphDebug: {
         getSnapshot,
         getSurfaceIds: () => ["surface"],
+        tryGetSnapshot: getSnapshot,
       },
     });
     const rootFactory: ReactSurfaceRootFactory = {

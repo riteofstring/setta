@@ -126,6 +126,18 @@ export async function clickButtonContainingText(client, text) {
   });
 }
 
+export async function clickButtonContainingTextByRole(client, role, text) {
+  await waitForState(
+    client,
+    buttonContainingTextByRoleClickExpression(role, text),
+    (value) => value.clicked,
+  ).catch((error) => {
+    throw new Error(
+      `button with role ${role} containing text was not clickable: ${text}: ${error.message}`,
+    );
+  });
+}
+
 export async function scrollSidebarNavigationTo(client, scrollTop) {
   const scrolled = await client.driver("scrollSidebarNavigationTo", { scrollTop });
   if (!scrolled) {
@@ -152,6 +164,10 @@ function buttonClickExpression(kind, value) {
 
 function buttonContainingTextClickExpression(text) {
   return driverCallExpression("clickButtonContainingText", { text });
+}
+
+function buttonContainingTextByRoleClickExpression(role, text) {
+  return driverCallExpression("clickButtonContainingTextByRole", { role, text });
 }
 
 export async function waitForText(client, text, timeoutMs = workflowTimeoutMs) {
@@ -190,6 +206,16 @@ export async function waitForState(client, expression, isReady, timeoutMs = work
   throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
 }
 
+export async function waitForDriverState(
+  client,
+  method,
+  args,
+  isReady,
+  timeoutMs = workflowTimeoutMs,
+) {
+  return waitForState(client, driverCallExpression(method, args), isReady, timeoutMs);
+}
+
 export async function backendProbe(recordingDir) {
   const { baseURL, deviceToken } = await waitForBackendAccess(recordingDir);
   await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");
@@ -199,16 +225,26 @@ export async function backendProbe(recordingDir) {
     get: (path) => backendRequest(recordingDir, baseURL, deviceToken, "GET", path),
     post: (path, payload) =>
       backendRequest(recordingDir, baseURL, deviceToken, "POST", path, payload),
+    request: (method, path, payload) =>
+      backendFetch(recordingDir, baseURL, deviceToken, method, path, payload),
   };
 }
 
 async function backendRequest(recordingDir, baseURL, deviceToken, method, path, payload) {
+  const response = await backendFetch(recordingDir, baseURL, deviceToken, method, path, payload);
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`${method} ${path} returned ${response.status}: ${body}`);
+  }
+  return JSON.parse(body);
+}
+
+async function backendFetch(recordingDir, baseURL, deviceToken, method, path, payload) {
   const response = await globalThis.fetch(baseURL + path, {
     body: payload === undefined ? undefined : JSON.stringify(payload),
     headers: backendRequestHeaders(deviceToken, payload),
     method,
   });
-  const body = await response.text();
   await appendWorkflowState(recordingDir, {
     method,
     ok: response.ok,
@@ -216,10 +252,7 @@ async function backendRequest(recordingDir, baseURL, deviceToken, method, path, 
     status: response.status,
     type: "backend_request",
   });
-  if (!response.ok) {
-    throw new Error(`${method} ${path} returned ${response.status}: ${body}`);
-  }
-  return JSON.parse(body);
+  return response;
 }
 
 function backendRequestHeaders(deviceToken, payload) {
@@ -525,7 +558,9 @@ export async function assertAssistantCompleted(backend, workspaceId, conversatio
 }
 
 function messageText(message) {
-  return message.parts.map((part) => part.text).join("");
+  return message.parts
+    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
+    .join("");
 }
 
 export async function launchContext(fixture, recordingDir, options = {}) {
@@ -544,6 +579,7 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   const unsetEnv = launchOptions.unsetEnv ?? [];
   const e2eEnv = {
     SETTA_E2E: "1",
+    SETTA_BACKEND_READY_TIMEOUT_MS: "30000",
     SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
     SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
     ...(launchVisible ? { SETTA_E2E_VISIBLE: "1" } : {}),
@@ -798,7 +834,7 @@ export function failureWithLogs(error, logs) {
 }
 
 export async function assertRecordingEvidence(recordingDir, expected) {
-  await assertNoIpcFailures(recordingDir);
+  await assertNoIpcFailures(recordingDir, expected.expectedIpcFailures ?? []);
   await assertLayoutSnapshotsRecorded(recordingDir);
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   for (const channel of expected.ipcChannels) {
@@ -849,10 +885,14 @@ async function waitForLayoutSnapshots(recordingDir) {
   return snapshots;
 }
 
-async function assertNoIpcFailures(recordingDir) {
+async function assertNoIpcFailures(recordingDir, expectedIpcFailures) {
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
   const failures = ipc.filter(
-    (entry) => entry.type === "ipc_failure" && !isExpectedInitialTerminalAttachMiss(entry),
+    (entry) =>
+      entry.type === "ipc_failure" &&
+      !isExpectedInitialTerminalAttachMiss(entry) &&
+      !isExpectedBackgroundTerminalUnsupportedKill(entry) &&
+      !expectedIpcFailures.some((isExpected) => isExpected(entry)),
   );
   if (failures.length > 0) {
     throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
@@ -864,6 +904,15 @@ function isExpectedInitialTerminalAttachMiss(entry) {
     entry.channel === "terminal:attach" &&
     typeof entry.error?.message === "string" &&
     entry.error.message.includes("terminal session not found")
+  );
+}
+
+function isExpectedBackgroundTerminalUnsupportedKill(entry) {
+  return (
+    (entry.channel === "chat:kill-background-terminal" ||
+      entry.channel === "chat:kill-all-background-terminals") &&
+    typeof entry.error?.message === "string" &&
+    entry.error.message.includes("does not support provider termination")
   );
 }
 
