@@ -9,7 +9,6 @@ SENTINEL="EASY_BUTTON_PANE_IMPLEMENTATION_COMPLETE"
 MODEL="gpt-5.5"
 REASONING_CONFIG='reasoning_effort="xhigh"'
 OUTPUT_DIR=""
-PROGRESS_LOG_INTERVAL_SECONDS="60"
 MAX_ITERATIONS="0"
 
 usage() {
@@ -32,7 +31,7 @@ acceptable here because the loop is for unattended repo-local plan execution
 where agents are expected to edit and commit directly in the working tree.
 
 Codex transcripts are written to per-agent log files. The terminal prints only
-loop status and periodic progress updates.
+loop status and final agent completion lines.
 
 Options:
   --output-dir PATH   Directory for per-iteration transcripts and last messages.
@@ -40,9 +39,6 @@ Options:
   --iterations N      Maximum number of loop iterations. Default: 0, which
                       means no iteration cap.
   --model NAME        Codex model to use. Default: gpt-5.5.
-  --progress-log-interval-seconds N
-                      Print a status line at most once every N seconds while an
-                      agent is still running. Default: 60. Use 0 to disable.
   --help             Show this help text.
 EOF
 }
@@ -72,11 +68,6 @@ run_agent() {
   local transcript_file="${run_dir}/${agent_name}.transcript.log"
   local last_message_file="${run_dir}/${agent_name}.last-message.txt"
   local status_file="${run_dir}/${agent_name}.status.txt"
-  local codex_pid=""
-  local start_epoch=""
-  local last_progress_log_epoch=""
-  local current_epoch=""
-  local elapsed_seconds=""
   local exit_code="0"
 
   mkdir -p "${run_dir}"
@@ -85,6 +76,7 @@ run_agent() {
 
   # This dedicated plan loop is intentionally allowed to mutate and commit in
   # the current checkout without approval prompts or filesystem sandboxing.
+  set +e
   codex exec \
     --color never \
     --cd "${ROOT_DIR}" \
@@ -93,25 +85,8 @@ run_agent() {
     --config "${REASONING_CONFIG}" \
     --dangerously-bypass-approvals-and-sandbox \
     --output-last-message "${last_message_file}" \
-    "${prompt}" >"${transcript_file}" 2>&1 &
-  codex_pid="$!"
+    "${prompt}" >"${transcript_file}" 2>&1
 
-  start_epoch="$(date +%s)"
-  last_progress_log_epoch="${start_epoch}"
-
-  while kill -0 "${codex_pid}" 2>/dev/null; do
-    current_epoch="$(date +%s)"
-    if [[ "${PROGRESS_LOG_INTERVAL_SECONDS}" -gt 0 ]] \
-      && [[ "$((current_epoch - last_progress_log_epoch))" -ge "${PROGRESS_LOG_INTERVAL_SECONDS}" ]]; then
-      elapsed_seconds="$((current_epoch - start_epoch))"
-      log_info "${agent_name} still running after ${elapsed_seconds}s. Transcript: ${transcript_file}"
-      last_progress_log_epoch="${current_epoch}"
-    fi
-    sleep 1
-  done
-
-  set +e
-  wait "${codex_pid}"
   exit_code="$?"
   set -e
 
@@ -157,11 +132,6 @@ while [[ $# -gt 0 ]]; do
       MODEL="$2"
       shift 2
       ;;
-    --progress-log-interval-seconds)
-      require_value "$1" "${2:-}"
-      PROGRESS_LOG_INTERVAL_SECONDS="$2"
-      shift 2
-      ;;
     --help|-h)
       usage
       exit 0
@@ -176,11 +146,6 @@ done
 
 if [[ ! -f "${ROOT_DIR}/${PLAN_PATH}" ]]; then
   echo "Plan file not found: ${ROOT_DIR}/${PLAN_PATH}" >&2
-  exit 1
-fi
-
-if [[ ! "${PROGRESS_LOG_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]]; then
-  echo "--progress-log-interval-seconds must be a non-negative integer" >&2
   exit 1
 fi
 
@@ -230,7 +195,6 @@ else
   log_info "Iteration cap: ${MAX_ITERATIONS}"
 fi
 log_info "Stop sentinel: ${SENTINEL}"
-log_info "Progress log interval: ${PROGRESS_LOG_INTERVAL_SECONDS}s"
 
 iteration=1
 while true; do
