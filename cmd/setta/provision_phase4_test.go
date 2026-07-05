@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -301,7 +303,7 @@ func TestProvisionUpPlanOnlyRequiresRestrictiveSecretFilePermissions(t *testing.
 	}
 }
 
-func TestProvisionUpWithoutPlanOnlyRefusesMutation(t *testing.T) {
+func TestProvisionUpWithoutApprovalRefusesMutation(t *testing.T) {
 	var stderr bytes.Buffer
 	deps := testDeps()
 	deps.stderr = &stderr
@@ -315,8 +317,92 @@ func TestProvisionUpWithoutPlanOnlyRefusesMutation(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("exit code = %d, want runtime failure", code)
 	}
-	if !strings.Contains(stderr.String(), "execution is blocked until pending creation records and approval wiring are implemented") {
+	if !strings.Contains(stderr.String(), "requires --approve") {
 		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestProvisionUpApprovedWritesPendingRecordBeforeProviderCommand(t *testing.T) {
+	appDataDir := t.TempDir()
+	cloudInit := "#cloud-config\nruncmd:\n  - [ /bin/true ]\n"
+	cloudInitPath := writeProvisionExecutionTempFile(t, "cloud-init.yaml", cloudInit, 0o600)
+	var stdout bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+	deps.lookPath = expectHcloudLookPath(t)
+	deps.commandRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		assertHcloudCreateCommand(t, name, args, cloudInitPath)
+		assertPendingCreationBeforeProviderCommand(t, appDataDir, deps, cloudInitPath, cloudInit)
+		return []byte(`{"server":{"id":12345}}`), nil
+	}
+
+	code := runWithDeps(provisionUpApprovedHetznerArgs(appDataDir, cloudInitPath), deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionUpResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse up JSON: %v\n%s", err, stdout.String())
+	}
+	if !result.OK || result.Mode != "executed" || result.Execution == nil || result.Execution.ResourceID != "12345" {
+		t.Fatalf("result = %+v", result)
+	}
+	registry, err := newProvisionCreationStore(appDataDir, deps).read()
+	if err != nil {
+		t.Fatalf("read creation registry: %v", err)
+	}
+	record, ok := provisionCreationRecordByID(registry, "hetzner:setta-test-runtime")
+	if !ok {
+		t.Fatalf("creation record missing after command: %+v", registry)
+	}
+	if record.Status != provisionCreationStatusSucceeded || record.ResourceID != "12345" {
+		t.Fatalf("record status/resource = %+v", record)
+	}
+	if !record.TeardownAction.Ready || !reflect.DeepEqual(record.TeardownAction.RedactedArgv, []string{"hcloud", "server", "delete", "12345"}) {
+		t.Fatalf("teardown action = %+v", record.TeardownAction)
+	}
+	if record.ProviderOutputSHA256 != sha256Hex([]byte(`{"server":{"id":12345}}`)) {
+		t.Fatalf("provider output digest = %q", record.ProviderOutputSHA256)
+	}
+}
+
+func TestProvisionUpApprovedUpdatesFailedRecordAndReturnsProviderOutput(t *testing.T) {
+	appDataDir := t.TempDir()
+	cloudInitPath := writeProvisionExecutionTempFile(t, "cloud-init.yaml", "#cloud-config\n", 0o600)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+	deps.stderr = &stderr
+	deps.lookPath = expectHcloudLookPath(t)
+	deps.commandRunner = func(context.Context, string, ...string) ([]byte, error) {
+		return []byte("quota exceeded\n"), errors.New("exit status 1")
+	}
+
+	code := runWithDeps(provisionUpApprovedHetznerArgs(appDataDir, cloudInitPath), deps)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want provider failure", code)
+	}
+	var result provisionUpResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse failed up JSON: %v\nstdout=%s\nstderr=%s", err, stdout.String(), stderr.String())
+	}
+	if result.OK || result.Execution == nil || result.Execution.ProviderOutput != "quota exceeded" {
+		t.Fatalf("failed result = %+v", result)
+	}
+	registry, err := newProvisionCreationStore(appDataDir, deps).read()
+	if err != nil {
+		t.Fatalf("read creation registry: %v", err)
+	}
+	record, ok := provisionCreationRecordByID(registry, "hetzner:setta-test-runtime")
+	if !ok {
+		t.Fatalf("creation record missing after failure: %+v", registry)
+	}
+	if record.Status != provisionCreationStatusFailed || !strings.Contains(record.LastError, "exit status 1") {
+		t.Fatalf("failed record = %+v", record)
+	}
+	if record.ProviderOutputSHA256 != sha256Hex([]byte("quota exceeded\n")) {
+		t.Fatalf("provider output digest = %q", record.ProviderOutputSHA256)
 	}
 }
 
@@ -378,6 +464,71 @@ func writeProvisionExecutionTempFile(t *testing.T, name string, content string, 
 		t.Fatalf("chmod temp file: %v", err)
 	}
 	return path
+}
+
+func provisionUpApprovedHetznerArgs(appDataDir string, cloudInitPath string) []string {
+	return []string{
+		"provision", "up",
+		"--json",
+		"--approve",
+		"--app-data-dir", appDataDir,
+		"--provider", "hetzner",
+		"--runtime-name", "setta-test-runtime",
+		"--shape", "dev-standard",
+		"--region", "fsn1",
+		"--cloud-init-file", cloudInitPath,
+	}
+}
+
+func expectHcloudLookPath(t *testing.T) func(string) (string, error) {
+	t.Helper()
+	return func(name string) (string, error) {
+		if name != "hcloud" {
+			t.Fatalf("lookPath name = %s, want hcloud", name)
+		}
+		return "/usr/bin/hcloud", nil
+	}
+}
+
+func assertHcloudCreateCommand(t *testing.T, name string, args []string, cloudInitPath string) {
+	t.Helper()
+	if name != "hcloud" {
+		t.Fatalf("command name = %s, want hcloud", name)
+	}
+	if !containsString(args, "--user-data-from-file") || !containsString(args, cloudInitPath) {
+		t.Fatalf("args = %#v, want cloud-init path %s", args, cloudInitPath)
+	}
+}
+
+func assertPendingCreationBeforeProviderCommand(t *testing.T, appDataDir string, deps cliDeps, cloudInitPath string, cloudInit string) {
+	t.Helper()
+	record := readProvisionCreationRecordForTest(t, appDataDir, deps, "hetzner:setta-test-runtime")
+	if record.Status != provisionCreationStatusPending {
+		t.Fatalf("record status before command = %q, want pending", record.Status)
+	}
+	redactedCommand := strings.Join(record.CreateAction.RedactedArgv, " ")
+	if strings.Contains(redactedCommand, cloudInitPath) {
+		t.Fatalf("record redacted argv leaked file path: %#v", record.CreateAction.RedactedArgv)
+	}
+	if len(record.InputDigests) != 1 || record.InputDigests[0].SHA256 != sha256Hex([]byte(cloudInit)) {
+		t.Fatalf("input digests = %+v", record.InputDigests)
+	}
+	if record.TeardownAction.Ready || !reflect.DeepEqual(record.TeardownAction.MissingFields, []string{"resourceID"}) {
+		t.Fatalf("initial teardown action = %+v, want resourceID pending", record.TeardownAction)
+	}
+}
+
+func readProvisionCreationRecordForTest(t *testing.T, appDataDir string, deps cliDeps, recordID string) provisionCreationRecord {
+	t.Helper()
+	registry, err := newProvisionCreationStore(appDataDir, deps).read()
+	if err != nil {
+		t.Fatalf("read creation registry: %v", err)
+	}
+	record, ok := provisionCreationRecordByID(registry, recordID)
+	if !ok {
+		t.Fatalf("creation record %q missing: %+v", recordID, registry)
+	}
+	return record
 }
 
 func assertManualParameterNoEcho(t *testing.T, parameters []provisionLinkManualParameter, key string) {

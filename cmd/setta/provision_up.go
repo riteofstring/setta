@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 )
 
 type provisionUpOptions struct {
+	AppDataDir                   string
+	Approve                      bool
 	CloudFormationParametersFile string
 	CloudFormationTemplateFile   string
 	CloudInitFile                string
@@ -20,15 +25,20 @@ type provisionUpOptions struct {
 	RuntimeName                  string
 	Shape                        string
 	StackName                    string
+	Timeout                      time.Duration
 }
 
 type provisionUpResult struct {
-	OK       bool                   `json:"ok"`
-	Mode     string                 `json:"mode"`
-	Provider string                 `json:"provider"`
-	Plan     provisionExecutionPlan `json:"plan"`
-	Warnings []string               `json:"warnings,omitempty"`
+	OK             bool                         `json:"ok"`
+	Mode           string                       `json:"mode"`
+	Provider       string                       `json:"provider"`
+	Plan           provisionExecutionPlan       `json:"plan"`
+	CreationRecord *provisionCreationRecord     `json:"creationRecord,omitempty"`
+	Execution      *provisionExecutionRunResult `json:"execution,omitempty"`
+	Warnings       []string                     `json:"warnings,omitempty"`
 }
+
+const defaultProvisionUpTimeout = 10 * time.Minute
 
 func runProvisionUp(args []string, deps cliDeps) error {
 	options, warnings, err := provisionUpOptionsFromArgs(args, deps)
@@ -38,6 +48,9 @@ func runProvisionUp(args []string, deps cliDeps) error {
 	plan, err := planProvisionUp(options)
 	if err != nil {
 		return err
+	}
+	if !options.PlanOnly {
+		return runApprovedProvisionUp(options, plan, warnings, deps)
 	}
 	return encodeProvisionJSON(deps, provisionUpResult{
 		OK:       true,
@@ -50,11 +63,14 @@ func runProvisionUp(args []string, deps cliDeps) error {
 
 func provisionUpOptionsFromArgs(args []string, deps cliDeps) (provisionUpOptions, []string, error) {
 	options := provisionUpOptions{
-		Shape: defaultProvisionShape,
+		Shape:   defaultProvisionShape,
+		Timeout: defaultProvisionUpTimeout,
 	}
 	flagSet := newFlagSet("setta provision up", deps.stderr)
 	flagSet.BoolVar(&options.JSON, "json", false, "emit structured JSON")
 	flagSet.BoolVar(&options.PlanOnly, "plan-only", false, "render the allowlisted execution plan without running provider mutation")
+	flagSet.BoolVar(&options.Approve, "approve", false, "confirm the reviewed mutation plan and run the provider CLI")
+	flagSet.StringVar(&options.AppDataDir, "app-data-dir", "", "directory for non-secret provisioning creation records")
 	flagSet.StringVar(&options.Provider, "provider", "", "provider id; defaults to the catalog default")
 	flagSet.StringVar(&options.RuntimeName, "runtime-name", "", "Tailscale hostname for the runtime")
 	flagSet.StringVar(&options.Shape, "shape", options.Shape, "machine shape used for fallback instance selection")
@@ -65,6 +81,7 @@ func provisionUpOptionsFromArgs(args []string, deps cliDeps) (provisionUpOptions
 	flagSet.StringVar(&options.StackName, "stack-name", "", "AWS CloudFormation stack name")
 	flagSet.StringVar(&options.CloudFormationTemplateFile, "cloudformation-template-file", "", "AWS CloudFormation template-body file")
 	flagSet.StringVar(&options.CloudFormationParametersFile, "cloudformation-parameters-file", "", "AWS CloudFormation parameters file")
+	flagSet.DurationVar(&options.Timeout, "timeout", options.Timeout, "maximum time to wait for the provider CLI mutation")
 	if err := flagSet.Parse(args); err != nil {
 		return provisionUpOptions{}, nil, usageError{err: err}
 	}
@@ -74,10 +91,38 @@ func provisionUpOptionsFromArgs(args []string, deps cliDeps) (provisionUpOptions
 	if !options.JSON {
 		return provisionUpOptions{}, nil, usageError{err: errors.New("setta provision up requires --json")}
 	}
+	if options.PlanOnly && options.Approve {
+		return provisionUpOptions{}, nil, usageError{err: errors.New("use either --plan-only or --approve, not both")}
+	}
+	if !options.PlanOnly && !options.Approve {
+		return provisionUpOptions{}, nil, errors.New("setta provision up requires --approve after reviewing the --plan-only JSON output")
+	}
 	if !options.PlanOnly {
-		return provisionUpOptions{}, nil, errors.New("setta provision up execution is blocked until pending creation records and approval wiring are implemented; rerun with --plan-only to inspect the allowlisted command")
+		appDataDir, err := provisionUpAppDataDir(options.AppDataDir, deps)
+		if err != nil {
+			return provisionUpOptions{}, nil, err
+		}
+		options.AppDataDir = appDataDir
+		if options.Timeout <= 0 {
+			return provisionUpOptions{}, nil, fmt.Errorf("timeout must be positive: %s", options.Timeout)
+		}
 	}
 	return normalizeProvisionUpOptions(options)
+}
+
+func provisionUpAppDataDir(value string, deps cliDeps) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		appDataDir, err := defaultAppDataDir(deps.getenv)
+		if err != nil {
+			return "", err
+		}
+		trimmed = appDataDir
+	}
+	if !filepath.IsAbs(trimmed) {
+		return "", fmt.Errorf("app-data-dir must be absolute: %s", value)
+	}
+	return trimmed, nil
 }
 
 func normalizeProvisionUpOptions(options provisionUpOptions) (provisionUpOptions, []string, error) {
@@ -147,6 +192,60 @@ func planProvisionUp(options provisionUpOptions) (provisionExecutionPlan, error)
 	}
 	action.FileInputs = files
 	return buildProvisionExecutionPlan(action)
+}
+
+func runApprovedProvisionUp(options provisionUpOptions, plan provisionExecutionPlan, warnings []string, deps cliDeps) error {
+	if !plan.Mutating || !plan.RequiresApproval {
+		return fmt.Errorf("provision up plan %q is not an approval-gated mutation", plan.ActionID)
+	}
+	if _, err := deps.lookPath(plan.CLIBinary); err != nil {
+		return fmt.Errorf("%s CLI not found in PATH: %w", plan.CLIBinary, err)
+	}
+	record, err := newProvisionCreationRecord(options, plan, deps.now().UTC())
+	if err != nil {
+		return err
+	}
+	store := newProvisionCreationStore(options.AppDataDir, deps)
+	if err := store.createPending(record); err != nil {
+		return err
+	}
+	runResult, runErr := executeProvisionPlan(options, plan, deps)
+	record = record.withExecutionResult(runResult, deps.now().UTC())
+	if err := store.update(record); err != nil {
+		if runErr != nil {
+			return fmt.Errorf("provider command failed and creation record update failed: %w; record update error: %v", runErr, err)
+		}
+		return err
+	}
+	result := provisionUpResult{
+		OK:             runErr == nil,
+		Mode:           "executed",
+		Provider:       options.Provider,
+		Plan:           plan,
+		CreationRecord: &record,
+		Execution:      &runResult,
+		Warnings:       append(warnings, runResult.Warnings...),
+	}
+	if encodeErr := encodeProvisionJSON(deps, result, "up JSON"); encodeErr != nil {
+		return encodeErr
+	}
+	if runErr != nil {
+		return runErr
+	}
+	return nil
+}
+
+func executeProvisionPlan(options provisionUpOptions, plan provisionExecutionPlan, deps cliDeps) (provisionExecutionRunResult, error) {
+	ctx, stop := signalContext()
+	defer stop()
+	runCtx, cancel := context.WithTimeout(ctx, options.Timeout)
+	defer cancel()
+	output, err := deps.commandRunner(runCtx, plan.Argv[0], plan.Argv[1:]...)
+	result := provisionExecutionRunResultFromOutput(plan, output, err)
+	if err != nil {
+		return result, fmt.Errorf("provider command failed for %s: %w", plan.ActionID, err)
+	}
+	return result, nil
 }
 
 func provisionUpFileInputs(options provisionUpOptions) ([]provisionExecutionFileInput, error) {
