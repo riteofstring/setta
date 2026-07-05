@@ -5,8 +5,28 @@ import process from "node:process";
 import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
 
+import { assertThreadStartDynamicTools } from "./fake-codex-dynamic-tools.mjs";
+import { createParallelRunHandlers } from "./fake-codex-parallel-runs.mjs";
+import {
+  autoApprovalReviewPayload,
+  contextCompactionPayload,
+  emitRealtimeNotifications,
+  hookPayload,
+} from "./fake-codex-protocol-payloads.mjs";
+import {
+  assertCodexSkillRootsConfigured,
+  assertSettaSkillRootParams,
+} from "./fake-codex-skill-roots.mjs";
+import {
+  emitWorkflowAuthoringFailure,
+  emitWorkflowAuthoringTurn,
+  workflowAuthoring,
+} from "./fake-codex-workflow-authoring.mjs";
+
 const threadId = "thread_fake";
 const turnId = "turn_fake";
+const parallelThreadsEnabled = process.env.SETTA_FAKE_CODEX_PARALLEL_THREADS === "1";
+const parallelRuns = createParallelRunHandlers({ fakeTurnWithID, notify, respond, turnInputText });
 const goalBackgroundTerminal = {
   command: "npm run goal-bg",
   idleGapOutput: "goal background idle output\n",
@@ -53,6 +73,10 @@ let currentGoal = null;
 let goalCancelTurnId = null;
 let goalPaused = false;
 let pendingDynamicTool = null;
+let skillRootsConfigured = false;
+let structuredThreadSequence = 0;
+let structuredTurnSequence = 0;
+const structuredThreads = new Set();
 const rl = readline.createInterface({ input: process.stdin });
 
 rl.on("line", (line) => {
@@ -82,6 +106,7 @@ const methodHandlers = {
   initialize: handleInitialize,
   initialized: () => {},
   "model/list": handleModelList,
+  "skills/extraRoots/set": handleSkillsExtraRootsSet,
   "thread/goal/clear": handleThreadGoalClear,
   "thread/goal/get": handleThreadGoalGet,
   "thread/goal/set": handleThreadGoalSet,
@@ -128,17 +153,24 @@ function handleAccountLogout(message) {
 function handleThreadStart(message) {
   if (isStructuredThreadStart(message.params)) {
     assertStructuredThreadStart(message.params);
-    respond(message.id, fakeThreadResponse({ ephemeral: true }));
+    const structuredThreadId = nextStructuredThreadId();
+    structuredThreads.add(structuredThreadId);
+    respond(message.id, fakeThreadResponse({ ephemeral: true, threadId: structuredThreadId }));
     return;
   }
+  assertCodexSkillRootsConfigured(skillRootsConfigured);
   assertThreadStartDeveloperInstructions(message.params);
   assertThreadStartDynamicTools(message.params);
   const options = threadResponseOptionsFromParams(message.params);
+  if (parallelThreadsEnabled) {
+    options.threadId = parallelRuns.nextThreadId();
+  }
   applyUnsupportedApprovalPolicyForSource(options, "thread-start");
   respond(message.id, fakeThreadResponse(options));
 }
 
 function handleThreadResume(message) {
+  assertCodexSkillRootsConfigured(skillRootsConfigured);
   if (message.params?.dynamicTools !== undefined) {
     throw new Error("thread/resume should not include dynamicTools");
   }
@@ -147,20 +179,37 @@ function handleThreadResume(message) {
   respond(message.id, fakeThreadResponse(options));
 }
 
+function handleSkillsExtraRootsSet(message) {
+  assertSettaSkillRootParams(message.params?.extraRoots);
+  skillRootsConfigured = true;
+  respond(message.id, {});
+}
+
 function handleThreadRead(message) {
-  if (message.params?.threadId !== threadId) {
+  if (!parallelThreadsEnabled && message.params?.threadId !== threadId) {
     throw new Error(`unexpected thread/read threadId: ${message.params?.threadId}`);
   }
-  respond(message.id, { thread: fakeThread({ activeTurn: activeTurnForThreadRead() }) });
+  const requestedThreadId = parallelThreadsEnabled ? message.params?.threadId : undefined;
+  respond(message.id, {
+    thread: fakeThread({
+      activeTurn: activeTurnForThreadRead(requestedThreadId),
+      threadId: requestedThreadId,
+    }),
+  });
 }
 
 function handleTurnStart(message) {
-  respond(message.id, { turn: fakeTurn("inProgress") });
-  if (isStructuredTurnStart(message.params)) {
-    assertStructuredTurnStart(message.params);
-    setTimeout(emitStructuredTaskTurn, 5);
+  if (parallelThreadsEnabled && parallelRuns.handleTurnStart(message)) {
     return;
   }
+  if (isStructuredTurnStart(message.params)) {
+    assertStructuredTurnStart(message.params);
+    const structuredTurnId = nextStructuredTurnId();
+    respond(message.id, { turn: fakeTurnWithID(structuredTurnId, "inProgress") });
+    setTimeout(() => emitStructuredTaskTurn(message.params.threadId, structuredTurnId), 5);
+    return;
+  }
+  respond(message.id, { turn: fakeTurn("inProgress") });
   const text = turnInputText(message);
   if (handleProviderLifecycleTurn(text)) {
     return;
@@ -208,7 +257,28 @@ function handleScriptedTurnStart(text) {
     );
     return true;
   }
+  if (text.includes(workflowAuthoring.promptMarker)) {
+    setTimeout(() => {
+      const context = workflowAuthoringContext();
+      emitWorkflowAuthoringTurn(context).catch((error) =>
+        emitWorkflowAuthoringFailure(error, context),
+      );
+    }, 5);
+    return true;
+  }
   return false;
+}
+
+function workflowAuthoringContext() {
+  return {
+    fakeTurn,
+    notify,
+    notifyUnifiedExecCompleted,
+    notifyUnifiedExecOutput,
+    notifyUnifiedExecStarted,
+    threadId,
+    turnId,
+  };
 }
 
 function handleProviderLifecycleTurn(text) {
@@ -244,6 +314,9 @@ function fakeThreadResponse(options = {}) {
 
 function threadResponseOptionsFromParams(params) {
   const options = {};
+  if (typeof params?.threadId === "string" && params.threadId !== "") {
+    options.threadId = params.threadId;
+  }
   if (typeof params?.approvalPolicy === "string") {
     options.approvalPolicy = params.approvalPolicy;
   }
@@ -256,16 +329,17 @@ function threadResponseOptionsFromParams(params) {
 function fakeThread(options = {}) {
   const ephemeral = options.ephemeral === true;
   const activeTurn = options.activeTurn ?? null;
+  const id = options.threadId ?? threadId;
   return {
     cliVersion: "fake",
     createdAt: 1,
     cwd: "/tmp/setta-fake",
     ephemeral,
-    id: threadId,
+    id,
     modelProvider: "fake",
-    path: ephemeral ? undefined : "/tmp/codex/thread_fake.json",
+    path: ephemeral ? undefined : `/tmp/codex/${id}.json`,
     preview: "",
-    sessionId: "session_fake",
+    sessionId: `session_${id}`,
     source: "user",
     status: activeTurn === null ? { type: "idle" } : { activeFlags: [], type: "active" },
     turns: activeTurn === null ? [] : [activeTurn],
@@ -281,7 +355,10 @@ function fakeTurn(status) {
   };
 }
 
-function activeTurnForThreadRead() {
+function activeTurnForThreadRead(requestedThreadId) {
+  if (parallelThreadsEnabled && typeof requestedThreadId === "string") {
+    return parallelRuns.activeTurnForThreadRead(requestedThreadId);
+  }
   if (activeSilentLivenessTurn !== null) {
     return activeSilentLivenessTurn;
   }
@@ -472,6 +549,9 @@ function respondEmpty(message) {
 }
 
 function handleTurnInterrupt(message) {
+  if (parallelThreadsEnabled && parallelRuns.handleTurnInterrupt(message)) {
+    return;
+  }
   if (handleGoalTurnInterrupt(message)) {
     return;
   }
@@ -485,6 +565,9 @@ function handleTurnInterrupt(message) {
 }
 
 function handleTurnSteer(message) {
+  if (parallelThreadsEnabled && parallelRuns.handleTurnSteer(message)) {
+    return;
+  }
   if (handleCurrentPlanSteer(message)) {
     return;
   }
@@ -619,10 +702,14 @@ function assertThreadStartDeveloperInstructions(params) {
   const instructions = params?.developerInstructions;
   if (
     typeof instructions !== "string" ||
+    !instructions.includes("$workflow-builder") ||
+    !instructions.includes("`setta workflow` CLI") ||
     !instructions.includes("available dynamic tool") ||
     !instructions.includes("Do not invent dynamic tool names")
   ) {
-    throw new Error("thread/start developerInstructions missing Setta dynamic tool guidance");
+    throw new Error(
+      "thread/start developerInstructions missing Setta workflow skill or dynamic tool guidance",
+    );
   }
 }
 
@@ -643,51 +730,6 @@ function assertStructuredThreadStart(params) {
     !instructions.includes("strict JSON semantic graph patch envelope")
   ) {
     throw new Error("structured thread/start missing semantic cartographer prompt");
-  }
-}
-
-function assertThreadStartDynamicTools(params) {
-  const workspaceContext = workspaceContextTool(params);
-  assertWorkspaceContextVisibility(workspaceContext);
-  assertWorkspaceContextDescription(workspaceContext);
-  assertWorkspaceContextInputSchema(workspaceContext);
-}
-
-function workspaceContextTool(params) {
-  const tools = params?.dynamicTools;
-  if (!Array.isArray(tools) || tools.length === 0) {
-    throw new Error("thread/start missing dynamicTools");
-  }
-  const workspaceContext = tools.find(
-    (tool) => tool?.namespace === "setta" && tool?.name === "workspace_context",
-  );
-  if (!workspaceContext) {
-    throw new Error("thread/start missing setta.workspace_context dynamic tool");
-  }
-  return workspaceContext;
-}
-
-function assertWorkspaceContextVisibility(workspaceContext) {
-  if (workspaceContext.deferLoading !== undefined) {
-    throw new Error("workspace_context should be visible");
-  }
-}
-
-function assertWorkspaceContextDescription(workspaceContext) {
-  if (
-    typeof workspaceContext.description !== "string" ||
-    !workspaceContext.description.includes("workspace")
-  ) {
-    throw new Error("workspace_context description missing workspace terms");
-  }
-}
-
-function assertWorkspaceContextInputSchema(workspaceContext) {
-  if (
-    workspaceContext.inputSchema?.type !== "object" ||
-    workspaceContext.inputSchema?.additionalProperties !== false
-  ) {
-    throw new Error("workspace_context input schema mismatch");
   }
 }
 
@@ -768,9 +810,19 @@ function assertStructuredTurnStart(params) {
   if (params?.sandboxPolicy === undefined) {
     throw new Error("structured turn/start missing sandboxPolicy");
   }
-  if (params?.threadId !== threadId) {
+  if (!structuredThreads.has(params?.threadId)) {
     throw new Error("structured turn/start targeted wrong thread");
   }
+}
+
+function nextStructuredThreadId() {
+  structuredThreadSequence += 1;
+  return `thread_structured_${structuredThreadSequence}`;
+}
+
+function nextStructuredTurnId() {
+  structuredTurnSequence += 1;
+  return `turn_structured_${structuredTurnSequence}`;
 }
 
 function handleAccountLoginStart(message) {
@@ -826,6 +878,12 @@ function write(payload) {
 function emitProtocolCoverageTurn() {
   notify("account/login/completed", { error: null, loginId: "login_fake", success: true });
   notify("app/list/updated", { data: [] });
+  notify("item/agentMessage/delta", {
+    delta: "coverage complete",
+    itemId: "message_fake",
+    threadId,
+    turnId,
+  });
   notify("command/exec/outputDelta", {
     capReached: false,
     deltaBase64: Buffer.from("command output\n").toString("base64"),
@@ -836,18 +894,31 @@ function emitProtocolCoverageTurn() {
     details: "Use the replacement protocol surface.",
     summary: "Protocol deprecation notice.",
   });
+  notify("warning", {
+    message: "Protocol warning notice.",
+    threadId,
+  });
   notify("externalAgentConfig/import/completed", {});
   notify("fs/changed", { changedPaths: ["/tmp/workspace/main.go"], watchId: "watch_fake" });
   notify("fuzzyFileSearch/sessionUpdated", { files: [], query: "main", sessionId: "fuzzy_fake" });
   notify("fuzzyFileSearch/sessionCompleted", { sessionId: "fuzzy_fake" });
-  notify("hook/started", hookPayload("running"));
-  notify("hook/completed", hookPayload("completed"));
-  notify("item/autoApprovalReview/started", autoApprovalReviewPayload("inProgress"));
-  notify("item/autoApprovalReview/completed", autoApprovalReviewPayload("approved"));
-  notify("item/started", contextCompactionPayload("context_compaction_fake", { startedAtMs: 1 }));
+  notify("hook/started", hookPayload(threadId, turnId, "running"));
+  notify("hook/completed", hookPayload(threadId, turnId, "completed"));
+  notify(
+    "item/autoApprovalReview/started",
+    autoApprovalReviewPayload(threadId, turnId, "inProgress"),
+  );
+  notify(
+    "item/autoApprovalReview/completed",
+    autoApprovalReviewPayload(threadId, turnId, "approved"),
+  );
+  notify(
+    "item/started",
+    contextCompactionPayload(threadId, turnId, "context_compaction_fake", { startedAtMs: 1 }),
+  );
   notify(
     "item/completed",
-    contextCompactionPayload("context_compaction_fake", { completedAtMs: 2 }),
+    contextCompactionPayload(threadId, turnId, "context_compaction_fake", { completedAtMs: 2 }),
   );
   notify("item/fileChange/patchUpdated", {
     changes: [
@@ -873,6 +944,7 @@ function emitProtocolCoverageTurn() {
     threadId,
     turnId,
   });
+  emitProtocolCoverageCommandExecution();
   emitMcpToolCallCoverage();
   notify("mcpServer/oauthLogin/completed", { error: null, name: "github", success: true });
   notify("model/verification", {
@@ -903,23 +975,38 @@ function emitProtocolCoverageTurn() {
   });
   notify("serverRequest/resolved", { requestId: "unknown_request", threadId });
   notify("skills/changed", {});
-  emitRealtimeNotifications();
+  emitRealtimeNotifications(notify, threadId);
   notify("windows/worldWritableWarning", {
     extraCount: 0,
     failedScan: false,
     samplePaths: ["C:/tmp/world-writable"],
   });
   notify("windowsSandbox/setupCompleted", { error: null, mode: "unelevated", success: true });
-  notify("item/agentMessage/delta", {
-    delta: "coverage complete",
-    itemId: "message_fake",
-    threadId,
-    turnId,
-  });
   notify("turn/completed", {
     threadId,
-    turn: fakeTurn("completed"),
+    turn: {
+      ...fakeTurn("completed"),
+      items: [
+        {
+          id: "message_fake",
+          text: "coverage complete",
+          type: "agentMessage",
+        },
+      ],
+    },
   });
+}
+
+function emitProtocolCoverageCommandExecution() {
+  const execution = {
+    command: "printf protocol command",
+    itemId: "command_item_fake",
+    processId: "scoped_process_fake",
+    source: "agent",
+  };
+  notifyUnifiedExecStarted(turnId, execution);
+  notifyUnifiedExecOutput(turnId, execution, "scoped command output\n");
+  notifyUnifiedExecCompleted(turnId, execution);
 }
 
 function emitBackpressureBurstTurn() {
@@ -1120,11 +1207,11 @@ function emitMcpToolCallCoverage() {
   });
 }
 
-function emitStructuredTaskTurn() {
+function emitStructuredTaskTurn(structuredThreadId, structuredTurnId) {
   notify("turn/completed", {
-    threadId,
+    threadId: structuredThreadId,
     turn: {
-      ...fakeTurn("completed"),
+      ...fakeTurnWithID(structuredTurnId, "completed"),
       items: [
         {
           id: "structured_message_fake",
@@ -1327,6 +1414,7 @@ function notifyGoalBackgroundTerminalCompleted(turnID, execution) {
 }
 
 function notifyUnifiedExecStarted(turnID, execution) {
+  const source = commandExecutionSource(execution);
   notify("item/started", {
     item: {
       command: execution.command,
@@ -1334,7 +1422,7 @@ function notifyUnifiedExecStarted(turnID, execution) {
       cwd: "/tmp/workspace",
       id: execution.itemId,
       processId: execution.processId,
-      source: "unifiedExecStartup",
+      ...(source === undefined ? {} : { source }),
       status: "inProgress",
       type: "commandExecution",
     },
@@ -1360,6 +1448,7 @@ function notifyBurstOutput(turnID, execution) {
 }
 
 function notifyUnifiedExecCompleted(turnID, execution) {
+  const source = commandExecutionSource(execution);
   notify("item/completed", {
     completedAtMs: 3,
     item: {
@@ -1370,7 +1459,7 @@ function notifyUnifiedExecCompleted(turnID, execution) {
       exitCode: execution.exitCode ?? 0,
       id: execution.itemId,
       processId: execution.processId,
-      source: "unifiedExecStartup",
+      ...(source === undefined ? {} : { source }),
       status: "completed",
       type: "commandExecution",
     },
@@ -1379,54 +1468,13 @@ function notifyUnifiedExecCompleted(turnID, execution) {
   });
 }
 
+function commandExecutionSource(execution) {
+  return execution.omitSource ? undefined : (execution.source ?? "unifiedExecStartup");
+}
+
 function fakeTurnWithID(id, status) {
   return {
     ...fakeTurn(status),
     id,
   };
-}
-
-function hookPayload(status) {
-  return {
-    run: {
-      command: "printf hook",
-      durationMs: status === "completed" ? 12 : 0,
-      eventName: "pre-command",
-      id: "hook_fake",
-      status,
-      statusMessage: status,
-    },
-    threadId,
-    turnId,
-  };
-}
-
-function autoApprovalReviewPayload(status) {
-  return {
-    action: { command: "pwd", type: "command" },
-    review: { status },
-    reviewId: "review_fake",
-    threadId,
-    turnId,
-  };
-}
-
-function contextCompactionPayload(itemId, timing) {
-  return {
-    ...timing,
-    item: { id: itemId, type: "contextCompaction" },
-    threadId,
-    turnId,
-  };
-}
-
-function emitRealtimeNotifications() {
-  notify("thread/realtime/started", { realtimeSessionId: "realtime_fake", threadId, version: 1 });
-  notify("thread/realtime/itemAdded", { item: { id: "item_fake" }, threadId });
-  notify("thread/realtime/transcript/delta", { delta: "hi", role: "user", threadId });
-  notify("thread/realtime/transcript/done", { role: "user", text: "hi", threadId });
-  notify("thread/realtime/outputAudio/delta", { audio: { data: "AAAA" }, threadId });
-  notify("thread/realtime/sdp", { sdp: "v=0", threadId });
-  notify("thread/realtime/error", { message: "disabled", threadId });
-  notify("thread/realtime/closed", { reason: null, threadId });
 }

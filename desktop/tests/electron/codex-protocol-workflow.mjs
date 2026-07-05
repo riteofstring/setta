@@ -1,6 +1,6 @@
 import process from "node:process";
 import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
@@ -28,25 +28,74 @@ const fakeCodexAppServerFixture = join(
   "fixtures",
   "fake-codex-app-server.mjs",
 );
+const fakeCodexDynamicToolsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-dynamic-tools.mjs",
+);
+const fakeCodexParallelRunsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-parallel-runs.mjs",
+);
+const fakeCodexProtocolPayloadsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-protocol-payloads.mjs",
+);
+const fakeCodexSkillRootsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-skill-roots.mjs",
+);
+const fakeCodexWorkflowAuthoringFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-workflow-authoring.mjs",
+);
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
   processId: "goal_fg_process",
 };
+const protocolNotificationActivityTimeoutMs = 30_000;
 
 export async function installFakeCodexAppServer(fixture) {
   const binDir = join(fixture.tempRoot, "fake-bin");
   await mkdir(binDir, { recursive: true });
   const scriptPath = join(binDir, "fake-codex-app-server.mjs");
+  const dynamicToolsPath = join(binDir, "fake-codex-dynamic-tools.mjs");
+  const parallelRunsPath = join(binDir, "fake-codex-parallel-runs.mjs");
+  const protocolPayloadsPath = join(binDir, "fake-codex-protocol-payloads.mjs");
+  const skillRootsPath = join(binDir, "fake-codex-skill-roots.mjs");
+  const workflowAuthoringPath = join(binDir, "fake-codex-workflow-authoring.mjs");
+  const settaPath = join(binDir, process.platform === "win32" ? "setta.cmd" : "setta");
   await copyFile(fakeCodexAppServerFixture, scriptPath);
+  await copyFile(fakeCodexDynamicToolsFixture, dynamicToolsPath);
+  await copyFile(fakeCodexParallelRunsFixture, parallelRunsPath);
+  await copyFile(fakeCodexProtocolPayloadsFixture, protocolPayloadsPath);
+  await copyFile(fakeCodexSkillRootsFixture, skillRootsPath);
+  await copyFile(fakeCodexWorkflowAuthoringFixture, workflowAuthoringPath);
   if (process.platform === "win32") {
     const commandPath = join(binDir, "codex.cmd");
     await writeFile(commandPath, `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
+    await writeFile(
+      settaPath,
+      `@echo off\r\ncd /d "${repoRoot}"\r\n"${repoRoot}\\scripts\\go.sh" run ./cmd/setta %*\r\n`,
+      "utf8",
+    );
     return { binDir, commandPath };
   }
   const commandPath = join(binDir, "codex");
   await writeFile(commandPath, `#!/usr/bin/env sh\nexec node "${scriptPath}" "$@"\n`, "utf8");
+  await writeFile(
+    settaPath,
+    `#!/usr/bin/env sh\ncd "${repoRoot}"\nexec "${repoRoot}/scripts/go.sh" run ./cmd/setta "$@"\n`,
+    "utf8",
+  );
   await chmod(commandPath, 0o755);
+  await chmod(settaPath, 0o755);
   return { binDir, commandPath };
 }
 
@@ -57,7 +106,11 @@ export async function assertProtocolNotificationActivity(
   conversationId,
   runId,
 ) {
-  const page = await backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId });
+  const page = await waitForBackendState(
+    async () => backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId }),
+    protocolNotificationActivityReady,
+    protocolNotificationActivityTimeoutMs,
+  );
   await assertRunActivityItem(page, "hook", (item) => item.title === "Hook: pre-command");
   await assertRunActivityItem(
     page,
@@ -75,8 +128,9 @@ export async function assertProtocolNotificationActivity(
   await assertRunActivityItem(
     page,
     "command_execution",
-    (item) => commandExecutionDetails(item)?.processId === "process_fake",
+    (item) => commandExecutionDetails(item)?.processId === "scoped_process_fake",
   );
+  assertNoStandaloneProcessActivity(page);
   await assertRunActivityItem(
     page,
     "dynamic_tool_call",
@@ -107,7 +161,7 @@ export async function assertProtocolNotificationActivity(
   await assertProtocolMCPActivitySearchable(client, mcpActivity.sourceRunItemId);
   await assertProtocolFileChangeSearchable(client);
   await assertProtocolDiffSearchable(client);
-  await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "deprecationNotice");
+  await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "warning");
   if ((page.activity ?? []).some((row) => row.type === "reasoning")) {
     throw new Error(`reasoning leaked into projected activity: ${JSON.stringify(page.activity)}`);
   }
@@ -123,12 +177,45 @@ export async function assertProtocolNotificationActivity(
     workspaceId,
   });
   const warningCodes = diagnostics.diagnostics.map((diagnostic) => diagnostic.code);
-  if (
-    !warningCodes.includes("codex_windows_world_writable_warning") ||
-    !warningCodes.includes("codex_realtime_notification_ignored")
-  ) {
+  if (!warningCodes.includes("codex_realtime_notification_ignored")) {
     throw new Error(
       `protocol diagnostics missing expected warnings: ${JSON.stringify(diagnostics)}`,
+    );
+  }
+  const workspaceDiagnostics = await backend.post("/chat/diagnostics/list", {
+    conversationId: "",
+    runId: "",
+    workspaceId,
+  });
+  const workspaceWarning = workspaceDiagnostics.diagnostics.find(
+    (diagnostic) =>
+      diagnostic.code === "codex_windows_world_writable_warning" &&
+      diagnostic.conversationId === "" &&
+      diagnostic.runId === "",
+  );
+  if (!workspaceWarning) {
+    throw new Error(
+      `protocol workspace diagnostics missing Windows warning: ${JSON.stringify(workspaceDiagnostics)}`,
+    );
+  }
+}
+
+function assertNoStandaloneProcessActivity(page) {
+  const leaked = (page.items ?? []).filter((item) => {
+    if (
+      item.providerItemId === "command_exec_process_fake" ||
+      item.providerItemId === "process_process_fake"
+    ) {
+      return true;
+    }
+    const commandDetails = commandExecutionDetails(item);
+    return (
+      commandDetails?.processId === "process_fake" && item.providerItemId !== "command_item_fake"
+    );
+  });
+  if (leaked.length > 0) {
+    throw new Error(
+      `standalone process output leaked into run activity: ${JSON.stringify(leaked)}`,
     );
   }
 }
@@ -602,9 +689,9 @@ export async function runProtocolLivenessReconciliationWorkflow(client, backend,
     },
   ]);
   assertReconciledRunLiveness(reconciled, run.id);
-  await waitForRendererLiveness(client, run.id, "reconciling", "working");
-  await waitForTexts(client, ["Working"]);
-  await assertRunLivenessControls(client, { retry: false, stop: true });
+  await waitForRendererLiveness(client, run.id, "reconciling", "reconnecting");
+  await waitForTexts(client, ["Reconnecting"]);
+  await assertRunLivenessControls(client, { retry: true, stop: true });
 
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
@@ -1144,9 +1231,55 @@ async function callRendererChatAPI(client, method, args) {
 }
 
 async function assertRunActivityItem(page, type, matches) {
-  const item = page.items.find((candidate) => candidate.type === type && matches(candidate));
+  const item = runActivityItem(page, type, matches);
   if (!item) {
     throw new Error(`run activity missing ${type}: ${JSON.stringify(page.items)}`);
   }
   return item;
 }
+
+function protocolNotificationActivityReady(page) {
+  return protocolNotificationActivityExpectations.every((expectation) =>
+    runActivityItem(page, expectation.type, expectation.matches),
+  );
+}
+
+function runActivityItem(page, type, matches) {
+  return page.items.find((candidate) => candidate.type === type && matches(candidate));
+}
+
+const protocolNotificationActivityExpectations = [
+  { type: "hook", matches: (item) => item.title === "Hook: pre-command" },
+  {
+    type: "approval_review",
+    matches: (item) => item.details?.approval?.reviewId === "review_fake",
+  },
+  {
+    type: "context_compaction",
+    matches: (item) => item.title === "Context compaction" && item.status === "completed",
+  },
+  { type: "file_change", matches: isProtocolFileChangeItem },
+  { type: "diff", matches: isProtocolDiffItem },
+  { type: "reasoning", matches: (item) => item.hiddenText === "private reasoning" },
+  {
+    type: "command_execution",
+    matches: (item) => commandExecutionDetails(item)?.processId === "scoped_process_fake",
+  },
+  {
+    type: "dynamic_tool_call",
+    matches: (item) =>
+      item.status === "completed" &&
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "workspace_context",
+  },
+  {
+    type: "dynamic_tool_call",
+    matches: (item) =>
+      item.status === "failed" &&
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "missing_tool",
+  },
+  { type: "mcp_tool_call", matches: isCompletedMCPToolCallItem },
+  { type: "mcp_tool_call", matches: isFailedMCPToolCallItem },
+  { type: "notice", matches: (item) => item.noticeKind === "warning" },
+];

@@ -83,9 +83,7 @@ const api: SettaAPI = {
     },
   },
   runtimes: {
-    addExistingMachineOverSSH: (request) => invoke("runtimeAddExistingMachineOverSSH", request),
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
-    createDevicePairing: () => invoke("runtimeCreateDevicePairing"),
     current: () => invoke("runtimeCurrent"),
     list: () => invoke("runtimeList"),
     onConnectionState: (listener) => {

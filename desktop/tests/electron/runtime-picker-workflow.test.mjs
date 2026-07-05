@@ -2,7 +2,7 @@
 /* global AbortSignal, console, fetch, URL */
 
 import { spawn } from "node:child_process";
-import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,13 +65,9 @@ let remoteServe = null;
 
 try {
   remoteServe = await startRemoteRuntime(remoteAppDataDir);
-  const fakeSettaCLIPath = await writeFakeSettaRemoteAddCLI(remoteRoot);
   context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
-      SETTA_CLI_PATH: fakeSettaCLIPath,
-      SETTA_FAKE_SSH_PAIRING_URL: remoteServe.pairingURL,
-      SETTA_FAKE_SSH_TRANSCRIPT: join(remoteRoot, "ssh-setup-transcript.json"),
     },
   });
 
@@ -97,7 +93,7 @@ try {
     paneId: localTerminal.paneId,
   });
 
-  await addRuntimeOverSSHThroughPicker(context.client);
+  await addRuntimeThroughPicker(context.client, remoteServe.pairingURL);
   const remoteConnected = await waitForRuntimeStatus(context.client, "connected", {
     isLocal: false,
   });
@@ -211,30 +207,15 @@ function parseArgs(args) {
   return parsed;
 }
 
-async function addRuntimeOverSSHThroughPicker(client) {
+async function addRuntimeThroughPicker(client, pairingURL) {
   await clickButtonByAria(client, "Add runtime");
-  await clickButtonByAria(client, "Add runtime from existing machine over SSH");
   await waitForState(
     client,
-    `(() => ({ ready: Boolean(document.querySelector('input[aria-label="SSH target"]')) }))()`,
+    `(() => ({ ready: Boolean(document.querySelector('input[aria-label="Runtime pairing URL"]')) }))()`,
     (value) => value.ready,
     workflowTimeoutMs,
   );
-  await setInputValue(client, 'input[aria-label="SSH target"]', "ssh://ubuntu@example.com");
-  await setInputValue(client, 'input[aria-label="Runtime name"]', "setta-e2e-ssh");
-  await setInputValue(client, 'input[aria-label="Setta version"]', "v1.2.3");
-  await setInputValue(client, 'input[aria-label="Tailscale auth key"]', "tskey-auth-e2e");
-  await setInputValue(
-    client,
-    'input[aria-label="Release base URL"]',
-    "https://downloads.example.test/setta/v1.2.3",
-  );
-  await setInputValue(client, 'input[aria-label="Installer SHA-256"]', "a".repeat(64));
-  await setInputValue(
-    client,
-    'input[aria-label="Minisign public key"]',
-    "RWQtestminisignpublickey",
-  );
+  await setInputValue(client, 'input[aria-label="Runtime pairing URL"]', pairingURL);
   const submitted = await client.evaluate(`(() => {
     const button = document.querySelector('[data-testid="runtime-picker"] form button[type="submit"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -244,66 +225,8 @@ async function addRuntimeOverSSHThroughPicker(client) {
     return true;
   })()`);
   if (!submitted) {
-    throw new Error("runtime SSH form submit button was not clickable");
+    throw new Error("runtime pairing form submit button was not clickable");
   }
-}
-
-async function writeFakeSettaRemoteAddCLI(root) {
-  const path = join(root, "fake-setta-remote-add.cjs");
-  await writeFile(path, fakeSettaRemoteAddCLISource(), { mode: 0o700 });
-  await chmod(path, 0o700);
-  return path;
-}
-
-function fakeSettaRemoteAddCLISource() {
-  return [
-    "#!/usr/bin/env node",
-    'const { mkdir, readFile, writeFile } = require("node:fs/promises");',
-    'const { dirname } = require("node:path");',
-    "",
-    "async function main() {",
-    "  const args = process.argv.slice(2);",
-    '  if (args[0] !== "remote" || args[1] !== "add") {',
-    '    throw new Error("expected setta remote add, got " + args.join(" "));',
-    "  }",
-    '  if (args.includes("tskey-auth-e2e")) {',
-    '    throw new Error("tailscale auth key leaked into argv");',
-    "  }",
-    '  const authIndex = args.indexOf("--tailscale-auth-key-file");',
-    "  if (authIndex < 0 || !args[authIndex + 1]) {",
-    '    throw new Error("missing --tailscale-auth-key-file");',
-    "  }",
-    '  const authKey = await readFile(args[authIndex + 1], "utf8");',
-    '  if (authKey !== "tskey-auth-e2e\\n") {',
-    '    throw new Error("unexpected auth key file content");',
-    "  }",
-    '  const target = args.find((arg) => arg.startsWith("ssh://"));',
-    "  if (!target) {",
-    '    throw new Error("missing ssh target");',
-    "  }",
-    "  const transcriptPath = process.env.SETTA_FAKE_SSH_TRANSCRIPT;",
-    "  const pairingUrl = process.env.SETTA_FAKE_SSH_PAIRING_URL;",
-    "  if (!transcriptPath || !pairingUrl) {",
-    '    throw new Error("missing fake SSH environment");',
-    "  }",
-    "  await mkdir(dirname(transcriptPath), { recursive: true });",
-    '  await writeFile(transcriptPath, JSON.stringify({ args, target }, null, 2) + "\\n", { mode: 0o600 });',
-    "  process.stdout.write(JSON.stringify({",
-    "    ok: true,",
-    "    pairingUrl,",
-    '    runtimeName: "setta-e2e-ssh",',
-    "    target,",
-    "    transcriptPath,",
-    '    transport: "tailscale"',
-    '  }) + "\\n");',
-    "}",
-    "",
-    "main().catch((error) => {",
-    "  process.stderr.write((error && error.stack) || String(error));",
-    "  process.exit(1);",
-    "});",
-    "",
-  ].join("\n");
 }
 
 async function waitForRuntimeStatus(client, status, filter = {}) {

@@ -37,7 +37,6 @@ import type {
   CreateSemanticSteeringDirectiveRequest,
   CloseTerminalRequest,
   CloseTerminalResponse,
-  CreateDevicePairingResponse,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
@@ -332,16 +331,6 @@ export interface KnownRuntimeView {
   runtimeId: string;
 }
 
-export interface AddExistingMachineSSHRuntimeRequest {
-  installerSha256: string;
-  minisignPublicKey: string;
-  releaseBaseUrl: string;
-  runtimeName?: string;
-  settaVersion: string;
-  sshTarget: string;
-  tailscaleAuthKey: string;
-}
-
 export interface RuntimeRegistrySnapshot {
   activeRuntimeId: string | null;
   connection: RuntimeConnectionState;
@@ -381,11 +370,7 @@ export interface SettaAPI {
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
   runtimes: {
-    addExistingMachineOverSSH: (
-      request: AddExistingMachineSSHRuntimeRequest,
-    ) => Promise<RuntimeRegistrySnapshot>;
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
-    createDevicePairing: () => Promise<CreateDevicePairingResponse>;
     current: () => Promise<RuntimeRegistrySnapshot>;
     list: () => Promise<KnownRuntimeView[]>;
     onConnectionState: (listener: (snapshot: RuntimeRegistrySnapshot) => void) => () => void;

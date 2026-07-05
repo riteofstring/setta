@@ -51,7 +51,7 @@ import {
   composerSlashDraftEnabled,
   composerSubmitActionAvailable,
 } from "./chat-composer-derived-state";
-import { ComposerFrame } from "./chat-composer-frame";
+import { ComposerFrame, type ReadOnlyComposerSettings } from "./chat-composer-frame";
 import { useComposerPromptHistory, type ComposerPromptHistoryDraft } from "./chat-composer-history";
 import { useComposerPermissionPicker } from "./chat-composer-permission";
 import {
@@ -64,6 +64,7 @@ import {
   missingComposerStopAction,
   validateComposerActionContract,
 } from "./chat-composer-runtime-contract";
+import { composerSessionMaterializedDraft } from "./chat-composer-session";
 import type {
   AcceptedComposerSubmission,
   ComposerActions,
@@ -84,6 +85,7 @@ interface ComposerProps {
   frameClassName?: string;
   onSendPrompt?: (input: ChatInput) => Promise<void>;
   placeholder?: string;
+  readOnlySettings?: ReadOnlyComposerSettings | null;
   running: boolean;
   runPresentation: ActiveRunPresentation;
   viewModel: ComposerViewModel;
@@ -97,6 +99,7 @@ function ComposerComponent({
   frameClassName,
   onSendPrompt,
   placeholder = "",
+  readOnlySettings,
   running,
   runPresentation,
   viewModel,
@@ -123,6 +126,7 @@ function ComposerComponent({
   const sessionId = composerSessionId(session);
   const selected = session !== null;
   const attachmentContextRef = useRef(sessionId);
+  const previousSessionRef = useRef(session);
   const commandActions = actions.commands;
   const attachmentActions = actions.attachments;
   const modelActions = actions.modelSettings;
@@ -209,7 +213,6 @@ function ComposerComponent({
     permissionActions,
     running,
     sessionId,
-    setDraft,
     submittingRef,
   });
   const promptHistory = useComposerPromptHistory({
@@ -223,11 +226,15 @@ function ComposerComponent({
   });
 
   useEffect(() => {
+    const previousSession = previousSessionRef.current;
+    previousSessionRef.current = session;
     attachmentContextRef.current = sessionId;
-    setAttachments([]);
-    setAttachmentImageInputsById({});
-    setAttachmentError(null);
-    setAttaching(false);
+    if (!composerSessionMaterializedDraft(previousSession, session)) {
+      setAttachments([]);
+      setAttachmentImageInputsById({});
+      setAttachmentError(null);
+      setAttaching(false);
+    }
     setModelPicker(null);
     clearPermissionState();
   }, [sessionId]);
@@ -756,7 +763,6 @@ function ComposerComponent({
       if (result.result.action === "model_picker") {
         clearPermissionPicker();
         setModelPicker(result);
-        setDraft("");
         requestAnimationFrame(() => textareaRef.current?.focus());
       }
     } finally {
@@ -829,6 +835,7 @@ function ComposerComponent({
       permissionPickerDisabled={permissionPickerDisabled}
       placeholder={placeholder}
       queueDraft={actions.queueMessage === undefined ? undefined : queueDraft}
+      readOnlySettings={readOnlySettings}
       retryActiveRunLiveness={actions.retryActiveRunLiveness}
       runPresentation={runPresentation}
       running={running}
@@ -958,7 +965,6 @@ function ComposerComponent({
     submittingRef.current = true;
     try {
       await modelActions.setCodexModel(model.model);
-      setDraft("");
       setModelPicker(null);
     } finally {
       submittingRef.current = false;
@@ -972,7 +978,6 @@ function ComposerComponent({
     submittingRef.current = true;
     try {
       await modelActions.setCodexReasoningEffort(effort.effort);
-      setDraft("");
       setModelPicker(null);
     } finally {
       submittingRef.current = false;
