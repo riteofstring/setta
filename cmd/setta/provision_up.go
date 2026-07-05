@@ -98,7 +98,7 @@ func provisionUpOptionsFromArgs(args []string, deps cliDeps) (provisionUpOptions
 		return provisionUpOptions{}, nil, errors.New("setta provision up requires --approve after reviewing the --plan-only JSON output")
 	}
 	if !options.PlanOnly {
-		appDataDir, err := provisionUpAppDataDir(options.AppDataDir, deps)
+		appDataDir, err := provisionAppDataDir(options.AppDataDir, deps)
 		if err != nil {
 			return provisionUpOptions{}, nil, err
 		}
@@ -110,7 +110,7 @@ func provisionUpOptionsFromArgs(args []string, deps cliDeps) (provisionUpOptions
 	return normalizeProvisionUpOptions(options)
 }
 
-func provisionUpAppDataDir(value string, deps cliDeps) (string, error) {
+func provisionAppDataDir(value string, deps cliDeps) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		appDataDir, err := defaultAppDataDir(deps.getenv)
@@ -209,7 +209,7 @@ func runApprovedProvisionUp(options provisionUpOptions, plan provisionExecutionP
 	if err := store.createPending(record); err != nil {
 		return err
 	}
-	runResult, runErr := executeProvisionPlan(options, plan, deps)
+	runResult, runErr := executeProvisionPlan(options.Timeout, plan, deps)
 	record = record.withExecutionResult(runResult, deps.now().UTC())
 	if err := store.update(record); err != nil {
 		if runErr != nil {
@@ -235,10 +235,10 @@ func runApprovedProvisionUp(options provisionUpOptions, plan provisionExecutionP
 	return nil
 }
 
-func executeProvisionPlan(options provisionUpOptions, plan provisionExecutionPlan, deps cliDeps) (provisionExecutionRunResult, error) {
+func executeProvisionPlan(timeout time.Duration, plan provisionExecutionPlan, deps cliDeps) (provisionExecutionRunResult, error) {
 	ctx, stop := signalContext()
 	defer stop()
-	runCtx, cancel := context.WithTimeout(ctx, options.Timeout)
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	output, err := deps.commandRunner(runCtx, plan.Argv[0], plan.Argv[1:]...)
 	result := provisionExecutionRunResultFromOutput(plan, output, err)

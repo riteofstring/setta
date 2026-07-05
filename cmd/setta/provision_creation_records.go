@@ -24,6 +24,7 @@ const (
 	provisionCreationStatusPending   provisionCreationStatus = "pending"
 	provisionCreationStatusSucceeded provisionCreationStatus = "succeeded"
 	provisionCreationStatusFailed    provisionCreationStatus = "failed"
+	provisionCreationStatusDeleted   provisionCreationStatus = "deleted"
 )
 
 type provisionCreationRecord struct {
@@ -44,6 +45,8 @@ type provisionCreationRecord struct {
 	InputDigests         []provisionCreationInputDigest  `json:"inputDigests,omitempty"`
 	ResourceID           string                          `json:"resourceId,omitempty"`
 	ProviderOutputSHA256 string                          `json:"providerOutputSha256,omitempty"`
+	TeardownOutputSHA256 string                          `json:"teardownOutputSha256,omitempty"`
+	DeletedAt            string                          `json:"deletedAt,omitempty"`
 	LastError            string                          `json:"lastError,omitempty"`
 }
 
@@ -157,6 +160,18 @@ func (record provisionCreationRecord) withExecutionResult(result provisionExecut
 		}, record.ResourceID); err == nil {
 			record.TeardownAction = teardown
 		}
+	}
+	return record
+}
+
+func (record provisionCreationRecord) withTeardownResult(result provisionExecutionRunResult, now time.Time) provisionCreationRecord {
+	record.UpdatedAt = now.Format(time.RFC3339Nano)
+	record.TeardownOutputSHA256 = result.ProviderOutputSHA256
+	record.LastError = result.Error
+	if result.Status == provisionCreationStatusSucceeded {
+		record.Status = provisionCreationStatusDeleted
+		record.DeletedAt = record.UpdatedAt
+		record.LastError = ""
 	}
 	return record
 }
@@ -289,9 +304,11 @@ func provisionExecutionRunResultFromOutput(plan provisionExecutionPlan, output [
 		result.ProviderOutput = trimCommandOutput(output)
 		return result
 	}
-	resourceID, warnings := provisionCreationResourceIDFromProviderOutput(plan.Provider, output)
-	result.ResourceID = resourceID
-	result.Warnings = warnings
+	if plan.TypedAction == provisionActionCreateRuntime {
+		resourceID, warnings := provisionCreationResourceIDFromProviderOutput(plan.Provider, output)
+		result.ResourceID = resourceID
+		result.Warnings = warnings
+	}
 	return result
 }
 
@@ -478,6 +495,11 @@ func validateProvisionCreationRecordHeader(record provisionCreationRecord) error
 			return fmt.Errorf("provision creation record %q: %w", record.RecordID, err)
 		}
 	}
+	if record.DeletedAt != "" {
+		if _, err := validateRFC3339NanoField("provision creation deletedAt", record.DeletedAt); err != nil {
+			return fmt.Errorf("provision creation record %q: %w", record.RecordID, err)
+		}
+	}
 	return nil
 }
 
@@ -543,8 +565,8 @@ func validateProvisionCreationTeardownIdentity(recordID string, teardown provisi
 		if _, err := requirePlainField("provision creation teardown action id", teardown.ActionID, 1, 128); err != nil {
 			return fmt.Errorf("provision creation record %q: %w", recordID, err)
 		}
-		if !isSupportedProvisionExecutionAction(teardown.TypedAction) {
-			return fmt.Errorf("provision creation record %q teardown has unsupported typedAction %q", recordID, teardown.TypedAction)
+		if teardown.TypedAction != provisionActionDeleteRuntime {
+			return fmt.Errorf("provision creation record %q teardown has typedAction %q, want %q", recordID, teardown.TypedAction, provisionActionDeleteRuntime)
 		}
 	}
 	return nil
@@ -560,12 +582,20 @@ func validateProvisionCreationReadyTeardown(recordID string, teardown provisionC
 	if _, err := validateRFC3339Date("provision creation teardown lastVerified", teardown.LastVerified); err != nil {
 		return fmt.Errorf("provision creation record %q: %w", recordID, err)
 	}
+	if teardown.RedactedArgv[0] != teardown.CLIBinary {
+		return fmt.Errorf("provision creation record %q teardown argv does not start with cliBinary", recordID)
+	}
+	for _, token := range teardown.RedactedArgv {
+		if err := validateProvisionExecutionCommandToken("provision creation teardown argv token", token); err != nil {
+			return fmt.Errorf("provision creation record %q: %w", recordID, err)
+		}
+	}
 	return nil
 }
 
 func isSupportedProvisionCreationStatus(status provisionCreationStatus) bool {
 	switch status {
-	case provisionCreationStatusPending, provisionCreationStatusSucceeded, provisionCreationStatusFailed:
+	case provisionCreationStatusPending, provisionCreationStatusSucceeded, provisionCreationStatusFailed, provisionCreationStatusDeleted:
 		return true
 	default:
 		return false

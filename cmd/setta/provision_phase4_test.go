@@ -406,6 +406,126 @@ func TestProvisionUpApprovedUpdatesFailedRecordAndReturnsProviderOutput(t *testi
 	}
 }
 
+func TestProvisionDownWithoutApprovalRefusesMutation(t *testing.T) {
+	var stderr bytes.Buffer
+	deps := testDeps()
+	deps.stderr = &stderr
+
+	code := runWithDeps([]string{
+		"provision", "down",
+		"--json",
+		"--runtime-name", "setta-test-runtime",
+	}, deps)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want runtime failure", code)
+	}
+	if !strings.Contains(stderr.String(), "requires --approve") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestProvisionDownPlanOnlyEmitsStoredTeardownPlan(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	record := writeSucceededHetznerCreationRecord(t, appDataDir, deps)
+	var stdout bytes.Buffer
+	deps.stdout = &stdout
+
+	code := runWithDeps([]string{
+		"provision", "down",
+		"--json",
+		"--plan-only",
+		"--app-data-dir", appDataDir,
+		"--record-id", record.RecordID,
+	}, deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionDownResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse down JSON: %v\n%s", err, stdout.String())
+	}
+	if !result.OK || result.Mode != "plan_only" || result.RecordID != "hetzner:setta-test-runtime" {
+		t.Fatalf("result = %+v", result)
+	}
+	if result.Plan.ActionID != "hetzner.server.delete_runtime" || !reflect.DeepEqual(result.Plan.Argv, []string{"hcloud", "server", "delete", "12345"}) {
+		t.Fatalf("plan = %+v", result.Plan)
+	}
+	if result.CreationRecord == nil || result.CreationRecord.TeardownAction.ActionID != "hetzner.server.delete_runtime" {
+		t.Fatalf("creation record = %+v", result.CreationRecord)
+	}
+}
+
+func TestProvisionDownApprovedExecutesStoredTeardownAndMarksDeleted(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	writeSucceededHetznerCreationRecord(t, appDataDir, deps)
+	var stdout bytes.Buffer
+	deps.stdout = &stdout
+	deps.lookPath = expectHcloudLookPath(t)
+	deps.commandRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		assertHcloudDeleteCommand(t, name, args)
+		return []byte("deleted\n"), nil
+	}
+
+	code := runWithDeps([]string{
+		"provision", "down",
+		"--json",
+		"--approve",
+		"--app-data-dir", appDataDir,
+		"--provider", "hetzner",
+		"--runtime-name", "setta-test-runtime",
+	}, deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionDownResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse down JSON: %v\n%s", err, stdout.String())
+	}
+	if !result.OK || result.Mode != "executed" || result.Execution == nil || result.Execution.Status != provisionCreationStatusSucceeded {
+		t.Fatalf("result = %+v", result)
+	}
+	record := readProvisionCreationRecordForTest(t, appDataDir, deps, "hetzner:setta-test-runtime")
+	if record.Status != provisionCreationStatusDeleted || record.DeletedAt == "" || record.LastError != "" {
+		t.Fatalf("record after down = %+v", record)
+	}
+	if record.TeardownOutputSHA256 != sha256Hex([]byte("deleted\n")) {
+		t.Fatalf("teardown output digest = %q", record.TeardownOutputSHA256)
+	}
+}
+
+func TestProvisionDownRejectsTamperedStoredTeardownArgv(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	record := writeSucceededHetznerCreationRecord(t, appDataDir, deps)
+	record.TeardownAction.RedactedArgv = []string{"hcloud", "server", "delete", "99999"}
+	if err := newProvisionCreationStore(appDataDir, deps).update(record); err != nil {
+		t.Fatalf("update tampered record: %v", err)
+	}
+	var stderr bytes.Buffer
+	deps.stderr = &stderr
+	deps.lookPath = expectHcloudLookPath(t)
+	deps.commandRunner = func(context.Context, string, ...string) ([]byte, error) {
+		t.Fatal("teardown command should not run for tampered stored argv")
+		return nil, nil
+	}
+
+	code := runWithDeps([]string{
+		"provision", "down",
+		"--json",
+		"--approve",
+		"--app-data-dir", appDataDir,
+		"--record-id", record.RecordID,
+	}, deps)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want runtime failure", code)
+	}
+	if !strings.Contains(stderr.String(), "stored teardown argv does not match") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 func assertAWSCloudFormationTemplate(t *testing.T, template string) {
 	t.Helper()
 	for _, required := range []string{
@@ -480,6 +600,38 @@ func provisionUpApprovedHetznerArgs(appDataDir string, cloudInitPath string) []s
 	}
 }
 
+func writeSucceededHetznerCreationRecord(t *testing.T, appDataDir string, deps cliDeps) provisionCreationRecord {
+	t.Helper()
+	cloudInitPath := writeProvisionExecutionTempFile(t, "cloud-init.yaml", "#cloud-config\n", 0o600)
+	options := provisionUpOptions{
+		Provider:      "hetzner",
+		RuntimeName:   "setta-test-runtime",
+		Shape:         "dev-standard",
+		Region:        "fsn1",
+		InstanceType:  "cx42",
+		DiskGB:        96,
+		CloudInitFile: cloudInitPath,
+	}
+	plan, err := planProvisionUp(options)
+	if err != nil {
+		t.Fatalf("plan provision up: %v", err)
+	}
+	record, err := newProvisionCreationRecord(options, plan, deps.now().UTC())
+	if err != nil {
+		t.Fatalf("new creation record: %v", err)
+	}
+	record = record.withExecutionResult(provisionExecutionRunResult{
+		Status:     provisionCreationStatusSucceeded,
+		ResourceID: "12345",
+	}, deps.now().UTC())
+	if err := newProvisionCreationStore(appDataDir, deps).write(provisionCreationRegistry{
+		Creations: []provisionCreationRecord{record},
+	}); err != nil {
+		t.Fatalf("write creation record: %v", err)
+	}
+	return record
+}
+
 func expectHcloudLookPath(t *testing.T) func(string) (string, error) {
 	t.Helper()
 	return func(name string) (string, error) {
@@ -487,6 +639,17 @@ func expectHcloudLookPath(t *testing.T) func(string) (string, error) {
 			t.Fatalf("lookPath name = %s, want hcloud", name)
 		}
 		return "/usr/bin/hcloud", nil
+	}
+}
+
+func assertHcloudDeleteCommand(t *testing.T, name string, args []string) {
+	t.Helper()
+	if name != "hcloud" {
+		t.Fatalf("command name = %s, want hcloud", name)
+	}
+	want := []string{"server", "delete", "12345"}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("args = %#v, want %#v", args, want)
 	}
 }
 
