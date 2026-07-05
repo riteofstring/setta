@@ -714,6 +714,7 @@ function recordViewportWrite(kind: SurfaceKind, stats: SurfaceViewportSyncStats)
 
 function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
   return (
+    kind === "easy-button" ||
     kind === "fake-heavy-dom" ||
     kind === "fake-long-chat" ||
     kind === "fake-terminal" ||

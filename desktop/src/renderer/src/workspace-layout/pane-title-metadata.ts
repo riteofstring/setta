@@ -12,6 +12,7 @@ export interface PaneChromeTitleModel {
 export type PaneChromeIconName =
   | "chat"
   | "document"
+  | "easy-button"
   | "network"
   | "settings"
   | "terminal"
@@ -28,6 +29,7 @@ const terminalFallbackTitle = "Terminal";
 const chatFallbackTitle = "Chat";
 const paneChromeIconsBySurfaceKind: Partial<Record<SurfaceKind, PaneChromeIconName>> = {
   "chat-dom": "chat",
+  "easy-button": "easy-button",
   "fake-long-chat": "chat",
   "fake-terminal": "terminal",
   "git-graph": "network",
