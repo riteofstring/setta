@@ -1,6 +1,6 @@
 import process from "node:process";
 import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
@@ -28,6 +28,11 @@ const fakeCodexAppServerFixture = join(
   "fixtures",
   "fake-codex-app-server.mjs",
 );
+const fakeCodexDynamicToolsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-dynamic-tools.mjs",
+);
 const fakeCodexParallelRunsFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
@@ -43,6 +48,12 @@ const fakeCodexSkillRootsFixture = join(
   "fixtures",
   "fake-codex-skill-roots.mjs",
 );
+const fakeCodexWorkflowAuthoringFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-workflow-authoring.mjs",
+);
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
@@ -54,21 +65,37 @@ export async function installFakeCodexAppServer(fixture) {
   const binDir = join(fixture.tempRoot, "fake-bin");
   await mkdir(binDir, { recursive: true });
   const scriptPath = join(binDir, "fake-codex-app-server.mjs");
+  const dynamicToolsPath = join(binDir, "fake-codex-dynamic-tools.mjs");
   const parallelRunsPath = join(binDir, "fake-codex-parallel-runs.mjs");
   const protocolPayloadsPath = join(binDir, "fake-codex-protocol-payloads.mjs");
   const skillRootsPath = join(binDir, "fake-codex-skill-roots.mjs");
+  const workflowAuthoringPath = join(binDir, "fake-codex-workflow-authoring.mjs");
+  const settaPath = join(binDir, process.platform === "win32" ? "setta.cmd" : "setta");
   await copyFile(fakeCodexAppServerFixture, scriptPath);
+  await copyFile(fakeCodexDynamicToolsFixture, dynamicToolsPath);
   await copyFile(fakeCodexParallelRunsFixture, parallelRunsPath);
   await copyFile(fakeCodexProtocolPayloadsFixture, protocolPayloadsPath);
   await copyFile(fakeCodexSkillRootsFixture, skillRootsPath);
+  await copyFile(fakeCodexWorkflowAuthoringFixture, workflowAuthoringPath);
   if (process.platform === "win32") {
     const commandPath = join(binDir, "codex.cmd");
     await writeFile(commandPath, `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
+    await writeFile(
+      settaPath,
+      `@echo off\r\ncd /d "${repoRoot}"\r\n"${repoRoot}\\scripts\\go.sh" run ./cmd/setta %*\r\n`,
+      "utf8",
+    );
     return { binDir, commandPath };
   }
   const commandPath = join(binDir, "codex");
   await writeFile(commandPath, `#!/usr/bin/env sh\nexec node "${scriptPath}" "$@"\n`, "utf8");
+  await writeFile(
+    settaPath,
+    `#!/usr/bin/env sh\ncd "${repoRoot}"\nexec "${repoRoot}/scripts/go.sh" run ./cmd/setta "$@"\n`,
+    "utf8",
+  );
   await chmod(commandPath, 0o755);
+  await chmod(settaPath, 0o755);
   return { binDir, commandPath };
 }
 

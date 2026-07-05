@@ -551,6 +551,48 @@ Progress on 2026-07-07:
   save, and optionally run a workflow, and confirm removed dynamic-tool
   authoring paths are not reachable.
 
+Progress on 2026-07-07:
+
+- Added deterministic Electron coverage for a natural-language in-app Codex
+  workflow-authoring request that routes through `$workflow-builder` and the
+  `setta workflow` CLI/API lifecycle.
+- The fake Codex app-server now receives the production thread-start dynamic
+  tool surface, asserts only non-authoring dynamic tools are present, invokes
+  the real `setta workflow` CLI, reads the current workspace and schema,
+  validates an invalid graph with backend-owned diagnostics, validates a
+  repaired graph, saves a definition, lists it, starts an execution, and reads
+  the execution back.
+- Added Electron app-path assertions that the saved CLI-authored definition is
+  present in backend state, renderer workflow state, and the workspace sidebar;
+  the started execution is visible through backend state; save/start audit
+  records include the authenticated command device session; and no dynamic-tool
+  or MCP authoring rows are used for the workflow-authoring run.
+- Published the local Electron-spawned backend's serve state after `/runtime/info`
+  is available so child `setta workflow` commands can discover and authenticate
+  to the same runtime. Cleanup removes only the matching serve-state record.
+- Added an event-driven renderer refresh for workflow definitions when a
+  workflow execution starts for the expanded active workspace, so definitions
+  saved through the external CLI path appear in the sidebar without polling.
+- Verification: `node --check
+  desktop/tests/electron/codex-protocol-workflow.mjs`; `node --check
+  desktop/tests/electron/chat-workflows.test.mjs`; `node --check
+  desktop/tests/electron/fixtures/fake-codex-app-server.mjs`; `node --check
+  desktop/src/main/test-fixtures/backend-supervisor/ready-with-runtime-info.mjs`;
+  `pnpm -C desktop build`; `pnpm -C desktop test --
+  src/main/backend-supervisor.test.ts`; `node
+  desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only`;
+  `./scripts/go.sh test ./internal/runtime -run
+  'TestBackend(AppWorkflowWithLiveCodex|LiveCodexRunLivenessReconcileDuringActiveTurn|LiveCodexSilentUpstreamLossReconciliation|LiveCodexStaleTurnInterruptRegression)'
+  -count=1 -v`; and `node desktop/tests/electron/run-workflows.mjs
+  --workflow live-codex-electron`; `./scripts/format.sh`; and
+  `./check_quality.sh --git-changes` passed. The live Codex tests ran with
+  local ChatGPT auth and did not use `OPENAI_API_KEY`.
+- Remaining Phase 4 work: add the targeted restart/reload preservation
+  coverage for CLI-authored workflow definitions and runtime auth behavior,
+  then move to the Phase 5 source sweep/removal of any obsolete
+  workflow-authoring dynamic-tool code discovered outside the current
+  non-authoring `workspace_context` and runtime `workflow_result` contracts.
+
 ### Phase 5: Remove Obsolete Dynamic Tool Code
 
 Delete dynamic-tool definitions, handlers, tests, and prompt instructions that

@@ -5,6 +5,7 @@ import process from "node:process";
 import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
 
+import { assertThreadStartDynamicTools } from "./fake-codex-dynamic-tools.mjs";
 import { createParallelRunHandlers } from "./fake-codex-parallel-runs.mjs";
 import {
   autoApprovalReviewPayload,
@@ -16,6 +17,11 @@ import {
   assertCodexSkillRootsConfigured,
   assertSettaSkillRootParams,
 } from "./fake-codex-skill-roots.mjs";
+import {
+  emitWorkflowAuthoringFailure,
+  emitWorkflowAuthoringTurn,
+  workflowAuthoring,
+} from "./fake-codex-workflow-authoring.mjs";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
@@ -251,7 +257,28 @@ function handleScriptedTurnStart(text) {
     );
     return true;
   }
+  if (text.includes(workflowAuthoring.promptMarker)) {
+    setTimeout(() => {
+      const context = workflowAuthoringContext();
+      emitWorkflowAuthoringTurn(context).catch((error) =>
+        emitWorkflowAuthoringFailure(error, context),
+      );
+    }, 5);
+    return true;
+  }
   return false;
+}
+
+function workflowAuthoringContext() {
+  return {
+    fakeTurn,
+    notify,
+    notifyUnifiedExecCompleted,
+    notifyUnifiedExecOutput,
+    notifyUnifiedExecStarted,
+    threadId,
+    turnId,
+  };
 }
 
 function handleProviderLifecycleTurn(text) {
@@ -703,51 +730,6 @@ function assertStructuredThreadStart(params) {
     !instructions.includes("strict JSON semantic graph patch envelope")
   ) {
     throw new Error("structured thread/start missing semantic cartographer prompt");
-  }
-}
-
-function assertThreadStartDynamicTools(params) {
-  const workspaceContext = workspaceContextTool(params);
-  assertWorkspaceContextVisibility(workspaceContext);
-  assertWorkspaceContextDescription(workspaceContext);
-  assertWorkspaceContextInputSchema(workspaceContext);
-}
-
-function workspaceContextTool(params) {
-  const tools = params?.dynamicTools;
-  if (!Array.isArray(tools) || tools.length === 0) {
-    throw new Error("thread/start missing dynamicTools");
-  }
-  const workspaceContext = tools.find(
-    (tool) => tool?.namespace === "setta" && tool?.name === "workspace_context",
-  );
-  if (!workspaceContext) {
-    throw new Error("thread/start missing setta.workspace_context dynamic tool");
-  }
-  return workspaceContext;
-}
-
-function assertWorkspaceContextVisibility(workspaceContext) {
-  if (workspaceContext.deferLoading !== undefined) {
-    throw new Error("workspace_context should be visible");
-  }
-}
-
-function assertWorkspaceContextDescription(workspaceContext) {
-  if (
-    typeof workspaceContext.description !== "string" ||
-    !workspaceContext.description.includes("workspace")
-  ) {
-    throw new Error("workspace_context description missing workspace terms");
-  }
-}
-
-function assertWorkspaceContextInputSchema(workspaceContext) {
-  if (
-    workspaceContext.inputSchema?.type !== "object" ||
-    workspaceContext.inputSchema?.additionalProperties !== false
-  ) {
-    throw new Error("workspace_context input schema mismatch");
   }
 }
 

@@ -101,6 +101,7 @@ import {
   runProtocolProviderRestartLivenessWorkflow,
   runProtocolStreamErrorLivenessWorkflow,
 } from "./codex-protocol-workflow.mjs";
+import { runProtocolWorkflowAuthoringCLIWorkflow } from "./codex-protocol-workflow-authoring.mjs";
 import { runCodexAppServerLifecycleWorkflowLaunch } from "./codex-app-server-lifecycle-cases.mjs";
 import { runProtocolGoalBackgroundTerminalWorkflow } from "./codex-protocol-background-terminal-cases.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
@@ -1296,6 +1297,7 @@ async function runCodexProtocolWorkflow(results) {
     await runProtocolLivenessReconciliationWorkflow(context.client, backend, workspaceId);
     await runProtocolProviderRestartLivenessWorkflow(context.client, backend, workspaceId);
     await runProtocolStreamErrorLivenessWorkflow(context.client, backend, workspaceId);
+    await runProtocolWorkflowAuthoringCLIWorkflow(context.client, backend, workspaceId, fixture);
     await captureScreenshot(context.client, join(recordingDir, "success.png"));
   } catch (error) {
     failure = error;
@@ -1324,6 +1326,8 @@ async function runCodexProtocolWorkflow(results) {
       "/chat/runs/reconcile",
       "/chat/runs/list",
       "/chat/diagnostics/list",
+      "/workflows/definitions/list",
+      "/workflows/executions/list",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
