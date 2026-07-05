@@ -40,6 +40,51 @@ describe("WorkflowRunDetailsContent activity focus", () => {
     expect(html).toContain("npm test");
   });
 
+  test("renders agent runs with the trajectory as the primary body and no fixed nested frame", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection()}
+        target={target()}
+      />,
+    );
+
+    expect(html).toContain('data-workflow-node-run-layout="agent"');
+    expect(html).toContain('data-testid="workflow-run-details-dock"');
+    expect(html).toContain('data-testid="workflow-node-agent-trajectory"');
+    expect(html).not.toContain("h-[36rem]");
+    expect(html).not.toContain("Agent Trajectory");
+  });
+
+  test("keeps the workflow details dock collapsed by default", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection()}
+        target={target()}
+      />,
+    );
+
+    expect(html).toContain('data-testid="workflow-run-details-dock"');
+    expect(html).not.toContain('data-default-open="true"');
+  });
+
+  test("opens the workflow details dock when an activity focus targets a detail row", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={focus({ detailKind: "workflow_event", workflowEventId: "event_running" })}
+        inspection={inspection()}
+        target={target()}
+      />,
+    );
+
+    expect(html).toContain('data-default-open="true"');
+    expect(html).toContain('data-activity-focus-id="workflow-event:event_running"');
+  });
+
   test("renders a node-scoped stop control for a stoppable active run", () => {
     const html = renderToString(
       <WorkflowRunDetailsContent
@@ -148,6 +193,7 @@ function inspection(
   return {
     events: [workflowEvent("event_running", "running activity")],
     execution: execution(),
+    lastWorkflowEventOrdinal: 5,
     loadError: "",
     loading: false,
     operation: null,
@@ -383,6 +429,9 @@ function trajectoryPage(
     hasMoreItems: false,
     hasMoreOlder: false,
     items: [runItem()],
+    lastChatEventSequence: 10,
+    lastChatEventStreamId: "chat_stream_test",
+    lastWorkflowEventOrdinal: 5,
     nextItemId: "",
     olderBeforeBlockOrdinal: 0,
     outputPages: [

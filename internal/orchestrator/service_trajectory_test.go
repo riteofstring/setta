@@ -542,6 +542,12 @@ func assertTrajectoryScope(t *testing.T, page WorkflowAgentTrajectoryPage, execu
 		page.Scope.Iteration != nodeExecution.Iteration {
 		t.Fatalf("trajectory scope = %+v, want execution %+v node %+v", page.Scope, execution, nodeExecution)
 	}
+	if page.LastWorkflowEventOrdinal != execution.LastEventOrdinal {
+		t.Fatalf("trajectory workflow cursor = %d, want execution last ordinal %d", page.LastWorkflowEventOrdinal, execution.LastEventOrdinal)
+	}
+	if page.LastChatEventStreamID == "" || page.LastChatEventSequence <= 0 {
+		t.Fatalf("trajectory chat cursor = %s:%d, want populated cursor", page.LastChatEventStreamID, page.LastChatEventSequence)
+	}
 }
 
 func readCompletedTrajectoryForPrompt(t *testing.T, workflowService *Service, workspaceID string, prompt string) (WorkflowAgentTrajectoryPage, WorkflowExecution, WorkflowNodeExecution) {

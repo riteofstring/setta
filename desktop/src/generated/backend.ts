@@ -4541,6 +4541,9 @@ export interface WorkflowAgentTrajectoryPage {
   scope: WorkflowAgentTrajectoryScope;
   conversationId: string;
   runId: string;
+  lastChatEventStreamId: string;
+  lastChatEventSequence: number;
+  lastWorkflowEventOrdinal: number;
   run: Run;
   activeRun: Run | null;
   activeRunLiveness: RunLiveness | null;
@@ -9861,12 +9864,15 @@ export function decodeWorkflowAgentTrajectoryCapabilities(value: unknown): Workf
 
 export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgentTrajectoryPage {
   const record = assertRecord(value, "WorkflowAgentTrajectoryPage");
-  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "run", "activeRun", "activeRunLiveness", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
+  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "lastChatEventStreamId", "lastChatEventSequence", "lastWorkflowEventOrdinal", "run", "activeRun", "activeRunLiveness", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.schemaVersion"),
     scope: decodeWorkflowAgentTrajectoryScope(requireField(record, "scope", "WorkflowAgentTrajectoryPage")),
     conversationId: decodeString(requireField(record, "conversationId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.conversationId"),
     runId: decodeString(requireField(record, "runId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runId"),
+    lastChatEventStreamId: decodeString(requireField(record, "lastChatEventStreamId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.lastChatEventStreamId"),
+    lastChatEventSequence: decodeInteger(requireField(record, "lastChatEventSequence", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.lastChatEventSequence"),
+    lastWorkflowEventOrdinal: decodeInteger(requireField(record, "lastWorkflowEventOrdinal", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.lastWorkflowEventOrdinal"),
     run: decodeRun(requireField(record, "run", "WorkflowAgentTrajectoryPage")),
     activeRun: decodeNullable(requireField(record, "activeRun", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRun", (item) => decodeRun(item)),
     activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRunLiveness", (item) => decodeRunLiveness(item)),
