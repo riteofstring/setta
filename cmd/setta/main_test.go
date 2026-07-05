@@ -794,6 +794,114 @@ func TestWorkflowDefinitionsValidateCommandReturnsDiagnostics(t *testing.T) {
 	assertWorkflowDiagnostic(t, result, "end_node_required")
 }
 
+func TestWorkflowExecutionsStartAndReadCommandIntegration(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	opened := openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+	definition := createWorkflowDefinitionForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, httpapi.CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Runnable Flow",
+		Description: "CLI execution start test workflow",
+		Graph:       cliTestStartEndWorkflowGraph(),
+	})
+
+	var startStdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &startStdout
+	if code := runWithDeps([]string{"workflow", "executions", "start", "--app-data-dir", appDataDir, definition.ID}, commandDeps); code != 0 {
+		t.Fatalf("start exit code = %d, want 0", code)
+	}
+	var started orchestrator.WorkflowExecution
+	if err := json.NewDecoder(&startStdout).Decode(&started); err != nil {
+		t.Fatalf("decode workflow execution start output: %v\noutput:\n%s", err, startStdout.String())
+	}
+	if started.WorkspaceID != opened.Workspace.ID || started.DefinitionID != definition.ID {
+		t.Fatalf("started execution = %+v, want workspace %s definition %s", started, opened.Workspace.ID, definition.ID)
+	}
+	if started.Status != orchestrator.ExecutionStatusCompleted {
+		t.Fatalf("started execution status = %s, want completed", started.Status)
+	}
+	if started.DefinitionVersionID == "" || started.NodeExecutions == nil || started.Tokens == nil {
+		t.Fatalf("started execution missing generated state: %+v", started)
+	}
+
+	var readStdout bytes.Buffer
+	commandDeps.stdout = &readStdout
+	if code := runWithDeps([]string{"workflow", "executions", "read", "--app-data-dir", appDataDir, started.ID}, commandDeps); code != 0 {
+		t.Fatalf("read exit code = %d, want 0", code)
+	}
+	var read orchestrator.WorkflowExecution
+	if err := json.NewDecoder(&readStdout).Decode(&read); err != nil {
+		t.Fatalf("decode workflow execution read output: %v\noutput:\n%s", err, readStdout.String())
+	}
+	if !reflect.DeepEqual(read, started) {
+		t.Fatalf("read execution = %+v, want %+v", read, started)
+	}
+}
+
+func TestWorkflowExecutionsReadCommandFailsForMissingExecution(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+	if code := runWithDeps([]string{"workflow", "executions", "read", "--app-data-dir", appDataDir, "missing_execution"}, commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "read_workflow_execution_failed") {
+		t.Fatalf("stderr = %q, want read workflow execution error code", stderr.String())
+	}
+}
+
 func TestWorkflowSchemaCommandIntegration(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()

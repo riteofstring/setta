@@ -26,6 +26,8 @@ const (
 	workflowDefinitionsReadCLIAuthDisplayName     = "Setta CLI workflow definitions read"
 	workflowDefinitionsSaveCLIAuthDisplayName     = "Setta CLI workflow definitions save"
 	workflowDefinitionsValidateCLIAuthDisplayName = "Setta CLI workflow definitions validate"
+	workflowExecutionsReadCLIAuthDisplayName      = "Setta CLI workflow executions read"
+	workflowExecutionsStartCLIAuthDisplayName     = "Setta CLI workflow executions start"
 	workflowSchemaCLIAuthDisplayName              = "Setta CLI workflow schema"
 )
 
@@ -48,15 +50,27 @@ type workflowDefinitionSaveOptions struct {
 	InputPath  string
 }
 
+type workflowExecutionReadOptions struct {
+	AppDataDir  string
+	ExecutionID string
+}
+
+type workflowExecutionStartOptions struct {
+	AppDataDir   string
+	DefinitionID string
+}
+
 func runWorkflow(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workflow requires a subcommand: current-workspace, definitions, or schema")}
+		return usageError{err: errors.New("setta workflow requires a subcommand: current-workspace, definitions, executions, or schema")}
 	}
 	switch args[0] {
 	case "current-workspace":
 		return runWorkflowCurrentWorkspace(args[1:], deps)
 	case "definitions":
 		return runWorkflowDefinitions(args[1:], deps)
+	case "executions":
+		return runWorkflowExecutions(args[1:], deps)
 	case "schema":
 		return runWorkflowSchema(args[1:], deps)
 	default:
@@ -175,6 +189,54 @@ func runWorkflowDefinitionsValidate(args []string, deps cliDeps) error {
 	return nil
 }
 
+func runWorkflowExecutions(args []string, deps cliDeps) error {
+	if len(args) == 0 {
+		return usageError{err: errors.New("setta workflow executions requires a subcommand: start or read")}
+	}
+	switch args[0] {
+	case "start":
+		return runWorkflowExecutionsStart(args[1:], deps)
+	case "read":
+		return runWorkflowExecutionsRead(args[1:], deps)
+	default:
+		return usageError{err: fmt.Errorf("unknown workflow executions subcommand %q", args[0])}
+	}
+}
+
+func runWorkflowExecutionsRead(args []string, deps cliDeps) error {
+	options, err := workflowExecutionReadOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	execution, err := readWorkflowExecution(context.Background(), options.AppDataDir, options.ExecutionID, deps)
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(deps.stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(execution); err != nil {
+		return fmt.Errorf("encode workflow execution: %w", err)
+	}
+	return nil
+}
+
+func runWorkflowExecutionsStart(args []string, deps cliDeps) error {
+	options, err := workflowExecutionStartOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	execution, err := startWorkflowExecution(context.Background(), options.AppDataDir, options.DefinitionID, deps)
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(deps.stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(execution); err != nil {
+		return fmt.Errorf("encode workflow execution: %w", err)
+	}
+	return nil
+}
+
 func runWorkflowSchema(args []string, deps cliDeps) error {
 	options, err := workflowOptionsFromArgs("setta workflow schema", args, deps)
 	if err != nil {
@@ -282,6 +344,52 @@ func workflowDefinitionValidateOptionsFromArgs(args []string, deps cliDeps) (wor
 		return workflowDefinitionValidateOptions{}, usageError{err: errors.New("setta workflow definitions validate requires --graph")}
 	}
 	return workflowDefinitionValidateOptions{AppDataDir: appDataDir, GraphPath: graphPath}, nil
+}
+
+func workflowExecutionReadOptionsFromArgs(args []string, deps cliDeps) (workflowExecutionReadOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workflowExecutionReadOptions{}, err
+	}
+	flagSet := newFlagSet("setta workflow executions read", deps.stderr)
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workflowExecutionReadOptions{}, usageError{err: err}
+		}
+		return workflowExecutionReadOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 1 {
+		return workflowExecutionReadOptions{}, usageError{err: errors.New("setta workflow executions read requires exactly one execution id")}
+	}
+	executionID := strings.TrimSpace(flagSet.Arg(0))
+	if executionID == "" {
+		return workflowExecutionReadOptions{}, usageError{err: errors.New("workflow execution id is required")}
+	}
+	return workflowExecutionReadOptions{AppDataDir: appDataDir, ExecutionID: executionID}, nil
+}
+
+func workflowExecutionStartOptionsFromArgs(args []string, deps cliDeps) (workflowExecutionStartOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workflowExecutionStartOptions{}, err
+	}
+	flagSet := newFlagSet("setta workflow executions start", deps.stderr)
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workflowExecutionStartOptions{}, usageError{err: err}
+		}
+		return workflowExecutionStartOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 1 {
+		return workflowExecutionStartOptions{}, usageError{err: errors.New("setta workflow executions start requires exactly one definition id")}
+	}
+	definitionID := strings.TrimSpace(flagSet.Arg(0))
+	if definitionID == "" {
+		return workflowExecutionStartOptions{}, usageError{err: errors.New("workflow definition id is required")}
+	}
+	return workflowExecutionStartOptions{AppDataDir: appDataDir, DefinitionID: definitionID}, nil
 }
 
 func readWorkflowCurrentWorkspace(ctx context.Context, appDataDir string, deps cliDeps) (workspace.WorkspaceSummary, error) {
@@ -424,6 +532,66 @@ func validateWorkflowDefinition(ctx context.Context, appDataDir string, graph or
 		return orchestrator.WorkflowValidationResult{}, err
 	}
 	return result, nil
+}
+
+func readWorkflowExecution(ctx context.Context, appDataDir string, executionID string, deps cliDeps) (orchestrator.WorkflowExecution, error) {
+	state, token, cleanup, err := workflowCommandAuth(ctx, appDataDir, workflowExecutionsReadCLIAuthDisplayName, deps)
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	defer cleanup()
+
+	session, err := getWorkspaceSession(ctx, deps.httpClient, state.BaseURL, token)
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	currentWorkspace, err := currentWorkspaceFromSession(session)
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	execution, err := postWorkflowAPI[orchestrator.WorkflowExecution](ctx, deps.httpClient, state.BaseURL, token, "workflow executions read", "/workflows/executions/read", httpapi.ReadWorkflowExecutionRequest{
+		WorkspaceID: currentWorkspace.ID,
+		ExecutionID: executionID,
+	})
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	if err := validateWorkflowExecutionResponse(execution, currentWorkspace.ID); err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	return execution, nil
+}
+
+func startWorkflowExecution(ctx context.Context, appDataDir string, definitionID string, deps cliDeps) (orchestrator.WorkflowExecution, error) {
+	state, token, cleanup, err := workflowCommandAuth(ctx, appDataDir, workflowExecutionsStartCLIAuthDisplayName, deps)
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	defer cleanup()
+
+	session, err := getWorkspaceSession(ctx, deps.httpClient, state.BaseURL, token)
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	currentWorkspace, err := currentWorkspaceFromSession(session)
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	execution, err := postWorkflowAPI[orchestrator.WorkflowExecution](ctx, deps.httpClient, state.BaseURL, token, "workflow executions start", "/workflows/executions/start", httpapi.StartWorkflowExecutionRequest{
+		WorkspaceID:  currentWorkspace.ID,
+		DefinitionID: definitionID,
+		VersionID:    "",
+	})
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	if err := validateWorkflowExecutionResponse(execution, currentWorkspace.ID); err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	if execution.DefinitionID != definitionID {
+		return orchestrator.WorkflowExecution{}, fmt.Errorf("workflow execution %s returned definitionId %s, want %s", execution.ID, execution.DefinitionID, definitionID)
+	}
+	return execution, nil
 }
 
 func readWorkflowGraphFile(path string) (orchestrator.WorkflowGraph, error) {
@@ -700,6 +868,88 @@ func validateUnsavedWorkflowDefinitionResult(result orchestrator.WorkflowDefinit
 	}
 	if result.Definition != nil {
 		return errors.New("workflow definition save returned saved false with a definition")
+	}
+	return nil
+}
+
+func validateWorkflowExecutionResponse(execution orchestrator.WorkflowExecution, workspaceID string) error {
+	if execution.ID == "" {
+		return errors.New("workflow execution id is required")
+	}
+	if execution.SchemaVersion != orchestrator.SchemaVersion {
+		return fmt.Errorf("workflow execution %s returned invalid schemaVersion %d", execution.ID, execution.SchemaVersion)
+	}
+	if execution.WorkspaceID != workspaceID {
+		return fmt.Errorf("workflow execution %s returned workspaceId %s, want %s", execution.ID, execution.WorkspaceID, workspaceID)
+	}
+	if execution.DefinitionID == "" {
+		return fmt.Errorf("workflow execution %s definitionId is required", execution.ID)
+	}
+	if execution.DefinitionVersionID == "" {
+		return fmt.Errorf("workflow execution %s definitionVersionId is required", execution.ID)
+	}
+	if err := validateWorkflowExecutionStatus(execution); err != nil {
+		return err
+	}
+	if err := validateWorkflowExecutionTimestamps(execution); err != nil {
+		return err
+	}
+	return validateWorkflowExecutionArrays(execution)
+}
+
+func validateWorkflowExecutionStatus(execution orchestrator.WorkflowExecution) error {
+	switch execution.Status {
+	case orchestrator.ExecutionStatusIdle,
+		orchestrator.ExecutionStatusRunning,
+		orchestrator.ExecutionStatusCompleted,
+		orchestrator.ExecutionStatusFailed,
+		orchestrator.ExecutionStatusStopped,
+		orchestrator.ExecutionStatusCancelled:
+		return nil
+	default:
+		return fmt.Errorf("workflow execution %s returned unsupported status %q", execution.ID, execution.Status)
+	}
+}
+
+func validateWorkflowExecutionTimestamps(execution orchestrator.WorkflowExecution) error {
+	if execution.CreatedAt == "" {
+		return fmt.Errorf("workflow execution %s createdAt is required", execution.ID)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, execution.CreatedAt); err != nil {
+		return fmt.Errorf("workflow execution %s createdAt must be RFC3339: %w", execution.ID, err)
+	}
+	if execution.StartedAt == "" {
+		return fmt.Errorf("workflow execution %s startedAt is required", execution.ID)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, execution.StartedAt); err != nil {
+		return fmt.Errorf("workflow execution %s startedAt must be RFC3339: %w", execution.ID, err)
+	}
+	if execution.UpdatedAt == "" {
+		return fmt.Errorf("workflow execution %s updatedAt is required", execution.ID)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, execution.UpdatedAt); err != nil {
+		return fmt.Errorf("workflow execution %s updatedAt must be RFC3339: %w", execution.ID, err)
+	}
+	if execution.CompletedAt != "" {
+		if _, err := time.Parse(time.RFC3339Nano, execution.CompletedAt); err != nil {
+			return fmt.Errorf("workflow execution %s completedAt must be RFC3339: %w", execution.ID, err)
+		}
+	}
+	return nil
+}
+
+func validateWorkflowExecutionArrays(execution orchestrator.WorkflowExecution) error {
+	if execution.NodeExecutions == nil {
+		return fmt.Errorf("workflow execution %s nodeExecutions array is required", execution.ID)
+	}
+	if execution.Tokens == nil {
+		return fmt.Errorf("workflow execution %s tokens array is required", execution.ID)
+	}
+	if execution.LoopIterations == nil {
+		return fmt.Errorf("workflow execution %s loopIterations array is required", execution.ID)
+	}
+	if execution.ActiveNodeExecutionIDs == nil {
+		return fmt.Errorf("workflow execution %s activeNodeExecutionIds array is required", execution.ID)
 	}
 	return nil
 }

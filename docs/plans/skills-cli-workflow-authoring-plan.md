@@ -348,11 +348,33 @@ Progress on 2026-07-07:
   work. Audit records must capture the authenticated device/session, command
   name, workspace ID, affected definition ID, validation result, and execution
   ID when applicable before Phase 2 is treated as complete.
-- Remaining Phase 2 work: add `setta workflow executions start
-  <definition-id>` and `setta workflow executions read <execution-id>`, add
-  full mutation audit records and structured CLI error output, then broaden
-  workflow-authoring Electron coverage as the in-app path moves to this CLI/API
-  surface.
+
+Progress on 2026-07-07:
+
+- Added `setta workflow executions start <definition-id> [--app-data-dir DIR]`
+  and `setta workflow executions read <execution-id> [--app-data-dir DIR]`.
+- Both commands read the local serve state, verify the runtime identity, mint a
+  command-specific CLI auth session, resolve the selected workspace through
+  `GET /workspace-session`, call the existing authenticated backend
+  `POST /workflows/executions/start` or `POST /workflows/executions/read`
+  contract, validate the typed `WorkflowExecution` response, and print it as
+  JSON.
+- Added focused CLI integration coverage that starts a disposable runtime,
+  opens a temporary workspace, creates a workflow definition through the
+  backend-owned HTTP route, starts it through real CLI dispatch, reads the
+  execution back through real CLI dispatch, and verifies the
+  missing-execution failure path returns the backend-owned error code.
+- Verification: `./scripts/go.sh test ./cmd/setta`,
+  `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`,
+  `./scripts/go.sh test ./internal/runtime -run
+  TestBackendAppWorkflowWithLiveCodex -count=1 -v`, and
+  `node desktop/tests/electron/run-workflows.mjs --workflow
+  workflow-graph-smoke` passed. The final pre-commit gates
+  `./scripts/format.sh` and `./check_quality.sh --git-changes` also passed. The
+  live Codex test ran with local ChatGPT auth; it did not use `OPENAI_API_KEY`.
+- Remaining Phase 2 work: add full mutation audit records and structured CLI
+  error output, then broaden workflow-authoring Electron coverage as the in-app
+  path moves to this CLI/API surface.
 
 ### Phase 3: Add The Workflow-Builder Skill
 
