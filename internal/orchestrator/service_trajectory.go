@@ -268,6 +268,7 @@ func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run cha
 		Run:                      run,
 		ActiveRun:                activeRun,
 		ActiveRunLiveness:        activeRunLiveness,
+		RunSettings:              context.NodeExecution.AgentRunSettings,
 		Blocks:                   transcript.Blocks,
 		Items:                    activity.Items,
 		Activity:                 activity.Activity,

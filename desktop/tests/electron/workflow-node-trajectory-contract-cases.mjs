@@ -28,6 +28,7 @@ import {
   assertWorkflowNodeDetailsEvidence,
 } from "./workflow-node-trajectory-contract-assertions.mjs";
 import { assertHistoricalAttemptWorkflowNodeTrajectoryContract } from "./workflow-node-trajectory-historical-attempts.mjs";
+import { assertWorkflowAgentRunSettingsSnapshot } from "./workflow-node-trajectory-run-settings-case.mjs";
 
 const trajectoryPrompt = "chat activity projection reload workflow";
 const approvalTrajectoryPrompt = "command approval workflow";
@@ -128,6 +129,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       type: "workflow_node_trajectory_contract_verified",
     });
 
+    await assertWorkflowAgentRunSettingsSnapshot(context.client, workspaceId, recordingDir);
     await assertApproveWorkflowNodeTrajectoryDetails(context.client, workspaceId, recordingDir);
 
     const stopGraph = activityWorkflowGraph(stoppableTrajectoryPrompt);

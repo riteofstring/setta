@@ -105,6 +105,7 @@ export function useTranscriptScrollFollow({
   const pointerScrollIntentRef = useRef(false);
   const rowCountRef = useRef(rowCount);
   const scrollerRef = useRef<HTMLElement | null>(null);
+  const scrollGenerationRef = useRef(0);
   const tailRevisionRef = useRef(tailRevision);
   const tailScrollIntentRef = useRef(false);
   const visibleEndIndexRef = useRef(rowCount - 1);
@@ -271,14 +272,45 @@ export function useTranscriptScrollFollow({
     ],
   );
 
+  const invalidateScheduledScrollWork = useCallback(
+    (reason: string) => {
+      scrollGenerationRef.current += 1;
+      cancelAutoScrollToLatest();
+      recordDebugTrace("scroll_generation_invalidated", {
+        generation: scrollGenerationRef.current,
+        reason,
+      });
+      return scrollGenerationRef.current;
+    },
+    [cancelAutoScrollToLatest, recordDebugTrace],
+  );
+
+  const detachForHistoryScrollIntent = useCallback(
+    (reason: string) => {
+      invalidateScheduledScrollWork(reason);
+      setMode("user_detached", reason);
+    },
+    [invalidateScheduledScrollWork, setMode],
+  );
+
   const scrollToLatest = useCallback(() => {
     virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
   }, [virtuosoRef]);
 
   const runProgrammaticScroll = useCallback(
-    (scroll: () => void, reason: string, settleFrames = 2) => {
+    (
+      scroll: () => void,
+      reason: string,
+      settleFrames = 2,
+      generation = scrollGenerationRef.current,
+    ) => {
       programmaticScrollCountRef.current += 1;
-      recordDebugTrace("programmatic_scroll_started", { reason });
+      recordDebugTrace("programmatic_scroll_started", { generation, reason });
+      if (generation !== scrollGenerationRef.current) {
+        programmaticScrollCountRef.current = Math.max(0, programmaticScrollCountRef.current - 1);
+        recordDebugTrace("programmatic_scroll_skipped", { generation, reason: "stale" });
+        return;
+      }
       scroll();
       const finish = (remainingFrames: number) => {
         requestAnimationFrame(() => {
@@ -287,8 +319,13 @@ export function useTranscriptScrollFollow({
             return;
           }
           programmaticScrollCountRef.current = Math.max(0, programmaticScrollCountRef.current - 1);
+          if (generation !== scrollGenerationRef.current) {
+            updateMetricsFromScroller();
+            recordDebugTrace("programmatic_scroll_skipped", { generation, reason: "stale_finish" });
+            return;
+          }
           updateMetricsFromScroller();
-          recordDebugTrace("programmatic_scroll_finished", { reason });
+          recordDebugTrace("programmatic_scroll_finished", { generation, reason });
         });
       };
       finish(settleFrames);
@@ -301,20 +338,34 @@ export function useTranscriptScrollFollow({
       recordDebugTrace("auto_scroll_already_pending");
       return;
     }
+    const generation = scrollGenerationRef.current;
     pendingScrollCountRef.current = autoFollowSettleFrameLimit;
-    recordDebugTrace("auto_scroll_scheduled");
+    recordDebugTrace("auto_scroll_scheduled", { generation });
     const runFrame = (remainingFrames: number) => {
       pendingScrollCountRef.current = remainingFrames;
       autoScrollFrameRef.current = requestAnimationFrame(() => {
         autoScrollFrameRef.current = null;
-        if (modeRef.current !== "auto_follow") {
+        if (generation !== scrollGenerationRef.current) {
           pendingScrollCountRef.current = 0;
-          recordDebugTrace("auto_scroll_skipped", { reason: "mode_not_auto_follow" });
+          recordDebugTrace("auto_scroll_skipped", { generation, reason: "stale" });
           return;
         }
-        runProgrammaticScroll(scrollToLatest, "auto_follow", 1);
-        recordDebugTrace("auto_scroll_to_latest", { remainingFrames });
+        if (modeRef.current !== "auto_follow") {
+          pendingScrollCountRef.current = 0;
+          recordDebugTrace("auto_scroll_skipped", {
+            generation,
+            reason: "mode_not_auto_follow",
+          });
+          return;
+        }
+        runProgrammaticScroll(scrollToLatest, "auto_follow", 1, generation);
+        recordDebugTrace("auto_scroll_to_latest", { generation, remainingFrames });
         requestAnimationFrame(() => {
+          if (generation !== scrollGenerationRef.current) {
+            pendingScrollCountRef.current = 0;
+            recordDebugTrace("auto_scroll_skipped", { generation, reason: "stale_settle" });
+            return;
+          }
           updateMetricsFromScroller();
           if (
             modeRef.current === "auto_follow" &&
@@ -327,6 +378,7 @@ export function useTranscriptScrollFollow({
           pendingScrollCountRef.current = 0;
           recordDebugTrace("auto_scroll_completed", {
             atBottom: geometryRef.current.atBottom,
+            generation,
             remainingFrames,
           });
         });
@@ -355,46 +407,65 @@ export function useTranscriptScrollFollow({
     [recordDebugTrace, scheduleAutoScrollToLatest, setMode],
   );
 
-  const finishProgrammaticScroll = useCallback(() => {
-    if (programmaticScrollSettleFrameRef.current !== null) {
-      cancelAnimationFrame(programmaticScrollSettleFrameRef.current);
-    }
-    programmaticScrollCountRef.current += 1;
-    programmaticScrollSettleFrameRef.current = requestAnimationFrame(() => {
+  const finishProgrammaticScroll = useCallback(
+    (generation: number) => {
+      if (programmaticScrollSettleFrameRef.current !== null) {
+        cancelAnimationFrame(programmaticScrollSettleFrameRef.current);
+      }
+      programmaticScrollCountRef.current += 1;
       programmaticScrollSettleFrameRef.current = requestAnimationFrame(() => {
-        programmaticScrollSettleFrameRef.current = null;
-        programmaticScrollCountRef.current = Math.max(0, programmaticScrollCountRef.current - 1);
-        updateMetricsFromScroller();
-        if (geometryRef.current.atBottom) {
-          recordDebugTrace("programmatic_scroll_finished", { result: "at_bottom" });
-          setMode("auto_follow", "programmatic_scroll_finished");
-          scheduleAutoScrollToLatest();
-        } else {
-          recordDebugTrace("programmatic_scroll_finished", { result: "not_at_bottom" });
-          setMode("user_detached", "programmatic_scroll_finished");
-        }
+        programmaticScrollSettleFrameRef.current = requestAnimationFrame(() => {
+          programmaticScrollSettleFrameRef.current = null;
+          programmaticScrollCountRef.current = Math.max(0, programmaticScrollCountRef.current - 1);
+          if (generation !== scrollGenerationRef.current) {
+            updateMetricsFromScroller();
+            recordDebugTrace("programmatic_scroll_finished", {
+              generation,
+              result: "stale",
+            });
+            return;
+          }
+          updateMetricsFromScroller();
+          if (geometryRef.current.atBottom) {
+            recordDebugTrace("programmatic_scroll_finished", { generation, result: "at_bottom" });
+            setMode("auto_follow", "programmatic_scroll_finished");
+            scheduleAutoScrollToLatest();
+          } else {
+            recordDebugTrace("programmatic_scroll_finished", {
+              generation,
+              result: "not_at_bottom",
+            });
+            setMode("user_detached", "programmatic_scroll_finished");
+          }
+        });
       });
-    });
-  }, [recordDebugTrace, scheduleAutoScrollToLatest, setMode, updateMetricsFromScroller]);
+    },
+    [recordDebugTrace, scheduleAutoScrollToLatest, setMode, updateMetricsFromScroller],
+  );
 
   const scrollToIndexAsProgrammaticScroll = useCallback(
     (location: ScrollToIndexLocation) => {
       clearDirectionalScrollIntent();
-      recordDebugTrace("programmatic_scroll_start");
+      const generation = invalidateScheduledScrollWork("programmatic_scroll_start");
+      recordDebugTrace("programmatic_scroll_start", { generation });
       if (programmaticScrollFrameRef.current !== null) {
         cancelAnimationFrame(programmaticScrollFrameRef.current);
       }
       programmaticScrollFrameRef.current = requestAnimationFrame(() => {
         programmaticScrollFrameRef.current = null;
+        if (generation !== scrollGenerationRef.current) {
+          recordDebugTrace("programmatic_scroll_skipped", { generation, reason: "stale_frame" });
+          return;
+        }
         virtuosoRef.current?.scrollToIndex(location);
-        finishProgrammaticScroll();
+        finishProgrammaticScroll(generation);
       });
     },
     [
       clearDirectionalScrollIntent,
       finishProgrammaticScroll,
+      invalidateScheduledScrollWork,
       recordDebugTrace,
-      setMode,
       virtuosoRef,
     ],
   );
@@ -419,6 +490,18 @@ export function useTranscriptScrollFollow({
         metricsRef.current.scrollTop,
         previousScrollTop,
       );
+      const historyScrollIntent = transcriptScrollHasHistoryIntent(
+        {
+          keyboardScrollIntent,
+          pointerScrollIntent,
+          tailScrollIntent,
+          wheelScrollIntent,
+        },
+        scrollDirection,
+      );
+      if (historyScrollIntent) {
+        invalidateScheduledScrollWork("history_scroll");
+      }
       applyDecision(
         "scroll",
         decideTranscriptScrollFollowAfterScroll({
@@ -436,13 +519,14 @@ export function useTranscriptScrollFollow({
           pointerScrollIntent,
           previousScrollTop,
           programmaticScrollActive,
+          historyScrollIntent,
           scrollDirection,
           tailScrollIntent,
           wheelScrollIntent,
         },
       );
     },
-    [applyDecision, updateMetricsFromElement],
+    [applyDecision, invalidateScheduledScrollWork, updateMetricsFromElement],
   );
 
   const handleWheel = useCallback(
@@ -450,6 +534,7 @@ export function useTranscriptScrollFollow({
       if (event.deltaY < 0) {
         tailScrollIntentRef.current = false;
         wheelScrollIntentRef.current = true;
+        detachForHistoryScrollIntent("wheel_history");
         recordDebugTrace("wheel", { deltaY: event.deltaY, intent: "history" });
       } else if (event.deltaY > 0) {
         wheelScrollIntentRef.current = false;
@@ -457,7 +542,7 @@ export function useTranscriptScrollFollow({
         recordDebugTrace("wheel", { deltaY: event.deltaY, intent: "tail" });
       }
     },
-    [recordDebugTrace],
+    [detachForHistoryScrollIntent, recordDebugTrace],
   );
 
   const handlePointerDown = useCallback(
@@ -497,6 +582,7 @@ export function useTranscriptScrollFollow({
         tailScrollIntentRef.current = false;
         wheelScrollIntentRef.current = false;
         keyboardScrollIntentRef.current = true;
+        detachForHistoryScrollIntent("keyboard_history");
         recordDebugTrace("key", { intent: "history", key: event.key, shiftKey: event.shiftKey });
       } else if (["ArrowDown", "End", "PageDown"].includes(event.key) || event.key === " ") {
         wheelScrollIntentRef.current = false;
@@ -505,7 +591,7 @@ export function useTranscriptScrollFollow({
         recordDebugTrace("key", { intent: "tail", key: event.key, shiftKey: event.shiftKey });
       }
     },
-    [recordDebugTrace],
+    [detachForHistoryScrollIntent, recordDebugTrace],
   );
 
   const handleRangeChanged = useCallback(
@@ -562,18 +648,21 @@ export function useTranscriptScrollFollow({
 
   const detach = useCallback(() => {
     clearDirectionalScrollIntent();
+    invalidateScheduledScrollWork("detach");
     recordDebugTrace("detach");
     setMode("user_detached", "detach");
-  }, [clearDirectionalScrollIntent, recordDebugTrace, setMode]);
+  }, [clearDirectionalScrollIntent, invalidateScheduledScrollWork, recordDebugTrace, setMode]);
 
   const jumpToLatest = useCallback(() => {
     clearScrollIntent();
+    const generation = invalidateScheduledScrollWork("jump_to_latest");
     recordDebugTrace("jump_to_latest");
     setMode("auto_follow", "jump_to_latest");
-    runProgrammaticScroll(scrollToLatest, "jump_to_latest", 1);
+    runProgrammaticScroll(scrollToLatest, "jump_to_latest", 1, generation);
     scheduleAutoScrollToLatest();
   }, [
     clearScrollIntent,
+    invalidateScheduledScrollWork,
     recordDebugTrace,
     runProgrammaticScroll,
     scheduleAutoScrollToLatest,
@@ -602,16 +691,16 @@ export function useTranscriptScrollFollow({
     }
     conversationKeyRef.current = conversationKey;
     clearScrollIntent();
-    cancelAutoScrollToLatest();
+    invalidateScheduledScrollWork("conversation_changed");
     programmaticScrollCountRef.current = 0;
     updateMetricsFromScroller();
     setMode("auto_follow", "conversation_changed");
     recordDebugTrace("conversation_changed");
     scheduleAutoScrollToLatest();
   }, [
-    cancelAutoScrollToLatest,
     clearScrollIntent,
     conversationKey,
+    invalidateScheduledScrollWork,
     recordDebugTrace,
     scheduleAutoScrollToLatest,
     setMode,
@@ -725,18 +814,24 @@ export function decideTranscriptScrollFollowAfterScroll({
     tailScrollIntent,
     wheelScrollIntent,
   });
+  const scrollDirection = transcriptScrollDirection(geometry.scrollTop, previousScrollTop);
+  if (
+    transcriptScrollHasHistoryIntent(
+      { keyboardScrollIntent, pointerScrollIntent, tailScrollIntent, wheelScrollIntent },
+      scrollDirection,
+    )
+  ) {
+    return { mode: "user_detached", shouldScrollToLatest: false };
+  }
   if (geometry.atBottom) {
-    return {
-      mode: userScrollIntent || mode === "auto_follow" ? "auto_follow" : mode,
-      shouldScrollToLatest: userScrollIntent || programmaticScrollActive,
-    };
+    return transcriptScrollAtBottomDecision({ mode, programmaticScrollActive, userScrollIntent });
   }
   if (mode === "auto_follow") {
     if (
       shouldDetachTranscriptAutoFollow({
         geometry,
         keyboardScrollIntent,
-        previousScrollTop,
+        scrollDirection,
         userScrollIntent,
         wheelScrollIntent,
       })
@@ -746,6 +841,19 @@ export function decideTranscriptScrollFollowAfterScroll({
     return { mode, shouldScrollToLatest: userScrollIntent || programmaticScrollActive };
   }
   return { mode, shouldScrollToLatest: false };
+}
+
+function transcriptScrollAtBottomDecision({
+  mode,
+  programmaticScrollActive,
+  userScrollIntent,
+}: Pick<TranscriptScrollFollowScrollDecisionInput, "mode" | "programmaticScrollActive"> & {
+  userScrollIntent: boolean;
+}): TranscriptScrollFollowDecision {
+  return {
+    mode: userScrollIntent || mode === "auto_follow" ? "auto_follow" : mode,
+    shouldScrollToLatest: userScrollIntent || programmaticScrollActive,
+  };
 }
 
 function transcriptScrollHasUserIntent({
@@ -760,22 +868,41 @@ function transcriptScrollHasUserIntent({
   return keyboardScrollIntent || pointerScrollIntent || tailScrollIntent || wheelScrollIntent;
 }
 
+function transcriptScrollHasHistoryIntent(
+  {
+    keyboardScrollIntent,
+    pointerScrollIntent,
+    tailScrollIntent,
+    wheelScrollIntent,
+  }: Pick<
+    TranscriptScrollFollowScrollDecisionInput,
+    "keyboardScrollIntent" | "pointerScrollIntent" | "tailScrollIntent" | "wheelScrollIntent"
+  >,
+  scrollDirection: TranscriptScrollDirection,
+) {
+  return (
+    wheelScrollIntent ||
+    (keyboardScrollIntent && !tailScrollIntent) ||
+    (pointerScrollIntent && scrollDirection === "history")
+  );
+}
+
 function shouldDetachTranscriptAutoFollow({
   geometry,
   keyboardScrollIntent,
-  previousScrollTop,
+  scrollDirection,
   userScrollIntent,
   wheelScrollIntent,
 }: Pick<
   TranscriptScrollFollowScrollDecisionInput,
-  "geometry" | "keyboardScrollIntent" | "previousScrollTop" | "wheelScrollIntent"
+  "geometry" | "keyboardScrollIntent" | "wheelScrollIntent"
 > & {
+  scrollDirection: TranscriptScrollDirection;
   userScrollIntent: boolean;
 }) {
   if (!userScrollIntent || !geometry.awayFromBottom) {
     return false;
   }
-  const scrollDirection = transcriptScrollDirection(geometry.scrollTop, previousScrollTop);
   return scrollDirection === "history" || wheelScrollIntent || keyboardScrollIntent;
 }
 

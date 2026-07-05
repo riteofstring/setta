@@ -1657,6 +1657,24 @@ export function decodeRunnerRecoveryCapability(value: unknown, label = "RunnerRe
   }
 }
 
+export type WorkflowAgentSettingsSource = "node" | "workflow" | "default";
+
+export const workflowAgentSettingsSourceValues = ["node", "workflow", "default"] as const satisfies readonly WorkflowAgentSettingsSource[];
+
+export function decodeWorkflowAgentSettingsSource(value: unknown, label = "WorkflowAgentSettingsSource"): WorkflowAgentSettingsSource {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "node":
+      return decoded;
+    case "workflow":
+      return decoded;
+    case "default":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type WorkflowActionCompletionStatus = "completed" | "failed" | "cancelled" | "requires_approval";
 
 export const workflowActionCompletionStatusValues = ["completed", "failed", "cancelled", "requires_approval"] as const satisfies readonly WorkflowActionCompletionStatus[];
@@ -4080,11 +4098,16 @@ export interface ListWorkflowDefinitionsRequest {
   workspaceId: string;
 }
 
+export interface WorkflowAgentSettings {
+  model: string;
+  reasoningEffort: ReasoningEffort | null;
+  permission: ChatCodexPermissionSettings | null;
+}
+
 export interface WorkflowCodexActionConfig {
   prompt: string;
   freshConversation: boolean;
-  model: string;
-  reasoningEffort: string;
+  settings: WorkflowAgentSettings;
 }
 
 export interface WorkflowActionConfig {
@@ -4134,6 +4157,7 @@ export interface WorkflowGraph {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   layout: WorkflowGraphLayout;
+  agentDefaults: WorkflowAgentSettings;
 }
 
 export interface WorkflowDefinition {
@@ -4273,6 +4297,21 @@ export interface RunnerCapabilities {
   policyExtension: RunnerPolicyExtensionDescriptor;
 }
 
+export interface WorkflowAgentEffectiveRunSettings {
+  model: string;
+  modelDisplayName: string;
+  modelSource: WorkflowAgentSettingsSource;
+  reasoningEffort: ReasoningEffort | null;
+  reasoningEffortDisplayName: string;
+  reasoningEffortSource: WorkflowAgentSettingsSource;
+  permissionPreset: ChatPermissionPresetID | null;
+  permissionProfileId: string;
+  permissionDisplayLabel: string;
+  approvalPolicy: string;
+  permissions: string;
+  permissionSource: WorkflowAgentSettingsSource;
+}
+
 export interface WorkflowActionSignal {
   name: string;
   value: string;
@@ -4350,6 +4389,7 @@ export interface WorkflowNodeExecution {
   actionPolicy: WorkflowActionPolicy | null;
   sideEffectPolicy: SideEffectPolicy | null;
   runnerCapabilities: RunnerCapabilities | null;
+  agentRunSettings: WorkflowAgentEffectiveRunSettings | null;
   result: WorkflowActionResult | null;
   runnerRefs: WorkflowActionRunnerRef[];
   runnerState: WorkflowRunnerState | null;
@@ -4547,6 +4587,7 @@ export interface WorkflowAgentTrajectoryPage {
   run: Run;
   activeRun: Run | null;
   activeRunLiveness: RunLiveness | null;
+  runSettings: WorkflowAgentEffectiveRunSettings | null;
   blocks: TranscriptBlock[];
   items: RunItem[];
   activity: ActivityItemBlockProjection[];
@@ -9202,14 +9243,23 @@ export function decodeListWorkflowDefinitionsRequest(value: unknown): ListWorkfl
   };
 }
 
+export function decodeWorkflowAgentSettings(value: unknown): WorkflowAgentSettings {
+  const record = assertRecord(value, "WorkflowAgentSettings");
+  assertKnownFields(record, "WorkflowAgentSettings", ["model", "reasoningEffort", "permission"]);
+  return {
+    model: decodeString(requireField(record, "model", "WorkflowAgentSettings"), "WorkflowAgentSettings.model"),
+    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "WorkflowAgentSettings"), "WorkflowAgentSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "WorkflowAgentSettings.reasoningEffort")),
+    permission: decodeNullable(requireField(record, "permission", "WorkflowAgentSettings"), "WorkflowAgentSettings.permission", (item) => decodeChatCodexPermissionSettings(item)),
+  };
+}
+
 export function decodeWorkflowCodexActionConfig(value: unknown): WorkflowCodexActionConfig {
   const record = assertRecord(value, "WorkflowCodexActionConfig");
-  assertKnownFields(record, "WorkflowCodexActionConfig", ["prompt", "freshConversation", "model", "reasoningEffort"]);
+  assertKnownFields(record, "WorkflowCodexActionConfig", ["prompt", "freshConversation", "settings"]);
   return {
     prompt: decodeString(requireField(record, "prompt", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.prompt"),
     freshConversation: decodeBoolean(requireField(record, "freshConversation", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.freshConversation"),
-    model: decodeString(requireField(record, "model", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.model"),
-    reasoningEffort: decodeString(requireField(record, "reasoningEffort", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.reasoningEffort"),
+    settings: decodeWorkflowAgentSettings(requireField(record, "settings", "WorkflowCodexActionConfig")),
   };
 }
 
@@ -9286,11 +9336,12 @@ export function decodeWorkflowGraphLayout(value: unknown): WorkflowGraphLayout {
 
 export function decodeWorkflowGraph(value: unknown): WorkflowGraph {
   const record = assertRecord(value, "WorkflowGraph");
-  assertKnownFields(record, "WorkflowGraph", ["nodes", "edges", "layout"]);
+  assertKnownFields(record, "WorkflowGraph", ["nodes", "edges", "layout", "agentDefaults"]);
   return {
     nodes: decodeArray(requireField(record, "nodes", "WorkflowGraph"), "WorkflowGraph.nodes", (item) => decodeWorkflowNode(item)),
     edges: decodeArray(requireField(record, "edges", "WorkflowGraph"), "WorkflowGraph.edges", (item) => decodeWorkflowEdge(item)),
     layout: decodeWorkflowGraphLayout(requireField(record, "layout", "WorkflowGraph")),
+    agentDefaults: decodeWorkflowAgentSettings(requireField(record, "agentDefaults", "WorkflowGraph")),
   };
 }
 
@@ -9507,6 +9558,25 @@ export function decodeRunnerCapabilities(value: unknown): RunnerCapabilities {
   };
 }
 
+export function decodeWorkflowAgentEffectiveRunSettings(value: unknown): WorkflowAgentEffectiveRunSettings {
+  const record = assertRecord(value, "WorkflowAgentEffectiveRunSettings");
+  assertKnownFields(record, "WorkflowAgentEffectiveRunSettings", ["model", "modelDisplayName", "modelSource", "reasoningEffort", "reasoningEffortDisplayName", "reasoningEffortSource", "permissionPreset", "permissionProfileId", "permissionDisplayLabel", "approvalPolicy", "permissions", "permissionSource"]);
+  return {
+    model: decodeString(requireField(record, "model", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.model"),
+    modelDisplayName: decodeString(requireField(record, "modelDisplayName", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.modelDisplayName"),
+    modelSource: decodeWorkflowAgentSettingsSource(requireField(record, "modelSource", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.modelSource"),
+    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "WorkflowAgentEffectiveRunSettings.reasoningEffort")),
+    reasoningEffortDisplayName: decodeString(requireField(record, "reasoningEffortDisplayName", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.reasoningEffortDisplayName"),
+    reasoningEffortSource: decodeWorkflowAgentSettingsSource(requireField(record, "reasoningEffortSource", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.reasoningEffortSource"),
+    permissionPreset: decodeNullable(requireField(record, "permissionPreset", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionPreset", (item) => decodeChatPermissionPresetID(item, "WorkflowAgentEffectiveRunSettings.permissionPreset")),
+    permissionProfileId: decodeString(requireField(record, "permissionProfileId", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionProfileId"),
+    permissionDisplayLabel: decodeString(requireField(record, "permissionDisplayLabel", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionDisplayLabel"),
+    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.approvalPolicy"),
+    permissions: decodeString(requireField(record, "permissions", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissions"),
+    permissionSource: decodeWorkflowAgentSettingsSource(requireField(record, "permissionSource", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionSource"),
+  };
+}
+
 export function decodeWorkflowActionSignal(value: unknown): WorkflowActionSignal {
   const record = assertRecord(value, "WorkflowActionSignal");
   assertKnownFields(record, "WorkflowActionSignal", ["name", "value"]);
@@ -9591,7 +9661,7 @@ export function decodeWorkflowActivityRef(value: unknown): WorkflowActivityRef {
 
 export function decodeWorkflowNodeExecution(value: unknown): WorkflowNodeExecution {
   const record = assertRecord(value, "WorkflowNodeExecution");
-  assertKnownFields(record, "WorkflowNodeExecution", ["schemaVersion", "id", "executionId", "nodeId", "attempt", "iteration", "status", "idempotencyKey", "scheduledAt", "startedAt", "completedAt", "actionKind", "runnerKind", "inputHash", "input", "actionPolicy", "sideEffectPolicy", "runnerCapabilities", "result", "runnerRefs", "runnerState", "activityRefs", "recoveryOutcome", "recoveryMessage", "error"]);
+  assertKnownFields(record, "WorkflowNodeExecution", ["schemaVersion", "id", "executionId", "nodeId", "attempt", "iteration", "status", "idempotencyKey", "scheduledAt", "startedAt", "completedAt", "actionKind", "runnerKind", "inputHash", "input", "actionPolicy", "sideEffectPolicy", "runnerCapabilities", "agentRunSettings", "result", "runnerRefs", "runnerState", "activityRefs", "recoveryOutcome", "recoveryMessage", "error"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowNodeExecution"), "WorkflowNodeExecution.schemaVersion"),
     id: decodeString(requireField(record, "id", "WorkflowNodeExecution"), "WorkflowNodeExecution.id"),
@@ -9611,6 +9681,7 @@ export function decodeWorkflowNodeExecution(value: unknown): WorkflowNodeExecuti
     actionPolicy: decodeNullable(requireField(record, "actionPolicy", "WorkflowNodeExecution"), "WorkflowNodeExecution.actionPolicy", (item) => decodeWorkflowActionPolicy(item)),
     sideEffectPolicy: decodeNullable(requireField(record, "sideEffectPolicy", "WorkflowNodeExecution"), "WorkflowNodeExecution.sideEffectPolicy", (item) => decodeSideEffectPolicy(item)),
     runnerCapabilities: decodeNullable(requireField(record, "runnerCapabilities", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerCapabilities", (item) => decodeRunnerCapabilities(item)),
+    agentRunSettings: decodeNullable(requireField(record, "agentRunSettings", "WorkflowNodeExecution"), "WorkflowNodeExecution.agentRunSettings", (item) => decodeWorkflowAgentEffectiveRunSettings(item)),
     result: decodeNullable(requireField(record, "result", "WorkflowNodeExecution"), "WorkflowNodeExecution.result", (item) => decodeWorkflowActionResult(item)),
     runnerRefs: decodeArray(requireField(record, "runnerRefs", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerRefs", (item) => decodeWorkflowActionRunnerRef(item)),
     runnerState: decodeNullable(requireField(record, "runnerState", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerState", (item) => decodeWorkflowRunnerState(item)),
@@ -9864,7 +9935,7 @@ export function decodeWorkflowAgentTrajectoryCapabilities(value: unknown): Workf
 
 export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgentTrajectoryPage {
   const record = assertRecord(value, "WorkflowAgentTrajectoryPage");
-  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "lastChatEventStreamId", "lastChatEventSequence", "lastWorkflowEventOrdinal", "run", "activeRun", "activeRunLiveness", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
+  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "lastChatEventStreamId", "lastChatEventSequence", "lastWorkflowEventOrdinal", "run", "activeRun", "activeRunLiveness", "runSettings", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.schemaVersion"),
     scope: decodeWorkflowAgentTrajectoryScope(requireField(record, "scope", "WorkflowAgentTrajectoryPage")),
@@ -9876,6 +9947,7 @@ export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgent
     run: decodeRun(requireField(record, "run", "WorkflowAgentTrajectoryPage")),
     activeRun: decodeNullable(requireField(record, "activeRun", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRun", (item) => decodeRun(item)),
     activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRunLiveness", (item) => decodeRunLiveness(item)),
+    runSettings: decodeNullable(requireField(record, "runSettings", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runSettings", (item) => decodeWorkflowAgentEffectiveRunSettings(item)),
     blocks: decodeArray(requireField(record, "blocks", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.blocks", (item) => decodeTranscriptBlock(item)),
     items: decodeArray(requireField(record, "items", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.items", (item) => decodeRunItem(item)),
     activity: decodeArray(requireField(record, "activity", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activity", (item) => decodeActivityItemBlockProjection(item)),

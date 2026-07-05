@@ -1,6 +1,7 @@
 import type {
   RunItem,
   RunItemOutput,
+  WorkflowAgentEffectiveRunSettings,
   WorkflowAgentTrajectoryPage,
   WorkflowEvent,
   WorkflowExecution,
@@ -69,6 +70,42 @@ describe("WorkflowRunDetailsContent activity focus", () => {
 
     expect(html).toContain('data-testid="workflow-run-details-dock"');
     expect(html).not.toContain('data-default-open="true"');
+  });
+
+  test("renders one node-scoped status chip and labels workflow status as metadata", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection()}
+        target={target()}
+      />,
+    );
+
+    expect(occurrences(html, 'data-testid="workflow-node-status-chip"')).toBe(1);
+    expect(html).toContain("waiting approval");
+    expect(html).toContain('data-testid="workflow-node-run-workflow-status"');
+    expect(html).toContain("workflow running");
+  });
+
+  test("renders read-only workflow agent run settings from the trajectory snapshot", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection({
+          trajectory: workflowNodeTrajectoryStateFromPage(
+            trajectoryPage({ runSettings: runSettings() }),
+          ),
+        })}
+        target={target()}
+      />,
+    );
+
+    expect(html).toContain('data-testid="workflow-agent-run-settings"');
+    expect(html).toContain("Full Access - node override");
+    expect(html).toContain("GPT-5 - workflow default");
+    expect(html).toContain("High - app default");
   });
 
   test("opens the workflow details dock when an activity focus targets a detail row", () => {
@@ -261,6 +298,7 @@ function nodeExecution(): WorkflowNodeExecution {
   return {
     actionKind: null,
     actionPolicy: null,
+    agentRunSettings: null,
     activityRefs: [],
     attempt: 1,
     completedAt: "",
@@ -328,6 +366,7 @@ function trajectoryPage(
   return {
     activeRun: null,
     activeRunLiveness: null,
+    runSettings: null,
     activity: [
       activityBlock({
         details: {
@@ -460,6 +499,23 @@ function trajectoryPage(
       workspaceId: "workspace_test",
     },
     ...overrides,
+  };
+}
+
+function runSettings(): WorkflowAgentEffectiveRunSettings {
+  return {
+    approvalPolicy: "never",
+    model: "gpt-5",
+    modelDisplayName: "GPT-5",
+    modelSource: "workflow",
+    permissionDisplayLabel: "Full Access",
+    permissionPreset: "full-access",
+    permissionProfileId: "full-access",
+    permissionSource: "node",
+    permissions: "full-access",
+    reasoningEffort: "high",
+    reasoningEffortDisplayName: "High",
+    reasoningEffortSource: "default",
   };
 }
 

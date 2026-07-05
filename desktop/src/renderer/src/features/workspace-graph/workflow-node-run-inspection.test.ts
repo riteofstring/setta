@@ -103,6 +103,7 @@ function nodeExecution(): WorkflowNodeExecution {
   return {
     actionKind: "agent.codex",
     actionPolicy: null,
+    agentRunSettings: null,
     activityRefs: [],
     attempt: 1,
     completedAt: "",
@@ -133,6 +134,7 @@ function trajectory(cursor: number): WorkflowNodeTrajectoryState {
   const page = {
     activeRun: null,
     activeRunLiveness: null,
+    runSettings: null,
     activity: [],
     blocks: [],
     capabilities: {

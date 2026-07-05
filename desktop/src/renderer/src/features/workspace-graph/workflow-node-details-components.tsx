@@ -2,6 +2,8 @@ import type {
   WorkflowEvent,
   WorkflowExecution,
   WorkflowGraphEdge,
+  WorkflowAgentEffectiveRunSettings,
+  WorkflowAgentSettingsSource,
   WorkflowNodeExecution,
   WorkflowPendingApproval,
   WorkflowToken,
@@ -157,12 +159,12 @@ function WorkflowRunHeader({
               {model.title}
             </div>
             <WorkflowStatusChip label={model.nodeStatus} />
-            <WorkflowStatusChip label={model.runStatus} tone="run" />
           </div>
           <div className="mt-1 flex min-w-0 flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-zinc-500">
             <span data-testid="workflow-node-details-node-id">{target.nodeId}</span>
             <span>run {shortIdentifier(execution.id)}</span>
             <span>version {shortIdentifier(execution.definitionVersionId)}</span>
+            <WorkflowRunHeaderExecutionStatus status={model.executionStatus} />
             <WorkflowRunHeaderNodeExecution nodeExecution={nodeExecution} />
           </div>
         </div>
@@ -188,10 +190,54 @@ function workflowRunHeaderModel(
   return {
     canRetry: capabilities?.canRetryLiveness === true,
     canStop: capabilities?.canStopRun === true,
-    nodeStatus: nodeStatus || "not run",
-    runStatus: execution.status,
+    executionStatus: workflowExecutionStatusContext(execution.status, nodeStatus),
+    nodeStatus: workflowNodeStatusLabel(nodeStatus),
     title: target.nodeLabel || target.nodeId,
   };
+}
+
+function workflowNodeStatusLabel(status: string) {
+  switch (status) {
+    case "":
+    case "not_started":
+      return "pending";
+    case "succeeded":
+      return "completed";
+    case "waiting_approval":
+      return "waiting approval";
+    case "recovery_required":
+      return "failed";
+    default:
+      return status.replaceAll("_", " ");
+  }
+}
+
+function workflowExecutionStatusContext(executionStatus: string, nodeStatus: string) {
+  const nodeEquivalent = workflowExecutionEquivalentNodeStatus(executionStatus);
+  if (nodeEquivalent === nodeStatus) {
+    return "";
+  }
+  return `workflow ${executionStatus.replaceAll("_", " ")}`;
+}
+
+function workflowExecutionEquivalentNodeStatus(status: string) {
+  switch (status) {
+    case "completed":
+      return "succeeded";
+    case "cancelled":
+    case "failed":
+    case "running":
+      return status;
+    default:
+      return "";
+  }
+}
+
+function WorkflowRunHeaderExecutionStatus({ status }: { status: string }) {
+  if (status === "") {
+    return null;
+  }
+  return <span data-testid="workflow-node-run-workflow-status">{status}</span>;
 }
 
 function WorkflowRunHeaderNodeExecution({
@@ -247,15 +293,11 @@ function WorkflowRunHeaderActions({
   );
 }
 
-function WorkflowStatusChip({ label, tone = "node" }: { label: string; tone?: "node" | "run" }) {
+function WorkflowStatusChip({ label }: { label: string }) {
   return (
     <span
-      className={cn(
-        "inline-flex h-5 items-center rounded-sm border px-1.5 text-[11px] font-medium",
-        tone === "run"
-          ? "border-sky-500/30 bg-sky-500/10 text-sky-200"
-          : "border-accent-violet/30 bg-accent-violet/10 text-violet-200",
-      )}
+      className="inline-flex h-5 items-center rounded-sm border border-accent-violet/30 bg-accent-violet/10 px-1.5 text-[11px] font-medium text-violet-200"
+      data-testid="workflow-node-status-chip"
     >
       {label}
     </span>
@@ -581,6 +623,7 @@ function WorkflowAgentTrajectoryPane({
       <div className="min-h-0 flex-1">
         <AgentTrajectorySurface actions={trajectoryActions} viewModel={viewModel} />
       </div>
+      <WorkflowAgentRunSettingsBar settings={inspection.trajectory.page.runSettings} />
       {showComposer ? (
         <Composer
           actions={composerActions}
@@ -597,6 +640,63 @@ function WorkflowAgentTrajectoryPane({
       ) : null}
     </div>
   );
+}
+
+function WorkflowAgentRunSettingsBar({
+  settings,
+}: {
+  settings: WorkflowAgentEffectiveRunSettings | null;
+}) {
+  if (settings === null) {
+    return null;
+  }
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 border-t border-zinc-800 bg-zinc-950/90 px-4 py-2"
+      data-testid="workflow-agent-run-settings"
+    >
+      <WorkflowRunSettingPill
+        label="Permission"
+        value={`${settings.permissionDisplayLabel} - ${workflowAgentSettingsSourceLabel(
+          settings.permissionSource,
+        )}`}
+      />
+      <WorkflowRunSettingPill
+        label="Model"
+        value={`${settings.modelDisplayName} - ${workflowAgentSettingsSourceLabel(
+          settings.modelSource,
+        )}`}
+      />
+      <WorkflowRunSettingPill
+        label="Reasoning"
+        value={`${settings.reasoningEffortDisplayName} - ${workflowAgentSettingsSourceLabel(
+          settings.reasoningEffortSource,
+        )}`}
+      />
+    </div>
+  );
+}
+
+function WorkflowRunSettingPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-sm border border-zinc-800 bg-zinc-900/70 px-2 text-xs text-zinc-300">
+      <span className="text-[11px] text-zinc-500">{label}</span>
+      <span className="min-w-0 truncate text-zinc-200">{value}</span>
+    </div>
+  );
+}
+
+function workflowAgentSettingsSourceLabel(source: WorkflowAgentSettingsSource) {
+  switch (source) {
+    case "node":
+      return "node override";
+    case "workflow":
+      return "workflow default";
+    case "default":
+      return "app default";
+    default:
+      return source satisfies never;
+  }
 }
 
 function WorkflowProjectionFlowSection({ target }: { target: WorkflowNodeDetailsTarget }) {

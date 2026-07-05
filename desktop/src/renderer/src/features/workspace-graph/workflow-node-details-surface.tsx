@@ -1,9 +1,15 @@
-import type { WorkflowEdge, WorkflowGraph, WorkflowNode } from "@generated/backend";
+import type {
+  ChatPermissionPreset,
+  WorkflowEdge,
+  WorkflowGraph,
+  WorkflowNode,
+} from "@generated/backend";
 import { RefreshCcw, Save } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
+import { useChatDefaultsStore } from "../../stores/chat-defaults-store";
 import {
   useWorkflowEditorStore,
   type WorkflowNodeActivityFocus,
@@ -31,8 +37,10 @@ import {
   type AgentTaskDraft,
 } from "./workflow-node-details-helpers";
 import { useWorkflowRunInspection } from "./workflow-node-run-inspection";
+import { WorkflowAgentPermissionField } from "./workflow-agent-settings-form";
 
 type WorkflowDefinitionRecord = Awaited<ReturnType<typeof window.setta.workflow.readDefinition>>;
+const emptyPermissionPresets: ChatPermissionPreset[] = [];
 
 export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
   const selectedTarget = useWorkflowEditorStore((state) => state.selectedNodeTarget);
@@ -50,6 +58,9 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [draft, setDraft] = useState<AgentTaskDraft | null>(null);
+  const loadChatDefaults = useChatDefaultsStore((state) => state.load);
+  const chatDefaultsView = useChatDefaultsStore((state) => state.view);
+  const permissionPresets = chatDefaultsView?.permissionPresets ?? emptyPermissionPresets;
   const node = useMemo(() => {
     if (definition === null || target === null) {
       return null;
@@ -67,6 +78,12 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
       setDraft(null);
     }
   }, [target]);
+
+  useEffect(() => {
+    if (target !== null && target.executionId === "") {
+      void loadChatDefaults();
+    }
+  }, [loadChatDefaults, target]);
 
   async function saveAgentTask() {
     const readOnly = target?.executionId !== "";
@@ -112,6 +129,7 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
         node={node}
         onDraftChange={setDraft}
         onSave={() => void saveAgentTask()}
+        permissionPresets={permissionPresets}
         runInspectionActions={runInspectionActions}
         runInspection={runInspection}
         saveMessage={saveMessage}
@@ -161,6 +179,7 @@ function WorkflowNodeDetailsContent({
   node,
   onDraftChange,
   onSave,
+  permissionPresets,
   runInspectionActions,
   runInspection,
   saveMessage,
@@ -174,6 +193,7 @@ function WorkflowNodeDetailsContent({
   node: WorkflowNode | null;
   onDraftChange: (draft: AgentTaskDraft) => void;
   onSave: () => void;
+  permissionPresets: ChatPermissionPreset[];
   runInspectionActions: WorkflowRunTrajectoryActions;
   runInspection: WorkflowRunInspectionState;
   saveMessage: string;
@@ -208,6 +228,7 @@ function WorkflowNodeDetailsContent({
         node={node}
         onDraftChange={onDraftChange}
         onSave={onSave}
+        permissionPresets={permissionPresets}
         saveMessage={saveMessage}
         saving={saving}
         target={target}
@@ -222,6 +243,7 @@ function WorkflowLoadedNodeDetails({
   node,
   onDraftChange,
   onSave,
+  permissionPresets,
   saveMessage,
   saving,
   target,
@@ -231,6 +253,7 @@ function WorkflowLoadedNodeDetails({
   node: WorkflowNode | null;
   onDraftChange: (draft: AgentTaskDraft) => void;
   onSave: () => void;
+  permissionPresets: ChatPermissionPreset[];
   saveMessage: string;
   saving: boolean;
   target: WorkflowNodeDetailsTarget;
@@ -246,6 +269,7 @@ function WorkflowLoadedNodeDetails({
       draft={draft}
       onDraftChange={onDraftChange}
       onSave={onSave}
+      permissionPresets={permissionPresets}
       readOnly={target.executionId !== ""}
       saveMessage={saveMessage}
       saving={saving}
@@ -257,6 +281,7 @@ function AgentTaskDetailsForm({
   draft,
   onDraftChange,
   onSave,
+  permissionPresets,
   readOnly,
   saveMessage,
   saving,
@@ -264,6 +289,7 @@ function AgentTaskDetailsForm({
   draft: AgentTaskDraft;
   onDraftChange: (draft: AgentTaskDraft) => void;
   onSave: () => void;
+  permissionPresets: ChatPermissionPreset[];
   readOnly: boolean;
   saveMessage: string;
   saving: boolean;
@@ -311,6 +337,14 @@ function AgentTaskDetailsForm({
         disabled={disabled}
         draft={draft}
         onDraftChange={onDraftChange}
+      />
+      <WorkflowAgentPermissionField
+        disabled={disabled}
+        inheritLabel="Workflow default"
+        onPermissionChange={(permission) => onDraftChange({ ...draft, permission })}
+        permission={draft.permission}
+        permissionPresets={permissionPresets}
+        testId="workflow-node-agent-permission"
       />
       <AgentTaskSaveRow disabled={disabled} saveMessage={saveMessage} saving={saving} />
     </form>

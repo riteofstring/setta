@@ -41,6 +41,7 @@ import {
 } from "./chat-panel";
 import { ChatSearchBar, type TranscriptSearchController } from "./chat-transcript-search";
 import { ChatTranscript, type ChatTranscriptProps } from "./chat-transcript";
+import { chatDefaultsView, defaultEffectivePermissionSettings } from "./chat-panel-test-fixtures";
 
 type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
 const readableColumnAttribute = 'data-chat-readable-column="true"';
@@ -1184,6 +1185,9 @@ function composerChat() {
     activeRun: null,
     commandListError: null,
     commandListStatus: "ready",
+    chatDefaultsStatus: "ready",
+    chatDefaultsView: chatDefaultsView(),
+    createConversation: async () => {},
     executeCommand: async () => {
       throw new Error("unexpected command execution in SSR test");
     },
@@ -1191,6 +1195,9 @@ function composerChat() {
     listCommands: async () => ({ commands: [] }),
     openCodexModelPicker: async () => {
       throw new Error("unexpected model picker open in SSR test");
+    },
+    openCodexPermissionPicker: async () => {
+      throw new Error("unexpected permission picker open in SSR test");
     },
     pendingSteeringMessageIds: [],
     queueMessage: async () => {},
@@ -1224,6 +1231,15 @@ function composerChat() {
     },
     sendMessage: async () => {},
     sendSteeringImmediately: async () => {},
+    setCodexModel: async () => {
+      throw new Error("unexpected model selection in SSR test");
+    },
+    setCodexPermissionPreset: async () => {
+      throw new Error("unexpected permission selection in SSR test");
+    },
+    setCodexReasoningEffort: async () => {
+      throw new Error("unexpected reasoning selection in SSR test");
+    },
     status: "ready",
     steerMessage: async () => {},
   } as unknown as ConversationBodyProps["chat"];
@@ -1307,17 +1323,6 @@ const lostRunPresentation = {
   liveness: null,
   running: true,
 } satisfies ActiveRunPresentation;
-
-function defaultEffectivePermissionSettings() {
-  return {
-    activePermissionProfileExtends: "",
-    activePermissionProfileId: ":workspace",
-    approvalPolicy: "on-request",
-    builtIn: true,
-    displayLabel: "Ask for approval",
-    preset: "default" as const,
-  };
-}
 
 function selectedConversationWithPermission(displayLabel: string) {
   return {

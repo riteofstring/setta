@@ -248,6 +248,7 @@
   }
 
   async function scrollChatTranscript({
+    debugDetach = true,
     distanceFromBottom = null,
     position = null,
     scrollTop = null,
@@ -271,11 +272,20 @@
       position,
       previousScrollTop,
     });
-    if (scrollDelta < 0 && position !== "top") {
+    const afterWheelSnapshot = chatTranscriptScrollSnapshot();
+    detachAfterSyntheticHistoryWheel({ debugDetach, position, scrollDelta });
+    await settleTranscriptScrollTop(scroller, nextScrollTop, position, scrollDelta);
+    return {
+      afterWheelSnapshot,
+      ok: true,
+      snapshot: chatTranscriptScrollSnapshot(),
+    };
+  }
+
+  function detachAfterSyntheticHistoryWheel({ debugDetach, position, scrollDelta }) {
+    if (debugDetach && scrollDelta < 0 && position !== "top") {
       window.__settaChatTranscriptScrollDebug?.detach();
     }
-    await settleTranscriptScrollTop(scroller, nextScrollTop, position, scrollDelta);
-    return { ok: true, snapshot: chatTranscriptScrollSnapshot() };
   }
 
   function dispatchWheelIfNeeded(scroller, options) {

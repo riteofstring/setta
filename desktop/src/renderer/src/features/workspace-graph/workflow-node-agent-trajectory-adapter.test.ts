@@ -438,6 +438,7 @@ function trajectoryPage(
   return {
     activeRun: null,
     activeRunLiveness: null,
+    runSettings: null,
     activity: [
       activityBlock({
         hasDetails: true,

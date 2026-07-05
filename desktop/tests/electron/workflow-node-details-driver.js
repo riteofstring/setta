@@ -191,7 +191,8 @@
     const surfaces = document.querySelectorAll('[data-testid="workflow-node-details-surface"]');
     const surface = lastSurface(surfaces);
     const trajectories = queryAll(details, '[data-testid="agent-trajectory-surface"]');
-    const detailsDock = workflowRunDetailsDock(details);
+    const detailsDock = workflowRunDetailsDockState(details);
+    const settingsBar = workflowRunDetailsSettingsBarState(details);
     return {
       activityGroupHeaderCount: countSelector(details, '[data-testid="activity-group-header"]'),
       chatConversationTrajectoryCount: scopedTrajectoryCount(trajectories, "chatConversation"),
@@ -200,23 +201,46 @@
         details,
         '[data-testid="chat-transcript-scroller"]',
       ),
-      detailsDockOpen: detailsDock?.hasAttribute("open") ?? false,
-      detailsDockPresent: detailsDock !== null,
+      detailsDockOpen: detailsDock.open,
+      detailsDockPresent: detailsDock.present,
       detailsSurfaceCount: surfaces.length,
       focusElementId: focusedActivityId(surface),
       layout: details?.getAttribute("data-workflow-node-run-layout") ?? "",
       nestedTrajectoryFramePresent: nestedTrajectoryFramePresent(details),
       nodeId: workflowNodeDetailsNodeId(surface),
+      nodeStatusChipCount: countSelector(details, '[data-testid="workflow-node-status-chip"]'),
       present: surface !== null,
       runActivityRowCount: countSelector(details, '[data-testid="run-activity-row"]'),
+      settingsBarCount: settingsBar.count,
+      settingsBarText: settingsBar.text,
       text: elementText(details),
       trajectory: workflowNodeTrajectoryStateForDetails(details),
+      workflowStatusText: workflowRunDetailsWorkflowStatusText(details),
       workflowTrajectorySurfaceCount: scopedTrajectoryCount(trajectories, "workflowNodeExecution"),
     };
   }
 
-  function workflowRunDetailsDock(details) {
-    return details?.querySelector('[data-testid="workflow-run-details-dock"]') ?? null;
+  function workflowRunDetailsDockState(details) {
+    const dock = details?.querySelector('[data-testid="workflow-run-details-dock"]') ?? null;
+    return {
+      open: dock?.hasAttribute("open") ?? false,
+      present: dock !== null,
+    };
+  }
+
+  function workflowRunDetailsSettingsBarState(details) {
+    const settingsBar =
+      details?.querySelector('[data-testid="workflow-agent-run-settings"]') ?? null;
+    return {
+      count: settingsBar === null ? 0 : 1,
+      text: elementText(settingsBar),
+    };
+  }
+
+  function workflowRunDetailsWorkflowStatusText(details) {
+    const workflowStatus =
+      details?.querySelector('[data-testid="workflow-node-run-workflow-status"]') ?? null;
+    return elementText(workflowStatus);
   }
 
   function nestedTrajectoryFramePresent(details) {

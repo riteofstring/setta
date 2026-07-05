@@ -1036,6 +1036,7 @@ function lateGatewayArrivalWorkflowGraph() {
 
 function workflowGraph(nodes, edges) {
   return {
+    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges,
     layout: workflowLayout(nodes),
     nodes,
@@ -1079,9 +1080,8 @@ function workflowCodexNode(id, prompt, freshConversation) {
     action: {
       codex: {
         freshConversation,
-        model: "",
         prompt,
-        reasoningEffort: "",
+        settings: { model: "", permission: null, reasoningEffort: null },
       },
       kind: "agent.codex",
     },

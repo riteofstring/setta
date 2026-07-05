@@ -33,7 +33,7 @@ describe("transcript scroll follow decisions", () => {
     expect(transcriptScrollCanJumpToLatest("user_detached", geometry)).toBe(false);
   });
 
-  it("detaches only after user scroll intent moves away from the bottom threshold", () => {
+  it("detaches when user history scroll intent moves away from the bottom threshold", () => {
     expect(
       decideTranscriptScrollFollowAfterScroll({
         geometry: geometryFromMetrics({ scrollTop: 920 }),
@@ -41,6 +41,21 @@ describe("transcript scroll follow decisions", () => {
         mode: "auto_follow",
         pointerScrollIntent: false,
         previousScrollTop: 988,
+        programmaticScrollActive: false,
+        tailScrollIntent: false,
+        wheelScrollIntent: true,
+      }),
+    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
+  });
+
+  it("detaches upward wheel intent inside the bottom threshold", () => {
+    expect(
+      decideTranscriptScrollFollowAfterScroll({
+        geometry: geometryFromMetrics({ scrollTop: 990 }),
+        keyboardScrollIntent: false,
+        mode: "auto_follow",
+        pointerScrollIntent: false,
+        previousScrollTop: 1000,
         programmaticScrollActive: false,
         tailScrollIntent: false,
         wheelScrollIntent: true,
@@ -71,6 +86,21 @@ describe("transcript scroll follow decisions", () => {
         mode: "auto_follow",
         pointerScrollIntent: false,
         previousScrollTop: 988,
+        programmaticScrollActive: true,
+        tailScrollIntent: false,
+        wheelScrollIntent: true,
+      }),
+    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
+  });
+
+  it("detaches upward wheel intent inside the bottom threshold during programmatic settle", () => {
+    expect(
+      decideTranscriptScrollFollowAfterScroll({
+        geometry: geometryFromMetrics({ scrollTop: 990 }),
+        keyboardScrollIntent: false,
+        mode: "auto_follow",
+        pointerScrollIntent: false,
+        previousScrollTop: 1000,
         programmaticScrollActive: true,
         tailScrollIntent: false,
         wheelScrollIntent: true,
