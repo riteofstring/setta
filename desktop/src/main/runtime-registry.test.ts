@@ -7,10 +7,11 @@ import { describe, expect, test } from "vitest";
 
 import { KnownRuntimeStore, type KnownRuntimeRecord } from "./known-runtime-store";
 import { RuntimeRegistryController, type RuntimeRegistryHooks } from "./runtime-registry";
+import { MemoryRuntimeSecretStore } from "./runtime-secret-store";
 
 describe("RuntimeRegistryController", () => {
   test("stops request and stream lifecycle before switching and restarts after connect", async () => {
-    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const store = await newRuntimeStore();
     const local = runtimeRecord({
       baseUrl: "http://127.0.0.1:41000/",
       deviceToken: "local_token",
@@ -55,7 +56,7 @@ describe("RuntimeRegistryController", () => {
   });
 
   test("blocks mismatched runtimes without starting streams", async () => {
-    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const store = await newRuntimeStore();
     const remote = runtimeRecord({
       baseUrl: "http://100.64.0.12:7345/",
       deviceToken: "remote_token",
@@ -93,7 +94,7 @@ describe("RuntimeRegistryController", () => {
   });
 
   test("falls back to local runtime when the stored remote is incompatible on startup", async () => {
-    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const store = await newRuntimeStore();
     const local = runtimeRecord({
       baseUrl: "http://127.0.0.1:41000/",
       deviceToken: "local_token",
@@ -147,7 +148,7 @@ describe("RuntimeRegistryController", () => {
   });
 
   test("updates a stored generic remote name from the runtime-reported machine title", async () => {
-    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const store = await newRuntimeStore();
     const remote = runtimeRecord({
       baseUrl: "http://100.64.0.12:7345/",
       displayName: "Setta Runtime",
@@ -180,7 +181,7 @@ describe("RuntimeRegistryController", () => {
   });
 
   test("uses the runtime hostname when an old remote reports the generic runtime name", async () => {
-    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const store = await newRuntimeStore();
     const remote = runtimeRecord({
       baseUrl: "http://build-host-7.internal:7345/",
       displayName: "Setta Runtime",
@@ -212,7 +213,7 @@ describe("RuntimeRegistryController", () => {
   });
 
   test("uses reverse DNS and provider hostnames for old IP-only remotes", async () => {
-    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const store = await newRuntimeStore();
     const remote = runtimeRecord({
       baseUrl: "http://100.64.0.12:7345/",
       displayName: "Setta Runtime",
@@ -246,7 +247,7 @@ describe("RuntimeRegistryController", () => {
   });
 
   test("creates phone pairing URLs through the active authenticated runtime", async () => {
-    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const store = await newRuntimeStore();
     const remote = runtimeRecord({
       baseUrl: "https://runtime.tailnet.ts.net/",
       deviceToken: "remote_token",
@@ -313,6 +314,13 @@ function lifecycleHooks(events: string[]): RuntimeRegistryHooks {
       events.push("before-switch");
     },
   };
+}
+
+async function newRuntimeStore(): Promise<KnownRuntimeStore> {
+  return new KnownRuntimeStore(
+    await mkdtemp(join(tmpdir(), "setta-runtime-registry-")),
+    new MemoryRuntimeSecretStore(),
+  );
 }
 
 function runtimeFetch(): BackendFetch {
