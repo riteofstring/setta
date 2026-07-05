@@ -1341,6 +1341,9 @@ func assertCLIWorkflowStartAuditRecord(t *testing.T, record workflowaudit.Record
 	if record.WorkspaceID != workspaceID || record.DefinitionID != definitionID || record.ExecutionID != executionID {
 		t.Fatalf("audit start workspace/definition/execution = %s/%s/%s, want %s/%s/%s", record.WorkspaceID, record.DefinitionID, record.ExecutionID, workspaceID, definitionID, executionID)
 	}
+	if record.Validation == nil || !record.Validation.Valid {
+		t.Fatalf("audit start validation = %+v, want valid result", record.Validation)
+	}
 }
 
 func assertCLIWorkflowFailedStartAuditRecord(t *testing.T, record workflowaudit.Record, definitionID string, errorCode string) {

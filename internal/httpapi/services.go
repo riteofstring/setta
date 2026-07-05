@@ -112,6 +112,7 @@ type WorkflowService interface {
 	RetryWorkflowNodeRunLiveness(context.Context, string, string, string) (chat.RunLivenessReconciliationResult, error)
 	SaveDefinition(workspaceID string, input orchestrator.WorkflowDefinitionSaveInput) (orchestrator.WorkflowDefinitionSaveResult, error)
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
+	StartExecutionWithValidation(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, orchestrator.WorkflowValidationResult, error)
 	SteerWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	StopWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string) (orchestrator.WorkflowExecution, error)
 	SubscribeEvents(cursor orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error)

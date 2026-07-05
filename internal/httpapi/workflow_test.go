@@ -171,13 +171,15 @@ func TestWorkflowEndpointSaveDefinitionValidatesBeforePersisting(t *testing.T) {
 func TestWorkflowEndpointSaveAndStartRecordCommandAudit(t *testing.T) {
 	handler, auditStore := newChatHandlerWithAudit(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	graph := httpWorkflowStartEndGraph()
+	graph.Layout.Nodes = append(graph.Layout.Nodes, orchestrator.WorkflowGraphNodeLayout{NodeID: "stale_layout_node", X: 320, Y: 0})
 
 	created := postJSON[orchestrator.WorkflowDefinitionSaveResult](t, handler, "/workflows/definitions/save", SaveWorkflowDefinitionRequest{
 		WorkspaceID: opened.Workspace.ID,
 		Input: orchestrator.WorkflowDefinitionSaveInput{
 			Operation: orchestrator.WorkflowDefinitionSaveCreate,
 			Name:      "Audited save",
-			Graph:     httpWorkflowStartEndGraph(),
+			Graph:     graph,
 		},
 	}, http.StatusOK)
 	if !created.Saved || created.Definition == nil {
@@ -214,11 +216,17 @@ func TestWorkflowEndpointSaveAndStartRecordCommandAudit(t *testing.T) {
 
 	assertWorkflowAuditDevice(t, records[0])
 	assertWorkflowAuditSaveRecord(t, records[0], workflowaudit.OutcomeWorkflowDefinitionSaved, opened.Workspace.ID, created.Definition.ID, true, true)
+	if !httpWorkflowDiagnosticsContain(records[0].Validation.Diagnostics, "layout_node_unknown") {
+		t.Fatalf("audit save diagnostics = %+v, want layout_node_unknown warning", records[0].Validation.Diagnostics)
+	}
 	assertWorkflowAuditSaveRecord(t, records[1], workflowaudit.OutcomeWorkflowDefinitionUnsaved, opened.Workspace.ID, "", false, false)
 	if !httpWorkflowDiagnosticsContain(records[1].Validation.Diagnostics, "end_node_required") {
 		t.Fatalf("audit diagnostics = %+v, want end_node_required", records[1].Validation.Diagnostics)
 	}
 	assertWorkflowAuditStartRecord(t, records[2], opened.Workspace.ID, created.Definition.ID, started.ID)
+	if !httpWorkflowDiagnosticsContain(records[2].Validation.Diagnostics, "layout_node_unknown") {
+		t.Fatalf("audit start diagnostics = %+v, want layout_node_unknown warning", records[2].Validation.Diagnostics)
+	}
 }
 
 func TestWorkflowEndpointCancelReturnsCompletedExecutionWithoutFailure(t *testing.T) {
@@ -813,8 +821,8 @@ func assertWorkflowAuditStartRecord(t *testing.T, record workflowaudit.Record, w
 	if record.WorkspaceID != workspaceID || record.DefinitionID != definitionID || record.ExecutionID != executionID {
 		t.Fatalf("audit start workspace/definition/execution = %s/%s/%s, want %s/%s/%s", record.WorkspaceID, record.DefinitionID, record.ExecutionID, workspaceID, definitionID, executionID)
 	}
-	if record.Validation != nil {
-		t.Fatalf("audit start validation = %+v, want nil", record.Validation)
+	if record.Validation == nil || !record.Validation.Valid {
+		t.Fatalf("audit start validation = %+v, want valid result", record.Validation)
 	}
 }
 

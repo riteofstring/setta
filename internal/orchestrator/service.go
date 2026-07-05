@@ -346,33 +346,40 @@ func (service *Service) ValidateDefinition(workspaceID string, graph WorkflowGra
 }
 
 func (service *Service) StartExecution(workspaceID string, definitionID string, versionID string) (WorkflowExecution, error) {
-	workspaceSummary, err := service.resolveWorkspace(workspaceID)
-	if err != nil {
-		return WorkflowExecution{}, err
-	}
-	service.mu.Lock()
-	executionID, err := service.startExecutionLocked(workspaceSummary, workspaceID, definitionID, versionID)
-	service.mu.Unlock()
-	if err != nil {
-		return WorkflowExecution{}, err
-	}
-	return service.dispatchReadyActions(workspaceID, executionID)
+	execution, _, err := service.StartExecutionWithValidation(workspaceID, definitionID, versionID)
+	return execution, err
 }
 
-func (service *Service) startExecutionLocked(workspaceSummary workspace.WorkspaceSummary, workspaceID string, definitionID string, versionID string) (string, error) {
+func (service *Service) StartExecutionWithValidation(workspaceID string, definitionID string, versionID string) (WorkflowExecution, WorkflowValidationResult, error) {
+	workspaceSummary, err := service.resolveWorkspace(workspaceID)
+	if err != nil {
+		return WorkflowExecution{}, WorkflowValidationResult{}, err
+	}
+	service.mu.Lock()
+	executionID, validation, err := service.startExecutionLocked(workspaceSummary, workspaceID, definitionID, versionID)
+	service.mu.Unlock()
+	if err != nil {
+		return WorkflowExecution{}, validation, err
+	}
+	execution, err := service.dispatchReadyActions(workspaceID, executionID)
+	return execution, validation, err
+}
+
+func (service *Service) startExecutionLocked(workspaceSummary workspace.WorkspaceSummary, workspaceID string, definitionID string, versionID string) (string, WorkflowValidationResult, error) {
 	if err := service.rejectActiveExecutionForDefinitionLocked(workspaceID, definitionID); err != nil {
-		return "", err
+		return "", WorkflowValidationResult{}, err
 	}
 	version, createVersion, err := service.startExecutionVersionLocked(workspaceSummary, workspaceID, definitionID, versionID)
 	if err != nil {
-		return "", err
+		return "", WorkflowValidationResult{}, err
 	}
-	if result := ValidateExecutableGraph(version.Graph, service.runnerRegistry); !result.Valid {
-		return "", &ValidationError{Result: result}
+	validation := ValidateExecutableGraph(version.Graph, service.runnerRegistry)
+	if !validation.Valid {
+		return "", validation, &ValidationError{Result: validation}
 	}
 	transition, err := StartExecution(version, service.transitionContext())
 	if err != nil {
-		return "", err
+		return "", validation, err
 	}
 	if createVersion {
 		err = service.persistExecutionStart(version, transition)
@@ -380,9 +387,9 @@ func (service *Service) startExecutionLocked(workspaceSummary workspace.Workspac
 		err = service.persistTransition(transition)
 	}
 	if err != nil {
-		return "", err
+		return "", validation, err
 	}
-	return transition.Execution.ID, nil
+	return transition.Execution.ID, validation, nil
 }
 
 func (service *Service) rejectActiveExecutionForDefinitionLocked(workspaceID string, definitionID string) error {

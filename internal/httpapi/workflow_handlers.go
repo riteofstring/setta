@@ -158,16 +158,16 @@ func (handler handler) startWorkflowExecution(response http.ResponseWriter, requ
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	execution, err := service.StartExecution(payload.WorkspaceID, payload.DefinitionID, payload.VersionID)
+	execution, validation, err := service.StartExecutionWithValidation(payload.WorkspaceID, payload.DefinitionID, payload.VersionID)
 	if err != nil {
-		if auditErr := recordWorkflowExecutionStartAudit(request, auditService, payload, execution, err); auditErr != nil {
+		if auditErr := recordWorkflowExecutionStartAudit(request, auditService, payload, execution, validation, err); auditErr != nil {
 			writeWorkflowAuditError(response, auditErr)
 			return
 		}
 		writeWorkflowError(response, "start_workflow_execution_failed", err)
 		return
 	}
-	if err := recordWorkflowExecutionStartAudit(request, auditService, payload, execution, nil); err != nil {
+	if err := recordWorkflowExecutionStartAudit(request, auditService, payload, execution, validation, nil); err != nil {
 		writeWorkflowAuditError(response, err)
 		return
 	}
@@ -221,6 +221,7 @@ func recordWorkflowExecutionStartAudit(
 	auditService WorkflowAuditService,
 	payload StartWorkflowExecutionRequest,
 	execution orchestrator.WorkflowExecution,
+	validation orchestrator.WorkflowValidationResult,
 	operationErr error,
 ) error {
 	deviceSession, ok := authenticatedDeviceSession(request)
@@ -235,7 +236,7 @@ func recordWorkflowExecutionStartAudit(
 	}
 	if operationErr != nil {
 		input.Outcome = workflowaudit.OutcomeFailed
-		input.Validation = workflowAuditValidationFromError(operationErr)
+		input.Validation = workflowAuditValidationResult(validation, operationErr)
 		input.ErrorCode = workflowAuditErrorCode("start_workflow_execution_failed", operationErr)
 		input.ErrorMessage = operationErr.Error()
 		if conflict, ok := orchestrator.IsWorkflowExecutionAlreadyRunning(operationErr); ok {
@@ -248,8 +249,20 @@ func recordWorkflowExecutionStartAudit(
 
 	input.Outcome = workflowaudit.OutcomeWorkflowExecutionStarted
 	input.ExecutionID = execution.ID
+	input.Validation = workflowAuditValidationResult(validation, nil)
 	_, err := auditService.Record(request.Context(), input)
 	return err
+}
+
+func workflowAuditValidationResult(result orchestrator.WorkflowValidationResult, err error) *orchestrator.WorkflowValidationResult {
+	if result.Valid || result.Diagnostics != nil {
+		validation := result
+		return &validation
+	}
+	if err == nil {
+		return nil
+	}
+	return workflowAuditValidationFromError(err)
 }
 
 func workflowAuditValidationFromError(err error) *orchestrator.WorkflowValidationResult {

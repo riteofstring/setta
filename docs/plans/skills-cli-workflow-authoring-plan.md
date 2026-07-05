@@ -449,6 +449,16 @@ Progress on 2026-07-07:
   `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after
   extracting runtime workflow-service/audit setup to keep
   `buildRuntimeServices` within the repository complexity limit.
+- Audit follow-up: execution start audit records now preserve the
+  orchestrator-owned executable graph validation result on successful starts,
+  including warning diagnostics, instead of only recording validation failures.
+  Verification: `./scripts/go.sh test ./internal/orchestrator -run
+  'Test.*Start|TestValidateGraphReportsStaleLayoutAsWarning'`,
+  `./scripts/go.sh test ./internal/httpapi -run
+  'TestWorkflowEndpointSaveAndStartRecordCommandAudit|TestWorkflowEndpointStartExecutionConflictIncludesActiveExecution|TestWorkflowEndpointSaveDefinitionValidatesBeforePersisting'`,
+  `./scripts/go.sh test ./cmd/setta -run
+  'TestWorkflowDefinitionsSaveCommandCreatesAndUpdatesDefinition|TestWorkflowExecutionsStartAndReadCommandIntegration|TestWorkflowExecutionsStartCommandFailsForMissingDefinition'`,
+  `./scripts/format.sh`, and `./check_quality.sh --git-changes` passed.
 - Remaining work: Phase 3 should add the workflow-builder skill. Broader
   workflow-authoring Electron coverage, in-app Codex movement to the
   skill/CLI/API path, and removal of obsolete dynamic-tool authoring paths
