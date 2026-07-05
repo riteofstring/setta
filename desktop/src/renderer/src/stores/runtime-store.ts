@@ -1,11 +1,16 @@
 import type { CreateDevicePairingResponse } from "@generated/backend";
-import type { RuntimeConnectionStatus, RuntimeRegistrySnapshot } from "@shared/types";
+import type {
+  AddExistingMachineSSHRuntimeRequest,
+  RuntimeConnectionStatus,
+  RuntimeRegistrySnapshot,
+} from "@shared/types";
 import { create } from "zustand";
 
 export type RuntimeStoreOperation = "adding" | "pairing" | "removing" | "switching" | null;
 type RuntimeStoreStatus = "idle" | "loading" | "ready" | "error";
 
 interface RuntimeStore {
+  addExistingMachineOverSSH: (request: AddExistingMachineSSHRuntimeRequest) => Promise<void>;
   addByPairingUrl: (pairingUrl: string) => Promise<void>;
   clearError: () => void;
   createDevicePairing: () => Promise<CreateDevicePairingResponse>;
@@ -38,6 +43,8 @@ export const useRuntimeStore = create<RuntimeStore>((set) => {
   }
 
   return {
+    addExistingMachineOverSSH: (request) =>
+      runRuntimeOperation("adding", () => window.setta.runtimes.addExistingMachineOverSSH(request)),
     addByPairingUrl: (pairingUrl) =>
       runRuntimeOperation("adding", () => window.setta.runtimes.addByPairingUrl(pairingUrl)),
     clearError: () => set({ error: null }),

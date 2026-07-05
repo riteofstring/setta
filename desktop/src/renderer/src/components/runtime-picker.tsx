@@ -1,4 +1,8 @@
-import type { KnownRuntimeView, RuntimeConnectionStatus } from "@shared/types";
+import type {
+  AddExistingMachineSSHRuntimeRequest,
+  KnownRuntimeView,
+  RuntimeConnectionStatus,
+} from "@shared/types";
 import {
   AlertTriangle,
   Check,
@@ -82,6 +86,19 @@ export function RuntimePickerAddButton({ adding, setAdding }: Required<RuntimePi
   );
 }
 
+type RuntimeAddMode = "pairing-url" | "ssh";
+type RuntimeSSHField = keyof AddExistingMachineSSHRuntimeRequest;
+
+const emptySSHRuntimeRequest: AddExistingMachineSSHRuntimeRequest = {
+  installerSha256: "",
+  minisignPublicKey: "",
+  releaseBaseUrl: "",
+  runtimeName: "",
+  settaVersion: "",
+  sshTarget: "",
+  tailscaleAuthKey: "",
+};
+
 function useRuntimePickerState({
   adding,
   setAdding,
@@ -89,6 +106,7 @@ function useRuntimePickerState({
   adding: boolean;
   setAdding: Dispatch<SetStateAction<boolean>>;
 }) {
+  const addExistingMachineOverSSH = useRuntimeStore((state) => state.addExistingMachineOverSSH);
   const addByPairingUrl = useRuntimeStore((state) => state.addByPairingUrl);
   const createDevicePairing = useRuntimeStore((state) => state.createDevicePairing);
   const error = useRuntimeStore((state) => state.error);
@@ -97,11 +115,19 @@ function useRuntimePickerState({
   const snapshot = useRuntimeStore((state) => state.snapshot);
   const status = useRuntimeStore((state) => state.status);
   const switchRuntime = useRuntimeStore((state) => state.switchRuntime);
+  const [addMode, setAddMode] = useState<RuntimeAddMode>("pairing-url");
   const [pairingUrl, setPairingUrl] = useState("");
+  const [sshRequest, setSSHRequest] =
+    useState<AddExistingMachineSSHRuntimeRequest>(emptySSHRuntimeRequest);
   const runtimes = snapshot?.runtimes ?? [];
   const busy = runtimePickerControlsDisabled(snapshot, operation);
+  function setSSHField(field: RuntimeSSHField, value: string) {
+    setSSHRequest((current) => ({ ...current, [field]: value }));
+  }
   return {
+    addExistingMachineOverSSH,
     addByPairingUrl,
+    addMode,
     adding,
     busy,
     createDevicePairing,
@@ -110,8 +136,12 @@ function useRuntimePickerState({
     pairingUrl,
     removeRuntime,
     runtimes,
+    setAddMode,
     setAdding,
     setPairingUrl,
+    setSSHField,
+    setSSHRequest,
+    sshRequest,
     status,
     switchRuntime,
   };
@@ -138,24 +168,171 @@ function RuntimePairingForm({ state }: { state: RuntimePickerState }) {
   }
 
   return (
-    <form className="grid gap-1 px-1 pt-1" onSubmit={submitPairingURL}>
+    <div className="grid gap-1 px-1 pt-1">
+      <RuntimeAddModeControl mode={state.addMode} setMode={state.setAddMode} />
+      {state.addMode === "pairing-url" ? (
+        <form className="grid gap-1" onSubmit={submitPairingURL}>
+          <Input
+            aria-label="Runtime pairing URL"
+            autoComplete="off"
+            disabled={state.busy}
+            onChange={(event) => state.setPairingUrl(event.target.value)}
+            placeholder="setta://pair?rt=..."
+            value={state.pairingUrl}
+          />
+          <Button
+            className="w-fit"
+            disabled={state.busy || state.pairingUrl.trim() === ""}
+            type="submit"
+          >
+            {state.operation === "adding" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Add
+          </Button>
+        </form>
+      ) : (
+        <RuntimeSSHForm state={state} />
+      )}
+    </div>
+  );
+}
+
+function RuntimeAddModeControl({
+  mode,
+  setMode,
+}: {
+  mode: RuntimeAddMode;
+  setMode: Dispatch<SetStateAction<RuntimeAddMode>>;
+}) {
+  return (
+    <div
+      aria-label="Runtime add mode"
+      className="grid grid-cols-2 gap-0.5 rounded-sm bg-muted p-0.5"
+      role="group"
+    >
+      <button
+        aria-label="Add runtime by pairing URL"
+        aria-pressed={mode === "pairing-url"}
+        className={cn(
+          "inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground",
+          mode === "pairing-url" && "bg-background text-foreground shadow-xs",
+        )}
+        onClick={() => setMode("pairing-url")}
+        type="button"
+      >
+        <QrCode className="h-3.5 w-3.5" />
+        <span className="min-w-0 truncate">Pairing URL</span>
+      </button>
+      <button
+        aria-label="Add runtime from existing machine over SSH"
+        aria-pressed={mode === "ssh"}
+        className={cn(
+          "inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground",
+          mode === "ssh" && "bg-background text-foreground shadow-xs",
+        )}
+        onClick={() => setMode("ssh")}
+        type="button"
+      >
+        <Server className="h-3.5 w-3.5" />
+        <span className="min-w-0 truncate">Existing machine over SSH</span>
+      </button>
+    </div>
+  );
+}
+
+function RuntimeSSHForm({ state }: { state: RuntimePickerState }) {
+  async function submitSSH(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (state.busy || !sshRequestComplete(state.sshRequest)) {
+      return;
+    }
+    await state.addExistingMachineOverSSH(state.sshRequest);
+    if (useRuntimeStore.getState().error === null) {
+      state.setSSHRequest(emptySSHRuntimeRequest);
+      state.setAdding(false);
+    }
+  }
+
+  return (
+    <form className="grid gap-1" onSubmit={submitSSH}>
       <Input
-        aria-label="Runtime pairing URL"
+        aria-label="SSH target"
         autoComplete="off"
         disabled={state.busy}
-        onChange={(event) => state.setPairingUrl(event.target.value)}
-        placeholder="setta://pair?rt=..."
-        value={state.pairingUrl}
+        onChange={(event) => state.setSSHField("sshTarget", event.target.value)}
+        placeholder="ssh://ubuntu@example.com"
+        value={state.sshRequest.sshTarget}
+      />
+      <div className="grid grid-cols-2 gap-1">
+        <Input
+          aria-label="Runtime name"
+          autoComplete="off"
+          disabled={state.busy}
+          onChange={(event) => state.setSSHField("runtimeName", event.target.value)}
+          placeholder="setta-gpu-box"
+          value={state.sshRequest.runtimeName ?? ""}
+        />
+        <Input
+          aria-label="Setta version"
+          autoComplete="off"
+          disabled={state.busy}
+          onChange={(event) => state.setSSHField("settaVersion", event.target.value)}
+          placeholder="v1.2.3"
+          value={state.sshRequest.settaVersion}
+        />
+      </div>
+      <Input
+        aria-label="Tailscale auth key"
+        autoComplete="off"
+        disabled={state.busy}
+        onChange={(event) => state.setSSHField("tailscaleAuthKey", event.target.value)}
+        placeholder="tskey-auth-..."
+        type="password"
+        value={state.sshRequest.tailscaleAuthKey}
+      />
+      <Input
+        aria-label="Release base URL"
+        autoComplete="off"
+        disabled={state.busy}
+        onChange={(event) => state.setSSHField("releaseBaseUrl", event.target.value)}
+        placeholder="https://downloads.example.test/setta/v1.2.3"
+        value={state.sshRequest.releaseBaseUrl}
+      />
+      <Input
+        aria-label="Installer SHA-256"
+        autoComplete="off"
+        disabled={state.busy}
+        onChange={(event) => state.setSSHField("installerSha256", event.target.value)}
+        placeholder="installer sha256"
+        value={state.sshRequest.installerSha256}
+      />
+      <Input
+        aria-label="Minisign public key"
+        autoComplete="off"
+        disabled={state.busy}
+        onChange={(event) => state.setSSHField("minisignPublicKey", event.target.value)}
+        placeholder="RWQ..."
+        value={state.sshRequest.minisignPublicKey}
       />
       <Button
         className="w-fit"
-        disabled={state.busy || state.pairingUrl.trim() === ""}
+        disabled={state.busy || !sshRequestComplete(state.sshRequest)}
         type="submit"
       >
         {state.operation === "adding" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-        Add
+        Install
       </Button>
     </form>
+  );
+}
+
+function sshRequestComplete(request: AddExistingMachineSSHRuntimeRequest): boolean {
+  return (
+    request.sshTarget.trim() !== "" &&
+    request.tailscaleAuthKey.trim() !== "" &&
+    request.settaVersion.trim() !== "" &&
+    request.releaseBaseUrl.trim() !== "" &&
+    request.installerSha256.trim() !== "" &&
+    request.minisignPublicKey.trim() !== ""
   );
 }
 

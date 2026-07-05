@@ -10,6 +10,17 @@ import (
 )
 
 func TestProvisionRenderCloudInitEmitsDeterministicPayloadAndMetadata(t *testing.T) {
+	result := renderTestCloudInit(t)
+	if !result.OK {
+		t.Fatal("ok = false, want true")
+	}
+	assertProvisionCloudInitMetadata(t, result)
+	assertProvisionCloudInitContract(t, result)
+	assertProvisionCloudInitRedaction(t, result)
+}
+
+func renderTestCloudInit(t *testing.T) provisionCloudInitResult {
+	t.Helper()
 	var stdout bytes.Buffer
 	deps := testDeps()
 	deps.stdout = &stdout
@@ -22,9 +33,11 @@ func TestProvisionRenderCloudInitEmitsDeterministicPayloadAndMetadata(t *testing
 	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
 		t.Fatalf("parse output JSON: %v\n%s", err, stdout.String())
 	}
-	if !result.OK {
-		t.Fatal("ok = false, want true")
-	}
+	return result
+}
+
+func assertProvisionCloudInitMetadata(t *testing.T, result provisionCloudInitResult) {
+	t.Helper()
 	if result.Runtime.RuntimeName != "setta-test-runtime" || result.Runtime.SeedPath != "/var/lib/setta/provisioning-seed.json" {
 		t.Fatalf("runtime metadata = %+v", result.Runtime)
 	}
@@ -37,13 +50,22 @@ func TestProvisionRenderCloudInitEmitsDeterministicPayloadAndMetadata(t *testing
 	if result.CloudInitSHA256 != sha256String(result.CloudInit) {
 		t.Fatalf("cloud-init digest = %s, want digest of payload", result.CloudInitSHA256)
 	}
+}
+
+func assertProvisionCloudInitContract(t *testing.T, result provisionCloudInitResult) {
+	t.Helper()
 	if !strings.Contains(result.CloudInit, "#cloud-config\n") ||
 		!strings.Contains(result.CloudInit, "SETTA_MINISIGN_PUBLIC_KEY=") ||
 		!strings.Contains(result.CloudInit, "tailscale up --auth-key \"$tailscale_auth_key\" --hostname \"$runtime_name\"") ||
 		!strings.Contains(result.CloudInit, "SETTA_PROVISIONING_SEED_FILE=\"$seed_path\"") ||
+		!strings.Contains(result.CloudInit, "setta pair --json --app-data-dir") ||
 		!strings.Contains(result.CloudInit, "setta service configure-tailscale-serve") {
 		t.Fatalf("cloud-init missing bootstrap contract:\n%s", result.CloudInit)
 	}
+}
+
+func assertProvisionCloudInitRedaction(t *testing.T, result provisionCloudInitResult) {
+	t.Helper()
 	if !strings.Contains(result.RedactedCloudInit, "__SETTA_REDACTED_TAILSCALE_AUTH_KEY__") {
 		t.Fatalf("redacted cloud-init did not include redaction marker:\n%s", result.RedactedCloudInit)
 	}

@@ -45,6 +45,7 @@ type provisionRenderCloudInitOptions struct {
 	InstallerURL        string
 	JSON                bool
 	MinisignPublicKey   string
+	PairingToken        string
 	PairingTokenHash    string
 	ProvisionID         string
 	ReleaseBaseURL      string
@@ -394,6 +395,7 @@ func cloudInitShellValues(options provisionRenderCloudInitOptions) [][2]string {
 	return [][2]string{
 		{"runtime_name", options.RuntimeName},
 		{"tailscale_auth_key", options.TailscaleAuthKey},
+		{"ssh_pairing_token", options.PairingToken},
 		{"pairing_token_hash", strings.ToLower(options.PairingTokenHash)},
 		{"provision_id", options.ProvisionID},
 		{"provision_attestation_key", options.AttestationKey},
@@ -630,6 +632,26 @@ start_setta_runtime() {
   start_no_systemd_runtime
 }
 
+print_pairing_url() {
+  write_setup_report "pairing_url" "running" "waiting for setta pairing URL"
+  attempt=1
+  pairing_output=""
+  while [ "$attempt" -le 90 ]; do
+    if [ -n "$ssh_pairing_token" ]; then
+      pairing_output="$(/usr/local/bin/setta pair --json --app-data-dir "$service_app_data_dir" --existing-token "$ssh_pairing_token" 2>&1)" && {
+        printf '%s\n' "$pairing_output"
+        return
+      }
+    elif pairing_output="$(/usr/local/bin/setta pair --json --app-data-dir "$service_app_data_dir" 2>&1)"; then
+      printf '%s\n' "$pairing_output"
+      return
+    fi
+    sleep 2
+    attempt=$((attempt + 1))
+  done
+  fail "setta pairing URL did not become available: ${pairing_output:-no output}"
+}
+
 cleanup_bootstrap() {
   rm -f "$bootstrap_script_path"
   if [ -n "${tmp_dir:-}" ]; then
@@ -652,12 +674,16 @@ else
 fi
 write_provisioning_seed
 start_setta_runtime
+print_pairing_url
 write_setup_report "complete" "ok" "setta runtime bootstrap complete"
 `
 }
 
 func redactedProvisionCloudInitOptions(options provisionRenderCloudInitOptions) provisionRenderCloudInitOptions {
 	options.TailscaleAuthKey = "__SETTA_REDACTED_TAILSCALE_AUTH_KEY__"
+	if options.PairingToken != "" {
+		options.PairingToken = "__SETTA_REDACTED_PAIRING_TOKEN__"
+	}
 	options.PairingTokenHash = "__SETTA_REDACTED_PAIRING_TOKEN_HASH__"
 	options.AttestationKey = "__SETTA_REDACTED_PROVISION_ATTESTATION_KEY__"
 	return options

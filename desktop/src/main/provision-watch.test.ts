@@ -33,6 +33,7 @@ describe("provision watch", () => {
         runtimeId: "runtime_remote",
       }),
       nonce: () => "nonce-000000000000000000000000",
+      now: () => new Date("2026-07-07T10:00:00.000Z"),
       onProgress: (event) => progress.push(event.status),
       pending,
       pollIntervalMs: 1,
@@ -88,6 +89,7 @@ describe("provision watch", () => {
       fetchImpl: async () => {
         throw new Error("HTTP should not be called for an untagged candidate");
       },
+      now: () => new Date("2026-07-07T10:00:00.000Z"),
       pending,
       tailnetClient: {
         listNodes: async () => [

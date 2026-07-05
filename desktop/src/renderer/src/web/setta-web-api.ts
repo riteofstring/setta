@@ -269,6 +269,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       startLogin: (request) => requireClient().startCodexLogin(request),
     },
     runtimes: {
+      addExistingMachineOverSSH: () => Promise.reject(new Error("SSH setup is desktop-only.")),
       addByPairingUrl: async (pairingUrl) => {
         const parsed = parseWebPairingURL(pairingUrl);
         const info = await publicClient().runtimeInfo();

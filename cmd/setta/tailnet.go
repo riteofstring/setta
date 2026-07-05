@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/netip"
 	"os/exec"
 	"strings"
 )
 
 type commandRunner func(context.Context, string, ...string) ([]byte, error)
+type commandStdinRunner func(context.Context, string, []string, io.Reader) ([]byte, error)
 
 func resolveTailnetIPv4(ctx context.Context, runner commandRunner) (string, error) {
 	output, err := runner(ctx, "tailscale", "ip", "-4")
@@ -53,6 +55,12 @@ func nonEmptyLines(output string) []string {
 
 func runExternalCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
 	command := exec.CommandContext(ctx, name, args...)
+	return command.CombinedOutput()
+}
+
+func runExternalCommandWithStdin(ctx context.Context, name string, args []string, stdin io.Reader) ([]byte, error) {
+	command := exec.CommandContext(ctx, name, args...)
+	command.Stdin = stdin
 	return command.CombinedOutput()
 }
 

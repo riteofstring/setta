@@ -138,6 +138,7 @@ import type {
   WorkspaceSession,
 } from "@generated/backend";
 import type {
+  AddExistingMachineSSHRuntimeRequest,
   AppWindowDragPoint,
   InstalledEditorApp,
   KnownRuntimeView,
@@ -163,6 +164,7 @@ export const ipcChannels = {
   appearanceRead: "appearance:read",
   appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
+  runtimeAddExistingMachineOverSSH: "runtimes:add-existing-machine-over-ssh",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
   runtimeCreateDevicePairing: "runtimes:create-device-pairing",
   runtimeCurrent: "runtimes:current",
@@ -359,12 +361,10 @@ interface IpcContract {
     args: [request: UpdateAppearanceSettingsRequest];
     result: AppearanceSettings;
   };
-  backendHealth: {
-    args: [];
-    result: BackendHealth;
-  };
-  runtimeAddByPairingUrl: {
-    args: [pairingUrl: string];
+  backendHealth: { args: []; result: BackendHealth };
+  runtimeAddByPairingUrl: { args: [pairingUrl: string]; result: RuntimeRegistrySnapshot };
+  runtimeAddExistingMachineOverSSH: {
+    args: [request: AddExistingMachineSSHRuntimeRequest];
     result: RuntimeRegistrySnapshot;
   };
   runtimeCreateDevicePairing: { args: []; result: CreateDevicePairingResponse };

@@ -43,6 +43,7 @@ describe("preload runtime API", () => {
     const { api, invoke, on, removeListener } = await exposePreloadAPI();
     expect(Object.keys(api.runtimes).sort()).toEqual([
       "addByPairingUrl",
+      "addExistingMachineOverSSH",
       "createDevicePairing",
       "current",
       "list",
@@ -53,6 +54,14 @@ describe("preload runtime API", () => {
 
     await api.runtimes.current();
     await api.runtimes.list();
+    await api.runtimes.addExistingMachineOverSSH({
+      installerSha256: "a".repeat(64),
+      minisignPublicKey: "RWQtestminisignpublickey",
+      releaseBaseUrl: "https://downloads.example.test/setta/v1.2.3",
+      settaVersion: "v1.2.3",
+      sshTarget: "ssh://ubuntu@example.com",
+      tailscaleAuthKey: "tskey-auth-secret",
+    });
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_remote&tok=tok&url=http://host");
     await api.runtimes.createDevicePairing();
     await api.runtimes.switch("runtime_remote");
@@ -70,6 +79,17 @@ describe("preload runtime API", () => {
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.runtimeCurrent],
       [ipcChannels.runtimeList],
+      [
+        ipcChannels.runtimeAddExistingMachineOverSSH,
+        {
+          installerSha256: "a".repeat(64),
+          minisignPublicKey: "RWQtestminisignpublickey",
+          releaseBaseUrl: "https://downloads.example.test/setta/v1.2.3",
+          settaVersion: "v1.2.3",
+          sshTarget: "ssh://ubuntu@example.com",
+          tailscaleAuthKey: "tskey-auth-secret",
+        },
+      ],
       [
         ipcChannels.runtimeAddByPairingUrl,
         "setta://pair?rt=runtime_remote&tok=tok&url=http://host",

@@ -22,16 +22,17 @@ const defaultServePort = 7345
 var version = "dev"
 
 type cliDeps struct {
-	commandRunner commandRunner
-	getenv        func(string) string
-	lookPath      func(string) (string, error)
-	httpClient    *http.Client
-	now           func() time.Time
-	pid           func() int
-	renderQR      func(io.Writer, string)
-	sleep         func(context.Context, time.Duration) error
-	stderr        io.Writer
-	stdout        io.Writer
+	commandRunner      commandRunner
+	commandStdinRunner commandStdinRunner
+	getenv             func(string) string
+	lookPath           func(string) (string, error)
+	httpClient         *http.Client
+	now                func() time.Time
+	pid                func() int
+	renderQR           func(io.Writer, string)
+	sleep              func(context.Context, time.Duration) error
+	stderr             io.Writer
+	stdout             io.Writer
 }
 
 type usageError struct {
@@ -46,6 +47,7 @@ var cliCommandHandlers = map[string]cliCommandHandler{
 	"devices":   runDevices,
 	"doctor":    runDoctor,
 	"provision": runProvision,
+	"remote":    runRemote,
 	"service":   runService,
 	"runtime":   runRuntime,
 	"version":   runVersion,
@@ -112,9 +114,8 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	if deps.getenv == nil {
 		deps.getenv = os.Getenv
 	}
-	if deps.commandRunner == nil {
-		deps.commandRunner = runExternalCommand
-	}
+	deps.commandRunner = normalizedCommandRunner(deps.commandRunner)
+	deps.commandStdinRunner = normalizedCommandStdinRunner(deps.commandStdinRunner)
 	if deps.lookPath == nil {
 		deps.lookPath = exec.LookPath
 	}
@@ -136,6 +137,20 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	return deps
 }
 
+func normalizedCommandRunner(runner commandRunner) commandRunner {
+	if runner != nil {
+		return runner
+	}
+	return runExternalCommand
+}
+
+func normalizedCommandStdinRunner(runner commandStdinRunner) commandStdinRunner {
+	if runner != nil {
+		return runner
+	}
+	return runExternalCommandWithStdin
+}
+
 func (err usageError) Error() string {
 	return err.err.Error()
 }
@@ -147,12 +162,13 @@ func (err usageError) Unwrap() error {
 func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage:")
 	fmt.Fprintln(output, "  setta serve [--app-data-dir DIR] [--port PORT] [--tailnet]")
-	fmt.Fprintln(output, "  setta pair [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta pair [--json] [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta runtime rename <display-name> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta doctor --json [--app-data-dir DIR] [--workspace-dir DIR]")
 	fmt.Fprintln(output, "  setta provision render-cloudinit --json [flags]")
+	fmt.Fprintln(output, "  setta remote add ssh://user@host [flags]")
 	fmt.Fprintln(output, "  setta service wait-tailnet [--timeout DURATION] [--poll-interval DURATION]")
 	fmt.Fprintln(output, "  setta service configure-tailscale-serve [--app-data-dir DIR] [--timeout DURATION] [--poll-interval DURATION]")
 	fmt.Fprintln(output, "  setta version")

@@ -535,7 +535,13 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerRuntimeIpcHandlers({ ipcMain, ipcObserver, requireRuntimeRegistry });
+  registerRuntimeIpcHandlers({
+    appDataDir: settaAppDataDir(),
+    ipcMain,
+    ipcObserver,
+    repoRoot: repoRoot(),
+    requireRuntimeRegistry,
+  });
   handleIpc(
     ipcMain,
     "appearanceRead",
