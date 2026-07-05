@@ -69,6 +69,46 @@ func TestStoreReplaysWorkflowEventsAfterReopen(t *testing.T) {
 	}
 }
 
+func TestStoreReplaysWorkflowDefinitionEventsAfterReopen(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := newSQLiteWorkflowStoreForTest(t, appDataDir)
+	event := WorkflowEvent{
+		SchemaVersion:  SchemaVersion,
+		ID:             "workflow_event_definition_created",
+		WorkspaceID:    "workspace_store",
+		DefinitionID:   "workflow_definition_store",
+		DefinitionName: "Store workflow",
+		Type:           EventDefinitionCreated,
+		CreatedAt:      testNow,
+	}
+	envelope, err := store.AppendWorkflowDefinitionEvent(event)
+	if err != nil {
+		t.Fatalf("append workflow definition event: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close workflow store: %v", err)
+	}
+
+	reopened := newSQLiteWorkflowStoreForTest(t, appDataDir)
+	replayed, err := reopened.LoadWorkflowEventStreamAfter(WorkflowEventCursor{})
+	if err != nil {
+		t.Fatalf("load workflow event stream after reopen: %v", err)
+	}
+	if len(replayed) != 1 {
+		t.Fatalf("replayed events = %d, want 1", len(replayed))
+	}
+	replayedEvent := replayed[0].Event
+	if replayed[0].Sequence != envelope.Sequence ||
+		replayedEvent.ID != event.ID ||
+		replayedEvent.WorkspaceID != event.WorkspaceID ||
+		replayedEvent.DefinitionID != event.DefinitionID ||
+		replayedEvent.DefinitionName != event.DefinitionName ||
+		replayedEvent.Type != event.Type ||
+		replayedEvent.CreatedAt != event.CreatedAt {
+		t.Fatalf("replayed event = %+v, want sequence %d event %+v", replayed[0], envelope.Sequence, event)
+	}
+}
+
 func TestStoreRollsBackMaterializedStateWhenEventInsertFails(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := newSQLiteWorkflowStoreForTest(t, appDataDir)

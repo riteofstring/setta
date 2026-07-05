@@ -20,7 +20,6 @@ var supportedCodexServerRequests = map[string]codexServerRequestPolicy{
 	codexapp.CodexServerRequestItemCommandExecutionRequestApproval: codexServerRequestDeferredApproval,
 	codexapp.CodexServerRequestItemFileChangeRequestApproval:       codexServerRequestDeferredApproval,
 	codexapp.CodexServerRequestItemPermissionsRequestApproval:      codexServerRequestDeferredApproval,
-	codexapp.CodexServerRequestItemToolCall:                        codexServerRequestImmediate,
 	codexapp.CodexServerRequestItemToolRequestUserInput:            codexServerRequestDeferredApproval,
 	codexapp.CodexServerRequestMcpServerElicitationRequest:         codexServerRequestDeferredApproval,
 }

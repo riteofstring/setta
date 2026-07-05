@@ -75,7 +75,7 @@ func renameRuntimeDisplayName(ctx context.Context, appDataDir string, displayNam
 	if _, err := verifyServeState(ctx, deps.httpClient, state); err != nil {
 		return httpapi.RuntimeInfoResponse{}, err
 	}
-	token, cleanup, err := createRuntimeCLIAuthSession(ctx, appDataDir)
+	token, cleanup, err := createRuntimeCLIAuthSession(ctx, appDataDir, "Setta CLI runtime rename")
 	if err != nil {
 		return httpapi.RuntimeInfoResponse{}, err
 	}
@@ -96,15 +96,15 @@ func renameRuntimeDisplayName(ctx context.Context, appDataDir string, displayNam
 	return info, nil
 }
 
-func createRuntimeCLIAuthSession(ctx context.Context, appDataDir string) (string, func(), error) {
+func createRuntimeCLIAuthSession(ctx context.Context, appDataDir string, displayName string) (string, func(), error) {
 	store, err := runtimeauth.NewStore(appDataDir)
 	if err != nil {
 		return "", nil, fmt.Errorf("open runtime auth store: %w", err)
 	}
-	session, token, err := store.CreateDeviceSession(ctx, "Setta CLI runtime rename")
+	session, token, err := store.CreateDeviceSession(ctx, displayName)
 	if err != nil {
 		_ = store.Close()
-		return "", nil, fmt.Errorf("create runtime rename device session: %w", err)
+		return "", nil, fmt.Errorf("create CLI device session: %w", err)
 	}
 	cleanup := func() {
 		_, _, _ = store.RevokeDeviceSession(context.Background(), session.ID)

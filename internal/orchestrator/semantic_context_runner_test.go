@@ -116,10 +116,6 @@ func (client *recordingCodexChatClient) LoadRunActivityPage(string, string, stri
 	return chat.RunActivityPage{}, nil
 }
 
-func (client *recordingCodexChatClient) LoadRunActivityItems(string, string) ([]chat.RunItem, error) {
-	return nil, nil
-}
-
 func (client *recordingCodexChatClient) LoadRunItemOutputPage(string, string, string, int, int) (chat.RunItemOutputPage, error) {
 	return chat.RunItemOutputPage{}, nil
 }
@@ -128,8 +124,30 @@ func (client *recordingCodexChatClient) LoadRunTranscriptPage(string, string, in
 	return chat.RunTranscriptPage{}, nil
 }
 
+func (client *recordingCodexChatClient) UncommittedSteeringMessagesForRun(string, string, string) ([]chat.ChatMessage, error) {
+	return nil, nil
+}
+
 func (client *recordingCodexChatClient) ReconcileActiveRunByID(context.Context, string, string, string, chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error) {
 	return chat.RunLivenessReconciliationResult{}, nil
+}
+
+func (client *recordingCodexChatClient) ResolveWorkflowAgentCodexSettings(_ string, overrides chat.ChatCodexSettings) (chat.ChatCodexSettings, *chat.ChatCodexEffectiveSettings, error) {
+	preset := chat.ChatPermissionPresetDefault
+	effort := chat.ReasoningEffortMedium
+	return overrides, &chat.ChatCodexEffectiveSettings{
+		Model:                      "test-model",
+		ModelDisplayName:           "Test Model",
+		ReasoningEffort:            &effort,
+		ReasoningEffortDisplayName: "Medium",
+		Permission: &chat.ChatCodexEffectivePermissionSettings{
+			ApprovalPolicy:            "on-request",
+			ActivePermissionProfileID: "default",
+			DisplayLabel:              "Ask for approval",
+			BuiltIn:                   true,
+			Preset:                    &preset,
+		},
+	}, nil
 }
 
 func (client *recordingCodexChatClient) SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error) {
@@ -152,7 +170,7 @@ func (client *recordingCodexChatClient) SubmitApproval(string, string, string, b
 func semanticContextActionStartRequest() ActionStartRequest {
 	actionKind := ActionKindAgentCodex
 	return ActionStartRequest{
-		WorkspaceID:         "workspace_context",
+		WorkspaceID:         "workspace_semantic_context",
 		DefinitionID:        "definition_context",
 		DefinitionVersionID: "version_context",
 		Execution: WorkflowExecution{
@@ -181,11 +199,11 @@ func semanticContextActionStartRequest() ActionStartRequest {
 func workflowTurnResultForSemanticContextTest() chat.SendMessageResult {
 	conversation := chat.Conversation{
 		ID:          "conversation_context",
-		WorkspaceID: "workspace_context",
+		WorkspaceID: "workspace_semantic_context",
 	}
 	run := chat.Run{
 		ID:             "run_context",
-		WorkspaceID:    "workspace_context",
+		WorkspaceID:    "workspace_semantic_context",
 		ConversationID: conversation.ID,
 		Status:         chat.RunStatusRunning,
 	}

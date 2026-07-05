@@ -5,9 +5,9 @@
   "main": "out/main/index.js",
   "packageManager": "pnpm@10.23.0",
   "scripts": {
-    "build": "pnpm typecheck && electron-vite build",
+    "build": "pnpm typecheck && electron-vite build && node scripts/build-backend-companions.mjs",
     "build:web": "pnpm typecheck && vite build --config vite.web.config.ts",
-    "dev": "electron-vite dev",
+    "dev": "node scripts/build-backend-companions.mjs && electron-vite dev",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "generate:workflow-graph-font": "node scripts/generate-workflow-graph-font.mjs",

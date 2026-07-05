@@ -1,14 +1,9 @@
 import { reverse } from "node:dns/promises";
 import { isIP } from "node:net";
 
-import type {
-  CreateDevicePairingResponse,
-  RuntimeInfoResponse,
-  RuntimeInfrastructureProvider,
-} from "@generated/backend";
+import type { RuntimeInfoResponse, RuntimeInfrastructureProvider } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import type {
-  CloudRuntimeProvisionResourceView,
   KnownRuntimeView,
   RuntimeConnectionState,
   RuntimeConnectionStatus,
@@ -24,19 +19,12 @@ import {
 } from "./known-runtime-store";
 import {
   completePairing,
-  createDevicePairing,
   fetchRuntimeInfo,
   parsePairingURL,
   RuntimeConnectionError,
   RuntimePairingError,
   verifyRuntimeConnection,
 } from "./runtime-pairing";
-import {
-  completeProvisionPairing,
-  watchProvisionUntilVerified,
-  type ProvisionAutoPairResult,
-  type ProvisionWatchOptions,
-} from "./provision-watch";
 
 export interface ActiveRuntime {
   baseUrl: string;
@@ -60,7 +48,6 @@ export interface RuntimeRegistryOptions {
   hooks: RuntimeRegistryHooks;
   now?: () => Date;
   onSnapshot: (snapshot: RuntimeRegistrySnapshot) => void;
-  provisionResources?: CloudProvisionResourceReader;
   resolveRuntimeHostName?: (baseUrl: string) => Promise<string | null>;
   store: KnownRuntimeStore;
 }
@@ -68,13 +55,6 @@ export interface RuntimeRegistryOptions {
 interface LocalRuntimeInput {
   baseUrl: string;
   deviceToken: string;
-}
-
-interface CloudProvisionResourceReader {
-  readResources(input: {
-    now: Date;
-    runtimes: KnownRuntimeRecord[];
-  }): Promise<CloudRuntimeProvisionResourceView[]>;
 }
 
 const initialConnectionState: RuntimeConnectionState = {
@@ -149,7 +129,6 @@ const runtimeInfrastructureProviderByHost = [
 
 export class RuntimeRegistryController {
   private activeRuntime: ActiveRuntime | null = null;
-  private cloudResources: CloudRuntimeProvisionResourceView[] = [];
   private connection = initialConnectionState;
   private operationRunning = false;
   private registry: KnownRuntimeRegistry = emptyKnownRuntimeRegistry();
@@ -160,7 +139,6 @@ export class RuntimeRegistryController {
 
   async load(): Promise<RuntimeRegistrySnapshot> {
     this.registry = await this.options.store.read();
-    await this.refreshCloudProvisionResources({ emit: false });
     this.emit();
     return this.snapshot();
   }
@@ -211,16 +189,10 @@ export class RuntimeRegistryController {
         this.options.fetchImpl,
       );
       const info = await fetchRuntimeInfo(parsed.baseUrl, this.options.fetchImpl);
-      if (parsed.runtimeId !== null && info.runtimeId !== parsed.runtimeId) {
+      if (info.runtimeId !== parsed.runtimeId) {
         throw new RuntimePairingError(
           "runtime_id_mismatch",
           `runtime info runtime_id ${info.runtimeId} does not match URL runtime_id ${parsed.runtimeId}`,
-        );
-      }
-      if (paired.runtimeId !== info.runtimeId) {
-        throw new RuntimePairingError(
-          "runtime_id_mismatch",
-          `pairing response runtime_id ${paired.runtimeId} does not match runtime info ${info.runtimeId}`,
         );
       }
       const presentation = await this.runtimePresentationFromInfo(
@@ -234,40 +206,10 @@ export class RuntimeRegistryController {
         displayName: presentation.displayName,
         isLocal: false,
         lastConnected: null,
-        runtimeId: info.runtimeId,
+        runtimeId: parsed.runtimeId,
       });
       await this.persist();
-      return this.connectRuntime(info.runtimeId, { operationAlreadyHeld: true });
-    });
-  }
-
-  async watchProvisionAndPair(
-    options: Omit<ProvisionWatchOptions, "clientDisplayName" | "fetchImpl">,
-  ): Promise<RuntimeRegistrySnapshot> {
-    const verified = await watchProvisionUntilVerified({
-      ...options,
-      fetchImpl: this.options.fetchImpl,
-    });
-    return this.runExclusive(async () => {
-      const result = await completeProvisionPairing(verified, {
-        ...options,
-        clientDisplayName: this.options.clientDisplayName(),
-        fetchImpl: this.options.fetchImpl,
-      });
-      await this.registerProvisionedRuntime(result);
-      return this.connectRuntime(result.info.runtimeId, { operationAlreadyHeld: true });
-    });
-  }
-
-  async createDevicePairing(): Promise<CreateDevicePairingResponse> {
-    const active = this.activeRuntime;
-    if (!active || this.connection.status !== "connected") {
-      throw new Error("Connect to a runtime before pairing another device.");
-    }
-    return createDevicePairing({
-      baseUrl: active.baseUrl,
-      deviceToken: active.deviceToken,
-      fetchImpl: this.options.fetchImpl,
+      return this.connectRuntime(parsed.runtimeId, { operationAlreadyHeld: true });
     });
   }
 
@@ -338,23 +280,9 @@ export class RuntimeRegistryController {
     return this.snapshot().runtimes;
   }
 
-  async refreshCloudProvisionResources(
-    options: { emit?: boolean } = {},
-  ): Promise<RuntimeRegistrySnapshot> {
-    const reader = this.options.provisionResources;
-    this.cloudResources = reader
-      ? await reader.readResources({ now: this.now(), runtimes: this.registry.runtimes })
-      : [];
-    if (options.emit ?? true) {
-      this.emit();
-    }
-    return this.snapshot();
-  }
-
   snapshot(): RuntimeRegistrySnapshot {
     return {
       activeRuntimeId: this.registry.activeRuntimeId,
-      cloudResources: this.cloudResources,
       connection: this.connection,
       runtimes: this.registry.runtimes.map((runtime) => this.runtimeView(runtime)),
       switching: this.switching,
@@ -413,7 +341,6 @@ export class RuntimeRegistryController {
         });
         this.registry = { ...this.registry, activeRuntimeId: connected.runtimeId };
         await this.persist();
-        await this.refreshCloudProvisionResources({ emit: false });
         this.switching = false;
         await this.options.hooks.activeRuntimeOnline(connected);
         this.emit();
@@ -444,30 +371,6 @@ export class RuntimeRegistryController {
     } finally {
       this.operationRunning = false;
     }
-  }
-
-  private async registerProvisionedRuntime(result: ProvisionAutoPairResult): Promise<void> {
-    const presentation = await this.runtimePresentationFromInfo(
-      {
-        baseUrl: result.baseUrl,
-        displayName: result.info.displayName,
-        isLocal: false,
-      },
-      result.info,
-    );
-    this.runtimeInfrastructureProviders.set(
-      result.info.runtimeId,
-      presentation.infrastructureProvider,
-    );
-    this.registry = upsertKnownRuntime(this.registry, {
-      baseUrl: result.baseUrl,
-      deviceToken: result.pairing.deviceToken,
-      displayName: presentation.displayName,
-      isLocal: false,
-      lastConnected: null,
-      runtimeId: result.info.runtimeId,
-    });
-    await this.persist();
   }
 
   private activeRuntimeFromKnownRuntime(
@@ -559,11 +462,7 @@ export class RuntimeRegistryController {
   }
 
   private nowISO(): string {
-    return this.now().toISOString();
-  }
-
-  private now(): Date {
-    return (this.options.now ?? (() => new Date()))();
+    return (this.options.now ?? (() => new Date()))().toISOString();
   }
 
   private async runtimePresentationFromInfo(
