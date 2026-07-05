@@ -1,8 +1,10 @@
 import type { IpcMain } from "electron";
 
 import { handleIpc, type IpcObserver } from "@shared/ipc";
+import { createElectronRuntimeSecretStore } from "./electron-runtime-secret-store";
 import type { RuntimeRegistryController } from "./runtime-registry";
 import { runSettaRemoteAddSSH } from "./runtime-ssh";
+import { TailscaleOAuthService } from "./tailscale-oauth";
 
 interface RuntimeIpcRegistration {
   appDataDir: string;
@@ -10,6 +12,7 @@ interface RuntimeIpcRegistration {
   ipcObserver?: IpcObserver;
   repoRoot: string;
   requireRuntimeRegistry: () => RuntimeRegistryController;
+  tailscaleOAuthService?: TailscaleOAuthService;
 }
 
 export function registerRuntimeIpcHandlers({
@@ -18,7 +21,14 @@ export function registerRuntimeIpcHandlers({
   ipcObserver,
   repoRoot,
   requireRuntimeRegistry,
+  tailscaleOAuthService,
 }: RuntimeIpcRegistration): void {
+  const tailscaleOAuth =
+    tailscaleOAuthService ??
+    new TailscaleOAuthService({
+      secretStore: createElectronRuntimeSecretStore(appDataDir),
+      userDataDir: appDataDir,
+    });
   handleIpc(
     ipcMain,
     "runtimeCurrent",
@@ -77,6 +87,38 @@ export function registerRuntimeIpcHandlers({
     "runtimeRemove",
     async (_event, runtimeId) => {
       return requireRuntimeRegistry().removeRuntime(runtimeId);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "runtimeTailscaleOAuthSetupGuide",
+    async () => {
+      return tailscaleOAuth.setupGuide();
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "runtimeTailscaleOAuthSaveCredentials",
+    async (_event, request) => {
+      return tailscaleOAuth.saveCredentials(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "runtimeTailscaleOAuthValidate",
+    async () => {
+      return tailscaleOAuth.validateCredentials();
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "runtimeTailscaleAuthKeyMint",
+    async (_event, request) => {
+      return tailscaleOAuth.mintAuthKey(request);
     },
     ipcObserver,
   );

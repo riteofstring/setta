@@ -1,7 +1,8 @@
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import type { RuntimeSecretStorageStatus, RuntimeSecretStore } from "./runtime-secret-store";
+import type { RuntimeSecretStorageStatus } from "@shared/types";
+import type { RuntimeSecretStore } from "./runtime-secret-store";
 
 export interface SafeStorageLike {
   decryptString(encrypted: Buffer): string;

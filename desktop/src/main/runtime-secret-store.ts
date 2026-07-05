@@ -1,8 +1,4 @@
-export interface RuntimeSecretStorageStatus {
-  backend: string;
-  message: string | null;
-  security: "encrypted" | "plaintext-equivalent" | "unavailable";
-}
+import type { RuntimeSecretStorageStatus } from "@shared/types";
 
 export interface RuntimeSecretStore {
   deleteSecret(ref: string): Promise<void>;

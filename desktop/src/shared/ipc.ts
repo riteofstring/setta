@@ -1,5 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
+import type { RuntimeIpcContract } from "./runtime-ipc-contract";
 import type {
   AppearancePresetList,
   AppearanceSettings,
@@ -38,7 +39,6 @@ import type {
   CreateSemanticSteeringDirectiveRequest,
   CloseTerminalRequest,
   CloseTerminalResponse,
-  CreateDevicePairingResponse,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
@@ -138,13 +138,10 @@ import type {
   WorkspaceSession,
 } from "@generated/backend";
 import type {
-  AddExistingMachineSSHRuntimeRequest,
   AppWindowDragPoint,
   InstalledEditorApp,
-  KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
-  RuntimeRegistrySnapshot,
   WorkspaceBrowserViewStats,
   RuntimeVersions,
   WorkspaceGitInfo,
@@ -171,6 +168,10 @@ export const ipcChannels = {
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
+  runtimeTailscaleAuthKeyMint: "runtimes:tailscale-auth-key-mint",
+  runtimeTailscaleOAuthSaveCredentials: "runtimes:tailscale-oauth-save-credentials",
+  runtimeTailscaleOAuthSetupGuide: "runtimes:tailscale-oauth-setup-guide",
+  runtimeTailscaleOAuthValidate: "runtimes:tailscale-oauth-validate",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatReconcileRuns: "chat:reconcile-runs",
@@ -312,7 +313,7 @@ export const ipcEvents = {
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract {
+interface IpcContract extends RuntimeIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
@@ -362,25 +363,6 @@ interface IpcContract {
     result: AppearanceSettings;
   };
   backendHealth: { args: []; result: BackendHealth };
-  runtimeAddByPairingUrl: { args: [pairingUrl: string]; result: RuntimeRegistrySnapshot };
-  runtimeAddExistingMachineOverSSH: {
-    args: [request: AddExistingMachineSSHRuntimeRequest];
-    result: RuntimeRegistrySnapshot;
-  };
-  runtimeCreateDevicePairing: { args: []; result: CreateDevicePairingResponse };
-  runtimeCurrent: { args: []; result: RuntimeRegistrySnapshot };
-  runtimeList: {
-    args: [];
-    result: KnownRuntimeView[];
-  };
-  runtimeRemove: {
-    args: [runtimeId: string];
-    result: RuntimeRegistrySnapshot;
-  };
-  runtimeSwitch: {
-    args: [runtimeId: string];
-    result: RuntimeRegistrySnapshot;
-  };
   chatActiveRun: {
     args: [workspaceId: string, conversationId: string];
     result: GetActiveRunResponse;

@@ -50,6 +50,10 @@ describe("preload runtime API", () => {
       "onConnectionState",
       "remove",
       "switch",
+      "tailscaleAuthKeyMint",
+      "tailscaleOAuthSaveCredentials",
+      "tailscaleOAuthSetupGuide",
+      "tailscaleOAuthValidate",
     ]);
 
     await api.runtimes.current();
@@ -66,6 +70,13 @@ describe("preload runtime API", () => {
     await api.runtimes.createDevicePairing();
     await api.runtimes.switch("runtime_remote");
     await api.runtimes.remove("runtime_remote");
+    await api.runtimes.tailscaleOAuthSetupGuide?.();
+    await api.runtimes.tailscaleOAuthSaveCredentials?.({
+      clientId: "oauth-client",
+      clientSecret: "oauth-secret",
+    });
+    await api.runtimes.tailscaleOAuthValidate?.();
+    await api.runtimes.tailscaleAuthKeyMint?.({ runtimeName: "setta-worker" });
     const listener = vi.fn();
     const unsubscribe = api.runtimes.onConnectionState(listener);
     const handler = on.mock.calls.find((call) => call[0] === ipcEvents.runtimeConnectionState)?.[1];
@@ -97,6 +108,16 @@ describe("preload runtime API", () => {
       [ipcChannels.runtimeCreateDevicePairing],
       [ipcChannels.runtimeSwitch, "runtime_remote"],
       [ipcChannels.runtimeRemove, "runtime_remote"],
+      [ipcChannels.runtimeTailscaleOAuthSetupGuide],
+      [
+        ipcChannels.runtimeTailscaleOAuthSaveCredentials,
+        {
+          clientId: "oauth-client",
+          clientSecret: "oauth-secret",
+        },
+      ],
+      [ipcChannels.runtimeTailscaleOAuthValidate],
+      [ipcChannels.runtimeTailscaleAuthKeyMint, { runtimeName: "setta-worker" }],
     ]);
     expect(on).toHaveBeenCalledWith(ipcEvents.runtimeConnectionState, expect.any(Function));
     expect(listener).toHaveBeenCalledWith(snapshot);

@@ -81,6 +81,16 @@ try {
   if (!local) {
     throw new Error(`local runtime missing: ${JSON.stringify(initial)}`);
   }
+  const oauthGuide = await context.client.evaluate(
+    `(async () => window.setta.runtimes.tailscaleOAuthSetupGuide())()`,
+  );
+  if (
+    oauthGuide.requiredScope !== "auth_keys" ||
+    oauthGuide.requiredTag !== "tag:setta-runtime" ||
+    !oauthGuide.manualAuthKeyFallback.description.includes("Manual paste remains available")
+  ) {
+    throw new Error(`unexpected Tailscale OAuth setup guide: ${JSON.stringify(oauthGuide)}`);
+  }
 
   await openWorkspaceFromSidebar(context.client);
   const localWorkspace = await waitForSelectedWorkspaceLayout(context.client);

@@ -99,6 +99,11 @@ const api: SettaAPI = {
     },
     remove: (runtimeId) => invoke("runtimeRemove", runtimeId),
     switch: (runtimeId) => invoke("runtimeSwitch", runtimeId),
+    tailscaleAuthKeyMint: (request) => invoke("runtimeTailscaleAuthKeyMint", request),
+    tailscaleOAuthSaveCredentials: (request) =>
+      invoke("runtimeTailscaleOAuthSaveCredentials", request),
+    tailscaleOAuthSetupGuide: () => invoke("runtimeTailscaleOAuthSetupGuide"),
+    tailscaleOAuthValidate: () => invoke("runtimeTailscaleOAuthValidate"),
   },
   workspaceActivity: {
     onEvent: (listener) => {
