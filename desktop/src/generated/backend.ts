@@ -150,9 +150,9 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "chat-dom" | "empty-frame" | "workflow-graph" | "settings-dom" | "terminal" | "easy-button" | "semantic-node-details" | "workflow-node-details" | "workflow-settings";
+export type SurfaceKind = "chat-dom" | "empty-frame" | "workflow-graph" | "settings-dom" | "terminal" | "semantic-node-details" | "workflow-node-details" | "workflow-settings";
 
-export const surfaceKindValues = ["chat-dom", "empty-frame", "workflow-graph", "settings-dom", "terminal", "easy-button", "semantic-node-details", "workflow-node-details", "workflow-settings"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["chat-dom", "empty-frame", "workflow-graph", "settings-dom", "terminal", "semantic-node-details", "workflow-node-details", "workflow-settings"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
@@ -166,8 +166,6 @@ export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): Surfac
     case "settings-dom":
       return decoded;
     case "terminal":
-      return decoded;
-    case "easy-button":
       return decoded;
     case "semantic-node-details":
       return decoded;

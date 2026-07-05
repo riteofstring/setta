@@ -1,5 +1,4 @@
 import {
-  CircleDot,
   Columns2,
   Globe,
   MessageSquarePlus,
@@ -117,15 +116,6 @@ export const openPaneActions = [
     label: "Settings",
     request: openPaneRequest("Settings", "workspace settings", "settings-dom", "slate"),
     shortcutKey: "s",
-  },
-  {
-    Icon: CircleDot,
-    label: "Easy Button",
-    request: {
-      ...openPaneRequest("Easy Button", "easy button", "easy-button", "cyan"),
-      widthSpec: { unit: "proportion", value: 1 },
-    },
-    shortcutKey: "e",
   },
   {
     Icon: Columns2,

@@ -19,10 +19,6 @@ const paneChromeIconNodes = {
       },
     ],
   ],
-  "easy-button": [
-    ["circle", { cx: "8", cy: "8", r: "6.25" }],
-    ["circle", { cx: "8", cy: "8", fill: "currentColor", r: "2.25", stroke: "none" }],
-  ],
   document: [
     [
       "path",
@@ -62,26 +58,6 @@ const paneChromeIconNodes = {
     ["rect", { height: "8", rx: "2", width: "8", x: "13", y: "13" }],
   ],
 } satisfies Record<PaneChromeIconName, readonly PaneChromeIconNode[]>;
-
-const paneChromeIconViewBoxes = {
-  chat: "0 0 24 24",
-  document: "0 0 24 24",
-  "easy-button": "0 0 16 16",
-  network: "0 0 24 24",
-  settings: "0 0 24 24",
-  terminal: "0 0 24 24",
-  workflow: "0 0 24 24",
-} satisfies Record<PaneChromeIconName, string>;
-
-const paneChromeIconStrokeWidths = {
-  chat: "2",
-  document: "2",
-  "easy-button": "1.5",
-  network: "2",
-  settings: "2",
-  terminal: "2",
-  workflow: "2",
-} satisfies Record<PaneChromeIconName, string>;
 
 function createPaneChromeIcon(
   document: Document,
@@ -150,8 +126,6 @@ function syncPaneChromeIcon(icon: PaneChromeIconElement, iconName: PaneChromeIco
   if (typeof SVGElement === "undefined" || !(icon instanceof SVGElement)) {
     return;
   }
-  icon.setAttribute("stroke-width", paneChromeIconStrokeWidths[iconName]);
-  icon.setAttribute("viewBox", paneChromeIconViewBoxes[iconName]);
   icon.replaceChildren();
   for (const [tagName, attributes] of paneChromeIconNodes[iconName]) {
     const node = icon.ownerDocument.createElementNS("http://www.w3.org/2000/svg", tagName);

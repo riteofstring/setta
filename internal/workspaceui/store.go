@@ -511,7 +511,6 @@ func validSurfaceKind(kind SurfaceKind) bool {
 		SurfaceKindWorkflowGraph,
 		SurfaceKindSettingsDOM,
 		SurfaceKindTerminal,
-		SurfaceKindEasyButton,
 		SurfaceKindSemanticNodeDetails,
 		SurfaceKindWorkflowNodeDetails,
 		SurfaceKindWorkflowSettings:

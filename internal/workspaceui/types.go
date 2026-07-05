@@ -19,7 +19,6 @@ const (
 	SurfaceKindWorkflowGraph       SurfaceKind = "workflow-graph"
 	SurfaceKindSettingsDOM         SurfaceKind = "settings-dom"
 	SurfaceKindTerminal            SurfaceKind = "terminal"
-	SurfaceKindEasyButton          SurfaceKind = "easy-button"
 	SurfaceKindSemanticNodeDetails SurfaceKind = "semantic-node-details"
 	SurfaceKindWorkflowNodeDetails SurfaceKind = "workflow-node-details"
 	SurfaceKindWorkflowSettings    SurfaceKind = "workflow-settings"
@@ -125,7 +124,6 @@ func ContractValueSets() []ContractValueSet {
 				string(SurfaceKindWorkflowGraph),
 				string(SurfaceKindSettingsDOM),
 				string(SurfaceKindTerminal),
-				string(SurfaceKindEasyButton),
 				string(SurfaceKindSemanticNodeDetails),
 				string(SurfaceKindWorkflowNodeDetails),
 				string(SurfaceKindWorkflowSettings),

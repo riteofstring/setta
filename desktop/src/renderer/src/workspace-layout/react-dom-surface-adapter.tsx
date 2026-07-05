@@ -49,23 +49,11 @@ export interface ReactDomSurfaceAdapterOptions {
   workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
 
-type StaticReactDomSurfaceRenderer = (pane: WorkspacePane) => ReactNode;
-
 const defaultRootFactory: ReactSurfaceRootFactory = {
   createRoot(container) {
     return createReactRoot(container) satisfies Root;
   },
 };
-
-const staticReactDomSurfaceRenderers: Partial<Record<SurfaceKind, StaticReactDomSurfaceRenderer>> =
-  {
-    "chat-dom": () => <WorkspaceChatSurface />,
-    "easy-button": () => <EasyButtonSurface />,
-    "fake-long-chat": (pane) => <FakeLongChatSurface pane={pane} />,
-    "semantic-node-details": () => <SemanticNodeDetailsSurface />,
-    "workflow-node-details": (pane) => <WorkflowNodeDetailsSurface pane={pane} />,
-    "workflow-settings": () => <WorkflowSettingsSurface />,
-  };
 
 export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   readonly kind: SurfaceKind;
@@ -395,9 +383,11 @@ export function createReactDomSurfaceAdapter(
   rootFactory?: ReactSurfaceRootFactory,
   options: ReactDomSurfaceAdapterOptions = {},
 ): ReactDomSurfaceAdapter {
-  const staticRenderer = staticReactDomSurfaceRenderers[pane.surfaceKind];
-  if (staticRenderer) {
-    return new ReactDomSurfaceAdapter(pane, () => staticRenderer(pane), rootFactory);
+  if (pane.surfaceKind === "chat-dom") {
+    return new ReactDomSurfaceAdapter(pane, () => <WorkspaceChatSurface />, rootFactory);
+  }
+  if (pane.surfaceKind === "fake-long-chat") {
+    return new ReactDomSurfaceAdapter(pane, () => <FakeLongChatSurface pane={pane} />, rootFactory);
   }
   if (pane.surfaceKind === "workflow-graph") {
     return new ReactDomSurfaceAdapter(
@@ -419,6 +409,19 @@ export function createReactDomSurfaceAdapter(
       ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
       rootFactory,
     );
+  }
+  if (pane.surfaceKind === "semantic-node-details") {
+    return new ReactDomSurfaceAdapter(pane, () => <SemanticNodeDetailsSurface />, rootFactory);
+  }
+  if (pane.surfaceKind === "workflow-node-details") {
+    return new ReactDomSurfaceAdapter(
+      pane,
+      () => <WorkflowNodeDetailsSurface pane={pane} />,
+      rootFactory,
+    );
+  }
+  if (pane.surfaceKind === "workflow-settings") {
+    return new ReactDomSurfaceAdapter(pane, () => <WorkflowSettingsSurface />, rootFactory);
   }
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }
