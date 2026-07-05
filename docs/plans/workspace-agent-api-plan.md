@@ -675,10 +675,19 @@ Progress on 2026-07-07:
   `pnpm -C desktop exec vitest run src/renderer/src/workspace-layout/workspace-layout-area-components.test.tsx src/renderer/src/workspace-layout/workspace-ui-layout.test.ts src/renderer/src/workspace-layout/workspace-scene.test.ts src/renderer/src/workspace-layout/layout-store.test.ts`,
   `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi`,
   `./scripts/go.sh test ./cmd/setta`, and `pnpm -C desktop typecheck` passed.
-- Remaining Phase 2 work: implement the backend operation reducer/service and
-  event sync, then cut renderer-originated layout mutations over to that
-  backend operation API before exposing agent or CLI workspace mutation
-  commands.
+- Backend operation reducer follow-up: added the first backend-only pane
+  operation service slice without exposing an HTTP, CLI, or agent write surface.
+  `ApplyPaneOperation` currently supports `focus_pane`, validates missing layout
+  and missing pane failures with stable operation error codes, persists a
+  revision increment only when focus actually changes, and returns the updated
+  layout, `changed`, operation outcome, empty dimension changes, and warnings.
+- Verification for the backend operation reducer follow-up:
+  `./scripts/go.sh test ./internal/workspaceui` passed.
+- Remaining Phase 2 work: complete the backend operation reducer/service and
+  event sync for move, close-pane, rename, resize, open, reorder, and
+  multi-operation transactions, then cut renderer-originated layout mutations
+  over to that backend operation API before exposing agent or CLI workspace
+  mutation commands.
 
 ### Phase 3: Renderer Event Sync
 

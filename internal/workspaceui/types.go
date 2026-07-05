@@ -57,10 +57,25 @@ const (
 	WorkspaceUISurfaceCloseModeForce WorkspaceUISurfaceCloseMode = "force"
 )
 
+type WorkspaceUIPaneOperationKind string
+
+const (
+	WorkspaceUIPaneOperationKindFocusPane WorkspaceUIPaneOperationKind = "focus_pane"
+)
+
 type WorkspaceUIPaneRuntimeStatus string
 
 const (
 	WorkspaceUIPaneRuntimeStatusLayoutOnly WorkspaceUIPaneRuntimeStatus = "layout_only"
+)
+
+type WorkspaceUIOperationErrorCode string
+
+const (
+	WorkspaceUIOperationErrorCodeInvalidOperation     WorkspaceUIOperationErrorCode = "invalid_operation"
+	WorkspaceUIOperationErrorCodeMissingLayout        WorkspaceUIOperationErrorCode = "missing_layout"
+	WorkspaceUIOperationErrorCodePaneNotFound         WorkspaceUIOperationErrorCode = "pane_not_found"
+	WorkspaceUIOperationErrorCodeUnsupportedOperation WorkspaceUIOperationErrorCode = "unsupported_operation"
 )
 
 type ColumnWidthSpec struct {
@@ -155,6 +170,46 @@ type WorkspaceUIPaneReadResult struct {
 	WorkspaceID string                    `json:"workspaceId"`
 	Pane        WorkspaceUIPaneDescriptor `json:"pane"`
 	Schema      WorkspaceUISchema         `json:"schema"`
+}
+
+type WorkspaceUIPaneOperation struct {
+	Kind   WorkspaceUIPaneOperationKind `json:"kind"`
+	PaneID string                       `json:"paneId"`
+}
+
+type WorkspaceUIPaneOperationResult struct {
+	WorkspaceID           string                            `json:"workspaceId"`
+	Revision              int                               `json:"revision"`
+	Layout                WorkspaceUILayout                 `json:"layout"`
+	Changed               bool                              `json:"changed"`
+	OperationResult       WorkspaceUIPaneOperationOutcome   `json:"operationResult"`
+	BeforeAfterDimensions []WorkspaceUIPaneDimensionChange  `json:"beforeAfterDimensions"`
+	Warnings              []WorkspaceUIPaneOperationWarning `json:"warnings"`
+}
+
+type WorkspaceUIPaneOperationOutcome struct {
+	Kind                  WorkspaceUIPaneOperationKind `json:"kind"`
+	PaneID                string                       `json:"paneId"`
+	PreviousFocusedPaneID string                       `json:"previousFocusedPaneId"`
+	FocusedPaneID         string                       `json:"focusedPaneId"`
+}
+
+type WorkspaceUIPaneDimensionChange struct {
+	PaneID string                    `json:"paneId"`
+	Before WorkspaceUIPaneDimensions `json:"before"`
+	After  WorkspaceUIPaneDimensions `json:"after"`
+}
+
+type WorkspaceUIPaneDimensions struct {
+	ColumnID  string          `json:"columnId"`
+	Weight    float64         `json:"weight"`
+	WidthSpec ColumnWidthSpec `json:"widthSpec"`
+}
+
+type WorkspaceUIPaneOperationWarning struct {
+	Code    string            `json:"code"`
+	Message string            `json:"message"`
+	Fields  map[string]string `json:"fields"`
 }
 
 type WorkspaceUIPaneDescriptor struct {

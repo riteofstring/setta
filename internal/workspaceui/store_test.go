@@ -424,6 +424,153 @@ func TestServiceReadPaneRejectsMissingPane(t *testing.T) {
 	}
 }
 
+func TestServiceAppliesFocusPaneOperation(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindFocusPane,
+		PaneID: "workspace_pane_0",
+	})
+	if err != nil {
+		t.Fatalf("apply focus operation: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("changed = false, want true")
+	}
+	if result.Revision != 2 || result.Layout.Revision != 2 {
+		t.Fatalf("revision = result %d layout %d, want 2", result.Revision, result.Layout.Revision)
+	}
+	if result.Layout.FocusedPaneID != "workspace_pane_0" {
+		t.Fatalf("focused pane = %q, want workspace_pane_0", result.Layout.FocusedPaneID)
+	}
+	if result.OperationResult.PreviousFocusedPaneID != "workspace_pane_1" || result.OperationResult.FocusedPaneID != "workspace_pane_0" {
+		t.Fatalf("operation result = %+v, want focus change", result.OperationResult)
+	}
+	if result.BeforeAfterDimensions == nil || len(result.BeforeAfterDimensions) != 0 {
+		t.Fatalf("beforeAfterDimensions = %+v, want empty slice", result.BeforeAfterDimensions)
+	}
+	if result.Warnings == nil || len(result.Warnings) != 0 {
+		t.Fatalf("warnings = %+v, want empty slice", result.Warnings)
+	}
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.FocusedPaneID != "workspace_pane_0" || loaded.Layout.Revision != 2 {
+		t.Fatalf("loaded layout = %+v, want focused pane 0 at revision 2", loaded.Layout)
+	}
+}
+
+func TestServiceFocusPaneOperationNoopsWhenAlreadyFocused(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindFocusPane,
+		PaneID: "workspace_pane_1",
+	})
+	if err != nil {
+		t.Fatalf("apply focus operation: %v", err)
+	}
+	if result.Changed {
+		t.Fatal("changed = true, want false")
+	}
+	if result.Revision != 1 || result.Layout.Revision != 1 {
+		t.Fatalf("revision = result %d layout %d, want 1", result.Revision, result.Layout.Revision)
+	}
+	if result.OperationResult.PreviousFocusedPaneID != "workspace_pane_1" || result.OperationResult.FocusedPaneID != "workspace_pane_1" {
+		t.Fatalf("operation result = %+v, want unchanged focus", result.OperationResult)
+	}
+}
+
+func TestServiceFocusPaneOperationRejectsMissingPane(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindFocusPane,
+		PaneID: "workspace_pane_missing",
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodePaneNotFound {
+		t.Fatalf("error = %T %v, want pane_not_found", err, err)
+	}
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.FocusedPaneID != "workspace_pane_1" || loaded.Layout.Revision != 1 {
+		t.Fatalf("loaded layout = %+v, want original focus and revision", loaded.Layout)
+	}
+}
+
+func TestServicePaneOperationRejectsMissingLayout(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindFocusPane,
+		PaneID: "workspace_pane_0",
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeMissingLayout {
+		t.Fatalf("error = %T %v, want missing_layout", err, err)
+	}
+}
+
+func TestServicePaneOperationRejectsUnsupportedOperation(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKind("move_pane"),
+		PaneID: "workspace_pane_0",
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeUnsupportedOperation {
+		t.Fatalf("error = %T %v, want unsupported_operation", err, err)
+	}
+}
+
+func TestServicePaneOperationRejectsInvalidOperation(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindFocusPane,
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
+func operationErrorCode(t *testing.T, err error) WorkspaceUIOperationErrorCode {
+	t.Helper()
+	var operationError *WorkspaceUIOperationError
+	if !errors.As(err, &operationError) {
+		t.Fatalf("error = %T %v, want WorkspaceUIOperationError", err, err)
+	}
+	return operationError.Code
+}
+
 func newTestStore(t *testing.T, appDataDir string) *Store {
 	t.Helper()
 
