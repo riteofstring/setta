@@ -7,15 +7,12 @@ import type {
   WorkflowNodeExecution,
   WorkflowNodeKind,
 } from "@generated/backend";
-import {
-  workflowAgentSettingsDraftFromSettings,
-  workflowAgentSettingsFromDraft,
-  type WorkflowAgentSettingsDraft,
-} from "./workflow-agent-settings-form";
 
-export interface AgentTaskDraft extends WorkflowAgentSettingsDraft {
+export interface AgentTaskDraft {
   freshConversation: boolean;
+  model: string;
   prompt: string;
+  reasoningEffort: string;
   title: string;
 }
 
@@ -40,8 +37,9 @@ export function workflowGraphWithUpdatedAgentTask(
           codex: {
             ...node.action.codex,
             freshConversation: draft.freshConversation,
+            model: draft.model,
             prompt: draft.prompt,
-            settings: workflowAgentSettingsFromDraft(draft),
+            reasoningEffort: draft.reasoningEffort,
           },
         },
         title: draft.title,
@@ -54,11 +52,11 @@ export function agentTaskDraftFromNode(node: WorkflowNode): AgentTaskDraft | nul
   if (node.kind !== "action" || node.action?.kind !== "agent.codex" || !node.action.codex) {
     return null;
   }
-  const settingsDraft = workflowAgentSettingsDraftFromSettings(node.action.codex.settings);
   return {
     freshConversation: node.action.codex.freshConversation,
-    ...settingsDraft,
+    model: node.action.codex.model,
     prompt: node.action.codex.prompt,
+    reasoningEffort: node.action.codex.reasoningEffort,
     title: node.title,
   };
 }

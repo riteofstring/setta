@@ -21,6 +21,7 @@ type RuntimeInfoResponse struct {
 	BackendName            string                        `json:"backendName"`
 	BackendVersion         string                        `json:"backendVersion"`
 	ProtocolVersion        int                           `json:"protocolVersion"`
+	FeatureSet             RuntimeFeatureSet             `json:"featureSet"`
 	VAPIDPublicKey         string                        `json:"vapidPublicKey"`
 }
 
@@ -28,6 +29,11 @@ type RuntimeInfrastructureProvider struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName"`
 	IconURL     string `json:"iconUrl"`
+}
+
+type RuntimeFeatureSet struct {
+	Version  int      `json:"version"`
+	Features []string `json:"features"`
 }
 
 type UpdateRuntimeDisplayNameRequest struct {
@@ -44,6 +50,31 @@ type CompletePairingResponse struct {
 	DeviceToken     string `json:"deviceToken"`
 	RuntimeID       string `json:"runtimeId"`
 	ProtocolVersion int    `json:"protocolVersion"`
+}
+
+type CreateDevicePairingRequest struct {
+	RuntimeBaseURL string `json:"runtimeBaseUrl"`
+}
+
+type CreateDevicePairingResponse struct {
+	PairingURL string `json:"pairingUrl"`
+	ExpiresAt  string `json:"expiresAt"`
+}
+
+type SetupAttestationRequest struct {
+	ProvisionID     string `json:"provisionId"`
+	Nonce           string `json:"nonce"`
+	NodeFingerprint string `json:"nodeFingerprint"`
+}
+
+type SetupAttestationResponse struct {
+	Algorithm       string `json:"algorithm"`
+	RuntimeID       string `json:"runtimeId"`
+	ProvisionID     string `json:"provisionId"`
+	Nonce           string `json:"nonce"`
+	NodeFingerprint string `json:"nodeFingerprint"`
+	ExpiresAt       string `json:"expiresAt"`
+	Attestation     string `json:"attestation"`
 }
 
 type ListDevicesRequest struct{}
@@ -408,11 +439,6 @@ type UpdateWorkflowDefinitionRequest struct {
 	Name         string                     `json:"name"`
 	Description  string                     `json:"description"`
 	Graph        orchestrator.WorkflowGraph `json:"graph"`
-}
-
-type SaveWorkflowDefinitionRequest struct {
-	WorkspaceID string                                   `json:"workspaceId"`
-	Input       orchestrator.WorkflowDefinitionSaveInput `json:"input"`
 }
 
 type DeleteWorkflowDefinitionRequest struct {

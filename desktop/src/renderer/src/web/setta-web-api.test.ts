@@ -102,9 +102,86 @@ describe("web SettaAPI unpaired runtime state", () => {
     expect(eventStreamCall?.authorization).toBe("Bearer token_web");
     unsubscribe();
   });
+
+  test("accepts phone pairing URLs with token in the fragment", async () => {
+    withWebGlobals("https://runtime.tailnet.ts.net");
+    const calls: Array<{ body: unknown; path: string }> = [];
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        calls.push({
+          body: init.body ? JSON.parse(String(init.body)) : null,
+          path: input.pathname,
+        });
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+    });
+
+    const snapshot = await api.runtimes.addByPairingUrl(
+      "https://runtime.tailnet.ts.net/#pair=token_pair",
+    );
+
+    expect(snapshot.connection.status).toBe("connected");
+    expect(calls).toContainEqual({
+      body: {
+        clientDisplayName: "Setta Web",
+        pairingToken: "token_pair",
+      },
+      path: "/pairing/complete",
+    });
+  });
+
+  test("creates device pairing links through the authenticated same-origin client", async () => {
+    withWebGlobals("https://runtime.tailnet.ts.net");
+    const createRequests: unknown[] = [];
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          case "/pairing/create-device":
+            createRequests.push(JSON.parse(String(init.body)));
+            return jsonResponse({
+              expiresAt: "2026-07-07T10:10:00Z",
+              pairingUrl: "https://runtime.tailnet.ts.net/#pair=token_phone",
+            });
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+    });
+
+    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+    const pairing = await api.runtimes.createDevicePairing();
+
+    expect(pairing.pairingUrl).toBe("https://runtime.tailnet.ts.net/#pair=token_phone");
+    expect(createRequests).toEqual([{ runtimeBaseUrl: "https://runtime.tailnet.ts.net/" }]);
+  });
 });
 
-function withWebGlobals() {
+function withWebGlobals(origin = "http://127.0.0.1:7345") {
   const storage = new Map<string, string>();
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
@@ -121,7 +198,7 @@ function withWebGlobals() {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
-      location: { origin: "http://127.0.0.1:7345" },
+      location: { origin },
       open: vi.fn(),
       prompt: vi.fn(),
       setTimeout,
@@ -140,6 +217,10 @@ function runtimeInfo() {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: "Web runtime",
+    featureSet: {
+      features: ["device_pairing_url", "runtime_web_app", "web_push"],
+      version: 1,
+    },
     infrastructureProvider: {
       displayName: "Unknown provider",
       iconUrl: "",

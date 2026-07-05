@@ -337,14 +337,6 @@ type BackgroundTerminalSink interface {
 	BackgroundTerminalCompleted(workspaceID string, conversationID string, providerItemID string, providerProcessID string, exitCode int, errorMessage string) error
 }
 
-// ConnectionDiagnosticSink receives provider diagnostics from connection-scoped
-// notifications that are not owned by any single turn. Implementations should
-// record them at the provided workspace scope without guessing a conversation or
-// run owner.
-type ConnectionDiagnosticSink interface {
-	ProviderConnectionDiagnostic(workspaceID string, code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error
-}
-
 type TurnSink interface {
 	AssistantTextDelta(providerItemID string, text string) error
 	ApprovalRequested(approval ApprovalRequest) error

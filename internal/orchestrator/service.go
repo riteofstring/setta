@@ -258,63 +258,6 @@ func (service *Service) UpdateDefinition(workspaceID string, definitionID string
 	return writeWorkflowDefinitionFile(workspaceSummary.RootPath, next, currentPath)
 }
 
-func (service *Service) SaveDefinition(workspaceID string, input WorkflowDefinitionSaveInput) (WorkflowDefinitionSaveResult, error) {
-	input.Name = strings.TrimSpace(input.Name)
-	if err := validateWorkflowDefinitionSaveInput(input); err != nil {
-		return WorkflowDefinitionSaveResult{}, err
-	}
-	validation, err := service.ValidateDefinition(workspaceID, input.Graph)
-	if err != nil {
-		return WorkflowDefinitionSaveResult{}, err
-	}
-	result := WorkflowDefinitionSaveResult{
-		Operation:  input.Operation,
-		Saved:      false,
-		Validation: validation,
-		Definition: nil,
-	}
-	if !validation.Valid {
-		return result, nil
-	}
-	definition, err := service.persistValidWorkflowDefinitionSave(workspaceID, input)
-	if err != nil {
-		return WorkflowDefinitionSaveResult{}, err
-	}
-	result.Saved = true
-	result.Definition = &definition
-	return result, nil
-}
-
-func validateWorkflowDefinitionSaveInput(input WorkflowDefinitionSaveInput) error {
-	if input.Name == "" {
-		return errors.New("workflow definition name is required")
-	}
-	switch input.Operation {
-	case WorkflowDefinitionSaveCreate:
-		if strings.TrimSpace(input.DefinitionID) != "" {
-			return errors.New("workflow definition id must be empty for create saves")
-		}
-	case WorkflowDefinitionSaveUpdate:
-		if strings.TrimSpace(input.DefinitionID) == "" {
-			return errors.New("workflow definition id is required for update saves")
-		}
-	default:
-		return fmt.Errorf("workflow definition save operation is unsupported: %s", input.Operation)
-	}
-	return nil
-}
-
-func (service *Service) persistValidWorkflowDefinitionSave(workspaceID string, input WorkflowDefinitionSaveInput) (WorkflowDefinition, error) {
-	switch input.Operation {
-	case WorkflowDefinitionSaveCreate:
-		return service.CreateDefinition(workspaceID, input.Name, input.Description, input.Graph)
-	case WorkflowDefinitionSaveUpdate:
-		return service.UpdateDefinition(workspaceID, input.DefinitionID, input.Name, input.Description, input.Graph)
-	default:
-		return WorkflowDefinition{}, fmt.Errorf("workflow definition save operation is unsupported: %s", input.Operation)
-	}
-}
-
 func (service *Service) DeleteDefinition(workspaceID string, definitionID string) error {
 	workspaceSummary, err := service.resolveWorkspace(workspaceID)
 	if err != nil {
@@ -346,40 +289,33 @@ func (service *Service) ValidateDefinition(workspaceID string, graph WorkflowGra
 }
 
 func (service *Service) StartExecution(workspaceID string, definitionID string, versionID string) (WorkflowExecution, error) {
-	execution, _, err := service.StartExecutionWithValidation(workspaceID, definitionID, versionID)
-	return execution, err
-}
-
-func (service *Service) StartExecutionWithValidation(workspaceID string, definitionID string, versionID string) (WorkflowExecution, WorkflowValidationResult, error) {
 	workspaceSummary, err := service.resolveWorkspace(workspaceID)
 	if err != nil {
-		return WorkflowExecution{}, WorkflowValidationResult{}, err
+		return WorkflowExecution{}, err
 	}
 	service.mu.Lock()
-	executionID, validation, err := service.startExecutionLocked(workspaceSummary, workspaceID, definitionID, versionID)
+	executionID, err := service.startExecutionLocked(workspaceSummary, workspaceID, definitionID, versionID)
 	service.mu.Unlock()
 	if err != nil {
-		return WorkflowExecution{}, validation, err
+		return WorkflowExecution{}, err
 	}
-	execution, err := service.dispatchReadyActions(workspaceID, executionID)
-	return execution, validation, err
+	return service.dispatchReadyActions(workspaceID, executionID)
 }
 
-func (service *Service) startExecutionLocked(workspaceSummary workspace.WorkspaceSummary, workspaceID string, definitionID string, versionID string) (string, WorkflowValidationResult, error) {
+func (service *Service) startExecutionLocked(workspaceSummary workspace.WorkspaceSummary, workspaceID string, definitionID string, versionID string) (string, error) {
 	if err := service.rejectActiveExecutionForDefinitionLocked(workspaceID, definitionID); err != nil {
-		return "", WorkflowValidationResult{}, err
+		return "", err
 	}
 	version, createVersion, err := service.startExecutionVersionLocked(workspaceSummary, workspaceID, definitionID, versionID)
 	if err != nil {
-		return "", WorkflowValidationResult{}, err
+		return "", err
 	}
-	validation := ValidateExecutableGraph(version.Graph, service.runnerRegistry)
-	if !validation.Valid {
-		return "", validation, &ValidationError{Result: validation}
+	if result := ValidateExecutableGraph(version.Graph, service.runnerRegistry); !result.Valid {
+		return "", &ValidationError{Result: result}
 	}
 	transition, err := StartExecution(version, service.transitionContext())
 	if err != nil {
-		return "", validation, err
+		return "", err
 	}
 	if createVersion {
 		err = service.persistExecutionStart(version, transition)
@@ -387,9 +323,9 @@ func (service *Service) startExecutionLocked(workspaceSummary workspace.Workspac
 		err = service.persistTransition(transition)
 	}
 	if err != nil {
-		return "", validation, err
+		return "", err
 	}
-	return transition.Execution.ID, validation, nil
+	return transition.Execution.ID, nil
 }
 
 func (service *Service) rejectActiveExecutionForDefinitionLocked(workspaceID string, definitionID string) error {

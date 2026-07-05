@@ -16,7 +16,6 @@ import (
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/orchestrator"
-	"setta/internal/workflowaudit"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -690,19 +689,6 @@ func newChatHandlerWithAppDataDir(t *testing.T, events []chat.FakeHarnessEvent) 
 	t.Helper()
 
 	appDataDir := t.TempDir()
-	handler, _ := newChatHandlerWithAppDataDirAndAudit(t, events, appDataDir)
-	return handler, appDataDir
-}
-
-func newChatHandlerWithAudit(t *testing.T, events []chat.FakeHarnessEvent) (http.Handler, *workflowaudit.Store) {
-	t.Helper()
-
-	return newChatHandlerWithAppDataDirAndAudit(t, events, t.TempDir())
-}
-
-func newChatHandlerWithAppDataDirAndAudit(t *testing.T, events []chat.FakeHarnessEvent, appDataDir string) (http.Handler, *workflowaudit.Store) {
-	t.Helper()
-
 	store, err := appstate.NewStore(appDataDir)
 	if err != nil {
 		t.Fatalf("new app store: %v", err)
@@ -742,17 +728,12 @@ func newChatHandlerWithAppDataDirAndAudit(t *testing.T, events []chat.FakeHarnes
 		t.Fatalf("new workflow service: %v", err)
 	}
 	t.Cleanup(workflowService.CloseEvents)
-	auditStore, err := workflowaudit.NewStore(appDataDir)
-	if err != nil {
-		t.Fatalf("new workflow audit store: %v", err)
-	}
 	return newAuthenticatedTestHandler(t, HandlerConfig{
-		ChatService:          chatService,
-		Metadata:             BackendMetadata{Name: BackendName, Version: "test"},
-		WorkspaceService:     workspaceService,
-		WorkflowAuditService: auditStore,
-		WorkflowService:      workflowService,
-	}), auditStore
+		ChatService:      chatService,
+		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
+		WorkspaceService: workspaceService,
+		WorkflowService:  workflowService,
+	}), appDataDir
 }
 
 func readServerSentChatEvent(t *testing.T, reader *bufio.Reader) chat.Event {

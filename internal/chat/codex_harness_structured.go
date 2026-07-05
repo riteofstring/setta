@@ -24,6 +24,8 @@ func (harness *CodexHarness) runStructuredTask(ctx context.Context, request Harn
 	if err != nil {
 		return HarnessTaskResult{}, err
 	}
+	session.AcceptUnscopedNotifications()
+	session.AcceptUnscopedRequests()
 	defer session.Close()
 
 	thread, err := harness.startCodexStructuredTaskThread(ctx, session, request)

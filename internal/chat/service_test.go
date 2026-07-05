@@ -944,6 +944,42 @@ func TestServiceFailureDoesNotDrainQueuedRuns(t *testing.T) {
 	}
 }
 
+func TestServiceSteeringPersistsMessageAndCallsHarness(t *testing.T) {
+	harness := NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},
+		{Type: FakeEventWaitForSteer},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1")); err != nil {
+		t.Fatalf("send active: %v", err)
+	}
+	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
+
+	result, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("S1"))
+	if err != nil {
+		t.Fatalf("steer active: %v", err)
+	}
+	if result.UserMessage.Delivery != MessageDeliverySteering || result.UserMessage.Status != MessageStatusPending {
+		t.Fatalf("steering message = %+v, want pending steering", result.UserMessage)
+	}
+	requests := harness.SteeringRequests()
+	if len(requests) != 1 || chatInputText(requests[0].Input) != "S1" || requests[0].TurnID != "turn_fake" {
+		t.Fatalf("steering requests = %+v, want S1 for active turn", requests)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+	committed, err := service.store.LoadMessageByID("workspace_api", conversation.ID, result.UserMessage.ID)
+	if err != nil {
+		t.Fatalf("load steering message: %v", err)
+	}
+	if committed.Status != MessageStatusComplete {
+		t.Fatalf("committed steering status = %s, want complete", committed.Status)
+	}
+}
+
 func TestServiceSteeringRequiresStartedTurn(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventWaitForCancel}}))
 	conversation, err := service.CreateConversation("workspace_api", "")

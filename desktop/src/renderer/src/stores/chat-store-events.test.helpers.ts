@@ -405,17 +405,13 @@ export function conversationUpdatedEvent(
 
 export function runLiveness(overrides: Partial<RunLiveness> = {}): RunLiveness {
   const status = overrides.status ?? "attached";
-  const phase = overrides.phase ?? runLivenessPhaseForStatus(status);
   return {
-    activeStatus: runActiveStatusForPhase(phase),
     cancellable: status !== "terminal",
     conversationId,
     error: "",
     harness: "codex",
     lastProviderEventAt: "2026-05-29T20:00:00Z",
-    lastVisibleActivityAt: "2026-05-29T20:00:00Z",
     lastReconciledAt: "",
-    phase,
     providerThreadId: "thread_api",
     providerTurnId: "turn_api",
     reason:
@@ -429,74 +425,9 @@ export function runLiveness(overrides: Partial<RunLiveness> = {}): RunLiveness {
     retryable: status === "reconciling" || status === "lost",
     runId: "run_api",
     status,
-    steerable: status === "attached",
-    steeringDisabledReason: status === "attached" ? "" : "not_attached",
     workspaceId,
     ...overrides,
   };
-}
-
-function runLivenessPhaseForStatus(status: RunLiveness["status"]): RunLiveness["phase"] {
-  switch (status) {
-    case "attached":
-      return "attached";
-    case "reconciling":
-      return "reconnecting";
-    case "lost":
-      return "lost";
-    case "terminal":
-      return "terminal";
-    default:
-      throw new Error(`Unsupported run liveness status: ${status}`);
-  }
-}
-
-function runActiveStatusForPhase(phase: RunLiveness["phase"]): RunLiveness["activeStatus"] {
-  switch (phase) {
-    case "attached":
-      return { detail: "", headline: "Working", headlineSource: "fallback", kind: "working" };
-    case "blocked":
-      return {
-        detail: "",
-        headline: "Approval required",
-        headlineSource: "approval",
-        kind: "blocked",
-      };
-    case "lost":
-      return {
-        detail: "",
-        headline: "Connection lost",
-        headlineSource: "liveness",
-        kind: "connection_lost",
-      };
-    case "terminal":
-      return { detail: "", headline: "Finished", headlineSource: "terminal", kind: "finished" };
-    case "starting":
-      return { detail: "", headline: "Starting", headlineSource: "liveness", kind: "starting" };
-    case "waiting_for_provider":
-      return {
-        detail: "",
-        headline: "Waiting for provider",
-        headlineSource: "liveness",
-        kind: "waiting_for_provider",
-      };
-    case "stalled":
-      return {
-        detail: "",
-        headline: "Provider stalled",
-        headlineSource: "liveness",
-        kind: "stalled",
-      };
-    case "reconnecting":
-      return {
-        detail: "",
-        headline: "Reconnecting",
-        headlineSource: "liveness",
-        kind: "reconnecting",
-      };
-    default:
-      throw new Error(`Unsupported run liveness phase: ${phase}`);
-  }
 }
 
 export function runLivenessUpdatedEvent(
