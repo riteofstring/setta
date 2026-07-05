@@ -45,7 +45,6 @@ import { registerAppWindowDragIpcHandlers } from "./window-drag";
 import { startWorkspaceActivityEventForwarding } from "./workspace-activity-event-forwarding-stream";
 import { registerWorkspaceActivityIpcHandlers } from "./workspace-activity-ipc";
 import { forwardWorkspaceUIEventToWindows } from "./workspace-ui-event-forwarding";
-import { createWorkspaceUIEventSubscriptionRegistry } from "./workspace-ui-event-subscriptions";
 import {
   startWorkspaceUIEventStream,
   type WorkspaceUIEventStream,
@@ -61,9 +60,10 @@ let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwardin
 let terminalEventStream: TerminalEventStream | null = null;
 let workspaceActivityEventStream: ReturnType<typeof startWorkspaceActivityEventForwarding> | null =
   null;
-const workspaceUIEventSubscriptions = createWorkspaceUIEventSubscriptionRegistry({
-  startStream: startWorkspaceUIEventStreamForwarding,
-});
+const workspaceUIEventStreams = new Map<
+  string,
+  { subscribers: number; stream: WorkspaceUIEventStream | null }
+>();
 let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
@@ -246,12 +246,46 @@ function startWorkspaceActivityEventStreamForwarding() {
   });
 }
 
-function startWorkspaceUIEventStreamForwarding(workspaceId: string): WorkspaceUIEventStream | null {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    return null;
+function subscribeWorkspaceUIEvents(workspaceId: string) {
+  const normalizedWorkspaceId = requireWorkspaceUIEventWorkspaceID(workspaceId);
+  const existing = workspaceUIEventStreams.get(normalizedWorkspaceId);
+  if (existing) {
+    existing.subscribers += 1;
+    if (existing.stream === null) {
+      startWorkspaceUIEventStreamForwarding(normalizedWorkspaceId, existing);
+    }
+    return;
   }
-  return startWorkspaceUIEventStream({
+  const entry = { subscribers: 1, stream: null };
+  workspaceUIEventStreams.set(normalizedWorkspaceId, entry);
+  startWorkspaceUIEventStreamForwarding(normalizedWorkspaceId, entry);
+}
+
+function unsubscribeWorkspaceUIEvents(workspaceId: string) {
+  const normalizedWorkspaceId = requireWorkspaceUIEventWorkspaceID(workspaceId);
+  const existing = workspaceUIEventStreams.get(normalizedWorkspaceId);
+  if (!existing) {
+    return;
+  }
+  existing.subscribers -= 1;
+  if (existing.subscribers > 0) {
+    return;
+  }
+  workspaceUIEventStreams.delete(normalizedWorkspaceId);
+  const stream = existing.stream;
+  existing.stream = null;
+  void stream?.stop();
+}
+
+function startWorkspaceUIEventStreamForwarding(
+  workspaceId: string,
+  entry: { stream: WorkspaceUIEventStream | null },
+) {
+  const runtime = activeRuntime();
+  if (!runtime || entry.stream !== null) {
+    return;
+  }
+  entry.stream = startWorkspaceUIEventStream({
     authToken: runtime.deviceToken,
     baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
@@ -261,7 +295,9 @@ function startWorkspaceUIEventStreamForwarding(workspaceId: string): WorkspaceUI
 }
 
 function startWorkspaceUIEventStreamsForwarding() {
-  workspaceUIEventSubscriptions.startStreams();
+  for (const [workspaceId, entry] of workspaceUIEventStreams) {
+    startWorkspaceUIEventStreamForwarding(workspaceId, entry);
+  }
 }
 
 async function stopChatEventStream() {
@@ -295,7 +331,14 @@ async function stopWorkspaceActivityEventStreamForwarding() {
 }
 
 async function stopWorkspaceUIEventStreamsForwarding() {
-  await workspaceUIEventSubscriptions.stopStreams();
+  const streams: WorkspaceUIEventStream[] = [];
+  for (const entry of workspaceUIEventStreams.values()) {
+    if (entry.stream !== null) {
+      streams.push(entry.stream);
+      entry.stream = null;
+    }
+  }
+  await Promise.all(streams.map((stream) => stream.stop()));
 }
 
 async function stopBackendEventStreams() {
@@ -534,11 +577,11 @@ function registerIpc() {
   ipcMain.on(ipcMessages.workspaceBrowserViewBatch, (event, batch) => {
     workspaceBrowserViews.applyBatch(event, batch);
   });
-  ipcMain.on(ipcMessages.workspaceUIEventSubscribe, (event, workspaceId) => {
-    workspaceUIEventSubscriptions.subscribe(workspaceId, event.sender);
+  ipcMain.on(ipcMessages.workspaceUIEventSubscribe, (_event, workspaceId) => {
+    subscribeWorkspaceUIEvents(workspaceId);
   });
-  ipcMain.on(ipcMessages.workspaceUIEventUnsubscribe, (event, workspaceId) => {
-    workspaceUIEventSubscriptions.unsubscribe(workspaceId, event.sender);
+  ipcMain.on(ipcMessages.workspaceUIEventUnsubscribe, (_event, workspaceId) => {
+    unsubscribeWorkspaceUIEvents(workspaceId);
   });
   registerAppIpcHandlers({
     ipcMain,
@@ -774,6 +817,13 @@ function requireRuntimeRegistry(): RuntimeRegistryController {
 function runtimeUnavailableMessage() {
   const snapshot = runtimeRegistry?.snapshot();
   return snapshot?.connection.message ?? backendStartupError ?? "runtime is not connected";
+}
+
+function requireWorkspaceUIEventWorkspaceID(workspaceId: unknown): string {
+  if (typeof workspaceId !== "string" || workspaceId === "") {
+    throw new Error("workspace UI event subscription requires workspaceId");
+  }
+  return workspaceId;
 }
 
 async function stopBackend() {

@@ -110,6 +110,7 @@ async function streamWorkspaceUIEventsOnce(options: {
     const nextCursor = workspaceUIEventCursorFromServerSentEvent(message);
     const event = decodeWorkspaceUIStreamEvent(message, nextCursor);
     if (isDuplicateWorkspaceUIEvent(nextCursor, cursor)) {
+      cursor = nextCursor;
       continue;
     }
     assertWorkspaceUIEventStream(nextCursor, cursor, event);
