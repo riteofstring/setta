@@ -244,11 +244,25 @@ Progress on 2026-07-06:
   dispatch complexity. `node desktop/tests/electron/run-workflows.mjs
   --workflow workflow-graph-smoke` also passed as a production app-path
   workflow sanity check.
-- Remaining Phase 2 work: add `current-workspace`, definitions
-  list/read/validate/save with explicit create/update save input and structured
-  diagnostics, then execution start/read. Add the broader workflow-authoring
-  Electron coverage as mutating CLI commands are introduced and the in-app path
-  moves to this surface.
+
+Progress on 2026-07-06:
+
+- Added `setta workflow current-workspace [--app-data-dir DIR]`.
+- The command reads the local serve state, verifies the runtime identity, mints
+  a short-lived command-specific CLI auth session, calls the authenticated
+  backend `GET /workspace-session` contract, validates that the selected
+  workspace is active, and prints the selected `WorkspaceSummary` as JSON.
+- Added focused CLI integration tests for an opened current workspace and the
+  no-selected-workspace failure path through real CLI dispatch, runtime auth,
+  and backend HTTP routes.
+- Verification: `./scripts/go.sh test ./cmd/setta`, `./scripts/format.sh`,
+  `./check_quality.sh --git-changes`, and
+  `node desktop/tests/electron/run-workflows.mjs --workflow
+  workflow-graph-smoke` passed.
+- Remaining Phase 2 work: add definitions list/read/validate/save with
+  explicit create/update save input and structured diagnostics, then execution
+  start/read. Add the broader workflow-authoring Electron coverage as mutating
+  CLI commands are introduced and the in-app path moves to this surface.
 
 ### Phase 3: Add The Workflow-Builder Skill
 

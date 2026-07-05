@@ -18,6 +18,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/orchestrator"
 	"setta/internal/runtime"
+	"setta/internal/workspace"
 )
 
 const testRuntimeID = "0123456789abcdef0123456789abcdef"
@@ -298,6 +299,86 @@ func TestRuntimeRenameIntegration(t *testing.T) {
 	}
 }
 
+func TestWorkflowCurrentWorkspaceCommandIntegration(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	opened := openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+	var stdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	if code := runWithDeps([]string{"workflow", "current-workspace", "--app-data-dir", appDataDir}, commandDeps); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+
+	var current workspace.WorkspaceSummary
+	if err := json.NewDecoder(&stdout).Decode(&current); err != nil {
+		t.Fatalf("decode current workspace output: %v\noutput:\n%s", err, stdout.String())
+	}
+	if !reflect.DeepEqual(current, opened.Workspace) {
+		t.Fatalf("current workspace = %+v, want %+v", current, opened.Workspace)
+	}
+}
+
+func TestWorkflowCurrentWorkspaceCommandFailsWithoutSelectedWorkspace(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+	if code := runWithDeps([]string{"workflow", "current-workspace", "--app-data-dir", appDataDir}, commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "no current workspace is selected") {
+		t.Fatalf("stderr = %q, want no-current-workspace error", stderr.String())
+	}
+}
+
 func TestWorkflowSchemaCommandIntegration(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()
@@ -412,6 +493,44 @@ func completePairing(t *testing.T, client *http.Client, baseURL string, token st
 		t.Fatalf("decode pairing response: %v", err)
 	}
 	return paired
+}
+
+func openWorkspaceForCLITest(t *testing.T, client *http.Client, appDataDir string, baseURL string, rootPath string) httpapi.OpenWorkspaceResponse {
+	t.Helper()
+	token, cleanup, err := createRuntimeCLIAuthSession(context.Background(), appDataDir, "Setta CLI test workspace opener")
+	if err != nil {
+		t.Fatalf("create CLI auth session: %v", err)
+	}
+	defer cleanup()
+	return postAuthedRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, token, "/workspaces/open", httpapi.OpenWorkspaceRequest{RootPath: rootPath})
+}
+
+func postAuthedRuntimeJSON[T any](t *testing.T, client *http.Client, baseURL string, token string, path string, payload any) T {
+	t.Helper()
+	var body bytes.Buffer
+	if err := json.NewEncoder(&body).Encode(payload); err != nil {
+		t.Fatalf("encode request: %v", err)
+	}
+	request, err := http.NewRequest(http.MethodPost, baseURL+path, &body)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("runtime request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(response.Body)
+		t.Fatalf("runtime request status = %d body = %s, want 200", response.StatusCode, responseBody)
+	}
+	var result T
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	return result
 }
 
 func authedStatus(t *testing.T, client *http.Client, targetURL string, token string) int {
