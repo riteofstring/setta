@@ -484,9 +484,9 @@ Progress on 2026-07-07:
   `setta workflow definitions save --input` using an omitted or empty
   `definitionId` for create saves, and start executions only on explicit run
   requests.
-- The skill explicitly forbids direct `.setta/workflows/*.json` authoring, MCP
-  workflow-authoring tools/resources/adapters, dynamic-tool workflow authoring,
-  prompt-only schema mirrors, guessed contracts, and silent fallbacks.
+- The skill keeps agents on the CLI/backend workflow-authoring path, forbids
+  direct `.setta/workflows/*.json` authoring, and avoids prompt-only schema
+  mirrors, guessed contracts, and silent fallback behavior.
 - Verification: the provided skill validator passed in a disposable `/tmp`
   virtualenv after installing the validator's missing `PyYAML==6.0.2`
   dependency there:

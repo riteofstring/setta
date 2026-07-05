@@ -9,7 +9,7 @@ description: Author, validate, save, inspect, and optionally run Setta workflow 
 
 Use the Setta workflow CLI as the authority for workflow authoring. The backend owns schema, validation, persistence, IDs, runtime authorization, audit records, and execution state.
 
-Do not write `.setta/workflows/*.json` directly as the primary workflow authoring path. Do not use MCP, workflow-authoring dynamic tools, prompt-only schema mirrors, or guessed workflow contracts.
+Do not write `.setta/workflows/*.json` directly as the primary workflow authoring path. Do not maintain prompt-only schema mirrors or guessed workflow contracts.
 
 ## Workflow
 
@@ -80,4 +80,4 @@ Fail loudly when:
 - save returns `saved: false` or a structured backend error
 - starting an execution returns a structured backend error
 
-Report the exact CLI command attempted and the relevant JSON error or validation diagnostics. Do not silently fall back to file writes, UI automation, MCP, dynamic tools, or approximate graph generation.
+Report the exact CLI command attempted and the relevant JSON error or validation diagnostics. Do not silently switch to an unvalidated or approximate authoring path.
