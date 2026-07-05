@@ -342,10 +342,17 @@ Progress on 2026-07-07:
   ./internal/httpapi ./cmd/setta`, `pnpm -C desktop build`, and
   `node desktop/tests/electron/run-workflows.mjs --workflow
   workflow-graph-smoke` passed.
+- Audit follow-up: the save command now uses command-specific runtime auth and
+  returns structured validation results, but full mutation audit records and
+  machine-readable CLI error envelopes are still remaining CLI/API contract
+  work. Audit records must capture the authenticated device/session, command
+  name, workspace ID, affected definition ID, validation result, and execution
+  ID when applicable before Phase 2 is treated as complete.
 - Remaining Phase 2 work: add `setta workflow executions start
-  <definition-id>` and `setta workflow executions read <execution-id>`, then
-  broaden workflow-authoring Electron coverage as the in-app path moves to this
-  CLI/API surface.
+  <definition-id>` and `setta workflow executions read <execution-id>`, add
+  full mutation audit records and structured CLI error output, then broaden
+  workflow-authoring Electron coverage as the in-app path moves to this CLI/API
+  surface.
 
 ### Phase 3: Add The Workflow-Builder Skill
 
