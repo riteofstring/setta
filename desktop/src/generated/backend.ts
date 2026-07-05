@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 6;
-export const backendContractSchemaHash = "sha256:8d19ed270d73df5de47bad31e3cd424dc09daf79c493d0f0d30a1a2a37eefc7e";
+export const backendProtocolVersion = 7;
+export const backendContractSchemaHash = "sha256:4a0be16f44629c62dd24b5a02c03aa5af318b401644ec3b2d20c4b4e18a0e88b";
 
 export type DeviceScope = "full";
 
@@ -2629,6 +2629,15 @@ export interface CompletePairingResponse {
   deviceToken: string;
   runtimeId: string;
   protocolVersion: number;
+}
+
+export interface CreateDevicePairingRequest {
+  runtimeBaseUrl: string;
+}
+
+export interface CreateDevicePairingResponse {
+  pairingUrl: string;
+  expiresAt: string;
 }
 
 export interface UpdateRuntimeDisplayNameRequest {
@@ -6453,6 +6462,11 @@ export const backendEndpoints = {
     path: "/pairing/complete",
     requestBodyLimitBytes: 4194304,
   },
+  CreateDevicePairing: {
+    method: "POST",
+    path: "/pairing/create-device",
+    requestBodyLimitBytes: 4194304,
+  },
   UpdateRuntimeDisplayName: {
     method: "POST",
     path: "/runtime/display-name/update",
@@ -7165,6 +7179,23 @@ export function decodeCompletePairingResponse(value: unknown): CompletePairingRe
     deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
     runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
+  };
+}
+
+export function decodeCreateDevicePairingRequest(value: unknown): CreateDevicePairingRequest {
+  const record = assertRecord(value, "CreateDevicePairingRequest");
+  assertKnownFields(record, "CreateDevicePairingRequest", ["runtimeBaseUrl"]);
+  return {
+    runtimeBaseUrl: decodeString(requireField(record, "runtimeBaseUrl", "CreateDevicePairingRequest"), "CreateDevicePairingRequest.runtimeBaseUrl"),
+  };
+}
+
+export function decodeCreateDevicePairingResponse(value: unknown): CreateDevicePairingResponse {
+  const record = assertRecord(value, "CreateDevicePairingResponse");
+  assertKnownFields(record, "CreateDevicePairingResponse", ["pairingUrl", "expiresAt"]);
+  return {
+    pairingUrl: decodeString(requireField(record, "pairingUrl", "CreateDevicePairingResponse"), "CreateDevicePairingResponse.pairingUrl"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "CreateDevicePairingResponse"), "CreateDevicePairingResponse.expiresAt"),
   };
 }
 
@@ -12641,6 +12672,7 @@ export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
   runtimeInfo: () => Promise<RuntimeInfoResponse>;
   completePairing: (request: CompletePairingRequest) => Promise<CompletePairingResponse>;
+  createDevicePairing: (request: CreateDevicePairingRequest) => Promise<CreateDevicePairingResponse>;
   updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest) => Promise<RuntimeInfoResponse>;
   listDevices: (request: ListDevicesRequest) => Promise<ListDevicesResponse>;
   revokeDevice: (request: RevokeDeviceRequest) => Promise<RevokeDeviceResponse>;
@@ -12795,6 +12827,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createDevicePairing: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCreateDevicePairingResponse,
+      endpoint: backendEndpoints.CreateDevicePairing,
       fetchImpl,
       requestPayload: request,
     }),

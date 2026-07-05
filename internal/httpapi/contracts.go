@@ -46,6 +46,15 @@ type CompletePairingResponse struct {
 	ProtocolVersion int    `json:"protocolVersion"`
 }
 
+type CreateDevicePairingRequest struct {
+	RuntimeBaseURL string `json:"runtimeBaseUrl"`
+}
+
+type CreateDevicePairingResponse struct {
+	PairingURL string `json:"pairingUrl"`
+	ExpiresAt  string `json:"expiresAt"`
+}
+
 type ListDevicesRequest struct{}
 
 type ListDevicesResponse struct {

@@ -180,6 +180,7 @@ type TerminalService interface {
 
 type RuntimeAuthService interface {
 	CompletePairing(context.Context, string, string) (runtimeauth.DeviceSession, string, bool, error)
+	CreatePairingToken(context.Context) (runtimeauth.PairingToken, string, error)
 	IsDeviceSessionRevoked(context.Context, string) (bool, error)
 	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
 	ResolveDeviceToken(context.Context, string) (runtimeauth.DeviceSession, bool, error)
