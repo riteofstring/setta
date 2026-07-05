@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 8;
-export const backendContractSchemaHash = "sha256:ceb9203f9d0dca78388fb6aec1f5a5d4238fd3b0aef6a3facabffce1a78b7b27";
+export const backendProtocolVersion = 9;
+export const backendContractSchemaHash = "sha256:b54b4490d490352e9d7c060778357777f7801d1fdfefe39a20eab076069eb35e";
 
 export type DeviceScope = "full";
 
@@ -2635,6 +2635,22 @@ export interface CompletePairingResponse {
   deviceToken: string;
   runtimeId: string;
   protocolVersion: number;
+}
+
+export interface SetupAttestationRequest {
+  provisionId: string;
+  nonce: string;
+  nodeFingerprint: string;
+}
+
+export interface SetupAttestationResponse {
+  algorithm: string;
+  runtimeId: string;
+  provisionId: string;
+  nonce: string;
+  nodeFingerprint: string;
+  expiresAt: string;
+  attestation: string;
 }
 
 export interface CreateDevicePairingRequest {
@@ -6468,6 +6484,11 @@ export const backendEndpoints = {
     path: "/pairing/complete",
     requestBodyLimitBytes: 4194304,
   },
+  SetupAttestation: {
+    method: "POST",
+    path: "/setup/attestation",
+    requestBodyLimitBytes: 4194304,
+  },
   CreateDevicePairing: {
     method: "POST",
     path: "/pairing/create-device",
@@ -7195,6 +7216,30 @@ export function decodeCompletePairingResponse(value: unknown): CompletePairingRe
     deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
     runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
+  };
+}
+
+export function decodeSetupAttestationRequest(value: unknown): SetupAttestationRequest {
+  const record = assertRecord(value, "SetupAttestationRequest");
+  assertKnownFields(record, "SetupAttestationRequest", ["provisionId", "nonce", "nodeFingerprint"]);
+  return {
+    provisionId: decodeString(requireField(record, "provisionId", "SetupAttestationRequest"), "SetupAttestationRequest.provisionId"),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationRequest"), "SetupAttestationRequest.nonce"),
+    nodeFingerprint: decodeString(requireField(record, "nodeFingerprint", "SetupAttestationRequest"), "SetupAttestationRequest.nodeFingerprint"),
+  };
+}
+
+export function decodeSetupAttestationResponse(value: unknown): SetupAttestationResponse {
+  const record = assertRecord(value, "SetupAttestationResponse");
+  assertKnownFields(record, "SetupAttestationResponse", ["algorithm", "runtimeId", "provisionId", "nonce", "nodeFingerprint", "expiresAt", "attestation"]);
+  return {
+    algorithm: decodeString(requireField(record, "algorithm", "SetupAttestationResponse"), "SetupAttestationResponse.algorithm"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "SetupAttestationResponse"), "SetupAttestationResponse.runtimeId"),
+    provisionId: decodeString(requireField(record, "provisionId", "SetupAttestationResponse"), "SetupAttestationResponse.provisionId"),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationResponse"), "SetupAttestationResponse.nonce"),
+    nodeFingerprint: decodeString(requireField(record, "nodeFingerprint", "SetupAttestationResponse"), "SetupAttestationResponse.nodeFingerprint"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "SetupAttestationResponse"), "SetupAttestationResponse.expiresAt"),
+    attestation: decodeString(requireField(record, "attestation", "SetupAttestationResponse"), "SetupAttestationResponse.attestation"),
   };
 }
 
@@ -12688,6 +12733,7 @@ export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
   runtimeInfo: () => Promise<RuntimeInfoResponse>;
   completePairing: (request: CompletePairingRequest) => Promise<CompletePairingResponse>;
+  setupAttestation: (request: SetupAttestationRequest) => Promise<SetupAttestationResponse>;
   createDevicePairing: (request: CreateDevicePairingRequest) => Promise<CreateDevicePairingResponse>;
   updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest) => Promise<RuntimeInfoResponse>;
   listDevices: (request: ListDevicesRequest) => Promise<ListDevicesResponse>;
@@ -12843,6 +12889,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    setupAttestation: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSetupAttestationResponse,
+      endpoint: backendEndpoints.SetupAttestation,
       fetchImpl,
       requestPayload: request,
     }),

@@ -61,6 +61,22 @@ type CreateDevicePairingResponse struct {
 	ExpiresAt  string `json:"expiresAt"`
 }
 
+type SetupAttestationRequest struct {
+	ProvisionID     string `json:"provisionId"`
+	Nonce           string `json:"nonce"`
+	NodeFingerprint string `json:"nodeFingerprint"`
+}
+
+type SetupAttestationResponse struct {
+	Algorithm       string `json:"algorithm"`
+	RuntimeID       string `json:"runtimeId"`
+	ProvisionID     string `json:"provisionId"`
+	Nonce           string `json:"nonce"`
+	NodeFingerprint string `json:"nodeFingerprint"`
+	ExpiresAt       string `json:"expiresAt"`
+	Attestation     string `json:"attestation"`
+}
+
 type ListDevicesRequest struct{}
 
 type ListDevicesResponse struct {

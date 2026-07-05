@@ -50,6 +50,7 @@ var apiEndpoints = []endpoint{
 	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
 	unauthenticated(get[RuntimeInfoResponse]("RuntimeInfo", "/runtime/info", handler.runtimeInfo)),
 	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
+	unauthenticated(post[SetupAttestationRequest, SetupAttestationResponse]("SetupAttestation", "/setup/attestation", handler.setupAttestation)),
 	post[CreateDevicePairingRequest, CreateDevicePairingResponse]("CreateDevicePairing", "/pairing/create-device", handler.createDevicePairing),
 	post[UpdateRuntimeDisplayNameRequest, RuntimeInfoResponse]("UpdateRuntimeDisplayName", "/runtime/display-name/update", handler.updateRuntimeDisplayName),
 	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
