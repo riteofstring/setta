@@ -83,10 +83,7 @@ import {
   paneResizeSessionFromTarget,
   type PaneResizeSession,
 } from "./pane-resize-session";
-import {
-  WorkspaceLayoutRecoveryNotice,
-  WorkspacePaneHost,
-} from "./workspace-layout-area-components";
+import { WorkspacePaneHost } from "./workspace-layout-area-components";
 import {
   workspaceBenchmarkShouldRun,
   workspaceRuntimeIdentity,
@@ -96,6 +93,7 @@ import { WorkspaceNoWorkspaceState } from "./workspace-empty-state";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import {
   WorkspaceLayoutLoading,
+  WorkspaceUILayoutRecoveryNotice,
   useWorkspaceUIPaneMetadataLoad,
   useWorkspaceUILayoutLoad,
   useWorkspaceUILayoutPersistence,
@@ -886,9 +884,11 @@ function WorkspaceLayoutRuntimeArea({
       data-testid="workspace-layout-area"
       ref={rootRef}
     >
-      <WorkspaceLayoutRecoveryNotice
+      <WorkspaceUILayoutRecoveryNotice
+        layoutLoadError={layoutLoadError}
         message={layoutRecoveryMessage}
         onDismiss={() => setLayoutRecoveryDismissed(true)}
+        persistLayout={persistLayout}
       />
       <div className="workspace-stage" data-testid="workspace-presentation-engine" ref={stageRef}>
         <WorkspaceOverviewGhostButton

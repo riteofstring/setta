@@ -3,6 +3,7 @@ import type { DesktopPlatform } from "@shared/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
+import { WorkspaceLayoutRecoveryNotice } from "./workspace-layout-area-components";
 import { workspaceUILayoutFromScene } from "./workspace-scene";
 import {
   emptyWorkspacePaneMetadataSnapshot,
@@ -301,10 +302,10 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
   const pendingLayoutSaveRef = useRef<Promise<unknown>>(Promise.resolve());
   const [layoutPersistenceError, setLayoutPersistenceError] = useState<string | null>(null);
 
-  const persistLayout = useCallback(() => {
+  const persistLayout = useCallback((): Promise<void> => {
     runtime.presentation.syncPanes(runtime.store.toScene().panes);
     if (runtime.mode !== "workspace") {
-      return;
+      return Promise.resolve();
     }
     const layout = workspaceUILayoutFromScene(
       workspaceId,
@@ -312,7 +313,7 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
       runtime.store.focusedPaneId(),
       runtime.store.getSnapshot().revision,
     );
-    pendingLayoutSaveRef.current = pendingLayoutSaveRef.current
+    const save = pendingLayoutSaveRef.current
       .catch(() => {})
       .then(() => window.setta.workspace.saveUILayout(layout))
       .then(() => {
@@ -320,13 +321,48 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
       })
       .catch((error: unknown) => {
         setLayoutPersistenceError(layoutOperationErrorMessage(error));
+        throw error;
       });
+    pendingLayoutSaveRef.current = save.catch(() => {});
+    return save;
   }, [runtime, workspaceId]);
   const resetLayoutPersistenceError = useCallback(() => {
     setLayoutPersistenceError(null);
   }, []);
 
   return { layoutPersistenceError, persistLayout, resetLayoutPersistenceError };
+}
+
+export function WorkspaceUILayoutRecoveryNotice({
+  layoutLoadError,
+  message,
+  onDismiss,
+  persistLayout,
+}: {
+  layoutLoadError: string | null;
+  message: string | null;
+  onDismiss: () => void;
+  persistLayout: () => Promise<void>;
+}) {
+  const recreatePersistedLayout = useCallback(() => {
+    void persistLayout().then(onDismiss, () => {});
+  }, [onDismiss, persistLayout]);
+
+  return (
+    <WorkspaceLayoutRecoveryNotice
+      message={message}
+      onDismiss={onDismiss}
+      recreateAction={
+        layoutLoadError
+          ? {
+              ariaLabel: "Recreate saved workspace layout",
+              onClick: recreatePersistedLayout,
+              title: "Recreate saved workspace layout",
+            }
+          : null
+      }
+    />
+  );
 }
 
 export function workspaceLayoutRecoveryMessage({

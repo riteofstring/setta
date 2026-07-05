@@ -666,6 +666,15 @@ Progress on 2026-07-07:
   `pnpm -C desktop typecheck`, `pnpm -C desktop build`, and
   `node desktop/tests/electron/run-workflows.mjs --workflow pane-focus-click`
   passed.
+- Audit follow-up: added an explicit renderer recovery action for persisted
+  layout load failures. The recovery notice now offers a recreate action that
+  intentionally saves the fresh schema-2 layout and only dismisses the notice
+  after the save succeeds, instead of relying on a later incidental layout
+  mutation to overwrite old state.
+- Verification for the audit follow-up:
+  `pnpm -C desktop exec vitest run src/renderer/src/workspace-layout/workspace-layout-area-components.test.tsx src/renderer/src/workspace-layout/workspace-ui-layout.test.ts src/renderer/src/workspace-layout/workspace-scene.test.ts src/renderer/src/workspace-layout/layout-store.test.ts`,
+  `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi`,
+  `./scripts/go.sh test ./cmd/setta`, and `pnpm -C desktop typecheck` passed.
 - Remaining Phase 2 work: implement the backend operation reducer/service and
   event sync, then cut renderer-originated layout mutations over to that
   backend operation API before exposing agent or CLI workspace mutation
