@@ -24,6 +24,15 @@ func (service *Service) applyOpenPaneOperation(layout WorkspaceUILayout, operati
 			fmt.Errorf("workspace pane open does not support surfaceKind %s", operation.Open.SurfaceKind),
 		)
 	}
+	if operation.Open.SurfaceKind == SurfaceKindWorkflowNodeDetails {
+		if err := validateWorkflowNodeDetailsConfigMatchesOperationWorkspace(
+			layout.WorkspaceID,
+			operation,
+			operation.Open.WorkflowNodeDetailsConfig,
+		); err != nil {
+			return WorkspaceUIPaneOperationResult{}, err
+		}
+	}
 
 	previousFocusedPaneID := layout.FocusedPaneID
 	application, err := applyOpenPaneOperationToLayout(cloneWorkspaceUILayout(layout), operation)
@@ -91,6 +100,10 @@ func applyOpenPaneOperationToLayout(layout WorkspaceUILayout, operation Workspac
 		Title:          operation.Open.Title,
 		Tone:           operation.Open.Tone,
 		Weight:         1,
+		WorkflowNodeDetailsConfig: workflowNodeDetailsConfigForOpenPane(
+			operation.Open.SurfaceKind,
+			operation.Open.WorkflowNodeDetailsConfig,
+		),
 	}
 	layout.Panes = append(layout.Panes, pane)
 	columnIndex := columnIndexByID(layout.Columns, column.ColumnID)
@@ -197,7 +210,7 @@ func terminalConfigForOpenPane(surfaceKind SurfaceKind, config *TerminalPaneConf
 
 func validOpenPaneSurfaceKind(surfaceKind SurfaceKind) bool {
 	switch surfaceKind {
-	case SurfaceKindChatDOM, SurfaceKindTerminal, SurfaceKindWorkflowGraph:
+	case SurfaceKindChatDOM, SurfaceKindTerminal, SurfaceKindWorkflowGraph, SurfaceKindWorkflowNodeDetails:
 		return true
 	default:
 		return false

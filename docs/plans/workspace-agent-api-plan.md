@@ -897,9 +897,22 @@ Progress on 2026-07-07:
   `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi` passed. The
   generator completed with no generated diffs because the write operation
   contract remains unexposed through the endpoint registry.
-- Remaining Phase 2 work: add explicit workflow-node-details open/configure
-  support if the renderer write cutover needs the current details-pane
-  retargeting behavior, add push-based workspace UI event sync, then cut
+- Backend workflow-node-details operation follow-up: extended the backend-only
+  `open_pane` and `configure_pane` reducers without exposing an HTTP, CLI, IPC,
+  renderer, or agent write surface. Both operations now accept an explicit
+  `workflowNodeDetailsConfig` only for `workflow-node-details` panes, validate
+  target shape/workspace before persistence, preserve non-null projection edge
+  arrays, focus the opened or configured pane, and preserve the existing details
+  target when replacement config is omitted. This covers the renderer's current
+  one-pane retargeting behavior ahead of the write cutover.
+- Verification for the backend workflow-node-details operation follow-up:
+  `./scripts/go.sh test ./internal/workspaceui`,
+  `./scripts/go.sh run ./cmd/generate-contracts`, and
+  `./scripts/go.sh test ./internal/httpapi` passed. The generator completed
+  with no generated diffs because the write operation contract remains
+  unexposed through the endpoint registry. Final gate: `./scripts/format.sh`
+  and `./check_quality.sh --git-changes` passed.
+- Remaining Phase 2 work: add push-based workspace UI event sync, then cut
   renderer-originated layout mutations over to the backend operation API before
   exposing agent or CLI workspace mutation commands.
 

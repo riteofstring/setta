@@ -81,6 +81,28 @@ func configureWorkspaceUIPane(
 			fmt.Errorf("workspace pane configure terminalConfig is only valid for terminal panes"),
 		)
 	}
+	if configure.WorkflowNodeDetailsConfig != nil && surfaceKind != SurfaceKindWorkflowNodeDetails {
+		return WorkspaceUIPane{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodeInvalidOperation,
+			fmt.Errorf("workspace pane configure workflowNodeDetailsConfig is only valid for workflow-node-details panes"),
+		)
+	}
+	workflowNodeDetailsConfig := workflowNodeDetailsConfigForConfigurePane(
+		surfaceKind,
+		configure.WorkflowNodeDetailsConfig,
+		pane,
+	)
+	if surfaceKind == SurfaceKindWorkflowNodeDetails {
+		if err := validateWorkflowNodeDetailsConfigMatchesOperationWorkspace(
+			layout.WorkspaceID,
+			operation,
+			workflowNodeDetailsConfig,
+		); err != nil {
+			return WorkspaceUIPane{}, err
+		}
+	}
 
 	sequence := nextWorkspaceUIPaneSequence(layout)
 	pane.Heat = (sequence * 37) % 100
@@ -90,7 +112,7 @@ func configureWorkspaceUIPane(
 	pane.TerminalConfig = terminalConfigForConfigurePane(surfaceKind, configure.TerminalConfig, pane)
 	pane.Title = configuredString(configure.Title, pane.Title)
 	pane.Tone = configuredTone(configure.Tone, pane.Tone)
-	pane.WorkflowNodeDetailsConfig = nil
+	pane.WorkflowNodeDetailsConfig = workflowNodeDetailsConfig
 	return pane, nil
 }
 
@@ -151,7 +173,7 @@ func configuredTone(value *PaneTone, current PaneTone) PaneTone {
 
 func validConfigurePaneSurfaceKind(surfaceKind SurfaceKind) bool {
 	switch surfaceKind {
-	case SurfaceKindChatDOM, SurfaceKindTerminal, SurfaceKindWorkflowGraph:
+	case SurfaceKindChatDOM, SurfaceKindTerminal, SurfaceKindWorkflowGraph, SurfaceKindWorkflowNodeDetails:
 		return true
 	default:
 		return false

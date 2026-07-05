@@ -225,11 +225,12 @@ type WorkspaceUIPaneCloseOperation struct {
 }
 
 type WorkspaceUIPaneConfigureOperation struct {
-	Subtitle       *string             `json:"subtitle"`
-	SurfaceKind    *SurfaceKind        `json:"surfaceKind"`
-	TerminalConfig *TerminalPaneConfig `json:"terminalConfig"`
-	Title          *string             `json:"title"`
-	Tone           *PaneTone           `json:"tone"`
+	Subtitle                  *string                        `json:"subtitle"`
+	SurfaceKind               *SurfaceKind                   `json:"surfaceKind"`
+	TerminalConfig            *TerminalPaneConfig            `json:"terminalConfig"`
+	Title                     *string                        `json:"title"`
+	Tone                      *PaneTone                      `json:"tone"`
+	WorkflowNodeDetailsConfig *WorkflowNodeDetailsPaneConfig `json:"workflowNodeDetailsConfig"`
 }
 
 type WorkspaceUIPaneMoveOperation struct {
@@ -237,13 +238,14 @@ type WorkspaceUIPaneMoveOperation struct {
 }
 
 type WorkspaceUIPaneOpenOperation struct {
-	AdjacentToColumnID string              `json:"adjacentToColumnId"`
-	Subtitle           string              `json:"subtitle"`
-	SurfaceKind        SurfaceKind         `json:"surfaceKind"`
-	TerminalConfig     *TerminalPaneConfig `json:"terminalConfig"`
-	Title              string              `json:"title"`
-	Tone               PaneTone            `json:"tone"`
-	WidthSpec          *ColumnWidthSpec    `json:"widthSpec"`
+	AdjacentToColumnID        string                         `json:"adjacentToColumnId"`
+	Subtitle                  string                         `json:"subtitle"`
+	SurfaceKind               SurfaceKind                    `json:"surfaceKind"`
+	TerminalConfig            *TerminalPaneConfig            `json:"terminalConfig"`
+	Title                     string                         `json:"title"`
+	Tone                      PaneTone                       `json:"tone"`
+	WidthSpec                 *ColumnWidthSpec               `json:"widthSpec"`
+	WorkflowNodeDetailsConfig *WorkflowNodeDetailsPaneConfig `json:"workflowNodeDetailsConfig"`
 }
 
 type WorkspaceUIPaneRenameOperation struct {

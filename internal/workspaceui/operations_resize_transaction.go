@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-
-	"setta/internal/orchestrator"
 )
 
 type workspaceUIPaneOperationApplication struct {
@@ -170,10 +168,7 @@ func cloneWorkspaceUIPane(pane WorkspaceUIPane) WorkspaceUIPane {
 		cloned.TerminalConfig = &terminalConfig
 	}
 	if pane.WorkflowNodeDetailsConfig != nil {
-		config := *pane.WorkflowNodeDetailsConfig
-		config.ProjectionIncomingEdges = append([]orchestrator.WorkflowGraphEdge(nil), pane.WorkflowNodeDetailsConfig.ProjectionIncomingEdges...)
-		config.ProjectionOutgoingEdges = append([]orchestrator.WorkflowGraphEdge(nil), pane.WorkflowNodeDetailsConfig.ProjectionOutgoingEdges...)
-		cloned.WorkflowNodeDetailsConfig = &config
+		cloned.WorkflowNodeDetailsConfig = cloneWorkflowNodeDetailsPaneConfig(pane.WorkflowNodeDetailsConfig)
 	}
 	return cloned
 }

@@ -158,6 +158,118 @@ func TestServiceAppliesConfigurePaneOperationToWorkflowGraph(t *testing.T) {
 	}
 }
 
+func TestServiceAppliesConfigurePaneOperationToWorkflowNodeDetails(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	config := testWorkflowNodeDetailsConfig("workspace_api")
+	configure := configurePaneOperation(
+		SurfaceKindWorkflowNodeDetails,
+		"Workflow Node",
+		"workflow node details",
+		PaneToneCyan,
+	)
+	configure.WorkflowNodeDetailsConfig = config
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:      WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID:    "workspace_pane_1",
+		Configure: configure,
+	})
+	if err != nil {
+		t.Fatalf("apply configure operation: %v", err)
+	}
+	configuredPane := paneByID(t, result.Layout, "workspace_pane_1")
+	if configuredPane.SurfaceKind != SurfaceKindWorkflowNodeDetails ||
+		configuredPane.TerminalConfig != nil ||
+		!reflect.DeepEqual(configuredPane.WorkflowNodeDetailsConfig, config) {
+		t.Fatalf("configured pane = %+v, want workflow node details config", configuredPane)
+	}
+	assertConfigureOutcome(t, result.OperationResult.Configure, WorkspaceUIPaneConfigureOutcome{
+		PreviousSubtitle:    "terminal",
+		PreviousSurfaceID:   "workspace_surface_1",
+		PreviousSurfaceKind: SurfaceKindTerminal,
+		PreviousTitle:       "Terminal",
+		PreviousTone:        PaneToneGreen,
+		Subtitle:            "workflow node details",
+		SurfaceID:           "workspace_surface_2",
+		SurfaceKind:         SurfaceKindWorkflowNodeDetails,
+		Title:               "Workflow Node",
+		Tone:                PaneToneCyan,
+	})
+}
+
+func TestServiceConfigurePaneOperationRetargetsWorkflowNodeDetails(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testLayout("workspace_api")
+	firstTarget := testWorkflowNodeDetailsConfig("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].Title = "Workflow Node"
+	layout.Panes[0].WorkflowNodeDetailsConfig = firstTarget
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	secondTarget := testWorkflowNodeDetailsConfig("workspace_api")
+	secondTarget.NodeID = "review"
+	secondTarget.NodeExecutionID = "workflow_node_execution_review"
+	secondTarget.NodeLabel = "Review"
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID: "workspace_pane_0",
+		Configure: &WorkspaceUIPaneConfigureOperation{
+			WorkflowNodeDetailsConfig: secondTarget,
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply configure operation: %v", err)
+	}
+	configuredPane := paneByID(t, result.Layout, "workspace_pane_0")
+	if configuredPane.SurfaceKind != SurfaceKindWorkflowNodeDetails ||
+		!reflect.DeepEqual(configuredPane.WorkflowNodeDetailsConfig, secondTarget) {
+		t.Fatalf("configured pane = %+v, want retargeted workflow details", configuredPane)
+	}
+	if configuredPane.SurfaceID != "workspace_surface_2" || result.Layout.FocusedPaneID != "workspace_pane_0" {
+		t.Fatalf("configured pane = %+v focus = %q, want fresh surface focused", configuredPane, result.Layout.FocusedPaneID)
+	}
+}
+
+func TestServiceConfigurePaneOperationPreservesExistingWorkflowNodeDetailsTarget(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testLayout("workspace_api")
+	target := testWorkflowNodeDetailsConfig("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].Title = "Workflow Node"
+	layout.Panes[0].WorkflowNodeDetailsConfig = target
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	title := "Workflow Node Details"
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID: "workspace_pane_0",
+		Configure: &WorkspaceUIPaneConfigureOperation{
+			Title: &title,
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply configure operation: %v", err)
+	}
+	configuredPane := paneByID(t, result.Layout, "workspace_pane_0")
+	if configuredPane.Title != title ||
+		!reflect.DeepEqual(configuredPane.WorkflowNodeDetailsConfig, target) {
+		t.Fatalf("configured pane = %+v, want title change with preserved details target", configuredPane)
+	}
+}
+
 func TestServiceRejectsConfigurePaneUnsupportedSurfaceKindWithoutPersisting(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -181,6 +293,62 @@ func TestServiceRejectsConfigurePaneUnsupportedSurfaceKindWithoutPersisting(t *t
 		"workspace_pane_0",
 		SurfaceKindChatDOM,
 		"workspace_surface_0",
+		1,
+	)
+}
+
+func TestServiceRejectsConfigurePaneWorkflowNodeDetailsWithoutConfig(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:      WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID:    "workspace_pane_1",
+		Configure: configurePaneOperation(SurfaceKindWorkflowNodeDetails, "Workflow Node", "workflow node details", PaneToneCyan),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %v, want invalid operation", err)
+	}
+	assertPersistedPaneUnchanged(
+		t,
+		service,
+		"workspace_api",
+		"workspace_pane_1",
+		SurfaceKindTerminal,
+		"workspace_surface_1",
+		1,
+	)
+}
+
+func TestServiceRejectsConfigurePaneWorkflowNodeDetailsWorkspaceMismatchWithoutPersisting(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	configure := configurePaneOperation(SurfaceKindWorkflowNodeDetails, "Workflow Node", "workflow node details", PaneToneCyan)
+	configure.WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig("workspace_other")
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:      WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID:    "workspace_pane_1",
+		Configure: configure,
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %v, want invalid operation", err)
+	}
+	assertPersistedPaneUnchanged(
+		t,
+		service,
+		"workspace_api",
+		"workspace_pane_1",
+		SurfaceKindTerminal,
+		"workspace_surface_1",
 		1,
 	)
 }
@@ -264,6 +432,17 @@ func TestServiceRejectsConfigurePaneInvalidPayloads(t *testing.T) {
 				Configure: &WorkspaceUIPaneConfigureOperation{
 					SurfaceKind:    surfaceKindPointer(SurfaceKindChatDOM),
 					TerminalConfig: &TerminalPaneConfig{ProfileID: "default"},
+				},
+			},
+		},
+		{
+			name: "workflow node details config with explicit chat surface",
+			operation: WorkspaceUIPaneOperation{
+				Kind:   WorkspaceUIPaneOperationKindConfigurePane,
+				PaneID: "workspace_pane_0",
+				Configure: &WorkspaceUIPaneConfigureOperation{
+					SurfaceKind:               surfaceKindPointer(SurfaceKindChatDOM),
+					WorkflowNodeDetailsConfig: testWorkflowNodeDetailsConfig("workspace_api"),
 				},
 			},
 		},

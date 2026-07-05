@@ -206,6 +206,55 @@ func TestServiceAppliesOpenPaneWorkflowGraphWithWidthNormalizationWarning(t *tes
 	}
 }
 
+func TestServiceAppliesOpenPaneWorkflowNodeDetailsWithConfig(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	config := testWorkflowNodeDetailsConfig("workspace_api")
+	widthSpec := ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 380}
+	open := openPaneOperation(SurfaceKindWorkflowNodeDetails, "Workflow Node", "workflow node details", PaneToneCyan)
+	open.WorkflowNodeDetailsConfig = config
+	open.WidthSpec = &widthSpec
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindOpenPane,
+		Open: open,
+	})
+	if err != nil {
+		t.Fatalf("apply open operation: %v", err)
+	}
+	if result.Layout.FocusedPaneID != "workspace_pane_2" || result.Revision != 2 {
+		t.Fatalf("result = %+v, want created details pane focused at revision 2", result)
+	}
+	pane := paneByID(t, result.Layout, "workspace_pane_2")
+	if pane.SurfaceKind != SurfaceKindWorkflowNodeDetails ||
+		pane.TerminalConfig != nil ||
+		!reflect.DeepEqual(pane.WorkflowNodeDetailsConfig, config) {
+		t.Fatalf("created pane = %+v, want workflow node details config", pane)
+	}
+	assertOpenOutcome(t, result.OperationResult.Open, WorkspaceUIPaneOpenOutcome{
+		ColumnID:    "workspace_column_1",
+		ColumnIndex: 1,
+		PaneIndex:   0,
+		PlaneIndex:  0,
+		SurfaceID:   "workspace_surface_2",
+		SurfaceKind: SurfaceKindWorkflowNodeDetails,
+		Title:       "Workflow Node",
+		WidthSpec:   widthSpec,
+	})
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	loadedPane := paneByID(t, *loaded.Layout, "workspace_pane_2")
+	if !reflect.DeepEqual(loadedPane.WorkflowNodeDetailsConfig, config) {
+		t.Fatalf("loaded details config = %+v, want %+v", loadedPane.WorkflowNodeDetailsConfig, config)
+	}
+}
+
 func TestServiceRejectsOpenPaneUnsupportedSurfaceKind(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -231,6 +280,32 @@ func TestServiceRejectsOpenPaneUnsupportedSurfaceKind(t *testing.T) {
 		t.Fatalf("read layout: %v", err)
 	}
 	if loaded.Layout == nil || loaded.Layout.Revision != 1 || len(loaded.Layout.Columns) != 1 || len(loaded.Layout.Panes) != 2 {
+		t.Fatalf("loaded layout = %+v, want unchanged layout", loaded.Layout)
+	}
+}
+
+func TestServiceRejectsOpenPaneWorkflowNodeDetailsWorkspaceMismatchWithoutPersisting(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	open := openPaneOperation(SurfaceKindWorkflowNodeDetails, "Workflow Node", "workflow node details", PaneToneCyan)
+	open.WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig("workspace_other")
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindOpenPane,
+		Open: open,
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %v, want invalid operation", err)
+	}
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Revision != 1 || len(loaded.Layout.Panes) != 2 {
 		t.Fatalf("loaded layout = %+v, want unchanged layout", loaded.Layout)
 	}
 }
@@ -295,6 +370,30 @@ func TestServiceRejectsOpenPaneInvalidPayloads(t *testing.T) {
 					Title: "Chat",
 					Tone:  PaneToneCyan,
 				},
+			},
+		},
+		{
+			name: "workflow node details config on chat",
+			operation: WorkspaceUIPaneOperation{
+				Kind: WorkspaceUIPaneOperationKindOpenPane,
+				Open: &WorkspaceUIPaneOpenOperation{
+					SurfaceKind:               SurfaceKindChatDOM,
+					WorkflowNodeDetailsConfig: testWorkflowNodeDetailsConfig("workspace_api"),
+					Title:                     "Chat",
+					Tone:                      PaneToneCyan,
+				},
+			},
+		},
+		{
+			name: "workflow node details missing config",
+			operation: WorkspaceUIPaneOperation{
+				Kind: WorkspaceUIPaneOperationKindOpenPane,
+				Open: openPaneOperation(
+					SurfaceKindWorkflowNodeDetails,
+					"Workflow Node",
+					"workflow node details",
+					PaneToneCyan,
+				),
 			},
 		},
 		{

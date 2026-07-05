@@ -188,7 +188,10 @@ func validateOpenPaneOperation(operation WorkspaceUIPaneOperation) error {
 			return err
 		}
 	}
-	return validateOpenPaneTerminalConfig(open.SurfaceKind, open.TerminalConfig)
+	if err := validateOpenPaneTerminalConfig(open.SurfaceKind, open.TerminalConfig); err != nil {
+		return err
+	}
+	return validateOpenPaneWorkflowNodeDetailsConfig(open.SurfaceKind, open.WorkflowNodeDetailsConfig)
 }
 
 func validateOpenPanePayloadExclusivity(operation WorkspaceUIPaneOperation) error {
@@ -254,7 +257,10 @@ func validateConfigurePanePayload(configure WorkspaceUIPaneConfigureOperation) e
 	if err := validateConfigurePaneTone(configure.Tone); err != nil {
 		return err
 	}
-	return validateConfigurePaneTerminalConfigForSurface(configure.SurfaceKind, configure.TerminalConfig)
+	if err := validateConfigurePaneTerminalConfigForSurface(configure.SurfaceKind, configure.TerminalConfig); err != nil {
+		return err
+	}
+	return validateConfigurePaneWorkflowNodeDetailsConfigForSurface(configure.SurfaceKind, configure.WorkflowNodeDetailsConfig)
 }
 
 func configurePanePayloadHasField(configure WorkspaceUIPaneConfigureOperation) bool {
@@ -262,7 +268,8 @@ func configurePanePayloadHasField(configure WorkspaceUIPaneConfigureOperation) b
 		configure.Title != nil ||
 		configure.Subtitle != nil ||
 		configure.Tone != nil ||
-		configure.TerminalConfig != nil
+		configure.TerminalConfig != nil ||
+		configure.WorkflowNodeDetailsConfig != nil
 }
 
 func validateConfigurePaneSurfaceKind(surfaceKind *SurfaceKind) error {
