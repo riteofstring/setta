@@ -48,6 +48,14 @@ export function registerWorkspaceUILayoutIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "workspaceInitializeUILayout",
+    async (_event, workspaceId) => {
+      return requireBackendClient().initializeWorkspaceUILayout({ workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workspaceResetUILayout",
     async (_event, workspaceId) => {
       return requireBackendClient().resetWorkspaceUILayout({ workspaceId });

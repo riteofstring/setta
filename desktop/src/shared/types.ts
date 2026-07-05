@@ -430,6 +430,7 @@ export interface SettaAPI {
   };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
+    initializeUILayout: (workspaceId: string) => Promise<WorkspaceUILayout>;
     listUIPanes: (workspaceId: string) => Promise<WorkspaceUIPaneListResult>;
     onUIEvent: (workspaceId: string, listener: (event: WorkspaceUIEvent) => void) => () => void;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;

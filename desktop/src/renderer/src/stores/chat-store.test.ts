@@ -1254,6 +1254,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     workspace: {
       close: async () => workspaceSession(),
       ...workspaceUIReadFixtureAPI("chat store tests"),
+      initializeUILayout: async (workspaceId) => emptyWorkspaceUILayout(workspaceId),
       openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       openPath: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),

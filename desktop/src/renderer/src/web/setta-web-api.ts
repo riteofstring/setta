@@ -456,6 +456,8 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     },
     workspace: {
       close: (id) => requireClient().closeWorkspace({ id }),
+      initializeUILayout: (workspaceId) =>
+        requireClient().initializeWorkspaceUILayout({ workspaceId }),
       listUIPanes: (workspaceId) => requireClient().listWorkspaceUIPanes({ workspaceId }),
       onUIEvent: (workspaceId, listener) =>
         subscribeWebBackendEventStream({

@@ -282,6 +282,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const workspaceAPI: SettaAPI["workspace"] = {
     close: async () => fallbackSession,
     ...workspaceUIReadFixtureAPI("workspace store tests"),
+    initializeUILayout: async (workspaceId) => emptyWorkspaceUILayout(workspaceId),
     openLocalFolder: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     openPath: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),

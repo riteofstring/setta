@@ -183,6 +183,23 @@ func (handler handler) readWorkspaceUILayout(response http.ResponseWriter, reque
 	writeJSON(response, http.StatusOK, layout)
 }
 
+func (handler handler) initializeWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if service == nil {
+		return
+	}
+	var payload InitializeWorkspaceUILayoutRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	layout, err := service.InitializeLayout(payload.WorkspaceID)
+	if err != nil {
+		writeWorkspaceUIError(response, "initialize_workspace_ui_layout_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, layout)
+}
+
 func (handler handler) resetWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkspaceUIService(response, handler.workspaceUIService)
 	if service == nil {

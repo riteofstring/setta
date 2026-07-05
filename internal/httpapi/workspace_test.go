@@ -118,6 +118,40 @@ func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
 	}
 }
 
+func TestWorkspaceUILayoutInitializeEndpointPersistsDefaultLayoutOnce(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, nil, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+
+	initialized := postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/initialize", InitializeWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if initialized.WorkspaceID != opened.Workspace.ID || initialized.Revision != 1 || len(initialized.Panes) != 4 {
+		t.Fatalf("initialized layout = %+v, want default layout at revision 1", initialized)
+	}
+	if initialized.Panes[0].Subtitle != opened.Workspace.DisplayName {
+		t.Fatalf("first pane subtitle = %q, want workspace display name %q", initialized.Panes[0].Subtitle, opened.Workspace.DisplayName)
+	}
+	if _, err := os.Stat(workspaceui.StateFilePath(appDataDir, opened.Workspace.ID)); err != nil {
+		t.Fatalf("stat initialized workspace UI state: %v", err)
+	}
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/layout/initialize", InitializeWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "initialize_workspace_ui_layout_failed" {
+		t.Fatalf("error code = %q, want initialize_workspace_ui_layout_failed", errResponse.Error.Code)
+	}
+
+	read := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if read.Layout == nil || read.Layout.Revision != initialized.Revision || len(read.Layout.Panes) != len(initialized.Panes) {
+		t.Fatalf("read initialized layout = %+v, want original initialized layout", read.Layout)
+	}
+}
+
 func TestWorkspaceUILayoutResetEndpointRecreatesDefaultLayout(t *testing.T) {
 	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
 		mustTime(t, "2026-05-29T20:00:00Z"),

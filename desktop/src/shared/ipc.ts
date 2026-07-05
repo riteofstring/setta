@@ -281,6 +281,7 @@ export const ipcChannels = {
   workflowUpdateDefinition: "workflow:update-definition",
   workflowValidateDefinition: "workflow:validate-definition",
   workspaceClose: "workspace:close",
+  workspaceInitializeUILayout: "workspace:initialize-ui-layout",
   workspaceListUIPanes: "workspace:list-ui-panes",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
@@ -867,6 +868,7 @@ interface IpcContract {
     result: WorkflowValidationResult;
   };
   workspaceClose: { args: [id: string]; result: WorkspaceSession };
+  workspaceInitializeUILayout: { args: [workspaceId: string]; result: WorkspaceUILayout };
   workspaceListUIPanes: { args: [workspaceId: string]; result: WorkspaceUIPaneListResult };
   workspaceOpenLocalFolder: { args: []; result: OpenWorkspaceResponse | null };
   workspaceOpenPath: { args: [rootPath: string]; result: OpenWorkspaceResponse };

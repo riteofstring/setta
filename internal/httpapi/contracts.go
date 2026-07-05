@@ -124,6 +124,10 @@ type ReadWorkspaceUILayoutRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
 
+type InitializeWorkspaceUILayoutRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
 type ResetWorkspaceUILayoutRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }

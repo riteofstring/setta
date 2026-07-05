@@ -402,6 +402,7 @@ const api: SettaAPI = {
   },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
+    initializeUILayout: (workspaceId: string) => invoke("workspaceInitializeUILayout", workspaceId),
     listUIPanes: (workspaceId: string) => invoke("workspaceListUIPanes", workspaceId),
     onUIEvent: (workspaceId, listener) => {
       if (workspaceId === "") {

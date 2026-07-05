@@ -121,8 +121,7 @@ export function useWorkspaceUILayoutLoad(
       layout: null,
       status: "loading",
     });
-    window.setta.workspace
-      .readUILayout(workspaceId)
+    loadWorkspaceUILayout(workspaceId)
       .then((result) => {
         if (cancelled) {
           return;
@@ -130,7 +129,7 @@ export function useWorkspaceUILayoutLoad(
         setState({
           error: null,
           key,
-          layout: result.layout,
+          layout: result,
           status: "loaded",
         });
       })
@@ -167,6 +166,32 @@ export function useWorkspaceUILayoutLoad(
     };
   }
   return state;
+}
+
+export async function loadWorkspaceUILayout(
+  workspaceId: string,
+): Promise<WorkspaceUILayout | null> {
+  const result = await window.setta.workspace.readUILayout(workspaceId);
+  if (result.layout !== null) {
+    return checkedWorkspaceUILayout(result.layout, workspaceId);
+  }
+  const initializeUILayout = window.setta.workspace.initializeUILayout;
+  if (!initializeUILayout) {
+    throw new Error("Workspace UI layout initialize API is unavailable");
+  }
+  return checkedWorkspaceUILayout(await initializeUILayout(workspaceId), workspaceId);
+}
+
+function checkedWorkspaceUILayout(
+  layout: WorkspaceUILayout,
+  workspaceId: string,
+): WorkspaceUILayout {
+  if (layout.workspaceId !== workspaceId) {
+    throw new Error(
+      `Workspace UI layout workspace ${layout.workspaceId} does not match ${workspaceId}`,
+    );
+  }
+  return layout;
 }
 
 export function useWorkspaceUIPaneMetadataLoad(

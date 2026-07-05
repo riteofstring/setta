@@ -71,6 +71,7 @@ var apiEndpoints = []endpoint{
 	post[ListWorkspaceUIPanesRequest, workspaceui.WorkspaceUIPaneListResult]("ListWorkspaceUIPanes", "/workspaces/ui/panes/list", handler.listWorkspaceUIPanes),
 	post[ReadWorkspaceUIPaneRequest, workspaceui.WorkspaceUIPaneReadResult]("ReadWorkspaceUIPane", "/workspaces/ui/panes/read", handler.readWorkspaceUIPane),
 	post[ReadWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayoutReadResult]("ReadWorkspaceUILayout", "/workspaces/ui/layout/read", handler.readWorkspaceUILayout),
+	post[InitializeWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayout]("InitializeWorkspaceUILayout", "/workspaces/ui/layout/initialize", handler.initializeWorkspaceUILayout),
 	post[ResetWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayout]("ResetWorkspaceUILayout", "/workspaces/ui/layout/reset", handler.resetWorkspaceUILayout),
 	post[SaveWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayout]("SaveWorkspaceUILayout", "/workspaces/ui/layout/save", handler.saveWorkspaceUILayout),
 	streamEvent[workspaceui.WorkspaceUIEvent]("WorkspaceUIEventStream", "/workspaces/ui/events", handler.workspaceUIEventStream),
