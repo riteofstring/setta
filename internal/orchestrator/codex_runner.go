@@ -29,7 +29,6 @@ type CodexChatService interface {
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	LoadRunTranscriptPage(workspaceID string, runID string, beforeBlockOrdinal int, limit int) (chat.RunTranscriptPage, error)
 	ReconcileActiveRunByID(ctx context.Context, workspaceID string, conversationID string, runID string, reason chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error)
-	ResolveWorkflowAgentCodexSettings(workspaceID string, overrides chat.ChatCodexSettings) (chat.ChatCodexSettings, *chat.ChatCodexEffectiveSettings, error)
 	SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error)
 	SteerActiveRunInputByID(workspaceID string, conversationID string, runID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
@@ -132,12 +131,6 @@ func (descriptor CodexActionRunnerDescriptor) ValidateConfig(config WorkflowActi
 			Message: "agent.codex prompt is required",
 		}}
 	}
-	if err := validateWorkflowAgentSettings(config.Codex.Settings); err != nil {
-		return []RunnerConfigDiagnostic{{
-			Code:    "codex_action_settings_invalid",
-			Message: "agent.codex settings are invalid: " + err.Error(),
-		}}
-	}
 	return []RunnerConfigDiagnostic{}
 }
 
@@ -162,26 +155,17 @@ func (runner *CodexActionRunner) Start(_ context.Context, request ActionStartReq
 	if err != nil {
 		return ActionStartResult{}, err
 	}
-	overrides, sources := workflowAgentCodexSettingsForRun(request.WorkflowAgentDefaults, config.Settings)
-	codexSettings, effectiveSettings, err := runner.chatService.ResolveWorkflowAgentCodexSettings(request.WorkspaceID, overrides)
-	if err != nil {
-		return ActionStartResult{}, err
-	}
-	runSettings, err := workflowAgentEffectiveRunSettings(codexSettings, effectiveSettings, sources)
-	if err != nil {
-		return ActionStartResult{}, err
-	}
 	turn, err := runner.chatService.SendWorkflowAgentTurn(request.WorkspaceID, chat.WorkflowAgentTurnRequest{
-		DefinitionID:           request.DefinitionID,
-		DefinitionVersionID:    request.DefinitionVersionID,
-		ExecutionID:            request.Execution.ID,
-		NodeID:                 request.Node.ID,
-		NodeExecutionID:        request.NodeExecution.ID,
-		Prompt:                 config.Prompt,
-		SemanticContext:        semanticDelivery,
-		FreshConversation:      config.FreshConversation,
-		CodexSettings:          codexSettings,
-		CodexEffectiveSettings: effectiveSettings,
+		DefinitionID:        request.DefinitionID,
+		DefinitionVersionID: request.DefinitionVersionID,
+		ExecutionID:         request.Execution.ID,
+		NodeID:              request.Node.ID,
+		NodeExecutionID:     request.NodeExecution.ID,
+		Prompt:              config.Prompt,
+		SemanticContext:     semanticDelivery,
+		FreshConversation:   config.FreshConversation,
+		Model:               config.Model,
+		ReasoningEffort:     codexReasoningEffort(config.ReasoningEffort),
 	})
 	if err != nil {
 		return ActionStartResult{}, err
@@ -196,7 +180,6 @@ func (runner *CodexActionRunner) Start(_ context.Context, request ActionStartReq
 			IdempotencyKey:   request.NodeExecution.IdempotencyKey,
 			SideEffectPolicy: request.Policy.SideEffectPolicy,
 			ActivityRefs:     activityRefs,
-			RunSettings:      runSettings,
 		})
 		if err != nil {
 			return ActionStartResult{}, err
@@ -416,6 +399,14 @@ func workflowActivityRefFromChatRun(request ActionStartRequest, runID string) Wo
 		CreatedAt:       request.NodeExecution.StartedAt,
 		UpdatedAt:       request.NodeExecution.StartedAt,
 	}
+}
+
+func codexReasoningEffort(value string) *chat.ReasoningEffort {
+	if value == "" {
+		return nil
+	}
+	effort := chat.ReasoningEffort(value)
+	return &effort
 }
 
 func runnerRefsFromChatTurn(turn chat.SendMessageResult) []WorkflowActionRunnerRef {

@@ -9,8 +9,8 @@
       throw new Error("base Setta E2E driver is not installed");
     }
     Object.assign(driver, {
-      backgroundTerminalMonitorState,
       chatSearchState,
+      chatTranscriptBlockOrder,
       chatTranscriptScrollSnapshot,
       commandStartFailureActivityDetails,
       currentPlanSurface,
@@ -31,27 +31,7 @@
     });
   }
 
-  function backgroundTerminalMonitorState() {
-    const footer = document.querySelector('[data-testid="background-terminals-footer"]');
-    return {
-      dismissButtonPresent: Boolean(
-        document.querySelector('button[aria-label="Dismiss background terminal status"]'),
-      ),
-      footerPhase: attr(footer, "data-terminal-surface-state"),
-      footerPresent: Boolean(footer),
-      footerText: textOf(footer),
-      monitorOpen: Boolean(document.querySelector('[data-testid="background-terminal-monitor"]')),
-      processes: Array.from(
-        document.querySelectorAll('[data-testid="background-terminal-monitor-process"]'),
-      ).map((row) => ({
-        command: attr(row, "data-command"),
-        status: attr(row, "data-status"),
-        text: textOf(row),
-      })),
-    };
-  }
-
-  function toggleProjectedActivityGroupDetails({ open, shouldPrimeAnchor, sourceRunItemIds }) {
+  function toggleProjectedActivityGroupDetails({ open, sourceRunItemIds }) {
     const groupHeaders = activityGroupHeaders();
     const groupHeader = activityGroupForEverySourceRunItem(groupHeaders, sourceRunItemIds);
     const expandAll = groupHeader?.parentElement?.querySelector(
@@ -60,7 +40,7 @@
     if (!(expandAll instanceof HTMLButtonElement)) {
       return missingExpandAll(groupHeaders);
     }
-    const anchorTop = activityGroupAnchorTop(groupHeader, shouldPrimeAnchor);
+    const anchorTop = groupHeader.parentElement?.getBoundingClientRect().top ?? 0;
     const details = activityRows()
       .filter((row) => sourceRunItemIds.includes(attr(row, "data-run-item-id")))
       .map(activityRowSummary);
@@ -98,14 +78,6 @@
       ok: false,
       reason: "missing-expand-all",
     };
-  }
-
-  function activityGroupAnchorTop(groupHeader, shouldPrimeAnchor) {
-    const anchor = groupHeader.parentElement;
-    if (shouldPrimeAnchor && anchor !== null) {
-      anchor.scrollIntoView({ block: "center" });
-    }
-    return anchor?.getBoundingClientRect().top ?? 0;
   }
 
   function openProjectedActivityRow({ sourceRunItemId }) {
@@ -220,6 +192,65 @@
     };
   }
 
+  function chatTranscriptBlockOrder() {
+    const blockSelector =
+      '[data-transcript-block], [data-chat-message="true"], [data-testid="run-activity-group"], [data-testid="run-activity-row"]';
+    const region =
+      document.querySelector('[data-testid="chat-transcript-region"]') ?? document.body;
+    const nodes = Array.from(region.querySelectorAll(blockSelector));
+    return {
+      blocks: nodes.map((node) => transcriptBlockSummary(node, blockSelector)),
+    };
+  }
+
+  function transcriptBlockSummary(node, blockSelector) {
+    const kind = transcriptBlockKind(node);
+    return {
+      kind,
+      role: attr(node, "data-message-role"),
+      runId: attr(node.closest("[data-run-id]"), "data-run-id"),
+      sourceRunItemId: attr(node, "data-run-item-id"),
+      text: transcriptBlockText(node, kind, blockSelector),
+    };
+  }
+
+  function transcriptBlockKind(node) {
+    const blockKind = attr(node, "data-block-kind");
+    if (blockKind) {
+      return blockKind;
+    }
+    const testId = attr(node, "data-testid");
+    if (testId === "run-activity-group") {
+      return "activity_group";
+    }
+    if (testId === "run-activity-row") {
+      return "activity_row";
+    }
+    const role = attr(node, "data-message-role");
+    if (role === "user") {
+      return "user_message";
+    }
+    if (role === "assistant") {
+      return "assistant_text";
+    }
+    return role ? `message:${role}` : "message";
+  }
+
+  function transcriptBlockText(node, kind, blockSelector) {
+    if (kind === "assistant_text" || kind === "user_message") {
+      const role = attr(node, "data-message-role");
+      const content = node.querySelector(`[data-testid="chat-${role}-message-content"]`);
+      if (content instanceof HTMLElement) {
+        return collapseWhitespace(content.textContent).slice(0, 240);
+      }
+    }
+    const clone = node.cloneNode(true);
+    for (const nested of Array.from(clone.querySelectorAll(blockSelector))) {
+      nested.remove();
+    }
+    return collapseWhitespace(clone.textContent).slice(0, 240);
+  }
+
   function chatTranscriptScrollSnapshot() {
     const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
     const debug = window.__settaChatTranscriptScrollDebug?.getSnapshot() ?? null;
@@ -228,7 +259,6 @@
     }
     return {
       debug,
-      jumpVisible: Boolean(document.querySelector('[aria-label="Jump to latest"]')),
       maxScrollTop: Math.max(0, scroller.scrollHeight - scroller.clientHeight),
       ready: true,
       reason: "",
@@ -240,7 +270,6 @@
   function missingTranscriptScrollSnapshot(scroller, debug) {
     return {
       debug,
-      jumpVisible: false,
       ready: false,
       reason: scroller instanceof HTMLElement ? "missing-debug-api" : "missing-scroller",
       visibleRows: [],
@@ -248,7 +277,6 @@
   }
 
   async function scrollChatTranscript({
-    debugDetach = true,
     distanceFromBottom = null,
     position = null,
     scrollTop = null,
@@ -272,20 +300,11 @@
       position,
       previousScrollTop,
     });
-    const afterWheelSnapshot = chatTranscriptScrollSnapshot();
-    detachAfterSyntheticHistoryWheel({ debugDetach, position, scrollDelta });
-    await settleTranscriptScrollTop(scroller, nextScrollTop, position, scrollDelta);
-    return {
-      afterWheelSnapshot,
-      ok: true,
-      snapshot: chatTranscriptScrollSnapshot(),
-    };
-  }
-
-  function detachAfterSyntheticHistoryWheel({ debugDetach, position, scrollDelta }) {
-    if (debugDetach && scrollDelta < 0 && position !== "top") {
+    if (scrollDelta < 0 && position !== "top") {
       window.__settaChatTranscriptScrollDebug?.detach();
     }
+    await settleTranscriptScrollTop(scroller, nextScrollTop, position, scrollDelta);
+    return { ok: true, snapshot: chatTranscriptScrollSnapshot() };
   }
 
   function dispatchWheelIfNeeded(scroller, options) {
@@ -360,7 +379,7 @@
     if (!debugApi) {
       return false;
     }
-    debugApi.scrollToIndexAsProgrammaticScroll({ align: "start", index: 0 });
+    debugApi.scrollToIndexAsProgrammaticAnchor({ align: "start", index: 0 });
     const frameBudget = 20;
     for (let frame = 0; frame < frameBudget; frame += 1) {
       await nextAnimationFrame();

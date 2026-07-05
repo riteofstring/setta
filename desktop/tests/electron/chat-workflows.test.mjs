@@ -62,10 +62,7 @@ import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronologica
 import { runCommandStartFailureWorkflow } from "./chat-workflow-command-start-failure-cases.mjs";
 import { runComposerPromptHistoryWorkflow } from "./chat-workflow-composer-history-cases.mjs";
 import { runCrossWorkspaceSidebarSummaryWorkflow } from "./chat-workflow-cross-workspace-sidebar-cases.mjs";
-import {
-  assertNoConversationDraftDefaults,
-  runChatDefaultsSettingsWorkflow,
-} from "./chat-workflow-defaults-cases.mjs";
+import { runChatDefaultsSettingsWorkflow } from "./chat-workflow-defaults-cases.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runImageAttachmentWorkflow } from "./chat-workflow-image-attachment-cases.mjs";
@@ -93,7 +90,7 @@ import { runCodexApprovalPolicyRemovalWorkflowLaunch } from "./chat-workflow-app
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
-  runProtocolCurrentPlanGoalAndBackpressureWorkflows,
+  runProtocolCurrentPlanAndGoalMultiTurnWorkflow,
   runProtocolGoalCancellationWorkflow,
   runProtocolGoalForegroundUnifiedExecWorkflow,
   runProtocolLivenessReconciliationWorkflow,
@@ -1251,7 +1248,6 @@ async function runCodexProtocolWorkflow(results) {
   try {
     const backend = await backendProbe(recordingDir);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
-    await assertNoConversationDraftDefaults(context.client, backend, workspaceId);
     const conversationId = await createChat(context.client, backend, workspaceId);
     await assertCodexProtocolNewChatPermissionContract(backend, workspaceId, conversationId);
     await waitForModelPickerSummary(waitForState, context.client, "GPT Test", "Extra high");
@@ -1282,7 +1278,7 @@ async function runCodexProtocolWorkflow(results) {
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
     await exerciseLinkedCodexPermissionPicker(context.client, backend, workspaceId, conversationId);
 
-    await runProtocolCurrentPlanGoalAndBackpressureWorkflows(context.client, backend, workspaceId);
+    await runProtocolCurrentPlanAndGoalMultiTurnWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalForegroundUnifiedExecWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalBackgroundTerminalWorkflow(context.client, backend, workspaceId, fixture);
     await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);

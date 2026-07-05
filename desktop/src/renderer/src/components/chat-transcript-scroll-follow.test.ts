@@ -2,196 +2,103 @@ import type { ApprovalRequest, Run } from "@generated/backend";
 import { describe, expect, it } from "vitest";
 
 import {
-  classifyTranscriptScrollGeometry,
   decideTranscriptScrollFollowAfterAtBottomStateChange,
   decideTranscriptScrollFollowAfterRangeChanged,
   decideTranscriptScrollFollowAfterScroll,
-  transcriptScrollCanJumpToLatest,
+  transcriptAtAutoFollowBottom,
+  transcriptAtStrictBottom,
+  transcriptTailRevision,
   type TranscriptScrollMetrics,
 } from "./chat-transcript-scroll-follow";
-import { transcriptTailRevision } from "./chat-transcript-tail-revision";
 
 describe("transcript scroll follow decisions", () => {
-  it("classifies unscrollable transcripts as at bottom with no jump action", () => {
-    const geometry = geometryFromMetrics({
-      clientHeight: 600,
-      scrollHeight: 560,
-      scrollTop: 0,
-    });
-
-    expect(geometry.hasScrollableOverflow).toBe(false);
-    expect(geometry.atBottom).toBe(true);
-    expect(transcriptScrollCanJumpToLatest("user_detached", geometry)).toBe(false);
-  });
-
-  it("uses the shared bottom threshold for follow and jump visibility", () => {
-    const geometry = geometryFromMetrics({ scrollTop: 988 });
-
-    expect(geometry.distanceFromBottom).toBe(12);
-    expect(geometry.atBottom).toBe(true);
-    expect(geometry.awayFromBottom).toBe(false);
-    expect(transcriptScrollCanJumpToLatest("user_detached", geometry)).toBe(false);
-  });
-
-  it("detaches when user history scroll intent moves away from the bottom threshold", () => {
+  it("keeps auto-follow tolerant near the virtual tail", () => {
     expect(
-      decideTranscriptScrollFollowAfterScroll({
-        geometry: geometryFromMetrics({ scrollTop: 920 }),
-        keyboardScrollIntent: false,
-        mode: "auto_follow",
-        pointerScrollIntent: false,
-        previousScrollTop: 988,
-        programmaticScrollActive: false,
-        tailScrollIntent: false,
-        wheelScrollIntent: true,
+      transcriptAtAutoFollowBottom({
+        lastVisibleIndex: 9,
+        metrics: scrollMetrics({ distanceFromBottom: 80, scrollTop: 920 }),
+        rowCount: 10,
       }),
-    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
+    ).toBe(true);
   });
 
-  it("detaches upward wheel intent inside the bottom threshold", () => {
+  it("uses a stricter bottom for detached reattach than auto-follow tolerance", () => {
+    expect(transcriptAtStrictBottom(scrollMetrics({ distanceFromBottom: 8 }))).toBe(false);
+    expect(transcriptAtStrictBottom(scrollMetrics({ distanceFromBottom: 0 }))).toBe(true);
+  });
+
+  it("detaches on upward scroll intent even inside the auto-follow tolerance band", () => {
     expect(
       decideTranscriptScrollFollowAfterScroll({
-        geometry: geometryFromMetrics({ scrollTop: 990 }),
-        keyboardScrollIntent: false,
+        metrics: scrollMetrics({ distanceFromBottom: 12, scrollTop: 988 }),
         mode: "auto_follow",
         pointerScrollIntent: false,
         previousScrollTop: 1000,
-        programmaticScrollActive: false,
+        programmaticAutoFollow: false,
         tailScrollIntent: false,
         wheelScrollIntent: true,
       }),
     ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
   });
 
-  it("does not detach from programmatic scroll events", () => {
+  it("keeps auto-follow attached during tail-directed programmatic scrolls", () => {
     expect(
       decideTranscriptScrollFollowAfterScroll({
-        geometry: geometryFromMetrics({ scrollTop: 920 }),
-        keyboardScrollIntent: false,
+        metrics: scrollMetrics({ distanceFromBottom: 100, scrollTop: 900 }),
         mode: "auto_follow",
         pointerScrollIntent: false,
-        previousScrollTop: 988,
-        programmaticScrollActive: true,
+        previousScrollTop: 1000,
+        programmaticAutoFollow: true,
         tailScrollIntent: false,
         wheelScrollIntent: false,
       }),
     ).toEqual({ mode: "auto_follow", shouldScrollToLatest: true });
   });
 
-  it("detaches from explicit user history scroll even during programmatic settle", () => {
-    expect(
-      decideTranscriptScrollFollowAfterScroll({
-        geometry: geometryFromMetrics({ scrollTop: 920 }),
-        keyboardScrollIntent: false,
-        mode: "auto_follow",
-        pointerScrollIntent: false,
-        previousScrollTop: 988,
-        programmaticScrollActive: true,
-        tailScrollIntent: false,
-        wheelScrollIntent: true,
-      }),
-    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
-  });
-
-  it("detaches upward wheel intent inside the bottom threshold during programmatic settle", () => {
-    expect(
-      decideTranscriptScrollFollowAfterScroll({
-        geometry: geometryFromMetrics({ scrollTop: 990 }),
-        keyboardScrollIntent: false,
-        mode: "auto_follow",
-        pointerScrollIntent: false,
-        previousScrollTop: 1000,
-        programmaticScrollActive: true,
-        tailScrollIntent: false,
-        wheelScrollIntent: true,
-      }),
-    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
-  });
-
-  it("does not auto-scroll from browser scroll adjustments without user or programmatic intent", () => {
-    expect(
-      decideTranscriptScrollFollowAfterScroll({
-        geometry: geometryFromMetrics({ scrollTop: 1000 }),
-        keyboardScrollIntent: false,
-        mode: "auto_follow",
-        pointerScrollIntent: false,
-        previousScrollTop: 988,
-        programmaticScrollActive: false,
-        tailScrollIntent: false,
-        wheelScrollIntent: false,
-      }),
-    ).toEqual({ mode: "auto_follow", shouldScrollToLatest: false });
-
-    expect(
-      decideTranscriptScrollFollowAfterScroll({
-        geometry: geometryFromMetrics({ scrollTop: 920 }),
-        keyboardScrollIntent: false,
-        mode: "auto_follow",
-        pointerScrollIntent: false,
-        previousScrollTop: 988,
-        programmaticScrollActive: false,
-        tailScrollIntent: false,
-        wheelScrollIntent: false,
-      }),
-    ).toEqual({ mode: "auto_follow", shouldScrollToLatest: false });
-  });
-
-  it("does not reattach detached mode from range or at-bottom callbacks", () => {
+  it("does not reattach detached mode from tolerant range or at-bottom callbacks", () => {
     expect(
       decideTranscriptScrollFollowAfterRangeChanged({
-        geometry: geometryFromMetrics({ scrollTop: 988 }),
+        lastVisibleIndex: 9,
+        metrics: scrollMetrics({ distanceFromBottom: 12, scrollTop: 988 }),
         mode: "user_detached",
+        rowCount: 10,
       }),
     ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
 
     expect(
       decideTranscriptScrollFollowAfterAtBottomStateChange({
-        geometry: geometryFromMetrics({ scrollTop: 1000 }),
         isAtBottom: true,
         mode: "user_detached",
       }),
     ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
   });
 
-  it("does not auto-scroll from range or at-bottom measurement callbacks", () => {
-    expect(
-      decideTranscriptScrollFollowAfterRangeChanged({
-        geometry: geometryFromMetrics({ scrollTop: 988 }),
-        mode: "auto_follow",
-      }),
-    ).toEqual({ mode: "auto_follow", shouldScrollToLatest: false });
-
-    expect(
-      decideTranscriptScrollFollowAfterAtBottomStateChange({
-        geometry: geometryFromMetrics({ scrollTop: 1000 }),
-        isAtBottom: true,
-        mode: "auto_follow",
-      }),
-    ).toEqual({ mode: "auto_follow", shouldScrollToLatest: false });
-  });
-
-  it("reattaches detached mode when the user scrolls back to the bottom", () => {
+  it("reattaches detached mode when the user scrolls back to the strict bottom", () => {
     expect(
       decideTranscriptScrollFollowAfterScroll({
-        geometry: geometryFromMetrics({ scrollTop: 1000 }),
-        keyboardScrollIntent: false,
+        metrics: scrollMetrics({ distanceFromBottom: 0, scrollTop: 1000 }),
         mode: "user_detached",
         pointerScrollIntent: false,
         previousScrollTop: 988,
-        programmaticScrollActive: false,
+        programmaticAutoFollow: false,
         tailScrollIntent: true,
         wheelScrollIntent: false,
       }),
     ).toEqual({ mode: "auto_follow", shouldScrollToLatest: true });
   });
 
-  it("reattaches when content no longer overflows", () => {
+  it("does not reattach detached mode at strict bottom without tail-directed input", () => {
     expect(
-      decideTranscriptScrollFollowAfterRangeChanged({
-        geometry: geometryFromMetrics({ clientHeight: 600, scrollHeight: 580, scrollTop: 0 }),
+      decideTranscriptScrollFollowAfterScroll({
+        metrics: scrollMetrics({ distanceFromBottom: 0, scrollTop: 1000 }),
         mode: "user_detached",
+        pointerScrollIntent: false,
+        previousScrollTop: 988,
+        programmaticAutoFollow: false,
+        tailScrollIntent: false,
+        wheelScrollIntent: false,
       }),
-    ).toEqual({ mode: "auto_follow", shouldScrollToLatest: false });
+    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
   });
 });
 
@@ -263,8 +170,4 @@ function scrollMetrics(overrides: Partial<TranscriptScrollMetrics> = {}): Transc
     scrollTop: 1000,
     ...overrides,
   };
-}
-
-function geometryFromMetrics(overrides: Partial<TranscriptScrollMetrics> = {}) {
-  return classifyTranscriptScrollGeometry(scrollMetrics(overrides));
 }

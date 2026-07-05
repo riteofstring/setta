@@ -1,7 +1,6 @@
 import type {
   RunItem,
   RunItemOutput,
-  WorkflowAgentEffectiveRunSettings,
   WorkflowAgentTrajectoryPage,
   WorkflowEvent,
   WorkflowExecution,
@@ -39,87 +38,6 @@ describe("WorkflowRunDetailsContent activity focus", () => {
     expect(html).toContain('data-testid="activity-group-header"');
     expect(html).toContain('data-activity-group-source-run-item-ids="run_item_command"');
     expect(html).toContain("npm test");
-  });
-
-  test("renders agent runs with the trajectory as the primary body and no fixed nested frame", () => {
-    const html = renderToString(
-      <WorkflowRunDetailsContent
-        actions={trajectoryActions()}
-        focus={null}
-        inspection={inspection()}
-        target={target()}
-      />,
-    );
-
-    expect(html).toContain('data-workflow-node-run-layout="agent"');
-    expect(html).toContain('data-testid="workflow-run-details-dock"');
-    expect(html).toContain('data-testid="workflow-node-agent-trajectory"');
-    expect(html).not.toContain("h-[36rem]");
-    expect(html).not.toContain("Agent Trajectory");
-  });
-
-  test("keeps the workflow details dock collapsed by default", () => {
-    const html = renderToString(
-      <WorkflowRunDetailsContent
-        actions={trajectoryActions()}
-        focus={null}
-        inspection={inspection()}
-        target={target()}
-      />,
-    );
-
-    expect(html).toContain('data-testid="workflow-run-details-dock"');
-    expect(html).not.toContain('data-default-open="true"');
-  });
-
-  test("renders one node-scoped status chip and labels workflow status as metadata", () => {
-    const html = renderToString(
-      <WorkflowRunDetailsContent
-        actions={trajectoryActions()}
-        focus={null}
-        inspection={inspection()}
-        target={target()}
-      />,
-    );
-
-    expect(occurrences(html, 'data-testid="workflow-node-status-chip"')).toBe(1);
-    expect(html).toContain("waiting approval");
-    expect(html).toContain('data-testid="workflow-node-run-workflow-status"');
-    expect(html).toContain("workflow running");
-  });
-
-  test("renders read-only workflow agent run settings from the trajectory snapshot", () => {
-    const html = renderToString(
-      <WorkflowRunDetailsContent
-        actions={trajectoryActions()}
-        focus={null}
-        inspection={inspection({
-          trajectory: workflowNodeTrajectoryStateFromPage(
-            trajectoryPage({ runSettings: runSettings() }),
-          ),
-        })}
-        target={target()}
-      />,
-    );
-
-    expect(html).toContain('data-testid="workflow-agent-run-settings"');
-    expect(html).toContain("Full Access - node override");
-    expect(html).toContain("GPT-5 - workflow default");
-    expect(html).toContain("High - app default");
-  });
-
-  test("opens the workflow details dock when an activity focus targets a detail row", () => {
-    const html = renderToString(
-      <WorkflowRunDetailsContent
-        actions={trajectoryActions()}
-        focus={focus({ detailKind: "workflow_event", workflowEventId: "event_running" })}
-        inspection={inspection()}
-        target={target()}
-      />,
-    );
-
-    expect(html).toContain('data-default-open="true"');
-    expect(html).toContain('data-activity-focus-id="workflow-event:event_running"');
   });
 
   test("renders a node-scoped stop control for a stoppable active run", () => {
@@ -230,7 +148,6 @@ function inspection(
   return {
     events: [workflowEvent("event_running", "running activity")],
     execution: execution(),
-    lastWorkflowEventOrdinal: 5,
     loadError: "",
     loading: false,
     operation: null,
@@ -298,7 +215,6 @@ function nodeExecution(): WorkflowNodeExecution {
   return {
     actionKind: null,
     actionPolicy: null,
-    agentRunSettings: null,
     activityRefs: [],
     attempt: 1,
     completedAt: "",
@@ -366,7 +282,6 @@ function trajectoryPage(
   return {
     activeRun: null,
     activeRunLiveness: null,
-    runSettings: null,
     activity: [
       activityBlock({
         details: {
@@ -468,9 +383,6 @@ function trajectoryPage(
     hasMoreItems: false,
     hasMoreOlder: false,
     items: [runItem()],
-    lastChatEventSequence: 10,
-    lastChatEventStreamId: "chat_stream_test",
-    lastWorkflowEventOrdinal: 5,
     nextItemId: "",
     olderBeforeBlockOrdinal: 0,
     outputPages: [
@@ -499,23 +411,6 @@ function trajectoryPage(
       workspaceId: "workspace_test",
     },
     ...overrides,
-  };
-}
-
-function runSettings(): WorkflowAgentEffectiveRunSettings {
-  return {
-    approvalPolicy: "never",
-    model: "gpt-5",
-    modelDisplayName: "GPT-5",
-    modelSource: "workflow",
-    permissionDisplayLabel: "Full Access",
-    permissionPreset: "full-access",
-    permissionProfileId: "full-access",
-    permissionSource: "node",
-    permissions: "full-access",
-    reasoningEffort: "high",
-    reasoningEffortDisplayName: "High",
-    reasoningEffortSource: "default",
   };
 }
 

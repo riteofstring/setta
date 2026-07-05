@@ -36,7 +36,6 @@ type WorkflowRunnerStateStatus string
 type SideEffectPolicyKind string
 type SideEffectScope string
 type ApprovalTrigger string
-type WorkflowAgentSettingsSource string
 
 const (
 	NodeKindStart      WorkflowNodeKind = "start"
@@ -118,10 +117,6 @@ const (
 	EventRunnerRefsAttached     WorkflowEventType = "workflow.runner_refs.attached"
 	EventActionRecovered        WorkflowEventType = "workflow.action.recovered"
 	EventActionRecoveryRequired WorkflowEventType = "workflow.action.recovery_required"
-
-	WorkflowAgentSettingsSourceNode     WorkflowAgentSettingsSource = "node"
-	WorkflowAgentSettingsSourceWorkflow WorkflowAgentSettingsSource = "workflow"
-	WorkflowAgentSettingsSourceDefault  WorkflowAgentSettingsSource = "default"
 
 	ValidationSeverityError   WorkflowValidationSeverity = "error"
 	ValidationSeverityWarning WorkflowValidationSeverity = "warning"
@@ -462,11 +457,6 @@ var (
 		ApprovalTriggerDestructiveAction,
 		ApprovalTriggerUnsandboxedExecution,
 	}
-	workflowAgentSettingsSourceValues = []WorkflowAgentSettingsSource{
-		WorkflowAgentSettingsSourceNode,
-		WorkflowAgentSettingsSourceWorkflow,
-		WorkflowAgentSettingsSourceDefault,
-	}
 )
 
 type ContractValueSet struct {
@@ -504,7 +494,6 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SideEffectPolicyKind", Values: stringValues(sideEffectPolicyKindValues)},
 		{Name: "SideEffectScope", Values: stringValues(sideEffectScopeValues)},
 		{Name: "ApprovalTrigger", Values: stringValues(approvalTriggerValues)},
-		{Name: "WorkflowAgentSettingsSource", Values: stringValues(workflowAgentSettingsSourceValues)},
 	}
 }
 
@@ -540,10 +529,9 @@ type WorkflowDefinitionVersion struct {
 }
 
 type WorkflowGraph struct {
-	Nodes         []WorkflowNode        `json:"nodes"`
-	Edges         []WorkflowEdge        `json:"edges"`
-	Layout        WorkflowGraphLayout   `json:"layout"`
-	AgentDefaults WorkflowAgentSettings `json:"agentDefaults"`
+	Nodes  []WorkflowNode      `json:"nodes"`
+	Edges  []WorkflowEdge      `json:"edges"`
+	Layout WorkflowGraphLayout `json:"layout"`
 }
 
 type WorkflowGraphLayout struct {
@@ -579,30 +567,10 @@ type WorkflowActionConfig struct {
 }
 
 type WorkflowCodexActionConfig struct {
-	Prompt            string                `json:"prompt"`
-	FreshConversation bool                  `json:"freshConversation"`
-	Settings          WorkflowAgentSettings `json:"settings"`
-}
-
-type WorkflowAgentSettings struct {
-	Model           string                            `json:"model"`
-	ReasoningEffort *chat.ReasoningEffort             `json:"reasoningEffort"`
-	Permission      *chat.ChatCodexPermissionSettings `json:"permission"`
-}
-
-type WorkflowAgentEffectiveRunSettings struct {
-	Model                      string                       `json:"model"`
-	ModelDisplayName           string                       `json:"modelDisplayName"`
-	ModelSource                WorkflowAgentSettingsSource  `json:"modelSource"`
-	ReasoningEffort            *chat.ReasoningEffort        `json:"reasoningEffort"`
-	ReasoningEffortDisplayName string                       `json:"reasoningEffortDisplayName"`
-	ReasoningEffortSource      WorkflowAgentSettingsSource  `json:"reasoningEffortSource"`
-	PermissionPreset           *chat.ChatPermissionPresetID `json:"permissionPreset"`
-	PermissionProfileID        string                       `json:"permissionProfileId"`
-	PermissionDisplayLabel     string                       `json:"permissionDisplayLabel"`
-	ApprovalPolicy             string                       `json:"approvalPolicy"`
-	Permissions                string                       `json:"permissions"`
-	PermissionSource           WorkflowAgentSettingsSource  `json:"permissionSource"`
+	Prompt            string `json:"prompt"`
+	FreshConversation bool   `json:"freshConversation"`
+	Model             string `json:"model"`
+	ReasoningEffort   string `json:"reasoningEffort"`
 }
 
 type WorkflowActionPolicy struct {
@@ -763,32 +731,31 @@ type WorkflowExecutionSummary struct {
 }
 
 type WorkflowNodeExecution struct {
-	SchemaVersion      int                                `json:"schemaVersion"`
-	ID                 string                             `json:"id"`
-	ExecutionID        string                             `json:"executionId"`
-	NodeID             string                             `json:"nodeId"`
-	Attempt            int                                `json:"attempt"`
-	Iteration          int                                `json:"iteration"`
-	Status             WorkflowNodeExecutionStatus        `json:"status"`
-	IdempotencyKey     string                             `json:"idempotencyKey"`
-	ScheduledAt        string                             `json:"scheduledAt"`
-	StartedAt          string                             `json:"startedAt"`
-	CompletedAt        string                             `json:"completedAt"`
-	ActionKind         *WorkflowActionKind                `json:"actionKind"`
-	RunnerKind         *WorkflowActionKind                `json:"runnerKind"`
-	InputHash          string                             `json:"inputHash"`
-	Input              json.RawMessage                    `json:"input"`
-	ActionPolicy       *WorkflowActionPolicy              `json:"actionPolicy"`
-	SideEffectPolicy   *SideEffectPolicy                  `json:"sideEffectPolicy"`
-	RunnerCapabilities *RunnerCapabilities                `json:"runnerCapabilities"`
-	AgentRunSettings   *WorkflowAgentEffectiveRunSettings `json:"agentRunSettings"`
-	Result             *WorkflowActionResult              `json:"result"`
-	RunnerRefs         []WorkflowActionRunnerRef          `json:"runnerRefs"`
-	RunnerState        *WorkflowRunnerState               `json:"runnerState"`
-	ActivityRefs       []WorkflowActivityRef              `json:"activityRefs"`
-	RecoveryOutcome    *RunnerRecoveryOutcome             `json:"recoveryOutcome"`
-	RecoveryMessage    string                             `json:"recoveryMessage"`
-	Error              string                             `json:"error"`
+	SchemaVersion      int                         `json:"schemaVersion"`
+	ID                 string                      `json:"id"`
+	ExecutionID        string                      `json:"executionId"`
+	NodeID             string                      `json:"nodeId"`
+	Attempt            int                         `json:"attempt"`
+	Iteration          int                         `json:"iteration"`
+	Status             WorkflowNodeExecutionStatus `json:"status"`
+	IdempotencyKey     string                      `json:"idempotencyKey"`
+	ScheduledAt        string                      `json:"scheduledAt"`
+	StartedAt          string                      `json:"startedAt"`
+	CompletedAt        string                      `json:"completedAt"`
+	ActionKind         *WorkflowActionKind         `json:"actionKind"`
+	RunnerKind         *WorkflowActionKind         `json:"runnerKind"`
+	InputHash          string                      `json:"inputHash"`
+	Input              json.RawMessage             `json:"input"`
+	ActionPolicy       *WorkflowActionPolicy       `json:"actionPolicy"`
+	SideEffectPolicy   *SideEffectPolicy           `json:"sideEffectPolicy"`
+	RunnerCapabilities *RunnerCapabilities         `json:"runnerCapabilities"`
+	Result             *WorkflowActionResult       `json:"result"`
+	RunnerRefs         []WorkflowActionRunnerRef   `json:"runnerRefs"`
+	RunnerState        *WorkflowRunnerState        `json:"runnerState"`
+	ActivityRefs       []WorkflowActivityRef       `json:"activityRefs"`
+	RecoveryOutcome    *RunnerRecoveryOutcome      `json:"recoveryOutcome"`
+	RecoveryMessage    string                      `json:"recoveryMessage"`
+	Error              string                      `json:"error"`
 }
 
 type WorkflowActionResult struct {
@@ -894,28 +861,24 @@ type WorkflowAgentTrajectoryRunItemOutputPageState struct {
 }
 
 type WorkflowAgentTrajectoryPage struct {
-	SchemaVersion            int                                             `json:"schemaVersion"`
-	Scope                    WorkflowAgentTrajectoryScope                    `json:"scope"`
-	ConversationID           string                                          `json:"conversationId"`
-	RunID                    string                                          `json:"runId"`
-	LastChatEventStreamID    string                                          `json:"lastChatEventStreamId"`
-	LastChatEventSequence    int                                             `json:"lastChatEventSequence"`
-	LastWorkflowEventOrdinal int                                             `json:"lastWorkflowEventOrdinal"`
-	Run                      chat.Run                                        `json:"run"`
-	ActiveRun                *chat.Run                                       `json:"activeRun"`
-	ActiveRunLiveness        *chat.RunLiveness                               `json:"activeRunLiveness"`
-	RunSettings              *WorkflowAgentEffectiveRunSettings              `json:"runSettings"`
-	Blocks                   []chat.TranscriptBlock                          `json:"blocks"`
-	Items                    []chat.RunItem                                  `json:"items"`
-	Activity                 []chat.ActivityItemBlockProjection              `json:"activity"`
-	OutputPages              []WorkflowAgentTrajectoryRunItemOutputPageState `json:"outputPages"`
-	Outputs                  []chat.RunItemOutput                            `json:"outputs"`
-	PendingApproval          *WorkflowPendingApproval                        `json:"pendingApproval"`
-	HasMoreOlder             bool                                            `json:"hasMoreOlder"`
-	OlderBeforeBlockOrdinal  int                                             `json:"olderBeforeBlockOrdinal"`
-	HasMoreItems             bool                                            `json:"hasMoreItems"`
-	NextItemID               string                                          `json:"nextItemId"`
-	Capabilities             WorkflowAgentTrajectoryCapabilities             `json:"capabilities"`
+	SchemaVersion           int                                             `json:"schemaVersion"`
+	Scope                   WorkflowAgentTrajectoryScope                    `json:"scope"`
+	ConversationID          string                                          `json:"conversationId"`
+	RunID                   string                                          `json:"runId"`
+	Run                     chat.Run                                        `json:"run"`
+	ActiveRun               *chat.Run                                       `json:"activeRun"`
+	ActiveRunLiveness       *chat.RunLiveness                               `json:"activeRunLiveness"`
+	Blocks                  []chat.TranscriptBlock                          `json:"blocks"`
+	Items                   []chat.RunItem                                  `json:"items"`
+	Activity                []chat.ActivityItemBlockProjection              `json:"activity"`
+	OutputPages             []WorkflowAgentTrajectoryRunItemOutputPageState `json:"outputPages"`
+	Outputs                 []chat.RunItemOutput                            `json:"outputs"`
+	PendingApproval         *WorkflowPendingApproval                        `json:"pendingApproval"`
+	HasMoreOlder            bool                                            `json:"hasMoreOlder"`
+	OlderBeforeBlockOrdinal int                                             `json:"olderBeforeBlockOrdinal"`
+	HasMoreItems            bool                                            `json:"hasMoreItems"`
+	NextItemID              string                                          `json:"nextItemId"`
+	Capabilities            WorkflowAgentTrajectoryCapabilities             `json:"capabilities"`
 }
 
 type WorkflowGraphProjection struct {

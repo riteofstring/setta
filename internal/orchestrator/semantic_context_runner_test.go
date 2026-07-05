@@ -132,24 +132,6 @@ func (client *recordingCodexChatClient) ReconcileActiveRunByID(context.Context, 
 	return chat.RunLivenessReconciliationResult{}, nil
 }
 
-func (client *recordingCodexChatClient) ResolveWorkflowAgentCodexSettings(_ string, overrides chat.ChatCodexSettings) (chat.ChatCodexSettings, *chat.ChatCodexEffectiveSettings, error) {
-	preset := chat.ChatPermissionPresetDefault
-	effort := chat.ReasoningEffortMedium
-	return overrides, &chat.ChatCodexEffectiveSettings{
-		Model:                      "test-model",
-		ModelDisplayName:           "Test Model",
-		ReasoningEffort:            &effort,
-		ReasoningEffortDisplayName: "Medium",
-		Permission: &chat.ChatCodexEffectivePermissionSettings{
-			ApprovalPolicy:            "on-request",
-			ActivePermissionProfileID: "default",
-			DisplayLabel:              "Ask for approval",
-			BuiltIn:                   true,
-			Preset:                    &preset,
-		},
-	}, nil
-}
-
 func (client *recordingCodexChatClient) SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error) {
 	client.sendCount++
 	return client.send(workspaceID, request)

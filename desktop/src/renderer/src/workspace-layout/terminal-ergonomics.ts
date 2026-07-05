@@ -14,54 +14,11 @@ export function terminalSearchOptions(incremental: boolean): ISearchOptions {
   };
 }
 
-function browserClipboard(): Clipboard | null {
+export function browserClipboard(): Clipboard | null {
   if (typeof window === "undefined") {
     return null;
   }
   return window.navigator?.clipboard ?? null;
-}
-
-interface TerminalClipboardSelection {
-  clearSelection(): void;
-  getSelection(): string;
-  hasSelection(): boolean;
-}
-
-export async function copyTerminalSelectionToClipboard(
-  terminal: TerminalClipboardSelection | null,
-  showStatus: (message: string) => void,
-): Promise<void> {
-  if (!terminal?.hasSelection()) {
-    return;
-  }
-  const clipboard = browserClipboard();
-  if (!clipboard?.writeText) {
-    showStatus("Clipboard write is unavailable.");
-    return;
-  }
-  try {
-    await clipboard.writeText(terminal.getSelection());
-    terminal.clearSelection();
-    showStatus("Copied selection");
-  } catch (error) {
-    showStatus(`Copy failed: ${errorMessage(error)}`);
-  }
-}
-
-export async function readTerminalClipboard(
-  requestPaste: (text: string) => void,
-  showStatus: (message: string) => void,
-): Promise<void> {
-  const clipboard = browserClipboard();
-  if (!clipboard?.readText) {
-    showStatus("Clipboard read is unavailable.");
-    return;
-  }
-  try {
-    requestPaste(await clipboard.readText());
-  } catch (error) {
-    showStatus(`Paste failed: ${errorMessage(error)}`);
-  }
 }
 
 export function isTerminalCopyShortcut(event: KeyboardEvent): boolean {

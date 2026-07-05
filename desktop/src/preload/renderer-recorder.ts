@@ -19,20 +19,20 @@ interface TranscriptScrollDebugApi {
 }
 
 interface TranscriptScrollDebugSnapshot {
-  awayFromBottom: boolean;
+  awayFromBottom?: boolean;
   atBottom: boolean;
   clientHeight: number;
   distanceFromBottom: number;
-  hasScrollableOverflow: boolean;
+  hasScrollableOverflow?: boolean;
   lastVisibleIndex: number;
   mode: string;
   pendingScrollCount: number;
-  programmaticScrollCount: number;
+  programmaticScrollCount?: number;
   rowCount: number;
   scrollHeight: number;
   scrollTop: number;
   tailRevision: string;
-  trace: TranscriptScrollDebugTraceEntry[];
+  trace?: TranscriptScrollDebugTraceEntry[];
 }
 
 interface TranscriptScrollDebugTraceEntry {
@@ -313,9 +313,13 @@ function recordedTranscriptScrollDebugSnapshot(
 ) {
   return {
     ...snapshot,
+    awayFromBottom: snapshot.awayFromBottom ?? !snapshot.atBottom,
+    hasScrollableOverflow:
+      snapshot.hasScrollableOverflow ?? snapshot.scrollHeight > snapshot.clientHeight,
+    programmaticScrollCount: snapshot.programmaticScrollCount ?? 0,
     source,
     tailRevision: truncate(snapshot.tailRevision),
-    trace: sanitizeScrollDebugTrace(snapshot.trace),
+    trace: sanitizeScrollDebugTrace(snapshot.trace ?? []),
   };
 }
 

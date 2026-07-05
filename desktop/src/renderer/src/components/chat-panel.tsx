@@ -4,7 +4,7 @@ import { Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
-import { useChatDefaultsStore } from "../stores/chat-defaults-store";
+import { runtimeControlsDisabled, useRuntimeStore } from "../stores/runtime-store";
 import type { QueuedRun } from "../stores/chat-store-normalization";
 import { activeRunPresentation } from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
@@ -107,10 +107,11 @@ function ChatWorkspace({
   setSearchOpen: (open: boolean) => void;
   workspaceId: string;
 }) {
+  const runtimeUnavailable = useRuntimeStore((state) => runtimeControlsDisabled(state.snapshot));
   const switchingWorkspace = chat.workspaceId !== workspaceId;
   const runPresentation = activeRunPresentation(chat.activeRun, chat.activeRunLiveness);
   const blocked = !switchingWorkspace && isChatBlocked(chat);
-  const composerBusy = switchingWorkspace || isComposerBusy(chat);
+  const composerBusy = runtimeUnavailable || switchingWorkspace || isComposerBusy(chat);
   const running = !switchingWorkspace && runPresentation.running;
   const detail = chatWorkspaceDetailAttributes(chat, switchingWorkspace, workspaceId);
   const [currentPlanOpenRequest, setCurrentPlanOpenRequest] =
@@ -537,9 +538,6 @@ export function useChatViewState() {
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const transcriptBlocks = useChatStore((state) => state.transcriptBlocks);
-  const chatDefaultsView = useChatDefaultsStore((state) => state.view);
-  const chatDefaultsStatus = useChatDefaultsStore((state) => state.status);
-  const loadChatDefaults = useChatDefaultsStore((state) => state.load);
   const activeRunId = activeRun?.id ?? "";
   const queuedMessages = useMemo(
     () => queuedMessagesFromRuns(queuedRuns, messagesById),
@@ -578,13 +576,6 @@ export function useChatViewState() {
     void markConversationRead(selectedConversationSummary.conversation.id);
   }, [markConversationRead, selectedConversationSummary]);
 
-  useEffect(() => {
-    if (!storeWorkspaceId) {
-      return;
-    }
-    void loadChatDefaults();
-  }, [loadChatDefaults, storeWorkspaceId]);
-
   return {
     activeRun,
     activeRunLiveness,
@@ -595,8 +586,6 @@ export function useChatViewState() {
     backgroundTerminalsById,
     commandListError,
     commandListStatus,
-    chatDefaultsStatus,
-    chatDefaultsView,
     conversations,
     corruption,
     createImageAttachmentFromBytes,

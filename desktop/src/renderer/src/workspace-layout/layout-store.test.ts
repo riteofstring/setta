@@ -707,6 +707,111 @@ describe("workspace layout store", () => {
     expect(store.focusPane("missing")).toBe(false);
   });
 
+  test("focuses pane ids without reveal while preserving scroll targets", () => {
+    const store = createStore();
+    const revealingStore = createStore();
+    store.scrollToColumn(1);
+    store.snapScrollToTarget();
+    revealingStore.scrollToColumn(1);
+    revealingStore.snapScrollToTarget();
+    const before = store.getSnapshot();
+
+    expect(revealingStore.focusPane("workspace_pane_3")).toBe(true);
+    expect(store.focusPaneWithoutReveal("workspace_pane_3")).toBe(true);
+
+    expect(focusState(store.getSnapshot())).toEqual(focusState(revealingStore.getSnapshot()));
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 3,
+      focusedPaneId: "workspace_pane_3",
+      scrollColumn: before.scrollColumn,
+      scrollRow: before.scrollRow,
+      targetScrollColumn: before.targetScrollColumn,
+      targetScrollRow: before.targetScrollRow,
+    });
+    store.ensureFocusedPaneVisible(viewport);
+    expect(store.getSnapshot()).toMatchObject({
+      scrollColumn: before.scrollColumn,
+      scrollRow: before.scrollRow,
+      targetScrollColumn: before.targetScrollColumn,
+      targetScrollRow: before.targetScrollRow,
+    });
+    expect(store.advanceFrame(16)).toBe("idle");
+
+    expect(store.focusPane("workspace_pane_3")).toBe(true);
+    store.ensureFocusedPaneVisible(viewport);
+    expect(store.getSnapshot()).toMatchObject({
+      targetScrollColumn: 3,
+    });
+    expect(store.focusPaneWithoutReveal("missing")).toBe(false);
+  });
+
+  test("focuses every pane id without reveal in a multi-plane layout", () => {
+    const store = createStore();
+    store.focusPane("workspace_pane_1");
+    const lowerPlanePaneId = store.splitFocusedPaneToPlane("down");
+    store.focusPane("workspace_pane_0");
+    store.splitFocusedPane("down");
+    const paneIds = store.toScene().panes.map((pane) => pane.paneId);
+    expect(paneIds).toContain(lowerPlanePaneId);
+
+    for (const paneId of paneIds) {
+      expect(store.focusPaneWithoutReveal(paneId)).toBe(true);
+      expect(store.getSnapshot().focusedPaneId).toBe(paneId);
+    }
+  });
+
+  test("continues an existing reveal animation after focus without reveal", () => {
+    const store = createStore();
+
+    expect(store.focusPane("workspace_pane_3")).toBe(true);
+    const inFlightReveal = store.getSnapshot();
+    expect(inFlightReveal.scrollColumn).toBe(0);
+    expect(inFlightReveal.targetScrollColumn).toBe(3);
+
+    expect(store.focusPaneWithoutReveal("workspace_pane_1")).toBe(true);
+    const afterFocus = store.getSnapshot();
+    expect(afterFocus).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: "workspace_pane_1",
+      scrollColumn: inFlightReveal.scrollColumn,
+      targetScrollColumn: inFlightReveal.targetScrollColumn,
+      targetScrollRow: inFlightReveal.targetScrollRow,
+    });
+
+    let movement: "idle" | "moving" = "moving";
+    for (let frame = 0; frame < 100 && movement === "moving"; frame += 1) {
+      store.ensureFocusedPaneVisible(viewport);
+      movement = store.advanceFrame(16);
+    }
+
+    expect(movement).toBe("idle");
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: "workspace_pane_1",
+      scrollColumn: inFlightReveal.targetScrollColumn,
+      targetScrollColumn: inFlightReveal.targetScrollColumn,
+      targetScrollRow: inFlightReveal.targetScrollRow,
+    });
+  });
+
+  test("focuses across columns without reveal after revealed focus", () => {
+    const store = createStore();
+
+    expect(store.focusPane("workspace_pane_3")).toBe(true);
+    const afterRevealedFocus = store.getSnapshot();
+
+    expect(store.focusPaneWithoutReveal("workspace_pane_1")).toBe(true);
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: "workspace_pane_1",
+      scrollColumn: afterRevealedFocus.scrollColumn,
+      scrollRow: afterRevealedFocus.scrollRow,
+      targetScrollColumn: afterRevealedFocus.targetScrollColumn,
+      targetScrollRow: afterRevealedFocus.targetScrollRow,
+    });
+  });
+
   test("reorders panes inside the same stacked column", () => {
     const store = createStore();
     const lowerPaneId = store.splitFocusedPane("down");
@@ -1057,6 +1162,14 @@ function createStore(paneLimits?: PaneLimitPolicy): WorkspaceLayoutStore {
   return new WorkspaceLayoutStore(new WorkspaceLikeLayoutEngine(scene), scene, focusedPaneId, {
     paneLimits,
   });
+}
+
+function focusState(snapshot: ReturnType<WorkspaceLayoutStore["getSnapshot"]>) {
+  return {
+    focusedColumnIndex: snapshot.focusedColumnIndex,
+    focusedPaneId: snapshot.focusedPaneId,
+    focusedRowIndex: snapshot.focusedRowIndex,
+  };
 }
 
 function workflowNodeDetailsConfig(

@@ -7,6 +7,8 @@ import { setTimeout as delay } from "node:timers/promises";
 export interface BackendReadyEvent {
   event: "ready";
   addr: string;
+  bootstrapToken: string;
+  protocolVersion: number;
 }
 
 export interface BackendLaunchOptions {
@@ -33,14 +35,17 @@ type BackendStdoutEvents = EventEmitter<{
 }>;
 
 export interface BackendHandle {
+  bootstrapToken: string;
   events: BackendEvents;
   mode: "external" | "spawned";
+  protocolVersion: number;
   recentLogs: () => string[];
   stop: () => Promise<void>;
   url: string;
 }
 
 const maxRecentLogs = 80;
+const defaultSpawnedBackendReadyTimeoutMs = 120_000;
 type BackendChild = ChildProcessByStdio<null, Readable, Readable>;
 
 function resolveBackendLaunchOptions(
@@ -48,7 +53,10 @@ function resolveBackendLaunchOptions(
   appDataDir: string,
   env: NodeJS.ProcessEnv,
 ): BackendLaunchOptions {
-  const readyTimeoutMs = positiveIntegerEnv(env.SETTA_BACKEND_READY_TIMEOUT_MS, 10_000);
+  const readyTimeoutMs = positiveIntegerEnv(
+    env.SETTA_BACKEND_READY_TIMEOUT_MS,
+    defaultSpawnedBackendReadyTimeoutMs,
+  );
   return {
     args: ["run", "./cmd/setta-backend", "--app-data-dir", appDataDir],
     command: `${repoRoot}/scripts/go.sh`,
@@ -61,11 +69,16 @@ function resolveBackendLaunchOptions(
   };
 }
 
-function externalBackendHandle(rawURL: string): BackendHandle {
+function externalBackendHandle(rawURL: string, bootstrapToken: string | undefined): BackendHandle {
   const url = validateExternalURL(rawURL);
+  if (!bootstrapToken) {
+    throw new Error("SETTA_BACKEND_URL requires SETTA_BACKEND_TOKEN");
+  }
   return {
+    bootstrapToken,
     events: new EventEmitter(),
     mode: "external",
+    protocolVersion: 0,
     recentLogs: () => [],
     stop: async () => {},
     url,
@@ -89,13 +102,22 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
   try {
     ready = await readyPromise;
   } catch (error) {
-    await stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise);
+    try {
+      await stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise);
+    } catch (cleanupError) {
+      appendLog(
+        logs,
+        `backend cleanup after startup failure failed: ${errorMessage(cleanupError)}`,
+      );
+    }
     throw startupErrorWithLogs(error, logs);
   }
 
   return {
+    bootstrapToken: ready.bootstrapToken,
     events,
     mode: "spawned",
+    protocolVersion: ready.protocolVersion,
     recentLogs: () => [...logs],
     stop: () => stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise),
     url: `http://${ready.addr}`,
@@ -108,7 +130,7 @@ export async function startBackend(
   env: NodeJS.ProcessEnv,
 ): Promise<BackendHandle> {
   if (env.SETTA_BACKEND_URL) {
-    return externalBackendHandle(env.SETTA_BACKEND_URL);
+    return externalBackendHandle(env.SETTA_BACKEND_URL, env.SETTA_BACKEND_TOKEN);
   }
   return startSpawnedBackend(resolveBackendLaunchOptions(repoRoot, appDataDir, env));
 }
@@ -123,10 +145,33 @@ export function parseReadyLine(line: string): BackendReadyEvent | null {
   if (!isRecord(value)) {
     return null;
   }
-  if (value.event !== "ready" || typeof value.addr !== "string" || value.addr === "") {
+  return parseReadyRecord(value);
+}
+
+function parseReadyRecord(value: Record<string, unknown>): BackendReadyEvent | null {
+  if (value.event !== "ready") {
     return null;
   }
-  return { event: "ready", addr: value.addr };
+  const addr = readNonEmptyString(value.addr);
+  const bootstrapToken = readNonEmptyString(value.bootstrapToken);
+  const protocolVersion = readPositiveInteger(value.protocolVersion);
+  if (addr === null || bootstrapToken === null || protocolVersion === null) {
+    return null;
+  }
+  return {
+    addr,
+    bootstrapToken,
+    event: "ready",
+    protocolVersion,
+  };
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+function readPositiveInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 }
 
 function monitorBackendProcess(
@@ -237,12 +282,30 @@ function signalBackendProcess(child: BackendChild, signal: NodeJS.Signals): bool
     if (isMissingProcessError(error)) {
       return false;
     }
+    if (isPermissionError(error)) {
+      return signalChildProcess(child, signal);
+    }
     throw error;
   }
 }
 
 function isMissingProcessError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error && error.code === "ESRCH";
+}
+
+function isPermissionError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "EPERM";
+}
+
+function signalChildProcess(child: BackendChild, signal: NodeJS.Signals): boolean {
+  try {
+    return child.kill(signal);
+  } catch (error) {
+    if (isMissingProcessError(error)) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 function collectLines(
@@ -253,10 +316,24 @@ function collectLines(
 ) {
   const lines = createInterface({ input: stream });
   lines.on("line", (line) => {
-    appendLog(logs, line);
-    events.emit("log", line);
+    const logLine = sanitizeBackendLogLine(line);
+    appendLog(logs, logLine);
+    events.emit("log", logLine);
     onLine?.(line);
   });
+}
+
+function sanitizeBackendLogLine(line: string): string {
+  let value: unknown;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return line;
+  }
+  if (!isRecord(value) || typeof value.bootstrapToken !== "string") {
+    return line;
+  }
+  return JSON.stringify({ ...value, bootstrapToken: "<redacted>" });
 }
 
 function appendLog(logs: string[], line: string) {
@@ -267,11 +344,15 @@ function appendLog(logs: string[], line: string) {
 }
 
 function startupErrorWithLogs(error: unknown, logs: string[]): Error {
-  const message = error instanceof Error ? error.message : "backend failed before ready";
+  const message = errorMessage(error);
   if (logs.length === 0) {
     return new Error(message);
   }
   return new Error(`${message}\nRecent backend logs:\n${logs.join("\n")}`);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "backend failed before ready";
 }
 
 function positiveIntegerEnv(rawValue: string | undefined, fallback: number): number {
@@ -293,7 +374,10 @@ function validateExternalURL(rawURL: string): string {
   if (!isLoopbackHost(url.hostname)) {
     throw new Error(`SETTA_BACKEND_URL must point at a loopback host: ${rawURL}`);
   }
-  return url.toString();
+  if ((url.pathname !== "" && url.pathname !== "/") || url.search !== "" || url.hash !== "") {
+    throw new Error(`SETTA_BACKEND_URL must not include a path, query, or fragment: ${rawURL}`);
+  }
+  return `${url.protocol}//${url.host}`;
 }
 
 function isLoopbackHost(hostname: string): boolean {

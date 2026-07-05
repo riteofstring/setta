@@ -35,9 +35,9 @@ import type {
   CreateSemanticEdgeRequest,
   CreateSemanticNodeRequest,
   CreateSemanticSteeringDirectiveRequest,
-  CreateTerminalProfileRequest,
   CloseTerminalRequest,
   CloseTerminalResponse,
+  CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
   EndSemanticActivityRequest,
@@ -83,6 +83,7 @@ import type {
   RunActivityPage,
   RunLivenessReconciliationResult,
   RunItemOutputPage,
+  RuntimeInfrastructureProvider,
   ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
   ListSemanticEvidenceRequest,
@@ -301,6 +302,42 @@ export type BackendEventStreamStatus =
   | { status: "resyncing"; lastSequence: number; lastStreamId: string; message: string }
   | { status: "stopped"; message: string };
 
+export type RuntimeConnectionStatus =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "unreachable"
+  | "revoked"
+  | "incompatible"
+  | "mismatched";
+
+export interface RuntimeConnectionState {
+  message: string;
+  protocolVersion: number | null;
+  runtimeId: string | null;
+  status: RuntimeConnectionStatus;
+  updatedAt: string;
+}
+
+export interface KnownRuntimeView {
+  active: boolean;
+  baseUrl: string;
+  connectionMessage: string;
+  connectionStatus: RuntimeConnectionStatus;
+  displayName: string;
+  infrastructureProvider: RuntimeInfrastructureProvider;
+  isLocal: boolean;
+  lastConnected: string | null;
+  runtimeId: string;
+}
+
+export interface RuntimeRegistrySnapshot {
+  activeRuntimeId: string | null;
+  connection: RuntimeConnectionState;
+  runtimes: KnownRuntimeView[];
+  switching: boolean;
+}
+
 export interface ChatCommandExecutionOptions {
   confirmGoalReplacement?: boolean;
 }
@@ -331,6 +368,14 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
+  };
+  runtimes: {
+    addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
+    current: () => Promise<RuntimeRegistrySnapshot>;
+    list: () => Promise<KnownRuntimeView[]>;
+    onConnectionState: (listener: (snapshot: RuntimeRegistrySnapshot) => void) => () => void;
+    remove: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
+    switch: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
   };
   workspaceActivity: {
     onEvent: (listener: (event: WorkspaceActivityEvent) => void) => () => void;

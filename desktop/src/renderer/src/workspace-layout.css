@@ -704,10 +704,10 @@
 .workspace-terminal-surface {
   background: var(--workspace-terminal-background, #09090b);
   color: color-mix(in oklch, var(--foreground) 88%, var(--primary));
-  display: grid;
+}
+
+.workspace-terminal-surface:not(.workspace-xterm-surface) {
   gap: 7px;
-  grid-template-rows: minmax(0, 1fr);
-  min-height: 0;
   padding: 8px;
 }
 
@@ -716,15 +716,6 @@
 .workspace-pane-host[data-surface-kind="terminal"][data-runtime-state="snapshot"],
 .workspace-pane-host[data-surface-kind="terminal"][data-runtime-state="live-throttled"] {
   background: var(--workspace-terminal-background, #09090b);
-}
-
-.workspace-terminal-surface > .workspace-terminal-status {
-  clip-path: inset(50%);
-  height: 1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
 }
 
 .workspace-git-graph-header {
