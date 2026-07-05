@@ -13,6 +13,7 @@ import (
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
+	"setta/internal/workflowaudit"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -122,6 +123,10 @@ type WorkflowService interface {
 
 var _ WorkflowService = (*orchestrator.Service)(nil)
 
+type WorkflowAuditService interface {
+	Record(context.Context, workflowaudit.RecordInput) (workflowaudit.Record, error)
+}
+
 type SemanticGraphService interface {
 	ReadGraph(context.Context, string) (semanticgraph.SemanticGraph, error)
 	ReadNodeDetail(context.Context, string, string) (semanticgraph.SemanticNodeDetail, bool, error)
@@ -221,6 +226,7 @@ type HandlerConfig struct {
 	SemanticGraphService     SemanticGraphService
 	TerminalService          TerminalService
 	WorkspaceActivityService WorkspaceActivityService
+	WorkflowAuditService     WorkflowAuditService
 	WorkspaceUIService       WorkspaceUIService
 	WorkspaceService         WorkspaceService
 	WorkflowService          WorkflowService
@@ -240,6 +246,7 @@ type handler struct {
 	semanticGraphService     SemanticGraphService
 	terminalService          TerminalService
 	workspaceActivityService WorkspaceActivityService
+	workflowAuditService     WorkflowAuditService
 	workspaceUIService       WorkspaceUIService
 	workspaceService         WorkspaceService
 	workflowService          WorkflowService
@@ -268,6 +275,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		semanticGraphService:     config.SemanticGraphService,
 		terminalService:          config.TerminalService,
 		workspaceActivityService: config.WorkspaceActivityService,
+		workflowAuditService:     config.WorkflowAuditService,
 		workspaceUIService:       config.WorkspaceUIService,
 		workspaceService:         config.WorkspaceService,
 		workflowService:          config.WorkflowService,

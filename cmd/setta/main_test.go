@@ -20,6 +20,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/orchestrator"
 	"setta/internal/runtime"
+	"setta/internal/workflowaudit"
 	"setta/internal/workspace"
 )
 
@@ -638,6 +639,13 @@ func TestWorkflowDefinitionsSaveCommandCreatesAndUpdatesDefinition(t *testing.T)
 	if !updated.Saved || updated.Definition == nil || updated.Definition.ID != created.Definition.ID || updated.Definition.Name != "Updated Flow" {
 		t.Fatalf("updated save result = %+v, want updated definition %s", updated, created.Definition.ID)
 	}
+
+	records := readWorkflowAuditRecordsForCLITest(t, appDataDir)
+	if len(records) != 2 {
+		t.Fatalf("audit records = %+v, want create and update save records", records)
+	}
+	assertCLIWorkflowSaveAuditRecord(t, records[0], opened.Workspace.ID, created.Definition.ID, orchestrator.WorkflowDefinitionSaveCreate)
+	assertCLIWorkflowSaveAuditRecord(t, records[1], opened.Workspace.ID, created.Definition.ID, orchestrator.WorkflowDefinitionSaveUpdate)
 }
 
 func TestWorkflowDefinitionsSaveCommandReturnsDiagnosticsWithoutSaving(t *testing.T) {
@@ -860,6 +868,12 @@ func TestWorkflowExecutionsStartAndReadCommandIntegration(t *testing.T) {
 	if !reflect.DeepEqual(read, started) {
 		t.Fatalf("read execution = %+v, want %+v", read, started)
 	}
+
+	records := readWorkflowAuditRecordsForCLITest(t, appDataDir)
+	if len(records) != 1 {
+		t.Fatalf("audit records = %+v, want execution start record", records)
+	}
+	assertCLIWorkflowStartAuditRecord(t, records[0], opened.Workspace.ID, definition.ID, started.ID)
 }
 
 func TestWorkflowExecutionsStartCommandFailsForMissingDefinition(t *testing.T) {
@@ -903,6 +917,12 @@ func TestWorkflowExecutionsStartCommandFailsForMissingDefinition(t *testing.T) {
 	if errResponse.Error.Code != "start_workflow_execution_failed" {
 		t.Fatalf("error code = %q, want start_workflow_execution_failed", errResponse.Error.Code)
 	}
+
+	records := readWorkflowAuditRecordsForCLITest(t, appDataDir)
+	if len(records) != 1 {
+		t.Fatalf("audit records = %+v, want failed execution start record", records)
+	}
+	assertCLIWorkflowFailedStartAuditRecord(t, records[0], "missing_definition", "start_workflow_execution_failed")
 }
 
 func TestWorkflowExecutionsStartConflictReturnsActiveExecutionEnvelope(t *testing.T) {
@@ -1270,6 +1290,70 @@ func assertWorkflowDiagnostic(t *testing.T, result orchestrator.WorkflowValidati
 		}
 	}
 	t.Fatalf("diagnostics = %+v, want code %s", result.Diagnostics, code)
+}
+
+func readWorkflowAuditRecordsForCLITest(t *testing.T, appDataDir string) []workflowaudit.Record {
+	t.Helper()
+	store, err := workflowaudit.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new workflow audit store: %v", err)
+	}
+	records, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("list workflow audit records: %v", err)
+	}
+	return records
+}
+
+func assertCLIWorkflowSaveAuditRecord(
+	t *testing.T,
+	record workflowaudit.Record,
+	workspaceID string,
+	definitionID string,
+	operation orchestrator.WorkflowDefinitionSaveOperation,
+) {
+	t.Helper()
+	if record.CommandName != workflowaudit.CommandWorkflowDefinitionsSave || record.Outcome != workflowaudit.OutcomeWorkflowDefinitionSaved {
+		t.Fatalf("audit save command/outcome = %s/%s, want saved workflow definition", record.CommandName, record.Outcome)
+	}
+	if record.AuthenticatedDeviceSession.DisplayName != workflowDefinitionsSaveCLIAuthDisplayName {
+		t.Fatalf("audit save device display name = %q, want %q", record.AuthenticatedDeviceSession.DisplayName, workflowDefinitionsSaveCLIAuthDisplayName)
+	}
+	if record.WorkspaceID != workspaceID || record.DefinitionID != definitionID {
+		t.Fatalf("audit save workspace/definition = %s/%s, want %s/%s", record.WorkspaceID, record.DefinitionID, workspaceID, definitionID)
+	}
+	if record.SaveOperation != operation {
+		t.Fatalf("audit save operation = %s, want %s", record.SaveOperation, operation)
+	}
+	if record.Saved == nil || !*record.Saved || record.Validation == nil || !record.Validation.Valid {
+		t.Fatalf("audit save result = saved:%+v validation:%+v, want saved valid", record.Saved, record.Validation)
+	}
+}
+
+func assertCLIWorkflowStartAuditRecord(t *testing.T, record workflowaudit.Record, workspaceID string, definitionID string, executionID string) {
+	t.Helper()
+	if record.CommandName != workflowaudit.CommandWorkflowExecutionsStart || record.Outcome != workflowaudit.OutcomeWorkflowExecutionStarted {
+		t.Fatalf("audit start command/outcome = %s/%s, want execution started", record.CommandName, record.Outcome)
+	}
+	if record.AuthenticatedDeviceSession.DisplayName != workflowExecutionsStartCLIAuthDisplayName {
+		t.Fatalf("audit start device display name = %q, want %q", record.AuthenticatedDeviceSession.DisplayName, workflowExecutionsStartCLIAuthDisplayName)
+	}
+	if record.WorkspaceID != workspaceID || record.DefinitionID != definitionID || record.ExecutionID != executionID {
+		t.Fatalf("audit start workspace/definition/execution = %s/%s/%s, want %s/%s/%s", record.WorkspaceID, record.DefinitionID, record.ExecutionID, workspaceID, definitionID, executionID)
+	}
+}
+
+func assertCLIWorkflowFailedStartAuditRecord(t *testing.T, record workflowaudit.Record, definitionID string, errorCode string) {
+	t.Helper()
+	if record.CommandName != workflowaudit.CommandWorkflowExecutionsStart || record.Outcome != workflowaudit.OutcomeFailed {
+		t.Fatalf("audit failed start command/outcome = %s/%s, want failed execution start", record.CommandName, record.Outcome)
+	}
+	if record.AuthenticatedDeviceSession.DisplayName != workflowExecutionsStartCLIAuthDisplayName {
+		t.Fatalf("audit failed start device display name = %q, want %q", record.AuthenticatedDeviceSession.DisplayName, workflowExecutionsStartCLIAuthDisplayName)
+	}
+	if record.DefinitionID != definitionID || record.ErrorCode != errorCode || record.ErrorMessage == "" {
+		t.Fatalf("audit failed start = %+v, want definition %s error %s", record, definitionID, errorCode)
+	}
 }
 
 func decodeCLIError(t *testing.T, stderr string) httpapi.ErrorResponse {

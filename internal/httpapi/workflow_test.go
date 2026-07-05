@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/orchestrator"
+	"setta/internal/workflowaudit"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -164,6 +166,59 @@ func TestWorkflowEndpointSaveDefinitionValidatesBeforePersisting(t *testing.T) {
 	if !updated.Saved || updated.Definition == nil || updated.Definition.ID != created.Definition.ID || updated.Definition.Name != "Updated through HTTP" {
 		t.Fatalf("updated save result = %+v, want updated definition %s", updated, created.Definition.ID)
 	}
+}
+
+func TestWorkflowEndpointSaveAndStartRecordCommandAudit(t *testing.T) {
+	handler, auditStore := newChatHandlerWithAudit(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+
+	created := postJSON[orchestrator.WorkflowDefinitionSaveResult](t, handler, "/workflows/definitions/save", SaveWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Input: orchestrator.WorkflowDefinitionSaveInput{
+			Operation: orchestrator.WorkflowDefinitionSaveCreate,
+			Name:      "Audited save",
+			Graph:     httpWorkflowStartEndGraph(),
+		},
+	}, http.StatusOK)
+	if !created.Saved || created.Definition == nil {
+		t.Fatalf("created save result = %+v, want saved definition", created)
+	}
+
+	invalid := postJSON[orchestrator.WorkflowDefinitionSaveResult](t, handler, "/workflows/definitions/save", SaveWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Input: orchestrator.WorkflowDefinitionSaveInput{
+			Operation: orchestrator.WorkflowDefinitionSaveCreate,
+			Name:      "Audited invalid save",
+			Graph:     httpWorkflowMissingEndGraph(),
+		},
+	}, http.StatusOK)
+	if invalid.Saved || invalid.Validation.Valid {
+		t.Fatalf("invalid save result = %+v, want unsaved diagnostics", invalid)
+	}
+
+	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: created.Definition.ID,
+	}, http.StatusOK)
+	if started.ID == "" {
+		t.Fatalf("started execution = %+v, want id", started)
+	}
+
+	records, err := auditStore.List(context.Background())
+	if err != nil {
+		t.Fatalf("list workflow audit records: %v", err)
+	}
+	if len(records) != 3 {
+		t.Fatalf("audit records = %+v, want save, invalid save, and start", records)
+	}
+
+	assertWorkflowAuditDevice(t, records[0])
+	assertWorkflowAuditSaveRecord(t, records[0], workflowaudit.OutcomeWorkflowDefinitionSaved, opened.Workspace.ID, created.Definition.ID, true, true)
+	assertWorkflowAuditSaveRecord(t, records[1], workflowaudit.OutcomeWorkflowDefinitionUnsaved, opened.Workspace.ID, "", false, false)
+	if !httpWorkflowDiagnosticsContain(records[1].Validation.Diagnostics, "end_node_required") {
+		t.Fatalf("audit diagnostics = %+v, want end_node_required", records[1].Validation.Diagnostics)
+	}
+	assertWorkflowAuditStartRecord(t, records[2], opened.Workspace.ID, created.Definition.ID, started.ID)
 }
 
 func TestWorkflowEndpointCancelReturnsCompletedExecutionWithoutFailure(t *testing.T) {
@@ -711,6 +766,56 @@ func httpWorkflowDiagnosticsContain(diagnostics []orchestrator.WorkflowValidatio
 		}
 	}
 	return false
+}
+
+func assertWorkflowAuditDevice(t *testing.T, record workflowaudit.Record) {
+	t.Helper()
+	if record.AuthenticatedDeviceSession.ID == "" {
+		t.Fatalf("audit record = %+v, want authenticated device id", record)
+	}
+	if record.AuthenticatedDeviceSession.DisplayName != "Test device" {
+		t.Fatalf("audit device display name = %q, want Test device", record.AuthenticatedDeviceSession.DisplayName)
+	}
+}
+
+func assertWorkflowAuditSaveRecord(
+	t *testing.T,
+	record workflowaudit.Record,
+	outcome workflowaudit.Outcome,
+	workspaceID string,
+	definitionID string,
+	saved bool,
+	valid bool,
+) {
+	t.Helper()
+	if record.CommandName != workflowaudit.CommandWorkflowDefinitionsSave || record.Outcome != outcome {
+		t.Fatalf("audit save command/outcome = %s/%s, want %s/%s", record.CommandName, record.Outcome, workflowaudit.CommandWorkflowDefinitionsSave, outcome)
+	}
+	if record.WorkspaceID != workspaceID || record.DefinitionID != definitionID {
+		t.Fatalf("audit save workspace/definition = %s/%s, want %s/%s", record.WorkspaceID, record.DefinitionID, workspaceID, definitionID)
+	}
+	if record.SaveOperation != orchestrator.WorkflowDefinitionSaveCreate {
+		t.Fatalf("audit save operation = %s, want create", record.SaveOperation)
+	}
+	if record.Saved == nil || *record.Saved != saved {
+		t.Fatalf("audit saved = %+v, want %v", record.Saved, saved)
+	}
+	if record.Validation == nil || record.Validation.Valid != valid {
+		t.Fatalf("audit validation = %+v, want valid=%v", record.Validation, valid)
+	}
+}
+
+func assertWorkflowAuditStartRecord(t *testing.T, record workflowaudit.Record, workspaceID string, definitionID string, executionID string) {
+	t.Helper()
+	if record.CommandName != workflowaudit.CommandWorkflowExecutionsStart || record.Outcome != workflowaudit.OutcomeWorkflowExecutionStarted {
+		t.Fatalf("audit start command/outcome = %s/%s, want %s/%s", record.CommandName, record.Outcome, workflowaudit.CommandWorkflowExecutionsStart, workflowaudit.OutcomeWorkflowExecutionStarted)
+	}
+	if record.WorkspaceID != workspaceID || record.DefinitionID != definitionID || record.ExecutionID != executionID {
+		t.Fatalf("audit start workspace/definition/execution = %s/%s/%s, want %s/%s/%s", record.WorkspaceID, record.DefinitionID, record.ExecutionID, workspaceID, definitionID, executionID)
+	}
+	if record.Validation != nil {
+		t.Fatalf("audit start validation = %+v, want nil", record.Validation)
+	}
 }
 
 func httpWorkflowApprovalGraph() orchestrator.WorkflowGraph {

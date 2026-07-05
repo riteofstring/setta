@@ -415,6 +415,45 @@ Progress on 2026-07-07:
   workflow-authoring Electron coverage as the in-app path moves to this
   CLI/API surface.
 
+Progress on 2026-07-07:
+
+- Added backend-owned workflow command audit records for mutating workflow CLI
+  operations.
+- Added an append-only `internal/workflowaudit` store at
+  `runtime/workflow-command-audit.jsonl` under the app data directory. The
+  audit store is not a runtime-auth database migration.
+- Runtime startup now wires the workflow audit store into the HTTP backend.
+  `POST /workflows/definitions/save` and
+  `POST /workflows/executions/start` require the audit service and record
+  command audit entries after backend-owned save/start logic returns.
+- Audit entries include the authenticated runtime device session, command name,
+  workspace ID, affected definition ID, save operation, saved/unsaved result,
+  backend validation result and diagnostics where available, execution ID for
+  successful starts, active execution conflict details where present, and stable
+  error code/message for failed attempts.
+- Added unit coverage for the audit store, HTTP coverage for valid save,
+  invalid save, and execution start audit records, and real CLI/runtime
+  coverage for save create/update audit records plus execution start success
+  and missing-definition failure audit records.
+- Verification: `./scripts/go.sh test ./internal/workflowaudit`,
+  `./scripts/go.sh test ./internal/httpapi -run
+  'TestWorkflowEndpointSaveAndStartRecordCommandAudit|TestWorkflowEndpointSaveDefinitionValidatesBeforePersisting|TestWorkflowEndpointStartExecutionConflictIncludesActiveExecution'`,
+  `./scripts/go.sh test ./cmd/setta -run
+  'TestWorkflowDefinitionsSaveCommandCreatesAndUpdatesDefinition|TestWorkflowExecutionsStartAndReadCommandIntegration|TestWorkflowExecutionsStartCommandFailsForMissingDefinition'`,
+  `./scripts/go.sh test ./internal/workflowaudit ./internal/httpapi
+  ./cmd/setta ./internal/runtime`, `./scripts/go.sh test ./internal/runtime
+  -run TestBackendAppWorkflowWithLiveCodex -count=1 -v`, and
+  `node desktop/tests/electron/run-workflows.mjs --workflow
+  workflow-graph-smoke` passed. The live Codex test ran with local ChatGPT
+  auth and did not use `OPENAI_API_KEY`. The final pre-commit gates
+  `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after
+  extracting runtime workflow-service/audit setup to keep
+  `buildRuntimeServices` within the repository complexity limit.
+- Remaining work: Phase 3 should add the workflow-builder skill. Broader
+  workflow-authoring Electron coverage, in-app Codex movement to the
+  skill/CLI/API path, and removal of obsolete dynamic-tool authoring paths
+  remain Phase 4/5 work.
+
 ### Phase 3: Add The Workflow-Builder Skill
 
 Add the workflow-builder skill with instructions for the schema, draft,
