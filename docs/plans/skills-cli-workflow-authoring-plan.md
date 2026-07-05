@@ -614,6 +614,29 @@ Keep only dynamic-tool code that is still required for non-authoring runtime
 contracts. If workflow result reporting moves to the CLI/API workflow, remove
 the old `workflow_result` dynamic tool at the same time.
 
+Progress on 2026-07-07:
+
+- Completed the Phase 5 source sweep for obsolete workflow-authoring dynamic
+  tool code. The current default Setta dynamic-tool registry exposes only the
+  non-authoring `setta.workspace_context` tool and the runtime
+  `setta.workflow_result` reporting tool; no workflow-authoring dynamic-tool
+  definitions, handlers, prompt instructions, or MCP workflow-authoring paths
+  were found to remove.
+- Kept `setta.workflow_result` because it is still the workflow runtime result
+  reporting contract and has not been replaced by the CLI/API workflow.
+- Added focused Go guard coverage so future changes cannot add default Setta
+  workflow-authoring dynamic tools without failing `internal/chat` tests.
+- Verification: `./scripts/go.sh test ./internal/chat -run
+  TestDefaultSettaAgentToolRegistryExposesOnlyRuntimeDynamicTools`,
+  `./scripts/go.sh test ./internal/chat`, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed. No deterministic Electron or live
+  Codex rerun was required for this guard-only source sweep because no
+  production chat, Codex harness, provider protocol, renderer, IPC, generated
+  contract, workflow execution, or event-streaming behavior changed.
+- Remaining work: no Phase 5 workflow-authoring dynamic-tool removal remains
+  in the current source. If workflow runtime result reporting later moves to
+  the CLI/API workflow, remove `setta.workflow_result` in that future change.
+
 ## Verification
 
 This work touches chat behavior, Codex harness behavior, workflow authoring,
