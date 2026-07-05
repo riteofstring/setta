@@ -571,7 +571,7 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 	if err != nil {
 		return codexCommandThread{}, err
 	}
-	params, err := harness.codexThreadStartParams(request.Workspace.RootPath)
+	params, err := harness.codexThreadStartParams(request.Workspace.RootPath, request.Conversation)
 	if err != nil {
 		return codexCommandThread{}, err
 	}

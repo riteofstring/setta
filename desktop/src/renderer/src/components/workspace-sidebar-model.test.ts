@@ -399,6 +399,7 @@ function conversationListItem(
       title,
       updatedAt: "2026-05-29T20:00:00Z",
       workflow: null,
+      easyRun: null,
       workspaceId,
     },
     latestReadRelevantMarker: markers.latestReadRelevantMarker,

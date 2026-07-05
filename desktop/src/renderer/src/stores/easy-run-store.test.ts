@@ -51,6 +51,66 @@ describe("easy-run store", () => {
     expect(useEasyRunStore.getState().lastEventSequence).toBe(4);
   });
 
+  test("starts a run through the typed easy-run API and clears stale rails", async () => {
+    const started = easyRun("easy_run_started");
+    const start = vi.fn<SettaAPI["easyRun"]["start"]>().mockResolvedValue(started);
+    installEasyRunAPI({ start });
+    useEasyRunStore.getState().hydrateSnapshot(
+      workspaceId,
+      easyRunSnapshot({
+        artifacts: [markdownArtifact(1)],
+        highlights: [highlight(1)],
+        latestRun: easyRun("easy_run_old"),
+        sequence: 3,
+      }),
+    );
+
+    const run = await useEasyRunStore.getState().start(workspaceId, "Do the work");
+
+    expect(start).toHaveBeenCalledWith({ requestText: "Do the work", workspaceId });
+    expect(run).toBe(started);
+    expect(useEasyRunStore.getState()).toMatchObject({
+      artifacts: [],
+      error: null,
+      highlights: [],
+      latestRun: started,
+      status: "ready",
+      workspaceId,
+    });
+    expect(useEasyRunStore.getState().lastEventSequence).toBe(3);
+  });
+
+  test("stops the current run through the typed easy-run API and preserves rails", async () => {
+    const current = easyRun("easy_run_current");
+    const stopped: EasyRun = {
+      ...current,
+      activeAgentCount: 0,
+      endedAt: "2026-07-08T12:00:05Z",
+      status: "stopped",
+      summary: "Stopped after 5s - no artifacts",
+    };
+    const stop = vi.fn<SettaAPI["easyRun"]["stop"]>().mockResolvedValue(stopped);
+    installEasyRunAPI({ stop });
+    useEasyRunStore.getState().hydrateSnapshot(
+      workspaceId,
+      easyRunSnapshot({
+        artifacts: [markdownArtifact(1)],
+        highlights: [highlight(1)],
+        latestRun: current,
+        sequence: 4,
+      }),
+    );
+
+    const run = await useEasyRunStore.getState().stop(workspaceId, current.id);
+
+    expect(stop).toHaveBeenCalledWith({ easyRunId: current.id, workspaceId });
+    expect(run).toBe(stopped);
+    expect(useEasyRunStore.getState().latestRun).toBe(stopped);
+    expect(useEasyRunStore.getState().highlights.map((item) => item.id)).toEqual(["highlight_1"]);
+    expect(useEasyRunStore.getState().artifacts.map((item) => item.id)).toEqual(["artifact_1"]);
+    expect(useEasyRunStore.getState().lastEventSequence).toBe(4);
+  });
+
   test("clears rails when a new run arrives", () => {
     useEasyRunStore.getState().hydrateSnapshot(
       workspaceId,
@@ -98,7 +158,7 @@ describe("easy-run store", () => {
   });
 });
 
-function installEasyRunAPI(easyRun: Partial<SettaAPI["easyRun"]>) {
+function installEasyRunAPI(overrides: Partial<SettaAPI["easyRun"]>) {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
@@ -106,7 +166,9 @@ function installEasyRunAPI(easyRun: Partial<SettaAPI["easyRun"]>) {
         easyRun: {
           onEvent: () => () => {},
           snapshot: async () => easyRunSnapshot({}),
-          ...easyRun,
+          start: async () => easyRun("easy_run_started"),
+          stop: async () => easyRun("easy_run_stopped"),
+          ...overrides,
         },
       } as unknown as SettaAPI,
     },

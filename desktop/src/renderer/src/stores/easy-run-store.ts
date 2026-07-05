@@ -27,6 +27,8 @@ interface EasyRunStoreActions {
   hydrateSnapshot: (workspaceId: string, snapshot: EasyRunSnapshot) => void;
   loadSnapshot: (workspaceId: string) => Promise<void>;
   reset: () => void;
+  start: (workspaceId: string, requestText: string) => Promise<EasyRun>;
+  stop: (workspaceId: string, easyRunId: string) => Promise<EasyRun>;
 }
 
 export type EasyRunStore = EasyRunStoreData & EasyRunStoreActions;
@@ -128,8 +130,61 @@ export const useEasyRunStore = create<EasyRunStore>((set, get) => {
       snapshotRequestID += 1;
       set(initialEasyRunStoreData);
     },
+    start: async (workspaceId, requestText) => {
+      set({
+        error: null,
+        status: "loading",
+        workspaceId,
+      });
+      try {
+        const run = await window.setta.easyRun.start({ requestText, workspaceId });
+        set((state) => runPatch(state, workspaceId, run));
+        return run;
+      } catch (error) {
+        set({
+          error: errorMessage(error),
+          status: "error",
+          workspaceId,
+        });
+        throw error;
+      }
+    },
+    stop: async (workspaceId, easyRunId) => {
+      set({
+        error: null,
+        workspaceId,
+      });
+      try {
+        const run = await window.setta.easyRun.stop({ easyRunId, workspaceId });
+        set((state) => runPatch(state, workspaceId, run));
+        return run;
+      } catch (error) {
+        set({
+          error: errorMessage(error),
+          status: "error",
+          workspaceId,
+        });
+        throw error;
+      }
+    },
   };
 });
+
+function runPatch(
+  state: EasyRunStoreData,
+  workspaceId: string,
+  run: EasyRun,
+): Partial<EasyRunStoreData> {
+  const sameRun = state.latestRun?.id === run.id;
+  return {
+    artifacts: sameRun ? state.artifacts : [],
+    error: null,
+    highlights: sameRun ? state.highlights : [],
+    latestRun: run,
+    status: "ready",
+    workspaceId,
+  };
+}
 
 function snapshotPatch(workspaceId: string, snapshot: EasyRunSnapshot): Partial<EasyRunStoreData> {
   return {

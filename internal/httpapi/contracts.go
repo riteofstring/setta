@@ -141,6 +141,16 @@ type ReadEasyRunSnapshotRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
 
+type StartEasyRunRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	RequestText string `json:"requestText"`
+}
+
+type StopEasyRunRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	EasyRunID   string `json:"easyRunId"`
+}
+
 type ReadWorkflowExecutionActivityRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	ExecutionID string `json:"executionId"`

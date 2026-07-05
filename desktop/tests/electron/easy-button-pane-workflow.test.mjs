@@ -75,6 +75,40 @@ try {
   assertFullWidthColumn(restored);
   assertIdleVisual(restored);
 
+  await submitEasyButtonRequest(context.client, "easy run phase2 complete workflow");
+  const working = await waitForEasyButtonWorking(
+    context.client,
+    "easy run phase2 complete workflow",
+  );
+  assertWorkingVisual(working, "easy run phase2 complete workflow");
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-working.png"));
+  const completed = await waitForEasyButtonTerminal(
+    context.client,
+    "easy run phase2 complete workflow",
+    "Done in",
+  );
+  assertTerminalVisual(completed, "easy run phase2 complete workflow", "Done in");
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-complete.png"));
+
+  await resetEasyButtonPane(context.client);
+  const resetAfterComplete = await waitForEasyButtonPane(context.client);
+  assertIdleVisual(resetAfterComplete);
+
+  await submitEasyButtonRequest(context.client, "cancel active workflow");
+  const stoppingWorking = await waitForEasyButtonWorking(context.client, "cancel active workflow");
+  assertWorkingVisual(stoppingWorking, "cancel active workflow");
+  await clickEasyButtonControl(context.client);
+  const stopped = await waitForEasyButtonTerminal(
+    context.client,
+    "cancel active workflow",
+    "Stopped after",
+  );
+  assertTerminalVisual(stopped, "cancel active workflow", "Stopped after");
+
+  await resetEasyButtonPane(context.client);
+  const resetAfterStopped = await waitForEasyButtonPane(context.client);
+  assertIdleVisual(resetAfterStopped);
+
   await forceEasyButtonFrozenAttribute(context.client);
   const frozen = await waitForEasyButtonFrozen(context.client);
   if (frozen.buttonAnimationPlayState !== "paused") {
@@ -84,11 +118,16 @@ try {
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
+    completed,
     frozen,
+    resetAfterComplete,
+    resetAfterStopped,
     restored,
     shortcutOpen,
     status: "passed",
+    stopped,
     toolbarOpen,
+    working,
     workspaceName: basename(fixture.workspaceRoot),
   });
   console.log(`Electron easy button pane workflow passed: ${artifactDir}`);
@@ -145,6 +184,24 @@ async function closeEasyButtonPane(client, paneId) {
   }
 }
 
+async function submitEasyButtonRequest(client, requestText) {
+  const submitted = await client.driver("easyButtonPaneSubmitRequest", requestText);
+  if (!submitted) {
+    throw new Error(`easy button request input was not submittable: ${requestText}`);
+  }
+}
+
+async function clickEasyButtonControl(client) {
+  const clicked = await client.driver("easyButtonPaneClickControl");
+  if (!clicked) {
+    throw new Error("easy button control was not clickable");
+  }
+}
+
+async function resetEasyButtonPane(client) {
+  await clickEasyButtonControl(client);
+}
+
 async function forceEasyButtonFrozenAttribute(client) {
   const frozen = await client.driver("easyButtonPaneForceFrozen");
   if (!frozen) {
@@ -167,10 +224,46 @@ function assertFullWidthColumn(state) {
 
 function assertIdleVisual(state) {
   if (state.easyState !== "idle" || !state.buttonVisible || state.railText !== "") {
-    throw new Error(`easy-button idle visual did not match Phase 1: ${JSON.stringify(state)}`);
+    throw new Error(`easy-button idle visual did not match Phase 2b: ${JSON.stringify(state)}`);
   }
   if (state.buttonAnimationName !== "easy-button-glow-breathe") {
     throw new Error(`easy-button idle glow animation was missing: ${JSON.stringify(state)}`);
+  }
+  if (
+    state.buttonAriaLabel !== "Start easy run" ||
+    state.inputDisabled !== false ||
+    state.paneChromeTitle !== "Easy Button"
+  ) {
+    throw new Error(`easy-button idle controls were not ready: ${JSON.stringify(state)}`);
+  }
+}
+
+function assertWorkingVisual(state, requestText) {
+  if (
+    state.easyState !== "working" ||
+    state.requestText !== requestText ||
+    state.agentChipText !== "1 agent" ||
+    state.buttonAriaLabel !== "Stop easy run" ||
+    state.inputDisabled !== true ||
+    state.railText !== "" ||
+    state.paneChromeTitle !== "Easy Button - working"
+  ) {
+    throw new Error(`easy-button working visual did not match Phase 2b: ${JSON.stringify(state)}`);
+  }
+}
+
+function assertTerminalVisual(state, requestText, summaryPrefix) {
+  if (
+    state.easyState !== "complete" ||
+    state.requestText !== requestText ||
+    !state.summaryText.startsWith(summaryPrefix) ||
+    !state.summaryText.includes("no artifacts") ||
+    state.buttonAriaLabel !== "Reset easy button" ||
+    state.inputDisabled !== false ||
+    state.railText !== "" ||
+    state.paneChromeTitle !== "Easy Button - complete"
+  ) {
+    throw new Error(`easy-button terminal visual did not match Phase 2b: ${JSON.stringify(state)}`);
   }
 }
 
@@ -182,7 +275,36 @@ async function waitForEasyButtonPane(client) {
       state.exists &&
       state.surfaceKind === "easy-button" &&
       state.easyState === "idle" &&
-      state.buttonVisible,
+      state.buttonVisible &&
+      state.paneChromeTitle === "Easy Button",
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonWorking(client, requestText) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists &&
+      state.surfaceKind === "easy-button" &&
+      state.easyState === "working" &&
+      state.requestText === requestText &&
+      state.buttonAriaLabel === "Stop easy run",
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonTerminal(client, requestText, summaryPrefix) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists &&
+      state.surfaceKind === "easy-button" &&
+      state.easyState === "complete" &&
+      state.requestText === requestText &&
+      state.summaryText.startsWith(summaryPrefix),
     workflowTimeoutMs,
   );
 }

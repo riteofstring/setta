@@ -254,6 +254,7 @@ function draftConversation(chat: ChatView): Conversation {
     title: "",
     updatedAt: "",
     workflow: null,
+    easyRun: null,
     workspaceId,
   };
 }

@@ -1225,6 +1225,7 @@ function composerChat() {
       title: "API chat",
       updatedAt: "2026-05-29T20:00:00Z",
       workflow: null,
+      easyRun: null,
       workspaceId: "workspace_api",
       conversation: {
         id: "conversation_api",
@@ -1358,6 +1359,7 @@ function selectedConversationWithPermission(displayLabel: string) {
     title: "API chat",
     updatedAt: "2026-05-29T20:00:00Z",
     workflow: null,
+    easyRun: null,
     workspaceId: "workspace_api",
   } satisfies Conversation;
 }

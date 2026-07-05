@@ -40,6 +40,7 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  EasyRun,
   EasyRunEvent,
   EasyRunSnapshot,
   EndSemanticActivityRequest,
@@ -109,10 +110,12 @@ import type {
   SelectDefaultTerminalProfileRequest,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
+  StartEasyRunRequest,
   SteerMessageResult,
   SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
+  StopEasyRunRequest,
   StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
@@ -391,6 +394,8 @@ export interface SettaAPI {
   easyRun: {
     onEvent: (listener: (event: EasyRunEvent) => void) => () => void;
     snapshot: (workspaceId: string) => Promise<EasyRunSnapshot>;
+    start: (request: StartEasyRunRequest) => Promise<EasyRun>;
+    stop: (request: StopEasyRunRequest) => Promise<EasyRun>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

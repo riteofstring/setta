@@ -1,4 +1,4 @@
-/* global HTMLButtonElement, HTMLElement, KeyboardEvent, document, getComputedStyle, window */
+/* global Event, HTMLButtonElement, HTMLElement, HTMLInputElement, KeyboardEvent, document, getComputedStyle, window */
 
 (() => {
   const version = "setta-easy-button-pane-driver-v1";
@@ -11,10 +11,12 @@
     }
     Object.assign(driver, {
       easyButtonPaneClickToolbarAction,
+      easyButtonPaneClickControl,
       easyButtonPaneClose,
       easyButtonPaneForceFrozen,
       easyButtonPaneOpenShortcut,
       easyButtonPaneState,
+      easyButtonPaneSubmitRequest,
       easyButtonPaneVersion: version,
     });
   }
@@ -56,6 +58,7 @@
     return {
       focused: host.dataset.focused ?? "",
       hostFrozen: host.dataset.surfaceFrozen ?? "",
+      paneChromeTitle: host.dataset.workspacePaneChromeTitle ?? "",
       paneId: host.dataset.paneId ?? "",
       surfaceKind: host.dataset.surfaceKind ?? "",
     };
@@ -91,14 +94,62 @@
 
   function easyButtonState(host) {
     const button = host.querySelector(".easy-button-control");
+    const input = host.querySelector('[data-testid="easy-button-input"]');
+    const requestText = host.querySelector('[data-testid="easy-button-request-text"]');
+    const summary = host.querySelector('[data-testid="easy-button-summary"]');
+    const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
     const buttonRect = elementRectOrZero(button);
-    const buttonStyle = button instanceof HTMLElement ? getComputedStyle(button, "::after") : null;
     return {
-      buttonAnimationName: buttonStyle?.animationName ?? "",
-      buttonAnimationPlayState: buttonStyle?.animationPlayState ?? "",
+      agentChipText: elementText(agentChip),
+      buttonAriaLabel: buttonAriaLabel(button),
+      buttonAnimationName: buttonPseudoStyleValue(button, "animationName"),
+      buttonAnimationPlayState: buttonPseudoStyleValue(button, "animationPlayState"),
       buttonRect: rectSnapshot(buttonRect),
-      buttonVisible: buttonRect.width > 80 && buttonRect.height > 80,
+      buttonVisible: buttonVisible(buttonRect),
+      inputDisabled: inputDisabled(input),
+      inputValue: inputValue(input),
+      requestText: elementText(requestText),
+      summaryText: elementText(summary),
     };
+  }
+
+  function elementText(element) {
+    if (!(element instanceof HTMLElement)) {
+      return "";
+    }
+    return (element.textContent ?? "").trim();
+  }
+
+  function buttonAriaLabel(button) {
+    if (!(button instanceof HTMLButtonElement)) {
+      return "";
+    }
+    return button.getAttribute("aria-label") ?? "";
+  }
+
+  function buttonPseudoStyleValue(button, property) {
+    if (!(button instanceof HTMLElement)) {
+      return "";
+    }
+    return getComputedStyle(button, "::after")[property] ?? "";
+  }
+
+  function buttonVisible(rect) {
+    return rect.width > 80 && rect.height > 80;
+  }
+
+  function inputDisabled(input) {
+    if (!(input instanceof HTMLInputElement)) {
+      return null;
+    }
+    return input.disabled;
+  }
+
+  function inputValue(input) {
+    if (!(input instanceof HTMLInputElement)) {
+      return "";
+    }
+    return input.value;
   }
 
   function easyButtonRailText(host) {
@@ -131,6 +182,33 @@
         metaKey: true,
       }),
     );
+    return true;
+  }
+
+  function easyButtonPaneClickControl() {
+    const host = easyButtonHost();
+    const button = host?.querySelector('[data-testid="easy-button-control"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  }
+
+  function easyButtonPaneSubmitRequest(text) {
+    const host = easyButtonHost();
+    const input = host?.querySelector('[data-testid="easy-button-input"]');
+    if (!(input instanceof HTMLInputElement) || input.disabled) {
+      return false;
+    }
+    input.focus();
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    if (!setter) {
+      return false;
+    }
+    setter.call(input, text);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.form?.requestSubmit();
     return true;
   }
 

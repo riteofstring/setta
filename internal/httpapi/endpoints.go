@@ -74,6 +74,8 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkflowExecutionActivityRequest, ReadWorkflowExecutionActivityResponse]("ReadWorkflowExecutionActivity", "/workspace-activity/execution-snapshot", handler.readWorkflowExecutionActivity),
 	streamEvent[workspaceactivity.WorkspaceActivityEvent]("WorkspaceActivityEventStream", "/workspace-activity/events", handler.workspaceActivityEventStream),
 	getWithQuery[ReadEasyRunSnapshotRequest, easyrun.EasyRunSnapshot]("ReadEasyRunSnapshot", "/easy-runs/snapshot", handler.readEasyRunSnapshot),
+	post[StartEasyRunRequest, easyrun.EasyRun]("StartEasyRun", "/easy-runs/start", handler.startEasyRun),
+	post[StopEasyRunRequest, easyrun.EasyRun]("StopEasyRun", "/easy-runs/stop", handler.stopEasyRun),
 	streamEvent[easyrun.EasyRunEvent]("EasyRunEventStream", "/easy-runs/events", handler.easyRunEventStream),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),

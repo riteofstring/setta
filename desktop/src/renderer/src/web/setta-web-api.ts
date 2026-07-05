@@ -274,6 +274,8 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           streamName: "easy-run event stream",
         }),
       snapshot: (workspaceId) => requireClient().readEasyRunSnapshot({ workspaceId }),
+      start: (request) => requireClient().startEasyRun(request),
+      stop: (request) => requireClient().stopEasyRun(request),
     },
     codexAccount: {
       cancelLogin: (request) => requireClient().cancelCodexLogin(request),

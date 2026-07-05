@@ -1,8 +1,14 @@
 package easyrun
 
 import (
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"setta/internal/chat"
+	"setta/internal/workspace"
 )
 
 func TestServiceReadSnapshotReturnsEmptySnapshotWithCurrentCursor(t *testing.T) {
@@ -70,6 +76,75 @@ func TestEventSubscriptionReplaysAfterCursorAndRequestsResyncWhenRetainedEventsA
 	}
 }
 
+func TestServiceStartCreatesHiddenEasyRunAndProjectsTerminalChatRun(t *testing.T) {
+	service, chatService := newTestServiceWithChat(t, chat.NewFakeHarness(nil))
+	subscription, err := service.SubscribeEvents(EasyRunEventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe easy-run events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	run, err := service.Start("workspace_api", "build the easy button")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	assertStartedEasyRun(t, run, "build the easy button")
+
+	workingEvent := requireEasyRunEvent(t, subscription)
+	assertWorkingRunEvent(t, workingEvent)
+
+	completed := waitForEasyRunStatus(t, service, "workspace_api", run.ID, EasyRunStatusCompleted)
+	assertCompletedEasyRun(t, completed)
+
+	snapshot, err := service.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read snapshot: %v", err)
+	}
+	assertEasyRunSnapshotWithEmptyRails(t, snapshot, completed.ID)
+
+	page, err := chatService.LoadMessagePage("workspace_api", completed.ConversationID, 0, 20)
+	if err != nil {
+		t.Fatalf("load hidden message page: %v", err)
+	}
+	assertHiddenEasyRunConversation(t, page.Conversation, run.ID)
+	publicList, err := chatService.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list public conversations: %v", err)
+	}
+	assertNoPublicConversations(t, publicList.Conversations)
+}
+
+func TestServiceStopCancelsBackingRunAndProjectsStoppedStatus(t *testing.T) {
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"wait for stop": {
+			{Type: chat.FakeEventAssistantDelta, Text: "waiting"},
+			{Type: chat.FakeEventWaitForCancel},
+		},
+	})
+	service, _ := newTestServiceWithChat(t, harness)
+
+	run, err := service.Start("workspace_api", "wait for stop")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	working := waitForEasyRunStatus(t, service, "workspace_api", run.ID, EasyRunStatusWorking)
+
+	stopped, err := service.Stop("workspace_api", working.ID)
+	if err != nil {
+		t.Fatalf("stop easy-run: %v", err)
+	}
+	if stopped.Status != EasyRunStatusStopped {
+		stopped = waitForEasyRunStatus(t, service, "workspace_api", run.ID, EasyRunStatusStopped)
+	}
+	if stopped.Summary == nil ||
+		!strings.Contains(*stopped.Summary, "Stopped after") ||
+		!strings.Contains(*stopped.Summary, "no artifacts") ||
+		stopped.Error != nil ||
+		stopped.ActiveAgentCount != 0 {
+		t.Fatalf("stopped run = %+v, want stopped summary without error", stopped)
+	}
+}
+
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 	store, err := NewStore(t.TempDir())
@@ -82,6 +157,154 @@ func newTestService(t *testing.T) *Service {
 	}
 	t.Cleanup(service.CloseEvents)
 	return service
+}
+
+func newTestServiceWithChat(t *testing.T, harness chat.Harness) (*Service, *chat.Service) {
+	t.Helper()
+	appDataDir := t.TempDir()
+	chatStore, err := chat.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("create chat store: %v", err)
+	}
+	chatService, err := chat.NewService(
+		chatStore,
+		testWorkspaceResolver{"workspace_api": {
+			DisplayName:  "api",
+			ID:           "workspace_api",
+			LastOpenedAt: "2026-07-08T12:00:00Z",
+			RootPath:     t.TempDir(),
+		}},
+		harness,
+		chat.WithClock(func() time.Time {
+			return time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
+		}),
+		chat.WithIDGenerator(testIDGenerator()),
+	)
+	if err != nil {
+		t.Fatalf("create chat service: %v", err)
+	}
+	store, err := NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("create easy-run store: %v", err)
+	}
+	service, err := NewService(
+		store,
+		WithChatService(chatService),
+		WithClock(func() time.Time {
+			return time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
+		}),
+		WithIDGenerator(testIDGenerator()),
+	)
+	if err != nil {
+		t.Fatalf("create easy-run service: %v", err)
+	}
+	t.Cleanup(chatService.CloseEvents)
+	t.Cleanup(service.CloseEvents)
+	return service, chatService
+}
+
+func testIDGenerator() func(string) (string, error) {
+	counter := 0
+	return func(prefix string) (string, error) {
+		counter++
+		return fmt.Sprintf("%s_%04d", prefix, counter), nil
+	}
+}
+
+type testWorkspaceResolver map[string]workspace.WorkspaceSummary
+
+func (resolver testWorkspaceResolver) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {
+	summary, ok := resolver[id]
+	if !ok {
+		return workspace.WorkspaceSummary{}, os.ErrNotExist
+	}
+	return summary, nil
+}
+
+func waitForEasyRunStatus(t *testing.T, service *Service, workspaceID string, easyRunID string, status EasyRunStatus) EasyRun {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		snapshot, err := service.ReadSnapshot(workspaceID)
+		if err != nil {
+			t.Fatalf("read easy-run snapshot: %v", err)
+		}
+		if snapshot.LatestRun != nil && snapshot.LatestRun.ID == easyRunID && snapshot.LatestRun.Status == status {
+			return *snapshot.LatestRun
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	snapshot, err := service.ReadSnapshot(workspaceID)
+	if err != nil {
+		t.Fatalf("read final easy-run snapshot: %v", err)
+	}
+	t.Fatalf("latest easy-run = %+v, want %s", snapshot.LatestRun, status)
+	return EasyRun{}
+}
+
+func requireEasyRunEvent(t *testing.T, subscription *EventSubscription) EasyRunEvent {
+	t.Helper()
+	select {
+	case event := <-subscription.Events:
+		return event
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for easy-run event")
+		return EasyRunEvent{}
+	}
+}
+
+func assertStartedEasyRun(t *testing.T, run EasyRun, requestText string) {
+	t.Helper()
+	if run.ID != "easy_run_0001" || run.RequestText != requestText || run.WorkspaceID != "workspace_api" {
+		t.Fatalf("started run = %+v, want deterministic easy-run request", run)
+	}
+}
+
+func assertWorkingRunEvent(t *testing.T, event EasyRunEvent) {
+	t.Helper()
+	if event.Type != EasyRunEventTypeRunUpdated || event.RunUpdated == nil {
+		t.Fatalf("working event = %+v, want run update", event)
+	}
+	if event.RunUpdated.Run.Status != EasyRunStatusWorking {
+		t.Fatalf("working event run = %+v, want working status", event.RunUpdated.Run)
+	}
+}
+
+func assertCompletedEasyRun(t *testing.T, run EasyRun) {
+	t.Helper()
+	if run.Summary == nil || run.EndedAt == nil {
+		t.Fatalf("completed run = %+v, want summary and endedAt", run)
+	}
+	if !strings.Contains(*run.Summary, "Done in") || !strings.Contains(*run.Summary, "no artifacts") || run.ActiveAgentCount != 0 {
+		t.Fatalf("completed run = %+v, want mechanical completion summary", run)
+	}
+}
+
+func assertEasyRunSnapshotWithEmptyRails(t *testing.T, snapshot EasyRunSnapshot, easyRunID string) {
+	t.Helper()
+	if snapshot.LatestRun == nil || snapshot.LatestRun.ID != easyRunID {
+		t.Fatalf("snapshot = %+v, want latest run %s", snapshot, easyRunID)
+	}
+	if len(snapshot.Highlights) != 0 || len(snapshot.Artifacts) != 0 {
+		t.Fatalf("snapshot = %+v, want empty rails", snapshot)
+	}
+}
+
+func assertHiddenEasyRunConversation(t *testing.T, conversation chat.Conversation, easyRunID string) {
+	t.Helper()
+	if !conversation.Internal || conversation.Workflow != nil {
+		t.Fatalf("hidden conversation = %+v, want internal easy-run owner only", conversation)
+	}
+	if conversation.EasyRun == nil || conversation.EasyRun.EasyRunID != easyRunID {
+		t.Fatalf("hidden conversation = %+v, want easy-run id %s", conversation, easyRunID)
+	}
+}
+
+func assertNoPublicConversations(t *testing.T, conversations []chat.ConversationListItem) {
+	t.Helper()
+	if len(conversations) != 0 {
+		t.Fatalf("public conversations = %+v, want hidden easy-run omitted", conversations)
+	}
 }
 
 func testRun(id string) EasyRun {

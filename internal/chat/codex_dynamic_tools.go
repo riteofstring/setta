@@ -3,6 +3,7 @@ package chat
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 const (
@@ -35,12 +36,12 @@ type codexDynamicToolSpec struct {
 	DeferLoading bool           `json:"deferLoading,omitempty"`
 }
 
-func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string) (map[string]any, error) {
+func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string, conversation Conversation) (map[string]any, error) {
 	params := map[string]any{
 		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceRoot,
-		"developerInstructions": codexDeveloperInstructions(),
+		"developerInstructions": codexDeveloperInstructionsForConversation(conversation),
 		"runtimeWorkspaceRoots": []string{workspaceRoot},
 	}
 	specs, err := codexDynamicToolSpecs(harness.config.Tools)
@@ -51,6 +52,20 @@ func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string) (map[s
 		params["dynamicTools"] = specs
 	}
 	return params, nil
+}
+
+func codexDeveloperInstructionsForConversation(conversation Conversation) string {
+	instructions := codexDeveloperInstructions()
+	if conversation.EasyRun == nil {
+		return instructions
+	}
+	return instructions + "\n\n" + easyRunOrchestratorDeveloperInstructions()
+}
+
+func easyRunOrchestratorDeveloperInstructions() string {
+	return strings.TrimSpace(`You are running inside Setta's Easy Button pane as a hidden orchestrator.
+
+Do the user's requested work end to end. Do not ask the user questions; make reasonable assumptions and proceed. User-facing deliverables must be emitted through setta.emit_artifact when that tool is available. Final assistant prose is an internal audit trail and is not shown in the Easy Button pane.`)
 }
 
 func codexThreadResumeParams(workspaceRoot string, threadID string, conversation Conversation) (map[string]any, error) {

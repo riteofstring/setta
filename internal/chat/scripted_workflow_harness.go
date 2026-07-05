@@ -65,6 +65,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow trajectory page limit workflow", Run: scriptedWorkflowTrajectoryPageLimitTurn},
 	{Prompt: "workflow trajectory activity item page workflow", Run: scriptedWorkflowTrajectoryActivityItemPageTurn},
 	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
+	{Prompt: "easy run phase2 complete workflow", Run: scriptedEasyRunPhase2CompleteTurn},
 	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer c workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
@@ -340,7 +341,6 @@ func (harness *ScriptedWorkflowHarness) setGoalStatusLocked(status string, threa
 func scriptedQueuedReply(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	return scriptedReply(sink, request.Run.ID, "Queued response for "+chatInputText(request.Input)+".")
 }
-
 func scriptedCommandApprovalTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	return harness.decisionApprovalTurn(ctx, request, sink, scriptedCommandApproval(request.Run.ID))
 }

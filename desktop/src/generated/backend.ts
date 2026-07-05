@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 8;
-export const backendContractSchemaHash = "sha256:460e43c6d7ecd301c4769bc3cab50319a0da57b723d647a1cee4f0fc4be3bc8b";
+export const backendProtocolVersion = 9;
+export const backendContractSchemaHash = "sha256:6d9f0629b7f38cf90b963e40788674f41761fd09fd90678c0b7dcee9f5e80293";
 
 export type DeviceScope = "full";
 
@@ -3392,6 +3392,16 @@ export interface EasyRunSnapshot {
   eventStreamCursor: EasyRunEventCursor;
 }
 
+export interface StartEasyRunRequest {
+  workspaceId: string;
+  requestText: string;
+}
+
+export interface StopEasyRunRequest {
+  workspaceId: string;
+  easyRunId: string;
+}
+
 export interface EasyRunUpdatedPayload {
   run: EasyRun;
 }
@@ -3481,6 +3491,10 @@ export interface ConversationWorkflowMetadata {
   nodeExecutionId: string;
 }
 
+export interface ConversationEasyRunMetadata {
+  easyRunId: string;
+}
+
 export interface Conversation {
   schemaVersion: number;
   id: string;
@@ -3494,6 +3508,7 @@ export interface Conversation {
   codexEffectiveSettings: ChatCodexEffectiveSettings | null;
   harnessRefs: HarnessThreadRef[];
   workflow: ConversationWorkflowMetadata | null;
+  easyRun: ConversationEasyRunMetadata | null;
 }
 
 export interface RunActiveStatus {
@@ -6904,6 +6919,16 @@ export const backendEndpoints = {
     method: "GET",
     path: "/easy-runs/snapshot",
   },
+  StartEasyRun: {
+    method: "POST",
+    path: "/easy-runs/start",
+    requestBodyLimitBytes: 4194304,
+  },
+  StopEasyRun: {
+    method: "POST",
+    path: "/easy-runs/stop",
+    requestBodyLimitBytes: 4194304,
+  },
   EasyRunEventStream: {
     method: "GET",
     path: "/easy-runs/events",
@@ -8406,6 +8431,24 @@ export function decodeEasyRunSnapshot(value: unknown): EasyRunSnapshot {
   };
 }
 
+export function decodeStartEasyRunRequest(value: unknown): StartEasyRunRequest {
+  const record = assertRecord(value, "StartEasyRunRequest");
+  assertKnownFields(record, "StartEasyRunRequest", ["workspaceId", "requestText"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "StartEasyRunRequest"), "StartEasyRunRequest.workspaceId"),
+    requestText: decodeString(requireField(record, "requestText", "StartEasyRunRequest"), "StartEasyRunRequest.requestText"),
+  };
+}
+
+export function decodeStopEasyRunRequest(value: unknown): StopEasyRunRequest {
+  const record = assertRecord(value, "StopEasyRunRequest");
+  assertKnownFields(record, "StopEasyRunRequest", ["workspaceId", "easyRunId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "StopEasyRunRequest"), "StopEasyRunRequest.workspaceId"),
+    easyRunId: decodeString(requireField(record, "easyRunId", "StopEasyRunRequest"), "StopEasyRunRequest.easyRunId"),
+  };
+}
+
 export function decodeEasyRunUpdatedPayload(value: unknown): EasyRunUpdatedPayload {
   const record = assertRecord(value, "EasyRunUpdatedPayload");
   assertKnownFields(record, "EasyRunUpdatedPayload", ["run"]);
@@ -8550,9 +8593,17 @@ export function decodeConversationWorkflowMetadata(value: unknown): Conversation
   };
 }
 
+export function decodeConversationEasyRunMetadata(value: unknown): ConversationEasyRunMetadata {
+  const record = assertRecord(value, "ConversationEasyRunMetadata");
+  assertKnownFields(record, "ConversationEasyRunMetadata", ["easyRunId"]);
+  return {
+    easyRunId: decodeString(requireField(record, "easyRunId", "ConversationEasyRunMetadata"), "ConversationEasyRunMetadata.easyRunId"),
+  };
+}
+
 export function decodeConversation(value: unknown): Conversation {
   const record = assertRecord(value, "Conversation");
-  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow"]);
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow", "easyRun"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
     id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
@@ -8566,6 +8617,7 @@ export function decodeConversation(value: unknown): Conversation {
     codexEffectiveSettings: decodeNullable(requireField(record, "codexEffectiveSettings", "Conversation"), "Conversation.codexEffectiveSettings", (item) => decodeChatCodexEffectiveSettings(item)),
     harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
     workflow: decodeNullable(requireField(record, "workflow", "Conversation"), "Conversation.workflow", (item) => decodeConversationWorkflowMetadata(item)),
+    easyRun: decodeNullable(requireField(record, "easyRun", "Conversation"), "Conversation.easyRun", (item) => decodeConversationEasyRunMetadata(item)),
   };
 }
 
@@ -13265,6 +13317,8 @@ export interface BackendClient {
   readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest) => Promise<ReadWorkspaceActivitySnapshotResponse>;
   readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest) => Promise<ReadWorkflowExecutionActivityResponse>;
   readEasyRunSnapshot: (request: ReadEasyRunSnapshotRequest) => Promise<EasyRunSnapshot>;
+  startEasyRun: (request: StartEasyRunRequest) => Promise<EasyRun>;
+  stopEasyRun: (request: StopEasyRunRequest) => Promise<EasyRun>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
   deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
@@ -13574,6 +13628,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeEasyRunSnapshot,
       endpoint: backendEndpoints.ReadEasyRunSnapshot,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    startEasyRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeEasyRun,
+      endpoint: backendEndpoints.StartEasyRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    stopEasyRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeEasyRun,
+      endpoint: backendEndpoints.StopEasyRun,
       fetchImpl,
       requestPayload: request,
     }),

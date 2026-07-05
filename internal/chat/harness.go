@@ -98,6 +98,7 @@ type HarnessOutputContractKind string
 const (
 	HarnessSurfaceMasterChat           HarnessSurface = "master_chat"
 	HarnessSurfaceWorkflowAgent        HarnessSurface = "workflow_agent"
+	HarnessSurfaceEasyRun              HarnessSurface = "easy_run"
 	HarnessSurfaceSemanticCartographer HarnessSurface = "semantic_cartographer"
 
 	HarnessTurnInteractiveConversation HarnessTurnMode = "interactive_conversation"
@@ -202,7 +203,7 @@ func runConversationHarnessTask(
 		return HarnessTaskResult{}, fmt.Errorf("%w: output contract %s", ErrUnsupportedHarnessTask, request.OutputContract.Kind)
 	}
 	switch request.Surface {
-	case HarnessSurfaceMasterChat, HarnessSurfaceWorkflowAgent:
+	case HarnessSurfaceMasterChat, HarnessSurfaceWorkflowAgent, HarnessSurfaceEasyRun:
 	default:
 		return HarnessTaskResult{}, fmt.Errorf("%w: surface %s", ErrUnsupportedHarnessTask, request.Surface)
 	}

@@ -47,7 +47,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
-	easyRunService, err := newEasyRunService(config.AppDataDir)
+	easyRunService, err := newEasyRunService(config.AppDataDir, chatService)
 	if err != nil {
 		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err

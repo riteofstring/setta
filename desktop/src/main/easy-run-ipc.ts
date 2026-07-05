@@ -22,4 +22,20 @@ export function registerEasyRunIpcHandlers({
     },
     ipcObserver,
   );
+  handleIpc(
+    ipcMain,
+    "easyRunStart",
+    async (_event, request) => {
+      return requireBackendClient().startEasyRun(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "easyRunStop",
+    async (_event, request) => {
+      return requireBackendClient().stopEasyRun(request);
+    },
+    ipcObserver,
+  );
 }

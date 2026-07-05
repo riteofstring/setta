@@ -3,11 +3,12 @@
   --easy-button-panel: var(--setta-875);
   --easy-button-border: var(--setta-750);
   --easy-button-muted: var(--setta-300);
+  --easy-button-input: color-mix(in oklch, var(--setta-900) 88%, black);
 
   background: var(--workspace-pane-surface);
   color: var(--foreground);
   display: grid;
-  grid-template-columns: minmax(160px, 300px) minmax(180px, 1fr) minmax(160px, 380px);
+  grid-template-columns: minmax(160px, 300px) minmax(220px, 1fr) minmax(160px, 380px);
   height: 100%;
   min-height: 0;
   min-width: 0;
@@ -21,12 +22,22 @@
 }
 
 .easy-button-stage {
+  align-items: stretch;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 24px 12px 18px;
+}
+
+.easy-button-center {
   align-items: center;
   display: flex;
+  flex-direction: column;
+  gap: 18px;
   justify-content: center;
   min-height: 0;
   min-width: 0;
-  padding: 24px 12px;
 }
 
 .easy-button-control {
@@ -67,7 +78,33 @@
   z-index: -1;
 }
 
-.easy-button-control:active {
+.easy-button-control-ring {
+  border: 1px solid color-mix(in oklch, var(--easy-button-primary) 24%, transparent);
+  border-radius: 50%;
+  inset: 14px;
+  position: absolute;
+}
+
+.easy-button-surface[data-easy-button-state="working"] .easy-button-control-ring {
+  animation: easy-button-working-ring 1.4s linear infinite;
+  border-color: color-mix(in oklch, var(--easy-button-primary) 70%, white);
+  border-top-color: transparent;
+}
+
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-control {
+  border-color: color-mix(in oklch, var(--accent-green) 52%, var(--easy-button-border));
+  box-shadow:
+    inset 0 0 36px color-mix(in oklch, var(--accent-green) 12%, transparent),
+    0 0 0 1px color-mix(in oklch, var(--accent-green) 20%, transparent);
+  color: color-mix(in oklch, var(--accent-green) 70%, var(--foreground));
+}
+
+.easy-button-control:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.easy-button-control:active:not(:disabled) {
   transform: scale(0.985);
 }
 
@@ -76,7 +113,7 @@
   outline-offset: 4px;
 }
 
-.easy-button-control:hover {
+.easy-button-control:hover:not(:disabled) {
   border-color: color-mix(in oklch, var(--easy-button-primary) 34%, var(--easy-button-border));
   color: color-mix(in oklch, var(--foreground) 78%, var(--easy-button-muted));
 }
@@ -89,12 +126,104 @@
   z-index: 1;
 }
 
-.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface,
-.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface * {
-  animation-play-state: paused !important;
+.easy-button-glyph-stop {
+  height: 30px;
+  width: 30px;
 }
 
-.workspace-pane-host[data-surface-frozen="true"] .easy-button-control::after {
+.easy-button-spinner {
+  animation: easy-button-spinner 1.2s linear infinite;
+  color: color-mix(in oklch, var(--easy-button-primary) 70%, var(--foreground));
+  height: 62px;
+  position: absolute;
+  width: 62px;
+}
+
+.easy-button-run-copy {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, 100%);
+  min-height: 64px;
+  text-align: center;
+}
+
+.easy-button-request-text,
+.easy-button-summary,
+.easy-button-error {
+  font-size: 0.85rem;
+  line-height: 1.35;
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.easy-button-request-text {
+  color: color-mix(in oklch, var(--foreground) 72%, var(--easy-button-muted));
+}
+
+.easy-button-summary {
+  color: var(--easy-button-muted);
+}
+
+.easy-button-error {
+  color: color-mix(in oklch, var(--destructive) 80%, var(--foreground));
+}
+
+.easy-button-agent-chip {
+  border: 1px solid color-mix(in oklch, var(--easy-button-primary) 34%, var(--easy-button-border));
+  border-radius: 999px;
+  color: color-mix(in oklch, var(--easy-button-primary) 54%, var(--foreground));
+  font-size: 0.76rem;
+  line-height: 1;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.easy-button-footer {
+  align-self: end;
+  margin: 0 auto;
+  max-width: 560px;
+  min-width: 0;
+  width: 100%;
+}
+
+.easy-button-input {
+  background: var(--easy-button-input);
+  border: 1px solid var(--easy-button-border);
+  border-radius: 8px;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.9rem;
+  height: 42px;
+  min-width: 0;
+  outline: none;
+  padding: 0 14px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  width: 100%;
+}
+
+.easy-button-input::placeholder {
+  color: color-mix(in oklch, var(--easy-button-muted) 86%, transparent);
+}
+
+.easy-button-input:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.easy-button-input:focus {
+  border-color: color-mix(in oklch, var(--easy-button-primary) 50%, var(--easy-button-border));
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--easy-button-primary) 18%, transparent);
+}
+
+.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface,
+.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface *,
+.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface *::before,
+.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface *::after {
   animation-play-state: paused !important;
 }
 
@@ -111,6 +240,26 @@
   }
 }
 
+@keyframes easy-button-working-ring {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes easy-button-spinner {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 720px) {
   .easy-button-surface {
     grid-template-columns: minmax(0, 1fr);
@@ -119,11 +268,22 @@
   .easy-button-rail {
     display: none;
   }
+
+  .easy-button-stage {
+    padding: 18px 16px 14px;
+  }
+
+  .easy-button-control {
+    height: clamp(118px, 36vw, 156px);
+    width: clamp(118px, 36vw, 156px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .easy-button-surface,
-  .easy-button-surface * {
+  .easy-button-surface *,
+  .easy-button-surface *::before,
+  .easy-button-surface *::after {
     animation: none !important;
     transition: none !important;
   }

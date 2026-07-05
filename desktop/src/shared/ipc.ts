@@ -202,6 +202,8 @@ export const ipcChannels = {
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
   easyRunSnapshot: "easy-run:snapshot",
+  easyRunStart: "easy-run:start",
+  easyRunStop: "easy-run:stop",
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
   codexAccountRead: "codex-account:read",
@@ -934,14 +936,12 @@ export interface IpcObservedFinish {
   id: number;
   result: unknown;
 }
-
 export interface IpcObservedFailure {
   channel: string;
   durationMs: number;
   error: unknown;
   id: number;
 }
-
 let nextObservedIpcID = 1;
 
 export function createRendererIpcInvoke(renderer: Pick<IpcRenderer, "invoke">): RendererIpcInvoke {

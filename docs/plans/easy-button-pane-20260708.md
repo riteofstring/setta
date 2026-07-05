@@ -875,3 +875,62 @@ Remaining work: Phase 2b is next. It should add real start/stop endpoints,
 hidden internal conversations, yolo orchestrator turn launch, terminal status
 observation, and the first production-path Electron workflow for the working
 and complete states while keeping the left rail empty until narrator work.
+
+### 2026-07-08 — Phase 2b complete
+
+Implemented the hidden easy-run lifecycle through the production pane:
+
+- Added `POST /easy-runs/start` and `POST /easy-runs/stop`, regenerated
+  Go-owned contracts, and bumped the backend protocol to 9 for the schema
+  change.
+- Added `chat.Service.SendEasyRunTurn`, typed easy-run conversation metadata,
+  `HarnessSurfaceEasyRun`, and easy-run-specific Codex developer instructions.
+  Easy-run turns create hidden `Internal` conversations, use the full-access
+  permission preset, and resolve model/effort from workspace chat defaults.
+- Replaced the snapshot-only easy-run service with durable run records,
+  start/stop, push-driven chat terminal projection, stop via
+  `CancelActiveRunByID`, and mechanical terminal summaries. The service fails
+  startup if its required chat-event observer cannot subscribe.
+- Added Electron/preload/web start/stop API wiring, renderer store start/stop
+  actions, and app-level easy-run event subscription. The renderer still
+  consumes only typed easy-run contracts, never chat transcript events.
+- Added the real pane footer input and idle/working/complete behavior:
+  submit starts a hidden run, the button stops while working, terminal state
+  resets to idle, the user request text is shown from `EasyRun.RequestText`,
+  the agent chip reflects `EasyRun.ActiveAgentCount`, and the pane title mirrors
+  state. Both rails intentionally remain empty in this subphase.
+- Expanded deterministic production-path Electron coverage to open the pane,
+  submit a scripted hidden run, observe working and completed state, stop an
+  active run, assert empty rails, and verify frozen animation pause.
+- Re-measured Phase 2b visual cost and recorded
+  `docs/reports/performance/easy-button-pane-phase2b-20260708.md`.
+
+Verification performed:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./internal/easyrun`
+- `./scripts/go.sh test ./internal/chat -run 'TestServiceRoutes(EasyRun|WorkflowAgent|MasterChat)ThroughSharedHarnessTask'`
+- `./scripts/go.sh test ./internal/httpapi -run 'Test(ReadEasyRunSnapshot|EasyRunEventStream|ContractSchemaSnapshot)'`
+- `pnpm -C desktop exec vitest run src/renderer/src/stores/easy-run-store.test.ts`
+- `pnpm -C desktop exec vitest run src/main/backend-supervisor.test.ts`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2b-workflow`
+- `node desktop/tests/electron/easy-button-pane-performance.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2b-baseline-current`
+- `node desktop/tests/electron/easy-button-pane-performance.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2b-performance-after`
+- `./scripts/format.sh`
+- `./check_quality.sh --all`
+- `node desktop/tests/electron/chat-live-auth.mjs`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+
+Live note: ChatGPT auth was available. The live gate passed
+`live-codex-electron` and `live-codex-backend`. This is live chat-provider
+coverage for the changed run/harness surface; the easy-button-specific live
+artifact/narrator acceptance remains blocked until Phases 3 and 4 add typed
+artifact emission and narrator highlights.
+
+Remaining work: Phase 2c is next. It should add startup recovery for orphaned
+`working` easy runs, production-path active-run rejection coverage, latest-run
+snapshot restore after reload/restart, `easyrun.resync_required` handling,
+second-request rail reset coverage, and the "Copy debug info" context-menu
+action. No blockers were discovered.

@@ -677,11 +677,14 @@ function unimplementedWorkspaceActivityAPI(): SettaAPI["workspaceActivity"] {
 }
 
 function unimplementedEasyRunAPI(): SettaAPI["easyRun"] {
+  const unavailable = async (): Promise<never> => {
+    throw new Error("easy-run API is not implemented in this test");
+  };
   return {
     onEvent: () => () => {},
-    snapshot: async () => {
-      throw new Error("easy-run API is not implemented in this test");
-    },
+    snapshot: unavailable,
+    start: unavailable,
+    stop: unavailable,
   };
 }
 
@@ -857,6 +860,7 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
     workflow: null,
     workspaceId: "workspace_api",
     ...overrides,
+    easyRun: overrides.easyRun ?? null,
   };
 }
 
