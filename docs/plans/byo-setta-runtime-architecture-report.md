@@ -1,7 +1,7 @@
 # BYO Setta Runtime Architecture Report
 
 **Date:** 2026-07-02  
-**Status:** SUPERSEDED by `remote-runtime-plan.md` — kept as background research only. The plan of record is `remote-runtime-plan.md`; where the two differ (e.g. this doc's multiple access methods vs. Tailscale-only), `remote-runtime-plan.md` wins.  
+**Status:** SUPERSEDED by `byo-cloud-one-click-runtime-plan.md` — kept as background research only. The plan of record is `byo-cloud-one-click-runtime-plan.md`; where the two differ (e.g. this doc's multiple access methods vs. Tailscale-only), `byo-cloud-one-click-runtime-plan.md` wins.
 **Scope:** Evaluate BYO cloud/runtime direction, mobile implications, PocketDev/T3/Orca/Coder-style references, and a practical plan of action for Setta.
 
 ## Executive Recommendation
@@ -685,4 +685,3 @@ Setta, the orchestration and control surface for AI work running on your machine
 ```
 
 That position is simpler, more defensible, and better aligned with Setta's existing workflow-kernel investment.
-
