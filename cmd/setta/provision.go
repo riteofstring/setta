@@ -20,6 +20,8 @@ func runProvision(args []string, deps cliDeps) error {
 		return runProvisionResolve(args[1:], deps)
 	case "shapes":
 		return runProvisionShapes(args[1:], deps)
+	case "up":
+		return runProvisionUp(args[1:], deps)
 	default:
 		return usageError{err: fmt.Errorf("unknown setta provision subcommand %q", args[0])}
 	}
