@@ -15,11 +15,14 @@ type CodexHarnessConfig struct {
 	Manager             *codexapp.Manager
 	Tools               *AgentToolRegistry
 	AttestationProvider AttestationProvider
+	SkillRoots          []string
 }
 
 type CodexHarness struct {
-	config  CodexHarnessConfig
-	manager *codexapp.Manager
+	config        CodexHarnessConfig
+	manager       *codexapp.Manager
+	skillRoots    []string
+	skillRootsErr error
 
 	mu                   sync.Mutex
 	active               map[string]*codexActiveTurn
@@ -101,6 +104,7 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 	if config.Tools == nil {
 		config.Tools = mustNewSettaAgentToolRegistry()
 	}
+	skillRoots, skillRootsErr := normalizeCodexSkillRoots(config.SkillRoots)
 	manager := config.Manager
 	if manager == nil {
 		manager = codexapp.NewManager(codexapp.ManagerConfig{
@@ -115,6 +119,8 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 	harness := &CodexHarness{
 		config:               config,
 		manager:              manager,
+		skillRoots:           skillRoots,
+		skillRootsErr:        skillRootsErr,
 		active:               map[string]*codexActiveTurn{},
 		activeThreads:        map[string]string{},
 		approvals:            map[string]codexPendingApproval{},
@@ -563,6 +569,9 @@ func CodexInitializeParams(config CodexHarnessConfig) map[string]any {
 }
 
 func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *codexapp.Session, request TurnRequest) (codexCommandThread, error) {
+	if err := harness.configureCodexSkillRoots(ctx, session); err != nil {
+		return codexCommandThread{}, err
+	}
 	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
 		return harness.resumeLinkedThread(ctx, session, request)
 	}

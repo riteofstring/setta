@@ -12,4 +12,5 @@ type fakeCodexState struct {
 	parallelThreadSeq    int
 	responseOutstanding  string
 	currentThreadID      string
+	skillRootsConfigured bool
 }

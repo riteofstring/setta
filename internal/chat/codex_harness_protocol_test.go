@@ -84,6 +84,24 @@ func TestCodexHarnessStoresStructuredPlanUpdatedNotification(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessProjectsCompletedTurnAgentMessageItem(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("completed-turn-agent-message-item"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+
+	item := requireRunItemType(t, sink.items, RunItemTypeAgentMessage)
+	if item.ProviderItemID != "agent_message_completed_turn_fake" ||
+		item.Status != RunItemStatusCompleted ||
+		item.Summary != "final item text" {
+		t.Fatalf("agent message item = %+v, want completed final turn text", item)
+	}
+}
+
 func TestCodexRunItemStatusMappingCoversCurrentProtocolValues(t *testing.T) {
 	tests := map[string]RunItemStatus{
 		"completed":   RunItemStatusCompleted,
@@ -191,5 +209,18 @@ func writeFakeProviderItemTurnID() {
 			"items":  []any{},
 			"status": "completed",
 		},
+	})
+}
+
+func writeFakeCompletedTurnAgentMessageItem() {
+	writeFakeNotification("turn/completed", map[string]any{
+		"threadId": "thread_fake",
+		"turn": fakeCodexTurnWithItems("completed", []any{
+			map[string]any{
+				"id":   "agent_message_completed_turn_fake",
+				"text": "final item text",
+				"type": "agentMessage",
+			},
+		}),
 	})
 }

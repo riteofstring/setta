@@ -12,6 +12,10 @@ import {
   emitRealtimeNotifications,
   hookPayload,
 } from "./fake-codex-protocol-payloads.mjs";
+import {
+  assertCodexSkillRootsConfigured,
+  assertSettaSkillRootParams,
+} from "./fake-codex-skill-roots.mjs";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
@@ -63,6 +67,10 @@ let currentGoal = null;
 let goalCancelTurnId = null;
 let goalPaused = false;
 let pendingDynamicTool = null;
+let skillRootsConfigured = false;
+let structuredThreadSequence = 0;
+let structuredTurnSequence = 0;
+const structuredThreads = new Set();
 const rl = readline.createInterface({ input: process.stdin });
 
 rl.on("line", (line) => {
@@ -92,6 +100,7 @@ const methodHandlers = {
   initialize: handleInitialize,
   initialized: () => {},
   "model/list": handleModelList,
+  "skills/extraRoots/set": handleSkillsExtraRootsSet,
   "thread/goal/clear": handleThreadGoalClear,
   "thread/goal/get": handleThreadGoalGet,
   "thread/goal/set": handleThreadGoalSet,
@@ -138,9 +147,12 @@ function handleAccountLogout(message) {
 function handleThreadStart(message) {
   if (isStructuredThreadStart(message.params)) {
     assertStructuredThreadStart(message.params);
-    respond(message.id, fakeThreadResponse({ ephemeral: true }));
+    const structuredThreadId = nextStructuredThreadId();
+    structuredThreads.add(structuredThreadId);
+    respond(message.id, fakeThreadResponse({ ephemeral: true, threadId: structuredThreadId }));
     return;
   }
+  assertCodexSkillRootsConfigured(skillRootsConfigured);
   assertThreadStartDeveloperInstructions(message.params);
   assertThreadStartDynamicTools(message.params);
   const options = threadResponseOptionsFromParams(message.params);
@@ -152,12 +164,19 @@ function handleThreadStart(message) {
 }
 
 function handleThreadResume(message) {
+  assertCodexSkillRootsConfigured(skillRootsConfigured);
   if (message.params?.dynamicTools !== undefined) {
     throw new Error("thread/resume should not include dynamicTools");
   }
   const options = threadResponseOptionsFromParams(message.params);
   applyUnsupportedApprovalPolicyForSource(options, "thread-resume");
   respond(message.id, fakeThreadResponse(options));
+}
+
+function handleSkillsExtraRootsSet(message) {
+  assertSettaSkillRootParams(message.params?.extraRoots);
+  skillRootsConfigured = true;
+  respond(message.id, {});
 }
 
 function handleThreadRead(message) {
@@ -177,12 +196,14 @@ function handleTurnStart(message) {
   if (parallelThreadsEnabled && parallelRuns.handleTurnStart(message)) {
     return;
   }
-  respond(message.id, { turn: fakeTurn("inProgress") });
   if (isStructuredTurnStart(message.params)) {
     assertStructuredTurnStart(message.params);
-    setTimeout(emitStructuredTaskTurn, 5);
+    const structuredTurnId = nextStructuredTurnId();
+    respond(message.id, { turn: fakeTurnWithID(structuredTurnId, "inProgress") });
+    setTimeout(() => emitStructuredTaskTurn(message.params.threadId, structuredTurnId), 5);
     return;
   }
+  respond(message.id, { turn: fakeTurn("inProgress") });
   const text = turnInputText(message);
   if (handleProviderLifecycleTurn(text)) {
     return;
@@ -654,10 +675,14 @@ function assertThreadStartDeveloperInstructions(params) {
   const instructions = params?.developerInstructions;
   if (
     typeof instructions !== "string" ||
+    !instructions.includes("$workflow-builder") ||
+    !instructions.includes("`setta workflow` CLI") ||
     !instructions.includes("available dynamic tool") ||
     !instructions.includes("Do not invent dynamic tool names")
   ) {
-    throw new Error("thread/start developerInstructions missing Setta dynamic tool guidance");
+    throw new Error(
+      "thread/start developerInstructions missing Setta workflow skill or dynamic tool guidance",
+    );
   }
 }
 
@@ -803,9 +828,19 @@ function assertStructuredTurnStart(params) {
   if (params?.sandboxPolicy === undefined) {
     throw new Error("structured turn/start missing sandboxPolicy");
   }
-  if (params?.threadId !== threadId) {
+  if (!structuredThreads.has(params?.threadId)) {
     throw new Error("structured turn/start targeted wrong thread");
   }
+}
+
+function nextStructuredThreadId() {
+  structuredThreadSequence += 1;
+  return `thread_structured_${structuredThreadSequence}`;
+}
+
+function nextStructuredTurnId() {
+  structuredTurnSequence += 1;
+  return `turn_structured_${structuredTurnSequence}`;
 }
 
 function handleAccountLoginStart(message) {
@@ -1190,11 +1225,11 @@ function emitMcpToolCallCoverage() {
   });
 }
 
-function emitStructuredTaskTurn() {
+function emitStructuredTaskTurn(structuredThreadId, structuredTurnId) {
   notify("turn/completed", {
-    threadId,
+    threadId: structuredThreadId,
     turn: {
-      ...fakeTurn("completed"),
+      ...fakeTurnWithID(structuredTurnId, "completed"),
       items: [
         {
           id: "structured_message_fake",

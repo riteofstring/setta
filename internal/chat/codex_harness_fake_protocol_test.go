@@ -34,28 +34,6 @@ func writeFakeConfigRequirementsResponse(id any, mode string) {
 	})
 }
 
-func handleFakeConfigMethod(mode string, message map[string]any) (bool, bool) {
-	switch message["method"] {
-	case "config/read":
-		assertFakeConfigRead(message)
-		writeFakeResponse(message["id"], map[string]any{
-			"config": map[string]any{
-				"model":                  "gpt-test",
-				"model_reasoning_effort": "xhigh",
-			},
-			"layers":  []any{},
-			"origins": map[string]any{},
-		})
-		return true, false
-	case "configRequirements/read":
-		writeFakeConfigRequirementsResponse(message["id"], mode)
-		done := mode == "command-permission-picker-linked" || mode == "command-permission-picker-disabled"
-		return true, done
-	default:
-		return false, false
-	}
-}
-
 func startTestJSONRPCClient(config CodexHarnessConfig) (*codexapp.Client, error) {
 	return codexapp.StartProcess(codexapp.ProcessConfig{
 		Command: config.Command,
@@ -1055,41 +1033,42 @@ func fakeParams(message map[string]any) map[string]any {
 type fakeCoreTurnStartHandler func(string, *fakeCodexState) bool
 
 var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
-	"stream":                        fakeCoreStreamTurnStart,
-	"structured-task":               fakeCoreStructuredTaskTurnStart,
-	"dynamic-tools-thread-start":    fakeCoreStreamTurnStart,
-	"dynamic-tools-thread-resume":   fakeCoreStreamTurnStart,
-	"initial-settings":              fakeCoreStreamTurnStart,
-	"initial-permission-settings":   fakeCoreStreamTurnStart,
-	"resume-permission-settings":    fakeCoreStreamTurnStart,
-	"turn-started-id":               fakeCoreProviderTurnStart,
-	"provider-item-turn-id":         fakeCoreProviderItemTurnStart,
-	"plan-updated":                  fakeCorePlanUpdatedTurnStart,
-	"failed-turn":                   fakeCoreFailedTurnStart,
-	"unknown-turn-status":           fakeCoreUnknownStatusTurnStart,
-	"steer":                         fakeCorePendingTurnStart,
-	"agent-delta-completed-item":    fakeCoreAgentDeltaCompletedItemTurnStart,
-	"activity":                      fakeCoreActivityTurnStart,
-	"unified-exec-background":       fakeCoreUnifiedExecBackgroundTurnStart,
-	"unified-exec-cross-turn":       fakeCoreUnifiedExecCrossTurnStart,
-	"unified-exec-cross-turn-first": fakeCoreUnifiedExecCrossTurnFirstStart,
-	"duplicate-agent-delta":         fakeCoreDuplicateAgentDeltaTurnStart,
-	"empty-deltas":                  fakeCoreEmptyDeltaTurnStart,
-	"empty-base64-output-deltas":    fakeCoreEmptyBase64OutputDeltaTurnStart,
-	"unsupported-output-stream":     fakeCoreUnsupportedOutputStreamTurnStart,
-	"approval":                      fakeCoreApprovalTurnStart,
-	"permission":                    fakeCoreApprovalTurnStart,
-	"user-input":                    fakeCoreApprovalTurnStart,
-	"mcp-elicitation-form":          fakeCoreMCPElicitationTurnStart,
-	"mcp-elicitation-form-cancel":   fakeCoreMCPElicitationTurnStart,
-	"mcp-elicitation-url-decline":   fakeCoreMCPElicitationTurnStart,
-	"dynamic-tool-unknown":          fakeCoreImmediateServerRequestTurnStart,
-	"dynamic-tool-registered":       fakeCoreImmediateServerRequestTurnStart,
-	"attestation-unavailable":       fakeCoreImmediateServerRequestTurnStart,
-	"attestation-provider":          fakeCoreImmediateServerRequestTurnStart,
-	"malformed-approval":            fakeCoreMalformedApprovalTurnStart,
-	"malformed-delta":               fakeCoreMalformedDeltaTurnStart,
-	"unsupported-request":           fakeCoreUnsupportedRequestTurnStart,
+	"stream":                            fakeCoreStreamTurnStart,
+	"structured-task":                   fakeCoreStructuredTaskTurnStart,
+	"dynamic-tools-thread-start":        fakeCoreStreamTurnStart,
+	"dynamic-tools-thread-resume":       fakeCoreStreamTurnStart,
+	"initial-settings":                  fakeCoreStreamTurnStart,
+	"initial-permission-settings":       fakeCoreStreamTurnStart,
+	"resume-permission-settings":        fakeCoreStreamTurnStart,
+	"turn-started-id":                   fakeCoreProviderTurnStart,
+	"provider-item-turn-id":             fakeCoreProviderItemTurnStart,
+	"completed-turn-agent-message-item": fakeCoreCompletedTurnAgentMessageItemStart,
+	"plan-updated":                      fakeCorePlanUpdatedTurnStart,
+	"failed-turn":                       fakeCoreFailedTurnStart,
+	"unknown-turn-status":               fakeCoreUnknownStatusTurnStart,
+	"steer":                             fakeCorePendingTurnStart,
+	"agent-delta-completed-item":        fakeCoreAgentDeltaCompletedItemTurnStart,
+	"activity":                          fakeCoreActivityTurnStart,
+	"unified-exec-background":           fakeCoreUnifiedExecBackgroundTurnStart,
+	"unified-exec-cross-turn":           fakeCoreUnifiedExecCrossTurnStart,
+	"unified-exec-cross-turn-first":     fakeCoreUnifiedExecCrossTurnFirstStart,
+	"duplicate-agent-delta":             fakeCoreDuplicateAgentDeltaTurnStart,
+	"empty-deltas":                      fakeCoreEmptyDeltaTurnStart,
+	"empty-base64-output-deltas":        fakeCoreEmptyBase64OutputDeltaTurnStart,
+	"unsupported-output-stream":         fakeCoreUnsupportedOutputStreamTurnStart,
+	"approval":                          fakeCoreApprovalTurnStart,
+	"permission":                        fakeCoreApprovalTurnStart,
+	"user-input":                        fakeCoreApprovalTurnStart,
+	"mcp-elicitation-form":              fakeCoreMCPElicitationTurnStart,
+	"mcp-elicitation-form-cancel":       fakeCoreMCPElicitationTurnStart,
+	"mcp-elicitation-url-decline":       fakeCoreMCPElicitationTurnStart,
+	"dynamic-tool-unknown":              fakeCoreImmediateServerRequestTurnStart,
+	"dynamic-tool-registered":           fakeCoreImmediateServerRequestTurnStart,
+	"attestation-unavailable":           fakeCoreImmediateServerRequestTurnStart,
+	"attestation-provider":              fakeCoreImmediateServerRequestTurnStart,
+	"malformed-approval":                fakeCoreMalformedApprovalTurnStart,
+	"malformed-delta":                   fakeCoreMalformedDeltaTurnStart,
+	"unsupported-request":               fakeCoreUnsupportedRequestTurnStart,
 }
 
 func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool) {
@@ -1118,6 +1097,11 @@ func fakeCoreProviderTurnStart(string, *fakeCodexState) bool {
 
 func fakeCoreProviderItemTurnStart(string, *fakeCodexState) bool {
 	writeFakeProviderItemTurnID()
+	return true
+}
+
+func fakeCoreCompletedTurnAgentMessageItemStart(string, *fakeCodexState) bool {
+	writeFakeCompletedTurnAgentMessageItem()
 	return true
 }
 
@@ -1332,9 +1316,11 @@ func assertFakeCodexDeveloperInstructions(params map[string]any) {
 	if !ok || instructions == "" {
 		panic("thread/start missing developer instructions")
 	}
-	if !strings.Contains(instructions, "available dynamic tool") ||
+	if !strings.Contains(instructions, "$workflow-builder") ||
+		!strings.Contains(instructions, "`setta workflow` CLI") ||
+		!strings.Contains(instructions, "available dynamic tool") ||
 		!strings.Contains(instructions, "Do not invent dynamic tool names") {
-		panic("thread/start developer instructions missing Setta dynamic tool guidance")
+		panic("thread/start developer instructions missing Setta workflow skill or dynamic tool guidance")
 	}
 }
 

@@ -38,6 +38,11 @@ const fakeCodexProtocolPayloadsFixture = join(
   "fixtures",
   "fake-codex-protocol-payloads.mjs",
 );
+const fakeCodexSkillRootsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-skill-roots.mjs",
+);
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
@@ -51,9 +56,11 @@ export async function installFakeCodexAppServer(fixture) {
   const scriptPath = join(binDir, "fake-codex-app-server.mjs");
   const parallelRunsPath = join(binDir, "fake-codex-parallel-runs.mjs");
   const protocolPayloadsPath = join(binDir, "fake-codex-protocol-payloads.mjs");
+  const skillRootsPath = join(binDir, "fake-codex-skill-roots.mjs");
   await copyFile(fakeCodexAppServerFixture, scriptPath);
   await copyFile(fakeCodexParallelRunsFixture, parallelRunsPath);
   await copyFile(fakeCodexProtocolPayloadsFixture, protocolPayloadsPath);
+  await copyFile(fakeCodexSkillRootsFixture, skillRootsPath);
   if (process.platform === "win32") {
     const commandPath = join(binDir, "codex.cmd");
     await writeFile(commandPath, `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");

@@ -507,6 +507,50 @@ change.
 
 Do not add a compatibility bridge from dynamic tools to the CLI/API.
 
+Progress on 2026-07-07:
+
+- Added the generated Codex app-server `skills/extraRoots/set` protocol method
+  to the supported protocol surface.
+- In-app Codex now configures the repo-scoped `.codex/skills` root before
+  normal chat thread start/resume, command-thread start/resume, direct goal
+  operations, and raw app-server protocol coverage. The default root is found
+  by walking ancestors from the backend working directory until
+  `.codex/skills/workflow-builder/SKILL.md` is present. Missing or invalid
+  skill roots fail loudly instead of falling back silently.
+- Updated the in-app Codex developer instructions so workflow authoring,
+  validation, saving, inspection, and execution route through
+  `$workflow-builder` and the `setta workflow` CLI/API lifecycle. Dynamic tools
+  remain documented only for non-workflow-authoring Setta state/actions and
+  workflow runtime result reporting.
+- The current source no longer has workflow-authoring dynamic tools to remove
+  in this slice; existing dynamic tools are limited to non-authoring
+  `workspace_context` and runtime `workflow_result` behavior.
+- Tightened app-server protocol ingestion so final `turn/completed`
+  `agentMessage` items are projected as completed run items, and the transcript
+  service materializes final assistant text from those completed items when no
+  prior delta arrived. This keeps the production chat path robust while the
+  Electron fake app-server uses distinct structured-task thread/turn IDs to
+  avoid cross-delivering semantic cartographer output into chat turns.
+- Verification: `./scripts/go.sh run ./cmd/generate-codex-protocol`;
+  `./scripts/go.sh test ./internal/chat -run
+  'TestFindCodexSkillRootFrom|TestCodexHarnessProjectsCompletedTurnAgentMessageItem|TestTranscriptAssistantBlockUsesCompletedAgentMessageWithoutDelta|TestTranscriptAssistantBlockReconcilesProviderText|TestCodexHarness(MapsStreamingTurn|StartsThreadWithDynamicTools|DoesNotSendDynamicToolsOnResume|AppliesConversationPermissionSettingsToThreadStart|RunsSemanticCartographerStructuredTask)'`;
+  `./scripts/go.sh test ./cmd/generate-codex-protocol ./internal/codexapp`;
+  `./scripts/go.sh test ./internal/chat ./internal/codexapp
+  ./cmd/generate-codex-protocol ./internal/runtime`; `pnpm -C desktop build`;
+  `pnpm -C desktop test -- src/main/backend-supervisor.test.ts`;
+  `node desktop/tests/electron/chat-workflows.test.mjs
+  --codex-protocol-only`; `./scripts/go.sh test ./internal/runtime -run
+  'TestBackend(AppWorkflowWithLiveCodex|LiveCodexRunLivenessReconcileDuringActiveTurn|LiveCodexSilentUpstreamLossReconciliation|LiveCodexStaleTurnInterruptRegression)'
+  -count=1 -v`; and `node desktop/tests/electron/run-workflows.mjs
+  --workflow live-codex-electron` passed. Final `./scripts/format.sh` and
+  `./check_quality.sh --git-changes` passed. The live Codex tests ran with
+  local ChatGPT auth and did not use `OPENAI_API_KEY`.
+- Remaining Phase 4 work: add deterministic Electron coverage proving a
+  natural-language in-app Codex workflow-authoring request uses the
+  `$workflow-builder` skill and `setta workflow` CLI/API path to validate,
+  save, and optionally run a workflow, and confirm removed dynamic-tool
+  authoring paths are not reachable.
+
 ### Phase 5: Remove Obsolete Dynamic Tool Code
 
 Delete dynamic-tool definitions, handlers, tests, and prompt instructions that

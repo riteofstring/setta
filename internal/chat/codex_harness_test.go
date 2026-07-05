@@ -169,6 +169,13 @@ func TestJSONRPCRoutesStringIDServerRequest(t *testing.T) {
 	if _, err := client.Call(context.Background(), "initialize", map[string]any{}); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
+	roots, err := normalizeCodexSkillRoots(nil)
+	if err != nil {
+		t.Fatalf("codex skill roots: %v", err)
+	}
+	if _, err := client.Call(context.Background(), codexapp.CodexMethodSkillsExtraRootsSet, codexapp.SkillsExtraRootsSetParams{ExtraRoots: codexAbsolutePathParams(roots)}); err != nil {
+		t.Fatalf("skills/extraRoots/set: %v", err)
+	}
 	if _, err := client.Call(context.Background(), "thread/start", map[string]any{}); err != nil {
 		t.Fatalf("thread/start: %v", err)
 	}
@@ -1251,13 +1258,12 @@ func handleFakeServerResponse(mode string, state *fakeCodexState, message map[st
 }
 
 func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[string]any) bool {
-	if handled, done := handleFakeConfigMethod(mode, message); handled {
+	if handled, done := handleFakeSetupMethod(mode, state, message); handled {
 		return done
 	}
 	switch message["method"] {
-	case "initialize":
-		writeFakeInitializeResponse(message["id"])
 	case "thread/start", "thread/resume":
+		assertFakeCodexSkillRootsConfigured(mode, state)
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)
 		if fakeParallelAssignThread(mode, state, message) {
