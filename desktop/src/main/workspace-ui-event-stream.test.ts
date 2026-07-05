@@ -85,6 +85,40 @@ describe("workspace UI event stream", () => {
     expect(lastEventIds).toEqual(["", "workspace_ui_stream_old:1"]);
     expect(forwarded).toEqual([first, resync]);
   });
+
+  test("keeps the replay cursor at the newest event when a stale duplicate arrives", async () => {
+    const newer = layoutUpdatedEvent(2);
+    const stale = layoutUpdatedEvent(1);
+    const forwarded: WorkspaceUIEvent[] = [];
+    const reconnected = deferred<void>();
+    const lastEventIds: string[] = [];
+    const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
+      const headers = init.headers as Record<string, string>;
+      lastEventIds.push(headers["Last-Event-ID"] ?? "");
+      if (lastEventIds.length === 1) {
+        return new Response(textStream(sseFrame(newer) + sseFrame(stale)), { status: 200 });
+      }
+      reconnected.resolve();
+      return new Response(textStreamUntilAbort("", init.signal), { status: 200 });
+    });
+
+    const stream = startWorkspaceUIEventStream({
+      authToken: "token_test",
+      baseURL: "http://127.0.0.1:41000",
+      fetchImpl,
+      reconnectDelayMs: 0,
+      sendEvent: (event) => {
+        forwarded.push(event);
+      },
+      workspaceId: "workspace_api",
+    });
+
+    await reconnected.promise;
+    await stream.stop();
+
+    expect(lastEventIds).toEqual(["", "workspace_ui_stream_test:2"]);
+    expect(forwarded).toEqual([newer]);
+  });
 });
 
 function textStream(text: string): ReadableStream<Uint8Array> {
