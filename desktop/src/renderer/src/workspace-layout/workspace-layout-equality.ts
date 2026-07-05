@@ -59,6 +59,7 @@ function workspaceUIPanesEqual(left: WorkspaceUIPane, right: WorkspaceUIPane): b
       left.tone === right.tone,
       left.weight === right.weight,
     ]) &&
+    chatPaneConfigsEqual(left.chatConfig, right.chatConfig) &&
     terminalPaneConfigsEqual(left.terminalConfig, right.terminalConfig) &&
     workflowNodeDetailsConfigsEqual(left.workflowNodeDetailsConfig, right.workflowNodeDetailsConfig)
   );
@@ -69,6 +70,16 @@ function columnWidthSpecsEqual(
   right: WorkspaceUIColumn["widthSpec"],
 ): boolean {
   return left.unit === right.unit && left.value === right.value;
+}
+
+function chatPaneConfigsEqual(
+  left: WorkspaceUIPane["chatConfig"],
+  right: WorkspaceUIPane["chatConfig"],
+): boolean {
+  if (left === null || right === null) {
+    return left === right;
+  }
+  return left.conversationId === right.conversationId;
 }
 
 function terminalPaneConfigsEqual(

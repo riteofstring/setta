@@ -188,6 +188,10 @@ func cloneWorkspaceUIPane(pane WorkspaceUIPane) WorkspaceUIPane {
 		heightPX := *pane.HeightPX
 		cloned.HeightPX = &heightPX
 	}
+	if pane.ChatConfig != nil {
+		chatConfig := *pane.ChatConfig
+		cloned.ChatConfig = &chatConfig
+	}
 	if pane.TerminalConfig != nil {
 		terminalConfig := *pane.TerminalConfig
 		cloned.TerminalConfig = &terminalConfig

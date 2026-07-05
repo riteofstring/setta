@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"setta/internal/chat"
 	"setta/internal/terminal"
 	"setta/internal/workspaceui"
 )
@@ -173,6 +174,51 @@ func (handler handler) readWorkspaceUIPane(response http.ResponseWriter, request
 	writeJSON(response, http.StatusOK, pane)
 }
 
+func (handler handler) readWorkspaceUIChat(response http.ResponseWriter, request *http.Request) {
+	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if workspaceUIService == nil {
+		return
+	}
+	chatService := requireChatService(response, handler.chatService)
+	if chatService == nil {
+		return
+	}
+	var payload ReadWorkspaceUIChatRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	pane, ok := readWorkspaceUIChatPane(response, workspaceUIService, payload.WorkspaceID, payload.PaneID, "read_workspace_ui_chat_failed")
+	if !ok {
+		return
+	}
+	conversationID := pane.ContentRefs.Chat.ConversationID
+	if _, err := chatService.ReconcileActiveRuns(request.Context(), payload.WorkspaceID, conversationID, chat.RunLivenessReasonSnapshotLoad); err != nil {
+		writeChatError(response, "read_workspace_ui_chat_reconcile_failed", err)
+		return
+	}
+	page, err := chatService.LoadMessagePage(payload.WorkspaceID, conversationID, 0, payload.Limit)
+	if err != nil {
+		writeChatError(response, "read_workspace_ui_chat_failed", err)
+		return
+	}
+	activeRun, activeRunLiveness, hasActiveRun, err := chatService.ActiveRunWithLiveness(payload.WorkspaceID, conversationID)
+	if err != nil {
+		writeChatError(response, "read_workspace_ui_chat_failed", err)
+		return
+	}
+	result := ReadWorkspaceUIChatResponse{
+		WorkspaceID:    payload.WorkspaceID,
+		Pane:           pane,
+		ConversationID: conversationID,
+		Page:           page,
+	}
+	if hasActiveRun {
+		result.ActiveRun = &activeRun
+		result.ActiveRunLiveness = activeRunLiveness
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) readWorkspaceUITerminal(response http.ResponseWriter, request *http.Request) {
 	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
 	if workspaceUIService == nil {
@@ -278,6 +324,53 @@ func (handler handler) commitWorkspaceUITerminalWrite(response http.ResponseWrit
 	writeJSON(response, http.StatusOK, CommitWorkspaceUITerminalWriteResponse{
 		PreparedWrite: committed,
 	})
+}
+
+func readWorkspaceUIChatPane(
+	response http.ResponseWriter,
+	service WorkspaceUIService,
+	workspaceID string,
+	paneID string,
+	errorCode string,
+) (workspaceui.WorkspaceUIPaneDescriptor, bool) {
+	pane, err := validateWorkspaceUIChatPaneTarget(service, workspaceID, paneID)
+	if err != nil {
+		var unsupportedErr *unsupportedWorkspaceUIChatPaneError
+		if errors.As(err, &unsupportedErr) {
+			writeError(response, http.StatusBadRequest, "unsupported_workspace_ui_chat_pane", unsupportedErr.Error())
+			return workspaceui.WorkspaceUIPaneDescriptor{}, false
+		}
+		writeWorkspaceUIError(response, errorCode, err)
+		return workspaceui.WorkspaceUIPaneDescriptor{}, false
+	}
+	return pane, true
+}
+
+func validateWorkspaceUIChatPaneTarget(
+	service WorkspaceUIService,
+	workspaceID string,
+	paneID string,
+) (workspaceui.WorkspaceUIPaneDescriptor, error) {
+	pane, err := service.ReadPane(workspaceID, paneID)
+	if err != nil {
+		return workspaceui.WorkspaceUIPaneDescriptor{}, err
+	}
+	if pane.Pane.SurfaceKind != workspaceui.SurfaceKindChatDOM || pane.Pane.ContentRefs.Chat == nil {
+		return workspaceui.WorkspaceUIPaneDescriptor{}, &unsupportedWorkspaceUIChatPaneError{
+			paneID:      paneID,
+			surfaceKind: pane.Pane.SurfaceKind,
+		}
+	}
+	return pane.Pane, nil
+}
+
+type unsupportedWorkspaceUIChatPaneError struct {
+	paneID      string
+	surfaceKind workspaceui.SurfaceKind
+}
+
+func (err *unsupportedWorkspaceUIChatPaneError) Error() string {
+	return fmt.Sprintf("workspace pane %s has surface kind %s or no chat content ref", err.paneID, err.surfaceKind)
 }
 
 func readWorkspaceUITerminalPane(

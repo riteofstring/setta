@@ -248,6 +248,7 @@ async function seedTwoPaneWorkspaceLayout(backend, workspaceRoot) {
   await backend.post("/workspaces/ui/panes/operation", {
     operation: paneOperation("configure_pane", "workspace_pane_0", {
       configure: {
+        chatConfig: null,
         subtitle: "workspace graph",
         surfaceKind: "workflow-graph",
         terminalConfig: null,

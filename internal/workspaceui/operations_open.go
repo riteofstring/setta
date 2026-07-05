@@ -92,6 +92,7 @@ func applyOpenPaneOperationToLayout(layout WorkspaceUILayout, operation Workspac
 	}
 	sequence := nextWorkspaceUIPaneSequence(layout)
 	pane := WorkspaceUIPane{
+		ChatConfig:     chatConfigForOpenPane(operation.Open.SurfaceKind, operation.Open.ChatConfig),
 		ColumnID:       insertion.column.ColumnID,
 		Heat:           (sequence * 37) % 100,
 		PaneID:         fmt.Sprintf("workspace_pane_%d", sequence),
@@ -337,6 +338,14 @@ func terminalConfigForOpenPane(surfaceKind SurfaceKind, config *TerminalPaneConf
 	}
 	if config == nil {
 		return &TerminalPaneConfig{}
+	}
+	cloned := *config
+	return &cloned
+}
+
+func chatConfigForOpenPane(surfaceKind SurfaceKind, config *ChatPaneConfig) *ChatPaneConfig {
+	if surfaceKind != SurfaceKindChatDOM || config == nil {
+		return nil
 	}
 	cloned := *config
 	return &cloned

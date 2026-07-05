@@ -429,6 +429,7 @@ function ultraWideLayout(workspaceId) {
   const panes = Array.from({ length: paneCount }, (_value, index) => {
     const surfaceKind = productSurfaceKindForPane(index);
     return {
+      chatConfig: null,
       columnId: `workspace_column_${index}`,
       heat: (index * 37) % 100,
       heightPx: null,
@@ -464,7 +465,7 @@ function ultraWideLayout(workspaceId) {
     focusedPaneId: "workspace_pane_0",
     panes,
     revision: 1,
-    schemaVersion: 3,
+    schemaVersion: 4,
     workspaceId,
   };
 }
@@ -475,6 +476,7 @@ function multiRowLayout(workspaceId) {
     const rowIndex = index % 2;
     const surfaceKind = multiRowSurfaceKind(columnIndex, rowIndex);
     return {
+      chatConfig: null,
       columnId: `multirow_column_${columnIndex}`,
       heat: (index * 41) % 100,
       heightPx: null,
@@ -510,7 +512,7 @@ function multiRowLayout(workspaceId) {
     focusedPaneId: "multirow_pane_0",
     panes,
     revision: 1,
-    schemaVersion: 3,
+    schemaVersion: 4,
     workspaceId,
   };
 }
@@ -519,6 +521,7 @@ function verticalStackLayout(workspaceId) {
   const panes = Array.from({ length: verticalStackPaneCount }, (_value, index) => {
     const surfaceKind = verticalStackSurfaceKind(index);
     return {
+      chatConfig: null,
       columnId: "vertical_stack_column_0",
       heat: (index * 29) % 100,
       heightPx: null,
@@ -556,7 +559,7 @@ function verticalStackLayout(workspaceId) {
     focusedPaneId: "vertical_pane_0",
     panes,
     revision: 1,
-    schemaVersion: 3,
+    schemaVersion: 4,
     workspaceId,
   };
 }

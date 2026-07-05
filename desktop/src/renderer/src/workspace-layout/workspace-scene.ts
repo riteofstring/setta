@@ -1,4 +1,5 @@
 import type {
+  ChatPaneConfig as PersistedChatPaneConfig,
   ColumnWidthSpec as PersistedColumnWidthSpec,
   PaneTone as PersistedPaneTone,
   SurfaceKind as PersistedSurfaceKind,
@@ -12,6 +13,7 @@ import type {
 import { productSurfaceKinds } from "./types";
 import type {
   ColumnWidthSpec,
+  ChatPaneConfig,
   WorkspaceColumn,
   WorkspacePane,
   WorkspaceScene,
@@ -22,7 +24,7 @@ import type {
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
-const realWorkspaceLayoutSchemaVersion = 3;
+const realWorkspaceLayoutSchemaVersion = 4;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
 const realWorkspaceSurfaceKinds = productSurfaceKinds;
@@ -210,6 +212,7 @@ function workspaceColumnFromPersisted(column: WorkspaceUIColumn): WorkspaceColum
 
 function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
   return {
+    chatConfig: chatConfigFromPersisted(pane.chatConfig),
     columnId: pane.columnId,
     heat: pane.heat,
     ...(pane.heightPx === null ? {} : { heightPx: pane.heightPx }),
@@ -228,6 +231,12 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
       pane.workflowNodeDetailsConfig,
     ),
   };
+}
+
+function chatConfigFromPersisted(
+  config: PersistedChatPaneConfig | null,
+): ChatPaneConfig | undefined {
+  return config ? { conversationId: config.conversationId } : undefined;
 }
 
 function workflowNodeDetailsConfigFromPersisted(
@@ -251,6 +260,7 @@ function terminalConfigFromPersisted(config: PersistedTerminalPaneConfig): Termi
 
 function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
   return {
+    chatConfig: pane.chatConfig ? chatConfigToPersisted(pane.chatConfig) : null,
     columnId: pane.columnId,
     heat: pane.heat,
     heightPx: pane.heightPx ?? null,
@@ -264,6 +274,15 @@ function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
     tone: persistedPaneTone(pane.tone),
     weight: pane.weight,
     workflowNodeDetailsConfig: pane.workflowNodeDetailsConfig ?? null,
+  };
+}
+
+function chatConfigToPersisted(config: WorkspacePane["chatConfig"]): PersistedChatPaneConfig {
+  if (!config) {
+    throw new Error("chat config is required");
+  }
+  return {
+    conversationId: config.conversationId,
   };
 }
 

@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/chat"
 	"setta/internal/httpapi"
 	"setta/internal/workspace"
 	"setta/internal/workspaceui"
@@ -165,6 +166,31 @@ func TestWorkspaceTerminalsReadCommandIntegration(t *testing.T) {
 	}
 	if len(read.Terminal.Screen.Lines) != read.Terminal.Screen.Rows {
 		t.Fatalf("terminal screen lines = %d, want rows %d", len(read.Terminal.Screen.Lines), read.Terminal.Screen.Rows)
+	}
+}
+
+func TestWorkspaceChatsReadCommandIntegration(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	conversation := createWorkspaceChatConversationForCLITest(t, fixture)
+	layout := cliTestWorkspaceUILayout(fixture.opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayoutForCLITest(t, fixture.appDataDir, layout)
+
+	read := runWorkspaceCommandJSON[httpapi.ReadWorkspaceUIChatResponse](t, fixture, "chats", "read", "workspace_pane_0", "--limit", "5")
+	if read.WorkspaceID != fixture.opened.Workspace.ID || read.Pane.PaneID != "workspace_pane_0" {
+		t.Fatalf("chat read envelope = %+v, want workspace chat pane", read)
+	}
+	if read.ConversationID != conversation.ID || read.Page.Conversation.ID != conversation.ID {
+		t.Fatalf("chat read conversation = %s page %+v, want %s", read.ConversationID, read.Page.Conversation, conversation.ID)
+	}
+	if read.Pane.ContentRefs.Chat == nil || read.Pane.ContentRefs.Chat.ConversationID != conversation.ID {
+		t.Fatalf("chat content ref = %+v, want conversation %s", read.Pane.ContentRefs.Chat, conversation.ID)
+	}
+	if !workspacePaneReadModesContain(read.Pane.ReadModes, workspaceui.WorkspaceUIPaneReadModeChatState) {
+		t.Fatalf("chat read modes = %+v, want chat_state", read.Pane.ReadModes)
+	}
+	if read.ActiveRun != nil || read.ActiveRunLiveness != nil {
+		t.Fatalf("active run fields = %+v %+v, want none", read.ActiveRun, read.ActiveRunLiveness)
 	}
 }
 
@@ -467,6 +493,26 @@ func TestWorkspaceTerminalsReadCommandRejectsNonTerminalPane(t *testing.T) {
 	}
 }
 
+func TestWorkspaceChatsReadCommandRejectsUnboundPane(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "chats", "read", "workspace_pane_0"), commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "unsupported_workspace_ui_chat_pane" {
+		t.Fatalf("error code = %q, want unsupported_workspace_ui_chat_pane", errResponse.Error.Code)
+	}
+}
+
 func TestWorkspaceTerminalsWritePrepareRejectsDeviceSessionInput(t *testing.T) {
 	fixture := newWorkspaceCLITestFixture(t)
 	inputPath := writeRawWorkspaceTerminalWriteInputForCLITest(t, `{
@@ -541,6 +587,19 @@ func createWorkspaceTerminalSessionForCLITest(t *testing.T, fixture workspaceCLI
 	return created.Session
 }
 
+func createWorkspaceChatConversationForCLITest(t *testing.T, fixture workspaceCLITestFixture) chat.Conversation {
+	t.Helper()
+	token, cleanup, err := createRuntimeCLIAuthSession(context.Background(), fixture.appDataDir, "Setta CLI test chat creator")
+	if err != nil {
+		t.Fatalf("create CLI auth session: %v", err)
+	}
+	defer cleanup()
+	return postAuthedRuntimeJSON[chat.Conversation](t, fixture.deps.httpClient, readServeBaseURLForCLITest(t, fixture.appDataDir), token, "/chat/conversations/create", httpapi.CreateConversationRequest{
+		WorkspaceID: fixture.opened.Workspace.ID,
+		Title:       "CLI chat read",
+	})
+}
+
 func readServeBaseURLForCLITest(t *testing.T, appDataDir string) string {
 	t.Helper()
 	state, err := readServeState(appDataDir)
@@ -570,8 +629,11 @@ func workspaceCommandArgs(fixture workspaceCLITestFixture, command ...string) []
 		args := []string{"workspace", "terminals", "writes", command[2], "--app-data-dir", fixture.appDataDir}
 		return append(args, command[3:]...)
 	}
-	if len(command) >= 2 && (command[0] == "panes" || command[0] == "terminals") {
+	if len(command) >= 2 && (command[0] == "chats" || command[0] == "panes" || command[0] == "terminals") {
 		args := []string{"workspace", "panes", command[1], "--app-data-dir", fixture.appDataDir}
+		if command[0] == "chats" {
+			args = []string{"workspace", "chats", command[1], "--app-data-dir", fixture.appDataDir}
+		}
 		if command[0] == "terminals" {
 			args = []string{"workspace", "terminals", command[1], "--app-data-dir", fixture.appDataDir}
 		}

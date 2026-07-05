@@ -133,6 +133,72 @@ func TestServiceConfigurePaneOperationPreservesOmittedFields(t *testing.T) {
 	}
 }
 
+func TestServiceAppliesConfigurePaneOperationToChatWithConfig(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	configure := configurePaneOperation(SurfaceKindChatDOM, "Chat", "workspace chat", PaneToneCyan)
+	configure.ChatConfig = &ChatPaneConfig{ConversationID: "conversation_api"}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:      WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID:    "workspace_pane_0",
+		Configure: configure,
+	})
+	if err != nil {
+		t.Fatalf("apply configure operation: %v", err)
+	}
+	configuredPane := paneByID(t, result.Layout, "workspace_pane_0")
+	if configuredPane.SurfaceKind != SurfaceKindChatDOM ||
+		configuredPane.ChatConfig == nil ||
+		configuredPane.ChatConfig.ConversationID != "conversation_api" ||
+		configuredPane.TerminalConfig != nil ||
+		configuredPane.WorkflowNodeDetailsConfig != nil {
+		t.Fatalf("configured pane = %+v, want bound chat pane", configuredPane)
+	}
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	loadedPane := paneByID(t, *loaded.Layout, "workspace_pane_0")
+	if loadedPane.ChatConfig == nil || loadedPane.ChatConfig.ConversationID != "conversation_api" {
+		t.Fatalf("loaded chat config = %+v, want conversation_api", loadedPane.ChatConfig)
+	}
+}
+
+func TestServiceConfigurePaneOperationPreservesExistingChatTarget(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testLayout("workspace_api")
+	layout.Panes[0].ChatConfig = &ChatPaneConfig{ConversationID: "conversation_api"}
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	title := "Workspace Chat"
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID: "workspace_pane_0",
+		Configure: &WorkspaceUIPaneConfigureOperation{
+			Title: &title,
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply configure operation: %v", err)
+	}
+	configuredPane := paneByID(t, result.Layout, "workspace_pane_0")
+	if configuredPane.ChatConfig == nil || configuredPane.ChatConfig.ConversationID != "conversation_api" {
+		t.Fatalf("chat config = %+v, want preserved conversation_api", configuredPane.ChatConfig)
+	}
+	if configuredPane.Title != "Workspace Chat" {
+		t.Fatalf("title = %q, want Workspace Chat", configuredPane.Title)
+	}
+}
+
 func TestServiceAppliesConfigurePaneOperationToWorkflowGraph(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -465,6 +531,36 @@ func TestServiceRejectsConfigurePaneTerminalConfigOnNonTerminalWithoutPersisting
 	)
 }
 
+func TestServiceRejectsConfigurePaneChatConfigOnNonChatWithoutPersisting(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	configure := &WorkspaceUIPaneConfigureOperation{
+		ChatConfig: &ChatPaneConfig{ConversationID: "conversation_api"},
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:      WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID:    "workspace_pane_1",
+		Configure: configure,
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %v, want invalid operation", err)
+	}
+	assertPersistedPaneUnchanged(
+		t,
+		service,
+		"workspace_api",
+		"workspace_pane_1",
+		SurfaceKindTerminal,
+		"workspace_surface_1",
+		1,
+	)
+}
+
 func TestServiceRejectsConfigurePaneWorkflowNodeDetailsConfigOnNonDetailsWithoutPersisting(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -534,6 +630,27 @@ func TestServiceRejectsConfigurePaneInvalidPayloads(t *testing.T) {
 				Kind:      WorkspaceUIPaneOperationKindFocusPane,
 				PaneID:    "workspace_pane_0",
 				Configure: configurePaneOperation(SurfaceKindChatDOM, "Chat", "workspace chat", PaneToneCyan),
+			},
+		},
+		{
+			name: "empty chat config conversation",
+			operation: WorkspaceUIPaneOperation{
+				Kind:   WorkspaceUIPaneOperationKindConfigurePane,
+				PaneID: "workspace_pane_0",
+				Configure: &WorkspaceUIPaneConfigureOperation{
+					ChatConfig: &ChatPaneConfig{},
+				},
+			},
+		},
+		{
+			name: "chat config with explicit terminal surface",
+			operation: WorkspaceUIPaneOperation{
+				Kind:   WorkspaceUIPaneOperationKindConfigurePane,
+				PaneID: "workspace_pane_0",
+				Configure: &WorkspaceUIPaneConfigureOperation{
+					ChatConfig:  &ChatPaneConfig{ConversationID: "conversation_api"},
+					SurfaceKind: surfaceKindPointer(SurfaceKindTerminal),
+				},
 			},
 		},
 		{

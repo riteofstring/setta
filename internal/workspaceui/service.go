@@ -246,6 +246,9 @@ func paneDescriptor(layout WorkspaceUILayout, column WorkspaceUIColumn, pane Wor
 
 func readModesForPane(pane WorkspaceUIPane) []WorkspaceUIPaneReadMode {
 	readModes := []WorkspaceUIPaneReadMode{WorkspaceUIPaneReadModeMetadata}
+	if pane.SurfaceKind == SurfaceKindChatDOM && pane.ChatConfig != nil {
+		readModes = append(readModes, WorkspaceUIPaneReadModeChatState)
+	}
 	if pane.SurfaceKind == SurfaceKindTerminal && pane.TerminalConfig != nil {
 		readModes = append(readModes, WorkspaceUIPaneReadModeTerminalRecentOutput)
 		readModes = append(readModes, WorkspaceUIPaneReadModeTerminalScreen)
@@ -269,11 +272,20 @@ func surfaceCloseModesForPane(canClosePane bool) []WorkspaceUISurfaceCloseMode {
 
 func contentRefsForPane(pane WorkspaceUIPane) WorkspaceUIPaneContentRefs {
 	return WorkspaceUIPaneContentRefs{
-		Chat:                nil,
+		Chat:                chatContentRefForPane(pane),
 		SemanticNodeDetails: nil,
 		Terminal:            terminalContentRefForPane(pane),
 		WorkflowGraph:       nil,
 		WorkflowNodeDetails: workflowNodeDetailsContentRefForPane(pane),
+	}
+}
+
+func chatContentRefForPane(pane WorkspaceUIPane) *WorkspaceUIChatPaneContentRef {
+	if pane.SurfaceKind != SurfaceKindChatDOM || pane.ChatConfig == nil {
+		return nil
+	}
+	return &WorkspaceUIChatPaneContentRef{
+		ConversationID: pane.ChatConfig.ConversationID,
 	}
 }
 

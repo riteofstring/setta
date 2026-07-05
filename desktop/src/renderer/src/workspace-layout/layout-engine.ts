@@ -26,6 +26,7 @@ import {
   scrollOffsetForColumn,
 } from "./layout-engine-helpers";
 import {
+  chatConfigForRequest,
   normalizedPaneHeightPx,
   normalizedPaneWeight,
   normalizeTerminalPaneConfig,
@@ -126,6 +127,7 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     const sequence = this.nextPaneSequence;
     this.nextPaneSequence += 1;
     const pane: WorkspacePane = {
+      chatConfig: chatConfigForRequest(request),
       columnId: targetColumn.columnId,
       heat: (sequence * 37) % 100,
       paneId: `workspace_pane_${sequence}`,
@@ -177,6 +179,7 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     this.paneById.set(paneId, {
       ...pane,
       heat: (sequence * 37) % 100,
+      chatConfig: chatConfigForRequest(request, pane),
       subtitle: request.subtitle ?? pane.subtitle,
       surfaceId: `workspace_surface_${sequence}`,
       surfaceKind: request.surfaceKind ?? pane.surfaceKind,

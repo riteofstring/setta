@@ -101,7 +101,7 @@ export function workspaceUIEvent(workspaceId = "workspace_api"): WorkspaceUIEven
       focusedPaneId: "workspace_pane_0",
       panes: [],
       revision: 4,
-      schemaVersion: 3,
+      schemaVersion: 4,
       workspaceId,
     },
     resync: null,

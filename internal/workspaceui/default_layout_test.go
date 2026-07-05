@@ -279,7 +279,7 @@ func assertDefaultPane(
 		pane.Weight != expected.weight {
 		t.Fatalf("pane = %+v, want %+v", pane, expected)
 	}
-	if pane.TerminalConfig != nil || pane.WorkflowNodeDetailsConfig != nil || pane.HeightPX != nil {
+	if pane.ChatConfig != nil || pane.TerminalConfig != nil || pane.WorkflowNodeDetailsConfig != nil || pane.HeightPX != nil {
 		t.Fatalf("pane config = %+v, want no optional configs or explicit height", pane)
 	}
 }

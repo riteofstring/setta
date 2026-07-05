@@ -263,7 +263,7 @@ function workspaceUILayout(revision: number, workspaceId = "workspace_api"): Wor
     focusedPaneId: "workspace_pane_0",
     panes: [],
     revision,
-    schemaVersion: 3,
+    schemaVersion: 4,
     workspaceId,
   };
 }

@@ -84,7 +84,7 @@ describe("real workspace layout scene", () => {
 
     expect(store.getSnapshot().revision).toBe(0);
     expect(persisted.revision).toBe(1);
-    expect(persisted.schemaVersion).toBe(3);
+    expect(persisted.schemaVersion).toBe(4);
   });
 
   test("serializes and restores the real workspace layout through the backend contract shape", () => {
@@ -123,7 +123,7 @@ describe("real workspace layout scene", () => {
     expect(persisted).toMatchObject({
       focusedPaneId: paneId,
       revision: 2,
-      schemaVersion: 3,
+      schemaVersion: 4,
       workspaceId,
     });
     expect(persisted.panes.find((pane) => pane.paneId === paneId)?.heightPx).toBe(360);
@@ -215,6 +215,38 @@ describe("real workspace layout scene", () => {
     expect(restored.scene.paneById.get(paneId)?.workflowNodeDetailsConfig).toEqual(config);
   });
 
+  test("serializes and restores chat pane conversation targets", () => {
+    const workspaceId = "workspace_api";
+    const initial = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId,
+      workspaceName: "Repo",
+    });
+    const engine = new WorkspaceLikeLayoutEngine(initial.scene);
+    const store = new WorkspaceLayoutStore(engine, initial.scene, initial.focusedPaneId);
+    const config = { conversationId: "conversation_api" };
+    const paneId = store.openPane({
+      chatConfig: config,
+      surfaceKind: "chat-dom",
+      title: "Chat",
+    });
+
+    const persisted = workspaceUILayoutFromScene(
+      workspaceId,
+      store.toScene(),
+      store.focusedPaneId(),
+      store.getSnapshot().revision,
+    );
+    const restored = createRealWorkspaceScene({
+      storedLayout: persisted,
+      workspaceId,
+      workspaceName: "Ignored after restore",
+    });
+
+    expect(persisted.panes.find((pane) => pane.paneId === paneId)?.chatConfig).toEqual(config);
+    expect(restored.scene.paneById.get(paneId)?.chatConfig).toEqual(config);
+  });
+
   test("drops persisted columns that reference missing pane metadata", () => {
     const restored = createRealWorkspaceScene({
       storedLayout: {
@@ -242,7 +274,7 @@ function storedLayout(workspaceId: string, paneIds: string[]): WorkspaceUILayout
     focusedPaneId: paneIds[0] ?? "",
     panes: [storedPane("workspace_pane_0", "workspace_column_0", "workspace_surface_0", "Chat")],
     revision: 1,
-    schemaVersion: 3,
+    schemaVersion: 4,
     workspaceId,
   };
 }
@@ -262,6 +294,7 @@ function storedColumn(columnId: string, index: number, paneIds: string[]) {
 
 function storedPane(paneId: string, columnId: string, surfaceId: string, title: string) {
   return {
+    chatConfig: null,
     columnId,
     heat: 0,
     heightPx: null,

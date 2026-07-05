@@ -2,7 +2,7 @@ package workspaceui
 
 import "setta/internal/orchestrator"
 
-const SchemaVersion = 3
+const SchemaVersion = 4
 
 type ColumnWidthUnit string
 
@@ -37,6 +37,7 @@ const (
 type WorkspaceUIPaneReadMode string
 
 const (
+	WorkspaceUIPaneReadModeChatState            WorkspaceUIPaneReadMode = "chat_state"
 	WorkspaceUIPaneReadModeMetadata             WorkspaceUIPaneReadMode = "metadata"
 	WorkspaceUIPaneReadModeTerminalRecentOutput WorkspaceUIPaneReadMode = "terminal_recent_output"
 	WorkspaceUIPaneReadModeTerminalScreen       WorkspaceUIPaneReadMode = "terminal_screen"
@@ -136,6 +137,10 @@ type TerminalPaneConfig struct {
 	TitleOverride string `json:"titleOverride"`
 }
 
+type ChatPaneConfig struct {
+	ConversationID string `json:"conversationId"`
+}
+
 type WorkflowNodeDetailsPaneConfig struct {
 	DefinitionID            string                               `json:"definitionId"`
 	DefinitionName          string                               `json:"definitionName"`
@@ -155,6 +160,7 @@ type WorkflowNodeDetailsPaneConfig struct {
 }
 
 type WorkspaceUIPane struct {
+	ChatConfig                *ChatPaneConfig                `json:"chatConfig"`
 	ColumnID                  string                         `json:"columnId"`
 	Heat                      int                            `json:"heat"`
 	HeightPX                  *int                           `json:"heightPx"`
@@ -238,6 +244,7 @@ type WorkspaceUIPaneCloseOperation struct {
 }
 
 type WorkspaceUIPaneConfigureOperation struct {
+	ChatConfig                *ChatPaneConfig                `json:"chatConfig"`
 	Subtitle                  *string                        `json:"subtitle"`
 	SurfaceKind               *SurfaceKind                   `json:"surfaceKind"`
 	TerminalConfig            *TerminalPaneConfig            `json:"terminalConfig"`
@@ -252,6 +259,7 @@ type WorkspaceUIPaneMoveOperation struct {
 
 type WorkspaceUIPaneOpenOperation struct {
 	AdjacentToColumnID        string                          `json:"adjacentToColumnId"`
+	ChatConfig                *ChatPaneConfig                 `json:"chatConfig"`
 	Plane                     *WorkspaceUIPaneOpenPlaneTarget `json:"plane"`
 	Row                       *WorkspaceUIPaneOpenRowTarget   `json:"row"`
 	Subtitle                  string                          `json:"subtitle"`
@@ -648,6 +656,7 @@ func supportedPaneTones() []PaneTone {
 func supportedPaneReadModes() []WorkspaceUIPaneReadMode {
 	return []WorkspaceUIPaneReadMode{
 		WorkspaceUIPaneReadModeMetadata,
+		WorkspaceUIPaneReadModeChatState,
 		WorkspaceUIPaneReadModeTerminalRecentOutput,
 		WorkspaceUIPaneReadModeTerminalScreen,
 	}

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"setta/internal/appstate"
+	"setta/internal/chat"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -348,6 +349,59 @@ func TestWorkspaceUITerminalReadEndpointRejectsNonTerminalPane(t *testing.T) {
 	}, http.StatusBadRequest)
 	if errResponse.Error.Code != "unsupported_workspace_ui_terminal_pane" {
 		t.Fatalf("error code = %q, want unsupported_workspace_ui_terminal_pane", errResponse.Error.Code)
+	}
+}
+
+func TestWorkspaceUIChatReadEndpointResolvesPaneConversation(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithChat(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Bound conversation",
+	}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+
+	read := postJSON[ReadWorkspaceUIChatResponse](t, handler, "/workspaces/ui/chats/read", ReadWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+		Limit:       10,
+	}, http.StatusOK)
+	if read.WorkspaceID != opened.Workspace.ID || read.Pane.PaneID != "workspace_pane_0" {
+		t.Fatalf("chat read envelope = %+v, want workspace chat pane", read)
+	}
+	if read.ConversationID != conversation.ID {
+		t.Fatalf("conversation id = %q, want %q", read.ConversationID, conversation.ID)
+	}
+	if read.Pane.ContentRefs.Chat == nil || read.Pane.ContentRefs.Chat.ConversationID != conversation.ID {
+		t.Fatalf("chat content ref = %+v, want conversation %s", read.Pane.ContentRefs.Chat, conversation.ID)
+	}
+	if !workspacePaneReadModesContain(read.Pane.ReadModes, workspaceui.WorkspaceUIPaneReadModeChatState) {
+		t.Fatalf("chat read modes = %+v, want chat_state", read.Pane.ReadModes)
+	}
+	if len(read.Pane.WriteModes) != 0 {
+		t.Fatalf("chat write modes = %+v, want none in read-only slice", read.Pane.WriteModes)
+	}
+	if read.Page.Conversation.ID != conversation.ID || read.Page.Conversation.WorkspaceID != opened.Workspace.ID {
+		t.Fatalf("chat page conversation = %+v, want bound conversation", read.Page.Conversation)
+	}
+	if read.ActiveRun != nil || read.ActiveRunLiveness != nil {
+		t.Fatalf("active run fields = %+v %+v, want none", read.ActiveRun, read.ActiveRunLiveness)
+	}
+}
+
+func TestWorkspaceUIChatReadEndpointRejectsUnboundChatPane(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithChat(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	seedWorkspaceUILayout(t, appDataDir, workspaceUILayout(opened.Workspace.ID))
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/chats/read", ReadWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "unsupported_workspace_ui_chat_pane" {
+		t.Fatalf("error code = %q, want unsupported_workspace_ui_chat_pane", errResponse.Error.Code)
 	}
 }
 
@@ -873,6 +927,55 @@ func newWorkspaceHandlerWithTerminal(t *testing.T) (http.Handler, string, *httpR
 		WorkspaceService:   workspaceService,
 		WorkspaceUIService: uiService,
 	}), filepath.Dir(store.Path()), starter
+}
+
+func newWorkspaceHandlerWithChat(t *testing.T) (http.Handler, string) {
+	t.Helper()
+
+	appDataDir := t.TempDir()
+	store, err := appstate.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new app store: %v", err)
+	}
+	now := time.Date(2026, 5, 29, 20, 0, 0, 0, time.UTC)
+	manager, err := workspace.NewManager(
+		filepath.Dir(store.Path()),
+		workspace.WithClock(func() time.Time {
+			value := now
+			now = now.Add(time.Minute)
+			return value
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new workspace manager: %v", err)
+	}
+	workspaceService, err := workspacesession.NewService(store, manager)
+	if err != nil {
+		t.Fatalf("new workspace service: %v", err)
+	}
+	uiStore, err := workspaceui.NewStore(filepath.Dir(store.Path()))
+	if err != nil {
+		t.Fatalf("new workspace UI store: %v", err)
+	}
+	uiService, err := workspaceui.NewService(uiStore, workspaceService)
+	if err != nil {
+		t.Fatalf("new workspace UI service: %v", err)
+	}
+	chatStore, err := chat.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new chat store: %v", err)
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewFakeHarness(nil))
+	if err != nil {
+		t.Fatalf("new chat service: %v", err)
+	}
+	t.Cleanup(chatService.CloseEvents)
+	return newAuthenticatedTestHandler(t, HandlerConfig{
+		ChatService:        chatService,
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+		WorkspaceService:   workspaceService,
+		WorkspaceUIService: uiService,
+	}), filepath.Dir(store.Path())
 }
 
 func seedWorkspaceUILayout(t *testing.T, appDataDir string, layout workspaceui.WorkspaceUILayout) {

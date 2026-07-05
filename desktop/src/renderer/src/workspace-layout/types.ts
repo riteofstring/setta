@@ -1,4 +1,9 @@
-import type { WorkflowNodeDetailsPaneConfig } from "@generated/backend";
+import type {
+  ChatPaneConfig as BackendChatPaneConfig,
+  WorkflowNodeDetailsPaneConfig,
+} from "@generated/backend";
+
+export type ChatPaneConfig = BackendChatPaneConfig;
 
 export type PaneId = string;
 export type ColumnId = string;
@@ -56,6 +61,7 @@ export interface ColumnWidthSpec {
 }
 
 export interface WorkspacePane {
+  chatConfig?: ChatPaneConfig;
   columnId: ColumnId;
   heat: number;
   heightPx?: number;
@@ -106,6 +112,7 @@ export interface WorkspaceScene {
 
 export interface OpenPaneRequest {
   adjacentToColumnId?: ColumnId;
+  chatConfig?: ChatPaneConfig;
   columnId?: ColumnId;
   subtitle?: string;
   surfaceKind?: SurfaceKind;

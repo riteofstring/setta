@@ -81,6 +81,14 @@ func configureWorkspaceUIPane(
 			fmt.Errorf("workspace pane configure terminalConfig is only valid for terminal panes"),
 		)
 	}
+	if configure.ChatConfig != nil && surfaceKind != SurfaceKindChatDOM {
+		return WorkspaceUIPane{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodeInvalidOperation,
+			fmt.Errorf("workspace pane configure chatConfig is only valid for chat-dom panes"),
+		)
+	}
 	if configure.WorkflowNodeDetailsConfig != nil && surfaceKind != SurfaceKindWorkflowNodeDetails {
 		return WorkspaceUIPane{}, operationError(
 			layout.WorkspaceID,
@@ -105,6 +113,7 @@ func configureWorkspaceUIPane(
 	}
 
 	sequence := nextWorkspaceUIPaneSequence(layout)
+	pane.ChatConfig = chatConfigForConfigurePane(surfaceKind, configure.ChatConfig, pane)
 	pane.Heat = (sequence * 37) % 100
 	pane.Subtitle = configuredString(configure.Subtitle, pane.Subtitle)
 	pane.SurfaceID = fmt.Sprintf("workspace_surface_%d", sequence)
@@ -114,6 +123,25 @@ func configureWorkspaceUIPane(
 	pane.Tone = configuredTone(configure.Tone, pane.Tone)
 	pane.WorkflowNodeDetailsConfig = workflowNodeDetailsConfig
 	return pane, nil
+}
+
+func chatConfigForConfigurePane(
+	surfaceKind SurfaceKind,
+	requested *ChatPaneConfig,
+	existing WorkspaceUIPane,
+) *ChatPaneConfig {
+	if surfaceKind != SurfaceKindChatDOM {
+		return nil
+	}
+	if requested != nil {
+		cloned := *requested
+		return &cloned
+	}
+	if existing.SurfaceKind == SurfaceKindChatDOM && existing.ChatConfig != nil {
+		cloned := *existing.ChatConfig
+		return &cloned
+	}
+	return nil
 }
 
 func terminalConfigForConfigurePane(

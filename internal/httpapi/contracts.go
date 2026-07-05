@@ -47,7 +47,6 @@ type CompletePairingResponse struct {
 }
 
 type ListDevicesRequest struct{}
-
 type ListDevicesResponse struct {
 	Devices []runtimeauth.DeviceSession `json:"devices"`
 }
@@ -77,7 +76,6 @@ type PushUnsubscribeResponse struct {
 }
 
 type PushTestRequest struct{}
-
 type PushTestResponse struct {
 	SentCount int `json:"sentCount"`
 }
@@ -151,6 +149,21 @@ type ReadWorkspaceUITerminalResponse struct {
 	WorkspaceID string                                `json:"workspaceId"`
 	Pane        workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
 	Terminal    terminal.TerminalReadResult           `json:"terminal"`
+}
+
+type ReadWorkspaceUIChatRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PaneID      string `json:"paneId"`
+	Limit       int    `json:"limit"`
+}
+
+type ReadWorkspaceUIChatResponse struct {
+	WorkspaceID       string                                `json:"workspaceId"`
+	Pane              workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
+	ConversationID    string                                `json:"conversationId"`
+	Page              chat.MessagePage                      `json:"page"`
+	ActiveRun         *chat.Run                             `json:"activeRun"`
+	ActiveRunLiveness *chat.RunLiveness                     `json:"activeRunLiveness"`
 }
 
 type PrepareWorkspaceUITerminalWriteRequest struct {

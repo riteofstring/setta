@@ -168,6 +168,41 @@ func TestServiceAppliesOpenPaneChatAfterAdjacentColumn(t *testing.T) {
 	})
 }
 
+func TestServiceAppliesOpenPaneChatWithConfig(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	open := openPaneOperation(SurfaceKindChatDOM, "Side Chat", "workspace chat", PaneToneCyan)
+	open.ChatConfig = &ChatPaneConfig{ConversationID: "conversation_api"}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindOpenPane,
+		Open: open,
+	})
+	if err != nil {
+		t.Fatalf("apply open operation: %v", err)
+	}
+	pane := paneByID(t, result.Layout, "workspace_pane_2")
+	if pane.SurfaceKind != SurfaceKindChatDOM ||
+		pane.ChatConfig == nil ||
+		pane.ChatConfig.ConversationID != "conversation_api" ||
+		pane.TerminalConfig != nil ||
+		pane.WorkflowNodeDetailsConfig != nil {
+		t.Fatalf("created pane = %+v, want bound chat pane", pane)
+	}
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	loadedPane := paneByID(t, *loaded.Layout, "workspace_pane_2")
+	if loadedPane.ChatConfig == nil || loadedPane.ChatConfig.ConversationID != "conversation_api" {
+		t.Fatalf("loaded chat config = %+v, want conversation_api", loadedPane.ChatConfig)
+	}
+}
+
 func TestServiceAppliesOpenPaneEmptyFrameInTargetRow(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -620,6 +655,30 @@ func TestServiceRejectsOpenPaneInvalidPayloads(t *testing.T) {
 			name: "missing open payload",
 			operation: WorkspaceUIPaneOperation{
 				Kind: WorkspaceUIPaneOperationKindOpenPane,
+			},
+		},
+		{
+			name: "chat config on terminal",
+			operation: WorkspaceUIPaneOperation{
+				Kind: WorkspaceUIPaneOperationKindOpenPane,
+				Open: &WorkspaceUIPaneOpenOperation{
+					ChatConfig:  &ChatPaneConfig{ConversationID: "conversation_api"},
+					SurfaceKind: SurfaceKindTerminal,
+					Title:       "Terminal",
+					Tone:        PaneToneGreen,
+				},
+			},
+		},
+		{
+			name: "empty chat config conversation",
+			operation: WorkspaceUIPaneOperation{
+				Kind: WorkspaceUIPaneOperationKindOpenPane,
+				Open: &WorkspaceUIPaneOpenOperation{
+					ChatConfig:  &ChatPaneConfig{},
+					SurfaceKind: SurfaceKindChatDOM,
+					Title:       "Chat",
+					Tone:        PaneToneCyan,
+				},
 			},
 		},
 		{

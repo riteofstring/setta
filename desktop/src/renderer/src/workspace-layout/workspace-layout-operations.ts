@@ -1,4 +1,5 @@
 import type {
+  ChatPaneConfig as BackendChatPaneConfig,
   ColumnWidthSpec as BackendColumnWidthSpec,
   SurfaceKind as BackendSurfaceKind,
   TerminalPaneConfig as BackendTerminalPaneConfig,
@@ -10,6 +11,7 @@ import type {
 import { productSurfaceKinds } from "./types";
 import type {
   ColumnWidthSpec,
+  ChatPaneConfig,
   OpenPaneRequest,
   PaneDropIntent,
   PaneInsertionPlacement,
@@ -126,6 +128,7 @@ export function configurePaneOperation(
 ): WorkspaceUIPaneOperation {
   return paneOperation("configure_pane", paneId, {
     configure: {
+      chatConfig: request.chatConfig ? chatConfigForOperation(request.chatConfig) : null,
       subtitle: request.subtitle ?? null,
       surfaceKind: request.surfaceKind ? productSurfaceKindForOperation(request.surfaceKind) : null,
       terminalConfig: request.terminalConfig
@@ -229,6 +232,7 @@ function openPaneOperation(
   return paneOperation("open_pane", "", {
     open: {
       adjacentToColumnId: target.adjacentToColumnId ?? "",
+      chatConfig: request.chatConfig ? chatConfigForOperation(request.chatConfig) : null,
       plane: target.plane ?? null,
       row: target.row ?? null,
       subtitle: openPaneSubtitle(request),
@@ -375,6 +379,12 @@ function requiredColumnWidthSpecForOperation(widthSpec: ColumnWidthSpec): Backen
   return {
     unit: widthSpec.unit,
     value: widthSpec.value,
+  };
+}
+
+function chatConfigForOperation(config: ChatPaneConfig): BackendChatPaneConfig {
+  return {
+    conversationId: config.conversationId,
   };
 }
 

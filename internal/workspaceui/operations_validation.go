@@ -213,6 +213,9 @@ func validateOpenPaneOperation(operation WorkspaceUIPaneOperation) error {
 	if err := validateOpenPaneTerminalConfig(open.SurfaceKind, open.TerminalConfig); err != nil {
 		return err
 	}
+	if err := validateOpenPaneChatConfig(open.SurfaceKind, open.ChatConfig); err != nil {
+		return err
+	}
 	return validateOpenPaneWorkflowNodeDetailsConfig(open.SurfaceKind, open.WorkflowNodeDetailsConfig)
 }
 
@@ -288,11 +291,15 @@ func validateConfigurePanePayload(configure WorkspaceUIPaneConfigureOperation) e
 	if err := validateConfigurePaneTerminalConfigForSurface(configure.SurfaceKind, configure.TerminalConfig); err != nil {
 		return err
 	}
+	if err := validateConfigurePaneChatConfigForSurface(configure.SurfaceKind, configure.ChatConfig); err != nil {
+		return err
+	}
 	return validateConfigurePaneWorkflowNodeDetailsConfigForSurface(configure.SurfaceKind, configure.WorkflowNodeDetailsConfig)
 }
 
 func configurePanePayloadHasField(configure WorkspaceUIPaneConfigureOperation) bool {
-	return configure.SurfaceKind != nil ||
+	return configure.ChatConfig != nil ||
+		configure.SurfaceKind != nil ||
 		configure.Title != nil ||
 		configure.Subtitle != nil ||
 		configure.Tone != nil ||
@@ -361,6 +368,16 @@ func validateConfigurePaneTerminalConfig(config TerminalPaneConfig) error {
 		return errors.New("workspace pane configure terminalConfig.titleOverride must not have surrounding whitespace")
 	}
 	return nil
+}
+
+func validateConfigurePaneChatConfigForSurface(surfaceKind *SurfaceKind, config *ChatPaneConfig) error {
+	if config == nil {
+		return nil
+	}
+	if surfaceKind != nil && *surfaceKind != SurfaceKindChatDOM {
+		return errors.New("workspace pane configure chatConfig is only valid for chat-dom panes")
+	}
+	return validateChatPaneConfig("workspace pane configure", *config)
 }
 
 func validateOpenPaneMetadata(open WorkspaceUIPaneOpenOperation) error {
@@ -436,6 +453,26 @@ func validateOpenPaneTerminalConfig(surfaceKind SurfaceKind, config *TerminalPan
 	}
 	if strings.TrimSpace(config.TitleOverride) != config.TitleOverride {
 		return errors.New("workspace pane open terminalConfig.titleOverride must not have surrounding whitespace")
+	}
+	return nil
+}
+
+func validateOpenPaneChatConfig(surfaceKind SurfaceKind, config *ChatPaneConfig) error {
+	if config == nil {
+		return nil
+	}
+	if surfaceKind != SurfaceKindChatDOM {
+		return errors.New("workspace pane open chatConfig is only valid for chat-dom panes")
+	}
+	return validateChatPaneConfig("workspace pane open", *config)
+}
+
+func validateChatPaneConfig(label string, config ChatPaneConfig) error {
+	if config.ConversationID == "" {
+		return fmt.Errorf("%s chatConfig.conversationId is required", label)
+	}
+	if strings.TrimSpace(config.ConversationID) != config.ConversationID {
+		return fmt.Errorf("%s chatConfig.conversationId must not have surrounding whitespace", label)
 	}
 	return nil
 }

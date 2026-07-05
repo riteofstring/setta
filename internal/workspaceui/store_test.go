@@ -204,6 +204,40 @@ func TestStoreRejectsTerminalConfigOnOtherPane(t *testing.T) {
 	}
 }
 
+func TestStorePersistsChatPaneConfig(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].ChatConfig = &ChatPaneConfig{ConversationID: "conversation_api"}
+
+	if _, err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout with chat config: %v", err)
+	}
+	loaded, err := store.LoadLayout(layout.WorkspaceID)
+	if err != nil {
+		t.Fatalf("load layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Panes[0].ChatConfig == nil {
+		t.Fatalf("loaded chat config = %+v", loaded.Layout)
+	}
+	if loaded.Layout.Panes[0].ChatConfig.ConversationID != "conversation_api" {
+		t.Fatalf("loaded conversation id = %q, want conversation_api", loaded.Layout.Panes[0].ChatConfig.ConversationID)
+	}
+}
+
+func TestStoreRejectsChatConfigOnOtherPane(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[1].ChatConfig = &ChatPaneConfig{ConversationID: "conversation_api"}
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want misplaced chat config error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "chatConfig is only valid for chat-dom panes") {
+		t.Fatalf("error = %T %v, want misplaced chat config corrupt state", err, err)
+	}
+}
+
 func TestStorePersistsWorkflowNodeDetailsPaneConfig(t *testing.T) {
 	store := newTestStore(t, t.TempDir())
 	layout := testLayout("workspace_api")
@@ -375,6 +409,34 @@ func TestServiceListsPaneDescriptors(t *testing.T) {
 	}
 	assertChatPaneDescriptor(t, list.Panes[0])
 	assertTerminalPaneDescriptor(t, list.Panes[1])
+}
+
+func TestServiceListsBoundChatPaneDescriptor(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testLayout("workspace_api")
+	layout.Panes[0].ChatConfig = &ChatPaneConfig{ConversationID: "conversation_api"}
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	list, err := service.ListPanes("workspace_api")
+	if err != nil {
+		t.Fatalf("list panes: %v", err)
+	}
+	pane := list.Panes[0]
+	if pane.ContentRefs.Chat == nil || pane.ContentRefs.Chat.ConversationID != "conversation_api" {
+		t.Fatalf("chat content ref = %+v, want conversation_api", pane.ContentRefs.Chat)
+	}
+	if len(pane.ReadModes) != 2 ||
+		pane.ReadModes[0] != WorkspaceUIPaneReadModeMetadata ||
+		pane.ReadModes[1] != WorkspaceUIPaneReadModeChatState {
+		t.Fatalf("chat read modes = %+v, want metadata and chat_state", pane.ReadModes)
+	}
+	if pane.WriteModes == nil || len(pane.WriteModes) != 0 {
+		t.Fatalf("chat write modes = %+v, want empty slice", pane.WriteModes)
+	}
 }
 
 func assertChatPaneDescriptor(t *testing.T, pane WorkspaceUIPaneDescriptor) {

@@ -207,6 +207,7 @@ function workspaceUILayout(revision: number): WorkspaceUILayout {
     focusedPaneId: "workspace_pane_0",
     panes: [
       {
+        chatConfig: null,
         columnId: "workspace_column_0",
         heat: 0,
         heightPx: null,
@@ -223,7 +224,7 @@ function workspaceUILayout(revision: number): WorkspaceUILayout {
       },
     ],
     revision,
-    schemaVersion: 3,
+    schemaVersion: 4,
     workspaceId: "workspace_api",
   };
 }

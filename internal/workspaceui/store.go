@@ -206,6 +206,9 @@ func validatePane(layoutWorkspaceID string, pane WorkspaceUIPane, index int, pat
 	if err := validatePaneValues(pane, index, path); err != nil {
 		return err
 	}
+	if err := validatePaneChatConfig(pane, index, path); err != nil {
+		return err
+	}
 	if err := validatePaneTerminalConfig(pane, index, path); err != nil {
 		return err
 	}
@@ -259,6 +262,22 @@ func validatePaneTerminalConfig(pane WorkspaceUIPane, index int, path string) er
 	}
 	if strings.TrimSpace(pane.TerminalConfig.ProfileID) != pane.TerminalConfig.ProfileID {
 		return corruptStateErrorf(path, "panes[%d].terminalConfig.profileId must not have surrounding whitespace", index)
+	}
+	return nil
+}
+
+func validatePaneChatConfig(pane WorkspaceUIPane, index int, path string) error {
+	if pane.ChatConfig == nil {
+		return nil
+	}
+	if pane.SurfaceKind != SurfaceKindChatDOM {
+		return corruptStateErrorf(path, "panes[%d].chatConfig is only valid for chat-dom panes", index)
+	}
+	if strings.TrimSpace(pane.ChatConfig.ConversationID) != pane.ChatConfig.ConversationID {
+		return corruptStateErrorf(path, "panes[%d].chatConfig.conversationId must not have surrounding whitespace", index)
+	}
+	if pane.ChatConfig.ConversationID == "" {
+		return corruptStateErrorf(path, "panes[%d].chatConfig.conversationId is required", index)
 	}
 	return nil
 }

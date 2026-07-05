@@ -121,9 +121,12 @@ use typed pane operations and apply the backend-returned persisted layout.
 
 Terminal content already has backend HTTP APIs for create, attach, input, resize, close, profiles, event streaming, pane-targeted workspace terminal reads for session summary, backend screen snapshot, and bounded retained output, and pane-targeted workspace terminal write prepare/commit with immutable bytes, count/hash validation, expiry, and authenticated device-session binding.
 
-Chat, workflow graph, workflow node details, and semantic details already have domain APIs, but they are not yet exposed as pane-targeted workspace operations.
+Chat read state now has a pane-targeted workspace operation for explicitly
+bound chat panes. Chat send/queue/steer, workflow graph, workflow node details,
+and semantic details already have domain APIs, but they are not yet exposed as
+pane-targeted workspace operations.
 
-The `workspace-manager` skill now teaches agents the safe workspace operation lifecycle and the current terminal pane read/write commands, including backend screen snapshots, retained output, and prepared terminal writes. The remaining pieces are chat/workflow pane IO and richer live capability metadata beyond the current terminal read/write modes.
+The `workspace-manager` skill now teaches agents the safe workspace operation lifecycle and the current pane-targeted chat read plus terminal pane read/write commands, including backend terminal screen snapshots, retained output, and prepared terminal writes. The remaining pieces are chat write IO, workflow pane IO, and richer live capability metadata beyond the current chat read and terminal read/write modes.
 
 ## Contract Principles
 
@@ -962,21 +965,18 @@ Terminal write exposure follow-up (2026-07-08): exposed the prepared terminal wr
 Audit follow-up: terminal write commit now revalidates the prepared write's bound pane through workspace UI immediately before consuming bytes and writing to the PTY. If the pane was removed or no longer resolves as a terminal pane after prepare, commit fails without writing. Focused verification passed: `./scripts/go.sh test ./internal/terminal -run 'TestManagerCommitPreparedWrite'`, `./scripts/go.sh test ./internal/httpapi -run 'TestWorkspaceUITerminalWrite'`, `./scripts/go.sh run ./cmd/generate-contracts`, and `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi ./internal/terminal ./cmd/setta`; generator completed with no generated diffs.
 
 ### Phase 5: Chat Surface IO
-Add pane-targeted chat read, send, queue, and steer commands. Resolve chat pane
-content references to existing conversation/run APIs.
+Add pane-targeted chat read, send, queue, and steer commands. Resolve chat pane content references to existing conversation/run APIs.
 
-Initial chat commands should not switch the pane's selected conversation. If
-conversation switching is needed, implement it as a separate explicit pane
-configuration operation with its own validation and audit record.
+Initial chat commands should not switch the pane's selected conversation. If conversation switching is needed, implement it as a separate explicit pane configuration operation with its own validation and audit record.
 
-Verification:
+Verification: deterministic chat workflow E2E through production Electron/main/preload/renderer/HTTP/store paths; queueing during active run; steering active run; reload/restart behavior when persistence is touched; live Codex E2E when ChatGPT auth is available.
 
-- deterministic chat workflow E2E through production Electron/main/preload/
-  renderer/HTTP/store paths
-- queueing during active run
-- steering active run
-- reload/restart behavior when persistence is touched
-- live Codex E2E when ChatGPT auth is available
+Progress on 2026-07-08:
+Added the first read-only chat surface IO slice: schema v4 `chatConfig.conversationId` bindings, `contentRefs.chat`, `chat_state`, `POST /workspaces/ui/chats/read`, `setta workspace chats read`, generated protocol v27/TypeScript/web assets, and `workspace-manager` skill updates. The endpoint only reads explicitly bound `chat-dom` panes through existing chat page/run/liveness contracts; it does not send, queue, steer, switch, infer, or add compatibility paths.
+
+Verification passed for the focused Go, TypeScript, Vitest, build, deterministic Electron, skill validation/sync, format, and quality gates. Live Codex `node desktop/tests/electron/chat-workflows.test.mjs --live-only` was attempted twice; core live chat completed with `success.png`, but the suite exited non-zero because broader workflow-authoring evidence `workflow:validate-definition` was missing after semantic cartographer processing reported disabled.
+
+Remaining Phase 5 work: chat send, queue, steer, explicit conversation switching if needed, and a passing full or narrower live gate.
 
 ### Phase 6: Workflow Pane Domain Commands
 Expose pane-targeted workflow graph and node-details reads and actions through
