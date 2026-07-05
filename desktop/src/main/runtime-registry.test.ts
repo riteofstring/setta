@@ -244,58 +244,6 @@ describe("RuntimeRegistryController", () => {
     expect(snapshot.runtimes[0]?.infrastructureProvider.id).toBe("aws");
     expect(controller.currentRuntime()?.displayName).toBe("gpu-worker-2");
   });
-
-  test("creates phone pairing URLs through the active authenticated runtime", async () => {
-    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
-    const remote = runtimeRecord({
-      baseUrl: "https://runtime.tailnet.ts.net/",
-      deviceToken: "remote_token",
-      displayName: "Remote runtime",
-      runtimeId: "runtime_remote",
-    });
-    await store.write({ activeRuntimeId: remote.runtimeId, runtimes: [remote] });
-    const createRequests: Array<{ authorization: string | null; body: unknown }> = [];
-    const controller = new RuntimeRegistryController({
-      clientDisplayName: () => "Setta Desktop",
-      fetchImpl: async (input, init = {}) => {
-        if (input.pathname === "/runtime/info") {
-          return jsonResponse(runtimeInfo(remote.runtimeId, backendProtocolVersion));
-        }
-        if (input.pathname === "/devices/list") {
-          return jsonResponse({ devices: [] });
-        }
-        if (input.pathname === "/pairing/create-device") {
-          createRequests.push({
-            authorization: new Headers(init.headers).get("Authorization"),
-            body: JSON.parse(String(init.body)),
-          });
-          return jsonResponse({
-            expiresAt: "2026-07-07T10:10:00Z",
-            pairingUrl: "https://runtime.tailnet.ts.net/#pair=token_phone",
-          });
-        }
-        throw new Error(`unexpected request: ${input.pathname}`);
-      },
-      hooks: lifecycleHooks([]),
-      onSnapshot: () => {},
-      store,
-    });
-
-    await controller.load();
-    await controller.switchToRuntime(remote.runtimeId);
-    const pairing = await controller.createDevicePairing();
-
-    expect(pairing).toEqual({
-      expiresAt: "2026-07-07T10:10:00Z",
-      pairingUrl: "https://runtime.tailnet.ts.net/#pair=token_phone",
-    });
-    expect(createRequests).toEqual([
-      {
-        authorization: "Bearer remote_token",
-        body: { runtimeBaseUrl: "https://runtime.tailnet.ts.net/" },
-      },
-    ]);
-  });
 });
 
 function lifecycleHooks(events: string[]): RuntimeRegistryHooks {

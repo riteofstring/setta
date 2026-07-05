@@ -41,7 +41,7 @@ interface StoredWebDeviceSession {
 
 interface ParsedWebPairingURL {
   pairingToken: string;
-  runtimeId: string | null;
+  runtimeId: string;
 }
 
 interface StreamCursor {
@@ -272,7 +272,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       addByPairingUrl: async (pairingUrl) => {
         const parsed = parseWebPairingURL(pairingUrl);
         const info = await publicClient().runtimeInfo();
-        if (parsed.runtimeId !== null && info.runtimeId !== parsed.runtimeId) {
+        if (info.runtimeId !== parsed.runtimeId) {
           throw new Error(
             `pairing URL runtime_id ${parsed.runtimeId} does not match this runtime ${info.runtimeId}`,
           );
@@ -299,7 +299,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         await subscribeForWebPush(info, requireClient(), true);
         return snapshot;
       },
-      createDevicePairing: () => requireClient().createDevicePairing({ runtimeBaseUrl: baseURL }),
       current: async () => {
         const snapshot = await runtimeSnapshot("loaded current web runtime");
         emitConnectionSnapshot(snapshot);
@@ -864,20 +863,12 @@ function parseWebPairingURL(rawURL: string): ParsedWebPairingURL {
   } catch (error) {
     throw new Error(errorMessage(error), { cause: error });
   }
-  if (parsed.protocol === "setta:" && parsed.hostname === "pair") {
-    return {
-      pairingToken: requiredPairingParam(parsed, "tok"),
-      runtimeId: requiredPairingParam(parsed, "rt"),
-    };
-  }
-  const fragment = new URLSearchParams(parsed.hash.replace(/^#/, ""));
-  const pairingToken = fragment.get("pair");
-  if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") || !pairingToken) {
-    throw new Error("pairing URL must be setta://pair or include #pair=<token>");
+  if (parsed.protocol !== "setta:" || parsed.hostname !== "pair") {
+    throw new Error("pairing URL must start with setta://pair");
   }
   return {
-    pairingToken,
-    runtimeId: null,
+    pairingToken: requiredPairingParam(parsed, "tok"),
+    runtimeId: requiredPairingParam(parsed, "rt"),
   };
 }
 
@@ -961,15 +952,6 @@ function installWebPWA(api: SettaAPI) {
 
 async function completePairingFromLocation(api: SettaAPI) {
   const url = new URL(window.location.href);
-  const fragment = new URLSearchParams(url.hash.replace(/^#/, ""));
-  const fragmentPairingToken = fragment.get("pair");
-  if (fragmentPairingToken) {
-    await api.runtimes.addByPairingUrl(url.toString());
-    fragment.delete("pair");
-    url.hash = fragment.toString();
-    window.history.replaceState({}, "", url);
-    return;
-  }
   const pairingUrl = url.searchParams.get("pair");
   if (!pairingUrl) {
     await applyNotificationNavigation(url, api);

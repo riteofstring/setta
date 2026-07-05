@@ -340,7 +340,7 @@ function LiveRunStatusBlock({
     );
   }
   if (liveStatus === "working") {
-    return <WorkingRunStatusRow block={block} />;
+    return <WorkingRunStatusRow block={block} liveness={rowActions.activeRunLiveness} />;
   }
   if (liveStatus === "reconnecting") {
     return (
@@ -386,8 +386,18 @@ function liveRunStatusForBlock(
   }
 }
 
-function WorkingRunStatusRow({ block }: { block: TranscriptBlock }) {
-  const label = block.runStatus?.label ?? "Working";
+function WorkingRunStatusRow({
+  block,
+  liveness,
+}: {
+  block: TranscriptBlock;
+  liveness: TranscriptRowActions["activeRunLiveness"];
+}) {
+  const label =
+    liveness?.runId === block.runId && liveness.activeStatus.headline !== ""
+      ? liveness.activeStatus.headline
+      : (block.runStatus?.label ?? "Working");
+  const active = liveness?.runId === block.runId ? liveness.phase === "attached" : true;
   return (
     <RunStatusRow
       mode="working"
@@ -395,7 +405,7 @@ function WorkingRunStatusRow({ block }: { block: TranscriptBlock }) {
       tone="muted"
       icon={<BrailleSpinner label={label} />}
     >
-      <LiveHeadlineText active className="italic">
+      <LiveHeadlineText active={active} className="italic">
         {label}
       </LiveHeadlineText>
     </RunStatusRow>

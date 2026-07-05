@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,6 +15,8 @@ import (
 	"time"
 
 	"github.com/mdp/qrterminal/v3"
+
+	"setta/internal/httpapi"
 )
 
 const defaultServePort = 7345
@@ -35,6 +38,21 @@ type usageError struct {
 	err error
 }
 
+type cliStructuredError interface {
+	CLIErrorResponse() httpapi.ErrorResponse
+}
+
+type cliCommand func([]string, cliDeps) error
+
+var cliCommands = map[string]cliCommand{
+	"serve":    runServe,
+	"pair":     runPair,
+	"devices":  runDevices,
+	"runtime":  runRuntime,
+	"workflow": runWorkflow,
+	"version":  runVersion,
+}
+
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv))
 }
@@ -54,38 +72,45 @@ func runWithDeps(args []string, deps cliDeps) int {
 		return 2
 	}
 
-	var err error
 	switch args[0] {
-	case "serve":
-		err = runServe(args[1:], deps)
-	case "pair":
-		err = runPair(args[1:], deps)
-	case "devices":
-		err = runDevices(args[1:], deps)
-	case "runtime":
-		err = runRuntime(args[1:], deps)
-	case "version":
-		if len(args) != 1 {
-			err = usageError{err: fmt.Errorf("setta version does not accept arguments")}
-		} else {
-			fmt.Fprintln(deps.stdout, version)
-			return 0
-		}
 	case "help", "-h", "--help":
 		printUsage(deps.stdout)
 		return 0
-	default:
-		err = usageError{err: fmt.Errorf("unknown command %q", args[0])}
 	}
+
+	command, ok := cliCommands[args[0]]
+	if !ok {
+		return printCLIError(usageError{err: fmt.Errorf("unknown command %q", args[0])}, deps)
+	}
+	err := command(args[1:], deps)
 	if err == nil {
 		return 0
 	}
-	fmt.Fprintf(deps.stderr, "%v\n", err)
+	return printCLIError(err, deps)
+}
+
+func printCLIError(err error, deps cliDeps) int {
+	var structured cliStructuredError
+	if errors.As(err, &structured) {
+		encoder := json.NewEncoder(deps.stderr)
+		encoder.SetIndent("", "  ")
+		_ = encoder.Encode(structured.CLIErrorResponse())
+	} else {
+		fmt.Fprintf(deps.stderr, "%v\n", err)
+	}
 	var usage usageError
 	if errors.As(err, &usage) {
 		return 2
 	}
 	return 1
+}
+
+func runVersion(args []string, deps cliDeps) error {
+	if len(args) != 0 {
+		return usageError{err: fmt.Errorf("setta version does not accept arguments")}
+	}
+	fmt.Fprintln(deps.stdout, version)
+	return nil
 }
 
 func normalizeDeps(deps cliDeps) cliDeps {
@@ -128,9 +153,17 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage:")
 	fmt.Fprintln(output, "  setta serve [--app-data-dir DIR] [--port PORT] [--tailnet]")
 	fmt.Fprintln(output, "  setta pair [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta runtime rename <display-name> [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta runtime rename [--app-data-dir DIR] <display-name>")
+	fmt.Fprintln(output, "  setta workflow current-workspace [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workflow definitions list [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workflow definitions read [--app-data-dir DIR] <definition-id>")
+	fmt.Fprintln(output, "  setta workflow definitions save --input <path> [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workflow definitions validate --graph <path> [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workflow executions start [--app-data-dir DIR] <definition-id>")
+	fmt.Fprintln(output, "  setta workflow executions read [--app-data-dir DIR] <execution-id>")
+	fmt.Fprintln(output, "  setta workflow schema [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta devices revoke [--app-data-dir DIR] <device-id>")
 	fmt.Fprintln(output, "  setta version")
 }
 

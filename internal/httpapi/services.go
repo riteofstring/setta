@@ -109,6 +109,7 @@ type WorkflowService interface {
 	ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (orchestrator.WorkflowGraphProjection, bool, error)
 	ReadWorkflowNodeTrajectory(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, afterItemID string, itemLimit int, outputLimit int) (orchestrator.WorkflowAgentTrajectoryPage, error)
 	RetryWorkflowNodeRunLiveness(context.Context, string, string, string) (chat.RunLivenessReconciliationResult, error)
+	SaveDefinition(workspaceID string, input orchestrator.WorkflowDefinitionSaveInput) (orchestrator.WorkflowDefinitionSaveResult, error)
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
 	SteerWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	StopWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string) (orchestrator.WorkflowExecution, error)
@@ -116,6 +117,7 @@ type WorkflowService interface {
 	SubmitApproval(workspaceID string, executionID string, nodeExecutionID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (orchestrator.WorkflowExecution, error)
 	UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	ValidateDefinition(workspaceID string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowValidationResult, error)
+	WorkflowSchema() (orchestrator.WorkflowSchema, error)
 }
 
 var _ WorkflowService = (*orchestrator.Service)(nil)
@@ -180,7 +182,6 @@ type TerminalService interface {
 
 type RuntimeAuthService interface {
 	CompletePairing(context.Context, string, string) (runtimeauth.DeviceSession, string, bool, error)
-	CreatePairingToken(context.Context) (runtimeauth.PairingToken, string, error)
 	IsDeviceSessionRevoked(context.Context, string) (bool, error)
 	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
 	ResolveDeviceToken(context.Context, string) (runtimeauth.DeviceSession, bool, error)

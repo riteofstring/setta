@@ -765,7 +765,6 @@ func newSemanticGraphService(
 		semanticgraph.WithWorkflowSourceResolver(workflowService),
 		semanticgraph.WithChatSourceResolver(chatService),
 		semanticgraph.WithCartographerHarnessTaskRunner(chatService.HarnessTaskRunner(), chat.HarnessCodex),
-		semanticgraph.WithSemanticCartographerDisabled(),
 	}
 	if disableAutomaticCartographerProcessing {
 		options = append(options, semanticgraph.WithAutomaticCartographerProcessingDisabled())

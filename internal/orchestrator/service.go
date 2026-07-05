@@ -258,6 +258,63 @@ func (service *Service) UpdateDefinition(workspaceID string, definitionID string
 	return writeWorkflowDefinitionFile(workspaceSummary.RootPath, next, currentPath)
 }
 
+func (service *Service) SaveDefinition(workspaceID string, input WorkflowDefinitionSaveInput) (WorkflowDefinitionSaveResult, error) {
+	input.Name = strings.TrimSpace(input.Name)
+	if err := validateWorkflowDefinitionSaveInput(input); err != nil {
+		return WorkflowDefinitionSaveResult{}, err
+	}
+	validation, err := service.ValidateDefinition(workspaceID, input.Graph)
+	if err != nil {
+		return WorkflowDefinitionSaveResult{}, err
+	}
+	result := WorkflowDefinitionSaveResult{
+		Operation:  input.Operation,
+		Saved:      false,
+		Validation: validation,
+		Definition: nil,
+	}
+	if !validation.Valid {
+		return result, nil
+	}
+	definition, err := service.persistValidWorkflowDefinitionSave(workspaceID, input)
+	if err != nil {
+		return WorkflowDefinitionSaveResult{}, err
+	}
+	result.Saved = true
+	result.Definition = &definition
+	return result, nil
+}
+
+func validateWorkflowDefinitionSaveInput(input WorkflowDefinitionSaveInput) error {
+	if input.Name == "" {
+		return errors.New("workflow definition name is required")
+	}
+	switch input.Operation {
+	case WorkflowDefinitionSaveCreate:
+		if strings.TrimSpace(input.DefinitionID) != "" {
+			return errors.New("workflow definition id must be empty for create saves")
+		}
+	case WorkflowDefinitionSaveUpdate:
+		if strings.TrimSpace(input.DefinitionID) == "" {
+			return errors.New("workflow definition id is required for update saves")
+		}
+	default:
+		return fmt.Errorf("workflow definition save operation is unsupported: %s", input.Operation)
+	}
+	return nil
+}
+
+func (service *Service) persistValidWorkflowDefinitionSave(workspaceID string, input WorkflowDefinitionSaveInput) (WorkflowDefinition, error) {
+	switch input.Operation {
+	case WorkflowDefinitionSaveCreate:
+		return service.CreateDefinition(workspaceID, input.Name, input.Description, input.Graph)
+	case WorkflowDefinitionSaveUpdate:
+		return service.UpdateDefinition(workspaceID, input.DefinitionID, input.Name, input.Description, input.Graph)
+	default:
+		return WorkflowDefinition{}, fmt.Errorf("workflow definition save operation is unsupported: %s", input.Operation)
+	}
+}
+
 func (service *Service) DeleteDefinition(workspaceID string, definitionID string) error {
 	workspaceSummary, err := service.resolveWorkspace(workspaceID)
 	if err != nil {
