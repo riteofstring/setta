@@ -3,7 +3,6 @@
     { "method": "config/read" },
     { "method": "initialize" },
     { "method": "model/list" },
-    { "method": "skills/extraRoots/set" },
     { "method": "thread/goal/clear" },
     { "method": "thread/goal/get" },
     { "method": "thread/goal/set" },

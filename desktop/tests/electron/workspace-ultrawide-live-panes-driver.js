@@ -1,4 +1,4 @@
-/* global HTMLElement, document, getComputedStyle */
+/* global HTMLElement, document, getComputedStyle, window */
 
 (() => {
   const version = "setta-workspace-ultrawide-live-panes-driver-v1";
@@ -14,6 +14,7 @@
     Object.assign(driver, {
       workspaceUltrawideLivePanesVersion: version,
       workspaceUltrawidePaneSnapshot,
+      workspaceUltrawideSaveUILayout,
       workspaceUltrawideWorkspaceId,
     });
   }
@@ -21,6 +22,15 @@
   function workspaceUltrawideWorkspaceId() {
     const area = document.querySelector(workspaceLayoutSelector);
     return area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "";
+  }
+
+  async function workspaceUltrawideSaveUILayout({ layout }) {
+    await window.setta.workspace.saveUILayout(layout);
+    const readback = await window.setta.workspace.readUILayout(layout.workspaceId);
+    return {
+      ok: readback.layout?.panes?.length === layout.panes.length,
+      readbackPaneCount: readback.layout?.panes?.length ?? 0,
+    };
   }
 
   function workspaceUltrawidePaneSnapshot() {

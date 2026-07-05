@@ -67,15 +67,11 @@ describe("web SettaAPI unpaired runtime state", () => {
 
   test("starts inert stream subscriptions after pairing completes", async () => {
     withWebGlobals();
-    const calls: Array<{ authorization: string | null; path: string; search: string }> = [];
+    const calls: Array<{ authorization: string | null; path: string }> = [];
     const api = createWebSettaAPI({
       fetchImpl: async (input, init = {}) => {
         const headers = new Headers(init.headers);
-        calls.push({
-          authorization: headers.get("Authorization"),
-          path: input.pathname,
-          search: input.search,
-        });
+        calls.push({ authorization: headers.get("Authorization"), path: input.pathname });
         switch (input.pathname) {
           case "/runtime/info":
             return jsonResponse(runtimeInfo());
@@ -90,8 +86,6 @@ describe("web SettaAPI unpaired runtime state", () => {
             return jsonResponse({ devices: [] });
           case "/events":
             return new Response("", { status: 200 });
-          case "/workspaces/ui/events":
-            return new Response("", { status: 200 });
           default:
             throw new Error(`unexpected request: ${input.pathname}`);
         }
@@ -99,22 +93,95 @@ describe("web SettaAPI unpaired runtime state", () => {
     });
 
     const unsubscribe = api.chat.onEvent(() => {});
-    const unsubscribeWorkspaceUI = api.workspace.onUIEvent("workspace_api", () => {});
     expect(calls.map((call) => call.path)).toEqual([]);
 
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+    await waitFor(() => calls.some((call) => call.path === "/events"));
 
     const eventStreamCall = calls.find((call) => call.path === "/events");
     expect(eventStreamCall?.authorization).toBe("Bearer token_web");
-    const workspaceUIEventStreamCall = calls.find((call) => call.path === "/workspaces/ui/events");
-    expect(workspaceUIEventStreamCall?.authorization).toBe("Bearer token_web");
-    expect(workspaceUIEventStreamCall?.search).toBe("?workspaceId=workspace_api");
     unsubscribe();
-    unsubscribeWorkspaceUI();
+  });
+
+  test("accepts phone pairing URLs with token in the fragment", async () => {
+    withWebGlobals("https://runtime.tailnet.ts.net");
+    const calls: Array<{ body: unknown; path: string }> = [];
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        calls.push({
+          body: init.body ? JSON.parse(String(init.body)) : null,
+          path: input.pathname,
+        });
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+    });
+
+    const snapshot = await api.runtimes.addByPairingUrl(
+      "https://runtime.tailnet.ts.net/#pair=token_pair",
+    );
+
+    expect(snapshot.connection.status).toBe("connected");
+    expect(calls).toContainEqual({
+      body: {
+        clientDisplayName: "Setta Web",
+        pairingToken: "token_pair",
+      },
+      path: "/pairing/complete",
+    });
+  });
+
+  test("creates device pairing links through the authenticated same-origin client", async () => {
+    withWebGlobals("https://runtime.tailnet.ts.net");
+    const createRequests: unknown[] = [];
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          case "/pairing/create-device":
+            createRequests.push(JSON.parse(String(init.body)));
+            return jsonResponse({
+              expiresAt: "2026-07-07T10:10:00Z",
+              pairingUrl: "https://runtime.tailnet.ts.net/#pair=token_phone",
+            });
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+    });
+
+    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+    const pairing = await api.runtimes.createDevicePairing();
+
+    expect(pairing.pairingUrl).toBe("https://runtime.tailnet.ts.net/#pair=token_phone");
+    expect(createRequests).toEqual([{ runtimeBaseUrl: "https://runtime.tailnet.ts.net/" }]);
   });
 });
 
-function withWebGlobals() {
+function withWebGlobals(origin = "http://127.0.0.1:7345") {
   const storage = new Map<string, string>();
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
@@ -131,7 +198,7 @@ function withWebGlobals() {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
-      location: { origin: "http://127.0.0.1:7345" },
+      location: { origin },
       open: vi.fn(),
       prompt: vi.fn(),
       setTimeout,
@@ -150,6 +217,10 @@ function runtimeInfo() {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: "Web runtime",
+    featureSet: {
+      features: ["device_pairing_url", "runtime_web_app", "web_push"],
+      version: 1,
+    },
     infrastructureProvider: {
       displayName: "Unknown provider",
       iconUrl: "",
@@ -166,4 +237,15 @@ function jsonResponse(payload: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
     status,
   });
+}
+
+async function waitFor(assertion: () => boolean): Promise<void> {
+  const deadline = Date.now() + 1000;
+  while (Date.now() < deadline) {
+    if (assertion()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error("timed out waiting for condition");
 }

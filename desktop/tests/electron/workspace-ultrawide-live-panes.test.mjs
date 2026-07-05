@@ -83,7 +83,7 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
-  await persistUltraWideLayout(fixture.appDataDir, workspaceId);
+  await persistUltraWideLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
 
@@ -93,7 +93,7 @@ try {
   });
   await captureScreenshot(context.client, join(artifactDir, "ultrawide-live-panes.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", multiRowConstrainedViewport);
-  await persistMultiRowLayout(fixture.appDataDir, workspaceId);
+  await persistMultiRowLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
   const constrainedMultiRowSnapshot = await waitForLivePaneSnapshot(context.client, {
@@ -125,7 +125,7 @@ try {
   ];
   await captureScreenshot(context.client, join(artifactDir, "multirow-live-panes.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", verticalStackViewport);
-  await persistVerticalStackLayout(fixture.appDataDir, workspaceId);
+  await persistVerticalStackLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
   const verticalStackBeforeResize = await waitForLivePaneSnapshot(context.client, {
@@ -197,29 +197,31 @@ async function ensureWorkspaceOpen(client) {
     return currentWorkspaceId;
   }
   await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
-  return waitForWorkspaceDriverState(
+  return waitForState(
     client,
-    "workspaceUltrawideWorkspaceId",
-    {},
+    driverCallExpression("workspaceUltrawideWorkspaceId"),
     (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     workflowTimeoutMs,
   );
 }
 
-async function persistUltraWideLayout(appDataDir, workspaceId) {
-  await writePersistedLayoutFixture(appDataDir, ultraWideLayout(workspaceId));
+async function persistUltraWideLayout(client, workspaceId) {
+  await persistLayout(client, ultraWideLayout(workspaceId));
 }
 
-async function persistMultiRowLayout(appDataDir, workspaceId) {
-  await writePersistedLayoutFixture(appDataDir, multiRowLayout(workspaceId));
+async function persistMultiRowLayout(client, workspaceId) {
+  await persistLayout(client, multiRowLayout(workspaceId));
 }
 
-async function persistVerticalStackLayout(appDataDir, workspaceId) {
-  await writePersistedLayoutFixture(appDataDir, verticalStackLayout(workspaceId));
+async function persistVerticalStackLayout(client, workspaceId) {
+  await persistLayout(client, verticalStackLayout(workspaceId));
 }
 
-async function writePersistedLayoutFixture(appDataDir, layout) {
-  await writeJson(join(appDataDir, "workspaces", layout.workspaceId, "ui-state.json"), layout);
+async function persistLayout(client, layout) {
+  const result = await client.driver("workspaceUltrawideSaveUILayout", { layout });
+  if (!result.ok) {
+    throw new Error(`workspace UI layout was not persisted: ${JSON.stringify(result)}`);
+  }
 }
 
 async function waitForLivePaneSnapshot(
@@ -241,10 +243,9 @@ async function waitForLivePaneSnapshot(
     requiredFocusedPaneId,
     requiredIntersectingPaneId,
   };
-  return waitForWorkspaceDriverState(
+  return waitForState(
     client,
-    "workspaceUltrawidePaneSnapshot",
-    {},
+    driverCallExpression("workspaceUltrawidePaneSnapshot"),
     (snapshot) => paneSnapshotMatches(snapshot, options),
     workflowTimeoutMs,
   );
@@ -326,10 +327,9 @@ function hostsForSurfaceKind(snapshot, surfaceKind) {
 }
 
 async function waitForVerticalResizeTarget(client, { adjacentPaneId, paneId }) {
-  const snapshot = await waitForWorkspaceDriverState(
+  const snapshot = await waitForState(
     client,
-    "workspaceUltrawidePaneSnapshot",
-    {},
+    driverCallExpression("workspaceUltrawidePaneSnapshot"),
     (candidate) =>
       candidate.resizeHandles.some(
         (handle) =>
@@ -354,11 +354,6 @@ async function waitForVerticalResizeTarget(client, { adjacentPaneId, paneId }) {
     handle,
     snapshot,
   };
-}
-
-async function waitForWorkspaceDriverState(client, method, args, isReady, timeoutMs) {
-  await client.installDriver();
-  return waitForState(client, driverCallExpression(method, args), isReady, timeoutMs);
 }
 
 async function dispatchWorkspaceNavigationShortcut(client, key) {
@@ -431,7 +426,6 @@ function ultraWideLayout(workspaceId) {
     return {
       columnId: `workspace_column_${index}`,
       heat: (index * 37) % 100,
-      heightPx: null,
       paneId: `workspace_pane_${index}`,
       sequence: index,
       subtitle: "ultra-wide visibility fixture",
@@ -463,8 +457,7 @@ function ultraWideLayout(workspaceId) {
     })),
     focusedPaneId: "workspace_pane_0",
     panes,
-    revision: 1,
-    schemaVersion: 3,
+    schemaVersion: 1,
     workspaceId,
   };
 }
@@ -477,7 +470,6 @@ function multiRowLayout(workspaceId) {
     return {
       columnId: `multirow_column_${columnIndex}`,
       heat: (index * 41) % 100,
-      heightPx: null,
       paneId: `multirow_pane_${index}`,
       sequence: index,
       subtitle: "multi-row visibility fixture",
@@ -509,8 +501,7 @@ function multiRowLayout(workspaceId) {
     })),
     focusedPaneId: "multirow_pane_0",
     panes,
-    revision: 1,
-    schemaVersion: 3,
+    schemaVersion: 1,
     workspaceId,
   };
 }
@@ -521,7 +512,6 @@ function verticalStackLayout(workspaceId) {
     return {
       columnId: "vertical_stack_column_0",
       heat: (index * 29) % 100,
-      heightPx: null,
       paneId: `vertical_pane_${index}`,
       sequence: index,
       subtitle: "vertical stack row-height fixture",
@@ -555,8 +545,7 @@ function verticalStackLayout(workspaceId) {
     ],
     focusedPaneId: "vertical_pane_0",
     panes,
-    revision: 1,
-    schemaVersion: 3,
+    schemaVersion: 1,
     workspaceId,
   };
 }

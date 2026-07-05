@@ -322,6 +322,14 @@ async function installVisualWorkflow(client, projection, { description, graph, n
     description,
     graph,
   ]);
+  await client.evaluate(
+    `window.dispatchEvent(new CustomEvent("setta:workflow-definition-changed", { detail: ${JSON.stringify(
+      {
+        definitionId: projection.definitionId,
+        workspaceId: projection.workspaceId,
+      },
+    )} }))`,
+  );
   return definition;
 }
 

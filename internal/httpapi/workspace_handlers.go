@@ -1,11 +1,6 @@
 package httpapi
 
-import (
-	"fmt"
-	"net/http"
-
-	"setta/internal/workspaceui"
-)
+import "net/http"
 
 func (handler handler) workspaceSession(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkspaceService(response, handler.workspaceService)
@@ -129,123 +124,6 @@ func (handler handler) removeRecentWorkspace(response http.ResponseWriter, reque
 	writeJSON(response, http.StatusOK, session)
 }
 
-func (handler handler) readWorkspaceUISchema(response http.ResponseWriter, request *http.Request) {
-	service := requireWorkspaceUIService(response, handler.workspaceUIService)
-	if service == nil {
-		return
-	}
-	writeJSON(response, http.StatusOK, service.Schema())
-}
-
-func (handler handler) listWorkspaceUIPanes(response http.ResponseWriter, request *http.Request) {
-	service := requireWorkspaceUIService(response, handler.workspaceUIService)
-	if service == nil {
-		return
-	}
-	var payload ListWorkspaceUIPanesRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	panes, err := service.ListPanes(payload.WorkspaceID)
-	if err != nil {
-		writeWorkspaceUIError(response, "list_workspace_ui_panes_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, panes)
-}
-
-func (handler handler) readWorkspaceUIPane(response http.ResponseWriter, request *http.Request) {
-	service := requireWorkspaceUIService(response, handler.workspaceUIService)
-	if service == nil {
-		return
-	}
-	var payload ReadWorkspaceUIPaneRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	pane, err := service.ReadPane(payload.WorkspaceID, payload.PaneID)
-	if err != nil {
-		writeWorkspaceUIError(response, "read_workspace_ui_pane_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, pane)
-}
-
-func (handler handler) readWorkspaceUITerminal(response http.ResponseWriter, request *http.Request) {
-	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
-	if workspaceUIService == nil {
-		return
-	}
-	terminalService := requireTerminalService(response, handler.terminalService)
-	if terminalService == nil {
-		return
-	}
-	var payload ReadWorkspaceUITerminalRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	pane, err := workspaceUIService.ReadPane(payload.WorkspaceID, payload.PaneID)
-	if err != nil {
-		writeWorkspaceUIError(response, "read_workspace_ui_terminal_failed", err)
-		return
-	}
-	if pane.Pane.SurfaceKind != workspaceui.SurfaceKindTerminal || pane.Pane.ContentRefs.Terminal == nil {
-		writeError(
-			response,
-			http.StatusBadRequest,
-			"unsupported_workspace_ui_terminal_pane",
-			fmt.Sprintf("workspace pane %s has surface kind %s, not terminal", payload.PaneID, pane.Pane.SurfaceKind),
-		)
-		return
-	}
-	terminalRead, err := terminalService.ReadPane(request.Context(), payload.WorkspaceID, payload.PaneID, payload.RecentOutputByteLimit)
-	if err != nil {
-		writeTerminalError(response, "read_workspace_ui_terminal_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, ReadWorkspaceUITerminalResponse{
-		WorkspaceID: payload.WorkspaceID,
-		Pane:        pane.Pane,
-		Terminal:    terminalRead,
-	})
-}
-
-func (handler handler) applyWorkspaceUIPaneOperation(response http.ResponseWriter, request *http.Request) {
-	service := requireWorkspaceUIService(response, handler.workspaceUIService)
-	if service == nil {
-		return
-	}
-	var payload ApplyWorkspaceUIPaneOperationRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	result, err := service.ApplyPaneOperation(payload.WorkspaceID, payload.Operation)
-	if err != nil {
-		writeWorkspaceUIError(response, "apply_workspace_ui_pane_operation_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, result)
-}
-
-func (handler handler) applyWorkspaceUILayoutOperations(response http.ResponseWriter, request *http.Request) {
-	service := requireWorkspaceUIService(response, handler.workspaceUIService)
-	if service == nil {
-		return
-	}
-	var payload ApplyWorkspaceUILayoutOperationsRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	result, err := service.ApplyLayoutOperations(payload.WorkspaceID, workspaceui.WorkspaceUILayoutOperations{
-		Operations: payload.Operations,
-	})
-	if err != nil {
-		writeWorkspaceUIError(response, "apply_workspace_ui_layout_operations_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, result)
-}
-
 func (handler handler) readWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkspaceUIService(response, handler.workspaceUIService)
 	if service == nil {
@@ -263,35 +141,18 @@ func (handler handler) readWorkspaceUILayout(response http.ResponseWriter, reque
 	writeJSON(response, http.StatusOK, layout)
 }
 
-func (handler handler) initializeWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
+func (handler handler) saveWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkspaceUIService(response, handler.workspaceUIService)
 	if service == nil {
 		return
 	}
-	var payload InitializeWorkspaceUILayoutRequest
+	var payload SaveWorkspaceUILayoutRequest
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	layout, err := service.InitializeLayout(payload.WorkspaceID)
+	layout, err := service.SaveLayout(payload.Layout)
 	if err != nil {
-		writeWorkspaceUIError(response, "initialize_workspace_ui_layout_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, layout)
-}
-
-func (handler handler) resetWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
-	service := requireWorkspaceUIService(response, handler.workspaceUIService)
-	if service == nil {
-		return
-	}
-	var payload ResetWorkspaceUILayoutRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	layout, err := service.ResetLayout(payload.WorkspaceID)
-	if err != nil {
-		writeWorkspaceUIError(response, "reset_workspace_ui_layout_failed", err)
+		writeWorkspaceUIError(response, "save_workspace_ui_layout_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, layout)

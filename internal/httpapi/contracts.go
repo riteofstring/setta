@@ -21,6 +21,7 @@ type RuntimeInfoResponse struct {
 	BackendName            string                        `json:"backendName"`
 	BackendVersion         string                        `json:"backendVersion"`
 	ProtocolVersion        int                           `json:"protocolVersion"`
+	FeatureSet             RuntimeFeatureSet             `json:"featureSet"`
 	VAPIDPublicKey         string                        `json:"vapidPublicKey"`
 }
 
@@ -28,6 +29,11 @@ type RuntimeInfrastructureProvider struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName"`
 	IconURL     string `json:"iconUrl"`
+}
+
+type RuntimeFeatureSet struct {
+	Version  int      `json:"version"`
+	Features []string `json:"features"`
 }
 
 type UpdateRuntimeDisplayNameRequest struct {
@@ -44,6 +50,31 @@ type CompletePairingResponse struct {
 	DeviceToken     string `json:"deviceToken"`
 	RuntimeID       string `json:"runtimeId"`
 	ProtocolVersion int    `json:"protocolVersion"`
+}
+
+type CreateDevicePairingRequest struct {
+	RuntimeBaseURL string `json:"runtimeBaseUrl"`
+}
+
+type CreateDevicePairingResponse struct {
+	PairingURL string `json:"pairingUrl"`
+	ExpiresAt  string `json:"expiresAt"`
+}
+
+type SetupAttestationRequest struct {
+	ProvisionID     string `json:"provisionId"`
+	Nonce           string `json:"nonce"`
+	NodeFingerprint string `json:"nodeFingerprint"`
+}
+
+type SetupAttestationResponse struct {
+	Algorithm       string `json:"algorithm"`
+	RuntimeID       string `json:"runtimeId"`
+	ProvisionID     string `json:"provisionId"`
+	Nonce           string `json:"nonce"`
+	NodeFingerprint string `json:"nodeFingerprint"`
+	ExpiresAt       string `json:"expiresAt"`
+	Attestation     string `json:"attestation"`
 }
 
 type ListDevicesRequest struct{}
@@ -124,43 +155,8 @@ type ReadWorkspaceUILayoutRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
 
-type InitializeWorkspaceUILayoutRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-}
-
-type ResetWorkspaceUILayoutRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-}
-
-type ListWorkspaceUIPanesRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-}
-
-type ReadWorkspaceUIPaneRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	PaneID      string `json:"paneId"`
-}
-
-type ReadWorkspaceUITerminalRequest struct {
-	WorkspaceID           string `json:"workspaceId"`
-	PaneID                string `json:"paneId"`
-	RecentOutputByteLimit int    `json:"recentOutputByteLimit"`
-}
-
-type ReadWorkspaceUITerminalResponse struct {
-	WorkspaceID string                                `json:"workspaceId"`
-	Pane        workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
-	Terminal    terminal.TerminalReadResult           `json:"terminal"`
-}
-
-type ApplyWorkspaceUIPaneOperationRequest struct {
-	WorkspaceID string                               `json:"workspaceId"`
-	Operation   workspaceui.WorkspaceUIPaneOperation `json:"operation"`
-}
-
-type ApplyWorkspaceUILayoutOperationsRequest struct {
-	WorkspaceID string                                 `json:"workspaceId"`
-	Operations  []workspaceui.WorkspaceUIPaneOperation `json:"operations"`
+type SaveWorkspaceUILayoutRequest struct {
+	Layout workspaceui.WorkspaceUILayout `json:"layout"`
 }
 
 type ReadWorkspaceActivitySnapshotRequest struct {
@@ -445,11 +441,6 @@ type UpdateWorkflowDefinitionRequest struct {
 	Graph        orchestrator.WorkflowGraph `json:"graph"`
 }
 
-type SaveWorkflowDefinitionRequest struct {
-	WorkspaceID string                                   `json:"workspaceId"`
-	Input       orchestrator.WorkflowDefinitionSaveInput `json:"input"`
-}
-
 type DeleteWorkflowDefinitionRequest struct {
 	WorkspaceID  string `json:"workspaceId"`
 	DefinitionID string `json:"definitionId"`
@@ -483,13 +474,6 @@ type StartWorkflowExecutionRequest struct {
 type CancelWorkflowExecutionRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	ExecutionID string `json:"executionId"`
-}
-
-type ReportWorkflowExecutionResultRequest struct {
-	WorkspaceID     string                            `json:"workspaceId"`
-	ExecutionID     string                            `json:"executionId"`
-	NodeExecutionID string                            `json:"nodeExecutionId"`
-	Result          orchestrator.WorkflowActionResult `json:"result"`
 }
 
 type ReadWorkflowExecutionRequest struct {

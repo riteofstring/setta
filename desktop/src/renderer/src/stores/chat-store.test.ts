@@ -20,11 +20,6 @@ import { chatTextInput } from "../lib/chat-input";
 import { prependOlderMessages, useChatStore } from "./chat-store";
 import { deferred, message, replaceMessageText, testRun } from "./chat-store.test.fixtures";
 import {
-  emptyWorkspaceUILayout,
-  emptyWorkspaceUIPaneOperationResult,
-  workspaceUIReadFixtureAPI,
-} from "./workspace-ui.test-fixtures";
-import {
   assistantTextBlock,
   backgroundTerminalOutput,
   backgroundTerminalProcess,
@@ -1257,15 +1252,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     workflow: {} as SettaAPI["workflow"],
     workspace: {
       close: async () => workspaceSession(),
-      ...workspaceUIReadFixtureAPI("chat store tests"),
-      initializeUILayout: async (workspaceId) => emptyWorkspaceUILayout(workspaceId),
       openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       openPath: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
-      resetUILayout: async (workspaceId) => emptyWorkspaceUILayout(workspaceId),
-      applyUIPaneOperation: async (workspaceId) => emptyWorkspaceUIPaneOperationResult(workspaceId),
+      saveUILayout: async (layout) => layout,
       select: async () => workspaceSession(),
       selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
       setSelectedConversation: async (workspaceId, conversationId) => ({
@@ -1281,7 +1273,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     value: { setta: api },
   });
 }
-
 const unimplementedTerminalAPI = new Proxy({} as SettaAPI["terminal"], {
   get: () => {
     throw new Error("terminal API is not implemented in this test");

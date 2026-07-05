@@ -32,7 +32,7 @@ func (sink *bufferingRunnerEventSink) Events() []RunnerEvent {
 	return append([]RunnerEvent{}, sink.events...)
 }
 
-func buildActionStartRequest(workspaceID string, execution WorkflowExecution, graph WorkflowGraph, node WorkflowNode, nodeExecution WorkflowNodeExecution, descriptor ActionRunnerDescriptor, context TransitionContext) (WorkflowActionStartMetadata, ActionStartRequest, error) {
+func buildActionStartRequest(workspaceID string, execution WorkflowExecution, node WorkflowNode, nodeExecution WorkflowNodeExecution, descriptor ActionRunnerDescriptor, context TransitionContext) (WorkflowActionStartMetadata, ActionStartRequest, error) {
 	if node.Action == nil {
 		return WorkflowActionStartMetadata{}, ActionStartRequest{}, fmt.Errorf("action node %s has no action config", node.ID)
 	}
@@ -62,17 +62,16 @@ func buildActionStartRequest(workspaceID string, execution WorkflowExecution, gr
 		ActivityRefs:     []WorkflowActivityRef{},
 	}
 	request := ActionStartRequest{
-		WorkspaceID:           workspaceID,
-		DefinitionID:          execution.DefinitionID,
-		DefinitionVersionID:   execution.DefinitionVersionID,
-		WorkflowAgentDefaults: graph.AgentDefaults,
-		Execution:             execution,
-		Node:                  node,
-		NodeExecution:         nodeExecution,
-		Policy:                policy,
-		Capabilities:          capabilities,
-		InputHash:             inputHash,
-		Input:                 input,
+		WorkspaceID:         workspaceID,
+		DefinitionID:        execution.DefinitionID,
+		DefinitionVersionID: execution.DefinitionVersionID,
+		Execution:           execution,
+		Node:                node,
+		NodeExecution:       nodeExecution,
+		Policy:              policy,
+		Capabilities:        capabilities,
+		InputHash:           inputHash,
+		Input:               input,
 	}
 	return metadata, request, nil
 }
@@ -199,7 +198,7 @@ func (service *Service) beginNextReadyActionStart(workspaceID string, executionI
 		if !ok {
 			return nil, ActionStartRequest{}, WorkflowExecution{}, false, fmt.Errorf("node execution %s references unknown node %s", nodeExecution.ID, nodeExecution.NodeID)
 		}
-		metadata, request, err := buildActionStartRequest(workspaceID, execution, version.Graph, node, nodeExecution, runner, service.transitionContext())
+		metadata, request, err := buildActionStartRequest(workspaceID, execution, node, nodeExecution, runner, service.transitionContext())
 		if err != nil {
 			return nil, ActionStartRequest{}, WorkflowExecution{}, false, err
 		}
@@ -349,7 +348,7 @@ func (service *Service) startReadyActionForCompletionLocked(workspaceID string, 
 	if !ok {
 		return WorkflowExecution{}, fmt.Errorf("node execution %s has no runner descriptor for %s", nodeExecutionID, *nodeExecution.ActionKind)
 	}
-	metadata, _, err := buildActionStartRequest(workspaceID, execution, graph, node, nodeExecution, descriptor, service.transitionContext())
+	metadata, _, err := buildActionStartRequest(workspaceID, execution, node, nodeExecution, descriptor, service.transitionContext())
 	if err != nil {
 		return WorkflowExecution{}, err
 	}
@@ -607,12 +606,18 @@ func (service *Service) completeWorkflowActionForTerminalChatRun(run chat.Run) (
 	if err != nil || !ok {
 		return WorkflowExecution{}, ok, err
 	}
-	result, err := workflowActionResultFromChatRun(run)
+	items, err := service.codexChatService.LoadRunActivityItems(run.WorkspaceID, run.ID)
+	var result WorkflowActionResult
 	if err != nil {
-		result = workflowActionResultFromChatRunReconcileError(run, err.Error())
+		result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("load chat run activity: %v", err))
+	} else {
+		result, err = workflowActionResultFromChatRun(run, items)
+		if err != nil {
+			result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("decode workflow result: %v", err))
+		}
 	}
 	refs := workflowRunRefs(run, owner.conversation)
-	runnerEvents, err := runnerEventsFromWorkflowActionResult(owner, result)
+	runnerEvents, err := runnerEventsFromTerminalChatRun(owner, result)
 	if err != nil {
 		return WorkflowExecution{}, true, err
 	}
@@ -697,44 +702,6 @@ func (service *Service) workflowRunOwnerFromMetadata(workspaceID string, metadat
 		}
 	}
 	return workflowRunOwner{}, false, nil
-}
-
-func (service *Service) workflowResultOwner(workspaceID string, executionID string, nodeExecutionID string) (workflowRunOwner, error) {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	execution, err := service.store.LoadExecution(workspaceID, executionID)
-	if err != nil {
-		return workflowRunOwner{}, err
-	}
-	if execution.Status != ExecutionStatusRunning {
-		return workflowRunOwner{}, fmt.Errorf("workflow execution %s is %s, not running", executionID, execution.Status)
-	}
-	for _, nodeExecution := range execution.NodeExecutions {
-		if nodeExecution.ID == nodeExecutionID {
-			return workflowRunOwner{
-				execution:     execution,
-				nodeExecution: nodeExecution,
-			}, nil
-		}
-	}
-	return workflowRunOwner{}, fmt.Errorf("node execution %s was not found", nodeExecutionID)
-}
-
-func (service *Service) workflowResultRunnerRefs(workspaceID string, owner workflowRunOwner) []WorkflowActionRunnerRef {
-	refs := append([]WorkflowActionRunnerRef{}, owner.nodeExecution.RunnerRefs...)
-	if service.codexChatService == nil {
-		return refs
-	}
-	conversationID := runnerRefValue(refs, RunnerRefChatConversation)
-	if conversationID == "" {
-		return refs
-	}
-	page, err := service.codexChatService.LoadMessagePage(workspaceID, conversationID, 0, 1)
-	if err != nil {
-		return refs
-	}
-	return mergeRunnerRefs(refs, runnerRefsFromConversation(page.Conversation))
 }
 
 func workflowRunRefs(run chat.Run, conversation chat.Conversation) []WorkflowActionRunnerRef {

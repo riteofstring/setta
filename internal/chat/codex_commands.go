@@ -301,9 +301,6 @@ type codexCommandThread struct {
 }
 
 func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, conversation Conversation, threadRef HarnessThreadRef) (codexCommandThread, error) {
-	if err := harness.configureCodexSkillRoots(ctx, session); err != nil {
-		return codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, err.Error(), err)
-	}
 	if threadRef.ThreadID != "" && threadRef.Status == HarnessRefLinked {
 		return harness.resumeLinkedCommandThread(ctx, session, workspaceSummary, conversation, threadRef.ThreadID)
 	}

@@ -6,13 +6,11 @@ import {
   benchmarkHostPoolSizeFromSearch,
   benchmarkSceneOptionsFromSearch,
   hostPoolSizeForRuntime,
-  initialFocusedPaneIdForRuntime,
   presentationOptionsForRuntime,
   runtimePolicyBudgetForRuntime,
   runtimePolicyOptionsForRuntime,
   workflowGraphSyntheticGraphFallbackForRuntime,
 } from "./runtime-mode-options";
-import { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import type { PaneRenderItem, SurfaceKind } from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
@@ -78,22 +76,6 @@ describe("workspace runtime mode options", () => {
 
     expect(hostPoolSizeForRuntime("benchmark", benchmarkScene)).toBe(phaseOneVisiblePaneCount);
     expect(hostPoolSizeForRuntime("workspace", workspaceScene)).toBe(workspaceScene.totalPanes);
-  });
-
-  test("uses the persisted real workspace focused pane when creating a runtime", () => {
-    const realScene = createRealWorkspaceScene({
-      storedLayout: null,
-      workspaceId: "setta:workspace-focused-pane-test",
-      workspaceName: "Repo",
-    });
-    const engine = new WorkspaceLikeLayoutEngine(realScene.scene);
-
-    expect(
-      initialFocusedPaneIdForRuntime("workspace", engine, {
-        ...realScene,
-        focusedPaneId: "workspace_pane_1",
-      }),
-    ).toBe("workspace_pane_1");
   });
 
   test("keeps every visible workspace surface live in a moving resize frame", () => {

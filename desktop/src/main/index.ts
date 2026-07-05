@@ -9,7 +9,6 @@ import {
   type ChatEvent,
   type RunLivenessReason,
   type TerminalEvent,
-  type WorkspaceUIEvent,
   type WorkflowEvent,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
@@ -31,7 +30,12 @@ import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { registerChatIpcHandlers } from "./chat-ipc";
+import { createElectronRuntimeSecretStore } from "./electron-runtime-secret-store";
 import { KnownRuntimeStore } from "./known-runtime-store";
+import { PendingProvisionStore } from "./pending-provision-store";
+import { ProvisionCreationResourceStore } from "./provision-creation-resource-store";
+import { TailscaleStatusClient } from "./provision-watch";
+import { resumePendingProvisionWatches } from "./provision-watch-resume";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
@@ -44,12 +48,6 @@ import { registerTerminalIpcHandlers } from "./terminal-ipc";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
 import { startWorkspaceActivityEventForwarding } from "./workspace-activity-event-forwarding-stream";
 import { registerWorkspaceActivityIpcHandlers } from "./workspace-activity-ipc";
-import { forwardWorkspaceUIEventToWindows } from "./workspace-ui-event-forwarding";
-import { createWorkspaceUIEventSubscriptionRegistry } from "./workspace-ui-event-subscriptions";
-import {
-  startWorkspaceUIEventStream,
-  type WorkspaceUIEventStream,
-} from "./workspace-ui-event-stream";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
 import { registerWorkflowIpcHandlers } from "./workflow-ipc";
@@ -61,13 +59,11 @@ let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwardin
 let terminalEventStream: TerminalEventStream | null = null;
 let workspaceActivityEventStream: ReturnType<typeof startWorkspaceActivityEventForwarding> | null =
   null;
-const workspaceUIEventSubscriptions = createWorkspaceUIEventSubscriptionRegistry({
-  startStream: startWorkspaceUIEventStreamForwarding,
-});
 let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
+let pendingProvisionStore: PendingProvisionStore | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
@@ -97,13 +93,14 @@ async function prepareBackend(appDataDir: string) {
       runtimeRegistry: () => runtimeRegistry,
       stopBackendEventStreams,
     });
-    runtimeRegistry = createRuntimeRegistry();
+    runtimeRegistry = createRuntimeRegistry(appDataDir);
     await runtimeRegistry.load();
     const localRuntime = await runtimeRegistry.registerLocalRuntime({
       baseUrl: backend.url,
       deviceToken: backend.bootstrapToken,
     });
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
+    resumeProvisionWatches();
   } catch (error) {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
@@ -113,7 +110,10 @@ async function prepareBackend(appDataDir: string) {
   }
 }
 
-function createRuntimeRegistry() {
+function createRuntimeRegistry(appDataDir: string) {
+  const userDataDir = app.getPath("userData");
+  const secretStore = createElectronRuntimeSecretStore(userDataDir);
+  pendingProvisionStore = new PendingProvisionStore(userDataDir, secretStore);
   return new RuntimeRegistryController({
     clientDisplayName,
     fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
@@ -124,7 +124,28 @@ function createRuntimeRegistry() {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
-    store: new KnownRuntimeStore(app.getPath("userData")),
+    provisionResources: new ProvisionCreationResourceStore(appDataDir),
+    store: new KnownRuntimeStore(userDataDir, secretStore),
+  });
+}
+
+function resumeProvisionWatches() {
+  const registry = runtimeRegistry;
+  const store = pendingProvisionStore;
+  if (!registry || !store) {
+    return;
+  }
+  void resumePendingProvisionWatches({
+    onError: ({ error, provision }) => {
+      recorder?.recordAppEvent("provision_watch_resume_failed", {
+        error: error instanceof Error ? error.message : String(error),
+        provisionId: provision.provisionId,
+        runtimeName: provision.runtimeName,
+      });
+    },
+    registry,
+    store,
+    tailnetClient: new TailscaleStatusClient(),
   });
 }
 
@@ -246,24 +267,6 @@ function startWorkspaceActivityEventStreamForwarding() {
   });
 }
 
-function startWorkspaceUIEventStreamForwarding(workspaceId: string): WorkspaceUIEventStream | null {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    return null;
-  }
-  return startWorkspaceUIEventStream({
-    authToken: runtime.deviceToken,
-    baseURL: runtime.baseUrl,
-    fetchImpl: backendFetch(),
-    sendEvent: forwardWorkspaceUIEvent,
-    workspaceId,
-  });
-}
-
-function startWorkspaceUIEventStreamsForwarding() {
-  workspaceUIEventSubscriptions.startStreams();
-}
-
 async function stopChatEventStream() {
   const stream = backendEventStream;
   backendEventStream = null;
@@ -294,17 +297,12 @@ async function stopWorkspaceActivityEventStreamForwarding() {
   await stream?.stop();
 }
 
-async function stopWorkspaceUIEventStreamsForwarding() {
-  await workspaceUIEventSubscriptions.stopStreams();
-}
-
 async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
     stopSemanticGraphEventStreamForwarding(),
     stopTerminalEventStreamForwarding(),
     stopWorkspaceActivityEventStreamForwarding(),
-    stopWorkspaceUIEventStreamsForwarding(),
     stopWorkflowEventStreamForwarding(),
   ]);
 }
@@ -314,7 +312,6 @@ function startBackendEventStreams() {
   startSemanticGraphEventStreamForwarding();
   startTerminalEventStreamForwarding();
   startWorkspaceActivityEventStreamForwarding();
-  startWorkspaceUIEventStreamsForwarding();
   startWorkflowEventStreamForwarding();
 }
 
@@ -375,18 +372,6 @@ function forwardTerminalEvent(event: TerminalEvent) {
     workspaceId: event.workspaceId,
   });
   forwardTerminalEventToWindows(BrowserWindow.getAllWindows(), event);
-}
-
-function forwardWorkspaceUIEvent(event: WorkspaceUIEvent) {
-  recorder?.recordAppEvent("workspace_ui_event_forwarded", {
-    eventId: event.eventId,
-    revision: event.revision,
-    sequence: event.sequence,
-    streamId: event.streamId,
-    type: event.type,
-    workspaceId: event.workspaceId,
-  });
-  forwardWorkspaceUIEventToWindows(BrowserWindow.getAllWindows(), event);
 }
 
 function settaAppDataDir() {
@@ -534,12 +519,6 @@ function registerIpc() {
   ipcMain.on(ipcMessages.workspaceBrowserViewBatch, (event, batch) => {
     workspaceBrowserViews.applyBatch(event, batch);
   });
-  ipcMain.on(ipcMessages.workspaceUIEventSubscribe, (event, workspaceId) => {
-    workspaceUIEventSubscriptions.subscribe(workspaceId, event.sender);
-  });
-  ipcMain.on(ipcMessages.workspaceUIEventUnsubscribe, (event, workspaceId) => {
-    workspaceUIEventSubscriptions.unsubscribe(workspaceId, event.sender);
-  });
   registerAppIpcHandlers({
     ipcMain,
     ipcObserver,
@@ -558,7 +537,14 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerRuntimeIpcHandlers({ ipcMain, ipcObserver, requireRuntimeRegistry });
+  registerRuntimeIpcHandlers({
+    appDataDir: settaAppDataDir(),
+    ipcMain,
+    ipcObserver,
+    repoRoot: repoRoot(),
+    requirePendingProvisionStore,
+    requireRuntimeRegistry,
+  });
   handleIpc(
     ipcMain,
     "appearanceRead",
@@ -769,6 +755,13 @@ function requireRuntimeRegistry(): RuntimeRegistryController {
     throw new Error(backendStartupError ?? "runtime registry is not ready");
   }
   return runtimeRegistry;
+}
+
+function requirePendingProvisionStore(): PendingProvisionStore {
+  if (!pendingProvisionStore) {
+    throw new Error(backendStartupError ?? "pending provision store is not ready");
+  }
+  return pendingProvisionStore;
 }
 
 function runtimeUnavailableMessage() {

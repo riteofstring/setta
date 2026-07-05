@@ -2,7 +2,7 @@ import type { WorkspaceUILayout } from "@generated/backend";
 
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
-import { WorkspaceLayoutStore, type WorkspaceLayoutTransientSnapshot } from "./layout-store";
+import { WorkspaceLayoutStore } from "./layout-store";
 import { WorkspaceMetricsCollector } from "./metrics";
 import { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
 import { emptyFrameOptionsForStore } from "./workspace-toolbar";
@@ -34,7 +34,6 @@ export function createWorkspaceRuntime({
   mode,
   overviewCardMaxWidthPx,
   overviewCardMinWidthPx,
-  transientSnapshot,
   storedLayout,
   workspaceId,
   workspaceName,
@@ -44,7 +43,6 @@ export function createWorkspaceRuntime({
   overviewCardMaxWidthPx?: number;
   overviewCardMinWidthPx?: number;
   storedLayout: WorkspaceUILayout | null;
-  transientSnapshot?: WorkspaceLayoutTransientSnapshot | null;
   workspaceId: string;
   workspaceName: string;
 }) {
@@ -60,8 +58,6 @@ export function createWorkspaceRuntime({
     scene,
     initialFocusedPaneIdForRuntime(mode, engine, realScene),
     {
-      initialRevision: realScene?.layoutRevision,
-      initialTransientSnapshot: transientSnapshot ?? undefined,
       paneLimits: paneLimitsForRuntime(mode),
     },
   );

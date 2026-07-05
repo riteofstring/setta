@@ -1,51 +1,54 @@
-import type { Run, RunLiveness, RunLivenessPhase } from "@generated/backend";
+import type { Run, RunLiveness, RunLivenessReason } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import { activeRunPresentation, runLivenessPresentationKind } from "./chat-run-liveness";
 
 describe("active run liveness presentation", () => {
   test.each([
-    ["attached", "working"],
-    ["blocked", "working"],
-    ["starting", "reconnecting"],
-    ["waiting_for_provider", "reconnecting"],
-    ["stalled", "reconnecting"],
-    ["reconnecting", "reconnecting"],
-    ["lost", "lost"],
-    ["terminal", "terminal"],
-  ] satisfies Array<[RunLivenessPhase, ReturnType<typeof runLivenessPresentationKind>]>)(
-    "classifies %s phase as %s",
-    (phase, expectedKind) => {
+    ["provider_ref_pending", "working"],
+    ["provider_turn_linked", "working"],
+    ["snapshot_load", "working"],
+    ["wake_recheck", "working"],
+    ["stream_resync", "reconnecting"],
+    ["provider_restarted", "reconnecting"],
+    ["user_retry", "reconnecting"],
+    ["attachment_missing", "lost"],
+    ["provider_unavailable", "lost"],
+    ["turn_not_found", "lost"],
+    ["run_terminal", "terminal"],
+  ] satisfies Array<[RunLivenessReason, ReturnType<typeof runLivenessPresentationKind>]>)(
+    "classifies reconciling/%s as %s",
+    (reason, expectedKind) => {
       const run = runFixture();
 
       expect(
         runLivenessPresentationKind(
           runLivenessFixture(run, {
-            phase,
+            reason,
+            status: "reconciling",
           }),
         ),
       ).toBe(expectedKind);
     },
   );
 
-  test("presents provider-ref-pending as reconnecting without steering", () => {
+  test("presents snapshot-load verification as visible working without steering", () => {
     const run = runFixture();
 
     expect(
       activeRunPresentation(
         run,
         runLivenessFixture(run, {
-          phase: "starting",
-          reason: "provider_ref_pending",
+          reason: "snapshot_load",
           retryable: true,
           status: "reconciling",
         }),
       ),
     ).toMatchObject({
-      canRetry: true,
+      canRetry: false,
       canSteer: false,
       canStop: true,
-      kind: "reconnecting",
+      kind: "working",
       running: true,
     });
   });
@@ -57,7 +60,6 @@ describe("active run liveness presentation", () => {
       activeRunPresentation(
         run,
         runLivenessFixture(run, {
-          phase: "reconnecting",
           reason: "stream_resync",
           retryable: true,
           status: "reconciling",
@@ -136,24 +138,14 @@ function runLivenessFixture(run: Run, values: Partial<RunLiveness> = {}): RunLiv
     conversationId: run.conversationId,
     error: "",
     harness: run.harness,
-    activeStatus: {
-      detail: "",
-      headline: "Working",
-      headlineSource: "fallback",
-      kind: "working",
-    },
     lastProviderEventAt: "2026-05-29T20:00:00Z",
-    lastVisibleActivityAt: "2026-05-29T20:00:00Z",
     lastReconciledAt: "",
-    phase: "attached",
     providerThreadId: "thread_api",
     providerTurnId: "turn_api",
     reason: "provider_turn_linked",
     retryable: false,
     runId: run.id,
     status: "attached",
-    steerable: true,
-    steeringDisabledReason: "",
     workspaceId: run.workspaceId,
     ...values,
   };
