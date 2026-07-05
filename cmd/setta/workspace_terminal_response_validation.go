@@ -28,10 +28,22 @@ func validateWorkspaceTerminalReadResponse(response httpapi.ReadWorkspaceUITermi
 	if response.Pane.ContentRefs.Terminal == nil {
 		return errors.New("workspace terminal read pane descriptor returned no terminal content ref")
 	}
+	if !workspacePaneReadModesContain(response.Pane.ReadModes, workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput) {
+		return errors.New("workspace terminal read pane descriptor did not advertise terminal_recent_output")
+	}
 	if err := validateTerminalReadResult(response.Terminal, workspaceID, paneID); err != nil {
 		return fmt.Errorf("workspace terminal read payload is invalid: %w", err)
 	}
 	return nil
+}
+
+func workspacePaneReadModesContain(readModes []workspaceui.WorkspaceUIPaneReadMode, target workspaceui.WorkspaceUIPaneReadMode) bool {
+	for _, mode := range readModes {
+		if mode == target {
+			return true
+		}
+	}
+	return false
 }
 
 func validateTerminalReadResult(result terminal.TerminalReadResult, workspaceID string, paneID string) error {
