@@ -44,6 +44,23 @@ describe("runtime cloud wizard", () => {
     ]);
   });
 
+  test("renders AWS placement facts on the approval card", () => {
+    const html = renderToString(
+      <CloudRuntimeResolutionCard
+        approval={null}
+        authSource="manual"
+        busy={false}
+        onApprove={() => {}}
+        resolution={awsResolutionFixture()}
+        warnings={[]}
+      />,
+    );
+
+    expect(html).toContain("vpc-explicit123");
+    expect(html).toContain("subnet-explicit123");
+    expect(html).toContain("sg-explicit123");
+  });
+
   test("formats existing-record retry choices without implying another create", () => {
     expect(cloudRuntimeExistingRecordMessage(existingRecordResultFixture())).toBe(
       "A cloud provisioning record for hetzner:setta-worker already exists with status succeeded. No provider create command was run. Available choices: Inspect existing record, Adopt existing runtime, Review teardown, Use a different runtime name.",
@@ -58,6 +75,7 @@ function resolutionFixture(): CloudRuntimeProvisionResolution {
       requiresMutationApproval: true,
       secretFree: true,
     },
+    awsPlacement: null,
     cost: {
       amount: null,
       class: "standard",
@@ -86,6 +104,30 @@ function resolutionFixture(): CloudRuntimeProvisionResolution {
     shape: "dev-standard",
     source: "catalog",
     warnings: [],
+  };
+}
+
+function awsResolutionFixture(): CloudRuntimeProvisionResolution {
+  return {
+    ...resolutionFixture(),
+    awsPlacement: {
+      defaultVpcRequired: false,
+      securityGroupId: "sg-explicit123",
+      securityGroupMode: "existing",
+      source: "caller",
+      subnetId: "subnet-explicit123",
+      vpcId: "vpc-explicit123",
+    },
+    displayName: "AWS",
+    imageSelector: {
+      description: "Canonical Ubuntu SSM parameter",
+      kind: "aws_ssm_ubuntu_lts",
+      value: "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id",
+    },
+    instanceType: "t3.xlarge",
+    provider: "aws",
+    region: "us-east-1",
+    regionOptions: ["us-east-1"],
   };
 }
 

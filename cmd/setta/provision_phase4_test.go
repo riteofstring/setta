@@ -60,6 +60,50 @@ func TestProvisionRenderLinkAWSQuickCreateOmitsSecretsAndMarksNoEcho(t *testing.
 	assertAWSCloudFormationTemplate(t, result.Template)
 }
 
+func TestProvisionRenderLinkAWSQuickCreatePrefillsPlacement(t *testing.T) {
+	var stdout bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+
+	args := append(provisionRenderLinkArgs(),
+		"--vpc-id", "vpc-explicit123",
+		"--subnet-id", "subnet-explicit123",
+		"--aws-security-group-id", "sg-explicit123",
+	)
+	code := runWithDeps(append([]string{"provision", "render-link"}, args...), deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionRenderLinkResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse render-link JSON: %v\n%s", err, stdout.String())
+	}
+	query := quickCreateFragmentQuery(t, result.QuickCreateURL)
+	if query.Get("param_VpcId") != "vpc-explicit123" ||
+		query.Get("param_SubnetId") != "subnet-explicit123" ||
+		query.Get("param_SecurityGroupId") != "sg-explicit123" {
+		t.Fatalf("placement query = %v", query)
+	}
+	if result.Resolution.AWSPlacement == nil ||
+		result.Resolution.AWSPlacement.VPCID != "vpc-explicit123" ||
+		result.Resolution.AWSPlacement.SubnetID != "subnet-explicit123" ||
+		result.Resolution.AWSPlacement.SecurityGroupID != "sg-explicit123" ||
+		result.Resolution.AWSPlacement.SecurityGroupMode != "existing" {
+		t.Fatalf("aws placement = %+v", result.Resolution.AWSPlacement)
+	}
+	for _, required := range []string{
+		"SecurityGroupId:\n    Type: String",
+		"HasSecurityGroupId: !Not [!Equals [!Ref SecurityGroupId, '']]",
+		"CreateRuntimeSecurityGroup: !Equals [!Ref SecurityGroupId, '']",
+		"Condition: CreateRuntimeSecurityGroup",
+		"!If [HasSecurityGroupId, !Ref SecurityGroupId, !Ref RuntimeSecurityGroup]",
+	} {
+		if !strings.Contains(result.Template, required) {
+			t.Fatalf("template missing %q:\n%s", required, result.Template)
+		}
+	}
+}
+
 func TestProvisionRenderLinkRejectsUnsupportedProvider(t *testing.T) {
 	var stderr bytes.Buffer
 	deps := testDeps()
@@ -758,6 +802,8 @@ func assertAWSCloudFormationTemplate(t *testing.T, template string) {
 		"TailscaleAuthKey:\n    Type: String\n    NoEcho: true",
 		"PairingTokenHash:\n    Type: String\n    NoEcho: true",
 		"ProvisionAttestationKey:\n    Type: String\n    NoEcho: true",
+		"SecurityGroupId:\n    Type: String",
+		"CreateRuntimeSecurityGroup: !Equals [!Ref SecurityGroupId, '']",
 		"tailscale up --auth-key \"$tailscale_auth_key\" --hostname \"$runtime_name\"",
 		"setta:runtime_name",
 		"Fn::Base64: !Sub |",

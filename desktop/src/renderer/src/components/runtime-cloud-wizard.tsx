@@ -20,6 +20,11 @@ import {
 
 import { CloudRuntimeResolutionCard } from "./runtime-cloud-resolution-card";
 import { cloudRuntimeExistingRecordMessage } from "./runtime-cloud-existing-record";
+import {
+  RuntimeCloudAWSPlacementInputs,
+  RuntimeCloudReleaseInputs,
+  runtimeCloudAWSPlacementInput,
+} from "./runtime-cloud-form-inputs";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -29,6 +34,9 @@ interface RuntimeCloudWizardProps {
 }
 
 interface CloudRuntimeWizardForm {
+  awsSecurityGroupId: string;
+  awsSubnetId: string;
+  awsVpcId: string;
   clientId: string;
   clientSecret: string;
   diskGB: string;
@@ -88,6 +96,9 @@ type CloudRuntimeWizardFormSetter = Dispatch<SetStateAction<CloudRuntimeWizardFo
 
 const defaultRuntimeName = "setta-cloud-runtime";
 const resolutionInputFields = new Set<keyof CloudRuntimeWizardForm>([
+  "awsSecurityGroupId",
+  "awsSubnetId",
+  "awsVpcId",
   "diskGB",
   "intent",
   "provider",
@@ -112,6 +123,9 @@ function useRuntimeCloudWizardController(busy: boolean): RuntimeCloudWizardContr
   const [approval, setApproval] = useState<CloudRuntimeApprovalState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<CloudRuntimeWizardForm>({
+    awsSecurityGroupId: "",
+    awsSubnetId: "",
+    awsVpcId: "",
     clientId: "",
     clientSecret: "",
     diskGB: "",
@@ -218,7 +232,15 @@ function useRuntimeCloudWizardController(busy: boolean): RuntimeCloudWizardContr
     const provider = selectedCloudProvider(options, providerID);
     const shape = firstSupportedShapeID(options, provider) ?? form.shape;
     const region = provider?.regionPreferences[0] ?? "";
-    setForm((current) => ({ ...current, provider: providerID, region, shape }));
+    setForm((current) => ({
+      ...current,
+      awsSecurityGroupId: provider?.id === "aws" ? current.awsSecurityGroupId : "",
+      awsSubnetId: provider?.id === "aws" ? current.awsSubnetId : "",
+      awsVpcId: provider?.id === "aws" ? current.awsVpcId : "",
+      provider: providerID,
+      region,
+      shape,
+    }));
     clearResolvedState(setApproval, setResolution);
   }
 
@@ -313,6 +335,12 @@ function RuntimeCloudResolveForm({ controller }: { controller: RuntimeCloudWizar
           value={controller.form.diskGB}
         />
       </div>
+      <RuntimeCloudAWSPlacementInputs
+        controlsDisabled={controller.controlsDisabled}
+        onUpdate={controller.setFormField}
+        providerId={controller.selectedProvider?.id ?? null}
+        values={controller.form}
+      />
       <Input
         aria-label="Cloud runtime name"
         autoComplete="off"
@@ -321,7 +349,11 @@ function RuntimeCloudResolveForm({ controller }: { controller: RuntimeCloudWizar
         placeholder={defaultRuntimeName}
         value={controller.form.runtimeName}
       />
-      <RuntimeCloudReleaseInputs controller={controller} />
+      <RuntimeCloudReleaseInputs
+        controlsDisabled={controller.controlsDisabled}
+        onUpdate={controller.setFormField}
+        values={controller.form}
+      />
       <Button className="w-fit" disabled={resolveButtonDisabled(controller)} type="submit">
         {controller.status === "resolving" ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -329,49 +361,6 @@ function RuntimeCloudResolveForm({ controller }: { controller: RuntimeCloudWizar
         Resolve
       </Button>
     </form>
-  );
-}
-
-function RuntimeCloudReleaseInputs({ controller }: { controller: RuntimeCloudWizardController }) {
-  return (
-    <div className="grid gap-1">
-      <div className="grid grid-cols-2 gap-1">
-        <Input
-          aria-label="Cloud Setta version"
-          autoComplete="off"
-          disabled={controller.controlsDisabled}
-          onChange={(event) => controller.setFormField("settaVersion", event.target.value)}
-          placeholder="v1.2.3"
-          value={controller.form.settaVersion}
-        />
-        <Input
-          aria-label="Cloud release base URL"
-          autoComplete="off"
-          disabled={controller.controlsDisabled}
-          onChange={(event) => controller.setFormField("releaseBaseUrl", event.target.value)}
-          placeholder="https://downloads.example.test/setta/v1.2.3"
-          value={controller.form.releaseBaseUrl}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-1">
-        <Input
-          aria-label="Cloud installer SHA-256"
-          autoComplete="off"
-          disabled={controller.controlsDisabled}
-          onChange={(event) => controller.setFormField("installerSha256", event.target.value)}
-          placeholder="installer sha256"
-          value={controller.form.installerSha256}
-        />
-        <Input
-          aria-label="Cloud minisign public key"
-          autoComplete="off"
-          disabled={controller.controlsDisabled}
-          onChange={(event) => controller.setFormField("minisignPublicKey", event.target.value)}
-          placeholder="RWQ..."
-          value={controller.form.minisignPublicKey}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -899,13 +888,18 @@ function defaultTextValue(value: string, fallback: string): string {
 }
 
 function resolveRequest(form: CloudRuntimeWizardForm): CloudRuntimeProvisionResolveRequest {
-  return {
+  const request: CloudRuntimeProvisionResolveRequest = {
     diskGB: positiveIntegerOrUndefined(form.diskGB),
     intent: form.intent,
     provider: form.provider,
     region: form.region,
     shape: form.shape,
   };
+  const awsPlacement = runtimeCloudAWSPlacementInput(form.provider, form);
+  if (awsPlacement) {
+    request.awsPlacement = awsPlacement;
+  }
+  return request;
 }
 
 function releaseInput(form: CloudRuntimeWizardForm): CloudRuntimeProvisionReleaseInput {

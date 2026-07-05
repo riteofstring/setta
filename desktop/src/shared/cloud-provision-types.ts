@@ -25,6 +25,12 @@ export interface CloudRuntimeProvisionProvider {
   shapeIds: string[];
 }
 
+interface CloudRuntimeProvisionAWSPlacementInput {
+  securityGroupId?: string;
+  subnetId?: string;
+  vpcId?: string;
+}
+
 export interface CloudRuntimeProvisionOptions {
   defaultProvider: string;
   defaultShape: string;
@@ -44,6 +50,7 @@ export interface CloudRuntimeProvisionResolveRequest {
   region?: string;
   shape?: string;
   workloadNote?: string;
+  awsPlacement?: CloudRuntimeProvisionAWSPlacementInput;
 }
 
 export interface CloudRuntimeProvisionResolvedConstraints {
@@ -80,8 +87,18 @@ export interface CloudRuntimeProvisionApproval {
   secretFree: boolean;
 }
 
+export interface CloudRuntimeProvisionAWSPlacement {
+  defaultVpcRequired: boolean;
+  securityGroupId: string | null;
+  securityGroupMode: string;
+  source: string;
+  subnetId: string | null;
+  vpcId: string | null;
+}
+
 export interface CloudRuntimeProvisionResolution {
   approval: CloudRuntimeProvisionApproval;
+  awsPlacement: CloudRuntimeProvisionAWSPlacement | null;
   cost: CloudRuntimeProvisionCost;
   diskGB: number;
   displayName: string;

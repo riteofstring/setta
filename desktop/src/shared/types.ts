@@ -151,6 +151,7 @@ import type {
 
 export type {
   CloudRuntimeProvisionApproval,
+  CloudRuntimeProvisionAWSPlacement,
   CloudRuntimeProvisionAuthInput,
   CloudRuntimeProvisionCost,
   CloudRuntimeProvisionCreationRecord,

@@ -277,6 +277,103 @@ describe("cloud runtime provision executor", () => {
     ]);
     expect(events).toEqual(["inspect"]);
   });
+
+  test("passes AWS placement through render-link before approved up", async () => {
+    const appDataDir = await mkdtemp(join(tmpdir(), "setta-provision-executor-"));
+    const events: string[] = [];
+    const request = awsRequestFixture();
+
+    const result = await runApprovedCloudRuntimeProvision(request, {
+      appDataDir,
+      env: {
+        SETTA_CLI_PATH: "/opt/setta",
+      },
+      execFileRunner: async (command, args) => {
+        expect(command).toBe("/opt/setta");
+        if (args[0] === "provision" && args[1] === "inspect") {
+          events.push("inspect");
+          expect(requiredArg(args, "--provider")).toBe("aws");
+          expect(requiredArg(args, "--runtime-name")).toBe("setta-worker");
+          return {
+            stderr: "",
+            stdout: JSON.stringify({
+              exists: false,
+              ok: true,
+              provider: "aws",
+              recordId: "aws:setta-setta-worker",
+            }),
+          };
+        }
+        if (args[0] === "provision" && args[1] === "render-link") {
+          events.push("render-link");
+          expect(requiredArg(args, "--vpc-id")).toBe("vpc-explicit123");
+          expect(requiredArg(args, "--subnet-id")).toBe("subnet-explicit123");
+          expect(requiredArg(args, "--aws-security-group-id")).toBe("sg-explicit123");
+          return {
+            stderr: "",
+            stdout: JSON.stringify(awsRenderLinkOutput()),
+          };
+        }
+        if (args[0] === "provision" && args[1] === "up") {
+          events.push("up");
+          expect(requiredArg(args, "--provider")).toBe("aws");
+          const parametersPath = requiredArg(args, "--cloudformation-parameters-file");
+          const parameters = JSON.parse(await readFile(parametersPath, "utf8")) as Array<{
+            ParameterKey: string;
+            ParameterValue: string;
+          }>;
+          expect(parameterValue(parameters, "VpcId")).toBe("vpc-explicit123");
+          expect(parameterValue(parameters, "SubnetId")).toBe("subnet-explicit123");
+          expect(parameterValue(parameters, "SecurityGroupId")).toBe("sg-explicit123");
+          expect(parameterValue(parameters, "TailscaleAuthKey")).toBe("tskey-auth-secret");
+          return {
+            stderr: "",
+            stdout: JSON.stringify(awsProvisionUpOutput()),
+          };
+        }
+        throw new Error(`unexpected CLI args: ${args.join(" ")}`);
+      },
+      now: () => new Date("2026-07-07T10:00:00.000Z"),
+      pendingProvisionStore: {
+        delete: async (provisionId) => {
+          events.push(`delete:${provisionId}`);
+        },
+        upsert: async (input) => {
+          events.push("upsert");
+          return pendingFromInput(input);
+        },
+      },
+      repoRoot: "/repo",
+      runtimeRegistry: {
+        watchProvisionAndPair: async () => {
+          events.push("watch");
+          return runtimeSnapshot();
+        },
+      },
+      tailscaleOAuthService: {
+        mintAuthKey: async () => {
+          throw new Error("manual auth path should not mint OAuth keys");
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      creationRecord: {
+        recordId: "aws:setta-setta-worker",
+        status: "succeeded",
+      },
+      ok: true,
+      provider: "aws",
+    });
+    expect(events).toEqual([
+      "inspect",
+      "render-link",
+      "upsert",
+      "up",
+      "watch",
+      `delete:${result.mode === "executed" ? result.provisionId : ""}`,
+    ]);
+  });
 });
 
 function requestFixture(): CloudRuntimeProvisionExecuteRequest {
@@ -294,6 +391,7 @@ function requestFixture(): CloudRuntimeProvisionExecuteRequest {
         requiresMutationApproval: true,
         secretFree: true,
       },
+      awsPlacement: null,
       cost: {
         amount: null,
         class: "standard",
@@ -325,6 +423,92 @@ function requestFixture(): CloudRuntimeProvisionExecuteRequest {
     },
     runtimeName: "setta-worker",
   };
+}
+
+function awsRequestFixture(): CloudRuntimeProvisionExecuteRequest {
+  const request = requestFixture();
+  request.resolution = {
+    ...request.resolution,
+    awsPlacement: {
+      defaultVpcRequired: false,
+      securityGroupId: "sg-explicit123",
+      securityGroupMode: "existing",
+      source: "caller",
+      subnetId: "subnet-explicit123",
+      vpcId: "vpc-explicit123",
+    },
+    cost: {
+      amount: null,
+      class: null,
+      currency: null,
+      description: "AWS CLI did not return on-demand pricing",
+      kind: "unknown",
+      pricingUrl: "https://aws.amazon.com/ec2/pricing/on-demand/",
+    },
+    displayName: "AWS",
+    imageSelector: {
+      description: "Canonical Ubuntu SSM parameter",
+      kind: "aws_ssm_ubuntu_lts",
+      value: "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id",
+    },
+    instanceType: "t3.xlarge",
+    provider: "aws",
+    region: "us-east-1",
+    regionOptions: ["us-east-1"],
+  };
+  return request;
+}
+
+function awsRenderLinkOutput() {
+  return {
+    ok: true,
+    prefilledParameters: [
+      { key: "RuntimeName", value: "setta-worker" },
+      { key: "InstanceType", value: "t3.xlarge" },
+      { key: "DiskGB", value: "64" },
+      { key: "VpcId", value: "vpc-explicit123" },
+      { key: "SubnetId", value: "subnet-explicit123" },
+      { key: "SecurityGroupId", value: "sg-explicit123" },
+    ],
+    stackName: "setta-setta-worker",
+    template: "Resources: {}\n",
+    templateSha256: "d".repeat(64),
+  };
+}
+
+function awsProvisionUpOutput() {
+  return {
+    creationRecord: {
+      recordId: "aws:setta-setta-worker",
+      resourceId: "arn:aws:cloudformation:us-east-1:123:stack/setta-setta-worker/abc",
+      runtimeName: "setta-worker",
+      status: "succeeded",
+    },
+    mode: "executed",
+    ok: true,
+    plan: {
+      actionId: "aws.cloudformation.create_runtime",
+      argv: ["aws", "cloudformation", "create-stack"],
+      cliBinary: "aws",
+      fileInputs: [],
+      lastVerified: "2026-07-07",
+      mutating: true,
+      provider: "aws",
+      requiresApproval: true,
+      secretFree: true,
+      teardownActionId: "aws.cloudformation.delete_runtime",
+      typedAction: "create_runtime",
+    },
+    provider: "aws",
+    warnings: [],
+  };
+}
+
+function parameterValue(
+  parameters: Array<{ ParameterKey: string; ParameterValue: string }>,
+  key: string,
+): string | null {
+  return parameters.find((parameter) => parameter.ParameterKey === key)?.ParameterValue ?? null;
 }
 
 function provisionUpOutput(cloudInitPath: string) {

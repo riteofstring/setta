@@ -191,6 +191,7 @@ function cloudResolution() {
       requiresMutationApproval: true,
       secretFree: true,
     },
+    awsPlacement: null,
     cost: {
       amount: null,
       class: "standard",

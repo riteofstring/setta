@@ -95,6 +95,43 @@ describe("cloud runtime provision resolver", () => {
       ),
     ).rejects.toThrow("setta provision resolve did not return valid JSON");
   });
+
+  test("threads AWS placement through resolver requests and responses", async () => {
+    const result = await resolveCloudRuntimeProvision(
+      {
+        awsPlacement: {
+          securityGroupId: "sg-explicit123",
+          subnetId: "subnet-explicit123",
+          vpcId: "vpc-explicit123",
+        },
+        provider: "aws",
+        region: "us-east-1",
+        shape: "dev-standard",
+      },
+      {
+        env: { SETTA_CLI_PATH: "/opt/setta" },
+        repoRoot: "/repo",
+        execFileRunner: async (_command, args) => {
+          expect(args).toContain("--aws-vpc-id");
+          expect(args).toContain("vpc-explicit123");
+          expect(args).toContain("--aws-subnet-id");
+          expect(args).toContain("subnet-explicit123");
+          expect(args).toContain("--aws-security-group-id");
+          expect(args).toContain("sg-explicit123");
+          return { stderr: "", stdout: JSON.stringify(awsResolveOutput()) };
+        },
+      },
+    );
+
+    expect(result.resolution.awsPlacement).toEqual({
+      defaultVpcRequired: false,
+      securityGroupId: "sg-explicit123",
+      securityGroupMode: "existing",
+      source: "caller",
+      subnetId: "subnet-explicit123",
+      vpcId: "vpc-explicit123",
+    });
+  });
 });
 
 function shapesOutput() {
@@ -192,5 +229,41 @@ function resolutionOutput() {
     regionOptions: ["fsn1", "nbg1"],
     shape: "dev-standard",
     source: "catalog",
+  };
+}
+
+function awsResolveOutput() {
+  const resolution = {
+    ...resolutionOutput(),
+    awsPlacement: {
+      defaultVpcRequired: false,
+      securityGroupId: "sg-explicit123",
+      securityGroupMode: "existing",
+      source: "caller",
+      subnetId: "subnet-explicit123",
+      vpcId: "vpc-explicit123",
+    },
+    displayName: "AWS",
+    imageSelector: {
+      description: "Canonical Ubuntu SSM parameter",
+      kind: "aws_ssm_ubuntu_lts",
+      value: "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id",
+    },
+    instanceType: "t3.xlarge",
+    provider: "aws",
+    region: "us-east-1",
+    regionOptions: ["us-east-1"],
+  };
+  return {
+    candidates: [resolution],
+    ok: true,
+    request: {
+      constraints: {
+        regionPreference: "us-east-1",
+      },
+      provider: "aws",
+      shape: "dev-standard",
+    },
+    resolution,
   };
 }

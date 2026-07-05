@@ -1,5 +1,6 @@
 import type {
   CloudRuntimeProvisionApproval,
+  CloudRuntimeProvisionAWSPlacement,
   CloudRuntimeProvisionCost,
   CloudRuntimeProvisionImageSelector,
   CloudRuntimeProvisionMachine,
@@ -68,6 +69,9 @@ function resolveRequestArgs(request: CloudRuntimeProvisionResolveRequest): strin
   pushStringFlag(args, "--gpu-class", request.gpuClass);
   pushStringFlag(args, "--budget", request.budgetPreference);
   pushStringFlag(args, "--exact-instance-type", request.exactInstanceType);
+  pushStringFlag(args, "--aws-vpc-id", request.awsPlacement?.vpcId);
+  pushStringFlag(args, "--aws-subnet-id", request.awsPlacement?.subnetId);
+  pushStringFlag(args, "--aws-security-group-id", request.awsPlacement?.securityGroupId);
   return args;
 }
 
@@ -175,6 +179,7 @@ function parseConstraints(
 function parseResolution(record: Record<string, unknown>): CloudRuntimeProvisionResolution {
   return {
     approval: parseApproval(requireRecord(record.approval, "resolution.approval")),
+    awsPlacement: parseAWSPlacement(record.awsPlacement),
     cost: parseCost(requireRecord(record.cost, "resolution.cost")),
     diskGB: requireNumber(record.diskGb, "resolution.diskGb"),
     displayName: requireString(record.displayName, "resolution.displayName"),
@@ -189,6 +194,27 @@ function parseResolution(record: Record<string, unknown>): CloudRuntimeProvision
     shape: requireString(record.shape, "resolution.shape"),
     source: requireString(record.source, "resolution.source"),
     warnings: requireStringArrayOrEmpty(record.warnings, "resolution.warnings"),
+  };
+}
+
+function parseAWSPlacement(value: unknown): CloudRuntimeProvisionAWSPlacement | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  const record = requireRecord(value, "resolution.awsPlacement");
+  return {
+    defaultVpcRequired: requireBoolean(
+      record.defaultVpcRequired,
+      "resolution.awsPlacement.defaultVpcRequired",
+    ),
+    securityGroupId: optionalString(record.securityGroupId),
+    securityGroupMode: requireString(
+      record.securityGroupMode,
+      "resolution.awsPlacement.securityGroupMode",
+    ),
+    source: requireString(record.source, "resolution.awsPlacement.source"),
+    subnetId: optionalString(record.subnetId),
+    vpcId: optionalString(record.vpcId),
   };
 }
 

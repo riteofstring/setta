@@ -385,6 +385,7 @@ async function renderAWSLink(input: {
     input.release.minisignPublicKey,
     "--runtime-port",
     String(provisionRuntimePort),
+    ...awsPlacementRenderLinkArgs(input.resolution),
   ]);
   const record = parseJSONRecord(stdout, "setta provision render-link");
   if (record.ok !== true) {
@@ -404,6 +405,25 @@ async function renderAWSLink(input: {
     template: requireString(record.template, "template"),
     templateSha256: requireString(record.templateSha256, "templateSha256"),
   };
+}
+
+function awsPlacementRenderLinkArgs(resolution: CloudRuntimeProvisionResolution): string[] {
+  const placement = resolution.awsPlacement;
+  if (!placement) {
+    return [];
+  }
+  const args: string[] = [];
+  pushOptionalArg(args, "--vpc-id", placement.vpcId);
+  pushOptionalArg(args, "--subnet-id", placement.subnetId);
+  pushOptionalArg(args, "--aws-security-group-id", placement.securityGroupId);
+  return args;
+}
+
+function pushOptionalArg(args: string[], flag: string, value: string | null): void {
+  const trimmed = value?.trim();
+  if (trimmed) {
+    args.push(flag, trimmed);
+  }
 }
 
 function awsCloudFormationParameters(

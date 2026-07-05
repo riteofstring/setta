@@ -11,6 +11,7 @@ import (
 )
 
 type provisionResolveOptions struct {
+	AWSPlacement     provisionAWSPlacementInput
 	BudgetPreference string
 	CPUMin           int
 	DiskGB           int
@@ -59,6 +60,7 @@ type provisionResolvedCandidate struct {
 	InstanceType  string                        `json:"instanceType"`
 	Region        string                        `json:"region"`
 	RegionOptions []string                      `json:"regionOptions"`
+	AWSPlacement  *provisionAWSPlacement        `json:"awsPlacement,omitempty"`
 	DiskGB        int                           `json:"diskGb"`
 	Machine       provisionResolvedMachine      `json:"machine"`
 	ImageSelector provisionCatalogImageSelector `json:"imageSelector"`
@@ -187,6 +189,9 @@ func provisionResolveOptionsFromArgs(args []string, deps cliDeps) (provisionReso
 	flagSet.StringVar(&options.GPUClass, "gpu-class", "", "typed GPU class constraint: entry, large, or any")
 	flagSet.StringVar(&options.BudgetPreference, "budget", "", "typed budget preference such as cheapest or balanced")
 	flagSet.StringVar(&options.ExactInstance, "exact-instance-type", "", "exact provider instance type escape hatch")
+	flagSet.StringVar(&options.AWSPlacement.VPCID, "aws-vpc-id", "", "AWS VPC id for the runtime placement")
+	flagSet.StringVar(&options.AWSPlacement.SubnetID, "aws-subnet-id", "", "AWS subnet id for the runtime placement")
+	flagSet.StringVar(&options.AWSPlacement.SecurityGroupID, "aws-security-group-id", "", "AWS security group id to reuse instead of creating one")
 	if err := flagSet.Parse(args); err != nil {
 		return provisionResolveOptions{}, usageError{err: err}
 	}
@@ -207,6 +212,11 @@ func provisionResolveOptionsFromArgs(args []string, deps cliDeps) (provisionReso
 	options.GPUClass = strings.TrimSpace(options.GPUClass)
 	options.BudgetPreference = strings.TrimSpace(options.BudgetPreference)
 	options.ExactInstance = strings.TrimSpace(options.ExactInstance)
+	placement, err := normalizeAWSPlacementInput(options.AWSPlacement)
+	if err != nil {
+		return provisionResolveOptions{}, err
+	}
+	options.AWSPlacement = placement
 	return options, nil
 }
 
@@ -222,6 +232,9 @@ func resolveProvision(options provisionResolveOptions, deps cliDeps) (provisionR
 	provider, ok := provisionCatalogProviderByID(catalog, providerID)
 	if !ok {
 		return provisionResolveResult{}, usageError{err: fmt.Errorf("unknown provider %q", providerID)}
+	}
+	if provider.ID != awsProvisionProviderID && options.AWSPlacement.hasAny() {
+		return provisionResolveResult{}, usageError{err: errors.New("AWS placement flags require --provider aws")}
 	}
 	shape, err := resolveRequestedShape(catalog, options)
 	if err != nil {
@@ -342,7 +355,7 @@ func resolveLiveProviderCandidate(ctx context.Context, provider provisionCatalog
 func catalogResolvedCandidate(provider provisionCatalogProvider, shape provisionCatalogShape, mapping provisionCatalogMapping, constraints provisionResolveConstraints, options provisionResolveOptions) (provisionResolvedCandidate, []string) {
 	region, warnings := resolveRegion(provider.RegionPreferences, options.Region)
 	diskGB := resolveDiskGB(shape, mapping, options.DiskGB)
-	return provisionResolvedCandidate{
+	candidate := provisionResolvedCandidate{
 		Provider:      provider.ID,
 		DisplayName:   provider.DisplayName,
 		Shape:         shape.ID,
@@ -370,7 +383,14 @@ func catalogResolvedCandidate(provider provisionCatalogProvider, shape provision
 			SecretFree:               true,
 		},
 		Warnings: warnings,
-	}, warnings
+	}
+	if provider.ID == awsProvisionProviderID {
+		placement, placementWarnings := catalogAWSPlacement(options.AWSPlacement)
+		candidate.AWSPlacement = &placement
+		warnings = append(warnings, placementWarnings...)
+		candidate.Warnings = warnings
+	}
+	return candidate, warnings
 }
 
 func resolveHetznerLiveCandidate(ctx context.Context, provider provisionCatalogProvider, shape provisionCatalogShape, constraints provisionResolveConstraints, options provisionResolveOptions, deps cliDeps) (provisionResolvedCandidate, []string, bool) {
@@ -483,6 +503,8 @@ func resolveAWSLiveCandidate(ctx context.Context, provider provisionCatalogProvi
 		return provisionResolvedCandidate{}, []string{"aws live instance-type output did not include a candidate satisfying the requested shape; using catalog fallback"}, false
 	}
 	diskGB := resolveDiskGB(shape, mapping, options.DiskGB)
+	placement, placementWarnings := resolveAWSPlacement(ctx, provider, region, options.AWSPlacement, deps)
+	warnings := append(regionWarnings, placementWarnings...)
 	candidate := provisionResolvedCandidate{
 		Provider:      provider.ID,
 		DisplayName:   provider.DisplayName,
@@ -491,6 +513,7 @@ func resolveAWSLiveCandidate(ctx context.Context, provider provisionCatalogProvi
 		InstanceType:  selected.InstanceType,
 		Region:        region,
 		RegionOptions: provider.RegionPreferences,
+		AWSPlacement:  placement,
 		DiskGB:        diskGB,
 		Machine: provisionResolvedMachine{
 			CPUs:     selected.VCpuInfo.DefaultVCpus,
@@ -509,9 +532,9 @@ func resolveAWSLiveCandidate(ctx context.Context, provider provisionCatalogProvi
 			CommandPreview:           nil,
 			SecretFree:               true,
 		},
-		Warnings: regionWarnings,
+		Warnings: warnings,
 	}
-	return candidate, regionWarnings, true
+	return candidate, warnings, true
 }
 
 func resolveAWSOfferingRegion(ctx context.Context, provider provisionCatalogProvider, instanceType string, requestedRegion string, deps cliDeps) (string, []string, bool) {

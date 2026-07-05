@@ -47,6 +47,9 @@ export function CloudRuntimeResolutionCard({
         <RuntimeCloudFact label="Cost" value={costLabel(resolution)} />
         <RuntimeCloudFact label="Image" value={resolution.imageSelector.value} />
         <RuntimeCloudFact label="Auth key" value={authSource === "oauth" ? "OAuth" : "Manual"} />
+        {awsPlacementFacts(resolution).map((fact) => (
+          <RuntimeCloudFact key={fact.label} label={fact.label} value={fact.value} />
+        ))}
       </dl>
       <p className="break-words text-[11px] leading-4 text-muted-foreground">
         {resolution.imageSelector.description}
@@ -74,6 +77,29 @@ export function CloudRuntimeResolutionCard({
       )}
     </article>
   );
+}
+
+function awsPlacementFacts(
+  resolution: CloudRuntimeProvisionResolution,
+): Array<{ label: string; value: string }> {
+  const placement = resolution.awsPlacement;
+  if (!placement) {
+    return [];
+  }
+  return [
+    {
+      label: "VPC",
+      value: placement.vpcId ?? (placement.defaultVpcRequired ? "Default required" : "AWS"),
+    },
+    {
+      label: "Subnet",
+      value: placement.subnetId ?? "AWS",
+    },
+    {
+      label: "Security group",
+      value: placement.securityGroupId ?? "Create",
+    },
+  ];
 }
 
 function RuntimeCloudFact({ label, value }: { label: string; value: string }) {

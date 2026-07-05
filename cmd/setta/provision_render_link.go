@@ -47,6 +47,7 @@ type provisionRenderLinkOptions struct {
 	ServiceUser         string
 	SettaVersion        string
 	SetupReportPath     string
+	SecurityGroupID     string
 	Shape               string
 	StackName           string
 	SubnetID            string
@@ -127,6 +128,7 @@ func provisionRenderLinkOptionsFromArgs(args []string, deps cliDeps) (provisionR
 	flagSet.StringVar(&options.ExpiresAt, "expires-at", "", "RFC3339Nano provisioning expiry; defaults to one hour from now")
 	flagSet.StringVar(&options.VPCID, "vpc-id", "", "optional AWS VPC id for accounts without a default VPC")
 	flagSet.StringVar(&options.SubnetID, "subnet-id", "", "optional AWS subnet id for accounts without a default subnet")
+	flagSet.StringVar(&options.SecurityGroupID, "aws-security-group-id", "", "optional AWS security group id to reuse instead of creating one")
 	flagSet.StringVar(&options.SettaVersion, "setta-version", options.SettaVersion, "explicit Setta release version")
 	flagSet.StringVar(&options.InstallRepo, "install-repo", options.InstallRepo, "GitHub owner/repo for release downloads")
 	flagSet.StringVar(&options.ReleaseBaseURL, "release-base-url", "", "explicit release asset base URL")
@@ -187,6 +189,18 @@ func normalizeProvisionRenderLinkSelection(options *provisionRenderLinkOptions) 
 	options.Region = strings.TrimSpace(options.Region)
 	options.VPCID = strings.TrimSpace(options.VPCID)
 	options.SubnetID = strings.TrimSpace(options.SubnetID)
+	options.SecurityGroupID = strings.TrimSpace(options.SecurityGroupID)
+	placement, err := normalizeAWSPlacementInput(provisionAWSPlacementInput{
+		VPCID:           options.VPCID,
+		SubnetID:        options.SubnetID,
+		SecurityGroupID: options.SecurityGroupID,
+	})
+	if err != nil {
+		return err
+	}
+	options.VPCID = placement.VPCID
+	options.SubnetID = placement.SubnetID
+	options.SecurityGroupID = placement.SecurityGroupID
 	if options.StackName == "" {
 		options.StackName = "setta-" + options.RuntimeName
 	}
@@ -340,6 +354,11 @@ func resolveAWSRenderLinkCandidate(options provisionRenderLinkOptions) (provisio
 		warnings = append(warnings, "instance type was supplied by the caller and was not validated against live AWS data or the fallback catalog")
 	}
 	resolveOptions := provisionResolveOptions{
+		AWSPlacement: provisionAWSPlacementInput{
+			VPCID:           options.VPCID,
+			SubnetID:        options.SubnetID,
+			SecurityGroupID: options.SecurityGroupID,
+		},
 		DiskGB: options.DiskGB,
 		Region: options.Region,
 	}
@@ -368,6 +387,9 @@ func awsQuickCreatePrefilledParameters(options provisionRenderLinkOptions, resol
 	}
 	if options.SubnetID != "" {
 		parameters = append(parameters, provisionLinkParameterValue{Key: "SubnetId", Value: options.SubnetID, Description: "AWS subnet id."})
+	}
+	if options.SecurityGroupID != "" {
+		parameters = append(parameters, provisionLinkParameterValue{Key: "SecurityGroupId", Value: options.SecurityGroupID, Description: "AWS security group id."})
 	}
 	return parameters
 }
@@ -445,7 +467,7 @@ func renderAWSCloudFormationTemplate(options provisionRenderLinkOptions, resolut
 	builder.WriteString("        Parameters: [RuntimeName, TailscaleAuthKey, PairingTokenHash, ProvisionId, ProvisionAttestationKey, ProvisionExpiresAt]\n")
 	builder.WriteString("      - Label:\n")
 	builder.WriteString("          default: AWS placement\n")
-	builder.WriteString("        Parameters: [InstanceType, UbuntuAmiId, DiskGB, VpcId, SubnetId]\n")
+	builder.WriteString("        Parameters: [InstanceType, UbuntuAmiId, DiskGB, VpcId, SubnetId, SecurityGroupId]\n")
 	builder.WriteString("Parameters:\n")
 	builder.WriteString("  RuntimeName:\n")
 	builder.WriteString("    Type: String\n")
@@ -498,12 +520,19 @@ func renderAWSCloudFormationTemplate(options provisionRenderLinkOptions, resolut
 	builder.WriteString("    Type: String\n")
 	builder.WriteString("    Default: " + yamlSingleQuote(options.SubnetID) + "\n")
 	builder.WriteString("    Description: Optional subnet id. Leave empty to use an AWS-selected default subnet.\n")
+	builder.WriteString("  SecurityGroupId:\n")
+	builder.WriteString("    Type: String\n")
+	builder.WriteString("    Default: " + yamlSingleQuote(options.SecurityGroupID) + "\n")
+	builder.WriteString("    Description: Optional existing security group id. Leave empty for Setta to create an outbound-only group.\n")
 	builder.WriteString("Conditions:\n")
 	builder.WriteString("  HasVpcId: !Not [!Equals [!Ref VpcId, '']]\n")
 	builder.WriteString("  HasSubnetId: !Not [!Equals [!Ref SubnetId, '']]\n")
+	builder.WriteString("  HasSecurityGroupId: !Not [!Equals [!Ref SecurityGroupId, '']]\n")
+	builder.WriteString("  CreateRuntimeSecurityGroup: !Equals [!Ref SecurityGroupId, '']\n")
 	builder.WriteString("Resources:\n")
 	builder.WriteString("  RuntimeSecurityGroup:\n")
 	builder.WriteString("    Type: AWS::EC2::SecurityGroup\n")
+	builder.WriteString("    Condition: CreateRuntimeSecurityGroup\n")
 	builder.WriteString("    Properties:\n")
 	builder.WriteString("      GroupDescription: !Sub 'Setta runtime ${RuntimeName} outbound-only access'\n")
 	builder.WriteString("      VpcId: !If [HasVpcId, !Ref VpcId, !Ref AWS::NoValue]\n")
@@ -519,7 +548,7 @@ func renderAWSCloudFormationTemplate(options provisionRenderLinkOptions, resolut
 	builder.WriteString("      InstanceType: !Ref InstanceType\n")
 	builder.WriteString("      SubnetId: !If [HasSubnetId, !Ref SubnetId, !Ref AWS::NoValue]\n")
 	builder.WriteString("      SecurityGroupIds:\n")
-	builder.WriteString("        - !Ref RuntimeSecurityGroup\n")
+	builder.WriteString("        - !If [HasSecurityGroupId, !Ref SecurityGroupId, !Ref RuntimeSecurityGroup]\n")
 	builder.WriteString("      BlockDeviceMappings:\n")
 	builder.WriteString("        - DeviceName: /dev/sda1\n")
 	builder.WriteString("          Ebs:\n")

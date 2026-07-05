@@ -204,29 +204,32 @@ func TestProvisionResolveUsesAWSLiveInstanceTypeData(t *testing.T) {
 		}
 		return "", &exec.Error{Name: name, Err: exec.ErrNotFound}
 	}
-	deps.commandRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		if name != "aws" {
-			return nil, fmt.Errorf("unexpected command %s %v", name, args)
-		}
-		switch {
-		case reflect.DeepEqual(args, []string{
+	deps.commandRunner = awsProbeOutputRunner(t, map[string][]byte{
+		awsProbeKey([]string{
 			"ec2", "describe-instance-type-offerings",
 			"--filters", "Name=instance-type,Values=t3.xlarge",
 			"--region", "us-east-1",
 			"--output", "json",
-		}):
-			return []byte(`{"InstanceTypeOfferings":[{"InstanceType":"t3.xlarge","LocationType":"region","Location":"us-east-1"}]}`), nil
-		case reflect.DeepEqual(args, []string{
+		}): []byte(`{"InstanceTypeOfferings":[{"InstanceType":"t3.xlarge","LocationType":"region","Location":"us-east-1"}]}`),
+		awsProbeKey([]string{
 			"ec2", "describe-instance-types",
 			"--instance-types", "t3.xlarge",
 			"--region", "us-east-1",
 			"--output", "json",
-		}):
-			return []byte(`{"InstanceTypes":[{"InstanceType":"t3.xlarge","VCpuInfo":{"DefaultVCpus":4},"MemoryInfo":{"SizeInMiB":16384}}]}`), nil
-		default:
-			return nil, fmt.Errorf("unexpected aws args %v", args)
-		}
-	}
+		}): []byte(`{"InstanceTypes":[{"InstanceType":"t3.xlarge","VCpuInfo":{"DefaultVCpus":4},"MemoryInfo":{"SizeInMiB":16384}}]}`),
+		awsProbeKey([]string{
+			"ec2", "describe-vpcs",
+			"--filters", "Name=isDefault,Values=true",
+			"--region", "us-east-1",
+			"--output", "json",
+		}): []byte(`{"Vpcs":[{"VpcId":"vpc-default123"}]}`),
+		awsProbeKey([]string{
+			"ec2", "describe-subnets",
+			"--filters", "Name=vpc-id,Values=vpc-default123", "Name=default-for-az,Values=true",
+			"--region", "us-east-1",
+			"--output", "json",
+		}): []byte(`{"Subnets":[{"SubnetId":"subnet-default123"}]}`),
+	})
 
 	code := runWithDeps([]string{
 		"provision", "resolve", "--json",
@@ -250,6 +253,67 @@ func TestProvisionResolveUsesAWSLiveInstanceTypeData(t *testing.T) {
 	}
 	if resolution.Cost.Kind != "unknown" || !strings.Contains(resolution.Cost.Description, "AWS CLI") {
 		t.Fatalf("cost = %+v", resolution.Cost)
+	}
+	if resolution.AWSPlacement == nil ||
+		resolution.AWSPlacement.VPCID != "vpc-default123" ||
+		resolution.AWSPlacement.SubnetID != "subnet-default123" ||
+		resolution.AWSPlacement.SecurityGroupMode != "create" ||
+		resolution.AWSPlacement.Source != "live_default" ||
+		resolution.AWSPlacement.DefaultVPCRequired {
+		t.Fatalf("aws placement = %+v", resolution.AWSPlacement)
+	}
+}
+
+func TestProvisionResolveAWSExplicitPlacementSkipsDefaultVPCProbe(t *testing.T) {
+	var stdout bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+	deps.lookPath = func(name string) (string, error) {
+		if name == "aws" {
+			return "/usr/bin/aws", nil
+		}
+		return "", &exec.Error{Name: name, Err: exec.ErrNotFound}
+	}
+	deps.commandRunner = awsProbeOutputRunner(t, map[string][]byte{
+		awsProbeKey([]string{
+			"ec2", "describe-instance-type-offerings",
+			"--filters", "Name=instance-type,Values=t3.xlarge",
+			"--region", "us-east-1",
+			"--output", "json",
+		}): []byte(`{"InstanceTypeOfferings":[{"InstanceType":"t3.xlarge"}]}`),
+		awsProbeKey([]string{
+			"ec2", "describe-instance-types",
+			"--instance-types", "t3.xlarge",
+			"--region", "us-east-1",
+			"--output", "json",
+		}): []byte(`{"InstanceTypes":[{"InstanceType":"t3.xlarge","VCpuInfo":{"DefaultVCpus":4},"MemoryInfo":{"SizeInMiB":16384}}]}`),
+	})
+
+	code := runWithDeps([]string{
+		"provision", "resolve", "--json",
+		"--provider", "aws",
+		"--shape", "dev-standard",
+		"--region", "us-east-1",
+		"--aws-vpc-id", "vpc-explicit123",
+		"--aws-subnet-id", "subnet-explicit123",
+		"--aws-security-group-id", "sg-explicit123",
+	}, deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionResolveResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse resolve JSON: %v\n%s", err, stdout.String())
+	}
+	placement := result.Resolution.AWSPlacement
+	if placement == nil ||
+		placement.VPCID != "vpc-explicit123" ||
+		placement.SubnetID != "subnet-explicit123" ||
+		placement.SecurityGroupID != "sg-explicit123" ||
+		placement.SecurityGroupMode != "existing" ||
+		placement.Source != "caller" ||
+		placement.DefaultVPCRequired {
+		t.Fatalf("aws placement = %+v", placement)
 	}
 }
 
@@ -376,6 +440,24 @@ func provisionResolveNoCLIDeps(stdout *bytes.Buffer) cliDeps {
 		return "", &exec.Error{Name: name, Err: exec.ErrNotFound}
 	}
 	return deps
+}
+
+func awsProbeOutputRunner(t *testing.T, outputs map[string][]byte) func(context.Context, string, ...string) ([]byte, error) {
+	t.Helper()
+	return func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name != "aws" {
+			return nil, fmt.Errorf("unexpected command %s %v", name, args)
+		}
+		output, ok := outputs[awsProbeKey(args)]
+		if !ok {
+			return nil, fmt.Errorf("unexpected aws args %v", args)
+		}
+		return output, nil
+	}
+}
+
+func awsProbeKey(args []string) string {
+	return strings.Join(args, "\x00")
 }
 
 func requireCatalogProvider(t *testing.T, catalog provisionCatalog, providerID string) provisionCatalogProvider {
