@@ -55,46 +55,6 @@ describe("transcript scroll follow decisions", () => {
     ).toEqual({ mode: "auto_follow", shouldScrollToLatest: true });
   });
 
-  it("detaches from explicit upward wheel intent during programmatic follow", () => {
-    expect(
-      decideTranscriptScrollFollowAfterScroll({
-        metrics: scrollMetrics({ distanceFromBottom: 12, scrollTop: 988 }),
-        mode: "auto_follow",
-        pointerScrollIntent: false,
-        previousScrollTop: 1000,
-        programmaticAutoFollow: true,
-        tailScrollIntent: false,
-        wheelScrollIntent: true,
-      }),
-    ).toEqual({ mode: "user_detached", shouldScrollToLatest: false });
-  });
-
-  it("does not auto-scroll from browser scroll adjustments without user or programmatic intent", () => {
-    expect(
-      decideTranscriptScrollFollowAfterScroll({
-        metrics: scrollMetrics({ distanceFromBottom: 0, scrollTop: 1000 }),
-        mode: "auto_follow",
-        pointerScrollIntent: false,
-        previousScrollTop: 988,
-        programmaticAutoFollow: false,
-        tailScrollIntent: false,
-        wheelScrollIntent: false,
-      }),
-    ).toEqual({ mode: "auto_follow", shouldScrollToLatest: false });
-
-    expect(
-      decideTranscriptScrollFollowAfterScroll({
-        metrics: scrollMetrics({ distanceFromBottom: 80, scrollTop: 920 }),
-        mode: "auto_follow",
-        pointerScrollIntent: false,
-        previousScrollTop: 988,
-        programmaticAutoFollow: false,
-        tailScrollIntent: false,
-        wheelScrollIntent: false,
-      }),
-    ).toEqual({ mode: "auto_follow", shouldScrollToLatest: false });
-  });
-
   it("does not reattach detached mode from tolerant range or at-bottom callbacks", () => {
     expect(
       decideTranscriptScrollFollowAfterRangeChanged({

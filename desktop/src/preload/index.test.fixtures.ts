@@ -113,7 +113,6 @@ export function workflowEvent(): WorkflowEvent {
 
 export function workflowGraph(): WorkflowGraph {
   return {
-    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges: [
       {
         condition: null,

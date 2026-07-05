@@ -22,15 +22,12 @@ type CodexHarness struct {
 	manager *codexapp.Manager
 
 	mu                   sync.Mutex
+	turnMu               sync.Mutex
 	active               map[string]*codexActiveTurn
-	activeThreads        map[string]string
 	approvals            map[string]codexPendingApproval
 	approvalsByRequestID map[string]string
 	goalMu               sync.Mutex
 	goalOperations       map[string]*codexGoalOperation
-
-	connectionDiagnosticMu   sync.Mutex
-	connectionDiagnosticSink ConnectionDiagnosticSink
 
 	// Background terminal lifecycle state outlives any single turn. It is guarded
 	// by its own mutex because connection-scoped notification handlers run on the
@@ -45,8 +42,6 @@ type CodexHarness struct {
 	// (which carries that turn's id) and route it instead of failing turn scope.
 	backgroundItemIDs map[string]struct{}
 }
-
-var _ Harness = (*CodexHarness)(nil)
 
 // backgroundTerminalThreadContext routes a Codex thread's late unified-exec
 // notifications to the conversation that owns it, set when a turn starts the
@@ -116,7 +111,6 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 		config:               config,
 		manager:              manager,
 		active:               map[string]*codexActiveTurn{},
-		activeThreads:        map[string]string{},
 		approvals:            map[string]codexPendingApproval{},
 		approvalsByRequestID: map[string]string{},
 		goalOperations:       map[string]*codexGoalOperation{},
@@ -125,8 +119,6 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 		backgroundItemIDs:    map[string]struct{}{},
 	}
 	harness.registerBackgroundTerminalHandlers()
-	harness.registerConnectionNotificationHandlers()
-	harness.registerConnectionRequestHandlers()
 	return harness
 }
 
@@ -137,16 +129,18 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	if err := harness.rejectLinkedGoalOperationThread(request.ThreadRef); err != nil {
 		return TurnCompletion{}, err
 	}
-	reservedThreadID, releaseReservedThread, err := harness.reserveLinkedActiveThread(request)
-	if err != nil {
+	harness.turnMu.Lock()
+	defer harness.turnMu.Unlock()
+	if err := harness.rejectLinkedGoalOperationThread(request.ThreadRef); err != nil {
 		return TurnCompletion{}, err
 	}
-	defer releaseReservedThread()
 
 	session, err := harness.manager.NewSession(ctx)
 	if err != nil {
 		return TurnCompletion{}, err
 	}
+	session.AcceptUnscopedNotifications()
+	session.AcceptUnscopedRequests()
 	defer session.Close()
 	harness.registerActive(request.Run.ID, session, request)
 	defer harness.unregisterActive(request.Run.ID)
@@ -159,11 +153,6 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	if harness.hasGoalOperation(threadID) {
 		return TurnCompletion{}, fmt.Errorf("codex goal operation already owns thread %s", threadID)
 	}
-	releaseStartedThread, err := harness.reserveStartedActiveThread(reservedThreadID, threadID, request.Run.ID)
-	if err != nil {
-		return TurnCompletion{}, err
-	}
-	defer releaseStartedThread()
 	if err := session.OwnThread(threadID); err != nil {
 		return TurnCompletion{}, err
 	}
@@ -185,34 +174,6 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 		return TurnCompletion{}, err
 	}
 	return harness.waitForTurn(ctx, session, request.Run.ID, threadID, turnID, sink)
-}
-
-func (harness *CodexHarness) reserveLinkedActiveThread(request TurnRequest) (string, func(), error) {
-	threadID := linkedCodexThreadID(request.ThreadRef)
-	if threadID == "" {
-		return "", func() {}, nil
-	}
-	if err := harness.reserveActiveThread(threadID, request.Run.ID); err != nil {
-		return "", nil, err
-	}
-	return threadID, func() {
-		harness.releaseActiveThread(threadID, request.Run.ID)
-	}, nil
-}
-
-func (harness *CodexHarness) reserveStartedActiveThread(reservedThreadID string, threadID string, runID string) (func(), error) {
-	if reservedThreadID != "" {
-		if reservedThreadID != threadID {
-			return nil, fmt.Errorf("codex linked thread %s resumed as different thread %s", reservedThreadID, threadID)
-		}
-		return func() {}, nil
-	}
-	if err := harness.reserveActiveThread(threadID, runID); err != nil {
-		return nil, err
-	}
-	return func() {
-		harness.releaseActiveThread(threadID, runID)
-	}, nil
 }
 
 func (harness *CodexHarness) rejectLinkedGoalOperationThread(threadRef HarnessThreadRef) error {
@@ -709,33 +670,6 @@ func (harness *CodexHarness) registerActive(runID string, session *codexapp.Sess
 	harness.mu.Lock()
 	defer harness.mu.Unlock()
 	harness.active[runID] = &codexActiveTurn{request: request, session: session}
-}
-
-func (harness *CodexHarness) reserveActiveThread(threadID string, runID string) error {
-	if threadID == "" {
-		return fmt.Errorf("codex active thread reservation requires a thread id")
-	}
-	if runID == "" {
-		return fmt.Errorf("codex active thread reservation for %s requires a run id", threadID)
-	}
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-	if ownerRunID, ok := harness.activeThreads[threadID]; ok {
-		return fmt.Errorf("codex thread %s already has active run %s", threadID, ownerRunID)
-	}
-	harness.activeThreads[threadID] = runID
-	return nil
-}
-
-func (harness *CodexHarness) releaseActiveThread(threadID string, runID string) {
-	if threadID == "" || runID == "" {
-		return
-	}
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-	if harness.activeThreads[threadID] == runID {
-		delete(harness.activeThreads, threadID)
-	}
 }
 
 func (harness *CodexHarness) activeTurnSnapshot(runID string) *codexActiveTurn {

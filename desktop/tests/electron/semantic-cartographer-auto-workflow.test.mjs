@@ -800,7 +800,6 @@ async function rendererSemanticGraph(client, method, args) {
 
 function workflowGraph(nodes, edges) {
   return {
-    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges,
     layout: {
       nodes: nodes.map((node, index) => ({
@@ -829,8 +828,9 @@ function workflowCodexNode(id, prompt) {
     action: {
       codex: {
         freshConversation: true,
+        model: "",
         prompt,
-        settings: { model: "", permission: null, reasoningEffort: null },
+        reasoningEffort: "",
       },
       kind: "agent.codex",
     },
