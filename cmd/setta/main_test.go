@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"setta/internal/httpapi"
+	"setta/internal/orchestrator"
 	"setta/internal/runtime"
 )
 
@@ -294,6 +295,54 @@ func TestRuntimeRenameIntegration(t *testing.T) {
 	}
 	if state.DisplayName != "setta-copper-lantern" {
 		t.Fatalf("serve-state display name = %q, want setta-copper-lantern", state.DisplayName)
+	}
+}
+
+func TestWorkflowSchemaCommandIntegration(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	var stdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	if code := runWithDeps([]string{"workflow", "schema", "--app-data-dir", appDataDir}, commandDeps); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+
+	var schema orchestrator.WorkflowSchema
+	if err := json.NewDecoder(&stdout).Decode(&schema); err != nil {
+		t.Fatalf("decode workflow schema output: %v\noutput:\n%s", err, stdout.String())
+	}
+	if schema.SchemaVersion != orchestrator.SchemaVersion {
+		t.Fatalf("schema version = %d, want %d", schema.SchemaVersion, orchestrator.SchemaVersion)
+	}
+	if schema.GraphType != "WorkflowGraph" {
+		t.Fatalf("graph type = %q, want WorkflowGraph", schema.GraphType)
+	}
+	if len(schema.GraphSchema) == 0 || !json.Valid(schema.GraphSchema) {
+		t.Fatalf("graph schema is empty or invalid: %s", string(schema.GraphSchema))
+	}
+	if len(schema.Actions) != 1 || schema.Actions[0].Kind != orchestrator.ActionKindAgentCodex {
+		t.Fatalf("actions = %+v, want agent.codex schema", schema.Actions)
 	}
 }
 

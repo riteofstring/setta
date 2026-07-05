@@ -226,6 +226,30 @@ The CLI should authenticate to the local runtime, expose the workflow commands,
 and call the workflow backend through the backend API. Command responses should
 return typed data and validation diagnostics instead of prose-only summaries.
 
+Progress on 2026-07-06:
+
+- Added `setta workflow schema [--app-data-dir DIR]` as the first
+  workflow-authoring CLI command.
+- The command reads the local serve state, verifies the runtime identity, mints
+  a short-lived command-specific CLI auth session, calls the authenticated
+  backend `GET /workflows/schema` contract, validates the typed response, and
+  prints the schema as JSON.
+- Added a focused CLI integration test that starts a disposable local runtime
+  and exercises the command through the real CLI dispatch and backend HTTP
+  route.
+- Verification: `./scripts/go.sh test ./cmd/setta` and
+  `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`
+  passed. The final pre-commit gates `./scripts/format.sh` and
+  `./check_quality.sh --git-changes` passed after reducing top-level CLI
+  dispatch complexity. `node desktop/tests/electron/run-workflows.mjs
+  --workflow workflow-graph-smoke` also passed as a production app-path
+  workflow sanity check.
+- Remaining Phase 2 work: add `current-workspace`, definitions
+  list/read/validate/save with explicit create/update save input and structured
+  diagnostics, then execution start/read. Add the broader workflow-authoring
+  Electron coverage as mutating CLI commands are introduced and the in-app path
+  moves to this surface.
+
 ### Phase 3: Add The Workflow-Builder Skill
 
 Add the workflow-builder skill with instructions for the schema, draft,
