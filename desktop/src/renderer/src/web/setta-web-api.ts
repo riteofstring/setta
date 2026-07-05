@@ -483,6 +483,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       readUILayout: (workspaceId) => requireClient().readWorkspaceUILayout({ workspaceId }),
       removeRecent: (id) => requireClient().removeRecentWorkspace({ id }),
       reorder: (ids) => requireClient().reorderWorkspace({ ids }),
+      resetUILayout: (workspaceId) => requireClient().resetWorkspaceUILayout({ workspaceId }),
       saveUILayout: (layout) => requireClient().saveWorkspaceUILayout({ layout }),
       select: (id) => requireClient().selectWorkspace({ id }),
       selectedConversations: () => requireClient().workspaceSelectedConversations(),

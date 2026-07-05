@@ -118,6 +118,35 @@ func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
 	}
 }
 
+func TestWorkspaceUILayoutResetEndpointRecreatesDefaultLayout(t *testing.T) {
+	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Revision = 5
+	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
+		Layout: layout,
+	}, http.StatusOK)
+
+	reset := postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/reset", ResetWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if reset.WorkspaceID != opened.Workspace.ID || reset.Revision != 6 || len(reset.Panes) != 4 {
+		t.Fatalf("reset layout = %+v, want default layout at revision 6", reset)
+	}
+	if reset.Panes[0].SurfaceKind != workspaceui.SurfaceKindChatDOM || reset.Panes[3].SurfaceKind != workspaceui.SurfaceKindSettingsDOM {
+		t.Fatalf("reset pane kinds = %+v, want backend default panes", reset.Panes)
+	}
+
+	read := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if read.Layout == nil || read.Layout.Revision != reset.Revision || len(read.Layout.Panes) != len(reset.Panes) {
+		t.Fatalf("read reset layout = %+v, want persisted reset layout", read.Layout)
+	}
+}
+
 func TestWorkspaceUILayoutEndpointRejectsUnknownWorkspace(t *testing.T) {
 	handler := newWorkspaceHandler(t, nil, nil)
 

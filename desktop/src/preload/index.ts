@@ -428,6 +428,7 @@ const api: SettaAPI = {
     readUILayout: (workspaceId: string) => invoke("workspaceReadUILayout", workspaceId),
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
+    resetUILayout: (workspaceId: string) => invoke("workspaceResetUILayout", workspaceId),
     saveUILayout: (layout) => invoke("workspaceSaveUILayout", layout),
     select: (id: string) => invoke("workspaceSelect", id),
     selectedConversations: () => invoke("workspaceSelectedConversations"),

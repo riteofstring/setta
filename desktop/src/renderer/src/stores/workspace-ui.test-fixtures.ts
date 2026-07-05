@@ -1,3 +1,4 @@
+import type { WorkspaceUILayout } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 
 export function workspaceUIReadFixtureAPI(
@@ -29,5 +30,16 @@ function emptyWorkspaceUISchema(): Awaited<ReturnType<SettaAPI["workspace"]["rea
     schemaVersion: 1,
     surfaceCloseModes: [],
     surfaceKinds: [],
+  };
+}
+
+export function emptyWorkspaceUILayout(workspaceId: string): WorkspaceUILayout {
+  return {
+    columns: [],
+    focusedPaneId: "",
+    panes: [],
+    revision: 1,
+    schemaVersion: 3,
+    workspaceId,
   };
 }

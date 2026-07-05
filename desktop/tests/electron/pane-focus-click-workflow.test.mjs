@@ -112,6 +112,11 @@ try {
       state.scenario.focusAwayPaneId === scenario.focusAwayPaneId,
   );
   await captureScreenshot(context.client, join(artifactDir, "after-top-click.png"));
+  const resetLayout = await resetWorkspaceUILayoutThroughRenderer(
+    context.client,
+    seededWorkspaceId,
+  );
+  const resetState = await waitForWorkspaceUILayoutReset(context.client, resetLayout);
 
   await writeJson(join(artifactDir, "summary.json"), {
     afterContentLayout: afterContentState.layout,
@@ -120,6 +125,8 @@ try {
     beforeContentLayout,
     eventSyncState,
     paneMetadata,
+    resetLayout,
+    resetState,
     scenario,
     status: "passed",
     viewport,
@@ -259,6 +266,47 @@ async function waitForWorkspaceUILayoutEventSync(client, expectedLayout) {
       ...state,
       expectedRevision: expectedLayout.revision,
       expectedTitle: workspaceUILayoutEventSyncedTitle,
+      expectedWorkspaceId: expectedLayout.workspaceId,
+    }),
+  );
+}
+
+async function resetWorkspaceUILayoutThroughRenderer(client, workspaceId) {
+  const resetLayout = await client.evaluate(`(async () => {
+    return await window.setta.workspace.resetUILayout(${JSON.stringify(workspaceId)});
+  })()`);
+  if (
+    resetLayout.workspaceId !== workspaceId ||
+    resetLayout.revision <= 0 ||
+    resetLayout.panes.length !== 4 ||
+    resetLayout.columns.length !== 4
+  ) {
+    throw new Error(
+      `workspace UI reset returned unexpected layout: ${JSON.stringify(resetLayout)}`,
+    );
+  }
+  return resetLayout;
+}
+
+async function waitForWorkspaceUILayoutReset(client, expectedLayout) {
+  return waitForLoggedState(
+    client,
+    driverCallExpression("workspaceUILayoutResetState"),
+    "workspace UI layout reset",
+    (state) =>
+      state.ok &&
+      state.workspaceId === expectedLayout.workspaceId &&
+      state.revision === expectedLayout.revision &&
+      state.paneCount === 4 &&
+      state.focusedPaneId === expectedLayout.focusedPaneId &&
+      state.surfaceKinds.includes("chat-dom") &&
+      state.surfaceKinds.includes("terminal") &&
+      state.surfaceKinds.includes("workflow-graph") &&
+      state.surfaceKinds.includes("settings-dom"),
+    (state) => ({
+      ...state,
+      expectedFocusedPaneId: expectedLayout.focusedPaneId,
+      expectedRevision: expectedLayout.revision,
       expectedWorkspaceId: expectedLayout.workspaceId,
     }),
   );

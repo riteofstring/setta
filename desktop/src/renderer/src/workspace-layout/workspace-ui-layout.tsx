@@ -349,6 +349,34 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
   return { layoutPersistenceError, persistLayout, resetLayoutPersistenceError };
 }
 
+export function useWorkspaceUILayoutReset({
+  onLayoutReset,
+  workspaceId,
+}: {
+  onLayoutReset: (layout: WorkspaceUILayout) => void;
+  workspaceId: string;
+}) {
+  const [layoutResetError, setLayoutResetError] = useState<string | null>(null);
+  const resetLayout = useCallback((): Promise<void> => {
+    return window.setta.workspace
+      .resetUILayout(workspaceId)
+      .then((layout) => {
+        setLayoutResetError(null);
+        onLayoutReset(layout);
+      })
+      .catch((error: unknown) => {
+        setLayoutResetError(
+          `Workspace UI layout reset failed: ${layoutOperationErrorMessage(error)}`,
+        );
+        throw error;
+      });
+  }, [onLayoutReset, workspaceId]);
+  const resetLayoutResetError = useCallback(() => {
+    setLayoutResetError(null);
+  }, []);
+  return { layoutResetError, resetLayout, resetLayoutResetError };
+}
+
 export function useWorkspaceUILayoutEventSync({
   mode,
   onLayoutUpdate,
@@ -446,16 +474,16 @@ export function WorkspaceUILayoutRecoveryNotice({
   layoutLoadError,
   message,
   onDismiss,
-  persistLayout,
+  resetLayout,
 }: {
   layoutLoadError: string | null;
   message: string | null;
   onDismiss: () => void;
-  persistLayout: () => Promise<void>;
+  resetLayout: () => Promise<void>;
 }) {
   const recreatePersistedLayout = useCallback(() => {
-    void persistLayout().then(onDismiss, () => {});
-  }, [onDismiss, persistLayout]);
+    void resetLayout().then(onDismiss, () => {});
+  }, [onDismiss, resetLayout]);
 
   return (
     <WorkspaceLayoutRecoveryNotice
@@ -480,6 +508,7 @@ export function workspaceLayoutRecoveryMessage({
   layoutLoadError,
   paneMetadataLoadError,
   layoutPersistenceError,
+  layoutResetError,
   runtime,
 }: {
   dismissed: boolean;
@@ -487,12 +516,14 @@ export function workspaceLayoutRecoveryMessage({
   layoutLoadError: string | null;
   paneMetadataLoadError: string | null;
   layoutPersistenceError: string | null;
+  layoutResetError: string | null;
   runtime: WorkspaceRuntime;
 }): string | null {
   if (dismissed) {
     return null;
   }
   return (
+    layoutResetError ??
     layoutLoadError ??
     layoutPersistenceError ??
     layoutEventSyncError ??

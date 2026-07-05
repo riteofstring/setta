@@ -25,6 +25,7 @@ describe("workspace UI IPC handlers", () => {
     await invoke(handlers, ipcChannels.workspaceListUIPanes, "workspace_api");
     await invoke(handlers, ipcChannels.workspaceReadUIPane, "workspace_api", "workspace_pane_1");
     await invoke(handlers, ipcChannels.workspaceReadUILayout, "workspace_api");
+    await invoke(handlers, ipcChannels.workspaceResetUILayout, "workspace_api");
     await invoke(handlers, ipcChannels.workspaceSaveUILayout, layout);
 
     expect(backend.readWorkspaceUISchema).toHaveBeenCalledWith();
@@ -34,6 +35,7 @@ describe("workspace UI IPC handlers", () => {
       workspaceId: "workspace_api",
     });
     expect(backend.readWorkspaceUILayout).toHaveBeenCalledWith({ workspaceId: "workspace_api" });
+    expect(backend.resetWorkspaceUILayout).toHaveBeenCalledWith({ workspaceId: "workspace_api" });
     expect(backend.saveWorkspaceUILayout).toHaveBeenCalledWith({ layout });
   });
 });
@@ -68,6 +70,7 @@ function workspaceUIBackendClient(): BackendClient {
       layout: null,
       workspaceId: "workspace_api",
     })),
+    resetWorkspaceUILayout: vi.fn(async () => workspaceUILayout()),
     saveWorkspaceUILayout: vi.fn(async (request: { layout: WorkspaceUILayout }) => request.layout),
   } as unknown as BackendClient;
 }

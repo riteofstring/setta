@@ -1,6 +1,8 @@
 package workspaceui
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -153,6 +155,72 @@ func TestServiceInitializeLayoutRejectsExistingLayout(t *testing.T) {
 	}
 	if read.Layout == nil || !reflect.DeepEqual(*read.Layout, existing) {
 		t.Fatalf("read layout after rejected initialize = %+v, want existing layout", read.Layout)
+	}
+}
+
+func TestServiceResetLayoutReplacesExistingLayoutWithNextRevision(t *testing.T) {
+	service := newEventTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	}, 4)
+	existing := testLayout("workspace_api")
+	existing.Revision = 7
+	existing.Panes = existing.Panes[:1]
+	existing.Columns = existing.Columns[:1]
+	existing.Columns[0].PaneIDs = []string{existing.Panes[0].PaneID}
+	existing.FocusedPaneID = existing.Panes[0].PaneID
+	if _, err := service.SaveLayout(existing); err != nil {
+		t.Fatalf("save existing layout: %v", err)
+	}
+	subscription := subscribeWorkspaceUIEvents(t, service, EventCursor{}, "workspace_api")
+	defer subscription.Unsubscribe()
+	_ = receiveWorkspaceUIEvent(t, subscription)
+
+	layout, err := service.ResetLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("reset layout: %v", err)
+	}
+	if layout.WorkspaceID != "workspace_api" || layout.Revision != 8 || len(layout.Panes) != 4 {
+		t.Fatalf("reset layout = %+v, want default layout at revision 8", layout)
+	}
+	if layout.Panes[0].Subtitle != "workspace_api" {
+		t.Fatalf("reset first pane subtitle = %q, want workspace_api", layout.Panes[0].Subtitle)
+	}
+
+	event := receiveWorkspaceUIEvent(t, subscription)
+	if event.Type != WorkspaceUIEventTypeLayoutUpdated || event.Revision != 8 || event.Layout == nil {
+		t.Fatalf("event = %+v, want reset layout update at revision 8", event)
+	}
+	if !reflect.DeepEqual(*event.Layout, layout) {
+		t.Fatalf("event layout = %+v, want reset layout %+v", event.Layout, layout)
+	}
+}
+
+func TestServiceResetLayoutRecreatesCorruptState(t *testing.T) {
+	appDataDir := t.TempDir()
+	service := newTestService(t, appDataDir, testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	statePath := StateFilePath(appDataDir, "workspace_api")
+	if err := os.MkdirAll(filepath.Dir(statePath), 0o755); err != nil {
+		t.Fatalf("create state dir: %v", err)
+	}
+	if err := os.WriteFile(statePath, []byte(`{"schemaVersion":1}`), 0o644); err != nil {
+		t.Fatalf("write corrupt state: %v", err)
+	}
+
+	layout, err := service.ResetLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("reset corrupt layout: %v", err)
+	}
+	if layout.WorkspaceID != "workspace_api" || layout.Revision != 1 || len(layout.Panes) != 4 {
+		t.Fatalf("reset corrupt layout = %+v, want default revision 1 layout", layout)
+	}
+	read, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read reset layout: %v", err)
+	}
+	if read.Layout == nil || !reflect.DeepEqual(*read.Layout, layout) {
+		t.Fatalf("read reset layout = %+v, want %+v", read.Layout, layout)
 	}
 }
 

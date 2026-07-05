@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 17;
-export const backendContractSchemaHash = "sha256:6e58af3226c8937bd7206b106e928071261e63cd5df48a3e4e58fd49bb57a606";
+export const backendProtocolVersion = 18;
+export const backendContractSchemaHash = "sha256:3f1ac12766107eaa80816335f6936989c0888af18411ff2cddb29bc8dabfb2c5";
 
 export type DeviceScope = "full";
 
@@ -3302,6 +3302,10 @@ export interface WorkspaceUILayout {
 export interface WorkspaceUILayoutReadResult {
   workspaceId: string;
   layout: WorkspaceUILayout | null;
+}
+
+export interface ResetWorkspaceUILayoutRequest {
+  workspaceId: string;
 }
 
 export interface SaveWorkspaceUILayoutRequest {
@@ -6974,6 +6978,11 @@ export const backendEndpoints = {
     path: "/workspaces/ui/layout/read",
     requestBodyLimitBytes: 4194304,
   },
+  ResetWorkspaceUILayout: {
+    method: "POST",
+    path: "/workspaces/ui/layout/reset",
+    requestBodyLimitBytes: 4194304,
+  },
   SaveWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/save",
@@ -8311,6 +8320,14 @@ export function decodeWorkspaceUILayoutReadResult(value: unknown): WorkspaceUILa
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUILayoutReadResult"), "WorkspaceUILayoutReadResult.workspaceId"),
     layout: decodeNullable(requireField(record, "layout", "WorkspaceUILayoutReadResult"), "WorkspaceUILayoutReadResult.layout", (item) => decodeWorkspaceUILayout(item)),
+  };
+}
+
+export function decodeResetWorkspaceUILayoutRequest(value: unknown): ResetWorkspaceUILayoutRequest {
+  const record = assertRecord(value, "ResetWorkspaceUILayoutRequest");
+  assertKnownFields(record, "ResetWorkspaceUILayoutRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ResetWorkspaceUILayoutRequest"), "ResetWorkspaceUILayoutRequest.workspaceId"),
   };
 }
 
@@ -13403,6 +13420,7 @@ export interface BackendClient {
   listWorkspaceUIPanes: (request: ListWorkspaceUIPanesRequest) => Promise<WorkspaceUIPaneListResult>;
   readWorkspaceUIPane: (request: ReadWorkspaceUIPaneRequest) => Promise<WorkspaceUIPaneReadResult>;
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
+  resetWorkspaceUILayout: (request: ResetWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
   saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
   readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest) => Promise<ReadWorkspaceActivitySnapshotResponse>;
   readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest) => Promise<ReadWorkflowExecutionActivityResponse>;
@@ -13710,6 +13728,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceUILayoutReadResult,
       endpoint: backendEndpoints.ReadWorkspaceUILayout,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    resetWorkspaceUILayout: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceUILayout,
+      endpoint: backendEndpoints.ResetWorkspaceUILayout,
       fetchImpl,
       requestPayload: request,
     }),

@@ -81,6 +81,27 @@ func (service *Service) InitializeLayout(workspaceID string) (WorkspaceUILayout,
 	return service.SaveLayout(layout)
 }
 
+func (service *Service) ResetLayout(workspaceID string) (WorkspaceUILayout, error) {
+	summary, err := service.resolver.ResolveWorkspace(workspaceID)
+	if err != nil {
+		return WorkspaceUILayout{}, err
+	}
+	read, err := service.store.LoadLayout(workspaceID)
+	if err != nil && !IsCorruptStateError(err) {
+		return WorkspaceUILayout{}, err
+	}
+	revision := 1
+	if err == nil && read.Layout != nil {
+		revision = read.Layout.Revision + 1
+	}
+	layout := DefaultLayout(summary)
+	layout.Revision = revision
+	if layout.WorkspaceID != workspaceID {
+		return WorkspaceUILayout{}, errors.New("default workspace UI layout workspace id mismatch")
+	}
+	return service.SaveLayout(layout)
+}
+
 type defaultWorkspaceUIPaneInput struct {
 	columnID    string
 	sequence    int

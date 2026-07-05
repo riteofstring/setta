@@ -93,6 +93,7 @@ import {
   useWorkspaceUIPaneMetadataLoad,
   useWorkspaceUILayoutLoad,
   useWorkspaceUILayoutPersistence,
+  useWorkspaceUILayoutReset,
   workspaceLayoutAreaLabel,
   workspaceLayoutRecoveryMessage,
   workspacePaneMetadataDataAttributes,
@@ -251,6 +252,10 @@ function WorkspaceLayoutRuntimeArea({
   }, [runtime, setOverviewGhostTarget]);
   const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
     useWorkspaceUILayoutPersistence(runtime, workspaceId);
+  const { layoutResetError, resetLayout, resetLayoutResetError } = useWorkspaceUILayoutReset({
+    onLayoutReset: applyWorkspaceUIEventLayout,
+    workspaceId,
+  });
   const layoutEventSyncError = useWorkspaceUILayoutEventSync({
     mode,
     onLayoutUpdate: applyWorkspaceUIEventLayout,
@@ -276,7 +281,8 @@ function WorkspaceLayoutRuntimeArea({
   useEffect(() => {
     setLayoutRecoveryDismissed(false);
     resetLayoutPersistenceError();
-  }, [resetLayoutPersistenceError, workspaceId]);
+    resetLayoutResetError();
+  }, [resetLayoutPersistenceError, resetLayoutResetError, workspaceId]);
   useEffect(() => {
     if (layoutEventSyncError !== null) {
       setLayoutRecoveryDismissed(false);
@@ -877,6 +883,7 @@ function WorkspaceLayoutRuntimeArea({
     layoutLoadError,
     paneMetadataLoadError: paneMetadataLoad.error,
     layoutPersistenceError,
+    layoutResetError,
     runtime,
   });
   return (
@@ -901,7 +908,7 @@ function WorkspaceLayoutRuntimeArea({
         layoutLoadError={layoutLoadError}
         message={layoutRecoveryMessage}
         onDismiss={() => setLayoutRecoveryDismissed(true)}
-        persistLayout={persistLayout}
+        resetLayout={resetLayout}
       />
       <div className="workspace-stage" data-testid="workspace-presentation-engine" ref={stageRef}>
         <WorkspaceOverviewGhostButton

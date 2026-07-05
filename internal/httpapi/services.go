@@ -41,6 +41,7 @@ type WorkspaceUIService interface {
 	ReadPane(workspaceID string, paneID string) (workspaceui.WorkspaceUIPaneReadResult, error)
 	Schema() workspaceui.WorkspaceUISchema
 	ReadLayout(workspaceID string) (workspaceui.WorkspaceUILayoutReadResult, error)
+	ResetLayout(workspaceID string) (workspaceui.WorkspaceUILayout, error)
 	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
 	SubscribeEvents(cursor workspaceui.EventCursor, workspaceID string) (*workspaceui.EventSubscription, error)
 }

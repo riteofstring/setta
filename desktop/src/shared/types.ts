@@ -439,6 +439,7 @@ export interface SettaAPI {
     readUILayout: (workspaceId: string) => Promise<WorkspaceUILayoutReadResult>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
+    resetUILayout: (workspaceId: string) => Promise<WorkspaceUILayout>;
     saveUILayout: (layout: WorkspaceUILayout) => Promise<WorkspaceUILayout>;
     select: (id: string) => Promise<WorkspaceSession>;
     selectedConversations: () => Promise<WorkspaceSelectedConversations>;

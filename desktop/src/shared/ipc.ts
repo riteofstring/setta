@@ -289,6 +289,7 @@ export const ipcChannels = {
   workspaceReadUILayout: "workspace:read-ui-layout",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
+  workspaceResetUILayout: "workspace:reset-ui-layout",
   workspaceSaveUILayout: "workspace:save-ui-layout",
   workspaceSelect: "workspace:select",
   workspaceSelectedConversations: "workspace:selected-conversations",
@@ -877,6 +878,7 @@ interface IpcContract {
   workspaceReadUILayout: { args: [workspaceId: string]; result: WorkspaceUILayoutReadResult };
   workspaceRemoveRecent: { args: [id: string]; result: WorkspaceSession };
   workspaceReorder: { args: [ids: string[]]; result: WorkspaceSession };
+  workspaceResetUILayout: { args: [workspaceId: string]; result: WorkspaceUILayout };
   workspaceSaveUILayout: { args: [layout: WorkspaceUILayout]; result: WorkspaceUILayout };
   workspaceSelect: { args: [id: string]; result: WorkspaceSession };
   workspaceSelectedConversations: {
