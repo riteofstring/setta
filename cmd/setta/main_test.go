@@ -58,6 +58,8 @@ func TestHelpUsageIncludesWorkspaceCommands(t *testing.T) {
 		"setta workspace panes reorder --input <path> [--app-data-dir DIR]",
 		"setta workspace layout apply --input <path> [--app-data-dir DIR]",
 		"setta workspace terminals read [--app-data-dir DIR] <pane-id> [--recent-output-byte-limit N]",
+		"setta workspace terminals writes prepare [--app-data-dir DIR] <pane-id> --input <path>",
+		"setta workspace terminals writes commit [--app-data-dir DIR] <prepared-write-id> --sha256 SHA256",
 	} {
 		if !strings.Contains(usage, command) {
 			t.Fatalf("usage missing %q:\n%s", command, usage)

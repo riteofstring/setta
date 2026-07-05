@@ -210,6 +210,7 @@ type TerminalPreparedWrite struct {
 
 type TerminalWriteCommitInput struct {
 	PreparedWriteID string `json:"preparedWriteId"`
+	WorkspaceID     string `json:"workspaceId"`
 	DeviceSessionID string `json:"deviceSessionId"`
 	SHA256          string `json:"sha256"`
 }

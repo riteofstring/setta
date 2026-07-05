@@ -1,6 +1,6 @@
 ---
 name: workspace-manager
-description: Manage Setta in-app workspace panes through the `setta workspace` CLI. Use when an agent needs to inspect the active workspace, list or read pane descriptors and capabilities, read terminal pane session output, focus, move, open, close, rename, resize, reorder panes, apply low-risk layout resize transactions, or verify workspace pane layout changes.
+description: Manage Setta in-app workspace panes through the `setta workspace` CLI. Use when an agent needs to inspect the active workspace, list or read pane descriptors and capabilities, read or write terminal pane IO, focus, move, open, close, rename, resize, reorder panes, apply low-risk layout resize transactions, or verify workspace pane layout changes.
 ---
 
 # Workspace Manager
@@ -76,12 +76,20 @@ Treat workspace pane management as distinct from surface content control.
 
 - Use workspace commands for pane metadata and layout only.
 - Use `setta workspace terminals read <pane-id>` only for terminal panes whose `surfaceKind`, `contentRefs.terminal`, and `readModes` include `terminal_screen` and `terminal_recent_output`. It returns the live terminal session summary, current backend screen snapshot (`screen.screenText`, `screen.cursor`, `screen.cols`, `screen.rows`), and bounded retained output bytes. Inspect `screen.unsupportedSequenceCount`, `screen.pendingControlSequence`, and `screen.pendingInputByteCount` before treating the screen as complete.
+- Use terminal writes only for terminal panes whose `surfaceKind`, `contentRefs.terminal`, and `writeModes` include `terminal_input`. Terminal writes use prepare/commit and must preserve exact bytes:
+
+  ```bash
+  setta workspace terminals writes prepare <pane-id> --input terminal-write.json
+  setta workspace terminals writes commit <prepared-write-id> --sha256 <sha256>
+  ```
+
+  The prepare input is exactly `dataBase64`, `byteCount`, and lowercase `sha256`. Do not include or invent `workspaceId`, `paneId`, `sessionId`, or `deviceSessionId`; the CLI and backend bind those from the active workspace, selected pane, resolved live terminal session, and authenticated CLI device session. Inspect the prepare response preview, `workspaceId`, `paneId`, `sessionId`, `byteCount`, `sha256`, and `expiresAt` before committing. Commit only the returned `preparedWriteId` with the same hash; do not reconstruct bytes or prepare a second payload after approval.
 - Use `contentRefs` only as stable references into the owning surface domain.
-- Do not send terminal input, chat messages, chat steering, workflow commands, browser input, or native-view input through workspace layout commands.
+- Do not send chat messages, chat steering, workflow commands, browser input, or native-view input through workspace layout commands.
 - Do not call a surface-domain command unless the pane's `surfaceKind`, `contentRefs`, and advertised modes support that surface and the user request explicitly needs content interaction.
 - Stop and report unsupported capability when a required content reference or pane-targeted surface command is missing.
 
-Current workspace CLI write support is layout-focused. Pane-targeted terminal writes and chat, workflow, and browser surface IO commands are future work unless a current domain-specific command is explicitly available and the target reference is unambiguous.
+Current workspace CLI write support covers layout commands and pane-targeted terminal read/write. Chat, workflow, and browser surface IO commands are future work unless a current domain-specific command is explicitly available and the target reference is unambiguous.
 
 ## Failure Policy
 
@@ -96,6 +104,7 @@ Fail loudly and preserve structured error output when:
 - the requested operation is not supported by the pane capabilities or command contract
 - `safe` or `force` surface close is requested but not supported
 - an input JSON file contains mixed operation payloads or caller-owned pane identity
+- terminal write prepare/commit reports an expired prepared write, target mismatch, device-session mismatch, hash mismatch, short write, or unsupported terminal pane
 - a command returns a structured backend error, warning, or unchanged result that does not satisfy the request
 
 Report the exact command attempted and the relevant JSON error, warning, or validation fields. Do not retry with guessed selectors, old endpoints, raw layout writes, polling, or silent fallback behavior.

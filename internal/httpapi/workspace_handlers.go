@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"setta/internal/terminal"
 	"setta/internal/workspaceui"
 )
 
@@ -184,18 +185,8 @@ func (handler handler) readWorkspaceUITerminal(response http.ResponseWriter, req
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	pane, err := workspaceUIService.ReadPane(payload.WorkspaceID, payload.PaneID)
-	if err != nil {
-		writeWorkspaceUIError(response, "read_workspace_ui_terminal_failed", err)
-		return
-	}
-	if pane.Pane.SurfaceKind != workspaceui.SurfaceKindTerminal || pane.Pane.ContentRefs.Terminal == nil {
-		writeError(
-			response,
-			http.StatusBadRequest,
-			"unsupported_workspace_ui_terminal_pane",
-			fmt.Sprintf("workspace pane %s has surface kind %s, not terminal", payload.PaneID, pane.Pane.SurfaceKind),
-		)
+	pane, ok := readWorkspaceUITerminalPane(response, workspaceUIService, payload.WorkspaceID, payload.PaneID, "read_workspace_ui_terminal_failed")
+	if !ok {
 		return
 	}
 	terminalRead, err := terminalService.ReadPane(request.Context(), payload.WorkspaceID, payload.PaneID, payload.RecentOutputByteLimit)
@@ -205,9 +196,103 @@ func (handler handler) readWorkspaceUITerminal(response http.ResponseWriter, req
 	}
 	writeJSON(response, http.StatusOK, ReadWorkspaceUITerminalResponse{
 		WorkspaceID: payload.WorkspaceID,
-		Pane:        pane.Pane,
+		Pane:        pane,
 		Terminal:    terminalRead,
 	})
+}
+
+func (handler handler) prepareWorkspaceUITerminalWrite(response http.ResponseWriter, request *http.Request) {
+	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if workspaceUIService == nil {
+		return
+	}
+	terminalService := requireTerminalService(response, handler.terminalService)
+	if terminalService == nil {
+		return
+	}
+	deviceSession, ok := authenticatedDeviceSession(request)
+	if !ok {
+		writeError(response, http.StatusInternalServerError, "authenticated_session_unavailable", "authenticated device session is unavailable")
+		return
+	}
+	var payload PrepareWorkspaceUITerminalWriteRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	pane, ok := readWorkspaceUITerminalPane(response, workspaceUIService, payload.WorkspaceID, payload.PaneID, "prepare_workspace_ui_terminal_write_failed")
+	if !ok {
+		return
+	}
+	prepared, err := terminalService.PrepareWrite(request.Context(), terminal.TerminalWritePrepareInput{
+		WorkspaceID:     payload.WorkspaceID,
+		PaneID:          payload.PaneID,
+		DeviceSessionID: deviceSession.ID,
+		DataBase64:      payload.DataBase64,
+		ByteCount:       payload.ByteCount,
+		SHA256:          payload.SHA256,
+	})
+	if err != nil {
+		writeTerminalError(response, "prepare_workspace_ui_terminal_write_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, PrepareWorkspaceUITerminalWriteResponse{
+		WorkspaceID:   payload.WorkspaceID,
+		Pane:          pane,
+		PreparedWrite: prepared,
+	})
+}
+
+func (handler handler) commitWorkspaceUITerminalWrite(response http.ResponseWriter, request *http.Request) {
+	terminalService := requireTerminalService(response, handler.terminalService)
+	if terminalService == nil {
+		return
+	}
+	deviceSession, ok := authenticatedDeviceSession(request)
+	if !ok {
+		writeError(response, http.StatusInternalServerError, "authenticated_session_unavailable", "authenticated device session is unavailable")
+		return
+	}
+	var payload CommitWorkspaceUITerminalWriteRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	committed, err := terminalService.CommitPreparedWrite(request.Context(), terminal.TerminalWriteCommitInput{
+		PreparedWriteID: payload.PreparedWriteID,
+		WorkspaceID:     payload.WorkspaceID,
+		DeviceSessionID: deviceSession.ID,
+		SHA256:          payload.SHA256,
+	})
+	if err != nil {
+		writeTerminalError(response, "commit_workspace_ui_terminal_write_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, CommitWorkspaceUITerminalWriteResponse{
+		PreparedWrite: committed,
+	})
+}
+
+func readWorkspaceUITerminalPane(
+	response http.ResponseWriter,
+	service WorkspaceUIService,
+	workspaceID string,
+	paneID string,
+	errorCode string,
+) (workspaceui.WorkspaceUIPaneDescriptor, bool) {
+	pane, err := service.ReadPane(workspaceID, paneID)
+	if err != nil {
+		writeWorkspaceUIError(response, errorCode, err)
+		return workspaceui.WorkspaceUIPaneDescriptor{}, false
+	}
+	if pane.Pane.SurfaceKind != workspaceui.SurfaceKindTerminal || pane.Pane.ContentRefs.Terminal == nil {
+		writeError(
+			response,
+			http.StatusBadRequest,
+			"unsupported_workspace_ui_terminal_pane",
+			fmt.Sprintf("workspace pane %s has surface kind %s, not terminal", paneID, pane.Pane.SurfaceKind),
+		)
+		return workspaceui.WorkspaceUIPaneDescriptor{}, false
+	}
+	return pane.Pane, true
 }
 
 func (handler handler) applyWorkspaceUIPaneOperation(response http.ResponseWriter, request *http.Request) {

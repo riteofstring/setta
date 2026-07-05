@@ -11,6 +11,7 @@ import (
 
 type authenticatedTestHandler struct {
 	handler http.Handler
+	store   *runtimeauth.Store
 	token   string
 }
 
@@ -33,6 +34,7 @@ func newAuthenticatedTestHandler(t *testing.T, config HandlerConfig) http.Handle
 	}
 	return authenticatedTestHandler{
 		handler: NewHandler(config),
+		store:   store,
 		token:   token,
 	}
 }

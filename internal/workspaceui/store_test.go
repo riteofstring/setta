@@ -416,6 +416,9 @@ func assertTerminalPaneDescriptor(t *testing.T, pane WorkspaceUIPaneDescriptor) 
 		pane.ReadModes[2] != WorkspaceUIPaneReadModeTerminalScreen {
 		t.Fatalf("terminal read modes = %+v, want metadata, terminal_recent_output, and terminal_screen", pane.ReadModes)
 	}
+	if len(pane.WriteModes) != 1 || pane.WriteModes[0] != WorkspaceUIPaneWriteModeTerminalInput {
+		t.Fatalf("terminal write modes = %+v, want terminal_input", pane.WriteModes)
+	}
 	if !pane.CanFocus || !pane.CanMove || !pane.CanClosePane {
 		t.Fatalf("terminal layout mutation capabilities = focus:%v move:%v close:%v, want true", pane.CanFocus, pane.CanMove, pane.CanClosePane)
 	}

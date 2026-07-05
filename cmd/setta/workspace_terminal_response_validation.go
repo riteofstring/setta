@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -41,6 +42,101 @@ func validateWorkspaceTerminalReadResponse(response httpapi.ReadWorkspaceUITermi
 	return nil
 }
 
+func validateWorkspaceTerminalWritePrepareResponse(response httpapi.PrepareWorkspaceUITerminalWriteResponse, workspaceID string, paneID string, sha256 string) error {
+	if response.WorkspaceID != workspaceID {
+		return fmt.Errorf("workspace terminal write prepare returned workspaceId %s, want %s", response.WorkspaceID, workspaceID)
+	}
+	if err := validateWorkspaceTerminalWritePane(response.Pane, paneID); err != nil {
+		return fmt.Errorf("workspace terminal write prepare pane descriptor is invalid: %w", err)
+	}
+	if err := validateTerminalPreparedWrite(response.PreparedWrite, workspaceID, paneID, sha256); err != nil {
+		return fmt.Errorf("workspace terminal write prepare payload is invalid: %w", err)
+	}
+	return nil
+}
+
+func validateWorkspaceTerminalWriteCommitResponse(response httpapi.CommitWorkspaceUITerminalWriteResponse, workspaceID string, preparedWriteID string, sha256 string) error {
+	committed := response.PreparedWrite
+	if committed.PreparedWriteID != preparedWriteID {
+		return fmt.Errorf("workspace terminal write commit returned preparedWriteId %s, want %s", committed.PreparedWriteID, preparedWriteID)
+	}
+	if committed.WorkspaceID != workspaceID {
+		return fmt.Errorf("workspace terminal write commit returned workspaceId %s, want %s", committed.WorkspaceID, workspaceID)
+	}
+	if committed.PaneID == "" {
+		return errors.New("workspace terminal write commit returned empty paneId")
+	}
+	if committed.SessionID == "" {
+		return errors.New("workspace terminal write commit returned empty sessionId")
+	}
+	if committed.DeviceSessionID == "" {
+		return errors.New("workspace terminal write commit returned empty deviceSessionId")
+	}
+	if err := validateLowercaseSHA256(committed.SHA256); err != nil {
+		return fmt.Errorf("workspace terminal write commit returned invalid sha256: %w", err)
+	}
+	if committed.SHA256 != sha256 {
+		return fmt.Errorf("workspace terminal write commit sha256 = %s, want %s", committed.SHA256, sha256)
+	}
+	if committed.ByteCount <= 0 {
+		return fmt.Errorf("workspace terminal write commit byteCount must be positive: %d", committed.ByteCount)
+	}
+	if committed.WrittenByteCount != committed.ByteCount {
+		return fmt.Errorf("workspace terminal write commit wrote %d bytes, want %d", committed.WrittenByteCount, committed.ByteCount)
+	}
+	return nil
+}
+
+func validateWorkspaceTerminalWritePane(pane workspaceui.WorkspaceUIPaneDescriptor, paneID string) error {
+	if pane.PaneID != paneID {
+		return fmt.Errorf("paneId = %s, want %s", pane.PaneID, paneID)
+	}
+	if err := validateWorkspacePaneDescriptor(pane); err != nil {
+		return err
+	}
+	if pane.SurfaceKind != workspaceui.SurfaceKindTerminal {
+		return fmt.Errorf("surfaceKind = %s, want terminal", pane.SurfaceKind)
+	}
+	if pane.ContentRefs.Terminal == nil {
+		return errors.New("terminal content ref is required")
+	}
+	if !workspacePaneWriteModesContain(pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeTerminalInput) {
+		return errors.New("terminal pane descriptor did not advertise terminal_input")
+	}
+	return nil
+}
+
+func validateTerminalPreparedWrite(prepared terminal.TerminalPreparedWrite, workspaceID string, paneID string, sha256 string) error {
+	if prepared.PreparedWriteID == "" {
+		return errors.New("preparedWriteId is required")
+	}
+	if prepared.WorkspaceID != workspaceID {
+		return fmt.Errorf("prepared write workspaceId = %s, want %s", prepared.WorkspaceID, workspaceID)
+	}
+	if prepared.PaneID != paneID {
+		return fmt.Errorf("prepared write paneId = %s, want %s", prepared.PaneID, paneID)
+	}
+	if prepared.SessionID == "" {
+		return errors.New("prepared write sessionId is required")
+	}
+	if prepared.DeviceSessionID == "" {
+		return errors.New("prepared write deviceSessionId is required")
+	}
+	if prepared.ByteCount <= 0 {
+		return fmt.Errorf("prepared write byteCount must be positive: %d", prepared.ByteCount)
+	}
+	if err := validateLowercaseSHA256(prepared.SHA256); err != nil {
+		return fmt.Errorf("prepared write sha256 is invalid: %w", err)
+	}
+	if prepared.SHA256 != sha256 {
+		return fmt.Errorf("prepared write sha256 = %s, want %s", prepared.SHA256, sha256)
+	}
+	if prepared.CreatedAt == "" || prepared.ExpiresAt == "" {
+		return errors.New("prepared write createdAt and expiresAt are required")
+	}
+	return nil
+}
+
 func workspacePaneReadModesContain(readModes []workspaceui.WorkspaceUIPaneReadMode, target workspaceui.WorkspaceUIPaneReadMode) bool {
 	for _, mode := range readModes {
 		if mode == target {
@@ -48,6 +144,23 @@ func workspacePaneReadModesContain(readModes []workspaceui.WorkspaceUIPaneReadMo
 		}
 	}
 	return false
+}
+
+func workspacePaneWriteModesContain(writeModes []workspaceui.WorkspaceUIPaneWriteMode, target workspaceui.WorkspaceUIPaneWriteMode) bool {
+	for _, mode := range writeModes {
+		if mode == target {
+			return true
+		}
+	}
+	return false
+}
+
+func validateLowercaseSHA256(value string) error {
+	decoded, err := hex.DecodeString(value)
+	if err != nil || len(decoded) != 32 || value != strings.ToLower(value) {
+		return errors.New("must be a lowercase 32-byte hex digest")
+	}
+	return nil
 }
 
 func validateTerminalReadResult(result terminal.TerminalReadResult, workspaceID string, paneID string) error {

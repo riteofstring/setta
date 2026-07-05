@@ -180,6 +180,8 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta workspace layout apply --input <path> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workspace schema [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workspace terminals read [--app-data-dir DIR] <pane-id> [--recent-output-byte-limit N]")
+	fmt.Fprintln(output, "  setta workspace terminals writes prepare [--app-data-dir DIR] <pane-id> --input <path>")
+	fmt.Fprintln(output, "  setta workspace terminals writes commit [--app-data-dir DIR] <prepared-write-id> --sha256 SHA256")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke [--app-data-dir DIR] <device-id>")
 	fmt.Fprintln(output, "  setta version")

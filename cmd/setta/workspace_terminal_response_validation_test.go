@@ -53,6 +53,34 @@ func TestValidateWorkspaceTerminalReadResponseRejectsMismatchedScreenText(t *tes
 	}
 }
 
+func TestValidateWorkspaceTerminalWritePrepareResponseAcceptsPreparedWrite(t *testing.T) {
+	response := workspaceTerminalWritePrepareValidationResponse()
+
+	if err := validateWorkspaceTerminalWritePrepareResponse(response, "workspace_api", "workspace_pane_1", workspaceTerminalWriteValidationSHA256()); err != nil {
+		t.Fatalf("validate terminal write prepare response: %v", err)
+	}
+}
+
+func TestValidateWorkspaceTerminalWritePrepareResponseRejectsMissingWriteMode(t *testing.T) {
+	response := workspaceTerminalWritePrepareValidationResponse()
+	response.Pane.WriteModes = []workspaceui.WorkspaceUIPaneWriteMode{}
+
+	err := validateWorkspaceTerminalWritePrepareResponse(response, "workspace_api", "workspace_pane_1", workspaceTerminalWriteValidationSHA256())
+	if err == nil || !strings.Contains(err.Error(), "terminal_input") {
+		t.Fatalf("validation error = %v, want missing terminal_input write mode", err)
+	}
+}
+
+func TestValidateWorkspaceTerminalWriteCommitResponseRejectsShortWrite(t *testing.T) {
+	response := workspaceTerminalWriteCommitValidationResponse()
+	response.PreparedWrite.WrittenByteCount = 4
+
+	err := validateWorkspaceTerminalWriteCommitResponse(response, "workspace_api", "terminal_write_1", workspaceTerminalWriteValidationSHA256())
+	if err == nil || !strings.Contains(err.Error(), "wrote 4 bytes") {
+		t.Fatalf("validation error = %v, want short write rejection", err)
+	}
+}
+
 func workspaceTerminalReadValidationResponse() httpapi.ReadWorkspaceUITerminalResponse {
 	return httpapi.ReadWorkspaceUITerminalResponse{
 		WorkspaceID: "workspace_api",
@@ -117,6 +145,53 @@ func workspaceTerminalReadValidationResponse() httpapi.ReadWorkspaceUITerminalRe
 			},
 		},
 	}
+}
+
+func workspaceTerminalWritePrepareValidationResponse() httpapi.PrepareWorkspaceUITerminalWriteResponse {
+	return httpapi.PrepareWorkspaceUITerminalWriteResponse{
+		WorkspaceID: "workspace_api",
+		Pane:        workspaceTerminalWriteValidationPane(),
+		PreparedWrite: terminal.TerminalPreparedWrite{
+			PreparedWriteID: "terminal_write_1",
+			WorkspaceID:     "workspace_api",
+			PaneID:          "workspace_pane_1",
+			SessionID:       "terminal_session_1",
+			DeviceSessionID: "device_cli",
+			ByteCount:       6,
+			SHA256:          workspaceTerminalWriteValidationSHA256(),
+			Preview:         `ready\n`,
+			CreatedAt:       "2026-07-08T12:00:00Z",
+			ExpiresAt:       "2026-07-08T12:02:00Z",
+		},
+	}
+}
+
+func workspaceTerminalWriteCommitValidationResponse() httpapi.CommitWorkspaceUITerminalWriteResponse {
+	return httpapi.CommitWorkspaceUITerminalWriteResponse{
+		PreparedWrite: terminal.TerminalWriteCommitResult{
+			PreparedWriteID:  "terminal_write_1",
+			WorkspaceID:      "workspace_api",
+			PaneID:           "workspace_pane_1",
+			SessionID:        "terminal_session_1",
+			DeviceSessionID:  "device_cli",
+			ByteCount:        6,
+			SHA256:           workspaceTerminalWriteValidationSHA256(),
+			WrittenByteCount: 6,
+		},
+	}
+}
+
+func workspaceTerminalWriteValidationPane() workspaceui.WorkspaceUIPaneDescriptor {
+	response := workspaceTerminalReadValidationResponse()
+	pane := response.Pane
+	pane.WriteModes = []workspaceui.WorkspaceUIPaneWriteMode{
+		workspaceui.WorkspaceUIPaneWriteModeTerminalInput,
+	}
+	return pane
+}
+
+func workspaceTerminalWriteValidationSHA256() string {
+	return "d2db9244c9d334b210c940ea899c97d08ec700d9baf2186fc942d67e1868a824"
 }
 
 func workspacePaneRuntimeStateLayoutOnlyForValidation() workspaceui.WorkspaceUIPaneRuntimeState {

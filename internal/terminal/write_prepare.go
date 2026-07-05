@@ -77,46 +77,15 @@ func (manager *Manager) CommitPreparedWrite(
 	ctx context.Context,
 	input TerminalWriteCommitInput,
 ) (TerminalWriteCommitResult, error) {
-	if input.PreparedWriteID == "" {
-		return TerminalWriteCommitResult{}, errors.New("prepared write id is required")
-	}
-	if input.DeviceSessionID == "" {
-		return TerminalWriteCommitResult{}, errors.New("device session id is required")
-	}
-	sha256Hex, err := normalizeSHA256(input.SHA256)
+	sha256Hex, err := validateTerminalWriteCommitInput(input)
 	if err != nil {
 		return TerminalWriteCommitResult{}, err
 	}
 	now := manager.clock().UTC()
-	manager.mu.Lock()
-	prepared := manager.preparedWrites[input.PreparedWriteID]
-	if prepared == nil {
-		manager.mu.Unlock()
-		return TerminalWriteCommitResult{}, fmt.Errorf("prepared terminal write not found: %s", input.PreparedWriteID)
-	}
-	if !now.Before(prepared.expiresAt) {
-		delete(manager.preparedWrites, prepared.id)
-		manager.mu.Unlock()
-		return TerminalWriteCommitResult{}, fmt.Errorf("prepared terminal write expired: %s", prepared.id)
-	}
-	if prepared.deviceSessionID != input.DeviceSessionID {
-		manager.mu.Unlock()
-		return TerminalWriteCommitResult{}, fmt.Errorf("prepared terminal write %s belongs to a different device session", prepared.id)
-	}
-	if prepared.sha256 != sha256Hex {
-		manager.mu.Unlock()
-		return TerminalWriteCommitResult{}, fmt.Errorf("prepared terminal write %s sha256 mismatch", prepared.id)
-	}
-	terminalSession, err := manager.preparedWriteSessionLocked(prepared)
+	terminalSession, prepared, result, data, err := manager.prepareTerminalWriteCommit(input, sha256Hex, now)
 	if err != nil {
-		delete(manager.preparedWrites, prepared.id)
-		manager.mu.Unlock()
 		return TerminalWriteCommitResult{}, err
 	}
-	delete(manager.preparedWrites, prepared.id)
-	result := prepared.commitResult()
-	data := append([]byte{}, prepared.data...)
-	manager.mu.Unlock()
 
 	written, err := manager.writeSessionInput(ctx, terminalSession, data)
 	if err != nil {
@@ -130,6 +99,61 @@ func (manager *Manager) CommitPreparedWrite(
 	}
 	result.WrittenByteCount = written
 	return result, nil
+}
+
+func validateTerminalWriteCommitInput(input TerminalWriteCommitInput) (string, error) {
+	if input.PreparedWriteID == "" {
+		return "", errors.New("prepared write id is required")
+	}
+	if input.DeviceSessionID == "" {
+		return "", errors.New("device session id is required")
+	}
+	return normalizeSHA256(input.SHA256)
+}
+
+func (manager *Manager) prepareTerminalWriteCommit(
+	input TerminalWriteCommitInput,
+	sha256Hex string,
+	now time.Time,
+) (*session, *preparedTerminalWrite, TerminalWriteCommitResult, []byte, error) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	prepared := manager.preparedWrites[input.PreparedWriteID]
+	if prepared == nil {
+		return nil, nil, TerminalWriteCommitResult{}, nil, fmt.Errorf("prepared terminal write not found: %s", input.PreparedWriteID)
+	}
+	if !now.Before(prepared.expiresAt) {
+		delete(manager.preparedWrites, prepared.id)
+		return nil, nil, TerminalWriteCommitResult{}, nil, fmt.Errorf("prepared terminal write expired: %s", prepared.id)
+	}
+	if err := prepared.validateCommitTarget(input, sha256Hex); err != nil {
+		return nil, nil, TerminalWriteCommitResult{}, nil, err
+	}
+	terminalSession, err := manager.preparedWriteSessionLocked(prepared)
+	if err != nil {
+		delete(manager.preparedWrites, prepared.id)
+		return nil, nil, TerminalWriteCommitResult{}, nil, err
+	}
+	delete(manager.preparedWrites, prepared.id)
+	result := prepared.commitResult()
+	data := append([]byte{}, prepared.data...)
+	return terminalSession, prepared, result, data, nil
+}
+
+func (prepared *preparedTerminalWrite) validateCommitTarget(input TerminalWriteCommitInput, sha256Hex string) error {
+	if input.WorkspaceID == "" {
+		return errors.New("workspace id is required")
+	}
+	if prepared.workspaceID != input.WorkspaceID {
+		return fmt.Errorf("prepared terminal write %s belongs to workspace %s, not %s", prepared.id, prepared.workspaceID, input.WorkspaceID)
+	}
+	if prepared.deviceSessionID != input.DeviceSessionID {
+		return fmt.Errorf("prepared terminal write %s belongs to a different device session", prepared.id)
+	}
+	if prepared.sha256 != sha256Hex {
+		return fmt.Errorf("prepared terminal write %s sha256 mismatch", prepared.id)
+	}
+	return nil
 }
 
 func decodeAndVerifyTerminalWriteData(input TerminalWritePrepareInput) ([]byte, string, error) {

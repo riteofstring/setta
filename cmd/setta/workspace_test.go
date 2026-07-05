@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -162,6 +165,40 @@ func TestWorkspaceTerminalsReadCommandIntegration(t *testing.T) {
 	}
 	if len(read.Terminal.Screen.Lines) != read.Terminal.Screen.Rows {
 		t.Fatalf("terminal screen lines = %d, want rows %d", len(read.Terminal.Screen.Lines), read.Terminal.Screen.Rows)
+	}
+}
+
+func TestWorkspaceTerminalsWriteCommandsIntegration(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	session := createWorkspaceTerminalSessionForCLITest(t, fixture)
+	data := []byte("echo cli terminal write\n")
+	digest := terminalWriteCLITestSHA256(data)
+	inputPath := writeWorkspaceTerminalWriteInputForCLITest(t, workspaceTerminalWritePrepareInput{
+		DataBase64: base64.StdEncoding.EncodeToString(data),
+		ByteCount:  len(data),
+		SHA256:     digest,
+	})
+
+	prepared := runWorkspaceCommandJSON[httpapi.PrepareWorkspaceUITerminalWriteResponse](t, fixture, "terminals", "writes", "prepare", "workspace_pane_1", "--input", inputPath)
+	if prepared.WorkspaceID != fixture.opened.Workspace.ID ||
+		prepared.Pane.PaneID != "workspace_pane_1" ||
+		prepared.PreparedWrite.SessionID != session.ID ||
+		prepared.PreparedWrite.SHA256 != digest ||
+		prepared.PreparedWrite.ByteCount != len(data) {
+		t.Fatalf("prepared write = %+v, want terminal pane session %s", prepared, session.ID)
+	}
+	if prepared.PreparedWrite.DeviceSessionID == "" {
+		t.Fatalf("prepared write device session is empty: %+v", prepared.PreparedWrite)
+	}
+
+	committed := runWorkspaceCommandJSON[httpapi.CommitWorkspaceUITerminalWriteResponse](t, fixture, "terminals", "writes", "commit", prepared.PreparedWrite.PreparedWriteID, "--sha256", digest)
+	if committed.PreparedWrite.PreparedWriteID != prepared.PreparedWrite.PreparedWriteID ||
+		committed.PreparedWrite.WorkspaceID != fixture.opened.Workspace.ID ||
+		committed.PreparedWrite.PaneID != "workspace_pane_1" ||
+		committed.PreparedWrite.SessionID != session.ID ||
+		committed.PreparedWrite.DeviceSessionID != prepared.PreparedWrite.DeviceSessionID ||
+		committed.PreparedWrite.WrittenByteCount != len(data) {
+		t.Fatalf("committed write = %+v, want prepared terminal write committed", committed.PreparedWrite)
 	}
 }
 
@@ -430,6 +467,32 @@ func TestWorkspaceTerminalsReadCommandRejectsNonTerminalPane(t *testing.T) {
 	}
 }
 
+func TestWorkspaceTerminalsWritePrepareRejectsDeviceSessionInput(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	inputPath := writeRawWorkspaceTerminalWriteInputForCLITest(t, `{
+  "dataBase64": "ZWNobyBoaQo=",
+  "byteCount": 8,
+  "sha256": "cb49f2e47b27bcd521b26686b2b3c412357170971c0e3ff8c702f6ff5a1da59b",
+  "deviceSessionId": "device_attacker"
+}`)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "terminals", "writes", "prepare", "workspace_pane_1", "--input", inputPath), commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "workspace_terminal_write_input_decode_failed" {
+		t.Fatalf("error code = %q, want workspace_terminal_write_input_decode_failed", errResponse.Error.Code)
+	}
+}
+
 func newWorkspaceCLITestFixture(t *testing.T) workspaceCLITestFixture {
 	t.Helper()
 	appDataDir := t.TempDir()
@@ -503,6 +566,10 @@ func runWorkspaceCommandJSON[T any](t *testing.T, fixture workspaceCLITestFixtur
 }
 
 func workspaceCommandArgs(fixture workspaceCLITestFixture, command ...string) []string {
+	if len(command) >= 3 && command[0] == "terminals" && command[1] == "writes" {
+		args := []string{"workspace", "terminals", "writes", command[2], "--app-data-dir", fixture.appDataDir}
+		return append(args, command[3:]...)
+	}
 	if len(command) >= 2 && (command[0] == "panes" || command[0] == "terminals") {
 		args := []string{"workspace", "panes", command[1], "--app-data-dir", fixture.appDataDir}
 		if command[0] == "terminals" {
@@ -583,6 +650,29 @@ func writeRawWorkspacePaneOpenInputForCLITest(t *testing.T, data string) string 
 		t.Fatalf("write workspace pane open input: %v", err)
 	}
 	return path
+}
+
+func writeWorkspaceTerminalWriteInputForCLITest(t *testing.T, input workspaceTerminalWritePrepareInput) string {
+	t.Helper()
+	data, err := json.MarshalIndent(input, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal workspace terminal write input: %v", err)
+	}
+	return writeRawWorkspaceTerminalWriteInputForCLITest(t, string(data))
+}
+
+func writeRawWorkspaceTerminalWriteInputForCLITest(t *testing.T, data string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "terminal-write.json")
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write workspace terminal write input: %v", err)
+	}
+	return path
+}
+
+func terminalWriteCLITestSHA256(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func workspaceCLIColumnByID(t *testing.T, layout workspaceui.WorkspaceUILayout, columnID string) workspaceui.WorkspaceUIColumn {

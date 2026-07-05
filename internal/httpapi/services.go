@@ -183,10 +183,12 @@ type SemanticGraphService interface {
 type TerminalService interface {
 	Attach(context.Context, string, string) (terminal.SessionSummary, error)
 	Close(context.Context, string, bool) (terminal.TerminalCloseResult, error)
+	CommitPreparedWrite(context.Context, terminal.TerminalWriteCommitInput) (terminal.TerminalWriteCommitResult, error)
 	Create(context.Context, string, string, string, string, int, int) (terminal.SessionSummary, error)
 	CreateProfile(terminal.TerminalProfileInput) (terminal.TerminalProfileList, error)
 	DeleteProfile(string) (terminal.TerminalProfileList, error)
 	ListProfiles() (terminal.TerminalProfileList, error)
+	PrepareWrite(context.Context, terminal.TerminalWritePrepareInput) (terminal.TerminalPreparedWrite, error)
 	ReadPane(context.Context, string, string, int) (terminal.TerminalReadResult, error)
 	Resize(context.Context, string, int, int) (terminal.SessionSummary, error)
 	SetDefaultProfile(string) (terminal.TerminalProfileList, error)

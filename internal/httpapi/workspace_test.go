@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -244,8 +247,10 @@ func assertWorkspaceUIPaneIntrospectionList(t *testing.T, list workspaceui.Works
 		!workspacePaneReadModesContain(terminalPane.ReadModes, workspaceui.WorkspaceUIPaneReadModeTerminalScreen) {
 		t.Fatalf("terminal read modes = %+v, want terminal recent-output and screen capabilities", terminalPane.ReadModes)
 	}
-	if !terminalPane.CanFocus || !terminalPane.CanMove || !terminalPane.CanClosePane || len(terminalPane.WriteModes) != 0 {
-		t.Fatalf("terminal capabilities = focus:%v move:%v close:%v writeModes:%+v, want layout capabilities without surface writes", terminalPane.CanFocus, terminalPane.CanMove, terminalPane.CanClosePane, terminalPane.WriteModes)
+	if !terminalPane.CanFocus || !terminalPane.CanMove || !terminalPane.CanClosePane ||
+		len(terminalPane.WriteModes) != 1 ||
+		terminalPane.WriteModes[0] != workspaceui.WorkspaceUIPaneWriteModeTerminalInput {
+		t.Fatalf("terminal capabilities = focus:%v move:%v close:%v writeModes:%+v, want layout capabilities and terminal_input", terminalPane.CanFocus, terminalPane.CanMove, terminalPane.CanClosePane, terminalPane.WriteModes)
 	}
 	if len(terminalPane.SurfaceCloseModes) != 1 || terminalPane.SurfaceCloseModes[0] != workspaceui.WorkspaceUISurfaceCloseModeNone {
 		t.Fatalf("terminal surface close modes = %+v, want none", terminalPane.SurfaceCloseModes)
@@ -323,6 +328,15 @@ func workspacePaneReadModesContain(readModes []workspaceui.WorkspaceUIPaneReadMo
 	return false
 }
 
+func workspacePaneWriteModesContain(writeModes []workspaceui.WorkspaceUIPaneWriteMode, target workspaceui.WorkspaceUIPaneWriteMode) bool {
+	for _, mode := range writeModes {
+		if mode == target {
+			return true
+		}
+	}
+	return false
+}
+
 func TestWorkspaceUITerminalReadEndpointRejectsNonTerminalPane(t *testing.T) {
 	handler, appDataDir, _ := newWorkspaceHandlerWithTerminal(t)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -335,6 +349,146 @@ func TestWorkspaceUITerminalReadEndpointRejectsNonTerminalPane(t *testing.T) {
 	if errResponse.Error.Code != "unsupported_workspace_ui_terminal_pane" {
 		t.Fatalf("error code = %q, want unsupported_workspace_ui_terminal_pane", errResponse.Error.Code)
 	}
+}
+
+func TestWorkspaceUITerminalWriteEndpointsPrepareAndCommit(t *testing.T) {
+	handler, appDataDir, starter := newWorkspaceHandlerWithTerminal(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[1].TerminalConfig = &workspaceui.TerminalPaneConfig{ProfileID: terminal.DefaultProfileID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+	created := postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		Cols:        80,
+		Rows:        24,
+	}, http.StatusOK)
+	data := []byte("printf ok\r\n")
+	digest := terminalWriteHTTPTestSHA256(data)
+
+	prepared := postJSON[PrepareWorkspaceUITerminalWriteResponse](t, handler, "/workspaces/ui/terminals/writes/prepare", PrepareWorkspaceUITerminalWriteRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		DataBase64:  base64.StdEncoding.EncodeToString(data),
+		ByteCount:   len(data),
+		SHA256:      digest,
+	}, http.StatusOK)
+	if prepared.WorkspaceID != opened.Workspace.ID || prepared.Pane.PaneID != "workspace_pane_1" {
+		t.Fatalf("prepared envelope = %+v, want terminal pane", prepared)
+	}
+	if !workspacePaneWriteModesContain(prepared.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeTerminalInput) {
+		t.Fatalf("prepared pane write modes = %+v, want terminal_input", prepared.Pane.WriteModes)
+	}
+	if prepared.PreparedWrite.WorkspaceID != opened.Workspace.ID ||
+		prepared.PreparedWrite.PaneID != "workspace_pane_1" ||
+		prepared.PreparedWrite.SessionID != created.Session.ID ||
+		prepared.PreparedWrite.ByteCount != len(data) ||
+		prepared.PreparedWrite.SHA256 != digest ||
+		prepared.PreparedWrite.Preview != `printf ok\r\n` {
+		t.Fatalf("prepared write = %+v, want bound immutable bytes for session %s", prepared.PreparedWrite, created.Session.ID)
+	}
+	if prepared.PreparedWrite.DeviceSessionID == "" || prepared.PreparedWrite.PreparedWriteID == "" {
+		t.Fatalf("prepared write ids = %+v, want device session and prepared id", prepared.PreparedWrite)
+	}
+
+	committed := postJSON[CommitWorkspaceUITerminalWriteResponse](t, handler, "/workspaces/ui/terminals/writes/commit", CommitWorkspaceUITerminalWriteRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		PreparedWriteID: prepared.PreparedWrite.PreparedWriteID,
+		SHA256:          digest,
+	}, http.StatusOK)
+	if committed.PreparedWrite.PreparedWriteID != prepared.PreparedWrite.PreparedWriteID ||
+		committed.PreparedWrite.WorkspaceID != opened.Workspace.ID ||
+		committed.PreparedWrite.PaneID != "workspace_pane_1" ||
+		committed.PreparedWrite.SessionID != created.Session.ID ||
+		committed.PreparedWrite.WrittenByteCount != len(data) {
+		t.Fatalf("committed write = %+v, want written bytes for prepared write", committed.PreparedWrite)
+	}
+	if written := starter.handleAt(t, 0).writtenString(); written != string(data) {
+		t.Fatalf("terminal written bytes = %q, want %q", written, string(data))
+	}
+}
+
+func TestWorkspaceUITerminalWriteCommitRejectsDeviceMismatchBeforeWrite(t *testing.T) {
+	handler, appDataDir, starter := newWorkspaceHandlerWithTerminal(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[1].TerminalConfig = &workspaceui.TerminalPaneConfig{ProfileID: terminal.DefaultProfileID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+	postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		Cols:        80,
+		Rows:        24,
+	}, http.StatusOK)
+	data := []byte("echo mismatch\n")
+	digest := terminalWriteHTTPTestSHA256(data)
+	prepared := postJSON[PrepareWorkspaceUITerminalWriteResponse](t, handler, "/workspaces/ui/terminals/writes/prepare", PrepareWorkspaceUITerminalWriteRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		DataBase64:  base64.StdEncoding.EncodeToString(data),
+		ByteCount:   len(data),
+		SHA256:      digest,
+	}, http.StatusOK)
+
+	authHandler, ok := handler.(authenticatedTestHandler)
+	if !ok {
+		t.Fatalf("handler type = %T, want authenticatedTestHandler", handler)
+	}
+	_, otherToken, err := authHandler.store.CreateDeviceSession(context.Background(), "Other test device")
+	if err != nil {
+		t.Fatalf("create second device session: %v", err)
+	}
+	errResponse := postJSONWithToken[ErrorResponse](t, handler, "/workspaces/ui/terminals/writes/commit", CommitWorkspaceUITerminalWriteRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		PreparedWriteID: prepared.PreparedWrite.PreparedWriteID,
+		SHA256:          digest,
+	}, otherToken, http.StatusBadRequest)
+	if errResponse.Error.Code != "commit_workspace_ui_terminal_write_failed" {
+		t.Fatalf("error code = %q, want commit_workspace_ui_terminal_write_failed", errResponse.Error.Code)
+	}
+	if written := starter.handleAt(t, 0).writtenString(); written != "" {
+		t.Fatalf("terminal written bytes = %q, want no write", written)
+	}
+}
+
+func TestWorkspaceUITerminalWriteCommitRejectsWorkspaceMismatchBeforeWrite(t *testing.T) {
+	handler, appDataDir, starter := newWorkspaceHandlerWithTerminal(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[1].TerminalConfig = &workspaceui.TerminalPaneConfig{ProfileID: terminal.DefaultProfileID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+	postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		Cols:        80,
+		Rows:        24,
+	}, http.StatusOK)
+	data := []byte("echo wrong workspace\n")
+	digest := terminalWriteHTTPTestSHA256(data)
+	prepared := postJSON[PrepareWorkspaceUITerminalWriteResponse](t, handler, "/workspaces/ui/terminals/writes/prepare", PrepareWorkspaceUITerminalWriteRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		DataBase64:  base64.StdEncoding.EncodeToString(data),
+		ByteCount:   len(data),
+		SHA256:      digest,
+	}, http.StatusOK)
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/terminals/writes/commit", CommitWorkspaceUITerminalWriteRequest{
+		WorkspaceID:     "workspace_other",
+		PreparedWriteID: prepared.PreparedWrite.PreparedWriteID,
+		SHA256:          digest,
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "commit_workspace_ui_terminal_write_failed" {
+		t.Fatalf("error code = %q, want commit_workspace_ui_terminal_write_failed", errResponse.Error.Code)
+	}
+	if written := starter.handleAt(t, 0).writtenString(); written != "" {
+		t.Fatalf("terminal written bytes = %q, want no write", written)
+	}
+}
+
+func terminalWriteHTTPTestSHA256(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func TestWorkspaceUIPaneReadRejectsMissingPane(t *testing.T) {

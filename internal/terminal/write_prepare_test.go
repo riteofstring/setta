@@ -39,6 +39,7 @@ func TestManagerPrepareAndCommitWriteUsesImmutableBytes(t *testing.T) {
 
 	committed, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
+		WorkspaceID:     "workspace_terminal",
 		DeviceSessionID: testDeviceSessionID,
 		SHA256:          sha,
 	})
@@ -58,6 +59,7 @@ func TestManagerPrepareAndCommitWriteUsesImmutableBytes(t *testing.T) {
 
 	_, err = manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
+		WorkspaceID:     "workspace_terminal",
 		DeviceSessionID: testDeviceSessionID,
 		SHA256:          sha,
 	})
@@ -142,6 +144,7 @@ func TestManagerCommitPreparedWriteValidatesApprovalBinding(t *testing.T) {
 
 	_, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
+		WorkspaceID:     "workspace_terminal",
 		DeviceSessionID: "device_session_other",
 		SHA256:          prepared.SHA256,
 	})
@@ -150,6 +153,7 @@ func TestManagerCommitPreparedWriteValidatesApprovalBinding(t *testing.T) {
 	}
 	_, err = manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
+		WorkspaceID:     "workspace_terminal",
 		DeviceSessionID: testDeviceSessionID,
 		SHA256:          strings.Repeat("1", 64),
 	})
@@ -158,6 +162,7 @@ func TestManagerCommitPreparedWriteValidatesApprovalBinding(t *testing.T) {
 	}
 	_, err = manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
+		WorkspaceID:     "workspace_terminal",
 		DeviceSessionID: testDeviceSessionID,
 		SHA256:          "A" + prepared.SHA256[1:],
 	})
@@ -166,6 +171,7 @@ func TestManagerCommitPreparedWriteValidatesApprovalBinding(t *testing.T) {
 	}
 	committed, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
+		WorkspaceID:     "workspace_terminal",
 		DeviceSessionID: testDeviceSessionID,
 		SHA256:          prepared.SHA256,
 	})
@@ -200,6 +206,7 @@ func TestManagerCommitPreparedWriteFailsOnExpiryAndTargetMismatch(t *testing.T) 
 		clockMu.Unlock()
 		_, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 			PreparedWriteID: prepared.PreparedWriteID,
+			WorkspaceID:     "workspace_terminal",
 			DeviceSessionID: testDeviceSessionID,
 			SHA256:          prepared.SHA256,
 		})
@@ -224,6 +231,7 @@ func TestManagerCommitPreparedWriteFailsOnExpiryAndTargetMismatch(t *testing.T) 
 
 		_, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 			PreparedWriteID: prepared.PreparedWriteID,
+			WorkspaceID:     "workspace_terminal",
 			DeviceSessionID: testDeviceSessionID,
 			SHA256:          prepared.SHA256,
 		})
@@ -249,6 +257,7 @@ func TestManagerCommitPreparedWriteCompletesPartialPTYWrites(t *testing.T) {
 
 	committed, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
+		WorkspaceID:     "workspace_terminal",
 		DeviceSessionID: testDeviceSessionID,
 		SHA256:          prepared.SHA256,
 	})
@@ -276,6 +285,7 @@ func TestManagerCommitPreparedWriteFailsLoudlyOnPartialPTYError(t *testing.T) {
 
 	_, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
+		WorkspaceID:     "workspace_terminal",
 		DeviceSessionID: testDeviceSessionID,
 		SHA256:          prepared.SHA256,
 	})
@@ -287,6 +297,7 @@ func TestManagerCommitPreparedWriteFailsLoudlyOnPartialPTYError(t *testing.T) {
 	}
 	_, err = manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
+		WorkspaceID:     "workspace_terminal",
 		DeviceSessionID: testDeviceSessionID,
 		SHA256:          prepared.SHA256,
 	})
@@ -311,6 +322,7 @@ func TestManagerCommitPreparedWriteSerializesWritesPerSession(t *testing.T) {
 	go func() {
 		_, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 			PreparedWriteID: first.PreparedWriteID,
+			WorkspaceID:     "workspace_terminal",
 			DeviceSessionID: testDeviceSessionID,
 			SHA256:          first.SHA256,
 		})
@@ -324,6 +336,7 @@ func TestManagerCommitPreparedWriteSerializesWritesPerSession(t *testing.T) {
 		close(secondStarted)
 		_, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 			PreparedWriteID: second.PreparedWriteID,
+			WorkspaceID:     "workspace_terminal",
 			DeviceSessionID: testDeviceSessionID,
 			SHA256:          second.SHA256,
 		})

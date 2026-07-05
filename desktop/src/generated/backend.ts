@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 25;
-export const backendContractSchemaHash = "sha256:35585b90a042c95b84ce96bba347350b4d2e29cb763d0ed0c9cbe046f2bdc874";
+export const backendProtocolVersion = 26;
+export const backendContractSchemaHash = "sha256:90f0786b8eb511a19584c44479f84d8806c60854c8dfe7a6c91de0d68351bfc5";
 
 export type DeviceScope = "full";
 
@@ -3393,6 +3393,54 @@ export interface ReadWorkspaceUITerminalResponse {
   workspaceId: string;
   pane: WorkspaceUIPaneDescriptor;
   terminal: TerminalReadResult;
+}
+
+export interface PrepareWorkspaceUITerminalWriteRequest {
+  workspaceId: string;
+  paneId: string;
+  dataBase64: string;
+  byteCount: number;
+  sha256: string;
+}
+
+export interface TerminalPreparedWrite {
+  preparedWriteId: string;
+  workspaceId: string;
+  paneId: string;
+  sessionId: string;
+  deviceSessionId: string;
+  byteCount: number;
+  sha256: string;
+  preview: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface PrepareWorkspaceUITerminalWriteResponse {
+  workspaceId: string;
+  pane: WorkspaceUIPaneDescriptor;
+  preparedWrite: TerminalPreparedWrite;
+}
+
+export interface CommitWorkspaceUITerminalWriteRequest {
+  workspaceId: string;
+  preparedWriteId: string;
+  sha256: string;
+}
+
+export interface TerminalWriteCommitResult {
+  preparedWriteId: string;
+  workspaceId: string;
+  paneId: string;
+  sessionId: string;
+  deviceSessionId: string;
+  byteCount: number;
+  sha256: string;
+  writtenByteCount: number;
+}
+
+export interface CommitWorkspaceUITerminalWriteResponse {
+  preparedWrite: TerminalWriteCommitResult;
 }
 
 export interface WorkspaceUIPaneCloseOperation {
@@ -7406,6 +7454,16 @@ export const backendEndpoints = {
     path: "/workspaces/ui/terminals/read",
     requestBodyLimitBytes: 4194304,
   },
+  PrepareWorkspaceUITerminalWrite: {
+    method: "POST",
+    path: "/workspaces/ui/terminals/writes/prepare",
+    requestBodyLimitBytes: 4194304,
+  },
+  CommitWorkspaceUITerminalWrite: {
+    method: "POST",
+    path: "/workspaces/ui/terminals/writes/commit",
+    requestBodyLimitBytes: 4194304,
+  },
   ApplyWorkspaceUIPaneOperation: {
     method: "POST",
     path: "/workspaces/ui/panes/operation",
@@ -8740,6 +8798,78 @@ export function decodeReadWorkspaceUITerminalResponse(value: unknown): ReadWorks
     workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceUITerminalResponse"), "ReadWorkspaceUITerminalResponse.workspaceId"),
     pane: decodeWorkspaceUIPaneDescriptor(requireField(record, "pane", "ReadWorkspaceUITerminalResponse")),
     terminal: decodeTerminalReadResult(requireField(record, "terminal", "ReadWorkspaceUITerminalResponse")),
+  };
+}
+
+export function decodePrepareWorkspaceUITerminalWriteRequest(value: unknown): PrepareWorkspaceUITerminalWriteRequest {
+  const record = assertRecord(value, "PrepareWorkspaceUITerminalWriteRequest");
+  assertKnownFields(record, "PrepareWorkspaceUITerminalWriteRequest", ["workspaceId", "paneId", "dataBase64", "byteCount", "sha256"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "PrepareWorkspaceUITerminalWriteRequest"), "PrepareWorkspaceUITerminalWriteRequest.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "PrepareWorkspaceUITerminalWriteRequest"), "PrepareWorkspaceUITerminalWriteRequest.paneId"),
+    dataBase64: decodeString(requireField(record, "dataBase64", "PrepareWorkspaceUITerminalWriteRequest"), "PrepareWorkspaceUITerminalWriteRequest.dataBase64"),
+    byteCount: decodeInteger(requireField(record, "byteCount", "PrepareWorkspaceUITerminalWriteRequest"), "PrepareWorkspaceUITerminalWriteRequest.byteCount"),
+    sha256: decodeString(requireField(record, "sha256", "PrepareWorkspaceUITerminalWriteRequest"), "PrepareWorkspaceUITerminalWriteRequest.sha256"),
+  };
+}
+
+export function decodeTerminalPreparedWrite(value: unknown): TerminalPreparedWrite {
+  const record = assertRecord(value, "TerminalPreparedWrite");
+  assertKnownFields(record, "TerminalPreparedWrite", ["preparedWriteId", "workspaceId", "paneId", "sessionId", "deviceSessionId", "byteCount", "sha256", "preview", "createdAt", "expiresAt"]);
+  return {
+    preparedWriteId: decodeString(requireField(record, "preparedWriteId", "TerminalPreparedWrite"), "TerminalPreparedWrite.preparedWriteId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "TerminalPreparedWrite"), "TerminalPreparedWrite.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "TerminalPreparedWrite"), "TerminalPreparedWrite.paneId"),
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalPreparedWrite"), "TerminalPreparedWrite.sessionId"),
+    deviceSessionId: decodeString(requireField(record, "deviceSessionId", "TerminalPreparedWrite"), "TerminalPreparedWrite.deviceSessionId"),
+    byteCount: decodeInteger(requireField(record, "byteCount", "TerminalPreparedWrite"), "TerminalPreparedWrite.byteCount"),
+    sha256: decodeString(requireField(record, "sha256", "TerminalPreparedWrite"), "TerminalPreparedWrite.sha256"),
+    preview: decodeString(requireField(record, "preview", "TerminalPreparedWrite"), "TerminalPreparedWrite.preview"),
+    createdAt: decodeString(requireField(record, "createdAt", "TerminalPreparedWrite"), "TerminalPreparedWrite.createdAt"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "TerminalPreparedWrite"), "TerminalPreparedWrite.expiresAt"),
+  };
+}
+
+export function decodePrepareWorkspaceUITerminalWriteResponse(value: unknown): PrepareWorkspaceUITerminalWriteResponse {
+  const record = assertRecord(value, "PrepareWorkspaceUITerminalWriteResponse");
+  assertKnownFields(record, "PrepareWorkspaceUITerminalWriteResponse", ["workspaceId", "pane", "preparedWrite"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "PrepareWorkspaceUITerminalWriteResponse"), "PrepareWorkspaceUITerminalWriteResponse.workspaceId"),
+    pane: decodeWorkspaceUIPaneDescriptor(requireField(record, "pane", "PrepareWorkspaceUITerminalWriteResponse")),
+    preparedWrite: decodeTerminalPreparedWrite(requireField(record, "preparedWrite", "PrepareWorkspaceUITerminalWriteResponse")),
+  };
+}
+
+export function decodeCommitWorkspaceUITerminalWriteRequest(value: unknown): CommitWorkspaceUITerminalWriteRequest {
+  const record = assertRecord(value, "CommitWorkspaceUITerminalWriteRequest");
+  assertKnownFields(record, "CommitWorkspaceUITerminalWriteRequest", ["workspaceId", "preparedWriteId", "sha256"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CommitWorkspaceUITerminalWriteRequest"), "CommitWorkspaceUITerminalWriteRequest.workspaceId"),
+    preparedWriteId: decodeString(requireField(record, "preparedWriteId", "CommitWorkspaceUITerminalWriteRequest"), "CommitWorkspaceUITerminalWriteRequest.preparedWriteId"),
+    sha256: decodeString(requireField(record, "sha256", "CommitWorkspaceUITerminalWriteRequest"), "CommitWorkspaceUITerminalWriteRequest.sha256"),
+  };
+}
+
+export function decodeTerminalWriteCommitResult(value: unknown): TerminalWriteCommitResult {
+  const record = assertRecord(value, "TerminalWriteCommitResult");
+  assertKnownFields(record, "TerminalWriteCommitResult", ["preparedWriteId", "workspaceId", "paneId", "sessionId", "deviceSessionId", "byteCount", "sha256", "writtenByteCount"]);
+  return {
+    preparedWriteId: decodeString(requireField(record, "preparedWriteId", "TerminalWriteCommitResult"), "TerminalWriteCommitResult.preparedWriteId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "TerminalWriteCommitResult"), "TerminalWriteCommitResult.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "TerminalWriteCommitResult"), "TerminalWriteCommitResult.paneId"),
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalWriteCommitResult"), "TerminalWriteCommitResult.sessionId"),
+    deviceSessionId: decodeString(requireField(record, "deviceSessionId", "TerminalWriteCommitResult"), "TerminalWriteCommitResult.deviceSessionId"),
+    byteCount: decodeInteger(requireField(record, "byteCount", "TerminalWriteCommitResult"), "TerminalWriteCommitResult.byteCount"),
+    sha256: decodeString(requireField(record, "sha256", "TerminalWriteCommitResult"), "TerminalWriteCommitResult.sha256"),
+    writtenByteCount: decodeInteger(requireField(record, "writtenByteCount", "TerminalWriteCommitResult"), "TerminalWriteCommitResult.writtenByteCount"),
+  };
+}
+
+export function decodeCommitWorkspaceUITerminalWriteResponse(value: unknown): CommitWorkspaceUITerminalWriteResponse {
+  const record = assertRecord(value, "CommitWorkspaceUITerminalWriteResponse");
+  assertKnownFields(record, "CommitWorkspaceUITerminalWriteResponse", ["preparedWrite"]);
+  return {
+    preparedWrite: decodeTerminalWriteCommitResult(requireField(record, "preparedWrite", "CommitWorkspaceUITerminalWriteResponse")),
   };
 }
 
@@ -14325,6 +14455,8 @@ export interface BackendClient {
   listWorkspaceUIPanes: (request: ListWorkspaceUIPanesRequest) => Promise<WorkspaceUIPaneListResult>;
   readWorkspaceUIPane: (request: ReadWorkspaceUIPaneRequest) => Promise<WorkspaceUIPaneReadResult>;
   readWorkspaceUITerminal: (request: ReadWorkspaceUITerminalRequest) => Promise<ReadWorkspaceUITerminalResponse>;
+  prepareWorkspaceUITerminalWrite: (request: PrepareWorkspaceUITerminalWriteRequest) => Promise<PrepareWorkspaceUITerminalWriteResponse>;
+  commitWorkspaceUITerminalWrite: (request: CommitWorkspaceUITerminalWriteRequest) => Promise<CommitWorkspaceUITerminalWriteResponse>;
   applyWorkspaceUIPaneOperation: (request: ApplyWorkspaceUIPaneOperationRequest) => Promise<WorkspaceUIPaneOperationResult>;
   applyWorkspaceUILayoutOperations: (request: ApplyWorkspaceUILayoutOperationsRequest) => Promise<WorkspaceUILayoutOperationResult>;
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
@@ -14636,6 +14768,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkspaceUITerminalResponse,
       endpoint: backendEndpoints.ReadWorkspaceUITerminal,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    prepareWorkspaceUITerminalWrite: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodePrepareWorkspaceUITerminalWriteResponse,
+      endpoint: backendEndpoints.PrepareWorkspaceUITerminalWrite,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    commitWorkspaceUITerminalWrite: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCommitWorkspaceUITerminalWriteResponse,
+      endpoint: backendEndpoints.CommitWorkspaceUITerminalWrite,
       fetchImpl,
       requestPayload: request,
     }),

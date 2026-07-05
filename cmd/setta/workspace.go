@@ -22,19 +22,20 @@ import (
 )
 
 const (
-	workspaceCurrentCLIAuthDisplayName       = "Setta CLI workspace current"
-	workspaceLayoutApplyCLIAuthDisplayName   = "Setta CLI workspace layout apply"
-	workspacePanesCloseCLIAuthDisplayName    = "Setta CLI workspace panes close"
-	workspacePanesFocusCLIAuthDisplayName    = "Setta CLI workspace panes focus"
-	workspacePanesListCLIAuthDisplayName     = "Setta CLI workspace panes list"
-	workspacePanesMoveCLIAuthDisplayName     = "Setta CLI workspace panes move"
-	workspacePanesOpenCLIAuthDisplayName     = "Setta CLI workspace panes open"
-	workspacePanesReadCLIAuthDisplayName     = "Setta CLI workspace panes read"
-	workspacePanesReorderCLIAuthDisplayName  = "Setta CLI workspace panes reorder"
-	workspacePanesRenameCLIAuthDisplayName   = "Setta CLI workspace panes rename"
-	workspacePanesResizeCLIAuthDisplayName   = "Setta CLI workspace panes resize"
-	workspaceSchemaCLIAuthDisplayName        = "Setta CLI workspace schema"
-	workspaceTerminalsReadCLIAuthDisplayName = "Setta CLI workspace terminals read"
+	workspaceCurrentCLIAuthDisplayName        = "Setta CLI workspace current"
+	workspaceLayoutApplyCLIAuthDisplayName    = "Setta CLI workspace layout apply"
+	workspacePanesCloseCLIAuthDisplayName     = "Setta CLI workspace panes close"
+	workspacePanesFocusCLIAuthDisplayName     = "Setta CLI workspace panes focus"
+	workspacePanesListCLIAuthDisplayName      = "Setta CLI workspace panes list"
+	workspacePanesMoveCLIAuthDisplayName      = "Setta CLI workspace panes move"
+	workspacePanesOpenCLIAuthDisplayName      = "Setta CLI workspace panes open"
+	workspacePanesReadCLIAuthDisplayName      = "Setta CLI workspace panes read"
+	workspacePanesReorderCLIAuthDisplayName   = "Setta CLI workspace panes reorder"
+	workspacePanesRenameCLIAuthDisplayName    = "Setta CLI workspace panes rename"
+	workspacePanesResizeCLIAuthDisplayName    = "Setta CLI workspace panes resize"
+	workspaceSchemaCLIAuthDisplayName         = "Setta CLI workspace schema"
+	workspaceTerminalsReadCLIAuthDisplayName  = "Setta CLI workspace terminals read"
+	workspaceTerminalWritesCLIAuthDisplayName = "Setta CLI workspace terminal writes"
 )
 
 type workspaceOptions struct {

@@ -153,6 +153,30 @@ type ReadWorkspaceUITerminalResponse struct {
 	Terminal    terminal.TerminalReadResult           `json:"terminal"`
 }
 
+type PrepareWorkspaceUITerminalWriteRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PaneID      string `json:"paneId"`
+	DataBase64  string `json:"dataBase64"`
+	ByteCount   int    `json:"byteCount"`
+	SHA256      string `json:"sha256"`
+}
+
+type PrepareWorkspaceUITerminalWriteResponse struct {
+	WorkspaceID   string                                `json:"workspaceId"`
+	Pane          workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
+	PreparedWrite terminal.TerminalPreparedWrite        `json:"preparedWrite"`
+}
+
+type CommitWorkspaceUITerminalWriteRequest struct {
+	WorkspaceID     string `json:"workspaceId"`
+	PreparedWriteID string `json:"preparedWriteId"`
+	SHA256          string `json:"sha256"`
+}
+
+type CommitWorkspaceUITerminalWriteResponse struct {
+	PreparedWrite terminal.TerminalWriteCommitResult `json:"preparedWrite"`
+}
+
 type ApplyWorkspaceUIPaneOperationRequest struct {
 	WorkspaceID string                               `json:"workspaceId"`
 	Operation   workspaceui.WorkspaceUIPaneOperation `json:"operation"`
