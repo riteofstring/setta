@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PLAN_PATH="docs/plans/skills-cli-workflow-authoring-plan.md"
-SENTINEL="SKILLS_CLI_WORKFLOW_AUTHORING_PLAN_COMPLETE"
+PLAN_PATH="docs/plans/workspace-agent-api-plan.md"
+SENTINEL="WORKSPACE_AGENT_API_PLAN_COMPLETE"
 MODEL="gpt-5.5"
 REASONING_CONFIG='reasoning_effort="xhigh"'
 OUTPUT_DIR=""
@@ -14,15 +14,15 @@ MAX_ITERATIONS="0"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/automation/codex-loop/run-skills-cli-workflow-authoring-plan-loop.sh [options]
+Usage: scripts/automation/codex-loop/run-workspace-agent-api-plan-loop.sh [options]
 
 Runs two fresh Codex agents in a loop for:
-  docs/plans/skills-cli-workflow-authoring-plan.md
+  docs/plans/workspace-agent-api-plan.md
 
 Agent 1 implements the next coherent step in the plan and commits the work.
 Agent 2 audits the work, fixes or documents any gaps, commits if needed, and
 the loop stops only when Agent 2's final message is exactly:
-  SKILLS_CLI_WORKFLOW_AUTHORING_PLAN_COMPLETE
+  WORKSPACE_AGENT_API_PLAN_COMPLETE
 Agent 2 may also use that sentinel when the plan is implemented as much as
 possible and the remaining work is blocked.
 
@@ -195,7 +195,7 @@ if ! command -v codex >/dev/null 2>&1; then
 fi
 
 if [[ -z "${OUTPUT_DIR}" ]]; then
-  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/skills-cli-workflow-authoring-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
+  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/workspace-agent-api-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
 else
   mkdir -p "${OUTPUT_DIR}"
 fi
