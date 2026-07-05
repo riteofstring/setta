@@ -1,6 +1,7 @@
 package easyrun
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -234,6 +235,164 @@ func TestServiceSteerRejectsWithoutActiveRun(t *testing.T) {
 	}
 }
 
+func TestEmitArtifactToolPersistsAndPublishesTypedArtifact(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_artifact")
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_artifact",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	subscription, err := service.SubscribeEvents(EasyRunEventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe easy-run events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	tool := NewEmitArtifactAgentTool(service)
+	result, err := tool.Handler(easyRunToolContext(run, "run_artifact"), chat.AgentToolCall{
+		Arguments: []byte(`{"kind":"markdown","title":"Report","kicker":"Summary","markdown":"## Done"}`),
+		CallID:    "call_artifact",
+		Namespace: chat.SettaAgentToolNamespace,
+		Tool:      chat.SettaEmitArtifactAgentToolName,
+	})
+	if err != nil {
+		t.Fatalf("emit artifact: %v", err)
+	}
+	if !result.Success || len(result.ContentItems) != 1 || !strings.Contains(result.ContentItems[0].Text, `"artifactId":"artifact_0001"`) {
+		t.Fatalf("tool result = %+v, want artifact acknowledgement", result)
+	}
+
+	event := requireEasyRunEvent(t, subscription)
+	if event.Type != EasyRunEventTypeArtifactCreated ||
+		event.ArtifactCreated == nil ||
+		event.ArtifactCreated.Artifact.Kind != EasyArtifactKindMarkdown ||
+		event.ArtifactCreated.Artifact.Ordinal != 1 {
+		t.Fatalf("artifact event = %+v, want markdown artifact.created", event)
+	}
+	snapshot, err := service.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read snapshot: %v", err)
+	}
+	if snapshot.LatestRun == nil || snapshot.LatestRun.ArtifactCount != 1 {
+		t.Fatalf("snapshot run = %+v, want artifact count 1", snapshot.LatestRun)
+	}
+	if len(snapshot.Artifacts) != 1 ||
+		snapshot.Artifacts[0].Title != "Report" ||
+		snapshot.Artifacts[0].Markdown == nil ||
+		snapshot.Artifacts[0].Markdown.Markdown != "## Done" {
+		t.Fatalf("snapshot artifacts = %+v, want persisted markdown artifact", snapshot.Artifacts)
+	}
+}
+
+func TestEmitArtifactToolRejectsNonEasyRunConversation(t *testing.T) {
+	service := newTestService(t)
+	tool := NewEmitArtifactAgentTool(service)
+
+	_, err := tool.Handler(context.Background(), chat.AgentToolCall{
+		Arguments: []byte(`{"kind":"markdown","title":"Report","markdown":"Done"}`),
+	})
+	if err == nil || !strings.Contains(err.Error(), "runtime is unavailable") {
+		t.Fatalf("missing runtime error = %v, want loud runtime failure", err)
+	}
+
+	ctx := chat.ContextWithAgentToolRuntime(context.Background(), chat.AgentToolRuntimeContext{
+		Conversation: chat.Conversation{
+			ID:          "conversation_public",
+			WorkspaceID: "workspace_api",
+		},
+		Run: chat.Run{ID: "run_public", ConversationID: "conversation_public"},
+	})
+	_, err = tool.Handler(ctx, chat.AgentToolCall{
+		Arguments: []byte(`{"kind":"markdown","title":"Report","markdown":"Done"}`),
+	})
+	if err == nil || !strings.Contains(err.Error(), "only available inside an easy-run conversation") {
+		t.Fatalf("public conversation error = %v, want easy-run ownership failure", err)
+	}
+}
+
+func TestEmitArtifactToolValidationFailsLoudly(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_validation")
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_validation",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	tool := NewEmitArtifactAgentTool(service)
+	ctx := easyRunToolContext(run, "run_validation")
+
+	cases := []struct {
+		name      string
+		arguments string
+		want      string
+	}{
+		{
+			name:      "wrong branch field",
+			arguments: `{"kind":"markdown","title":"Report","markdown":"Done","rows":[]}`,
+			want:      "rows is not valid",
+		},
+		{
+			name:      "oversized markdown",
+			arguments: fmt.Sprintf(`{"kind":"markdown","title":"Report","markdown":%q}`, strings.Repeat("x", maxEasyMarkdownArtifactBytes+1)),
+			want:      "markdown artifact exceeds",
+		},
+		{
+			name:      "malformed table",
+			arguments: `{"kind":"table","title":"Table","columns":[{"key":"name","label":"Name"}],"rows":[["one","extra"]]}`,
+			want:      "want 1",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tool.Handler(ctx, chat.AgentToolCall{Arguments: []byte(tt.arguments)})
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("emit artifact error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestEmitArtifactToolEnforcesArtifactCap(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_cap")
+	artifacts := make([]EasyArtifact, 0, maxEasyArtifactsPerRun)
+	for index := 1; index <= maxEasyArtifactsPerRun; index++ {
+		artifacts = append(artifacts, EasyArtifact{
+			CreatedAt: "2026-07-08T12:00:00Z",
+			EasyRunID: run.ID,
+			ID:        fmt.Sprintf("artifact_existing_%02d", index),
+			Kind:      EasyArtifactKindMarkdown,
+			Markdown:  &EasyMarkdownArtifactPayload{Markdown: "Done"},
+			Ordinal:   index,
+			Title:     fmt.Sprintf("Artifact %02d", index),
+		})
+	}
+	run.ArtifactCount = len(artifacts)
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_cap",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	if err := store.saveArtifacts(run.WorkspaceID, run.ID, artifacts); err != nil {
+		t.Fatalf("save artifacts: %v", err)
+	}
+	tool := NewEmitArtifactAgentTool(service)
+
+	_, err := tool.Handler(easyRunToolContext(run, "run_cap"), chat.AgentToolCall{
+		Arguments: []byte(`{"kind":"markdown","title":"Overflow","markdown":"Done"}`),
+	})
+	if err == nil || !strings.Contains(err.Error(), "already has 20 artifacts") {
+		t.Fatalf("cap error = %v, want artifact cap failure", err)
+	}
+}
+
 func TestServiceRejectsSecondStartInSameWorkspaceWhileWorking(t *testing.T) {
 	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
 		"wait in first workspace": {
@@ -367,16 +526,26 @@ func TestServiceStartupRecoveryMarksWorkingRunsFailed(t *testing.T) {
 
 func newTestService(t *testing.T) *Service {
 	t.Helper()
+	service, _ := newTestServiceWithStore(t)
+	return service
+}
+
+func newTestServiceWithStore(t *testing.T) (*Service, *Store) {
+	t.Helper()
 	store, err := NewStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
-	service, err := NewService(store, withEventStreamID(EasyRunEventStreamID))
+	service, err := NewService(
+		store,
+		withEventStreamID(EasyRunEventStreamID),
+		WithIDGenerator(testIDGenerator()),
+	)
 	if err != nil {
 		t.Fatalf("create service: %v", err)
 	}
 	t.Cleanup(service.CloseEvents)
-	return service
+	return service, store
 }
 
 func newTestServiceWithChat(t *testing.T, harness chat.Harness) (*Service, *chat.Service) {
@@ -559,6 +728,29 @@ func chatInputTextForTest(input chat.ChatInput) string {
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+func easyRunToolContext(run EasyRun, backingRunID string) context.Context {
+	return chat.ContextWithAgentToolRuntime(context.Background(), chat.AgentToolRuntimeContext{
+		Workspace: workspace.WorkspaceSummary{
+			ID:          run.WorkspaceID,
+			DisplayName: "api",
+			RootPath:    "/tmp/workspace",
+		},
+		Conversation: chat.Conversation{
+			ID:          run.ConversationID,
+			Internal:    true,
+			WorkspaceID: run.WorkspaceID,
+			EasyRun:     &chat.ConversationEasyRunMetadata{EasyRunID: run.ID},
+		},
+		Run: chat.Run{
+			ID:             backingRunID,
+			ConversationID: run.ConversationID,
+			WorkspaceID:    run.WorkspaceID,
+		},
+		ThreadID: "thread_" + backingRunID,
+		TurnID:   "turn_" + backingRunID,
+	})
 }
 
 func assertRestartRecoveredEasyRun(t *testing.T, run EasyRun) {

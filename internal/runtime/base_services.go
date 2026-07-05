@@ -52,6 +52,17 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err
 	}
+	tools, err := chat.NewSettaAgentToolRegistry(easyrun.NewEmitArtifactAgentTool(easyRunService))
+	if err != nil {
+		easyRunService.CloseEvents()
+		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
+		return runtimeBaseServices{}, err
+	}
+	if err := chatService.SetAgentToolRegistry(tools); err != nil {
+		easyRunService.CloseEvents()
+		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
+		return runtimeBaseServices{}, err
+	}
 	return runtimeBaseServices{
 		appearanceService:  appearanceService,
 		chatService:        chatService,

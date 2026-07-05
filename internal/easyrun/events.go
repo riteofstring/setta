@@ -265,7 +265,7 @@ func validateArtifactCreatedDraft(draft EventDraft) error {
 	if draft.Artifact.EasyRunID != draft.EasyRunID {
 		return errors.New("easy-run artifact.created payload ownership does not match event")
 	}
-	return nil
+	return validateEasyArtifact(*draft.Artifact)
 }
 
 func (hub *EventHub) nextEventLocked(draft EventDraft) EasyRunEvent {

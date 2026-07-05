@@ -919,3 +919,51 @@ harness/CDP setup attempt wedged before any app interaction.
 Remaining work: Phase 3 is next. It should add deliberate typed artifact
 emission through `setta.emit_artifact`, artifact persistence/publication, and
 right-rail typed artifact cards. No blockers were discovered.
+
+### 2026-07-08 — Phase 3 deliberate artifact slice complete
+
+Implemented Phase 3 typed artifact emission:
+
+- Added `setta.emit_artifact` as a registered Setta dynamic tool with a
+  tagged-union JSON schema, easy-run runtime ownership checks, strict argument
+  decoding, branch validation, artifact caps, and fail-loud errors for
+  non-easy-run conversations or malformed payloads.
+- Added easy-run artifact persistence under each run, snapshot restoration,
+  `easyrun.artifact.created` publication, and terminal summaries that use the
+  persisted artifact count.
+- Wired runtime tool registration after `EasyRunService` construction so both
+  Codex and scripted harnesses see the artifact tool without introducing an
+  `internal/chat` -> `internal/easyrun` import cycle.
+- Added right-rail typed artifact cards for markdown, table, bar chart, and
+  file artifacts. Markdown renders through `MarkdownText`; no raw HTML artifact
+  path was added.
+- Expanded the deterministic Easy Button Electron workflow with a scripted
+  Phase 3 run that emits markdown and table artifacts through the tool handler
+  and asserts the cards and `2 artifacts` summary render through the production
+  Electron/main/preload/HTTP/store/renderer path.
+- Fixed a renderer store race discovered by the workflow: a same-run stale
+  working response from `steer` can no longer regress a terminal run received
+  first from the push event stream.
+
+Verification performed:
+
+- `./scripts/go.sh test ./internal/easyrun`
+- `./scripts/go.sh test ./internal/chat -run 'Test(CodexDynamicToolSpecs|SettaWorkspaceContextTool|CodexHarnessStartsThreadWithDynamicTools|CodexHarnessDoesNotSendDynamicToolsOnResume|AgentToolRegistry)'`
+- `./scripts/go.sh test ./internal/runtime ./internal/httpapi -run 'Test(ConfigFromArgsCanSkipBootstrapDeviceSession|ReadEasyRunSnapshot|EasyRunEventStream|ContractSchemaSnapshot)'`
+- `pnpm -C desktop exec vitest run src/renderer/src/stores/easy-run-store.test.ts`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase3-artifacts-rerun`
+- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase3-artifacts-final`
+- `node desktop/tests/electron/chat-live-auth.mjs`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+- `./scripts/format.sh`
+- `./scripts/go.sh run ./cmd/generate-contracts` (no diff)
+- `./check_quality.sh --git-changes`
+
+Live note: ChatGPT auth was available. The live gate passed
+`live-codex-electron` and `live-codex-backend`.
+
+Remaining work: Phase 4 is next. It should add the narrator digest, selective
+highlights, narrative completion summary, narrator degradation status, and the
+Phase 4 deterministic/live coverage. No blockers were discovered.

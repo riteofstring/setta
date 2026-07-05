@@ -141,6 +141,15 @@ try {
   assertTerminalVisual(steeredTerminal, "easy run phase2 steering workflow", "Done in");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-steered-complete.png"));
 
+  await submitEasyButtonRequest(context.client, "easy run phase3 artifacts workflow");
+  const artifactTerminal = await waitForEasyButtonTerminalWithArtifacts(
+    context.client,
+    "easy run phase3 artifacts workflow",
+    2,
+  );
+  assertArtifactTerminalVisual(artifactTerminal, "easy run phase3 artifacts workflow");
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-artifacts-complete.png"));
+
   await submitEasyButtonRequest(context.client, "cancel active workflow");
   const stoppingWorking = await waitForEasyButtonWorking(context.client, "cancel active workflow");
   assertWorkingVisual(stoppingWorking, "cancel active workflow");
@@ -178,6 +187,7 @@ try {
     restored,
     secondCompleted,
     shortcutOpen,
+    artifactTerminal,
     steeredTerminal,
     steeringWorking,
     status: "passed",
@@ -454,6 +464,40 @@ function assertTerminalVisual(state, requestText, summaryPrefix) {
   }
 }
 
+function assertArtifactTerminalVisual(state, requestText) {
+  assertStateFields(
+    state,
+    {
+      buttonAriaLabel: "Focus Easy Button request input",
+      easyState: "complete",
+      inputDisabled: false,
+      paneChromeTitle: "Easy Button · complete",
+      requestText,
+      stopButtonVisible: false,
+    },
+    "easy-button artifact terminal visual did not match Phase 3",
+  );
+  if (!state.summaryText.startsWith("Done in") || !state.summaryText.includes("2 artifacts")) {
+    throw new Error(`easy-button artifact summary did not include count: ${JSON.stringify(state)}`);
+  }
+  const titles = state.artifacts.map((artifact) => artifact.title);
+  const kinds = state.artifacts.map((artifact) => artifact.kind);
+  if (state.artifacts.length !== 2 || kinds.join(",") !== "markdown,table") {
+    throw new Error(`easy-button artifact cards had wrong kinds: ${JSON.stringify(state)}`);
+  }
+  if (!titles.includes("Phase 3 Report") || !titles.includes("Artifact Table")) {
+    throw new Error(`easy-button artifact cards had wrong titles: ${JSON.stringify(state)}`);
+  }
+  const railText = state.artifacts.map((artifact) => artifact.text).join("\n");
+  for (const expected of ["scripted easy run emitted", "Markdown", "Ready"]) {
+    if (!railText.includes(expected)) {
+      throw new Error(
+        `easy-button artifact card text missing ${expected}: ${JSON.stringify(state)}`,
+      );
+    }
+  }
+}
+
 function assertStateFields(state, expected, message) {
   for (const [key, value] of Object.entries(expected)) {
     if (state[key] !== value) {
@@ -512,6 +556,21 @@ async function waitForEasyButtonTerminal(client, requestText, summaryPrefix) {
       state.easyState === "complete" &&
       state.requestText === requestText &&
       state.summaryText.startsWith(summaryPrefix),
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonTerminalWithArtifacts(client, requestText, artifactCount) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists &&
+      state.surfaceKind === "easy-button" &&
+      state.easyState === "complete" &&
+      state.requestText === requestText &&
+      state.summaryText.startsWith("Done in") &&
+      state.artifacts.length === artifactCount,
     workflowTimeoutMs,
   );
 }

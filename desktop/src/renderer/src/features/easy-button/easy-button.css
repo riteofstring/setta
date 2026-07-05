@@ -21,6 +21,189 @@
   padding: 24px 22px;
 }
 
+.easy-button-rail-right {
+  overflow: hidden;
+  position: relative;
+}
+
+.easy-button-rail-right::after {
+  background: linear-gradient(to bottom, transparent, var(--workspace-pane-surface));
+  bottom: 0;
+  content: "";
+  height: 36px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+.easy-button-artifact-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 42px;
+}
+
+.easy-button-artifact-card {
+  animation: easy-button-artifact-arrive 220ms ease-out both;
+  background: color-mix(in oklch, var(--setta-850) 82%, black);
+  border: 1px solid color-mix(in oklch, var(--easy-button-primary) 18%, var(--easy-button-border));
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 color-mix(in oklch, white 4%, transparent);
+  color: var(--foreground);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.easy-button-artifact-kicker,
+.easy-button-artifact-title {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.easy-button-artifact-kicker {
+  color: color-mix(in oklch, var(--easy-button-primary) 54%, var(--easy-button-muted));
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.easy-button-artifact-title {
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.easy-button-artifact-markdown {
+  color: color-mix(in oklch, var(--foreground) 82%, var(--easy-button-muted));
+  min-width: 0;
+}
+
+.easy-button-artifact-table-wrap {
+  border: 1px solid var(--easy-button-border);
+  border-radius: 6px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.easy-button-artifact-table {
+  border-collapse: collapse;
+  font-size: 0.76rem;
+  line-height: 1.3;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.easy-button-artifact-table th,
+.easy-button-artifact-table td {
+  border-bottom: 1px solid var(--easy-button-border);
+  border-right: 1px solid var(--easy-button-border);
+  max-width: 180px;
+  overflow-wrap: anywhere;
+  padding: 7px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.easy-button-artifact-table th {
+  background: color-mix(in oklch, var(--setta-800) 72%, black);
+  color: var(--easy-button-muted);
+  font-weight: 650;
+}
+
+.easy-button-artifact-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.easy-button-artifact-table th:last-child,
+.easy-button-artifact-table td:last-child {
+  border-right: 0;
+}
+
+.easy-button-artifact-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.easy-button-artifact-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.easy-button-artifact-bar-label {
+  align-items: baseline;
+  color: var(--easy-button-muted);
+  display: flex;
+  font-size: 0.76rem;
+  gap: 10px;
+  justify-content: space-between;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.easy-button-artifact-bar-label span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.easy-button-artifact-bar-label strong {
+  color: var(--foreground);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.easy-button-artifact-bar-track {
+  background: color-mix(in oklch, var(--setta-800) 76%, black);
+  border-radius: 999px;
+  height: 7px;
+  overflow: hidden;
+}
+
+.easy-button-artifact-bar-fill {
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+
+.easy-button-artifact-file {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.easy-button-artifact-file code {
+  background: color-mix(in oklch, var(--setta-900) 82%, black);
+  border: 1px solid var(--easy-button-border);
+  border-radius: 6px;
+  color: color-mix(in oklch, var(--accent-teal) 70%, var(--foreground));
+  font-size: 0.76rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  padding: 7px 8px;
+}
+
+.easy-button-artifact-file p {
+  color: var(--easy-button-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .easy-button-stage {
   align-items: stretch;
   display: grid;
@@ -295,6 +478,18 @@
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes easy-button-artifact-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

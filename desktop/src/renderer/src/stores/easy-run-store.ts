@@ -195,14 +195,20 @@ function runPatch(
   run: EasyRun,
 ): Partial<EasyRunStoreData> {
   const sameRun = state.latestRun?.id === run.id;
+  const currentRun = sameRun ? state.latestRun : null;
+  const nextRun = currentRun && isStaleWorkingRun(run, currentRun) ? currentRun : run;
   return {
     artifacts: sameRun ? state.artifacts : [],
     error: null,
     highlights: sameRun ? state.highlights : [],
-    latestRun: run,
+    latestRun: nextRun,
     status: "ready",
     workspaceId,
   };
+}
+
+function isStaleWorkingRun(incoming: EasyRun, current: EasyRun): boolean {
+  return incoming.status === "working" && current.status !== "working";
 }
 
 function snapshotPatch(workspaceId: string, snapshot: EasyRunSnapshot): Partial<EasyRunStoreData> {

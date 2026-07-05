@@ -135,6 +135,26 @@ describe("easy-run store", () => {
     expect(useEasyRunStore.getState().lastEventSequence).toBe(5);
   });
 
+  test("does not regress a terminal run when a same-run action response is stale", async () => {
+    const working = easyRun("easy_run_current");
+    const terminal = completedEasyRun(working, "Done in <1s - no artifacts");
+    const steer = vi.fn<SettaAPI["easyRun"]["steer"]>().mockResolvedValue(working);
+    installEasyRunAPI({ steer });
+    useEasyRunStore.getState().hydrateSnapshot(
+      workspaceId,
+      easyRunSnapshot({
+        latestRun: working,
+        sequence: 5,
+      }),
+    );
+    useEasyRunStore.getState().handleEvent(runUpdatedEvent(6, terminal));
+
+    await useEasyRunStore.getState().steer(workspaceId, "keep going");
+
+    expect(useEasyRunStore.getState().latestRun).toBe(terminal);
+    expect(useEasyRunStore.getState().lastEventSequence).toBe(6);
+  });
+
   test("clears rails when a new run arrives", () => {
     useEasyRunStore.getState().hydrateSnapshot(
       workspaceId,
@@ -234,6 +254,16 @@ function easyRun(id: string, runWorkspaceId = workspaceId): EasyRun {
     status: "working",
     summary: null,
     workspaceId: runWorkspaceId,
+  };
+}
+
+function completedEasyRun(run: EasyRun, summary: string): EasyRun {
+  return {
+    ...run,
+    activeAgentCount: 0,
+    endedAt: "2026-07-08T12:00:01Z",
+    status: "completed",
+    summary,
   };
 }
 

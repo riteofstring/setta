@@ -22,6 +22,7 @@ type ScriptedWorkflowHarness struct {
 	phase4ReviewerBarriers   map[string]map[string]chan struct{}
 	reasoning                ReasoningEffort
 	steers                   map[string]chan SteerRequest
+	tools                    *AgentToolRegistry
 	turnErrors               map[string]string
 	turnStatuses             map[string]HarnessTurnRuntimeStatus
 }
@@ -66,6 +67,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
 	{Prompt: "easy run phase2 complete workflow", Run: scriptedEasyRunPhase2CompleteTurn},
 	{Prompt: "easy run phase2 steering workflow", Run: scriptedEasyRunPhase2SteeringTurn},
+	{Prompt: "easy run phase3 artifacts workflow", Run: scriptedEasyRunPhase3ArtifactsTurn},
 	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer c workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
@@ -73,20 +75,6 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "phase4 fix workflow", Run: scriptedPhase4FixTurn},
 	{Prompt: "pre-turn model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 	{Prompt: "model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
-}
-
-func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
-	defaultModel := fakeModelOptions()[0]
-	return &ScriptedWorkflowHarness{
-		approvals:                map[string]chan ApprovalResponse{},
-		model:                    defaultModel.Model,
-		phase4ConsolidatorCounts: map[string]int{},
-		phase4ReviewerBarriers:   map[string]map[string]chan struct{}{},
-		reasoning:                defaultModel.DefaultReasoningEffort,
-		steers:                   map[string]chan SteerRequest{},
-		turnErrors:               map[string]string{},
-		turnStatuses:             map[string]HarnessTurnRuntimeStatus{},
-	}
 }
 
 func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

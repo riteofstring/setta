@@ -38,3 +38,46 @@ func scriptedEasyRunPhase2SteeringTurn(harness *ScriptedWorkflowHarness, ctx con
 	}
 	return scriptedReply(sink, request.Run.ID, "Easy run phase 2 steered.")
 }
+
+func scriptedEasyRunPhase3ArtifactsTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Preparing artifacts. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	artifactCalls := []string{
+		`{"kind":"markdown","title":"Phase 3 Report","kicker":"Summary","markdown":"## Result\n\nThe scripted easy run emitted a markdown artifact."}`,
+		`{"kind":"table","title":"Artifact Table","columns":[{"key":"name","label":"Name"},{"key":"status","label":"Status"}],"rows":[["Markdown","Ready"],["Table","Ready"]]}`,
+	}
+	for index, arguments := range artifactCalls {
+		if err := harness.callEasyRunArtifactTool(ctx, request, fmt.Sprintf("artifact_call_%d", index+1), []byte(arguments)); err != nil {
+			return TurnCompletion{}, err
+		}
+	}
+	return scriptedReply(sink, request.Run.ID, "Easy run phase 3 artifacts emitted.")
+}
+
+func (harness *ScriptedWorkflowHarness) callEasyRunArtifactTool(ctx context.Context, request TurnRequest, callID string, arguments []byte) error {
+	harness.mu.Lock()
+	tools := harness.tools
+	harness.mu.Unlock()
+	if tools == nil {
+		return fmt.Errorf("scripted easy-run artifact tool registry is unavailable")
+	}
+	tool, ok := tools.Lookup(SettaAgentToolNamespace, SettaEmitArtifactAgentToolName)
+	if !ok {
+		return fmt.Errorf("scripted easy-run artifact tool is unavailable")
+	}
+	runtimeCtx := ContextWithAgentToolRuntime(ctx, AgentToolRuntimeContext{
+		Workspace:    request.Workspace,
+		Conversation: request.Conversation,
+		Run:          request.Run,
+		ThreadID:     "scripted-thread-" + request.Conversation.ID,
+		TurnID:       "scripted-turn-" + request.Run.ID,
+	})
+	_, err := tool.Handler(runtimeCtx, AgentToolCall{
+		Arguments: arguments,
+		CallID:    callID,
+		Namespace: SettaAgentToolNamespace,
+		Tool:      SettaEmitArtifactAgentToolName,
+	})
+	return err
+}

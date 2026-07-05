@@ -40,6 +40,7 @@
       ...easyButtonSurfaceState(host),
       ...easyButtonHostDatasetState(host),
       exists: true,
+      artifacts: easyButtonArtifacts(host),
       layoutWidthSpec: columnRecord?.widthSpec ?? null,
       railText: easyButtonRailText(host),
       rect: rectSnapshot(hostRect),
@@ -172,6 +173,14 @@
       .map((rail) => rail.textContent ?? "")
       .join("")
       .trim();
+  }
+
+  function easyButtonArtifacts(host) {
+    return Array.from(host.querySelectorAll(".easy-button-artifact-card")).map((card) => ({
+      kind: card instanceof HTMLElement ? (card.dataset.artifactKind ?? "") : "",
+      text: (card.textContent ?? "").trim(),
+      title: elementText(card.querySelector(".easy-button-artifact-title")),
+    }));
   }
 
   function easyButtonPaneClickToolbarAction() {
