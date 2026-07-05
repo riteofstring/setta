@@ -246,7 +246,7 @@ function assertWorkingVisual(state, requestText) {
     state.buttonAriaLabel !== "Stop easy run" ||
     state.inputDisabled !== true ||
     state.railText !== "" ||
-    state.paneChromeTitle !== "Easy Button - working"
+    state.paneChromeTitle !== "Easy Button · working"
   ) {
     throw new Error(`easy-button working visual did not match Phase 2b: ${JSON.stringify(state)}`);
   }
@@ -261,7 +261,7 @@ function assertTerminalVisual(state, requestText, summaryPrefix) {
     state.buttonAriaLabel !== "Reset easy button" ||
     state.inputDisabled !== false ||
     state.railText !== "" ||
-    state.paneChromeTitle !== "Easy Button - complete"
+    state.paneChromeTitle !== "Easy Button · complete"
   ) {
     throw new Error(`easy-button terminal visual did not match Phase 2b: ${JSON.stringify(state)}`);
   }

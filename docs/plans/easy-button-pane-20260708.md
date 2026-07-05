@@ -934,3 +934,21 @@ Remaining work: Phase 2c is next. It should add startup recovery for orphaned
 snapshot restore after reload/restart, `easyrun.resync_required` handling,
 second-request rail reset coverage, and the "Copy debug info" context-menu
 action. No blockers were discovered.
+
+### 2026-07-08 — Phase 2b audit follow-up
+
+Audit found the Phase 2b implementation matched the hidden-run lifecycle slice,
+with one pane-title copy mismatch: the implementation used hyphenated state
+titles while the plan specifies `Easy Button · working` / `Easy Button ·
+complete`. Corrected the renderer copy and deterministic Electron assertion.
+
+Verification performed:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./internal/easyrun`
+- `./scripts/go.sh test ./internal/chat -run 'TestServiceRoutes(EasyRun|WorkflowAgent|MasterChat)ThroughSharedHarnessTask'`
+- `./scripts/go.sh test ./internal/httpapi -run 'Test(ReadEasyRunSnapshot|StartEasyRun|StopEasyRun|EasyRunEventStream|ContractSchemaSnapshot)'`
+- `pnpm -C desktop exec vitest run src/renderer/src/stores/easy-run-store.test.ts`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2b-audit`

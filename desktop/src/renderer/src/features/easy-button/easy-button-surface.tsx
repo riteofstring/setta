@@ -498,9 +498,9 @@ function controlAriaLabel(viewState: EasyButtonViewState): string {
 function paneTitleForState(viewState: EasyButtonViewState): string {
   switch (viewState) {
     case "working":
-      return "Easy Button - working";
+      return "Easy Button · working";
     case "complete":
-      return "Easy Button - complete";
+      return "Easy Button · complete";
     case "idle":
       return "Easy Button";
   }
