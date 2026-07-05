@@ -475,6 +475,96 @@ func TestWorkflowDefinitionsListCommandReturnsEmptyArray(t *testing.T) {
 	}
 }
 
+func TestWorkflowDefinitionsReadCommandIntegration(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	opened := openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+	created := createWorkflowDefinitionForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, httpapi.CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Review Flow",
+		Description: "CLI read test workflow",
+		Graph:       cliTestStartEndWorkflowGraph(),
+	})
+
+	var stdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	if code := runWithDeps([]string{"workflow", "definitions", "read", "--app-data-dir", appDataDir, created.ID}, commandDeps); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+
+	var read orchestrator.WorkflowDefinition
+	if err := json.NewDecoder(&stdout).Decode(&read); err != nil {
+		t.Fatalf("decode workflow definition read output: %v\noutput:\n%s", err, stdout.String())
+	}
+	if !reflect.DeepEqual(read, created) {
+		t.Fatalf("read definition = %+v, want %+v", read, created)
+	}
+}
+
+func TestWorkflowDefinitionsReadCommandFailsForMissingDefinition(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+	if code := runWithDeps([]string{"workflow", "definitions", "read", "--app-data-dir", appDataDir, "missing_definition"}, commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "read_workflow_definition_failed") {
+		t.Fatalf("stderr = %q, want read workflow definition error code", stderr.String())
+	}
+}
+
 func TestWorkflowSchemaCommandIntegration(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()

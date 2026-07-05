@@ -21,11 +21,17 @@ import (
 const (
 	workflowCurrentWorkspaceCLIAuthDisplayName = "Setta CLI workflow current-workspace"
 	workflowDefinitionsListCLIAuthDisplayName  = "Setta CLI workflow definitions list"
+	workflowDefinitionsReadCLIAuthDisplayName  = "Setta CLI workflow definitions read"
 	workflowSchemaCLIAuthDisplayName           = "Setta CLI workflow schema"
 )
 
 type workflowOptions struct {
 	AppDataDir string
+}
+
+type workflowDefinitionReadOptions struct {
+	AppDataDir   string
+	DefinitionID string
 }
 
 func runWorkflow(args []string, deps cliDeps) error {
@@ -63,11 +69,13 @@ func runWorkflowCurrentWorkspace(args []string, deps cliDeps) error {
 
 func runWorkflowDefinitions(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workflow definitions requires a subcommand: list")}
+		return usageError{err: errors.New("setta workflow definitions requires a subcommand: list or read")}
 	}
 	switch args[0] {
 	case "list":
 		return runWorkflowDefinitionsList(args[1:], deps)
+	case "read":
+		return runWorkflowDefinitionsRead(args[1:], deps)
 	default:
 		return usageError{err: fmt.Errorf("unknown workflow definitions subcommand %q", args[0])}
 	}
@@ -86,6 +94,23 @@ func runWorkflowDefinitionsList(args []string, deps cliDeps) error {
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(definitions); err != nil {
 		return fmt.Errorf("encode workflow definitions list: %w", err)
+	}
+	return nil
+}
+
+func runWorkflowDefinitionsRead(args []string, deps cliDeps) error {
+	options, err := workflowDefinitionReadOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	definition, err := readWorkflowDefinition(context.Background(), options.AppDataDir, options.DefinitionID, deps)
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(deps.stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(definition); err != nil {
+		return fmt.Errorf("encode workflow definition: %w", err)
 	}
 	return nil
 }
@@ -124,6 +149,29 @@ func workflowOptionsFromArgs(name string, args []string, deps cliDeps) (workflow
 		return workflowOptions{}, usageError{err: fmt.Errorf("%s does not accept positional arguments", name)}
 	}
 	return workflowOptions{AppDataDir: appDataDir}, nil
+}
+
+func workflowDefinitionReadOptionsFromArgs(args []string, deps cliDeps) (workflowDefinitionReadOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workflowDefinitionReadOptions{}, err
+	}
+	flagSet := newFlagSet("setta workflow definitions read", deps.stderr)
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workflowDefinitionReadOptions{}, usageError{err: err}
+		}
+		return workflowDefinitionReadOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 1 {
+		return workflowDefinitionReadOptions{}, usageError{err: errors.New("setta workflow definitions read requires exactly one definition id")}
+	}
+	definitionID := strings.TrimSpace(flagSet.Arg(0))
+	if definitionID == "" {
+		return workflowDefinitionReadOptions{}, usageError{err: errors.New("workflow definition id is required")}
+	}
+	return workflowDefinitionReadOptions{AppDataDir: appDataDir, DefinitionID: definitionID}, nil
 }
 
 func readWorkflowCurrentWorkspace(ctx context.Context, appDataDir string, deps cliDeps) (workspace.WorkspaceSummary, error) {
@@ -182,6 +230,34 @@ func listWorkflowDefinitions(ctx context.Context, appDataDir string, deps cliDep
 		return httpapi.ListWorkflowDefinitionsResponse{}, err
 	}
 	return definitions, nil
+}
+
+func readWorkflowDefinition(ctx context.Context, appDataDir string, definitionID string, deps cliDeps) (orchestrator.WorkflowDefinition, error) {
+	state, token, cleanup, err := workflowCommandAuth(ctx, appDataDir, workflowDefinitionsReadCLIAuthDisplayName, deps)
+	if err != nil {
+		return orchestrator.WorkflowDefinition{}, err
+	}
+	defer cleanup()
+
+	session, err := getWorkspaceSession(ctx, deps.httpClient, state.BaseURL, token)
+	if err != nil {
+		return orchestrator.WorkflowDefinition{}, err
+	}
+	currentWorkspace, err := currentWorkspaceFromSession(session)
+	if err != nil {
+		return orchestrator.WorkflowDefinition{}, err
+	}
+	definition, err := postWorkflowAPI[orchestrator.WorkflowDefinition](ctx, deps.httpClient, state.BaseURL, token, "workflow definitions read", "/workflows/definitions/read", httpapi.ReadWorkflowDefinitionRequest{
+		WorkspaceID:  currentWorkspace.ID,
+		DefinitionID: definitionID,
+	})
+	if err != nil {
+		return orchestrator.WorkflowDefinition{}, err
+	}
+	if err := validateWorkflowDefinitionResponse(definition, currentWorkspace.ID); err != nil {
+		return orchestrator.WorkflowDefinition{}, err
+	}
+	return definition, nil
 }
 
 func workflowCommandAuth(ctx context.Context, appDataDir string, displayName string, deps cliDeps) (serveState, string, func(), error) {
@@ -339,14 +415,14 @@ func validateWorkflowDefinitionsListResponse(response httpapi.ListWorkflowDefini
 		return errors.New("workflow definitions list returned missing definitions array")
 	}
 	for _, definition := range response.Definitions {
-		if err := validateWorkflowDefinitionListItem(definition, workspaceID); err != nil {
+		if err := validateWorkflowDefinitionResponse(definition, workspaceID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateWorkflowDefinitionListItem(definition orchestrator.WorkflowDefinition, workspaceID string) error {
+func validateWorkflowDefinitionResponse(definition orchestrator.WorkflowDefinition, workspaceID string) error {
 	if err := validateWorkflowDefinitionIdentity(definition, workspaceID); err != nil {
 		return err
 	}

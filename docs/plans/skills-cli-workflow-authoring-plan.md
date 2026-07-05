@@ -281,8 +281,25 @@ Progress on 2026-07-06:
 - Audit follow-up: added focused CLI integration coverage for listing an opened
   workspace with no workflow definitions, verifying the command returns an
   empty JSON array through real CLI dispatch, runtime auth, and backend HTTP.
-- Remaining Phase 2 work: add definitions read, validate, and save with the
-  explicit create/update save input and structured diagnostics, then execution
+
+Progress on 2026-07-06:
+
+- Added `setta workflow definitions read <definition-id> [--app-data-dir DIR]`.
+- The command reads the local serve state, verifies the runtime identity, mints
+  a short-lived command-specific CLI auth session, reads the selected workspace
+  through `GET /workspace-session`, calls the authenticated backend
+  `POST /workflows/definitions/read` contract with that workspace ID and the
+  requested definition ID, validates the typed workflow definition response, and
+  prints the definition as JSON.
+- Added focused CLI integration tests for reading an existing definition and
+  for the missing-definition failure path through real CLI dispatch, runtime
+  auth, and backend HTTP.
+- Verification: `./scripts/go.sh test ./cmd/setta`,
+  `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`,
+  and `node desktop/tests/electron/run-workflows.mjs --workflow
+  workflow-graph-smoke` passed.
+- Remaining Phase 2 work: add definitions validate and save with the explicit
+  create/update save input and structured diagnostics, then execution
   start/read. Add the broader workflow-authoring Electron coverage as mutating
   CLI commands are introduced and the in-app path moves to this surface.
 
