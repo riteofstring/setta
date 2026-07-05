@@ -1,5 +1,5 @@
 locals {
-  cloud_init_sha256 = sha256(var.cloud_init)
+  cloud_init_sha256 = sha256(nonsensitive(var.cloud_init))
 
   required_tags = {
     "setta:runtime"      = "true"

@@ -16,21 +16,21 @@ locals {
 module "setta_runtime" {
   source = "../../modules/setta-runtime-cloudinit"
 
-  runtime_name         = var.runtime_name
-  cloud_init           = file(var.cloud_init_path)
-  cloud_init_sha256    = var.cloud_init_sha256
-  additional_tags      = var.tags
-  additional_labels    = var.labels
+  runtime_name      = var.runtime_name
+  cloud_init        = file(var.cloud_init_path)
+  cloud_init_sha256 = var.cloud_init_sha256
+  additional_tags   = var.tags
+  additional_labels = var.labels
 }
 
 resource "digitalocean_droplet" "setta_runtime" {
-  name     = var.runtime_name
-  image    = var.image
-  region   = var.region
-  size     = var.size
+  name      = var.runtime_name
+  image     = var.image
+  region    = var.region
+  size      = var.size
   user_data = module.setta_runtime.user_data
-  tags     = local.droplet_tags
-  ssh_keys = var.ssh_keys
+  tags      = local.droplet_tags
+  ssh_keys  = var.ssh_keys
 }
 
 resource "digitalocean_firewall" "setta_runtime" {
