@@ -1,5 +1,6 @@
 import process from "node:process";
-import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -64,7 +65,7 @@ export async function installFakeCodexAppServer(fixture) {
   const protocolPayloadsPath = join(binDir, "fake-codex-protocol-payloads.mjs");
   const skillRootsPath = join(binDir, "fake-codex-skill-roots.mjs");
   const workflowAuthoringPath = join(binDir, "fake-codex-workflow-authoring.mjs");
-  const settaPath = join(binDir, process.platform === "win32" ? "setta.cmd" : "setta");
+  await assertProductSettaCLIAvailable();
   await copyFile(fakeCodexAppServerFixture, scriptPath);
   await copyFile(fakeCodexParallelRunsFixture, parallelRunsPath);
   await copyFile(fakeCodexProtocolPayloadsFixture, protocolPayloadsPath);
@@ -73,23 +74,33 @@ export async function installFakeCodexAppServer(fixture) {
   if (process.platform === "win32") {
     const commandPath = join(binDir, "codex.cmd");
     await writeFile(commandPath, `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
-    await writeFile(
-      settaPath,
-      `@echo off\r\ncd /d "${repoRoot}"\r\n"${repoRoot}\\scripts\\go.sh" run ./cmd/setta %*\r\n`,
-      "utf8",
-    );
     return { binDir, commandPath };
   }
   const commandPath = join(binDir, "codex");
   await writeFile(commandPath, `#!/usr/bin/env sh\nexec node "${scriptPath}" "$@"\n`, "utf8");
-  await writeFile(
-    settaPath,
-    `#!/usr/bin/env sh\ncd "${repoRoot}"\nexec "${repoRoot}/scripts/go.sh" run ./cmd/setta "$@"\n`,
-    "utf8",
-  );
   await chmod(commandPath, 0o755);
-  await chmod(settaPath, 0o755);
   return { binDir, commandPath };
+}
+
+export function productSettaCLIBinDir() {
+  return join(repoRoot, "desktop", "out", "backend");
+}
+
+export function productSettaCLIPath() {
+  return join(productSettaCLIBinDir(), process.platform === "win32" ? "setta.exe" : "setta");
+}
+
+export async function assertProductSettaCLIAvailable() {
+  const path = productSettaCLIPath();
+  try {
+    await access(path, constants.X_OK);
+  } catch (error) {
+    throw new Error(
+      `product-provided setta CLI is missing or not executable at ${path}; run pnpm -C desktop build`,
+      { cause: error },
+    );
+  }
+  return path;
 }
 
 export async function assertProtocolNotificationActivity(

@@ -1,10 +1,13 @@
-import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
-import { delimiter, join } from "node:path";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import process from "node:process";
 
 import { assertNoCriticalDiagnostics } from "./chat-workflow-assertions.mjs";
 import { pasteImageIntoComposer } from "./chat-workflow-image-attachment-cases.mjs";
 import { prepareLiveCodexAuth } from "./chat-live-auth.mjs";
+import { assertProductSettaCLIAvailable } from "./codex-protocol-workflow.mjs";
+
+const liveSemanticCartographerTimeoutMs = 300_000;
 
 // 128px PNG with red/green/blue/yellow quadrants; lower-right is yellow.
 const liveQuadrantImagePNGBase64 =
@@ -21,6 +24,7 @@ export async function runLiveCodexWorkflow(results, deps) {
     createChat,
     createFixture,
     failureWithLogs,
+    keepArtifacts = false,
     launchContext,
     liveWorkflowTimeoutMs,
     openWorkspace,
@@ -49,12 +53,10 @@ export async function runLiveCodexWorkflow(results, deps) {
   }
   const fixture = await createFixture("live-codex");
   const recordingDir = join(recordingRoot, "live-codex");
-  const liveBinDir = join(fixture.tempRoot, "bin");
-  await installLiveSettaCLIShim(liveBinDir, repoRoot);
+  await assertProductSettaCLIAvailable();
   const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       ...liveAuth.env,
-      PATH: `${liveBinDir}${delimiter}${process.env.PATH ?? ""}`,
     },
     harness: "codex",
     unsetEnv: liveAuth.unsetEnv,
@@ -166,7 +168,9 @@ export async function runLiveCodexWorkflow(results, deps) {
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await rm(fixture.tempRoot, { force: true, recursive: true });
+    if (!keepArtifacts) {
+      await rm(fixture.tempRoot, { force: true, recursive: true });
+    }
   }
 
   if (failure) {
@@ -234,21 +238,6 @@ export async function runLiveCodexWorkflow(results, deps) {
   });
   results.push("live-codex-electron");
   process.stdout.write("Electron chat workflow passed: live-codex-electron\n");
-}
-
-async function installLiveSettaCLIShim(binDir, repoRoot) {
-  await mkdir(binDir, { recursive: true });
-  const settaPath = join(binDir, "setta");
-  await writeFile(
-    settaPath,
-    `#!/bin/sh\ncd ${shellSingleQuote(repoRoot)} || exit 1\nexec ./scripts/go.sh run ./cmd/setta "$@"\n`,
-    "utf8",
-  );
-  await chmod(settaPath, 0o755);
-}
-
-function shellSingleQuote(value) {
-  return `'${String(value).replaceAll("'", "'\\''")}'`;
 }
 
 async function runLiveImageAttachmentWorkflow({
@@ -403,6 +392,21 @@ async function runLiveSemanticCartographerWorkflow({
   waitForBackendState,
   workspaceId,
 }) {
+  const processingState = await rendererSemanticGraph(client, "readCartographerProcessingState", [
+    {},
+  ]);
+  if (!processingState.enabled) {
+    process.stdout.write(
+      "Electron chat workflow skipped: live-codex-semantic-cartographer (semantic cartographer is disabled)\n",
+    );
+    return false;
+  }
+  await waitForCartographerProcessingIdle({
+    client,
+    timeoutMs: liveSemanticCartographerTimeoutMs,
+    waitForBackendState,
+  });
+
   const agentNodeId = "live_cartographer_agent";
   const seedNodeId = "semantic_live_cartographer_seed";
   const graph = workflowGraph(
@@ -467,21 +471,29 @@ async function runLiveSemanticCartographerWorkflow({
     timeoutMs,
   );
   assertLiveWorkflowCompleted(execution);
-  const processingState = await rendererSemanticGraph(client, "readCartographerProcessingState", [
-    {},
-  ]);
-  if (!processingState.enabled) {
-    process.stdout.write(
-      "Electron chat workflow skipped: live-codex-semantic-cartographer (semantic cartographer is disabled)\n",
-    );
-    return false;
-  }
   await waitForBackendState(
     async () => readLiveCartographerState(client, workspaceId, started.id),
     liveCartographerApplied,
-    timeoutMs,
+    Math.max(timeoutMs, liveSemanticCartographerTimeoutMs),
   );
   return true;
+}
+
+async function waitForCartographerProcessingIdle({ client, timeoutMs, waitForBackendState }) {
+  await waitForBackendState(
+    async () => rendererSemanticGraph(client, "readCartographerProcessingState", [{}]),
+    (state) => state.enabled && state.started && cartographerProcessingIsIdle(state),
+    timeoutMs,
+  );
+}
+
+function cartographerProcessingIsIdle(state) {
+  return (
+    state.queuedWindowCount === 0 &&
+    state.runningWindowCount === 0 &&
+    state.queuedWindows.length === 0 &&
+    state.runningWindows.length === 0
+  );
 }
 
 async function readLiveCartographerState(client, workspaceId, executionId) {

@@ -17,6 +17,7 @@ import {
   waitForDriverState,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
+import { productSettaCLIBinDir } from "./codex-protocol-workflow.mjs";
 
 const workflowAuthoringTimeoutMs = 60_000;
 const workflowAuthoringPrompt =
@@ -67,7 +68,6 @@ export async function runProtocolWorkflowAuthoringCLIWorkflow(
 export async function runProtocolWorkflowAuthoringPersistenceWorkflow({
   backend,
   context,
-  fakeCodexBinDir,
   fixture,
   launchOptions,
   onContextChanged,
@@ -100,7 +100,6 @@ export async function runProtocolWorkflowAuthoringPersistenceWorkflow({
     backend: restartedBackend,
     client: restartedContext.client,
     definition: authoring.definition,
-    fakeCodexBinDir,
     fixture,
     workspaceId,
   });
@@ -136,7 +135,6 @@ export async function assertProtocolWorkflowAuthoringRestartRecovery({
   backend,
   client,
   definition,
-  fakeCodexBinDir,
   fixture,
   workspaceId,
 }) {
@@ -152,11 +150,7 @@ export async function assertProtocolWorkflowAuthoringRestartRecovery({
   await assertWorkflowDefinitionPersisted(backend, workspaceId, definition);
   await assertWorkflowDefinitionVisibleInSidebar(client, definition.name);
   await assertRendererWorkflowDefinitionVisible(client, workspaceId, definition.id);
-  const cliDefinition = await readWorkflowDefinitionWithCLI(
-    fakeCodexBinDir,
-    fixture.appDataDir,
-    definition.id,
-  );
+  const cliDefinition = await readWorkflowDefinitionWithCLI(fixture.appDataDir, definition.id);
   if (
     cliDefinition.id !== definition.id ||
     cliDefinition.workspaceId !== workspaceId ||
@@ -487,8 +481,8 @@ function waitForPageLoad(client) {
   });
 }
 
-async function readWorkflowDefinitionWithCLI(fakeCodexBinDir, appDataDir, definitionId) {
-  const result = await runSettaWorkflowCommand(fakeCodexBinDir, appDataDir, [
+async function readWorkflowDefinitionWithCLI(appDataDir, definitionId) {
+  const result = await runSettaWorkflowCommand(appDataDir, [
     "workflow",
     "definitions",
     "read",
@@ -504,11 +498,11 @@ async function readWorkflowDefinitionWithCLI(fakeCodexBinDir, appDataDir, defini
   return parseWorkflowCLIJSON("setta workflow definitions read", result.stdout);
 }
 
-function runSettaWorkflowCommand(fakeCodexBinDir, appDataDir, args) {
+function runSettaWorkflowCommand(appDataDir, args) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn("setta", args, {
       cwd: process.cwd(),
-      env: workflowCLIEnv(fakeCodexBinDir, appDataDir),
+      env: workflowCLIEnv(appDataDir),
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -548,10 +542,10 @@ function runSettaWorkflowCommand(fakeCodexBinDir, appDataDir, args) {
   });
 }
 
-function workflowCLIEnv(fakeCodexBinDir, appDataDir) {
+function workflowCLIEnv(appDataDir) {
   const env = { ...process.env, SETTA_APP_DATA_DIR: appDataDir };
   const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "PATH";
-  env[pathKey] = `${fakeCodexBinDir}${delimiter}${env[pathKey] ?? ""}`;
+  env[pathKey] = `${productSettaCLIBinDir()}${delimiter}${env[pathKey] ?? ""}`;
   return env;
 }
 

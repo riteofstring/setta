@@ -52,6 +52,7 @@ export interface BackendHandle {
 const maxRecentLogs = 80;
 const defaultSpawnedBackendReadyTimeoutMs = 120_000;
 const serveStateSchemaVersion = 1;
+const bundledSettaCLIDirEnv = "SETTA_BUNDLED_SETTA_CLI_DIR";
 type BackendChild = ChildProcessByStdio<null, Readable, Readable>;
 
 interface SpawnedBackendServeState {
@@ -65,7 +66,7 @@ interface SpawnedBackendServeState {
   startedAt: string;
 }
 
-function resolveBackendLaunchOptions(
+export function resolveBackendLaunchOptions(
   repoRoot: string,
   appDataDir: string,
   env: NodeJS.ProcessEnv,
@@ -74,9 +75,17 @@ function resolveBackendLaunchOptions(
     env.SETTA_BACKEND_READY_TIMEOUT_MS,
     defaultSpawnedBackendReadyTimeoutMs,
   );
+  const bundledSettaCLIDir = resolveBundledSettaCLIDir(repoRoot, env);
   return {
     appDataDir,
-    args: ["run", "./cmd/setta-backend", "--app-data-dir", appDataDir],
+    args: [
+      "run",
+      "./cmd/setta-backend",
+      "--app-data-dir",
+      appDataDir,
+      "--bundled-cli-dir",
+      bundledSettaCLIDir,
+    ],
     command: `${repoRoot}/scripts/go.sh`,
     cwd: repoRoot,
     env: {
@@ -85,6 +94,14 @@ function resolveBackendLaunchOptions(
     },
     readyTimeoutMs,
   };
+}
+
+function resolveBundledSettaCLIDir(repoRoot: string, env: NodeJS.ProcessEnv): string {
+  const override = env[bundledSettaCLIDirEnv];
+  if (override && override.trim() !== "") {
+    return override;
+  }
+  return join(repoRoot, "desktop", "out", "backend");
 }
 
 function externalBackendHandle(rawURL: string, bootstrapToken: string | undefined): BackendHandle {

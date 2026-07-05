@@ -391,14 +391,14 @@ async function assertApproveWorkflowNodeTrajectoryDetails(client, workspaceId, r
       );
     },
   );
-  await waitForState(
-    client,
-    driverCallExpression("workflowNodeTrajectoryState"),
-    (state) =>
-      state.trajectoryPresent &&
-      state.approvalCardCount === 0 &&
-      state.text.includes("Command approval resolved."),
-  );
+  await reloadWorkflowNodeDetailsWithPersistedTarget(client, {
+    executionId: startedRun.executionId,
+    isReady: (state) =>
+      state.trajectory.approvalCardCount === 0 &&
+      state.trajectory.text.includes("Command approval resolved."),
+    nodeId: "activity",
+    workspaceId,
+  });
   await appendWorkflowState(recordingDir, {
     approvalId: pendingApproval.approvalId,
     executionId: completed.id,

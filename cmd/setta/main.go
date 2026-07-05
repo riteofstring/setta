@@ -24,14 +24,15 @@ const defaultServePort = 7345
 var version = "dev"
 
 type cliDeps struct {
-	commandRunner commandRunner
-	getenv        func(string) string
-	httpClient    *http.Client
-	now           func() time.Time
-	pid           func() int
-	renderQR      func(io.Writer, string)
-	stderr        io.Writer
-	stdout        io.Writer
+	commandRunner  commandRunner
+	executablePath func() (string, error)
+	getenv         func(string) string
+	httpClient     *http.Client
+	now            func() time.Time
+	pid            func() int
+	renderQR       func(io.Writer, string)
+	stderr         io.Writer
+	stdout         io.Writer
 }
 
 type usageError struct {
@@ -125,6 +126,9 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	}
 	if deps.commandRunner == nil {
 		deps.commandRunner = runExternalCommand
+	}
+	if deps.executablePath == nil {
+		deps.executablePath = os.Executable
 	}
 	if deps.httpClient == nil {
 		deps.httpClient = &http.Client{Timeout: 5 * time.Second}

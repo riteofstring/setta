@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   parseReadyLine,
+  resolveBackendLaunchOptions,
   startBackend,
   startSpawnedBackend,
   type BackendHandle,
@@ -35,6 +36,35 @@ describe("parseReadyLine", () => {
 });
 
 describe("startSpawnedBackend", () => {
+  test("launches spawned backends with the bundled setta CLI directory", () => {
+    const repoRoot = join(tmpdir(), "setta-repo");
+    const appDataDir = join(tmpdir(), "setta-app-data");
+
+    const options = resolveBackendLaunchOptions(repoRoot, appDataDir, {});
+
+    expect(options.command).toBe(`${repoRoot}/scripts/go.sh`);
+    expect(options.args).toEqual([
+      "run",
+      "./cmd/setta-backend",
+      "--app-data-dir",
+      appDataDir,
+      "--bundled-cli-dir",
+      join(repoRoot, "desktop", "out", "backend"),
+    ]);
+  });
+
+  test("allows bundled setta CLI directory override for spawned backends", () => {
+    const repoRoot = join(tmpdir(), "setta-repo");
+    const appDataDir = join(tmpdir(), "setta-app-data");
+    const cliDir = join(tmpdir(), "setta-cli");
+
+    const options = resolveBackendLaunchOptions(repoRoot, appDataDir, {
+      SETTA_BUNDLED_SETTA_CLI_DIR: cliDir,
+    });
+
+    expect(options.args).toContain(cliDir);
+  });
+
   test("keeps SETTA_BACKEND_URL loopback-only", async () => {
     await expect(
       startBackend("/tmp/repo", "/tmp/app-data", {

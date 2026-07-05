@@ -293,6 +293,7 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	flagSet.SetOutput(stderr)
 	flagSet.StringVar(&config.AppDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.BoolVar(&config.AllowRemote, "allow-remote", allowRemote, "allow binding to non-loopback numeric IP addresses")
+	flagSet.StringVar(&config.BundledSettaCLIDir, "bundled-cli-dir", envOrDefault(getenv, "SETTA_BUNDLED_SETTA_CLI_DIR", config.BundledSettaCLIDir), "directory containing the bundled setta CLI executable for workflow agents")
 	flagSet.StringVar(&config.RuntimeDisplayName, "display-name", envOrDefault(getenv, "SETTA_RUNTIME_DISPLAY_NAME", config.RuntimeDisplayName), "runtime display name to persist for this Setta instance")
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")

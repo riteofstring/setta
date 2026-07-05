@@ -1449,6 +1449,9 @@ func testDeps() cliDeps {
 		commandRunner: func(context.Context, string, ...string) ([]byte, error) {
 			return nil, fmt.Errorf("unexpected command")
 		},
+		executablePath: func() (string, error) {
+			return "", nil
+		},
 		getenv: func(string) string {
 			return ""
 		},

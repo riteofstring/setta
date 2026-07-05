@@ -336,6 +336,7 @@ async function main() {
       createChat,
       createFixture,
       failureWithLogs,
+      keepArtifacts: options.keepArtifacts,
       launchContext,
       liveWorkflowTimeoutMs,
       openWorkspace,
@@ -355,7 +356,6 @@ async function main() {
       waitForTexts,
     });
   }
-
   printWorkflowResults(results);
 }
 async function runSelectedSingleWorkflow(results) {

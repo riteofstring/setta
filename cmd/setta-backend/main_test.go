@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"testing"
 
 	"setta/internal/runtime"
@@ -28,6 +29,49 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	}
 	if config.AppDataDir != appDataDir {
 		t.Fatalf("app data dir = %q, want %q", config.AppDataDir, appDataDir)
+	}
+}
+
+func TestConfigFromArgsUsesBundledSettaCLIDirFlag(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	cliDir := createBundledSettaCLIFixture(t)
+	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir(), "--bundled-cli-dir", cliDir}, &stdout, &stderr, emptyEnv)
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
+	}
+	if config.BundledSettaCLIDir != cliDir {
+		t.Fatalf("bundled CLI dir = %q, want %q", config.BundledSettaCLIDir, cliDir)
+	}
+}
+
+func TestConfigFromArgsUsesBundledSettaCLIDirEnv(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	cliDir := createBundledSettaCLIFixture(t)
+	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
+		if name == "SETTA_BUNDLED_SETTA_CLI_DIR" {
+			return cliDir
+		}
+		return ""
+	})
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
+	}
+	if config.BundledSettaCLIDir != cliDir {
+		t.Fatalf("bundled CLI dir = %q, want %q", config.BundledSettaCLIDir, cliDir)
+	}
+}
+
+func TestConfigFromArgsRejectsMissingBundledSettaCLI(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir(), "--bundled-cli-dir", t.TempDir()}, &stdout, &stderr, emptyEnv)
+	if err == nil {
+		t.Fatal("config succeeded, want missing bundled CLI error")
 	}
 }
 
@@ -173,4 +217,19 @@ func TestDecodeBackendReadyEventKeepsPayloadForwardable(t *testing.T) {
 
 func emptyEnv(string) string {
 	return ""
+}
+
+func createBundledSettaCLIFixture(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	name := "setta"
+	if goruntime.GOOS == "windows" {
+		name = "setta.exe"
+	}
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write bundled CLI fixture: %v", err)
+	}
+	return dir
 }

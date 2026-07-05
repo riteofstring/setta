@@ -10,11 +10,8 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/netip"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,7 +24,6 @@ import (
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
-	"setta/internal/runtimeidentity"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/webapp"
@@ -42,6 +38,7 @@ type Config struct {
 	AllowRemote                            bool
 	AppDataDir                             string
 	BootstrapDeviceDisplayName             string
+	BundledSettaCLIDir                     string
 	ChatHarness                            ChatHarnessMode
 	DisableAutomaticCartographerProcessing bool
 	Host                                   string
@@ -126,6 +123,14 @@ type runtimeAuthBootstrap struct {
 	bootstrapToken         string
 }
 
+type runtimeCoreServices struct {
+	appearanceService  *appearance.Service
+	chatService        *chat.Service
+	codexManager       *codexapp.Manager
+	workspaceService   *workspacesession.Service
+	workspaceUIService *workspaceui.Service
+}
+
 type runtimeSemanticServices struct {
 	activityService *workspaceactivity.Service
 	graphService    *semanticgraph.Service
@@ -144,75 +149,6 @@ func DefaultConfig() Config {
 		Stderr:                     io.Discard,
 		ShutdownTimeout:            5 * time.Second,
 	}
-}
-
-func (config Config) Validate() error {
-	if err := validateAppDataDir(config.AppDataDir); err != nil {
-		return err
-	}
-	if !validChatHarnessMode(config.ChatHarness) {
-		return fmt.Errorf("unsupported chat harness mode: %s", config.ChatHarness)
-	}
-	if config.Host == "" {
-		return errors.New("host is required")
-	}
-	if !config.SkipBootstrapDeviceSession && config.BootstrapDeviceDisplayName == "" {
-		return errors.New("bootstrap device display name is required")
-	}
-	if err := config.validateHostBinding(); err != nil {
-		return err
-	}
-	if err := validatePort(config.Port); err != nil {
-		return err
-	}
-	if err := validateRuntimeDisplayNameOverride(config.RuntimeDisplayName); err != nil {
-		return err
-	}
-	if config.Version == "" {
-		return errors.New("version is required")
-	}
-	if config.ShutdownTimeout <= 0 {
-		return errors.New("shutdown timeout must be positive")
-	}
-	return nil
-}
-
-func validateRuntimeDisplayNameOverride(displayName string) error {
-	if strings.TrimSpace(displayName) == "" {
-		return nil
-	}
-	if _, err := runtimeidentity.NormalizeDisplayName(displayName); err != nil {
-		return fmt.Errorf("runtime display name is invalid: %w", err)
-	}
-	return nil
-}
-
-func validateAppDataDir(appDataDir string) error {
-	if appDataDir == "" {
-		return errors.New("app data directory is required")
-	}
-	if !filepath.IsAbs(appDataDir) {
-		return fmt.Errorf("app data directory must be absolute: %s", appDataDir)
-	}
-	return nil
-}
-
-func (config Config) validateHostBinding() error {
-	addr, err := netip.ParseAddr(config.Host)
-	if err != nil {
-		return fmt.Errorf("host must be a numeric IP address: %w", err)
-	}
-	if !addr.IsLoopback() && !config.AllowRemote {
-		return fmt.Errorf("host must be loopback unless allow remote is enabled: %s", config.Host)
-	}
-	return nil
-}
-
-func validatePort(port int) error {
-	if port < 0 || port > 65535 {
-		return fmt.Errorf("port must be between 0 and 65535: %d", port)
-	}
-	return nil
 }
 
 func Start(ctx context.Context, config Config) (*Server, error) {
@@ -275,40 +211,27 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 			_ = authBootstrap.store.Close()
 		}
 	}()
-	appearanceService, err := newAppearanceService(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, err
-	}
-	workspaceService, err := newWorkspaceService(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, err
-	}
-	workspaceUIService, err := newWorkspaceUIService(config.AppDataDir, workspaceService)
-	if err != nil {
-		return runtimeServices{}, err
-	}
-	codexManager := newCodexManager()
-	chatService, err := newChatService(config.AppDataDir, workspaceService, codexManager, config.ChatHarness)
+	coreServices, err := newRuntimeCoreServices(config)
 	if err != nil {
 		return runtimeServices{}, err
 	}
 	workflowService, workflowStore, workflowAuditService, err := newRuntimeWorkflowServices(
 		config.AppDataDir,
-		workspaceService,
-		chatService,
+		coreServices.workspaceService,
+		coreServices.chatService,
 	)
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	semanticServices, err := newRuntimeSemanticServices(config, workspaceService, workflowService, workflowStore, chatService)
+	semanticServices, err := newRuntimeSemanticServices(config, coreServices.workspaceService, workflowService, workflowStore, coreServices.chatService)
 	if err != nil {
 		return runtimeServices{}, err
 	}
 	terminalService, codexAccountService, err := newRuntimeEdgeServices(
 		config,
-		workspaceService,
-		chatService,
-		codexManager,
+		coreServices.workspaceService,
+		coreServices.chatService,
+		coreServices.codexManager,
 		semanticServices.graphService,
 		semanticServices.graphStore,
 		semanticServices.activityService,
@@ -317,7 +240,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	notifyService, err := newNotifyService(config, authBootstrap.store, chatService)
+	notifyService, err := newNotifyService(config, authBootstrap.store, coreServices.chatService)
 	if err != nil {
 		closeRuntimeServicesBeforeNotifyFailure(
 			config,
@@ -325,7 +248,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 			semanticServices.graphService,
 			semanticServices.graphStore,
 			semanticServices.activityService,
-			chatService,
+			coreServices.chatService,
 			workflowService,
 			workflowStore,
 		)
@@ -334,24 +257,51 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 
 	closeAuthOnFailure = false
 	return runtimeServices{
-		appearanceService:        appearanceService,
+		appearanceService:        coreServices.appearanceService,
 		authStore:                authBootstrap.store,
 		bootstrapToken:           authBootstrap.bootstrapToken,
-		chatService:              chatService,
+		chatService:              coreServices.chatService,
 		codexAccountService:      codexAccountService,
-		codexManager:             codexManager,
+		codexManager:             coreServices.codexManager,
 		notifyService:            notifyService,
 		semanticGraphService:     semanticServices.graphService,
 		semanticGraphStore:       semanticServices.graphStore,
 		terminalService:          terminalService,
 		workspaceActivityService: semanticServices.activityService,
 		workflowAuditService:     workflowAuditService,
-		workspaceUIService:       workspaceUIService,
-		workspaceService:         workspaceService,
+		workspaceUIService:       coreServices.workspaceUIService,
+		workspaceService:         coreServices.workspaceService,
 		workflowService:          workflowService,
 		workflowStore:            workflowStore,
 		runtimeIdentityManager:   authBootstrap.identityManager,
 		infrastructureProvider:   authBootstrap.infrastructureProvider,
+	}, nil
+}
+
+func newRuntimeCoreServices(config Config) (runtimeCoreServices, error) {
+	appearanceService, err := newAppearanceService(config.AppDataDir)
+	if err != nil {
+		return runtimeCoreServices{}, err
+	}
+	workspaceService, err := newWorkspaceService(config.AppDataDir)
+	if err != nil {
+		return runtimeCoreServices{}, err
+	}
+	workspaceUIService, err := newWorkspaceUIService(config.AppDataDir, workspaceService)
+	if err != nil {
+		return runtimeCoreServices{}, err
+	}
+	codexManager := newCodexManager(config.BundledSettaCLIDir)
+	chatService, err := newChatService(config.AppDataDir, workspaceService, codexManager, config.ChatHarness)
+	if err != nil {
+		return runtimeCoreServices{}, err
+	}
+	return runtimeCoreServices{
+		appearanceService:  appearanceService,
+		chatService:        chatService,
+		codexManager:       codexManager,
+		workspaceService:   workspaceService,
+		workspaceUIService: workspaceUIService,
 	}, nil
 }
 
@@ -586,14 +536,19 @@ func newWorkspaceUIService(
 	return service, nil
 }
 
-func newCodexManager() *codexapp.Manager {
+func newCodexManager(bundledSettaCLIDir string) *codexapp.Manager {
 	return codexapp.NewManager(codexapp.ManagerConfig{
-		Process: codexapp.ProcessConfig{
-			Command: "codex",
-			Args:    []string{"app-server", "--listen", "stdio://"},
-		},
+		Process:          newCodexProcessConfig(bundledSettaCLIDir),
 		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
 	})
+}
+
+func newCodexProcessConfig(bundledSettaCLIDir string) codexapp.ProcessConfig {
+	return codexapp.ProcessConfig{
+		Command: "codex",
+		Args:    []string{"app-server", "--listen", "stdio://"},
+		Env:     codexProcessEnvForBundledSettaCLI(bundledSettaCLIDir),
+	}
 }
 
 func newChatService(
