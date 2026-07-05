@@ -547,6 +547,40 @@ Verification:
 - generated backend contracts updated from Go-owned endpoint registry
 - focused renderer tests for pane metadata mapping
 
+Progress on 2026-07-07:
+
+- Added the authenticated read-only workspace UI endpoints:
+  `GET /workspaces/ui/schema`, `POST /workspaces/ui/panes/list`, and
+  `POST /workspaces/ui/panes/read`.
+- Added Go-owned workspace UI schema and pane descriptor contracts covering
+  stable pane IDs, surface IDs/kinds, title/subtitle, focus state, column/row/
+  plane location, `layout_only` runtime state, read-only capability descriptors,
+  and explicit content reference slots. The initial implementation exposes only
+  deterministic content references already present in persisted layout state
+  (terminal pane config and workflow-node-details config) and does not infer
+  chat, workflow graph, or semantic detail targets from titles.
+- Added `setta workspace current`, `setta workspace schema`,
+  `setta workspace panes list`, and `setta workspace panes read <pane-id>`.
+  The commands use local runtime auth, resolve the current workspace from the
+  active workspace session, validate response shape, and print structured JSON.
+- Missing persisted workspace UI layout now returns `layoutPresent: false` with
+  an empty pane list instead of synthesizing renderer-only default panes.
+- Regenerated the backend TypeScript contract surface and HTTP contract
+  snapshot from the endpoint registry; backend protocol version is now `14`.
+- Verification: `./scripts/go.sh test ./internal/workspaceui`,
+  `./scripts/go.sh test ./internal/httpapi`,
+  `./scripts/go.sh test ./cmd/setta`, `pnpm -C desktop typecheck`,
+  `pnpm -C desktop build`, and
+  `node desktop/tests/electron/run-workflows.mjs --workflow pane-focus-click`
+  passed.
+- Additional observation: `workflow-graph-smoke` was attempted after rebuilding
+  for protocol `14`; it rendered the graph but timed out waiting for an existing
+  projection-update assertion. The passing `pane-focus-click` workflow is the
+  app-path verification for this read-only workspace/layout slice.
+- Remaining Phase 1 work: add renderer-facing pane metadata consumption and
+  focused renderer tests once a renderer feature uses the new descriptor
+  contract. The current slice exposes the backend and CLI read-only surface only.
+
 ### Phase 2: Backend-Owned Layout Operations
 
 Add typed pane operations for focus, move, close-pane, rename, resize, open, and

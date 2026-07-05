@@ -130,6 +130,72 @@ func TestWorkspaceUILayoutEndpointRejectsUnknownWorkspace(t *testing.T) {
 	}
 }
 
+func TestWorkspaceUIPaneIntrospectionEndpoints(t *testing.T) {
+	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[1].TerminalConfig = &workspaceui.TerminalPaneConfig{
+		ProfileID:     "default",
+		CWDOverride:   "/tmp/workspace",
+		TitleOverride: "CLI",
+	}
+	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
+		Layout: layout,
+	}, http.StatusOK)
+
+	schema := getJSON[workspaceui.WorkspaceUISchema](t, handler, "/workspaces/ui/schema", http.StatusOK)
+	if schema.LayoutSchemaVersion != workspaceui.SchemaVersion {
+		t.Fatalf("layout schema version = %d, want %d", schema.LayoutSchemaVersion, workspaceui.SchemaVersion)
+	}
+	if len(schema.SurfaceKinds) == 0 || len(schema.PaneReadModes) == 0 {
+		t.Fatalf("schema = %+v, want surface kinds and read modes", schema)
+	}
+
+	list := postJSON[workspaceui.WorkspaceUIPaneListResult](t, handler, "/workspaces/ui/panes/list", ListWorkspaceUIPanesRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if !list.LayoutPresent || len(list.Panes) != 2 {
+		t.Fatalf("pane list = %+v, want persisted two-pane layout", list)
+	}
+	if list.Panes[1].PaneID != "workspace_pane_1" || !list.Panes[1].Focused {
+		t.Fatalf("second pane = %+v, want focused terminal", list.Panes[1])
+	}
+	if list.Panes[1].ContentRefs.Terminal == nil || list.Panes[1].ContentRefs.Terminal.CWDOverride != "/tmp/workspace" {
+		t.Fatalf("terminal content ref = %+v", list.Panes[1].ContentRefs.Terminal)
+	}
+	if list.Panes[1].CanFocus || len(list.Panes[1].WriteModes) != 0 {
+		t.Fatalf("terminal capabilities = focus:%v writeModes:%+v, want read-only initial capabilities", list.Panes[1].CanFocus, list.Panes[1].WriteModes)
+	}
+
+	read := postJSON[workspaceui.WorkspaceUIPaneReadResult](t, handler, "/workspaces/ui/panes/read", ReadWorkspaceUIPaneRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+	}, http.StatusOK)
+	if read.Pane.PaneID != "workspace_pane_1" || read.Pane.Location.ColumnIndex != 1 {
+		t.Fatalf("read pane = %+v, want terminal in second column", read.Pane)
+	}
+}
+
+func TestWorkspaceUIPaneReadRejectsMissingPane(t *testing.T) {
+	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
+		Layout: workspaceUILayout(opened.Workspace.ID),
+	}, http.StatusOK)
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/panes/read", ReadWorkspaceUIPaneRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_missing",
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "read_workspace_ui_pane_failed" {
+		t.Fatalf("error code = %q, want read_workspace_ui_pane_failed", errResponse.Error.Code)
+	}
+}
+
 func TestWorkspaceSessionEndpointReturnsCurrentSession(t *testing.T) {
 	handler := newWorkspaceHandler(t, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/workspace-session", nil)

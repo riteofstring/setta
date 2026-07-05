@@ -46,12 +46,13 @@ type cliStructuredError interface {
 type cliCommand func([]string, cliDeps) error
 
 var cliCommands = map[string]cliCommand{
-	"serve":    runServe,
-	"pair":     runPair,
-	"devices":  runDevices,
-	"runtime":  runRuntime,
-	"workflow": runWorkflow,
-	"version":  runVersion,
+	"serve":     runServe,
+	"pair":      runPair,
+	"devices":   runDevices,
+	"runtime":   runRuntime,
+	"workflow":  runWorkflow,
+	"workspace": runWorkspace,
+	"version":   runVersion,
 }
 
 func main() {
@@ -166,6 +167,10 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta workflow executions start [--app-data-dir DIR] <definition-id>")
 	fmt.Fprintln(output, "  setta workflow executions read [--app-data-dir DIR] <execution-id>")
 	fmt.Fprintln(output, "  setta workflow schema [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workspace current [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workspace panes list [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workspace panes read [--app-data-dir DIR] <pane-id>")
+	fmt.Fprintln(output, "  setta workspace schema [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke [--app-data-dir DIR] <device-id>")
 	fmt.Fprintln(output, "  setta version")

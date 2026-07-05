@@ -264,6 +264,111 @@ func TestServicePersistsResolvedWorkspaceLayout(t *testing.T) {
 	}
 }
 
+func TestServiceListsPaneDescriptors(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	list, err := service.ListPanes("workspace_api")
+	if err != nil {
+		t.Fatalf("list panes: %v", err)
+	}
+	if !list.LayoutPresent {
+		t.Fatal("layoutPresent = false, want true")
+	}
+	if len(list.Panes) != 2 {
+		t.Fatalf("panes = %+v, want two panes", list.Panes)
+	}
+	assertChatPaneDescriptor(t, list.Panes[0])
+	assertTerminalPaneDescriptor(t, list.Panes[1])
+}
+
+func assertChatPaneDescriptor(t *testing.T, pane WorkspaceUIPaneDescriptor) {
+	t.Helper()
+	if pane.PaneID != "workspace_pane_0" || pane.Focused || pane.Location.PaneIndex != 0 {
+		t.Fatalf("chat pane descriptor = %+v", pane)
+	}
+	if pane.ReadModes == nil || len(pane.ReadModes) != 1 || pane.ReadModes[0] != WorkspaceUIPaneReadModeMetadata {
+		t.Fatalf("chat read modes = %+v, want metadata", pane.ReadModes)
+	}
+	if pane.WriteModes == nil || len(pane.WriteModes) != 0 {
+		t.Fatalf("chat write modes = %+v, want empty slice", pane.WriteModes)
+	}
+	if pane.CanFocus || pane.CanMove || pane.CanClosePane {
+		t.Fatalf("chat layout mutation capabilities = focus:%v move:%v close:%v, want false", pane.CanFocus, pane.CanMove, pane.CanClosePane)
+	}
+}
+
+func assertTerminalPaneDescriptor(t *testing.T, pane WorkspaceUIPaneDescriptor) {
+	t.Helper()
+	if !pane.Focused || pane.Location.PaneIndex != 1 || pane.Location.PaneCount != 2 {
+		t.Fatalf("terminal pane descriptor = %+v", pane)
+	}
+	if pane.RuntimeState.Status != WorkspaceUIPaneRuntimeStatusLayoutOnly {
+		t.Fatalf("terminal runtime state = %+v, want layout_only", pane.RuntimeState)
+	}
+	if pane.ContentRefs.Terminal == nil {
+		t.Fatalf("terminal content ref = nil")
+	}
+	if pane.ContentRefs.Terminal.ProfileID != "default" || pane.ContentRefs.Terminal.SessionID != "" {
+		t.Fatalf("terminal content ref = %+v, want profile default and no session", pane.ContentRefs.Terminal)
+	}
+}
+
+func TestServiceListsEmptyPanesWhenLayoutMissing(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	list, err := service.ListPanes("workspace_api")
+	if err != nil {
+		t.Fatalf("list panes without layout: %v", err)
+	}
+	if list.LayoutPresent {
+		t.Fatal("layoutPresent = true, want false")
+	}
+	if list.Panes == nil || len(list.Panes) != 0 {
+		t.Fatalf("panes = %+v, want empty slice", list.Panes)
+	}
+}
+
+func TestServiceReadsPaneDescriptor(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	read, err := service.ReadPane("workspace_api", "workspace_pane_1")
+	if err != nil {
+		t.Fatalf("read pane: %v", err)
+	}
+	if read.Pane.PaneID != "workspace_pane_1" || !read.Pane.Focused {
+		t.Fatalf("read pane = %+v, want focused terminal", read.Pane)
+	}
+	if read.Schema.LayoutSchemaVersion != SchemaVersion {
+		t.Fatalf("schema = %+v, want layout schema version %d", read.Schema, SchemaVersion)
+	}
+}
+
+func TestServiceReadPaneRejectsMissingPane(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ReadPane("workspace_api", "workspace_pane_missing")
+	if err == nil || !strings.Contains(err.Error(), "workspace pane not found") {
+		t.Fatalf("error = %v, want missing pane", err)
+	}
+}
+
 func newTestStore(t *testing.T, appDataDir string) *Store {
 	t.Helper()
 

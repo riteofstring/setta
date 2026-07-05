@@ -124,6 +124,48 @@ func (handler handler) removeRecentWorkspace(response http.ResponseWriter, reque
 	writeJSON(response, http.StatusOK, session)
 }
 
+func (handler handler) readWorkspaceUISchema(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if service == nil {
+		return
+	}
+	writeJSON(response, http.StatusOK, service.Schema())
+}
+
+func (handler handler) listWorkspaceUIPanes(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if service == nil {
+		return
+	}
+	var payload ListWorkspaceUIPanesRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	panes, err := service.ListPanes(payload.WorkspaceID)
+	if err != nil {
+		writeWorkspaceUIError(response, "list_workspace_ui_panes_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, panes)
+}
+
+func (handler handler) readWorkspaceUIPane(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if service == nil {
+		return
+	}
+	var payload ReadWorkspaceUIPaneRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	pane, err := service.ReadPane(payload.WorkspaceID, payload.PaneID)
+	if err != nil {
+		writeWorkspaceUIError(response, "read_workspace_ui_pane_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, pane)
+}
+
 func (handler handler) readWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkspaceUIService(response, handler.workspaceUIService)
 	if service == nil {

@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 13;
-export const backendContractSchemaHash = "sha256:477e613a637495f7685069382856d9530ca275f46ba2003616f1834aa3eaf103";
+export const backendProtocolVersion = 14;
+export const backendContractSchemaHash = "sha256:46e906d88fc5d391425c0cce44cdac82b9019883e9e395cf5cbe2402fd1df3d1";
 
 export type DeviceScope = "full";
 
@@ -150,28 +150,48 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "chat-dom" | "empty-frame" | "workflow-graph" | "settings-dom" | "terminal" | "semantic-node-details" | "workflow-node-details" | "workflow-settings";
+export type WorkspaceUIPaneReadMode = "metadata";
 
-export const surfaceKindValues = ["chat-dom", "empty-frame", "workflow-graph", "settings-dom", "terminal", "semantic-node-details", "workflow-node-details", "workflow-settings"] as const satisfies readonly SurfaceKind[];
+export const workspaceUIPaneReadModeValues = ["metadata"] as const satisfies readonly WorkspaceUIPaneReadMode[];
 
-export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
+export function decodeWorkspaceUIPaneReadMode(value: unknown, label = "WorkspaceUIPaneReadMode"): WorkspaceUIPaneReadMode {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "chat-dom":
+    case "metadata":
       return decoded;
-    case "empty-frame":
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceUIPaneWriteMode = "chat_send" | "chat_queue" | "chat_steer" | "terminal_input";
+
+export const workspaceUIPaneWriteModeValues = ["chat_send", "chat_queue", "chat_steer", "terminal_input"] as const satisfies readonly WorkspaceUIPaneWriteMode[];
+
+export function decodeWorkspaceUIPaneWriteMode(value: unknown, label = "WorkspaceUIPaneWriteMode"): WorkspaceUIPaneWriteMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "chat_send":
       return decoded;
-    case "workflow-graph":
+    case "chat_queue":
       return decoded;
-    case "settings-dom":
+    case "chat_steer":
       return decoded;
-    case "terminal":
+    case "terminal_input":
       return decoded;
-    case "semantic-node-details":
-      return decoded;
-    case "workflow-node-details":
-      return decoded;
-    case "workflow-settings":
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceUIPaneRuntimeStatus = "layout_only";
+
+export const workspaceUIPaneRuntimeStatusValues = ["layout_only"] as const satisfies readonly WorkspaceUIPaneRuntimeStatus[];
+
+export function decodeWorkspaceUIPaneRuntimeStatus(value: unknown, label = "WorkspaceUIPaneRuntimeStatus"): WorkspaceUIPaneRuntimeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "layout_only":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -194,6 +214,52 @@ export function decodePaneTone(value: unknown, label = "PaneTone"): PaneTone {
     case "pink":
       return decoded;
     case "slate":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceUISurfaceCloseMode = "none" | "safe" | "force";
+
+export const workspaceUISurfaceCloseModeValues = ["none", "safe", "force"] as const satisfies readonly WorkspaceUISurfaceCloseMode[];
+
+export function decodeWorkspaceUISurfaceCloseMode(value: unknown, label = "WorkspaceUISurfaceCloseMode"): WorkspaceUISurfaceCloseMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "none":
+      return decoded;
+    case "safe":
+      return decoded;
+    case "force":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SurfaceKind = "chat-dom" | "empty-frame" | "workflow-graph" | "settings-dom" | "terminal" | "semantic-node-details" | "workflow-node-details" | "workflow-settings";
+
+export const surfaceKindValues = ["chat-dom", "empty-frame", "workflow-graph", "settings-dom", "terminal", "semantic-node-details", "workflow-node-details", "workflow-settings"] as const satisfies readonly SurfaceKind[];
+
+export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "chat-dom":
+      return decoded;
+    case "empty-frame":
+      return decoded;
+    case "workflow-graph":
+      return decoded;
+    case "settings-dom":
+      return decoded;
+    case "terminal":
+      return decoded;
+    case "semantic-node-details":
+      return decoded;
+    case "workflow-node-details":
+      return decoded;
+    case "workflow-settings":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -250,6 +316,24 @@ export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowG
     case "waiting_approval":
       return decoded;
     case "recovery_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphViewMode = "draft" | "version" | "run";
+
+export const workflowGraphViewModeValues = ["draft", "version", "run"] as const satisfies readonly WorkflowGraphViewMode[];
+
+export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGraphViewMode"): WorkflowGraphViewMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "draft":
+      return decoded;
+    case "version":
+      return decoded;
+    case "run":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -338,24 +422,6 @@ export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowG
     case "completed":
       return decoded;
     case "cancelled":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowGraphViewMode = "draft" | "version" | "run";
-
-export const workflowGraphViewModeValues = ["draft", "version", "run"] as const satisfies readonly WorkflowGraphViewMode[];
-
-export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGraphViewMode"): WorkflowGraphViewMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "draft":
-      return decoded;
-    case "version":
-      return decoded;
-    case "run":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3015,13 +3081,123 @@ export interface RemoveRecentWorkspaceRequest {
   id: string;
 }
 
-export interface ReadWorkspaceUILayoutRequest {
+export interface WorkspaceUISchema {
+  schemaVersion: number;
+  layoutSchemaVersion: number;
+  columnWidthUnits: ColumnWidthUnit[];
+  paneReadModes: WorkspaceUIPaneReadMode[];
+  paneWriteModes: WorkspaceUIPaneWriteMode[];
+  paneRuntimeStatuses: WorkspaceUIPaneRuntimeStatus[];
+  paneTones: PaneTone[];
+  surfaceCloseModes: WorkspaceUISurfaceCloseMode[];
+  surfaceKinds: SurfaceKind[];
+}
+
+export interface ListWorkspaceUIPanesRequest {
   workspaceId: string;
 }
 
 export interface ColumnWidthSpec {
   unit: ColumnWidthUnit;
   value: number;
+}
+
+export interface WorkspaceUIPaneLocation {
+  columnId: string;
+  columnIndex: number;
+  idealWidthSpec: ColumnWidthSpec;
+  paneIndex: number;
+  paneCount: number;
+  planeIndex: number;
+  sequence: number;
+  slotIndex: number;
+  weight: number;
+  widthSpec: ColumnWidthSpec;
+}
+
+export interface WorkspaceUIPaneRuntimeState {
+  status: WorkspaceUIPaneRuntimeStatus;
+}
+
+export interface WorkspaceUIChatPaneContentRef {
+  conversationId: string;
+}
+
+export interface WorkspaceUISemanticNodeDetailsPaneContentRef {
+  nodeId: string;
+}
+
+export interface WorkspaceUITerminalPaneContentRef {
+  cwdOverride: string;
+  profileId: string;
+  sessionId: string;
+  titleOverride: string;
+}
+
+export interface WorkspaceUIWorkflowGraphPaneContentRef {
+  definitionId: string;
+  executionId: string;
+  viewMode: string;
+}
+
+export interface WorkspaceUIWorkflowNodeDetailsPaneContentRef {
+  definitionId: string;
+  definitionVersionId: string;
+  definitionVersionNumber: number;
+  executionId: string;
+  nodeId: string;
+  nodeExecutionId: string;
+  nodeKind: WorkflowNodeKind;
+  nodeStatus: WorkflowGraphNodeStatus;
+  viewMode: WorkflowGraphViewMode;
+}
+
+export interface WorkspaceUIPaneContentRefs {
+  chat: WorkspaceUIChatPaneContentRef | null;
+  semanticNodeDetails: WorkspaceUISemanticNodeDetailsPaneContentRef | null;
+  terminal: WorkspaceUITerminalPaneContentRef | null;
+  workflowGraph: WorkspaceUIWorkflowGraphPaneContentRef | null;
+  workflowNodeDetails: WorkspaceUIWorkflowNodeDetailsPaneContentRef | null;
+}
+
+export interface WorkspaceUIPaneDescriptor {
+  paneId: string;
+  surfaceId: string;
+  surfaceKind: SurfaceKind;
+  title: string;
+  subtitle: string;
+  focused: boolean;
+  location: WorkspaceUIPaneLocation;
+  runtimeState: WorkspaceUIPaneRuntimeState;
+  canFocus: boolean;
+  canMove: boolean;
+  canClosePane: boolean;
+  surfaceCloseModes: WorkspaceUISurfaceCloseMode[];
+  readModes: WorkspaceUIPaneReadMode[];
+  writeModes: WorkspaceUIPaneWriteMode[];
+  contentRefs: WorkspaceUIPaneContentRefs;
+}
+
+export interface WorkspaceUIPaneListResult {
+  workspaceId: string;
+  layoutPresent: boolean;
+  panes: WorkspaceUIPaneDescriptor[];
+  schema: WorkspaceUISchema;
+}
+
+export interface ReadWorkspaceUIPaneRequest {
+  workspaceId: string;
+  paneId: string;
+}
+
+export interface WorkspaceUIPaneReadResult {
+  workspaceId: string;
+  pane: WorkspaceUIPaneDescriptor;
+  schema: WorkspaceUISchema;
+}
+
+export interface ReadWorkspaceUILayoutRequest {
+  workspaceId: string;
 }
 
 export interface WorkspaceUIColumn {
@@ -6738,6 +6914,20 @@ export const backendEndpoints = {
     path: "/workspaces/remove-recent",
     requestBodyLimitBytes: 4194304,
   },
+  ReadWorkspaceUISchema: {
+    method: "GET",
+    path: "/workspaces/ui/schema",
+  },
+  ListWorkspaceUIPanes: {
+    method: "POST",
+    path: "/workspaces/ui/panes/list",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadWorkspaceUIPane: {
+    method: "POST",
+    path: "/workspaces/ui/panes/read",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/read",
@@ -7776,11 +7966,27 @@ export function decodeRemoveRecentWorkspaceRequest(value: unknown): RemoveRecent
   };
 }
 
-export function decodeReadWorkspaceUILayoutRequest(value: unknown): ReadWorkspaceUILayoutRequest {
-  const record = assertRecord(value, "ReadWorkspaceUILayoutRequest");
-  assertKnownFields(record, "ReadWorkspaceUILayoutRequest", ["workspaceId"]);
+export function decodeWorkspaceUISchema(value: unknown): WorkspaceUISchema {
+  const record = assertRecord(value, "WorkspaceUISchema");
+  assertKnownFields(record, "WorkspaceUISchema", ["schemaVersion", "layoutSchemaVersion", "columnWidthUnits", "paneReadModes", "paneWriteModes", "paneRuntimeStatuses", "paneTones", "surfaceCloseModes", "surfaceKinds"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceUILayoutRequest"), "ReadWorkspaceUILayoutRequest.workspaceId"),
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkspaceUISchema"), "WorkspaceUISchema.schemaVersion"),
+    layoutSchemaVersion: decodeInteger(requireField(record, "layoutSchemaVersion", "WorkspaceUISchema"), "WorkspaceUISchema.layoutSchemaVersion"),
+    columnWidthUnits: decodeArray(requireField(record, "columnWidthUnits", "WorkspaceUISchema"), "WorkspaceUISchema.columnWidthUnits", (item) => decodeColumnWidthUnit(item, "WorkspaceUISchema.columnWidthUnits item")),
+    paneReadModes: decodeArray(requireField(record, "paneReadModes", "WorkspaceUISchema"), "WorkspaceUISchema.paneReadModes", (item) => decodeWorkspaceUIPaneReadMode(item, "WorkspaceUISchema.paneReadModes item")),
+    paneWriteModes: decodeArray(requireField(record, "paneWriteModes", "WorkspaceUISchema"), "WorkspaceUISchema.paneWriteModes", (item) => decodeWorkspaceUIPaneWriteMode(item, "WorkspaceUISchema.paneWriteModes item")),
+    paneRuntimeStatuses: decodeArray(requireField(record, "paneRuntimeStatuses", "WorkspaceUISchema"), "WorkspaceUISchema.paneRuntimeStatuses", (item) => decodeWorkspaceUIPaneRuntimeStatus(item, "WorkspaceUISchema.paneRuntimeStatuses item")),
+    paneTones: decodeArray(requireField(record, "paneTones", "WorkspaceUISchema"), "WorkspaceUISchema.paneTones", (item) => decodePaneTone(item, "WorkspaceUISchema.paneTones item")),
+    surfaceCloseModes: decodeArray(requireField(record, "surfaceCloseModes", "WorkspaceUISchema"), "WorkspaceUISchema.surfaceCloseModes", (item) => decodeWorkspaceUISurfaceCloseMode(item, "WorkspaceUISchema.surfaceCloseModes item")),
+    surfaceKinds: decodeArray(requireField(record, "surfaceKinds", "WorkspaceUISchema"), "WorkspaceUISchema.surfaceKinds", (item) => decodeSurfaceKind(item, "WorkspaceUISchema.surfaceKinds item")),
+  };
+}
+
+export function decodeListWorkspaceUIPanesRequest(value: unknown): ListWorkspaceUIPanesRequest {
+  const record = assertRecord(value, "ListWorkspaceUIPanesRequest");
+  assertKnownFields(record, "ListWorkspaceUIPanesRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListWorkspaceUIPanesRequest"), "ListWorkspaceUIPanesRequest.workspaceId"),
   };
 }
 
@@ -7790,6 +7996,156 @@ export function decodeColumnWidthSpec(value: unknown): ColumnWidthSpec {
   return {
     unit: decodeColumnWidthUnit(requireField(record, "unit", "ColumnWidthSpec"), "ColumnWidthSpec.unit"),
     value: decodeNumber(requireField(record, "value", "ColumnWidthSpec"), "ColumnWidthSpec.value"),
+  };
+}
+
+export function decodeWorkspaceUIPaneLocation(value: unknown): WorkspaceUIPaneLocation {
+  const record = assertRecord(value, "WorkspaceUIPaneLocation");
+  assertKnownFields(record, "WorkspaceUIPaneLocation", ["columnId", "columnIndex", "idealWidthSpec", "paneIndex", "paneCount", "planeIndex", "sequence", "slotIndex", "weight", "widthSpec"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPaneLocation"), "WorkspaceUIPaneLocation.columnId"),
+    columnIndex: decodeInteger(requireField(record, "columnIndex", "WorkspaceUIPaneLocation"), "WorkspaceUIPaneLocation.columnIndex"),
+    idealWidthSpec: decodeColumnWidthSpec(requireField(record, "idealWidthSpec", "WorkspaceUIPaneLocation")),
+    paneIndex: decodeInteger(requireField(record, "paneIndex", "WorkspaceUIPaneLocation"), "WorkspaceUIPaneLocation.paneIndex"),
+    paneCount: decodeInteger(requireField(record, "paneCount", "WorkspaceUIPaneLocation"), "WorkspaceUIPaneLocation.paneCount"),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "WorkspaceUIPaneLocation"), "WorkspaceUIPaneLocation.planeIndex"),
+    sequence: decodeInteger(requireField(record, "sequence", "WorkspaceUIPaneLocation"), "WorkspaceUIPaneLocation.sequence"),
+    slotIndex: decodeInteger(requireField(record, "slotIndex", "WorkspaceUIPaneLocation"), "WorkspaceUIPaneLocation.slotIndex"),
+    weight: decodeNumber(requireField(record, "weight", "WorkspaceUIPaneLocation"), "WorkspaceUIPaneLocation.weight"),
+    widthSpec: decodeColumnWidthSpec(requireField(record, "widthSpec", "WorkspaceUIPaneLocation")),
+  };
+}
+
+export function decodeWorkspaceUIPaneRuntimeState(value: unknown): WorkspaceUIPaneRuntimeState {
+  const record = assertRecord(value, "WorkspaceUIPaneRuntimeState");
+  assertKnownFields(record, "WorkspaceUIPaneRuntimeState", ["status"]);
+  return {
+    status: decodeWorkspaceUIPaneRuntimeStatus(requireField(record, "status", "WorkspaceUIPaneRuntimeState"), "WorkspaceUIPaneRuntimeState.status"),
+  };
+}
+
+export function decodeWorkspaceUIChatPaneContentRef(value: unknown): WorkspaceUIChatPaneContentRef {
+  const record = assertRecord(value, "WorkspaceUIChatPaneContentRef");
+  assertKnownFields(record, "WorkspaceUIChatPaneContentRef", ["conversationId"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "WorkspaceUIChatPaneContentRef"), "WorkspaceUIChatPaneContentRef.conversationId"),
+  };
+}
+
+export function decodeWorkspaceUISemanticNodeDetailsPaneContentRef(value: unknown): WorkspaceUISemanticNodeDetailsPaneContentRef {
+  const record = assertRecord(value, "WorkspaceUISemanticNodeDetailsPaneContentRef");
+  assertKnownFields(record, "WorkspaceUISemanticNodeDetailsPaneContentRef", ["nodeId"]);
+  return {
+    nodeId: decodeString(requireField(record, "nodeId", "WorkspaceUISemanticNodeDetailsPaneContentRef"), "WorkspaceUISemanticNodeDetailsPaneContentRef.nodeId"),
+  };
+}
+
+export function decodeWorkspaceUITerminalPaneContentRef(value: unknown): WorkspaceUITerminalPaneContentRef {
+  const record = assertRecord(value, "WorkspaceUITerminalPaneContentRef");
+  assertKnownFields(record, "WorkspaceUITerminalPaneContentRef", ["cwdOverride", "profileId", "sessionId", "titleOverride"]);
+  return {
+    cwdOverride: decodeString(requireField(record, "cwdOverride", "WorkspaceUITerminalPaneContentRef"), "WorkspaceUITerminalPaneContentRef.cwdOverride"),
+    profileId: decodeString(requireField(record, "profileId", "WorkspaceUITerminalPaneContentRef"), "WorkspaceUITerminalPaneContentRef.profileId"),
+    sessionId: decodeString(requireField(record, "sessionId", "WorkspaceUITerminalPaneContentRef"), "WorkspaceUITerminalPaneContentRef.sessionId"),
+    titleOverride: decodeString(requireField(record, "titleOverride", "WorkspaceUITerminalPaneContentRef"), "WorkspaceUITerminalPaneContentRef.titleOverride"),
+  };
+}
+
+export function decodeWorkspaceUIWorkflowGraphPaneContentRef(value: unknown): WorkspaceUIWorkflowGraphPaneContentRef {
+  const record = assertRecord(value, "WorkspaceUIWorkflowGraphPaneContentRef");
+  assertKnownFields(record, "WorkspaceUIWorkflowGraphPaneContentRef", ["definitionId", "executionId", "viewMode"]);
+  return {
+    definitionId: decodeString(requireField(record, "definitionId", "WorkspaceUIWorkflowGraphPaneContentRef"), "WorkspaceUIWorkflowGraphPaneContentRef.definitionId"),
+    executionId: decodeString(requireField(record, "executionId", "WorkspaceUIWorkflowGraphPaneContentRef"), "WorkspaceUIWorkflowGraphPaneContentRef.executionId"),
+    viewMode: decodeString(requireField(record, "viewMode", "WorkspaceUIWorkflowGraphPaneContentRef"), "WorkspaceUIWorkflowGraphPaneContentRef.viewMode"),
+  };
+}
+
+export function decodeWorkspaceUIWorkflowNodeDetailsPaneContentRef(value: unknown): WorkspaceUIWorkflowNodeDetailsPaneContentRef {
+  const record = assertRecord(value, "WorkspaceUIWorkflowNodeDetailsPaneContentRef");
+  assertKnownFields(record, "WorkspaceUIWorkflowNodeDetailsPaneContentRef", ["definitionId", "definitionVersionId", "definitionVersionNumber", "executionId", "nodeId", "nodeExecutionId", "nodeKind", "nodeStatus", "viewMode"]);
+  return {
+    definitionId: decodeString(requireField(record, "definitionId", "WorkspaceUIWorkflowNodeDetailsPaneContentRef"), "WorkspaceUIWorkflowNodeDetailsPaneContentRef.definitionId"),
+    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkspaceUIWorkflowNodeDetailsPaneContentRef"), "WorkspaceUIWorkflowNodeDetailsPaneContentRef.definitionVersionId"),
+    definitionVersionNumber: decodeInteger(requireField(record, "definitionVersionNumber", "WorkspaceUIWorkflowNodeDetailsPaneContentRef"), "WorkspaceUIWorkflowNodeDetailsPaneContentRef.definitionVersionNumber"),
+    executionId: decodeString(requireField(record, "executionId", "WorkspaceUIWorkflowNodeDetailsPaneContentRef"), "WorkspaceUIWorkflowNodeDetailsPaneContentRef.executionId"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkspaceUIWorkflowNodeDetailsPaneContentRef"), "WorkspaceUIWorkflowNodeDetailsPaneContentRef.nodeId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "WorkspaceUIWorkflowNodeDetailsPaneContentRef"), "WorkspaceUIWorkflowNodeDetailsPaneContentRef.nodeExecutionId"),
+    nodeKind: decodeWorkflowNodeKind(requireField(record, "nodeKind", "WorkspaceUIWorkflowNodeDetailsPaneContentRef"), "WorkspaceUIWorkflowNodeDetailsPaneContentRef.nodeKind"),
+    nodeStatus: decodeWorkflowGraphNodeStatus(requireField(record, "nodeStatus", "WorkspaceUIWorkflowNodeDetailsPaneContentRef"), "WorkspaceUIWorkflowNodeDetailsPaneContentRef.nodeStatus"),
+    viewMode: decodeWorkflowGraphViewMode(requireField(record, "viewMode", "WorkspaceUIWorkflowNodeDetailsPaneContentRef"), "WorkspaceUIWorkflowNodeDetailsPaneContentRef.viewMode"),
+  };
+}
+
+export function decodeWorkspaceUIPaneContentRefs(value: unknown): WorkspaceUIPaneContentRefs {
+  const record = assertRecord(value, "WorkspaceUIPaneContentRefs");
+  assertKnownFields(record, "WorkspaceUIPaneContentRefs", ["chat", "semanticNodeDetails", "terminal", "workflowGraph", "workflowNodeDetails"]);
+  return {
+    chat: decodeNullable(requireField(record, "chat", "WorkspaceUIPaneContentRefs"), "WorkspaceUIPaneContentRefs.chat", (item) => decodeWorkspaceUIChatPaneContentRef(item)),
+    semanticNodeDetails: decodeNullable(requireField(record, "semanticNodeDetails", "WorkspaceUIPaneContentRefs"), "WorkspaceUIPaneContentRefs.semanticNodeDetails", (item) => decodeWorkspaceUISemanticNodeDetailsPaneContentRef(item)),
+    terminal: decodeNullable(requireField(record, "terminal", "WorkspaceUIPaneContentRefs"), "WorkspaceUIPaneContentRefs.terminal", (item) => decodeWorkspaceUITerminalPaneContentRef(item)),
+    workflowGraph: decodeNullable(requireField(record, "workflowGraph", "WorkspaceUIPaneContentRefs"), "WorkspaceUIPaneContentRefs.workflowGraph", (item) => decodeWorkspaceUIWorkflowGraphPaneContentRef(item)),
+    workflowNodeDetails: decodeNullable(requireField(record, "workflowNodeDetails", "WorkspaceUIPaneContentRefs"), "WorkspaceUIPaneContentRefs.workflowNodeDetails", (item) => decodeWorkspaceUIWorkflowNodeDetailsPaneContentRef(item)),
+  };
+}
+
+export function decodeWorkspaceUIPaneDescriptor(value: unknown): WorkspaceUIPaneDescriptor {
+  const record = assertRecord(value, "WorkspaceUIPaneDescriptor");
+  assertKnownFields(record, "WorkspaceUIPaneDescriptor", ["paneId", "surfaceId", "surfaceKind", "title", "subtitle", "focused", "location", "runtimeState", "canFocus", "canMove", "canClosePane", "surfaceCloseModes", "readModes", "writeModes", "contentRefs"]);
+  return {
+    paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.paneId"),
+    surfaceId: decodeString(requireField(record, "surfaceId", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.surfaceId"),
+    surfaceKind: decodeSurfaceKind(requireField(record, "surfaceKind", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.surfaceKind"),
+    title: decodeString(requireField(record, "title", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.title"),
+    subtitle: decodeString(requireField(record, "subtitle", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.subtitle"),
+    focused: decodeBoolean(requireField(record, "focused", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.focused"),
+    location: decodeWorkspaceUIPaneLocation(requireField(record, "location", "WorkspaceUIPaneDescriptor")),
+    runtimeState: decodeWorkspaceUIPaneRuntimeState(requireField(record, "runtimeState", "WorkspaceUIPaneDescriptor")),
+    canFocus: decodeBoolean(requireField(record, "canFocus", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.canFocus"),
+    canMove: decodeBoolean(requireField(record, "canMove", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.canMove"),
+    canClosePane: decodeBoolean(requireField(record, "canClosePane", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.canClosePane"),
+    surfaceCloseModes: decodeArray(requireField(record, "surfaceCloseModes", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.surfaceCloseModes", (item) => decodeWorkspaceUISurfaceCloseMode(item, "WorkspaceUIPaneDescriptor.surfaceCloseModes item")),
+    readModes: decodeArray(requireField(record, "readModes", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.readModes", (item) => decodeWorkspaceUIPaneReadMode(item, "WorkspaceUIPaneDescriptor.readModes item")),
+    writeModes: decodeArray(requireField(record, "writeModes", "WorkspaceUIPaneDescriptor"), "WorkspaceUIPaneDescriptor.writeModes", (item) => decodeWorkspaceUIPaneWriteMode(item, "WorkspaceUIPaneDescriptor.writeModes item")),
+    contentRefs: decodeWorkspaceUIPaneContentRefs(requireField(record, "contentRefs", "WorkspaceUIPaneDescriptor")),
+  };
+}
+
+export function decodeWorkspaceUIPaneListResult(value: unknown): WorkspaceUIPaneListResult {
+  const record = assertRecord(value, "WorkspaceUIPaneListResult");
+  assertKnownFields(record, "WorkspaceUIPaneListResult", ["workspaceId", "layoutPresent", "panes", "schema"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUIPaneListResult"), "WorkspaceUIPaneListResult.workspaceId"),
+    layoutPresent: decodeBoolean(requireField(record, "layoutPresent", "WorkspaceUIPaneListResult"), "WorkspaceUIPaneListResult.layoutPresent"),
+    panes: decodeArray(requireField(record, "panes", "WorkspaceUIPaneListResult"), "WorkspaceUIPaneListResult.panes", (item) => decodeWorkspaceUIPaneDescriptor(item)),
+    schema: decodeWorkspaceUISchema(requireField(record, "schema", "WorkspaceUIPaneListResult")),
+  };
+}
+
+export function decodeReadWorkspaceUIPaneRequest(value: unknown): ReadWorkspaceUIPaneRequest {
+  const record = assertRecord(value, "ReadWorkspaceUIPaneRequest");
+  assertKnownFields(record, "ReadWorkspaceUIPaneRequest", ["workspaceId", "paneId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceUIPaneRequest"), "ReadWorkspaceUIPaneRequest.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "ReadWorkspaceUIPaneRequest"), "ReadWorkspaceUIPaneRequest.paneId"),
+  };
+}
+
+export function decodeWorkspaceUIPaneReadResult(value: unknown): WorkspaceUIPaneReadResult {
+  const record = assertRecord(value, "WorkspaceUIPaneReadResult");
+  assertKnownFields(record, "WorkspaceUIPaneReadResult", ["workspaceId", "pane", "schema"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUIPaneReadResult"), "WorkspaceUIPaneReadResult.workspaceId"),
+    pane: decodeWorkspaceUIPaneDescriptor(requireField(record, "pane", "WorkspaceUIPaneReadResult")),
+    schema: decodeWorkspaceUISchema(requireField(record, "schema", "WorkspaceUIPaneReadResult")),
+  };
+}
+
+export function decodeReadWorkspaceUILayoutRequest(value: unknown): ReadWorkspaceUILayoutRequest {
+  const record = assertRecord(value, "ReadWorkspaceUILayoutRequest");
+  assertKnownFields(record, "ReadWorkspaceUILayoutRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceUILayoutRequest"), "ReadWorkspaceUILayoutRequest.workspaceId"),
   };
 }
 
@@ -12965,6 +13321,9 @@ export interface BackendClient {
   closeWorkspace: (request: CloseWorkspaceRequest) => Promise<WorkspaceSession>;
   reorderWorkspace: (request: ReorderWorkspaceRequest) => Promise<WorkspaceSession>;
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
+  readWorkspaceUISchema: () => Promise<WorkspaceUISchema>;
+  listWorkspaceUIPanes: (request: ListWorkspaceUIPanesRequest) => Promise<WorkspaceUIPaneListResult>;
+  readWorkspaceUIPane: (request: ReadWorkspaceUIPaneRequest) => Promise<WorkspaceUIPaneReadResult>;
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
   saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
   readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest) => Promise<ReadWorkspaceActivitySnapshotResponse>;
@@ -13241,6 +13600,30 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.RemoveRecentWorkspace,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkspaceUISchema: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceUISchema,
+      endpoint: backendEndpoints.ReadWorkspaceUISchema,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
+    listWorkspaceUIPanes: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceUIPaneListResult,
+      endpoint: backendEndpoints.ListWorkspaceUIPanes,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkspaceUIPane: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceUIPaneReadResult,
+      endpoint: backendEndpoints.ReadWorkspaceUIPane,
       fetchImpl,
       requestPayload: request,
     }),

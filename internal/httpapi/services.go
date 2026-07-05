@@ -37,6 +37,9 @@ type WorkspaceService interface {
 }
 
 type WorkspaceUIService interface {
+	ListPanes(workspaceID string) (workspaceui.WorkspaceUIPaneListResult, error)
+	ReadPane(workspaceID string, paneID string) (workspaceui.WorkspaceUIPaneReadResult, error)
+	Schema() workspaceui.WorkspaceUISchema
 	ReadLayout(workspaceID string) (workspaceui.WorkspaceUILayoutReadResult, error)
 	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
 }

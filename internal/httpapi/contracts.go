@@ -128,6 +128,15 @@ type SaveWorkspaceUILayoutRequest struct {
 	Layout workspaceui.WorkspaceUILayout `json:"layout"`
 }
 
+type ListWorkspaceUIPanesRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type ReadWorkspaceUIPaneRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PaneID      string `json:"paneId"`
+}
+
 type ReadWorkspaceActivitySnapshotRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	Limit       int    `json:"limit"`
