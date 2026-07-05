@@ -9,7 +9,6 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
-	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
@@ -51,6 +50,8 @@ var apiEndpoints = []endpoint{
 	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
 	unauthenticated(get[RuntimeInfoResponse]("RuntimeInfo", "/runtime/info", handler.runtimeInfo)),
 	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
+	unauthenticated(post[SetupAttestationRequest, SetupAttestationResponse]("SetupAttestation", "/setup/attestation", handler.setupAttestation)),
+	post[CreateDevicePairingRequest, CreateDevicePairingResponse]("CreateDevicePairing", "/pairing/create-device", handler.createDevicePairing),
 	post[UpdateRuntimeDisplayNameRequest, RuntimeInfoResponse]("UpdateRuntimeDisplayName", "/runtime/display-name/update", handler.updateRuntimeDisplayName),
 	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
 	post[RevokeDeviceRequest, RevokeDeviceResponse]("RevokeDevice", "/devices/revoke", handler.revokeDevice),
@@ -73,11 +74,6 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkspaceActivitySnapshotRequest, ReadWorkspaceActivitySnapshotResponse]("ReadWorkspaceActivitySnapshot", "/workspace-activity/snapshot", handler.readWorkspaceActivitySnapshot),
 	post[ReadWorkflowExecutionActivityRequest, ReadWorkflowExecutionActivityResponse]("ReadWorkflowExecutionActivity", "/workspace-activity/execution-snapshot", handler.readWorkflowExecutionActivity),
 	streamEvent[workspaceactivity.WorkspaceActivityEvent]("WorkspaceActivityEventStream", "/workspace-activity/events", handler.workspaceActivityEventStream),
-	getWithQuery[ReadEasyRunSnapshotRequest, easyrun.EasyRunSnapshot]("ReadEasyRunSnapshot", "/easy-runs/snapshot", handler.readEasyRunSnapshot),
-	post[StartEasyRunRequest, easyrun.EasyRun]("StartEasyRun", "/easy-runs/start", handler.startEasyRun),
-	post[SteerEasyRunRequest, easyrun.EasyRun]("SteerEasyRun", "/easy-runs/steer", handler.steerEasyRun),
-	post[StopEasyRunRequest, easyrun.EasyRun]("StopEasyRun", "/easy-runs/stop", handler.stopEasyRun),
-	streamEvent[easyrun.EasyRunEvent]("EasyRunEventStream", "/easy-runs/events", handler.easyRunEventStream),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),
@@ -245,19 +241,6 @@ func get[Response any](name string, path string, handler routeHandler) endpoint 
 			Name:     name,
 			Method:   http.MethodGet,
 			Path:     path,
-			Response: reflect.TypeFor[Response](),
-		},
-		Handler: handler,
-	}
-}
-
-func getWithQuery[Request any, Response any](name string, path string, handler routeHandler) endpoint {
-	return endpoint{
-		ContractEndpoint: ContractEndpoint{
-			Name:     name,
-			Method:   http.MethodGet,
-			Path:     path,
-			Request:  reflect.TypeFor[Request](),
 			Response: reflect.TypeFor[Response](),
 		},
 		Handler: handler,

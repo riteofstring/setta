@@ -18,7 +18,7 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	if request.StructuredTask == nil {
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured task is required", ErrUnsupportedHarnessTask)
 	}
-	if !isStructuredHarnessSurface(request.Surface) {
+	if request.Surface != HarnessSurfaceSemanticCartographer {
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured surface %s", ErrUnsupportedHarnessTask, request.Surface)
 	}
 	if request.TurnMode != HarnessTurnStructuredTask {
@@ -26,9 +26,6 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	}
 	if request.OutputContract.Kind != HarnessOutputStrictJSON {
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured output contract %s", ErrUnsupportedHarnessTask, request.OutputContract.Kind)
-	}
-	if request.Surface == HarnessSurfaceEasyRunNarrator {
-		return runScriptedEasyRunNarratorTask(request)
 	}
 	input, err := scriptedCartographerInputFromRequest(request)
 	if err != nil {
@@ -76,74 +73,6 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 			ThreadRef:   request.ThreadRef,
 		},
 	}, nil
-}
-
-func runScriptedEasyRunNarratorTask(request HarnessTaskRequest) (HarnessTaskResult, error) {
-	output, err := json.Marshal(scriptedEasyRunNarratorOutput(request))
-	if err != nil {
-		return HarnessTaskResult{}, err
-	}
-	return HarnessTaskResult{
-		Completion:       TurnCompletion{Outcome: TurnOutcomeCompleted},
-		StructuredOutput: json.RawMessage(output),
-		Audit: HarnessAuditMetadata{
-			HarnessKind: request.HarnessKind,
-			Model:       request.StructuredTask.Model,
-			RequestID:   "scripted-easy-run-narrator-request",
-			ResponseID:  "scripted-easy-run-narrator-response",
-			ThreadRef:   request.ThreadRef,
-		},
-	}, nil
-}
-
-func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
-	var input struct {
-		RequestText string `json:"requestText"`
-		Status      string `json:"status"`
-		Terminal    bool   `json:"terminal"`
-	}
-	if request.StructuredTask != nil && len(request.StructuredTask.Input) > 0 {
-		_ = json.Unmarshal(request.StructuredTask.Input, &input)
-	}
-	if input.RequestText == "default narrator empty summary" {
-		return map[string]any{
-			"highlights": []string{},
-			"summary":    "",
-		}
-	}
-	if input.RequestText == "easy run phase4 narrator workflow" {
-		return map[string]any{
-			"highlights": []string{
-				"Framing the request as a user-facing result",
-				"Preparing the final visible answer",
-			},
-			"summary": "The scripted narrator condensed the hidden run for the Easy Button pane.",
-		}
-	}
-	if input.RequestText == "easy run working narrator cadence" && !input.Terminal {
-		return map[string]any{
-			"highlights": []string{
-				"Working through the request shape",
-				"Preparing a visible result",
-			},
-			"summary": "",
-		}
-	}
-	return map[string]any{
-		"highlights": []string{},
-		"summary":    scriptedEasyRunNarratorSummary(input.Status),
-	}
-}
-
-func scriptedEasyRunNarratorSummary(status string) string {
-	switch status {
-	case string(RunStatusCancelled):
-		return "The run was stopped before finishing."
-	case string(RunStatusFailed):
-		return "The run could not finish."
-	default:
-		return "The Easy Button run finished."
-	}
 }
 
 type scriptedCartographerInput struct {

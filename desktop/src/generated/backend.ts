@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 10;
-export const backendContractSchemaHash = "sha256:b135875a96f5b9b12ba4a9b210d70ddbadd4e6491e430f3006f7e16501f45383";
+export const backendProtocolVersion = 9;
+export const backendContractSchemaHash = "sha256:b54b4490d490352e9d7c060778357777f7801d1fdfefe39a20eab076069eb35e";
 
 export type DeviceScope = "full";
 
@@ -150,16 +150,14 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "chat-dom" | "easy-button" | "empty-frame" | "workflow-graph" | "settings-dom" | "terminal" | "semantic-node-details" | "workflow-node-details" | "workflow-settings";
+export type SurfaceKind = "chat-dom" | "empty-frame" | "workflow-graph" | "settings-dom" | "terminal" | "semantic-node-details" | "workflow-node-details" | "workflow-settings";
 
-export const surfaceKindValues = ["chat-dom", "easy-button", "empty-frame", "workflow-graph", "settings-dom", "terminal", "semantic-node-details", "workflow-node-details", "workflow-settings"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["chat-dom", "empty-frame", "workflow-graph", "settings-dom", "terminal", "semantic-node-details", "workflow-node-details", "workflow-settings"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "chat-dom":
-      return decoded;
-    case "easy-button":
       return decoded;
     case "empty-frame":
       return decoded;
@@ -666,82 +664,6 @@ export function decodeWorkspaceActivityDeltaKind(value: unknown, label = "Worksp
   }
 }
 
-export type EasyRunStatus = "working" | "completed" | "failed" | "stopped";
-
-export const easyRunStatusValues = ["working", "completed", "failed", "stopped"] as const satisfies readonly EasyRunStatus[];
-
-export function decodeEasyRunStatus(value: unknown, label = "EasyRunStatus"): EasyRunStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "working":
-      return decoded;
-    case "completed":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "stopped":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyRunNarratorStatus = "ok" | "degraded";
-
-export const easyRunNarratorStatusValues = ["ok", "degraded"] as const satisfies readonly EasyRunNarratorStatus[];
-
-export function decodeEasyRunNarratorStatus(value: unknown, label = "EasyRunNarratorStatus"): EasyRunNarratorStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "ok":
-      return decoded;
-    case "degraded":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyArtifactKind = "markdown" | "table" | "bar_chart" | "file";
-
-export const easyArtifactKindValues = ["markdown", "table", "bar_chart", "file"] as const satisfies readonly EasyArtifactKind[];
-
-export function decodeEasyArtifactKind(value: unknown, label = "EasyArtifactKind"): EasyArtifactKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "markdown":
-      return decoded;
-    case "table":
-      return decoded;
-    case "bar_chart":
-      return decoded;
-    case "file":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyRunEventType = "easyrun.run.updated" | "easyrun.highlight.created" | "easyrun.artifact.created" | "easyrun.resync_required";
-
-export const easyRunEventTypeValues = ["easyrun.run.updated", "easyrun.highlight.created", "easyrun.artifact.created", "easyrun.resync_required"] as const satisfies readonly EasyRunEventType[];
-
-export function decodeEasyRunEventType(value: unknown, label = "EasyRunEventType"): EasyRunEventType {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "easyrun.run.updated":
-      return decoded;
-    case "easyrun.highlight.created":
-      return decoded;
-    case "easyrun.artifact.created":
-      return decoded;
-    case "easyrun.resync_required":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ReasoningEffort[];
@@ -838,9 +760,9 @@ export function decodeRunLivenessStatus(value: unknown, label = "RunLivenessStat
   }
 }
 
-export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "provider_inactive" | "attachment_missing" | "run_terminal" | "wake_recheck" | "snapshot_load" | "stream_resync" | "user_retry" | "provider_restarted" | "provider_unavailable" | "turn_not_found";
+export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "attachment_missing" | "run_terminal" | "wake_recheck" | "snapshot_load" | "stream_resync" | "user_retry" | "provider_restarted" | "provider_unavailable" | "turn_not_found";
 
-export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "provider_inactive", "attachment_missing", "run_terminal", "wake_recheck", "snapshot_load", "stream_resync", "user_retry", "provider_restarted", "provider_unavailable", "turn_not_found"] as const satisfies readonly RunLivenessReason[];
+export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "attachment_missing", "run_terminal", "wake_recheck", "snapshot_load", "stream_resync", "user_retry", "provider_restarted", "provider_unavailable", "turn_not_found"] as const satisfies readonly RunLivenessReason[];
 
 export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReason"): RunLivenessReason {
   const decoded = decodeString(value, label);
@@ -848,8 +770,6 @@ export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReas
     case "provider_ref_pending":
       return decoded;
     case "provider_turn_linked":
-      return decoded;
-    case "provider_inactive":
       return decoded;
     case "attachment_missing":
       return decoded;
@@ -868,92 +788,6 @@ export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReas
     case "provider_unavailable":
       return decoded;
     case "turn_not_found":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunLivenessPhase = "starting" | "waiting_for_provider" | "attached" | "stalled" | "reconnecting" | "lost" | "blocked" | "terminal";
-
-export const runLivenessPhaseValues = ["starting", "waiting_for_provider", "attached", "stalled", "reconnecting", "lost", "blocked", "terminal"] as const satisfies readonly RunLivenessPhase[];
-
-export function decodeRunLivenessPhase(value: unknown, label = "RunLivenessPhase"): RunLivenessPhase {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "starting":
-      return decoded;
-    case "waiting_for_provider":
-      return decoded;
-    case "attached":
-      return decoded;
-    case "stalled":
-      return decoded;
-    case "reconnecting":
-      return decoded;
-    case "lost":
-      return decoded;
-    case "blocked":
-      return decoded;
-    case "terminal":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunActiveStatusKind = "starting" | "waiting_for_provider" | "working" | "thinking" | "waiting" | "stalled" | "reconnecting" | "connection_lost" | "blocked" | "finished";
-
-export const runActiveStatusKindValues = ["starting", "waiting_for_provider", "working", "thinking", "waiting", "stalled", "reconnecting", "connection_lost", "blocked", "finished"] as const satisfies readonly RunActiveStatusKind[];
-
-export function decodeRunActiveStatusKind(value: unknown, label = "RunActiveStatusKind"): RunActiveStatusKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "starting":
-      return decoded;
-    case "waiting_for_provider":
-      return decoded;
-    case "working":
-      return decoded;
-    case "thinking":
-      return decoded;
-    case "waiting":
-      return decoded;
-    case "stalled":
-      return decoded;
-    case "reconnecting":
-      return decoded;
-    case "connection_lost":
-      return decoded;
-    case "blocked":
-      return decoded;
-    case "finished":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunActiveHeadlineSource = "none" | "fallback" | "public_reasoning" | "command" | "approval" | "liveness" | "terminal";
-
-export const runActiveHeadlineSourceValues = ["none", "fallback", "public_reasoning", "command", "approval", "liveness", "terminal"] as const satisfies readonly RunActiveHeadlineSource[];
-
-export function decodeRunActiveHeadlineSource(value: unknown, label = "RunActiveHeadlineSource"): RunActiveHeadlineSource {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "none":
-      return decoded;
-    case "fallback":
-      return decoded;
-    case "public_reasoning":
-      return decoded;
-    case "command":
-      return decoded;
-    case "approval":
-      return decoded;
-    case "liveness":
-      return decoded;
-    case "terminal":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1834,24 +1668,6 @@ export function decodeRunnerRecoveryCapability(value: unknown, label = "RunnerRe
     case "reconcile_refs":
       return decoded;
     case "reattach_stream":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowAgentSettingsSource = "node" | "workflow" | "default";
-
-export const workflowAgentSettingsSourceValues = ["node", "workflow", "default"] as const satisfies readonly WorkflowAgentSettingsSource[];
-
-export function decodeWorkflowAgentSettingsSource(value: unknown, label = "WorkflowAgentSettingsSource"): WorkflowAgentSettingsSource {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "node":
-      return decoded;
-    case "workflow":
-      return decoded;
-    case "default":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2793,6 +2609,11 @@ export interface RuntimeInfrastructureProvider {
   iconUrl: string;
 }
 
+export interface RuntimeFeatureSet {
+  version: number;
+  features: string[];
+}
+
 export interface RuntimeInfoResponse {
   runtimeId: string;
   displayName: string;
@@ -2800,6 +2621,7 @@ export interface RuntimeInfoResponse {
   backendName: string;
   backendVersion: string;
   protocolVersion: number;
+  featureSet: RuntimeFeatureSet;
   vapidPublicKey: string;
 }
 
@@ -2813,6 +2635,31 @@ export interface CompletePairingResponse {
   deviceToken: string;
   runtimeId: string;
   protocolVersion: number;
+}
+
+export interface SetupAttestationRequest {
+  provisionId: string;
+  nonce: string;
+  nodeFingerprint: string;
+}
+
+export interface SetupAttestationResponse {
+  algorithm: string;
+  runtimeId: string;
+  provisionId: string;
+  nonce: string;
+  nodeFingerprint: string;
+  expiresAt: string;
+  attestation: string;
+}
+
+export interface CreateDevicePairingRequest {
+  runtimeBaseUrl: string;
+}
+
+export interface CreateDevicePairingResponse {
+  pairingUrl: string;
+  expiresAt: string;
 }
 
 export interface UpdateRuntimeDisplayNameRequest {
@@ -3309,140 +3156,6 @@ export interface WorkspaceActivityEvent {
   resync: WorkspaceActivityResyncRequired | null;
 }
 
-export interface ReadEasyRunSnapshotRequest {
-  workspaceId: string;
-}
-
-export interface EasyRun {
-  id: string;
-  workspaceId: string;
-  status: EasyRunStatus;
-  requestText: string;
-  conversationId: string;
-  startedAt: string;
-  endedAt: string | null;
-  summary: string | null;
-  error: string | null;
-  narratorStatus: EasyRunNarratorStatus;
-  activeAgentCount: number;
-  artifactCount: number;
-  highlightCount: number;
-}
-
-export interface EasyHighlight {
-  id: string;
-  easyRunId: string;
-  ordinal: number;
-  text: string;
-  at: string;
-}
-
-export interface EasyMarkdownArtifactPayload {
-  markdown: string;
-}
-
-export interface EasyArtifactTableColumn {
-  key: string;
-  label: string;
-}
-
-export interface EasyTableArtifactPayload {
-  columns: EasyArtifactTableColumn[];
-  rows: string[][];
-}
-
-export interface EasyArtifactBarChartItem {
-  label: string;
-  value: number;
-  unit: string | null;
-}
-
-export interface EasyBarChartArtifactPayload {
-  items: EasyArtifactBarChartItem[];
-}
-
-export interface EasyFileArtifactPayload {
-  path: string;
-  description: string | null;
-}
-
-export interface EasyArtifact {
-  id: string;
-  easyRunId: string;
-  ordinal: number;
-  kind: EasyArtifactKind;
-  title: string;
-  kicker: string | null;
-  createdAt: string;
-  markdown: EasyMarkdownArtifactPayload | null;
-  table: EasyTableArtifactPayload | null;
-  barChart: EasyBarChartArtifactPayload | null;
-  file: EasyFileArtifactPayload | null;
-}
-
-export interface EasyRunEventCursor {
-  streamId: string;
-  sequence: number;
-}
-
-export interface EasyRunSnapshot {
-  latestRun: EasyRun | null;
-  highlights: EasyHighlight[];
-  artifacts: EasyArtifact[];
-  eventStreamCursor: EasyRunEventCursor;
-}
-
-export interface StartEasyRunRequest {
-  workspaceId: string;
-  requestText: string;
-}
-
-export interface SteerEasyRunRequest {
-  workspaceId: string;
-  text: string;
-}
-
-export interface StopEasyRunRequest {
-  workspaceId: string;
-  easyRunId: string;
-}
-
-export interface EasyRunUpdatedPayload {
-  run: EasyRun;
-}
-
-export interface EasyHighlightCreatedPayload {
-  highlight: EasyHighlight;
-}
-
-export interface EasyArtifactCreatedPayload {
-  artifact: EasyArtifact;
-}
-
-export interface EasyRunResyncRequired {
-  reason: string;
-  requestedStreamId: string;
-  requestedSequence: number;
-  currentStreamId: string;
-  currentSequence: number;
-  earliestSequence: number;
-}
-
-export interface EasyRunEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: EasyRunEventType;
-  emittedAt: string;
-  workspaceId: string;
-  easyRunId: string;
-  runUpdated: EasyRunUpdatedPayload | null;
-  highlightCreated: EasyHighlightCreatedPayload | null;
-  artifactCreated: EasyArtifactCreatedPayload | null;
-  resyncRequired: EasyRunResyncRequired | null;
-}
-
 export interface ListConversationsRequest {
   workspaceId: string;
 }
@@ -3496,10 +3209,6 @@ export interface ConversationWorkflowMetadata {
   nodeExecutionId: string;
 }
 
-export interface ConversationEasyRunMetadata {
-  easyRunId: string;
-}
-
 export interface Conversation {
   schemaVersion: number;
   id: string;
@@ -3513,14 +3222,6 @@ export interface Conversation {
   codexEffectiveSettings: ChatCodexEffectiveSettings | null;
   harnessRefs: HarnessThreadRef[];
   workflow: ConversationWorkflowMetadata | null;
-  easyRun: ConversationEasyRunMetadata | null;
-}
-
-export interface RunActiveStatus {
-  kind: RunActiveStatusKind;
-  headline: string;
-  headlineSource: RunActiveHeadlineSource;
-  detail: string;
 }
 
 export interface RunLiveness {
@@ -3530,16 +3231,11 @@ export interface RunLiveness {
   harness: HarnessKind;
   status: RunLivenessStatus;
   reason: RunLivenessReason;
-  phase: RunLivenessPhase;
-  activeStatus: RunActiveStatus;
   retryable: boolean;
   cancellable: boolean;
-  steerable: boolean;
-  steeringDisabledReason: string;
   providerThreadId: string;
   providerTurnId: string;
   lastProviderEventAt: string;
-  lastVisibleActivityAt: string;
   lastReconciledAt: string;
   error: string;
 }
@@ -4522,16 +4218,11 @@ export interface ListWorkflowDefinitionsRequest {
   workspaceId: string;
 }
 
-export interface WorkflowAgentSettings {
-  model: string;
-  reasoningEffort: ReasoningEffort | null;
-  permission: ChatCodexPermissionSettings | null;
-}
-
 export interface WorkflowCodexActionConfig {
   prompt: string;
   freshConversation: boolean;
-  settings: WorkflowAgentSettings;
+  model: string;
+  reasoningEffort: string;
 }
 
 export interface WorkflowActionConfig {
@@ -4581,7 +4272,6 @@ export interface WorkflowGraph {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   layout: WorkflowGraphLayout;
-  agentDefaults: WorkflowAgentSettings;
 }
 
 export interface WorkflowDefinition {
@@ -4721,21 +4411,6 @@ export interface RunnerCapabilities {
   policyExtension: RunnerPolicyExtensionDescriptor;
 }
 
-export interface WorkflowAgentEffectiveRunSettings {
-  model: string;
-  modelDisplayName: string;
-  modelSource: WorkflowAgentSettingsSource;
-  reasoningEffort: ReasoningEffort | null;
-  reasoningEffortDisplayName: string;
-  reasoningEffortSource: WorkflowAgentSettingsSource;
-  permissionPreset: ChatPermissionPresetID | null;
-  permissionProfileId: string;
-  permissionDisplayLabel: string;
-  approvalPolicy: string;
-  permissions: string;
-  permissionSource: WorkflowAgentSettingsSource;
-}
-
 export interface WorkflowActionSignal {
   name: string;
   value: string;
@@ -4813,7 +4488,6 @@ export interface WorkflowNodeExecution {
   actionPolicy: WorkflowActionPolicy | null;
   sideEffectPolicy: SideEffectPolicy | null;
   runnerCapabilities: RunnerCapabilities | null;
-  agentRunSettings: WorkflowAgentEffectiveRunSettings | null;
   result: WorkflowActionResult | null;
   runnerRefs: WorkflowActionRunnerRef[];
   runnerState: WorkflowRunnerState | null;
@@ -5005,15 +4679,10 @@ export interface WorkflowAgentTrajectoryPage {
   scope: WorkflowAgentTrajectoryScope;
   conversationId: string;
   runId: string;
-  lastChatEventStreamId: string;
-  lastChatEventSequence: number;
-  lastWorkflowEventOrdinal: number;
   run: Run;
   activeRun: Run | null;
   activeRunLiveness: RunLiveness | null;
-  runSettings: WorkflowAgentEffectiveRunSettings | null;
   blocks: TranscriptBlock[];
-  pendingSteeringMessages: ChatMessage[];
   items: RunItem[];
   activity: ActivityItemBlockProjection[];
   outputPages: WorkflowAgentTrajectoryRunItemOutputPageState[];
@@ -6815,6 +6484,16 @@ export const backendEndpoints = {
     path: "/pairing/complete",
     requestBodyLimitBytes: 4194304,
   },
+  SetupAttestation: {
+    method: "POST",
+    path: "/setup/attestation",
+    requestBodyLimitBytes: 4194304,
+  },
+  CreateDevicePairing: {
+    method: "POST",
+    path: "/pairing/create-device",
+    requestBodyLimitBytes: 4194304,
+  },
   UpdateRuntimeDisplayName: {
     method: "POST",
     path: "/runtime/display-name/update",
@@ -6919,29 +6598,6 @@ export const backendEndpoints = {
   WorkspaceActivityEventStream: {
     method: "GET",
     path: "/workspace-activity/events",
-  },
-  ReadEasyRunSnapshot: {
-    method: "GET",
-    path: "/easy-runs/snapshot",
-  },
-  StartEasyRun: {
-    method: "POST",
-    path: "/easy-runs/start",
-    requestBodyLimitBytes: 4194304,
-  },
-  SteerEasyRun: {
-    method: "POST",
-    path: "/easy-runs/steer",
-    requestBodyLimitBytes: 4194304,
-  },
-  StopEasyRun: {
-    method: "POST",
-    path: "/easy-runs/stop",
-    requestBodyLimitBytes: 4194304,
-  },
-  EasyRunEventStream: {
-    method: "GET",
-    path: "/easy-runs/events",
   },
   ListConversations: {
     method: "POST",
@@ -7519,9 +7175,18 @@ export function decodeRuntimeInfrastructureProvider(value: unknown): RuntimeInfr
   };
 }
 
+export function decodeRuntimeFeatureSet(value: unknown): RuntimeFeatureSet {
+  const record = assertRecord(value, "RuntimeFeatureSet");
+  assertKnownFields(record, "RuntimeFeatureSet", ["version", "features"]);
+  return {
+    version: decodeInteger(requireField(record, "version", "RuntimeFeatureSet"), "RuntimeFeatureSet.version"),
+    features: decodeArray(requireField(record, "features", "RuntimeFeatureSet"), "RuntimeFeatureSet.features", (item) => decodeString(item, "RuntimeFeatureSet.features item")),
+  };
+}
+
 export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
   const record = assertRecord(value, "RuntimeInfoResponse");
-  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion", "vapidPublicKey"]);
+  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion", "featureSet", "vapidPublicKey"]);
   return {
     runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeInfoResponse"), "RuntimeInfoResponse.runtimeId"),
     displayName: decodeString(requireField(record, "displayName", "RuntimeInfoResponse"), "RuntimeInfoResponse.displayName"),
@@ -7529,6 +7194,7 @@ export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
     backendName: decodeString(requireField(record, "backendName", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendName"),
     backendVersion: decodeString(requireField(record, "backendVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendVersion"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.protocolVersion"),
+    featureSet: decodeRuntimeFeatureSet(requireField(record, "featureSet", "RuntimeInfoResponse")),
     vapidPublicKey: decodeString(requireField(record, "vapidPublicKey", "RuntimeInfoResponse"), "RuntimeInfoResponse.vapidPublicKey"),
   };
 }
@@ -7550,6 +7216,47 @@ export function decodeCompletePairingResponse(value: unknown): CompletePairingRe
     deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
     runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
+  };
+}
+
+export function decodeSetupAttestationRequest(value: unknown): SetupAttestationRequest {
+  const record = assertRecord(value, "SetupAttestationRequest");
+  assertKnownFields(record, "SetupAttestationRequest", ["provisionId", "nonce", "nodeFingerprint"]);
+  return {
+    provisionId: decodeString(requireField(record, "provisionId", "SetupAttestationRequest"), "SetupAttestationRequest.provisionId"),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationRequest"), "SetupAttestationRequest.nonce"),
+    nodeFingerprint: decodeString(requireField(record, "nodeFingerprint", "SetupAttestationRequest"), "SetupAttestationRequest.nodeFingerprint"),
+  };
+}
+
+export function decodeSetupAttestationResponse(value: unknown): SetupAttestationResponse {
+  const record = assertRecord(value, "SetupAttestationResponse");
+  assertKnownFields(record, "SetupAttestationResponse", ["algorithm", "runtimeId", "provisionId", "nonce", "nodeFingerprint", "expiresAt", "attestation"]);
+  return {
+    algorithm: decodeString(requireField(record, "algorithm", "SetupAttestationResponse"), "SetupAttestationResponse.algorithm"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "SetupAttestationResponse"), "SetupAttestationResponse.runtimeId"),
+    provisionId: decodeString(requireField(record, "provisionId", "SetupAttestationResponse"), "SetupAttestationResponse.provisionId"),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationResponse"), "SetupAttestationResponse.nonce"),
+    nodeFingerprint: decodeString(requireField(record, "nodeFingerprint", "SetupAttestationResponse"), "SetupAttestationResponse.nodeFingerprint"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "SetupAttestationResponse"), "SetupAttestationResponse.expiresAt"),
+    attestation: decodeString(requireField(record, "attestation", "SetupAttestationResponse"), "SetupAttestationResponse.attestation"),
+  };
+}
+
+export function decodeCreateDevicePairingRequest(value: unknown): CreateDevicePairingRequest {
+  const record = assertRecord(value, "CreateDevicePairingRequest");
+  assertKnownFields(record, "CreateDevicePairingRequest", ["runtimeBaseUrl"]);
+  return {
+    runtimeBaseUrl: decodeString(requireField(record, "runtimeBaseUrl", "CreateDevicePairingRequest"), "CreateDevicePairingRequest.runtimeBaseUrl"),
+  };
+}
+
+export function decodeCreateDevicePairingResponse(value: unknown): CreateDevicePairingResponse {
+  const record = assertRecord(value, "CreateDevicePairingResponse");
+  assertKnownFields(record, "CreateDevicePairingResponse", ["pairingUrl", "expiresAt"]);
+  return {
+    pairingUrl: decodeString(requireField(record, "pairingUrl", "CreateDevicePairingResponse"), "CreateDevicePairingResponse.pairingUrl"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "CreateDevicePairingResponse"), "CreateDevicePairingResponse.expiresAt"),
   };
 }
 
@@ -8303,234 +8010,6 @@ export function decodeWorkspaceActivityEvent(value: unknown): WorkspaceActivityE
   };
 }
 
-export function decodeReadEasyRunSnapshotRequest(value: unknown): ReadEasyRunSnapshotRequest {
-  const record = assertRecord(value, "ReadEasyRunSnapshotRequest");
-  assertKnownFields(record, "ReadEasyRunSnapshotRequest", ["workspaceId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadEasyRunSnapshotRequest"), "ReadEasyRunSnapshotRequest.workspaceId"),
-  };
-}
-
-export function decodeEasyRun(value: unknown): EasyRun {
-  const record = assertRecord(value, "EasyRun");
-  assertKnownFields(record, "EasyRun", ["id", "workspaceId", "status", "requestText", "conversationId", "startedAt", "endedAt", "summary", "error", "narratorStatus", "activeAgentCount", "artifactCount", "highlightCount"]);
-  return {
-    id: decodeString(requireField(record, "id", "EasyRun"), "EasyRun.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "EasyRun"), "EasyRun.workspaceId"),
-    status: decodeEasyRunStatus(requireField(record, "status", "EasyRun"), "EasyRun.status"),
-    requestText: decodeString(requireField(record, "requestText", "EasyRun"), "EasyRun.requestText"),
-    conversationId: decodeString(requireField(record, "conversationId", "EasyRun"), "EasyRun.conversationId"),
-    startedAt: decodeString(requireField(record, "startedAt", "EasyRun"), "EasyRun.startedAt"),
-    endedAt: decodeNullable(requireField(record, "endedAt", "EasyRun"), "EasyRun.endedAt", (item) => decodeString(item, "EasyRun.endedAt")),
-    summary: decodeNullable(requireField(record, "summary", "EasyRun"), "EasyRun.summary", (item) => decodeString(item, "EasyRun.summary")),
-    error: decodeNullable(requireField(record, "error", "EasyRun"), "EasyRun.error", (item) => decodeString(item, "EasyRun.error")),
-    narratorStatus: decodeEasyRunNarratorStatus(requireField(record, "narratorStatus", "EasyRun"), "EasyRun.narratorStatus"),
-    activeAgentCount: decodeInteger(requireField(record, "activeAgentCount", "EasyRun"), "EasyRun.activeAgentCount"),
-    artifactCount: decodeInteger(requireField(record, "artifactCount", "EasyRun"), "EasyRun.artifactCount"),
-    highlightCount: decodeInteger(requireField(record, "highlightCount", "EasyRun"), "EasyRun.highlightCount"),
-  };
-}
-
-export function decodeEasyHighlight(value: unknown): EasyHighlight {
-  const record = assertRecord(value, "EasyHighlight");
-  assertKnownFields(record, "EasyHighlight", ["id", "easyRunId", "ordinal", "text", "at"]);
-  return {
-    id: decodeString(requireField(record, "id", "EasyHighlight"), "EasyHighlight.id"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "EasyHighlight"), "EasyHighlight.easyRunId"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "EasyHighlight"), "EasyHighlight.ordinal"),
-    text: decodeString(requireField(record, "text", "EasyHighlight"), "EasyHighlight.text"),
-    at: decodeString(requireField(record, "at", "EasyHighlight"), "EasyHighlight.at"),
-  };
-}
-
-export function decodeEasyMarkdownArtifactPayload(value: unknown): EasyMarkdownArtifactPayload {
-  const record = assertRecord(value, "EasyMarkdownArtifactPayload");
-  assertKnownFields(record, "EasyMarkdownArtifactPayload", ["markdown"]);
-  return {
-    markdown: decodeString(requireField(record, "markdown", "EasyMarkdownArtifactPayload"), "EasyMarkdownArtifactPayload.markdown"),
-  };
-}
-
-export function decodeEasyArtifactTableColumn(value: unknown): EasyArtifactTableColumn {
-  const record = assertRecord(value, "EasyArtifactTableColumn");
-  assertKnownFields(record, "EasyArtifactTableColumn", ["key", "label"]);
-  return {
-    key: decodeString(requireField(record, "key", "EasyArtifactTableColumn"), "EasyArtifactTableColumn.key"),
-    label: decodeString(requireField(record, "label", "EasyArtifactTableColumn"), "EasyArtifactTableColumn.label"),
-  };
-}
-
-export function decodeEasyTableArtifactPayload(value: unknown): EasyTableArtifactPayload {
-  const record = assertRecord(value, "EasyTableArtifactPayload");
-  assertKnownFields(record, "EasyTableArtifactPayload", ["columns", "rows"]);
-  return {
-    columns: decodeArray(requireField(record, "columns", "EasyTableArtifactPayload"), "EasyTableArtifactPayload.columns", (item) => decodeEasyArtifactTableColumn(item)),
-    rows: decodeArray(requireField(record, "rows", "EasyTableArtifactPayload"), "EasyTableArtifactPayload.rows", (item) => decodeArray(item, "EasyTableArtifactPayload.rows item", (item) => decodeString(item, "EasyTableArtifactPayload.rows item item"))),
-  };
-}
-
-export function decodeEasyArtifactBarChartItem(value: unknown): EasyArtifactBarChartItem {
-  const record = assertRecord(value, "EasyArtifactBarChartItem");
-  assertKnownFields(record, "EasyArtifactBarChartItem", ["label", "value", "unit"]);
-  return {
-    label: decodeString(requireField(record, "label", "EasyArtifactBarChartItem"), "EasyArtifactBarChartItem.label"),
-    value: decodeNumber(requireField(record, "value", "EasyArtifactBarChartItem"), "EasyArtifactBarChartItem.value"),
-    unit: decodeNullable(requireField(record, "unit", "EasyArtifactBarChartItem"), "EasyArtifactBarChartItem.unit", (item) => decodeString(item, "EasyArtifactBarChartItem.unit")),
-  };
-}
-
-export function decodeEasyBarChartArtifactPayload(value: unknown): EasyBarChartArtifactPayload {
-  const record = assertRecord(value, "EasyBarChartArtifactPayload");
-  assertKnownFields(record, "EasyBarChartArtifactPayload", ["items"]);
-  return {
-    items: decodeArray(requireField(record, "items", "EasyBarChartArtifactPayload"), "EasyBarChartArtifactPayload.items", (item) => decodeEasyArtifactBarChartItem(item)),
-  };
-}
-
-export function decodeEasyFileArtifactPayload(value: unknown): EasyFileArtifactPayload {
-  const record = assertRecord(value, "EasyFileArtifactPayload");
-  assertKnownFields(record, "EasyFileArtifactPayload", ["path", "description"]);
-  return {
-    path: decodeString(requireField(record, "path", "EasyFileArtifactPayload"), "EasyFileArtifactPayload.path"),
-    description: decodeNullable(requireField(record, "description", "EasyFileArtifactPayload"), "EasyFileArtifactPayload.description", (item) => decodeString(item, "EasyFileArtifactPayload.description")),
-  };
-}
-
-export function decodeEasyArtifact(value: unknown): EasyArtifact {
-  const record = assertRecord(value, "EasyArtifact");
-  assertKnownFields(record, "EasyArtifact", ["id", "easyRunId", "ordinal", "kind", "title", "kicker", "createdAt", "markdown", "table", "barChart", "file"]);
-  const result: EasyArtifact = {
-    id: decodeString(requireField(record, "id", "EasyArtifact"), "EasyArtifact.id"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "EasyArtifact"), "EasyArtifact.easyRunId"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "EasyArtifact"), "EasyArtifact.ordinal"),
-    kind: decodeEasyArtifactKind(requireField(record, "kind", "EasyArtifact"), "EasyArtifact.kind"),
-    title: decodeString(requireField(record, "title", "EasyArtifact"), "EasyArtifact.title"),
-    kicker: decodeNullable(requireField(record, "kicker", "EasyArtifact"), "EasyArtifact.kicker", (item) => decodeString(item, "EasyArtifact.kicker")),
-    createdAt: decodeString(requireField(record, "createdAt", "EasyArtifact"), "EasyArtifact.createdAt"),
-    markdown: decodeNullable(requireField(record, "markdown", "EasyArtifact"), "EasyArtifact.markdown", (item) => decodeEasyMarkdownArtifactPayload(item)),
-    table: decodeNullable(requireField(record, "table", "EasyArtifact"), "EasyArtifact.table", (item) => decodeEasyTableArtifactPayload(item)),
-    barChart: decodeNullable(requireField(record, "barChart", "EasyArtifact"), "EasyArtifact.barChart", (item) => decodeEasyBarChartArtifactPayload(item)),
-    file: decodeNullable(requireField(record, "file", "EasyArtifact"), "EasyArtifact.file", (item) => decodeEasyFileArtifactPayload(item)),
-  };
-  assertTaggedUnionBranch("EasyArtifact", result.kind, {
-    "markdown": result.markdown,
-    "table": result.table,
-    "bar_chart": result.barChart,
-    "file": result.file,
-  });
-  return result;
-}
-
-export function decodeEasyRunEventCursor(value: unknown): EasyRunEventCursor {
-  const record = assertRecord(value, "EasyRunEventCursor");
-  assertKnownFields(record, "EasyRunEventCursor", ["streamId", "sequence"]);
-  return {
-    streamId: decodeString(requireField(record, "streamId", "EasyRunEventCursor"), "EasyRunEventCursor.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "EasyRunEventCursor"), "EasyRunEventCursor.sequence"),
-  };
-}
-
-export function decodeEasyRunSnapshot(value: unknown): EasyRunSnapshot {
-  const record = assertRecord(value, "EasyRunSnapshot");
-  assertKnownFields(record, "EasyRunSnapshot", ["latestRun", "highlights", "artifacts", "eventStreamCursor"]);
-  return {
-    latestRun: decodeNullable(requireField(record, "latestRun", "EasyRunSnapshot"), "EasyRunSnapshot.latestRun", (item) => decodeEasyRun(item)),
-    highlights: decodeArray(requireField(record, "highlights", "EasyRunSnapshot"), "EasyRunSnapshot.highlights", (item) => decodeEasyHighlight(item)),
-    artifacts: decodeArray(requireField(record, "artifacts", "EasyRunSnapshot"), "EasyRunSnapshot.artifacts", (item) => decodeEasyArtifact(item)),
-    eventStreamCursor: decodeEasyRunEventCursor(requireField(record, "eventStreamCursor", "EasyRunSnapshot")),
-  };
-}
-
-export function decodeStartEasyRunRequest(value: unknown): StartEasyRunRequest {
-  const record = assertRecord(value, "StartEasyRunRequest");
-  assertKnownFields(record, "StartEasyRunRequest", ["workspaceId", "requestText"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "StartEasyRunRequest"), "StartEasyRunRequest.workspaceId"),
-    requestText: decodeString(requireField(record, "requestText", "StartEasyRunRequest"), "StartEasyRunRequest.requestText"),
-  };
-}
-
-export function decodeSteerEasyRunRequest(value: unknown): SteerEasyRunRequest {
-  const record = assertRecord(value, "SteerEasyRunRequest");
-  assertKnownFields(record, "SteerEasyRunRequest", ["workspaceId", "text"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SteerEasyRunRequest"), "SteerEasyRunRequest.workspaceId"),
-    text: decodeString(requireField(record, "text", "SteerEasyRunRequest"), "SteerEasyRunRequest.text"),
-  };
-}
-
-export function decodeStopEasyRunRequest(value: unknown): StopEasyRunRequest {
-  const record = assertRecord(value, "StopEasyRunRequest");
-  assertKnownFields(record, "StopEasyRunRequest", ["workspaceId", "easyRunId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "StopEasyRunRequest"), "StopEasyRunRequest.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "StopEasyRunRequest"), "StopEasyRunRequest.easyRunId"),
-  };
-}
-
-export function decodeEasyRunUpdatedPayload(value: unknown): EasyRunUpdatedPayload {
-  const record = assertRecord(value, "EasyRunUpdatedPayload");
-  assertKnownFields(record, "EasyRunUpdatedPayload", ["run"]);
-  return {
-    run: decodeEasyRun(requireField(record, "run", "EasyRunUpdatedPayload")),
-  };
-}
-
-export function decodeEasyHighlightCreatedPayload(value: unknown): EasyHighlightCreatedPayload {
-  const record = assertRecord(value, "EasyHighlightCreatedPayload");
-  assertKnownFields(record, "EasyHighlightCreatedPayload", ["highlight"]);
-  return {
-    highlight: decodeEasyHighlight(requireField(record, "highlight", "EasyHighlightCreatedPayload")),
-  };
-}
-
-export function decodeEasyArtifactCreatedPayload(value: unknown): EasyArtifactCreatedPayload {
-  const record = assertRecord(value, "EasyArtifactCreatedPayload");
-  assertKnownFields(record, "EasyArtifactCreatedPayload", ["artifact"]);
-  return {
-    artifact: decodeEasyArtifact(requireField(record, "artifact", "EasyArtifactCreatedPayload")),
-  };
-}
-
-export function decodeEasyRunResyncRequired(value: unknown): EasyRunResyncRequired {
-  const record = assertRecord(value, "EasyRunResyncRequired");
-  assertKnownFields(record, "EasyRunResyncRequired", ["reason", "requestedStreamId", "requestedSequence", "currentStreamId", "currentSequence", "earliestSequence"]);
-  return {
-    reason: decodeString(requireField(record, "reason", "EasyRunResyncRequired"), "EasyRunResyncRequired.reason"),
-    requestedStreamId: decodeString(requireField(record, "requestedStreamId", "EasyRunResyncRequired"), "EasyRunResyncRequired.requestedStreamId"),
-    requestedSequence: decodeInteger(requireField(record, "requestedSequence", "EasyRunResyncRequired"), "EasyRunResyncRequired.requestedSequence"),
-    currentStreamId: decodeString(requireField(record, "currentStreamId", "EasyRunResyncRequired"), "EasyRunResyncRequired.currentStreamId"),
-    currentSequence: decodeInteger(requireField(record, "currentSequence", "EasyRunResyncRequired"), "EasyRunResyncRequired.currentSequence"),
-    earliestSequence: decodeInteger(requireField(record, "earliestSequence", "EasyRunResyncRequired"), "EasyRunResyncRequired.earliestSequence"),
-  };
-}
-
-export function decodeEasyRunEvent(value: unknown): EasyRunEvent {
-  const record = assertRecord(value, "EasyRunEvent");
-  assertKnownFields(record, "EasyRunEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "easyRunId", "runUpdated", "highlightCreated", "artifactCreated", "resyncRequired"]);
-  const result: EasyRunEvent = {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "EasyRunEvent"), "EasyRunEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "EasyRunEvent"), "EasyRunEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "EasyRunEvent"), "EasyRunEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "EasyRunEvent"), "EasyRunEvent.eventId"),
-    type: decodeEasyRunEventType(requireField(record, "type", "EasyRunEvent"), "EasyRunEvent.type"),
-    emittedAt: decodeString(requireField(record, "emittedAt", "EasyRunEvent"), "EasyRunEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "EasyRunEvent"), "EasyRunEvent.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "EasyRunEvent"), "EasyRunEvent.easyRunId"),
-    runUpdated: decodeNullable(requireField(record, "runUpdated", "EasyRunEvent"), "EasyRunEvent.runUpdated", (item) => decodeEasyRunUpdatedPayload(item)),
-    highlightCreated: decodeNullable(requireField(record, "highlightCreated", "EasyRunEvent"), "EasyRunEvent.highlightCreated", (item) => decodeEasyHighlightCreatedPayload(item)),
-    artifactCreated: decodeNullable(requireField(record, "artifactCreated", "EasyRunEvent"), "EasyRunEvent.artifactCreated", (item) => decodeEasyArtifactCreatedPayload(item)),
-    resyncRequired: decodeNullable(requireField(record, "resyncRequired", "EasyRunEvent"), "EasyRunEvent.resyncRequired", (item) => decodeEasyRunResyncRequired(item)),
-  };
-  assertTaggedUnionBranch("EasyRunEvent", result.type, {
-    "easyrun.run.updated": result.runUpdated,
-    "easyrun.highlight.created": result.highlightCreated,
-    "easyrun.artifact.created": result.artifactCreated,
-    "easyrun.resync_required": result.resyncRequired,
-  });
-  return result;
-}
-
 export function decodeListConversationsRequest(value: unknown): ListConversationsRequest {
   const record = assertRecord(value, "ListConversationsRequest");
   assertKnownFields(record, "ListConversationsRequest", ["workspaceId"]);
@@ -8612,17 +8091,9 @@ export function decodeConversationWorkflowMetadata(value: unknown): Conversation
   };
 }
 
-export function decodeConversationEasyRunMetadata(value: unknown): ConversationEasyRunMetadata {
-  const record = assertRecord(value, "ConversationEasyRunMetadata");
-  assertKnownFields(record, "ConversationEasyRunMetadata", ["easyRunId"]);
-  return {
-    easyRunId: decodeString(requireField(record, "easyRunId", "ConversationEasyRunMetadata"), "ConversationEasyRunMetadata.easyRunId"),
-  };
-}
-
 export function decodeConversation(value: unknown): Conversation {
   const record = assertRecord(value, "Conversation");
-  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow", "easyRun"]);
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
     id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
@@ -8636,24 +8107,12 @@ export function decodeConversation(value: unknown): Conversation {
     codexEffectiveSettings: decodeNullable(requireField(record, "codexEffectiveSettings", "Conversation"), "Conversation.codexEffectiveSettings", (item) => decodeChatCodexEffectiveSettings(item)),
     harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
     workflow: decodeNullable(requireField(record, "workflow", "Conversation"), "Conversation.workflow", (item) => decodeConversationWorkflowMetadata(item)),
-    easyRun: decodeNullable(requireField(record, "easyRun", "Conversation"), "Conversation.easyRun", (item) => decodeConversationEasyRunMetadata(item)),
-  };
-}
-
-export function decodeRunActiveStatus(value: unknown): RunActiveStatus {
-  const record = assertRecord(value, "RunActiveStatus");
-  assertKnownFields(record, "RunActiveStatus", ["kind", "headline", "headlineSource", "detail"]);
-  return {
-    kind: decodeRunActiveStatusKind(requireField(record, "kind", "RunActiveStatus"), "RunActiveStatus.kind"),
-    headline: decodeString(requireField(record, "headline", "RunActiveStatus"), "RunActiveStatus.headline"),
-    headlineSource: decodeRunActiveHeadlineSource(requireField(record, "headlineSource", "RunActiveStatus"), "RunActiveStatus.headlineSource"),
-    detail: decodeString(requireField(record, "detail", "RunActiveStatus"), "RunActiveStatus.detail"),
   };
 }
 
 export function decodeRunLiveness(value: unknown): RunLiveness {
   const record = assertRecord(value, "RunLiveness");
-  assertKnownFields(record, "RunLiveness", ["workspaceId", "conversationId", "runId", "harness", "status", "reason", "phase", "activeStatus", "retryable", "cancellable", "steerable", "steeringDisabledReason", "providerThreadId", "providerTurnId", "lastProviderEventAt", "lastVisibleActivityAt", "lastReconciledAt", "error"]);
+  assertKnownFields(record, "RunLiveness", ["workspaceId", "conversationId", "runId", "harness", "status", "reason", "retryable", "cancellable", "providerThreadId", "providerTurnId", "lastProviderEventAt", "lastReconciledAt", "error"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "RunLiveness"), "RunLiveness.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "RunLiveness"), "RunLiveness.conversationId"),
@@ -8661,16 +8120,11 @@ export function decodeRunLiveness(value: unknown): RunLiveness {
     harness: decodeHarnessKind(requireField(record, "harness", "RunLiveness"), "RunLiveness.harness"),
     status: decodeRunLivenessStatus(requireField(record, "status", "RunLiveness"), "RunLiveness.status"),
     reason: decodeRunLivenessReason(requireField(record, "reason", "RunLiveness"), "RunLiveness.reason"),
-    phase: decodeRunLivenessPhase(requireField(record, "phase", "RunLiveness"), "RunLiveness.phase"),
-    activeStatus: decodeRunActiveStatus(requireField(record, "activeStatus", "RunLiveness")),
     retryable: decodeBoolean(requireField(record, "retryable", "RunLiveness"), "RunLiveness.retryable"),
     cancellable: decodeBoolean(requireField(record, "cancellable", "RunLiveness"), "RunLiveness.cancellable"),
-    steerable: decodeBoolean(requireField(record, "steerable", "RunLiveness"), "RunLiveness.steerable"),
-    steeringDisabledReason: decodeString(requireField(record, "steeringDisabledReason", "RunLiveness"), "RunLiveness.steeringDisabledReason"),
     providerThreadId: decodeString(requireField(record, "providerThreadId", "RunLiveness"), "RunLiveness.providerThreadId"),
     providerTurnId: decodeString(requireField(record, "providerTurnId", "RunLiveness"), "RunLiveness.providerTurnId"),
     lastProviderEventAt: decodeString(requireField(record, "lastProviderEventAt", "RunLiveness"), "RunLiveness.lastProviderEventAt"),
-    lastVisibleActivityAt: decodeString(requireField(record, "lastVisibleActivityAt", "RunLiveness"), "RunLiveness.lastVisibleActivityAt"),
     lastReconciledAt: decodeString(requireField(record, "lastReconciledAt", "RunLiveness"), "RunLiveness.lastReconciledAt"),
     error: decodeString(requireField(record, "error", "RunLiveness"), "RunLiveness.error"),
   };
@@ -10145,23 +9599,14 @@ export function decodeListWorkflowDefinitionsRequest(value: unknown): ListWorkfl
   };
 }
 
-export function decodeWorkflowAgentSettings(value: unknown): WorkflowAgentSettings {
-  const record = assertRecord(value, "WorkflowAgentSettings");
-  assertKnownFields(record, "WorkflowAgentSettings", ["model", "reasoningEffort", "permission"]);
-  return {
-    model: decodeString(requireField(record, "model", "WorkflowAgentSettings"), "WorkflowAgentSettings.model"),
-    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "WorkflowAgentSettings"), "WorkflowAgentSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "WorkflowAgentSettings.reasoningEffort")),
-    permission: decodeNullable(requireField(record, "permission", "WorkflowAgentSettings"), "WorkflowAgentSettings.permission", (item) => decodeChatCodexPermissionSettings(item)),
-  };
-}
-
 export function decodeWorkflowCodexActionConfig(value: unknown): WorkflowCodexActionConfig {
   const record = assertRecord(value, "WorkflowCodexActionConfig");
-  assertKnownFields(record, "WorkflowCodexActionConfig", ["prompt", "freshConversation", "settings"]);
+  assertKnownFields(record, "WorkflowCodexActionConfig", ["prompt", "freshConversation", "model", "reasoningEffort"]);
   return {
     prompt: decodeString(requireField(record, "prompt", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.prompt"),
     freshConversation: decodeBoolean(requireField(record, "freshConversation", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.freshConversation"),
-    settings: decodeWorkflowAgentSettings(requireField(record, "settings", "WorkflowCodexActionConfig")),
+    model: decodeString(requireField(record, "model", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.model"),
+    reasoningEffort: decodeString(requireField(record, "reasoningEffort", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.reasoningEffort"),
   };
 }
 
@@ -10238,12 +9683,11 @@ export function decodeWorkflowGraphLayout(value: unknown): WorkflowGraphLayout {
 
 export function decodeWorkflowGraph(value: unknown): WorkflowGraph {
   const record = assertRecord(value, "WorkflowGraph");
-  assertKnownFields(record, "WorkflowGraph", ["nodes", "edges", "layout", "agentDefaults"]);
+  assertKnownFields(record, "WorkflowGraph", ["nodes", "edges", "layout"]);
   return {
     nodes: decodeArray(requireField(record, "nodes", "WorkflowGraph"), "WorkflowGraph.nodes", (item) => decodeWorkflowNode(item)),
     edges: decodeArray(requireField(record, "edges", "WorkflowGraph"), "WorkflowGraph.edges", (item) => decodeWorkflowEdge(item)),
     layout: decodeWorkflowGraphLayout(requireField(record, "layout", "WorkflowGraph")),
-    agentDefaults: decodeWorkflowAgentSettings(requireField(record, "agentDefaults", "WorkflowGraph")),
   };
 }
 
@@ -10460,25 +9904,6 @@ export function decodeRunnerCapabilities(value: unknown): RunnerCapabilities {
   };
 }
 
-export function decodeWorkflowAgentEffectiveRunSettings(value: unknown): WorkflowAgentEffectiveRunSettings {
-  const record = assertRecord(value, "WorkflowAgentEffectiveRunSettings");
-  assertKnownFields(record, "WorkflowAgentEffectiveRunSettings", ["model", "modelDisplayName", "modelSource", "reasoningEffort", "reasoningEffortDisplayName", "reasoningEffortSource", "permissionPreset", "permissionProfileId", "permissionDisplayLabel", "approvalPolicy", "permissions", "permissionSource"]);
-  return {
-    model: decodeString(requireField(record, "model", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.model"),
-    modelDisplayName: decodeString(requireField(record, "modelDisplayName", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.modelDisplayName"),
-    modelSource: decodeWorkflowAgentSettingsSource(requireField(record, "modelSource", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.modelSource"),
-    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "WorkflowAgentEffectiveRunSettings.reasoningEffort")),
-    reasoningEffortDisplayName: decodeString(requireField(record, "reasoningEffortDisplayName", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.reasoningEffortDisplayName"),
-    reasoningEffortSource: decodeWorkflowAgentSettingsSource(requireField(record, "reasoningEffortSource", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.reasoningEffortSource"),
-    permissionPreset: decodeNullable(requireField(record, "permissionPreset", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionPreset", (item) => decodeChatPermissionPresetID(item, "WorkflowAgentEffectiveRunSettings.permissionPreset")),
-    permissionProfileId: decodeString(requireField(record, "permissionProfileId", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionProfileId"),
-    permissionDisplayLabel: decodeString(requireField(record, "permissionDisplayLabel", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionDisplayLabel"),
-    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.approvalPolicy"),
-    permissions: decodeString(requireField(record, "permissions", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissions"),
-    permissionSource: decodeWorkflowAgentSettingsSource(requireField(record, "permissionSource", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionSource"),
-  };
-}
-
 export function decodeWorkflowActionSignal(value: unknown): WorkflowActionSignal {
   const record = assertRecord(value, "WorkflowActionSignal");
   assertKnownFields(record, "WorkflowActionSignal", ["name", "value"]);
@@ -10563,7 +9988,7 @@ export function decodeWorkflowActivityRef(value: unknown): WorkflowActivityRef {
 
 export function decodeWorkflowNodeExecution(value: unknown): WorkflowNodeExecution {
   const record = assertRecord(value, "WorkflowNodeExecution");
-  assertKnownFields(record, "WorkflowNodeExecution", ["schemaVersion", "id", "executionId", "nodeId", "attempt", "iteration", "status", "idempotencyKey", "scheduledAt", "startedAt", "completedAt", "actionKind", "runnerKind", "inputHash", "input", "actionPolicy", "sideEffectPolicy", "runnerCapabilities", "agentRunSettings", "result", "runnerRefs", "runnerState", "activityRefs", "recoveryOutcome", "recoveryMessage", "error"]);
+  assertKnownFields(record, "WorkflowNodeExecution", ["schemaVersion", "id", "executionId", "nodeId", "attempt", "iteration", "status", "idempotencyKey", "scheduledAt", "startedAt", "completedAt", "actionKind", "runnerKind", "inputHash", "input", "actionPolicy", "sideEffectPolicy", "runnerCapabilities", "result", "runnerRefs", "runnerState", "activityRefs", "recoveryOutcome", "recoveryMessage", "error"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowNodeExecution"), "WorkflowNodeExecution.schemaVersion"),
     id: decodeString(requireField(record, "id", "WorkflowNodeExecution"), "WorkflowNodeExecution.id"),
@@ -10583,7 +10008,6 @@ export function decodeWorkflowNodeExecution(value: unknown): WorkflowNodeExecuti
     actionPolicy: decodeNullable(requireField(record, "actionPolicy", "WorkflowNodeExecution"), "WorkflowNodeExecution.actionPolicy", (item) => decodeWorkflowActionPolicy(item)),
     sideEffectPolicy: decodeNullable(requireField(record, "sideEffectPolicy", "WorkflowNodeExecution"), "WorkflowNodeExecution.sideEffectPolicy", (item) => decodeSideEffectPolicy(item)),
     runnerCapabilities: decodeNullable(requireField(record, "runnerCapabilities", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerCapabilities", (item) => decodeRunnerCapabilities(item)),
-    agentRunSettings: decodeNullable(requireField(record, "agentRunSettings", "WorkflowNodeExecution"), "WorkflowNodeExecution.agentRunSettings", (item) => decodeWorkflowAgentEffectiveRunSettings(item)),
     result: decodeNullable(requireField(record, "result", "WorkflowNodeExecution"), "WorkflowNodeExecution.result", (item) => decodeWorkflowActionResult(item)),
     runnerRefs: decodeArray(requireField(record, "runnerRefs", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerRefs", (item) => decodeWorkflowActionRunnerRef(item)),
     runnerState: decodeNullable(requireField(record, "runnerState", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerState", (item) => decodeWorkflowRunnerState(item)),
@@ -10837,21 +10261,16 @@ export function decodeWorkflowAgentTrajectoryCapabilities(value: unknown): Workf
 
 export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgentTrajectoryPage {
   const record = assertRecord(value, "WorkflowAgentTrajectoryPage");
-  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "lastChatEventStreamId", "lastChatEventSequence", "lastWorkflowEventOrdinal", "run", "activeRun", "activeRunLiveness", "runSettings", "blocks", "pendingSteeringMessages", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
+  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "run", "activeRun", "activeRunLiveness", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.schemaVersion"),
     scope: decodeWorkflowAgentTrajectoryScope(requireField(record, "scope", "WorkflowAgentTrajectoryPage")),
     conversationId: decodeString(requireField(record, "conversationId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.conversationId"),
     runId: decodeString(requireField(record, "runId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runId"),
-    lastChatEventStreamId: decodeString(requireField(record, "lastChatEventStreamId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.lastChatEventStreamId"),
-    lastChatEventSequence: decodeInteger(requireField(record, "lastChatEventSequence", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.lastChatEventSequence"),
-    lastWorkflowEventOrdinal: decodeInteger(requireField(record, "lastWorkflowEventOrdinal", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.lastWorkflowEventOrdinal"),
     run: decodeRun(requireField(record, "run", "WorkflowAgentTrajectoryPage")),
     activeRun: decodeNullable(requireField(record, "activeRun", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRun", (item) => decodeRun(item)),
     activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRunLiveness", (item) => decodeRunLiveness(item)),
-    runSettings: decodeNullable(requireField(record, "runSettings", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runSettings", (item) => decodeWorkflowAgentEffectiveRunSettings(item)),
     blocks: decodeArray(requireField(record, "blocks", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.blocks", (item) => decodeTranscriptBlock(item)),
-    pendingSteeringMessages: decodeArray(requireField(record, "pendingSteeringMessages", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.pendingSteeringMessages", (item) => decodeChatMessage(item)),
     items: decodeArray(requireField(record, "items", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.items", (item) => decodeRunItem(item)),
     activity: decodeArray(requireField(record, "activity", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activity", (item) => decodeActivityItemBlockProjection(item)),
     outputPages: decodeArray(requireField(record, "outputPages", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.outputPages", (item) => decodeWorkflowAgentTrajectoryRunItemOutputPageState(item)),
@@ -13314,6 +12733,8 @@ export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
   runtimeInfo: () => Promise<RuntimeInfoResponse>;
   completePairing: (request: CompletePairingRequest) => Promise<CompletePairingResponse>;
+  setupAttestation: (request: SetupAttestationRequest) => Promise<SetupAttestationResponse>;
+  createDevicePairing: (request: CreateDevicePairingRequest) => Promise<CreateDevicePairingResponse>;
   updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest) => Promise<RuntimeInfoResponse>;
   listDevices: (request: ListDevicesRequest) => Promise<ListDevicesResponse>;
   revokeDevice: (request: RevokeDeviceRequest) => Promise<RevokeDeviceResponse>;
@@ -13335,10 +12756,6 @@ export interface BackendClient {
   saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
   readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest) => Promise<ReadWorkspaceActivitySnapshotResponse>;
   readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest) => Promise<ReadWorkflowExecutionActivityResponse>;
-  readEasyRunSnapshot: (request: ReadEasyRunSnapshotRequest) => Promise<EasyRunSnapshot>;
-  startEasyRun: (request: StartEasyRunRequest) => Promise<EasyRun>;
-  steerEasyRun: (request: SteerEasyRunRequest) => Promise<EasyRun>;
-  stopEasyRun: (request: StopEasyRunRequest) => Promise<EasyRun>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
   deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
@@ -13472,6 +12889,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    setupAttestation: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSetupAttestationResponse,
+      endpoint: backendEndpoints.SetupAttestation,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createDevicePairing: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCreateDevicePairingResponse,
+      endpoint: backendEndpoints.CreateDevicePairing,
       fetchImpl,
       requestPayload: request,
     }),
@@ -13640,38 +13073,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkflowExecutionActivityResponse,
       endpoint: backendEndpoints.ReadWorkflowExecutionActivity,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    readEasyRunSnapshot: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRunSnapshot,
-      endpoint: backendEndpoints.ReadEasyRunSnapshot,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    startEasyRun: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRun,
-      endpoint: backendEndpoints.StartEasyRun,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    steerEasyRun: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRun,
-      endpoint: backendEndpoints.SteerEasyRun,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    stopEasyRun: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRun,
-      endpoint: backendEndpoints.StopEasyRun,
       fetchImpl,
       requestPayload: request,
     }),

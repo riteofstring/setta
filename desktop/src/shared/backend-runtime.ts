@@ -201,36 +201,15 @@ export async function requestBackend<ResponsePayload, ErrorPayload extends Backe
   const { baseURL, decodeErrorResponse, decodeResponse, endpoint, fetchImpl, requestPayload } =
     request;
   const init: RequestInit = { method: endpoint.method };
-  const url = new URL(endpoint.path, baseURL);
-  if (requestPayload !== undefined && endpoint.method === "GET") {
-    appendQueryPayload(url, requestPayload);
-  } else if (requestPayload !== undefined) {
+  if (requestPayload !== undefined) {
     init.body = JSON.stringify(requestPayload);
     init.headers = { "Content-Type": "application/json" };
   }
 
-  const response = await fetchImpl(url, init);
+  const response = await fetchImpl(new URL(endpoint.path, baseURL), init);
   const payload: unknown = await response.json();
   if (!response.ok) {
     throw new Error(decodeErrorResponse(payload).error.message);
   }
   return decodeResponse(payload);
-}
-
-function appendQueryPayload(url: URL, payload: unknown) {
-  const record = assertRecord(payload, "GET request payload");
-  for (const [key, value] of Object.entries(record)) {
-    switch (typeof value) {
-      case "boolean":
-      case "number":
-      case "string":
-        url.searchParams.set(key, String(value));
-        break;
-      default:
-        if (value === null) {
-          throw new Error(`GET request payload ${key} must not be null`);
-        }
-        throw new Error(`GET request payload ${key} must be a primitive`);
-    }
-  }
 }

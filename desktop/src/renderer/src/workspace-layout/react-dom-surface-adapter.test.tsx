@@ -1,7 +1,6 @@
 import { isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
 import { registerWorkflowGraphRuntimeHandle } from "../features/workspace-graph/workflow-graph-runtime-registry";
 import {
   createReactDomSurfaceAdapter,
@@ -255,26 +254,6 @@ describe("workspace React DOM surface adapter", () => {
       edgesPerNode: 2,
       nodeCount: 500,
     });
-  });
-
-  test("mounts the easy button as an idle React DOM surface", () => {
-    const root = new RecordingRoot([]);
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return root;
-      },
-    };
-    const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(fakePane("easy-button"), rootFactory);
-
-    adapter.mount(host);
-
-    const renderedNode = root.renderedNodes.at(-1);
-    if (!isValidElement(renderedNode)) {
-      throw new Error("easy button surface did not render a React element");
-    }
-    expect(host.dataset.surfaceKind).toBe("easy-button");
-    expect(renderedNode.type).toBe(EasyButtonSurface);
   });
 
   test("forwards workflow graph visible live state to the renderer runtime handle", () => {

@@ -247,6 +247,9 @@ func validateRouteContract(endpoint httpapi.ContractEndpoint) error {
 }
 
 func validateRouteRequestContract(endpoint httpapi.ContractEndpoint) error {
+	if endpoint.Method == http.MethodGet && endpoint.Request != nil {
+		return fmt.Errorf("%s GET endpoint must not declare a request body", endpoint.Name)
+	}
 	if endpoint.Method == http.MethodGet && endpoint.RequestBodyLimitBytes != 0 {
 		return fmt.Errorf("%s GET endpoint must not declare a request body limit", endpoint.Name)
 	}
