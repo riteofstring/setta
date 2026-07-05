@@ -1,5 +1,5 @@
-import { rm } from "node:fs/promises";
-import { join } from "node:path";
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
+import { delimiter, join } from "node:path";
 import process from "node:process";
 
 import { assertNoCriticalDiagnostics } from "./chat-workflow-assertions.mjs";
@@ -49,8 +49,13 @@ export async function runLiveCodexWorkflow(results, deps) {
   }
   const fixture = await createFixture("live-codex");
   const recordingDir = join(recordingRoot, "live-codex");
+  const liveBinDir = join(fixture.tempRoot, "bin");
+  await installLiveSettaCLIShim(liveBinDir, repoRoot);
   const context = await launchContext(fixture, recordingDir, {
-    extraEnv: liveAuth.env,
+    extraEnv: {
+      ...liveAuth.env,
+      PATH: `${liveBinDir}${delimiter}${process.env.PATH ?? ""}`,
+    },
     harness: "codex",
     unsetEnv: liveAuth.unsetEnv,
   });
@@ -231,6 +236,21 @@ export async function runLiveCodexWorkflow(results, deps) {
   process.stdout.write("Electron chat workflow passed: live-codex-electron\n");
 }
 
+async function installLiveSettaCLIShim(binDir, repoRoot) {
+  await mkdir(binDir, { recursive: true });
+  const settaPath = join(binDir, "setta");
+  await writeFile(
+    settaPath,
+    `#!/bin/sh\ncd ${shellSingleQuote(repoRoot)} || exit 1\nexec ./scripts/go.sh run ./cmd/setta "$@"\n`,
+    "utf8",
+  );
+  await chmod(settaPath, 0o755);
+}
+
+function shellSingleQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
 async function runLiveImageAttachmentWorkflow({
   assertAssistantCompleted,
   assertNoActiveRun,
@@ -391,6 +411,12 @@ async function runLiveSemanticCartographerWorkflow({
       workflowCodexNode(
         agentNodeId,
         'Recordable semantic finding. Reply with exactly one sentence: "Setta live semantic cartographer finding: a real workflow agent run produced evidence for automatic semantic graph creation."',
+        {
+          settings: {
+            permission: fullAccessWorkflowPermission(),
+            reasoningEffort: "low",
+          },
+        },
       ),
       workflowControlNode("end", "end"),
     ],
@@ -557,13 +583,19 @@ function workflowControlNode(id, kind) {
   };
 }
 
-function workflowCodexNode(id, prompt) {
+function workflowCodexNode(id, prompt, options = {}) {
+  const settings = {
+    model: "",
+    permission: null,
+    reasoningEffort: null,
+    ...options.settings,
+  };
   return {
     action: {
       codex: {
         freshConversation: true,
         prompt,
-        settings: { model: "", permission: null, reasoningEffort: null },
+        settings,
       },
       kind: "agent.codex",
     },
@@ -572,6 +604,14 @@ function workflowCodexNode(id, prompt) {
     kind: "action",
     loopGuard: null,
     title: id,
+  };
+}
+
+function fullAccessWorkflowPermission() {
+  return {
+    approvalPolicy: "never",
+    permissions: ":danger-full-access",
+    preset: "full-access",
   };
 }
 

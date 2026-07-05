@@ -32,12 +32,6 @@ Do not add:
 If existing dynamic-tool code becomes obsolete for workflow authoring, remove
 it. Do not preserve it behind feature flags or compatibility wrappers.
 
-The only dynamic-tool behavior that may remain is behavior that is still part
-of a separate runtime contract, such as workflow node result reporting, and only
-if it is not being used as a workflow-authoring interface. If that behavior is
-also replaced by the CLI/API workflow, remove the old dynamic-tool path in the
-same change.
-
 ## Recommendation
 
 Use a workflow-builder skill plus a deterministic CLI/API as the canonical
@@ -520,12 +514,7 @@ Progress on 2026-07-07:
   skill roots fail loudly instead of falling back silently.
 - Updated the in-app Codex developer instructions so workflow authoring,
   validation, saving, inspection, and execution route through
-  `$workflow-builder` and the `setta workflow` CLI/API lifecycle. Dynamic tools
-  remain documented only for non-workflow-authoring Setta state/actions and
-  workflow runtime result reporting.
-- The current source no longer has workflow-authoring dynamic tools to remove
-  in this slice; existing dynamic tools are limited to non-authoring
-  `workspace_context` and runtime `workflow_result` behavior.
+  `$workflow-builder` and the `setta workflow` CLI/API lifecycle.
 - Tightened app-server protocol ingestion so final `turn/completed`
   `agentMessage` items are projected as completed run items, and the transcript
   service materializes final assistant text from those completed items when no
@@ -534,7 +523,7 @@ Progress on 2026-07-07:
   avoid cross-delivering semantic cartographer output into chat turns.
 - Verification: `./scripts/go.sh run ./cmd/generate-codex-protocol`;
   `./scripts/go.sh test ./internal/chat -run
-  'TestFindCodexSkillRootFrom|TestCodexHarnessProjectsCompletedTurnAgentMessageItem|TestTranscriptAssistantBlockUsesCompletedAgentMessageWithoutDelta|TestTranscriptAssistantBlockReconcilesProviderText|TestCodexHarness(MapsStreamingTurn|StartsThreadWithDynamicTools|DoesNotSendDynamicToolsOnResume|AppliesConversationPermissionSettingsToThreadStart|RunsSemanticCartographerStructuredTask)'`;
+  'TestFindCodexSkillRootFrom|TestCodexHarnessProjectsCompletedTurnAgentMessageItem|TestTranscriptAssistantBlockUsesCompletedAgentMessageWithoutDelta|TestTranscriptAssistantBlockReconcilesProviderText|TestCodexHarness(MapsStreamingTurn|AppliesConversationPermissionSettingsToThreadStart|RunsSemanticCartographerStructuredTask)'`;
   `./scripts/go.sh test ./cmd/generate-codex-protocol ./internal/codexapp`;
   `./scripts/go.sh test ./internal/chat ./internal/codexapp
   ./cmd/generate-codex-protocol ./internal/runtime`; `pnpm -C desktop build`;
@@ -557,9 +546,8 @@ Progress on 2026-07-07:
 - Added deterministic Electron coverage for a natural-language in-app Codex
   workflow-authoring request that routes through `$workflow-builder` and the
   `setta workflow` CLI/API lifecycle.
-- The fake Codex app-server now receives the production thread-start dynamic
-  tool surface, asserts only non-authoring dynamic tools are present, invokes
-  the real `setta workflow` CLI, reads the current workspace and schema,
+- The fake Codex app-server invokes the real `setta workflow` CLI, reads the
+  current workspace and schema,
   validates an invalid graph with backend-owned diagnostics, validates a
   repaired graph, saves a definition, lists it, starts an execution, and reads
   the execution back.
@@ -602,41 +590,33 @@ Progress on 2026-07-07:
   desktop/tests/electron/codex-protocol-workflow-authoring.mjs`, `node --check
   desktop/tests/electron/chat-workflows.test.mjs`, and `node
   desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only` passed.
-- Remaining work: move to the Phase 5 source sweep/removal of any obsolete
-  workflow-authoring dynamic-tool code discovered outside the current
-  non-authoring `workspace_context` and runtime `workflow_result` contracts.
+- Remaining work: move to the Phase 5 source sweep/removal of obsolete
+  dynamic-tool code.
 
 ### Phase 5: Remove Obsolete Dynamic Tool Code
 
-Delete dynamic-tool definitions, handlers, tests, and prompt instructions that
-exist only for workflow authoring.
-
-Keep only dynamic-tool code that is still required for non-authoring runtime
-contracts. If workflow result reporting moves to the CLI/API workflow, remove
-the old `workflow_result` dynamic tool at the same time.
+Delete app-server dynamic-tool definitions, handlers, tests, and prompt
+instructions. Workflow result reporting belongs to the workflow API/CLI.
 
 Progress on 2026-07-07:
 
-- Completed the Phase 5 source sweep for obsolete workflow-authoring dynamic
-  tool code. The current default Setta dynamic-tool registry exposes only the
-  non-authoring `setta.workspace_context` tool and the runtime
-  `setta.workflow_result` reporting tool; no workflow-authoring dynamic-tool
-  definitions, handlers, prompt instructions, or MCP workflow-authoring paths
-  were found to remove.
-- Kept `setta.workflow_result` because it is still the workflow runtime result
-  reporting contract and has not been replaced by the CLI/API workflow.
-- Added focused Go guard coverage so future changes cannot add default Setta
-  workflow-authoring dynamic tools without failing `internal/chat` tests.
-- Verification: `./scripts/go.sh test ./internal/chat -run
-  TestDefaultSettaAgentToolRegistryExposesOnlyRuntimeDynamicTools`,
-  `./scripts/go.sh test ./internal/chat`, `./scripts/format.sh`, and
-  `./check_quality.sh --git-changes` passed. No deterministic Electron or live
-  Codex rerun was required for this guard-only source sweep because no
-  production chat, Codex harness, provider protocol, renderer, IPC, generated
-  contract, workflow execution, or event-streaming behavior changed.
-- Remaining work: no Phase 5 workflow-authoring dynamic-tool removal remains
-  in the current source. If workflow runtime result reporting later moves to
-  the CLI/API workflow, remove `setta.workflow_result` in that future change.
+- Removed Setta app-server dynamic-tool advertisement and request handling from
+  normal Codex thread startup. The in-app developer instructions no longer
+  direct agents toward app-server dynamic tools.
+- Removed the Setta agent-tool registry, `workspace_context`, and
+  `workflow_result` dynamic-tool handlers and tests.
+- Added `POST /workflows/executions/result` and
+  `setta workflow executions result --input <path>` as the workflow node result
+  reporting path. The result command accepts `workspaceId`, `executionId`,
+  `nodeExecutionId`, and a terminal `result` object.
+- Updated `workflow-builder/SKILL.md` to document result reporting and synced
+  the canonical skill to `.codex/skills`.
+- Removed the remaining scripted Setta dynamic-tool workflow fixture and moved
+  scripted workflow result routing coverage onto the CLI result command.
+- Verification: `./scripts/go.sh test ./internal/chat ./internal/orchestrator
+  ./internal/httpapi ./cmd/setta` passed after regenerating backend contracts.
+- Remaining work: run the required deterministic Electron workflow coverage and
+  final repository quality gates.
 
 ## Verification
 

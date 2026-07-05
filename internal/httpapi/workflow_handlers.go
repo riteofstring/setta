@@ -323,6 +323,33 @@ func (handler handler) cancelWorkflowExecution(response http.ResponseWriter, req
 	writeJSON(response, http.StatusOK, execution)
 }
 
+func (handler handler) reportWorkflowExecutionResult(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload ReportWorkflowExecutionResultRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	input := orchestrator.WorkflowExecutionResultInput{
+		WorkspaceID:     payload.WorkspaceID,
+		ExecutionID:     payload.ExecutionID,
+		NodeExecutionID: payload.NodeExecutionID,
+		Result:          payload.Result,
+	}
+	if err := orchestrator.ValidateWorkflowExecutionResultInput(input); err != nil {
+		writeWorkflowError(response, "report_workflow_execution_result_failed", err)
+		return
+	}
+	execution, err := service.ReportExecutionResult(payload.WorkspaceID, input)
+	if err != nil {
+		writeWorkflowError(response, "report_workflow_execution_result_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, execution)
+}
+
 func (handler handler) readWorkflowExecution(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

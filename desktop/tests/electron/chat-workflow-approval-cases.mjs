@@ -75,15 +75,6 @@ export async function runProtocolApprovalWorkflows({
     waitForText,
     waitForTexts,
   });
-  await runDynamicToolWorkflow({
-    backend,
-    client,
-    conversationId,
-    submitComposer,
-    waitForRunWithPrompt,
-    waitForTexts,
-    workspaceId,
-  });
 }
 
 async function approveDecisionWorkflow({
@@ -224,37 +215,6 @@ async function waitForApprovalCardAbsent(client, waitForState) {
     client,
     `(() => ({ present: Boolean(document.querySelector('[data-testid="approval-card"]')) }))()`,
     (value) => !value.present,
-  );
-}
-
-async function runDynamicToolWorkflow({
-  backend,
-  client,
-  conversationId,
-  submitComposer,
-  waitForRunWithPrompt,
-  waitForTexts,
-  workspaceId,
-}) {
-  await submitComposer(client, "dynamic tool workflow", "Send message");
-  await waitForTexts(client, ["Dynamic tool workflow complete."]);
-  const run = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "dynamic tool workflow",
-    "completed",
-  );
-  await waitForRunActivityItem(
-    backend,
-    workspaceId,
-    run.id,
-    (item) =>
-      item.type === "dynamic_tool_call" &&
-      item.status === "completed" &&
-      item.details?.dynamicToolCall?.namespace === "setta" &&
-      item.details.dynamicToolCall.toolName === "fakeTool" &&
-      item.details.dynamicToolCall.resultSummary.includes("tool ok"),
   );
 }
 

@@ -257,7 +257,6 @@ async function main() {
     await rm(recordingRoot, { force: true, recursive: true });
   }
   await mkdir(recordingRoot, { recursive: true });
-
   const results = [];
   if (await runSelectedSingleWorkflow(results)) {
     printWorkflowResults(results);
@@ -605,7 +604,6 @@ async function runDeterministicWorkflowLaunch(results) {
     await stopElectron(context.electron);
     await rm(fixture.tempRoot, { force: true, recursive: true });
   }
-
   if (failure) {
     throw failureWithLogs(failure, context.electron.logs);
   }
@@ -662,7 +660,6 @@ async function runDeterministicWorkflowLaunch(results) {
     ],
   });
 }
-
 async function runChatActivityProjectionWorkflow(client, backend, workspaceId, conversationId) {
   await submitComposer(client, "projection silent greeting workflow", "Send message");
   const greetingRun = await waitForRunWithPrompt(
@@ -681,7 +678,6 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
     rows: [],
   });
   await assertActivityRows(client, []);
-
   await submitComposer(client, "chat activity projection workflow", "Send message");
   await waitForTexts(client, ["Projection activity starting.", "Streaming reasoning placeholder"]);
   await submitComposer(client, "finish projection activity", "Send steering message");
@@ -702,7 +698,6 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
   await assertReasoningBlockPresent(client, "Streaming reasoning placeholder");
   await assertTextAbsent(client, "private projection reasoning");
   await assertTextAbsent(client, "Projection duplicate provider agent message");
-
   const projection = await assertRunActivityProjection(backend, workspaceId, run.id, {
     rawTypes: ["agent_message", "reasoning"],
     rows: projectionExpectedRows(),
@@ -715,7 +710,6 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
   await waitForText(client, "Public reasoning summary visible.");
   await assertAssistantTextOccurrence(client, "Projection assistant final.", 1);
 }
-
 // expandReasoningSummaryBlock opens the collapsed summary-mode reasoning block
 // whose collapsed headline matches the given text, so the full public summary
 // becomes visible through its own disclosure rather than an activity row.
@@ -847,14 +841,21 @@ async function assertActivityRows(client, expectedRows) {
 }
 
 async function assertAssistantTextOccurrence(client, text, expectedCount) {
-  const transcript = await client.driver("chatTranscriptRows");
-  const assistantRows = transcript.rows.filter((row) => row.role === "assistant");
-  const count = assistantRows.reduce((total, row) => total + occurrences(row.text, text), 0);
-  if (count !== expectedCount) {
-    throw new Error(
-      `assistant text ${text} rendered ${count} times, want ${expectedCount}: ${JSON.stringify(assistantRows)}`,
-    );
+  const startedAt = Date.now();
+  let last = { count: 0, rows: [] };
+  while (Date.now() - startedAt < 5_000) {
+    const transcript = await client.driver("chatTranscriptRows");
+    const assistantRows = transcript.rows.filter((row) => row.role === "assistant");
+    const count = assistantRows.reduce((total, row) => total + occurrences(row.text, text), 0);
+    if (count === expectedCount) {
+      return;
+    }
+    last = { count, rows: assistantRows };
+    await delay(100);
   }
+  throw new Error(
+    `assistant text ${text} rendered ${last.count} times, want ${expectedCount}: ${JSON.stringify(last.rows)}`,
+  );
 }
 
 function projectionExpectedRows() {
@@ -1278,10 +1279,9 @@ async function runCodexProtocolWorkflow(results) {
       "protocol notification workflow",
       "completed",
     );
-    await waitForTexts(context.client, ["coverage complete", "Workspace context"]);
+    await waitForTexts(context.client, ["coverage complete", "Protocol warning notice."]);
     await assertCollapsedActivityGroupHeader(context.client, {
-      absent: "+8",
-      preview: "Workspace context",
+      preview: "Protocol warning notice.",
     });
     await assertTextAbsent(context.client, "Reasoning text");
     await assertTextAbsent(context.client, "private reasoning");

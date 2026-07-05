@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 9;
-export const backendContractSchemaHash = "sha256:8cb6ed8b1cc1b71f7671f2229aee298aa0678d08f201650154d565faf5c32e74";
+export const backendProtocolVersion = 11;
+export const backendContractSchemaHash = "sha256:32bb1b1ced16a0b3ebb59b46486e26d38bf0c64f22107b180fd45aff2a261995";
 
 export type DeviceScope = "full";
 
@@ -1176,9 +1176,9 @@ export function decodeReasoningBlockMode(value: unknown, label = "ReasoningBlock
   }
 }
 
-export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "command_start_failure" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "provider_stream_lifecycle" | "context_compaction" | "notice" | "approval_request" | "approval_review" | "hook" | "structured_input";
+export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "command_start_failure" | "file_change" | "mcp_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "provider_stream_lifecycle" | "context_compaction" | "notice" | "approval_request" | "approval_review" | "hook" | "structured_input";
 
-export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "command_start_failure", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "provider_stream_lifecycle", "context_compaction", "notice", "approval_request", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
+export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "command_start_failure", "file_change", "mcp_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "provider_stream_lifecycle", "context_compaction", "notice", "approval_request", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
 
 export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
   const decoded = decodeString(value, label);
@@ -1196,8 +1196,6 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
     case "file_change":
       return decoded;
     case "mcp_tool_call":
-      return decoded;
-    case "dynamic_tool_call":
       return decoded;
     case "collab_agent_tool_call":
       return decoded;
@@ -1388,9 +1386,9 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
   }
 }
 
-export type RunItemDetailsKind = "plan" | "command_execution" | "command_start_failure" | "mcp_tool_call" | "dynamic_tool_call" | "file_change" | "diff" | "approval" | "provider_stream_lifecycle";
+export type RunItemDetailsKind = "plan" | "command_execution" | "command_start_failure" | "mcp_tool_call" | "file_change" | "diff" | "approval" | "provider_stream_lifecycle";
 
-export const runItemDetailsKindValues = ["plan", "command_execution", "command_start_failure", "mcp_tool_call", "dynamic_tool_call", "file_change", "diff", "approval", "provider_stream_lifecycle"] as const satisfies readonly RunItemDetailsKind[];
+export const runItemDetailsKindValues = ["plan", "command_execution", "command_start_failure", "mcp_tool_call", "file_change", "diff", "approval", "provider_stream_lifecycle"] as const satisfies readonly RunItemDetailsKind[];
 
 export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetailsKind"): RunItemDetailsKind {
   const decoded = decodeString(value, label);
@@ -1402,8 +1400,6 @@ export function decodeRunItemDetailsKind(value: unknown, label = "RunItemDetails
     case "command_start_failure":
       return decoded;
     case "mcp_tool_call":
-      return decoded;
-    case "dynamic_tool_call":
       return decoded;
     case "file_change":
       return decoded;
@@ -3598,30 +3594,6 @@ export interface RunItemMCPToolCallDetails {
   error: string;
 }
 
-export interface RunItemDynamicToolContentItem {
-  type: string;
-  text: string;
-  imageUrl: string;
-}
-
-export interface RunItemDynamicToolResult {
-  contentItems: RunItemDynamicToolContentItem[];
-  success: boolean | null;
-}
-
-export interface RunItemDynamicToolCallDetails {
-  namespace: string;
-  toolName: string;
-  displayTitle: string;
-  description: string;
-  category: string;
-  durationMs: number;
-  arguments: unknown;
-  resultSummary: string;
-  result: RunItemDynamicToolResult | null;
-  error: string;
-}
-
 export interface RunItemFileChangePath {
   path: string;
   operation: RunItemFileChangeOperation | null;
@@ -3715,7 +3687,6 @@ export interface RunActivityDetailsProjection {
   commandExecution: RunItemCommandExecutionDetails | null;
   commandStartFailure: RunItemCommandStartFailureDetails | null;
   mcpToolCall: RunItemMCPToolCallDetails | null;
-  dynamicToolCall: RunItemDynamicToolCallDetails | null;
   fileChange: RunItemFileChangeDetails | null;
   diff: RunItemDiffDetails | null;
   approval: RunItemApprovalDetails | null;
@@ -4145,7 +4116,6 @@ export interface RunItemDetails {
   commandExecution: RunItemCommandExecutionDetails | null;
   commandStartFailure: RunItemCommandStartFailureDetails | null;
   mcpToolCall: RunItemMCPToolCallDetails | null;
-  dynamicToolCall: RunItemDynamicToolCallDetails | null;
   fileChange: RunItemFileChangeDetails | null;
   diff: RunItemDiffDetails | null;
   approval: RunItemApprovalDetails | null;
@@ -4704,6 +4674,13 @@ export interface WorkflowExecution {
 export interface CancelWorkflowExecutionRequest {
   workspaceId: string;
   executionId: string;
+}
+
+export interface ReportWorkflowExecutionResultRequest {
+  workspaceId: string;
+  executionId: string;
+  nodeExecutionId: string;
+  result: WorkflowActionResult;
 }
 
 export interface ReadWorkflowExecutionRequest {
@@ -6992,6 +6969,11 @@ export const backendEndpoints = {
     path: "/workflows/executions/cancel",
     requestBodyLimitBytes: 4194304,
   },
+  ReportWorkflowExecutionResult: {
+    method: "POST",
+    path: "/workflows/executions/result",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/read",
@@ -8640,42 +8622,6 @@ export function decodeRunItemMCPToolCallDetails(value: unknown): RunItemMCPToolC
   };
 }
 
-export function decodeRunItemDynamicToolContentItem(value: unknown): RunItemDynamicToolContentItem {
-  const record = assertRecord(value, "RunItemDynamicToolContentItem");
-  assertKnownFields(record, "RunItemDynamicToolContentItem", ["type", "text", "imageUrl"]);
-  return {
-    type: decodeString(requireField(record, "type", "RunItemDynamicToolContentItem"), "RunItemDynamicToolContentItem.type"),
-    text: decodeString(requireField(record, "text", "RunItemDynamicToolContentItem"), "RunItemDynamicToolContentItem.text"),
-    imageUrl: decodeString(requireField(record, "imageUrl", "RunItemDynamicToolContentItem"), "RunItemDynamicToolContentItem.imageUrl"),
-  };
-}
-
-export function decodeRunItemDynamicToolResult(value: unknown): RunItemDynamicToolResult {
-  const record = assertRecord(value, "RunItemDynamicToolResult");
-  assertKnownFields(record, "RunItemDynamicToolResult", ["contentItems", "success"]);
-  return {
-    contentItems: decodeArray(requireField(record, "contentItems", "RunItemDynamicToolResult"), "RunItemDynamicToolResult.contentItems", (item) => decodeRunItemDynamicToolContentItem(item)),
-    success: decodeNullable(requireField(record, "success", "RunItemDynamicToolResult"), "RunItemDynamicToolResult.success", (item) => decodeBoolean(item, "RunItemDynamicToolResult.success")),
-  };
-}
-
-export function decodeRunItemDynamicToolCallDetails(value: unknown): RunItemDynamicToolCallDetails {
-  const record = assertRecord(value, "RunItemDynamicToolCallDetails");
-  assertKnownFields(record, "RunItemDynamicToolCallDetails", ["namespace", "toolName", "displayTitle", "description", "category", "durationMs", "arguments", "resultSummary", "result", "error"]);
-  return {
-    namespace: decodeString(requireField(record, "namespace", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.namespace"),
-    toolName: decodeString(requireField(record, "toolName", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.toolName"),
-    displayTitle: decodeString(requireField(record, "displayTitle", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.displayTitle"),
-    description: decodeString(requireField(record, "description", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.description"),
-    category: decodeString(requireField(record, "category", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.category"),
-    durationMs: decodeInteger(requireField(record, "durationMs", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.durationMs"),
-    arguments: decodeUnknown(requireField(record, "arguments", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.arguments"),
-    resultSummary: decodeString(requireField(record, "resultSummary", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.resultSummary"),
-    result: decodeNullable(requireField(record, "result", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.result", (item) => decodeRunItemDynamicToolResult(item)),
-    error: decodeString(requireField(record, "error", "RunItemDynamicToolCallDetails"), "RunItemDynamicToolCallDetails.error"),
-  };
-}
-
 export function decodeRunItemFileChangePath(value: unknown): RunItemFileChangePath {
   const record = assertRecord(value, "RunItemFileChangePath");
   assertKnownFields(record, "RunItemFileChangePath", ["path", "operation", "movePath", "additions", "deletions", "patch", "patchTruncated"]);
@@ -8771,7 +8717,7 @@ export function decodeRunItemProviderStreamLifecycleDetails(value: unknown): Run
 
 export function decodeRunActivityDetailsProjection(value: unknown): RunActivityDetailsProjection {
   const record = assertRecord(value, "RunActivityDetailsProjection");
-  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "plan", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "commandStartFailure", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
+  assertKnownFields(record, "RunActivityDetailsProjection", ["summary", "plan", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "namespace", "processId", "requestId", "reviewId", "details", "commandExecution", "commandStartFailure", "mcpToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
   return {
     summary: decodeString(requireField(record, "summary", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.summary"),
     plan: decodeNullable(requireField(record, "plan", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.plan", (item) => decodeRunItemPlanDetails(item)),
@@ -8796,7 +8742,6 @@ export function decodeRunActivityDetailsProjection(value: unknown): RunActivityD
     commandExecution: decodeNullable(requireField(record, "commandExecution", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
     commandStartFailure: decodeNullable(requireField(record, "commandStartFailure", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.commandStartFailure", (item) => decodeRunItemCommandStartFailureDetails(item)),
     mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
-    dynamicToolCall: decodeNullable(requireField(record, "dynamicToolCall", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.dynamicToolCall", (item) => decodeRunItemDynamicToolCallDetails(item)),
     fileChange: decodeNullable(requireField(record, "fileChange", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
     diff: decodeNullable(requireField(record, "diff", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.diff", (item) => decodeRunItemDiffDetails(item)),
     approval: decodeNullable(requireField(record, "approval", "RunActivityDetailsProjection"), "RunActivityDetailsProjection.approval", (item) => decodeRunItemApprovalDetails(item)),
@@ -9465,14 +9410,13 @@ export function decodeGetRunActivityRequest(value: unknown): GetRunActivityReque
 
 export function decodeRunItemDetails(value: unknown): RunItemDetails {
   const record = assertRecord(value, "RunItemDetails");
-  assertKnownFields(record, "RunItemDetails", ["kind", "plan", "commandExecution", "commandStartFailure", "mcpToolCall", "dynamicToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
+  assertKnownFields(record, "RunItemDetails", ["kind", "plan", "commandExecution", "commandStartFailure", "mcpToolCall", "fileChange", "diff", "approval", "providerStreamLifecycle"]);
   const result: RunItemDetails = {
     kind: decodeRunItemDetailsKind(requireField(record, "kind", "RunItemDetails"), "RunItemDetails.kind"),
     plan: decodeNullable(requireField(record, "plan", "RunItemDetails"), "RunItemDetails.plan", (item) => decodeRunItemPlanDetails(item)),
     commandExecution: decodeNullable(requireField(record, "commandExecution", "RunItemDetails"), "RunItemDetails.commandExecution", (item) => decodeRunItemCommandExecutionDetails(item)),
     commandStartFailure: decodeNullable(requireField(record, "commandStartFailure", "RunItemDetails"), "RunItemDetails.commandStartFailure", (item) => decodeRunItemCommandStartFailureDetails(item)),
     mcpToolCall: decodeNullable(requireField(record, "mcpToolCall", "RunItemDetails"), "RunItemDetails.mcpToolCall", (item) => decodeRunItemMCPToolCallDetails(item)),
-    dynamicToolCall: decodeNullable(requireField(record, "dynamicToolCall", "RunItemDetails"), "RunItemDetails.dynamicToolCall", (item) => decodeRunItemDynamicToolCallDetails(item)),
     fileChange: decodeNullable(requireField(record, "fileChange", "RunItemDetails"), "RunItemDetails.fileChange", (item) => decodeRunItemFileChangeDetails(item)),
     diff: decodeNullable(requireField(record, "diff", "RunItemDetails"), "RunItemDetails.diff", (item) => decodeRunItemDiffDetails(item)),
     approval: decodeNullable(requireField(record, "approval", "RunItemDetails"), "RunItemDetails.approval", (item) => decodeRunItemApprovalDetails(item)),
@@ -9483,7 +9427,6 @@ export function decodeRunItemDetails(value: unknown): RunItemDetails {
     "command_execution": result.commandExecution,
     "command_start_failure": result.commandStartFailure,
     "mcp_tool_call": result.mcpToolCall,
-    "dynamic_tool_call": result.dynamicToolCall,
     "file_change": result.fileChange,
     "diff": result.diff,
     "approval": result.approval,
@@ -10303,6 +10246,17 @@ export function decodeCancelWorkflowExecutionRequest(value: unknown): CancelWork
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "CancelWorkflowExecutionRequest"), "CancelWorkflowExecutionRequest.workspaceId"),
     executionId: decodeString(requireField(record, "executionId", "CancelWorkflowExecutionRequest"), "CancelWorkflowExecutionRequest.executionId"),
+  };
+}
+
+export function decodeReportWorkflowExecutionResultRequest(value: unknown): ReportWorkflowExecutionResultRequest {
+  const record = assertRecord(value, "ReportWorkflowExecutionResultRequest");
+  assertKnownFields(record, "ReportWorkflowExecutionResultRequest", ["workspaceId", "executionId", "nodeExecutionId", "result"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReportWorkflowExecutionResultRequest"), "ReportWorkflowExecutionResultRequest.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "ReportWorkflowExecutionResultRequest"), "ReportWorkflowExecutionResultRequest.executionId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "ReportWorkflowExecutionResultRequest"), "ReportWorkflowExecutionResultRequest.nodeExecutionId"),
+    result: decodeWorkflowActionResult(requireField(record, "result", "ReportWorkflowExecutionResultRequest")),
   };
 }
 
@@ -13034,6 +12988,7 @@ export interface BackendClient {
   listWorkflowExecutions: (request: ListWorkflowExecutionsRequest) => Promise<ListWorkflowExecutionsResponse>;
   startWorkflowExecution: (request: StartWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   cancelWorkflowExecution: (request: CancelWorkflowExecutionRequest) => Promise<WorkflowExecution>;
+  reportWorkflowExecutionResult: (request: ReportWorkflowExecutionResultRequest) => Promise<WorkflowExecution>;
   readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
@@ -13666,6 +13621,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.CancelWorkflowExecution,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    reportWorkflowExecutionResult: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowExecution,
+      endpoint: backendEndpoints.ReportWorkflowExecutionResult,
       fetchImpl,
       requestPayload: request,
     }),

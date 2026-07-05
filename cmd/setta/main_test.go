@@ -1282,6 +1282,28 @@ func writeWorkflowDefinitionSaveInputForCLITest(t *testing.T, path string, input
 	}
 }
 
+func writeWorkflowExecutionResultInputForCLITest(t *testing.T, path string, input orchestrator.WorkflowExecutionResultInput) {
+	t.Helper()
+	payload, err := json.Marshal(input)
+	if err != nil {
+		t.Fatalf("marshal workflow execution result input: %v", err)
+	}
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("write workflow execution result input: %v", err)
+	}
+}
+
+func cliTestLatestNodeExecution(t *testing.T, execution orchestrator.WorkflowExecution, nodeID string) orchestrator.WorkflowNodeExecution {
+	t.Helper()
+	for index := len(execution.NodeExecutions) - 1; index >= 0; index-- {
+		if execution.NodeExecutions[index].NodeID == nodeID {
+			return execution.NodeExecutions[index]
+		}
+	}
+	t.Fatalf("node execution for %s was not found in %+v", nodeID, execution.NodeExecutions)
+	return orchestrator.WorkflowNodeExecution{}
+}
+
 func assertWorkflowDiagnostic(t *testing.T, result orchestrator.WorkflowValidationResult, code string) {
 	t.Helper()
 	for _, diagnostic := range result.Diagnostics {

@@ -109,6 +109,7 @@ type WorkflowService interface {
 	ReadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (orchestrator.WorkflowExecutionEventPage, error)
 	ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (orchestrator.WorkflowGraphProjection, bool, error)
 	ReadWorkflowNodeTrajectory(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, afterItemID string, itemLimit int, outputLimit int) (orchestrator.WorkflowAgentTrajectoryPage, error)
+	ReportExecutionResult(workspaceID string, input orchestrator.WorkflowExecutionResultInput) (orchestrator.WorkflowExecution, error)
 	RetryWorkflowNodeRunLiveness(context.Context, string, string, string) (chat.RunLivenessReconciliationResult, error)
 	SaveDefinition(workspaceID string, input orchestrator.WorkflowDefinitionSaveInput) (orchestrator.WorkflowDefinitionSaveResult, error)
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)

@@ -165,7 +165,6 @@ function transcriptActivitySearchEntry(block: TranscriptBlock): { id: string; te
         ...transcriptActivityCommandExecutionSearchText(details),
         ...transcriptActivityCommandStartFailureSearchText(details),
         ...transcriptActivityMCPSearchText(details),
-        ...transcriptActivityDynamicToolSearchText(details),
         ...transcriptActivityFileChangeSearchText(details),
         ...transcriptActivityDiffSearchText(details),
         ...transcriptActivityApprovalSearchText(details),
@@ -274,25 +273,6 @@ function transcriptActivityMCPSearchText(details: RunActivityDetailsProjection) 
     transcriptJSONSearchText(mcp.result?.content),
     transcriptJSONSearchText(mcp.result?.structuredContent),
     transcriptJSONSearchText(mcp.result?._meta),
-  ];
-}
-
-function transcriptActivityDynamicToolSearchText(details: RunActivityDetailsProjection) {
-  const tool = details.dynamicToolCall;
-  if (tool === null) {
-    return [];
-  }
-  return [
-    tool.displayTitle,
-    tool.description,
-    tool.category,
-    tool.namespace,
-    tool.toolName,
-    tool.durationMs > 0 ? String(tool.durationMs) : "",
-    tool.resultSummary,
-    tool.error,
-    transcriptJSONSearchText(tool.arguments),
-    transcriptJSONSearchText(tool.result),
   ];
 }
 

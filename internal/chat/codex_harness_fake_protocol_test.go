@@ -839,24 +839,9 @@ func writeFakeMCPElicitationRequest(mode string) {
 func writeFakeImmediateServerRequest(mode string, state *fakeCodexState) {
 	state.responseOutstanding = mode
 	switch mode {
-	case "dynamic-tool-unknown":
-		writeFakeDynamicToolRequest("missingTool")
-	case "dynamic-tool-registered":
-		writeFakeDynamicToolRequest("fakeTool")
 	case "attestation-unavailable", "attestation-provider":
 		writeFakeServerRequest("attestation-1", "attestation/generate", map[string]any{})
 	}
-}
-
-func writeFakeDynamicToolRequest(tool string) {
-	writeFakeServerRequest("tool-1", "item/tool/call", map[string]any{
-		"arguments": map[string]any{"value": "from codex"},
-		"callId":    "tool_call_fake",
-		"namespace": "setta",
-		"threadId":  "thread_fake",
-		"tool":      tool,
-		"turnId":    "turn_fake",
-	})
 }
 
 func writeFakeCommandApprovalRequest() {
@@ -1035,8 +1020,6 @@ type fakeCoreTurnStartHandler func(string, *fakeCodexState) bool
 var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
 	"stream":                            fakeCoreStreamTurnStart,
 	"structured-task":                   fakeCoreStructuredTaskTurnStart,
-	"dynamic-tools-thread-start":        fakeCoreStreamTurnStart,
-	"dynamic-tools-thread-resume":       fakeCoreStreamTurnStart,
 	"initial-settings":                  fakeCoreStreamTurnStart,
 	"initial-permission-settings":       fakeCoreStreamTurnStart,
 	"resume-permission-settings":        fakeCoreStreamTurnStart,
@@ -1062,8 +1045,6 @@ var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
 	"mcp-elicitation-form":              fakeCoreMCPElicitationTurnStart,
 	"mcp-elicitation-form-cancel":       fakeCoreMCPElicitationTurnStart,
 	"mcp-elicitation-url-decline":       fakeCoreMCPElicitationTurnStart,
-	"dynamic-tool-unknown":              fakeCoreImmediateServerRequestTurnStart,
-	"dynamic-tool-registered":           fakeCoreImmediateServerRequestTurnStart,
 	"attestation-unavailable":           fakeCoreImmediateServerRequestTurnStart,
 	"attestation-provider":              fakeCoreImmediateServerRequestTurnStart,
 	"malformed-approval":                fakeCoreMalformedApprovalTurnStart,
@@ -1193,147 +1174,6 @@ func assertFakeThreadID(message map[string]any) {
 	}
 }
 
-func assertFakeDynamicToolsThreadParams(mode string, message map[string]any) {
-	switch mode {
-	case "structured-task":
-		assertFakeStructuredTaskThreadParams(message)
-	case "dynamic-tools-thread-start":
-		assertFakeDynamicToolsThreadStartParams(message)
-	case "dynamic-tools-thread-resume":
-		assertFakeDynamicToolsThreadResumeParams(message)
-	case "initial-permission-settings", "initial-permission-settings-ignored":
-		assertFakeThreadStartPermissionSettings(message)
-	case "resume-permission-settings":
-		assertFakeThreadResumePermissionSettings(message)
-	}
-}
-
-func assertFakeThreadStartPermissionSettings(message map[string]any) {
-	if message["method"] != "thread/start" {
-		panic("initial permission settings should start a thread")
-	}
-	params := fakeParams(message)
-	if params["approvalPolicy"] != codexApprovalPolicyNever {
-		panic("thread/start missing full access approval policy")
-	}
-	if params["permissions"] != codexPermissionProfileDangerFullAccess {
-		panic("thread/start missing full access permission profile")
-	}
-}
-
-func assertFakeThreadResumePermissionSettings(message map[string]any) {
-	if message["method"] != "thread/resume" {
-		panic("resume permission settings should resume a thread")
-	}
-	params := fakeParams(message)
-	if params["approvalPolicy"] != codexApprovalPolicyNever {
-		panic("thread/resume missing full access approval policy")
-	}
-	if params["permissions"] != codexPermissionProfileDangerFullAccess {
-		panic("thread/resume missing full access permission profile")
-	}
-}
-
-func assertFakeStructuredTaskThreadParams(message map[string]any) {
-	if message["method"] != "thread/start" {
-		panic("structured task should start an isolated thread")
-	}
-	params := fakeParams(message)
-	if params["approvalPolicy"] != "never" {
-		panic("structured task thread should disable approvals")
-	}
-	if params["sandbox"] != "read-only" {
-		panic("structured task thread should use read-only sandbox")
-	}
-	if params["ephemeral"] != true {
-		panic("structured task thread should be ephemeral")
-	}
-	if _, ok := params["dynamicTools"]; ok {
-		panic("structured task thread should not include dynamic tools")
-	}
-	instructions, ok := params["developerInstructions"].(string)
-	if !ok || !strings.Contains(instructions, "strict JSON patch envelope") {
-		panic("structured task thread missing production prompt")
-	}
-}
-
-func assertFakeDynamicToolsThreadStartParams(message map[string]any) {
-	if message["method"] != "thread/start" {
-		panic("dynamic tools start test should start a thread")
-	}
-	params := fakeParams(message)
-	assertFakeCodexDeveloperInstructions(params)
-	tools, ok := params["dynamicTools"].([]any)
-	if !ok || len(tools) != 2 {
-		panic("thread/start missing dynamic tools")
-	}
-	assertFakeVisibleDynamicTool(tools)
-	assertFakeDeferredDynamicTool(tools)
-}
-
-func assertFakeVisibleDynamicTool(tools []any) {
-	visible := fakeDynamicToolByName(tools, "workspace_context")
-	if visible == nil {
-		panic("workspace_context dynamic tool missing")
-	}
-	if visible["namespace"] != "setta" || visible["deferLoading"] != nil {
-		panic("workspace_context dynamic tool exposure mismatch")
-	}
-	schema, ok := visible["inputSchema"].(map[string]any)
-	if !ok || schema["type"] != "object" {
-		panic("workspace_context dynamic tool schema mismatch")
-	}
-}
-
-func assertFakeDeferredDynamicTool(tools []any) {
-	deferred := fakeDynamicToolByName(tools, "workspace_archive")
-	if deferred == nil {
-		panic("workspace_archive dynamic tool missing")
-	}
-	if deferred["namespace"] != "setta" || deferred["deferLoading"] != true {
-		panic("workspace_archive dynamic tool exposure mismatch")
-	}
-}
-
-func assertFakeDynamicToolsThreadResumeParams(message map[string]any) {
-	if message["method"] != "thread/resume" {
-		panic("dynamic tools resume test should resume a thread")
-	}
-	params := fakeParams(message)
-	if _, ok := params["dynamicTools"]; ok {
-		panic("thread/resume should not include dynamicTools")
-	}
-	if _, ok := params["approvalPolicy"]; ok {
-		panic("thread/resume should not include approvalPolicy without conversation permission settings")
-	}
-	if _, ok := params["permissions"]; ok {
-		panic("thread/resume should not include permissions without conversation permission settings")
-	}
-}
-
-func assertFakeCodexDeveloperInstructions(params map[string]any) {
-	instructions, ok := params["developerInstructions"].(string)
-	if !ok || instructions == "" {
-		panic("thread/start missing developer instructions")
-	}
-	if !strings.Contains(instructions, "$workflow-builder") ||
-		!strings.Contains(instructions, "`setta workflow` CLI") ||
-		!strings.Contains(instructions, "available dynamic tool") ||
-		!strings.Contains(instructions, "Do not invent dynamic tool names") {
-		panic("thread/start developer instructions missing Setta workflow skill or dynamic tool guidance")
-	}
-}
-
-func fakeDynamicToolByName(tools []any, name string) map[string]any {
-	for _, raw := range tools {
-		tool, ok := raw.(map[string]any)
-		if ok && tool["name"] == name {
-			return tool
-		}
-	}
-	return nil
-}
-
 func assertFakePermissionApproval(message map[string]any) {
 	result, ok := message["result"].(map[string]any)
 	if !ok {
@@ -1403,24 +1243,6 @@ func assertFakeErrorResponse(message map[string]any, expectedCode int, expectedM
 	messageText, ok := errorObject["message"].(string)
 	if !ok || !strings.Contains(messageText, expectedMessage) {
 		panic("json-rpc error message mismatch")
-	}
-}
-
-func assertFakeDynamicToolResponse(message map[string]any) {
-	result, ok := message["result"].(map[string]any)
-	if !ok {
-		panic("dynamic tool response missing result")
-	}
-	if result["success"] != true {
-		panic("dynamic tool response success mismatch")
-	}
-	contentItems, ok := result["contentItems"].([]any)
-	if !ok || len(contentItems) != 1 {
-		panic("dynamic tool response content item missing")
-	}
-	first, ok := contentItems[0].(map[string]any)
-	if !ok || first["type"] != "inputText" || first["text"] != "tool ok" {
-		panic("dynamic tool response content item mismatch")
 	}
 }
 

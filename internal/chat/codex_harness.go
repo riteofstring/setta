@@ -13,9 +13,12 @@ type CodexHarnessConfig struct {
 	Args                []string
 	Env                 []string
 	Manager             *codexapp.Manager
-	Tools               *AgentToolRegistry
 	AttestationProvider AttestationProvider
 	SkillRoots          []string
+}
+
+type AttestationProvider interface {
+	GenerateAttestation(context.Context) (string, error)
 }
 
 type CodexHarness struct {
@@ -100,9 +103,6 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 	}
 	if len(config.Args) == 0 {
 		config.Args = []string{"app-server", "--listen", "stdio://"}
-	}
-	if config.Tools == nil {
-		config.Tools = mustNewSettaAgentToolRegistry()
 	}
 	skillRoots, skillRootsErr := normalizeCodexSkillRoots(config.SkillRoots)
 	manager := config.Manager

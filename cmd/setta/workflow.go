@@ -26,6 +26,7 @@ const (
 	workflowDefinitionsSaveCLIAuthDisplayName     = "Setta CLI workflow definitions save"
 	workflowDefinitionsValidateCLIAuthDisplayName = "Setta CLI workflow definitions validate"
 	workflowExecutionsReadCLIAuthDisplayName      = "Setta CLI workflow executions read"
+	workflowExecutionsResultCLIAuthDisplayName    = "Setta CLI workflow executions result"
 	workflowExecutionsStartCLIAuthDisplayName     = "Setta CLI workflow executions start"
 	workflowSchemaCLIAuthDisplayName              = "Setta CLI workflow schema"
 )
@@ -52,6 +53,11 @@ type workflowDefinitionSaveOptions struct {
 type workflowExecutionReadOptions struct {
 	AppDataDir  string
 	ExecutionID string
+}
+
+type workflowExecutionResultOptions struct {
+	AppDataDir string
+	InputPath  string
 }
 
 type workflowExecutionStartOptions struct {
@@ -194,13 +200,15 @@ func runWorkflowDefinitionsValidate(args []string, deps cliDeps) error {
 
 func runWorkflowExecutions(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workflow executions requires a subcommand: start or read")}
+		return usageError{err: errors.New("setta workflow executions requires a subcommand: start, read, or result")}
 	}
 	switch args[0] {
 	case "start":
 		return runWorkflowExecutionsStart(args[1:], deps)
 	case "read":
 		return runWorkflowExecutionsRead(args[1:], deps)
+	case "result":
+		return runWorkflowExecutionsResult(args[1:], deps)
 	default:
 		return usageError{err: fmt.Errorf("unknown workflow executions subcommand %q", args[0])}
 	}
@@ -229,6 +237,27 @@ func runWorkflowExecutionsStart(args []string, deps cliDeps) error {
 		return err
 	}
 	execution, err := startWorkflowExecution(context.Background(), options.AppDataDir, options.DefinitionID, deps)
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(deps.stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(execution); err != nil {
+		return fmt.Errorf("encode workflow execution: %w", err)
+	}
+	return nil
+}
+
+func runWorkflowExecutionsResult(args []string, deps cliDeps) error {
+	options, err := workflowExecutionResultOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	input, err := readWorkflowExecutionResultInputFile(options.InputPath)
+	if err != nil {
+		return err
+	}
+	execution, err := reportWorkflowExecutionResult(context.Background(), options.AppDataDir, input, deps)
 	if err != nil {
 		return err
 	}
@@ -393,6 +422,31 @@ func workflowExecutionStartOptionsFromArgs(args []string, deps cliDeps) (workflo
 		return workflowExecutionStartOptions{}, usageError{err: errors.New("workflow definition id is required")}
 	}
 	return workflowExecutionStartOptions{AppDataDir: appDataDir, DefinitionID: definitionID}, nil
+}
+
+func workflowExecutionResultOptionsFromArgs(args []string, deps cliDeps) (workflowExecutionResultOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workflowExecutionResultOptions{}, err
+	}
+	var inputPath string
+	flagSet := newWorkflowFlagSet("setta workflow executions result")
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&inputPath, "input", "", "path to a workflow execution result JSON input file")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workflowExecutionResultOptions{}, usageError{err: err}
+		}
+		return workflowExecutionResultOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 0 {
+		return workflowExecutionResultOptions{}, usageError{err: errors.New("setta workflow executions result does not accept positional arguments")}
+	}
+	inputPath = strings.TrimSpace(inputPath)
+	if inputPath == "" {
+		return workflowExecutionResultOptions{}, usageError{err: errors.New("setta workflow executions result requires --input")}
+	}
+	return workflowExecutionResultOptions{AppDataDir: appDataDir, InputPath: inputPath}, nil
 }
 
 func readWorkflowCurrentWorkspace(ctx context.Context, appDataDir string, deps cliDeps) (workspace.WorkspaceSummary, error) {
@@ -603,6 +657,46 @@ func startWorkflowExecution(ctx context.Context, appDataDir string, definitionID
 	return execution, nil
 }
 
+func reportWorkflowExecutionResult(ctx context.Context, appDataDir string, input orchestrator.WorkflowExecutionResultInput, deps cliDeps) (orchestrator.WorkflowExecution, error) {
+	if err := orchestrator.ValidateWorkflowExecutionResultInput(input); err != nil {
+		return orchestrator.WorkflowExecution{}, newWorkflowCLIError("workflow_execution_result_input_invalid", err)
+	}
+	state, token, cleanup, err := workflowCommandAuth(ctx, appDataDir, workflowExecutionsResultCLIAuthDisplayName, deps)
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	defer cleanup()
+
+	workspaceID := strings.TrimSpace(input.WorkspaceID)
+	if workspaceID == "" {
+		session, err := getWorkspaceSession(ctx, deps.httpClient, state.BaseURL, token)
+		if err != nil {
+			return orchestrator.WorkflowExecution{}, err
+		}
+		currentWorkspace, err := currentWorkspaceFromSession(session)
+		if err != nil {
+			return orchestrator.WorkflowExecution{}, err
+		}
+		workspaceID = currentWorkspace.ID
+	}
+	execution, err := postWorkflowAPI[orchestrator.WorkflowExecution](ctx, deps.httpClient, state.BaseURL, token, "workflow executions result", "/workflows/executions/result", httpapi.ReportWorkflowExecutionResultRequest{
+		WorkspaceID:     workspaceID,
+		ExecutionID:     input.ExecutionID,
+		NodeExecutionID: input.NodeExecutionID,
+		Result:          input.Result,
+	})
+	if err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	if err := validateWorkflowExecutionResponse(execution, workspaceID); err != nil {
+		return orchestrator.WorkflowExecution{}, err
+	}
+	if execution.ID != input.ExecutionID {
+		return orchestrator.WorkflowExecution{}, fmt.Errorf("workflow execution result returned id %s, want %s", execution.ID, input.ExecutionID)
+	}
+	return execution, nil
+}
+
 func readWorkflowGraphFile(path string) (orchestrator.WorkflowGraph, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -627,6 +721,20 @@ func readWorkflowDefinitionSaveInputFile(path string) (orchestrator.WorkflowDefi
 	var input orchestrator.WorkflowDefinitionSaveInput
 	if err := jsonio.DecodeSingle(file, &input); err != nil {
 		return orchestrator.WorkflowDefinitionSaveInput{}, newWorkflowCLIError("workflow_definition_save_input_decode_failed", fmt.Errorf("decode workflow definition save input %s: %w", path, err))
+	}
+	return input, nil
+}
+
+func readWorkflowExecutionResultInputFile(path string) (orchestrator.WorkflowExecutionResultInput, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return orchestrator.WorkflowExecutionResultInput{}, newWorkflowCLIError("workflow_execution_result_input_open_failed", fmt.Errorf("open workflow execution result input %s: %w", path, err))
+	}
+	defer file.Close()
+
+	var input orchestrator.WorkflowExecutionResultInput
+	if err := jsonio.DecodeSingle(file, &input); err != nil {
+		return orchestrator.WorkflowExecutionResultInput{}, newWorkflowCLIError("workflow_execution_result_input_decode_failed", fmt.Errorf("decode workflow execution result input %s: %w", path, err))
 	}
 	return input, nil
 }

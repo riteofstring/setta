@@ -612,7 +612,7 @@ func TestTranscriptAssistantBlockReconcilesProviderText(t *testing.T) {
 
 // TestTranscriptIngestsProtocolActivityTypes drives the diverse run-item types
 // the protocol-coverage workflow emits (hook, auto-approval review, file change,
-// dynamic tool call, notice) through the service ingestion path and verifies that
+// notice) through the service ingestion path and verifies that
 // none of them error and each produces an activity block linked to its run item.
 // This guards the additive ingestion against dropping run items from the UI.
 func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
@@ -635,7 +635,6 @@ func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
 				})},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusRunning, Details: newRunItemFileChangeDetails("updated", []RunItemFileChangePath{{Path: "a.go", Operation: runItemFileChangeOperationPtr(RunItemFileChangeOperationUpdate)}})},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusCompleted, Details: newRunItemFileChangeDetails("completed", nil)},
-				{ProviderItemID: "tool1", Type: RunItemTypeDynamicToolCall, Status: RunItemStatusCompleted, Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{ToolName: "do_thing"})},
 				{ProviderItemID: "notice1", Type: RunItemTypeNotice, Status: RunItemStatusCompleted, NoticeKind: "deprecationNotice", NoticeMessage: "old api"},
 			}
 			for _, item := range items {
@@ -662,11 +661,10 @@ func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
 
 	blocks := loadPersistedBlocks(t, service, workspaceID, result.Run.ID)
 	wantTypes := map[RunItemType]bool{
-		RunItemTypeHook:            false,
-		RunItemTypeApprovalReview:  false,
-		RunItemTypeFileChange:      false,
-		RunItemTypeDynamicToolCall: false,
-		RunItemTypeNotice:          false,
+		RunItemTypeHook:           false,
+		RunItemTypeApprovalReview: false,
+		RunItemTypeFileChange:     false,
+		RunItemTypeNotice:         false,
 	}
 	for _, block := range activityBlocks(blocks) {
 		if _, expected := wantTypes[block.Activity.Type]; expected {

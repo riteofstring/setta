@@ -450,6 +450,13 @@ type CancelWorkflowExecutionRequest struct {
 	ExecutionID string `json:"executionId"`
 }
 
+type ReportWorkflowExecutionResultRequest struct {
+	WorkspaceID     string                            `json:"workspaceId"`
+	ExecutionID     string                            `json:"executionId"`
+	NodeExecutionID string                            `json:"nodeExecutionId"`
+	Result          orchestrator.WorkflowActionResult `json:"result"`
+}
+
 type ReadWorkflowExecutionRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	ExecutionID string `json:"executionId"`

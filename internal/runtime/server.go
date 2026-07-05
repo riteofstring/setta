@@ -606,7 +606,7 @@ func newChatService(
 	if err != nil {
 		return nil, fmt.Errorf("create chat store: %w", err)
 	}
-	harness, err := chatHarness(harnessMode, codexManager)
+	harness, err := chatHarness(harnessMode, codexManager, appDataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -975,12 +975,12 @@ func normalizeConfig(config Config) Config {
 	return config
 }
 
-func chatHarness(mode ChatHarnessMode, codexManager *codexapp.Manager) (chat.Harness, error) {
+func chatHarness(mode ChatHarnessMode, codexManager *codexapp.Manager, appDataDir string) (chat.Harness, error) {
 	switch mode {
 	case ChatHarnessCodex:
 		return chat.NewCodexHarness(chat.CodexHarnessConfig{Manager: codexManager}), nil
 	case ChatHarnessScriptedWorkflow:
-		return chat.NewScriptedWorkflowHarness(), nil
+		return chat.NewScriptedWorkflowHarness(chat.ScriptedWorkflowHarnessConfig{AppDataDir: appDataDir}), nil
 	default:
 		return nil, fmt.Errorf("unsupported chat harness mode: %s", mode)
 	}

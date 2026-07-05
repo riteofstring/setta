@@ -1,6 +1,6 @@
 ---
 name: workflow-builder
-description: Author, validate, save, inspect, and optionally run Setta workflow definitions through the `setta workflow` CLI. Use when an agent needs to create or update a Setta workflow graph, repair workflow validation diagnostics, inspect the current Setta workspace or workflow schema, save a workflow definition, or start/read workflow executions.
+description: Author, validate, save, inspect, run, and report results for Setta workflows through the `setta workflow` CLI. Use when an agent needs to create or update a Setta workflow graph, repair workflow validation diagnostics, inspect the current Setta workspace or workflow schema, save a workflow definition, start/read workflow executions, or report workflow node execution results.
 ---
 
 # Workflow Builder
@@ -52,6 +52,30 @@ Do not write `.setta/workflows/*.json` directly as the primary workflow authorin
    setta workflow executions read <execution-id>
    ```
 
+8. When acting as a workflow node, report the final node result before finishing:
+
+   ```bash
+   setta workflow executions result --input result.json
+   ```
+
+   The result input must include the workflow execution ID, node execution ID, and a terminal result:
+
+   ```json
+   {
+     "workspaceId": "workspace_123",
+     "executionId": "workflow_execution_123",
+     "nodeExecutionId": "workflow_node_execution_123",
+     "result": {
+       "status": "completed",
+       "signals": [{ "name": "route", "value": "yes" }],
+       "output": { "summary": "finished" },
+       "filePaths": ["reports/result.md"]
+     }
+   }
+   ```
+
+   Use `status: "completed"` for success, `status: "failed"` with `error` for failure, or `status: "cancelled"` with `error` for cancellation. Include `workspaceId` when it is available from the workflow context; otherwise the CLI uses the active workspace. Do not report `requires_approval` through this command.
+
 ## CLI Reference
 
 Available commands:
@@ -64,6 +88,7 @@ Available commands:
 - `setta workflow definitions save --input <path>`
 - `setta workflow executions start <definition-id>`
 - `setta workflow executions read <execution-id>`
+- `setta workflow executions result --input <path>`
 
 Each command accepts `--app-data-dir DIR` before command-specific positional IDs when targeting a non-default Setta runtime. Command success prints JSON to stdout. Workflow command failures print a JSON error envelope to stderr; preserve the error code, message, and structured fields in your response.
 
@@ -79,5 +104,6 @@ Fail loudly when:
 - the requested workflow requires unsupported schema capabilities
 - save returns `saved: false` or a structured backend error
 - starting an execution returns a structured backend error
+- reporting a workflow execution result returns a structured backend error
 
 Report the exact CLI command attempted and the relevant JSON error or validation diagnostics. If validation or save fails, stop and report the CLI output instead of creating workflow files by hand.

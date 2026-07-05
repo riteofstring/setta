@@ -376,7 +376,7 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	next.Summary = keepString(next.Summary, existing.Summary)
 	mergeRunItemCommandFields(existing, &next)
 	mergeRunItemFileFields(existing, &next)
-	mergeRunItemDynamicToolFields(existing, &next)
+	mergeRunItemToolFields(existing, &next)
 	mergeRunItemCommonFields(existing, &next)
 	return next
 }
@@ -398,14 +398,12 @@ func mergeRunItemFileFields(existing RunItem, next *RunItem) {
 	}
 }
 
-func mergeRunItemDynamicToolFields(existing RunItem, next *RunItem) {
-	if next.Type != RunItemTypeDynamicToolCall {
-		next.ServerName = keepString(next.ServerName, existing.ServerName)
-		next.ToolName = keepString(next.ToolName, existing.ToolName)
-		next.Namespace = keepString(next.Namespace, existing.Namespace)
-		next.RawDetails = keepRawMessage(next.RawDetails, existing.RawDetails)
-	}
-	if next.Type != RunItemTypeCommandExecution && next.Type != RunItemTypeDynamicToolCall {
+func mergeRunItemToolFields(existing RunItem, next *RunItem) {
+	next.ServerName = keepString(next.ServerName, existing.ServerName)
+	next.ToolName = keepString(next.ToolName, existing.ToolName)
+	next.Namespace = keepString(next.Namespace, existing.Namespace)
+	next.RawDetails = keepRawMessage(next.RawDetails, existing.RawDetails)
+	if next.Type != RunItemTypeCommandExecution {
 		next.Result = keepString(next.Result, existing.Result)
 		next.Error = keepString(next.Error, existing.Error)
 	}
@@ -440,7 +438,6 @@ var runItemDetailsMergers = map[RunItemDetailsKind]runItemDetailsMerger{
 	RunItemDetailsKindCommandExecution:    mergeCommandExecutionRunItemDetails,
 	RunItemDetailsKindCommandStartFailure: mergeCommandStartFailureRunItemDetails,
 	RunItemDetailsKindMCPToolCall:         mergeMCPToolCallRunItemDetails,
-	RunItemDetailsKindDynamicToolCall:     mergeDynamicToolCallRunItemDetails,
 	RunItemDetailsKindFileChange:          mergeFileChangeRunItemDetails,
 	RunItemDetailsKindApproval:            mergeApprovalRunItemDetails,
 }
@@ -513,32 +510,6 @@ func mergeMCPToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetai
 	}
 	merged.Error = keepString(merged.Error, previous.Error)
 	return NewRunItemMCPToolCallDetails(merged)
-}
-
-func mergeDynamicToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
-	if next.DynamicToolCall == nil {
-		return existing
-	}
-	if existing.DynamicToolCall == nil {
-		return next
-	}
-	merged := cloneDynamicToolCallDetails(*next.DynamicToolCall)
-	previous := existing.DynamicToolCall
-	merged.Namespace = keepString(merged.Namespace, previous.Namespace)
-	merged.ToolName = keepString(merged.ToolName, previous.ToolName)
-	merged.DisplayTitle = keepString(merged.DisplayTitle, previous.DisplayTitle)
-	merged.Description = keepString(merged.Description, previous.Description)
-	merged.Category = keepString(merged.Category, previous.Category)
-	if merged.DurationMs == 0 {
-		merged.DurationMs = previous.DurationMs
-	}
-	merged.Arguments = keepRawMessage(merged.Arguments, previous.Arguments)
-	merged.ResultSummary = keepString(merged.ResultSummary, previous.ResultSummary)
-	if merged.Result == nil {
-		merged.Result = previous.Result
-	}
-	merged.Error = keepString(merged.Error, previous.Error)
-	return NewRunItemDynamicToolCallDetails(merged)
 }
 
 func mergeFileChangeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {

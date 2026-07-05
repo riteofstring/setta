@@ -28,11 +28,6 @@ const fakeCodexAppServerFixture = join(
   "fixtures",
   "fake-codex-app-server.mjs",
 );
-const fakeCodexDynamicToolsFixture = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "fixtures",
-  "fake-codex-dynamic-tools.mjs",
-);
 const fakeCodexParallelRunsFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
@@ -65,14 +60,12 @@ export async function installFakeCodexAppServer(fixture) {
   const binDir = join(fixture.tempRoot, "fake-bin");
   await mkdir(binDir, { recursive: true });
   const scriptPath = join(binDir, "fake-codex-app-server.mjs");
-  const dynamicToolsPath = join(binDir, "fake-codex-dynamic-tools.mjs");
   const parallelRunsPath = join(binDir, "fake-codex-parallel-runs.mjs");
   const protocolPayloadsPath = join(binDir, "fake-codex-protocol-payloads.mjs");
   const skillRootsPath = join(binDir, "fake-codex-skill-roots.mjs");
   const workflowAuthoringPath = join(binDir, "fake-codex-workflow-authoring.mjs");
   const settaPath = join(binDir, process.platform === "win32" ? "setta.cmd" : "setta");
   await copyFile(fakeCodexAppServerFixture, scriptPath);
-  await copyFile(fakeCodexDynamicToolsFixture, dynamicToolsPath);
   await copyFile(fakeCodexParallelRunsFixture, parallelRunsPath);
   await copyFile(fakeCodexProtocolPayloadsFixture, protocolPayloadsPath);
   await copyFile(fakeCodexSkillRootsFixture, skillRootsPath);
@@ -131,24 +124,6 @@ export async function assertProtocolNotificationActivity(
     (item) => commandExecutionDetails(item)?.processId === "scoped_process_fake",
   );
   assertNoStandaloneProcessActivity(page);
-  await assertRunActivityItem(
-    page,
-    "dynamic_tool_call",
-    (item) =>
-      item.status === "completed" &&
-      item.details?.dynamicToolCall?.namespace === "setta" &&
-      item.details.dynamicToolCall.toolName === "workspace_context" &&
-      JSON.stringify(item.details.dynamicToolCall.result?.contentItems ?? []).includes("rootPath"),
-  );
-  await assertRunActivityItem(
-    page,
-    "dynamic_tool_call",
-    (item) =>
-      item.status === "failed" &&
-      item.details?.dynamicToolCall?.namespace === "setta" &&
-      item.details.dynamicToolCall.toolName === "missing_tool" &&
-      item.details.dynamicToolCall.error.includes("unsupported dynamic tool"),
-  );
   await assertRunActivityItem(page, "mcp_tool_call", (item) => isCompletedMCPToolCallItem(item));
   await assertRunActivityItem(page, "mcp_tool_call", (item) => isFailedMCPToolCallItem(item));
   const mcpActivity = (page.activity ?? []).find((row) => isProjectedMCPActivityRow(row));
@@ -1264,20 +1239,6 @@ const protocolNotificationActivityExpectations = [
   {
     type: "command_execution",
     matches: (item) => commandExecutionDetails(item)?.processId === "scoped_process_fake",
-  },
-  {
-    type: "dynamic_tool_call",
-    matches: (item) =>
-      item.status === "completed" &&
-      item.details?.dynamicToolCall?.namespace === "setta" &&
-      item.details.dynamicToolCall.toolName === "workspace_context",
-  },
-  {
-    type: "dynamic_tool_call",
-    matches: (item) =>
-      item.status === "failed" &&
-      item.details?.dynamicToolCall?.namespace === "setta" &&
-      item.details.dynamicToolCall.toolName === "missing_tool",
   },
   { type: "mcp_tool_call", matches: isCompletedMCPToolCallItem },
   { type: "mcp_tool_call", matches: isFailedMCPToolCallItem },

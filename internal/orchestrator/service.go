@@ -462,6 +462,35 @@ func (service *Service) CompleteAction(workspaceID string, executionID string, n
 	return service.dispatchReadyActions(workspaceID, executionID)
 }
 
+func (service *Service) ReportExecutionResult(workspaceID string, input WorkflowExecutionResultInput) (WorkflowExecution, error) {
+	if input.WorkspaceID != "" && input.WorkspaceID != workspaceID {
+		return WorkflowExecution{}, fmt.Errorf("workflow execution result workspaceId %s does not match request workspace %s", input.WorkspaceID, workspaceID)
+	}
+	if err := ValidateWorkflowExecutionResultInput(input); err != nil {
+		return WorkflowExecution{}, err
+	}
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return WorkflowExecution{}, err
+	}
+	owner, err := service.workflowResultOwner(workspaceID, input.ExecutionID, input.NodeExecutionID)
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	runnerEvents, err := runnerEventsFromWorkflowActionResult(owner, input.Result)
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	refs := service.workflowResultRunnerRefs(workspaceID, owner)
+	execution, err := service.completeChatActionRun(workspaceID, input.ExecutionID, input.NodeExecutionID, input.Result, refs, runnerEvents)
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	if execution.Status != ExecutionStatusRunning {
+		return execution, nil
+	}
+	return service.dispatchReadyActions(workspaceID, input.ExecutionID)
+}
+
 func (service *Service) CancelExecution(workspaceID string, executionID string) (WorkflowExecution, error) {
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowExecution{}, err

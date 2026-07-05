@@ -348,73 +348,6 @@ func TestCodexHarnessMapsMCPElicitationURLDecline(t *testing.T) {
 	}
 }
 
-func TestCodexHarnessReturnsUnsupportedDynamicToolError(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("dynamic-tool-unknown"))
-	sink := newRecordingSink()
-
-	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	if err != nil {
-		t.Fatalf("start turn: %v", err)
-	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
-	details, hasDetails := item.DynamicToolCallDetails()
-	if !ok || !hasDetails || item.Status != RunItemStatusFailed || !strings.Contains(details.Error, "unsupported dynamic tool") {
-		t.Fatalf("items = %+v, want failed unsupported dynamic tool item", sink.items)
-	}
-}
-
-func TestCodexHarnessDispatchesRegisteredDynamicTool(t *testing.T) {
-	registry, err := NewAgentToolRegistry(AgentTool{
-		Namespace: "setta",
-		Name:      "fakeTool",
-		InputSchema: AgentToolSchema{
-			Type: AgentToolSchemaObject,
-			Properties: map[string]AgentToolSchema{
-				"value": {Type: AgentToolSchemaString},
-			},
-			Required: []string{"value"},
-		},
-		OutputSchema: AgentToolSchema{Type: AgentToolSchemaObject},
-		PermissionRequirements: []AgentToolPermissionRequirement{{
-			Kind:        AgentToolPermissionReadWorkspace,
-			Description: "Read workspace state for the fake tool.",
-		}},
-		AuditMetadata: AgentToolAuditMetadata{
-			DisplayName: "Fake dynamic tool",
-			Description: "Deterministic dynamic tool test fixture.",
-			Category:    "test",
-		},
-		Handler: func(_ context.Context, call AgentToolCall) (AgentToolResult, error) {
-			if string(call.Arguments) != `{"value":"from codex"}` {
-				t.Fatalf("tool arguments = %s, want structured json", call.Arguments)
-			}
-			return AgentToolResult{
-				ContentItems: []AgentToolContentItem{{Type: "inputText", Text: "tool ok"}},
-				Success:      true,
-			}, nil
-		},
-	})
-	if err != nil {
-		t.Fatalf("tool registry: %v", err)
-	}
-	config := testCodexConfig("dynamic-tool-registered")
-	config.Tools = registry
-	harness := NewCodexHarness(config)
-	sink := newRecordingSink()
-
-	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	if err != nil {
-		t.Fatalf("start turn: %v", err)
-	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
-	details, hasDetails := item.DynamicToolCallDetails()
-	if !ok || !hasDetails || item.Status != RunItemStatusCompleted || details.ResultSummary != "tool ok" {
-		t.Fatalf("items = %+v, want completed registered dynamic tool item", sink.items)
-	}
-}
-
 func TestCodexHarnessReturnsUnavailableAttestation(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("attestation-unavailable"))
 	sink := newRecordingSink()
@@ -545,15 +478,6 @@ func findRunItemType(items []RunItem, itemType RunItemType) (RunItem, bool) {
 	for _, item := range items {
 		if item.Type == itemType {
 			return item, true
-		}
-	}
-	return RunItem{}, false
-}
-
-func findLastRunItemType(items []RunItem, itemType RunItemType) (RunItem, bool) {
-	for index := len(items) - 1; index >= 0; index-- {
-		if items[index].Type == itemType {
-			return items[index], true
 		}
 	}
 	return RunItem{}, false
@@ -1235,15 +1159,6 @@ func handleFakeServerResponse(mode string, state *fakeCodexState, message map[st
 		return false
 	}
 	switch state.responseOutstanding {
-	case "dynamic-tool-unknown":
-		assertFakeErrorResponse(message, codexJSONRPCErrorToolUnavailable, "unsupported dynamic tool")
-		writeFakeCompletedTurn("completed")
-		return true
-	case "dynamic-tool-registered":
-		assertFakeDynamicToolResponse(message)
-		writeFakeAssistantDelta("dynamic tool completed")
-		writeFakeCompletedTurn("completed")
-		return true
 	case "attestation-unavailable":
 		assertFakeErrorResponse(message, codexJSONRPCErrorCapabilityUnavailable, "attestation is unavailable")
 		writeFakeCompletedTurn("completed")
@@ -1265,7 +1180,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "thread/start", "thread/resume":
 		assertFakeCodexSkillRootsConfigured(mode, state)
 		handleFakeCommandThread(mode, state, message)
-		assertFakeDynamicToolsThreadParams(mode, message)
 		if fakeParallelAssignThread(mode, state, message) {
 			// The parallel harness characterization needs every new conversation to
 			// receive an independent thread from a single fake app-server process.

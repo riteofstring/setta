@@ -100,7 +100,6 @@ const (
 	RunItemTypeCommandStartFailure     RunItemType = "command_start_failure"
 	RunItemTypeFileChange              RunItemType = "file_change"
 	RunItemTypeMCPToolCall             RunItemType = "mcp_tool_call"
-	RunItemTypeDynamicToolCall         RunItemType = "dynamic_tool_call"
 	RunItemTypeCollabAgentToolCall     RunItemType = "collab_agent_tool_call"
 	RunItemTypeWebSearch               RunItemType = "web_search"
 	RunItemTypeImageView               RunItemType = "image_view"
@@ -242,7 +241,6 @@ var (
 		RunItemTypeCommandStartFailure,
 		RunItemTypeFileChange,
 		RunItemTypeMCPToolCall,
-		RunItemTypeDynamicToolCall,
 		RunItemTypeCollabAgentToolCall,
 		RunItemTypeWebSearch,
 		RunItemTypeImageView,

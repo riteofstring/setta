@@ -114,6 +114,54 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 	}
 }
 
+func TestWorkflowExecutionResultEndpointCompletesRunningAction(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	workspaceRoot := t.TempDir()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: workspaceRoot}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Result workflow",
+		Graph:       httpWorkflowActionGraph(),
+	}, http.StatusOK)
+	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	work := latestHTTPNodeExecution(t, started, "work")
+
+	completed := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/result", ReportWorkflowExecutionResultRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+		Result: orchestrator.WorkflowActionResult{
+			Status:    orchestrator.ActionCompletionCompleted,
+			Signals:   []orchestrator.WorkflowActionSignal{{Name: "route", Value: "yes"}},
+			Output:    json.RawMessage(`{"summary":"reported through api"}`),
+			FilePaths: []string{"reports/result.md"},
+		},
+	}, http.StatusOK)
+	if completed.Status != orchestrator.ExecutionStatusCompleted {
+		t.Fatalf("execution status = %s, want completed", completed.Status)
+	}
+	work = latestHTTPNodeExecution(t, completed, "work")
+	if work.Status != orchestrator.NodeExecutionStatusSucceeded || work.Result == nil {
+		t.Fatalf("work node = %+v, want succeeded result", work)
+	}
+	if len(work.Result.Signals) != 1 || work.Result.Signals[0] != (orchestrator.WorkflowActionSignal{Name: "route", Value: "yes"}) {
+		t.Fatalf("signals = %+v, want route=yes", work.Result.Signals)
+	}
+	var output map[string]string
+	if err := json.Unmarshal(work.Result.Output, &output); err != nil {
+		t.Fatalf("decode result output: %v", err)
+	}
+	if output["summary"] != "reported through api" {
+		t.Fatalf("output = %+v, want reported summary", output)
+	}
+	if len(work.Result.FilePaths) != 1 || work.Result.FilePaths[0] != "reports/result.md" {
+		t.Fatalf("file paths = %+v, want report path", work.Result.FilePaths)
+	}
+}
+
 func TestWorkflowEndpointSaveDefinitionValidatesBeforePersisting(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -873,7 +921,18 @@ func newScriptedWorkflowHandler(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("new chat store: %v", err)
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewScriptedWorkflowHarness())
+	var workflowService *orchestrator.Service
+	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewScriptedWorkflowHarness(chat.ScriptedWorkflowHarnessConfig{
+		AppDataDir: appDataDir,
+		WorkflowResultReporter: func(_ context.Context, payload json.RawMessage) error {
+			var input orchestrator.WorkflowExecutionResultInput
+			if err := json.Unmarshal(payload, &input); err != nil {
+				return err
+			}
+			_, err := workflowService.ReportExecutionResult(input.WorkspaceID, input)
+			return err
+		},
+	}))
 	if err != nil {
 		t.Fatalf("new chat service: %v", err)
 	}
@@ -886,7 +945,7 @@ func newScriptedWorkflowHandler(t *testing.T) http.Handler {
 			t.Fatalf("close workflow store: %v", err)
 		}
 	})
-	workflowService, err := orchestrator.NewService(workflowStore, workspaceService, orchestrator.WithCodexChatService(chatService))
+	workflowService, err = orchestrator.NewService(workflowStore, workspaceService, orchestrator.WithCodexChatService(chatService))
 	if err != nil {
 		t.Fatalf("new workflow service: %v", err)
 	}

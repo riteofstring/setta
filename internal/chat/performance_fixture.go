@@ -669,8 +669,6 @@ func performanceDetails(details *RunItemDetails, turnIndex int) *RunItemDetails 
 		copied.CommandStartFailure = performanceCommandStartFailureDetails(details.CommandStartFailure, turnIndex)
 	case RunItemDetailsKindMCPToolCall:
 		copied.MCPToolCall = performanceMCPToolCallDetails(details.MCPToolCall, turnIndex)
-	case RunItemDetailsKindDynamicToolCall:
-		copied.DynamicToolCall = performanceDynamicToolCallDetails(details.DynamicToolCall, turnIndex)
 	case RunItemDetailsKindFileChange:
 		copied.FileChange = performanceFileChangeDetails(details.FileChange, turnIndex)
 	case RunItemDetailsKindDiff:
@@ -731,31 +729,6 @@ func performanceMCPToolCallDetails(details *RunItemMCPToolCallDetails, turnIndex
 	toolCall.ResultSummary = performanceStringWithTurn(toolCall.ResultSummary, turnIndex)
 	toolCall.Error = performanceStringWithTurn(toolCall.Error, turnIndex)
 	return &toolCall
-}
-
-func performanceDynamicToolCallDetails(details *RunItemDynamicToolCallDetails, turnIndex int) *RunItemDynamicToolCallDetails {
-	if details == nil {
-		return nil
-	}
-	toolCall := *details
-	toolCall.DisplayTitle = performanceStringWithTurn(toolCall.DisplayTitle, turnIndex)
-	toolCall.Description = performanceStringWithTurn(toolCall.Description, turnIndex)
-	toolCall.ResultSummary = performanceStringWithTurn(toolCall.ResultSummary, turnIndex)
-	toolCall.Error = performanceStringWithTurn(toolCall.Error, turnIndex)
-	toolCall.Result = performanceDynamicToolResult(toolCall.Result, turnIndex)
-	return &toolCall
-}
-
-func performanceDynamicToolResult(details *RunItemDynamicToolResult, turnIndex int) *RunItemDynamicToolResult {
-	if details == nil {
-		return nil
-	}
-	result := *details
-	result.ContentItems = append([]RunItemDynamicToolContentItem(nil), result.ContentItems...)
-	for index := range result.ContentItems {
-		result.ContentItems[index].Text = performanceStringWithTurn(result.ContentItems[index].Text, turnIndex)
-	}
-	return &result
 }
 
 func performanceFileChangeDetails(details *RunItemFileChangeDetails, turnIndex int) *RunItemFileChangeDetails {

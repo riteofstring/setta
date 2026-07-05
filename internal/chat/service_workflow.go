@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -111,7 +112,11 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return SendMessageResult{}, err
 	}
-	input := TextChatInput(prompt)
+	deliveryPrompt, err := workflowAgentDeliveryPrompt(workspaceID, service.store.appDataDir, request, prompt)
+	if err != nil {
+		return SendMessageResult{}, err
+	}
+	input := TextChatInput(deliveryPrompt)
 	conversation, userMessage, assistantMessage, run, err := service.persistTurnStartForConversationLocked(conversation, input, MessageDeliveryNormal, now)
 	if err != nil {
 		return SendMessageResult{}, err
@@ -353,6 +358,37 @@ func workflowMetadataFromTurnRequest(request WorkflowAgentTurnRequest) *Conversa
 		NodeID:              request.NodeID,
 		NodeExecutionID:     request.NodeExecutionID,
 	}
+}
+
+func workflowAgentDeliveryPrompt(workspaceID string, appDataDir string, request WorkflowAgentTurnRequest, prompt string) (string, error) {
+	context := struct {
+		WorkspaceID         string `json:"workspaceId"`
+		AppDataDir          string `json:"appDataDir"`
+		DefinitionID        string `json:"definitionId"`
+		DefinitionVersionID string `json:"definitionVersionId"`
+		ExecutionID         string `json:"executionId"`
+		NodeID              string `json:"nodeId"`
+		NodeExecutionID     string `json:"nodeExecutionId"`
+	}{
+		WorkspaceID:         workspaceID,
+		AppDataDir:          appDataDir,
+		DefinitionID:        request.DefinitionID,
+		DefinitionVersionID: request.DefinitionVersionID,
+		ExecutionID:         request.ExecutionID,
+		NodeID:              request.NodeID,
+		NodeExecutionID:     request.NodeExecutionID,
+	}
+	data, err := json.MarshalIndent(context, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("encode workflow agent context: %w", err)
+	}
+	return "You are executing a Setta workflow node.\n\n" +
+		"Workflow context JSON:\n\n```json\n" + string(data) + "\n```\n\n" +
+		"Use $workflow-builder if available for the `setta workflow` CLI contract. Before your final assistant response, write a result JSON file with this shape:\n\n" +
+		"```json\n{\"workspaceId\":\"<workspaceId>\",\"executionId\":\"<executionId>\",\"nodeExecutionId\":\"<nodeExecutionId>\",\"result\":{\"status\":\"completed\",\"signals\":[],\"output\":{},\"filePaths\":[]}}\n```\n\n" +
+		"Then run `setta workflow executions result --app-data-dir <appDataDir> --input <path>` with the exact values from the context JSON. The command name is `setta`; keep that command name unchanged. Report `completed`, `failed`, or `cancelled` accurately.\n\n" +
+		"After reporting the workflow result, make your final assistant response satisfy the node task exactly.\n\n" +
+		"Node task:\n\n" + prompt, nil
 }
 
 func workflowAgentCodexSettingsFromDefaults(defaults ChatCodexSettings, overrides ChatCodexSettings) ChatCodexSettings {

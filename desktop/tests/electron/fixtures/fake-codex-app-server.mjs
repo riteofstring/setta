@@ -5,7 +5,6 @@ import process from "node:process";
 import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
 
-import { assertThreadStartDynamicTools } from "./fake-codex-dynamic-tools.mjs";
 import { createParallelRunHandlers } from "./fake-codex-parallel-runs.mjs";
 import {
   autoApprovalReviewPayload,
@@ -72,7 +71,6 @@ let activeSilentLivenessTurn = null;
 let currentGoal = null;
 let goalCancelTurnId = null;
 let goalPaused = false;
-let pendingDynamicTool = null;
 let skillRootsConfigured = false;
 let structuredThreadSequence = 0;
 let structuredTurnSequence = 0;
@@ -88,10 +86,6 @@ rl.on("line", (line) => {
 });
 
 function handleMessage(message) {
-  if (pendingDynamicTool && message.method === undefined) {
-    handleDynamicToolResponse(message);
-    return;
-  }
   const handler = methodHandlers[message.method] ?? respondEmpty;
   handler(message);
 }
@@ -160,7 +154,6 @@ function handleThreadStart(message) {
   }
   assertCodexSkillRootsConfigured(skillRootsConfigured);
   assertThreadStartDeveloperInstructions(message.params);
-  assertThreadStartDynamicTools(message.params);
   const options = threadResponseOptionsFromParams(message.params);
   if (parallelThreadsEnabled) {
     options.threadId = parallelRuns.nextThreadId();
@@ -251,10 +244,7 @@ function handleScriptedTurnStart(text) {
     return true;
   }
   if (text.includes("protocol notification workflow")) {
-    setTimeout(
-      () => requestDynamicTool("workspace_context", "tool_context", "workspace_context"),
-      5,
-    );
+    setTimeout(emitProtocolCoverageTurn, 5);
     return true;
   }
   if (text.includes(workflowAuthoring.promptMarker)) {
@@ -703,13 +693,9 @@ function assertThreadStartDeveloperInstructions(params) {
   if (
     typeof instructions !== "string" ||
     !instructions.includes("$workflow-builder") ||
-    !instructions.includes("`setta workflow` CLI") ||
-    !instructions.includes("available dynamic tool") ||
-    !instructions.includes("Do not invent dynamic tool names")
+    !instructions.includes("`setta workflow` CLI")
   ) {
-    throw new Error(
-      "thread/start developerInstructions missing Setta workflow skill or dynamic tool guidance",
-    );
+    throw new Error("thread/start developerInstructions missing Setta workflow skill guidance");
   }
 }
 
@@ -730,75 +716,6 @@ function assertStructuredThreadStart(params) {
     !instructions.includes("strict JSON semantic graph patch envelope")
   ) {
     throw new Error("structured thread/start missing semantic cartographer prompt");
-  }
-}
-
-function requestDynamicTool(tool, id, kind) {
-  pendingDynamicTool = { id, kind };
-  write({
-    id,
-    method: "item/tool/call",
-    params: {
-      arguments: {},
-      callId: id + "_call",
-      namespace: "setta",
-      threadId,
-      tool,
-      turnId,
-    },
-  });
-}
-
-function handleDynamicToolResponse(message) {
-  const pending = pendingDynamicTool;
-  pendingDynamicTool = null;
-  if (message.id !== pending.id) {
-    throw new Error("dynamic tool response id mismatch");
-  }
-  if (pending.kind === "workspace_context") {
-    assertWorkspaceContextToolResponse(message);
-    requestDynamicTool("missing_tool", "tool_missing", "missing_tool");
-    return;
-  }
-  if (pending.kind === "missing_tool") {
-    assertUnsupportedDynamicToolResponse(message);
-    emitProtocolCoverageTurn();
-    return;
-  }
-  throw new Error("unknown pending dynamic tool kind: " + pending.kind);
-}
-
-function assertWorkspaceContextToolResponse(message) {
-  if (message.error) {
-    throw new Error("workspace_context returned error: " + JSON.stringify(message.error));
-  }
-  assertWorkspaceContextResult(message.result);
-  assertWorkspaceContextContent(message.result.contentItems[0], message.result.contentItems);
-}
-
-function assertWorkspaceContextResult(result) {
-  const items = result?.contentItems;
-  if (result?.success !== true || !Array.isArray(items) || items.length !== 1) {
-    throw new Error("workspace_context result mismatch: " + JSON.stringify(result));
-  }
-}
-
-function assertWorkspaceContextContent(item, items) {
-  const text = item?.text ?? "";
-  if (item?.type !== "inputText" || !text.includes('"rootPath"') || !text.includes('"threadId"')) {
-    throw new Error("workspace_context content mismatch: " + JSON.stringify(items));
-  }
-}
-
-function assertUnsupportedDynamicToolResponse(message) {
-  if (message.result) {
-    throw new Error("unsupported dynamic tool unexpectedly returned result");
-  }
-  if (message.error?.code !== -32002) {
-    throw new Error("unsupported dynamic tool error mismatch: " + JSON.stringify(message.error));
-  }
-  if (!message.error?.message?.includes("unsupported dynamic tool")) {
-    throw new Error("unsupported dynamic tool error mismatch: " + JSON.stringify(message.error));
   }
 }
 
