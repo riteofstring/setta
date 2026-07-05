@@ -62,6 +62,39 @@ func TestWorkspaceUIEventStreamReplaysSavedLayoutForWorkspace(t *testing.T) {
 	}
 }
 
+func TestWorkspaceUIEventStreamWritesResyncRequiredSSE(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
+		Layout: workspaceUILayout(opened.Workspace.ID),
+	}, http.StatusOK)
+
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	response := openWorkspaceUIEventStream(t, server, opened.Workspace.ID, "old_workspace_ui_stream:7")
+	defer response.Body.Close()
+	frame := readServerSentWorkspaceUIEventFrame(t, bufio.NewReader(response.Body))
+	if frame.ID != frame.Event.EventID {
+		t.Fatalf("SSE id = %q, want event id %q", frame.ID, frame.Event.EventID)
+	}
+	if frame.EventName != string(workspaceui.WorkspaceUIEventTypeResyncRequired) {
+		t.Fatalf("SSE event = %q, want %q", frame.EventName, workspaceui.WorkspaceUIEventTypeResyncRequired)
+	}
+	if frame.Event.Type != workspaceui.WorkspaceUIEventTypeResyncRequired ||
+		frame.Event.WorkspaceID != opened.Workspace.ID ||
+		frame.Event.Revision != 1 ||
+		frame.Event.Layout != nil ||
+		frame.Event.Resync == nil ||
+		frame.Event.Resync.RequestedStreamID != "old_workspace_ui_stream" ||
+		frame.Event.Resync.RequestedSequence != 7 ||
+		frame.Event.Resync.CurrentRevision != 1 {
+		t.Fatalf("resync event = %+v, want workspace-specific resync", frame.Event)
+	}
+}
+
 func TestWorkspaceUIEventStreamRejectsInvalidCursor(t *testing.T) {
 	handler := newWorkspaceHandler(t, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/workspaces/ui/events?workspaceId=workspace_api&lastEventId=bad", nil)
@@ -78,6 +111,25 @@ func TestWorkspaceUIEventStreamRejectsInvalidCursor(t *testing.T) {
 	}
 	if errResponse.Error.Code != "invalid_workspace_ui_event_cursor" {
 		t.Fatalf("error code = %q, want invalid_workspace_ui_event_cursor", errResponse.Error.Code)
+	}
+}
+
+func TestWorkspaceUIEventStreamRejectsMissingWorkspaceID(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, nil)
+	request := httptest.NewRequest(http.MethodGet, "/workspaces/ui/events", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
+	}
+	var errResponse ErrorResponse
+	if err := json.NewDecoder(response.Body).Decode(&errResponse); err != nil {
+		t.Fatalf("decode missing workspace error response: %v", err)
+	}
+	if errResponse.Error.Code != "subscribe_workspace_ui_events_failed" {
+		t.Fatalf("error code = %q, want subscribe_workspace_ui_events_failed", errResponse.Error.Code)
 	}
 }
 
@@ -106,9 +158,23 @@ func openWorkspaceUIEventStream(t *testing.T, server *httptest.Server, workspace
 	return response
 }
 
+type workspaceUIServerSentEventFrame struct {
+	ID        string
+	EventName string
+	Event     workspaceui.WorkspaceUIEvent
+}
+
 func readServerSentWorkspaceUIEvent(t *testing.T, reader *bufio.Reader) workspaceui.WorkspaceUIEvent {
 	t.Helper()
 
+	return readServerSentWorkspaceUIEventFrame(t, reader).Event
+}
+
+func readServerSentWorkspaceUIEventFrame(t *testing.T, reader *bufio.Reader) workspaceUIServerSentEventFrame {
+	t.Helper()
+
+	var id string
+	var eventName string
 	var data string
 	for {
 		line, err := reader.ReadString('\n')
@@ -124,9 +190,14 @@ func readServerSentWorkspaceUIEvent(t *testing.T, reader *bufio.Reader) workspac
 			if err := json.Unmarshal([]byte(data), &event); err != nil {
 				t.Fatalf("decode workspace UI event stream data: %v", err)
 			}
-			return event
+			return workspaceUIServerSentEventFrame{ID: id, EventName: eventName, Event: event}
 		}
-		if strings.HasPrefix(line, "data: ") {
+		switch {
+		case strings.HasPrefix(line, "id: "):
+			id = strings.TrimPrefix(line, "id: ")
+		case strings.HasPrefix(line, "event: "):
+			eventName = strings.TrimPrefix(line, "event: ")
+		case strings.HasPrefix(line, "data: "):
 			data = strings.TrimPrefix(line, "data: ")
 		}
 	}
