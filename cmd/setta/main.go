@@ -172,6 +172,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta workspace panes focus [--app-data-dir DIR] <pane-id>")
 	fmt.Fprintln(output, "  setta workspace panes list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workspace panes move [--app-data-dir DIR] <pane-id> --direction left|right|up|down")
+	fmt.Fprintln(output, "  setta workspace panes open --input <path> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workspace panes read [--app-data-dir DIR] <pane-id>")
 	fmt.Fprintln(output, "  setta workspace panes rename [--app-data-dir DIR] <pane-id> --title TITLE")
 	fmt.Fprintln(output, "  setta workspace schema [--app-data-dir DIR]")

@@ -128,7 +128,7 @@ resize, close, profiles, and event streaming.
 Chat, workflow graph, workflow node details, and semantic details already have
 domain APIs, but they are not yet exposed as pane-targeted workspace operations.
 
-The remaining pieces are the rest of the write-capable workspace CLI commands after the initial focus/move/rename/close slice, a `workspace-manager` skill that teaches agents the safe operation lifecycle, per-surface read/write adapters, and richer live capability metadata beyond the current layout-only pane descriptors.
+The remaining pieces are the rest of the write-capable workspace CLI commands after the focus/move/rename/close/open slice, a `workspace-manager` skill that teaches agents the safe operation lifecycle, per-surface read/write adapters, and richer live capability metadata beyond the current layout-only pane descriptors.
 ## Contract Principles
 
 The API should return structured JSON for both success and failure. Failures
@@ -921,13 +921,12 @@ Progress on 2026-07-07:
 - Audit follow-up: the checked-in embedded web app bundle under `internal/webapp/static` still contained the old web adapter's `workspace.saveUILayout` path after the source cutover, which meant the served PWA bundle did not match the claimed raw-save removal. Regenerated the static web assets from current source with `pnpm -C desktop build:web`; source and static searches now find no `saveUILayout`, `saveWorkspaceUILayout`, or `/workspaces/ui/layout/save` exposure, and the embedded web adapter uses `applyWorkspaceUIPaneOperation`.
 - Workspace CLI write-command follow-up (2026-07-08): added the first write-capable `setta workspace panes` commands for low-risk layout-only operations now that renderer write cutover and raw-save removal are in place. `focus <pane-id>`, `move <pane-id> --direction left|right|up|down`, `rename <pane-id> --title TITLE`, and `close <pane-id> [--surface-close none|safe|force]` resolve the active workspace through local runtime auth, call authenticated `/workspaces/ui/panes/operation`, validate the returned workspace/layout/operation envelope, and print structured JSON. Close with `safe` or `force` remains unsupported and fails loudly with `unsupported_surface_close` without changing persisted layout. Verification passed: `./scripts/go.sh test ./cmd/setta` and `./scripts/go.sh test ./cmd/setta ./internal/workspaceui ./internal/httpapi`; coverage uses temporary runtime/app data/workspace paths, applies focus/rename/move/close through production CLI/runtime/HTTP/store paths, confirms persistence by re-reading panes, covers invalid direction usage, and verifies unsupported safe close leaves layout unchanged. Remaining Phase 2 CLI work: open, resize, reorder, and layout transaction commands before the `workspace-manager` skill and per-surface IO.
 - Audit follow-up: the first workspace pane write commands now accept the plan-documented pane-ID-before-operation-flag ordering, such as `setta workspace panes move <pane-id> --direction left`, while keeping the existing flags-before-pane form. The CLI usage text now matches the plan examples. Verification passed: `./scripts/go.sh test ./cmd/setta` and `./scripts/go.sh test ./cmd/setta ./internal/workspaceui ./internal/httpapi`.
+- Workspace CLI open-command follow-up (2026-07-08): added `setta workspace panes open --input open-pane.json` for the existing low-risk backend-owned `open_pane` operation. The command reads a strict single JSON `WorkspaceUIPaneOpenOperation` input, resolves the active workspace through local runtime auth, calls authenticated `/workspaces/ui/panes/operation`, validates the returned workspace/layout/operation envelope, and prints structured JSON. The CLI does not accept caller-supplied pane IDs for opens, preserving backend-owned pane identity. Verification passed: `./scripts/go.sh test ./cmd/setta` and `./scripts/go.sh test ./cmd/setta ./internal/workspaceui ./internal/httpapi`; coverage uses temporary runtime/app data/workspace paths, opens a terminal layout pane through production CLI/runtime/HTTP/store paths, confirms persistence by re-reading panes, and covers missing `--input` usage failure. Remaining Phase 2 CLI work: resize, reorder, and layout transaction commands before the `workspace-manager` skill and per-surface IO.
 
 ### Phase 3: Renderer Event Sync
 Add workspace UI event streaming. Active renderers subscribe to layout revision events and apply backend-originated operations without polling.
 
-This phase should not introduce a second write path. If event sync is required
-for the write API to be correct, complete it before exposing workspace write
-commands.
+This phase should not introduce a second write path. If event sync is required for the write API to be correct, complete it before exposing workspace write commands.
 
 Verification:
 

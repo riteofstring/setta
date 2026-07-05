@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -77,6 +79,54 @@ func TestWorkspacePaneLayoutWriteCommandsAcceptPaneIDBeforeOperationFlags(t *tes
 	closeResult := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "close", "workspace_pane_1", "--surface-close", "none")
 	if !closeResult.Changed || closeResult.Revision != 4 || closeResult.OperationResult.Close == nil {
 		t.Fatalf("close result = %+v, want changed revision 4 close outcome", closeResult)
+	}
+}
+
+func TestWorkspacePanesOpenCommandIntegration(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	inputPath := writeWorkspacePaneOpenInputForCLITest(t, workspaceui.WorkspaceUIPaneOpenOperation{
+		AdjacentToColumnID: "workspace_column_1",
+		Subtitle:           "CLI opened pane",
+		SurfaceKind:        workspaceui.SurfaceKindTerminal,
+		TerminalConfig: &workspaceui.TerminalPaneConfig{
+			ProfileID: "default",
+		},
+		Title: "Scratch",
+		Tone:  workspaceui.PaneToneGreen,
+		WidthSpec: &workspaceui.ColumnWidthSpec{
+			Unit:  workspaceui.ColumnWidthUnitPX,
+			Value: 480,
+		},
+	})
+
+	openResult := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "open", "--input", inputPath)
+	if !openResult.Changed || openResult.Revision != 2 || openResult.OperationResult.Open == nil {
+		t.Fatalf("open result = %+v, want changed revision 2 open outcome", openResult)
+	}
+	openOutcome := openResult.OperationResult.Open
+	if openResult.OperationResult.PaneID != "workspace_pane_2" || openResult.Layout.FocusedPaneID != "workspace_pane_2" {
+		t.Fatalf("open focused pane = %q/%q, want workspace_pane_2", openResult.OperationResult.PaneID, openResult.Layout.FocusedPaneID)
+	}
+	if openOutcome.TargetKind != workspaceui.WorkspaceUIPaneOpenTargetKindAdjacentColumn ||
+		openOutcome.AdjacentToColumnID != "workspace_column_1" ||
+		openOutcome.SurfaceKind != workspaceui.SurfaceKindTerminal ||
+		openOutcome.Title != "Scratch" {
+		t.Fatalf("open outcome = %+v, want terminal adjacent column Scratch pane", openOutcome)
+	}
+	if openOutcome.WidthSpec.Unit != workspaceui.ColumnWidthUnitPX || openOutcome.WidthSpec.Value != 480 {
+		t.Fatalf("open width = %+v, want 480px", openOutcome.WidthSpec)
+	}
+
+	list := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneListResult](t, fixture, "panes", "list")
+	if len(list.Panes) != 3 {
+		t.Fatalf("pane list after open has %d panes, want 3", len(list.Panes))
+	}
+	openedPane := list.Panes[2]
+	if openedPane.PaneID != "workspace_pane_2" || !openedPane.Focused || openedPane.Title != "Scratch" {
+		t.Fatalf("opened pane descriptor = %+v, want focused Scratch pane", openedPane)
+	}
+	if openedPane.ContentRefs.Terminal == nil || openedPane.ContentRefs.Terminal.ProfileID != "default" {
+		t.Fatalf("opened pane terminal ref = %+v, want default profile", openedPane.ContentRefs.Terminal)
 	}
 }
 
@@ -174,6 +224,26 @@ func TestWorkspacePanesMoveCommandRejectsInvalidDirection(t *testing.T) {
 	commandDeps.stderr = &stderr
 
 	if code := runWithDeps(workspaceCommandArgs(fixture, "panes", "move", "--direction", "sideways", "workspace_pane_1"), commandDeps); code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "workspace_usage_error" {
+		t.Fatalf("error code = %q, want workspace_usage_error", errResponse.Error.Code)
+	}
+}
+
+func TestWorkspacePanesOpenCommandRejectsMissingInput(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "panes", "open"), commandDeps); code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
 	}
 	if stdout.String() != "" {
@@ -288,6 +358,19 @@ func cliTestWorkspaceUILayout(workspaceID string) workspaceui.WorkspaceUILayout 
 			}),
 		},
 	}
+}
+
+func writeWorkspacePaneOpenInputForCLITest(t *testing.T, input workspaceui.WorkspaceUIPaneOpenOperation) string {
+	t.Helper()
+	data, err := json.MarshalIndent(input, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal workspace pane open input: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "open-pane.json")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("write workspace pane open input: %v", err)
+	}
+	return path
 }
 
 func cliTestWorkspaceColumn(columnID string, index int, paneID string, width float64) workspaceui.WorkspaceUIColumn {

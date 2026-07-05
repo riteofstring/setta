@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"setta/internal/httpapi"
+	"setta/internal/jsonio"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
@@ -23,6 +25,7 @@ const (
 	workspacePanesFocusCLIAuthDisplayName  = "Setta CLI workspace panes focus"
 	workspacePanesListCLIAuthDisplayName   = "Setta CLI workspace panes list"
 	workspacePanesMoveCLIAuthDisplayName   = "Setta CLI workspace panes move"
+	workspacePanesOpenCLIAuthDisplayName   = "Setta CLI workspace panes open"
 	workspacePanesReadCLIAuthDisplayName   = "Setta CLI workspace panes read"
 	workspacePanesRenameCLIAuthDisplayName = "Setta CLI workspace panes rename"
 	workspaceSchemaCLIAuthDisplayName      = "Setta CLI workspace schema"
@@ -52,6 +55,11 @@ type workspacePaneMoveOptions struct {
 	AppDataDir string
 	PaneID     string
 	Direction  workspaceui.WorkspaceUIPaneMoveDirection
+}
+
+type workspacePaneOpenOptions struct {
+	AppDataDir string
+	InputPath  string
 }
 
 type workspacePaneRenameOptions struct {
@@ -106,7 +114,7 @@ func runWorkspaceSchema(args []string, deps cliDeps) error {
 
 func runWorkspacePanes(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workspace panes requires a subcommand: close, focus, list, move, read, or rename")}
+		return usageError{err: errors.New("setta workspace panes requires a subcommand: close, focus, list, move, open, read, or rename")}
 	}
 	switch args[0] {
 	case "close":
@@ -117,6 +125,8 @@ func runWorkspacePanes(args []string, deps cliDeps) error {
 		return runWorkspacePanesList(args[1:], deps)
 	case "move":
 		return runWorkspacePanesMove(args[1:], deps)
+	case "open":
+		return runWorkspacePanesOpen(args[1:], deps)
 	case "read":
 		return runWorkspacePanesRead(args[1:], deps)
 	case "rename":
@@ -172,6 +182,22 @@ func runWorkspacePanesMove(args []string, deps cliDeps) error {
 		return err
 	}
 	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace pane move result")
+}
+
+func runWorkspacePanesOpen(args []string, deps cliDeps) error {
+	options, err := workspacePaneOpenOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	input, err := readWorkspacePaneOpenInputFile(options.InputPath)
+	if err != nil {
+		return err
+	}
+	result, err := openWorkspacePane(context.Background(), options.AppDataDir, input, deps)
+	if err != nil {
+		return err
+	}
+	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace pane open result")
 }
 
 func runWorkspacePanesRead(args []string, deps cliDeps) error {
@@ -322,6 +348,34 @@ func workspacePaneMoveOptionsFromArgs(args []string, deps cliDeps) (workspacePan
 	}, nil
 }
 
+func workspacePaneOpenOptionsFromArgs(args []string, deps cliDeps) (workspacePaneOpenOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workspacePaneOpenOptions{}, err
+	}
+	var inputPath string
+	flagSet := newWorkspaceFlagSet("setta workspace panes open")
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&inputPath, "input", "", "path to a workspace pane open JSON input file")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workspacePaneOpenOptions{}, usageError{err: err}
+		}
+		return workspacePaneOpenOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 0 {
+		return workspacePaneOpenOptions{}, usageError{err: errors.New("setta workspace panes open does not accept positional arguments")}
+	}
+	inputPath = strings.TrimSpace(inputPath)
+	if inputPath == "" {
+		return workspacePaneOpenOptions{}, usageError{err: errors.New("setta workspace panes open requires --input")}
+	}
+	return workspacePaneOpenOptions{
+		AppDataDir: appDataDir,
+		InputPath:  inputPath,
+	}, nil
+}
+
 func workspacePaneReadOptionsFromArgs(args []string, deps cliDeps) (workspacePaneReadOptions, error) {
 	appDataDir, err := defaultAppDataDir(deps.getenv)
 	if err != nil {
@@ -449,6 +503,13 @@ func moveWorkspacePane(ctx context.Context, appDataDir string, paneID string, di
 	}, deps)
 }
 
+func openWorkspacePane(ctx context.Context, appDataDir string, input workspaceui.WorkspaceUIPaneOpenOperation, deps cliDeps) (workspaceui.WorkspaceUIPaneOperationResult, error) {
+	return applyWorkspacePaneOperation(ctx, appDataDir, workspacePanesOpenCLIAuthDisplayName, "workspace panes open", workspaceui.WorkspaceUIPaneOperation{
+		Kind: workspaceui.WorkspaceUIPaneOperationKindOpenPane,
+		Open: &input,
+	}, deps)
+}
+
 func renameWorkspacePane(ctx context.Context, appDataDir string, paneID string, title string, deps cliDeps) (workspaceui.WorkspaceUIPaneOperationResult, error) {
 	return applyWorkspacePaneOperation(ctx, appDataDir, workspacePanesRenameCLIAuthDisplayName, "workspace panes rename", workspaceui.WorkspaceUIPaneOperation{
 		Kind:   workspaceui.WorkspaceUIPaneOperationKindRenamePane,
@@ -488,6 +549,20 @@ func applyWorkspacePaneOperation(
 		return workspaceui.WorkspaceUIPaneOperationResult{}, err
 	}
 	return result, nil
+}
+
+func readWorkspacePaneOpenInputFile(path string) (workspaceui.WorkspaceUIPaneOpenOperation, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return workspaceui.WorkspaceUIPaneOpenOperation{}, newWorkspaceCLIError("workspace_pane_open_input_open_failed", fmt.Errorf("open workspace pane open input %s: %w", path, err))
+	}
+	defer file.Close()
+
+	var input workspaceui.WorkspaceUIPaneOpenOperation
+	if err := jsonio.DecodeSingle(file, &input); err != nil {
+		return workspaceui.WorkspaceUIPaneOpenOperation{}, newWorkspaceCLIError("workspace_pane_open_input_decode_failed", fmt.Errorf("decode workspace pane open input %s: %w", path, err))
+	}
+	return input, nil
 }
 
 func readWorkspaceCurrent(ctx context.Context, appDataDir string, deps cliDeps) (workspace.WorkspaceSummary, error) {
