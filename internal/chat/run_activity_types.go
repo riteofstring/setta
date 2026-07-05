@@ -8,7 +8,6 @@ type RunItemDetails struct {
 	CommandExecution        *RunItemCommandExecutionDetails        `json:"commandExecution"`
 	CommandStartFailure     *RunItemCommandStartFailureDetails     `json:"commandStartFailure"`
 	MCPToolCall             *RunItemMCPToolCallDetails             `json:"mcpToolCall"`
-	DynamicToolCall         *RunItemDynamicToolCallDetails         `json:"dynamicToolCall"`
 	FileChange              *RunItemFileChangeDetails              `json:"fileChange"`
 	Diff                    *RunItemDiffDetails                    `json:"diff"`
 	Approval                *RunItemApprovalDetails                `json:"approval"`
@@ -39,7 +38,6 @@ type RunActivityDetailsProjection struct {
 	CommandExecution        *RunItemCommandExecutionDetails        `json:"commandExecution"`
 	CommandStartFailure     *RunItemCommandStartFailureDetails     `json:"commandStartFailure"`
 	MCPToolCall             *RunItemMCPToolCallDetails             `json:"mcpToolCall"`
-	DynamicToolCall         *RunItemDynamicToolCallDetails         `json:"dynamicToolCall"`
 	FileChange              *RunItemFileChangeDetails              `json:"fileChange"`
 	Diff                    *RunItemDiffDetails                    `json:"diff"`
 	Approval                *RunItemApprovalDetails                `json:"approval"`
@@ -98,34 +96,6 @@ type RunItemMCPToolResult struct {
 	Content           []json.RawMessage `json:"content"`
 	StructuredContent json.RawMessage   `json:"structuredContent"`
 	Meta              json.RawMessage   `json:"_meta"`
-}
-
-type RunItemDynamicToolCallDetails struct {
-	Namespace     string                    `json:"namespace"`
-	ToolName      string                    `json:"toolName"`
-	DisplayTitle  string                    `json:"displayTitle"`
-	Description   string                    `json:"description"`
-	Category      string                    `json:"category"`
-	DurationMs    int                       `json:"durationMs"`
-	Arguments     json.RawMessage           `json:"arguments"`
-	ResultSummary string                    `json:"resultSummary"`
-	Result        *RunItemDynamicToolResult `json:"result"`
-	Error         string                    `json:"error"`
-}
-
-type RunItemDynamicToolResult struct {
-	ContentItems []RunItemDynamicToolContentItem `json:"contentItems"`
-	Success      *bool                           `json:"success"`
-}
-
-type RunItemDynamicToolContentItem struct {
-	Type     string `json:"type"`
-	Text     string `json:"text"`
-	ImageURL string `json:"imageUrl"`
-}
-
-func runItemDynamicToolSuccess(value bool) *bool {
-	return &value
 }
 
 func approvalKindPtr(value ApprovalKind) *ApprovalKind {
@@ -212,7 +182,6 @@ func NewRunItemMCPToolCallDetails(details RunItemMCPToolCallDetails) *RunItemDet
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             &details,
-		DynamicToolCall:         nil,
 		FileChange:              nil,
 		Diff:                    nil,
 		Approval:                nil,
@@ -227,7 +196,6 @@ func NewRunItemPlanDetails(details RunItemPlanDetails) *RunItemDetails {
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
-		DynamicToolCall:         nil,
 		FileChange:              nil,
 		Diff:                    nil,
 		Approval:                nil,
@@ -242,7 +210,6 @@ func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *
 		CommandExecution:        &details,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
-		DynamicToolCall:         nil,
 		FileChange:              nil,
 		Diff:                    nil,
 		Approval:                nil,
@@ -257,22 +224,6 @@ func NewRunItemCommandStartFailureDetails(details RunItemCommandStartFailureDeta
 		CommandExecution:        nil,
 		CommandStartFailure:     &details,
 		MCPToolCall:             nil,
-		DynamicToolCall:         nil,
-		FileChange:              nil,
-		Diff:                    nil,
-		Approval:                nil,
-		ProviderStreamLifecycle: nil,
-	}
-}
-
-func NewRunItemDynamicToolCallDetails(details RunItemDynamicToolCallDetails) *RunItemDetails {
-	return &RunItemDetails{
-		Kind:                    RunItemDetailsKindDynamicToolCall,
-		Plan:                    nil,
-		CommandExecution:        nil,
-		CommandStartFailure:     nil,
-		MCPToolCall:             nil,
-		DynamicToolCall:         &details,
 		FileChange:              nil,
 		Diff:                    nil,
 		Approval:                nil,
@@ -287,7 +238,6 @@ func NewRunItemFileChangeDetails(details RunItemFileChangeDetails) *RunItemDetai
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
-		DynamicToolCall:         nil,
 		FileChange:              &details,
 		Diff:                    nil,
 		Approval:                nil,
@@ -302,7 +252,6 @@ func NewRunItemDiffDetails(details RunItemDiffDetails) *RunItemDetails {
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
-		DynamicToolCall:         nil,
 		FileChange:              nil,
 		Diff:                    &details,
 		Approval:                nil,
@@ -317,7 +266,6 @@ func NewRunItemApprovalDetails(details RunItemApprovalDetails) *RunItemDetails {
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
-		DynamicToolCall:         nil,
 		FileChange:              nil,
 		Diff:                    nil,
 		Approval:                &details,
@@ -332,7 +280,6 @@ func NewRunItemProviderStreamLifecycleDetails(details RunItemProviderStreamLifec
 		CommandExecution:        nil,
 		CommandStartFailure:     nil,
 		MCPToolCall:             nil,
-		DynamicToolCall:         nil,
 		FileChange:              nil,
 		Diff:                    nil,
 		Approval:                nil,
@@ -378,16 +325,6 @@ func (item RunItem) MCPToolCallDetails() (*RunItemMCPToolCallDetails, bool) {
 		return nil, false
 	}
 	return item.Details.MCPToolCall, true
-}
-
-func (item RunItem) DynamicToolCallDetails() (*RunItemDynamicToolCallDetails, bool) {
-	if item.Type != RunItemTypeDynamicToolCall ||
-		item.Details == nil ||
-		item.Details.Kind != RunItemDetailsKindDynamicToolCall ||
-		item.Details.DynamicToolCall == nil {
-		return nil, false
-	}
-	return item.Details.DynamicToolCall, true
 }
 
 func (item RunItem) FileChangeDetails() (*RunItemFileChangeDetails, bool) {
@@ -456,14 +393,6 @@ func (details RunItemPlanDetails) MarshalJSON() ([]byte, error) {
 		details.Steps = []RunItemPlanStep{}
 	}
 	return json.Marshal(detailsAlias(details))
-}
-
-func (result RunItemDynamicToolResult) MarshalJSON() ([]byte, error) {
-	type resultAlias RunItemDynamicToolResult
-	if result.ContentItems == nil {
-		result.ContentItems = []RunItemDynamicToolContentItem{}
-	}
-	return json.Marshal(resultAlias(result))
 }
 
 func (details RunItemApprovalDetails) MarshalJSON() ([]byte, error) {

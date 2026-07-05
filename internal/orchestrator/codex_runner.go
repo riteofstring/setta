@@ -25,10 +25,11 @@ type CodexChatService interface {
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, afterItemID string, limit int) (chat.RunActivityPage, error)
-	LoadRunActivityItems(workspaceID string, runID string) ([]chat.RunItem, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	LoadRunTranscriptPage(workspaceID string, runID string, beforeBlockOrdinal int, limit int) (chat.RunTranscriptPage, error)
+	UncommittedSteeringMessagesForRun(workspaceID string, conversationID string, runID string) ([]chat.ChatMessage, error)
 	ReconcileActiveRunByID(ctx context.Context, workspaceID string, conversationID string, runID string, reason chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error)
+	ResolveWorkflowAgentCodexSettings(workspaceID string, overrides chat.ChatCodexSettings) (chat.ChatCodexSettings, *chat.ChatCodexEffectiveSettings, error)
 	SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error)
 	SteerActiveRunInputByID(workspaceID string, conversationID string, runID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
@@ -131,6 +132,12 @@ func (descriptor CodexActionRunnerDescriptor) ValidateConfig(config WorkflowActi
 			Message: "agent.codex prompt is required",
 		}}
 	}
+	if err := validateWorkflowAgentSettings(config.Codex.Settings); err != nil {
+		return []RunnerConfigDiagnostic{{
+			Code:    "codex_action_settings_invalid",
+			Message: "agent.codex settings are invalid: " + err.Error(),
+		}}
+	}
 	return []RunnerConfigDiagnostic{}
 }
 
@@ -155,17 +162,26 @@ func (runner *CodexActionRunner) Start(_ context.Context, request ActionStartReq
 	if err != nil {
 		return ActionStartResult{}, err
 	}
+	overrides, sources := workflowAgentCodexSettingsForRun(request.WorkflowAgentDefaults, config.Settings)
+	codexSettings, effectiveSettings, err := runner.chatService.ResolveWorkflowAgentCodexSettings(request.WorkspaceID, overrides)
+	if err != nil {
+		return ActionStartResult{}, err
+	}
+	runSettings, err := workflowAgentEffectiveRunSettings(codexSettings, effectiveSettings, sources)
+	if err != nil {
+		return ActionStartResult{}, err
+	}
 	turn, err := runner.chatService.SendWorkflowAgentTurn(request.WorkspaceID, chat.WorkflowAgentTurnRequest{
-		DefinitionID:        request.DefinitionID,
-		DefinitionVersionID: request.DefinitionVersionID,
-		ExecutionID:         request.Execution.ID,
-		NodeID:              request.Node.ID,
-		NodeExecutionID:     request.NodeExecution.ID,
-		Prompt:              config.Prompt,
-		SemanticContext:     semanticDelivery,
-		FreshConversation:   config.FreshConversation,
-		Model:               config.Model,
-		ReasoningEffort:     codexReasoningEffort(config.ReasoningEffort),
+		DefinitionID:           request.DefinitionID,
+		DefinitionVersionID:    request.DefinitionVersionID,
+		ExecutionID:            request.Execution.ID,
+		NodeID:                 request.Node.ID,
+		NodeExecutionID:        request.NodeExecution.ID,
+		Prompt:                 config.Prompt,
+		SemanticContext:        semanticDelivery,
+		FreshConversation:      config.FreshConversation,
+		CodexSettings:          codexSettings,
+		CodexEffectiveSettings: effectiveSettings,
 	})
 	if err != nil {
 		return ActionStartResult{}, err
@@ -180,6 +196,7 @@ func (runner *CodexActionRunner) Start(_ context.Context, request ActionStartReq
 			IdempotencyKey:   request.NodeExecution.IdempotencyKey,
 			SideEffectPolicy: request.Policy.SideEffectPolicy,
 			ActivityRefs:     activityRefs,
+			RunSettings:      runSettings,
 		})
 		if err != nil {
 			return ActionStartResult{}, err
@@ -297,17 +314,11 @@ func (runner *CodexActionRunner) Recover(_ context.Context, request ActionRecove
 }
 
 func (runner *CodexActionRunner) recoverTerminalCodexRun(owner workflowRunOwner, run chat.Run, refs []WorkflowActionRunnerRef, sink RunnerEventSink) (ActionRecoverResult, error) {
-	items, err := runner.chatService.LoadRunActivityItems(run.WorkspaceID, run.ID)
-	var result WorkflowActionResult
+	result, err := workflowActionResultFromChatRun(run)
 	if err != nil {
-		result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("load chat run activity: %v", err))
-	} else {
-		result, err = workflowActionResultFromChatRun(run, items)
-		if err != nil {
-			result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("decode workflow result: %v", err))
-		}
+		result = workflowActionResultFromChatRunReconcileError(run, err.Error())
 	}
-	events, err := runnerEventsFromTerminalChatRun(owner, result)
+	events, err := runnerEventsFromWorkflowActionResult(owner, result)
 	if err != nil {
 		return ActionRecoverResult{}, err
 	}
@@ -401,14 +412,6 @@ func workflowActivityRefFromChatRun(request ActionStartRequest, runID string) Wo
 	}
 }
 
-func codexReasoningEffort(value string) *chat.ReasoningEffort {
-	if value == "" {
-		return nil
-	}
-	effort := chat.ReasoningEffort(value)
-	return &effort
-}
-
 func runnerRefsFromChatTurn(turn chat.SendMessageResult) []WorkflowActionRunnerRef {
 	refs := []WorkflowActionRunnerRef{
 		{Kind: RunnerRefChatConversation, ID: turn.Conversation.ID},
@@ -441,14 +444,15 @@ func latestCodexHarnessRef(conversation chat.Conversation) chat.HarnessThreadRef
 	return chat.HarnessThreadRef{}
 }
 
-func workflowActionResultFromChatRun(run chat.Run, items []chat.RunItem) (WorkflowActionResult, error) {
+func workflowActionResultFromChatRun(run chat.Run) (WorkflowActionResult, error) {
 	result := WorkflowActionResult{
 		Signals:   []WorkflowActionSignal{},
 		FilePaths: []string{},
 	}
 	switch run.Status {
 	case chat.RunStatusCompleted:
-		result.Status = ActionCompletionCompleted
+		result.Status = ActionCompletionFailed
+		result.Error = "workflow-owned Codex run completed without reporting a workflow result through setta workflow executions result"
 	case chat.RunStatusFailed:
 		result.Status = ActionCompletionFailed
 		result.Error = run.Error
@@ -458,13 +462,6 @@ func workflowActionResultFromChatRun(run chat.Run, items []chat.RunItem) (Workfl
 	default:
 		return WorkflowActionResult{}, fmt.Errorf("chat run %s status %s is not terminal", run.ID, run.Status)
 	}
-	signals, output, filePaths, err := workflowResultPayloadFromRunItems(items)
-	if err != nil {
-		return WorkflowActionResult{}, err
-	}
-	result.Signals = signals
-	result.Output = output
-	result.FilePaths = filePaths
 	return result, nil
 }
 
@@ -481,30 +478,6 @@ func workflowActionResultFromChatRunReconcileError(run chat.Run, message string)
 			Error:  nonEmpty(run.Error, message),
 		}
 	}
-}
-
-func workflowResultPayloadFromRunItems(items []chat.RunItem) ([]WorkflowActionSignal, json.RawMessage, []string, error) {
-	for index := len(items) - 1; index >= 0; index-- {
-		item := items[index]
-		details, ok := item.DynamicToolCallDetails()
-		if item.Type != chat.RunItemTypeDynamicToolCall ||
-			item.Status != chat.RunItemStatusCompleted ||
-			!ok ||
-			details.Namespace != chat.SettaAgentToolNamespace ||
-			details.ToolName != chat.SettaWorkflowResultAgentToolName {
-			continue
-		}
-		payload, err := chat.DecodeSettaWorkflowResultPayload(details.Arguments)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		signals := make([]WorkflowActionSignal, 0, len(payload.Signals))
-		for _, signal := range payload.Signals {
-			signals = append(signals, WorkflowActionSignal{Name: signal.Name, Value: signal.Value})
-		}
-		return signals, payload.Output, append([]string{}, payload.FilePaths...), nil
-	}
-	return []WorkflowActionSignal{}, nil, []string{}, nil
 }
 
 func runnerEventsFromChatApprovalRequest(owner workflowRunOwner, run chat.Run, pending *WorkflowPendingApproval) ([]RunnerEvent, error) {
@@ -549,11 +522,11 @@ func runnerEventsFromChatApprovalRequest(owner workflowRunOwner, run chat.Run, p
 	}}, nil
 }
 
-func runnerEventsFromTerminalChatRun(owner workflowRunOwner, result WorkflowActionResult) ([]RunnerEvent, error) {
+func runnerEventsFromWorkflowActionResult(owner workflowRunOwner, result WorkflowActionResult) ([]RunnerEvent, error) {
 	events := []RunnerEvent{}
 	if result.Status == ActionCompletionCompleted && (len(result.Signals) > 0 || result.Output != nil || len(result.FilePaths) > 0 || result.ExitCode != nil) {
 		payload, err := json.Marshal(RunnerStructuredOutputPayload{
-			SchemaName:    "setta.workflow_result",
+			SchemaName:    "setta.workflow_execution_result",
 			SchemaVersion: 1,
 			Output:        result.Output,
 			Signals:       result.Signals,

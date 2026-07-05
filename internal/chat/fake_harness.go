@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"setta/internal/workspace"
@@ -584,6 +585,13 @@ func (harness *FakeHarness) script(request TurnRequest) []FakeHarnessEvent {
 	prompt := chatInputText(request.Input)
 	if events, ok := harness.eventsByPrompt[prompt]; ok {
 		return append([]FakeHarnessEvent{}, events...)
+	}
+	if request.Conversation.Internal && request.Conversation.Workflow != nil {
+		for authoredPrompt, events := range harness.eventsByPrompt {
+			if strings.Contains(strings.ToLower(prompt), strings.ToLower("\n\nNode task:\n\n"+authoredPrompt)) {
+				return append([]FakeHarnessEvent{}, events...)
+			}
+		}
 	}
 	if len(harness.events) > 0 {
 		return append([]FakeHarnessEvent{}, harness.events...)

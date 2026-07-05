@@ -644,8 +644,6 @@ func chatRunItemSummary(item chat.RunItem) string {
 	if title == "" {
 		if details, ok := item.MCPToolCallDetails(); ok {
 			title = details.DisplayTitle
-		} else if details, ok := item.DynamicToolCallDetails(); ok {
-			title = details.DisplayTitle
 		}
 	}
 	if title == "" {
@@ -653,9 +651,6 @@ func chatRunItemSummary(item chat.RunItem) string {
 	}
 	status := item.Status
 	if details, ok := item.MCPToolCallDetails(); ok && details.Error != "" {
-		return fmt.Sprintf("Run item %s %s failed: %s", item.ID, title, shortText(details.Error, semanticEvidenceTextLimit))
-	}
-	if details, ok := item.DynamicToolCallDetails(); ok && details.Error != "" {
 		return fmt.Sprintf("Run item %s %s failed: %s", item.ID, title, shortText(details.Error, semanticEvidenceTextLimit))
 	}
 	if item.Error != "" {
@@ -674,9 +669,6 @@ func runItemEvidenceText(item chat.RunItem) string {
 func typedRunItemEvidenceText(item chat.RunItem) string {
 	if details, ok := item.MCPToolCallDetails(); ok {
 		return firstTrimmedString(item.Summary, details.ResultSummary, details.Progress, details.Error)
-	}
-	if details, ok := item.DynamicToolCallDetails(); ok {
-		return firstTrimmedString(item.Summary, details.ResultSummary, details.Error)
 	}
 	if details, ok := item.FileChangeDetails(); ok {
 		return firstTrimmedString(item.Summary, chatFileChangeDetailSummary(details))

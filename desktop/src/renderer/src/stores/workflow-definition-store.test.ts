@@ -66,6 +66,7 @@ function workflowDefinition(id: string, name: string): WorkflowDefinition {
 
 function emptyWorkflowGraph(): WorkflowGraph {
   return {
+    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges: [],
     layout: { nodes: [] },
     nodes: [],
