@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,6 +15,8 @@ import (
 	"time"
 
 	"github.com/mdp/qrterminal/v3"
+
+	"setta/internal/httpapi"
 )
 
 const defaultServePort = 7345
@@ -33,6 +36,10 @@ type cliDeps struct {
 
 type usageError struct {
 	err error
+}
+
+type cliStructuredError interface {
+	CLIErrorResponse() httpapi.ErrorResponse
 }
 
 type cliCommand func([]string, cliDeps) error
@@ -83,7 +90,14 @@ func runWithDeps(args []string, deps cliDeps) int {
 }
 
 func printCLIError(err error, deps cliDeps) int {
-	fmt.Fprintf(deps.stderr, "%v\n", err)
+	var structured cliStructuredError
+	if errors.As(err, &structured) {
+		encoder := json.NewEncoder(deps.stderr)
+		encoder.SetIndent("", "  ")
+		_ = encoder.Encode(structured.CLIErrorResponse())
+	} else {
+		fmt.Fprintf(deps.stderr, "%v\n", err)
+	}
 	var usage usageError
 	if errors.As(err, &usage) {
 		return 2

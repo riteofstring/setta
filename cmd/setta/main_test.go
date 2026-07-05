@@ -376,8 +376,9 @@ func TestWorkflowCurrentWorkspaceCommandFailsWithoutSelectedWorkspace(t *testing
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "no current workspace is selected") {
-		t.Fatalf("stderr = %q, want no-current-workspace error", stderr.String())
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "no_current_workspace" {
+		t.Fatalf("error code = %q, want no_current_workspace", errResponse.Error.Code)
 	}
 }
 
@@ -562,8 +563,9 @@ func TestWorkflowDefinitionsReadCommandFailsForMissingDefinition(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "read_workflow_definition_failed") {
-		t.Fatalf("stderr = %q, want read workflow definition error code", stderr.String())
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "read_workflow_definition_failed" {
+		t.Fatalf("error code = %q, want read_workflow_definition_failed", errResponse.Error.Code)
 	}
 }
 
@@ -897,8 +899,9 @@ func TestWorkflowExecutionsStartCommandFailsForMissingDefinition(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "start_workflow_execution_failed") {
-		t.Fatalf("stderr = %q, want start workflow execution error code", stderr.String())
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "start_workflow_execution_failed" {
+		t.Fatalf("error code = %q, want start_workflow_execution_failed", errResponse.Error.Code)
 	}
 }
 
@@ -939,8 +942,28 @@ func TestWorkflowExecutionsReadCommandFailsForMissingExecution(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "read_workflow_execution_failed") {
-		t.Fatalf("stderr = %q, want read workflow execution error code", stderr.String())
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "read_workflow_execution_failed" {
+		t.Fatalf("error code = %q, want read_workflow_execution_failed", errResponse.Error.Code)
+	}
+}
+
+func TestWorkflowCommandUsageErrorReturnsJSONEnvelope(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+	deps.stderr = &stderr
+
+	if code := runWithDeps([]string{"workflow", "definitions", "read"}, deps); code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "workflow_usage_error" {
+		t.Fatalf("error code = %q, want workflow_usage_error", errResponse.Error.Code)
 	}
 }
 
@@ -1142,6 +1165,25 @@ func assertWorkflowDiagnostic(t *testing.T, result orchestrator.WorkflowValidati
 		}
 	}
 	t.Fatalf("diagnostics = %+v, want code %s", result.Diagnostics, code)
+}
+
+func decodeCLIError(t *testing.T, stderr string) httpapi.ErrorResponse {
+	t.Helper()
+	payload := strings.TrimSpace(stderr)
+	if !json.Valid([]byte(payload)) {
+		t.Fatalf("stderr = %q, want JSON error envelope", stderr)
+	}
+	var response httpapi.ErrorResponse
+	if err := json.Unmarshal([]byte(payload), &response); err != nil {
+		t.Fatalf("decode CLI error envelope: %v\nstderr:\n%s", err, stderr)
+	}
+	if response.Error.Code == "" {
+		t.Fatalf("CLI error response missing code: %+v", response)
+	}
+	if response.Error.Message == "" {
+		t.Fatalf("CLI error response missing message: %+v", response)
+	}
+	return response
 }
 
 func postAuthedRuntimeJSON[T any](t *testing.T, client *http.Client, baseURL string, token string, path string, payload any) T {

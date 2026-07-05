@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"setta/internal/httpapi"
 	"setta/internal/jsonio"
@@ -61,6 +60,10 @@ type workflowExecutionStartOptions struct {
 }
 
 func runWorkflow(args []string, deps cliDeps) error {
+	return workflowCommandError(runWorkflowCommand(args, deps))
+}
+
+func runWorkflowCommand(args []string, deps cliDeps) error {
 	if len(args) == 0 {
 		return usageError{err: errors.New("setta workflow requires a subcommand: current-workspace, definitions, executions, or schema")}
 	}
@@ -259,7 +262,7 @@ func workflowOptionsFromArgs(name string, args []string, deps cliDeps) (workflow
 	if err != nil {
 		return workflowOptions{}, err
 	}
-	flagSet := newFlagSet(name, deps.stderr)
+	flagSet := newWorkflowFlagSet(name)
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -278,7 +281,7 @@ func workflowDefinitionReadOptionsFromArgs(args []string, deps cliDeps) (workflo
 	if err != nil {
 		return workflowDefinitionReadOptions{}, err
 	}
-	flagSet := newFlagSet("setta workflow definitions read", deps.stderr)
+	flagSet := newWorkflowFlagSet("setta workflow definitions read")
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -302,7 +305,7 @@ func workflowDefinitionSaveOptionsFromArgs(args []string, deps cliDeps) (workflo
 		return workflowDefinitionSaveOptions{}, err
 	}
 	var inputPath string
-	flagSet := newFlagSet("setta workflow definitions save", deps.stderr)
+	flagSet := newWorkflowFlagSet("setta workflow definitions save")
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&inputPath, "input", "", "path to a workflow definition save JSON input file")
 	if err := flagSet.Parse(args); err != nil {
@@ -327,7 +330,7 @@ func workflowDefinitionValidateOptionsFromArgs(args []string, deps cliDeps) (wor
 		return workflowDefinitionValidateOptions{}, err
 	}
 	var graphPath string
-	flagSet := newFlagSet("setta workflow definitions validate", deps.stderr)
+	flagSet := newWorkflowFlagSet("setta workflow definitions validate")
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&graphPath, "graph", "", "path to a workflow graph JSON file")
 	if err := flagSet.Parse(args); err != nil {
@@ -351,7 +354,7 @@ func workflowExecutionReadOptionsFromArgs(args []string, deps cliDeps) (workflow
 	if err != nil {
 		return workflowExecutionReadOptions{}, err
 	}
-	flagSet := newFlagSet("setta workflow executions read", deps.stderr)
+	flagSet := newWorkflowFlagSet("setta workflow executions read")
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -374,7 +377,7 @@ func workflowExecutionStartOptionsFromArgs(args []string, deps cliDeps) (workflo
 	if err != nil {
 		return workflowExecutionStartOptions{}, err
 	}
-	flagSet := newFlagSet("setta workflow executions start", deps.stderr)
+	flagSet := newWorkflowFlagSet("setta workflow executions start")
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -603,13 +606,13 @@ func startWorkflowExecution(ctx context.Context, appDataDir string, definitionID
 func readWorkflowGraphFile(path string) (orchestrator.WorkflowGraph, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return orchestrator.WorkflowGraph{}, fmt.Errorf("open workflow graph %s: %w", path, err)
+		return orchestrator.WorkflowGraph{}, newWorkflowCLIError("workflow_graph_open_failed", fmt.Errorf("open workflow graph %s: %w", path, err))
 	}
 	defer file.Close()
 
 	var graph orchestrator.WorkflowGraph
 	if err := jsonio.DecodeSingle(file, &graph); err != nil {
-		return orchestrator.WorkflowGraph{}, fmt.Errorf("decode workflow graph %s: %w", path, err)
+		return orchestrator.WorkflowGraph{}, newWorkflowCLIError("workflow_graph_decode_failed", fmt.Errorf("decode workflow graph %s: %w", path, err))
 	}
 	return graph, nil
 }
@@ -617,13 +620,13 @@ func readWorkflowGraphFile(path string) (orchestrator.WorkflowGraph, error) {
 func readWorkflowDefinitionSaveInputFile(path string) (orchestrator.WorkflowDefinitionSaveInput, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return orchestrator.WorkflowDefinitionSaveInput{}, fmt.Errorf("open workflow definition save input %s: %w", path, err)
+		return orchestrator.WorkflowDefinitionSaveInput{}, newWorkflowCLIError("workflow_definition_save_input_open_failed", fmt.Errorf("open workflow definition save input %s: %w", path, err))
 	}
 	defer file.Close()
 
 	var input orchestrator.WorkflowDefinitionSaveInput
 	if err := jsonio.DecodeSingle(file, &input); err != nil {
-		return orchestrator.WorkflowDefinitionSaveInput{}, fmt.Errorf("decode workflow definition save input %s: %w", path, err)
+		return orchestrator.WorkflowDefinitionSaveInput{}, newWorkflowCLIError("workflow_definition_save_input_decode_failed", fmt.Errorf("decode workflow definition save input %s: %w", path, err))
 	}
 	return input, nil
 }
@@ -631,14 +634,17 @@ func readWorkflowDefinitionSaveInputFile(path string) (orchestrator.WorkflowDefi
 func workflowCommandAuth(ctx context.Context, appDataDir string, displayName string, deps cliDeps) (serveState, string, func(), error) {
 	state, err := readServeState(appDataDir)
 	if err != nil {
-		return serveState{}, "", nil, err
+		if errors.Is(err, errServeStateNotFound) {
+			return serveState{}, "", nil, newWorkflowCLIError("setta_serve_state_missing", err)
+		}
+		return serveState{}, "", nil, newWorkflowCLIError("setta_serve_state_read_failed", err)
 	}
 	if _, err := verifyServeState(ctx, deps.httpClient, state); err != nil {
-		return serveState{}, "", nil, err
+		return serveState{}, "", nil, newWorkflowCLIError("setta_serve_unreachable", err)
 	}
 	token, cleanup, err := createRuntimeCLIAuthSession(ctx, appDataDir, displayName)
 	if err != nil {
-		return serveState{}, "", nil, err
+		return serveState{}, "", nil, newWorkflowCLIError("workflow_cli_auth_session_failed", err)
 	}
 	return state, token, cleanup, nil
 }
@@ -646,12 +652,12 @@ func workflowCommandAuth(ctx context.Context, appDataDir string, displayName str
 func getWorkspaceSession(ctx context.Context, client *http.Client, baseURL string, token string) (workspacesession.WorkspaceSession, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/workspace-session", nil)
 	if err != nil {
-		return workspacesession.WorkspaceSession{}, fmt.Errorf("create workspace session request: %w", err)
+		return workspacesession.WorkspaceSession{}, newWorkflowCLIError("workflow_api_request_create_failed", fmt.Errorf("create workspace session request: %w", err))
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	response, err := client.Do(request)
 	if err != nil {
-		return workspacesession.WorkspaceSession{}, fmt.Errorf("request workspace session: %w", err)
+		return workspacesession.WorkspaceSession{}, newWorkflowCLIError("workflow_api_request_failed", fmt.Errorf("request workspace session: %w", err))
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
@@ -659,7 +665,7 @@ func getWorkspaceSession(ctx context.Context, client *http.Client, baseURL strin
 	}
 	var session workspacesession.WorkspaceSession
 	if err := json.NewDecoder(response.Body).Decode(&session); err != nil {
-		return workspacesession.WorkspaceSession{}, fmt.Errorf("decode workspace session response: %w", err)
+		return workspacesession.WorkspaceSession{}, newWorkflowCLIError("workflow_api_response_decode_failed", fmt.Errorf("decode workspace session response: %w", err))
 	}
 	return session, nil
 }
@@ -667,12 +673,12 @@ func getWorkspaceSession(ctx context.Context, client *http.Client, baseURL strin
 func getWorkflowSchema(ctx context.Context, client *http.Client, baseURL string, token string) (orchestrator.WorkflowSchema, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/workflows/schema", nil)
 	if err != nil {
-		return orchestrator.WorkflowSchema{}, fmt.Errorf("create workflow schema request: %w", err)
+		return orchestrator.WorkflowSchema{}, newWorkflowCLIError("workflow_api_request_create_failed", fmt.Errorf("create workflow schema request: %w", err))
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	response, err := client.Do(request)
 	if err != nil {
-		return orchestrator.WorkflowSchema{}, fmt.Errorf("request workflow schema: %w", err)
+		return orchestrator.WorkflowSchema{}, newWorkflowCLIError("workflow_api_request_failed", fmt.Errorf("request workflow schema: %w", err))
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
@@ -680,7 +686,7 @@ func getWorkflowSchema(ctx context.Context, client *http.Client, baseURL string,
 	}
 	var schema orchestrator.WorkflowSchema
 	if err := json.NewDecoder(response.Body).Decode(&schema); err != nil {
-		return orchestrator.WorkflowSchema{}, fmt.Errorf("decode workflow schema response: %w", err)
+		return orchestrator.WorkflowSchema{}, newWorkflowCLIError("workflow_api_response_decode_failed", fmt.Errorf("decode workflow schema response: %w", err))
 	}
 	return schema, nil
 }
@@ -689,19 +695,19 @@ func postWorkflowAPI[Response any](ctx context.Context, client *http.Client, bas
 	var body bytes.Buffer
 	if err := json.NewEncoder(&body).Encode(payload); err != nil {
 		var zero Response
-		return zero, fmt.Errorf("encode %s request: %w", operation, err)
+		return zero, newWorkflowCLIError("workflow_api_request_encode_failed", fmt.Errorf("encode %s request: %w", operation, err))
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+path, &body)
 	if err != nil {
 		var zero Response
-		return zero, fmt.Errorf("create %s request: %w", operation, err)
+		return zero, newWorkflowCLIError("workflow_api_request_create_failed", fmt.Errorf("create %s request: %w", operation, err))
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Content-Type", "application/json")
 	response, err := client.Do(request)
 	if err != nil {
 		var zero Response
-		return zero, fmt.Errorf("request %s: %w", operation, err)
+		return zero, newWorkflowCLIError("workflow_api_request_failed", fmt.Errorf("request %s: %w", operation, err))
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
@@ -711,277 +717,42 @@ func postWorkflowAPI[Response any](ctx context.Context, client *http.Client, bas
 	var decoded Response
 	if err := json.NewDecoder(response.Body).Decode(&decoded); err != nil {
 		var zero Response
-		return zero, fmt.Errorf("decode %s response: %w", operation, err)
+		return zero, newWorkflowCLIError("workflow_api_response_decode_failed", fmt.Errorf("decode %s response: %w", operation, err))
 	}
 	return decoded, nil
 }
 
 func workflowAPIStatusError(operation string, response *http.Response) error {
-	payload, _ := io.ReadAll(response.Body)
+	payload, err := io.ReadAll(response.Body)
+	if err != nil {
+		return newWorkflowCLIError("workflow_api_error_body_read_failed", fmt.Errorf("read %s error response body: %w", operation, err))
+	}
 	var apiError httpapi.ErrorResponse
 	if err := json.Unmarshal(payload, &apiError); err == nil && apiError.Error.Code != "" && apiError.Error.Message != "" {
-		return fmt.Errorf("%s status %d: %s: %s", operation, response.StatusCode, apiError.Error.Code, apiError.Error.Message)
+		return workflowHTTPStatusError{
+			operation:  operation,
+			response:   apiError,
+			statusCode: response.StatusCode,
+		}
 	}
-	return fmt.Errorf("%s status %d: %s", operation, response.StatusCode, strings.TrimSpace(string(payload)))
+	body := strings.TrimSpace(string(payload))
+	if body == "" {
+		body = "empty response body"
+	}
+	return newWorkflowCLIError("workflow_api_error_response_invalid", fmt.Errorf("%s status %d returned invalid error response: %s", operation, response.StatusCode, body))
 }
 
 func currentWorkspaceFromSession(session workspacesession.WorkspaceSession) (workspace.WorkspaceSummary, error) {
 	if session.SelectedWorkspaceID == "" {
-		return workspace.WorkspaceSummary{}, errors.New("no current workspace is selected")
+		return workspace.WorkspaceSummary{}, newWorkflowCLIError("no_current_workspace", errors.New("no current workspace is selected"))
 	}
 	for _, activeWorkspace := range session.ActiveWorkspaces {
 		if activeWorkspace.ID == session.SelectedWorkspaceID {
 			if err := validateWorkspaceSummaryResponse(activeWorkspace); err != nil {
-				return workspace.WorkspaceSummary{}, fmt.Errorf("current workspace response is invalid: %w", err)
+				return workspace.WorkspaceSummary{}, newWorkflowCLIError("invalid_current_workspace_response", fmt.Errorf("current workspace response is invalid: %w", err))
 			}
 			return activeWorkspace, nil
 		}
 	}
-	return workspace.WorkspaceSummary{}, fmt.Errorf("current workspace %s is not active", session.SelectedWorkspaceID)
-}
-
-func validateWorkspaceSummaryResponse(summary workspace.WorkspaceSummary) error {
-	if summary.ID == "" {
-		return errors.New("workspace id is required")
-	}
-	if summary.RootPath == "" {
-		return fmt.Errorf("workspace rootPath is required for %s", summary.ID)
-	}
-	if summary.DisplayName == "" {
-		return fmt.Errorf("workspace displayName is required for %s", summary.ID)
-	}
-	if summary.LastOpenedAt == "" {
-		return fmt.Errorf("workspace lastOpenedAt is required for %s", summary.ID)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, summary.LastOpenedAt); err != nil {
-		return fmt.Errorf("workspace lastOpenedAt must be RFC3339 for %s: %w", summary.ID, err)
-	}
-	return nil
-}
-
-func validateWorkflowSchemaResponse(schema orchestrator.WorkflowSchema) error {
-	if schema.SchemaVersion <= 0 {
-		return fmt.Errorf("workflow schema returned invalid schemaVersion %d", schema.SchemaVersion)
-	}
-	if schema.GraphType != "WorkflowGraph" {
-		return fmt.Errorf("workflow schema returned graphType %q, want WorkflowGraph", schema.GraphType)
-	}
-	if len(schema.GraphSchema) == 0 {
-		return errors.New("workflow schema returned empty graphSchema")
-	}
-	if !json.Valid(schema.GraphSchema) {
-		return errors.New("workflow schema returned invalid graphSchema JSON")
-	}
-	if len(schema.Actions) == 0 {
-		return errors.New("workflow schema returned no action schemas")
-	}
-	return nil
-}
-
-func validateWorkflowDefinitionsListResponse(response httpapi.ListWorkflowDefinitionsResponse, workspaceID string) error {
-	if response.Definitions == nil {
-		return errors.New("workflow definitions list returned missing definitions array")
-	}
-	for _, definition := range response.Definitions {
-		if err := validateWorkflowDefinitionResponse(definition, workspaceID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateWorkflowDefinitionResponse(definition orchestrator.WorkflowDefinition, workspaceID string) error {
-	if err := validateWorkflowDefinitionIdentity(definition, workspaceID); err != nil {
-		return err
-	}
-	if err := validateWorkflowDefinitionTimestamps(definition); err != nil {
-		return err
-	}
-	return validateWorkflowDefinitionGraphArrays(definition)
-}
-
-func validateWorkflowDefinitionIdentity(definition orchestrator.WorkflowDefinition, workspaceID string) error {
-	if definition.ID == "" {
-		return errors.New("workflow definition id is required")
-	}
-	if definition.SchemaVersion != orchestrator.SchemaVersion {
-		return fmt.Errorf("workflow definition %s returned invalid schemaVersion %d", definition.ID, definition.SchemaVersion)
-	}
-	if definition.WorkspaceID != workspaceID {
-		return fmt.Errorf("workflow definition %s returned workspaceId %s, want %s", definition.ID, definition.WorkspaceID, workspaceID)
-	}
-	if definition.Name == "" {
-		return fmt.Errorf("workflow definition %s name is required", definition.ID)
-	}
-	return nil
-}
-
-func validateWorkflowDefinitionTimestamps(definition orchestrator.WorkflowDefinition) error {
-	if definition.CreatedAt == "" {
-		return fmt.Errorf("workflow definition %s createdAt is required", definition.ID)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, definition.CreatedAt); err != nil {
-		return fmt.Errorf("workflow definition %s createdAt must be RFC3339: %w", definition.ID, err)
-	}
-	if definition.UpdatedAt == "" {
-		return fmt.Errorf("workflow definition %s updatedAt is required", definition.ID)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, definition.UpdatedAt); err != nil {
-		return fmt.Errorf("workflow definition %s updatedAt must be RFC3339: %w", definition.ID, err)
-	}
-	return nil
-}
-
-func validateWorkflowDefinitionGraphArrays(definition orchestrator.WorkflowDefinition) error {
-	if definition.Graph.Nodes == nil {
-		return fmt.Errorf("workflow definition %s graph nodes array is required", definition.ID)
-	}
-	if definition.Graph.Edges == nil {
-		return fmt.Errorf("workflow definition %s graph edges array is required", definition.ID)
-	}
-	if definition.Graph.Layout.Nodes == nil {
-		return fmt.Errorf("workflow definition %s graph layout nodes array is required", definition.ID)
-	}
-	return nil
-}
-
-func validateWorkflowDefinitionSaveResultResponse(result orchestrator.WorkflowDefinitionSaveResult, operation orchestrator.WorkflowDefinitionSaveOperation, workspaceID string) error {
-	if result.Operation != operation {
-		return fmt.Errorf("workflow definition save result operation %q, want %q", result.Operation, operation)
-	}
-	if err := validateWorkflowValidationResultResponse(result.Validation); err != nil {
-		return fmt.Errorf("workflow definition save validation is invalid: %w", err)
-	}
-	if result.Saved {
-		return validateSavedWorkflowDefinitionResult(result, workspaceID)
-	}
-	return validateUnsavedWorkflowDefinitionResult(result)
-}
-
-func validateSavedWorkflowDefinitionResult(result orchestrator.WorkflowDefinitionSaveResult, workspaceID string) error {
-	if !result.Validation.Valid {
-		return errors.New("workflow definition save returned saved true with invalid validation")
-	}
-	if result.Definition == nil {
-		return errors.New("workflow definition save returned saved true without a definition")
-	}
-	return validateWorkflowDefinitionResponse(*result.Definition, workspaceID)
-}
-
-func validateUnsavedWorkflowDefinitionResult(result orchestrator.WorkflowDefinitionSaveResult) error {
-	if result.Validation.Valid {
-		return errors.New("workflow definition save returned saved false with valid validation")
-	}
-	if result.Definition != nil {
-		return errors.New("workflow definition save returned saved false with a definition")
-	}
-	return nil
-}
-
-func validateWorkflowExecutionResponse(execution orchestrator.WorkflowExecution, workspaceID string) error {
-	if execution.ID == "" {
-		return errors.New("workflow execution id is required")
-	}
-	if execution.SchemaVersion != orchestrator.SchemaVersion {
-		return fmt.Errorf("workflow execution %s returned invalid schemaVersion %d", execution.ID, execution.SchemaVersion)
-	}
-	if execution.WorkspaceID != workspaceID {
-		return fmt.Errorf("workflow execution %s returned workspaceId %s, want %s", execution.ID, execution.WorkspaceID, workspaceID)
-	}
-	if execution.DefinitionID == "" {
-		return fmt.Errorf("workflow execution %s definitionId is required", execution.ID)
-	}
-	if execution.DefinitionVersionID == "" {
-		return fmt.Errorf("workflow execution %s definitionVersionId is required", execution.ID)
-	}
-	if err := validateWorkflowExecutionStatus(execution); err != nil {
-		return err
-	}
-	if err := validateWorkflowExecutionTimestamps(execution); err != nil {
-		return err
-	}
-	return validateWorkflowExecutionArrays(execution)
-}
-
-func validateWorkflowExecutionStatus(execution orchestrator.WorkflowExecution) error {
-	switch execution.Status {
-	case orchestrator.ExecutionStatusIdle,
-		orchestrator.ExecutionStatusRunning,
-		orchestrator.ExecutionStatusCompleted,
-		orchestrator.ExecutionStatusFailed,
-		orchestrator.ExecutionStatusStopped,
-		orchestrator.ExecutionStatusCancelled:
-		return nil
-	default:
-		return fmt.Errorf("workflow execution %s returned unsupported status %q", execution.ID, execution.Status)
-	}
-}
-
-func validateWorkflowExecutionTimestamps(execution orchestrator.WorkflowExecution) error {
-	if execution.CreatedAt == "" {
-		return fmt.Errorf("workflow execution %s createdAt is required", execution.ID)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, execution.CreatedAt); err != nil {
-		return fmt.Errorf("workflow execution %s createdAt must be RFC3339: %w", execution.ID, err)
-	}
-	if execution.StartedAt == "" {
-		return fmt.Errorf("workflow execution %s startedAt is required", execution.ID)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, execution.StartedAt); err != nil {
-		return fmt.Errorf("workflow execution %s startedAt must be RFC3339: %w", execution.ID, err)
-	}
-	if execution.UpdatedAt == "" {
-		return fmt.Errorf("workflow execution %s updatedAt is required", execution.ID)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, execution.UpdatedAt); err != nil {
-		return fmt.Errorf("workflow execution %s updatedAt must be RFC3339: %w", execution.ID, err)
-	}
-	if execution.CompletedAt != "" {
-		if _, err := time.Parse(time.RFC3339Nano, execution.CompletedAt); err != nil {
-			return fmt.Errorf("workflow execution %s completedAt must be RFC3339: %w", execution.ID, err)
-		}
-	}
-	return nil
-}
-
-func validateWorkflowExecutionArrays(execution orchestrator.WorkflowExecution) error {
-	if execution.NodeExecutions == nil {
-		return fmt.Errorf("workflow execution %s nodeExecutions array is required", execution.ID)
-	}
-	if execution.Tokens == nil {
-		return fmt.Errorf("workflow execution %s tokens array is required", execution.ID)
-	}
-	if execution.LoopIterations == nil {
-		return fmt.Errorf("workflow execution %s loopIterations array is required", execution.ID)
-	}
-	if execution.ActiveNodeExecutionIDs == nil {
-		return fmt.Errorf("workflow execution %s activeNodeExecutionIds array is required", execution.ID)
-	}
-	return nil
-}
-
-func validateWorkflowValidationResultResponse(result orchestrator.WorkflowValidationResult) error {
-	if result.Diagnostics == nil {
-		return errors.New("workflow validation result returned missing diagnostics array")
-	}
-	hasErrorDiagnostic := false
-	for index, diagnostic := range result.Diagnostics {
-		switch diagnostic.Severity {
-		case orchestrator.ValidationSeverityError:
-			hasErrorDiagnostic = true
-		case orchestrator.ValidationSeverityWarning:
-		default:
-			return fmt.Errorf("workflow validation diagnostic %d returned unsupported severity %q", index, diagnostic.Severity)
-		}
-		if diagnostic.Code == "" {
-			return fmt.Errorf("workflow validation diagnostic %d code is required", index)
-		}
-		if diagnostic.Message == "" {
-			return fmt.Errorf("workflow validation diagnostic %d message is required", index)
-		}
-	}
-	if !result.Valid && !hasErrorDiagnostic {
-		return errors.New("workflow validation result is invalid without an error diagnostic")
-	}
-	return nil
+	return workspace.WorkspaceSummary{}, newWorkflowCLIError("current_workspace_not_active", fmt.Errorf("current workspace %s is not active", session.SelectedWorkspaceID))
 }

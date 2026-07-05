@@ -383,6 +383,34 @@ Progress on 2026-07-07:
   error output, then broaden workflow-authoring Electron coverage as the in-app
   path moves to this CLI/API surface.
 
+Progress on 2026-07-07:
+
+- Added machine-readable JSON error envelopes for the `setta workflow` command
+  group. Workflow command failures now write the shared backend
+  `ErrorResponse` shape to stderr with stable error codes and messages while
+  keeping usage failures on exit code 2.
+- Backend workflow API failures are preserved as typed error responses instead
+  of being flattened into prose, including backend-owned error codes and
+  structured fields such as active execution summaries when present.
+- Added explicit local workflow CLI error codes for missing or unreachable
+  local runtimes, CLI auth session creation failures, missing selected
+  workspaces, invalid current workspace responses, workflow graph file read or
+  decode failures, save input read or decode failures, and malformed backend
+  error responses.
+- Added focused CLI coverage that decodes stderr as JSON for local workflow
+  failures, backend workflow failures, and workflow usage errors through real
+  CLI dispatch and runtime/backend paths where applicable.
+- Verification: `./scripts/go.sh test ./cmd/setta`,
+  `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`,
+  and `node desktop/tests/electron/run-workflows.mjs --workflow
+  workflow-graph-smoke` passed. The final pre-commit gates
+  `./scripts/format.sh` and `./check_quality.sh --git-changes` also passed
+  after splitting workflow CLI error and response-validation helpers out of the
+  command file to keep the changed files within repository size limits.
+- Remaining Phase 2 work: add full mutation audit records, then broaden
+  workflow-authoring Electron coverage as the in-app path moves to this
+  CLI/API surface.
+
 ### Phase 3: Add The Workflow-Builder Skill
 
 Add the workflow-builder skill with instructions for the schema, draft,
