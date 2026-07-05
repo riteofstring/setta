@@ -22,16 +22,17 @@ import (
 )
 
 const (
-	workspaceCurrentCLIAuthDisplayName     = "Setta CLI workspace current"
-	workspacePanesCloseCLIAuthDisplayName  = "Setta CLI workspace panes close"
-	workspacePanesFocusCLIAuthDisplayName  = "Setta CLI workspace panes focus"
-	workspacePanesListCLIAuthDisplayName   = "Setta CLI workspace panes list"
-	workspacePanesMoveCLIAuthDisplayName   = "Setta CLI workspace panes move"
-	workspacePanesOpenCLIAuthDisplayName   = "Setta CLI workspace panes open"
-	workspacePanesReadCLIAuthDisplayName   = "Setta CLI workspace panes read"
-	workspacePanesRenameCLIAuthDisplayName = "Setta CLI workspace panes rename"
-	workspacePanesResizeCLIAuthDisplayName = "Setta CLI workspace panes resize"
-	workspaceSchemaCLIAuthDisplayName      = "Setta CLI workspace schema"
+	workspaceCurrentCLIAuthDisplayName      = "Setta CLI workspace current"
+	workspacePanesCloseCLIAuthDisplayName   = "Setta CLI workspace panes close"
+	workspacePanesFocusCLIAuthDisplayName   = "Setta CLI workspace panes focus"
+	workspacePanesListCLIAuthDisplayName    = "Setta CLI workspace panes list"
+	workspacePanesMoveCLIAuthDisplayName    = "Setta CLI workspace panes move"
+	workspacePanesOpenCLIAuthDisplayName    = "Setta CLI workspace panes open"
+	workspacePanesReadCLIAuthDisplayName    = "Setta CLI workspace panes read"
+	workspacePanesReorderCLIAuthDisplayName = "Setta CLI workspace panes reorder"
+	workspacePanesRenameCLIAuthDisplayName  = "Setta CLI workspace panes rename"
+	workspacePanesResizeCLIAuthDisplayName  = "Setta CLI workspace panes resize"
+	workspaceSchemaCLIAuthDisplayName       = "Setta CLI workspace schema"
 )
 
 type workspaceOptions struct {
@@ -123,7 +124,7 @@ func runWorkspaceSchema(args []string, deps cliDeps) error {
 
 func runWorkspacePanes(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workspace panes requires a subcommand: close, focus, list, move, open, read, rename, or resize")}
+		return usageError{err: errors.New("setta workspace panes requires a subcommand: close, focus, list, move, open, read, rename, reorder, or resize")}
 	}
 	switch args[0] {
 	case "close":
@@ -138,6 +139,8 @@ func runWorkspacePanes(args []string, deps cliDeps) error {
 		return runWorkspacePanesOpen(args[1:], deps)
 	case "read":
 		return runWorkspacePanesRead(args[1:], deps)
+	case "reorder":
+		return runWorkspacePanesReorder(args[1:], deps)
 	case "rename":
 		return runWorkspacePanesRename(args[1:], deps)
 	case "resize":

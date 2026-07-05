@@ -235,8 +235,116 @@ func validateWorkspacePaneRenameOperationOutcome(response workspaceui.WorkspaceU
 }
 
 func validateWorkspacePaneReorderOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
-	if response.OperationResult.Reorder == nil {
+	outcome := response.OperationResult.Reorder
+	if operation.Reorder == nil {
+		return errors.New("workspace pane reorder operation payload is required for response validation")
+	}
+	if outcome == nil {
 		return errors.New("workspace pane operation outcome reorder details are required")
+	}
+	if outcome.IntentKind != operation.Reorder.Intent.Kind {
+		return fmt.Errorf("workspace pane operation reorder intentKind = %s, want %s", outcome.IntentKind, operation.Reorder.Intent.Kind)
+	}
+	if err := validateWorkspaceReorderOutcomeLocation(response.Layout, *outcome, operation.PaneID); err != nil {
+		return err
+	}
+	return validateWorkspaceReorderOutcomeIntent(response.Layout, *outcome, operation.Reorder.Intent)
+}
+
+func validateWorkspaceReorderOutcomeLocation(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneReorderOutcome, paneID string) error {
+	column, err := validateWorkspaceReorderOutcomeColumn(layout, outcome)
+	if err != nil {
+		return err
+	}
+	if err := validateWorkspaceReorderOutcomePane(column, outcome, paneID); err != nil {
+		return err
+	}
+	return validateWorkspaceReorderOutcomeColumns(layout, outcome)
+}
+
+func validateWorkspaceReorderOutcomeColumn(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneReorderOutcome) (workspaceui.WorkspaceUIColumn, error) {
+	if outcome.ColumnID == "" {
+		return workspaceui.WorkspaceUIColumn{}, errors.New("workspace pane operation reorder columnId is required")
+	}
+	if outcome.ColumnIndex < 0 || outcome.ColumnIndex >= len(layout.Columns) {
+		return workspaceui.WorkspaceUIColumn{}, fmt.Errorf("workspace pane operation reorder columnIndex is invalid: %d", outcome.ColumnIndex)
+	}
+	column := layout.Columns[outcome.ColumnIndex]
+	if column.ColumnID != outcome.ColumnID {
+		return workspaceui.WorkspaceUIColumn{}, fmt.Errorf("workspace pane operation reorder layout columnId = %s, want %s", column.ColumnID, outcome.ColumnID)
+	}
+	if column.PlaneIndex != outcome.PlaneIndex {
+		return workspaceui.WorkspaceUIColumn{}, fmt.Errorf("workspace pane operation reorder layout planeIndex = %d, want %d", column.PlaneIndex, outcome.PlaneIndex)
+	}
+	return column, nil
+}
+
+func validateWorkspaceReorderOutcomePane(column workspaceui.WorkspaceUIColumn, outcome workspaceui.WorkspaceUIPaneReorderOutcome, paneID string) error {
+	if outcome.PaneIndex < 0 || outcome.PaneIndex >= len(column.PaneIDs) {
+		return fmt.Errorf("workspace pane operation reorder paneIndex is invalid: %d", outcome.PaneIndex)
+	}
+	if column.PaneIDs[outcome.PaneIndex] != paneID {
+		return fmt.Errorf("workspace pane operation reorder layout paneId at outcome location = %s, want %s", column.PaneIDs[outcome.PaneIndex], paneID)
+	}
+	return nil
+}
+
+func validateWorkspaceReorderOutcomeColumns(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneReorderOutcome) error {
+	if outcome.CreatedColumnID != "" && !workspaceUILayoutHasColumn(layout, outcome.CreatedColumnID) {
+		return fmt.Errorf("workspace pane operation reorder createdColumnId %s is not present in the returned layout", outcome.CreatedColumnID)
+	}
+	if outcome.DestinationColumnID != "" && !workspaceUILayoutHasColumn(layout, outcome.DestinationColumnID) {
+		return fmt.Errorf("workspace pane operation reorder destinationColumnId %s is not present in the returned layout", outcome.DestinationColumnID)
+	}
+	return nil
+}
+
+func validateWorkspaceReorderOutcomeIntent(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneReorderOutcome, intent workspaceui.WorkspaceUIPaneReorderIntent) error {
+	switch intent.Kind {
+	case workspaceui.WorkspaceUIPaneReorderIntentKindRow:
+		if outcome.TargetPaneID != intent.TargetPaneID {
+			return fmt.Errorf("workspace pane operation reorder targetPaneId = %s, want %s", outcome.TargetPaneID, intent.TargetPaneID)
+		}
+		return validateWorkspaceReorderTargetPane(layout, outcome.TargetPaneID)
+	case workspaceui.WorkspaceUIPaneReorderIntentKindSwap:
+		if outcome.TargetPaneID != intent.TargetPaneID {
+			return fmt.Errorf("workspace pane operation reorder targetPaneId = %s, want %s", outcome.TargetPaneID, intent.TargetPaneID)
+		}
+		return validateWorkspaceReorderTargetPane(layout, outcome.TargetPaneID)
+	case workspaceui.WorkspaceUIPaneReorderIntentKindColumn:
+		if outcome.TargetColumnID != intent.TargetColumnID {
+			return fmt.Errorf("workspace pane operation reorder targetColumnId = %s, want %s", outcome.TargetColumnID, intent.TargetColumnID)
+		}
+		return validateWorkspaceReorderTargetColumn(layout, outcome.TargetColumnID)
+	case workspaceui.WorkspaceUIPaneReorderIntentKindPlaneSlot:
+		if outcome.TargetColumnID != intent.ReferenceColumnID {
+			return fmt.Errorf("workspace pane operation reorder targetColumnId = %s, want referenceColumnId %s", outcome.TargetColumnID, intent.ReferenceColumnID)
+		}
+		if outcome.TargetColumnID == "" {
+			return errors.New("workspace pane operation reorder targetColumnId is required")
+		}
+		return nil
+	default:
+		return fmt.Errorf("workspace pane operation reorder intent kind is unsupported: %s", intent.Kind)
+	}
+}
+
+func validateWorkspaceReorderTargetPane(layout workspaceui.WorkspaceUILayout, paneID string) error {
+	if paneID == "" {
+		return errors.New("workspace pane operation reorder targetPaneId is required")
+	}
+	if !workspaceUILayoutHasPane(layout, paneID) {
+		return fmt.Errorf("workspace pane operation reorder targetPaneId %s is not present in the returned layout", paneID)
+	}
+	return nil
+}
+
+func validateWorkspaceReorderTargetColumn(layout workspaceui.WorkspaceUILayout, columnID string) error {
+	if columnID == "" {
+		return errors.New("workspace pane operation reorder targetColumnId is required")
+	}
+	if !workspaceUILayoutHasColumn(layout, columnID) {
+		return fmt.Errorf("workspace pane operation reorder targetColumnId %s is not present in the returned layout", columnID)
 	}
 	return nil
 }
@@ -510,6 +618,11 @@ func workspaceUILayoutColumnByID(layout workspaceui.WorkspaceUILayout, columnID 
 		}
 	}
 	return workspaceui.WorkspaceUIColumn{}, false
+}
+
+func workspaceUILayoutHasColumn(layout workspaceui.WorkspaceUILayout, columnID string) bool {
+	_, ok := workspaceUILayoutColumnByID(layout, columnID)
+	return ok
 }
 
 func validateWorkspaceColumnWidthSpec(widthSpec workspaceui.ColumnWidthSpec) error {
