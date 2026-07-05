@@ -30,7 +30,6 @@ import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { registerChatIpcHandlers } from "./chat-ipc";
-import { createElectronRuntimeSecretStore } from "./electron-runtime-secret-store";
 import { KnownRuntimeStore } from "./known-runtime-store";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
@@ -115,10 +114,7 @@ function createRuntimeRegistry() {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
-    store: new KnownRuntimeStore(
-      app.getPath("userData"),
-      createElectronRuntimeSecretStore(app.getPath("userData")),
-    ),
+    store: new KnownRuntimeStore(app.getPath("userData")),
   });
 }
 

@@ -38,7 +38,6 @@ import type {
   CreateSemanticSteeringDirectiveRequest,
   CloseTerminalRequest,
   CloseTerminalResponse,
-  CreateDevicePairingResponse,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
@@ -164,7 +163,6 @@ export const ipcChannels = {
   appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
-  runtimeCreateDevicePairing: "runtimes:create-device-pairing",
   runtimeCurrent: "runtimes:current",
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
@@ -367,8 +365,10 @@ interface IpcContract {
     args: [pairingUrl: string];
     result: RuntimeRegistrySnapshot;
   };
-  runtimeCreateDevicePairing: { args: []; result: CreateDevicePairingResponse };
-  runtimeCurrent: { args: []; result: RuntimeRegistrySnapshot };
+  runtimeCurrent: {
+    args: [];
+    result: RuntimeRegistrySnapshot;
+  };
   runtimeList: {
     args: [];
     result: KnownRuntimeView[];

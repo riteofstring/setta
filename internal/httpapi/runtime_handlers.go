@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"net/url"
 	"strings"
 
 	"setta/internal/runtimeidentity"
@@ -78,7 +77,6 @@ func (handler handler) runtimeInfoResponse(identity RuntimeIdentity) RuntimeInfo
 		BackendName:            handler.metadata.Name,
 		BackendVersion:         handler.metadata.Version,
 		ProtocolVersion:        ProtocolVersion,
-		FeatureSet:             RuntimeFeatureSetIdentity(),
 		VAPIDPublicKey:         handler.notifyPublicKey(),
 	}
 }
@@ -125,33 +123,6 @@ func (handler handler) completePairing(response http.ResponseWriter, request *ht
 		DeviceToken:     deviceToken,
 		RuntimeID:       identity.ID,
 		ProtocolVersion: ProtocolVersion,
-	})
-}
-
-func (handler handler) createDevicePairing(response http.ResponseWriter, request *http.Request) {
-	service := requireRuntimeAuthService(response, handler.runtimeAuthService)
-	if service == nil {
-		return
-	}
-	var payload CreateDevicePairingRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	runtimeBaseURL, err := validatedPhonePairingBaseURL(payload.RuntimeBaseURL)
-	if err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_pairing_base_url", err.Error())
-		return
-	}
-	pairing, token, err := service.CreatePairingToken(request.Context())
-	if err != nil {
-		writeError(response, http.StatusInternalServerError, "create_pairing_token_failed", err.Error())
-		return
-	}
-	pairingURL := runtimeBaseURL
-	pairingURL.Fragment = url.Values{"pair": []string{token}}.Encode()
-	writeJSON(response, http.StatusOK, CreateDevicePairingResponse{
-		PairingURL: pairingURL.String(),
-		ExpiresAt:  pairing.ExpiresAt,
 	})
 }
 
@@ -220,46 +191,4 @@ func requireRuntimeIdentityService(response http.ResponseWriter, service Runtime
 
 func validRuntimeIdentity(identity RuntimeIdentity) bool {
 	return strings.TrimSpace(identity.ID) != "" && strings.TrimSpace(identity.DisplayName) != ""
-}
-
-func validatedPhonePairingBaseURL(rawBaseURL string) (url.URL, error) {
-	trimmed := strings.TrimSpace(rawBaseURL)
-	if trimmed == "" {
-		return url.URL{}, errPhonePairingBaseURL("runtimeBaseUrl is required")
-	}
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return url.URL{}, errPhonePairingBaseURL("runtimeBaseUrl is invalid: " + err.Error())
-	}
-	if parsed.Scheme != "https" {
-		return url.URL{}, errPhonePairingBaseURL("runtimeBaseUrl must use https")
-	}
-	if parsed.Host == "" {
-		return url.URL{}, errPhonePairingBaseURL("runtimeBaseUrl must include a host")
-	}
-	if parsed.User != nil {
-		return url.URL{}, errPhonePairingBaseURL("runtimeBaseUrl must not include credentials")
-	}
-	if parsed.Path != "" && parsed.Path != "/" {
-		return url.URL{}, errPhonePairingBaseURL("runtimeBaseUrl must not include a path")
-	}
-	if parsed.RawQuery != "" || parsed.Fragment != "" {
-		return url.URL{}, errPhonePairingBaseURL("runtimeBaseUrl must not include query or fragment")
-	}
-	hostName := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
-	if !strings.HasSuffix(hostName, ".ts.net") {
-		return url.URL{}, errPhonePairingBaseURL("runtimeBaseUrl must be an official Tailscale ts.net hostname")
-	}
-	parsed.Path = "/"
-	return *parsed, nil
-}
-
-func errPhonePairingBaseURL(message string) error {
-	return phonePairingBaseURLError(message)
-}
-
-type phonePairingBaseURLError string
-
-func (err phonePairingBaseURLError) Error() string {
-	return string(err)
 }

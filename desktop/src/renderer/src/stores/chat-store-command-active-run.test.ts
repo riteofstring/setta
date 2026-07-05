@@ -23,18 +23,28 @@ test("execute command keeps returned active run when blocks arrive before respon
   const conversation = testConversation();
   const activeRun = testRun("running", "run_goal");
   const activeRunLiveness: RunLiveness = {
+    activeStatus: {
+      detail: "",
+      headline: "Working",
+      headlineSource: "fallback",
+      kind: "working",
+    },
     cancellable: true,
     conversationId: conversation.id,
     error: "",
     harness: "codex",
     lastProviderEventAt: "2026-05-29T20:00:01Z",
+    lastVisibleActivityAt: "2026-05-29T20:00:01Z",
     lastReconciledAt: "",
+    phase: "attached",
     providerThreadId: "thread_fake",
     providerTurnId: "turn_goal",
     reason: "provider_turn_linked",
     retryable: false,
     runId: activeRun.id,
     status: "attached",
+    steerable: true,
+    steeringDisabledReason: "",
     workspaceId: conversation.workspaceId,
   };
   const blocks = runBlocks(activeRun.id, { assistantText: "working" });

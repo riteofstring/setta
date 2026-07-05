@@ -5,7 +5,7 @@ console.log(
     event: "ready",
     addr: "127.0.0.1:41000",
     bootstrapToken: "ready_with_logs_token",
-    protocolVersion: 8,
+    protocolVersion: 7,
   }),
 );
 setInterval(() => {}, 1000);

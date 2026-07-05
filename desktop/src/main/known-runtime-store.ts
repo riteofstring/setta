@@ -1,8 +1,6 @@
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import type { RuntimeSecretStore } from "./runtime-secret-store";
-
 export interface KnownRuntimeRecord {
   runtimeId: string;
   displayName: string;
@@ -21,27 +19,22 @@ interface StoredKnownRuntime {
   runtime_id: string;
   display_name: string;
   base_url: string;
-  device_token_ref: string;
+  device_token: string;
   is_local: boolean;
   last_connected: string | null;
 }
 
 interface StoredKnownRuntimeRegistry {
-  schema_version: 2;
+  schema_version: 1;
   active_runtime_id: string | null;
   runtimes: StoredKnownRuntime[];
 }
 
 const registryFileName = "known-runtimes.json";
-const registrySchemaVersion = 2;
-const legacyRegistrySchemaVersion = 1;
-const runtimeDeviceTokenSecretRefPrefix = "runtime-device-token:v1:";
+const registrySchemaVersion = 1;
 
 export class KnownRuntimeStore {
-  constructor(
-    private readonly userDataDir: string,
-    private readonly secretStore: RuntimeSecretStore,
-  ) {}
+  constructor(private readonly userDataDir: string) {}
 
   path(): string {
     return knownRuntimeStoragePath(this.userDataDir);
@@ -57,19 +50,10 @@ export class KnownRuntimeStore {
       }
       throw error;
     }
-    const decoded = await this.decodeKnownRuntimeRegistry(JSON.parse(raw));
-    if (decoded.migrated) {
-      await this.write(decoded.registry);
-    }
-    return decoded.registry;
+    return decodeKnownRuntimeRegistry(JSON.parse(raw));
   }
 
   async write(registry: KnownRuntimeRegistry): Promise<void> {
-    const previousRefs = await this.readStoredDeviceTokenRefs();
-    const currentRefs = new Set(registry.runtimes.map((runtime) => deviceTokenSecretRef(runtime)));
-    for (const runtime of registry.runtimes) {
-      await this.secretStore.setSecret(deviceTokenSecretRef(runtime), runtime.deviceToken);
-    }
     const path = this.path();
     await mkdir(dirname(path), { recursive: true });
     const tmpPath = `${path}.${process.pid}.${Date.now()}.tmp`;
@@ -78,114 +62,6 @@ export class KnownRuntimeStore {
     });
     await chmod(tmpPath, 0o600);
     await rename(tmpPath, path);
-    for (const ref of previousRefs) {
-      if (!currentRefs.has(ref)) {
-        await this.secretStore.deleteSecret(ref);
-      }
-    }
-  }
-
-  private async decodeKnownRuntimeRegistry(
-    value: unknown,
-  ): Promise<{ migrated: boolean; registry: KnownRuntimeRegistry }> {
-    const record = assertRecord(value, "KnownRuntimeRegistry");
-    const schemaVersion = record.schema_version;
-    if (schemaVersion === legacyRegistrySchemaVersion) {
-      const registry = await this.decodeLegacyKnownRuntimeRegistry(record);
-      return { migrated: true, registry };
-    }
-    if (schemaVersion !== registrySchemaVersion) {
-      throw new Error(
-        `KnownRuntimeRegistry.schema_version is unsupported: ${String(schemaVersion)}`,
-      );
-    }
-    const registry = await this.decodeCurrentKnownRuntimeRegistry(record);
-    return { migrated: false, registry };
-  }
-
-  private async decodeLegacyKnownRuntimeRegistry(
-    record: Record<string, unknown>,
-  ): Promise<KnownRuntimeRegistry> {
-    const activeRuntimeId = nullableStringField(
-      record,
-      "active_runtime_id",
-      "KnownRuntimeRegistry",
-    );
-    const rawRuntimes = runtimeArrayField(record);
-    const runtimes: KnownRuntimeRecord[] = [];
-    for (const [index, runtime] of rawRuntimes.entries()) {
-      const decoded = decodeLegacyKnownRuntime(runtime, `KnownRuntimeRegistry.runtimes[${index}]`);
-      await this.secretStore.setSecret(deviceTokenSecretRef(decoded), decoded.deviceToken);
-      runtimes.push(decoded);
-    }
-    validateActiveRuntimeId(activeRuntimeId, runtimes);
-    return { activeRuntimeId, runtimes };
-  }
-
-  private async decodeCurrentKnownRuntimeRegistry(
-    record: Record<string, unknown>,
-  ): Promise<KnownRuntimeRegistry> {
-    const activeRuntimeId = nullableStringField(
-      record,
-      "active_runtime_id",
-      "KnownRuntimeRegistry",
-    );
-    const rawRuntimes = runtimeArrayField(record);
-    const runtimes: KnownRuntimeRecord[] = [];
-    for (const [index, runtime] of rawRuntimes.entries()) {
-      runtimes.push(
-        await this.decodeKnownRuntime(runtime, `KnownRuntimeRegistry.runtimes[${index}]`),
-      );
-    }
-    validateActiveRuntimeId(activeRuntimeId, runtimes);
-    return { activeRuntimeId, runtimes };
-  }
-
-  private async decodeKnownRuntime(value: unknown, label: string): Promise<KnownRuntimeRecord> {
-    const record = assertRecord(value, label);
-    const runtimeId = stringField(record, "runtime_id", label);
-    const ref = stringField(record, "device_token_ref", label);
-    const expectedRef = deviceTokenSecretRef({ runtimeId });
-    if (ref !== expectedRef) {
-      throw new Error(`${label}.device_token_ref does not match runtime_id`);
-    }
-    const deviceToken = await this.secretStore.getSecret(ref);
-    if (deviceToken === null) {
-      throw new Error(`${label}.device_token_ref references a missing runtime device token`);
-    }
-    return {
-      baseUrl: stringField(record, "base_url", label),
-      deviceToken,
-      displayName: stringField(record, "display_name", label),
-      isLocal: booleanField(record, "is_local", label),
-      lastConnected: nullableStringField(record, "last_connected", label),
-      runtimeId,
-    };
-  }
-
-  private async readStoredDeviceTokenRefs(): Promise<Set<string>> {
-    let raw: string;
-    try {
-      raw = await readFile(this.path(), "utf8");
-    } catch (error) {
-      if (isENOENT(error)) {
-        return new Set();
-      }
-      throw error;
-    }
-    const record = assertRecord(JSON.parse(raw), "KnownRuntimeRegistry");
-    if (record.schema_version !== registrySchemaVersion) {
-      return new Set();
-    }
-    return new Set(
-      runtimeArrayField(record).map((runtime, index) =>
-        stringField(
-          assertRecord(runtime, `KnownRuntimeRegistry.runtimes[${index}]`),
-          "device_token_ref",
-          `KnownRuntimeRegistry.runtimes[${index}]`,
-        ),
-      ),
-    );
   }
 }
 
@@ -245,7 +121,7 @@ function encodeKnownRuntimeRegistry(registry: KnownRuntimeRegistry): StoredKnown
     active_runtime_id: registry.activeRuntimeId,
     runtimes: registry.runtimes.map((runtime) => ({
       base_url: runtime.baseUrl,
-      device_token_ref: deviceTokenSecretRef(runtime),
+      device_token: runtime.deviceToken,
       display_name: runtime.displayName,
       is_local: runtime.isLocal,
       last_connected: runtime.lastConnected,
@@ -255,7 +131,30 @@ function encodeKnownRuntimeRegistry(registry: KnownRuntimeRegistry): StoredKnown
   };
 }
 
-function decodeLegacyKnownRuntime(value: unknown, label: string): KnownRuntimeRecord {
+function decodeKnownRuntimeRegistry(value: unknown): KnownRuntimeRegistry {
+  const record = assertRecord(value, "KnownRuntimeRegistry");
+  const schemaVersion = record.schema_version;
+  if (schemaVersion !== registrySchemaVersion) {
+    throw new Error(`KnownRuntimeRegistry.schema_version is unsupported: ${String(schemaVersion)}`);
+  }
+  const activeRuntimeId = nullableStringField(record, "active_runtime_id", "KnownRuntimeRegistry");
+  const rawRuntimes = record.runtimes;
+  if (!Array.isArray(rawRuntimes)) {
+    throw new Error("KnownRuntimeRegistry.runtimes must be an array");
+  }
+  const runtimes = rawRuntimes.map((runtime, index) =>
+    decodeKnownRuntime(runtime, `KnownRuntimeRegistry.runtimes[${index}]`),
+  );
+  if (
+    activeRuntimeId !== null &&
+    !runtimes.some((runtime) => runtime.runtimeId === activeRuntimeId)
+  ) {
+    throw new Error("KnownRuntimeRegistry.active_runtime_id does not match a known runtime");
+  }
+  return { activeRuntimeId, runtimes };
+}
+
+function decodeKnownRuntime(value: unknown, label: string): KnownRuntimeRecord {
   const record = assertRecord(value, label);
   return {
     baseUrl: stringField(record, "base_url", label),
@@ -265,30 +164,6 @@ function decodeLegacyKnownRuntime(value: unknown, label: string): KnownRuntimeRe
     lastConnected: nullableStringField(record, "last_connected", label),
     runtimeId: stringField(record, "runtime_id", label),
   };
-}
-
-function runtimeArrayField(record: Record<string, unknown>): unknown[] {
-  const rawRuntimes = record.runtimes;
-  if (!Array.isArray(rawRuntimes)) {
-    throw new Error("KnownRuntimeRegistry.runtimes must be an array");
-  }
-  return rawRuntimes;
-}
-
-function validateActiveRuntimeId(
-  activeRuntimeId: string | null,
-  runtimes: KnownRuntimeRecord[],
-): void {
-  if (
-    activeRuntimeId !== null &&
-    !runtimes.some((runtime) => runtime.runtimeId === activeRuntimeId)
-  ) {
-    throw new Error("KnownRuntimeRegistry.active_runtime_id does not match a known runtime");
-  }
-}
-
-function deviceTokenSecretRef(runtime: Pick<KnownRuntimeRecord, "runtimeId">): string {
-  return `${runtimeDeviceTokenSecretRefPrefix}${runtime.runtimeId}`;
 }
 
 function assertRecord(value: unknown, label: string): Record<string, unknown> {
