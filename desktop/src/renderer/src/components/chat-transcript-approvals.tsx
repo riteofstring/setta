@@ -18,7 +18,7 @@ export function ApprovalCard({
   submitApproval,
 }: {
   approval: ApprovalRequest;
-  submitApproval?: SubmitApproval;
+  submitApproval: SubmitApproval;
 }) {
   return (
     <section
@@ -41,9 +41,7 @@ export function ApprovalCard({
         </pre>
       ) : null}
       {approval.question ? <div className="mt-2">{approval.question}</div> : null}
-      {submitApproval ? (
-        <ApprovalControls approval={approval} submitApproval={submitApproval} />
-      ) : null}
+      <ApprovalControls approval={approval} submitApproval={submitApproval} />
     </section>
   );
 }

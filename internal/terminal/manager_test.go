@@ -152,18 +152,15 @@ func assertResize(t *testing.T, manager *Manager, handle *recordingPTYHandle, se
 
 func assertClose(t *testing.T, manager *Manager, handle *recordingPTYHandle, sessionID string) {
 	t.Helper()
-	closed, err := manager.Close(context.Background(), sessionID, false)
+	closed, err := manager.Close(context.Background(), sessionID, CloseModeTerminate)
 	if err != nil {
 		t.Fatalf("close session: %v", err)
 	}
-	if closed.Kind != TerminalCloseResultClosed || closed.Session == nil {
-		t.Fatalf("closed result = %+v, want closed session", closed)
+	if closed.Status != SessionStatusClosed || closed.Message != string(CloseModeTerminate) {
+		t.Fatalf("closed status/message = %s/%q, want closed/terminate", closed.Status, closed.Message)
 	}
-	if closed.Session.Status != SessionStatusClosed || closed.Session.Message != string(TerminalCloseAssessmentIdleShell) {
-		t.Fatalf("closed status/message = %s/%q, want closed/idle_shell", closed.Session.Status, closed.Session.Message)
-	}
-	if handle.wasTerminated() {
-		t.Fatal("safe close terminated the idle shell")
+	if !handle.wasTerminated() {
+		t.Fatal("handle was not terminated")
 	}
 	if _, err := manager.Attach(context.Background(), "workspace_terminal", "pane_shell"); err == nil {
 		t.Fatal("attach after close succeeded, want error")
@@ -197,13 +194,12 @@ func TestManagerPublishesLifecycleAndOutputEvents(t *testing.T) {
 		t.Fatalf("output payload = %+v, want base64 ready output", output.Payload)
 	}
 
-	handle.closeAssessment = terminalCloseAssessment(TerminalCloseSafetyDestructive, TerminalCloseAssessmentForegroundProcess)
-	if _, err := manager.Close(context.Background(), created.ID, true); err != nil {
+	if _, err := manager.Close(context.Background(), created.ID, CloseModeKill); err != nil {
 		t.Fatalf("close session: %v", err)
 	}
 	closed := readTerminalEvent(t, subscription.Events, TerminalEventClosed, created.ID)
-	if closed.Payload.Status != SessionStatusClosed || closed.Payload.Message != "confirmed" {
-		t.Fatalf("closed payload = %+v, want closed/confirmed", closed.Payload)
+	if closed.Payload.Status != SessionStatusClosed || closed.Payload.Message != string(CloseModeKill) {
+		t.Fatalf("closed payload = %+v, want closed/kill", closed.Payload)
 	}
 }
 
@@ -278,11 +274,58 @@ func TestManagerAttachPublishesReplayForExistingSession(t *testing.T) {
 	}
 }
 
-func TestManagerEmitsBufferTruncatedWhenOutputBufferOverflows(t *testing.T) {
+func TestManagerStoresReplayTruncationWhenOutputBufferOverflows(t *testing.T) {
 	root := t.TempDir()
 	starter := &recordingPTYStarter{}
 	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
-		OutputBufferBytesPerSession: len("second"),
+		OutputBufferBytesPerSession: 8,
+	})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 1, 1)
+	started := readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	handle := starter.handleAt(t, 0)
+	for index := 0; index < 10; index += 1 {
+		handle.emit([]byte{byte('a' + index)})
+		_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	}
+	expectNoTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
+	subscription.Unsubscribe()
+
+	replay, err := manager.SubscribeEvents(EventCursor{
+		StreamID: started.StreamID,
+		Sequence: started.Sequence,
+	})
+	if err != nil {
+		t.Fatalf("subscribe replay terminal events: %v", err)
+	}
+	defer replay.Unsubscribe()
+
+	truncated := readTerminalEvent(t, replay.Events, TerminalEventBufferTruncated, created.ID)
+	if truncated.Payload.DroppedChunks == 0 || truncated.Payload.DroppedBytes == 0 {
+		t.Fatalf("truncated payload = %+v, want dropped chunk and byte counts", truncated.Payload)
+	}
+	if truncated.Payload.Message != "terminal replay history truncated; 1 output chunk unavailable" {
+		t.Fatalf("truncated message = %q, want replay history message", truncated.Payload.Message)
+	}
+}
+
+func TestManagerRetainsAgedReplayTailForRunningSession(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	var clockMu sync.Mutex
+	now := time.Date(2026, 6, 6, 12, 0, 0, 0, time.UTC)
+	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		Clock: func() time.Time {
+			clockMu.Lock()
+			defer clockMu.Unlock()
+			return now
+		},
+		ReplayRetention: time.Second,
 	})
 	subscription, err := manager.SubscribeEvents(EventCursor{})
 	if err != nil {
@@ -293,13 +336,75 @@ func TestManagerEmitsBufferTruncatedWhenOutputBufferOverflows(t *testing.T) {
 	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
 	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
 	handle := starter.handleAt(t, 0)
-	handle.emit([]byte("first"))
-	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
-	handle.emit([]byte("second"))
-	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
-	truncated := readTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
-	if truncated.Payload.DroppedChunks == 0 || truncated.Payload.DroppedBytes == 0 {
-		t.Fatalf("truncated payload = %+v, want dropped chunk and byte counts", truncated.Payload)
+	handle.emit([]byte("idle prompt$ "))
+	original := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+
+	clockMu.Lock()
+	now = now.Add(2 * time.Second)
+	clockMu.Unlock()
+	attached, err := manager.Attach(context.Background(), "workspace_terminal", "pane_shell")
+	if err != nil {
+		t.Fatalf("attach terminal session: %v", err)
+	}
+	if attached.ID != created.ID {
+		t.Fatalf("attached id = %s, want %s", attached.ID, created.ID)
+	}
+
+	replayed := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	if replayed.Payload.DataBase64 != original.Payload.DataBase64 {
+		t.Fatalf("aged replay payload = %+v, want original output payload %+v", replayed.Payload, original.Payload)
+	}
+	expectNoTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
+}
+
+func TestManagerStoresReplayTruncationWhenOutputHistoryExpires(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	var clockMu sync.Mutex
+	now := time.Date(2026, 6, 6, 12, 0, 0, 0, time.UTC)
+	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		Clock: func() time.Time {
+			clockMu.Lock()
+			defer clockMu.Unlock()
+			return now
+		},
+		ReplayRetention: time.Second,
+	})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 1, 1)
+	started := readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	handle := starter.handleAt(t, 0)
+	for index := 0; index < 10; index += 1 {
+		handle.emit([]byte{byte('a' + index)})
+		_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	}
+
+	clockMu.Lock()
+	now = now.Add(2 * time.Second)
+	clockMu.Unlock()
+	expectNoTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
+	subscription.Unsubscribe()
+
+	replay, err := manager.SubscribeEvents(EventCursor{
+		StreamID: started.StreamID,
+		Sequence: started.Sequence,
+	})
+	if err != nil {
+		t.Fatalf("subscribe replay terminal events: %v", err)
+	}
+	defer replay.Unsubscribe()
+
+	truncated := readTerminalEvent(t, replay.Events, TerminalEventBufferTruncated, created.ID)
+	if truncated.Payload.DroppedChunks != 2 || truncated.Payload.DroppedBytes != 2 {
+		t.Fatalf("truncated payload = %+v, want two dropped one-byte chunks", truncated.Payload)
+	}
+	if truncated.Payload.Message != "terminal replay history truncated; 2 output chunks unavailable" {
+		t.Fatalf("truncated message = %q, want replay history message", truncated.Payload.Message)
 	}
 }
 
@@ -331,12 +436,12 @@ func TestManagerKeepsExitedSessionAttachableUntilClose(t *testing.T) {
 	if _, err := manager.WriteInput(context.Background(), created.ID, []byte("echo no\n")); err == nil {
 		t.Fatal("write to exited session succeeded, want error")
 	}
-	closed, err := manager.Close(context.Background(), created.ID, false)
+	closed, err := manager.Close(context.Background(), created.ID, CloseModeTerminate)
 	if err != nil {
 		t.Fatalf("close exited session: %v", err)
 	}
-	if closed.Session == nil || closed.Session.Status != SessionStatusClosed {
-		t.Fatalf("closed exited result = %+v, want closed", closed)
+	if closed.Status != SessionStatusClosed {
+		t.Fatalf("closed exited status = %s, want closed", closed.Status)
 	}
 	if _, err := manager.Attach(context.Background(), "workspace_terminal", "pane_shell"); err == nil {
 		t.Fatal("attach after closing exited session succeeded, want error")
@@ -351,130 +456,17 @@ func TestManagerCloseTerminatesThenKillsAfterTimeout(t *testing.T) {
 	})
 	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
 	handle := starter.handleAt(t, 0)
-	handle.closeAssessment = terminalCloseAssessment(TerminalCloseSafetyDestructive, TerminalCloseAssessmentForegroundProcess)
 	handle.terminateCloses = false
 
-	closed, err := manager.Close(context.Background(), created.ID, true)
+	closed, err := manager.Close(context.Background(), created.ID, CloseModeTerminate)
 	if err != nil {
 		t.Fatalf("close terminal session: %v", err)
 	}
-	if closed.Session == nil || closed.Session.Status != SessionStatusClosed {
-		t.Fatalf("closed result = %+v, want closed", closed)
+	if closed.Status != SessionStatusClosed {
+		t.Fatalf("closed status = %s, want closed", closed.Status)
 	}
 	if !handle.wasTerminated() || !handle.wasKilled() {
 		t.Fatalf("handle terminated/killed = %t/%t, want true/true", handle.wasTerminated(), handle.wasKilled())
-	}
-}
-
-func TestManagerSafeCloseReturnsWithoutWaitingForCloseTimeout(t *testing.T) {
-	root := t.TempDir()
-	starter := &recordingPTYStarter{}
-	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
-		CloseKillTimeout: 250 * time.Millisecond,
-	})
-	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
-	handle := starter.handleAt(t, 0)
-	handle.closeAssessment = terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentIdleShell)
-	handle.terminateCloses = false
-
-	type closeOutcome struct {
-		result TerminalCloseResult
-		err    error
-	}
-	done := make(chan closeOutcome, 1)
-	go func() {
-		result, err := manager.Close(context.Background(), created.ID, false)
-		done <- closeOutcome{result: result, err: err}
-	}()
-
-	select {
-	case outcome := <-done:
-		if outcome.err != nil {
-			t.Fatalf("close terminal session: %v", outcome.err)
-		}
-		if outcome.result.Kind != TerminalCloseResultClosed ||
-			outcome.result.Session == nil ||
-			outcome.result.Session.Status != SessionStatusClosed {
-			t.Fatalf("safe close result = %+v, want closed", outcome.result)
-		}
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("safe close waited for the process close timeout")
-	}
-	if handle.wasTerminated() || handle.wasKilled() {
-		t.Fatalf("safe close terminated/killed = %t/%t, want false/false", handle.wasTerminated(), handle.wasKilled())
-	}
-}
-
-func TestManagerCloseRequiresConfirmationForDestructiveOrUnknownSessions(t *testing.T) {
-	root := t.TempDir()
-	starter := &recordingPTYStarter{}
-	manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
-	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
-	handle := starter.handleAt(t, 0)
-	handle.closeAssessment = terminalCloseAssessment(
-		TerminalCloseSafetyDestructive,
-		TerminalCloseAssessmentForegroundProcess,
-	)
-
-	result, err := manager.Close(context.Background(), created.ID, false)
-	if err != nil {
-		t.Fatalf("close terminal session: %v", err)
-	}
-	if result.Kind != TerminalCloseResultConfirmationRequired || result.Session == nil {
-		t.Fatalf("close result = %+v, want confirmation required with session", result)
-	}
-	if !result.Assessment.RequiresConfirmation || result.Assessment.Safety != TerminalCloseSafetyDestructive {
-		t.Fatalf("assessment = %+v, want destructive confirmation", result.Assessment)
-	}
-	if handle.wasTerminated() || handle.wasKilled() {
-		t.Fatalf("unconfirmed close mutated process terminated/killed = %t/%t", handle.wasTerminated(), handle.wasKilled())
-	}
-
-	confirmed, err := manager.Close(context.Background(), created.ID, true)
-	if err != nil {
-		t.Fatalf("confirmed close terminal session: %v", err)
-	}
-	if confirmed.Kind != TerminalCloseResultClosed || confirmed.Session == nil || confirmed.Session.Status != SessionStatusClosed {
-		t.Fatalf("confirmed close = %+v, want closed", confirmed)
-	}
-	if !handle.wasTerminated() {
-		t.Fatal("confirmed destructive close did not terminate the process")
-	}
-
-	unknown := mustCreateTestSession(t, manager, "workspace_terminal", "pane_unknown", "", "", 80, 24)
-	unknownHandle := starter.handleAt(t, 1)
-	unknownHandle.closeAssessment = terminalCloseAssessment(
-		TerminalCloseSafetyUnknown,
-		TerminalCloseAssessmentInspectionFailed,
-	)
-	unknownResult, err := manager.Close(context.Background(), unknown.ID, false)
-	if err != nil {
-		t.Fatalf("close unknown terminal session: %v", err)
-	}
-	if unknownResult.Kind != TerminalCloseResultConfirmationRequired ||
-		unknownResult.Assessment.Safety != TerminalCloseSafetyUnknown ||
-		!unknownResult.Assessment.RequiresConfirmation {
-		t.Fatalf("unknown close result = %+v, want confirmation required", unknownResult)
-	}
-	if unknownHandle.wasTerminated() || unknownHandle.wasKilled() {
-		t.Fatalf("unconfirmed unknown close mutated process terminated/killed = %t/%t", unknownHandle.wasTerminated(), unknownHandle.wasKilled())
-	}
-	_, _ = manager.Close(context.Background(), unknown.ID, true)
-}
-
-func TestManagerCloseReturnsClosedForMissingSession(t *testing.T) {
-	root := t.TempDir()
-	manager := newTestManager(t, &recordingPTYStarter{}, map[string]string{"workspace_terminal": root})
-
-	result, err := manager.Close(context.Background(), "terminal_missing", false)
-	if err != nil {
-		t.Fatalf("close missing session: %v", err)
-	}
-	if result.Kind != TerminalCloseResultClosed || result.Session != nil {
-		t.Fatalf("missing close result = %+v, want closed without session", result)
-	}
-	if result.Assessment.Reason != TerminalCloseAssessmentNoSession || result.Assessment.RequiresConfirmation {
-		t.Fatalf("missing close assessment = %+v, want safe no_session", result.Assessment)
 	}
 }
 
@@ -484,7 +476,7 @@ func TestManagerRejectsInvalidRequests(t *testing.T) {
 	manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
 	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
 	t.Cleanup(func() {
-		_, _ = manager.Close(context.Background(), created.ID, true)
+		_, _ = manager.Close(context.Background(), created.ID, CloseModeKill)
 	})
 
 	expectErrorContains(t, "empty workspace", func() error {
@@ -527,6 +519,10 @@ func TestManagerRejectsInvalidRequests(t *testing.T) {
 		_, err := manager.Resize(context.Background(), created.ID, MaxCols+1, 24)
 		return err
 	}, "terminal cols must be between")
+	expectErrorContains(t, "unsupported close mode", func() error {
+		_, err := manager.Close(context.Background(), created.ID, CloseMode("gentle"))
+		return err
+	}, "unsupported terminal close mode")
 }
 
 func newTestManager(t *testing.T, starter PTYStarter, roots map[string]string) *Manager {
@@ -545,7 +541,9 @@ func newTestManagerWithConfig(
 	config.AppDataDir = t.TempDir()
 	config.WorkspaceResolver = fakeWorkspaceResolver(roots)
 	config.PTY = starter
-	config.Clock = testClock(t)
+	if config.Clock == nil {
+		config.Clock = testClock(t)
+	}
 	manager, err := NewManager(config)
 	if err != nil {
 		t.Fatalf("new terminal manager: %v", err)
@@ -585,6 +583,24 @@ func readTerminalEvent(t *testing.T, events <-chan TerminalEvent, eventType Term
 			}
 		case <-deadline:
 			t.Fatalf("timed out waiting for terminal event %s", eventType)
+		}
+	}
+}
+
+func expectNoTerminalEvent(t *testing.T, events <-chan TerminalEvent, eventType TerminalEventType, sessionID string) {
+	t.Helper()
+	deadline := time.After(50 * time.Millisecond)
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				t.Fatalf("terminal event stream closed while checking for absent %s", eventType)
+			}
+			if event.Type == eventType && event.SessionID == sessionID {
+				t.Fatalf("unexpected terminal event %s for %s: %+v", eventType, sessionID, event.Payload)
+			}
+		case <-deadline:
+			return
 		}
 	}
 }
@@ -672,7 +688,6 @@ type recordingPTYHandle struct {
 	profile    Profile
 
 	mu              sync.Mutex
-	closeAssessment TerminalCloseAssessment
 	killed          bool
 	resizes         []terminalSize
 	terminateCloses bool
@@ -688,7 +703,6 @@ type terminalSize struct {
 func newRecordingPTYHandle(profile Profile) *recordingPTYHandle {
 	return &recordingPTYHandle{
 		closed:          make(chan struct{}),
-		closeAssessment: terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentIdleShell),
 		output:          make(chan []byte, 16),
 		profile:         profile,
 		terminateCloses: true,
@@ -744,12 +758,6 @@ func (handle *recordingPTYHandle) Close() error {
 func (handle *recordingPTYHandle) Wait() error {
 	<-handle.closed
 	return nil
-}
-
-func (handle *recordingPTYHandle) CloseSafetyAssessment() TerminalCloseAssessment {
-	handle.mu.Lock()
-	defer handle.mu.Unlock()
-	return handle.closeAssessment
 }
 
 func (handle *recordingPTYHandle) emit(data []byte) {

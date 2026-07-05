@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"context"
 	"fmt"
 
 	"setta/internal/codexapp"
@@ -10,12 +9,11 @@ import (
 type codexNotificationScopePolicy string
 
 const (
-	codexNotificationScopeGlobal      codexNotificationScopePolicy = "global_state"
-	codexNotificationScopeMaybeThread codexNotificationScopePolicy = "optional_thread_state"
-	codexNotificationScopeThread      codexNotificationScopePolicy = "thread_state"
-	codexNotificationScopeTurnState   codexNotificationScopePolicy = "turn_state"
-	codexNotificationScopeTraceOnly   codexNotificationScopePolicy = "trace_only"
-	codexNotificationScopeCapability  codexNotificationScopePolicy = "capability_ignored"
+	codexNotificationScopeGlobal     codexNotificationScopePolicy = "global_state"
+	codexNotificationScopeThread     codexNotificationScopePolicy = "thread_state"
+	codexNotificationScopeTurnState  codexNotificationScopePolicy = "turn_state"
+	codexNotificationScopeTraceOnly  codexNotificationScopePolicy = "trace_only"
+	codexNotificationScopeCapability codexNotificationScopePolicy = "capability_ignored"
 )
 
 var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
@@ -79,27 +77,15 @@ var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	codexapp.CodexNotificationTurnModerationMetadata:                  codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnPlanUpdated:                         codexNotificationScopeTurnState,
 	codexapp.CodexNotificationTurnStarted:                             codexNotificationScopeThread,
-	codexapp.CodexNotificationWarning:                                 codexNotificationScopeMaybeThread,
+	codexapp.CodexNotificationWarning:                                 codexNotificationScopeTurnState,
 	codexapp.CodexNotificationWindowsWorldWritableWarning:             codexNotificationScopeGlobal,
 	codexapp.CodexNotificationWindowsSandboxSetupCompleted:            codexNotificationScopeCapability,
 }
 
-func (harness *CodexHarness) handleCodexNotification(ctx context.Context, session *codexapp.Session, message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+func (harness *CodexHarness) handleCodexNotification(message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
 	result, err := handleCodexNotification(message, threadID, turnID, sink)
 	if err != nil {
 		return codexNotificationResult{}, err
-	}
-	if result.CodexEffectiveSettings != nil {
-		settings, err := harness.codexCommandSettingsWithDisplayLabels(ctx, session, *result.CodexEffectiveSettings)
-		if err != nil {
-			return codexNotificationResult{}, err
-		}
-		effectiveSettings := chatCodexEffectiveSettingsFromCommandSettings(settings)
-		if effectiveSettings != nil {
-			if err := sink.CodexEffectiveSettingsUpdated(*effectiveSettings); err != nil {
-				return codexNotificationResult{}, err
-			}
-		}
 	}
 	if message.Method == codexapp.CodexNotificationServerRequestResolved {
 		return result, harness.applyCodexServerRequestResolved(message, runID, threadID, sink)
@@ -175,14 +161,6 @@ func requireCodexThreadMatch(message jsonRPCMessage, params map[string]any, expe
 		return nil
 	}
 	return failCodexNotificationScopeDrift(message, match, expectedThreadID, "", sink)
-}
-
-func requireCodexOptionalThreadMatch(message jsonRPCMessage, params map[string]any, expectedThreadID string, sink TurnSink) error {
-	receivedThreadID, ok := params["threadId"].(string)
-	if !ok || receivedThreadID == "" {
-		return nil
-	}
-	return requireCodexThreadIDMatch(message, expectedThreadID, receivedThreadID, sink)
 }
 
 func requireCodexThreadIDMatch(message jsonRPCMessage, expectedThreadID string, receivedThreadID string, sink TurnSink) error {

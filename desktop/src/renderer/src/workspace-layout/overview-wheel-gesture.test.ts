@@ -21,16 +21,17 @@ describe("classifyOverviewWheel", () => {
   });
 
   test("a coarse vertical notch in pixel mode is a mouse wheel (zoom)", () => {
-    expect(classifyOverviewWheel({ ...base, deltaY: 120 })).toBe("zoom");
-    expect(classifyOverviewWheel({ ...base, deltaY: -100 })).toBe("zoom");
+    expect(classifyOverviewWheel({ ...base, deltaY: 120, wheelDeltaY: -120 })).toBe("zoom");
+    expect(classifyOverviewWheel({ ...base, deltaY: -100, wheelDeltaY: 360 })).toBe("zoom");
+    // No legacy field: a coarse whole-pixel vertical step still reads as a notch.
     expect(classifyOverviewWheel({ ...base, deltaY: -53 })).toBe("zoom");
   });
 
   test("smooth, fractional, or horizontal scrolling is a trackpad pan", () => {
-    expect(classifyOverviewWheel({ ...base, deltaY: -4 })).toBe("pan");
+    expect(classifyOverviewWheel({ ...base, deltaY: -4, wheelDeltaY: 12 })).toBe("pan");
     // A horizontal component rules out a vertical wheel notch.
-    expect(classifyOverviewWheel({ ...base, deltaX: 8, deltaY: 0 })).toBe("pan");
-    // Fractional pixel delta is trackpad inertia.
+    expect(classifyOverviewWheel({ ...base, deltaX: 8, deltaY: 0, wheelDeltaY: -120 })).toBe("pan");
+    // Fractional pixel delta with no legacy field is trackpad inertia.
     expect(classifyOverviewWheel({ ...base, deltaY: 2.5 })).toBe("pan");
     expect(classifyOverviewWheel({ ...base, deltaY: -8 })).toBe("pan");
   });

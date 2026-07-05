@@ -42,7 +42,6 @@ describe("chat store mark-read guards", () => {
 function testConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     archivedAt: "",
-    codexEffectiveSettings: null,
     codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
@@ -60,7 +59,6 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
 function conversationItem(conversation: Conversation): ConversationListItem {
   return {
     activeRunId: "",
-    activeRunLiveness: null,
     conversation,
     latestReadRelevantMarker: 0,
     messageCount: 1,

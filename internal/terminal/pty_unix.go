@@ -9,11 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
-	"unsafe"
 
 	"github.com/creack/pty"
 )
@@ -24,7 +22,6 @@ type systemPTYHandle struct {
 	command *exec.Cmd
 	file    *os.File
 	once    sync.Once
-	profile Profile
 	waitErr error
 	waited  chan struct{}
 }
@@ -56,7 +53,6 @@ func (starter systemPTYStarter) Start(ctx context.Context, profile Profile) (PTY
 	return &systemPTYHandle{
 		command: command,
 		file:    file,
-		profile: profile,
 		waited:  make(chan struct{}),
 	}, nil
 }
@@ -101,37 +97,6 @@ func (handle *systemPTYHandle) Wait() error {
 	})
 	<-handle.waited
 	return handle.waitErr
-}
-
-func (handle *systemPTYHandle) CloseSafetyAssessment() TerminalCloseAssessment {
-	if handle.command.Process == nil {
-		return terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentNoSession)
-	}
-	select {
-	case <-handle.waited:
-		return terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentAlreadyClosed)
-	default:
-	}
-	if handle.profile.LaunchMode != ProfileLaunchModeShell {
-		return terminalCloseAssessment(
-			TerminalCloseSafetyDestructive,
-			TerminalCloseAssessmentForegroundProcess,
-		)
-	}
-	processes, err := unixProcessTable()
-	if err != nil {
-		return terminalCloseAssessment(
-			TerminalCloseSafetyUnknown,
-			TerminalCloseAssessmentInspectionFailed,
-		)
-	}
-	foregroundProcessGroup, ok := foregroundProcessGroup(handle.file)
-	return unixShellCloseSafetyAssessment(
-		handle.command.Process.Pid,
-		processes,
-		foregroundProcessGroup,
-		ok,
-	)
 }
 
 func shellPath(configured string) (string, error) {
@@ -219,135 +184,4 @@ func signalProcessGroup(pid int, signal syscall.Signal) error {
 		return err
 	}
 	return nil
-}
-
-type unixProcessInfo struct {
-	pgid int
-	pid  int
-	ppid int
-	sid  int
-}
-
-func unixShellCloseSafetyAssessment(
-	shellPID int,
-	processes map[int]*unixProcessInfo,
-	foregroundProcessGroup int,
-	foregroundProcessGroupKnown bool,
-) TerminalCloseAssessment {
-	shell := processes[shellPID]
-	if shell == nil {
-		return terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentAlreadyClosed)
-	}
-	descendants := unixProcessDescendants(shell.pid, processes)
-	sessionProcesses := unixSameSessionProcesses(shell, descendants, processes)
-	riskyProcesses := append(append([]*unixProcessInfo{}, descendants...), sessionProcesses...)
-	if len(riskyProcesses) == 0 {
-		return terminalCloseAssessment(TerminalCloseSafetySafe, TerminalCloseAssessmentIdleShell)
-	}
-	if !foregroundProcessGroupKnown {
-		return terminalCloseAssessment(
-			TerminalCloseSafetyDestructive,
-			TerminalCloseAssessmentForegroundProcess,
-		)
-	}
-	for _, process := range riskyProcesses {
-		if process.pgid == foregroundProcessGroup {
-			return terminalCloseAssessment(
-				TerminalCloseSafetyDestructive,
-				TerminalCloseAssessmentForegroundProcess,
-			)
-		}
-	}
-	return terminalCloseAssessment(
-		TerminalCloseSafetyDestructive,
-		TerminalCloseAssessmentBackgroundJobs,
-	)
-}
-
-func unixProcessTable() (map[int]*unixProcessInfo, error) {
-	output, err := exec.Command("ps", "-axo", "pid=,ppid=,pgid=,sess=").Output()
-	if err != nil {
-		return nil, fmt.Errorf("inspect process table: %w", err)
-	}
-	processes := map[int]*unixProcessInfo{}
-	for _, line := range strings.Split(string(output), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 4 {
-			continue
-		}
-		pid, err := strconv.Atoi(fields[0])
-		if err != nil {
-			continue
-		}
-		ppid, err := strconv.Atoi(fields[1])
-		if err != nil {
-			continue
-		}
-		pgid, err := strconv.Atoi(fields[2])
-		if err != nil {
-			continue
-		}
-		sid, err := strconv.Atoi(fields[3])
-		if err != nil {
-			continue
-		}
-		processes[pid] = &unixProcessInfo{pgid: pgid, pid: pid, ppid: ppid, sid: sid}
-	}
-	return processes, nil
-}
-
-func unixProcessDescendants(rootPID int, processes map[int]*unixProcessInfo) []*unixProcessInfo {
-	childrenByParent := map[int][]*unixProcessInfo{}
-	for _, process := range processes {
-		childrenByParent[process.ppid] = append(childrenByParent[process.ppid], process)
-	}
-	descendants := []*unixProcessInfo{}
-	stack := append([]*unixProcessInfo{}, childrenByParent[rootPID]...)
-	for len(stack) > 0 {
-		lastIndex := len(stack) - 1
-		process := stack[lastIndex]
-		stack = stack[:lastIndex]
-		descendants = append(descendants, process)
-		stack = append(stack, childrenByParent[process.pid]...)
-	}
-	return descendants
-}
-
-func unixSameSessionProcesses(
-	shell *unixProcessInfo,
-	descendants []*unixProcessInfo,
-	processes map[int]*unixProcessInfo,
-) []*unixProcessInfo {
-	if shell.sid <= 0 {
-		return nil
-	}
-	descendantPIDs := map[int]struct{}{}
-	for _, process := range descendants {
-		descendantPIDs[process.pid] = struct{}{}
-	}
-	sessionProcesses := []*unixProcessInfo{}
-	for _, process := range processes {
-		if process.pid == shell.pid || process.sid != shell.sid {
-			continue
-		}
-		if _, ok := descendantPIDs[process.pid]; ok {
-			continue
-		}
-		sessionProcesses = append(sessionProcesses, process)
-	}
-	return sessionProcesses
-}
-
-func foregroundProcessGroup(file *os.File) (int, bool) {
-	var pgrp int32
-	_, _, errno := syscall.Syscall(
-		syscall.SYS_IOCTL,
-		file.Fd(),
-		uintptr(syscall.TIOCGPGRP),
-		uintptr(unsafe.Pointer(&pgrp)),
-	)
-	if errno != 0 || pgrp <= 0 {
-		return 0, false
-	}
-	return int(pgrp), true
 }

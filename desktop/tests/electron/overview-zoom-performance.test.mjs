@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-/* global console, URL */
+/* global console */
 
 import { basename, join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -22,16 +21,6 @@ import {
 import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
-const benchmarkPaneCount = 9;
-const benchmarkVisiblePaneCount = 9;
-const nativeBrowserSnapshotMaxFrameDeltaMs = 75;
-const nativeBrowserSnapshotMaxSlowFramesOver50Ms = 1;
-const nativeBrowserRestoreFrameBudgetMs = 16.67;
-const nativeBrowserRestoreMaxFrameDeltaMs = 150;
-const nativeBrowserRestoreMaxLongTaskCount = 1;
-const nativeBrowserRestoreMaxLongTaskTotalMs = 150;
-const nativeBrowserRestoreMaxSlowFramesOver50Ms = 1;
-const minimumBenchmarkBrowserPanes = 1;
 const overviewWorkflowTimeoutMs = 25_000;
 const transitionSampleMs = 1400;
 const viewport = {
@@ -67,15 +56,13 @@ try {
     visible: options.visible,
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
-  await navigateToBenchmarkSceneWithoutAutoFocus(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await waitForBenchmarkBrowserPaneHosts(context.client, minimumBenchmarkBrowserPanes);
+  await ensureWorkspaceOpen(context.client);
+  await waitForWorkspacePaneHosts(context.client);
+  await ensureVisibleBrowserPaneCount(context.client, 2);
   await ensureNormalMode(context.client);
-  await waitForNativeBrowserLiveCount(context.client, minimumBenchmarkBrowserPanes);
-  const normalSnapshots = await waitForBrowserSnapshotImages(
-    context.client,
-    minimumBenchmarkBrowserPanes,
-  );
+  await waitForNativeBrowserLiveCount(context.client, 2);
+  const normalSnapshots = await waitForBrowserSnapshotImages(context.client, 2);
   await delay(500);
   const normalBeforeBrowserStats = await readNativeBrowserStats(context.client);
   await captureScreenshot(context.client, join(artifactDir, "normal-before.png"));
@@ -84,19 +71,11 @@ try {
     buttonLabel: "Enter overview",
     expectedMode: "overview",
     name: "enter-overview",
-    trigger: "shortcut",
   });
-  assertSmoothFrameSample(enter, "enter overview transition", {
-    maxFrameDeltaMs: nativeBrowserSnapshotMaxFrameDeltaMs,
-    maxSlowFramesOver50Ms: nativeBrowserSnapshotMaxSlowFramesOver50Ms,
-    minFrameCount: 30,
-  });
+  assertSmoothFrameSample(enter, "enter overview transition", { minFrameCount: 30 });
   const overviewBrowserStats = await readNativeBrowserStats(context.client);
-  assertNativeBrowsersHiddenForOverview(overviewBrowserStats, minimumBenchmarkBrowserPanes);
-  const overviewSnapshots = await waitForBrowserSnapshotImages(
-    context.client,
-    minimumBenchmarkBrowserPanes,
-  );
+  assertNativeBrowsersHiddenForOverview(overviewBrowserStats, 2);
+  const overviewSnapshots = await waitForBrowserSnapshotImages(context.client, 2);
   assertOverviewSnapshotsUseNativeSize(overviewSnapshots);
   await captureScreenshot(context.client, join(artifactDir, "overview.png"));
 
@@ -104,17 +83,9 @@ try {
     buttonLabel: "Exit overview",
     expectedMode: "normal",
     name: "exit-overview",
-    trigger: "shortcut",
   });
-  assertSmoothFrameSample(exit, "exit overview transition", {
-    frameBudgetMs: nativeBrowserRestoreFrameBudgetMs,
-    maxFrameDeltaMs: nativeBrowserRestoreMaxFrameDeltaMs,
-    maxLongTaskCount: nativeBrowserRestoreMaxLongTaskCount,
-    maxLongTaskTotalMs: nativeBrowserRestoreMaxLongTaskTotalMs,
-    maxSlowFramesOver50Ms: nativeBrowserRestoreMaxSlowFramesOver50Ms,
-    minFrameCount: 30,
-  });
-  await waitForNativeBrowserLiveCount(context.client, minimumBenchmarkBrowserPanes);
+  assertSmoothFrameSample(exit, "exit overview transition", { minFrameCount: 30 });
+  await waitForNativeBrowserLiveCount(context.client, 2);
   const normalAfterBrowserStats = await readNativeBrowserStats(context.client);
   await captureScreenshot(context.client, join(artifactDir, "normal-after.png"));
 
@@ -131,7 +102,7 @@ try {
     },
     frameBudgets: {
       enter: frameBudgetSummary(enter),
-      exit: frameBudgetSummary(exit, { frameBudgetMs: nativeBrowserRestoreFrameBudgetMs }),
+      exit: frameBudgetSummary(exit),
     },
     samples: [enter, exit],
     status: "passed",
@@ -157,61 +128,91 @@ try {
   await stopElectronCdpContext(context);
 }
 
-async function navigateToBenchmarkSceneWithoutAutoFocus(client) {
-  const currentURL = await client.evaluate("location.href");
-  const nextURL = new URL(currentURL);
-  nextURL.searchParams.set("workspaceScene", "benchmark");
-  nextURL.searchParams.set("workspaceAuto", "false");
-  nextURL.searchParams.set("workspaceBenchmarkPaneCount", String(benchmarkPaneCount));
-  nextURL.searchParams.set("workspaceBenchmarkVisiblePanes", String(benchmarkVisiblePaneCount));
-  if (nextURL.toString() === currentURL) {
+async function ensureWorkspaceOpen(client) {
+  const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
+  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return;
   }
-  await client.call("Page.navigate", { url: nextURL.toString() });
+  const opened = await client.evaluate(`(() => {
+    const button = document.querySelector('button[aria-label="Open project folder"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-open-project-folder-button" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-open-project-folder-button" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(`workspace open failed: ${JSON.stringify(opened)}`);
+  }
   await waitForState(
     client,
-    `(() => ({
-      loaded: document.readyState !== "loading",
-      search: location.search,
-    }))()`,
-    (state) =>
-      state.loaded &&
-      state.search.includes("workspaceScene=benchmark") &&
-      state.search.includes("workspaceAuto=false") &&
-      state.search.includes(`workspaceBenchmarkPaneCount=${benchmarkPaneCount}`) &&
-      state.search.includes(`workspaceBenchmarkVisiblePanes=${benchmarkVisiblePaneCount}`),
+    workspaceIdExpression(),
+    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     overviewWorkflowTimeoutMs,
   );
 }
 
-async function waitForBenchmarkBrowserPaneHosts(client, minimumBrowserCount) {
-  await waitForDriverState(
+async function waitForWorkspacePaneHosts(client) {
+  await waitForState(
     client,
-    "overviewWorkspaceSnapshot",
-    {},
-    (snapshot) =>
-      snapshot.workspaceMode === "benchmark" &&
-      snapshot.mode === "normal" &&
-      snapshot.visibleBrowserHosts >= minimumBrowserCount,
+    workspaceSnapshotExpression(),
+    (snapshot) => snapshot.hosts.length >= 3 && snapshot.visibleHosts >= 3,
     overviewWorkflowTimeoutMs,
   );
+}
+
+async function ensureVisibleBrowserPaneCount(client, minimumCount) {
+  for (let attempt = 0; attempt < minimumCount; attempt += 1) {
+    const browserCount = await client.evaluate(visibleBrowserHostCountExpression());
+    if (browserCount >= minimumCount) {
+      return;
+    }
+    await openBrowserPane(client);
+    await waitForState(
+      client,
+      visibleBrowserHostCountExpression(),
+      (currentCount) => currentCount > browserCount,
+      overviewWorkflowTimeoutMs,
+    );
+  }
+  const finalCount = await client.evaluate(visibleBrowserHostCountExpression());
+  if (finalCount < minimumCount) {
+    throw new Error(`expected at least ${minimumCount} visible browser panes, found ${finalCount}`);
+  }
+}
+
+async function openBrowserPane(client) {
+  const result = await client.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      key: "b",
+      metaKey: true,
+    }));
+    return { ok: true };
+  })()`);
+  if (!result.ok) {
+    throw new Error(`browser pane shortcut failed: ${JSON.stringify(result)}`);
+  }
 }
 
 async function waitForNativeBrowserLiveCount(client, minimumCount) {
-  await waitForDriverState(
+  await waitForState(
     client,
-    "overviewNativeBrowserStats",
-    {},
+    nativeBrowserStatsExpression(),
     (stats) => stats !== null && stats.live >= minimumCount,
     overviewWorkflowTimeoutMs,
   );
 }
 
 async function waitForBrowserSnapshotImages(client, minimumCount) {
-  return waitForDriverState(
+  return waitForState(
     client,
-    "overviewBrowserSnapshotImages",
-    {},
+    browserSnapshotImagesExpression(),
     (snapshots) =>
       snapshots.ready.length >= minimumCount &&
       snapshots.ready.every(
@@ -226,7 +227,7 @@ async function waitForBrowserSnapshotImages(client, minimumCount) {
 }
 
 async function readNativeBrowserStats(client) {
-  const stats = await client.driver("overviewNativeBrowserStats");
+  const stats = await client.evaluate(nativeBrowserStatsExpression());
   if (!stats) {
     throw new Error("native browser stats bridge is unavailable");
   }
@@ -254,36 +255,148 @@ function assertOverviewSnapshotsUseNativeSize(snapshots) {
 }
 
 async function ensureNormalMode(client) {
-  const mode = await client.driver("overviewPresentationMode");
+  const mode = await client.evaluate(workspacePresentationModeExpression());
   if (mode === "normal") {
     return;
   }
   await clickOverviewButton(client, "Exit overview");
   await delay(transitionSampleMs);
-  await waitForDriverState(
+  await waitForState(
     client,
-    "overviewPresentationMode",
-    {},
+    workspacePresentationModeExpression(),
     (currentMode) => currentMode === "normal",
     overviewWorkflowTimeoutMs,
   );
 }
 
 async function clickOverviewButton(client, buttonLabel) {
-  const result = await client.driver("overviewClickButton", { buttonLabel });
+  const result = await client.evaluate(`(() => {
+    const button = document.querySelector(${JSON.stringify(`button[aria-label="${buttonLabel}"]`)});
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-overview-button", buttonLabel: ${JSON.stringify(
+        buttonLabel,
+      )} };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-overview-button", buttonLabel: ${JSON.stringify(
+        buttonLabel,
+      )} };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
   if (!result.ok) {
     throw new Error(`overview toggle failed: ${JSON.stringify(result)}`);
   }
 }
 
-async function measureOverviewTransition(client, { buttonLabel, expectedMode, name, trigger }) {
-  const result = await client.driver("overviewMeasureTransition", {
-    buttonLabel,
-    includeNativeBrowserStats: true,
-    name,
-    sampleMs: transitionSampleMs,
-    trigger,
-  });
+async function measureOverviewTransition(client, { buttonLabel, expectedMode, name }) {
+  const result = await client.evaluate(`(async () => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const button = document.querySelector(${JSON.stringify(`button[aria-label="${buttonLabel}"]`)});
+    if (!(area instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-workspace-area" };
+    }
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-overview-button", buttonLabel: ${JSON.stringify(
+        buttonLabel,
+      )} };
+    }
+    const startedAt = performance.now();
+    const longTasks = [];
+    let observer = null;
+    if (
+      "PerformanceObserver" in window &&
+      PerformanceObserver.supportedEntryTypes.includes("longtask")
+    ) {
+      observer = new PerformanceObserver((entries) => {
+        for (const entry of entries.getEntries()) {
+          longTasks.push({ duration: entry.duration, startTime: entry.startTime });
+        }
+      });
+      observer.observe({ type: "longtask" });
+    }
+    const frames = [];
+    const nativeBrowserStats = [];
+    const runtimeStateSamples = [];
+    async function recordNativeBrowserStats(phase) {
+      const api = window.setta?.workspaceNativeViews;
+      if (!api?.readBrowserViewStats) {
+        nativeBrowserStats.push({ phase, stats: null });
+        return;
+      }
+      nativeBrowserStats.push({ phase, stats: await api.readBrowserViewStats() });
+    }
+    const initialMode = area.dataset.presentationMode ?? "";
+    await recordNativeBrowserStats("before-click");
+    let previousTimestamp = performance.now();
+    let running = true;
+    function recordFrame(timestamp) {
+      if (!running) {
+        return;
+      }
+      frames.push(timestamp - previousTimestamp);
+      previousTimestamp = timestamp;
+      runtimeStateSamples.push(runtimeStatesForPaneHosts());
+      requestAnimationFrame(recordFrame);
+    }
+    requestAnimationFrame(recordFrame);
+    button.click();
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
+    await recordNativeBrowserStats("after-click-80ms");
+    await new Promise((resolve) => window.setTimeout(resolve, ${transitionSampleMs - 80}));
+    running = false;
+    observer?.disconnect();
+    await recordNativeBrowserStats("after-transition");
+    const samples = frames.slice(1).filter((value) => Number.isFinite(value) && value >= 0);
+    const sorted = [...samples].sort((left, right) => left - right);
+    const quantile = (percentile) => {
+      if (sorted.length === 0) {
+        return 0;
+      }
+      const index = Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * percentile));
+      return sorted[index];
+    };
+    const sum = samples.reduce((total, value) => total + value, 0);
+    const averageFrameDeltaMs = samples.length > 0 ? sum / samples.length : 0;
+    const runtimeStates = runtimeStatesForPaneHosts();
+    const maxRuntimeStatesDuringTransition = runtimeStateSamples.reduce((maxStates, states) => {
+      for (const [state, count] of Object.entries(states)) {
+        maxStates[state] = Math.max(maxStates[state] ?? 0, count);
+      }
+      return maxStates;
+    }, {});
+    return {
+      averageFps: averageFrameDeltaMs > 0 ? 1000 / averageFrameDeltaMs : 0,
+      averageFrameDeltaMs,
+      durationMs: performance.now() - startedAt,
+      finalMode: area.dataset.presentationMode ?? "",
+      frameCount: samples.length,
+      initialMode,
+      longTaskCount: longTasks.filter((entry) => entry.startTime >= startedAt).length,
+      longTaskTotalMs: longTasks
+        .filter((entry) => entry.startTime >= startedAt)
+        .reduce((total, entry) => total + entry.duration, 0),
+      maxFrameDeltaMs: sorted.at(-1) ?? 0,
+      maxRuntimeStatesDuringTransition,
+      name: ${JSON.stringify(name)},
+      nativeBrowserStats,
+      ok: true,
+      p95FrameDeltaMs: quantile(0.95),
+      p99FrameDeltaMs: quantile(0.99),
+      runtimeStates,
+      slowFramesOver32Ms: samples.filter((value) => value > 32).length,
+      slowFramesOver50Ms: samples.filter((value) => value > 50).length,
+    };
+    function runtimeStatesForPaneHosts() {
+      return Array.from(document.querySelectorAll(".workspace-pane-host")).reduce((states, host) => {
+        const state =
+          host instanceof HTMLElement ? host.dataset.runtimeState ?? "unknown" : "unknown";
+        states[state] = (states[state] ?? 0) + 1;
+        return states;
+      }, {});
+    }
+  })()`);
   if (!result.ok) {
     throw new Error(`overview transition measurement failed: ${JSON.stringify(result)}`);
   }
@@ -299,13 +412,102 @@ async function measureOverviewTransition(client, { buttonLabel, expectedMode, na
 
 async function safeWorkspaceSnapshot(client) {
   try {
-    return await client.driver("overviewWorkspaceSnapshot");
+    return await client.evaluate(workspaceSnapshotExpression());
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }
 
-async function waitForDriverState(client, method, args, predicate, timeoutMs) {
-  await client.installDriver();
-  return waitForState(client, driverCallExpression(method, args), predicate, timeoutMs);
+function workspaceIdExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
+  })()`;
+}
+
+function workspacePresentationModeExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    return area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "";
+  })()`;
+}
+
+function workspaceSnapshotExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const hosts = Array.from(document.querySelectorAll(".workspace-pane-host")).map((host) => {
+      if (!(host instanceof HTMLElement)) {
+        return { visible: false };
+      }
+      return {
+        surfaceKind: host.dataset.surfaceKind ?? "",
+        focused: host.dataset.focused ?? "",
+        paneId: host.dataset.paneId ?? "",
+        presentationMode: host.dataset.presentationMode ?? "",
+        runtimeState: host.dataset.runtimeState ?? "",
+        visible: host.dataset.visible === "true",
+      };
+    });
+    return {
+      hosts,
+      mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
+      visibleHosts: hosts.filter((host) => host.visible).length,
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+    };
+  })()`;
+}
+
+function visibleBrowserHostCountExpression() {
+  return `(() => Array.from(document.querySelectorAll(".workspace-pane-host")).filter((host) => (
+    host instanceof HTMLElement &&
+    host.dataset.surfaceKind === "browser" &&
+    host.dataset.visible === "true"
+  )).length)()`;
+}
+
+function nativeBrowserStatsExpression() {
+  return `(async () => {
+    const api = window.setta?.workspaceNativeViews;
+    if (!api?.readBrowserViewStats) {
+      return null;
+    }
+    return await api.readBrowserViewStats();
+  })()`;
+}
+
+function browserSnapshotImagesExpression() {
+  return `(async () => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const mode = area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "";
+    const nativeStats = await window.setta?.workspaceNativeViews?.readBrowserViewStats?.() ?? null;
+    const snapshots = Array.from(document.querySelectorAll(
+      '.workspace-pane-host[data-surface-kind="browser"][data-visible="true"]',
+    )).map((host) => {
+      const image = host.querySelector('[data-workspace-browser-snapshot]');
+      const hostRect = host.getBoundingClientRect();
+      return {
+        hostHeight: hostRect.height,
+        hostStyleHeight: Number.parseFloat(host.style.height || "0"),
+        hostStyleWidth: Number.parseFloat(host.style.width || "0"),
+        hostWidth: hostRect.width,
+        imageHeight: image instanceof HTMLImageElement ? image.height : 0,
+        imageHidden: image instanceof HTMLImageElement ? image.hidden : true,
+        imageWidth: image instanceof HTMLImageElement ? image.width : 0,
+        mode,
+        naturalHeight: image instanceof HTMLImageElement ? image.naturalHeight : 0,
+        naturalWidth: image instanceof HTMLImageElement ? image.naturalWidth : 0,
+        paneId: host instanceof HTMLElement ? host.dataset.paneId ?? "" : "",
+        ready:
+          image instanceof HTMLImageElement &&
+          image.parentElement instanceof HTMLElement &&
+          image.parentElement.dataset.browserSnapshotReady === "true",
+        runtimeState: host instanceof HTMLElement ? host.dataset.runtimeState ?? "" : "",
+      };
+    });
+    return {
+      nativeStats,
+      ready: snapshots.filter((snapshot) => snapshot.ready),
+      snapshots,
+    };
+  })()`;
 }

@@ -1,4 +1,9 @@
-import type { WorkflowEdge, WorkflowGraph, WorkflowNode } from "@generated/backend";
+import type {
+  WorkflowActivityRef,
+  WorkflowEdge,
+  WorkflowGraph,
+  WorkflowNode,
+} from "@generated/backend";
 import { RefreshCcw, Save } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -7,20 +12,19 @@ import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-sto
 import {
   useWorkflowEditorStore,
   type WorkflowNodeActivityFocus,
-  type WorkflowNodeDetailsTarget,
 } from "../../stores/workflow-editor-store";
-import type { WorkspacePane } from "../../workspace-layout/types";
 import {
   WorkflowDetailsEmpty,
   WorkflowDetailsError,
   WorkflowDetailsRows,
   WorkflowDetailsSection,
   WorkflowRunDetailsContent,
+  type WorkflowNodeActivityPage,
   type WorkflowRunInspectionState,
-  type WorkflowRunTrajectoryActions,
 } from "./workflow-node-details-components";
 import {
   agentTaskDraftFromNode,
+  latestWorkflowNodeExecution,
   requiredIncomingSummary,
   shortIdentifier,
   workflowConditionText,
@@ -30,13 +34,17 @@ import {
   workflowOutgoingEdges,
   type AgentTaskDraft,
 } from "./workflow-node-details-helpers";
-import { useWorkflowRunInspection } from "./workflow-node-run-inspection";
 
 type WorkflowDefinitionRecord = Awaited<ReturnType<typeof window.setta.workflow.readDefinition>>;
+type WorkflowNodeDetailsTarget = NonNullable<
+  ReturnType<typeof useWorkflowEditorStore.getState>["selectedNodeTarget"]
+>;
 
-export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
-  const selectedTarget = useWorkflowEditorStore((state) => state.selectedNodeTarget);
-  const target = selectedTarget ?? pane.workflowNodeDetailsConfig ?? null;
+const workflowRunEventLimit = 80;
+const workflowRunActivityLimit = 40;
+
+export function WorkflowNodeDetailsSurface() {
+  const target = useWorkflowEditorStore((state) => state.selectedNodeTarget);
   const activityFocus = useWorkflowEditorStore((state) => state.selectedNodeActivityFocus);
   const notifyWorkflowDefinitionChanged = useWorkflowEditorStore(
     (state) => state.notifyWorkflowDefinitionChanged,
@@ -46,7 +54,7 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
     target,
     viewingRun,
   );
-  const { actions: runInspectionActions, state: runInspection } = useWorkflowRunInspection(target);
+  const runInspection = useWorkflowRunInspection(target);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [draft, setDraft] = useState<AgentTaskDraft | null>(null);
@@ -112,7 +120,6 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
         node={node}
         onDraftChange={setDraft}
         onSave={() => void saveAgentTask()}
-        runInspectionActions={runInspectionActions}
         runInspection={runInspection}
         saveMessage={saveMessage}
         saving={saving}
@@ -153,6 +160,95 @@ function useWorkflowNodeDefinition(target: WorkflowNodeDetailsTarget | null, ski
   return { definition, loadError, setDefinition, setLoadError };
 }
 
+function useWorkflowRunInspection(target: WorkflowNodeDetailsTarget | null) {
+  const [state, setState] = useState<WorkflowRunInspectionState>(() =>
+    emptyWorkflowRunInspection(false),
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    setState(emptyWorkflowRunInspection(target !== null && target.executionId !== ""));
+    if (target === null || target.executionId === "") {
+      return;
+    }
+
+    const loadRunInspection = async () => {
+      try {
+        const [execution, eventPage] = await Promise.all([
+          window.setta.workflow.readExecution(target.workspaceId, target.executionId),
+          window.setta.workflow.executionEvents(
+            target.workspaceId,
+            target.executionId,
+            0,
+            workflowRunEventLimit,
+          ),
+        ]);
+        const nodeExecution = latestWorkflowNodeExecution(execution, target.nodeId);
+        const activityPages = await Promise.all(
+          (nodeExecution?.activityRefs ?? []).map((ref) =>
+            loadWorkflowNodeActivityPage(target.workspaceId, ref),
+          ),
+        );
+        if (!disposed) {
+          setState({
+            activityPages,
+            events: eventPage.events,
+            execution,
+            loadError: "",
+            loading: false,
+          });
+        }
+      } catch (error: unknown) {
+        if (!disposed) {
+          setState({
+            activityPages: [],
+            events: [],
+            execution: null,
+            loadError: errorMessage(error),
+            loading: false,
+          });
+        }
+      }
+    };
+
+    void loadRunInspection();
+    return () => {
+      disposed = true;
+    };
+  }, [target]);
+
+  return state;
+}
+
+function emptyWorkflowRunInspection(loading: boolean): WorkflowRunInspectionState {
+  return {
+    activityPages: [],
+    events: [],
+    execution: null,
+    loadError: "",
+    loading,
+  };
+}
+
+async function loadWorkflowNodeActivityPage(
+  workspaceId: string,
+  ref: WorkflowActivityRef,
+): Promise<WorkflowNodeActivityPage> {
+  if (ref.kind !== "chat.run") {
+    return { error: "", page: null, ref };
+  }
+  try {
+    const page = await window.setta.chat.runActivity(
+      workspaceId,
+      ref.ref,
+      workflowRunActivityLimit,
+    );
+    return { error: "", page, ref };
+  } catch (error: unknown) {
+    return { error: errorMessage(error), page: null, ref };
+  }
+}
+
 function WorkflowNodeDetailsContent({
   activityFocus,
   definition,
@@ -161,7 +257,6 @@ function WorkflowNodeDetailsContent({
   node,
   onDraftChange,
   onSave,
-  runInspectionActions,
   runInspection,
   saveMessage,
   saving,
@@ -174,7 +269,6 @@ function WorkflowNodeDetailsContent({
   node: WorkflowNode | null;
   onDraftChange: (draft: AgentTaskDraft) => void;
   onSave: () => void;
-  runInspectionActions: WorkflowRunTrajectoryActions;
   runInspection: WorkflowRunInspectionState;
   saveMessage: string;
   saving: boolean;
@@ -185,12 +279,14 @@ function WorkflowNodeDetailsContent({
   }
   if (target.executionId !== "") {
     return (
-      <WorkflowRunDetailsContent
-        actions={runInspectionActions}
-        focus={activityFocus}
-        inspection={runInspection}
-        target={target}
-      />
+      <>
+        <WorkflowNodeIdentity target={target} />
+        <WorkflowRunDetailsContent
+          focus={activityFocus}
+          inspection={runInspection}
+          target={target}
+        />
+      </>
     );
   }
   if (loadError !== "") {

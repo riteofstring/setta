@@ -44,9 +44,6 @@ type cartographerPatchDecision struct {
 }
 
 func (service *Service) ApplyCartographerPatchEnvelope(ctx context.Context, input CartographerPatchEnvelopeApplicationInput) (CartographerPatchEnvelopeApplicationResult, error) {
-	if service.semanticCartographerDisabled() {
-		return CartographerPatchEnvelopeApplicationResult{}, errSemanticCartographerDisabled
-	}
 	if input.TriggerKind == "" {
 		input.TriggerKind = CartographerTriggerManual
 	}

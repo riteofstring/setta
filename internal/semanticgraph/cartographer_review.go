@@ -59,9 +59,6 @@ func (service *Service) ListCartographerPatches(ctx context.Context, filter Cart
 }
 
 func (service *Service) AcceptCartographerPatch(ctx context.Context, workspaceID string, patchID string) (CartographerPatchReviewResult, error) {
-	if service.semanticCartographerDisabled() {
-		return CartographerPatchReviewResult{}, errSemanticCartographerDisabled
-	}
 	patch, run, err := service.pendingCartographerPatchForReview(ctx, workspaceID, patchID)
 	if err != nil {
 		return CartographerPatchReviewResult{}, err
@@ -132,9 +129,6 @@ func (service *Service) AcceptCartographerPatch(ctx context.Context, workspaceID
 }
 
 func (service *Service) RejectCartographerPatch(ctx context.Context, workspaceID string, patchID string) (CartographerPatchReviewResult, error) {
-	if service.semanticCartographerDisabled() {
-		return CartographerPatchReviewResult{}, errSemanticCartographerDisabled
-	}
 	patch, run, err := service.pendingCartographerPatchForReview(ctx, workspaceID, patchID)
 	if err != nil {
 		return CartographerPatchReviewResult{}, err

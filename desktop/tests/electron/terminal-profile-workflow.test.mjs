@@ -24,6 +24,7 @@ import {
   focusTerminal,
   openTerminalFromShortcut,
   terminalSnapshotExpression,
+  terminalSnapshotsExpression,
 } from "./terminal-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -48,6 +49,7 @@ const expectedHome = await realpath(process.env.HOME || homedir());
 let context = null;
 let createdProfile;
 let terminalState;
+let terminalPaneId = "";
 
 try {
   context = await launchElectronCdpContext({
@@ -76,9 +78,18 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await ensureWorkspaceOpen(context.client);
-  await openTerminalFromShortcut(context.client, terminalProfileWorkflowTimeoutMs);
-  await focusTerminal(context.client, terminalProfileWorkflowTimeoutMs);
-  terminalState = await waitForTerminalProfile(context.client, createdProfile.id, expectedHome);
+  const openedTerminal = await openTerminalFromShortcut(
+    context.client,
+    terminalProfileWorkflowTimeoutMs,
+  );
+  terminalPaneId = openedTerminal.paneId;
+  await focusTerminal(context.client, terminalProfileWorkflowTimeoutMs, { paneId: terminalPaneId });
+  terminalState = await waitForTerminalProfile(
+    context.client,
+    terminalPaneId,
+    createdProfile.id,
+    expectedHome,
+  );
   await assertProfilePersisted(fixture.appDataDir, createdProfile.id);
   await captureScreenshot(context.client, join(artifactDir, "terminal-profile-default.png"));
 } catch (error) {
@@ -86,7 +97,13 @@ try {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
     await writeJson(join(artifactDir, "failure-snapshot.json"), {
       profiles: await readProfilesFromRenderer(context.client).catch(() => null),
-      terminal: await context.client.evaluate(terminalSnapshotExpression()).catch(() => null),
+      terminal:
+        terminalPaneId !== ""
+          ? await context.client
+              .evaluate(terminalSnapshotExpression({ paneId: terminalPaneId }))
+              .catch(() => null)
+          : null,
+      terminals: await context.client.evaluate(terminalSnapshotsExpression()).catch(() => []),
     }).catch(() => {});
   }
   await writeJson(join(artifactDir, "summary.json"), {
@@ -281,17 +298,18 @@ async function waitForProfileByName(client, name) {
   ).then((profiles) => profiles.profiles.find((profile) => profile.name === name));
 }
 
-async function waitForTerminalProfile(client, profileId, expectedCwd) {
+async function waitForTerminalProfile(client, paneId, profileId, expectedCwd) {
   return waitForState(
     client,
-    terminalSnapshotExpression(),
+    terminalSnapshotExpression({ paneId }),
     (snapshot) =>
       snapshot.exists &&
       snapshot.visible &&
       snapshot.xtermReady &&
       snapshot.sessionId.startsWith("terminal_") &&
       snapshot.profileId === profileId &&
-      snapshot.statusText === expectedCwd,
+      snapshot.statusText === expectedCwd &&
+      snapshot.titleText === expectedCwd,
     terminalProfileWorkflowTimeoutMs,
   );
 }

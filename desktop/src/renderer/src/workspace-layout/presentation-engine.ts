@@ -1,30 +1,13 @@
 import type { WorkspaceMetricsCollector } from "./metrics";
 import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
-import {
-  canHostResizeHandle,
-  formatBytes,
-  formatPixels,
-  paneActionButtonClassName,
-  paneActionButtonLabel,
-  paneActionStateKey,
-  paneChromeActions,
-  paneChromeActionVisible,
-  paneControlsLayoutKey,
-  paneResizeHandleStateKey,
-  positionHeightResizeHandle,
-  positionResizeHandle,
-  resizeNeighborItem,
-  surfaceSyncItem,
-  type PaneChromeAction,
-  type PaneResizeAxis,
-  visualRectForItem,
-} from "./presentation-pane-controls";
 import { syncDropPreviewOverlay } from "./presentation-drop-preview";
 import {
   addPresentationWriteCounts,
   emptyPresentationWriteCounts,
 } from "./presentation-write-counts";
 import { SurfaceRegistry, type SurfaceViewportSyncStats } from "./surface-registry";
+import { paneChromeTitleModel, paneTitleOverrideFromHost } from "./pane-title-metadata";
+import { createPaneTitleSlot, syncPaneTitleSlot } from "./pane-title-icons";
 import type { WorkspacePane, PaneRenderItem, PaneRuntimeSummary, ResizePhase } from "./types";
 
 export interface PresentationApplyOptions {
@@ -49,16 +32,38 @@ interface PaneHostBinding {
   lastMaximized: boolean | null;
   lastMoving: boolean | null;
   lastOpacity: number;
-  lastPaneActionKey: string;
   lastPlaneIndex: number | null;
   lastPresentationMode: string | null;
-  lastResizeKey: string;
   lastRuntimeState: string | null;
   lastTransform: string;
   lastVisible: boolean | null;
   lastWidth: number;
   lastZ: number;
 }
+
+type PaneResizeAxis = "height" | "horizontal" | "vertical";
+type PaneChromeAction = "add-above" | "add-below" | "close" | "maximize" | "split-down";
+
+interface PaneVisualRect {
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+}
+
+interface ResizeNeighborMeasurement {
+  gap: number;
+  item: PaneRenderItem;
+}
+
+const maximumResizeNeighborGapPx = 48;
+const paneChromeActions = [
+  "split-down",
+  "add-above",
+  "add-below",
+  "maximize",
+  "close",
+] satisfies PaneChromeAction[];
 
 export class PresentationEngine {
   private bindings: PaneHostBinding[] = [];
@@ -82,7 +87,6 @@ export class PresentationEngine {
   apply(items: PaneRenderItem[], options: PresentationApplyOptions): PresentationWriteCounts {
     const writeCounts = emptyPresentationWriteCounts();
     const assignedItems = this.assignItemsToBindings(items);
-    const assignedItemsKey = paneControlsLayoutKey(assignedItems);
     this.nativeViewBoundsBatcher?.beginFrame();
 
     for (let index = 0; index < this.bindings.length; index += 1) {
@@ -93,7 +97,7 @@ export class PresentationEngine {
       const item = assignedItems[index];
       addPresentationWriteCounts(
         writeCounts,
-        this.applyBinding(binding, item, assignedItems, assignedItemsKey, options),
+        this.applyBinding(binding, item, assignedItems, options),
       );
     }
 
@@ -120,10 +124,8 @@ export class PresentationEngine {
       lastMaximized: null,
       lastMoving: null,
       lastOpacity: -1,
-      lastPaneActionKey: "",
       lastPlaneIndex: null,
       lastPresentationMode: null,
-      lastResizeKey: "",
       lastRuntimeState: null,
       lastTransform: "",
       lastVisible: null,
@@ -298,7 +300,6 @@ export class PresentationEngine {
     binding: PaneHostBinding,
     item: PaneRenderItem | undefined,
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
-    assignedItemsKey: string,
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
     if (!item) {
@@ -314,7 +315,7 @@ export class PresentationEngine {
           this.syncFrame(binding, item),
         )
       : this.syncFrame(binding, item);
-    this.syncPaneControls(binding, item, assignedItems, assignedItemsKey);
+    this.syncPaneControls(binding, item, assignedItems);
     return writeCounts;
   }
 
@@ -334,7 +335,6 @@ export class PresentationEngine {
     binding.lastMoving = false;
     binding.lastOpacity = 0;
     binding.lastPlaneIndex = null;
-    binding.lastResizeKey = "";
     binding.host.dataset.visible = "false";
     binding.lastVisible = false;
   }
@@ -343,46 +343,31 @@ export class PresentationEngine {
     binding: PaneHostBinding,
     item: PaneRenderItem,
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
-    assignedItemsKey: string,
   ): void {
-    if (!this.paneById.has(item.paneId)) {
+    const pane = this.paneById.get(item.paneId);
+    if (!pane) {
       throw new Error(`missing pane controls metadata for ${item.paneId}`);
     }
     const topBar = this.ensurePaneTopBar(binding.host);
-    const dragHandle = this.ensureDragHandle(topBar);
+    topBar.dataset.paneId = item.paneId;
+    topBar.dataset.workspacePaneDragHandle = "true";
+
+    const title = this.ensurePaneTitle(topBar);
+    syncPaneTitleSlot(title, paneChromeTitleModel(pane, paneTitleOverrideFromHost(binding.host)));
+
     const actionStrip = this.ensurePaneActionStrip(topBar);
-    const paneActionKey = paneActionStateKey(item);
-    if (binding.lastPaneActionKey !== paneActionKey) {
-      topBar.dataset.paneId = item.paneId;
-      dragHandle.dataset.paneId = item.paneId;
-      actionStrip.dataset.paneId = item.paneId;
-      let visibleActionCount = 0;
-      for (const action of paneChromeActions) {
-        const button = this.ensurePaneActionButton(actionStrip, action);
-        const visible = paneChromeActionVisible(action, item);
-        if (visible) {
-          visibleActionCount += 1;
-        }
-        this.syncPaneActionButton(button, action, item, visible);
+    actionStrip.dataset.paneId = item.paneId;
+    let visibleActionCount = 0;
+    for (const action of paneChromeActions) {
+      const button = this.ensurePaneActionButton(actionStrip, action);
+      const visible = paneChromeActionVisible(action, item);
+      if (visible) {
+        visibleActionCount += 1;
       }
-      actionStrip.dataset.workspacePaneControlsVisible = visibleActionCount > 0 ? "true" : "false";
-      binding.lastPaneActionKey = paneActionKey;
+      this.syncPaneActionButton(button, action, item, visible);
     }
+    actionStrip.dataset.workspacePaneControlsVisible = visibleActionCount > 0 ? "true" : "false";
 
-    this.syncResizeHandles(binding, item, assignedItems, assignedItemsKey);
-  }
-
-  private syncResizeHandles(
-    binding: PaneHostBinding,
-    item: PaneRenderItem,
-    assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
-    assignedItemsKey: string,
-  ): void {
-    const resizeKey = paneResizeHandleStateKey(item, assignedItemsKey);
-    if (binding.lastResizeKey === resizeKey) {
-      return;
-    }
-    binding.lastResizeKey = resizeKey;
     this.syncResizeHandle(
       binding.host,
       item,
@@ -410,19 +395,14 @@ export class PresentationEngine {
     return topBar;
   }
 
-  private ensureDragHandle(topBar: HTMLElement): HTMLButtonElement {
-    const existing = this.dragHandleForTopBar(topBar);
+  private ensurePaneTitle(topBar: HTMLElement): HTMLElement {
+    const existing = this.paneTitleForTopBar(topBar);
     if (existing) {
       return existing;
     }
-    const button = topBar.ownerDocument.createElement("button");
-    button.className = "workspace-pane-drag-handle app-no-drag";
-    button.dataset.workspacePaneDragHandle = "true";
-    button.type = "button";
-    button.setAttribute("aria-label", "Drag pane");
-    button.title = "Drag pane";
-    topBar.prepend(button);
-    return button;
+    const title = createPaneTitleSlot(topBar.ownerDocument);
+    topBar.prepend(title);
+    return title;
   }
 
   private ensurePaneActionStrip(topBar: HTMLElement): HTMLElement {
@@ -531,11 +511,11 @@ export class PresentationEngine {
     return existing ? (existing as HTMLElement) : null;
   }
 
-  private dragHandleForTopBar(topBar: HTMLElement): HTMLButtonElement | null {
+  private paneTitleForTopBar(topBar: HTMLElement): HTMLElement | null {
     const existing = Array.from(topBar.children).find((child) =>
-      child.classList.contains("workspace-pane-drag-handle"),
+      child.classList.contains("workspace-pane-title-slot"),
     );
-    return existing ? (existing as HTMLButtonElement) : null;
+    return existing ? (existing as HTMLElement) : null;
   }
 
   private resizeHandleForHost(host: HTMLElement, axis: PaneResizeAxis): HTMLElement | null {
@@ -763,4 +743,255 @@ export class PresentationEngine {
     }
     return 0;
   }
+}
+
+function paneChromeActionVisible(action: PaneChromeAction, item: PaneRenderItem): boolean {
+  if (action === "close" || action === "maximize") {
+    return item.visible;
+  }
+  if (!item.focused || item.presentationMode !== "normal") {
+    return false;
+  }
+  return !item.maximized;
+}
+
+function paneActionButtonLabel(action: PaneChromeAction, item: PaneRenderItem): string {
+  switch (action) {
+    case "add-above":
+      return "Add pane above";
+    case "add-below":
+      return "Add pane below";
+    case "close":
+      return "Close pane";
+    case "maximize":
+      return item.maximized ? "Restore pane size" : "Maximize pane";
+    case "split-down":
+      return "Split pane down";
+    default:
+      return assertNever(action);
+  }
+}
+
+function paneActionButtonClassName(action: PaneChromeAction): string {
+  const className = `workspace-pane-action-button workspace-pane-action-${action} app-no-drag`;
+  return action === "maximize" ? `${className} workspace-pane-maximize-button` : className;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`unhandled pane chrome action: ${String(value)}`);
+}
+
+function resizeNeighborItem(
+  item: PaneRenderItem,
+  assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
+  axis: PaneResizeAxis,
+): PaneRenderItem | null {
+  if (!canHostResizeHandle(item)) {
+    return null;
+  }
+  const sourceRect = visualRectForItem(item);
+  let best: ResizeNeighborMeasurement | null = null;
+  for (const candidate of assignedItems) {
+    const measurement = resizeNeighborMeasurement(item, sourceRect, candidate, axis);
+    if (!measurement) {
+      continue;
+    }
+    best = nearerResizeNeighbor(best, measurement);
+  }
+  return best?.item ?? null;
+}
+
+function resizeNeighborMeasurement(
+  item: PaneRenderItem,
+  sourceRect: PaneVisualRect,
+  candidate: PaneRenderItem | undefined,
+  axis: PaneResizeAxis,
+): ResizeNeighborMeasurement | null {
+  if (!candidate || candidate.paneId === item.paneId || !canHostResizeHandle(candidate)) {
+    return null;
+  }
+  const candidateRect = visualRectForItem(candidate);
+  const gap = resizeNeighborGap(sourceRect, candidateRect, axis);
+  if (gap < -1 || gap > maximumResizeNeighborGapPx) {
+    return null;
+  }
+  return resizeNeighborHasOverlap(sourceRect, candidateRect, axis)
+    ? { gap, item: candidate }
+    : null;
+}
+
+function canHostResizeHandle(item: PaneRenderItem): boolean {
+  return item.visible && item.presentationMode === "normal" && !item.maximized;
+}
+
+function surfaceSyncItem(
+  item: PaneRenderItem,
+  assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
+): PaneRenderItem {
+  if (
+    item.surfaceKind !== "browser" ||
+    item.runtimeState !== "live" ||
+    !browserNativeViewOccluded(item, assignedItems)
+  ) {
+    return item;
+  }
+  return { ...item, runtimeState: "snapshot" };
+}
+
+function browserNativeViewOccluded(
+  item: PaneRenderItem,
+  assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
+): boolean {
+  if (!item.visible || item.opacity <= 0) {
+    return false;
+  }
+  const rect = visualRectForItem(item);
+  return assignedItems.some((candidate) => {
+    if (!candidate || candidate.paneId === item.paneId || !candidate.visible) {
+      return false;
+    }
+    if (candidate.opacity <= 0 || candidate.z <= item.z) {
+      return false;
+    }
+    return rectsOverlap(rect, visualRectForItem(candidate));
+  });
+}
+
+function rectsOverlap(left: PaneVisualRect, right: PaneVisualRect): boolean {
+  return (
+    overlapSize(left.left, left.right, right.left, right.right) > 0 &&
+    overlapSize(left.top, left.bottom, right.top, right.bottom) > 0
+  );
+}
+
+function resizeNeighborGap(
+  sourceRect: PaneVisualRect,
+  candidateRect: PaneVisualRect,
+  axis: PaneResizeAxis,
+): number {
+  return axis === "horizontal"
+    ? candidateRect.left - sourceRect.right
+    : candidateRect.top - sourceRect.bottom;
+}
+
+function resizeNeighborHasOverlap(
+  sourceRect: PaneVisualRect,
+  candidateRect: PaneVisualRect,
+  axis: PaneResizeAxis,
+): boolean {
+  const overlap =
+    axis === "horizontal"
+      ? overlapSize(sourceRect.top, sourceRect.bottom, candidateRect.top, candidateRect.bottom)
+      : overlapSize(sourceRect.left, sourceRect.right, candidateRect.left, candidateRect.right);
+  const sourceSize = axis === "horizontal" ? rectHeight(sourceRect) : rectWidth(sourceRect);
+  const candidateSize =
+    axis === "horizontal" ? rectHeight(candidateRect) : rectWidth(candidateRect);
+  return overlap >= Math.min(sourceSize, candidateSize) * 0.25 && overlap >= 18;
+}
+
+function nearerResizeNeighbor(
+  current: ResizeNeighborMeasurement | null,
+  candidate: ResizeNeighborMeasurement,
+): ResizeNeighborMeasurement {
+  return !current || candidate.gap < current.gap ? candidate : current;
+}
+
+function positionResizeHandle(
+  handle: HTMLElement,
+  axis: PaneResizeAxis,
+  sourceRect: PaneVisualRect,
+  adjacentRect: PaneVisualRect,
+): void {
+  if (axis === "horizontal") {
+    const gap = Math.max(0, adjacentRect.left - sourceRect.right);
+    const overlapTop = Math.max(sourceRect.top, adjacentRect.top);
+    const overlapBottom = Math.min(sourceRect.bottom, adjacentRect.bottom);
+    syncStyleValue(
+      handle.style,
+      "height",
+      `${Math.max(34, overlapBottom - overlapTop).toFixed(2)}px`,
+    );
+    syncStyleValue(handle.style, "left", `${(sourceRect.right + gap / 2).toFixed(2)}px`);
+    syncStyleValue(handle.style, "top", `${((overlapTop + overlapBottom) / 2).toFixed(2)}px`);
+    syncStyleValue(handle.style, "width", "20px");
+    return;
+  }
+  const gap = Math.max(0, adjacentRect.top - sourceRect.bottom);
+  const overlapLeft = Math.max(sourceRect.left, adjacentRect.left);
+  const overlapRight = Math.min(sourceRect.right, adjacentRect.right);
+  syncStyleValue(handle.style, "height", "20px");
+  syncStyleValue(handle.style, "left", `${((overlapLeft + overlapRight) / 2).toFixed(2)}px`);
+  syncStyleValue(handle.style, "top", `${(sourceRect.bottom + gap / 2).toFixed(2)}px`);
+  syncStyleValue(
+    handle.style,
+    "width",
+    `${Math.min(84, Math.max(42, overlapRight - overlapLeft - 20)).toFixed(2)}px`,
+  );
+}
+
+function positionHeightResizeHandle(handle: HTMLElement, sourceRect: PaneVisualRect): void {
+  syncStyleValue(handle.style, "height", "20px");
+  syncStyleValue(
+    handle.style,
+    "left",
+    `${((sourceRect.left + sourceRect.right) / 2).toFixed(2)}px`,
+  );
+  syncStyleValue(handle.style, "top", `${sourceRect.bottom.toFixed(2)}px`);
+  syncStyleValue(handle.style, "width", `${Math.max(42, rectWidth(sourceRect)).toFixed(2)}px`);
+}
+
+function syncStyleValue(
+  style: CSSStyleDeclaration,
+  property: "height" | "left" | "top" | "width",
+  value: string,
+): void {
+  if (style[property] !== value) {
+    style[property] = value;
+  }
+}
+
+function visualRectForItem(item: PaneRenderItem): PaneVisualRect {
+  return {
+    bottom: item.y + item.height * item.scale,
+    left: item.x,
+    right: item.x + item.width * item.scale,
+    top: item.y,
+  };
+}
+
+function overlapSize(
+  firstStart: number,
+  firstEnd: number,
+  secondStart: number,
+  secondEnd: number,
+): number {
+  return Math.max(0, Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart));
+}
+
+function rectHeight(rect: PaneVisualRect): number {
+  return rect.bottom - rect.top;
+}
+
+function rectWidth(rect: PaneVisualRect): number {
+  return rect.right - rect.left;
+}
+
+function formatBytes(bytes: number | null): string {
+  if (bytes === null) {
+    return "n/a";
+  }
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)}KiB`;
+  }
+  return `${(bytes / 1024 / 1024).toFixed(1)}MiB`;
+}
+
+function formatPixels(pixels: number | null): string {
+  if (pixels === null) {
+    return "n/a";
+  }
+  if (pixels < 1000 * 1000) {
+    return `${Math.round(pixels / 1000)}Kpx`;
+  }
+  return `${(pixels / 1000 / 1000).toFixed(1)}Mpx`;
 }

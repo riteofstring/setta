@@ -5,6 +5,7 @@
     "scripts/generate-workflow-graph-font.mjs",
     "src/main/index.ts",
     "src/preload/index.ts",
+    "src/renderer/public/sw.js",
     "src/renderer/src/main.tsx",
     "vitest.config.ts"
   ],

@@ -1,4 +1,6 @@
 import type {
+  RunActivityPage,
+  WorkflowActivityRef,
   WorkflowEvent,
   WorkflowExecution,
   WorkflowGraphEdge,
@@ -6,15 +8,10 @@ import type {
   WorkflowPendingApproval,
   WorkflowToken,
 } from "@generated/backend";
-import { RefreshCcw, Square } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
-import { AgentTrajectorySurface } from "../../components/agent-trajectory";
-import { Composer } from "../../components/chat-composer";
-import type { LoadRunItemOutput } from "../../components/chat-transcript-activity";
-import type { SubmitApproval } from "../../components/chat-transcript-approvals";
+import { RunActivityRows } from "../../components/chat-run-activity";
 import { cn } from "../../lib/utils";
-import { Button } from "../../components/ui/button";
 import type {
   WorkflowNodeActivityFocus,
   WorkflowNodeDetailsTarget,
@@ -25,49 +22,35 @@ import {
   workflowActivityFocusWorkflowEventId,
 } from "./workflow-node-activity-focus";
 import {
-  workflowNodeTrajectoryActions,
-  workflowNodeComposerActions,
-  workflowNodeComposerRunPresentation,
-  workflowNodeComposerViewModel,
-  workflowNodeTrajectoryViewModel,
-  type WorkflowNodeTrajectoryState,
-} from "./workflow-node-agent-trajectory-adapter";
-import {
+  latestWorkflowNodeExecution,
+  runActivityOutputStateFromPage,
   shortIdentifier,
   workflowJsonText,
-  workflowNodeExecutionForDetailsTarget,
   workflowNodeEvents,
   workflowNodeKindLabel,
 } from "./workflow-node-details-helpers";
-import type { ComposerActions } from "../../components/chat-composer-contract";
+
+const noopLoadRunActivityOutput = async () => {};
 
 export interface WorkflowRunInspectionState {
+  activityPages: WorkflowNodeActivityPage[];
   events: WorkflowEvent[];
   execution: WorkflowExecution | null;
-  lastWorkflowEventOrdinal: number;
   loadError: string;
   loading: boolean;
-  operation: string | null;
-  trajectory: WorkflowNodeTrajectoryState | null;
-  trajectoryError: string;
 }
 
-export interface WorkflowRunTrajectoryActions {
-  loadOlder: () => Promise<void>;
-  loadRunItemOutput: LoadRunItemOutput;
-  retryLiveness: () => Promise<void>;
-  steerMessage: NonNullable<ComposerActions["steerMessage"]>;
-  stopRun: () => Promise<void>;
-  submitApproval: SubmitApproval;
+export interface WorkflowNodeActivityPage {
+  error: string;
+  page: RunActivityPage | null;
+  ref: WorkflowActivityRef;
 }
 
 export function WorkflowRunDetailsContent({
-  actions,
   focus,
   inspection,
   target,
 }: {
-  actions: WorkflowRunTrajectoryActions;
   focus: WorkflowNodeActivityFocus | null;
   inspection: WorkflowRunInspectionState;
   target: WorkflowNodeDetailsTarget;
@@ -78,262 +61,25 @@ export function WorkflowRunDetailsContent({
   if (inspection.loading || inspection.execution === null) {
     return <WorkflowDetailsEmpty message="Loading run details" />;
   }
-  const nodeExecution = workflowNodeExecutionForDetailsTarget(inspection.execution, target);
+  const nodeExecution = latestWorkflowNodeExecution(inspection.execution, target.nodeId);
   const nodeEvents = workflowNodeEvents(inspection.events, target.nodeId, nodeExecution?.id ?? "");
-  const header = (
-    <WorkflowRunHeader
-      actions={actions}
-      execution={inspection.execution}
-      inspection={inspection}
-      nodeExecution={nodeExecution}
-      target={target}
-    />
-  );
-  if (inspection.trajectory !== null || inspection.trajectoryError !== "") {
-    return (
-      <div
-        className="flex min-h-0 flex-1 flex-col overflow-hidden"
-        data-testid="workflow-node-run-details"
-        data-workflow-node-run-layout="agent"
-      >
-        {header}
-        <WorkflowRunDetailsDock
-          events={nodeEvents}
-          execution={inspection.execution}
-          focus={focus}
-          nodeExecution={nodeExecution}
-          target={target}
-        />
-        <WorkflowAgentTrajectoryPane actions={actions} focus={focus} inspection={inspection} />
-      </div>
-    );
-  }
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4"
       data-testid="workflow-node-run-details"
-      data-workflow-node-run-layout="details"
     >
-      {header}
-      <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
-        <WorkflowRunContextSection
-          execution={inspection.execution}
-          nodeExecution={nodeExecution}
-          target={target}
-        />
-        <WorkflowNodeExecutionSection nodeExecution={nodeExecution} target={target} />
-        <WorkflowActionResultSection focus={focus} nodeExecution={nodeExecution} />
-        <WorkflowProjectionFlowSection target={target} />
-        <WorkflowTokenFlowSection execution={inspection.execution} nodeId={target.nodeId} />
-        <WorkflowEventSection events={nodeEvents} focus={focus} />
-      </div>
+      <WorkflowRunContextSection
+        execution={inspection.execution}
+        nodeExecution={nodeExecution}
+        target={target}
+      />
+      <WorkflowNodeExecutionSection nodeExecution={nodeExecution} target={target} />
+      <WorkflowActionResultSection focus={focus} nodeExecution={nodeExecution} />
+      <WorkflowActivitySection activityPages={inspection.activityPages} focus={focus} />
+      <WorkflowProjectionFlowSection target={target} />
+      <WorkflowTokenFlowSection execution={inspection.execution} nodeId={target.nodeId} />
+      <WorkflowEventSection events={nodeEvents} focus={focus} />
     </div>
-  );
-}
-
-function WorkflowRunHeader({
-  actions,
-  execution,
-  inspection,
-  nodeExecution,
-  target,
-}: {
-  actions: WorkflowRunTrajectoryActions;
-  execution: WorkflowExecution;
-  inspection: WorkflowRunInspectionState;
-  nodeExecution: WorkflowNodeExecution | null;
-  target: WorkflowNodeDetailsTarget;
-}) {
-  const model = workflowRunHeaderModel(execution, inspection, nodeExecution, target);
-  return (
-    <div
-      className="border-b border-zinc-800 bg-zinc-950/95 px-4 py-3"
-      data-testid="workflow-node-run-header"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 border-l-2 border-accent-violet/70 pl-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <div className="min-w-0 truncate text-sm font-semibold text-zinc-100">
-              {model.title}
-            </div>
-            <WorkflowStatusChip label={model.nodeStatus} />
-            <WorkflowStatusChip label={model.runStatus} tone="run" />
-          </div>
-          <div className="mt-1 flex min-w-0 flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-zinc-500">
-            <span data-testid="workflow-node-details-node-id">{target.nodeId}</span>
-            <span>run {shortIdentifier(execution.id)}</span>
-            <span>version {shortIdentifier(execution.definitionVersionId)}</span>
-            <WorkflowRunHeaderNodeExecution nodeExecution={nodeExecution} />
-          </div>
-        </div>
-        <WorkflowRunHeaderActions
-          actions={actions}
-          canRetry={model.canRetry}
-          canStop={model.canStop}
-          disabled={inspection.operation !== null}
-        />
-      </div>
-    </div>
-  );
-}
-
-function workflowRunHeaderModel(
-  execution: WorkflowExecution,
-  inspection: WorkflowRunInspectionState,
-  nodeExecution: WorkflowNodeExecution | null,
-  target: WorkflowNodeDetailsTarget,
-) {
-  const capabilities = inspection.trajectory?.page.capabilities;
-  const nodeStatus = nodeExecution?.status ?? target.nodeStatus;
-  return {
-    canRetry: capabilities?.canRetryLiveness === true,
-    canStop: capabilities?.canStopRun === true,
-    nodeStatus: nodeStatus || "not run",
-    runStatus: execution.status,
-    title: target.nodeLabel || target.nodeId,
-  };
-}
-
-function WorkflowRunHeaderNodeExecution({
-  nodeExecution,
-}: {
-  nodeExecution: WorkflowNodeExecution | null;
-}) {
-  if (nodeExecution === null) {
-    return null;
-  }
-  return <span>node {shortIdentifier(nodeExecution.id)}</span>;
-}
-
-function WorkflowRunHeaderActions({
-  actions,
-  canRetry,
-  canStop,
-  disabled,
-}: {
-  actions: WorkflowRunTrajectoryActions;
-  canRetry: boolean;
-  canStop: boolean;
-  disabled: boolean;
-}) {
-  if (!canRetry && !canStop) {
-    return null;
-  }
-  return (
-    <div className="flex shrink-0 items-center gap-1">
-      {canRetry ? (
-        <Button
-          aria-label="Retry run liveness"
-          className="h-7 w-7 px-0"
-          disabled={disabled}
-          onClick={() => void actions.retryLiveness()}
-          title="Retry run liveness"
-        >
-          <RefreshCcw className="h-3.5 w-3.5" />
-        </Button>
-      ) : null}
-      {canStop ? (
-        <Button
-          aria-label="Stop run"
-          className="h-7 w-7 px-0"
-          disabled={disabled}
-          onClick={() => void actions.stopRun()}
-          title="Stop run"
-        >
-          <Square className="h-3.5 w-3.5" />
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function WorkflowStatusChip({ label, tone = "node" }: { label: string; tone?: "node" | "run" }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-5 items-center rounded-sm border px-1.5 text-[11px] font-medium",
-        tone === "run"
-          ? "border-sky-500/30 bg-sky-500/10 text-sky-200"
-          : "border-accent-violet/30 bg-accent-violet/10 text-violet-200",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function WorkflowRunDetailsDock({
-  events,
-  execution,
-  focus,
-  nodeExecution,
-  target,
-}: {
-  events: WorkflowEvent[];
-  execution: WorkflowExecution;
-  focus: WorkflowNodeActivityFocus | null;
-  nodeExecution: WorkflowNodeExecution | null;
-  target: WorkflowNodeDetailsTarget;
-}) {
-  const defaultOpen = workflowDetailsDockDefaultOpen(focus);
-  const targetKey = workflowDetailsDockTargetKey(target);
-  const previousTargetKey = useRef(targetKey);
-  const [open, setOpen] = useState(defaultOpen);
-  useEffect(() => {
-    if (previousTargetKey.current !== targetKey) {
-      previousTargetKey.current = targetKey;
-      setOpen(defaultOpen);
-      return;
-    }
-    if (defaultOpen) {
-      setOpen(true);
-    }
-  }, [defaultOpen, focus?.requestId, targetKey]);
-  return (
-    <details
-      className="border-b border-zinc-800 bg-zinc-950/80"
-      data-default-open={defaultOpen ? "true" : undefined}
-      data-testid="workflow-run-details-dock"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-      open={open}
-    >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-xs font-medium text-zinc-300 marker:hidden">
-        <span>Workflow run details</span>
-        <span className="font-mono text-[11px] text-zinc-500">{open ? "hide" : "show"}</span>
-      </summary>
-      <div className="grid gap-4 border-t border-zinc-800 px-4 py-3 lg:grid-cols-2">
-        <WorkflowRunContextSection
-          execution={execution}
-          nodeExecution={nodeExecution}
-          target={target}
-        />
-        <WorkflowNodeExecutionSection nodeExecution={nodeExecution} target={target} />
-        <WorkflowActionResultSection focus={focus} nodeExecution={nodeExecution} />
-        <WorkflowProjectionFlowSection target={target} />
-        <WorkflowTokenFlowSection execution={execution} nodeId={target.nodeId} />
-        <WorkflowEventSection events={events} focus={focus} />
-      </div>
-    </details>
-  );
-}
-
-function workflowDetailsDockTargetKey(target: WorkflowNodeDetailsTarget) {
-  return [
-    target.workspaceId,
-    target.definitionId,
-    target.definitionVersionId,
-    target.executionId,
-    target.nodeId,
-    target.nodeExecutionId,
-  ].join(":");
-}
-
-function workflowDetailsDockDefaultOpen(focus: WorkflowNodeActivityFocus | null) {
-  return (
-    focus !== null &&
-    (focus.detailKind === "approval" ||
-      focus.detailKind === "workflow_event" ||
-      focus.detailKind === "workflow_node")
   );
 }
 
@@ -521,81 +267,82 @@ function WorkflowPendingApprovalRow({
   );
 }
 
-function WorkflowAgentTrajectoryPane({
-  actions,
+function WorkflowActivitySection({
+  activityPages,
   focus,
-  inspection,
 }: {
-  actions: WorkflowRunTrajectoryActions;
+  activityPages: WorkflowNodeActivityPage[];
   focus: WorkflowNodeActivityFocus | null;
-  inspection: WorkflowRunInspectionState;
 }) {
-  if (inspection.trajectoryError !== "") {
-    return (
-      <div className="min-h-0 flex-1 overflow-hidden" data-testid="workflow-node-agent-trajectory">
-        <WorkflowDetailsError message={inspection.trajectoryError} />
-      </div>
-    );
+  if (activityPages.length === 0) {
+    return null;
   }
-  if (inspection.trajectory === null) {
-    return (
-      <div className="min-h-0 flex-1 overflow-hidden" data-testid="workflow-node-agent-trajectory">
-        <WorkflowDetailsEmpty message="Agent trajectory is not available for this workflow node." />
-      </div>
-    );
-  }
-  const focusedSourceRunItemId =
+  const highlightedRunItemId =
     focus?.detailKind === "chat_run_item" && focus.runItemId !== "" ? focus.runItemId : undefined;
-  const trajectoryActions = workflowNodeTrajectoryActions({
-    loadOlder: actions.loadOlder,
-    loadRunItemOutput: actions.loadRunItemOutput,
-    retryLiveness: actions.retryLiveness,
-    state: inspection.trajectory,
-    stopRun: actions.stopRun,
-    submitApproval: actions.submitApproval,
-  });
-  const viewModel = workflowNodeTrajectoryViewModel({
-    focusedSourceRunItemId: focusedSourceRunItemId ?? null,
-    operation: inspection.operation,
-    state: inspection.trajectory,
-  });
-  const runPresentation = workflowNodeComposerRunPresentation(inspection.trajectory);
-  const composerViewModel = workflowNodeComposerViewModel({
-    operation: inspection.operation,
-    state: inspection.trajectory,
-  });
-  const composerActions = workflowNodeComposerActions({
-    retryLiveness: actions.retryLiveness,
-    state: inspection.trajectory,
-    steerMessage: actions.steerMessage,
-    stopRun: actions.stopRun,
-  });
-  const showComposer = composerViewModel.session !== null;
   return (
-    <div
-      className="flex min-h-0 flex-1 flex-col overflow-hidden"
-      data-workflow-node-execution-id={inspection.trajectory.page.scope.nodeExecutionId}
-      data-workflow-node-run-id={inspection.trajectory.page.runId}
-      data-testid="workflow-node-agent-trajectory"
-    >
-      <div className="min-h-0 flex-1">
-        <AgentTrajectorySurface actions={trajectoryActions} viewModel={viewModel} />
+    <WorkflowDetailsSection title="Activity">
+      <div className="space-y-3">
+        {activityPages.map((activity) => (
+          <WorkflowActivityRefDetails
+            activity={activity}
+            highlightedRunItemId={highlightedRunItemId}
+            key={activity.ref.id}
+          />
+        ))}
       </div>
-      {showComposer ? (
-        <Composer
-          actions={composerActions}
-          busy={inspection.operation !== null}
-          disabled={!runPresentation.canSteer}
-          frameClassName="border-zinc-800 bg-zinc-950/90 shadow-none"
-          placeholder={
-            runPresentation.canSteer ? "" : "Steering is not available for this workflow node."
-          }
-          running={runPresentation.running}
-          runPresentation={runPresentation}
-          viewModel={composerViewModel}
+    </WorkflowDetailsSection>
+  );
+}
+
+function WorkflowActivityRefDetails({
+  activity,
+  highlightedRunItemId,
+}: {
+  activity: WorkflowNodeActivityPage;
+  highlightedRunItemId: string | undefined;
+}) {
+  return (
+    <div className="space-y-2 rounded-sm border border-zinc-800 bg-zinc-950/60 p-3">
+      <WorkflowDetailsRows
+        rows={[
+          { label: "Kind", value: activity.ref.kind },
+          { label: "Ref", value: shortIdentifier(activity.ref.ref) },
+          { label: "Cursor", value: activity.ref.endCursor || activity.ref.startCursor },
+          { label: "Error", value: activity.error, hidden: activity.error === "" },
+        ]}
+      />
+      {activity.page ? (
+        <WorkflowRunActivityPageDetails
+          highlightedRunItemId={highlightedRunItemId}
+          page={activity.page}
         />
       ) : null}
     </div>
+  );
+}
+
+// Renders node-scoped agent/tool activity through the shared chat run-activity rows so the workflow
+// node details reuse the canonical rendering path instead of a bespoke lower-fidelity renderer.
+function WorkflowRunActivityPageDetails({
+  highlightedRunItemId,
+  page,
+}: {
+  highlightedRunItemId: string | undefined;
+  page: RunActivityPage;
+}) {
+  if (page.items.length === 0) {
+    return <div className="text-xs text-zinc-500">No activity items recorded.</div>;
+  }
+  const outputState = runActivityOutputStateFromPage(page);
+  return (
+    <RunActivityRows
+      highlightedRunItemId={highlightedRunItemId}
+      items={page.items}
+      loadRunItemOutput={noopLoadRunActivityOutput}
+      outputIdsByRunItemId={outputState.outputIdsByRunItemId}
+      outputPagesByRunItemId={outputState.outputPagesByRunItemId}
+      outputsById={outputState.outputsById}
+    />
   );
 }
 

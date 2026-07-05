@@ -41,30 +41,11 @@ const (
 	SessionStatusError    SessionStatus = "error"
 )
 
-type TerminalCloseSafety string
+type CloseMode string
 
 const (
-	TerminalCloseSafetySafe        TerminalCloseSafety = "safe"
-	TerminalCloseSafetyDestructive TerminalCloseSafety = "destructive"
-	TerminalCloseSafetyUnknown     TerminalCloseSafety = "unknown"
-)
-
-type TerminalCloseAssessmentReason string
-
-const (
-	TerminalCloseAssessmentNoSession         TerminalCloseAssessmentReason = "no_session"
-	TerminalCloseAssessmentAlreadyClosed     TerminalCloseAssessmentReason = "already_closed"
-	TerminalCloseAssessmentIdleShell         TerminalCloseAssessmentReason = "idle_shell"
-	TerminalCloseAssessmentForegroundProcess TerminalCloseAssessmentReason = "foreground_process"
-	TerminalCloseAssessmentBackgroundJobs    TerminalCloseAssessmentReason = "background_jobs"
-	TerminalCloseAssessmentInspectionFailed  TerminalCloseAssessmentReason = "inspection_failed"
-)
-
-type TerminalCloseResultKind string
-
-const (
-	TerminalCloseResultClosed               TerminalCloseResultKind = "closed"
-	TerminalCloseResultConfirmationRequired TerminalCloseResultKind = "confirmation_required"
+	CloseModeTerminate CloseMode = "terminate"
+	CloseModeKill      CloseMode = "kill"
 )
 
 type TerminalEventType string
@@ -91,19 +72,6 @@ type SessionSummary struct {
 	UpdatedAt   string        `json:"updatedAt"`
 	ExitCode    int           `json:"exitCode"`
 	Message     string        `json:"message"`
-}
-
-type TerminalCloseAssessment struct {
-	Safety               TerminalCloseSafety           `json:"safety"`
-	Reason               TerminalCloseAssessmentReason `json:"reason"`
-	RequiresConfirmation bool                          `json:"requiresConfirmation"`
-	Summary              string                        `json:"summary"`
-}
-
-type TerminalCloseResult struct {
-	Kind       TerminalCloseResultKind `json:"kind"`
-	Session    *SessionSummary         `json:"session"`
-	Assessment TerminalCloseAssessment `json:"assessment"`
 }
 
 type TerminalProfile struct {
@@ -200,6 +168,13 @@ func ContractValueSets() []ContractValueSet {
 			},
 		},
 		{
+			Name: "CloseMode",
+			Values: []string{
+				string(CloseModeTerminate),
+				string(CloseModeKill),
+			},
+		},
+		{
 			Name: "ProfileCWDMode",
 			Values: []string{
 				string(ProfileCWDModeProject),
@@ -223,32 +198,6 @@ func ContractValueSets() []ContractValueSet {
 				string(TerminalEventClosed),
 				string(TerminalEventError),
 				string(TerminalEventBufferTruncated),
-			},
-		},
-		{
-			Name: "TerminalCloseAssessmentReason",
-			Values: []string{
-				string(TerminalCloseAssessmentNoSession),
-				string(TerminalCloseAssessmentAlreadyClosed),
-				string(TerminalCloseAssessmentIdleShell),
-				string(TerminalCloseAssessmentForegroundProcess),
-				string(TerminalCloseAssessmentBackgroundJobs),
-				string(TerminalCloseAssessmentInspectionFailed),
-			},
-		},
-		{
-			Name: "TerminalCloseResultKind",
-			Values: []string{
-				string(TerminalCloseResultClosed),
-				string(TerminalCloseResultConfirmationRequired),
-			},
-		},
-		{
-			Name: "TerminalCloseSafety",
-			Values: []string{
-				string(TerminalCloseSafetySafe),
-				string(TerminalCloseSafetyDestructive),
-				string(TerminalCloseSafetyUnknown),
 			},
 		},
 		{
