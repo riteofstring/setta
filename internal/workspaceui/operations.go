@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 type WorkspaceUIOperationError struct {
@@ -40,7 +41,7 @@ func (service *Service) ApplyPaneOperation(workspaceID string, operation Workspa
 		return WorkspaceUIPaneOperationResult{}, operationError(workspaceID, operation, WorkspaceUIOperationErrorCodeInvalidOperation, err)
 	}
 	switch operation.Kind {
-	case WorkspaceUIPaneOperationKindClosePane, WorkspaceUIPaneOperationKindFocusPane, WorkspaceUIPaneOperationKindMovePane:
+	case WorkspaceUIPaneOperationKindClosePane, WorkspaceUIPaneOperationKindFocusPane, WorkspaceUIPaneOperationKindMovePane, WorkspaceUIPaneOperationKindRenamePane:
 	default:
 		return WorkspaceUIPaneOperationResult{}, operationError(
 			workspaceID,
@@ -69,6 +70,8 @@ func (service *Service) ApplyPaneOperation(workspaceID string, operation Workspa
 		return service.applyFocusPaneOperation(*read.Layout, operation)
 	case WorkspaceUIPaneOperationKindMovePane:
 		return service.applyMovePaneOperation(*read.Layout, operation)
+	case WorkspaceUIPaneOperationKindRenamePane:
+		return service.applyRenamePaneOperation(*read.Layout, operation)
 	default:
 		return WorkspaceUIPaneOperationResult{}, operationError(
 			workspaceID,
@@ -93,6 +96,8 @@ func validatePaneOperation(operation WorkspaceUIPaneOperation) error {
 		return validateFocusPaneOperation(operation)
 	case WorkspaceUIPaneOperationKindMovePane:
 		return validateMovePaneOperation(operation)
+	case WorkspaceUIPaneOperationKindRenamePane:
+		return validateRenamePaneOperation(operation)
 	}
 	return nil
 }
@@ -103,6 +108,9 @@ func validateClosePaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
+	}
+	if operation.Rename != nil {
+		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
 	}
 	if !validSurfaceCloseMode(operation.Close.SurfaceClose) {
 		return fmt.Errorf("workspace pane close surfaceClose is unsupported: %s", operation.Close.SurfaceClose)
@@ -117,6 +125,9 @@ func validateFocusPaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
 	}
+	if operation.Rename != nil {
+		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
+	}
 	return nil
 }
 
@@ -124,11 +135,33 @@ func validateMovePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Close != nil {
 		return errors.New("workspace pane operation close payload is only valid for close_pane")
 	}
+	if operation.Rename != nil {
+		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
+	}
 	if operation.Move == nil {
 		return errors.New("workspace pane move payload is required")
 	}
 	if !validPaneMoveDirection(operation.Move.Direction) {
 		return fmt.Errorf("workspace pane move direction is unsupported: %s", operation.Move.Direction)
+	}
+	return nil
+}
+
+func validateRenamePaneOperation(operation WorkspaceUIPaneOperation) error {
+	if operation.Close != nil {
+		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Move != nil {
+		return errors.New("workspace pane operation move payload is only valid for move_pane")
+	}
+	if operation.Rename == nil {
+		return errors.New("workspace pane rename payload is required")
+	}
+	if operation.Rename.Title == "" {
+		return errors.New("workspace pane rename title is required")
+	}
+	if strings.TrimSpace(operation.Rename.Title) != operation.Rename.Title {
+		return errors.New("workspace pane rename title must not have surrounding whitespace")
 	}
 	return nil
 }
@@ -291,6 +324,46 @@ func (service *Service) applyMovePaneOperation(layout WorkspaceUILayout, operati
 	}, nil
 }
 
+func (service *Service) applyRenamePaneOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation) (WorkspaceUIPaneOperationResult, error) {
+	paneIndex := paneIndexByID(layout.Panes, operation.PaneID)
+	if paneIndex < 0 {
+		return WorkspaceUIPaneOperationResult{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodePaneNotFound,
+			fmt.Errorf("workspace pane not found: %s", operation.PaneID),
+		)
+	}
+
+	previousTitle := layout.Panes[paneIndex].Title
+	changed := previousTitle != operation.Rename.Title
+	if changed {
+		layout.Panes[paneIndex].Title = operation.Rename.Title
+		layout.Revision += 1
+		saved, err := service.SaveLayout(layout)
+		if err != nil {
+			return WorkspaceUIPaneOperationResult{}, err
+		}
+		layout = saved
+	}
+
+	return WorkspaceUIPaneOperationResult{
+		WorkspaceID: layout.WorkspaceID,
+		Revision:    layout.Revision,
+		Layout:      layout,
+		Changed:     changed,
+		OperationResult: WorkspaceUIPaneOperationOutcome{
+			Kind:                  WorkspaceUIPaneOperationKindRenamePane,
+			Rename:                renameOutcome(previousTitle, operation.Rename.Title),
+			PaneID:                operation.PaneID,
+			PreviousFocusedPaneID: layout.FocusedPaneID,
+			FocusedPaneID:         layout.FocusedPaneID,
+		},
+		BeforeAfterDimensions: []WorkspaceUIPaneDimensionChange{},
+		Warnings:              []WorkspaceUIPaneOperationWarning{},
+	}, nil
+}
+
 type workspaceUIPaneLocation struct {
 	ColumnID         string
 	ColumnIndex      int
@@ -416,9 +489,25 @@ func moveOutcome(direction WorkspaceUIPaneMoveDirection, previous workspaceUIPan
 	}
 }
 
+func renameOutcome(previousTitle string, title string) *WorkspaceUIPaneRenameOutcome {
+	return &WorkspaceUIPaneRenameOutcome{
+		PreviousTitle: previousTitle,
+		Title:         title,
+	}
+}
+
 func layoutHasPane(layout WorkspaceUILayout, paneID string) bool {
 	_, ok := paneLocation(layout, paneID)
 	return ok
+}
+
+func paneIndexByID(panes []WorkspaceUIPane, paneID string) int {
+	for index, pane := range panes {
+		if pane.PaneID == paneID {
+			return index
+		}
+	}
+	return -1
 }
 
 func paneLocation(layout WorkspaceUILayout, paneID string) (workspaceUIPaneLocation, bool) {

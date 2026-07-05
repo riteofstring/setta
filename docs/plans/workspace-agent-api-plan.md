@@ -717,8 +717,19 @@ Progress on 2026-07-07:
   `./scripts/go.sh test ./internal/workspaceui` passed, and
   `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
   diffs because the write operation contract is still not endpoint-exposed.
+- Backend rename operation reducer follow-up: added backend-only `rename_pane`
+  support without exposing an HTTP, CLI, IPC, renderer, or agent write surface.
+  The reducer requires a title-only rename payload, rejects missing titles and
+  titles with surrounding whitespace as invalid operations, rejects payloads
+  meant for other operation kinds, updates only the pane title, preserves focus,
+  increments the revision and persists only when the title changes, and returns
+  a structured rename outcome with the previous and resulting titles.
+- Verification for the backend rename reducer follow-up:
+  `./scripts/go.sh test ./internal/workspaceui` passed, and
+  `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
+  diffs because the write operation contract is still not endpoint-exposed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for rename, resize, open, reorder, and multi-operation
+  event sync for resize, open, reorder, and multi-operation
   transactions, then cut renderer-originated layout mutations over to that
   backend operation API before exposing agent or CLI workspace mutation
   commands.

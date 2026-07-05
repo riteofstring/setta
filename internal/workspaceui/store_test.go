@@ -931,7 +931,7 @@ func TestServicePaneOperationRejectsUnsupportedOperation(t *testing.T) {
 	}
 
 	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
-		Kind:   WorkspaceUIPaneOperationKind("rename_pane"),
+		Kind:   WorkspaceUIPaneOperationKind("unsupported_operation_test"),
 		PaneID: "workspace_pane_0",
 	})
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeUnsupportedOperation {
