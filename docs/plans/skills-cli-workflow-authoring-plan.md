@@ -400,6 +400,10 @@ Progress on 2026-07-07:
 - Added focused CLI coverage that decodes stderr as JSON for local workflow
   failures, backend workflow failures, and workflow usage errors through real
   CLI dispatch and runtime/backend paths where applicable.
+- Audit follow-up: added CLI coverage for an active workflow execution
+  conflict, verifying the backend-owned `activeExecution` summary survives the
+  workflow CLI error envelope through real CLI dispatch, runtime auth, and
+  backend HTTP.
 - Verification: `./scripts/go.sh test ./cmd/setta`,
   `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`,
   and `node desktop/tests/electron/run-workflows.mjs --workflow

@@ -905,6 +905,81 @@ func TestWorkflowExecutionsStartCommandFailsForMissingDefinition(t *testing.T) {
 	}
 }
 
+func TestWorkflowExecutionsStartConflictReturnsActiveExecutionEnvelope(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir:  appDataDir,
+		ChatHarness: runtime.ChatHarnessScriptedWorkflow,
+		Host:        "127.0.0.1",
+		Port:        0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	opened := openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+	definition := createWorkflowDefinitionForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, httpapi.CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Running Flow",
+		Description: "CLI execution active conflict test workflow",
+		Graph:       cliTestRunningActionWorkflowGraph(),
+	})
+
+	var startStdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &startStdout
+	if code := runWithDeps([]string{"workflow", "executions", "start", "--app-data-dir", appDataDir, definition.ID}, commandDeps); code != 0 {
+		t.Fatalf("start exit code = %d, want 0", code)
+	}
+	var started orchestrator.WorkflowExecution
+	if err := json.NewDecoder(&startStdout).Decode(&started); err != nil {
+		t.Fatalf("decode workflow execution start output: %v\noutput:\n%s", err, startStdout.String())
+	}
+	if started.Status != orchestrator.ExecutionStatusRunning {
+		t.Fatalf("started execution status = %s, want running", started.Status)
+	}
+
+	var conflictStdout bytes.Buffer
+	var conflictStderr bytes.Buffer
+	commandDeps.stdout = &conflictStdout
+	commandDeps.stderr = &conflictStderr
+	if code := runWithDeps([]string{"workflow", "executions", "start", "--app-data-dir", appDataDir, definition.ID}, commandDeps); code != 1 {
+		t.Fatalf("conflict exit code = %d, want 1", code)
+	}
+	if conflictStdout.String() != "" {
+		t.Fatalf("conflict stdout = %q, want empty", conflictStdout.String())
+	}
+	errResponse := decodeCLIError(t, conflictStderr.String())
+	if errResponse.Error.Code != orchestrator.WorkflowExecutionAlreadyRunningCode {
+		t.Fatalf("error code = %q, want %s", errResponse.Error.Code, orchestrator.WorkflowExecutionAlreadyRunningCode)
+	}
+	if errResponse.Error.ActiveExecution == nil {
+		t.Fatal("active execution payload was nil")
+	}
+	if errResponse.Error.ActiveExecution.ID != started.ID ||
+		errResponse.Error.ActiveExecution.WorkspaceID != opened.Workspace.ID ||
+		errResponse.Error.ActiveExecution.DefinitionID != definition.ID ||
+		errResponse.Error.ActiveExecution.Status != orchestrator.ExecutionStatusRunning {
+		t.Fatalf("active execution payload = %+v, want running execution %s", errResponse.Error.ActiveExecution, started.ID)
+	}
+	if errResponse.Error.ActiveExecution.DefinitionVersionNumber != 1 {
+		t.Fatalf("active version number = %d, want 1", errResponse.Error.ActiveExecution.DefinitionVersionNumber)
+	}
+}
+
 func TestWorkflowExecutionsReadCommandFailsForMissingExecution(t *testing.T) {
 	appDataDir := t.TempDir()
 	workspaceRoot := t.TempDir()
@@ -1116,6 +1191,36 @@ func cliTestStartEndWorkflowGraph() orchestrator.WorkflowGraph {
 			Nodes: []orchestrator.WorkflowGraphNodeLayout{
 				{NodeID: "start", X: -160, Y: 0},
 				{NodeID: "end", X: 160, Y: 0},
+			},
+		},
+	}
+}
+
+func cliTestRunningActionWorkflowGraph() orchestrator.WorkflowGraph {
+	return orchestrator.WorkflowGraph{
+		Nodes: []orchestrator.WorkflowNode{
+			{ID: "start", Kind: orchestrator.NodeKindStart},
+			{
+				ID:   "work",
+				Kind: orchestrator.NodeKindAction,
+				Action: &orchestrator.WorkflowActionConfig{
+					Kind: orchestrator.ActionKindAgentCodex,
+					Codex: &orchestrator.WorkflowCodexActionConfig{
+						Prompt: "workflow hold for queue and steering",
+					},
+				},
+			},
+			{ID: "end", Kind: orchestrator.NodeKindEnd},
+		},
+		Edges: []orchestrator.WorkflowEdge{
+			{ID: "start_work", FromNodeID: "start", ToNodeID: "work", Kind: orchestrator.EdgeKindNormal},
+			{ID: "work_end", FromNodeID: "work", ToNodeID: "end", Kind: orchestrator.EdgeKindNormal},
+		},
+		Layout: orchestrator.WorkflowGraphLayout{
+			Nodes: []orchestrator.WorkflowGraphNodeLayout{
+				{NodeID: "start", X: -240, Y: 0},
+				{NodeID: "work", X: 0, Y: 0},
+				{NodeID: "end", X: 240, Y: 0},
 			},
 		},
 	}
