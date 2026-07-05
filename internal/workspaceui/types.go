@@ -67,6 +67,7 @@ const (
 	WorkspaceUIPaneOperationKindOpenPane      WorkspaceUIPaneOperationKind = "open_pane"
 	WorkspaceUIPaneOperationKindRenamePane    WorkspaceUIPaneOperationKind = "rename_pane"
 	WorkspaceUIPaneOperationKindReorderPane   WorkspaceUIPaneOperationKind = "reorder_pane"
+	WorkspaceUIPaneOperationKindResizeColumn  WorkspaceUIPaneOperationKind = "resize_column"
 	WorkspaceUIPaneOperationKindResizePane    WorkspaceUIPaneOperationKind = "resize_pane"
 )
 
@@ -218,15 +219,16 @@ type WorkspaceUIPaneReadResult struct {
 }
 
 type WorkspaceUIPaneOperation struct {
-	Kind      WorkspaceUIPaneOperationKind       `json:"kind"`
-	PaneID    string                             `json:"paneId"`
-	Close     *WorkspaceUIPaneCloseOperation     `json:"close"`
-	Configure *WorkspaceUIPaneConfigureOperation `json:"configure"`
-	Move      *WorkspaceUIPaneMoveOperation      `json:"move"`
-	Open      *WorkspaceUIPaneOpenOperation      `json:"open"`
-	Rename    *WorkspaceUIPaneRenameOperation    `json:"rename"`
-	Reorder   *WorkspaceUIPaneReorderOperation   `json:"reorder"`
-	Resize    *WorkspaceUIPaneResizeOperation    `json:"resize"`
+	Kind         WorkspaceUIPaneOperationKind       `json:"kind"`
+	PaneID       string                             `json:"paneId"`
+	Close        *WorkspaceUIPaneCloseOperation     `json:"close"`
+	Configure    *WorkspaceUIPaneConfigureOperation `json:"configure"`
+	Move         *WorkspaceUIPaneMoveOperation      `json:"move"`
+	Open         *WorkspaceUIPaneOpenOperation      `json:"open"`
+	Rename       *WorkspaceUIPaneRenameOperation    `json:"rename"`
+	Reorder      *WorkspaceUIPaneReorderOperation   `json:"reorder"`
+	Resize       *WorkspaceUIPaneResizeOperation    `json:"resize"`
+	ResizeColumn *WorkspaceUIColumnResizeOperation  `json:"resizeColumn"`
 }
 
 type WorkspaceUIPaneCloseOperation struct {
@@ -295,6 +297,11 @@ type WorkspaceUIPaneResizeOperation struct {
 	HeightScale   *float64                             `json:"heightScale"`
 	ResetHeight   bool                                 `json:"resetHeight"`
 	Split         *WorkspaceUIPaneSplitResizeOperation `json:"split"`
+}
+
+type WorkspaceUIColumnResizeOperation struct {
+	ColumnID  string          `json:"columnId"`
+	WidthSpec ColumnWidthSpec `json:"widthSpec"`
 }
 
 type WorkspaceUIPaneSplitResizeOperation struct {
@@ -665,6 +672,7 @@ func supportedPaneOperationKinds() []WorkspaceUIPaneOperationKind {
 		WorkspaceUIPaneOperationKindOpenPane,
 		WorkspaceUIPaneOperationKindRenamePane,
 		WorkspaceUIPaneOperationKindReorderPane,
+		WorkspaceUIPaneOperationKindResizeColumn,
 		WorkspaceUIPaneOperationKindResizePane,
 	}
 }

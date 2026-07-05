@@ -15,6 +15,7 @@ var paneOperationValidators = map[WorkspaceUIPaneOperationKind]func(WorkspaceUIP
 	WorkspaceUIPaneOperationKindOpenPane:      validateOpenPaneOperation,
 	WorkspaceUIPaneOperationKindRenamePane:    validateRenamePaneOperation,
 	WorkspaceUIPaneOperationKindReorderPane:   validateReorderPaneOperation,
+	WorkspaceUIPaneOperationKindResizeColumn:  validateResizeColumnOperation,
 	WorkspaceUIPaneOperationKindResizePane:    validateResizePaneOperation,
 }
 
@@ -25,7 +26,10 @@ func validatePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Kind == WorkspaceUIPaneOperationKindOpenPane && operation.PaneID != "" {
 		return errors.New("workspace pane open operation must not include paneId")
 	}
-	if operation.Kind != WorkspaceUIPaneOperationKindOpenPane && operation.PaneID == "" {
+	if operation.Kind == WorkspaceUIPaneOperationKindResizeColumn && operation.PaneID != "" {
+		return errors.New("workspace column resize operation must not include paneId")
+	}
+	if operation.Kind != WorkspaceUIPaneOperationKindOpenPane && operation.Kind != WorkspaceUIPaneOperationKindResizeColumn && operation.PaneID == "" {
 		return errors.New("workspace pane operation paneId is required")
 	}
 	validator := paneOperationValidators[operation.Kind]
@@ -57,6 +61,9 @@ func validateClosePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Resize != nil {
 		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
 	}
+	if operation.ResizeColumn != nil {
+		return errors.New("workspace pane operation resizeColumn payload is only valid for resize_column")
+	}
 	if !validSurfaceCloseMode(operation.Close.SurfaceClose) {
 		return fmt.Errorf("workspace pane close surfaceClose is unsupported: %s", operation.Close.SurfaceClose)
 	}
@@ -85,6 +92,9 @@ func validateFocusPaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Resize != nil {
 		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
 	}
+	if operation.ResizeColumn != nil {
+		return errors.New("workspace pane operation resizeColumn payload is only valid for resize_column")
+	}
 	return nil
 }
 
@@ -106,6 +116,9 @@ func validateMovePaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if operation.Resize != nil {
 		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
+	if operation.ResizeColumn != nil {
+		return errors.New("workspace pane operation resizeColumn payload is only valid for resize_column")
 	}
 	if operation.Move == nil {
 		return errors.New("workspace pane move payload is required")
@@ -134,6 +147,9 @@ func validateRenamePaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if operation.Resize != nil {
 		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
+	if operation.ResizeColumn != nil {
+		return errors.New("workspace pane operation resizeColumn payload is only valid for resize_column")
 	}
 	if operation.Rename == nil {
 		return errors.New("workspace pane rename payload is required")
@@ -165,6 +181,9 @@ func validateReorderPaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if operation.Resize != nil {
 		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
+	if operation.ResizeColumn != nil {
+		return errors.New("workspace pane operation resizeColumn payload is only valid for resize_column")
 	}
 	if operation.Reorder == nil {
 		return errors.New("workspace pane reorder payload is required")
@@ -216,6 +235,9 @@ func validateOpenPanePayloadExclusivity(operation WorkspaceUIPaneOperation) erro
 	if operation.Resize != nil {
 		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
 	}
+	if operation.ResizeColumn != nil {
+		return errors.New("workspace pane operation resizeColumn payload is only valid for resize_column")
+	}
 	return nil
 }
 
@@ -237,6 +259,9 @@ func validateConfigurePaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if operation.Resize != nil {
 		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
+	if operation.ResizeColumn != nil {
+		return errors.New("workspace pane operation resizeColumn payload is only valid for resize_column")
 	}
 	if operation.Configure == nil {
 		return errors.New("workspace pane configure payload is required")
@@ -522,6 +547,9 @@ func validateResizePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Reorder != nil {
 		return errors.New("workspace pane operation reorder payload is only valid for reorder_pane")
 	}
+	if operation.ResizeColumn != nil {
+		return errors.New("workspace pane operation resizeColumn payload is only valid for resize_column")
+	}
 	if operation.Resize == nil {
 		return errors.New("workspace pane resize payload is required")
 	}
@@ -581,6 +609,37 @@ func validateResizeColumnWidthSpec(widthSpec ColumnWidthSpec) error {
 		return errors.New("workspace pane resize widthSpec value must be positive")
 	}
 	return nil
+}
+
+func validateResizeColumnOperation(operation WorkspaceUIPaneOperation) error {
+	if operation.Close != nil {
+		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Configure != nil {
+		return errors.New("workspace pane operation configure payload is only valid for configure_pane")
+	}
+	if operation.Move != nil {
+		return errors.New("workspace pane operation move payload is only valid for move_pane")
+	}
+	if operation.Open != nil {
+		return errors.New("workspace pane operation open payload is only valid for open_pane")
+	}
+	if operation.Rename != nil {
+		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
+	}
+	if operation.Reorder != nil {
+		return errors.New("workspace pane operation reorder payload is only valid for reorder_pane")
+	}
+	if operation.Resize != nil {
+		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
+	if operation.ResizeColumn == nil {
+		return errors.New("workspace column resize payload is required")
+	}
+	if operation.ResizeColumn.ColumnID == "" {
+		return errors.New("workspace column resize columnId is required")
+	}
+	return validateResizeColumnWidthSpec(operation.ResizeColumn.WidthSpec)
 }
 
 func validateResizePaneHeightPX(heightPX int) error {

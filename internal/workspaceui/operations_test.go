@@ -281,6 +281,128 @@ func TestServiceResizePaneOperationUpdatesSameSlotColumnsAcrossPlanes(t *testing
 	})
 }
 
+func TestServiceAppliesResizeColumnOperationToSlot(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testMultiPlaneSlotLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindResizeColumn,
+		ResizeColumn: resizeColumnOperation("workspace_column_0", ColumnWidthSpec{
+			Unit:  ColumnWidthUnitPX,
+			Value: 700,
+		}),
+	})
+	if err != nil {
+		t.Fatalf("apply resize column operation: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("changed = false, want true")
+	}
+	if result.Revision != 2 || result.Layout.Revision != 2 {
+		t.Fatalf("revision = result %d layout %d, want 2", result.Revision, result.Layout.Revision)
+	}
+	expectedWidth := ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 700}
+	if result.Layout.Columns[0].WidthSpec != expectedWidth || result.Layout.Columns[2].WidthSpec != expectedWidth {
+		t.Fatalf("same-slot widths = %+v, want columns 0 and 2 resized", result.Layout.Columns)
+	}
+	if result.Layout.Columns[1].WidthSpec != (ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 480}) {
+		t.Fatalf("slot 1 column = %+v, want unchanged", result.Layout.Columns[1])
+	}
+	if result.Layout.FocusedPaneID != "workspace_pane_1" {
+		t.Fatalf("focused pane = %q, want unchanged workspace_pane_1", result.Layout.FocusedPaneID)
+	}
+	if result.OperationResult.Kind != WorkspaceUIPaneOperationKindResizeColumn || result.OperationResult.PaneID != "" {
+		t.Fatalf("operation result = %+v, want resize_column without paneId", result.OperationResult)
+	}
+	assertResizeOutcome(t, result.OperationResult.Resize, WorkspaceUIPaneResizeOutcome{
+		PreviousWidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620},
+		SlotIndex:         0,
+		TargetColumnID:    "workspace_column_0",
+		WidthSpec:         expectedWidth,
+	})
+	assertDimensionChanges(t, result.BeforeAfterDimensions, []WorkspaceUIPaneDimensionChange{
+		{
+			PaneID: "workspace_pane_0",
+			Before: WorkspaceUIPaneDimensions{
+				ColumnID:  "workspace_column_0",
+				Weight:    1.6,
+				WidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620},
+			},
+			After: WorkspaceUIPaneDimensions{
+				ColumnID:  "workspace_column_0",
+				Weight:    1.6,
+				WidthSpec: expectedWidth,
+			},
+		},
+		{
+			PaneID: "workspace_pane_2",
+			Before: WorkspaceUIPaneDimensions{
+				ColumnID:  "workspace_column_0",
+				Weight:    1,
+				WidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620},
+			},
+			After: WorkspaceUIPaneDimensions{
+				ColumnID:  "workspace_column_0",
+				Weight:    1,
+				WidthSpec: expectedWidth,
+			},
+		},
+		{
+			PaneID: "workspace_pane_3",
+			Before: WorkspaceUIPaneDimensions{
+				ColumnID:  "workspace_column_2",
+				Weight:    1,
+				WidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 360},
+			},
+			After: WorkspaceUIPaneDimensions{
+				ColumnID:  "workspace_column_2",
+				Weight:    1,
+				WidthSpec: expectedWidth,
+			},
+		},
+	})
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Columns[0].WidthSpec != expectedWidth || loaded.Layout.Columns[2].WidthSpec != expectedWidth || loaded.Layout.Revision != 2 {
+		t.Fatalf("loaded layout = %+v, want resized slot at revision 2", loaded.Layout)
+	}
+}
+
+func TestServiceResizeColumnOperationRejectsMissingColumnWithoutPersisting(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindResizeColumn,
+		ResizeColumn: resizeColumnOperation("workspace_column_missing", ColumnWidthSpec{
+			Unit:  ColumnWidthUnitPX,
+			Value: 700,
+		}),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeColumnNotFound {
+		t.Fatalf("error = %T %v, want column_not_found", err, err)
+	}
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Revision != 1 || loaded.Layout.Columns[0].WidthSpec != (ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620}) {
+		t.Fatalf("loaded layout = %+v, want unchanged revision 1 layout", loaded.Layout)
+	}
+}
+
 func TestServiceAppliesResizePaneOperationToPaneRowHeight(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -1006,6 +1128,58 @@ func TestServicePaneOperationRejectsResizeWithMovePayload(t *testing.T) {
 	}
 }
 
+func TestServicePaneOperationRejectsResizeColumnWithoutPayload(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindResizeColumn,
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
+func TestServicePaneOperationRejectsResizeColumnWithPaneID(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindResizeColumn,
+		PaneID: "workspace_pane_0",
+		ResizeColumn: resizeColumnOperation("workspace_column_0", ColumnWidthSpec{
+			Unit:  ColumnWidthUnitPX,
+			Value: 520,
+		}),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
+func TestServicePaneOperationRejectsResizeColumnWithPaneResizePayload(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindResizeColumn,
+		Resize: resizePaneOperation(ColumnWidthSpec{
+			Unit:  ColumnWidthUnitPX,
+			Value: 520,
+		}),
+		ResizeColumn: resizeColumnOperation("workspace_column_0", ColumnWidthSpec{
+			Unit:  ColumnWidthUnitPX,
+			Value: 520,
+		}),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
 func TestServicePaneOperationRejectsInvalidResizeWidthSpec(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -1193,6 +1367,13 @@ func renamePaneOperation(title string) *WorkspaceUIPaneRenameOperation {
 
 func resizePaneOperation(widthSpec ColumnWidthSpec) *WorkspaceUIPaneResizeOperation {
 	return &WorkspaceUIPaneResizeOperation{WidthSpec: &widthSpec}
+}
+
+func resizeColumnOperation(columnID string, widthSpec ColumnWidthSpec) *WorkspaceUIColumnResizeOperation {
+	return &WorkspaceUIColumnResizeOperation{
+		ColumnID:  columnID,
+		WidthSpec: widthSpec,
+	}
 }
 
 func resizePaneHeightOperation(heightPX int) *WorkspaceUIPaneResizeOperation {

@@ -34,6 +34,7 @@ var paneOperationAppliers = map[WorkspaceUIPaneOperationKind]paneOperationApplie
 	WorkspaceUIPaneOperationKindOpenPane:      (*Service).applyOpenPaneOperation,
 	WorkspaceUIPaneOperationKindRenamePane:    (*Service).applyRenamePaneOperation,
 	WorkspaceUIPaneOperationKindReorderPane:   (*Service).applyReorderPaneOperation,
+	WorkspaceUIPaneOperationKindResizeColumn:  (*Service).applyResizeColumnOperation,
 	WorkspaceUIPaneOperationKindResizePane:    (*Service).applyResizePaneOperation,
 }
 
@@ -310,45 +311,6 @@ func applyResizePaneOperationToLayout(layout WorkspaceUILayout, operation Worksp
 		return applyResizePaneSplitOperationToLayout(layout, operation, location)
 	}
 	return applyResizePaneHeightOperationToLayout(layout, operation, location)
-}
-
-func applyResizePaneWidthOperationToLayout(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation, location workspaceUIPaneLocation) (workspaceUIPaneOperationApplication, error) {
-	targetColumn := layout.Columns[location.ColumnIndex]
-	requestedWidthSpec := *operation.Resize.WidthSpec
-	widthSpec := normalizedResizeColumnWidthSpec(requestedWidthSpec)
-	beforeDimensions, err := paneDimensionSnapshotsForSlot(layout, targetColumn.SlotIndex)
-	if err != nil {
-		return workspaceUIPaneOperationApplication{}, operationError(
-			layout.WorkspaceID,
-			operation,
-			WorkspaceUIOperationErrorCodePaneNotFound,
-			err,
-		)
-	}
-	changed := resizeColumnsInSlot(&layout, targetColumn.SlotIndex, widthSpec)
-	dimensionChanges, err := paneDimensionChanges(layout, beforeDimensions)
-	if err != nil {
-		return workspaceUIPaneOperationApplication{}, operationError(
-			layout.WorkspaceID,
-			operation,
-			WorkspaceUIOperationErrorCodePaneNotFound,
-			err,
-		)
-	}
-
-	return workspaceUIPaneOperationApplication{
-		layout:  layout,
-		changed: changed,
-		operationResult: WorkspaceUIPaneOperationOutcome{
-			Kind:                  WorkspaceUIPaneOperationKindResizePane,
-			Resize:                resizeOutcome(targetColumn, widthSpec),
-			PaneID:                operation.PaneID,
-			PreviousFocusedPaneID: layout.FocusedPaneID,
-			FocusedPaneID:         layout.FocusedPaneID,
-		},
-		beforeAfterDimensions: dimensionChanges,
-		warnings:              resizeWidthWarnings(requestedWidthSpec, widthSpec),
-	}, nil
 }
 
 type workspaceUIPaneLocation struct {
