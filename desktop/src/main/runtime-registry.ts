@@ -169,7 +169,15 @@ export class RuntimeRegistryController {
     if (!target) {
       throw new Error("local runtime was not registered");
     }
-    return this.connectRuntime(target.runtimeId, { initial: true });
+    const snapshot = await this.connectRuntime(target.runtimeId, { initial: true });
+    if (snapshot.connection.status === "connected" || target.runtimeId === localRuntimeId) {
+      return snapshot;
+    }
+    const localTarget = this.findKnownRuntime(localRuntimeId);
+    if (!localTarget || localTarget.runtimeId === target.runtimeId) {
+      return snapshot;
+    }
+    return this.connectRuntime(localTarget.runtimeId, { initial: true });
   }
 
   async addByPairingURL(pairingURL: string): Promise<RuntimeRegistrySnapshot> {

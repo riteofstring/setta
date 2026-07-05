@@ -92,6 +92,60 @@ describe("RuntimeRegistryController", () => {
     ]);
   });
 
+  test("falls back to local runtime when the stored remote is incompatible on startup", async () => {
+    const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
+    const local = runtimeRecord({
+      baseUrl: "http://127.0.0.1:41000/",
+      deviceToken: "local_token",
+      displayName: "Local runtime",
+      isLocal: true,
+      runtimeId: "runtime_local",
+    });
+    const remote = runtimeRecord({
+      baseUrl: "http://100.64.0.12:7345/",
+      deviceToken: "remote_token",
+      displayName: "Remote runtime",
+      runtimeId: "runtime_remote",
+    });
+    await store.write({ activeRuntimeId: remote.runtimeId, runtimes: [local, remote] });
+    const events: string[] = [];
+    const controller = new RuntimeRegistryController({
+      clientDisplayName: () => "Setta Desktop",
+      fetchImpl: async (input) => {
+        if (input.pathname === "/runtime/info") {
+          const protocolVersion =
+            input.host === "100.64.0.12:7345" ? backendProtocolVersion - 1 : backendProtocolVersion;
+          return jsonResponse(runtimeInfo(runtimeIdForHost(input.host), protocolVersion));
+        }
+        return jsonResponse({ devices: [] });
+      },
+      hooks: lifecycleHooks(events),
+      onSnapshot: (snapshot) => events.push(`snapshot:${snapshot.connection.status}`),
+      store,
+    });
+
+    await controller.load();
+    events.length = 0;
+    const snapshot = await controller.connectStoredOrLocal(local.runtimeId);
+
+    expect(snapshot.connection.status).toBe("connected");
+    expect(controller.currentRuntime()).toMatchObject({
+      baseUrl: local.baseUrl,
+      runtimeId: local.runtimeId,
+    });
+    await expect(store.read()).resolves.toMatchObject({ activeRuntimeId: local.runtimeId });
+    expect(events).toEqual([
+      "snapshot:connecting",
+      "offline:connecting",
+      "snapshot:incompatible",
+      "failed:incompatible",
+      "snapshot:connecting",
+      "offline:connecting",
+      "online:runtime_local",
+      "snapshot:connected",
+    ]);
+  });
+
   test("updates a stored generic remote name from the runtime-reported machine title", async () => {
     const store = new KnownRuntimeStore(await mkdtemp(join(tmpdir(), "setta-runtime-registry-")));
     const remote = runtimeRecord({
@@ -138,7 +192,7 @@ describe("RuntimeRegistryController", () => {
       fetchImpl: async (input) => {
         if (input.pathname === "/runtime/info") {
           return jsonResponse({
-            ...runtimeInfo(remote.runtimeId, 2),
+            ...runtimeInfo(remote.runtimeId, backendProtocolVersion),
             displayName: "Setta Runtime",
             infrastructureProvider: runtimeInfrastructureProvider("unknown"),
           });
@@ -170,7 +224,7 @@ describe("RuntimeRegistryController", () => {
       fetchImpl: async (input) => {
         if (input.pathname === "/runtime/info") {
           return jsonResponse({
-            ...runtimeInfo(remote.runtimeId, 2),
+            ...runtimeInfo(remote.runtimeId, backendProtocolVersion),
             displayName: "Setta Runtime",
             infrastructureProvider: runtimeInfrastructureProvider("unknown"),
           });

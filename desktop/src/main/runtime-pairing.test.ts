@@ -99,10 +99,10 @@ describe("runtime connection verification", () => {
     ]);
   });
 
-  test("accepts protocol 2 runtimes without provider metadata", async () => {
+  test("marks older protocol versions incompatible", async () => {
     const fetchImpl: BackendFetch = async (input) => {
       if (input.pathname === "/runtime/info") {
-        return jsonResponse(legacyRuntimeInfo("runtime_expected", 2));
+        return jsonResponse(legacyRuntimeInfo("runtime_expected", backendProtocolVersion - 1));
       }
       return jsonResponse({ devices: [] });
     };
@@ -114,15 +114,7 @@ describe("runtime connection verification", () => {
         expectedRuntimeId: "runtime_expected",
         fetchImpl,
       }),
-    ).resolves.toMatchObject({
-      infrastructureProvider: {
-        displayName: "Unknown provider",
-        iconUrl: "",
-        id: "unknown",
-      },
-      protocolVersion: 2,
-      runtimeId: "runtime_expected",
-    });
+    ).rejects.toMatchObject({ reason: "incompatible" } satisfies Partial<RuntimeConnectionError>);
   });
 
   test("blocks different runtimes at the stored address", async () => {

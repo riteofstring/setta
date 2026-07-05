@@ -62,6 +62,8 @@ func runWithDeps(args []string, deps cliDeps) int {
 		err = runPair(args[1:], deps)
 	case "devices":
 		err = runDevices(args[1:], deps)
+	case "runtime":
+		err = runRuntime(args[1:], deps)
 	case "version":
 		if len(args) != 1 {
 			err = usageError{err: fmt.Errorf("setta version does not accept arguments")}
@@ -126,6 +128,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage:")
 	fmt.Fprintln(output, "  setta serve [--app-data-dir DIR] [--port PORT] [--tailnet]")
 	fmt.Fprintln(output, "  setta pair [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta runtime rename <display-name> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta version")

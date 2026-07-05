@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 5;
-export const backendContractSchemaHash = "sha256:75e33379071669c7710d07828bc17319c77def5f0d1d38d7556b308ec13e560e";
+export const backendProtocolVersion = 6;
+export const backendContractSchemaHash = "sha256:8d19ed270d73df5de47bad31e3cd424dc09daf79c493d0f0d30a1a2a37eefc7e";
 
 export type DeviceScope = "full";
 
@@ -2629,6 +2629,10 @@ export interface CompletePairingResponse {
   deviceToken: string;
   runtimeId: string;
   protocolVersion: number;
+}
+
+export interface UpdateRuntimeDisplayNameRequest {
+  displayName: string;
 }
 
 export interface ListDevicesRequest {
@@ -6449,6 +6453,11 @@ export const backendEndpoints = {
     path: "/pairing/complete",
     requestBodyLimitBytes: 4194304,
   },
+  UpdateRuntimeDisplayName: {
+    method: "POST",
+    path: "/runtime/display-name/update",
+    requestBodyLimitBytes: 4194304,
+  },
   ListDevices: {
     method: "POST",
     path: "/devices/list",
@@ -7156,6 +7165,14 @@ export function decodeCompletePairingResponse(value: unknown): CompletePairingRe
     deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
     runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
+  };
+}
+
+export function decodeUpdateRuntimeDisplayNameRequest(value: unknown): UpdateRuntimeDisplayNameRequest {
+  const record = assertRecord(value, "UpdateRuntimeDisplayNameRequest");
+  assertKnownFields(record, "UpdateRuntimeDisplayNameRequest", ["displayName"]);
+  return {
+    displayName: decodeString(requireField(record, "displayName", "UpdateRuntimeDisplayNameRequest"), "UpdateRuntimeDisplayNameRequest.displayName"),
   };
 }
 
@@ -12624,6 +12641,7 @@ export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
   runtimeInfo: () => Promise<RuntimeInfoResponse>;
   completePairing: (request: CompletePairingRequest) => Promise<CompletePairingResponse>;
+  updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest) => Promise<RuntimeInfoResponse>;
   listDevices: (request: ListDevicesRequest) => Promise<ListDevicesResponse>;
   revokeDevice: (request: RevokeDeviceRequest) => Promise<RevokeDeviceResponse>;
   pushSubscribe: (request: PushSubscribeRequest) => Promise<PushSubscribeResponse>;
@@ -12777,6 +12795,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateRuntimeDisplayName: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRuntimeInfoResponse,
+      endpoint: backendEndpoints.UpdateRuntimeDisplayName,
       fetchImpl,
       requestPayload: request,
     }),

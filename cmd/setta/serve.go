@@ -15,6 +15,7 @@ import (
 type serveOptions struct {
 	AppDataDir  string
 	ChatHarness runtime.ChatHarnessMode
+	DisplayName string
 	Host        string
 	Port        int
 	Tailnet     bool
@@ -55,6 +56,7 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	}
 	flagSet := newFlagSet("setta serve", deps.stderr)
 	flagSet.StringVar(&options.AppDataDir, "app-data-dir", options.AppDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&options.DisplayName, "display-name", deps.getenv("SETTA_RUNTIME_DISPLAY_NAME"), "runtime display name to persist for this Setta instance")
 	flagSet.IntVar(&options.Port, "port", options.Port, "port to bind, or 0 for an ephemeral port")
 	flagSet.BoolVar(&options.Tailnet, "tailnet", false, "bind this runtime to this machine's Tailscale IPv4 address")
 	if err := flagSet.Parse(args); err != nil {
@@ -89,6 +91,7 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 	config.AppDataDir = options.AppDataDir
 	config.Host = options.Host
 	config.Port = options.Port
+	config.RuntimeDisplayName = options.DisplayName
 	config.SkipBootstrapDeviceSession = true
 	config.Stderr = deps.stderr
 	config.Stdout = &readyBuffer

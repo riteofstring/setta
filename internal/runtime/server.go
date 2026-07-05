@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
+	"setta/internal/runtimeidentity"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/webapp"
@@ -43,6 +45,7 @@ type Config struct {
 	DisableAutomaticCartographerProcessing bool
 	Host                                   string
 	Port                                   int
+	RuntimeDisplayName                     string
 	SkipBootstrapDeviceSession             bool
 	Version                                string
 	Stdout                                 io.Writer
@@ -110,12 +113,12 @@ type runtimeServices struct {
 	workspaceService         *workspacesession.Service
 	workflowService          *orchestrator.Service
 	workflowStore            *orchestrator.Store
-	runtimeIdentity          runtimeIdentity
+	runtimeIdentityManager   *runtimeIdentityManager
 	infrastructureProvider   httpapi.RuntimeInfrastructureProvider
 }
 
 type runtimeAuthBootstrap struct {
-	identity               runtimeIdentity
+	identityManager        *runtimeIdentityManager
 	infrastructureProvider httpapi.RuntimeInfrastructureProvider
 	store                  *runtimeauth.Store
 	bootstrapToken         string
@@ -160,11 +163,24 @@ func (config Config) Validate() error {
 	if err := validatePort(config.Port); err != nil {
 		return err
 	}
+	if err := validateRuntimeDisplayNameOverride(config.RuntimeDisplayName); err != nil {
+		return err
+	}
 	if config.Version == "" {
 		return errors.New("version is required")
 	}
 	if config.ShutdownTimeout <= 0 {
 		return errors.New("shutdown timeout must be positive")
+	}
+	return nil
+}
+
+func validateRuntimeDisplayNameOverride(displayName string) error {
+	if strings.TrimSpace(displayName) == "" {
+		return nil
+	}
+	if _, err := runtimeidentity.NormalizeDisplayName(displayName); err != nil {
+		return fmt.Errorf("runtime display name is invalid: %w", err)
 	}
 	return nil
 }
@@ -331,13 +347,13 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		workspaceService:         workspaceService,
 		workflowService:          workflowService,
 		workflowStore:            workflowStore,
-		runtimeIdentity:          authBootstrap.identity,
+		runtimeIdentityManager:   authBootstrap.identityManager,
 		infrastructureProvider:   authBootstrap.infrastructureProvider,
 	}, nil
 }
 
 func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
-	identity, err := loadRuntimeIdentity(config.AppDataDir)
+	identityManager, err := newRuntimeIdentityManager(config.AppDataDir, config.RuntimeDisplayName)
 	if err != nil {
 		return runtimeAuthBootstrap{}, err
 	}
@@ -364,7 +380,7 @@ func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
 	}
 	closeAuthOnFailure = false
 	return runtimeAuthBootstrap{
-		identity:               identity,
+		identityManager:        identityManager,
 		infrastructureProvider: infrastructureProvider,
 		store:                  authStore,
 		bootstrapToken:         bootstrapToken,
@@ -781,14 +797,13 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 			Name:    httpapi.BackendName,
 			Version: config.Version,
 		},
-		AppearanceService:   services.appearanceService,
-		ChatService:         services.chatService,
-		CodexAccountService: services.codexAccountService,
-		NotifyService:       services.notifyService,
-		RuntimeAuthService:  services.authStore,
+		AppearanceService:      services.appearanceService,
+		ChatService:            services.chatService,
+		CodexAccountService:    services.codexAccountService,
+		NotifyService:          services.notifyService,
+		RuntimeAuthService:     services.authStore,
+		RuntimeIdentityService: services.runtimeIdentityManager,
 		RuntimeMetadata: httpapi.RuntimeMetadata{
-			ID:                     services.runtimeIdentity.RuntimeID,
-			DisplayName:            services.runtimeIdentity.DisplayName,
 			InfrastructureProvider: services.infrastructureProvider,
 		},
 		SemanticGraphService:     services.semanticGraphService,

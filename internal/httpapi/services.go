@@ -187,6 +187,16 @@ type RuntimeAuthService interface {
 	TouchDeviceSession(context.Context, string) (bool, error)
 }
 
+type RuntimeIdentity struct {
+	ID          string
+	DisplayName string
+}
+
+type RuntimeIdentityService interface {
+	RuntimeIdentity(context.Context) (RuntimeIdentity, error)
+	UpdateRuntimeDisplayName(context.Context, string) (RuntimeIdentity, error)
+}
+
 type NotifyService interface {
 	PublicKey() string
 	RemoveDeviceSubscriptions(context.Context, string) error
@@ -204,6 +214,7 @@ type HandlerConfig struct {
 	PairingFailureLimiter    *PairingFailureLimiter
 	RevocationSweepInterval  time.Duration
 	RuntimeAuthService       RuntimeAuthService
+	RuntimeIdentityService   RuntimeIdentityService
 	RuntimeMetadata          RuntimeMetadata
 	SemanticGraphService     SemanticGraphService
 	TerminalService          TerminalService
@@ -222,6 +233,7 @@ type handler struct {
 	pairingFailureLimiter    *PairingFailureLimiter
 	revocationSweepInterval  time.Duration
 	runtimeAuthService       RuntimeAuthService
+	runtimeIdentityService   RuntimeIdentityService
 	runtimeMetadata          RuntimeMetadata
 	semanticGraphService     SemanticGraphService
 	terminalService          TerminalService
@@ -249,6 +261,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		pairingFailureLimiter:    pairingFailureLimiter,
 		revocationSweepInterval:  revocationSweepInterval,
 		runtimeAuthService:       config.RuntimeAuthService,
+		runtimeIdentityService:   config.RuntimeIdentityService,
 		runtimeMetadata:          config.RuntimeMetadata,
 		semanticGraphService:     config.SemanticGraphService,
 		terminalService:          config.TerminalService,

@@ -3,26 +3,82 @@ package httpapi
 import (
 	"net/http"
 	"strings"
+
+	"setta/internal/runtimeidentity"
 )
 
 func (handler handler) runtimeInfo(response http.ResponseWriter, request *http.Request) {
-	if handler.runtimeMetadata.ID == "" {
+	identity, ok := handler.runtimeIdentity(response, request)
+	if !ok {
+		return
+	}
+	writeJSON(response, http.StatusOK, handler.runtimeInfoResponse(identity))
+}
+
+func (handler handler) updateRuntimeDisplayName(response http.ResponseWriter, request *http.Request) {
+	service := requireRuntimeIdentityService(response, handler.runtimeIdentityService)
+	if service == nil {
+		return
+	}
+	var payload UpdateRuntimeDisplayNameRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	displayName, err := runtimeidentity.NormalizeDisplayName(payload.DisplayName)
+	if err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_runtime_display_name", err.Error())
+		return
+	}
+	identity, err := service.UpdateRuntimeDisplayName(request.Context(), displayName)
+	if err != nil {
+		writeError(response, http.StatusInternalServerError, "update_runtime_display_name_failed", err.Error())
+		return
+	}
+	if !validRuntimeIdentity(identity) {
 		writeError(response, http.StatusInternalServerError, "runtime_identity_unavailable", "runtime identity is not available")
 		return
 	}
+	writeJSON(response, http.StatusOK, handler.runtimeInfoResponse(identity))
+}
+
+func (handler handler) runtimeIdentity(response http.ResponseWriter, request *http.Request) (RuntimeIdentity, bool) {
+	if handler.runtimeIdentityService != nil {
+		identity, err := handler.runtimeIdentityService.RuntimeIdentity(request.Context())
+		if err != nil {
+			writeError(response, http.StatusInternalServerError, "runtime_identity_unavailable", err.Error())
+			return RuntimeIdentity{}, false
+		}
+		if !validRuntimeIdentity(identity) {
+			writeError(response, http.StatusInternalServerError, "runtime_identity_unavailable", "runtime identity is not available")
+			return RuntimeIdentity{}, false
+		}
+		return identity, true
+	}
+	identity := RuntimeIdentity{
+		ID:          handler.runtimeMetadata.ID,
+		DisplayName: handler.runtimeMetadata.DisplayName,
+	}
+	if !validRuntimeIdentity(identity) {
+		writeError(response, http.StatusInternalServerError, "runtime_identity_unavailable", "runtime identity is not available")
+		return RuntimeIdentity{}, false
+	}
+	return identity, true
+}
+
+func (handler handler) runtimeInfoResponse(identity RuntimeIdentity) RuntimeInfoResponse {
 	infrastructureProvider := handler.runtimeMetadata.InfrastructureProvider
 	if infrastructureProvider.ID == "" {
 		infrastructureProvider = UnknownRuntimeInfrastructureProvider()
 	}
-	writeJSON(response, http.StatusOK, RuntimeInfoResponse{
-		RuntimeID:              handler.runtimeMetadata.ID,
-		DisplayName:            handler.runtimeMetadata.DisplayName,
+	return RuntimeInfoResponse{
+		RuntimeID:              identity.ID,
+		DisplayName:            identity.DisplayName,
 		InfrastructureProvider: infrastructureProvider,
 		BackendName:            handler.metadata.Name,
 		BackendVersion:         handler.metadata.Version,
 		ProtocolVersion:        ProtocolVersion,
 		VAPIDPublicKey:         handler.notifyPublicKey(),
-	})
+	}
 }
 
 func (handler handler) completePairing(response http.ResponseWriter, request *http.Request) {
@@ -58,10 +114,14 @@ func (handler handler) completePairing(response http.ResponseWriter, request *ht
 		writeError(response, http.StatusUnauthorized, "invalid_pairing_token", "pairing token is invalid, expired, or already used")
 		return
 	}
+	identity, hasIdentity := handler.runtimeIdentity(response, request)
+	if !hasIdentity {
+		return
+	}
 	writeJSON(response, http.StatusOK, CompletePairingResponse{
 		DeviceID:        session.ID,
 		DeviceToken:     deviceToken,
-		RuntimeID:       handler.runtimeMetadata.ID,
+		RuntimeID:       identity.ID,
 		ProtocolVersion: ProtocolVersion,
 	})
 }
@@ -119,4 +179,16 @@ func (handler handler) notifyPublicKey() string {
 		return ""
 	}
 	return handler.notifyService.PublicKey()
+}
+
+func requireRuntimeIdentityService(response http.ResponseWriter, service RuntimeIdentityService) RuntimeIdentityService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "runtime_identity_service_unavailable", "runtime identity service is not available")
+		return nil
+	}
+	return service
+}
+
+func validRuntimeIdentity(identity RuntimeIdentity) bool {
+	return strings.TrimSpace(identity.ID) != "" && strings.TrimSpace(identity.DisplayName) != ""
 }

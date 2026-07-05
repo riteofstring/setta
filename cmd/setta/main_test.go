@@ -65,6 +65,38 @@ func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 	}
 }
 
+func TestServeOptionsDisplayNameFromEnvAndFlag(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	deps.getenv = func(name string) string {
+		if name == "SETTA_RUNTIME_DISPLAY_NAME" {
+			return "setta-copper-lantern"
+		}
+		return ""
+	}
+
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", appDataDir,
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if options.DisplayName != "setta-copper-lantern" {
+		t.Fatalf("display name = %q, want env value", options.DisplayName)
+	}
+
+	options, err = serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", appDataDir,
+		"--display-name", "setta-silver-beacon",
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options with flag: %v", err)
+	}
+	if options.DisplayName != "setta-silver-beacon" {
+		t.Fatalf("display name = %q, want flag value", options.DisplayName)
+	}
+}
+
 func TestServeOptionsTailnetResolvesNumericIPv4(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()
@@ -218,6 +250,50 @@ func TestServeStateRoundTrip(t *testing.T) {
 	}
 	if !reflect.DeepEqual(read, state) {
 		t.Fatalf("read state = %+v, want %+v", read, state)
+	}
+}
+
+func TestRuntimeRenameIntegration(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, deps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	renamed, err := renameRuntimeDisplayName(context.Background(), appDataDir, "setta-copper-lantern", deps)
+	if err != nil {
+		t.Fatalf("rename runtime display name: %v", err)
+	}
+	if renamed.RuntimeID != instance.state.RuntimeID || renamed.DisplayName != "setta-copper-lantern" {
+		t.Fatalf("renamed runtime info = %+v", renamed)
+	}
+	info, err := getRuntimeInfo(context.Background(), deps.httpClient, instance.state.BaseURL)
+	if err != nil {
+		t.Fatalf("get runtime info after rename: %v", err)
+	}
+	if info.DisplayName != "setta-copper-lantern" {
+		t.Fatalf("runtime info display name = %q, want setta-copper-lantern", info.DisplayName)
+	}
+	state, err := readServeState(appDataDir)
+	if err != nil {
+		t.Fatalf("read serve state after rename: %v", err)
+	}
+	if state.DisplayName != "setta-copper-lantern" {
+		t.Fatalf("serve-state display name = %q, want setta-copper-lantern", state.DisplayName)
 	}
 }
 

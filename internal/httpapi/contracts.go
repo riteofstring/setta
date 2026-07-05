@@ -30,6 +30,10 @@ type RuntimeInfrastructureProvider struct {
 	IconURL     string `json:"iconUrl"`
 }
 
+type UpdateRuntimeDisplayNameRequest struct {
+	DisplayName string `json:"displayName"`
+}
+
 type CompletePairingRequest struct {
 	PairingToken      string `json:"pairingToken"`
 	ClientDisplayName string `json:"clientDisplayName"`

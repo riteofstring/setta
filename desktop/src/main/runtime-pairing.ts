@@ -58,7 +58,7 @@ class RuntimeHTTPError extends Error {
 
 const supportedRuntimeProtocol = {
   max: backendProtocolVersion,
-  min: 2,
+  min: backendProtocolVersion,
 } as const;
 
 const unknownRuntimeInfrastructureProvider = {

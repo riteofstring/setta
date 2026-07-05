@@ -64,6 +64,37 @@ func TestUnauthenticatedRuntimeRoutesAreReachable(t *testing.T) {
 	}
 }
 
+func TestUpdateRuntimeDisplayNameRequiresAuthAndUpdatesRuntimeInfo(t *testing.T) {
+	store, token := newTestRuntimeAuthStore(t)
+	identityService := &fakeRuntimeIdentityService{
+		identity: RuntimeIdentity{ID: "runtime_test", DisplayName: "Test Runtime"},
+	}
+	handler := NewHandler(HandlerConfig{
+		Metadata:               BackendMetadata{Name: BackendName, Version: "test"},
+		RuntimeAuthService:     store,
+		RuntimeIdentityService: identityService,
+	})
+
+	unauthorized := postJSON[ErrorResponse](t, handler, "/runtime/display-name/update", UpdateRuntimeDisplayNameRequest{
+		DisplayName: "setta-copper-lantern",
+	}, http.StatusUnauthorized)
+	if unauthorized.Error.Code != "unauthorized" {
+		t.Fatalf("unauthorized error code = %q, want unauthorized", unauthorized.Error.Code)
+	}
+
+	updated := postJSONWithToken[RuntimeInfoResponse](t, handler, "/runtime/display-name/update", UpdateRuntimeDisplayNameRequest{
+		DisplayName: "  setta-copper-lantern  ",
+	}, token, http.StatusOK)
+	if updated.RuntimeID != "runtime_test" || updated.DisplayName != "setta-copper-lantern" {
+		t.Fatalf("updated runtime info = %+v", updated)
+	}
+
+	info := getJSON[RuntimeInfoResponse](t, handler, "/runtime/info", http.StatusOK)
+	if info.DisplayName != "setta-copper-lantern" {
+		t.Fatalf("runtime info display name = %q, want setta-copper-lantern", info.DisplayName)
+	}
+}
+
 func TestPairingCompleteUsesGlobalFailureRateLimit(t *testing.T) {
 	store, _ := newTestRuntimeAuthStore(t)
 	limiter := NewPairingFailureLimiter(2, time.Minute)
@@ -205,6 +236,39 @@ func assertUnauthorized(t *testing.T, handler http.Handler, authorization string
 	if payload.Error.Code != "unauthorized" {
 		t.Fatalf("error code = %q, want unauthorized", payload.Error.Code)
 	}
+}
+
+func postJSONWithToken[T any](t *testing.T, handler http.Handler, path string, payload any, token string, wantStatus int) T {
+	t.Helper()
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal request payload: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodPost, path, bytes.NewBuffer(body))
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != wantStatus {
+		t.Fatalf("%s status = %d, want %d, body: %s", path, response.Code, wantStatus, response.Body.String())
+	}
+	var decoded T
+	if err := json.NewDecoder(response.Body).Decode(&decoded); err != nil {
+		t.Fatalf("decode response %s: %v", path, err)
+	}
+	return decoded
+}
+
+type fakeRuntimeIdentityService struct {
+	identity RuntimeIdentity
+}
+
+func (service *fakeRuntimeIdentityService) RuntimeIdentity(context.Context) (RuntimeIdentity, error) {
+	return service.identity, nil
+}
+
+func (service *fakeRuntimeIdentityService) UpdateRuntimeDisplayName(_ context.Context, displayName string) (RuntimeIdentity, error) {
+	service.identity.DisplayName = displayName
+	return service.identity, nil
 }
 
 func workspaceActivityTestEvent() workspaceactivity.WorkspaceActivityEvent {

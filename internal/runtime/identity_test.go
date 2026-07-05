@@ -7,20 +7,31 @@ import (
 	"testing"
 )
 
-func TestCreateRuntimeIdentityUsesHostnameDisplayName(t *testing.T) {
+func TestCreateRuntimeIdentityUsesGeneratedDisplayName(t *testing.T) {
 	appDataDir := t.TempDir()
-	expectedName, err := defaultRuntimeDisplayName()
+
+	manager, err := newRuntimeIdentityManager(appDataDir, "")
+	if err != nil {
+		t.Fatalf("load runtime identity: %v", err)
+	}
+	identity := manager.identitySnapshot()
+	expectedName, err := defaultRuntimeDisplayName(identity.RuntimeID)
 	if err != nil {
 		t.Fatalf("read default runtime display name: %v", err)
 	}
 
-	identity, err := loadRuntimeIdentity(appDataDir)
-	if err != nil {
-		t.Fatalf("load runtime identity: %v", err)
-	}
-
 	if identity.DisplayName != expectedName {
 		t.Fatalf("display name = %q, want %q", identity.DisplayName, expectedName)
+	}
+}
+
+func TestDefaultRuntimeDisplayNameCanGenerateCopperLantern(t *testing.T) {
+	displayName, err := defaultRuntimeDisplayName("00000000000000000000000000000000")
+	if err != nil {
+		t.Fatalf("default runtime display name: %v", err)
+	}
+	if displayName != "setta-copper-lantern" {
+		t.Fatalf("display name = %q, want setta-copper-lantern", displayName)
 	}
 }
 
@@ -38,15 +49,16 @@ func TestLoadRuntimeIdentityReplacesLegacyGenericDisplayName(t *testing.T) {
 	if err := writeRuntimeIdentity(identityPath, legacyIdentity); err != nil {
 		t.Fatalf("write legacy identity: %v", err)
 	}
-	expectedName, err := defaultRuntimeDisplayName()
+	expectedName, err := defaultRuntimeDisplayName(legacyIdentity.RuntimeID)
 	if err != nil {
 		t.Fatalf("read default runtime display name: %v", err)
 	}
 
-	identity, err := loadRuntimeIdentity(appDataDir)
+	manager, err := newRuntimeIdentityManager(appDataDir, "")
 	if err != nil {
 		t.Fatalf("load runtime identity: %v", err)
 	}
+	identity := manager.identitySnapshot()
 
 	if identity.DisplayName != expectedName {
 		t.Fatalf("display name = %q, want %q", identity.DisplayName, expectedName)
@@ -54,6 +66,31 @@ func TestLoadRuntimeIdentityReplacesLegacyGenericDisplayName(t *testing.T) {
 	persisted := readRuntimeIdentityFixture(t, identityPath)
 	if persisted.DisplayName != expectedName {
 		t.Fatalf("persisted display name = %q, want %q", persisted.DisplayName, expectedName)
+	}
+}
+
+func TestRuntimeIdentityManagerPersistsOverrideAndRename(t *testing.T) {
+	appDataDir := t.TempDir()
+	manager, err := newRuntimeIdentityManager(appDataDir, "setta-copper-lantern")
+	if err != nil {
+		t.Fatalf("create identity manager: %v", err)
+	}
+	identity := manager.identitySnapshot()
+	if identity.DisplayName != "setta-copper-lantern" {
+		t.Fatalf("display name = %q, want override", identity.DisplayName)
+	}
+
+	updated, err := manager.updateDisplayName("  setta-quiet-harbor  ")
+	if err != nil {
+		t.Fatalf("update display name: %v", err)
+	}
+	if updated.DisplayName != "setta-quiet-harbor" {
+		t.Fatalf("updated display name = %q, want trimmed rename", updated.DisplayName)
+	}
+
+	persisted := readRuntimeIdentityFixture(t, filepath.Join(appDataDir, "runtime", "identity.json"))
+	if persisted.RuntimeID != identity.RuntimeID || persisted.DisplayName != "setta-quiet-harbor" {
+		t.Fatalf("persisted identity = %+v, want runtime id %s and renamed display name", persisted, identity.RuntimeID)
 	}
 }
 

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -10,8 +11,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
+	"setta/internal/httpapi"
 	"setta/internal/jsonio"
+	"setta/internal/runtimeidentity"
 )
 
 const legacyGenericRuntimeDisplayName = "Setta Runtime"
@@ -21,9 +25,82 @@ type runtimeIdentity struct {
 	DisplayName string `json:"displayName"`
 }
 
-func loadRuntimeIdentity(appDataDir string) (runtimeIdentity, error) {
+type runtimeIdentityManager struct {
+	mu           sync.RWMutex
+	identityPath string
+	identity     runtimeIdentity
+}
+
+func newRuntimeIdentityManager(appDataDir string, displayNameOverride string) (*runtimeIdentityManager, error) {
 	runtimeDir := filepath.Join(appDataDir, "runtime")
 	identityPath := filepath.Join(runtimeDir, "identity.json")
+	identity, err := loadRuntimeIdentity(runtimeDir, identityPath)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(displayNameOverride) != "" {
+		displayName, err := runtimeidentity.NormalizeDisplayName(displayNameOverride)
+		if err != nil {
+			return nil, err
+		}
+		if identity.DisplayName != displayName {
+			identity.DisplayName = displayName
+			if err := writeRuntimeIdentity(identityPath, identity); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return &runtimeIdentityManager{
+		identityPath: identityPath,
+		identity:     identity,
+	}, nil
+}
+
+func (manager *runtimeIdentityManager) RuntimeIdentity(_ context.Context) (httpapi.RuntimeIdentity, error) {
+	return toHTTPRuntimeIdentity(manager.identitySnapshot()), nil
+}
+
+func (manager *runtimeIdentityManager) UpdateRuntimeDisplayName(_ context.Context, displayName string) (httpapi.RuntimeIdentity, error) {
+	identity, err := manager.updateDisplayName(displayName)
+	if err != nil {
+		return httpapi.RuntimeIdentity{}, err
+	}
+	return toHTTPRuntimeIdentity(identity), nil
+}
+
+func (manager *runtimeIdentityManager) identitySnapshot() runtimeIdentity {
+	manager.mu.RLock()
+	defer manager.mu.RUnlock()
+	return manager.identity
+}
+
+func (manager *runtimeIdentityManager) updateDisplayName(displayName string) (runtimeIdentity, error) {
+	displayName, err := runtimeidentity.NormalizeDisplayName(displayName)
+	if err != nil {
+		return runtimeIdentity{}, err
+	}
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	if manager.identity.DisplayName == displayName {
+		return manager.identity, nil
+	}
+	updated := manager.identity
+	updated.DisplayName = displayName
+	if err := writeRuntimeIdentity(manager.identityPath, updated); err != nil {
+		return runtimeIdentity{}, err
+	}
+	manager.identity = updated
+	return updated, nil
+}
+
+func toHTTPRuntimeIdentity(identity runtimeIdentity) httpapi.RuntimeIdentity {
+	return httpapi.RuntimeIdentity{
+		ID:          identity.RuntimeID,
+		DisplayName: identity.DisplayName,
+	}
+}
+
+func loadRuntimeIdentity(runtimeDir string, identityPath string) (runtimeIdentity, error) {
 	data, err := os.ReadFile(identityPath)
 	if errors.Is(err, os.ErrNotExist) {
 		return createRuntimeIdentity(runtimeDir, identityPath)
@@ -39,7 +116,7 @@ func loadRuntimeIdentity(appDataDir string) (runtimeIdentity, error) {
 		return runtimeIdentity{}, fmt.Errorf("validate runtime identity %s: %w", identityPath, err)
 	}
 	if genericRuntimeDisplayName(identity.DisplayName) {
-		displayName, err := defaultRuntimeDisplayName()
+		displayName, err := defaultRuntimeDisplayName(identity.RuntimeID)
 		if err != nil {
 			return runtimeIdentity{}, err
 		}
@@ -59,7 +136,7 @@ func createRuntimeIdentity(runtimeDir string, identityPath string) (runtimeIdent
 	if err != nil {
 		return runtimeIdentity{}, err
 	}
-	displayName, err := defaultRuntimeDisplayName()
+	displayName, err := defaultRuntimeDisplayName(runtimeID)
 	if err != nil {
 		return runtimeIdentity{}, err
 	}
@@ -73,16 +150,8 @@ func createRuntimeIdentity(runtimeDir string, identityPath string) (runtimeIdent
 	return identity, nil
 }
 
-func defaultRuntimeDisplayName() (string, error) {
-	displayName, err := os.Hostname()
-	if err != nil {
-		return "", fmt.Errorf("read hostname for runtime display name: %w", err)
-	}
-	displayName = strings.TrimSpace(displayName)
-	if displayName == "" {
-		return "", errors.New("hostname for runtime display name is empty")
-	}
-	return displayName, nil
+func defaultRuntimeDisplayName(runtimeID string) (string, error) {
+	return runtimeidentity.GeneratedDisplayName(runtimeID)
 }
 
 func writeRuntimeIdentity(identityPath string, identity runtimeIdentity) error {
@@ -104,8 +173,8 @@ func validateRuntimeIdentity(identity runtimeIdentity) error {
 	if _, err := hex.DecodeString(identity.RuntimeID); err != nil || strings.ToLower(identity.RuntimeID) != identity.RuntimeID {
 		return fmt.Errorf("runtimeId must be 32 lowercase hex characters")
 	}
-	if strings.TrimSpace(identity.DisplayName) == "" {
-		return errors.New("displayName is required")
+	if _, err := runtimeidentity.NormalizeDisplayName(identity.DisplayName); err != nil {
+		return err
 	}
 	return nil
 }
