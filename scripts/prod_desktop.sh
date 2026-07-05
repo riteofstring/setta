@@ -148,7 +148,7 @@ start_backend() {
 }
 
 wait_for_backend() {
-  local timeout_seconds="${SETTA_BACKEND_READY_TIMEOUT_SECONDS:-10}"
+  local timeout_seconds="${SETTA_BACKEND_READY_TIMEOUT_SECONDS:-120}"
   [[ "${timeout_seconds}" =~ ^[0-9]+$ ]] || fail "SETTA_BACKEND_READY_TIMEOUT_SECONDS must be an integer."
   local deadline=$((SECONDS + timeout_seconds))
   while [[ ! -s "${backend_ready_file}" ]]; do

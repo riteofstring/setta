@@ -45,6 +45,7 @@ export interface BackendHandle {
 }
 
 const maxRecentLogs = 80;
+const defaultSpawnedBackendReadyTimeoutMs = 120_000;
 type BackendChild = ChildProcessByStdio<null, Readable, Readable>;
 
 function resolveBackendLaunchOptions(
@@ -52,7 +53,10 @@ function resolveBackendLaunchOptions(
   appDataDir: string,
   env: NodeJS.ProcessEnv,
 ): BackendLaunchOptions {
-  const readyTimeoutMs = positiveIntegerEnv(env.SETTA_BACKEND_READY_TIMEOUT_MS, 10_000);
+  const readyTimeoutMs = positiveIntegerEnv(
+    env.SETTA_BACKEND_READY_TIMEOUT_MS,
+    defaultSpawnedBackendReadyTimeoutMs,
+  );
   return {
     args: ["run", "./cmd/setta-backend", "--app-data-dir", appDataDir],
     command: `${repoRoot}/scripts/go.sh`,
