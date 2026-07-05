@@ -60,11 +60,12 @@ const (
 type WorkspaceUIPaneOperationKind string
 
 const (
-	WorkspaceUIPaneOperationKindClosePane  WorkspaceUIPaneOperationKind = "close_pane"
-	WorkspaceUIPaneOperationKindFocusPane  WorkspaceUIPaneOperationKind = "focus_pane"
-	WorkspaceUIPaneOperationKindMovePane   WorkspaceUIPaneOperationKind = "move_pane"
-	WorkspaceUIPaneOperationKindRenamePane WorkspaceUIPaneOperationKind = "rename_pane"
-	WorkspaceUIPaneOperationKindResizePane WorkspaceUIPaneOperationKind = "resize_pane"
+	WorkspaceUIPaneOperationKindClosePane   WorkspaceUIPaneOperationKind = "close_pane"
+	WorkspaceUIPaneOperationKindFocusPane   WorkspaceUIPaneOperationKind = "focus_pane"
+	WorkspaceUIPaneOperationKindMovePane    WorkspaceUIPaneOperationKind = "move_pane"
+	WorkspaceUIPaneOperationKindRenamePane  WorkspaceUIPaneOperationKind = "rename_pane"
+	WorkspaceUIPaneOperationKindReorderPane WorkspaceUIPaneOperationKind = "reorder_pane"
+	WorkspaceUIPaneOperationKindResizePane  WorkspaceUIPaneOperationKind = "resize_pane"
 )
 
 type WorkspaceUIPaneMoveDirection string
@@ -76,6 +77,22 @@ const (
 	WorkspaceUIPaneMoveDirectionUp    WorkspaceUIPaneMoveDirection = "up"
 )
 
+type WorkspaceUIPaneDropPlacement string
+
+const (
+	WorkspaceUIPaneDropPlacementAfter  WorkspaceUIPaneDropPlacement = "after"
+	WorkspaceUIPaneDropPlacementBefore WorkspaceUIPaneDropPlacement = "before"
+)
+
+type WorkspaceUIPaneReorderIntentKind string
+
+const (
+	WorkspaceUIPaneReorderIntentKindColumn    WorkspaceUIPaneReorderIntentKind = "column"
+	WorkspaceUIPaneReorderIntentKindPlaneSlot WorkspaceUIPaneReorderIntentKind = "plane-slot"
+	WorkspaceUIPaneReorderIntentKindRow       WorkspaceUIPaneReorderIntentKind = "row"
+	WorkspaceUIPaneReorderIntentKindSwap      WorkspaceUIPaneReorderIntentKind = "swap"
+)
+
 type WorkspaceUIPaneRuntimeStatus string
 
 const (
@@ -85,6 +102,7 @@ const (
 type WorkspaceUIOperationErrorCode string
 
 const (
+	WorkspaceUIOperationErrorCodeColumnNotFound          WorkspaceUIOperationErrorCode = "column_not_found"
 	WorkspaceUIOperationErrorCodeInvalidOperation        WorkspaceUIOperationErrorCode = "invalid_operation"
 	WorkspaceUIOperationErrorCodeLastPane                WorkspaceUIOperationErrorCode = "last_pane"
 	WorkspaceUIOperationErrorCodeMissingLayout           WorkspaceUIOperationErrorCode = "missing_layout"
@@ -189,12 +207,13 @@ type WorkspaceUIPaneReadResult struct {
 }
 
 type WorkspaceUIPaneOperation struct {
-	Kind   WorkspaceUIPaneOperationKind    `json:"kind"`
-	PaneID string                          `json:"paneId"`
-	Close  *WorkspaceUIPaneCloseOperation  `json:"close"`
-	Move   *WorkspaceUIPaneMoveOperation   `json:"move"`
-	Rename *WorkspaceUIPaneRenameOperation `json:"rename"`
-	Resize *WorkspaceUIPaneResizeOperation `json:"resize"`
+	Kind    WorkspaceUIPaneOperationKind     `json:"kind"`
+	PaneID  string                           `json:"paneId"`
+	Close   *WorkspaceUIPaneCloseOperation   `json:"close"`
+	Move    *WorkspaceUIPaneMoveOperation    `json:"move"`
+	Rename  *WorkspaceUIPaneRenameOperation  `json:"rename"`
+	Reorder *WorkspaceUIPaneReorderOperation `json:"reorder"`
+	Resize  *WorkspaceUIPaneResizeOperation  `json:"resize"`
 }
 
 type WorkspaceUIPaneCloseOperation struct {
@@ -207,6 +226,21 @@ type WorkspaceUIPaneMoveOperation struct {
 
 type WorkspaceUIPaneRenameOperation struct {
 	Title string `json:"title"`
+}
+
+type WorkspaceUIPaneReorderOperation struct {
+	Intent WorkspaceUIPaneReorderIntent `json:"intent"`
+}
+
+type WorkspaceUIPaneReorderIntent struct {
+	Kind              WorkspaceUIPaneReorderIntentKind `json:"kind"`
+	Placement         WorkspaceUIPaneDropPlacement     `json:"placement"`
+	PlaneIndex        *int                             `json:"planeIndex"`
+	ReferenceColumnID string                           `json:"referenceColumnId"`
+	SlotIndex         *int                             `json:"slotIndex"`
+	SlotPlacement     WorkspaceUIPaneDropPlacement     `json:"slotPlacement"`
+	TargetColumnID    string                           `json:"targetColumnId"`
+	TargetPaneID      string                           `json:"targetPaneId"`
 }
 
 type WorkspaceUIPaneResizeOperation struct {
@@ -245,14 +279,15 @@ type WorkspaceUIPaneResizeTransactionResult struct {
 }
 
 type WorkspaceUIPaneOperationOutcome struct {
-	Kind                  WorkspaceUIPaneOperationKind  `json:"kind"`
-	Close                 *WorkspaceUIPaneCloseOutcome  `json:"close"`
-	Move                  *WorkspaceUIPaneMoveOutcome   `json:"move"`
-	Rename                *WorkspaceUIPaneRenameOutcome `json:"rename"`
-	Resize                *WorkspaceUIPaneResizeOutcome `json:"resize"`
-	PaneID                string                        `json:"paneId"`
-	PreviousFocusedPaneID string                        `json:"previousFocusedPaneId"`
-	FocusedPaneID         string                        `json:"focusedPaneId"`
+	Kind                  WorkspaceUIPaneOperationKind   `json:"kind"`
+	Close                 *WorkspaceUIPaneCloseOutcome   `json:"close"`
+	Move                  *WorkspaceUIPaneMoveOutcome    `json:"move"`
+	Rename                *WorkspaceUIPaneRenameOutcome  `json:"rename"`
+	Reorder               *WorkspaceUIPaneReorderOutcome `json:"reorder"`
+	Resize                *WorkspaceUIPaneResizeOutcome  `json:"resize"`
+	PaneID                string                         `json:"paneId"`
+	PreviousFocusedPaneID string                         `json:"previousFocusedPaneId"`
+	FocusedPaneID         string                         `json:"focusedPaneId"`
 }
 
 type WorkspaceUIPaneCloseOutcome struct {
@@ -279,6 +314,24 @@ type WorkspaceUIPaneMoveOutcome struct {
 type WorkspaceUIPaneRenameOutcome struct {
 	PreviousTitle string `json:"previousTitle"`
 	Title         string `json:"title"`
+}
+
+type WorkspaceUIPaneReorderOutcome struct {
+	ColumnID            string                           `json:"columnId"`
+	ColumnIndex         int                              `json:"columnIndex"`
+	CreatedColumnID     string                           `json:"createdColumnId"`
+	DestinationColumnID string                           `json:"destinationColumnId"`
+	IntentKind          WorkspaceUIPaneReorderIntentKind `json:"intentKind"`
+	PaneIndex           int                              `json:"paneIndex"`
+	PlaneIndex          int                              `json:"planeIndex"`
+	PreviousColumnID    string                           `json:"previousColumnId"`
+	PreviousColumnIndex int                              `json:"previousColumnIndex"`
+	PreviousPaneIndex   int                              `json:"previousPaneIndex"`
+	PreviousPlaneIndex  int                              `json:"previousPlaneIndex"`
+	RemovedColumn       bool                             `json:"removedColumn"`
+	ResetPaneSizing     bool                             `json:"resetPaneSizing"`
+	TargetColumnID      string                           `json:"targetColumnId"`
+	TargetPaneID        string                           `json:"targetPaneId"`
 }
 
 type WorkspaceUIPaneResizeOutcome struct {
@@ -440,8 +493,16 @@ func ContractValueSets() []ContractValueSet {
 			Values: stringValues(supportedPaneMoveDirections()),
 		},
 		{
+			Name:   "WorkspaceUIPaneDropPlacement",
+			Values: stringValues(supportedPaneDropPlacements()),
+		},
+		{
 			Name:   "WorkspaceUIPaneOperationKind",
 			Values: stringValues(supportedPaneOperationKinds()),
+		},
+		{
+			Name:   "WorkspaceUIPaneReorderIntentKind",
+			Values: stringValues(supportedPaneReorderIntentKinds()),
 		},
 		{
 			Name:   "WorkspaceUIOperationErrorCode",
@@ -518,12 +579,30 @@ func supportedPaneOperationKinds() []WorkspaceUIPaneOperationKind {
 		WorkspaceUIPaneOperationKindFocusPane,
 		WorkspaceUIPaneOperationKindMovePane,
 		WorkspaceUIPaneOperationKindRenamePane,
+		WorkspaceUIPaneOperationKindReorderPane,
 		WorkspaceUIPaneOperationKindResizePane,
+	}
+}
+
+func supportedPaneDropPlacements() []WorkspaceUIPaneDropPlacement {
+	return []WorkspaceUIPaneDropPlacement{
+		WorkspaceUIPaneDropPlacementAfter,
+		WorkspaceUIPaneDropPlacementBefore,
+	}
+}
+
+func supportedPaneReorderIntentKinds() []WorkspaceUIPaneReorderIntentKind {
+	return []WorkspaceUIPaneReorderIntentKind{
+		WorkspaceUIPaneReorderIntentKindColumn,
+		WorkspaceUIPaneReorderIntentKindPlaneSlot,
+		WorkspaceUIPaneReorderIntentKindRow,
+		WorkspaceUIPaneReorderIntentKindSwap,
 	}
 }
 
 func supportedOperationErrorCodes() []WorkspaceUIOperationErrorCode {
 	return []WorkspaceUIOperationErrorCode{
+		WorkspaceUIOperationErrorCodeColumnNotFound,
 		WorkspaceUIOperationErrorCodeInvalidOperation,
 		WorkspaceUIOperationErrorCodeLastPane,
 		WorkspaceUIOperationErrorCodeMissingLayout,

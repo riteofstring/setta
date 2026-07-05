@@ -836,10 +836,31 @@ Progress on 2026-07-07:
   diffs because the write operation contract is still not endpoint-exposed.
   Final gate: `./scripts/format.sh` and `./check_quality.sh --git-changes`
   passed.
+- Backend reorder operation reducer follow-up: added backend-only
+  `reorder_pane` support without exposing an HTTP, CLI, IPC, renderer, or agent
+  write surface. The reducer validates typed row, swap, column, and plane-slot
+  intents; rejects payloads meant for other operation kinds; moves panes into
+  rows; swaps pane slots while preserving pane sizing; creates deterministic new
+  columns for column and plane-slot drops; resets pane row sizing when a pane
+  adopts a new layout context; updates pane column ownership; removes/reindexes
+  emptied columns; focuses the moved source pane for non-swap drops; preserves
+  focus for swaps; increments the revision and persists only when layout order
+  changes; and returns a structured reorder outcome with previous/resulting
+  pane locations, destination column details, created-column IDs, removed-column
+  status, and reset-sizing status. Missing target panes and columns use stable
+  operation error codes.
+- The operation validation helpers were split out of `operations.go` to keep
+  the backend operation reducer files under repository size limits while adding
+  the new typed reorder validation.
+- Verification for the backend reorder reducer follow-up:
+  `./scripts/go.sh test ./internal/workspaceui` passed,
+  `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
+  diffs because the write operation contract is still not endpoint-exposed, and
+  `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi` passed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for open and reorder, then cut renderer-originated layout
-  mutations over to that backend operation API before exposing agent or CLI
-  workspace mutation commands.
+  event sync for open, then cut renderer-originated layout mutations over to
+  that backend operation API before exposing agent or CLI workspace mutation
+  commands.
 
 ### Phase 3: Renderer Event Sync
 
