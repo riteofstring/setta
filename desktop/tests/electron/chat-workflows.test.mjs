@@ -85,6 +85,7 @@ import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
 import { runTranscriptSearchWorkflowLaunch } from "./chat-workflow-transcript-search-cases.mjs";
 import { runTranscriptScrollWorkflowLaunch } from "./chat-workflow-transcript-scroll-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
+import { runWorkspaceChatReadWorkflow } from "./chat-workflow-workspace-chat-read-cases.mjs";
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
 import { runWorkflowRunnerPostStartFailureWorkflowLaunch } from "./workflow-runner-post-start-cases.mjs";
 import { runWorkflowVersionCommitOrderingWorkflowLaunch } from "./workflow-version-commit-ordering-cases.mjs";
@@ -399,6 +400,13 @@ async function runDeterministicWorkflowLaunch(results) {
     await runWorkflowStep(results, recordingDir, "happy-path", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId);
+      await runWorkspaceChatReadWorkflow({
+        appDataDir: fixture.appDataDir,
+        backend,
+        client: context.client,
+        conversationId,
+        workspaceId,
+      });
     });
     await runWorkflowStep(results, recordingDir, "image-attachments", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
@@ -724,7 +732,6 @@ async function assertReasoningBlockPresent(client, headline) {
     throw new Error(`expected a reasoning block containing ${JSON.stringify(headline)}`);
   }
 }
-
 async function expandReasoningSummaryBlock(client, headline) {
   const opened = await client.evaluate(`(() => {
     const headline = ${JSON.stringify(headline)};
@@ -746,7 +753,6 @@ async function expandReasoningSummaryBlock(client, headline) {
     );
   }
 }
-
 async function assertRunActivityProjection(backend, workspaceId, runId, expected) {
   const page = await backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId });
   const rows = page.activity ?? [];
@@ -756,7 +762,6 @@ async function assertRunActivityProjection(backend, workspaceId, runId, expected
   assertRawActivityTypes(page.items, expected.rawTypes);
   return { page, rows };
 }
-
 function assertProjectedActivityRowCount(rows, expectedRows, page) {
   if (rows.length !== expectedRows.length) {
     throw new Error(
@@ -764,7 +769,6 @@ function assertProjectedActivityRowCount(rows, expectedRows, page) {
     );
   }
 }
-
 function assertProjectedActivityRows(rows, expectedRows) {
   for (const expectedRow of expectedRows) {
     const row = rows.find((candidate) => projectedActivityRowMatches(candidate, expectedRow));
@@ -778,14 +782,12 @@ function assertProjectedActivityRows(rows, expectedRows) {
     }
   }
 }
-
 function projectedActivityRowMatches(row, expectedRow) {
   if (row.type !== expectedRow.type || row.title !== expectedRow.title) {
     return false;
   }
   return expectedRow.summary === undefined || row.details.summary === expectedRow.summary;
 }
-
 function assertNoPrivateActivityProjectionLeaks(rows) {
   if (rows.some((row) => row.type === "agent_message")) {
     throw new Error(`agent message leaked into activity projection: ${JSON.stringify(rows)}`);
@@ -801,7 +803,6 @@ function assertNoPrivateActivityProjectionLeaks(rows) {
     throw new Error(`hidden reasoning leaked into activity projection: ${JSON.stringify(rows)}`);
   }
 }
-
 function assertRawActivityTypes(items, rawTypes) {
   for (const rawType of rawTypes) {
     if (!items.some((item) => item.type === rawType)) {
@@ -809,7 +810,6 @@ function assertRawActivityTypes(items, rawTypes) {
     }
   }
 }
-
 async function assertActivityRows(client, expectedRows) {
   const rendered = await client.evaluate(`(() => ({
     rows: Array.from(document.querySelectorAll('[data-testid="run-activity-row"]')).map((row) => ({
