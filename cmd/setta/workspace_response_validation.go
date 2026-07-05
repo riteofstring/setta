@@ -132,6 +132,118 @@ func validateWorkspacePaneOperationOutcome(response workspaceui.WorkspaceUIPaneO
 	if !workspaceUILayoutHasPane(response.Layout, response.OperationResult.FocusedPaneID) {
 		return fmt.Errorf("workspace pane operation outcome focusedPaneId %s is not present in the returned layout", response.OperationResult.FocusedPaneID)
 	}
+	if err := validateWorkspacePaneOperationTypedOutcome(response, operation); err != nil {
+		return err
+	}
+	return nil
+}
+
+type workspacePaneOperationOutcomeValidator func(workspaceui.WorkspaceUIPaneOperationResult, workspaceui.WorkspaceUIPaneOperation) error
+
+var workspacePaneOperationOutcomeValidators = map[workspaceui.WorkspaceUIPaneOperationKind]workspacePaneOperationOutcomeValidator{
+	workspaceui.WorkspaceUIPaneOperationKindClosePane:     validateWorkspacePaneCloseOperationOutcome,
+	workspaceui.WorkspaceUIPaneOperationKindConfigurePane: validateWorkspacePaneConfigureOperationOutcome,
+	workspaceui.WorkspaceUIPaneOperationKindFocusPane:     validateWorkspacePaneFocusOperationOutcome,
+	workspaceui.WorkspaceUIPaneOperationKindMovePane:      validateWorkspacePaneMoveOperationOutcome,
+	workspaceui.WorkspaceUIPaneOperationKindOpenPane:      validateWorkspacePaneOpenOperationOutcome,
+	workspaceui.WorkspaceUIPaneOperationKindRenamePane:    validateWorkspacePaneRenameOperationOutcome,
+	workspaceui.WorkspaceUIPaneOperationKindReorderPane:   validateWorkspacePaneReorderOperationOutcome,
+	workspaceui.WorkspaceUIPaneOperationKindResizeColumn:  validateWorkspacePaneResizeOperationOutcome,
+	workspaceui.WorkspaceUIPaneOperationKindResizePane:    validateWorkspacePaneResizeOperationOutcome,
+}
+
+func validateWorkspacePaneOperationTypedOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	validator := workspacePaneOperationOutcomeValidators[operation.Kind]
+	if validator == nil {
+		return fmt.Errorf("workspace pane operation outcome kind is unsupported: %s", operation.Kind)
+	}
+	return validator(response, operation)
+}
+
+func validateWorkspacePaneCloseOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	outcome := response.OperationResult
+	if outcome.Close == nil {
+		return errors.New("workspace pane operation outcome close details are required")
+	}
+	if operation.Close != nil && outcome.Close.SurfaceClose != operation.Close.SurfaceClose {
+		return fmt.Errorf("workspace pane operation outcome surfaceClose = %s, want %s", outcome.Close.SurfaceClose, operation.Close.SurfaceClose)
+	}
+	return nil
+}
+
+func validateWorkspacePaneConfigureOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	if response.OperationResult.Configure == nil {
+		return errors.New("workspace pane operation outcome configure details are required")
+	}
+	return nil
+}
+
+func validateWorkspacePaneFocusOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	return nil
+}
+
+func validateWorkspacePaneMoveOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	outcome := response.OperationResult
+	if outcome.Move == nil {
+		return errors.New("workspace pane operation outcome move details are required")
+	}
+	if operation.Move != nil && outcome.Move.Direction != operation.Move.Direction {
+		return fmt.Errorf("workspace pane operation outcome direction = %s, want %s", outcome.Move.Direction, operation.Move.Direction)
+	}
+	return nil
+}
+
+func validateWorkspacePaneOpenOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	outcome := response.OperationResult
+	if operation.Open == nil {
+		return errors.New("workspace pane open operation payload is required for response validation")
+	}
+	if outcome.PaneID == "" {
+		return errors.New("workspace pane operation outcome paneId is required for open_pane")
+	}
+	if !workspaceUILayoutHasPane(response.Layout, outcome.PaneID) {
+		return fmt.Errorf("workspace pane operation outcome paneId %s is not present in the returned layout", outcome.PaneID)
+	}
+	if outcome.Open == nil {
+		return errors.New("workspace pane operation outcome open details are required")
+	}
+	if outcome.Open.SurfaceID == "" {
+		return errors.New("workspace pane operation outcome open surfaceId is required")
+	}
+	if outcome.Open.SurfaceKind != operation.Open.SurfaceKind {
+		return fmt.Errorf("workspace pane operation outcome open surfaceKind = %s, want %s", outcome.Open.SurfaceKind, operation.Open.SurfaceKind)
+	}
+	if !validWorkspacePaneOpenTargetKind(outcome.Open.TargetKind) {
+		return fmt.Errorf("workspace pane operation outcome open targetKind is unsupported: %s", outcome.Open.TargetKind)
+	}
+	if !validWorkspacePaneDropPlacement(outcome.Open.Placement) {
+		return fmt.Errorf("workspace pane operation outcome open placement is unsupported: %s", outcome.Open.Placement)
+	}
+	return nil
+}
+
+func validateWorkspacePaneRenameOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	outcome := response.OperationResult
+	if outcome.Rename == nil {
+		return errors.New("workspace pane operation outcome rename details are required")
+	}
+	if operation.Rename != nil && outcome.Rename.Title != operation.Rename.Title {
+		return fmt.Errorf("workspace pane operation outcome title = %q, want %q", outcome.Rename.Title, operation.Rename.Title)
+	}
+	return nil
+}
+
+func validateWorkspacePaneReorderOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	if response.OperationResult.Reorder == nil {
+		return errors.New("workspace pane operation outcome reorder details are required")
+	}
+	return nil
+}
+
+func validateWorkspacePaneResizeOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	if response.OperationResult.Resize == nil {
+		return errors.New("workspace pane operation outcome resize details are required")
+	}
 	return nil
 }
 
@@ -200,6 +312,28 @@ func validWorkspaceSurfaceKind(kind workspaceui.SurfaceKind) bool {
 		workspaceui.SurfaceKindSemanticNodeDetails,
 		workspaceui.SurfaceKindWorkflowNodeDetails,
 		workspaceui.SurfaceKindWorkflowSettings:
+		return true
+	default:
+		return false
+	}
+}
+
+func validWorkspacePaneOpenTargetKind(kind workspaceui.WorkspaceUIPaneOpenTargetKind) bool {
+	switch kind {
+	case workspaceui.WorkspaceUIPaneOpenTargetKindAdjacentColumn,
+		workspaceui.WorkspaceUIPaneOpenTargetKindColumnEnd,
+		workspaceui.WorkspaceUIPaneOpenTargetKindPlaneSlot,
+		workspaceui.WorkspaceUIPaneOpenTargetKindRow:
+		return true
+	default:
+		return false
+	}
+}
+
+func validWorkspacePaneDropPlacement(placement workspaceui.WorkspaceUIPaneDropPlacement) bool {
+	switch placement {
+	case workspaceui.WorkspaceUIPaneDropPlacementAfter,
+		workspaceui.WorkspaceUIPaneDropPlacementBefore:
 		return true
 	default:
 		return false

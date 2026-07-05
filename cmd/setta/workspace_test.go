@@ -255,6 +255,37 @@ func TestWorkspacePanesOpenCommandRejectsMissingInput(t *testing.T) {
 	}
 }
 
+func TestWorkspacePanesOpenCommandRejectsCallerSuppliedPaneID(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	inputPath := writeRawWorkspacePaneOpenInputForCLITest(t, `{
+  "paneId": "workspace_pane_attacker",
+  "surfaceKind": "terminal",
+  "subtitle": "should be rejected before HTTP",
+  "title": "Scratch",
+  "tone": "green"
+}`)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "panes", "open", "--input", inputPath), commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "workspace_pane_open_input_decode_failed" {
+		t.Fatalf("error code = %q, want workspace_pane_open_input_decode_failed", errResponse.Error.Code)
+	}
+	list := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneListResult](t, fixture, "panes", "list")
+	if len(list.Panes) != 2 {
+		t.Fatalf("pane list after rejected open = %+v, want original two panes", list)
+	}
+}
+
 func newWorkspaceCLITestFixture(t *testing.T) workspaceCLITestFixture {
 	t.Helper()
 	appDataDir := t.TempDir()
@@ -366,8 +397,13 @@ func writeWorkspacePaneOpenInputForCLITest(t *testing.T, input workspaceui.Works
 	if err != nil {
 		t.Fatalf("marshal workspace pane open input: %v", err)
 	}
+	return writeRawWorkspacePaneOpenInputForCLITest(t, string(data))
+}
+
+func writeRawWorkspacePaneOpenInputForCLITest(t *testing.T, data string) string {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "open-pane.json")
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatalf("write workspace pane open input: %v", err)
 	}
 	return path
