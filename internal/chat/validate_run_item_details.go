@@ -142,6 +142,9 @@ func validateRunItemCommandExecutionDetailsPayload(item RunItem, details RunItem
 	if details.Source != nil && !validValue(*details.Source, runItemCommandSourceValues) {
 		return fmt.Errorf("run item %s commandExecution has unsupported source %s", item.ID, *details.Source)
 	}
+	if !validValue(details.OutputAvailability, runItemOutputAvailabilityValues) {
+		return fmt.Errorf("run item %s commandExecution has unsupported outputAvailability %s", item.ID, details.OutputAvailability)
+	}
 	if details.Source != nil && isBackgroundTerminalStartupSource(*details.Source) && details.ProcessID == "" {
 		return fmt.Errorf("run item %s commandExecution unified_exec_startup processId is required", item.ID)
 	}

@@ -1,7 +1,6 @@
 /* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, MouseEvent, document, getComputedStyle, window */
 
 (() => {
-  const workflowDefinitionChangedEventName = "setta:workflow-definition-changed";
   function bodyText() {
     return { body: document.body.innerText };
   }
@@ -1117,11 +1116,6 @@
       definition.description,
       graph,
     );
-    window.dispatchEvent(
-      new CustomEvent(workflowDefinitionChangedEventName, {
-        detail: { definitionId, workspaceId },
-      }),
-    );
     return {
       definitionId: updated.id,
       nodeId,
@@ -1147,11 +1141,6 @@
       definition.name,
       definition.description,
       graph,
-    );
-    window.dispatchEvent(
-      new CustomEvent(workflowDefinitionChangedEventName, {
-        detail: { definitionId, workspaceId },
-      }),
     );
     return {
       definitionId: updated.id,

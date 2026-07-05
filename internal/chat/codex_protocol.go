@@ -321,19 +321,32 @@ func commandExecutionRunItem(item codexapp.CommandExecutionThreadItem, raw json.
 	if source != nil && *source == RunItemCommandSourceUnifiedExecStartup && processID == "" {
 		return RunItem{}, fmt.Errorf("codex unifiedExecStartup item processId is required")
 	}
+	result, outputAvailability := commandExecutionOutputState(item.AggregatedOutput)
 	return RunItem{
 		ProviderItemID: id,
 		Type:           RunItemTypeCommandExecution,
 		Status:         status,
 		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
-			Command:    command,
-			Cwd:        cwd,
-			ExitCode:   intPtrValue(item.ExitCode),
-			DurationMs: intPtrValue(item.DurationMs),
-			ProcessID:  processID,
-			Source:     source,
+			Command:            command,
+			Cwd:                cwd,
+			ExitCode:           intPtrValue(item.ExitCode),
+			DurationMs:         intPtrValue(item.DurationMs),
+			ProcessID:          processID,
+			Source:             source,
+			Result:             result,
+			OutputAvailability: outputAvailability,
 		}),
 	}, nil
+}
+
+func commandExecutionOutputState(aggregatedOutput *string) (string, RunItemOutputAvailability) {
+	if aggregatedOutput == nil {
+		return "", RunItemOutputAvailabilityUnavailable
+	}
+	if *aggregatedOutput == "" {
+		return "", RunItemOutputAvailabilityEmpty
+	}
+	return *aggregatedOutput, RunItemOutputAvailabilityCaptured
 }
 
 func fileChangeRunItem(item codexapp.FileChangeThreadItem, defaultStatus RunItemStatus) (RunItem, error) {

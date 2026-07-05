@@ -8,7 +8,6 @@ import { RefreshCcw, Save } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
-import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import { useChatDefaultsStore } from "../../stores/chat-defaults-store";
 import {
   useWorkflowEditorStore,
@@ -46,9 +45,6 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
   const selectedTarget = useWorkflowEditorStore((state) => state.selectedNodeTarget);
   const target = selectedTarget ?? pane.workflowNodeDetailsConfig ?? null;
   const activityFocus = useWorkflowEditorStore((state) => state.selectedNodeActivityFocus);
-  const notifyWorkflowDefinitionChanged = useWorkflowEditorStore(
-    (state) => state.notifyWorkflowDefinitionChanged,
-  );
   const viewingRun = target?.executionId !== "";
   const { definition, loadError, setDefinition, setLoadError } = useWorkflowNodeDefinition(
     target,
@@ -108,10 +104,6 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
       );
       setDefinition(updated);
       setSaveMessage("Saved");
-      notifyWorkflowDefinitionChanged(target.workspaceId, target.definitionId);
-      await useWorkflowDefinitionStore
-        .getState()
-        .refreshWorkspaceWorkflowDefinitions(target.workspaceId);
     } catch (error: unknown) {
       setLoadError(errorMessage(error));
     } finally {

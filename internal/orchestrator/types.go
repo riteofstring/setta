@@ -103,6 +103,9 @@ const (
 	GraphViewModeRun     WorkflowGraphViewMode = "run"
 
 	EventExecutionStarted       WorkflowEventType = "workflow.execution.started"
+	EventDefinitionCreated      WorkflowEventType = "workflow_definition.created"
+	EventDefinitionUpdated      WorkflowEventType = "workflow_definition.updated"
+	EventDefinitionDeleted      WorkflowEventType = "workflow_definition.deleted"
 	EventNodeScheduled          WorkflowEventType = "workflow.node.scheduled"
 	EventActionStarted          WorkflowEventType = "workflow.action.started"
 	EventActionCompleted        WorkflowEventType = "workflow.action.completed"
@@ -315,6 +318,9 @@ var (
 		GraphViewModeRun,
 	}
 	workflowEventTypeValues = []WorkflowEventType{
+		EventDefinitionCreated,
+		EventDefinitionUpdated,
+		EventDefinitionDeleted,
 		EventExecutionStarted,
 		EventNodeScheduled,
 		EventActionStarted,
@@ -844,6 +850,7 @@ type WorkflowEvent struct {
 	ID                  string              `json:"id"`
 	WorkspaceID         string              `json:"workspaceId"`
 	DefinitionID        string              `json:"definitionId"`
+	DefinitionName      string              `json:"definitionName"`
 	DefinitionVersionID string              `json:"definitionVersionId"`
 	ExecutionID         string              `json:"executionId"`
 	Ordinal             int                 `json:"ordinal"`

@@ -57,17 +57,18 @@ func runItemCommandDetails(item RunItem) RunItemCommandExecutionDetails {
 		return *details
 	}
 	if item.Type == RunItemTypeCommandExecution {
-		return RunItemCommandExecutionDetails{}
+		return RunItemCommandExecutionDetails{OutputAvailability: RunItemOutputAvailabilityUnavailable}
 	}
 	return RunItemCommandExecutionDetails{
-		Command:    item.Command,
-		Cwd:        item.Cwd,
-		ExitCode:   item.ExitCode,
-		DurationMs: item.DurationMs,
-		ProcessID:  item.ProcessID,
-		Source:     item.Source,
-		Result:     item.Result,
-		Error:      item.Error,
+		Command:            item.Command,
+		Cwd:                item.Cwd,
+		ExitCode:           item.ExitCode,
+		DurationMs:         item.DurationMs,
+		ProcessID:          item.ProcessID,
+		Source:             item.Source,
+		Result:             item.Result,
+		Error:              item.Error,
+		OutputAvailability: RunItemOutputAvailabilityUnavailable,
 	}
 }
 

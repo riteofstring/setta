@@ -399,6 +399,7 @@ function ActivityRowView({
           }
           outputPage={outputPage}
           outputText={outputText}
+          status={activity.status}
         />
       ) : null}
     </details>
@@ -576,12 +577,14 @@ function ActivityDetails({
   loadMoreOutput,
   outputPage,
   outputText,
+  status,
 }: {
   currentPlanSurfaceAction: CurrentPlanSurfaceAction | null;
   details: RunActivityDetailsProjection;
   loadMoreOutput?: () => void;
   outputPage: RunItemOutputPageState | undefined;
   outputText: string;
+  status: RunItemStatus;
 }) {
   const commandExecution = activityCommandExecutionDisplay(details);
   const genericResultDetails = hasGenericResultDetails(details);
@@ -622,8 +625,10 @@ function ActivityDetails({
         />
         <ActivityOutput
           loadMoreOutput={loadMoreOutput}
+          outputAvailability={commandExecution.outputAvailability}
           outputPage={outputPage}
           outputText={outputText}
+          terminal={isTerminalActivityStatus(status)}
         />
       </div>
     </div>
@@ -643,7 +648,13 @@ function hasGenericResultDetails(details: RunActivityDetailsProjection) {
   ].every((value) => value === null);
 }
 
-function activityCommandExecutionDisplay(details: RunActivityDetailsProjection) {
+type ActivityCommandExecutionDisplay = NonNullable<
+  RunActivityDetailsProjection["commandExecution"]
+>;
+
+function activityCommandExecutionDisplay(
+  details: RunActivityDetailsProjection,
+): ActivityCommandExecutionDisplay {
   const commandExecution = details.commandExecution;
   if (commandExecution !== null) {
     return commandExecution;
@@ -658,6 +669,7 @@ function activityCommandExecutionDisplay(details: RunActivityDetailsProjection) 
       processId: details.processId,
       result: details.result,
       error: details.error,
+      outputAvailability: "unavailable",
       source: null,
     };
   }
@@ -669,8 +681,13 @@ function activityCommandExecutionDisplay(details: RunActivityDetailsProjection) 
     processId: "",
     result: "",
     error: commandStartFailure.message,
+    outputAvailability: "unavailable",
     source: commandStartFailure.source,
   };
+}
+
+function isTerminalActivityStatus(status: RunItemStatus) {
+  return status !== "pending" && status !== "running";
 }
 
 function hasExpandableActivityRow(activity: ActivityItemBlockProjection) {

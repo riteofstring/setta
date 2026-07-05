@@ -217,7 +217,14 @@ func (service *Service) CreateDefinition(workspaceID string, name string, descri
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
-	return writeWorkflowDefinitionFile(workspaceSummary.RootPath, definition, "")
+	definition, err = writeWorkflowDefinitionFile(workspaceSummary.RootPath, definition, "")
+	if err != nil {
+		return WorkflowDefinition{}, err
+	}
+	if err := service.publishWorkflowDefinitionEventLocked(EventDefinitionCreated, definition); err != nil {
+		return WorkflowDefinition{}, err
+	}
+	return definition, nil
 }
 
 func (service *Service) ReadDefinition(workspaceID string, definitionID string) (WorkflowDefinition, error) {
@@ -255,7 +262,14 @@ func (service *Service) UpdateDefinition(workspaceID string, definitionID string
 	next.Description = description
 	next.Graph = graph
 	next.UpdatedAt = now
-	return writeWorkflowDefinitionFile(workspaceSummary.RootPath, next, currentPath)
+	next, err = writeWorkflowDefinitionFile(workspaceSummary.RootPath, next, currentPath)
+	if err != nil {
+		return WorkflowDefinition{}, err
+	}
+	if err := service.publishWorkflowDefinitionEventLocked(EventDefinitionUpdated, next); err != nil {
+		return WorkflowDefinition{}, err
+	}
+	return next, nil
 }
 
 func (service *Service) SaveDefinition(workspaceID string, input WorkflowDefinitionSaveInput) (WorkflowDefinitionSaveResult, error) {
@@ -322,7 +336,7 @@ func (service *Service) DeleteDefinition(workspaceID string, definitionID string
 	}
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	_, definitionPath, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
+	definition, definitionPath, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
 	if err != nil {
 		return err
 	}
@@ -335,7 +349,10 @@ func (service *Service) DeleteDefinition(workspaceID string, definitionID string
 			return fmt.Errorf("workflow definition %s has execution history and cannot be deleted", definitionID)
 		}
 	}
-	return deleteWorkflowDefinitionFile(definitionPath)
+	if err := deleteWorkflowDefinitionFile(definitionPath); err != nil {
+		return err
+	}
+	return service.publishWorkflowDefinitionEventLocked(EventDefinitionDeleted, definition)
 }
 
 func (service *Service) ValidateDefinition(workspaceID string, graph WorkflowGraph) (WorkflowValidationResult, error) {
@@ -703,6 +720,28 @@ func (service *Service) persistExecutionStart(version WorkflowDefinitionVersion,
 		return err
 	}
 	service.events.Publish(events)
+	return nil
+}
+
+func (service *Service) publishWorkflowDefinitionEventLocked(eventType WorkflowEventType, definition WorkflowDefinition) error {
+	eventID, err := service.newID("workflow_event")
+	if err != nil {
+		return fmt.Errorf("create workflow definition event id: %w", err)
+	}
+	event := WorkflowEvent{
+		SchemaVersion:  SchemaVersion,
+		ID:             eventID,
+		WorkspaceID:    definition.WorkspaceID,
+		DefinitionID:   definition.ID,
+		DefinitionName: definition.Name,
+		Type:           eventType,
+		CreatedAt:      timestamp(service.now()),
+	}
+	envelope, err := service.store.AppendWorkflowDefinitionEvent(event)
+	if err != nil {
+		return err
+	}
+	service.events.Publish([]WorkflowEventEnvelope{envelope})
 	return nil
 }
 

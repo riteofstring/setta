@@ -24,6 +24,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
 		{Name: "RunItemDetailsKind", Values: stringValues(runItemDetailsKindValues)},
 		{Name: "RunItemCommandSource", Values: stringValues(runItemCommandSourceValues)},
+		{Name: "RunItemOutputAvailability", Values: stringValues(runItemOutputAvailabilityValues)},
 		{Name: "RunItemPlanStepStatus", Values: stringValues(runItemPlanStepStatusValues)},
 		{Name: "RunItemFileChangeOperation", Values: stringValues(runItemFileChangeOperationValues)},
 		{Name: "BackgroundTerminalStatus", Values: stringValues(backgroundTerminalStatusValues)},

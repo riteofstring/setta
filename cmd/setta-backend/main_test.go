@@ -171,7 +171,7 @@ func TestBackendServeStateWriteAndRemove(t *testing.T) {
 		BaseURL:         "http://127.0.0.1:7345",
 		RuntimeID:       "runtime_test",
 		DisplayName:     "setta-test",
-		ProtocolVersion: 11,
+		ProtocolVersion: 13,
 		StartedAt:       "2026-07-07T18:00:00Z",
 	}
 	if err := writeBackendServeState(appDataDir, state); err != nil {
@@ -198,7 +198,7 @@ func TestBackendServeStateWriteAndRemove(t *testing.T) {
 }
 
 func TestDecodeBackendReadyEventKeepsPayloadForwardable(t *testing.T) {
-	payload := []byte(`{"event":"ready","addr":"127.0.0.1:7345","bootstrapToken":"token_test","protocolVersion":11}` + "\n")
+	payload := []byte(`{"event":"ready","addr":"127.0.0.1:7345","bootstrapToken":"token_test","protocolVersion":13}` + "\n")
 	ready, err := decodeBackendReadyEvent(bytes.NewReader(payload))
 	if err != nil {
 		t.Fatalf("decode ready event: %v", err)

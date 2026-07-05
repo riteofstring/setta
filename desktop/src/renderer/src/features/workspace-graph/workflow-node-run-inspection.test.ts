@@ -258,6 +258,7 @@ function workflowEvent(overrides: Partial<WorkflowEvent> = {}): WorkflowEvent {
   return {
     createdAt: "2026-06-07T00:00:03Z",
     definitionId: "workflow_definition_test",
+    definitionName: "Workflow",
     definitionVersionId: "workflow_version_test",
     details: {},
     executionId: "workflow_execution_test",

@@ -21,6 +21,7 @@ type RunItemStatus string
 type RunItemType string
 type RunItemDetailsKind string
 type RunItemCommandSource string
+type RunItemOutputAvailability string
 type DiagnosticSeverity string
 type DiagnosticSource string
 type ChatCommandKind string
@@ -121,6 +122,10 @@ const (
 	RunItemCommandSourceUserShell              RunItemCommandSource = "user_shell"
 	RunItemCommandSourceUnifiedExecStartup     RunItemCommandSource = "unified_exec_startup"
 	RunItemCommandSourceUnifiedExecInteraction RunItemCommandSource = "unified_exec_interaction"
+
+	RunItemOutputAvailabilityCaptured    RunItemOutputAvailability = "captured"
+	RunItemOutputAvailabilityEmpty       RunItemOutputAvailability = "empty"
+	RunItemOutputAvailabilityUnavailable RunItemOutputAvailability = "unavailable"
 
 	DiagnosticSeverityInfo     DiagnosticSeverity = "info"
 	DiagnosticSeverityWarning  DiagnosticSeverity = "warning"
@@ -260,6 +265,11 @@ var (
 		RunItemCommandSourceUserShell,
 		RunItemCommandSourceUnifiedExecStartup,
 		RunItemCommandSourceUnifiedExecInteraction,
+	}
+	runItemOutputAvailabilityValues = []RunItemOutputAvailability{
+		RunItemOutputAvailabilityCaptured,
+		RunItemOutputAvailabilityEmpty,
+		RunItemOutputAvailabilityUnavailable,
 	}
 	diagnosticSeverityValues = []DiagnosticSeverity{
 		DiagnosticSeverityInfo,

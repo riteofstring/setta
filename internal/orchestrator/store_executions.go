@@ -375,19 +375,20 @@ func (store *Store) insertWorkflowEvents(ctx context.Context, tx *sql.Tx, events
 			return nil, fmt.Errorf("encode workflow event details: %w", err)
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO workflow_run_events (
+INSERT INTO workflow_events (
   id, schema_version, workspace_id, definition_id, definition_version_id,
-  run_id, ordinal, type, node_id, node_execution_id, token_id, runner_kind,
+  definition_name, run_id, ordinal, type, node_id, node_execution_id, token_id, runner_kind,
   created_at, message, details_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 			event.ID,
 			event.SchemaVersion,
 			event.WorkspaceID,
 			event.DefinitionID,
-			event.DefinitionVersionID,
-			event.ExecutionID,
-			event.Ordinal,
+			nullableString(event.DefinitionVersionID),
+			event.DefinitionName,
+			nullableString(event.ExecutionID),
+			nullableInt(event.Ordinal),
 			event.Type,
 			event.NodeID,
 			event.NodeExecutionID,
@@ -403,7 +404,7 @@ INSERT INTO workflow_run_events (
 		var sequence int
 		if err := tx.QueryRowContext(ctx, `
 SELECT stream_sequence
-FROM workflow_run_events
+FROM workflow_events
 WHERE id = ?
 `, event.ID).Scan(&sequence); err != nil {
 			return nil, store.persistenceError("read workflow event stream sequence", err)

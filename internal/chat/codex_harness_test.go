@@ -1375,6 +1375,17 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 		writeFakeUserMessageItem()
 		writeFakeStreamTurn()
 		return true, true
+	case "command-final-output":
+		output := "final-only output\n"
+		writeFakeCommandCompletionWithAggregatedOutput(&output)
+		return true, true
+	case "command-empty-output":
+		output := ""
+		writeFakeCommandCompletionWithAggregatedOutput(&output)
+		return true, true
+	case "command-unavailable-output":
+		writeFakeCommandCompletionWithAggregatedOutput(nil)
+		return true, true
 	case "retryable-error-notification":
 		writeFakeErrorNotification("temporary provider error", true)
 		writeFakeStreamTurn()

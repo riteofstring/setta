@@ -738,6 +738,54 @@ func TestWorkflowEventStreamPushesWorkflowEvents(t *testing.T) {
 	}
 }
 
+func TestWorkflowEventStreamPushesWorkflowDefinitionEvents(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	workspaceRoot := t.TempDir()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: workspaceRoot}, http.StatusOK)
+	response, err := http.Get(server.URL + "/workflows/events")
+	if err != nil {
+		t.Fatalf("open workflow event stream: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("event stream status = %d, want 200", response.StatusCode)
+	}
+	reader := bufio.NewReader(response.Body)
+
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Streamed definition",
+		Graph:       httpWorkflowActionGraph(),
+	}, http.StatusOK)
+	created := readServerSentWorkflowEvent(t, reader)
+	assertWorkflowDefinitionStreamEvent(t, created, orchestrator.EventDefinitionCreated, opened.Workspace.ID, definition.ID, "Streamed definition")
+
+	updated := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/update", UpdateWorkflowDefinitionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+		Name:         "Updated streamed definition",
+		Graph:        httpWorkflowActionGraph(),
+	}, http.StatusOK)
+	if updated.Name != "Updated streamed definition" {
+		t.Fatalf("updated definition name = %s, want updated", updated.Name)
+	}
+	updatedEvent := readServerSentWorkflowEvent(t, reader)
+	assertWorkflowDefinitionStreamEvent(t, updatedEvent, orchestrator.EventDefinitionUpdated, opened.Workspace.ID, definition.ID, "Updated streamed definition")
+
+	deleted := postJSON[DeleteWorkflowDefinitionResponse](t, handler, "/workflows/definitions/delete", DeleteWorkflowDefinitionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	if !deleted.Deleted {
+		t.Fatalf("delete response = %+v, want deleted", deleted)
+	}
+	deletedEvent := readServerSentWorkflowEvent(t, reader)
+	assertWorkflowDefinitionStreamEvent(t, deletedEvent, orchestrator.EventDefinitionDeleted, opened.Workspace.ID, definition.ID, "Updated streamed definition")
+}
+
 func TestWorkflowEventStreamReplaysFromLastEventID(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	server := httptest.NewServer(handler)
@@ -768,8 +816,27 @@ func TestWorkflowEventStreamReplaysFromLastEventID(t *testing.T) {
 	if event.ExecutionID != started.ID {
 		t.Fatalf("replayed event execution id = %s, want %s", event.ExecutionID, started.ID)
 	}
-	if event.Ordinal != 2 || event.Type != orchestrator.EventNodeScheduled {
-		t.Fatalf("replayed event ordinal/type = %d/%s, want 2/%s", event.Ordinal, event.Type, orchestrator.EventNodeScheduled)
+	if event.Ordinal != 1 || event.Type != orchestrator.EventExecutionStarted {
+		t.Fatalf("replayed event ordinal/type = %d/%s, want 1/%s", event.Ordinal, event.Type, orchestrator.EventExecutionStarted)
+	}
+}
+
+func assertWorkflowDefinitionStreamEvent(t *testing.T, event orchestrator.WorkflowEvent, eventType orchestrator.WorkflowEventType, workspaceID string, definitionID string, definitionName string) {
+	t.Helper()
+	if event.WorkspaceID != workspaceID || event.DefinitionID != definitionID {
+		t.Fatalf("event ownership = workspace %s definition %s, want %s/%s", event.WorkspaceID, event.DefinitionID, workspaceID, definitionID)
+	}
+	if event.Type != eventType {
+		t.Fatalf("event type = %s, want %s", event.Type, eventType)
+	}
+	if event.DefinitionName != definitionName {
+		t.Fatalf("event definitionName = %s, want %s", event.DefinitionName, definitionName)
+	}
+	if event.ExecutionID != "" || event.DefinitionVersionID != "" || event.Ordinal != 0 {
+		t.Fatalf("definition event execution scope = execution %q version %q ordinal %d, want empty", event.ExecutionID, event.DefinitionVersionID, event.Ordinal)
+	}
+	if event.CreatedAt == "" {
+		t.Fatal("definition event missing createdAt")
 	}
 }
 

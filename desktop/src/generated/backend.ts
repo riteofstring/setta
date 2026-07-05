@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 11;
-export const backendContractSchemaHash = "sha256:32bb1b1ced16a0b3ebb59b46486e26d38bf0c64f22107b180fd45aff2a261995";
+export const backendProtocolVersion = 13;
+export const backendContractSchemaHash = "sha256:477e613a637495f7685069382856d9530ca275f46ba2003616f1834aa3eaf103";
 
 export type DeviceScope = "full";
 
@@ -414,13 +414,19 @@ export function decodeWorkspaceActivityStatus(value: unknown, label = "Workspace
   }
 }
 
-export type WorkflowEventType = "workflow.execution.started" | "workflow.node.scheduled" | "workflow.action.started" | "workflow.action.completed" | "workflow.action.failed" | "workflow.action.cancelled" | "workflow.action.waiting_approval" | "workflow.gateway.resolved" | "workflow.loop.advanced" | "workflow.execution.completed" | "workflow.execution.failed" | "workflow.execution.stopped" | "workflow.execution.cancelled" | "workflow.runner_refs.attached" | "workflow.action.recovered" | "workflow.action.recovery_required" | "runner.attempt.started" | "runner.text.delta" | "runner.tool_call.started" | "runner.tool_call.output" | "runner.approval.requested" | "runner.approval.resolved" | "runner.artifact.reported" | "runner.structured_output.received" | "runner.attempt.completed" | "runner.attempt.failed" | "runner.attempt.cancelled" | "runner.attempt.recovery_required";
+export type WorkflowEventType = "workflow_definition.created" | "workflow_definition.updated" | "workflow_definition.deleted" | "workflow.execution.started" | "workflow.node.scheduled" | "workflow.action.started" | "workflow.action.completed" | "workflow.action.failed" | "workflow.action.cancelled" | "workflow.action.waiting_approval" | "workflow.gateway.resolved" | "workflow.loop.advanced" | "workflow.execution.completed" | "workflow.execution.failed" | "workflow.execution.stopped" | "workflow.execution.cancelled" | "workflow.runner_refs.attached" | "workflow.action.recovered" | "workflow.action.recovery_required" | "runner.attempt.started" | "runner.text.delta" | "runner.tool_call.started" | "runner.tool_call.output" | "runner.approval.requested" | "runner.approval.resolved" | "runner.artifact.reported" | "runner.structured_output.received" | "runner.attempt.completed" | "runner.attempt.failed" | "runner.attempt.cancelled" | "runner.attempt.recovery_required";
 
-export const workflowEventTypeValues = ["workflow.execution.started", "workflow.node.scheduled", "workflow.action.started", "workflow.action.completed", "workflow.action.failed", "workflow.action.cancelled", "workflow.action.waiting_approval", "workflow.gateway.resolved", "workflow.loop.advanced", "workflow.execution.completed", "workflow.execution.failed", "workflow.execution.stopped", "workflow.execution.cancelled", "workflow.runner_refs.attached", "workflow.action.recovered", "workflow.action.recovery_required", "runner.attempt.started", "runner.text.delta", "runner.tool_call.started", "runner.tool_call.output", "runner.approval.requested", "runner.approval.resolved", "runner.artifact.reported", "runner.structured_output.received", "runner.attempt.completed", "runner.attempt.failed", "runner.attempt.cancelled", "runner.attempt.recovery_required"] as const satisfies readonly WorkflowEventType[];
+export const workflowEventTypeValues = ["workflow_definition.created", "workflow_definition.updated", "workflow_definition.deleted", "workflow.execution.started", "workflow.node.scheduled", "workflow.action.started", "workflow.action.completed", "workflow.action.failed", "workflow.action.cancelled", "workflow.action.waiting_approval", "workflow.gateway.resolved", "workflow.loop.advanced", "workflow.execution.completed", "workflow.execution.failed", "workflow.execution.stopped", "workflow.execution.cancelled", "workflow.runner_refs.attached", "workflow.action.recovered", "workflow.action.recovery_required", "runner.attempt.started", "runner.text.delta", "runner.tool_call.started", "runner.tool_call.output", "runner.approval.requested", "runner.approval.resolved", "runner.artifact.reported", "runner.structured_output.received", "runner.attempt.completed", "runner.attempt.failed", "runner.attempt.cancelled", "runner.attempt.recovery_required"] as const satisfies readonly WorkflowEventType[];
 
 export function decodeWorkflowEventType(value: unknown, label = "WorkflowEventType"): WorkflowEventType {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "workflow_definition.created":
+      return decoded;
+    case "workflow_definition.updated":
+      return decoded;
+    case "workflow_definition.deleted":
+      return decoded;
     case "workflow.execution.started":
       return decoded;
     case "workflow.node.scheduled":
@@ -1260,6 +1266,24 @@ export function decodeRunItemCommandSource(value: unknown, label = "RunItemComma
     case "unified_exec_startup":
       return decoded;
     case "unified_exec_interaction":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunItemOutputAvailability = "captured" | "empty" | "unavailable";
+
+export const runItemOutputAvailabilityValues = ["captured", "empty", "unavailable"] as const satisfies readonly RunItemOutputAvailability[];
+
+export function decodeRunItemOutputAvailability(value: unknown, label = "RunItemOutputAvailability"): RunItemOutputAvailability {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "captured":
+      return decoded;
+    case "empty":
+      return decoded;
+    case "unavailable":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3559,6 +3583,7 @@ export interface RunItemCommandExecutionDetails {
   source: RunItemCommandSource | null;
   result: string;
   error: string;
+  outputAvailability: RunItemOutputAvailability;
 }
 
 export interface RunItemCommandStartFailureDetails {
@@ -4755,6 +4780,7 @@ export interface WorkflowEvent {
   id: string;
   workspaceId: string;
   definitionId: string;
+  definitionName: string;
   definitionVersionId: string;
   executionId: string;
   ordinal: number;
@@ -8564,7 +8590,7 @@ export function decodeRunItemPlanDetails(value: unknown): RunItemPlanDetails {
 
 export function decodeRunItemCommandExecutionDetails(value: unknown): RunItemCommandExecutionDetails {
   const record = assertRecord(value, "RunItemCommandExecutionDetails");
-  assertKnownFields(record, "RunItemCommandExecutionDetails", ["command", "cwd", "exitCode", "durationMs", "processId", "source", "result", "error"]);
+  assertKnownFields(record, "RunItemCommandExecutionDetails", ["command", "cwd", "exitCode", "durationMs", "processId", "source", "result", "error", "outputAvailability"]);
   return {
     command: decodeString(requireField(record, "command", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.command"),
     cwd: decodeString(requireField(record, "cwd", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.cwd"),
@@ -8574,6 +8600,7 @@ export function decodeRunItemCommandExecutionDetails(value: unknown): RunItemCom
     source: decodeNullable(requireField(record, "source", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.source", (item) => decodeRunItemCommandSource(item, "RunItemCommandExecutionDetails.source")),
     result: decodeString(requireField(record, "result", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.result"),
     error: decodeString(requireField(record, "error", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.error"),
+    outputAvailability: decodeRunItemOutputAvailability(requireField(record, "outputAvailability", "RunItemCommandExecutionDetails"), "RunItemCommandExecutionDetails.outputAvailability"),
   };
 }
 
@@ -10353,12 +10380,13 @@ export function decodeGetWorkflowExecutionEventsRequest(value: unknown): GetWork
 
 export function decodeWorkflowEvent(value: unknown): WorkflowEvent {
   const record = assertRecord(value, "WorkflowEvent");
-  assertKnownFields(record, "WorkflowEvent", ["schemaVersion", "id", "workspaceId", "definitionId", "definitionVersionId", "executionId", "ordinal", "type", "nodeId", "nodeExecutionId", "tokenId", "runnerKind", "createdAt", "message", "details"]);
+  assertKnownFields(record, "WorkflowEvent", ["schemaVersion", "id", "workspaceId", "definitionId", "definitionName", "definitionVersionId", "executionId", "ordinal", "type", "nodeId", "nodeExecutionId", "tokenId", "runnerKind", "createdAt", "message", "details"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowEvent"), "WorkflowEvent.schemaVersion"),
     id: decodeString(requireField(record, "id", "WorkflowEvent"), "WorkflowEvent.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowEvent"), "WorkflowEvent.workspaceId"),
     definitionId: decodeString(requireField(record, "definitionId", "WorkflowEvent"), "WorkflowEvent.definitionId"),
+    definitionName: decodeString(requireField(record, "definitionName", "WorkflowEvent"), "WorkflowEvent.definitionName"),
     definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowEvent"), "WorkflowEvent.definitionVersionId"),
     executionId: decodeString(requireField(record, "executionId", "WorkflowEvent"), "WorkflowEvent.executionId"),
     ordinal: decodeInteger(requireField(record, "ordinal", "WorkflowEvent"), "WorkflowEvent.ordinal"),

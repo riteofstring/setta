@@ -55,14 +55,15 @@ type RunItemPlanStep struct {
 }
 
 type RunItemCommandExecutionDetails struct {
-	Command    string                `json:"command"`
-	Cwd        string                `json:"cwd"`
-	ExitCode   int                   `json:"exitCode"`
-	DurationMs int                   `json:"durationMs"`
-	ProcessID  string                `json:"processId"`
-	Source     *RunItemCommandSource `json:"source"`
-	Result     string                `json:"result"`
-	Error      string                `json:"error"`
+	Command            string                    `json:"command"`
+	Cwd                string                    `json:"cwd"`
+	ExitCode           int                       `json:"exitCode"`
+	DurationMs         int                       `json:"durationMs"`
+	ProcessID          string                    `json:"processId"`
+	Source             *RunItemCommandSource     `json:"source"`
+	Result             string                    `json:"result"`
+	Error              string                    `json:"error"`
+	OutputAvailability RunItemOutputAvailability `json:"outputAvailability"`
 }
 
 type RunItemCommandStartFailureDetails struct {
@@ -204,6 +205,9 @@ func NewRunItemPlanDetails(details RunItemPlanDetails) *RunItemDetails {
 }
 
 func NewRunItemCommandExecutionDetails(details RunItemCommandExecutionDetails) *RunItemDetails {
+	if details.OutputAvailability == "" {
+		details.OutputAvailability = RunItemOutputAvailabilityUnavailable
+	}
 	return &RunItemDetails{
 		Kind:                    RunItemDetailsKindCommandExecution,
 		Plan:                    nil,
