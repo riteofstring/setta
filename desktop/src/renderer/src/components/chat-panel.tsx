@@ -238,6 +238,7 @@ const composerBlockingOperations = new Set([
 ]);
 
 const emptyPendingSteeringMessageIds: string[] = [];
+const emptyPendingSteeringMessages: ChatMessage[] = [];
 
 function isComposerBusy(chat: ChatView) {
   return chat.status === "loading" || composerBlockingOperations.has(chat.operation ?? "");
@@ -545,16 +546,30 @@ export function useChatViewState() {
     () => queuedMessagesFromRuns(queuedRuns, messagesById),
     [messagesById, queuedRuns],
   );
-  const pendingSteeringMessageIds = useMemo(() => {
+  const pendingSteeringMessages = useMemo(() => {
     if (activeRunId === "") {
+      return emptyPendingSteeringMessages;
+    }
+    const messages = Object.values(messagesById)
+      .filter((message) => isPendingSteeringMessageForRun(message, activeRunId))
+      .toSorted((left, right) => left.ordinal - right.ordinal);
+    return messages.length === 0 ? emptyPendingSteeringMessages : messages;
+  }, [activeRunId, messagesById]);
+  const pendingSteeringMessageIds = useMemo(() => {
+    if (activeRunId === "" || pendingSteeringMessages.length === 0) {
       return emptyPendingSteeringMessageIds;
     }
-    const pendingIds = transcriptBlocks
-      .filter((block) => isPendingSteeringBlock(block, activeRunId))
-      .map((block) => block.userMessage?.messageId ?? "")
-      .filter((messageId) => messageId !== "");
+    const pendingBlockMessageIds = new Set(
+      transcriptBlocks
+        .filter((block) => isPendingSteeringBlock(block, activeRunId))
+        .map((block) => block.userMessage?.messageId ?? "")
+        .filter((messageId) => messageId !== ""),
+    );
+    const pendingIds = pendingSteeringMessages
+      .filter((message) => !pendingBlockMessageIds.has(message.id))
+      .map((message) => message.id);
     return pendingIds.length === 0 ? emptyPendingSteeringMessageIds : pendingIds;
-  }, [activeRunId, transcriptBlocks]);
+  }, [activeRunId, pendingSteeringMessages, transcriptBlocks]);
   const visiblePendingGoalSubmission =
     pendingGoalSubmission?.conversationId === selectedConversation?.id
       ? pendingGoalSubmission
@@ -623,6 +638,7 @@ export function useChatViewState() {
     openCodexModelPicker,
     openCodexPermissionPicker,
     pendingGoalSubmission: visiblePendingGoalSubmission,
+    pendingSteeringMessages,
     pendingSteeringMessageIds,
     queuedMessages,
     queueMessage,
@@ -666,5 +682,14 @@ function isPendingSteeringBlock(block: TranscriptBlock, activeRunId: string) {
     block.runId === activeRunId &&
     block.userMessage?.delivery === "steering" &&
     block.userMessage.status === "pending"
+  );
+}
+
+function isPendingSteeringMessageForRun(message: ChatMessage, activeRunId: string) {
+  return (
+    message.role === "user" &&
+    message.delivery === "steering" &&
+    message.status === "pending" &&
+    message.runId === activeRunId
   );
 }

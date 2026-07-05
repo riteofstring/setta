@@ -80,18 +80,28 @@ describe("agent trajectory surface", () => {
     const viewModel = trajectoryViewModel({
       activeRun: testRun("running"),
       activeRunLiveness: {
+        activeStatus: {
+          detail: "",
+          headline: "Connection lost",
+          headlineSource: "liveness",
+          kind: "connection_lost",
+        },
         cancellable: true,
         conversationId: "conversation_api",
         error: "",
         harness: "codex",
         lastProviderEventAt: "2026-05-29T20:00:00Z",
+        lastVisibleActivityAt: "2026-05-29T20:00:00Z",
         lastReconciledAt: "",
+        phase: "lost",
         providerThreadId: "thread_api",
         providerTurnId: "turn_api",
         reason: "provider_unavailable",
         retryable: true,
         runId: "run_api",
         status: "lost",
+        steerable: false,
+        steeringDisabledReason: "The provider turn is unavailable.",
         workspaceId: "workspace_api",
       },
     });
@@ -100,7 +110,7 @@ describe("agent trajectory surface", () => {
       canRetry: false,
       canSteer: false,
       canStop: false,
-      kind: "lost",
+      kind: "connection_lost",
       running: true,
     });
   });
@@ -128,6 +138,7 @@ function trajectoryViewModel(
     hasMoreOlder: false,
     messages: [],
     operation: null,
+    pendingSteeringMessages: [],
     queuedMessages: [],
     removingQueuedMessageId: null,
     runItemOutputIdsByRunItemId: {},

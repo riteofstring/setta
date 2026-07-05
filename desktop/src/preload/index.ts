@@ -24,6 +24,10 @@ const appFlags = {
     process.env.SETTA_E2E === "1" || process.env.SETTA_WORKFLOW_GRAPH_DEBUG === "1",
   workflowGraphSyntheticGraph: parseWorkflowGraphSyntheticGraph(process.env),
 };
+type WorkflowEventListener = (event: ReturnType<typeof decodeWorkflowEvent>) => void;
+
+const workflowEventListeners = new Set<WorkflowEventListener>();
+let workflowEventHandler: ((event: IpcRendererEvent, payload: unknown) => void) | null = null;
 const workspaceBrowserViewKeys = new Set<string>([
   "ArrowDown",
   "ArrowLeft",
@@ -41,6 +45,26 @@ const workspaceBrowserViewKeys = new Set<string>([
   "t",
   "v",
 ] satisfies WorkspaceBrowserViewKeyEvent["key"][]);
+
+function subscribeWorkflowEvent(listener: WorkflowEventListener) {
+  workflowEventListeners.add(listener);
+  if (workflowEventHandler === null) {
+    workflowEventHandler = (_event: IpcRendererEvent, payload: unknown) => {
+      const event = decodeWorkflowEvent(payload);
+      for (const current of [...workflowEventListeners]) {
+        current(event);
+      }
+    };
+    ipcRenderer.on(ipcEvents.workflowEvent, workflowEventHandler);
+  }
+  return () => {
+    workflowEventListeners.delete(listener);
+    if (workflowEventListeners.size === 0 && workflowEventHandler !== null) {
+      ipcRenderer.removeListener(ipcEvents.workflowEvent, workflowEventHandler);
+      workflowEventHandler = null;
+    }
+  };
+}
 
 const api: SettaAPI = {
   app: {
@@ -354,15 +378,7 @@ const api: SettaAPI = {
     listDefinitions: (workspaceId) => invoke("workflowListDefinitions", workspaceId),
     listExecutions: (workspaceId, definitionId, limit) =>
       invoke("workflowListExecutions", workspaceId, definitionId, limit),
-    onEvent: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeWorkflowEvent(payload));
-      };
-      ipcRenderer.on(ipcEvents.workflowEvent, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.workflowEvent, handler);
-      };
-    },
+    onEvent: subscribeWorkflowEvent,
     readDefinition: (workspaceId, definitionId) =>
       invoke("workflowReadDefinition", workspaceId, definitionId),
     readExecution: (workspaceId, executionId) =>

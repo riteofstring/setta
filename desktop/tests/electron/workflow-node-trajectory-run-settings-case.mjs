@@ -94,9 +94,9 @@ export async function assertWorkflowAgentRunSettingsSnapshot(client, workspaceId
     (state) =>
       state.settingsBarCount === 1 &&
       state.nodeStatusChipCount === 1 &&
-      state.settingsBarText.includes(`${readOnlyPreset.label} - node override`) &&
-      state.settingsBarText.includes(`${model.displayName} - workflow default`) &&
-      state.settingsBarText.includes("app default"),
+      state.settingsBarText.includes(readOnlyPreset.label) &&
+      state.settingsBarText.includes(model.displayName) &&
+      state.settingsBarText.includes("Medium"),
   );
   await appendWorkflowState(recordingDir, {
     executionId: completed.id,

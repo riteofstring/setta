@@ -394,8 +394,23 @@ func TestServiceReconcileMissingProviderTurnFailsRun(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	conversation, result := startLinkedReconciliationRun(t, service)
 
-	if _, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversation.ID, RunLivenessReasonWakeRecheck); err != nil {
+	reconciled, err := service.ReconcileActiveRuns(context.Background(), "workspace_api", conversation.ID, RunLivenessReasonWakeRecheck)
+	if err != nil {
 		t.Fatalf("reconcile active runs: %v", err)
+	}
+	if len(reconciled.Runs) != 1 {
+		t.Fatalf("reconciled liveness count = %d, want 1: %+v", len(reconciled.Runs), reconciled.Runs)
+	}
+	liveness := reconciled.Runs[0]
+	failedStatus := runActiveStatus(RunActiveStatusFinished, "Finished", RunActiveHeadlineTerminal)
+	failedStatus.Detail = providerTurnInactiveRunError
+	if liveness.Status != RunLivenessTerminal ||
+		liveness.Phase != RunLivenessPhaseTerminal ||
+		liveness.ActiveStatus != failedStatus ||
+		liveness.Steerable ||
+		liveness.SteeringDisabled != "The run has finished." ||
+		liveness.LastVisibleActivityAt == "" {
+		t.Fatalf("reconciled terminal liveness = %+v, want projected terminal payload", liveness)
 	}
 	run, err := service.store.LoadRun("workspace_api", result.Run.ID)
 	if err != nil {

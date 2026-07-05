@@ -339,6 +339,9 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "RunStatus", Values: stringValues(runStatusValues)},
 		{Name: "RunLivenessStatus", Values: stringValues(runLivenessStatusValues)},
 		{Name: "RunLivenessReason", Values: stringValues(runLivenessReasonValues)},
+		{Name: "RunLivenessPhase", Values: stringValues(runLivenessPhaseValues)},
+		{Name: "RunActiveStatusKind", Values: stringValues(runActiveStatusKindValues)},
+		{Name: "RunActiveHeadlineSource", Values: stringValues(runActiveHeadlineSourceValues)},
 		{Name: "ApprovalStatus", Values: stringValues(approvalStatusValues)},
 		{Name: "ApprovalKind", Values: stringValues(approvalKindValues)},
 		{Name: "RunItemStatus", Values: stringValues(runItemStatusValues)},
@@ -992,9 +995,5 @@ func (page MessagePage) MarshalJSON() ([]byte, error) {
 }
 
 func (page RunItemOutputPage) MarshalJSON() ([]byte, error) {
-	type pageAlias RunItemOutputPage
-	if page.Output == nil {
-		page.Output = []RunItemOutput{}
-	}
-	return json.Marshal(pageAlias(page))
+	return marshalRunItemOutputPage(page)
 }

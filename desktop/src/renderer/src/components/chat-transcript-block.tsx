@@ -1,4 +1,5 @@
 import type {
+  RunActiveStatusKind,
   RunLiveness,
   RunItemOutput,
   TranscriptBlock,
@@ -8,11 +9,7 @@ import { Ban, Check, CircleAlert, RefreshCw, SquareTerminal, WifiOff } from "luc
 import { useRef, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 
-import {
-  activeRunPresentation,
-  runLivenessPresentationLabel,
-  type RunLivenessPresentationKind,
-} from "../lib/chat-run-liveness";
+import { activeRunPresentation, type ActiveRunPresentation } from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 import type { TranscriptRenderRow } from "../lib/chat-transcript-render-rows";
@@ -34,6 +31,8 @@ import { ReasoningBlock } from "./chat-transcript-reasoning-block";
 import { LiveHeadlineText } from "./live-headline-text";
 import type { TranscriptRowActions } from "./chat-transcript-row-actions";
 import type { CurrentPlanSurfaceTarget } from "./chat-current-plan-surface";
+
+type LiveActiveRunPresentation = ActiveRunPresentation & { kind: RunActiveStatusKind };
 
 // Shared, render-scoped context every transcript row needs: search highlight,
 // message-row actions, the lifted activity expand state (so the group slot can
@@ -351,9 +350,9 @@ function shouldLoadExpandedActivityGroupMemberOutput(
   return activity !== null && activity.hasOutput && activity.sourceRunItemId !== "" && !outputPage;
 }
 
-// run_status carries a live-only working indicator (never persisted) and the
-// permanent terminal modes. The working tail spins; terminal modes render a slim
-// fixed-height status row that matches block heights so reload keeps the layout.
+// run_status carries the live active-run indicator (never persisted) and the
+// permanent terminal modes. Terminal modes render a slim fixed-height status row
+// that matches block heights so reload keeps the layout.
 function RunStatusBlock({
   block,
   rowActions,
@@ -390,103 +389,82 @@ function LiveRunStatusBlock({
   block: TranscriptBlock;
   rowActions: TranscriptRowActions;
 }) {
-  const liveStatus = liveRunStatusForBlock(block, rowActions);
-  if (liveStatus === "approval") {
-    return (
-      <RunStatusRow
-        mode="approval"
-        runId={block.runId}
-        tone="muted"
-        icon={<CircleAlert className="h-4 w-4 shrink-0 text-muted-foreground" />}
-      >
-        <span>Awaiting approval</span>
-      </RunStatusRow>
-    );
-  }
-  if (liveStatus === "working") {
-    return <WorkingRunStatusRow block={block} />;
-  }
-  if (liveStatus === "reconnecting") {
-    return (
-      <RunStatusRow
-        mode="reconnecting"
-        runId={block.runId}
-        tone="muted"
-        icon={<RefreshCw className="h-4 w-4 shrink-0 text-muted-foreground" />}
-      >
-        <span>{runLivenessPresentationLabel(liveStatus)}</span>
-      </RunStatusRow>
-    );
-  }
-  if (liveStatus === "lost") {
-    return <LostRunStatusRow block={block} liveness={rowActions.activeRunLiveness} />;
-  }
-  return null;
-}
-
-type LiveRunStatusPresentation = RunLivenessPresentationKind | "approval" | null;
-
-function liveRunStatusForBlock(
-  block: TranscriptBlock,
-  rowActions: TranscriptRowActions,
-): LiveRunStatusPresentation {
-  if (block.runId !== rowActions.activeRun?.id) {
+  const presentation = liveRunStatusForBlock(block, rowActions);
+  if (presentation === null) {
     return null;
   }
-  const presentation = activeRunPresentation(rowActions.activeRun, rowActions.activeRunLiveness);
-  switch (presentation.kind) {
-    case "blocked":
-      return "approval";
-    case "working":
-      return "working";
-    case "reconnecting":
-      return "reconnecting";
-    case "lost":
-      return "lost";
-    case "idle":
-      return null;
-    default:
-      return assertNever(presentation.kind);
-  }
-}
-
-function WorkingRunStatusRow({ block }: { block: TranscriptBlock }) {
-  const label = block.runStatus?.label ?? "Working";
+  const detail = presentation.detail || presentation.liveness?.error || "";
   return (
     <RunStatusRow
-      mode="working"
+      mode={presentation.kind}
       runId={block.runId}
-      tone="muted"
-      icon={<BrailleSpinner label={label} />}
+      tone={presentation.kind === "connection_lost" ? "error" : "muted"}
+      icon={liveRunStatusIcon(presentation)}
     >
-      <LiveHeadlineText active className="italic">
-        {label}
+      <LiveHeadlineText active className={liveRunStatusHeadlineClass(presentation.kind)}>
+        {presentation.headline}
       </LiveHeadlineText>
-    </RunStatusRow>
-  );
-}
-
-function LostRunStatusRow({
-  block,
-  liveness,
-}: {
-  block: TranscriptBlock;
-  liveness: TranscriptRowActions["activeRunLiveness"];
-}) {
-  return (
-    <RunStatusRow
-      mode="lost"
-      runId={block.runId}
-      tone="error"
-      icon={<WifiOff className="h-4 w-4 shrink-0 text-status-critical-muted" />}
-    >
-      <span>{runLivenessPresentationLabel("lost")}</span>
-      {liveness && liveness.error !== "" ? (
-        <span className="min-w-0 truncate text-status-critical">{liveness.error}</span>
+      {detail !== "" ? (
+        <span
+          className={cn(
+            "min-w-0 truncate",
+            presentation.kind === "connection_lost" ? "text-status-critical" : "",
+          )}
+        >
+          {detail}
+        </span>
       ) : null}
     </RunStatusRow>
   );
 }
+
+function liveRunStatusForBlock(
+  block: TranscriptBlock,
+  rowActions: TranscriptRowActions,
+): LiveActiveRunPresentation | null {
+  if (block.runId !== rowActions.activeRun?.id) {
+    return null;
+  }
+  const presentation = activeRunPresentation(rowActions.activeRun, rowActions.activeRunLiveness);
+  if (presentation.kind === "idle") {
+    return null;
+  }
+  return presentation as LiveActiveRunPresentation;
+}
+
+function liveRunStatusIcon(presentation: LiveActiveRunPresentation) {
+  return liveRunStatusIconByKind[presentation.kind](presentation);
+}
+
+function liveRunStatusHeadlineClass(kind: RunActiveStatusKind) {
+  return liveRunStatusHeadlineClassByKind[kind];
+}
+
+const liveRunStatusIconByKind = {
+  blocked: () => <CircleAlert className="h-4 w-4 shrink-0 text-muted-foreground" />,
+  connection_lost: () => <WifiOff className="h-4 w-4 shrink-0 text-status-critical-muted" />,
+  finished: () => <Check className="h-4 w-4 shrink-0 text-muted-foreground" />,
+  reconnecting: () => <RefreshCw className="h-4 w-4 shrink-0 text-muted-foreground" />,
+  stalled: () => <RefreshCw className="h-4 w-4 shrink-0 text-muted-foreground" />,
+  starting: (presentation) => <BrailleSpinner label={presentation.headline} />,
+  thinking: (presentation) => <BrailleSpinner label={presentation.headline} />,
+  waiting: (presentation) => <BrailleSpinner label={presentation.headline} />,
+  waiting_for_provider: (presentation) => <BrailleSpinner label={presentation.headline} />,
+  working: (presentation) => <BrailleSpinner label={presentation.headline} />,
+} satisfies Record<RunActiveStatusKind, (presentation: LiveActiveRunPresentation) => ReactNode>;
+
+const liveRunStatusHeadlineClassByKind = {
+  blocked: "",
+  connection_lost: "",
+  finished: "",
+  reconnecting: "",
+  stalled: "",
+  starting: "",
+  thinking: "italic",
+  waiting: "",
+  waiting_for_provider: "",
+  working: "italic",
+} satisfies Record<RunActiveStatusKind, string>;
 
 // background_terminal is a slim chronological marker that the assistant started or
 // interacted with a background terminal at this point in the run. The terminal's

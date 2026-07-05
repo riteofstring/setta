@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 const providerTurnInactiveRunError = "run interrupted because provider turn is no longer active"
@@ -422,18 +423,42 @@ func (service *Service) terminalizeProviderReconciledRun(target activeRunReconci
 	if target.active.cancel != nil {
 		target.active.cancel()
 	}
-	return RunLiveness{
-		WorkspaceID:      target.workspace,
-		ConversationID:   target.conversation,
-		RunID:            target.run.ID,
-		Harness:          target.run.Harness,
-		Status:           RunLivenessTerminal,
-		Reason:           RunLivenessReasonRunTerminal,
-		ProviderThreadID: target.active.threadID,
-		ProviderTurnID:   target.active.turnID,
-		LastReconciledAt: target.reconciledAt,
-		Error:            message,
-	}, nil
+	return service.reconciledTerminalRunLiveness(target, message)
+}
+
+func (service *Service) reconciledTerminalRunLiveness(target activeRunReconciliationTarget, message string) (RunLiveness, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	run, err := service.store.LoadRun(target.workspace, target.run.ID)
+	if err != nil {
+		return RunLiveness{}, err
+	}
+	liveness := RunLiveness{
+		WorkspaceID:           target.workspace,
+		ConversationID:        target.conversation,
+		RunID:                 run.ID,
+		Harness:               run.Harness,
+		Status:                RunLivenessTerminal,
+		Reason:                RunLivenessReasonRunTerminal,
+		ProviderThreadID:      target.active.threadID,
+		ProviderTurnID:        target.active.turnID,
+		LastReconciledAt:      target.reconciledAt,
+		Error:                 message,
+		LastProviderEventAt:   timestampOrEmpty(target.active.lastProviderEventAt),
+		LastVisibleActivityAt: timestampOrEmpty(target.active.lastVisibleActivityAt),
+	}
+	if liveness.Error == "" {
+		liveness.Error = run.Error
+	}
+	return service.projectRunLivenessLocked(target.workspace, target.conversation, run, target.active, liveness), nil
+}
+
+func timestampOrEmpty(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return timestamp(value)
 }
 
 func (service *Service) staleRunLivenessForReconciliationTarget(target activeRunReconciliationTarget) (RunLiveness, bool) {

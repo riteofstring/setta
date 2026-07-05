@@ -219,12 +219,13 @@ async function performOverviewColumnDrop(client) {
   const sortedHosts = overview.visibleHosts.toSorted(
     (left, right) => left.rect.left - right.rect.left || left.rect.top - right.rect.top,
   );
-  const sourceHost = sortedHosts[0];
   const targetHost = sortedHosts.at(-1);
-  if (!sourceHost || !targetHost || sourceHost.paneId === targetHost.paneId) {
+  const preferredSourceHost =
+    sortedHosts.find((host) => host.focused && host.paneId !== targetHost?.paneId) ??
+    sortedHosts.find((host) => host.paneId !== targetHost?.paneId);
+  if (!preferredSourceHost || !targetHost) {
     throw new Error(`no overview drag target found: ${JSON.stringify(overview)}`);
   }
-  const sourcePoint = await overviewPaneBodyPoint(client, sourceHost.paneId);
   const stageRight = overview.stageRect.left + overview.stageRect.width;
   const to = {
     x: Math.min(targetHost.rect.left + targetHost.rect.width + 2, stageRight - 1),
@@ -232,10 +233,17 @@ async function performOverviewColumnDrop(client) {
   };
   await resetFrameMetrics(client);
 
-  await dispatchMousePress(client, sourcePoint);
+  const sourceHost = await startOverviewDrag(
+    client,
+    sortedHosts,
+    preferredSourceHost,
+    targetHost,
+    to,
+  );
+  await resetFrameMetrics(client);
   await dispatchMouseMove(client, to, { buttons: 1 });
   // Overview now uses the shared drop model: dropping past the rightmost card
-  // shows the preview-only landing box, not an edge highlight on that card.
+  // marks the target card with a drop preview instead of using a hover ghost.
   const ghost = await waitForState(
     client,
     paneSnapshotExpression(),
@@ -407,24 +415,67 @@ async function dragHandleCenter(client, paneId) {
   return { x: center.x, y: center.y };
 }
 
-async function overviewPaneBodyPoint(client, paneId) {
-  const point = await client.evaluate(`(() => {
-    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"][data-visible="true"]'))
-      .find((candidate) => candidate instanceof HTMLElement && candidate.dataset.paneId === ${JSON.stringify(paneId)});
-    if (!(host instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-host" };
+async function startOverviewDrag(client, sortedHosts, preferredSourceHost, targetHost, to) {
+  const candidateHosts = [
+    preferredSourceHost,
+    ...sortedHosts.filter(
+      (host) => host.paneId !== preferredSourceHost.paneId && host.paneId !== targetHost.paneId,
+    ),
+  ];
+  let lastFailure = null;
+  for (const candidate of candidateHosts) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const sourcePoint = await dragHandleCenter(client, candidate.paneId);
+      const dragStartPoint = {
+        x: sourcePoint.x + Math.sign(to.x - sourcePoint.x) * 24,
+        y: sourcePoint.y,
+      };
+      await dispatchMousePress(client, sourcePoint);
+      const pending = await waitForOverviewDragState(client, candidate.paneId, "false", 1_000);
+      if (!pending.ok) {
+        lastFailure = `${candidate.paneId} attempt ${attempt + 1}: ${pending.reason}`;
+        await dispatchMouseRelease(client, sourcePoint);
+        await delay(150);
+        continue;
+      }
+      await dispatchMouseMove(client, dragStartPoint, { buttons: 1 });
+      const dragging = await waitForOverviewDragState(
+        client,
+        candidate.paneId,
+        "true",
+        workflowTimeoutMs,
+      );
+      if (dragging.ok) {
+        return candidate;
+      }
+      throw new Error(
+        `overview drag did not cross threshold for ${candidate.paneId}: ${dragging.reason}`,
+      );
     }
-    const rect = host.getBoundingClientRect();
-    return {
-      ok: true,
-      x: rect.left + rect.width / 2,
-      y: rect.top + Math.min(rect.height - 24, Math.max(40, rect.height * 0.45)),
-    };
-  })()`);
-  if (!point.ok) {
-    throw new Error(`overview pane body was not found for ${paneId}: ${JSON.stringify(point)}`);
   }
-  return { x: point.x, y: point.y };
+  throw new Error(`overview drag did not start: ${lastFailure ?? "no candidates"}`);
+}
+
+async function waitForOverviewDragState(client, paneId, state, timeoutMs) {
+  try {
+    await waitForState(
+      client,
+      paneSnapshotExpression(),
+      (snapshot) => {
+        const source = snapshot.visibleHosts.find((host) => host.paneId === paneId);
+        return (
+          snapshot.mode === "overview" &&
+          snapshot.overviewDragging === state &&
+          source?.dragSource === true
+        );
+      },
+      timeoutMs,
+    );
+    return { ok: true, reason: "" };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return { ok: false, reason };
+  }
 }
 
 async function dispatchMousePress(client, point) {

@@ -72,6 +72,7 @@ export function workflowNodeTrajectoryViewModel({
     hasMoreOlder: state.page.hasMoreOlder,
     messages: [],
     operation,
+    pendingSteeringMessages: [],
     queuedMessages: [],
     removingQueuedMessageId: null,
     runItemOutputIdsByRunItemId: state.outputIdsByRunItemId,
@@ -682,12 +683,13 @@ function workflowNodeComposerSession(
   if (state.page.activeRun?.status !== "running") {
     return null;
   }
+  const settings = state.page.runSettings;
   return {
     commandListContextKey: "",
     id: `workflow-node:${state.page.scope.nodeExecutionId}`,
-    modelLabel: "Workflow node",
-    permissionLabel: "Workflow node",
-    reasoningLabel: "Workflow node",
+    modelLabel: settings?.modelDisplayName ?? "",
+    permissionLabel: settings?.permissionDisplayLabel ?? "",
+    reasoningLabel: settings?.reasoningEffortDisplayName ?? "",
     supportsImages: false,
     workspaceId: state.page.scope.workspaceId,
   };

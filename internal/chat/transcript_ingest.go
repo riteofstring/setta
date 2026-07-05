@@ -866,6 +866,39 @@ func reasoningHeadline(item RunItem) string {
 	return ""
 }
 
+// activePublicReasoningHeadline follows Codex's live status headline semantics:
+// public reasoning summary text may promote the first complete bold Markdown
+// span, while incomplete summary deltas do not produce partial headlines.
+func activePublicReasoningHeadline(item RunItem) string {
+	if headline := firstBoldMarkdownHeadline(item.Progress); headline != "" {
+		return boundedTextPreview(headline, reasoningHeadlineLimit, "…")
+	}
+	if headline := firstBoldMarkdownHeadline(item.Summary); headline != "" {
+		return boundedTextPreview(headline, reasoningHeadlineLimit, "…")
+	}
+	if headline := nonGenericReasoningTitle(item.Title); headline != "" {
+		return boundedTextPreview(headline, reasoningHeadlineLimit, "…")
+	}
+	return ""
+}
+
+func firstBoldMarkdownHeadline(value string) string {
+	for index := 0; index+1 < len(value); index++ {
+		if value[index] != '*' || value[index+1] != '*' {
+			continue
+		}
+		start := index + len("**")
+		for end := start; end+1 < len(value); end++ {
+			if value[end] != '*' || value[end+1] != '*' {
+				continue
+			}
+			return strings.TrimSpace(value[start:end])
+		}
+		return ""
+	}
+	return ""
+}
+
 // reasoningBody returns the full public summary body revealed when a reasoning
 // block is expanded, or "" when the item is still active thinking with no public
 // body. Codex carries the public summary in Progress; scripted/other producers

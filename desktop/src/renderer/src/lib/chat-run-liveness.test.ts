@@ -1,29 +1,31 @@
-import type { Run, RunLiveness, RunLivenessReason } from "@generated/backend";
+import type { Run, RunActiveStatusKind, RunLiveness, RunLivenessReason } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import { activeRunPresentation, runLivenessPresentationKind } from "./chat-run-liveness";
 
 describe("active run liveness presentation", () => {
   test.each([
-    ["provider_ref_pending", "working"],
+    ["provider_ref_pending", "waiting_for_provider"],
     ["provider_turn_linked", "working"],
-    ["snapshot_load", "working"],
-    ["wake_recheck", "working"],
+    ["provider_inactive", "stalled"],
+    ["snapshot_load", "reconnecting"],
+    ["wake_recheck", "reconnecting"],
     ["stream_resync", "reconnecting"],
     ["provider_restarted", "reconnecting"],
     ["user_retry", "reconnecting"],
-    ["attachment_missing", "lost"],
-    ["provider_unavailable", "lost"],
-    ["turn_not_found", "lost"],
-    ["run_terminal", "terminal"],
-  ] satisfies Array<[RunLivenessReason, ReturnType<typeof runLivenessPresentationKind>]>)(
-    "classifies reconciling/%s as %s",
+    ["attachment_missing", "connection_lost"],
+    ["provider_unavailable", "connection_lost"],
+    ["turn_not_found", "connection_lost"],
+    ["run_terminal", "finished"],
+  ] satisfies Array<[RunLivenessReason, RunActiveStatusKind]>)(
+    "uses backend active status for reconciling/%s as %s",
     (reason, expectedKind) => {
       const run = runFixture();
 
       expect(
         runLivenessPresentationKind(
           runLivenessFixture(run, {
+            activeStatus: activeStatusFixture(expectedKind),
             reason,
             status: "reconciling",
           }),
@@ -32,15 +34,18 @@ describe("active run liveness presentation", () => {
     },
   );
 
-  test("presents snapshot-load verification as visible working without steering", () => {
+  test("presents provider-pending runs as waiting without steering", () => {
     const run = runFixture();
 
     expect(
       activeRunPresentation(
         run,
         runLivenessFixture(run, {
-          reason: "snapshot_load",
-          retryable: true,
+          activeStatus: activeStatusFixture("waiting_for_provider", "Waiting for Codex"),
+          phase: "waiting_for_provider",
+          reason: "provider_ref_pending",
+          steerable: false,
+          steeringDisabledReason: "Codex has not linked a provider turn yet.",
           status: "reconciling",
         }),
       ),
@@ -48,7 +53,33 @@ describe("active run liveness presentation", () => {
       canRetry: false,
       canSteer: false,
       canStop: true,
-      kind: "working",
+      headline: "Waiting for Codex",
+      kind: "waiting_for_provider",
+      running: true,
+      steeringDisabledReason: "Codex has not linked a provider turn yet.",
+    });
+  });
+
+  test("presents public reasoning headline as steerable thinking", () => {
+    const run = runFixture();
+
+    expect(
+      activeRunPresentation(
+        run,
+        runLivenessFixture(run, {
+          activeStatus: activeStatusFixture(
+            "thinking",
+            "Mapping parser modules",
+            "public_reasoning",
+          ),
+        }),
+      ),
+    ).toMatchObject({
+      canRetry: false,
+      canSteer: true,
+      canStop: true,
+      headline: "Mapping parser modules",
+      kind: "thinking",
       running: true,
     });
   });
@@ -60,8 +91,12 @@ describe("active run liveness presentation", () => {
       activeRunPresentation(
         run,
         runLivenessFixture(run, {
+          activeStatus: activeStatusFixture("reconnecting", "Reconnecting"),
+          phase: "reconnecting",
           reason: "stream_resync",
           retryable: true,
+          steerable: false,
+          steeringDisabledReason: "Setta is reconnecting to Codex.",
           status: "reconciling",
         }),
       ),
@@ -69,6 +104,7 @@ describe("active run liveness presentation", () => {
       canRetry: true,
       canSteer: false,
       canStop: true,
+      headline: "Reconnecting",
       kind: "reconnecting",
       running: true,
     });
@@ -77,10 +113,21 @@ describe("active run liveness presentation", () => {
   test("does not present approval-blocked attached runs as normal working", () => {
     const run = approvalRunFixture();
 
-    expect(activeRunPresentation(run, runLivenessFixture(run))).toMatchObject({
+    expect(
+      activeRunPresentation(
+        run,
+        runLivenessFixture(run, {
+          activeStatus: activeStatusFixture("blocked", "Approval required", "approval"),
+          phase: "blocked",
+          steerable: false,
+          steeringDisabledReason: "The run is waiting for approval.",
+        }),
+      ),
+    ).toMatchObject({
       canRetry: false,
       canSteer: false,
       canStop: true,
+      headline: "Approval required",
       kind: "blocked",
       running: true,
     });
@@ -134,19 +181,54 @@ function approvalRunFixture(): Run {
 
 function runLivenessFixture(run: Run, values: Partial<RunLiveness> = {}): RunLiveness {
   return {
+    activeStatus: activeStatusFixture("working"),
     cancellable: true,
     conversationId: run.conversationId,
     error: "",
     harness: run.harness,
     lastProviderEventAt: "2026-05-29T20:00:00Z",
+    lastVisibleActivityAt: "2026-05-29T20:00:00Z",
     lastReconciledAt: "",
+    phase: "attached",
     providerThreadId: "thread_api",
     providerTurnId: "turn_api",
     reason: "provider_turn_linked",
     retryable: false,
     runId: run.id,
     status: "attached",
+    steerable: true,
+    steeringDisabledReason: "",
     workspaceId: run.workspaceId,
     ...values,
   };
 }
+
+function activeStatusFixture(
+  kind: RunActiveStatusKind,
+  headline = runActiveStatusHeadline(kind),
+  headlineSource: RunLiveness["activeStatus"]["headlineSource"] = "liveness",
+): RunLiveness["activeStatus"] {
+  return {
+    detail: "",
+    headline,
+    headlineSource: kind === "working" ? "fallback" : headlineSource,
+    kind,
+  };
+}
+
+function runActiveStatusHeadline(kind: RunActiveStatusKind) {
+  return runActiveStatusHeadlines[kind];
+}
+
+const runActiveStatusHeadlines = {
+  blocked: "Awaiting approval",
+  connection_lost: "Connection lost",
+  finished: "Finished",
+  reconnecting: "Reconnecting",
+  stalled: "Waiting for Codex activity",
+  starting: "Starting Codex",
+  thinking: "Thinking",
+  waiting: "Waiting",
+  waiting_for_provider: "Waiting for Codex",
+  working: "Working",
+} satisfies Record<RunActiveStatusKind, string>;

@@ -719,14 +719,15 @@ function workflowRunDetailsReady(state) {
     "decision=exit",
     "scripted workflow result",
     "reports/workflow-result.md",
-    "Read Only - node override",
-    "Scripted Careful - workflow default",
   ];
+  const requiredSettingsText = ["Read Only", "Scripted Careful", "Low"];
   return [
     state.workflowTrajectorySurfaceCount === 1,
     state.chatConversationTrajectoryCount === 0,
+    state.settingsBarCount === 1,
     workflowRunDetailsHasActivity(state),
     requiredText.every((text) => state.text.includes(text)),
+    requiredSettingsText.every((text) => state.settingsBarText.includes(text)),
   ].every(Boolean);
 }
 

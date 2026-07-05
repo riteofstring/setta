@@ -37,7 +37,10 @@ func (service *Service) linkThread(workspaceID string, conversationID string, ru
 		active.threadID = threadID
 		active.turnID = turnID
 		service.active[key] = active
-		liveness, livenessUpdated = service.markRunLivenessAttachedLocked(workspaceID, conversationID, runID, threadID, turnID, now)
+		liveness, livenessUpdated, err = service.markRunLivenessAttachedLocked(workspaceID, conversationID, runID, threadID, turnID, now)
+		if err != nil {
+			return err
+		}
 	}
 	if livenessUpdated {
 		if _, err := service.events.Publish(NewRunLivenessUpdatedEvent(liveness)); err != nil {

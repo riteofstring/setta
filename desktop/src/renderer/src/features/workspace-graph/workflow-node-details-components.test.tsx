@@ -1,4 +1,5 @@
 import type {
+  RunLiveness,
   RunItem,
   RunItemOutput,
   WorkflowAgentEffectiveRunSettings,
@@ -103,9 +104,11 @@ describe("WorkflowRunDetailsContent activity focus", () => {
     );
 
     expect(html).toContain('data-testid="workflow-agent-run-settings"');
-    expect(html).toContain("Full Access - node override");
-    expect(html).toContain("GPT-5 - workflow default");
-    expect(html).toContain("High - app default");
+    expect(html).toContain("Full Access");
+    expect(html).toContain("GPT-5");
+    expect(html).toContain("High");
+    expect(html).toContain("Workflow run settings are read-only.");
+    expect(html).not.toContain("Workflow node");
   });
 
   test("opens the workflow details dock when an activity focus targets a detail row", () => {
@@ -136,7 +139,7 @@ describe("WorkflowRunDetailsContent activity focus", () => {
 
     expect(html).toContain('data-agent-trajectory-scope="workflowNodeExecution"');
     expect(html).toContain('aria-label="Stop run"');
-    expect(html).toContain("Steering is not available for this workflow node.");
+    expect(html).toContain("Codex has not linked a provider turn yet.");
   });
 
   test("renders a node-scoped steering composer for a steerable active run", () => {
@@ -153,7 +156,7 @@ describe("WorkflowRunDetailsContent activity focus", () => {
 
     expect(html).toContain('aria-label="Send steering message"');
     expect(html).not.toContain('aria-label="Interrupt and send pending steering"');
-    expect(html).not.toContain("Steering is not available for this workflow node.");
+    expect(html).not.toContain("Codex has not linked a provider turn yet.");
   });
 
   test("highlights and deep-links the matching run item from a chat_run_item focus", () => {
@@ -522,21 +525,12 @@ function runSettings(): WorkflowAgentEffectiveRunSettings {
 function stoppablePage(): WorkflowAgentTrajectoryPage {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
-    activeRunLiveness: {
-      cancellable: true,
-      conversationId: "conversation_api",
-      error: "",
-      harness: "codex",
-      lastProviderEventAt: "2026-06-07T00:00:01Z",
-      lastReconciledAt: "",
-      providerThreadId: "thread_api",
-      providerTurnId: "turn_api",
-      reason: "provider_turn_linked",
-      retryable: false,
+    activeRunLiveness: trajectoryRunLiveness({
       runId: "run_a",
-      status: "attached",
+      steerable: false,
+      steeringDisabledReason: "Codex has not linked a provider turn yet.",
       workspaceId: "workspace_test",
-    },
+    }),
     capabilities: {
       canLoadOlderHistory: false,
       canLoadMoreActivity: false,
@@ -553,21 +547,10 @@ function stoppablePage(): WorkflowAgentTrajectoryPage {
 function steerablePage(): WorkflowAgentTrajectoryPage {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
-    activeRunLiveness: {
-      cancellable: true,
-      conversationId: "conversation_api",
-      error: "",
-      harness: "codex",
-      lastProviderEventAt: "2026-06-07T00:00:01Z",
-      lastReconciledAt: "",
-      providerThreadId: "thread_api",
-      providerTurnId: "turn_api",
-      reason: "provider_turn_linked",
-      retryable: false,
+    activeRunLiveness: trajectoryRunLiveness({
       runId: "run_a",
-      status: "attached",
       workspaceId: "workspace_test",
-    },
+    }),
     capabilities: {
       canLoadOlderHistory: false,
       canLoadMoreActivity: false,
@@ -579,6 +562,35 @@ function steerablePage(): WorkflowAgentTrajectoryPage {
     },
     run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
   });
+}
+
+function trajectoryRunLiveness(overrides: Partial<RunLiveness> = {}): RunLiveness {
+  return {
+    activeStatus: {
+      detail: "",
+      headline: "Working",
+      headlineSource: "fallback",
+      kind: "working",
+    },
+    cancellable: true,
+    conversationId: "conversation_api",
+    error: "",
+    harness: "codex",
+    lastProviderEventAt: "2026-06-07T00:00:01Z",
+    lastVisibleActivityAt: "2026-06-07T00:00:01Z",
+    lastReconciledAt: "",
+    phase: "attached",
+    providerThreadId: "thread_api",
+    providerTurnId: "turn_api",
+    reason: "provider_turn_linked",
+    retryable: false,
+    runId: "run_a",
+    status: "attached",
+    steerable: true,
+    steeringDisabledReason: "",
+    workspaceId: "workspace_test",
+    ...overrides,
+  };
 }
 
 function runItem(): RunItem {

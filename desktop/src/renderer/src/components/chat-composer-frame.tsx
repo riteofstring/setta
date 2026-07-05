@@ -90,6 +90,10 @@ export interface ComposerFrameProps {
 }
 
 export function ComposerFrame(props: ComposerFrameProps) {
+  const steeringDisabledReason =
+    props.running && !props.runPresentation.canSteer
+      ? props.runPresentation.steeringDisabledReason
+      : "";
   return (
     <>
       <form
@@ -147,6 +151,14 @@ export function ComposerFrame(props: ComposerFrameProps) {
                 value={props.draft}
               />
             </div>
+            {steeringDisabledReason !== "" ? (
+              <div
+                className="mt-1 min-w-0 truncate text-[11px] leading-4 text-muted-foreground"
+                data-testid="chat-composer-steering-disabled-reason"
+              >
+                {steeringDisabledReason}
+              </div>
+            ) : null}
             <AttachmentStrip
               attachments={props.attachments}
               error={props.attachmentError}

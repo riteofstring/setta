@@ -187,6 +187,27 @@ describe("transcriptRenderRows", () => {
     expect(queued.message.id).toBe("queued_1");
   });
 
+  test("places pending steering messages after active run blocks before queued messages", () => {
+    const pendingSteering = {
+      ...chatMessage("steer_1", 3, "user", "run", "steer now"),
+      delivery: "steering",
+      status: "pending",
+    } satisfies ChatMessage;
+    const rows = transcriptRenderRows({
+      blocks: [userMessageBlock({ id: "user_1", runId: "run", ordinal: 1, text: "hi" })],
+      messages: [],
+      pendingSteeringMessages: [pendingSteering],
+      queuedMessages: [queuedChatMessage("queued_1", "run_queue", "later")],
+    });
+
+    expect(rows.map((row) => row.kind)).toEqual(["block", "message", "queued"]);
+    const steering = rows[1];
+    if (steering?.kind !== "message") {
+      throw new Error("expected a pending steering message row");
+    }
+    expect(steering.message.id).toBe("steer_1");
+  });
+
   test("hides goal-delivery user messages from the transcript", () => {
     const rows = transcriptRenderRows({
       blocks: [

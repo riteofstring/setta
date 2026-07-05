@@ -22,6 +22,7 @@ type ScriptedWorkflowHarness struct {
 	phase4ReviewerBarriers   map[string]map[string]chan struct{}
 	reasoning                ReasoningEffort
 	steers                   map[string]chan SteerRequest
+	terminalRuns             map[string]TurnCompletion
 }
 
 type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
@@ -81,6 +82,7 @@ func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
 		phase4ReviewerBarriers:   map[string]map[string]chan struct{}{},
 		reasoning:                defaultModel.DefaultReasoningEffort,
 		steers:                   map[string]chan SteerRequest{},
+		terminalRuns:             map[string]TurnCompletion{},
 	}
 }
 
@@ -90,9 +92,11 @@ func (harness *ScriptedWorkflowHarness) ActiveRunCount() int {
 	return len(harness.steers)
 }
 
-func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (completion TurnCompletion, err error) {
 	harness.registerRun(request.Run.ID)
-	defer harness.unregisterRun(request.Run.ID)
+	defer func() {
+		harness.unregisterRun(request.Run.ID, terminalCompletionForScriptedRun(completion, err))
+	}()
 	return harness.runScriptedTurn(ctx, request, sink)
 }
 
@@ -258,11 +262,13 @@ func (harness *ScriptedWorkflowHarness) BeginGoalOperation(ctx context.Context, 
 	return result, &scriptedGoalOperation{harness: harness}, nil
 }
 
-func (operation *scriptedGoalOperation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+func (operation *scriptedGoalOperation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (completion TurnCompletion, err error) {
 	operation.harness.registerRun(request.Run.ID)
-	defer operation.harness.unregisterRun(request.Run.ID)
+	defer func() {
+		operation.harness.unregisterRun(request.Run.ID, terminalCompletionForScriptedRun(completion, err))
+	}()
 
-	completion, err := operation.harness.runScriptedTurn(ctx, request, sink)
+	completion, err = operation.harness.runScriptedTurn(ctx, request, sink)
 	if err != nil || completion.Outcome != TurnOutcomeCompleted {
 		return completion, err
 	}
@@ -360,7 +366,11 @@ func (harness *ScriptedWorkflowHarness) workflowTurn(ctx context.Context, reques
 	if err != nil {
 		return TurnCompletion{}, err
 	}
-	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Steered with "+chatInputText(steer.Input)+". "); err != nil {
+	steeringText := chatInputText(steer.Input)
+	if err := sink.UserMessageCommitted(steeringText); err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Steered with "+steeringText+". "); err != nil {
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Active workflow complete.")
@@ -743,22 +753,6 @@ func (harness *ScriptedWorkflowHarness) requestAndWaitForApproval(ctx context.Co
 		return ApprovalResponse{}, err
 	}
 	return response, nil
-}
-
-func (harness *ScriptedWorkflowHarness) registerRun(runID string) {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-
-	harness.approvals[runID] = make(chan ApprovalResponse, 1)
-	harness.steers[runID] = make(chan SteerRequest, 4)
-}
-
-func (harness *ScriptedWorkflowHarness) unregisterRun(runID string) {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-
-	delete(harness.approvals, runID)
-	delete(harness.steers, runID)
 }
 
 func (harness *ScriptedWorkflowHarness) waitForApproval(ctx context.Context, runID string) (ApprovalResponse, error) {

@@ -405,13 +405,17 @@ export function conversationUpdatedEvent(
 
 export function runLiveness(overrides: Partial<RunLiveness> = {}): RunLiveness {
   const status = overrides.status ?? "attached";
+  const activeStatus = overrides.activeStatus ?? runLivenessActiveStatus(status);
   return {
+    activeStatus,
     cancellable: status !== "terminal",
     conversationId,
     error: "",
     harness: "codex",
     lastProviderEventAt: "2026-05-29T20:00:00Z",
+    lastVisibleActivityAt: "2026-05-29T20:00:00Z",
     lastReconciledAt: "",
+    phase: runLivenessPhase(status),
     providerThreadId: "thread_api",
     providerTurnId: "turn_api",
     reason:
@@ -425,9 +429,61 @@ export function runLiveness(overrides: Partial<RunLiveness> = {}): RunLiveness {
     retryable: status === "reconciling" || status === "lost",
     runId: "run_api",
     status,
+    steerable: status === "attached",
+    steeringDisabledReason: status === "attached" ? "" : "Setta is checking the provider turn.",
     workspaceId,
     ...overrides,
   };
+}
+
+function runLivenessActiveStatus(status: RunLiveness["status"]): RunLiveness["activeStatus"] {
+  switch (status) {
+    case "attached":
+      return {
+        detail: "",
+        headline: "Working",
+        headlineSource: "fallback",
+        kind: "working",
+      };
+    case "reconciling":
+      return {
+        detail: "",
+        headline: "Reconnecting",
+        headlineSource: "liveness",
+        kind: "reconnecting",
+      };
+    case "lost":
+      return {
+        detail: "",
+        headline: "Connection lost",
+        headlineSource: "liveness",
+        kind: "connection_lost",
+      };
+    case "terminal":
+      return {
+        detail: "",
+        headline: "Finished",
+        headlineSource: "terminal",
+        kind: "finished",
+      };
+    default:
+      return status satisfies never;
+  }
+}
+
+function runLivenessPhase(status: RunLiveness["status"]): RunLiveness["phase"] {
+  switch (status) {
+    case "attached":
+      return "attached";
+    case "reconciling":
+      return "reconnecting";
+    case "lost":
+      return "lost";
+    case "terminal":
+      return "terminal";
+    default:
+      return status satisfies never;
+  }
 }
 
 export function runLivenessUpdatedEvent(

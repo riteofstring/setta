@@ -199,6 +199,7 @@ function TestChatTranscript({
       loadRunItemOutput={noop}
       messages={[]}
       operation={null}
+      pendingSteeringMessages={[]}
       queuedMessages={[]}
       removeQueuedMessage={noop}
       removingQueuedMessageId={null}

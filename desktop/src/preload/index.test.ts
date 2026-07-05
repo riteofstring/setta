@@ -1394,13 +1394,17 @@ describe("preload workspace API", () => {
 
     const event = workflowEvent();
     const listener = vi.fn();
+    const secondListener = vi.fn();
     const unsubscribe = api.workflow.onEvent(listener);
+    const unsubscribeSecond = api.workflow.onEvent(secondListener);
     const handler = on.mock.calls.find((call) => call[0] === ipcEvents.workflowEvent)?.[1];
     if (typeof handler !== "function") {
       throw new Error("workflow event handler was not registered");
     }
     handler({}, event);
     unsubscribe();
+    handler({}, event);
+    unsubscribeSecond();
 
     expectInvokeCalls(invoke, [
       [ipcChannels.workflowListDefinitions, "workspace_api"],
@@ -1478,7 +1482,11 @@ describe("preload workspace API", () => {
       ],
     ]);
     expect(on).toHaveBeenCalledWith(ipcEvents.workflowEvent, expect.any(Function));
+    expect(on.mock.calls.filter((call) => call[0] === ipcEvents.workflowEvent)).toHaveLength(1);
+    expect(listener).toHaveBeenCalledTimes(1);
     expect(listener).toHaveBeenCalledWith(event);
+    expect(secondListener).toHaveBeenCalledTimes(2);
+    expect(secondListener).toHaveBeenCalledWith(event);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.workflowEvent, handler);
   });
 });

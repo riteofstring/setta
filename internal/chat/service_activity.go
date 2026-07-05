@@ -177,6 +177,7 @@ func (service *Service) upsertRunItemLocked(item RunItem) error {
 	if err := service.store.SaveRunItem(item); err != nil {
 		return err
 	}
+	service.updateActiveReasoningHeadlineLocked(item)
 	if err := service.recordAgentMessageCompletionLocked(item); err != nil {
 		return err
 	}

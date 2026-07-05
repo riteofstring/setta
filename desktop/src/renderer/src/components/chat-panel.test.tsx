@@ -1286,6 +1286,7 @@ function emptyTranscriptProps(): ChatTranscriptProps {
     loadRunItemOutput: async () => {},
     messages: [],
     operation: null,
+    pendingSteeringMessages: [],
     queuedMessages: [],
     removeQueuedMessage: async () => {},
     removingQueuedMessageId: null,
@@ -1301,27 +1302,36 @@ const idleRunPresentation = {
   canRetry: false,
   canSteer: false,
   canStop: false,
+  detail: "",
+  headline: "",
   kind: "idle",
   liveness: null,
   running: false,
+  steeringDisabledReason: "",
 } satisfies ActiveRunPresentation;
 
 const workingRunPresentation = {
   canRetry: false,
   canSteer: true,
   canStop: true,
+  detail: "",
+  headline: "Working",
   kind: "working",
   liveness: null,
   running: true,
+  steeringDisabledReason: "",
 } satisfies ActiveRunPresentation;
 
 const lostRunPresentation = {
   canRetry: true,
   canSteer: false,
   canStop: true,
-  kind: "lost",
+  detail: "",
+  headline: "Connection lost",
+  kind: "connection_lost",
   liveness: null,
   running: true,
+  steeringDisabledReason: "The provider turn is unavailable.",
 } satisfies ActiveRunPresentation;
 
 function selectedConversationWithPermission(displayLabel: string) {

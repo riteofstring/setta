@@ -8,9 +8,12 @@ const steerableRunPresentation = {
   canRetry: false,
   canSteer: true,
   canStop: false,
+  detail: "",
+  headline: "Working",
   kind: "working",
   liveness: null,
   running: true,
+  steeringDisabledReason: "",
 } satisfies ActiveRunPresentation;
 
 describe("composer boundary", () => {
