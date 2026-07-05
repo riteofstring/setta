@@ -7,9 +7,9 @@ Use `run-codex-plan-loop.sh` for generic plan-driven fresh-session loops and
 `--dangerously-bypass-approvals-and-sandbox` unless
 `--bypass-approvals-and-sandbox` is passed explicitly.
 
-Use `run-review-workflow-meta-plan-loop.sh` for the dedicated review findings
-and workflow trajectory meta-plan loop. It follows the older two-agent
-step/audit style and intentionally runs in the current repository checkout with
-approvals and sandbox bypassed. That behavior is acceptable for this dedicated
-automation helper because its purpose is long unattended repo-local execution
-where agents are expected to edit and commit directly in the working tree.
+Use `run-review-workflow-meta-plan-loop.sh` for the dedicated MCP workflow
+authoring plan loop. It follows the older two-agent step/audit style and
+intentionally runs in the current repository checkout with approvals and
+sandbox bypassed. That behavior is acceptable for this dedicated automation
+helper because its purpose is long unattended repo-local execution where agents
+are expected to edit and commit directly in the working tree.

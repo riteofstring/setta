@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PLAN_PATH="docs/plans/review_and_workflow_trajectory_implementation_order_plan.md"
+PLAN_PATH="docs/plans/mcp-workflow-authoring-plan.md"
 SENTINEL="META_PLAN_IMPLEMENTATION_COMPLETE"
 MODEL="gpt-5.5"
 REASONING_CONFIG='reasoning_effort="xhigh"'
@@ -17,7 +17,7 @@ usage() {
 Usage: scripts/automation/codex-loop/run-review-workflow-meta-plan-loop.sh [options]
 
 Runs two fresh Codex agents in a loop for:
-  docs/plans/review_and_workflow_trajectory_implementation_order_plan.md
+  docs/plans/mcp-workflow-authoring-plan.md
 
 Agent 1 implements the next coherent step in the plan and commits the work.
 Agent 2 audits the work, fixes or documents any gaps, commits if needed, and
