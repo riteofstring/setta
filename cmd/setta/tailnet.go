@@ -57,9 +57,5 @@ func runExternalCommand(ctx context.Context, name string, args ...string) ([]byt
 }
 
 func tailscaleServeCommand(addr string) string {
-	return "tailscale " + strings.Join(tailscaleServeArgs(addr), " ")
-}
-
-func tailscaleServeArgs(addr string) []string {
-	return []string{"serve", "--bg", "--tls-terminated-tcp=443", "tcp://" + addr}
+	return "tailscale serve --bg --tls-terminated-tcp=443 tcp://" + addr
 }

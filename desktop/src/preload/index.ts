@@ -84,7 +84,6 @@ const api: SettaAPI = {
   },
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
-    createDevicePairing: () => invoke("runtimeCreateDevicePairing"),
     current: () => invoke("runtimeCurrent"),
     list: () => invoke("runtimeList"),
     onConnectionState: (listener) => {
