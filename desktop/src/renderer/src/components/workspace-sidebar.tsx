@@ -168,9 +168,6 @@ export function WorkspaceSidebar({
   const ensureWorkspaceWorkflowDefinitions = useWorkflowDefinitionStore(
     (state) => state.ensureWorkspaceWorkflowDefinitions,
   );
-  const refreshWorkspaceWorkflowDefinitions = useWorkflowDefinitionStore(
-    (state) => state.refreshWorkspaceWorkflowDefinitions,
-  );
   const selectWorkflowDefinition = useWorkflowDefinitionStore(
     (state) => state.selectWorkflowDefinition,
   );
@@ -251,30 +248,6 @@ export function WorkspaceSidebar({
     expandedWorkspaceIds,
     workspaceWorkflowDefinitionLists,
   ]);
-
-  useEffect(() => {
-    const expandedActiveWorkspaceIds = new Set(
-      activeWorkspaces
-        .filter((workspace) => expandedWorkspaceIds.has(workspace.id))
-        .map((workspace) => workspace.id),
-    );
-    if (expandedActiveWorkspaceIds.size === 0) {
-      return;
-    }
-    return window.setta.workflow.onEvent((event) => {
-      if (
-        !workflowEventShouldRefreshSidebarDefinitions(event.type) ||
-        !expandedActiveWorkspaceIds.has(event.workspaceId)
-      ) {
-        return;
-      }
-      void refreshWorkspaceWorkflowDefinitions(event.workspaceId).catch((error: unknown) => {
-        setNavigationError(
-          error instanceof Error ? error.message : "Workflow definition refresh failed",
-        );
-      });
-    });
-  }, [activeWorkspaces, expandedWorkspaceIds, refreshWorkspaceWorkflowDefinitions]);
 
   function setWorkspaceExpanded(workspaceId: string, expanded: boolean) {
     setExpandedWorkspaceIds((current) => {
@@ -721,10 +694,6 @@ function sidebarNavigationListStyle(itemCount: number): CSSProperties {
   return {
     height: Math.min(itemCount * sidebarNavigationRowHeight, sidebarNavigationMaxHeight),
   };
-}
-
-function workflowEventShouldRefreshSidebarDefinitions(type: string) {
-  return type === "workflow.execution.started";
 }
 
 function sidebarItemTestId(item: SidebarNavigationItem) {

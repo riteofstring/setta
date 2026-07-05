@@ -241,9 +241,6 @@ func startDirectGoalOperationThread(t *testing.T, manager *codexapp.Manager, wor
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), directGoalOperationTimeout)
 	defer cancel()
-	if err := paramHarness.configureCodexSkillRoots(ctx, session); err != nil {
-		t.Fatalf("configure direct codex skill roots: %v", err)
-	}
 	raw, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
 	if err != nil {
 		t.Fatalf("direct thread/start: %v", err)

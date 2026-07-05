@@ -156,7 +156,7 @@ func isCommandItem(item RunItem) bool {
 }
 
 func isThinkingReasoningItem(item RunItem) bool {
-	return item.Type == RunItemTypeReasoning && item.Progress != "" && item.Summary == "" && item.HiddenText == ""
+	return item.Type == RunItemTypeReasoning && item.Title != "" && item.Summary == "" && item.HiddenText == ""
 }
 
 func indexOfRunItem(events []chronoSinkEvent, from int, match func(RunItem) bool) int {

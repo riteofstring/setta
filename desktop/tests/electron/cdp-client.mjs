@@ -7,11 +7,6 @@ const driverScriptPath = join(driverScriptDir, "browser-driver.js");
 const driverExtensionScripts = [
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.appWindowDragVersion === "setta-app-window-drag-driver-v1"',
-    path: join(driverScriptDir, "app-window-drag-driver.js"),
-  },
-  {
-    installedExpression:
       'globalThis.__settaE2EDriver?.chatWorkflowVersion === "setta-chat-workflow-driver-v1"',
     path: join(driverScriptDir, "chat-workflow-driver.js"),
   },
@@ -42,13 +37,8 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.paneDragDropPerformanceVersion === "setta-pane-drag-drop-performance-driver-v2"',
+      'globalThis.__settaE2EDriver?.paneDragDropPerformanceVersion === "setta-pane-drag-drop-performance-driver-v1"',
     path: join(driverScriptDir, "pane-drag-drop-performance-driver.js"),
-  },
-  {
-    installedExpression:
-      'globalThis.__settaE2EDriver?.paneFocusClickVersion === "setta-pane-focus-click-driver-v1"',
-    path: join(driverScriptDir, "pane-focus-click-driver.js"),
   },
   {
     installedExpression:
@@ -145,7 +135,7 @@ export class CDPClient {
 
   async installDriver() {
     const installed = await this.evaluate(
-      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v11"`,
+      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v12"`,
     );
     if (!installed) {
       await this.evaluate(await readFile(driverScriptPath, "utf8"));

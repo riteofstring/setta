@@ -35,19 +35,6 @@ type recordedProviderDiagnostic struct {
 	severity       DiagnosticSeverity
 }
 
-type recordingConnectionDiagnosticSink struct {
-	diagnostics []recordedConnectionDiagnostic
-}
-
-type recordedConnectionDiagnostic struct {
-	workspaceID    string
-	code           string
-	context        map[string]string
-	message        string
-	resyncRequired bool
-	severity       DiagnosticSeverity
-}
-
 type recordedTrace struct {
 	traceType string
 	message   string
@@ -76,27 +63,6 @@ func (sink *recordingSink) ProviderDiagnostic(code string, message string, conte
 		severity:       severity,
 	})
 	return nil
-}
-
-func (sink *recordingConnectionDiagnosticSink) ProviderConnectionDiagnostic(workspaceID string, code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
-	sink.diagnostics = append(sink.diagnostics, recordedConnectionDiagnostic{
-		workspaceID:    workspaceID,
-		code:           code,
-		context:        context,
-		message:        message,
-		resyncRequired: resyncRequired,
-		severity:       severity,
-	})
-	return nil
-}
-
-func (sink *recordingConnectionDiagnosticSink) hasWorkspaceDiagnostic(workspaceID string, code string) bool {
-	for _, diagnostic := range sink.diagnostics {
-		if diagnostic.workspaceID == workspaceID && diagnostic.code == code {
-			return true
-		}
-	}
-	return false
 }
 
 func (sink *recordingSink) ProviderTurnError(providerError ProviderTurnError) error {

@@ -55,6 +55,7 @@ func runItemDisplayable(item RunItem, status RunItemStatus, hasDetails bool, has
 		RunItemTypeCommandStartFailure,
 		RunItemTypeFileChange,
 		RunItemTypeMCPToolCall,
+		RunItemTypeDynamicToolCall,
 		RunItemTypeCollabAgentToolCall,
 		RunItemTypeWebSearch,
 		RunItemTypeImageView,
@@ -133,7 +134,7 @@ func runActivityTypedTitle(item RunItem) (string, bool) {
 		return runActivityFileChangeTitle(item), true
 	case RunItemTypeDiff:
 		return runActivityDiffTitle(item), true
-	case RunItemTypeCollabAgentToolCall:
+	case RunItemTypeDynamicToolCall, RunItemTypeCollabAgentToolCall:
 		return runActivityToolTitle(item), true
 	case RunItemTypeApprovalRequest, RunItemTypeApprovalReview:
 		return runActivityApprovalTitle(item), true
@@ -196,6 +197,12 @@ func runActivityMCPTitle(item RunItem) string {
 }
 
 func runActivityToolTitle(item RunItem) string {
+	if item.Type == RunItemTypeDynamicToolCall {
+		if details, ok := item.DynamicToolCallDetails(); ok {
+			return runActivityDynamicToolTitle(details)
+		}
+		return "tool call"
+	}
 	if item.ToolName != "" && item.ServerName != "" {
 		return item.ServerName + "." + item.ToolName
 	}
@@ -236,6 +243,25 @@ func runActivityApprovalTitle(item RunItem) string {
 	return "approval request"
 }
 
+func runActivityDynamicToolTitle(details *RunItemDynamicToolCallDetails) string {
+	if details == nil {
+		return "tool call"
+	}
+	if details.DisplayTitle != "" {
+		return details.DisplayTitle
+	}
+	if details.Namespace == SettaAgentToolNamespace && details.ToolName != "" {
+		return "Setta: " + details.ToolName
+	}
+	if details.Namespace != "" && details.ToolName != "" {
+		return "Dynamic tool: " + details.Namespace + "." + details.ToolName
+	}
+	if details.ToolName != "" {
+		return "Dynamic tool: " + details.ToolName
+	}
+	return "tool call"
+}
+
 func runActivityNoticeTitle(item RunItem) string {
 	if item.NoticeKind != "" {
 		return item.NoticeKind
@@ -258,6 +284,7 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 	plan := runItemPlanDetailsProjection(item)
 	commandExecution := runItemCommandExecutionDetailsProjection(item)
 	commandStartFailure := runItemCommandStartFailureDetailsProjection(item)
+	dynamicToolCall := runItemDynamicToolCallDetailsProjection(item)
 	fileChange := runItemFileChangeDetailsProjection(item)
 	diff := runItemDiffDetailsProjection(item)
 	approval := runItemApprovalDetailsProjection(item)
@@ -286,6 +313,7 @@ func runActivityDetailsProjection(item RunItem) RunActivityDetailsProjection {
 		CommandExecution:        commandExecution,
 		CommandStartFailure:     commandStartFailure,
 		MCPToolCall:             runItemMCPToolCallDetailsProjection(item),
+		DynamicToolCall:         dynamicToolCall,
 		FileChange:              fileChange,
 		Diff:                    diff,
 		Approval:                approval,
@@ -350,6 +378,16 @@ func cloneCommandStartFailureDetails(details RunItemCommandStartFailureDetails) 
 	return details
 }
 
+func cloneDynamicToolCallDetails(details RunItemDynamicToolCallDetails) RunItemDynamicToolCallDetails {
+	details.Arguments = cloneRawMessage(details.Arguments)
+	if details.Result != nil {
+		result := *details.Result
+		result.ContentItems = cloneDynamicToolContentItems(result.ContentItems)
+		details.Result = &result
+	}
+	return details
+}
+
 func cloneApprovalDetails(details RunItemApprovalDetails) RunItemApprovalDetails {
 	if details.ApprovalKind != nil {
 		kind := *details.ApprovalKind
@@ -389,6 +427,15 @@ func cloneApprovalQuestions(questions []ApprovalQuestion) []ApprovalQuestion {
 	return cloned
 }
 
+func cloneDynamicToolContentItems(items []RunItemDynamicToolContentItem) []RunItemDynamicToolContentItem {
+	if items == nil {
+		return nil
+	}
+	cloned := make([]RunItemDynamicToolContentItem, len(items))
+	copy(cloned, items)
+	return cloned
+}
+
 func runActivityDetailsInspectable(details RunActivityDetailsProjection) bool {
 	return runActivityStringDetailsInspectable(details) ||
 		runActivityScalarDetailsInspectable(details) ||
@@ -407,6 +454,7 @@ func runActivityStructuredDetailsInspectable(details RunActivityDetailsProjectio
 		details.CommandExecution != nil ||
 		details.CommandStartFailure != nil ||
 		details.MCPToolCall != nil ||
+		details.DynamicToolCall != nil ||
 		details.FileChange != nil ||
 		details.Diff != nil ||
 		details.Approval != nil ||
@@ -482,6 +530,15 @@ func runItemCommandStartFailureDetailsProjection(item RunItem) *RunItemCommandSt
 		return nil
 	}
 	cloned := cloneCommandStartFailureDetails(*details)
+	return &cloned
+}
+
+func runItemDynamicToolCallDetailsProjection(item RunItem) *RunItemDynamicToolCallDetails {
+	details, ok := item.DynamicToolCallDetails()
+	if !ok {
+		return nil
+	}
+	cloned := cloneDynamicToolCallDetails(*details)
 	return &cloned
 }
 

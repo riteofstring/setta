@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "aws.cloudformation.create_runtime",
+      "provider": "aws",
+      "typedAction": "create_runtime",
+      "binary": "aws",
+      "mutating": true,
+      "requiresApproval": true,
+      "lastVerified": "2026-07-07",
+      "requiredFields": ["runtimeName", "region", "stackName"],
+      "requiredFileInputs": ["cloudFormationTemplate", "cloudFormationParameters"],
+      "argv": [
+        "cloudformation",
+        "create-stack",
+        "--stack-name",
+        "{{stackName}}",
+        "--region",
+        "{{region}}",
+        "--template-body",
+        "file://{{file:cloudFormationTemplate}}",
+        "--parameters",
+        "file://{{file:cloudFormationParameters}}",
+        "--tags",
+        "Key=setta:runtime,Value=true",
+        "Key=setta:runtime_name,Value={{runtimeName}}",
+        "Key=setta:created_by,Value=user",
+        "--output",
+        "json"
+      ],
+      "teardownActionId": "aws.cloudformation.delete_runtime"
+    },
+    {
+      "id": "aws.cloudformation.delete_runtime",
+      "provider": "aws",
+      "typedAction": "delete_runtime",
+      "binary": "aws",
+      "mutating": true,
+      "requiresApproval": true,
+      "lastVerified": "2026-07-07",
+      "requiredFields": ["region", "stackName"],
+      "argv": [
+        "cloudformation",
+        "delete-stack",
+        "--stack-name",
+        "{{stackName}}",
+        "--region",
+        "{{region}}"
+      ]
+    },
+    {
+      "id": "hetzner.server.create_runtime",
+      "provider": "hetzner",
+      "typedAction": "create_runtime",
+      "binary": "hcloud",
+      "mutating": true,
+      "requiresApproval": true,
+      "lastVerified": "2026-07-07",
+      "requiredFields": ["runtimeName", "instanceType", "region", "image"],
+      "requiredFileInputs": ["cloudInit"],
+      "argv": [
+        "server",
+        "create",
+        "--name",
+        "{{runtimeName}}",
+        "--type",
+        "{{instanceType}}",
+        "--image",
+        "{{image}}",
+        "--location",
+        "{{region}}",
+        "--user-data-from-file",
+        "{{file:cloudInit}}",
+        "--label",
+        "setta:runtime=true",
+        "--label",
+        "setta:runtime_name={{runtimeName}}",
+        "--label",
+        "setta:created_by=user",
+        "-o",
+        "json"
+      ],
+      "teardownActionId": "hetzner.server.delete_runtime"
+    },
+    {
+      "id": "hetzner.server.delete_runtime",
+      "provider": "hetzner",
+      "typedAction": "delete_runtime",
+      "binary": "hcloud",
+      "mutating": true,
+      "requiresApproval": true,
+      "lastVerified": "2026-07-07",
+      "requiredFields": ["resourceID"],
+      "argv": ["server", "delete", "{{resourceID}}"]
+    }
+  ]
+}
