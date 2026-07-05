@@ -3,9 +3,8 @@
 **Date:** 2026-07-05 (revised 2026-07-06)
 **Status:** Plan of record. This is the single source of truth for the
 remote-runtime and BYO-cloud runtime direction. It supersedes
-`remote-runtime-plan.md` and `byo-setta-runtime-architecture-report.md`; those
-files are retained only as pointers/background. If another document
-contradicts this one, this one wins.
+the earlier remote-runtime plan and BYO runtime architecture report. If another
+document contradicts this one, this one wins.
 
 **History:** This plan promotes the original remote-runtime plan into the
 one-click BYO-cloud direction. The accepted amendment to the original BYO
