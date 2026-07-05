@@ -1,11 +1,17 @@
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, RotateCcw, X } from "lucide-react";
 
 export function WorkspaceLayoutRecoveryNotice({
   message,
   onDismiss,
+  recreateAction,
 }: {
   message: string | null;
   onDismiss: () => void;
+  recreateAction?: {
+    ariaLabel: string;
+    onClick: () => void;
+    title: string;
+  } | null;
 }) {
   if (!message) {
     return null;
@@ -18,6 +24,17 @@ export function WorkspaceLayoutRecoveryNotice({
     >
       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <div className="min-w-0 flex-1 break-words leading-4">{message}</div>
+      {recreateAction ? (
+        <button
+          aria-label={recreateAction.ariaLabel}
+          className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-amber-100/80 hover:bg-amber-100/10 hover:text-amber-50 focus-visible:bg-amber-100/10 focus-visible:text-amber-50"
+          onClick={recreateAction.onClick}
+          title={recreateAction.title}
+          type="button"
+        >
+          <RotateCcw className="h-3 w-3" />
+        </button>
+      ) : null}
       <button
         aria-label="Dismiss layout recovery notice"
         className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-amber-100/80 hover:bg-amber-100/10 hover:text-amber-50 focus-visible:bg-amber-100/10 focus-visible:text-amber-50"

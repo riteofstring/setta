@@ -20,6 +20,7 @@ import {
 import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import type { WorkspaceLayoutStore } from "./layout-store";
+import type { WorkspaceLayoutAction } from "./workspace-layout-operations";
 import type { EmptyFrameOption } from "./surface-adapters";
 import type { WorkspacePane, OpenPaneRequest, SurfaceKind } from "./types";
 
@@ -36,7 +37,7 @@ export function WorkspaceToolbar({
   openPane: (request: OpenPaneRequest) => void;
   overviewActive: boolean;
   performanceStatsRef: RefObject<HTMLDivElement | null> | null;
-  runLayoutAction: (action: () => void) => void;
+  runLayoutAction: (action: WorkspaceLayoutAction) => void;
   showPerformanceStats: boolean;
   store: WorkspaceLayoutStore;
 }) {
@@ -63,7 +64,12 @@ export function WorkspaceToolbar({
           <WorkspaceToolbarButton
             active={overviewActive}
             label={overviewActive ? "Exit overview" : "Enter overview"}
-            onClick={() => runLayoutAction(() => store.toggleOverviewMode())}
+            onClick={() =>
+              runLayoutAction(() => {
+                store.toggleOverviewMode();
+                return null;
+              })
+            }
           >
             <OverviewIcon className="h-3.5 w-3.5" />
           </WorkspaceToolbarButton>

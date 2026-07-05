@@ -1,6 +1,12 @@
 import type { WorkspaceLayoutStore } from "./layout-store";
 import { minimumColumnWidth } from "./layout-engine-helpers";
 import type { PaneResizeTarget } from "./pane-resize-target";
+import {
+  resizeColumnOperation,
+  resizePaneRowOperation,
+  resizePaneSplitOperation,
+  type WorkspaceLayoutOperation,
+} from "./workspace-layout-operations";
 
 const minimumManualPaneHeightPx = 96;
 const minimumManualPaneWidthPx = minimumColumnWidth;
@@ -187,16 +193,66 @@ export function commitPaneResize(
   }
 }
 
+export function paneResizeOperationForCommit(
+  session: PaneResizeSession,
+  event: Pick<PointerEvent, "clientX" | "clientY">,
+): WorkspaceLayoutOperation {
+  const preview = paneResizePreviewForPointerMove(session, event);
+  switch (session.axis) {
+    case "height":
+      return heightPaneResizeOperation(session, preview);
+    case "horizontal":
+      return horizontalPaneResizeOperation(session, preview);
+    case "vertical":
+      return verticalPaneResizeOperation(session, preview);
+    default: {
+      const exhaustive: never = session;
+      throw new Error(`unsupported workspace pane resize session: ${String(exhaustive)}`);
+    }
+  }
+}
+
+function heightPaneResizeOperation(
+  session: HeightPaneResizeSession,
+  preview: PaneResizePreview,
+): WorkspaceLayoutOperation {
+  if (preview.axis !== "height" || preview.heightPx === session.startDesignatedHeight) {
+    return null;
+  }
+  return resizePaneRowOperation(session.paneId, preview.heightPx);
+}
+
+function horizontalPaneResizeOperation(
+  session: HorizontalPaneResizeSession,
+  preview: PaneResizePreview,
+): WorkspaceLayoutOperation {
+  if (preview.axis !== "horizontal" || preview.width === session.startWidth) {
+    return null;
+  }
+  return resizeColumnOperation(session.columnId, { unit: "px", value: preview.width });
+}
+
+function verticalPaneResizeOperation(
+  session: VerticalPaneResizeSession,
+  preview: PaneResizePreview,
+): WorkspaceLayoutOperation {
+  if (preview.axis !== "vertical" || paneResizeSplitUnchanged(session, preview)) {
+    return null;
+  }
+  return resizePaneSplitOperation(
+    session.upperPaneId,
+    session.lowerPaneId,
+    preview.upperHeightWeight,
+    preview.lowerHeightWeight,
+  );
+}
+
 function commitVerticalPaneResize(
   store: WorkspaceLayoutStore,
   session: VerticalPaneResizeSession,
   preview: PaneResizePreview,
 ): boolean {
-  if (
-    preview.axis !== "vertical" ||
-    (preview.upperHeightWeight === session.upperStartWeight &&
-      preview.lowerHeightWeight === session.lowerStartWeight)
-  ) {
+  if (preview.axis !== "vertical" || paneResizeSplitUnchanged(session, preview)) {
     return false;
   }
   return store.resizePaneSplit(
@@ -204,6 +260,16 @@ function commitVerticalPaneResize(
     session.lowerPaneId,
     preview.upperHeightWeight,
     preview.lowerHeightWeight,
+  );
+}
+
+function paneResizeSplitUnchanged(
+  session: VerticalPaneResizeSession,
+  preview: Extract<PaneResizePreview, { axis: "vertical" }>,
+): boolean {
+  return (
+    preview.upperHeightWeight === session.upperStartWeight &&
+    preview.lowerHeightWeight === session.lowerStartWeight
   );
 }
 

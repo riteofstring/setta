@@ -65,6 +65,28 @@ describe("real workspace layout scene", () => {
     });
   });
 
+  test("serializes a never-saved real workspace layout with revision one", () => {
+    const workspaceId = "workspace_api";
+    const initial = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId,
+      workspaceName: "Repo",
+    });
+    const engine = new WorkspaceLikeLayoutEngine(initial.scene);
+    const store = new WorkspaceLayoutStore(engine, initial.scene, initial.focusedPaneId);
+
+    const persisted = workspaceUILayoutFromScene(
+      workspaceId,
+      store.toScene(),
+      store.focusedPaneId(),
+      store.getSnapshot().revision,
+    );
+
+    expect(store.getSnapshot().revision).toBe(0);
+    expect(persisted.revision).toBe(1);
+    expect(persisted.schemaVersion).toBe(3);
+  });
+
   test("serializes and restores the real workspace layout through the backend contract shape", () => {
     const workspaceId = "workspace_api";
     const initial = createRealWorkspaceScene({
@@ -84,11 +106,13 @@ describe("real workspace layout scene", () => {
       title: "Build",
       tone: "green",
     });
+    store.resizePaneRow(paneId, 360);
 
     const persisted = workspaceUILayoutFromScene(
       workspaceId,
       store.toScene(),
       store.focusedPaneId(),
+      store.getSnapshot().revision,
     );
     const restored = createRealWorkspaceScene({
       storedLayout: persisted,
@@ -98,9 +122,11 @@ describe("real workspace layout scene", () => {
 
     expect(persisted).toMatchObject({
       focusedPaneId: paneId,
-      schemaVersion: 1,
+      revision: 2,
+      schemaVersion: 3,
       workspaceId,
     });
+    expect(persisted.panes.find((pane) => pane.paneId === paneId)?.heightPx).toBe(360);
     expect(persisted.panes.find((pane) => pane.paneId === paneId)?.terminalConfig).toEqual({
       cwdOverride: "/tmp/repo",
       profileId: "default",
@@ -117,6 +143,7 @@ describe("real workspace layout scene", () => {
         profileId: "default",
         titleOverride: "Build shell",
       },
+      heightPx: 360,
       title: "Build",
       tone: "green",
     });
@@ -174,6 +201,7 @@ describe("real workspace layout scene", () => {
       workspaceId,
       store.toScene(),
       store.focusedPaneId(),
+      store.getSnapshot().revision,
     );
     const restored = createRealWorkspaceScene({
       storedLayout: persisted,
@@ -213,7 +241,8 @@ function storedLayout(workspaceId: string, paneIds: string[]): WorkspaceUILayout
     columns: [storedColumn("workspace_column_0", 0, paneIds)],
     focusedPaneId: paneIds[0] ?? "",
     panes: [storedPane("workspace_pane_0", "workspace_column_0", "workspace_surface_0", "Chat")],
-    schemaVersion: 1,
+    revision: 1,
+    schemaVersion: 3,
     workspaceId,
   };
 }
@@ -235,6 +264,7 @@ function storedPane(paneId: string, columnId: string, surfaceId: string, title: 
   return {
     columnId,
     heat: 0,
+    heightPx: null,
     paneId,
     sequence: 0,
     subtitle: "Repo",

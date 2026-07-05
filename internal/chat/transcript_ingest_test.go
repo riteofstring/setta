@@ -331,10 +331,10 @@ func TestTranscriptWorkingIndicatorLiveOnly(t *testing.T) {
 	})
 }
 
-// TestTranscriptSteeringInterleavesWithOrdinal verifies that a steering message
-// sent into an active run receives a run-local transcript ordinal at ingestion
-// time, so it interleaves between the activity block already emitted and the
-// assistant text that follows.
+// TestTranscriptSteeringInterleavesWithOrdinal verifies that a provider-committed
+// steering message receives a run-local transcript ordinal at commit time, so it
+// interleaves between the activity block already emitted and the assistant text
+// that follows.
 func TestTranscriptSteeringInterleavesWithOrdinal(t *testing.T) {
 	steered := make(chan string, 1)
 	commandEmitted := make(chan struct{})
@@ -359,6 +359,9 @@ func TestTranscriptSteeringInterleavesWithOrdinal(t *testing.T) {
 			// exists, pinning the steering ordinal after it (no scheduling race).
 			close(commandEmitted)
 			text := <-steered
+			if err := sink.UserMessageCommitted(text); err != nil {
+				return TurnCompletion{}, err
+			}
 			if err := sink.AssistantTextDelta("post", "Including "+text+"."); err != nil {
 				return TurnCompletion{}, err
 			}
@@ -504,11 +507,10 @@ func TestTranscriptFailureMarksActiveBlocks(t *testing.T) {
 	}
 }
 
-// TestTranscriptReasoningThinkingBecomesSummary verifies that meaningful active
-// reasoning first renders as a thinking block, and that the same provider item
-// later gaining a public summary updates that block in place to summary mode
-// without changing its block ID or kind.
-func TestTranscriptReasoningThinkingBecomesSummary(t *testing.T) {
+// TestTranscriptReasoningPublicBoldSummaryUpdatesInPlace verifies that public
+// reasoning derives its headline from the first completed Markdown bold span and
+// keeps the same block identity as the provider completes the summary.
+func TestTranscriptReasoningPublicBoldSummaryUpdatesInPlace(t *testing.T) {
 	reachedThinking := make(chan struct{})
 	releaseSummary := make(chan struct{})
 	harness := &scriptedTranscriptHarness{
@@ -516,12 +518,12 @@ func TestTranscriptReasoningThinkingBecomesSummary(t *testing.T) {
 			if err := linkTranscriptThread(sink); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "r1", Type: RunItemTypeReasoning, Status: RunItemStatusRunning, Title: "Mapping parser modules"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "r1", Type: RunItemTypeReasoning, Status: RunItemStatusRunning, Progress: "**Mapping parser modules**"}); err != nil {
 				return TurnCompletion{}, err
 			}
 			close(reachedThinking)
 			<-releaseSummary
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "r1", Type: RunItemTypeReasoning, Status: RunItemStatusCompleted, Title: "Mapping parser modules", Summary: "Checked request flow and the retry path."}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "r1", Type: RunItemTypeReasoning, Status: RunItemStatusCompleted, Summary: "**Mapping parser modules**\nChecked request flow and the retry path."}); err != nil {
 				return TurnCompletion{}, err
 			}
 			return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
@@ -535,16 +537,16 @@ func TestTranscriptReasoningThinkingBecomesSummary(t *testing.T) {
 	}
 
 	<-reachedThinking
-	thinkingBlocks := liveTranscriptBlocks(t, service, workspaceID, conversationID, result.Run.ID)
-	thinking, ok := firstBlockOfKind(thinkingBlocks, TranscriptBlockKindReasoning)
+	initialBlocks := liveTranscriptBlocks(t, service, workspaceID, conversationID, result.Run.ID)
+	initial, ok := firstBlockOfKind(initialBlocks, TranscriptBlockKindReasoning)
 	if !ok {
-		t.Fatalf("missing thinking reasoning block: %v", blockKinds(thinkingBlocks))
+		t.Fatalf("missing reasoning block: %v", blockKinds(initialBlocks))
 	}
-	if thinking.Reasoning.Mode != ReasoningBlockModeThinking {
-		t.Fatalf("reasoning mode = %s, want thinking", thinking.Reasoning.Mode)
+	if initial.Reasoning.Mode != ReasoningBlockModeSummary {
+		t.Fatalf("reasoning mode = %s, want summary", initial.Reasoning.Mode)
 	}
-	if thinking.Reasoning.Headline != "Mapping parser modules" {
-		t.Fatalf("thinking headline = %q", thinking.Reasoning.Headline)
+	if initial.Reasoning.Headline != "Mapping parser modules" {
+		t.Fatalf("reasoning headline = %q", initial.Reasoning.Headline)
 	}
 
 	close(releaseSummary)
@@ -554,8 +556,8 @@ func TestTranscriptReasoningThinkingBecomesSummary(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing summary reasoning block: %v", blockKinds(summaryBlocks))
 	}
-	if summary.ID != thinking.ID || summary.Kind != thinking.Kind {
-		t.Fatalf("reasoning block identity changed across mode: (%s,%s) -> (%s,%s)", thinking.Kind, thinking.ID, summary.Kind, summary.ID)
+	if summary.ID != initial.ID || summary.Kind != initial.Kind {
+		t.Fatalf("reasoning block identity changed across update: (%s,%s) -> (%s,%s)", initial.Kind, initial.ID, summary.Kind, summary.ID)
 	}
 	if summary.Reasoning.Mode != ReasoningBlockModeSummary {
 		t.Fatalf("reasoning mode = %s, want summary", summary.Reasoning.Mode)
@@ -563,7 +565,7 @@ func TestTranscriptReasoningThinkingBecomesSummary(t *testing.T) {
 	if summary.Reasoning.Headline != "Mapping parser modules" {
 		t.Fatalf("headline changed across mode transition: %q", summary.Reasoning.Headline)
 	}
-	if summary.Reasoning.Summary != "Checked request flow and the retry path." {
+	if summary.Reasoning.Summary != "**Mapping parser modules**\nChecked request flow and the retry path." {
 		t.Fatalf("summary body = %q", summary.Reasoning.Summary)
 	}
 }
@@ -610,7 +612,7 @@ func TestTranscriptAssistantBlockReconcilesProviderText(t *testing.T) {
 
 // TestTranscriptIngestsProtocolActivityTypes drives the diverse run-item types
 // the protocol-coverage workflow emits (hook, auto-approval review, file change,
-// dynamic tool call, notice) through the service ingestion path and verifies that
+// notice) through the service ingestion path and verifies that
 // none of them error and each produces an activity block linked to its run item.
 // This guards the additive ingestion against dropping run items from the UI.
 func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
@@ -633,7 +635,6 @@ func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
 				})},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusRunning, Details: newRunItemFileChangeDetails("updated", []RunItemFileChangePath{{Path: "a.go", Operation: runItemFileChangeOperationPtr(RunItemFileChangeOperationUpdate)}})},
 				{ProviderItemID: "patch1", Type: RunItemTypeFileChange, Status: RunItemStatusCompleted, Details: newRunItemFileChangeDetails("completed", nil)},
-				{ProviderItemID: "tool1", Type: RunItemTypeDynamicToolCall, Status: RunItemStatusCompleted, Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{ToolName: "do_thing"})},
 				{ProviderItemID: "notice1", Type: RunItemTypeNotice, Status: RunItemStatusCompleted, NoticeKind: "deprecationNotice", NoticeMessage: "old api"},
 			}
 			for _, item := range items {
@@ -660,11 +661,10 @@ func TestTranscriptIngestsProtocolActivityTypes(t *testing.T) {
 
 	blocks := loadPersistedBlocks(t, service, workspaceID, result.Run.ID)
 	wantTypes := map[RunItemType]bool{
-		RunItemTypeHook:            false,
-		RunItemTypeApprovalReview:  false,
-		RunItemTypeFileChange:      false,
-		RunItemTypeDynamicToolCall: false,
-		RunItemTypeNotice:          false,
+		RunItemTypeHook:           false,
+		RunItemTypeApprovalReview: false,
+		RunItemTypeFileChange:     false,
+		RunItemTypeNotice:         false,
 	}
 	for _, block := range activityBlocks(blocks) {
 		if _, expected := wantTypes[block.Activity.Type]; expected {

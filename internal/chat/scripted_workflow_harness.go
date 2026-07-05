@@ -11,6 +11,7 @@ import (
 )
 
 type ScriptedWorkflowHarness struct {
+	appDataDir               string
 	mu                       sync.Mutex
 	approvals                map[string]chan ApprovalResponse
 	commands                 []HarnessCommandRequest
@@ -22,6 +23,16 @@ type ScriptedWorkflowHarness struct {
 	phase4ReviewerBarriers   map[string]map[string]chan struct{}
 	reasoning                ReasoningEffort
 	steers                   map[string]chan SteerRequest
+	turnErrors               map[string]string
+	turnStatuses             map[string]HarnessTurnRuntimeStatus
+	workflowResultReporter   ScriptedWorkflowResultReporter
+}
+
+type ScriptedWorkflowResultReporter func(context.Context, json.RawMessage) error
+
+type ScriptedWorkflowHarnessConfig struct {
+	AppDataDir             string
+	WorkflowResultReporter ScriptedWorkflowResultReporter
 }
 
 type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
@@ -56,7 +67,6 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "mcp elicitation form accept workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormAcceptTurn},
 	{Prompt: "mcp elicitation form cancel workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormCancelTurn},
 	{Prompt: "mcp elicitation url decline workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationURLDeclineTurn},
-	{Prompt: "dynamic tool workflow", Run: scriptedDynamicToolTurn},
 	{Prompt: "chat performance stream", Run: scriptedPerformanceStreamTurn},
 	{Prompt: "transcript scroll stickiness workflow", Run: (*ScriptedWorkflowHarness).transcriptScrollStickinessTurn},
 	{Prompt: "transcript older page workflow", Run: (*ScriptedWorkflowHarness).transcriptOlderPageTurn},
@@ -72,28 +82,44 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 }
 
-func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
+func NewScriptedWorkflowHarness(configs ...ScriptedWorkflowHarnessConfig) *ScriptedWorkflowHarness {
 	defaultModel := fakeModelOptions()[0]
+	config := ScriptedWorkflowHarnessConfig{}
+	if len(configs) > 0 {
+		config = configs[0]
+	}
 	return &ScriptedWorkflowHarness{
+		appDataDir:               strings.TrimSpace(config.AppDataDir),
 		approvals:                map[string]chan ApprovalResponse{},
 		model:                    defaultModel.Model,
 		phase4ConsolidatorCounts: map[string]int{},
 		phase4ReviewerBarriers:   map[string]map[string]chan struct{}{},
 		reasoning:                defaultModel.DefaultReasoningEffort,
 		steers:                   map[string]chan SteerRequest{},
+		turnErrors:               map[string]string{},
+		turnStatuses:             map[string]HarnessTurnRuntimeStatus{},
+		workflowResultReporter:   config.WorkflowResultReporter,
 	}
 }
 
-func (harness *ScriptedWorkflowHarness) ActiveRunCount() int {
+func (harness *ScriptedWorkflowHarness) SetWorkflowResultReporter(reporter ScriptedWorkflowResultReporter) {
 	harness.mu.Lock()
 	defer harness.mu.Unlock()
-	return len(harness.steers)
+	harness.workflowResultReporter = reporter
 }
 
 func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.registerRun(request.Run.ID)
-	defer harness.unregisterRun(request.Run.ID)
-	return harness.runScriptedTurn(ctx, request, sink)
+	completion, err := harness.runScriptedTurn(ctx, request, sink)
+	if err == nil {
+		if reportErr := harness.reportScriptedWorkflowTurnResult(ctx, request, completion); reportErr != nil {
+			completion = TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: reportErr.Error()}
+			err = reportErr
+		}
+	}
+	harness.finishRun(request.Run.ID, completion, err)
+	harness.unregisterRun(request.Run.ID)
+	return completion, err
 }
 
 func (harness *ScriptedWorkflowHarness) runScriptedTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -116,11 +142,18 @@ func (harness *ScriptedWorkflowHarness) runScriptedTurn(ctx context.Context, req
 
 	prompt := strings.TrimSpace(chatInputText(request.Input))
 	for _, fixture := range scriptedWorkflowFixtures {
-		if strings.EqualFold(prompt, fixture.Prompt) {
+		if scriptedWorkflowPromptMatches(prompt, fixture.Prompt) {
 			return fixture.Run(harness, ctx, request, sink)
 		}
 	}
 	return scriptedReply(sink, request.Run.ID, "Scripted response: "+prompt)
+}
+
+func scriptedWorkflowPromptMatches(prompt string, fixturePrompt string) bool {
+	if strings.EqualFold(prompt, fixturePrompt) {
+		return true
+	}
+	return strings.Contains(strings.ToLower(prompt), strings.ToLower("\n\nNode task:\n\n"+fixturePrompt))
 }
 
 func (harness *ScriptedWorkflowHarness) RunTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
@@ -216,24 +249,7 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 
 	harness.commands = append(harness.commands, request)
 	harness.applyCommandCodexSettingsLocked(request)
-	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
-	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
-		result.ThreadRef = request.ThreadRef
-		result.HasThreadRef = true
-	}
-	if request.ActiveRun == nil && commandNeedsThread(request.Command) && !commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
-		ref := request.ThreadRef
-		if ref.ThreadID == "" {
-			ref = HarnessThreadRef{
-				Harness:   HarnessCodex,
-				SessionID: "scripted-session",
-				Status:    HarnessRefLinked,
-				ThreadID:  "scripted-thread-" + request.Conversation.ID,
-			}
-		}
-		result.ThreadRef = ref
-		result.HasThreadRef = true
-	}
+	result := scriptedCommandResultWithThreadRef(request)
 	switch request.Command.Kind {
 	case ChatCommandGoal:
 		return harness.executeGoalCommandLocked(request.Command, result)
@@ -244,6 +260,29 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 	default:
 		return HarnessCommandResult{}, fmt.Errorf("unsupported scripted command kind: %s", request.Command.Kind)
 	}
+}
+
+func scriptedCommandResultWithThreadRef(request HarnessCommandRequest) HarnessCommandResult {
+	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
+	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
+		result.ThreadRef = request.ThreadRef
+		result.HasThreadRef = true
+	}
+	if request.ActiveRun != nil || !commandNeedsThread(request.Command) || commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
+		return result
+	}
+	ref := request.ThreadRef
+	if ref.ThreadID == "" {
+		ref = HarnessThreadRef{
+			Harness:   HarnessCodex,
+			SessionID: "scripted-session",
+			Status:    HarnessRefLinked,
+			ThreadID:  "scripted-thread-" + request.Conversation.ID,
+		}
+	}
+	result.ThreadRef = ref
+	result.HasThreadRef = true
+	return result
 }
 
 type scriptedGoalOperation struct {
@@ -260,9 +299,16 @@ func (harness *ScriptedWorkflowHarness) BeginGoalOperation(ctx context.Context, 
 
 func (operation *scriptedGoalOperation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	operation.harness.registerRun(request.Run.ID)
-	defer operation.harness.unregisterRun(request.Run.ID)
 
 	completion, err := operation.harness.runScriptedTurn(ctx, request, sink)
+	if err == nil {
+		if reportErr := operation.harness.reportScriptedWorkflowTurnResult(ctx, request, completion); reportErr != nil {
+			completion = TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: reportErr.Error()}
+			err = reportErr
+		}
+	}
+	operation.harness.finishRun(request.Run.ID, completion, err)
+	operation.harness.unregisterRun(request.Run.ID)
 	if err != nil || completion.Outcome != TurnOutcomeCompleted {
 		return completion, err
 	}
@@ -304,26 +350,30 @@ func (harness *ScriptedWorkflowHarness) executeGoalCommandLocked(command ChatCom
 		result.Action = ChatCommandResultGoalEditor
 	case GoalCommandSet:
 		harness.goal = &ChatGoalState{Objective: command.Goal.Objective, Status: "active", ThreadID: result.ThreadRef.ThreadID}
-	case GoalCommandClear:
-		if harness.goal == nil {
-			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
+	case GoalCommandClear, GoalCommandPause, GoalCommandResume:
+		if err := harness.applyExistingGoalCommandLocked(command.Goal.Action, result.ThreadRef.ThreadID); err != nil {
+			return HarnessCommandResult{}, err
 		}
-		harness.goal = nil
-	case GoalCommandPause:
-		if harness.goal == nil {
-			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
-		}
-		harness.setGoalStatusLocked("paused", result.ThreadRef.ThreadID)
-	case GoalCommandResume:
-		if harness.goal == nil {
-			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
-		}
-		harness.setGoalStatusLocked("active", result.ThreadRef.ThreadID)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported goal command action: %s", command.Goal.Action), nil)
 	}
 	result.Goal = harness.goal
 	return result, nil
+}
+
+func (harness *ScriptedWorkflowHarness) applyExistingGoalCommandLocked(action GoalCommandAction, threadID string) error {
+	if harness.goal == nil {
+		return noGoalCommandError(action)
+	}
+	switch action {
+	case GoalCommandClear:
+		harness.goal = nil
+	case GoalCommandPause:
+		harness.setGoalStatusLocked("paused", threadID)
+	case GoalCommandResume:
+		harness.setGoalStatusLocked("active", threadID)
+	}
+	return nil
 }
 
 func (harness *ScriptedWorkflowHarness) setGoalStatusLocked(status string, threadID string) {
@@ -358,6 +408,9 @@ func (harness *ScriptedWorkflowHarness) workflowTurn(ctx context.Context, reques
 	}
 	steer, err := harness.waitForSteer(ctx, request.Run.ID)
 	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := sink.UserMessageCommitted(chatInputText(steer.Input)); err != nil {
 		return TurnCompletion{}, err
 	}
 	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Steered with "+chatInputText(steer.Input)+". "); err != nil {
@@ -523,24 +576,8 @@ func scriptedPerformanceStreamTurn(_ *ScriptedWorkflowHarness, ctx context.Conte
 	ticker := time.NewTicker(chunkInterval)
 	defer ticker.Stop()
 	for index := 0; index < chunkCount; index++ {
-		if index > 0 {
-			select {
-			case <-ctx.Done():
-				return TurnCompletion{}, ctx.Err()
-			case <-ticker.C:
-			}
-		}
-		if err := sink.AssistantTextDelta(
-			"scripted-assistant-"+request.Run.ID,
-			fmt.Sprintf("stream chunk %03d adds repeatable transcript render pressure. ", index),
-		); err != nil {
+		if err := scriptedPerformanceStreamChunk(ctx, ticker, index, item.ProviderItemID, request.Run.ID, sink); err != nil {
 			return TurnCompletion{}, err
-		}
-		if index%3 == 0 {
-			output := fmt.Sprintf("stdout perf line %03d: renderer output delta pressure\n", index)
-			if err := sink.RunItemOutputDelta(item.ProviderItemID, "stdout", output); err != nil {
-				return TurnCompletion{}, err
-			}
 		}
 	}
 	item.Status = RunItemStatusCompleted
@@ -556,32 +593,28 @@ func scriptedPerformanceStreamTurn(_ *ScriptedWorkflowHarness, ctx context.Conte
 	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
 }
 
+func scriptedPerformanceStreamChunk(ctx context.Context, ticker *time.Ticker, index int, providerItemID string, runID string, sink TurnSink) error {
+	if index > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+	if err := sink.AssistantTextDelta(
+		"scripted-assistant-"+runID,
+		fmt.Sprintf("stream chunk %03d adds repeatable transcript render pressure. ", index),
+	); err != nil {
+		return err
+	}
+	if index%3 != 0 {
+		return nil
+	}
+	output := fmt.Sprintf("stdout perf line %03d: renderer output delta pressure\n", index)
+	return sink.RunItemOutputDelta(providerItemID, "stdout", output)
+}
+
 func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	item := RunItem{
-		ProviderItemID: "provider_workflow_result_" + request.Run.ID,
-		Type:           RunItemTypeDynamicToolCall,
-		Status:         RunItemStatusCompleted,
-		Title:          "Workflow result",
-		Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{
-			Namespace:    SettaAgentToolNamespace,
-			ToolName:     SettaWorkflowResultAgentToolName,
-			DisplayTitle: "Workflow result",
-			Description:  "Report structured workflow routing signals, result payloads, and file references.",
-			Category:     "workflow",
-			Arguments: json.RawMessage(`{
-			"signals": [
-				{"name": "route", "value": "yes"},
-				{"name": "decision", "value": "exit"}
-			],
-			"output": {"summary": "scripted workflow result"},
-			"filePaths": ["reports/workflow-result.md"]
-		}`),
-			ResultSummary: "workflow result recorded",
-		}),
-	}
-	if err := sink.RunItemUpsert(item); err != nil {
-		return TurnCompletion{}, err
-	}
 	return scriptedReply(sink, request.Run.ID, "Workflow result action complete.")
 }
 
@@ -599,56 +632,6 @@ func (harness *ScriptedWorkflowHarness) phase4ReviewerTurn(ctx context.Context, 
 	case <-ctx.Done():
 		return TurnCompletion{}, ctx.Err()
 	}
-}
-
-func (harness *ScriptedWorkflowHarness) phase4ConsolidatorTurn(_ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	decision, attempt := harness.nextPhase4ConsolidatorDecision(request)
-	output, err := json.Marshal(struct {
-		Attempt  int    `json:"attempt"`
-		Decision string `json:"decision"`
-		Summary  string `json:"summary"`
-	}{
-		Attempt:  attempt,
-		Decision: decision,
-		Summary:  "phase 4 consolidator " + decision,
-	})
-	if err != nil {
-		return TurnCompletion{}, err
-	}
-	actionable := "no"
-	if decision == "continue" {
-		actionable = "yes"
-	}
-	details, err := json.Marshal(SettaWorkflowResultPayload{
-		Signals: []SettaWorkflowResultSignal{
-			{Name: "decision", Value: decision},
-			{Name: "actionable", Value: actionable},
-		},
-		Output:    output,
-		FilePaths: []string{"reports/phase4-consolidator.md"},
-	})
-	if err != nil {
-		return TurnCompletion{}, err
-	}
-	item := RunItem{
-		ProviderItemID: "provider_phase4_workflow_result_" + request.Run.ID,
-		Type:           RunItemTypeDynamicToolCall,
-		Status:         RunItemStatusCompleted,
-		Title:          "Phase 4 workflow result",
-		Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{
-			Namespace:     SettaAgentToolNamespace,
-			ToolName:      SettaWorkflowResultAgentToolName,
-			DisplayTitle:  "Phase 4 workflow result",
-			Description:   "Report structured workflow routing signals, result payloads, and file references.",
-			Category:      "workflow",
-			Arguments:     details,
-			ResultSummary: "phase 4 workflow result recorded",
-		}),
-	}
-	if err := sink.RunItemUpsert(item); err != nil {
-		return TurnCompletion{}, err
-	}
-	return scriptedReply(sink, request.Run.ID, "Phase 4 consolidator "+decision+".")
 }
 
 func scriptedPhase4FixTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -751,6 +734,8 @@ func (harness *ScriptedWorkflowHarness) registerRun(runID string) {
 
 	harness.approvals[runID] = make(chan ApprovalResponse, 1)
 	harness.steers[runID] = make(chan SteerRequest, 4)
+	harness.turnErrors[runID] = ""
+	harness.turnStatuses[runID] = HarnessTurnRuntimeInProgress
 }
 
 func (harness *ScriptedWorkflowHarness) unregisterRun(runID string) {

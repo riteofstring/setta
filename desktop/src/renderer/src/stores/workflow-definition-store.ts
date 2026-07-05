@@ -1,6 +1,7 @@
 import type {
   ListWorkflowDefinitionsResponse,
   WorkflowDefinition,
+  WorkflowEvent,
   WorkflowGraph,
 } from "@generated/backend";
 import { create } from "zustand";
@@ -21,6 +22,10 @@ interface WorkflowDefinitionStore {
     graph?: WorkflowGraph,
   ) => Promise<WorkflowDefinition>;
   ensureWorkspaceWorkflowDefinitions: (workspaceId: string) => Promise<void>;
+  handleWorkflowDefinitionEvent: (
+    event: WorkflowEvent,
+    activeWorkspaceIds: ReadonlySet<string>,
+  ) => Promise<void>;
   refreshWorkspaceWorkflowDefinitions: (workspaceId: string) => Promise<void>;
   resetRuntimeState: () => void;
   selectWorkflowDefinition: (workspaceId: string, definitionId: string) => void;
@@ -30,6 +35,19 @@ interface WorkflowDefinitionStore {
 
 export const useWorkflowDefinitionStore = create<WorkflowDefinitionStore>((set, get) => {
   let generation = 0;
+  let nextRefreshRequestId = 0;
+  const latestRefreshRequestIdsByWorkspaceId = new Map<string, number>();
+
+  function workflowDefinitionRefreshRequestCurrent(
+    requestGeneration: number,
+    requestId: number,
+    workspaceId: string,
+  ) {
+    return (
+      requestGeneration === generation &&
+      latestRefreshRequestIdsByWorkspaceId.get(workspaceId) === requestId
+    );
+  }
 
   return {
     clearClosedWorkspaceWorkflowDefinitions: (activeWorkspaceIds) => {
@@ -78,8 +96,20 @@ export const useWorkflowDefinitionStore = create<WorkflowDefinitionStore>((set, 
       }
       await get().refreshWorkspaceWorkflowDefinitions(workspaceId);
     },
+    handleWorkflowDefinitionEvent: async (event, activeWorkspaceIds) => {
+      if (
+        !workflowDefinitionEventShouldRefreshDefinitions(event) ||
+        !activeWorkspaceIds.has(event.workspaceId)
+      ) {
+        return;
+      }
+      await get().refreshWorkspaceWorkflowDefinitions(event.workspaceId);
+    },
     refreshWorkspaceWorkflowDefinitions: async (workspaceId) => {
       const requestGeneration = generation;
+      const requestId = nextRefreshRequestId;
+      nextRefreshRequestId += 1;
+      latestRefreshRequestIdsByWorkspaceId.set(workspaceId, requestId);
       set((state) => ({
         workflowDefinitionsByWorkspaceId: {
           ...state.workflowDefinitionsByWorkspaceId,
@@ -92,12 +122,12 @@ export const useWorkflowDefinitionStore = create<WorkflowDefinitionStore>((set, 
       }));
       try {
         const response = await window.setta.workflow.listDefinitions(workspaceId);
-        if (requestGeneration !== generation) {
+        if (!workflowDefinitionRefreshRequestCurrent(requestGeneration, requestId, workspaceId)) {
           return;
         }
         set((state) => workflowListLoadedPatch(state, workspaceId, response));
       } catch (error: unknown) {
-        if (requestGeneration !== generation) {
+        if (!workflowDefinitionRefreshRequestCurrent(requestGeneration, requestId, workspaceId)) {
           return;
         }
         set((state) => ({
@@ -114,6 +144,7 @@ export const useWorkflowDefinitionStore = create<WorkflowDefinitionStore>((set, 
     },
     resetRuntimeState: () => {
       generation += 1;
+      latestRefreshRequestIdsByWorkspaceId.clear();
       set({ selectedDefinitionIdsByWorkspaceId: {}, workflowDefinitionsByWorkspaceId: {} });
     },
     selectWorkflowDefinition: (workspaceId, definitionId) => {
@@ -128,6 +159,14 @@ export const useWorkflowDefinitionStore = create<WorkflowDefinitionStore>((set, 
     workflowDefinitionsByWorkspaceId: {},
   };
 });
+
+function workflowDefinitionEventShouldRefreshDefinitions(event: WorkflowEvent) {
+  return (
+    event.type === "workflow_definition.created" ||
+    event.type === "workflow_definition.updated" ||
+    event.type === "workflow_definition.deleted"
+  );
+}
 
 function workflowListLoadedPatch(
   state: WorkflowDefinitionStore,

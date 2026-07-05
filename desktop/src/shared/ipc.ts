@@ -1,6 +1,5 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
-import type { RuntimeIpcContract } from "./runtime-ipc-contract";
 import type {
   AppearancePresetList,
   AppearanceSettings,
@@ -132,6 +131,11 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowValidationResult,
+  WorkspaceUIPaneListResult,
+  WorkspaceUIPaneOperation,
+  WorkspaceUIPaneOperationResult,
+  WorkspaceUIPaneReadResult,
+  WorkspaceUISchema,
   WorkspaceSelectedConversations,
   WorkspaceUILayout,
   WorkspaceUILayoutReadResult,
@@ -140,8 +144,10 @@ import type {
 import type {
   AppWindowDragPoint,
   InstalledEditorApp,
+  KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
+  RuntimeRegistrySnapshot,
   WorkspaceBrowserViewStats,
   RuntimeVersions,
   WorkspaceGitInfo,
@@ -161,20 +167,11 @@ export const ipcChannels = {
   appearanceRead: "appearance:read",
   appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
-  runtimeAddExistingMachineOverSSH: "runtimes:add-existing-machine-over-ssh",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
-  runtimeCloudProvisionExecute: "runtimes:cloud-provision-execute",
-  runtimeCloudProvisionOptions: "runtimes:cloud-provision-options",
-  runtimeCloudProvisionResolve: "runtimes:cloud-provision-resolve",
-  runtimeCreateDevicePairing: "runtimes:create-device-pairing",
   runtimeCurrent: "runtimes:current",
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
-  runtimeTailscaleAuthKeyMint: "runtimes:tailscale-auth-key-mint",
-  runtimeTailscaleOAuthSaveCredentials: "runtimes:tailscale-oauth-save-credentials",
-  runtimeTailscaleOAuthSetupGuide: "runtimes:tailscale-oauth-setup-guide",
-  runtimeTailscaleOAuthValidate: "runtimes:tailscale-oauth-validate",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatReconcileRuns: "chat:reconcile-runs",
@@ -286,12 +283,17 @@ export const ipcChannels = {
   workflowUpdateDefinition: "workflow:update-definition",
   workflowValidateDefinition: "workflow:validate-definition",
   workspaceClose: "workspace:close",
+  workspaceApplyUIPaneOperation: "workspace:apply-ui-pane-operation",
+  workspaceInitializeUILayout: "workspace:initialize-ui-layout",
+  workspaceListUIPanes: "workspace:list-ui-panes",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
+  workspaceReadUIPane: "workspace:read-ui-pane",
+  workspaceReadUISchema: "workspace:read-ui-schema",
   workspaceReadUILayout: "workspace:read-ui-layout",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
-  workspaceSaveUILayout: "workspace:save-ui-layout",
+  workspaceResetUILayout: "workspace:reset-ui-layout",
   workspaceSelect: "workspace:select",
   workspaceSelectedConversations: "workspace:selected-conversations",
   workspaceSetSelectedConversation: "workspace:set-selected-conversation",
@@ -300,6 +302,8 @@ export const ipcChannels = {
 
 export const ipcMessages = {
   workspaceBrowserViewBatch: "workspace:browser-view-batch",
+  workspaceUIEventSubscribe: "workspace:ui-event-subscribe",
+  workspaceUIEventUnsubscribe: "workspace:ui-event-unsubscribe",
 } as const;
 
 export const ipcEvents = {
@@ -312,11 +316,12 @@ export const ipcEvents = {
   workspaceActivityEvent: "workspace-activity:event",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
+  workspaceUIEvent: "workspace:ui-event",
   terminalEvent: "terminal:event",
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract extends RuntimeIpcContract {
+interface IpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
@@ -365,7 +370,30 @@ interface IpcContract extends RuntimeIpcContract {
     args: [request: UpdateAppearanceSettingsRequest];
     result: AppearanceSettings;
   };
-  backendHealth: { args: []; result: BackendHealth };
+  backendHealth: {
+    args: [];
+    result: BackendHealth;
+  };
+  runtimeAddByPairingUrl: {
+    args: [pairingUrl: string];
+    result: RuntimeRegistrySnapshot;
+  };
+  runtimeCurrent: {
+    args: [];
+    result: RuntimeRegistrySnapshot;
+  };
+  runtimeList: {
+    args: [];
+    result: KnownRuntimeView[];
+  };
+  runtimeRemove: {
+    args: [runtimeId: string];
+    result: RuntimeRegistrySnapshot;
+  };
+  runtimeSwitch: {
+    args: [runtimeId: string];
+    result: RuntimeRegistrySnapshot;
+  };
   chatActiveRun: {
     args: [workspaceId: string, conversationId: string];
     result: GetActiveRunResponse;
@@ -841,38 +869,25 @@ interface IpcContract extends RuntimeIpcContract {
     args: [workspaceId: string, graph: WorkflowGraph];
     result: WorkflowValidationResult;
   };
-  workspaceClose: {
-    args: [id: string];
-    result: WorkspaceSession;
+  workspaceClose: { args: [id: string]; result: WorkspaceSession };
+  workspaceApplyUIPaneOperation: {
+    args: [workspaceId: string, operation: WorkspaceUIPaneOperation];
+    result: WorkspaceUIPaneOperationResult;
   };
-  workspaceOpenLocalFolder: {
-    args: [];
-    result: OpenWorkspaceResponse | null;
+  workspaceInitializeUILayout: { args: [workspaceId: string]; result: WorkspaceUILayout };
+  workspaceListUIPanes: { args: [workspaceId: string]; result: WorkspaceUIPaneListResult };
+  workspaceOpenLocalFolder: { args: []; result: OpenWorkspaceResponse | null };
+  workspaceOpenPath: { args: [rootPath: string]; result: OpenWorkspaceResponse };
+  workspaceReadUIPane: {
+    args: [workspaceId: string, paneId: string];
+    result: WorkspaceUIPaneReadResult;
   };
-  workspaceOpenPath: {
-    args: [rootPath: string];
-    result: OpenWorkspaceResponse;
-  };
-  workspaceReadUILayout: {
-    args: [workspaceId: string];
-    result: WorkspaceUILayoutReadResult;
-  };
-  workspaceRemoveRecent: {
-    args: [id: string];
-    result: WorkspaceSession;
-  };
-  workspaceReorder: {
-    args: [ids: string[]];
-    result: WorkspaceSession;
-  };
-  workspaceSaveUILayout: {
-    args: [layout: WorkspaceUILayout];
-    result: WorkspaceUILayout;
-  };
-  workspaceSelect: {
-    args: [id: string];
-    result: WorkspaceSession;
-  };
+  workspaceReadUISchema: { args: []; result: WorkspaceUISchema };
+  workspaceReadUILayout: { args: [workspaceId: string]; result: WorkspaceUILayoutReadResult };
+  workspaceRemoveRecent: { args: [id: string]; result: WorkspaceSession };
+  workspaceReorder: { args: [ids: string[]]; result: WorkspaceSession };
+  workspaceResetUILayout: { args: [workspaceId: string]; result: WorkspaceUILayout };
+  workspaceSelect: { args: [id: string]; result: WorkspaceSession };
   workspaceSelectedConversations: {
     args: [];
     result: WorkspaceSelectedConversations;

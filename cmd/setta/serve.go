@@ -8,18 +8,18 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"setta/internal/runtime"
 )
 
 type serveOptions struct {
-	AppDataDir           string
-	ChatHarness          runtime.ChatHarnessMode
-	DisplayName          string
-	Host                 string
-	Port                 int
-	ProvisioningSeedPath string
-	Tailnet              bool
+	AppDataDir  string
+	ChatHarness runtime.ChatHarnessMode
+	DisplayName string
+	Host        string
+	Port        int
+	Tailnet     bool
 }
 
 type serveInstance struct {
@@ -59,7 +59,6 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	flagSet.StringVar(&options.AppDataDir, "app-data-dir", options.AppDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&options.DisplayName, "display-name", deps.getenv("SETTA_RUNTIME_DISPLAY_NAME"), "runtime display name to persist for this Setta instance")
 	flagSet.IntVar(&options.Port, "port", options.Port, "port to bind, or 0 for an ephemeral port")
-	flagSet.StringVar(&options.ProvisioningSeedPath, "provisioning-seed-file", deps.getenv("SETTA_PROVISIONING_SEED_FILE"), "owner-readable JSON file containing pre-provisioned pairing seed material to consume at startup")
 	flagSet.BoolVar(&options.Tailnet, "tailnet", false, "bind this runtime to this machine's Tailscale IPv4 address")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -69,9 +68,6 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	}
 	if flagSet.NArg() != 0 {
 		return serveOptions{}, usageError{err: fmt.Errorf("setta serve does not accept positional arguments")}
-	}
-	if err := validateProvisioningSeedPath(options.ProvisioningSeedPath); err != nil {
-		return serveOptions{}, err
 	}
 	if harness := deps.getenv("SETTA_E2E_CHAT_HARNESS"); harness != "" {
 		if deps.getenv("SETTA_E2E") != "1" {
@@ -90,9 +86,6 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 }
 
 func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serveInstance, error) {
-	if err := consumeProvisioningSeedIfConfigured(ctx, options); err != nil {
-		return nil, err
-	}
 	var readyBuffer bytes.Buffer
 	config := runtime.DefaultConfig()
 	config.AllowRemote = options.Tailnet
@@ -107,6 +100,11 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 	if options.ChatHarness != "" {
 		config.ChatHarness = options.ChatHarness
 	}
+	bundledSettaCLIDir, err := serveBundledSettaCLIDir(deps)
+	if err != nil {
+		return nil, err
+	}
+	config.BundledSettaCLIDir = bundledSettaCLIDir
 
 	server, err := runtime.Start(ctx, config)
 	if err != nil {
@@ -165,6 +163,21 @@ func decodeReadyEvent(reader io.Reader) (runtime.ReadyEvent, error) {
 		return runtime.ReadyEvent{}, errors.New("runtime ready event did not include an address")
 	}
 	return ready, nil
+}
+
+func serveBundledSettaCLIDir(deps cliDeps) (string, error) {
+	executablePath, err := deps.executablePath()
+	if err != nil {
+		return "", fmt.Errorf("resolve setta executable path: %w", err)
+	}
+	if executablePath == "" {
+		return "", nil
+	}
+	absolutePath, err := filepath.Abs(executablePath)
+	if err != nil {
+		return "", fmt.Errorf("resolve absolute setta executable path: %w", err)
+	}
+	return filepath.Dir(absolutePath), nil
 }
 
 func printServeStarted(output io.Writer, state serveState, pairing pairingResult, tailnet bool, deps cliDeps) {

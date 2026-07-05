@@ -1,10 +1,6 @@
 import type { WorkflowEvent, WorkflowGraphProjection } from "@generated/backend";
 import { type MutableRefObject, useCallback, useEffect, useReducer, useRef } from "react";
 
-import {
-  workflowDefinitionChangedDetail,
-  workflowDefinitionChangedEventName,
-} from "../../stores/workflow-definition-invalidation";
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import type { WorkflowGraphUpdateSource } from "./pixi-renderer";
 
@@ -430,32 +426,6 @@ function useWorkflowProjection({
       });
     };
 
-    const loadDefinitionChangeProjection = async (event: Event) => {
-      const detail = workflowDefinitionChangedDetail(event);
-      if (detail === null) {
-        return;
-      }
-      const current = projectionStateRef.current.target;
-      if (
-        current.kind !== "draft" ||
-        current.workspaceId !== detail.workspaceId ||
-        current.definitionId !== detail.definitionId
-      ) {
-        return;
-      }
-      const response = await window.setta.workflow.graphProjection(
-        current.workspaceId,
-        current.definitionId,
-      );
-      dispatchIfMounted({
-        expectedTarget: current,
-        projection: response.projection,
-        target: current,
-        type: "ready",
-        updateSource: "workflow-projection",
-      });
-    };
-
     void loadWorkspaceProjection().catch((error: unknown) => {
       console.error("Failed to load workflow graph projection", error);
       dispatchIfMounted({
@@ -476,22 +446,9 @@ function useWorkflowProjection({
         });
       });
     });
-    const workflowDefinitionChanged = (event: Event) => {
-      void loadDefinitionChangeProjection(event).catch((error: unknown) => {
-        console.error("Failed to refresh workflow definition graph projection", error);
-        dispatchIfMounted({
-          error: workflowProjectionErrorMessage(error),
-          expectedTarget: projectionStateRef.current.target,
-          target: projectionStateRef.current.target,
-          type: "failed",
-        });
-      });
-    };
-    window.addEventListener(workflowDefinitionChangedEventName, workflowDefinitionChanged);
 
     return () => {
       disposed = true;
-      window.removeEventListener(workflowDefinitionChangedEventName, workflowDefinitionChanged);
       unsubscribe();
     };
   }, [selectedDefinitionIdsByWorkspaceId, dispatchWorkflowProjectionState, projectionStateRef]);
@@ -545,7 +502,20 @@ export function workflowEventRefreshesProjectionTarget(
   current: WorkflowProjectionTarget,
   event: WorkflowEvent,
 ) {
-  return current.kind === "run" && workflowEventMatchesProjectionTarget(current, event);
+  if (!workflowEventMatchesProjectionTarget(current, event)) {
+    return false;
+  }
+  return (
+    current.kind === "run" || (current.kind === "draft" && workflowDefinitionEvent(event.type))
+  );
+}
+
+function workflowDefinitionEvent(type: WorkflowEvent["type"]) {
+  return (
+    type === "workflow_definition.created" ||
+    type === "workflow_definition.updated" ||
+    type === "workflow_definition.deleted"
+  );
 }
 
 export function workflowAutoDraftLoadShouldPreserveRunTarget(

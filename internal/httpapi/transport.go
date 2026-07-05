@@ -73,6 +73,14 @@ func requireWorkflowService(response http.ResponseWriter, service WorkflowServic
 	return service
 }
 
+func requireWorkflowAuditService(response http.ResponseWriter, service WorkflowAuditService) WorkflowAuditService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "workflow_audit_service_unavailable", "workflow audit service is not available")
+		return nil
+	}
+	return service
+}
+
 func requireSemanticGraphService(response http.ResponseWriter, service SemanticGraphService) SemanticGraphService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "semantic_graph_service_unavailable", "semantic graph service is not available")
@@ -156,6 +164,11 @@ func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 
 func writeWorkspaceUIError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
+	var operationErr *workspaceui.WorkspaceUIOperationError
+	if errors.As(err, &operationErr) {
+		writeError(response, status, string(operationErr.Code), operationErr.Error())
+		return
+	}
 	if workspaceui.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_workspace_ui_state", err.Error())
 		return

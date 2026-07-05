@@ -21,6 +21,7 @@ type RunItemStatus string
 type RunItemType string
 type RunItemDetailsKind string
 type RunItemCommandSource string
+type RunItemOutputAvailability string
 type DiagnosticSeverity string
 type DiagnosticSource string
 type ChatCommandKind string
@@ -100,7 +101,6 @@ const (
 	RunItemTypeCommandStartFailure     RunItemType = "command_start_failure"
 	RunItemTypeFileChange              RunItemType = "file_change"
 	RunItemTypeMCPToolCall             RunItemType = "mcp_tool_call"
-	RunItemTypeDynamicToolCall         RunItemType = "dynamic_tool_call"
 	RunItemTypeCollabAgentToolCall     RunItemType = "collab_agent_tool_call"
 	RunItemTypeWebSearch               RunItemType = "web_search"
 	RunItemTypeImageView               RunItemType = "image_view"
@@ -122,6 +122,10 @@ const (
 	RunItemCommandSourceUserShell              RunItemCommandSource = "user_shell"
 	RunItemCommandSourceUnifiedExecStartup     RunItemCommandSource = "unified_exec_startup"
 	RunItemCommandSourceUnifiedExecInteraction RunItemCommandSource = "unified_exec_interaction"
+
+	RunItemOutputAvailabilityCaptured    RunItemOutputAvailability = "captured"
+	RunItemOutputAvailabilityEmpty       RunItemOutputAvailability = "empty"
+	RunItemOutputAvailabilityUnavailable RunItemOutputAvailability = "unavailable"
 
 	DiagnosticSeverityInfo     DiagnosticSeverity = "info"
 	DiagnosticSeverityWarning  DiagnosticSeverity = "warning"
@@ -242,7 +246,6 @@ var (
 		RunItemTypeCommandStartFailure,
 		RunItemTypeFileChange,
 		RunItemTypeMCPToolCall,
-		RunItemTypeDynamicToolCall,
 		RunItemTypeCollabAgentToolCall,
 		RunItemTypeWebSearch,
 		RunItemTypeImageView,
@@ -262,6 +265,11 @@ var (
 		RunItemCommandSourceUserShell,
 		RunItemCommandSourceUnifiedExecStartup,
 		RunItemCommandSourceUnifiedExecInteraction,
+	}
+	runItemOutputAvailabilityValues = []RunItemOutputAvailability{
+		RunItemOutputAvailabilityCaptured,
+		RunItemOutputAvailabilityEmpty,
+		RunItemOutputAvailabilityUnavailable,
 	}
 	diagnosticSeverityValues = []DiagnosticSeverity{
 		DiagnosticSeverityInfo,
@@ -323,50 +331,6 @@ var (
 		StructuredInputModeURL,
 	}
 )
-
-func ContractValueSets() []ContractValueSet {
-	return []ContractValueSet{
-		{Name: "HarnessKind", Values: stringValues(harnessKindValues)},
-		{Name: "MessageRole", Values: stringValues(messageRoleValues)},
-		{Name: "MessageStatus", Values: stringValues(messageStatusValues)},
-		{Name: "MessageDelivery", Values: stringValues(messageDeliveryValues)},
-		{Name: "MessagePartType", Values: stringValues(messagePartTypeValues)},
-		{Name: "ImageAttachmentMimeType", Values: stringValues(imageAttachmentMimeTypeValues)},
-		{Name: "ImageAttachmentVariantKind", Values: stringValues(imageAttachmentVariantKindValues)},
-		{Name: "ImageDetail", Values: stringValues(imageDetailValues)},
-		{Name: "TextFormat", Values: stringValues(textFormatValues)},
-		{Name: "HarnessRefStatus", Values: stringValues(harnessRefStatusValues)},
-		{Name: "RunStatus", Values: stringValues(runStatusValues)},
-		{Name: "RunLivenessStatus", Values: stringValues(runLivenessStatusValues)},
-		{Name: "RunLivenessReason", Values: stringValues(runLivenessReasonValues)},
-		{Name: "ApprovalStatus", Values: stringValues(approvalStatusValues)},
-		{Name: "ApprovalKind", Values: stringValues(approvalKindValues)},
-		{Name: "RunItemStatus", Values: stringValues(runItemStatusValues)},
-		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
-		{Name: "RunItemDetailsKind", Values: stringValues(runItemDetailsKindValues)},
-		{Name: "RunItemCommandSource", Values: stringValues(runItemCommandSourceValues)},
-		{Name: "RunItemPlanStepStatus", Values: stringValues(runItemPlanStepStatusValues)},
-		{Name: "RunItemFileChangeOperation", Values: stringValues(runItemFileChangeOperationValues)},
-		{Name: "BackgroundTerminalStatus", Values: stringValues(backgroundTerminalStatusValues)},
-		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},
-		{Name: "DiagnosticSource", Values: stringValues(diagnosticSourceValues)},
-		{Name: "StructuredInputMode", Values: stringValues(structuredInputModeValues)},
-		{Name: "ChatCommandKind", Values: stringValues(chatCommandKindValues)},
-		{Name: "ChatSlashCommandKind", Values: stringValues(chatSlashCommandKindValues)},
-		{Name: "ChatCommandArgumentKind", Values: stringValues(chatCommandArgumentKindValues)},
-		{Name: "ChatCommandLiteralMatchMode", Values: stringValues(chatCommandLiteralMatchModeValues)},
-		{Name: "GoalCommandAction", Values: stringValues(goalCommandActionValues)},
-		{Name: "ModelCommandAction", Values: stringValues(modelCommandActionValues)},
-		{Name: "PermissionCommandAction", Values: stringValues(permissionCommandActionValues)},
-		{Name: "ChatPermissionPresetID", Values: stringValues(chatPermissionPresetIDValues)},
-		{Name: "ReasoningEffort", Values: stringValues(reasoningEffortValues)},
-		{Name: "ChatCommandResultAction", Values: stringValues(chatCommandResultActionValues)},
-		{Name: "TranscriptBlockKind", Values: stringValues(transcriptBlockKindValues)},
-		{Name: "TranscriptBlockStatus", Values: stringValues(transcriptBlockStatusValues)},
-		{Name: "ReasoningBlockMode", Values: stringValues(reasoningBlockModeValues)},
-		{Name: "RunStatusBlockMode", Values: stringValues(runStatusBlockModeValues)},
-	}
-}
 
 func stringValues[T ~string](values []T) []string {
 	result := make([]string, 0, len(values))

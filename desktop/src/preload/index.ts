@@ -5,12 +5,12 @@ import {
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
+  decodeWorkspaceUIEvent,
   decodeWorkflowEvent,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import type {
   BackendEventStreamStatus,
-  CloudRuntimeProvisionResourceView,
   BackendProcessStatus,
   DesktopPlatform,
   KnownRuntimeView,
@@ -84,12 +84,7 @@ const api: SettaAPI = {
     },
   },
   runtimes: {
-    addExistingMachineOverSSH: (request) => invoke("runtimeAddExistingMachineOverSSH", request),
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
-    cloudProvisionExecute: (request) => invoke("runtimeCloudProvisionExecute", request),
-    cloudProvisionOptions: () => invoke("runtimeCloudProvisionOptions"),
-    cloudProvisionResolve: (request) => invoke("runtimeCloudProvisionResolve", request),
-    createDevicePairing: () => invoke("runtimeCreateDevicePairing"),
     current: () => invoke("runtimeCurrent"),
     list: () => invoke("runtimeList"),
     onConnectionState: (listener) => {
@@ -103,11 +98,6 @@ const api: SettaAPI = {
     },
     remove: (runtimeId) => invoke("runtimeRemove", runtimeId),
     switch: (runtimeId) => invoke("runtimeSwitch", runtimeId),
-    tailscaleAuthKeyMint: (request) => invoke("runtimeTailscaleAuthKeyMint", request),
-    tailscaleOAuthSaveCredentials: (request) =>
-      invoke("runtimeTailscaleOAuthSaveCredentials", request),
-    tailscaleOAuthSetupGuide: () => invoke("runtimeTailscaleOAuthSetupGuide"),
-    tailscaleOAuthValidate: () => invoke("runtimeTailscaleOAuthValidate"),
   },
   workspaceActivity: {
     onEvent: (listener) => {
@@ -411,13 +401,37 @@ const api: SettaAPI = {
       invoke("workflowValidateDefinition", workspaceId, graph),
   },
   workspace: {
+    applyUIPaneOperation: (workspaceId, operation) =>
+      invoke("workspaceApplyUIPaneOperation", workspaceId, operation),
     close: (id: string) => invoke("workspaceClose", id),
+    initializeUILayout: (workspaceId: string) => invoke("workspaceInitializeUILayout", workspaceId),
+    listUIPanes: (workspaceId: string) => invoke("workspaceListUIPanes", workspaceId),
+    onUIEvent: (workspaceId, listener) => {
+      if (workspaceId === "") {
+        throw new Error("workspace UI event subscription requires workspaceId");
+      }
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        const event = decodeWorkspaceUIEvent(payload);
+        if (event.workspaceId === workspaceId) {
+          listener(event);
+        }
+      };
+      ipcRenderer.on(ipcEvents.workspaceUIEvent, handler);
+      ipcRenderer.send(ipcMessages.workspaceUIEventSubscribe, workspaceId);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.workspaceUIEvent, handler);
+        ipcRenderer.send(ipcMessages.workspaceUIEventUnsubscribe, workspaceId);
+      };
+    },
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
     openPath: (rootPath: string) => invoke("workspaceOpenPath", rootPath),
+    readUIPane: (workspaceId: string, paneId: string) =>
+      invoke("workspaceReadUIPane", workspaceId, paneId),
+    readUISchema: () => invoke("workspaceReadUISchema"),
     readUILayout: (workspaceId: string) => invoke("workspaceReadUILayout", workspaceId),
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
-    saveUILayout: (layout) => invoke("workspaceSaveUILayout", layout),
+    resetUILayout: (workspaceId: string) => invoke("workspaceResetUILayout", workspaceId),
     select: (id: string) => invoke("workspaceSelect", id),
     selectedConversations: () => invoke("workspaceSelectedConversations"),
     setSelectedConversation: (workspaceId: string, conversationId: string) =>
@@ -530,18 +544,8 @@ function decodeRuntimeRegistrySnapshot(value: unknown): RuntimeRegistrySnapshot 
   if (!Array.isArray(rawRuntimes)) {
     throw new Error("RuntimeRegistrySnapshot.runtimes must be an array");
   }
-  const rawCloudResources = record.cloudResources;
-  if (!Array.isArray(rawCloudResources)) {
-    throw new Error("RuntimeRegistrySnapshot.cloudResources must be an array");
-  }
   return {
     activeRuntimeId: nullableStringField(record, "activeRuntimeId", "RuntimeRegistrySnapshot"),
-    cloudResources: rawCloudResources.map((resource, index) =>
-      decodeCloudRuntimeProvisionResourceView(
-        resource,
-        `RuntimeRegistrySnapshot.cloudResources[${index}]`,
-      ),
-    ),
     connection: decodeRuntimeConnectionState(
       requireRuntimeField(record, "connection", "RuntimeRegistrySnapshot"),
     ),
@@ -549,51 +553,6 @@ function decodeRuntimeRegistrySnapshot(value: unknown): RuntimeRegistrySnapshot 
       decodeKnownRuntimeView(runtime, `RuntimeRegistrySnapshot.runtimes[${index}]`),
     ),
     switching: booleanField(record, "switching", "RuntimeRegistrySnapshot"),
-  };
-}
-
-function decodeCloudRuntimeProvisionResourceView(
-  value: unknown,
-  label: string,
-): CloudRuntimeProvisionResourceView {
-  const record = assertStatusRecord(value, label);
-  return {
-    account: nullableStringField(record, "account", label),
-    billingWarning: nullableStringField(record, "billingWarning", label),
-    cleanupSummary: stringField(record, "cleanupSummary", label),
-    commands: decodeCloudRuntimeProvisionResourceCommands(
-      requireRuntimeField(record, "commands", label),
-      `${label}.commands`,
-    ),
-    createdAt: stringField(record, "createdAt", label),
-    expectedResourceName: stringField(record, "expectedResourceName", label),
-    infrastructureProvider: decodeRuntimeInfrastructureProvider(
-      requireRuntimeField(record, "infrastructureProvider", label),
-      `${label}.infrastructureProvider`,
-    ),
-    lastError: nullableStringField(record, "lastError", label),
-    lastReachableAt: nullableStringField(record, "lastReachableAt", label),
-    recordId: stringField(record, "recordId", label),
-    region: stringField(record, "region", label),
-    resourceId: nullableStringField(record, "resourceId", label),
-    runtimeName: stringField(record, "runtimeName", label),
-    status: stringField(record, "status", label),
-    statusMessage: stringField(record, "statusMessage", label),
-    teardownReady: booleanField(record, "teardownReady", label),
-    updatedAt: stringField(record, "updatedAt", label),
-  };
-}
-
-function decodeCloudRuntimeProvisionResourceCommands(
-  value: unknown,
-  label: string,
-): CloudRuntimeProvisionResourceView["commands"] {
-  const record = assertStatusRecord(value, label);
-  return {
-    diagnose: stringField(record, "diagnose", label),
-    inspect: stringField(record, "inspect", label),
-    teardownApprove: nullableStringField(record, "teardownApprove", label),
-    teardownPlan: nullableStringField(record, "teardownPlan", label),
   };
 }
 

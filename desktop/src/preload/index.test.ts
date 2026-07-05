@@ -98,31 +98,47 @@ describe("preload workspace API", () => {
   test("exposes typed workspace methods through IPC", async () => {
     const { api, invoke } = await exposePreloadAPI();
     expect(Object.keys(api.workspace).sort()).toEqual([
+      "applyUIPaneOperation",
       "close",
+      "initializeUILayout",
+      "listUIPanes",
+      "onUIEvent",
       "openLocalFolder",
       "openPath",
       "readUILayout",
+      "readUIPane",
+      "readUISchema",
       "removeRecent",
       "reorder",
-      "saveUILayout",
+      "resetUILayout",
       "select",
       "selectedConversations",
       "session",
       "setSelectedConversation",
     ]);
 
-    const layout = {
-      columns: [],
-      focusedPaneId: "workspace_pane_0",
-      panes: [],
-      schemaVersion: 1,
-      workspaceId: "workspace_api",
+    const operation = {
+      close: null,
+      configure: null,
+      kind: "focus_pane" as const,
+      move: null,
+      open: null,
+      paneId: "workspace_pane_1",
+      rename: null,
+      reorder: null,
+      resize: null,
+      resizeColumn: null,
     };
     await api.workspace.session();
     await api.workspace.openLocalFolder();
     await api.workspace.openPath("/tmp/recent");
+    await api.workspace.readUISchema();
+    await api.workspace.listUIPanes("workspace_api");
+    await api.workspace.readUIPane("workspace_api", "workspace_pane_1");
     await api.workspace.readUILayout("workspace_api");
-    await api.workspace.saveUILayout(layout);
+    await api.workspace.initializeUILayout("workspace_api");
+    await api.workspace.resetUILayout("workspace_api");
+    await api.workspace.applyUIPaneOperation("workspace_api", operation);
     await api.workspace.select("workspace_api");
     await api.workspace.selectedConversations();
     await api.workspace.setSelectedConversation("workspace_api", "conversation_api");
@@ -134,8 +150,13 @@ describe("preload workspace API", () => {
       [ipcChannels.workspaceSession],
       [ipcChannels.workspaceOpenLocalFolder],
       [ipcChannels.workspaceOpenPath, "/tmp/recent"],
+      [ipcChannels.workspaceReadUISchema],
+      [ipcChannels.workspaceListUIPanes, "workspace_api"],
+      [ipcChannels.workspaceReadUIPane, "workspace_api", "workspace_pane_1"],
       [ipcChannels.workspaceReadUILayout, "workspace_api"],
-      [ipcChannels.workspaceSaveUILayout, layout],
+      [ipcChannels.workspaceInitializeUILayout, "workspace_api"],
+      [ipcChannels.workspaceResetUILayout, "workspace_api"],
+      [ipcChannels.workspaceApplyUIPaneOperation, "workspace_api", operation],
       [ipcChannels.workspaceSelect, "workspace_api"],
       [ipcChannels.workspaceSelectedConversations],
       [ipcChannels.workspaceSetSelectedConversation, "workspace_api", "conversation_api"],
@@ -1473,10 +1494,7 @@ describe("preload workspace API", () => {
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.workflowEvent, handler);
   });
 });
-
 function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {
   expect(invoke).toHaveBeenCalledTimes(calls.length);
-  for (const call of calls) {
-    expect(invoke).toHaveBeenCalledWith(...call);
-  }
+  calls.forEach((call) => expect(invoke).toHaveBeenCalledWith(...call));
 }

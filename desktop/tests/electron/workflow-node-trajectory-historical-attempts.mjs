@@ -199,6 +199,7 @@ function assertTrajectoryPagesDoNotIncludeRun(pages, runId) {
 
 function historicalAttemptWorkflowGraph() {
   return {
+    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges: [
       workflowEdge("start_activity", "start", "activity"),
       workflowEdge("activity_guard", "activity", "guard"),
@@ -238,9 +239,8 @@ function workflowCodexNode(id, title, prompt) {
     action: {
       codex: {
         freshConversation: true,
-        model: "",
         prompt,
-        reasoningEffort: "",
+        settings: { model: "", permission: null, reasoningEffort: null },
       },
       kind: "agent.codex",
     },

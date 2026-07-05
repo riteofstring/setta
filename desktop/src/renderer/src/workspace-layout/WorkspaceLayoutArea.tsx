@@ -1,21 +1,12 @@
 import type { DesktopPlatform } from "@shared/types";
 import type { WorkspaceUILayout } from "@generated/backend";
-import {
-  Profiler,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { Profiler, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isMobileViewportWidth } from "../app-layout";
 import { useAppearanceStore } from "../stores/appearance-store";
 import { useWorkspaceStore } from "../stores/workspace-store";
 import { useViewportSize } from "../use-viewport-size";
 import { FrameScheduler } from "./frame-scheduler";
-import type { WorkspaceLayoutStore } from "./layout-store";
 import {
   finishOverviewPanSession,
   beginOverviewPanSession,
@@ -26,10 +17,9 @@ import {
   clearPaneResizePreview as clearPaneResizePreviewElement,
   syncPaneResizePreview as syncPaneResizePreviewElement,
 } from "./pane-resize-preview";
-import { installWindowResizeReportHooks } from "./performance-report";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
-import { createWorkspaceRuntime, type WorkspaceRuntime } from "./workspace-runtime";
+import { createWorkspaceRuntime } from "./workspace-runtime";
 import {
   cleanupActivePaneDragSession,
   cleanupOverviewDragSource,
@@ -41,9 +31,13 @@ import {
   observeStageResize,
   requireWorkspaceLayoutElements,
 } from "./workspace-layout-area-mount";
+import {
+  installResizeReportHooksForRuntime,
+  useWorkspaceLayoutSnapshot,
+  useWorkspaceUILiveLayout,
+} from "./workspace-layout-area-hooks";
 import { viewportRect } from "./workspace-layout-area-geometry";
 import {
-  focusOrOpenPaneBySurfaceKind,
   WorkspaceMobileControlsLayer,
   WorkspaceOverviewGhostButton,
   WorkspaceToolbarLayer,
@@ -80,32 +74,36 @@ import {
 import { paneResizeTargetFromPointer } from "./pane-resize-target";
 import {
   commitPaneResize,
+  paneResizeOperationForCommit,
   paneResizeSessionFromTarget,
   type PaneResizeSession,
 } from "./pane-resize-session";
-import {
-  WorkspaceLayoutRecoveryNotice,
-  WorkspacePaneHost,
-} from "./workspace-layout-area-components";
+import { WorkspacePaneHost } from "./workspace-layout-area-components";
 import {
   workspaceBenchmarkShouldRun,
   workspaceRuntimeIdentity,
   workspaceSceneMode,
 } from "./workspace-layout-area-runtime";
 import { WorkspaceNoWorkspaceState } from "./workspace-empty-state";
-import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import {
   WorkspaceLayoutLoading,
+  WorkspaceUILayoutRecoveryNotice,
+  useWorkspaceUILayoutEventSync,
+  useWorkspaceUIPaneOperations,
+  useWorkspaceUIPaneMetadataLoad,
   useWorkspaceUILayoutLoad,
-  useWorkspaceUILayoutPersistence,
+  useWorkspaceUILayoutReset,
   workspaceLayoutAreaLabel,
   workspaceLayoutRecoveryMessage,
+  workspacePaneMetadataDataAttributes,
 } from "./workspace-ui-layout";
-import type { OpenPaneRequest, PaneDropIntent, Rect, SurfaceKind } from "./types";
-export interface WorkspaceSurfaceFocusRequest {
-  requestId: number;
-  surfaceKind: SurfaceKind;
-}
+import { focusPaneOperation, reorderPaneOperation } from "./workspace-layout-operations";
+import {
+  useWorkspaceLayoutCommandEffects,
+  type WorkspaceSurfaceFocusRequest,
+} from "./workspace-layout-command-effects";
+import type { PaneDropIntent } from "./types";
+export type { WorkspaceSurfaceFocusRequest } from "./workspace-layout-command-effects";
 const overviewDragThresholdPx = 6;
 
 export function WorkspaceLayoutArea({
@@ -207,6 +205,16 @@ function WorkspaceLayoutRuntimeArea({
   );
   const viewport = useViewportSize();
   const mobileLayout = isMobileViewportWidth(viewport.width);
+  const {
+    applyWorkspaceUICommandLayout,
+    applyWorkspaceUIEventLayout,
+    liveLayout,
+    liveLayoutTransientSnapshot,
+  } = useWorkspaceUILiveLayout({
+    initialLayout,
+    mode,
+    workspaceId,
+  });
   const runtime = useMemo(
     () =>
       createWorkspaceRuntime({
@@ -214,13 +222,15 @@ function WorkspaceLayoutRuntimeArea({
         mode,
         overviewCardMaxWidthPx,
         overviewCardMinWidthPx,
-        storedLayout: initialLayout,
+        storedLayout: liveLayout,
+        transientSnapshot: liveLayoutTransientSnapshot,
         workspaceId,
         workspaceName,
       }),
     [
       allowResizedPanesToOverflowViewport,
-      initialLayout,
+      liveLayout,
+      liveLayoutTransientSnapshot,
       mode,
       overviewCardMaxWidthPx,
       overviewCardMinWidthPx,
@@ -228,7 +238,10 @@ function WorkspaceLayoutRuntimeArea({
       workspaceName,
     ],
   );
+  const runtimeRef = useRef(runtime);
+  runtimeRef.current = runtime;
   const [layoutRecoveryDismissed, setLayoutRecoveryDismissed] = useState(false);
+  const paneMetadataLoad = useWorkspaceUIPaneMetadataLoad(workspaceId, mode);
   const layoutSnapshot = useWorkspaceLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
   const [overviewGhostTarget, setOverviewGhostTargetState] = useState<OverviewGhostTarget | null>(
@@ -247,8 +260,27 @@ function WorkspaceLayoutRuntimeArea({
     setOverviewGhostTarget(null);
     runtime.store.clearInsertFramePreview();
   }, [runtime, setOverviewGhostTarget]);
-  const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
-    useWorkspaceUILayoutPersistence(runtime, workspaceId);
+  const {
+    applyPaneOperation,
+    layoutOperationError,
+    persistFocusedPane,
+    resetLayoutOperationError,
+    runLayoutAction,
+  } = useWorkspaceUIPaneOperations({
+    onLayoutUpdate: applyWorkspaceUICommandLayout,
+    runtime,
+    workspaceId,
+  });
+  const { layoutResetError, resetLayout, resetLayoutResetError } = useWorkspaceUILayoutReset({
+    onLayoutReset: applyWorkspaceUICommandLayout,
+    workspaceId,
+  });
+  const layoutEventSyncError = useWorkspaceUILayoutEventSync({
+    currentRevision: liveLayout?.revision ?? 0,
+    mode,
+    onLayoutUpdate: applyWorkspaceUIEventLayout,
+    workspaceId,
+  });
   const projectPaneWidthRef = useRef(projectPaneWidth);
   projectPaneWidthRef.current = projectPaneWidth;
   const stageViewport = useCallback(() => {
@@ -258,24 +290,23 @@ function WorkspaceLayoutRuntimeArea({
     }
     return viewportRect(stage, projectPaneWidthRef.current);
   }, []);
-  const runLayoutAction = useCallback(
-    (action: () => void) => {
-      action();
-      persistLayout();
-    },
-    [persistLayout],
-  );
   useEffect(() => {
     setLayoutRecoveryDismissed(false);
-    resetLayoutPersistenceError();
-  }, [resetLayoutPersistenceError, workspaceId]);
+    resetLayoutOperationError();
+    resetLayoutResetError();
+  }, [resetLayoutOperationError, resetLayoutResetError, workspaceId]);
+  useEffect(() => {
+    if (layoutEventSyncError !== null) {
+      setLayoutRecoveryDismissed(false);
+    }
+  }, [layoutEventSyncError]);
   useEffect(() => {
     runtime.engine.setCompactLayout(mobileLayout);
     schedulerRef.current?.requestFrame();
   }, [mobileLayout, runtime]);
   useEffect(() => {
     if (runtime.mode === "workspace") {
-      runtime.store.ensureFocusedColumnVisible(stageViewport());
+      runtime.store.ensureFocusedPaneVisible(stageViewport());
       runtime.store.snapScrollToTarget();
     }
     schedulerRef.current?.requestFrame();
@@ -283,60 +314,13 @@ function WorkspaceLayoutRuntimeArea({
   useEffect(() => {
     schedulerRef.current?.requestFrame();
   }, [nativeViewOverlayActive]);
-  const openOverviewGhostPane = useCallback(
-    (target: OverviewGhostTarget) => {
-      clearOverviewInsertPreview();
-      runLayoutAction(() => {
-        runtime.store.openEmptyFrameNear(target.paneId, target.placement);
-        runtime.store.toggleOverviewMode();
-        runtime.store.ensureFocusedPaneVisible(stageViewport());
-        runtime.store.snapScrollToTarget();
-      });
-    },
-    [clearOverviewInsertPreview, runLayoutAction, runtime, stageViewport],
-  );
-  useEffect(() => {
-    if (!focusSurfaceRequest || runtime.mode !== "workspace") {
-      return;
-    }
-    runLayoutAction(() => {
-      focusOrOpenPaneBySurfaceKind(runtime, focusSurfaceRequest.surfaceKind);
-      runtime.store.ensureFocusedColumnVisible(stageViewport());
-      runtime.store.snapScrollToTarget();
-    });
-  }, [focusSurfaceRequest, runLayoutAction, runtime, stageViewport]);
-  useEffect(() => {
-    if (runtime.mode !== "workspace") {
-      return;
-    }
-    const handleOpenPaneRequest = (event: Event) => {
-      const request = (event as CustomEvent<OpenPaneRequest>).detail;
-      if (!request?.surfaceKind) {
-        return;
-      }
-      const surfaceKind = request.surfaceKind;
-      runLayoutAction(() => {
-        const maximizedPaneId = runtime.store.getSnapshot().maximizedPaneId;
-        if (maximizedPaneId !== null) {
-          runtime.store.togglePaneMaximized(maximizedPaneId);
-        }
-        if (runtime.store.canOpenPane(request)) {
-          runtime.store.openPane(request);
-        } else {
-          const paneId = runtime.store.focusPaneBySurfaceKind(surfaceKind);
-          if (paneId !== null && request.workflowNodeDetailsConfig) {
-            runtime.store.configurePane(paneId, request);
-          }
-        }
-        runtime.store.ensureFocusedColumnVisible(stageViewport());
-        runtime.store.snapScrollToTarget();
-      });
-    };
-    window.addEventListener(workspaceOpenPaneRequestEvent, handleOpenPaneRequest);
-    return () => {
-      window.removeEventListener(workspaceOpenPaneRequestEvent, handleOpenPaneRequest);
-    };
-  }, [runLayoutAction, runtime, stageViewport]);
+  const { openOverviewGhostPane } = useWorkspaceLayoutCommandEffects({
+    clearOverviewInsertPreview,
+    focusSurfaceRequest,
+    runLayoutAction,
+    runtime,
+    stageViewport,
+  });
   useEffect(() => {
     const { hosts, root, stage } = requireWorkspaceLayoutElements({
       hostPoolSize: runtime.hostPoolSize,
@@ -370,19 +354,27 @@ function WorkspaceLayoutRuntimeArea({
     if (!workspaceBenchmarkShouldRun(runtime.mode)) {
       scheduler.pauseBenchmark();
     }
+    const runtimeIsCurrent = () => runtimeRef.current === runtime;
     const requestSchedulerFrame = () => scheduler.requestFrame();
     const stageResizeObserver = observeStageResize(stage, requestSchedulerFrame);
-    const handleKeyDown = (event: KeyboardEvent) =>
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!runtimeIsCurrent()) {
+        return;
+      }
       handleWorkspaceKeyDown({
         event,
-        persistLayout,
+        persistFocusedPane,
         runLayoutAction,
         runtime,
         scheduler,
         shortcuts: shortcuts ?? undefined,
         viewportProvider: stageViewport,
       });
+    };
     const handleWheel = (event: WheelEvent) => {
+      if (!runtimeIsCurrent()) {
+        return;
+      }
       // A wheel mid-drag would corrupt the drag's frozen hit rects / pan session.
       if (
         paneDragSessionRef.current !== null ||
@@ -404,7 +396,7 @@ function WorkspaceLayoutRuntimeArea({
       }
       handleWorkspaceWheel({
         event,
-        persistLayout,
+        persistFocusedPane,
         root,
         runtime,
         scheduler,
@@ -414,6 +406,9 @@ function WorkspaceLayoutRuntimeArea({
       });
     };
     const handleClick = (event: MouseEvent) => {
+      if (!runtimeIsCurrent()) {
+        return;
+      }
       if (suppressNextClickRef.current) {
         suppressNextClickRef.current = false;
         event.preventDefault();
@@ -591,6 +586,9 @@ function WorkspaceLayoutRuntimeArea({
       return true;
     };
     const handlePointerDown = (event: PointerEvent) => {
+      if (!runtimeIsCurrent()) {
+        return;
+      }
       if (runtime.mode !== "workspace" && runtime.mode !== "benchmark") {
         return;
       }
@@ -670,6 +668,9 @@ function WorkspaceLayoutRuntimeArea({
       return true;
     };
     const handlePointerMove = (event: PointerEvent) => {
+      if (!runtimeIsCurrent()) {
+        return;
+      }
       if (updateOverviewPan(event)) {
         return;
       }
@@ -719,7 +720,9 @@ function WorkspaceLayoutRuntimeArea({
         const dropIntent = overviewSession.lastDropIntent;
         if (dropIntent) {
           runLayoutAction(() => {
+            const operation = reorderPaneOperation(overviewSession.sourcePaneId, dropIntent);
             runtime.store.applyPaneDropIntent(overviewSession.sourcePaneId, dropIntent);
+            return operation;
           });
         }
         return true;
@@ -729,6 +732,7 @@ function WorkspaceLayoutRuntimeArea({
         runtime.store.toggleOverviewMode();
         runtime.store.ensureFocusedPaneVisible(stageViewport());
         runtime.store.snapScrollToTarget();
+        return focusPaneOperation(overviewSession.sourcePaneId);
       });
       return true;
     };
@@ -754,14 +758,21 @@ function WorkspaceLayoutRuntimeArea({
       const dropTarget = dragFinish.target;
       if (dragFinish.shouldCommitDrop && dragFinish.dragging && dropTarget) {
         runLayoutAction(() => {
-          applyPaneDrop(runtime.store, dragFinish.sourcePaneId, dropTarget);
+          const operation = reorderPaneOperation(dragFinish.sourcePaneId, dropTarget.intent);
+          if (!applyPaneDrop(runtime.store, dragFinish.sourcePaneId, dropTarget)) {
+            return null;
+          }
           runtime.store.ensureFocusedPaneVisible(stageViewport());
           runtime.store.snapScrollToTarget();
+          return operation;
         });
       }
       return true;
     };
     const handlePointerUp = (event: PointerEvent) => {
+      if (!runtimeIsCurrent()) {
+        return;
+      }
       if (finishActiveOverviewPan(event)) {
         return;
       }
@@ -785,17 +796,20 @@ function WorkspaceLayoutRuntimeArea({
       delete root.dataset.paneResizingAxis;
       clearActivePaneResizePreview();
       if (resizeCommitted) {
-        persistLayout();
+        void applyPaneOperation(paneResizeOperationForCommit(session, event));
       }
     };
     const unsubscribeNativeKey =
       window.setta.workspaceNativeViews?.onBrowserViewKey((event) => {
+        if (!runtimeIsCurrent()) {
+          return;
+        }
         if (event.workspaceId !== runtime.scene.id) {
           return;
         }
         handleForwardedBrowserViewKey({
           event,
-          persistLayout,
+          persistFocusedPane,
           runLayoutAction,
           runtime,
           scheduler,
@@ -839,7 +853,8 @@ function WorkspaceLayoutRuntimeArea({
     };
   }, [
     clearOverviewInsertPreview,
-    persistLayout,
+    applyPaneOperation,
+    persistFocusedPane,
     runLayoutAction,
     runtime,
     setOverviewGhostTarget,
@@ -860,8 +875,11 @@ function WorkspaceLayoutRuntimeArea({
   };
   const layoutRecoveryMessage = workspaceLayoutRecoveryMessage({
     dismissed: layoutRecoveryDismissed,
+    layoutEventSyncError,
     layoutLoadError,
-    layoutPersistenceError,
+    paneMetadataLoadError: paneMetadataLoad.error,
+    layoutOperationError,
+    layoutResetError,
     runtime,
   });
   return (
@@ -875,15 +893,18 @@ function WorkspaceLayoutRuntimeArea({
       data-native-view-clip-left={projectPaneWidth}
       data-native-view-overlay-active={nativeViewOverlayActive}
       data-pane-count={currentScene.totalPanes}
+      {...workspacePaneMetadataDataAttributes(paneMetadataLoad)}
       data-presentation-mode={layoutSnapshot.presentationMode}
       data-workspace-mode={runtime.mode}
       data-workspace-id={runtime.scene.id}
       data-testid="workspace-layout-area"
       ref={rootRef}
     >
-      <WorkspaceLayoutRecoveryNotice
+      <WorkspaceUILayoutRecoveryNotice
+        layoutLoadError={layoutLoadError}
         message={layoutRecoveryMessage}
         onDismiss={() => setLayoutRecoveryDismissed(true)}
+        resetLayout={resetLayout}
       />
       <div className="workspace-stage" data-testid="workspace-presentation-engine" ref={stageRef}>
         <WorkspaceOverviewGhostButton
@@ -929,35 +950,13 @@ function WorkspaceLayoutRuntimeArea({
         mobileLayout={mobileLayout}
         onToggleProjectPane={onToggleProjectPane}
         overviewActive={layoutSnapshot.presentationMode === "overview"}
-        persistLayout={persistLayout}
+        persistFocusedPane={persistFocusedPane}
         projectPaneOpen={projectPaneOpen}
         runLayoutAction={runLayoutAction}
         runtime={runtime}
         stageViewport={stageViewport}
       />
     </section>
-  );
-}
-
-function installResizeReportHooksForRuntime(
-  runtime: WorkspaceRuntime,
-  viewportProvider: () => Rect,
-): () => void {
-  if (runtime.mode !== "benchmark") {
-    return () => {};
-  }
-  return installWindowResizeReportHooks({
-    metrics: runtime.metrics,
-    viewportProvider,
-    writer: runtime.resizeReportWriter,
-  });
-}
-
-function useWorkspaceLayoutSnapshot(store: WorkspaceLayoutStore) {
-  return useSyncExternalStore(
-    (listener) => store.subscribe(listener),
-    () => store.getSnapshot(),
-    () => store.getSnapshot(),
   );
 }
 

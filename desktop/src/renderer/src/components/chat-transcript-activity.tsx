@@ -36,7 +36,6 @@ import { BrailleSpinner } from "./ascii-spinner";
 import {
   ActivityCommandExecutionDetails,
   ActivityCommandStartFailureDetails,
-  ActivityDynamicToolDetails,
   ActivityExit,
   ActivityFileChangeDetails,
   ActivityJSONDetails,
@@ -65,7 +64,6 @@ const activityIconByType = {
   command_start_failure: CircleAlert,
   context_compaction: Archive,
   diff: FileText,
-  dynamic_tool_call: Wrench,
   file_change: FileText,
   hook: Wrench,
   image_generation: Wrench,
@@ -89,7 +87,6 @@ const activityIconClassByType = {
   command_start_failure: "h-4 w-4 shrink-0 text-status-critical-muted",
   context_compaction: "h-4 w-4 shrink-0 text-muted-foreground",
   diff: "h-4 w-4 shrink-0 text-muted-foreground",
-  dynamic_tool_call: "h-4 w-4 shrink-0 text-muted-foreground",
   file_change: "h-4 w-4 shrink-0 text-muted-foreground",
   hook: "h-4 w-4 shrink-0 text-muted-foreground",
   image_generation: "h-4 w-4 shrink-0 text-muted-foreground",
@@ -207,7 +204,6 @@ const activityLabelResolvers = {
   command_start_failure: commandStartFailureActivityDisplayLabel,
   context_compaction: noActivityDisplayLabel,
   diff: diffActivityDisplayLabel,
-  dynamic_tool_call: toolActivityDisplayLabel,
   file_change: fileActivityDisplayLabel,
   hook: noActivityDisplayLabel,
   image_generation: noActivityDisplayLabel,
@@ -255,7 +251,7 @@ function diffActivityDisplayLabel(activity: ActivityItemBlockProjection) {
 }
 
 function toolActivityDisplayLabel(activity: ActivityItemBlockProjection) {
-  if (activity.details.mcpToolCall !== null || activity.details.dynamicToolCall !== null) {
+  if (activity.details.mcpToolCall !== null) {
     return { monospace: false, text: activity.title };
   }
   const { serverName, toolName } = activity.details;
@@ -403,6 +399,7 @@ function ActivityRowView({
           }
           outputPage={outputPage}
           outputText={outputText}
+          status={activity.status}
         />
       ) : null}
     </details>
@@ -580,12 +577,14 @@ function ActivityDetails({
   loadMoreOutput,
   outputPage,
   outputText,
+  status,
 }: {
   currentPlanSurfaceAction: CurrentPlanSurfaceAction | null;
   details: RunActivityDetailsProjection;
   loadMoreOutput?: () => void;
   outputPage: RunItemOutputPageState | undefined;
   outputText: string;
+  status: RunItemStatus;
 }) {
   const commandExecution = activityCommandExecutionDisplay(details);
   const genericResultDetails = hasGenericResultDetails(details);
@@ -619,7 +618,6 @@ function ActivityDetails({
         <ActivityProviderStreamLifecycleDetails details={details} />
         <ActivityTextBlock title="Notice" value={details.noticeMessage} />
         <ActivityMCPDetails details={details} />
-        <ActivityDynamicToolDetails details={details} />
         {genericResultDetails ? <ActivityJSONDetails details={details.details} /> : null}
         <ActivityExit
           durationMs={commandExecution.durationMs}
@@ -627,8 +625,10 @@ function ActivityDetails({
         />
         <ActivityOutput
           loadMoreOutput={loadMoreOutput}
+          outputAvailability={commandExecution.outputAvailability}
           outputPage={outputPage}
           outputText={outputText}
+          terminal={isTerminalActivityStatus(status)}
         />
       </div>
     </div>
@@ -638,7 +638,6 @@ function ActivityDetails({
 function hasGenericResultDetails(details: RunActivityDetailsProjection) {
   return [
     details.mcpToolCall,
-    details.dynamicToolCall,
     details.commandExecution,
     details.commandStartFailure,
     details.fileChange,
@@ -649,7 +648,13 @@ function hasGenericResultDetails(details: RunActivityDetailsProjection) {
   ].every((value) => value === null);
 }
 
-function activityCommandExecutionDisplay(details: RunActivityDetailsProjection) {
+type ActivityCommandExecutionDisplay = NonNullable<
+  RunActivityDetailsProjection["commandExecution"]
+>;
+
+function activityCommandExecutionDisplay(
+  details: RunActivityDetailsProjection,
+): ActivityCommandExecutionDisplay {
   const commandExecution = details.commandExecution;
   if (commandExecution !== null) {
     return commandExecution;
@@ -664,6 +669,7 @@ function activityCommandExecutionDisplay(details: RunActivityDetailsProjection) 
       processId: details.processId,
       result: details.result,
       error: details.error,
+      outputAvailability: "unavailable",
       source: null,
     };
   }
@@ -675,8 +681,13 @@ function activityCommandExecutionDisplay(details: RunActivityDetailsProjection) 
     processId: "",
     result: "",
     error: commandStartFailure.message,
+    outputAvailability: "unavailable",
     source: commandStartFailure.source,
   };
+}
+
+function isTerminalActivityStatus(status: RunItemStatus) {
+  return status !== "pending" && status !== "running";
 }
 
 function hasExpandableActivityRow(activity: ActivityItemBlockProjection) {
@@ -784,7 +795,6 @@ function activityMetadata(details: RunActivityDetailsProjection) {
     { label: "patch", value: details.patchStatus },
     { label: "notice", value: details.noticeKind },
     ...mcpToolCallMetadata(details),
-    ...dynamicToolCallMetadata(details),
     ...commandStartFailureMetadata(details),
     ...approvalMetadata(details),
     ...providerStreamLifecycleMetadata(details),
@@ -799,17 +809,6 @@ function mcpToolCallMetadata(details: RunActivityDetailsProjection) {
       { label: "tool", value: details.mcpToolCall.toolName },
       { label: "plugin", value: details.mcpToolCall.pluginId },
       { label: "resource", value: details.mcpToolCall.mcpAppResourceUri },
-    ];
-  }
-  return [];
-}
-
-function dynamicToolCallMetadata(details: RunActivityDetailsProjection) {
-  if (details.dynamicToolCall !== null) {
-    return [
-      { label: "namespace", value: details.dynamicToolCall.namespace },
-      { label: "tool", value: details.dynamicToolCall.toolName },
-      { label: "category", value: details.dynamicToolCall.category },
     ];
   }
   return [];

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Workspace Manager"
+  short_description: "Manage Setta workspace panes safely"
+  default_prompt: "Use $workspace-manager to inspect, read terminal pane output, and update Setta workspace panes through the CLI."

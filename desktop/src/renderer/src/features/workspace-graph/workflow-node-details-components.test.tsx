@@ -1,6 +1,7 @@
 import type {
   RunItem,
   RunItemOutput,
+  WorkflowAgentEffectiveRunSettings,
   WorkflowAgentTrajectoryPage,
   WorkflowEvent,
   WorkflowExecution,
@@ -38,6 +39,109 @@ describe("WorkflowRunDetailsContent activity focus", () => {
     expect(html).toContain('data-testid="activity-group-header"');
     expect(html).toContain('data-activity-group-source-run-item-ids="run_item_command"');
     expect(html).toContain("npm test");
+  });
+
+  test("renders agent runs with the trajectory as the primary body and no fixed nested frame", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection()}
+        target={target()}
+      />,
+    );
+
+    expect(html).toContain('data-workflow-node-run-layout="agent"');
+    expect(html).toContain('data-testid="workflow-run-details-dock"');
+    expect(html).toContain('data-testid="workflow-node-agent-trajectory"');
+    expect(html).not.toContain("h-[36rem]");
+    expect(html).not.toContain("Agent Trajectory");
+  });
+
+  test("keeps the workflow details dock collapsed by default", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection()}
+        target={target()}
+      />,
+    );
+
+    expect(html).toContain('data-testid="workflow-run-details-dock"');
+    expect(html).not.toContain('data-default-open="true"');
+  });
+
+  test("renders one node-scoped status chip and labels workflow status as metadata", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection()}
+        target={target()}
+      />,
+    );
+
+    expect(occurrences(html, 'data-testid="workflow-node-status-chip"')).toBe(1);
+    expect(html).toContain("waiting approval");
+    expect(html).toContain('data-testid="workflow-node-run-workflow-status"');
+    expect(html).toContain("workflow running");
+  });
+
+  test("renders completed workflow agent run settings inside the normal composer toolbar", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection({
+          trajectory: workflowNodeTrajectoryStateFromPage(
+            trajectoryPage({ runSettings: runSettings() }),
+          ),
+        })}
+        target={target()}
+      />,
+    );
+
+    expect(html).not.toContain('data-testid="workflow-agent-run-settings"');
+    expect(html).toContain('data-chat-composer-mode="read-only-settings"');
+    expect(html).not.toContain('aria-label="Ask Setta"');
+    expectReadOnlySettingsControls(html);
+  });
+
+  test("renders active workflow agent run settings below the steering input", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection({
+          trajectory: workflowNodeTrajectoryStateFromPage(
+            steerablePage({ runSettings: runSettings() }),
+          ),
+        })}
+        target={target()}
+      />,
+    );
+
+    expect(html).not.toContain('data-testid="workflow-agent-run-settings"');
+    expect(html).toContain('aria-label="Ask Setta"');
+    expectReadOnlySettingsControls(html);
+    expect(
+      elementOrder(html, 'aria-label="Ask Setta"', 'data-testid="chat-composer-bottom-toolbar"'),
+    ).toBe("before");
+  });
+
+  test("opens the workflow details dock when an activity focus targets a detail row", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={focus({ detailKind: "workflow_event", workflowEventId: "event_running" })}
+        inspection={inspection()}
+        target={target()}
+      />,
+    );
+
+    expect(html).toContain('data-default-open="true"');
+    expect(html).toContain('data-activity-focus-id="workflow-event:event_running"');
   });
 
   test("renders a node-scoped stop control for a stoppable active run", () => {
@@ -148,6 +252,7 @@ function inspection(
   return {
     events: [workflowEvent("event_running", "running activity")],
     execution: execution(),
+    lastWorkflowEventOrdinal: 5,
     loadError: "",
     loading: false,
     operation: null,
@@ -215,6 +320,7 @@ function nodeExecution(): WorkflowNodeExecution {
   return {
     actionKind: null,
     actionPolicy: null,
+    agentRunSettings: null,
     activityRefs: [],
     attempt: 1,
     completedAt: "",
@@ -282,6 +388,7 @@ function trajectoryPage(
   return {
     activeRun: null,
     activeRunLiveness: null,
+    runSettings: null,
     activity: [
       activityBlock({
         details: {
@@ -293,7 +400,6 @@ function trajectoryPage(
           details: null,
           diff: null,
           durationMs: 0,
-          dynamicToolCall: null,
           error: "",
           exitCode: 0,
           fileChange: null,
@@ -340,7 +446,6 @@ function trajectoryPage(
           details: null,
           diff: null,
           durationMs: 0,
-          dynamicToolCall: null,
           error: "",
           exitCode: 0,
           fileChange: null,
@@ -383,6 +488,9 @@ function trajectoryPage(
     hasMoreItems: false,
     hasMoreOlder: false,
     items: [runItem()],
+    lastChatEventSequence: 10,
+    lastChatEventStreamId: "chat_stream_test",
+    lastWorkflowEventOrdinal: 5,
     nextItemId: "",
     olderBeforeBlockOrdinal: 0,
     outputPages: [
@@ -397,6 +505,7 @@ function trajectoryPage(
     ],
     outputs: [runOutput()],
     pendingApproval: null,
+    pendingSteeringMessages: [],
     run: { ...testRun("completed", "run_a"), workspaceId: "workspace_test" },
     runId: "run_a",
     schemaVersion: 1,
@@ -414,22 +523,51 @@ function trajectoryPage(
   };
 }
 
-function stoppablePage(): WorkflowAgentTrajectoryPage {
+function runSettings(): WorkflowAgentEffectiveRunSettings {
+  return {
+    approvalPolicy: "never",
+    model: "gpt-5",
+    modelDisplayName: "GPT-5",
+    modelSource: "workflow",
+    permissionDisplayLabel: "Full Access",
+    permissionPreset: "full-access",
+    permissionProfileId: "full-access",
+    permissionSource: "node",
+    permissions: "full-access",
+    reasoningEffort: "high",
+    reasoningEffortDisplayName: "High",
+    reasoningEffortSource: "default",
+  };
+}
+
+function stoppablePage(
+  overrides: Partial<WorkflowAgentTrajectoryPage> = {},
+): WorkflowAgentTrajectoryPage {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
     activeRunLiveness: {
+      activeStatus: {
+        detail: "",
+        headline: "Working",
+        headlineSource: "fallback",
+        kind: "working",
+      },
       cancellable: true,
       conversationId: "conversation_api",
       error: "",
       harness: "codex",
       lastProviderEventAt: "2026-06-07T00:00:01Z",
+      lastVisibleActivityAt: "2026-06-07T00:00:01Z",
       lastReconciledAt: "",
+      phase: "attached",
       providerThreadId: "thread_api",
       providerTurnId: "turn_api",
       reason: "provider_turn_linked",
       retryable: false,
       runId: "run_a",
       status: "attached",
+      steerable: true,
+      steeringDisabledReason: "",
       workspaceId: "workspace_test",
     },
     capabilities: {
@@ -442,25 +580,38 @@ function stoppablePage(): WorkflowAgentTrajectoryPage {
       canSubmitApproval: false,
     },
     run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+    ...overrides,
   });
 }
 
-function steerablePage(): WorkflowAgentTrajectoryPage {
+function steerablePage(
+  overrides: Partial<WorkflowAgentTrajectoryPage> = {},
+): WorkflowAgentTrajectoryPage {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
     activeRunLiveness: {
+      activeStatus: {
+        detail: "",
+        headline: "Working",
+        headlineSource: "fallback",
+        kind: "working",
+      },
       cancellable: true,
       conversationId: "conversation_api",
       error: "",
       harness: "codex",
       lastProviderEventAt: "2026-06-07T00:00:01Z",
+      lastVisibleActivityAt: "2026-06-07T00:00:01Z",
       lastReconciledAt: "",
+      phase: "attached",
       providerThreadId: "thread_api",
       providerTurnId: "turn_api",
       reason: "provider_turn_linked",
       retryable: false,
       runId: "run_a",
       status: "attached",
+      steerable: true,
+      steeringDisabledReason: "",
       workspaceId: "workspace_test",
     },
     capabilities: {
@@ -473,6 +624,7 @@ function steerablePage(): WorkflowAgentTrajectoryPage {
       canSubmitApproval: false,
     },
     run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+    ...overrides,
   });
 }
 
@@ -532,6 +684,7 @@ function workflowEvent(id: string, message: string): WorkflowEvent {
   return {
     createdAt: "2026-06-07T00:00:00Z",
     definitionId: "workflow_definition_test",
+    definitionName: "",
     definitionVersionId: "workflow_version_test",
     details: {},
     executionId: "workflow_execution_test",
@@ -550,4 +703,27 @@ function workflowEvent(id: string, message: string): WorkflowEvent {
 
 function occurrences(haystack: string, needle: string) {
   return haystack.split(needle).length - 1;
+}
+
+function expectReadOnlySettingsControls(html: string) {
+  expect(html).toContain('data-testid="chat-composer-bottom-toolbar"');
+  expect(html).toContain('data-chat-settings-readonly="true"');
+  expect(html).toContain('aria-label="Open permission mode picker"');
+  expect(html).toContain('aria-label="Open model and reasoning picker"');
+  expect(occurrences(html, 'title="Run settings are read-only."')).toBe(2);
+  expect(html).toContain("Full Access");
+  expect(html).toContain("GPT-5");
+  expect(html).toContain("High");
+  expect(html).not.toContain("node override");
+  expect(html).not.toContain("workflow default");
+  expect(html).not.toContain("app default");
+}
+
+function elementOrder(html: string, first: string, second: string) {
+  const firstIndex = html.indexOf(first);
+  const secondIndex = html.indexOf(second);
+  if (firstIndex < 0 || secondIndex < 0) {
+    return "missing";
+  }
+  return firstIndex < secondIndex ? "before" : "after";
 }

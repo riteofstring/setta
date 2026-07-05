@@ -5,6 +5,7 @@ import { basename, join } from "node:path";
 import process from "node:process";
 
 import { backendProbe } from "./chat-workflow-harness.mjs";
+import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -29,6 +30,7 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
 const terminalContentClickCommand = "printf 'SETTA_PANE_CONTENT_CLICK_OK\\n'";
 const terminalContentClickOutput = "SETTA_PANE_CONTENT_CLICK_OK";
+const workspaceUILayoutEventSyncedTitle = "Workflow Graph Synced";
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
@@ -67,6 +69,10 @@ try {
   const seededWorkspaceId = await seedTwoPaneWorkspaceLayout(backend, fixture.workspaceRoot);
   await waitForWorkspaceLayoutArea(context.client);
   await openSeededWorkspaceInRenderer(context.client, seededWorkspaceId);
+  const paneMetadata = await waitForWorkspacePaneMetadata(context.client, seededWorkspaceId);
+  await waitForTerminalReady(context.client);
+  const eventSyncedLayout = await applyWorkspaceUILayoutEventUpdate(backend, seededWorkspaceId);
+  const eventSyncState = await waitForWorkspaceUILayoutEventSync(context.client, eventSyncedLayout);
   await waitForTerminalReady(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
 
@@ -106,12 +112,21 @@ try {
       state.scenario.focusAwayPaneId === scenario.focusAwayPaneId,
   );
   await captureScreenshot(context.client, join(artifactDir, "after-top-click.png"));
+  const resetLayout = await resetWorkspaceUILayoutThroughRenderer(
+    context.client,
+    seededWorkspaceId,
+  );
+  const resetState = await waitForWorkspaceUILayoutReset(context.client, resetLayout);
 
   await writeJson(join(artifactDir, "summary.json"), {
     afterContentLayout: afterContentState.layout,
     afterTopBarLayout: afterTopBarState.layout,
     artifactDir,
     beforeContentLayout,
+    eventSyncState,
+    paneMetadata,
+    resetLayout,
+    resetState,
     scenario,
     status: "passed",
     viewport,
@@ -168,6 +183,23 @@ async function waitForTerminalReady(client) {
   );
 }
 
+async function waitForWorkspacePaneMetadata(client, workspaceId) {
+  return waitForLoggedState(
+    client,
+    workspacePaneMetadataExpression(),
+    "workspace pane metadata",
+    (metadata) =>
+      metadata.workspaceId === workspaceId &&
+      metadata.status === "loaded" &&
+      metadata.layoutPresent &&
+      metadata.count === 2 &&
+      metadata.focusedPaneId === "workspace_pane_0" &&
+      metadata.readableCount === 2 &&
+      metadata.writableCount === 0,
+    (metadata) => ({ ...metadata, expectedWorkspaceId: workspaceId }),
+  );
+}
+
 async function openSeededWorkspaceInRenderer(client, workspaceId) {
   const initialState = await waitForLoggedState(
     client,
@@ -195,14 +227,112 @@ async function seedTwoPaneWorkspaceLayout(backend, workspaceRoot) {
   if (workspaceId === "") {
     throw new Error(`workspace open response missing id: ${JSON.stringify(opened)}`);
   }
-  const layout = twoPaneWorkspaceUILayout(workspaceId);
-  const saved = await backend.post("/workspaces/ui/layout/save", { layout });
-  if (saved.workspaceId !== workspaceId) {
+  const initialized = await backend.post("/workspaces/ui/layout/initialize", { workspaceId });
+  if (initialized.workspaceId !== workspaceId) {
     throw new Error(
-      `saved layout workspace ${saved.workspaceId} did not match opened workspace ${workspaceId}`,
+      `initialized layout workspace ${initialized.workspaceId} did not match opened workspace ${workspaceId}`,
     );
   }
+  await backend.post("/workspaces/ui/panes/operation", {
+    operation: paneOperation("close_pane", "workspace_pane_3", {
+      close: { surfaceClose: "none" },
+    }),
+    workspaceId,
+  });
+  await backend.post("/workspaces/ui/panes/operation", {
+    operation: paneOperation("close_pane", "workspace_pane_2", {
+      close: { surfaceClose: "none" },
+    }),
+    workspaceId,
+  });
+  await backend.post("/workspaces/ui/panes/operation", {
+    operation: paneOperation("configure_pane", "workspace_pane_0", {
+      configure: {
+        subtitle: "workspace graph",
+        surfaceKind: "workflow-graph",
+        terminalConfig: null,
+        title: "Workflow Graph",
+        tone: "cyan",
+        workflowNodeDetailsConfig: null,
+      },
+    }),
+    workspaceId,
+  });
   return workspaceId;
+}
+
+async function applyWorkspaceUILayoutEventUpdate(backend, workspaceId) {
+  const result = await backend.post("/workspaces/ui/panes/operation", {
+    operation: paneOperation("rename_pane", "workspace_pane_0", {
+      rename: { title: workspaceUILayoutEventSyncedTitle },
+    }),
+    workspaceId,
+  });
+  if (result.workspaceId !== workspaceId || result.layout?.workspaceId !== workspaceId) {
+    throw new Error(
+      `event-sync operation did not return the requested workspace layout: ${JSON.stringify(result)}`,
+    );
+  }
+  return result.layout;
+}
+
+async function waitForWorkspaceUILayoutEventSync(client, expectedLayout) {
+  return waitForLoggedState(
+    client,
+    workspaceUILayoutEventSyncExpression(expectedLayout.panes[0].paneId),
+    "workspace UI layout event sync",
+    (state) =>
+      state.workspaceId === expectedLayout.workspaceId &&
+      state.revision === expectedLayout.revision &&
+      state.title === workspaceUILayoutEventSyncedTitle,
+    (state) => ({
+      ...state,
+      expectedRevision: expectedLayout.revision,
+      expectedTitle: workspaceUILayoutEventSyncedTitle,
+      expectedWorkspaceId: expectedLayout.workspaceId,
+    }),
+  );
+}
+
+async function resetWorkspaceUILayoutThroughRenderer(client, workspaceId) {
+  const resetLayout = await client.evaluate(`(async () => {
+    return await window.setta.workspace.resetUILayout(${JSON.stringify(workspaceId)});
+  })()`);
+  if (
+    resetLayout.workspaceId !== workspaceId ||
+    resetLayout.revision <= 0 ||
+    resetLayout.panes.length !== 4 ||
+    resetLayout.columns.length !== 4
+  ) {
+    throw new Error(
+      `workspace UI reset returned unexpected layout: ${JSON.stringify(resetLayout)}`,
+    );
+  }
+  return resetLayout;
+}
+
+async function waitForWorkspaceUILayoutReset(client, expectedLayout) {
+  return waitForLoggedState(
+    client,
+    driverCallExpression("workspaceUILayoutResetState"),
+    "workspace UI layout reset",
+    (state) =>
+      state.ok &&
+      state.workspaceId === expectedLayout.workspaceId &&
+      state.revision === expectedLayout.revision &&
+      state.paneCount === 4 &&
+      state.focusedPaneId === expectedLayout.focusedPaneId &&
+      state.surfaceKinds.includes("chat-dom") &&
+      state.surfaceKinds.includes("terminal") &&
+      state.surfaceKinds.includes("workflow-graph") &&
+      state.surfaceKinds.includes("settings-dom"),
+    (state) => ({
+      ...state,
+      expectedFocusedPaneId: expectedLayout.focusedPaneId,
+      expectedRevision: expectedLayout.revision,
+      expectedWorkspaceId: expectedLayout.workspaceId,
+    }),
+  );
 }
 
 async function prepareTwoPaneFocusScenario(client) {
@@ -239,7 +369,7 @@ async function waitForFocusAwayScenarioState(client, scenario, label) {
 async function waitForPaneFocusState(client, label, predicate) {
   return waitForLoggedState(
     client,
-    paneFocusWorkflowStateExpression(),
+    driverCallExpression("paneFocusWorkflowState"),
     label,
     (state) => state.ok && predicate(state),
     summarizePaneFocusState,
@@ -247,7 +377,7 @@ async function waitForPaneFocusState(client, label, predicate) {
 }
 
 async function readPaneFocusState(client) {
-  return client.evaluate(paneFocusWorkflowStateExpression());
+  return client.driver("paneFocusWorkflowState");
 }
 
 async function clickPaneTopBar(client, paneId, label) {
@@ -267,7 +397,7 @@ async function clickPaneContent(client, paneId) {
 }
 
 async function paneClickPoint(client, paneId, targetKind) {
-  return client.evaluate(paneClickPointExpression(paneId, targetKind));
+  return client.driver("paneClickPoint", { paneId, targetKind });
 }
 
 async function sendTerminalCommand(client, paneId, text) {
@@ -424,6 +554,25 @@ function workspaceIdExpression() {
   })()`;
 }
 
+function workspacePaneMetadataExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    if (!(area instanceof HTMLElement)) {
+      return { present: false };
+    }
+    return {
+      count: Number(area.dataset.paneMetadataCount ?? "0"),
+      focusedPaneId: area.dataset.paneMetadataFocusedPaneId ?? "",
+      layoutPresent: area.dataset.paneMetadataLayoutPresent === "true",
+      present: true,
+      readableCount: Number(area.dataset.paneMetadataReadableCount ?? "0"),
+      status: area.dataset.paneMetadataStatus ?? "",
+      writableCount: Number(area.dataset.paneMetadataWritableCount ?? "0"),
+      workspaceId: area.dataset.workspaceId ?? "",
+    };
+  })()`;
+}
+
 function seededWorkspaceOpenStateExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
@@ -437,265 +586,35 @@ function seededWorkspaceOpenStateExpression() {
   })()`;
 }
 
-function twoPaneWorkspaceUILayout(workspaceId) {
-  return {
-    columns: [
-      {
-        columnId: "workspace_column_0",
-        idealWidthSpec: { unit: "px", value: 520 },
-        index: 0,
-        paneIds: ["workspace_pane_0"],
-        planeIndex: 0,
-        previousProportionWidth: null,
-        slotIndex: 0,
-        widthSpec: { unit: "px", value: 520 },
-      },
-      {
-        columnId: "workspace_column_1",
-        idealWidthSpec: { unit: "px", value: 520 },
-        index: 1,
-        paneIds: ["workspace_pane_1"],
-        planeIndex: 0,
-        previousProportionWidth: null,
-        slotIndex: 1,
-        widthSpec: { unit: "px", value: 520 },
-      },
-    ],
-    focusedPaneId: "workspace_pane_0",
-    panes: [
-      {
-        columnId: "workspace_column_0",
-        heat: 0,
-        paneId: "workspace_pane_0",
-        sequence: 0,
-        subtitle: "workspace graph",
-        surfaceId: "workspace_surface_0",
-        surfaceKind: "workflow-graph",
-        terminalConfig: null,
-        title: "Workflow Graph",
-        tone: "cyan",
-        weight: 1,
-      },
-      {
-        columnId: "workspace_column_1",
-        heat: 37,
-        paneId: "workspace_pane_1",
-        sequence: 1,
-        subtitle: "terminal",
-        surfaceId: "workspace_surface_1",
-        surfaceKind: "terminal",
-        terminalConfig: {
-          cwdOverride: "",
-          profileId: "default",
-          titleOverride: "",
-        },
-        title: "Terminal",
-        tone: "green",
-        weight: 1,
-      },
-    ],
-    schemaVersion: 1,
-    workspaceId,
-  };
-}
-
-function paneFocusWorkflowStateExpression() {
+function workspaceUILayoutEventSyncExpression(paneId) {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
-    if (!(area instanceof HTMLElement) || !(stage instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-workspace-layout" };
-    }
-    const layoutResult = globalThis.__settaE2EDriver?.layoutState
-      ? globalThis.__settaE2EDriver.layoutState()
-      : { ok: false, reason: "driver-missing" };
-    if (!layoutResult.ok) {
-      return { ok: false, reason: layoutResult.reason ?? "layout-state-unavailable" };
-    }
-    const elementRect = (element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        bottom: rect.bottom,
-        height: rect.height,
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        width: rect.width,
-        x: rect.x,
-        y: rect.y,
-      };
-    };
-    const rectInsideRect = (inner, outer) =>
-      inner.width > 0 &&
-      inner.height > 0 &&
-      inner.left >= outer.left &&
-      inner.right <= outer.right &&
-      inner.top >= outer.top &&
-      inner.bottom <= outer.bottom;
-    const elementIntersectsViewport = (element) => {
-      const rect = element.getBoundingClientRect();
-      return rect.width > 0 &&
-        rect.height > 0 &&
-        rect.right > 0 &&
-        rect.bottom > 0 &&
-        rect.left < window.innerWidth &&
-        rect.top < window.innerHeight;
-    };
-    const stageRect = elementRect(stage);
-    const layout = {
-      ...layoutResult.snapshot,
-      workspaceId: area.dataset.workspaceId ?? "",
-    };
-    const panes = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
-      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
-      .map((host) => {
-        const rect = elementRect(host);
-        const topBar = host.querySelector(".workspace-pane-top-bar");
-        const hasTopBar = topBar instanceof HTMLElement;
-        const closeButton = host.querySelector('[data-workspace-pane-action="close"]');
-        return {
-          closeClickable: closeButton instanceof HTMLButtonElement && !closeButton.disabled,
-          focused: host.dataset.focused === "true",
-          hasTopBar,
-          paneId: host.dataset.paneId ?? "",
-          rect,
-          stageContained: rectInsideRect(rect, stageRect),
-          surfaceKind: host.dataset.surfaceKind ?? "",
-          terminalReady: Boolean(host.querySelector(".xterm-helper-textarea")),
-          topBarClickable: hasTopBar && elementIntersectsViewport(topBar),
-          visible: host.dataset.visible === "true",
-        };
-      });
-    const scenario = (${paneFocusScenarioFromPanes.toString()})(panes);
-    if (scenario.ok) {
-      const terminal = panes.find((pane) => pane.paneId === scenario.terminalPaneId);
-      const focusAway = panes.find((pane) => pane.paneId === scenario.focusAwayPaneId);
-      scenario.minimal = panes.length === 2 &&
-        Boolean(terminal?.stageContained) &&
-        Boolean(focusAway?.stageContained);
-    }
+    const readLayout = window.__settaWorkspaceReadLayoutState;
+    const host = document.querySelector(
+      \`[data-testid="workspace-pane-host"][data-pane-id="${paneId}"]\`,
+    );
+    const title = host?.querySelector("[data-workspace-pane-title]");
     return {
-      layout,
-      ok: true,
-      panes,
-      scenario,
-      stageRect,
+      present: area instanceof HTMLElement,
+      revision: typeof readLayout === "function" ? readLayout().revision : -1,
+      title: title instanceof HTMLElement ? title.textContent ?? "" : "",
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
     };
   })()`;
 }
 
-function paneClickPointExpression(paneId, targetKind) {
-  return `(() => {
-    const paneId = ${JSON.stringify(paneId)};
-    const targetKind = ${JSON.stringify(targetKind)};
-    const elementRect = (element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        bottom: rect.bottom,
-        height: rect.height,
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        width: rect.width,
-        x: rect.x,
-        y: rect.y,
-      };
-    };
-    const elementIntersectsViewport = (element) => {
-      const rect = element.getBoundingClientRect();
-      return rect.width > 0 &&
-        rect.height > 0 &&
-        rect.right > 0 &&
-        rect.bottom > 0 &&
-        rect.left < window.innerWidth &&
-        rect.top < window.innerHeight;
-    };
-    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).find(
-      (candidate) =>
-        candidate instanceof HTMLElement &&
-        candidate.dataset.paneId === paneId &&
-        candidate.dataset.visible === "true",
-    );
-    if (!(host instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-visible-pane-host" };
-    }
-    const target =
-      targetKind === "top-bar"
-        ? host.querySelector(".workspace-pane-top-bar")
-        : host.dataset.surfaceKind === "terminal"
-          ? (host.querySelector(".workspace-xterm-viewport") ?? host.querySelector(".xterm-screen"))
-          : host;
-    if (!(target instanceof HTMLElement)) {
-      return {
-        ok: false,
-        reason: targetKind === "top-bar" ? "missing-pane-top-bar" : "missing-pane-content",
-        rect: elementRect(host),
-      };
-    }
-    if (!elementIntersectsViewport(target)) {
-      return {
-        ok: false,
-        reason:
-          targetKind === "top-bar" ? "pane-top-bar-outside-viewport" : "pane-content-outside-viewport",
-        rect: elementRect(target),
-      };
-    }
-    const rect = target.getBoundingClientRect();
-    const x = Math.min(Math.max(rect.left + rect.width / 2, 8), window.innerWidth - 8);
-    const y = Math.min(
-      Math.max(
-        rect.top + (targetKind === "top-bar" ? Math.min(15, rect.height / 2) : rect.height / 2),
-        8,
-      ),
-      window.innerHeight - 8,
-    );
-    return {
-      ok: true,
-      x,
-      y,
-    };
-  })()`;
-}
-
-function paneFocusScenarioFromPanes(panes) {
-  const rectsVerticallyOverlap = (left, right) =>
-    left.rect.height > 0 &&
-    right.rect.height > 0 &&
-    Math.max(left.rect.top, right.rect.top) < Math.min(left.rect.bottom, right.rect.bottom);
-  const rectCenterX = (pane) => pane.rect.left + pane.rect.width / 2;
-  const terminals = panes
-    .filter(
-      (pane) =>
-        pane.surfaceKind === "terminal" &&
-        pane.stageContained &&
-        pane.terminalReady &&
-        pane.hasTopBar,
-    )
-    .toSorted((left, right) => Number(right.focused) - Number(left.focused));
-  for (const terminal of terminals) {
-    const focusAway = panes
-      .filter(
-        (pane) =>
-          pane.paneId !== terminal.paneId &&
-          pane.surfaceKind !== "terminal" &&
-          pane.topBarClickable &&
-          rectsVerticallyOverlap(pane, terminal),
-      )
-      .toSorted(
-        (left, right) =>
-          Number(right.stageContained) - Number(left.stageContained) ||
-          Math.abs(rectCenterX(left) - rectCenterX(terminal)) -
-            Math.abs(rectCenterX(right) - rectCenterX(terminal)),
-      )
-      .at(0);
-    if (focusAway) {
-      return {
-        focusAwayPaneId: focusAway.paneId,
-        minimal: false,
-        ok: true,
-        terminalPaneId: terminal.paneId,
-      };
-    }
-  }
-  return { ok: false, reason: "missing-contained-terminal-and-clickable-focus-away-pane" };
+function paneOperation(kind, paneId, fields = {}) {
+  return {
+    close: null,
+    configure: null,
+    kind,
+    move: null,
+    open: null,
+    paneId,
+    rename: null,
+    reorder: null,
+    resize: null,
+    resizeColumn: null,
+    ...fields,
+  };
 }

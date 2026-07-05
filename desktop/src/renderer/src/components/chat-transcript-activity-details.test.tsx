@@ -4,7 +4,6 @@ import { describe, expect, test } from "vitest";
 
 import {
   ActivityApprovalDetails,
-  ActivityDynamicToolDetails,
   ActivityPlanDetails,
   ActivityProviderStreamLifecycleDetails,
 } from "./chat-transcript-activity-details";
@@ -40,16 +39,6 @@ describe("ActivityPlanDetails", () => {
   });
 });
 
-describe("ActivityDynamicToolDetails", () => {
-  test("renders typed dynamic tool success", () => {
-    const html = renderToString(<ActivityDynamicToolDetails details={dynamicToolDetails(false)} />);
-
-    expect(html).toContain("Success");
-    expect(html).toContain("false");
-    expect(html).toContain("tool output");
-  });
-});
-
 describe("ActivityApprovalDetails", () => {
   test("renders typed approval request details", () => {
     const html = renderToString(<ActivityApprovalDetails details={approvalDetails()} />);
@@ -82,26 +71,6 @@ function planDetails(): RunActivityDetailsProjection {
         { status: "inProgress", step: "Implement the typed contract" },
         { status: "pending", step: "Render the active surface" },
       ],
-    },
-  });
-}
-
-function dynamicToolDetails(success: boolean | null): RunActivityDetailsProjection {
-  return baseDetails({
-    dynamicToolCall: {
-      arguments: { value: "input" },
-      category: "test",
-      description: "Test dynamic tool",
-      displayTitle: "Dynamic tool",
-      durationMs: 12,
-      error: "",
-      namespace: "setta",
-      result: {
-        contentItems: [{ imageUrl: "", text: "tool output", type: "inputText" }],
-        success,
-      },
-      resultSummary: "tool output",
-      toolName: "fakeTool",
     },
   });
 }
@@ -161,7 +130,6 @@ function baseDetails(
     details: null,
     diff: null,
     durationMs: 0,
-    dynamicToolCall: null,
     error: "",
     exitCode: 0,
     fileChange: null,
