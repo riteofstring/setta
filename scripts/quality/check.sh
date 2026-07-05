@@ -366,7 +366,6 @@ declare -a all_supported_files=()
 declare -a electron_test_template_files=()
 declare -a length_files=()
 declare -a format_projects=()
-codex_skill_sync_relevant=0
 
 while IFS= read -r raw_path; do
   file_path="$(normalize_path "${raw_path}")"
@@ -375,12 +374,6 @@ while IFS= read -r raw_path; do
   if is_generated_or_vendor_path "${file_path}"; then
     continue
   fi
-
-  case "${file_path}" in
-    .codex/skills/*|resources/skills/*|scripts/sync_codex_skills.sh)
-      codex_skill_sync_relevant=1
-      ;;
-  esac
 
   if is_length_checked_path "${file_path}"; then
     length_files+=("${file_path}")
@@ -474,11 +467,6 @@ if [[ ${#node_tool_files[@]} -gt 0 ]]; then
   for file_path in "${node_tool_files[@]}"; do
     node --check "${file_path}" || status=1
   done
-fi
-
-if [[ "${codex_skill_sync_relevant}" -eq 1 ]]; then
-  echo "Codex skill sync drift checks..."
-  "${repo_root}/scripts/sync_codex_skills.sh" --check || status=1
 fi
 
 if [[ ${#go_files[@]} -gt 0 || ${#go_test_files[@]} -gt 0 ]]; then

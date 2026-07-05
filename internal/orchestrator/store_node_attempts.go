@@ -23,7 +23,6 @@ type workflowNodeAttemptRow struct {
 	actionPolicyJSON       sql.NullString
 	sideEffectPolicyJSON   string
 	runnerCapabilitiesJSON sql.NullString
-	agentRunSettingsJSON   sql.NullString
 	scheduledAt            string
 	startedAt              sql.NullString
 	completedAt            sql.NullString
@@ -53,10 +52,6 @@ func workflowNodeAttemptRowFromExecution(execution WorkflowExecution, nodeExecut
 	if err != nil {
 		return workflowNodeAttemptRow{}, fmt.Errorf("encode workflow node runner capabilities: %w", err)
 	}
-	agentRunSettingsJSON, err := nullableJSON(nodeExecution.AgentRunSettings, nodeExecution.AgentRunSettings != nil)
-	if err != nil {
-		return workflowNodeAttemptRow{}, fmt.Errorf("encode workflow node agent run settings: %w", err)
-	}
 	resultJSON, err := nullableJSON(nodeExecution.Result, nodeExecution.Result != nil)
 	if err != nil {
 		return workflowNodeAttemptRow{}, fmt.Errorf("encode workflow node result: %w", err)
@@ -82,7 +77,6 @@ func workflowNodeAttemptRowFromExecution(execution WorkflowExecution, nodeExecut
 		actionPolicyJSON:       actionPolicyJSON,
 		sideEffectPolicyJSON:   sideEffectPolicyJSON,
 		runnerCapabilitiesJSON: runnerCapabilitiesJSON,
-		agentRunSettingsJSON:   agentRunSettingsJSON,
 		scheduledAt:            nodeExecution.ScheduledAt,
 		startedAt:              nullableString(nodeExecution.StartedAt),
 		completedAt:            nullableString(nodeExecution.CompletedAt),
@@ -132,9 +126,9 @@ INSERT INTO workflow_node_attempts (
   id, schema_version, workspace_id, run_id, node_id, attempt, iteration,
   status, action_kind, runner_kind, idempotency_key, input_hash, input_json,
   action_policy_json, side_effect_policy_json, runner_capabilities_json,
-  agent_run_settings_json, scheduled_at, started_at, completed_at, result_status, result_json,
+  scheduled_at, started_at, completed_at, result_status, result_json,
   output_json, exit_code, error, recovery_outcome, recovery_message
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		row.id,
 		row.schemaVersion,
@@ -152,7 +146,6 @@ INSERT INTO workflow_node_attempts (
 		row.actionPolicyJSON,
 		row.sideEffectPolicyJSON,
 		row.runnerCapabilitiesJSON,
-		row.agentRunSettingsJSON,
 		row.scheduledAt,
 		row.startedAt,
 		row.completedAt,

@@ -1,5 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
+import type { RuntimeIpcContract } from "./runtime-ipc-contract";
 import type {
   AppearancePresetList,
   AppearanceSettings,
@@ -139,10 +140,8 @@ import type {
 import type {
   AppWindowDragPoint,
   InstalledEditorApp,
-  KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
-  RuntimeRegistrySnapshot,
   WorkspaceBrowserViewStats,
   RuntimeVersions,
   WorkspaceGitInfo,
@@ -162,11 +161,19 @@ export const ipcChannels = {
   appearanceRead: "appearance:read",
   appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
+  runtimeAddExistingMachineOverSSH: "runtimes:add-existing-machine-over-ssh",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
+  runtimeCloudProvisionOptions: "runtimes:cloud-provision-options",
+  runtimeCloudProvisionResolve: "runtimes:cloud-provision-resolve",
+  runtimeCreateDevicePairing: "runtimes:create-device-pairing",
   runtimeCurrent: "runtimes:current",
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
+  runtimeTailscaleAuthKeyMint: "runtimes:tailscale-auth-key-mint",
+  runtimeTailscaleOAuthSaveCredentials: "runtimes:tailscale-oauth-save-credentials",
+  runtimeTailscaleOAuthSetupGuide: "runtimes:tailscale-oauth-setup-guide",
+  runtimeTailscaleOAuthValidate: "runtimes:tailscale-oauth-validate",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatReconcileRuns: "chat:reconcile-runs",
@@ -308,7 +315,7 @@ export const ipcEvents = {
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract {
+interface IpcContract extends RuntimeIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
@@ -357,30 +364,7 @@ interface IpcContract {
     args: [request: UpdateAppearanceSettingsRequest];
     result: AppearanceSettings;
   };
-  backendHealth: {
-    args: [];
-    result: BackendHealth;
-  };
-  runtimeAddByPairingUrl: {
-    args: [pairingUrl: string];
-    result: RuntimeRegistrySnapshot;
-  };
-  runtimeCurrent: {
-    args: [];
-    result: RuntimeRegistrySnapshot;
-  };
-  runtimeList: {
-    args: [];
-    result: KnownRuntimeView[];
-  };
-  runtimeRemove: {
-    args: [runtimeId: string];
-    result: RuntimeRegistrySnapshot;
-  };
-  runtimeSwitch: {
-    args: [runtimeId: string];
-    result: RuntimeRegistrySnapshot;
-  };
+  backendHealth: { args: []; result: BackendHealth };
   chatActiveRun: {
     args: [workspaceId: string, conversationId: string];
     result: GetActiveRunResponse;

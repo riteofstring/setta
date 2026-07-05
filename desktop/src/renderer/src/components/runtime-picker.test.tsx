@@ -2,7 +2,7 @@ import type { KnownRuntimeView, RuntimeRegistrySnapshot } from "@shared/types";
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { RuntimeList } from "./runtime-picker";
+import { RuntimeList, RuntimePicker } from "./runtime-picker";
 import {
   runtimeControlsDisabled,
   runtimePickerControlsDisabled,
@@ -22,6 +22,9 @@ describe("runtime picker", () => {
     const html = renderToString(
       <RuntimeList
         busy={runtimePickerControlsDisabled(snapshot, null)}
+        onCreateDevicePairing={async () => ({
+          pairingUrl: "https://remote.tailnet.ts.net/#pair=token",
+        })}
         onRemove={() => {}}
         onSwitch={() => {}}
         runtimes={snapshot.runtimes}
@@ -40,6 +43,9 @@ describe("runtime picker", () => {
     const html = renderToString(
       <RuntimeList
         busy={false}
+        onCreateDevicePairing={async () => ({
+          pairingUrl: "https://remote.tailnet.ts.net/#pair=token",
+        })}
         onRemove={() => {}}
         onSwitch={() => {}}
         runtimes={snapshot.runtimes}
@@ -53,6 +59,20 @@ describe("runtime picker", () => {
     expect(buttonTagByAriaLabel(html, "Open options for Remote Runtime")).not.toBeNull();
     expect(buttonTagByAriaLabel(html, "Remove Remote Runtime")).toBeNull();
     expect(html).toContain('src="https://aws.amazon.com/favicon.ico"');
+  });
+
+  test("exposes existing-machine SSH add mode", () => {
+    useRuntimeStore.setState({
+      snapshot: runtimeSnapshot("connected"),
+      status: "ready",
+    });
+
+    const html = renderToString(<RuntimePicker adding={true} setAdding={() => {}} />);
+
+    expect(buttonTagByAriaLabel(html, "Add runtime from existing machine over SSH")).not.toBeNull();
+    expect(buttonTagByAriaLabel(html, "Add runtime on my cloud")).not.toBeNull();
+    expect(html).toContain("Existing machine over SSH");
+    expect(html).toContain("On my cloud");
   });
 
   test("clears stale picker operations when a terminal runtime snapshot arrives", () => {

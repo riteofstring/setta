@@ -73,14 +73,6 @@ func requireWorkflowService(response http.ResponseWriter, service WorkflowServic
 	return service
 }
 
-func requireWorkflowAuditService(response http.ResponseWriter, service WorkflowAuditService) WorkflowAuditService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "workflow_audit_service_unavailable", "workflow audit service is not available")
-		return nil
-	}
-	return service
-}
-
 func requireSemanticGraphService(response http.ResponseWriter, service SemanticGraphService) SemanticGraphService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "semantic_graph_service_unavailable", "semantic graph service is not available")

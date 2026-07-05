@@ -37,6 +37,7 @@ import type {
   CreateSemanticSteeringDirectiveRequest,
   CloseTerminalRequest,
   CloseTerminalResponse,
+  CreateDevicePairingResponse,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
@@ -331,6 +332,213 @@ export interface KnownRuntimeView {
   runtimeId: string;
 }
 
+export interface AddExistingMachineSSHRuntimeRequest {
+  installerSha256: string;
+  minisignPublicKey: string;
+  releaseBaseUrl: string;
+  runtimeName?: string;
+  settaVersion: string;
+  sshTarget: string;
+  tailscaleAuthKey: string;
+}
+
+export interface RuntimeSecretStorageStatus {
+  backend: string;
+  message: string | null;
+  security: "encrypted" | "plaintext-equivalent" | "unavailable";
+}
+
+export interface TailscaleLocalTailnetStatus {
+  dnsName: string | null;
+  error: string | null;
+  loginName: string | null;
+  status: "joined" | "not_found" | "not_joined" | "error";
+  tailnetName: string | null;
+}
+
+export interface TailscaleOAuthCredentialStatus {
+  clientIdPreview: string | null;
+  configured: boolean;
+  expectedTag: string;
+  lastValidatedAt: string | null;
+  lastValidationError: string | null;
+  lastValidationStatus: "valid" | "failed" | null;
+  secretStorage: RuntimeSecretStorageStatus;
+  tailnet: string;
+}
+
+export interface TailscaleOAuthSetupGuide {
+  aclSnippet: string;
+  adminConsoleUrl: string;
+  credentialFields: {
+    clientIdLabel: string;
+    clientSecretLabel: string;
+  };
+  docsUrl: string;
+  localTailnet: TailscaleLocalTailnetStatus;
+  manualAuthKeyFallback: {
+    adminConsoleUrl: string;
+    description: string;
+    expectedTag: string;
+  };
+  oauth: TailscaleOAuthCredentialStatus;
+  requiredScope: "auth_keys";
+  requiredTag: string;
+  runtimeIsolationPolicySnippet: string;
+}
+
+export interface SaveTailscaleOAuthCredentialsRequest {
+  clientId: string;
+  clientSecret: string;
+  expectedTag?: string;
+  tailnet?: string;
+}
+
+export interface TailscaleOAuthValidationResult {
+  code:
+    | "tailscale_oauth_valid"
+    | "tailscale_oauth_not_configured"
+    | "tailscale_oauth_invalid_credentials"
+    | "tailscale_oauth_permission_denied"
+    | "tailscale_oauth_revoke_failed"
+    | "tailscale_oauth_api_error"
+    | "tailscale_oauth_network_failed";
+  keyId: string | null;
+  message: string;
+  ok: boolean;
+  revoked: boolean;
+  tag: string;
+}
+
+export interface MintTailscaleAuthKeyRequest {
+  description?: string;
+  ephemeral?: boolean;
+  expirySeconds?: number;
+  preauthorized?: boolean;
+  reusable?: boolean;
+  runtimeName: string;
+  tags?: string[];
+}
+
+export interface MintTailscaleAuthKeyResult {
+  authKey: string;
+  createdAt: string;
+  description: string;
+  ephemeral: boolean;
+  expiresAt: string | null;
+  expirySeconds: number;
+  keyId: string | null;
+  preauthorized: boolean;
+  reusable: boolean;
+  tags: string[];
+}
+
+export interface CloudRuntimeProvisionImageSelector {
+  description: string;
+  kind: string;
+  value: string;
+}
+
+export interface CloudRuntimeProvisionShape {
+  cpuMin: number;
+  diskFloorGb: number;
+  gpuClass: string | null;
+  guide: string;
+  id: string;
+  label: string;
+  memoryGbMin: number;
+}
+
+export interface CloudRuntimeProvisionProvider {
+  displayName: string;
+  id: string;
+  imageSelector: CloudRuntimeProvisionImageSelector;
+  pricingUrl: string;
+  regionPreferences: string[];
+  shapeIds: string[];
+}
+
+export interface CloudRuntimeProvisionOptions {
+  defaultProvider: string;
+  defaultShape: string;
+  providers: CloudRuntimeProvisionProvider[];
+  shapes: CloudRuntimeProvisionShape[];
+}
+
+export interface CloudRuntimeProvisionResolveRequest {
+  budgetPreference?: string;
+  cpuMin?: number;
+  diskGB?: number;
+  exactInstanceType?: string;
+  gpuClass?: string;
+  intent?: string;
+  memoryGBMin?: number;
+  provider?: string;
+  region?: string;
+  shape?: string;
+  workloadNote?: string;
+}
+
+export interface CloudRuntimeProvisionResolvedConstraints {
+  budgetPreference: string | null;
+  cpuMin: number | null;
+  diskGB: number | null;
+  exactInstanceType: string | null;
+  gpuClass: string | null;
+  intent: string | null;
+  memoryGBMin: number | null;
+  regionPreference: string | null;
+  workloadNote: string | null;
+}
+
+export interface CloudRuntimeProvisionMachine {
+  cpus: number | null;
+  diskGB: number | null;
+  gpuClass: string | null;
+  memoryGB: number | null;
+}
+
+export interface CloudRuntimeProvisionCost {
+  amount: string | null;
+  class: string | null;
+  currency: string | null;
+  description: string;
+  kind: string;
+  pricingUrl: string;
+}
+
+export interface CloudRuntimeProvisionApproval {
+  commandPreview: string[];
+  requiresMutationApproval: boolean;
+  secretFree: boolean;
+}
+
+export interface CloudRuntimeProvisionResolution {
+  approval: CloudRuntimeProvisionApproval;
+  cost: CloudRuntimeProvisionCost;
+  diskGB: number;
+  displayName: string;
+  imageSelector: CloudRuntimeProvisionImageSelector;
+  instanceType: string;
+  machine: CloudRuntimeProvisionMachine;
+  provider: string;
+  region: string;
+  regionOptions: string[];
+  shape: string;
+  source: "catalog" | "live_cli" | string;
+  warnings: string[];
+}
+
+export interface CloudRuntimeProvisionResolveResult {
+  candidates: CloudRuntimeProvisionResolution[];
+  constraints: CloudRuntimeProvisionResolvedConstraints;
+  ok: boolean;
+  provider: string;
+  resolution: CloudRuntimeProvisionResolution;
+  shape: string;
+  warnings: string[];
+}
+
 export interface RuntimeRegistrySnapshot {
   activeRuntimeId: string | null;
   connection: RuntimeConnectionState;
@@ -370,12 +578,28 @@ export interface SettaAPI {
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
   runtimes: {
+    addExistingMachineOverSSH: (
+      request: AddExistingMachineSSHRuntimeRequest,
+    ) => Promise<RuntimeRegistrySnapshot>;
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
+    cloudProvisionOptions?: () => Promise<CloudRuntimeProvisionOptions>;
+    cloudProvisionResolve?: (
+      request: CloudRuntimeProvisionResolveRequest,
+    ) => Promise<CloudRuntimeProvisionResolveResult>;
+    createDevicePairing: () => Promise<CreateDevicePairingResponse>;
     current: () => Promise<RuntimeRegistrySnapshot>;
     list: () => Promise<KnownRuntimeView[]>;
     onConnectionState: (listener: (snapshot: RuntimeRegistrySnapshot) => void) => () => void;
     remove: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
     switch: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
+    tailscaleAuthKeyMint?: (
+      request: MintTailscaleAuthKeyRequest,
+    ) => Promise<MintTailscaleAuthKeyResult>;
+    tailscaleOAuthSaveCredentials?: (
+      request: SaveTailscaleOAuthCredentialsRequest,
+    ) => Promise<TailscaleOAuthCredentialStatus>;
+    tailscaleOAuthSetupGuide?: () => Promise<TailscaleOAuthSetupGuide>;
+    tailscaleOAuthValidate?: () => Promise<TailscaleOAuthValidationResult>;
   };
   workspaceActivity: {
     onEvent: (listener: (event: WorkspaceActivityEvent) => void) => () => void;

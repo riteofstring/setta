@@ -31,7 +31,6 @@ import (
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/webapp"
-	"setta/internal/workflowaudit"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -110,7 +109,6 @@ type runtimeServices struct {
 	semanticGraphStore       *semanticgraph.Store
 	terminalService          *terminal.Manager
 	workspaceActivityService *workspaceactivity.Service
-	workflowAuditService     *workflowaudit.Store
 	workspaceUIService       *workspaceui.Service
 	workspaceService         *workspacesession.Service
 	workflowService          *orchestrator.Service
@@ -292,7 +290,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	workflowService, workflowStore, workflowAuditService, err := newRuntimeWorkflowServices(
+	workflowService, workflowStore, err := newWorkflowService(
 		config.AppDataDir,
 		workspaceService,
 		chatService,
@@ -345,7 +343,6 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		semanticGraphStore:       semanticServices.graphStore,
 		terminalService:          terminalService,
 		workspaceActivityService: semanticServices.activityService,
-		workflowAuditService:     workflowAuditService,
 		workspaceUIService:       workspaceUIService,
 		workspaceService:         workspaceService,
 		workflowService:          workflowService,
@@ -606,7 +603,7 @@ func newChatService(
 	if err != nil {
 		return nil, fmt.Errorf("create chat store: %w", err)
 	}
-	harness, err := chatHarness(harnessMode, codexManager, appDataDir)
+	harness, err := chatHarness(harnessMode, codexManager)
 	if err != nil {
 		return nil, err
 	}
@@ -725,24 +722,6 @@ func newWorkflowService(
 	return workflowService, workflowStore, nil
 }
 
-func newRuntimeWorkflowServices(
-	appDataDir string,
-	workspaceService *workspacesession.Service,
-	chatService *chat.Service,
-) (*orchestrator.Service, *orchestrator.Store, *workflowaudit.Store, error) {
-	workflowService, workflowStore, err := newWorkflowService(appDataDir, workspaceService, chatService)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	workflowAuditService, err := workflowaudit.NewStore(appDataDir)
-	if err != nil {
-		workflowService.CloseEvents()
-		_ = workflowStore.Close()
-		return nil, nil, nil, fmt.Errorf("create workflow audit store: %w", err)
-	}
-	return workflowService, workflowStore, workflowAuditService, nil
-}
-
 type e2eWorkflowRunnerPostStartPersistFailStore struct {
 	*orchestrator.Store
 	mu     sync.Mutex
@@ -786,6 +765,7 @@ func newSemanticGraphService(
 		semanticgraph.WithWorkflowSourceResolver(workflowService),
 		semanticgraph.WithChatSourceResolver(chatService),
 		semanticgraph.WithCartographerHarnessTaskRunner(chatService.HarnessTaskRunner(), chat.HarnessCodex),
+		semanticgraph.WithSemanticCartographerDisabled(),
 	}
 	if disableAutomaticCartographerProcessing {
 		options = append(options, semanticgraph.WithAutomaticCartographerProcessingDisabled())
@@ -830,7 +810,6 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		SemanticGraphService:     services.semanticGraphService,
 		TerminalService:          services.terminalService,
 		WorkspaceActivityService: services.workspaceActivityService,
-		WorkflowAuditService:     services.workflowAuditService,
 		WorkspaceUIService:       services.workspaceUIService,
 		WorkspaceService:         services.workspaceService,
 		WorkflowService:          services.workflowService,
@@ -975,12 +954,12 @@ func normalizeConfig(config Config) Config {
 	return config
 }
 
-func chatHarness(mode ChatHarnessMode, codexManager *codexapp.Manager, appDataDir string) (chat.Harness, error) {
+func chatHarness(mode ChatHarnessMode, codexManager *codexapp.Manager) (chat.Harness, error) {
 	switch mode {
 	case ChatHarnessCodex:
 		return chat.NewCodexHarness(chat.CodexHarnessConfig{Manager: codexManager}), nil
 	case ChatHarnessScriptedWorkflow:
-		return chat.NewScriptedWorkflowHarness(chat.ScriptedWorkflowHarnessConfig{AppDataDir: appDataDir}), nil
+		return chat.NewScriptedWorkflowHarness(), nil
 	default:
 		return nil, fmt.Errorf("unsupported chat harness mode: %s", mode)
 	}

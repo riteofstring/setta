@@ -1,7 +1,7 @@
 /* global HTMLElement, KeyboardEvent, PerformanceObserver, document, performance, requestAnimationFrame, window */
 
 (() => {
-  const version = "setta-pane-drag-drop-performance-driver-v2";
+  const version = "setta-pane-drag-drop-performance-driver-v1";
   const paneHostSelector = '[data-testid="workspace-pane-host"]';
   const visiblePaneHostSelector = `${paneHostSelector}[data-visible="true"]`;
   const workspaceLayoutSelector = '[data-testid="workspace-layout-area"]';
@@ -14,7 +14,6 @@
     Object.assign(driver, {
       paneDragDropFrameMetrics,
       paneDragDropHandleCenter,
-      paneDragDropOverviewBodyPoint,
       paneDragDropOverviewState,
       paneDragDropPaneSnapshot,
       paneDragDropPerformanceVersion: version,
@@ -56,19 +55,6 @@
       ok: true,
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2,
-    };
-  }
-
-  function paneDragDropOverviewBodyPoint({ paneId }) {
-    const host = visiblePaneHostByPaneId(paneId);
-    if (!(host instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-host" };
-    }
-    const rect = host.getBoundingClientRect();
-    return {
-      ok: true,
-      x: rect.left + rect.width / 2,
-      y: rect.top + Math.min(rect.height - 24, Math.max(40, rect.height * 0.45)),
     };
   }
 

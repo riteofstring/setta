@@ -1,11 +1,9 @@
 package orchestrator
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -16,7 +14,7 @@ import (
 
 func TestCodexRunnerCompletesWorkflowThroughWorkflowOwnedChat(t *testing.T) {
 	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
-	definition, err := workflowService.CreateDefinition(workspaceID, "Workflow result", "", codexActionGraph("workflow hold for queue and steering", true))
+	definition, err := workflowService.CreateDefinition(workspaceID, "Workflow result", "", codexActionGraph("workflow result action", true))
 	if err != nil {
 		t.Fatalf("create definition: %v", err)
 	}
@@ -29,22 +27,6 @@ func TestCodexRunnerCompletesWorkflowThroughWorkflowOwnedChat(t *testing.T) {
 	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
 	if err != nil {
 		t.Fatalf("start execution: %v", err)
-	}
-	startedWork := latestNodeExecutionForTest(t, started, "work")
-	conversationID := assertRunnerRef(t, startedWork.RunnerRefs, RunnerRefChatConversation)
-	runID := assertRunnerRef(t, startedWork.RunnerRefs, RunnerRefChatRun)
-	waitForWorkflowChatHarnessRef(t, chatService, workspaceID, conversationID, RunnerRefCodexThread)
-	reported, err := workflowService.ReportExecutionResult(workspaceID, WorkflowExecutionResultInput{
-		WorkspaceID:     workspaceID,
-		ExecutionID:     started.ID,
-		NodeExecutionID: startedWork.ID,
-		Result:          scriptedWorkflowActionResultForTest(t),
-	})
-	if err != nil {
-		t.Fatalf("report workflow result: %v", err)
-	}
-	if reported.Status != ExecutionStatusCompleted {
-		t.Fatalf("reported execution status = %s, want completed", reported.Status)
 	}
 	waitForWorkflowEvent(t, subscription, started.ID, EventExecutionCompleted)
 	execution, err := workflowService.ReadExecution(workspaceID, started.ID)
@@ -65,6 +47,7 @@ func TestCodexRunnerCompletesWorkflowThroughWorkflowOwnedChat(t *testing.T) {
 	assertRunnerRef(t, work.RunnerRefs, RunnerRefCodexSession)
 	assertRunnerRef(t, work.RunnerRefs, RunnerRefCodexTurn)
 
+	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
 	list, err := chatService.ListConversations(workspaceID)
 	if err != nil {
 		t.Fatalf("list conversations: %v", err)
@@ -81,9 +64,6 @@ func TestCodexRunnerCompletesWorkflowThroughWorkflowOwnedChat(t *testing.T) {
 	}
 	if page.Conversation.Workflow.ExecutionID != execution.ID || page.Conversation.Workflow.NodeExecutionID != work.ID {
 		t.Fatalf("workflow metadata = %+v, want execution %s node execution %s", page.Conversation.Workflow, execution.ID, work.ID)
-	}
-	if _, err := chatService.CancelActiveRunByID(workspaceID, conversationID, runID); err != nil {
-		t.Fatalf("cancel hidden workflow chat after manual result report: %v", err)
 	}
 	waitForScriptedHarnessIdle(t, harness)
 }
@@ -181,7 +161,6 @@ func TestCodexRunnerStartupRecoveryPreservesWorkflowApproval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("restart workflow service: %v", err)
 	}
-	harness.SetWorkflowResultReporter(scriptedWorkflowResultReporterForTest(restarted))
 	defer restarted.CloseEvents()
 	restartedSubscription, err := restarted.SubscribeEvents(WorkflowEventCursor{})
 	if err != nil {
@@ -209,9 +188,6 @@ func TestCodexRunnerStartupRecoveryPreservesWorkflowApproval(t *testing.T) {
 	}
 	waitForWorkflowEvent(t, restartedSubscription, started.ID, EventExecutionCompleted)
 	waitForScriptedHarnessIdle(t, harness)
-	recoveredConversationID := assertRunnerRef(t, recoveredWork.RunnerRefs, RunnerRefChatConversation)
-	recoveredRunID := assertRunnerRef(t, recoveredWork.RunnerRefs, RunnerRefChatRun)
-	waitForWorkflowChatRunStatus(t, chatService, workspaceID, recoveredConversationID, recoveredRunID, chat.RunStatusCompleted)
 	completed, err := restarted.ReadExecution(workspaceID, started.ID)
 	if err != nil {
 		t.Fatalf("read completed execution: %v", err)
@@ -250,8 +226,8 @@ func TestCodexRunnerStartupRecoveryReconcilesTerminalHiddenWorkflowChatRun(t *te
 	if err != nil {
 		t.Fatalf("read hidden execution before restart: %v", err)
 	}
-	if stillHidden.Status != ExecutionStatusCompleted {
-		t.Fatalf("hidden execution status before restart = %s, want completed", stillHidden.Status)
+	if stillHidden.Status != ExecutionStatusRunning {
+		t.Fatalf("hidden execution status before restart = %s, want running", stillHidden.Status)
 	}
 
 	restarted, err := NewService(workflowStore, resolver, WithIDGenerator(idGenerator), WithClock(fixedTestClock(t)), WithCodexChatService(chatService))
@@ -270,6 +246,9 @@ func TestCodexRunnerStartupRecoveryReconcilesTerminalHiddenWorkflowChatRun(t *te
 	if recoveredWork.Status != NodeExecutionStatusSucceeded {
 		t.Fatalf("recovered work status = %s, want succeeded", recoveredWork.Status)
 	}
+	if recoveredWork.RecoveryOutcome == nil || *recoveredWork.RecoveryOutcome != RunnerRecoveryOutcomeRecoveredCompleted {
+		t.Fatalf("recovery outcome = %v, want recovered_completed", recoveredWork.RecoveryOutcome)
+	}
 	restartedRun, err := restarted.StartExecution(workspaceID, definition.ID, "")
 	if err != nil {
 		t.Fatalf("start same workflow after hidden terminal recovery: %v", err)
@@ -280,6 +259,7 @@ func TestCodexRunnerStartupRecoveryReconcilesTerminalHiddenWorkflowChatRun(t *te
 		}
 	}
 	assertWorkflowEventsInclude(t, restarted, workspaceID, started.ID, []WorkflowEventType{
+		EventActionRecovered,
 		EventActionCompleted,
 		EventExecutionCompleted,
 	})
@@ -324,17 +304,15 @@ func TestCodexRunnerRecoverReconcilesTerminalWorkflowOwnedChatRun(t *testing.T) 
 	if err != nil {
 		t.Fatalf("recover terminal Codex run: %v", err)
 	}
-	if recovered.Outcome != RunnerRecoveryOutcomeRecoveredFailed {
-		t.Fatalf("recovery outcome = %s, want recovered_failed", recovered.Outcome)
+	if recovered.Outcome != RunnerRecoveryOutcomeRecoveredCompleted {
+		t.Fatalf("recovery outcome = %s, want recovered_completed", recovered.Outcome)
 	}
-	if recovered.Result == nil || recovered.Result.Status != ActionCompletionFailed {
-		t.Fatalf("recovery result = %+v, want failed action result", recovered.Result)
+	if recovered.Result == nil || recovered.Result.Status != ActionCompletionCompleted {
+		t.Fatalf("recovery result = %+v, want completed action result", recovered.Result)
 	}
-	if recovered.Result.Error == "" || !strings.Contains(recovered.Result.Error, "setta workflow executions result") {
-		t.Fatalf("recovery result error = %q, want missing workflow result error", recovered.Result.Error)
-	}
-	if runnerEventTypesContain(sink.Events(), RunnerEventStructuredOutputReceived) || !runnerEventTypesContain(sink.Events(), RunnerEventAttemptFailed) {
-		t.Fatalf("runner events = %+v, want attempt failed without structured output", runnerEventTypes(sink.Events()))
+	assertWorkflowResultPayload(t, WorkflowNodeExecution{Result: recovered.Result})
+	if !runnerEventTypesContain(sink.Events(), RunnerEventStructuredOutputReceived) || !runnerEventTypesContain(sink.Events(), RunnerEventAttemptCompleted) {
+		t.Fatalf("runner events = %+v, want structured output and attempt completed", runnerEventTypes(sink.Events()))
 	}
 	waitForScriptedHarnessIdle(t, harness)
 }
@@ -499,16 +477,7 @@ func newCodexRunnerRecoveryTestServicesWithChatOptions(t *testing.T, chatOptions
 	if err != nil {
 		t.Fatalf("create chat store: %v", err)
 	}
-	var workflowService *Service
-	harness := chat.NewScriptedWorkflowHarness(chat.ScriptedWorkflowHarnessConfig{
-		AppDataDir: appDataDir,
-		WorkflowResultReporter: func(ctx context.Context, payload json.RawMessage) error {
-			if workflowService == nil {
-				return errors.New("workflow service is not ready")
-			}
-			return scriptedWorkflowResultReporterForTest(workflowService)(ctx, payload)
-		},
-	})
+	harness := chat.NewScriptedWorkflowHarness()
 	options := append([]chat.Option{chat.WithIDGenerator(idGenerator), chat.WithClock(fixedTestClock(t))}, chatOptions...)
 	chatService, err := chat.NewService(chatStore, resolver, harness, options...)
 	if err != nil {
@@ -523,7 +492,7 @@ func newCodexRunnerRecoveryTestServicesWithChatOptions(t *testing.T, chatOptions
 			t.Fatalf("close workflow store: %v", err)
 		}
 	})
-	workflowService, err = NewService(workflowStore, resolver, WithIDGenerator(idGenerator), WithClock(fixedTestClock(t)), WithCodexChatService(chatService))
+	workflowService, err := NewService(workflowStore, resolver, WithIDGenerator(idGenerator), WithClock(fixedTestClock(t)), WithCodexChatService(chatService))
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -572,25 +541,6 @@ func waitForWorkflowChatRunStatus(t *testing.T, chatService *chat.Service, works
 	return chat.Run{}
 }
 
-func waitForWorkflowChatHarnessRef(t *testing.T, chatService *chat.Service, workspaceID string, conversationID string, refKind string) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	var page chat.MessagePage
-	for time.Now().Before(deadline) {
-		var err error
-		page, err = chatService.LoadMessagePage(workspaceID, conversationID, 0, 1)
-		if err != nil {
-			t.Fatalf("load hidden workflow chat: %v", err)
-		}
-		refs := runnerRefsFromConversation(page.Conversation)
-		if runnerRefValue(refs, refKind) != "" {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("timed out waiting for chat harness ref %s on conversation %s, last page %+v", refKind, conversationID, page)
-}
-
 func codexActionGraph(prompt string, freshConversation bool) WorkflowGraph {
 	return WorkflowGraph{
 		Nodes: []WorkflowNode{
@@ -634,34 +584,6 @@ func assertWorkflowResultPayload(t *testing.T, work WorkflowNodeExecution) {
 	}
 	if output["summary"] != "scripted workflow result" {
 		t.Fatalf("output = %+v, want scripted summary", output)
-	}
-}
-
-func scriptedWorkflowActionResultForTest(t *testing.T) WorkflowActionResult {
-	t.Helper()
-	output, err := json.Marshal(map[string]string{"summary": "scripted workflow result"})
-	if err != nil {
-		t.Fatalf("marshal scripted workflow output: %v", err)
-	}
-	return WorkflowActionResult{
-		Status: ActionCompletionCompleted,
-		Signals: []WorkflowActionSignal{
-			{Name: "route", Value: "yes"},
-			{Name: "decision", Value: "exit"},
-		},
-		Output:    output,
-		FilePaths: []string{"reports/workflow-result.md"},
-	}
-}
-
-func scriptedWorkflowResultReporterForTest(service *Service) chat.ScriptedWorkflowResultReporter {
-	return func(_ context.Context, payload json.RawMessage) error {
-		var input WorkflowExecutionResultInput
-		if err := json.Unmarshal(payload, &input); err != nil {
-			return err
-		}
-		_, err := service.ReportExecutionResult(input.WorkspaceID, input)
-		return err
 	}
 }
 

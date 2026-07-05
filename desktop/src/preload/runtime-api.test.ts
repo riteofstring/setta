@@ -43,18 +43,48 @@ describe("preload runtime API", () => {
     const { api, invoke, on, removeListener } = await exposePreloadAPI();
     expect(Object.keys(api.runtimes).sort()).toEqual([
       "addByPairingUrl",
+      "addExistingMachineOverSSH",
+      "cloudProvisionOptions",
+      "cloudProvisionResolve",
+      "createDevicePairing",
       "current",
       "list",
       "onConnectionState",
       "remove",
       "switch",
+      "tailscaleAuthKeyMint",
+      "tailscaleOAuthSaveCredentials",
+      "tailscaleOAuthSetupGuide",
+      "tailscaleOAuthValidate",
     ]);
 
     await api.runtimes.current();
     await api.runtimes.list();
+    await api.runtimes.addExistingMachineOverSSH({
+      installerSha256: "a".repeat(64),
+      minisignPublicKey: "RWQtestminisignpublickey",
+      releaseBaseUrl: "https://downloads.example.test/setta/v1.2.3",
+      settaVersion: "v1.2.3",
+      sshTarget: "ssh://ubuntu@example.com",
+      tailscaleAuthKey: "tskey-auth-secret",
+    });
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_remote&tok=tok&url=http://host");
+    await api.runtimes.cloudProvisionOptions?.();
+    await api.runtimes.cloudProvisionResolve?.({
+      intent: "cheap box for agents",
+      provider: "hetzner",
+      shape: "dev-small",
+    });
+    await api.runtimes.createDevicePairing();
     await api.runtimes.switch("runtime_remote");
     await api.runtimes.remove("runtime_remote");
+    await api.runtimes.tailscaleOAuthSetupGuide?.();
+    await api.runtimes.tailscaleOAuthSaveCredentials?.({
+      clientId: "oauth-client",
+      clientSecret: "oauth-secret",
+    });
+    await api.runtimes.tailscaleOAuthValidate?.();
+    await api.runtimes.tailscaleAuthKeyMint?.({ runtimeName: "setta-worker" });
     const listener = vi.fn();
     const unsubscribe = api.runtimes.onConnectionState(listener);
     const handler = on.mock.calls.find((call) => call[0] === ipcEvents.runtimeConnectionState)?.[1];
@@ -69,11 +99,42 @@ describe("preload runtime API", () => {
       [ipcChannels.runtimeCurrent],
       [ipcChannels.runtimeList],
       [
+        ipcChannels.runtimeAddExistingMachineOverSSH,
+        {
+          installerSha256: "a".repeat(64),
+          minisignPublicKey: "RWQtestminisignpublickey",
+          releaseBaseUrl: "https://downloads.example.test/setta/v1.2.3",
+          settaVersion: "v1.2.3",
+          sshTarget: "ssh://ubuntu@example.com",
+          tailscaleAuthKey: "tskey-auth-secret",
+        },
+      ],
+      [
         ipcChannels.runtimeAddByPairingUrl,
         "setta://pair?rt=runtime_remote&tok=tok&url=http://host",
       ],
+      [ipcChannels.runtimeCloudProvisionOptions],
+      [
+        ipcChannels.runtimeCloudProvisionResolve,
+        {
+          intent: "cheap box for agents",
+          provider: "hetzner",
+          shape: "dev-small",
+        },
+      ],
+      [ipcChannels.runtimeCreateDevicePairing],
       [ipcChannels.runtimeSwitch, "runtime_remote"],
       [ipcChannels.runtimeRemove, "runtime_remote"],
+      [ipcChannels.runtimeTailscaleOAuthSetupGuide],
+      [
+        ipcChannels.runtimeTailscaleOAuthSaveCredentials,
+        {
+          clientId: "oauth-client",
+          clientSecret: "oauth-secret",
+        },
+      ],
+      [ipcChannels.runtimeTailscaleOAuthValidate],
+      [ipcChannels.runtimeTailscaleAuthKeyMint, { runtimeName: "setta-worker" }],
     ]);
     expect(on).toHaveBeenCalledWith(ipcEvents.runtimeConnectionState, expect.any(Function));
     expect(listener).toHaveBeenCalledWith(snapshot);

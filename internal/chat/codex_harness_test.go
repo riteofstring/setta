@@ -169,13 +169,6 @@ func TestJSONRPCRoutesStringIDServerRequest(t *testing.T) {
 	if _, err := client.Call(context.Background(), "initialize", map[string]any{}); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
-	roots, err := normalizeCodexSkillRoots(nil)
-	if err != nil {
-		t.Fatalf("codex skill roots: %v", err)
-	}
-	if _, err := client.Call(context.Background(), codexapp.CodexMethodSkillsExtraRootsSet, codexapp.SkillsExtraRootsSetParams{ExtraRoots: codexAbsolutePathParams(roots)}); err != nil {
-		t.Fatalf("skills/extraRoots/set: %v", err)
-	}
 	if _, err := client.Call(context.Background(), "thread/start", map[string]any{}); err != nil {
 		t.Fatalf("thread/start: %v", err)
 	}
@@ -348,6 +341,73 @@ func TestCodexHarnessMapsMCPElicitationURLDecline(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessReturnsUnsupportedDynamicToolError(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("dynamic-tool-unknown"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
+	details, hasDetails := item.DynamicToolCallDetails()
+	if !ok || !hasDetails || item.Status != RunItemStatusFailed || !strings.Contains(details.Error, "unsupported dynamic tool") {
+		t.Fatalf("items = %+v, want failed unsupported dynamic tool item", sink.items)
+	}
+}
+
+func TestCodexHarnessDispatchesRegisteredDynamicTool(t *testing.T) {
+	registry, err := NewAgentToolRegistry(AgentTool{
+		Namespace: "setta",
+		Name:      "fakeTool",
+		InputSchema: AgentToolSchema{
+			Type: AgentToolSchemaObject,
+			Properties: map[string]AgentToolSchema{
+				"value": {Type: AgentToolSchemaString},
+			},
+			Required: []string{"value"},
+		},
+		OutputSchema: AgentToolSchema{Type: AgentToolSchemaObject},
+		PermissionRequirements: []AgentToolPermissionRequirement{{
+			Kind:        AgentToolPermissionReadWorkspace,
+			Description: "Read workspace state for the fake tool.",
+		}},
+		AuditMetadata: AgentToolAuditMetadata{
+			DisplayName: "Fake dynamic tool",
+			Description: "Deterministic dynamic tool test fixture.",
+			Category:    "test",
+		},
+		Handler: func(_ context.Context, call AgentToolCall) (AgentToolResult, error) {
+			if string(call.Arguments) != `{"value":"from codex"}` {
+				t.Fatalf("tool arguments = %s, want structured json", call.Arguments)
+			}
+			return AgentToolResult{
+				ContentItems: []AgentToolContentItem{{Type: "inputText", Text: "tool ok"}},
+				Success:      true,
+			}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("tool registry: %v", err)
+	}
+	config := testCodexConfig("dynamic-tool-registered")
+	config.Tools = registry
+	harness := NewCodexHarness(config)
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
+	details, hasDetails := item.DynamicToolCallDetails()
+	if !ok || !hasDetails || item.Status != RunItemStatusCompleted || details.ResultSummary != "tool ok" {
+		t.Fatalf("items = %+v, want completed registered dynamic tool item", sink.items)
+	}
+}
+
 func TestCodexHarnessReturnsUnavailableAttestation(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("attestation-unavailable"))
 	sink := newRecordingSink()
@@ -357,8 +417,8 @@ func TestCodexHarnessReturnsUnavailableAttestation(t *testing.T) {
 		t.Fatalf("start turn: %v", err)
 	}
 	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if len(sink.diagnostics) != 0 {
-		t.Fatalf("diagnostics = %+v, want none for connection-scoped attestation request", sink.diagnostics)
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_attestation_unavailable" || sink.diagnostics[0].severity != DiagnosticSeverityError {
+		t.Fatalf("diagnostics = %+v, want attestation unavailable diagnostic", sink.diagnostics)
 	}
 }
 
@@ -478,6 +538,15 @@ func findRunItemType(items []RunItem, itemType RunItemType) (RunItem, bool) {
 	for _, item := range items {
 		if item.Type == itemType {
 			return item, true
+		}
+	}
+	return RunItem{}, false
+}
+
+func findLastRunItemType(items []RunItem, itemType RunItemType) (RunItem, bool) {
+	for index := len(items) - 1; index >= 0; index-- {
+		if items[index].Type == itemType {
+			return items[index], true
 		}
 	}
 	return RunItem{}, false
@@ -779,6 +848,44 @@ func TestCodexHarnessHandlesThreadTokenUsageAsTelemetryNotification(t *testing.T
 	}
 }
 
+func TestCodexHarnessHandlesTurnProtocolCoverageNotifications(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("protocol-coverage-notifications"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "coverage complete" {
+		t.Fatalf("assistant text = %q, want coverage complete", sink.text)
+	}
+	requireRunItemType(t, sink.items, RunItemTypeHook)
+	requireRunItemType(t, sink.items, RunItemTypeApprovalReview)
+	requireRunItemType(t, sink.items, RunItemTypeContextCompaction)
+	requireRunItemType(t, sink.items, RunItemTypeFileChange)
+	notice := requireRunItemType(t, sink.items, RunItemTypeNotice)
+	if notice.NoticeKind != "deprecationNotice" {
+		t.Fatalf("notice kind = %q, want deprecationNotice", notice.NoticeKind)
+	}
+	reasoning := requireRunItemType(t, sink.items, RunItemTypeReasoning)
+	if reasoning.HiddenText != "private reasoning" {
+		t.Fatalf("reasoning hidden text = %q, want preserved private reasoning", reasoning.HiddenText)
+	}
+	trace, ok := findTraceType(sink.traces, "codex_turn_moderation_metadata")
+	if !ok {
+		t.Fatalf("traces = %+v, want moderation metadata trace", sink.traces)
+	}
+	if strings.Contains(trace.message, "presentation") || strings.Contains(trace.message, "inline") {
+		t.Fatalf("moderation trace message = %q, want bounded non-raw evidence", trace.message)
+	}
+	for _, diagnostic := range sink.diagnostics {
+		if diagnostic.severity == DiagnosticSeverityCritical {
+			t.Fatalf("diagnostics = %+v, want no critical diagnostics for known coverage notifications", sink.diagnostics)
+		}
+	}
+}
+
 func TestCodexHookRunItemMapsSupportedStatuses(t *testing.T) {
 	tests := []struct {
 		provider string
@@ -884,41 +991,29 @@ func TestCodexHarnessFailsTerminalErrorNotification(t *testing.T) {
 	}
 }
 
-func TestCodexHarnessReportsMalformedRemoteControlStatusAsConnectionDiagnostic(t *testing.T) {
+func TestCodexHarnessFailsMalformedRemoteControlStatus(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("malformed-remote-control-status"))
-	connectionDiagnostics := &recordingConnectionDiagnosticSink{}
-	harness.SetConnectionDiagnosticSink(connectionDiagnostics)
 	sink := newRecordingSink()
 
-	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	if err != nil {
-		t.Fatalf("start turn: %v", err)
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want malformed remote control status error")
 	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if len(sink.diagnostics) != 0 {
-		t.Fatalf("turn diagnostics = %+v, want none", sink.diagnostics)
-	}
-	if !connectionDiagnostics.hasWorkspaceDiagnostic("workspace_api", "codex_connection_notification_invalid") {
-		t.Fatalf("connection diagnostics = %+v, want invalid remote control status diagnostic", connectionDiagnostics.diagnostics)
+	if !strings.Contains(err.Error(), "codex remote control status.status must be a string") {
+		t.Fatalf("error = %q, want malformed remote control status", err)
 	}
 }
 
-func TestCodexHarnessReportsUnknownMCPServerStartupStatusAsConnectionDiagnostic(t *testing.T) {
+func TestCodexHarnessRejectsUnknownMCPServerStartupStatus(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("unknown-mcp-server-startup-status"))
-	connectionDiagnostics := &recordingConnectionDiagnosticSink{}
-	harness.SetConnectionDiagnosticSink(connectionDiagnostics)
 	sink := newRecordingSink()
 
-	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	if err != nil {
-		t.Fatalf("start turn: %v", err)
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want unknown mcp server startup status error")
 	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if len(sink.diagnostics) != 0 {
-		t.Fatalf("turn diagnostics = %+v, want none", sink.diagnostics)
-	}
-	if !connectionDiagnostics.hasWorkspaceDiagnostic("workspace_api", "codex_connection_notification_invalid") {
-		t.Fatalf("connection diagnostics = %+v, want unknown mcp startup status diagnostic", connectionDiagnostics.diagnostics)
+	if !strings.Contains(err.Error(), "unsupported codex mcp server startup status: waking") {
+		t.Fatalf("error = %q, want unknown mcp server startup status", err)
 	}
 }
 
@@ -1096,6 +1191,19 @@ func fakeCodexAppServer(mode string) {
 	}
 }
 
+type fakeCodexState struct {
+	approvalOutstanding  bool
+	commandThreadResumed bool
+	commandThreadStarted bool
+	goalCleared          bool
+	goalPaused           bool
+	holdCalls            int
+	interruptCalls       int
+	modelListCalls       int
+	responseOutstanding  string
+	currentThreadID      string
+}
+
 func handleFakeJSONRPCMode(mode string, state *fakeCodexState, message map[string]any) bool {
 	switch mode {
 	case "jsonrpc-pending-exit":
@@ -1159,6 +1267,15 @@ func handleFakeServerResponse(mode string, state *fakeCodexState, message map[st
 		return false
 	}
 	switch state.responseOutstanding {
+	case "dynamic-tool-unknown":
+		assertFakeErrorResponse(message, codexJSONRPCErrorToolUnavailable, "unsupported dynamic tool")
+		writeFakeCompletedTurn("completed")
+		return true
+	case "dynamic-tool-registered":
+		assertFakeDynamicToolResponse(message)
+		writeFakeAssistantDelta("dynamic tool completed")
+		writeFakeCompletedTurn("completed")
+		return true
 	case "attestation-unavailable":
 		assertFakeErrorResponse(message, codexJSONRPCErrorCapabilityUnavailable, "attestation is unavailable")
 		writeFakeCompletedTurn("completed")
@@ -1173,17 +1290,15 @@ func handleFakeServerResponse(mode string, state *fakeCodexState, message map[st
 }
 
 func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[string]any) bool {
-	if handled, done := handleFakeSetupMethod(mode, state, message); handled {
+	if handled, done := handleFakeConfigMethod(mode, message); handled {
 		return done
 	}
 	switch message["method"] {
+	case "initialize":
+		writeFakeInitializeResponse(message["id"])
 	case "thread/start", "thread/resume":
-		assertFakeCodexSkillRootsConfigured(mode, state)
 		handleFakeCommandThread(mode, state, message)
-		if fakeParallelAssignThread(mode, state, message) {
-			// The parallel harness characterization needs every new conversation to
-			// receive an independent thread from a single fake app-server process.
-		}
+		assertFakeDynamicToolsThreadParams(mode, message)
 		threadID := state.currentThreadID
 		if threadID == "" {
 			threadID = "thread_fake"
@@ -1229,9 +1344,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 }
 
 func handleFakeTurnInterrupt(mode string, state *fakeCodexState, message map[string]any) bool {
-	if mode == "parallel-turns" {
-		return handleFakeParallelTurnInterrupt(message)
-	}
 	if (mode == "goal-operation-background-cancel" || mode == "goal-operation-cancel" || mode == "goal-operation-cancel-no-completion") && !state.goalPaused {
 		writeFakeErrorResponse(message["id"], -32600, "goal pause is required before interrupt")
 		return true
@@ -1274,9 +1386,6 @@ func handleFakeTurnInterrupt(mode string, state *fakeCodexState, message map[str
 }
 
 func handleFakeTurnSteer(mode string, message map[string]any) bool {
-	if mode == "parallel-turns" {
-		return handleFakeParallelTurnSteer(message)
-	}
 	assertFakeSteer(mode, message)
 	writeFakeResponse(message["id"], map[string]any{})
 	if mode == "goal-operation-steer-second-turn" {
@@ -1300,9 +1409,6 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	writeFakeResponse(message["id"], map[string]any{
 		"turn": fakeCodexTurn("inProgress"),
 	})
-	if handled, done := handleFakeParallelTurnStartMode(mode, message); handled {
-		return done
-	}
 	if handled, done := handleFakeAppServerStatusMode(mode); handled {
 		return done
 	}
