@@ -471,6 +471,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     },
     workspace: {
       close: (id) => requireClient().closeWorkspace({ id }),
+      listUIPanes: (workspaceId) => requireClient().listWorkspaceUIPanes({ workspaceId }),
       openLocalFolder: async () => {
         const rootPath = window.prompt("Workspace path")?.trim() ?? "";
         if (rootPath === "") {
@@ -479,6 +480,9 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         return requireClient().openWorkspace({ rootPath });
       },
       openPath: (rootPath) => requireClient().openWorkspace({ rootPath }),
+      readUIPane: (workspaceId, paneId) =>
+        requireClient().readWorkspaceUIPane({ paneId, workspaceId }),
+      readUISchema: () => requireClient().readWorkspaceUISchema(),
       readUILayout: (workspaceId) => requireClient().readWorkspaceUILayout({ workspaceId }),
       removeRecent: (id) => requireClient().removeRecentWorkspace({ id }),
       reorder: (ids) => requireClient().reorderWorkspace({ ids }),

@@ -132,6 +132,9 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowValidationResult,
+  WorkspaceUIPaneListResult,
+  WorkspaceUIPaneReadResult,
+  WorkspaceUISchema,
   WorkspaceActivityEvent,
   WorkspaceActivitySnapshot,
   WorkspaceSelectedConversations,
@@ -426,8 +429,11 @@ export interface SettaAPI {
   };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
+    listUIPanes: (workspaceId: string) => Promise<WorkspaceUIPaneListResult>;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
     openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
+    readUIPane: (workspaceId: string, paneId: string) => Promise<WorkspaceUIPaneReadResult>;
+    readUISchema: () => Promise<WorkspaceUISchema>;
     readUILayout: (workspaceId: string) => Promise<WorkspaceUILayoutReadResult>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;

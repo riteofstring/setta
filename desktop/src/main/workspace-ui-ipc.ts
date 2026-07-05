@@ -16,6 +16,30 @@ export function registerWorkspaceUILayoutIpcHandlers({
 }: WorkspaceUILayoutIpcRegistration): void {
   handleIpc(
     ipcMain,
+    "workspaceReadUISchema",
+    async () => {
+      return requireBackendClient().readWorkspaceUISchema();
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workspaceListUIPanes",
+    async (_event, workspaceId) => {
+      return requireBackendClient().listWorkspaceUIPanes({ workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workspaceReadUIPane",
+    async (_event, workspaceId, paneId) => {
+      return requireBackendClient().readWorkspaceUIPane({ paneId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workspaceReadUILayout",
     async (_event, workspaceId) => {
       return requireBackendClient().readWorkspaceUILayout({ workspaceId });

@@ -102,7 +102,7 @@ describe("startSpawnedBackend", () => {
       args: [backendSupervisorFixture("ready-with-logs")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: process.env,
+      env: backendSupervisorEnv(),
       readyTimeoutMs: 3000,
     });
 
@@ -166,7 +166,7 @@ describe("startSpawnedBackend", () => {
       args: [backendSupervisorFixture("post-ready-stdout")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: process.env,
+      env: backendSupervisorEnv(),
       readyTimeoutMs: 3000,
     });
 
@@ -285,7 +285,7 @@ describe("startSpawnedBackend", () => {
       args: [backendSupervisorFixture("exit-after-ready")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: process.env,
+      env: backendSupervisorEnv(),
       readyTimeoutMs: 3000,
     });
 
@@ -299,6 +299,13 @@ describe("startSpawnedBackend", () => {
 
 function backendSupervisorFixture(name: string): string {
   return fileURLToPath(new URL(`./test-fixtures/backend-supervisor/${name}.mjs`, import.meta.url));
+}
+
+function backendSupervisorEnv(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    SETTA_BACKEND_SUPERVISOR_PROTOCOL_VERSION: String(backendProtocolVersion),
+  };
 }
 
 function waitForLog(handle: BackendHandle, expectedLine: string): Promise<void> {

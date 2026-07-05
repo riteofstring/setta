@@ -580,9 +580,27 @@ Progress on 2026-07-07:
 - Audit follow-up: tightened persisted workspace UI validation so
   `terminalConfig` is rejected on non-terminal panes instead of being silently
   omitted from pane introspection.
-- Remaining Phase 1 work: add renderer-facing pane metadata consumption and
-  focused renderer tests once a renderer feature uses the new descriptor
-  contract. The current slice exposes the backend and CLI read-only surface only.
+- Renderer-facing follow-up: exposed the read-only workspace UI schema, pane
+  list, and pane read operations through the Electron IPC/preload `SettaAPI`
+  surface and the web runtime adapter. The workspace layout renderer now loads
+  pane descriptors for real workspaces, maps them by stable pane ID, exposes the
+  load status/counts on the workspace layout root for deterministic inspection,
+  and reports unavailable API, descriptor load, or validation failures through
+  the existing layout recovery notice rather than silently ignoring them. The
+  mapper rejects duplicate pane IDs and multiple focused descriptors.
+- Verification for the renderer-facing follow-up:
+  `pnpm -C desktop exec vitest run src/main/workspace-ui-ipc.test.ts src/preload/index.test.ts src/renderer/src/workspace-layout/workspace-pane-metadata.test.ts src/renderer/src/workspace-layout/workspace-ui-layout.test.ts`,
+  `pnpm -C desktop typecheck`, `pnpm -C desktop build`, and
+  `node desktop/tests/electron/run-workflows.mjs --workflow pane-focus-click`
+  passed. The Electron workflow now asserts that the production renderer loads
+  the seeded workspace's pane metadata through the main/preload/backend path.
+- Final gate: `./scripts/format.sh` and `./check_quality.sh --git-changes`
+  passed. During the gate, stale backend-supervisor ready-event test fixtures
+  that still hardcoded protocol `13` were updated to receive the generated
+  backend protocol version from the test environment.
+- Phase 1 is complete for the current read-only workspace introspection surface.
+  The next implementation phase is backend-owned layout operations with renderer
+  write cutover and push synchronization as required below.
 
 ### Phase 2: Backend-Owned Layout Operations
 

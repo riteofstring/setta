@@ -16,6 +16,7 @@ import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { useChatStore } from "./chat-store";
+import { workspaceUIReadFixtureAPI } from "./workspace-ui.test-fixtures";
 
 const eventStreamId = "event_stream_test";
 
@@ -642,6 +643,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     workflow: unimplementedWorkflowAPI(),
     workspace: {
       close: async () => workspaceSession(),
+      ...workspaceUIReadFixtureAPI("chat store navigation tests"),
       openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       openPath: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),

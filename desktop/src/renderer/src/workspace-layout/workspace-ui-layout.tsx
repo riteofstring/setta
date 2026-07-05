@@ -4,6 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { workspaceUILayoutFromScene } from "./workspace-scene";
+import {
+  emptyWorkspacePaneMetadataSnapshot,
+  workspacePaneMetadataSnapshotFromList,
+  type WorkspacePaneMetadataSnapshot,
+} from "./workspace-pane-metadata";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 
 export type WorkspaceUILayoutLoad =
@@ -23,6 +28,26 @@ export type WorkspaceUILayoutLoad =
       error: null;
       key: string;
       layout: null;
+      status: "loading";
+    };
+
+export type WorkspaceUIPaneMetadataLoad =
+  | {
+      error: null;
+      key: string;
+      snapshot: WorkspacePaneMetadataSnapshot;
+      status: "loaded";
+    }
+  | {
+      error: string;
+      key: string;
+      snapshot: WorkspacePaneMetadataSnapshot;
+      status: "failed";
+    }
+  | {
+      error: null;
+      key: string;
+      snapshot: WorkspacePaneMetadataSnapshot;
       status: "loading";
     };
 
@@ -127,6 +152,100 @@ export function useWorkspaceUILayoutLoad(
   return state;
 }
 
+export function useWorkspaceUIPaneMetadataLoad(
+  workspaceId: string,
+  mode: WorkspaceSceneMode,
+): WorkspaceUIPaneMetadataLoad {
+  const key = `${mode}:${workspaceId}`;
+  const [state, setState] = useState<WorkspaceUIPaneMetadataLoad>(() =>
+    initialWorkspaceUIPaneMetadataLoadState(workspaceId, mode),
+  );
+  const unavailableError = workspaceUIPaneMetadataUnavailableError(workspaceId, mode);
+  const shouldLoad = shouldLoadWorkspaceUIPaneMetadata(workspaceId, mode);
+
+  useEffect(() => {
+    if (unavailableError !== null) {
+      setState({
+        error: unavailableError,
+        key,
+        snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
+        status: "failed",
+      });
+      return;
+    }
+    if (!shouldLoad) {
+      setState({
+        error: null,
+        key,
+        snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
+        status: "loaded",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setState({
+      error: null,
+      key,
+      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
+      status: "loading",
+    });
+    window.setta.workspace
+      .listUIPanes(workspaceId)
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        setState({
+          error: null,
+          key,
+          snapshot: workspacePaneMetadataSnapshotFromList(result),
+          status: "loaded",
+        });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setState({
+          error: `Workspace pane metadata could not be loaded: ${layoutOperationErrorMessage(error)}`,
+          key,
+          snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
+          status: "failed",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, shouldLoad, unavailableError, workspaceId]);
+
+  if (unavailableError !== null) {
+    return {
+      error: unavailableError,
+      key,
+      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
+      status: "failed",
+    };
+  }
+  if (!shouldLoad) {
+    return {
+      error: null,
+      key,
+      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
+      status: "loaded",
+    };
+  }
+  if (state.key !== key) {
+    return {
+      error: null,
+      key,
+      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
+      status: "loading",
+    };
+  }
+  return state;
+}
+
 export function initialWorkspaceUILayoutLoadState(
   workspaceId: string,
   mode: WorkspaceSceneMode,
@@ -144,6 +263,36 @@ export function initialWorkspaceUILayoutLoadState(
     error: null,
     key,
     layout: null,
+    status: "loaded",
+  };
+}
+
+export function initialWorkspaceUIPaneMetadataLoadState(
+  workspaceId: string,
+  mode: WorkspaceSceneMode,
+): WorkspaceUIPaneMetadataLoad {
+  const key = `${mode}:${workspaceId}`;
+  const unavailableError = workspaceUIPaneMetadataUnavailableError(workspaceId, mode);
+  if (unavailableError !== null) {
+    return {
+      error: unavailableError,
+      key,
+      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
+      status: "failed",
+    };
+  }
+  if (shouldLoadWorkspaceUIPaneMetadata(workspaceId, mode)) {
+    return {
+      error: null,
+      key,
+      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
+      status: "loading",
+    };
+  }
+  return {
+    error: null,
+    key,
+    snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
     status: "loaded",
   };
 }
@@ -182,18 +331,38 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
 export function workspaceLayoutRecoveryMessage({
   dismissed,
   layoutLoadError,
+  paneMetadataLoadError,
   layoutPersistenceError,
   runtime,
 }: {
   dismissed: boolean;
   layoutLoadError: string | null;
+  paneMetadataLoadError: string | null;
   layoutPersistenceError: string | null;
   runtime: WorkspaceRuntime;
 }): string | null {
   if (dismissed) {
     return null;
   }
-  return layoutLoadError ?? layoutPersistenceError ?? runtime.layoutRecovery?.message ?? null;
+  return (
+    layoutLoadError ??
+    layoutPersistenceError ??
+    paneMetadataLoadError ??
+    runtime.layoutRecovery?.message ??
+    null
+  );
+}
+
+export function workspacePaneMetadataDataAttributes(load: WorkspaceUIPaneMetadataLoad) {
+  const snapshot = load.snapshot;
+  return {
+    "data-pane-metadata-count": snapshot.paneCount,
+    "data-pane-metadata-focused-pane-id": snapshot.focusedPaneId ?? "",
+    "data-pane-metadata-layout-present": snapshot.layoutPresent,
+    "data-pane-metadata-readable-count": snapshot.readablePaneCount,
+    "data-pane-metadata-status": load.status,
+    "data-pane-metadata-writable-count": snapshot.writablePaneCount,
+  };
 }
 
 export function workspaceLayoutAreaLabel(mode: WorkspaceSceneMode): string {
@@ -207,6 +376,28 @@ function shouldLoadWorkspaceUILayout(workspaceId: string, mode: WorkspaceSceneMo
     typeof window !== "undefined" &&
     Boolean(window.setta?.workspace?.readUILayout)
   );
+}
+
+function shouldLoadWorkspaceUIPaneMetadata(workspaceId: string, mode: WorkspaceSceneMode): boolean {
+  return (
+    mode === "workspace" &&
+    workspaceId !== "empty" &&
+    typeof window !== "undefined" &&
+    Boolean(window.setta?.workspace?.listUIPanes)
+  );
+}
+
+function workspaceUIPaneMetadataUnavailableError(
+  workspaceId: string,
+  mode: WorkspaceSceneMode,
+): string | null {
+  if (mode !== "workspace" || workspaceId === "empty" || typeof window === "undefined") {
+    return null;
+  }
+  if (!window.setta?.workspace?.listUIPanes) {
+    return "Workspace pane metadata API is unavailable";
+  }
+  return null;
 }
 
 function layoutOperationErrorMessage(error: unknown): string {

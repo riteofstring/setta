@@ -96,10 +96,12 @@ import { WorkspaceNoWorkspaceState } from "./workspace-empty-state";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import {
   WorkspaceLayoutLoading,
+  useWorkspaceUIPaneMetadataLoad,
   useWorkspaceUILayoutLoad,
   useWorkspaceUILayoutPersistence,
   workspaceLayoutAreaLabel,
   workspaceLayoutRecoveryMessage,
+  workspacePaneMetadataDataAttributes,
 } from "./workspace-ui-layout";
 import type { OpenPaneRequest, PaneDropIntent, Rect, SurfaceKind } from "./types";
 export interface WorkspaceSurfaceFocusRequest {
@@ -229,6 +231,7 @@ function WorkspaceLayoutRuntimeArea({
     ],
   );
   const [layoutRecoveryDismissed, setLayoutRecoveryDismissed] = useState(false);
+  const paneMetadataLoad = useWorkspaceUIPaneMetadataLoad(workspaceId, mode);
   const layoutSnapshot = useWorkspaceLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
   const [overviewGhostTarget, setOverviewGhostTargetState] = useState<OverviewGhostTarget | null>(
@@ -861,6 +864,7 @@ function WorkspaceLayoutRuntimeArea({
   const layoutRecoveryMessage = workspaceLayoutRecoveryMessage({
     dismissed: layoutRecoveryDismissed,
     layoutLoadError,
+    paneMetadataLoadError: paneMetadataLoad.error,
     layoutPersistenceError,
     runtime,
   });
@@ -875,6 +879,7 @@ function WorkspaceLayoutRuntimeArea({
       data-native-view-clip-left={projectPaneWidth}
       data-native-view-overlay-active={nativeViewOverlayActive}
       data-pane-count={currentScene.totalPanes}
+      {...workspacePaneMetadataDataAttributes(paneMetadataLoad)}
       data-presentation-mode={layoutSnapshot.presentationMode}
       data-workspace-mode={runtime.mode}
       data-workspace-id={runtime.scene.id}

@@ -68,6 +68,7 @@ try {
   const seededWorkspaceId = await seedTwoPaneWorkspaceLayout(backend, fixture.workspaceRoot);
   await waitForWorkspaceLayoutArea(context.client);
   await openSeededWorkspaceInRenderer(context.client, seededWorkspaceId);
+  const paneMetadata = await waitForWorkspacePaneMetadata(context.client, seededWorkspaceId);
   await waitForTerminalReady(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
 
@@ -113,6 +114,7 @@ try {
     afterTopBarLayout: afterTopBarState.layout,
     artifactDir,
     beforeContentLayout,
+    paneMetadata,
     scenario,
     status: "passed",
     viewport,
@@ -166,6 +168,23 @@ async function waitForTerminalReady(client) {
     (snapshots) => ({
       terminals: Array.isArray(snapshots) ? snapshots.map(summarizeTerminalSnapshot) : snapshots,
     }),
+  );
+}
+
+async function waitForWorkspacePaneMetadata(client, workspaceId) {
+  return waitForLoggedState(
+    client,
+    workspacePaneMetadataExpression(),
+    "workspace pane metadata",
+    (metadata) =>
+      metadata.workspaceId === workspaceId &&
+      metadata.status === "loaded" &&
+      metadata.layoutPresent &&
+      metadata.count === 2 &&
+      metadata.focusedPaneId === "workspace_pane_0" &&
+      metadata.readableCount === 2 &&
+      metadata.writableCount === 0,
+    (metadata) => ({ ...metadata, expectedWorkspaceId: workspaceId }),
   );
 }
 
@@ -422,6 +441,25 @@ function workspaceIdExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
+  })()`;
+}
+
+function workspacePaneMetadataExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    if (!(area instanceof HTMLElement)) {
+      return { present: false };
+    }
+    return {
+      count: Number(area.dataset.paneMetadataCount ?? "0"),
+      focusedPaneId: area.dataset.paneMetadataFocusedPaneId ?? "",
+      layoutPresent: area.dataset.paneMetadataLayoutPresent === "true",
+      present: true,
+      readableCount: Number(area.dataset.paneMetadataReadableCount ?? "0"),
+      status: area.dataset.paneMetadataStatus ?? "",
+      writableCount: Number(area.dataset.paneMetadataWritableCount ?? "0"),
+      workspaceId: area.dataset.workspaceId ?? "",
+    };
   })()`;
 }
 

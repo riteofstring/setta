@@ -131,6 +131,9 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowValidationResult,
+  WorkspaceUIPaneListResult,
+  WorkspaceUIPaneReadResult,
+  WorkspaceUISchema,
   WorkspaceSelectedConversations,
   WorkspaceUILayout,
   WorkspaceUILayoutReadResult,
@@ -278,8 +281,11 @@ export const ipcChannels = {
   workflowUpdateDefinition: "workflow:update-definition",
   workflowValidateDefinition: "workflow:validate-definition",
   workspaceClose: "workspace:close",
+  workspaceListUIPanes: "workspace:list-ui-panes",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
+  workspaceReadUIPane: "workspace:read-ui-pane",
+  workspaceReadUISchema: "workspace:read-ui-schema",
   workspaceReadUILayout: "workspace:read-ui-layout",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
@@ -856,38 +862,20 @@ interface IpcContract {
     args: [workspaceId: string, graph: WorkflowGraph];
     result: WorkflowValidationResult;
   };
-  workspaceClose: {
-    args: [id: string];
-    result: WorkspaceSession;
+  workspaceClose: { args: [id: string]; result: WorkspaceSession };
+  workspaceListUIPanes: { args: [workspaceId: string]; result: WorkspaceUIPaneListResult };
+  workspaceOpenLocalFolder: { args: []; result: OpenWorkspaceResponse | null };
+  workspaceOpenPath: { args: [rootPath: string]; result: OpenWorkspaceResponse };
+  workspaceReadUIPane: {
+    args: [workspaceId: string, paneId: string];
+    result: WorkspaceUIPaneReadResult;
   };
-  workspaceOpenLocalFolder: {
-    args: [];
-    result: OpenWorkspaceResponse | null;
-  };
-  workspaceOpenPath: {
-    args: [rootPath: string];
-    result: OpenWorkspaceResponse;
-  };
-  workspaceReadUILayout: {
-    args: [workspaceId: string];
-    result: WorkspaceUILayoutReadResult;
-  };
-  workspaceRemoveRecent: {
-    args: [id: string];
-    result: WorkspaceSession;
-  };
-  workspaceReorder: {
-    args: [ids: string[]];
-    result: WorkspaceSession;
-  };
-  workspaceSaveUILayout: {
-    args: [layout: WorkspaceUILayout];
-    result: WorkspaceUILayout;
-  };
-  workspaceSelect: {
-    args: [id: string];
-    result: WorkspaceSession;
-  };
+  workspaceReadUISchema: { args: []; result: WorkspaceUISchema };
+  workspaceReadUILayout: { args: [workspaceId: string]; result: WorkspaceUILayoutReadResult };
+  workspaceRemoveRecent: { args: [id: string]; result: WorkspaceSession };
+  workspaceReorder: { args: [ids: string[]]; result: WorkspaceSession };
+  workspaceSaveUILayout: { args: [layout: WorkspaceUILayout]; result: WorkspaceUILayout };
+  workspaceSelect: { args: [id: string]; result: WorkspaceSession };
   workspaceSelectedConversations: {
     args: [];
     result: WorkspaceSelectedConversations;

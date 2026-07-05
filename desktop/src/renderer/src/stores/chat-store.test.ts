@@ -19,6 +19,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { chatTextInput } from "../lib/chat-input";
 import { prependOlderMessages, useChatStore } from "./chat-store";
 import { deferred, message, replaceMessageText, testRun } from "./chat-store.test.fixtures";
+import { workspaceUIReadFixtureAPI } from "./workspace-ui.test-fixtures";
 import {
   assistantTextBlock,
   backgroundTerminalOutput,
@@ -1252,6 +1253,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     workflow: {} as SettaAPI["workflow"],
     workspace: {
       close: async () => workspaceSession(),
+      ...workspaceUIReadFixtureAPI("chat store tests"),
       openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       openPath: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
@@ -1273,6 +1275,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     value: { setta: api },
   });
 }
+
 const unimplementedTerminalAPI = new Proxy({} as SettaAPI["terminal"], {
   get: () => {
     throw new Error("terminal API is not implemented in this test");

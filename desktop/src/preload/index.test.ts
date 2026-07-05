@@ -99,9 +99,12 @@ describe("preload workspace API", () => {
     const { api, invoke } = await exposePreloadAPI();
     expect(Object.keys(api.workspace).sort()).toEqual([
       "close",
+      "listUIPanes",
       "openLocalFolder",
       "openPath",
       "readUILayout",
+      "readUIPane",
+      "readUISchema",
       "removeRecent",
       "reorder",
       "saveUILayout",
@@ -121,6 +124,9 @@ describe("preload workspace API", () => {
     await api.workspace.session();
     await api.workspace.openLocalFolder();
     await api.workspace.openPath("/tmp/recent");
+    await api.workspace.readUISchema();
+    await api.workspace.listUIPanes("workspace_api");
+    await api.workspace.readUIPane("workspace_api", "workspace_pane_1");
     await api.workspace.readUILayout("workspace_api");
     await api.workspace.saveUILayout(layout);
     await api.workspace.select("workspace_api");
@@ -134,6 +140,9 @@ describe("preload workspace API", () => {
       [ipcChannels.workspaceSession],
       [ipcChannels.workspaceOpenLocalFolder],
       [ipcChannels.workspaceOpenPath, "/tmp/recent"],
+      [ipcChannels.workspaceReadUISchema],
+      [ipcChannels.workspaceListUIPanes, "workspace_api"],
+      [ipcChannels.workspaceReadUIPane, "workspace_api", "workspace_pane_1"],
       [ipcChannels.workspaceReadUILayout, "workspace_api"],
       [ipcChannels.workspaceSaveUILayout, layout],
       [ipcChannels.workspaceSelect, "workspace_api"],

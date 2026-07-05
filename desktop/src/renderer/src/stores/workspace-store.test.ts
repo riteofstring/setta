@@ -11,6 +11,7 @@ import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { useWorkspaceStore } from "./workspace-store";
+import { workspaceUIReadFixtureAPI } from "./workspace-ui.test-fixtures";
 
 describe("workspace store", () => {
   beforeEach(() => {
@@ -280,6 +281,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const fallbackWorkspace = firstWorkspace(fallbackSession);
   const workspaceAPI: SettaAPI["workspace"] = {
     close: async () => fallbackSession,
+    ...workspaceUIReadFixtureAPI("workspace store tests"),
     openLocalFolder: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     openPath: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),

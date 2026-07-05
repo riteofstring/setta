@@ -401,8 +401,12 @@ const api: SettaAPI = {
   },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
+    listUIPanes: (workspaceId: string) => invoke("workspaceListUIPanes", workspaceId),
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
     openPath: (rootPath: string) => invoke("workspaceOpenPath", rootPath),
+    readUIPane: (workspaceId: string, paneId: string) =>
+      invoke("workspaceReadUIPane", workspaceId, paneId),
+    readUISchema: () => invoke("workspaceReadUISchema"),
     readUILayout: (workspaceId: string) => invoke("workspaceReadUILayout", workspaceId),
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
