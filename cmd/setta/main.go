@@ -29,6 +29,7 @@ type cliDeps struct {
 	now           func() time.Time
 	pid           func() int
 	renderQR      func(io.Writer, string)
+	sleep         func(context.Context, time.Duration) error
 	stderr        io.Writer
 	stdout        io.Writer
 }
@@ -44,6 +45,7 @@ var cliCommandHandlers = map[string]cliCommandHandler{
 	"pair":    runPair,
 	"devices": runDevices,
 	"doctor":  runDoctor,
+	"service": runService,
 	"runtime": runRuntime,
 	"version": runVersion,
 }
@@ -127,6 +129,9 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	if deps.renderQR == nil {
 		deps.renderQR = renderTerminalQR
 	}
+	if deps.sleep == nil {
+		deps.sleep = sleepContext
+	}
 	return deps
 }
 
@@ -146,6 +151,8 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta doctor --json [--app-data-dir DIR] [--workspace-dir DIR]")
+	fmt.Fprintln(output, "  setta service wait-tailnet [--timeout DURATION] [--poll-interval DURATION]")
+	fmt.Fprintln(output, "  setta service configure-tailscale-serve [--app-data-dir DIR] [--timeout DURATION] [--poll-interval DURATION]")
 	fmt.Fprintln(output, "  setta version")
 }
 
@@ -172,4 +179,18 @@ func renderTerminalQR(output io.Writer, text string) {
 
 func signalContext() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+}
+
+func sleepContext(ctx context.Context, duration time.Duration) error {
+	if duration <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
