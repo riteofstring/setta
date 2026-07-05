@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -23,6 +24,7 @@ var version = "dev"
 type cliDeps struct {
 	commandRunner commandRunner
 	getenv        func(string) string
+	lookPath      func(string) (string, error)
 	httpClient    *http.Client
 	now           func() time.Time
 	pid           func() int
@@ -33,6 +35,17 @@ type cliDeps struct {
 
 type usageError struct {
 	err error
+}
+
+type cliCommandHandler func([]string, cliDeps) error
+
+var cliCommandHandlers = map[string]cliCommandHandler{
+	"serve":   runServe,
+	"pair":    runPair,
+	"devices": runDevices,
+	"doctor":  runDoctor,
+	"runtime": runRuntime,
+	"version": runVersion,
 }
 
 func main() {
@@ -54,38 +67,36 @@ func runWithDeps(args []string, deps cliDeps) int {
 		return 2
 	}
 
-	var err error
-	switch args[0] {
-	case "serve":
-		err = runServe(args[1:], deps)
-	case "pair":
-		err = runPair(args[1:], deps)
-	case "devices":
-		err = runDevices(args[1:], deps)
-	case "runtime":
-		err = runRuntime(args[1:], deps)
-	case "version":
-		if len(args) != 1 {
-			err = usageError{err: fmt.Errorf("setta version does not accept arguments")}
-		} else {
-			fmt.Fprintln(deps.stdout, version)
-			return 0
-		}
-	case "help", "-h", "--help":
+	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		printUsage(deps.stdout)
 		return 0
-	default:
-		err = usageError{err: fmt.Errorf("unknown command %q", args[0])}
 	}
+	handler, ok := cliCommandHandlers[args[0]]
+	if !ok {
+		return commandErrorExitCode(usageError{err: fmt.Errorf("unknown command %q", args[0])}, deps)
+	}
+	err := handler(args[1:], deps)
 	if err == nil {
 		return 0
 	}
+	return commandErrorExitCode(err, deps)
+}
+
+func commandErrorExitCode(err error, deps cliDeps) int {
 	fmt.Fprintf(deps.stderr, "%v\n", err)
 	var usage usageError
 	if errors.As(err, &usage) {
 		return 2
 	}
 	return 1
+}
+
+func runVersion(args []string, deps cliDeps) error {
+	if len(args) != 0 {
+		return usageError{err: fmt.Errorf("setta version does not accept arguments")}
+	}
+	fmt.Fprintln(deps.stdout, version)
+	return nil
 }
 
 func normalizeDeps(deps cliDeps) cliDeps {
@@ -100,6 +111,9 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	}
 	if deps.commandRunner == nil {
 		deps.commandRunner = runExternalCommand
+	}
+	if deps.lookPath == nil {
+		deps.lookPath = exec.LookPath
 	}
 	if deps.httpClient == nil {
 		deps.httpClient = &http.Client{Timeout: 5 * time.Second}
@@ -131,6 +145,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta runtime rename <display-name> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta doctor --json [--app-data-dir DIR] [--workspace-dir DIR]")
 	fmt.Fprintln(output, "  setta version")
 }
 
