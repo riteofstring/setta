@@ -860,6 +860,48 @@ func TestWorkflowExecutionsStartAndReadCommandIntegration(t *testing.T) {
 	}
 }
 
+func TestWorkflowExecutionsStartCommandFailsForMissingDefinition(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+	if code := runWithDeps([]string{"workflow", "executions", "start", "--app-data-dir", appDataDir, "missing_definition"}, commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "start_workflow_execution_failed") {
+		t.Fatalf("stderr = %q, want start workflow execution error code", stderr.String())
+	}
+}
+
 func TestWorkflowExecutionsReadCommandFailsForMissingExecution(t *testing.T) {
 	appDataDir := t.TempDir()
 	workspaceRoot := t.TempDir()

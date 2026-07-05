@@ -475,6 +475,9 @@ func readWorkflowDefinition(ctx context.Context, appDataDir string, definitionID
 	if err := validateWorkflowDefinitionResponse(definition, currentWorkspace.ID); err != nil {
 		return orchestrator.WorkflowDefinition{}, err
 	}
+	if definition.ID != definitionID {
+		return orchestrator.WorkflowDefinition{}, fmt.Errorf("workflow definition read returned id %s, want %s", definition.ID, definitionID)
+	}
 	return definition, nil
 }
 
@@ -558,6 +561,9 @@ func readWorkflowExecution(ctx context.Context, appDataDir string, executionID s
 	}
 	if err := validateWorkflowExecutionResponse(execution, currentWorkspace.ID); err != nil {
 		return orchestrator.WorkflowExecution{}, err
+	}
+	if execution.ID != executionID {
+		return orchestrator.WorkflowExecution{}, fmt.Errorf("workflow execution read returned id %s, want %s", execution.ID, executionID)
 	}
 	return execution, nil
 }

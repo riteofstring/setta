@@ -284,7 +284,7 @@ Progress on 2026-07-06:
 
 Progress on 2026-07-06:
 
-- Added `setta workflow definitions read <definition-id> [--app-data-dir DIR]`.
+- Added `setta workflow definitions read [--app-data-dir DIR] <definition-id>`.
 - The command reads the local serve state, verifies the runtime identity, mints
   a short-lived command-specific CLI auth session, reads the selected workspace
   through `GET /workspace-session`, calls the authenticated backend
@@ -351,8 +351,8 @@ Progress on 2026-07-07:
 
 Progress on 2026-07-07:
 
-- Added `setta workflow executions start <definition-id> [--app-data-dir DIR]`
-  and `setta workflow executions read <execution-id> [--app-data-dir DIR]`.
+- Added `setta workflow executions start [--app-data-dir DIR] <definition-id>`
+  and `setta workflow executions read [--app-data-dir DIR] <execution-id>`.
 - Both commands read the local serve state, verify the runtime identity, mint a
   command-specific CLI auth session, resolve the selected workspace through
   `GET /workspace-session`, call the existing authenticated backend
@@ -364,6 +364,13 @@ Progress on 2026-07-07:
   backend-owned HTTP route, starts it through real CLI dispatch, reads the
   execution back through real CLI dispatch, and verifies the
   missing-execution failure path returns the backend-owned error code.
+- Audit follow-up: clarified positional-command usage so optional flags appear
+  before the required ID, added focused coverage for the missing-definition
+  start failure path, and made read commands reject mismatched backend response
+  IDs explicitly.
+- Audit verification: `./scripts/go.sh test ./cmd/setta`,
+  `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`,
+  `./scripts/format.sh`, and `./check_quality.sh --git-changes` passed.
 - Verification: `./scripts/go.sh test ./cmd/setta`,
   `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`,
   `./scripts/go.sh test ./internal/runtime -run
