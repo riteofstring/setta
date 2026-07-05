@@ -234,6 +234,16 @@ type WorkspaceUIPaneOperationResult struct {
 	Warnings              []WorkspaceUIPaneOperationWarning `json:"warnings"`
 }
 
+type WorkspaceUIPaneResizeTransactionResult struct {
+	WorkspaceID           string                            `json:"workspaceId"`
+	Revision              int                               `json:"revision"`
+	Layout                WorkspaceUILayout                 `json:"layout"`
+	Changed               bool                              `json:"changed"`
+	OperationResults      []WorkspaceUIPaneOperationOutcome `json:"operationResults"`
+	BeforeAfterDimensions []WorkspaceUIPaneDimensionChange  `json:"beforeAfterDimensions"`
+	Warnings              []WorkspaceUIPaneOperationWarning `json:"warnings"`
+}
+
 type WorkspaceUIPaneOperationOutcome struct {
 	Kind                  WorkspaceUIPaneOperationKind  `json:"kind"`
 	Close                 *WorkspaceUIPaneCloseOutcome  `json:"close"`

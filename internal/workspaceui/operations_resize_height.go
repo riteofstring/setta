@@ -6,10 +6,10 @@ import (
 	"strconv"
 )
 
-func (service *Service) applyResizePaneHeightOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation, location workspaceUIPaneLocation) (WorkspaceUIPaneOperationResult, error) {
+func applyResizePaneHeightOperationToLayout(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation, location workspaceUIPaneLocation) (workspaceUIPaneOperationApplication, error) {
 	beforeDimensions, err := paneDimensionSnapshotsForRow(layout, location.PlaneIndex, location.PaneIndex)
 	if err != nil {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodePaneNotFound,
@@ -19,7 +19,7 @@ func (service *Service) applyResizePaneHeightOperation(layout WorkspaceUILayout,
 	targetPane := layout.Panes[paneIndexByID(layout.Panes, operation.PaneID)]
 	requestedHeightPX, heightPX, err := resizePaneHeightTarget(operation, targetPane)
 	if err != nil {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodeInvalidOperation,
@@ -29,7 +29,7 @@ func (service *Service) applyResizePaneHeightOperation(layout WorkspaceUILayout,
 	changed := resizePaneRowInLayout(&layout, location.PlaneIndex, location.PaneIndex, heightPX)
 	dimensionChanges, err := paneDimensionChanges(layout, beforeDimensions)
 	if err != nil {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodePaneNotFound,
@@ -37,29 +37,18 @@ func (service *Service) applyResizePaneHeightOperation(layout WorkspaceUILayout,
 		)
 	}
 
-	if changed {
-		layout.Revision += 1
-		saved, err := service.SaveLayout(layout)
-		if err != nil {
-			return WorkspaceUIPaneOperationResult{}, err
-		}
-		layout = saved
-	}
-
-	return WorkspaceUIPaneOperationResult{
-		WorkspaceID: layout.WorkspaceID,
-		Revision:    layout.Revision,
-		Layout:      layout,
-		Changed:     changed,
-		OperationResult: WorkspaceUIPaneOperationOutcome{
+	return workspaceUIPaneOperationApplication{
+		layout:  layout,
+		changed: changed,
+		operationResult: WorkspaceUIPaneOperationOutcome{
 			Kind:                  WorkspaceUIPaneOperationKindResizePane,
 			Resize:                resizeHeightOutcome(location, targetPane, paneIDsFromDimensionSnapshots(beforeDimensions), heightPX),
 			PaneID:                operation.PaneID,
 			PreviousFocusedPaneID: layout.FocusedPaneID,
 			FocusedPaneID:         layout.FocusedPaneID,
 		},
-		BeforeAfterDimensions: dimensionChanges,
-		Warnings:              resizeHeightWarnings(requestedHeightPX, heightPX),
+		beforeAfterDimensions: dimensionChanges,
+		warnings:              resizeHeightWarnings(requestedHeightPX, heightPX),
 	}, nil
 }
 

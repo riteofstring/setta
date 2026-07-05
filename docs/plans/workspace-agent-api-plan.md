@@ -820,11 +820,26 @@ Progress on 2026-07-07:
 - Verification for the audit follow-up:
   `./scripts/go.sh test ./internal/workspaceui`, `./scripts/format.sh`, and
   `./check_quality.sh --git-changes` passed.
+- Backend multi-resize transaction follow-up: added a backend-only internal
+  transaction reducer without exposing an HTTP, CLI, IPC, renderer, or agent
+  write surface. The transaction currently accepts only validated `resize_pane`
+  operations, applies width, row-height, and adjacent split resize reducers
+  against a cloned layout, aggregates before/after dimensions from the
+  pre-transaction layout to the final layout, increments the layout revision at
+  most once, persists once only after all operations succeed, and leaves the
+  persisted layout unchanged when a later operation fails. Single
+  `resize_pane` operations now use the same transaction reducer with one
+  operation.
+- Verification for the backend multi-resize transaction follow-up:
+  `./scripts/go.sh test ./internal/workspaceui` passed, and
+  `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
+  diffs because the write operation contract is still not endpoint-exposed.
+  Final gate: `./scripts/format.sh` and `./check_quality.sh --git-changes`
+  passed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for remaining resize slices (multi-operation transactions), open,
-  and reorder, then cut renderer-originated layout mutations over to that
-  backend operation API before exposing agent or CLI workspace mutation
-  commands.
+  event sync for open and reorder, then cut renderer-originated layout
+  mutations over to that backend operation API before exposing agent or CLI
+  workspace mutation commands.
 
 ### Phase 3: Renderer Event Sync
 

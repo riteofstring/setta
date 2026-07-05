@@ -506,9 +506,17 @@ func (service *Service) applyRenamePaneOperation(layout WorkspaceUILayout, opera
 }
 
 func (service *Service) applyResizePaneOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation) (WorkspaceUIPaneOperationResult, error) {
+	transaction, err := service.applyPaneResizeOperations(layout.WorkspaceID, layout, []WorkspaceUIPaneOperation{operation})
+	if err != nil {
+		return WorkspaceUIPaneOperationResult{}, err
+	}
+	return paneOperationResultFromResizeTransaction(transaction), nil
+}
+
+func applyResizePaneOperationToLayout(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation) (workspaceUIPaneOperationApplication, error) {
 	location, ok := paneLocation(layout, operation.PaneID)
 	if !ok {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodePaneNotFound,
@@ -516,21 +524,21 @@ func (service *Service) applyResizePaneOperation(layout WorkspaceUILayout, opera
 		)
 	}
 	if operation.Resize.WidthSpec != nil {
-		return service.applyResizePaneWidthOperation(layout, operation, location)
+		return applyResizePaneWidthOperationToLayout(layout, operation, location)
 	}
 	if operation.Resize.Split != nil {
-		return service.applyResizePaneSplitOperation(layout, operation, location)
+		return applyResizePaneSplitOperationToLayout(layout, operation, location)
 	}
-	return service.applyResizePaneHeightOperation(layout, operation, location)
+	return applyResizePaneHeightOperationToLayout(layout, operation, location)
 }
 
-func (service *Service) applyResizePaneWidthOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation, location workspaceUIPaneLocation) (WorkspaceUIPaneOperationResult, error) {
+func applyResizePaneWidthOperationToLayout(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation, location workspaceUIPaneLocation) (workspaceUIPaneOperationApplication, error) {
 	targetColumn := layout.Columns[location.ColumnIndex]
 	requestedWidthSpec := *operation.Resize.WidthSpec
 	widthSpec := normalizedResizeColumnWidthSpec(requestedWidthSpec)
 	beforeDimensions, err := paneDimensionSnapshotsForSlot(layout, targetColumn.SlotIndex)
 	if err != nil {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodePaneNotFound,
@@ -540,7 +548,7 @@ func (service *Service) applyResizePaneWidthOperation(layout WorkspaceUILayout, 
 	changed := resizeColumnsInSlot(&layout, targetColumn.SlotIndex, widthSpec)
 	dimensionChanges, err := paneDimensionChanges(layout, beforeDimensions)
 	if err != nil {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodePaneNotFound,
@@ -548,29 +556,18 @@ func (service *Service) applyResizePaneWidthOperation(layout WorkspaceUILayout, 
 		)
 	}
 
-	if changed {
-		layout.Revision += 1
-		saved, err := service.SaveLayout(layout)
-		if err != nil {
-			return WorkspaceUIPaneOperationResult{}, err
-		}
-		layout = saved
-	}
-
-	return WorkspaceUIPaneOperationResult{
-		WorkspaceID: layout.WorkspaceID,
-		Revision:    layout.Revision,
-		Layout:      layout,
-		Changed:     changed,
-		OperationResult: WorkspaceUIPaneOperationOutcome{
+	return workspaceUIPaneOperationApplication{
+		layout:  layout,
+		changed: changed,
+		operationResult: WorkspaceUIPaneOperationOutcome{
 			Kind:                  WorkspaceUIPaneOperationKindResizePane,
 			Resize:                resizeOutcome(targetColumn, widthSpec),
 			PaneID:                operation.PaneID,
 			PreviousFocusedPaneID: layout.FocusedPaneID,
 			FocusedPaneID:         layout.FocusedPaneID,
 		},
-		BeforeAfterDimensions: dimensionChanges,
-		Warnings:              resizeWidthWarnings(requestedWidthSpec, widthSpec),
+		beforeAfterDimensions: dimensionChanges,
+		warnings:              resizeWidthWarnings(requestedWidthSpec, widthSpec),
 	}, nil
 }
 

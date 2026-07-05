@@ -2,11 +2,11 @@ package workspaceui
 
 import "fmt"
 
-func (service *Service) applyResizePaneSplitOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation, upperLocation workspaceUIPaneLocation) (WorkspaceUIPaneOperationResult, error) {
+func applyResizePaneSplitOperationToLayout(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation, upperLocation workspaceUIPaneLocation) (workspaceUIPaneOperationApplication, error) {
 	split := *operation.Resize.Split
 	lowerLocation, ok := paneLocation(layout, split.LowerPaneID)
 	if !ok {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodePaneNotFound,
@@ -14,7 +14,7 @@ func (service *Service) applyResizePaneSplitOperation(layout WorkspaceUILayout, 
 		)
 	}
 	if upperLocation.ColumnIndex != lowerLocation.ColumnIndex || lowerLocation.PaneIndex != upperLocation.PaneIndex+1 {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodeInvalidOperation,
@@ -24,7 +24,7 @@ func (service *Service) applyResizePaneSplitOperation(layout WorkspaceUILayout, 
 
 	beforeDimensions, err := paneDimensionSnapshotsForSplit(layout, operation.PaneID, split.LowerPaneID)
 	if err != nil {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodePaneNotFound,
@@ -38,7 +38,7 @@ func (service *Service) applyResizePaneSplitOperation(layout WorkspaceUILayout, 
 	changed := resizePaneSplitInLayout(&layout, operation.PaneID, split.LowerPaneID, upperWeight, lowerWeight)
 	dimensionChanges, err := paneDimensionChanges(layout, beforeDimensions)
 	if err != nil {
-		return WorkspaceUIPaneOperationResult{}, operationError(
+		return workspaceUIPaneOperationApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodePaneNotFound,
@@ -46,21 +46,10 @@ func (service *Service) applyResizePaneSplitOperation(layout WorkspaceUILayout, 
 		)
 	}
 
-	if changed {
-		layout.Revision += 1
-		saved, err := service.SaveLayout(layout)
-		if err != nil {
-			return WorkspaceUIPaneOperationResult{}, err
-		}
-		layout = saved
-	}
-
-	return WorkspaceUIPaneOperationResult{
-		WorkspaceID: layout.WorkspaceID,
-		Revision:    layout.Revision,
-		Layout:      layout,
-		Changed:     changed,
-		OperationResult: WorkspaceUIPaneOperationOutcome{
+	return workspaceUIPaneOperationApplication{
+		layout:  layout,
+		changed: changed,
+		operationResult: WorkspaceUIPaneOperationOutcome{
 			Kind: WorkspaceUIPaneOperationKindResizePane,
 			Resize: resizeSplitOutcome(
 				operation.PaneID,
@@ -75,8 +64,8 @@ func (service *Service) applyResizePaneSplitOperation(layout WorkspaceUILayout, 
 			PreviousFocusedPaneID: layout.FocusedPaneID,
 			FocusedPaneID:         layout.FocusedPaneID,
 		},
-		BeforeAfterDimensions: dimensionChanges,
-		Warnings:              resizeSplitWarnings(split, upperWeight, lowerWeight),
+		beforeAfterDimensions: dimensionChanges,
+		warnings:              resizeSplitWarnings(split, upperWeight, lowerWeight),
 	}, nil
 }
 
