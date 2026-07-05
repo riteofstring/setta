@@ -75,7 +75,7 @@ For JSON input files, follow the Go-owned contract in `internal/workspaceui/type
 Treat workspace pane management as distinct from surface content control.
 
 - Use workspace commands for pane metadata and layout only.
-- Use `setta workspace terminals read <pane-id>` only for terminal panes whose `surfaceKind`, `contentRefs.terminal`, and `readModes` include terminal read support. It returns the live terminal session summary plus bounded retained output bytes; it does not provide an authoritative screen snapshot yet.
+- Use `setta workspace terminals read <pane-id>` only for terminal panes whose `surfaceKind`, `contentRefs.terminal`, and `readModes` include `terminal_screen` and `terminal_recent_output`. It returns the live terminal session summary, current backend screen snapshot (`screen.screenText`, `screen.cursor`, `screen.cols`, `screen.rows`), and bounded retained output bytes. Inspect `screen.unsupportedSequenceCount`, `screen.pendingControlSequence`, and `screen.pendingInputByteCount` before treating the screen as complete.
 - Use `contentRefs` only as stable references into the owning surface domain.
 - Do not send terminal input, chat messages, chat steering, workflow commands, browser input, or native-view input through workspace layout commands.
 - Do not call a surface-domain command unless the pane's `surfaceKind`, `contentRefs`, and advertised modes support that surface and the user request explicitly needs content interaction.

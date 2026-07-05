@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 24;
-export const backendContractSchemaHash = "sha256:dfca3b551c8ac7b1a7a277a4ed65cee9ce243429b1bd74e49665a864a1f8584f";
+export const backendProtocolVersion = 25;
+export const backendContractSchemaHash = "sha256:35585b90a042c95b84ce96bba347350b4d2e29cb763d0ed0c9cbe046f2bdc874";
 
 export type DeviceScope = "full";
 
@@ -150,9 +150,9 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type WorkspaceUIPaneReadMode = "metadata" | "terminal_recent_output";
+export type WorkspaceUIPaneReadMode = "metadata" | "terminal_recent_output" | "terminal_screen";
 
-export const workspaceUIPaneReadModeValues = ["metadata", "terminal_recent_output"] as const satisfies readonly WorkspaceUIPaneReadMode[];
+export const workspaceUIPaneReadModeValues = ["metadata", "terminal_recent_output", "terminal_screen"] as const satisfies readonly WorkspaceUIPaneReadMode[];
 
 export function decodeWorkspaceUIPaneReadMode(value: unknown, label = "WorkspaceUIPaneReadMode"): WorkspaceUIPaneReadMode {
   const decoded = decodeString(value, label);
@@ -160,6 +160,8 @@ export function decodeWorkspaceUIPaneReadMode(value: unknown, label = "Workspace
     case "metadata":
       return decoded;
     case "terminal_recent_output":
+      return decoded;
+    case "terminal_screen":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3341,6 +3343,22 @@ export interface SessionSummary {
   message: string;
 }
 
+export interface TerminalCursorPosition {
+  row: number;
+  column: number;
+}
+
+export interface TerminalScreenSnapshot {
+  cols: number;
+  rows: number;
+  cursor: TerminalCursorPosition;
+  lines: string[];
+  screenText: string;
+  pendingControlSequence: boolean;
+  pendingInputByteCount: number;
+  unsupportedSequenceCount: number;
+}
+
 export interface TerminalRecentOutputChunk {
   byteCount: number;
   dataBase64: string;
@@ -3367,6 +3385,7 @@ export interface TerminalReadResult {
   paneId: string;
   sessionId: string;
   session: SessionSummary;
+  screen: TerminalScreenSnapshot;
   recentOutput: TerminalRecentOutputPage;
 }
 
@@ -8648,6 +8667,30 @@ export function decodeSessionSummary(value: unknown): SessionSummary {
   };
 }
 
+export function decodeTerminalCursorPosition(value: unknown): TerminalCursorPosition {
+  const record = assertRecord(value, "TerminalCursorPosition");
+  assertKnownFields(record, "TerminalCursorPosition", ["row", "column"]);
+  return {
+    row: decodeInteger(requireField(record, "row", "TerminalCursorPosition"), "TerminalCursorPosition.row"),
+    column: decodeInteger(requireField(record, "column", "TerminalCursorPosition"), "TerminalCursorPosition.column"),
+  };
+}
+
+export function decodeTerminalScreenSnapshot(value: unknown): TerminalScreenSnapshot {
+  const record = assertRecord(value, "TerminalScreenSnapshot");
+  assertKnownFields(record, "TerminalScreenSnapshot", ["cols", "rows", "cursor", "lines", "screenText", "pendingControlSequence", "pendingInputByteCount", "unsupportedSequenceCount"]);
+  return {
+    cols: decodeInteger(requireField(record, "cols", "TerminalScreenSnapshot"), "TerminalScreenSnapshot.cols"),
+    rows: decodeInteger(requireField(record, "rows", "TerminalScreenSnapshot"), "TerminalScreenSnapshot.rows"),
+    cursor: decodeTerminalCursorPosition(requireField(record, "cursor", "TerminalScreenSnapshot")),
+    lines: decodeArray(requireField(record, "lines", "TerminalScreenSnapshot"), "TerminalScreenSnapshot.lines", (item) => decodeString(item, "TerminalScreenSnapshot.lines item")),
+    screenText: decodeString(requireField(record, "screenText", "TerminalScreenSnapshot"), "TerminalScreenSnapshot.screenText"),
+    pendingControlSequence: decodeBoolean(requireField(record, "pendingControlSequence", "TerminalScreenSnapshot"), "TerminalScreenSnapshot.pendingControlSequence"),
+    pendingInputByteCount: decodeInteger(requireField(record, "pendingInputByteCount", "TerminalScreenSnapshot"), "TerminalScreenSnapshot.pendingInputByteCount"),
+    unsupportedSequenceCount: decodeInteger(requireField(record, "unsupportedSequenceCount", "TerminalScreenSnapshot"), "TerminalScreenSnapshot.unsupportedSequenceCount"),
+  };
+}
+
 export function decodeTerminalRecentOutputChunk(value: unknown): TerminalRecentOutputChunk {
   const record = assertRecord(value, "TerminalRecentOutputChunk");
   assertKnownFields(record, "TerminalRecentOutputChunk", ["byteCount", "dataBase64", "emittedAt", "eventId", "eventOffsetBytes", "sequence"]);
@@ -8679,12 +8722,13 @@ export function decodeTerminalRecentOutputPage(value: unknown): TerminalRecentOu
 
 export function decodeTerminalReadResult(value: unknown): TerminalReadResult {
   const record = assertRecord(value, "TerminalReadResult");
-  assertKnownFields(record, "TerminalReadResult", ["workspaceId", "paneId", "sessionId", "session", "recentOutput"]);
+  assertKnownFields(record, "TerminalReadResult", ["workspaceId", "paneId", "sessionId", "session", "screen", "recentOutput"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "TerminalReadResult"), "TerminalReadResult.workspaceId"),
     paneId: decodeString(requireField(record, "paneId", "TerminalReadResult"), "TerminalReadResult.paneId"),
     sessionId: decodeString(requireField(record, "sessionId", "TerminalReadResult"), "TerminalReadResult.sessionId"),
     session: decodeSessionSummary(requireField(record, "session", "TerminalReadResult")),
+    screen: decodeTerminalScreenSnapshot(requireField(record, "screen", "TerminalReadResult")),
     recentOutput: decodeTerminalRecentOutputPage(requireField(record, "recentOutput", "TerminalReadResult")),
   };
 }

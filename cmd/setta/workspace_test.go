@@ -157,6 +157,12 @@ func TestWorkspaceTerminalsReadCommandIntegration(t *testing.T) {
 	if read.Terminal.RecentOutput.Chunks == nil {
 		t.Fatalf("terminal recent output chunks is nil, want empty or populated array")
 	}
+	if read.Terminal.Screen.Cols != read.Terminal.Session.Cols || read.Terminal.Screen.Rows != read.Terminal.Session.Rows {
+		t.Fatalf("terminal screen dimensions = %dx%d, want session %dx%d", read.Terminal.Screen.Cols, read.Terminal.Screen.Rows, read.Terminal.Session.Cols, read.Terminal.Session.Rows)
+	}
+	if len(read.Terminal.Screen.Lines) != read.Terminal.Screen.Rows {
+		t.Fatalf("terminal screen lines = %d, want rows %d", len(read.Terminal.Screen.Lines), read.Terminal.Screen.Rows)
+	}
 }
 
 func assertWorkspacePanesResizeWidthPXCommand(t *testing.T, fixture workspaceCLITestFixture) {
@@ -522,8 +528,9 @@ func assertWorkspacePaneListForCLITest(t *testing.T, list workspaceui.WorkspaceU
 	if terminalPane.ContentRefs.Terminal == nil || terminalPane.ContentRefs.Terminal.ProfileID != "default" {
 		t.Fatalf("terminal content ref = %+v", terminalPane.ContentRefs.Terminal)
 	}
-	if len(terminalPane.ReadModes) != 2 || terminalPane.ReadModes[1] != workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput {
-		t.Fatalf("terminal read modes = %+v, want terminal_recent_output", terminalPane.ReadModes)
+	if !workspacePaneReadModesContain(terminalPane.ReadModes, workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput) ||
+		!workspacePaneReadModesContain(terminalPane.ReadModes, workspaceui.WorkspaceUIPaneReadModeTerminalScreen) {
+		t.Fatalf("terminal read modes = %+v, want terminal recent-output and screen modes", terminalPane.ReadModes)
 	}
 }
 

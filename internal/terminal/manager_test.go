@@ -279,6 +279,16 @@ func TestManagerAttachPublishesReplayForExistingSession(t *testing.T) {
 }
 
 func TestManagerReadPaneReturnsBoundedRecentOutput(t *testing.T) {
+	read, limited := readTestPaneWithOutput(t)
+
+	assertTerminalReadSession(t, read)
+	assertTerminalReadRecentOutput(t, read)
+	assertTerminalReadScreen(t, read)
+	assertTerminalReadLimitedOutput(t, limited)
+}
+
+func readTestPaneWithOutput(t *testing.T) (TerminalReadResult, TerminalReadResult) {
+	t.Helper()
 	root := t.TempDir()
 	starter := &recordingPTYStarter{}
 	manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
@@ -291,34 +301,60 @@ func TestManagerReadPaneReturnsBoundedRecentOutput(t *testing.T) {
 	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
 	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
 	handle := starter.handleAt(t, 0)
-	handle.emit([]byte("first\n"))
+	handle.emit([]byte("first\r\n"))
 	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
-	handle.emit([]byte("second\n"))
+	handle.emit([]byte("second\r\n"))
 	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
 
 	read, err := manager.ReadPane(context.Background(), "workspace_terminal", "pane_shell", 0)
 	if err != nil {
 		t.Fatalf("read terminal pane: %v", err)
 	}
-	if read.SessionID != created.ID || read.Session.ID != created.ID || read.Session.WorkspaceID != "workspace_terminal" || read.Session.PaneID != "pane_shell" {
-		t.Fatalf("read terminal session = %+v, want attached created session", read)
-	}
-	if read.RecentOutput.Text != "first\nsecond\n" || !read.RecentOutput.TextUTF8Valid {
-		t.Fatalf("recent output = %+v, want full UTF-8 output", read.RecentOutput)
-	}
-	if len(read.RecentOutput.Chunks) != 2 || read.RecentOutput.ByteCount != len("first\nsecond\n") {
-		t.Fatalf("recent output chunks/count = %+v, want two chunks", read.RecentOutput)
-	}
-
 	limited, err := manager.ReadPane(context.Background(), "workspace_terminal", "pane_shell", 5)
 	if err != nil {
 		t.Fatalf("read limited terminal pane: %v", err)
 	}
-	if !limited.RecentOutput.Truncated || limited.RecentOutput.Text != "cond\n" || limited.RecentOutput.ByteCount != 5 {
-		t.Fatalf("limited recent output = %+v, want truncated cond", limited.RecentOutput)
+	return read, limited
+}
+
+func assertTerminalReadSession(t *testing.T, read TerminalReadResult) {
+	t.Helper()
+	if read.SessionID != read.Session.ID || read.Session.WorkspaceID != "workspace_terminal" || read.Session.PaneID != "pane_shell" {
+		t.Fatalf("read terminal session = %+v, want attached created session", read)
 	}
-	if len(limited.RecentOutput.Chunks) != 1 || limited.RecentOutput.Chunks[0].EventOffsetBytes != 2 {
-		t.Fatalf("limited chunks = %+v, want partial second chunk at offset 2", limited.RecentOutput.Chunks)
+}
+
+func assertTerminalReadRecentOutput(t *testing.T, read TerminalReadResult) {
+	t.Helper()
+	if read.RecentOutput.Text != "first\r\nsecond\r\n" || !read.RecentOutput.TextUTF8Valid {
+		t.Fatalf("recent output = %+v, want full UTF-8 output", read.RecentOutput)
+	}
+	if len(read.RecentOutput.Chunks) != 2 || read.RecentOutput.ByteCount != len("first\r\nsecond\r\n") {
+		t.Fatalf("recent output chunks/count = %+v, want two chunks", read.RecentOutput)
+	}
+}
+
+func assertTerminalReadScreen(t *testing.T, read TerminalReadResult) {
+	t.Helper()
+	if read.Screen.Cols != 80 || read.Screen.Rows != 24 {
+		t.Fatalf("screen dimensions = %dx%d, want 80x24", read.Screen.Cols, read.Screen.Rows)
+	}
+	if !strings.HasPrefix(read.Screen.Lines[0], "first") ||
+		!strings.HasPrefix(read.Screen.Lines[1], "second") {
+		t.Fatalf("screen lines = %q/%q, want visible terminal output", read.Screen.Lines[0], read.Screen.Lines[1])
+	}
+	if read.Screen.Cursor.Row != 2 || read.Screen.Cursor.Column != 0 {
+		t.Fatalf("screen cursor = %+v, want row 2 col 0", read.Screen.Cursor)
+	}
+}
+
+func assertTerminalReadLimitedOutput(t *testing.T, limited TerminalReadResult) {
+	t.Helper()
+	if !limited.RecentOutput.Truncated || limited.RecentOutput.Text != "ond\r\n" || limited.RecentOutput.ByteCount != 5 {
+		t.Fatalf("limited recent output = %+v, want truncated ond CRLF", limited.RecentOutput)
+	}
+	if len(limited.RecentOutput.Chunks) != 1 || limited.RecentOutput.Chunks[0].EventOffsetBytes != 3 {
+		t.Fatalf("limited chunks = %+v, want partial second chunk at offset 3", limited.RecentOutput.Chunks)
 	}
 }
 

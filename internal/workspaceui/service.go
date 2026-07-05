@@ -248,6 +248,7 @@ func readModesForPane(pane WorkspaceUIPane) []WorkspaceUIPaneReadMode {
 	readModes := []WorkspaceUIPaneReadMode{WorkspaceUIPaneReadModeMetadata}
 	if pane.SurfaceKind == SurfaceKindTerminal && pane.TerminalConfig != nil {
 		readModes = append(readModes, WorkspaceUIPaneReadModeTerminalRecentOutput)
+		readModes = append(readModes, WorkspaceUIPaneReadModeTerminalScreen)
 	}
 	return readModes
 }

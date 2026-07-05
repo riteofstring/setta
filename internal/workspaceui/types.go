@@ -39,6 +39,7 @@ type WorkspaceUIPaneReadMode string
 const (
 	WorkspaceUIPaneReadModeMetadata             WorkspaceUIPaneReadMode = "metadata"
 	WorkspaceUIPaneReadModeTerminalRecentOutput WorkspaceUIPaneReadMode = "terminal_recent_output"
+	WorkspaceUIPaneReadModeTerminalScreen       WorkspaceUIPaneReadMode = "terminal_screen"
 )
 
 type WorkspaceUIPaneWriteMode string
@@ -648,6 +649,7 @@ func supportedPaneReadModes() []WorkspaceUIPaneReadMode {
 	return []WorkspaceUIPaneReadMode{
 		WorkspaceUIPaneReadModeMetadata,
 		WorkspaceUIPaneReadModeTerminalRecentOutput,
+		WorkspaceUIPaneReadModeTerminalScreen,
 	}
 }
 

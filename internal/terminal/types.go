@@ -182,7 +182,24 @@ type TerminalReadResult struct {
 	PaneID       string                   `json:"paneId"`
 	SessionID    string                   `json:"sessionId"`
 	Session      SessionSummary           `json:"session"`
+	Screen       TerminalScreenSnapshot   `json:"screen"`
 	RecentOutput TerminalRecentOutputPage `json:"recentOutput"`
+}
+
+type TerminalScreenSnapshot struct {
+	Cols                     int                    `json:"cols"`
+	Rows                     int                    `json:"rows"`
+	Cursor                   TerminalCursorPosition `json:"cursor"`
+	Lines                    []string               `json:"lines"`
+	ScreenText               string                 `json:"screenText"`
+	PendingControlSequence   bool                   `json:"pendingControlSequence"`
+	PendingInputByteCount    int                    `json:"pendingInputByteCount"`
+	UnsupportedSequenceCount int                    `json:"unsupportedSequenceCount"`
+}
+
+type TerminalCursorPosition struct {
+	Row    int `json:"row"`
+	Column int `json:"column"`
 }
 
 type TerminalRecentOutputPage struct {

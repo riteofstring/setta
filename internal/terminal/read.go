@@ -36,7 +36,12 @@ func (manager *Manager) ReadPane(
 		manager.mu.Unlock()
 		return TerminalReadResult{}, fmt.Errorf("terminal session not found for workspace %s pane %s", workspaceID, paneID)
 	}
+	if terminalSession.screen == nil {
+		manager.mu.Unlock()
+		return TerminalReadResult{}, fmt.Errorf("terminal screen state missing for session %s", sessionID)
+	}
 	summary := terminalSession.summary()
+	screen := terminalSession.screen.Snapshot()
 	manager.mu.Unlock()
 
 	recentOutput, err := manager.eventHub.recentOutput(sessionID, limit)
@@ -48,6 +53,7 @@ func (manager *Manager) ReadPane(
 		PaneID:       paneID,
 		SessionID:    sessionID,
 		Session:      summary,
+		Screen:       screen,
 		RecentOutput: recentOutput,
 	}, nil
 }

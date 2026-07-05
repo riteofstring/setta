@@ -410,10 +410,11 @@ func assertTerminalPaneDescriptor(t *testing.T, pane WorkspaceUIPaneDescriptor) 
 	if pane.ContentRefs.Terminal.ProfileID != "default" || pane.ContentRefs.Terminal.SessionID != "" {
 		t.Fatalf("terminal content ref = %+v, want profile default and no session", pane.ContentRefs.Terminal)
 	}
-	if len(pane.ReadModes) != 2 ||
+	if len(pane.ReadModes) != 3 ||
 		pane.ReadModes[0] != WorkspaceUIPaneReadModeMetadata ||
-		pane.ReadModes[1] != WorkspaceUIPaneReadModeTerminalRecentOutput {
-		t.Fatalf("terminal read modes = %+v, want metadata and terminal_recent_output", pane.ReadModes)
+		pane.ReadModes[1] != WorkspaceUIPaneReadModeTerminalRecentOutput ||
+		pane.ReadModes[2] != WorkspaceUIPaneReadModeTerminalScreen {
+		t.Fatalf("terminal read modes = %+v, want metadata, terminal_recent_output, and terminal_screen", pane.ReadModes)
 	}
 	if !pane.CanFocus || !pane.CanMove || !pane.CanClosePane {
 		t.Fatalf("terminal layout mutation capabilities = focus:%v move:%v close:%v, want true", pane.CanFocus, pane.CanMove, pane.CanClosePane)

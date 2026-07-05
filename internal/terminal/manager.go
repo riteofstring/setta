@@ -66,6 +66,7 @@ type session struct {
 	paneID      string
 	profileID   string
 	rows        int
+	screen      *terminalScreen
 	status      SessionStatus
 	updatedAt   time.Time
 	workspaceID string
@@ -173,6 +174,7 @@ func (manager *Manager) Create(
 		paneID:      paneID,
 		profileID:   profile.ID,
 		rows:        rows,
+		screen:      newTerminalScreen(cols, rows),
 		status:      SessionStatusRunning,
 		updatedAt:   now,
 		workspaceID: workspaceID,
@@ -247,6 +249,11 @@ func (manager *Manager) Resize(
 	manager.mu.Lock()
 	terminalSession.cols = cols
 	terminalSession.rows = rows
+	if terminalSession.screen == nil {
+		manager.mu.Unlock()
+		return SessionSummary{}, fmt.Errorf("terminal screen state missing for session %s", sessionID)
+	}
+	terminalSession.screen.Resize(cols, rows)
 	terminalSession.updatedAt = manager.clock().UTC()
 	summary := terminalSession.summary()
 	manager.mu.Unlock()
@@ -634,6 +641,9 @@ func (manager *Manager) publishOutput(sessionID string, data []byte) {
 	if terminalSession == nil {
 		manager.mu.Unlock()
 		return
+	}
+	if terminalSession.screen != nil {
+		terminalSession.screen.Feed(data)
 	}
 	payload := TerminalEventPayload{
 		DataBase64: base64.StdEncoding.EncodeToString(data),

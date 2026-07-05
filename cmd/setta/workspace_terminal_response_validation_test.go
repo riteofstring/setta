@@ -19,11 +19,27 @@ func TestValidateWorkspaceTerminalReadResponseAcceptsTerminalRecentOutput(t *tes
 
 func TestValidateWorkspaceTerminalReadResponseRejectsMissingTerminalReadMode(t *testing.T) {
 	response := workspaceTerminalReadValidationResponse()
-	response.Pane.ReadModes = []workspaceui.WorkspaceUIPaneReadMode{workspaceui.WorkspaceUIPaneReadModeMetadata}
+	response.Pane.ReadModes = []workspaceui.WorkspaceUIPaneReadMode{
+		workspaceui.WorkspaceUIPaneReadModeMetadata,
+		workspaceui.WorkspaceUIPaneReadModeTerminalScreen,
+	}
 
 	err := validateWorkspaceTerminalReadResponse(response, "workspace_api", "workspace_pane_1")
 	if err == nil || !strings.Contains(err.Error(), "terminal_recent_output") {
 		t.Fatalf("validation error = %v, want missing terminal_recent_output read mode", err)
+	}
+}
+
+func TestValidateWorkspaceTerminalReadResponseRejectsMissingTerminalScreenMode(t *testing.T) {
+	response := workspaceTerminalReadValidationResponse()
+	response.Pane.ReadModes = []workspaceui.WorkspaceUIPaneReadMode{
+		workspaceui.WorkspaceUIPaneReadModeMetadata,
+		workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput,
+	}
+
+	err := validateWorkspaceTerminalReadResponse(response, "workspace_api", "workspace_pane_1")
+	if err == nil || !strings.Contains(err.Error(), "terminal_screen") {
+		t.Fatalf("validation error = %v, want missing terminal_screen read mode", err)
 	}
 }
 
@@ -47,6 +63,7 @@ func workspaceTerminalReadValidationResponse() httpapi.ReadWorkspaceUITerminalRe
 			ReadModes: []workspaceui.WorkspaceUIPaneReadMode{
 				workspaceui.WorkspaceUIPaneReadModeMetadata,
 				workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput,
+				workspaceui.WorkspaceUIPaneReadModeTerminalScreen,
 			},
 			WriteModes:        []workspaceui.WorkspaceUIPaneWriteMode{},
 			SurfaceCloseModes: []workspaceui.WorkspaceUISurfaceCloseMode{workspaceui.WorkspaceUISurfaceCloseModeNone},
@@ -66,11 +83,21 @@ func workspaceTerminalReadValidationResponse() httpapi.ReadWorkspaceUITerminalRe
 				PaneID:      "workspace_pane_1",
 				ProfileID:   "default",
 				CWD:         "/tmp/workspace",
-				Cols:        80,
-				Rows:        24,
+				Cols:        8,
+				Rows:        2,
 				Status:      terminal.SessionStatusRunning,
 				CreatedAt:   "2026-07-08T12:00:00Z",
 				UpdatedAt:   "2026-07-08T12:00:00Z",
+			},
+			Screen: terminal.TerminalScreenSnapshot{
+				Cols: 8,
+				Rows: 2,
+				Cursor: terminal.TerminalCursorPosition{
+					Row:    1,
+					Column: 0,
+				},
+				Lines:      []string{"ready   ", "        "},
+				ScreenText: "ready   \n        ",
 			},
 			RecentOutput: terminal.TerminalRecentOutputPage{
 				ByteCount:     len("ready\n"),

@@ -31,6 +31,9 @@ func validateWorkspaceTerminalReadResponse(response httpapi.ReadWorkspaceUITermi
 	if !workspacePaneReadModesContain(response.Pane.ReadModes, workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput) {
 		return errors.New("workspace terminal read pane descriptor did not advertise terminal_recent_output")
 	}
+	if !workspacePaneReadModesContain(response.Pane.ReadModes, workspaceui.WorkspaceUIPaneReadModeTerminalScreen) {
+		return errors.New("workspace terminal read pane descriptor did not advertise terminal_screen")
+	}
 	if err := validateTerminalReadResult(response.Terminal, workspaceID, paneID); err != nil {
 		return fmt.Errorf("workspace terminal read payload is invalid: %w", err)
 	}
@@ -62,7 +65,62 @@ func validateTerminalReadResult(result terminal.TerminalReadResult, workspaceID 
 	if result.Session.WorkspaceID != workspaceID || result.Session.PaneID != paneID {
 		return fmt.Errorf("terminal read session attachment = %s/%s, want %s/%s", result.Session.WorkspaceID, result.Session.PaneID, workspaceID, paneID)
 	}
+	if err := validateTerminalScreenSnapshot(result.Screen, result.Session); err != nil {
+		return err
+	}
 	return validateTerminalRecentOutputPage(result.RecentOutput)
+}
+
+func validateTerminalScreenSnapshot(snapshot terminal.TerminalScreenSnapshot, session terminal.SessionSummary) error {
+	if err := validateTerminalScreenDimensions(snapshot, session); err != nil {
+		return err
+	}
+	if err := validateTerminalScreenCursor(snapshot); err != nil {
+		return err
+	}
+	if err := validateTerminalScreenLines(snapshot); err != nil {
+		return err
+	}
+	return validateTerminalScreenParserCounts(snapshot)
+}
+
+func validateTerminalScreenDimensions(snapshot terminal.TerminalScreenSnapshot, session terminal.SessionSummary) error {
+	if snapshot.Cols != session.Cols || snapshot.Rows != session.Rows {
+		return fmt.Errorf("terminal screen dimensions = %dx%d, want session dimensions %dx%d", snapshot.Cols, snapshot.Rows, session.Cols, session.Rows)
+	}
+	if snapshot.Cols <= 0 || snapshot.Rows <= 0 {
+		return fmt.Errorf("terminal screen dimensions must be positive: %dx%d", snapshot.Cols, snapshot.Rows)
+	}
+	return nil
+}
+
+func validateTerminalScreenCursor(snapshot terminal.TerminalScreenSnapshot) error {
+	if snapshot.Cursor.Row < 0 || snapshot.Cursor.Row >= snapshot.Rows || snapshot.Cursor.Column < 0 || snapshot.Cursor.Column >= snapshot.Cols {
+		return fmt.Errorf("terminal screen cursor = %d/%d outside %dx%d screen", snapshot.Cursor.Row, snapshot.Cursor.Column, snapshot.Cols, snapshot.Rows)
+	}
+	return nil
+}
+
+func validateTerminalScreenLines(snapshot terminal.TerminalScreenSnapshot) error {
+	if snapshot.Lines == nil {
+		return errors.New("terminal screen lines array is required")
+	}
+	if len(snapshot.Lines) != snapshot.Rows {
+		return fmt.Errorf("terminal screen line count = %d, want %d", len(snapshot.Lines), snapshot.Rows)
+	}
+	for index, line := range snapshot.Lines {
+		if utf8.RuneCountInString(line) != snapshot.Cols {
+			return fmt.Errorf("terminal screen line %d width = %d, want %d", index, utf8.RuneCountInString(line), snapshot.Cols)
+		}
+	}
+	return nil
+}
+
+func validateTerminalScreenParserCounts(snapshot terminal.TerminalScreenSnapshot) error {
+	if snapshot.PendingInputByteCount < 0 || snapshot.UnsupportedSequenceCount < 0 {
+		return errors.New("terminal screen returned negative parser counts")
+	}
+	return nil
 }
 
 func validateTerminalRecentOutputPage(page terminal.TerminalRecentOutputPage) error {

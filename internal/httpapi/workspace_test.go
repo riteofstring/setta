@@ -240,8 +240,9 @@ func assertWorkspaceUIPaneIntrospectionList(t *testing.T, list workspaceui.Works
 	if terminalPane.ContentRefs.Terminal == nil || terminalPane.ContentRefs.Terminal.CWDOverride != "/tmp/workspace" {
 		t.Fatalf("terminal content ref = %+v", terminalPane.ContentRefs.Terminal)
 	}
-	if len(terminalPane.ReadModes) != 2 || terminalPane.ReadModes[1] != workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput {
-		t.Fatalf("terminal read modes = %+v, want terminal_recent_output capability", terminalPane.ReadModes)
+	if !workspacePaneReadModesContain(terminalPane.ReadModes, workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput) ||
+		!workspacePaneReadModesContain(terminalPane.ReadModes, workspaceui.WorkspaceUIPaneReadModeTerminalScreen) {
+		t.Fatalf("terminal read modes = %+v, want terminal recent-output and screen capabilities", terminalPane.ReadModes)
 	}
 	if !terminalPane.CanFocus || !terminalPane.CanMove || !terminalPane.CanClosePane || len(terminalPane.WriteModes) != 0 {
 		t.Fatalf("terminal capabilities = focus:%v move:%v close:%v writeModes:%+v, want layout capabilities without surface writes", terminalPane.CanFocus, terminalPane.CanMove, terminalPane.CanClosePane, terminalPane.WriteModes)
@@ -308,6 +309,18 @@ func TestWorkspaceUITerminalReadEndpointResolvesPaneSession(t *testing.T) {
 	if read.Terminal.RecentOutput.Text != "pane output\n" || len(read.Terminal.RecentOutput.Chunks) != 1 {
 		t.Fatalf("terminal recent output = %+v, want emitted pane output", read.Terminal.RecentOutput)
 	}
+	if !strings.HasPrefix(read.Terminal.Screen.Lines[0], "pane output") || read.Terminal.Screen.Cursor.Row != 1 {
+		t.Fatalf("terminal screen = %+v, want pane output on visible screen", read.Terminal.Screen)
+	}
+}
+
+func workspacePaneReadModesContain(readModes []workspaceui.WorkspaceUIPaneReadMode, target workspaceui.WorkspaceUIPaneReadMode) bool {
+	for _, mode := range readModes {
+		if mode == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestWorkspaceUITerminalReadEndpointRejectsNonTerminalPane(t *testing.T) {
