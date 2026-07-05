@@ -46,6 +46,15 @@ type CompletePairingResponse struct {
 	ProtocolVersion int    `json:"protocolVersion"`
 }
 
+type CreateDevicePairingRequest struct {
+	RuntimeBaseURL string `json:"runtimeBaseUrl"`
+}
+
+type CreateDevicePairingResponse struct {
+	PairingURL string `json:"pairingUrl"`
+	ExpiresAt  string `json:"expiresAt"`
+}
+
 type ListDevicesRequest struct{}
 
 type ListDevicesResponse struct {
@@ -408,11 +417,6 @@ type UpdateWorkflowDefinitionRequest struct {
 	Name         string                     `json:"name"`
 	Description  string                     `json:"description"`
 	Graph        orchestrator.WorkflowGraph `json:"graph"`
-}
-
-type SaveWorkflowDefinitionRequest struct {
-	WorkspaceID string                                   `json:"workspaceId"`
-	Input       orchestrator.WorkflowDefinitionSaveInput `json:"input"`
 }
 
 type DeleteWorkflowDefinitionRequest struct {

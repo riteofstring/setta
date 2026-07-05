@@ -997,7 +997,6 @@
   }
   async function nullWorkflowValidation({ workspaceId }) {
     return window.setta.workflow.validateDefinition(workspaceId, {
-      agentDefaults: { model: "", permission: null, reasoningEffort: null },
       edges: [],
       layout: { nodes: [] },
       nodes: [],
@@ -1035,7 +1034,6 @@
       ],
     };
     return {
-      agentDefaults: { model: "", permission: null, reasoningEffort: null },
       edges: [
         {
           condition: alwaysCondition(),
@@ -1066,8 +1064,9 @@
           action: {
             codex: {
               freshConversation: true,
+              model: "",
               prompt: "workflow result action",
-              settings: { model: "", permission: null, reasoningEffort: null },
+              reasoningEffort: "",
             },
             kind: "agent.codex",
           },
@@ -1329,8 +1328,6 @@
       right: rect.right,
       top: rect.top,
       width: rect.width,
-      x: rect.x,
-      y: rect.y,
     };
   }
   function clamp(value, min, max) {

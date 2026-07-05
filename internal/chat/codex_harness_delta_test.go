@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -37,24 +38,20 @@ func TestCodexHarnessAcceptsSchemaValidEmptyBase64OutputDeltas(t *testing.T) {
 	if len(sink.outputs) != 0 {
 		t.Fatalf("outputs = %+v, want no empty output records", sink.outputs)
 	}
-	if len(sink.items) != 0 {
-		t.Fatalf("items = %+v, want no standalone command or process run items", sink.items)
+	if len(sink.items) != 2 {
+		t.Fatalf("items = %+v, want command and process run items", sink.items)
 	}
 }
 
-func TestCodexHarnessIgnoresStandaloneUnsupportedOutputStream(t *testing.T) {
+func TestCodexHarnessRejectsUnsupportedOutputStream(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("unsupported-output-stream"))
 	sink := newRecordingSink()
 
-	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	if err != nil {
-		t.Fatalf("start turn: %v", err)
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want unsupported output stream error")
 	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if sink.text != "after standalone output" {
-		t.Fatalf("assistant text = %q, want turn to continue after ignored standalone output", sink.text)
-	}
-	if len(sink.outputs) != 0 || len(sink.items) != 0 {
-		t.Fatalf("items = %+v outputs = %+v, want standalone output ignored", sink.items, sink.outputs)
+	if !strings.Contains(err.Error(), "unsupported codex output stream: stdlog") {
+		t.Fatalf("error = %q, want unsupported output stream", err)
 	}
 }
