@@ -51,7 +51,7 @@ try {
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
 
-  await persistLayoutWithoutSettings(context.client, workspaceId);
+  await closeDefaultGraphAndSettingsPanes(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const beforeOpen = await waitForLayoutWithoutSettings(context.client, workspaceId);
@@ -100,13 +100,21 @@ async function ensureWorkspaceOpen(client) {
   );
 }
 
-async function persistLayoutWithoutSettings(client, workspaceId) {
+async function closeDefaultGraphAndSettingsPanes(client, workspaceId) {
   const result = await client.evaluate(`(async () => {
-    await window.setta.workspace.saveUILayout(${JSON.stringify(layoutWithoutSettings(workspaceId))});
+    const paneOperation = ${paneOperationExpression()};
+    await window.setta.workspace.applyUIPaneOperation(
+      ${JSON.stringify(workspaceId)},
+      paneOperation("close_pane", "workspace_pane_3", { close: { surfaceClose: "none" } }),
+    );
+    await window.setta.workspace.applyUIPaneOperation(
+      ${JSON.stringify(workspaceId)},
+      paneOperation("close_pane", "workspace_pane_2", { close: { surfaceClose: "none" } }),
+    );
     return true;
   })()`);
   if (!result) {
-    throw new Error("workspace UI layout was not persisted");
+    throw new Error("workspace graph/settings panes were not closed");
   }
 }
 
@@ -185,60 +193,18 @@ function workspaceIdExpression() {
   })()`;
 }
 
-function layoutWithoutSettings(workspaceId) {
-  return {
-    columns: [
-      storedColumn("workspace_column_0", 0, ["workspace_pane_0"]),
-      storedColumn("workspace_column_1", 1, ["workspace_pane_1"]),
-    ],
-    focusedPaneId: "workspace_pane_0",
-    panes: [
-      storedPane({
-        columnId: "workspace_column_0",
-        paneId: "workspace_pane_0",
-        sequence: 0,
-        subtitle: "workspace chat",
-        surfaceId: "workspace_surface_0",
-        surfaceKind: "chat-dom",
-        title: "Chat",
-        tone: "cyan",
-        weight: 1.6,
-      }),
-      storedPane({
-        columnId: "workspace_column_1",
-        paneId: "workspace_pane_1",
-        sequence: 1,
-        subtitle: "workspace command surface",
-        surfaceId: "workspace_surface_1",
-        surfaceKind: "terminal",
-        title: "Terminal",
-        tone: "green",
-        weight: 1,
-      }),
-    ],
-    schemaVersion: 1,
-    workspaceId,
-  };
-}
-
-function storedColumn(columnId, index, paneIds) {
-  return {
-    columnId,
-    idealWidthSpec: { unit: "px", value: 520 },
-    index,
-    paneIds,
-    planeIndex: 0,
-    previousProportionWidth: null,
-    slotIndex: index,
-    widthSpec: { unit: "px", value: 520 },
-  };
-}
-
-function storedPane(pane) {
-  return {
-    ...pane,
-    heat: (pane.sequence * 37) % 100,
-    terminalConfig: null,
-    workflowNodeDetailsConfig: null,
-  };
+function paneOperationExpression() {
+  return `((kind, paneId, fields = {}) => ({
+    close: null,
+    configure: null,
+    kind,
+    move: null,
+    open: null,
+    paneId,
+    rename: null,
+    reorder: null,
+    resize: null,
+    resizeColumn: null,
+    ...fields,
+  }))`;
 }

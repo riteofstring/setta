@@ -1,6 +1,25 @@
 package httpapi
 
-import "net/http"
+import (
+	"errors"
+	"net/http"
+
+	"setta/internal/orchestrator"
+	"setta/internal/workflowaudit"
+)
+
+func (handler handler) readWorkflowSchema(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	schema, err := service.WorkflowSchema()
+	if err != nil {
+		writeWorkflowError(response, "read_workflow_schema_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, schema)
+}
 
 func (handler handler) listWorkflowDefinitions(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
@@ -70,6 +89,32 @@ func (handler handler) updateWorkflowDefinition(response http.ResponseWriter, re
 	writeJSON(response, http.StatusOK, definition)
 }
 
+func (handler handler) saveWorkflowDefinition(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	auditService := requireWorkflowAuditService(response, handler.workflowAuditService)
+	if service == nil || auditService == nil {
+		return
+	}
+	var payload SaveWorkflowDefinitionRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.SaveDefinition(payload.WorkspaceID, payload.Input)
+	if err != nil {
+		if auditErr := recordWorkflowDefinitionSaveAudit(request, auditService, payload, result, err); auditErr != nil {
+			writeWorkflowAuditError(response, auditErr)
+			return
+		}
+		writeWorkflowError(response, "save_workflow_definition_failed", err)
+		return
+	}
+	if err := recordWorkflowDefinitionSaveAudit(request, auditService, payload, result, nil); err != nil {
+		writeWorkflowAuditError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) deleteWorkflowDefinition(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {
@@ -105,19 +150,143 @@ func (handler handler) validateWorkflowDefinition(response http.ResponseWriter, 
 
 func (handler handler) startWorkflowExecution(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
-	if service == nil {
+	auditService := requireWorkflowAuditService(response, handler.workflowAuditService)
+	if service == nil || auditService == nil {
 		return
 	}
 	var payload StartWorkflowExecutionRequest
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	execution, err := service.StartExecution(payload.WorkspaceID, payload.DefinitionID, payload.VersionID)
+	execution, validation, err := service.StartExecutionWithValidation(payload.WorkspaceID, payload.DefinitionID, payload.VersionID)
 	if err != nil {
+		if auditErr := recordWorkflowExecutionStartAudit(request, auditService, payload, execution, validation, err); auditErr != nil {
+			writeWorkflowAuditError(response, auditErr)
+			return
+		}
 		writeWorkflowError(response, "start_workflow_execution_failed", err)
 		return
 	}
+	if err := recordWorkflowExecutionStartAudit(request, auditService, payload, execution, validation, nil); err != nil {
+		writeWorkflowAuditError(response, err)
+		return
+	}
 	writeJSON(response, http.StatusOK, execution)
+}
+
+func recordWorkflowDefinitionSaveAudit(
+	request *http.Request,
+	auditService WorkflowAuditService,
+	payload SaveWorkflowDefinitionRequest,
+	result orchestrator.WorkflowDefinitionSaveResult,
+	operationErr error,
+) error {
+	deviceSession, ok := authenticatedDeviceSession(request)
+	if !ok {
+		return errors.New("authenticated device session is required for workflow audit")
+	}
+	input := workflowaudit.RecordInput{
+		AuthenticatedDeviceSession: deviceSession,
+		CommandName:                workflowaudit.CommandWorkflowDefinitionsSave,
+		WorkspaceID:                payload.WorkspaceID,
+		DefinitionID:               payload.Input.DefinitionID,
+		SaveOperation:              payload.Input.Operation,
+	}
+	if operationErr != nil {
+		input.Outcome = workflowaudit.OutcomeFailed
+		input.Validation = workflowAuditValidationFromError(operationErr)
+		input.ErrorCode = workflowAuditErrorCode("save_workflow_definition_failed", operationErr)
+		input.ErrorMessage = operationErr.Error()
+		_, err := auditService.Record(request.Context(), input)
+		return err
+	}
+
+	input.Outcome = workflowaudit.OutcomeWorkflowDefinitionUnsaved
+	if result.Saved {
+		input.Outcome = workflowaudit.OutcomeWorkflowDefinitionSaved
+	}
+	if result.Definition != nil {
+		input.DefinitionID = result.Definition.ID
+	}
+	saved := result.Saved
+	validation := result.Validation
+	input.Saved = &saved
+	input.Validation = &validation
+	_, err := auditService.Record(request.Context(), input)
+	return err
+}
+
+func recordWorkflowExecutionStartAudit(
+	request *http.Request,
+	auditService WorkflowAuditService,
+	payload StartWorkflowExecutionRequest,
+	execution orchestrator.WorkflowExecution,
+	validation orchestrator.WorkflowValidationResult,
+	operationErr error,
+) error {
+	deviceSession, ok := authenticatedDeviceSession(request)
+	if !ok {
+		return errors.New("authenticated device session is required for workflow audit")
+	}
+	input := workflowaudit.RecordInput{
+		AuthenticatedDeviceSession: deviceSession,
+		CommandName:                workflowaudit.CommandWorkflowExecutionsStart,
+		WorkspaceID:                payload.WorkspaceID,
+		DefinitionID:               payload.DefinitionID,
+	}
+	if operationErr != nil {
+		input.Outcome = workflowaudit.OutcomeFailed
+		input.Validation = workflowAuditValidationResult(validation, operationErr)
+		input.ErrorCode = workflowAuditErrorCode("start_workflow_execution_failed", operationErr)
+		input.ErrorMessage = operationErr.Error()
+		if conflict, ok := orchestrator.IsWorkflowExecutionAlreadyRunning(operationErr); ok {
+			activeExecution := conflict.ActiveExecution
+			input.ActiveExecution = &activeExecution
+		}
+		_, err := auditService.Record(request.Context(), input)
+		return err
+	}
+
+	input.Outcome = workflowaudit.OutcomeWorkflowExecutionStarted
+	input.ExecutionID = execution.ID
+	input.Validation = workflowAuditValidationResult(validation, nil)
+	_, err := auditService.Record(request.Context(), input)
+	return err
+}
+
+func workflowAuditValidationResult(result orchestrator.WorkflowValidationResult, err error) *orchestrator.WorkflowValidationResult {
+	if result.Valid || result.Diagnostics != nil {
+		validation := result
+		return &validation
+	}
+	if err == nil {
+		return nil
+	}
+	return workflowAuditValidationFromError(err)
+}
+
+func workflowAuditValidationFromError(err error) *orchestrator.WorkflowValidationResult {
+	var validationErr *orchestrator.ValidationError
+	if !errors.As(err, &validationErr) {
+		return nil
+	}
+	validation := validationErr.Result
+	return &validation
+}
+
+func workflowAuditErrorCode(defaultCode string, err error) string {
+	var validationErr *orchestrator.ValidationError
+	if errors.As(err, &validationErr) {
+		return "workflow_validation_failed"
+	}
+	if _, ok := orchestrator.IsWorkflowExecutionAlreadyRunning(err); ok {
+		return orchestrator.WorkflowExecutionAlreadyRunningCode
+	}
+	return defaultCode
+}
+
+func writeWorkflowAuditError(response http.ResponseWriter, err error) {
+	writeError(response, http.StatusInternalServerError, "record_workflow_audit_failed", err.Error())
 }
 
 func (handler handler) listWorkflowExecutions(response http.ResponseWriter, request *http.Request) {
@@ -149,6 +318,33 @@ func (handler handler) cancelWorkflowExecution(response http.ResponseWriter, req
 	execution, err := service.CancelExecution(payload.WorkspaceID, payload.ExecutionID)
 	if err != nil {
 		writeWorkflowError(response, "cancel_workflow_execution_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, execution)
+}
+
+func (handler handler) reportWorkflowExecutionResult(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload ReportWorkflowExecutionResultRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	input := orchestrator.WorkflowExecutionResultInput{
+		WorkspaceID:     payload.WorkspaceID,
+		ExecutionID:     payload.ExecutionID,
+		NodeExecutionID: payload.NodeExecutionID,
+		Result:          payload.Result,
+	}
+	if err := orchestrator.ValidateWorkflowExecutionResultInput(input); err != nil {
+		writeWorkflowError(response, "report_workflow_execution_result_failed", err)
+		return
+	}
+	execution, err := service.ReportExecutionResult(payload.WorkspaceID, input)
+	if err != nil {
+		writeWorkflowError(response, "report_workflow_execution_result_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, execution)

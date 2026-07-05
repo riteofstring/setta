@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"setta/internal/chat"
 	"setta/internal/httpapi"
 	"setta/internal/runtimeauth"
-	"setta/internal/semanticgraph"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -79,6 +79,7 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 	tests := map[string]Config{
 		"empty app data":    withAppDataDir(t, ""),
 		"relative app data": withAppDataDir(t, "relative-app-data"),
+		"relative CLI dir":  withBundledSettaCLIDir(t, "relative-cli-dir"),
 		"bad chat harness":  withChatHarness(t, "unsupported"),
 		"empty host":        withHost(t, ""),
 		"empty bootstrap":   withBootstrapDisplayName(t, ""),
@@ -95,6 +96,47 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 				t.Fatal("start succeeded, want error")
 			}
 		})
+	}
+}
+
+func TestBundledSettaCLIDirValidationRequiresExecutable(t *testing.T) {
+	dir := t.TempDir()
+	config := testConfig(t)
+	config.BundledSettaCLIDir = dir
+
+	if err := config.Validate(); err == nil || !strings.Contains(err.Error(), "bundled setta CLI executable is missing") {
+		t.Fatalf("validate missing bundled CLI error = %v, want missing executable", err)
+	}
+
+	executable := bundledSettaCLIExecutablePath(dir)
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\n"), 0o644); err != nil {
+		t.Fatalf("write bundled CLI fixture: %v", err)
+	}
+	if goruntime.GOOS != "windows" {
+		if err := config.Validate(); err == nil || !strings.Contains(err.Error(), "bundled setta CLI executable is not executable") {
+			t.Fatalf("validate non-executable bundled CLI error = %v, want not executable", err)
+		}
+	}
+	if err := os.Chmod(executable, 0o755); err != nil {
+		t.Fatalf("chmod bundled CLI fixture: %v", err)
+	}
+	if err := config.Validate(); err != nil {
+		t.Fatalf("validate executable bundled CLI: %v", err)
+	}
+}
+
+func TestCodexProcessEnvPrependsBundledSettaCLIDir(t *testing.T) {
+	currentPath := filepath.Join(string(filepath.Separator), "usr", "bin")
+	t.Setenv("PATH", currentPath)
+	dir := filepath.Join(string(filepath.Separator), "opt", "setta", "bin")
+
+	env := codexProcessEnvForBundledSettaCLI(dir)
+	if len(env) != 1 {
+		t.Fatalf("env entries = %v, want one PATH entry", env)
+	}
+	want := "PATH=" + dir + string(os.PathListSeparator) + currentPath
+	if env[0] != want {
+		t.Fatalf("PATH env = %q, want %q", env[0], want)
 	}
 }
 
@@ -180,31 +222,6 @@ func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
 	}
 	if ready.Event != "ready" {
 		t.Fatalf("ready event = %q, want ready", ready.Event)
-	}
-}
-
-func TestRuntimeDisablesSemanticCartographerGlobally(t *testing.T) {
-	server, ready := startRuntimeTestServer(t, testConfig(t))
-	defer shutdownServer(t, server)
-
-	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 5*time.Second)
-	baseURL := "http://" + server.Addr()
-	state := postRuntimeJSON[semanticgraph.CartographerProcessingState](t, client, baseURL, "/semantic-graph/cartographer/processing/state", httpapi.ReadCartographerProcessingStateRequest{}, http.StatusOK)
-	if state.Enabled || state.Started || state.QueuedWindowCount != 0 || state.RunningWindowCount != 0 {
-		t.Fatalf("runtime cartographer state = %+v, want globally disabled and idle", state)
-	}
-
-	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
-		RootPath: t.TempDir(),
-	}, http.StatusOK)
-	response := postRuntimeJSON[httpapi.ErrorResponse](t, client, baseURL, "/semantic-graph/cartographer/windows/build", httpapi.BuildCartographerWindowRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		TriggerKind:    semanticgraph.CartographerTriggerManual,
-		TargetEntityID: "node_runtime_disabled",
-		Summary:        "Runtime disabled cartographer request.",
-	}, http.StatusBadRequest)
-	if response.Error.Code != "build_cartographer_window_failed" || response.Error.Message != "semantic cartographer is disabled" {
-		t.Fatalf("runtime disabled build response = %+v, want disabled cartographer error", response)
 	}
 }
 
@@ -365,6 +382,14 @@ func withAppDataDir(t *testing.T, appDataDir string) Config {
 
 	config := testConfig(t)
 	config.AppDataDir = appDataDir
+	return config
+}
+
+func withBundledSettaCLIDir(t *testing.T, dir string) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.BundledSettaCLIDir = dir
 	return config
 }
 

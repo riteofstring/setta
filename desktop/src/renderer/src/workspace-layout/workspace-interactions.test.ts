@@ -31,7 +31,7 @@ describe("workspace keyboard interactions", () => {
 
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
-    expect(context.persistLayout).not.toHaveBeenCalled();
+    expect(context.persistFocusedPane).not.toHaveBeenCalled();
   });
 
   test("moves focus with Mod+Alt+Arrow", () => {
@@ -43,7 +43,7 @@ describe("workspace keyboard interactions", () => {
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(context.scheduler.pauseBenchmark).toHaveBeenCalledOnce();
     expect(context.runtime.store.moveFocus).toHaveBeenCalledWith("right", context.viewport);
-    expect(context.persistLayout).toHaveBeenCalledOnce();
+    expect(context.persistFocusedPane).toHaveBeenCalledOnce();
   });
 
   test("moves focus with Ctrl+Alt+Arrow when that preset is active", () => {
@@ -190,7 +190,7 @@ describe("workspace keyboard interactions", () => {
     });
 
     expect(context.runtime.store.moveFocus).toHaveBeenCalledWith("up", context.viewport);
-    expect(context.persistLayout).toHaveBeenCalledOnce();
+    expect(context.persistFocusedPane).toHaveBeenCalledOnce();
   });
 });
 
@@ -371,7 +371,7 @@ function overviewWheelContext() {
   const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
   return {
     insideTarget,
-    persistLayout: vi.fn(),
+    persistFocusedPane: vi.fn(),
     root,
     runtime,
     scheduler,
@@ -416,7 +416,7 @@ function workspaceClickContext({
   const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
   return {
     event: mouseEvent({ clientX: 240, clientY: 160, target: paneTarget }),
-    runLayoutAction: (action: () => void) => action(),
+    runLayoutAction: (action: () => unknown) => action(),
     runtime,
     scheduler,
     paneTarget,
@@ -514,6 +514,8 @@ function workspaceKeyContext({
   const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
   const store = {
     canOpenPane: vi.fn(() => true),
+    focusedColumnId: vi.fn(() => "workspace_column_0"),
+    focusedPaneId: vi.fn(() => "workspace_pane_0"),
     moveFocus: vi.fn(),
     moveFocusedPane: vi.fn(),
     openPane: vi.fn(),
@@ -524,8 +526,8 @@ function workspaceKeyContext({
   const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
   return {
     event: keyboardEvent({ key: "Escape" }),
-    persistLayout: vi.fn(),
-    runLayoutAction: (action: () => void) => action(),
+    persistFocusedPane: vi.fn(),
+    runLayoutAction: (action: () => unknown) => action(),
     runtime,
     scheduler,
     shortcuts,

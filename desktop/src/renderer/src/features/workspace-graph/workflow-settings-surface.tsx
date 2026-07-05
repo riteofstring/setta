@@ -1,25 +1,30 @@
-import type { WorkflowDefinition } from "@generated/backend";
+import type { ChatPermissionPreset, WorkflowDefinition } from "@generated/backend";
 import { RefreshCcw, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
+import { useChatDefaultsStore } from "../../stores/chat-defaults-store";
 import {
   useWorkflowEditorStore,
   type WorkflowSettingsTarget,
 } from "../../stores/workflow-editor-store";
+import {
+  WorkflowAgentPermissionField,
+  workflowAgentSettingsDraftFromSettings,
+  workflowAgentSettingsFromDraft,
+  type WorkflowAgentSettingsDraft,
+} from "./workflow-agent-settings-form";
 
 type WorkflowDefinitionRecord = WorkflowDefinition;
+const emptyPermissionPresets: ChatPermissionPreset[] = [];
 
 interface WorkflowSettingsDraft {
+  agentDefaults: WorkflowAgentSettingsDraft;
   description: string;
   name: string;
 }
 
 export function WorkflowSettingsSurface() {
   const target = useWorkflowEditorStore((state) => state.selectedWorkflowSettingsTarget);
-  const notifyWorkflowDefinitionChanged = useWorkflowEditorStore(
-    (state) => state.notifyWorkflowDefinitionChanged,
-  );
   const setSelectedWorkflowSettingsTarget = useWorkflowEditorStore(
     (state) => state.setSelectedWorkflowSettingsTarget,
   );
@@ -28,14 +33,22 @@ export function WorkflowSettingsSurface() {
   const [draft, setDraft] = useState<WorkflowSettingsDraft>(() => emptyDraft());
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const loadChatDefaults = useChatDefaultsStore((state) => state.load);
+  const chatDefaultsView = useChatDefaultsStore((state) => state.view);
+  const permissionPresets = chatDefaultsView?.permissionPresets ?? emptyPermissionPresets;
 
   useEffect(() => {
     if (definition !== null) {
-      setDraft({ description: definition.description, name: definition.name });
+      setDraft({
+        agentDefaults: workflowAgentSettingsDraftFromSettings(definition.graph.agentDefaults),
+        description: definition.description,
+        name: definition.name,
+      });
       return;
     }
     if (target !== null) {
       setDraft({
+        agentDefaults: workflowAgentSettingsDraftFromSettings(null),
         description: target.definitionDescription,
         name: target.definitionName,
       });
@@ -47,6 +60,12 @@ export function WorkflowSettingsSurface() {
   useEffect(() => {
     setSaveMessage("");
   }, [target]);
+
+  useEffect(() => {
+    if (target !== null && target.definitionId !== "") {
+      void loadChatDefaults();
+    }
+  }, [loadChatDefaults, target]);
 
   async function saveWorkflowSettings() {
     if (target === null || definition === null || !target.editable) {
@@ -65,7 +84,10 @@ export function WorkflowSettingsSurface() {
         target.definitionId,
         draft.name,
         draft.description,
-        currentDefinition.graph,
+        {
+          ...currentDefinition.graph,
+          agentDefaults: workflowAgentSettingsFromDraft(draft.agentDefaults),
+        },
       );
       setDefinition(updated);
       setSelectedWorkflowSettingsTarget({
@@ -74,10 +96,6 @@ export function WorkflowSettingsSurface() {
         definitionName: updated.name,
       });
       setSaveMessage("Saved");
-      notifyWorkflowDefinitionChanged(target.workspaceId, target.definitionId);
-      await useWorkflowDefinitionStore
-        .getState()
-        .refreshWorkspaceWorkflowDefinitions(target.workspaceId);
     } catch (error: unknown) {
       setLoadError(errorMessage(error));
     } finally {
@@ -100,6 +118,7 @@ export function WorkflowSettingsSurface() {
         loadError={loadError}
         onDraftChange={setDraft}
         onSave={() => void saveWorkflowSettings()}
+        permissionPresets={permissionPresets}
         saveMessage={saveMessage}
         saving={saving}
         target={target}
@@ -145,6 +164,7 @@ function WorkflowSettingsContent({
   loadError,
   onDraftChange,
   onSave,
+  permissionPresets,
   saveMessage,
   saving,
   target,
@@ -154,6 +174,7 @@ function WorkflowSettingsContent({
   loadError: string;
   onDraftChange: (draft: WorkflowSettingsDraft) => void;
   onSave: () => void;
+  permissionPresets: ChatPermissionPreset[];
   saveMessage: string;
   saving: boolean;
   target: WorkflowSettingsTarget | null;
@@ -194,6 +215,12 @@ function WorkflowSettingsContent({
         onChange={(description) => onDraftChange({ ...draft, description })}
         value={draft.description}
       />
+      <WorkflowAgentDefaultsSection
+        disabled={disabled}
+        draft={draft}
+        onDraftChange={onDraftChange}
+        permissionPresets={permissionPresets}
+      />
       <WorkflowSettingsSaveRow
         disabled={disabled}
         onSave={onSave}
@@ -201,6 +228,58 @@ function WorkflowSettingsContent({
         saving={saving}
       />
     </form>
+  );
+}
+
+function WorkflowAgentDefaultsSection({
+  disabled,
+  draft,
+  onDraftChange,
+  permissionPresets,
+}: {
+  disabled: boolean;
+  draft: WorkflowSettingsDraft;
+  onDraftChange: (draft: WorkflowSettingsDraft) => void;
+  permissionPresets: ChatPermissionPreset[];
+}) {
+  const agentDefaults = draft.agentDefaults;
+  return (
+    <section className="grid gap-3 rounded-sm border border-zinc-800 bg-zinc-950/60 p-3">
+      <div className="text-xs font-medium text-zinc-200">Agent Defaults</div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <WorkflowTextField
+          disabled={disabled}
+          label="Default model"
+          onChange={(model) =>
+            onDraftChange({ ...draft, agentDefaults: { ...agentDefaults, model } })
+          }
+          placeholder="app default"
+          value={agentDefaults.model}
+        />
+        <WorkflowTextField
+          disabled={disabled}
+          label="Default reasoning"
+          onChange={(reasoningEffort) =>
+            onDraftChange({
+              ...draft,
+              agentDefaults: { ...agentDefaults, reasoningEffort },
+            })
+          }
+          placeholder="app default"
+          value={agentDefaults.reasoningEffort}
+        />
+      </div>
+      <WorkflowAgentPermissionField
+        disabled={disabled}
+        inheritLabel="App default"
+        onPermissionChange={(permission) =>
+          onDraftChange({ ...draft, agentDefaults: { ...agentDefaults, permission } })
+        }
+        permission={agentDefaults.permission}
+        permissionPresets={permissionPresets}
+        testId="workflow-agent-default-permission"
+      />
+    </section>
   );
 }
 
@@ -253,11 +332,13 @@ function WorkflowTextField({
   disabled,
   label,
   onChange,
+  placeholder,
   value,
 }: {
   disabled: boolean;
   label: string;
   onChange: (value: string) => void;
+  placeholder?: string;
   value: string;
 }) {
   return (
@@ -265,9 +346,10 @@ function WorkflowTextField({
       {label}
       <input
         className="h-8 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100 outline-none focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
-        data-testid={label === "Name" ? "workflow-settings-name" : undefined}
+        data-testid={workflowTextFieldTestId(label)}
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
+        placeholder={placeholder}
         value={value}
       />
     </label>
@@ -322,7 +404,24 @@ function workflowSettingsSubtitle(target: WorkflowSettingsTarget | null) {
 }
 
 function emptyDraft(): WorkflowSettingsDraft {
-  return { description: "", name: "" };
+  return {
+    agentDefaults: workflowAgentSettingsDraftFromSettings(null),
+    description: "",
+    name: "",
+  };
+}
+
+function workflowTextFieldTestId(label: string) {
+  switch (label) {
+    case "Name":
+      return "workflow-settings-name";
+    case "Default model":
+      return "workflow-agent-default-model";
+    case "Default reasoning":
+      return "workflow-agent-default-reasoning";
+    default:
+      return undefined;
+  }
 }
 
 function errorMessage(error: unknown): string {

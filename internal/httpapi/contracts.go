@@ -21,7 +21,6 @@ type RuntimeInfoResponse struct {
 	BackendName            string                        `json:"backendName"`
 	BackendVersion         string                        `json:"backendVersion"`
 	ProtocolVersion        int                           `json:"protocolVersion"`
-	FeatureSet             RuntimeFeatureSet             `json:"featureSet"`
 	VAPIDPublicKey         string                        `json:"vapidPublicKey"`
 }
 
@@ -29,11 +28,6 @@ type RuntimeInfrastructureProvider struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName"`
 	IconURL     string `json:"iconUrl"`
-}
-
-type RuntimeFeatureSet struct {
-	Version  int      `json:"version"`
-	Features []string `json:"features"`
 }
 
 type UpdateRuntimeDisplayNameRequest struct {
@@ -52,33 +46,7 @@ type CompletePairingResponse struct {
 	ProtocolVersion int    `json:"protocolVersion"`
 }
 
-type CreateDevicePairingRequest struct {
-	RuntimeBaseURL string `json:"runtimeBaseUrl"`
-}
-
-type CreateDevicePairingResponse struct {
-	PairingURL string `json:"pairingUrl"`
-	ExpiresAt  string `json:"expiresAt"`
-}
-
-type SetupAttestationRequest struct {
-	ProvisionID     string `json:"provisionId"`
-	Nonce           string `json:"nonce"`
-	NodeFingerprint string `json:"nodeFingerprint"`
-}
-
-type SetupAttestationResponse struct {
-	Algorithm       string `json:"algorithm"`
-	RuntimeID       string `json:"runtimeId"`
-	ProvisionID     string `json:"provisionId"`
-	Nonce           string `json:"nonce"`
-	NodeFingerprint string `json:"nodeFingerprint"`
-	ExpiresAt       string `json:"expiresAt"`
-	Attestation     string `json:"attestation"`
-}
-
 type ListDevicesRequest struct{}
-
 type ListDevicesResponse struct {
 	Devices []runtimeauth.DeviceSession `json:"devices"`
 }
@@ -108,7 +76,6 @@ type PushUnsubscribeResponse struct {
 }
 
 type PushTestRequest struct{}
-
 type PushTestResponse struct {
 	SentCount int `json:"sentCount"`
 }
@@ -155,8 +122,82 @@ type ReadWorkspaceUILayoutRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
 
-type SaveWorkspaceUILayoutRequest struct {
-	Layout workspaceui.WorkspaceUILayout `json:"layout"`
+type InitializeWorkspaceUILayoutRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type ResetWorkspaceUILayoutRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type ListWorkspaceUIPanesRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type ReadWorkspaceUIPaneRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PaneID      string `json:"paneId"`
+}
+
+type ReadWorkspaceUITerminalRequest struct {
+	WorkspaceID           string `json:"workspaceId"`
+	PaneID                string `json:"paneId"`
+	RecentOutputByteLimit int    `json:"recentOutputByteLimit"`
+}
+
+type ReadWorkspaceUITerminalResponse struct {
+	WorkspaceID string                                `json:"workspaceId"`
+	Pane        workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
+	Terminal    terminal.TerminalReadResult           `json:"terminal"`
+}
+
+type ReadWorkspaceUIChatRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PaneID      string `json:"paneId"`
+	Limit       int    `json:"limit"`
+}
+
+type ReadWorkspaceUIChatResponse struct {
+	WorkspaceID       string                                `json:"workspaceId"`
+	Pane              workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
+	ConversationID    string                                `json:"conversationId"`
+	Page              chat.MessagePage                      `json:"page"`
+	ActiveRun         *chat.Run                             `json:"activeRun"`
+	ActiveRunLiveness *chat.RunLiveness                     `json:"activeRunLiveness"`
+}
+
+type PrepareWorkspaceUITerminalWriteRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PaneID      string `json:"paneId"`
+	DataBase64  string `json:"dataBase64"`
+	ByteCount   int    `json:"byteCount"`
+	SHA256      string `json:"sha256"`
+}
+
+type PrepareWorkspaceUITerminalWriteResponse struct {
+	WorkspaceID   string                                `json:"workspaceId"`
+	Pane          workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
+	PreparedWrite terminal.TerminalPreparedWrite        `json:"preparedWrite"`
+}
+
+type CommitWorkspaceUITerminalWriteRequest struct {
+	WorkspaceID     string `json:"workspaceId"`
+	PreparedWriteID string `json:"preparedWriteId"`
+	SHA256          string `json:"sha256"`
+}
+
+type CommitWorkspaceUITerminalWriteResponse struct {
+	PreparedWrite terminal.TerminalWriteCommitResult `json:"preparedWrite"`
+}
+
+type ApplyWorkspaceUIPaneOperationRequest struct {
+	WorkspaceID string                               `json:"workspaceId"`
+	Operation   workspaceui.WorkspaceUIPaneOperation `json:"operation"`
+}
+
+type ApplyWorkspaceUILayoutOperationsRequest struct {
+	WorkspaceID string                                 `json:"workspaceId"`
+	Operations  []workspaceui.WorkspaceUIPaneOperation `json:"operations"`
 }
 
 type ReadWorkspaceActivitySnapshotRequest struct {
@@ -441,6 +482,11 @@ type UpdateWorkflowDefinitionRequest struct {
 	Graph        orchestrator.WorkflowGraph `json:"graph"`
 }
 
+type SaveWorkflowDefinitionRequest struct {
+	WorkspaceID string                                   `json:"workspaceId"`
+	Input       orchestrator.WorkflowDefinitionSaveInput `json:"input"`
+}
+
 type DeleteWorkflowDefinitionRequest struct {
 	WorkspaceID  string `json:"workspaceId"`
 	DefinitionID string `json:"definitionId"`
@@ -474,6 +520,13 @@ type StartWorkflowExecutionRequest struct {
 type CancelWorkflowExecutionRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	ExecutionID string `json:"executionId"`
+}
+
+type ReportWorkflowExecutionResultRequest struct {
+	WorkspaceID     string                            `json:"workspaceId"`
+	ExecutionID     string                            `json:"executionId"`
+	NodeExecutionID string                            `json:"nodeExecutionId"`
+	Result          orchestrator.WorkflowActionResult `json:"result"`
 }
 
 type ReadWorkflowExecutionRequest struct {

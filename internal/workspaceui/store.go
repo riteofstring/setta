@@ -154,6 +154,9 @@ func validateLayout(layout WorkspaceUILayout, path string) error {
 	if layout.FocusedPaneID == "" {
 		return corruptStateErrorf(path, "focusedPaneId is required")
 	}
+	if layout.Revision <= 0 {
+		return corruptStateErrorf(path, "revision must be positive")
+	}
 	if len(layout.Columns) == 0 {
 		return corruptStateErrorf(path, "columns are required")
 	}
@@ -203,6 +206,9 @@ func validatePane(layoutWorkspaceID string, pane WorkspaceUIPane, index int, pat
 	if err := validatePaneValues(pane, index, path); err != nil {
 		return err
 	}
+	if err := validatePaneChatConfig(pane, index, path); err != nil {
+		return err
+	}
 	if err := validatePaneTerminalConfig(pane, index, path); err != nil {
 		return err
 	}
@@ -235,6 +241,9 @@ func validatePaneValues(pane WorkspaceUIPane, index int, path string) error {
 	if pane.Weight <= 0 {
 		return corruptStateErrorf(path, "panes[%d].weight must be positive", index)
 	}
+	if pane.HeightPX != nil && *pane.HeightPX <= 0 {
+		return corruptStateErrorf(path, "panes[%d].heightPx must be positive", index)
+	}
 	if pane.Heat < 0 {
 		return corruptStateErrorf(path, "panes[%d].heat must be non-negative", index)
 	}
@@ -248,8 +257,27 @@ func validatePaneTerminalConfig(pane WorkspaceUIPane, index int, path string) er
 	if pane.TerminalConfig == nil {
 		return nil
 	}
+	if pane.SurfaceKind != SurfaceKindTerminal {
+		return corruptStateErrorf(path, "panes[%d].terminalConfig is only valid for terminal panes", index)
+	}
 	if strings.TrimSpace(pane.TerminalConfig.ProfileID) != pane.TerminalConfig.ProfileID {
 		return corruptStateErrorf(path, "panes[%d].terminalConfig.profileId must not have surrounding whitespace", index)
+	}
+	return nil
+}
+
+func validatePaneChatConfig(pane WorkspaceUIPane, index int, path string) error {
+	if pane.ChatConfig == nil {
+		return nil
+	}
+	if pane.SurfaceKind != SurfaceKindChatDOM {
+		return corruptStateErrorf(path, "panes[%d].chatConfig is only valid for chat-dom panes", index)
+	}
+	if strings.TrimSpace(pane.ChatConfig.ConversationID) != pane.ChatConfig.ConversationID {
+		return corruptStateErrorf(path, "panes[%d].chatConfig.conversationId must not have surrounding whitespace", index)
+	}
+	if pane.ChatConfig.ConversationID == "" {
+		return corruptStateErrorf(path, "panes[%d].chatConfig.conversationId is required", index)
 	}
 	return nil
 }

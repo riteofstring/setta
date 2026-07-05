@@ -265,31 +265,6 @@ export function ActivityMCPDetails({ details }: { details: RunActivityDetailsPro
   );
 }
 
-export function ActivityDynamicToolDetails({ details }: { details: RunActivityDetailsProjection }) {
-  const tool = details.dynamicToolCall;
-  if (tool === null) {
-    return null;
-  }
-  return (
-    <>
-      <ActivityTextBlock title="Description" value={tool.description} />
-      <ActivityTextBlock title="Result" value={tool.resultSummary} />
-      <ActivityTextBlock title="Error" tone="error" value={tool.error} />
-      <ActivityTextBlock
-        title="Duration"
-        value={tool.durationMs > 0 ? `${tool.durationMs}ms` : ""}
-      />
-      <ActivityJSONBlock details={tool.arguments} title="Arguments" />
-      {tool.result === null ? null : (
-        <>
-          <ActivityTextBlock title="Success" value={dynamicToolSuccessText(tool.result.success)} />
-          <ActivityJSONBlock details={tool.result.contentItems} title="Content" />
-        </>
-      )}
-    </>
-  );
-}
-
 export function ActivityApprovalDetails({ details }: { details: RunActivityDetailsProjection }) {
   const approval = details.approval;
   if (approval === null) {
@@ -356,13 +331,6 @@ export function ActivityProviderStreamLifecycleDetails({
       <ActivityJSONBlock details={lifecycle.codexErrorInfo} title="Codex Error Info" />
     </>
   );
-}
-
-function dynamicToolSuccessText(success: boolean | null) {
-  if (success === null) {
-    return "";
-  }
-  return String(success);
 }
 
 function ActivityJSONBlock({ details, title }: { details: unknown; title: string }) {

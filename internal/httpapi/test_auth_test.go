@@ -6,10 +6,12 @@ import (
 	"testing"
 
 	"setta/internal/runtimeauth"
+	"setta/internal/workflowaudit"
 )
 
 type authenticatedTestHandler struct {
 	handler http.Handler
+	store   *runtimeauth.Store
 	token   string
 }
 
@@ -17,6 +19,13 @@ func newAuthenticatedTestHandler(t *testing.T, config HandlerConfig) http.Handle
 	t.Helper()
 	store, token := newTestRuntimeAuthStore(t)
 	config.RuntimeAuthService = store
+	if config.WorkflowAuditService == nil {
+		auditStore, err := workflowaudit.NewStore(t.TempDir())
+		if err != nil {
+			t.Fatalf("new workflow audit store: %v", err)
+		}
+		config.WorkflowAuditService = auditStore
+	}
 	if config.RuntimeMetadata.ID == "" {
 		config.RuntimeMetadata = RuntimeMetadata{
 			ID:          "runtime_test",
@@ -25,6 +34,7 @@ func newAuthenticatedTestHandler(t *testing.T, config HandlerConfig) http.Handle
 	}
 	return authenticatedTestHandler{
 		handler: NewHandler(config),
+		store:   store,
 		token:   token,
 	}
 }

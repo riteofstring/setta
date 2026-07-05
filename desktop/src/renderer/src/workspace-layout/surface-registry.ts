@@ -420,21 +420,18 @@ export class SurfaceRegistry {
       return;
     }
 
-    this.unmountHostRecord(previousHost, previousRecord);
-    this.clearHostPresentationState(previousHost);
-  }
-
-  private clearHostPresentationState(host: HTMLElement): void {
-    host.replaceChildren();
-    delete host.dataset.browserRuntimeState;
-    delete host.dataset.surfaceFocused;
-    delete host.dataset.surfaceId;
-    delete host.dataset.surfaceKind;
-    delete host.dataset.surfaceViewport;
-    delete host.dataset.surfaceVisible;
-    delete host.dataset.viewportReason;
-    host.removeAttribute?.("data-freeze-reason");
-    host.removeAttribute?.("data-resume-reason");
+    previousHost.replaceChildren();
+    delete previousHost.dataset.browserRuntimeState;
+    delete previousHost.dataset.surfaceFocused;
+    delete previousHost.dataset.surfaceId;
+    delete previousHost.dataset.surfaceKind;
+    delete previousHost.dataset.surfaceViewport;
+    delete previousHost.dataset.surfaceVisible;
+    delete previousHost.dataset.viewportReason;
+    previousHost.removeAttribute?.("data-freeze-reason");
+    previousHost.removeAttribute?.("data-resume-reason");
+    this.hostRecords.delete(previousHost);
+    this.hostBySurfaceId.delete(surfaceId);
   }
 
   private unmountHostRecord(host: HTMLElement, hostRecord: HostRecord): void {

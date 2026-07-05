@@ -17,7 +17,7 @@ import (
 
 const (
 	workflowDatabaseName = "workflow-kernel.sqlite"
-	workflowStoreVersion = 2
+	workflowStoreVersion = 4
 	sqliteDriverName     = "sqlite"
 )
 
@@ -32,6 +32,7 @@ type WorkflowStore interface {
 	WorkspaceIDs() ([]string, error)
 	PersistExecutionStart(WorkflowDefinitionVersion, WorkflowTransition) ([]WorkflowEventEnvelope, error)
 	PersistTransition(WorkflowTransition) ([]WorkflowEventEnvelope, error)
+	AppendWorkflowDefinitionEvent(WorkflowEvent) (WorkflowEventEnvelope, error)
 	LoadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (WorkflowExecutionEventPage, error)
 	LoadWorkflowEventStreamAfter(cursor WorkflowEventCursor) ([]WorkflowEventEnvelope, error)
 }
@@ -209,15 +210,16 @@ CREATE INDEX IF NOT EXISTS workflow_runs_workspace_definition_started_idx
 CREATE INDEX IF NOT EXISTS workflow_runs_nonterminal_idx
   ON workflow_runs(status, updated_at, id);
 
-CREATE TABLE IF NOT EXISTS workflow_run_events (
+CREATE TABLE IF NOT EXISTS workflow_events (
   stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
   schema_version INTEGER NOT NULL,
   workspace_id TEXT NOT NULL,
   definition_id TEXT NOT NULL,
-  definition_version_id TEXT NOT NULL,
-  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-  ordinal INTEGER NOT NULL,
+  definition_name TEXT NOT NULL DEFAULT '',
+  definition_version_id TEXT REFERENCES workflow_versions(id),
+  run_id TEXT REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  ordinal INTEGER,
   type TEXT NOT NULL,
   node_id TEXT NOT NULL DEFAULT '',
   node_execution_id TEXT NOT NULL DEFAULT '',
@@ -225,12 +227,15 @@ CREATE TABLE IF NOT EXISTS workflow_run_events (
   runner_kind TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   message TEXT NOT NULL DEFAULT '',
-  details_json TEXT NOT NULL DEFAULT '{}',
-  UNIQUE(run_id, ordinal)
+  details_json TEXT NOT NULL DEFAULT '{}'
 );
 
-CREATE INDEX IF NOT EXISTS workflow_run_events_run_ordinal_idx
-  ON workflow_run_events(run_id, ordinal);
+CREATE INDEX IF NOT EXISTS workflow_events_run_ordinal_idx
+  ON workflow_events(workspace_id, run_id, ordinal);
+
+CREATE UNIQUE INDEX IF NOT EXISTS workflow_events_run_ordinal_unique_idx
+  ON workflow_events(run_id, ordinal)
+  WHERE run_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS workflow_node_attempts (
   id TEXT PRIMARY KEY,
@@ -249,6 +254,7 @@ CREATE TABLE IF NOT EXISTS workflow_node_attempts (
   action_policy_json TEXT,
   side_effect_policy_json TEXT NOT NULL DEFAULT '{}',
   runner_capabilities_json TEXT,
+  agent_run_settings_json TEXT,
   scheduled_at TEXT NOT NULL,
   started_at TEXT,
   completed_at TEXT,
@@ -455,6 +461,13 @@ func validateWorkflowExecutionSummary(summary WorkflowExecutionSummary) error {
 }
 
 func validateEventRecord(event WorkflowEvent) error {
+	if isWorkflowDefinitionEventType(event.Type) {
+		return validateWorkflowDefinitionEventRecord(event)
+	}
+	return validateWorkflowExecutionEventRecord(event)
+}
+
+func validateWorkflowExecutionEventRecord(event WorkflowEvent) error {
 	if event.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("unsupported schemaVersion %d", event.SchemaVersion)
 	}
@@ -471,6 +484,58 @@ func validateEventRecord(event WorkflowEvent) error {
 		return fmt.Errorf("workflow event %s createdAt is required", event.ID)
 	}
 	return nil
+}
+
+func validateWorkflowDefinitionEventRecord(event WorkflowEvent) error {
+	if err := validateWorkflowDefinitionEventIdentity(event); err != nil {
+		return err
+	}
+	if err := validateWorkflowDefinitionEventState(event); err != nil {
+		return err
+	}
+	return validateWorkflowDefinitionEventScope(event)
+}
+
+func validateWorkflowDefinitionEventIdentity(event WorkflowEvent) error {
+	if event.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("unsupported schemaVersion %d", event.SchemaVersion)
+	}
+	if err := validateStoreIDs("event id", event.ID, "workspace id", event.WorkspaceID, "definition id", event.DefinitionID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateWorkflowDefinitionEventState(event WorkflowEvent) error {
+	if !isWorkflowDefinitionEventType(event.Type) {
+		return fmt.Errorf("workflow definition event %s type is unsupported: %s", event.ID, event.Type)
+	}
+	if event.DefinitionName == "" {
+		return fmt.Errorf("workflow definition event %s definitionName is required", event.ID)
+	}
+	if event.CreatedAt == "" {
+		return fmt.Errorf("workflow definition event %s createdAt is required", event.ID)
+	}
+	return nil
+}
+
+func validateWorkflowDefinitionEventScope(event WorkflowEvent) error {
+	if event.DefinitionVersionID != "" || event.ExecutionID != "" || event.Ordinal != 0 {
+		return fmt.Errorf("workflow definition event %s must not include execution scope", event.ID)
+	}
+	if event.NodeID != "" || event.NodeExecutionID != "" || event.TokenID != "" || event.RunnerKind != nil {
+		return fmt.Errorf("workflow definition event %s must not include run details", event.ID)
+	}
+	return nil
+}
+
+func isWorkflowDefinitionEventType(eventType WorkflowEventType) bool {
+	switch eventType {
+	case EventDefinitionCreated, EventDefinitionUpdated, EventDefinitionDeleted:
+		return true
+	default:
+		return false
+	}
 }
 
 func validateWorkflowEventCursor(cursor WorkflowEventCursor) error {
@@ -534,6 +599,13 @@ func nullableString(value string) sql.NullString {
 	return sql.NullString{String: value, Valid: true}
 }
 
+func nullableInt(value int) sql.NullInt64 {
+	if value == 0 {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: int64(value), Valid: true}
+}
+
 func nullableWorkflowTerminalReason(reason *WorkflowTerminalReason) sql.NullString {
 	if reason == nil {
 		return sql.NullString{}
@@ -589,6 +661,17 @@ func stringFromNull(value sql.NullString) string {
 		return ""
 	}
 	return value.String
+}
+
+func nullStringValue(value sql.NullString) string {
+	return stringFromNull(value)
+}
+
+func nullIntValue(value sql.NullInt64) int {
+	if !value.Valid {
+		return 0
+	}
+	return int(value.Int64)
 }
 
 func workflowTerminalReasonFromNull(value sql.NullString) *WorkflowTerminalReason {
