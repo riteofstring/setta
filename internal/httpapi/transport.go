@@ -164,6 +164,11 @@ func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 
 func writeWorkspaceUIError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
+	var operationErr *workspaceui.WorkspaceUIOperationError
+	if errors.As(err, &operationErr) {
+		writeError(response, status, string(operationErr.Code), operationErr.Error())
+		return
+	}
 	if workspaceui.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_workspace_ui_state", err.Error())
 		return

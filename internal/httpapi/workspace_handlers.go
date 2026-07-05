@@ -166,6 +166,23 @@ func (handler handler) readWorkspaceUIPane(response http.ResponseWriter, request
 	writeJSON(response, http.StatusOK, pane)
 }
 
+func (handler handler) applyWorkspaceUIPaneOperation(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if service == nil {
+		return
+	}
+	var payload ApplyWorkspaceUIPaneOperationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.ApplyPaneOperation(payload.WorkspaceID, payload.Operation)
+	if err != nil {
+		writeWorkspaceUIError(response, "apply_workspace_ui_pane_operation_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) readWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkspaceUIService(response, handler.workspaceUIService)
 	if service == nil {
