@@ -56,6 +56,8 @@ type EventHub struct {
 	mu                         sync.Mutex
 	closed                     bool
 	currentRevisionByWorkspace map[string]int
+	currentSequenceByWorkspace map[string]int
+	evictedSequenceByWorkspace map[string]int
 	nextSequence               int
 	retained                   []WorkspaceUIEvent
 	streamID                   string
@@ -78,6 +80,8 @@ func NewEventHub(streamID string, options ...EventHubOption) (*EventHub, error) 
 	hub := &EventHub{
 		bufferSize:                 defaultEventBufferSize,
 		currentRevisionByWorkspace: map[string]int{},
+		currentSequenceByWorkspace: map[string]int{},
+		evictedSequenceByWorkspace: map[string]int{},
 		nextSequence:               1,
 		now:                        time.Now,
 		streamID:                   streamID,
@@ -122,8 +126,9 @@ func (hub *EventHub) PublishLayout(layout WorkspaceUILayout) (WorkspaceUIEvent, 
 	if hub.closed {
 		return WorkspaceUIEvent{}, errors.New("workspace UI event hub is closed")
 	}
-	hub.currentRevisionByWorkspace[layout.WorkspaceID] = layout.Revision
 	event := hub.nextLayoutEventLocked(layout)
+	hub.currentRevisionByWorkspace[layout.WorkspaceID] = layout.Revision
+	hub.currentSequenceByWorkspace[layout.WorkspaceID] = event.Sequence
 	hub.retainLocked(event)
 	hub.broadcastLocked(event)
 	return cloneWorkspaceUIEvent(event), nil
@@ -150,7 +155,7 @@ func (hub *EventHub) Subscribe(cursor EventCursor, workspaceID string) (*EventSu
 	}
 
 	replay := hub.replayAfterLocked(cursor, workspaceID)
-	if hub.requiresResyncLocked(cursor) {
+	if hub.requiresResyncLocked(cursor, workspaceID) {
 		replay = []WorkspaceUIEvent{hub.resyncRequiredEventLocked(cursor, workspaceID)}
 	}
 
@@ -160,6 +165,27 @@ func (hub *EventHub) Subscribe(cursor EventCursor, workspaceID string) (*EventSu
 	}
 	hub.subscribers[channel] = workspaceID
 	return &EventSubscription{Events: channel, hub: hub, channel: channel}, nil
+}
+
+func (hub *EventHub) recordWorkspaceRevision(workspaceID string, revision int) error {
+	if hub == nil {
+		return errors.New("workspace UI event hub is required")
+	}
+	if workspaceID == "" {
+		return errors.New("workspace UI event workspace id is required")
+	}
+	if revision <= 0 {
+		return fmt.Errorf("workspace UI event revision must be positive: %d", revision)
+	}
+
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+
+	if hub.closed || revision <= hub.currentRevisionByWorkspace[workspaceID] {
+		return nil
+	}
+	hub.currentRevisionByWorkspace[workspaceID] = revision
+	return nil
 }
 
 func (subscription *EventSubscription) Unsubscribe() {
@@ -224,10 +250,7 @@ func (hub *EventHub) nextLayoutEventLocked(layout WorkspaceUILayout) WorkspaceUI
 func (hub *EventHub) resyncRequiredEventLocked(cursor EventCursor, workspaceID string) WorkspaceUIEvent {
 	currentSequence := hub.nextSequence - 1
 	currentRevision := hub.currentRevisionByWorkspace[workspaceID]
-	earliestSequence := 0
-	if len(hub.retained) > 0 {
-		earliestSequence = hub.retained[0].Sequence
-	}
+	earliestSequence := hub.earliestRetainedSequenceLocked(workspaceID)
 	sequence := hub.nextSequence
 	hub.nextSequence += 1
 	return WorkspaceUIEvent{
@@ -257,12 +280,17 @@ func (hub *EventHub) retainLocked(event WorkspaceUIEvent) {
 		return
 	}
 	if hub.bufferSize <= 0 {
+		hub.evictedSequenceByWorkspace[event.WorkspaceID] = event.Sequence
 		hub.retained = nil
 		return
 	}
 	hub.retained = append(hub.retained, cloneWorkspaceUIEvent(event))
 	if len(hub.retained) > hub.bufferSize {
-		hub.retained = append([]WorkspaceUIEvent{}, hub.retained[len(hub.retained)-hub.bufferSize:]...)
+		removeCount := len(hub.retained) - hub.bufferSize
+		for _, removed := range hub.retained[:removeCount] {
+			hub.evictedSequenceByWorkspace[removed.WorkspaceID] = removed.Sequence
+		}
+		hub.retained = append([]WorkspaceUIEvent{}, hub.retained[removeCount:]...)
 	}
 }
 
@@ -279,21 +307,28 @@ func (hub *EventHub) replayAfterLocked(cursor EventCursor, workspaceID string) [
 	return replay
 }
 
-func (hub *EventHub) requiresResyncLocked(cursor EventCursor) bool {
+func (hub *EventHub) earliestRetainedSequenceLocked(workspaceID string) int {
+	for _, event := range hub.retained {
+		if event.WorkspaceID == workspaceID {
+			return event.Sequence
+		}
+	}
+	return 0
+}
+
+func (hub *EventHub) requiresResyncLocked(cursor EventCursor, workspaceID string) bool {
 	currentSequence := hub.nextSequence - 1
 	if cursor.StreamID != "" && cursor.StreamID != hub.streamID {
 		return true
 	}
-	if cursor.Sequence == 0 && len(hub.retained) == 0 {
-		return false
-	}
 	if cursor.Sequence > currentSequence {
 		return true
 	}
-	if len(hub.retained) == 0 {
-		return cursor.Sequence < currentSequence
+	currentWorkspaceSequence := hub.currentSequenceByWorkspace[workspaceID]
+	if currentWorkspaceSequence == 0 || cursor.Sequence >= currentWorkspaceSequence {
+		return false
 	}
-	return cursor.Sequence < hub.retained[0].Sequence-1
+	return cursor.Sequence < hub.evictedSequenceByWorkspace[workspaceID]
 }
 
 func (hub *EventHub) broadcastLocked(event WorkspaceUIEvent) {

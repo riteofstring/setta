@@ -165,6 +165,15 @@ func (service *Service) SubscribeEvents(cursor EventCursor, workspaceID string) 
 	if _, err := service.resolver.ResolveWorkspace(workspaceID); err != nil {
 		return nil, err
 	}
+	read, err := service.store.LoadLayout(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	if read.Layout != nil {
+		if err := service.events.recordWorkspaceRevision(workspaceID, read.Layout.Revision); err != nil {
+			return nil, err
+		}
+	}
 	return service.events.Subscribe(cursor, workspaceID)
 }
 

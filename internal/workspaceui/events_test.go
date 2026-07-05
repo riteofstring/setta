@@ -134,6 +134,162 @@ func TestServiceFiltersWorkspaceUILayoutEventsByWorkspace(t *testing.T) {
 	}
 }
 
+func TestServiceDoesNotResyncWorkspaceUIEventCursorAfterUnrelatedEvictions(t *testing.T) {
+	service := newEventTestService(t, t.TempDir(), testResolver{
+		"workspace_api":   "/tmp/api",
+		"workspace_other": "/tmp/other",
+	}, 1)
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save target layout: %v", err)
+	}
+	if _, err := service.SaveLayout(testLayout("workspace_other")); err != nil {
+		t.Fatalf("save other layout: %v", err)
+	}
+
+	subscription := subscribeWorkspaceUIEvents(
+		t,
+		service,
+		EventCursor{StreamID: workspaceUIEventHubTestStreamID, Sequence: 1},
+		"workspace_api",
+	)
+	defer subscription.Unsubscribe()
+	assertNoWorkspaceUIEvent(t, subscription)
+}
+
+func TestServiceReplaysWorkspaceUILayoutEventsAfterUnrelatedEvictions(t *testing.T) {
+	service := newEventTestService(t, t.TempDir(), testResolver{
+		"workspace_api":   "/tmp/api",
+		"workspace_other": "/tmp/other",
+	}, 1)
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save target layout: %v", err)
+	}
+	if _, err := service.SaveLayout(testLayout("workspace_other")); err != nil {
+		t.Fatalf("save other layout: %v", err)
+	}
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindRenamePane,
+		PaneID: "workspace_pane_0",
+		Rename: renamePaneOperation("Planning Chat"),
+	})
+	if err != nil {
+		t.Fatalf("apply rename operation: %v", err)
+	}
+
+	subscription := subscribeWorkspaceUIEvents(
+		t,
+		service,
+		EventCursor{StreamID: workspaceUIEventHubTestStreamID, Sequence: 1},
+		"workspace_api",
+	)
+	defer subscription.Unsubscribe()
+	event := receiveWorkspaceUIEvent(t, subscription)
+	if event.Type != WorkspaceUIEventTypeLayoutUpdated || event.Sequence != 3 || event.Revision != 2 {
+		t.Fatalf("replayed event = %+v, want target layout update sequence 3 revision 2", event)
+	}
+	if event.Layout == nil || !reflect.DeepEqual(*event.Layout, result.Layout) {
+		t.Fatalf("replayed layout = %+v, want %+v", event.Layout, result.Layout)
+	}
+	assertNoWorkspaceUIEvent(t, subscription)
+}
+
+func TestServiceResyncsWhenWorkspaceUILayoutEventWasEvicted(t *testing.T) {
+	service := newEventTestService(t, t.TempDir(), testResolver{
+		"workspace_api":   "/tmp/api",
+		"workspace_other": "/tmp/other",
+	}, 1)
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save target layout: %v", err)
+	}
+	if _, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindRenamePane,
+		PaneID: "workspace_pane_0",
+		Rename: renamePaneOperation("Planning Chat"),
+	}); err != nil {
+		t.Fatalf("apply rename operation: %v", err)
+	}
+	if _, err := service.SaveLayout(testLayout("workspace_other")); err != nil {
+		t.Fatalf("save other layout: %v", err)
+	}
+
+	stale := subscribeWorkspaceUIEvents(
+		t,
+		service,
+		EventCursor{StreamID: workspaceUIEventHubTestStreamID, Sequence: 1},
+		"workspace_api",
+	)
+	defer stale.Unsubscribe()
+	event := receiveWorkspaceUIEvent(t, stale)
+	if event.Type != WorkspaceUIEventTypeResyncRequired || event.Layout != nil || event.Resync == nil {
+		t.Fatalf("stale event = %+v, want resync without layout", event)
+	}
+	if event.Sequence != 4 || event.Revision != 2 {
+		t.Fatalf("resync identity = %+v, want sequence 4 revision 2", event)
+	}
+	assertWorkspaceUIResync(t, *event.Resync, WorkspaceUIResyncRequired{
+		CurrentRevision:   2,
+		CurrentSequence:   3,
+		CurrentStreamID:   workspaceUIEventHubTestStreamID,
+		EarliestSequence:  0,
+		Reason:            "workspace UI layout replay is no longer available",
+		RequestedSequence: 1,
+		RequestedStreamID: workspaceUIEventHubTestStreamID,
+	})
+}
+
+func TestServiceResyncUsesPersistedWorkspaceUILayoutRevisionAfterRestart(t *testing.T) {
+	appDataDir := t.TempDir()
+	resolver := testResolver{
+		"workspace_api": "/tmp/api",
+	}
+	service := newEventTestService(t, appDataDir, resolver, 4)
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	if _, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindRenamePane,
+		PaneID: "workspace_pane_0",
+		Rename: renamePaneOperation("Planning Chat"),
+	}); err != nil {
+		t.Fatalf("apply rename operation: %v", err)
+	}
+	service.CloseEvents()
+
+	restarted, err := NewService(
+		newTestStore(t, appDataDir),
+		resolver,
+		WithEventHub(newWorkspaceUIEventTestHubForStream(t, "workspace_ui_stream_restarted", 4)),
+	)
+	if err != nil {
+		t.Fatalf("new restarted service: %v", err)
+	}
+	defer restarted.CloseEvents()
+
+	stale := subscribeWorkspaceUIEvents(
+		t,
+		restarted,
+		EventCursor{StreamID: workspaceUIEventHubTestStreamID, Sequence: 2},
+		"workspace_api",
+	)
+	defer stale.Unsubscribe()
+	event := receiveWorkspaceUIEvent(t, stale)
+	if event.Type != WorkspaceUIEventTypeResyncRequired || event.Layout != nil || event.Resync == nil {
+		t.Fatalf("restart event = %+v, want resync without layout", event)
+	}
+	if event.Sequence != 1 || event.Revision != 2 {
+		t.Fatalf("restart resync identity = %+v, want sequence 1 revision 2", event)
+	}
+	assertWorkspaceUIResync(t, *event.Resync, WorkspaceUIResyncRequired{
+		CurrentRevision:   2,
+		CurrentSequence:   0,
+		CurrentStreamID:   "workspace_ui_stream_restarted",
+		EarliestSequence:  0,
+		Reason:            "workspace UI layout replay is no longer available",
+		RequestedSequence: 2,
+		RequestedStreamID: workspaceUIEventHubTestStreamID,
+	})
+}
+
 func TestServiceResyncsStaleWorkspaceUIEventCursor(t *testing.T) {
 	service := newEventTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -201,8 +357,14 @@ func newEventTestService(t *testing.T, appDataDir string, resolver testResolver,
 func newWorkspaceUIEventTestHub(t *testing.T, bufferSize int) *EventHub {
 	t.Helper()
 
+	return newWorkspaceUIEventTestHubForStream(t, workspaceUIEventHubTestStreamID, bufferSize)
+}
+
+func newWorkspaceUIEventTestHubForStream(t *testing.T, streamID string, bufferSize int) *EventHub {
+	t.Helper()
+
 	hub, err := NewEventHub(
-		workspaceUIEventHubTestStreamID,
+		streamID,
 		WithEventBufferSize(bufferSize),
 		WithEventClock(func() time.Time {
 			return mustWorkspaceUIEventTestTime(t, "2026-05-29T20:00:00Z")
