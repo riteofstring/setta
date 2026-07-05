@@ -13,6 +13,7 @@ func handleFakeAppServerStatusMode(mode string) (bool, bool) {
 			"serverName":     "fake.local",
 			"status":         7,
 		})
+		writeFakeStreamTurn()
 		return true, true
 	case "mcp-server-startup-status":
 		writeFakeMCPServerStartupStatus("codex_apps", "starting", nil)
@@ -20,6 +21,7 @@ func handleFakeAppServerStatusMode(mode string) (bool, bool) {
 		return true, true
 	case "unknown-mcp-server-startup-status":
 		writeFakeMCPServerStartupStatus("codex_apps", "waking", nil)
+		writeFakeStreamTurn()
 		return true, true
 	case "reasoning-summary-array":
 		writeFakeReasoningSummaryArrayItem()

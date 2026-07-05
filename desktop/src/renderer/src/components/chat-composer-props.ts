@@ -1,5 +1,6 @@
 import type { ActiveRunPresentation } from "../lib/chat-run-liveness";
 import type { ComposerActions, ComposerViewModel } from "./chat-composer-contract";
+import type { ReadOnlyComposerSettings } from "./chat-composer-frame";
 
 interface ComposerScalarProps {
   busy: boolean;
@@ -8,6 +9,7 @@ interface ComposerScalarProps {
   frameClassName?: string;
   onSendPrompt?: unknown;
   placeholder?: string;
+  readOnlySettings?: ReadOnlyComposerSettings | null;
   running: boolean;
 }
 
@@ -48,6 +50,10 @@ const composerScalarPropSelectors = [
   (props: ComposerScalarProps) => props.frameClassName,
   (props: ComposerScalarProps) => props.onSendPrompt,
   (props: ComposerScalarProps) => props.placeholder,
+  (props: ComposerScalarProps) => props.readOnlySettings?.disabledReason,
+  (props: ComposerScalarProps) => props.readOnlySettings?.modelLabel,
+  (props: ComposerScalarProps) => props.readOnlySettings?.permissionLabel,
+  (props: ComposerScalarProps) => props.readOnlySettings?.reasoningLabel,
   (props: ComposerScalarProps) => props.running,
 ] as const;
 

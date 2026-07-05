@@ -1,5 +1,20 @@
 export function activityWorkflowGraph(prompt, options = {}) {
   const includeDownstreamAction = options.includeDownstreamAction === true;
+  const agentDefaults = options.agentDefaults ?? {
+    model: "",
+    permission: null,
+    reasoningEffort: null,
+  };
+  const activitySettings = options.activitySettings ?? {
+    model: "",
+    permission: null,
+    reasoningEffort: null,
+  };
+  const downstreamSettings = options.downstreamSettings ?? {
+    model: "",
+    permission: null,
+    reasoningEffort: null,
+  };
   const edges = [
     {
       condition: {
@@ -65,9 +80,8 @@ export function activityWorkflowGraph(prompt, options = {}) {
       action: {
         codex: {
           freshConversation: true,
-          model: "",
           prompt,
-          reasoningEffort: "",
+          settings: activitySettings,
         },
         kind: "agent.codex",
       },
@@ -83,9 +97,8 @@ export function activityWorkflowGraph(prompt, options = {}) {
       action: {
         codex: {
           freshConversation: true,
-          model: "",
           prompt: "queued follow-up after cancel",
-          reasoningEffort: "",
+          settings: downstreamSettings,
         },
         kind: "agent.codex",
       },
@@ -105,6 +118,7 @@ export function activityWorkflowGraph(prompt, options = {}) {
     title: "End",
   });
   return {
+    agentDefaults,
     edges,
     layout: {
       nodes: layoutNodes,

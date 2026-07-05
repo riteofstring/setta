@@ -6,6 +6,8 @@ type RunTranscriptPage struct {
 	WorkspaceID             string            `json:"workspaceId"`
 	ConversationID          string            `json:"conversationId"`
 	RunID                   string            `json:"runId"`
+	LastChatEventStreamID   string            `json:"lastChatEventStreamId"`
+	LastChatEventSequence   int               `json:"lastChatEventSequence"`
 	Blocks                  []TranscriptBlock `json:"blocks"`
 	HasMoreOlder            bool              `json:"hasMoreOlder"`
 	OlderBeforeBlockOrdinal int               `json:"olderBeforeBlockOrdinal"`

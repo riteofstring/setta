@@ -1,4 +1,4 @@
-import type { Run, RunLiveness, RunLivenessReason } from "@generated/backend";
+import type { Run, RunLiveness } from "@generated/backend";
 
 type ActiveRunPresentationKind = "idle" | "working" | "blocked" | "reconnecting" | "lost";
 export type RunLivenessPresentationKind = "working" | "reconnecting" | "lost" | "terminal";
@@ -62,7 +62,7 @@ function workingRunPresentation(
   liveness: RunLiveness,
   capabilities: ActiveRunControlCapabilities,
 ): ActiveRunPresentation {
-  if (activeRun.pendingApproval !== null) {
+  if (activeRun.pendingApproval !== null || liveness.phase === "blocked") {
     return {
       canRetry: false,
       canSteer: false,
@@ -74,7 +74,7 @@ function workingRunPresentation(
   }
   return {
     canRetry: false,
-    canSteer: capabilities.sendSteering && liveness.status === "attached",
+    canSteer: capabilities.sendSteering && liveness.steerable,
     canStop: capabilities.stopRun && liveness.cancellable,
     kind: "working",
     liveness,
@@ -127,21 +127,25 @@ function matchingRunLiveness(
 }
 
 export function runLivenessNeedsSnapshotResync(liveness: RunLiveness): boolean {
-  return liveness.status === "lost";
+  return liveness.phase === "lost";
 }
 
 export function runLivenessPresentationKind(liveness: RunLiveness): RunLivenessPresentationKind {
-  switch (liveness.status) {
+  switch (liveness.phase) {
     case "attached":
+    case "blocked":
       return "working";
-    case "reconciling":
-      return reconcilingReasonPresentationKinds[liveness.reason];
     case "lost":
       return "lost";
     case "terminal":
       return "terminal";
+    case "starting":
+    case "waiting_for_provider":
+    case "stalled":
+    case "reconnecting":
+      return "reconnecting";
     default:
-      return assertNever(liveness.status);
+      return assertNever(liveness.phase);
   }
 }
 
@@ -174,20 +178,6 @@ const defaultActiveRunControlCapabilities = {
   sendSteering: true,
   stopRun: true,
 } satisfies ActiveRunControlCapabilities;
-
-const reconcilingReasonPresentationKinds = {
-  attachment_missing: "lost",
-  provider_ref_pending: "working",
-  provider_restarted: "reconnecting",
-  provider_turn_linked: "working",
-  provider_unavailable: "lost",
-  run_terminal: "terminal",
-  snapshot_load: "working",
-  stream_resync: "reconnecting",
-  turn_not_found: "lost",
-  user_retry: "reconnecting",
-  wake_recheck: "working",
-} satisfies Record<RunLivenessReason, RunLivenessPresentationKind>;
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled run liveness status: ${JSON.stringify(value)}`);
