@@ -1,13 +1,16 @@
 import type { BackendFetch } from "@shared/backend-runtime";
 import { backendProtocolVersion } from "@generated/backend";
+import { createHmac } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { KnownRuntimeStore, type KnownRuntimeRecord } from "./known-runtime-store";
+import type { PendingProvisionRecord } from "./pending-provision-store";
 import { RuntimeRegistryController, type RuntimeRegistryHooks } from "./runtime-registry";
 import { MemoryRuntimeSecretStore } from "./runtime-secret-store";
+import type { TailnetNode } from "./provision-watch";
 
 describe("RuntimeRegistryController", () => {
   test("stops request and stream lifecycle before switching and restarts after connect", async () => {
@@ -297,6 +300,74 @@ describe("RuntimeRegistryController", () => {
       },
     ]);
   });
+
+  test("registers a provisioned runtime after verified tailnet watch pairing", async () => {
+    const secrets = new MemoryRuntimeSecretStore();
+    const store = new KnownRuntimeStore(
+      await mkdtemp(join(tmpdir(), "setta-runtime-registry-")),
+      secrets,
+    );
+    const pending = pendingProvision();
+    const node = tailnetNode();
+    const calls: Array<{ authorization: string | null; body: unknown; path: string }> = [];
+    const events: string[] = [];
+    const controller = new RuntimeRegistryController({
+      clientDisplayName: () => "Setta Desktop",
+      fetchImpl: provisionedRuntimeFetch({ calls, pending }),
+      hooks: lifecycleHooks(events),
+      onSnapshot: (snapshot) => events.push(`snapshot:${snapshot.connection.status}`),
+      store,
+    });
+
+    await controller.load();
+    events.length = 0;
+    const snapshot = await controller.watchProvisionAndPair({
+      nonce: () => "nonce-000000000000000000000000",
+      now: () => new Date("2026-07-07T10:00:00.000Z"),
+      pending,
+      tailnetClient: { listNodes: async () => [node] },
+    });
+
+    expect(snapshot.connection.status).toBe("connected");
+    expect(snapshot.activeRuntimeId).toBe("runtime_remote");
+    expect(controller.currentRuntime()).toMatchObject({
+      baseUrl: "http://setta-worker.tailnet.ts.net:7345/",
+      deviceToken: "device_token",
+      runtimeId: "runtime_remote",
+    });
+    await expect(store.read()).resolves.toMatchObject({
+      activeRuntimeId: "runtime_remote",
+      runtimes: [
+        {
+          baseUrl: "http://setta-worker.tailnet.ts.net:7345/",
+          deviceToken: "device_token",
+          runtimeId: "runtime_remote",
+        },
+      ],
+    });
+    await expect(secrets.getSecret("runtime-device-token:v1:runtime_remote")).resolves.toBe(
+      "device_token",
+    );
+    expect(calls.map((call) => call.path)).toEqual([
+      "/runtime/info",
+      "/setup/attestation",
+      "/pairing/complete",
+      "/runtime/info",
+      "/devices/list",
+    ]);
+    expect(calls[2]?.body).toMatchObject({
+      clientDisplayName: "Setta Desktop",
+      pairingToken: pending.pairingToken,
+    });
+    expect(calls[4]?.authorization).toBe("Bearer device_token");
+    expect(events).toEqual([
+      "snapshot:connecting",
+      "offline:connecting",
+      "before-switch",
+      "online:runtime_remote",
+      "snapshot:connected",
+    ]);
+  });
 });
 
 function lifecycleHooks(events: string[]): RuntimeRegistryHooks {
@@ -394,4 +465,97 @@ function jsonResponse(payload: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
     status,
   });
+}
+
+function provisionedRuntimeFetch(options: {
+  calls: Array<{ authorization: string | null; body: unknown; path: string }>;
+  pending: PendingProvisionRecord;
+}): BackendFetch {
+  return async (input, init = {}) => {
+    const body = init.body ? JSON.parse(String(init.body)) : null;
+    options.calls.push({
+      authorization: new Headers(init.headers).get("Authorization"),
+      body,
+      path: input.pathname,
+    });
+    if (input.pathname === "/runtime/info") {
+      return jsonResponse(runtimeInfo("runtime_remote", backendProtocolVersion));
+    }
+    if (input.pathname === "/setup/attestation") {
+      return jsonResponse({
+        algorithm: "hmac-sha256-v1",
+        attestation: setupAttestation({
+          attestationKey: options.pending.attestationKey,
+          nodeFingerprint: body.nodeFingerprint,
+          nonce: body.nonce,
+          provisionId: options.pending.provisionId,
+          runtimeId: "runtime_remote",
+        }),
+        expiresAt: "2026-07-07T11:00:00.000Z",
+        nodeFingerprint: body.nodeFingerprint,
+        nonce: body.nonce,
+        provisionId: options.pending.provisionId,
+        runtimeId: "runtime_remote",
+      });
+    }
+    if (input.pathname === "/pairing/complete") {
+      return jsonResponse({
+        deviceId: "device_desktop",
+        deviceToken: "device_token",
+        protocolVersion: backendProtocolVersion,
+        runtimeId: "runtime_remote",
+      });
+    }
+    if (input.pathname === "/devices/list") {
+      return jsonResponse({ devices: [] });
+    }
+    throw new Error(`unexpected request: ${input.pathname}`);
+  };
+}
+
+function setupAttestation(options: {
+  attestationKey: string;
+  nodeFingerprint: string;
+  nonce: string;
+  provisionId: string;
+  runtimeId: string;
+}): string {
+  const hmac = createHmac("sha256", options.attestationKey);
+  for (const field of [
+    "setta-setup-attestation-v1",
+    options.runtimeId,
+    options.provisionId,
+    options.nonce,
+    options.nodeFingerprint,
+  ]) {
+    hmac.update(field);
+    hmac.update("\0");
+  }
+  return hmac.digest("hex");
+}
+
+function pendingProvision(): PendingProvisionRecord {
+  return {
+    attestationKey: "attestation-key-000000000000000000000000",
+    createdAt: "2026-07-07T10:00:00.000Z",
+    expectedTag: "tag:setta-runtime",
+    expiresAt: "2026-07-07T11:00:00.000Z",
+    pairingToken: "pairing-token-000000000000000000000000",
+    provisionId: "provision_test",
+    runtimeName: "setta-worker",
+    runtimePort: 7345,
+    scheme: "http",
+  };
+}
+
+function tailnetNode(): TailnetNode {
+  return {
+    dnsName: "setta-worker.tailnet.ts.net.",
+    hostName: "setta-worker",
+    id: "node-123",
+    online: true,
+    publicKey: "node-public-key",
+    tags: ["tag:setta-runtime"],
+    tailscaleIPs: ["100.64.0.12"],
+  };
 }

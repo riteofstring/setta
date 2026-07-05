@@ -30,6 +30,12 @@ import {
   RuntimePairingError,
   verifyRuntimeConnection,
 } from "./runtime-pairing";
+import {
+  completeProvisionPairing,
+  watchProvisionUntilVerified,
+  type ProvisionAutoPairResult,
+  type ProvisionWatchOptions,
+} from "./provision-watch";
 
 export interface ActiveRuntime {
   baseUrl: string;
@@ -224,6 +230,24 @@ export class RuntimeRegistryController {
     });
   }
 
+  async watchProvisionAndPair(
+    options: Omit<ProvisionWatchOptions, "clientDisplayName" | "fetchImpl">,
+  ): Promise<RuntimeRegistrySnapshot> {
+    const verified = await watchProvisionUntilVerified({
+      ...options,
+      fetchImpl: this.options.fetchImpl,
+    });
+    return this.runExclusive(async () => {
+      const result = await completeProvisionPairing(verified, {
+        ...options,
+        clientDisplayName: this.options.clientDisplayName(),
+        fetchImpl: this.options.fetchImpl,
+      });
+      await this.registerProvisionedRuntime(result);
+      return this.connectRuntime(result.info.runtimeId, { operationAlreadyHeld: true });
+    });
+  }
+
   async createDevicePairing(): Promise<CreateDevicePairingResponse> {
     const active = this.activeRuntime;
     if (!active || this.connection.status !== "connected") {
@@ -394,6 +418,30 @@ export class RuntimeRegistryController {
     } finally {
       this.operationRunning = false;
     }
+  }
+
+  private async registerProvisionedRuntime(result: ProvisionAutoPairResult): Promise<void> {
+    const presentation = await this.runtimePresentationFromInfo(
+      {
+        baseUrl: result.baseUrl,
+        displayName: result.info.displayName,
+        isLocal: false,
+      },
+      result.info,
+    );
+    this.runtimeInfrastructureProviders.set(
+      result.info.runtimeId,
+      presentation.infrastructureProvider,
+    );
+    this.registry = upsertKnownRuntime(this.registry, {
+      baseUrl: result.baseUrl,
+      deviceToken: result.pairing.deviceToken,
+      displayName: presentation.displayName,
+      isLocal: false,
+      lastConnected: null,
+      runtimeId: result.info.runtimeId,
+    });
+    await this.persist();
   }
 
   private activeRuntimeFromKnownRuntime(
