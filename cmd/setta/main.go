@@ -2,21 +2,19 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/mdp/qrterminal/v3"
-
-	"setta/internal/httpapi"
 )
 
 const defaultServePort = 7345
@@ -26,6 +24,7 @@ var version = "dev"
 type cliDeps struct {
 	commandRunner commandRunner
 	getenv        func(string) string
+	lookPath      func(string) (string, error)
 	httpClient    *http.Client
 	now           func() time.Time
 	pid           func() int
@@ -38,19 +37,15 @@ type usageError struct {
 	err error
 }
 
-type cliStructuredError interface {
-	CLIErrorResponse() httpapi.ErrorResponse
-}
+type cliCommandHandler func([]string, cliDeps) error
 
-type cliCommand func([]string, cliDeps) error
-
-var cliCommands = map[string]cliCommand{
-	"serve":    runServe,
-	"pair":     runPair,
-	"devices":  runDevices,
-	"runtime":  runRuntime,
-	"workflow": runWorkflow,
-	"version":  runVersion,
+var cliCommandHandlers = map[string]cliCommandHandler{
+	"serve":   runServe,
+	"pair":    runPair,
+	"devices": runDevices,
+	"doctor":  runDoctor,
+	"runtime": runRuntime,
+	"version": runVersion,
 }
 
 func main() {
@@ -72,32 +67,23 @@ func runWithDeps(args []string, deps cliDeps) int {
 		return 2
 	}
 
-	switch args[0] {
-	case "help", "-h", "--help":
+	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		printUsage(deps.stdout)
 		return 0
 	}
-
-	command, ok := cliCommands[args[0]]
+	handler, ok := cliCommandHandlers[args[0]]
 	if !ok {
-		return printCLIError(usageError{err: fmt.Errorf("unknown command %q", args[0])}, deps)
+		return commandErrorExitCode(usageError{err: fmt.Errorf("unknown command %q", args[0])}, deps)
 	}
-	err := command(args[1:], deps)
+	err := handler(args[1:], deps)
 	if err == nil {
 		return 0
 	}
-	return printCLIError(err, deps)
+	return commandErrorExitCode(err, deps)
 }
 
-func printCLIError(err error, deps cliDeps) int {
-	var structured cliStructuredError
-	if errors.As(err, &structured) {
-		encoder := json.NewEncoder(deps.stderr)
-		encoder.SetIndent("", "  ")
-		_ = encoder.Encode(structured.CLIErrorResponse())
-	} else {
-		fmt.Fprintf(deps.stderr, "%v\n", err)
-	}
+func commandErrorExitCode(err error, deps cliDeps) int {
+	fmt.Fprintf(deps.stderr, "%v\n", err)
 	var usage usageError
 	if errors.As(err, &usage) {
 		return 2
@@ -126,6 +112,9 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	if deps.commandRunner == nil {
 		deps.commandRunner = runExternalCommand
 	}
+	if deps.lookPath == nil {
+		deps.lookPath = exec.LookPath
+	}
 	if deps.httpClient == nil {
 		deps.httpClient = &http.Client{Timeout: 5 * time.Second}
 	}
@@ -153,17 +142,10 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage:")
 	fmt.Fprintln(output, "  setta serve [--app-data-dir DIR] [--port PORT] [--tailnet]")
 	fmt.Fprintln(output, "  setta pair [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta runtime rename [--app-data-dir DIR] <display-name>")
-	fmt.Fprintln(output, "  setta workflow current-workspace [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workflow definitions list [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workflow definitions read [--app-data-dir DIR] <definition-id>")
-	fmt.Fprintln(output, "  setta workflow definitions save --input <path> [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workflow definitions validate --graph <path> [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workflow executions start [--app-data-dir DIR] <definition-id>")
-	fmt.Fprintln(output, "  setta workflow executions read [--app-data-dir DIR] <execution-id>")
-	fmt.Fprintln(output, "  setta workflow schema [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta runtime rename <display-name> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta devices revoke [--app-data-dir DIR] <device-id>")
+	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta doctor --json [--app-data-dir DIR] [--workspace-dir DIR]")
 	fmt.Fprintln(output, "  setta version")
 }
 

@@ -13,7 +13,6 @@ import (
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
-	"setta/internal/workflowaudit"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -110,23 +109,16 @@ type WorkflowService interface {
 	ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (orchestrator.WorkflowGraphProjection, bool, error)
 	ReadWorkflowNodeTrajectory(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, afterItemID string, itemLimit int, outputLimit int) (orchestrator.WorkflowAgentTrajectoryPage, error)
 	RetryWorkflowNodeRunLiveness(context.Context, string, string, string) (chat.RunLivenessReconciliationResult, error)
-	SaveDefinition(workspaceID string, input orchestrator.WorkflowDefinitionSaveInput) (orchestrator.WorkflowDefinitionSaveResult, error)
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
-	StartExecutionWithValidation(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, orchestrator.WorkflowValidationResult, error)
 	SteerWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	StopWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string) (orchestrator.WorkflowExecution, error)
 	SubscribeEvents(cursor orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error)
 	SubmitApproval(workspaceID string, executionID string, nodeExecutionID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (orchestrator.WorkflowExecution, error)
 	UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	ValidateDefinition(workspaceID string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowValidationResult, error)
-	WorkflowSchema() (orchestrator.WorkflowSchema, error)
 }
 
 var _ WorkflowService = (*orchestrator.Service)(nil)
-
-type WorkflowAuditService interface {
-	Record(context.Context, workflowaudit.RecordInput) (workflowaudit.Record, error)
-}
 
 type SemanticGraphService interface {
 	ReadGraph(context.Context, string) (semanticgraph.SemanticGraph, error)
@@ -188,6 +180,7 @@ type TerminalService interface {
 
 type RuntimeAuthService interface {
 	CompletePairing(context.Context, string, string) (runtimeauth.DeviceSession, string, bool, error)
+	CreatePairingToken(context.Context) (runtimeauth.PairingToken, string, error)
 	IsDeviceSessionRevoked(context.Context, string) (bool, error)
 	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
 	ResolveDeviceToken(context.Context, string) (runtimeauth.DeviceSession, bool, error)
@@ -227,7 +220,6 @@ type HandlerConfig struct {
 	SemanticGraphService     SemanticGraphService
 	TerminalService          TerminalService
 	WorkspaceActivityService WorkspaceActivityService
-	WorkflowAuditService     WorkflowAuditService
 	WorkspaceUIService       WorkspaceUIService
 	WorkspaceService         WorkspaceService
 	WorkflowService          WorkflowService
@@ -247,7 +239,6 @@ type handler struct {
 	semanticGraphService     SemanticGraphService
 	terminalService          TerminalService
 	workspaceActivityService WorkspaceActivityService
-	workflowAuditService     WorkflowAuditService
 	workspaceUIService       WorkspaceUIService
 	workspaceService         WorkspaceService
 	workflowService          WorkflowService
@@ -276,7 +267,6 @@ func NewHandler(config HandlerConfig) http.Handler {
 		semanticGraphService:     config.SemanticGraphService,
 		terminalService:          config.TerminalService,
 		workspaceActivityService: config.WorkspaceActivityService,
-		workflowAuditService:     config.WorkflowAuditService,
 		workspaceUIService:       config.WorkspaceUIService,
 		workspaceService:         config.WorkspaceService,
 		workflowService:          config.WorkflowService,

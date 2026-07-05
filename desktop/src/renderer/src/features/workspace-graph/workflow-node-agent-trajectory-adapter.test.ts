@@ -1,7 +1,4 @@
 import type {
-  ChatEvent,
-  ChatMessage,
-  Run,
   RunItem,
   RunItemOutput,
   RunItemOutputPage,
@@ -9,14 +6,9 @@ import type {
 } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
-import {
-  activityBlock,
-  assistantTextBlock,
-  userMessageBlock,
-} from "../../stores/chat-store-events.test.helpers";
+import { activityBlock, userMessageBlock } from "../../stores/chat-store-events.test.helpers";
 import { testRun } from "../../stores/chat-store.test.fixtures";
 import {
-  applyWorkflowNodeTrajectoryChatEvents,
   workflowNodeComposerActions,
   workflowNodeComposerRunPresentation,
   workflowNodeComposerViewModel,
@@ -79,26 +71,6 @@ describe("workflow node agent trajectory adapter", () => {
       stopRun: false,
     });
     expect(viewModel.focusedSourceRunItemId).toBe("run_item_command");
-  });
-
-  test("maps uncommitted steering messages to trajectory tail rows and composer state", () => {
-    const pending = steeringMessage("message_steer_pending", "pending");
-    const state = workflowNodeTrajectoryStateFromPage(
-      trajectoryPage({ pendingSteeringMessages: [pending] }),
-    );
-    const viewModel = workflowNodeTrajectoryViewModel({
-      focusedSourceRunItemId: null,
-      operation: null,
-      state,
-    });
-
-    expect(viewModel.messages).toEqual([pending]);
-    expect(viewModel.blocks.some((block) => block.userMessage?.messageId === pending.id)).toBe(
-      false,
-    );
-    expect(
-      workflowNodeComposerViewModel({ operation: null, state }).pendingSteeringMessageIds,
-    ).toEqual([pending.id]);
   });
 
   test("maps node-scoped stop capability to trajectory and composer actions", () => {
@@ -250,275 +222,7 @@ describe("workflow node agent trajectory adapter", () => {
     });
     expect(merged.outputsById.output_older_1?.text).toBe("older output");
   });
-
-  test("replays buffered chat events newer than the snapshot cursor", () => {
-    const state = workflowNodeTrajectoryStateFromPage(
-      trajectoryPage({
-        blocks: [
-          assistantTextBlock({
-            conversationId: "conversation_api",
-            id: "block_assistant",
-            ordinal: 1,
-            runId: "run_a",
-            text: "Hello",
-          }),
-        ],
-        lastChatEventSequence: 10,
-      }),
-    );
-
-    const result = applyWorkflowNodeTrajectoryChatEvents(state, [
-      transcriptDeltaEvent(10, state.page, "block_assistant", " duplicate"),
-      transcriptDeltaEvent(11, state.page, "block_assistant", " live"),
-    ]);
-
-    expect(result.resync).toBe(false);
-    expect(result.state.page.blocks[0]?.assistantText?.text).toBe("Hello live");
-    expect(result.state.page.lastChatEventSequence).toBe(11);
-  });
-
-  test("ignores events for the selected main chat conversation when the workflow run uses another conversation", () => {
-    const state = workflowNodeTrajectoryStateFromPage(
-      trajectoryPage({
-        blocks: [
-          assistantTextBlock({
-            conversationId: "conversation_api",
-            id: "block_assistant",
-            ordinal: 1,
-            runId: "run_a",
-            text: "workflow",
-          }),
-        ],
-      }),
-    );
-
-    const result = applyWorkflowNodeTrajectoryChatEvents(state, [
-      transcriptDeltaEvent(11, state.page, "block_assistant", " main", {
-        conversationId: "conversation_selected_main",
-      }),
-    ]);
-
-    expect(result.resync).toBe(false);
-    expect(result.state.page.blocks[0]?.assistantText?.text).toBe("workflow");
-    expect(result.state.page.lastChatEventSequence).toBe(11);
-  });
-
-  test("advances the chat cursor for unrelated interleaved stream events before applying scoped events", () => {
-    const state = workflowNodeTrajectoryStateFromPage(
-      trajectoryPage({
-        blocks: [
-          assistantTextBlock({
-            conversationId: "conversation_api",
-            id: "block_assistant",
-            ordinal: 1,
-            runId: "run_a",
-            text: "workflow",
-          }),
-        ],
-        lastChatEventSequence: 10,
-      }),
-    );
-
-    const result = applyWorkflowNodeTrajectoryChatEvents(state, [
-      transcriptDeltaEvent(11, state.page, "block_assistant", " unrelated", {
-        conversationId: "conversation_selected_main",
-      }),
-      transcriptDeltaEvent(12, state.page, "block_assistant", " live"),
-    ]);
-
-    expect(result.resync).toBe(false);
-    expect(result.state.page.blocks[0]?.assistantText?.text).toBe("workflow live");
-    expect(result.state.page.lastChatEventSequence).toBe(12);
-  });
-
-  test("reports a snapshot resync instead of applying a chat event after a cursor gap", () => {
-    const state = workflowNodeTrajectoryStateFromPage(
-      trajectoryPage({
-        blocks: [
-          assistantTextBlock({
-            conversationId: "conversation_api",
-            id: "block_assistant",
-            ordinal: 1,
-            runId: "run_a",
-            text: "Hello",
-          }),
-        ],
-        lastChatEventSequence: 10,
-      }),
-    );
-
-    const result = applyWorkflowNodeTrajectoryChatEvents(state, [
-      transcriptDeltaEvent(12, state.page, "block_assistant", " skipped"),
-    ]);
-
-    expect(result.resync).toBe(true);
-    expect(result.state.page.blocks[0]?.assistantText?.text).toBe("Hello");
-  });
-
-  test("updates run status and composer state from scoped run events", () => {
-    const state = workflowNodeTrajectoryStateFromPage(stoppableTrajectoryPage());
-    const completed = {
-      ...state.page.run,
-      completedAt: "2026-06-07T00:00:03Z",
-      status: "completed",
-    } satisfies Run;
-
-    const result = applyWorkflowNodeTrajectoryChatEvents(state, [
-      runUpdatedEvent(11, state.page, completed),
-    ]);
-
-    expect(result.resync).toBe(false);
-    expect(result.state.page.activeRun).toBeNull();
-    expect(result.state.page.capabilities.canStopRun).toBe(false);
-    expect(
-      workflowNodeComposerViewModel({ operation: null, state: result.state }).session,
-    ).toBeNull();
-  });
-
-  test("applies live pending steering events without committing them into transcript blocks", () => {
-    const state = workflowNodeTrajectoryStateFromPage(stoppableTrajectoryPage());
-    const pending = steeringMessage("message_steer_pending", "pending");
-
-    const created = applyWorkflowNodeTrajectoryChatEvents(state, [
-      steeringSentEvent(11, state.page, pending),
-    ]);
-
-    expect(created.resync).toBe(false);
-    expect(created.state.page.pendingSteeringMessages).toEqual([pending]);
-    expect(
-      created.state.page.blocks.some((block) => block.userMessage?.messageId === pending.id),
-    ).toBe(false);
-
-    const errored = { ...pending, status: "error" } satisfies ChatMessage;
-    const updated = applyWorkflowNodeTrajectoryChatEvents(created.state, [
-      messageUpdatedEvent(12, state.page, errored),
-    ]);
-
-    expect(updated.state.page.pendingSteeringMessages).toEqual([errored]);
-
-    const committed = { ...pending, status: "complete" } satisfies ChatMessage;
-    const completed = applyWorkflowNodeTrajectoryChatEvents(updated.state, [
-      messageUpdatedEvent(13, state.page, committed),
-    ]);
-
-    expect(completed.state.page.pendingSteeringMessages).toEqual([]);
-  });
-
-  test("applies live run item output chunks to loaded output state", () => {
-    const state = workflowNodeTrajectoryStateFromPage(trajectoryPage());
-
-    const result = applyWorkflowNodeTrajectoryChatEvents(state, [
-      outputDeltaEvent(11, state.page, runOutput("output_command_2", 2, "second")),
-    ]);
-
-    expect(result.resync).toBe(false);
-    expect(result.state.outputIdsByRunItemId.run_item_command).toEqual([
-      "output_command_1",
-      "output_command_2",
-    ]);
-    expect(result.state.outputPagesByRunItemId.run_item_command).toMatchObject({
-      loadedThroughOrdinal: 2,
-      nextOrdinal: 3,
-    });
-  });
 });
-
-function transcriptDeltaEvent(
-  sequence: number,
-  page: WorkflowAgentTrajectoryPage,
-  blockId: string,
-  delta: string,
-  overrides: Partial<Pick<ChatEvent, "conversationId" | "runId" | "workspaceId">> = {},
-): ChatEvent {
-  return {
-    conversationId: overrides.conversationId ?? page.conversationId,
-    emittedAt: "2026-06-07T00:00:00Z",
-    eventId: `${page.lastChatEventStreamId}:${sequence}`,
-    payload: {
-      blockId,
-      delta,
-      updatedAt: "2026-06-07T00:00:01Z",
-    },
-    runId: overrides.runId ?? page.runId,
-    schemaVersion: 1,
-    sequence,
-    streamId: page.lastChatEventStreamId,
-    type: "chat.transcript_text.delta",
-    workspaceId: overrides.workspaceId ?? page.scope.workspaceId,
-  };
-}
-
-function runUpdatedEvent(sequence: number, page: WorkflowAgentTrajectoryPage, run: Run): ChatEvent {
-  return {
-    conversationId: page.conversationId,
-    emittedAt: "2026-06-07T00:00:00Z",
-    eventId: `${page.lastChatEventStreamId}:${sequence}`,
-    payload: { run },
-    runId: page.runId,
-    schemaVersion: 1,
-    sequence,
-    streamId: page.lastChatEventStreamId,
-    type: "chat.run.updated",
-    workspaceId: page.scope.workspaceId,
-  };
-}
-
-function outputDeltaEvent(
-  sequence: number,
-  page: WorkflowAgentTrajectoryPage,
-  output: RunItemOutput,
-): ChatEvent {
-  return {
-    conversationId: page.conversationId,
-    emittedAt: "2026-06-07T00:00:00Z",
-    eventId: `${page.lastChatEventStreamId}:${sequence}`,
-    payload: { output },
-    runId: page.runId,
-    schemaVersion: 1,
-    sequence,
-    streamId: page.lastChatEventStreamId,
-    type: "chat.run_item_output.delta",
-    workspaceId: page.scope.workspaceId,
-  };
-}
-
-function steeringSentEvent(
-  sequence: number,
-  page: WorkflowAgentTrajectoryPage,
-  message: ChatMessage,
-): ChatEvent {
-  return {
-    conversationId: page.conversationId,
-    emittedAt: "2026-06-07T00:00:00Z",
-    eventId: `${page.lastChatEventStreamId}:${sequence}`,
-    payload: { message, run: page.run },
-    runId: page.runId,
-    schemaVersion: 1,
-    sequence,
-    streamId: page.lastChatEventStreamId,
-    type: "chat.message.steering_sent",
-    workspaceId: page.scope.workspaceId,
-  };
-}
-
-function messageUpdatedEvent(
-  sequence: number,
-  page: WorkflowAgentTrajectoryPage,
-  message: ChatMessage,
-): ChatEvent {
-  return {
-    conversationId: page.conversationId,
-    emittedAt: "2026-06-07T00:00:00Z",
-    eventId: `${page.lastChatEventStreamId}:${sequence}`,
-    payload: { message },
-    runId: page.runId,
-    schemaVersion: 1,
-    sequence,
-    streamId: page.lastChatEventStreamId,
-    type: "chat.message.updated",
-    workspaceId: page.scope.workspaceId,
-  };
-}
 
 function trajectoryPage(
   overrides: Partial<WorkflowAgentTrajectoryPage> = {},
@@ -526,7 +230,6 @@ function trajectoryPage(
   return {
     activeRun: null,
     activeRunLiveness: null,
-    runSettings: null,
     activity: [
       activityBlock({
         hasDetails: true,
@@ -568,9 +271,6 @@ function trajectoryPage(
     hasMoreItems: false,
     hasMoreOlder: true,
     items: [runItem()],
-    lastChatEventSequence: 10,
-    lastChatEventStreamId: "chat_stream_test",
-    lastWorkflowEventOrdinal: 5,
     nextItemId: "",
     olderBeforeBlockOrdinal: 1,
     outputPages: [
@@ -585,7 +285,6 @@ function trajectoryPage(
     ],
     outputs: [runOutput("output_command_1", 1, "first")],
     pendingApproval: null,
-    pendingSteeringMessages: [],
     run: { ...testRun("completed", "run_a"), workspaceId: "workspace_test" },
     runId: "run_a",
     schemaVersion: 1,
@@ -603,58 +302,22 @@ function trajectoryPage(
   };
 }
 
-function steeringMessage(id: string, status: ChatMessage["status"]): ChatMessage {
-  return {
-    conversationId: "conversation_api",
-    createdAt: "2026-06-07T00:00:00Z",
-    delivery: "steering",
-    id,
-    ordinal: 3,
-    parts: [
-      {
-        id: `${id}_part`,
-        image: null,
-        text: {
-          format: "plain",
-          text: "steer the workflow node",
-        },
-        type: "text",
-      },
-    ],
-    role: "user",
-    runId: "run_a",
-    schemaVersion: 2,
-    status,
-    updatedAt: "2026-06-07T00:00:00Z",
-  };
-}
-
 function stoppableTrajectoryPage() {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
     activeRunLiveness: {
-      activeStatus: {
-        detail: "",
-        headline: "Working",
-        headlineSource: "fallback",
-        kind: "working",
-      },
       cancellable: true,
       conversationId: "conversation_api",
       error: "",
       harness: "codex",
       lastProviderEventAt: "2026-06-07T00:00:01Z",
-      lastVisibleActivityAt: "2026-06-07T00:00:01Z",
       lastReconciledAt: "",
-      phase: "attached",
       providerThreadId: "thread_api",
       providerTurnId: "turn_api",
       reason: "provider_turn_linked",
       retryable: false,
       runId: "run_a",
       status: "attached",
-      steerable: true,
-      steeringDisabledReason: "",
       workspaceId: "workspace_test",
     },
     capabilities: {
@@ -674,28 +337,18 @@ function steerableTrajectoryPage() {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
     activeRunLiveness: {
-      activeStatus: {
-        detail: "",
-        headline: "Working",
-        headlineSource: "fallback",
-        kind: "working",
-      },
       cancellable: true,
       conversationId: "conversation_api",
       error: "",
       harness: "codex",
       lastProviderEventAt: "2026-06-07T00:00:01Z",
-      lastVisibleActivityAt: "2026-06-07T00:00:01Z",
       lastReconciledAt: "",
-      phase: "attached",
       providerThreadId: "thread_api",
       providerTurnId: "turn_api",
       reason: "provider_turn_linked",
       retryable: false,
       runId: "run_a",
       status: "attached",
-      steerable: true,
-      steeringDisabledReason: "",
       workspaceId: "workspace_test",
     },
     capabilities: {
@@ -715,28 +368,18 @@ function retryableTrajectoryPage() {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
     activeRunLiveness: {
-      activeStatus: {
-        detail: "stream disconnected before completion",
-        headline: "Reconnecting",
-        headlineSource: "liveness",
-        kind: "reconnecting",
-      },
       cancellable: true,
       conversationId: "conversation_api",
       error: "stream disconnected before completion",
       harness: "codex",
       lastProviderEventAt: "2026-06-07T00:00:01Z",
-      lastVisibleActivityAt: "2026-06-07T00:00:01Z",
       lastReconciledAt: "2026-06-07T00:00:02Z",
-      phase: "reconnecting",
       providerThreadId: "thread_api",
       providerTurnId: "turn_api",
       reason: "user_retry",
       retryable: true,
       runId: "run_a",
       status: "reconciling",
-      steerable: false,
-      steeringDisabledReason: "user_retry",
       workspaceId: "workspace_test",
     },
     capabilities: {

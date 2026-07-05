@@ -14,6 +14,7 @@ interface UseComposerPermissionPickerOptions {
   permissionActions?: ComposerPermissionActions;
   running: boolean;
   sessionId: string;
+  setDraft: (draft: string) => void;
   submittingRef: MutableRefObject<boolean>;
 }
 
@@ -34,6 +35,7 @@ export function useComposerPermissionPicker({
   permissionActions,
   running,
   sessionId,
+  setDraft,
   submittingRef,
 }: UseComposerPermissionPickerOptions) {
   const [permissionPickerState, setPermissionPickerState] = useState<ScopedPermissionPicker | null>(
@@ -122,6 +124,7 @@ export function useComposerPermissionPicker({
       if (result.result.action === "permission_picker") {
         clearModelPicker();
         setPermissionPickerState({ result, sessionId: currentSessionId });
+        setDraft("");
       }
     } finally {
       submittingRef.current = false;
@@ -177,6 +180,7 @@ export function useComposerPermissionPicker({
         return;
       }
       await permissionActions.setCodexPermissionPreset(presetId, confirmed);
+      setDraft("");
       clearPermissionPicker();
     } finally {
       submittingRef.current = false;

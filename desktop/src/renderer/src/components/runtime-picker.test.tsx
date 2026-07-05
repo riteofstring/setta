@@ -22,6 +22,9 @@ describe("runtime picker", () => {
     const html = renderToString(
       <RuntimeList
         busy={runtimePickerControlsDisabled(snapshot, null)}
+        onCreateDevicePairing={async () => ({
+          pairingUrl: "https://remote.tailnet.ts.net/#pair=token",
+        })}
         onRemove={() => {}}
         onSwitch={() => {}}
         runtimes={snapshot.runtimes}
@@ -40,6 +43,9 @@ describe("runtime picker", () => {
     const html = renderToString(
       <RuntimeList
         busy={false}
+        onCreateDevicePairing={async () => ({
+          pairingUrl: "https://remote.tailnet.ts.net/#pair=token",
+        })}
         onRemove={() => {}}
         onSwitch={() => {}}
         runtimes={snapshot.runtimes}

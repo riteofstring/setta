@@ -40,6 +40,14 @@ export function registerRuntimeIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "runtimeCreateDevicePairing",
+    async () => {
+      return requireRuntimeRegistry().createDevicePairing();
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "runtimeSwitch",
     async (_event, runtimeId) => {
       return requireRuntimeRegistry().switchToRuntime(runtimeId);
