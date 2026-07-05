@@ -496,6 +496,64 @@ func TestServiceRejectsOpenPaneMissingAdjacentColumnWithoutPersisting(t *testing
 	}
 }
 
+func TestServiceRejectsOpenPaneMissingRowTargetPaneWithoutPersisting(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	open := openPaneOperation(SurfaceKindEmptyFrame, "New frame", "choose a pane type", PaneToneSlate)
+	open.Row = &WorkspaceUIPaneOpenRowTarget{
+		Placement:    WorkspaceUIPaneDropPlacementAfter,
+		TargetPaneID: "workspace_pane_missing",
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindOpenPane,
+		Open: open,
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodePaneNotFound {
+		t.Fatalf("error = %v, want pane not found", err)
+	}
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Revision != 1 || len(loaded.Layout.Columns) != 1 || len(loaded.Layout.Panes) != 2 {
+		t.Fatalf("loaded layout = %+v, want unchanged layout", loaded.Layout)
+	}
+}
+
+func TestServiceRejectsOpenPaneMissingPlaneTargetPaneWithoutPersisting(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testMultiColumnLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	open := openPaneOperation(SurfaceKindEmptyFrame, "New frame", "choose a pane type", PaneToneSlate)
+	open.Plane = &WorkspaceUIPaneOpenPlaneTarget{
+		Placement:    WorkspaceUIPaneDropPlacementBefore,
+		TargetPaneID: "workspace_pane_missing",
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindOpenPane,
+		Open: open,
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodePaneNotFound {
+		t.Fatalf("error = %v, want pane not found", err)
+	}
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Revision != 1 || len(loaded.Layout.Columns) != 2 || len(loaded.Layout.Panes) != 3 {
+		t.Fatalf("loaded layout = %+v, want unchanged layout", loaded.Layout)
+	}
+}
+
 func TestServiceRejectsOpenPaneInvalidPayloads(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
