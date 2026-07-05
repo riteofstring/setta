@@ -1,0 +1,27 @@
+{
+  "entry": [
+    "electron.vite.config.ts",
+    "eslint.config.mjs",
+    "scripts/generate-workflow-graph-font.mjs",
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    "src/renderer/public/sw.js",
+    "src/renderer/src/main.tsx",
+    "vitest.config.ts"
+  ],
+  "project": [
+    "electron.vite.config.ts",
+    "eslint.config.mjs",
+    "scripts/**/*.mjs",
+    "src/**/*.js",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vitest.config.ts"
+  ],
+  "ignore": ["out/**", "dist/**", "src/generated/**"],
+  "ignoreFiles": ["src/renderer/src/components/workspace-pane-split-overlay.tsx"],
+  "ignoreIssues": {
+    "src/renderer/src/components/workspace-pane.tsx": ["exports", "types"]
+  },
+  "ignoreDependencies": ["@types/node", "@types/react", "@types/react-dom", "tailwindcss", "vite"]
+}
