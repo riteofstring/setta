@@ -619,10 +619,11 @@ panes and columns so agents can confirm results without inferring from rendered
 pixels.
 
 Initial open/configure support should cover terminal, chat, and workflow graph
-panes. Workflow node details can be added when the command requires explicit
-`definitionId`, `executionId`, and `nodeId` references. Settings, semantic
-details, and browser panes are deferred until their command contracts are
-clearly useful.
+panes. Workflow node details can be added when commands carry an explicit
+projection target with `definitionId`, `nodeId`, and `viewMode`; run targets
+also require `executionId`/`nodeExecutionId`, and draft/version targets must not
+carry run identity. Settings, semantic details, and browser panes are deferred
+until their command contracts are clearly useful.
 
 Implement operation validation in Go. Either port the necessary deterministic
 layout reducer from the renderer or extract a shared operation model that both
@@ -901,10 +902,11 @@ Progress on 2026-07-07:
   `open_pane` and `configure_pane` reducers without exposing an HTTP, CLI, IPC,
   renderer, or agent write surface. Both operations now accept an explicit
   `workflowNodeDetailsConfig` only for `workflow-node-details` panes, validate
-  target shape/workspace before persistence, preserve non-null projection edge
-  arrays, focus the opened or configured pane, and preserve the existing details
-  target when replacement config is omitted. This covers the renderer's current
-  one-pane retargeting behavior ahead of the write cutover.
+  target shape/workspace before persistence, enforce view-mode-specific run
+  identity, preserve non-null projection edge arrays, focus the opened or
+  configured pane, and preserve the existing details target when replacement
+  config is omitted. This covers the renderer's current one-pane retargeting
+  behavior ahead of the write cutover.
 - Verification for the backend workflow-node-details operation follow-up:
   `./scripts/go.sh test ./internal/workspaceui`,
   `./scripts/go.sh run ./cmd/generate-contracts`, and
@@ -990,7 +992,6 @@ capabilities.
 
 Verification should include native view lifecycle, snapshots, input routing,
 focus, close/reload, and performance checks for niri navigation.
-
 ## Settled Decisions
 
 No open questions remain for the initial workspace API plan. The decisions above

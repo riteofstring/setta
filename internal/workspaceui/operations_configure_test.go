@@ -383,6 +383,36 @@ func TestServiceRejectsConfigurePaneTerminalConfigOnNonTerminalWithoutPersisting
 	)
 }
 
+func TestServiceRejectsConfigurePaneWorkflowNodeDetailsConfigOnNonDetailsWithoutPersisting(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	configure := &WorkspaceUIPaneConfigureOperation{
+		WorkflowNodeDetailsConfig: testWorkflowNodeDetailsConfig("workspace_api"),
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:      WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID:    "workspace_pane_0",
+		Configure: configure,
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %v, want invalid operation", err)
+	}
+	assertPersistedPaneUnchanged(
+		t,
+		service,
+		"workspace_api",
+		"workspace_pane_0",
+		SurfaceKindChatDOM,
+		"workspace_surface_0",
+		1,
+	)
+}
+
 func TestServiceRejectsConfigurePaneInvalidPayloads(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
