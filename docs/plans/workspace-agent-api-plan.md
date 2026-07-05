@@ -799,11 +799,25 @@ Progress on 2026-07-07:
   `./scripts/go.sh test ./internal/workspaceui` passed, and
   `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
   diffs because the write operation contract is still not endpoint-exposed.
+- Backend adjacent split resize reducer follow-up: extended the backend-only
+  `resize_pane` operation with an explicit `split` payload for resizing two
+  directly adjacent panes in the same column without exposing an HTTP, CLI,
+  IPC, renderer, or agent write surface. The operation treats the request
+  `paneId` as the upper pane, requires `lowerPaneId`, finite positive
+  `upperWeight` and `lowerWeight` values, rejects missing or non-adjacent lower
+  panes with stable operation error codes, normalizes positive weights below
+  `0.1` with a structured warning, preserves focus, increments and persists
+  only on actual weight changes, and returns structured before/after dimension
+  records for both panes.
+- Verification for the backend adjacent split resize reducer follow-up:
+  `./scripts/go.sh test ./internal/workspaceui` passed, and
+  `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
+  diffs because the write operation contract is still not endpoint-exposed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for remaining resize slices (adjacent split weight changes and
-  multi-operation transactions), open, and reorder, then cut renderer-originated
-  layout mutations over to that backend operation API before exposing agent or
-  CLI workspace mutation commands.
+  event sync for remaining resize slices (multi-operation transactions), open,
+  and reorder, then cut renderer-originated layout mutations over to that
+  backend operation API before exposing agent or CLI workspace mutation
+  commands.
 
 ### Phase 3: Renderer Event Sync
 

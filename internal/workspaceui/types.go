@@ -210,11 +210,18 @@ type WorkspaceUIPaneRenameOperation struct {
 }
 
 type WorkspaceUIPaneResizeOperation struct {
-	WidthSpec     *ColumnWidthSpec `json:"widthSpec"`
-	HeightPX      *int             `json:"heightPx"`
-	HeightDeltaPX *int             `json:"heightDeltaPx"`
-	HeightScale   *float64         `json:"heightScale"`
-	ResetHeight   bool             `json:"resetHeight"`
+	WidthSpec     *ColumnWidthSpec                     `json:"widthSpec"`
+	HeightPX      *int                                 `json:"heightPx"`
+	HeightDeltaPX *int                                 `json:"heightDeltaPx"`
+	HeightScale   *float64                             `json:"heightScale"`
+	ResetHeight   bool                                 `json:"resetHeight"`
+	Split         *WorkspaceUIPaneSplitResizeOperation `json:"split"`
+}
+
+type WorkspaceUIPaneSplitResizeOperation struct {
+	LowerPaneID string  `json:"lowerPaneId"`
+	UpperWeight float64 `json:"upperWeight"`
+	LowerWeight float64 `json:"lowerWeight"`
 }
 
 type WorkspaceUIPaneOperationResult struct {
@@ -265,15 +272,21 @@ type WorkspaceUIPaneRenameOutcome struct {
 }
 
 type WorkspaceUIPaneResizeOutcome struct {
-	HeightPX          *int            `json:"heightPx"`
-	PlaneIndex        int             `json:"planeIndex"`
-	PreviousHeightPX  *int            `json:"previousHeightPx"`
-	PreviousWidthSpec ColumnWidthSpec `json:"previousWidthSpec"`
-	RowIndex          int             `json:"rowIndex"`
-	TargetPaneIDs     []string        `json:"targetPaneIds"`
-	SlotIndex         int             `json:"slotIndex"`
-	TargetColumnID    string          `json:"targetColumnId"`
-	WidthSpec         ColumnWidthSpec `json:"widthSpec"`
+	HeightPX            *int            `json:"heightPx"`
+	LowerPaneID         string          `json:"lowerPaneId"`
+	LowerWeight         float64         `json:"lowerWeight"`
+	PlaneIndex          int             `json:"planeIndex"`
+	PreviousHeightPX    *int            `json:"previousHeightPx"`
+	PreviousLowerWeight float64         `json:"previousLowerWeight"`
+	PreviousUpperWeight float64         `json:"previousUpperWeight"`
+	PreviousWidthSpec   ColumnWidthSpec `json:"previousWidthSpec"`
+	RowIndex            int             `json:"rowIndex"`
+	TargetPaneIDs       []string        `json:"targetPaneIds"`
+	SlotIndex           int             `json:"slotIndex"`
+	TargetColumnID      string          `json:"targetColumnId"`
+	UpperPaneID         string          `json:"upperPaneId"`
+	UpperWeight         float64         `json:"upperWeight"`
+	WidthSpec           ColumnWidthSpec `json:"widthSpec"`
 }
 
 type WorkspaceUIPaneDimensionChange struct {

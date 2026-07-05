@@ -14,6 +14,7 @@ const (
 	minimumColumnWidthProportion = 0.1
 	minimumColumnWidthPX         = 96
 	minimumPaneHeightPX          = 96
+	minimumPaneWeight            = 0.1
 )
 
 type WorkspaceUIOperationError struct {
@@ -208,12 +209,13 @@ func validateResizePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Resize == nil {
 		return errors.New("workspace pane resize payload is required")
 	}
-	return validateResizePaneTarget(*operation.Resize)
+	return validateResizePaneTarget(operation)
 }
 
-func validateResizePaneTarget(resize WorkspaceUIPaneResizeOperation) error {
+func validateResizePaneTarget(operation WorkspaceUIPaneOperation) error {
+	resize := *operation.Resize
 	if resizeTargetCount(resize) != 1 {
-		return errors.New("workspace pane resize requires exactly one of widthSpec, heightPx, heightDeltaPx, heightScale, or resetHeight")
+		return errors.New("workspace pane resize requires exactly one of widthSpec, heightPx, heightDeltaPx, heightScale, resetHeight, or split")
 	}
 	switch {
 	case resize.WidthSpec != nil:
@@ -222,6 +224,8 @@ func validateResizePaneTarget(resize WorkspaceUIPaneResizeOperation) error {
 		return validateResizePaneHeightPX(*resize.HeightPX)
 	case resize.HeightScale != nil:
 		return validateResizePaneHeightScale(*resize.HeightScale)
+	case resize.Split != nil:
+		return validateResizePaneSplit(operation.PaneID, *resize.Split)
 	default:
 		return nil
 	}
@@ -242,6 +246,9 @@ func resizeTargetCount(resize WorkspaceUIPaneResizeOperation) int {
 		targetCount += 1
 	}
 	if resize.ResetHeight {
+		targetCount += 1
+	}
+	if resize.Split != nil {
 		targetCount += 1
 	}
 	return targetCount
@@ -273,6 +280,29 @@ func validateResizePaneHeightScale(heightScale float64) error {
 	}
 	if heightScale <= 0 {
 		return errors.New("workspace pane resize heightScale must be positive")
+	}
+	return nil
+}
+
+func validateResizePaneSplit(upperPaneID string, split WorkspaceUIPaneSplitResizeOperation) error {
+	if split.LowerPaneID == "" {
+		return errors.New("workspace pane resize split lowerPaneId is required")
+	}
+	if split.LowerPaneID == upperPaneID {
+		return errors.New("workspace pane resize split lowerPaneId must differ from paneId")
+	}
+	if err := validateResizePaneSplitWeight("upperWeight", split.UpperWeight); err != nil {
+		return err
+	}
+	return validateResizePaneSplitWeight("lowerWeight", split.LowerWeight)
+}
+
+func validateResizePaneSplitWeight(field string, weight float64) error {
+	if math.IsNaN(weight) || math.IsInf(weight, 0) {
+		return fmt.Errorf("workspace pane resize split %s must be finite", field)
+	}
+	if weight <= 0 {
+		return fmt.Errorf("workspace pane resize split %s must be positive", field)
 	}
 	return nil
 }
@@ -487,6 +517,9 @@ func (service *Service) applyResizePaneOperation(layout WorkspaceUILayout, opera
 	}
 	if operation.Resize.WidthSpec != nil {
 		return service.applyResizePaneWidthOperation(layout, operation, location)
+	}
+	if operation.Resize.Split != nil {
+		return service.applyResizePaneSplitOperation(layout, operation, location)
 	}
 	return service.applyResizePaneHeightOperation(layout, operation, location)
 }
