@@ -392,11 +392,10 @@ function steeredTrajectoryEvidence(
     assistantTextPresent: assistantTextPresent(trajectory, assistantText),
     livenessCleared: trajectory.activeRunLiveness === null,
     noSteeringCapability: !trajectory.capabilities.canSteer,
-    noSteeringUserBlock: !workflowSteeringUserBlockPresent(trajectory, steeringPrompt),
+    noTerminalSteering: terminalSteering.length === 0,
     scopeMatches: trajectory.scope.nodeExecutionId === nodeExecutionId,
+    steeringUserBlockPresent: workflowSteeringUserBlockPresent(trajectory, steeringPrompt),
     statusCompleted: trajectory.run.status === "completed",
-    terminalSteeringCancelled:
-      terminalSteering.length === 1 && terminalSteering[0]?.status === "cancelled",
   };
 }
 

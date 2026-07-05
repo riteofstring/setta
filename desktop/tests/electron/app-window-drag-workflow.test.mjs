@@ -478,60 +478,7 @@ function assertDragResult(result) {
 }
 
 async function sampleDragRegions(client) {
-  return client.evaluate(`(() => {
-    function sample(name, x, y) {
-      const el = document.elementFromPoint(x, y);
-      const element = el instanceof Element ? el : null;
-      const closestTestId = element?.closest("[data-testid]")?.getAttribute("data-testid") ?? null;
-      const style = el instanceof Element ? getComputedStyle(el) : null;
-      return {
-        aria: element?.getAttribute("aria-label") ?? null,
-        className: element?.getAttribute("class") ?? "",
-        name,
-        region: style?.getPropertyValue("-webkit-app-region") ?? null,
-        tag: el instanceof Element ? el.tagName.toLowerCase() : null,
-        testid: element?.getAttribute("data-testid") ?? closestTestId,
-        x,
-        y,
-      };
-    }
-    function sampleElement(name, selector) {
-      const element = document.querySelector(selector);
-      const style = element instanceof Element ? getComputedStyle(element) : null;
-      const rect = element instanceof Element ? element.getBoundingClientRect() : null;
-      return {
-        aria: element?.getAttribute("aria-label") ?? null,
-        className: element?.getAttribute("class") ?? "",
-        height: rect?.height ?? 0,
-        left: rect?.left ?? 0,
-        name,
-        region: style?.getPropertyValue("-webkit-app-region") ?? null,
-        tag: element instanceof Element ? element.tagName.toLowerCase() : null,
-        testid: element?.getAttribute("data-testid") ?? null,
-        top: rect?.top ?? 0,
-        width: rect?.width ?? 0,
-        x: -1,
-        y: -1,
-      };
-    }
-    const toolbar = document.querySelector('.workspace-toolbar')?.getBoundingClientRect();
-    const paneTop = document
-      .querySelector('[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-top-bar')
-      ?.getBoundingClientRect();
-    const paneHandle = document
-      .querySelector('[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-drag-handle')
-      ?.getBoundingClientRect();
-    return [
-      sample("workspace-control", toolbar ? toolbar.left + 14 : 118, toolbar ? toolbar.top + 14 : 18),
-      sampleElement("shell-top-bar", '[data-testid="shell-top-bar"]'),
-      sample("pane-title-bar", paneTop ? paneTop.left + 120 : 350, paneTop ? paneTop.top + 12 : 53),
-      sample(
-        "pane-drag-handle",
-        paneHandle ? paneHandle.left + paneHandle.width / 2 : 30,
-        paneHandle ? paneHandle.top + paneHandle.height / 2 : 53,
-      ),
-    ];
-  })()`);
+  return client.driver("sampleWindowDragRegions");
 }
 
 function assertWorkspaceControlsNotDraggable(regions) {

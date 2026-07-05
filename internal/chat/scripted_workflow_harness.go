@@ -361,6 +361,9 @@ func (harness *ScriptedWorkflowHarness) workflowTurn(ctx context.Context, reques
 	if err != nil {
 		return TurnCompletion{}, err
 	}
+	if err := sink.UserMessageCommitted(chatInputText(steer.Input)); err != nil {
+		return TurnCompletion{}, err
+	}
 	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Steered with "+chatInputText(steer.Input)+". "); err != nil {
 		return TurnCompletion{}, err
 	}

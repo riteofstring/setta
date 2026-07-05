@@ -321,12 +321,11 @@ func TestServiceSteerWorkflowNodeRunSteersWorkflowOwnedRun(t *testing.T) {
 	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
 	runID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
 
-	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, started.ID, work.ID, 0, 20, "", 0, 5)
-	if err != nil {
-		t.Fatalf("read running trajectory: %v", err)
-	}
-	if !page.Capabilities.CanSteer {
-		t.Fatalf("running trajectory capabilities = %+v, want steer", page.Capabilities)
+	page := waitForWorkflowNodeTrajectory(t, workflowService, workspaceID, started.ID, work.ID, func(page WorkflowAgentTrajectoryPage) bool {
+		return page.Capabilities.CanSteer
+	})
+	if page.RunID != runID {
+		t.Fatalf("running trajectory run = %s, want %s", page.RunID, runID)
 	}
 
 	steered, err := workflowService.SteerWorkflowNodeRun(workspaceID, started.ID, work.ID, chat.TextChatInput("finish node steering"))

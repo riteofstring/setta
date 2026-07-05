@@ -25,7 +25,7 @@ export async function startExternalScriptedBackend(fixture, repoRoot) {
   );
   const logs = [];
   const ready = await waitForExternalBackendReady(child, logs);
-  return { child, logs, url: `http://${ready.addr}` };
+  return { child, logs, token: ready.bootstrapToken, url: `http://${ready.addr}` };
 }
 
 function waitForExternalBackendReady(child, logs) {
@@ -78,7 +78,9 @@ function parseExternalBackendReadyLine(line) {
     typeof value === "object" &&
     value.event === "ready" &&
     typeof value.addr === "string" &&
-    value.addr !== ""
+    value.addr !== "" &&
+    typeof value.bootstrapToken === "string" &&
+    value.bootstrapToken !== ""
   ) {
     return value;
   }

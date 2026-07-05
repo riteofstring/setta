@@ -6,6 +6,12 @@ import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
 
 import { createParallelRunHandlers } from "./fake-codex-parallel-runs.mjs";
+import {
+  autoApprovalReviewPayload,
+  contextCompactionPayload,
+  emitRealtimeNotifications,
+  hookPayload,
+} from "./fake-codex-protocol-payloads.mjs";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
@@ -855,13 +861,18 @@ function write(payload) {
 function emitProtocolCoverageTurn() {
   notify("account/login/completed", { error: null, loginId: "login_fake", success: true });
   notify("app/list/updated", { data: [] });
+  notify("item/agentMessage/delta", {
+    delta: "coverage complete",
+    itemId: "message_fake",
+    threadId,
+    turnId,
+  });
   notify("command/exec/outputDelta", {
     capReached: false,
     deltaBase64: Buffer.from("command output\n").toString("base64"),
     processId: "process_fake",
     stream: "stdout",
   });
-  emitProtocolCoverageCommandExecution();
   notify("deprecationNotice", {
     details: "Use the replacement protocol surface.",
     summary: "Protocol deprecation notice.",
@@ -874,14 +885,23 @@ function emitProtocolCoverageTurn() {
   notify("fs/changed", { changedPaths: ["/tmp/workspace/main.go"], watchId: "watch_fake" });
   notify("fuzzyFileSearch/sessionUpdated", { files: [], query: "main", sessionId: "fuzzy_fake" });
   notify("fuzzyFileSearch/sessionCompleted", { sessionId: "fuzzy_fake" });
-  notify("hook/started", hookPayload("running"));
-  notify("hook/completed", hookPayload("completed"));
-  notify("item/autoApprovalReview/started", autoApprovalReviewPayload("inProgress"));
-  notify("item/autoApprovalReview/completed", autoApprovalReviewPayload("approved"));
-  notify("item/started", contextCompactionPayload("context_compaction_fake", { startedAtMs: 1 }));
+  notify("hook/started", hookPayload(threadId, turnId, "running"));
+  notify("hook/completed", hookPayload(threadId, turnId, "completed"));
+  notify(
+    "item/autoApprovalReview/started",
+    autoApprovalReviewPayload(threadId, turnId, "inProgress"),
+  );
+  notify(
+    "item/autoApprovalReview/completed",
+    autoApprovalReviewPayload(threadId, turnId, "approved"),
+  );
+  notify(
+    "item/started",
+    contextCompactionPayload(threadId, turnId, "context_compaction_fake", { startedAtMs: 1 }),
+  );
   notify(
     "item/completed",
-    contextCompactionPayload("context_compaction_fake", { completedAtMs: 2 }),
+    contextCompactionPayload(threadId, turnId, "context_compaction_fake", { completedAtMs: 2 }),
   );
   notify("item/fileChange/patchUpdated", {
     changes: [
@@ -907,6 +927,7 @@ function emitProtocolCoverageTurn() {
     threadId,
     turnId,
   });
+  emitProtocolCoverageCommandExecution();
   emitMcpToolCallCoverage();
   notify("mcpServer/oauthLogin/completed", { error: null, name: "github", success: true });
   notify("model/verification", {
@@ -937,22 +958,25 @@ function emitProtocolCoverageTurn() {
   });
   notify("serverRequest/resolved", { requestId: "unknown_request", threadId });
   notify("skills/changed", {});
-  emitRealtimeNotifications();
+  emitRealtimeNotifications(notify, threadId);
   notify("windows/worldWritableWarning", {
     extraCount: 0,
     failedScan: false,
     samplePaths: ["C:/tmp/world-writable"],
   });
   notify("windowsSandbox/setupCompleted", { error: null, mode: "unelevated", success: true });
-  notify("item/agentMessage/delta", {
-    delta: "coverage complete",
-    itemId: "message_fake",
-    threadId,
-    turnId,
-  });
   notify("turn/completed", {
     threadId,
-    turn: fakeTurn("completed"),
+    turn: {
+      ...fakeTurn("completed"),
+      items: [
+        {
+          id: "message_fake",
+          text: "coverage complete",
+          type: "agentMessage",
+        },
+      ],
+    },
   });
 }
 
@@ -961,6 +985,7 @@ function emitProtocolCoverageCommandExecution() {
     command: "printf protocol command",
     itemId: "command_item_fake",
     processId: "scoped_process_fake",
+    source: "agent",
   };
   notifyUnifiedExecStarted(turnId, execution);
   notifyUnifiedExecOutput(turnId, execution, "scoped command output\n");
@@ -1372,6 +1397,7 @@ function notifyGoalBackgroundTerminalCompleted(turnID, execution) {
 }
 
 function notifyUnifiedExecStarted(turnID, execution) {
+  const source = commandExecutionSource(execution);
   notify("item/started", {
     item: {
       command: execution.command,
@@ -1379,7 +1405,7 @@ function notifyUnifiedExecStarted(turnID, execution) {
       cwd: "/tmp/workspace",
       id: execution.itemId,
       processId: execution.processId,
-      source: "unifiedExecStartup",
+      ...(source === undefined ? {} : { source }),
       status: "inProgress",
       type: "commandExecution",
     },
@@ -1405,6 +1431,7 @@ function notifyBurstOutput(turnID, execution) {
 }
 
 function notifyUnifiedExecCompleted(turnID, execution) {
+  const source = commandExecutionSource(execution);
   notify("item/completed", {
     completedAtMs: 3,
     item: {
@@ -1415,7 +1442,7 @@ function notifyUnifiedExecCompleted(turnID, execution) {
       exitCode: execution.exitCode ?? 0,
       id: execution.itemId,
       processId: execution.processId,
-      source: "unifiedExecStartup",
+      ...(source === undefined ? {} : { source }),
       status: "completed",
       type: "commandExecution",
     },
@@ -1424,54 +1451,13 @@ function notifyUnifiedExecCompleted(turnID, execution) {
   });
 }
 
+function commandExecutionSource(execution) {
+  return execution.omitSource ? undefined : (execution.source ?? "unifiedExecStartup");
+}
+
 function fakeTurnWithID(id, status) {
   return {
     ...fakeTurn(status),
     id,
   };
-}
-
-function hookPayload(status) {
-  return {
-    run: {
-      command: "printf hook",
-      durationMs: status === "completed" ? 12 : 0,
-      eventName: "pre-command",
-      id: "hook_fake",
-      status,
-      statusMessage: status,
-    },
-    threadId,
-    turnId,
-  };
-}
-
-function autoApprovalReviewPayload(status) {
-  return {
-    action: { command: "pwd", type: "command" },
-    review: { status },
-    reviewId: "review_fake",
-    threadId,
-    turnId,
-  };
-}
-
-function contextCompactionPayload(itemId, timing) {
-  return {
-    ...timing,
-    item: { id: itemId, type: "contextCompaction" },
-    threadId,
-    turnId,
-  };
-}
-
-function emitRealtimeNotifications() {
-  notify("thread/realtime/started", { realtimeSessionId: "realtime_fake", threadId, version: 1 });
-  notify("thread/realtime/itemAdded", { item: { id: "item_fake" }, threadId });
-  notify("thread/realtime/transcript/delta", { delta: "hi", role: "user", threadId });
-  notify("thread/realtime/transcript/done", { role: "user", text: "hi", threadId });
-  notify("thread/realtime/outputAudio/delta", { audio: { data: "AAAA" }, threadId });
-  notify("thread/realtime/sdp", { sdp: "v=0", threadId });
-  notify("thread/realtime/error", { message: "disabled", threadId });
-  notify("thread/realtime/closed", { reason: null, threadId });
 }

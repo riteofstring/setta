@@ -5,6 +5,7 @@ import type { SettaAPI } from "@shared/types";
 type TerminalAPI = SettaAPI["terminal"];
 
 export class TerminalStartDeferred extends Error {}
+export class TerminalProfileUnavailable extends Error {}
 export class TerminalStartCancelled extends Error {}
 
 interface AttachOrCreateTerminalSessionOptions {
@@ -27,13 +28,13 @@ export async function attachOrCreateTerminalSession(
     allowExplicitProfileStart,
     cwdOverride,
     dimensions,
+    isCurrent,
     paneId,
     profile,
     profileId,
     sessionId,
     showDeferredProfileStart,
     showStartingStatus,
-    isCurrent,
     workspaceId,
   }: AttachOrCreateTerminalSessionOptions,
 ) {
@@ -44,6 +45,9 @@ export async function attachOrCreateTerminalSession(
     assertTerminalStartCurrent(isCurrent);
     if (sessionId) {
       throw error;
+    }
+    if (!profile) {
+      throw new TerminalProfileUnavailable("Terminal profiles are unavailable.");
     }
     if (profile && !profile.safeAutoStart && !allowExplicitProfileStart) {
       showDeferredProfileStart(profile);

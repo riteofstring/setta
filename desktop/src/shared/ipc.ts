@@ -36,9 +36,9 @@ import type {
   CreateSemanticEdgeRequest,
   CreateSemanticNodeRequest,
   CreateSemanticSteeringDirectiveRequest,
-  CreateTerminalProfileRequest,
   CloseTerminalRequest,
   CloseTerminalResponse,
+  CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
   EndSemanticActivityRequest,
@@ -139,8 +139,10 @@ import type {
 import type {
   AppWindowDragPoint,
   InstalledEditorApp,
+  KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
+  RuntimeRegistrySnapshot,
   WorkspaceBrowserViewStats,
   RuntimeVersions,
   WorkspaceGitInfo,
@@ -160,6 +162,11 @@ export const ipcChannels = {
   appearanceRead: "appearance:read",
   appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
+  runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
+  runtimeCurrent: "runtimes:current",
+  runtimeList: "runtimes:list",
+  runtimeRemove: "runtimes:remove",
+  runtimeSwitch: "runtimes:switch",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatReconcileRuns: "chat:reconcile-runs",
@@ -292,6 +299,7 @@ export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
+  runtimeConnectionState: "runtimes:connection-state",
   semanticGraphEvent: "semantic-graph:event",
   workspaceActivityEvent: "workspace-activity:event",
   workspaceBrowserViewKey: "workspace:browser-view-key",
@@ -352,6 +360,26 @@ interface IpcContract {
   backendHealth: {
     args: [];
     result: BackendHealth;
+  };
+  runtimeAddByPairingUrl: {
+    args: [pairingUrl: string];
+    result: RuntimeRegistrySnapshot;
+  };
+  runtimeCurrent: {
+    args: [];
+    result: RuntimeRegistrySnapshot;
+  };
+  runtimeList: {
+    args: [];
+    result: KnownRuntimeView[];
+  };
+  runtimeRemove: {
+    args: [runtimeId: string];
+    result: RuntimeRegistrySnapshot;
+  };
+  runtimeSwitch: {
+    args: [runtimeId: string];
+    result: RuntimeRegistrySnapshot;
   };
   chatActiveRun: {
     args: [workspaceId: string, conversationId: string];

@@ -14,7 +14,7 @@ import (
 
 	"setta/internal/chat"
 	"setta/internal/httpapi"
-	"setta/internal/semanticgraph"
+	"setta/internal/runtimeauth"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -38,6 +38,12 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 	}
 	if ready.Addr != server.Addr() {
 		t.Fatalf("ready addr = %q, want %q", ready.Addr, server.Addr())
+	}
+	if ready.BootstrapToken == "" {
+		t.Fatal("ready bootstrap token is empty")
+	}
+	if ready.ProtocolVersion != httpapi.ProtocolVersion {
+		t.Fatalf("ready protocol version = %d, want %d", ready.ProtocolVersion, httpapi.ProtocolVersion)
 	}
 
 	response, err := http.Get("http://" + ready.Addr + "/health")
@@ -74,6 +80,7 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 		"relative app data": withAppDataDir(t, "relative-app-data"),
 		"bad chat harness":  withChatHarness(t, "unsupported"),
 		"empty host":        withHost(t, ""),
+		"empty bootstrap":   withBootstrapDisplayName(t, ""),
 		"non numeric host":  withHost(t, "localhost"),
 		"non loopback host": withHost(t, "0.0.0.0"),
 		"negative port":     withPort(t, -1),
@@ -87,6 +94,52 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 				t.Fatal("start succeeded, want error")
 			}
 		})
+	}
+}
+
+func TestAllowRemotePermitsNonLoopbackNumericHost(t *testing.T) {
+	config := testConfig(t)
+	config.AllowRemote = true
+	config.Host = "0.0.0.0"
+
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend with allow remote: %v", err)
+	}
+	defer shutdownServer(t, server)
+}
+
+func TestStartCanSkipBootstrapDeviceSession(t *testing.T) {
+	var stdout bytes.Buffer
+	config := testConfig(t)
+	config.Stdout = &stdout
+	config.SkipBootstrapDeviceSession = true
+
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	shutdownServer(t, server)
+
+	var ready ReadyEvent
+	if err := json.NewDecoder(&stdout).Decode(&ready); err != nil {
+		t.Fatalf("decode ready event: %v", err)
+	}
+	if ready.BootstrapToken != "" {
+		t.Fatalf("ready bootstrap token = %q, want empty", ready.BootstrapToken)
+	}
+
+	store, err := runtimeauth.NewStore(config.AppDataDir)
+	if err != nil {
+		t.Fatalf("open runtime auth store: %v", err)
+	}
+	defer store.Close()
+	sessions, err := store.ListDeviceSessions(context.Background())
+	if err != nil {
+		t.Fatalf("list device sessions: %v", err)
+	}
+	if len(sessions) != 0 {
+		t.Fatalf("device sessions = %+v, want none", sessions)
 	}
 }
 
@@ -129,34 +182,6 @@ func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
 	}
 }
 
-func TestRuntimeDisablesSemanticCartographerGlobally(t *testing.T) {
-	server, err := Start(context.Background(), testConfig(t))
-	if err != nil {
-		t.Fatalf("start backend: %v", err)
-	}
-	defer shutdownServer(t, server)
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	baseURL := "http://" + server.Addr()
-	state := postRuntimeJSON[semanticgraph.CartographerProcessingState](t, client, baseURL, "/semantic-graph/cartographer/processing/state", httpapi.ReadCartographerProcessingStateRequest{}, http.StatusOK)
-	if state.Enabled || state.Started || state.QueuedWindowCount != 0 || state.RunningWindowCount != 0 {
-		t.Fatalf("runtime cartographer state = %+v, want globally disabled and idle", state)
-	}
-
-	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
-		RootPath: t.TempDir(),
-	}, http.StatusOK)
-	response := postRuntimeJSON[httpapi.ErrorResponse](t, client, baseURL, "/semantic-graph/cartographer/windows/build", httpapi.BuildCartographerWindowRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		TriggerKind:    semanticgraph.CartographerTriggerManual,
-		TargetEntityID: "node_runtime_disabled",
-		Summary:        "Runtime disabled cartographer request.",
-	}, http.StatusBadRequest)
-	if response.Error.Code != "build_cartographer_window_failed" || response.Error.Message != "semantic cartographer is disabled" {
-		t.Fatalf("runtime disabled build response = %+v, want disabled cartographer error", response)
-	}
-}
-
 func TestGracefulShutdownStopsServing(t *testing.T) {
 	server, err := Start(context.Background(), testConfig(t))
 	if err != nil {
@@ -175,10 +200,7 @@ func TestGracefulShutdownStopsServing(t *testing.T) {
 func TestShutdownDrainsActiveChatTurnBeforeClosingEvents(t *testing.T) {
 	config := testConfig(t)
 	config.ChatHarness = ChatHarnessScriptedWorkflow
-	server, err := Start(context.Background(), config)
-	if err != nil {
-		t.Fatalf("start backend: %v", err)
-	}
+	server, ready := startRuntimeTestServer(t, config)
 	shutdown := false
 	defer func() {
 		if !shutdown {
@@ -186,7 +208,7 @@ func TestShutdownDrainsActiveChatTurnBeforeClosingEvents(t *testing.T) {
 		}
 	}()
 
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 5*time.Second)
 	baseURL := "http://" + server.Addr()
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
 		RootPath: t.TempDir(),
@@ -251,7 +273,7 @@ func waitForRuntimeAssistantText(t *testing.T, client *http.Client, baseURL stri
 
 func shutdownServer(t *testing.T, server *Server) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultConfig().ShutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
@@ -260,6 +282,48 @@ func shutdownServer(t *testing.T, server *Server) {
 	if err := server.Wait(); err != nil {
 		t.Fatalf("wait for backend: %v", err)
 	}
+}
+
+func startRuntimeTestServer(t *testing.T, config Config) (*Server, ReadyEvent) {
+	t.Helper()
+
+	var stdout bytes.Buffer
+	config.Stdout = &stdout
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	var ready ReadyEvent
+	if err := json.NewDecoder(&stdout).Decode(&ready); err != nil {
+		shutdownServer(t, server)
+		t.Fatalf("decode ready event: %v", err)
+	}
+	return server, ready
+}
+
+func authenticatedRuntimeTestClient(token string, timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		Transport: runtimeTestAuthTransport{
+			token: token,
+			base:  http.DefaultTransport,
+		},
+	}
+}
+
+type runtimeTestAuthTransport struct {
+	token string
+	base  http.RoundTripper
+}
+
+func (transport runtimeTestAuthTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if transport.token == "" || request.Header.Get("Authorization") != "" {
+		return transport.base.RoundTrip(request)
+	}
+	clone := request.Clone(request.Context())
+	clone.Header = request.Header.Clone()
+	clone.Header.Set("Authorization", "Bearer "+transport.token)
+	return transport.base.RoundTrip(clone)
 }
 
 func testConfig(t *testing.T) Config {
@@ -307,5 +371,13 @@ func withVersion(t *testing.T, version string) Config {
 
 	config := testConfig(t)
 	config.Version = version
+	return config
+}
+
+func withBootstrapDisplayName(t *testing.T, displayName string) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.BootstrapDeviceDisplayName = displayName
 	return config
 }

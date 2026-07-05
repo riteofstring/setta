@@ -38,16 +38,13 @@ import { TranscriptRenderRowView, type TranscriptRowContext } from "./chat-trans
 import { ChatSearchBar, useTranscriptSearch } from "./chat-transcript-search";
 import type { LoadRunItemOutput } from "./chat-transcript-activity";
 import type { TranscriptRowActions } from "./chat-transcript-row-actions";
-import { useTranscriptScrollFollow } from "./chat-transcript-scroll-follow";
-import { transcriptTailRevision } from "./chat-transcript-tail-revision";
+import { transcriptTailRevision, useTranscriptScrollFollow } from "./chat-transcript-scroll-follow";
 import {
   currentPlanFromTranscript,
   type CurrentPlanSurfaceTarget,
 } from "./chat-current-plan-surface";
 
 type TranscriptActivityApprovalDetails = NonNullable<RunActivityDetailsProjection["approval"]>;
-
-const collapsedActivityGroupIds = new Set<string>();
 
 export interface ChatTranscriptCapabilities {
   loadOlderHistory: boolean;
@@ -63,7 +60,6 @@ export interface ChatTranscriptProps {
   activeCurrentPlanTarget?: CurrentPlanSurfaceTarget | null;
   blocks: TranscriptBlock[];
   capabilities?: ChatTranscriptCapabilities;
-  conversationKey: string;
   editQueuedMessage?: (messageId: string, input: ChatInput) => Promise<void>;
   editingQueuedMessageId: string | null;
   focusedSourceRunItemId?: string | null;
@@ -401,7 +397,6 @@ export function ChatTranscript({
   activeCurrentPlanTarget = null,
   blocks,
   capabilities = defaultChatTranscriptCapabilities,
-  conversationKey,
   editQueuedMessage,
   editingQueuedMessageId,
   focusedSourceRunItemId = null,
@@ -499,35 +494,24 @@ export function ChatTranscript({
     ],
   );
   const finalSearchIndex = useMemo(() => transcriptSearchIndex(rows), [rows]);
-  const autoFollowRows = useMemo(
-    () =>
-      transcriptRenderRows({
-        blocks,
-        expandedActivityGroupIds: collapsedActivityGroupIds,
-        messages,
-        queuedMessages,
-      }),
-    [blocks, messages, queuedMessages],
-  );
   const tailRevision = useMemo(
     () =>
       transcriptTailRevision({
         activeRun,
-        rows: autoFollowRows,
+        rows,
         runItemOutputIdsByRunItemId,
         runItemOutputPagesByRunItemId,
         runItemOutputsById,
       }),
     [
       activeRun,
-      autoFollowRows,
+      rows,
       runItemOutputIdsByRunItemId,
       runItemOutputPagesByRunItemId,
       runItemOutputsById,
     ],
   );
   const scrollFollow = useTranscriptScrollFollow({
-    conversationKey,
     rowCount: rows.length,
     tailRevision,
     virtuosoRef,
@@ -541,10 +525,10 @@ export function ChatTranscript({
     if (index === undefined) {
       return;
     }
-    scrollFollow.scrollToIndexAsProgrammaticScroll({ align: "center", index });
+    scrollFollow.scrollToIndexAsProgrammaticAnchor({ align: "center", index });
   }, [
     finalSearchIndex.rowIndexById,
-    scrollFollow.scrollToIndexAsProgrammaticScroll,
+    scrollFollow.scrollToIndexAsProgrammaticAnchor,
     search.activeSearchId,
   ]);
 
@@ -642,8 +626,8 @@ export function ChatTranscript({
     if (index === -1) {
       return;
     }
-    scrollFollow.scrollToIndexAsProgrammaticScroll({ align: "start", index });
-  }, [pendingScrollAnchor, rows, scrollFollow.scrollToIndexAsProgrammaticScroll]);
+    scrollFollow.scrollToIndexAsProgrammaticAnchor({ align: "start", index });
+  }, [pendingScrollAnchor, rows, scrollFollow.scrollToIndexAsProgrammaticAnchor]);
 
   function handleScroll(event: UIEvent<HTMLDivElement>) {
     scrollFollow.handleScroll(event);
@@ -731,14 +715,12 @@ export function ChatTranscript({
   return (
     <div
       className="relative h-full min-h-0 min-w-0 overflow-hidden"
-      data-testid="chat-transcript-scroll-follow"
       onKeyDownCapture={handleKeyDown}
       onPointerCancelCapture={handlePointerCancel}
       onPointerDownCapture={handlePointerDown}
       onPointerUpCapture={handlePointerUp}
       onScrollCapture={handleScroll}
       onWheelCapture={handleWheel}
-      {...scrollFollow.debugAttributes}
     >
       <ChatSearchBar search={search} />
       <Virtuoso
@@ -759,12 +741,11 @@ export function ChatTranscript({
         }}
         ref={virtuosoRef}
         scrollerRef={scrollFollow.setScrollerRef}
-        style={{ overflowAnchor: "none" }}
         totalListHeightChanged={scrollFollow.handleTotalListHeightChanged}
       />
       <JumpToLatestButton
         onJumpToLatest={scrollFollow.jumpToLatest}
-        visible={scrollFollow.canJumpToLatest}
+        visible={scrollFollow.mode !== "auto_follow"}
       />
     </div>
   );

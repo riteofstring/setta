@@ -333,7 +333,7 @@ func newTerminalHandler(t *testing.T, startErr error) (http.Handler, *httpRecord
 	t.Cleanup(func() {
 		_ = manager.Shutdown(context.Background())
 	})
-	return NewHandler(HandlerConfig{
+	return newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata:        BackendMetadata{Name: BackendName, Version: "test"},
 		TerminalService: manager,
 	}), starter

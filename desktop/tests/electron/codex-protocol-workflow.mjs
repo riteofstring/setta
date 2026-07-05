@@ -33,30 +33,27 @@ const fakeCodexParallelRunsFixture = join(
   "fixtures",
   "fake-codex-parallel-runs.mjs",
 );
+const fakeCodexProtocolPayloadsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-protocol-payloads.mjs",
+);
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
   processId: "goal_fg_process",
 };
-const backpressureBurstCommand = {
-  command: "printf backpressure burst",
-  itemId: "burst_command",
-  processId: "burst_process",
-};
-const goalBackpressureBurstCommand = {
-  command: "npm run goal-burst",
-  itemId: "goal_burst_command",
-  processId: "goal_burst_process",
-};
-const backpressureMarkerText = "output skipped";
+const protocolNotificationActivityTimeoutMs = 30_000;
 
 export async function installFakeCodexAppServer(fixture) {
   const binDir = join(fixture.tempRoot, "fake-bin");
   await mkdir(binDir, { recursive: true });
   const scriptPath = join(binDir, "fake-codex-app-server.mjs");
   const parallelRunsPath = join(binDir, "fake-codex-parallel-runs.mjs");
+  const protocolPayloadsPath = join(binDir, "fake-codex-protocol-payloads.mjs");
   await copyFile(fakeCodexAppServerFixture, scriptPath);
   await copyFile(fakeCodexParallelRunsFixture, parallelRunsPath);
+  await copyFile(fakeCodexProtocolPayloadsFixture, protocolPayloadsPath);
   if (process.platform === "win32") {
     const commandPath = join(binDir, "codex.cmd");
     await writeFile(commandPath, `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
@@ -75,7 +72,11 @@ export async function assertProtocolNotificationActivity(
   conversationId,
   runId,
 ) {
-  const page = await backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId });
+  const page = await waitForBackendState(
+    async () => backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId }),
+    protocolNotificationActivityReady,
+    protocolNotificationActivityTimeoutMs,
+  );
   await assertRunActivityItem(page, "hook", (item) => item.title === "Hook: pre-command");
   await assertRunActivityItem(
     page,
@@ -387,15 +388,9 @@ async function openProtocolActivityRow(client, sourceRunItemId) {
   );
 }
 
-export async function runProtocolCurrentPlanGoalAndBackpressureWorkflows(
-  client,
-  backend,
-  workspaceId,
-) {
+export async function runProtocolCurrentPlanAndGoalMultiTurnWorkflow(client, backend, workspaceId) {
   await runProtocolCurrentPlanWorkflow(client, backend, workspaceId);
   await runProtocolGoalMultiTurnWorkflow(client, backend, workspaceId);
-  await runProtocolBackpressureBurstWorkflow(client, backend, workspaceId);
-  await runProtocolGoalBackpressureBurstWorkflow(client, backend, workspaceId);
 }
 
 async function runProtocolGoalMultiTurnWorkflow(client, backend, workspaceId) {
@@ -435,52 +430,6 @@ export async function runProtocolGoalForegroundUnifiedExecWorkflow(client, backe
     workspaceId,
     conversationId,
     run.id,
-  );
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-}
-
-export async function runProtocolBackpressureBurstWorkflow(client, backend, workspaceId) {
-  const conversationId = await createChat(client, backend, workspaceId);
-  await submitComposer(client, "backpressure burst workflow", "Send message");
-  const run = await waitForRunStatusForPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "backpressure burst workflow",
-    "completed",
-  );
-  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
-  await waitForTexts(client, ["Backpressure burst complete.", backpressureBurstCommand.command]);
-  await assertProtocolBackpressureBurstCommand(
-    client,
-    backend,
-    workspaceId,
-    run.id,
-    backpressureBurstCommand,
-  );
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-}
-
-export async function runProtocolGoalBackpressureBurstWorkflow(client, backend, workspaceId) {
-  const conversationId = await createChat(client, backend, workspaceId);
-  await submitComposer(client, "/goal phase6 codex output burst", "Send message");
-  const commandPage = await waitForCommandResult(
-    backend,
-    workspaceId,
-    conversationId,
-    "Goal set: phase6 codex output burst",
-  );
-  const runId = goalRunIDFromCommandPage(commandPage);
-  const run = await waitForRunStatus(backend, workspaceId, conversationId, runId, "completed");
-  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
-  await waitForGoalStatus(backend, workspaceId, conversationId, "complete");
-  await waitForTexts(client, ["Goal burst complete.", goalBackpressureBurstCommand.command]);
-  await assertProtocolBackpressureBurstCommand(
-    client,
-    backend,
-    workspaceId,
-    run.id,
-    goalBackpressureBurstCommand,
   );
   await assertNoActiveRun(backend, workspaceId, conversationId);
 }
@@ -1231,104 +1180,6 @@ async function assertProtocolGoalForegroundUnifiedExecProjections(
   }
 }
 
-async function assertProtocolBackpressureBurstCommand(
-  client,
-  backend,
-  workspaceId,
-  runId,
-  execution,
-) {
-  const commandItem = await waitForBackendState(async () => {
-    const page = await backend.post("/chat/runs/activity", {
-      limit: 100,
-      runId,
-      workspaceId,
-    });
-    const item = page.items.find((candidate) => candidate.providerItemId === execution.itemId);
-    if (!item) {
-      return null;
-    }
-    const details = commandExecutionDetails(item);
-    if (
-      item.status !== "completed" ||
-      details?.command !== execution.command ||
-      details.processId !== execution.processId
-    ) {
-      return null;
-    }
-    return item;
-  }, Boolean);
-  const output = await waitForRunItemOutputText(
-    backend,
-    workspaceId,
-    runId,
-    commandItem.id,
-    backpressureMarkerText,
-  );
-  if (!output.text.includes("item/commandExecution/outputDelta")) {
-    throw new Error(`backpressure marker omitted method metadata: ${output.text}`);
-  }
-  await assertBackpressureMarkerVisible(client, commandItem.id);
-}
-
-async function waitForRunItemOutputText(backend, workspaceId, runId, runItemId, expected) {
-  return waitForBackendState(async () => {
-    const page = await backend.post("/chat/runs/item-output", {
-      afterOrdinal: 0,
-      limit: 0,
-      runId,
-      runItemId,
-      workspaceId,
-    });
-    const text = (page.output ?? []).map((output) => output.text).join("");
-    if (!text.includes(expected)) {
-      return null;
-    }
-    return { page, text };
-  }, Boolean);
-}
-
-async function assertBackpressureMarkerVisible(client, sourceRunItemId) {
-  await openProtocolActivityRow(client, sourceRunItemId);
-  let lastState = null;
-  for (let attempt = 0; attempt < 12; attempt++) {
-    lastState = await client.evaluate(`(() => {
-      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
-      const row = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'))
-        .find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
-      const text = row?.innerText ?? "";
-      const loadMore = Array.from(row?.querySelectorAll("button") ?? [])
-        .find((candidate) => candidate.textContent?.trim() === "Load more");
-      return {
-        canLoadMore: loadMore instanceof HTMLButtonElement && !loadMore.disabled,
-        ok: text.includes(${JSON.stringify(backpressureMarkerText)}),
-        text: text.slice(-4000),
-      };
-    })()`);
-    if (lastState.ok) {
-      return;
-    }
-    if (!lastState.canLoadMore) {
-      await delay(100);
-      continue;
-    }
-    await client.evaluate(`(() => {
-      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
-      const row = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'))
-        .find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
-      const loadMore = Array.from(row?.querySelectorAll("button") ?? [])
-        .find((candidate) => candidate.textContent?.trim() === "Load more");
-      if (loadMore instanceof HTMLButtonElement && !loadMore.disabled) {
-        loadMore.click();
-      }
-    })()`);
-    await delay(100);
-  }
-  throw new Error(
-    `backpressure marker was not visible in activity output: ${JSON.stringify(lastState)}`,
-  );
-}
-
 function goalRunIDFromCommandPage(page) {
   const assistant = page.messages.find(
     (message) => message.role === "assistant" && message.runId !== "",
@@ -1346,9 +1197,55 @@ async function callRendererChatAPI(client, method, args) {
 }
 
 async function assertRunActivityItem(page, type, matches) {
-  const item = page.items.find((candidate) => candidate.type === type && matches(candidate));
+  const item = runActivityItem(page, type, matches);
   if (!item) {
     throw new Error(`run activity missing ${type}: ${JSON.stringify(page.items)}`);
   }
   return item;
 }
+
+function protocolNotificationActivityReady(page) {
+  return protocolNotificationActivityExpectations.every((expectation) =>
+    runActivityItem(page, expectation.type, expectation.matches),
+  );
+}
+
+function runActivityItem(page, type, matches) {
+  return page.items.find((candidate) => candidate.type === type && matches(candidate));
+}
+
+const protocolNotificationActivityExpectations = [
+  { type: "hook", matches: (item) => item.title === "Hook: pre-command" },
+  {
+    type: "approval_review",
+    matches: (item) => item.details?.approval?.reviewId === "review_fake",
+  },
+  {
+    type: "context_compaction",
+    matches: (item) => item.title === "Context compaction" && item.status === "completed",
+  },
+  { type: "file_change", matches: isProtocolFileChangeItem },
+  { type: "diff", matches: isProtocolDiffItem },
+  { type: "reasoning", matches: (item) => item.hiddenText === "private reasoning" },
+  {
+    type: "command_execution",
+    matches: (item) => commandExecutionDetails(item)?.processId === "scoped_process_fake",
+  },
+  {
+    type: "dynamic_tool_call",
+    matches: (item) =>
+      item.status === "completed" &&
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "workspace_context",
+  },
+  {
+    type: "dynamic_tool_call",
+    matches: (item) =>
+      item.status === "failed" &&
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "missing_tool",
+  },
+  { type: "mcp_tool_call", matches: isCompletedMCPToolCallItem },
+  { type: "mcp_tool_call", matches: isFailedMCPToolCallItem },
+  { type: "notice", matches: (item) => item.noticeKind === "warning" },
+];

@@ -19,6 +19,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { driverCallExpression } from "./cdp-client.mjs";
 import {
   backendProbe,
   createChat,
@@ -193,9 +194,12 @@ async function safeMeasurementSnapshot(client) {
 }
 
 async function waitForOptionalWorkflowGraphSettled(client) {
-  await waitForState(client, workflowGraphSettledExpression(), (value) => value.ready, 5_000).catch(
-    () => {},
-  );
+  await waitForState(
+    client,
+    driverCallExpression("chatStreamPerformanceWorkflowGraphSettled"),
+    (value) => value.ready,
+    5_000,
+  ).catch(() => {});
 }
 
 async function waitForChatStreamWarmup(client) {
@@ -207,43 +211,4 @@ async function waitForChatStreamWarmup(client) {
     (value) => value.ready,
     chatPerformanceTimeoutMs,
   );
-}
-
-function workflowGraphSettledExpression() {
-  return `(() => {
-    const api = window.__settaWorkflowGraphDebug;
-    if (!api?.getSurfaceIds || !api?.getSnapshot) {
-      return { ready: true, skipped: "missing-debug-api" };
-    }
-    const surfaceIds = api.getSurfaceIds();
-    const surfaceId = surfaceIds.includes("workspace_surface_2")
-      ? "workspace_surface_2"
-      : surfaceIds[0] ?? null;
-    if (surfaceId === null) {
-      return { ready: true, skipped: "missing-debug-surface" };
-    }
-    let snapshot = null;
-    try {
-      snapshot = api.getSnapshot(surfaceId, { includeVisual: false });
-    } catch (error) {
-      return {
-        ready: false,
-        reason: error instanceof Error ? error.message : String(error),
-        surfaceId,
-      };
-    }
-    const frameCount = snapshot?.render?.frameCount ?? 0;
-    const now = performance.now();
-    const previous = window.__settaChatStreamGraphSettle;
-    if (
-      !previous ||
-      previous.surfaceId !== surfaceId ||
-      previous.frameCount !== frameCount
-    ) {
-      window.__settaChatStreamGraphSettle = { frameCount, stableSince: now, surfaceId };
-      return { frameCount, ready: false, stableMs: 0, surfaceId };
-    }
-    const stableMs = now - previous.stableSince;
-    return { frameCount, ready: stableMs >= 120, stableMs, surfaceId };
-  })()`;
 }

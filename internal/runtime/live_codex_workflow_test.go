@@ -30,13 +30,10 @@ func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
-	server, err := Start(context.Background(), config)
-	if err != nil {
-		t.Fatalf("start backend: %v", err)
-	}
+	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 30*time.Second)
 	baseURL := "http://" + server.Addr()
 
 	health := getRuntimeJSON[httpapi.BackendHealth](t, client, baseURL, "/health")
@@ -127,13 +124,10 @@ func TestBackendLiveCodexRunLivenessReconcileDuringActiveTurn(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
-	server, err := Start(context.Background(), config)
-	if err != nil {
-		t.Fatalf("start backend: %v", err)
-	}
+	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 30*time.Second)
 	baseURL := "http://" + server.Addr()
 
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
@@ -199,13 +193,10 @@ func TestBackendLiveCodexSilentUpstreamLossReconciliation(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
-	server, err := Start(context.Background(), config)
-	if err != nil {
-		t.Fatalf("start backend: %v", err)
-	}
+	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 30*time.Second)
 	baseURL := "http://" + server.Addr()
 
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
@@ -265,13 +256,10 @@ func TestBackendLiveCodexStaleTurnInterruptRegression(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
-	server, err := Start(context.Background(), config)
-	if err != nil {
-		t.Fatalf("start backend: %v", err)
-	}
+	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 30*time.Second)
 	baseURL := "http://" + server.Addr()
 
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
@@ -300,7 +288,7 @@ func TestBackendLiveCodexStaleTurnInterruptRegression(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	_, err = server.codexManager.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
+	_, err := server.codexManager.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
 		ThreadID: liveness.ProviderThreadID,
 		TurnID:   liveness.ProviderTurnID + "_stale",
 	})

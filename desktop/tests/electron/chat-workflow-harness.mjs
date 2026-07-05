@@ -217,22 +217,34 @@ export async function waitForDriverState(
 }
 
 export async function backendProbe(recordingDir) {
-  const baseURL = await waitForBackendURL(recordingDir);
+  const { baseURL, deviceToken } = await waitForBackendAccess(recordingDir);
   await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");
   return {
     baseURL,
-    get: (path) => backendRequest(recordingDir, baseURL, "GET", path),
-    post: (path, payload) => backendRequest(recordingDir, baseURL, "POST", path, payload),
+    deviceToken,
+    get: (path) => backendRequest(recordingDir, baseURL, deviceToken, "GET", path),
+    post: (path, payload) =>
+      backendRequest(recordingDir, baseURL, deviceToken, "POST", path, payload),
+    request: (method, path, payload) =>
+      backendFetch(recordingDir, baseURL, deviceToken, method, path, payload),
   };
 }
 
-async function backendRequest(recordingDir, baseURL, method, path, payload) {
+async function backendRequest(recordingDir, baseURL, deviceToken, method, path, payload) {
+  const response = await backendFetch(recordingDir, baseURL, deviceToken, method, path, payload);
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`${method} ${path} returned ${response.status}: ${body}`);
+  }
+  return JSON.parse(body);
+}
+
+async function backendFetch(recordingDir, baseURL, deviceToken, method, path, payload) {
   const response = await globalThis.fetch(baseURL + path, {
     body: payload === undefined ? undefined : JSON.stringify(payload),
-    headers: payload === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: backendRequestHeaders(deviceToken, payload),
     method,
   });
-  const body = await response.text();
   await appendWorkflowState(recordingDir, {
     method,
     ok: response.ok,
@@ -240,30 +252,57 @@ async function backendRequest(recordingDir, baseURL, method, path, payload) {
     status: response.status,
     type: "backend_request",
   });
-  if (!response.ok) {
-    throw new Error(`${method} ${path} returned ${response.status}: ${body}`);
-  }
-  return JSON.parse(body);
+  return response;
 }
 
-async function waitForBackendURL(recordingDir) {
+function backendRequestHeaders(deviceToken, payload) {
+  return {
+    Authorization: "Bearer " + deviceToken,
+    ...(payload === undefined ? {} : { "Content-Type": "application/json" }),
+  };
+}
+
+async function waitForBackendAccess(recordingDir) {
   const eventsPath = join(recordingDir, "events.jsonl");
   const startedAt = Date.now();
   let lastError = null;
   while (Date.now() - startedAt < pageLoadTimeoutMs) {
     try {
-      const events = await readJsonLines(eventsPath);
-      const started = events.find((entry) => entry.type === "backend_started");
-      const url = started?.payload?.url;
-      if (typeof url === "string" && url !== "") {
-        return url;
+      const access = await readBackendAccess(eventsPath);
+      if (access) {
+        return access;
       }
     } catch (error) {
       lastError = error;
     }
     await delay(100);
   }
-  throw new Error(`backend URL was not recorded: ${lastError?.message ?? "timed out"}`);
+  throw new Error(`backend access was not recorded: ${lastError?.message ?? "timed out"}`);
+}
+
+async function readBackendAccess(eventsPath) {
+  return backendAccessFromEvents(await readJsonLines(eventsPath));
+}
+
+function backendAccessFromEvents(events) {
+  const started = events.find((entry) => entry.type === "backend_started");
+  if (!started) {
+    return null;
+  }
+  return backendAccessFromPayload(started.payload);
+}
+
+function backendAccessFromPayload(payload) {
+  const url = payload?.url;
+  const token = payload?.bootstrapToken;
+  if (!nonEmptyString(url) || !nonEmptyString(token)) {
+    return null;
+  }
+  return { baseURL: url, deviceToken: token };
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value !== "";
 }
 
 export async function waitForBackendState(readState, isReady, timeoutMs = workflowTimeoutMs) {
@@ -540,6 +579,7 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   const unsetEnv = launchOptions.unsetEnv ?? [];
   const e2eEnv = {
     SETTA_E2E: "1",
+    SETTA_BACKEND_READY_TIMEOUT_MS: "30000",
     SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
     SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
     ...(launchVisible ? { SETTA_E2E_VISIBLE: "1" } : {}),

@@ -617,11 +617,17 @@ func (service *Service) copyRunItemOutputToBackgroundTerminalLocked(workspaceID 
 	if err != nil {
 		return err
 	}
-	entries := make([]backgroundTerminalOutputEntry, 0, len(outputs))
 	for _, output := range outputs {
-		entries = append(entries, backgroundTerminalOutputEntry{stream: output.Stream, text: output.Text})
+		if err := service.appendBackgroundTerminalOutputLocked(process, output.Stream, output.Text); err != nil {
+			return err
+		}
+		reloaded, err := service.store.LoadBackgroundTerminalProcess(process.WorkspaceID, process.ConversationID, process.ID)
+		if err != nil {
+			return err
+		}
+		process = reloaded
 	}
-	return service.appendBackgroundTerminalOutputBatchLocked(process, entries)
+	return nil
 }
 
 // createBackgroundTerminalBlockLocked appends a slim background_terminal marker at

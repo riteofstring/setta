@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+const (
+	fakeBurstOutputChunks = 1536
+	fakeBurstOutputChunk  = "x\n"
+)
+
 func TestCodexHarnessBurstCommandOutputDoesNotFailTurn(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("burst-output"))
 	sink := newSlowRecordingSink(2 * time.Millisecond)
@@ -83,4 +88,47 @@ func newSlowRecordingSink(outputDelay time.Duration) *slowRecordingSink {
 func (sink *slowRecordingSink) RunItemOutputDelta(itemID string, stream string, text string) error {
 	time.Sleep(sink.outputDelay)
 	return sink.recordingSink.RunItemOutputDelta(itemID, stream, text)
+}
+
+func writeFakeBackpressureBurstTurn() {
+	writeFakeNotification("item/started", map[string]any{
+		"startedAtMs": 1,
+		"threadId":    "thread_fake",
+		"turnId":      "turn_fake",
+		"item": map[string]any{
+			"command":        "printf backpressure burst",
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"id":             "burst_command",
+			"processId":      "burst_process",
+			"status":         "inProgress",
+			"type":           "commandExecution",
+		},
+	})
+	for range fakeBurstOutputChunks {
+		writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
+			"delta":    fakeBurstOutputChunk,
+			"itemId":   "burst_command",
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		})
+	}
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 3,
+		"threadId":      "thread_fake",
+		"turnId":        "turn_fake",
+		"item": map[string]any{
+			"command":        "printf backpressure burst",
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"durationMs":     5,
+			"exitCode":       0,
+			"id":             "burst_command",
+			"processId":      "burst_process",
+			"status":         "completed",
+			"type":           "commandExecution",
+		},
+	})
+	writeFakeAssistantDelta("burst complete")
+	writeFakeCompletedTurn("completed")
 }

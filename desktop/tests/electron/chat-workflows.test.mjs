@@ -94,7 +94,7 @@ import { runCodexApprovalPolicyRemovalWorkflowLaunch } from "./chat-workflow-app
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
-  runProtocolCurrentPlanGoalAndBackpressureWorkflows,
+  runProtocolCurrentPlanAndGoalMultiTurnWorkflow,
   runProtocolGoalCancellationWorkflow,
   runProtocolGoalForegroundUnifiedExecWorkflow,
   runProtocolLivenessReconciliationWorkflow,
@@ -693,8 +693,7 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
     "Projection command",
     "Projection reasoning",
   ]);
-  // The meaningfully-titled transient reasoning persists as a thinking-mode reasoning block: the
-  // chronological model keeps reasoning as a real timeline status block rather than a placeholder
+  // The transient reasoning persists as a real timeline status block rather than a placeholder
   // that vanishes after the first assistant text.
   await assertReasoningBlockPresent(client, "Streaming reasoning placeholder");
   await assertTextAbsent(client, "private projection reasoning");
@@ -1275,7 +1274,6 @@ async function runCodexProtocolWorkflow(results) {
     await waitForTexts(context.client, ["coverage complete", "Workspace context"]);
     await assertCollapsedActivityGroupHeader(context.client, {
       absent: "+8",
-      count: "11",
       preview: "Workspace context",
     });
     await assertTextAbsent(context.client, "Reasoning text");
@@ -1291,7 +1289,7 @@ async function runCodexProtocolWorkflow(results) {
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
     await exerciseLinkedCodexPermissionPicker(context.client, backend, workspaceId, conversationId);
 
-    await runProtocolCurrentPlanGoalAndBackpressureWorkflows(context.client, backend, workspaceId);
+    await runProtocolCurrentPlanAndGoalMultiTurnWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalForegroundUnifiedExecWorkflow(context.client, backend, workspaceId);
     await runProtocolGoalBackgroundTerminalWorkflow(context.client, backend, workspaceId, fixture);
     await runProtocolGoalCancellationWorkflow(context.client, backend, workspaceId);

@@ -719,19 +719,50 @@ function workflowRunDetailsReady(state) {
     "decision=exit",
     "scripted workflow result",
     "reports/workflow-result.md",
-    "Read Only - node override",
-    "Scripted Careful - workflow default",
   ];
   return [
     state.workflowTrajectorySurfaceCount === 1,
     state.chatConversationTrajectoryCount === 0,
     workflowRunDetailsHasActivity(state),
+    workflowRunDetailsSettingsReady(state.composerSettings),
     requiredText.every((text) => state.text.includes(text)),
   ].every(Boolean);
 }
 
 function workflowRunDetailsHasActivity(state) {
   return state.activityGroupHeaderCount >= 1 || state.runActivityRowCount >= 1;
+}
+
+function workflowRunDetailsSettingsReady(settings) {
+  return Object.values(workflowRunDetailsSettingsEvidence(settings)).every(Boolean);
+}
+
+function workflowRunDetailsSettingsEvidence(settings) {
+  return {
+    composerMode: settings.composerMode === "read-only-settings",
+    model: workflowRunDetailsModelSettingsReady(settings),
+    noSourceLabels:
+      !settings.text.includes("node override") && !settings.text.includes("workflow default"),
+    permission: workflowRunDetailsPermissionSettingsReady(settings),
+    readOnly: settings.readOnly,
+  };
+}
+
+function workflowRunDetailsPermissionSettingsReady(settings) {
+  return [
+    settings.permissionButtonDisabled,
+    settings.permissionButtonText.includes("Read Only"),
+    settings.permissionButtonTitle === "Run settings are read-only.",
+  ].every(Boolean);
+}
+
+function workflowRunDetailsModelSettingsReady(settings) {
+  return [
+    settings.modelButtonDisabled,
+    settings.modelButtonText.includes("Scripted Careful"),
+    settings.modelButtonText.includes("Low"),
+    settings.modelButtonTitle === "Run settings are read-only.",
+  ].every(Boolean);
 }
 
 async function waitForWorkflowGraphPaneSettled(client, surfaceId) {
