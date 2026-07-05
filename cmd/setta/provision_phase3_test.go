@@ -191,6 +191,157 @@ func TestProvisionResolveUsesHcloudLiveServerTypeData(t *testing.T) {
 	}
 }
 
+func TestProvisionResolveUsesAWSLiveInstanceTypeData(t *testing.T) {
+	var stdout bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+	deps.lookPath = func(name string) (string, error) {
+		if name == "aws" {
+			return "/usr/bin/aws", nil
+		}
+		return "", &exec.Error{Name: name, Err: exec.ErrNotFound}
+	}
+	deps.commandRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name != "aws" {
+			return nil, fmt.Errorf("unexpected command %s %v", name, args)
+		}
+		switch {
+		case reflect.DeepEqual(args, []string{
+			"ec2", "describe-instance-type-offerings",
+			"--filters", "Name=instance-type,Values=t3.xlarge",
+			"--region", "us-east-1",
+			"--output", "json",
+		}):
+			return []byte(`{"InstanceTypeOfferings":[{"InstanceType":"t3.xlarge","LocationType":"region","Location":"us-east-1"}]}`), nil
+		case reflect.DeepEqual(args, []string{
+			"ec2", "describe-instance-types",
+			"--instance-types", "t3.xlarge",
+			"--region", "us-east-1",
+			"--output", "json",
+		}):
+			return []byte(`{"InstanceTypes":[{"InstanceType":"t3.xlarge","VCpuInfo":{"DefaultVCpus":4},"MemoryInfo":{"SizeInMiB":16384}}]}`), nil
+		default:
+			return nil, fmt.Errorf("unexpected aws args %v", args)
+		}
+	}
+
+	code := runWithDeps([]string{
+		"provision", "resolve", "--json",
+		"--provider", "aws",
+		"--shape", "dev-standard",
+		"--region", "us-east-1",
+	}, deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionResolveResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse resolve JSON: %v\n%s", err, stdout.String())
+	}
+	resolution := result.Resolution
+	if resolution.Source != "live_cli" || resolution.InstanceType != "t3.xlarge" || resolution.Region != "us-east-1" {
+		t.Fatalf("resolution = %+v", resolution)
+	}
+	if resolution.Machine.CPUs != 4 || resolution.Machine.MemoryGB != 16 {
+		t.Fatalf("machine = %+v", resolution.Machine)
+	}
+	if resolution.Cost.Kind != "unknown" || !strings.Contains(resolution.Cost.Description, "AWS CLI") {
+		t.Fatalf("cost = %+v", resolution.Cost)
+	}
+}
+
+func TestProvisionResolveUsesGCPLiveMachineTypeData(t *testing.T) {
+	var stdout bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+	deps.lookPath = func(name string) (string, error) {
+		if name == "gcloud" {
+			return "/usr/bin/gcloud", nil
+		}
+		return "", &exec.Error{Name: name, Err: exec.ErrNotFound}
+	}
+	deps.commandRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name != "gcloud" || !reflect.DeepEqual(args, []string{
+			"compute", "machine-types", "list",
+			"--filter=name=e2-standard-4",
+			"--format=json(name,guestCpus,memoryMb,zone,selfLink)",
+		}) {
+			return nil, fmt.Errorf("unexpected command %s %v", name, args)
+		}
+		return []byte(`[
+  {"name":"e2-standard-4","guestCpus":4,"memoryMb":16384,"zone":"https://www.googleapis.com/compute/v1/projects/setta/zones/europe-west1-b"},
+  {"name":"e2-standard-4","guestCpus":4,"memoryMb":16384,"zone":"https://www.googleapis.com/compute/v1/projects/setta/zones/us-central1-a"}
+]`), nil
+	}
+
+	code := runWithDeps([]string{
+		"provision", "resolve", "--json",
+		"--provider", "gcp",
+		"--shape", "dev-standard",
+		"--region", "us-central1",
+	}, deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionResolveResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse resolve JSON: %v\n%s", err, stdout.String())
+	}
+	resolution := result.Resolution
+	if resolution.Source != "live_cli" || resolution.InstanceType != "e2-standard-4" || resolution.Region != "us-central1" {
+		t.Fatalf("resolution = %+v", resolution)
+	}
+	if resolution.Machine.CPUs != 4 || resolution.Machine.MemoryGB != 16 {
+		t.Fatalf("machine = %+v", resolution.Machine)
+	}
+}
+
+func TestProvisionResolveUsesDigitalOceanLiveSizeAndPriceData(t *testing.T) {
+	var stdout bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+	deps.lookPath = func(name string) (string, error) {
+		if name == "doctl" {
+			return "/usr/bin/doctl", nil
+		}
+		return "", &exec.Error{Name: name, Err: exec.ErrNotFound}
+	}
+	deps.commandRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name != "doctl" || !reflect.DeepEqual(args, []string{"compute", "size", "list", "--output", "json"}) {
+			return nil, fmt.Errorf("unexpected command %s %v", name, args)
+		}
+		return []byte(`[
+  {"slug":"s-4vcpu-8gb","memory":8192,"vcpus":4,"disk":160,"price_hourly":0.07143,"regions":["nyc3","sfo3"],"available":true},
+  {"slug":"s-4vcpu-16gb","memory":16384,"vcpus":4,"disk":320,"price_hourly":0.14286,"regions":["nyc3","sfo3"],"available":true},
+  {"slug":"s-8vcpu-32gb","memory":32768,"vcpus":8,"disk":640,"price_hourly":0.28571,"regions":["nyc3"],"available":true}
+]`), nil
+	}
+
+	code := runWithDeps([]string{
+		"provision", "resolve", "--json",
+		"--provider", "digitalocean",
+		"--shape", "dev-standard",
+		"--region", "sfo3",
+	}, deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionResolveResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse resolve JSON: %v\n%s", err, stdout.String())
+	}
+	resolution := result.Resolution
+	if resolution.Source != "live_cli" || resolution.InstanceType != "s-4vcpu-16gb" || resolution.Region != "sfo3" {
+		t.Fatalf("resolution = %+v", resolution)
+	}
+	if resolution.Cost.Kind != "live_hourly" || resolution.Cost.Amount != "0.14286" || resolution.Cost.Currency != "USD" {
+		t.Fatalf("cost = %+v", resolution.Cost)
+	}
+	if resolution.DiskGB != 320 || resolution.Machine.DiskGB != 320 {
+		t.Fatalf("disk = resolution %d machine %+v", resolution.DiskGB, resolution.Machine)
+	}
+}
+
 func TestProvisionResolveRecordsIntentWithoutParsingIt(t *testing.T) {
 	var stdout bytes.Buffer
 	deps := provisionResolveNoCLIDeps(&stdout)

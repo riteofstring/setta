@@ -107,6 +107,59 @@ type hcloudHourlyPrice struct {
 	Net   string `json:"net"`
 }
 
+type awsDescribeInstanceTypesResult struct {
+	InstanceTypes []awsInstanceType `json:"InstanceTypes"`
+}
+
+type awsInstanceType struct {
+	InstanceType string        `json:"InstanceType"`
+	VCpuInfo     awsVCpuInfo   `json:"VCpuInfo"`
+	MemoryInfo   awsMemoryInfo `json:"MemoryInfo"`
+	GPUInfo      awsGPUInfo    `json:"GpuInfo"`
+}
+
+type awsVCpuInfo struct {
+	DefaultVCpus int `json:"DefaultVCpus"`
+}
+
+type awsMemoryInfo struct {
+	SizeInMiB int `json:"SizeInMiB"`
+}
+
+type awsGPUInfo struct {
+	GPUs []awsGPU `json:"Gpus"`
+}
+
+type awsGPU struct {
+	Count int `json:"Count"`
+}
+
+type awsDescribeInstanceTypeOfferingsResult struct {
+	InstanceTypeOfferings []awsInstanceTypeOffering `json:"InstanceTypeOfferings"`
+}
+
+type awsInstanceTypeOffering struct {
+	InstanceType string `json:"InstanceType"`
+}
+
+type gcpMachineType struct {
+	Name     string `json:"name"`
+	GuestCPU int    `json:"guestCpus"`
+	MemoryMB int    `json:"memoryMb"`
+	Zone     string `json:"zone"`
+	SelfLink string `json:"selfLink"`
+}
+
+type digitalOceanSize struct {
+	Slug        string   `json:"slug"`
+	MemoryMB    int      `json:"memory"`
+	VCPUs       int      `json:"vcpus"`
+	DiskGB      int      `json:"disk"`
+	PriceHourly float64  `json:"price_hourly"`
+	Regions     []string `json:"regions"`
+	Available   *bool    `json:"available"`
+}
+
 func runProvisionResolve(args []string, deps cliDeps) error {
 	options, err := provisionResolveOptionsFromArgs(args, deps)
 	if err != nil {
@@ -255,8 +308,8 @@ func resolveProviderCandidate(ctx context.Context, provider provisionCatalogProv
 		warnings = append(warnings, "exact instance type was supplied by the caller and was not validated against live provider data or the fallback catalog")
 		mapping.InstanceType = options.ExactInstance
 	}
-	if options.ExactInstance == "" && provider.ID == "hetzner" && provider.CLI != nil {
-		if live, liveWarnings, ok := resolveHetznerLiveCandidate(ctx, provider, shape, constraints, options, deps); ok {
+	if options.ExactInstance == "" {
+		if live, liveWarnings, ok := resolveLiveProviderCandidate(ctx, provider, shape, mapping, constraints, options, deps); ok {
 			return live, liveWarnings, nil
 		} else {
 			warnings = append(warnings, liveWarnings...)
@@ -266,6 +319,24 @@ func resolveProviderCandidate(ctx context.Context, provider provisionCatalogProv
 	warnings = append(warnings, candidateWarnings...)
 	candidate.Warnings = append(candidate.Warnings, warnings...)
 	return candidate, warnings, nil
+}
+
+func resolveLiveProviderCandidate(ctx context.Context, provider provisionCatalogProvider, shape provisionCatalogShape, mapping provisionCatalogMapping, constraints provisionResolveConstraints, options provisionResolveOptions, deps cliDeps) (provisionResolvedCandidate, []string, bool) {
+	if provider.CLI == nil {
+		return provisionResolvedCandidate{}, nil, false
+	}
+	switch provider.ID {
+	case "aws":
+		return resolveAWSLiveCandidate(ctx, provider, shape, mapping, constraints, options, deps)
+	case "gcp":
+		return resolveGCPLiveCandidate(ctx, provider, shape, mapping, constraints, options, deps)
+	case "digitalocean":
+		return resolveDigitalOceanLiveCandidate(ctx, provider, shape, constraints, options, deps)
+	case "hetzner":
+		return resolveHetznerLiveCandidate(ctx, provider, shape, constraints, options, deps)
+	default:
+		return provisionResolvedCandidate{}, nil, false
+	}
 }
 
 func catalogResolvedCandidate(provider provisionCatalogProvider, shape provisionCatalogShape, mapping provisionCatalogMapping, constraints provisionResolveConstraints, options provisionResolveOptions) (provisionResolvedCandidate, []string) {
@@ -391,6 +462,337 @@ func chooseHcloudServerType(serverTypes []hcloudServerType, shape provisionCatal
 	return selected, selected.Name != ""
 }
 
+func resolveAWSLiveCandidate(ctx context.Context, provider provisionCatalogProvider, shape provisionCatalogShape, mapping provisionCatalogMapping, constraints provisionResolveConstraints, options provisionResolveOptions, deps cliDeps) (provisionResolvedCandidate, []string, bool) {
+	if _, err := deps.lookPath(provider.CLI.Binary); err != nil {
+		return provisionResolvedCandidate{}, []string{"aws CLI was not found; using catalog fallback"}, false
+	}
+	region, regionWarnings, ok := resolveAWSOfferingRegion(ctx, provider, mapping.InstanceType, options.Region, deps)
+	if !ok {
+		return provisionResolvedCandidate{}, regionWarnings, false
+	}
+	output, err := runProviderProbe(ctx, deps, provider.CLI.Binary, []string{"ec2", "describe-instance-types", "--instance-types", mapping.InstanceType, "--region", region, "--output", "json"})
+	if err != nil {
+		return provisionResolvedCandidate{}, []string{liveResolveFailureWarning("aws", "instance-type", output, err)}, false
+	}
+	var result awsDescribeInstanceTypesResult
+	if err := json.Unmarshal(output, &result); err != nil {
+		return provisionResolvedCandidate{}, []string{"aws live instance-type output could not be parsed; using catalog fallback"}, false
+	}
+	selected, ok := chooseAWSInstanceType(result.InstanceTypes, mapping.InstanceType, shape, constraints)
+	if !ok {
+		return provisionResolvedCandidate{}, []string{"aws live instance-type output did not include a candidate satisfying the requested shape; using catalog fallback"}, false
+	}
+	diskGB := resolveDiskGB(shape, mapping, options.DiskGB)
+	candidate := provisionResolvedCandidate{
+		Provider:      provider.ID,
+		DisplayName:   provider.DisplayName,
+		Shape:         shape.ID,
+		Source:        "live_cli",
+		InstanceType:  selected.InstanceType,
+		Region:        region,
+		RegionOptions: provider.RegionPreferences,
+		DiskGB:        diskGB,
+		Machine: provisionResolvedMachine{
+			CPUs:     selected.VCpuInfo.DefaultVCpus,
+			MemoryGB: memoryGBFromMiB(selected.MemoryInfo.SizeInMiB),
+			GPUClass: firstNonEmpty(mapping.GPUClass, shape.GPUClass),
+			DiskGB:   diskGB,
+		},
+		ImageSelector: provider.ImageSelector,
+		Cost: provisionResolvedCost{
+			Kind:        "unknown",
+			PricingURL:  provider.PricingURL,
+			Description: "AWS CLI did not return on-demand pricing for the selected instance type",
+		},
+		Approval: provisionResolutionApproval{
+			RequiresMutationApproval: true,
+			CommandPreview:           nil,
+			SecretFree:               true,
+		},
+		Warnings: regionWarnings,
+	}
+	return candidate, regionWarnings, true
+}
+
+func resolveAWSOfferingRegion(ctx context.Context, provider provisionCatalogProvider, instanceType string, requestedRegion string, deps cliDeps) (string, []string, bool) {
+	warnings := make([]string, 0)
+	if _, regionWarnings := resolveRegion(provider.RegionPreferences, requestedRegion); len(regionWarnings) > 0 {
+		warnings = append(warnings, regionWarnings...)
+	}
+	for _, region := range liveRegionCandidates(provider.RegionPreferences, requestedRegion) {
+		output, err := runProviderProbe(ctx, deps, provider.CLI.Binary, []string{"ec2", "describe-instance-type-offerings", "--filters", "Name=instance-type,Values=" + instanceType, "--region", region, "--output", "json"})
+		if err != nil {
+			warnings = append(warnings, liveResolveFailureWarning("aws", "instance-type offering", output, err))
+			continue
+		}
+		var result awsDescribeInstanceTypeOfferingsResult
+		if err := json.Unmarshal(output, &result); err != nil {
+			warnings = append(warnings, "aws live instance-type offering output could not be parsed; using catalog fallback")
+			continue
+		}
+		if awsOfferingsInclude(result.InstanceTypeOfferings, instanceType) {
+			return region, warnings, true
+		}
+		warnings = append(warnings, fmt.Sprintf("aws live instance-type offering output did not include %s in %s", instanceType, region))
+	}
+	if len(warnings) == 0 {
+		warnings = append(warnings, "aws live instance-type offering output did not include a preferred region; using catalog fallback")
+	}
+	return "", warnings, false
+}
+
+func chooseAWSInstanceType(instanceTypes []awsInstanceType, expected string, shape provisionCatalogShape, constraints provisionResolveConstraints) (awsInstanceType, bool) {
+	cpuMin := maxInt(shape.CPUMin, constraints.CPUMin)
+	memoryMin := maxInt(shape.MemoryGBMin, constraints.MemoryGBMin)
+	needsGPU := gpuIsRequired(shape, constraints)
+	for _, instanceType := range instanceTypes {
+		if instanceType.InstanceType != expected {
+			continue
+		}
+		if instanceType.VCpuInfo.DefaultVCpus < cpuMin || memoryGBFromMiB(instanceType.MemoryInfo.SizeInMiB) < memoryMin {
+			continue
+		}
+		if needsGPU && awsGPUCount(instanceType.GPUInfo) == 0 {
+			continue
+		}
+		return instanceType, true
+	}
+	return awsInstanceType{}, false
+}
+
+func awsOfferingsInclude(offerings []awsInstanceTypeOffering, instanceType string) bool {
+	for _, offering := range offerings {
+		if offering.InstanceType == instanceType {
+			return true
+		}
+	}
+	return false
+}
+
+func awsGPUCount(info awsGPUInfo) int {
+	total := 0
+	for _, gpu := range info.GPUs {
+		total += gpu.Count
+	}
+	return total
+}
+
+func gpuIsRequired(shape provisionCatalogShape, constraints provisionResolveConstraints) bool {
+	gpuClass := firstNonEmpty(constraints.GPUClass, shape.GPUClass)
+	return gpuClass != "" && gpuClass != "none"
+}
+
+func resolveGCPLiveCandidate(ctx context.Context, provider provisionCatalogProvider, shape provisionCatalogShape, mapping provisionCatalogMapping, constraints provisionResolveConstraints, options provisionResolveOptions, deps cliDeps) (provisionResolvedCandidate, []string, bool) {
+	if _, err := deps.lookPath(provider.CLI.Binary); err != nil {
+		return provisionResolvedCandidate{}, []string{"gcloud CLI was not found; using catalog fallback"}, false
+	}
+	output, err := runProviderProbe(ctx, deps, provider.CLI.Binary, []string{"compute", "machine-types", "list", "--filter=name=" + mapping.InstanceType, "--format=json(name,guestCpus,memoryMb,zone,selfLink)"})
+	if err != nil {
+		return provisionResolvedCandidate{}, []string{liveResolveFailureWarning("gcloud", "machine-type", output, err)}, false
+	}
+	var machineTypes []gcpMachineType
+	if err := json.Unmarshal(output, &machineTypes); err != nil {
+		return provisionResolvedCandidate{}, []string{"gcloud live machine-type output could not be parsed; using catalog fallback"}, false
+	}
+	selected, region, ok := chooseGCPMachineType(machineTypes, mapping.InstanceType, provider.RegionPreferences, options.Region, shape, constraints)
+	if !ok {
+		return provisionResolvedCandidate{}, []string{"gcloud live machine-type output did not include a candidate satisfying the requested shape and region; using catalog fallback"}, false
+	}
+	_, regionWarnings := resolveRegion(provider.RegionPreferences, options.Region)
+	diskGB := resolveDiskGB(shape, mapping, options.DiskGB)
+	candidate := provisionResolvedCandidate{
+		Provider:      provider.ID,
+		DisplayName:   provider.DisplayName,
+		Shape:         shape.ID,
+		Source:        "live_cli",
+		InstanceType:  selected.Name,
+		Region:        region,
+		RegionOptions: provider.RegionPreferences,
+		DiskGB:        diskGB,
+		Machine: provisionResolvedMachine{
+			CPUs:     selected.GuestCPU,
+			MemoryGB: memoryGBFromMiB(selected.MemoryMB),
+			GPUClass: firstNonEmpty(mapping.GPUClass, shape.GPUClass),
+			DiskGB:   diskGB,
+		},
+		ImageSelector: provider.ImageSelector,
+		Cost: provisionResolvedCost{
+			Kind:        "unknown",
+			PricingURL:  provider.PricingURL,
+			Description: "gcloud did not return pricing for the selected machine type",
+		},
+		Approval: provisionResolutionApproval{
+			RequiresMutationApproval: true,
+			CommandPreview:           nil,
+			SecretFree:               true,
+		},
+		Warnings: regionWarnings,
+	}
+	return candidate, regionWarnings, true
+}
+
+func chooseGCPMachineType(machineTypes []gcpMachineType, expected string, regionPreferences []string, requestedRegion string, shape provisionCatalogShape, constraints provisionResolveConstraints) (gcpMachineType, string, bool) {
+	cpuMin := maxInt(shape.CPUMin, constraints.CPUMin)
+	memoryMin := maxInt(shape.MemoryGBMin, constraints.MemoryGBMin)
+	for _, region := range liveRegionCandidates(regionPreferences, requestedRegion) {
+		for _, machineType := range machineTypes {
+			if machineType.Name != expected {
+				continue
+			}
+			if machineType.GuestCPU < cpuMin || memoryGBFromMiB(machineType.MemoryMB) < memoryMin {
+				continue
+			}
+			machineRegion := gcpMachineTypeRegion(machineType)
+			if machineRegion == region {
+				return machineType, machineRegion, true
+			}
+		}
+	}
+	return gcpMachineType{}, "", false
+}
+
+func gcpMachineTypeRegion(machineType gcpMachineType) string {
+	if region := gcpRegionFromZone(machineType.Zone); region != "" {
+		return region
+	}
+	return gcpRegionFromSelfLink(machineType.SelfLink)
+}
+
+func gcpRegionFromSelfLink(value string) string {
+	const zonesSegment = "/zones/"
+	index := strings.LastIndex(value, zonesSegment)
+	if index < 0 {
+		return ""
+	}
+	remainder := value[index+len(zonesSegment):]
+	parts := strings.SplitN(remainder, "/", 2)
+	return gcpRegionFromZone(parts[0])
+}
+
+func gcpRegionFromZone(value string) string {
+	zone := pathBase(strings.TrimSpace(value))
+	if zone == "" {
+		return ""
+	}
+	index := strings.LastIndex(zone, "-")
+	if index < 0 {
+		return ""
+	}
+	return zone[:index]
+}
+
+func resolveDigitalOceanLiveCandidate(ctx context.Context, provider provisionCatalogProvider, shape provisionCatalogShape, constraints provisionResolveConstraints, options provisionResolveOptions, deps cliDeps) (provisionResolvedCandidate, []string, bool) {
+	if _, err := deps.lookPath(provider.CLI.Binary); err != nil {
+		return provisionResolvedCandidate{}, []string{"doctl CLI was not found; using catalog fallback"}, false
+	}
+	output, err := runProviderProbe(ctx, deps, provider.CLI.Binary, []string{"compute", "size", "list", "--output", "json"})
+	if err != nil {
+		return provisionResolvedCandidate{}, []string{liveResolveFailureWarning("doctl", "size", output, err)}, false
+	}
+	var sizes []digitalOceanSize
+	if err := json.Unmarshal(output, &sizes); err != nil {
+		return provisionResolvedCandidate{}, []string{"doctl live size output could not be parsed; using catalog fallback"}, false
+	}
+	selected, region, ok := chooseDigitalOceanSize(sizes, provider.RegionPreferences, options.Region, shape, constraints)
+	if !ok {
+		return provisionResolvedCandidate{}, []string{"doctl live size output did not include a candidate satisfying the requested shape, region, and disk floor; using catalog fallback"}, false
+	}
+	_, regionWarnings := resolveRegion(provider.RegionPreferences, options.Region)
+	cost := provisionResolvedCost{
+		Kind:        "unknown",
+		PricingURL:  provider.PricingURL,
+		Description: "doctl did not return hourly pricing for the selected size",
+	}
+	if selected.PriceHourly > 0 {
+		cost = provisionResolvedCost{
+			Kind:        "live_hourly",
+			Amount:      strconv.FormatFloat(selected.PriceHourly, 'f', -1, 64),
+			Currency:    "USD",
+			PricingURL:  provider.PricingURL,
+			Description: "hourly price returned by doctl for the selected Droplet size",
+		}
+	}
+	candidate := provisionResolvedCandidate{
+		Provider:      provider.ID,
+		DisplayName:   provider.DisplayName,
+		Shape:         shape.ID,
+		Source:        "live_cli",
+		InstanceType:  selected.Slug,
+		Region:        region,
+		RegionOptions: provider.RegionPreferences,
+		DiskGB:        selected.DiskGB,
+		Machine: provisionResolvedMachine{
+			CPUs:     selected.VCPUs,
+			MemoryGB: memoryGBFromMiB(selected.MemoryMB),
+			DiskGB:   selected.DiskGB,
+		},
+		ImageSelector: provider.ImageSelector,
+		Cost:          cost,
+		Approval: provisionResolutionApproval{
+			RequiresMutationApproval: true,
+			CommandPreview:           nil,
+			SecretFree:               true,
+		},
+		Warnings: regionWarnings,
+	}
+	return candidate, regionWarnings, true
+}
+
+func chooseDigitalOceanSize(sizes []digitalOceanSize, regionPreferences []string, requestedRegion string, shape provisionCatalogShape, constraints provisionResolveConstraints) (digitalOceanSize, string, bool) {
+	cpuMin := maxInt(shape.CPUMin, constraints.CPUMin)
+	memoryMin := maxInt(shape.MemoryGBMin, constraints.MemoryGBMin)
+	diskMin := maxInt(shape.DiskFloorGB, constraints.DiskGB)
+	for _, region := range liveRegionCandidates(regionPreferences, requestedRegion) {
+		if selected, ok := chooseDigitalOceanSizeInRegion(sizes, region, cpuMin, memoryMin, diskMin); ok {
+			return selected, region, true
+		}
+	}
+	return digitalOceanSize{}, "", false
+}
+
+func chooseDigitalOceanSizeInRegion(sizes []digitalOceanSize, region string, cpuMin int, memoryMin int, diskMin int) (digitalOceanSize, bool) {
+	var selected digitalOceanSize
+	for _, size := range sizes {
+		if !digitalOceanSizeSatisfies(size, region, cpuMin, memoryMin, diskMin) {
+			continue
+		}
+		if selected.Slug == "" || compareDigitalOceanSizes(size, selected) < 0 {
+			selected = size
+		}
+	}
+	return selected, selected.Slug != ""
+}
+
+func digitalOceanSizeSatisfies(size digitalOceanSize, region string, cpuMin int, memoryMin int, diskMin int) bool {
+	if size.Available != nil && !*size.Available {
+		return false
+	}
+	return size.Slug != "" &&
+		size.VCPUs >= cpuMin &&
+		memoryGBFromMiB(size.MemoryMB) >= memoryMin &&
+		size.DiskGB >= diskMin &&
+		containsString(size.Regions, region)
+}
+
+func compareDigitalOceanSizes(left digitalOceanSize, right digitalOceanSize) int {
+	if left.PriceHourly > 0 && right.PriceHourly > 0 && left.PriceHourly != right.PriceHourly {
+		if left.PriceHourly < right.PriceHourly {
+			return -1
+		}
+		return 1
+	}
+	if left.VCPUs != right.VCPUs {
+		return left.VCPUs - right.VCPUs
+	}
+	if left.MemoryMB != right.MemoryMB {
+		return left.MemoryMB - right.MemoryMB
+	}
+	if left.DiskGB != right.DiskGB {
+		return left.DiskGB - right.DiskGB
+	}
+	return strings.Compare(left.Slug, right.Slug)
+}
+
 func compareHcloudServerTypes(left hcloudServerType, right hcloudServerType) int {
 	leftPrice := lowestHcloudHourlyGross(left)
 	rightPrice := lowestHcloudHourlyGross(right)
@@ -457,6 +859,13 @@ func resolveRegion(preferences []string, requested string) (string, []string) {
 	return requested, []string{"requested region is outside the fallback catalog preference list"}
 }
 
+func liveRegionCandidates(preferences []string, requested string) []string {
+	if requested != "" {
+		return []string{requested}
+	}
+	return preferences
+}
+
 func resolveDiskGB(shape provisionCatalogShape, mapping provisionCatalogMapping, requested int) int {
 	diskGB := shape.DiskFloorGB
 	if mapping.DiskGB > diskGB {
@@ -466,6 +875,42 @@ func resolveDiskGB(shape provisionCatalogShape, mapping provisionCatalogMapping,
 		return requested
 	}
 	return diskGB
+}
+
+func liveResolveFailureWarning(cliBinary string, probe string, output []byte, err error) string {
+	if isCommandNotFound(err) {
+		return cliBinary + " CLI was not found; using catalog fallback"
+	}
+	warning := cliBinary + " live " + probe + " probe failed; using catalog fallback"
+	if trimmed := trimCommandOutput(output); trimmed != "" {
+		warning += ": " + trimmed
+	}
+	return warning
+}
+
+func memoryGBFromMiB(value int) int {
+	if value <= 0 {
+		return 0
+	}
+	return int(math.Ceil(float64(value) / 1024))
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func pathBase(value string) string {
+	value = strings.TrimSuffix(value, "/")
+	index := strings.LastIndex(value, "/")
+	if index < 0 {
+		return value
+	}
+	return value[index+1:]
 }
 
 func firstNonEmpty(values ...string) string {
