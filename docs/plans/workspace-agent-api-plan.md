@@ -119,11 +119,11 @@ The superseded raw layout save endpoint is no longer exposed through HTTP,
 generated TypeScript, IPC, preload, or the web adapter. Renderer layout mutations
 use typed pane operations and apply the backend-returned persisted layout.
 
-Terminal content already has backend HTTP APIs for create, attach, input, resize, close, profiles, and event streaming.
+Terminal content already has backend HTTP APIs for create, attach, input, resize, close, profiles, event streaming, and pane-targeted workspace terminal reads for session summary plus bounded retained output.
 
 Chat, workflow graph, workflow node details, and semantic details already have domain APIs, but they are not yet exposed as pane-targeted workspace operations.
 
-The `workspace-manager` skill now teaches agents the safe workspace operation lifecycle. The remaining pieces are per-surface read/write adapters and richer live capability metadata beyond the current layout-only pane descriptors.
+The `workspace-manager` skill now teaches agents the safe workspace operation lifecycle and the current terminal pane read command. The remaining pieces are terminal screen snapshots and write prepare/commit, chat/workflow pane IO, and richer live capability metadata beyond the current terminal recent-output read mode.
 
 ## Contract Principles
 
@@ -936,16 +936,11 @@ Verification:
 - multi-client stale revision tests when a second renderer/web client exists
 
 ### Phase 4: Terminal Surface IO
-Add pane-targeted terminal read/write commands. Reuse existing terminal service
-operations for input, resize, and close. Add explicit one-shot terminal screen
-snapshot and bounded recent-output APIs if the existing event stream is not
-enough for agent reads.
+Add pane-targeted terminal read/write commands. Reuse existing terminal service operations for input, resize, and close.
+Add explicit one-shot terminal screen snapshot and bounded recent-output APIs if the existing event stream is not enough for agent reads.
 
-Implement terminal write prepare/commit before exposing agent-originated
-terminal input. The prepare step stores immutable decoded bytes with byte count
-and hash. The commit step writes those exact bytes to the resolved terminal
-session, serializes with other writes for that session, and fails on target
-mismatch, hash mismatch, expiry, partial write failure, or closed process.
+Implement terminal write prepare/commit before exposing agent-originated terminal input. The prepare step stores immutable decoded bytes with byte count and hash.
+The commit step writes those exact bytes to the resolved terminal session, serializes with other writes for that session, and fails on target mismatch, hash mismatch, expiry, partial write failure, or closed process.
 
 Verification:
 
@@ -956,6 +951,10 @@ Verification:
   expired prepared writes
 - Electron E2E that writes to an existing terminal pane and reads the result
   through production paths
+
+Progress on 2026-07-08:
+
+Added the first read-only terminal surface IO slice: `POST /workspaces/ui/terminals/read` and `setta workspace terminals read <pane-id> [--recent-output-byte-limit N]`. The endpoint validates a terminal pane/content ref, resolves the live session by workspace/pane ID, and returns structured session summary plus bounded retained output chunks with exact base64 bytes and UTF-8 text only when valid; no screen snapshot is fabricated. Terminal pane descriptors now advertise `terminal_recent_output`; `writeModes` remain empty. The `workspace-manager` skill was updated/synced, Go-owned contracts were regenerated, backend protocol is `24`, and the embedded web bundle was refreshed. Verification passed: focused and broad Go tests, generator, desktop typecheck/build/web build, pane-focus-click Electron workflow, workspace-manager skill validation with temporary `PyYAML==6.0.2`, skill sync/check, format, and `./check_quality.sh --git-changes`. Remaining Phase 4 work: backend terminal screen snapshots, then terminal write prepare/commit with immutable bytes, hash/count validation, per-session serialization, expiry, target mismatch checks, and byte-for-byte write verification.
 
 ### Phase 5: Chat Surface IO
 Add pane-targeted chat read, send, queue, and steer commands. Resolve chat pane

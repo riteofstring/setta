@@ -187,6 +187,7 @@ type TerminalService interface {
 	CreateProfile(terminal.TerminalProfileInput) (terminal.TerminalProfileList, error)
 	DeleteProfile(string) (terminal.TerminalProfileList, error)
 	ListProfiles() (terminal.TerminalProfileList, error)
+	ReadPane(context.Context, string, string, int) (terminal.TerminalReadResult, error)
 	Resize(context.Context, string, int, int) (terminal.SessionSummary, error)
 	SetDefaultProfile(string) (terminal.TerminalProfileList, error)
 	SubscribeEvents(terminal.EventCursor) (*terminal.EventSubscription, error)

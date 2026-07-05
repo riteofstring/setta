@@ -1,6 +1,6 @@
 ---
 name: workspace-manager
-description: Manage Setta in-app workspace panes through the `setta workspace` CLI. Use when an agent needs to inspect the active workspace, list or read pane descriptors and capabilities, focus, move, open, close, rename, resize, reorder panes, apply low-risk layout resize transactions, or verify workspace pane layout changes.
+description: Manage Setta in-app workspace panes through the `setta workspace` CLI. Use when an agent needs to inspect the active workspace, list or read pane descriptors and capabilities, read terminal pane session output, focus, move, open, close, rename, resize, reorder panes, apply low-risk layout resize transactions, or verify workspace pane layout changes.
 ---
 
 # Workspace Manager
@@ -75,12 +75,13 @@ For JSON input files, follow the Go-owned contract in `internal/workspaceui/type
 Treat workspace pane management as distinct from surface content control.
 
 - Use workspace commands for pane metadata and layout only.
+- Use `setta workspace terminals read <pane-id>` only for terminal panes whose `surfaceKind`, `contentRefs.terminal`, and `readModes` include terminal read support. It returns the live terminal session summary plus bounded retained output bytes; it does not provide an authoritative screen snapshot yet.
 - Use `contentRefs` only as stable references into the owning surface domain.
 - Do not send terminal input, chat messages, chat steering, workflow commands, browser input, or native-view input through workspace layout commands.
 - Do not call a surface-domain command unless the pane's `surfaceKind`, `contentRefs`, and advertised modes support that surface and the user request explicitly needs content interaction.
 - Stop and report unsupported capability when a required content reference or pane-targeted surface command is missing.
 
-Current workspace CLI write support is layout-focused. Pane-targeted terminal, chat, workflow, and browser surface IO commands are future work unless a current domain-specific command is explicitly available and the target reference is unambiguous.
+Current workspace CLI write support is layout-focused. Pane-targeted terminal writes and chat, workflow, and browser surface IO commands are future work unless a current domain-specific command is explicitly available and the target reference is unambiguous.
 
 ## Failure Policy
 

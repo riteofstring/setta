@@ -141,6 +141,18 @@ type ReadWorkspaceUIPaneRequest struct {
 	PaneID      string `json:"paneId"`
 }
 
+type ReadWorkspaceUITerminalRequest struct {
+	WorkspaceID           string `json:"workspaceId"`
+	PaneID                string `json:"paneId"`
+	RecentOutputByteLimit int    `json:"recentOutputByteLimit"`
+}
+
+type ReadWorkspaceUITerminalResponse struct {
+	WorkspaceID string                                `json:"workspaceId"`
+	Pane        workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
+	Terminal    terminal.TerminalReadResult           `json:"terminal"`
+}
+
 type ApplyWorkspaceUIPaneOperationRequest struct {
 	WorkspaceID string                               `json:"workspaceId"`
 	Operation   workspaceui.WorkspaceUIPaneOperation `json:"operation"`

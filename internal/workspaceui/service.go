@@ -238,10 +238,18 @@ func paneDescriptor(layout WorkspaceUILayout, column WorkspaceUIColumn, pane Wor
 		CanMove:           true,
 		CanClosePane:      canClosePane,
 		SurfaceCloseModes: surfaceCloseModesForPane(canClosePane),
-		ReadModes:         []WorkspaceUIPaneReadMode{WorkspaceUIPaneReadModeMetadata},
+		ReadModes:         readModesForPane(pane),
 		WriteModes:        []WorkspaceUIPaneWriteMode{},
 		ContentRefs:       contentRefsForPane(pane),
 	}
+}
+
+func readModesForPane(pane WorkspaceUIPane) []WorkspaceUIPaneReadMode {
+	readModes := []WorkspaceUIPaneReadMode{WorkspaceUIPaneReadModeMetadata}
+	if pane.SurfaceKind == SurfaceKindTerminal && pane.TerminalConfig != nil {
+		readModes = append(readModes, WorkspaceUIPaneReadModeTerminalRecentOutput)
+	}
+	return readModes
 }
 
 func surfaceCloseModesForPane(canClosePane bool) []WorkspaceUISurfaceCloseMode {

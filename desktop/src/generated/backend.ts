@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 23;
-export const backendContractSchemaHash = "sha256:f8b576c937ae38b0cfa308310751dc35920f2d951d377d170b2c23dd306229f5";
+export const backendProtocolVersion = 24;
+export const backendContractSchemaHash = "sha256:dfca3b551c8ac7b1a7a277a4ed65cee9ce243429b1bd74e49665a864a1f8584f";
 
 export type DeviceScope = "full";
 
@@ -150,14 +150,16 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type WorkspaceUIPaneReadMode = "metadata";
+export type WorkspaceUIPaneReadMode = "metadata" | "terminal_recent_output";
 
-export const workspaceUIPaneReadModeValues = ["metadata"] as const satisfies readonly WorkspaceUIPaneReadMode[];
+export const workspaceUIPaneReadModeValues = ["metadata", "terminal_recent_output"] as const satisfies readonly WorkspaceUIPaneReadMode[];
 
 export function decodeWorkspaceUIPaneReadMode(value: unknown, label = "WorkspaceUIPaneReadMode"): WorkspaceUIPaneReadMode {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "metadata":
+      return decoded;
+    case "terminal_recent_output":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -334,6 +336,28 @@ export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGra
     case "version":
       return decoded;
     case "run":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SessionStatus = "starting" | "running" | "exited" | "closed" | "error";
+
+export const sessionStatusValues = ["starting", "running", "exited", "closed", "error"] as const satisfies readonly SessionStatus[];
+
+export function decodeSessionStatus(value: unknown, label = "SessionStatus"): SessionStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "starting":
+      return decoded;
+    case "running":
+      return decoded;
+    case "exited":
+      return decoded;
+    case "closed":
+      return decoded;
+    case "error":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2658,28 +2682,6 @@ export function decodeSemanticGraphChangeArea(value: unknown, label = "SemanticG
   }
 }
 
-export type SessionStatus = "starting" | "running" | "exited" | "closed" | "error";
-
-export const sessionStatusValues = ["starting", "running", "exited", "closed", "error"] as const satisfies readonly SessionStatus[];
-
-export function decodeSessionStatus(value: unknown, label = "SessionStatus"): SessionStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "starting":
-      return decoded;
-    case "running":
-      return decoded;
-    case "exited":
-      return decoded;
-    case "closed":
-      return decoded;
-    case "error":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type TerminalCloseResultKind = "closed" | "confirmation_required";
 
 export const terminalCloseResultKindValues = ["closed", "confirmation_required"] as const satisfies readonly TerminalCloseResultKind[];
@@ -3316,6 +3318,62 @@ export interface WorkspaceUIPaneReadResult {
   workspaceId: string;
   pane: WorkspaceUIPaneDescriptor;
   schema: WorkspaceUISchema;
+}
+
+export interface ReadWorkspaceUITerminalRequest {
+  workspaceId: string;
+  paneId: string;
+  recentOutputByteLimit: number;
+}
+
+export interface SessionSummary {
+  id: string;
+  workspaceId: string;
+  paneId: string;
+  profileId: string;
+  cwd: string;
+  cols: number;
+  rows: number;
+  status: SessionStatus;
+  createdAt: string;
+  updatedAt: string;
+  exitCode: number;
+  message: string;
+}
+
+export interface TerminalRecentOutputChunk {
+  byteCount: number;
+  dataBase64: string;
+  emittedAt: string;
+  eventId: string;
+  eventOffsetBytes: number;
+  sequence: number;
+}
+
+export interface TerminalRecentOutputPage {
+  byteCount: number;
+  chunks: TerminalRecentOutputChunk[];
+  droppedBytes: number;
+  droppedChunks: number;
+  omittedBytes: number;
+  omittedChunks: number;
+  text: string;
+  textUtf8Valid: boolean;
+  truncated: boolean;
+}
+
+export interface TerminalReadResult {
+  workspaceId: string;
+  paneId: string;
+  sessionId: string;
+  session: SessionSummary;
+  recentOutput: TerminalRecentOutputPage;
+}
+
+export interface ReadWorkspaceUITerminalResponse {
+  workspaceId: string;
+  pane: WorkspaceUIPaneDescriptor;
+  terminal: TerminalReadResult;
 }
 
 export interface WorkspaceUIPaneCloseOperation {
@@ -7324,6 +7382,11 @@ export const backendEndpoints = {
     path: "/workspaces/ui/panes/read",
     requestBodyLimitBytes: 4194304,
   },
+  ReadWorkspaceUITerminal: {
+    method: "POST",
+    path: "/workspaces/ui/terminals/read",
+    requestBodyLimitBytes: 4194304,
+  },
   ApplyWorkspaceUIPaneOperation: {
     method: "POST",
     path: "/workspaces/ui/panes/operation",
@@ -8553,6 +8616,86 @@ export function decodeWorkspaceUIPaneReadResult(value: unknown): WorkspaceUIPane
     workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUIPaneReadResult"), "WorkspaceUIPaneReadResult.workspaceId"),
     pane: decodeWorkspaceUIPaneDescriptor(requireField(record, "pane", "WorkspaceUIPaneReadResult")),
     schema: decodeWorkspaceUISchema(requireField(record, "schema", "WorkspaceUIPaneReadResult")),
+  };
+}
+
+export function decodeReadWorkspaceUITerminalRequest(value: unknown): ReadWorkspaceUITerminalRequest {
+  const record = assertRecord(value, "ReadWorkspaceUITerminalRequest");
+  assertKnownFields(record, "ReadWorkspaceUITerminalRequest", ["workspaceId", "paneId", "recentOutputByteLimit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceUITerminalRequest"), "ReadWorkspaceUITerminalRequest.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "ReadWorkspaceUITerminalRequest"), "ReadWorkspaceUITerminalRequest.paneId"),
+    recentOutputByteLimit: decodeInteger(requireField(record, "recentOutputByteLimit", "ReadWorkspaceUITerminalRequest"), "ReadWorkspaceUITerminalRequest.recentOutputByteLimit"),
+  };
+}
+
+export function decodeSessionSummary(value: unknown): SessionSummary {
+  const record = assertRecord(value, "SessionSummary");
+  assertKnownFields(record, "SessionSummary", ["id", "workspaceId", "paneId", "profileId", "cwd", "cols", "rows", "status", "createdAt", "updatedAt", "exitCode", "message"]);
+  return {
+    id: decodeString(requireField(record, "id", "SessionSummary"), "SessionSummary.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SessionSummary"), "SessionSummary.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "SessionSummary"), "SessionSummary.paneId"),
+    profileId: decodeString(requireField(record, "profileId", "SessionSummary"), "SessionSummary.profileId"),
+    cwd: decodeString(requireField(record, "cwd", "SessionSummary"), "SessionSummary.cwd"),
+    cols: decodeInteger(requireField(record, "cols", "SessionSummary"), "SessionSummary.cols"),
+    rows: decodeInteger(requireField(record, "rows", "SessionSummary"), "SessionSummary.rows"),
+    status: decodeSessionStatus(requireField(record, "status", "SessionSummary"), "SessionSummary.status"),
+    createdAt: decodeString(requireField(record, "createdAt", "SessionSummary"), "SessionSummary.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SessionSummary"), "SessionSummary.updatedAt"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "SessionSummary"), "SessionSummary.exitCode"),
+    message: decodeString(requireField(record, "message", "SessionSummary"), "SessionSummary.message"),
+  };
+}
+
+export function decodeTerminalRecentOutputChunk(value: unknown): TerminalRecentOutputChunk {
+  const record = assertRecord(value, "TerminalRecentOutputChunk");
+  assertKnownFields(record, "TerminalRecentOutputChunk", ["byteCount", "dataBase64", "emittedAt", "eventId", "eventOffsetBytes", "sequence"]);
+  return {
+    byteCount: decodeInteger(requireField(record, "byteCount", "TerminalRecentOutputChunk"), "TerminalRecentOutputChunk.byteCount"),
+    dataBase64: decodeString(requireField(record, "dataBase64", "TerminalRecentOutputChunk"), "TerminalRecentOutputChunk.dataBase64"),
+    emittedAt: decodeString(requireField(record, "emittedAt", "TerminalRecentOutputChunk"), "TerminalRecentOutputChunk.emittedAt"),
+    eventId: decodeString(requireField(record, "eventId", "TerminalRecentOutputChunk"), "TerminalRecentOutputChunk.eventId"),
+    eventOffsetBytes: decodeInteger(requireField(record, "eventOffsetBytes", "TerminalRecentOutputChunk"), "TerminalRecentOutputChunk.eventOffsetBytes"),
+    sequence: decodeInteger(requireField(record, "sequence", "TerminalRecentOutputChunk"), "TerminalRecentOutputChunk.sequence"),
+  };
+}
+
+export function decodeTerminalRecentOutputPage(value: unknown): TerminalRecentOutputPage {
+  const record = assertRecord(value, "TerminalRecentOutputPage");
+  assertKnownFields(record, "TerminalRecentOutputPage", ["byteCount", "chunks", "droppedBytes", "droppedChunks", "omittedBytes", "omittedChunks", "text", "textUtf8Valid", "truncated"]);
+  return {
+    byteCount: decodeInteger(requireField(record, "byteCount", "TerminalRecentOutputPage"), "TerminalRecentOutputPage.byteCount"),
+    chunks: decodeArray(requireField(record, "chunks", "TerminalRecentOutputPage"), "TerminalRecentOutputPage.chunks", (item) => decodeTerminalRecentOutputChunk(item)),
+    droppedBytes: decodeInteger(requireField(record, "droppedBytes", "TerminalRecentOutputPage"), "TerminalRecentOutputPage.droppedBytes"),
+    droppedChunks: decodeInteger(requireField(record, "droppedChunks", "TerminalRecentOutputPage"), "TerminalRecentOutputPage.droppedChunks"),
+    omittedBytes: decodeInteger(requireField(record, "omittedBytes", "TerminalRecentOutputPage"), "TerminalRecentOutputPage.omittedBytes"),
+    omittedChunks: decodeInteger(requireField(record, "omittedChunks", "TerminalRecentOutputPage"), "TerminalRecentOutputPage.omittedChunks"),
+    text: decodeString(requireField(record, "text", "TerminalRecentOutputPage"), "TerminalRecentOutputPage.text"),
+    textUtf8Valid: decodeBoolean(requireField(record, "textUtf8Valid", "TerminalRecentOutputPage"), "TerminalRecentOutputPage.textUtf8Valid"),
+    truncated: decodeBoolean(requireField(record, "truncated", "TerminalRecentOutputPage"), "TerminalRecentOutputPage.truncated"),
+  };
+}
+
+export function decodeTerminalReadResult(value: unknown): TerminalReadResult {
+  const record = assertRecord(value, "TerminalReadResult");
+  assertKnownFields(record, "TerminalReadResult", ["workspaceId", "paneId", "sessionId", "session", "recentOutput"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "TerminalReadResult"), "TerminalReadResult.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "TerminalReadResult"), "TerminalReadResult.paneId"),
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalReadResult"), "TerminalReadResult.sessionId"),
+    session: decodeSessionSummary(requireField(record, "session", "TerminalReadResult")),
+    recentOutput: decodeTerminalRecentOutputPage(requireField(record, "recentOutput", "TerminalReadResult")),
+  };
+}
+
+export function decodeReadWorkspaceUITerminalResponse(value: unknown): ReadWorkspaceUITerminalResponse {
+  const record = assertRecord(value, "ReadWorkspaceUITerminalResponse");
+  assertKnownFields(record, "ReadWorkspaceUITerminalResponse", ["workspaceId", "pane", "terminal"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceUITerminalResponse"), "ReadWorkspaceUITerminalResponse.workspaceId"),
+    pane: decodeWorkspaceUIPaneDescriptor(requireField(record, "pane", "ReadWorkspaceUITerminalResponse")),
+    terminal: decodeTerminalReadResult(requireField(record, "terminal", "ReadWorkspaceUITerminalResponse")),
   };
 }
 
@@ -14137,6 +14280,7 @@ export interface BackendClient {
   readWorkspaceUISchema: () => Promise<WorkspaceUISchema>;
   listWorkspaceUIPanes: (request: ListWorkspaceUIPanesRequest) => Promise<WorkspaceUIPaneListResult>;
   readWorkspaceUIPane: (request: ReadWorkspaceUIPaneRequest) => Promise<WorkspaceUIPaneReadResult>;
+  readWorkspaceUITerminal: (request: ReadWorkspaceUITerminalRequest) => Promise<ReadWorkspaceUITerminalResponse>;
   applyWorkspaceUIPaneOperation: (request: ApplyWorkspaceUIPaneOperationRequest) => Promise<WorkspaceUIPaneOperationResult>;
   applyWorkspaceUILayoutOperations: (request: ApplyWorkspaceUILayoutOperationsRequest) => Promise<WorkspaceUILayoutOperationResult>;
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
@@ -14440,6 +14584,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceUIPaneReadResult,
       endpoint: backendEndpoints.ReadWorkspaceUIPane,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkspaceUITerminal: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeReadWorkspaceUITerminalResponse,
+      endpoint: backendEndpoints.ReadWorkspaceUITerminal,
       fetchImpl,
       requestPayload: request,
     }),

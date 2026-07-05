@@ -140,6 +140,25 @@ func TestWorkspacePanesResizeCommandIntegration(t *testing.T) {
 	assertWorkspacePanesResizeWidthScaleCommand(t, fixture)
 }
 
+func TestWorkspaceTerminalsReadCommandIntegration(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	session := createWorkspaceTerminalSessionForCLITest(t, fixture)
+
+	read := runWorkspaceCommandJSON[httpapi.ReadWorkspaceUITerminalResponse](t, fixture, "terminals", "read", "workspace_pane_1", "--recent-output-byte-limit", "4096")
+	if read.WorkspaceID != fixture.opened.Workspace.ID || read.Pane.PaneID != "workspace_pane_1" {
+		t.Fatalf("terminal read envelope = %+v, want workspace terminal pane", read)
+	}
+	if read.Terminal.SessionID != session.ID || read.Terminal.Session.ID != session.ID {
+		t.Fatalf("terminal read session = %+v, want created terminal session %s", read.Terminal, session.ID)
+	}
+	if read.Terminal.Session.WorkspaceID != fixture.opened.Workspace.ID || read.Terminal.Session.PaneID != "workspace_pane_1" {
+		t.Fatalf("terminal read attachment = %+v, want fixture workspace pane", read.Terminal.Session)
+	}
+	if read.Terminal.RecentOutput.Chunks == nil {
+		t.Fatalf("terminal recent output chunks is nil, want empty or populated array")
+	}
+}
+
 func assertWorkspacePanesResizeWidthPXCommand(t *testing.T, fixture workspaceCLITestFixture) {
 	t.Helper()
 	widthPX := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "resize", "workspace_pane_1", "--width-px", "700")
@@ -385,6 +404,26 @@ func TestWorkspacePanesResizeCommandRejectsMultipleTargets(t *testing.T) {
 	}
 }
 
+func TestWorkspaceTerminalsReadCommandRejectsNonTerminalPane(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "terminals", "read", "workspace_pane_0"), commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "unsupported_workspace_ui_terminal_pane" {
+		t.Fatalf("error code = %q, want unsupported_workspace_ui_terminal_pane", errResponse.Error.Code)
+	}
+}
+
 func newWorkspaceCLITestFixture(t *testing.T) workspaceCLITestFixture {
 	t.Helper()
 	appDataDir := t.TempDir()
@@ -417,6 +456,31 @@ func newWorkspaceCLITestFixture(t *testing.T) workspaceCLITestFixture {
 	}
 }
 
+func createWorkspaceTerminalSessionForCLITest(t *testing.T, fixture workspaceCLITestFixture) httpapi.TerminalSessionSummary {
+	t.Helper()
+	token, cleanup, err := createRuntimeCLIAuthSession(context.Background(), fixture.appDataDir, "Setta CLI test terminal creator")
+	if err != nil {
+		t.Fatalf("create CLI auth session: %v", err)
+	}
+	defer cleanup()
+	created := postAuthedRuntimeJSON[httpapi.TerminalSessionResponse](t, fixture.deps.httpClient, readServeBaseURLForCLITest(t, fixture.appDataDir), token, "/terminals/create", httpapi.CreateTerminalRequest{
+		WorkspaceID: fixture.opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		Cols:        80,
+		Rows:        24,
+	})
+	return created.Session
+}
+
+func readServeBaseURLForCLITest(t *testing.T, appDataDir string) string {
+	t.Helper()
+	state, err := readServeState(appDataDir)
+	if err != nil {
+		t.Fatalf("read serve state: %v", err)
+	}
+	return state.BaseURL
+}
+
 func runWorkspaceCommandJSON[T any](t *testing.T, fixture workspaceCLITestFixture, command ...string) T {
 	t.Helper()
 	var stdout bytes.Buffer
@@ -433,8 +497,11 @@ func runWorkspaceCommandJSON[T any](t *testing.T, fixture workspaceCLITestFixtur
 }
 
 func workspaceCommandArgs(fixture workspaceCLITestFixture, command ...string) []string {
-	if len(command) >= 2 && command[0] == "panes" {
+	if len(command) >= 2 && (command[0] == "panes" || command[0] == "terminals") {
 		args := []string{"workspace", "panes", command[1], "--app-data-dir", fixture.appDataDir}
+		if command[0] == "terminals" {
+			args = []string{"workspace", "terminals", command[1], "--app-data-dir", fixture.appDataDir}
+		}
 		return append(args, command[2:]...)
 	}
 	args := []string{"workspace"}
@@ -454,6 +521,9 @@ func assertWorkspacePaneListForCLITest(t *testing.T, list workspaceui.WorkspaceU
 	}
 	if terminalPane.ContentRefs.Terminal == nil || terminalPane.ContentRefs.Terminal.ProfileID != "default" {
 		t.Fatalf("terminal content ref = %+v", terminalPane.ContentRefs.Terminal)
+	}
+	if len(terminalPane.ReadModes) != 2 || terminalPane.ReadModes[1] != workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput {
+		t.Fatalf("terminal read modes = %+v, want terminal_recent_output", terminalPane.ReadModes)
 	}
 }
 

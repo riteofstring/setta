@@ -278,6 +278,77 @@ func TestManagerAttachPublishesReplayForExistingSession(t *testing.T) {
 	}
 }
 
+func TestManagerReadPaneReturnsBoundedRecentOutput(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	handle := starter.handleAt(t, 0)
+	handle.emit([]byte("first\n"))
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	handle.emit([]byte("second\n"))
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+
+	read, err := manager.ReadPane(context.Background(), "workspace_terminal", "pane_shell", 0)
+	if err != nil {
+		t.Fatalf("read terminal pane: %v", err)
+	}
+	if read.SessionID != created.ID || read.Session.ID != created.ID || read.Session.WorkspaceID != "workspace_terminal" || read.Session.PaneID != "pane_shell" {
+		t.Fatalf("read terminal session = %+v, want attached created session", read)
+	}
+	if read.RecentOutput.Text != "first\nsecond\n" || !read.RecentOutput.TextUTF8Valid {
+		t.Fatalf("recent output = %+v, want full UTF-8 output", read.RecentOutput)
+	}
+	if len(read.RecentOutput.Chunks) != 2 || read.RecentOutput.ByteCount != len("first\nsecond\n") {
+		t.Fatalf("recent output chunks/count = %+v, want two chunks", read.RecentOutput)
+	}
+
+	limited, err := manager.ReadPane(context.Background(), "workspace_terminal", "pane_shell", 5)
+	if err != nil {
+		t.Fatalf("read limited terminal pane: %v", err)
+	}
+	if !limited.RecentOutput.Truncated || limited.RecentOutput.Text != "cond\n" || limited.RecentOutput.ByteCount != 5 {
+		t.Fatalf("limited recent output = %+v, want truncated cond", limited.RecentOutput)
+	}
+	if len(limited.RecentOutput.Chunks) != 1 || limited.RecentOutput.Chunks[0].EventOffsetBytes != 2 {
+		t.Fatalf("limited chunks = %+v, want partial second chunk at offset 2", limited.RecentOutput.Chunks)
+	}
+}
+
+func TestManagerReadPaneKeepsInvalidUTF8AsBytes(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	starter.handleAt(t, 0).emit([]byte{0xff, 'x'})
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+
+	read, err := manager.ReadPane(context.Background(), "workspace_terminal", "pane_shell", 0)
+	if err != nil {
+		t.Fatalf("read terminal pane: %v", err)
+	}
+	if read.RecentOutput.TextUTF8Valid || read.RecentOutput.Text != "" {
+		t.Fatalf("recent output text = %q valid:%t, want invalid UTF-8 bytes only", read.RecentOutput.Text, read.RecentOutput.TextUTF8Valid)
+	}
+	if len(read.RecentOutput.Chunks) != 1 || read.RecentOutput.Chunks[0].DataBase64 != "/3g=" {
+		t.Fatalf("recent output chunks = %+v, want exact invalid UTF-8 bytes", read.RecentOutput.Chunks)
+	}
+}
+
 func TestManagerStoresReplayTruncationWhenOutputBufferOverflows(t *testing.T) {
 	root := t.TempDir()
 	starter := &recordingPTYStarter{}

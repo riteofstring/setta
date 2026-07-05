@@ -177,6 +177,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta workspace panes rename [--app-data-dir DIR] <pane-id> --title TITLE")
 	fmt.Fprintln(output, "  setta workspace panes resize [--app-data-dir DIR] <pane-id> --width-px N|--width-scale N|--height-px N|--height-scale N|--reset-height")
 	fmt.Fprintln(output, "  setta workspace schema [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workspace terminals read [--app-data-dir DIR] <pane-id> [--recent-output-byte-limit N]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke [--app-data-dir DIR] <device-id>")
 	fmt.Fprintln(output, "  setta version")

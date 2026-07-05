@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 
 	"setta/internal/workspaceui"
@@ -168,6 +169,45 @@ func (handler handler) readWorkspaceUIPane(response http.ResponseWriter, request
 		return
 	}
 	writeJSON(response, http.StatusOK, pane)
+}
+
+func (handler handler) readWorkspaceUITerminal(response http.ResponseWriter, request *http.Request) {
+	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if workspaceUIService == nil {
+		return
+	}
+	terminalService := requireTerminalService(response, handler.terminalService)
+	if terminalService == nil {
+		return
+	}
+	var payload ReadWorkspaceUITerminalRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	pane, err := workspaceUIService.ReadPane(payload.WorkspaceID, payload.PaneID)
+	if err != nil {
+		writeWorkspaceUIError(response, "read_workspace_ui_terminal_failed", err)
+		return
+	}
+	if pane.Pane.SurfaceKind != workspaceui.SurfaceKindTerminal || pane.Pane.ContentRefs.Terminal == nil {
+		writeError(
+			response,
+			http.StatusBadRequest,
+			"unsupported_workspace_ui_terminal_pane",
+			fmt.Sprintf("workspace pane %s has surface kind %s, not terminal", payload.PaneID, pane.Pane.SurfaceKind),
+		)
+		return
+	}
+	terminalRead, err := terminalService.ReadPane(request.Context(), payload.WorkspaceID, payload.PaneID, payload.RecentOutputByteLimit)
+	if err != nil {
+		writeTerminalError(response, "read_workspace_ui_terminal_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, ReadWorkspaceUITerminalResponse{
+		WorkspaceID: payload.WorkspaceID,
+		Pane:        pane.Pane,
+		Terminal:    terminalRead,
+	})
 }
 
 func (handler handler) applyWorkspaceUIPaneOperation(response http.ResponseWriter, request *http.Request) {

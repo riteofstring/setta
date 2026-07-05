@@ -22,18 +22,19 @@ import (
 )
 
 const (
-	workspaceCurrentCLIAuthDisplayName      = "Setta CLI workspace current"
-	workspaceLayoutApplyCLIAuthDisplayName  = "Setta CLI workspace layout apply"
-	workspacePanesCloseCLIAuthDisplayName   = "Setta CLI workspace panes close"
-	workspacePanesFocusCLIAuthDisplayName   = "Setta CLI workspace panes focus"
-	workspacePanesListCLIAuthDisplayName    = "Setta CLI workspace panes list"
-	workspacePanesMoveCLIAuthDisplayName    = "Setta CLI workspace panes move"
-	workspacePanesOpenCLIAuthDisplayName    = "Setta CLI workspace panes open"
-	workspacePanesReadCLIAuthDisplayName    = "Setta CLI workspace panes read"
-	workspacePanesReorderCLIAuthDisplayName = "Setta CLI workspace panes reorder"
-	workspacePanesRenameCLIAuthDisplayName  = "Setta CLI workspace panes rename"
-	workspacePanesResizeCLIAuthDisplayName  = "Setta CLI workspace panes resize"
-	workspaceSchemaCLIAuthDisplayName       = "Setta CLI workspace schema"
+	workspaceCurrentCLIAuthDisplayName       = "Setta CLI workspace current"
+	workspaceLayoutApplyCLIAuthDisplayName   = "Setta CLI workspace layout apply"
+	workspacePanesCloseCLIAuthDisplayName    = "Setta CLI workspace panes close"
+	workspacePanesFocusCLIAuthDisplayName    = "Setta CLI workspace panes focus"
+	workspacePanesListCLIAuthDisplayName     = "Setta CLI workspace panes list"
+	workspacePanesMoveCLIAuthDisplayName     = "Setta CLI workspace panes move"
+	workspacePanesOpenCLIAuthDisplayName     = "Setta CLI workspace panes open"
+	workspacePanesReadCLIAuthDisplayName     = "Setta CLI workspace panes read"
+	workspacePanesReorderCLIAuthDisplayName  = "Setta CLI workspace panes reorder"
+	workspacePanesRenameCLIAuthDisplayName   = "Setta CLI workspace panes rename"
+	workspacePanesResizeCLIAuthDisplayName   = "Setta CLI workspace panes resize"
+	workspaceSchemaCLIAuthDisplayName        = "Setta CLI workspace schema"
+	workspaceTerminalsReadCLIAuthDisplayName = "Setta CLI workspace terminals read"
 )
 
 type workspaceOptions struct {
@@ -85,7 +86,7 @@ func runWorkspace(args []string, deps cliDeps) error {
 
 func runWorkspaceCommand(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workspace requires a subcommand: current, layout, panes, or schema")}
+		return usageError{err: errors.New("setta workspace requires a subcommand: current, layout, panes, schema, or terminals")}
 	}
 	switch args[0] {
 	case "current":
@@ -96,6 +97,8 @@ func runWorkspaceCommand(args []string, deps cliDeps) error {
 		return runWorkspacePanes(args[1:], deps)
 	case "schema":
 		return runWorkspaceSchema(args[1:], deps)
+	case "terminals":
+		return runWorkspaceTerminals(args[1:], deps)
 	default:
 		return usageError{err: fmt.Errorf("unknown workspace subcommand %q", args[0])}
 	}

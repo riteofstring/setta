@@ -37,7 +37,8 @@ const (
 type WorkspaceUIPaneReadMode string
 
 const (
-	WorkspaceUIPaneReadModeMetadata WorkspaceUIPaneReadMode = "metadata"
+	WorkspaceUIPaneReadModeMetadata             WorkspaceUIPaneReadMode = "metadata"
+	WorkspaceUIPaneReadModeTerminalRecentOutput WorkspaceUIPaneReadMode = "terminal_recent_output"
 )
 
 type WorkspaceUIPaneWriteMode string
@@ -646,6 +647,7 @@ func supportedPaneTones() []PaneTone {
 func supportedPaneReadModes() []WorkspaceUIPaneReadMode {
 	return []WorkspaceUIPaneReadMode{
 		WorkspaceUIPaneReadModeMetadata,
+		WorkspaceUIPaneReadModeTerminalRecentOutput,
 	}
 }
 

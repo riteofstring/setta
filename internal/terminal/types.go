@@ -177,6 +177,35 @@ type TerminalEventPayload struct {
 	Message       string        `json:"message"`
 }
 
+type TerminalReadResult struct {
+	WorkspaceID  string                   `json:"workspaceId"`
+	PaneID       string                   `json:"paneId"`
+	SessionID    string                   `json:"sessionId"`
+	Session      SessionSummary           `json:"session"`
+	RecentOutput TerminalRecentOutputPage `json:"recentOutput"`
+}
+
+type TerminalRecentOutputPage struct {
+	ByteCount     int                         `json:"byteCount"`
+	Chunks        []TerminalRecentOutputChunk `json:"chunks"`
+	DroppedBytes  int                         `json:"droppedBytes"`
+	DroppedChunks int                         `json:"droppedChunks"`
+	OmittedBytes  int                         `json:"omittedBytes"`
+	OmittedChunks int                         `json:"omittedChunks"`
+	Text          string                      `json:"text"`
+	TextUTF8Valid bool                        `json:"textUtf8Valid"`
+	Truncated     bool                        `json:"truncated"`
+}
+
+type TerminalRecentOutputChunk struct {
+	ByteCount        int    `json:"byteCount"`
+	DataBase64       string `json:"dataBase64"`
+	EmittedAt        string `json:"emittedAt"`
+	EventID          string `json:"eventId"`
+	EventOffsetBytes int    `json:"eventOffsetBytes"`
+	Sequence         int    `json:"sequence"`
+}
+
 type EventCursor struct {
 	StreamID string
 	Sequence int

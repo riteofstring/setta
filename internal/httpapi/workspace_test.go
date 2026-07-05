@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"setta/internal/appstate"
+	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
@@ -199,38 +202,125 @@ func TestWorkspaceUIPaneIntrospectionEndpoints(t *testing.T) {
 	seedWorkspaceUILayout(t, appDataDir, layout)
 
 	schema := getJSON[workspaceui.WorkspaceUISchema](t, handler, "/workspaces/ui/schema", http.StatusOK)
+	assertWorkspaceUIPaneIntrospectionSchema(t, schema)
+
+	list := postJSON[workspaceui.WorkspaceUIPaneListResult](t, handler, "/workspaces/ui/panes/list", ListWorkspaceUIPanesRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	assertWorkspaceUIPaneIntrospectionList(t, list)
+
+	read := postJSON[workspaceui.WorkspaceUIPaneReadResult](t, handler, "/workspaces/ui/panes/read", ReadWorkspaceUIPaneRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+	}, http.StatusOK)
+	assertWorkspaceUIPaneIntrospectionRead(t, read)
+}
+
+func assertWorkspaceUIPaneIntrospectionSchema(t *testing.T, schema workspaceui.WorkspaceUISchema) {
+	t.Helper()
+
 	if schema.LayoutSchemaVersion != workspaceui.SchemaVersion {
 		t.Fatalf("layout schema version = %d, want %d", schema.LayoutSchemaVersion, workspaceui.SchemaVersion)
 	}
 	if len(schema.SurfaceKinds) == 0 || len(schema.PaneReadModes) == 0 {
 		t.Fatalf("schema = %+v, want surface kinds and read modes", schema)
 	}
+}
 
-	list := postJSON[workspaceui.WorkspaceUIPaneListResult](t, handler, "/workspaces/ui/panes/list", ListWorkspaceUIPanesRequest{
-		WorkspaceID: opened.Workspace.ID,
-	}, http.StatusOK)
+func assertWorkspaceUIPaneIntrospectionList(t *testing.T, list workspaceui.WorkspaceUIPaneListResult) {
+	t.Helper()
+
 	if !list.LayoutPresent || len(list.Panes) != 2 {
 		t.Fatalf("pane list = %+v, want persisted two-pane layout", list)
 	}
-	if list.Panes[1].PaneID != "workspace_pane_1" || !list.Panes[1].Focused {
-		t.Fatalf("second pane = %+v, want focused terminal", list.Panes[1])
+	terminalPane := list.Panes[1]
+	if terminalPane.PaneID != "workspace_pane_1" || !terminalPane.Focused {
+		t.Fatalf("second pane = %+v, want focused terminal", terminalPane)
 	}
-	if list.Panes[1].ContentRefs.Terminal == nil || list.Panes[1].ContentRefs.Terminal.CWDOverride != "/tmp/workspace" {
-		t.Fatalf("terminal content ref = %+v", list.Panes[1].ContentRefs.Terminal)
+	if terminalPane.ContentRefs.Terminal == nil || terminalPane.ContentRefs.Terminal.CWDOverride != "/tmp/workspace" {
+		t.Fatalf("terminal content ref = %+v", terminalPane.ContentRefs.Terminal)
 	}
-	if !list.Panes[1].CanFocus || !list.Panes[1].CanMove || !list.Panes[1].CanClosePane || len(list.Panes[1].WriteModes) != 0 {
-		t.Fatalf("terminal capabilities = focus:%v move:%v close:%v writeModes:%+v, want layout capabilities without surface writes", list.Panes[1].CanFocus, list.Panes[1].CanMove, list.Panes[1].CanClosePane, list.Panes[1].WriteModes)
+	if len(terminalPane.ReadModes) != 2 || terminalPane.ReadModes[1] != workspaceui.WorkspaceUIPaneReadModeTerminalRecentOutput {
+		t.Fatalf("terminal read modes = %+v, want terminal_recent_output capability", terminalPane.ReadModes)
 	}
-	if len(list.Panes[1].SurfaceCloseModes) != 1 || list.Panes[1].SurfaceCloseModes[0] != workspaceui.WorkspaceUISurfaceCloseModeNone {
-		t.Fatalf("terminal surface close modes = %+v, want none", list.Panes[1].SurfaceCloseModes)
+	if !terminalPane.CanFocus || !terminalPane.CanMove || !terminalPane.CanClosePane || len(terminalPane.WriteModes) != 0 {
+		t.Fatalf("terminal capabilities = focus:%v move:%v close:%v writeModes:%+v, want layout capabilities without surface writes", terminalPane.CanFocus, terminalPane.CanMove, terminalPane.CanClosePane, terminalPane.WriteModes)
 	}
+	if len(terminalPane.SurfaceCloseModes) != 1 || terminalPane.SurfaceCloseModes[0] != workspaceui.WorkspaceUISurfaceCloseModeNone {
+		t.Fatalf("terminal surface close modes = %+v, want none", terminalPane.SurfaceCloseModes)
+	}
+}
 
-	read := postJSON[workspaceui.WorkspaceUIPaneReadResult](t, handler, "/workspaces/ui/panes/read", ReadWorkspaceUIPaneRequest{
-		WorkspaceID: opened.Workspace.ID,
-		PaneID:      "workspace_pane_1",
-	}, http.StatusOK)
+func assertWorkspaceUIPaneIntrospectionRead(t *testing.T, read workspaceui.WorkspaceUIPaneReadResult) {
+	t.Helper()
+
 	if read.Pane.PaneID != "workspace_pane_1" || read.Pane.Location.ColumnIndex != 1 {
 		t.Fatalf("read pane = %+v, want terminal in second column", read.Pane)
+	}
+}
+
+func TestWorkspaceUITerminalReadEndpointResolvesPaneSession(t *testing.T) {
+	handler, appDataDir, starter := newWorkspaceHandlerWithTerminal(t)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	eventResponse, err := http.Get(server.URL + "/terminals/events")
+	if err != nil {
+		t.Fatalf("open terminal event stream: %v", err)
+	}
+	defer eventResponse.Body.Close()
+	if eventResponse.StatusCode != http.StatusOK {
+		t.Fatalf("terminal event stream status = %d, want 200", eventResponse.StatusCode)
+	}
+	eventReader := bufio.NewReader(eventResponse.Body)
+
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[1].TerminalConfig = &workspaceui.TerminalPaneConfig{ProfileID: terminal.DefaultProfileID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+	created := postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		Cols:        80,
+		Rows:        24,
+	}, http.StatusOK)
+	started := readServerSentTerminalEvent(t, eventReader)
+	if started.Type != terminal.TerminalEventStarted || started.SessionID != created.Session.ID {
+		t.Fatalf("started event = %+v, want terminal.started for %s", started, created.Session.ID)
+	}
+	starter.handleAt(t, 0).emit([]byte("pane output\n"))
+	output := readServerSentTerminalEvent(t, eventReader)
+	if output.Type != terminal.TerminalEventOutput || output.SessionID != created.Session.ID {
+		t.Fatalf("output event = %+v, want terminal output for %s", output, created.Session.ID)
+	}
+
+	read := postJSON[ReadWorkspaceUITerminalResponse](t, handler, "/workspaces/ui/terminals/read", ReadWorkspaceUITerminalRequest{
+		WorkspaceID:           opened.Workspace.ID,
+		PaneID:                "workspace_pane_1",
+		RecentOutputByteLimit: 32,
+	}, http.StatusOK)
+	if read.WorkspaceID != opened.Workspace.ID || read.Pane.PaneID != "workspace_pane_1" {
+		t.Fatalf("terminal read envelope = %+v, want workspace terminal pane", read)
+	}
+	if read.Terminal.SessionID != created.Session.ID || read.Terminal.Session.PaneID != "workspace_pane_1" {
+		t.Fatalf("terminal read session = %+v, want created pane session", read.Terminal)
+	}
+	if read.Terminal.RecentOutput.Text != "pane output\n" || len(read.Terminal.RecentOutput.Chunks) != 1 {
+		t.Fatalf("terminal recent output = %+v, want emitted pane output", read.Terminal.RecentOutput)
+	}
+}
+
+func TestWorkspaceUITerminalReadEndpointRejectsNonTerminalPane(t *testing.T) {
+	handler, appDataDir, _ := newWorkspaceHandlerWithTerminal(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	seedWorkspaceUILayout(t, appDataDir, workspaceUILayout(opened.Workspace.ID))
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/terminals/read", ReadWorkspaceUITerminalRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "unsupported_workspace_ui_terminal_pane" {
+		t.Fatalf("error code = %q, want unsupported_workspace_ui_terminal_pane", errResponse.Error.Code)
 	}
 }
 
@@ -516,6 +606,60 @@ func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Ti
 		WorkspaceService:   service,
 		WorkspaceUIService: uiService,
 	}), filepath.Dir(store.Path())
+}
+
+func newWorkspaceHandlerWithTerminal(t *testing.T) (http.Handler, string, *httpRecordingPTYStarter) {
+	t.Helper()
+
+	appDataDir := t.TempDir()
+	store, err := appstate.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new app store: %v", err)
+	}
+	now := time.Date(2026, 5, 29, 20, 0, 0, 0, time.UTC)
+	manager, err := workspace.NewManager(
+		filepath.Dir(store.Path()),
+		workspace.WithClock(func() time.Time {
+			value := now
+			now = now.Add(time.Minute)
+			return value
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new workspace manager: %v", err)
+	}
+	workspaceService, err := workspacesession.NewService(store, manager)
+	if err != nil {
+		t.Fatalf("new workspace service: %v", err)
+	}
+	uiStore, err := workspaceui.NewStore(filepath.Dir(store.Path()))
+	if err != nil {
+		t.Fatalf("new workspace UI store: %v", err)
+	}
+	uiService, err := workspaceui.NewService(uiStore, workspaceService)
+	if err != nil {
+		t.Fatalf("new workspace UI service: %v", err)
+	}
+	starter := &httpRecordingPTYStarter{root: appDataDir}
+	terminalService, err := terminal.NewManager(terminal.ManagerConfig{
+		AppDataDir:        filepath.Dir(store.Path()),
+		WorkspaceResolver: workspaceService,
+		PTY:               starter,
+	})
+	if err != nil {
+		t.Fatalf("new terminal manager: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := terminalService.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown terminal service: %v", err)
+		}
+	})
+	return newAuthenticatedTestHandler(t, HandlerConfig{
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+		TerminalService:    terminalService,
+		WorkspaceService:   workspaceService,
+		WorkspaceUIService: uiService,
+	}), filepath.Dir(store.Path()), starter
 }
 
 func seedWorkspaceUILayout(t *testing.T, appDataDir string, layout workspaceui.WorkspaceUILayout) {
