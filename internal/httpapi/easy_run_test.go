@@ -57,6 +57,35 @@ func TestReadEasyRunSnapshotRejectsMissingWorkspaceQuery(t *testing.T) {
 	}
 }
 
+func TestSteerEasyRunEndpointReturnsTypedError(t *testing.T) {
+	service := newHTTPTestEasyRunService(t)
+	server := httptest.NewServer(newAuthenticatedTestHandler(t, HandlerConfig{
+		EasyRunService: service,
+		Metadata:       BackendMetadata{Name: BackendName, Version: "test"},
+	}))
+	defer server.Close()
+
+	response, err := http.Post(
+		server.URL+"/easy-runs/steer",
+		"application/json",
+		strings.NewReader(`{"workspaceId":"workspace_api","text":"keep going"}`),
+	)
+	if err != nil {
+		t.Fatalf("post steer: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", response.StatusCode)
+	}
+	var body ErrorResponse
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	if body.Error.Code != "steer_easy_run_failed" {
+		t.Fatalf("error code = %s, want steer_easy_run_failed", body.Error.Code)
+	}
+}
+
 func TestEasyRunEventStreamRejectsMalformedCursor(t *testing.T) {
 	service := newHTTPTestEasyRunService(t)
 	server := httptest.NewServer(newAuthenticatedTestHandler(t, HandlerConfig{

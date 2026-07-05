@@ -36,6 +36,7 @@ type Service struct {
 type ChatService interface {
 	CancelActiveRunByID(workspaceID string, conversationID string, runID string) (chat.Run, error)
 	SendEasyRunTurn(workspaceID string, request chat.EasyRunTurnRequest) (chat.SendMessageResult, error)
+	SteerActiveRunInputByID(workspaceID string, conversationID string, runID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 }
 
@@ -190,6 +191,45 @@ func (service *Service) Stop(workspaceID string, easyRunID string) (EasyRun, err
 		return EasyRun{}, err
 	}
 	return service.applyTerminalChatRun(run)
+}
+
+func (service *Service) Steer(workspaceID string, text string) (EasyRun, error) {
+	if service == nil {
+		return EasyRun{}, errors.New("easy-run service is required")
+	}
+	trimmed := strings.TrimSpace(text)
+	if err := validateWorkspaceID(workspaceID); err != nil {
+		return EasyRun{}, err
+	}
+	if trimmed == "" {
+		return EasyRun{}, errors.New("easy-run steering text is required")
+	}
+	if service.chat == nil {
+		return EasyRun{}, errors.New("easy-run chat service is required")
+	}
+
+	service.mu.Lock()
+	record, ok, err := service.store.findWorkingRun(workspaceID)
+	if err != nil {
+		service.mu.Unlock()
+		return EasyRun{}, err
+	}
+	if !ok {
+		service.mu.Unlock()
+		return EasyRun{}, fmt.Errorf("workspace %s has no active easy-run", workspaceID)
+	}
+	if record.BackingRunID == "" {
+		service.mu.Unlock()
+		return EasyRun{}, fmt.Errorf("easy-run %s does not have an active backing run", record.Run.ID)
+	}
+	run := record.Run
+	backingRunID := record.BackingRunID
+	service.mu.Unlock()
+
+	if _, err := service.chat.SteerActiveRunInputByID(workspaceID, run.ConversationID, backingRunID, chat.TextChatInput(trimmed)); err != nil {
+		return EasyRun{}, err
+	}
+	return run, nil
 }
 
 func (service *Service) ReadSnapshot(workspaceID string) (EasyRunSnapshot, error) {

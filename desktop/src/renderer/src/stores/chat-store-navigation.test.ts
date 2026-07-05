@@ -684,6 +684,7 @@ function unimplementedEasyRunAPI(): SettaAPI["easyRun"] {
     onEvent: () => () => {},
     snapshot: unavailable,
     start: unavailable,
+    steer: unavailable,
     stop: unavailable,
   };
 }

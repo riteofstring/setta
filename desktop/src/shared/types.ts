@@ -111,6 +111,7 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   StartEasyRunRequest,
+  SteerEasyRunRequest,
   SteerMessageResult,
   SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
@@ -395,6 +396,7 @@ export interface SettaAPI {
     onEvent: (listener: (event: EasyRunEvent) => void) => () => void;
     snapshot: (workspaceId: string) => Promise<EasyRunSnapshot>;
     start: (request: StartEasyRunRequest) => Promise<EasyRun>;
+    steer: (request: SteerEasyRunRequest) => Promise<EasyRun>;
     stop: (request: StopEasyRunRequest) => Promise<EasyRun>;
   };
   appearance: {

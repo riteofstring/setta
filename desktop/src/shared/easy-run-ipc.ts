@@ -2,6 +2,7 @@ import type {
   EasyRun,
   EasyRunSnapshot,
   StartEasyRunRequest,
+  SteerEasyRunRequest,
   StopEasyRunRequest,
 } from "@generated/backend";
 
@@ -12,6 +13,10 @@ export interface EasyRunIpcContract {
   };
   easyRunStart: {
     args: [request: StartEasyRunRequest];
+    result: EasyRun;
+  };
+  easyRunSteer: {
+    args: [request: SteerEasyRunRequest];
     result: EasyRun;
   };
   easyRunStop: {

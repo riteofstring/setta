@@ -751,167 +751,43 @@ The Easy Button pane is shippable only when:
 
 ### 2026-07-08 — Phase 1 complete
 
-Implemented the `easy-button` surface registration end to end:
-
-- Go-owned `SurfaceKindEasyButton` contract value and workspace UI validation,
-  with generated backend TypeScript regenerated.
-- Renderer product-surface registration, React DOM adapter branch, runtime
-  policy membership, static snapshot renderer, title metadata/icon, toolbar
-  action (`Mod+Alt+E`), pane limit 1, and durable full-width
-  `widthSpec: { unit: "proportion", value: 1 }`.
-- Idle-only pane body under `features/easy-button/`: empty rails, centered
-  round button with breathing glow, no footer input, no listening state, no
-  working/complete visuals, no transcript, and no backend wiring.
-- Frozen and reduced-motion CSS handling; the Electron workflow caught and
-  fixed the pseudo-element pause rule for the button glow.
-- Deterministic Electron coverage for toolbar open, shortcut open, persisted
-  reload restore, full-width layout spec, idle render, and frozen CSS pause.
-- Performance report recorded at
-  `docs/reports/performance/easy-button-pane-phase1-20260708.md`.
-
-Verification performed:
-
-- `./scripts/go.sh run ./cmd/generate-contracts`
-- `./scripts/go.sh test ./internal/workspaceui`
-- `pnpm -C desktop exec vitest run
-src/renderer/src/workspace-layout/workspace-scene.test.ts
-src/renderer/src/workspace-layout/workspace-toolbar.test.tsx
-src/renderer/src/workspace-layout/pane-title-metadata.test.ts
-src/renderer/src/workspace-layout/runtime-policy.test.ts
-src/renderer/src/workspace-layout/react-dom-surface-adapter.test.tsx
-src/renderer/src/workspace-layout/surface-registry.test.ts
-src/renderer/src/workspace-layout/workspace-interactions.test.ts`
-- `pnpm -C desktop typecheck`
-- `pnpm -C desktop build`
-- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build`
-- `node desktop/tests/electron/easy-button-pane-performance.test.mjs --skip-build`
-- `./scripts/format.sh`
-- `./check_quality.sh --all`
-
-Baseline note: the pre-change
-`pane-drag-drop-benchmark-performance.test.mjs` baseline was attempted before
-implementation and failed before frame assertions because the benchmark read its
-driver API before installing the driver extension. The failure and artifact path
-are recorded in the performance report.
-
-Remaining work: Phase 2a is next. It should create the `internal/easyrun`
-domain, contracts, store, event/SSE shape, empty snapshot endpoint, generated
-contracts, and renderer easy-run store modules while keeping the pane visually
-idle and without exposing start/stop endpoints until Phase 2b.
+Registered `easy-button` end to end with Go-owned surface contracts, generated
+backend TypeScript, renderer registration, toolbar/shortcut open, pane limit 1,
+full-width `widthSpec`, idle-only pane body, frozen/reduced-motion CSS, and
+deterministic Electron coverage. Performance report:
+`docs/reports/performance/easy-button-pane-phase1-20260708.md`. Verification
+included contract generation, focused workspace/renderer checks,
+`pnpm -C desktop typecheck`, `pnpm -C desktop build`, the easy-button workflow,
+the easy-button performance workflow, `./scripts/format.sh`, and
+`./check_quality.sh --all`. Remaining work at the time: Phase 2a.
 
 ### 2026-07-08 — Phase 2a complete
 
-Implemented the easy-run contract and empty snapshot slice without exposing
-start/stop:
-
-- Added `internal/easyrun` ownership for typed runs, highlights, artifacts,
-  generated value sets, strict artifact/event tagged unions, an owned event
-  hub with replay/resync behavior, an empty snapshot store/service, and
-  shutdown wiring in the runtime.
-- Added `GET /easy-runs/snapshot?workspaceId=...` and
-  `/easy-runs/events` SSE endpoints through the HTTP endpoint registry, with
-  generated TypeScript contracts regenerated and backend protocol version
-  bumped to 8 for the schema hash change.
-- Added the Electron/preload/web typed `easyRun` API surface: main handles
-  snapshot reads, and both desktop and web event subscriptions are backed by
-  the generated easy-run contracts and push event streams. Pane hydration stays
-  deferred until Phase 2b has real easy-run lifecycle events. No start/stop
-  endpoints, no hidden chat run launch, and no raw chat transcript event
-  consumption were added.
-- Added renderer `stores/easy-run-store.ts` and `easy-run-events.ts` with
-  snapshot hydration, duplicate/gap/stream-change handling, resync handling,
-  run-change rail reset, and focused reducer/store tests. The pane remains
-  visually idle.
-
-Verification performed:
-
-- `./scripts/go.sh run ./cmd/generate-contracts`
-- `./scripts/go.sh test ./internal/easyrun ./internal/httpapi ./internal/runtime ./cmd/generate-contracts`
-- `pnpm -C desktop exec vitest run
-src/main/backend-supervisor.test.ts
-src/main/easy-run-event-forwarding.test.ts
-src/main/easy-run-event-stream.test.ts
-src/renderer/src/stores/easy-run-store.test.ts
-src/shared/backend-runtime.test.ts`
-- `pnpm -C desktop typecheck`
-- `pnpm -C desktop build`
-- `node tests/electron/chat-workflows.test.mjs --codex-protocol-only`
-- `./scripts/format.sh`
-- `./check_quality.sh --all`
-
-E2E/live note: Phase 2a does not start chat runs or touch hidden Codex
-orchestrator lifecycle, so the plan does not require live Codex E2E for this
-slice. Deterministic production-path Electron workflows were still exercised by
-the broad quality gate, and `chat-workflows --codex-protocol-only` was run as a
-protocol/runtime regression check after the backend protocol bump. Live Codex
-coverage begins in Phase 2b when real hidden runs are introduced.
-
-Remaining work: Phase 2b is next. It should add real start/stop endpoints,
-hidden internal conversations, yolo orchestrator turn launch, terminal status
-observation, and the first production-path Electron workflow for the working
-and complete states while keeping the left rail empty until narrator work.
+Added `internal/easyrun` ownership, typed run/highlight/artifact/event
+contracts, event hub/SSE shape, empty snapshot endpoint, protocol 8/generated
+contracts, Electron/preload/web easy-run snapshot/event APIs, and renderer store
+snapshot/event handling while leaving the pane visually idle and without
+start/stop or hidden chat launch. Verification included contract generation,
+focused Go/Vitest checks, `pnpm -C desktop typecheck`, `pnpm -C desktop build`,
+`node tests/electron/chat-workflows.test.mjs --codex-protocol-only`,
+`./scripts/format.sh`, and `./check_quality.sh --all`. Live Codex was not
+required because Phase 2a did not start chat runs. Remaining work at the time:
+Phase 2b.
 
 ### 2026-07-08 — Phase 2b complete
 
-Implemented the hidden easy-run lifecycle through the production pane:
-
-- Added `POST /easy-runs/start` and `POST /easy-runs/stop`, regenerated
-  Go-owned contracts, and bumped the backend protocol to 9 for the schema
-  change.
-- Added `chat.Service.SendEasyRunTurn`, typed easy-run conversation metadata,
-  `HarnessSurfaceEasyRun`, and easy-run-specific Codex developer instructions.
-  Easy-run turns create hidden `Internal` conversations, use the full-access
-  permission preset, and resolve model/effort from workspace chat defaults.
-- Replaced the snapshot-only easy-run service with durable run records,
-  start/stop, push-driven chat terminal projection, stop via
-  `CancelActiveRunByID`, and mechanical terminal summaries. The service fails
-  startup if its required chat-event observer cannot subscribe.
-- Added Electron/preload/web start/stop API wiring, renderer store start/stop
-  actions, and app-level easy-run event subscription. The renderer still
-  consumes only typed easy-run contracts, never chat transcript events.
-- Added the real pane footer input and idle/working/complete behavior:
-  submit starts a hidden run, terminal state resets to idle, the user request
-  text is shown from `EasyRun.RequestText`, the agent chip reflects
-  `EasyRun.ActiveAgentCount`, and the pane title mirrors state. Phase 2b
-  initially placed stop on the center affordance; Phase 2d supersedes that with a
-  recorder-first center and secondary stop control. Both rails intentionally
-  remain empty in this subphase.
-- Expanded deterministic production-path Electron coverage to open the pane,
-  submit a scripted hidden run, observe working and completed state, stop an
-  active run, assert empty rails, and verify frozen animation pause.
-- Re-measured Phase 2b visual cost and recorded
-  `docs/reports/performance/easy-button-pane-phase2b-20260708.md`.
-
-Verification performed:
-
-- `./scripts/go.sh run ./cmd/generate-contracts`
-- `./scripts/go.sh test ./internal/easyrun`
-- `./scripts/go.sh test ./internal/chat -run 'TestServiceRoutes(EasyRun|WorkflowAgent|MasterChat)ThroughSharedHarnessTask'`
-- `./scripts/go.sh test ./internal/httpapi -run 'Test(ReadEasyRunSnapshot|EasyRunEventStream|ContractSchemaSnapshot)'`
-- `pnpm -C desktop exec vitest run src/renderer/src/stores/easy-run-store.test.ts`
-- `pnpm -C desktop exec vitest run src/main/backend-supervisor.test.ts`
-- `pnpm -C desktop typecheck`
-- `pnpm -C desktop build`
-- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2b-workflow`
-- `node desktop/tests/electron/easy-button-pane-performance.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2b-baseline-current`
-- `node desktop/tests/electron/easy-button-pane-performance.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2b-performance-after`
-- `./scripts/format.sh`
-- `./check_quality.sh --all`
-- `node desktop/tests/electron/chat-live-auth.mjs`
-- `./scripts/test_chat_workflows.sh --skip-build --live-only`
-
-Live note: ChatGPT auth was available. The live gate passed
-`live-codex-electron` and `live-codex-backend`. This is live chat-provider
-coverage for the changed run/harness surface; the easy-button-specific live
-artifact/narrator acceptance remains blocked until Phases 3 and 4 add typed
-artifact emission and narrator highlights.
-
-Remaining work: Phase 2c is next. It should add startup recovery for orphaned
-`working` easy runs, production-path active-run rejection coverage, latest-run
-snapshot restore after reload/restart, `easyrun.resync_required` handling, and
-second-request rail reset coverage. Phase 2d then adds text steering,
-recorder-first center behavior, secondary stop control, and center summary
-rendering. No blockers were discovered.
+Added start/stop endpoints, protocol 9/generated contracts,
+`chat.Service.SendEasyRunTurn`, typed easy-run conversation metadata,
+`HarnessSurfaceEasyRun`, hidden internal conversations with full-access
+settings, durable run records, push-driven terminal projection, mechanical
+summaries, Electron/preload/web start/stop wiring, and production pane
+idle/working/complete behavior with empty rails. Deterministic Electron coverage
+exercised open, start, working, complete, stop, empty rails, and frozen pause.
+Performance report: `docs/reports/performance/easy-button-pane-phase2b-20260708.md`.
+Verification included focused Go/Vitest checks, typecheck, build, easy-button
+workflow/performance runs, `./scripts/format.sh`, `./check_quality.sh --all`,
+and live Codex (`live-codex-electron`, `live-codex-backend`) with ChatGPT auth.
+Remaining work at the time: Phase 2c, then Phase 2d.
 
 ### 2026-07-08 — Phase 2b audit follow-up
 
@@ -998,3 +874,48 @@ available; the live gate passed `live-codex-electron` and
 Implemented easy-run resync hardening: per-service easy-run stream ids, main-process cursor preservation across transport errors, `easyrun.resync_required` handling before duplicate filtering, and an in-place external-backend restart workflow that asserts the resync event is forwarded through the production backend/main/preload/renderer path before the pane restores the failed snapshot. The external-backend helper now uses the existing runtime `SkipBootstrapDeviceSession` config so a same-port replacement backend does not revoke the token Electron is using. No generated contracts changed.
 Verification performed: `./scripts/go.sh test ./internal/easyrun`; `./scripts/go.sh test ./cmd/setta-backend ./internal/httpapi -run 'Test(ConfigFromArgsCanSkipBootstrapDeviceSession|ReadEasyRunSnapshotUsesWorkspaceQueryAndReturnsEmptySnapshot|EasyRunEventStreamRejectsMalformedCursor)'`; `pnpm -C desktop exec vitest run src/main/easy-run-event-stream.test.ts`; `pnpm -C desktop typecheck`; `pnpm -C desktop build`; `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2c-resync`; `node desktop/tests/electron/chat-live-auth.mjs`; `./scripts/test_chat_workflows.sh --skip-build --live-only`. ChatGPT auth was available; the live gate passed `live-codex-electron` and `live-codex-backend`.
 Audit follow-up added production-path second-request reset coverage by submitting a new request directly from restored complete state and asserting the pane switches to the new working and terminal run with empty rails; typed store tests already cover stale highlight/artifact clearing when the run id changes. Additional verification performed: `./scripts/go.sh run ./cmd/generate-contracts` (no diff); focused Go/Vitest checks; `pnpm -C desktop typecheck`; `pnpm -C desktop build`; `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2c-second-request-reset`; `node desktop/tests/electron/chat-live-auth.mjs`; `./scripts/test_chat_workflows.sh --skip-build --live-only`; `./scripts/format.sh`; `./check_quality.sh --git-changes`. ChatGPT auth was available and the live gate passed `live-codex-electron` and `live-codex-backend`. Phase 2c is complete; Phase 2d is next: steering, recorder-first center behavior, secondary stop control, and center summary rendering. No blockers were discovered.
+
+### 2026-07-08 — Phase 2d steering and center-control slice complete
+
+Implemented the Phase 2d text steering/control split:
+
+- Added `POST /easy-runs/steer`, `SteerEasyRunRequest`, generated backend
+  contracts, and protocol version 10. `EasyRunService.Steer` validates
+  non-empty text, requires an active working easy run, and forwards trimmed
+  text through chat's exact backing-run steering path; the renderer receives
+  only the typed `EasyRun` response.
+- Wired steering through Electron main IPC, preload, the web API, and the
+  renderer easy-run store. The store continues to consume only easy-run
+  contracts and preserves rails on steering.
+- Updated the pane so Enter starts from idle/complete and steers while
+  working. The footer remains enabled during active runs. The center control
+  is no longer stop/reset; in text-only v1 it focuses the footer input. Stop is
+  a smaller explicit secondary button visible only while working, and terminal
+  summaries remain centered until the next run starts.
+- Extended the scripted hidden-run harness and deterministic Electron workflow
+  so a run completes only after the footer steering text reaches the hidden
+  backing run; the workflow also asserts center-focus behavior and secondary
+  stop behavior.
+
+Verification performed:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./internal/easyrun`
+- `./scripts/go.sh test ./internal/httpapi -run 'Test(ReadEasyRunSnapshot|SteerEasyRun|EasyRunEventStream|ContractSchemaSnapshot)'`
+- `./scripts/go.sh test ./internal/chat -run 'TestServiceRoutes(EasyRun|WorkflowAgent|MasterChat)ThroughSharedHarnessTask'`
+- `pnpm -C desktop exec vitest run src/renderer/src/stores/easy-run-store.test.ts`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2d-steering`
+- `node desktop/tests/electron/chat-live-auth.mjs`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Live note: ChatGPT auth was available. The live gate passed
+`live-codex-electron` and `live-codex-backend` on retry after an initial
+harness/CDP setup attempt wedged before any app interaction.
+
+Remaining work: Phase 3 is next. It should add deliberate typed artifact
+emission through `setta.emit_artifact`, artifact persistence/publication, and
+right-rail typed artifact cards. No blockers were discovered.

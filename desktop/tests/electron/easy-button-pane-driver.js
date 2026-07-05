@@ -12,6 +12,7 @@
     Object.assign(driver, {
       easyButtonPaneClickToolbarAction,
       easyButtonPaneClickControl,
+      easyButtonPaneClickStop,
       easyButtonPaneClose,
       easyButtonPaneForceFrozen,
       easyButtonPaneOpenShortcut,
@@ -99,6 +100,7 @@
     const requestText = host.querySelector('[data-testid="easy-button-request-text"]');
     const summary = host.querySelector('[data-testid="easy-button-summary"]');
     const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
+    const stopButton = host.querySelector('[data-testid="easy-button-stop-button"]');
     const buttonRect = elementRectOrZero(button);
     return {
       agentChipText: elementText(agentChip),
@@ -107,9 +109,14 @@
       buttonAnimationPlayState: buttonPseudoStyleValue(button, "animationPlayState"),
       buttonRect: rectSnapshot(buttonRect),
       buttonVisible: buttonVisible(buttonRect),
+      inputFocused: input instanceof HTMLInputElement && document.activeElement === input,
       inputDisabled: inputDisabled(input),
       inputValue: inputValue(input),
       requestText: elementText(requestText),
+      stopButtonAriaLabel: buttonAriaLabel(stopButton),
+      stopButtonDisabled: buttonDisabled(stopButton),
+      stopButtonText: elementText(stopButton),
+      stopButtonVisible: stopButton instanceof HTMLButtonElement,
       summaryText: elementText(summary),
     };
   }
@@ -144,6 +151,13 @@
       return null;
     }
     return input.disabled;
+  }
+
+  function buttonDisabled(button) {
+    if (!(button instanceof HTMLButtonElement)) {
+      return null;
+    }
+    return button.disabled;
   }
 
   function inputValue(input) {
@@ -189,6 +203,16 @@
   function easyButtonPaneClickControl() {
     const host = easyButtonHost();
     const button = host?.querySelector('[data-testid="easy-button-control"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  }
+
+  function easyButtonPaneClickStop() {
+    const host = easyButtonHost();
+    const button = host?.querySelector('[data-testid="easy-button-stop-button"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return false;
     }

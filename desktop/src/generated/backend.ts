@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 9;
-export const backendContractSchemaHash = "sha256:6d9f0629b7f38cf90b963e40788674f41761fd09fd90678c0b7dcee9f5e80293";
+export const backendProtocolVersion = 10;
+export const backendContractSchemaHash = "sha256:b135875a96f5b9b12ba4a9b210d70ddbadd4e6491e430f3006f7e16501f45383";
 
 export type DeviceScope = "full";
 
@@ -3395,6 +3395,11 @@ export interface EasyRunSnapshot {
 export interface StartEasyRunRequest {
   workspaceId: string;
   requestText: string;
+}
+
+export interface SteerEasyRunRequest {
+  workspaceId: string;
+  text: string;
 }
 
 export interface StopEasyRunRequest {
@@ -6924,6 +6929,11 @@ export const backendEndpoints = {
     path: "/easy-runs/start",
     requestBodyLimitBytes: 4194304,
   },
+  SteerEasyRun: {
+    method: "POST",
+    path: "/easy-runs/steer",
+    requestBodyLimitBytes: 4194304,
+  },
   StopEasyRun: {
     method: "POST",
     path: "/easy-runs/stop",
@@ -8437,6 +8447,15 @@ export function decodeStartEasyRunRequest(value: unknown): StartEasyRunRequest {
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "StartEasyRunRequest"), "StartEasyRunRequest.workspaceId"),
     requestText: decodeString(requireField(record, "requestText", "StartEasyRunRequest"), "StartEasyRunRequest.requestText"),
+  };
+}
+
+export function decodeSteerEasyRunRequest(value: unknown): SteerEasyRunRequest {
+  const record = assertRecord(value, "SteerEasyRunRequest");
+  assertKnownFields(record, "SteerEasyRunRequest", ["workspaceId", "text"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SteerEasyRunRequest"), "SteerEasyRunRequest.workspaceId"),
+    text: decodeString(requireField(record, "text", "SteerEasyRunRequest"), "SteerEasyRunRequest.text"),
   };
 }
 
@@ -13318,6 +13337,7 @@ export interface BackendClient {
   readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest) => Promise<ReadWorkflowExecutionActivityResponse>;
   readEasyRunSnapshot: (request: ReadEasyRunSnapshotRequest) => Promise<EasyRunSnapshot>;
   startEasyRun: (request: StartEasyRunRequest) => Promise<EasyRun>;
+  steerEasyRun: (request: SteerEasyRunRequest) => Promise<EasyRun>;
   stopEasyRun: (request: StopEasyRunRequest) => Promise<EasyRun>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
@@ -13636,6 +13656,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeEasyRun,
       endpoint: backendEndpoints.StartEasyRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    steerEasyRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeEasyRun,
+      endpoint: backendEndpoints.SteerEasyRun,
       fetchImpl,
       requestPayload: request,
     }),

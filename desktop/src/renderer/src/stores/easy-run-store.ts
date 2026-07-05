@@ -28,6 +28,7 @@ interface EasyRunStoreActions {
   loadSnapshot: (workspaceId: string) => Promise<void>;
   reset: () => void;
   start: (workspaceId: string, requestText: string) => Promise<EasyRun>;
+  steer: (workspaceId: string, text: string) => Promise<EasyRun>;
   stop: (workspaceId: string, easyRunId: string) => Promise<EasyRun>;
 }
 
@@ -138,6 +139,24 @@ export const useEasyRunStore = create<EasyRunStore>((set, get) => {
       });
       try {
         const run = await window.setta.easyRun.start({ requestText, workspaceId });
+        set((state) => runPatch(state, workspaceId, run));
+        return run;
+      } catch (error) {
+        set({
+          error: errorMessage(error),
+          status: "error",
+          workspaceId,
+        });
+        throw error;
+      }
+    },
+    steer: async (workspaceId, text) => {
+      set({
+        error: null,
+        workspaceId,
+      });
+      try {
+        const run = await window.setta.easyRun.steer({ text, workspaceId });
         set((state) => runPatch(state, workspaceId, run));
         return run;
       } catch (error) {

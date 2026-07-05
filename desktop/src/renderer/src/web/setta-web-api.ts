@@ -275,6 +275,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         }),
       snapshot: (workspaceId) => requireClient().readEasyRunSnapshot({ workspaceId }),
       start: (request) => requireClient().startEasyRun(request),
+      steer: (request) => requireClient().steerEasyRun(request),
       stop: (request) => requireClient().stopEasyRun(request),
     },
     codexAccount: {

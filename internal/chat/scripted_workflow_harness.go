@@ -27,7 +27,6 @@ type ScriptedWorkflowHarness struct {
 }
 
 type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
-
 type scriptedWorkflowFixture struct {
 	Prompt string
 	Run    scriptedWorkflowRunner
@@ -66,6 +65,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow trajectory activity item page workflow", Run: scriptedWorkflowTrajectoryActivityItemPageTurn},
 	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
 	{Prompt: "easy run phase2 complete workflow", Run: scriptedEasyRunPhase2CompleteTurn},
+	{Prompt: "easy run phase2 steering workflow", Run: scriptedEasyRunPhase2SteeringTurn},
 	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer c workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},

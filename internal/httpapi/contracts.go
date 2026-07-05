@@ -146,6 +146,11 @@ type StartEasyRunRequest struct {
 	RequestText string `json:"requestText"`
 }
 
+type SteerEasyRunRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	Text        string `json:"text"`
+}
+
 type StopEasyRunRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	EasyRunID   string `json:"easyRunId"`

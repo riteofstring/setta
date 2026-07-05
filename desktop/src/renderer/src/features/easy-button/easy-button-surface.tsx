@@ -47,6 +47,11 @@ export function EasyButtonSurface() {
             latestRun={controller.latestRun}
             viewState={controller.viewState}
           />
+          <StopButton
+            disabled={controller.stopDisabled}
+            onClick={controller.handleStopClick}
+            viewState={controller.viewState}
+          />
         </div>
         <form className="easy-button-footer" onSubmit={controller.handleSubmit}>
           <input
@@ -75,6 +80,7 @@ interface EasyButtonController {
   error: string | null;
   handleControlClick: () => void;
   handleInputKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  handleStopClick: () => void;
   handleSubmit: (event: FormEvent<HTMLFormElement>) => void;
   inputDisabled: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -82,6 +88,7 @@ interface EasyButtonController {
   latestRun: EasyRun | null;
   rootRef: RefObject<HTMLElement | null>;
   setInputValue: (value: string) => void;
+  stopDisabled: boolean;
   viewState: EasyButtonViewState;
 }
 
@@ -94,20 +101,23 @@ function useEasyButtonController(): EasyButtonController {
   const loadSnapshot = useEasyRunStore((state) => state.loadSnapshot);
   const resetStore = useEasyRunStore((state) => state.reset);
   const start = useEasyRunStore((state) => state.start);
+  const steer = useEasyRunStore((state) => state.steer);
   const stop = useEasyRunStore((state) => state.stop);
-  const [dismissedRunId, setDismissedRunId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [pendingAction, setPendingAction] = useState(false);
-  const viewState = easyButtonViewState(latestRun, dismissedRunId, pendingAction);
-  const canSubmit = canSubmitRequest(selectedWorkspaceId, inputValue, viewState);
+  const viewState = easyButtonViewState(latestRun, pendingAction);
+  const canSubmit = canSubmitRequest(selectedWorkspaceId, inputValue, latestRun, viewState);
   const submitRequest = useEasyButtonSubmit({
     canSubmit,
     inputRef,
     inputValue,
+    latestRun,
     selectedWorkspaceId,
     setInputValue,
     setPendingAction,
     start,
+    steer,
+    viewState,
   });
   const stopRequest = useEasyButtonStop({
     inputRef,
@@ -118,15 +128,9 @@ function useEasyButtonController(): EasyButtonController {
   });
   const handleControlClick = useEasyButtonControlClick({
     inputRef,
-    latestRun,
-    setDismissedRunId,
-    stopRequest,
-    submitRequest,
-    viewState,
   });
 
   useEasyButtonSnapshot(selectedWorkspaceId, loadSnapshot, resetStore);
-  useEasyButtonWorkingDismissalReset(latestRun, setDismissedRunId);
   useEasyButtonPaneTitle(rootRef, viewState);
 
   const handleSubmit = useCallback(
@@ -150,18 +154,22 @@ function useEasyButtonController(): EasyButtonController {
 
   return {
     activeAgentCount: activeAgentCountForState(viewState, latestRun),
-    controlDisabled: controlDisabled(selectedWorkspaceId, pendingAction),
+    controlDisabled: controlDisabled(selectedWorkspaceId),
     controlLabel: controlAriaLabel(viewState),
     error,
     handleControlClick,
     handleInputKeyDown,
+    handleStopClick: () => {
+      void stopRequest();
+    },
     handleSubmit,
-    inputDisabled: inputDisabled(selectedWorkspaceId, pendingAction, viewState),
+    inputDisabled: inputDisabled(selectedWorkspaceId, pendingAction),
     inputRef,
     inputValue,
     latestRun,
     rootRef,
     setInputValue,
+    stopDisabled: pendingAction || !canStopRun(latestRun),
     viewState,
   };
 }
@@ -178,17 +186,6 @@ function useEasyButtonSnapshot(
     }
     void loadSnapshot(selectedWorkspaceId);
   }, [loadSnapshot, resetStore, selectedWorkspaceId]);
-}
-
-function useEasyButtonWorkingDismissalReset(
-  latestRun: EasyRun | null,
-  setDismissedRunId: (runId: string | null) => void,
-) {
-  useEffect(() => {
-    if (latestRun?.status === "working") {
-      setDismissedRunId(null);
-    }
-  }, [latestRun?.id, latestRun?.status, setDismissedRunId]);
 }
 
 function useEasyButtonPaneTitle(
@@ -213,20 +210,26 @@ interface SubmitOptions {
   canSubmit: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
   inputValue: string;
+  latestRun: EasyRun | null;
   selectedWorkspaceId: string | null;
   setInputValue: (value: string) => void;
   setPendingAction: (pending: boolean) => void;
   start: (workspaceId: string, requestText: string) => Promise<EasyRun>;
+  steer: (workspaceId: string, text: string) => Promise<EasyRun>;
+  viewState: EasyButtonViewState;
 }
 
 function useEasyButtonSubmit({
   canSubmit,
   inputRef,
   inputValue,
+  latestRun,
   selectedWorkspaceId,
   setInputValue,
   setPendingAction,
   start,
+  steer,
+  viewState,
 }: SubmitOptions) {
   return useCallback(async () => {
     if (!selectedWorkspaceId || !canSubmit) {
@@ -236,7 +239,11 @@ function useEasyButtonSubmit({
     const requestText = inputValue.trim();
     setPendingAction(true);
     try {
-      await start(selectedWorkspaceId, requestText);
+      if (viewState === "working" && canStopRun(latestRun)) {
+        await steer(selectedWorkspaceId, requestText);
+      } else {
+        await start(selectedWorkspaceId, requestText);
+      }
       setInputValue("");
     } catch {
       inputRef.current?.focus();
@@ -247,10 +254,13 @@ function useEasyButtonSubmit({
     canSubmit,
     inputRef,
     inputValue,
+    latestRun,
     selectedWorkspaceId,
     setInputValue,
     setPendingAction,
     start,
+    steer,
+    viewState,
   ]);
 }
 
@@ -286,33 +296,12 @@ function useEasyButtonStop({
 
 interface ControlClickOptions {
   inputRef: RefObject<HTMLInputElement | null>;
-  latestRun: EasyRun | null;
-  setDismissedRunId: (runId: string | null) => void;
-  stopRequest: () => Promise<void>;
-  submitRequest: () => Promise<void>;
-  viewState: EasyButtonViewState;
 }
 
-function useEasyButtonControlClick({
-  inputRef,
-  latestRun,
-  setDismissedRunId,
-  stopRequest,
-  submitRequest,
-  viewState,
-}: ControlClickOptions) {
+function useEasyButtonControlClick({ inputRef }: ControlClickOptions) {
   return useCallback(() => {
-    switch (viewState) {
-      case "working":
-        void stopRequest();
-        return;
-      case "complete":
-        dismissRun(latestRun, setDismissedRunId, inputRef);
-        return;
-      case "idle":
-        void submitRequest();
-    }
-  }, [inputRef, latestRun, setDismissedRunId, stopRequest, submitRequest, viewState]);
+    inputRef.current?.focus();
+  }, [inputRef]);
 }
 
 interface RunStatusCopyProps {
@@ -389,15 +378,37 @@ function ErrorText({ error }: Pick<RunStatusCopyProps, "error">) {
   );
 }
 
+function StopButton({
+  disabled,
+  onClick,
+  viewState,
+}: {
+  disabled: boolean;
+  onClick: () => void;
+  viewState: EasyButtonViewState;
+}) {
+  if (viewState !== "working") {
+    return null;
+  }
+  return (
+    <button
+      aria-label="Stop easy run"
+      className="easy-button-stop-button"
+      data-testid="easy-button-stop-button"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <Square aria-hidden="true" className="easy-button-stop-button-icon" />
+      Stop
+    </button>
+  );
+}
+
 function ControlGlyph({ viewState }: { viewState: EasyButtonViewState }) {
   switch (viewState) {
     case "working":
-      return (
-        <>
-          <LoaderCircle aria-hidden="true" className="easy-button-spinner" />
-          <Square aria-hidden="true" className="easy-button-glyph easy-button-glyph-stop" />
-        </>
-      );
+      return <LoaderCircle aria-hidden="true" className="easy-button-spinner easy-button-glyph" />;
     case "complete":
       return <Check aria-hidden="true" className="easy-button-glyph" />;
     case "idle":
@@ -420,37 +431,25 @@ function activeAgentCountForState(viewState: EasyButtonViewState, latestRun: Eas
 function canSubmitRequest(
   selectedWorkspaceId: string | null,
   inputValue: string,
+  latestRun: EasyRun | null,
   viewState: EasyButtonViewState,
 ) {
-  return Boolean(selectedWorkspaceId && inputValue.trim() && viewState !== "working");
+  if (!selectedWorkspaceId || !inputValue.trim()) {
+    return false;
+  }
+  return viewState !== "working" || canStopRun(latestRun);
 }
 
 function canStopRun(latestRun: EasyRun | null): latestRun is EasyRun {
   return latestRun?.status === "working";
 }
 
-function controlDisabled(selectedWorkspaceId: string | null, pendingAction: boolean) {
+function controlDisabled(selectedWorkspaceId: string | null) {
+  return !selectedWorkspaceId;
+}
+
+function inputDisabled(selectedWorkspaceId: string | null, pendingAction: boolean) {
   return !selectedWorkspaceId || pendingAction;
-}
-
-function inputDisabled(
-  selectedWorkspaceId: string | null,
-  pendingAction: boolean,
-  viewState: EasyButtonViewState,
-) {
-  return !selectedWorkspaceId || pendingAction || viewState === "working";
-}
-
-function dismissRun(
-  latestRun: EasyRun | null,
-  setDismissedRunId: (runId: string | null) => void,
-  inputRef: RefObject<HTMLInputElement | null>,
-) {
-  if (!latestRun) {
-    return;
-  }
-  setDismissedRunId(latestRun.id);
-  inputRef.current?.focus();
 }
 
 function shouldRenderRunStatusCopy(viewState: EasyButtonViewState, error: string | null) {
@@ -466,7 +465,6 @@ function agentLabel(activeAgentCount: number) {
 
 function easyButtonViewState(
   latestRun: EasyRun | null,
-  dismissedRunId: string | null,
   pendingAction: boolean,
 ): EasyButtonViewState {
   if (latestRun?.status === "working" || pendingAction) {
@@ -474,7 +472,6 @@ function easyButtonViewState(
   }
   if (
     latestRun &&
-    latestRun.id !== dismissedRunId &&
     (latestRun.status === "completed" ||
       latestRun.status === "failed" ||
       latestRun.status === "stopped")
@@ -487,11 +484,11 @@ function easyButtonViewState(
 function controlAriaLabel(viewState: EasyButtonViewState): string {
   switch (viewState) {
     case "working":
-      return "Stop easy run";
+      return "Focus Easy Button steering input";
     case "complete":
-      return "Reset easy button";
+      return "Focus Easy Button request input";
     case "idle":
-      return "Start easy run";
+      return "Focus Easy Button request input";
   }
 }
 

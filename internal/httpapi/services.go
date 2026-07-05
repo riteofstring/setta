@@ -50,6 +50,7 @@ type WorkspaceActivityService interface {
 type EasyRunService interface {
 	ReadSnapshot(workspaceID string) (easyrun.EasyRunSnapshot, error)
 	Start(workspaceID string, requestText string) (easyrun.EasyRun, error)
+	Steer(workspaceID string, text string) (easyrun.EasyRun, error)
 	Stop(workspaceID string, easyRunID string) (easyrun.EasyRun, error)
 	SubscribeEvents(cursor easyrun.EasyRunEventCursor) (*easyrun.EventSubscription, error)
 }

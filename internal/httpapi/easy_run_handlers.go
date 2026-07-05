@@ -35,6 +35,23 @@ func (handler handler) startEasyRun(response http.ResponseWriter, request *http.
 	writeJSON(response, http.StatusOK, run)
 }
 
+func (handler handler) steerEasyRun(response http.ResponseWriter, request *http.Request) {
+	service := requireEasyRunService(response, handler.easyRunService)
+	if service == nil {
+		return
+	}
+	var payload SteerEasyRunRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	run, err := service.Steer(payload.WorkspaceID, payload.Text)
+	if err != nil {
+		writeEasyRunError(response, "steer_easy_run_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, run)
+}
+
 func (handler handler) stopEasyRun(response http.ResponseWriter, request *http.Request) {
 	service := requireEasyRunService(response, handler.easyRunService)
 	if service == nil {

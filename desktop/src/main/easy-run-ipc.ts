@@ -32,6 +32,14 @@ export function registerEasyRunIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "easyRunSteer",
+    async (_event, request) => {
+      return requireBackendClient().steerEasyRun(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "easyRunStop",
     async (_event, request) => {
       return requireBackendClient().stopEasyRun(request);

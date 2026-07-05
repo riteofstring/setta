@@ -147,7 +147,6 @@ import type {
   RuntimeVersions,
   WorkspaceGitInfo,
 } from "./types";
-
 export const ipcChannels = {
   appInstalledEditors: "app:installed-editors",
   appCaptureRendererRegion: "app:capture-renderer-region",
@@ -203,6 +202,7 @@ export const ipcChannels = {
   chatSubmitApproval: "chat:submit-approval",
   easyRunSnapshot: "easy-run:snapshot",
   easyRunStart: "easy-run:start",
+  easyRunSteer: "easy-run:steer",
   easyRunStop: "easy-run:stop",
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",

@@ -135,6 +135,7 @@ const api: SettaAPI = {
     },
     snapshot: (workspaceId) => invoke("easyRunSnapshot", workspaceId),
     start: (request) => invoke("easyRunStart", request),
+    steer: (request) => invoke("easyRunSteer", request),
     stop: (request) => invoke("easyRunStop", request),
   },
   appearance: {

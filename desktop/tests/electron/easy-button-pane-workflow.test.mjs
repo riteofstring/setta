@@ -110,13 +110,14 @@ try {
   );
   assertTerminalVisual(restoredTerminal, "easy run phase2 complete workflow", "Done in");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-restored-terminal.png"));
+  const focusedAfterCenterClick = await focusEasyButtonInputFromCenter(context.client);
+  if (!focusedAfterCenterClick.inputFocused) {
+    throw new Error(
+      `easy-button center control did not focus input: ${JSON.stringify(focusedAfterCenterClick)}`,
+    );
+  }
 
   await submitEasyButtonRequest(context.client, "easy run phase2 second workflow");
-  const secondWorking = await waitForEasyButtonWorking(
-    context.client,
-    "easy run phase2 second workflow",
-  );
-  assertWorkingVisual(secondWorking, "easy run phase2 second workflow");
   const secondCompleted = await waitForEasyButtonTerminal(
     context.client,
     "easy run phase2 second workflow",
@@ -125,9 +126,20 @@ try {
   assertTerminalVisual(secondCompleted, "easy run phase2 second workflow", "Done in");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-second-complete.png"));
 
-  await resetEasyButtonPane(context.client);
-  const resetAfterComplete = await waitForEasyButtonPane(context.client);
-  assertIdleVisual(resetAfterComplete);
+  await submitEasyButtonRequest(context.client, "easy run phase2 steering workflow");
+  const steeringWorking = await waitForEasyButtonWorking(
+    context.client,
+    "easy run phase2 steering workflow",
+  );
+  assertWorkingVisual(steeringWorking, "easy run phase2 steering workflow");
+  await submitEasyButtonRequest(context.client, "steer easy run phase2");
+  const steeredTerminal = await waitForEasyButtonTerminal(
+    context.client,
+    "easy run phase2 steering workflow",
+    "Done in",
+  );
+  assertTerminalVisual(steeredTerminal, "easy run phase2 steering workflow", "Done in");
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-steered-complete.png"));
 
   await submitEasyButtonRequest(context.client, "cancel active workflow");
   const stoppingWorking = await waitForEasyButtonWorking(context.client, "cancel active workflow");
@@ -137,17 +149,13 @@ try {
     "second active workflow",
     "cancel active workflow",
   );
-  await clickEasyButtonControl(context.client);
+  await clickEasyButtonStop(context.client);
   const stopped = await waitForEasyButtonTerminal(
     context.client,
     "cancel active workflow",
     "Stopped after",
   );
   assertTerminalVisual(stopped, "cancel active workflow", "Stopped after");
-
-  await resetEasyButtonPane(context.client);
-  const resetAfterStopped = await waitForEasyButtonPane(context.client);
-  assertIdleVisual(resetAfterStopped);
 
   await forceEasyButtonFrozenAttribute(context.client);
   const frozen = await waitForEasyButtonFrozen(context.client);
@@ -163,15 +171,15 @@ try {
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     completed,
+    focusedAfterCenterClick,
     frozen,
     restartRecovery,
-    resetAfterComplete,
-    resetAfterStopped,
     restoredTerminal,
     restored,
     secondCompleted,
-    secondWorking,
     shortcutOpen,
+    steeredTerminal,
+    steeringWorking,
     status: "passed",
     activeRunRejection,
     stopped,
@@ -341,6 +349,23 @@ async function clickEasyButtonControl(client) {
   }
 }
 
+async function clickEasyButtonStop(client) {
+  const clicked = await client.driver("easyButtonPaneClickStop");
+  if (!clicked) {
+    throw new Error("easy button stop control was not clickable");
+  }
+}
+
+async function focusEasyButtonInputFromCenter(client) {
+  await clickEasyButtonControl(client);
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) => state.exists && state.inputFocused === true,
+    workflowTimeoutMs,
+  );
+}
+
 async function assertActiveRunStartRejected(client, requestText, activeRequestText) {
   const result = await client.driver("easyButtonPaneStartDirect", requestText);
   if (result.ok || !result.message.includes("already working")) {
@@ -349,10 +374,6 @@ async function assertActiveRunStartRejected(client, requestText, activeRequestTe
   const state = await waitForEasyButtonWorking(client, activeRequestText);
   assertWorkingVisual(state, activeRequestText);
   return result;
-}
-
-async function resetEasyButtonPane(client) {
-  await clickEasyButtonControl(client);
 }
 
 async function forceEasyButtonFrozenAttribute(client) {
@@ -383,40 +404,61 @@ function assertIdleVisual(state) {
     throw new Error(`easy-button idle glow animation was missing: ${JSON.stringify(state)}`);
   }
   if (
-    state.buttonAriaLabel !== "Start easy run" ||
+    state.buttonAriaLabel !== "Focus Easy Button request input" ||
     state.inputDisabled !== false ||
+    state.stopButtonVisible !== false ||
     state.paneChromeTitle !== "Easy Button"
   ) {
-    throw new Error(`easy-button idle controls were not ready: ${JSON.stringify(state)}`);
+    throw new Error(`easy-button idle controls did not match Phase 2d: ${JSON.stringify(state)}`);
   }
 }
 
 function assertWorkingVisual(state, requestText) {
-  if (
-    state.easyState !== "working" ||
-    state.requestText !== requestText ||
-    state.agentChipText !== "1 agent" ||
-    state.buttonAriaLabel !== "Stop easy run" ||
-    state.inputDisabled !== true ||
-    state.railText !== "" ||
-    state.paneChromeTitle !== "Easy Button · working"
-  ) {
-    throw new Error(`easy-button working visual did not match Phase 2b: ${JSON.stringify(state)}`);
-  }
+  assertStateFields(
+    state,
+    {
+      agentChipText: "1 agent",
+      buttonAriaLabel: "Focus Easy Button steering input",
+      easyState: "working",
+      inputDisabled: false,
+      paneChromeTitle: "Easy Button · working",
+      railText: "",
+      requestText,
+      stopButtonAriaLabel: "Stop easy run",
+      stopButtonDisabled: false,
+      stopButtonText: "Stop",
+      stopButtonVisible: true,
+    },
+    "easy-button working visual did not match Phase 2d",
+  );
 }
 
 function assertTerminalVisual(state, requestText, summaryPrefix) {
-  if (
-    state.easyState !== "complete" ||
-    state.requestText !== requestText ||
-    !state.summaryText.startsWith(summaryPrefix) ||
-    !state.summaryText.includes("no artifacts") ||
-    state.buttonAriaLabel !== "Reset easy button" ||
-    state.inputDisabled !== false ||
-    state.railText !== "" ||
-    state.paneChromeTitle !== "Easy Button · complete"
-  ) {
-    throw new Error(`easy-button terminal visual did not match Phase 2b: ${JSON.stringify(state)}`);
+  assertStateFields(
+    state,
+    {
+      buttonAriaLabel: "Focus Easy Button request input",
+      easyState: "complete",
+      inputDisabled: false,
+      paneChromeTitle: "Easy Button · complete",
+      railText: "",
+      requestText,
+      stopButtonVisible: false,
+    },
+    "easy-button terminal visual did not match Phase 2d",
+  );
+  if (!state.summaryText.startsWith(summaryPrefix) || !state.summaryText.includes("no artifacts")) {
+    throw new Error(
+      `easy-button terminal summary did not match Phase 2d: ${JSON.stringify(state)}`,
+    );
+  }
+}
+
+function assertStateFields(state, expected, message) {
+  for (const [key, value] of Object.entries(expected)) {
+    if (state[key] !== value) {
+      throw new Error(`${message}: ${JSON.stringify(state)}`);
+    }
   }
 }
 
@@ -452,7 +494,10 @@ async function waitForEasyButtonWorking(client, requestText) {
       state.surfaceKind === "easy-button" &&
       state.easyState === "working" &&
       state.requestText === requestText &&
-      state.buttonAriaLabel === "Stop easy run",
+      state.buttonAriaLabel === "Focus Easy Button steering input" &&
+      state.inputDisabled === false &&
+      state.stopButtonDisabled === false &&
+      state.stopButtonVisible === true,
     workflowTimeoutMs,
   );
 }

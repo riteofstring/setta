@@ -126,17 +126,55 @@
   z-index: 1;
 }
 
-.easy-button-glyph-stop {
-  height: 30px;
-  width: 30px;
-}
-
 .easy-button-spinner {
   animation: easy-button-spinner 1.2s linear infinite;
   color: color-mix(in oklch, var(--easy-button-primary) 70%, var(--foreground));
   height: 62px;
   position: absolute;
   width: 62px;
+}
+
+.easy-button-stop-button {
+  align-items: center;
+  background: color-mix(in oklch, var(--setta-850) 88%, black);
+  border: 1px solid color-mix(in oklch, var(--destructive) 36%, var(--easy-button-border));
+  border-radius: 8px;
+  color: color-mix(in oklch, var(--destructive) 70%, var(--foreground));
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.8rem;
+  gap: 8px;
+  height: 34px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 92px;
+  padding: 0 12px;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.easy-button-stop-button:hover:not(:disabled),
+.easy-button-stop-button:focus-visible {
+  border-color: color-mix(in oklch, var(--destructive) 58%, var(--easy-button-border));
+  color: color-mix(in oklch, var(--destructive) 82%, var(--foreground));
+}
+
+.easy-button-stop-button:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--destructive) 62%, var(--foreground));
+  outline-offset: 3px;
+}
+
+.easy-button-stop-button:disabled {
+  cursor: default;
+  opacity: 0.56;
+}
+
+.easy-button-stop-button-icon {
+  height: 14px;
+  width: 14px;
 }
 
 .easy-button-run-copy {
