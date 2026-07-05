@@ -111,6 +111,20 @@ try {
   assertTerminalVisual(restoredTerminal, "easy run phase2 complete workflow", "Done in");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-restored-terminal.png"));
 
+  await submitEasyButtonRequest(context.client, "easy run phase2 second workflow");
+  const secondWorking = await waitForEasyButtonWorking(
+    context.client,
+    "easy run phase2 second workflow",
+  );
+  assertWorkingVisual(secondWorking, "easy run phase2 second workflow");
+  const secondCompleted = await waitForEasyButtonTerminal(
+    context.client,
+    "easy run phase2 second workflow",
+    "Done in",
+  );
+  assertTerminalVisual(secondCompleted, "easy run phase2 second workflow", "Done in");
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-second-complete.png"));
+
   await resetEasyButtonPane(context.client);
   const resetAfterComplete = await waitForEasyButtonPane(context.client);
   assertIdleVisual(resetAfterComplete);
@@ -155,6 +169,8 @@ try {
     resetAfterStopped,
     restoredTerminal,
     restored,
+    secondCompleted,
+    secondWorking,
     shortcutOpen,
     status: "passed",
     activeRunRejection,
