@@ -191,9 +191,8 @@ func TestServiceRoutesMasterChatThroughSharedHarnessTask(t *testing.T) {
 }
 
 func TestServiceRoutesWorkflowAgentThroughSharedHarnessTask(t *testing.T) {
-	appDataDir := t.TempDir()
 	harness := NewFakeHarness(nil)
-	service := newTestService(t, appDataDir, testResolver(t), harness)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	result, err := service.SendWorkflowAgentTurn("workspace_api", WorkflowAgentTurnRequest{
 		DefinitionID:        "definition_shared_task",
 		DefinitionVersionID: "version_shared_task",
@@ -215,23 +214,6 @@ func TestServiceRoutesWorkflowAgentThroughSharedHarnessTask(t *testing.T) {
 		tasks[0].TurnMode != HarnessTurnInteractiveConversation ||
 		tasks[0].OutputContract.Kind != HarnessOutputFreeTextEvents {
 		t.Fatalf("workflow harness task = %+v, want interactive free-text workflow agent", tasks[0])
-	}
-	turns := harness.TurnRequests()
-	if len(turns) != 1 {
-		t.Fatalf("turn requests = %+v, want one", turns)
-	}
-	deliveryPrompt := chatInputText(turns[0].Input)
-	for _, expected := range []string{
-		`"appDataDir": "` + appDataDir + `"`,
-		`"nodeExecutionId": "node_execution_shared_task"`,
-		`"result":{"status":"completed","signals":[],"output":{},"filePaths":[]}`,
-		"setta workflow executions result --app-data-dir <appDataDir> --input <path>",
-		"After reporting the workflow result, make your final assistant response satisfy the node task exactly.",
-		"Node task:\n\nworkflow shared task",
-	} {
-		if !strings.Contains(deliveryPrompt, expected) {
-			t.Fatalf("workflow delivery prompt missing %q:\n%s", expected, deliveryPrompt)
-		}
 	}
 }
 

@@ -411,9 +411,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.searchController.setSearchAddon(mounted.searchAddon);
     this.searchController.setTerminal(mounted.terminal);
     this.terminalDisposables = mounted.disposables;
-    if (this.focused) {
-      mounted.terminal.focus();
-    }
     this.fitScheduler.queue();
     this.drainPendingOutput();
   }

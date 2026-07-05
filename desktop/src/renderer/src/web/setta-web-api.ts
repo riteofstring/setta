@@ -6,12 +6,12 @@ import {
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
-  decodeWorkspaceUIEvent,
   decodeWorkflowEvent,
   type BackendClient,
   type RuntimeInfoResponse,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
+import { parseServerSentEvents, type ServerSentEvent } from "@shared/server-sent-events";
 import type {
   BackendEventStreamStatus,
   BackendProcessStatus,
@@ -21,19 +21,15 @@ import type {
 import {
   detectWebPlatform,
   errorMessage,
+  sleepWithAbort,
   transparentSVGDataURL,
   webDeviceDisplayName,
   webRuntimeVersions,
 } from "./setta-web-api-utils";
-import {
-  cursorFromServerSentEvent,
-  cursorFromStreamedEvent,
-  startWebBackendEventStream,
-  type WebEventStreamOptions,
-} from "./web-backend-event-stream";
 import { subscribeForWebPush } from "./setta-web-push";
 
 const webDeviceStorageKey = "setta.web.device-session.v1";
+const reconnectDelayMs = 500;
 
 interface StoredWebDeviceSession {
   deviceId: string;
@@ -46,6 +42,25 @@ interface StoredWebDeviceSession {
 interface ParsedWebPairingURL {
   pairingToken: string;
   runtimeId: string;
+}
+
+interface StreamCursor {
+  sequence: number;
+  streamId: string;
+}
+
+type StreamDecode<T> = (value: unknown, message: ServerSentEvent) => T;
+type StreamCursorForEvent<T> = (event: T, message: ServerSentEvent) => StreamCursor;
+
+interface WebEventStreamOptions<T> {
+  baseURL: string;
+  cursorForEvent: StreamCursorForEvent<T>;
+  decode: StreamDecode<T>;
+  endpoint: { method: string; path: string };
+  fetchImpl: BackendFetch;
+  lifecycle?: (status: BackendEventStreamStatus) => void;
+  sendEvent: (event: T) => void;
+  streamName: string;
 }
 
 interface WebEventStreamRegistration {
@@ -455,24 +470,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         requireClient().validateWorkflowDefinition({ graph, workspaceId }),
     },
     workspace: {
-      applyUIPaneOperation: (workspaceId, operation) =>
-        requireClient().applyWorkspaceUIPaneOperation({ operation, workspaceId }),
       close: (id) => requireClient().closeWorkspace({ id }),
-      initializeUILayout: (workspaceId) =>
-        requireClient().initializeWorkspaceUILayout({ workspaceId }),
-      listUIPanes: (workspaceId) => requireClient().listWorkspaceUIPanes({ workspaceId }),
-      onUIEvent: (workspaceId, listener) =>
-        subscribeWebBackendEventStream({
-          baseURL,
-          cursorForEvent: (_event, message) =>
-            cursorFromServerSentEvent(message, "workspace UI event stream"),
-          decode: decodeWorkspaceUIEvent,
-          endpoint: backendEndpoints.WorkspaceUIEventStream,
-          fetchImpl: rawFetch,
-          query: { workspaceId: requireWorkspaceID(workspaceId) },
-          sendEvent: listener,
-          streamName: "workspace UI event stream",
-        }),
       openLocalFolder: async () => {
         const rootPath = window.prompt("Workspace path")?.trim() ?? "";
         if (rootPath === "") {
@@ -481,13 +479,10 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         return requireClient().openWorkspace({ rootPath });
       },
       openPath: (rootPath) => requireClient().openWorkspace({ rootPath }),
-      readUIPane: (workspaceId, paneId) =>
-        requireClient().readWorkspaceUIPane({ paneId, workspaceId }),
-      readUISchema: () => requireClient().readWorkspaceUISchema(),
       readUILayout: (workspaceId) => requireClient().readWorkspaceUILayout({ workspaceId }),
       removeRecent: (id) => requireClient().removeRecentWorkspace({ id }),
       reorder: (ids) => requireClient().reorderWorkspace({ ids }),
-      resetUILayout: (workspaceId) => requireClient().resetWorkspaceUILayout({ workspaceId }),
+      saveUILayout: (layout) => requireClient().saveWorkspaceUILayout({ layout }),
       select: (id) => requireClient().selectWorkspace({ id }),
       selectedConversations: () => requireClient().workspaceSelectedConversations(),
       session: () => requireClient().workspaceSession(),
@@ -705,11 +700,160 @@ export function authenticatedWebFetch(
   };
 }
 
-function requireWorkspaceID(workspaceId: string): string {
-  if (workspaceId === "") {
-    throw new Error("workspace UI event subscription requires workspaceId");
+function startWebBackendEventStream<T>(options: {
+  authToken: string;
+  baseURL: string;
+  cursorForEvent: StreamCursorForEvent<T>;
+  decode: StreamDecode<T>;
+  endpoint: { method: string; path: string };
+  fetchImpl: BackendFetch;
+  lifecycle?: (status: BackendEventStreamStatus) => void;
+  sendEvent: (event: T) => void;
+  streamName: string;
+}): () => void {
+  const abort = new AbortController();
+  void runWebEventStreamLoop({
+    ...options,
+    signal: abort.signal,
+  });
+  return () => {
+    abort.abort();
+  };
+}
+
+async function runWebEventStreamLoop<T>(options: {
+  authToken: string;
+  baseURL: string;
+  cursorForEvent: StreamCursorForEvent<T>;
+  decode: StreamDecode<T>;
+  endpoint: { method: string; path: string };
+  fetchImpl: BackendFetch;
+  lifecycle?: (status: BackendEventStreamStatus) => void;
+  sendEvent: (event: T) => void;
+  signal: AbortSignal;
+  streamName: string;
+}) {
+  let attempt = 0;
+  let cursor = emptyStreamCursor();
+  while (!options.signal.aborted) {
+    options.lifecycle?.({
+      attempt,
+      message: "connecting to backend event stream",
+      status: "connecting",
+    });
+    try {
+      cursor = await streamWebEventsOnce({ ...options, cursor });
+      if (!options.signal.aborted) {
+        options.lifecycle?.({
+          attempt,
+          lastSequence: cursor.sequence,
+          lastStreamId: cursor.streamId,
+          message: "backend event stream disconnected",
+          status: "reconnecting",
+        });
+      }
+    } catch (error) {
+      if (!options.signal.aborted) {
+        options.lifecycle?.({
+          attempt,
+          lastSequence: cursor.sequence,
+          lastStreamId: cursor.streamId,
+          message: errorMessage(error),
+          status: "reconnecting",
+        });
+      }
+    }
+    attempt += 1;
+    await sleepWithAbort(reconnectDelayMs, options.signal);
   }
-  return workspaceId;
+  options.lifecycle?.({
+    message: "backend event stream stopped",
+    status: "stopped",
+  });
+}
+
+async function streamWebEventsOnce<T>(options: {
+  authToken: string;
+  baseURL: string;
+  cursor: { sequence: number; streamId: string };
+  cursorForEvent: StreamCursorForEvent<T>;
+  decode: StreamDecode<T>;
+  endpoint: { method: string; path: string };
+  fetchImpl: BackendFetch;
+  lifecycle?: (status: BackendEventStreamStatus) => void;
+  sendEvent: (event: T) => void;
+  signal: AbortSignal;
+  streamName: string;
+}): Promise<{ sequence: number; streamId: string }> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${options.authToken}` };
+  if (options.cursor.streamId !== "") {
+    headers["Last-Event-ID"] = `${options.cursor.streamId}:${options.cursor.sequence}`;
+  }
+  const response = await options.fetchImpl(new URL(options.endpoint.path, options.baseURL), {
+    headers,
+    method: options.endpoint.method,
+    signal: options.signal,
+  });
+  if (!response.ok) {
+    throw new Error(`${options.streamName} returned HTTP ${response.status}`);
+  }
+  if (!response.body) {
+    throw new Error(`${options.streamName} returned no response body`);
+  }
+  options.lifecycle?.({
+    lastSequence: options.cursor.sequence,
+    lastStreamId: options.cursor.streamId,
+    message: "connected to backend event stream",
+    status: "connected",
+  });
+  let cursor = options.cursor;
+  for await (const message of parseServerSentEvents(response.body)) {
+    if (options.signal.aborted) {
+      return cursor;
+    }
+    const event = decodeStreamMessage(message, options.decode, options.streamName);
+    const nextCursor = options.cursorForEvent(event, message);
+    if (nextCursor.streamId === cursor.streamId && nextCursor.sequence <= cursor.sequence) {
+      continue;
+    }
+    cursor = nextCursor;
+    options.sendEvent(event);
+  }
+  return cursor;
+}
+
+function decodeStreamMessage<T>(
+  message: ServerSentEvent,
+  decode: StreamDecode<T>,
+  streamName: string,
+): T {
+  try {
+    return decode(JSON.parse(message.data), message);
+  } catch (error) {
+    throw new Error(`${streamName} payload decode failed: ${errorMessage(error)}`, {
+      cause: error,
+    });
+  }
+}
+
+function emptyStreamCursor() {
+  return { sequence: 0, streamId: "" };
+}
+
+function cursorFromStreamedEvent(event: StreamCursor): StreamCursor {
+  return { sequence: event.sequence, streamId: event.streamId };
+}
+
+function cursorFromServerSentEvent(message: ServerSentEvent, streamName: string): StreamCursor {
+  const separator = message.id.lastIndexOf(":");
+  if (separator <= 0 || separator === message.id.length - 1) {
+    throw new Error(`${streamName} id is invalid: ${message.id}`);
+  }
+  const sequence = Number.parseInt(message.id.slice(separator + 1), 10);
+  if (!Number.isInteger(sequence) || sequence < 0) {
+    throw new Error(`${streamName} id sequence is invalid: ${message.id}`);
+  }
+  return { sequence, streamId: message.id.slice(0, separator) };
 }
 
 function parseWebPairingURL(rawURL: string): ParsedWebPairingURL {

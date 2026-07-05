@@ -8,7 +8,6 @@ import { fileURLToPath } from "node:url";
 
 import {
   parseReadyLine,
-  resolveBackendLaunchOptions,
   startBackend,
   startSpawnedBackend,
   type BackendHandle,
@@ -36,35 +35,6 @@ describe("parseReadyLine", () => {
 });
 
 describe("startSpawnedBackend", () => {
-  test("launches spawned backends with the bundled setta CLI directory", () => {
-    const repoRoot = join(tmpdir(), "setta-repo");
-    const appDataDir = join(tmpdir(), "setta-app-data");
-
-    const options = resolveBackendLaunchOptions(repoRoot, appDataDir, {});
-
-    expect(options.command).toBe(`${repoRoot}/scripts/go.sh`);
-    expect(options.args).toEqual([
-      "run",
-      "./cmd/setta-backend",
-      "--app-data-dir",
-      appDataDir,
-      "--bundled-cli-dir",
-      join(repoRoot, "desktop", "out", "backend"),
-    ]);
-  });
-
-  test("allows bundled setta CLI directory override for spawned backends", () => {
-    const repoRoot = join(tmpdir(), "setta-repo");
-    const appDataDir = join(tmpdir(), "setta-app-data");
-    const cliDir = join(tmpdir(), "setta-cli");
-
-    const options = resolveBackendLaunchOptions(repoRoot, appDataDir, {
-      SETTA_BUNDLED_SETTA_CLI_DIR: cliDir,
-    });
-
-    expect(options.args).toContain(cliDir);
-  });
-
   test("keeps SETTA_BACKEND_URL loopback-only", async () => {
     await expect(
       startBackend("/tmp/repo", "/tmp/app-data", {
@@ -102,7 +72,7 @@ describe("startSpawnedBackend", () => {
       args: [backendSupervisorFixture("ready-with-logs")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: backendSupervisorEnv(),
+      env: process.env,
       readyTimeoutMs: 3000,
     });
 
@@ -119,54 +89,12 @@ describe("startSpawnedBackend", () => {
     await handle.stop();
   });
 
-  test("publishes and removes serve state for spawned local backend processes", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "setta-backend-supervisor-"));
-    const appDataDir = join(tempDir, "app-data");
-    const serveStatePath = join(appDataDir, "runtime", "serve-state.json");
-    let handle: BackendHandle | null = null;
-
-    try {
-      handle = await startSpawnedBackend({
-        appDataDir,
-        args: [backendSupervisorFixture("ready-with-runtime-info")],
-        command: process.execPath,
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          SETTA_BACKEND_SUPERVISOR_PROTOCOL_VERSION: String(backendProtocolVersion),
-        },
-        readyTimeoutMs: 3000,
-      });
-
-      const state = JSON.parse(readFileSync(serveStatePath, "utf8"));
-      expect(state).toMatchObject({
-        addr: new URL(handle.url).host,
-        baseUrl: handle.url,
-        displayName: "Supervisor Fixture Runtime",
-        protocolVersion: backendProtocolVersion,
-        runtimeId: "runtime_supervisor_fixture",
-        schemaVersion: 1,
-      });
-      expect(state.pid).toBeGreaterThan(0);
-      expect(typeof state.startedAt).toBe("string");
-
-      await handle.stop();
-      handle = null;
-      expect(existsSync(serveStatePath)).toBe(false);
-    } finally {
-      if (handle !== null) {
-        await handle.stop();
-      }
-      rmSync(tempDir, { force: true, recursive: true });
-    }
-  });
-
   test("continues capturing stdout after readiness", async () => {
     const handle = await startSpawnedBackend({
       args: [backendSupervisorFixture("post-ready-stdout")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: backendSupervisorEnv(),
+      env: process.env,
       readyTimeoutMs: 3000,
     });
 
@@ -285,7 +213,7 @@ describe("startSpawnedBackend", () => {
       args: [backendSupervisorFixture("exit-after-ready")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: backendSupervisorEnv(),
+      env: process.env,
       readyTimeoutMs: 3000,
     });
 
@@ -299,13 +227,6 @@ describe("startSpawnedBackend", () => {
 
 function backendSupervisorFixture(name: string): string {
   return fileURLToPath(new URL(`./test-fixtures/backend-supervisor/${name}.mjs`, import.meta.url));
-}
-
-function backendSupervisorEnv(): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-    SETTA_BACKEND_SUPERVISOR_PROTOCOL_VERSION: String(backendProtocolVersion),
-  };
 }
 
 function waitForLog(handle: BackendHandle, expectedLine: string): Promise<void> {

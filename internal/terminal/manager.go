@@ -20,7 +20,6 @@ const (
 	DefaultCloseKillTimeout            = 2 * time.Second
 	DefaultCols                        = 80
 	DefaultOutputBufferBytesPerSession = 4 * 1024 * 1024
-	DefaultPreparedWriteTTL            = 2 * time.Minute
 	DefaultReplayRetention             = 10 * time.Minute
 	DefaultRows                        = 24
 	MaxCols                            = 500
@@ -41,7 +40,6 @@ type ManagerConfig struct {
 	Clock                       func() time.Time
 	CloseKillTimeout            time.Duration
 	OutputBufferBytesPerSession int
-	PreparedWriteTTL            time.Duration
 	ReplayRetention             time.Duration
 }
 
@@ -50,8 +48,6 @@ type Manager struct {
 	closeKillTimeout  time.Duration
 	eventHub          *eventHub
 	mu                sync.Mutex
-	preparedWriteTTL  time.Duration
-	preparedWrites    map[string]*preparedTerminalWrite
 	profileStore      *ProfileStore
 	pty               PTYStarter
 	sessionByID       map[string]*session
@@ -70,10 +66,8 @@ type session struct {
 	paneID      string
 	profileID   string
 	rows        int
-	screen      *terminalScreen
 	status      SessionStatus
 	updatedAt   time.Time
-	writeMu     sync.Mutex
 	workspaceID string
 }
 
@@ -105,13 +99,18 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	if clock == nil {
 		clock = time.Now
 	}
-	closeKillTimeout := defaultPositiveDuration(config.CloseKillTimeout, DefaultCloseKillTimeout)
+	closeKillTimeout := config.CloseKillTimeout
+	if closeKillTimeout <= 0 {
+		closeKillTimeout = DefaultCloseKillTimeout
+	}
 	outputBufferBytesPerSession := config.OutputBufferBytesPerSession
 	if outputBufferBytesPerSession <= 0 {
 		outputBufferBytesPerSession = DefaultOutputBufferBytesPerSession
 	}
-	preparedWriteTTL := defaultPositiveDuration(config.PreparedWriteTTL, DefaultPreparedWriteTTL)
-	replayRetention := defaultPositiveDuration(config.ReplayRetention, DefaultReplayRetention)
+	replayRetention := config.ReplayRetention
+	if replayRetention <= 0 {
+		replayRetention = DefaultReplayRetention
+	}
 	eventHub, err := newEventHub(clock, eventHubConfig{
 		OutputBufferBytesPerSession: outputBufferBytesPerSession,
 		ReplayRetention:             replayRetention,
@@ -123,21 +122,12 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		clock:             clock,
 		closeKillTimeout:  closeKillTimeout,
 		eventHub:          eventHub,
-		preparedWriteTTL:  preparedWriteTTL,
-		preparedWrites:    map[string]*preparedTerminalWrite{},
 		profileStore:      profileStore,
 		pty:               ptyStarter,
 		sessionByID:       map[string]*session{},
 		sessionByPane:     map[workspacePaneKey]string{},
 		workspaceResolver: config.WorkspaceResolver,
 	}, nil
-}
-
-func defaultPositiveDuration(value time.Duration, fallback time.Duration) time.Duration {
-	if value > 0 {
-		return value
-	}
-	return fallback
 }
 
 func (manager *Manager) Create(
@@ -183,7 +173,6 @@ func (manager *Manager) Create(
 		paneID:      paneID,
 		profileID:   profile.ID,
 		rows:        rows,
-		screen:      newTerminalScreen(cols, rows),
 		status:      SessionStatusRunning,
 		updatedAt:   now,
 		workspaceID: workspaceID,
@@ -215,7 +204,7 @@ func (manager *Manager) Attach(
 	return SessionSummary{}, fmt.Errorf("terminal session not found for workspace %s pane %s", workspaceID, paneID)
 }
 
-func (manager *Manager) WriteInput(ctx context.Context, sessionID string, data []byte) (int, error) {
+func (manager *Manager) WriteInput(_ context.Context, sessionID string, data []byte) (int, error) {
 	if sessionID == "" {
 		return 0, errors.New("session id is required")
 	}
@@ -229,7 +218,11 @@ func (manager *Manager) WriteInput(ctx context.Context, sessionID string, data [
 	if err != nil {
 		return 0, err
 	}
-	return manager.writeSessionInput(ctx, terminalSession, data)
+	written, err := terminalSession.handle.Write(data)
+	if err != nil {
+		return written, fmt.Errorf("write terminal input: %w", err)
+	}
+	return written, nil
 }
 
 func (manager *Manager) Resize(
@@ -254,11 +247,6 @@ func (manager *Manager) Resize(
 	manager.mu.Lock()
 	terminalSession.cols = cols
 	terminalSession.rows = rows
-	if terminalSession.screen == nil {
-		manager.mu.Unlock()
-		return SessionSummary{}, fmt.Errorf("terminal screen state missing for session %s", sessionID)
-	}
-	terminalSession.screen.Resize(cols, rows)
 	terminalSession.updatedAt = manager.clock().UTC()
 	summary := terminalSession.summary()
 	manager.mu.Unlock()
@@ -646,9 +634,6 @@ func (manager *Manager) publishOutput(sessionID string, data []byte) {
 	if terminalSession == nil {
 		manager.mu.Unlock()
 		return
-	}
-	if terminalSession.screen != nil {
-		terminalSession.screen.Feed(data)
 	}
 	payload := TerminalEventPayload{
 		DataBase64: base64.StdEncoding.EncodeToString(data),

@@ -12,15 +12,6 @@ import {
   emitRealtimeNotifications,
   hookPayload,
 } from "./fake-codex-protocol-payloads.mjs";
-import {
-  assertCodexSkillRootsConfigured,
-  assertSettaSkillRootParams,
-} from "./fake-codex-skill-roots.mjs";
-import {
-  emitWorkflowAuthoringFailure,
-  emitWorkflowAuthoringTurn,
-  workflowAuthoring,
-} from "./fake-codex-workflow-authoring.mjs";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
@@ -71,10 +62,7 @@ let activeSilentLivenessTurn = null;
 let currentGoal = null;
 let goalCancelTurnId = null;
 let goalPaused = false;
-let skillRootsConfigured = false;
-let structuredThreadSequence = 0;
-let structuredTurnSequence = 0;
-const structuredThreads = new Set();
+let pendingDynamicTool = null;
 const rl = readline.createInterface({ input: process.stdin });
 
 rl.on("line", (line) => {
@@ -86,6 +74,10 @@ rl.on("line", (line) => {
 });
 
 function handleMessage(message) {
+  if (pendingDynamicTool && message.method === undefined) {
+    handleDynamicToolResponse(message);
+    return;
+  }
   const handler = methodHandlers[message.method] ?? respondEmpty;
   handler(message);
 }
@@ -100,7 +92,6 @@ const methodHandlers = {
   initialize: handleInitialize,
   initialized: () => {},
   "model/list": handleModelList,
-  "skills/extraRoots/set": handleSkillsExtraRootsSet,
   "thread/goal/clear": handleThreadGoalClear,
   "thread/goal/get": handleThreadGoalGet,
   "thread/goal/set": handleThreadGoalSet,
@@ -147,13 +138,11 @@ function handleAccountLogout(message) {
 function handleThreadStart(message) {
   if (isStructuredThreadStart(message.params)) {
     assertStructuredThreadStart(message.params);
-    const structuredThreadId = nextStructuredThreadId();
-    structuredThreads.add(structuredThreadId);
-    respond(message.id, fakeThreadResponse({ ephemeral: true, threadId: structuredThreadId }));
+    respond(message.id, fakeThreadResponse({ ephemeral: true }));
     return;
   }
-  assertCodexSkillRootsConfigured(skillRootsConfigured);
   assertThreadStartDeveloperInstructions(message.params);
+  assertThreadStartDynamicTools(message.params);
   const options = threadResponseOptionsFromParams(message.params);
   if (parallelThreadsEnabled) {
     options.threadId = parallelRuns.nextThreadId();
@@ -163,19 +152,12 @@ function handleThreadStart(message) {
 }
 
 function handleThreadResume(message) {
-  assertCodexSkillRootsConfigured(skillRootsConfigured);
   if (message.params?.dynamicTools !== undefined) {
     throw new Error("thread/resume should not include dynamicTools");
   }
   const options = threadResponseOptionsFromParams(message.params);
   applyUnsupportedApprovalPolicyForSource(options, "thread-resume");
   respond(message.id, fakeThreadResponse(options));
-}
-
-function handleSkillsExtraRootsSet(message) {
-  assertSettaSkillRootParams(message.params?.extraRoots);
-  skillRootsConfigured = true;
-  respond(message.id, {});
 }
 
 function handleThreadRead(message) {
@@ -195,14 +177,12 @@ function handleTurnStart(message) {
   if (parallelThreadsEnabled && parallelRuns.handleTurnStart(message)) {
     return;
   }
+  respond(message.id, { turn: fakeTurn("inProgress") });
   if (isStructuredTurnStart(message.params)) {
     assertStructuredTurnStart(message.params);
-    const structuredTurnId = nextStructuredTurnId();
-    respond(message.id, { turn: fakeTurnWithID(structuredTurnId, "inProgress") });
-    setTimeout(() => emitStructuredTaskTurn(message.params.threadId, structuredTurnId), 5);
+    setTimeout(emitStructuredTaskTurn, 5);
     return;
   }
-  respond(message.id, { turn: fakeTurn("inProgress") });
   const text = turnInputText(message);
   if (handleProviderLifecycleTurn(text)) {
     return;
@@ -244,31 +224,13 @@ function handleScriptedTurnStart(text) {
     return true;
   }
   if (text.includes("protocol notification workflow")) {
-    setTimeout(emitProtocolCoverageTurn, 5);
-    return true;
-  }
-  if (text.includes(workflowAuthoring.promptMarker)) {
-    setTimeout(() => {
-      const context = workflowAuthoringContext();
-      emitWorkflowAuthoringTurn(context).catch((error) =>
-        emitWorkflowAuthoringFailure(error, context),
-      );
-    }, 5);
+    setTimeout(
+      () => requestDynamicTool("workspace_context", "tool_context", "workspace_context"),
+      5,
+    );
     return true;
   }
   return false;
-}
-
-function workflowAuthoringContext() {
-  return {
-    fakeTurn,
-    notify,
-    notifyUnifiedExecCompleted,
-    notifyUnifiedExecOutput,
-    notifyUnifiedExecStarted,
-    threadId,
-    turnId,
-  };
 }
 
 function handleProviderLifecycleTurn(text) {
@@ -692,10 +654,10 @@ function assertThreadStartDeveloperInstructions(params) {
   const instructions = params?.developerInstructions;
   if (
     typeof instructions !== "string" ||
-    !instructions.includes("$workflow-builder") ||
-    !instructions.includes("`setta workflow` CLI")
+    !instructions.includes("available dynamic tool") ||
+    !instructions.includes("Do not invent dynamic tool names")
   ) {
-    throw new Error("thread/start developerInstructions missing Setta workflow skill guidance");
+    throw new Error("thread/start developerInstructions missing Setta dynamic tool guidance");
   }
 }
 
@@ -719,6 +681,120 @@ function assertStructuredThreadStart(params) {
   }
 }
 
+function assertThreadStartDynamicTools(params) {
+  const workspaceContext = workspaceContextTool(params);
+  assertWorkspaceContextVisibility(workspaceContext);
+  assertWorkspaceContextDescription(workspaceContext);
+  assertWorkspaceContextInputSchema(workspaceContext);
+}
+
+function workspaceContextTool(params) {
+  const tools = params?.dynamicTools;
+  if (!Array.isArray(tools) || tools.length === 0) {
+    throw new Error("thread/start missing dynamicTools");
+  }
+  const workspaceContext = tools.find(
+    (tool) => tool?.namespace === "setta" && tool?.name === "workspace_context",
+  );
+  if (!workspaceContext) {
+    throw new Error("thread/start missing setta.workspace_context dynamic tool");
+  }
+  return workspaceContext;
+}
+
+function assertWorkspaceContextVisibility(workspaceContext) {
+  if (workspaceContext.deferLoading !== undefined) {
+    throw new Error("workspace_context should be visible");
+  }
+}
+
+function assertWorkspaceContextDescription(workspaceContext) {
+  if (
+    typeof workspaceContext.description !== "string" ||
+    !workspaceContext.description.includes("workspace")
+  ) {
+    throw new Error("workspace_context description missing workspace terms");
+  }
+}
+
+function assertWorkspaceContextInputSchema(workspaceContext) {
+  if (
+    workspaceContext.inputSchema?.type !== "object" ||
+    workspaceContext.inputSchema?.additionalProperties !== false
+  ) {
+    throw new Error("workspace_context input schema mismatch");
+  }
+}
+
+function requestDynamicTool(tool, id, kind) {
+  pendingDynamicTool = { id, kind };
+  write({
+    id,
+    method: "item/tool/call",
+    params: {
+      arguments: {},
+      callId: id + "_call",
+      namespace: "setta",
+      threadId,
+      tool,
+      turnId,
+    },
+  });
+}
+
+function handleDynamicToolResponse(message) {
+  const pending = pendingDynamicTool;
+  pendingDynamicTool = null;
+  if (message.id !== pending.id) {
+    throw new Error("dynamic tool response id mismatch");
+  }
+  if (pending.kind === "workspace_context") {
+    assertWorkspaceContextToolResponse(message);
+    requestDynamicTool("missing_tool", "tool_missing", "missing_tool");
+    return;
+  }
+  if (pending.kind === "missing_tool") {
+    assertUnsupportedDynamicToolResponse(message);
+    emitProtocolCoverageTurn();
+    return;
+  }
+  throw new Error("unknown pending dynamic tool kind: " + pending.kind);
+}
+
+function assertWorkspaceContextToolResponse(message) {
+  if (message.error) {
+    throw new Error("workspace_context returned error: " + JSON.stringify(message.error));
+  }
+  assertWorkspaceContextResult(message.result);
+  assertWorkspaceContextContent(message.result.contentItems[0], message.result.contentItems);
+}
+
+function assertWorkspaceContextResult(result) {
+  const items = result?.contentItems;
+  if (result?.success !== true || !Array.isArray(items) || items.length !== 1) {
+    throw new Error("workspace_context result mismatch: " + JSON.stringify(result));
+  }
+}
+
+function assertWorkspaceContextContent(item, items) {
+  const text = item?.text ?? "";
+  if (item?.type !== "inputText" || !text.includes('"rootPath"') || !text.includes('"threadId"')) {
+    throw new Error("workspace_context content mismatch: " + JSON.stringify(items));
+  }
+}
+
+function assertUnsupportedDynamicToolResponse(message) {
+  if (message.result) {
+    throw new Error("unsupported dynamic tool unexpectedly returned result");
+  }
+  if (message.error?.code !== -32002) {
+    throw new Error("unsupported dynamic tool error mismatch: " + JSON.stringify(message.error));
+  }
+  if (!message.error?.message?.includes("unsupported dynamic tool")) {
+    throw new Error("unsupported dynamic tool error mismatch: " + JSON.stringify(message.error));
+  }
+}
+
 function isStructuredTurnStart(params) {
   return params?.approvalPolicy === "never" && params?.outputSchema !== undefined;
 }
@@ -727,19 +803,9 @@ function assertStructuredTurnStart(params) {
   if (params?.sandboxPolicy === undefined) {
     throw new Error("structured turn/start missing sandboxPolicy");
   }
-  if (!structuredThreads.has(params?.threadId)) {
+  if (params?.threadId !== threadId) {
     throw new Error("structured turn/start targeted wrong thread");
   }
-}
-
-function nextStructuredThreadId() {
-  structuredThreadSequence += 1;
-  return `thread_structured_${structuredThreadSequence}`;
-}
-
-function nextStructuredTurnId() {
-  structuredTurnSequence += 1;
-  return `turn_structured_${structuredTurnSequence}`;
 }
 
 function handleAccountLoginStart(message) {
@@ -1124,11 +1190,11 @@ function emitMcpToolCallCoverage() {
   });
 }
 
-function emitStructuredTaskTurn(structuredThreadId, structuredTurnId) {
+function emitStructuredTaskTurn() {
   notify("turn/completed", {
-    threadId: structuredThreadId,
+    threadId,
     turn: {
-      ...fakeTurnWithID(structuredTurnId, "completed"),
+      ...fakeTurn("completed"),
       items: [
         {
           id: "structured_message_fake",

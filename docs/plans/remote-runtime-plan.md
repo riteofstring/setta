@@ -47,7 +47,7 @@ No other features gate the PoC. Manual SSH to the box for install is fine — ou
 
 ### PoC Phase 2 (immediately after): the same workspace on the phone
 
-The Android PWA is the desktop renderer built for the web, showing the **same project through the same niri pane layout** — a pane is ≈ one screen width on a phone; swipe moves along the strip. Pane layout is already runtime-side state (`internal/workspaceui`; store methods `LoadLayout`/`SaveLayout`, exposed through `ReadWorkspaceUILayout`, `InitializeWorkspaceUILayout`, `ResetWorkspaceUILayout`, and typed `ApplyWorkspaceUIPaneOperation` commands), so desktop and phone genuinely see the same panes, not merely the same kind of UI. Plus Web Push for run-finished / approval-requested / agent-responded.
+The Android PWA is the desktop renderer built for the web, showing the **same project through the same niri pane layout** — a pane is ≈ one screen width on a phone; swipe moves along the strip. Pane layout is already runtime-side state (`internal/workspaceui`; store methods `LoadLayout`/`SaveLayout`, exposed as the `ReadWorkspaceUILayout`/`SaveWorkspaceUILayout` endpoints), so desktop and phone genuinely see the same panes, not merely the same kind of UI. Plus Web Push for run-finished / approval-requested / agent-responded.
 
 Implementation facts that gate this — Phase 2 is a real project, not a build-flag flip:
 

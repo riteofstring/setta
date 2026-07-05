@@ -6,32 +6,6 @@ import (
 	"fmt"
 )
 
-func (store *Store) AppendWorkflowDefinitionEvent(event WorkflowEvent) (WorkflowEventEnvelope, error) {
-	if err := validateWorkflowDefinitionEventRecord(event); err != nil {
-		return WorkflowEventEnvelope{}, err
-	}
-	ctx := context.Background()
-	tx, err := store.db.BeginTx(ctx, nil)
-	if err != nil {
-		return WorkflowEventEnvelope{}, store.persistenceError("begin workflow definition event transaction", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
-		}
-	}()
-	envelopes, err := store.insertWorkflowEvents(ctx, tx, []WorkflowEvent{event})
-	if err != nil {
-		return WorkflowEventEnvelope{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return WorkflowEventEnvelope{}, store.persistenceError("commit workflow definition event transaction", err)
-	}
-	committed = true
-	return envelopes[0], nil
-}
-
 func (store *Store) LoadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (WorkflowExecutionEventPage, error) {
 	if err := validateStoreIDs("workspace id", workspaceID, "execution id", executionID); err != nil {
 		return WorkflowExecutionEventPage{}, err
@@ -71,9 +45,9 @@ func workflowEventPageQueryArgs(workspaceID string, executionID string, beforeOr
 func (store *Store) loadWorkflowEventsDescending(condition string, args []any) ([]WorkflowEvent, error) {
 	rows, err := store.db.QueryContext(context.Background(), fmt.Sprintf(`
 SELECT stream_sequence, id, schema_version, workspace_id, definition_id,
-       definition_name, definition_version_id, run_id, ordinal, type, node_id,
+       definition_version_id, run_id, ordinal, type, node_id,
        node_execution_id, token_id, runner_kind, created_at, message, details_json
-FROM workflow_events
+FROM workflow_run_events
 WHERE %s
 ORDER BY ordinal DESC
 LIMIT ?
@@ -123,9 +97,9 @@ func (store *Store) LoadWorkflowEventStreamAfter(cursor WorkflowEventCursor) ([]
 	}
 	rows, err := store.db.QueryContext(context.Background(), `
 SELECT stream_sequence, id, schema_version, workspace_id, definition_id,
-       definition_name, definition_version_id, run_id, ordinal, type, node_id,
+       definition_version_id, run_id, ordinal, type, node_id,
        node_execution_id, token_id, runner_kind, created_at, message, details_json
-FROM workflow_events
+FROM workflow_run_events
 WHERE stream_sequence > ?
 ORDER BY stream_sequence ASC
 `, cursor.Sequence)
@@ -150,9 +124,6 @@ ORDER BY stream_sequence ASC
 func scanWorkflowEventEnvelope(scanner workflowDefinitionScanner) (WorkflowEventEnvelope, WorkflowEvent, error) {
 	var sequence int
 	var event WorkflowEvent
-	var definitionVersionID sql.NullString
-	var executionID sql.NullString
-	var ordinal sql.NullInt64
 	var runnerKind sql.NullString
 	var detailsJSON string
 	if err := scanner.Scan(
@@ -161,10 +132,9 @@ func scanWorkflowEventEnvelope(scanner workflowDefinitionScanner) (WorkflowEvent
 		&event.SchemaVersion,
 		&event.WorkspaceID,
 		&event.DefinitionID,
-		&event.DefinitionName,
-		&definitionVersionID,
-		&executionID,
-		&ordinal,
+		&event.DefinitionVersionID,
+		&event.ExecutionID,
+		&event.Ordinal,
 		&event.Type,
 		&event.NodeID,
 		&event.NodeExecutionID,
@@ -176,9 +146,6 @@ func scanWorkflowEventEnvelope(scanner workflowDefinitionScanner) (WorkflowEvent
 	); err != nil {
 		return WorkflowEventEnvelope{}, WorkflowEvent{}, err
 	}
-	event.DefinitionVersionID = nullStringValue(definitionVersionID)
-	event.ExecutionID = nullStringValue(executionID)
-	event.Ordinal = nullIntValue(ordinal)
 	event.RunnerKind = actionKindFromNull(runnerKind)
 	event.Details = rawJSONFromString(detailsJSON)
 	if err := validateEventRecord(event); err != nil {

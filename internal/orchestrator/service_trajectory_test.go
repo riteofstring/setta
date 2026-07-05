@@ -198,7 +198,7 @@ func assertRemainingMaxLimitTrajectoryOutput(t *testing.T, chatService *chat.Ser
 }
 
 func TestServiceReadWorkflowNodeTrajectorySurfacesPendingApprovalAndActiveLiveness(t *testing.T) {
-	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
+	workflowService, _, harness, workspaceID := newCodexRunnerTestServices(t)
 	definition, err := workflowService.CreateDefinition(workspaceID, "Trajectory approval", "", codexActionGraph("command approval workflow", true))
 	if err != nil {
 		t.Fatalf("create definition: %v", err)
@@ -248,7 +248,6 @@ func TestServiceReadWorkflowNodeTrajectorySurfacesPendingApprovalAndActiveLivene
 	}
 	waitForWorkflowEvent(t, subscription, started.ID, EventExecutionCompleted)
 	waitForScriptedHarnessIdle(t, harness)
-	waitForWorkflowChatRunStatus(t, chatService, workspaceID, page.ConversationID, page.RunID, chat.RunStatusCompleted)
 }
 
 func TestServiceStopWorkflowNodeRunCancelsWorkflowOwnedRun(t *testing.T) {

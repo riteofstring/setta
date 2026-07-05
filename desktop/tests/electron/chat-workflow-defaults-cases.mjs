@@ -175,16 +175,18 @@ async function openChatDefaultsSettings(client) {
   await waitForState(
     client,
     `(() => {
-      const tab = Array.from(document.querySelectorAll("#settings-subtab-chat-defaults")).find(
-        (candidate) =>
-          candidate instanceof HTMLButtonElement &&
-          candidate.getClientRects().length > 0,
-      );
+      const tab = document.querySelector("#settings-subtab-chat-defaults");
       return { ready: tab instanceof HTMLButtonElement };
     })()`,
     (value) => value.ready,
   );
-  await clickButtonContainingTextByRole(client, "tab", "Chat Defaults");
+  await client.evaluate(`(() => {
+    const tab = document.querySelector("#settings-subtab-chat-defaults");
+    if (!(tab instanceof HTMLButtonElement)) {
+      throw new Error("missing chat defaults settings tab");
+    }
+    tab.click();
+  })()`);
   await waitForState(
     client,
     `(() => {

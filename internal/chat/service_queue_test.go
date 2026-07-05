@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -59,75 +58,6 @@ func TestServiceEditsQueuedMessageAndUsesEditedTextOnPromotion(t *testing.T) {
 	if got := promptForMessageID(page.Messages, queued.UserMessage.ID); got != "Q1 edited" {
 		t.Fatalf("promoted queued message text = %q, want edited text", got)
 	}
-	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
-		t.Fatalf("cancel promoted run cleanup: %v", err)
-	}
-}
-
-func TestServiceQueueUserInputForActiveRunRejectsIdleConversation(t *testing.T) {
-	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-
-	_, err = service.QueueUserInputForActiveRun("workspace_api", conversation.ID, TextChatInput("Q1"))
-	if !errors.Is(err, ErrQueueRequiresActiveRun) {
-		t.Fatalf("queue for active run error = %v, want ErrQueueRequiresActiveRun", err)
-	}
-	runs, err := service.ListRuns("workspace_api", conversation.ID)
-	if err != nil {
-		t.Fatalf("list runs: %v", err)
-	}
-	if len(runs) != 0 {
-		t.Fatalf("runs after rejected active-run queue = %+v, want none", runs)
-	}
-	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
-	if err != nil {
-		t.Fatalf("load page: %v", err)
-	}
-	if len(page.Messages) != 0 || len(page.Queue.Messages) != 0 || len(page.Queue.Runs) != 0 {
-		t.Fatalf("page after rejected active-run queue = %+v, want no messages or queued work", page)
-	}
-}
-
-func TestServiceQueueUserInputForActiveRunQueuesDuringActiveRun(t *testing.T) {
-	harness := NewFakeHarness([]FakeHarnessEvent{
-		{Type: FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},
-		{Type: FakeEventWaitForSteer},
-	})
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	active, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1"))
-	if err != nil {
-		t.Fatalf("send active: %v", err)
-	}
-	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
-
-	queued, err := service.QueueUserInputForActiveRun("workspace_api", conversation.ID, TextChatInput("Q1"))
-	if err != nil {
-		t.Fatalf("queue for active run: %v", err)
-	}
-	if queued.UserMessage.Delivery != MessageDeliveryQueued || queued.Run.Status != RunStatusQueued {
-		t.Fatalf("queued result = %+v, want queued message and run", queued)
-	}
-	if len(queued.Queue.Messages) != 1 || queued.Queue.Messages[0].ID != queued.UserMessage.ID {
-		t.Fatalf("queue messages = %+v, want queued user message %s", queued.Queue.Messages, queued.UserMessage.ID)
-	}
-	run, err := service.store.LoadRun("workspace_api", queued.Run.ID)
-	if err != nil {
-		t.Fatalf("load queued run: %v", err)
-	}
-	if run.Status != RunStatusQueued {
-		t.Fatalf("queued run status = %s, want queued while active run continues", run.Status)
-	}
-
-	steerWhenReady(t, service, "workspace_api", conversation.ID, "finish A1")
-	waitForRunStatus(t, service, "workspace_api", conversation.ID, active.Run.ID, RunStatusCompleted)
-	waitForRunStatus(t, service, "workspace_api", conversation.ID, queued.Run.ID, RunStatusRunning)
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
 		t.Fatalf("cancel promoted run cleanup: %v", err)
 	}

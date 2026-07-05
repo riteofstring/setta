@@ -85,7 +85,6 @@ import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
 import { runTranscriptSearchWorkflowLaunch } from "./chat-workflow-transcript-search-cases.mjs";
 import { runTranscriptScrollWorkflowLaunch } from "./chat-workflow-transcript-scroll-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
-import { runWorkspaceChatReadWorkflow } from "./chat-workflow-workspace-chat-read-cases.mjs";
 import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
 import { runWorkflowRunnerPostStartFailureWorkflowLaunch } from "./workflow-runner-post-start-cases.mjs";
 import { runWorkflowVersionCommitOrderingWorkflowLaunch } from "./workflow-version-commit-ordering-cases.mjs";
@@ -102,10 +101,6 @@ import {
   runProtocolProviderRestartLivenessWorkflow,
   runProtocolStreamErrorLivenessWorkflow,
 } from "./codex-protocol-workflow.mjs";
-import {
-  assertProtocolWorkflowAuthoringRestartRecording,
-  runProtocolWorkflowAuthoringPersistenceWorkflow,
-} from "./codex-protocol-workflow-authoring.mjs";
 import { runCodexAppServerLifecycleWorkflowLaunch } from "./codex-app-server-lifecycle-cases.mjs";
 import { runProtocolGoalBackgroundTerminalWorkflow } from "./codex-protocol-background-terminal-cases.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
@@ -258,6 +253,7 @@ async function main() {
     await rm(recordingRoot, { force: true, recursive: true });
   }
   await mkdir(recordingRoot, { recursive: true });
+
   const results = [];
   if (await runSelectedSingleWorkflow(results)) {
     printWorkflowResults(results);
@@ -337,7 +333,6 @@ async function main() {
       createChat,
       createFixture,
       failureWithLogs,
-      keepArtifacts: options.keepArtifacts,
       launchContext,
       liveWorkflowTimeoutMs,
       openWorkspace,
@@ -357,6 +352,7 @@ async function main() {
       waitForTexts,
     });
   }
+
   printWorkflowResults(results);
 }
 async function runSelectedSingleWorkflow(results) {
@@ -400,13 +396,6 @@ async function runDeterministicWorkflowLaunch(results) {
     await runWorkflowStep(results, recordingDir, "happy-path", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId);
-      await runWorkspaceChatReadWorkflow({
-        appDataDir: fixture.appDataDir,
-        backend,
-        client: context.client,
-        conversationId,
-        workspaceId,
-      });
     });
     await runWorkflowStep(results, recordingDir, "image-attachments", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
@@ -612,6 +601,7 @@ async function runDeterministicWorkflowLaunch(results) {
     await stopElectron(context.electron);
     await rm(fixture.tempRoot, { force: true, recursive: true });
   }
+
   if (failure) {
     throw failureWithLogs(failure, context.electron.logs);
   }
@@ -668,6 +658,7 @@ async function runDeterministicWorkflowLaunch(results) {
     ],
   });
 }
+
 async function runChatActivityProjectionWorkflow(client, backend, workspaceId, conversationId) {
   await submitComposer(client, "projection silent greeting workflow", "Send message");
   const greetingRun = await waitForRunWithPrompt(
@@ -686,6 +677,7 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
     rows: [],
   });
   await assertActivityRows(client, []);
+
   await submitComposer(client, "chat activity projection workflow", "Send message");
   await waitForTexts(client, ["Projection activity starting.", "Streaming reasoning placeholder"]);
   await submitComposer(client, "finish projection activity", "Send steering message");
@@ -706,6 +698,7 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
   await assertReasoningBlockPresent(client, "Streaming reasoning placeholder");
   await assertTextAbsent(client, "private projection reasoning");
   await assertTextAbsent(client, "Projection duplicate provider agent message");
+
   const projection = await assertRunActivityProjection(backend, workspaceId, run.id, {
     rawTypes: ["agent_message", "reasoning"],
     rows: projectionExpectedRows(),
@@ -718,6 +711,7 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
   await waitForText(client, "Public reasoning summary visible.");
   await assertAssistantTextOccurrence(client, "Projection assistant final.", 1);
 }
+
 // expandReasoningSummaryBlock opens the collapsed summary-mode reasoning block
 // whose collapsed headline matches the given text, so the full public summary
 // becomes visible through its own disclosure rather than an activity row.
@@ -732,6 +726,7 @@ async function assertReasoningBlockPresent(client, headline) {
     throw new Error(`expected a reasoning block containing ${JSON.stringify(headline)}`);
   }
 }
+
 async function expandReasoningSummaryBlock(client, headline) {
   const opened = await client.evaluate(`(() => {
     const headline = ${JSON.stringify(headline)};
@@ -753,6 +748,7 @@ async function expandReasoningSummaryBlock(client, headline) {
     );
   }
 }
+
 async function assertRunActivityProjection(backend, workspaceId, runId, expected) {
   const page = await backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId });
   const rows = page.activity ?? [];
@@ -762,6 +758,7 @@ async function assertRunActivityProjection(backend, workspaceId, runId, expected
   assertRawActivityTypes(page.items, expected.rawTypes);
   return { page, rows };
 }
+
 function assertProjectedActivityRowCount(rows, expectedRows, page) {
   if (rows.length !== expectedRows.length) {
     throw new Error(
@@ -769,6 +766,7 @@ function assertProjectedActivityRowCount(rows, expectedRows, page) {
     );
   }
 }
+
 function assertProjectedActivityRows(rows, expectedRows) {
   for (const expectedRow of expectedRows) {
     const row = rows.find((candidate) => projectedActivityRowMatches(candidate, expectedRow));
@@ -782,12 +780,14 @@ function assertProjectedActivityRows(rows, expectedRows) {
     }
   }
 }
+
 function projectedActivityRowMatches(row, expectedRow) {
   if (row.type !== expectedRow.type || row.title !== expectedRow.title) {
     return false;
   }
   return expectedRow.summary === undefined || row.details.summary === expectedRow.summary;
 }
+
 function assertNoPrivateActivityProjectionLeaks(rows) {
   if (rows.some((row) => row.type === "agent_message")) {
     throw new Error(`agent message leaked into activity projection: ${JSON.stringify(rows)}`);
@@ -803,6 +803,7 @@ function assertNoPrivateActivityProjectionLeaks(rows) {
     throw new Error(`hidden reasoning leaked into activity projection: ${JSON.stringify(rows)}`);
   }
 }
+
 function assertRawActivityTypes(items, rawTypes) {
   for (const rawType of rawTypes) {
     if (!items.some((item) => item.type === rawType)) {
@@ -810,6 +811,7 @@ function assertRawActivityTypes(items, rawTypes) {
     }
   }
 }
+
 async function assertActivityRows(client, expectedRows) {
   const rendered = await client.evaluate(`(() => ({
     rows: Array.from(document.querySelectorAll('[data-testid="run-activity-row"]')).map((row) => ({
@@ -841,21 +843,14 @@ async function assertActivityRows(client, expectedRows) {
 }
 
 async function assertAssistantTextOccurrence(client, text, expectedCount) {
-  const startedAt = Date.now();
-  let last = { count: 0, rows: [] };
-  while (Date.now() - startedAt < 5_000) {
-    const transcript = await client.driver("chatTranscriptRows");
-    const assistantRows = transcript.rows.filter((row) => row.role === "assistant");
-    const count = assistantRows.reduce((total, row) => total + occurrences(row.text, text), 0);
-    if (count === expectedCount) {
-      return;
-    }
-    last = { count, rows: assistantRows };
-    await delay(100);
+  const transcript = await client.driver("chatTranscriptRows");
+  const assistantRows = transcript.rows.filter((row) => row.role === "assistant");
+  const count = assistantRows.reduce((total, row) => total + occurrences(row.text, text), 0);
+  if (count !== expectedCount) {
+    throw new Error(
+      `assistant text ${text} rendered ${count} times, want ${expectedCount}: ${JSON.stringify(assistantRows)}`,
+    );
   }
-  throw new Error(
-    `assistant text ${text} rendered ${last.count} times, want ${expectedCount}: ${JSON.stringify(last.rows)}`,
-  );
 }
 
 function projectionExpectedRows() {
@@ -1253,15 +1248,12 @@ async function runCodexProtocolWorkflow(results) {
   const fixture = await createFixture("codex-protocol");
   const fakeCodex = await installFakeCodexAppServer(fixture);
   const recordingDir = join(recordingRoot, "codex-protocol");
-  const restartRecordingDir = join(recordingRoot, "codex-protocol-restart");
-  const launchOptions = {
+  const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
     },
     harness: "codex",
-  };
-  let context = await launchContext(fixture, recordingDir, launchOptions);
-  const collectedLogs = [];
+  });
   let failure = null;
 
   try {
@@ -1279,9 +1271,10 @@ async function runCodexProtocolWorkflow(results) {
       "protocol notification workflow",
       "completed",
     );
-    await waitForTexts(context.client, ["coverage complete", "Protocol warning notice."]);
+    await waitForTexts(context.client, ["coverage complete", "Workspace context"]);
     await assertCollapsedActivityGroupHeader(context.client, {
-      preview: "Protocol warning notice.",
+      absent: "+8",
+      preview: "Workspace context",
     });
     await assertTextAbsent(context.client, "Reasoning text");
     await assertTextAbsent(context.client, "private reasoning");
@@ -1303,33 +1296,18 @@ async function runCodexProtocolWorkflow(results) {
     await runProtocolLivenessReconciliationWorkflow(context.client, backend, workspaceId);
     await runProtocolProviderRestartLivenessWorkflow(context.client, backend, workspaceId);
     await runProtocolStreamErrorLivenessWorkflow(context.client, backend, workspaceId);
-    const authoringPersistence = await runProtocolWorkflowAuthoringPersistenceWorkflow({
-      backend,
-      context,
-      fakeCodexBinDir: fakeCodex.binDir,
-      fixture,
-      launchOptions,
-      onContextChanged: (nextContext) => {
-        context = nextContext;
-      },
-      recordingDir,
-      restartRecordingDir,
-      workspaceId,
-    });
-    collectedLogs.push(...authoringPersistence.logs);
+    await captureScreenshot(context.client, join(recordingDir, "success.png"));
   } catch (error) {
     failure = error;
-    await captureScreenshot(
-      context?.client,
-      join(recordingRoot, "codex-protocol-failure.png"),
-    ).catch(() => {});
+    await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
   } finally {
-    await stopLaunchedContext(context);
+    context.client?.close();
+    await stopElectron(context.electron);
     await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 
   if (failure) {
-    throw failureWithLogs(failure, [...collectedLogs, ...(context?.electron.logs ?? [])]);
+    throw failureWithLogs(failure, context.electron.logs);
   }
   await assertRecordingEvidence(recordingDir, {
     backendPaths: [
@@ -1346,8 +1324,6 @@ async function runCodexProtocolWorkflow(results) {
       "/chat/runs/reconcile",
       "/chat/runs/list",
       "/chat/diagnostics/list",
-      "/workflows/definitions/list",
-      "/workflows/executions/list",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
@@ -1359,7 +1335,6 @@ async function runCodexProtocolWorkflow(results) {
       "chat:send-message",
     ],
   });
-  await assertProtocolWorkflowAuthoringRestartRecording(restartRecordingDir);
   results.push("codex-protocol-notifications");
   process.stdout.write("Electron chat workflow passed: codex-protocol-notifications\n");
 }

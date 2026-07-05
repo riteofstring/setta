@@ -265,7 +265,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
     backendPaths: [
       "/workspaces/open",
       "/workspaces/ui/layout/read",
-      "/workspaces/ui/layout/initialize",
+      "/workspaces/ui/layout/save",
       "/chat/conversations/create",
       "/chat/conversations/list",
       "/workflows/definitions/validate",
@@ -283,7 +283,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
     ipcChannels: [
       "workspace:open-local-folder",
       "workspace:read-ui-layout",
-      "workspace:initialize-ui-layout",
+      "workspace:save-ui-layout",
       "chat:create-conversation",
       "workflow:validate-definition",
       "workflow:create-definition",
@@ -391,14 +391,14 @@ async function assertApproveWorkflowNodeTrajectoryDetails(client, workspaceId, r
       );
     },
   );
-  await reloadWorkflowNodeDetailsWithPersistedTarget(client, {
-    executionId: startedRun.executionId,
-    isReady: (state) =>
-      state.trajectory.approvalCardCount === 0 &&
-      state.trajectory.text.includes("Command approval resolved."),
-    nodeId: "activity",
-    workspaceId,
-  });
+  await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryState"),
+    (state) =>
+      state.trajectoryPresent &&
+      state.approvalCardCount === 0 &&
+      state.text.includes("Command approval resolved."),
+  );
   await appendWorkflowState(recordingDir, {
     approvalId: pendingApproval.approvalId,
     executionId: completed.id,

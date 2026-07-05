@@ -116,6 +116,10 @@ func (client *recordingCodexChatClient) LoadRunActivityPage(string, string, stri
 	return chat.RunActivityPage{}, nil
 }
 
+func (client *recordingCodexChatClient) LoadRunActivityItems(string, string) ([]chat.RunItem, error) {
+	return nil, nil
+}
+
 func (client *recordingCodexChatClient) LoadRunItemOutputPage(string, string, string, int, int) (chat.RunItemOutputPage, error) {
 	return chat.RunItemOutputPage{}, nil
 }
@@ -170,7 +174,7 @@ func (client *recordingCodexChatClient) SubmitApproval(string, string, string, b
 func semanticContextActionStartRequest() ActionStartRequest {
 	actionKind := ActionKindAgentCodex
 	return ActionStartRequest{
-		WorkspaceID:         "workspace_semantic_context",
+		WorkspaceID:         "workspace_context",
 		DefinitionID:        "definition_context",
 		DefinitionVersionID: "version_context",
 		Execution: WorkflowExecution{
@@ -199,11 +203,11 @@ func semanticContextActionStartRequest() ActionStartRequest {
 func workflowTurnResultForSemanticContextTest() chat.SendMessageResult {
 	conversation := chat.Conversation{
 		ID:          "conversation_context",
-		WorkspaceID: "workspace_semantic_context",
+		WorkspaceID: "workspace_context",
 	}
 	run := chat.Run{
 		ID:             "run_context",
-		WorkspaceID:    "workspace_semantic_context",
+		WorkspaceID:    "workspace_context",
 		ConversationID: conversation.ID,
 		Status:         chat.RunStatusRunning,
 	}

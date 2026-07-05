@@ -14,7 +14,6 @@
       paneClickPoint,
       paneFocusClickVersion: version,
       paneFocusWorkflowState,
-      workspaceUILayoutResetState,
     });
   }
 
@@ -53,27 +52,6 @@
       return { ok: false, reason: "layout-state-unavailable" };
     }
     return { ok: true, snapshot: read() };
-  }
-
-  function workspaceUILayoutResetState() {
-    const roots = workspaceRoots();
-    if (!roots.ok) {
-      return roots;
-    }
-    const layoutResult = readLayoutState();
-    if (!layoutResult.ok) {
-      return layoutResult;
-    }
-    return {
-      focusedPaneId: layoutResult.snapshot.focusedPaneId,
-      ok: true,
-      paneCount: Number(roots.area.dataset.paneCount ?? "0"),
-      revision: layoutResult.snapshot.revision,
-      surfaceKinds: Array.from(document.querySelectorAll(paneHostSelector))
-        .filter((host) => host instanceof HTMLElement)
-        .map((host) => host.dataset.surfaceKind ?? ""),
-      workspaceId: roots.area.dataset.workspaceId ?? "",
-    };
   }
 
   function visiblePaneSummaries(stageRect) {

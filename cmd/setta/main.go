@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,8 +14,6 @@ import (
 	"time"
 
 	"github.com/mdp/qrterminal/v3"
-
-	"setta/internal/httpapi"
 )
 
 const defaultServePort = 7345
@@ -24,35 +21,18 @@ const defaultServePort = 7345
 var version = "dev"
 
 type cliDeps struct {
-	commandRunner  commandRunner
-	executablePath func() (string, error)
-	getenv         func(string) string
-	httpClient     *http.Client
-	now            func() time.Time
-	pid            func() int
-	renderQR       func(io.Writer, string)
-	stderr         io.Writer
-	stdout         io.Writer
+	commandRunner commandRunner
+	getenv        func(string) string
+	httpClient    *http.Client
+	now           func() time.Time
+	pid           func() int
+	renderQR      func(io.Writer, string)
+	stderr        io.Writer
+	stdout        io.Writer
 }
 
 type usageError struct {
 	err error
-}
-
-type cliStructuredError interface {
-	CLIErrorResponse() httpapi.ErrorResponse
-}
-
-type cliCommand func([]string, cliDeps) error
-
-var cliCommands = map[string]cliCommand{
-	"serve":     runServe,
-	"pair":      runPair,
-	"devices":   runDevices,
-	"runtime":   runRuntime,
-	"workflow":  runWorkflow,
-	"workspace": runWorkspace,
-	"version":   runVersion,
 }
 
 func main() {
@@ -74,45 +54,38 @@ func runWithDeps(args []string, deps cliDeps) int {
 		return 2
 	}
 
+	var err error
 	switch args[0] {
+	case "serve":
+		err = runServe(args[1:], deps)
+	case "pair":
+		err = runPair(args[1:], deps)
+	case "devices":
+		err = runDevices(args[1:], deps)
+	case "runtime":
+		err = runRuntime(args[1:], deps)
+	case "version":
+		if len(args) != 1 {
+			err = usageError{err: fmt.Errorf("setta version does not accept arguments")}
+		} else {
+			fmt.Fprintln(deps.stdout, version)
+			return 0
+		}
 	case "help", "-h", "--help":
 		printUsage(deps.stdout)
 		return 0
+	default:
+		err = usageError{err: fmt.Errorf("unknown command %q", args[0])}
 	}
-
-	command, ok := cliCommands[args[0]]
-	if !ok {
-		return printCLIError(usageError{err: fmt.Errorf("unknown command %q", args[0])}, deps)
-	}
-	err := command(args[1:], deps)
 	if err == nil {
 		return 0
 	}
-	return printCLIError(err, deps)
-}
-
-func printCLIError(err error, deps cliDeps) int {
-	var structured cliStructuredError
-	if errors.As(err, &structured) {
-		encoder := json.NewEncoder(deps.stderr)
-		encoder.SetIndent("", "  ")
-		_ = encoder.Encode(structured.CLIErrorResponse())
-	} else {
-		fmt.Fprintf(deps.stderr, "%v\n", err)
-	}
+	fmt.Fprintf(deps.stderr, "%v\n", err)
 	var usage usageError
 	if errors.As(err, &usage) {
 		return 2
 	}
 	return 1
-}
-
-func runVersion(args []string, deps cliDeps) error {
-	if len(args) != 0 {
-		return usageError{err: fmt.Errorf("setta version does not accept arguments")}
-	}
-	fmt.Fprintln(deps.stdout, version)
-	return nil
 }
 
 func normalizeDeps(deps cliDeps) cliDeps {
@@ -127,9 +100,6 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	}
 	if deps.commandRunner == nil {
 		deps.commandRunner = runExternalCommand
-	}
-	if deps.executablePath == nil {
-		deps.executablePath = os.Executable
 	}
 	if deps.httpClient == nil {
 		deps.httpClient = &http.Client{Timeout: 5 * time.Second}
@@ -158,36 +128,9 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage:")
 	fmt.Fprintln(output, "  setta serve [--app-data-dir DIR] [--port PORT] [--tailnet]")
 	fmt.Fprintln(output, "  setta pair [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta runtime rename [--app-data-dir DIR] <display-name>")
-	fmt.Fprintln(output, "  setta workflow current-workspace [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workflow definitions list [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workflow definitions read [--app-data-dir DIR] <definition-id>")
-	fmt.Fprintln(output, "  setta workflow definitions save --input <path> [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workflow definitions validate --graph <path> [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workflow executions start [--app-data-dir DIR] <definition-id>")
-	fmt.Fprintln(output, "  setta workflow executions read [--app-data-dir DIR] <execution-id>")
-	fmt.Fprintln(output, "  setta workflow schema [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workspace chats queue [--app-data-dir DIR] <pane-id> --input <path>")
-	fmt.Fprintln(output, "  setta workspace chats read [--app-data-dir DIR] <pane-id> [--limit N]")
-	fmt.Fprintln(output, "  setta workspace chats send [--app-data-dir DIR] <pane-id> --input <path>")
-	fmt.Fprintln(output, "  setta workspace chats steer [--app-data-dir DIR] <pane-id> --input <path>")
-	fmt.Fprintln(output, "  setta workspace current [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workspace panes close [--app-data-dir DIR] <pane-id> [--surface-close none|safe|force]")
-	fmt.Fprintln(output, "  setta workspace panes focus [--app-data-dir DIR] <pane-id>")
-	fmt.Fprintln(output, "  setta workspace panes list [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workspace panes move [--app-data-dir DIR] <pane-id> --direction left|right|up|down")
-	fmt.Fprintln(output, "  setta workspace panes open --input <path> [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workspace panes read [--app-data-dir DIR] <pane-id>")
-	fmt.Fprintln(output, "  setta workspace panes rename [--app-data-dir DIR] <pane-id> --title TITLE")
-	fmt.Fprintln(output, "  setta workspace panes reorder --input <path> [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workspace panes resize [--app-data-dir DIR] <pane-id> --width-px N|--width-scale N|--height-px N|--height-scale N|--reset-height")
-	fmt.Fprintln(output, "  setta workspace layout apply --input <path> [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workspace schema [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta workspace terminals read [--app-data-dir DIR] <pane-id> [--recent-output-byte-limit N]")
-	fmt.Fprintln(output, "  setta workspace terminals writes prepare [--app-data-dir DIR] <pane-id> --input <path>")
-	fmt.Fprintln(output, "  setta workspace terminals writes commit [--app-data-dir DIR] <prepared-write-id> --sha256 SHA256")
+	fmt.Fprintln(output, "  setta runtime rename <display-name> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta devices revoke [--app-data-dir DIR] <device-id>")
+	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta version")
 }
 

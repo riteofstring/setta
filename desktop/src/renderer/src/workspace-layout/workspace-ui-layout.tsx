@@ -1,20 +1,9 @@
-import type { WorkspaceUIEvent, WorkspaceUILayout } from "@generated/backend";
+import type { WorkspaceUILayout } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
-import { WorkspaceLayoutRecoveryNotice } from "./workspace-layout-area-components";
-import {
-  focusPaneOperation,
-  type WorkspaceLayoutAction,
-  type WorkspaceLayoutOperation,
-} from "./workspace-layout-operations";
-import type { WorkspaceLayoutTransientSnapshot } from "./layout-store";
-import {
-  emptyWorkspacePaneMetadataSnapshot,
-  workspacePaneMetadataSnapshotFromList,
-  type WorkspacePaneMetadataSnapshot,
-} from "./workspace-pane-metadata";
+import { workspaceUILayoutFromScene } from "./workspace-scene";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 
 export type WorkspaceUILayoutLoad =
@@ -35,42 +24,6 @@ export type WorkspaceUILayoutLoad =
       key: string;
       layout: null;
       status: "loading";
-    };
-
-export type WorkspaceUIPaneMetadataLoad =
-  | {
-      error: null;
-      key: string;
-      snapshot: WorkspacePaneMetadataSnapshot;
-      status: "loaded";
-    }
-  | {
-      error: string;
-      key: string;
-      snapshot: WorkspacePaneMetadataSnapshot;
-      status: "failed";
-    }
-  | {
-      error: null;
-      key: string;
-      snapshot: WorkspacePaneMetadataSnapshot;
-      status: "loading";
-    };
-
-export type WorkspaceUILayoutEventDecision =
-  | {
-      kind: "apply";
-      layout: WorkspaceUILayout;
-    }
-  | {
-      kind: "error";
-      message: string;
-    }
-  | {
-      kind: "ignore";
-    }
-  | {
-      kind: "resync";
     };
 
 export function WorkspaceLayoutLoading({
@@ -109,16 +62,6 @@ export function useWorkspaceUILayoutLoad(
   const shouldLoad = shouldLoadWorkspaceUILayout(workspaceId, mode);
 
   useEffect(() => {
-    const unavailableError = workspaceUILayoutUnavailableError(workspaceId, mode);
-    if (unavailableError !== null) {
-      setState({
-        error: unavailableError,
-        key,
-        layout: null,
-        status: "failed",
-      });
-      return;
-    }
     if (!shouldLoad) {
       setState({
         error: null,
@@ -136,7 +79,8 @@ export function useWorkspaceUILayoutLoad(
       layout: null,
       status: "loading",
     });
-    loadWorkspaceUILayout(workspaceId)
+    window.setta.workspace
+      .readUILayout(workspaceId)
       .then((result) => {
         if (cancelled) {
           return;
@@ -144,7 +88,7 @@ export function useWorkspaceUILayoutLoad(
         setState({
           error: null,
           key,
-          layout: result,
+          layout: result.layout,
           status: "loaded",
         });
       })
@@ -162,17 +106,8 @@ export function useWorkspaceUILayoutLoad(
     return () => {
       cancelled = true;
     };
-  }, [key, mode, shouldLoad, workspaceId]);
+  }, [key, shouldLoad, workspaceId]);
 
-  const unavailableError = workspaceUILayoutUnavailableError(workspaceId, mode);
-  if (unavailableError !== null) {
-    return {
-      error: unavailableError,
-      key,
-      layout: null,
-      status: "failed",
-    };
-  }
   if (!shouldLoad) {
     return {
       error: null,
@@ -186,131 +121,6 @@ export function useWorkspaceUILayoutLoad(
       error: null,
       key,
       layout: null,
-      status: "loading",
-    };
-  }
-  return state;
-}
-
-export async function loadWorkspaceUILayout(
-  workspaceId: string,
-): Promise<WorkspaceUILayout | null> {
-  const result = await window.setta.workspace.readUILayout(workspaceId);
-  if (result.workspaceId !== workspaceId) {
-    throw new Error(
-      `Workspace UI layout read workspace ${result.workspaceId} does not match ${workspaceId}`,
-    );
-  }
-  if (result.layout !== null) {
-    return checkedWorkspaceUILayout(result.layout, workspaceId);
-  }
-  const initializeUILayout = window.setta.workspace.initializeUILayout;
-  if (!initializeUILayout) {
-    throw new Error("Workspace UI layout initialize API is unavailable");
-  }
-  return checkedWorkspaceUILayout(await initializeUILayout(workspaceId), workspaceId);
-}
-
-function checkedWorkspaceUILayout(
-  layout: WorkspaceUILayout,
-  workspaceId: string,
-): WorkspaceUILayout {
-  if (layout.workspaceId !== workspaceId) {
-    throw new Error(
-      `Workspace UI layout workspace ${layout.workspaceId} does not match ${workspaceId}`,
-    );
-  }
-  return layout;
-}
-
-export function useWorkspaceUIPaneMetadataLoad(
-  workspaceId: string,
-  mode: WorkspaceSceneMode,
-): WorkspaceUIPaneMetadataLoad {
-  const key = `${mode}:${workspaceId}`;
-  const [state, setState] = useState<WorkspaceUIPaneMetadataLoad>(() =>
-    initialWorkspaceUIPaneMetadataLoadState(workspaceId, mode),
-  );
-  const unavailableError = workspaceUIPaneMetadataUnavailableError(workspaceId, mode);
-  const shouldLoad = shouldLoadWorkspaceUIPaneMetadata(workspaceId, mode);
-
-  useEffect(() => {
-    if (unavailableError !== null) {
-      setState({
-        error: unavailableError,
-        key,
-        snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
-        status: "failed",
-      });
-      return;
-    }
-    if (!shouldLoad) {
-      setState({
-        error: null,
-        key,
-        snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
-        status: "loaded",
-      });
-      return;
-    }
-
-    let cancelled = false;
-    setState({
-      error: null,
-      key,
-      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
-      status: "loading",
-    });
-    window.setta.workspace
-      .listUIPanes(workspaceId)
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
-        setState({
-          error: null,
-          key,
-          snapshot: workspacePaneMetadataSnapshotFromList(result),
-          status: "loaded",
-        });
-      })
-      .catch((error: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        setState({
-          error: `Workspace pane metadata could not be loaded: ${layoutOperationErrorMessage(error)}`,
-          key,
-          snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
-          status: "failed",
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [key, shouldLoad, unavailableError, workspaceId]);
-
-  if (unavailableError !== null) {
-    return {
-      error: unavailableError,
-      key,
-      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
-      status: "failed",
-    };
-  }
-  if (!shouldLoad) {
-    return {
-      error: null,
-      key,
-      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
-      status: "loaded",
-    };
-  }
-  if (state.key !== key) {
-    return {
-      error: null,
-      key,
-      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
       status: "loading",
     };
   }
@@ -322,15 +132,6 @@ export function initialWorkspaceUILayoutLoadState(
   mode: WorkspaceSceneMode,
 ): WorkspaceUILayoutLoad {
   const key = `${mode}:${workspaceId}`;
-  const unavailableError = workspaceUILayoutUnavailableError(workspaceId, mode);
-  if (unavailableError !== null) {
-    return {
-      error: unavailableError,
-      key,
-      layout: null,
-      status: "failed",
-    };
-  }
   if (shouldLoadWorkspaceUILayout(workspaceId, mode)) {
     return {
       error: null,
@@ -347,318 +148,52 @@ export function initialWorkspaceUILayoutLoadState(
   };
 }
 
-export function initialWorkspaceUIPaneMetadataLoadState(
-  workspaceId: string,
-  mode: WorkspaceSceneMode,
-): WorkspaceUIPaneMetadataLoad {
-  const key = `${mode}:${workspaceId}`;
-  const unavailableError = workspaceUIPaneMetadataUnavailableError(workspaceId, mode);
-  if (unavailableError !== null) {
-    return {
-      error: unavailableError,
-      key,
-      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
-      status: "failed",
-    };
-  }
-  if (shouldLoadWorkspaceUIPaneMetadata(workspaceId, mode)) {
-    return {
-      error: null,
-      key,
-      snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
-      status: "loading",
-    };
-  }
-  return {
-    error: null,
-    key,
-    snapshot: emptyWorkspacePaneMetadataSnapshot(workspaceId),
-    status: "loaded",
-  };
-}
+export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, workspaceId: string) {
+  const pendingLayoutSaveRef = useRef<Promise<unknown>>(Promise.resolve());
+  const [layoutPersistenceError, setLayoutPersistenceError] = useState<string | null>(null);
 
-export function useWorkspaceUIPaneOperations({
-  onLayoutUpdate,
-  runtime,
-  workspaceId,
-}: {
-  onLayoutUpdate: (
-    layout: WorkspaceUILayout,
-    transientSnapshot: WorkspaceLayoutTransientSnapshot,
-  ) => void;
-  runtime: WorkspaceRuntime;
-  workspaceId: string;
-}) {
-  const pendingPaneOperationRef = useRef<Promise<unknown>>(Promise.resolve());
-  const [layoutOperationError, setLayoutOperationError] = useState<string | null>(null);
-
-  const applyPaneOperation = useCallback(
-    (operation: WorkspaceLayoutOperation): Promise<void> => {
-      runtime.presentation.syncPanes(runtime.store.toScene().panes);
-      const commandTransientSnapshot = runtime.store.getTransientSnapshot();
-      if (runtime.mode !== "workspace" || operation === null) {
-        return Promise.resolve();
-      }
-      const apply = pendingPaneOperationRef.current
-        .catch(() => {})
-        .then(() => window.setta.workspace.applyUIPaneOperation(workspaceId, operation))
-        .then((result) => {
-          if (result.workspaceId !== workspaceId) {
-            throw new Error(
-              `Workspace pane operation returned workspace ${result.workspaceId}, want ${workspaceId}`,
-            );
-          }
-          const layout = checkedWorkspaceUILayout(result.layout, workspaceId);
-          syncRuntimeFocusedPane(runtime, layout);
-          const transientSnapshot =
-            commandTransientSnapshot.focusedPaneId === layout.focusedPaneId
-              ? commandTransientSnapshot
-              : runtime.store.getTransientSnapshot();
-          setLayoutOperationError(null);
-          onLayoutUpdate(layout, transientSnapshot);
-        })
-        .catch((error: unknown) => {
-          setLayoutOperationError(layoutOperationErrorMessage(error));
-          throw error;
-        });
-      pendingPaneOperationRef.current = apply.catch(() => {});
-      return apply;
-    },
-    [onLayoutUpdate, runtime, workspaceId],
-  );
-
-  const runLayoutAction = useCallback(
-    (action: WorkspaceLayoutAction): void => {
-      let operation: WorkspaceLayoutOperation;
-      try {
-        operation = action() ?? null;
-      } catch (error: unknown) {
-        setLayoutOperationError(layoutOperationErrorMessage(error));
-        return;
-      }
-      void applyPaneOperation(operation);
-    },
-    [applyPaneOperation],
-  );
-
-  const persistFocusedPane = useCallback((): Promise<void> => {
-    return applyPaneOperation(focusPaneOperation(runtime.store.focusedPaneId()));
-  }, [applyPaneOperation, runtime]);
-
-  const resetLayoutOperationError = useCallback(() => {
-    setLayoutOperationError(null);
-  }, []);
-
-  return {
-    applyPaneOperation,
-    layoutOperationError,
-    persistFocusedPane,
-    resetLayoutOperationError,
-    runLayoutAction,
-  };
-}
-
-function syncRuntimeFocusedPane(runtime: WorkspaceRuntime, layout: WorkspaceUILayout): void {
-  if (runtime.mode !== "workspace" || runtime.store.focusedPaneId() === layout.focusedPaneId) {
-    return;
-  }
-  if (!runtime.store.focusPaneWithoutReveal(layout.focusedPaneId)) {
-    throw new Error(
-      `Workspace pane operation returned focused pane ${layout.focusedPaneId}, but it is not present in the renderer scene`,
+  const persistLayout = useCallback(() => {
+    runtime.presentation.syncPanes(runtime.store.toScene().panes);
+    if (runtime.mode !== "workspace") {
+      return;
+    }
+    const layout = workspaceUILayoutFromScene(
+      workspaceId,
+      runtime.store.toScene(),
+      runtime.store.focusedPaneId(),
     );
-  }
-}
-
-export function useWorkspaceUILayoutReset({
-  onLayoutReset,
-  workspaceId,
-}: {
-  onLayoutReset: (layout: WorkspaceUILayout) => void;
-  workspaceId: string;
-}) {
-  const [layoutResetError, setLayoutResetError] = useState<string | null>(null);
-  const resetLayout = useCallback((): Promise<void> => {
-    return window.setta.workspace
-      .resetUILayout(workspaceId)
-      .then((layout) => {
-        setLayoutResetError(null);
-        onLayoutReset(layout);
+    pendingLayoutSaveRef.current = pendingLayoutSaveRef.current
+      .catch(() => {})
+      .then(() => window.setta.workspace.saveUILayout(layout))
+      .then(() => {
+        setLayoutPersistenceError(null);
       })
       .catch((error: unknown) => {
-        setLayoutResetError(
-          `Workspace UI layout reset failed: ${layoutOperationErrorMessage(error)}`,
-        );
-        throw error;
+        setLayoutPersistenceError(layoutOperationErrorMessage(error));
       });
-  }, [onLayoutReset, workspaceId]);
-  const resetLayoutResetError = useCallback(() => {
-    setLayoutResetError(null);
+  }, [runtime, workspaceId]);
+  const resetLayoutPersistenceError = useCallback(() => {
+    setLayoutPersistenceError(null);
   }, []);
-  return { layoutResetError, resetLayout, resetLayoutResetError };
-}
 
-export function useWorkspaceUILayoutEventSync({
-  currentRevision,
-  mode,
-  onLayoutUpdate,
-  workspaceId,
-}: {
-  currentRevision: number;
-  mode: WorkspaceSceneMode;
-  onLayoutUpdate: (layout: WorkspaceUILayout) => void;
-  workspaceId: string;
-}): string | null {
-  const [layoutEventSyncError, setLayoutEventSyncError] = useState<string | null>(null);
-  const unavailableError = workspaceUILayoutEventSyncUnavailableError(workspaceId, mode);
-  const shouldSubscribe = shouldSubscribeWorkspaceUILayoutEvents(workspaceId, mode);
-
-  useEffect(() => {
-    if (unavailableError !== null) {
-      setLayoutEventSyncError(unavailableError);
-      return;
-    }
-    if (!shouldSubscribe) {
-      setLayoutEventSyncError(null);
-      return;
-    }
-
-    let cancelled = false;
-    const unsubscribe = window.setta.workspace.onUIEvent(workspaceId, (event) => {
-      const decision = workspaceUILayoutEventDecision(event, currentRevision, workspaceId);
-      switch (decision.kind) {
-        case "apply":
-          setLayoutEventSyncError(null);
-          onLayoutUpdate(decision.layout);
-          return;
-        case "error":
-          setLayoutEventSyncError(decision.message);
-          return;
-        case "ignore":
-          return;
-        case "resync":
-          void window.setta.workspace
-            .readUILayout(workspaceId)
-            .then((result) => {
-              if (cancelled) {
-                return;
-              }
-              const layout = result.layout;
-              if (layout === null) {
-                setLayoutEventSyncError(
-                  "Workspace UI event stream requested resync but no persisted layout is available",
-                );
-                return;
-              }
-              const resyncDecision = workspaceUILayoutFromResyncDecision(
-                layout,
-                currentRevision,
-                workspaceId,
-              );
-              if (resyncDecision.kind === "apply") {
-                setLayoutEventSyncError(null);
-                onLayoutUpdate(resyncDecision.layout);
-                return;
-              }
-              if (resyncDecision.kind === "error") {
-                setLayoutEventSyncError(resyncDecision.message);
-              }
-            })
-            .catch((error: unknown) => {
-              if (!cancelled) {
-                setLayoutEventSyncError(
-                  `Workspace UI event stream resync failed: ${layoutOperationErrorMessage(error)}`,
-                );
-              }
-            });
-          return;
-        default: {
-          const exhaustive: never = decision;
-          throw new Error(`unsupported workspace UI event decision: ${String(exhaustive)}`);
-        }
-      }
-    });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [currentRevision, mode, onLayoutUpdate, shouldSubscribe, unavailableError, workspaceId]);
-
-  return layoutEventSyncError;
-}
-
-export function WorkspaceUILayoutRecoveryNotice({
-  layoutLoadError,
-  message,
-  onDismiss,
-  resetLayout,
-}: {
-  layoutLoadError: string | null;
-  message: string | null;
-  onDismiss: () => void;
-  resetLayout: () => Promise<void>;
-}) {
-  const recreatePersistedLayout = useCallback(() => {
-    void resetLayout().then(onDismiss, () => {});
-  }, [onDismiss, resetLayout]);
-
-  return (
-    <WorkspaceLayoutRecoveryNotice
-      message={message}
-      onDismiss={onDismiss}
-      recreateAction={
-        layoutLoadError
-          ? {
-              ariaLabel: "Recreate saved workspace layout",
-              onClick: recreatePersistedLayout,
-              title: "Recreate saved workspace layout",
-            }
-          : null
-      }
-    />
-  );
+  return { layoutPersistenceError, persistLayout, resetLayoutPersistenceError };
 }
 
 export function workspaceLayoutRecoveryMessage({
   dismissed,
-  layoutEventSyncError,
   layoutLoadError,
-  paneMetadataLoadError,
-  layoutOperationError,
-  layoutResetError,
+  layoutPersistenceError,
   runtime,
 }: {
   dismissed: boolean;
-  layoutEventSyncError: string | null;
   layoutLoadError: string | null;
-  paneMetadataLoadError: string | null;
-  layoutOperationError: string | null;
-  layoutResetError: string | null;
+  layoutPersistenceError: string | null;
   runtime: WorkspaceRuntime;
 }): string | null {
   if (dismissed) {
     return null;
   }
-  return (
-    layoutResetError ??
-    layoutLoadError ??
-    layoutOperationError ??
-    layoutEventSyncError ??
-    paneMetadataLoadError ??
-    runtime.layoutRecovery?.message ??
-    null
-  );
-}
-
-export function workspacePaneMetadataDataAttributes(load: WorkspaceUIPaneMetadataLoad) {
-  const snapshot = load.snapshot;
-  return {
-    "data-pane-metadata-count": snapshot.paneCount,
-    "data-pane-metadata-focused-pane-id": snapshot.focusedPaneId ?? "",
-    "data-pane-metadata-layout-present": snapshot.layoutPresent,
-    "data-pane-metadata-readable-count": snapshot.readablePaneCount,
-    "data-pane-metadata-status": load.status,
-    "data-pane-metadata-writable-count": snapshot.writablePaneCount,
-  };
+  return layoutLoadError ?? layoutPersistenceError ?? runtime.layoutRecovery?.message ?? null;
 }
 
 export function workspaceLayoutAreaLabel(mode: WorkspaceSceneMode): string {
@@ -674,124 +209,6 @@ function shouldLoadWorkspaceUILayout(workspaceId: string, mode: WorkspaceSceneMo
   );
 }
 
-function workspaceUILayoutUnavailableError(
-  workspaceId: string,
-  mode: WorkspaceSceneMode,
-): string | null {
-  if (mode !== "workspace" || workspaceId === "empty" || typeof window === "undefined") {
-    return null;
-  }
-  if (!window.setta?.workspace?.readUILayout) {
-    return "Workspace UI layout read API is unavailable";
-  }
-  return null;
-}
-
-function shouldLoadWorkspaceUIPaneMetadata(workspaceId: string, mode: WorkspaceSceneMode): boolean {
-  return (
-    mode === "workspace" &&
-    workspaceId !== "empty" &&
-    typeof window !== "undefined" &&
-    Boolean(window.setta?.workspace?.listUIPanes)
-  );
-}
-
-function shouldSubscribeWorkspaceUILayoutEvents(
-  workspaceId: string,
-  mode: WorkspaceSceneMode,
-): boolean {
-  return (
-    mode === "workspace" &&
-    workspaceId !== "empty" &&
-    typeof window !== "undefined" &&
-    Boolean(window.setta?.workspace?.onUIEvent)
-  );
-}
-
-function workspaceUILayoutEventSyncUnavailableError(
-  workspaceId: string,
-  mode: WorkspaceSceneMode,
-): string | null {
-  if (mode !== "workspace" || workspaceId === "empty" || typeof window === "undefined") {
-    return null;
-  }
-  if (!window.setta?.workspace?.onUIEvent) {
-    return "Workspace UI event stream API is unavailable";
-  }
-  return null;
-}
-
-function workspaceUIPaneMetadataUnavailableError(
-  workspaceId: string,
-  mode: WorkspaceSceneMode,
-): string | null {
-  if (mode !== "workspace" || workspaceId === "empty" || typeof window === "undefined") {
-    return null;
-  }
-  if (!window.setta?.workspace?.listUIPanes) {
-    return "Workspace pane metadata API is unavailable";
-  }
-  return null;
-}
-
 function layoutOperationErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Workspace layout operation failed";
-}
-
-export function workspaceUILayoutEventDecision(
-  event: WorkspaceUIEvent,
-  currentRevision: number,
-  workspaceId: string,
-): WorkspaceUILayoutEventDecision {
-  if (event.workspaceId !== workspaceId) {
-    return { kind: "ignore" };
-  }
-  switch (event.type) {
-    case "workspace_ui.layout_updated":
-      if (event.layout === null) {
-        return {
-          kind: "error",
-          message: "Workspace UI layout update event did not include a layout",
-        };
-      }
-      if (event.layout.revision !== event.revision) {
-        return {
-          kind: "error",
-          message: `Workspace UI layout event revision ${event.revision} does not match layout revision ${event.layout.revision}`,
-        };
-      }
-      return workspaceUILayoutFromResyncDecision(event.layout, currentRevision, workspaceId);
-    case "workspace_ui.resync_required":
-      if (event.resync === null) {
-        return {
-          kind: "error",
-          message: "Workspace UI resync event did not include resync details",
-        };
-      }
-      return event.revision <= currentRevision ? { kind: "ignore" } : { kind: "resync" };
-    default: {
-      const exhaustive: never = event.type;
-      return {
-        kind: "error",
-        message: `Workspace UI event type is unsupported: ${String(exhaustive)}`,
-      };
-    }
-  }
-}
-
-function workspaceUILayoutFromResyncDecision(
-  layout: WorkspaceUILayout,
-  currentRevision: number,
-  workspaceId: string,
-): WorkspaceUILayoutEventDecision {
-  if (layout.workspaceId !== workspaceId) {
-    return {
-      kind: "error",
-      message: `Workspace UI layout workspace ${layout.workspaceId} does not match ${workspaceId}`,
-    };
-  }
-  if (layout.revision <= currentRevision) {
-    return { kind: "ignore" };
-  }
-  return { kind: "apply", layout };
 }

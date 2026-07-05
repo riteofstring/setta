@@ -132,12 +132,6 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowValidationResult,
-  WorkspaceUIPaneListResult,
-  WorkspaceUIPaneOperation,
-  WorkspaceUIPaneOperationResult,
-  WorkspaceUIPaneReadResult,
-  WorkspaceUIEvent,
-  WorkspaceUISchema,
   WorkspaceActivityEvent,
   WorkspaceActivitySnapshot,
   WorkspaceSelectedConversations,
@@ -431,22 +425,13 @@ export interface SettaAPI {
     updateProfile: (request: UpdateTerminalProfileRequest) => Promise<TerminalProfileList>;
   };
   workspace: {
-    applyUIPaneOperation: (
-      workspaceId: string,
-      operation: WorkspaceUIPaneOperation,
-    ) => Promise<WorkspaceUIPaneOperationResult>;
     close: (id: string) => Promise<WorkspaceSession>;
-    initializeUILayout: (workspaceId: string) => Promise<WorkspaceUILayout>;
-    listUIPanes: (workspaceId: string) => Promise<WorkspaceUIPaneListResult>;
-    onUIEvent: (workspaceId: string, listener: (event: WorkspaceUIEvent) => void) => () => void;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
     openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
-    readUIPane: (workspaceId: string, paneId: string) => Promise<WorkspaceUIPaneReadResult>;
-    readUISchema: () => Promise<WorkspaceUISchema>;
     readUILayout: (workspaceId: string) => Promise<WorkspaceUILayoutReadResult>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
-    resetUILayout: (workspaceId: string) => Promise<WorkspaceUILayout>;
+    saveUILayout: (layout: WorkspaceUILayout) => Promise<WorkspaceUILayout>;
     select: (id: string) => Promise<WorkspaceSession>;
     selectedConversations: () => Promise<WorkspaceSelectedConversations>;
     setSelectedConversation: (

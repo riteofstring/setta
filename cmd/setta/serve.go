@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"path/filepath"
 
 	"setta/internal/runtime"
 )
@@ -100,11 +99,6 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 	if options.ChatHarness != "" {
 		config.ChatHarness = options.ChatHarness
 	}
-	bundledSettaCLIDir, err := serveBundledSettaCLIDir(deps)
-	if err != nil {
-		return nil, err
-	}
-	config.BundledSettaCLIDir = bundledSettaCLIDir
 
 	server, err := runtime.Start(ctx, config)
 	if err != nil {
@@ -163,21 +157,6 @@ func decodeReadyEvent(reader io.Reader) (runtime.ReadyEvent, error) {
 		return runtime.ReadyEvent{}, errors.New("runtime ready event did not include an address")
 	}
 	return ready, nil
-}
-
-func serveBundledSettaCLIDir(deps cliDeps) (string, error) {
-	executablePath, err := deps.executablePath()
-	if err != nil {
-		return "", fmt.Errorf("resolve setta executable path: %w", err)
-	}
-	if executablePath == "" {
-		return "", nil
-	}
-	absolutePath, err := filepath.Abs(executablePath)
-	if err != nil {
-		return "", fmt.Errorf("resolve absolute setta executable path: %w", err)
-	}
-	return filepath.Dir(absolutePath), nil
 }
 
 func printServeStarted(output io.Writer, state serveState, pairing pairingResult, tailnet bool, deps cliDeps) {

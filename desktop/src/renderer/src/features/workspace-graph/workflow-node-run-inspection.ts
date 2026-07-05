@@ -1,7 +1,5 @@
 import type {
-  ApprovalRequest,
   ChatEvent,
-  Run,
   WorkflowEvent,
   WorkflowExecution,
   WorkflowNodeExecution,
@@ -720,30 +718,17 @@ function workflowNodeTrajectoryWithWorkflowExecution(
 ): WorkflowNodeTrajectoryState {
   const nodeExecution = workflowNodeExecutionForDetailsTarget(execution, target);
   const pendingApproval = nodeExecution?.result?.pendingApproval ?? null;
-  const pendingRunApproval = pendingApproval?.approval ?? null;
   return {
     ...trajectory,
     page: {
       ...trajectory.page,
-      activeRun: workflowRunWithPendingApproval(trajectory.page.activeRun, pendingRunApproval),
       capabilities: {
         ...trajectory.page.capabilities,
         canSubmitApproval: pendingApproval !== null,
       },
       pendingApproval,
-      run: workflowRunWithPendingApproval(trajectory.page.run, pendingRunApproval),
     },
   };
-}
-
-function workflowRunWithPendingApproval<T extends Run | null>(
-  run: T,
-  pendingApproval: ApprovalRequest | null,
-): T {
-  if (run === null || run.pendingApproval === pendingApproval) {
-    return run;
-  }
-  return { ...run, pendingApproval } as T;
 }
 
 function workflowRunInspectionWithWorkflowCursor(

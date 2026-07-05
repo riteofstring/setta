@@ -5,8 +5,6 @@ import (
 	"fmt"
 )
 
-var ErrQueueRequiresActiveRun = errors.New("chat queue requires an active run")
-
 type ChatOperationErrorCode string
 
 const (

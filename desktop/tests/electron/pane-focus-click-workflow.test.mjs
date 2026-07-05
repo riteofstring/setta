@@ -30,7 +30,6 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
 const terminalContentClickCommand = "printf 'SETTA_PANE_CONTENT_CLICK_OK\\n'";
 const terminalContentClickOutput = "SETTA_PANE_CONTENT_CLICK_OK";
-const workspaceUILayoutEventSyncedTitle = "Workflow Graph Synced";
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
@@ -69,10 +68,6 @@ try {
   const seededWorkspaceId = await seedTwoPaneWorkspaceLayout(backend, fixture.workspaceRoot);
   await waitForWorkspaceLayoutArea(context.client);
   await openSeededWorkspaceInRenderer(context.client, seededWorkspaceId);
-  const paneMetadata = await waitForWorkspacePaneMetadata(context.client, seededWorkspaceId);
-  await waitForTerminalReady(context.client);
-  const eventSyncedLayout = await applyWorkspaceUILayoutEventUpdate(backend, seededWorkspaceId);
-  const eventSyncState = await waitForWorkspaceUILayoutEventSync(context.client, eventSyncedLayout);
   await waitForTerminalReady(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
 
@@ -112,21 +107,12 @@ try {
       state.scenario.focusAwayPaneId === scenario.focusAwayPaneId,
   );
   await captureScreenshot(context.client, join(artifactDir, "after-top-click.png"));
-  const resetLayout = await resetWorkspaceUILayoutThroughRenderer(
-    context.client,
-    seededWorkspaceId,
-  );
-  const resetState = await waitForWorkspaceUILayoutReset(context.client, resetLayout);
 
   await writeJson(join(artifactDir, "summary.json"), {
     afterContentLayout: afterContentState.layout,
     afterTopBarLayout: afterTopBarState.layout,
     artifactDir,
     beforeContentLayout,
-    eventSyncState,
-    paneMetadata,
-    resetLayout,
-    resetState,
     scenario,
     status: "passed",
     viewport,
@@ -183,23 +169,6 @@ async function waitForTerminalReady(client) {
   );
 }
 
-async function waitForWorkspacePaneMetadata(client, workspaceId) {
-  return waitForLoggedState(
-    client,
-    workspacePaneMetadataExpression(),
-    "workspace pane metadata",
-    (metadata) =>
-      metadata.workspaceId === workspaceId &&
-      metadata.status === "loaded" &&
-      metadata.layoutPresent &&
-      metadata.count === 2 &&
-      metadata.focusedPaneId === "workspace_pane_0" &&
-      metadata.readableCount === 2 &&
-      metadata.writableCount === 0,
-    (metadata) => ({ ...metadata, expectedWorkspaceId: workspaceId }),
-  );
-}
-
 async function openSeededWorkspaceInRenderer(client, workspaceId) {
   const initialState = await waitForLoggedState(
     client,
@@ -227,113 +196,14 @@ async function seedTwoPaneWorkspaceLayout(backend, workspaceRoot) {
   if (workspaceId === "") {
     throw new Error(`workspace open response missing id: ${JSON.stringify(opened)}`);
   }
-  const initialized = await backend.post("/workspaces/ui/layout/initialize", { workspaceId });
-  if (initialized.workspaceId !== workspaceId) {
+  const layout = twoPaneWorkspaceUILayout(workspaceId);
+  const saved = await backend.post("/workspaces/ui/layout/save", { layout });
+  if (saved.workspaceId !== workspaceId) {
     throw new Error(
-      `initialized layout workspace ${initialized.workspaceId} did not match opened workspace ${workspaceId}`,
+      `saved layout workspace ${saved.workspaceId} did not match opened workspace ${workspaceId}`,
     );
   }
-  await backend.post("/workspaces/ui/panes/operation", {
-    operation: paneOperation("close_pane", "workspace_pane_3", {
-      close: { surfaceClose: "none" },
-    }),
-    workspaceId,
-  });
-  await backend.post("/workspaces/ui/panes/operation", {
-    operation: paneOperation("close_pane", "workspace_pane_2", {
-      close: { surfaceClose: "none" },
-    }),
-    workspaceId,
-  });
-  await backend.post("/workspaces/ui/panes/operation", {
-    operation: paneOperation("configure_pane", "workspace_pane_0", {
-      configure: {
-        chatConfig: null,
-        subtitle: "workspace graph",
-        surfaceKind: "workflow-graph",
-        terminalConfig: null,
-        title: "Workflow Graph",
-        tone: "cyan",
-        workflowNodeDetailsConfig: null,
-      },
-    }),
-    workspaceId,
-  });
   return workspaceId;
-}
-
-async function applyWorkspaceUILayoutEventUpdate(backend, workspaceId) {
-  const result = await backend.post("/workspaces/ui/panes/operation", {
-    operation: paneOperation("rename_pane", "workspace_pane_0", {
-      rename: { title: workspaceUILayoutEventSyncedTitle },
-    }),
-    workspaceId,
-  });
-  if (result.workspaceId !== workspaceId || result.layout?.workspaceId !== workspaceId) {
-    throw new Error(
-      `event-sync operation did not return the requested workspace layout: ${JSON.stringify(result)}`,
-    );
-  }
-  return result.layout;
-}
-
-async function waitForWorkspaceUILayoutEventSync(client, expectedLayout) {
-  return waitForLoggedState(
-    client,
-    workspaceUILayoutEventSyncExpression(expectedLayout.panes[0].paneId),
-    "workspace UI layout event sync",
-    (state) =>
-      state.workspaceId === expectedLayout.workspaceId &&
-      state.revision === expectedLayout.revision &&
-      state.title === workspaceUILayoutEventSyncedTitle,
-    (state) => ({
-      ...state,
-      expectedRevision: expectedLayout.revision,
-      expectedTitle: workspaceUILayoutEventSyncedTitle,
-      expectedWorkspaceId: expectedLayout.workspaceId,
-    }),
-  );
-}
-
-async function resetWorkspaceUILayoutThroughRenderer(client, workspaceId) {
-  const resetLayout = await client.evaluate(`(async () => {
-    return await window.setta.workspace.resetUILayout(${JSON.stringify(workspaceId)});
-  })()`);
-  if (
-    resetLayout.workspaceId !== workspaceId ||
-    resetLayout.revision <= 0 ||
-    resetLayout.panes.length !== 4 ||
-    resetLayout.columns.length !== 4
-  ) {
-    throw new Error(
-      `workspace UI reset returned unexpected layout: ${JSON.stringify(resetLayout)}`,
-    );
-  }
-  return resetLayout;
-}
-
-async function waitForWorkspaceUILayoutReset(client, expectedLayout) {
-  return waitForLoggedState(
-    client,
-    driverCallExpression("workspaceUILayoutResetState"),
-    "workspace UI layout reset",
-    (state) =>
-      state.ok &&
-      state.workspaceId === expectedLayout.workspaceId &&
-      state.revision === expectedLayout.revision &&
-      state.paneCount === 4 &&
-      state.focusedPaneId === expectedLayout.focusedPaneId &&
-      state.surfaceKinds.includes("chat-dom") &&
-      state.surfaceKinds.includes("terminal") &&
-      state.surfaceKinds.includes("workflow-graph") &&
-      state.surfaceKinds.includes("settings-dom"),
-    (state) => ({
-      ...state,
-      expectedFocusedPaneId: expectedLayout.focusedPaneId,
-      expectedRevision: expectedLayout.revision,
-      expectedWorkspaceId: expectedLayout.workspaceId,
-    }),
-  );
 }
 
 async function prepareTwoPaneFocusScenario(client) {
@@ -555,25 +425,6 @@ function workspaceIdExpression() {
   })()`;
 }
 
-function workspacePaneMetadataExpression() {
-  return `(() => {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    if (!(area instanceof HTMLElement)) {
-      return { present: false };
-    }
-    return {
-      count: Number(area.dataset.paneMetadataCount ?? "0"),
-      focusedPaneId: area.dataset.paneMetadataFocusedPaneId ?? "",
-      layoutPresent: area.dataset.paneMetadataLayoutPresent === "true",
-      present: true,
-      readableCount: Number(area.dataset.paneMetadataReadableCount ?? "0"),
-      status: area.dataset.paneMetadataStatus ?? "",
-      writableCount: Number(area.dataset.paneMetadataWritableCount ?? "0"),
-      workspaceId: area.dataset.workspaceId ?? "",
-    };
-  })()`;
-}
-
 function seededWorkspaceOpenStateExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
@@ -587,35 +438,64 @@ function seededWorkspaceOpenStateExpression() {
   })()`;
 }
 
-function workspaceUILayoutEventSyncExpression(paneId) {
-  return `(() => {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const readLayout = window.__settaWorkspaceReadLayoutState;
-    const host = document.querySelector(
-      \`[data-testid="workspace-pane-host"][data-pane-id="${paneId}"]\`,
-    );
-    const title = host?.querySelector("[data-workspace-pane-title]");
-    return {
-      present: area instanceof HTMLElement,
-      revision: typeof readLayout === "function" ? readLayout().revision : -1,
-      title: title instanceof HTMLElement ? title.textContent ?? "" : "",
-      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
-    };
-  })()`;
-}
-
-function paneOperation(kind, paneId, fields = {}) {
+function twoPaneWorkspaceUILayout(workspaceId) {
   return {
-    close: null,
-    configure: null,
-    kind,
-    move: null,
-    open: null,
-    paneId,
-    rename: null,
-    reorder: null,
-    resize: null,
-    resizeColumn: null,
-    ...fields,
+    columns: [
+      {
+        columnId: "workspace_column_0",
+        idealWidthSpec: { unit: "px", value: 520 },
+        index: 0,
+        paneIds: ["workspace_pane_0"],
+        planeIndex: 0,
+        previousProportionWidth: null,
+        slotIndex: 0,
+        widthSpec: { unit: "px", value: 520 },
+      },
+      {
+        columnId: "workspace_column_1",
+        idealWidthSpec: { unit: "px", value: 520 },
+        index: 1,
+        paneIds: ["workspace_pane_1"],
+        planeIndex: 0,
+        previousProportionWidth: null,
+        slotIndex: 1,
+        widthSpec: { unit: "px", value: 520 },
+      },
+    ],
+    focusedPaneId: "workspace_pane_0",
+    panes: [
+      {
+        columnId: "workspace_column_0",
+        heat: 0,
+        paneId: "workspace_pane_0",
+        sequence: 0,
+        subtitle: "workspace graph",
+        surfaceId: "workspace_surface_0",
+        surfaceKind: "workflow-graph",
+        terminalConfig: null,
+        title: "Workflow Graph",
+        tone: "cyan",
+        weight: 1,
+      },
+      {
+        columnId: "workspace_column_1",
+        heat: 37,
+        paneId: "workspace_pane_1",
+        sequence: 1,
+        subtitle: "terminal",
+        surfaceId: "workspace_surface_1",
+        surfaceKind: "terminal",
+        terminalConfig: {
+          cwdOverride: "",
+          profileId: "default",
+          titleOverride: "",
+        },
+        title: "Terminal",
+        tone: "green",
+        weight: 1,
+      },
+    ],
+    schemaVersion: 1,
+    workspaceId,
   };
 }

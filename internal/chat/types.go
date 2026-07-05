@@ -21,7 +21,6 @@ type RunItemStatus string
 type RunItemType string
 type RunItemDetailsKind string
 type RunItemCommandSource string
-type RunItemOutputAvailability string
 type DiagnosticSeverity string
 type DiagnosticSource string
 type ChatCommandKind string
@@ -101,6 +100,7 @@ const (
 	RunItemTypeCommandStartFailure     RunItemType = "command_start_failure"
 	RunItemTypeFileChange              RunItemType = "file_change"
 	RunItemTypeMCPToolCall             RunItemType = "mcp_tool_call"
+	RunItemTypeDynamicToolCall         RunItemType = "dynamic_tool_call"
 	RunItemTypeCollabAgentToolCall     RunItemType = "collab_agent_tool_call"
 	RunItemTypeWebSearch               RunItemType = "web_search"
 	RunItemTypeImageView               RunItemType = "image_view"
@@ -122,10 +122,6 @@ const (
 	RunItemCommandSourceUserShell              RunItemCommandSource = "user_shell"
 	RunItemCommandSourceUnifiedExecStartup     RunItemCommandSource = "unified_exec_startup"
 	RunItemCommandSourceUnifiedExecInteraction RunItemCommandSource = "unified_exec_interaction"
-
-	RunItemOutputAvailabilityCaptured    RunItemOutputAvailability = "captured"
-	RunItemOutputAvailabilityEmpty       RunItemOutputAvailability = "empty"
-	RunItemOutputAvailabilityUnavailable RunItemOutputAvailability = "unavailable"
 
 	DiagnosticSeverityInfo     DiagnosticSeverity = "info"
 	DiagnosticSeverityWarning  DiagnosticSeverity = "warning"
@@ -246,6 +242,7 @@ var (
 		RunItemTypeCommandStartFailure,
 		RunItemTypeFileChange,
 		RunItemTypeMCPToolCall,
+		RunItemTypeDynamicToolCall,
 		RunItemTypeCollabAgentToolCall,
 		RunItemTypeWebSearch,
 		RunItemTypeImageView,
@@ -265,11 +262,6 @@ var (
 		RunItemCommandSourceUserShell,
 		RunItemCommandSourceUnifiedExecStartup,
 		RunItemCommandSourceUnifiedExecInteraction,
-	}
-	runItemOutputAvailabilityValues = []RunItemOutputAvailability{
-		RunItemOutputAvailabilityCaptured,
-		RunItemOutputAvailabilityEmpty,
-		RunItemOutputAvailabilityUnavailable,
 	}
 	diagnosticSeverityValues = []DiagnosticSeverity{
 		DiagnosticSeverityInfo,

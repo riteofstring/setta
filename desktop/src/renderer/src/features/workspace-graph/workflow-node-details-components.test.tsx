@@ -400,6 +400,7 @@ function trajectoryPage(
           details: null,
           diff: null,
           durationMs: 0,
+          dynamicToolCall: null,
           error: "",
           exitCode: 0,
           fileChange: null,
@@ -446,6 +447,7 @@ function trajectoryPage(
           details: null,
           diff: null,
           durationMs: 0,
+          dynamicToolCall: null,
           error: "",
           exitCode: 0,
           fileChange: null,
@@ -684,7 +686,6 @@ function workflowEvent(id: string, message: string): WorkflowEvent {
   return {
     createdAt: "2026-06-07T00:00:00Z",
     definitionId: "workflow_definition_test",
-    definitionName: "",
     definitionVersionId: "workflow_version_test",
     details: {},
     executionId: "workflow_execution_test",

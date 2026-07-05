@@ -1,16 +1,5 @@
 import type { WorkspacePane, OpenPaneRequest, TerminalPaneConfig } from "./types";
 
-export function chatConfigForRequest(
-  request: OpenPaneRequest,
-  existing?: WorkspacePane,
-): WorkspacePane["chatConfig"] {
-  const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
-  if (surfaceKind !== "chat-dom") {
-    return undefined;
-  }
-  return request.chatConfig ?? existing?.chatConfig;
-}
-
 export function terminalConfigForRequest(
   request: OpenPaneRequest,
   existing?: WorkspacePane,

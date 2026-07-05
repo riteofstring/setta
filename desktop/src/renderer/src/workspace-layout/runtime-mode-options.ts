@@ -83,7 +83,7 @@ export function initialFocusedPaneIdForRuntime(
   realScene: RealWorkspaceSceneResult | null,
 ): PaneId | undefined {
   if (mode === "workspace") {
-    return realScene?.focusedPaneId ?? engine.firstPaneId() ?? undefined;
+    return engine.firstPaneId() ?? realScene?.focusedPaneId;
   }
   return realScene?.focusedPaneId;
 }

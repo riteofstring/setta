@@ -739,33 +739,7 @@ func handleCodexTurnCompleted(message jsonRPCMessage, threadID string, turnID st
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := upsertCodexCompletedTurnAgentMessages(message, threadID, turnID, sink); err != nil {
-		return codexNotificationResult{}, err
-	}
 	return codexTurnCompletionForStatus(status, turn, message, sink)
-}
-
-func upsertCodexCompletedTurnAgentMessages(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) error {
-	params, err := codexapp.DecodeTurnCompletedNotification(message.Params)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.Turn.ID, sink); err != nil {
-		return err
-	}
-	for _, item := range params.Turn.Items {
-		if item.Type != codexapp.ThreadItemTypeAgentMessage {
-			continue
-		}
-		runItem, err := runItemFromCodexItem(item, RunItemStatusCompleted)
-		if err != nil {
-			return err
-		}
-		if err := sink.RunItemUpsert(runItem); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func codexCompletedTurnStatus(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (string, map[string]any, error) {

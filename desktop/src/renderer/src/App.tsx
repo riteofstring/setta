@@ -1,4 +1,4 @@
-import type { WorkspaceSession, WorkspaceSummary } from "@generated/backend";
+import type { WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import { PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
@@ -27,7 +27,6 @@ import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
 import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
-import { useWorkflowDefinitionStore } from "./stores/workflow-definition-store";
 import {
   type WorkspaceOperation,
   type WorkspaceStatus,
@@ -51,7 +50,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   useBackendLifecycle(setta);
   const runtimeUnavailable = useRuntimeLifecycle(setta);
   useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
-  useWorkflowDefinitionEventSync(setta, workspace.activeWorkspaces);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [workspaceSurfaceFocusRequest, setWorkspaceSurfaceFocusRequest] =
@@ -156,25 +154,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       </main>
     </div>
   );
-}
-
-function useWorkflowDefinitionEventSync(setta: SettaAPI, activeWorkspaces: WorkspaceSummary[]) {
-  const handleWorkflowDefinitionEvent = useWorkflowDefinitionStore(
-    (state) => state.handleWorkflowDefinitionEvent,
-  );
-  const activeWorkspaceIds = useMemo(
-    () => new Set(activeWorkspaces.map((workspace) => workspace.id)),
-    [activeWorkspaces],
-  );
-
-  useEffect(() => {
-    if (activeWorkspaceIds.size === 0) {
-      return;
-    }
-    return setta.workflow.onEvent((event) => {
-      void handleWorkflowDefinitionEvent(event, activeWorkspaceIds);
-    });
-  }, [activeWorkspaceIds, handleWorkflowDefinitionEvent, setta]);
 }
 
 function readSettaApi(): SettaAPI | null {

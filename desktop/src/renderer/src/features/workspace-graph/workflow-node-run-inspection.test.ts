@@ -1,5 +1,4 @@
 import type {
-  ApprovalRequest,
   WorkflowAgentTrajectoryPage,
   WorkflowEvent,
   WorkflowExecution,
@@ -27,34 +26,6 @@ describe("workflow run inspection workflow event cursor", () => {
     expect(refreshed.execution?.lastEventOrdinal).toBe(9);
     expect(refreshed.lastWorkflowEventOrdinal).toBe(5);
     expect(refreshed.trajectory?.page.lastWorkflowEventOrdinal).toBe(5);
-  });
-
-  test("clears stale active-run approval state when the refreshed execution has no pending approval", () => {
-    const approval = approvalRequest();
-    const refreshed = workflowRunInspectionWithRefreshedExecution(
-      inspectionState({ cursor: 5, pendingApproval: approval }),
-      target(),
-      execution({
-        lastEventOrdinal: 9,
-        nodeExecution: nodeExecution({
-          result: {
-            error: "",
-            exitCode: null,
-            filePaths: [],
-            output: null,
-            pendingApproval: null,
-            signals: [],
-            status: "completed",
-          },
-          status: "succeeded",
-        }),
-      }),
-    );
-
-    expect(refreshed.trajectory?.page.pendingApproval).toBeNull();
-    expect(refreshed.trajectory?.page.run.pendingApproval).toBeNull();
-    expect(refreshed.trajectory?.page.activeRun?.pendingApproval).toBeNull();
-    expect(refreshed.trajectory?.page.capabilities.canSubmitApproval).toBe(false);
   });
 
   test("advances the workflow-event cursor only when a matching execution event is applied", () => {
@@ -92,13 +63,7 @@ function target(): WorkflowNodeDetailsTarget {
   };
 }
 
-function inspectionState({
-  cursor,
-  pendingApproval = null,
-}: {
-  cursor: number;
-  pendingApproval?: ApprovalRequest | null;
-}): WorkflowRunInspectionState {
+function inspectionState({ cursor }: { cursor: number }): WorkflowRunInspectionState {
   return {
     events: [],
     execution: execution({ lastEventOrdinal: cursor }),
@@ -106,18 +71,12 @@ function inspectionState({
     loadError: "",
     loading: false,
     operation: null,
-    trajectory: trajectory(cursor, pendingApproval),
+    trajectory: trajectory(cursor),
     trajectoryError: "",
   };
 }
 
-function execution({
-  lastEventOrdinal,
-  nodeExecution: executionNode = nodeExecution(),
-}: {
-  lastEventOrdinal: number;
-  nodeExecution?: WorkflowNodeExecution;
-}): WorkflowExecution {
+function execution({ lastEventOrdinal }: { lastEventOrdinal: number }): WorkflowExecution {
   return {
     activeNodeExecutionIds: [],
     completedAt: "",
@@ -128,7 +87,7 @@ function execution({
     id: "workflow_execution_test",
     lastEventOrdinal,
     loopIterations: [],
-    nodeExecutions: [executionNode],
+    nodeExecutions: [nodeExecution()],
     recoveryOutcome: null,
     schemaVersion: 1,
     startedAt: "2026-06-07T00:00:00Z",
@@ -140,7 +99,7 @@ function execution({
   };
 }
 
-function nodeExecution(overrides: Partial<WorkflowNodeExecution> = {}): WorkflowNodeExecution {
+function nodeExecution(): WorkflowNodeExecution {
   return {
     actionKind: "agent.codex",
     actionPolicy: null,
@@ -168,19 +127,12 @@ function nodeExecution(overrides: Partial<WorkflowNodeExecution> = {}): Workflow
     sideEffectPolicy: null,
     startedAt: "2026-06-07T00:00:02Z",
     status: "running",
-    ...overrides,
   };
 }
 
-function trajectory(
-  cursor: number,
-  pendingApproval: ApprovalRequest | null,
-): WorkflowNodeTrajectoryState {
+function trajectory(cursor: number): WorkflowNodeTrajectoryState {
   const page = {
-    activeRun:
-      pendingApproval === null
-        ? null
-        : { ...testRun("running", "run_a"), pendingApproval, workspaceId: "workspace_test" },
+    activeRun: null,
     activeRunLiveness: null,
     runSettings: null,
     activity: [],
@@ -207,7 +159,7 @@ function trajectory(
     outputs: [],
     pendingApproval: null,
     pendingSteeringMessages: [],
-    run: { ...testRun("running", "run_a"), pendingApproval, workspaceId: "workspace_test" },
+    run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
     runId: "run_a",
     schemaVersion: 1,
     scope: {
@@ -230,35 +182,10 @@ function trajectory(
   };
 }
 
-function approvalRequest(): ApprovalRequest {
-  return {
-    approved: false,
-    body: "Allow command?",
-    command: "setta workflow executions result --input result.json",
-    createdAt: "2026-06-07T00:00:02Z",
-    filePath: "",
-    id: "approval_command",
-    kind: "command",
-    options: [],
-    permission: "",
-    providerItemId: "provider_item_approval",
-    question: "",
-    questions: [],
-    resolvedAt: "",
-    response: "",
-    runId: "run_a",
-    runItemId: "run_item_approval",
-    status: "pending",
-    structuredInput: null,
-    title: "Command approval",
-  };
-}
-
 function workflowEvent(overrides: Partial<WorkflowEvent> = {}): WorkflowEvent {
   return {
     createdAt: "2026-06-07T00:00:03Z",
     definitionId: "workflow_definition_test",
-    definitionName: "Workflow",
     definitionVersionId: "workflow_version_test",
     details: {},
     executionId: "workflow_execution_test",

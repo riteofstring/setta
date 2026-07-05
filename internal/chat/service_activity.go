@@ -165,49 +165,18 @@ func (service *Service) upsertRunItemLocked(item RunItem) error {
 	if err != nil || handled {
 		return err
 	}
-	item, exists, finalOutput, err := service.saveRunItemUpsertAndCommandOutputLocked(item)
+	existing, exists, err := service.store.FindRunItemByProviderID(item.WorkspaceID, item.RunID, item.ProviderItemID)
 	if err != nil {
 		return err
 	}
-	return service.finishRunItemUpsertLocked(item, exists, finalOutput)
-}
-
-func (service *Service) saveRunItemUpsertAndCommandOutputLocked(item RunItem) (RunItem, bool, *RunItemOutput, error) {
-	item, exists, err := service.materializeRunItemIdentityLocked(item)
-	if err != nil {
-		return RunItem{}, false, nil, err
+	if exists {
+		item = mergeRunItem(existing, item)
+	} else if item.ID, err = service.newID("run_item"); err != nil {
+		return fmt.Errorf("create run item id: %w", err)
 	}
 	if err := service.store.SaveRunItem(item); err != nil {
-		return RunItem{}, false, nil, err
+		return err
 	}
-	finalOutput, itemChanged, err := service.reconcileCommandRunItemOutputLocked(&item)
-	if err != nil {
-		return RunItem{}, false, nil, err
-	}
-	if itemChanged {
-		if err := service.store.SaveRunItem(item); err != nil {
-			return RunItem{}, false, nil, err
-		}
-	}
-	return item, exists, finalOutput, nil
-}
-
-func (service *Service) materializeRunItemIdentityLocked(item RunItem) (RunItem, bool, error) {
-	existing, exists, err := service.store.FindRunItemByProviderID(item.WorkspaceID, item.RunID, item.ProviderItemID)
-	if err != nil {
-		return RunItem{}, false, err
-	}
-	if exists {
-		return mergeRunItem(existing, item), true, nil
-	}
-	item.ID, err = service.newID("run_item")
-	if err != nil {
-		return RunItem{}, false, fmt.Errorf("create run item id: %w", err)
-	}
-	return item, false, nil
-}
-
-func (service *Service) finishRunItemUpsertLocked(item RunItem, exists bool, finalOutput *RunItemOutput) error {
 	if err := service.recordAgentMessageCompletionLocked(item); err != nil {
 		return err
 	}
@@ -217,19 +186,7 @@ func (service *Service) finishRunItemUpsertLocked(item RunItem, exists bool, fin
 	if err := service.publishRunItemUpsertLocked(item, exists); err != nil {
 		return err
 	}
-	if err := service.publishFinalRunItemOutputLocked(item, finalOutput); err != nil {
-		return err
-	}
 	return service.publishFreshProviderEventLivenessLocked(item.WorkspaceID, item.ConversationID, item.RunID)
-}
-
-func (service *Service) publishFinalRunItemOutputLocked(item RunItem, finalOutput *RunItemOutput) error {
-	if finalOutput != nil {
-		if _, err := service.events.Publish(NewRunItemOutputDeltaEvent(item.WorkspaceID, item.ConversationID, item.RunID, *finalOutput)); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (service *Service) ingestProviderOwnedRunItemLocked(item RunItem) (bool, error) {
@@ -269,51 +226,6 @@ func (service *Service) runItemHasOutputLocked(workspaceID string, runID string,
 	return len(page.Output) > 0, nil
 }
 
-func (service *Service) reconcileCommandRunItemOutputLocked(item *RunItem) (*RunItemOutput, bool, error) {
-	details, ok := item.CommandExecutionDetails()
-	if !ok {
-		return nil, false, nil
-	}
-	hasOutput, err := service.runItemHasOutputLocked(item.WorkspaceID, item.RunID, item.ID)
-	if err != nil {
-		return nil, false, err
-	}
-	if hasOutput {
-		changed := setCommandRunItemOutputAvailability(item, RunItemOutputAvailabilityCaptured)
-		return nil, changed, nil
-	}
-	if details.Result != "" {
-		output, err := service.newRunItemOutputLocked(item.WorkspaceID, item.RunID, item.ID, codexCommandExecutionOutputStream, details.Result)
-		if err != nil {
-			return nil, false, err
-		}
-		if err := service.store.SaveRunItemOutput(item.WorkspaceID, item.RunID, output); err != nil {
-			return nil, false, err
-		}
-		changed := setCommandRunItemOutputAvailability(item, RunItemOutputAvailabilityCaptured)
-		return &output, changed, nil
-	}
-	if details.OutputAvailability == RunItemOutputAvailabilityCaptured {
-		return nil, false, fmt.Errorf("run item %s outputAvailability is captured but no command output artifact or result text exists", item.ID)
-	}
-	return nil, false, nil
-}
-
-func setCommandRunItemOutputAvailability(item *RunItem, availability RunItemOutputAvailability) bool {
-	details, ok := item.CommandExecutionDetails()
-	if !ok {
-		return false
-	}
-	nextAvailability := mergeCommandOutputAvailability(details.OutputAvailability, availability)
-	if nextAvailability == details.OutputAvailability {
-		return false
-	}
-	nextDetails := cloneCommandExecutionDetails(*details)
-	nextDetails.OutputAvailability = nextAvailability
-	item.Details = NewRunItemCommandExecutionDetails(nextDetails)
-	return true
-}
-
 func (service *Service) recordAgentMessageCompletionLocked(item RunItem) error {
 	if !completedAgentMessageItem(item) {
 		return nil
@@ -323,11 +235,7 @@ func (service *Service) recordAgentMessageCompletionLocked(item RunItem) error {
 		return nil
 	}
 	if active.assistantTextByProviderItem[item.ProviderItemID].observed == "" {
-		var err error
-		active, err = service.appendCompletedAgentMessageTextLocked(active, item)
-		if err != nil {
-			return err
-		}
+		return nil
 	}
 	active, err := service.reconcileCompletedAgentMessageTextLocked(active, item)
 	if err != nil {
@@ -339,17 +247,6 @@ func (service *Service) recordAgentMessageCompletionLocked(item RunItem) error {
 	}
 	service.active[activeKey(item.WorkspaceID, item.ConversationID)] = active.recordCompletedAssistantText(item.Summary)
 	return nil
-}
-
-func (service *Service) appendCompletedAgentMessageTextLocked(active activeTurn, item RunItem) (activeTurn, error) {
-	run, err := service.store.LoadRun(item.WorkspaceID, item.RunID)
-	if err != nil {
-		return activeTurn{}, err
-	}
-	if run.Status != RunStatusRunning {
-		return activeTurn{}, fmt.Errorf("completed agentMessage item %s arrived for non-running run %s status %s", item.ProviderItemID, item.RunID, run.Status)
-	}
-	return service.applyAssistantDeltaLocked(item.WorkspaceID, item.ConversationID, run, active, item.ProviderItemID, item.Summary)
 }
 
 func completedAgentMessageItem(item RunItem) bool {
@@ -464,7 +361,7 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	next.Summary = keepString(next.Summary, existing.Summary)
 	mergeRunItemCommandFields(existing, &next)
 	mergeRunItemFileFields(existing, &next)
-	mergeRunItemToolFields(existing, &next)
+	mergeRunItemDynamicToolFields(existing, &next)
 	mergeRunItemCommonFields(existing, &next)
 	return next
 }
@@ -486,12 +383,14 @@ func mergeRunItemFileFields(existing RunItem, next *RunItem) {
 	}
 }
 
-func mergeRunItemToolFields(existing RunItem, next *RunItem) {
-	next.ServerName = keepString(next.ServerName, existing.ServerName)
-	next.ToolName = keepString(next.ToolName, existing.ToolName)
-	next.Namespace = keepString(next.Namespace, existing.Namespace)
-	next.RawDetails = keepRawMessage(next.RawDetails, existing.RawDetails)
-	if next.Type != RunItemTypeCommandExecution {
+func mergeRunItemDynamicToolFields(existing RunItem, next *RunItem) {
+	if next.Type != RunItemTypeDynamicToolCall {
+		next.ServerName = keepString(next.ServerName, existing.ServerName)
+		next.ToolName = keepString(next.ToolName, existing.ToolName)
+		next.Namespace = keepString(next.Namespace, existing.Namespace)
+		next.RawDetails = keepRawMessage(next.RawDetails, existing.RawDetails)
+	}
+	if next.Type != RunItemTypeCommandExecution && next.Type != RunItemTypeDynamicToolCall {
 		next.Result = keepString(next.Result, existing.Result)
 		next.Error = keepString(next.Error, existing.Error)
 	}
@@ -526,6 +425,7 @@ var runItemDetailsMergers = map[RunItemDetailsKind]runItemDetailsMerger{
 	RunItemDetailsKindCommandExecution:    mergeCommandExecutionRunItemDetails,
 	RunItemDetailsKindCommandStartFailure: mergeCommandStartFailureRunItemDetails,
 	RunItemDetailsKindMCPToolCall:         mergeMCPToolCallRunItemDetails,
+	RunItemDetailsKindDynamicToolCall:     mergeDynamicToolCallRunItemDetails,
 	RunItemDetailsKindFileChange:          mergeFileChangeRunItemDetails,
 	RunItemDetailsKindApproval:            mergeApprovalRunItemDetails,
 }
@@ -548,30 +448,7 @@ func mergeCommandExecutionRunItemDetails(existing *RunItemDetails, next *RunItem
 	merged.Source = keepCommandSource(merged.Source, previous.Source)
 	merged.Result = keepString(merged.Result, previous.Result)
 	merged.Error = keepString(merged.Error, previous.Error)
-	merged.OutputAvailability = mergeCommandOutputAvailability(previous.OutputAvailability, merged.OutputAvailability)
 	return NewRunItemCommandExecutionDetails(merged)
-}
-
-func mergeCommandOutputAvailability(existing RunItemOutputAvailability, next RunItemOutputAvailability) RunItemOutputAvailability {
-	if commandOutputAvailabilityRank(next) >= commandOutputAvailabilityRank(existing) {
-		if next != "" {
-			return next
-		}
-	}
-	return existing
-}
-
-func commandOutputAvailabilityRank(value RunItemOutputAvailability) int {
-	switch value {
-	case RunItemOutputAvailabilityCaptured:
-		return 3
-	case RunItemOutputAvailabilityEmpty:
-		return 2
-	case RunItemOutputAvailabilityUnavailable:
-		return 1
-	default:
-		return 0
-	}
 }
 
 func mergeCommandStartFailureRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
@@ -621,6 +498,32 @@ func mergeMCPToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetai
 	}
 	merged.Error = keepString(merged.Error, previous.Error)
 	return NewRunItemMCPToolCallDetails(merged)
+}
+
+func mergeDynamicToolCallRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
+	if next.DynamicToolCall == nil {
+		return existing
+	}
+	if existing.DynamicToolCall == nil {
+		return next
+	}
+	merged := cloneDynamicToolCallDetails(*next.DynamicToolCall)
+	previous := existing.DynamicToolCall
+	merged.Namespace = keepString(merged.Namespace, previous.Namespace)
+	merged.ToolName = keepString(merged.ToolName, previous.ToolName)
+	merged.DisplayTitle = keepString(merged.DisplayTitle, previous.DisplayTitle)
+	merged.Description = keepString(merged.Description, previous.Description)
+	merged.Category = keepString(merged.Category, previous.Category)
+	if merged.DurationMs == 0 {
+		merged.DurationMs = previous.DurationMs
+	}
+	merged.Arguments = keepRawMessage(merged.Arguments, previous.Arguments)
+	merged.ResultSummary = keepString(merged.ResultSummary, previous.ResultSummary)
+	if merged.Result == nil {
+		merged.Result = previous.Result
+	}
+	merged.Error = keepString(merged.Error, previous.Error)
+	return NewRunItemDynamicToolCallDetails(merged)
 }
 
 func mergeFileChangeRunItemDetails(existing *RunItemDetails, next *RunItemDetails) *RunItemDetails {
@@ -758,58 +661,28 @@ func (service *Service) appendRunItemOutput(workspaceID string, conversationID s
 }
 
 func (service *Service) appendRunItemOutputLocked(workspaceID string, conversationID string, runID string, providerItemID string, stream string, text string) error {
-	item, output, err := service.persistRunItemOutputLocked(workspaceID, conversationID, runID, providerItemID, stream, text)
+	item, err := service.ensureOutputRunItemLocked(workspaceID, conversationID, runID, providerItemID)
 	if err != nil {
 		return err
 	}
-	if err := service.publishCommandOutputCapturedStateLocked(item); err != nil {
+	output, err := service.newRunItemOutputLocked(workspaceID, runID, item.ID, stream, text)
+	if err != nil {
+		return err
+	}
+	if err := service.store.SaveRunItemOutput(workspaceID, runID, output); err != nil {
 		return err
 	}
 	if _, err = service.events.Publish(NewRunItemOutputDeltaEvent(workspaceID, conversationID, runID, output)); err != nil {
 		return err
 	}
-	if err := service.markFirstRunItemOutputLocked(workspaceID, conversationID, runID, providerItemID, output); err != nil {
-		return err
+	if output.Ordinal == 1 {
+		if active, ok := service.active[activeKey(workspaceID, conversationID)]; ok && active.runID == runID {
+			if err := service.markActivityBlockOutputLocked(workspaceID, active.transcript, providerItemID); err != nil {
+				return err
+			}
+		}
 	}
 	return service.publishFreshProviderEventLivenessLocked(workspaceID, conversationID, runID)
-}
-
-func (service *Service) persistRunItemOutputLocked(workspaceID string, conversationID string, runID string, providerItemID string, stream string, text string) (RunItem, RunItemOutput, error) {
-	item, err := service.ensureOutputRunItemLocked(workspaceID, conversationID, runID, providerItemID)
-	if err != nil {
-		return RunItem{}, RunItemOutput{}, err
-	}
-	output, err := service.newRunItemOutputLocked(workspaceID, runID, item.ID, stream, text)
-	if err != nil {
-		return RunItem{}, RunItemOutput{}, err
-	}
-	if err := service.store.SaveRunItemOutput(workspaceID, runID, output); err != nil {
-		return RunItem{}, RunItemOutput{}, err
-	}
-	return item, output, nil
-}
-
-func (service *Service) publishCommandOutputCapturedStateLocked(item RunItem) error {
-	if setCommandRunItemOutputAvailability(&item, RunItemOutputAvailabilityCaptured) {
-		if err := service.store.SaveRunItem(item); err != nil {
-			return err
-		}
-		if _, err := service.events.Publish(NewRunItemUpdatedEvent(item)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (service *Service) markFirstRunItemOutputLocked(workspaceID string, conversationID string, runID string, providerItemID string, output RunItemOutput) error {
-	if output.Ordinal != 1 {
-		return nil
-	}
-	active, ok := service.active[activeKey(workspaceID, conversationID)]
-	if !ok || active.runID != runID {
-		return nil
-	}
-	return service.markActivityBlockOutputLocked(workspaceID, active.transcript, providerItemID)
 }
 
 func validateRunItemOutputDelta(providerItemID string, stream string, text string) error {

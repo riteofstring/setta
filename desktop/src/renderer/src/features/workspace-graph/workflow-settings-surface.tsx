@@ -3,6 +3,7 @@ import { RefreshCcw, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useChatDefaultsStore } from "../../stores/chat-defaults-store";
+import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import {
   useWorkflowEditorStore,
   type WorkflowSettingsTarget,
@@ -25,6 +26,9 @@ interface WorkflowSettingsDraft {
 
 export function WorkflowSettingsSurface() {
   const target = useWorkflowEditorStore((state) => state.selectedWorkflowSettingsTarget);
+  const notifyWorkflowDefinitionChanged = useWorkflowEditorStore(
+    (state) => state.notifyWorkflowDefinitionChanged,
+  );
   const setSelectedWorkflowSettingsTarget = useWorkflowEditorStore(
     (state) => state.setSelectedWorkflowSettingsTarget,
   );
@@ -96,6 +100,10 @@ export function WorkflowSettingsSurface() {
         definitionName: updated.name,
       });
       setSaveMessage("Saved");
+      notifyWorkflowDefinitionChanged(target.workspaceId, target.definitionId);
+      await useWorkflowDefinitionStore
+        .getState()
+        .refreshWorkspaceWorkflowDefinitions(target.workspaceId);
     } catch (error: unknown) {
       setLoadError(errorMessage(error));
     } finally {

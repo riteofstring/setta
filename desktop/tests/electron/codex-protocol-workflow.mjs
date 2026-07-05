@@ -1,7 +1,6 @@
 import process from "node:process";
-import { constants } from "node:fs";
-import { access, chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
@@ -39,17 +38,6 @@ const fakeCodexProtocolPayloadsFixture = join(
   "fixtures",
   "fake-codex-protocol-payloads.mjs",
 );
-const fakeCodexSkillRootsFixture = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "fixtures",
-  "fake-codex-skill-roots.mjs",
-);
-const fakeCodexWorkflowAuthoringFixture = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "fixtures",
-  "fake-codex-workflow-authoring.mjs",
-);
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
@@ -63,14 +51,9 @@ export async function installFakeCodexAppServer(fixture) {
   const scriptPath = join(binDir, "fake-codex-app-server.mjs");
   const parallelRunsPath = join(binDir, "fake-codex-parallel-runs.mjs");
   const protocolPayloadsPath = join(binDir, "fake-codex-protocol-payloads.mjs");
-  const skillRootsPath = join(binDir, "fake-codex-skill-roots.mjs");
-  const workflowAuthoringPath = join(binDir, "fake-codex-workflow-authoring.mjs");
-  await assertProductSettaCLIAvailable();
   await copyFile(fakeCodexAppServerFixture, scriptPath);
   await copyFile(fakeCodexParallelRunsFixture, parallelRunsPath);
   await copyFile(fakeCodexProtocolPayloadsFixture, protocolPayloadsPath);
-  await copyFile(fakeCodexSkillRootsFixture, skillRootsPath);
-  await copyFile(fakeCodexWorkflowAuthoringFixture, workflowAuthoringPath);
   if (process.platform === "win32") {
     const commandPath = join(binDir, "codex.cmd");
     await writeFile(commandPath, `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
@@ -80,27 +63,6 @@ export async function installFakeCodexAppServer(fixture) {
   await writeFile(commandPath, `#!/usr/bin/env sh\nexec node "${scriptPath}" "$@"\n`, "utf8");
   await chmod(commandPath, 0o755);
   return { binDir, commandPath };
-}
-
-export function productSettaCLIBinDir() {
-  return join(repoRoot, "desktop", "out", "backend");
-}
-
-export function productSettaCLIPath() {
-  return join(productSettaCLIBinDir(), process.platform === "win32" ? "setta.exe" : "setta");
-}
-
-export async function assertProductSettaCLIAvailable() {
-  const path = productSettaCLIPath();
-  try {
-    await access(path, constants.X_OK);
-  } catch (error) {
-    throw new Error(
-      `product-provided setta CLI is missing or not executable at ${path}; run pnpm -C desktop build`,
-      { cause: error },
-    );
-  }
-  return path;
 }
 
 export async function assertProtocolNotificationActivity(
@@ -135,6 +97,24 @@ export async function assertProtocolNotificationActivity(
     (item) => commandExecutionDetails(item)?.processId === "scoped_process_fake",
   );
   assertNoStandaloneProcessActivity(page);
+  await assertRunActivityItem(
+    page,
+    "dynamic_tool_call",
+    (item) =>
+      item.status === "completed" &&
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "workspace_context" &&
+      JSON.stringify(item.details.dynamicToolCall.result?.contentItems ?? []).includes("rootPath"),
+  );
+  await assertRunActivityItem(
+    page,
+    "dynamic_tool_call",
+    (item) =>
+      item.status === "failed" &&
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "missing_tool" &&
+      item.details.dynamicToolCall.error.includes("unsupported dynamic tool"),
+  );
   await assertRunActivityItem(page, "mcp_tool_call", (item) => isCompletedMCPToolCallItem(item));
   await assertRunActivityItem(page, "mcp_tool_call", (item) => isFailedMCPToolCallItem(item));
   const mcpActivity = (page.activity ?? []).find((row) => isProjectedMCPActivityRow(row));
@@ -1250,6 +1230,20 @@ const protocolNotificationActivityExpectations = [
   {
     type: "command_execution",
     matches: (item) => commandExecutionDetails(item)?.processId === "scoped_process_fake",
+  },
+  {
+    type: "dynamic_tool_call",
+    matches: (item) =>
+      item.status === "completed" &&
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "workspace_context",
+  },
+  {
+    type: "dynamic_tool_call",
+    matches: (item) =>
+      item.status === "failed" &&
+      item.details?.dynamicToolCall?.namespace === "setta" &&
+      item.details.dynamicToolCall.toolName === "missing_tool",
   },
   { type: "mcp_tool_call", matches: isCompletedMCPToolCallItem },
   { type: "mcp_tool_call", matches: isFailedMCPToolCallItem },

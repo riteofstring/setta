@@ -23,7 +23,7 @@ func scriptedActivityProjection(harness *ScriptedWorkflowHarness, ctx context.Co
 	if err := emitProjectionReasoningItems(request, sink); err != nil {
 		return TurnCompletion{}, err
 	}
-	return emitProjectionFinalAgentMessage(request, sink)
+	return scriptedReply(sink, request.Run.ID, "Projection assistant final.")
 }
 
 func emitProjectionTransientActivity(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink, includeTransient bool) error {
@@ -104,22 +104,11 @@ func emitProjectionReasoningItems(request TurnRequest, sink TurnSink) error {
 	}); err != nil {
 		return err
 	}
-	return nil
-}
-
-func emitProjectionFinalAgentMessage(request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	providerItemID := "provider_projection_agent_message_" + request.Run.ID
-	if err := sink.AssistantTextDelta(providerItemID, "Projection assistant final."); err != nil {
-		return TurnCompletion{}, err
-	}
-	if err := sink.RunItemUpsert(RunItem{
-		ProviderItemID: providerItemID,
+	return sink.RunItemUpsert(RunItem{
+		ProviderItemID: "provider_projection_agent_message_" + request.Run.ID,
 		Type:           RunItemTypeAgentMessage,
 		Status:         RunItemStatusCompleted,
 		Title:          "Projection duplicate provider agent message",
 		Summary:        "Projection assistant final.",
-	}); err != nil {
-		return TurnCompletion{}, err
-	}
-	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
+	})
 }

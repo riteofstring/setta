@@ -7,12 +7,9 @@ ELECTRON_BIN="${DESKTOP_DIR}/node_modules/.bin/electron"
 MAIN_BUILD="${DESKTOP_DIR}/out/main/index.js"
 PRELOAD_BUILD="${DESKTOP_DIR}/out/preload/index.js"
 RENDERER_BUILD="${DESKTOP_DIR}/out/renderer/index.html"
-BACKEND_DIR="${DESKTOP_DIR}/out/backend"
-BACKEND_BIN="${BACKEND_DIR}/setta-backend"
-SETTA_CLI_BIN="${BACKEND_DIR}/setta"
+BACKEND_BIN="${DESKTOP_DIR}/out/backend/setta-backend"
 if [[ "$(uname -s)" == MINGW* || "$(uname -s)" == CYGWIN* ]]; then
   BACKEND_BIN="${BACKEND_BIN}.exe"
-  SETTA_CLI_BIN="${SETTA_CLI_BIN}.exe"
 fi
 
 build=0
@@ -94,6 +91,11 @@ build_production() {
   command -v pnpm >/dev/null 2>&1 || fail "pnpm is required to build the desktop app."
   "${ROOT_DIR}/scripts/go.sh" version >/dev/null
   pnpm -C "${DESKTOP_DIR}" build
+  mkdir -p "$(dirname "${BACKEND_BIN}")"
+  (
+    cd "${ROOT_DIR}"
+    "${ROOT_DIR}/scripts/go.sh" build -o "${BACKEND_BIN}" ./cmd/setta-backend
+  )
 }
 
 assert_production_build() {
@@ -101,7 +103,6 @@ assert_production_build() {
   [[ -f "${PRELOAD_BUILD}" ]] || fail "desktop preload build is missing: ${PRELOAD_BUILD}. Run ./scripts/prod_desktop.sh --build first."
   [[ -f "${RENDERER_BUILD}" ]] || fail "desktop renderer build is missing: ${RENDERER_BUILD}. Run ./scripts/prod_desktop.sh --build first."
   [[ -x "${BACKEND_BIN}" ]] || fail "backend build is missing or not executable: ${BACKEND_BIN}. Run ./scripts/prod_desktop.sh --build first."
-  [[ -x "${SETTA_CLI_BIN}" ]] || fail "setta CLI build is missing or not executable: ${SETTA_CLI_BIN}. Run ./scripts/prod_desktop.sh --build first."
 }
 
 app_data_dir() {
@@ -145,7 +146,7 @@ start_backend() {
 
   backend_ready_file="$(mktemp "${TMPDIR:-/tmp}/setta-prod-backend-ready.XXXXXX")"
   backend_token_file="$(mktemp "${TMPDIR:-/tmp}/setta-prod-backend-token.XXXXXX")"
-  "${BACKEND_BIN}" --app-data-dir "${data_dir}" --bundled-cli-dir "${BACKEND_DIR}" --port 0 > >(
+  "${BACKEND_BIN}" --app-data-dir "${data_dir}" --port 0 > >(
     while IFS= read -r line; do
       printf '%s\n' "${line}"
       if [[ ! -s "${backend_ready_file}" ]]; then
