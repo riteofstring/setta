@@ -813,6 +813,13 @@ Progress on 2026-07-07:
   `./scripts/go.sh test ./internal/workspaceui` passed, and
   `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
   diffs because the write operation contract is still not endpoint-exposed.
+- Audit follow-up: expanded backend split resize reducer validation coverage for
+  lower panes that are not directly below the target pane and for split resize
+  requests combined with another resize target. No reducer behavior or exposed
+  contract changed.
+- Verification for the audit follow-up:
+  `./scripts/go.sh test ./internal/workspaceui`, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
   event sync for remaining resize slices (multi-operation transactions), open,
   and reorder, then cut renderer-originated layout mutations over to that

@@ -240,6 +240,55 @@ func TestServiceResizePaneOperationRejectsNonAdjacentSplitPane(t *testing.T) {
 	}
 }
 
+func TestServiceResizePaneOperationRejectsSplitPaneAboveTarget(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindResizePane,
+		PaneID: "workspace_pane_1",
+		Resize: resizePaneSplitOperation("workspace_pane_0", 1.1, 0.9),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Revision != 1 {
+		t.Fatalf("loaded layout = %+v, want unchanged revision 1", loaded.Layout)
+	}
+	loadedUpperPane := paneByID(t, *loaded.Layout, "workspace_pane_0")
+	loadedLowerPane := paneByID(t, *loaded.Layout, "workspace_pane_1")
+	if loadedUpperPane.Weight != 1.6 || loadedLowerPane.Weight != 1 {
+		t.Fatalf("loaded weights = %v %v, want unchanged", loadedUpperPane.Weight, loadedLowerPane.Weight)
+	}
+}
+
+func TestServicePaneOperationRejectsResizeSplitWithAnotherTarget(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	widthSpec := ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 520}
+	resize := resizePaneSplitOperation("workspace_pane_1", 1.1, 0.9)
+	resize.WidthSpec = &widthSpec
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindResizePane,
+		PaneID: "workspace_pane_0",
+		Resize: resize,
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
 func TestServicePaneOperationRejectsInvalidResizeSplit(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
