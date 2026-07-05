@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-const defaultOpenPaneColumnWidthPX = 520
-
 type workspaceUIPaneOpenApplication struct {
 	layout       WorkspaceUILayout
 	pane         WorkspaceUIPane
@@ -311,7 +309,7 @@ func openPaneColumnWidthSpec(requested *ColumnWidthSpec, fallback ColumnWidthSpe
 }
 
 func defaultOpenPaneColumnWidthSpec() ColumnWidthSpec {
-	return ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: defaultOpenPaneColumnWidthPX}
+	return ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: defaultWorkspaceUIColumnWidthPX}
 }
 
 func openPaneWidthWarnings(requested ColumnWidthSpec, normalized ColumnWidthSpec) []WorkspaceUIPaneOperationWarning {
