@@ -259,7 +259,26 @@ Progress on 2026-07-06:
   `./check_quality.sh --git-changes`, and
   `node desktop/tests/electron/run-workflows.mjs --workflow
   workflow-graph-smoke` passed.
-- Remaining Phase 2 work: add definitions list/read/validate/save with
+
+Progress on 2026-07-06:
+
+- Added `setta workflow definitions list [--app-data-dir DIR]`.
+- The command reads the local serve state, verifies the runtime identity, mints
+  a short-lived command-specific CLI auth session, reads the selected workspace
+  through `GET /workspace-session`, calls the authenticated backend
+  `POST /workflows/definitions/list` contract with that workspace ID, validates
+  the typed list response, and prints `ListWorkflowDefinitionsResponse` as JSON.
+- Added a focused CLI integration test that starts a disposable local runtime,
+  opens a temporary workspace, creates a workflow definition through the
+  backend-owned HTTP route, and verifies the new CLI command lists it through
+  real CLI dispatch, runtime auth, and backend HTTP.
+- Verification: `./scripts/go.sh test ./cmd/setta`,
+  `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`,
+  and `node desktop/tests/electron/run-workflows.mjs --workflow
+  workflow-graph-smoke` passed. The final pre-commit gates
+  `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after
+  splitting response validation to satisfy the Go complexity check.
+- Remaining Phase 2 work: add definitions read, validate, and save with the
   explicit create/update save input and structured diagnostics, then execution
   start/read. Add the broader workflow-authoring Electron coverage as mutating
   CLI commands are introduced and the in-app path moves to this surface.

@@ -379,6 +379,57 @@ func TestWorkflowCurrentWorkspaceCommandFailsWithoutSelectedWorkspace(t *testing
 	}
 }
 
+func TestWorkflowDefinitionsListCommandIntegration(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	opened := openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+	created := createWorkflowDefinitionForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, httpapi.CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Review Flow",
+		Description: "CLI list test workflow",
+		Graph:       cliTestStartEndWorkflowGraph(),
+	})
+
+	var stdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	if code := runWithDeps([]string{"workflow", "definitions", "list", "--app-data-dir", appDataDir}, commandDeps); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+
+	var listed httpapi.ListWorkflowDefinitionsResponse
+	if err := json.NewDecoder(&stdout).Decode(&listed); err != nil {
+		t.Fatalf("decode workflow definitions list output: %v\noutput:\n%s", err, stdout.String())
+	}
+	if len(listed.Definitions) != 1 {
+		t.Fatalf("listed definitions = %+v, want one definition", listed.Definitions)
+	}
+	if !reflect.DeepEqual(listed.Definitions[0], created) {
+		t.Fatalf("listed definition = %+v, want %+v", listed.Definitions[0], created)
+	}
+}
+
 func TestWorkflowSchemaCommandIntegration(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()
@@ -503,6 +554,34 @@ func openWorkspaceForCLITest(t *testing.T, client *http.Client, appDataDir strin
 	}
 	defer cleanup()
 	return postAuthedRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, token, "/workspaces/open", httpapi.OpenWorkspaceRequest{RootPath: rootPath})
+}
+
+func createWorkflowDefinitionForCLITest(t *testing.T, client *http.Client, appDataDir string, baseURL string, request httpapi.CreateWorkflowDefinitionRequest) orchestrator.WorkflowDefinition {
+	t.Helper()
+	token, cleanup, err := createRuntimeCLIAuthSession(context.Background(), appDataDir, "Setta CLI test workflow definition creator")
+	if err != nil {
+		t.Fatalf("create CLI auth session: %v", err)
+	}
+	defer cleanup()
+	return postAuthedRuntimeJSON[orchestrator.WorkflowDefinition](t, client, baseURL, token, "/workflows/definitions/create", request)
+}
+
+func cliTestStartEndWorkflowGraph() orchestrator.WorkflowGraph {
+	return orchestrator.WorkflowGraph{
+		Nodes: []orchestrator.WorkflowNode{
+			{ID: "start", Kind: orchestrator.NodeKindStart},
+			{ID: "end", Kind: orchestrator.NodeKindEnd},
+		},
+		Edges: []orchestrator.WorkflowEdge{
+			{ID: "start_end", FromNodeID: "start", ToNodeID: "end", Kind: orchestrator.EdgeKindNormal},
+		},
+		Layout: orchestrator.WorkflowGraphLayout{
+			Nodes: []orchestrator.WorkflowGraphNodeLayout{
+				{NodeID: "start", X: -160, Y: 0},
+				{NodeID: "end", X: 160, Y: 0},
+			},
+		},
+	}
 }
 
 func postAuthedRuntimeJSON[T any](t *testing.T, client *http.Client, baseURL string, token string, path string, payload any) T {

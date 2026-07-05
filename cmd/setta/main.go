@@ -141,6 +141,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta pair [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta runtime rename <display-name> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workflow current-workspace [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workflow definitions list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workflow schema [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
