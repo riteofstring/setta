@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 /* global console */
 
+import { rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 import process from "node:process";
 
+import {
+  killExternalBackend,
+  startExternalScriptedBackend,
+  stopExternalBackend,
+} from "./chat-workflow-external-backend.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -12,6 +18,7 @@ import {
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   reloadPage,
+  repoRoot,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
@@ -24,6 +31,8 @@ import { driverCallExpression } from "./cdp-client.mjs";
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "easy-button-pane";
 const workflowTimeoutMs = 25_000;
+const restartRecoveryPrompt = "cancel active workflow";
+const restartRecoveryError = "run interrupted by backend restart";
 
 if (options.help) {
   console.log(
@@ -116,10 +125,15 @@ try {
   }
   await captureScreenshot(context.client, join(artifactDir, "easy-button-frozen.png"));
 
+  await stopElectronCdpContext(context);
+  context = null;
+  const restartRecovery = await runEasyButtonRestartRecovery(join(artifactDir, "restart-recovery"));
+
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     completed,
     frozen,
+    restartRecovery,
     resetAfterComplete,
     resetAfterStopped,
     restored,
@@ -160,6 +174,82 @@ async function ensureWorkspaceOpen(client) {
     (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     workflowTimeoutMs,
   );
+}
+
+async function runEasyButtonRestartRecovery(recordingRoot) {
+  const recoveryFixture = await createElectronFixture("easy-button-restart-recovery");
+  const firstRecording = join(recordingRoot, "first-launch");
+  const secondRecording = join(recordingRoot, "second-launch");
+  let firstContext = null;
+  let secondContext = null;
+  let firstBackend = null;
+  let secondBackend = null;
+
+  try {
+    firstBackend = await startExternalScriptedBackend(recoveryFixture, repoRoot);
+    firstContext = await launchExternalBackendEasyButtonContext(
+      recoveryFixture,
+      firstRecording,
+      firstBackend,
+    );
+    await ensureWorkspaceOpen(firstContext.client);
+    await openEasyButtonFromToolbar(firstContext.client);
+    const opened = await waitForEasyButtonPane(firstContext.client);
+    assertFullWidthColumn(opened);
+    assertIdleVisual(opened);
+    await submitEasyButtonRequest(firstContext.client, restartRecoveryPrompt);
+    const working = await waitForEasyButtonWorking(firstContext.client, restartRecoveryPrompt);
+    assertWorkingVisual(working, restartRecoveryPrompt);
+    await captureScreenshot(
+      firstContext.client,
+      join(firstRecording, "easy-button-restart-working.png"),
+    );
+
+    await killExternalBackend(firstBackend);
+    firstBackend = null;
+    await stopElectronCdpContext(firstContext);
+    firstContext = null;
+
+    secondBackend = await startExternalScriptedBackend(recoveryFixture, repoRoot);
+    secondContext = await launchExternalBackendEasyButtonContext(
+      recoveryFixture,
+      secondRecording,
+      secondBackend,
+    );
+    await ensureWorkspaceOpen(secondContext.client);
+    const recovered = await waitForEasyButtonTerminal(
+      secondContext.client,
+      restartRecoveryPrompt,
+      "Failed after",
+    );
+    assertRestartRecoveredVisual(recovered);
+    await captureScreenshot(
+      secondContext.client,
+      join(secondRecording, "easy-button-restart-recovered.png"),
+    );
+    return { recovered, working };
+  } finally {
+    await stopElectronCdpContext(firstContext);
+    await stopElectronCdpContext(secondContext);
+    await stopExternalBackend(firstBackend, { force: true });
+    await stopExternalBackend(secondBackend);
+    await rm(recoveryFixture.tempRoot, { force: true, recursive: true });
+  }
+}
+
+async function launchExternalBackendEasyButtonContext(fixture, recordingDir, backend) {
+  const launched = await launchElectronCdpContext({
+    artifactDir: recordingDir,
+    extraEnv: {
+      SETTA_BACKEND_TOKEN: backend.token,
+      SETTA_BACKEND_URL: backend.url,
+    },
+    fixture,
+    visible: options.visible,
+  });
+  await waitForSelector(launched.client, '[data-testid="workspace-layout-area"]');
+  await launched.client.installDriver();
+  return launched;
 }
 
 async function openEasyButtonFromToolbar(client) {
@@ -264,6 +354,15 @@ function assertTerminalVisual(state, requestText, summaryPrefix) {
     state.paneChromeTitle !== "Easy Button · complete"
   ) {
     throw new Error(`easy-button terminal visual did not match Phase 2b: ${JSON.stringify(state)}`);
+  }
+}
+
+function assertRestartRecoveredVisual(state) {
+  assertTerminalVisual(state, restartRecoveryPrompt, "Failed after");
+  if (!state.summaryText.includes(restartRecoveryError)) {
+    throw new Error(
+      `easy-button restart recovery summary omitted reason: ${JSON.stringify(state)}`,
+    );
   }
 }
 

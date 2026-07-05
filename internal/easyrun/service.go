@@ -18,6 +18,8 @@ import (
 
 var errEasyRunConversationNotFound = errors.New("easy-run conversation not found")
 
+const easyRunInterruptedOnRestartReason = "run interrupted by backend restart"
+
 type Service struct {
 	chat   ChatService
 	events *EventHub
@@ -78,6 +80,9 @@ func NewService(store *Store, options ...Option) (*Service, error) {
 	}
 	if service.now == nil {
 		return nil, errors.New("easy-run clock is required")
+	}
+	if err := service.recoverInterruptedRuns(); err != nil {
+		return nil, err
 	}
 	if err := service.startChatObserver(); err != nil {
 		return nil, err
@@ -413,6 +418,53 @@ func easyRunArtifactCountSummary(count int) string {
 	default:
 		return fmt.Sprintf("%d artifacts", count)
 	}
+}
+
+func (service *Service) recoverInterruptedRuns() error {
+	workspaceIDs, err := service.store.workspaceIDs()
+	if err != nil {
+		return err
+	}
+	endedAt := timestamp(service.now())
+	for _, workspaceID := range workspaceIDs {
+		records, err := service.store.loadRunRecords(workspaceID)
+		if err != nil {
+			return err
+		}
+		for _, record := range records {
+			if record.Run.Status != EasyRunStatusWorking {
+				continue
+			}
+			if _, err := service.recoverInterruptedRun(record, endedAt); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (service *Service) recoverInterruptedRun(record storedRunRecord, endedAt string) (EasyRun, error) {
+	duration, err := easyRunDuration(record.Run.StartedAt, endedAt)
+	if err != nil {
+		return EasyRun{}, err
+	}
+	record.Run.Status = EasyRunStatusFailed
+	record.Run.EndedAt = &endedAt
+	record.Run.Error = stringPointer(easyRunInterruptedOnRestartReason)
+	record.Run.Summary = stringPointer(fmt.Sprintf(
+		"Failed after %s - %s - %s",
+		duration,
+		easyRunInterruptedOnRestartReason,
+		easyRunArtifactCountSummary(record.Run.ArtifactCount),
+	))
+	record.Run.ActiveAgentCount = 0
+	if err := service.store.saveRun(record); err != nil {
+		return EasyRun{}, err
+	}
+	if _, err := service.events.Publish(NewRunUpdatedEvent(record.Run)); err != nil {
+		return EasyRun{}, err
+	}
+	return record.Run, nil
 }
 
 func (service *Service) startChatObserver() error {

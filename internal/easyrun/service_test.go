@@ -145,6 +145,81 @@ func TestServiceStopCancelsBackingRunAndProjectsStoppedStatus(t *testing.T) {
 	}
 }
 
+func TestServiceStartupRecoveryMarksWorkingRunsFailed(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, err := NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_easy",
+		Run:           testRun("easy_run_interrupted"),
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	completed := testRun("easy_run_completed")
+	endedAt := "2026-07-08T12:01:00Z"
+	completed.ActiveAgentCount = 0
+	completed.EndedAt = &endedAt
+	completed.Status = EasyRunStatusCompleted
+	completed.Summary = stringPointer("Done in 1m0s - no artifacts")
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_completed",
+		Run:           completed,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save completed run: %v", err)
+	}
+
+	restarted, err := NewService(
+		store,
+		WithClock(func() time.Time {
+			return time.Date(2026, 7, 8, 12, 2, 0, 0, time.UTC)
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create restarted service: %v", err)
+	}
+	t.Cleanup(restarted.CloseEvents)
+
+	snapshot, err := restarted.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read recovered snapshot: %v", err)
+	}
+	if snapshot.LatestRun == nil || snapshot.LatestRun.ID != "easy_run_interrupted" {
+		t.Fatalf("snapshot latest = %+v, want recovered interrupted run", snapshot.LatestRun)
+	}
+	assertRestartRecoveredEasyRun(t, *snapshot.LatestRun)
+
+	persisted, err := store.loadRun("workspace_api", "easy_run_interrupted")
+	if err != nil {
+		t.Fatalf("load persisted recovered run: %v", err)
+	}
+	assertRestartRecoveredEasyRun(t, persisted.Run)
+
+	subscription, err := restarted.SubscribeEvents(EasyRunEventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe recovery events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+	event := requireEasyRunEvent(t, subscription)
+	if event.Type != EasyRunEventTypeRunUpdated ||
+		event.RunUpdated == nil ||
+		event.RunUpdated.Run.ID != "easy_run_interrupted" ||
+		event.RunUpdated.Run.Status != EasyRunStatusFailed {
+		t.Fatalf("recovery event = %+v, want failed run update", event)
+	}
+
+	unchanged, err := store.loadRun("workspace_api", "easy_run_completed")
+	if err != nil {
+		t.Fatalf("load completed run: %v", err)
+	}
+	if unchanged.Run.Status != EasyRunStatusCompleted || unchanged.Run.Summary == nil || *unchanged.Run.Summary != "Done in 1m0s - no artifacts" {
+		t.Fatalf("completed run changed during recovery: %+v", unchanged.Run)
+	}
+}
+
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 	store, err := NewStore(t.TempDir())
@@ -304,6 +379,22 @@ func assertNoPublicConversations(t *testing.T, conversations []chat.Conversation
 	t.Helper()
 	if len(conversations) != 0 {
 		t.Fatalf("public conversations = %+v, want hidden easy-run omitted", conversations)
+	}
+}
+
+func assertRestartRecoveredEasyRun(t *testing.T, run EasyRun) {
+	t.Helper()
+	if run.Status != EasyRunStatusFailed ||
+		run.EndedAt == nil ||
+		*run.EndedAt != "2026-07-08T12:02:00Z" ||
+		run.Error == nil ||
+		*run.Error != easyRunInterruptedOnRestartReason ||
+		run.Summary == nil ||
+		!strings.Contains(*run.Summary, "Failed after 2m0s") ||
+		!strings.Contains(*run.Summary, easyRunInterruptedOnRestartReason) ||
+		!strings.Contains(*run.Summary, "no artifacts") ||
+		run.ActiveAgentCount != 0 {
+		t.Fatalf("recovered run = %+v, want failed restart projection", run)
 	}
 }
 

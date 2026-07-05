@@ -74,6 +74,25 @@ func NewStore(appDataDir string) (*Store, error) {
 	return &Store{appDataDir: filepath.Clean(appDataDir)}, nil
 }
 
+func (store *Store) workspaceIDs() ([]string, error) {
+	dir := filepath.Join(store.appDataDir, "workspaces")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []string{}, nil
+		}
+		return nil, &PersistenceError{Operation: "list easy-run workspaces", Path: dir, Err: err}
+	}
+	ids := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			ids = append(ids, entry.Name())
+		}
+	}
+	sort.Strings(ids)
+	return ids, nil
+}
+
 func (store *Store) LoadLatestSnapshot(workspaceID string, cursor EasyRunEventCursor) (EasyRunSnapshot, error) {
 	if err := validateWorkspaceID(workspaceID); err != nil {
 		return EasyRunSnapshot{}, err

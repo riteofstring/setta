@@ -952,3 +952,37 @@ Verification performed:
 - `pnpm -C desktop typecheck`
 - `pnpm -C desktop build`
 - `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2b-audit`
+
+### 2026-07-08 — Phase 2c startup-recovery slice complete
+
+Implemented the first Phase 2c hardening slice:
+
+- Added easy-run startup recovery. On service creation, persisted `working`
+  easy runs across all workspaces are marked `failed` with
+  `run interrupted by backend restart`, `EndedAt`, zero active agents, and a
+  terminal summary that includes the restart reason and artifact count.
+- Recovery persists the updated typed `EasyRun` and publishes
+  `easyrun.run.updated`; terminal runs are left unchanged.
+- Expanded the deterministic easy-button Electron workflow with an
+  external-backend restart segment: start a real pane request, kill the backend
+  while it is working, relaunch against the same app data, and assert the pane
+  restores the failed terminal state from the easy-run snapshot. The renderer
+  still consumes only typed easy-run contracts.
+
+Verification performed:
+
+- `./scripts/go.sh test ./internal/easyrun`
+- `./scripts/format.sh`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2c-restart-recovery`
+- `node desktop/tests/electron/chat-live-auth.mjs`
+- `./scripts/test_chat_workflows.sh --skip-build --live-only`
+- `./check_quality.sh --git-changes`
+
+Live note: ChatGPT auth was available. The live gate passed
+`live-codex-electron` and `live-codex-backend`.
+
+Remaining Phase 2c work: production-path active-run rejection coverage,
+latest-run snapshot restore after renderer reload, `easyrun.resync_required`
+handling in the pane workflow, second-request rail reset coverage, and the
+"Copy debug info" context-menu action. No blockers were discovered.
