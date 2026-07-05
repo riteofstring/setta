@@ -113,7 +113,6 @@ func validRunLivenessReconcileReason(reason RunLivenessReason) bool {
 	switch reason {
 	case RunLivenessReasonWakeRecheck,
 		RunLivenessReasonSnapshotLoad,
-		RunLivenessReasonProviderInactive,
 		RunLivenessReasonStreamResync,
 		RunLivenessReasonUserRetry,
 		RunLivenessReasonProviderRestarted:
@@ -262,7 +261,7 @@ func (service *Service) preservedSnapshotRunLivenessLocked(workspaceID string, c
 		return liveness, true, true
 	case RunLivenessReconciling:
 		switch liveness.Reason {
-		case RunLivenessReasonProviderInactive, RunLivenessReasonProviderRestarted, RunLivenessReasonStreamResync:
+		case RunLivenessReasonProviderRestarted, RunLivenessReasonStreamResync:
 			return liveness, true, true
 		default:
 			return RunLiveness{}, false, false

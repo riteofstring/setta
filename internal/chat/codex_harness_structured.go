@@ -24,6 +24,8 @@ func (harness *CodexHarness) runStructuredTask(ctx context.Context, request Harn
 	if err != nil {
 		return HarnessTaskResult{}, err
 	}
+	session.AcceptUnscopedNotifications()
+	session.AcceptUnscopedRequests()
 	defer session.Close()
 
 	thread, err := harness.startCodexStructuredTaskThread(ctx, session, request)
@@ -220,14 +222,6 @@ func (harness *CodexHarness) applyCodexStructuredTaskEvent(ctx context.Context, 
 		return codexStructuredTaskWaitResult{}, false, err
 	case codexapp.EventNotification:
 		return handleCodexStructuredTaskNotification(event.Message, threadID, turnID, sink)
-	case codexapp.EventLag:
-		if event.Lag != nil {
-			return codexStructuredTaskWaitResult{}, false, sink.Trace(
-				"codex_app_server_backpressure",
-				fmt.Sprintf("%s skipped %d %s notifications", event.Lag.EventClass, event.Lag.SkippedCount, event.Lag.Method),
-			)
-		}
-		return codexStructuredTaskWaitResult{}, false, nil
 	case codexapp.EventLifecycle:
 		return codexStructuredTaskWaitResult{}, false, fmt.Errorf("codex app-server exited before structured task completed: %w", event.Err)
 	default:

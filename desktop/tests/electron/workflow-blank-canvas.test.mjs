@@ -142,8 +142,6 @@ try {
       snapshot.graph.nodes.every((node) => node.diagnostic === null),
   );
   await openAgentTaskDetailsFromToolbar(context.client, workflowGraphSurfaceId, afterSecondNode);
-  await selectWorkflowAgentNodePermissionPreset(context.client, "read-only");
-  await saveWorkflowNodeDetails(context.client);
   workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client, {
     surfaceId: workflowGraphSurfaceId,
   });
@@ -179,8 +177,7 @@ try {
   if (
     saved.name !== "Untitled workflow" ||
     saved.graph.nodes[0]?.kind !== "start" ||
-    saved.graph.nodes[1]?.kind !== "action" ||
-    saved.graph.nodes[1]?.action?.codex?.settings?.permission?.preset !== "read-only"
+    saved.graph.nodes[1]?.kind !== "action"
   ) {
     throw new Error(`saved workflow definition mismatch: ${JSON.stringify(saved)}`);
   }
@@ -206,19 +203,11 @@ try {
     definitions[0].id,
     "Greeting workflow",
     "Says hi",
-    {
-      model: "scripted-careful",
-      permissionPreset: "default",
-      reasoningEffort: "low",
-    },
   );
   if (
     renamedDefinition.id !== definitions[0].id ||
     renamedDefinition.name !== "Greeting workflow" ||
-    renamedDefinition.description !== "Says hi" ||
-    renamedDefinition.graph.agentDefaults.model !== "scripted-careful" ||
-    renamedDefinition.graph.agentDefaults.reasoningEffort !== "low" ||
-    renamedDefinition.graph.agentDefaults.permission?.preset !== "default"
+    renamedDefinition.description !== "Says hi"
   ) {
     throw new Error(`renamed workflow definition mismatch: ${JSON.stringify(renamedDefinition)}`);
   }
@@ -232,13 +221,7 @@ try {
     );
   }
   const renamedSaved = await readSavedWorkflowDefinition(fixture.workspaceRoot, definitions[0].id);
-  if (
-    renamedSaved.name !== "Greeting workflow" ||
-    renamedSaved.description !== "Says hi" ||
-    renamedSaved.graph.agentDefaults.model !== "scripted-careful" ||
-    renamedSaved.graph.agentDefaults.reasoningEffort !== "low" ||
-    renamedSaved.graph.agentDefaults.permission?.preset !== "default"
-  ) {
+  if (renamedSaved.name !== "Greeting workflow" || renamedSaved.description !== "Says hi") {
     throw new Error(`saved renamed workflow mismatch: ${JSON.stringify(renamedSaved)}`);
   }
   workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client, {
@@ -469,14 +452,7 @@ async function clickWorkflowToolbarButton(client, testId) {
   }
 }
 
-async function renameWorkflowFromSettings(
-  client,
-  workspaceId,
-  definitionId,
-  name,
-  description,
-  agentDefaults,
-) {
+async function renameWorkflowFromSettings(client, workspaceId, definitionId, name, description) {
   await restoreMaximizedWorkflowGraphPane(client);
   await clickWorkflowToolbarButton(client, "workflow-settings-button");
   await waitForSelector(client, visibleWorkflowSettingsSurfaceSelector);
@@ -494,34 +470,12 @@ async function renameWorkflowFromSettings(
     '[data-testid="workflow-settings-description"]',
     description,
   );
-  await setWorkflowSettingsControlValue(
-    client,
-    '[data-testid="workflow-agent-default-model"]',
-    agentDefaults.model,
-  );
-  await setWorkflowSettingsControlValue(
-    client,
-    '[data-testid="workflow-agent-default-reasoning"]',
-    agentDefaults.reasoningEffort,
-  );
-  await clickWorkflowPermissionPreset(
-    client,
-    visibleWorkflowSettingsSurfaceSelector,
-    "workflow-agent-default-permission",
-    agentDefaults.permissionPreset,
-  );
-  await saveWorkflowSettings(client);
-  return waitForWorkflowDefinition(
-    client,
-    workspaceId,
+  return client.driver("renameWorkflowDefinitionFromCurrentGraph", {
     definitionId,
-    (definition) =>
-      definition.name === name &&
-      definition.description === description &&
-      definition.graph.agentDefaults.model === agentDefaults.model &&
-      definition.graph.agentDefaults.reasoningEffort === agentDefaults.reasoningEffort &&
-      definition.graph.agentDefaults.permission?.preset === agentDefaults.permissionPreset,
-  );
+    description,
+    name,
+    workspaceId,
+  });
 }
 
 async function restoreMaximizedWorkflowGraphPane(client) {
@@ -546,93 +500,6 @@ async function setWorkflowSettingsControlValue(client, selector, value) {
   if (!result.ok) {
     throw new Error(`failed to set control ${selector}: ${JSON.stringify(result)}`);
   }
-}
-
-async function saveWorkflowSettings(client) {
-  await clickScopedButton(
-    client,
-    visibleWorkflowSettingsSurfaceSelector,
-    "workflow-settings-save-button",
-  );
-}
-
-async function selectWorkflowAgentNodePermissionPreset(client, preset) {
-  await clickWorkflowPermissionPreset(
-    client,
-    '[data-testid="workflow-node-details-surface"]',
-    "workflow-node-agent-permission",
-    preset,
-  );
-}
-
-async function saveWorkflowNodeDetails(client) {
-  await clickScopedButton(
-    client,
-    '[data-testid="workflow-node-details-surface"]',
-    "workflow-node-save-button",
-  );
-  await waitForState(
-    client,
-    `(() => {
-      const surface = document.querySelector('[data-testid="workflow-node-details-surface"]');
-      const state = surface?.querySelector('[data-testid="workflow-node-save-state"]');
-      return state?.textContent?.trim() ?? "";
-    })()`,
-    (value) => value === "Saved",
-  );
-}
-
-async function clickWorkflowPermissionPreset(client, surfaceSelector, groupTestId, preset) {
-  await waitForState(
-    client,
-    `(() => {
-      const surface = document.querySelector(${JSON.stringify(surfaceSelector)});
-      const button = surface?.querySelector(
-        '[data-testid="${groupTestId}"] [data-permission-preset="${preset}"]',
-      );
-      if (!(button instanceof HTMLButtonElement) || button.disabled) {
-        return { clicked: false };
-      }
-      button.click();
-      return { clicked: true };
-    })()`,
-    (value) => value.clicked,
-  );
-}
-
-async function clickScopedButton(client, surfaceSelector, testId) {
-  await waitForState(
-    client,
-    `(() => {
-      const surface = document.querySelector(${JSON.stringify(surfaceSelector)});
-      const button = surface?.querySelector('[data-testid="${testId}"]');
-      if (!(button instanceof HTMLButtonElement) || button.disabled) {
-        return { clicked: false };
-      }
-      button.click();
-      return { clicked: true };
-    })()`,
-    (value) => value.clicked,
-  );
-}
-
-async function readWorkflowDefinition(client, workspaceId, definitionId) {
-  return client.evaluate(
-    `window.setta.workflow.readDefinition(${JSON.stringify(workspaceId)}, ${JSON.stringify(definitionId)})`,
-  );
-}
-
-async function waitForWorkflowDefinition(client, workspaceId, definitionId, predicate) {
-  const deadline = Date.now() + 10_000;
-  let latest = null;
-  while (Date.now() < deadline) {
-    latest = await readWorkflowDefinition(client, workspaceId, definitionId);
-    if (predicate(latest)) {
-      return latest;
-    }
-    await delay(100);
-  }
-  throw new Error(`timed out waiting for workflow definition: ${JSON.stringify(latest)}`);
 }
 
 async function addWorkflowNodeAt(client, surfaceId, nodeType, point) {
@@ -719,8 +586,7 @@ function workflowRunDetailsReady(state) {
     "decision=exit",
     "scripted workflow result",
     "reports/workflow-result.md",
-    "Read Only - node override",
-    "Scripted Careful - workflow default",
+    "Agent Trajectory",
   ];
   return [
     state.workflowTrajectorySurfaceCount === 1,

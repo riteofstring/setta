@@ -190,7 +190,6 @@ function TestChatTranscript({
       activeRunLiveness={null}
       activeCurrentPlanTarget={activeCurrentPlanTarget}
       blocks={blocks}
-      conversationKey="conversation_test"
       editQueuedMessage={noop}
       editingQueuedMessageId={null}
       focusedSourceRunItemId={focusedSourceRunItemId}

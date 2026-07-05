@@ -25,7 +25,7 @@ func TestHealthEndpointReturnsStructuredJSON(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode health response: %v", err)
 	}
-	if payload != (BackendHealth{OK: true, Name: BackendName, Version: "test"}) {
+	if payload != (BackendHealth{OK: true, Name: BackendName, Version: "test", ProtocolVersion: ProtocolVersion}) {
 		t.Fatalf("payload = %+v", payload)
 	}
 }

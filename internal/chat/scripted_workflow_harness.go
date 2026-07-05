@@ -22,8 +22,6 @@ type ScriptedWorkflowHarness struct {
 	phase4ReviewerBarriers   map[string]map[string]chan struct{}
 	reasoning                ReasoningEffort
 	steers                   map[string]chan SteerRequest
-	turnErrors               map[string]string
-	turnStatuses             map[string]HarnessTurnRuntimeStatus
 }
 
 type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
@@ -83,17 +81,19 @@ func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
 		phase4ReviewerBarriers:   map[string]map[string]chan struct{}{},
 		reasoning:                defaultModel.DefaultReasoningEffort,
 		steers:                   map[string]chan SteerRequest{},
-		turnErrors:               map[string]string{},
-		turnStatuses:             map[string]HarnessTurnRuntimeStatus{},
 	}
+}
+
+func (harness *ScriptedWorkflowHarness) ActiveRunCount() int {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+	return len(harness.steers)
 }
 
 func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.registerRun(request.Run.ID)
-	completion, err := harness.runScriptedTurn(ctx, request, sink)
-	harness.finishRun(request.Run.ID, completion, err)
-	harness.unregisterRun(request.Run.ID)
-	return completion, err
+	defer harness.unregisterRun(request.Run.ID)
+	return harness.runScriptedTurn(ctx, request, sink)
 }
 
 func (harness *ScriptedWorkflowHarness) runScriptedTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -260,10 +260,9 @@ func (harness *ScriptedWorkflowHarness) BeginGoalOperation(ctx context.Context, 
 
 func (operation *scriptedGoalOperation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	operation.harness.registerRun(request.Run.ID)
+	defer operation.harness.unregisterRun(request.Run.ID)
 
 	completion, err := operation.harness.runScriptedTurn(ctx, request, sink)
-	operation.harness.finishRun(request.Run.ID, completion, err)
-	operation.harness.unregisterRun(request.Run.ID)
 	if err != nil || completion.Outcome != TurnOutcomeCompleted {
 		return completion, err
 	}
@@ -752,8 +751,6 @@ func (harness *ScriptedWorkflowHarness) registerRun(runID string) {
 
 	harness.approvals[runID] = make(chan ApprovalResponse, 1)
 	harness.steers[runID] = make(chan SteerRequest, 4)
-	harness.turnErrors[runID] = ""
-	harness.turnStatuses[runID] = HarnessTurnRuntimeInProgress
 }
 
 func (harness *ScriptedWorkflowHarness) unregisterRun(runID string) {

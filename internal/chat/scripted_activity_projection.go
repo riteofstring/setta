@@ -96,7 +96,8 @@ func emitProjectionReasoningItems(request TurnRequest, sink TurnSink) error {
 		ProviderItemID: "provider_projection_public_reasoning_" + request.Run.ID,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusCompleted,
-		Summary:        "**Projection reasoning**\nPublic reasoning summary visible.",
+		Title:          "Projection reasoning",
+		Summary:        "Public reasoning summary visible.",
 	}); err != nil {
 		return err
 	}

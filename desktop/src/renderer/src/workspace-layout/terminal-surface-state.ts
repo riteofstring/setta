@@ -11,16 +11,6 @@ export const terminalSurfaceLimits = {
   resizeDebounceMs: 80,
 } as const;
 
-export interface PendingTerminalOutput {
-  byteCount: number;
-  dataBase64: string;
-}
-
-export interface PendingPaste {
-  byteCount: number;
-  text: string;
-}
-
 export type TerminalStatusEvent = TerminalEvent & {
   type: Exclude<TerminalEvent["type"], "terminal.output">;
 };

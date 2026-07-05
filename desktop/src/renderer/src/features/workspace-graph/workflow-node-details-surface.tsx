@@ -1,19 +1,17 @@
 import type {
-  ChatPermissionPreset,
   WorkflowEdge,
   WorkflowGraph,
   WorkflowNode,
+  WorkflowNodeExecution,
 } from "@generated/backend";
 import { RefreshCcw, Save } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
-import { useChatDefaultsStore } from "../../stores/chat-defaults-store";
 import {
   useWorkflowEditorStore,
   type WorkflowNodeActivityFocus,
-  type WorkflowNodeDetailsTarget,
 } from "../../stores/workflow-editor-store";
 import type { WorkspacePane } from "../../workspace-layout/types";
 import {
@@ -26,21 +24,34 @@ import {
   type WorkflowRunTrajectoryActions,
 } from "./workflow-node-details-components";
 import {
+  workflowNodeTrajectoryStateFromPage,
+  workflowNodeTrajectoryWithLoadedOutput,
+  workflowNodeTrajectoryWithOlderPage,
+  workflowNodeTrajectoryWithOutputError,
+  workflowNodeTrajectoryWithOutputLoading,
+} from "./workflow-node-agent-trajectory-adapter";
+import {
   agentTaskDraftFromNode,
   requiredIncomingSummary,
   shortIdentifier,
   workflowConditionText,
   workflowGraphWithUpdatedAgentTask,
   workflowIncomingEdges,
+  workflowNodeExecutionForDetailsTarget,
   workflowNodeKindLabel,
   workflowOutgoingEdges,
   type AgentTaskDraft,
 } from "./workflow-node-details-helpers";
-import { useWorkflowRunInspection } from "./workflow-node-run-inspection";
-import { WorkflowAgentPermissionField } from "./workflow-agent-settings-form";
 
 type WorkflowDefinitionRecord = Awaited<ReturnType<typeof window.setta.workflow.readDefinition>>;
-const emptyPermissionPresets: ChatPermissionPreset[] = [];
+type WorkflowNodeDetailsTarget = NonNullable<
+  ReturnType<typeof useWorkflowEditorStore.getState>["selectedNodeTarget"]
+>;
+
+const workflowRunEventLimit = 80;
+const workflowNodeTrajectoryTranscriptLimit = 80;
+const workflowNodeTrajectoryItemLimit = 80;
+const workflowNodeTrajectoryOutputLimit = 40;
 
 export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
   const selectedTarget = useWorkflowEditorStore((state) => state.selectedNodeTarget);
@@ -58,9 +69,6 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [draft, setDraft] = useState<AgentTaskDraft | null>(null);
-  const loadChatDefaults = useChatDefaultsStore((state) => state.load);
-  const chatDefaultsView = useChatDefaultsStore((state) => state.view);
-  const permissionPresets = chatDefaultsView?.permissionPresets ?? emptyPermissionPresets;
   const node = useMemo(() => {
     if (definition === null || target === null) {
       return null;
@@ -78,12 +86,6 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
       setDraft(null);
     }
   }, [target]);
-
-  useEffect(() => {
-    if (target !== null && target.executionId === "") {
-      void loadChatDefaults();
-    }
-  }, [loadChatDefaults, target]);
 
   async function saveAgentTask() {
     const readOnly = target?.executionId !== "";
@@ -129,7 +131,6 @@ export function WorkflowNodeDetailsSurface({ pane }: { pane: WorkspacePane }) {
         node={node}
         onDraftChange={setDraft}
         onSave={() => void saveAgentTask()}
-        permissionPresets={permissionPresets}
         runInspectionActions={runInspectionActions}
         runInspection={runInspection}
         saveMessage={saveMessage}
@@ -171,6 +172,317 @@ function useWorkflowNodeDefinition(target: WorkflowNodeDetailsTarget | null, ski
   return { definition, loadError, setDefinition, setLoadError };
 }
 
+function useWorkflowRunInspection(target: WorkflowNodeDetailsTarget | null) {
+  const [state, setState] = useState<WorkflowRunInspectionState>(() =>
+    emptyWorkflowRunInspection(false),
+  );
+
+  const loadRunInspection = useCallback(async (target: WorkflowNodeDetailsTarget) => {
+    const [execution, eventPage] = await Promise.all([
+      window.setta.workflow.readExecution(target.workspaceId, target.executionId),
+      window.setta.workflow.executionEvents(
+        target.workspaceId,
+        target.executionId,
+        0,
+        workflowRunEventLimit,
+      ),
+    ]);
+    const nodeExecution = workflowNodeExecutionForDetailsTarget(execution, target);
+    const { trajectory, trajectoryError } = await loadWorkflowNodeTrajectory(target, nodeExecution);
+    return {
+      events: eventPage.events,
+      execution,
+      loadError: "",
+      loading: false,
+      operation: null,
+      trajectory,
+      trajectoryError,
+    } satisfies WorkflowRunInspectionState;
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    setState(emptyWorkflowRunInspection(target !== null && target.executionId !== ""));
+    if (target === null || target.executionId === "") {
+      return;
+    }
+
+    const runLoad = async () => {
+      try {
+        const nextState = await loadRunInspection(target);
+        if (!disposed) {
+          setState(nextState);
+        }
+      } catch (error: unknown) {
+        if (!disposed) {
+          setState({
+            events: [],
+            execution: null,
+            loadError: errorMessage(error),
+            loading: false,
+            operation: null,
+            trajectory: null,
+            trajectoryError: "",
+          });
+        }
+      }
+    };
+
+    void runLoad();
+    return () => {
+      disposed = true;
+    };
+  }, [loadRunInspection, target]);
+
+  const reloadCurrentInspection = useCallback(async () => {
+    if (target === null || target.executionId === "") {
+      return;
+    }
+    const nextState = await loadRunInspection(target);
+    setState(nextState);
+  }, [loadRunInspection, target]);
+
+  const loadOlder = useCallback(async () => {
+    if (target === null || target.executionId === "") {
+      return;
+    }
+    const current = state.trajectory;
+    if (current === null || !current.page.hasMoreOlder) {
+      return;
+    }
+    setState((previous) => ({ ...previous, operation: "loadingOlder" }));
+    try {
+      const page = await window.setta.workflow.readNodeTrajectory({
+        afterItemId: "",
+        beforeBlockOrdinal: current.page.olderBeforeBlockOrdinal,
+        executionId: current.page.scope.executionId,
+        itemLimit: workflowNodeTrajectoryItemLimit,
+        nodeExecutionId: current.page.scope.nodeExecutionId,
+        outputLimit: workflowNodeTrajectoryOutputLimit,
+        transcriptLimit: workflowNodeTrajectoryTranscriptLimit,
+        workspaceId: current.page.scope.workspaceId,
+      });
+      setState((previous) => ({
+        ...previous,
+        operation: null,
+        trajectory:
+          previous.trajectory === current
+            ? workflowNodeTrajectoryWithOlderPage(current, page)
+            : previous.trajectory,
+      }));
+    } catch (error: unknown) {
+      setState((previous) => ({
+        ...previous,
+        operation: null,
+        trajectoryError: errorMessage(error),
+      }));
+    }
+  }, [state.trajectory, target]);
+
+  const loadRunItemOutput = useCallback<WorkflowRunTrajectoryActions["loadRunItemOutput"]>(
+    async (runId, runItemId, afterOrdinal = 0, limit = 200) => {
+      if (target === null || target.executionId === "" || runId === "" || runItemId === "") {
+        return;
+      }
+      setState((previous) => ({
+        ...previous,
+        trajectory:
+          previous.trajectory === null
+            ? null
+            : workflowNodeTrajectoryWithOutputLoading(previous.trajectory, runItemId),
+      }));
+      try {
+        const page = await window.setta.chat.runItemOutput(
+          target.workspaceId,
+          runId,
+          runItemId,
+          afterOrdinal,
+          limit,
+        );
+        setState((previous) => ({
+          ...previous,
+          trajectory:
+            previous.trajectory === null
+              ? null
+              : workflowNodeTrajectoryWithLoadedOutput(previous.trajectory, page, afterOrdinal),
+        }));
+      } catch (error: unknown) {
+        setState((previous) => ({
+          ...previous,
+          trajectory:
+            previous.trajectory === null
+              ? null
+              : workflowNodeTrajectoryWithOutputError(
+                  previous.trajectory,
+                  runItemId,
+                  errorMessage(error),
+                ),
+        }));
+      }
+    },
+    [target],
+  );
+
+  const submitApproval = useCallback<WorkflowRunTrajectoryActions["submitApproval"]>(
+    async (approvalId, approved, response, answers, cancelled) => {
+      const current = state.trajectory;
+      if (current === null) {
+        return;
+      }
+      setState((previous) => ({ ...previous, operation: "approving" }));
+      try {
+        await window.setta.workflow.submitApproval({
+          answers,
+          approvalId,
+          approved,
+          cancelled,
+          executionId: current.page.scope.executionId,
+          nodeExecutionId: current.page.scope.nodeExecutionId,
+          response,
+          workspaceId: current.page.scope.workspaceId,
+        });
+        await reloadCurrentInspection();
+      } catch (error: unknown) {
+        setState((previous) => ({
+          ...previous,
+          loadError: errorMessage(error),
+          operation: null,
+        }));
+      }
+    },
+    [reloadCurrentInspection, state.trajectory],
+  );
+
+  const steerMessage = useCallback<WorkflowRunTrajectoryActions["steerMessage"]>(
+    async (input) => {
+      const current = state.trajectory;
+      if (current === null) {
+        return null;
+      }
+      setState((previous) => ({ ...previous, operation: "steering" }));
+      try {
+        const result = await window.setta.workflow.steerNodeRun({
+          executionId: current.page.scope.executionId,
+          input,
+          nodeExecutionId: current.page.scope.nodeExecutionId,
+          workspaceId: current.page.scope.workspaceId,
+        });
+        await reloadCurrentInspection();
+        return result;
+      } catch (error: unknown) {
+        setState((previous) => ({
+          ...previous,
+          loadError: errorMessage(error),
+          operation: null,
+        }));
+        return null;
+      }
+    },
+    [reloadCurrentInspection, state.trajectory],
+  );
+
+  const retryLiveness = useCallback<WorkflowRunTrajectoryActions["retryLiveness"]>(async () => {
+    const current = state.trajectory;
+    if (current === null) {
+      return;
+    }
+    setState((previous) => ({ ...previous, operation: "refreshing" }));
+    try {
+      await window.setta.workflow.retryNodeRunLiveness({
+        executionId: current.page.scope.executionId,
+        nodeExecutionId: current.page.scope.nodeExecutionId,
+        workspaceId: current.page.scope.workspaceId,
+      });
+      await reloadCurrentInspection();
+    } catch (error: unknown) {
+      setState((previous) => ({
+        ...previous,
+        loadError: errorMessage(error),
+        operation: null,
+      }));
+    }
+  }, [reloadCurrentInspection, state.trajectory]);
+
+  const stopRun = useCallback<WorkflowRunTrajectoryActions["stopRun"]>(async () => {
+    const current = state.trajectory;
+    if (current === null) {
+      return;
+    }
+    setState((previous) => ({ ...previous, operation: "cancelling" }));
+    try {
+      await window.setta.workflow.stopNodeRun({
+        executionId: current.page.scope.executionId,
+        nodeExecutionId: current.page.scope.nodeExecutionId,
+        workspaceId: current.page.scope.workspaceId,
+      });
+      await reloadCurrentInspection();
+    } catch (error: unknown) {
+      setState((previous) => ({
+        ...previous,
+        loadError: errorMessage(error),
+        operation: null,
+      }));
+    }
+  }, [reloadCurrentInspection, state.trajectory]);
+
+  return {
+    actions: {
+      loadOlder,
+      loadRunItemOutput,
+      retryLiveness,
+      steerMessage,
+      stopRun,
+      submitApproval,
+    },
+    state,
+  };
+}
+
+function emptyWorkflowRunInspection(loading: boolean): WorkflowRunInspectionState {
+  return {
+    events: [],
+    execution: null,
+    loadError: "",
+    loading,
+    operation: null,
+    trajectory: null,
+    trajectoryError: "",
+  };
+}
+
+async function loadWorkflowNodeTrajectory(
+  target: WorkflowNodeDetailsTarget,
+  nodeExecution: WorkflowNodeExecution | null,
+) {
+  if (!workflowNodeExecutionHasAgentTrajectory(nodeExecution)) {
+    return { trajectory: null, trajectoryError: "" };
+  }
+  try {
+    const page = await window.setta.workflow.readNodeTrajectory({
+      afterItemId: "",
+      beforeBlockOrdinal: 0,
+      executionId: target.executionId,
+      itemLimit: workflowNodeTrajectoryItemLimit,
+      nodeExecutionId: nodeExecution.id,
+      outputLimit: workflowNodeTrajectoryOutputLimit,
+      transcriptLimit: workflowNodeTrajectoryTranscriptLimit,
+      workspaceId: target.workspaceId,
+    });
+    return { trajectory: workflowNodeTrajectoryStateFromPage(page), trajectoryError: "" };
+  } catch (error: unknown) {
+    return { trajectory: null, trajectoryError: errorMessage(error) };
+  }
+}
+
+function workflowNodeExecutionHasAgentTrajectory(
+  nodeExecution: WorkflowNodeExecution | null,
+): nodeExecution is WorkflowNodeExecution {
+  return (
+    nodeExecution !== null &&
+    (nodeExecution.runnerKind === "agent.codex" || nodeExecution.actionKind === "agent.codex")
+  );
+}
+
 function WorkflowNodeDetailsContent({
   activityFocus,
   definition,
@@ -179,7 +491,6 @@ function WorkflowNodeDetailsContent({
   node,
   onDraftChange,
   onSave,
-  permissionPresets,
   runInspectionActions,
   runInspection,
   saveMessage,
@@ -193,7 +504,6 @@ function WorkflowNodeDetailsContent({
   node: WorkflowNode | null;
   onDraftChange: (draft: AgentTaskDraft) => void;
   onSave: () => void;
-  permissionPresets: ChatPermissionPreset[];
   runInspectionActions: WorkflowRunTrajectoryActions;
   runInspection: WorkflowRunInspectionState;
   saveMessage: string;
@@ -205,12 +515,15 @@ function WorkflowNodeDetailsContent({
   }
   if (target.executionId !== "") {
     return (
-      <WorkflowRunDetailsContent
-        actions={runInspectionActions}
-        focus={activityFocus}
-        inspection={runInspection}
-        target={target}
-      />
+      <>
+        <WorkflowNodeIdentity target={target} />
+        <WorkflowRunDetailsContent
+          actions={runInspectionActions}
+          focus={activityFocus}
+          inspection={runInspection}
+          target={target}
+        />
+      </>
     );
   }
   if (loadError !== "") {
@@ -228,7 +541,6 @@ function WorkflowNodeDetailsContent({
         node={node}
         onDraftChange={onDraftChange}
         onSave={onSave}
-        permissionPresets={permissionPresets}
         saveMessage={saveMessage}
         saving={saving}
         target={target}
@@ -243,7 +555,6 @@ function WorkflowLoadedNodeDetails({
   node,
   onDraftChange,
   onSave,
-  permissionPresets,
   saveMessage,
   saving,
   target,
@@ -253,7 +564,6 @@ function WorkflowLoadedNodeDetails({
   node: WorkflowNode | null;
   onDraftChange: (draft: AgentTaskDraft) => void;
   onSave: () => void;
-  permissionPresets: ChatPermissionPreset[];
   saveMessage: string;
   saving: boolean;
   target: WorkflowNodeDetailsTarget;
@@ -269,7 +579,6 @@ function WorkflowLoadedNodeDetails({
       draft={draft}
       onDraftChange={onDraftChange}
       onSave={onSave}
-      permissionPresets={permissionPresets}
       readOnly={target.executionId !== ""}
       saveMessage={saveMessage}
       saving={saving}
@@ -281,7 +590,6 @@ function AgentTaskDetailsForm({
   draft,
   onDraftChange,
   onSave,
-  permissionPresets,
   readOnly,
   saveMessage,
   saving,
@@ -289,7 +597,6 @@ function AgentTaskDetailsForm({
   draft: AgentTaskDraft;
   onDraftChange: (draft: AgentTaskDraft) => void;
   onSave: () => void;
-  permissionPresets: ChatPermissionPreset[];
   readOnly: boolean;
   saveMessage: string;
   saving: boolean;
@@ -337,14 +644,6 @@ function AgentTaskDetailsForm({
         disabled={disabled}
         draft={draft}
         onDraftChange={onDraftChange}
-      />
-      <WorkflowAgentPermissionField
-        disabled={disabled}
-        inheritLabel="Workflow default"
-        onPermissionChange={(permission) => onDraftChange({ ...draft, permission })}
-        permission={draft.permission}
-        permissionPresets={permissionPresets}
-        testId="workflow-node-agent-permission"
       />
       <AgentTaskSaveRow disabled={disabled} saveMessage={saveMessage} saving={saving} />
     </form>

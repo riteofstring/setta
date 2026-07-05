@@ -192,18 +192,13 @@ function ActivityGroupSlotRow({
     expandableMembers.length > 0 &&
     expandableMembers.every((member) => context.expandedActivityBlockIds.has(member.id));
   const setExpandAll = (members: TranscriptBlock[], open: boolean) => {
-    preserveActivityGroupAnchor(
-      activityGroupHeaderAnchor(groupRowRef.current),
-      row.group.id,
-      context.detachTranscriptScroll,
-      () => {
-        context.setActivityGroupExpanded(row.group.id, open);
-        context.setActivityRowsExpanded(
-          members.map((member) => member.id),
-          open,
-        );
-      },
-    );
+    preserveActivityGroupAnchor(groupRowRef.current, context.detachTranscriptScroll, () => {
+      context.setActivityGroupExpanded(row.group.id, open);
+      context.setActivityRowsExpanded(
+        members.map((member) => member.id),
+        open,
+      );
+    });
     if (!open) {
       return;
     }
@@ -222,26 +217,20 @@ function ActivityGroupSlotRow({
     }
   };
   const setGroupExpanded = (open: boolean) => {
-    preserveActivityGroupAnchor(
-      activityGroupHeaderAnchor(groupRowRef.current),
-      row.group.id,
-      context.detachTranscriptScroll,
-      () => {
-        context.setActivityGroupExpanded(row.group.id, open);
-        if (!open) {
-          context.setActivityRowsExpanded(
-            expandableMembers.map((member) => member.id),
-            false,
-          );
-        }
-      },
-    );
+    preserveActivityGroupAnchor(groupRowRef.current, context.detachTranscriptScroll, () => {
+      context.setActivityGroupExpanded(row.group.id, open);
+      if (!open) {
+        context.setActivityRowsExpanded(
+          expandableMembers.map((member) => member.id),
+          false,
+        );
+      }
+    });
   };
   return (
     <div
       {...chatReadableColumnAttributes}
       className={chatReadableColumnPaddedClass}
-      data-activity-group-id={row.group.id}
       ref={groupRowRef}
     >
       <TranscriptActivityGroupHeader
@@ -257,7 +246,6 @@ function ActivityGroupSlotRow({
 
 function preserveActivityGroupAnchor(
   anchor: HTMLElement | null,
-  groupId: string,
   detachTranscriptScroll: () => void,
   update: () => void,
 ) {
@@ -266,76 +254,24 @@ function preserveActivityGroupAnchor(
     update();
     return;
   }
-  const root =
-    anchor.closest<HTMLElement>('[data-testid="chat-transcript-scroll-follow"]') ?? document.body;
-  const scroller = nearestActivityGroupScrollContainer(anchor);
+  const scroller = anchor.closest<HTMLElement>('[data-testid="chat-transcript-scroller"]');
   const top = anchor.getBoundingClientRect().top;
   flushSync(update);
-  let remainingCorrections = 120;
+  let remainingFrames = 8;
   const correctAnchor = () => {
-    const currentAnchor = currentActivityGroupAnchor(root, anchor, groupId);
-    const currentScroller =
-      scroller ?? (currentAnchor ? nearestActivityGroupScrollContainer(currentAnchor) : null);
-    if (
-      currentScroller === null ||
-      !currentScroller.isConnected ||
-      currentAnchor === null ||
-      !currentAnchor.isConnected
-    ) {
-      remainingCorrections -= 1;
-      return remainingCorrections > 0;
+    if (scroller === null || !scroller.isConnected || !anchor.isConnected) {
+      return;
     }
-    const delta = currentAnchor.getBoundingClientRect().top - top;
+    const delta = anchor.getBoundingClientRect().top - top;
     if (Math.abs(delta) > 0.5) {
-      currentScroller.scrollTop += delta;
+      scroller.scrollTop += delta;
     }
-    remainingCorrections -= 1;
-    return remainingCorrections > 0;
+    remainingFrames -= 1;
+    if (remainingFrames > 0) {
+      requestAnimationFrame(correctAnchor);
+    }
   };
   correctAnchor();
-  const interval = window.setInterval(() => {
-    if (!correctAnchor()) {
-      window.clearInterval(interval);
-    }
-  }, 8);
-}
-
-function activityGroupHeaderAnchor(groupRow: HTMLElement | null) {
-  return (
-    groupRow?.querySelector<HTMLElement>('[data-testid="activity-group-header"]')?.parentElement ??
-    groupRow
-  );
-}
-
-function currentActivityGroupAnchor(root: HTMLElement, anchor: HTMLElement, groupId: string) {
-  if (anchor.isConnected) {
-    return anchor;
-  }
-  const groupRow = root.querySelector<HTMLElement>(
-    `[data-activity-group-id="${cssAttributeValue(groupId)}"]`,
-  );
-  return activityGroupHeaderAnchor(groupRow);
-}
-
-function nearestActivityGroupScrollContainer(anchor: HTMLElement) {
-  let current = anchor.parentElement;
-  while (current !== null) {
-    const style = window.getComputedStyle(current);
-    if (
-      current.scrollHeight > current.clientHeight &&
-      (style.overflowY === "auto" || style.overflowY === "scroll")
-    ) {
-      return current;
-    }
-    current = current.parentElement;
-  }
-  return null;
-}
-
-function cssAttributeValue(value: string) {
-  return typeof CSS !== "undefined" && CSS.escape
-    ? CSS.escape(value)
-    : value.replace(/["\\]/g, "\\$&");
 }
 
 function isExpandableActivityMember(member: TranscriptBlock) {
@@ -404,7 +340,7 @@ function LiveRunStatusBlock({
     );
   }
   if (liveStatus === "working") {
-    return <WorkingRunStatusRow block={block} liveness={rowActions.activeRunLiveness} />;
+    return <WorkingRunStatusRow block={block} />;
   }
   if (liveStatus === "reconnecting") {
     return (
@@ -450,18 +386,8 @@ function liveRunStatusForBlock(
   }
 }
 
-function WorkingRunStatusRow({
-  block,
-  liveness,
-}: {
-  block: TranscriptBlock;
-  liveness: TranscriptRowActions["activeRunLiveness"];
-}) {
-  const label =
-    liveness?.runId === block.runId && liveness.activeStatus.headline !== ""
-      ? liveness.activeStatus.headline
-      : (block.runStatus?.label ?? "Working");
-  const active = liveness?.runId === block.runId ? liveness.phase === "attached" : true;
+function WorkingRunStatusRow({ block }: { block: TranscriptBlock }) {
+  const label = block.runStatus?.label ?? "Working";
   return (
     <RunStatusRow
       mode="working"
@@ -469,7 +395,7 @@ function WorkingRunStatusRow({
       tone="muted"
       icon={<BrailleSpinner label={label} />}
     >
-      <LiveHeadlineText active={active} className="italic">
+      <LiveHeadlineText active className="italic">
         {label}
       </LiveHeadlineText>
     </RunStatusRow>

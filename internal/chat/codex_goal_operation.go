@@ -272,11 +272,6 @@ func (operation *codexGoalOperation) bufferPreSinkEvent(event codexapp.Event) er
 			return operation.requirePreSinkThreadScope(event.Message)
 		}
 		return operation.appendPreSinkEvent(event)
-	case codexapp.EventLag:
-		if event.Lag != nil && event.Lag.ThreadID != "" && event.Lag.ThreadID != operation.threadID {
-			return fmt.Errorf("codex goal operation lag marker targeted thread %s, want %s", event.Lag.ThreadID, operation.threadID)
-		}
-		return operation.appendPreSinkEvent(event)
 	case codexapp.EventRequest:
 		err := fmt.Errorf("codex goal operation received provider request %s before sink attached", event.Message.Method)
 		_ = event.Message.RespondError(-32601, err.Error())
@@ -296,10 +291,18 @@ func (operation *codexGoalOperation) requirePreSinkThreadScope(message jsonRPCMe
 }
 
 func (operation *codexGoalOperation) appendPreSinkEvent(event codexapp.Event) error {
-	size := preSinkEventSize(event)
-	firstTurnID, err := preSinkFirstTurnID(event)
-	if err != nil {
-		return err
+	size := len(event.Message.Method) + len(event.Message.Params) + 64
+	firstTurnID := ""
+	if event.Kind == codexapp.EventNotification && event.Message.Method == codexapp.CodexNotificationTurnStarted {
+		params, err := objectValue(event.Message.Params, "codex goal operation turn started params")
+		if err != nil {
+			return err
+		}
+		turnID, err := turnStartedID(params)
+		if err != nil {
+			return err
+		}
+		firstTurnID = turnID
 	}
 
 	var notifyFirstTurn bool
@@ -324,24 +327,6 @@ func (operation *codexGoalOperation) appendPreSinkEvent(event codexapp.Event) er
 		}
 	}
 	return nil
-}
-
-func preSinkEventSize(event codexapp.Event) int {
-	if event.Kind == codexapp.EventLag && event.Lag != nil {
-		return len(event.Lag.Method) + len(event.Lag.ProviderItemID) + len(event.Lag.ProviderProcessID) + 128
-	}
-	return len(event.Message.Method) + len(event.Message.Params) + 64
-}
-
-func preSinkFirstTurnID(event codexapp.Event) (string, error) {
-	if event.Kind != codexapp.EventNotification || event.Message.Method != codexapp.CodexNotificationTurnStarted {
-		return "", nil
-	}
-	params, err := objectValue(event.Message.Params, "codex goal operation turn started params")
-	if err != nil {
-		return "", err
-	}
-	return turnStartedID(params)
 }
 
 func (operation *codexGoalOperation) waitForFirstRuntimeTurn(ctx context.Context) error {
@@ -534,12 +519,6 @@ func (operation *codexGoalOperation) applyEvent(ctx context.Context, event codex
 		return TurnCompletion{}, false, nil
 	case codexapp.EventNotification:
 		return operation.applyNotification(ctx, event.Message, sink)
-	case codexapp.EventLag:
-		if err := handleCodexBackpressureLag(event.Lag, sink); err != nil {
-			operation.finish(TurnCompletion{}, err)
-			return TurnCompletion{}, true, err
-		}
-		return TurnCompletion{}, false, nil
 	case codexapp.EventLifecycle:
 		err := codexLifecycleError("codex app-server exited before goal operation completed", event.Err)
 		operation.finish(TurnCompletion{}, err)
