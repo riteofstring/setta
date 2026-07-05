@@ -62,6 +62,18 @@ verify_checksum() {
   fi
 }
 
+verify_checksums_signature() {
+  checksum_file="$1"
+  signature_file="$2"
+  public_key="$3"
+
+  [ -n "$public_key" ] ||
+    fail "SETTA_MINISIGN_PUBLIC_KEY is required to verify signed release checksums"
+  need_command minisign
+  minisign -Vm "$checksum_file" -P "$public_key" -x "$signature_file" >/dev/null ||
+    fail "minisign verification failed for SHA256SUMS"
+}
+
 require_absolute_path() {
   label="$1"
   path="$2"
@@ -99,12 +111,16 @@ ensure_service_identity() {
 write_service_env_file() {
   env_file="$1"
   service_app_data_dir="$2"
+  provisioning_seed_file="$3"
   tmp_file="${tmp_dir}/setta.env"
 
   cat >"$tmp_file" <<EOF
 SETTA_APP_DATA_DIR=${service_app_data_dir}
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EOF
+  if [ -n "$provisioning_seed_file" ]; then
+    printf 'SETTA_PROVISIONING_SEED_FILE=%s\n' "$provisioning_seed_file" >>"$tmp_file"
+  fi
   install -m 0644 -o root -g root "$tmp_file" "$env_file" ||
     fail "failed to install service environment file ${env_file}"
 }
@@ -199,9 +215,11 @@ service_unit_name="${SETTA_SERVICE_UNIT_NAME:-setta.service}"
 service_user="${SETTA_SERVICE_USER:-setta}"
 service_group="${SETTA_SERVICE_GROUP:-setta}"
 service_app_data_dir="${SETTA_SERVICE_APP_DATA_DIR:-/var/lib/setta}"
+service_provisioning_seed_file="${SETTA_PROVISIONING_SEED_FILE:-}"
 service_env_dir="${SETTA_SERVICE_ENV_DIR:-/etc/setta}"
 service_env_file="${service_env_dir}/setta.env"
 service_unit_file="/etc/systemd/system/${service_unit_name}"
+minisign_public_key="${SETTA_MINISIGN_PUBLIC_KEY:-}"
 
 if [ "$service_mode" -eq 0 ]; then
   [ -n "${HOME:-}" ] || fail "HOME is not set"
@@ -228,6 +246,9 @@ if [ "$service_mode" -eq 1 ]; then
     */*) fail "SETTA_SERVICE_UNIT_NAME must be a unit name, not a path: ${service_unit_name}" ;;
   esac
   require_absolute_path SETTA_SERVICE_APP_DATA_DIR "$service_app_data_dir"
+  if [ -n "$service_provisioning_seed_file" ]; then
+    require_absolute_path SETTA_PROVISIONING_SEED_FILE "$service_provisioning_seed_file"
+  fi
   require_absolute_path SETTA_SERVICE_ENV_DIR "$service_env_dir"
   require_absolute_path service_unit_file "$service_unit_file"
 fi
@@ -257,6 +278,7 @@ trap cleanup EXIT HUP INT TERM
 
 archive_path="${tmp_dir}/${archive_name}"
 checksums_path="${tmp_dir}/SHA256SUMS"
+checksums_signature_path="${tmp_dir}/SHA256SUMS.minisig"
 extract_dir="${tmp_dir}/extract"
 binary_path="${extract_dir}/${artifact}/setta"
 if [ "$service_mode" -eq 1 ]; then
@@ -274,8 +296,9 @@ mkdir -p "$extract_dir"
 echo "Downloading Setta ${version} for ${os_name}/${arch_name}..."
 download_file "${release_base_url}/${archive_name}" "$archive_path"
 download_file "${release_base_url}/SHA256SUMS" "$checksums_path"
+download_file "${release_base_url}/SHA256SUMS.minisig" "$checksums_signature_path"
 
-# Binary signing, such as minisign, is intentionally deferred for the PoC.
+verify_checksums_signature "$checksums_path" "$checksums_signature_path" "$minisign_public_key"
 verify_checksum "$checksums_path" "$archive_name" "$archive_path"
 
 tar -xzf "$archive_path" -C "$extract_dir" ||
@@ -294,7 +317,7 @@ if [ "$service_mode" -eq 1 ]; then
     fail "failed to create service app data directory ${service_app_data_dir}"
   install -d -m 0755 -o root -g root "$service_env_dir" ||
     fail "failed to create service environment directory ${service_env_dir}"
-  write_service_env_file "$service_env_file" "$service_app_data_dir"
+  write_service_env_file "$service_env_file" "$service_app_data_dir" "$service_provisioning_seed_file"
   write_service_unit_file "$service_unit_file" "$install_path" "$service_app_data_dir" "$service_env_file" "$service_user" "$service_group"
   systemctl daemon-reload || fail "systemctl daemon-reload failed"
   if [ "$service_start" -eq 1 ]; then

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -21,9 +22,22 @@ type provisioningSeedFile struct {
 	ExpiresAt        string `json:"expiresAt,omitempty"`
 }
 
+type consumedProvisioningSeedMarker struct {
+	SchemaVersion int    `json:"schemaVersion"`
+	ProvisionID   string `json:"provisionId"`
+	ConsumedAt    string `json:"consumedAt"`
+	SeedPath      string `json:"seedPath"`
+}
+
 func consumeProvisioningSeedIfConfigured(ctx context.Context, options serveOptions) error {
 	if options.ProvisioningSeedPath == "" {
 		return nil
+	}
+	if _, err := os.Stat(options.ProvisioningSeedPath); errors.Is(err, os.ErrNotExist) {
+		if provisioningSeedConsumedMarkerExists(options.AppDataDir) {
+			return nil
+		}
+		return fmt.Errorf("stat provisioning seed %s: %w", options.ProvisioningSeedPath, err)
 	}
 	return consumeProvisioningSeed(ctx, options.AppDataDir, options.ProvisioningSeedPath)
 }
@@ -51,6 +65,9 @@ func consumeProvisioningSeed(ctx context.Context, appDataDir string, path string
 		ExpiresAt:        expiresAt,
 	}); err != nil {
 		return fmt.Errorf("seed provisioned pairing token from %s: %w", path, err)
+	}
+	if err := writeProvisioningSeedConsumedMarker(appDataDir, seed.ProvisionID, path); err != nil {
+		return err
 	}
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove consumed provisioning seed %s: %w", path, err)
@@ -99,4 +116,35 @@ func parseProvisioningSeedExpiry(value string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("provisioning seed expiresAt must be RFC3339Nano: %w", err)
 	}
 	return expiresAt, nil
+}
+
+func provisioningSeedConsumedMarkerPath(appDataDir string) string {
+	return filepath.Join(appDataDir, "provisioning-seed-consumed.json")
+}
+
+func provisioningSeedConsumedMarkerExists(appDataDir string) bool {
+	info, err := os.Stat(provisioningSeedConsumedMarkerPath(appDataDir))
+	return err == nil && info.Mode().IsRegular()
+}
+
+func writeProvisioningSeedConsumedMarker(appDataDir string, provisionID string, seedPath string) error {
+	marker := consumedProvisioningSeedMarker{
+		SchemaVersion: 1,
+		ProvisionID:   provisionID,
+		ConsumedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+		SeedPath:      seedPath,
+	}
+	var data bytes.Buffer
+	encoder := json.NewEncoder(&data)
+	if err := encoder.Encode(marker); err != nil {
+		return fmt.Errorf("encode consumed provisioning seed marker: %w", err)
+	}
+	if err := os.MkdirAll(appDataDir, 0o700); err != nil {
+		return fmt.Errorf("create app data dir for consumed provisioning seed marker: %w", err)
+	}
+	path := provisioningSeedConsumedMarkerPath(appDataDir)
+	if err := os.WriteFile(path, data.Bytes(), 0o600); err != nil {
+		return fmt.Errorf("write consumed provisioning seed marker %s: %w", path, err)
+	}
+	return nil
 }

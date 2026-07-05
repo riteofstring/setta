@@ -30,6 +30,9 @@ func TestConsumeProvisioningSeedSeedsStoreAndRemovesFile(t *testing.T) {
 	if _, err := os.Stat(seedPath); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("consumed provisioning seed stat err = %v, want not exists", err)
 	}
+	if _, err := os.Stat(provisioningSeedConsumedMarkerPath(appDataDir)); err != nil {
+		t.Fatalf("consumed provisioning seed marker stat err = %v", err)
+	}
 
 	store, err := runtimeauth.NewStore(appDataDir)
 	if err != nil {
@@ -42,6 +45,32 @@ func TestConsumeProvisioningSeedSeedsStoreAndRemovesFile(t *testing.T) {
 	}
 	if !ok || session.DisplayName != "Provisioned desktop" {
 		t.Fatalf("seeded pairing result session=%+v ok=%v, want success", session, ok)
+	}
+}
+
+func TestConsumeProvisioningSeedIfConfiguredAllowsRestartAfterSeedConsumed(t *testing.T) {
+	appDataDir := t.TempDir()
+	seedPath := filepath.Join(t.TempDir(), "provisioning-seed.json")
+	if err := writeProvisioningSeedConsumedMarker(appDataDir, "provision_seed_012345", seedPath); err != nil {
+		t.Fatalf("write consumed marker: %v", err)
+	}
+
+	err := consumeProvisioningSeedIfConfigured(context.Background(), serveOptions{
+		AppDataDir:           appDataDir,
+		ProvisioningSeedPath: seedPath,
+	})
+	if err != nil {
+		t.Fatalf("consume missing seed after marker: %v", err)
+	}
+}
+
+func TestConsumeProvisioningSeedIfConfiguredRejectsMissingSeedWithoutMarker(t *testing.T) {
+	err := consumeProvisioningSeedIfConfigured(context.Background(), serveOptions{
+		AppDataDir:           t.TempDir(),
+		ProvisioningSeedPath: filepath.Join(t.TempDir(), "provisioning-seed.json"),
+	})
+	if err == nil || !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("error = %v, want missing seed", err)
 	}
 }
 

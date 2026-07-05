@@ -41,13 +41,14 @@ type usageError struct {
 type cliCommandHandler func([]string, cliDeps) error
 
 var cliCommandHandlers = map[string]cliCommandHandler{
-	"serve":   runServe,
-	"pair":    runPair,
-	"devices": runDevices,
-	"doctor":  runDoctor,
-	"service": runService,
-	"runtime": runRuntime,
-	"version": runVersion,
+	"serve":     runServe,
+	"pair":      runPair,
+	"devices":   runDevices,
+	"doctor":    runDoctor,
+	"provision": runProvision,
+	"service":   runService,
+	"runtime":   runRuntime,
+	"version":   runVersion,
 }
 
 func main() {
@@ -151,6 +152,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta doctor --json [--app-data-dir DIR] [--workspace-dir DIR]")
+	fmt.Fprintln(output, "  setta provision render-cloudinit --json [flags]")
 	fmt.Fprintln(output, "  setta service wait-tailnet [--timeout DURATION] [--poll-interval DURATION]")
 	fmt.Fprintln(output, "  setta service configure-tailscale-serve [--app-data-dir DIR] [--timeout DURATION] [--poll-interval DURATION]")
 	fmt.Fprintln(output, "  setta version")
