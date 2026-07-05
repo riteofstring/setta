@@ -72,6 +72,7 @@ describe("workspace surface registry", () => {
 
   test.each([
     "chat-dom",
+    "easy-button",
     "fake-heavy-dom",
     "git-graph",
     "terminal",
@@ -562,7 +563,7 @@ describe("workspace surface registry", () => {
     }
   });
 
-  test.each(["terminal", "workflow-graph"] satisfies SurfaceKind[])(
+  test.each(["easy-button", "terminal", "workflow-graph"] satisfies SurfaceKind[])(
     "prewarms bitmap snapshots for %s panes while idle",
     (surfaceKind) => {
       const captureRendererRegion = vi.fn().mockResolvedValue({

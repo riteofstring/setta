@@ -142,7 +142,7 @@ engine, and its event/activity plumbing) may be removed from the app entirely.
 This plan does not depend on it. Everything the easy button builds on is
 chat-core (`internal/chat`): internal conversations, the event hub, structured
 tasks, dynamic tools, run liveness, cancel/recovery. Workflow is merely the
-current *user* of some of those mechanisms. If removal proceeds, three
+current _user_ of some of those mechanisms. If removal proceeds, three
 keep-alives for the removal work:
 
 - Keep the `Conversation.Internal` capability. Workflow is today its only
@@ -286,7 +286,7 @@ read like the mockup: ~6 lines over a 2-minute run, each a phase, not an
 action.
 
 - The narrator schema returns `highlights: []` as the normal case. The prompt
-  instructs: emit a highlight only when the *phase* of work has meaningfully
+  instructs: emit a highlight only when the _phase_ of work has meaningfully
   changed since the previous highlight; file edits, command runs, test runs,
   and retries are never highlights by themselves.
 - Trigger policy (code, not prompt): call the narrator at most once per
@@ -371,7 +371,7 @@ divs. No SVG/diagram kind in v1 (see Non-Goals).
   voice.
 - **Center.** The button is the single control: `idle` → focus the footer
   input (until voice exists); `working` → stop (cancel); `complete` → reset to
-  idle (rails clear when the *next* run starts). The request text shows
+  idle (rails clear when the _next_ run starts). The request text shows
   faintly during working/complete (user's own words). The agent chip shows
   `EasyRun.ActiveAgentCount` while working ("1 agent" is honest in v1).
 - **Left rail.** Highlights, newest at the bottom, age-fade per the mockup,
@@ -417,7 +417,7 @@ regenerate with `./scripts/go.sh run ./cmd/generate-contracts` (writes
 Never hand-edit generated outputs.
 
 - `EasyRun`: `ID`, `WorkspaceID`, `Status` (`working | completed | failed |
-  stopped`), `RequestText`, `ConversationID`, `StartedAt`, `EndedAt?`,
+stopped`), `RequestText`, `ConversationID`, `StartedAt`, `EndedAt?`,
   `Summary?` (final one-liner), `Error?`, `NarratorStatus` (`ok | degraded`),
   `ActiveAgentCount`, `ArtifactCount`, `HighlightCount`.
 - `EasyHighlight`: `ID`, `EasyRunID`, `Ordinal`, `Text`, `At`.
@@ -772,5 +772,54 @@ and:
   remaining actionable work, or after this plan records a genuine blocker and
   the remaining work is explicit
 
-For this documentation-only commit, inspect the diff; no automated code checks
-are required until implementation begins.
+## Progress Log
+
+### 2026-07-08 — Phase 1 complete
+
+Implemented the `easy-button` surface registration end to end:
+
+- Go-owned `SurfaceKindEasyButton` contract value and workspace UI validation,
+  with generated backend TypeScript regenerated.
+- Renderer product-surface registration, React DOM adapter branch, runtime
+  policy membership, static snapshot renderer, title metadata/icon, toolbar
+  action (`Mod+Alt+E`), pane limit 1, and durable full-width
+  `widthSpec: { unit: "proportion", value: 1 }`.
+- Idle-only pane body under `features/easy-button/`: empty rails, centered
+  round button with breathing glow, no footer input, no listening state, no
+  working/complete visuals, no transcript, and no backend wiring.
+- Frozen and reduced-motion CSS handling; the Electron workflow caught and
+  fixed the pseudo-element pause rule for the button glow.
+- Deterministic Electron coverage for toolbar open, shortcut open, persisted
+  reload restore, full-width layout spec, idle render, and frozen CSS pause.
+- Performance report recorded at
+  `docs/reports/performance/easy-button-pane-phase1-20260708.md`.
+
+Verification performed:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./internal/workspaceui`
+- `pnpm -C desktop exec vitest run
+src/renderer/src/workspace-layout/workspace-scene.test.ts
+src/renderer/src/workspace-layout/workspace-toolbar.test.tsx
+src/renderer/src/workspace-layout/pane-title-metadata.test.ts
+src/renderer/src/workspace-layout/runtime-policy.test.ts
+src/renderer/src/workspace-layout/react-dom-surface-adapter.test.tsx
+src/renderer/src/workspace-layout/surface-registry.test.ts
+src/renderer/src/workspace-layout/workspace-interactions.test.ts`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build`
+- `node desktop/tests/electron/easy-button-pane-performance.test.mjs --skip-build`
+- `./scripts/format.sh`
+- `./check_quality.sh --all`
+
+Baseline note: the pre-change
+`pane-drag-drop-benchmark-performance.test.mjs` baseline was attempted before
+implementation and failed before frame assertions because the benchmark read its
+driver API before installing the driver extension. The failure and artifact path
+are recorded in the performance report.
+
+Remaining work: Phase 2a is next. It should create the `internal/easyrun`
+domain, contracts, store, event/SSE shape, empty snapshot endpoint, generated
+contracts, and renderer easy-run store modules while keeping the pane visually
+idle and without exposing start/stop endpoints until Phase 2b.

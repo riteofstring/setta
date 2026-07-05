@@ -32,6 +32,11 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.easyButtonPaneVersion === "setta-easy-button-pane-driver-v1"',
+    path: join(driverScriptDir, "easy-button-pane-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.semanticGraphWorkflowVersion === "setta-semantic-graph-workflow-driver-v1"',
     path: join(driverScriptDir, "semantic-graph-workflow-driver.js"),
   },

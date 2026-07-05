@@ -31,6 +31,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "easy-button-pane-workflow.test.mjs",
+    name: "easy-button-pane",
+    tiers: ["required"],
+  },
+  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
     tiers: ["required"],
@@ -143,6 +148,11 @@ export const electronWorkflows = [
   {
     file: "pane-drag-drop-benchmark-performance.test.mjs",
     name: "pane-drag-drop-benchmark-performance",
+    tiers: ["performance"],
+  },
+  {
+    file: "easy-button-pane-performance.test.mjs",
+    name: "easy-button-pane-performance",
     tiers: ["performance"],
   },
   {
