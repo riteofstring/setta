@@ -29,13 +29,14 @@ type provisionUpOptions struct {
 }
 
 type provisionUpResult struct {
-	OK             bool                         `json:"ok"`
-	Mode           string                       `json:"mode"`
-	Provider       string                       `json:"provider"`
-	Plan           provisionExecutionPlan       `json:"plan"`
-	CreationRecord *provisionCreationRecord     `json:"creationRecord,omitempty"`
-	Execution      *provisionExecutionRunResult `json:"execution,omitempty"`
-	Warnings       []string                     `json:"warnings,omitempty"`
+	OK             bool                          `json:"ok"`
+	Mode           string                        `json:"mode"`
+	Provider       string                        `json:"provider"`
+	Plan           provisionExecutionPlan        `json:"plan"`
+	CreationRecord *provisionCreationRecord      `json:"creationRecord,omitempty"`
+	Execution      *provisionExecutionRunResult  `json:"execution,omitempty"`
+	NextActions    []provisionCreationNextAction `json:"nextActions,omitempty"`
+	Warnings       []string                      `json:"warnings,omitempty"`
 }
 
 const defaultProvisionUpTimeout = 10 * time.Minute
@@ -198,19 +199,42 @@ func runApprovedProvisionUp(options provisionUpOptions, plan provisionExecutionP
 	if !plan.Mutating || !plan.RequiresApproval {
 		return fmt.Errorf("provision up plan %q is not an approval-gated mutation", plan.ActionID)
 	}
-	if _, err := deps.lookPath(plan.CLIBinary); err != nil {
-		return fmt.Errorf("%s CLI not found in PATH: %w", plan.CLIBinary, err)
-	}
-	record, err := newProvisionCreationRecord(options, plan, deps.now().UTC())
+	record, store, existing, err := reserveApprovedProvisionUpRecord(options, plan, deps)
 	if err != nil {
 		return err
 	}
-	store := newProvisionCreationStore(options.AppDataDir, deps)
-	if err := store.createPending(record); err != nil {
-		return err
+	if existing != nil {
+		return encodeProvisionJSON(deps, provisionUpExistingRecordResult(options, plan, existing, warnings), "up JSON")
 	}
 	runResult, runErr := executeProvisionPlan(options.Timeout, plan, deps)
 	record = record.withExecutionResult(runResult, deps.now().UTC())
+	return finishApprovedProvisionUp(options, plan, warnings, record, runResult, runErr, store, deps)
+}
+
+func reserveApprovedProvisionUpRecord(options provisionUpOptions, plan provisionExecutionPlan, deps cliDeps) (provisionCreationRecord, provisionCreationStore, *provisionCreationRecord, error) {
+	record, err := newProvisionCreationRecord(options, plan, deps.now().UTC())
+	if err != nil {
+		return provisionCreationRecord{}, provisionCreationStore{}, nil, err
+	}
+	store := newProvisionCreationStore(options.AppDataDir, deps)
+	existing, err := provisionUpExistingRecordBeforeCreate(store, record.RecordID)
+	if err != nil {
+		return provisionCreationRecord{}, provisionCreationStore{}, nil, err
+	}
+	if existing != nil {
+		return record, store, existing, nil
+	}
+	if _, err := deps.lookPath(plan.CLIBinary); err != nil {
+		return provisionCreationRecord{}, provisionCreationStore{}, nil, fmt.Errorf("%s CLI not found in PATH: %w", plan.CLIBinary, err)
+	}
+	existing, err = provisionUpCreatePendingRecord(store, record)
+	if err != nil {
+		return provisionCreationRecord{}, provisionCreationStore{}, nil, err
+	}
+	return record, store, existing, nil
+}
+
+func finishApprovedProvisionUp(options provisionUpOptions, plan provisionExecutionPlan, warnings []string, record provisionCreationRecord, runResult provisionExecutionRunResult, runErr error, store provisionCreationStore, deps cliDeps) error {
 	if err := store.update(record); err != nil {
 		if runErr != nil {
 			return fmt.Errorf("provider command failed and creation record update failed: %w; record update error: %v", runErr, err)
@@ -233,6 +257,40 @@ func runApprovedProvisionUp(options provisionUpOptions, plan provisionExecutionP
 		return runErr
 	}
 	return nil
+}
+
+func provisionUpExistingRecordBeforeCreate(store provisionCreationStore, recordID string) (*provisionCreationRecord, error) {
+	record, ok, err := store.find(recordID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+	return &record, nil
+}
+
+func provisionUpCreatePendingRecord(store provisionCreationStore, record provisionCreationRecord) (*provisionCreationRecord, error) {
+	if err := store.createPending(record); err != nil {
+		var exists provisionCreationRecordExistsError
+		if errors.As(err, &exists) {
+			return &exists.Record, nil
+		}
+		return nil, err
+	}
+	return nil, nil
+}
+
+func provisionUpExistingRecordResult(options provisionUpOptions, plan provisionExecutionPlan, record *provisionCreationRecord, warnings []string) provisionUpResult {
+	return provisionUpResult{
+		OK:             false,
+		Mode:           "existing_record",
+		Provider:       options.Provider,
+		Plan:           plan,
+		CreationRecord: record,
+		NextActions:    provisionCreationRecordNextActions(*record),
+		Warnings:       warnings,
+	}
 }
 
 func executeProvisionPlan(timeout time.Duration, plan provisionExecutionPlan, deps cliDeps) (provisionExecutionRunResult, error) {

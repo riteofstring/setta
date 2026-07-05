@@ -170,6 +170,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta provision shapes --json")
 	fmt.Fprintln(output, "  setta provision detect --json")
 	fmt.Fprintln(output, "  setta provision resolve --json [--provider ID] [--shape ID] [--region REGION]")
+	fmt.Fprintln(output, "  setta provision inspect --json --provider ID --runtime-name NAME [flags]")
 	fmt.Fprintln(output, "  setta provision diagnose --json (--record-id ID | --runtime-name NAME) [flags]")
 	fmt.Fprintln(output, "  setta provision render-link --provider aws --json [flags]")
 	fmt.Fprintln(output, "  setta provision render-cloudinit --json [flags]")

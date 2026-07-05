@@ -6,10 +6,13 @@ import { join } from "node:path";
 import type {
   CloudRuntimeProvisionAuthInput,
   CloudRuntimeProvisionCreationRecord,
+  CloudRuntimeProvisionExecutedResult,
   CloudRuntimeProvisionExecuteRequest,
   CloudRuntimeProvisionExecuteResult,
   CloudRuntimeProvisionExecutionFileInput,
   CloudRuntimeProvisionExecutionPlan,
+  CloudRuntimeProvisionExistingRecordAction,
+  CloudRuntimeProvisionExistingRecordResult,
   CloudRuntimeProvisionReleaseInput,
   CloudRuntimeProvisionResolution,
 } from "@shared/types";
@@ -64,13 +67,34 @@ interface RenderedAWSLink {
   templateSha256: string;
 }
 
-interface ProvisionUpCLIResult {
+interface ProvisionUpCLIExecutedResult {
   creationRecord: CloudRuntimeProvisionCreationRecord;
   mode: "executed";
   ok: boolean;
   plan: CloudRuntimeProvisionExecutionPlan;
   provider: string;
   warnings: string[];
+}
+
+interface ProvisionUpCLIExistingRecordResult {
+  creationRecord: CloudRuntimeProvisionCreationRecord;
+  mode: "existing_record";
+  nextActions: CloudRuntimeProvisionExistingRecordAction[];
+  ok: false;
+  plan: CloudRuntimeProvisionExecutionPlan;
+  provider: string;
+  warnings: string[];
+}
+
+type ProvisionUpCLIResult = ProvisionUpCLIExecutedResult | ProvisionUpCLIExistingRecordResult;
+
+interface ProvisionInspectCLIResult {
+  creationRecord: CloudRuntimeProvisionCreationRecord | null;
+  exists: boolean;
+  nextActions: CloudRuntimeProvisionExistingRecordAction[];
+  ok: boolean;
+  provider: string;
+  recordId: string;
 }
 
 interface ProvisionDiagnoseCLIResult {
@@ -91,6 +115,10 @@ export async function runApprovedCloudRuntimeProvision(
   const runtimeName = requiredTrimmed(request.runtimeName, "runtimeName");
   const release = normalizeReleaseInput(request.release);
   const resolution = request.resolution;
+  const existing = await inspectExistingProvision(options, resolution, runtimeName);
+  if (existing.exists) {
+    return existingProvisionResult(existing, runtimeName);
+  }
   const now = options.now ?? (() => new Date());
   const secrets = provisionSecrets(now);
   const tailscaleAuthKey = await tailscaleAuthKeyFor(request.auth, runtimeName, options);
@@ -117,6 +145,10 @@ export async function runApprovedCloudRuntimeProvision(
       scheme: "http",
     });
     const up = await runProvisionUpCLI(options, upArgs);
+    if (up.mode === "existing_record") {
+      await options.pendingProvisionStore.delete(pending.provisionId);
+      return existingProvisionResult(up, pending.runtimeName);
+    }
     try {
       const snapshot = await options.runtimeRegistry.watchProvisionAndPair({
         pending,
@@ -129,7 +161,7 @@ export async function runApprovedCloudRuntimeProvision(
         provisionId: pending.provisionId,
         runtimeName: pending.runtimeName,
         snapshot,
-      };
+      } satisfies CloudRuntimeProvisionExecutedResult;
     } catch (error) {
       const diagnosis = await diagnoseProvisionWatchFailure(options, up.creationRecord.recordId);
       throw new Error(provisionWatchFailureMessage(error, diagnosis), { cause: error });
@@ -393,6 +425,25 @@ async function runProvisionUpCLI(
   return parseProvisionUpResult(stdout);
 }
 
+async function inspectExistingProvision(
+  options: CloudRuntimeProvisionExecutorOptions,
+  resolution: CloudRuntimeProvisionResolution,
+  runtimeName: string,
+): Promise<ProvisionInspectCLIResult> {
+  const stdout = await runProvisionCLI(options, [
+    "provision",
+    "inspect",
+    "--json",
+    "--app-data-dir",
+    options.appDataDir,
+    "--provider",
+    resolution.provider,
+    "--runtime-name",
+    runtimeName,
+  ]);
+  return parseProvisionInspectResult(stdout);
+}
+
 async function diagnoseProvisionWatchFailure(
   options: CloudRuntimeProvisionExecutorOptions,
   recordId: string,
@@ -441,16 +492,53 @@ async function runProvisionCLI(
 
 function parseProvisionUpResult(stdout: string): ProvisionUpCLIResult {
   const record = parseJSONRecord(stdout, "setta provision up");
-  if (record.ok !== true || record.mode !== "executed") {
-    throw new Error("setta provision up returned an unsuccessful execution result");
+  const mode = requireString(record.mode, "mode");
+  if (mode === "executed") {
+    if (record.ok !== true) {
+      throw new Error("setta provision up returned ok=false for executed mode");
+    }
+    return {
+      creationRecord: parseCreationRecord(requireRecord(record.creationRecord, "creationRecord")),
+      mode,
+      ok: true,
+      plan: parseExecutionPlan(requireRecord(record.plan, "plan")),
+      provider: requireString(record.provider, "provider"),
+      warnings: requireStringArrayOrEmpty(record.warnings, "warnings"),
+    };
   }
+  if (mode === "existing_record") {
+    if (record.ok !== false) {
+      throw new Error("setta provision up existing_record result must return ok=false");
+    }
+    return {
+      creationRecord: parseCreationRecord(requireRecord(record.creationRecord, "creationRecord")),
+      mode,
+      nextActions: parseExistingRecordActions(record.nextActions),
+      ok: false,
+      plan: parseExecutionPlan(requireRecord(record.plan, "plan")),
+      provider: requireString(record.provider, "provider"),
+      warnings: requireStringArrayOrEmpty(record.warnings, "warnings"),
+    };
+  }
+  throw new Error(`setta provision up returned unsupported mode ${mode}`);
+}
+
+function parseProvisionInspectResult(stdout: string): ProvisionInspectCLIResult {
+  const record = parseJSONRecord(stdout, "setta provision inspect");
+  if (record.ok !== true) {
+    throw new Error("setta provision inspect returned ok=false");
+  }
+  const exists = requireBoolean(record.exists, "exists");
   return {
-    creationRecord: parseCreationRecord(requireRecord(record.creationRecord, "creationRecord")),
-    mode: "executed",
+    creationRecord:
+      exists && record.creationRecord !== undefined && record.creationRecord !== null
+        ? parseCreationRecord(requireRecord(record.creationRecord, "creationRecord"))
+        : null,
+    exists,
+    nextActions: parseExistingRecordActions(record.nextActions),
     ok: true,
-    plan: parseExecutionPlan(requireRecord(record.plan, "plan")),
     provider: requireString(record.provider, "provider"),
-    warnings: requireStringArrayOrEmpty(record.warnings, "warnings"),
+    recordId: requireString(record.recordId, "recordId"),
   };
 }
 
@@ -523,13 +611,61 @@ function truncateDiagnosticText(value: string): string {
   return `${normalized.slice(0, 2000)}...`;
 }
 
-function parseCreationRecord(record: Record<string, unknown>): CloudRuntimeProvisionCreationRecord {
+function existingProvisionResult(
+  result: {
+    creationRecord: CloudRuntimeProvisionCreationRecord | null;
+    nextActions: CloudRuntimeProvisionExistingRecordAction[];
+    provider: string;
+    warnings?: string[];
+  },
+  runtimeName: string,
+): CloudRuntimeProvisionExistingRecordResult {
+  if (!result.creationRecord) {
+    throw new Error("existing provision result did not include a creation record");
+  }
   return {
+    creationRecord: result.creationRecord,
+    mode: "existing_record",
+    nextActions: result.nextActions,
+    ok: false,
+    provider: result.provider,
+    runtimeName,
+    warnings: result.warnings ?? [],
+  };
+}
+
+function parseCreationRecord(record: Record<string, unknown>): CloudRuntimeProvisionCreationRecord {
+  const teardownAction =
+    record.teardownAction === undefined || record.teardownAction === null
+      ? null
+      : requireRecord(record.teardownAction, "creationRecord.teardownAction");
+  return {
+    createdAt: optionalString(record.createdAt),
+    expectedResourceName: optionalString(record.expectedResourceName),
+    lastError: optionalString(record.lastError),
+    provider: optionalString(record.provider),
     recordId: requireString(record.recordId, "creationRecord.recordId"),
     resourceId: optionalString(record.resourceId),
     runtimeName: requireString(record.runtimeName, "creationRecord.runtimeName"),
     status: requireString(record.status, "creationRecord.status"),
+    teardownReady: teardownAction ? optionalBoolean(teardownAction.ready) : null,
+    updatedAt: optionalString(record.updatedAt),
   };
+}
+
+function parseExistingRecordActions(value: unknown): CloudRuntimeProvisionExistingRecordAction[] {
+  if (value === undefined || value === null) {
+    return [];
+  }
+  return requireArray(value, "nextActions").map((item, index) => {
+    const record = requireRecord(item, `nextActions[${index}]`);
+    return {
+      description: requireString(record.description, `nextActions[${index}].description`),
+      id: requireString(record.id, `nextActions[${index}].id`),
+      label: requireString(record.label, `nextActions[${index}].label`),
+      mutating: requireBoolean(record.mutating, `nextActions[${index}].mutating`),
+    };
+  });
 }
 
 function parseExecutionPlan(record: Record<string, unknown>): CloudRuntimeProvisionExecutionPlan {
@@ -681,6 +817,10 @@ function requiredTrimmed(value: string, label: string): string {
 
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function optionalBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
 }
 
 function requireNumber(value: unknown, label: string): number {

@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { CloudRuntimeResolutionCard } from "./runtime-cloud-resolution-card";
+import { cloudRuntimeExistingRecordMessage } from "./runtime-cloud-existing-record";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -573,6 +574,12 @@ async function approveCloudResolution({
       resolution: resolution.resolution,
       runtimeName,
     });
+    if (result.mode === "existing_record") {
+      setApproval(null);
+      setError(cloudRuntimeExistingRecordMessage(result));
+      setStatus("error");
+      return;
+    }
     setApproval({
       authSource,
       message: approvalMessage(authSource, result.creationRecord.recordId),

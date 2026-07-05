@@ -95,6 +95,13 @@ type provisionCreationDiagnostic struct {
 	Summary              []string                     `json:"summary,omitempty"`
 }
 
+type provisionCreationNextAction struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Mutating    bool   `json:"mutating"`
+}
+
 type provisionCreationRegistry struct {
 	SchemaVersion int                       `json:"schemaVersion"`
 	Creations     []provisionCreationRecord `json:"creations"`
@@ -112,6 +119,14 @@ type provisionExecutionRunResult struct {
 type provisionCreationStore struct {
 	path string
 	deps cliDeps
+}
+
+type provisionCreationRecordExistsError struct {
+	Record provisionCreationRecord
+}
+
+func (err provisionCreationRecordExistsError) Error() string {
+	return fmt.Sprintf("provision creation record %q already exists with status %q; inspect it before retrying or use a different runtime name", err.Record.RecordID, err.Record.Status)
 }
 
 func newProvisionCreationStore(appDataDir string, deps cliDeps) provisionCreationStore {
@@ -211,11 +226,20 @@ func (store provisionCreationStore) createPending(record provisionCreationRecord
 		return err
 	}
 	if existing, ok := provisionCreationRecordByID(registry, record.RecordID); ok {
-		return fmt.Errorf("provision creation record %q already exists with status %q; inspect it before retrying or use a different runtime name", existing.RecordID, existing.Status)
+		return provisionCreationRecordExistsError{Record: existing}
 	}
 	registry.Creations = append(registry.Creations, record)
 	sortProvisionCreationRecords(registry.Creations)
 	return store.write(registry)
+}
+
+func (store provisionCreationStore) find(recordID string) (provisionCreationRecord, bool, error) {
+	registry, err := store.read()
+	if err != nil {
+		return provisionCreationRecord{}, false, err
+	}
+	record, ok := provisionCreationRecordByID(registry, recordID)
+	return record, ok, nil
 }
 
 func (store provisionCreationStore) update(record provisionCreationRecord) error {
@@ -306,6 +330,52 @@ func provisionCreationRecordByID(registry provisionCreationRegistry, recordID st
 		}
 	}
 	return provisionCreationRecord{}, false
+}
+
+func provisionCreationRecordNextActions(record provisionCreationRecord) []provisionCreationNextAction {
+	actions := []provisionCreationNextAction{
+		{
+			ID:          "inspect_existing_record",
+			Label:       "Inspect existing record",
+			Description: fmt.Sprintf("Review creation record %s and its provider diagnostics before retrying.", record.RecordID),
+			Mutating:    false,
+		},
+	}
+	if record.Status == provisionCreationStatusSucceeded {
+		actions = append(actions, provisionCreationNextAction{
+			ID:          "adopt_existing_runtime",
+			Label:       "Adopt existing runtime",
+			Description: "Use the existing runtime or pairing flow if this resource is the intended Setta machine.",
+			Mutating:    false,
+		})
+	}
+	if provisionCreationRecordCanTeardown(record) {
+		actions = append(actions, provisionCreationNextAction{
+			ID:          "tear_down_existing_resource",
+			Label:       "Review teardown",
+			Description: "Review the stored teardown plan for this record before creating another resource with the same name.",
+			Mutating:    true,
+		})
+	}
+	actions = append(actions, provisionCreationNextAction{
+		ID:          "use_different_runtime_name",
+		Label:       "Use a different runtime name",
+		Description: "Resolve again with a different runtime name to create a separate cloud resource.",
+		Mutating:    false,
+	})
+	return actions
+}
+
+func provisionCreationRecordCanTeardown(record provisionCreationRecord) bool {
+	if !record.TeardownAction.Ready {
+		return false
+	}
+	switch record.Status {
+	case provisionCreationStatusSucceeded, provisionCreationStatusFailed:
+		return true
+	default:
+		return false
+	}
 }
 
 func sortProvisionCreationRecords(records []provisionCreationRecord) {

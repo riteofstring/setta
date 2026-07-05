@@ -25,6 +25,16 @@ describe("cloud runtime provision executor", () => {
       },
       execFileRunner: async (command, args) => {
         expect(command).toBe("/opt/setta");
+        if (args[0] === "provision" && args[1] === "inspect") {
+          events.push("inspect");
+          expect(requiredArg(args, "--app-data-dir")).toBe(appDataDir);
+          expect(requiredArg(args, "--provider")).toBe("hetzner");
+          expect(requiredArg(args, "--runtime-name")).toBe("setta-worker");
+          return {
+            stderr: "",
+            stdout: JSON.stringify(provisionInspectMissingOutput()),
+          };
+        }
         if (args[0] === "provision" && args[1] === "render-cloudinit") {
           events.push("render-cloudinit");
           pairingTokenHash = requiredArg(args, "--pairing-token-hash");
@@ -102,6 +112,9 @@ describe("cloud runtime provision executor", () => {
       provider: "hetzner",
       runtimeName: "setta-worker",
     });
+    if (result.mode !== "executed") {
+      throw new Error(`expected executed result, got ${result.mode}`);
+    }
     expect(result.snapshot.activeRuntimeId).toBe("runtime_remote");
     expect(pendingSeenByWatch).toMatchObject({
       expectedTag: "tag:setta-runtime",
@@ -110,6 +123,7 @@ describe("cloud runtime provision executor", () => {
       scheme: "http",
     });
     expect(events).toEqual([
+      "inspect",
       "render-cloudinit",
       "upsert",
       "up",
@@ -130,6 +144,13 @@ describe("cloud runtime provision executor", () => {
         },
         execFileRunner: async (command, args) => {
           expect(command).toBe("/opt/setta");
+          if (args[0] === "provision" && args[1] === "inspect") {
+            events.push("inspect");
+            return {
+              stderr: "",
+              stdout: JSON.stringify(provisionInspectMissingOutput()),
+            };
+          }
           if (args[0] === "provision" && args[1] === "render-cloudinit") {
             events.push("render-cloudinit");
             return {
@@ -186,7 +207,75 @@ describe("cloud runtime provision executor", () => {
       "timed out waiting for setta-worker to pair\nProvider diagnosis: server 123: setta-worker: status initializing",
     );
 
-    expect(events).toEqual(["render-cloudinit", "upsert", "up", "watch", "diagnose"]);
+    expect(events).toEqual(["inspect", "render-cloudinit", "upsert", "up", "watch", "diagnose"]);
+  });
+
+  test("returns existing record before minting auth key or writing pending state", async () => {
+    const appDataDir = await mkdtemp(join(tmpdir(), "setta-provision-executor-"));
+    const events: string[] = [];
+    const request = requestFixture();
+    request.auth = { kind: "oauth" };
+
+    const result = await runApprovedCloudRuntimeProvision(request, {
+      appDataDir,
+      env: {
+        SETTA_CLI_PATH: "/opt/setta",
+      },
+      execFileRunner: async (command, args) => {
+        expect(command).toBe("/opt/setta");
+        if (args[0] === "provision" && args[1] === "inspect") {
+          events.push("inspect");
+          expect(requiredArg(args, "--app-data-dir")).toBe(appDataDir);
+          expect(requiredArg(args, "--provider")).toBe("hetzner");
+          expect(requiredArg(args, "--runtime-name")).toBe("setta-worker");
+          return {
+            stderr: "",
+            stdout: JSON.stringify(provisionInspectExistingOutput()),
+          };
+        }
+        throw new Error(`unexpected CLI args after existing-record preflight: ${args.join(" ")}`);
+      },
+      pendingProvisionStore: {
+        delete: async () => {
+          throw new Error("existing-record preflight should not write pending state");
+        },
+        upsert: async () => {
+          throw new Error("existing-record preflight should not write pending state");
+        },
+      },
+      repoRoot: "/repo",
+      runtimeRegistry: {
+        watchProvisionAndPair: async () => {
+          throw new Error("existing-record preflight should not start watch");
+        },
+      },
+      tailscaleOAuthService: {
+        mintAuthKey: async () => {
+          throw new Error("existing-record preflight should not mint a Tailscale auth key");
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      creationRecord: {
+        recordId: "hetzner:setta-worker",
+        runtimeName: "setta-worker",
+        status: "succeeded",
+      },
+      mode: "existing_record",
+      ok: false,
+      provider: "hetzner",
+      runtimeName: "setta-worker",
+    });
+    expect(
+      result.mode === "existing_record" ? result.nextActions.map((action) => action.id) : [],
+    ).toEqual([
+      "inspect_existing_record",
+      "adopt_existing_runtime",
+      "tear_down_existing_resource",
+      "use_different_runtime_name",
+    ]);
+    expect(events).toEqual(["inspect"]);
   });
 });
 
@@ -291,6 +380,63 @@ function provisionDiagnoseOutput() {
       providerOutput: '{"server":{"id":123,"name":"setta-worker","status":"initializing"}}',
       status: "succeeded",
     },
+    ok: true,
+    provider: "hetzner",
+    recordId: "hetzner:setta-worker",
+  };
+}
+
+function provisionInspectMissingOutput() {
+  return {
+    exists: false,
+    ok: true,
+    provider: "hetzner",
+    recordId: "hetzner:setta-worker",
+  };
+}
+
+function provisionInspectExistingOutput() {
+  return {
+    creationRecord: {
+      createdAt: "2026-07-07T09:55:00.000Z",
+      expectedResourceName: "setta-worker",
+      provider: "hetzner",
+      recordId: "hetzner:setta-worker",
+      resourceId: "123",
+      runtimeName: "setta-worker",
+      status: "succeeded",
+      teardownAction: {
+        ready: true,
+      },
+      updatedAt: "2026-07-07T10:00:00.000Z",
+    },
+    exists: true,
+    nextActions: [
+      {
+        description: "Review creation record hetzner:setta-worker.",
+        id: "inspect_existing_record",
+        label: "Inspect existing record",
+        mutating: false,
+      },
+      {
+        description: "Use the existing runtime.",
+        id: "adopt_existing_runtime",
+        label: "Adopt existing runtime",
+        mutating: false,
+      },
+      {
+        description: "Review teardown.",
+        id: "tear_down_existing_resource",
+        label: "Review teardown",
+        mutating: true,
+      },
+      {
+        description: "Resolve again.",
+        id: "use_different_runtime_name",
+        label: "Use a different runtime name",
+        mutating: false,
+      },
+    ],
     ok: true,
     provider: "hetzner",
     recordId: "hetzner:setta-worker",

@@ -153,13 +153,26 @@ export interface CloudRuntimeProvisionExecutionPlan {
 }
 
 export interface CloudRuntimeProvisionCreationRecord {
+  createdAt: string | null;
+  expectedResourceName: string | null;
+  lastError: string | null;
+  provider: string | null;
   recordId: string;
   resourceId: string | null;
   runtimeName: string;
   status: string;
+  teardownReady: boolean | null;
+  updatedAt: string | null;
 }
 
-export interface CloudRuntimeProvisionExecuteResult {
+export interface CloudRuntimeProvisionExistingRecordAction {
+  description: string;
+  id: string;
+  label: string;
+  mutating: boolean;
+}
+
+export interface CloudRuntimeProvisionExecutedResult {
   creationRecord: CloudRuntimeProvisionCreationRecord;
   mode: "executed";
   ok: boolean;
@@ -170,3 +183,17 @@ export interface CloudRuntimeProvisionExecuteResult {
   snapshot: RuntimeRegistrySnapshot;
   warnings: string[];
 }
+
+export interface CloudRuntimeProvisionExistingRecordResult {
+  creationRecord: CloudRuntimeProvisionCreationRecord;
+  mode: "existing_record";
+  nextActions: CloudRuntimeProvisionExistingRecordAction[];
+  ok: false;
+  provider: string;
+  runtimeName: string;
+  warnings: string[];
+}
+
+export type CloudRuntimeProvisionExecuteResult =
+  | CloudRuntimeProvisionExecutedResult
+  | CloudRuntimeProvisionExistingRecordResult;

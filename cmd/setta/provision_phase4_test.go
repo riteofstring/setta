@@ -440,6 +440,80 @@ func TestProvisionUpApprovedUpdatesFailedRecordAndReturnsProviderOutput(t *testi
 	}
 }
 
+func TestProvisionInspectReportsExistingRecordWithNextActions(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	existing := writeSucceededHetznerCreationRecord(t, appDataDir, deps)
+	var stdout bytes.Buffer
+	deps.stdout = &stdout
+
+	code := runWithDeps([]string{
+		"provision", "inspect",
+		"--json",
+		"--app-data-dir", appDataDir,
+		"--provider", "hetzner",
+		"--runtime-name", "setta-test-runtime",
+	}, deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionInspectResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse inspect JSON: %v\n%s", err, stdout.String())
+	}
+	if !result.OK || !result.Exists || result.RecordID != existing.RecordID || result.CreationRecord == nil {
+		t.Fatalf("inspect result = %+v", result)
+	}
+	if got := provisionNextActionIDs(result.NextActions); !reflect.DeepEqual(got, []string{
+		"inspect_existing_record",
+		"adopt_existing_runtime",
+		"tear_down_existing_resource",
+		"use_different_runtime_name",
+	}) {
+		t.Fatalf("next action ids = %#v", got)
+	}
+}
+
+func TestProvisionUpApprovedExistingRecordReturnsStructuredResultWithoutProviderCommand(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	existing := writeSucceededHetznerCreationRecord(t, appDataDir, deps)
+	cloudInitPath := writeProvisionExecutionTempFile(t, "cloud-init.yaml", "#cloud-config\n", 0o600)
+	var stdout bytes.Buffer
+	deps.stdout = &stdout
+	deps.lookPath = func(string) (string, error) {
+		t.Fatal("provider CLI lookup should not run when an existing record blocks creation")
+		return "", nil
+	}
+	deps.commandRunner = func(context.Context, string, ...string) ([]byte, error) {
+		t.Fatal("provider command should not run when an existing record blocks creation")
+		return nil, nil
+	}
+
+	code := runWithDeps(provisionUpApprovedHetznerArgs(appDataDir, cloudInitPath), deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want structured non-mutating result", code)
+	}
+	var result provisionUpResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse up JSON: %v\n%s", err, stdout.String())
+	}
+	if result.OK || result.Mode != "existing_record" || result.CreationRecord == nil {
+		t.Fatalf("duplicate up result = %+v", result)
+	}
+	if result.CreationRecord.RecordID != existing.RecordID || result.CreationRecord.Status != provisionCreationStatusSucceeded {
+		t.Fatalf("creation record = %+v, want existing %+v", result.CreationRecord, existing)
+	}
+	if got := provisionNextActionIDs(result.NextActions); !reflect.DeepEqual(got, []string{
+		"inspect_existing_record",
+		"adopt_existing_runtime",
+		"tear_down_existing_resource",
+		"use_different_runtime_name",
+	}) {
+		t.Fatalf("next action ids = %#v", got)
+	}
+}
+
 func TestProvisionDiagnoseAWSUpdatesRecordWithStackFailureSummary(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()
@@ -907,6 +981,14 @@ func readProvisionCreationRecordForTest(t *testing.T, appDataDir string, deps cl
 		t.Fatalf("creation record %q missing: %+v", recordID, registry)
 	}
 	return record
+}
+
+func provisionNextActionIDs(actions []provisionCreationNextAction) []string {
+	ids := make([]string, 0, len(actions))
+	for _, action := range actions {
+		ids = append(ids, action.ID)
+	}
+	return ids
 }
 
 func assertManualParameterNoEcho(t *testing.T, parameters []provisionLinkManualParameter, key string) {
