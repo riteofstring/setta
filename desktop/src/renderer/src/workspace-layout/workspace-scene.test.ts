@@ -84,7 +84,7 @@ describe("real workspace layout scene", () => {
 
     expect(store.getSnapshot().revision).toBe(0);
     expect(persisted.revision).toBe(1);
-    expect(persisted.schemaVersion).toBe(2);
+    expect(persisted.schemaVersion).toBe(3);
   });
 
   test("serializes and restores the real workspace layout through the backend contract shape", () => {
@@ -106,6 +106,7 @@ describe("real workspace layout scene", () => {
       title: "Build",
       tone: "green",
     });
+    store.resizePaneRow(paneId, 360);
 
     const persisted = workspaceUILayoutFromScene(
       workspaceId,
@@ -121,10 +122,11 @@ describe("real workspace layout scene", () => {
 
     expect(persisted).toMatchObject({
       focusedPaneId: paneId,
-      revision: 1,
-      schemaVersion: 2,
+      revision: 2,
+      schemaVersion: 3,
       workspaceId,
     });
+    expect(persisted.panes.find((pane) => pane.paneId === paneId)?.heightPx).toBe(360);
     expect(persisted.panes.find((pane) => pane.paneId === paneId)?.terminalConfig).toEqual({
       cwdOverride: "/tmp/repo",
       profileId: "default",
@@ -141,6 +143,7 @@ describe("real workspace layout scene", () => {
         profileId: "default",
         titleOverride: "Build shell",
       },
+      heightPx: 360,
       title: "Build",
       tone: "green",
     });
@@ -239,7 +242,7 @@ function storedLayout(workspaceId: string, paneIds: string[]): WorkspaceUILayout
     focusedPaneId: paneIds[0] ?? "",
     panes: [storedPane("workspace_pane_0", "workspace_column_0", "workspace_surface_0", "Chat")],
     revision: 1,
-    schemaVersion: 2,
+    schemaVersion: 3,
     workspaceId,
   };
 }
@@ -261,6 +264,7 @@ function storedPane(paneId: string, columnId: string, surfaceId: string, title: 
   return {
     columnId,
     heat: 0,
+    heightPx: null,
     paneId,
     sequence: 0,
     subtitle: "Repo",

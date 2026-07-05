@@ -119,7 +119,7 @@ describe("preload workspace API", () => {
       focusedPaneId: "workspace_pane_0",
       panes: [],
       revision: 1,
-      schemaVersion: 2,
+      schemaVersion: 3,
       workspaceId: "workspace_api",
     };
     await api.workspace.session();

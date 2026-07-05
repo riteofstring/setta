@@ -749,11 +749,44 @@ Progress on 2026-07-07:
   `./scripts/go.sh test ./internal/workspaceui`,
   `./scripts/go.sh run ./cmd/generate-contracts`, `./scripts/format.sh`, and
   `./check_quality.sh --git-changes` passed.
+- Backend row-height resize reducer follow-up: added backend-only
+  `resize_pane` support for pane-targeted row height changes without exposing
+  an HTTP, CLI, IPC, renderer, or agent write surface. The reducer now accepts
+  exactly one resize target per operation (`widthSpec`, `heightPx`, or
+  `resetHeight`), applies absolute height changes and resets to every pane in
+  the target visual row across columns in the same plane, normalizes positive
+  heights below the renderer minimum to `96px` with a structured warning,
+  preserves focus, increments the revision and persists only when row dimensions
+  change, and returns structured resize outcome plus per-pane before/after
+  dimension records including nullable `heightPx`.
+- Persisted workspace UI layout schema is now version `3`. The Go-owned
+  `WorkspaceUIPane` contract now includes nullable `heightPx`, the renderer
+  persisted layout mapper round-trips it, and schema-2 persisted UI layouts now
+  fail loudly through the existing recovery path. No migration, compatibility
+  shim, dual-read path, or silent fallback was added.
+- Regenerated the backend TypeScript contract surface and HTTP contract
+  snapshot from the Go-owned endpoint registry; backend protocol version is now
+  `16`.
+- Verification for the backend row-height reducer/schema follow-up:
+  `./scripts/go.sh test ./internal/workspaceui`,
+  `./scripts/go.sh run ./cmd/generate-contracts`,
+  `pnpm -C desktop typecheck`,
+  `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi ./cmd/setta`,
+  and
+  `pnpm -C desktop exec vitest run src/renderer/src/workspace-layout/workspace-scene.test.ts src/main/workspace-ui-ipc.test.ts src/preload/index.test.ts`
+  passed. `pnpm -C desktop build` and
+  `node desktop/tests/electron/run-workflows.mjs --workflow pane-focus-click`
+  also passed for the generated contract and persisted layout schema change.
+  Final gate: `./scripts/format.sh` and `./check_quality.sh --git-changes`
+  passed. The first quality-gate attempt exposed that
+  `internal/workspaceui/operations.go` exceeded the repository file-length
+  limit after the new reducer branch; the height-specific reducer helpers were
+  split into `operations_resize_height.go`, and the gate passed after that.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for remaining resize slices (pane height, row/plane height, and
-  multi-operation transactions), open, and reorder, then cut
-  renderer-originated layout mutations over to that backend operation API before
-  exposing agent or CLI workspace mutation commands.
+  event sync for remaining resize slices (relative/scaled height changes,
+  adjacent split weight changes, and multi-operation transactions), open, and
+  reorder, then cut renderer-originated layout mutations over to that backend
+  operation API before exposing agent or CLI workspace mutation commands.
 
 ### Phase 3: Renderer Event Sync
 

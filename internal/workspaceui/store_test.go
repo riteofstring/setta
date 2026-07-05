@@ -101,6 +101,26 @@ func TestStoreRejectsSchemaOneWorkspaceUILayout(t *testing.T) {
 	}
 }
 
+func TestStoreRejectsSchemaTwoWorkspaceUILayout(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := newTestStore(t, appDataDir)
+	path := StateFilePath(appDataDir, "workspace_api")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create state dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(`{"schemaVersion":2}`), 0o644); err != nil {
+		t.Fatalf("write old layout: %v", err)
+	}
+
+	_, err := store.LoadLayout("workspace_api")
+	if err == nil {
+		t.Fatal("load succeeded, want unsupported schema error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "unsupported schemaVersion 2") {
+		t.Fatalf("error = %T %v, want unsupported schema corrupt state", err, err)
+	}
+}
+
 func TestStoreRejectsWorkspaceUILayoutWithoutPositiveRevision(t *testing.T) {
 	store := newTestStore(t, t.TempDir())
 	layout := testLayout("workspace_api")
@@ -112,6 +132,21 @@ func TestStoreRejectsWorkspaceUILayoutWithoutPositiveRevision(t *testing.T) {
 	}
 	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "revision must be positive") {
 		t.Fatalf("error = %T %v, want revision corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsWorkspaceUILayoutWithInvalidPaneHeight(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	heightPX := 0
+	layout.Panes[0].HeightPX = &heightPX
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want invalid pane height error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "heightPx must be positive") {
+		t.Fatalf("error = %T %v, want heightPx corrupt state", err, err)
 	}
 }
 

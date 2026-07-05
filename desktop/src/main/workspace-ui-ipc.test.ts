@@ -129,7 +129,7 @@ function workspaceUILayout(): WorkspaceUILayout {
     focusedPaneId: "workspace_pane_1",
     panes: [],
     revision: 1,
-    schemaVersion: 2,
+    schemaVersion: 3,
     workspaceId: "workspace_api",
   };
 }

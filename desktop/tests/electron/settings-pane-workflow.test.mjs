@@ -217,7 +217,7 @@ function layoutWithoutSettings(workspaceId) {
       }),
     ],
     revision: 1,
-    schemaVersion: 2,
+    schemaVersion: 3,
     workspaceId,
   };
 }
@@ -239,6 +239,7 @@ function storedPane(pane) {
   return {
     ...pane,
     heat: (pane.sequence * 37) % 100,
+    heightPx: null,
     terminalConfig: null,
     workflowNodeDetailsConfig: null,
   };

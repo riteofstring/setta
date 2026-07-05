@@ -505,6 +505,7 @@ function twoPaneWorkspaceUILayout(workspaceId) {
       {
         columnId: "workspace_column_0",
         heat: 0,
+        heightPx: null,
         paneId: "workspace_pane_0",
         sequence: 0,
         subtitle: "workspace graph",
@@ -518,6 +519,7 @@ function twoPaneWorkspaceUILayout(workspaceId) {
       {
         columnId: "workspace_column_1",
         heat: 37,
+        heightPx: null,
         paneId: "workspace_pane_1",
         sequence: 1,
         subtitle: "terminal",
@@ -534,7 +536,7 @@ function twoPaneWorkspaceUILayout(workspaceId) {
       },
     ],
     revision: 1,
-    schemaVersion: 2,
+    schemaVersion: 3,
     workspaceId,
   };
 }

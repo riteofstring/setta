@@ -2,7 +2,7 @@ package workspaceui
 
 import "setta/internal/orchestrator"
 
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 type ColumnWidthUnit string
 
@@ -125,6 +125,7 @@ type WorkflowNodeDetailsPaneConfig struct {
 type WorkspaceUIPane struct {
 	ColumnID                  string                         `json:"columnId"`
 	Heat                      int                            `json:"heat"`
+	HeightPX                  *int                           `json:"heightPx"`
 	PaneID                    string                         `json:"paneId"`
 	Sequence                  int                            `json:"sequence"`
 	Subtitle                  string                         `json:"subtitle"`
@@ -209,7 +210,9 @@ type WorkspaceUIPaneRenameOperation struct {
 }
 
 type WorkspaceUIPaneResizeOperation struct {
-	WidthSpec *ColumnWidthSpec `json:"widthSpec"`
+	WidthSpec   *ColumnWidthSpec `json:"widthSpec"`
+	HeightPX    *int             `json:"heightPx"`
+	ResetHeight bool             `json:"resetHeight"`
 }
 
 type WorkspaceUIPaneOperationResult struct {
@@ -260,7 +263,12 @@ type WorkspaceUIPaneRenameOutcome struct {
 }
 
 type WorkspaceUIPaneResizeOutcome struct {
+	HeightPX          *int            `json:"heightPx"`
+	PlaneIndex        int             `json:"planeIndex"`
+	PreviousHeightPX  *int            `json:"previousHeightPx"`
 	PreviousWidthSpec ColumnWidthSpec `json:"previousWidthSpec"`
+	RowIndex          int             `json:"rowIndex"`
+	TargetPaneIDs     []string        `json:"targetPaneIds"`
 	SlotIndex         int             `json:"slotIndex"`
 	TargetColumnID    string          `json:"targetColumnId"`
 	WidthSpec         ColumnWidthSpec `json:"widthSpec"`
@@ -273,6 +281,7 @@ type WorkspaceUIPaneDimensionChange struct {
 }
 
 type WorkspaceUIPaneDimensions struct {
+	HeightPX  *int            `json:"heightPx"`
 	ColumnID  string          `json:"columnId"`
 	Weight    float64         `json:"weight"`
 	WidthSpec ColumnWidthSpec `json:"widthSpec"`

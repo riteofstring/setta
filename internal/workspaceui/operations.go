@@ -13,6 +13,7 @@ const (
 	maximumColumnWidthProportion = 1
 	minimumColumnWidthProportion = 0.1
 	minimumColumnWidthPX         = 96
+	minimumPaneHeightPX          = 96
 )
 
 type WorkspaceUIOperationError struct {
@@ -207,10 +208,26 @@ func validateResizePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Resize == nil {
 		return errors.New("workspace pane resize payload is required")
 	}
-	if operation.Resize.WidthSpec == nil {
-		return errors.New("workspace pane resize widthSpec is required")
+	targetCount := 0
+	if operation.Resize.WidthSpec != nil {
+		targetCount += 1
 	}
-	return validateResizeColumnWidthSpec(*operation.Resize.WidthSpec)
+	if operation.Resize.HeightPX != nil {
+		targetCount += 1
+	}
+	if operation.Resize.ResetHeight {
+		targetCount += 1
+	}
+	if targetCount != 1 {
+		return errors.New("workspace pane resize requires exactly one of widthSpec, heightPx, or resetHeight")
+	}
+	if operation.Resize.WidthSpec != nil {
+		return validateResizeColumnWidthSpec(*operation.Resize.WidthSpec)
+	}
+	if operation.Resize.HeightPX != nil {
+		return validateResizePaneHeightPX(*operation.Resize.HeightPX)
+	}
+	return nil
 }
 
 func validateResizeColumnWidthSpec(widthSpec ColumnWidthSpec) error {
@@ -222,6 +239,13 @@ func validateResizeColumnWidthSpec(widthSpec ColumnWidthSpec) error {
 	}
 	if widthSpec.Value <= 0 {
 		return errors.New("workspace pane resize widthSpec value must be positive")
+	}
+	return nil
+}
+
+func validateResizePaneHeightPX(heightPX int) error {
+	if heightPX <= 0 {
+		return errors.New("workspace pane resize heightPx must be positive")
 	}
 	return nil
 }
@@ -434,7 +458,13 @@ func (service *Service) applyResizePaneOperation(layout WorkspaceUILayout, opera
 			fmt.Errorf("workspace pane not found: %s", operation.PaneID),
 		)
 	}
+	if operation.Resize.WidthSpec != nil {
+		return service.applyResizePaneWidthOperation(layout, operation, location)
+	}
+	return service.applyResizePaneHeightOperation(layout, operation, location)
+}
 
+func (service *Service) applyResizePaneWidthOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation, location workspaceUIPaneLocation) (WorkspaceUIPaneOperationResult, error) {
 	targetColumn := layout.Columns[location.ColumnIndex]
 	requestedWidthSpec := *operation.Resize.WidthSpec
 	widthSpec := normalizedResizeColumnWidthSpec(requestedWidthSpec)
@@ -480,7 +510,7 @@ func (service *Service) applyResizePaneOperation(layout WorkspaceUILayout, opera
 			FocusedPaneID:         layout.FocusedPaneID,
 		},
 		BeforeAfterDimensions: dimensionChanges,
-		Warnings:              resizeWarnings(requestedWidthSpec, widthSpec),
+		Warnings:              resizeWidthWarnings(requestedWidthSpec, widthSpec),
 	}, nil
 }
 
@@ -713,13 +743,14 @@ func paneDimensions(layout WorkspaceUILayout, paneID string) (WorkspaceUIPaneDim
 	}
 	column := layout.Columns[location.ColumnIndex]
 	return WorkspaceUIPaneDimensions{
+		HeightPX:  cloneIntPointer(layout.Panes[paneIndex].HeightPX),
 		ColumnID:  column.ColumnID,
 		Weight:    layout.Panes[paneIndex].Weight,
 		WidthSpec: column.WidthSpec,
 	}, true
 }
 
-func resizeWarnings(requested ColumnWidthSpec, normalized ColumnWidthSpec) []WorkspaceUIPaneOperationWarning {
+func resizeWidthWarnings(requested ColumnWidthSpec, normalized ColumnWidthSpec) []WorkspaceUIPaneOperationWarning {
 	if columnWidthSpecsEqual(requested, normalized) {
 		return []WorkspaceUIPaneOperationWarning{}
 	}

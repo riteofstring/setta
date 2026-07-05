@@ -22,7 +22,7 @@ import type {
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
-const realWorkspaceLayoutSchemaVersion = 2;
+const realWorkspaceLayoutSchemaVersion = 3;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
 const realWorkspaceSurfaceKinds = productSurfaceKinds;
@@ -212,6 +212,7 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
   return {
     columnId: pane.columnId,
     heat: pane.heat,
+    ...(pane.heightPx === null ? {} : { heightPx: pane.heightPx }),
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,
@@ -252,6 +253,7 @@ function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
   return {
     columnId: pane.columnId,
     heat: pane.heat,
+    heightPx: pane.heightPx ?? null,
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,

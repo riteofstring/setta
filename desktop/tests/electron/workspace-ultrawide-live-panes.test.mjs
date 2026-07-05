@@ -434,6 +434,7 @@ function ultraWideLayout(workspaceId) {
     return {
       columnId: `workspace_column_${index}`,
       heat: (index * 37) % 100,
+      heightPx: null,
       paneId: `workspace_pane_${index}`,
       sequence: index,
       subtitle: "ultra-wide visibility fixture",
@@ -466,7 +467,7 @@ function ultraWideLayout(workspaceId) {
     focusedPaneId: "workspace_pane_0",
     panes,
     revision: 1,
-    schemaVersion: 2,
+    schemaVersion: 3,
     workspaceId,
   };
 }
@@ -479,6 +480,7 @@ function multiRowLayout(workspaceId) {
     return {
       columnId: `multirow_column_${columnIndex}`,
       heat: (index * 41) % 100,
+      heightPx: null,
       paneId: `multirow_pane_${index}`,
       sequence: index,
       subtitle: "multi-row visibility fixture",
@@ -511,7 +513,7 @@ function multiRowLayout(workspaceId) {
     focusedPaneId: "multirow_pane_0",
     panes,
     revision: 1,
-    schemaVersion: 2,
+    schemaVersion: 3,
     workspaceId,
   };
 }
@@ -522,6 +524,7 @@ function verticalStackLayout(workspaceId) {
     return {
       columnId: "vertical_stack_column_0",
       heat: (index * 29) % 100,
+      heightPx: null,
       paneId: `vertical_pane_${index}`,
       sequence: index,
       subtitle: "vertical stack row-height fixture",
@@ -556,7 +559,7 @@ function verticalStackLayout(workspaceId) {
     focusedPaneId: "vertical_pane_0",
     panes,
     revision: 1,
-    schemaVersion: 2,
+    schemaVersion: 3,
     workspaceId,
   };
 }

@@ -238,6 +238,9 @@ func validatePaneValues(pane WorkspaceUIPane, index int, path string) error {
 	if pane.Weight <= 0 {
 		return corruptStateErrorf(path, "panes[%d].weight must be positive", index)
 	}
+	if pane.HeightPX != nil && *pane.HeightPX <= 0 {
+		return corruptStateErrorf(path, "panes[%d].heightPx must be positive", index)
+	}
 	if pane.Heat < 0 {
 		return corruptStateErrorf(path, "panes[%d].heat must be non-negative", index)
 	}

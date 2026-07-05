@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 15;
-export const backendContractSchemaHash = "sha256:4030ac145d8c2c145503463d2a378dff72f2e2d226103f1e01e87da3b0126a67";
+export const backendProtocolVersion = 16;
+export const backendContractSchemaHash = "sha256:1d54d6c2299c00954be10102bd00c067af8545b729c5281c018eac3dfc3bda95";
 
 export type DeviceScope = "full";
 
@@ -3261,6 +3261,7 @@ export interface WorkflowNodeDetailsPaneConfig {
 export interface WorkspaceUIPane {
   columnId: string;
   heat: number;
+  heightPx: number | null;
   paneId: string;
   sequence: number;
   subtitle: string;
@@ -8230,10 +8231,11 @@ export function decodeWorkflowNodeDetailsPaneConfig(value: unknown): WorkflowNod
 
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
-  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight", "workflowNodeDetailsConfig"]);
+  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "heightPx", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight", "workflowNodeDetailsConfig"]);
   return {
     columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
     heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
+    heightPx: decodeNullable(requireField(record, "heightPx", "WorkspaceUIPane"), "WorkspaceUIPane.heightPx", (item) => decodeInteger(item, "WorkspaceUIPane.heightPx")),
     paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPane"), "WorkspaceUIPane.paneId"),
     sequence: decodeInteger(requireField(record, "sequence", "WorkspaceUIPane"), "WorkspaceUIPane.sequence"),
     subtitle: decodeString(requireField(record, "subtitle", "WorkspaceUIPane"), "WorkspaceUIPane.subtitle"),
