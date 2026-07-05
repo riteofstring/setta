@@ -16,6 +16,7 @@
       easyButtonPaneForceFrozen,
       easyButtonPaneOpenShortcut,
       easyButtonPaneState,
+      easyButtonPaneStartDirect,
       easyButtonPaneSubmitRequest,
       easyButtonPaneVersion: version,
     });
@@ -210,6 +211,22 @@
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.form?.requestSubmit();
     return true;
+  }
+
+  async function easyButtonPaneStartDirect(text) {
+    const workspaceId = currentWorkspaceId();
+    if (!workspaceId || workspaceId === "empty") {
+      return { ok: false, message: "workspace is not open" };
+    }
+    try {
+      const run = await window.setta.easyRun.start({ requestText: text, workspaceId });
+      return { ok: true, run };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   function easyButtonPaneClose({ paneId }) {

@@ -99,6 +99,17 @@ try {
   assertTerminalVisual(completed, "easy run phase2 complete workflow", "Done in");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-complete.png"));
 
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
+  const restoredTerminal = await waitForEasyButtonTerminal(
+    context.client,
+    "easy run phase2 complete workflow",
+    "Done in",
+  );
+  assertTerminalVisual(restoredTerminal, "easy run phase2 complete workflow", "Done in");
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-restored-terminal.png"));
+
   await resetEasyButtonPane(context.client);
   const resetAfterComplete = await waitForEasyButtonPane(context.client);
   assertIdleVisual(resetAfterComplete);
@@ -106,6 +117,11 @@ try {
   await submitEasyButtonRequest(context.client, "cancel active workflow");
   const stoppingWorking = await waitForEasyButtonWorking(context.client, "cancel active workflow");
   assertWorkingVisual(stoppingWorking, "cancel active workflow");
+  const activeRunRejection = await assertActiveRunStartRejected(
+    context.client,
+    "second active workflow",
+    "cancel active workflow",
+  );
   await clickEasyButtonControl(context.client);
   const stopped = await waitForEasyButtonTerminal(
     context.client,
@@ -136,9 +152,11 @@ try {
     restartRecovery,
     resetAfterComplete,
     resetAfterStopped,
+    restoredTerminal,
     restored,
     shortcutOpen,
     status: "passed",
+    activeRunRejection,
     stopped,
     toolbarOpen,
     working,
@@ -286,6 +304,16 @@ async function clickEasyButtonControl(client) {
   if (!clicked) {
     throw new Error("easy button control was not clickable");
   }
+}
+
+async function assertActiveRunStartRejected(client, requestText, activeRequestText) {
+  const result = await client.driver("easyButtonPaneStartDirect", requestText);
+  if (result.ok || !result.message.includes("already working")) {
+    throw new Error(`easy-button active-run start was not rejected: ${JSON.stringify(result)}`);
+  }
+  const state = await waitForEasyButtonWorking(client, activeRequestText);
+  assertWorkingVisual(state, activeRequestText);
+  return result;
 }
 
 async function resetEasyButtonPane(client) {

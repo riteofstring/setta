@@ -978,3 +978,23 @@ become `applied`. Kept rerun artifacts:
 `test-results/electron-integration/chat-workflows/2026-07-09T034743-758Z/live-codex/`.
 Remaining Phase 2c work is unchanged, followed by the new Phase 2d steering and
 center-summary slice; no easy-button blockers were discovered.
+
+### 2026-07-08 — Phase 2c active-run and reload coverage slice complete
+Expanded Phase 2c hardening coverage without changing easy-run contracts or
+pane behavior: focused service coverage now proves same-workspace active-run
+start rejection while preserving the original working run and allowing a
+different workspace to start; the deterministic Electron workflow now reloads
+after completion and restores the terminal snapshot, then attempts a direct
+typed renderer/preload/HTTP easy-run start while the pane is working and asserts
+the backend rejects it without changing the visible run.
+Verification performed: `./scripts/go.sh test ./internal/easyrun`;
+`node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2c-active-restore`;
+`./scripts/format.sh`; `node desktop/tests/electron/chat-live-auth.mjs`;
+`./scripts/test_chat_workflows.sh --skip-build --live-only`. ChatGPT auth was
+available; the live gate passed `live-codex-electron` and
+`live-codex-backend`.
+
+Remaining Phase 2c work: `easyrun.resync_required` handling in the pane workflow
+and second-request rail reset coverage. Phase 2d then adds steering, the
+recorder-first center, secondary stop control, and center summary rendering. No
+blockers were discovered.

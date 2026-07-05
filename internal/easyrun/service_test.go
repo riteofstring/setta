@@ -145,6 +145,62 @@ func TestServiceStopCancelsBackingRunAndProjectsStoppedStatus(t *testing.T) {
 	}
 }
 
+func TestServiceRejectsSecondStartInSameWorkspaceWhileWorking(t *testing.T) {
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"wait in first workspace": {
+			{Type: chat.FakeEventWaitForCancel},
+		},
+		"wait in other workspace": {
+			{Type: chat.FakeEventWaitForCancel},
+		},
+	})
+	service, _ := newTestServiceWithChatResolver(t, harness, testWorkspaceResolver{
+		"workspace_api": {
+			DisplayName:  "api",
+			ID:           "workspace_api",
+			LastOpenedAt: "2026-07-08T12:00:00Z",
+			RootPath:     t.TempDir(),
+		},
+		"workspace_other": {
+			DisplayName:  "other",
+			ID:           "workspace_other",
+			LastOpenedAt: "2026-07-08T12:00:00Z",
+			RootPath:     t.TempDir(),
+		},
+	})
+
+	first, err := service.Start("workspace_api", "wait in first workspace")
+	if err != nil {
+		t.Fatalf("start first easy-run: %v", err)
+	}
+	working := waitForEasyRunStatus(t, service, "workspace_api", first.ID, EasyRunStatusWorking)
+
+	_, err = service.Start("workspace_api", "second start should fail")
+	if err == nil || !strings.Contains(err.Error(), "already working") {
+		t.Fatalf("second same-workspace start error = %v, want active-run rejection", err)
+	}
+	snapshot, err := service.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read snapshot after rejected start: %v", err)
+	}
+	if snapshot.LatestRun == nil || snapshot.LatestRun.ID != working.ID || snapshot.LatestRun.Status != EasyRunStatusWorking {
+		t.Fatalf("snapshot after rejected start = %+v, want original working run", snapshot.LatestRun)
+	}
+
+	other, err := service.Start("workspace_other", "wait in other workspace")
+	if err != nil {
+		t.Fatalf("start other-workspace easy-run: %v", err)
+	}
+	_ = waitForEasyRunStatus(t, service, "workspace_other", other.ID, EasyRunStatusWorking)
+
+	if _, err := service.Stop("workspace_api", first.ID); err != nil {
+		t.Fatalf("stop first easy-run: %v", err)
+	}
+	if _, err := service.Stop("workspace_other", other.ID); err != nil {
+		t.Fatalf("stop other-workspace easy-run: %v", err)
+	}
+}
+
 func TestServiceStartupRecoveryMarksWorkingRunsFailed(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, err := NewStore(appDataDir)
@@ -236,6 +292,16 @@ func newTestService(t *testing.T) *Service {
 
 func newTestServiceWithChat(t *testing.T, harness chat.Harness) (*Service, *chat.Service) {
 	t.Helper()
+	return newTestServiceWithChatResolver(t, harness, testWorkspaceResolver{"workspace_api": {
+		DisplayName:  "api",
+		ID:           "workspace_api",
+		LastOpenedAt: "2026-07-08T12:00:00Z",
+		RootPath:     t.TempDir(),
+	}})
+}
+
+func newTestServiceWithChatResolver(t *testing.T, harness chat.Harness, resolver testWorkspaceResolver) (*Service, *chat.Service) {
+	t.Helper()
 	appDataDir := t.TempDir()
 	chatStore, err := chat.NewStore(appDataDir)
 	if err != nil {
@@ -243,12 +309,7 @@ func newTestServiceWithChat(t *testing.T, harness chat.Harness) (*Service, *chat
 	}
 	chatService, err := chat.NewService(
 		chatStore,
-		testWorkspaceResolver{"workspace_api": {
-			DisplayName:  "api",
-			ID:           "workspace_api",
-			LastOpenedAt: "2026-07-08T12:00:00Z",
-			RootPath:     t.TempDir(),
-		}},
+		resolver,
 		harness,
 		chat.WithClock(func() time.Time {
 			return time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
