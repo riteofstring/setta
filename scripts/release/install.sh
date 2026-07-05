@@ -10,6 +10,22 @@ need_command() {
   command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
 }
 
+bool_env() {
+  name="$1"
+  value="$2"
+  case "$value" in
+    ""|0|false|False|FALSE|no|No|NO)
+      printf '%s\n' "0"
+      ;;
+    1|true|True|TRUE|yes|Yes|YES)
+      printf '%s\n' "1"
+      ;;
+    *)
+      fail "${name} must be 0/1, true/false, or yes/no"
+      ;;
+  esac
+}
+
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | awk '{print $1}'
@@ -44,6 +60,93 @@ verify_checksum() {
   if [ "$actual_checksum" != "$expected_checksum" ]; then
     fail "checksum mismatch for ${checksum_name}"
   fi
+}
+
+require_absolute_path() {
+  label="$1"
+  path="$2"
+  case "$path" in
+    /*) ;;
+    *) fail "${label} must be an absolute path: ${path}" ;;
+  esac
+  case "$path" in
+    *" "*)
+      fail "${label} must not contain spaces because it is written into a systemd unit: ${path}"
+      ;;
+  esac
+}
+
+ensure_service_identity() {
+  service_user="$1"
+  service_group="$2"
+  service_app_data_dir="$3"
+
+  if ! getent group "$service_group" >/dev/null 2>&1; then
+    groupadd --system "$service_group" ||
+      fail "failed to create service group ${service_group}"
+  fi
+  if ! id -u "$service_user" >/dev/null 2>&1; then
+    useradd --system \
+      --gid "$service_group" \
+      --home-dir "$service_app_data_dir" \
+      --no-create-home \
+      --shell /usr/sbin/nologin \
+      "$service_user" ||
+      fail "failed to create service user ${service_user}"
+  fi
+}
+
+write_service_env_file() {
+  env_file="$1"
+  service_app_data_dir="$2"
+  tmp_file="${tmp_dir}/setta.env"
+
+  cat >"$tmp_file" <<EOF
+SETTA_APP_DATA_DIR=${service_app_data_dir}
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EOF
+  install -m 0644 -o root -g root "$tmp_file" "$env_file" ||
+    fail "failed to install service environment file ${env_file}"
+}
+
+write_service_unit_file() {
+  unit_file="$1"
+  install_path="$2"
+  service_app_data_dir="$3"
+  env_file="$4"
+  service_user="$5"
+  service_group="$6"
+  tmp_file="${tmp_dir}/setta.service"
+
+  cat >"$tmp_file" <<EOF
+[Unit]
+Description=Setta Runtime
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+User=${service_user}
+Group=${service_group}
+WorkingDirectory=${service_app_data_dir}
+EnvironmentFile=${env_file}
+PermissionsStartOnly=true
+ExecStartPre=${install_path} service wait-tailnet --timeout 90s
+ExecStart=${install_path} serve --app-data-dir ${service_app_data_dir} --tailnet
+ExecStartPost=${install_path} service configure-tailscale-serve --app-data-dir ${service_app_data_dir} --timeout 90s
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=${service_app_data_dir}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  install -m 0644 -o root -g root "$tmp_file" "$unit_file" ||
+    fail "failed to install systemd unit ${unit_file}"
 }
 
 detect_os() {
@@ -87,16 +190,47 @@ for command_name in awk chmod cp curl mkdir mktemp mv rm tar uname; do
   need_command "$command_name"
 done
 
-[ -n "${HOME:-}" ] || fail "HOME is not set"
-
 repo="${SETTA_INSTALL_REPO:-riteofstring/setta}"
 version="${SETTA_VERSION:-latest}"
 base_url="${SETTA_INSTALL_BASE_URL:-}"
+service_mode="$(bool_env SETTA_INSTALL_SERVICE "${SETTA_INSTALL_SERVICE:-0}")"
+service_start="$(bool_env SETTA_SERVICE_START "${SETTA_SERVICE_START:-1}")"
+service_unit_name="${SETTA_SERVICE_UNIT_NAME:-setta.service}"
+service_user="${SETTA_SERVICE_USER:-setta}"
+service_group="${SETTA_SERVICE_GROUP:-setta}"
+service_app_data_dir="${SETTA_SERVICE_APP_DATA_DIR:-/var/lib/setta}"
+service_env_dir="${SETTA_SERVICE_ENV_DIR:-/etc/setta}"
+service_env_file="${service_env_dir}/setta.env"
+service_unit_file="/etc/systemd/system/${service_unit_name}"
+
+if [ "$service_mode" -eq 0 ]; then
+  [ -n "${HOME:-}" ] || fail "HOME is not set"
+fi
 
 case "$repo" in
   */*) ;;
   *) fail "SETTA_INSTALL_REPO must use owner/repo form: ${repo}" ;;
 esac
+
+if [ "$service_mode" -eq 1 ]; then
+  [ "$version" != "latest" ] ||
+    fail "SETTA_VERSION must be explicit for service installs; do not install VM services from latest"
+  for command_name in getent groupadd id install systemctl useradd; do
+    need_command "$command_name"
+  done
+  [ "$(id -u)" = "0" ] ||
+    fail "service install requires root; rerun with sudo and SETTA_INSTALL_SERVICE=1"
+  case "$service_unit_name" in
+    *.service) ;;
+    *) fail "SETTA_SERVICE_UNIT_NAME must end with .service: ${service_unit_name}" ;;
+  esac
+  case "$service_unit_name" in
+    */*) fail "SETTA_SERVICE_UNIT_NAME must be a unit name, not a path: ${service_unit_name}" ;;
+  esac
+  require_absolute_path SETTA_SERVICE_APP_DATA_DIR "$service_app_data_dir"
+  require_absolute_path SETTA_SERVICE_ENV_DIR "$service_env_dir"
+  require_absolute_path service_unit_file "$service_unit_file"
+fi
 
 if [ -n "$base_url" ]; then
   if [ "$version" = "latest" ]; then
@@ -125,9 +259,15 @@ archive_path="${tmp_dir}/${archive_name}"
 checksums_path="${tmp_dir}/SHA256SUMS"
 extract_dir="${tmp_dir}/extract"
 binary_path="${extract_dir}/${artifact}/setta"
-install_dir="${HOME}/.local/bin"
+if [ "$service_mode" -eq 1 ]; then
+  install_dir="${SETTA_INSTALL_DIR:-/usr/local/bin}"
+else
+  install_dir="${SETTA_INSTALL_DIR:-${HOME}/.local/bin}"
+fi
 install_path="${install_dir}/setta"
 install_tmp="${install_path}.tmp.$$"
+
+require_absolute_path SETTA_INSTALL_DIR "$install_dir"
 
 mkdir -p "$extract_dir"
 
@@ -144,23 +284,58 @@ tar -xzf "$archive_path" -C "$extract_dir" ||
 [ -f "$binary_path" ] || fail "release archive did not contain ${artifact}/setta"
 verify_checksum "$checksums_path" "${artifact}/setta" "$binary_path"
 
-mkdir -p "$install_dir"
-cp "$binary_path" "$install_tmp" || fail "failed to copy setta to ${install_tmp}"
-chmod 0755 "$install_tmp"
-mv "$install_tmp" "$install_path" || fail "failed to install setta to ${install_path}"
+if [ "$service_mode" -eq 1 ]; then
+  ensure_service_identity "$service_user" "$service_group" "$service_app_data_dir"
+  install -d -m 0755 -o root -g root "$install_dir" ||
+    fail "failed to create install directory ${install_dir}"
+  install -m 0755 -o root -g root "$binary_path" "$install_path" ||
+    fail "failed to install setta to ${install_path}"
+  install -d -m 0750 -o "$service_user" -g "$service_group" "$service_app_data_dir" ||
+    fail "failed to create service app data directory ${service_app_data_dir}"
+  install -d -m 0755 -o root -g root "$service_env_dir" ||
+    fail "failed to create service environment directory ${service_env_dir}"
+  write_service_env_file "$service_env_file" "$service_app_data_dir"
+  write_service_unit_file "$service_unit_file" "$install_path" "$service_app_data_dir" "$service_env_file" "$service_user" "$service_group"
+  systemctl daemon-reload || fail "systemctl daemon-reload failed"
+  if [ "$service_start" -eq 1 ]; then
+    systemctl enable --now "$service_unit_name" ||
+      fail "failed to enable and start ${service_unit_name}; inspect with journalctl -u ${service_unit_name}"
+  else
+    systemctl enable "$service_unit_name" ||
+      fail "failed to enable ${service_unit_name}"
+  fi
+else
+  mkdir -p "$install_dir"
+  cp "$binary_path" "$install_tmp" || fail "failed to copy setta to ${install_tmp}"
+  chmod 0755 "$install_tmp"
+  mv "$install_tmp" "$install_path" || fail "failed to install setta to ${install_path}"
+fi
 
 echo "Installed setta to ${install_path}"
 
-case ":${PATH:-}:" in
-  *":${install_dir}:"*) ;;
-  *)
-    echo "Warning: ${install_dir} is not on PATH." >&2
-    ;;
-esac
+if [ "$service_mode" -eq 1 ]; then
+  cat <<EOF
 
-cat <<EOF
+Installed ${service_unit_name} as user ${service_user}.
+The runtime binds to the Tailscale IPv4 address only, and the service configures Tailscale HTTPS with tailscale serve.
+
+Next steps:
+  1. journalctl -u ${service_unit_name} -f
+  2. ${install_path} pair --app-data-dir ${service_app_data_dir}
+  3. ${install_path} doctor --json --app-data-dir ${service_app_data_dir}
+EOF
+else
+  case ":${PATH:-}:" in
+    *":${install_dir}:"*) ;;
+    *)
+      echo "Warning: ${install_dir} is not on PATH." >&2
+      ;;
+  esac
+
+  cat <<EOF
 
 Next steps:
   1. Install and start Tailscale on this Linux box.
   2. setta serve --tailnet
 EOF
+fi

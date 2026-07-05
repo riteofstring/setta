@@ -1,7 +1,11 @@
 import { reverse } from "node:dns/promises";
 import { isIP } from "node:net";
 
-import type { RuntimeInfoResponse, RuntimeInfrastructureProvider } from "@generated/backend";
+import type {
+  CreateDevicePairingResponse,
+  RuntimeInfoResponse,
+  RuntimeInfrastructureProvider,
+} from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import type {
   KnownRuntimeView,
@@ -19,6 +23,7 @@ import {
 } from "./known-runtime-store";
 import {
   completePairing,
+  createDevicePairing,
   fetchRuntimeInfo,
   parsePairingURL,
   RuntimeConnectionError,
@@ -189,10 +194,16 @@ export class RuntimeRegistryController {
         this.options.fetchImpl,
       );
       const info = await fetchRuntimeInfo(parsed.baseUrl, this.options.fetchImpl);
-      if (info.runtimeId !== parsed.runtimeId) {
+      if (parsed.runtimeId !== null && info.runtimeId !== parsed.runtimeId) {
         throw new RuntimePairingError(
           "runtime_id_mismatch",
           `runtime info runtime_id ${info.runtimeId} does not match URL runtime_id ${parsed.runtimeId}`,
+        );
+      }
+      if (paired.runtimeId !== info.runtimeId) {
+        throw new RuntimePairingError(
+          "runtime_id_mismatch",
+          `pairing response runtime_id ${paired.runtimeId} does not match runtime info ${info.runtimeId}`,
         );
       }
       const presentation = await this.runtimePresentationFromInfo(
@@ -206,10 +217,22 @@ export class RuntimeRegistryController {
         displayName: presentation.displayName,
         isLocal: false,
         lastConnected: null,
-        runtimeId: parsed.runtimeId,
+        runtimeId: info.runtimeId,
       });
       await this.persist();
-      return this.connectRuntime(parsed.runtimeId, { operationAlreadyHeld: true });
+      return this.connectRuntime(info.runtimeId, { operationAlreadyHeld: true });
+    });
+  }
+
+  async createDevicePairing(): Promise<CreateDevicePairingResponse> {
+    const active = this.activeRuntime;
+    if (!active || this.connection.status !== "connected") {
+      throw new Error("Connect to a runtime before pairing another device.");
+    }
+    return createDevicePairing({
+      baseUrl: active.baseUrl,
+      deviceToken: active.deviceToken,
+      fetchImpl: this.options.fetchImpl,
     });
   }
 

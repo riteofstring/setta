@@ -56,7 +56,6 @@ export async function runLiveCodexWorkflow(results, deps) {
   });
   let failure = null;
   let imageSmokeRan = false;
-  let semanticCartographerSmokeRan = false;
 
   try {
     const backend = await backendProbe(recordingDir);
@@ -148,7 +147,7 @@ export async function runLiveCodexWorkflow(results, deps) {
       waitForTexts,
       workspaceId,
     });
-    semanticCartographerSmokeRan = await runLiveSemanticCartographerWorkflow({
+    await runLiveSemanticCartographerWorkflow({
       client: context.client,
       timeoutMs: liveWorkflowTimeoutMs,
       waitForBackendState,
@@ -173,22 +172,6 @@ export async function runLiveCodexWorkflow(results, deps) {
         ipcChannels: ["chat:create-image-attachment-from-bytes"],
       }
     : { backendPaths: [], ipcChannels: [] };
-  const semanticCartographerEvidence = semanticCartographerSmokeRan
-    ? {
-        backendPaths: [
-          "/semantic-graph/cartographer/runs/list",
-          "/semantic-graph/cartographer/windows/list",
-          "/semantic-graph/cartographer/patches/list",
-          "/semantic-graph/read",
-        ],
-        ipcChannels: [
-          "semantic-graph:cartographer-run-list",
-          "semantic-graph:cartographer-window-list",
-          "semantic-graph:cartographer-patch-list",
-          "semantic-graph:read",
-        ],
-      }
-    : { backendPaths: [], ipcChannels: [] };
   await assertRecordingEvidence(recordingDir, {
     backendPaths: [
       "/workspaces/open",
@@ -209,7 +192,10 @@ export async function runLiveCodexWorkflow(results, deps) {
       "/semantic-graph/nodes/create",
       "/semantic-graph/attachments/workflow-node",
       "/semantic-graph/cartographer/processing/state",
-      ...semanticCartographerEvidence.backendPaths,
+      "/semantic-graph/cartographer/runs/list",
+      "/semantic-graph/cartographer/windows/list",
+      "/semantic-graph/cartographer/patches/list",
+      "/semantic-graph/read",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
@@ -224,7 +210,10 @@ export async function runLiveCodexWorkflow(results, deps) {
       "semantic-graph:create-node",
       "semantic-graph:attach-workflow-node",
       "semantic-graph:cartographer-processing-state",
-      ...semanticCartographerEvidence.ipcChannels,
+      "semantic-graph:cartographer-run-list",
+      "semantic-graph:cartographer-window-list",
+      "semantic-graph:cartographer-patch-list",
+      "semantic-graph:read",
     ],
   });
   results.push("live-codex-electron");
@@ -441,21 +430,11 @@ async function runLiveSemanticCartographerWorkflow({
     timeoutMs,
   );
   assertLiveWorkflowCompleted(execution);
-  const processingState = await rendererSemanticGraph(client, "readCartographerProcessingState", [
-    {},
-  ]);
-  if (!processingState.enabled) {
-    process.stdout.write(
-      "Electron chat workflow skipped: live-codex-semantic-cartographer (semantic cartographer is disabled)\n",
-    );
-    return false;
-  }
   await waitForBackendState(
     async () => readLiveCartographerState(client, workspaceId, started.id),
     liveCartographerApplied,
     timeoutMs,
   );
-  return true;
 }
 
 async function readLiveCartographerState(client, workspaceId, executionId) {
@@ -533,7 +512,6 @@ async function rendererSemanticGraph(client, method, args) {
 
 function workflowGraph(nodes, edges) {
   return {
-    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges,
     layout: {
       nodes: nodes.map((node, index) => ({
@@ -562,8 +540,9 @@ function workflowCodexNode(id, prompt) {
     action: {
       codex: {
         freshConversation: true,
+        model: "",
         prompt,
-        settings: { model: "", permission: null, reasoningEffort: null },
+        reasoningEffort: "",
       },
       kind: "agent.codex",
     },

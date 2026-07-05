@@ -1,4 +1,0 @@
-interface:
-  display_name: "Workflow Builder"
-  short_description: "Author Setta workflows through the CLI"
-  default_prompt: "Use $workflow-builder to draft, validate, and save a Setta workflow."

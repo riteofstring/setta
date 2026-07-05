@@ -235,11 +235,7 @@ func (service *Service) recordAgentMessageCompletionLocked(item RunItem) error {
 		return nil
 	}
 	if active.assistantTextByProviderItem[item.ProviderItemID].observed == "" {
-		var err error
-		active, err = service.appendCompletedAgentMessageTextLocked(active, item)
-		if err != nil {
-			return err
-		}
+		return nil
 	}
 	active, err := service.reconcileCompletedAgentMessageTextLocked(active, item)
 	if err != nil {
@@ -251,17 +247,6 @@ func (service *Service) recordAgentMessageCompletionLocked(item RunItem) error {
 	}
 	service.active[activeKey(item.WorkspaceID, item.ConversationID)] = active.recordCompletedAssistantText(item.Summary)
 	return nil
-}
-
-func (service *Service) appendCompletedAgentMessageTextLocked(active activeTurn, item RunItem) (activeTurn, error) {
-	run, err := service.store.LoadRun(item.WorkspaceID, item.RunID)
-	if err != nil {
-		return activeTurn{}, err
-	}
-	if run.Status != RunStatusRunning {
-		return activeTurn{}, fmt.Errorf("completed agentMessage item %s arrived for non-running run %s status %s", item.ProviderItemID, item.RunID, run.Status)
-	}
-	return service.applyAssistantDeltaLocked(item.WorkspaceID, item.ConversationID, run, active, item.ProviderItemID, item.Summary)
 }
 
 func completedAgentMessageItem(item RunItem) bool {

@@ -8,6 +8,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +53,9 @@ func TestUnauthenticatedRuntimeRoutesAreReachable(t *testing.T) {
 	info := getJSON[RuntimeInfoResponse](t, handler, "/runtime/info", http.StatusOK)
 	if info.RuntimeID != "runtime_test" || info.ProtocolVersion != ProtocolVersion {
 		t.Fatalf("runtime info = %+v", info)
+	}
+	if !reflect.DeepEqual(info.FeatureSet, RuntimeFeatureSetIdentity()) {
+		t.Fatalf("runtime info feature set = %+v, want %+v", info.FeatureSet, RuntimeFeatureSetIdentity())
 	}
 	health := getJSON[BackendHealth](t, handler, "/health", http.StatusOK)
 	if !health.OK || health.ProtocolVersion != ProtocolVersion {
@@ -113,6 +119,81 @@ func TestPairingCompleteUsesGlobalFailureRateLimit(t *testing.T) {
 	response := postJSON[ErrorResponse](t, handler, "/pairing/complete", request, http.StatusTooManyRequests)
 	if response.Error.Code != "pairing_rate_limited" {
 		t.Fatalf("error code = %q, want pairing_rate_limited", response.Error.Code)
+	}
+}
+
+func TestCreateDevicePairingRequiresAuth(t *testing.T) {
+	store, _ := newTestRuntimeAuthStore(t)
+	handler := NewHandler(HandlerConfig{
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+		RuntimeAuthService: store,
+		RuntimeMetadata:    RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
+	})
+
+	response := postJSON[ErrorResponse](t, handler, "/pairing/create-device", CreateDevicePairingRequest{
+		RuntimeBaseURL: "https://setta-runtime.tailnet.ts.net",
+	}, http.StatusUnauthorized)
+
+	if response.Error.Code != "unauthorized" {
+		t.Fatalf("error code = %q, want unauthorized", response.Error.Code)
+	}
+}
+
+func TestCreateDevicePairingMintsPhoneURLAndUsableToken(t *testing.T) {
+	store, token := newTestRuntimeAuthStore(t)
+	handler := NewHandler(HandlerConfig{
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+		RuntimeAuthService: store,
+		RuntimeMetadata:    RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
+	})
+
+	created := postJSONWithToken[CreateDevicePairingResponse](t, handler, "/pairing/create-device", CreateDevicePairingRequest{
+		RuntimeBaseURL: "https://setta-runtime.tailnet.ts.net",
+	}, token, http.StatusOK)
+	if created.ExpiresAt == "" {
+		t.Fatal("pairing response did not include expiresAt")
+	}
+	parsed, err := url.Parse(created.PairingURL)
+	if err != nil {
+		t.Fatalf("parse pairing URL: %v", err)
+	}
+	if parsed.Scheme != "https" || parsed.Host != "setta-runtime.tailnet.ts.net" || parsed.Path != "/" || parsed.RawQuery != "" {
+		t.Fatalf("pairing URL = %s, want https ts.net origin with fragment only", created.PairingURL)
+	}
+	pairingToken := requiredFragmentValue(t, parsed, "pair")
+	if strings.Contains(created.PairingURL, "?") || strings.Contains(parsed.EscapedPath(), pairingToken) {
+		t.Fatalf("pairing URL leaked token outside fragment: %s", created.PairingURL)
+	}
+
+	paired := postJSON[CompletePairingResponse](t, handler, "/pairing/complete", CompletePairingRequest{
+		ClientDisplayName: "Phone",
+		PairingToken:      pairingToken,
+	}, http.StatusOK)
+	if paired.DeviceID == "" || paired.DeviceToken == "" || paired.RuntimeID != "runtime_test" {
+		t.Fatalf("pairing response = %+v", paired)
+	}
+}
+
+func TestCreateDevicePairingRequiresTailscaleHTTPSBaseURL(t *testing.T) {
+	store, token := newTestRuntimeAuthStore(t)
+	handler := NewHandler(HandlerConfig{
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+		RuntimeAuthService: store,
+		RuntimeMetadata:    RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
+	})
+
+	for _, runtimeBaseURL := range []string{
+		"http://setta-runtime.tailnet.ts.net",
+		"https://setta-runtime.example.com",
+		"https://setta-runtime.tailnet.ts.net/path",
+		"https://setta-runtime.tailnet.ts.net?token=bad",
+	} {
+		response := postJSONWithToken[ErrorResponse](t, handler, "/pairing/create-device", CreateDevicePairingRequest{
+			RuntimeBaseURL: runtimeBaseURL,
+		}, token, http.StatusBadRequest)
+		if response.Error.Code != "invalid_pairing_base_url" {
+			t.Fatalf("%s error code = %q, want invalid_pairing_base_url", runtimeBaseURL, response.Error.Code)
+		}
 	}
 }
 
@@ -256,6 +337,19 @@ func postJSONWithToken[T any](t *testing.T, handler http.Handler, path string, p
 		t.Fatalf("decode response %s: %v", path, err)
 	}
 	return decoded
+}
+
+func requiredFragmentValue(t *testing.T, parsed *url.URL, name string) string {
+	t.Helper()
+	values, err := url.ParseQuery(parsed.Fragment)
+	if err != nil {
+		t.Fatalf("parse fragment: %v", err)
+	}
+	value := values.Get(name)
+	if value == "" {
+		t.Fatalf("fragment missing %s: %s", name, parsed.Fragment)
+	}
+	return value
 }
 
 type fakeRuntimeIdentityService struct {

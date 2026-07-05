@@ -259,7 +259,6 @@
     }
     return {
       debug,
-      jumpVisible: Boolean(document.querySelector('[aria-label="Jump to latest"]')),
       maxScrollTop: Math.max(0, scroller.scrollHeight - scroller.clientHeight),
       ready: true,
       reason: "",
@@ -271,7 +270,6 @@
   function missingTranscriptScrollSnapshot(scroller, debug) {
     return {
       debug,
-      jumpVisible: false,
       ready: false,
       reason: scroller instanceof HTMLElement ? "missing-debug-api" : "missing-scroller",
       visibleRows: [],
@@ -279,7 +277,6 @@
   }
 
   async function scrollChatTranscript({
-    debugDetach = true,
     distanceFromBottom = null,
     position = null,
     scrollTop = null,
@@ -303,20 +300,11 @@
       position,
       previousScrollTop,
     });
-    const afterWheelSnapshot = chatTranscriptScrollSnapshot();
-    detachAfterSyntheticHistoryWheel({ debugDetach, position, scrollDelta });
-    await settleTranscriptScrollTop(scroller, nextScrollTop, position, scrollDelta);
-    return {
-      afterWheelSnapshot,
-      ok: true,
-      snapshot: chatTranscriptScrollSnapshot(),
-    };
-  }
-
-  function detachAfterSyntheticHistoryWheel({ debugDetach, position, scrollDelta }) {
-    if (debugDetach && scrollDelta < 0 && position !== "top") {
+    if (scrollDelta < 0 && position !== "top") {
       window.__settaChatTranscriptScrollDebug?.detach();
     }
+    await settleTranscriptScrollTop(scroller, nextScrollTop, position, scrollDelta);
+    return { ok: true, snapshot: chatTranscriptScrollSnapshot() };
   }
 
   function dispatchWheelIfNeeded(scroller, options) {
