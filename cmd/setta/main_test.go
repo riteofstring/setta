@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -565,6 +567,101 @@ func TestWorkflowDefinitionsReadCommandFailsForMissingDefinition(t *testing.T) {
 	}
 }
 
+func TestWorkflowDefinitionsValidateCommandIntegration(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	graphPath := filepath.Join(t.TempDir(), "graph.json")
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+	writeWorkflowGraphForCLITest(t, graphPath, cliTestStartEndWorkflowGraph())
+
+	var stdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	if code := runWithDeps([]string{"workflow", "definitions", "validate", "--app-data-dir", appDataDir, "--graph", graphPath}, commandDeps); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+
+	var result orchestrator.WorkflowValidationResult
+	if err := json.NewDecoder(&stdout).Decode(&result); err != nil {
+		t.Fatalf("decode workflow validation output: %v\noutput:\n%s", err, stdout.String())
+	}
+	if !result.Valid {
+		t.Fatalf("validation result = %+v, want valid graph", result)
+	}
+	if result.Diagnostics == nil {
+		t.Fatalf("diagnostics = nil, want empty array")
+	}
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want empty", result.Diagnostics)
+	}
+}
+
+func TestWorkflowDefinitionsValidateCommandReturnsDiagnostics(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	graphPath := filepath.Join(t.TempDir(), "graph.json")
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+	writeWorkflowGraphForCLITest(t, graphPath, cliTestMissingEndWorkflowGraph())
+
+	var stdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	if code := runWithDeps([]string{"workflow", "definitions", "validate", "--app-data-dir", appDataDir, "--graph", graphPath}, commandDeps); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+
+	var result orchestrator.WorkflowValidationResult
+	if err := json.NewDecoder(&stdout).Decode(&result); err != nil {
+		t.Fatalf("decode workflow validation output: %v\noutput:\n%s", err, stdout.String())
+	}
+	if result.Valid {
+		t.Fatalf("validation result = %+v, want invalid graph", result)
+	}
+	assertWorkflowDiagnostic(t, result, "end_node_required")
+}
+
 func TestWorkflowSchemaCommandIntegration(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()
@@ -717,6 +814,41 @@ func cliTestStartEndWorkflowGraph() orchestrator.WorkflowGraph {
 			},
 		},
 	}
+}
+
+func cliTestMissingEndWorkflowGraph() orchestrator.WorkflowGraph {
+	return orchestrator.WorkflowGraph{
+		Nodes: []orchestrator.WorkflowNode{
+			{ID: "start", Kind: orchestrator.NodeKindStart},
+		},
+		Edges: []orchestrator.WorkflowEdge{},
+		Layout: orchestrator.WorkflowGraphLayout{
+			Nodes: []orchestrator.WorkflowGraphNodeLayout{
+				{NodeID: "start", X: 0, Y: 0},
+			},
+		},
+	}
+}
+
+func writeWorkflowGraphForCLITest(t *testing.T, path string, graph orchestrator.WorkflowGraph) {
+	t.Helper()
+	payload, err := json.Marshal(graph)
+	if err != nil {
+		t.Fatalf("marshal workflow graph: %v", err)
+	}
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("write workflow graph: %v", err)
+	}
+}
+
+func assertWorkflowDiagnostic(t *testing.T, result orchestrator.WorkflowValidationResult, code string) {
+	t.Helper()
+	for _, diagnostic := range result.Diagnostics {
+		if diagnostic.Code == code {
+			return
+		}
+	}
+	t.Fatalf("diagnostics = %+v, want code %s", result.Diagnostics, code)
 }
 
 func postAuthedRuntimeJSON[T any](t *testing.T, client *http.Client, baseURL string, token string, path string, payload any) T {

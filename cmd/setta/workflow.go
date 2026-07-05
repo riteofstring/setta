@@ -9,20 +9,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"setta/internal/httpapi"
+	"setta/internal/jsonio"
 	"setta/internal/orchestrator"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
 
 const (
-	workflowCurrentWorkspaceCLIAuthDisplayName = "Setta CLI workflow current-workspace"
-	workflowDefinitionsListCLIAuthDisplayName  = "Setta CLI workflow definitions list"
-	workflowDefinitionsReadCLIAuthDisplayName  = "Setta CLI workflow definitions read"
-	workflowSchemaCLIAuthDisplayName           = "Setta CLI workflow schema"
+	workflowCurrentWorkspaceCLIAuthDisplayName    = "Setta CLI workflow current-workspace"
+	workflowDefinitionsListCLIAuthDisplayName     = "Setta CLI workflow definitions list"
+	workflowDefinitionsReadCLIAuthDisplayName     = "Setta CLI workflow definitions read"
+	workflowDefinitionsValidateCLIAuthDisplayName = "Setta CLI workflow definitions validate"
+	workflowSchemaCLIAuthDisplayName              = "Setta CLI workflow schema"
 )
 
 type workflowOptions struct {
@@ -32,6 +35,11 @@ type workflowOptions struct {
 type workflowDefinitionReadOptions struct {
 	AppDataDir   string
 	DefinitionID string
+}
+
+type workflowDefinitionValidateOptions struct {
+	AppDataDir string
+	GraphPath  string
 }
 
 func runWorkflow(args []string, deps cliDeps) error {
@@ -69,13 +77,15 @@ func runWorkflowCurrentWorkspace(args []string, deps cliDeps) error {
 
 func runWorkflowDefinitions(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workflow definitions requires a subcommand: list or read")}
+		return usageError{err: errors.New("setta workflow definitions requires a subcommand: list, read, or validate")}
 	}
 	switch args[0] {
 	case "list":
 		return runWorkflowDefinitionsList(args[1:], deps)
 	case "read":
 		return runWorkflowDefinitionsRead(args[1:], deps)
+	case "validate":
+		return runWorkflowDefinitionsValidate(args[1:], deps)
 	default:
 		return usageError{err: fmt.Errorf("unknown workflow definitions subcommand %q", args[0])}
 	}
@@ -111,6 +121,27 @@ func runWorkflowDefinitionsRead(args []string, deps cliDeps) error {
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(definition); err != nil {
 		return fmt.Errorf("encode workflow definition: %w", err)
+	}
+	return nil
+}
+
+func runWorkflowDefinitionsValidate(args []string, deps cliDeps) error {
+	options, err := workflowDefinitionValidateOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	graph, err := readWorkflowGraphFile(options.GraphPath)
+	if err != nil {
+		return err
+	}
+	result, err := validateWorkflowDefinition(context.Background(), options.AppDataDir, graph, deps)
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(deps.stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(result); err != nil {
+		return fmt.Errorf("encode workflow validation result: %w", err)
 	}
 	return nil
 }
@@ -172,6 +203,31 @@ func workflowDefinitionReadOptionsFromArgs(args []string, deps cliDeps) (workflo
 		return workflowDefinitionReadOptions{}, usageError{err: errors.New("workflow definition id is required")}
 	}
 	return workflowDefinitionReadOptions{AppDataDir: appDataDir, DefinitionID: definitionID}, nil
+}
+
+func workflowDefinitionValidateOptionsFromArgs(args []string, deps cliDeps) (workflowDefinitionValidateOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workflowDefinitionValidateOptions{}, err
+	}
+	var graphPath string
+	flagSet := newFlagSet("setta workflow definitions validate", deps.stderr)
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&graphPath, "graph", "", "path to a workflow graph JSON file")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workflowDefinitionValidateOptions{}, usageError{err: err}
+		}
+		return workflowDefinitionValidateOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 0 {
+		return workflowDefinitionValidateOptions{}, usageError{err: errors.New("setta workflow definitions validate does not accept positional arguments")}
+	}
+	graphPath = strings.TrimSpace(graphPath)
+	if graphPath == "" {
+		return workflowDefinitionValidateOptions{}, usageError{err: errors.New("setta workflow definitions validate requires --graph")}
+	}
+	return workflowDefinitionValidateOptions{AppDataDir: appDataDir, GraphPath: graphPath}, nil
 }
 
 func readWorkflowCurrentWorkspace(ctx context.Context, appDataDir string, deps cliDeps) (workspace.WorkspaceSummary, error) {
@@ -258,6 +314,48 @@ func readWorkflowDefinition(ctx context.Context, appDataDir string, definitionID
 		return orchestrator.WorkflowDefinition{}, err
 	}
 	return definition, nil
+}
+
+func validateWorkflowDefinition(ctx context.Context, appDataDir string, graph orchestrator.WorkflowGraph, deps cliDeps) (orchestrator.WorkflowValidationResult, error) {
+	state, token, cleanup, err := workflowCommandAuth(ctx, appDataDir, workflowDefinitionsValidateCLIAuthDisplayName, deps)
+	if err != nil {
+		return orchestrator.WorkflowValidationResult{}, err
+	}
+	defer cleanup()
+
+	session, err := getWorkspaceSession(ctx, deps.httpClient, state.BaseURL, token)
+	if err != nil {
+		return orchestrator.WorkflowValidationResult{}, err
+	}
+	currentWorkspace, err := currentWorkspaceFromSession(session)
+	if err != nil {
+		return orchestrator.WorkflowValidationResult{}, err
+	}
+	result, err := postWorkflowAPI[orchestrator.WorkflowValidationResult](ctx, deps.httpClient, state.BaseURL, token, "workflow definitions validate", "/workflows/definitions/validate", httpapi.ValidateWorkflowDefinitionRequest{
+		WorkspaceID: currentWorkspace.ID,
+		Graph:       graph,
+	})
+	if err != nil {
+		return orchestrator.WorkflowValidationResult{}, err
+	}
+	if err := validateWorkflowValidationResultResponse(result); err != nil {
+		return orchestrator.WorkflowValidationResult{}, err
+	}
+	return result, nil
+}
+
+func readWorkflowGraphFile(path string) (orchestrator.WorkflowGraph, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return orchestrator.WorkflowGraph{}, fmt.Errorf("open workflow graph %s: %w", path, err)
+	}
+	defer file.Close()
+
+	var graph orchestrator.WorkflowGraph
+	if err := jsonio.DecodeSingle(file, &graph); err != nil {
+		return orchestrator.WorkflowGraph{}, fmt.Errorf("decode workflow graph %s: %w", path, err)
+	}
+	return graph, nil
 }
 
 func workflowCommandAuth(ctx context.Context, appDataDir string, displayName string, deps cliDeps) (serveState, string, func(), error) {
@@ -473,6 +571,32 @@ func validateWorkflowDefinitionGraphArrays(definition orchestrator.WorkflowDefin
 	}
 	if definition.Graph.Layout.Nodes == nil {
 		return fmt.Errorf("workflow definition %s graph layout nodes array is required", definition.ID)
+	}
+	return nil
+}
+
+func validateWorkflowValidationResultResponse(result orchestrator.WorkflowValidationResult) error {
+	if result.Diagnostics == nil {
+		return errors.New("workflow validation result returned missing diagnostics array")
+	}
+	hasErrorDiagnostic := false
+	for index, diagnostic := range result.Diagnostics {
+		switch diagnostic.Severity {
+		case orchestrator.ValidationSeverityError:
+			hasErrorDiagnostic = true
+		case orchestrator.ValidationSeverityWarning:
+		default:
+			return fmt.Errorf("workflow validation diagnostic %d returned unsupported severity %q", index, diagnostic.Severity)
+		}
+		if diagnostic.Code == "" {
+			return fmt.Errorf("workflow validation diagnostic %d code is required", index)
+		}
+		if diagnostic.Message == "" {
+			return fmt.Errorf("workflow validation diagnostic %d message is required", index)
+		}
+	}
+	if !result.Valid && !hasErrorDiagnostic {
+		return errors.New("workflow validation result is invalid without an error diagnostic")
 	}
 	return nil
 }

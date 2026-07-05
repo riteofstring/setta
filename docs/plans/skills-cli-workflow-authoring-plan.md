@@ -298,10 +298,27 @@ Progress on 2026-07-06:
   `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`,
   and `node desktop/tests/electron/run-workflows.mjs --workflow
   workflow-graph-smoke` passed.
-- Remaining Phase 2 work: add definitions validate and save with the explicit
-  create/update save input and structured diagnostics, then execution
-  start/read. Add the broader workflow-authoring Electron coverage as mutating
-  CLI commands are introduced and the in-app path moves to this surface.
+
+Progress on 2026-07-07:
+
+- Added `setta workflow definitions validate --graph <path> [--app-data-dir
+  DIR]`.
+- The command reads a workflow graph JSON file with strict single-value
+  decoding, reads the selected workspace through `GET /workspace-session`,
+  calls the authenticated backend `POST /workflows/definitions/validate`
+  contract with that workspace ID, validates the typed validation response, and
+  prints `WorkflowValidationResult` as JSON.
+- Added focused CLI integration tests for a valid graph and an invalid graph
+  that returns structured backend-owned diagnostics through real CLI dispatch,
+  runtime auth, and backend HTTP.
+- Verification: `./scripts/go.sh test ./cmd/setta`,
+  `./scripts/go.sh test ./cmd/setta ./internal/httpapi ./internal/orchestrator`,
+  and `node desktop/tests/electron/run-workflows.mjs --workflow
+  workflow-graph-smoke` passed.
+- Remaining Phase 2 work: add definitions save with the explicit create/update
+  save input and structured diagnostics, then execution start/read. Add the
+  broader workflow-authoring Electron coverage as mutating CLI commands are
+  introduced and the in-app path moves to this surface.
 
 ### Phase 3: Add The Workflow-Builder Skill
 
