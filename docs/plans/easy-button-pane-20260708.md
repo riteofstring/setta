@@ -1,4 +1,4 @@
-# Easy Button Pane: Hidden Multi-Agent Runs, Narrated Highlights, And Artifacts Plan
+# Easy Button Pane: Hidden Agent Runs, Narrated Highlights, And Artifacts Plan
 
 Date: 2026-07-08
 
@@ -6,20 +6,19 @@ Date: 2026-07-08
 
 This plan turns `docs/mockups/easy_button_pane_mockup.html` into a real product
 surface: a new `easy-button` `SurfaceKind` where the user states a request and
-the system does the work invisibly. The pane shows exactly three things while a
-request runs:
+the system does the work invisibly. The pane's presentation area shows exactly
+three things while a request runs:
 
 - occasional, high-level highlight lines on the left rail
 - finished, self-sufficient artifact cards on the right rail
-- the button/state center with the user's own request text
+- the center recorder/status area with the user's own request text
 
 There is no agent transcript, no tool-call feed, no command output, and no
 approval traffic in this pane. Underneath, the backend runs a hidden
-orchestrator agent (later: plus sub-agents) on the existing chat/run substrate,
-and a cheap narrator model distills the raw event stream into the few phase
-highlights and completion summary the user sees. Artifact cards are not
-narrator guesses; they are deliberate typed outputs emitted by the orchestrator
-through the artifact tool.
+orchestrator agent on the existing chat/run substrate, and a cheap narrator
+model distills the raw event stream into the few phase highlights and completion
+summary the user sees. Artifact cards are not narrator guesses; they are
+deliberate typed outputs emitted by the orchestrator through the artifact tool.
 
 The mockup is the visual/interaction spec for the pane body (states `idle`,
 `listening`, `working`, `complete`; swirl field; rail behavior; footer input).
@@ -36,9 +35,12 @@ A user types a request into the pane and, without seeing any agent mechanics:
   level of "Ran `pnpm test`" or "Wrote foo.ts"
 - finished artifacts (markdown, tables, bar charts, file references) land on
   the right rail as the run produces deliverables
-- completion shows an honest summary ("Done in 2m 14s · 3 artifacts", or what
-  failed / that it was stopped)
-- tapping the button mid-run cancels the hidden run(s); already-emitted
+- while the run is working, the user can send short follow-up steering text
+  into the hidden run without exposing a transcript
+- completion shows a plain-language answer/conclusion in the center (usually
+  1-2 non-jargony sentences), plus honest mechanical facts ("Done in 2m 14s ·
+  3 artifacts", or what failed / that it was stopped)
+- a separate, explicit stop control cancels the hidden run; already-emitted
   artifacts stay
 - everything the user sees is a first-class typed contract produced by the
   backend — the renderer never derives highlights or artifacts from raw
@@ -54,42 +56,36 @@ presentation plane.
 
 Recorded from product review on 2026-07-08:
 
-- **Input is text-first.** v1 ships with the footer text input as the real
-  path. Voice/STT is explicitly deferred (see Deferred Work); the repo has zero
-  STT today (`VoiceInputUnavailableButton` in
+- **Input and steering are text-first.** v1 ships with the footer text
+  input as the real path for the initial request and for follow-up steering
+  while a run is active. Voice/STT is explicitly deferred (see Deferred Work);
+  the repo has zero STT today (`VoiceInputUnavailableButton` in
   `desktop/src/renderer/src/components/chat-composer-controls.tsx` is the whole
-  voice surface). v1 ships no voice stubs and no unreachable `listening`
-  state — the run contract has no listening status and pane state is
-  renderer-local, so voice lands later without contract churn and without
-  dead code in the meantime.
+  voice surface). The center affordance is the future voice-recorder / steering
+  button, but v1 must not ship fake voice, unreachable `listening` states, a mic
+  glyph, or "Tap to speak" copy until recording exists. Until then, activating
+  the center affordance focuses the text input. Voice later feeds the same
+  start/steer command path as text.
 - **v1 interrupt policy is "yolo mode".** The orchestrator runs with the most
   permissive existing permission preset (approvals never; pick the existing
   preset from `internal/chat/codex_permission_presets.go` — do not invent a new
   one) and is instructed to proceed on reasonable assumptions rather than ask.
-  Assumptions do NOT surface as highlights. The long-run direction is
-  "the button becomes the question" (glyph swap + question text + re-armed
-  input); that is deferred, not rejected.
+  Assumptions do NOT surface as highlights. User-initiated steering is in scope:
+  follow-up text (and later voice) may redirect or refine the active hidden run.
+  Agent-initiated clarifying questions and approvals remain deferred.
 - **Highlights are phase-level and sparse.** Agents write files and run
   commands constantly; none of that may appear on the left rail. Silence is the
   default state of the rail; a highlight is an event. This is a hard product
   constraint, encoded in the narrator trigger policy below.
-- **Artifacts are self-sufficient, with a hidden escape hatch.** Cards render
-  fully in-pane. A deliberately hidden affordance (pane context menu) exposes
-  debug access to the underlying internal conversation. No visible click-through
-  into the transcript world.
-- **v1 agent topology is master + narrator; fan-out is the next phase.** One
-  hidden orchestrator conversation does the work; a cheap narrator watches. A
-  fast-follow phase enables fan-out through Codex's native collab-agent tools
-  (verified stable and enabled by default in the reference Codex source — see
-  the fan-out phase); Setta builds no spawn tool of its own. The UI contract
-  (agent-count chip) supports N agents from day one.
-- **Milestones are explicit.** The single-agent v1 milestone is the product
-  surface with hidden orchestrator runs, typed artifacts, narrator highlights,
-  honest terminal summaries, restart/stop behavior, and the required
-  production-path tests and performance report. Native Codex collab fan-out is
-  part of the full-plan completion milestone, not a prerequisite for the
-  single-agent v1 ship decision. The automation stop sentinel is reserved for
-  full-plan completion unless the plan is updated with a genuine blocker.
+- **Artifacts are self-sufficient.** Cards render fully in-pane. There is no
+  visible or hidden click-through into the transcript world from this pane.
+- **Agent topology is orchestrator + narrator.** One hidden orchestrator
+  conversation does the work; a cheap narrator watches. Keep this plan to that
+  topology.
+- **The milestone is explicit.** The shippable milestone is the product surface
+  with hidden orchestrator runs, typed artifacts, narrator highlights, honest
+  terminal summaries, restart/stop behavior, and the required production-path
+  tests and performance report.
 - **Rails reset per request.** A new request clears both rails (the honest
   reading of the mockup). The latest run, its highlights, and its artifacts are
   persisted and restored into the pane via snapshot on reopen/restart.
@@ -102,11 +98,10 @@ execution substrate:
 - Workflow graphs are snapshotted into an immutable
   `WorkflowDefinitionVersion` at `StartExecution`
   (`internal/orchestrator/service.go`); the reducer only ever reads
-  `version.Graph`. There is no API to add nodes/edges to a running execution.
-  Runtime-decided fan-out ("master decides to spawn 3 sub-agents") is
-  structurally impossible within one execution.
+  `version.Graph`. That model fits explicit user-authored workflows, not a
+  fresh hidden agent turn created from a single request.
 - `ValidateExecutableGraph` gates every start; one active execution per
-  definition. Both fight ephemeral machine-generated plans.
+  definition. Both fight ephemeral machine-generated runs.
 
 The chat/run substrate already provides everything needed, battle-tested by
 three existing subsystems:
@@ -131,9 +126,9 @@ three existing subsystems:
 - **App-provided agent tools:** the `setta` dynamic-tool namespace
   (`internal/chat/agent_tools.go`, `agent_tools_setta.go`;
   `setta.workflow_result` is the template) is the deliberate-artifact channel.
-- **Parallelism:** independent conversations run concurrently
-  (`internal/chat/service_parallel_test.go`), and Codex itself provides native
-  runtime sub-agents (collab tools), which the fan-out phase rides.
+- **Run lifecycle:** chat-core already owns run liveness, cancellation,
+  recovery, event streaming, and persisted transcripts, which are the
+  capabilities this plan needs.
 
 ## Relationship To The Workflow Feature (Planned Removal Is Safe)
 
@@ -154,9 +149,8 @@ keep-alives for the removal work:
   `HarnessTaskRunner`). Its only current consumer is the semantic
   cartographer; if the cartographer is removed before this plan lands, the
   narrator becomes its sole consumer — do not let dead-code gates take it.
-- Keep the shared trajectory/transcript components the escape hatch reuses —
-  main chat renders through them; deleting workflow panes must not delete
-  chat-shared machinery.
+- Keep the shared trajectory/transcript components main chat renders through;
+  deleting workflow panes must not delete chat-shared machinery.
 
 Removal also strengthens the substrate verdict above (the easy button was
 deliberately not built on the engine being removed), and if the cartographer
@@ -222,8 +216,8 @@ Starting a request (`EasyRunService.Start`):
    lost — the user never sees the transcript).
 
 A fresh conversation is created per request (clean context; honest
-reset-per-request rails). The conversation persists afterward as the audit
-trail behind the escape hatch.
+reset-per-request rails). The conversation persists afterward as an internal
+audit trail, but the Easy Button pane does not expose a transcript entry point.
 
 Completion is push-driven, mirroring the workflow reconciler pattern
 (`internal/orchestrator/service_actions.go` `startChatEventReconciler`): the
@@ -243,9 +237,15 @@ failure of the run behavior, not a renderer fallback case.
 
 Stop: `EasyRunService.Stop` cancels the active backing chat run via the
 existing cancel path (`CancelActiveRunByID`); state becomes `stopped`;
-artifacts already emitted are kept. In the fan-out phase, stop also interrupts
-every live sub-agent thread (parent interrupt does not cascade — see the
-fan-out phase).
+artifacts already emitted are kept.
+
+Steer: `EasyRunService.Steer` accepts text while the latest run for the
+workspace is still `working`, validates that the text is non-empty, and forwards
+it into the backing hidden conversation through the existing immediate steering
+path. It does not create a new easy run, does not expose chat transcript events
+to the renderer, and does not add a visible steering log in the pane. If no run
+is active, the endpoint fails loudly with a typed client error; the renderer then
+treats Enter as a new request instead of silently dropping text.
 
 Restart: chat startup recovery already marks interrupted runs failed
 ("run interrupted by backend restart", `internal/chat/service_recovery.go`).
@@ -319,6 +319,15 @@ If the run completes while the narrator is degraded, the completion summary
 contains only the mechanical fields (duration, artifact count) — facts the
 service computes itself, not narration.
 
+**Completion answer.** The terminal `EasyRun.Summary` is the center-pane answer,
+not a transcript excerpt. When narration is healthy, it should be 1-2 plain,
+non-jargony sentences that either answer the easy request directly or summarize
+what changed / what was produced for harder work. It may mention artifact count
+or important deliverables, but it must not list commands, file paths, tool calls,
+or agent mechanics. When narration is degraded, the service falls back to the
+mechanical summary only ("Done in 42s · 2 artifacts", "Stopped · 1 artifact",
+or the failure reason), and never fabricates a human-sounding conclusion.
+
 **Event-hub caveats (from `internal/chat/events.go`):** the hub is global and
 lossy under backpressure (slow subscribers are dropped and must resync via
 cursor replay). The observer must drain its channel promptly (buffer internally,
@@ -369,19 +378,27 @@ divs. No SVG/diagram kind in v1 (see Non-Goals).
   Visuals otherwise per the mockup: swirl field opacity/deceleration, confirm
   pulse on completion, helper text per state; the listening rings arrive with
   voice.
-- **Center.** The button is the single control: `idle` → focus the footer
-  input (until voice exists); `working` → stop (cancel); `complete` → reset to
-  idle (rails clear when the _next_ run starts). The request text shows
-  faintly during working/complete (user's own words). The agent chip shows
-  `EasyRun.ActiveAgentCount` while working ("1 agent" is honest in v1).
+- **Center.** The center affordance is the voice-recorder / steering control,
+  not the stop button. Until real voice capture exists, activating it focuses
+  the footer text input. During `working`, text or future voice input sends
+  steering into the active hidden run. During `complete`, the center area shows
+  `EasyRun.Summary` as the final answer/conclusion (1-2 plain-language
+  sentences when narration is healthy, mechanical fallback when degraded), with
+  the user's request still shown faintly as context. Rails clear when the _next_
+  run starts. The agent chip shows `EasyRun.ActiveAgentCount` while working
+  ("1 agent" is honest in this plan).
+- **Stop.** Stop is a secondary explicit control, visible while `working` and
+  separate from the center recorder affordance. It cancels the active easy run
+  and preserves already-emitted artifacts.
 - **Left rail.** Highlights, newest at the bottom, age-fade per the mockup,
   elapsed time computed from `EasyRun.StartedAt` vs `Highlight.At`. Rail label
   hidden while empty.
 - **Right rail.** Artifact cards stack from the top, arrival animation,
   overflow scrolls with the soft mask per the mockup.
 - **Footer input.** Lives inside the surface component (there is no chrome
-  footer slot — the chat composer precedent). Enter submits; disabled while a
-  run is active.
+  footer slot — the chat composer precedent). Enter starts a new run from
+  `idle`/`complete`; Enter while `working` sends steering text to the active
+  hidden run. It remains enabled while a run is active.
 - **Chrome.** Title mirrors state via `setHostPaneChromeTitle`
   ("Easy Button · working"); icon via `pane-title-metadata.ts` (+ new glyph in
   `pane-title-icons.ts`); tone `cyan`; pane limit 1
@@ -401,12 +418,6 @@ divs. No SVG/diagram kind in v1 (see Non-Goals).
   `.workspace-pane-host[data-surface-frozen="true"]`, and honor
   `prefers-reduced-motion` per the mockup's reduced block and the
   `setta-live-headline-shimmer` precedent in `styles.css`.
-- **Escape hatch.** Pane context menu gains two hidden actions: "Copy debug
-  info" (easy-run ID, conversation ID, run ID — Phase 2c) and "Open underlying
-  run (debug)" (Phase 6): a read-only trajectory view of the internal
-  conversation reusing the block-driven machinery the workflow node-details
-  pane uses (`LoadRunTranscriptPage` + the shared trajectory surface). Not
-  discoverable from the normal UI.
 
 ## Contract Plan
 
@@ -418,8 +429,9 @@ Never hand-edit generated outputs.
 
 - `EasyRun`: `ID`, `WorkspaceID`, `Status` (`working | completed | failed |
 stopped`), `RequestText`, `ConversationID`, `StartedAt`, `EndedAt?`,
-  `Summary?` (final one-liner), `Error?`, `NarratorStatus` (`ok | degraded`),
-  `ActiveAgentCount`, `ArtifactCount`, `HighlightCount`.
+  `Summary?` (center answer/conclusion or mechanical fallback), `Error?`,
+  `NarratorStatus` (`ok | degraded`), `ActiveAgentCount`, `ArtifactCount`,
+  `HighlightCount`.
 - `EasyHighlight`: `ID`, `EasyRunID`, `Ordinal`, `Text`, `At`.
 - `EasyArtifact`: `ID`, `EasyRunID`, `Ordinal`, `Kind`, `Title`, `Kicker?`,
   `CreatedAt`, plus exactly one populated payload branch
@@ -432,7 +444,8 @@ stopped`), `RequestText`, `ConversationID`, `StartedAt`, `EndedAt?`,
   `easyrun.highlight.created`, `easyrun.artifact.created`, plus a
   `easyrun.resync_required` pathway consistent with the other hubs.
 - Endpoints (`internal/httpapi/endpoints.go` registry + handlers):
-  `POST /easy-runs/start`, `POST /easy-runs/stop`,
+  `POST /easy-runs/start`, `POST /easy-runs/steer`,
+  `POST /easy-runs/stop`,
   `GET /easy-runs/snapshot` (latest run for the workspace + its highlights +
   artifacts + event-stream cursor — the snapshot-then-subscribe convention),
   and the SSE event stream endpoint.
@@ -459,7 +472,7 @@ complexity 10, max-depth 4, and max-params 5 are enforced by
 ### 1. Register The Easy Button Surface End-To-End
 
 Add the `easy-button` product kind across every registration site, with the
-pane rendering the `idle` state only (center button with breathing glow,
+pane rendering the `idle` state only (center affordance with breathing glow,
 hidden rail labels, empty rails) and no backend wiring. The footer input and
 the working/complete visuals (swirl layers, dot pulse, confirm pulse) ship
 with Phase 2b, when the states they express become reachable — nothing dead
@@ -519,20 +532,34 @@ marks the easy run terminal when the chat run ends (completed -> summary fields
 mechanical-only for now: duration/artifact count including zero; failed/stopped
 honest). Stop cancels via `CancelActiveRunByID`. The pane footer input and
 working/complete visuals land here with real submit: submit -> `working`
-(button = stop, swirl on, request text faint) -> `complete` (confirm pulse,
-mechanical summary). Left rail stays empty in this subphase -- no mechanical
-highlights, per the Replacement Policy. Deterministic Electron E2E through
+(request text faint, stop available as an explicit control) -> `complete`
+(confirm pulse, mechanical summary). Left rail stays empty in this subphase --
+no mechanical highlights, per the Replacement Policy. Deterministic Electron E2E through
 toolbar/preload/HTTP/store/renderer paths is required for this subphase because
 it starts real hidden chat runs, even if artifacts and narrator are still
 absent.
 
 **2c. Lifecycle hardening before artifacts.** Add startup recovery for orphaned
 `working` easy runs, active-run rejection in the same workspace, latest-run
-snapshot restore after reload/restart, `easyrun.resync_required` handling, rails
-reset on the next request, and the "Copy debug info" context-menu action.
+snapshot restore after reload/restart, `easyrun.resync_required` handling, and
+rails reset on the next request.
 Extend the deterministic Electron workflow for reload/restart, active-run
 rejection, second-request reset, and stop-mid-run behavior. Do not proceed to
 artifact work until these lifecycle edges are covered.
+
+**2d. Text steering and recorder-first center.** Add
+`EasyRunService.Steer`, `POST /easy-runs/steer`, IPC/preload/web/store wiring,
+and production-path tests. The footer input stays enabled while `working`;
+Enter sends steering text to the active hidden run instead of starting a second
+run. A direct second start is still rejected loudly. The center control stops
+being the stop/reset control: in text-only v1 it focuses the footer input, and
+when voice lands it becomes the recorder for the same start/steer command path.
+Stop moves to a smaller explicit control visible during `working`. Complete
+state renders `EasyRun.Summary` in the center as the final answer/conclusion,
+with no transcript or steering log. Deterministic E2E must prove start ->
+working -> send steering -> hidden run receives steering -> terminal summary
+renders in the center; it must also prove stop still works from the secondary
+control.
 
 ### 3. Add Deliberate Artifacts Via A setta.emit_artifact Dynamic Tool
 
@@ -559,63 +586,8 @@ tests. Deterministic E2E scripts the narrator's structured-task responses
 through the fake app-server; the left rail renders scripted highlights with
 age-fade and elapsed times.
 
-### 5. Add Sub-Agent Fan-Out Via Native Codex Collab Agents
+### 5. Harden And Polish
 
-Fan-out uses Codex's native collab surface, not a Setta-side spawn tool.
-Verified against the reference Codex source
-(`/Users/kevin/Documents/AppDevelopment/reference_repos/codex`): the V1 collab
-feature (`Feature::Collab`, key `multi_agent`) is **stable and enabled by
-default**, exposing `spawn_agent` / `send_input` / `wait_agent` /
-`resume_agent` / `close_agent` to the model. Each spawned agent is a real
-thread with its own `threadId` in the same app-server process; a connected
-client is **auto-attached to every child thread's full event stream**
-(item notifications scoped by child `threadId`); children **inherit the parent
-turn's sandbox, approval policy, and cwd** (the yolo preset propagates);
-`spawn_agent` accepts per-child `model` / `reasoning_effort` / role. Provider
-defaults bound the tree: 6 concurrent agents, spawn depth 1 (workers cannot
-sub-spawn). Setta's work is observation, control, and truthful presentation:
-
-- Orchestrator instructions must explicitly authorize spawning (Codex's tool
-  prompt tells the model to refuse unless the user asked) and must instruct
-  the master to collect worker results and author all artifacts itself.
-  Fresh sub-agents do not receive client-provided dynamic tools (protocol
-  fact: spawn passes an empty `dynamicTools` list; only full-history forks
-  recover them), so `setta.emit_artifact` is master-only — which also keeps a
-  single curating author for deliverables.
-- Extend collab-item ingestion (`collabAgentToolCallRunItem` in
-  `internal/chat/codex_protocol.go`) to retain `receiverThreadIds`,
-  `agentsStates`, `prompt`, and `model` — today Setta keeps only
-  id/tool/status and drops the rest.
-- Register child threadIds (learned from collab items) as owned by the easy
-  run so child-scoped notifications and server requests route deliberately —
-  condensed into the narrator digest or explicitly discarded with logging,
-  never claimed by unrelated runs, never a crash. Child-scoped approval or
-  dynamic-tool requests must be answered if they arrive.
-- `ActiveAgentCount` derives from `agentsStates` (1 + children in
-  pendingInit/running); this drives the agent chip.
-- Stop semantics need characterization first: parent `turn/interrupt` does
-  **not** cascade to children (verified in the reference source), so stop must
-  interrupt the master and every live child thread. Prove client-side
-  interrupt of a V1 child works through Setta's harness before building on
-  it; if the provider rejects it, resolve stop semantics before shipping —
-  do not ship fan-out with unstoppable workers. The same applies when the
-  master run ends with workers still live: terminal handling closes them.
-- Narrator fidelity in this phase comes from parent-side signals (collab
-  items with per-agent states and final messages, injected sub-agent
-  notifications, master text). Condensing child event streams into the digest
-  is an optional follow-up if highlight quality needs it — phase-level
-  highlights may not.
-
-If characterization shows the native surface is unusable through Setta's
-harness, halt this phase and re-decide with the real tradeoffs on the table.
-Do not build a Setta-owned spawn mechanism alongside the native one, and do
-not ship both behind a flag.
-
-### 6. Harden And Polish
-
-- Escape hatch: "Open underlying run (debug)" context-menu action rendering a
-  read-only trajectory view of the internal conversation via the existing
-  block-driven trajectory machinery.
 - Performance: baseline and re-measure the swirl's cost with the existing
   frame-metrics pipeline (frame times, long tasks) in idle/working/frozen
   states; record an append-only report under `docs/reports/performance/`. If
@@ -629,11 +601,13 @@ not ship both behind a flag.
 
 - **Voice input.** Requires an STT decision (local Whisper-class sidecar
   preferred over cloud STT for a local-first app), `getUserMedia` capture,
-  Electron mic-permission handling, and adding the `listening` pane state,
-  mic glyph, and rings — all deliberately absent from v1, not stubbed.
-- **Button-as-question interrupts.** The agreed long-run direction for
-  clarifying questions and approvals; requires steering plumbing and question
-  UI on the button. v1 is yolo mode.
+  Electron mic-permission handling, and adding the real recorder behavior,
+  `listening` pane state, mic glyph, and rings. The center control is reserved
+  for this direction, but fake voice UI is deliberately absent until capture
+  works end to end.
+- **Agent-initiated questions and approvals.** User-initiated steering is in
+  scope for this plan, but the agent turning the center affordance into a clarifying
+  question or approval prompt is still deferred. v1 remains yolo mode.
 - **Narrator-inferred artifacts, diagram/SVG artifact kind, artifact
   click-through, cross-request history browsing, per-request model/effort
   controls in the pane.**
@@ -646,8 +620,8 @@ renderer state — deterministic production-path Electron tests are required,
 plus live Codex E2E when ChatGPT auth is available (report skips loudly).
 Those tests grow with the phases: Phase 1 proves pane registration and freeze
 behavior; Phase 2b is the first phase that must exercise hidden chat-run
-lifecycle through Electron; artifact, narrator, and fan-out assertions become
-required only after their respective phases land.
+lifecycle through Electron; artifact and narrator assertions become required
+only after their respective phases land.
 
 ### Backend Tests
 
@@ -664,27 +638,28 @@ required only after their respective phases land.
   continues, terminal summary contains only mechanical fields.
 - Chat run terminal (completed / failed / cancelled) drives easy-run terminal
   status; stop cancels the backing run and keeps artifacts.
+- Steering while a run is active forwards text into the backing hidden run;
+  steering with no active run fails loudly; direct second start in the same
+  workspace while active remains rejected.
 - Startup recovery marks orphaned `working` easy runs failed.
 - Observer survives event-hub subscriber drop via cursor resubscribe without
   duplicated digest entries or duplicated highlights.
-- Fan-out: collab-item ingestion retains thread ids, agent states, prompt,
-  and model; child-thread events route only to their owning easy run;
-  `ActiveAgentCount` transitions derive from `agentsStates` and are
-  published; stop interrupts master and all live children (characterization
-  test for client-side child interrupt through the harness).
 
 ### Renderer Tests
 
 - Store reducer: snapshot hydration, run.updated transitions, highlight and
   artifact appends, resync handling.
-- Pane state machine: idle → working → complete; button action per state;
-  input disabled while active; rails reset when the next run starts (not on
-  completion).
+- Pane state machine: idle → working → complete; center control focuses text
+  input until voice exists; secondary stop action works while active; input
+  stays enabled while active for steering; rails reset when the next run starts
+  (not on completion).
 - Artifact cards: each kind renders from typed payloads; markdown goes through
   `MarkdownText`; no raw HTML path exists.
 - Highlight rail: bottom-newest ordering, age-fade classes, elapsed-time
   rendering from contract timestamps.
 - Narrator-degraded indicator renders from the typed field.
+- Terminal summary renders in the center as the final answer/conclusion, with
+  mechanical fallback when narration is degraded.
 
 ### Deterministic Electron E2E
 
@@ -697,12 +672,16 @@ entire plan:
   occupies a full-width column; idle/frozen visuals render and animation pause
   rules apply.
 - Phase 2b: type a request → `working` state (swirl on, title "Easy Button ·
-  working", request text faint, input disabled) → completion → confirm pulse,
-  mechanical summary line with duration + artifact count, including the
+  working", request text faint, secondary stop visible) → completion → confirm
+  pulse, mechanical summary line with duration + artifact count, including the
   explicit zero-artifact case when appropriate.
 - Phase 2c: second request → rails reset → stop mid-run → `stopped` summary,
   artifacts retained if any exist; active-run rejection and reload/restart
   recovery are exercised.
+- Phase 2d: while working, send steering text through the footer input and
+  assert the scripted hidden run receives it; center control focuses the text
+  input in text-only v1; stop remains a secondary control; terminal summary
+  appears in the center.
 - Phase 3: scripted orchestrator emits two artifacts via the dynamic tool →
   cards appear on the right rail in order.
 - Phase 4: scripted narrator structured-task responses → exactly the scripted
@@ -713,8 +692,6 @@ entire plan:
   (`[data-surface-frozen]` computed style asserted) → resume
 - Hardening: reload/restart → snapshot restores the last run's rails and
   summary; interrupted-run recovery shows failed state honestly.
-- Fan-out phase: scripted spawn of 2 children → agent chip shows 3 agents →
-  stop cancels all.
 
 ### Live Codex E2E
 
@@ -734,14 +711,19 @@ animation work.
 
 ## Acceptance Criteria
 
-### Single-agent v1 milestone
+### Shippable Milestone
 
-The single-agent v1 milestone is shippable only when:
+The Easy Button pane is shippable only when:
 
 - the pane exists as a persisted, full-width-column `easy-button` surface,
   openable from toolbar and shortcut, pane limit 1, surviving reload
 - a typed request runs a real hidden Codex orchestrator; nothing about the
   conversation appears in the normal chat UI
+- while the hidden run is working, text steering reaches the backing run through
+  typed easy-run APIs; the pane exposes no transcript or steering log
+- the center control is reserved for voice/steering, focuses the text input
+  until real voice exists, and is not the stop button; stop is a secondary
+  explicit control
 - the left rail shows only narrator-authored, phase-level highlights, bounded
   by the caps; command/file/test activity never appears there
 - deliverables arrive as typed artifact cards emitted through
@@ -750,6 +732,9 @@ The single-agent v1 milestone is shippable only when:
   that request concrete deliverables fail if no artifact is emitted
 - completion, failure, stop, and backend-restart interruption all present
   honest summaries; stop preserves artifacts
+- terminal completion shows `EasyRun.Summary` in the center as a 1-2 sentence
+  answer/conclusion when narration is healthy, or a mechanical fallback when
+  degraded
 - narrator failure degrades visibly via the typed status and never blocks or
   fails the run
 - no compatibility, migration, transitional, feature-flagged-old-path, or
@@ -757,17 +742,7 @@ The single-agent v1 milestone is shippable only when:
 - v1-required tests exist and pass through production paths; the performance
   report is recorded; every v1 contract is Go-owned and regenerated, with the
   artifact payload union failing loudly at the decode boundary
-
-### Full-plan completion
-
-The full plan is complete only when the single-agent v1 criteria are still true
-and:
-
-- fan-out rides native Codex collab agents; stop reliably terminates the master
-  and all workers; the agent chip reflects real per-agent states
-- the hidden debug escape hatch opens the underlying run read-only without
-  exposing transcript mechanics in the normal pane
-- all listed fan-out and hardening tests pass through production paths
+- hardening tests pass through production paths
 - the automation stop sentinel is emitted only after a fresh audit finds no
   remaining actionable work, or after this plan records a genuine blocker and
   the remaining work is explicit
@@ -895,10 +870,12 @@ Implemented the hidden easy-run lifecycle through the production pane:
   actions, and app-level easy-run event subscription. The renderer still
   consumes only typed easy-run contracts, never chat transcript events.
 - Added the real pane footer input and idle/working/complete behavior:
-  submit starts a hidden run, the button stops while working, terminal state
-  resets to idle, the user request text is shown from `EasyRun.RequestText`,
-  the agent chip reflects `EasyRun.ActiveAgentCount`, and the pane title mirrors
-  state. Both rails intentionally remain empty in this subphase.
+  submit starts a hidden run, terminal state resets to idle, the user request
+  text is shown from `EasyRun.RequestText`, the agent chip reflects
+  `EasyRun.ActiveAgentCount`, and the pane title mirrors state. Phase 2b
+  initially placed stop on the center affordance; Phase 2d supersedes that with a
+  recorder-first center and secondary stop control. Both rails intentionally
+  remain empty in this subphase.
 - Expanded deterministic production-path Electron coverage to open the pane,
   submit a scripted hidden run, observe working and completed state, stop an
   active run, assert empty rails, and verify frozen animation pause.
@@ -931,9 +908,10 @@ artifact emission and narrator highlights.
 
 Remaining work: Phase 2c is next. It should add startup recovery for orphaned
 `working` easy runs, production-path active-run rejection coverage, latest-run
-snapshot restore after reload/restart, `easyrun.resync_required` handling,
-second-request rail reset coverage, and the "Copy debug info" context-menu
-action. No blockers were discovered.
+snapshot restore after reload/restart, `easyrun.resync_required` handling, and
+second-request rail reset coverage. Phase 2d then adds text steering,
+recorder-first center behavior, secondary stop control, and center summary
+rendering. No blockers were discovered.
 
 ### 2026-07-08 — Phase 2b audit follow-up
 
@@ -984,8 +962,9 @@ Live note: ChatGPT auth was available. The live gate passed
 
 Remaining Phase 2c work: production-path active-run rejection coverage,
 latest-run snapshot restore after renderer reload, `easyrun.resync_required`
-handling in the pane workflow, second-request rail reset coverage, and the
-"Copy debug info" context-menu action. No blockers were discovered.
+handling in the pane workflow, and second-request rail reset coverage. Phase 2d
+then adds text steering, recorder-first center behavior, secondary stop control,
+and center summary rendering. No blockers were discovered.
 
 ### 2026-07-08 — Phase 2c startup-recovery audit follow-up
 Audit found the startup-recovery slice matches the first Phase 2c hardening
@@ -997,4 +976,5 @@ existing live semantic-cartographer subcheck after the live chat/provider
 portions completed, waiting for a workflow-execution-scoped cartographer run to
 become `applied`. Kept rerun artifacts:
 `test-results/electron-integration/chat-workflows/2026-07-09T034743-758Z/live-codex/`.
-Remaining Phase 2c work is unchanged; no easy-button blockers were discovered.
+Remaining Phase 2c work is unchanged, followed by the new Phase 2d steering and
+center-summary slice; no easy-button blockers were discovered.
