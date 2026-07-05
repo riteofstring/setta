@@ -298,6 +298,8 @@ export const ipcChannels = {
 
 export const ipcMessages = {
   workspaceBrowserViewBatch: "workspace:browser-view-batch",
+  workspaceUIEventSubscribe: "workspace:ui-event-subscribe",
+  workspaceUIEventUnsubscribe: "workspace:ui-event-unsubscribe",
 } as const;
 
 export const ipcEvents = {
@@ -310,6 +312,7 @@ export const ipcEvents = {
   workspaceActivityEvent: "workspace-activity:event",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
+  workspaceUIEvent: "workspace:ui-event",
   terminalEvent: "terminal:event",
   workflowEvent: "workflow:event",
 } as const;

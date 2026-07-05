@@ -100,6 +100,7 @@ describe("preload workspace API", () => {
     expect(Object.keys(api.workspace).sort()).toEqual([
       "close",
       "listUIPanes",
+      "onUIEvent",
       "openLocalFolder",
       "openPath",
       "readUILayout",

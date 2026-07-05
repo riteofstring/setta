@@ -30,6 +30,7 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
 const terminalContentClickCommand = "printf 'SETTA_PANE_CONTENT_CLICK_OK\\n'";
 const terminalContentClickOutput = "SETTA_PANE_CONTENT_CLICK_OK";
+const workspaceUILayoutEventSyncedTitle = "Workflow Graph Synced";
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
@@ -69,6 +70,9 @@ try {
   await waitForWorkspaceLayoutArea(context.client);
   await openSeededWorkspaceInRenderer(context.client, seededWorkspaceId);
   const paneMetadata = await waitForWorkspacePaneMetadata(context.client, seededWorkspaceId);
+  await waitForTerminalReady(context.client);
+  const eventSyncedLayout = await saveWorkspaceUILayoutEventUpdate(backend, seededWorkspaceId);
+  const eventSyncState = await waitForWorkspaceUILayoutEventSync(context.client, eventSyncedLayout);
   await waitForTerminalReady(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
 
@@ -114,6 +118,7 @@ try {
     afterTopBarLayout: afterTopBarState.layout,
     artifactDir,
     beforeContentLayout,
+    eventSyncState,
     paneMetadata,
     scenario,
     status: "passed",
@@ -223,6 +228,40 @@ async function seedTwoPaneWorkspaceLayout(backend, workspaceRoot) {
     );
   }
   return workspaceId;
+}
+
+async function saveWorkspaceUILayoutEventUpdate(backend, workspaceId) {
+  const layout = twoPaneWorkspaceUILayout(workspaceId);
+  layout.revision = 2;
+  layout.panes[0] = {
+    ...layout.panes[0],
+    title: workspaceUILayoutEventSyncedTitle,
+  };
+  const saved = await backend.post("/workspaces/ui/layout/save", { layout });
+  if (saved.workspaceId !== workspaceId || saved.revision !== layout.revision) {
+    throw new Error(
+      `saved event-sync layout did not match request: ${JSON.stringify({ requested: layout, saved })}`,
+    );
+  }
+  return layout;
+}
+
+async function waitForWorkspaceUILayoutEventSync(client, expectedLayout) {
+  return waitForLoggedState(
+    client,
+    workspaceUILayoutEventSyncExpression(expectedLayout.panes[0].paneId),
+    "workspace UI layout event sync",
+    (state) =>
+      state.workspaceId === expectedLayout.workspaceId &&
+      state.revision === expectedLayout.revision &&
+      state.title === workspaceUILayoutEventSyncedTitle,
+    (state) => ({
+      ...state,
+      expectedRevision: expectedLayout.revision,
+      expectedTitle: workspaceUILayoutEventSyncedTitle,
+      expectedWorkspaceId: expectedLayout.workspaceId,
+    }),
+  );
 }
 
 async function prepareTwoPaneFocusScenario(client) {
@@ -471,6 +510,23 @@ function seededWorkspaceOpenStateExpression() {
     );
     return {
       openButtonReady: button instanceof HTMLButtonElement && !button.disabled,
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+    };
+  })()`;
+}
+
+function workspaceUILayoutEventSyncExpression(paneId) {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const readLayout = window.__settaWorkspaceReadLayoutState;
+    const host = document.querySelector(
+      \`[data-testid="workspace-pane-host"][data-pane-id="${paneId}"]\`,
+    );
+    const title = host?.querySelector("[data-workspace-pane-title]");
+    return {
+      present: area instanceof HTMLElement,
+      revision: typeof readLayout === "function" ? readLayout().revision : -1,
+      title: title instanceof HTMLElement ? title.textContent ?? "" : "",
       workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
     };
   })()`;

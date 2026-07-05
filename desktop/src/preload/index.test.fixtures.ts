@@ -2,6 +2,7 @@ import type {
   ChatEvent,
   TerminalEvent,
   WorkspaceActivityEvent,
+  WorkspaceUIEvent,
   WorkflowEvent,
   WorkflowGraph,
 } from "@generated/backend";
@@ -88,6 +89,28 @@ export function workspaceActivityEvent(): WorkspaceActivityEvent {
     streamId: "workspace_activity_stream_test",
     type: "workspace_activity.resync_required",
     workspaceId: "workspace_api",
+  };
+}
+
+export function workspaceUIEvent(workspaceId = "workspace_api"): WorkspaceUIEvent {
+  return {
+    emittedAt: "2026-07-08T12:00:00Z",
+    eventId: "workspace_ui_stream_test:4",
+    layout: {
+      columns: [],
+      focusedPaneId: "workspace_pane_0",
+      panes: [],
+      revision: 4,
+      schemaVersion: 3,
+      workspaceId,
+    },
+    resync: null,
+    revision: 4,
+    schemaVersion: 1,
+    sequence: 4,
+    streamId: "workspace_ui_stream_test",
+    type: "workspace_ui.layout_updated",
+    workspaceId,
   };
 }
 

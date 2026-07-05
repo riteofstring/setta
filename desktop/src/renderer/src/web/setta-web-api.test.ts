@@ -67,11 +67,15 @@ describe("web SettaAPI unpaired runtime state", () => {
 
   test("starts inert stream subscriptions after pairing completes", async () => {
     withWebGlobals();
-    const calls: Array<{ authorization: string | null; path: string }> = [];
+    const calls: Array<{ authorization: string | null; path: string; search: string }> = [];
     const api = createWebSettaAPI({
       fetchImpl: async (input, init = {}) => {
         const headers = new Headers(init.headers);
-        calls.push({ authorization: headers.get("Authorization"), path: input.pathname });
+        calls.push({
+          authorization: headers.get("Authorization"),
+          path: input.pathname,
+          search: input.search,
+        });
         switch (input.pathname) {
           case "/runtime/info":
             return jsonResponse(runtimeInfo());
@@ -86,6 +90,8 @@ describe("web SettaAPI unpaired runtime state", () => {
             return jsonResponse({ devices: [] });
           case "/events":
             return new Response("", { status: 200 });
+          case "/workspaces/ui/events":
+            return new Response("", { status: 200 });
           default:
             throw new Error(`unexpected request: ${input.pathname}`);
         }
@@ -93,14 +99,18 @@ describe("web SettaAPI unpaired runtime state", () => {
     });
 
     const unsubscribe = api.chat.onEvent(() => {});
+    const unsubscribeWorkspaceUI = api.workspace.onUIEvent("workspace_api", () => {});
     expect(calls.map((call) => call.path)).toEqual([]);
 
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
-    await waitFor(() => calls.some((call) => call.path === "/events"));
 
     const eventStreamCall = calls.find((call) => call.path === "/events");
     expect(eventStreamCall?.authorization).toBe("Bearer token_web");
+    const workspaceUIEventStreamCall = calls.find((call) => call.path === "/workspaces/ui/events");
+    expect(workspaceUIEventStreamCall?.authorization).toBe("Bearer token_web");
+    expect(workspaceUIEventStreamCall?.search).toBe("?workspaceId=workspace_api");
     unsubscribe();
+    unsubscribeWorkspaceUI();
   });
 });
 
@@ -156,15 +166,4 @@ function jsonResponse(payload: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
     status,
   });
-}
-
-async function waitFor(assertion: () => boolean): Promise<void> {
-  const deadline = Date.now() + 1000;
-  while (Date.now() < deadline) {
-    if (assertion()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-  throw new Error("timed out waiting for condition");
 }

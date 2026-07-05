@@ -1,4 +1,4 @@
-import type { WorkspaceUILayout } from "@generated/backend";
+import type { WorkspaceUIEvent, WorkspaceUILayout } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -50,6 +50,22 @@ export type WorkspaceUIPaneMetadataLoad =
       key: string;
       snapshot: WorkspacePaneMetadataSnapshot;
       status: "loading";
+    };
+
+export type WorkspaceUILayoutEventDecision =
+  | {
+      kind: "apply";
+      layout: WorkspaceUILayout;
+    }
+  | {
+      kind: "error";
+      message: string;
+    }
+  | {
+      kind: "ignore";
+    }
+  | {
+      kind: "resync";
     };
 
 export function WorkspaceLayoutLoading({
@@ -333,6 +349,99 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
   return { layoutPersistenceError, persistLayout, resetLayoutPersistenceError };
 }
 
+export function useWorkspaceUILayoutEventSync({
+  mode,
+  onLayoutUpdate,
+  runtime,
+  workspaceId,
+}: {
+  mode: WorkspaceSceneMode;
+  onLayoutUpdate: (layout: WorkspaceUILayout) => void;
+  runtime: WorkspaceRuntime;
+  workspaceId: string;
+}): string | null {
+  const [layoutEventSyncError, setLayoutEventSyncError] = useState<string | null>(null);
+  const unavailableError = workspaceUILayoutEventSyncUnavailableError(workspaceId, mode);
+  const shouldSubscribe = shouldSubscribeWorkspaceUILayoutEvents(workspaceId, mode);
+
+  useEffect(() => {
+    if (unavailableError !== null) {
+      setLayoutEventSyncError(unavailableError);
+      return;
+    }
+    if (!shouldSubscribe) {
+      setLayoutEventSyncError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const unsubscribe = window.setta.workspace.onUIEvent(workspaceId, (event) => {
+      const decision = workspaceUILayoutEventDecision(
+        event,
+        runtime.store.getSnapshot().revision,
+        workspaceId,
+      );
+      switch (decision.kind) {
+        case "apply":
+          setLayoutEventSyncError(null);
+          onLayoutUpdate(decision.layout);
+          return;
+        case "error":
+          setLayoutEventSyncError(decision.message);
+          return;
+        case "ignore":
+          return;
+        case "resync":
+          void window.setta.workspace
+            .readUILayout(workspaceId)
+            .then((result) => {
+              if (cancelled) {
+                return;
+              }
+              const layout = result.layout;
+              if (layout === null) {
+                setLayoutEventSyncError(
+                  "Workspace UI event stream requested resync but no persisted layout is available",
+                );
+                return;
+              }
+              const resyncDecision = workspaceUILayoutFromResyncDecision(
+                layout,
+                runtime.store.getSnapshot().revision,
+                workspaceId,
+              );
+              if (resyncDecision.kind === "apply") {
+                setLayoutEventSyncError(null);
+                onLayoutUpdate(resyncDecision.layout);
+                return;
+              }
+              if (resyncDecision.kind === "error") {
+                setLayoutEventSyncError(resyncDecision.message);
+              }
+            })
+            .catch((error: unknown) => {
+              if (!cancelled) {
+                setLayoutEventSyncError(
+                  `Workspace UI event stream resync failed: ${layoutOperationErrorMessage(error)}`,
+                );
+              }
+            });
+          return;
+        default: {
+          const exhaustive: never = decision;
+          throw new Error(`unsupported workspace UI event decision: ${String(exhaustive)}`);
+        }
+      }
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [mode, onLayoutUpdate, runtime, shouldSubscribe, unavailableError, workspaceId]);
+
+  return layoutEventSyncError;
+}
+
 export function WorkspaceUILayoutRecoveryNotice({
   layoutLoadError,
   message,
@@ -367,12 +476,14 @@ export function WorkspaceUILayoutRecoveryNotice({
 
 export function workspaceLayoutRecoveryMessage({
   dismissed,
+  layoutEventSyncError,
   layoutLoadError,
   paneMetadataLoadError,
   layoutPersistenceError,
   runtime,
 }: {
   dismissed: boolean;
+  layoutEventSyncError: string | null;
   layoutLoadError: string | null;
   paneMetadataLoadError: string | null;
   layoutPersistenceError: string | null;
@@ -384,6 +495,7 @@ export function workspaceLayoutRecoveryMessage({
   return (
     layoutLoadError ??
     layoutPersistenceError ??
+    layoutEventSyncError ??
     paneMetadataLoadError ??
     runtime.layoutRecovery?.message ??
     null
@@ -424,6 +536,31 @@ function shouldLoadWorkspaceUIPaneMetadata(workspaceId: string, mode: WorkspaceS
   );
 }
 
+function shouldSubscribeWorkspaceUILayoutEvents(
+  workspaceId: string,
+  mode: WorkspaceSceneMode,
+): boolean {
+  return (
+    mode === "workspace" &&
+    workspaceId !== "empty" &&
+    typeof window !== "undefined" &&
+    Boolean(window.setta?.workspace?.onUIEvent)
+  );
+}
+
+function workspaceUILayoutEventSyncUnavailableError(
+  workspaceId: string,
+  mode: WorkspaceSceneMode,
+): string | null {
+  if (mode !== "workspace" || workspaceId === "empty" || typeof window === "undefined") {
+    return null;
+  }
+  if (!window.setta?.workspace?.onUIEvent) {
+    return "Workspace UI event stream API is unavailable";
+  }
+  return null;
+}
+
 function workspaceUIPaneMetadataUnavailableError(
   workspaceId: string,
   mode: WorkspaceSceneMode,
@@ -439,4 +576,62 @@ function workspaceUIPaneMetadataUnavailableError(
 
 function layoutOperationErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Workspace layout operation failed";
+}
+
+export function workspaceUILayoutEventDecision(
+  event: WorkspaceUIEvent,
+  currentRevision: number,
+  workspaceId: string,
+): WorkspaceUILayoutEventDecision {
+  if (event.workspaceId !== workspaceId) {
+    return { kind: "ignore" };
+  }
+  switch (event.type) {
+    case "workspace_ui.layout_updated":
+      if (event.layout === null) {
+        return {
+          kind: "error",
+          message: "Workspace UI layout update event did not include a layout",
+        };
+      }
+      if (event.layout.revision !== event.revision) {
+        return {
+          kind: "error",
+          message: `Workspace UI layout event revision ${event.revision} does not match layout revision ${event.layout.revision}`,
+        };
+      }
+      return workspaceUILayoutFromResyncDecision(event.layout, currentRevision, workspaceId);
+    case "workspace_ui.resync_required":
+      if (event.resync === null) {
+        return {
+          kind: "error",
+          message: "Workspace UI resync event did not include resync details",
+        };
+      }
+      return event.revision <= currentRevision ? { kind: "ignore" } : { kind: "resync" };
+    default: {
+      const exhaustive: never = event.type;
+      return {
+        kind: "error",
+        message: `Workspace UI event type is unsupported: ${String(exhaustive)}`,
+      };
+    }
+  }
+}
+
+function workspaceUILayoutFromResyncDecision(
+  layout: WorkspaceUILayout,
+  currentRevision: number,
+  workspaceId: string,
+): WorkspaceUILayoutEventDecision {
+  if (layout.workspaceId !== workspaceId) {
+    return {
+      kind: "error",
+      message: `Workspace UI layout workspace ${layout.workspaceId} does not match ${workspaceId}`,
+    };
+  }
+  if (layout.revision <= currentRevision) {
+    return { kind: "ignore" };
+  }
+  return { kind: "apply", layout };
 }

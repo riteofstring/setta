@@ -2,7 +2,7 @@ import type { SettaAPI } from "@shared/types";
 
 export function workspaceUIReadFixtureAPI(
   context: string,
-): Pick<SettaAPI["workspace"], "listUIPanes" | "readUIPane" | "readUISchema"> {
+): Pick<SettaAPI["workspace"], "listUIPanes" | "onUIEvent" | "readUIPane" | "readUISchema"> {
   return {
     listUIPanes: async (workspaceId) => ({
       layoutPresent: false,
@@ -10,6 +10,7 @@ export function workspaceUIReadFixtureAPI(
       schema: emptyWorkspaceUISchema(),
       workspaceId,
     }),
+    onUIEvent: () => () => {},
     readUIPane: async () => {
       throw new Error(`workspace pane reads are not used by ${context}`);
     },

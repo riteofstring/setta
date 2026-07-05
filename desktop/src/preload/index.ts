@@ -5,6 +5,7 @@ import {
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
+  decodeWorkspaceUIEvent,
   decodeWorkflowEvent,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
@@ -402,6 +403,23 @@ const api: SettaAPI = {
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
     listUIPanes: (workspaceId: string) => invoke("workspaceListUIPanes", workspaceId),
+    onUIEvent: (workspaceId, listener) => {
+      if (workspaceId === "") {
+        throw new Error("workspace UI event subscription requires workspaceId");
+      }
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        const event = decodeWorkspaceUIEvent(payload);
+        if (event.workspaceId === workspaceId) {
+          listener(event);
+        }
+      };
+      ipcRenderer.on(ipcEvents.workspaceUIEvent, handler);
+      ipcRenderer.send(ipcMessages.workspaceUIEventSubscribe, workspaceId);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.workspaceUIEvent, handler);
+        ipcRenderer.send(ipcMessages.workspaceUIEventUnsubscribe, workspaceId);
+      };
+    },
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
     openPath: (rootPath: string) => invoke("workspaceOpenPath", rootPath),
     readUIPane: (workspaceId: string, paneId: string) =>

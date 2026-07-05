@@ -1,21 +1,12 @@
 import type { DesktopPlatform } from "@shared/types";
 import type { WorkspaceUILayout } from "@generated/backend";
-import {
-  Profiler,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { Profiler, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isMobileViewportWidth } from "../app-layout";
 import { useAppearanceStore } from "../stores/appearance-store";
 import { useWorkspaceStore } from "../stores/workspace-store";
 import { useViewportSize } from "../use-viewport-size";
 import { FrameScheduler } from "./frame-scheduler";
-import type { WorkspaceLayoutStore } from "./layout-store";
 import {
   finishOverviewPanSession,
   beginOverviewPanSession,
@@ -26,10 +17,9 @@ import {
   clearPaneResizePreview as clearPaneResizePreviewElement,
   syncPaneResizePreview as syncPaneResizePreviewElement,
 } from "./pane-resize-preview";
-import { installWindowResizeReportHooks } from "./performance-report";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
-import { createWorkspaceRuntime, type WorkspaceRuntime } from "./workspace-runtime";
+import { createWorkspaceRuntime } from "./workspace-runtime";
 import {
   cleanupActivePaneDragSession,
   cleanupOverviewDragSource,
@@ -41,6 +31,11 @@ import {
   observeStageResize,
   requireWorkspaceLayoutElements,
 } from "./workspace-layout-area-mount";
+import {
+  installResizeReportHooksForRuntime,
+  useWorkspaceLayoutSnapshot,
+  useWorkspaceUILiveLayout,
+} from "./workspace-layout-area-hooks";
 import { viewportRect } from "./workspace-layout-area-geometry";
 import {
   focusOrOpenPaneBySurfaceKind,
@@ -94,6 +89,7 @@ import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import {
   WorkspaceLayoutLoading,
   WorkspaceUILayoutRecoveryNotice,
+  useWorkspaceUILayoutEventSync,
   useWorkspaceUIPaneMetadataLoad,
   useWorkspaceUILayoutLoad,
   useWorkspaceUILayoutPersistence,
@@ -101,7 +97,7 @@ import {
   workspaceLayoutRecoveryMessage,
   workspacePaneMetadataDataAttributes,
 } from "./workspace-ui-layout";
-import type { OpenPaneRequest, PaneDropIntent, Rect, SurfaceKind } from "./types";
+import type { OpenPaneRequest, PaneDropIntent, SurfaceKind } from "./types";
 export interface WorkspaceSurfaceFocusRequest {
   requestId: number;
   surfaceKind: SurfaceKind;
@@ -207,6 +203,11 @@ function WorkspaceLayoutRuntimeArea({
   );
   const viewport = useViewportSize();
   const mobileLayout = isMobileViewportWidth(viewport.width);
+  const { applyWorkspaceUIEventLayout, liveLayout } = useWorkspaceUILiveLayout({
+    initialLayout,
+    mode,
+    workspaceId,
+  });
   const runtime = useMemo(
     () =>
       createWorkspaceRuntime({
@@ -214,13 +215,13 @@ function WorkspaceLayoutRuntimeArea({
         mode,
         overviewCardMaxWidthPx,
         overviewCardMinWidthPx,
-        storedLayout: initialLayout,
+        storedLayout: liveLayout,
         workspaceId,
         workspaceName,
       }),
     [
       allowResizedPanesToOverflowViewport,
-      initialLayout,
+      liveLayout,
       mode,
       overviewCardMaxWidthPx,
       overviewCardMinWidthPx,
@@ -250,6 +251,12 @@ function WorkspaceLayoutRuntimeArea({
   }, [runtime, setOverviewGhostTarget]);
   const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
     useWorkspaceUILayoutPersistence(runtime, workspaceId);
+  const layoutEventSyncError = useWorkspaceUILayoutEventSync({
+    mode,
+    onLayoutUpdate: applyWorkspaceUIEventLayout,
+    runtime,
+    workspaceId,
+  });
   const projectPaneWidthRef = useRef(projectPaneWidth);
   projectPaneWidthRef.current = projectPaneWidth;
   const stageViewport = useCallback(() => {
@@ -270,6 +277,11 @@ function WorkspaceLayoutRuntimeArea({
     setLayoutRecoveryDismissed(false);
     resetLayoutPersistenceError();
   }, [resetLayoutPersistenceError, workspaceId]);
+  useEffect(() => {
+    if (layoutEventSyncError !== null) {
+      setLayoutRecoveryDismissed(false);
+    }
+  }, [layoutEventSyncError]);
   useEffect(() => {
     runtime.engine.setCompactLayout(mobileLayout);
     schedulerRef.current?.requestFrame();
@@ -861,6 +873,7 @@ function WorkspaceLayoutRuntimeArea({
   };
   const layoutRecoveryMessage = workspaceLayoutRecoveryMessage({
     dismissed: layoutRecoveryDismissed,
+    layoutEventSyncError,
     layoutLoadError,
     paneMetadataLoadError: paneMetadataLoad.error,
     layoutPersistenceError,
@@ -941,28 +954,6 @@ function WorkspaceLayoutRuntimeArea({
         stageViewport={stageViewport}
       />
     </section>
-  );
-}
-
-function installResizeReportHooksForRuntime(
-  runtime: WorkspaceRuntime,
-  viewportProvider: () => Rect,
-): () => void {
-  if (runtime.mode !== "benchmark") {
-    return () => {};
-  }
-  return installWindowResizeReportHooks({
-    metrics: runtime.metrics,
-    viewportProvider,
-    writer: runtime.resizeReportWriter,
-  });
-}
-
-function useWorkspaceLayoutSnapshot(store: WorkspaceLayoutStore) {
-  return useSyncExternalStore(
-    (listener) => store.subscribe(listener),
-    () => store.getSnapshot(),
-    () => store.getSnapshot(),
   );
 }
 

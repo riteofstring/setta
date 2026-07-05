@@ -134,6 +134,7 @@ import type {
   WorkflowValidationResult,
   WorkspaceUIPaneListResult,
   WorkspaceUIPaneReadResult,
+  WorkspaceUIEvent,
   WorkspaceUISchema,
   WorkspaceActivityEvent,
   WorkspaceActivitySnapshot,
@@ -430,6 +431,7 @@ export interface SettaAPI {
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
     listUIPanes: (workspaceId: string) => Promise<WorkspaceUIPaneListResult>;
+    onUIEvent: (workspaceId: string, listener: (event: WorkspaceUIEvent) => void) => () => void;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
     openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
     readUIPane: (workspaceId: string, paneId: string) => Promise<WorkspaceUIPaneReadResult>;
