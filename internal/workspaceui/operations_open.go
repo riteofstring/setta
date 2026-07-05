@@ -10,9 +10,12 @@ import (
 const defaultOpenPaneColumnWidthPX = 520
 
 type workspaceUIPaneOpenApplication struct {
-	layout   WorkspaceUILayout
-	pane     WorkspaceUIPane
-	warnings []WorkspaceUIPaneOperationWarning
+	layout       WorkspaceUILayout
+	pane         WorkspaceUIPane
+	placement    WorkspaceUIPaneDropPlacement
+	targetKind   WorkspaceUIPaneOpenTargetKind
+	targetPaneID string
+	warnings     []WorkspaceUIPaneOperationWarning
 }
 
 func (service *Service) applyOpenPaneOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation) (WorkspaceUIPaneOperationResult, error) {
@@ -68,6 +71,9 @@ func (service *Service) applyOpenPaneOperation(layout WorkspaceUILayout, operati
 			Kind: WorkspaceUIPaneOperationKindOpenPane,
 			Open: openOutcome(
 				operation.Open.AdjacentToColumnID,
+				application.targetKind,
+				application.targetPaneID,
+				application.placement,
 				layout.Columns[location.ColumnIndex],
 				createdPane,
 				location,
@@ -82,14 +88,13 @@ func (service *Service) applyOpenPaneOperation(layout WorkspaceUILayout, operati
 }
 
 func applyOpenPaneOperationToLayout(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation) (workspaceUIPaneOpenApplication, error) {
-	widthSpec, warnings := openPaneColumnWidthSpec(operation.Open.WidthSpec)
-	column, err := insertOpenPaneColumn(&layout, operation, widthSpec)
+	insertion, err := insertOpenPaneTarget(&layout, operation)
 	if err != nil {
 		return workspaceUIPaneOpenApplication{}, err
 	}
 	sequence := nextWorkspaceUIPaneSequence(layout)
 	pane := WorkspaceUIPane{
-		ColumnID:       column.ColumnID,
+		ColumnID:       insertion.column.ColumnID,
 		Heat:           (sequence * 37) % 100,
 		PaneID:         fmt.Sprintf("workspace_pane_%d", sequence),
 		Sequence:       sequence,
@@ -106,48 +111,178 @@ func applyOpenPaneOperationToLayout(layout WorkspaceUILayout, operation Workspac
 		),
 	}
 	layout.Panes = append(layout.Panes, pane)
-	columnIndex := columnIndexByID(layout.Columns, column.ColumnID)
+	columnIndex := columnIndexByID(layout.Columns, insertion.column.ColumnID)
 	if columnIndex < 0 {
 		return workspaceUIPaneOpenApplication{}, operationError(
 			layout.WorkspaceID,
 			operation,
 			WorkspaceUIOperationErrorCodeColumnNotFound,
-			fmt.Errorf("workspace pane open target column not found after insert: %s", column.ColumnID),
+			fmt.Errorf("workspace pane open target column not found after insert: %s", insertion.column.ColumnID),
 		)
 	}
-	layout.Columns[columnIndex].PaneIDs = append(layout.Columns[columnIndex].PaneIDs, pane.PaneID)
+	layout.Columns[columnIndex].PaneIDs = insertStringAt(layout.Columns[columnIndex].PaneIDs, insertion.paneIndex, pane.PaneID)
 	return workspaceUIPaneOpenApplication{
-		layout:   layout,
-		pane:     pane,
-		warnings: warnings,
+		layout:       layout,
+		pane:         pane,
+		placement:    insertion.placement,
+		targetKind:   insertion.targetKind,
+		targetPaneID: insertion.targetPaneID,
+		warnings:     insertion.warnings,
 	}, nil
 }
 
-func insertOpenPaneColumn(layout *WorkspaceUILayout, operation WorkspaceUIPaneOperation, widthSpec ColumnWidthSpec) (WorkspaceUIColumn, error) {
+type workspaceUIPaneOpenInsertion struct {
+	column       WorkspaceUIColumn
+	paneIndex    int
+	placement    WorkspaceUIPaneDropPlacement
+	targetKind   WorkspaceUIPaneOpenTargetKind
+	targetPaneID string
+	warnings     []WorkspaceUIPaneOperationWarning
+}
+
+func insertOpenPaneTarget(layout *WorkspaceUILayout, operation WorkspaceUIPaneOperation) (workspaceUIPaneOpenInsertion, error) {
+	if operation.Open.Row != nil {
+		return insertOpenPaneRow(layout, operation)
+	}
+	if operation.Open.Plane != nil {
+		return insertOpenPanePlaneSlot(layout, operation)
+	}
+	return insertOpenPaneColumn(layout, operation)
+}
+
+func insertOpenPaneColumn(layout *WorkspaceUILayout, operation WorkspaceUIPaneOperation) (workspaceUIPaneOpenInsertion, error) {
+	widthSpec, warnings := openPaneColumnWidthSpec(operation.Open.WidthSpec, defaultOpenPaneColumnWidthSpec())
+	column, err := insertOpenPaneColumnAtSlot(layout, operation, widthSpec, openPaneColumnPlacement(layout, operation))
+	if err != nil {
+		return workspaceUIPaneOpenInsertion{}, err
+	}
+	targetKind := WorkspaceUIPaneOpenTargetKindColumnEnd
+	if operation.Open.AdjacentToColumnID != "" {
+		targetKind = WorkspaceUIPaneOpenTargetKindAdjacentColumn
+	}
+	return workspaceUIPaneOpenInsertion{
+		column:     column,
+		paneIndex:  0,
+		targetKind: targetKind,
+		warnings:   warnings,
+	}, nil
+}
+
+func insertOpenPaneRow(layout *WorkspaceUILayout, operation WorkspaceUIPaneOperation) (workspaceUIPaneOpenInsertion, error) {
+	target, ok := paneLocation(*layout, operation.Open.Row.TargetPaneID)
+	if !ok {
+		return workspaceUIPaneOpenInsertion{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodePaneNotFound,
+			fmt.Errorf("workspace pane open row target pane not found: %s", operation.Open.Row.TargetPaneID),
+		)
+	}
+	paneIndex := target.PaneIndex
+	if operation.Open.Row.Placement == WorkspaceUIPaneDropPlacementAfter {
+		paneIndex += 1
+	}
+	return workspaceUIPaneOpenInsertion{
+		column:       layout.Columns[target.ColumnIndex],
+		paneIndex:    paneIndex,
+		placement:    operation.Open.Row.Placement,
+		targetKind:   WorkspaceUIPaneOpenTargetKindRow,
+		targetPaneID: operation.Open.Row.TargetPaneID,
+		warnings:     []WorkspaceUIPaneOperationWarning{},
+	}, nil
+}
+
+func insertOpenPanePlaneSlot(layout *WorkspaceUILayout, operation WorkspaceUIPaneOperation) (workspaceUIPaneOpenInsertion, error) {
+	target, ok := paneLocation(*layout, operation.Open.Plane.TargetPaneID)
+	if !ok {
+		return workspaceUIPaneOpenInsertion{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodePaneNotFound,
+			fmt.Errorf("workspace pane open plane target pane not found: %s", operation.Open.Plane.TargetPaneID),
+		)
+	}
+	targetColumn := layout.Columns[target.ColumnIndex]
+	targetPlaneIndex := targetColumn.PlaneIndex
+	if operation.Open.Plane.Placement == WorkspaceUIPaneDropPlacementBefore {
+		targetPlaneIndex -= 1
+	} else {
+		targetPlaneIndex += 1
+	}
+	if targetPlaneIndex < 0 {
+		planeOffset := -targetPlaneIndex
+		for index := range layout.Columns {
+			layout.Columns[index].PlaneIndex += planeOffset
+		}
+		targetPlaneIndex = 0
+	}
+	widthSpec, warnings := openPaneColumnWidthSpec(operation.Open.WidthSpec, targetColumn.WidthSpec)
+	column, err := insertOpenPaneColumnAtSlot(
+		layout,
+		operation,
+		widthSpec,
+		workspaceUIPaneOpenColumnPlacement{
+			planeIndex: targetPlaneIndex,
+			slotIndex:  targetColumn.SlotIndex,
+		},
+	)
+	if err != nil {
+		return workspaceUIPaneOpenInsertion{}, err
+	}
+	return workspaceUIPaneOpenInsertion{
+		column:       column,
+		paneIndex:    0,
+		placement:    operation.Open.Plane.Placement,
+		targetKind:   WorkspaceUIPaneOpenTargetKindPlaneSlot,
+		targetPaneID: operation.Open.Plane.TargetPaneID,
+		warnings:     warnings,
+	}, nil
+}
+
+type workspaceUIPaneOpenColumnPlacement struct {
+	planeIndex int
+	slotIndex  int
+}
+
+func openPaneColumnPlacement(layout *WorkspaceUILayout, operation WorkspaceUIPaneOperation) workspaceUIPaneOpenColumnPlacement {
 	planeIndex := 0
 	slotIndex := nextSlotIndexForPlane(layout.Columns, planeIndex)
-	if operation.Open.AdjacentToColumnID != "" {
-		adjacentColumnIndex := columnIndexByID(layout.Columns, operation.Open.AdjacentToColumnID)
-		if adjacentColumnIndex < 0 {
-			return WorkspaceUIColumn{}, operationError(
-				layout.WorkspaceID,
-				operation,
-				WorkspaceUIOperationErrorCodeColumnNotFound,
-				fmt.Errorf("workspace pane open adjacent column not found: %s", operation.Open.AdjacentToColumnID),
-			)
-		}
-		adjacentColumn := layout.Columns[adjacentColumnIndex]
-		planeIndex = adjacentColumn.PlaneIndex
-		slotIndex = adjacentColumn.SlotIndex + 1
+	if operation.Open.AdjacentToColumnID == "" {
+		return workspaceUIPaneOpenColumnPlacement{planeIndex: planeIndex, slotIndex: slotIndex}
 	}
-	layout.Columns = shiftedColumnsForSlotInsert(layout.Columns, planeIndex, slotIndex)
+	adjacentColumnIndex := columnIndexByID(layout.Columns, operation.Open.AdjacentToColumnID)
+	if adjacentColumnIndex < 0 {
+		return workspaceUIPaneOpenColumnPlacement{planeIndex: planeIndex, slotIndex: slotIndex}
+	}
+	adjacentColumn := layout.Columns[adjacentColumnIndex]
+	return workspaceUIPaneOpenColumnPlacement{
+		planeIndex: adjacentColumn.PlaneIndex,
+		slotIndex:  adjacentColumn.SlotIndex + 1,
+	}
+}
+
+func insertOpenPaneColumnAtSlot(
+	layout *WorkspaceUILayout,
+	operation WorkspaceUIPaneOperation,
+	widthSpec ColumnWidthSpec,
+	placement workspaceUIPaneOpenColumnPlacement,
+) (WorkspaceUIColumn, error) {
+	if operation.Open.AdjacentToColumnID != "" && columnIndexByID(layout.Columns, operation.Open.AdjacentToColumnID) < 0 {
+		return WorkspaceUIColumn{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodeColumnNotFound,
+			fmt.Errorf("workspace pane open adjacent column not found: %s", operation.Open.AdjacentToColumnID),
+		)
+	}
+	layout.Columns = shiftedColumnsForSlotInsert(layout.Columns, placement.planeIndex, placement.slotIndex)
 	column := WorkspaceUIColumn{
 		ColumnID:       nextWorkspaceUIColumnID(layout.Columns),
 		IdealWidthSpec: widthSpec,
 		Index:          len(layout.Columns),
 		PaneIDs:        []string{},
-		PlaneIndex:     planeIndex,
-		SlotIndex:      slotIndex,
+		PlaneIndex:     placement.planeIndex,
+		SlotIndex:      placement.slotIndex,
 		WidthSpec:      widthSpec,
 	}
 	if widthSpec.Unit == ColumnWidthUnitProportion {
@@ -167,9 +302,9 @@ func insertOpenPaneColumn(layout *WorkspaceUILayout, operation WorkspaceUIPaneOp
 	return layout.Columns[columnIndex], nil
 }
 
-func openPaneColumnWidthSpec(requested *ColumnWidthSpec) (ColumnWidthSpec, []WorkspaceUIPaneOperationWarning) {
+func openPaneColumnWidthSpec(requested *ColumnWidthSpec, fallback ColumnWidthSpec) (ColumnWidthSpec, []WorkspaceUIPaneOperationWarning) {
 	if requested == nil {
-		return defaultOpenPaneColumnWidthSpec(), []WorkspaceUIPaneOperationWarning{}
+		return fallback, []WorkspaceUIPaneOperationWarning{}
 	}
 	widthSpec := normalizedResizeColumnWidthSpec(*requested)
 	return widthSpec, openPaneWidthWarnings(*requested, widthSpec)
@@ -210,7 +345,7 @@ func terminalConfigForOpenPane(surfaceKind SurfaceKind, config *TerminalPaneConf
 
 func validOpenPaneSurfaceKind(surfaceKind SurfaceKind) bool {
 	switch surfaceKind {
-	case SurfaceKindChatDOM, SurfaceKindTerminal, SurfaceKindWorkflowGraph, SurfaceKindWorkflowNodeDetails:
+	case SurfaceKindChatDOM, SurfaceKindEmptyFrame, SurfaceKindTerminal, SurfaceKindWorkflowGraph, SurfaceKindWorkflowNodeDetails:
 		return true
 	default:
 		return false
@@ -283,15 +418,33 @@ func workspaceUIPaneByID(panes []WorkspaceUIPane, paneID string) WorkspaceUIPane
 	return WorkspaceUIPane{}
 }
 
-func openOutcome(adjacentToColumnID string, column WorkspaceUIColumn, pane WorkspaceUIPane, location workspaceUIPaneLocation) *WorkspaceUIPaneOpenOutcome {
+func insertStringAt(values []string, index int, value string) []string {
+	index = clampInt(index, 0, len(values))
+	result := append([]string{}, values[:index]...)
+	result = append(result, value)
+	return append(result, values[index:]...)
+}
+
+func openOutcome(
+	adjacentToColumnID string,
+	targetKind WorkspaceUIPaneOpenTargetKind,
+	targetPaneID string,
+	placement WorkspaceUIPaneDropPlacement,
+	column WorkspaceUIColumn,
+	pane WorkspaceUIPane,
+	location workspaceUIPaneLocation,
+) *WorkspaceUIPaneOpenOutcome {
 	return &WorkspaceUIPaneOpenOutcome{
 		AdjacentToColumnID: adjacentToColumnID,
 		ColumnID:           column.ColumnID,
 		ColumnIndex:        location.ColumnIndex,
 		PaneIndex:          location.PaneIndex,
 		PlaneIndex:         location.PlaneIndex,
+		Placement:          placement,
 		SurfaceID:          pane.SurfaceID,
 		SurfaceKind:        pane.SurfaceKind,
+		TargetKind:         targetKind,
+		TargetPaneID:       targetPaneID,
 		Title:              pane.Title,
 		WidthSpec:          column.WidthSpec,
 	}

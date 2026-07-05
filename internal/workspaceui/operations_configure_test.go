@@ -158,6 +158,47 @@ func TestServiceAppliesConfigurePaneOperationToWorkflowGraph(t *testing.T) {
 	}
 }
 
+func TestServiceAppliesConfigurePaneOperationToEmptyFrame(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindEmptyFrame
+	layout.Panes[0].Title = "New frame"
+	layout.Panes[0].Subtitle = "choose a pane type"
+	layout.Panes[0].Tone = PaneToneSlate
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:      WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID:    "workspace_pane_0",
+		Configure: configurePaneOperation(SurfaceKindEmptyFrame, "Scratch frame", "choose a pane type", PaneToneSlate),
+	})
+	if err != nil {
+		t.Fatalf("apply configure operation: %v", err)
+	}
+	configuredPane := paneByID(t, result.Layout, "workspace_pane_0")
+	if configuredPane.SurfaceKind != SurfaceKindEmptyFrame ||
+		configuredPane.TerminalConfig != nil ||
+		configuredPane.WorkflowNodeDetailsConfig != nil {
+		t.Fatalf("configured pane = %+v, want empty frame without domain config", configuredPane)
+	}
+	assertConfigureOutcome(t, result.OperationResult.Configure, WorkspaceUIPaneConfigureOutcome{
+		PreviousSubtitle:    "choose a pane type",
+		PreviousSurfaceID:   "workspace_surface_0",
+		PreviousSurfaceKind: SurfaceKindEmptyFrame,
+		PreviousTitle:       "New frame",
+		PreviousTone:        PaneToneSlate,
+		Subtitle:            "choose a pane type",
+		SurfaceID:           "workspace_surface_2",
+		SurfaceKind:         SurfaceKindEmptyFrame,
+		Title:               "Scratch frame",
+		Tone:                PaneToneSlate,
+	})
+}
+
 func TestServiceAppliesConfigurePaneOperationToWorkflowNodeDetails(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",

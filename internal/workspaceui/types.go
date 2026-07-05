@@ -95,6 +95,15 @@ const (
 	WorkspaceUIPaneReorderIntentKindSwap      WorkspaceUIPaneReorderIntentKind = "swap"
 )
 
+type WorkspaceUIPaneOpenTargetKind string
+
+const (
+	WorkspaceUIPaneOpenTargetKindAdjacentColumn WorkspaceUIPaneOpenTargetKind = "adjacent_column"
+	WorkspaceUIPaneOpenTargetKindColumnEnd      WorkspaceUIPaneOpenTargetKind = "column_end"
+	WorkspaceUIPaneOpenTargetKindPlaneSlot      WorkspaceUIPaneOpenTargetKind = "plane_slot"
+	WorkspaceUIPaneOpenTargetKindRow            WorkspaceUIPaneOpenTargetKind = "row"
+)
+
 type WorkspaceUIPaneRuntimeStatus string
 
 const (
@@ -238,14 +247,26 @@ type WorkspaceUIPaneMoveOperation struct {
 }
 
 type WorkspaceUIPaneOpenOperation struct {
-	AdjacentToColumnID        string                         `json:"adjacentToColumnId"`
-	Subtitle                  string                         `json:"subtitle"`
-	SurfaceKind               SurfaceKind                    `json:"surfaceKind"`
-	TerminalConfig            *TerminalPaneConfig            `json:"terminalConfig"`
-	Title                     string                         `json:"title"`
-	Tone                      PaneTone                       `json:"tone"`
-	WidthSpec                 *ColumnWidthSpec               `json:"widthSpec"`
-	WorkflowNodeDetailsConfig *WorkflowNodeDetailsPaneConfig `json:"workflowNodeDetailsConfig"`
+	AdjacentToColumnID        string                          `json:"adjacentToColumnId"`
+	Plane                     *WorkspaceUIPaneOpenPlaneTarget `json:"plane"`
+	Row                       *WorkspaceUIPaneOpenRowTarget   `json:"row"`
+	Subtitle                  string                          `json:"subtitle"`
+	SurfaceKind               SurfaceKind                     `json:"surfaceKind"`
+	TerminalConfig            *TerminalPaneConfig             `json:"terminalConfig"`
+	Title                     string                          `json:"title"`
+	Tone                      PaneTone                        `json:"tone"`
+	WidthSpec                 *ColumnWidthSpec                `json:"widthSpec"`
+	WorkflowNodeDetailsConfig *WorkflowNodeDetailsPaneConfig  `json:"workflowNodeDetailsConfig"`
+}
+
+type WorkspaceUIPaneOpenPlaneTarget struct {
+	Placement    WorkspaceUIPaneDropPlacement `json:"placement"`
+	TargetPaneID string                       `json:"targetPaneId"`
+}
+
+type WorkspaceUIPaneOpenRowTarget struct {
+	Placement    WorkspaceUIPaneDropPlacement `json:"placement"`
+	TargetPaneID string                       `json:"targetPaneId"`
 }
 
 type WorkspaceUIPaneRenameOperation struct {
@@ -351,15 +372,18 @@ type WorkspaceUIPaneMoveOutcome struct {
 }
 
 type WorkspaceUIPaneOpenOutcome struct {
-	AdjacentToColumnID string          `json:"adjacentToColumnId"`
-	ColumnID           string          `json:"columnId"`
-	ColumnIndex        int             `json:"columnIndex"`
-	PaneIndex          int             `json:"paneIndex"`
-	PlaneIndex         int             `json:"planeIndex"`
-	SurfaceID          string          `json:"surfaceId"`
-	SurfaceKind        SurfaceKind     `json:"surfaceKind"`
-	Title              string          `json:"title"`
-	WidthSpec          ColumnWidthSpec `json:"widthSpec"`
+	AdjacentToColumnID string                        `json:"adjacentToColumnId"`
+	ColumnID           string                        `json:"columnId"`
+	ColumnIndex        int                           `json:"columnIndex"`
+	PaneIndex          int                           `json:"paneIndex"`
+	PlaneIndex         int                           `json:"planeIndex"`
+	Placement          WorkspaceUIPaneDropPlacement  `json:"placement"`
+	SurfaceID          string                        `json:"surfaceId"`
+	SurfaceKind        SurfaceKind                   `json:"surfaceKind"`
+	TargetKind         WorkspaceUIPaneOpenTargetKind `json:"targetKind"`
+	TargetPaneID       string                        `json:"targetPaneId"`
+	Title              string                        `json:"title"`
+	WidthSpec          ColumnWidthSpec               `json:"widthSpec"`
 }
 
 type WorkspaceUIPaneRenameOutcome struct {
@@ -552,6 +576,10 @@ func ContractValueSets() []ContractValueSet {
 			Values: stringValues(supportedPaneOperationKinds()),
 		},
 		{
+			Name:   "WorkspaceUIPaneOpenTargetKind",
+			Values: stringValues(supportedPaneOpenTargetKinds()),
+		},
+		{
 			Name:   "WorkspaceUIPaneReorderIntentKind",
 			Values: stringValues(supportedPaneReorderIntentKinds()),
 		},
@@ -645,6 +673,15 @@ func supportedPaneDropPlacements() []WorkspaceUIPaneDropPlacement {
 	return []WorkspaceUIPaneDropPlacement{
 		WorkspaceUIPaneDropPlacementAfter,
 		WorkspaceUIPaneDropPlacementBefore,
+	}
+}
+
+func supportedPaneOpenTargetKinds() []WorkspaceUIPaneOpenTargetKind {
+	return []WorkspaceUIPaneOpenTargetKind{
+		WorkspaceUIPaneOpenTargetKindAdjacentColumn,
+		WorkspaceUIPaneOpenTargetKindColumnEnd,
+		WorkspaceUIPaneOpenTargetKindPlaneSlot,
+		WorkspaceUIPaneOpenTargetKindRow,
 	}
 }
 

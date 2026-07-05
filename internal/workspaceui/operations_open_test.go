@@ -86,6 +86,7 @@ func assertOpenTerminalOutcome(t *testing.T, outcome WorkspaceUIPaneOperationOut
 		PlaneIndex:  0,
 		SurfaceID:   "workspace_surface_2",
 		SurfaceKind: SurfaceKindTerminal,
+		TargetKind:  WorkspaceUIPaneOpenTargetKindColumnEnd,
 		Title:       "Build Terminal",
 		WidthSpec:   defaultOpenPaneColumnWidthSpec(),
 	})
@@ -159,8 +160,166 @@ func TestServiceAppliesOpenPaneChatAfterAdjacentColumn(t *testing.T) {
 		PlaneIndex:         0,
 		SurfaceID:          "workspace_surface_3",
 		SurfaceKind:        SurfaceKindChatDOM,
+		TargetKind:         WorkspaceUIPaneOpenTargetKindAdjacentColumn,
 		Title:              "Side Chat",
 		WidthSpec:          widthSpec,
+	})
+}
+
+func TestServiceAppliesOpenPaneEmptyFrameInTargetRow(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	open := openPaneOperation(SurfaceKindEmptyFrame, "New frame", "choose a pane type", PaneToneSlate)
+	open.Row = &WorkspaceUIPaneOpenRowTarget{
+		Placement:    WorkspaceUIPaneDropPlacementAfter,
+		TargetPaneID: "workspace_pane_0",
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindOpenPane,
+		Open: open,
+	})
+	if err != nil {
+		t.Fatalf("apply open operation: %v", err)
+	}
+
+	if result.Layout.FocusedPaneID != "workspace_pane_2" || result.Revision != 2 {
+		t.Fatalf("result = %+v, want created row pane focused at revision 2", result)
+	}
+	if len(result.Layout.Columns) != 1 {
+		t.Fatalf("columns = %+v, want same-column row insert", result.Layout.Columns)
+	}
+	assertPaneIDs(t, result.Layout.Columns[0].PaneIDs, "workspace_pane_0", "workspace_pane_2", "workspace_pane_1")
+	pane := paneByID(t, result.Layout, "workspace_pane_2")
+	if pane.ColumnID != "workspace_column_0" || pane.SurfaceKind != SurfaceKindEmptyFrame || pane.Title != "New frame" {
+		t.Fatalf("created pane = %+v, want empty frame in target row", pane)
+	}
+	assertOpenOutcome(t, result.OperationResult.Open, WorkspaceUIPaneOpenOutcome{
+		ColumnID:     "workspace_column_0",
+		ColumnIndex:  0,
+		PaneIndex:    1,
+		PlaneIndex:   0,
+		Placement:    WorkspaceUIPaneDropPlacementAfter,
+		SurfaceID:    "workspace_surface_2",
+		SurfaceKind:  SurfaceKindEmptyFrame,
+		TargetKind:   WorkspaceUIPaneOpenTargetKindRow,
+		TargetPaneID: "workspace_pane_0",
+		Title:        "New frame",
+		WidthSpec:    ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620},
+	})
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Revision != 2 {
+		t.Fatalf("loaded layout = %+v, want persisted row open", loaded.Layout)
+	}
+	assertPaneIDs(t, loaded.Layout.Columns[0].PaneIDs, "workspace_pane_0", "workspace_pane_2", "workspace_pane_1")
+}
+
+func TestServiceAppliesOpenPaneEmptyFrameInPlaneAboveFirstPlane(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testMultiColumnLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	open := openPaneOperation(SurfaceKindEmptyFrame, "New frame", "choose a pane type", PaneToneSlate)
+	open.Plane = &WorkspaceUIPaneOpenPlaneTarget{
+		Placement:    WorkspaceUIPaneDropPlacementBefore,
+		TargetPaneID: "workspace_pane_1",
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindOpenPane,
+		Open: open,
+	})
+	if err != nil {
+		t.Fatalf("apply open operation: %v", err)
+	}
+
+	createdColumnIndex := columnIndexByID(result.Layout.Columns, "workspace_column_2")
+	if createdColumnIndex < 0 {
+		t.Fatalf("columns = %+v, want created column", result.Layout.Columns)
+	}
+	createdColumn := result.Layout.Columns[createdColumnIndex]
+	if createdColumn.PlaneIndex != 0 || createdColumn.SlotIndex != 1 || createdColumn.WidthSpec != (ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 480}) {
+		t.Fatalf("created column = %+v, want plane above target slot with copied width", createdColumn)
+	}
+	for _, column := range result.Layout.Columns {
+		if column.ColumnID != "workspace_column_2" && column.PlaneIndex != 1 {
+			t.Fatalf("column = %+v, want original columns shifted below created plane", column)
+		}
+		if column.PlaneIndex < 0 {
+			t.Fatalf("columns = %+v, want non-negative planes", result.Layout.Columns)
+		}
+	}
+	assertOpenOutcome(t, result.OperationResult.Open, WorkspaceUIPaneOpenOutcome{
+		ColumnID:     "workspace_column_2",
+		ColumnIndex:  createdColumnIndex,
+		PaneIndex:    0,
+		PlaneIndex:   0,
+		Placement:    WorkspaceUIPaneDropPlacementBefore,
+		SurfaceID:    "workspace_surface_3",
+		SurfaceKind:  SurfaceKindEmptyFrame,
+		TargetKind:   WorkspaceUIPaneOpenTargetKindPlaneSlot,
+		TargetPaneID: "workspace_pane_1",
+		Title:        "New frame",
+		WidthSpec:    ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 480},
+	})
+}
+
+func TestServiceOpenPanePlaneTargetShiftsOccupiedSlot(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testMultiPlaneSlotLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	open := openPaneOperation(SurfaceKindEmptyFrame, "New frame", "choose a pane type", PaneToneSlate)
+	open.Plane = &WorkspaceUIPaneOpenPlaneTarget{
+		Placement:    WorkspaceUIPaneDropPlacementAfter,
+		TargetPaneID: "workspace_pane_0",
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindOpenPane,
+		Open: open,
+	})
+	if err != nil {
+		t.Fatalf("apply open operation: %v", err)
+	}
+
+	createdColumnIndex := columnIndexByID(result.Layout.Columns, "workspace_column_3")
+	shiftedColumnIndex := columnIndexByID(result.Layout.Columns, "workspace_column_2")
+	if createdColumnIndex < 0 || shiftedColumnIndex < 0 {
+		t.Fatalf("columns = %+v, want created and shifted lower-plane columns", result.Layout.Columns)
+	}
+	createdColumn := result.Layout.Columns[createdColumnIndex]
+	shiftedColumn := result.Layout.Columns[shiftedColumnIndex]
+	if createdColumn.PlaneIndex != 1 || createdColumn.SlotIndex != 0 {
+		t.Fatalf("created column = %+v, want lower plane target slot", createdColumn)
+	}
+	if shiftedColumn.PlaneIndex != 1 || shiftedColumn.SlotIndex != 1 {
+		t.Fatalf("shifted column = %+v, want existing lower slot shifted right", shiftedColumn)
+	}
+	assertOpenOutcome(t, result.OperationResult.Open, WorkspaceUIPaneOpenOutcome{
+		ColumnID:     "workspace_column_3",
+		ColumnIndex:  createdColumnIndex,
+		PaneIndex:    0,
+		PlaneIndex:   1,
+		Placement:    WorkspaceUIPaneDropPlacementAfter,
+		SurfaceID:    "workspace_surface_4",
+		SurfaceKind:  SurfaceKindEmptyFrame,
+		TargetKind:   WorkspaceUIPaneOpenTargetKindPlaneSlot,
+		TargetPaneID: "workspace_pane_0",
+		Title:        "New frame",
+		WidthSpec:    ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620},
 	})
 }
 
@@ -242,6 +401,7 @@ func TestServiceAppliesOpenPaneWorkflowNodeDetailsWithConfig(t *testing.T) {
 		PlaneIndex:  0,
 		SurfaceID:   "workspace_surface_2",
 		SurfaceKind: SurfaceKindWorkflowNodeDetails,
+		TargetKind:  WorkspaceUIPaneOpenTargetKindColumnEnd,
 		Title:       "Workflow Node",
 		WidthSpec:   widthSpec,
 	})
@@ -394,6 +554,64 @@ func TestServiceRejectsOpenPaneInvalidPayloads(t *testing.T) {
 					"workflow node details",
 					PaneToneCyan,
 				),
+			},
+		},
+		{
+			name: "multiple targets",
+			operation: WorkspaceUIPaneOperation{
+				Kind: WorkspaceUIPaneOperationKindOpenPane,
+				Open: func() *WorkspaceUIPaneOpenOperation {
+					open := openPaneOperation(SurfaceKindEmptyFrame, "New frame", "choose a pane type", PaneToneSlate)
+					open.AdjacentToColumnID = "workspace_column_0"
+					open.Row = &WorkspaceUIPaneOpenRowTarget{
+						Placement:    WorkspaceUIPaneDropPlacementAfter,
+						TargetPaneID: "workspace_pane_0",
+					}
+					return open
+				}(),
+			},
+		},
+		{
+			name: "row target missing pane",
+			operation: WorkspaceUIPaneOperation{
+				Kind: WorkspaceUIPaneOperationKindOpenPane,
+				Open: func() *WorkspaceUIPaneOpenOperation {
+					open := openPaneOperation(SurfaceKindEmptyFrame, "New frame", "choose a pane type", PaneToneSlate)
+					open.Row = &WorkspaceUIPaneOpenRowTarget{
+						Placement: WorkspaceUIPaneDropPlacementAfter,
+					}
+					return open
+				}(),
+			},
+		},
+		{
+			name: "plane target invalid placement",
+			operation: WorkspaceUIPaneOperation{
+				Kind: WorkspaceUIPaneOperationKindOpenPane,
+				Open: func() *WorkspaceUIPaneOpenOperation {
+					open := openPaneOperation(SurfaceKindEmptyFrame, "New frame", "choose a pane type", PaneToneSlate)
+					open.Plane = &WorkspaceUIPaneOpenPlaneTarget{
+						Placement:    WorkspaceUIPaneDropPlacement("beside"),
+						TargetPaneID: "workspace_pane_0",
+					}
+					return open
+				}(),
+			},
+		},
+		{
+			name: "row target with width",
+			operation: WorkspaceUIPaneOperation{
+				Kind: WorkspaceUIPaneOperationKindOpenPane,
+				Open: func() *WorkspaceUIPaneOpenOperation {
+					widthSpec := ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 420}
+					open := openPaneOperation(SurfaceKindEmptyFrame, "New frame", "choose a pane type", PaneToneSlate)
+					open.Row = &WorkspaceUIPaneOpenRowTarget{
+						Placement:    WorkspaceUIPaneDropPlacementAfter,
+						TargetPaneID: "workspace_pane_0",
+					}
+					open.WidthSpec = &widthSpec
+					return open
+				}(),
 			},
 		},
 		{

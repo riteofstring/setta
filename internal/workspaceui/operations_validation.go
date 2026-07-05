@@ -188,6 +188,9 @@ func validateOpenPaneOperation(operation WorkspaceUIPaneOperation) error {
 			return err
 		}
 	}
+	if err := validateOpenPaneTarget(open); err != nil {
+		return err
+	}
 	if err := validateOpenPaneTerminalConfig(open.SurfaceKind, open.TerminalConfig); err != nil {
 		return err
 	}
@@ -353,6 +356,42 @@ func validateOpenPaneMetadata(open WorkspaceUIPaneOpenOperation) error {
 	}
 	if !validPaneTone(open.Tone) {
 		return fmt.Errorf("workspace pane open tone is unsupported: %s", open.Tone)
+	}
+	return nil
+}
+
+func validateOpenPaneTarget(open WorkspaceUIPaneOpenOperation) error {
+	targetCount := 0
+	if open.AdjacentToColumnID != "" {
+		targetCount += 1
+	}
+	if open.Row != nil {
+		targetCount += 1
+	}
+	if open.Plane != nil {
+		targetCount += 1
+	}
+	if targetCount > 1 {
+		return errors.New("workspace pane open must include at most one target")
+	}
+	if open.Row != nil {
+		if open.WidthSpec != nil {
+			return errors.New("workspace pane open row target must not include widthSpec")
+		}
+		return validateOpenPaneTargetPane("row", open.Row.TargetPaneID, open.Row.Placement)
+	}
+	if open.Plane != nil {
+		return validateOpenPaneTargetPane("plane", open.Plane.TargetPaneID, open.Plane.Placement)
+	}
+	return nil
+}
+
+func validateOpenPaneTargetPane(name string, targetPaneID string, placement WorkspaceUIPaneDropPlacement) error {
+	if targetPaneID == "" {
+		return fmt.Errorf("workspace pane open %s targetPaneId is required", name)
+	}
+	if !validPaneDropPlacement(placement) {
+		return fmt.Errorf("workspace pane open %s placement is unsupported: %s", name, placement)
 	}
 	return nil
 }
