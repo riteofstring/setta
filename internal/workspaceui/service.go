@@ -211,6 +211,7 @@ func paneDescriptors(layout WorkspaceUILayout) ([]WorkspaceUIPaneDescriptor, err
 }
 
 func paneDescriptor(layout WorkspaceUILayout, column WorkspaceUIColumn, pane WorkspaceUIPane, paneIndex int) WorkspaceUIPaneDescriptor {
+	canClosePane := len(layout.Panes) > 1
 	return WorkspaceUIPaneDescriptor{
 		PaneID:      pane.PaneID,
 		SurfaceID:   pane.SurfaceID,
@@ -233,14 +234,21 @@ func paneDescriptor(layout WorkspaceUILayout, column WorkspaceUIColumn, pane Wor
 		RuntimeState: WorkspaceUIPaneRuntimeState{
 			Status: WorkspaceUIPaneRuntimeStatusLayoutOnly,
 		},
-		CanFocus:          false,
-		CanMove:           false,
-		CanClosePane:      false,
-		SurfaceCloseModes: []WorkspaceUISurfaceCloseMode{},
+		CanFocus:          true,
+		CanMove:           true,
+		CanClosePane:      canClosePane,
+		SurfaceCloseModes: surfaceCloseModesForPane(canClosePane),
 		ReadModes:         []WorkspaceUIPaneReadMode{WorkspaceUIPaneReadModeMetadata},
 		WriteModes:        []WorkspaceUIPaneWriteMode{},
 		ContentRefs:       contentRefsForPane(pane),
 	}
+}
+
+func surfaceCloseModesForPane(canClosePane bool) []WorkspaceUISurfaceCloseMode {
+	if !canClosePane {
+		return []WorkspaceUISurfaceCloseMode{}
+	}
+	return []WorkspaceUISurfaceCloseMode{WorkspaceUISurfaceCloseModeNone}
 }
 
 func contentRefsForPane(pane WorkspaceUIPane) WorkspaceUIPaneContentRefs {

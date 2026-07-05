@@ -218,8 +218,11 @@ func TestWorkspaceUIPaneIntrospectionEndpoints(t *testing.T) {
 	if list.Panes[1].ContentRefs.Terminal == nil || list.Panes[1].ContentRefs.Terminal.CWDOverride != "/tmp/workspace" {
 		t.Fatalf("terminal content ref = %+v", list.Panes[1].ContentRefs.Terminal)
 	}
-	if list.Panes[1].CanFocus || len(list.Panes[1].WriteModes) != 0 {
-		t.Fatalf("terminal capabilities = focus:%v writeModes:%+v, want read-only initial capabilities", list.Panes[1].CanFocus, list.Panes[1].WriteModes)
+	if !list.Panes[1].CanFocus || !list.Panes[1].CanMove || !list.Panes[1].CanClosePane || len(list.Panes[1].WriteModes) != 0 {
+		t.Fatalf("terminal capabilities = focus:%v move:%v close:%v writeModes:%+v, want layout capabilities without surface writes", list.Panes[1].CanFocus, list.Panes[1].CanMove, list.Panes[1].CanClosePane, list.Panes[1].WriteModes)
+	}
+	if len(list.Panes[1].SurfaceCloseModes) != 1 || list.Panes[1].SurfaceCloseModes[0] != workspaceui.WorkspaceUISurfaceCloseModeNone {
+		t.Fatalf("terminal surface close modes = %+v, want none", list.Panes[1].SurfaceCloseModes)
 	}
 
 	read := postJSON[workspaceui.WorkspaceUIPaneReadResult](t, handler, "/workspaces/ui/panes/read", ReadWorkspaceUIPaneRequest{

@@ -33,6 +33,8 @@ Do not edit persisted UI state files, synthesize raw layout JSON as the mutation
 
    Select panes by stable `paneId`. Check `surfaceKind`, `focused`, `location`, `canFocus`, `canMove`, `canClosePane`, `surfaceCloseModes`, `readModes`, `writeModes`, and `contentRefs` before choosing an operation.
 
+   Current per-pane capability fields explicitly cover focus, move, close-pane, surface close modes, and surface read/write modes. For layout commands without a dedicated capability field yet, such as rename, resize, reorder, open, and layout apply, use the schema plus the command contract and preserve the structured backend response for confirmation.
+
 4. Read the target pane immediately before mutating:
 
    ```bash
@@ -90,7 +92,7 @@ Fail loudly and preserve structured error output when:
 - `panes list` reports `layoutPresent: false`
 - the target pane ID is absent
 - more than one pane could satisfy a human description
-- the requested operation is not supported by the pane capabilities
+- the requested operation is not supported by the pane capabilities or command contract
 - `safe` or `force` surface close is requested but not supported
 - an input JSON file contains mixed operation payloads or caller-owned pane identity
 - a command returns a structured backend error, warning, or unchanged result that does not satisfy the request

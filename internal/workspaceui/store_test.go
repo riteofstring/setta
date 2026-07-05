@@ -388,8 +388,11 @@ func assertChatPaneDescriptor(t *testing.T, pane WorkspaceUIPaneDescriptor) {
 	if pane.WriteModes == nil || len(pane.WriteModes) != 0 {
 		t.Fatalf("chat write modes = %+v, want empty slice", pane.WriteModes)
 	}
-	if pane.CanFocus || pane.CanMove || pane.CanClosePane {
-		t.Fatalf("chat layout mutation capabilities = focus:%v move:%v close:%v, want false", pane.CanFocus, pane.CanMove, pane.CanClosePane)
+	if !pane.CanFocus || !pane.CanMove || !pane.CanClosePane {
+		t.Fatalf("chat layout mutation capabilities = focus:%v move:%v close:%v, want true", pane.CanFocus, pane.CanMove, pane.CanClosePane)
+	}
+	if len(pane.SurfaceCloseModes) != 1 || pane.SurfaceCloseModes[0] != WorkspaceUISurfaceCloseModeNone {
+		t.Fatalf("chat surface close modes = %+v, want none", pane.SurfaceCloseModes)
 	}
 }
 
@@ -407,6 +410,12 @@ func assertTerminalPaneDescriptor(t *testing.T, pane WorkspaceUIPaneDescriptor) 
 	if pane.ContentRefs.Terminal.ProfileID != "default" || pane.ContentRefs.Terminal.SessionID != "" {
 		t.Fatalf("terminal content ref = %+v, want profile default and no session", pane.ContentRefs.Terminal)
 	}
+	if !pane.CanFocus || !pane.CanMove || !pane.CanClosePane {
+		t.Fatalf("terminal layout mutation capabilities = focus:%v move:%v close:%v, want true", pane.CanFocus, pane.CanMove, pane.CanClosePane)
+	}
+	if len(pane.SurfaceCloseModes) != 1 || pane.SurfaceCloseModes[0] != WorkspaceUISurfaceCloseModeNone {
+		t.Fatalf("terminal surface close modes = %+v, want none", pane.SurfaceCloseModes)
+	}
 }
 
 func TestServiceListsEmptyPanesWhenLayoutMissing(t *testing.T) {
@@ -423,6 +432,48 @@ func TestServiceListsEmptyPanesWhenLayoutMissing(t *testing.T) {
 	}
 	if list.Panes == nil || len(list.Panes) != 0 {
 		t.Fatalf("panes = %+v, want empty slice", list.Panes)
+	}
+}
+
+func TestServiceListsLastPaneAsNotCloseable(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testLayout("workspace_api")
+	layout.Panes = layout.Panes[:1]
+	layout.Columns = []WorkspaceUIColumn{
+		{
+			ColumnID:                "workspace_column_0",
+			Index:                   0,
+			PaneIDs:                 []string{"workspace_pane_0"},
+			PlaneIndex:              0,
+			PreviousProportionWidth: nil,
+			SlotIndex:               0,
+			WidthSpec:               ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 520},
+			IdealWidthSpec:          ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 520},
+		},
+	}
+	layout.FocusedPaneID = "workspace_pane_0"
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	list, err := service.ListPanes("workspace_api")
+	if err != nil {
+		t.Fatalf("list panes: %v", err)
+	}
+	if len(list.Panes) != 1 {
+		t.Fatalf("panes = %+v, want one pane", list.Panes)
+	}
+	pane := list.Panes[0]
+	if !pane.CanFocus || !pane.CanMove {
+		t.Fatalf("layout mutation capabilities = focus:%v move:%v, want true", pane.CanFocus, pane.CanMove)
+	}
+	if pane.CanClosePane {
+		t.Fatalf("canClosePane = true, want false for last pane")
+	}
+	if len(pane.SurfaceCloseModes) != 0 {
+		t.Fatalf("surface close modes = %+v, want empty for last pane", pane.SurfaceCloseModes)
 	}
 }
 
