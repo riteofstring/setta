@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 28;
-export const backendContractSchemaHash = "sha256:9d9d6324cf2ab714e0a164767206e28f9bf6f28a114ffbb03381ad33b707567b";
+export const backendProtocolVersion = 29;
+export const backendContractSchemaHash = "sha256:0a5fa6a1a56e138cd27cdc8f9b103ba51d5ebc49cba1d09603449a44644d969b";
 
 export type DeviceScope = "full";
 
@@ -3820,6 +3820,27 @@ export interface SendWorkspaceUIChatResponse {
   result: SendMessageResult;
 }
 
+export interface QueueWorkspaceUIChatRequest {
+  workspaceId: string;
+  paneId: string;
+  input: ChatInput;
+}
+
+export interface QueueMessageResult {
+  conversation: Conversation;
+  userMessage: ChatMessage;
+  run: Run;
+  queue: QueueState;
+  page: MessagePage;
+}
+
+export interface QueueWorkspaceUIChatResponse {
+  workspaceId: string;
+  pane: WorkspaceUIPaneDescriptor;
+  conversationId: string;
+  result: QueueMessageResult;
+}
+
 export interface ReadWorkspaceUITerminalRequest {
   workspaceId: string;
   paneId: string;
@@ -4590,14 +4611,6 @@ export interface QueueChatMessageRequest {
   workspaceId: string;
   conversationId: string;
   input: ChatInput;
-}
-
-export interface QueueMessageResult {
-  conversation: Conversation;
-  userMessage: ChatMessage;
-  run: Run;
-  queue: QueueState;
-  page: MessagePage;
 }
 
 export interface EditQueuedChatMessageRequest {
@@ -7496,6 +7509,11 @@ export const backendEndpoints = {
     path: "/workspaces/ui/chats/send",
     requestBodyLimitBytes: 4194304,
   },
+  QueueWorkspaceUIChat: {
+    method: "POST",
+    path: "/workspaces/ui/chats/queue",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadWorkspaceUITerminal: {
     method: "POST",
     path: "/workspaces/ui/terminals/read",
@@ -9458,6 +9476,39 @@ export function decodeSendWorkspaceUIChatResponse(value: unknown): SendWorkspace
   };
 }
 
+export function decodeQueueWorkspaceUIChatRequest(value: unknown): QueueWorkspaceUIChatRequest {
+  const record = assertRecord(value, "QueueWorkspaceUIChatRequest");
+  assertKnownFields(record, "QueueWorkspaceUIChatRequest", ["workspaceId", "paneId", "input"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "QueueWorkspaceUIChatRequest"), "QueueWorkspaceUIChatRequest.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "QueueWorkspaceUIChatRequest"), "QueueWorkspaceUIChatRequest.paneId"),
+    input: decodeChatInput(requireField(record, "input", "QueueWorkspaceUIChatRequest")),
+  };
+}
+
+export function decodeQueueMessageResult(value: unknown): QueueMessageResult {
+  const record = assertRecord(value, "QueueMessageResult");
+  assertKnownFields(record, "QueueMessageResult", ["conversation", "userMessage", "run", "queue", "page"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "QueueMessageResult")),
+    userMessage: decodeChatMessage(requireField(record, "userMessage", "QueueMessageResult")),
+    run: decodeRun(requireField(record, "run", "QueueMessageResult")),
+    queue: decodeQueueState(requireField(record, "queue", "QueueMessageResult")),
+    page: decodeMessagePage(requireField(record, "page", "QueueMessageResult")),
+  };
+}
+
+export function decodeQueueWorkspaceUIChatResponse(value: unknown): QueueWorkspaceUIChatResponse {
+  const record = assertRecord(value, "QueueWorkspaceUIChatResponse");
+  assertKnownFields(record, "QueueWorkspaceUIChatResponse", ["workspaceId", "pane", "conversationId", "result"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "QueueWorkspaceUIChatResponse"), "QueueWorkspaceUIChatResponse.workspaceId"),
+    pane: decodeWorkspaceUIPaneDescriptor(requireField(record, "pane", "QueueWorkspaceUIChatResponse")),
+    conversationId: decodeString(requireField(record, "conversationId", "QueueWorkspaceUIChatResponse"), "QueueWorkspaceUIChatResponse.conversationId"),
+    result: decodeQueueMessageResult(requireField(record, "result", "QueueWorkspaceUIChatResponse")),
+  };
+}
+
 export function decodeReadWorkspaceUITerminalRequest(value: unknown): ReadWorkspaceUITerminalRequest {
   const record = assertRecord(value, "ReadWorkspaceUITerminalRequest");
   assertKnownFields(record, "ReadWorkspaceUITerminalRequest", ["workspaceId", "paneId", "recentOutputByteLimit"]);
@@ -10583,18 +10634,6 @@ export function decodeQueueChatMessageRequest(value: unknown): QueueChatMessageR
     workspaceId: decodeString(requireField(record, "workspaceId", "QueueChatMessageRequest"), "QueueChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "QueueChatMessageRequest"), "QueueChatMessageRequest.conversationId"),
     input: decodeChatInput(requireField(record, "input", "QueueChatMessageRequest")),
-  };
-}
-
-export function decodeQueueMessageResult(value: unknown): QueueMessageResult {
-  const record = assertRecord(value, "QueueMessageResult");
-  assertKnownFields(record, "QueueMessageResult", ["conversation", "userMessage", "run", "queue", "page"]);
-  return {
-    conversation: decodeConversation(requireField(record, "conversation", "QueueMessageResult")),
-    userMessage: decodeChatMessage(requireField(record, "userMessage", "QueueMessageResult")),
-    run: decodeRun(requireField(record, "run", "QueueMessageResult")),
-    queue: decodeQueueState(requireField(record, "queue", "QueueMessageResult")),
-    page: decodeMessagePage(requireField(record, "page", "QueueMessageResult")),
   };
 }
 
@@ -14558,6 +14597,7 @@ export interface BackendClient {
   readWorkspaceUIPane: (request: ReadWorkspaceUIPaneRequest) => Promise<WorkspaceUIPaneReadResult>;
   readWorkspaceUIChat: (request: ReadWorkspaceUIChatRequest) => Promise<ReadWorkspaceUIChatResponse>;
   sendWorkspaceUIChat: (request: SendWorkspaceUIChatRequest) => Promise<SendWorkspaceUIChatResponse>;
+  queueWorkspaceUIChat: (request: QueueWorkspaceUIChatRequest) => Promise<QueueWorkspaceUIChatResponse>;
   readWorkspaceUITerminal: (request: ReadWorkspaceUITerminalRequest) => Promise<ReadWorkspaceUITerminalResponse>;
   prepareWorkspaceUITerminalWrite: (request: PrepareWorkspaceUITerminalWriteRequest) => Promise<PrepareWorkspaceUITerminalWriteResponse>;
   commitWorkspaceUITerminalWrite: (request: CommitWorkspaceUITerminalWriteRequest) => Promise<CommitWorkspaceUITerminalWriteResponse>;
@@ -14880,6 +14920,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSendWorkspaceUIChatResponse,
       endpoint: backendEndpoints.SendWorkspaceUIChat,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    queueWorkspaceUIChat: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeQueueWorkspaceUIChatResponse,
+      endpoint: backendEndpoints.QueueWorkspaceUIChat,
       fetchImpl,
       requestPayload: request,
     }),

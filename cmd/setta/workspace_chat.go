@@ -25,11 +25,19 @@ type workspaceChatSendOptions struct {
 	PaneID     string
 }
 
+type workspaceChatQueueOptions struct {
+	AppDataDir string
+	InputPath  string
+	PaneID     string
+}
+
 func runWorkspaceChats(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workspace chats requires a subcommand: read or send")}
+		return usageError{err: errors.New("setta workspace chats requires a subcommand: queue, read, or send")}
 	}
 	switch args[0] {
+	case "queue":
+		return runWorkspaceChatsQueue(args[1:], deps)
 	case "read":
 		return runWorkspaceChatsRead(args[1:], deps)
 	case "send":
@@ -49,6 +57,22 @@ func runWorkspaceChatsRead(args []string, deps cliDeps) error {
 		return err
 	}
 	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace chat read result")
+}
+
+func runWorkspaceChatsQueue(args []string, deps cliDeps) error {
+	options, err := workspaceChatQueueOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	input, err := readWorkspaceChatQueueInputFile(options.InputPath)
+	if err != nil {
+		return err
+	}
+	result, err := queueWorkspaceChat(context.Background(), options, input, deps)
+	if err != nil {
+		return err
+	}
+	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace chat queue result")
 }
 
 func runWorkspaceChatsSend(args []string, deps cliDeps) error {
@@ -103,41 +127,61 @@ func workspaceChatReadOptionsFromArgs(args []string, deps cliDeps) (workspaceCha
 	}, nil
 }
 
+func workspaceChatQueueOptionsFromArgs(args []string, deps cliDeps) (workspaceChatQueueOptions, error) {
+	appDataDir, inputPath, paneID, err := workspaceChatWriteOptionsFromArgs("setta workspace chats queue", args, deps)
+	if err != nil {
+		return workspaceChatQueueOptions{}, err
+	}
+	return workspaceChatQueueOptions{
+		AppDataDir: appDataDir,
+		InputPath:  inputPath,
+		PaneID:     paneID,
+	}, nil
+}
+
 func workspaceChatSendOptionsFromArgs(args []string, deps cliDeps) (workspaceChatSendOptions, error) {
-	appDataDir, err := defaultAppDataDir(deps.getenv)
+	appDataDir, inputPath, paneID, err := workspaceChatWriteOptionsFromArgs("setta workspace chats send", args, deps)
 	if err != nil {
 		return workspaceChatSendOptions{}, err
-	}
-	var inputPath string
-	normalizedArgs, err := normalizeWorkspacePaneFlagArgs(args, "app-data-dir", "input")
-	if err != nil {
-		return workspaceChatSendOptions{}, usageError{err: err}
-	}
-	flagSet := newWorkspaceFlagSet("setta workspace chats send")
-	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
-	flagSet.StringVar(&inputPath, "input", "", "path to a chat message JSON input file")
-	if err := flagSet.Parse(normalizedArgs); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return workspaceChatSendOptions{}, usageError{err: err}
-		}
-		return workspaceChatSendOptions{}, usageError{err: err}
-	}
-	if flagSet.NArg() != 1 {
-		return workspaceChatSendOptions{}, usageError{err: errors.New("setta workspace chats send requires exactly one pane id")}
-	}
-	paneID := strings.TrimSpace(flagSet.Arg(0))
-	if paneID == "" {
-		return workspaceChatSendOptions{}, usageError{err: errors.New("workspace pane id is required")}
-	}
-	inputPath = strings.TrimSpace(inputPath)
-	if inputPath == "" {
-		return workspaceChatSendOptions{}, usageError{err: errors.New("setta workspace chats send requires --input")}
 	}
 	return workspaceChatSendOptions{
 		AppDataDir: appDataDir,
 		InputPath:  inputPath,
 		PaneID:     paneID,
 	}, nil
+}
+
+func workspaceChatWriteOptionsFromArgs(command string, args []string, deps cliDeps) (string, string, string, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return "", "", "", err
+	}
+	var inputPath string
+	normalizedArgs, err := normalizeWorkspacePaneFlagArgs(args, "app-data-dir", "input")
+	if err != nil {
+		return "", "", "", usageError{err: err}
+	}
+	flagSet := newWorkspaceFlagSet(command)
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&inputPath, "input", "", "path to a chat message JSON input file")
+	if err := flagSet.Parse(normalizedArgs); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return "", "", "", usageError{err: err}
+		}
+		return "", "", "", usageError{err: err}
+	}
+	if flagSet.NArg() != 1 {
+		return "", "", "", usageError{err: fmt.Errorf("%s requires exactly one pane id", command)}
+	}
+	paneID := strings.TrimSpace(flagSet.Arg(0))
+	if paneID == "" {
+		return "", "", "", usageError{err: errors.New("workspace pane id is required")}
+	}
+	inputPath = strings.TrimSpace(inputPath)
+	if inputPath == "" {
+		return "", "", "", usageError{err: fmt.Errorf("%s requires --input", command)}
+	}
+	return appDataDir, inputPath, paneID, nil
 }
 
 func readWorkspaceChat(
@@ -165,6 +209,36 @@ func readWorkspaceChat(
 	}
 	if err := validateWorkspaceChatReadResponse(result, currentWorkspace.ID, options.PaneID); err != nil {
 		return httpapi.ReadWorkspaceUIChatResponse{}, err
+	}
+	return result, nil
+}
+
+func queueWorkspaceChat(
+	ctx context.Context,
+	options workspaceChatQueueOptions,
+	input chat.ChatInput,
+	deps cliDeps,
+) (httpapi.QueueWorkspaceUIChatResponse, error) {
+	state, token, cleanup, err := workspaceCommandAuth(ctx, options.AppDataDir, workspaceChatsQueueCLIAuthDisplayName, deps)
+	if err != nil {
+		return httpapi.QueueWorkspaceUIChatResponse{}, err
+	}
+	defer cleanup()
+
+	currentWorkspace, err := currentWorkspaceForWorkspaceCommand(ctx, deps.httpClient, state.BaseURL, token)
+	if err != nil {
+		return httpapi.QueueWorkspaceUIChatResponse{}, err
+	}
+	result, err := postWorkspaceAPI[httpapi.QueueWorkspaceUIChatResponse](ctx, deps.httpClient, state.BaseURL, token, "workspace chats queue", "/workspaces/ui/chats/queue", httpapi.QueueWorkspaceUIChatRequest{
+		WorkspaceID: currentWorkspace.ID,
+		PaneID:      options.PaneID,
+		Input:       input,
+	})
+	if err != nil {
+		return httpapi.QueueWorkspaceUIChatResponse{}, err
+	}
+	if err := validateWorkspaceChatQueueResponse(result, currentWorkspace.ID, options.PaneID); err != nil {
+		return httpapi.QueueWorkspaceUIChatResponse{}, err
 	}
 	return result, nil
 }
@@ -200,15 +274,23 @@ func sendWorkspaceChat(
 }
 
 func readWorkspaceChatSendInputFile(path string) (chat.ChatInput, error) {
+	return readWorkspaceChatInputFile(path, "send")
+}
+
+func readWorkspaceChatQueueInputFile(path string) (chat.ChatInput, error) {
+	return readWorkspaceChatInputFile(path, "queue")
+}
+
+func readWorkspaceChatInputFile(path string, command string) (chat.ChatInput, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return chat.ChatInput{}, newWorkspaceCLIError("workspace_chat_send_input_open_failed", fmt.Errorf("open workspace chat send input %s: %w", path, err))
+		return chat.ChatInput{}, newWorkspaceCLIError(fmt.Sprintf("workspace_chat_%s_input_open_failed", command), fmt.Errorf("open workspace chat %s input %s: %w", command, path, err))
 	}
 	defer file.Close()
 
 	var input chat.ChatInput
 	if err := jsonio.DecodeSingle(file, &input); err != nil {
-		return chat.ChatInput{}, newWorkspaceCLIError("workspace_chat_send_input_decode_failed", fmt.Errorf("decode workspace chat send input %s: %w", path, err))
+		return chat.ChatInput{}, newWorkspaceCLIError(fmt.Sprintf("workspace_chat_%s_input_decode_failed", command), fmt.Errorf("decode workspace chat %s input %s: %w", command, path, err))
 	}
 	return input, nil
 }

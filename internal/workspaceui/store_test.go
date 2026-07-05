@@ -434,8 +434,10 @@ func TestServiceListsBoundChatPaneDescriptor(t *testing.T) {
 		pane.ReadModes[1] != WorkspaceUIPaneReadModeChatState {
 		t.Fatalf("chat read modes = %+v, want metadata and chat_state", pane.ReadModes)
 	}
-	if len(pane.WriteModes) != 1 || pane.WriteModes[0] != WorkspaceUIPaneWriteModeChatSend {
-		t.Fatalf("chat write modes = %+v, want chat_send", pane.WriteModes)
+	if len(pane.WriteModes) != 2 ||
+		pane.WriteModes[0] != WorkspaceUIPaneWriteModeChatSend ||
+		pane.WriteModes[1] != WorkspaceUIPaneWriteModeChatQueue {
+		t.Fatalf("chat write modes = %+v, want chat_send and chat_queue", pane.WriteModes)
 	}
 }
 

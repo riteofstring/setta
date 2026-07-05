@@ -55,6 +55,7 @@ func TestHelpUsageIncludesWorkspaceCommands(t *testing.T) {
 	}
 	usage := stdout.String()
 	for _, command := range []string{
+		"setta workspace chats queue [--app-data-dir DIR] <pane-id> --input <path>",
 		"setta workspace chats read [--app-data-dir DIR] <pane-id> [--limit N]",
 		"setta workspace chats send [--app-data-dir DIR] <pane-id> --input <path>",
 		"setta workspace panes reorder --input <path> [--app-data-dir DIR]",

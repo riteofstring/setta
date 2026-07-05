@@ -32,3 +32,16 @@ type SendWorkspaceUIChatResponse struct {
 	ConversationID string                                `json:"conversationId"`
 	Result         chat.SendMessageResult                `json:"result"`
 }
+
+type QueueWorkspaceUIChatRequest struct {
+	WorkspaceID string         `json:"workspaceId"`
+	PaneID      string         `json:"paneId"`
+	Input       chat.ChatInput `json:"input"`
+}
+
+type QueueWorkspaceUIChatResponse struct {
+	WorkspaceID    string                                `json:"workspaceId"`
+	Pane           workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
+	ConversationID string                                `json:"conversationId"`
+	Result         chat.QueueMessageResult               `json:"result"`
+}

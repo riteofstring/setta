@@ -85,6 +85,34 @@ func TestValidateWorkspaceChatSendResponseRejectsMismatchedResultConversation(t 
 	}
 }
 
+func TestValidateWorkspaceChatQueueResponseAcceptsValidResponse(t *testing.T) {
+	response := validWorkspaceChatQueueResponseForTest()
+
+	if err := validateWorkspaceChatQueueResponse(response, "workspace_api", "workspace_pane_0"); err != nil {
+		t.Fatalf("validate queue response: %v", err)
+	}
+}
+
+func TestValidateWorkspaceChatQueueResponseRejectsMissingChatQueueMode(t *testing.T) {
+	response := validWorkspaceChatQueueResponseForTest()
+	response.Pane.WriteModes = []workspaceui.WorkspaceUIPaneWriteMode{workspaceui.WorkspaceUIPaneWriteModeChatSend}
+
+	err := validateWorkspaceChatQueueResponse(response, "workspace_api", "workspace_pane_0")
+	if err == nil || !strings.Contains(err.Error(), "chat_queue") {
+		t.Fatalf("error = %v, want missing chat_queue", err)
+	}
+}
+
+func TestValidateWorkspaceChatQueueResponseRejectsPromotedRun(t *testing.T) {
+	response := validWorkspaceChatQueueResponseForTest()
+	response.Result.Run.Status = chat.RunStatusRunning
+
+	err := validateWorkspaceChatQueueResponse(response, "workspace_api", "workspace_pane_0")
+	if err == nil || !strings.Contains(err.Error(), "want queued") {
+		t.Fatalf("error = %v, want queued status validation", err)
+	}
+}
+
 func validWorkspaceChatReadResponseForTest() httpapi.ReadWorkspaceUIChatResponse {
 	return httpapi.ReadWorkspaceUIChatResponse{
 		WorkspaceID:    "workspace_api",
@@ -115,7 +143,10 @@ func validWorkspaceChatReadResponseForTest() httpapi.ReadWorkspaceUIChatResponse
 				workspaceui.WorkspaceUIPaneReadModeMetadata,
 				workspaceui.WorkspaceUIPaneReadModeChatState,
 			},
-			WriteModes: []workspaceui.WorkspaceUIPaneWriteMode{workspaceui.WorkspaceUIPaneWriteModeChatSend},
+			WriteModes: []workspaceui.WorkspaceUIPaneWriteMode{
+				workspaceui.WorkspaceUIPaneWriteModeChatSend,
+				workspaceui.WorkspaceUIPaneWriteModeChatQueue,
+			},
 			ContentRefs: workspaceui.WorkspaceUIPaneContentRefs{
 				Chat: &workspaceui.WorkspaceUIChatPaneContentRef{ConversationID: "conversation_api"},
 			},
@@ -156,6 +187,35 @@ func validWorkspaceChatSendResponseForTest() httpapi.SendWorkspaceUIChatResponse
 				Status:             chat.RunStatusRunning,
 			},
 			Page: read.Page,
+		},
+	}
+}
+
+func validWorkspaceChatQueueResponseForTest() httpapi.QueueWorkspaceUIChatResponse {
+	read := validWorkspaceChatReadResponseForTest()
+	user := workspaceChatResponseTestMessage("message_queued", "run_queued", chat.RoleUser, chat.MessageDeliveryQueued)
+	run := chat.Run{
+		ID:               "run_queued",
+		WorkspaceID:      "workspace_api",
+		ConversationID:   "conversation_api",
+		TriggerMessageID: user.ID,
+		Status:           chat.RunStatusQueued,
+	}
+	page := read.Page
+	page.Queue = chat.QueueState{
+		Messages: []chat.ChatMessage{user},
+		Runs:     []chat.Run{run},
+	}
+	return httpapi.QueueWorkspaceUIChatResponse{
+		WorkspaceID:    read.WorkspaceID,
+		ConversationID: read.ConversationID,
+		Pane:           read.Pane,
+		Result: chat.QueueMessageResult{
+			Conversation: read.Page.Conversation,
+			UserMessage:  user,
+			Run:          run,
+			Queue:        page.Queue,
+			Page:         page,
 		},
 	}
 }

@@ -380,8 +380,9 @@ func TestWorkspaceUIChatReadEndpointResolvesPaneConversation(t *testing.T) {
 	if !workspacePaneReadModesContain(read.Pane.ReadModes, workspaceui.WorkspaceUIPaneReadModeChatState) {
 		t.Fatalf("chat read modes = %+v, want chat_state", read.Pane.ReadModes)
 	}
-	if len(read.Pane.WriteModes) != 1 || read.Pane.WriteModes[0] != workspaceui.WorkspaceUIPaneWriteModeChatSend {
-		t.Fatalf("chat write modes = %+v, want chat_send", read.Pane.WriteModes)
+	if !workspacePaneWriteModesContain(read.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatSend) ||
+		!workspacePaneWriteModesContain(read.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatQueue) {
+		t.Fatalf("chat write modes = %+v, want chat_send and chat_queue", read.Pane.WriteModes)
 	}
 	if read.Page.Conversation.ID != conversation.ID || read.Page.Conversation.WorkspaceID != opened.Workspace.ID {
 		t.Fatalf("chat page conversation = %+v, want bound conversation", read.Page.Conversation)
@@ -476,6 +477,87 @@ func TestWorkspaceUIChatSendEndpointRejectsActiveRunInsteadOfQueueing(t *testing
 	}, http.StatusOK)
 	if cancelled.ID != started.Result.Run.ID || cancelled.Status != chat.RunStatusCancelled {
 		t.Fatalf("cancelled run = %+v, want cancelled %s", cancelled, started.Result.Run.ID)
+	}
+}
+
+func TestWorkspaceUIChatQueueEndpointResolvesPaneConversation(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithChatEvents(t, []chat.FakeHarnessEvent{{Type: chat.FakeEventWaitForCancel}})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Bound conversation",
+	}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+
+	started := postJSON[SendWorkspaceUIChatResponse](t, handler, "/workspaces/ui/chats/send", SendWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+		Input:       chat.TextChatInput("active before workspace queue"),
+	}, http.StatusOK)
+	if started.Result.Run.Status != chat.RunStatusRunning {
+		t.Fatalf("started run status = %s, want running", started.Result.Run.Status)
+	}
+
+	queued := postJSON[QueueWorkspaceUIChatResponse](t, handler, "/workspaces/ui/chats/queue", QueueWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+		Input:       chat.TextChatInput("queued through bound pane"),
+	}, http.StatusOK)
+	if queued.WorkspaceID != opened.Workspace.ID || queued.Pane.PaneID != "workspace_pane_0" {
+		t.Fatalf("chat queue envelope = %+v, want workspace chat pane", queued)
+	}
+	if queued.ConversationID != conversation.ID || queued.Result.Conversation.ID != conversation.ID {
+		t.Fatalf("chat queue conversation = %s result %+v, want %s", queued.ConversationID, queued.Result.Conversation, conversation.ID)
+	}
+	if queued.Pane.ContentRefs.Chat == nil || queued.Pane.ContentRefs.Chat.ConversationID != conversation.ID {
+		t.Fatalf("chat content ref = %+v, want conversation %s", queued.Pane.ContentRefs.Chat, conversation.ID)
+	}
+	if !workspacePaneWriteModesContain(queued.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatQueue) {
+		t.Fatalf("chat write modes = %+v, want chat_queue", queued.Pane.WriteModes)
+	}
+	if queued.Result.UserMessage.ConversationID != conversation.ID ||
+		queued.Result.UserMessage.Delivery != chat.MessageDeliveryQueued ||
+		queued.Result.Run.ConversationID != conversation.ID ||
+		queued.Result.Run.Status != chat.RunStatusQueued {
+		t.Fatalf("chat queue result = %+v, want queued turn for bound conversation %s", queued.Result, conversation.ID)
+	}
+	if len(queued.Result.Queue.Messages) != 1 || queued.Result.Queue.Messages[0].ID != queued.Result.UserMessage.ID {
+		t.Fatalf("queue messages = %+v, want queued user message %s", queued.Result.Queue.Messages, queued.Result.UserMessage.ID)
+	}
+
+	postJSON[chat.Run](t, handler, "/chat/runs/cancel", CancelRunRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+}
+
+func TestWorkspaceUIChatQueueEndpointRequiresActiveRun(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithChat(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Bound conversation",
+	}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/chats/queue", QueueWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+		Input:       chat.TextChatInput("must not promote from idle"),
+	}, http.StatusConflict)
+	if errResponse.Error.Code != "workspace_chat_queue_requires_active_run" {
+		t.Fatalf("error code = %q, want workspace_chat_queue_requires_active_run", errResponse.Error.Code)
+	}
+	runs := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if len(runs.Runs) != 0 {
+		t.Fatalf("runs after rejected workspace queue = %+v, want none", runs.Runs)
 	}
 }
 

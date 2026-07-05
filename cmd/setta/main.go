@@ -167,6 +167,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta workflow executions start [--app-data-dir DIR] <definition-id>")
 	fmt.Fprintln(output, "  setta workflow executions read [--app-data-dir DIR] <execution-id>")
 	fmt.Fprintln(output, "  setta workflow schema [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workspace chats queue [--app-data-dir DIR] <pane-id> --input <path>")
 	fmt.Fprintln(output, "  setta workspace chats read [--app-data-dir DIR] <pane-id> [--limit N]")
 	fmt.Fprintln(output, "  setta workspace chats send [--app-data-dir DIR] <pane-id> --input <path>")
 	fmt.Fprintln(output, "  setta workspace current [--app-data-dir DIR]")

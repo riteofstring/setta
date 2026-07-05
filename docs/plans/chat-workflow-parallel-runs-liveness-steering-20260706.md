@@ -102,6 +102,15 @@ The first post-implementation audit addressed the data and control-reuse gaps:
   visible before provider commit and that settings use the normal disabled chat
   controls rather than workflow-specific pills or static labels
 
+### Workspace Agent API Integration Note
+
+The workspace-agent API work exposed pane-targeted chat queueing on 2026-07-08
+as a wrapper around the existing conversation queue service. The wrapper
+preserves this plan's conversation-level policy by requiring an active run in
+the pane's explicitly bound conversation before queueing, and it fails instead
+of promoting idle queue requests into a second send path. It does not change the
+core queue, steering, or provider concurrency semantics in this plan.
+
 ### Settings Layout Gap Resolution
 
 The second post-implementation audit addressed the remaining workflow-agent

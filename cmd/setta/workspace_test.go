@@ -222,6 +222,33 @@ func TestWorkspaceChatsSendCommandIntegration(t *testing.T) {
 	}
 }
 
+func TestWorkspaceChatsQueueCommandIntegration(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	conversation := createWorkspaceChatConversationForCLITest(t, fixture)
+	layout := cliTestWorkspaceUILayout(fixture.opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayoutForCLITest(t, fixture.appDataDir, layout)
+	seedWorkspaceChatActiveRunForCLITest(t, fixture, conversation.ID)
+	inputPath := writeWorkspaceChatSendInputForCLITest(t, chat.TextChatInput("queue through workspace chat pane"))
+
+	queued := runWorkspaceCommandJSON[httpapi.QueueWorkspaceUIChatResponse](t, fixture, "chats", "queue", "workspace_pane_0", "--input", inputPath)
+	if queued.WorkspaceID != fixture.opened.Workspace.ID || queued.Pane.PaneID != "workspace_pane_0" {
+		t.Fatalf("chat queue envelope = %+v, want workspace chat pane", queued)
+	}
+	if queued.ConversationID != conversation.ID || queued.Result.Conversation.ID != conversation.ID {
+		t.Fatalf("chat queue conversation = %s result %+v, want %s", queued.ConversationID, queued.Result.Conversation, conversation.ID)
+	}
+	if queued.Result.UserMessage.ConversationID != conversation.ID ||
+		queued.Result.UserMessage.Delivery != chat.MessageDeliveryQueued ||
+		queued.Result.Run.ConversationID != conversation.ID ||
+		queued.Result.Run.Status != chat.RunStatusQueued {
+		t.Fatalf("chat queue result = %+v, want queued turn for bound conversation %s", queued.Result, conversation.ID)
+	}
+	if !workspacePaneWriteModesContain(queued.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatQueue) {
+		t.Fatalf("chat queue pane write modes = %+v, want chat_queue", queued.Pane.WriteModes)
+	}
+}
+
 func TestWorkspaceTerminalsWriteCommandsIntegration(t *testing.T) {
 	fixture := newWorkspaceCLITestFixture(t)
 	session := createWorkspaceTerminalSessionForCLITest(t, fixture)
@@ -573,6 +600,38 @@ func TestWorkspaceChatsSendCommandRejectsIdentityInInput(t *testing.T) {
 	}
 }
 
+func TestWorkspaceChatsQueueCommandRejectsIdentityInInput(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	inputPath := writeRawWorkspaceChatSendInputForCLITest(t, `{
+  "conversationId": "conversation_attacker",
+  "parts": [
+    {
+      "type": "text",
+      "text": {
+        "text": "hello",
+        "format": "plain"
+      }
+    }
+  ]
+}`)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "chats", "queue", "workspace_pane_0", "--input", inputPath), commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "workspace_chat_queue_input_decode_failed" {
+		t.Fatalf("error code = %q, want workspace_chat_queue_input_decode_failed", errResponse.Error.Code)
+	}
+}
+
 func TestWorkspaceTerminalsWritePrepareRejectsDeviceSessionInput(t *testing.T) {
 	fixture := newWorkspaceCLITestFixture(t)
 	inputPath := writeRawWorkspaceTerminalWriteInputForCLITest(t, `{
@@ -658,6 +717,75 @@ func createWorkspaceChatConversationForCLITest(t *testing.T, fixture workspaceCL
 		WorkspaceID: fixture.opened.Workspace.ID,
 		Title:       "CLI chat read",
 	})
+}
+
+func seedWorkspaceChatActiveRunForCLITest(t *testing.T, fixture workspaceCLITestFixture, conversationID string) {
+	t.Helper()
+	store, err := chat.NewStore(fixture.appDataDir)
+	if err != nil {
+		t.Fatalf("new chat store: %v", err)
+	}
+	createdAt := "2026-07-08T10:00:00Z"
+	userMessage := chat.ChatMessage{
+		SchemaVersion:  chat.SchemaVersion,
+		ID:             "message_cli_active_user",
+		ConversationID: conversationID,
+		RunID:          "run_cli_active",
+		Role:           chat.RoleUser,
+		Delivery:       chat.MessageDeliveryNormal,
+		Ordinal:        1,
+		CreatedAt:      createdAt,
+		UpdatedAt:      createdAt,
+		Status:         chat.MessageStatusComplete,
+		Parts: []chat.MessagePart{{
+			ID:   "part_cli_active_user",
+			Type: chat.MessagePartText,
+			Text: &chat.MessageTextPart{
+				Text:   "active before workspace queue",
+				Format: chat.TextFormatPlain,
+			},
+		}},
+	}
+	assistantMessage := chat.ChatMessage{
+		SchemaVersion:  chat.SchemaVersion,
+		ID:             "message_cli_active_assistant",
+		ConversationID: conversationID,
+		RunID:          "run_cli_active",
+		Role:           chat.RoleAssistant,
+		Delivery:       chat.MessageDeliveryNormal,
+		Ordinal:        2,
+		CreatedAt:      createdAt,
+		UpdatedAt:      createdAt,
+		Status:         chat.MessageStatusStreaming,
+		Parts: []chat.MessagePart{{
+			ID:   "part_cli_active_assistant",
+			Type: chat.MessagePartText,
+			Text: &chat.MessageTextPart{
+				Text:   "working",
+				Format: chat.TextFormatPlain,
+			},
+		}},
+	}
+	if err := store.SaveMessage(fixture.opened.Workspace.ID, userMessage); err != nil {
+		t.Fatalf("save active user message: %v", err)
+	}
+	if err := store.SaveMessage(fixture.opened.Workspace.ID, assistantMessage); err != nil {
+		t.Fatalf("save active assistant message: %v", err)
+	}
+	if err := store.SaveRun(chat.Run{
+		SchemaVersion:      chat.SchemaVersion,
+		ID:                 "run_cli_active",
+		WorkspaceID:        fixture.opened.Workspace.ID,
+		ConversationID:     conversationID,
+		TriggerMessageID:   userMessage.ID,
+		AssistantMessageID: assistantMessage.ID,
+		Harness:            chat.HarnessCodex,
+		Status:             chat.RunStatusRunning,
+		StartedAt:          createdAt,
+		PromptSummary:      "active before workspace queue",
+	}); err != nil {
+		t.Fatalf("save active run: %v", err)
+	}
 }
 
 func readServeBaseURLForCLITest(t *testing.T, appDataDir string) string {
