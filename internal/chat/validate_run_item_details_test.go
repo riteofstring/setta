@@ -31,19 +31,6 @@ func TestRunItemTypedDetailsRejectLegacyFlatFields(t *testing.T) {
 			fields: append(commandFlatFieldMutations("commandStartFailure"), rawDetailsMutation("commandStartFailure")),
 		},
 		{
-			name: "dynamicToolCall",
-			base: validDynamicToolCallRunItem,
-			fields: []flatFieldMutation{
-				flatZeroFieldMutation("dynamicToolCall", "durationMs", func(item *RunItem) { item.DurationMs = 42 }),
-				flatStringFieldMutation("dynamicToolCall", "serverName", func(item *RunItem) { item.ServerName = "legacy_server" }),
-				flatStringFieldMutation("dynamicToolCall", "toolName", func(item *RunItem) { item.ToolName = "legacy_tool" }),
-				flatStringFieldMutation("dynamicToolCall", "result", func(item *RunItem) { item.Result = "legacy result" }),
-				flatStringFieldMutation("dynamicToolCall", "error", func(item *RunItem) { item.Error = "legacy error" }),
-				flatStringFieldMutation("dynamicToolCall", "namespace", func(item *RunItem) { item.Namespace = "legacy" }),
-				rawDetailsMutation("dynamicToolCall"),
-			},
-		},
-		{
 			name: "fileChange",
 			base: validFileChangeRunItem,
 			fields: []flatFieldMutation{
@@ -224,23 +211,6 @@ func validCommandStartFailureRunItem() RunItem {
 			ProviderErrorID: "error_1",
 			Sandbox:         "workspace-write",
 			ApprovalPolicy:  "on-request",
-		}),
-	}
-}
-
-func validDynamicToolCallRunItem() RunItem {
-	return RunItem{
-		ID:     "run_item_dynamic_tool",
-		Type:   RunItemTypeDynamicToolCall,
-		Status: RunItemStatusCompleted,
-		Details: NewRunItemDynamicToolCallDetails(RunItemDynamicToolCallDetails{
-			Namespace:    SettaAgentToolNamespace,
-			ToolName:     "workspace_context",
-			DisplayTitle: "Setta: workspace_context",
-			DurationMs:   25,
-			Result: &RunItemDynamicToolResult{
-				ContentItems: []RunItemDynamicToolContentItem{{Type: "inputText", Text: "ok"}},
-			},
 		}),
 	}
 }

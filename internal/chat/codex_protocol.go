@@ -155,7 +155,6 @@ var codexThreadItemRunItemHandlers = map[codexapp.ThreadItemType]codexThreadItem
 	codexapp.ThreadItemTypeCommandExecution:    commandExecutionThreadItemRunItem,
 	codexapp.ThreadItemTypeFileChange:          fileChangeThreadItemRunItem,
 	codexapp.ThreadItemTypeMcpToolCall:         mcpToolCallThreadItemRunItem,
-	codexapp.ThreadItemTypeDynamicToolCall:     dynamicToolCallThreadItemRunItem,
 	codexapp.ThreadItemTypeCollabAgentToolCall: collabAgentToolCallThreadItemRunItem,
 	codexapp.ThreadItemTypeWebSearch:           webSearchThreadItemRunItem,
 	codexapp.ThreadItemTypeImageView:           imageViewThreadItemRunItem,

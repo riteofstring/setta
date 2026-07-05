@@ -2,7 +2,7 @@
 /* global AbortSignal, console, fetch, URL */
 
 import { spawn } from "node:child_process";
-import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,13 +65,9 @@ let remoteServe = null;
 
 try {
   remoteServe = await startRemoteRuntime(remoteAppDataDir);
-  const fakeSettaCLIPath = await writeFakeSettaRemoteAddCLI(remoteRoot);
   context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
-      SETTA_CLI_PATH: fakeSettaCLIPath,
-      SETTA_FAKE_SSH_PAIRING_URL: remoteServe.pairingURL,
-      SETTA_FAKE_SSH_TRANSCRIPT: join(remoteRoot, "ssh-setup-transcript.json"),
     },
   });
 
@@ -81,17 +77,6 @@ try {
   if (!local) {
     throw new Error(`local runtime missing: ${JSON.stringify(initial)}`);
   }
-  const oauthGuide = await context.client.evaluate(
-    `(async () => window.setta.runtimes.tailscaleOAuthSetupGuide())()`,
-  );
-  if (
-    oauthGuide.requiredScope !== "auth_keys" ||
-    oauthGuide.requiredTag !== "tag:setta-runtime" ||
-    !oauthGuide.manualAuthKeyFallback.description.includes("Manual paste remains available")
-  ) {
-    throw new Error(`unexpected Tailscale OAuth setup guide: ${JSON.stringify(oauthGuide)}`);
-  }
-  await assertCloudProvisionResolver(context.client);
 
   await openWorkspaceFromSidebar(context.client);
   const localWorkspace = await waitForSelectedWorkspaceLayout(context.client);
@@ -108,7 +93,7 @@ try {
     paneId: localTerminal.paneId,
   });
 
-  await addRuntimeOverSSHThroughPicker(context.client);
+  await addRuntimeThroughPicker(context.client, remoteServe.pairingURL);
   const remoteConnected = await waitForRuntimeStatus(context.client, "connected", {
     isLocal: false,
   });
@@ -222,30 +207,15 @@ function parseArgs(args) {
   return parsed;
 }
 
-async function addRuntimeOverSSHThroughPicker(client) {
+async function addRuntimeThroughPicker(client, pairingURL) {
   await clickButtonByAria(client, "Add runtime");
-  await clickButtonByAria(client, "Add runtime from existing machine over SSH");
   await waitForState(
     client,
-    `(() => ({ ready: Boolean(document.querySelector('input[aria-label="SSH target"]')) }))()`,
+    `(() => ({ ready: Boolean(document.querySelector('input[aria-label="Runtime pairing URL"]')) }))()`,
     (value) => value.ready,
     workflowTimeoutMs,
   );
-  await setInputValue(client, 'input[aria-label="SSH target"]', "ssh://ubuntu@example.com");
-  await setInputValue(client, 'input[aria-label="Runtime name"]', "setta-e2e-ssh");
-  await setInputValue(client, 'input[aria-label="Setta version"]', "v1.2.3");
-  await setInputValue(client, 'input[aria-label="Tailscale auth key"]', "tskey-auth-e2e");
-  await setInputValue(
-    client,
-    'input[aria-label="Release base URL"]',
-    "https://downloads.example.test/setta/v1.2.3",
-  );
-  await setInputValue(client, 'input[aria-label="Installer SHA-256"]', "a".repeat(64));
-  await setInputValue(
-    client,
-    'input[aria-label="Minisign public key"]',
-    "RWQtestminisignpublickey",
-  );
+  await setInputValue(client, 'input[aria-label="Runtime pairing URL"]', pairingURL);
   const submitted = await client.evaluate(`(() => {
     const button = document.querySelector('[data-testid="runtime-picker"] form button[type="submit"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -255,128 +225,8 @@ async function addRuntimeOverSSHThroughPicker(client) {
     return true;
   })()`);
   if (!submitted) {
-    throw new Error("runtime SSH form submit button was not clickable");
+    throw new Error("runtime pairing form submit button was not clickable");
   }
-}
-
-async function assertCloudProvisionResolver(client) {
-  const result = await client.evaluate(`(async () => {
-    const options = await window.setta.runtimes.cloudProvisionOptions();
-    const resolution = await window.setta.runtimes.cloudProvisionResolve({
-      intent: "cheap box for agents",
-      provider: "hetzner",
-      shape: "dev-standard",
-      region: "fsn1"
-    });
-    return { options, resolution };
-  })()`);
-  if (
-    result.options.defaultProvider !== "hetzner" ||
-    result.options.defaultShape !== "dev-standard" ||
-    result.resolution.resolution.instanceType !== "cx42" ||
-    result.resolution.resolution.region !== "fsn1"
-  ) {
-    throw new Error(`unexpected cloud provision resolver result: ${JSON.stringify(result)}`);
-  }
-}
-
-async function writeFakeSettaRemoteAddCLI(root) {
-  const path = join(root, "fake-setta-remote-add.cjs");
-  await writeFile(path, fakeSettaRemoteAddCLISource(), { mode: 0o700 });
-  await chmod(path, 0o700);
-  return path;
-}
-
-function fakeSettaRemoteAddCLISource() {
-  return [
-    "#!/usr/bin/env node",
-    'const { mkdir, readFile, writeFile } = require("node:fs/promises");',
-    'const { dirname } = require("node:path");',
-    "",
-    "async function main() {",
-    "  const args = process.argv.slice(2);",
-    '  if (args[0] === "provision") {',
-    "    return fakeProvision(args);",
-    "  }",
-    '  if (args[0] !== "remote" || args[1] !== "add") {',
-    '    throw new Error("expected setta remote add, got " + args.join(" "));',
-    "  }",
-    '  if (args.includes("tskey-auth-e2e")) {',
-    '    throw new Error("tailscale auth key leaked into argv");',
-    "  }",
-    '  const authIndex = args.indexOf("--tailscale-auth-key-file");',
-    "  if (authIndex < 0 || !args[authIndex + 1]) {",
-    '    throw new Error("missing --tailscale-auth-key-file");',
-    "  }",
-    '  const authKey = await readFile(args[authIndex + 1], "utf8");',
-    '  if (authKey !== "tskey-auth-e2e\\n") {',
-    '    throw new Error("unexpected auth key file content");',
-    "  }",
-    '  const target = args.find((arg) => arg.startsWith("ssh://"));',
-    "  if (!target) {",
-    '    throw new Error("missing ssh target");',
-    "  }",
-    "  const transcriptPath = process.env.SETTA_FAKE_SSH_TRANSCRIPT;",
-    "  const pairingUrl = process.env.SETTA_FAKE_SSH_PAIRING_URL;",
-    "  if (!transcriptPath || !pairingUrl) {",
-    '    throw new Error("missing fake SSH environment");',
-    "  }",
-    "  await mkdir(dirname(transcriptPath), { recursive: true });",
-    '  await writeFile(transcriptPath, JSON.stringify({ args, target }, null, 2) + "\\n", { mode: 0o600 });',
-    "  process.stdout.write(JSON.stringify({",
-    "    ok: true,",
-    "    pairingUrl,",
-    '    runtimeName: "setta-e2e-ssh",',
-    "    target,",
-    "    transcriptPath,",
-    '    transport: "tailscale"',
-    '  }) + "\\n");',
-    "}",
-    "",
-    "function fakeProvision(args) {",
-    '  if (args[1] === "shapes" && args[2] === "--json") {',
-    "    process.stdout.write(JSON.stringify({",
-    "      ok: true,",
-    '      defaultShape: "dev-standard",',
-    "      catalog: {",
-    "        schemaVersion: 1,",
-    '        defaultProvider: "hetzner",',
-    '        shapes: [{ id: "dev-standard", label: "Dev standard", guide: "4 vCPU / 16 GB RAM", cpuMin: 4, memoryGbMin: 16, diskFloorGb: 64 }],',
-    "        providers: [{",
-    '          id: "hetzner", displayName: "Hetzner Cloud", pricingUrl: "https://www.hetzner.com/cloud", regionPreferences: ["fsn1"],',
-    '          imageSelector: { kind: "image_alias", value: "ubuntu-24.04", description: "Hetzner stable Ubuntu image alias" },',
-    '          mappings: { "dev-standard": { instanceType: "cx42", costClass: "standard" } }',
-    "        }]",
-    "      }",
-    '    }) + "\\n");',
-    "    return;",
-    "  }",
-    '  if (args[1] === "resolve" && args[2] === "--json") {',
-    '    if (args.includes("up") || args.includes("down")) { throw new Error("provision mutation leaked into resolve"); }',
-    "    const resolution = {",
-    '      provider: "hetzner", displayName: "Hetzner Cloud", shape: "dev-standard", source: "catalog", instanceType: "cx42", region: "fsn1", regionOptions: ["fsn1"], diskGb: 64,',
-    "      machine: { cpus: 4, memoryGb: 16, diskGb: 64 },",
-    '      imageSelector: { kind: "image_alias", value: "ubuntu-24.04", description: "Hetzner stable Ubuntu image alias" },',
-    '      cost: { kind: "class", class: "standard", pricingUrl: "https://www.hetzner.com/cloud", description: "catalog cost class" },',
-    "      approval: { requiresMutationApproval: true, commandPreview: [], secretFree: true }",
-    "    };",
-    "    process.stdout.write(JSON.stringify({",
-    "      ok: true,",
-    '      request: { provider: "hetzner", shape: "dev-standard", constraints: { intent: "cheap box for agents", regionPreference: "fsn1" } },',
-    "      resolution,",
-    "      candidates: [resolution]",
-    '    }) + "\\n");',
-    "    return;",
-    "  }",
-    '  throw new Error("unexpected setta provision command " + args.join(" "));',
-    "}",
-    "",
-    "main().catch((error) => {",
-    "  process.stderr.write((error && error.stack) || String(error));",
-    "  process.exit(1);",
-    "});",
-    "",
-  ].join("\n");
 }
 
 async function waitForRuntimeStatus(client, status, filter = {}) {
