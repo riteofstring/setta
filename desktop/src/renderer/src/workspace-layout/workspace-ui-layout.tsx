@@ -104,6 +104,16 @@ export function useWorkspaceUILayoutLoad(
   const shouldLoad = shouldLoadWorkspaceUILayout(workspaceId, mode);
 
   useEffect(() => {
+    const unavailableError = workspaceUILayoutUnavailableError(workspaceId, mode);
+    if (unavailableError !== null) {
+      setState({
+        error: unavailableError,
+        key,
+        layout: null,
+        status: "failed",
+      });
+      return;
+    }
     if (!shouldLoad) {
       setState({
         error: null,
@@ -147,8 +157,17 @@ export function useWorkspaceUILayoutLoad(
     return () => {
       cancelled = true;
     };
-  }, [key, shouldLoad, workspaceId]);
+  }, [key, mode, shouldLoad, workspaceId]);
 
+  const unavailableError = workspaceUILayoutUnavailableError(workspaceId, mode);
+  if (unavailableError !== null) {
+    return {
+      error: unavailableError,
+      key,
+      layout: null,
+      status: "failed",
+    };
+  }
   if (!shouldLoad) {
     return {
       error: null,
@@ -172,6 +191,11 @@ export async function loadWorkspaceUILayout(
   workspaceId: string,
 ): Promise<WorkspaceUILayout | null> {
   const result = await window.setta.workspace.readUILayout(workspaceId);
+  if (result.workspaceId !== workspaceId) {
+    throw new Error(
+      `Workspace UI layout read workspace ${result.workspaceId} does not match ${workspaceId}`,
+    );
+  }
   if (result.layout !== null) {
     return checkedWorkspaceUILayout(result.layout, workspaceId);
   }
@@ -293,6 +317,15 @@ export function initialWorkspaceUILayoutLoadState(
   mode: WorkspaceSceneMode,
 ): WorkspaceUILayoutLoad {
   const key = `${mode}:${workspaceId}`;
+  const unavailableError = workspaceUILayoutUnavailableError(workspaceId, mode);
+  if (unavailableError !== null) {
+    return {
+      error: unavailableError,
+      key,
+      layout: null,
+      status: "failed",
+    };
+  }
   if (shouldLoadWorkspaceUILayout(workspaceId, mode)) {
     return {
       error: null,
@@ -581,6 +614,19 @@ function shouldLoadWorkspaceUILayout(workspaceId: string, mode: WorkspaceSceneMo
     typeof window !== "undefined" &&
     Boolean(window.setta?.workspace?.readUILayout)
   );
+}
+
+function workspaceUILayoutUnavailableError(
+  workspaceId: string,
+  mode: WorkspaceSceneMode,
+): string | null {
+  if (mode !== "workspace" || workspaceId === "empty" || typeof window === "undefined") {
+    return null;
+  }
+  if (!window.setta?.workspace?.readUILayout) {
+    return "Workspace UI layout read API is unavailable";
+  }
+  return null;
 }
 
 function shouldLoadWorkspaceUIPaneMetadata(workspaceId: string, mode: WorkspaceSceneMode): boolean {

@@ -54,6 +54,23 @@ describe("workspace UI layout loading", () => {
     expect(initialWorkspaceUIPaneMetadataLoadState("empty", "workspace").status).toBe("loaded");
   });
 
+  test("fails explicitly when real workspace UI layout read API is unavailable", () => {
+    vi.stubGlobal("window", {
+      setta: {
+        workspace: {
+          listUIPanes: vi.fn(),
+        },
+      },
+    });
+
+    expect(initialWorkspaceUILayoutLoadState("workspace_api", "workspace")).toStrictEqual({
+      error: "Workspace UI layout read API is unavailable",
+      key: "workspace:workspace_api",
+      layout: null,
+      status: "failed",
+    });
+  });
+
   test("loads existing persisted workspace UI layout without initialization", async () => {
     const layout = workspaceUILayout(4);
     const initializeUILayout = vi.fn();
@@ -84,6 +101,24 @@ describe("workspace UI layout loading", () => {
 
     await expect(loadWorkspaceUILayout("workspace_api")).resolves.toEqual(initialized);
     expect(initializeUILayout).toHaveBeenCalledWith("workspace_api");
+  });
+
+  test("rejects layout read envelopes for a different workspace", async () => {
+    vi.stubGlobal("window", {
+      setta: {
+        workspace: {
+          initializeUILayout: vi.fn(),
+          readUILayout: vi.fn().mockResolvedValue({
+            layout: null,
+            workspaceId: "workspace_other",
+          }),
+        },
+      },
+    });
+
+    await expect(loadWorkspaceUILayout("workspace_api")).rejects.toThrow(
+      "Workspace UI layout read workspace workspace_other does not match workspace_api",
+    );
   });
 
   test("fails explicitly when missing layout cannot be initialized", async () => {
