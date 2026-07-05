@@ -1,6 +1,6 @@
 # BYO Cloud One-Click Runtime Plan
 
-**Date:** 2026-07-05 (revised 2026-07-05, rev 2)
+**Date:** 2026-07-05 (revised 2026-07-06, rev 3)
 **Status:** Proposal. This extends the remote-runtime direction, but does not
 supersede `remote-runtime-plan.md` until accepted as the plan of record. This
 revision is fully consistent with plan-of-record decision #3 (Tailscale is the
@@ -18,6 +18,12 @@ the no-CLI fallback. (3) The shape catalog becomes a fallback/hint; live
 resolution via the user's CLI is preferred. (4) An explicit mobile-readiness
 track: phone testing depends only on the bootstrap contract, not on any
 wizard or provisioning phase.
+
+**Rev 3 changes:** The execution allowlist is now a v1 contract, not an
+implementation detail: checked-in and reviewable, but constrained by
+hardcoded executor invariants. AI, templates, and manifests request typed
+provisioning actions; only the executor builds argv. Teardown gets its own
+destructive approval.
 
 ## Intent
 
@@ -95,9 +101,9 @@ flow, unchanged.
 6. **Low maintenance for Setta.** Prefer the user's own CLI, provider-native
    templates, OpenTofu, official provider plugins, cloud-init, and
    Tailscale-maintained tooling over bespoke Setta networking, provisioning
-   SDKs, or hand-maintained mapping tables. Setta ships templates and a thin
-   generic "run this command with approval" layer — not a provider
-   abstraction.
+   SDKs, or hand-maintained mapping tables. Setta ships templates, a small
+   typed-action execution layer, and reviewable provider command manifests —
+   not a provider abstraction.
 7. **AI-drivable, for real.** Every setup step has structured commands,
    machine-readable status, and specific errors. The AI can *execute* the
    boring parts (key minting, VM creation via the local CLI, watching,
@@ -180,10 +186,10 @@ covering effectively everything:
 ```text
 Tier 1 — Local CLI execution (the happy path)
   Any provider whose CLI the user has installed and authenticated:
-  aws, gcloud, hcloud, doctl, az, ... Setta renders the payload, shows the
-  exact command, and runs it locally on approval. Detection is a cheap
-  read-only probe (`aws sts get-caller-identity`, `hcloud context active`,
-  `gcloud config list`, ...).
+  aws, gcloud, hcloud, doctl, az, ... Setta renders the payload, builds an
+  allowlisted argv for the typed action, shows the exact command, and runs it
+  locally on approval. Detection is a cheap read-only probe (`aws sts
+  get-caller-identity`, `hcloud context active`, `gcloud config list`, ...).
 
 Tier 2 — Declarative fallback (no CLI)
   a. AWS quick-create link (pre-filled CloudFormation console).
@@ -244,7 +250,8 @@ Per runtime:
    - runs the provider CLI command (e.g. `hcloud server create --user-data
      ...`, `aws cloudformation create-stack ...`) under the user's ambient
      credentials;
-   - records the matching teardown command alongside the runtime entry.
+   - records the creation facts and derived teardown argv alongside the
+     runtime entry.
 5. Wait. Setta watches the tailnet for the runtime's MagicDNS name (handling
    Tailscale's `name-2` dedup suffix), sees it join, polls /runtime/info,
    and completes pairing automatically with the pre-shared token. Progress:
@@ -336,23 +343,44 @@ The provisioned runtime is private by default:
 - avoid storing cloud provider credentials on the runtime.
 - open no public inbound ports.
 
-Local execution layer rules (new in rev 2):
+Local execution layer rules (new in rev 2, tightened in rev 3):
 
-- **Read-only probes are free; mutations require approval.** Detection
-  commands (`sts get-caller-identity`, `context active`, list/describe
-  verbs) run without prompting. Any command that creates, modifies, or
-  deletes a provider resource is shown verbatim — full argv, rendered
-  user-data digest — and runs only on explicit approval.
-- **Allowlisted command shapes.** The execution layer runs only commands
-  matching a small allowlist of shapes (create-stack / server create /
-  instances create / delete-stack / server delete, plus read-only verbs). It
-  is not a general shell.
+- **Typed actions, not AI-emitted commands.** AI/template code requests
+  typed actions (`probe_identity`, `resolve_machine_types`, `create_runtime`,
+  `delete_runtime`). It never emits shell text or arbitrary argv for
+  execution. The executor owns command construction.
+- **Read-only probes are allowlisted.** Specific detection and resolution
+  commands (`sts get-caller-identity`, `hcloud context active`, bounded
+  instance-type listing, etc.) run without prompting. "Read-only" does not
+  mean arbitrary provider inventory browsing.
+- **Mutations require approval.** Any command that creates, modifies, or
+  deletes a provider resource is shown verbatim — full argv, selected account
+  or profile, region, rendered user-data digest, tags, and expected resource
+  name — and runs only on explicit approval.
+- **Allowlisted command shapes are a v1 contract.** The execution layer runs
+  only command shapes admitted by a checked-in, reviewable manifest from the
+  start. The manifest can describe provider-specific binaries, subcommands,
+  required flags, allowed flags, blocked flags, allowed file inputs, required
+  tags/labels, and which typed action it implements.
+- **Hardcoded executor invariants still win.** The manifest cannot make
+  Setta a general command runner: no shell execution, no pipes, no redirects,
+  no command substitution, no ambient environment expansion, no unconstrained
+  file reads, no provider credential copying, and no network/server-side
+  execution. If a rendered argv violates executor invariants, it fails
+  before approval.
+- **Create and delete approvals are separate.** The runtime creation
+  resolution card satisfies the approval requirement for `up` when it shows
+  the full execution plan. `down` is destructive and always requires its own
+  confirmation at teardown time.
 - **User identity, user audit trail.** Everything executes under the user's
   ambient CLI credentials on the user's machine, so provider-side audit logs
   (CloudTrail etc.) attribute actions to the user, not to Setta.
-- **Setta stores commands, not credentials.** The runtime entry records the
-  rendered create and teardown commands for reproducibility; it never records
-  tokens, keys, or credentials.
+- **Setta stores commands and facts, not credentials.** The runtime entry
+  records the rendered create argv, the creation facts needed for teardown
+  (provider, account/profile when available, region, stack/server/resource
+  IDs, tags), and the derived teardown argv for reproducibility. It never
+  records tokens, keys, or credentials. Teardown is derived from the creation
+  record, not regenerated from AI intent.
 
 Cloud-specific resources should be tagged/labeled:
 
@@ -386,8 +414,8 @@ Consequences:
 - The bootstrap's `tailscale serve` step and the serve-config it writes are
   the only runtime-side mobile dependencies; they ship in Phase 1 and are
   identical across all tiers and execution paths.
-- Nothing in the rev-2 execution layer touches the phone path — it only
-  changes how the VM gets created. Mobile risk from this revision: none.
+- Nothing in the rev-2/rev-3 execution layer touches the phone path — it
+  only changes how the VM gets created. Mobile risk from this revision: none.
 - Add a `setta doctor` check for serve status + cert validity so "phone
   can't reach it" failures are diagnosable from the desktop.
 
@@ -415,15 +443,16 @@ setta provision resolve --intent "cheap agent box" --json
 setta provision up --provider hetzner --shape dev-standard --json
                                                     # mint TS key (OAuth), render
                                                     # cloud-init, run create command
-setta provision down --runtime-name <name> --json   # run the stored teardown command
+setta provision down --runtime-name <name> --json   # run the derived teardown argv
 setta provision watch --runtime-name <name> --json  # tailnet watch + auto-pair
 ```
 
 Deliberately absent: a provider SDK, a `plan` engine, server-side execution,
-and provider `status` polling. Execution is a thin, allowlisted wrapper
-around the user's own CLI — provider API drift surfaces as the provider's own
-error text, not as a Setta abstraction bug. "Status" is "has the runtime
-joined the tailnet and is `/runtime/info` answering," which `watch` covers.
+arbitrary command execution, and provider `status` polling. Execution is a
+thin typed-action wrapper around the user's own CLI — provider API drift
+surfaces as the provider's own error text, not as a Setta abstraction bug.
+"Status" is "has the runtime joined the tailnet and is `/runtime/info`
+answering," which `watch` covers.
 
 Rules:
 
@@ -431,9 +460,12 @@ Rules:
 - Errors include a stable code, human message, the verbatim provider CLI
   output when relevant, and next suggested action.
 - Commands never improvise security-critical defaults.
-- `up`/`down` never run a mutating provider command without explicit
-  approval; in AI-orchestrated flows the approval is the human clicking the
-  resolution card, surfaced through the normal permission flow.
+- Mutating commands are built from typed actions and checked against the
+  allowlist manifest plus executor invariants immediately before approval.
+- `up` never runs a mutating provider command without explicit approval; in
+  AI-orchestrated flows the approval is the human clicking the resolution
+  card, surfaced through the normal permission flow.
+- `down` always asks again at teardown time because it deletes resources.
 
 Example error shape:
 
@@ -561,12 +593,15 @@ Tailscale key paste.
 
 ### Phase 4: Local Execution Layer + AWS Quick-Create Fallback
 
-- `setta provision up` / `down`: allowlisted, approval-gated execution of the
-  rendered create/teardown commands through the user's own CLI; teardown
-  command stored with the runtime entry at creation time.
+- `setta provision up` / `down`: approval-gated execution of typed
+  provisioning actions through the user's own CLI, constrained by the
+  reviewable allowlist manifest and hardcoded executor invariants; teardown
+  facts and derived teardown argv stored with the runtime entry at creation
+  time.
 - Wire the wizard's resolution card to `up` (Tier 1 happy path) with the
   Phase 1 tailnet watch for setup status; failure page explains where to
   find provider-side events and runtime logs, with verbatim CLI output.
+- Require a separate destructive confirmation for `down`.
 - Publish the minimal CloudFormation template and
   `setta provision render-link --provider aws` (quick-create + delete-stack
   links) as the polished no-CLI fallback.
@@ -618,8 +653,9 @@ Longer-term target:
   exact-instance-type escape hatch are rarely needed.
 - Tailscale-specific code in Setta stays small and mostly delegates to
   official tooling.
-- Execution-layer code stays a thin generic wrapper; no provider-specific
-  logic beyond command templates and the fallback catalog.
+- Execution-layer code stays a thin typed-action wrapper; provider-specific
+  executable surface area stays in reviewed manifests/builders and the
+  fallback catalog.
 
 ## Resolved Questions
 
@@ -632,9 +668,9 @@ Longer-term target:
 3. **CloudFormation-first or OpenTofu-first for AWS's no-CLI fallback?**
    CloudFormation; a quick-create link is just a URL, AWS owns execution and
    audit, zero local tooling. OpenTofu users are served by Phase 5. (With
-   the rev-2 execution layer, the AWS happy path is the user's own `aws` CLI;
-   the quick-create link is the fallback.)
-4. **Minimum teardown story for v1?** Executable stored teardown command on
+   the rev-2/rev-3 execution model, the AWS happy path is the user's own
+   `aws` CLI; the quick-create link is the fallback.)
+4. **Minimum teardown story for v1?** Executable derived teardown command on
    the CLI path; generated delete-stack link (AWS) and teardown instructions
    elsewhere, produced at creation time, plus `setta:` resource tags.
 5. **How much provider status does Setta read back?** Liveness comes from
@@ -651,6 +687,14 @@ Longer-term target:
    and credentials, behind per-command approval and an allowlist: yes. Held
    credentials, server-side execution, or SDK integration: never. (Revises
    rev-1 goal #8.)
+10. **Allowlist format for the execution layer?** A checked-in, reviewable
+    data manifest from v1, backed by hardcoded executor invariants. Templates
+    and AI request typed actions; only the executor builds argv. The manifest
+    cannot authorize general shell execution.
+11. **Does the resolution card satisfy per-command approval?** For `up`, yes
+    when it shows the exact account/profile, region, shape, cost, full argv,
+    tags, and user-data digest. For `down`, no: teardown is destructive and
+    requires a separate confirmation at execution time.
 
 ## Open Questions
 
@@ -662,14 +706,9 @@ Longer-term target:
    first-boot times on small instances.
 4. Which Tier 2 providers get verified paste instructions at launch vs
    docs-only?
-5. Which provider CLIs get first-class detection + command templates at
-   launch? Proposed: aws, hcloud, gcloud, doctl; az and others as data-only
-   additions.
-6. Allowlist format for the execution layer: hardcoded shapes in v1, or a
-   reviewable data file from the start?
-7. Does the resolution card's approval satisfy the per-command approval
-   requirement on its own, or should headless/AI-orchestrated flows require
-   a second confirmation for `down` (destructive)?
+5. Which provider CLIs get first-class detection + command builders/manifest
+   entries at launch? Proposed: aws, hcloud, gcloud, doctl; az and others as
+   data-only additions.
 
 ## Deferred Ideas (with revisit triggers)
 
