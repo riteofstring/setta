@@ -177,8 +177,13 @@ setta workspace panes move <pane-id> --direction left|right|up|down
 setta workspace panes close <pane-id> [--surface-close safe|force|none]
 setta workspace panes open --input open-pane.json
 setta workspace panes rename <pane-id> --title "..."
-setta workspace panes resize <pane-id> --height-px <n>|--reset-height
+setta workspace panes resize <pane-id> --width-px <n>
+setta workspace panes resize <pane-id> --width-scale <n>
+setta workspace panes resize <pane-id> --height-px <n>
+setta workspace panes resize <pane-id> --height-scale <n>
+setta workspace panes resize <pane-id> --reset-height
 setta workspace panes reorder --input reorder.json
+setta workspace layout apply --input layout-operations.json
 ```
 
 Per-surface commands:
@@ -246,10 +251,20 @@ close_pane
 move_pane
 rename_pane
 resize_pane
+resize_column
+resize_pane_row
+apply_layout_operations
 reorder_pane
 configure_pane
 set_presentation_mode
 ```
+
+`apply_layout_operations` should apply multiple layout operations as one
+validated transaction. For example, a request like "widen panes X, Y, and Z, and
+make panes A and B half height" should resolve each named pane to a stable
+`paneId`, compute explicit width and height operations, validate the combined
+layout, then persist it once. If any target pane or dimension update is invalid,
+the whole operation fails without partial layout changes.
 
 The response should include:
 
@@ -259,6 +274,7 @@ revision
 layout
 changed
 operationResult
+beforeAfterDimensions
 warnings
 ```
 
@@ -502,10 +518,12 @@ cannot be resolved, a pane is missing, a selector is ambiguous, or the requested
 capability is unsupported.
 
 Low-risk layout operations such as read, focus, rearrange, and opening an empty
-pane do not require approval. High-risk operations require operation-specific
-approval text that includes the pane title, surface kind, target reference, and
-an exact payload preview. Browser input and navigation should also require
-approval when browser pane support is added.
+pane do not require approval. Multi-pane layout resize transactions are also
+low-risk when they only affect pane geometry and include a before/after preview.
+High-risk operations require operation-specific approval text that includes the
+pane title, surface kind, target reference, and an exact payload preview. Browser
+input and navigation should also require approval when browser pane support is
+added.
 
 For terminal writes, the approval target and payload are part of the safety
 contract. Approval must reference immutable prepared bytes by ID and hash. The
@@ -533,6 +551,17 @@ Verification:
 
 Add typed pane operations for focus, move, close-pane, rename, resize, open, and
 reorder.
+
+Resize support should include:
+
+- pane-targeted column width changes with absolute and relative inputs
+- pane-targeted height changes with absolute and relative inputs
+- row/plane height changes when multiple panes share a visual row
+- multi-pane atomic transactions for requests that affect several panes at once
+
+Every resize response should include before/after dimensions for the affected
+panes and columns so agents can confirm results without inferring from rendered
+pixels.
 
 Initial open/configure support should cover terminal, chat, and workflow graph
 panes. Workflow node details can be added when the command requires explicit
