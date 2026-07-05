@@ -130,6 +130,81 @@ func TestWorkspacePanesOpenCommandIntegration(t *testing.T) {
 	}
 }
 
+func TestWorkspacePanesResizeCommandIntegration(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+
+	assertWorkspacePanesResizeWidthPXCommand(t, fixture)
+	assertWorkspacePanesResizeHeightPXCommand(t, fixture)
+	assertWorkspacePanesResizeHeightScaleCommand(t, fixture)
+	assertWorkspacePanesResizeResetHeightCommand(t, fixture)
+	assertWorkspacePanesResizeWidthScaleCommand(t, fixture)
+}
+
+func assertWorkspacePanesResizeWidthPXCommand(t *testing.T, fixture workspaceCLITestFixture) {
+	t.Helper()
+	widthPX := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "resize", "workspace_pane_1", "--width-px", "700")
+	if !widthPX.Changed || widthPX.Revision != 2 || widthPX.OperationResult.Resize == nil {
+		t.Fatalf("width px result = %+v, want changed revision 2 resize outcome", widthPX)
+	}
+	if widthPX.OperationResult.Resize.WidthSpec != (workspaceui.ColumnWidthSpec{Unit: workspaceui.ColumnWidthUnitPX, Value: 700}) {
+		t.Fatalf("width px outcome = %+v, want 700px", widthPX.OperationResult.Resize)
+	}
+	if column := workspaceCLIColumnByID(t, widthPX.Layout, "workspace_column_1"); column.WidthSpec != (workspaceui.ColumnWidthSpec{Unit: workspaceui.ColumnWidthUnitPX, Value: 700}) {
+		t.Fatalf("resized column = %+v, want 700px", column)
+	}
+	if len(widthPX.BeforeAfterDimensions) != 1 || widthPX.BeforeAfterDimensions[0].PaneID != "workspace_pane_1" {
+		t.Fatalf("width px dimension changes = %+v, want target pane only", widthPX.BeforeAfterDimensions)
+	}
+}
+
+func assertWorkspacePanesResizeHeightPXCommand(t *testing.T, fixture workspaceCLITestFixture) {
+	t.Helper()
+	heightPX := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "resize", "--height-px", "240", "workspace_pane_1")
+	if !heightPX.Changed || heightPX.Revision != 3 || heightPX.OperationResult.Resize == nil || heightPX.OperationResult.Resize.HeightPX == nil || *heightPX.OperationResult.Resize.HeightPX != 240 {
+		t.Fatalf("height px result = %+v, want changed revision 3 height 240", heightPX)
+	}
+	if len(heightPX.BeforeAfterDimensions) != 2 {
+		t.Fatalf("height px dimension changes = %+v, want row-scoped changes for two panes", heightPX.BeforeAfterDimensions)
+	}
+	assertWorkspaceCLIPaneHeight(t, heightPX.Layout, "workspace_pane_0", 240)
+	assertWorkspaceCLIPaneHeight(t, heightPX.Layout, "workspace_pane_1", 240)
+}
+
+func assertWorkspacePanesResizeHeightScaleCommand(t *testing.T, fixture workspaceCLITestFixture) {
+	t.Helper()
+	heightScale := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "resize", "workspace_pane_1", "--height-scale", "1.5")
+	if !heightScale.Changed || heightScale.Revision != 4 || heightScale.OperationResult.Resize == nil || heightScale.OperationResult.Resize.HeightPX == nil || *heightScale.OperationResult.Resize.HeightPX != 360 {
+		t.Fatalf("height scale result = %+v, want changed revision 4 height 360", heightScale)
+	}
+	assertWorkspaceCLIPaneHeight(t, heightScale.Layout, "workspace_pane_0", 360)
+	assertWorkspaceCLIPaneHeight(t, heightScale.Layout, "workspace_pane_1", 360)
+}
+
+func assertWorkspacePanesResizeResetHeightCommand(t *testing.T, fixture workspaceCLITestFixture) {
+	t.Helper()
+	resetHeight := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "resize", "workspace_pane_1", "--reset-height")
+	if !resetHeight.Changed || resetHeight.Revision != 5 || resetHeight.OperationResult.Resize == nil || resetHeight.OperationResult.Resize.HeightPX != nil {
+		t.Fatalf("reset height result = %+v, want changed revision 5 nil height", resetHeight)
+	}
+	assertWorkspaceCLIPaneHeightReset(t, resetHeight.Layout, "workspace_pane_0")
+	assertWorkspaceCLIPaneHeightReset(t, resetHeight.Layout, "workspace_pane_1")
+}
+
+func assertWorkspacePanesResizeWidthScaleCommand(t *testing.T, fixture workspaceCLITestFixture) {
+	t.Helper()
+	widthScale := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "resize", "workspace_pane_1", "--width-scale", "0.5")
+	if !widthScale.Changed || widthScale.Revision != 6 || widthScale.OperationResult.Resize == nil {
+		t.Fatalf("width scale result = %+v, want changed revision 6 resize outcome", widthScale)
+	}
+	expectedWidth := workspaceui.ColumnWidthSpec{Unit: workspaceui.ColumnWidthUnitProportion, Value: 0.5}
+	if widthScale.OperationResult.Resize.WidthSpec != expectedWidth {
+		t.Fatalf("width scale outcome = %+v, want %+v", widthScale.OperationResult.Resize, expectedWidth)
+	}
+	if column := workspaceCLIColumnByID(t, widthScale.Layout, "workspace_column_1"); column.WidthSpec != expectedWidth {
+		t.Fatalf("resized column = %+v, want %+v", column, expectedWidth)
+	}
+}
+
 func assertWorkspacePaneFocusCLIResult(t *testing.T, result workspaceui.WorkspaceUIPaneOperationResult) {
 	t.Helper()
 	if !result.Changed || result.Revision != 2 || result.Layout.FocusedPaneID != "workspace_pane_0" {
@@ -286,6 +361,30 @@ func TestWorkspacePanesOpenCommandRejectsCallerSuppliedPaneID(t *testing.T) {
 	}
 }
 
+func TestWorkspacePanesResizeCommandRejectsMultipleTargets(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "panes", "resize", "workspace_pane_1", "--width-px", "700", "--height-px", "240"), commandDeps); code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "workspace_usage_error" {
+		t.Fatalf("error code = %q, want workspace_usage_error", errResponse.Error.Code)
+	}
+	list := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneListResult](t, fixture, "panes", "list")
+	if len(list.Panes) != 2 {
+		t.Fatalf("pane list after rejected resize = %+v, want original two panes", list)
+	}
+}
+
 func newWorkspaceCLITestFixture(t *testing.T) workspaceCLITestFixture {
 	t.Helper()
 	appDataDir := t.TempDir()
@@ -407,6 +506,45 @@ func writeRawWorkspacePaneOpenInputForCLITest(t *testing.T, data string) string 
 		t.Fatalf("write workspace pane open input: %v", err)
 	}
 	return path
+}
+
+func workspaceCLIColumnByID(t *testing.T, layout workspaceui.WorkspaceUILayout, columnID string) workspaceui.WorkspaceUIColumn {
+	t.Helper()
+	for _, column := range layout.Columns {
+		if column.ColumnID == columnID {
+			return column
+		}
+	}
+	t.Fatalf("column %s not found in layout %+v", columnID, layout)
+	return workspaceui.WorkspaceUIColumn{}
+}
+
+func assertWorkspaceCLIPaneHeight(t *testing.T, layout workspaceui.WorkspaceUILayout, paneID string, expected int) {
+	t.Helper()
+	for _, pane := range layout.Panes {
+		if pane.PaneID != paneID {
+			continue
+		}
+		if pane.HeightPX == nil || *pane.HeightPX != expected {
+			t.Fatalf("pane %s height = %v, want %d", paneID, pane.HeightPX, expected)
+		}
+		return
+	}
+	t.Fatalf("pane %s not found in layout %+v", paneID, layout)
+}
+
+func assertWorkspaceCLIPaneHeightReset(t *testing.T, layout workspaceui.WorkspaceUILayout, paneID string) {
+	t.Helper()
+	for _, pane := range layout.Panes {
+		if pane.PaneID != paneID {
+			continue
+		}
+		if pane.HeightPX != nil {
+			t.Fatalf("pane %s height = %v, want nil", paneID, pane.HeightPX)
+		}
+		return
+	}
+	t.Fatalf("pane %s not found in layout %+v", paneID, layout)
 }
 
 func cliTestWorkspaceColumn(columnID string, index int, paneID string, width float64) workspaceui.WorkspaceUIColumn {

@@ -8,8 +8,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"setta/internal/httpapi"
@@ -28,6 +30,7 @@ const (
 	workspacePanesOpenCLIAuthDisplayName   = "Setta CLI workspace panes open"
 	workspacePanesReadCLIAuthDisplayName   = "Setta CLI workspace panes read"
 	workspacePanesRenameCLIAuthDisplayName = "Setta CLI workspace panes rename"
+	workspacePanesResizeCLIAuthDisplayName = "Setta CLI workspace panes resize"
 	workspaceSchemaCLIAuthDisplayName      = "Setta CLI workspace schema"
 )
 
@@ -66,6 +69,12 @@ type workspacePaneRenameOptions struct {
 	AppDataDir string
 	PaneID     string
 	Title      string
+}
+
+type workspacePaneResizeOptions struct {
+	AppDataDir string
+	PaneID     string
+	Resize     workspaceui.WorkspaceUIPaneResizeOperation
 }
 
 func runWorkspace(args []string, deps cliDeps) error {
@@ -114,7 +123,7 @@ func runWorkspaceSchema(args []string, deps cliDeps) error {
 
 func runWorkspacePanes(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workspace panes requires a subcommand: close, focus, list, move, open, read, or rename")}
+		return usageError{err: errors.New("setta workspace panes requires a subcommand: close, focus, list, move, open, read, rename, or resize")}
 	}
 	switch args[0] {
 	case "close":
@@ -131,6 +140,8 @@ func runWorkspacePanes(args []string, deps cliDeps) error {
 		return runWorkspacePanesRead(args[1:], deps)
 	case "rename":
 		return runWorkspacePanesRename(args[1:], deps)
+	case "resize":
+		return runWorkspacePanesResize(args[1:], deps)
 	default:
 		return usageError{err: fmt.Errorf("unknown workspace panes subcommand %q", args[0])}
 	}
@@ -222,6 +233,18 @@ func runWorkspacePanesRename(args []string, deps cliDeps) error {
 		return err
 	}
 	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace pane rename result")
+}
+
+func runWorkspacePanesResize(args []string, deps cliDeps) error {
+	options, err := workspacePaneResizeOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	result, err := resizeWorkspacePane(context.Background(), options.AppDataDir, options.PaneID, options.Resize, deps)
+	if err != nil {
+		return err
+	}
+	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace pane resize result")
 }
 
 func workspaceOptionsFromArgs(name string, args []string, deps cliDeps) (workspaceOptions, error) {
@@ -442,6 +465,132 @@ func workspacePaneRenameOptionsFromArgs(args []string, deps cliDeps) (workspaceP
 	}, nil
 }
 
+func workspacePaneResizeOptionsFromArgs(args []string, deps cliDeps) (workspacePaneResizeOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workspacePaneResizeOptions{}, err
+	}
+	var widthPX string
+	var widthScale string
+	var heightPX string
+	var heightScale string
+	var resetHeight bool
+	normalizedArgs, err := normalizeWorkspacePaneFlagArgs(args, "app-data-dir", "width-px", "width-scale", "height-px", "height-scale")
+	if err != nil {
+		return workspacePaneResizeOptions{}, usageError{err: err}
+	}
+	flagSet := newWorkspaceFlagSet("setta workspace panes resize")
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&widthPX, "width-px", "", "pane column width in pixels")
+	flagSet.StringVar(&widthScale, "width-scale", "", "pane column proportional width scale")
+	flagSet.StringVar(&heightPX, "height-px", "", "pane row height in pixels")
+	flagSet.StringVar(&heightScale, "height-scale", "", "pane row height scale")
+	flagSet.BoolVar(&resetHeight, "reset-height", false, "reset explicit pane row height")
+	if err := flagSet.Parse(normalizedArgs); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workspacePaneResizeOptions{}, usageError{err: err}
+		}
+		return workspacePaneResizeOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 1 {
+		return workspacePaneResizeOptions{}, usageError{err: errors.New("setta workspace panes resize requires exactly one pane id")}
+	}
+	paneID := strings.TrimSpace(flagSet.Arg(0))
+	if paneID == "" {
+		return workspacePaneResizeOptions{}, usageError{err: errors.New("workspace pane id is required")}
+	}
+	resize, err := workspacePaneResizeOperationFromFlags(widthPX, widthScale, heightPX, heightScale, resetHeight)
+	if err != nil {
+		return workspacePaneResizeOptions{}, usageError{err: err}
+	}
+	return workspacePaneResizeOptions{
+		AppDataDir: appDataDir,
+		PaneID:     paneID,
+		Resize:     resize,
+	}, nil
+}
+
+func workspacePaneResizeOperationFromFlags(widthPX string, widthScale string, heightPX string, heightScale string, resetHeight bool) (workspaceui.WorkspaceUIPaneResizeOperation, error) {
+	if workspacePaneResizeTargetFlagCount(widthPX, widthScale, heightPX, heightScale, resetHeight) != 1 {
+		return workspaceui.WorkspaceUIPaneResizeOperation{}, errors.New("setta workspace panes resize requires exactly one of --width-px, --width-scale, --height-px, --height-scale, or --reset-height")
+	}
+	switch {
+	case strings.TrimSpace(widthPX) != "":
+		return workspacePaneResizeWidthOperation("width-px", workspaceui.ColumnWidthUnitPX, widthPX)
+	case strings.TrimSpace(widthScale) != "":
+		return workspacePaneResizeWidthOperation("width-scale", workspaceui.ColumnWidthUnitProportion, widthScale)
+	case strings.TrimSpace(heightPX) != "":
+		return workspacePaneResizeHeightPXOperation(heightPX)
+	case strings.TrimSpace(heightScale) != "":
+		return workspacePaneResizeHeightScaleOperation(heightScale)
+	default:
+		return workspaceui.WorkspaceUIPaneResizeOperation{ResetHeight: true}, nil
+	}
+}
+
+func workspacePaneResizeTargetFlagCount(widthPX string, widthScale string, heightPX string, heightScale string, resetHeight bool) int {
+	targetCount := 0
+	for _, value := range []string{widthPX, widthScale, heightPX, heightScale} {
+		if strings.TrimSpace(value) != "" {
+			targetCount++
+		}
+	}
+	if resetHeight {
+		targetCount++
+	}
+	return targetCount
+}
+
+func workspacePaneResizeWidthOperation(name string, unit workspaceui.ColumnWidthUnit, raw string) (workspaceui.WorkspaceUIPaneResizeOperation, error) {
+	value, err := parsePositiveFiniteFloatFlag(name, raw)
+	if err != nil {
+		return workspaceui.WorkspaceUIPaneResizeOperation{}, err
+	}
+	widthSpec := workspaceui.ColumnWidthSpec{Unit: unit, Value: value}
+	return workspaceui.WorkspaceUIPaneResizeOperation{WidthSpec: &widthSpec}, nil
+}
+
+func workspacePaneResizeHeightPXOperation(raw string) (workspaceui.WorkspaceUIPaneResizeOperation, error) {
+	value, err := parsePositiveIntFlag("height-px", raw)
+	if err != nil {
+		return workspaceui.WorkspaceUIPaneResizeOperation{}, err
+	}
+	return workspaceui.WorkspaceUIPaneResizeOperation{HeightPX: &value}, nil
+}
+
+func workspacePaneResizeHeightScaleOperation(raw string) (workspaceui.WorkspaceUIPaneResizeOperation, error) {
+	value, err := parsePositiveFiniteFloatFlag("height-scale", raw)
+	if err != nil {
+		return workspaceui.WorkspaceUIPaneResizeOperation{}, err
+	}
+	return workspaceui.WorkspaceUIPaneResizeOperation{HeightScale: &value}, nil
+}
+
+func parsePositiveFiniteFloatFlag(name string, raw string) (float64, error) {
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil {
+		return 0, fmt.Errorf("workspace pane resize --%s must be a number: %w", name, err)
+	}
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, fmt.Errorf("workspace pane resize --%s must be finite", name)
+	}
+	if value <= 0 {
+		return 0, fmt.Errorf("workspace pane resize --%s must be positive", name)
+	}
+	return value, nil
+}
+
+func parsePositiveIntFlag(name string, raw string) (int, error) {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0, fmt.Errorf("workspace pane resize --%s must be an integer: %w", name, err)
+	}
+	if value <= 0 {
+		return 0, fmt.Errorf("workspace pane resize --%s must be positive", name)
+	}
+	return value, nil
+}
+
 func normalizeWorkspacePaneFlagArgs(args []string, valueFlagNames ...string) ([]string, error) {
 	valueFlags := make(map[string]struct{}, len(valueFlagNames))
 	for _, name := range valueFlagNames {
@@ -517,6 +666,14 @@ func renameWorkspacePane(ctx context.Context, appDataDir string, paneID string, 
 		Rename: &workspaceui.WorkspaceUIPaneRenameOperation{
 			Title: title,
 		},
+	}, deps)
+}
+
+func resizeWorkspacePane(ctx context.Context, appDataDir string, paneID string, resize workspaceui.WorkspaceUIPaneResizeOperation, deps cliDeps) (workspaceui.WorkspaceUIPaneOperationResult, error) {
+	return applyWorkspacePaneOperation(ctx, appDataDir, workspacePanesResizeCLIAuthDisplayName, "workspace panes resize", workspaceui.WorkspaceUIPaneOperation{
+		Kind:   workspaceui.WorkspaceUIPaneOperationKindResizePane,
+		PaneID: paneID,
+		Resize: &resize,
 	}, deps)
 }
 
