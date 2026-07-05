@@ -486,6 +486,52 @@ func TestWorkspaceUITerminalWriteCommitRejectsWorkspaceMismatchBeforeWrite(t *te
 	}
 }
 
+func TestWorkspaceUITerminalWriteCommitRejectsRemovedPaneBeforeWrite(t *testing.T) {
+	handler, appDataDir, starter := newWorkspaceHandlerWithTerminal(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[1].TerminalConfig = &workspaceui.TerminalPaneConfig{ProfileID: terminal.DefaultProfileID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+	postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		Cols:        80,
+		Rows:        24,
+	}, http.StatusOK)
+	data := []byte("echo removed pane\n")
+	digest := terminalWriteHTTPTestSHA256(data)
+	prepared := postJSON[PrepareWorkspaceUITerminalWriteResponse](t, handler, "/workspaces/ui/terminals/writes/prepare", PrepareWorkspaceUITerminalWriteRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_1",
+		DataBase64:  base64.StdEncoding.EncodeToString(data),
+		ByteCount:   len(data),
+		SHA256:      digest,
+	}, http.StatusOK)
+
+	postJSON[workspaceui.WorkspaceUIPaneOperationResult](t, handler, "/workspaces/ui/panes/operation", ApplyWorkspaceUIPaneOperationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Operation: workspaceui.WorkspaceUIPaneOperation{
+			Kind:   workspaceui.WorkspaceUIPaneOperationKindClosePane,
+			PaneID: "workspace_pane_1",
+			Close: &workspaceui.WorkspaceUIPaneCloseOperation{
+				SurfaceClose: workspaceui.WorkspaceUISurfaceCloseModeNone,
+			},
+		},
+	}, http.StatusOK)
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/terminals/writes/commit", CommitWorkspaceUITerminalWriteRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		PreparedWriteID: prepared.PreparedWrite.PreparedWriteID,
+		SHA256:          digest,
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "commit_workspace_ui_terminal_write_failed" {
+		t.Fatalf("error code = %q, want commit_workspace_ui_terminal_write_failed", errResponse.Error.Code)
+	}
+	if written := starter.handleAt(t, 0).writtenString(); written != "" {
+		t.Fatalf("terminal written bytes = %q, want no write", written)
+	}
+}
+
 func terminalWriteHTTPTestSHA256(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])

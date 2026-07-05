@@ -134,6 +134,17 @@ func (manager *Manager) prepareTerminalWriteCommit(
 		delete(manager.preparedWrites, prepared.id)
 		return nil, nil, TerminalWriteCommitResult{}, nil, err
 	}
+	if input.ValidateTarget != nil {
+		err := input.ValidateTarget(TerminalWriteCommitTarget{
+			WorkspaceID: prepared.workspaceID,
+			PaneID:      prepared.paneID,
+			SessionID:   terminalSession.id,
+		})
+		if err != nil {
+			delete(manager.preparedWrites, prepared.id)
+			return nil, nil, TerminalWriteCommitResult{}, nil, fmt.Errorf("prepared terminal write %s target validation failed: %w", prepared.id, err)
+		}
+	}
 	delete(manager.preparedWrites, prepared.id)
 	result := prepared.commitResult()
 	data := append([]byte{}, prepared.data...)

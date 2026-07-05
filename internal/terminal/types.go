@@ -209,10 +209,11 @@ type TerminalPreparedWrite struct {
 }
 
 type TerminalWriteCommitInput struct {
-	PreparedWriteID string `json:"preparedWriteId"`
-	WorkspaceID     string `json:"workspaceId"`
-	DeviceSessionID string `json:"deviceSessionId"`
-	SHA256          string `json:"sha256"`
+	PreparedWriteID string                                `json:"preparedWriteId"`
+	WorkspaceID     string                                `json:"workspaceId"`
+	DeviceSessionID string                                `json:"deviceSessionId"`
+	SHA256          string                                `json:"sha256"`
+	ValidateTarget  func(TerminalWriteCommitTarget) error `json:"-"`
 }
 
 type TerminalWriteCommitResult struct {
@@ -224,6 +225,12 @@ type TerminalWriteCommitResult struct {
 	ByteCount        int    `json:"byteCount"`
 	SHA256           string `json:"sha256"`
 	WrittenByteCount int    `json:"writtenByteCount"`
+}
+
+type TerminalWriteCommitTarget struct {
+	WorkspaceID string
+	PaneID      string
+	SessionID   string
 }
 
 type TerminalScreenSnapshot struct {

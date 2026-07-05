@@ -242,6 +242,44 @@ func TestManagerCommitPreparedWriteFailsOnExpiryAndTargetMismatch(t *testing.T) 
 			t.Fatalf("replacement session written bytes = %q, want none", written)
 		}
 	})
+
+	t.Run("target validator", func(t *testing.T) {
+		root := t.TempDir()
+		starter := &recordingPTYStarter{}
+		manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
+		created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+		prepared := mustPrepareTerminalWrite(t, manager, []byte("echo hidden\n"))
+
+		_, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
+			PreparedWriteID: prepared.PreparedWriteID,
+			WorkspaceID:     "workspace_terminal",
+			DeviceSessionID: testDeviceSessionID,
+			SHA256:          prepared.SHA256,
+			ValidateTarget: func(target TerminalWriteCommitTarget) error {
+				if target.WorkspaceID != "workspace_terminal" ||
+					target.PaneID != "pane_shell" ||
+					target.SessionID != created.ID {
+					t.Fatalf("commit target = %+v, want prepared session %s", target, created.ID)
+				}
+				return errors.New("pane no longer exists")
+			},
+		})
+		if err == nil || !strings.Contains(err.Error(), "target validation failed") {
+			t.Fatalf("target validator commit error = %v, want validation failure", err)
+		}
+		if written := writtenPTYBytes(starter.handleAt(t, 0)); len(written) != 0 {
+			t.Fatalf("target validator write bytes = %q, want none", written)
+		}
+		_, err = manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
+			PreparedWriteID: prepared.PreparedWriteID,
+			WorkspaceID:     "workspace_terminal",
+			DeviceSessionID: testDeviceSessionID,
+			SHA256:          prepared.SHA256,
+		})
+		if err == nil || !strings.Contains(err.Error(), "prepared terminal write not found") {
+			t.Fatalf("retry after target validation error = %v, want consumed prepared write", err)
+		}
+	})
 }
 
 func TestManagerCommitPreparedWriteCompletesPartialPTYWrites(t *testing.T) {

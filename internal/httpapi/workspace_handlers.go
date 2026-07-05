@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -243,6 +244,10 @@ func (handler handler) prepareWorkspaceUITerminalWrite(response http.ResponseWri
 }
 
 func (handler handler) commitWorkspaceUITerminalWrite(response http.ResponseWriter, request *http.Request) {
+	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if workspaceUIService == nil {
+		return
+	}
 	terminalService := requireTerminalService(response, handler.terminalService)
 	if terminalService == nil {
 		return
@@ -261,6 +266,10 @@ func (handler handler) commitWorkspaceUITerminalWrite(response http.ResponseWrit
 		WorkspaceID:     payload.WorkspaceID,
 		DeviceSessionID: deviceSession.ID,
 		SHA256:          payload.SHA256,
+		ValidateTarget: func(target terminal.TerminalWriteCommitTarget) error {
+			_, err := validateWorkspaceUITerminalPaneTarget(workspaceUIService, target.WorkspaceID, target.PaneID)
+			return err
+		},
 	})
 	if err != nil {
 		writeTerminalError(response, "commit_workspace_ui_terminal_write_failed", err)
@@ -278,21 +287,44 @@ func readWorkspaceUITerminalPane(
 	paneID string,
 	errorCode string,
 ) (workspaceui.WorkspaceUIPaneDescriptor, bool) {
-	pane, err := service.ReadPane(workspaceID, paneID)
+	pane, err := validateWorkspaceUITerminalPaneTarget(service, workspaceID, paneID)
 	if err != nil {
+		var unsupportedErr *unsupportedWorkspaceUITerminalPaneError
+		if errors.As(err, &unsupportedErr) {
+			writeError(response, http.StatusBadRequest, "unsupported_workspace_ui_terminal_pane", unsupportedErr.Error())
+			return workspaceui.WorkspaceUIPaneDescriptor{}, false
+		}
 		writeWorkspaceUIError(response, errorCode, err)
 		return workspaceui.WorkspaceUIPaneDescriptor{}, false
 	}
-	if pane.Pane.SurfaceKind != workspaceui.SurfaceKindTerminal || pane.Pane.ContentRefs.Terminal == nil {
-		writeError(
-			response,
-			http.StatusBadRequest,
-			"unsupported_workspace_ui_terminal_pane",
-			fmt.Sprintf("workspace pane %s has surface kind %s, not terminal", paneID, pane.Pane.SurfaceKind),
-		)
-		return workspaceui.WorkspaceUIPaneDescriptor{}, false
+	return pane, true
+}
+
+func validateWorkspaceUITerminalPaneTarget(
+	service WorkspaceUIService,
+	workspaceID string,
+	paneID string,
+) (workspaceui.WorkspaceUIPaneDescriptor, error) {
+	pane, err := service.ReadPane(workspaceID, paneID)
+	if err != nil {
+		return workspaceui.WorkspaceUIPaneDescriptor{}, err
 	}
-	return pane.Pane, true
+	if pane.Pane.SurfaceKind != workspaceui.SurfaceKindTerminal || pane.Pane.ContentRefs.Terminal == nil {
+		return workspaceui.WorkspaceUIPaneDescriptor{}, &unsupportedWorkspaceUITerminalPaneError{
+			paneID:      paneID,
+			surfaceKind: pane.Pane.SurfaceKind,
+		}
+	}
+	return pane.Pane, nil
+}
+
+type unsupportedWorkspaceUITerminalPaneError struct {
+	paneID      string
+	surfaceKind workspaceui.SurfaceKind
+}
+
+func (err *unsupportedWorkspaceUITerminalPaneError) Error() string {
+	return fmt.Sprintf("workspace pane %s has surface kind %s, not terminal", err.paneID, err.surfaceKind)
 }
 
 func (handler handler) applyWorkspaceUIPaneOperation(response http.ResponseWriter, request *http.Request) {
