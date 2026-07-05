@@ -155,6 +155,7 @@ describe("preload runtime API", () => {
 function runtimeSnapshot() {
   return {
     activeRuntimeId: "runtime_remote",
+    cloudResources: [],
     connection: {
       message: "Connected to Remote",
       protocolVersion: 1,

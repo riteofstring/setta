@@ -554,6 +554,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     } catch (error) {
       return {
         activeRuntimeId: null,
+        cloudResources: [],
         connection: {
           message: errorMessage(error),
           protocolVersion: null,
@@ -604,6 +605,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
   ): RuntimeRegistrySnapshot {
     return {
       activeRuntimeId: info.runtimeId,
+      cloudResources: [],
       connection: {
         message,
         protocolVersion: info.protocolVersion,
@@ -931,7 +933,6 @@ function isStoredWebDeviceSession(value: unknown): value is StoredWebDeviceSessi
     typeof record.runtimeId === "string"
   );
 }
-
 function installWebPWA(api: SettaAPI) {
   if ("serviceWorker" in navigator) {
     void navigator.serviceWorker.register("/sw.js");

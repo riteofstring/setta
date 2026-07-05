@@ -1,13 +1,14 @@
 import type { BackendFetch } from "@shared/backend-runtime";
 import { backendProtocolVersion } from "@generated/backend";
 import { createHmac } from "node:crypto";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { KnownRuntimeStore, type KnownRuntimeRecord } from "./known-runtime-store";
 import type { PendingProvisionRecord } from "./pending-provision-store";
+import { ProvisionCreationResourceStore } from "./provision-creation-resource-store";
 import { RuntimeRegistryController, type RuntimeRegistryHooks } from "./runtime-registry";
 import { MemoryRuntimeSecretStore } from "./runtime-secret-store";
 import type { TailnetNode } from "./provision-watch";
@@ -368,6 +369,67 @@ describe("RuntimeRegistryController", () => {
       "snapshot:connected",
     ]);
   });
+
+  test("projects local provision creation records into runtime snapshots", async () => {
+    const store = await newRuntimeStore();
+    const appDataDir = await mkdtemp(join(tmpdir(), "setta-provision-creations-"));
+    await writeProvisionCreations(appDataDir, [
+      provisionCreationRecord({
+        createdAt: "2026-07-05T10:00:00.000Z",
+        expectedResourceName: "setta-worker",
+        provider: "hetzner",
+        recordId: "hetzner:setta-worker",
+        region: "fsn1",
+        resourceId: "12345",
+        runtimeName: "setta-worker",
+        status: "succeeded",
+        teardownReady: true,
+      }),
+      provisionCreationRecord({
+        expectedResourceName: "deleted-worker",
+        provider: "hetzner",
+        recordId: "hetzner:deleted-worker",
+        runtimeName: "deleted-worker",
+        status: "deleted",
+      }),
+    ]);
+    const controller = new RuntimeRegistryController({
+      clientDisplayName: () => "Setta Desktop",
+      fetchImpl: runtimeFetch(),
+      hooks: lifecycleHooks([]),
+      now: () => new Date("2026-07-07T12:00:00.000Z"),
+      onSnapshot: () => {},
+      provisionResources: new ProvisionCreationResourceStore(appDataDir),
+      store,
+    });
+
+    const snapshot = await controller.load();
+
+    expect(snapshot.cloudResources).toHaveLength(1);
+    expect(snapshot.cloudResources[0]).toMatchObject({
+      billingWarning:
+        "Created via Setta on 2026-07-05; this desktop has not reached the runtime for 2 days and it may still be billing.",
+      cleanupSummary: "Stored teardown is ready; review the plan before deleting this resource.",
+      expectedResourceName: "setta-worker",
+      infrastructureProvider: {
+        displayName: "Hetzner",
+        id: "hetzner",
+      },
+      lastReachableAt: null,
+      recordId: "hetzner:setta-worker",
+      region: "fsn1",
+      resourceId: "12345",
+      runtimeName: "setta-worker",
+      status: "succeeded",
+      teardownReady: true,
+    });
+    expect(snapshot.cloudResources[0]?.commands.diagnose).toContain(
+      "setta provision diagnose --json",
+    );
+    expect(snapshot.cloudResources[0]?.commands.teardownApprove).toContain(
+      "setta provision down --json --approve",
+    );
+  });
 });
 
 function lifecycleHooks(events: string[]): RuntimeRegistryHooks {
@@ -457,6 +519,52 @@ function runtimeInfrastructureProvider(id: "aws" | "unknown") {
     displayName: "Unknown provider",
     iconUrl: "",
     id,
+  };
+}
+
+async function writeProvisionCreations(appDataDir: string, creations: unknown[]): Promise<void> {
+  await mkdir(appDataDir, { recursive: true });
+  await writeFile(
+    join(appDataDir, "provision-creations.json"),
+    JSON.stringify({ creations, schemaVersion: 1 }, null, 2) + "\n",
+    "utf8",
+  );
+}
+
+function provisionCreationRecord(
+  overrides: Partial<{
+    createdAt: string;
+    expectedResourceName: string;
+    lastError: string;
+    provider: string;
+    recordId: string;
+    region: string;
+    resourceId: string;
+    runtimeName: string;
+    status: string;
+    teardownReady: boolean;
+    updatedAt: string;
+  }>,
+) {
+  const record = {
+    createdAt: "2026-07-07T10:00:00.000Z",
+    expectedResourceName: "setta-worker",
+    provider: "hetzner",
+    recordId: "hetzner:setta-worker",
+    region: "fsn1",
+    runtimeName: "setta-worker",
+    status: "succeeded",
+    teardownAction: {
+      ready: true,
+    },
+    updatedAt: "2026-07-07T10:05:00.000Z",
+    ...overrides,
+  };
+  return {
+    ...record,
+    teardownAction: {
+      ready: overrides.teardownReady ?? record.teardownAction.ready,
+    },
   };
 }
 

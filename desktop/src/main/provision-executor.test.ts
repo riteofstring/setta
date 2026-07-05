@@ -460,6 +460,7 @@ function pendingFromInput(input: PendingProvisionInput): PendingProvisionRecord 
 function runtimeSnapshot(): RuntimeRegistrySnapshot {
   return {
     activeRuntimeId: "runtime_remote",
+    cloudResources: [],
     connection: {
       message: "Connected to setta-worker",
       protocolVersion: 1,

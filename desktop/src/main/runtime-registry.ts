@@ -8,6 +8,7 @@ import type {
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import type {
+  CloudRuntimeProvisionResourceView,
   KnownRuntimeView,
   RuntimeConnectionState,
   RuntimeConnectionStatus,
@@ -59,6 +60,7 @@ export interface RuntimeRegistryOptions {
   hooks: RuntimeRegistryHooks;
   now?: () => Date;
   onSnapshot: (snapshot: RuntimeRegistrySnapshot) => void;
+  provisionResources?: CloudProvisionResourceReader;
   resolveRuntimeHostName?: (baseUrl: string) => Promise<string | null>;
   store: KnownRuntimeStore;
 }
@@ -66,6 +68,13 @@ export interface RuntimeRegistryOptions {
 interface LocalRuntimeInput {
   baseUrl: string;
   deviceToken: string;
+}
+
+interface CloudProvisionResourceReader {
+  readResources(input: {
+    now: Date;
+    runtimes: KnownRuntimeRecord[];
+  }): Promise<CloudRuntimeProvisionResourceView[]>;
 }
 
 const initialConnectionState: RuntimeConnectionState = {
@@ -140,6 +149,7 @@ const runtimeInfrastructureProviderByHost = [
 
 export class RuntimeRegistryController {
   private activeRuntime: ActiveRuntime | null = null;
+  private cloudResources: CloudRuntimeProvisionResourceView[] = [];
   private connection = initialConnectionState;
   private operationRunning = false;
   private registry: KnownRuntimeRegistry = emptyKnownRuntimeRegistry();
@@ -150,6 +160,7 @@ export class RuntimeRegistryController {
 
   async load(): Promise<RuntimeRegistrySnapshot> {
     this.registry = await this.options.store.read();
+    await this.refreshCloudProvisionResources({ emit: false });
     this.emit();
     return this.snapshot();
   }
@@ -327,9 +338,23 @@ export class RuntimeRegistryController {
     return this.snapshot().runtimes;
   }
 
+  async refreshCloudProvisionResources(
+    options: { emit?: boolean } = {},
+  ): Promise<RuntimeRegistrySnapshot> {
+    const reader = this.options.provisionResources;
+    this.cloudResources = reader
+      ? await reader.readResources({ now: this.now(), runtimes: this.registry.runtimes })
+      : [];
+    if (options.emit ?? true) {
+      this.emit();
+    }
+    return this.snapshot();
+  }
+
   snapshot(): RuntimeRegistrySnapshot {
     return {
       activeRuntimeId: this.registry.activeRuntimeId,
+      cloudResources: this.cloudResources,
       connection: this.connection,
       runtimes: this.registry.runtimes.map((runtime) => this.runtimeView(runtime)),
       switching: this.switching,
@@ -388,6 +413,7 @@ export class RuntimeRegistryController {
         });
         this.registry = { ...this.registry, activeRuntimeId: connected.runtimeId };
         await this.persist();
+        await this.refreshCloudProvisionResources({ emit: false });
         this.switching = false;
         await this.options.hooks.activeRuntimeOnline(connected);
         this.emit();
@@ -533,7 +559,11 @@ export class RuntimeRegistryController {
   }
 
   private nowISO(): string {
-    return (this.options.now ?? (() => new Date()))().toISOString();
+    return this.now().toISOString();
+  }
+
+  private now(): Date {
+    return (this.options.now ?? (() => new Date()))();
   }
 
   private async runtimePresentationFromInfo(

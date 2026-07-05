@@ -33,6 +33,7 @@ import { registerChatIpcHandlers } from "./chat-ipc";
 import { createElectronRuntimeSecretStore } from "./electron-runtime-secret-store";
 import { KnownRuntimeStore } from "./known-runtime-store";
 import { PendingProvisionStore } from "./pending-provision-store";
+import { ProvisionCreationResourceStore } from "./provision-creation-resource-store";
 import { TailscaleStatusClient } from "./provision-watch";
 import { resumePendingProvisionWatches } from "./provision-watch-resume";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
@@ -92,7 +93,7 @@ async function prepareBackend(appDataDir: string) {
       runtimeRegistry: () => runtimeRegistry,
       stopBackendEventStreams,
     });
-    runtimeRegistry = createRuntimeRegistry();
+    runtimeRegistry = createRuntimeRegistry(appDataDir);
     await runtimeRegistry.load();
     const localRuntime = await runtimeRegistry.registerLocalRuntime({
       baseUrl: backend.url,
@@ -109,7 +110,7 @@ async function prepareBackend(appDataDir: string) {
   }
 }
 
-function createRuntimeRegistry() {
+function createRuntimeRegistry(appDataDir: string) {
   const userDataDir = app.getPath("userData");
   const secretStore = createElectronRuntimeSecretStore(userDataDir);
   pendingProvisionStore = new PendingProvisionStore(userDataDir, secretStore);
@@ -123,6 +124,7 @@ function createRuntimeRegistry() {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
+    provisionResources: new ProvisionCreationResourceStore(appDataDir),
     store: new KnownRuntimeStore(userDataDir, secretStore),
   });
 }

@@ -1,5 +1,6 @@
 import type {
   AddExistingMachineSSHRuntimeRequest,
+  CloudRuntimeProvisionResourceView,
   KnownRuntimeView,
   RuntimeConnectionStatus,
 } from "@shared/types";
@@ -29,6 +30,7 @@ import {
 import { cn } from "../lib/utils";
 import { runtimePickerControlsDisabled, useRuntimeStore } from "../stores/runtime-store";
 import { FloatingMenu } from "./floating-menu";
+import { CloudProvisionResourceList } from "./runtime-cloud-resource-list";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { RuntimeCloudWizard } from "./runtime-cloud-wizard";
@@ -54,6 +56,7 @@ export function RuntimePicker({
         onCreateDevicePairing={state.createDevicePairing}
         onRemove={(runtimeId) => void state.removeRuntime(runtimeId)}
         onSwitch={(runtimeId) => void state.switchRuntime(runtimeId)}
+        cloudResources={state.cloudResources}
         runtimes={state.runtimes}
         status={state.status}
       />
@@ -121,6 +124,7 @@ function useRuntimePickerState({
   const [pairingUrl, setPairingUrl] = useState("");
   const [sshRequest, setSSHRequest] =
     useState<AddExistingMachineSSHRuntimeRequest>(emptySSHRuntimeRequest);
+  const cloudResources = snapshot?.cloudResources ?? [];
   const runtimes = snapshot?.runtimes ?? [];
   const busy = runtimePickerControlsDisabled(snapshot, operation);
   function setSSHField(field: RuntimeSSHField, value: string) {
@@ -132,6 +136,7 @@ function useRuntimePickerState({
     addMode,
     adding,
     busy,
+    cloudResources,
     createDevicePairing,
     error,
     operation,
@@ -371,6 +376,7 @@ function RuntimePickerError({ error }: { error: string | null }) {
 
 export function RuntimeList({
   busy,
+  cloudResources = [],
   onCreateDevicePairing,
   onRemove,
   onSwitch,
@@ -378,13 +384,14 @@ export function RuntimeList({
   status,
 }: {
   busy: boolean;
+  cloudResources?: CloudRuntimeProvisionResourceView[];
   onCreateDevicePairing: () => Promise<{ pairingUrl: string }>;
   onRemove: (runtimeId: string) => void;
   onSwitch: (runtimeId: string) => void;
   runtimes: KnownRuntimeView[];
   status: "idle" | "loading" | "ready" | "error";
 }) {
-  if (status === "loading" && runtimes.length === 0) {
+  if (status === "loading" && runtimes.length === 0 && cloudResources.length === 0) {
     return (
       <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -392,22 +399,29 @@ export function RuntimeList({
       </div>
     );
   }
-  if (runtimes.length === 0) {
+  if (runtimes.length === 0 && cloudResources.length === 0) {
     return <div className="px-2 py-1 text-xs text-muted-foreground">No runtimes paired</div>;
   }
   return (
-    <ul aria-label="Runtimes" className="grid gap-0.5">
-      {runtimes.map((runtime) => (
-        <RuntimeRow
-          busy={busy}
-          key={runtime.runtimeId}
-          onCreateDevicePairing={onCreateDevicePairing}
-          onRemove={onRemove}
-          onSwitch={onSwitch}
-          runtime={runtime}
-        />
-      ))}
-    </ul>
+    <div className="grid gap-1">
+      {runtimes.length > 0 ? (
+        <ul aria-label="Runtimes" className="grid gap-0.5">
+          {runtimes.map((runtime) => (
+            <RuntimeRow
+              busy={busy}
+              key={runtime.runtimeId}
+              onCreateDevicePairing={onCreateDevicePairing}
+              onRemove={onRemove}
+              onSwitch={onSwitch}
+              runtime={runtime}
+            />
+          ))}
+        </ul>
+      ) : (
+        <div className="px-2 py-1 text-xs text-muted-foreground">No runtimes paired</div>
+      )}
+      <CloudProvisionResourceList busy={busy} resources={cloudResources} />
+    </div>
   );
 }
 

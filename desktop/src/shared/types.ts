@@ -364,6 +364,33 @@ export interface KnownRuntimeView {
   runtimeId: string;
 }
 
+interface CloudRuntimeProvisionResourceCommands {
+  diagnose: string;
+  inspect: string;
+  teardownApprove: string | null;
+  teardownPlan: string | null;
+}
+
+export interface CloudRuntimeProvisionResourceView {
+  account: string | null;
+  billingWarning: string | null;
+  cleanupSummary: string;
+  commands: CloudRuntimeProvisionResourceCommands;
+  createdAt: string;
+  expectedResourceName: string;
+  infrastructureProvider: RuntimeInfrastructureProvider;
+  lastError: string | null;
+  lastReachableAt: string | null;
+  recordId: string;
+  region: string;
+  resourceId: string | null;
+  runtimeName: string;
+  status: string;
+  statusMessage: string;
+  teardownReady: boolean;
+  updatedAt: string;
+}
+
 export interface AddExistingMachineSSHRuntimeRequest {
   installerSha256: string;
   minisignPublicKey: string;
@@ -467,6 +494,7 @@ export interface MintTailscaleAuthKeyResult {
 
 export interface RuntimeRegistrySnapshot {
   activeRuntimeId: string | null;
+  cloudResources: CloudRuntimeProvisionResourceView[];
   connection: RuntimeConnectionState;
   runtimes: KnownRuntimeView[];
   switching: boolean;

@@ -42,7 +42,8 @@ export interface CloudRuntimeProvisionExecutorOptions {
   now?: () => Date;
   pendingProvisionStore: Pick<PendingProvisionStore, "delete" | "upsert">;
   repoRoot: string;
-  runtimeRegistry: Pick<RuntimeRegistryController, "watchProvisionAndPair">;
+  runtimeRegistry: Pick<RuntimeRegistryController, "watchProvisionAndPair"> &
+    Partial<Pick<RuntimeRegistryController, "refreshCloudProvisionResources">>;
   tailscaleOAuthService: Pick<TailscaleOAuthService, "mintAuthKey">;
   tailnetClient?: TailnetClient;
 }
@@ -117,6 +118,7 @@ export async function runApprovedCloudRuntimeProvision(
   const resolution = request.resolution;
   const existing = await inspectExistingProvision(options, resolution, runtimeName);
   if (existing.exists) {
+    await refreshCloudProvisionResources(options);
     return existingProvisionResult(existing, runtimeName);
   }
   const now = options.now ?? (() => new Date());
@@ -144,7 +146,14 @@ export async function runApprovedCloudRuntimeProvision(
       runtimePort: provisionRuntimePort,
       scheme: "http",
     });
-    const up = await runProvisionUpCLI(options, upArgs);
+    let up: ProvisionUpCLIResult;
+    try {
+      up = await runProvisionUpCLI(options, upArgs);
+    } catch (error) {
+      await refreshCloudProvisionResources(options);
+      throw error;
+    }
+    await refreshCloudProvisionResources(options);
     if (up.mode === "existing_record") {
       await options.pendingProvisionStore.delete(pending.provisionId);
       return existingProvisionResult(up, pending.runtimeName);
@@ -164,11 +173,18 @@ export async function runApprovedCloudRuntimeProvision(
       } satisfies CloudRuntimeProvisionExecutedResult;
     } catch (error) {
       const diagnosis = await diagnoseProvisionWatchFailure(options, up.creationRecord.recordId);
+      await refreshCloudProvisionResources(options);
       throw new Error(provisionWatchFailureMessage(error, diagnosis), { cause: error });
     }
   } finally {
     await rm(tempDir, { force: true, recursive: true });
   }
+}
+
+async function refreshCloudProvisionResources(
+  options: CloudRuntimeProvisionExecutorOptions,
+): Promise<void> {
+  await options.runtimeRegistry.refreshCloudProvisionResources?.();
 }
 
 function provisionWatchTiming(env: NodeJS.ProcessEnv): {

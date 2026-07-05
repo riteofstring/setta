@@ -78,7 +78,9 @@ try {
     result.execution.creationRecord.status !== "succeeded" ||
     result.execution.plan.actionId !== "hetzner.server.create_runtime" ||
     result.snapshot.connection.status !== "connected" ||
-    result.snapshot.activeRuntimeId !== "runtime_remote"
+    result.snapshot.activeRuntimeId !== "runtime_remote" ||
+    result.snapshot.cloudResources[0]?.recordId !== "hetzner:setta-worker" ||
+    result.snapshot.cloudResources[0]?.teardownReady !== true
   ) {
     throw new Error(`unexpected cloud provision result: ${JSON.stringify(result)}`);
   }
@@ -168,7 +170,8 @@ function fakeProvisionCLISource(statePath) {
   return [
     "#!/usr/bin/env node",
     "",
-    "const { readFileSync, writeFileSync } = require('node:fs');",
+    "const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');",
+    "const { join } = require('node:path');",
     `const statePath = ${JSON.stringify(statePath)};`,
     "const args = process.argv.slice(2);",
     "function argValue(flag) {",
@@ -238,11 +241,39 @@ function fakeProvisionCLISource(statePath) {
     "  process.exit(0);",
     "}",
     "",
+    'if (args[1] === "inspect" && args[2] === "--json") {',
+    "  process.stdout.write(JSON.stringify({",
+    "    ok: true,",
+    "    provider: argValue('--provider'),",
+    "    recordId: 'hetzner:setta-worker',",
+    "    exists: false,",
+    "    nextActions: []",
+    "  }) + '\\n');",
+    "  process.exit(0);",
+    "}",
+    "",
     'if (args[1] === "up" && args[2] === "--json" && args[3] === "--approve") {',
+    "  const appDataDir = argValue('--app-data-dir');",
     "  const cloudInitPath = argValue('--cloud-init-file');",
     "  if (!readFileSync(cloudInitPath, 'utf8').includes('setta: true')) {",
     "    throw new Error('cloud-init file was not written');",
     "  }",
+    "  mkdirSync(appDataDir, { recursive: true });",
+    "  writeFileSync(join(appDataDir, 'provision-creations.json'), JSON.stringify({",
+    "    schemaVersion: 1,",
+    "    creations: [{",
+    "      recordId: 'hetzner:setta-worker',",
+    "      status: 'succeeded',",
+    "      createdAt: '2026-07-07T10:00:00.000Z',",
+    "      updatedAt: '2026-07-07T10:05:00.000Z',",
+    "      provider: 'hetzner',",
+    "      runtimeName: 'setta-worker',",
+    "      expectedResourceName: 'setta-worker',",
+    "      region: 'fsn1',",
+    "      resourceId: '123',",
+    "      teardownAction: { ready: true }",
+    "    }]",
+    "  }, null, 2) + '\\n');",
     "  process.stdout.write(JSON.stringify({",
     "    ok: true,",
     "    mode: 'executed',",

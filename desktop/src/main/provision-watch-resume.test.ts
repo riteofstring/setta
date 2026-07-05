@@ -79,6 +79,7 @@ function tailnetClient(): TailnetClient {
 function runtimeSnapshot() {
   return {
     activeRuntimeId: "runtime_remote",
+    cloudResources: [],
     connection: {
       message: "Connected",
       protocolVersion: 1,
