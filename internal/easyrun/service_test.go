@@ -76,6 +76,38 @@ func TestEventSubscriptionReplaysAfterCursorAndRequestsResyncWhenRetainedEventsA
 	}
 }
 
+func TestEventSubscriptionRequestsResyncWhenStreamIDChanges(t *testing.T) {
+	events, err := NewEventHub(EasyRunEventStreamID+"_restarted", WithEventClock(func() time.Time {
+		return time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
+	}))
+	if err != nil {
+		t.Fatalf("create event hub: %v", err)
+	}
+	current, err := events.Publish(NewRunUpdatedEvent(testRun("run_recovered")))
+	if err != nil {
+		t.Fatalf("publish current event: %v", err)
+	}
+
+	subscription, err := events.Subscribe(EasyRunEventCursor{
+		Sequence: 1,
+		StreamID: EasyRunEventStreamID,
+	})
+	if err != nil {
+		t.Fatalf("subscribe with old stream cursor: %v", err)
+	}
+	defer subscription.Unsubscribe()
+	resync := requireEasyRunEvent(t, subscription)
+	if resync.Type != EasyRunEventTypeResyncRequired || resync.ResyncRequired == nil {
+		t.Fatalf("stream mismatch event = %+v, want resync required", resync)
+	}
+	if resync.StreamID != current.StreamID ||
+		resync.ResyncRequired.CurrentStreamID != current.StreamID ||
+		resync.ResyncRequired.CurrentSequence != current.Sequence ||
+		resync.ResyncRequired.RequestedStreamID != EasyRunEventStreamID {
+		t.Fatalf("stream mismatch resync = %+v, current = %+v", resync, current)
+	}
+}
+
 func TestServiceStartCreatesHiddenEasyRunAndProjectsTerminalChatRun(t *testing.T) {
 	service, chatService := newTestServiceWithChat(t, chat.NewFakeHarness(nil))
 	subscription, err := service.SubscribeEvents(EasyRunEventCursor{})
@@ -282,7 +314,7 @@ func newTestService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
-	service, err := NewService(store)
+	service, err := NewService(store, withEventStreamID(EasyRunEventStreamID))
 	if err != nil {
 		t.Fatalf("create service: %v", err)
 	}
@@ -329,6 +361,7 @@ func newTestServiceWithChatResolver(t *testing.T, harness chat.Harness, resolver
 		WithClock(func() time.Time {
 			return time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
 		}),
+		withEventStreamID(EasyRunEventStreamID),
 		WithIDGenerator(testIDGenerator()),
 	)
 	if err != nil {

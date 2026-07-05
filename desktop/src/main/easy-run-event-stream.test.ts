@@ -39,6 +39,38 @@ describe("easy-run event stream", () => {
     expect(forwarded).toEqual([first, second]);
   });
 
+  test("reconnects with the forwarded cursor after a transport error", async () => {
+    const first = runUpdatedEvent(1);
+    const second = runUpdatedEvent(2);
+    const forwarded: EasyRunEvent[] = [];
+    const lastEventIds: string[] = [];
+    const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer token_test");
+      lastEventIds.push(headers["Last-Event-ID"] ?? "");
+      if (lastEventIds.length === 1) {
+        return new Response(textStreamThenError(sseFrame(first)), { status: 200 });
+      }
+      return new Response(textStreamUntilAbort(sseFrame(second), init.signal), { status: 200 });
+    });
+
+    const stream = startEasyRunEventStream({
+      authToken: "token_test",
+      baseURL: "http://127.0.0.1:41000",
+      fetchImpl,
+      reconnectDelayMs: 1,
+      sendEvent: (event) => {
+        forwarded.push(event);
+      },
+    });
+
+    await waitFor(() => forwarded.length === 2);
+    await stream.stop();
+
+    expect(lastEventIds).toEqual(["", "easyrun_events:1"]);
+    expect(forwarded).toEqual([first, second]);
+  });
+
   test("forwards resync events when the stream id changes", async () => {
     const first = runUpdatedEvent(1, "easyrun_events_old");
     const resync = resyncEvent(1, "easyrun_events_new");
@@ -70,6 +102,42 @@ describe("easy-run event stream", () => {
     expect(lastEventIds).toEqual(["", "easyrun_events_old:1"]);
     expect(forwarded).toEqual([first, resync]);
   });
+
+  test("forwards resync events before duplicate filtering", async () => {
+    const first = runUpdatedEvent(4);
+    const resync = resyncEvent(0, "easyrun_events");
+    const recovered = runUpdatedEvent(1);
+    const forwarded: EasyRunEvent[] = [];
+    const lastEventIds: string[] = [];
+    const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer token_test");
+      lastEventIds.push(headers["Last-Event-ID"] ?? "");
+      if (lastEventIds.length === 1) {
+        return new Response(textStream(sseFrame(first)), { status: 200 });
+      }
+      if (lastEventIds.length === 2) {
+        return new Response(textStream(sseFrame(resync)), { status: 200 });
+      }
+      return new Response(textStreamUntilAbort(sseFrame(recovered), init.signal), { status: 200 });
+    });
+
+    const stream = startEasyRunEventStream({
+      authToken: "token_test",
+      baseURL: "http://127.0.0.1:41000",
+      fetchImpl,
+      reconnectDelayMs: 1,
+      sendEvent: (event) => {
+        forwarded.push(event);
+      },
+    });
+
+    await waitFor(() => forwarded.length === 3);
+    await stream.stop();
+
+    expect(lastEventIds).toEqual(["", "easyrun_events:4", "easyrun_events:0"]);
+    expect(forwarded).toEqual([first, resync, recovered]);
+  });
 });
 
 function textStream(text: string): ReadableStream<Uint8Array> {
@@ -77,6 +145,17 @@ function textStream(text: string): ReadableStream<Uint8Array> {
     start(controller) {
       controller.enqueue(new TextEncoder().encode(text));
       controller.close();
+    },
+  });
+}
+
+function textStreamThenError(text: string): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(text));
+      setTimeout(() => {
+        controller.error(new Error("terminated"));
+      }, 0);
     },
   });
 }

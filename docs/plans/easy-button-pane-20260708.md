@@ -994,7 +994,7 @@ Verification performed: `./scripts/go.sh test ./internal/easyrun`;
 available; the live gate passed `live-codex-electron` and
 `live-codex-backend`.
 
-Remaining Phase 2c work: `easyrun.resync_required` handling in the pane workflow
-and second-request rail reset coverage. Phase 2d then adds steering, the
-recorder-first center, secondary stop control, and center summary rendering. No
-blockers were discovered.
+### 2026-07-08 — Phase 2c resync handling slice complete
+Implemented easy-run resync hardening: per-service easy-run stream ids, main-process cursor preservation across transport errors, `easyrun.resync_required` handling before duplicate filtering, and an in-place external-backend restart workflow that asserts the resync event is forwarded through the production backend/main/preload/renderer path before the pane restores the failed snapshot. The external-backend helper now uses the existing runtime `SkipBootstrapDeviceSession` config so a same-port replacement backend does not revoke the token Electron is using. No generated contracts changed.
+Verification performed: `./scripts/go.sh test ./internal/easyrun`; `./scripts/go.sh test ./cmd/setta-backend ./internal/httpapi -run 'Test(ConfigFromArgsCanSkipBootstrapDeviceSession|ReadEasyRunSnapshotUsesWorkspaceQueryAndReturnsEmptySnapshot|EasyRunEventStreamRejectsMalformedCursor)'`; `pnpm -C desktop exec vitest run src/main/easy-run-event-stream.test.ts`; `pnpm -C desktop typecheck`; `pnpm -C desktop build`; `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2c-resync`; `node desktop/tests/electron/chat-live-auth.mjs`; `./scripts/test_chat_workflows.sh --skip-build --live-only`. ChatGPT auth was available; the live gate passed `live-codex-electron` and `live-codex-backend`.
+Remaining Phase 2c work: second-request rail reset coverage. Phase 2d then adds steering, the recorder-first center, secondary stop control, and center summary rendering. No blockers were discovered.

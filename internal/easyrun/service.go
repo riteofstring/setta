@@ -21,11 +21,12 @@ var errEasyRunConversationNotFound = errors.New("easy-run conversation not found
 const easyRunInterruptedOnRestartReason = "run interrupted by backend restart"
 
 type Service struct {
-	chat   ChatService
-	events *EventHub
-	newID  func(string) (string, error)
-	now    func() time.Time
-	store  *Store
+	chat          ChatService
+	eventStreamID string
+	events        *EventHub
+	newID         func(string) (string, error)
+	now           func() time.Time
+	store         *Store
 
 	mu             sync.Mutex
 	observerCancel context.CancelFunc
@@ -58,22 +59,30 @@ func WithIDGenerator(newID func(string) (string, error)) Option {
 	}
 }
 
+func withEventStreamID(streamID string) Option {
+	return func(service *Service) {
+		service.eventStreamID = streamID
+	}
+}
+
 func NewService(store *Store, options ...Option) (*Service, error) {
 	if store == nil {
 		return nil, errors.New("easy-run store is required")
 	}
-	events, err := NewEventHub(EasyRunEventStreamID)
-	if err != nil {
-		return nil, err
-	}
 	service := &Service{
-		events: events,
-		newID:  randomStorageID,
-		now:    time.Now,
-		store:  store,
+		newID: randomStorageID,
+		now:   time.Now,
+		store: store,
 	}
 	for _, option := range options {
 		option(service)
+	}
+	if service.eventStreamID == "" {
+		streamID, err := newEasyRunEventStreamID()
+		if err != nil {
+			return nil, fmt.Errorf("create easy-run event stream id: %w", err)
+		}
+		service.eventStreamID = streamID
 	}
 	if service.newID == nil {
 		return nil, errors.New("easy-run id generator is required")
@@ -81,6 +90,11 @@ func NewService(store *Store, options ...Option) (*Service, error) {
 	if service.now == nil {
 		return nil, errors.New("easy-run clock is required")
 	}
+	events, err := NewEventHub(service.eventStreamID)
+	if err != nil {
+		return nil, err
+	}
+	service.events = events
 	if err := service.recoverInterruptedRuns(); err != nil {
 		return nil, err
 	}
@@ -531,4 +545,12 @@ func randomStorageID(prefix string) (string, error) {
 		return "", err
 	}
 	return prefix + "_" + hex.EncodeToString(buffer[:]), nil
+}
+
+func newEasyRunEventStreamID() (string, error) {
+	var buffer [8]byte
+	if _, err := rand.Read(buffer[:]); err != nil {
+		return "", err
+	}
+	return EasyRunEventStreamID + "_" + hex.EncodeToString(buffer[:]), nil
 }

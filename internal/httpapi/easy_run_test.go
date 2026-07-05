@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"setta/internal/easyrun"
@@ -33,7 +34,7 @@ func TestReadEasyRunSnapshotUsesWorkspaceQueryAndReturnsEmptySnapshot(t *testing
 	if snapshot.LatestRun != nil || len(snapshot.Highlights) != 0 || len(snapshot.Artifacts) != 0 {
 		t.Fatalf("snapshot = %+v, want empty latest run and rails", snapshot)
 	}
-	if snapshot.EventStreamCursor.StreamID != easyrun.EasyRunEventStreamID {
+	if !strings.HasPrefix(snapshot.EventStreamCursor.StreamID, easyrun.EasyRunEventStreamID+"_") {
 		t.Fatalf("snapshot cursor = %+v, want easy-run stream", snapshot.EventStreamCursor)
 	}
 }

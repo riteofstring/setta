@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /* global console */
 
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 import process from "node:process";
+import { URL } from "node:url";
 
 import {
   killExternalBackend,
@@ -196,63 +197,81 @@ async function ensureWorkspaceOpen(client) {
 
 async function runEasyButtonRestartRecovery(recordingRoot) {
   const recoveryFixture = await createElectronFixture("easy-button-restart-recovery");
-  const firstRecording = join(recordingRoot, "first-launch");
-  const secondRecording = join(recordingRoot, "second-launch");
-  let firstContext = null;
-  let secondContext = null;
+  const recordingDir = join(recordingRoot, "in-place-backend-restart");
+  let context = null;
   let firstBackend = null;
   let secondBackend = null;
 
   try {
     firstBackend = await startExternalScriptedBackend(recoveryFixture, repoRoot);
-    firstContext = await launchExternalBackendEasyButtonContext(
+    context = await launchExternalBackendEasyButtonContext(
       recoveryFixture,
-      firstRecording,
+      recordingDir,
       firstBackend,
     );
-    await ensureWorkspaceOpen(firstContext.client);
-    await openEasyButtonFromToolbar(firstContext.client);
-    const opened = await waitForEasyButtonPane(firstContext.client);
+    await ensureWorkspaceOpen(context.client);
+    await openEasyButtonFromToolbar(context.client);
+    const opened = await waitForEasyButtonPane(context.client);
     assertFullWidthColumn(opened);
     assertIdleVisual(opened);
-    await submitEasyButtonRequest(firstContext.client, restartRecoveryPrompt);
-    const working = await waitForEasyButtonWorking(firstContext.client, restartRecoveryPrompt);
+    await submitEasyButtonRequest(context.client, restartRecoveryPrompt);
+    const working = await waitForEasyButtonWorking(context.client, restartRecoveryPrompt);
     assertWorkingVisual(working, restartRecoveryPrompt);
-    await captureScreenshot(
-      firstContext.client,
-      join(firstRecording, "easy-button-restart-working.png"),
-    );
+    await captureScreenshot(context.client, join(recordingDir, "easy-button-restart-working.png"));
 
+    const restartPort = portFromBackendURL(firstBackend.url);
     await killExternalBackend(firstBackend);
     firstBackend = null;
-    await stopElectronCdpContext(firstContext);
-    firstContext = null;
-
-    secondBackend = await startExternalScriptedBackend(recoveryFixture, repoRoot);
-    secondContext = await launchExternalBackendEasyButtonContext(
-      recoveryFixture,
-      secondRecording,
-      secondBackend,
-    );
-    await ensureWorkspaceOpen(secondContext.client);
+    secondBackend = await startExternalScriptedBackend(recoveryFixture, repoRoot, {
+      port: restartPort,
+      skipBootstrapDeviceSession: true,
+    });
     const recovered = await waitForEasyButtonTerminal(
-      secondContext.client,
+      context.client,
       restartRecoveryPrompt,
       "Failed after",
     );
     assertRestartRecoveredVisual(recovered);
+    await assertEasyRunResyncForwarded(recordingDir);
     await captureScreenshot(
-      secondContext.client,
-      join(secondRecording, "easy-button-restart-recovered.png"),
+      context.client,
+      join(recordingDir, "easy-button-restart-recovered.png"),
     );
     return { recovered, working };
   } finally {
-    await stopElectronCdpContext(firstContext);
-    await stopElectronCdpContext(secondContext);
+    await stopElectronCdpContext(context);
     await stopExternalBackend(firstBackend, { force: true });
     await stopExternalBackend(secondBackend);
     await rm(recoveryFixture.tempRoot, { force: true, recursive: true });
   }
+}
+
+async function assertEasyRunResyncForwarded(recordingDir) {
+  const rows = await readJsonLines(join(recordingDir, "events.jsonl"));
+  const resync = rows.find(
+    (row) =>
+      row.type === "easy_run_event_forwarded" && row.payload?.type === "easyrun.resync_required",
+  );
+  if (!resync) {
+    throw new Error(`easy-run resync event was not forwarded in ${recordingDir}`);
+  }
+}
+
+async function readJsonLines(path) {
+  const text = await readFile(path, "utf8");
+  return text
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line));
+}
+
+function portFromBackendURL(rawURL) {
+  const url = new URL(rawURL);
+  const port = Number.parseInt(url.port, 10);
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error(`external backend URL did not include a reusable port: ${rawURL}`);
+  }
+  return port;
 }
 
 async function launchExternalBackendEasyButtonContext(fixture, recordingDir, backend) {

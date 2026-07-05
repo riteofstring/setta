@@ -43,6 +43,23 @@ func TestConfigFromArgsRejectsInvalidEnvPort(t *testing.T) {
 	}
 }
 
+func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	config, err := configFromArgs([]string{
+		"--app-data-dir",
+		t.TempDir(),
+		"--skip-bootstrap-device-session",
+	}, &stdout, &stderr, emptyEnv)
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
+	}
+	if !config.SkipBootstrapDeviceSession {
+		t.Fatal("skip bootstrap device session = false, want true")
+	}
+}
+
 func TestConfigFromArgsUsesScriptedWorkflowHarnessEnvWithE2EGuard(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

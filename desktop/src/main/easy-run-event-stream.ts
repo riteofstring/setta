@@ -52,7 +52,13 @@ async function runEasyRunEventStreamLoop(options: {
   let cursor = emptyEasyRunEventCursor();
   while (!options.signal.aborted) {
     try {
-      cursor = await streamEasyRunEventsOnce({ ...options, cursor });
+      cursor = await streamEasyRunEventsOnce({
+        ...options,
+        cursor,
+        updateCursor: (nextCursor) => {
+          cursor = nextCursor;
+        },
+      });
     } catch (error) {
       if (options.signal.aborted) {
         return;
@@ -73,6 +79,7 @@ async function streamEasyRunEventsOnce(options: {
   fetchImpl: BackendFetch;
   sendEvent: (event: EasyRunEvent) => void;
   signal: AbortSignal;
+  updateCursor: (cursor: EasyRunEventCursor) => void;
 }): Promise<EasyRunEventCursor> {
   const headers: Record<string, string> = { Authorization: `Bearer ${options.authToken}` };
   if (options.cursor.streamId !== "") {
@@ -99,12 +106,16 @@ async function streamEasyRunEventsOnce(options: {
     }
     const nextCursor = easyRunEventCursorFromServerSentEvent(message);
     const event = decodeEasyRunStreamEvent(message, nextCursor);
+    if (event.type === "easyrun.resync_required") {
+      cursor = updateEasyRunEventCursor(options, easyRunResyncEventCursor(event));
+      options.sendEvent(event);
+      continue;
+    }
     if (isDuplicateEasyRunEvent(nextCursor, cursor)) {
-      cursor = nextCursor;
       continue;
     }
     assertEasyRunEventStream(nextCursor, cursor, event);
-    cursor = nextCursor;
+    cursor = updateEasyRunEventCursor(options, nextCursor);
     options.sendEvent(event);
   }
   return cursor;
@@ -151,6 +162,22 @@ function easyRunEventCursorFromServerSentEvent(message: { id: string }): EasyRun
     throw new Error("easy-run event stream id sequence is invalid: " + message.id);
   }
   return { sequence, streamId: message.id.slice(0, separator) };
+}
+
+function easyRunResyncEventCursor(event: EasyRunEvent): EasyRunEventCursor {
+  const payload = event.resyncRequired;
+  if (!payload) {
+    throw new Error("easyrun.resync_required is missing its generated payload branch");
+  }
+  return { sequence: payload.currentSequence, streamId: payload.currentStreamId };
+}
+
+function updateEasyRunEventCursor(
+  options: { updateCursor: (cursor: EasyRunEventCursor) => void },
+  cursor: EasyRunEventCursor,
+): EasyRunEventCursor {
+  options.updateCursor(cursor);
+  return cursor;
 }
 
 function isDuplicateEasyRunEvent(
