@@ -706,6 +706,190 @@ func TestServiceMovePaneOperationRejectsMissingPane(t *testing.T) {
 	}
 }
 
+func TestServiceAppliesClosePaneOperation(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_1",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeNone),
+	})
+	if err != nil {
+		t.Fatalf("apply close operation: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("changed = false, want true")
+	}
+	if result.Revision != 2 || result.Layout.Revision != 2 {
+		t.Fatalf("revision = result %d layout %d, want 2", result.Revision, result.Layout.Revision)
+	}
+	if result.Layout.FocusedPaneID != "workspace_pane_0" {
+		t.Fatalf("focused pane = %q, want workspace_pane_0", result.Layout.FocusedPaneID)
+	}
+	if len(result.Layout.Panes) != 1 {
+		t.Fatalf("panes = %+v, want one remaining pane", result.Layout.Panes)
+	}
+	assertPaneIDs(t, result.Layout.Columns[0].PaneIDs, "workspace_pane_0")
+	if result.OperationResult.PreviousFocusedPaneID != "workspace_pane_1" || result.OperationResult.FocusedPaneID != "workspace_pane_0" {
+		t.Fatalf("operation result = %+v, want focus retargeted to remaining pane", result.OperationResult)
+	}
+	assertCloseOutcome(t, result.OperationResult.Close, WorkspaceUIPaneCloseOutcome{
+		ColumnID:      "workspace_column_0",
+		ColumnIndex:   0,
+		PaneIndex:     1,
+		PlaneIndex:    0,
+		RemovedColumn: false,
+		SurfaceClose:  WorkspaceUISurfaceCloseModeNone,
+	})
+	if result.BeforeAfterDimensions == nil || len(result.BeforeAfterDimensions) != 0 {
+		t.Fatalf("beforeAfterDimensions = %+v, want empty slice", result.BeforeAfterDimensions)
+	}
+	if result.Warnings == nil || len(result.Warnings) != 0 {
+		t.Fatalf("warnings = %+v, want empty slice", result.Warnings)
+	}
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.FocusedPaneID != "workspace_pane_0" || loaded.Layout.Revision != 2 {
+		t.Fatalf("loaded layout = %+v, want pane 0 focused at revision 2", loaded.Layout)
+	}
+	assertPaneIDs(t, loaded.Layout.Columns[0].PaneIDs, "workspace_pane_0")
+}
+
+func TestServiceClosePaneOperationKeepsFocusWhenClosingUnfocusedPane(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_0",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeNone),
+	})
+	if err != nil {
+		t.Fatalf("apply close operation: %v", err)
+	}
+	if result.Layout.FocusedPaneID != "workspace_pane_1" {
+		t.Fatalf("focused pane = %q, want workspace_pane_1", result.Layout.FocusedPaneID)
+	}
+	assertPaneIDs(t, result.Layout.Columns[0].PaneIDs, "workspace_pane_1")
+	if result.OperationResult.PreviousFocusedPaneID != "workspace_pane_1" || result.OperationResult.FocusedPaneID != "workspace_pane_1" {
+		t.Fatalf("operation result = %+v, want unchanged focus", result.OperationResult)
+	}
+}
+
+func TestServiceClosePaneOperationRemovesEmptyColumnAndRetargetsFocus(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testMultiColumnLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_1",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeNone),
+	})
+	if err != nil {
+		t.Fatalf("apply close operation: %v", err)
+	}
+	if len(result.Layout.Columns) != 1 {
+		t.Fatalf("columns = %+v, want empty focused column removed", result.Layout.Columns)
+	}
+	column := result.Layout.Columns[0]
+	if column.ColumnID != "workspace_column_0" || column.Index != 0 {
+		t.Fatalf("remaining column = %+v, want original column 0 reindexed", column)
+	}
+	assertPaneIDs(t, column.PaneIDs, "workspace_pane_0", "workspace_pane_2")
+	if result.Layout.FocusedPaneID != "workspace_pane_0" {
+		t.Fatalf("focused pane = %q, want workspace_pane_0", result.Layout.FocusedPaneID)
+	}
+	assertCloseOutcome(t, result.OperationResult.Close, WorkspaceUIPaneCloseOutcome{
+		ColumnID:      "workspace_column_1",
+		ColumnIndex:   1,
+		PaneIndex:     0,
+		PlaneIndex:    0,
+		RemovedColumn: true,
+		SurfaceClose:  WorkspaceUISurfaceCloseModeNone,
+	})
+}
+
+func TestServiceClosePaneOperationRejectsLastPane(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testLayout("workspace_api")
+	layout.FocusedPaneID = "workspace_pane_0"
+	layout.Columns[0].PaneIDs = []string{"workspace_pane_0"}
+	layout.Panes = []WorkspaceUIPane{layout.Panes[0]}
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_0",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeNone),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeLastPane {
+		t.Fatalf("error = %T %v, want last_pane", err, err)
+	}
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.FocusedPaneID != "workspace_pane_0" || loaded.Layout.Revision != 1 {
+		t.Fatalf("loaded layout = %+v, want original single pane layout", loaded.Layout)
+	}
+}
+
+func TestServiceClosePaneOperationRejectsMissingPane(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_missing",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeNone),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodePaneNotFound {
+		t.Fatalf("error = %T %v, want pane_not_found", err, err)
+	}
+}
+
+func TestServiceClosePaneOperationRejectsSurfaceCloseSafe(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_1",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeSafe),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeUnsupportedSurfaceClose {
+		t.Fatalf("error = %T %v, want unsupported_surface_close", err, err)
+	}
+}
+
 func TestServicePaneOperationRejectsMissingLayout(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -729,7 +913,7 @@ func TestServicePaneOperationRejectsUnsupportedOperation(t *testing.T) {
 	}
 
 	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
-		Kind:   WorkspaceUIPaneOperationKind("close_pane"),
+		Kind:   WorkspaceUIPaneOperationKind("rename_pane"),
 		PaneID: "workspace_pane_0",
 	})
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeUnsupportedOperation {
@@ -765,6 +949,21 @@ func TestServicePaneOperationRejectsFocusWithMovePayload(t *testing.T) {
 	}
 }
 
+func TestServicePaneOperationRejectsFocusWithClosePayload(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindFocusPane,
+		PaneID: "workspace_pane_0",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeNone),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
 func TestServicePaneOperationRejectsMoveWithoutPayload(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -773,6 +972,22 @@ func TestServicePaneOperationRejectsMoveWithoutPayload(t *testing.T) {
 	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
 		Kind:   WorkspaceUIPaneOperationKindMovePane,
 		PaneID: "workspace_pane_0",
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
+func TestServicePaneOperationRejectsMoveWithClosePayload(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindMovePane,
+		PaneID: "workspace_pane_0",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeNone),
+		Move:   movePaneOperation(WorkspaceUIPaneMoveDirectionRight),
 	})
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
 		t.Fatalf("error = %T %v, want invalid_operation", err, err)
@@ -792,6 +1007,55 @@ func TestServicePaneOperationRejectsInvalidMoveDirection(t *testing.T) {
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
 		t.Fatalf("error = %T %v, want invalid_operation", err, err)
 	}
+}
+
+func TestServicePaneOperationRejectsCloseWithoutPayload(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_0",
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
+func TestServicePaneOperationRejectsCloseWithMovePayload(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_0",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeNone),
+		Move:   movePaneOperation(WorkspaceUIPaneMoveDirectionRight),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
+func TestServicePaneOperationRejectsInvalidCloseSurfaceMode(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_0",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseMode("later")),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
+func closePaneOperation(surfaceClose WorkspaceUISurfaceCloseMode) *WorkspaceUIPaneCloseOperation {
+	return &WorkspaceUIPaneCloseOperation{SurfaceClose: surfaceClose}
 }
 
 func movePaneOperation(direction WorkspaceUIPaneMoveDirection) *WorkspaceUIPaneMoveOperation {
@@ -821,6 +1085,16 @@ func assertMoveOutcome(t *testing.T, got *WorkspaceUIPaneMoveOutcome, want Works
 	}
 	if !reflect.DeepEqual(*got, want) {
 		t.Fatalf("move outcome = %+v, want %+v", got, want)
+	}
+}
+
+func assertCloseOutcome(t *testing.T, got *WorkspaceUIPaneCloseOutcome, want WorkspaceUIPaneCloseOutcome) {
+	t.Helper()
+	if got == nil {
+		t.Fatal("close outcome = nil")
+	}
+	if !reflect.DeepEqual(*got, want) {
+		t.Fatalf("close outcome = %+v, want %+v", got, want)
 	}
 }
 

@@ -60,6 +60,7 @@ const (
 type WorkspaceUIPaneOperationKind string
 
 const (
+	WorkspaceUIPaneOperationKindClosePane WorkspaceUIPaneOperationKind = "close_pane"
 	WorkspaceUIPaneOperationKindFocusPane WorkspaceUIPaneOperationKind = "focus_pane"
 	WorkspaceUIPaneOperationKindMovePane  WorkspaceUIPaneOperationKind = "move_pane"
 )
@@ -82,10 +83,12 @@ const (
 type WorkspaceUIOperationErrorCode string
 
 const (
-	WorkspaceUIOperationErrorCodeInvalidOperation     WorkspaceUIOperationErrorCode = "invalid_operation"
-	WorkspaceUIOperationErrorCodeMissingLayout        WorkspaceUIOperationErrorCode = "missing_layout"
-	WorkspaceUIOperationErrorCodePaneNotFound         WorkspaceUIOperationErrorCode = "pane_not_found"
-	WorkspaceUIOperationErrorCodeUnsupportedOperation WorkspaceUIOperationErrorCode = "unsupported_operation"
+	WorkspaceUIOperationErrorCodeInvalidOperation        WorkspaceUIOperationErrorCode = "invalid_operation"
+	WorkspaceUIOperationErrorCodeLastPane                WorkspaceUIOperationErrorCode = "last_pane"
+	WorkspaceUIOperationErrorCodeMissingLayout           WorkspaceUIOperationErrorCode = "missing_layout"
+	WorkspaceUIOperationErrorCodePaneNotFound            WorkspaceUIOperationErrorCode = "pane_not_found"
+	WorkspaceUIOperationErrorCodeUnsupportedOperation    WorkspaceUIOperationErrorCode = "unsupported_operation"
+	WorkspaceUIOperationErrorCodeUnsupportedSurfaceClose WorkspaceUIOperationErrorCode = "unsupported_surface_close"
 )
 
 type ColumnWidthSpec struct {
@@ -183,9 +186,14 @@ type WorkspaceUIPaneReadResult struct {
 }
 
 type WorkspaceUIPaneOperation struct {
-	Kind   WorkspaceUIPaneOperationKind  `json:"kind"`
-	PaneID string                        `json:"paneId"`
-	Move   *WorkspaceUIPaneMoveOperation `json:"move"`
+	Kind   WorkspaceUIPaneOperationKind   `json:"kind"`
+	PaneID string                         `json:"paneId"`
+	Close  *WorkspaceUIPaneCloseOperation `json:"close"`
+	Move   *WorkspaceUIPaneMoveOperation  `json:"move"`
+}
+
+type WorkspaceUIPaneCloseOperation struct {
+	SurfaceClose WorkspaceUISurfaceCloseMode `json:"surfaceClose"`
 }
 
 type WorkspaceUIPaneMoveOperation struct {
@@ -204,10 +212,20 @@ type WorkspaceUIPaneOperationResult struct {
 
 type WorkspaceUIPaneOperationOutcome struct {
 	Kind                  WorkspaceUIPaneOperationKind `json:"kind"`
+	Close                 *WorkspaceUIPaneCloseOutcome `json:"close"`
 	Move                  *WorkspaceUIPaneMoveOutcome  `json:"move"`
 	PaneID                string                       `json:"paneId"`
 	PreviousFocusedPaneID string                       `json:"previousFocusedPaneId"`
 	FocusedPaneID         string                       `json:"focusedPaneId"`
+}
+
+type WorkspaceUIPaneCloseOutcome struct {
+	ColumnID      string                      `json:"columnId"`
+	ColumnIndex   int                         `json:"columnIndex"`
+	PaneIndex     int                         `json:"paneIndex"`
+	PlaneIndex    int                         `json:"planeIndex"`
+	RemovedColumn bool                        `json:"removedColumn"`
+	SurfaceClose  WorkspaceUISurfaceCloseMode `json:"surfaceClose"`
 }
 
 type WorkspaceUIPaneMoveOutcome struct {

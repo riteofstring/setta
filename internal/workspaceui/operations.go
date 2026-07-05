@@ -40,7 +40,7 @@ func (service *Service) ApplyPaneOperation(workspaceID string, operation Workspa
 		return WorkspaceUIPaneOperationResult{}, operationError(workspaceID, operation, WorkspaceUIOperationErrorCodeInvalidOperation, err)
 	}
 	switch operation.Kind {
-	case WorkspaceUIPaneOperationKindFocusPane, WorkspaceUIPaneOperationKindMovePane:
+	case WorkspaceUIPaneOperationKindClosePane, WorkspaceUIPaneOperationKindFocusPane, WorkspaceUIPaneOperationKindMovePane:
 	default:
 		return WorkspaceUIPaneOperationResult{}, operationError(
 			workspaceID,
@@ -63,6 +63,8 @@ func (service *Service) ApplyPaneOperation(workspaceID string, operation Workspa
 		)
 	}
 	switch operation.Kind {
+	case WorkspaceUIPaneOperationKindClosePane:
+		return service.applyClosePaneOperation(*read.Layout, operation)
 	case WorkspaceUIPaneOperationKindFocusPane:
 		return service.applyFocusPaneOperation(*read.Layout, operation)
 	case WorkspaceUIPaneOperationKindMovePane:
@@ -85,19 +87,120 @@ func validatePaneOperation(operation WorkspaceUIPaneOperation) error {
 		return errors.New("workspace pane operation paneId is required")
 	}
 	switch operation.Kind {
+	case WorkspaceUIPaneOperationKindClosePane:
+		return validateClosePaneOperation(operation)
 	case WorkspaceUIPaneOperationKindFocusPane:
-		if operation.Move != nil {
-			return errors.New("workspace pane operation move payload is only valid for move_pane")
-		}
+		return validateFocusPaneOperation(operation)
 	case WorkspaceUIPaneOperationKindMovePane:
-		if operation.Move == nil {
-			return errors.New("workspace pane move payload is required")
-		}
-		if !validPaneMoveDirection(operation.Move.Direction) {
-			return fmt.Errorf("workspace pane move direction is unsupported: %s", operation.Move.Direction)
-		}
+		return validateMovePaneOperation(operation)
 	}
 	return nil
+}
+
+func validateClosePaneOperation(operation WorkspaceUIPaneOperation) error {
+	if operation.Close == nil {
+		return errors.New("workspace pane close payload is required")
+	}
+	if operation.Move != nil {
+		return errors.New("workspace pane operation move payload is only valid for move_pane")
+	}
+	if !validSurfaceCloseMode(operation.Close.SurfaceClose) {
+		return fmt.Errorf("workspace pane close surfaceClose is unsupported: %s", operation.Close.SurfaceClose)
+	}
+	return nil
+}
+
+func validateFocusPaneOperation(operation WorkspaceUIPaneOperation) error {
+	if operation.Close != nil {
+		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Move != nil {
+		return errors.New("workspace pane operation move payload is only valid for move_pane")
+	}
+	return nil
+}
+
+func validateMovePaneOperation(operation WorkspaceUIPaneOperation) error {
+	if operation.Close != nil {
+		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Move == nil {
+		return errors.New("workspace pane move payload is required")
+	}
+	if !validPaneMoveDirection(operation.Move.Direction) {
+		return fmt.Errorf("workspace pane move direction is unsupported: %s", operation.Move.Direction)
+	}
+	return nil
+}
+
+func (service *Service) applyClosePaneOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation) (WorkspaceUIPaneOperationResult, error) {
+	if operation.Close.SurfaceClose != WorkspaceUISurfaceCloseModeNone {
+		return WorkspaceUIPaneOperationResult{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodeUnsupportedSurfaceClose,
+			fmt.Errorf("workspace pane close currently supports only surfaceClose %s, got %s", WorkspaceUISurfaceCloseModeNone, operation.Close.SurfaceClose),
+		)
+	}
+
+	previousLocation, ok := paneLocation(layout, operation.PaneID)
+	if !ok {
+		return WorkspaceUIPaneOperationResult{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodePaneNotFound,
+			fmt.Errorf("workspace pane not found: %s", operation.PaneID),
+		)
+	}
+	if len(layout.Panes) <= 1 {
+		return WorkspaceUIPaneOperationResult{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodeLastPane,
+			errors.New("workspace layout must keep at least one pane"),
+		)
+	}
+
+	previousFocusedPaneID := layout.FocusedPaneID
+	removedColumn := closePaneInLayout(&layout, operation.PaneID)
+	if previousFocusedPaneID == operation.PaneID {
+		nextFocusedPaneID, ok := focusPaneIDAfterClose(layout, previousLocation)
+		if !ok {
+			return WorkspaceUIPaneOperationResult{}, operationError(
+				layout.WorkspaceID,
+				operation,
+				WorkspaceUIOperationErrorCodePaneNotFound,
+				errors.New("workspace pane focus target not found after close"),
+			)
+		}
+		layout.FocusedPaneID = nextFocusedPaneID
+	}
+	layout.Revision += 1
+	saved, err := service.SaveLayout(layout)
+	if err != nil {
+		return WorkspaceUIPaneOperationResult{}, err
+	}
+	layout = saved
+
+	return WorkspaceUIPaneOperationResult{
+		WorkspaceID: layout.WorkspaceID,
+		Revision:    layout.Revision,
+		Layout:      layout,
+		Changed:     true,
+		OperationResult: WorkspaceUIPaneOperationOutcome{
+			Kind: WorkspaceUIPaneOperationKindClosePane,
+			Close: closeOutcome(
+				operation.Close.SurfaceClose,
+				previousLocation,
+				removedColumn,
+			),
+			PaneID:                operation.PaneID,
+			PreviousFocusedPaneID: previousFocusedPaneID,
+			FocusedPaneID:         layout.FocusedPaneID,
+		},
+		BeforeAfterDimensions: []WorkspaceUIPaneDimensionChange{},
+		Warnings:              []WorkspaceUIPaneOperationWarning{},
+	}, nil
 }
 
 func (service *Service) applyFocusPaneOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation) (WorkspaceUIPaneOperationResult, error) {
@@ -204,6 +307,59 @@ func movePaneInLayout(layout *WorkspaceUILayout, paneID string, source workspace
 		return movePaneToAdjacentColumn(layout, paneID, source, direction)
 	default:
 		return false
+	}
+}
+
+func closePaneInLayout(layout *WorkspaceUILayout, paneID string) bool {
+	panes := make([]WorkspaceUIPane, 0, len(layout.Panes)-1)
+	for _, pane := range layout.Panes {
+		if pane.PaneID != paneID {
+			panes = append(panes, pane)
+		}
+	}
+	layout.Panes = panes
+
+	removedColumn := false
+	for columnIndex := range layout.Columns {
+		paneIDs := layout.Columns[columnIndex].PaneIDs
+		filteredPaneIDs := make([]string, 0, len(paneIDs))
+		for _, candidateID := range paneIDs {
+			if candidateID != paneID {
+				filteredPaneIDs = append(filteredPaneIDs, candidateID)
+			}
+		}
+		layout.Columns[columnIndex].PaneIDs = filteredPaneIDs
+		if len(filteredPaneIDs) == 0 {
+			removedColumn = true
+		}
+	}
+	if removedColumn {
+		removeEmptyColumnsAndReindex(layout)
+	}
+	return removedColumn
+}
+
+func focusPaneIDAfterClose(layout WorkspaceUILayout, previous workspaceUIPaneLocation) (string, bool) {
+	if len(layout.Columns) == 0 {
+		return "", false
+	}
+	columnIndex := clampInt(previous.ColumnIndex, 0, len(layout.Columns)-1)
+	column := layout.Columns[columnIndex]
+	if len(column.PaneIDs) == 0 {
+		return "", false
+	}
+	paneIndex := clampInt(previous.PaneIndex, 0, len(column.PaneIDs)-1)
+	return column.PaneIDs[paneIndex], true
+}
+
+func closeOutcome(surfaceClose WorkspaceUISurfaceCloseMode, location workspaceUIPaneLocation, removedColumn bool) *WorkspaceUIPaneCloseOutcome {
+	return &WorkspaceUIPaneCloseOutcome{
+		ColumnID:      location.ColumnID,
+		ColumnIndex:   location.ColumnIndex,
+		PaneIndex:     location.PaneIndex,
+		PlaneIndex:    location.PlaneIndex,
+		RemovedColumn: removedColumn,
+		SurfaceClose:  surfaceClose,
 	}
 }
 
@@ -370,6 +526,17 @@ func validPaneMoveDirection(direction WorkspaceUIPaneMoveDirection) bool {
 		WorkspaceUIPaneMoveDirectionLeft,
 		WorkspaceUIPaneMoveDirectionRight,
 		WorkspaceUIPaneMoveDirectionUp:
+		return true
+	default:
+		return false
+	}
+}
+
+func validSurfaceCloseMode(mode WorkspaceUISurfaceCloseMode) bool {
+	switch mode {
+	case WorkspaceUISurfaceCloseModeForce,
+		WorkspaceUISurfaceCloseModeNone,
+		WorkspaceUISurfaceCloseModeSafe:
 		return true
 	default:
 		return false

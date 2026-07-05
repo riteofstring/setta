@@ -704,8 +704,21 @@ Progress on 2026-07-07:
   a move payload, and move operations require one. This keeps the Go-owned
   contract aligned with the planned typed/discriminated operation model before
   the operation API is exposed through HTTP, CLI, IPC, or generated TypeScript.
+- Backend close operation reducer follow-up: added backend-only `close_pane`
+  support without exposing an HTTP, CLI, IPC, renderer, or agent write surface.
+  The reducer requires an explicit close payload with `surfaceClose: "none"`,
+  rejects `safe` and `force` surface closes with a stable
+  `unsupported_surface_close` error until surface-domain close semantics are
+  implemented, removes the pane from the persisted layout, removes/reindexes
+  empty columns, retargets focus with the same deterministic column/row clamping
+  used by the renderer, rejects missing panes, and rejects closing the last
+  remaining pane with a stable `last_pane` error.
+- Verification for the backend close reducer follow-up:
+  `./scripts/go.sh test ./internal/workspaceui` passed, and
+  `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
+  diffs because the write operation contract is still not endpoint-exposed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for close-pane, rename, resize, open, reorder, and multi-operation
+  event sync for rename, resize, open, reorder, and multi-operation
   transactions, then cut renderer-originated layout mutations over to that
   backend operation API before exposing agent or CLI workspace mutation
   commands.
