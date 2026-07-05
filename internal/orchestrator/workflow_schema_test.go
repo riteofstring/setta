@@ -2,6 +2,8 @@ package orchestrator
 
 import (
 	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/chat"
@@ -76,6 +78,23 @@ func TestBuildWorkflowSchemaIncludesActionSchemas(t *testing.T) {
 		codex.Capabilities.Requirements.Network != RunnerRequirementNetworkRequired ||
 		codex.Capabilities.Recovery != RunnerRecoveryCapabilityReconcileRefs {
 		t.Fatalf("codex capabilities = %+v", codex.Capabilities)
+	}
+}
+
+func TestWorkflowSchemaDefinitionNamesRejectCollisions(t *testing.T) {
+	builder, err := newWorkflowJSONSchemaBuilder()
+	if err != nil {
+		t.Fatalf("workflow schema builder: %v", err)
+	}
+	if err := builder.registerDefinitionType("WorkflowGraph", reflect.TypeFor[WorkflowGraph]()); err != nil {
+		t.Fatalf("register initial definition: %v", err)
+	}
+	if err := builder.registerDefinitionType("WorkflowGraph", reflect.TypeFor[WorkflowGraph]()); err != nil {
+		t.Fatalf("register same definition twice: %v", err)
+	}
+	err = builder.registerDefinitionType("WorkflowGraph", reflect.TypeFor[WorkflowNode]())
+	if err == nil || !strings.Contains(err.Error(), "WorkflowGraph") {
+		t.Fatalf("collision error = %v, want WorkflowGraph collision", err)
 	}
 }
 

@@ -47,10 +47,11 @@ type workflowJSONSchema struct {
 }
 
 type workflowJSONSchemaBuilder struct {
-	definitions   map[string]workflowJSONSchema
-	states        map[reflect.Type]workflowSchemaVisitState
-	usedValueSets map[string]bool
-	valueSets     map[string]WorkflowSchemaValueSet
+	definitions     map[string]workflowJSONSchema
+	definitionTypes map[string]reflect.Type
+	states          map[reflect.Type]workflowSchemaVisitState
+	usedValueSets   map[string]bool
+	valueSets       map[string]WorkflowSchemaValueSet
 }
 
 type workflowSchemaVisitState int
@@ -149,10 +150,11 @@ func newWorkflowJSONSchemaBuilder() (*workflowJSONSchemaBuilder, error) {
 		return nil, err
 	}
 	return &workflowJSONSchemaBuilder{
-		definitions:   map[string]workflowJSONSchema{},
-		states:        map[reflect.Type]workflowSchemaVisitState{},
-		usedValueSets: map[string]bool{},
-		valueSets:     valueSets,
+		definitions:     map[string]workflowJSONSchema{},
+		definitionTypes: map[string]reflect.Type{},
+		states:          map[reflect.Type]workflowSchemaVisitState{},
+		usedValueSets:   map[string]bool{},
+		valueSets:       valueSets,
 	}, nil
 }
 
@@ -313,6 +315,9 @@ func (builder *workflowJSONSchemaBuilder) schemaForStruct(goType reflect.Type) (
 }
 
 func (builder *workflowJSONSchemaBuilder) ensureStructDefinition(goType reflect.Type, name string) error {
+	if err := builder.registerDefinitionType(name, goType); err != nil {
+		return err
+	}
 	switch builder.states[goType] {
 	case workflowSchemaVisitDone, workflowSchemaVisitInProgress:
 		return nil
@@ -341,6 +346,14 @@ func (builder *workflowJSONSchemaBuilder) ensureStructDefinition(goType reflect.
 		AdditionalProperties: false,
 	}
 	builder.states[goType] = workflowSchemaVisitDone
+	return nil
+}
+
+func (builder *workflowJSONSchemaBuilder) registerDefinitionType(name string, goType reflect.Type) error {
+	if existing, ok := builder.definitionTypes[name]; ok && existing != goType {
+		return fmt.Errorf("workflow schema definition %s is used by both %s and %s", name, existing, goType)
+	}
+	builder.definitionTypes[name] = goType
 	return nil
 }
 
