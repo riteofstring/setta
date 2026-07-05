@@ -577,6 +577,9 @@ Progress on 2026-07-07:
   for protocol `14`; it rendered the graph but timed out waiting for an existing
   projection-update assertion. The passing `pane-focus-click` workflow is the
   app-path verification for this read-only workspace/layout slice.
+- Audit follow-up: tightened persisted workspace UI validation so
+  `terminalConfig` is rejected on non-terminal panes instead of being silently
+  omitted from pane introspection.
 - Remaining Phase 1 work: add renderer-facing pane metadata consumption and
   focused renderer tests once a renderer feature uses the new descriptor
   contract. The current slice exposes the backend and CLI read-only surface only.

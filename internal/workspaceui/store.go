@@ -248,6 +248,9 @@ func validatePaneTerminalConfig(pane WorkspaceUIPane, index int, path string) er
 	if pane.TerminalConfig == nil {
 		return nil
 	}
+	if pane.SurfaceKind != SurfaceKindTerminal {
+		return corruptStateErrorf(path, "panes[%d].terminalConfig is only valid for terminal panes", index)
+	}
 	if strings.TrimSpace(pane.TerminalConfig.ProfileID) != pane.TerminalConfig.ProfileID {
 		return corruptStateErrorf(path, "panes[%d].terminalConfig.profileId must not have surrounding whitespace", index)
 	}

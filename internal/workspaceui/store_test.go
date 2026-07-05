@@ -113,6 +113,24 @@ func TestStoreAllowsDefaultTerminalProfile(t *testing.T) {
 	}
 }
 
+func TestStoreRejectsTerminalConfigOnOtherPane(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].TerminalConfig = &TerminalPaneConfig{
+		ProfileID:     "default",
+		CWDOverride:   "",
+		TitleOverride: "",
+	}
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want misplaced terminal config error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "terminalConfig is only valid for terminal panes") {
+		t.Fatalf("error = %T %v, want misplaced terminal config corrupt state", err, err)
+	}
+}
+
 func TestStorePersistsWorkflowNodeDetailsPaneConfig(t *testing.T) {
 	store := newTestStore(t, t.TempDir())
 	layout := testLayout("workspace_api")
