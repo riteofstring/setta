@@ -6,6 +6,7 @@ import type {
 import {
   AlertTriangle,
   Check,
+  Cloud,
   Copy,
   Ellipsis,
   Loader2,
@@ -30,6 +31,7 @@ import { runtimePickerControlsDisabled, useRuntimeStore } from "../stores/runtim
 import { FloatingMenu } from "./floating-menu";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { RuntimeCloudWizard } from "./runtime-cloud-wizard";
 
 interface RuntimePickerProps {
   adding?: boolean;
@@ -86,7 +88,7 @@ export function RuntimePickerAddButton({ adding, setAdding }: Required<RuntimePi
   );
 }
 
-type RuntimeAddMode = "pairing-url" | "ssh";
+type RuntimeAddMode = "cloud" | "pairing-url" | "ssh";
 type RuntimeSSHField = keyof AddExistingMachineSSHRuntimeRequest;
 
 const emptySSHRuntimeRequest: AddExistingMachineSSHRuntimeRequest = {
@@ -189,8 +191,10 @@ function RuntimePairingForm({ state }: { state: RuntimePickerState }) {
             Add
           </Button>
         </form>
-      ) : (
+      ) : state.addMode === "ssh" ? (
         <RuntimeSSHForm state={state} />
+      ) : (
+        <RuntimeCloudWizard busy={state.busy} />
       )}
     </div>
   );
@@ -206,7 +210,7 @@ function RuntimeAddModeControl({
   return (
     <div
       aria-label="Runtime add mode"
-      className="grid grid-cols-2 gap-0.5 rounded-sm bg-muted p-0.5"
+      className="grid grid-cols-3 gap-0.5 rounded-sm bg-muted p-0.5"
       role="group"
     >
       <button
@@ -221,6 +225,19 @@ function RuntimeAddModeControl({
       >
         <QrCode className="h-3.5 w-3.5" />
         <span className="min-w-0 truncate">Pairing URL</span>
+      </button>
+      <button
+        aria-label="Add runtime on my cloud"
+        aria-pressed={mode === "cloud"}
+        className={cn(
+          "inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground",
+          mode === "cloud" && "bg-background text-foreground shadow-xs",
+        )}
+        onClick={() => setMode("cloud")}
+        type="button"
+      >
+        <Cloud className="h-3.5 w-3.5" />
+        <span className="min-w-0 truncate">On my cloud</span>
       </button>
       <button
         aria-label="Add runtime from existing machine over SSH"

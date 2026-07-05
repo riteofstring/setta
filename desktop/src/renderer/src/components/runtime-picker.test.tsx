@@ -70,7 +70,9 @@ describe("runtime picker", () => {
     const html = renderToString(<RuntimePicker adding={true} setAdding={() => {}} />);
 
     expect(buttonTagByAriaLabel(html, "Add runtime from existing machine over SSH")).not.toBeNull();
+    expect(buttonTagByAriaLabel(html, "Add runtime on my cloud")).not.toBeNull();
     expect(html).toContain("Existing machine over SSH");
+    expect(html).toContain("On my cloud");
   });
 
   test("clears stale picker operations when a terminal runtime snapshot arrives", () => {

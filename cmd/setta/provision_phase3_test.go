@@ -28,6 +28,9 @@ func TestProvisionShapesEmitsFallbackCatalogData(t *testing.T) {
 	if !result.OK {
 		t.Fatal("ok = false, want true")
 	}
+	if result.DefaultShape != "dev-standard" {
+		t.Fatalf("defaultShape = %q, want dev-standard", result.DefaultShape)
+	}
 	hetzner := requireCatalogProvider(t, result.Catalog, "hetzner")
 	if hetzner.ImageSelector.Kind != "image_alias" || hetzner.ImageSelector.Value != "ubuntu-24.04" {
 		t.Fatalf("hetzner image selector = %+v", hetzner.ImageSelector)

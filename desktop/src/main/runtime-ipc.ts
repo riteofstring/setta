@@ -2,6 +2,10 @@ import type { IpcMain } from "electron";
 
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 import { createElectronRuntimeSecretStore } from "./electron-runtime-secret-store";
+import {
+  listCloudRuntimeProvisionOptions,
+  resolveCloudRuntimeProvision,
+} from "./provision-resolver";
 import type { RuntimeRegistryController } from "./runtime-registry";
 import { runSettaRemoteAddSSH } from "./runtime-ssh";
 import { TailscaleOAuthService } from "./tailscale-oauth";
@@ -63,6 +67,28 @@ export function registerRuntimeIpcHandlers({
         repoRoot,
       });
       return requireRuntimeRegistry().addByPairingURL(result.pairingUrl);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "runtimeCloudProvisionOptions",
+    async () => {
+      return listCloudRuntimeProvisionOptions({
+        env: process.env,
+        repoRoot,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "runtimeCloudProvisionResolve",
+    async (_event, request) => {
+      return resolveCloudRuntimeProvision(request, {
+        env: process.env,
+        repoRoot,
+      });
     },
     ipcObserver,
   );

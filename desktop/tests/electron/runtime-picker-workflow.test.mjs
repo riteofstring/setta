@@ -91,6 +91,7 @@ try {
   ) {
     throw new Error(`unexpected Tailscale OAuth setup guide: ${JSON.stringify(oauthGuide)}`);
   }
+  await assertCloudProvisionResolver(context.client);
 
   await openWorkspaceFromSidebar(context.client);
   const localWorkspace = await waitForSelectedWorkspaceLayout(context.client);
@@ -258,6 +259,27 @@ async function addRuntimeOverSSHThroughPicker(client) {
   }
 }
 
+async function assertCloudProvisionResolver(client) {
+  const result = await client.evaluate(`(async () => {
+    const options = await window.setta.runtimes.cloudProvisionOptions();
+    const resolution = await window.setta.runtimes.cloudProvisionResolve({
+      intent: "cheap box for agents",
+      provider: "hetzner",
+      shape: "dev-standard",
+      region: "fsn1"
+    });
+    return { options, resolution };
+  })()`);
+  if (
+    result.options.defaultProvider !== "hetzner" ||
+    result.options.defaultShape !== "dev-standard" ||
+    result.resolution.resolution.instanceType !== "cx42" ||
+    result.resolution.resolution.region !== "fsn1"
+  ) {
+    throw new Error(`unexpected cloud provision resolver result: ${JSON.stringify(result)}`);
+  }
+}
+
 async function writeFakeSettaRemoteAddCLI(root) {
   const path = join(root, "fake-setta-remote-add.cjs");
   await writeFile(path, fakeSettaRemoteAddCLISource(), { mode: 0o700 });
@@ -273,6 +295,9 @@ function fakeSettaRemoteAddCLISource() {
     "",
     "async function main() {",
     "  const args = process.argv.slice(2);",
+    '  if (args[0] === "provision") {',
+    "    return fakeProvision(args);",
+    "  }",
     '  if (args[0] !== "remote" || args[1] !== "add") {',
     '    throw new Error("expected setta remote add, got " + args.join(" "));',
     "  }",
@@ -306,6 +331,44 @@ function fakeSettaRemoteAddCLISource() {
     "    transcriptPath,",
     '    transport: "tailscale"',
     '  }) + "\\n");',
+    "}",
+    "",
+    "function fakeProvision(args) {",
+    '  if (args[1] === "shapes" && args[2] === "--json") {',
+    "    process.stdout.write(JSON.stringify({",
+    "      ok: true,",
+    '      defaultShape: "dev-standard",',
+    "      catalog: {",
+    "        schemaVersion: 1,",
+    '        defaultProvider: "hetzner",',
+    '        shapes: [{ id: "dev-standard", label: "Dev standard", guide: "4 vCPU / 16 GB RAM", cpuMin: 4, memoryGbMin: 16, diskFloorGb: 64 }],',
+    "        providers: [{",
+    '          id: "hetzner", displayName: "Hetzner Cloud", pricingUrl: "https://www.hetzner.com/cloud", regionPreferences: ["fsn1"],',
+    '          imageSelector: { kind: "image_alias", value: "ubuntu-24.04", description: "Hetzner stable Ubuntu image alias" },',
+    '          mappings: { "dev-standard": { instanceType: "cx42", costClass: "standard" } }',
+    "        }]",
+    "      }",
+    '    }) + "\\n");',
+    "    return;",
+    "  }",
+    '  if (args[1] === "resolve" && args[2] === "--json") {',
+    '    if (args.includes("up") || args.includes("down")) { throw new Error("provision mutation leaked into resolve"); }',
+    "    const resolution = {",
+    '      provider: "hetzner", displayName: "Hetzner Cloud", shape: "dev-standard", source: "catalog", instanceType: "cx42", region: "fsn1", regionOptions: ["fsn1"], diskGb: 64,',
+    "      machine: { cpus: 4, memoryGb: 16, diskGb: 64 },",
+    '      imageSelector: { kind: "image_alias", value: "ubuntu-24.04", description: "Hetzner stable Ubuntu image alias" },',
+    '      cost: { kind: "class", class: "standard", pricingUrl: "https://www.hetzner.com/cloud", description: "catalog cost class" },',
+    "      approval: { requiresMutationApproval: true, commandPreview: [], secretFree: true }",
+    "    };",
+    "    process.stdout.write(JSON.stringify({",
+    "      ok: true,",
+    '      request: { provider: "hetzner", shape: "dev-standard", constraints: { intent: "cheap box for agents", regionPreference: "fsn1" } },',
+    "      resolution,",
+    "      candidates: [resolution]",
+    '    }) + "\\n");',
+    "    return;",
+    "  }",
+    '  throw new Error("unexpected setta provision command " + args.join(" "));',
     "}",
     "",
     "main().catch((error) => {",

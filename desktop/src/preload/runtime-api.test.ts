@@ -44,6 +44,8 @@ describe("preload runtime API", () => {
     expect(Object.keys(api.runtimes).sort()).toEqual([
       "addByPairingUrl",
       "addExistingMachineOverSSH",
+      "cloudProvisionOptions",
+      "cloudProvisionResolve",
       "createDevicePairing",
       "current",
       "list",
@@ -67,6 +69,12 @@ describe("preload runtime API", () => {
       tailscaleAuthKey: "tskey-auth-secret",
     });
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_remote&tok=tok&url=http://host");
+    await api.runtimes.cloudProvisionOptions?.();
+    await api.runtimes.cloudProvisionResolve?.({
+      intent: "cheap box for agents",
+      provider: "hetzner",
+      shape: "dev-small",
+    });
     await api.runtimes.createDevicePairing();
     await api.runtimes.switch("runtime_remote");
     await api.runtimes.remove("runtime_remote");
@@ -104,6 +112,15 @@ describe("preload runtime API", () => {
       [
         ipcChannels.runtimeAddByPairingUrl,
         "setta://pair?rt=runtime_remote&tok=tok&url=http://host",
+      ],
+      [ipcChannels.runtimeCloudProvisionOptions],
+      [
+        ipcChannels.runtimeCloudProvisionResolve,
+        {
+          intent: "cheap box for agents",
+          provider: "hetzner",
+          shape: "dev-small",
+        },
       ],
       [ipcChannels.runtimeCreateDevicePairing],
       [ipcChannels.runtimeSwitch, "runtime_remote"],

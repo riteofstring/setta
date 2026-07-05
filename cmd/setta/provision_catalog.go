@@ -59,8 +59,9 @@ type provisionCatalogMapping struct {
 }
 
 type provisionShapesResult struct {
-	OK      bool             `json:"ok"`
-	Catalog provisionCatalog `json:"catalog"`
+	OK           bool             `json:"ok"`
+	DefaultShape string           `json:"defaultShape"`
+	Catalog      provisionCatalog `json:"catalog"`
 }
 
 func runProvisionShapes(args []string, deps cliDeps) error {
@@ -73,7 +74,7 @@ func runProvisionShapes(args []string, deps cliDeps) error {
 	if err != nil {
 		return err
 	}
-	return encodeProvisionJSON(deps, provisionShapesResult{OK: true, Catalog: catalog}, "shapes JSON")
+	return encodeProvisionJSON(deps, provisionShapesResult{OK: true, DefaultShape: defaultProvisionShape, Catalog: catalog}, "shapes JSON")
 }
 
 type provisionShapesOptions struct {

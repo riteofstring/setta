@@ -163,6 +163,8 @@ export const ipcChannels = {
   backendHealth: "backend:health",
   runtimeAddExistingMachineOverSSH: "runtimes:add-existing-machine-over-ssh",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
+  runtimeCloudProvisionOptions: "runtimes:cloud-provision-options",
+  runtimeCloudProvisionResolve: "runtimes:cloud-provision-resolve",
   runtimeCreateDevicePairing: "runtimes:create-device-pairing",
   runtimeCurrent: "runtimes:current",
   runtimeList: "runtimes:list",

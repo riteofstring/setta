@@ -2,6 +2,9 @@ import type { CreateDevicePairingResponse } from "@generated/backend";
 
 import type {
   AddExistingMachineSSHRuntimeRequest,
+  CloudRuntimeProvisionOptions,
+  CloudRuntimeProvisionResolveRequest,
+  CloudRuntimeProvisionResolveResult,
   KnownRuntimeView,
   MintTailscaleAuthKeyRequest,
   MintTailscaleAuthKeyResult,
@@ -17,6 +20,11 @@ export interface RuntimeIpcContract {
   runtimeAddExistingMachineOverSSH: {
     args: [request: AddExistingMachineSSHRuntimeRequest];
     result: RuntimeRegistrySnapshot;
+  };
+  runtimeCloudProvisionOptions: { args: []; result: CloudRuntimeProvisionOptions };
+  runtimeCloudProvisionResolve: {
+    args: [request: CloudRuntimeProvisionResolveRequest];
+    result: CloudRuntimeProvisionResolveResult;
   };
   runtimeCreateDevicePairing: { args: []; result: CreateDevicePairingResponse };
   runtimeCurrent: { args: []; result: RuntimeRegistrySnapshot };

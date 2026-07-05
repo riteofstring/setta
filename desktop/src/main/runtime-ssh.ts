@@ -1,12 +1,15 @@
-import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
 import type { AddExistingMachineSSHRuntimeRequest } from "@shared/types";
+import {
+  defaultExecFileRunner,
+  type ExecFileRunner,
+  runSettaCLI,
+  settaCLIInvocation,
+} from "./setta-cli";
 
-const execFileAsync = promisify(execFile);
 const settaRemoteAddMaxBufferBytes = 10 * 1024 * 1024;
 
 export interface RemoteSSHAddCLIResult {
@@ -24,22 +27,6 @@ export interface RuntimeSSHInstallerOptions {
   execFileRunner?: ExecFileRunner;
   repoRoot: string;
 }
-
-interface SettaCLIInvocation {
-  args: string[];
-  command: string;
-  cwd: string;
-}
-
-type ExecFileRunner = (
-  command: string,
-  args: string[],
-  options: {
-    cwd: string;
-    env: NodeJS.ProcessEnv;
-    maxBuffer: number;
-  },
-) => Promise<{ stderr: string; stdout: string }>;
 
 export async function runSettaRemoteAddSSH(
   request: AddExistingMachineSSHRuntimeRequest,
@@ -74,68 +61,20 @@ export async function runSettaRemoteAddSSH(
       args.push("--runtime-name", runtimeName);
     }
     const runner = options.execFileRunner ?? defaultExecFileRunner;
-    const { stdout } = await runSettaCLI(runner, invocation, args, {
-      ...options.env,
-      SETTA_APP_DATA_DIR: options.appDataDir,
-    });
+    const { stdout } = await runSettaCLI(
+      runner,
+      invocation,
+      args,
+      {
+        ...options.env,
+        SETTA_APP_DATA_DIR: options.appDataDir,
+      },
+      settaRemoteAddMaxBufferBytes,
+    );
     return parseRemoteAddCLIResult(stdout);
   } finally {
     await rm(tempDir, { force: true, recursive: true });
   }
-}
-
-function settaCLIInvocation(repoRoot: string, env: NodeJS.ProcessEnv): SettaCLIInvocation {
-  const explicitPath = env.SETTA_CLI_PATH?.trim();
-  if (explicitPath) {
-    return {
-      args: [],
-      command: explicitPath,
-      cwd: repoRoot,
-    };
-  }
-  return {
-    args: ["run", "./cmd/setta"],
-    command: join(repoRoot, "scripts", "go.sh"),
-    cwd: repoRoot,
-  };
-}
-
-async function runSettaCLI(
-  runner: ExecFileRunner,
-  invocation: SettaCLIInvocation,
-  args: string[],
-  env: NodeJS.ProcessEnv,
-): Promise<{ stderr: string; stdout: string }> {
-  try {
-    return await runner(invocation.command, args, {
-      cwd: invocation.cwd,
-      env,
-      maxBuffer: settaRemoteAddMaxBufferBytes,
-    });
-  } catch (error) {
-    throw new Error(settaCLIErrorMessage(error), { cause: error });
-  }
-}
-
-async function defaultExecFileRunner(
-  command: string,
-  args: string[],
-  options: {
-    cwd: string;
-    env: NodeJS.ProcessEnv;
-    maxBuffer: number;
-  },
-): Promise<{ stderr: string; stdout: string }> {
-  const result = await execFileAsync(command, args, {
-    cwd: options.cwd,
-    encoding: "utf8",
-    env: options.env,
-    maxBuffer: options.maxBuffer,
-  });
-  return {
-    stderr: result.stderr,
-    stdout: result.stdout,
-  };
 }
 
 function parseRemoteAddCLIResult(stdout: string): RemoteSSHAddCLIResult {
@@ -179,20 +118,6 @@ function requiredTrimmed(label: string, value: string): string {
     throw new Error(`${label} is required`);
   }
   return trimmed;
-}
-
-function settaCLIErrorMessage(error: unknown): string {
-  if (isRecord(error)) {
-    const stderr = readNonEmptyString(error.stderr);
-    if (stderr) {
-      return stderr.trim();
-    }
-    const message = readNonEmptyString(error.message);
-    if (message) {
-      return message;
-    }
-  }
-  return errorMessage(error);
 }
 
 function readNonEmptyString(value: unknown): string | null {
