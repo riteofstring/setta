@@ -69,9 +69,6 @@ export function createChatStreamEventBatcher(
 
   return {
     clear,
-    cursor() {
-      return queuedCursor;
-    },
     flush,
     queue(event: BufferedStreamChatEvent) {
       queuedEvents.push(event);

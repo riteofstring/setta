@@ -75,7 +75,6 @@ function workflowEvent(ordinal: number): WorkflowEvent {
   return {
     createdAt: "2026-06-05T12:00:00Z",
     definitionId: "workflow_definition_api",
-    definitionName: "",
     definitionVersionId: "workflow_version_api",
     details: {},
     executionId: "workflow_execution_api",

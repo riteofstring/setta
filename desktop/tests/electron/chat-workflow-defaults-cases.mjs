@@ -1,65 +1,17 @@
 import {
-  dispatchDocumentEscape,
   clickReasoningEffortByText,
   waitForModelPickerSummary,
 } from "./chat-workflow-assertions.mjs";
-import { pasteImageIntoComposer } from "./chat-workflow-image-attachment-cases.mjs";
 import {
   clickButtonByAria,
   clickButtonContainingText,
   clickButtonContainingTextByRole,
   createChat,
-  setInputValue,
   waitForBackendState,
   waitForCommandResult,
   waitForState,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
-
-const preservedAttachmentFileName = "draft-preserved-picker.png";
-const preservedAttachmentPNGBase64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAG0lEQVR4nGL6z8DA8J+BiZHh/38GBkAAAAD//x0hBAKGdL17AAAAAElFTkSuQmCC";
-
-export async function assertNoConversationDraftDefaults(client, backend, workspaceId) {
-  const list = await backend.post("/chat/conversations/list", { workspaceId });
-  if (list.conversations.length !== 0) {
-    throw new Error(`expected fresh workspace with no conversations: ${JSON.stringify(list)}`);
-  }
-  await waitForModelPickerSummary(waitForState, client, "GPT Test", "Extra high");
-  await waitForState(
-    client,
-    `(() => {
-      const model = document.querySelector('button[aria-label="Open model and reasoning picker"]');
-      const permission = document.querySelector('button[aria-label="Open permission mode picker"]');
-      return {
-        modelText: model?.innerText ?? "",
-        permissionText: permission?.innerText ?? "",
-      };
-    })()`,
-    (value) =>
-      value.modelText.includes("GPT Test") &&
-      value.modelText.includes("Extra high") &&
-      !value.modelText.includes("Model\nReasoning") &&
-      value.permissionText.includes("Ask for approval"),
-  );
-  await assertNoConversations(backend, workspaceId, "draft defaults label rendering");
-  await clickButtonByAria(client, "Open model and reasoning picker");
-  await waitForState(
-    client,
-    `document.querySelector('button[aria-label="Open model and reasoning picker"]')?.getAttribute("aria-expanded")`,
-    (value) => value === "true",
-  );
-  await dispatchDocumentEscape(client);
-  await assertNoConversations(backend, workspaceId, "opening and closing draft model picker");
-  await clickButtonByAria(client, "Open permission mode picker");
-  await waitForState(
-    client,
-    `document.querySelector('button[aria-label="Open permission mode picker"]')?.getAttribute("aria-expanded")`,
-    (value) => value === "true",
-  );
-  await dispatchDocumentEscape(client);
-  await assertNoConversations(backend, workspaceId, "opening and closing draft permission picker");
-}
 
 export async function runChatDefaultsSettingsWorkflow(client, backend, workspaceId) {
   await openChatDefaultsSettings(client);
@@ -92,22 +44,9 @@ export async function runChatDefaultsSettingsWorkflow(client, backend, workspace
   await waitForModelPickerSummary(waitForState, client, "Scripted Careful", "Extra high");
   await waitForComposerPermissionLabel(client, "Read Only");
 
-  const preservedDraft = "draft survives model and permission pickers";
-  await setInputValue(client, 'textarea[aria-label="Ask Setta"]', preservedDraft);
-  await pasteImageIntoComposer(
-    client,
-    waitForState,
-    preservedAttachmentFileName,
-    preservedAttachmentPNGBase64,
-  );
-  await waitForComposerAttachment(client, preservedAttachmentFileName);
   await clickButtonByAria(client, "Open model and reasoning picker");
-  await waitForComposerDraft(client, preservedDraft);
-  await waitForComposerAttachment(client, preservedAttachmentFileName);
   await clickReasoningEffortByText(waitForState, client, "Low");
   await waitForCommandResult(backend, workspaceId, firstConversationId, "Reasoning set: Low");
-  await waitForComposerDraft(client, preservedDraft);
-  await waitForComposerAttachment(client, preservedAttachmentFileName);
   await waitForModelPickerSummary(waitForState, client, "Scripted Careful", "Low");
   await selectComposerPermissionPreset(client, "Ask for approval");
   await waitForCommandResult(
@@ -116,8 +55,6 @@ export async function runChatDefaultsSettingsWorkflow(client, backend, workspace
     firstConversationId,
     "Permission mode set: Ask for approval",
   );
-  await waitForComposerDraft(client, preservedDraft);
-  await waitForComposerAttachment(client, preservedAttachmentFileName);
   await waitForConversationCodexDefaults(backend, workspaceId, firstConversationId, {
     model: "scripted-careful",
     permissionPreset: "default",
@@ -175,16 +112,18 @@ async function openChatDefaultsSettings(client) {
   await waitForState(
     client,
     `(() => {
-      const tab = Array.from(document.querySelectorAll("#settings-subtab-chat-defaults")).find(
-        (candidate) =>
-          candidate instanceof HTMLButtonElement &&
-          candidate.getClientRects().length > 0,
-      );
+      const tab = document.querySelector("#settings-subtab-chat-defaults");
       return { ready: tab instanceof HTMLButtonElement };
     })()`,
     (value) => value.ready,
   );
-  await clickButtonContainingTextByRole(client, "tab", "Chat Defaults");
+  await client.evaluate(`(() => {
+    const tab = document.querySelector("#settings-subtab-chat-defaults");
+    if (!(tab instanceof HTMLButtonElement)) {
+      throw new Error("missing chat defaults settings tab");
+    }
+    tab.click();
+  })()`);
   await waitForState(
     client,
     `(() => {
@@ -288,25 +227,6 @@ async function waitForComposerPermissionLabel(client, label) {
   );
 }
 
-async function waitForComposerDraft(client, expected) {
-  await waitForState(
-    client,
-    `(() => {
-      const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
-      return textarea instanceof HTMLTextAreaElement ? textarea.value : null;
-    })()`,
-    (value) => value === expected,
-  );
-}
-
-async function waitForComposerAttachment(client, fileName) {
-  await waitForState(
-    client,
-    `Boolean(document.querySelector('[data-testid="chat-composer"] img[alt=${JSON.stringify(fileName)}]'))`,
-    Boolean,
-  );
-}
-
 async function waitForConversationCodexDefaults(backend, workspaceId, conversationId, expected) {
   return waitForBackendState(
     async () => backend.post("/chat/conversations/list", { workspaceId }),
@@ -315,13 +235,6 @@ async function waitForConversationCodexDefaults(backend, workspaceId, conversati
         conversationMatchesCodexDefaults(candidate, conversationId, expected),
       ),
   );
-}
-
-async function assertNoConversations(backend, workspaceId, label) {
-  const list = await backend.post("/chat/conversations/list", { workspaceId });
-  if (list.conversations.length !== 0) {
-    throw new Error(`${label} materialized an empty conversation: ${JSON.stringify(list)}`);
-  }
 }
 
 function conversationMatchesCodexDefaults(item, conversationId, expected) {

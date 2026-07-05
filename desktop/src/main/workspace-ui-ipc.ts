@@ -16,38 +16,6 @@ export function registerWorkspaceUILayoutIpcHandlers({
 }: WorkspaceUILayoutIpcRegistration): void {
   handleIpc(
     ipcMain,
-    "workspaceReadUISchema",
-    async () => {
-      return requireBackendClient().readWorkspaceUISchema();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workspaceListUIPanes",
-    async (_event, workspaceId) => {
-      return requireBackendClient().listWorkspaceUIPanes({ workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workspaceReadUIPane",
-    async (_event, workspaceId, paneId) => {
-      return requireBackendClient().readWorkspaceUIPane({ paneId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workspaceApplyUIPaneOperation",
-    async (_event, workspaceId, operation) => {
-      return requireBackendClient().applyWorkspaceUIPaneOperation({ operation, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "workspaceReadUILayout",
     async (_event, workspaceId) => {
       return requireBackendClient().readWorkspaceUILayout({ workspaceId });
@@ -56,17 +24,9 @@ export function registerWorkspaceUILayoutIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "workspaceInitializeUILayout",
-    async (_event, workspaceId) => {
-      return requireBackendClient().initializeWorkspaceUILayout({ workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workspaceResetUILayout",
-    async (_event, workspaceId) => {
-      return requireBackendClient().resetWorkspaceUILayout({ workspaceId });
+    "workspaceSaveUILayout",
+    async (_event, layout) => {
+      return requireBackendClient().saveWorkspaceUILayout({ layout });
     },
     ipcObserver,
   );

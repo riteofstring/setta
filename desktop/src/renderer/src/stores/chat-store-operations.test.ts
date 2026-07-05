@@ -181,7 +181,7 @@ describe("chat store operation scopes", () => {
 
   test("resync completion preserves terminal block snapshots that arrive while the page loads", async () => {
     const conversation = testConversation();
-    const runId = "run_workflow";
+    const runId = "run_dynamic";
     const staleBlocks = runBlocks(runId, {
       activity: { blockStatus: "streaming", status: "running" },
       assistantText: "",
@@ -189,7 +189,7 @@ describe("chat store operation scopes", () => {
     const completedBlocks = runBlocks(runId, {
       activity: { blockStatus: "complete", status: "completed" },
       assistantStatus: "complete",
-      assistantText: "Workflow run complete.",
+      assistantText: "Dynamic tool workflow complete.",
     });
     const runningRun = testRun("running", runId);
     const resyncPage = deferred<MessagePage>();
@@ -225,7 +225,7 @@ describe("chat store operation scopes", () => {
     const state = useChatStore.getState();
     expect(state.activeRun).toBeNull();
     expect(state.transcriptBlocksById[`${runId}_text`]?.assistantText?.text).toBe(
-      "Workflow run complete.",
+      "Dynamic tool workflow complete.",
     );
     expect(state.transcriptBlocksById[`${runId}_text`]?.status).toBe("complete");
     expect(state.transcriptBlocksById[`${runId}_activity`]?.activity?.status).toBe("completed");
@@ -581,22 +581,21 @@ function runItem(id: string, runId: string, status: RunItem["status"]): RunItem 
       commandExecution: null,
       commandStartFailure: null,
       diff: null,
-      fileChange: null,
-      kind: "mcp_tool_call",
-      mcpToolCall: {
-        appContext: null,
+      dynamicToolCall: {
         arguments: { value: "from test" },
-        displayTitle: "MCP tool",
+        category: "test",
+        description: "Renderer store dynamic tool fixture.",
+        displayTitle: "Fake dynamic tool",
         durationMs: 0,
         error: "",
-        mcpAppResourceUri: "",
-        pluginId: "",
-        progress: "",
+        namespace: "setta",
         result: null,
         resultSummary: "",
-        serverName: "test",
         toolName: "fakeTool",
       },
+      fileChange: null,
+      kind: "dynamic_tool_call",
+      mcpToolCall: null,
       plan: null,
       providerStreamLifecycle: null,
     },
@@ -624,9 +623,9 @@ function runItem(id: string, runId: string, status: RunItem["status"]): RunItem 
     startedAt: "2026-05-29T20:00:01Z",
     status,
     summary: "",
-    title: "MCP tool call",
+    title: "Dynamic tool call",
     toolName: "",
-    type: "mcp_tool_call",
+    type: "dynamic_tool_call",
     workspaceId: "workspace_api",
     runId,
   };

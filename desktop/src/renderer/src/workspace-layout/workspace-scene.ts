@@ -1,5 +1,4 @@
 import type {
-  ChatPaneConfig as PersistedChatPaneConfig,
   ColumnWidthSpec as PersistedColumnWidthSpec,
   PaneTone as PersistedPaneTone,
   SurfaceKind as PersistedSurfaceKind,
@@ -13,7 +12,6 @@ import type {
 import { productSurfaceKinds } from "./types";
 import type {
   ColumnWidthSpec,
-  ChatPaneConfig,
   WorkspaceColumn,
   WorkspacePane,
   WorkspaceScene,
@@ -24,7 +22,7 @@ import type {
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
-const realWorkspaceLayoutSchemaVersion = 4;
+const realWorkspaceLayoutSchemaVersion = 1;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
 const realWorkspaceSurfaceKinds = productSurfaceKinds;
@@ -46,7 +44,6 @@ export interface RealWorkspaceSceneOptions {
 
 export interface RealWorkspaceSceneResult {
   focusedPaneId: PaneId;
-  layoutRevision: number;
   layoutRecovery: WorkspaceLayoutRecovery | null;
   scene: WorkspaceScene;
 }
@@ -79,7 +76,6 @@ export function createRealWorkspaceScene({
     );
     return {
       focusedPaneId: focusedPaneIdForScene(scene, storedLayout.focusedPaneId),
-      layoutRevision: storedLayout.revision,
       layoutRecovery: null,
       scene,
     };
@@ -87,7 +83,6 @@ export function createRealWorkspaceScene({
   const scene = createDefaultRealWorkspaceScene(workspaceId, workspaceName);
   return {
     focusedPaneId: focusedPaneIdForScene(scene),
-    layoutRevision: 0,
     layoutRecovery: null,
     scene,
   };
@@ -97,7 +92,6 @@ export function workspaceUILayoutFromScene(
   workspaceId: string,
   scene: WorkspaceScene,
   focusedPaneId: PaneId,
-  revision: number,
 ): WorkspaceUILayout {
   return {
     columns: scene.columns.map((column, index) => ({
@@ -114,7 +108,6 @@ export function workspaceUILayoutFromScene(
     })),
     focusedPaneId,
     panes: scene.panes.map(workspacePaneToPersisted),
-    revision: persistedLayoutRevision(revision),
     schemaVersion: realWorkspaceLayoutSchemaVersion,
     workspaceId,
   };
@@ -212,10 +205,8 @@ function workspaceColumnFromPersisted(column: WorkspaceUIColumn): WorkspaceColum
 
 function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
   return {
-    chatConfig: chatConfigFromPersisted(pane.chatConfig),
     columnId: pane.columnId,
     heat: pane.heat,
-    ...(pane.heightPx === null ? {} : { heightPx: pane.heightPx }),
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,
@@ -231,12 +222,6 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
       pane.workflowNodeDetailsConfig,
     ),
   };
-}
-
-function chatConfigFromPersisted(
-  config: PersistedChatPaneConfig | null,
-): ChatPaneConfig | undefined {
-  return config ? { conversationId: config.conversationId } : undefined;
 }
 
 function workflowNodeDetailsConfigFromPersisted(
@@ -260,10 +245,8 @@ function terminalConfigFromPersisted(config: PersistedTerminalPaneConfig): Termi
 
 function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
   return {
-    chatConfig: pane.chatConfig ? chatConfigToPersisted(pane.chatConfig) : null,
     columnId: pane.columnId,
     heat: pane.heat,
-    heightPx: pane.heightPx ?? null,
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,
@@ -274,15 +257,6 @@ function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
     tone: persistedPaneTone(pane.tone),
     weight: pane.weight,
     workflowNodeDetailsConfig: pane.workflowNodeDetailsConfig ?? null,
-  };
-}
-
-function chatConfigToPersisted(config: WorkspacePane["chatConfig"]): PersistedChatPaneConfig {
-  if (!config) {
-    throw new Error("chat config is required");
-  }
-  return {
-    conversationId: config.conversationId,
   };
 }
 
@@ -418,13 +392,6 @@ function isRealWorkspaceSurfaceKind(value: unknown): value is ProductSurfaceKind
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
-}
-
-function persistedLayoutRevision(revision: number): number {
-  if (!Number.isInteger(revision) || revision < 0) {
-    throw new Error(`workspace layout revision must be a non-negative integer: ${revision}`);
-  }
-  return Math.max(1, revision);
 }
 
 function normalizedStoredSlotIndex(slotIndex: number | undefined, fallbackIndex: number): number {

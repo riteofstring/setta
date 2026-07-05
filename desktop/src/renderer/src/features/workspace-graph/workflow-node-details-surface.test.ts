@@ -13,7 +13,6 @@ describe("workflow node details surface helpers", () => {
   test("updates Agent Task Codex configuration without changing other nodes", () => {
     const graph = workflowGraphWithUpdatedAgentTask(
       {
-        agentDefaults: { model: "", permission: null, reasoningEffort: null },
         edges: [],
         layout: { nodes: [] },
         nodes: [
@@ -21,8 +20,9 @@ describe("workflow node details surface helpers", () => {
             action: {
               codex: {
                 freshConversation: true,
+                model: "",
                 prompt: "old prompt",
-                settings: { model: "", permission: null, reasoningEffort: null },
+                reasoningEffort: "",
               },
               kind: "agent.codex",
             },
@@ -46,11 +46,6 @@ describe("workflow node details surface helpers", () => {
       {
         freshConversation: false,
         model: "gpt-5",
-        permission: {
-          approvalPolicy: "never",
-          permissions: ":danger-full-access",
-          preset: "full-access",
-        },
         prompt: "review the workspace",
         reasoningEffort: "medium",
         title: "Review Workspace",
@@ -61,16 +56,9 @@ describe("workflow node details surface helpers", () => {
       action: {
         codex: {
           freshConversation: false,
+          model: "gpt-5",
           prompt: "review the workspace",
-          settings: {
-            model: "gpt-5",
-            permission: {
-              approvalPolicy: "never",
-              permissions: ":danger-full-access",
-              preset: "full-access",
-            },
-            reasoningEffort: "medium",
-          },
+          reasoningEffort: "medium",
         },
       },
       title: "Review Workspace",
@@ -187,7 +175,6 @@ function nodeExecution(
   return {
     actionKind: null,
     actionPolicy: null,
-    agentRunSettings: null,
     activityRefs: [],
     attempt,
     completedAt: "",
@@ -223,7 +210,6 @@ function workflowEvent(
   return {
     createdAt: "2026-06-07T00:00:00Z",
     definitionId: "workflow_definition_test",
-    definitionName: "",
     definitionVersionId: "workflow_version_test",
     details: {},
     executionId: "workflow_execution_test",

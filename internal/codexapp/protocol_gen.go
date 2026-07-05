@@ -9,7 +9,6 @@ const (
 	CodexMethodConfigRead                         = "config/read"
 	CodexMethodInitialize                         = "initialize"
 	CodexMethodModelList                          = "model/list"
-	CodexMethodSkillsExtraRootsSet                = "skills/extraRoots/set"
 	CodexMethodThreadBackgroundTerminalsTerminate = "thread/backgroundTerminals/terminate"
 	CodexMethodThreadGoalClear                    = "thread/goal/clear"
 	CodexMethodThreadGoalGet                      = "thread/goal/get"
@@ -27,7 +26,6 @@ var CodexMethodValues = []string{
 	CodexMethodConfigRead,
 	CodexMethodInitialize,
 	CodexMethodModelList,
-	CodexMethodSkillsExtraRootsSet,
 	CodexMethodThreadBackgroundTerminalsTerminate,
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
@@ -131,7 +129,6 @@ var CodexSupportedMethodValues = []string{
 	CodexMethodConfigRead,
 	CodexMethodInitialize,
 	CodexMethodModelList,
-	CodexMethodSkillsExtraRootsSet,
 	CodexMethodThreadBackgroundTerminalsTerminate,
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
@@ -3647,47 +3644,6 @@ func validateSkillsChangedNotification(raw json.RawMessage, name string) error {
 func DecodeSkillsChangedNotification(raw json.RawMessage) (SkillsChangedNotification, error) {
 	var value SkillsChangedNotification
 	err := decodeCodexObject(raw, "SkillsChangedNotification", validateSkillsChangedNotification, &value)
-	return value, err
-}
-
-type SkillsExtraRootsSetParams struct {
-	ExtraRoots []AbsolutePathBuf `json:"extraRoots"`
-}
-
-func validateSkillsExtraRootsSetParams(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "extraRoots"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeSkillsExtraRootsSetParams(raw json.RawMessage) (SkillsExtraRootsSetParams, error) {
-	var value SkillsExtraRootsSetParams
-	err := decodeCodexObject(raw, "SkillsExtraRootsSetParams", validateSkillsExtraRootsSetParams, &value)
-	return value, err
-}
-
-type SkillsExtraRootsSetResponse struct {
-}
-
-func validateSkillsExtraRootsSetResponse(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, nil); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeSkillsExtraRootsSetResponse(raw json.RawMessage) (SkillsExtraRootsSetResponse, error) {
-	var value SkillsExtraRootsSetResponse
-	err := decodeCodexObject(raw, "SkillsExtraRootsSetResponse", validateSkillsExtraRootsSetResponse, &value)
 	return value, err
 }
 

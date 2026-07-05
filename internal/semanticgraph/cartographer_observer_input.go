@@ -200,6 +200,13 @@ func cartographerToolSummary(item chat.RunItem) CartographerToolCallSummary {
 		resultSummary = firstNonEmpty(item.Summary, details.ResultSummary, details.Progress)
 		errorMessage = details.Error
 	}
+	if details, ok := item.DynamicToolCallDetails(); ok {
+		title = firstNonEmpty(title, details.DisplayTitle)
+		toolName = details.ToolName
+		serverName = details.Namespace
+		resultSummary = firstNonEmpty(item.Summary, details.ResultSummary)
+		errorMessage = details.Error
+	}
 	return CartographerToolCallSummary{
 		RunItemID:     item.ID,
 		Type:          string(item.Type),

@@ -2,12 +2,9 @@
 /* global console */
 
 import { Buffer } from "node:buffer";
-import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import { basename, join } from "node:path";
 import process from "node:process";
 import { readFile } from "node:fs/promises";
-import { clearTimeout, setTimeout as startTimer } from "node:timers";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
@@ -18,7 +15,6 @@ import {
   dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
-  repoRoot,
   readJsonLinesOptional,
   reloadPage,
   stopElectronCdpContext,
@@ -45,9 +41,6 @@ const terminalBackspaceCommandPrefix = "printf 'SETTA_TERMINAL_BACKSPACE_%s\\n' 
 const terminalBackspaceCommandSuffix = "OK";
 const terminalCtrlCOutput = "SETTA_TERMINAL_CTRL_C_OK";
 const terminalCommand = "printf 'SETTA_TERMINAL_%s:%s\\n' 'E2E_OUTPUT' \"$PWD\"";
-const terminalCLIWriteOutput = "SETTA_TERMINAL_CLI_WRITE_OK";
-const terminalCLIWriteCommand = `printf '${terminalCLIWriteOutput}\\n'\n`;
-const terminalCLIWritePreview = `printf '${terminalCLIWriteOutput}\\\\n'\\n`;
 const terminalSingleClickCommand = "printf 'SETTA_TERMINAL_SINGLE_CLICK_OK\\n'";
 const terminalSingleClickOutput = "SETTA_TERMINAL_SINGLE_CLICK_OK";
 const terminalLongRunningPidFile = ".setta-terminal-e2e-long-running.pid";
@@ -90,7 +83,6 @@ try {
   await clickTerminalForInput(context.client, openedPaneId);
   await sendTerminalCommand(context.client, openedPaneId, terminalSingleClickCommand);
   await waitForTerminalText(context.client, terminalSingleClickOutput, openedPaneId);
-  await assertWorkspaceTerminalCLIWrite(context.client, fixture.appDataDir, openedPaneId);
   await maximizeTerminalPane(context.client, openedPaneId);
   await focusTerminal(context.client, terminalWorkflowTimeoutMs, { paneId: openedPaneId });
   await waitForTerminalReady(context.client, openedPaneId);
@@ -575,248 +567,6 @@ async function waitForTerminalPaneRemoved(client, sessionId) {
   );
 }
 
-async function assertWorkspaceTerminalCLIWrite(client, appDataDir, paneId) {
-  const data = Buffer.from(terminalCLIWriteCommand, "utf8");
-  const sha256 = createHash("sha256").update(data).digest("hex");
-  const inputPath = join(artifactDir, "terminal-cli-write.json");
-  await writeTerminalCLIWriteInput(inputPath, data, sha256);
-
-  const prepared = await runSettaWorkspaceJSON(appDataDir, [
-    "terminals",
-    "writes",
-    "prepare",
-    paneId,
-    "--input",
-    inputPath,
-  ]);
-  const preparedWrite = validateWorkspaceTerminalWritePrepare(prepared, {
-    byteCount: data.length,
-    paneId,
-    sha256,
-  });
-
-  const committed = await runSettaWorkspaceJSON(appDataDir, [
-    "terminals",
-    "writes",
-    "commit",
-    preparedWrite.preparedWriteId,
-    "--sha256",
-    sha256,
-  ]);
-  const committedWrite = validateWorkspaceTerminalWriteCommit(committed, prepared, preparedWrite, {
-    byteCount: data.length,
-    paneId,
-  });
-
-  await waitForTerminalText(client, terminalCLIWriteOutput, paneId);
-  const read = await runSettaWorkspaceJSON(appDataDir, [
-    "terminals",
-    "read",
-    paneId,
-    "--recent-output-byte-limit",
-    "4096",
-  ]);
-  assertWorkspaceTerminalReadContainsCLIWrite(read);
-  await writeTerminalCLIWriteEvidence(prepared, preparedWrite, committedWrite, {
-    byteCount: data.length,
-    paneId,
-    sha256,
-  });
-}
-
-async function writeTerminalCLIWriteInput(inputPath, data, sha256) {
-  await writeJson(inputPath, {
-    dataBase64: data.toString("base64"),
-    byteCount: data.length,
-    sha256,
-  });
-}
-
-function validateWorkspaceTerminalWritePrepare(prepared, expected) {
-  const pane = requireTerminalWorkflowObject(prepared.pane, "prepare pane", prepared);
-  const preparedWrite = requireTerminalWorkflowObject(
-    prepared.preparedWrite,
-    "prepare preparedWrite",
-    prepared,
-  );
-  assertTerminalWorkflowNonEmpty(prepared.workspaceId, "workspaceId", prepared);
-  assertTerminalWorkflowEqual(pane.paneId, expected.paneId, "pane.paneId", prepared);
-  assertTerminalWorkflowEqual(
-    preparedWrite.paneId,
-    expected.paneId,
-    "preparedWrite.paneId",
-    prepared,
-  );
-  assertTerminalWorkflowEqual(
-    preparedWrite.byteCount,
-    expected.byteCount,
-    "preparedWrite.byteCount",
-    prepared,
-  );
-  assertTerminalWorkflowEqual(
-    preparedWrite.sha256,
-    expected.sha256,
-    "preparedWrite.sha256",
-    prepared,
-  );
-  assertTerminalWorkflowEqual(
-    preparedWrite.preview,
-    terminalCLIWritePreview,
-    "preparedWrite.preview",
-    prepared,
-  );
-  return preparedWrite;
-}
-
-function validateWorkspaceTerminalWriteCommit(committed, prepared, preparedWrite, expected) {
-  const committedWrite = requireTerminalWorkflowObject(
-    committed.preparedWrite,
-    "commit preparedWrite",
-    committed,
-  );
-  assertTerminalWorkflowEqual(
-    committedWrite.preparedWriteId,
-    preparedWrite.preparedWriteId,
-    "preparedWrite.preparedWriteId",
-    committed,
-  );
-  assertTerminalWorkflowEqual(
-    committedWrite.workspaceId,
-    prepared.workspaceId,
-    "preparedWrite.workspaceId",
-    committed,
-  );
-  assertTerminalWorkflowEqual(
-    committedWrite.paneId,
-    expected.paneId,
-    "preparedWrite.paneId",
-    committed,
-  );
-  assertTerminalWorkflowEqual(
-    committedWrite.writtenByteCount,
-    expected.byteCount,
-    "preparedWrite.writtenByteCount",
-    committed,
-  );
-  return committedWrite;
-}
-
-function requireTerminalWorkflowObject(value, field, payload) {
-  if (!value || typeof value !== "object") {
-    throw new Error(
-      `workspace terminal write response missing ${field}: ${JSON.stringify(payload)}`,
-    );
-  }
-  return value;
-}
-
-function assertTerminalWorkflowNonEmpty(value, field, payload) {
-  if (typeof value !== "string" || value === "") {
-    throw new Error(
-      `workspace terminal write response mismatch (${field}): ${JSON.stringify(payload)}`,
-    );
-  }
-}
-
-function assertTerminalWorkflowEqual(actual, expected, field, payload) {
-  if (actual !== expected) {
-    throw new Error(
-      `workspace terminal write response mismatch (${field}): ${JSON.stringify(payload)}`,
-    );
-  }
-}
-
-function assertWorkspaceTerminalReadContainsCLIWrite(read) {
-  const screenText = read.terminal?.screen?.screenText ?? "";
-  const recentOutput = read.terminal?.recentOutput?.text ?? "";
-  if (
-    !screenText.includes(terminalCLIWriteOutput) ||
-    !recentOutput.includes(terminalCLIWriteOutput)
-  ) {
-    throw new Error(
-      `workspace terminal read did not include CLI write output: ${JSON.stringify(read)}`,
-    );
-  }
-}
-
-async function writeTerminalCLIWriteEvidence(prepared, preparedWrite, committedWrite, expected) {
-  await writeJson(join(artifactDir, "terminal-cli-write-result.json"), {
-    byteCount: expected.byteCount,
-    paneId: expected.paneId,
-    preparedWriteId: preparedWrite.preparedWriteId,
-    recentOutputContainsMarker: true,
-    screenContainsMarker: true,
-    sha256: expected.sha256,
-    workspaceId: prepared.workspaceId,
-    writtenByteCount: committedWrite.writtenByteCount,
-  });
-}
-
-async function runSettaWorkspaceJSON(appDataDir, args) {
-  const result = await runSettaCommand([
-    "workspace",
-    ...workspaceCommandArgsWithAppDataDir(appDataDir, args),
-  ]);
-  if (result.status !== 0) {
-    throw new Error(
-      `setta workspace command failed: ${result.command}: status=${result.status} stdout=${result.stdout} stderr=${result.stderr}`,
-    );
-  }
-  try {
-    return JSON.parse(result.stdout);
-  } catch (error) {
-    throw new Error(`setta workspace command returned invalid JSON: ${result.command}: ${error}`, {
-      cause: error,
-    });
-  }
-}
-
-function workspaceCommandArgsWithAppDataDir(appDataDir, args) {
-  if (args[0] === "terminals" && args[1] === "writes" && typeof args[2] === "string") {
-    return ["terminals", "writes", args[2], "--app-data-dir", appDataDir, ...args.slice(3)];
-  }
-  if (args[0] === "terminals" && typeof args[1] === "string") {
-    return ["terminals", args[1], "--app-data-dir", appDataDir, ...args.slice(2)];
-  }
-  return [...args, "--app-data-dir", appDataDir];
-}
-
-function runSettaCommand(args) {
-  const command = [join(repoRoot, "scripts/go.sh"), "run", "./cmd/setta", ...args];
-  const child = spawn(command[0], command.slice(1), {
-    cwd: repoRoot,
-    env: process.env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let stdout = "";
-  let stderr = "";
-  child.stdout.on("data", (data) => {
-    stdout += data.toString();
-  });
-  child.stderr.on("data", (data) => {
-    stderr += data.toString();
-  });
-  return new Promise((resolvePromise, reject) => {
-    const timeout = startTimer(() => {
-      child.kill("SIGKILL");
-      reject(new Error(`setta command timed out: ${command.join(" ")}`));
-    }, 15_000);
-    child.once("error", (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-    child.once("exit", (status) => {
-      clearTimeout(timeout);
-      resolvePromise({
-        command: command.join(" "),
-        status: status ?? 1,
-        stderr,
-        stdout,
-      });
-    });
-  });
-}
-
 async function writeTerminalSnapshot(client, path) {
   await writeJson(path, await client.evaluate(terminalSnapshotsExpression()));
 }
@@ -847,7 +597,6 @@ async function assertTerminalRecordingEvidence(recordingDir) {
   const backend = await readJsonLinesOptional(join(recordingDir, "backend-http.jsonl"));
   for (const path of [
     "/workspaces/open",
-    "/workspace-session",
     "/terminals/create",
     "/terminals/attach",
     "/terminals/events",

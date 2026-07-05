@@ -191,9 +191,8 @@ func TestServiceRoutesMasterChatThroughSharedHarnessTask(t *testing.T) {
 }
 
 func TestServiceRoutesWorkflowAgentThroughSharedHarnessTask(t *testing.T) {
-	appDataDir := t.TempDir()
 	harness := NewFakeHarness(nil)
-	service := newTestService(t, appDataDir, testResolver(t), harness)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	result, err := service.SendWorkflowAgentTurn("workspace_api", WorkflowAgentTurnRequest{
 		DefinitionID:        "definition_shared_task",
 		DefinitionVersionID: "version_shared_task",
@@ -215,23 +214,6 @@ func TestServiceRoutesWorkflowAgentThroughSharedHarnessTask(t *testing.T) {
 		tasks[0].TurnMode != HarnessTurnInteractiveConversation ||
 		tasks[0].OutputContract.Kind != HarnessOutputFreeTextEvents {
 		t.Fatalf("workflow harness task = %+v, want interactive free-text workflow agent", tasks[0])
-	}
-	turns := harness.TurnRequests()
-	if len(turns) != 1 {
-		t.Fatalf("turn requests = %+v, want one", turns)
-	}
-	deliveryPrompt := chatInputText(turns[0].Input)
-	for _, expected := range []string{
-		`"appDataDir": "` + appDataDir + `"`,
-		`"nodeExecutionId": "node_execution_shared_task"`,
-		`"result":{"status":"completed","signals":[],"output":{},"filePaths":[]}`,
-		"setta workflow executions result --app-data-dir <appDataDir> --input <path>",
-		"After reporting the workflow result, make your final assistant response satisfy the node task exactly.",
-		"Node task:\n\nworkflow shared task",
-	} {
-		if !strings.Contains(deliveryPrompt, expected) {
-			t.Fatalf("workflow delivery prompt missing %q:\n%s", expected, deliveryPrompt)
-		}
 	}
 }
 
@@ -959,6 +941,42 @@ func TestServiceFailureDoesNotDrainQueuedRuns(t *testing.T) {
 	}
 	if _, ok, err := service.ActiveRun("workspace_api", conversation.ID); err != nil || ok {
 		t.Fatalf("active after failure = ok %v err %v, want none", ok, err)
+	}
+}
+
+func TestServiceSteeringPersistsMessageAndCallsHarness(t *testing.T) {
+	harness := NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},
+		{Type: FakeEventWaitForSteer},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	if _, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("A1")); err != nil {
+		t.Fatalf("send active: %v", err)
+	}
+	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
+
+	result, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("S1"))
+	if err != nil {
+		t.Fatalf("steer active: %v", err)
+	}
+	if result.UserMessage.Delivery != MessageDeliverySteering || result.UserMessage.Status != MessageStatusPending {
+		t.Fatalf("steering message = %+v, want pending steering", result.UserMessage)
+	}
+	requests := harness.SteeringRequests()
+	if len(requests) != 1 || chatInputText(requests[0].Input) != "S1" || requests[0].TurnID != "turn_fake" {
+		t.Fatalf("steering requests = %+v, want S1 for active turn", requests)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+	committed, err := service.store.LoadMessageByID("workspace_api", conversation.ID, result.UserMessage.ID)
+	if err != nil {
+		t.Fatalf("load steering message: %v", err)
+	}
+	if committed.Status != MessageStatusComplete {
+		t.Fatalf("committed steering status = %s, want complete", committed.Status)
 	}
 }
 

@@ -375,20 +375,19 @@ func (store *Store) insertWorkflowEvents(ctx context.Context, tx *sql.Tx, events
 			return nil, fmt.Errorf("encode workflow event details: %w", err)
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO workflow_events (
+INSERT INTO workflow_run_events (
   id, schema_version, workspace_id, definition_id, definition_version_id,
-  definition_name, run_id, ordinal, type, node_id, node_execution_id, token_id, runner_kind,
+  run_id, ordinal, type, node_id, node_execution_id, token_id, runner_kind,
   created_at, message, details_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 			event.ID,
 			event.SchemaVersion,
 			event.WorkspaceID,
 			event.DefinitionID,
-			nullableString(event.DefinitionVersionID),
-			event.DefinitionName,
-			nullableString(event.ExecutionID),
-			nullableInt(event.Ordinal),
+			event.DefinitionVersionID,
+			event.ExecutionID,
+			event.Ordinal,
 			event.Type,
 			event.NodeID,
 			event.NodeExecutionID,
@@ -404,7 +403,7 @@ INSERT INTO workflow_events (
 		var sequence int
 		if err := tx.QueryRowContext(ctx, `
 SELECT stream_sequence
-FROM workflow_events
+FROM workflow_run_events
 WHERE id = ?
 `, event.ID).Scan(&sequence); err != nil {
 			return nil, store.persistenceError("read workflow event stream sequence", err)
@@ -678,7 +677,7 @@ func (store *Store) loadNodeExecutions(workspaceID string, executionID string) (
 SELECT schema_version, id, run_id, node_id, attempt, iteration, status,
        action_kind, runner_kind, idempotency_key, input_hash, input_json,
        action_policy_json, side_effect_policy_json, runner_capabilities_json,
-       agent_run_settings_json, scheduled_at, started_at, completed_at, result_json, error,
+       scheduled_at, started_at, completed_at, result_json, error,
        recovery_outcome, recovery_message
 FROM workflow_node_attempts
 WHERE workspace_id = ? AND run_id = ?
@@ -710,7 +709,6 @@ func scanWorkflowNodeExecution(scanner workflowDefinitionScanner) (WorkflowNodeE
 	var actionPolicyJSON sql.NullString
 	var sideEffectPolicyJSON string
 	var runnerCapabilitiesJSON sql.NullString
-	var agentRunSettingsJSON sql.NullString
 	var startedAt sql.NullString
 	var completedAt sql.NullString
 	var resultJSON sql.NullString
@@ -731,7 +729,6 @@ func scanWorkflowNodeExecution(scanner workflowDefinitionScanner) (WorkflowNodeE
 		&actionPolicyJSON,
 		&sideEffectPolicyJSON,
 		&runnerCapabilitiesJSON,
-		&agentRunSettingsJSON,
 		&nodeExecution.ScheduledAt,
 		&startedAt,
 		&completedAt,
@@ -747,66 +744,38 @@ func scanWorkflowNodeExecution(scanner workflowDefinitionScanner) (WorkflowNodeE
 	nodeExecution.Input = rawJSONFromString(inputJSON)
 	nodeExecution.StartedAt = stringFromNull(startedAt)
 	nodeExecution.CompletedAt = stringFromNull(completedAt)
-	if err := decodeWorkflowNodeExecutionPayloads(
-		&nodeExecution,
-		actionPolicyJSON,
-		sideEffectPolicyJSON,
-		runnerCapabilitiesJSON,
-		agentRunSettingsJSON,
-		resultJSON,
-	); err != nil {
-		return WorkflowNodeExecution{}, err
-	}
-	nodeExecution.RunnerRefs = []WorkflowActionRunnerRef{}
-	nodeExecution.ActivityRefs = []WorkflowActivityRef{}
-	nodeExecution.RecoveryOutcome = runnerRecoveryOutcomeFromNull(recoveryOutcome)
-	return nodeExecution, nil
-}
-
-func decodeWorkflowNodeExecutionPayloads(
-	nodeExecution *WorkflowNodeExecution,
-	actionPolicyJSON sql.NullString,
-	sideEffectPolicyJSON string,
-	runnerCapabilitiesJSON sql.NullString,
-	agentRunSettingsJSON sql.NullString,
-	resultJSON sql.NullString,
-) error {
 	if actionPolicyJSON.Valid {
 		var policy WorkflowActionPolicy
 		if err := json.Unmarshal([]byte(actionPolicyJSON.String), &policy); err != nil {
-			return fmt.Errorf("decode workflow action policy: %w", err)
+			return WorkflowNodeExecution{}, fmt.Errorf("decode workflow action policy: %w", err)
 		}
 		nodeExecution.ActionPolicy = &policy
 	}
 	if sideEffectPolicyJSON != "{}" {
 		var policy SideEffectPolicy
 		if err := json.Unmarshal([]byte(sideEffectPolicyJSON), &policy); err != nil {
-			return fmt.Errorf("decode workflow side-effect policy: %w", err)
+			return WorkflowNodeExecution{}, fmt.Errorf("decode workflow side-effect policy: %w", err)
 		}
 		nodeExecution.SideEffectPolicy = &policy
 	}
 	if runnerCapabilitiesJSON.Valid {
 		var capabilities RunnerCapabilities
 		if err := json.Unmarshal([]byte(runnerCapabilitiesJSON.String), &capabilities); err != nil {
-			return fmt.Errorf("decode workflow runner capabilities: %w", err)
+			return WorkflowNodeExecution{}, fmt.Errorf("decode workflow runner capabilities: %w", err)
 		}
 		nodeExecution.RunnerCapabilities = &capabilities
-	}
-	if agentRunSettingsJSON.Valid {
-		var settings WorkflowAgentEffectiveRunSettings
-		if err := json.Unmarshal([]byte(agentRunSettingsJSON.String), &settings); err != nil {
-			return fmt.Errorf("decode workflow agent run settings: %w", err)
-		}
-		nodeExecution.AgentRunSettings = &settings
 	}
 	if resultJSON.Valid {
 		var result WorkflowActionResult
 		if err := json.Unmarshal([]byte(resultJSON.String), &result); err != nil {
-			return fmt.Errorf("decode workflow action result: %w", err)
+			return WorkflowNodeExecution{}, fmt.Errorf("decode workflow action result: %w", err)
 		}
 		nodeExecution.Result = &result
 	}
-	return nil
+	nodeExecution.RunnerRefs = []WorkflowActionRunnerRef{}
+	nodeExecution.ActivityRefs = []WorkflowActivityRef{}
+	nodeExecution.RecoveryOutcome = runnerRecoveryOutcomeFromNull(recoveryOutcome)
+	return nodeExecution, nil
 }
 
 func (store *Store) loadNodeExecutionChildren(nodeExecution *WorkflowNodeExecution) error {

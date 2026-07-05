@@ -48,6 +48,8 @@ func runItemDetailsBranchPresent(details *RunItemDetails, kind RunItemDetailsKin
 		return details.CommandStartFailure != nil
 	case RunItemDetailsKindMCPToolCall:
 		return details.MCPToolCall != nil
+	case RunItemDetailsKindDynamicToolCall:
+		return details.DynamicToolCall != nil
 	case RunItemDetailsKindFileChange:
 		return details.FileChange != nil
 	case RunItemDetailsKindDiff:
@@ -70,6 +72,7 @@ func validateRunItemDetailsBranchExclusive(item RunItem, details RunItemDetails,
 		{name: "commandExecution", set: details.CommandExecution != nil},
 		{name: "commandStartFailure", set: details.CommandStartFailure != nil},
 		{name: "mcpToolCall", set: details.MCPToolCall != nil},
+		{name: "dynamicToolCall", set: details.DynamicToolCall != nil},
 		{name: "fileChange", set: details.FileChange != nil},
 		{name: "diff", set: details.Diff != nil},
 		{name: "approval", set: details.Approval != nil},
@@ -142,9 +145,6 @@ func validateRunItemCommandExecutionDetailsPayload(item RunItem, details RunItem
 	if details.Source != nil && !validValue(*details.Source, runItemCommandSourceValues) {
 		return fmt.Errorf("run item %s commandExecution has unsupported source %s", item.ID, *details.Source)
 	}
-	if !validValue(details.OutputAvailability, runItemOutputAvailabilityValues) {
-		return fmt.Errorf("run item %s commandExecution has unsupported outputAvailability %s", item.ID, details.OutputAvailability)
-	}
 	if details.Source != nil && isBackgroundTerminalStartupSource(*details.Source) && details.ProcessID == "" {
 		return fmt.Errorf("run item %s commandExecution unified_exec_startup processId is required", item.ID)
 	}
@@ -213,6 +213,38 @@ func validateRunItemMCPToolCallFlatFieldsEmpty(item RunItem) error {
 		{name: "result", value: item.Result},
 		{name: "error", value: item.Error},
 	})
+}
+
+func validateRunItemDynamicToolCallDetailsBranch(item RunItem) error {
+	if err := validateRunItemDetailsBranch(item, RunItemDetailsKindDynamicToolCall, "dynamicToolCall"); err != nil {
+		return err
+	}
+	if err := validateRunItemDynamicToolCallFlatFieldsEmpty(item); err != nil {
+		return err
+	}
+	return validateRunItemDynamicToolCallDetails(item, *item.Details.DynamicToolCall)
+}
+
+func validateRunItemDynamicToolCallFlatFieldsEmpty(item RunItem) error {
+	if item.DurationMs != 0 {
+		return fmt.Errorf("run item %s dynamicToolCall flat durationMs must be zero after typed details cutover", item.ID)
+	}
+	if item.ServerName != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat serverName must be empty after typed details cutover", item.ID)
+	}
+	if item.ToolName != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat toolName must be empty after typed details cutover", item.ID)
+	}
+	if item.Result != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat result must be empty after typed details cutover", item.ID)
+	}
+	if item.Error != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat error must be empty after typed details cutover", item.ID)
+	}
+	if item.Namespace != "" {
+		return fmt.Errorf("run item %s dynamicToolCall flat namespace must be empty after typed details cutover", item.ID)
+	}
+	return nil
 }
 
 func validateRunItemFileChangeDetailsBranch(item RunItem) error {
@@ -450,6 +482,35 @@ func validateRunItemPlanDetails(item RunItem, details RunItemPlanDetails) error 
 		}
 		if !validValue(step.Status, runItemPlanStepStatusValues) {
 			return fmt.Errorf("run item %s plan step %d has unsupported status %s", item.ID, index, step.Status)
+		}
+	}
+	return nil
+}
+
+func validateRunItemDynamicToolCallDetails(item RunItem, details RunItemDynamicToolCallDetails) error {
+	if details.DurationMs < 0 {
+		return fmt.Errorf("run item %s dynamicToolCall durationMs must be non-negative", item.ID)
+	}
+	if details.Namespace != "" && details.ToolName == "" {
+		return fmt.Errorf("run item %s dynamicToolCall toolName is required when namespace is set", item.ID)
+	}
+	if details.Result != nil {
+		for index, content := range details.Result.ContentItems {
+			if content.Type == "" {
+				return fmt.Errorf("run item %s dynamicToolCall result contentItems[%d].type is required", item.ID, index)
+			}
+			switch content.Type {
+			case "inputText":
+				if content.Text == "" {
+					return fmt.Errorf("run item %s dynamicToolCall result contentItems[%d].text is required for inputText", item.ID, index)
+				}
+			case "inputImage":
+				if content.ImageURL == "" {
+					return fmt.Errorf("run item %s dynamicToolCall result contentItems[%d].imageUrl is required for inputImage", item.ID, index)
+				}
+			default:
+				return fmt.Errorf("run item %s dynamicToolCall result contentItems[%d].type is unsupported: %s", item.ID, index, content.Type)
+			}
 		}
 	}
 	return nil

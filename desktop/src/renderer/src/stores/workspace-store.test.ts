@@ -11,11 +11,6 @@ import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { useWorkspaceStore } from "./workspace-store";
-import {
-  emptyWorkspaceUILayout,
-  emptyWorkspaceUIPaneOperationResult,
-  workspaceUIReadFixtureAPI,
-} from "./workspace-ui.test-fixtures";
 
 describe("workspace store", () => {
   beforeEach(() => {
@@ -285,15 +280,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const fallbackWorkspace = firstWorkspace(fallbackSession);
   const workspaceAPI: SettaAPI["workspace"] = {
     close: async () => fallbackSession,
-    ...workspaceUIReadFixtureAPI("workspace store tests"),
-    initializeUILayout: async (workspaceId) => emptyWorkspaceUILayout(workspaceId),
     openLocalFolder: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     openPath: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
     removeRecent: async () => fallbackSession,
     reorder: async () => fallbackSession,
-    resetUILayout: async (workspaceId) => emptyWorkspaceUILayout(workspaceId),
-    applyUIPaneOperation: async (workspaceId) => emptyWorkspaceUIPaneOperationResult(workspaceId),
+    saveUILayout: async (layout) => layout,
     select: async () => fallbackSession,
     selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
     setSelectedConversation: async (workspaceId, conversationId) => ({

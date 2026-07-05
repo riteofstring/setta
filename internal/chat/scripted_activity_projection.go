@@ -23,7 +23,7 @@ func scriptedActivityProjection(harness *ScriptedWorkflowHarness, ctx context.Co
 	if err := emitProjectionReasoningItems(request, sink); err != nil {
 		return TurnCompletion{}, err
 	}
-	return emitProjectionFinalAgentMessage(request, sink)
+	return scriptedReply(sink, request.Run.ID, "Projection assistant final.")
 }
 
 func emitProjectionTransientActivity(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink, includeTransient bool) error {
@@ -37,7 +37,7 @@ func emitProjectionTransientActivity(harness *ScriptedWorkflowHarness, ctx conte
 		ProviderItemID: "provider_projection_transient_reasoning_" + request.Run.ID,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusRunning,
-		Progress:       "**Streaming reasoning placeholder**",
+		Title:          "Streaming reasoning placeholder",
 	}
 	if err := sink.RunItemUpsert(transient); err != nil {
 		return err
@@ -45,11 +45,7 @@ func emitProjectionTransientActivity(harness *ScriptedWorkflowHarness, ctx conte
 	if harness == nil {
 		return fmt.Errorf("scripted activity projection requires harness steering")
 	}
-	steer, err := harness.waitForSteer(ctx, request.Run.ID)
-	if err != nil {
-		return err
-	}
-	if err := sink.UserMessageCommitted(chatInputText(steer.Input)); err != nil {
+	if _, err := harness.waitForSteer(ctx, request.Run.ID); err != nil {
 		return err
 	}
 	transient.Status = RunItemStatusCompleted
@@ -100,26 +96,16 @@ func emitProjectionReasoningItems(request TurnRequest, sink TurnSink) error {
 		ProviderItemID: "provider_projection_public_reasoning_" + request.Run.ID,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusCompleted,
-		Summary:        "**Projection reasoning**\nPublic reasoning summary visible.",
+		Title:          "Projection reasoning",
+		Summary:        "Public reasoning summary visible.",
 	}); err != nil {
 		return err
 	}
-	return nil
-}
-
-func emitProjectionFinalAgentMessage(request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	providerItemID := "provider_projection_agent_message_" + request.Run.ID
-	if err := sink.AssistantTextDelta(providerItemID, "Projection assistant final."); err != nil {
-		return TurnCompletion{}, err
-	}
-	if err := sink.RunItemUpsert(RunItem{
-		ProviderItemID: providerItemID,
+	return sink.RunItemUpsert(RunItem{
+		ProviderItemID: "provider_projection_agent_message_" + request.Run.ID,
 		Type:           RunItemTypeAgentMessage,
 		Status:         RunItemStatusCompleted,
 		Title:          "Projection duplicate provider agent message",
 		Summary:        "Projection assistant final.",
-	}); err != nil {
-		return TurnCompletion{}, err
-	}
-	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
+	})
 }

@@ -5,17 +5,6 @@ import type { FrameScheduler } from "./frame-scheduler";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 import { openPaneActionForSurfaceKind, openPaneActions } from "./workspace-toolbar";
 import {
-  closePaneOperation,
-  configurePaneOperation,
-  focusPaneOperation,
-  movePaneOperation,
-  openEmptyFrameFromFocusedColumnOperation,
-  openPaneFromFocusedColumnOperation,
-  splitFocusedPaneOperation,
-  splitFocusedPaneToPlaneOperation,
-  type WorkspaceLayoutAction,
-} from "./workspace-layout-operations";
-import {
   classifyOverviewWheel,
   overviewWheelZoomFactor,
   wheelDeltaModePixelFactor,
@@ -45,7 +34,7 @@ export function handleWorkspaceClick({
   viewportProvider,
 }: {
   event: MouseEvent;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
@@ -81,7 +70,7 @@ export function handleWorkspacePaneFocusPointerDown({
   viewportProvider,
 }: {
   event: PointerEvent;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
@@ -117,7 +106,7 @@ function handleEmptyFrameActionClick({
   scheduler,
 }: {
   event: MouseEvent;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
 }): boolean {
@@ -135,11 +124,7 @@ function handleEmptyFrameActionClick({
   event.preventDefault();
   event.stopPropagation();
   scheduler.pauseBenchmark();
-  runLayoutAction(() => {
-    const operation = configurePaneOperation(paneId, action.request);
-    runtime.store.configurePane(paneId, action.request);
-    return operation;
-  });
+  runLayoutAction(() => runtime.store.configurePane(paneId, action.request));
   return true;
 }
 
@@ -156,7 +141,7 @@ function handlePaneChromeActionClick({
   viewportProvider,
 }: {
   event: MouseEvent;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
@@ -206,7 +191,7 @@ function runPaneChromeAction({
 }: {
   action: PaneChromeAction;
   paneId: string;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   viewportProvider: () => Rect;
 }): void {
@@ -216,10 +201,8 @@ function runPaneChromeAction({
         if (!runtime.store.focusPane(paneId)) {
           return;
         }
-        const operation = splitFocusedPaneToPlaneOperation(runtime.store, "up");
         runtime.store.splitFocusedPaneToPlane("up");
         runtime.store.ensureFocusedPaneVisible(viewportProvider());
-        return operation;
       });
       return;
     case "add-below":
@@ -227,10 +210,8 @@ function runPaneChromeAction({
         if (!runtime.store.focusPane(paneId)) {
           return;
         }
-        const operation = splitFocusedPaneToPlaneOperation(runtime.store, "down");
         runtime.store.splitFocusedPaneToPlane("down");
         runtime.store.ensureFocusedPaneVisible(viewportProvider());
-        return operation;
       });
       return;
     case "close":
@@ -240,7 +221,6 @@ function runPaneChromeAction({
       runLayoutAction(() => {
         runtime.store.togglePaneMaximized(paneId);
         runtime.store.ensureFocusedPaneVisible(viewportProvider());
-        return null;
       });
       return;
     case "split-down":
@@ -248,10 +228,8 @@ function runPaneChromeAction({
         if (!runtime.store.focusPane(paneId)) {
           return;
         }
-        const operation = splitFocusedPaneOperation(runtime.store, "down");
         runtime.store.splitFocusedPane("down");
         runtime.store.ensureFocusedPaneVisible(viewportProvider());
-        return operation;
       });
       return;
     default:
@@ -267,7 +245,7 @@ function handlePaneChromeFocusClick({
   viewportProvider,
 }: {
   event: MouseEvent | PointerEvent;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
@@ -282,22 +260,19 @@ function handlePaneChromeFocusClick({
   scheduler.pauseBenchmark();
   runLayoutAction(() => {
     if (!focusTarget.reveal) {
-      return runtime.store.focusPaneWithoutReveal(focusTarget.paneId)
-        ? focusPaneOperation(focusTarget.paneId)
-        : null;
+      runtime.store.focusPaneWithoutReveal(focusTarget.paneId);
+      return;
     }
     if (runtime.store.focusPane(focusTarget.paneId)) {
       runtime.store.ensureFocusedPaneVisible(viewportProvider());
-      return focusPaneOperation(focusTarget.paneId);
     }
-    return null;
   });
   return true;
 }
 
 export function handleWorkspaceKeyDown({
   event,
-  persistFocusedPane,
+  persistLayout,
   runLayoutAction,
   runtime,
   scheduler,
@@ -305,8 +280,8 @@ export function handleWorkspaceKeyDown({
   viewportProvider,
 }: {
   event: KeyboardEvent;
-  persistFocusedPane: () => void;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  persistLayout: () => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   shortcuts?: AppearanceShortcutsSettings;
@@ -320,7 +295,7 @@ export function handleWorkspaceKeyDown({
   }
   handleWorkspaceKeyAction({
     event,
-    persistFocusedPane,
+    persistLayout,
     runLayoutAction,
     runtime,
     scheduler,
@@ -340,7 +315,7 @@ interface WorkspaceKeyEvent {
 
 export function handleForwardedBrowserViewKey({
   event,
-  persistFocusedPane,
+  persistLayout,
   runLayoutAction,
   runtime,
   scheduler,
@@ -348,8 +323,8 @@ export function handleForwardedBrowserViewKey({
   viewportProvider,
 }: {
   event: WorkspaceBrowserViewKeyEvent;
-  persistFocusedPane: () => void;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  persistLayout: () => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   shortcuts?: AppearanceShortcutsSettings;
@@ -364,7 +339,7 @@ export function handleForwardedBrowserViewKey({
       preventDefault() {},
       shiftKey: event.shiftKey,
     },
-    persistFocusedPane,
+    persistLayout,
     runLayoutAction,
     runtime,
     scheduler,
@@ -375,7 +350,7 @@ export function handleForwardedBrowserViewKey({
 
 function handleWorkspaceKeyAction({
   event,
-  persistFocusedPane,
+  persistLayout,
   runLayoutAction,
   runtime,
   scheduler,
@@ -383,8 +358,8 @@ function handleWorkspaceKeyAction({
   viewportProvider,
 }: {
   event: WorkspaceKeyEvent;
-  persistFocusedPane: () => void;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  persistLayout: () => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   shortcuts?: AppearanceShortcutsSettings;
@@ -400,16 +375,11 @@ function handleWorkspaceKeyAction({
   event.preventDefault();
   scheduler.pauseBenchmark();
   if (event.shiftKey) {
-    runLayoutAction(() => {
-      const direction = workspaceArrowDirection(event.key);
-      const paneId = runtime.store.focusedPaneId();
-      runtime.store.moveFocusedPane(direction);
-      return movePaneOperation(paneId, direction);
-    });
+    runLayoutAction(() => runtime.store.moveFocusedPane(workspaceArrowDirection(event.key)));
     return;
   }
   runtime.store.moveFocus(workspaceArrowDirection(event.key), viewportProvider());
-  persistFocusedPane();
+  persistLayout();
 }
 
 function handleWorkspaceCommandKey({
@@ -419,7 +389,7 @@ function handleWorkspaceCommandKey({
   shortcuts,
 }: {
   event: WorkspaceKeyEvent;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   shortcuts?: AppearanceShortcutsSettings;
 }): void {
@@ -440,7 +410,7 @@ function handleWorkspaceCommandKey({
 
 type WorkspaceCommandHandler = (context: {
   event: WorkspaceKeyEvent;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   shortcuts?: AppearanceShortcutsSettings;
 }) => boolean;
@@ -454,11 +424,7 @@ const handleNewEmptyFrameCommand: WorkspaceCommandHandler = ({
     return false;
   }
   event.preventDefault();
-  runLayoutAction(() => {
-    const operation = openEmptyFrameFromFocusedColumnOperation(runtime.store);
-    runtime.store.openEmptyFrame();
-    return operation;
-  });
+  runLayoutAction(() => runtime.store.openEmptyFrame());
   return true;
 };
 
@@ -471,12 +437,7 @@ const handleSplitFocusedPaneCommand: WorkspaceCommandHandler = ({
     return false;
   }
   event.preventDefault();
-  runLayoutAction(() => {
-    const direction = event.shiftKey ? "down" : "right";
-    const operation = splitFocusedPaneOperation(runtime.store, direction);
-    runtime.store.splitFocusedPane(direction);
-    return operation;
-  });
+  runLayoutAction(() => runtime.store.splitFocusedPane(event.shiftKey ? "down" : "right"));
   return true;
 };
 
@@ -490,12 +451,7 @@ const handleSplitFocusedPaneToPlaneCommand: WorkspaceCommandHandler = ({
     return false;
   }
   event.preventDefault();
-  runLayoutAction(() => {
-    const direction = event.shiftKey ? "up" : "down";
-    const operation = splitFocusedPaneToPlaneOperation(runtime.store, direction);
-    runtime.store.splitFocusedPaneToPlane(direction);
-    return operation;
-  });
+  runLayoutAction(() => runtime.store.splitFocusedPaneToPlane(event.shiftKey ? "up" : "down"));
   return true;
 };
 
@@ -515,11 +471,7 @@ const handleOpenPaneShortcutCommand: WorkspaceCommandHandler = ({
   }
   event.preventDefault();
   if (runtime.store.canOpenPane(action.request)) {
-    runLayoutAction(() => {
-      const operation = openPaneFromFocusedColumnOperation(runtime.store, action.request);
-      runtime.store.openPane(action.request);
-      return operation;
-    });
+    runLayoutAction(() => runtime.store.openPane(action.request));
   }
   return true;
 };
@@ -562,7 +514,7 @@ async function closePaneWithConfirmation({
   viewportProvider,
 }: {
   paneId: string;
-  runLayoutAction: (action: WorkspaceLayoutAction) => void;
+  runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   viewportProvider?: () => Rect;
 }): Promise<void> {
@@ -587,12 +539,10 @@ async function closePaneWithConfirmation({
     if (!runtime.store.focusPane(paneId)) {
       return;
     }
-    const operation = closePaneOperation(paneId);
     runtime.store.closeFocusedPane();
     if (viewportProvider) {
       runtime.store.ensureFocusedPaneVisible(viewportProvider());
     }
-    return operation;
   });
 }
 
@@ -602,7 +552,7 @@ function assertNever(value: never): never {
 
 export function handleWorkspaceWheel({
   event,
-  persistFocusedPane,
+  persistLayout,
   root,
   runtime,
   scheduler,
@@ -611,7 +561,7 @@ export function handleWorkspaceWheel({
   viewportProvider,
 }: {
   event: WheelEvent;
-  persistFocusedPane: () => void;
+  persistLayout: () => void;
   root: HTMLElement;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
@@ -663,7 +613,7 @@ export function handleWorkspaceWheel({
     }
     runtime.store.moveFocus(direction, viewportProvider());
   }
-  persistFocusedPane();
+  persistLayout();
 }
 
 // In overview the wheel drives zoom or pan of the scaled surface (rather than
