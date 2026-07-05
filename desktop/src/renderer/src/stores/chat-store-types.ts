@@ -78,7 +78,6 @@ export interface ChatStore {
   hasMoreOlder: boolean;
   handleBackendProcessStatus: (status: BackendProcessStatus) => void;
   handleEvent: (event: ChatEvent) => void;
-  invalidateRuntimeState: () => void;
   lastEventSequence: number;
   lastEventStreamId: string;
   loadOlder: () => Promise<void>;

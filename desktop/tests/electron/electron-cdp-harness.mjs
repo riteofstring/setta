@@ -469,7 +469,6 @@ function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) 
       ...extraEnv,
       ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
       SETTA_APP_DATA_DIR: fixture.appDataDir,
-      SETTA_BACKEND_READY_TIMEOUT_MS: "30000",
       SETTA_E2E: "1",
       SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
       SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,

@@ -258,7 +258,7 @@ interface ChatTranscriptScrollDebugApi {
   detach: () => void;
   getSnapshot: () => ChatTranscriptScrollDebugSnapshot;
   jumpToLatest: () => void;
-  scrollToIndexAsProgrammaticAnchor: (location: ScrollToIndexLocation) => void;
+  scrollToIndexAsProgrammaticScroll: (location: ScrollToIndexLocation) => void;
 }
 
 declare global {

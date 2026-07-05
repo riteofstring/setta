@@ -3,9 +3,7 @@ package httpapi
 import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
-	"setta/internal/notify"
 	"setta/internal/orchestrator"
-	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
@@ -13,74 +11,6 @@ import (
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
-
-type RuntimeInfoResponse struct {
-	RuntimeID              string                        `json:"runtimeId"`
-	DisplayName            string                        `json:"displayName"`
-	InfrastructureProvider RuntimeInfrastructureProvider `json:"infrastructureProvider"`
-	BackendName            string                        `json:"backendName"`
-	BackendVersion         string                        `json:"backendVersion"`
-	ProtocolVersion        int                           `json:"protocolVersion"`
-	VAPIDPublicKey         string                        `json:"vapidPublicKey"`
-}
-
-type RuntimeInfrastructureProvider struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"displayName"`
-	IconURL     string `json:"iconUrl"`
-}
-
-type UpdateRuntimeDisplayNameRequest struct {
-	DisplayName string `json:"displayName"`
-}
-
-type CompletePairingRequest struct {
-	PairingToken      string `json:"pairingToken"`
-	ClientDisplayName string `json:"clientDisplayName"`
-}
-
-type CompletePairingResponse struct {
-	DeviceID        string `json:"deviceId"`
-	DeviceToken     string `json:"deviceToken"`
-	RuntimeID       string `json:"runtimeId"`
-	ProtocolVersion int    `json:"protocolVersion"`
-}
-
-type ListDevicesRequest struct{}
-
-type ListDevicesResponse struct {
-	Devices []runtimeauth.DeviceSession `json:"devices"`
-}
-
-type RevokeDeviceRequest struct {
-	DeviceID string `json:"deviceId"`
-}
-
-type RevokeDeviceResponse struct {
-	Device runtimeauth.DeviceSession `json:"device"`
-}
-
-type PushSubscribeRequest struct {
-	Subscription notify.WebPushSubscription `json:"subscription"`
-}
-
-type PushSubscribeResponse struct {
-	VAPIDPublicKey string `json:"vapidPublicKey"`
-}
-
-type PushUnsubscribeRequest struct {
-	Endpoint string `json:"endpoint"`
-}
-
-type PushUnsubscribeResponse struct {
-	Removed bool `json:"removed"`
-}
-
-type PushTestRequest struct{}
-
-type PushTestResponse struct {
-	SentCount int `json:"sentCount"`
-}
 
 type UpdateAppearanceSettingsRequest struct {
 	Settings appearance.AppearanceSettings `json:"settings"`

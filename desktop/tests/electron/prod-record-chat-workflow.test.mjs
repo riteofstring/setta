@@ -98,7 +98,7 @@ async function launchProdRecordContext(fixture, recordingDir) {
         ...process.env,
         ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
         SETTA_APP_DATA_DIR: fixture.appDataDir,
-        SETTA_BACKEND_READY_TIMEOUT_MS: "30000",
+        SETTA_BACKEND_READY_TIMEOUT_SECONDS: "20",
         SETTA_E2E: "1",
         SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
         SETTA_E2E_CHAT_HARNESS: "scripted-workflow",

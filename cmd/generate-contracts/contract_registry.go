@@ -8,7 +8,6 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/orchestrator"
-	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspaceactivity"
@@ -16,24 +15,26 @@ import (
 )
 
 func contractUnions() map[reflect.Type]unionSpec {
-	specs := map[reflect.Type]unionSpec{}
-	for _, union := range chat.ContractUnions() {
-		variants := make([]unionVariantSpec, 0, len(union.Variants))
-		for _, variant := range union.Variants {
-			variants = append(variants, unionVariantSpec{
-				KindValue: variant.KindValue,
-				Name:      variant.Name,
-				Type:      variant.Type,
-			})
-		}
-		specs[union.Type] = unionSpec{
-			Discriminator: union.Discriminator,
-			Name:          union.Name,
-			Type:          union.Type,
-			Variants:      variants,
-		}
+	commandArgument := reflect.TypeFor[chat.ChatCommandArgumentSpec]()
+	return map[reflect.Type]unionSpec{
+		commandArgument: {
+			Discriminator: "kind",
+			Name:          commandArgument.Name(),
+			Type:          commandArgument,
+			Variants: []unionVariantSpec{
+				{
+					KindValue: string(chat.ChatCommandArgumentLiteral),
+					Name:      "ChatCommandLiteralArgumentSpec",
+					Type:      reflect.TypeFor[chat.ChatCommandLiteralArgumentSpec](),
+				},
+				{
+					KindValue: string(chat.ChatCommandArgumentFreeText),
+					Name:      "ChatCommandFreeTextArgumentSpec",
+					Type:      reflect.TypeFor[chat.ChatCommandFreeTextArgumentSpec](),
+				},
+			},
+		},
 	}
-	return specs
 }
 
 // contractTaggedUnions registers struct contracts whose `kind` discriminator
@@ -93,9 +94,6 @@ func contractValueSets() []chat.ContractValueSet {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range orchestrator.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range runtimeauth.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range semanticgraph.ContractValueSets() {

@@ -1,9 +1,12 @@
 import type {
+  ChatEvent,
   ChatInput,
   Run,
+  RunLiveness,
   RunItemOutput,
   RunItemOutputPage,
   SteerMessageResult,
+  TranscriptBlock,
   WorkflowAgentTrajectoryCapabilities,
   WorkflowAgentTrajectoryPage,
 } from "@generated/backend";
@@ -17,11 +20,17 @@ import type { ComposerActions, ComposerViewModel } from "../../components/chat-c
 import type { LoadRunItemOutput } from "../../components/chat-transcript-activity";
 import type { SubmitApproval } from "../../components/chat-transcript-approvals";
 import { activeRunPresentation, type ActiveRunPresentation } from "../../lib/chat-run-liveness";
+import { runLivenessNeedsSnapshotResync } from "../../lib/chat-run-liveness";
 import type { RunItemOutputPageState } from "../../stores/chat-store";
 import {
+  activeRunFromCandidate,
+  activeRunLivenessFromCandidate,
+  appendTranscriptBlockText,
   outputPageLoadedState,
+  replaceRunTranscriptBlocks,
   updateRunItemOutputPageState,
   upsertRunItemOutputs,
+  upsertTranscriptBlock,
 } from "../../stores/chat-store-normalization";
 
 export interface WorkflowNodeTrajectoryState {
@@ -239,6 +248,359 @@ export function workflowNodeTrajectoryWithOutputError(
       },
     ),
   };
+}
+
+type WorkflowNodeTrajectoryChatEvent = Exclude<ChatEvent, { type: "chat.resync_required" }>;
+
+export interface WorkflowNodeTrajectoryEventApplyResult {
+  resync: boolean;
+  state: WorkflowNodeTrajectoryState;
+}
+
+export function applyWorkflowNodeTrajectoryChatEvents(
+  current: WorkflowNodeTrajectoryState,
+  events: ChatEvent[],
+): WorkflowNodeTrajectoryEventApplyResult {
+  let state = current;
+  let resync = false;
+  for (const event of events) {
+    const result = applyWorkflowNodeTrajectoryChatEvent(state, event);
+    state = result.state;
+    resync = resync || result.resync;
+    if (result.resync) {
+      break;
+    }
+  }
+  return { resync, state };
+}
+
+function applyWorkflowNodeTrajectoryChatEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: ChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  const cursor = workflowNodeTrajectoryChatCursorStatus(current.page, event);
+  if (cursor === "duplicate") {
+    return { resync: false, state: current };
+  }
+  if (cursor === "gap") {
+    return { resync: true, state: current };
+  }
+  const stateWithCursor = workflowNodeTrajectoryWithChatCursor(current, event);
+  if (event.type === "chat.resync_required") {
+    return { resync: true, state: stateWithCursor };
+  }
+  if (!workflowNodeTrajectoryChatEventMatches(stateWithCursor.page, event)) {
+    return { resync: false, state: stateWithCursor };
+  }
+  return applyWorkflowNodeTrajectoryScopedChatEvent(stateWithCursor, event);
+}
+
+type WorkflowNodeTrajectoryAnyChatEventHandler = (
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+) => WorkflowNodeTrajectoryEventApplyResult;
+
+const workflowNodeTrajectoryChatEventHandlers = {
+  "chat.assistant_text_delta": null,
+  "chat.background_terminal.created": null,
+  "chat.background_terminal.output_delta": null,
+  "chat.background_terminal.updated": null,
+  "chat.background_terminals.replaced": null,
+  "chat.conversation.updated": null,
+  "chat.goal.updated": null,
+  "chat.message.created": null,
+  "chat.message.queued": null,
+  "chat.message.removed": null,
+  "chat.message.steering_sent": null,
+  "chat.message.updated": null,
+  "chat.queue.updated": null,
+  "chat.run.updated": workflowNodeTrajectoryWithRunEvent,
+  "chat.run_item.created": null,
+  "chat.run_item.updated": null,
+  "chat.run_item_output.delta": workflowNodeTrajectoryWithOutputDeltaEvent,
+  "chat.run_liveness.updated": workflowNodeTrajectoryWithRunLivenessEvent,
+  "chat.transcript_block.created": workflowNodeTrajectoryWithTranscriptBlockEvent,
+  "chat.transcript_block.updated": workflowNodeTrajectoryWithTranscriptBlockEvent,
+  "chat.transcript_blocks.replaced": workflowNodeTrajectoryWithTranscriptBlocksReplacedEvent,
+  "chat.transcript_text.delta": workflowNodeTrajectoryWithTranscriptTextDeltaEvent,
+  "codex.account.changed": null,
+  "diagnostic.created": null,
+} satisfies Record<
+  WorkflowNodeTrajectoryChatEvent["type"],
+  WorkflowNodeTrajectoryAnyChatEventHandler | null
+>;
+
+function applyWorkflowNodeTrajectoryScopedChatEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  const handler = workflowNodeTrajectoryChatEventHandlers[event.type];
+  if (handler === null) {
+    return { resync: false, state: current };
+  }
+  return handler(current, event);
+}
+
+function workflowNodeTrajectoryWithTranscriptBlockEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  if (
+    event.type !== "chat.transcript_block.created" &&
+    event.type !== "chat.transcript_block.updated"
+  ) {
+    return unexpectedWorkflowNodeTrajectoryChatEvent(event);
+  }
+  return workflowNodeTrajectoryWithBlocks(
+    current,
+    upsertTranscriptBlock(current.page.blocks, event.payload.block),
+  );
+}
+
+function workflowNodeTrajectoryWithTranscriptTextDeltaEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  if (event.type !== "chat.transcript_text.delta") {
+    return unexpectedWorkflowNodeTrajectoryChatEvent(event);
+  }
+  return workflowNodeTrajectoryWithTextDelta(current, event);
+}
+
+function workflowNodeTrajectoryWithTranscriptBlocksReplacedEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  if (event.type !== "chat.transcript_blocks.replaced") {
+    return unexpectedWorkflowNodeTrajectoryChatEvent(event);
+  }
+  return workflowNodeTrajectoryWithBlocks(
+    current,
+    replaceRunTranscriptBlocks(current.page.blocks, event.payload.runId, event.payload.blocks),
+  );
+}
+
+function workflowNodeTrajectoryWithRunEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  if (event.type !== "chat.run.updated") {
+    return unexpectedWorkflowNodeTrajectoryChatEvent(event);
+  }
+  return workflowNodeTrajectoryWithRun(current, event.payload.run);
+}
+
+function workflowNodeTrajectoryWithRunLivenessEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  if (event.type !== "chat.run_liveness.updated") {
+    return unexpectedWorkflowNodeTrajectoryChatEvent(event);
+  }
+  return workflowNodeTrajectoryWithRunLiveness(current, event.payload.liveness);
+}
+
+function workflowNodeTrajectoryWithOutputDeltaEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  if (event.type !== "chat.run_item_output.delta") {
+    return unexpectedWorkflowNodeTrajectoryChatEvent(event);
+  }
+  return workflowNodeTrajectoryWithOutputDelta(current, event.payload.output);
+}
+
+function unexpectedWorkflowNodeTrajectoryChatEvent(event: WorkflowNodeTrajectoryChatEvent): never {
+  throw new Error(`Unexpected workflow node trajectory event handler: ${event.type}`);
+}
+
+function workflowNodeTrajectoryChatEventMatches(
+  page: WorkflowAgentTrajectoryPage,
+  event: WorkflowNodeTrajectoryChatEvent,
+) {
+  return (
+    event.workspaceId === page.scope.workspaceId &&
+    event.conversationId === page.conversationId &&
+    event.runId === page.runId
+  );
+}
+
+function workflowNodeTrajectoryChatCursorStatus(
+  page: WorkflowAgentTrajectoryPage,
+  event: ChatEvent,
+): "current" | "duplicate" | "gap" {
+  if (page.lastChatEventStreamId !== "" && event.streamId !== page.lastChatEventStreamId) {
+    return "gap";
+  }
+  if (
+    event.streamId === page.lastChatEventStreamId &&
+    event.sequence <= page.lastChatEventSequence
+  ) {
+    return "duplicate";
+  }
+  if (
+    event.streamId === page.lastChatEventStreamId &&
+    page.lastChatEventSequence > 0 &&
+    event.sequence !== page.lastChatEventSequence + 1
+  ) {
+    return "gap";
+  }
+  return "current";
+}
+
+function workflowNodeTrajectoryWithChatCursor(
+  current: WorkflowNodeTrajectoryState,
+  event: ChatEvent,
+): WorkflowNodeTrajectoryState {
+  return {
+    ...current,
+    page: {
+      ...current.page,
+      lastChatEventSequence: event.sequence,
+      lastChatEventStreamId: event.streamId,
+    },
+  };
+}
+
+function workflowNodeTrajectoryWithBlocks(
+  current: WorkflowNodeTrajectoryState,
+  blocks: TranscriptBlock[],
+): WorkflowNodeTrajectoryEventApplyResult {
+  return {
+    resync: false,
+    state: {
+      ...current,
+      page: { ...current.page, blocks },
+    },
+  };
+}
+
+function workflowNodeTrajectoryWithTextDelta(
+  current: WorkflowNodeTrajectoryState,
+  event: Extract<WorkflowNodeTrajectoryChatEvent, { type: "chat.transcript_text.delta" }>,
+): WorkflowNodeTrajectoryEventApplyResult {
+  const updated = appendTranscriptBlockText(
+    current.page.blocks,
+    event.payload.blockId,
+    event.payload.delta,
+    event.payload.updatedAt,
+  );
+  if (!updated.found) {
+    return { resync: true, state: current };
+  }
+  return workflowNodeTrajectoryWithBlocks(current, updated.blocks);
+}
+
+function workflowNodeTrajectoryWithRun(
+  current: WorkflowNodeTrajectoryState,
+  run: Run,
+): WorkflowNodeTrajectoryEventApplyResult {
+  const activeRun = activeRunFromCandidate(run);
+  const activeRunLiveness = activeRunLivenessFromCandidate(
+    activeRun,
+    current.page.activeRunLiveness,
+  );
+  return {
+    resync: false,
+    state: {
+      ...current,
+      page: workflowNodeTrajectoryPageWithActiveRun(
+        current.page,
+        run,
+        activeRun,
+        activeRunLiveness,
+      ),
+    },
+  };
+}
+
+function workflowNodeTrajectoryWithRunLiveness(
+  current: WorkflowNodeTrajectoryState,
+  liveness: RunLiveness,
+): WorkflowNodeTrajectoryEventApplyResult {
+  const activeRun = activeRunFromCandidate(current.page.run);
+  const activeRunLiveness = activeRunLivenessFromCandidate(activeRun, liveness);
+  return {
+    resync: runLivenessNeedsSnapshotResync(liveness),
+    state: {
+      ...current,
+      page: workflowNodeTrajectoryPageWithActiveRun(
+        current.page,
+        current.page.run,
+        activeRun,
+        activeRunLiveness,
+      ),
+    },
+  };
+}
+
+function workflowNodeTrajectoryWithOutputDelta(
+  current: WorkflowNodeTrajectoryState,
+  output: RunItemOutput,
+): WorkflowNodeTrajectoryEventApplyResult {
+  const outputs = upsertRunItemOutputs(current.outputs, [output]);
+  const outputIndex = workflowNodeTrajectoryOutputIndex(outputs);
+  const currentPage = current.outputPagesByRunItemId[output.runItemId];
+  const loadedThroughOrdinal = Math.max(currentPage?.loadedThroughOrdinal ?? 0, output.ordinal);
+  return {
+    resync: false,
+    state: {
+      ...current,
+      outputIdsByRunItemId: outputIndex.outputIdsByRunItemId,
+      outputPagesByRunItemId: updateRunItemOutputPageState(
+        current.outputPagesByRunItemId,
+        output.runItemId,
+        {
+          loadedThroughOrdinal,
+          nextOrdinal: Math.max(currentPage?.nextOrdinal ?? 0, loadedThroughOrdinal + 1),
+        },
+      ),
+      outputs,
+      outputsById: outputIndex.outputsById,
+    },
+  };
+}
+
+function workflowNodeTrajectoryPageWithActiveRun(
+  page: WorkflowAgentTrajectoryPage,
+  run: Run,
+  activeRun: Run | null,
+  activeRunLiveness: RunLiveness | null,
+): WorkflowAgentTrajectoryPage {
+  return {
+    ...page,
+    activeRun,
+    activeRunLiveness,
+    capabilities: {
+      ...page.capabilities,
+      canRetryLiveness: workflowNodeTrajectoryCanRetryLiveness(activeRun, activeRunLiveness),
+      canSteer: workflowNodeTrajectoryCanSteer(activeRun, activeRunLiveness),
+      canStopRun: workflowNodeTrajectoryCanStopRun(activeRunLiveness),
+    },
+    run,
+  };
+}
+
+function workflowNodeTrajectoryCanRetryLiveness(
+  activeRun: Run | null,
+  activeRunLiveness: RunLiveness | null,
+) {
+  return activeRun?.status === "running" && activeRunLiveness?.retryable === true;
+}
+
+function workflowNodeTrajectoryCanStopRun(activeRunLiveness: RunLiveness | null) {
+  return activeRunLiveness?.cancellable === true;
+}
+
+function workflowNodeTrajectoryCanSteer(
+  activeRun: Run | null,
+  activeRunLiveness: RunLiveness | null,
+) {
+  return (
+    activeRun?.status === "running" &&
+    activeRun.pendingApproval === null &&
+    activeRunLiveness?.status === "attached"
+  );
 }
 
 function workflowNodeTrajectoryCapabilities(

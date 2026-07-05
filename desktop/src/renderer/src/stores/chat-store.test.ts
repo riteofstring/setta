@@ -1058,14 +1058,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       health: async (): Promise<BackendHealth> => ({
         name: "setta-backend",
         ok: true,
-        protocolVersion: 1,
         version: "test",
       }),
       onEventStreamStatus: () => () => {},
       onProcessStatus: () => () => {},
     },
     appearance: {} as SettaAPI["appearance"],
-    runtimes: {} as SettaAPI["runtimes"],
     chat: {
       activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => testRun("cancelled"),

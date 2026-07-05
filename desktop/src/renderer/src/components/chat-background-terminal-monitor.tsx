@@ -1,6 +1,6 @@
 import type { BackgroundTerminalOutput, BackgroundTerminalProcess } from "@generated/backend";
-import { AlertTriangle, Check, CircleStop, SquareTerminal, Trash2, X } from "lucide-react";
-import type { Dispatch, FocusEvent, MutableRefObject, SetStateAction } from "react";
+import { Check, CircleStop, SquareTerminal, Trash2, X } from "lucide-react";
+import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
@@ -11,7 +11,7 @@ import { Button } from "./ui/button";
 
 const backgroundTerminalCompletionDwellMs = 2500;
 
-type BackgroundTerminalSurfacePhase = "active" | "complete" | "attention";
+type BackgroundTerminalSurfacePhase = "active" | "complete";
 
 export interface BackgroundTerminalSurfaceModel {
   conversationId: string;
@@ -19,28 +19,13 @@ export interface BackgroundTerminalSurfaceModel {
   terminalIds: string[];
 }
 
-interface BackgroundTerminalInteractionState {
-  focused: boolean;
-  hovered: boolean;
-  monitorOpen: boolean;
-}
-
 interface BackgroundTerminalSurfaceState {
   closeMonitor: () => void;
-  dismissAttentionTerminals: () => void;
-  handleBlur: (event: FocusEvent<HTMLDivElement>) => void;
-  handleFocus: () => void;
-  handleMouseEnter: () => void;
-  handleMouseLeave: () => void;
   monitorOpen: boolean;
   monitorTerminals: BackgroundTerminalProcess[];
-  openMonitor: () => void;
   surfaceModel: BackgroundTerminalSurfaceModel | null;
   terminals: BackgroundTerminalProcess[];
-}
-
-export interface BackgroundTerminalSurfaceOptions {
-  showCompletedExitsFromOpenMonitor?: boolean;
+  toggleMonitor: () => void;
 }
 
 export function BackgroundTerminalSurface({ chat }: { chat: ChatView }) {
@@ -62,43 +47,23 @@ function useBackgroundTerminalSurfaceState(chat: ChatView): BackgroundTerminalSu
     nextBackgroundTerminalSurfaceModel(null, conversationId, terminals),
   );
   const [monitorOpen, setMonitorOpen] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [dismissedTerminalIds, setDismissedTerminalIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const [completionDwellElapsed, setCompletionDwellElapsed] = useState(false);
   const selectedSurfaceModel = selectedConversationBackgroundTerminalSurfaceModel(
     surfaceModel,
     conversationId,
   );
-  const monitorOpenForSelectedConversation = monitorOpen && selectedSurfaceModel !== null;
+  const monitorOpenForSelectedConversation = monitorOpen && conversationId !== "";
   const surfaceKey = backgroundTerminalSurfaceKey(selectedSurfaceModel);
-  const canDismissCompletedTerminals = canDismissCompletedBackgroundTerminals({
-    focused,
-    hovered,
-    monitorOpen: monitorOpenForSelectedConversation,
-  });
   const refreshBackgroundTerminals = chat.refreshBackgroundTerminals;
-  const canDismissCompletedTerminalsRef = useLatestBackgroundTerminalDismissalPermission(
-    canDismissCompletedTerminals,
-  );
 
   useResetBackgroundTerminalSurface(conversationId, {
-    setDismissedTerminalIds,
-    setFocused,
-    setHovered,
     setMonitorOpen,
   });
   useSyncBackgroundTerminalSurfaceModel({
     conversationId,
-    dismissedTerminalIds,
-    monitorOpen: monitorOpenForSelectedConversation,
     setSurfaceModel,
     terminalStateKey,
     terminals,
   });
-  useResetBackgroundTerminalCompletionDwell(surfaceKey, setCompletionDwellElapsed);
   useRunSettledBackgroundTerminalRefresh({
     activeRun: chat.activeRun,
     conversationId,
@@ -107,54 +72,30 @@ function useBackgroundTerminalSurfaceState(chat: ChatView): BackgroundTerminalSu
     surfacePhase: selectedSurfaceModel?.phase ?? null,
   });
   useCompletedBackgroundTerminalDwell({
-    canDismissCompletedTerminalsRef,
-    setCompletionDwellElapsed,
     setSurfaceModel,
     surfaceModel: selectedSurfaceModel,
   });
-  useDeferredCompletedBackgroundTerminalDismissal({
-    canDismissCompletedTerminals,
-    completionDwellElapsed,
-    setSurfaceModel,
-    surfaceModel: selectedSurfaceModel,
-  });
-
-  function openMonitor() {
-    setMonitorOpen(true);
-    void refreshBackgroundTerminals();
-  }
 
   function closeMonitor() {
     setMonitorOpen(false);
-    setDismissedTerminalIds((current) => addDismissedBackgroundTerminalIds(current, terminals));
-    void refreshBackgroundTerminals();
   }
 
-  function dismissAttentionTerminals() {
-    if (selectedSurfaceModel === null || selectedSurfaceModel.phase !== "attention") {
-      return;
+  function toggleMonitor() {
+    if (monitorOpenForSelectedConversation) {
+      setMonitorOpen(false);
+    } else {
+      setMonitorOpen(true);
+      void refreshBackgroundTerminals();
     }
-    setDismissedTerminalIds((current) =>
-      addTerminalIdsToSet(current, selectedSurfaceModel.terminalIds),
-    );
   }
 
   return {
     closeMonitor,
-    dismissAttentionTerminals,
-    handleBlur: (event) => {
-      if (backgroundTerminalSurfaceLostFocus(event)) {
-        setFocused(false);
-      }
-    },
-    handleFocus: () => setFocused(true),
-    handleMouseEnter: () => setHovered(true),
-    handleMouseLeave: () => setHovered(false),
     monitorOpen: monitorOpenForSelectedConversation,
-    monitorTerminals: monitorVisibleTerminals(terminals, dismissedTerminalIds),
-    openMonitor,
+    monitorTerminals: terminals,
     surfaceModel: selectedSurfaceModel,
     terminals,
+    toggleMonitor,
   };
 }
 
@@ -168,11 +109,13 @@ function BackgroundTerminalSurfaceContent({
   return (
     <div
       className="workspace-chat-pane-surface shrink-0 border-t border-border"
+      data-background-terminal-footer-visible={String(state.surfaceModel !== null)}
+      data-background-terminal-monitor-open={String(state.monitorOpen)}
+      data-background-terminal-surface-terminal-ids={
+        state.surfaceModel?.terminalIds.join("\n") ?? ""
+      }
       data-terminal-surface-state={state.surfaceModel?.phase ?? ""}
-      onBlurCapture={state.handleBlur}
-      onFocusCapture={state.handleFocus}
-      onMouseEnter={state.handleMouseEnter}
-      onMouseLeave={state.handleMouseLeave}
+      data-testid="background-terminal-surface"
     >
       {backgroundTerminalMonitorElement(chat, state)}
       {backgroundTerminalFooterElement(state)}
@@ -199,19 +142,12 @@ function backgroundTerminalFooterElement(state: BackgroundTerminalSurfaceState) 
   }
   return (
     <BackgroundTerminalFooter
-      onDismiss={backgroundTerminalAttentionDismissAction(state)}
-      onOpen={state.openMonitor}
+      monitorOpen={state.monitorOpen}
+      onToggle={state.toggleMonitor}
       phase={state.surfaceModel.phase}
       terminals={backgroundTerminalSurfaceModelTerminals(state.surfaceModel, state.terminals)}
     />
   );
-}
-
-function backgroundTerminalAttentionDismissAction(state: BackgroundTerminalSurfaceState) {
-  if (state.surfaceModel?.phase !== "attention") {
-    return undefined;
-  }
-  return state.dismissAttentionTerminals;
 }
 
 function backgroundTerminalSurfaceShouldRender(state: BackgroundTerminalSurfaceState) {
@@ -231,71 +167,32 @@ function selectedConversationBackgroundTerminalSurfaceModel(
 function useResetBackgroundTerminalSurface(
   conversationId: string,
   {
-    setDismissedTerminalIds,
-    setFocused,
-    setHovered,
     setMonitorOpen,
   }: {
-    setDismissedTerminalIds: Dispatch<SetStateAction<ReadonlySet<string>>>;
-    setFocused: Dispatch<SetStateAction<boolean>>;
-    setHovered: Dispatch<SetStateAction<boolean>>;
     setMonitorOpen: Dispatch<SetStateAction<boolean>>;
   },
 ) {
   useEffect(() => {
     setMonitorOpen(false);
-    setHovered(false);
-    setFocused(false);
-    setDismissedTerminalIds(new Set());
-  }, [conversationId, setDismissedTerminalIds, setFocused, setHovered, setMonitorOpen]);
+  }, [conversationId, setMonitorOpen]);
 }
 
 function useSyncBackgroundTerminalSurfaceModel({
   conversationId,
-  dismissedTerminalIds,
-  monitorOpen,
   setSurfaceModel,
   terminalStateKey,
   terminals,
 }: {
   conversationId: string;
-  dismissedTerminalIds: ReadonlySet<string>;
-  monitorOpen: boolean;
   setSurfaceModel: Dispatch<SetStateAction<BackgroundTerminalSurfaceModel | null>>;
   terminalStateKey: string;
   terminals: BackgroundTerminalProcess[];
 }) {
   useEffect(() => {
     setSurfaceModel((current) =>
-      nextBackgroundTerminalSurfaceModel(current, conversationId, terminals, dismissedTerminalIds, {
-        showCompletedExitsFromOpenMonitor: monitorOpen,
-      }),
+      nextBackgroundTerminalSurfaceModel(current, conversationId, terminals),
     );
-  }, [
-    conversationId,
-    dismissedTerminalIds,
-    monitorOpen,
-    setSurfaceModel,
-    terminalStateKey,
-    terminals,
-  ]);
-}
-
-function useResetBackgroundTerminalCompletionDwell(
-  surfaceKey: string,
-  setCompletionDwellElapsed: Dispatch<SetStateAction<boolean>>,
-) {
-  useEffect(() => {
-    setCompletionDwellElapsed(false);
-  }, [setCompletionDwellElapsed, surfaceKey]);
-}
-
-function useLatestBackgroundTerminalDismissalPermission(canDismissCompletedTerminals: boolean) {
-  const canDismissCompletedTerminalsRef = useRef(canDismissCompletedTerminals);
-  useEffect(() => {
-    canDismissCompletedTerminalsRef.current = canDismissCompletedTerminals;
-  }, [canDismissCompletedTerminals]);
-  return canDismissCompletedTerminalsRef;
+  }, [conversationId, setSurfaceModel, terminalStateKey, terminals]);
 }
 
 function useRunSettledBackgroundTerminalRefresh({
@@ -329,13 +226,9 @@ function useRunSettledBackgroundTerminalRefresh({
 }
 
 function useCompletedBackgroundTerminalDwell({
-  canDismissCompletedTerminalsRef,
-  setCompletionDwellElapsed,
   setSurfaceModel,
   surfaceModel,
 }: {
-  canDismissCompletedTerminalsRef: MutableRefObject<boolean>;
-  setCompletionDwellElapsed: Dispatch<SetStateAction<boolean>>;
   setSurfaceModel: Dispatch<SetStateAction<BackgroundTerminalSurfaceModel | null>>;
   surfaceModel: BackgroundTerminalSurfaceModel | null;
 }) {
@@ -343,75 +236,29 @@ function useCompletedBackgroundTerminalDwell({
     if (surfaceModel?.phase !== "complete") {
       return;
     }
-    const terminalsToDismiss = surfaceModel;
+    const terminalsToClear = surfaceModel;
     const timeout = window.setTimeout(() => {
-      if (!canDismissCompletedTerminalsRef.current) {
-        setCompletionDwellElapsed(true);
-        return;
-      }
-      dismissMatchingBackgroundTerminalSurface(setSurfaceModel, terminalsToDismiss);
+      clearMatchingBackgroundTerminalSurface(setSurfaceModel, terminalsToClear);
     }, backgroundTerminalCompletionDwellMs);
     return () => window.clearTimeout(timeout);
-  }, [canDismissCompletedTerminalsRef, setCompletionDwellElapsed, setSurfaceModel, surfaceModel]);
+  }, [setSurfaceModel, surfaceModel]);
 }
 
-function useDeferredCompletedBackgroundTerminalDismissal({
-  canDismissCompletedTerminals,
-  completionDwellElapsed,
-  setSurfaceModel,
-  surfaceModel,
-}: {
-  canDismissCompletedTerminals: boolean;
-  completionDwellElapsed: boolean;
-  setSurfaceModel: Dispatch<SetStateAction<BackgroundTerminalSurfaceModel | null>>;
-  surfaceModel: BackgroundTerminalSurfaceModel | null;
-}) {
-  useEffect(() => {
-    const terminalsToDismiss = completedBackgroundTerminalSurfaceAfterInteraction(
-      completionDwellElapsed,
-      surfaceModel,
-      canDismissCompletedTerminals,
-    );
-    if (terminalsToDismiss === null) {
-      return;
-    }
-    dismissMatchingBackgroundTerminalSurface(setSurfaceModel, terminalsToDismiss);
-  }, [canDismissCompletedTerminals, completionDwellElapsed, setSurfaceModel, surfaceModel]);
-}
-
-function completedBackgroundTerminalSurfaceAfterInteraction(
-  completionDwellElapsed: boolean,
-  surfaceModel: BackgroundTerminalSurfaceModel | null,
-  canDismissCompletedTerminals: boolean,
-): BackgroundTerminalSurfaceModel | null {
-  if (!completionDwellElapsed || !canDismissCompletedTerminals) {
-    return null;
-  }
-  if (surfaceModel?.phase !== "complete") {
-    return null;
-  }
-  return surfaceModel;
-}
-
-function dismissMatchingBackgroundTerminalSurface(
+function clearMatchingBackgroundTerminalSurface(
   setSurfaceModel: Dispatch<SetStateAction<BackgroundTerminalSurfaceModel | null>>,
   expected: BackgroundTerminalSurfaceModel,
 ) {
   setSurfaceModel((current) => (sameBackgroundTerminalSurface(current, expected) ? null : current));
 }
 
-function backgroundTerminalSurfaceLostFocus(event: FocusEvent<HTMLDivElement>) {
-  return event.relatedTarget === null || !event.currentTarget.contains(event.relatedTarget as Node);
-}
-
 function BackgroundTerminalFooter({
-  onDismiss,
-  onOpen,
+  monitorOpen,
+  onToggle,
   phase,
   terminals,
 }: {
-  onDismiss?: () => void;
-  onOpen: () => void;
+  monitorOpen: boolean;
+  onToggle: () => void;
   phase: BackgroundTerminalSurfacePhase;
   terminals: BackgroundTerminalProcess[];
 }) {
@@ -420,14 +267,19 @@ function BackgroundTerminalFooter({
     <div {...chatReadableColumnAttributes} className={chatReadableColumnPaddedClass}>
       <div className="flex h-8 min-w-0 items-center gap-1">
         <button
-          aria-label="Open background terminal monitor"
+          aria-label={
+            monitorOpen ? "Close background terminal monitor" : "Open background terminal monitor"
+          }
           className="flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
           data-active-count={activeCount}
           data-terminal-count={terminals.length}
+          data-terminal-ids={terminals.map((terminal) => terminal.id).join("\n")}
           data-terminal-surface-state={phase}
           data-testid="background-terminals-footer"
-          onClick={onOpen}
-          title="Open background terminal monitor"
+          onClick={onToggle}
+          title={
+            monitorOpen ? "Close background terminal monitor" : "Open background terminal monitor"
+          }
           type="button"
         >
           <BackgroundTerminalFooterIcon phase={phase} terminals={terminals} />
@@ -435,17 +287,6 @@ function BackgroundTerminalFooter({
             {backgroundTerminalFooterLabel(terminals, phase)}
           </span>
         </button>
-        {onDismiss ? (
-          <button
-            aria-label="Dismiss background terminal status"
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground"
-            onClick={onDismiss}
-            title="Dismiss background terminal status"
-            type="button"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        ) : null}
       </div>
     </div>
   );
@@ -607,10 +448,6 @@ function isSuccessfulExitedTerminal(terminal: BackgroundTerminalProcess) {
   return terminal.status === "exited" && terminal.exitCode === 0;
 }
 
-function isAttentionTerminal(terminal: BackgroundTerminalProcess) {
-  return terminal.status === "lost" || (terminal.status === "exited" && terminal.exitCode !== 0);
-}
-
 function canKillTerminal(terminal: BackgroundTerminalProcess) {
   return terminal.status === "running";
 }
@@ -632,8 +469,6 @@ function BackgroundTerminalFooterIcon({
       return <SquareTerminal className="h-4 w-4 shrink-0 text-muted-foreground" />;
     case "complete":
       return <Check className="h-4 w-4 shrink-0 text-status-success" aria-hidden="true" />;
-    case "attention":
-      return <AlertTriangle className="h-4 w-4 shrink-0 text-status-critical" aria-hidden="true" />;
     default:
       return assertNever(phase);
   }
@@ -648,8 +483,6 @@ function backgroundTerminalFooterLabel(
       return backgroundTerminalActiveFooterLabel(terminals);
     case "complete":
       return backgroundTerminalCompleteFooterLabel(terminals.length);
-    case "attention":
-      return backgroundTerminalAttentionFooterLabel(terminals.length);
     default:
       return assertNever(phase);
   }
@@ -658,11 +491,7 @@ function backgroundTerminalFooterLabel(
 function backgroundTerminalActiveFooterLabel(terminals: BackgroundTerminalProcess[]) {
   const runningCount = terminals.filter((terminal) => terminal.status === "running").length;
   const activeCount = terminals.filter(isActiveTerminal).length;
-  const attentionCount = terminals.filter(isAttentionTerminal).length;
   const noun = activeCount === 1 ? "background terminal" : "background terminals";
-  if (attentionCount > 0 && activeCount > 0) {
-    return `${activeCount} ${noun} active, ${attentionCount} need attention`;
-  }
   if (runningCount === activeCount) {
     return `${activeCount} ${noun} running`;
   }
@@ -675,11 +504,6 @@ function backgroundTerminalActiveFooterLabel(terminals: BackgroundTerminalProces
 function backgroundTerminalCompleteFooterLabel(count: number) {
   const noun = count === 1 ? "background terminal" : "background terminals";
   return `${count} ${noun} completed`;
-}
-
-function backgroundTerminalAttentionFooterLabel(count: number) {
-  const noun = count === 1 ? "background terminal needs" : "background terminals need";
-  return `${count} ${noun} attention`;
 }
 
 function backgroundTerminalStatusLabel(terminal: BackgroundTerminalProcess) {
@@ -716,43 +540,28 @@ export function nextBackgroundTerminalSurfaceModel(
   current: BackgroundTerminalSurfaceModel | null,
   selectedConversationId: string,
   terminals: BackgroundTerminalProcess[],
-  dismissedTerminalIds: ReadonlySet<string> = new Set(),
-  options: BackgroundTerminalSurfaceOptions = {},
 ): BackgroundTerminalSurfaceModel | null {
   if (selectedConversationId === "") {
     return null;
   }
-  const context = backgroundTerminalSurfaceModelContext(
-    current,
-    selectedConversationId,
-    terminals,
-    dismissedTerminalIds,
-    options,
-  );
+  const context = backgroundTerminalSurfaceModelContext(current, selectedConversationId, terminals);
   const activeSurface = activeBackgroundTerminalSurfaceModel(context);
   if (activeSurface !== null) {
     return activeSurface;
-  }
-  const attentionSurface = attentionBackgroundTerminalSurfaceModel(context);
-  if (attentionSurface !== null) {
-    return attentionSurface;
   }
   const completedSurface = completedBackgroundTerminalSurfaceModel(context);
   if (completedSurface !== null) {
     return completedSurface;
   }
-  return preservedActiveBackgroundTerminalSurfaceModel(context);
+  return null;
 }
 
 interface BackgroundTerminalSurfaceModelContext {
   current: BackgroundTerminalSurfaceModel | null;
   currentMatchesConversation: boolean;
-  options: BackgroundTerminalSurfaceOptions;
   selectedConversationId: string;
-  terminalCount: number;
   terminalIds: {
     active: string[];
-    attention: string[];
     successfulExit: string[];
   };
 }
@@ -761,22 +570,14 @@ function backgroundTerminalSurfaceModelContext(
   current: BackgroundTerminalSurfaceModel | null,
   selectedConversationId: string,
   terminals: BackgroundTerminalProcess[],
-  dismissedTerminalIds: ReadonlySet<string>,
-  options: BackgroundTerminalSurfaceOptions,
 ): BackgroundTerminalSurfaceModelContext {
   return {
     current,
     currentMatchesConversation:
       current !== null && current.conversationId === selectedConversationId,
-    options,
     selectedConversationId,
-    terminalCount: terminals.length,
     terminalIds: {
       active: terminalIdsMatching(terminals, isActiveTerminal),
-      attention: terminalIdsMatching(
-        terminals,
-        (terminal) => isAttentionTerminal(terminal) && !dismissedTerminalIds.has(terminal.id),
-      ),
       successfulExit: terminalIdsMatching(terminals, isSuccessfulExitedTerminal),
     },
   };
@@ -792,21 +593,7 @@ function activeBackgroundTerminalSurfaceModel({
   return {
     conversationId: selectedConversationId,
     phase: "active",
-    terminalIds: [...terminalIds.active, ...terminalIds.attention],
-  };
-}
-
-function attentionBackgroundTerminalSurfaceModel({
-  selectedConversationId,
-  terminalIds,
-}: BackgroundTerminalSurfaceModelContext): BackgroundTerminalSurfaceModel | null {
-  if (terminalIds.attention.length === 0) {
-    return null;
-  }
-  return {
-    conversationId: selectedConversationId,
-    phase: "attention",
-    terminalIds: terminalIds.attention,
+    terminalIds: terminalIds.active,
   };
 }
 
@@ -833,6 +620,7 @@ function completedBackgroundTerminalSurfaceModel(
 function existingCompletedBackgroundTerminalSurfaceModel({
   current,
   currentMatchesConversation,
+  terminalIds,
 }: BackgroundTerminalSurfaceModelContext): BackgroundTerminalSurfaceModel | null {
   if (!currentMatchesConversation) {
     return null;
@@ -840,44 +628,33 @@ function existingCompletedBackgroundTerminalSurfaceModel({
   if (current?.phase !== "complete") {
     return null;
   }
-  return current;
+  const currentCompletedIds = current.terminalIds.filter((id) =>
+    terminalIds.successfulExit.includes(id),
+  );
+  if (currentCompletedIds.length === 0) {
+    return null;
+  }
+  if (currentCompletedIds.length === current.terminalIds.length) {
+    return current;
+  }
+  return {
+    ...current,
+    terminalIds: currentCompletedIds,
+  };
 }
 
 function shouldShowCompletedBackgroundTerminalSurface({
   current,
   currentMatchesConversation,
-  options,
+  terminalIds,
 }: BackgroundTerminalSurfaceModelContext) {
-  if (options.showCompletedExitsFromOpenMonitor === true) {
-    return true;
-  }
   if (!currentMatchesConversation) {
     return false;
   }
-  return current?.phase === "active";
-}
-
-function preservedActiveBackgroundTerminalSurfaceModel({
-  current,
-  currentMatchesConversation,
-  terminalCount,
-}: BackgroundTerminalSurfaceModelContext): BackgroundTerminalSurfaceModel | null {
-  if (!currentMatchesConversation) {
-    return null;
-  }
   if (current?.phase !== "active") {
-    return null;
+    return false;
   }
-  if (terminalCount > 0) {
-    return null;
-  }
-  return current;
-}
-
-export function canDismissCompletedBackgroundTerminals(
-  interaction: BackgroundTerminalInteractionState,
-) {
-  return !interaction.focused && !interaction.hovered && !interaction.monitorOpen;
+  return terminalIds.successfulExit.some((id) => current.terminalIds.includes(id));
 }
 
 function terminalIdsMatching(
@@ -898,33 +675,6 @@ function backgroundTerminalSurfaceModelTerminals(
   return model.terminalIds
     .map((id) => byId.get(id))
     .filter((terminal): terminal is BackgroundTerminalProcess => terminal !== undefined);
-}
-
-function monitorVisibleTerminals(
-  terminals: BackgroundTerminalProcess[],
-  dismissedTerminalIds: ReadonlySet<string>,
-) {
-  return terminals.filter(
-    (terminal) => isActiveTerminal(terminal) || !dismissedTerminalIds.has(terminal.id),
-  );
-}
-
-function addDismissedBackgroundTerminalIds(
-  current: ReadonlySet<string>,
-  terminals: BackgroundTerminalProcess[],
-) {
-  return addTerminalIdsToSet(current, terminalIdsMatching(terminals, isAttentionTerminal));
-}
-
-function addTerminalIdsToSet(current: ReadonlySet<string>, ids: string[]) {
-  if (ids.length === 0) {
-    return current;
-  }
-  const next = new Set(current);
-  for (const id of ids) {
-    next.add(id);
-  }
-  return next;
 }
 
 function backgroundTerminalSurfaceKey(model: BackgroundTerminalSurfaceModel | null) {

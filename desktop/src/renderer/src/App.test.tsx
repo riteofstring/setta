@@ -49,7 +49,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("window.setta");
   });
 
-  test("renders the empty workspace surface inside the preserved shell", () => {
+  test("renders the workspace layout inside the preserved shell", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
@@ -80,14 +80,13 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="shell-settings-button"');
     expect(html).toContain('data-testid="workspace-layout-area"');
     expect(html).toContain('data-desktop-platform="darwin"');
-    expect(html).toContain('data-testid="workspace-empty-state"');
-    expect(html).toContain("Open a workspace");
-    expect(html).toContain('data-pane-count="0"');
+    expect(html).toContain('data-testid="workspace-presentation-engine"');
+    expect(html).toContain('data-pane-count="4"');
     expect(html).toContain('data-workspace-mode="workspace"');
     expect(html).not.toContain('data-testid="workspace-layout-status"');
     expect(html).not.toContain('data-testid="workspace-benchmark-status"');
     expect(html).not.toContain('data-testid="workspace-performance-stats"');
-    expect(html).not.toContain('data-testid="workspace-toolbar"');
+    expect(html).toContain('data-testid="workspace-toolbar"');
     expect(html).not.toContain('data-testid="sidebar-logo-shell"');
     expect(html).not.toContain('data-testid="sidebar-memory-footer"');
     expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
@@ -1177,6 +1176,7 @@ function TestChatTranscript(options: TestChatTranscriptOptions) {
       activeRun={resolved.activeRun}
       activeRunLiveness={resolved.activeRunLiveness}
       blocks={resolved.blocks}
+      conversationKey="conversation_test"
       editQueuedMessage={resolved.editQueuedMessage}
       editingQueuedMessageId={resolved.editingQueuedMessageId}
       focusedSourceRunItemId={resolved.focusedSourceRunItemId}

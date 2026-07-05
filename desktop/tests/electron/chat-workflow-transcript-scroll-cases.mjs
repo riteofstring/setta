@@ -188,7 +188,8 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
   await clickButtonByAria(client, "Jump to latest");
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    (snapshot) =>
+      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
     "auto-follow after jump to latest",
   );
   await waitForBackendState(
@@ -200,6 +201,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
     (snapshot) =>
       snapshot.debug.mode === "auto_follow" &&
       snapshot.debug.atBottom &&
+      !snapshot.jumpVisible &&
       snapshot.visibleRows.some((row) => row.text.includes("Scroll stickiness chunk 650")),
     "auto-follow keeps chunk 650 visible",
   );
@@ -210,7 +212,8 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
   );
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    (snapshot) =>
+      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
     "auto-follow after final line",
   );
   await openChatSearch(client);
@@ -229,6 +232,7 @@ async function waitForInitialScrollableTranscript(client) {
     (snapshot) =>
       snapshot.debug.mode === "auto_follow" &&
       snapshot.debug.atBottom &&
+      !snapshot.jumpVisible &&
       snapshot.debug.scrollHeight > snapshot.debug.clientHeight + 240,
     "initial auto-follow scrollable transcript",
   );
@@ -268,7 +272,8 @@ async function assertNearBottomDetachWhileStreaming(client) {
   await clickButtonByAria(client, "Jump to latest");
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    (snapshot) =>
+      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
     "auto-follow after near-bottom jump to latest",
   );
 }
@@ -295,7 +300,8 @@ async function assertTopNoOpWheelJumpToLatest(client) {
   await clickButtonByAria(client, "Jump to latest");
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    (snapshot) =>
+      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
     "auto-follow after top no-op wheel jump to latest",
   );
 }

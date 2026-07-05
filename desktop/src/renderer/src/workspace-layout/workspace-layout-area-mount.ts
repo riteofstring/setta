@@ -1,5 +1,4 @@
 import { installWindowReportHooks } from "./performance-report";
-import type { WorkspaceLayoutSnapshot } from "./layout-store";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 
 export interface WorkspaceLayoutMountedElements {
@@ -29,15 +28,8 @@ export function requireWorkspaceLayoutElements({
 }
 
 export function installWindowReportHooksForRuntime(runtime: WorkspaceRuntime): void {
-  const target = window as Window &
-    typeof globalThis & {
-      __settaWorkspaceReadFrameMetrics?: () => ReturnType<WorkspaceRuntime["metrics"]["snapshot"]>;
-      __settaWorkspaceReadLayoutState?: () => WorkspaceLayoutSnapshot;
-      __settaWorkspaceResetFrameMetrics?: () => void;
-    };
-  target.__settaWorkspaceReadFrameMetrics = () => runtime.metrics.snapshot();
-  target.__settaWorkspaceReadLayoutState = () => runtime.store.getSnapshot();
-  target.__settaWorkspaceResetFrameMetrics = () => runtime.metrics.reset();
+  window.__settaWorkspaceReadFrameMetrics = () => runtime.metrics.snapshot();
+  window.__settaWorkspaceResetFrameMetrics = () => runtime.metrics.reset();
   if (runtime.mode === "benchmark") {
     installWindowReportHooks();
   }

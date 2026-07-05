@@ -1491,9 +1491,6 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 	case "protocol-coverage-notifications":
 		writeFakeProtocolCoverageNotifications()
 		return true, true
-	case "burst-output":
-		writeFakeBackpressureBurstTurn()
-		return true, true
 	default:
 		return false, false
 	}

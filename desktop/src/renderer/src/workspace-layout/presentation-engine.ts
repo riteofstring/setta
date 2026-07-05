@@ -25,8 +25,6 @@ import {
   emptyPresentationWriteCounts,
 } from "./presentation-write-counts";
 import { SurfaceRegistry, type SurfaceViewportSyncStats } from "./surface-registry";
-import { paneChromeTitleModel, paneTitleOverrideFromHost } from "./pane-title-metadata";
-import { createPaneTitleSlot, syncPaneTitleSlot } from "./pane-title-icons";
 import type { WorkspacePane, PaneRenderItem, PaneRuntimeSummary, ResizePhase } from "./types";
 
 export interface PresentationApplyOptions {
@@ -347,20 +345,16 @@ export class PresentationEngine {
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
     assignedItemsKey: string,
   ): void {
-    const pane = this.paneById.get(item.paneId);
-    if (!pane) {
+    if (!this.paneById.has(item.paneId)) {
       throw new Error(`missing pane controls metadata for ${item.paneId}`);
     }
     const topBar = this.ensurePaneTopBar(binding.host);
-    topBar.dataset.paneId = item.paneId;
-    topBar.dataset.workspacePaneDragHandle = "true";
     const dragHandle = this.ensureDragHandle(topBar);
-    dragHandle.dataset.paneId = item.paneId;
-    const title = this.ensurePaneTitle(topBar);
-    syncPaneTitleSlot(title, paneChromeTitleModel(pane, paneTitleOverrideFromHost(binding.host)));
     const actionStrip = this.ensurePaneActionStrip(topBar);
     const paneActionKey = paneActionStateKey(item);
     if (binding.lastPaneActionKey !== paneActionKey) {
+      topBar.dataset.paneId = item.paneId;
+      dragHandle.dataset.paneId = item.paneId;
       actionStrip.dataset.paneId = item.paneId;
       let visibleActionCount = 0;
       for (const action of paneChromeActions) {
@@ -429,16 +423,6 @@ export class PresentationEngine {
     button.title = "Drag pane";
     topBar.prepend(button);
     return button;
-  }
-
-  private ensurePaneTitle(topBar: HTMLElement): HTMLElement {
-    const existing = this.paneTitleForTopBar(topBar);
-    if (existing) {
-      return existing;
-    }
-    const title = createPaneTitleSlot(topBar.ownerDocument);
-    topBar.prepend(title);
-    return title;
   }
 
   private ensurePaneActionStrip(topBar: HTMLElement): HTMLElement {
@@ -543,13 +527,6 @@ export class PresentationEngine {
   private paneTopBarForHost(host: HTMLElement): HTMLElement | null {
     const existing = Array.from(host.children).find((child) =>
       child.classList.contains("workspace-pane-top-bar"),
-    );
-    return existing ? (existing as HTMLElement) : null;
-  }
-
-  private paneTitleForTopBar(topBar: HTMLElement): HTMLElement | null {
-    const existing = Array.from(topBar.children).find((child) =>
-      child.classList.contains("workspace-pane-title-slot"),
     );
     return existing ? (existing as HTMLElement) : null;
   }

@@ -552,7 +552,10 @@ describe("preload workspace API", () => {
       rows: 30,
       sessionId: "terminal_api",
     });
-    await api.terminal.close({ confirmed: true, sessionId: "terminal_api" });
+    await api.terminal.close({
+      confirmed: false,
+      sessionId: "terminal_api",
+    });
     await api.terminal.listProfiles();
     await api.terminal.createProfile({ profile: profileInput });
     await api.terminal.updateProfile({ id: "profile_project", profile: profileInput });
@@ -587,7 +590,13 @@ describe("preload workspace API", () => {
           sessionId: "terminal_api",
         },
       ],
-      [ipcChannels.terminalClose, { confirmed: true, sessionId: "terminal_api" }],
+      [
+        ipcChannels.terminalClose,
+        {
+          confirmed: false,
+          sessionId: "terminal_api",
+        },
+      ],
       [ipcChannels.terminalListProfiles],
       [ipcChannels.terminalCreateProfile, { profile: profileInput }],
       [ipcChannels.terminalUpdateProfile, { id: "profile_project", profile: profileInput }],

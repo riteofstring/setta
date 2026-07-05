@@ -321,11 +321,12 @@ func TestServiceSteerWorkflowNodeRunSteersWorkflowOwnedRun(t *testing.T) {
 	conversationID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatConversation)
 	runID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
 
-	page := waitForWorkflowNodeTrajectory(t, workflowService, workspaceID, started.ID, work.ID, func(page WorkflowAgentTrajectoryPage) bool {
-		return page.Capabilities.CanSteer
-	})
-	if page.RunID != runID {
-		t.Fatalf("running trajectory run = %s, want %s", page.RunID, runID)
+	page, err := workflowService.ReadWorkflowNodeTrajectory(workspaceID, started.ID, work.ID, 0, 20, "", 0, 5)
+	if err != nil {
+		t.Fatalf("read running trajectory: %v", err)
+	}
+	if !page.Capabilities.CanSteer {
+		t.Fatalf("running trajectory capabilities = %+v, want steer", page.Capabilities)
 	}
 
 	steered, err := workflowService.SteerWorkflowNodeRun(workspaceID, started.ID, work.ID, chat.TextChatInput("finish node steering"))
@@ -540,6 +541,12 @@ func assertTrajectoryScope(t *testing.T, page WorkflowAgentTrajectoryPage, execu
 		page.Scope.Attempt != nodeExecution.Attempt ||
 		page.Scope.Iteration != nodeExecution.Iteration {
 		t.Fatalf("trajectory scope = %+v, want execution %+v node %+v", page.Scope, execution, nodeExecution)
+	}
+	if page.LastWorkflowEventOrdinal != execution.LastEventOrdinal {
+		t.Fatalf("trajectory workflow cursor = %d, want execution last ordinal %d", page.LastWorkflowEventOrdinal, execution.LastEventOrdinal)
+	}
+	if page.LastChatEventStreamID == "" || page.LastChatEventSequence <= 0 {
+		t.Fatalf("trajectory chat cursor = %s:%d, want populated cursor", page.LastChatEventStreamID, page.LastChatEventSequence)
 	}
 }
 

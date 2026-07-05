@@ -73,7 +73,7 @@ async function runBackendOrchestratorLaunchSequence({
   state,
 }) {
   state.firstBackend = await startExternalScriptedBackend(fixture, repoRoot);
-  state.first = await launchExternalBackendContext(fixture, firstRecording, state.firstBackend);
+  state.first = await launchExternalBackendContext(fixture, firstRecording, state.firstBackend.url);
   const recovery = await exerciseBackendOrchestratorFirstLaunch({
     context: state.first,
     fixture,
@@ -85,7 +85,11 @@ async function runBackendOrchestratorLaunchSequence({
   state.first = null;
 
   state.secondBackend = await startExternalScriptedBackend(fixture, repoRoot);
-  state.second = await launchExternalBackendContext(fixture, secondRecording, state.secondBackend);
+  state.second = await launchExternalBackendContext(
+    fixture,
+    secondRecording,
+    state.secondBackend.url,
+  );
   await exerciseBackendOrchestratorRecoveryLaunch({
     context: state.second,
     recovery,
@@ -124,12 +128,9 @@ function backendLogsForHandle(handle) {
   return handle?.logs ?? [];
 }
 
-async function launchExternalBackendContext(fixture, recordingDir, backend) {
+async function launchExternalBackendContext(fixture, recordingDir, backendURL) {
   return launchContext(fixture, recordingDir, {
-    extraEnv: {
-      SETTA_BACKEND_TOKEN: backend.token,
-      SETTA_BACKEND_URL: backend.url,
-    },
+    extraEnv: { SETTA_BACKEND_URL: backendURL },
   });
 }
 
@@ -482,7 +483,7 @@ async function startWorkflowWithPushedEvent({
   recordingDir,
   workspaceId,
 }) {
-  const stream = await openWorkflowEventStream(backend, recordingDir);
+  const stream = await openWorkflowEventStream(backend.baseURL, recordingDir);
   try {
     const started = await rendererWorkflow(client, "startExecution", [workspaceId, definitionId]);
     const pushed = await stream.next();
@@ -605,10 +606,8 @@ async function waitForWorkflowExecution(client, workspaceId, executionId, isRead
   );
 }
 
-async function openWorkflowEventStream(backend, recordingDir) {
-  const response = await globalThis.fetch(backend.baseURL + "/workflows/events", {
-    headers: { Authorization: "Bearer " + backend.deviceToken },
-  });
+async function openWorkflowEventStream(baseURL, recordingDir) {
+  const response = await globalThis.fetch(baseURL + "/workflows/events");
   await appendWorkflowState(recordingDir, {
     method: "GET",
     ok: response.ok,

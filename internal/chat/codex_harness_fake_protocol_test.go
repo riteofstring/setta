@@ -988,6 +988,7 @@ var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
 	"steer":                         fakeCorePendingTurnStart,
 	"agent-delta-completed-item":    fakeCoreAgentDeltaCompletedItemTurnStart,
 	"activity":                      fakeCoreActivityTurnStart,
+	"burst-output":                  fakeCoreBurstOutputTurnStart,
 	"unified-exec-background":       fakeCoreUnifiedExecBackgroundTurnStart,
 	"unified-exec-cross-turn":       fakeCoreUnifiedExecCrossTurnStart,
 	"unified-exec-cross-turn-first": fakeCoreUnifiedExecCrossTurnFirstStart,
@@ -1060,6 +1061,11 @@ func fakeCorePendingTurnStart(string, *fakeCodexState) bool {
 
 func fakeCoreActivityTurnStart(string, *fakeCodexState) bool {
 	writeFakeActivityTurn()
+	return true
+}
+
+func fakeCoreBurstOutputTurnStart(string, *fakeCodexState) bool {
+	writeFakeBurstCommandTurn("turn_fake", "burst_command", "burst complete")
 	return true
 }
 

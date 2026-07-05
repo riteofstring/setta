@@ -62,29 +62,6 @@ export function handleWorkspaceClick({
   handlePaneChromeFocusClick({ event, runLayoutAction, runtime, scheduler, viewportProvider });
 }
 
-export function handleWorkspacePaneFocusPointerDown({
-  event,
-  runLayoutAction,
-  runtime,
-  scheduler,
-  viewportProvider,
-}: {
-  event: PointerEvent;
-  runLayoutAction: (action: () => void) => void;
-  runtime: WorkspaceRuntime;
-  scheduler: FrameScheduler;
-  viewportProvider: () => Rect;
-}): void {
-  if (
-    event.button !== 0 ||
-    runtime.mode !== "workspace" ||
-    runtime.store.getSnapshot().presentationMode === "overview"
-  ) {
-    return;
-  }
-  handlePaneChromeFocusClick({ event, runLayoutAction, runtime, scheduler, viewportProvider });
-}
-
 export function eventTargetsPaneChromeAction(event: PointerEvent): boolean {
   return (
     event.target instanceof Element &&
@@ -244,26 +221,19 @@ function handlePaneChromeFocusClick({
   scheduler,
   viewportProvider,
 }: {
-  event: MouseEvent | PointerEvent;
+  event: MouseEvent;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
 }): boolean {
-  const focusTarget = paneFocusTargetFromClick(event);
-  if (!focusTarget) {
-    return false;
-  }
-  if (!focusTarget.reveal && focusTarget.paneId === runtime.store.focusedPaneId()) {
+  const paneId = paneFocusTargetFromClick(event);
+  if (!paneId || paneId === runtime.store.focusedPaneId()) {
     return false;
   }
   scheduler.pauseBenchmark();
   runLayoutAction(() => {
-    if (!focusTarget.reveal) {
-      runtime.store.focusPaneWithoutReveal(focusTarget.paneId);
-      return;
-    }
-    if (runtime.store.focusPane(focusTarget.paneId)) {
+    if (runtime.store.focusPane(paneId)) {
       runtime.store.ensureFocusedPaneVisible(viewportProvider());
     }
   });

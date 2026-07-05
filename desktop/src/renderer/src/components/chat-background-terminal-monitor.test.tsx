@@ -1,12 +1,23 @@
 import { describe, expect, test } from "vitest";
 
 import { backgroundTerminalProcess } from "../stores/chat-store-events.test.helpers";
-import {
-  canDismissCompletedBackgroundTerminals,
-  nextBackgroundTerminalSurfaceModel,
-} from "./chat-background-terminal-monitor";
+import { nextBackgroundTerminalSurfaceModel } from "./chat-background-terminal-monitor";
 
 describe("background terminal surface model", () => {
+  test("renders running and terminating terminals as an active surface", () => {
+    const running = backgroundTerminalProcess("background_terminal_running");
+    const terminating = backgroundTerminalProcess("background_terminal_terminating", {
+      status: "terminating",
+    });
+
+    expect(
+      nextBackgroundTerminalSurfaceModel(null, "conversation_api", [running])?.terminalIds,
+    ).toEqual([running.id]);
+    expect(
+      nextBackgroundTerminalSurfaceModel(null, "conversation_api", [terminating])?.terminalIds,
+    ).toEqual([terminating.id]);
+  });
+
   test("keeps completed background terminals for a dwell surface after active exit", () => {
     const running = backgroundTerminalProcess("background_terminal_alpha");
     const exited = backgroundTerminalProcess("background_terminal_alpha", {
@@ -28,32 +39,28 @@ describe("background terminal surface model", () => {
     expect(nextBackgroundTerminalSurfaceModel(null, "conversation_api", [exited])).toBeNull();
   });
 
-  test("preserves active background terminal state across an empty refresh projection", () => {
+  test("does not preserve active state across an empty backend projection", () => {
+    const running = backgroundTerminalProcess("background_terminal_alpha");
+    const activeSurface = nextBackgroundTerminalSurfaceModel(null, "conversation_api", [running]);
+    expect(nextBackgroundTerminalSurfaceModel(activeSurface, "conversation_api", [])).toBeNull();
+  });
+
+  test("does not preserve completed dwell after the backend projection removes the terminal", () => {
     const running = backgroundTerminalProcess("background_terminal_alpha");
     const exited = backgroundTerminalProcess("background_terminal_alpha", {
       completedAt: "2026-05-29T20:00:05Z",
       status: "exited",
       updatedAt: "2026-05-29T20:00:05Z",
     });
-
     const activeSurface = nextBackgroundTerminalSurfaceModel(null, "conversation_api", [running]);
-    const preservedSurface = nextBackgroundTerminalSurfaceModel(
-      activeSurface,
-      "conversation_api",
-      [],
-    );
-    expect(preservedSurface).toEqual(activeSurface);
+    const completedSurface = nextBackgroundTerminalSurfaceModel(activeSurface, "conversation_api", [
+      exited,
+    ]);
 
-    const completedSurface = nextBackgroundTerminalSurfaceModel(
-      preservedSurface,
-      "conversation_api",
-      [exited],
-    );
-    expect(completedSurface?.phase).toBe("complete");
-    expect(completedSurface?.terminalIds).toEqual([exited.id]);
+    expect(nextBackgroundTerminalSurfaceModel(completedSurface, "conversation_api", [])).toBeNull();
   });
 
-  test("shows completed background terminal dwell when the monitor observes the exit", () => {
+  test("does not show completed dwell from an initially exited projection", () => {
     const exited = backgroundTerminalProcess("background_terminal_alpha", {
       completedAt: "2026-05-29T20:00:05Z",
       status: "exited",
@@ -61,18 +68,9 @@ describe("background terminal surface model", () => {
     });
 
     expect(nextBackgroundTerminalSurfaceModel(null, "conversation_api", [exited])).toBeNull();
-    const completedSurface = nextBackgroundTerminalSurfaceModel(
-      null,
-      "conversation_api",
-      [exited],
-      new Set(),
-      { showCompletedExitsFromOpenMonitor: true },
-    );
-    expect(completedSurface?.phase).toBe("complete");
-    expect(completedSurface?.terminalIds).toEqual([exited.id]);
   });
 
-  test("keeps failed and lost background terminals visible until dismissed", () => {
+  test("does not create persistent attention surfaces for failed or lost terminals", () => {
     const running = backgroundTerminalProcess("background_terminal_failed");
     const failed = backgroundTerminalProcess("background_terminal_failed", {
       completedAt: "2026-05-29T20:00:05Z",
@@ -90,50 +88,9 @@ describe("background terminal surface model", () => {
     const failedSurface = nextBackgroundTerminalSurfaceModel(activeSurface, "conversation_api", [
       failed,
     ]);
-    expect(failedSurface?.phase).toBe("attention");
-    expect(failedSurface?.terminalIds).toEqual([failed.id]);
-
-    const dismissedSurface = nextBackgroundTerminalSurfaceModel(
-      failedSurface,
-      "conversation_api",
-      [failed],
-      new Set([failed.id]),
-    );
-    expect(dismissedSurface).toBeNull();
+    expect(failedSurface).toBeNull();
 
     const lostSurface = nextBackgroundTerminalSurfaceModel(null, "conversation_api", [lost]);
-    expect(lostSurface?.phase).toBe("attention");
-    expect(lostSurface?.terminalIds).toEqual([lost.id]);
-  });
-
-  test("blocks completed background-terminal dismissal while the user is interacting", () => {
-    expect(
-      canDismissCompletedBackgroundTerminals({
-        focused: false,
-        hovered: false,
-        monitorOpen: false,
-      }),
-    ).toBe(true);
-    expect(
-      canDismissCompletedBackgroundTerminals({
-        focused: true,
-        hovered: false,
-        monitorOpen: false,
-      }),
-    ).toBe(false);
-    expect(
-      canDismissCompletedBackgroundTerminals({
-        focused: false,
-        hovered: true,
-        monitorOpen: false,
-      }),
-    ).toBe(false);
-    expect(
-      canDismissCompletedBackgroundTerminals({
-        focused: false,
-        hovered: false,
-        monitorOpen: true,
-      }),
-    ).toBe(false);
+    expect(lostSurface).toBeNull();
   });
 });

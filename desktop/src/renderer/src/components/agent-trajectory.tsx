@@ -100,6 +100,7 @@ export function AgentTrajectorySurface({
         activeRunLiveness={viewModel.activeRunLiveness}
         blocks={viewModel.blocks}
         capabilities={viewModel.capabilities}
+        conversationKey={agentTrajectoryScopeKey(viewModel.scope)}
         editQueuedMessage={resolvedActions.editQueuedMessage}
         editingQueuedMessageId={viewModel.editingQueuedMessageId}
         focusedSourceRunItemId={viewModel.focusedSourceRunItemId}
@@ -129,6 +130,25 @@ function agentTrajectoryScopeConversationId(scope: AgentTrajectoryScope) {
     case "chatConversation":
     case "workflowNodeExecution":
       return scope.conversationId;
+    default:
+      return assertNever(scope);
+  }
+}
+
+function agentTrajectoryScopeKey(scope: AgentTrajectoryScope) {
+  switch (scope.kind) {
+    case "chatConversation":
+      return `${scope.kind}:${scope.workspaceId}:${scope.conversationId}`;
+    case "workflowNodeExecution":
+      return [
+        scope.kind,
+        scope.workspaceId,
+        scope.definitionId,
+        scope.definitionVersionId,
+        scope.executionId,
+        scope.nodeExecutionId,
+        scope.conversationId,
+      ].join(":");
     default:
       return assertNever(scope);
   }

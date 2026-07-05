@@ -77,16 +77,20 @@ async function assertFullAccessDefaultsRequiresConfirmation(backend) {
   if (!preset) {
     throw new Error("Full Access defaults preset missing");
   }
-  const response = await backend.request("POST", "/chat/codex/defaults", {
-    confirmed: false,
-    settings: {
-      ...view.settings,
-      permission: {
-        approvalPolicy: preset.approvalPolicy,
-        permissions: preset.activePermissionProfileId,
-        preset: preset.id,
+  const response = await globalThis.fetch(backend.baseURL + "/chat/codex/defaults", {
+    body: JSON.stringify({
+      confirmed: false,
+      settings: {
+        ...view.settings,
+        permission: {
+          approvalPolicy: preset.approvalPolicy,
+          permissions: preset.activePermissionProfileId,
+          preset: preset.id,
+        },
       },
-    },
+    }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
   });
   const body = await response.json();
   if (response.ok) {

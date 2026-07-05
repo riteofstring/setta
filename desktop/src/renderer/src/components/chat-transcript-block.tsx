@@ -192,13 +192,18 @@ function ActivityGroupSlotRow({
     expandableMembers.length > 0 &&
     expandableMembers.every((member) => context.expandedActivityBlockIds.has(member.id));
   const setExpandAll = (members: TranscriptBlock[], open: boolean) => {
-    preserveActivityGroupAnchor(groupRowRef.current, context.detachTranscriptScroll, () => {
-      context.setActivityGroupExpanded(row.group.id, open);
-      context.setActivityRowsExpanded(
-        members.map((member) => member.id),
-        open,
-      );
-    });
+    preserveActivityGroupAnchor(
+      activityGroupHeaderAnchor(groupRowRef.current),
+      row.group.id,
+      context.detachTranscriptScroll,
+      () => {
+        context.setActivityGroupExpanded(row.group.id, open);
+        context.setActivityRowsExpanded(
+          members.map((member) => member.id),
+          open,
+        );
+      },
+    );
     if (!open) {
       return;
     }
@@ -217,20 +222,26 @@ function ActivityGroupSlotRow({
     }
   };
   const setGroupExpanded = (open: boolean) => {
-    preserveActivityGroupAnchor(groupRowRef.current, context.detachTranscriptScroll, () => {
-      context.setActivityGroupExpanded(row.group.id, open);
-      if (!open) {
-        context.setActivityRowsExpanded(
-          expandableMembers.map((member) => member.id),
-          false,
-        );
-      }
-    });
+    preserveActivityGroupAnchor(
+      activityGroupHeaderAnchor(groupRowRef.current),
+      row.group.id,
+      context.detachTranscriptScroll,
+      () => {
+        context.setActivityGroupExpanded(row.group.id, open);
+        if (!open) {
+          context.setActivityRowsExpanded(
+            expandableMembers.map((member) => member.id),
+            false,
+          );
+        }
+      },
+    );
   };
   return (
     <div
       {...chatReadableColumnAttributes}
       className={chatReadableColumnPaddedClass}
+      data-activity-group-id={row.group.id}
       ref={groupRowRef}
     >
       <TranscriptActivityGroupHeader
@@ -246,6 +257,7 @@ function ActivityGroupSlotRow({
 
 function preserveActivityGroupAnchor(
   anchor: HTMLElement | null,
+  groupId: string,
   detachTranscriptScroll: () => void,
   update: () => void,
 ) {
@@ -254,24 +266,76 @@ function preserveActivityGroupAnchor(
     update();
     return;
   }
-  const scroller = anchor.closest<HTMLElement>('[data-testid="chat-transcript-scroller"]');
+  const root =
+    anchor.closest<HTMLElement>('[data-testid="chat-transcript-scroll-follow"]') ?? document.body;
+  const scroller = nearestActivityGroupScrollContainer(anchor);
   const top = anchor.getBoundingClientRect().top;
   flushSync(update);
-  let remainingFrames = 8;
+  let remainingCorrections = 120;
   const correctAnchor = () => {
-    if (scroller === null || !scroller.isConnected || !anchor.isConnected) {
-      return;
+    const currentAnchor = currentActivityGroupAnchor(root, anchor, groupId);
+    const currentScroller =
+      scroller ?? (currentAnchor ? nearestActivityGroupScrollContainer(currentAnchor) : null);
+    if (
+      currentScroller === null ||
+      !currentScroller.isConnected ||
+      currentAnchor === null ||
+      !currentAnchor.isConnected
+    ) {
+      remainingCorrections -= 1;
+      return remainingCorrections > 0;
     }
-    const delta = anchor.getBoundingClientRect().top - top;
+    const delta = currentAnchor.getBoundingClientRect().top - top;
     if (Math.abs(delta) > 0.5) {
-      scroller.scrollTop += delta;
+      currentScroller.scrollTop += delta;
     }
-    remainingFrames -= 1;
-    if (remainingFrames > 0) {
-      requestAnimationFrame(correctAnchor);
-    }
+    remainingCorrections -= 1;
+    return remainingCorrections > 0;
   };
   correctAnchor();
+  const interval = window.setInterval(() => {
+    if (!correctAnchor()) {
+      window.clearInterval(interval);
+    }
+  }, 8);
+}
+
+function activityGroupHeaderAnchor(groupRow: HTMLElement | null) {
+  return (
+    groupRow?.querySelector<HTMLElement>('[data-testid="activity-group-header"]')?.parentElement ??
+    groupRow
+  );
+}
+
+function currentActivityGroupAnchor(root: HTMLElement, anchor: HTMLElement, groupId: string) {
+  if (anchor.isConnected) {
+    return anchor;
+  }
+  const groupRow = root.querySelector<HTMLElement>(
+    `[data-activity-group-id="${cssAttributeValue(groupId)}"]`,
+  );
+  return activityGroupHeaderAnchor(groupRow);
+}
+
+function nearestActivityGroupScrollContainer(anchor: HTMLElement) {
+  let current = anchor.parentElement;
+  while (current !== null) {
+    const style = window.getComputedStyle(current);
+    if (
+      current.scrollHeight > current.clientHeight &&
+      (style.overflowY === "auto" || style.overflowY === "scroll")
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function cssAttributeValue(value: string) {
+  return typeof CSS !== "undefined" && CSS.escape
+    ? CSS.escape(value)
+    : value.replace(/["\\]/g, "\\$&");
 }
 
 function isExpandableActivityMember(member: TranscriptBlock) {

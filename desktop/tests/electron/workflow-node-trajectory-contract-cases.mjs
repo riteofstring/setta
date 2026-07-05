@@ -23,6 +23,10 @@ import {
   openWorkflowGraphPane,
 } from "./workflow-graph-layout-helpers.mjs";
 import { activityWorkflowGraph } from "./workflow-activity-feed-fixtures.mjs";
+import {
+  assertTrajectorySnapshotCursors,
+  assertWorkflowNodeDetailsEvidence,
+} from "./workflow-node-trajectory-contract-assertions.mjs";
 import { assertHistoricalAttemptWorkflowNodeTrajectoryContract } from "./workflow-node-trajectory-historical-attempts.mjs";
 
 const trajectoryPrompt = "chat activity projection reload workflow";
@@ -709,15 +713,6 @@ async function openWorkflowNodeRunDetails(
   );
 }
 
-function assertWorkflowNodeDetailsEvidence(state, nodeExecutionId) {
-  if (!state.text.includes("Agent Trajectory") || !state.trajectory?.trajectoryPresent) {
-    throw new Error(`workflow node details evidence missing: ${JSON.stringify(state)}`);
-  }
-  if (nodeExecutionId === "") {
-    throw new Error("workflow node execution id is required for details evidence");
-  }
-}
-
 async function waitForWorkflowGraphSnapshot(client, surfaceId, predicate) {
   const state = await waitForState(
     client,
@@ -806,6 +801,14 @@ async function assertSteerWorkflowNodeTrajectoryContract(client, workspaceId, re
       state.textareaDisabled === false &&
       !state.sendButtonReady,
   );
+  const beforeSteering = await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryState"),
+    (state) =>
+      state.trajectoryPresent &&
+      state.text.includes("Workflow stream started.") &&
+      state.trajectorySteeringComposer.composerPresent,
+  );
   const updated = await client.driver("setWorkflowNodeTrajectorySteeringText", {
     text: workflowNodeSteeringPrompt,
   });
@@ -823,6 +826,24 @@ async function assertSteerWorkflowNodeTrajectoryContract(client, workspaceId, re
   if (!clicked.clicked) {
     throw new Error(
       `workflow node trajectory steering send was unavailable: ${JSON.stringify(clicked)}`,
+    );
+  }
+  const liveCompletedState = await waitForState(
+    client,
+    driverCallExpression("workflowNodeTrajectoryState"),
+    (state) =>
+      state.trajectoryPresent &&
+      state.text.length > beforeSteering.text.length &&
+      state.text.includes(workflowNodeSteeringPrompt) &&
+      state.text.includes(`Steered with ${workflowNodeSteeringPrompt}.`) &&
+      !state.trajectorySteeringComposer.composerPresent,
+  );
+  if (!liveCompletedState.text.includes("Active workflow complete.")) {
+    throw new Error(
+      `workflow node trajectory did not render streamed completion text live: ${JSON.stringify({
+        beforeSteering,
+        liveCompletedState,
+      })}`,
     );
   }
   const steerCompleted = await waitForWorkflowExecution(
@@ -1140,6 +1161,7 @@ function assertTrajectoryPage(trajectory, { definition, execution, nodeExecution
     workspaceId,
   });
   assertTrajectoryRunState(trajectory, conversationRef, runRef);
+  assertTrajectorySnapshotCursors(trajectory, execution);
   assertTrajectoryBlocks(trajectory, runRef);
   const outputPage = assertTrajectoryOutputPage(trajectory, runRef);
   assertTrajectoryOutputIDs(trajectory, outputPage);

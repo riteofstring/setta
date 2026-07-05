@@ -191,12 +191,21 @@
     const surfaces = document.querySelectorAll('[data-testid="workflow-node-details-surface"]');
     const surface = lastSurface(surfaces);
     const trajectories = queryAll(details, '[data-testid="agent-trajectory-surface"]');
+    const detailsDock = workflowRunDetailsDock(details);
     return {
       activityGroupHeaderCount: countSelector(details, '[data-testid="activity-group-header"]'),
       chatConversationTrajectoryCount: scopedTrajectoryCount(trajectories, "chatConversation"),
       chatMessageCount: countSelector(surface, "[data-chat-message]"),
+      chatTranscriptScrollerCount: countSelector(
+        details,
+        '[data-testid="chat-transcript-scroller"]',
+      ),
+      detailsDockOpen: detailsDock?.hasAttribute("open") ?? false,
+      detailsDockPresent: detailsDock !== null,
       detailsSurfaceCount: surfaces.length,
       focusElementId: focusedActivityId(surface),
+      layout: details?.getAttribute("data-workflow-node-run-layout") ?? "",
+      nestedTrajectoryFramePresent: nestedTrajectoryFramePresent(details),
       nodeId: workflowNodeDetailsNodeId(surface),
       present: surface !== null,
       runActivityRowCount: countSelector(details, '[data-testid="run-activity-row"]'),
@@ -204,6 +213,15 @@
       trajectory: workflowNodeTrajectoryStateForDetails(details),
       workflowTrajectorySurfaceCount: scopedTrajectoryCount(trajectories, "workflowNodeExecution"),
     };
+  }
+
+  function workflowRunDetailsDock(details) {
+    return details?.querySelector('[data-testid="workflow-run-details-dock"]') ?? null;
+  }
+
+  function nestedTrajectoryFramePresent(details) {
+    const trajectory = details?.querySelector('[data-testid="workflow-node-agent-trajectory"]');
+    return trajectory?.className.includes("h-[36rem]") ?? false;
   }
 
   function workflowNodeTrajectoryState() {

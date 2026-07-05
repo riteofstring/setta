@@ -965,6 +965,68 @@ func writeFakeGoalOperationForegroundUnifiedExec(objective string) {
 	writeFakeCompletedTurnID(turnID, "completed")
 }
 
+func writeFakeGoalOperationBurstOutput(objective string) {
+	const turnID = "turn_goal_burst"
+	writeFakeThreadGoalUpdated(objective, "active")
+	writeFakeTurnStartedForThread("thread_fake", turnID)
+	time.Sleep(50 * time.Millisecond)
+	writeFakeBurstCommandNotifications(turnID, "goal_burst_command", "goal burst complete")
+	writeFakeThreadGoalUpdated(objective, "complete")
+	writeFakeCompletedTurnID(turnID, "completed")
+}
+
+func writeFakeBurstCommandTurn(turnID string, itemID string, finalText string) {
+	writeFakeTurnStartedForThread("thread_fake", turnID)
+	writeFakeBurstCommandNotifications(turnID, itemID, finalText)
+	writeFakeCompletedTurnID(turnID, "completed")
+}
+
+func writeFakeBurstCommandNotifications(turnID string, itemID string, finalText string) {
+	const burstOutputDeltas = sessionEventBufferSizeForFakeBurst + 160
+	writeFakeBurstCommandItem(turnID, itemID, "inProgress", 0)
+	for index := 0; index < burstOutputDeltas; index++ {
+		writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
+			"delta":    fmt.Sprintf("burst output line %03d\n", index),
+			"itemId":   itemID,
+			"threadId": "thread_fake",
+			"turnId":   turnID,
+		})
+	}
+	writeFakeAssistantDeltaForTurn(turnID, "item_"+turnID+"_agent", finalText)
+	writeFakeBurstCommandItem(turnID, itemID, "completed", 0)
+}
+
+const sessionEventBufferSizeForFakeBurst = 256
+
+func writeFakeBurstCommandItem(turnID string, itemID string, status string, exitCode int) {
+	method := "item/started"
+	if status == "completed" {
+		method = "item/completed"
+	}
+	payload := map[string]any{
+		"threadId": "thread_fake",
+		"turnId":   turnID,
+		"item": map[string]any{
+			"command":        "printf lots of output",
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"durationMs":     12,
+			"exitCode":       exitCode,
+			"id":             itemID,
+			"processId":      "process_" + itemID,
+			"source":         "agent",
+			"status":         status,
+			"type":           "commandExecution",
+		},
+	}
+	if status == "completed" {
+		payload["completedAtMs"] = 4
+	} else {
+		payload["startedAtMs"] = 1
+	}
+	writeFakeNotification(method, payload)
+}
+
 func writeFakeGoalCommandApprovalRequestForTurn(turnID string) {
 	writeFakeServerRequest("goal-approval-1", "item/commandExecution/requestApproval", map[string]any{
 		"command":     "go test ./...",
