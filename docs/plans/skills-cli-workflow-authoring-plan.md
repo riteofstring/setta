@@ -473,9 +473,9 @@ embedding workflow contract mirrors.
 
 Progress on 2026-07-07:
 
-- Added the repo-scoped `workflow-builder` Codex skill. The canonical source
-  is `resources/codex/skills/workflow-builder/SKILL.md` with UI metadata at
-  `resources/codex/skills/workflow-builder/agents/openai.yaml`. The
+- Added the repo-scoped `workflow-builder` skill. The canonical source is
+  `resources/skills/workflow-builder/SKILL.md` with UI metadata at
+  `resources/skills/workflow-builder/agents/openai.yaml`. The
   Codex-facing repo copy is synced to `.codex/skills/workflow-builder`.
 - The skill instructs agents to resolve the active workspace, read the
   authoritative `setta workflow schema` output, draft a JSON graph from that
@@ -485,12 +485,12 @@ Progress on 2026-07-07:
   `definitionId` for create saves, and start executions only on explicit run
   requests.
 - The skill keeps agents on the CLI/backend workflow-authoring path, forbids
-  direct `.setta/workflows/*.json` authoring, and avoids prompt-only schema
-  mirrors, guessed contracts, and silent fallback behavior.
+  direct `.setta/workflows/*.json` authoring, uses `setta workflow schema` for
+  graph shape, and avoids silent fallback behavior.
 - Verification: the provided skill validator passed in a disposable `/tmp`
   virtualenv after installing the validator's missing `PyYAML==6.0.2`
   dependency there:
-  `<tmp-venv>/bin/python /Users/kevin/.codex/skills/.system/skill-creator/scripts/quick_validate.py resources/codex/skills/workflow-builder`.
+  `<tmp-venv>/bin/python /Users/kevin/.codex/skills/.system/skill-creator/scripts/quick_validate.py resources/skills/workflow-builder`.
   The global `python3` validator run failed only because `yaml` was not
   installed. No Electron or live Codex workflow gate was required for this
   artifact-only slice because no chat harness, provider protocol, runtime,

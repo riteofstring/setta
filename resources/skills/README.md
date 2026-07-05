@@ -1,6 +1,6 @@
-# Codex Skills
+# Skills
 
-This directory is the canonical source for repo-owned Codex skills.
+This directory is the canonical source for repo-owned agent skills.
 
 Run `scripts/sync_codex_skills.sh` after editing these skills to refresh the
 repo-local Codex skill root at `.codex/skills`. Use

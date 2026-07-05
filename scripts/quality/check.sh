@@ -377,7 +377,7 @@ while IFS= read -r raw_path; do
   fi
 
   case "${file_path}" in
-    .codex/skills/*|resources/codex/skills/*|scripts/sync_codex_skills.sh)
+    .codex/skills/*|resources/skills/*|scripts/sync_codex_skills.sh)
       codex_skill_sync_relevant=1
       ;;
   esac

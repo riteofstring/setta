@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-source_root="${repo_root}/resources/codex/skills"
+source_root="${repo_root}/resources/skills"
 repo_dest_root="${repo_root}/.codex/skills"
 codex_home="${CODEX_HOME:-${HOME}/.codex}"
 check_only=0
@@ -12,8 +12,8 @@ usage() {
   cat <<'EOF'
 Usage: scripts/sync_codex_skills.sh [--check] [--install-user] [--codex-home PATH]
 
-Sync repo-owned Codex skills from:
-  resources/codex/skills
+Sync repo-owned skills from:
+  resources/skills
 
 to the repo Codex skill root used by the in-app app-server integration:
   .codex/skills
@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -d "${source_root}" ]]; then
-  echo "Codex skill source root does not exist: ${source_root}" >&2
+  echo "Skill source root does not exist: ${source_root}" >&2
   exit 1
 fi
 
@@ -128,7 +128,7 @@ check_root() {
 }
 
 if ! has_source_skills; then
-  echo "No source Codex skills found under ${source_root}" >&2
+  echo "No source skills found under ${source_root}" >&2
   exit 1
 fi
 

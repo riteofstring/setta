@@ -1,6 +1,6 @@
 ---
 name: workflow-builder
-description: Author, validate, save, inspect, and optionally run Setta workflow definitions through the `setta workflow` CLI. Use when Codex needs to create or update a Setta workflow graph, repair workflow validation diagnostics, inspect the current Setta workspace or workflow schema, save a workflow definition, or start/read workflow executions.
+description: Author, validate, save, inspect, and optionally run Setta workflow definitions through the `setta workflow` CLI. Use when an agent needs to create or update a Setta workflow graph, repair workflow validation diagnostics, inspect the current Setta workspace or workflow schema, save a workflow definition, or start/read workflow executions.
 ---
 
 # Workflow Builder
@@ -9,7 +9,7 @@ description: Author, validate, save, inspect, and optionally run Setta workflow 
 
 Use the Setta workflow CLI as the authority for workflow authoring. The backend owns schema, validation, persistence, IDs, runtime authorization, audit records, and execution state.
 
-Do not write `.setta/workflows/*.json` directly as the primary workflow authoring path. Do not maintain prompt-only schema mirrors or guessed workflow contracts.
+Do not write `.setta/workflows/*.json` directly as the primary workflow authoring path. Use `setta workflow schema` for the current graph fields, node shapes, actions, value sets, and permission presets.
 
 ## Workflow
 
@@ -80,4 +80,4 @@ Fail loudly when:
 - save returns `saved: false` or a structured backend error
 - starting an execution returns a structured backend error
 
-Report the exact CLI command attempted and the relevant JSON error or validation diagnostics. Do not silently switch to an unvalidated or approximate authoring path.
+Report the exact CLI command attempted and the relevant JSON error or validation diagnostics. If validation or save fails, stop and report the CLI output instead of creating workflow files by hand.
