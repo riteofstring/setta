@@ -37,13 +37,13 @@ type WorkspaceService interface {
 }
 
 type WorkspaceUIService interface {
+	ApplyPaneOperation(workspaceID string, operation workspaceui.WorkspaceUIPaneOperation) (workspaceui.WorkspaceUIPaneOperationResult, error)
 	InitializeLayout(workspaceID string) (workspaceui.WorkspaceUILayout, error)
 	ListPanes(workspaceID string) (workspaceui.WorkspaceUIPaneListResult, error)
 	ReadPane(workspaceID string, paneID string) (workspaceui.WorkspaceUIPaneReadResult, error)
 	Schema() workspaceui.WorkspaceUISchema
 	ReadLayout(workspaceID string) (workspaceui.WorkspaceUILayoutReadResult, error)
 	ResetLayout(workspaceID string) (workspaceui.WorkspaceUILayout, error)
-	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
 	SubscribeEvents(cursor workspaceui.EventCursor, workspaceID string) (*workspaceui.EventSubscription, error)
 }
 

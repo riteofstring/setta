@@ -96,13 +96,7 @@ func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
 	})
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
 	layout := workspaceUILayout(opened.Workspace.ID)
-
-	saved := postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: layout,
-	}, http.StatusOK)
-	if saved.WorkspaceID != opened.Workspace.ID {
-		t.Fatalf("saved workspaceID = %q, want %q", saved.WorkspaceID, opened.Workspace.ID)
-	}
+	seedWorkspaceUILayout(t, appDataDir, layout)
 
 	read := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
 		WorkspaceID: opened.Workspace.ID,
@@ -153,15 +147,13 @@ func TestWorkspaceUILayoutInitializeEndpointPersistsDefaultLayoutOnce(t *testing
 }
 
 func TestWorkspaceUILayoutResetEndpointRecreatesDefaultLayout(t *testing.T) {
-	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
+	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, []string{"workspace_api"}, []time.Time{
 		mustTime(t, "2026-05-29T20:00:00Z"),
 	})
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
 	layout := workspaceUILayout(opened.Workspace.ID)
 	layout.Revision = 5
-	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: layout,
-	}, http.StatusOK)
+	seedWorkspaceUILayout(t, appDataDir, layout)
 
 	reset := postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/reset", ResetWorkspaceUILayoutRequest{
 		WorkspaceID: opened.Workspace.ID,
@@ -194,7 +186,7 @@ func TestWorkspaceUILayoutEndpointRejectsUnknownWorkspace(t *testing.T) {
 }
 
 func TestWorkspaceUIPaneIntrospectionEndpoints(t *testing.T) {
-	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
+	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, []string{"workspace_api"}, []time.Time{
 		mustTime(t, "2026-05-29T20:00:00Z"),
 	})
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -204,9 +196,7 @@ func TestWorkspaceUIPaneIntrospectionEndpoints(t *testing.T) {
 		CWDOverride:   "/tmp/workspace",
 		TitleOverride: "CLI",
 	}
-	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: layout,
-	}, http.StatusOK)
+	seedWorkspaceUILayout(t, appDataDir, layout)
 
 	schema := getJSON[workspaceui.WorkspaceUISchema](t, handler, "/workspaces/ui/schema", http.StatusOK)
 	if schema.LayoutSchemaVersion != workspaceui.SchemaVersion {
@@ -242,13 +232,11 @@ func TestWorkspaceUIPaneIntrospectionEndpoints(t *testing.T) {
 }
 
 func TestWorkspaceUIPaneReadRejectsMissingPane(t *testing.T) {
-	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
+	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, []string{"workspace_api"}, []time.Time{
 		mustTime(t, "2026-05-29T20:00:00Z"),
 	})
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: workspaceUILayout(opened.Workspace.ID),
-	}, http.StatusOK)
+	seedWorkspaceUILayout(t, appDataDir, workspaceUILayout(opened.Workspace.ID))
 
 	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/panes/read", ReadWorkspaceUIPaneRequest{
 		WorkspaceID: opened.Workspace.ID,
@@ -256,6 +244,46 @@ func TestWorkspaceUIPaneReadRejectsMissingPane(t *testing.T) {
 	}, http.StatusBadRequest)
 	if errResponse.Error.Code != "read_workspace_ui_pane_failed" {
 		t.Fatalf("error code = %q, want read_workspace_ui_pane_failed", errResponse.Error.Code)
+	}
+}
+
+func TestWorkspaceUIPaneOperationEndpointPersistsLayoutOperation(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, []string{"workspace_api"}, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	seedWorkspaceUILayout(t, appDataDir, workspaceUILayout(opened.Workspace.ID))
+
+	result := postJSON[workspaceui.WorkspaceUIPaneOperationResult](t, handler, "/workspaces/ui/panes/operation", ApplyWorkspaceUIPaneOperationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Operation: workspaceui.WorkspaceUIPaneOperation{
+			Kind:   workspaceui.WorkspaceUIPaneOperationKindFocusPane,
+			PaneID: "workspace_pane_0",
+		},
+	}, http.StatusOK)
+	if result.WorkspaceID != opened.Workspace.ID || result.Revision != 2 || !result.Changed {
+		t.Fatalf("operation result = %+v, want changed revision 2 for workspace", result)
+	}
+	if result.Layout.FocusedPaneID != "workspace_pane_0" {
+		t.Fatalf("focused pane = %q, want workspace_pane_0", result.Layout.FocusedPaneID)
+	}
+
+	read := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if read.Layout == nil || read.Layout.Revision != 2 || read.Layout.FocusedPaneID != "workspace_pane_0" {
+		t.Fatalf("read layout after operation = %+v, want persisted focused pane at revision 2", read.Layout)
+	}
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/panes/operation", ApplyWorkspaceUIPaneOperationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Operation: workspaceui.WorkspaceUIPaneOperation{
+			Kind:   workspaceui.WorkspaceUIPaneOperationKindFocusPane,
+			PaneID: "workspace_pane_missing",
+		},
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != string(workspaceui.WorkspaceUIOperationErrorCodePaneNotFound) {
+		t.Fatalf("error code = %q, want pane_not_found", errResponse.Error.Code)
 	}
 }
 
@@ -395,6 +423,18 @@ func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Ti
 		WorkspaceService:   service,
 		WorkspaceUIService: uiService,
 	}), filepath.Dir(store.Path())
+}
+
+func seedWorkspaceUILayout(t *testing.T, appDataDir string, layout workspaceui.WorkspaceUILayout) {
+	t.Helper()
+
+	store, err := workspaceui.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new workspace UI store: %v", err)
+	}
+	if _, err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("seed workspace UI layout: %v", err)
+	}
 }
 
 func postJSON[T any](t *testing.T, handler http.Handler, path string, payload any, wantStatus int) T {

@@ -16,7 +16,11 @@ import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { useChatStore } from "./chat-store";
-import { emptyWorkspaceUILayout, workspaceUIReadFixtureAPI } from "./workspace-ui.test-fixtures";
+import {
+  emptyWorkspaceUILayout,
+  emptyWorkspaceUIPaneOperationResult,
+  workspaceUIReadFixtureAPI,
+} from "./workspace-ui.test-fixtures";
 
 const eventStreamId = "event_stream_test";
 
@@ -651,7 +655,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
       resetUILayout: async (workspaceId) => emptyWorkspaceUILayout(workspaceId),
-      saveUILayout: async (layout) => layout,
+      applyUIPaneOperation: async (workspaceId) => emptyWorkspaceUIPaneOperationResult(workspaceId),
       select: async () => workspaceSession(),
       selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
       setSelectedConversation: async (workspaceId, conversationId) => ({

@@ -19,11 +19,11 @@ func TestWorkspaceUIEventStreamReplaysSavedLayoutForWorkspace(t *testing.T) {
 	})
 	other := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: workspaceUILayout(other.Workspace.ID),
+	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/initialize", InitializeWorkspaceUILayoutRequest{
+		WorkspaceID: other.Workspace.ID,
 	}, http.StatusOK)
-	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: workspaceUILayout(opened.Workspace.ID),
+	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/initialize", InitializeWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
 	}, http.StatusOK)
 
 	server := httptest.NewServer(handler)
@@ -43,11 +43,12 @@ func TestWorkspaceUIEventStreamReplaysSavedLayoutForWorkspace(t *testing.T) {
 		t.Fatalf("first workspace UI event envelope = %+v, want stream metadata", first)
 	}
 
-	updated := workspaceUILayout(opened.Workspace.ID)
-	updated.Revision = 2
-	updated.FocusedPaneID = "workspace_pane_0"
-	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: updated,
+	postJSON[workspaceui.WorkspaceUIPaneOperationResult](t, handler, "/workspaces/ui/panes/operation", ApplyWorkspaceUIPaneOperationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Operation: workspaceui.WorkspaceUIPaneOperation{
+			Kind:   workspaceui.WorkspaceUIPaneOperationKindFocusPane,
+			PaneID: "workspace_pane_1",
+		},
 	}, http.StatusOK)
 
 	replayResponse := openWorkspaceUIEventStream(t, server, opened.Workspace.ID, first.EventID)
@@ -57,7 +58,7 @@ func TestWorkspaceUIEventStreamReplaysSavedLayoutForWorkspace(t *testing.T) {
 		replayed.WorkspaceID != opened.Workspace.ID ||
 		replayed.Revision != 2 ||
 		replayed.Layout == nil ||
-		replayed.Layout.FocusedPaneID != "workspace_pane_0" {
+		replayed.Layout.FocusedPaneID != "workspace_pane_1" {
 		t.Fatalf("replayed workspace UI event = %+v, want revision 2 layout update", replayed)
 	}
 }
@@ -67,8 +68,8 @@ func TestWorkspaceUIEventStreamWritesResyncRequiredSSE(t *testing.T) {
 		mustTime(t, "2026-05-29T20:00:00Z"),
 	})
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: workspaceUILayout(opened.Workspace.ID),
+	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/initialize", InitializeWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
 	}, http.StatusOK)
 
 	server := httptest.NewServer(handler)

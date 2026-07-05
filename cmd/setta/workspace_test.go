@@ -86,7 +86,7 @@ func newWorkspaceCLITestFixture(t *testing.T) workspaceCLITestFixture {
 		}
 	})
 	opened := openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
-	saveWorkspaceUILayoutForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, cliTestWorkspaceUILayout(opened.Workspace.ID))
+	seedWorkspaceUILayoutForCLITest(t, appDataDir, cliTestWorkspaceUILayout(opened.Workspace.ID))
 	return workspaceCLITestFixture{
 		appDataDir: appDataDir,
 		deps:       deps,
@@ -133,14 +133,16 @@ func assertWorkspacePaneListForCLITest(t *testing.T, list workspaceui.WorkspaceU
 	}
 }
 
-func saveWorkspaceUILayoutForCLITest(t *testing.T, client *http.Client, appDataDir string, baseURL string, layout workspaceui.WorkspaceUILayout) workspaceui.WorkspaceUILayout {
+func seedWorkspaceUILayoutForCLITest(t *testing.T, appDataDir string, layout workspaceui.WorkspaceUILayout) {
 	t.Helper()
-	token, cleanup, err := createRuntimeCLIAuthSession(context.Background(), appDataDir, "Setta CLI test workspace layout saver")
+
+	store, err := workspaceui.NewStore(appDataDir)
 	if err != nil {
-		t.Fatalf("create CLI auth session: %v", err)
+		t.Fatalf("new workspace UI store: %v", err)
 	}
-	defer cleanup()
-	return postAuthedRuntimeJSON[workspaceui.WorkspaceUILayout](t, client, baseURL, token, "/workspaces/ui/layout/save", httpapi.SaveWorkspaceUILayoutRequest{Layout: layout})
+	if _, err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("seed workspace UI layout: %v", err)
+	}
 }
 
 func cliTestWorkspaceUILayout(workspaceID string) workspaceui.WorkspaceUILayout {

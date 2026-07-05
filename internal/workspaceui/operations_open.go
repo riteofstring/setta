@@ -161,6 +161,7 @@ func insertOpenPaneColumn(layout *WorkspaceUILayout, operation WorkspaceUIPaneOp
 	return workspaceUIPaneOpenInsertion{
 		column:     column,
 		paneIndex:  0,
+		placement:  WorkspaceUIPaneDropPlacementAfter,
 		targetKind: targetKind,
 		warnings:   warnings,
 	}, nil

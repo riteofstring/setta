@@ -265,7 +265,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
     backendPaths: [
       "/workspaces/open",
       "/workspaces/ui/layout/read",
-      "/workspaces/ui/layout/save",
+      "/workspaces/ui/layout/initialize",
       "/chat/conversations/create",
       "/chat/conversations/list",
       "/workflows/definitions/validate",
@@ -283,7 +283,7 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
     ipcChannels: [
       "workspace:open-local-folder",
       "workspace:read-ui-layout",
-      "workspace:save-ui-layout",
+      "workspace:initialize-ui-layout",
       "chat:create-conversation",
       "workflow:validate-definition",
       "workflow:create-definition",

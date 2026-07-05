@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 21;
-export const backendContractSchemaHash = "sha256:aeb505729d3c9a359b1e6a924f9bfa014ad73648e27770bbdda0dde62e40da31";
+export const backendProtocolVersion = 22;
+export const backendContractSchemaHash = "sha256:d2c1cb0ef1c5b7c916a0a1dfa70706ec028a127f46c05bc7b850601cf5c00983";
 
 export type DeviceScope = "full";
 
@@ -340,6 +340,36 @@ export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGra
   }
 }
 
+export type WorkspaceUIPaneOperationKind = "close_pane" | "configure_pane" | "focus_pane" | "move_pane" | "open_pane" | "rename_pane" | "reorder_pane" | "resize_column" | "resize_pane";
+
+export const workspaceUIPaneOperationKindValues = ["close_pane", "configure_pane", "focus_pane", "move_pane", "open_pane", "rename_pane", "reorder_pane", "resize_column", "resize_pane"] as const satisfies readonly WorkspaceUIPaneOperationKind[];
+
+export function decodeWorkspaceUIPaneOperationKind(value: unknown, label = "WorkspaceUIPaneOperationKind"): WorkspaceUIPaneOperationKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "close_pane":
+      return decoded;
+    case "configure_pane":
+      return decoded;
+    case "focus_pane":
+      return decoded;
+    case "move_pane":
+      return decoded;
+    case "open_pane":
+      return decoded;
+    case "rename_pane":
+      return decoded;
+    case "reorder_pane":
+      return decoded;
+    case "resize_column":
+      return decoded;
+    case "resize_pane":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type WorkflowEdgeKind = "normal" | "loop_continue" | "loop_exit";
 
 export const workflowEdgeKindValues = ["normal", "loop_continue", "loop_exit"] as const satisfies readonly WorkflowEdgeKind[];
@@ -422,6 +452,82 @@ export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowG
     case "completed":
       return decoded;
     case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceUIPaneMoveDirection = "down" | "left" | "right" | "up";
+
+export const workspaceUIPaneMoveDirectionValues = ["down", "left", "right", "up"] as const satisfies readonly WorkspaceUIPaneMoveDirection[];
+
+export function decodeWorkspaceUIPaneMoveDirection(value: unknown, label = "WorkspaceUIPaneMoveDirection"): WorkspaceUIPaneMoveDirection {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "down":
+      return decoded;
+    case "left":
+      return decoded;
+    case "right":
+      return decoded;
+    case "up":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceUIPaneDropPlacement = "after" | "before";
+
+export const workspaceUIPaneDropPlacementValues = ["after", "before"] as const satisfies readonly WorkspaceUIPaneDropPlacement[];
+
+export function decodeWorkspaceUIPaneDropPlacement(value: unknown, label = "WorkspaceUIPaneDropPlacement"): WorkspaceUIPaneDropPlacement {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "after":
+      return decoded;
+    case "before":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceUIPaneReorderIntentKind = "column" | "plane-slot" | "row" | "swap";
+
+export const workspaceUIPaneReorderIntentKindValues = ["column", "plane-slot", "row", "swap"] as const satisfies readonly WorkspaceUIPaneReorderIntentKind[];
+
+export function decodeWorkspaceUIPaneReorderIntentKind(value: unknown, label = "WorkspaceUIPaneReorderIntentKind"): WorkspaceUIPaneReorderIntentKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "column":
+      return decoded;
+    case "plane-slot":
+      return decoded;
+    case "row":
+      return decoded;
+    case "swap":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceUIPaneOpenTargetKind = "adjacent_column" | "column_end" | "plane_slot" | "row";
+
+export const workspaceUIPaneOpenTargetKindValues = ["adjacent_column", "column_end", "plane_slot", "row"] as const satisfies readonly WorkspaceUIPaneOpenTargetKind[];
+
+export function decodeWorkspaceUIPaneOpenTargetKind(value: unknown, label = "WorkspaceUIPaneOpenTargetKind"): WorkspaceUIPaneOpenTargetKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "adjacent_column":
+      return decoded;
+    case "column_end":
+      return decoded;
+    case "plane_slot":
+      return decoded;
+    case "row":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3212,19 +3318,8 @@ export interface WorkspaceUIPaneReadResult {
   schema: WorkspaceUISchema;
 }
 
-export interface ReadWorkspaceUILayoutRequest {
-  workspaceId: string;
-}
-
-export interface WorkspaceUIColumn {
-  columnId: string;
-  idealWidthSpec: ColumnWidthSpec;
-  index: number;
-  paneIds: string[];
-  planeIndex: number;
-  previousProportionWidth: number | null;
-  slotIndex: number;
-  widthSpec: ColumnWidthSpec;
+export interface WorkspaceUIPaneCloseOperation {
+  surfaceClose: WorkspaceUISurfaceCloseMode;
 }
 
 export interface TerminalPaneConfig {
@@ -3274,6 +3369,110 @@ export interface WorkflowNodeDetailsPaneConfig {
   workspaceId: string;
 }
 
+export interface WorkspaceUIPaneConfigureOperation {
+  subtitle: string | null;
+  surfaceKind: SurfaceKind | null;
+  terminalConfig: TerminalPaneConfig | null;
+  title: string | null;
+  tone: PaneTone | null;
+  workflowNodeDetailsConfig: WorkflowNodeDetailsPaneConfig | null;
+}
+
+export interface WorkspaceUIPaneMoveOperation {
+  direction: WorkspaceUIPaneMoveDirection;
+}
+
+export interface WorkspaceUIPaneOpenPlaneTarget {
+  placement: WorkspaceUIPaneDropPlacement;
+  targetPaneId: string;
+}
+
+export interface WorkspaceUIPaneOpenRowTarget {
+  placement: WorkspaceUIPaneDropPlacement;
+  targetPaneId: string;
+}
+
+export interface WorkspaceUIPaneOpenOperation {
+  adjacentToColumnId: string;
+  plane: WorkspaceUIPaneOpenPlaneTarget | null;
+  row: WorkspaceUIPaneOpenRowTarget | null;
+  subtitle: string;
+  surfaceKind: SurfaceKind;
+  terminalConfig: TerminalPaneConfig | null;
+  title: string;
+  tone: PaneTone;
+  widthSpec: ColumnWidthSpec | null;
+  workflowNodeDetailsConfig: WorkflowNodeDetailsPaneConfig | null;
+}
+
+export interface WorkspaceUIPaneRenameOperation {
+  title: string;
+}
+
+export interface WorkspaceUIPaneReorderIntent {
+  kind: WorkspaceUIPaneReorderIntentKind;
+  placement: WorkspaceUIPaneDropPlacement;
+  planeIndex: number | null;
+  referenceColumnId: string;
+  slotIndex: number | null;
+  slotPlacement: WorkspaceUIPaneDropPlacement;
+  targetColumnId: string;
+  targetPaneId: string;
+}
+
+export interface WorkspaceUIPaneReorderOperation {
+  intent: WorkspaceUIPaneReorderIntent;
+}
+
+export interface WorkspaceUIPaneSplitResizeOperation {
+  lowerPaneId: string;
+  upperWeight: number;
+  lowerWeight: number;
+}
+
+export interface WorkspaceUIPaneResizeOperation {
+  widthSpec: ColumnWidthSpec | null;
+  heightPx: number | null;
+  heightDeltaPx: number | null;
+  heightScale: number | null;
+  resetHeight: boolean;
+  split: WorkspaceUIPaneSplitResizeOperation | null;
+}
+
+export interface WorkspaceUIColumnResizeOperation {
+  columnId: string;
+  widthSpec: ColumnWidthSpec;
+}
+
+export interface WorkspaceUIPaneOperation {
+  kind: WorkspaceUIPaneOperationKind;
+  paneId: string;
+  close: WorkspaceUIPaneCloseOperation | null;
+  configure: WorkspaceUIPaneConfigureOperation | null;
+  move: WorkspaceUIPaneMoveOperation | null;
+  open: WorkspaceUIPaneOpenOperation | null;
+  rename: WorkspaceUIPaneRenameOperation | null;
+  reorder: WorkspaceUIPaneReorderOperation | null;
+  resize: WorkspaceUIPaneResizeOperation | null;
+  resizeColumn: WorkspaceUIColumnResizeOperation | null;
+}
+
+export interface ApplyWorkspaceUIPaneOperationRequest {
+  workspaceId: string;
+  operation: WorkspaceUIPaneOperation;
+}
+
+export interface WorkspaceUIColumn {
+  columnId: string;
+  idealWidthSpec: ColumnWidthSpec;
+  index: number;
+  paneIds: string[];
+  planeIndex: number;
+  previousProportionWidth: number | null;
+  slotIndex: number;
+  widthSpec: ColumnWidthSpec;
+}
+
 export interface WorkspaceUIPane {
   columnId: string;
   heat: number;
@@ -3299,6 +3498,143 @@ export interface WorkspaceUILayout {
   panes: WorkspaceUIPane[];
 }
 
+export interface WorkspaceUIPaneCloseOutcome {
+  columnId: string;
+  columnIndex: number;
+  paneIndex: number;
+  planeIndex: number;
+  removedColumn: boolean;
+  surfaceClose: WorkspaceUISurfaceCloseMode;
+}
+
+export interface WorkspaceUIPaneConfigureOutcome {
+  previousSubtitle: string;
+  previousSurfaceId: string;
+  previousSurfaceKind: SurfaceKind;
+  previousTitle: string;
+  previousTone: PaneTone;
+  subtitle: string;
+  surfaceId: string;
+  surfaceKind: SurfaceKind;
+  title: string;
+  tone: PaneTone;
+}
+
+export interface WorkspaceUIPaneMoveOutcome {
+  columnId: string;
+  columnIndex: number;
+  direction: WorkspaceUIPaneMoveDirection;
+  paneIndex: number;
+  planeIndex: number;
+  previousColumnId: string;
+  previousColumnIndex: number;
+  previousPaneIndex: number;
+  previousPlaneIndex: number;
+}
+
+export interface WorkspaceUIPaneOpenOutcome {
+  adjacentToColumnId: string;
+  columnId: string;
+  columnIndex: number;
+  paneIndex: number;
+  planeIndex: number;
+  placement: WorkspaceUIPaneDropPlacement;
+  surfaceId: string;
+  surfaceKind: SurfaceKind;
+  targetKind: WorkspaceUIPaneOpenTargetKind;
+  targetPaneId: string;
+  title: string;
+  widthSpec: ColumnWidthSpec;
+}
+
+export interface WorkspaceUIPaneRenameOutcome {
+  previousTitle: string;
+  title: string;
+}
+
+export interface WorkspaceUIPaneReorderOutcome {
+  columnId: string;
+  columnIndex: number;
+  createdColumnId: string;
+  destinationColumnId: string;
+  intentKind: WorkspaceUIPaneReorderIntentKind;
+  paneIndex: number;
+  planeIndex: number;
+  previousColumnId: string;
+  previousColumnIndex: number;
+  previousPaneIndex: number;
+  previousPlaneIndex: number;
+  removedColumn: boolean;
+  resetPaneSizing: boolean;
+  targetColumnId: string;
+  targetPaneId: string;
+}
+
+export interface WorkspaceUIPaneResizeOutcome {
+  heightPx: number | null;
+  lowerPaneId: string;
+  lowerWeight: number;
+  planeIndex: number;
+  previousHeightPx: number | null;
+  previousLowerWeight: number;
+  previousUpperWeight: number;
+  previousWidthSpec: ColumnWidthSpec;
+  rowIndex: number;
+  targetPaneIds: string[];
+  slotIndex: number;
+  targetColumnId: string;
+  upperPaneId: string;
+  upperWeight: number;
+  widthSpec: ColumnWidthSpec;
+}
+
+export interface WorkspaceUIPaneOperationOutcome {
+  kind: WorkspaceUIPaneOperationKind;
+  close: WorkspaceUIPaneCloseOutcome | null;
+  configure: WorkspaceUIPaneConfigureOutcome | null;
+  move: WorkspaceUIPaneMoveOutcome | null;
+  open: WorkspaceUIPaneOpenOutcome | null;
+  rename: WorkspaceUIPaneRenameOutcome | null;
+  reorder: WorkspaceUIPaneReorderOutcome | null;
+  resize: WorkspaceUIPaneResizeOutcome | null;
+  paneId: string;
+  previousFocusedPaneId: string;
+  focusedPaneId: string;
+}
+
+export interface WorkspaceUIPaneDimensions {
+  heightPx: number | null;
+  columnId: string;
+  weight: number;
+  widthSpec: ColumnWidthSpec;
+}
+
+export interface WorkspaceUIPaneDimensionChange {
+  paneId: string;
+  before: WorkspaceUIPaneDimensions;
+  after: WorkspaceUIPaneDimensions;
+}
+
+export interface WorkspaceUIPaneOperationWarning {
+  code: string;
+  message: string;
+  fields: Record<string, string>;
+}
+
+export interface WorkspaceUIPaneOperationResult {
+  workspaceId: string;
+  revision: number;
+  layout: WorkspaceUILayout;
+  changed: boolean;
+  operationResult: WorkspaceUIPaneOperationOutcome;
+  beforeAfterDimensions: WorkspaceUIPaneDimensionChange[];
+  warnings: WorkspaceUIPaneOperationWarning[];
+}
+
+export interface ReadWorkspaceUILayoutRequest {
+  workspaceId: string;
+}
+
 export interface WorkspaceUILayoutReadResult {
   workspaceId: string;
   layout: WorkspaceUILayout | null;
@@ -3310,10 +3646,6 @@ export interface InitializeWorkspaceUILayoutRequest {
 
 export interface ResetWorkspaceUILayoutRequest {
   workspaceId: string;
-}
-
-export interface SaveWorkspaceUILayoutRequest {
-  layout: WorkspaceUILayout;
 }
 
 export interface WorkspaceUIResyncRequired {
@@ -6977,6 +7309,11 @@ export const backendEndpoints = {
     path: "/workspaces/ui/panes/read",
     requestBodyLimitBytes: 4194304,
   },
+  ApplyWorkspaceUIPaneOperation: {
+    method: "POST",
+    path: "/workspaces/ui/panes/operation",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/read",
@@ -6990,11 +7327,6 @@ export const backendEndpoints = {
   ResetWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/reset",
-    requestBodyLimitBytes: 4194304,
-  },
-  SaveWorkspaceUILayout: {
-    method: "POST",
-    path: "/workspaces/ui/layout/save",
     requestBodyLimitBytes: 4194304,
   },
   WorkspaceUIEventStream: {
@@ -8204,26 +8536,11 @@ export function decodeWorkspaceUIPaneReadResult(value: unknown): WorkspaceUIPane
   };
 }
 
-export function decodeReadWorkspaceUILayoutRequest(value: unknown): ReadWorkspaceUILayoutRequest {
-  const record = assertRecord(value, "ReadWorkspaceUILayoutRequest");
-  assertKnownFields(record, "ReadWorkspaceUILayoutRequest", ["workspaceId"]);
+export function decodeWorkspaceUIPaneCloseOperation(value: unknown): WorkspaceUIPaneCloseOperation {
+  const record = assertRecord(value, "WorkspaceUIPaneCloseOperation");
+  assertKnownFields(record, "WorkspaceUIPaneCloseOperation", ["surfaceClose"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceUILayoutRequest"), "ReadWorkspaceUILayoutRequest.workspaceId"),
-  };
-}
-
-export function decodeWorkspaceUIColumn(value: unknown): WorkspaceUIColumn {
-  const record = assertRecord(value, "WorkspaceUIColumn");
-  assertKnownFields(record, "WorkspaceUIColumn", ["columnId", "idealWidthSpec", "index", "paneIds", "planeIndex", "previousProportionWidth", "slotIndex", "widthSpec"]);
-  return {
-    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIColumn"), "WorkspaceUIColumn.columnId"),
-    idealWidthSpec: decodeColumnWidthSpec(requireField(record, "idealWidthSpec", "WorkspaceUIColumn")),
-    index: decodeInteger(requireField(record, "index", "WorkspaceUIColumn"), "WorkspaceUIColumn.index"),
-    paneIds: decodeArray(requireField(record, "paneIds", "WorkspaceUIColumn"), "WorkspaceUIColumn.paneIds", (item) => decodeString(item, "WorkspaceUIColumn.paneIds item")),
-    planeIndex: decodeInteger(requireField(record, "planeIndex", "WorkspaceUIColumn"), "WorkspaceUIColumn.planeIndex"),
-    previousProportionWidth: decodeNullable(requireField(record, "previousProportionWidth", "WorkspaceUIColumn"), "WorkspaceUIColumn.previousProportionWidth", (item) => decodeNumber(item, "WorkspaceUIColumn.previousProportionWidth")),
-    slotIndex: decodeInteger(requireField(record, "slotIndex", "WorkspaceUIColumn"), "WorkspaceUIColumn.slotIndex"),
-    widthSpec: decodeColumnWidthSpec(requireField(record, "widthSpec", "WorkspaceUIColumn")),
+    surfaceClose: decodeWorkspaceUISurfaceCloseMode(requireField(record, "surfaceClose", "WorkspaceUIPaneCloseOperation"), "WorkspaceUIPaneCloseOperation.surfaceClose"),
   };
 }
 
@@ -8290,6 +8607,166 @@ export function decodeWorkflowNodeDetailsPaneConfig(value: unknown): WorkflowNod
   };
 }
 
+export function decodeWorkspaceUIPaneConfigureOperation(value: unknown): WorkspaceUIPaneConfigureOperation {
+  const record = assertRecord(value, "WorkspaceUIPaneConfigureOperation");
+  assertKnownFields(record, "WorkspaceUIPaneConfigureOperation", ["subtitle", "surfaceKind", "terminalConfig", "title", "tone", "workflowNodeDetailsConfig"]);
+  return {
+    subtitle: decodeNullable(requireField(record, "subtitle", "WorkspaceUIPaneConfigureOperation"), "WorkspaceUIPaneConfigureOperation.subtitle", (item) => decodeString(item, "WorkspaceUIPaneConfigureOperation.subtitle")),
+    surfaceKind: decodeNullable(requireField(record, "surfaceKind", "WorkspaceUIPaneConfigureOperation"), "WorkspaceUIPaneConfigureOperation.surfaceKind", (item) => decodeSurfaceKind(item, "WorkspaceUIPaneConfigureOperation.surfaceKind")),
+    terminalConfig: decodeNullable(requireField(record, "terminalConfig", "WorkspaceUIPaneConfigureOperation"), "WorkspaceUIPaneConfigureOperation.terminalConfig", (item) => decodeTerminalPaneConfig(item)),
+    title: decodeNullable(requireField(record, "title", "WorkspaceUIPaneConfigureOperation"), "WorkspaceUIPaneConfigureOperation.title", (item) => decodeString(item, "WorkspaceUIPaneConfigureOperation.title")),
+    tone: decodeNullable(requireField(record, "tone", "WorkspaceUIPaneConfigureOperation"), "WorkspaceUIPaneConfigureOperation.tone", (item) => decodePaneTone(item, "WorkspaceUIPaneConfigureOperation.tone")),
+    workflowNodeDetailsConfig: decodeNullable(requireField(record, "workflowNodeDetailsConfig", "WorkspaceUIPaneConfigureOperation"), "WorkspaceUIPaneConfigureOperation.workflowNodeDetailsConfig", (item) => decodeWorkflowNodeDetailsPaneConfig(item)),
+  };
+}
+
+export function decodeWorkspaceUIPaneMoveOperation(value: unknown): WorkspaceUIPaneMoveOperation {
+  const record = assertRecord(value, "WorkspaceUIPaneMoveOperation");
+  assertKnownFields(record, "WorkspaceUIPaneMoveOperation", ["direction"]);
+  return {
+    direction: decodeWorkspaceUIPaneMoveDirection(requireField(record, "direction", "WorkspaceUIPaneMoveOperation"), "WorkspaceUIPaneMoveOperation.direction"),
+  };
+}
+
+export function decodeWorkspaceUIPaneOpenPlaneTarget(value: unknown): WorkspaceUIPaneOpenPlaneTarget {
+  const record = assertRecord(value, "WorkspaceUIPaneOpenPlaneTarget");
+  assertKnownFields(record, "WorkspaceUIPaneOpenPlaneTarget", ["placement", "targetPaneId"]);
+  return {
+    placement: decodeWorkspaceUIPaneDropPlacement(requireField(record, "placement", "WorkspaceUIPaneOpenPlaneTarget"), "WorkspaceUIPaneOpenPlaneTarget.placement"),
+    targetPaneId: decodeString(requireField(record, "targetPaneId", "WorkspaceUIPaneOpenPlaneTarget"), "WorkspaceUIPaneOpenPlaneTarget.targetPaneId"),
+  };
+}
+
+export function decodeWorkspaceUIPaneOpenRowTarget(value: unknown): WorkspaceUIPaneOpenRowTarget {
+  const record = assertRecord(value, "WorkspaceUIPaneOpenRowTarget");
+  assertKnownFields(record, "WorkspaceUIPaneOpenRowTarget", ["placement", "targetPaneId"]);
+  return {
+    placement: decodeWorkspaceUIPaneDropPlacement(requireField(record, "placement", "WorkspaceUIPaneOpenRowTarget"), "WorkspaceUIPaneOpenRowTarget.placement"),
+    targetPaneId: decodeString(requireField(record, "targetPaneId", "WorkspaceUIPaneOpenRowTarget"), "WorkspaceUIPaneOpenRowTarget.targetPaneId"),
+  };
+}
+
+export function decodeWorkspaceUIPaneOpenOperation(value: unknown): WorkspaceUIPaneOpenOperation {
+  const record = assertRecord(value, "WorkspaceUIPaneOpenOperation");
+  assertKnownFields(record, "WorkspaceUIPaneOpenOperation", ["adjacentToColumnId", "plane", "row", "subtitle", "surfaceKind", "terminalConfig", "title", "tone", "widthSpec", "workflowNodeDetailsConfig"]);
+  return {
+    adjacentToColumnId: decodeString(requireField(record, "adjacentToColumnId", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.adjacentToColumnId"),
+    plane: decodeNullable(requireField(record, "plane", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.plane", (item) => decodeWorkspaceUIPaneOpenPlaneTarget(item)),
+    row: decodeNullable(requireField(record, "row", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.row", (item) => decodeWorkspaceUIPaneOpenRowTarget(item)),
+    subtitle: decodeString(requireField(record, "subtitle", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.subtitle"),
+    surfaceKind: decodeSurfaceKind(requireField(record, "surfaceKind", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.surfaceKind"),
+    terminalConfig: decodeNullable(requireField(record, "terminalConfig", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.terminalConfig", (item) => decodeTerminalPaneConfig(item)),
+    title: decodeString(requireField(record, "title", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.title"),
+    tone: decodePaneTone(requireField(record, "tone", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.tone"),
+    widthSpec: decodeNullable(requireField(record, "widthSpec", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.widthSpec", (item) => decodeColumnWidthSpec(item)),
+    workflowNodeDetailsConfig: decodeNullable(requireField(record, "workflowNodeDetailsConfig", "WorkspaceUIPaneOpenOperation"), "WorkspaceUIPaneOpenOperation.workflowNodeDetailsConfig", (item) => decodeWorkflowNodeDetailsPaneConfig(item)),
+  };
+}
+
+export function decodeWorkspaceUIPaneRenameOperation(value: unknown): WorkspaceUIPaneRenameOperation {
+  const record = assertRecord(value, "WorkspaceUIPaneRenameOperation");
+  assertKnownFields(record, "WorkspaceUIPaneRenameOperation", ["title"]);
+  return {
+    title: decodeString(requireField(record, "title", "WorkspaceUIPaneRenameOperation"), "WorkspaceUIPaneRenameOperation.title"),
+  };
+}
+
+export function decodeWorkspaceUIPaneReorderIntent(value: unknown): WorkspaceUIPaneReorderIntent {
+  const record = assertRecord(value, "WorkspaceUIPaneReorderIntent");
+  assertKnownFields(record, "WorkspaceUIPaneReorderIntent", ["kind", "placement", "planeIndex", "referenceColumnId", "slotIndex", "slotPlacement", "targetColumnId", "targetPaneId"]);
+  return {
+    kind: decodeWorkspaceUIPaneReorderIntentKind(requireField(record, "kind", "WorkspaceUIPaneReorderIntent"), "WorkspaceUIPaneReorderIntent.kind"),
+    placement: decodeWorkspaceUIPaneDropPlacement(requireField(record, "placement", "WorkspaceUIPaneReorderIntent"), "WorkspaceUIPaneReorderIntent.placement"),
+    planeIndex: decodeNullable(requireField(record, "planeIndex", "WorkspaceUIPaneReorderIntent"), "WorkspaceUIPaneReorderIntent.planeIndex", (item) => decodeInteger(item, "WorkspaceUIPaneReorderIntent.planeIndex")),
+    referenceColumnId: decodeString(requireField(record, "referenceColumnId", "WorkspaceUIPaneReorderIntent"), "WorkspaceUIPaneReorderIntent.referenceColumnId"),
+    slotIndex: decodeNullable(requireField(record, "slotIndex", "WorkspaceUIPaneReorderIntent"), "WorkspaceUIPaneReorderIntent.slotIndex", (item) => decodeInteger(item, "WorkspaceUIPaneReorderIntent.slotIndex")),
+    slotPlacement: decodeWorkspaceUIPaneDropPlacement(requireField(record, "slotPlacement", "WorkspaceUIPaneReorderIntent"), "WorkspaceUIPaneReorderIntent.slotPlacement"),
+    targetColumnId: decodeString(requireField(record, "targetColumnId", "WorkspaceUIPaneReorderIntent"), "WorkspaceUIPaneReorderIntent.targetColumnId"),
+    targetPaneId: decodeString(requireField(record, "targetPaneId", "WorkspaceUIPaneReorderIntent"), "WorkspaceUIPaneReorderIntent.targetPaneId"),
+  };
+}
+
+export function decodeWorkspaceUIPaneReorderOperation(value: unknown): WorkspaceUIPaneReorderOperation {
+  const record = assertRecord(value, "WorkspaceUIPaneReorderOperation");
+  assertKnownFields(record, "WorkspaceUIPaneReorderOperation", ["intent"]);
+  return {
+    intent: decodeWorkspaceUIPaneReorderIntent(requireField(record, "intent", "WorkspaceUIPaneReorderOperation")),
+  };
+}
+
+export function decodeWorkspaceUIPaneSplitResizeOperation(value: unknown): WorkspaceUIPaneSplitResizeOperation {
+  const record = assertRecord(value, "WorkspaceUIPaneSplitResizeOperation");
+  assertKnownFields(record, "WorkspaceUIPaneSplitResizeOperation", ["lowerPaneId", "upperWeight", "lowerWeight"]);
+  return {
+    lowerPaneId: decodeString(requireField(record, "lowerPaneId", "WorkspaceUIPaneSplitResizeOperation"), "WorkspaceUIPaneSplitResizeOperation.lowerPaneId"),
+    upperWeight: decodeNumber(requireField(record, "upperWeight", "WorkspaceUIPaneSplitResizeOperation"), "WorkspaceUIPaneSplitResizeOperation.upperWeight"),
+    lowerWeight: decodeNumber(requireField(record, "lowerWeight", "WorkspaceUIPaneSplitResizeOperation"), "WorkspaceUIPaneSplitResizeOperation.lowerWeight"),
+  };
+}
+
+export function decodeWorkspaceUIPaneResizeOperation(value: unknown): WorkspaceUIPaneResizeOperation {
+  const record = assertRecord(value, "WorkspaceUIPaneResizeOperation");
+  assertKnownFields(record, "WorkspaceUIPaneResizeOperation", ["widthSpec", "heightPx", "heightDeltaPx", "heightScale", "resetHeight", "split"]);
+  return {
+    widthSpec: decodeNullable(requireField(record, "widthSpec", "WorkspaceUIPaneResizeOperation"), "WorkspaceUIPaneResizeOperation.widthSpec", (item) => decodeColumnWidthSpec(item)),
+    heightPx: decodeNullable(requireField(record, "heightPx", "WorkspaceUIPaneResizeOperation"), "WorkspaceUIPaneResizeOperation.heightPx", (item) => decodeInteger(item, "WorkspaceUIPaneResizeOperation.heightPx")),
+    heightDeltaPx: decodeNullable(requireField(record, "heightDeltaPx", "WorkspaceUIPaneResizeOperation"), "WorkspaceUIPaneResizeOperation.heightDeltaPx", (item) => decodeInteger(item, "WorkspaceUIPaneResizeOperation.heightDeltaPx")),
+    heightScale: decodeNullable(requireField(record, "heightScale", "WorkspaceUIPaneResizeOperation"), "WorkspaceUIPaneResizeOperation.heightScale", (item) => decodeNumber(item, "WorkspaceUIPaneResizeOperation.heightScale")),
+    resetHeight: decodeBoolean(requireField(record, "resetHeight", "WorkspaceUIPaneResizeOperation"), "WorkspaceUIPaneResizeOperation.resetHeight"),
+    split: decodeNullable(requireField(record, "split", "WorkspaceUIPaneResizeOperation"), "WorkspaceUIPaneResizeOperation.split", (item) => decodeWorkspaceUIPaneSplitResizeOperation(item)),
+  };
+}
+
+export function decodeWorkspaceUIColumnResizeOperation(value: unknown): WorkspaceUIColumnResizeOperation {
+  const record = assertRecord(value, "WorkspaceUIColumnResizeOperation");
+  assertKnownFields(record, "WorkspaceUIColumnResizeOperation", ["columnId", "widthSpec"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIColumnResizeOperation"), "WorkspaceUIColumnResizeOperation.columnId"),
+    widthSpec: decodeColumnWidthSpec(requireField(record, "widthSpec", "WorkspaceUIColumnResizeOperation")),
+  };
+}
+
+export function decodeWorkspaceUIPaneOperation(value: unknown): WorkspaceUIPaneOperation {
+  const record = assertRecord(value, "WorkspaceUIPaneOperation");
+  assertKnownFields(record, "WorkspaceUIPaneOperation", ["kind", "paneId", "close", "configure", "move", "open", "rename", "reorder", "resize", "resizeColumn"]);
+  return {
+    kind: decodeWorkspaceUIPaneOperationKind(requireField(record, "kind", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.kind"),
+    paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.paneId"),
+    close: decodeNullable(requireField(record, "close", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.close", (item) => decodeWorkspaceUIPaneCloseOperation(item)),
+    configure: decodeNullable(requireField(record, "configure", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.configure", (item) => decodeWorkspaceUIPaneConfigureOperation(item)),
+    move: decodeNullable(requireField(record, "move", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.move", (item) => decodeWorkspaceUIPaneMoveOperation(item)),
+    open: decodeNullable(requireField(record, "open", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.open", (item) => decodeWorkspaceUIPaneOpenOperation(item)),
+    rename: decodeNullable(requireField(record, "rename", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.rename", (item) => decodeWorkspaceUIPaneRenameOperation(item)),
+    reorder: decodeNullable(requireField(record, "reorder", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.reorder", (item) => decodeWorkspaceUIPaneReorderOperation(item)),
+    resize: decodeNullable(requireField(record, "resize", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.resize", (item) => decodeWorkspaceUIPaneResizeOperation(item)),
+    resizeColumn: decodeNullable(requireField(record, "resizeColumn", "WorkspaceUIPaneOperation"), "WorkspaceUIPaneOperation.resizeColumn", (item) => decodeWorkspaceUIColumnResizeOperation(item)),
+  };
+}
+
+export function decodeApplyWorkspaceUIPaneOperationRequest(value: unknown): ApplyWorkspaceUIPaneOperationRequest {
+  const record = assertRecord(value, "ApplyWorkspaceUIPaneOperationRequest");
+  assertKnownFields(record, "ApplyWorkspaceUIPaneOperationRequest", ["workspaceId", "operation"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ApplyWorkspaceUIPaneOperationRequest"), "ApplyWorkspaceUIPaneOperationRequest.workspaceId"),
+    operation: decodeWorkspaceUIPaneOperation(requireField(record, "operation", "ApplyWorkspaceUIPaneOperationRequest")),
+  };
+}
+
+export function decodeWorkspaceUIColumn(value: unknown): WorkspaceUIColumn {
+  const record = assertRecord(value, "WorkspaceUIColumn");
+  assertKnownFields(record, "WorkspaceUIColumn", ["columnId", "idealWidthSpec", "index", "paneIds", "planeIndex", "previousProportionWidth", "slotIndex", "widthSpec"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIColumn"), "WorkspaceUIColumn.columnId"),
+    idealWidthSpec: decodeColumnWidthSpec(requireField(record, "idealWidthSpec", "WorkspaceUIColumn")),
+    index: decodeInteger(requireField(record, "index", "WorkspaceUIColumn"), "WorkspaceUIColumn.index"),
+    paneIds: decodeArray(requireField(record, "paneIds", "WorkspaceUIColumn"), "WorkspaceUIColumn.paneIds", (item) => decodeString(item, "WorkspaceUIColumn.paneIds item")),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "WorkspaceUIColumn"), "WorkspaceUIColumn.planeIndex"),
+    previousProportionWidth: decodeNullable(requireField(record, "previousProportionWidth", "WorkspaceUIColumn"), "WorkspaceUIColumn.previousProportionWidth", (item) => decodeNumber(item, "WorkspaceUIColumn.previousProportionWidth")),
+    slotIndex: decodeInteger(requireField(record, "slotIndex", "WorkspaceUIColumn"), "WorkspaceUIColumn.slotIndex"),
+    widthSpec: decodeColumnWidthSpec(requireField(record, "widthSpec", "WorkspaceUIColumn")),
+  };
+}
+
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
   assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "heightPx", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight", "workflowNodeDetailsConfig"]);
@@ -8323,6 +8800,195 @@ export function decodeWorkspaceUILayout(value: unknown): WorkspaceUILayout {
   };
 }
 
+export function decodeWorkspaceUIPaneCloseOutcome(value: unknown): WorkspaceUIPaneCloseOutcome {
+  const record = assertRecord(value, "WorkspaceUIPaneCloseOutcome");
+  assertKnownFields(record, "WorkspaceUIPaneCloseOutcome", ["columnId", "columnIndex", "paneIndex", "planeIndex", "removedColumn", "surfaceClose"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPaneCloseOutcome"), "WorkspaceUIPaneCloseOutcome.columnId"),
+    columnIndex: decodeInteger(requireField(record, "columnIndex", "WorkspaceUIPaneCloseOutcome"), "WorkspaceUIPaneCloseOutcome.columnIndex"),
+    paneIndex: decodeInteger(requireField(record, "paneIndex", "WorkspaceUIPaneCloseOutcome"), "WorkspaceUIPaneCloseOutcome.paneIndex"),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "WorkspaceUIPaneCloseOutcome"), "WorkspaceUIPaneCloseOutcome.planeIndex"),
+    removedColumn: decodeBoolean(requireField(record, "removedColumn", "WorkspaceUIPaneCloseOutcome"), "WorkspaceUIPaneCloseOutcome.removedColumn"),
+    surfaceClose: decodeWorkspaceUISurfaceCloseMode(requireField(record, "surfaceClose", "WorkspaceUIPaneCloseOutcome"), "WorkspaceUIPaneCloseOutcome.surfaceClose"),
+  };
+}
+
+export function decodeWorkspaceUIPaneConfigureOutcome(value: unknown): WorkspaceUIPaneConfigureOutcome {
+  const record = assertRecord(value, "WorkspaceUIPaneConfigureOutcome");
+  assertKnownFields(record, "WorkspaceUIPaneConfigureOutcome", ["previousSubtitle", "previousSurfaceId", "previousSurfaceKind", "previousTitle", "previousTone", "subtitle", "surfaceId", "surfaceKind", "title", "tone"]);
+  return {
+    previousSubtitle: decodeString(requireField(record, "previousSubtitle", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.previousSubtitle"),
+    previousSurfaceId: decodeString(requireField(record, "previousSurfaceId", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.previousSurfaceId"),
+    previousSurfaceKind: decodeSurfaceKind(requireField(record, "previousSurfaceKind", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.previousSurfaceKind"),
+    previousTitle: decodeString(requireField(record, "previousTitle", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.previousTitle"),
+    previousTone: decodePaneTone(requireField(record, "previousTone", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.previousTone"),
+    subtitle: decodeString(requireField(record, "subtitle", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.subtitle"),
+    surfaceId: decodeString(requireField(record, "surfaceId", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.surfaceId"),
+    surfaceKind: decodeSurfaceKind(requireField(record, "surfaceKind", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.surfaceKind"),
+    title: decodeString(requireField(record, "title", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.title"),
+    tone: decodePaneTone(requireField(record, "tone", "WorkspaceUIPaneConfigureOutcome"), "WorkspaceUIPaneConfigureOutcome.tone"),
+  };
+}
+
+export function decodeWorkspaceUIPaneMoveOutcome(value: unknown): WorkspaceUIPaneMoveOutcome {
+  const record = assertRecord(value, "WorkspaceUIPaneMoveOutcome");
+  assertKnownFields(record, "WorkspaceUIPaneMoveOutcome", ["columnId", "columnIndex", "direction", "paneIndex", "planeIndex", "previousColumnId", "previousColumnIndex", "previousPaneIndex", "previousPlaneIndex"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPaneMoveOutcome"), "WorkspaceUIPaneMoveOutcome.columnId"),
+    columnIndex: decodeInteger(requireField(record, "columnIndex", "WorkspaceUIPaneMoveOutcome"), "WorkspaceUIPaneMoveOutcome.columnIndex"),
+    direction: decodeWorkspaceUIPaneMoveDirection(requireField(record, "direction", "WorkspaceUIPaneMoveOutcome"), "WorkspaceUIPaneMoveOutcome.direction"),
+    paneIndex: decodeInteger(requireField(record, "paneIndex", "WorkspaceUIPaneMoveOutcome"), "WorkspaceUIPaneMoveOutcome.paneIndex"),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "WorkspaceUIPaneMoveOutcome"), "WorkspaceUIPaneMoveOutcome.planeIndex"),
+    previousColumnId: decodeString(requireField(record, "previousColumnId", "WorkspaceUIPaneMoveOutcome"), "WorkspaceUIPaneMoveOutcome.previousColumnId"),
+    previousColumnIndex: decodeInteger(requireField(record, "previousColumnIndex", "WorkspaceUIPaneMoveOutcome"), "WorkspaceUIPaneMoveOutcome.previousColumnIndex"),
+    previousPaneIndex: decodeInteger(requireField(record, "previousPaneIndex", "WorkspaceUIPaneMoveOutcome"), "WorkspaceUIPaneMoveOutcome.previousPaneIndex"),
+    previousPlaneIndex: decodeInteger(requireField(record, "previousPlaneIndex", "WorkspaceUIPaneMoveOutcome"), "WorkspaceUIPaneMoveOutcome.previousPlaneIndex"),
+  };
+}
+
+export function decodeWorkspaceUIPaneOpenOutcome(value: unknown): WorkspaceUIPaneOpenOutcome {
+  const record = assertRecord(value, "WorkspaceUIPaneOpenOutcome");
+  assertKnownFields(record, "WorkspaceUIPaneOpenOutcome", ["adjacentToColumnId", "columnId", "columnIndex", "paneIndex", "planeIndex", "placement", "surfaceId", "surfaceKind", "targetKind", "targetPaneId", "title", "widthSpec"]);
+  return {
+    adjacentToColumnId: decodeString(requireField(record, "adjacentToColumnId", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.adjacentToColumnId"),
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.columnId"),
+    columnIndex: decodeInteger(requireField(record, "columnIndex", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.columnIndex"),
+    paneIndex: decodeInteger(requireField(record, "paneIndex", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.paneIndex"),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.planeIndex"),
+    placement: decodeWorkspaceUIPaneDropPlacement(requireField(record, "placement", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.placement"),
+    surfaceId: decodeString(requireField(record, "surfaceId", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.surfaceId"),
+    surfaceKind: decodeSurfaceKind(requireField(record, "surfaceKind", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.surfaceKind"),
+    targetKind: decodeWorkspaceUIPaneOpenTargetKind(requireField(record, "targetKind", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.targetKind"),
+    targetPaneId: decodeString(requireField(record, "targetPaneId", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.targetPaneId"),
+    title: decodeString(requireField(record, "title", "WorkspaceUIPaneOpenOutcome"), "WorkspaceUIPaneOpenOutcome.title"),
+    widthSpec: decodeColumnWidthSpec(requireField(record, "widthSpec", "WorkspaceUIPaneOpenOutcome")),
+  };
+}
+
+export function decodeWorkspaceUIPaneRenameOutcome(value: unknown): WorkspaceUIPaneRenameOutcome {
+  const record = assertRecord(value, "WorkspaceUIPaneRenameOutcome");
+  assertKnownFields(record, "WorkspaceUIPaneRenameOutcome", ["previousTitle", "title"]);
+  return {
+    previousTitle: decodeString(requireField(record, "previousTitle", "WorkspaceUIPaneRenameOutcome"), "WorkspaceUIPaneRenameOutcome.previousTitle"),
+    title: decodeString(requireField(record, "title", "WorkspaceUIPaneRenameOutcome"), "WorkspaceUIPaneRenameOutcome.title"),
+  };
+}
+
+export function decodeWorkspaceUIPaneReorderOutcome(value: unknown): WorkspaceUIPaneReorderOutcome {
+  const record = assertRecord(value, "WorkspaceUIPaneReorderOutcome");
+  assertKnownFields(record, "WorkspaceUIPaneReorderOutcome", ["columnId", "columnIndex", "createdColumnId", "destinationColumnId", "intentKind", "paneIndex", "planeIndex", "previousColumnId", "previousColumnIndex", "previousPaneIndex", "previousPlaneIndex", "removedColumn", "resetPaneSizing", "targetColumnId", "targetPaneId"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.columnId"),
+    columnIndex: decodeInteger(requireField(record, "columnIndex", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.columnIndex"),
+    createdColumnId: decodeString(requireField(record, "createdColumnId", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.createdColumnId"),
+    destinationColumnId: decodeString(requireField(record, "destinationColumnId", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.destinationColumnId"),
+    intentKind: decodeWorkspaceUIPaneReorderIntentKind(requireField(record, "intentKind", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.intentKind"),
+    paneIndex: decodeInteger(requireField(record, "paneIndex", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.paneIndex"),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.planeIndex"),
+    previousColumnId: decodeString(requireField(record, "previousColumnId", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.previousColumnId"),
+    previousColumnIndex: decodeInteger(requireField(record, "previousColumnIndex", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.previousColumnIndex"),
+    previousPaneIndex: decodeInteger(requireField(record, "previousPaneIndex", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.previousPaneIndex"),
+    previousPlaneIndex: decodeInteger(requireField(record, "previousPlaneIndex", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.previousPlaneIndex"),
+    removedColumn: decodeBoolean(requireField(record, "removedColumn", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.removedColumn"),
+    resetPaneSizing: decodeBoolean(requireField(record, "resetPaneSizing", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.resetPaneSizing"),
+    targetColumnId: decodeString(requireField(record, "targetColumnId", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.targetColumnId"),
+    targetPaneId: decodeString(requireField(record, "targetPaneId", "WorkspaceUIPaneReorderOutcome"), "WorkspaceUIPaneReorderOutcome.targetPaneId"),
+  };
+}
+
+export function decodeWorkspaceUIPaneResizeOutcome(value: unknown): WorkspaceUIPaneResizeOutcome {
+  const record = assertRecord(value, "WorkspaceUIPaneResizeOutcome");
+  assertKnownFields(record, "WorkspaceUIPaneResizeOutcome", ["heightPx", "lowerPaneId", "lowerWeight", "planeIndex", "previousHeightPx", "previousLowerWeight", "previousUpperWeight", "previousWidthSpec", "rowIndex", "targetPaneIds", "slotIndex", "targetColumnId", "upperPaneId", "upperWeight", "widthSpec"]);
+  return {
+    heightPx: decodeNullable(requireField(record, "heightPx", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.heightPx", (item) => decodeInteger(item, "WorkspaceUIPaneResizeOutcome.heightPx")),
+    lowerPaneId: decodeString(requireField(record, "lowerPaneId", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.lowerPaneId"),
+    lowerWeight: decodeNumber(requireField(record, "lowerWeight", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.lowerWeight"),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.planeIndex"),
+    previousHeightPx: decodeNullable(requireField(record, "previousHeightPx", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.previousHeightPx", (item) => decodeInteger(item, "WorkspaceUIPaneResizeOutcome.previousHeightPx")),
+    previousLowerWeight: decodeNumber(requireField(record, "previousLowerWeight", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.previousLowerWeight"),
+    previousUpperWeight: decodeNumber(requireField(record, "previousUpperWeight", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.previousUpperWeight"),
+    previousWidthSpec: decodeColumnWidthSpec(requireField(record, "previousWidthSpec", "WorkspaceUIPaneResizeOutcome")),
+    rowIndex: decodeInteger(requireField(record, "rowIndex", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.rowIndex"),
+    targetPaneIds: decodeArray(requireField(record, "targetPaneIds", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.targetPaneIds", (item) => decodeString(item, "WorkspaceUIPaneResizeOutcome.targetPaneIds item")),
+    slotIndex: decodeInteger(requireField(record, "slotIndex", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.slotIndex"),
+    targetColumnId: decodeString(requireField(record, "targetColumnId", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.targetColumnId"),
+    upperPaneId: decodeString(requireField(record, "upperPaneId", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.upperPaneId"),
+    upperWeight: decodeNumber(requireField(record, "upperWeight", "WorkspaceUIPaneResizeOutcome"), "WorkspaceUIPaneResizeOutcome.upperWeight"),
+    widthSpec: decodeColumnWidthSpec(requireField(record, "widthSpec", "WorkspaceUIPaneResizeOutcome")),
+  };
+}
+
+export function decodeWorkspaceUIPaneOperationOutcome(value: unknown): WorkspaceUIPaneOperationOutcome {
+  const record = assertRecord(value, "WorkspaceUIPaneOperationOutcome");
+  assertKnownFields(record, "WorkspaceUIPaneOperationOutcome", ["kind", "close", "configure", "move", "open", "rename", "reorder", "resize", "paneId", "previousFocusedPaneId", "focusedPaneId"]);
+  return {
+    kind: decodeWorkspaceUIPaneOperationKind(requireField(record, "kind", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.kind"),
+    close: decodeNullable(requireField(record, "close", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.close", (item) => decodeWorkspaceUIPaneCloseOutcome(item)),
+    configure: decodeNullable(requireField(record, "configure", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.configure", (item) => decodeWorkspaceUIPaneConfigureOutcome(item)),
+    move: decodeNullable(requireField(record, "move", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.move", (item) => decodeWorkspaceUIPaneMoveOutcome(item)),
+    open: decodeNullable(requireField(record, "open", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.open", (item) => decodeWorkspaceUIPaneOpenOutcome(item)),
+    rename: decodeNullable(requireField(record, "rename", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.rename", (item) => decodeWorkspaceUIPaneRenameOutcome(item)),
+    reorder: decodeNullable(requireField(record, "reorder", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.reorder", (item) => decodeWorkspaceUIPaneReorderOutcome(item)),
+    resize: decodeNullable(requireField(record, "resize", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.resize", (item) => decodeWorkspaceUIPaneResizeOutcome(item)),
+    paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.paneId"),
+    previousFocusedPaneId: decodeString(requireField(record, "previousFocusedPaneId", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.previousFocusedPaneId"),
+    focusedPaneId: decodeString(requireField(record, "focusedPaneId", "WorkspaceUIPaneOperationOutcome"), "WorkspaceUIPaneOperationOutcome.focusedPaneId"),
+  };
+}
+
+export function decodeWorkspaceUIPaneDimensions(value: unknown): WorkspaceUIPaneDimensions {
+  const record = assertRecord(value, "WorkspaceUIPaneDimensions");
+  assertKnownFields(record, "WorkspaceUIPaneDimensions", ["heightPx", "columnId", "weight", "widthSpec"]);
+  return {
+    heightPx: decodeNullable(requireField(record, "heightPx", "WorkspaceUIPaneDimensions"), "WorkspaceUIPaneDimensions.heightPx", (item) => decodeInteger(item, "WorkspaceUIPaneDimensions.heightPx")),
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPaneDimensions"), "WorkspaceUIPaneDimensions.columnId"),
+    weight: decodeNumber(requireField(record, "weight", "WorkspaceUIPaneDimensions"), "WorkspaceUIPaneDimensions.weight"),
+    widthSpec: decodeColumnWidthSpec(requireField(record, "widthSpec", "WorkspaceUIPaneDimensions")),
+  };
+}
+
+export function decodeWorkspaceUIPaneDimensionChange(value: unknown): WorkspaceUIPaneDimensionChange {
+  const record = assertRecord(value, "WorkspaceUIPaneDimensionChange");
+  assertKnownFields(record, "WorkspaceUIPaneDimensionChange", ["paneId", "before", "after"]);
+  return {
+    paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPaneDimensionChange"), "WorkspaceUIPaneDimensionChange.paneId"),
+    before: decodeWorkspaceUIPaneDimensions(requireField(record, "before", "WorkspaceUIPaneDimensionChange")),
+    after: decodeWorkspaceUIPaneDimensions(requireField(record, "after", "WorkspaceUIPaneDimensionChange")),
+  };
+}
+
+export function decodeWorkspaceUIPaneOperationWarning(value: unknown): WorkspaceUIPaneOperationWarning {
+  const record = assertRecord(value, "WorkspaceUIPaneOperationWarning");
+  assertKnownFields(record, "WorkspaceUIPaneOperationWarning", ["code", "message", "fields"]);
+  return {
+    code: decodeString(requireField(record, "code", "WorkspaceUIPaneOperationWarning"), "WorkspaceUIPaneOperationWarning.code"),
+    message: decodeString(requireField(record, "message", "WorkspaceUIPaneOperationWarning"), "WorkspaceUIPaneOperationWarning.message"),
+    fields: decodeStringRecord(requireField(record, "fields", "WorkspaceUIPaneOperationWarning"), "WorkspaceUIPaneOperationWarning.fields"),
+  };
+}
+
+export function decodeWorkspaceUIPaneOperationResult(value: unknown): WorkspaceUIPaneOperationResult {
+  const record = assertRecord(value, "WorkspaceUIPaneOperationResult");
+  assertKnownFields(record, "WorkspaceUIPaneOperationResult", ["workspaceId", "revision", "layout", "changed", "operationResult", "beforeAfterDimensions", "warnings"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUIPaneOperationResult"), "WorkspaceUIPaneOperationResult.workspaceId"),
+    revision: decodeInteger(requireField(record, "revision", "WorkspaceUIPaneOperationResult"), "WorkspaceUIPaneOperationResult.revision"),
+    layout: decodeWorkspaceUILayout(requireField(record, "layout", "WorkspaceUIPaneOperationResult")),
+    changed: decodeBoolean(requireField(record, "changed", "WorkspaceUIPaneOperationResult"), "WorkspaceUIPaneOperationResult.changed"),
+    operationResult: decodeWorkspaceUIPaneOperationOutcome(requireField(record, "operationResult", "WorkspaceUIPaneOperationResult")),
+    beforeAfterDimensions: decodeArray(requireField(record, "beforeAfterDimensions", "WorkspaceUIPaneOperationResult"), "WorkspaceUIPaneOperationResult.beforeAfterDimensions", (item) => decodeWorkspaceUIPaneDimensionChange(item)),
+    warnings: decodeArray(requireField(record, "warnings", "WorkspaceUIPaneOperationResult"), "WorkspaceUIPaneOperationResult.warnings", (item) => decodeWorkspaceUIPaneOperationWarning(item)),
+  };
+}
+
+export function decodeReadWorkspaceUILayoutRequest(value: unknown): ReadWorkspaceUILayoutRequest {
+  const record = assertRecord(value, "ReadWorkspaceUILayoutRequest");
+  assertKnownFields(record, "ReadWorkspaceUILayoutRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceUILayoutRequest"), "ReadWorkspaceUILayoutRequest.workspaceId"),
+  };
+}
+
 export function decodeWorkspaceUILayoutReadResult(value: unknown): WorkspaceUILayoutReadResult {
   const record = assertRecord(value, "WorkspaceUILayoutReadResult");
   assertKnownFields(record, "WorkspaceUILayoutReadResult", ["workspaceId", "layout"]);
@@ -8345,14 +9011,6 @@ export function decodeResetWorkspaceUILayoutRequest(value: unknown): ResetWorksp
   assertKnownFields(record, "ResetWorkspaceUILayoutRequest", ["workspaceId"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "ResetWorkspaceUILayoutRequest"), "ResetWorkspaceUILayoutRequest.workspaceId"),
-  };
-}
-
-export function decodeSaveWorkspaceUILayoutRequest(value: unknown): SaveWorkspaceUILayoutRequest {
-  const record = assertRecord(value, "SaveWorkspaceUILayoutRequest");
-  assertKnownFields(record, "SaveWorkspaceUILayoutRequest", ["layout"]);
-  return {
-    layout: decodeWorkspaceUILayout(requireField(record, "layout", "SaveWorkspaceUILayoutRequest")),
   };
 }
 
@@ -13436,10 +14094,10 @@ export interface BackendClient {
   readWorkspaceUISchema: () => Promise<WorkspaceUISchema>;
   listWorkspaceUIPanes: (request: ListWorkspaceUIPanesRequest) => Promise<WorkspaceUIPaneListResult>;
   readWorkspaceUIPane: (request: ReadWorkspaceUIPaneRequest) => Promise<WorkspaceUIPaneReadResult>;
+  applyWorkspaceUIPaneOperation: (request: ApplyWorkspaceUIPaneOperationRequest) => Promise<WorkspaceUIPaneOperationResult>;
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
   initializeWorkspaceUILayout: (request: InitializeWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
   resetWorkspaceUILayout: (request: ResetWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
-  saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
   readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest) => Promise<ReadWorkspaceActivitySnapshotResponse>;
   readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest) => Promise<ReadWorkflowExecutionActivityResponse>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
@@ -13741,6 +14399,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    applyWorkspaceUIPaneOperation: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceUIPaneOperationResult,
+      endpoint: backendEndpoints.ApplyWorkspaceUIPaneOperation,
+      fetchImpl,
+      requestPayload: request,
+    }),
     readWorkspaceUILayout: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -13762,14 +14428,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceUILayout,
       endpoint: backendEndpoints.ResetWorkspaceUILayout,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    saveWorkspaceUILayout: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeWorkspaceUILayout,
-      endpoint: backendEndpoints.SaveWorkspaceUILayout,
       fetchImpl,
       requestPayload: request,
     }),

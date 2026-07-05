@@ -133,6 +133,8 @@ import type {
   WorkflowGraph,
   WorkflowValidationResult,
   WorkspaceUIPaneListResult,
+  WorkspaceUIPaneOperation,
+  WorkspaceUIPaneOperationResult,
   WorkspaceUIPaneReadResult,
   WorkspaceUIEvent,
   WorkspaceUISchema,
@@ -429,6 +431,10 @@ export interface SettaAPI {
     updateProfile: (request: UpdateTerminalProfileRequest) => Promise<TerminalProfileList>;
   };
   workspace: {
+    applyUIPaneOperation: (
+      workspaceId: string,
+      operation: WorkspaceUIPaneOperation,
+    ) => Promise<WorkspaceUIPaneOperationResult>;
     close: (id: string) => Promise<WorkspaceSession>;
     initializeUILayout: (workspaceId: string) => Promise<WorkspaceUILayout>;
     listUIPanes: (workspaceId: string) => Promise<WorkspaceUIPaneListResult>;
@@ -441,7 +447,6 @@ export interface SettaAPI {
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
     resetUILayout: (workspaceId: string) => Promise<WorkspaceUILayout>;
-    saveUILayout: (layout: WorkspaceUILayout) => Promise<WorkspaceUILayout>;
     select: (id: string) => Promise<WorkspaceSession>;
     selectedConversations: () => Promise<WorkspaceSelectedConversations>;
     setSelectedConversation: (

@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { WorkspaceLayoutRecoveryNotice } from "./workspace-layout-area-components";
-import { workspaceUILayoutFromScene } from "./workspace-scene";
+import {
+  focusPaneOperation,
+  type WorkspaceLayoutAction,
+  type WorkspaceLayoutOperation,
+} from "./workspace-layout-operations";
+import type { WorkspaceLayoutTransientSnapshot } from "./layout-store";
 import {
   emptyWorkspacePaneMetadataSnapshot,
   workspacePaneMetadataSnapshotFromList,
@@ -372,39 +377,96 @@ export function initialWorkspaceUIPaneMetadataLoadState(
   };
 }
 
-export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, workspaceId: string) {
-  const pendingLayoutSaveRef = useRef<Promise<unknown>>(Promise.resolve());
-  const [layoutPersistenceError, setLayoutPersistenceError] = useState<string | null>(null);
+export function useWorkspaceUIPaneOperations({
+  onLayoutUpdate,
+  runtime,
+  workspaceId,
+}: {
+  onLayoutUpdate: (
+    layout: WorkspaceUILayout,
+    transientSnapshot: WorkspaceLayoutTransientSnapshot,
+  ) => void;
+  runtime: WorkspaceRuntime;
+  workspaceId: string;
+}) {
+  const pendingPaneOperationRef = useRef<Promise<unknown>>(Promise.resolve());
+  const [layoutOperationError, setLayoutOperationError] = useState<string | null>(null);
 
-  const persistLayout = useCallback((): Promise<void> => {
-    runtime.presentation.syncPanes(runtime.store.toScene().panes);
-    if (runtime.mode !== "workspace") {
-      return Promise.resolve();
-    }
-    const layout = workspaceUILayoutFromScene(
-      workspaceId,
-      runtime.store.toScene(),
-      runtime.store.focusedPaneId(),
-      runtime.store.getSnapshot().revision,
-    );
-    const save = pendingLayoutSaveRef.current
-      .catch(() => {})
-      .then(() => window.setta.workspace.saveUILayout(layout))
-      .then(() => {
-        setLayoutPersistenceError(null);
-      })
-      .catch((error: unknown) => {
-        setLayoutPersistenceError(layoutOperationErrorMessage(error));
-        throw error;
-      });
-    pendingLayoutSaveRef.current = save.catch(() => {});
-    return save;
-  }, [runtime, workspaceId]);
-  const resetLayoutPersistenceError = useCallback(() => {
-    setLayoutPersistenceError(null);
+  const applyPaneOperation = useCallback(
+    (operation: WorkspaceLayoutOperation): Promise<void> => {
+      runtime.presentation.syncPanes(runtime.store.toScene().panes);
+      const commandTransientSnapshot = runtime.store.getTransientSnapshot();
+      if (runtime.mode !== "workspace" || operation === null) {
+        return Promise.resolve();
+      }
+      const apply = pendingPaneOperationRef.current
+        .catch(() => {})
+        .then(() => window.setta.workspace.applyUIPaneOperation(workspaceId, operation))
+        .then((result) => {
+          if (result.workspaceId !== workspaceId) {
+            throw new Error(
+              `Workspace pane operation returned workspace ${result.workspaceId}, want ${workspaceId}`,
+            );
+          }
+          const layout = checkedWorkspaceUILayout(result.layout, workspaceId);
+          syncRuntimeFocusedPane(runtime, layout);
+          const transientSnapshot =
+            commandTransientSnapshot.focusedPaneId === layout.focusedPaneId
+              ? commandTransientSnapshot
+              : runtime.store.getTransientSnapshot();
+          setLayoutOperationError(null);
+          onLayoutUpdate(layout, transientSnapshot);
+        })
+        .catch((error: unknown) => {
+          setLayoutOperationError(layoutOperationErrorMessage(error));
+          throw error;
+        });
+      pendingPaneOperationRef.current = apply.catch(() => {});
+      return apply;
+    },
+    [onLayoutUpdate, runtime, workspaceId],
+  );
+
+  const runLayoutAction = useCallback(
+    (action: WorkspaceLayoutAction): void => {
+      let operation: WorkspaceLayoutOperation;
+      try {
+        operation = action() ?? null;
+      } catch (error: unknown) {
+        setLayoutOperationError(layoutOperationErrorMessage(error));
+        return;
+      }
+      void applyPaneOperation(operation);
+    },
+    [applyPaneOperation],
+  );
+
+  const persistFocusedPane = useCallback((): Promise<void> => {
+    return applyPaneOperation(focusPaneOperation(runtime.store.focusedPaneId()));
+  }, [applyPaneOperation, runtime]);
+
+  const resetLayoutOperationError = useCallback(() => {
+    setLayoutOperationError(null);
   }, []);
 
-  return { layoutPersistenceError, persistLayout, resetLayoutPersistenceError };
+  return {
+    applyPaneOperation,
+    layoutOperationError,
+    persistFocusedPane,
+    resetLayoutOperationError,
+    runLayoutAction,
+  };
+}
+
+function syncRuntimeFocusedPane(runtime: WorkspaceRuntime, layout: WorkspaceUILayout): void {
+  if (runtime.mode !== "workspace" || runtime.store.focusedPaneId() === layout.focusedPaneId) {
+    return;
+  }
+  if (!runtime.store.focusPaneWithoutReveal(layout.focusedPaneId)) {
+    throw new Error(
+      `Workspace pane operation returned focused pane ${layout.focusedPaneId}, but it is not present in the renderer scene`,
+    );
+  }
 }
 
 export function useWorkspaceUILayoutReset({
@@ -436,14 +498,14 @@ export function useWorkspaceUILayoutReset({
 }
 
 export function useWorkspaceUILayoutEventSync({
+  currentRevision,
   mode,
   onLayoutUpdate,
-  runtime,
   workspaceId,
 }: {
+  currentRevision: number;
   mode: WorkspaceSceneMode;
   onLayoutUpdate: (layout: WorkspaceUILayout) => void;
-  runtime: WorkspaceRuntime;
   workspaceId: string;
 }): string | null {
   const [layoutEventSyncError, setLayoutEventSyncError] = useState<string | null>(null);
@@ -462,11 +524,7 @@ export function useWorkspaceUILayoutEventSync({
 
     let cancelled = false;
     const unsubscribe = window.setta.workspace.onUIEvent(workspaceId, (event) => {
-      const decision = workspaceUILayoutEventDecision(
-        event,
-        runtime.store.getSnapshot().revision,
-        workspaceId,
-      );
+      const decision = workspaceUILayoutEventDecision(event, currentRevision, workspaceId);
       switch (decision.kind) {
         case "apply":
           setLayoutEventSyncError(null);
@@ -493,7 +551,7 @@ export function useWorkspaceUILayoutEventSync({
               }
               const resyncDecision = workspaceUILayoutFromResyncDecision(
                 layout,
-                runtime.store.getSnapshot().revision,
+                currentRevision,
                 workspaceId,
               );
               if (resyncDecision.kind === "apply") {
@@ -523,7 +581,7 @@ export function useWorkspaceUILayoutEventSync({
       cancelled = true;
       unsubscribe();
     };
-  }, [mode, onLayoutUpdate, runtime, shouldSubscribe, unavailableError, workspaceId]);
+  }, [currentRevision, mode, onLayoutUpdate, shouldSubscribe, unavailableError, workspaceId]);
 
   return layoutEventSyncError;
 }
@@ -565,7 +623,7 @@ export function workspaceLayoutRecoveryMessage({
   layoutEventSyncError,
   layoutLoadError,
   paneMetadataLoadError,
-  layoutPersistenceError,
+  layoutOperationError,
   layoutResetError,
   runtime,
 }: {
@@ -573,7 +631,7 @@ export function workspaceLayoutRecoveryMessage({
   layoutEventSyncError: string | null;
   layoutLoadError: string | null;
   paneMetadataLoadError: string | null;
-  layoutPersistenceError: string | null;
+  layoutOperationError: string | null;
   layoutResetError: string | null;
   runtime: WorkspaceRuntime;
 }): string | null {
@@ -583,7 +641,7 @@ export function workspaceLayoutRecoveryMessage({
   return (
     layoutResetError ??
     layoutLoadError ??
-    layoutPersistenceError ??
+    layoutOperationError ??
     layoutEventSyncError ??
     paneMetadataLoadError ??
     runtime.layoutRecovery?.message ??

@@ -455,6 +455,8 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         requireClient().validateWorkflowDefinition({ graph, workspaceId }),
     },
     workspace: {
+      applyUIPaneOperation: (workspaceId, operation) =>
+        requireClient().applyWorkspaceUIPaneOperation({ operation, workspaceId }),
       close: (id) => requireClient().closeWorkspace({ id }),
       initializeUILayout: (workspaceId) =>
         requireClient().initializeWorkspaceUILayout({ workspaceId }),
@@ -486,7 +488,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       removeRecent: (id) => requireClient().removeRecentWorkspace({ id }),
       reorder: (ids) => requireClient().reorderWorkspace({ ids }),
       resetUILayout: (workspaceId) => requireClient().resetWorkspaceUILayout({ workspaceId }),
-      saveUILayout: (layout) => requireClient().saveWorkspaceUILayout({ layout }),
       select: (id) => requireClient().selectWorkspace({ id }),
       selectedConversations: () => requireClient().workspaceSelectedConversations(),
       session: () => requireClient().workspaceSession(),

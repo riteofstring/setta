@@ -11,7 +11,11 @@ import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { useWorkspaceStore } from "./workspace-store";
-import { emptyWorkspaceUILayout, workspaceUIReadFixtureAPI } from "./workspace-ui.test-fixtures";
+import {
+  emptyWorkspaceUILayout,
+  emptyWorkspaceUIPaneOperationResult,
+  workspaceUIReadFixtureAPI,
+} from "./workspace-ui.test-fixtures";
 
 describe("workspace store", () => {
   beforeEach(() => {
@@ -289,7 +293,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     removeRecent: async () => fallbackSession,
     reorder: async () => fallbackSession,
     resetUILayout: async (workspaceId) => emptyWorkspaceUILayout(workspaceId),
-    saveUILayout: async (layout) => layout,
+    applyUIPaneOperation: async (workspaceId) => emptyWorkspaceUIPaneOperationResult(workspaceId),
     select: async () => fallbackSession,
     selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
     setSelectedConversation: async (workspaceId, conversationId) => ({

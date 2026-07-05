@@ -1,5 +1,9 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
-import type { BackendClient, WorkspaceUILayout } from "@generated/backend";
+import type {
+  BackendClient,
+  WorkspaceUILayout,
+  WorkspaceUIPaneOperation,
+} from "@generated/backend";
 import { ipcChannels } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
 
@@ -14,7 +18,7 @@ describe("workspace UI IPC handlers", () => {
       },
     } as Pick<IpcMain, "handle">;
     const backend = workspaceUIBackendClient();
-    const layout = workspaceUILayout();
+    const operation = focusPaneOperation();
 
     registerWorkspaceUILayoutIpcHandlers({
       ipcMain: ipcMain as IpcMain,
@@ -27,7 +31,7 @@ describe("workspace UI IPC handlers", () => {
     await invoke(handlers, ipcChannels.workspaceReadUILayout, "workspace_api");
     await invoke(handlers, ipcChannels.workspaceInitializeUILayout, "workspace_api");
     await invoke(handlers, ipcChannels.workspaceResetUILayout, "workspace_api");
-    await invoke(handlers, ipcChannels.workspaceSaveUILayout, layout);
+    await invoke(handlers, ipcChannels.workspaceApplyUIPaneOperation, "workspace_api", operation);
 
     expect(backend.readWorkspaceUISchema).toHaveBeenCalledWith();
     expect(backend.listWorkspaceUIPanes).toHaveBeenCalledWith({ workspaceId: "workspace_api" });
@@ -40,7 +44,10 @@ describe("workspace UI IPC handlers", () => {
       workspaceId: "workspace_api",
     });
     expect(backend.resetWorkspaceUILayout).toHaveBeenCalledWith({ workspaceId: "workspace_api" });
-    expect(backend.saveWorkspaceUILayout).toHaveBeenCalledWith({ layout });
+    expect(backend.applyWorkspaceUIPaneOperation).toHaveBeenCalledWith({
+      operation,
+      workspaceId: "workspace_api",
+    });
   });
 });
 
@@ -76,8 +83,43 @@ function workspaceUIBackendClient(): BackendClient {
     })),
     initializeWorkspaceUILayout: vi.fn(async () => workspaceUILayout()),
     resetWorkspaceUILayout: vi.fn(async () => workspaceUILayout()),
-    saveWorkspaceUILayout: vi.fn(async (request: { layout: WorkspaceUILayout }) => request.layout),
+    applyWorkspaceUIPaneOperation: vi.fn(async () => ({
+      beforeAfterDimensions: [],
+      changed: false,
+      layout: workspaceUILayout(),
+      operationResult: {
+        close: null,
+        configure: null,
+        focusedPaneId: "workspace_pane_1",
+        kind: "focus_pane",
+        move: null,
+        open: null,
+        paneId: "workspace_pane_1",
+        previousFocusedPaneId: "workspace_pane_1",
+        rename: null,
+        reorder: null,
+        resize: null,
+      },
+      revision: 1,
+      warnings: [],
+      workspaceId: "workspace_api",
+    })),
   } as unknown as BackendClient;
+}
+
+function focusPaneOperation(): WorkspaceUIPaneOperation {
+  return {
+    close: null,
+    configure: null,
+    kind: "focus_pane",
+    move: null,
+    open: null,
+    paneId: "workspace_pane_1",
+    rename: null,
+    reorder: null,
+    resize: null,
+    resizeColumn: null,
+  };
 }
 
 function workspaceUISchema() {

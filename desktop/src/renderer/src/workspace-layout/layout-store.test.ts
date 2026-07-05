@@ -755,6 +755,39 @@ describe("workspace layout store", () => {
     expect(store.focusPaneWithoutReveal("missing")).toBe(false);
   });
 
+  test("restores transient scroll state after a no-reveal focus command response", () => {
+    const store = createStore();
+    store.scrollToColumn(1);
+    store.snapScrollToTarget();
+
+    expect(store.focusPaneWithoutReveal("workspace_pane_3")).toBe(true);
+    const transientSnapshot = store.getTransientSnapshot();
+    const scene = store.toScene();
+    const restoredStore = new WorkspaceLayoutStore(
+      new WorkspaceLikeLayoutEngine(scene),
+      scene,
+      transientSnapshot.focusedPaneId,
+      {
+        initialRevision: 12,
+        initialTransientSnapshot: transientSnapshot,
+      },
+    );
+
+    expect(restoredStore.getSnapshot()).toMatchObject({
+      focusedPaneId: "workspace_pane_3",
+      revision: 12,
+      scrollColumn: transientSnapshot.scrollColumn,
+      scrollRow: transientSnapshot.scrollRow,
+      targetScrollColumn: transientSnapshot.targetScrollColumn,
+      targetScrollRow: transientSnapshot.targetScrollRow,
+    });
+    restoredStore.ensureFocusedPaneVisible(viewport);
+    expect(restoredStore.getSnapshot()).toMatchObject({
+      targetScrollColumn: transientSnapshot.targetScrollColumn,
+      targetScrollRow: transientSnapshot.targetScrollRow,
+    });
+  });
+
   test("focuses every pane id without reveal in a multi-plane layout", () => {
     const store = createStore();
     store.focusPane("workspace_pane_1");

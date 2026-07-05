@@ -132,10 +132,6 @@ type ResetWorkspaceUILayoutRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
 
-type SaveWorkspaceUILayoutRequest struct {
-	Layout workspaceui.WorkspaceUILayout `json:"layout"`
-}
-
 type ListWorkspaceUIPanesRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
@@ -143,6 +139,11 @@ type ListWorkspaceUIPanesRequest struct {
 type ReadWorkspaceUIPaneRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	PaneID      string `json:"paneId"`
+}
+
+type ApplyWorkspaceUIPaneOperationRequest struct {
+	WorkspaceID string                               `json:"workspaceId"`
+	Operation   workspaceui.WorkspaceUIPaneOperation `json:"operation"`
 }
 
 type ReadWorkspaceActivitySnapshotRequest struct {

@@ -401,6 +401,8 @@ const api: SettaAPI = {
       invoke("workflowValidateDefinition", workspaceId, graph),
   },
   workspace: {
+    applyUIPaneOperation: (workspaceId, operation) =>
+      invoke("workspaceApplyUIPaneOperation", workspaceId, operation),
     close: (id: string) => invoke("workspaceClose", id),
     initializeUILayout: (workspaceId: string) => invoke("workspaceInitializeUILayout", workspaceId),
     listUIPanes: (workspaceId: string) => invoke("workspaceListUIPanes", workspaceId),
@@ -430,7 +432,6 @@ const api: SettaAPI = {
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
     resetUILayout: (workspaceId: string) => invoke("workspaceResetUILayout", workspaceId),
-    saveUILayout: (layout) => invoke("workspaceSaveUILayout", layout),
     select: (id: string) => invoke("workspaceSelect", id),
     selectedConversations: () => invoke("workspaceSelectedConversations"),
     setSelectedConversation: (workspaceId: string, conversationId: string) =>

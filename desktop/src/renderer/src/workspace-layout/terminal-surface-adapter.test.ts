@@ -31,6 +31,7 @@ const terminalMock = vi.hoisted(() => ({
     cols: number;
     customKeyHandler: ((event: KeyboardEvent) => boolean) | null;
     dataListener: ((data: string) => void) | null;
+    focusCalls: number;
     options: Record<string, unknown>;
     pasteCalls: string[];
     resetCalls: number;
@@ -56,6 +57,7 @@ vi.mock("@xterm/xterm", () => ({
     cols = 80;
     customKeyHandler: ((event: KeyboardEvent) => boolean) | null = null;
     dataListener: ((data: string) => void) | null = null;
+    focusCalls = 0;
     options: Record<string, unknown> = {};
     pasteCalls: string[] = [];
     resetCalls = 0;
@@ -73,7 +75,9 @@ vi.mock("@xterm/xterm", () => ({
       this.selection = "";
     }
     dispose(): void {}
-    focus(): void {}
+    focus(): void {
+      this.focusCalls += 1;
+    }
     attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean): void {
       this.customKeyHandler = handler;
     }
@@ -286,6 +290,19 @@ describe("terminal surface adapter", () => {
     expect(api.terminal.attach).toHaveBeenCalledTimes(1);
     expect(api.terminal.create).toHaveBeenCalledTimes(1);
     expect(host.dataset.surfaceFocused).toBe("false");
+  });
+
+  test("focuses xterm after mounting when pane focus was already set", async () => {
+    installSettaAPI({});
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setFocused(true);
+    await waitFor(() => terminalMock.instances.length === 1);
+
+    expect(terminalMock.instances[0]?.focusCalls).toBe(1);
+    expect(host.dataset.surfaceFocused).toBe("true");
   });
 
   test("retries visible auto-start when late profile data marks the pane safe", async () => {

@@ -34,6 +34,10 @@ export interface WorkspaceLayoutSnapshot {
   targetScrollRow: number;
 }
 
+export interface WorkspaceLayoutTransientSnapshot extends WorkspaceLayoutSnapshot {
+  focusRevealSuppressed: boolean;
+}
+
 type LayoutStoreListener = (snapshot: WorkspaceLayoutSnapshot) => void;
 const scrollAnimationTimeConstantMs = 115;
 const maxAnimationStepMs = 1000 / 60;
@@ -48,6 +52,7 @@ export interface WorkspacePaneLimitState {
 
 interface WorkspaceLayoutStoreOptions {
   initialRevision?: number;
+  initialTransientSnapshot?: WorkspaceLayoutTransientSnapshot;
   paneLimits?: PaneLimitPolicy;
 }
 
@@ -87,6 +92,9 @@ export class WorkspaceLayoutStore {
     if (initialFocusedPaneId) {
       this.setFocusedPane(initialFocusedPaneId);
       this.snapScrollToTarget();
+    }
+    if (options.initialTransientSnapshot) {
+      this.applyTransientSnapshot(options.initialTransientSnapshot);
     }
   }
 
@@ -152,6 +160,13 @@ export class WorkspaceLayoutStore {
       };
     }
     return this.snapshot;
+  }
+
+  getTransientSnapshot(): WorkspaceLayoutTransientSnapshot {
+    return {
+      ...this.getSnapshot(),
+      focusRevealSuppressed: this.focusRevealSuppressed,
+    };
   }
 
   private createSnapshot(): WorkspaceLayoutSnapshot {
@@ -787,6 +802,41 @@ export class WorkspaceLayoutStore {
     if (Math.abs(this.scrollRow - this.targetScrollRow) < 0.001) {
       this.scrollRow = this.targetScrollRow;
     }
+  }
+
+  private applyTransientSnapshot(snapshot: WorkspaceLayoutTransientSnapshot): void {
+    const focusedPaneId = this.focusedPaneId();
+    if (snapshot.focusedPaneId !== focusedPaneId) {
+      throw new Error(
+        `workspace transient layout snapshot focused pane ${snapshot.focusedPaneId} does not match restored focused pane ${focusedPaneId}`,
+      );
+    }
+    if (snapshot.maximizedPaneId !== null && !this.engine.paneLocation(snapshot.maximizedPaneId)) {
+      throw new Error(
+        `workspace transient layout snapshot maximized pane ${snapshot.maximizedPaneId} is not present in the restored scene`,
+      );
+    }
+    if (
+      snapshot.overviewInsertPreviewTarget !== null &&
+      !this.engine.paneLocation(snapshot.overviewInsertPreviewTarget.paneId)
+    ) {
+      throw new Error(
+        `workspace transient layout snapshot preview pane ${snapshot.overviewInsertPreviewTarget.paneId} is not present in the restored scene`,
+      );
+    }
+    this.maximizedPaneId = snapshot.maximizedPaneId;
+    this.overviewPanX = snapshot.overviewPanX;
+    this.overviewPanY = snapshot.overviewPanY;
+    this.overviewInsertPreviewTarget = snapshot.overviewInsertPreviewTarget;
+    this.overviewProgress = snapshot.overviewProgress;
+    this.overviewZoom = snapshot.overviewZoom;
+    this.presentationMode = snapshot.presentationMode;
+    this.scrollColumn = snapshot.scrollColumn;
+    this.scrollRow = snapshot.scrollRow;
+    this.targetScrollColumn = snapshot.targetScrollColumn;
+    this.targetScrollRow = snapshot.targetScrollRow;
+    this.focusRevealSuppressed = snapshot.focusRevealSuppressed;
+    this.snapshot = null;
   }
 
   private targetScrollForFocusedColumn(): number {

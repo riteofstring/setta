@@ -132,6 +132,8 @@ import type {
   WorkflowGraph,
   WorkflowValidationResult,
   WorkspaceUIPaneListResult,
+  WorkspaceUIPaneOperation,
+  WorkspaceUIPaneOperationResult,
   WorkspaceUIPaneReadResult,
   WorkspaceUISchema,
   WorkspaceSelectedConversations,
@@ -281,6 +283,7 @@ export const ipcChannels = {
   workflowUpdateDefinition: "workflow:update-definition",
   workflowValidateDefinition: "workflow:validate-definition",
   workspaceClose: "workspace:close",
+  workspaceApplyUIPaneOperation: "workspace:apply-ui-pane-operation",
   workspaceInitializeUILayout: "workspace:initialize-ui-layout",
   workspaceListUIPanes: "workspace:list-ui-panes",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
@@ -291,7 +294,6 @@ export const ipcChannels = {
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
   workspaceResetUILayout: "workspace:reset-ui-layout",
-  workspaceSaveUILayout: "workspace:save-ui-layout",
   workspaceSelect: "workspace:select",
   workspaceSelectedConversations: "workspace:selected-conversations",
   workspaceSetSelectedConversation: "workspace:set-selected-conversation",
@@ -868,6 +870,10 @@ interface IpcContract {
     result: WorkflowValidationResult;
   };
   workspaceClose: { args: [id: string]; result: WorkspaceSession };
+  workspaceApplyUIPaneOperation: {
+    args: [workspaceId: string, operation: WorkspaceUIPaneOperation];
+    result: WorkspaceUIPaneOperationResult;
+  };
   workspaceInitializeUILayout: { args: [workspaceId: string]; result: WorkspaceUILayout };
   workspaceListUIPanes: { args: [workspaceId: string]; result: WorkspaceUIPaneListResult };
   workspaceOpenLocalFolder: { args: []; result: OpenWorkspaceResponse | null };
@@ -881,7 +887,6 @@ interface IpcContract {
   workspaceRemoveRecent: { args: [id: string]; result: WorkspaceSession };
   workspaceReorder: { args: [ids: string[]]; result: WorkspaceSession };
   workspaceResetUILayout: { args: [workspaceId: string]; result: WorkspaceUILayout };
-  workspaceSaveUILayout: { args: [layout: WorkspaceUILayout]; result: WorkspaceUILayout };
   workspaceSelect: { args: [id: string]; result: WorkspaceSession };
   workspaceSelectedConversations: {
     args: [];

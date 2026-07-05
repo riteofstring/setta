@@ -71,7 +71,7 @@ try {
   await openSeededWorkspaceInRenderer(context.client, seededWorkspaceId);
   const paneMetadata = await waitForWorkspacePaneMetadata(context.client, seededWorkspaceId);
   await waitForTerminalReady(context.client);
-  const eventSyncedLayout = await saveWorkspaceUILayoutEventUpdate(backend, seededWorkspaceId);
+  const eventSyncedLayout = await applyWorkspaceUILayoutEventUpdate(backend, seededWorkspaceId);
   const eventSyncState = await waitForWorkspaceUILayoutEventSync(context.client, eventSyncedLayout);
   await waitForTerminalReady(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
@@ -227,30 +227,53 @@ async function seedTwoPaneWorkspaceLayout(backend, workspaceRoot) {
   if (workspaceId === "") {
     throw new Error(`workspace open response missing id: ${JSON.stringify(opened)}`);
   }
-  const layout = twoPaneWorkspaceUILayout(workspaceId);
-  const saved = await backend.post("/workspaces/ui/layout/save", { layout });
-  if (saved.workspaceId !== workspaceId) {
+  const initialized = await backend.post("/workspaces/ui/layout/initialize", { workspaceId });
+  if (initialized.workspaceId !== workspaceId) {
     throw new Error(
-      `saved layout workspace ${saved.workspaceId} did not match opened workspace ${workspaceId}`,
+      `initialized layout workspace ${initialized.workspaceId} did not match opened workspace ${workspaceId}`,
     );
   }
+  await backend.post("/workspaces/ui/panes/operation", {
+    operation: paneOperation("close_pane", "workspace_pane_3", {
+      close: { surfaceClose: "none" },
+    }),
+    workspaceId,
+  });
+  await backend.post("/workspaces/ui/panes/operation", {
+    operation: paneOperation("close_pane", "workspace_pane_2", {
+      close: { surfaceClose: "none" },
+    }),
+    workspaceId,
+  });
+  await backend.post("/workspaces/ui/panes/operation", {
+    operation: paneOperation("configure_pane", "workspace_pane_0", {
+      configure: {
+        subtitle: "workspace graph",
+        surfaceKind: "workflow-graph",
+        terminalConfig: null,
+        title: "Workflow Graph",
+        tone: "cyan",
+        workflowNodeDetailsConfig: null,
+      },
+    }),
+    workspaceId,
+  });
   return workspaceId;
 }
 
-async function saveWorkspaceUILayoutEventUpdate(backend, workspaceId) {
-  const layout = twoPaneWorkspaceUILayout(workspaceId);
-  layout.revision = 2;
-  layout.panes[0] = {
-    ...layout.panes[0],
-    title: workspaceUILayoutEventSyncedTitle,
-  };
-  const saved = await backend.post("/workspaces/ui/layout/save", { layout });
-  if (saved.workspaceId !== workspaceId || saved.revision !== layout.revision) {
+async function applyWorkspaceUILayoutEventUpdate(backend, workspaceId) {
+  const result = await backend.post("/workspaces/ui/panes/operation", {
+    operation: paneOperation("rename_pane", "workspace_pane_0", {
+      rename: { title: workspaceUILayoutEventSyncedTitle },
+    }),
+    workspaceId,
+  });
+  if (result.workspaceId !== workspaceId || result.layout?.workspaceId !== workspaceId) {
     throw new Error(
-      `saved event-sync layout did not match request: ${JSON.stringify({ requested: layout, saved })}`,
+      `event-sync operation did not return the requested workspace layout: ${JSON.stringify(result)}`,
     );
   }
-  return layout;
+  return result.layout;
 }
 
 async function waitForWorkspaceUILayoutEventSync(client, expectedLayout) {
@@ -580,67 +603,18 @@ function workspaceUILayoutEventSyncExpression(paneId) {
   })()`;
 }
 
-function twoPaneWorkspaceUILayout(workspaceId) {
+function paneOperation(kind, paneId, fields = {}) {
   return {
-    columns: [
-      {
-        columnId: "workspace_column_0",
-        idealWidthSpec: { unit: "px", value: 520 },
-        index: 0,
-        paneIds: ["workspace_pane_0"],
-        planeIndex: 0,
-        previousProportionWidth: null,
-        slotIndex: 0,
-        widthSpec: { unit: "px", value: 520 },
-      },
-      {
-        columnId: "workspace_column_1",
-        idealWidthSpec: { unit: "px", value: 520 },
-        index: 1,
-        paneIds: ["workspace_pane_1"],
-        planeIndex: 0,
-        previousProportionWidth: null,
-        slotIndex: 1,
-        widthSpec: { unit: "px", value: 520 },
-      },
-    ],
-    focusedPaneId: "workspace_pane_0",
-    panes: [
-      {
-        columnId: "workspace_column_0",
-        heat: 0,
-        heightPx: null,
-        paneId: "workspace_pane_0",
-        sequence: 0,
-        subtitle: "workspace graph",
-        surfaceId: "workspace_surface_0",
-        surfaceKind: "workflow-graph",
-        terminalConfig: null,
-        title: "Workflow Graph",
-        tone: "cyan",
-        weight: 1,
-      },
-      {
-        columnId: "workspace_column_1",
-        heat: 37,
-        heightPx: null,
-        paneId: "workspace_pane_1",
-        sequence: 1,
-        subtitle: "terminal",
-        surfaceId: "workspace_surface_1",
-        surfaceKind: "terminal",
-        terminalConfig: {
-          cwdOverride: "",
-          profileId: "default",
-          titleOverride: "",
-        },
-        title: "Terminal",
-        tone: "green",
-        weight: 1,
-      },
-    ],
-    revision: 1,
-    schemaVersion: 3,
-    workspaceId,
+    close: null,
+    configure: null,
+    kind,
+    move: null,
+    open: null,
+    paneId,
+    rename: null,
+    reorder: null,
+    resize: null,
+    resizeColumn: null,
+    ...fields,
   };
 }

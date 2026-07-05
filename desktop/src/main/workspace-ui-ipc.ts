@@ -40,6 +40,14 @@ export function registerWorkspaceUILayoutIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "workspaceApplyUIPaneOperation",
+    async (_event, workspaceId, operation) => {
+      return requireBackendClient().applyWorkspaceUIPaneOperation({ operation, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workspaceReadUILayout",
     async (_event, workspaceId) => {
       return requireBackendClient().readWorkspaceUILayout({ workspaceId });
@@ -59,14 +67,6 @@ export function registerWorkspaceUILayoutIpcHandlers({
     "workspaceResetUILayout",
     async (_event, workspaceId) => {
       return requireBackendClient().resetWorkspaceUILayout({ workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workspaceSaveUILayout",
-    async (_event, layout) => {
-      return requireBackendClient().saveWorkspaceUILayout({ layout });
     },
     ipcObserver,
   );

@@ -83,7 +83,7 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
-  await persistUltraWideLayout(context.client, workspaceId);
+  await persistUltraWideLayout(fixture.appDataDir, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
 
@@ -93,7 +93,7 @@ try {
   });
   await captureScreenshot(context.client, join(artifactDir, "ultrawide-live-panes.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", multiRowConstrainedViewport);
-  await persistMultiRowLayout(context.client, workspaceId);
+  await persistMultiRowLayout(fixture.appDataDir, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
   const constrainedMultiRowSnapshot = await waitForLivePaneSnapshot(context.client, {
@@ -125,7 +125,7 @@ try {
   ];
   await captureScreenshot(context.client, join(artifactDir, "multirow-live-panes.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", verticalStackViewport);
-  await persistVerticalStackLayout(context.client, workspaceId);
+  await persistVerticalStackLayout(fixture.appDataDir, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
   const verticalStackBeforeResize = await waitForLivePaneSnapshot(context.client, {
@@ -206,23 +206,20 @@ async function ensureWorkspaceOpen(client) {
   );
 }
 
-async function persistUltraWideLayout(client, workspaceId) {
-  await persistLayout(client, ultraWideLayout(workspaceId));
+async function persistUltraWideLayout(appDataDir, workspaceId) {
+  await writePersistedLayoutFixture(appDataDir, ultraWideLayout(workspaceId));
 }
 
-async function persistMultiRowLayout(client, workspaceId) {
-  await persistLayout(client, multiRowLayout(workspaceId));
+async function persistMultiRowLayout(appDataDir, workspaceId) {
+  await writePersistedLayoutFixture(appDataDir, multiRowLayout(workspaceId));
 }
 
-async function persistVerticalStackLayout(client, workspaceId) {
-  await persistLayout(client, verticalStackLayout(workspaceId));
+async function persistVerticalStackLayout(appDataDir, workspaceId) {
+  await writePersistedLayoutFixture(appDataDir, verticalStackLayout(workspaceId));
 }
 
-async function persistLayout(client, layout) {
-  const result = await client.driver("workspaceUltrawideSaveUILayout", { layout });
-  if (!result.ok) {
-    throw new Error(`workspace UI layout was not persisted: ${JSON.stringify(result)}`);
-  }
+async function writePersistedLayoutFixture(appDataDir, layout) {
+  await writeJson(join(appDataDir, "workspaces", layout.workspaceId, "ui-state.json"), layout);
 }
 
 async function waitForLivePaneSnapshot(

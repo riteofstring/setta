@@ -1,4 +1,4 @@
-import type { WorkspaceUILayout } from "@generated/backend";
+import type { WorkspaceUILayout, WorkspaceUIPaneOperationResult } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 
 export function workspaceUIReadFixtureAPI(
@@ -40,6 +40,32 @@ export function emptyWorkspaceUILayout(workspaceId: string): WorkspaceUILayout {
     panes: [],
     revision: 1,
     schemaVersion: 3,
+    workspaceId,
+  };
+}
+
+export function emptyWorkspaceUIPaneOperationResult(
+  workspaceId: string,
+): WorkspaceUIPaneOperationResult {
+  return {
+    beforeAfterDimensions: [],
+    changed: false,
+    layout: emptyWorkspaceUILayout(workspaceId),
+    operationResult: {
+      close: null,
+      configure: null,
+      focusedPaneId: "",
+      kind: "focus_pane",
+      move: null,
+      open: null,
+      paneId: "",
+      previousFocusedPaneId: "",
+      rename: null,
+      reorder: null,
+      resize: null,
+    },
+    revision: 1,
+    warnings: [],
     workspaceId,
   };
 }
