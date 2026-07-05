@@ -890,6 +890,24 @@ func TestServiceClosePaneOperationRejectsSurfaceCloseSafe(t *testing.T) {
 	}
 }
 
+func TestServiceClosePaneOperationRejectsSurfaceCloseForce(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindClosePane,
+		PaneID: "workspace_pane_1",
+		Close:  closePaneOperation(WorkspaceUISurfaceCloseModeForce),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeUnsupportedSurfaceClose {
+		t.Fatalf("error = %T %v, want unsupported_surface_close", err, err)
+	}
+}
+
 func TestServicePaneOperationRejectsMissingLayout(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",

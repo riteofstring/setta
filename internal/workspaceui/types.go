@@ -380,6 +380,14 @@ func ContractValueSets() []ContractValueSet {
 			Values: stringValues(supportedPaneMoveDirections()),
 		},
 		{
+			Name:   "WorkspaceUIPaneOperationKind",
+			Values: stringValues(supportedPaneOperationKinds()),
+		},
+		{
+			Name:   "WorkspaceUIOperationErrorCode",
+			Values: stringValues(supportedOperationErrorCodes()),
+		},
+		{
 			Name:   "WorkspaceUISurfaceCloseMode",
 			Values: stringValues(supportedSurfaceCloseModes()),
 		},
@@ -441,6 +449,25 @@ func supportedPaneMoveDirections() []WorkspaceUIPaneMoveDirection {
 		WorkspaceUIPaneMoveDirectionLeft,
 		WorkspaceUIPaneMoveDirectionRight,
 		WorkspaceUIPaneMoveDirectionUp,
+	}
+}
+
+func supportedPaneOperationKinds() []WorkspaceUIPaneOperationKind {
+	return []WorkspaceUIPaneOperationKind{
+		WorkspaceUIPaneOperationKindClosePane,
+		WorkspaceUIPaneOperationKindFocusPane,
+		WorkspaceUIPaneOperationKindMovePane,
+	}
+}
+
+func supportedOperationErrorCodes() []WorkspaceUIOperationErrorCode {
+	return []WorkspaceUIOperationErrorCode{
+		WorkspaceUIOperationErrorCodeInvalidOperation,
+		WorkspaceUIOperationErrorCodeLastPane,
+		WorkspaceUIOperationErrorCodeMissingLayout,
+		WorkspaceUIOperationErrorCodePaneNotFound,
+		WorkspaceUIOperationErrorCodeUnsupportedOperation,
+		WorkspaceUIOperationErrorCodeUnsupportedSurfaceClose,
 	}
 }
 
