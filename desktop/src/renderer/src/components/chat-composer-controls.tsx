@@ -128,6 +128,7 @@ function focusTextareaSoon(textarea: HTMLTextAreaElement) {
 
 export function PermissionPickerButton({
   disabled,
+  disabledReason,
   onOpen,
   onSelect,
   permissionPicker,
@@ -136,6 +137,7 @@ export function PermissionPickerButton({
   selected,
 }: {
   disabled: boolean;
+  disabledReason?: string;
   onOpen: () => void;
   onSelect: (preset: ChatPermissionPresetID) => void;
   permissionPicker: ChatCommandExecuteResult | null;
@@ -145,11 +147,13 @@ export function PermissionPickerButton({
 }) {
   const open = permissionPicker?.result.action === "permission_picker";
   const label = permissionPickerLabel(permissionPicker, permissionLabel);
-  const disabledReason = permissionPickerDisabledReason({
-    disabled,
-    running,
-    selected,
-  });
+  const resolvedDisabledReason =
+    disabledReason ??
+    permissionPickerDisabledReason({
+      disabled,
+      running,
+      selected,
+    });
   return (
     <div className="relative inline-flex min-w-0">
       <button
@@ -162,7 +166,7 @@ export function PermissionPickerButton({
         )}
         disabled={disabled}
         onClick={onOpen}
-        title={disabledReason ?? "Open permission mode picker"}
+        title={resolvedDisabledReason ?? "Open permission mode picker"}
         type="button"
       >
         <Settings className="h-3.5 w-3.5 shrink-0" />
@@ -340,6 +344,7 @@ function DisabledIconButton({
 
 export function ModelPickerButton({
   disabled,
+  disabledReason,
   modelLabel,
   modelPicker,
   onOpen,
@@ -348,6 +353,7 @@ export function ModelPickerButton({
   selected,
 }: {
   disabled: boolean;
+  disabledReason?: string;
   modelLabel: string;
   modelPicker: ChatCommandExecuteResult | null;
   onOpen: () => void;
@@ -356,11 +362,13 @@ export function ModelPickerButton({
   selected: boolean;
 }) {
   const summary = modelPickerSummary(modelPicker, modelLabel, reasoningLabel);
-  const disabledReason = modelPickerDisabledReason({
-    disabled,
-    running,
-    selected,
-  });
+  const resolvedDisabledReason =
+    disabledReason ??
+    modelPickerDisabledReason({
+      disabled,
+      running,
+      selected,
+    });
   return (
     <button
       aria-expanded={modelPicker?.result.action === "model_picker" ? "true" : "false"}
@@ -374,13 +382,51 @@ export function ModelPickerButton({
       )}
       disabled={disabled}
       onClick={onOpen}
-      title={disabledReason ?? "Open model and reasoning picker"}
+      title={resolvedDisabledReason ?? "Open model and reasoning picker"}
       type="button"
     >
       <span className="max-w-28 truncate font-medium text-foreground">{summary.model}</span>
       <span className="max-w-28 truncate text-muted-foreground">{summary.reasoning}</span>
       <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
     </button>
+  );
+}
+
+export function ReadOnlyChatSettingsControls({
+  className,
+  modelLabel,
+  permissionLabel,
+  reasoningLabel,
+}: {
+  className?: string;
+  modelLabel: string;
+  permissionLabel: string;
+  reasoningLabel: string;
+}) {
+  const readOnlyReason = "Run settings are read-only.";
+  return (
+    <div className={cn("flex min-w-0 flex-wrap items-center gap-1", className)}>
+      <PermissionPickerButton
+        disabled
+        disabledReason={readOnlyReason}
+        onOpen={noop}
+        onSelect={noop}
+        permissionLabel={permissionLabel}
+        permissionPicker={null}
+        running={false}
+        selected
+      />
+      <ModelPickerButton
+        disabled
+        disabledReason={readOnlyReason}
+        modelLabel={modelLabel}
+        modelPicker={null}
+        onOpen={noop}
+        reasoningLabel={reasoningLabel}
+        running={false}
+        selected
+      />
+    </div>
   );
 }
 
@@ -471,6 +517,8 @@ export function reasoningEffortOptionSelected(
   }
   return effort.effort === selectedReasoningEffort;
 }
+
+function noop() {}
 
 export function ComposerButton({
   canSend,

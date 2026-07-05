@@ -158,6 +158,7 @@ function trajectory(cursor: number): WorkflowNodeTrajectoryState {
     outputPages: [],
     outputs: [],
     pendingApproval: null,
+    pendingSteeringMessages: [],
     run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
     runId: "run_a",
     schemaVersion: 1,

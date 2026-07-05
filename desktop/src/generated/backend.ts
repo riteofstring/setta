@@ -4689,6 +4689,7 @@ export interface WorkflowAgentTrajectoryPage {
   activeRunLiveness: RunLiveness | null;
   runSettings: WorkflowAgentEffectiveRunSettings | null;
   blocks: TranscriptBlock[];
+  pendingSteeringMessages: ChatMessage[];
   items: RunItem[];
   activity: ActivityItemBlockProjection[];
   outputPages: WorkflowAgentTrajectoryRunItemOutputPageState[];
@@ -10051,7 +10052,7 @@ export function decodeWorkflowAgentTrajectoryCapabilities(value: unknown): Workf
 
 export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgentTrajectoryPage {
   const record = assertRecord(value, "WorkflowAgentTrajectoryPage");
-  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "lastChatEventStreamId", "lastChatEventSequence", "lastWorkflowEventOrdinal", "run", "activeRun", "activeRunLiveness", "runSettings", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
+  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "lastChatEventStreamId", "lastChatEventSequence", "lastWorkflowEventOrdinal", "run", "activeRun", "activeRunLiveness", "runSettings", "blocks", "pendingSteeringMessages", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.schemaVersion"),
     scope: decodeWorkflowAgentTrajectoryScope(requireField(record, "scope", "WorkflowAgentTrajectoryPage")),
@@ -10065,6 +10066,7 @@ export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgent
     activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRunLiveness", (item) => decodeRunLiveness(item)),
     runSettings: decodeNullable(requireField(record, "runSettings", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runSettings", (item) => decodeWorkflowAgentEffectiveRunSettings(item)),
     blocks: decodeArray(requireField(record, "blocks", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.blocks", (item) => decodeTranscriptBlock(item)),
+    pendingSteeringMessages: decodeArray(requireField(record, "pendingSteeringMessages", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.pendingSteeringMessages", (item) => decodeChatMessage(item)),
     items: decodeArray(requireField(record, "items", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.items", (item) => decodeRunItem(item)),
     activity: decodeArray(requireField(record, "activity", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activity", (item) => decodeActivityItemBlockProjection(item)),
     outputPages: decodeArray(requireField(record, "outputPages", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.outputPages", (item) => decodeWorkflowAgentTrajectoryRunItemOutputPageState(item)),

@@ -103,9 +103,16 @@ describe("WorkflowRunDetailsContent activity focus", () => {
     );
 
     expect(html).toContain('data-testid="workflow-agent-run-settings"');
-    expect(html).toContain("Full Access - node override");
-    expect(html).toContain("GPT-5 - workflow default");
-    expect(html).toContain("High - app default");
+    expect(html).toContain('data-chat-settings-readonly="true"');
+    expect(html).toContain('aria-label="Open permission mode picker"');
+    expect(html).toContain('aria-label="Open model and reasoning picker"');
+    expect(occurrences(html, 'title="Run settings are read-only."')).toBe(2);
+    expect(html).toContain("Full Access");
+    expect(html).toContain("GPT-5");
+    expect(html).toContain("High");
+    expect(html).not.toContain("node override");
+    expect(html).not.toContain("workflow default");
+    expect(html).not.toContain("app default");
   });
 
   test("opens the workflow details dock when an activity focus targets a detail row", () => {
@@ -485,6 +492,7 @@ function trajectoryPage(
     ],
     outputs: [runOutput()],
     pendingApproval: null,
+    pendingSteeringMessages: [],
     run: { ...testRun("completed", "run_a"), workspaceId: "workspace_test" },
     runId: "run_a",
     schemaVersion: 1,

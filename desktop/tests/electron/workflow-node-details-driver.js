@@ -211,6 +211,7 @@
       nodeStatusChipCount: countSelector(details, '[data-testid="workflow-node-status-chip"]'),
       present: surface !== null,
       runActivityRowCount: countSelector(details, '[data-testid="run-activity-row"]'),
+      settingsBar,
       settingsBarCount: settingsBar.count,
       settingsBarText: settingsBar.text,
       text: elementText(details),
@@ -231,10 +232,38 @@
   function workflowRunDetailsSettingsBarState(details) {
     const settingsBar =
       details?.querySelector('[data-testid="workflow-agent-run-settings"]') ?? null;
+    const permissionButton = disabledButtonState(
+      settingsBar,
+      'button[aria-label="Open permission mode picker"]',
+    );
+    const modelButton = disabledButtonState(
+      settingsBar,
+      'button[aria-label="Open model and reasoning picker"]',
+    );
     return {
-      count: settingsBar === null ? 0 : 1,
+      count: elementPresenceCount(settingsBar),
+      modelButtonDisabled: modelButton.disabled,
+      modelButtonText: modelButton.text,
+      modelButtonTitle: modelButton.title,
+      permissionButtonDisabled: permissionButton.disabled,
+      permissionButtonText: permissionButton.text,
+      permissionButtonTitle: permissionButton.title,
+      readOnly: settingsBar?.getAttribute("data-chat-settings-readonly") === "true",
       text: elementText(settingsBar),
     };
+  }
+
+  function disabledButtonState(container, selector) {
+    const button = container?.querySelector(selector) ?? null;
+    return {
+      disabled: button instanceof HTMLButtonElement && button.disabled,
+      text: elementText(button),
+      title: button?.getAttribute("title") ?? "",
+    };
+  }
+
+  function elementPresenceCount(element) {
+    return element === null ? 0 : 1;
   }
 
   function workflowRunDetailsWorkflowStatusText(details) {
@@ -259,6 +288,10 @@
     const outputButtons = queryAll(trajectory, "button").filter(
       (button) => button.textContent?.trim() === "Load more",
     );
+    const pendingSteeringRows = queryAll(
+      trajectory,
+      '[data-message-delivery="steering"][data-message-status="pending"]',
+    );
     return {
       approvalApproveButtonReady: approvalDecisionButtonReady(approvalCards, "Approve"),
       approvalCardCount: approvalCards.length,
@@ -268,6 +301,11 @@
       loadMoreButtonCount: outputButtons.length,
       nodeExecutionId: trajectory?.getAttribute("data-workflow-node-execution-id") ?? "",
       outputText: outputTextForTrajectory(trajectory),
+      pendingSteeringBlockCount: pendingSteeringRows.filter(
+        (row) => row.getAttribute("data-transcript-block") === "true",
+      ).length,
+      pendingSteeringRowCount: pendingSteeringRows.length,
+      pendingSteeringText: pendingSteeringRows.map((row) => elementText(row)).join("\n"),
       runId: trajectory?.getAttribute("data-workflow-node-run-id") ?? "",
       text: elementText(trajectory),
       trajectoryPresent: trajectory !== null,

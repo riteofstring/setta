@@ -1,4 +1,4 @@
-import type { ChatMessage, MessageRole } from "@generated/backend";
+import type { ChatMessage, MessageRole, MessageStatus } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -44,11 +44,12 @@ function pendingSteeringMessage(
   ordinal: number,
   runId: string,
   text = id,
+  status: MessageStatus = "pending",
 ): ChatMessage {
   return {
     ...chatMessage(id, ordinal, "user", runId, text),
     delivery: "steering",
-    status: "pending",
+    status,
   };
 }
 
@@ -221,6 +222,22 @@ describe("transcriptRenderRows", () => {
     expect(steering?.kind === "message" && steering.message.id).toBe("steer_1");
     const queued = rows[3];
     expect(queued?.kind === "queued" && queued.message.id).toBe("queued_1");
+  });
+
+  test("keeps uncommitted cancelled and errored steering messages outside transcript chronology", () => {
+    const rows = transcriptRenderRows({
+      blocks: [assistantTextBlock({ id: "assistant_1", runId: "run", ordinal: 1, text: "done" })],
+      messages: [
+        pendingSteeringMessage("steer_error", 2, "run", "failed steer", "error"),
+        pendingSteeringMessage("steer_cancelled", 3, "run", "cancelled steer", "cancelled"),
+        pendingSteeringMessage("steer_complete", 4, "run", "committed steer", "complete"),
+      ],
+      queuedMessages: [],
+    });
+
+    expect(rows.map((row) => row.kind)).toEqual(["block", "message", "message"]);
+    expect(rows[1]?.kind === "message" && rows[1].message.id).toBe("steer_error");
+    expect(rows[2]?.kind === "message" && rows[2].message.id).toBe("steer_cancelled");
   });
 
   test("hides goal-delivery user messages from the transcript", () => {

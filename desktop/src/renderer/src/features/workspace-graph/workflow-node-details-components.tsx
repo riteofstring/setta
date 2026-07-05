@@ -3,7 +3,6 @@ import type {
   WorkflowExecution,
   WorkflowGraphEdge,
   WorkflowAgentEffectiveRunSettings,
-  WorkflowAgentSettingsSource,
   WorkflowNodeExecution,
   WorkflowPendingApproval,
   WorkflowToken,
@@ -13,6 +12,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { AgentTrajectorySurface } from "../../components/agent-trajectory";
 import { Composer } from "../../components/chat-composer";
+import { ReadOnlyChatSettingsControls } from "../../components/chat-composer-controls";
 import type { LoadRunItemOutput } from "../../components/chat-transcript-activity";
 import type { SubmitApproval } from "../../components/chat-transcript-approvals";
 import { cn } from "../../lib/utils";
@@ -652,51 +652,17 @@ function WorkflowAgentRunSettingsBar({
   }
   return (
     <div
-      className="flex flex-wrap items-center gap-2 border-t border-zinc-800 bg-zinc-950/90 px-4 py-2"
+      className="border-t border-zinc-800 bg-zinc-950/90 px-4 py-2"
+      data-chat-settings-readonly="true"
       data-testid="workflow-agent-run-settings"
     >
-      <WorkflowRunSettingPill
-        label="Permission"
-        value={`${settings.permissionDisplayLabel} - ${workflowAgentSettingsSourceLabel(
-          settings.permissionSource,
-        )}`}
-      />
-      <WorkflowRunSettingPill
-        label="Model"
-        value={`${settings.modelDisplayName} - ${workflowAgentSettingsSourceLabel(
-          settings.modelSource,
-        )}`}
-      />
-      <WorkflowRunSettingPill
-        label="Reasoning"
-        value={`${settings.reasoningEffortDisplayName} - ${workflowAgentSettingsSourceLabel(
-          settings.reasoningEffortSource,
-        )}`}
+      <ReadOnlyChatSettingsControls
+        modelLabel={settings.modelDisplayName}
+        permissionLabel={settings.permissionDisplayLabel}
+        reasoningLabel={settings.reasoningEffortDisplayName}
       />
     </div>
   );
-}
-
-function WorkflowRunSettingPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-sm border border-zinc-800 bg-zinc-900/70 px-2 text-xs text-zinc-300">
-      <span className="text-[11px] text-zinc-500">{label}</span>
-      <span className="min-w-0 truncate text-zinc-200">{value}</span>
-    </div>
-  );
-}
-
-function workflowAgentSettingsSourceLabel(source: WorkflowAgentSettingsSource) {
-  switch (source) {
-    case "node":
-      return "node override";
-    case "workflow":
-      return "workflow default";
-    case "default":
-      return "app default";
-    default:
-      return source satisfies never;
-  }
 }
 
 function WorkflowProjectionFlowSection({ target }: { target: WorkflowNodeDetailsTarget }) {

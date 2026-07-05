@@ -92,7 +92,7 @@ export function transcriptRenderRows(source: TranscriptRenderSource): Transcript
   for (const item of ordered) {
     appendOrderedItemEntries(entries, item, context);
   }
-  for (const message of pendingSteeringMessages(source.messages)) {
+  for (const message of uncommittedSteeringMessages(source.messages)) {
     entries.push({
       kind: "message",
       key: `message:${message.id}`,
@@ -342,11 +342,11 @@ function isStandaloneTranscriptMessage(message: ChatMessage) {
   return message.runId === "" && message.delivery !== "goal";
 }
 
-function pendingSteeringMessages(messages: ChatMessage[]) {
+function uncommittedSteeringMessages(messages: ChatMessage[]) {
   return messages
     .filter(
       (message) =>
-        message.runId !== "" && message.delivery === "steering" && message.status === "pending",
+        message.runId !== "" && message.delivery === "steering" && message.status !== "complete",
     )
     .toSorted((left, right) => left.ordinal - right.ordinal);
 }

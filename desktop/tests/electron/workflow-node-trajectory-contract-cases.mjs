@@ -29,11 +29,14 @@ import {
 } from "./workflow-node-trajectory-contract-assertions.mjs";
 import { assertHistoricalAttemptWorkflowNodeTrajectoryContract } from "./workflow-node-trajectory-historical-attempts.mjs";
 import { assertWorkflowAgentRunSettingsSnapshot } from "./workflow-node-trajectory-run-settings-case.mjs";
+import {
+  assertPendingSteerWorkflowNodeTrajectoryContract,
+  assertSteerWorkflowNodeTrajectoryContract,
+  stoppableTrajectoryPrompt,
+} from "./workflow-node-trajectory-steering-cases.mjs";
 
 const trajectoryPrompt = "chat activity projection reload workflow";
 const approvalTrajectoryPrompt = "command approval workflow";
-const stoppableTrajectoryPrompt = "workflow hold for queue and steering";
-const workflowNodeSteeringPrompt = "finish node trajectory steering";
 
 export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, { recordingRoot }) {
   const fixture = await createFixture("workflow-node-trajectory-contract");
@@ -211,7 +214,29 @@ export async function runWorkflowNodeTrajectoryContractWorkflowLaunch(results, {
       type: "workflow_node_trajectory_stop_contract_verified",
     });
 
-    await assertSteerWorkflowNodeTrajectoryContract(context.client, workspaceId, recordingDir);
+    const steeringContractTools = {
+      assertStoppedWorkflowExecution,
+      ensureWorkflowRunProjection,
+      latestNodeExecution,
+      openWorkflowGraphForDefinition,
+      openWorkflowNodeRunDetails,
+      recordingDir,
+      reloadWorkflowNodeDetailsWithPersistedTarget,
+      rendererWorkflow,
+      startWorkflowRunFromToolbar,
+      waitForWorkflowExecution,
+      waitForWorkflowNodeTrajectory,
+      workflowActivityNodeRunning,
+      workspaceId,
+    };
+    await assertSteerWorkflowNodeTrajectoryContract({
+      client: context.client,
+      ...steeringContractTools,
+    });
+    await assertPendingSteerWorkflowNodeTrajectoryContract({
+      client: context.client,
+      ...steeringContractTools,
+    });
     await assertRetryWorkflowNodeTrajectoryContract(context.client, workspaceId, recordingDir);
     await assertHistoricalAttemptWorkflowNodeTrajectoryContract({
       client: context.client,
@@ -727,168 +752,6 @@ async function waitForWorkflowGraphSnapshot(client, surfaceId, predicate) {
   return state.snapshot;
 }
 
-async function assertSteerWorkflowNodeTrajectoryContract(client, workspaceId, recordingDir) {
-  const steerGraph = activityWorkflowGraph(stoppableTrajectoryPrompt);
-  const steerValidation = await rendererWorkflow(client, "validateDefinition", [
-    workspaceId,
-    steerGraph,
-  ]);
-  if (!steerValidation.valid) {
-    throw new Error(
-      `steerable trajectory workflow graph invalid: ${JSON.stringify(steerValidation)}`,
-    );
-  }
-  const steerDefinition = await rendererWorkflow(client, "createDefinition", [
-    workspaceId,
-    "Node trajectory steering contract",
-    "Verifies workflow node-scoped steering contracts.",
-    steerGraph,
-  ]);
-  const graphSurfaceId = await openWorkflowGraphForDefinition(
-    client,
-    workspaceId,
-    steerDefinition.id,
-  );
-  const steerStartedRun = await startWorkflowRunFromToolbar(
-    client,
-    graphSurfaceId,
-    workspaceId,
-    steerDefinition.id,
-  );
-  const steerRunning = await waitForWorkflowExecution(
-    client,
-    workspaceId,
-    steerStartedRun.executionId,
-    workflowActivityNodeRunning,
-  );
-  const steerNode = latestNodeExecution(steerRunning, "activity");
-  if (!steerNode) {
-    throw new Error(`steering workflow missing activity node: ${JSON.stringify(steerRunning)}`);
-  }
-  const steerRunningGraph = await ensureWorkflowRunProjection(
-    client,
-    steerStartedRun.graphSurfaceId,
-    steerDefinition.id,
-    steerStartedRun.executionId,
-  );
-  await openWorkflowNodeRunDetails(
-    client,
-    steerStartedRun.graphSurfaceId,
-    steerRunningGraph,
-    "activity",
-  );
-  const steerTrajectory = await waitForWorkflowNodeTrajectory(
-    client,
-    workspaceId,
-    steerStartedRun.executionId,
-    steerNode.id,
-    (page) => page.capabilities.canSteer,
-  );
-  await reloadWorkflowNodeDetailsWithPersistedTarget(client, {
-    executionId: steerStartedRun.executionId,
-    isReady: (state) =>
-      state.trajectory.trajectorySteeringComposer.composerPresent &&
-      state.trajectory.trajectorySteeringComposer.textareaExists &&
-      state.trajectory.trajectorySteeringComposer.textareaDisabled === false &&
-      !state.trajectory.trajectorySteeringComposer.sendButtonReady,
-    nodeId: "activity",
-    workspaceId,
-  });
-  await waitForState(
-    client,
-    driverCallExpression("workflowNodeTrajectoryComposerState"),
-    (state) =>
-      state.composerPresent &&
-      state.textareaExists &&
-      state.textareaDisabled === false &&
-      !state.sendButtonReady,
-  );
-  const beforeSteering = await waitForState(
-    client,
-    driverCallExpression("workflowNodeTrajectoryState"),
-    (state) =>
-      state.trajectoryPresent &&
-      state.text.includes("Workflow stream started.") &&
-      state.trajectorySteeringComposer.composerPresent,
-  );
-  const updated = await client.driver("setWorkflowNodeTrajectorySteeringText", {
-    text: workflowNodeSteeringPrompt,
-  });
-  if (!updated.updated) {
-    throw new Error(
-      `workflow node trajectory steering composer was not editable: ${JSON.stringify(updated)}`,
-    );
-  }
-  await waitForState(
-    client,
-    driverCallExpression("workflowNodeTrajectoryComposerState"),
-    (state) => state.textareaValue === workflowNodeSteeringPrompt && state.sendButtonReady,
-  );
-  const clicked = await client.driver("clickWorkflowNodeTrajectorySteeringSend");
-  if (!clicked.clicked) {
-    throw new Error(
-      `workflow node trajectory steering send was unavailable: ${JSON.stringify(clicked)}`,
-    );
-  }
-  const liveCompletedState = await waitForState(
-    client,
-    driverCallExpression("workflowNodeTrajectoryState"),
-    (state) =>
-      state.trajectoryPresent &&
-      state.text.length > beforeSteering.text.length &&
-      state.text.includes(workflowNodeSteeringPrompt) &&
-      state.text.includes(`Steered with ${workflowNodeSteeringPrompt}.`) &&
-      !state.trajectorySteeringComposer.composerPresent,
-  );
-  if (!liveCompletedState.text.includes("Active workflow complete.")) {
-    throw new Error(
-      `workflow node trajectory did not render streamed completion text live: ${JSON.stringify({
-        beforeSteering,
-        liveCompletedState,
-      })}`,
-    );
-  }
-  const steerCompleted = await waitForWorkflowExecution(
-    client,
-    workspaceId,
-    steerStartedRun.executionId,
-    (execution) => execution.status === "completed",
-  );
-  const steeredTrajectory = await rendererWorkflow(client, "readNodeTrajectory", [
-    {
-      beforeBlockOrdinal: 0,
-      executionId: steerCompleted.id,
-      nodeExecutionId: steerNode.id,
-      outputLimit: 5,
-      transcriptLimit: 20,
-      workspaceId,
-    },
-  ]);
-  assertSteeredTrajectoryPage(steeredTrajectory, steerNode.id, workflowNodeSteeringPrompt);
-  await waitForState(
-    client,
-    driverCallExpression("workflowNodeTrajectoryState"),
-    (state) =>
-      state.trajectoryPresent &&
-      state.text.includes(workflowNodeSteeringPrompt) &&
-      state.text.includes(`Steered with ${workflowNodeSteeringPrompt}.`),
-  );
-  if (steerTrajectory.runId !== steeredTrajectory.runId) {
-    throw new Error(
-      `workflow node steering changed run scope: ${JSON.stringify({
-        before: steerTrajectory.runId,
-        after: steeredTrajectory.runId,
-      })}`,
-    );
-  }
-  await appendWorkflowState(recordingDir, {
-    executionId: steerCompleted.id,
-    nodeExecutionId: steerNode.id,
-    runId: steeredTrajectory.runId,
-    type: "workflow_node_trajectory_steering_contract_verified",
-  });
-}
-
 async function assertRetryWorkflowNodeTrajectoryContract(client, workspaceId, recordingDir) {
   const retryGraph = activityWorkflowGraph(stoppableTrajectoryPrompt);
   const retryValidation = await rendererWorkflow(client, "validateDefinition", [
@@ -1232,37 +1095,6 @@ function assertStoppableTrajectoryCapabilities(trajectory) {
       `stoppable trajectory capabilities mismatch: ${JSON.stringify(trajectory.capabilities)}`,
     );
   }
-}
-
-function assertSteeredTrajectoryPage(trajectory, nodeExecutionId, steeringPrompt) {
-  const assistantText = `Steered with ${steeringPrompt}.`;
-  if (
-    trajectory.scope.nodeExecutionId !== nodeExecutionId ||
-    trajectory.run.status !== "completed" ||
-    trajectory.activeRun !== null ||
-    trajectory.activeRunLiveness !== null ||
-    trajectory.capabilities.canSteer ||
-    !trajectory.blocks.some((block) => workflowSteeringUserBlockMatches(block, steeringPrompt)) ||
-    !trajectory.blocks.some((block) => block.assistantText?.text?.includes(assistantText) === true)
-  ) {
-    throw new Error(
-      `steered trajectory mismatch: ${JSON.stringify({
-        assistantText,
-        nodeExecutionId,
-        steeringPrompt,
-        trajectory,
-      })}`,
-    );
-  }
-}
-
-function workflowSteeringUserBlockMatches(block, steeringPrompt) {
-  return (
-    block.userMessage?.delivery === "steering" &&
-    block.userMessage.parts.some(
-      (part) => part.type === "text" && part.text?.text === steeringPrompt,
-    )
-  );
 }
 
 function assertStoppedTrajectoryPage(trajectory, nodeExecutionId) {

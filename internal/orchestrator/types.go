@@ -906,6 +906,7 @@ type WorkflowAgentTrajectoryPage struct {
 	ActiveRunLiveness        *chat.RunLiveness                               `json:"activeRunLiveness"`
 	RunSettings              *WorkflowAgentEffectiveRunSettings              `json:"runSettings"`
 	Blocks                   []chat.TranscriptBlock                          `json:"blocks"`
+	PendingSteeringMessages  []chat.ChatMessage                              `json:"pendingSteeringMessages"`
 	Items                    []chat.RunItem                                  `json:"items"`
 	Activity                 []chat.ActivityItemBlockProjection              `json:"activity"`
 	OutputPages              []WorkflowAgentTrajectoryRunItemOutputPageState `json:"outputPages"`

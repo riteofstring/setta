@@ -1,5 +1,6 @@
 import type {
   ChatEvent,
+  ChatMessage,
   Run,
   RunItem,
   RunItemOutput,
@@ -78,6 +79,26 @@ describe("workflow node agent trajectory adapter", () => {
       stopRun: false,
     });
     expect(viewModel.focusedSourceRunItemId).toBe("run_item_command");
+  });
+
+  test("maps uncommitted steering messages to trajectory tail rows and composer state", () => {
+    const pending = steeringMessage("message_steer_pending", "pending");
+    const state = workflowNodeTrajectoryStateFromPage(
+      trajectoryPage({ pendingSteeringMessages: [pending] }),
+    );
+    const viewModel = workflowNodeTrajectoryViewModel({
+      focusedSourceRunItemId: null,
+      operation: null,
+      state,
+    });
+
+    expect(viewModel.messages).toEqual([pending]);
+    expect(viewModel.blocks.some((block) => block.userMessage?.messageId === pending.id)).toBe(
+      false,
+    );
+    expect(
+      workflowNodeComposerViewModel({ operation: null, state }).pendingSteeringMessageIds,
+    ).toEqual([pending.id]);
   });
 
   test("maps node-scoped stop capability to trajectory and composer actions", () => {
@@ -354,6 +375,35 @@ describe("workflow node agent trajectory adapter", () => {
     ).toBeNull();
   });
 
+  test("applies live pending steering events without committing them into transcript blocks", () => {
+    const state = workflowNodeTrajectoryStateFromPage(stoppableTrajectoryPage());
+    const pending = steeringMessage("message_steer_pending", "pending");
+
+    const created = applyWorkflowNodeTrajectoryChatEvents(state, [
+      steeringSentEvent(11, state.page, pending),
+    ]);
+
+    expect(created.resync).toBe(false);
+    expect(created.state.page.pendingSteeringMessages).toEqual([pending]);
+    expect(
+      created.state.page.blocks.some((block) => block.userMessage?.messageId === pending.id),
+    ).toBe(false);
+
+    const errored = { ...pending, status: "error" } satisfies ChatMessage;
+    const updated = applyWorkflowNodeTrajectoryChatEvents(created.state, [
+      messageUpdatedEvent(12, state.page, errored),
+    ]);
+
+    expect(updated.state.page.pendingSteeringMessages).toEqual([errored]);
+
+    const committed = { ...pending, status: "complete" } satisfies ChatMessage;
+    const completed = applyWorkflowNodeTrajectoryChatEvents(updated.state, [
+      messageUpdatedEvent(13, state.page, committed),
+    ]);
+
+    expect(completed.state.page.pendingSteeringMessages).toEqual([]);
+  });
+
   test("applies live run item output chunks to loaded output state", () => {
     const state = workflowNodeTrajectoryStateFromPage(trajectoryPage());
 
@@ -432,6 +482,44 @@ function outputDeltaEvent(
   };
 }
 
+function steeringSentEvent(
+  sequence: number,
+  page: WorkflowAgentTrajectoryPage,
+  message: ChatMessage,
+): ChatEvent {
+  return {
+    conversationId: page.conversationId,
+    emittedAt: "2026-06-07T00:00:00Z",
+    eventId: `${page.lastChatEventStreamId}:${sequence}`,
+    payload: { message, run: page.run },
+    runId: page.runId,
+    schemaVersion: 1,
+    sequence,
+    streamId: page.lastChatEventStreamId,
+    type: "chat.message.steering_sent",
+    workspaceId: page.scope.workspaceId,
+  };
+}
+
+function messageUpdatedEvent(
+  sequence: number,
+  page: WorkflowAgentTrajectoryPage,
+  message: ChatMessage,
+): ChatEvent {
+  return {
+    conversationId: page.conversationId,
+    emittedAt: "2026-06-07T00:00:00Z",
+    eventId: `${page.lastChatEventStreamId}:${sequence}`,
+    payload: { message },
+    runId: page.runId,
+    schemaVersion: 1,
+    sequence,
+    streamId: page.lastChatEventStreamId,
+    type: "chat.message.updated",
+    workspaceId: page.scope.workspaceId,
+  };
+}
+
 function trajectoryPage(
   overrides: Partial<WorkflowAgentTrajectoryPage> = {},
 ): WorkflowAgentTrajectoryPage {
@@ -497,6 +585,7 @@ function trajectoryPage(
     ],
     outputs: [runOutput("output_command_1", 1, "first")],
     pendingApproval: null,
+    pendingSteeringMessages: [],
     run: { ...testRun("completed", "run_a"), workspaceId: "workspace_test" },
     runId: "run_a",
     schemaVersion: 1,
@@ -511,6 +600,32 @@ function trajectoryPage(
       workspaceId: "workspace_test",
     },
     ...overrides,
+  };
+}
+
+function steeringMessage(id: string, status: ChatMessage["status"]): ChatMessage {
+  return {
+    conversationId: "conversation_api",
+    createdAt: "2026-06-07T00:00:00Z",
+    delivery: "steering",
+    id,
+    ordinal: 3,
+    parts: [
+      {
+        id: `${id}_part`,
+        image: null,
+        text: {
+          format: "plain",
+          text: "steer the workflow node",
+        },
+        type: "text",
+      },
+    ],
+    role: "user",
+    runId: "run_a",
+    schemaVersion: 2,
+    status,
+    updatedAt: "2026-06-07T00:00:00Z",
   };
 }
 

@@ -1,6 +1,7 @@
 import type {
   ChatEvent,
   ChatInput,
+  ChatMessage,
   Run,
   RunLiveness,
   RunItemOutput,
@@ -70,7 +71,7 @@ export function workflowNodeTrajectoryViewModel({
     editingQueuedMessageId: null,
     focusedSourceRunItemId,
     hasMoreOlder: state.page.hasMoreOlder,
-    messages: [],
+    messages: state.page.pendingSteeringMessages,
     operation,
     queuedMessages: [],
     removingQueuedMessageId: null,
@@ -130,7 +131,7 @@ export function workflowNodeComposerViewModel({
     commandListStatus: "idle",
     goal: null,
     operation,
-    pendingSteeringMessageIds: [],
+    pendingSteeringMessageIds: state.page.pendingSteeringMessages.map((message) => message.id),
     session: workflowNodeComposerSession(state),
     status: "ready",
   };
@@ -311,8 +312,8 @@ const workflowNodeTrajectoryChatEventHandlers = {
   "chat.message.created": null,
   "chat.message.queued": null,
   "chat.message.removed": null,
-  "chat.message.steering_sent": null,
-  "chat.message.updated": null,
+  "chat.message.steering_sent": workflowNodeTrajectoryWithSteeringSentEvent,
+  "chat.message.updated": workflowNodeTrajectoryWithMessageUpdatedEvent,
   "chat.queue.updated": null,
   "chat.run.updated": workflowNodeTrajectoryWithRunEvent,
   "chat.run_item.created": null,
@@ -388,6 +389,29 @@ function workflowNodeTrajectoryWithRunEvent(
     return unexpectedWorkflowNodeTrajectoryChatEvent(event);
   }
   return workflowNodeTrajectoryWithRun(current, event.payload.run);
+}
+
+function workflowNodeTrajectoryWithSteeringSentEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  if (event.type !== "chat.message.steering_sent") {
+    return unexpectedWorkflowNodeTrajectoryChatEvent(event);
+  }
+  return workflowNodeTrajectoryWithUncommittedSteeringMessage(
+    workflowNodeTrajectoryWithRun(current, event.payload.run).state,
+    event.payload.message,
+  );
+}
+
+function workflowNodeTrajectoryWithMessageUpdatedEvent(
+  current: WorkflowNodeTrajectoryState,
+  event: WorkflowNodeTrajectoryChatEvent,
+): WorkflowNodeTrajectoryEventApplyResult {
+  if (event.type !== "chat.message.updated") {
+    return unexpectedWorkflowNodeTrajectoryChatEvent(event);
+  }
+  return workflowNodeTrajectoryWithUncommittedSteeringMessage(current, event.payload.message);
 }
 
 function workflowNodeTrajectoryWithRunLivenessEvent(
@@ -559,6 +583,56 @@ function workflowNodeTrajectoryWithOutputDelta(
       outputsById: outputIndex.outputsById,
     },
   };
+}
+
+function workflowNodeTrajectoryWithUncommittedSteeringMessage(
+  current: WorkflowNodeTrajectoryState,
+  message: ChatMessage,
+): WorkflowNodeTrajectoryEventApplyResult {
+  const pendingSteeringMessages = upsertUncommittedSteeringMessage(
+    current.page.pendingSteeringMessages,
+    message,
+  );
+  if (pendingSteeringMessages === current.page.pendingSteeringMessages) {
+    return { resync: false, state: current };
+  }
+  return {
+    resync: false,
+    state: {
+      ...current,
+      page: {
+        ...current.page,
+        pendingSteeringMessages,
+      },
+    },
+  };
+}
+
+function upsertUncommittedSteeringMessage(
+  messages: ChatMessage[],
+  message: ChatMessage,
+): ChatMessage[] {
+  const existingIndex = messages.findIndex((current) => current.id === message.id);
+  if (!isUncommittedSteeringMessage(message)) {
+    if (existingIndex === -1) {
+      return messages;
+    }
+    return messages.filter((current) => current.id !== message.id);
+  }
+  const next =
+    existingIndex === -1
+      ? [...messages, message]
+      : messages.map((current, index) => (index === existingIndex ? message : current));
+  return next.toSorted((left, right) => left.ordinal - right.ordinal);
+}
+
+function isUncommittedSteeringMessage(message: ChatMessage) {
+  return (
+    message.delivery === "steering" &&
+    message.role === "user" &&
+    message.runId !== "" &&
+    message.status !== "complete"
+  );
 }
 
 function workflowNodeTrajectoryPageWithActiveRun(

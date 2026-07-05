@@ -86,6 +86,22 @@ active run or per independent thread. That capacity can be pooled or capped, but
 the cap must be explicit backpressure, not hidden global serialization.
 Correctness beats process reuse.
 
+## Post-Implementation Audit Status
+
+The UI gaps found in the post-implementation audit are now addressed:
+
+- workflow-agent trajectory pages include uncommitted steering messages in a
+  dedicated contract field so pending, cancelled, and errored steering can render
+  outside committed transcript chronology
+- workflow-agent trajectory steering renders immediately with the normal pending
+  user-message treatment and tail placement before provider commit
+- workflow-agent trajectory run settings reuse the normal chat model/reasoning
+  and permission controls in disabled/read-only mode from the persisted run
+  settings snapshot
+- backend, renderer, and deterministic Electron tests prove pending steering is
+  visible before provider commit and that settings use the normal disabled chat
+  controls rather than workflow-specific pills or static labels
+
 ## Codex Reference Protocol Findings
 
 The reference Codex source at
@@ -341,12 +357,18 @@ Required behavior:
 - steering is available only after that run has a linked provider turn that can
   accept steering
 - steering for run A never targets run B, even when both are active
-- pending steering is visible as pending user intent, not committed transcript
-  chronology
+- after the user submits steering, the steering message appears immediately as
+  pending user intent, using the same pending/tail visual treatment as queued
+  messages
+- pending steering is visible before Codex accepts, sends, commits, or inserts
+  it into the provider turn
+- pending steering remains outside committed transcript chronology
 - the steering message becomes a transcript block only when the provider emits
   the commit/insertion event
 - if the run fails, cancels, or loses attachment before commit, pending steering
   becomes cancelled or errored and stays out of committed chronology
+- workflow-agent trajectory surfaces must render these pending steering rows
+  too; do not restrict this behavior to normal chat transcripts
 
 Matching provider commits to pending steering must use stable provider metadata
 where available. Text-only matching must be deterministic and must fail loudly
@@ -366,7 +388,13 @@ controls in disabled/read-only mode:
 
 The values must come from the persisted effective run settings snapshot, not
 current defaults. Completed nodes should hide the steering input but keep the
-read-only settings bar.
+read-only settings controls.
+
+Do not satisfy this requirement with a workflow-specific custom summary row,
+pill strip, static labels, or text-only facsimile. The trajectory viewer should
+reuse the same settings control components, styling, disabled states, and
+accessibility semantics as the normal chat composer/settings bar, with mutation
+actions omitted or disabled because the run snapshot is read-only.
 
 ## Contract Plan
 
@@ -448,10 +476,16 @@ Add focused renderer tests for:
   another run's state
 - steering controls use the selected run's capability, not a global active-run
   assumption
-- pending steering rows render outside transcript chronology
+- after submitting steering, pending steering rows render immediately before
+  provider send/commit and outside transcript chronology
+- pending steering rows use the same pending-message presentation expected for
+  queued messages, including workflow-agent trajectory surfaces
 - committed steering moves into transcript chronology at provider commit
 - workflow-agent details show child-run liveness and disabled run settings
   controls
+- workflow-agent run settings tests fail if the implementation uses a
+  workflow-specific pill strip or static text instead of the normal disabled
+  chat settings controls
 
 ### Deterministic Electron E2E
 
@@ -463,13 +497,18 @@ Add production-path Electron coverage for:
 - prove C can also link and stream, or receives explicit configured-capacity
   backpressure if the test intentionally configures capacity below three
 - steer B while A remains active
+- verify B's steering message appears immediately as pending UI before the fake
+  provider accepts or commits it
 - cancel A and prove B continues
 - complete B and prove A's cancellation did not corrupt B
 - start a workflow with two parallel agent nodes
 - prove both workflow child chats link provider turns and stream independently
 - make one workflow node stall and prove the other still completes
-- verify liveness, sidebar indicators, transcript rows, pending steering, and
-  workflow node details after restart/reload
+- submit steering to a workflow child node and verify the pending steering row
+  appears in that node's trajectory viewer before provider commit
+- verify liveness, sidebar indicators, transcript rows, pending steering,
+  workflow trajectory disabled settings controls, and workflow node details
+  after restart/reload
 
 ### Live Codex E2E
 
@@ -494,9 +533,13 @@ The work is complete only when:
 - steering, approvals, tool calls, background terminal events, and completion
   route to the correct active run under concurrency
 - `Working` is only a backend-supplied fallback for fresh active work
+- pending steering appears immediately after submission with the same pending UI
+  treatment as queued messages, including in workflow-agent trajectory viewers
 - pending steering is not committed transcript chronology until provider commit
 - workflow-agent settings use the normal disabled settings controls from the
   persisted run snapshot
+- custom workflow-specific settings pills, labels, or facsimiles do not satisfy
+  the workflow-agent settings requirement
 - deterministic Electron tests cover the concurrent behavior through production
   paths
 

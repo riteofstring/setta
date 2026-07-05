@@ -28,6 +28,7 @@ type CodexChatService interface {
 	LoadRunActivityItems(workspaceID string, runID string) ([]chat.RunItem, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	LoadRunTranscriptPage(workspaceID string, runID string, beforeBlockOrdinal int, limit int) (chat.RunTranscriptPage, error)
+	UncommittedSteeringMessagesForRun(workspaceID string, conversationID string, runID string) ([]chat.ChatMessage, error)
 	ReconcileActiveRunByID(ctx context.Context, workspaceID string, conversationID string, runID string, reason chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error)
 	ResolveWorkflowAgentCodexSettings(workspaceID string, overrides chat.ChatCodexSettings) (chat.ChatCodexSettings, *chat.ChatCodexEffectiveSettings, error)
 	SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error)

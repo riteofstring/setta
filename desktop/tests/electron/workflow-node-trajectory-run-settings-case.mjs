@@ -88,21 +88,38 @@ export async function assertWorkflowAgentRunSettingsSnapshot(client, workspaceId
     startedRun.executionId,
   );
   await openWorkflowNodeRunDetails(client, startedRun.graphSurfaceId, runGraph, "activity");
-  await waitForState(
-    client,
-    driverCallExpression("workflowRunDetailsState"),
-    (state) =>
-      state.settingsBarCount === 1 &&
-      state.nodeStatusChipCount === 1 &&
-      state.settingsBarText.includes(`${readOnlyPreset.label} - node override`) &&
-      state.settingsBarText.includes(`${model.displayName} - workflow default`) &&
-      state.settingsBarText.includes("app default"),
+  await waitForState(client, driverCallExpression("workflowRunDetailsState"), (state) =>
+    workflowRunSettingsSnapshotReady(state, {
+      model,
+      permissionPreset: readOnlyPreset,
+      reasoningEffortDisplayName: trajectory.runSettings.reasoningEffortDisplayName,
+    }),
   );
   await appendWorkflowState(recordingDir, {
     executionId: completed.id,
     nodeExecutionId: activityNode.id,
     type: "workflow_agent_run_settings_snapshot_verified",
   });
+}
+
+function workflowRunSettingsSnapshotReady(state, expected) {
+  if (state.settingsBarCount !== 1 || state.nodeStatusChipCount !== 1) {
+    return false;
+  }
+  return workflowRunSettingsBarReady(state.settingsBar, expected);
+}
+
+function workflowRunSettingsBarReady(settingsBar, expected) {
+  return (
+    settingsBar.readOnly &&
+    settingsBar.permissionButtonDisabled &&
+    settingsBar.modelButtonDisabled &&
+    settingsBar.permissionButtonTitle === "Run settings are read-only." &&
+    settingsBar.modelButtonTitle === "Run settings are read-only." &&
+    settingsBar.permissionButtonText.includes(expected.permissionPreset.label) &&
+    settingsBar.modelButtonText.includes(expected.model.displayName) &&
+    settingsBar.modelButtonText.includes(expected.reasoningEffortDisplayName)
+  );
 }
 
 async function openWorkflowGraphForDefinition(client, workspaceId, definitionId) {

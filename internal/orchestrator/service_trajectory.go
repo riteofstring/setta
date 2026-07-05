@@ -57,7 +57,11 @@ func (service *Service) ReadWorkflowNodeTrajectory(workspaceID string, execution
 	if err != nil {
 		return WorkflowAgentTrajectoryPage{}, err
 	}
-	return workflowAgentTrajectoryPage(context, run, transcript, activity, outputPages, outputs, activeRun, activeRunLiveness), nil
+	pendingSteeringMessages, err := service.workflowAgentTrajectoryPendingSteeringMessages(workspaceID, context)
+	if err != nil {
+		return WorkflowAgentTrajectoryPage{}, err
+	}
+	return workflowAgentTrajectoryPage(context, run, transcript, pendingSteeringMessages, activity, outputPages, outputs, activeRun, activeRunLiveness), nil
 }
 
 func (service *Service) StopWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string) (WorkflowExecution, error) {
@@ -243,7 +247,7 @@ func (service *Service) workflowAgentTrajectoryTranscript(workspaceID string, co
 	return transcript, nil
 }
 
-func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run chat.Run, transcript chat.RunTranscriptPage, activity chat.RunActivityPage, outputPages []WorkflowAgentTrajectoryRunItemOutputPageState, outputs []chat.RunItemOutput, activeRun *chat.Run, activeRunLiveness *chat.RunLiveness) WorkflowAgentTrajectoryPage {
+func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run chat.Run, transcript chat.RunTranscriptPage, pendingSteeringMessages []chat.ChatMessage, activity chat.RunActivityPage, outputPages []WorkflowAgentTrajectoryRunItemOutputPageState, outputs []chat.RunItemOutput, activeRun *chat.Run, activeRunLiveness *chat.RunLiveness) WorkflowAgentTrajectoryPage {
 	pendingApproval := workflowAgentTrajectoryPendingApproval(context.NodeExecution)
 	canRetryLiveness := workflowAgentTrajectoryCanRetryLiveness(activeRun, activeRunLiveness)
 	canStopRun := activeRun != nil && activeRunLiveness != nil && activeRunLiveness.Cancellable
@@ -270,6 +274,7 @@ func workflowAgentTrajectoryPage(context workflowAgentTrajectoryContext, run cha
 		ActiveRunLiveness:        activeRunLiveness,
 		RunSettings:              context.NodeExecution.AgentRunSettings,
 		Blocks:                   transcript.Blocks,
+		PendingSteeringMessages:  pendingSteeringMessages,
 		Items:                    activity.Items,
 		Activity:                 activity.Activity,
 		OutputPages:              outputPages,
@@ -450,6 +455,14 @@ func (service *Service) workflowAgentTrajectoryActiveRun(workspaceID string, con
 	return &active, liveness, nil
 }
 
+func (service *Service) workflowAgentTrajectoryPendingSteeringMessages(workspaceID string, context workflowAgentTrajectoryContext) ([]chat.ChatMessage, error) {
+	messages, err := service.codexChatService.UncommittedSteeringMessagesForRun(workspaceID, context.ConversationID, context.RunID)
+	if err != nil {
+		return nil, fmt.Errorf("load workflow node pending steering messages: %w", err)
+	}
+	return messages, nil
+}
+
 func workflowAgentTrajectoryPendingApproval(nodeExecution WorkflowNodeExecution) *WorkflowPendingApproval {
 	if nodeExecution.Result == nil || nodeExecution.Result.PendingApproval == nil {
 		return nil
@@ -461,6 +474,9 @@ func (page WorkflowAgentTrajectoryPage) MarshalJSON() ([]byte, error) {
 	type pageAlias WorkflowAgentTrajectoryPage
 	if page.Blocks == nil {
 		page.Blocks = []chat.TranscriptBlock{}
+	}
+	if page.PendingSteeringMessages == nil {
+		page.PendingSteeringMessages = []chat.ChatMessage{}
 	}
 	if page.Items == nil {
 		page.Items = []chat.RunItem{}

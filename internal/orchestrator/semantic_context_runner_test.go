@@ -128,6 +128,10 @@ func (client *recordingCodexChatClient) LoadRunTranscriptPage(string, string, in
 	return chat.RunTranscriptPage{}, nil
 }
 
+func (client *recordingCodexChatClient) UncommittedSteeringMessagesForRun(string, string, string) ([]chat.ChatMessage, error) {
+	return nil, nil
+}
+
 func (client *recordingCodexChatClient) ReconcileActiveRunByID(context.Context, string, string, string, chat.RunLivenessReason) (chat.RunLivenessReconciliationResult, error) {
 	return chat.RunLivenessReconciliationResult{}, nil
 }
