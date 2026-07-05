@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 16;
-export const backendContractSchemaHash = "sha256:1d54d6c2299c00954be10102bd00c067af8545b729c5281c018eac3dfc3bda95";
+export const backendProtocolVersion = 17;
+export const backendContractSchemaHash = "sha256:6e58af3226c8937bd7206b106e928071261e63cd5df48a3e4e58fd49bb57a606";
 
 export type DeviceScope = "full";
 
@@ -422,6 +422,22 @@ export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowG
     case "completed":
       return decoded;
     case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkspaceUIEventType = "workspace_ui.layout_updated" | "workspace_ui.resync_required";
+
+export const workspaceUIEventTypeValues = ["workspace_ui.layout_updated", "workspace_ui.resync_required"] as const satisfies readonly WorkspaceUIEventType[];
+
+export function decodeWorkspaceUIEventType(value: unknown, label = "WorkspaceUIEventType"): WorkspaceUIEventType {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "workspace_ui.layout_updated":
+      return decoded;
+    case "workspace_ui.resync_required":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3290,6 +3306,29 @@ export interface WorkspaceUILayoutReadResult {
 
 export interface SaveWorkspaceUILayoutRequest {
   layout: WorkspaceUILayout;
+}
+
+export interface WorkspaceUIResyncRequired {
+  currentRevision: number;
+  currentSequence: number;
+  currentStreamId: string;
+  earliestSequence: number;
+  reason: string;
+  requestedSequence: number;
+  requestedStreamId: string;
+}
+
+export interface WorkspaceUIEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: WorkspaceUIEventType;
+  emittedAt: string;
+  workspaceId: string;
+  revision: number;
+  layout: WorkspaceUILayout | null;
+  resync: WorkspaceUIResyncRequired | null;
 }
 
 export interface ReadWorkspaceActivitySnapshotRequest {
@@ -6940,6 +6979,10 @@ export const backendEndpoints = {
     path: "/workspaces/ui/layout/save",
     requestBodyLimitBytes: 4194304,
   },
+  WorkspaceUIEventStream: {
+    method: "GET",
+    path: "/workspaces/ui/events",
+  },
   ReadWorkspaceActivitySnapshot: {
     method: "POST",
     path: "/workspace-activity/snapshot",
@@ -8276,6 +8319,37 @@ export function decodeSaveWorkspaceUILayoutRequest(value: unknown): SaveWorkspac
   assertKnownFields(record, "SaveWorkspaceUILayoutRequest", ["layout"]);
   return {
     layout: decodeWorkspaceUILayout(requireField(record, "layout", "SaveWorkspaceUILayoutRequest")),
+  };
+}
+
+export function decodeWorkspaceUIResyncRequired(value: unknown): WorkspaceUIResyncRequired {
+  const record = assertRecord(value, "WorkspaceUIResyncRequired");
+  assertKnownFields(record, "WorkspaceUIResyncRequired", ["currentRevision", "currentSequence", "currentStreamId", "earliestSequence", "reason", "requestedSequence", "requestedStreamId"]);
+  return {
+    currentRevision: decodeInteger(requireField(record, "currentRevision", "WorkspaceUIResyncRequired"), "WorkspaceUIResyncRequired.currentRevision"),
+    currentSequence: decodeInteger(requireField(record, "currentSequence", "WorkspaceUIResyncRequired"), "WorkspaceUIResyncRequired.currentSequence"),
+    currentStreamId: decodeString(requireField(record, "currentStreamId", "WorkspaceUIResyncRequired"), "WorkspaceUIResyncRequired.currentStreamId"),
+    earliestSequence: decodeInteger(requireField(record, "earliestSequence", "WorkspaceUIResyncRequired"), "WorkspaceUIResyncRequired.earliestSequence"),
+    reason: decodeString(requireField(record, "reason", "WorkspaceUIResyncRequired"), "WorkspaceUIResyncRequired.reason"),
+    requestedSequence: decodeInteger(requireField(record, "requestedSequence", "WorkspaceUIResyncRequired"), "WorkspaceUIResyncRequired.requestedSequence"),
+    requestedStreamId: decodeString(requireField(record, "requestedStreamId", "WorkspaceUIResyncRequired"), "WorkspaceUIResyncRequired.requestedStreamId"),
+  };
+}
+
+export function decodeWorkspaceUIEvent(value: unknown): WorkspaceUIEvent {
+  const record = assertRecord(value, "WorkspaceUIEvent");
+  assertKnownFields(record, "WorkspaceUIEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "revision", "layout", "resync"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkspaceUIEvent"), "WorkspaceUIEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "WorkspaceUIEvent"), "WorkspaceUIEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "WorkspaceUIEvent"), "WorkspaceUIEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "WorkspaceUIEvent"), "WorkspaceUIEvent.eventId"),
+    type: decodeWorkspaceUIEventType(requireField(record, "type", "WorkspaceUIEvent"), "WorkspaceUIEvent.type"),
+    emittedAt: decodeString(requireField(record, "emittedAt", "WorkspaceUIEvent"), "WorkspaceUIEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUIEvent"), "WorkspaceUIEvent.workspaceId"),
+    revision: decodeInteger(requireField(record, "revision", "WorkspaceUIEvent"), "WorkspaceUIEvent.revision"),
+    layout: decodeNullable(requireField(record, "layout", "WorkspaceUIEvent"), "WorkspaceUIEvent.layout", (item) => decodeWorkspaceUILayout(item)),
+    resync: decodeNullable(requireField(record, "resync", "WorkspaceUIEvent"), "WorkspaceUIEvent.resync", (item) => decodeWorkspaceUIResyncRequired(item)),
   };
 }
 

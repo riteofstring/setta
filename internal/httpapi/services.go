@@ -42,6 +42,7 @@ type WorkspaceUIService interface {
 	Schema() workspaceui.WorkspaceUISchema
 	ReadLayout(workspaceID string) (workspaceui.WorkspaceUILayoutReadResult, error)
 	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
+	SubscribeEvents(cursor workspaceui.EventCursor, workspaceID string) (*workspaceui.EventSubscription, error)
 }
 
 type WorkspaceActivityService interface {
