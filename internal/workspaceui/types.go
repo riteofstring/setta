@@ -64,6 +64,7 @@ const (
 	WorkspaceUIPaneOperationKindFocusPane  WorkspaceUIPaneOperationKind = "focus_pane"
 	WorkspaceUIPaneOperationKindMovePane   WorkspaceUIPaneOperationKind = "move_pane"
 	WorkspaceUIPaneOperationKindRenamePane WorkspaceUIPaneOperationKind = "rename_pane"
+	WorkspaceUIPaneOperationKindResizePane WorkspaceUIPaneOperationKind = "resize_pane"
 )
 
 type WorkspaceUIPaneMoveDirection string
@@ -192,6 +193,7 @@ type WorkspaceUIPaneOperation struct {
 	Close  *WorkspaceUIPaneCloseOperation  `json:"close"`
 	Move   *WorkspaceUIPaneMoveOperation   `json:"move"`
 	Rename *WorkspaceUIPaneRenameOperation `json:"rename"`
+	Resize *WorkspaceUIPaneResizeOperation `json:"resize"`
 }
 
 type WorkspaceUIPaneCloseOperation struct {
@@ -204,6 +206,10 @@ type WorkspaceUIPaneMoveOperation struct {
 
 type WorkspaceUIPaneRenameOperation struct {
 	Title string `json:"title"`
+}
+
+type WorkspaceUIPaneResizeOperation struct {
+	WidthSpec *ColumnWidthSpec `json:"widthSpec"`
 }
 
 type WorkspaceUIPaneOperationResult struct {
@@ -221,6 +227,7 @@ type WorkspaceUIPaneOperationOutcome struct {
 	Close                 *WorkspaceUIPaneCloseOutcome  `json:"close"`
 	Move                  *WorkspaceUIPaneMoveOutcome   `json:"move"`
 	Rename                *WorkspaceUIPaneRenameOutcome `json:"rename"`
+	Resize                *WorkspaceUIPaneResizeOutcome `json:"resize"`
 	PaneID                string                        `json:"paneId"`
 	PreviousFocusedPaneID string                        `json:"previousFocusedPaneId"`
 	FocusedPaneID         string                        `json:"focusedPaneId"`
@@ -250,6 +257,13 @@ type WorkspaceUIPaneMoveOutcome struct {
 type WorkspaceUIPaneRenameOutcome struct {
 	PreviousTitle string `json:"previousTitle"`
 	Title         string `json:"title"`
+}
+
+type WorkspaceUIPaneResizeOutcome struct {
+	PreviousWidthSpec ColumnWidthSpec `json:"previousWidthSpec"`
+	SlotIndex         int             `json:"slotIndex"`
+	TargetColumnID    string          `json:"targetColumnId"`
+	WidthSpec         ColumnWidthSpec `json:"widthSpec"`
 }
 
 type WorkspaceUIPaneDimensionChange struct {
@@ -470,6 +484,7 @@ func supportedPaneOperationKinds() []WorkspaceUIPaneOperationKind {
 		WorkspaceUIPaneOperationKindFocusPane,
 		WorkspaceUIPaneOperationKindMovePane,
 		WorkspaceUIPaneOperationKindRenamePane,
+		WorkspaceUIPaneOperationKindResizePane,
 	}
 }
 

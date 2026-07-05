@@ -3,8 +3,16 @@ package workspaceui
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
+)
+
+const (
+	maximumColumnWidthProportion = 1
+	minimumColumnWidthProportion = 0.1
+	minimumColumnWidthPX         = 96
 )
 
 type WorkspaceUIOperationError struct {
@@ -41,7 +49,11 @@ func (service *Service) ApplyPaneOperation(workspaceID string, operation Workspa
 		return WorkspaceUIPaneOperationResult{}, operationError(workspaceID, operation, WorkspaceUIOperationErrorCodeInvalidOperation, err)
 	}
 	switch operation.Kind {
-	case WorkspaceUIPaneOperationKindClosePane, WorkspaceUIPaneOperationKindFocusPane, WorkspaceUIPaneOperationKindMovePane, WorkspaceUIPaneOperationKindRenamePane:
+	case WorkspaceUIPaneOperationKindClosePane,
+		WorkspaceUIPaneOperationKindFocusPane,
+		WorkspaceUIPaneOperationKindMovePane,
+		WorkspaceUIPaneOperationKindRenamePane,
+		WorkspaceUIPaneOperationKindResizePane:
 	default:
 		return WorkspaceUIPaneOperationResult{}, operationError(
 			workspaceID,
@@ -72,6 +84,8 @@ func (service *Service) ApplyPaneOperation(workspaceID string, operation Workspa
 		return service.applyMovePaneOperation(*read.Layout, operation)
 	case WorkspaceUIPaneOperationKindRenamePane:
 		return service.applyRenamePaneOperation(*read.Layout, operation)
+	case WorkspaceUIPaneOperationKindResizePane:
+		return service.applyResizePaneOperation(*read.Layout, operation)
 	default:
 		return WorkspaceUIPaneOperationResult{}, operationError(
 			workspaceID,
@@ -98,6 +112,8 @@ func validatePaneOperation(operation WorkspaceUIPaneOperation) error {
 		return validateMovePaneOperation(operation)
 	case WorkspaceUIPaneOperationKindRenamePane:
 		return validateRenamePaneOperation(operation)
+	case WorkspaceUIPaneOperationKindResizePane:
+		return validateResizePaneOperation(operation)
 	}
 	return nil
 }
@@ -111,6 +127,9 @@ func validateClosePaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if operation.Rename != nil {
 		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
+	}
+	if operation.Resize != nil {
+		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
 	}
 	if !validSurfaceCloseMode(operation.Close.SurfaceClose) {
 		return fmt.Errorf("workspace pane close surfaceClose is unsupported: %s", operation.Close.SurfaceClose)
@@ -128,6 +147,9 @@ func validateFocusPaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Rename != nil {
 		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
 	}
+	if operation.Resize != nil {
+		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
 	return nil
 }
 
@@ -137,6 +159,9 @@ func validateMovePaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if operation.Rename != nil {
 		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
+	}
+	if operation.Resize != nil {
+		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
 	}
 	if operation.Move == nil {
 		return errors.New("workspace pane move payload is required")
@@ -154,6 +179,9 @@ func validateRenamePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
 	}
+	if operation.Resize != nil {
+		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
 	if operation.Rename == nil {
 		return errors.New("workspace pane rename payload is required")
 	}
@@ -162,6 +190,38 @@ func validateRenamePaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if strings.TrimSpace(operation.Rename.Title) != operation.Rename.Title {
 		return errors.New("workspace pane rename title must not have surrounding whitespace")
+	}
+	return nil
+}
+
+func validateResizePaneOperation(operation WorkspaceUIPaneOperation) error {
+	if operation.Close != nil {
+		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Move != nil {
+		return errors.New("workspace pane operation move payload is only valid for move_pane")
+	}
+	if operation.Rename != nil {
+		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
+	}
+	if operation.Resize == nil {
+		return errors.New("workspace pane resize payload is required")
+	}
+	if operation.Resize.WidthSpec == nil {
+		return errors.New("workspace pane resize widthSpec is required")
+	}
+	return validateResizeColumnWidthSpec(*operation.Resize.WidthSpec)
+}
+
+func validateResizeColumnWidthSpec(widthSpec ColumnWidthSpec) error {
+	if !validColumnWidthUnit(widthSpec.Unit) {
+		return fmt.Errorf("workspace pane resize widthSpec unit is unsupported: %s", widthSpec.Unit)
+	}
+	if math.IsNaN(widthSpec.Value) || math.IsInf(widthSpec.Value, 0) {
+		return errors.New("workspace pane resize widthSpec value must be finite")
+	}
+	if widthSpec.Value <= 0 {
+		return errors.New("workspace pane resize widthSpec value must be positive")
 	}
 	return nil
 }
@@ -364,6 +424,66 @@ func (service *Service) applyRenamePaneOperation(layout WorkspaceUILayout, opera
 	}, nil
 }
 
+func (service *Service) applyResizePaneOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation) (WorkspaceUIPaneOperationResult, error) {
+	location, ok := paneLocation(layout, operation.PaneID)
+	if !ok {
+		return WorkspaceUIPaneOperationResult{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodePaneNotFound,
+			fmt.Errorf("workspace pane not found: %s", operation.PaneID),
+		)
+	}
+
+	targetColumn := layout.Columns[location.ColumnIndex]
+	requestedWidthSpec := *operation.Resize.WidthSpec
+	widthSpec := normalizedResizeColumnWidthSpec(requestedWidthSpec)
+	beforeDimensions, err := paneDimensionSnapshotsForSlot(layout, targetColumn.SlotIndex)
+	if err != nil {
+		return WorkspaceUIPaneOperationResult{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodePaneNotFound,
+			err,
+		)
+	}
+	changed := resizeColumnsInSlot(&layout, targetColumn.SlotIndex, widthSpec)
+	dimensionChanges, err := paneDimensionChanges(layout, beforeDimensions)
+	if err != nil {
+		return WorkspaceUIPaneOperationResult{}, operationError(
+			layout.WorkspaceID,
+			operation,
+			WorkspaceUIOperationErrorCodePaneNotFound,
+			err,
+		)
+	}
+
+	if changed {
+		layout.Revision += 1
+		saved, err := service.SaveLayout(layout)
+		if err != nil {
+			return WorkspaceUIPaneOperationResult{}, err
+		}
+		layout = saved
+	}
+
+	return WorkspaceUIPaneOperationResult{
+		WorkspaceID: layout.WorkspaceID,
+		Revision:    layout.Revision,
+		Layout:      layout,
+		Changed:     changed,
+		OperationResult: WorkspaceUIPaneOperationOutcome{
+			Kind:                  WorkspaceUIPaneOperationKindResizePane,
+			Resize:                resizeOutcome(targetColumn, widthSpec),
+			PaneID:                operation.PaneID,
+			PreviousFocusedPaneID: layout.FocusedPaneID,
+			FocusedPaneID:         layout.FocusedPaneID,
+		},
+		BeforeAfterDimensions: dimensionChanges,
+		Warnings:              resizeWarnings(requestedWidthSpec, widthSpec),
+	}, nil
+}
+
 type workspaceUIPaneLocation struct {
 	ColumnID         string
 	ColumnIndex      int
@@ -494,6 +614,139 @@ func renameOutcome(previousTitle string, title string) *WorkspaceUIPaneRenameOut
 		PreviousTitle: previousTitle,
 		Title:         title,
 	}
+}
+
+func resizeOutcome(targetColumn WorkspaceUIColumn, widthSpec ColumnWidthSpec) *WorkspaceUIPaneResizeOutcome {
+	return &WorkspaceUIPaneResizeOutcome{
+		PreviousWidthSpec: targetColumn.WidthSpec,
+		SlotIndex:         targetColumn.SlotIndex,
+		TargetColumnID:    targetColumn.ColumnID,
+		WidthSpec:         widthSpec,
+	}
+}
+
+func normalizedResizeColumnWidthSpec(widthSpec ColumnWidthSpec) ColumnWidthSpec {
+	switch widthSpec.Unit {
+	case ColumnWidthUnitPX:
+		return ColumnWidthSpec{
+			Unit:  ColumnWidthUnitPX,
+			Value: math.Max(minimumColumnWidthPX, widthSpec.Value),
+		}
+	case ColumnWidthUnitProportion:
+		return ColumnWidthSpec{
+			Unit:  ColumnWidthUnitProportion,
+			Value: math.Min(maximumColumnWidthProportion, math.Max(minimumColumnWidthProportion, widthSpec.Value)),
+		}
+	default:
+		return widthSpec
+	}
+}
+
+func resizeColumnsInSlot(layout *WorkspaceUILayout, slotIndex int, widthSpec ColumnWidthSpec) bool {
+	changed := false
+	for index := range layout.Columns {
+		if layout.Columns[index].SlotIndex != slotIndex {
+			continue
+		}
+		if !columnWidthSpecsEqual(layout.Columns[index].WidthSpec, widthSpec) {
+			layout.Columns[index].WidthSpec = widthSpec
+			changed = true
+		}
+		if widthSpec.Unit == ColumnWidthUnitProportion && !optionalFloatEquals(layout.Columns[index].PreviousProportionWidth, widthSpec.Value) {
+			value := widthSpec.Value
+			layout.Columns[index].PreviousProportionWidth = &value
+			changed = true
+		}
+	}
+	return changed
+}
+
+type workspaceUIPaneDimensionSnapshot struct {
+	PaneID    string
+	Dimension WorkspaceUIPaneDimensions
+}
+
+func paneDimensionSnapshotsForSlot(layout WorkspaceUILayout, slotIndex int) ([]workspaceUIPaneDimensionSnapshot, error) {
+	dimensions := []workspaceUIPaneDimensionSnapshot{}
+	for _, column := range layout.Columns {
+		if column.SlotIndex != slotIndex {
+			continue
+		}
+		for _, paneID := range column.PaneIDs {
+			dimension, ok := paneDimensions(layout, paneID)
+			if !ok {
+				return nil, fmt.Errorf("workspace pane dimensions not found: %s", paneID)
+			}
+			dimensions = append(dimensions, workspaceUIPaneDimensionSnapshot{
+				PaneID:    paneID,
+				Dimension: dimension,
+			})
+		}
+	}
+	return dimensions, nil
+}
+
+func paneDimensionChanges(layout WorkspaceUILayout, before []workspaceUIPaneDimensionSnapshot) ([]WorkspaceUIPaneDimensionChange, error) {
+	changes := make([]WorkspaceUIPaneDimensionChange, 0, len(before))
+	for _, snapshot := range before {
+		after, ok := paneDimensions(layout, snapshot.PaneID)
+		if !ok {
+			return nil, fmt.Errorf("workspace pane dimensions not found after resize: %s", snapshot.PaneID)
+		}
+		changes = append(changes, WorkspaceUIPaneDimensionChange{
+			PaneID: snapshot.PaneID,
+			Before: snapshot.Dimension,
+			After:  after,
+		})
+	}
+	return changes, nil
+}
+
+func paneDimensions(layout WorkspaceUILayout, paneID string) (WorkspaceUIPaneDimensions, bool) {
+	location, ok := paneLocation(layout, paneID)
+	if !ok {
+		return WorkspaceUIPaneDimensions{}, false
+	}
+	paneIndex := paneIndexByID(layout.Panes, paneID)
+	if paneIndex < 0 {
+		return WorkspaceUIPaneDimensions{}, false
+	}
+	column := layout.Columns[location.ColumnIndex]
+	return WorkspaceUIPaneDimensions{
+		ColumnID:  column.ColumnID,
+		Weight:    layout.Panes[paneIndex].Weight,
+		WidthSpec: column.WidthSpec,
+	}, true
+}
+
+func resizeWarnings(requested ColumnWidthSpec, normalized ColumnWidthSpec) []WorkspaceUIPaneOperationWarning {
+	if columnWidthSpecsEqual(requested, normalized) {
+		return []WorkspaceUIPaneOperationWarning{}
+	}
+	return []WorkspaceUIPaneOperationWarning{
+		{
+			Code:    "column_width_normalized",
+			Message: "workspace pane resize widthSpec was normalized",
+			Fields: map[string]string{
+				"requestedUnit":  string(requested.Unit),
+				"requestedValue": formatFloat(requested.Value),
+				"widthSpecUnit":  string(normalized.Unit),
+				"widthSpecValue": formatFloat(normalized.Value),
+			},
+		},
+	}
+}
+
+func columnWidthSpecsEqual(left ColumnWidthSpec, right ColumnWidthSpec) bool {
+	return left.Unit == right.Unit && left.Value == right.Value
+}
+
+func optionalFloatEquals(value *float64, expected float64) bool {
+	return value != nil && *value == expected
+}
+
+func formatFloat(value float64) string {
+	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
 func layoutHasPane(layout WorkspaceUILayout, paneID string) bool {

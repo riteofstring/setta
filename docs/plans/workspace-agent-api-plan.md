@@ -728,11 +728,26 @@ Progress on 2026-07-07:
   `./scripts/go.sh test ./internal/workspaceui` passed, and
   `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
   diffs because the write operation contract is still not endpoint-exposed.
+- Backend resize operation reducer follow-up: added backend-only `resize_pane`
+  support for pane-targeted column width changes without exposing an HTTP, CLI,
+  IPC, renderer, or agent write surface. The reducer requires a width-only
+  resize payload, rejects payloads meant for other operation kinds, validates
+  finite positive `px` or `proportion` width specs, normalizes valid widths to
+  the renderer's column width bounds with a structured warning when
+  normalization changes the requested value, updates every persisted column in
+  the target visual slot across planes, increments the revision and persists
+  only when layout dimensions change, preserves focus, and returns structured
+  resize outcome plus per-pane before/after dimension records for the affected
+  slot.
+- Verification for the backend resize reducer follow-up:
+  `./scripts/go.sh test ./internal/workspaceui` passed, and
+  `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
+  diffs because the write operation contract is still not endpoint-exposed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for resize, open, reorder, and multi-operation
-  transactions, then cut renderer-originated layout mutations over to that
-  backend operation API before exposing agent or CLI workspace mutation
-  commands.
+  event sync for remaining resize slices (pane height, row/plane height, and
+  multi-operation transactions), open, and reorder, then cut
+  renderer-originated layout mutations over to that backend operation API before
+  exposing agent or CLI workspace mutation commands.
 
 ### Phase 3: Renderer Event Sync
 
