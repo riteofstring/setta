@@ -698,6 +698,12 @@ Progress on 2026-07-07:
   diffs because the write operation contract is not yet endpoint-exposed, and
   `./scripts/go.sh test ./internal/workspaceui`, `./scripts/format.sh`, and
   `./check_quality.sh --git-changes` passed.
+- Audit follow-up: changed the backend-only pane operation contract shape so
+  move-specific input lives under a `move` payload instead of a top-level
+  `direction` field shared by every operation kind. Focus operations now reject
+  a move payload, and move operations require one. This keeps the Go-owned
+  contract aligned with the planned typed/discriminated operation model before
+  the operation API is exposed through HTTP, CLI, IPC, or generated TypeScript.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
   event sync for close-pane, rename, resize, open, reorder, and multi-operation
   transactions, then cut renderer-originated layout mutations over to that

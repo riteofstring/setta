@@ -528,9 +528,9 @@ func TestServiceAppliesMovePaneOperationWithinColumn(t *testing.T) {
 	}
 
 	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
-		Direction: WorkspaceUIPaneMoveDirectionUp,
-		Kind:      WorkspaceUIPaneOperationKindMovePane,
-		PaneID:    "workspace_pane_1",
+		Kind:   WorkspaceUIPaneOperationKindMovePane,
+		PaneID: "workspace_pane_1",
+		Move:   movePaneOperation(WorkspaceUIPaneMoveDirectionUp),
 	})
 	if err != nil {
 		t.Fatalf("apply move operation: %v", err)
@@ -585,9 +585,9 @@ func TestServiceAppliesMovePaneOperationToAdjacentColumn(t *testing.T) {
 	}
 
 	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
-		Direction: WorkspaceUIPaneMoveDirectionRight,
-		Kind:      WorkspaceUIPaneOperationKindMovePane,
-		PaneID:    "workspace_pane_0",
+		Kind:   WorkspaceUIPaneOperationKindMovePane,
+		PaneID: "workspace_pane_0",
+		Move:   movePaneOperation(WorkspaceUIPaneMoveDirectionRight),
 	})
 	if err != nil {
 		t.Fatalf("apply move operation: %v", err)
@@ -629,9 +629,9 @@ func TestServiceMovePaneOperationRemovesEmptySourceColumn(t *testing.T) {
 	}
 
 	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
-		Direction: WorkspaceUIPaneMoveDirectionRight,
-		Kind:      WorkspaceUIPaneOperationKindMovePane,
-		PaneID:    "workspace_pane_0",
+		Kind:   WorkspaceUIPaneOperationKindMovePane,
+		PaneID: "workspace_pane_0",
+		Move:   movePaneOperation(WorkspaceUIPaneMoveDirectionRight),
 	})
 	if err != nil {
 		t.Fatalf("apply move operation: %v", err)
@@ -661,9 +661,9 @@ func TestServiceMovePaneOperationNoopsAtBoundary(t *testing.T) {
 	}
 
 	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
-		Direction: WorkspaceUIPaneMoveDirectionUp,
-		Kind:      WorkspaceUIPaneOperationKindMovePane,
-		PaneID:    "workspace_pane_0",
+		Kind:   WorkspaceUIPaneOperationKindMovePane,
+		PaneID: "workspace_pane_0",
+		Move:   movePaneOperation(WorkspaceUIPaneMoveDirectionUp),
 	})
 	if err != nil {
 		t.Fatalf("apply move operation: %v", err)
@@ -697,9 +697,9 @@ func TestServiceMovePaneOperationRejectsMissingPane(t *testing.T) {
 	}
 
 	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
-		Direction: WorkspaceUIPaneMoveDirectionDown,
-		Kind:      WorkspaceUIPaneOperationKindMovePane,
-		PaneID:    "workspace_pane_missing",
+		Kind:   WorkspaceUIPaneOperationKindMovePane,
+		PaneID: "workspace_pane_missing",
+		Move:   movePaneOperation(WorkspaceUIPaneMoveDirectionDown),
 	})
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodePaneNotFound {
 		t.Fatalf("error = %T %v, want pane_not_found", err, err)
@@ -750,19 +750,52 @@ func TestServicePaneOperationRejectsInvalidOperation(t *testing.T) {
 	}
 }
 
+func TestServicePaneOperationRejectsFocusWithMovePayload(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindFocusPane,
+		PaneID: "workspace_pane_0",
+		Move:   movePaneOperation(WorkspaceUIPaneMoveDirectionRight),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
+func TestServicePaneOperationRejectsMoveWithoutPayload(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindMovePane,
+		PaneID: "workspace_pane_0",
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
 func TestServicePaneOperationRejectsInvalidMoveDirection(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
 	})
 
 	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
-		Direction: WorkspaceUIPaneMoveDirection("sideways"),
-		Kind:      WorkspaceUIPaneOperationKindMovePane,
-		PaneID:    "workspace_pane_0",
+		Kind:   WorkspaceUIPaneOperationKindMovePane,
+		PaneID: "workspace_pane_0",
+		Move:   movePaneOperation(WorkspaceUIPaneMoveDirection("sideways")),
 	})
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
 		t.Fatalf("error = %T %v, want invalid_operation", err, err)
 	}
+}
+
+func movePaneOperation(direction WorkspaceUIPaneMoveDirection) *WorkspaceUIPaneMoveOperation {
+	return &WorkspaceUIPaneMoveOperation{Direction: direction}
 }
 
 func operationErrorCode(t *testing.T, err error) WorkspaceUIOperationErrorCode {

@@ -84,8 +84,18 @@ func validatePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.PaneID == "" {
 		return errors.New("workspace pane operation paneId is required")
 	}
-	if operation.Kind == WorkspaceUIPaneOperationKindMovePane && !validPaneMoveDirection(operation.Direction) {
-		return fmt.Errorf("workspace pane move direction is unsupported: %s", operation.Direction)
+	switch operation.Kind {
+	case WorkspaceUIPaneOperationKindFocusPane:
+		if operation.Move != nil {
+			return errors.New("workspace pane operation move payload is only valid for move_pane")
+		}
+	case WorkspaceUIPaneOperationKindMovePane:
+		if operation.Move == nil {
+			return errors.New("workspace pane move payload is required")
+		}
+		if !validPaneMoveDirection(operation.Move.Direction) {
+			return fmt.Errorf("workspace pane move direction is unsupported: %s", operation.Move.Direction)
+		}
 	}
 	return nil
 }
@@ -139,7 +149,7 @@ func (service *Service) applyMovePaneOperation(layout WorkspaceUILayout, operati
 		)
 	}
 
-	changed := movePaneInLayout(&layout, operation.PaneID, previousLocation, operation.Direction)
+	changed := movePaneInLayout(&layout, operation.PaneID, previousLocation, operation.Move.Direction)
 	nextLocation := previousLocation
 	if changed {
 		var ok bool
@@ -168,7 +178,7 @@ func (service *Service) applyMovePaneOperation(layout WorkspaceUILayout, operati
 		Changed:     changed,
 		OperationResult: WorkspaceUIPaneOperationOutcome{
 			Kind:                  WorkspaceUIPaneOperationKindMovePane,
-			Move:                  moveOutcome(operation.Direction, previousLocation, nextLocation),
+			Move:                  moveOutcome(operation.Move.Direction, previousLocation, nextLocation),
 			PaneID:                operation.PaneID,
 			PreviousFocusedPaneID: layout.FocusedPaneID,
 			FocusedPaneID:         layout.FocusedPaneID,

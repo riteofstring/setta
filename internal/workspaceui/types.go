@@ -183,9 +183,13 @@ type WorkspaceUIPaneReadResult struct {
 }
 
 type WorkspaceUIPaneOperation struct {
+	Kind   WorkspaceUIPaneOperationKind  `json:"kind"`
+	PaneID string                        `json:"paneId"`
+	Move   *WorkspaceUIPaneMoveOperation `json:"move"`
+}
+
+type WorkspaceUIPaneMoveOperation struct {
 	Direction WorkspaceUIPaneMoveDirection `json:"direction"`
-	Kind      WorkspaceUIPaneOperationKind `json:"kind"`
-	PaneID    string                       `json:"paneId"`
 }
 
 type WorkspaceUIPaneOperationResult struct {
