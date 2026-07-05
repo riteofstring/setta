@@ -43,6 +43,16 @@ func TestValidateWorkspaceTerminalReadResponseRejectsMissingTerminalScreenMode(t
 	}
 }
 
+func TestValidateWorkspaceTerminalReadResponseRejectsMismatchedScreenText(t *testing.T) {
+	response := workspaceTerminalReadValidationResponse()
+	response.Terminal.Screen.ScreenText = "ready"
+
+	err := validateWorkspaceTerminalReadResponse(response, "workspace_api", "workspace_pane_1")
+	if err == nil || !strings.Contains(err.Error(), "screenText") {
+		t.Fatalf("validation error = %v, want mismatched screenText", err)
+	}
+}
+
 func workspaceTerminalReadValidationResponse() httpapi.ReadWorkspaceUITerminalResponse {
 	return httpapi.ReadWorkspaceUITerminalResponse{
 		WorkspaceID: "workspace_api",

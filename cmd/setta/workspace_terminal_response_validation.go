@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 	"unicode/utf8"
 
 	"setta/internal/httpapi"
@@ -112,6 +113,9 @@ func validateTerminalScreenLines(snapshot terminal.TerminalScreenSnapshot) error
 		if utf8.RuneCountInString(line) != snapshot.Cols {
 			return fmt.Errorf("terminal screen line %d width = %d, want %d", index, utf8.RuneCountInString(line), snapshot.Cols)
 		}
+	}
+	if snapshot.ScreenText != strings.Join(snapshot.Lines, "\n") {
+		return errors.New("terminal screenText does not match joined screen lines")
 	}
 	return nil
 }

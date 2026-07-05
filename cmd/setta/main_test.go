@@ -45,6 +45,26 @@ func TestVersionCommandPrintsEmbeddedVersion(t *testing.T) {
 	}
 }
 
+func TestHelpUsageIncludesWorkspaceCommands(t *testing.T) {
+	var stdout bytes.Buffer
+	deps := testDeps()
+	deps.stdout = &stdout
+
+	if code := runWithDeps([]string{"help"}, deps); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	usage := stdout.String()
+	for _, command := range []string{
+		"setta workspace panes reorder --input <path> [--app-data-dir DIR]",
+		"setta workspace layout apply --input <path> [--app-data-dir DIR]",
+		"setta workspace terminals read [--app-data-dir DIR] <pane-id> [--recent-output-byte-limit N]",
+	} {
+		if !strings.Contains(usage, command) {
+			t.Fatalf("usage missing %q:\n%s", command, usage)
+		}
+	}
+}
+
 func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()

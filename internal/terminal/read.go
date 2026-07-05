@@ -42,9 +42,8 @@ func (manager *Manager) ReadPane(
 	}
 	summary := terminalSession.summary()
 	screen := terminalSession.screen.Snapshot()
-	manager.mu.Unlock()
-
 	recentOutput, err := manager.eventHub.recentOutput(sessionID, limit)
+	manager.mu.Unlock()
 	if err != nil {
 		return TerminalReadResult{}, err
 	}
