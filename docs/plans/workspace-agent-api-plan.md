@@ -857,6 +857,12 @@ Progress on 2026-07-07:
   `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
   diffs because the write operation contract is still not endpoint-exposed, and
   `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi` passed.
+- Audit follow-up: expanded backend reorder reducer coverage for inserting a
+  pane into a new plane above the current first plane, rejecting missing swap and
+  plane-slot targets with stable error codes, and rejecting occupied plane-slot
+  drops without persisting partial layout changes.
+- Verification for the audit follow-up:
+  `./scripts/go.sh test ./internal/workspaceui` passed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
   event sync for open, then cut renderer-originated layout mutations over to
   that backend operation API before exposing agent or CLI workspace mutation

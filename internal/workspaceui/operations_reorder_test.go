@@ -276,6 +276,70 @@ func TestServiceAppliesReorderPanePlaneSlotIntent(t *testing.T) {
 	})
 }
 
+func TestServiceAppliesReorderPanePlaneSlotIntentAboveFirstPlane(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testMultiPlaneSlotLayout("workspace_api")
+	paneIndex := paneIndexByID(layout.Panes, "workspace_pane_1")
+	layout.Panes[paneIndex].HeightPX = intPointer(260)
+	layout.Panes[paneIndex].Weight = 1.8
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindReorderPane,
+		PaneID: "workspace_pane_1",
+		Reorder: reorderPanePlaneSlotOperation(
+			-1,
+			"workspace_column_2",
+			0,
+		),
+	})
+	if err != nil {
+		t.Fatalf("apply reorder operation: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("changed = false, want true")
+	}
+	if result.Layout.FocusedPaneID != "workspace_pane_1" {
+		t.Fatalf("focused pane = %q, want moved source pane", result.Layout.FocusedPaneID)
+	}
+	assertPaneIDs(t, result.Layout.Columns[0].PaneIDs, "workspace_pane_1")
+	assertPaneIDs(t, result.Layout.Columns[1].PaneIDs, "workspace_pane_0", "workspace_pane_2")
+	assertPaneIDs(t, result.Layout.Columns[2].PaneIDs, "workspace_pane_3")
+	if got := result.Layout.Columns[0]; got.ColumnID != "workspace_column_3" || got.PlaneIndex != 0 || got.SlotIndex != 0 || got.WidthSpec != (ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 360}) {
+		t.Fatalf("inserted column = %+v, want copied reference width in new first plane", got)
+	}
+	if got := result.Layout.Columns[1]; got.ColumnID != "workspace_column_0" || got.PlaneIndex != 1 {
+		t.Fatalf("existing first-plane column = %+v, want shifted to plane 1", got)
+	}
+	if got := result.Layout.Columns[2]; got.ColumnID != "workspace_column_2" || got.PlaneIndex != 2 {
+		t.Fatalf("existing lower-plane column = %+v, want shifted to plane 2", got)
+	}
+	movedPane := paneByID(t, result.Layout, "workspace_pane_1")
+	if movedPane.ColumnID != "workspace_column_3" || movedPane.Weight != 1 || movedPane.HeightPX != nil {
+		t.Fatalf("moved pane = %+v, want reset sizing in plane-slot column", movedPane)
+	}
+	assertReorderOutcome(t, result.OperationResult.Reorder, WorkspaceUIPaneReorderOutcome{
+		ColumnID:            "workspace_column_3",
+		ColumnIndex:         0,
+		CreatedColumnID:     "workspace_column_3",
+		DestinationColumnID: "workspace_column_3",
+		IntentKind:          WorkspaceUIPaneReorderIntentKindPlaneSlot,
+		PaneIndex:           0,
+		PlaneIndex:          0,
+		PreviousColumnID:    "workspace_column_1",
+		PreviousColumnIndex: 1,
+		PreviousPaneIndex:   0,
+		PreviousPlaneIndex:  0,
+		RemovedColumn:       true,
+		ResetPaneSizing:     true,
+		TargetColumnID:      "workspace_column_2",
+	})
+}
+
 func TestServiceReorderPaneOperationRejectsMissingTargets(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -294,12 +358,34 @@ func TestServiceReorderPaneOperationRejectsMissingTargets(t *testing.T) {
 	}
 
 	_, err = service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:    WorkspaceUIPaneOperationKindReorderPane,
+		PaneID:  "workspace_pane_0",
+		Reorder: reorderPaneSwapOperation("workspace_pane_missing"),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodePaneNotFound {
+		t.Fatalf("error = %T %v, want pane_not_found", err, err)
+	}
+
+	_, err = service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
 		Kind:   WorkspaceUIPaneOperationKindReorderPane,
 		PaneID: "workspace_pane_0",
 		Reorder: reorderPaneColumnOperation(
 			"workspace_column_missing",
 			0,
 			WorkspaceUIPaneDropPlacementBefore,
+		),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeColumnNotFound {
+		t.Fatalf("error = %T %v, want column_not_found", err, err)
+	}
+
+	_, err = service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindReorderPane,
+		PaneID: "workspace_pane_0",
+		Reorder: reorderPanePlaneSlotOperation(
+			1,
+			"workspace_column_missing",
+			0,
 		),
 	})
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeColumnNotFound {
@@ -315,6 +401,39 @@ func TestServiceReorderPaneOperationRejectsMissingTargets(t *testing.T) {
 	}
 	assertPaneIDs(t, loaded.Layout.Columns[0].PaneIDs, "workspace_pane_0", "workspace_pane_2")
 	assertPaneIDs(t, loaded.Layout.Columns[1].PaneIDs, "workspace_pane_1")
+}
+
+func TestServiceReorderPanePlaneSlotIntentRejectsOccupiedSlot(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testMultiPlaneSlotLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindReorderPane,
+		PaneID: "workspace_pane_1",
+		Reorder: reorderPanePlaneSlotOperation(
+			1,
+			"workspace_column_2",
+			0,
+		),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Revision != 1 {
+		t.Fatalf("loaded layout = %+v, want unchanged revision 1", loaded.Layout)
+	}
+	assertPaneIDs(t, loaded.Layout.Columns[0].PaneIDs, "workspace_pane_0", "workspace_pane_2")
+	assertPaneIDs(t, loaded.Layout.Columns[1].PaneIDs, "workspace_pane_1")
+	assertPaneIDs(t, loaded.Layout.Columns[2].PaneIDs, "workspace_pane_3")
 }
 
 func TestServicePaneOperationRejectsReorderWithResizePayload(t *testing.T) {
