@@ -560,6 +560,10 @@ func ContractValueSets() []ContractValueSet {
 			Values: stringValues(supportedOperationErrorCodes()),
 		},
 		{
+			Name:   "WorkspaceUIEventType",
+			Values: stringValues(supportedWorkspaceUIEventTypes()),
+		},
+		{
 			Name:   "WorkspaceUISurfaceCloseMode",
 			Values: stringValues(supportedSurfaceCloseModes()),
 		},
@@ -662,6 +666,13 @@ func supportedOperationErrorCodes() []WorkspaceUIOperationErrorCode {
 		WorkspaceUIOperationErrorCodePaneNotFound,
 		WorkspaceUIOperationErrorCodeUnsupportedOperation,
 		WorkspaceUIOperationErrorCodeUnsupportedSurfaceClose,
+	}
+}
+
+func supportedWorkspaceUIEventTypes() []WorkspaceUIEventType {
+	return []WorkspaceUIEventType{
+		WorkspaceUIEventTypeLayoutUpdated,
+		WorkspaceUIEventTypeResyncRequired,
 	}
 }
 

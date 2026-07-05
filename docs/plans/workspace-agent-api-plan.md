@@ -914,9 +914,9 @@ Progress on 2026-07-07:
   with no generated diffs because the write operation contract remains
   unexposed through the endpoint registry. Final gate: `./scripts/format.sh`
   and `./check_quality.sh --git-changes` passed.
-- Remaining Phase 2 work: add push-based workspace UI event sync, then cut
-  renderer-originated layout mutations over to the backend operation API before
-  exposing agent or CLI workspace mutation commands.
+- Backend workspace UI event publication follow-up: added a backend-only event hub without exposing an HTTP, CLI, IPC, renderer, or agent write surface. `SaveLayout` emits full-layout `workspace_ui.layout_updated` after persistence; subscriptions require workspace ID, replay by stream cursor, filter by workspace, emit `workspace_ui.resync_required` on stale cursors, and no-op pane operations do not publish.
+- Verification for the event publication follow-up: `./scripts/go.sh test ./internal/workspaceui`, `./scripts/go.sh run ./cmd/generate-contracts`, and `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi` passed; generator had no diffs because the event contract is not endpoint-exposed.
+- Remaining Phase 2 work: expose the HTTP/main/preload/web workspace UI event stream, apply newer layout revisions in renderers without polling, then cut renderer mutations to the backend API before agent/CLI writes.
 
 ### Phase 3: Renderer Event Sync
 
