@@ -254,7 +254,10 @@ async function assertUpwardWheelDetachesAutoFollowWhileStreaming(client) {
       `transcript did not perform upward-wheel history scroll: ${JSON.stringify(nearBottomScrolled)}`,
     );
   }
-  if (nearBottomScrolled.afterWheelSnapshot?.debug?.mode !== "user_detached") {
+  if (
+    nearBottomScrolled.afterWheelSnapshot?.debug?.mode !== "user_detached" ||
+    nearBottomScrolled.afterWheelSnapshot.debug.atBottom !== true
+  ) {
     throw new Error(
       `upward wheel did not detach through production event handling before scrollTop mutation: ${JSON.stringify(nearBottomScrolled.afterWheelSnapshot)}`,
     );

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 
@@ -30,16 +29,13 @@ func TestServiceProjectsActiveRunLivenessBeforeProviderRef(t *testing.T) {
 		t.Fatalf("active run = %+v ok=%v, want %s", run, ok, result.Run.ID)
 	}
 	assertRunLiveness(t, liveness, RunLiveness{
-		WorkspaceID:      "workspace_api",
-		ConversationID:   conversation.ID,
-		RunID:            result.Run.ID,
-		Harness:          HarnessCodex,
-		Status:           RunLivenessReconciling,
-		Reason:           RunLivenessReasonProviderRefPending,
-		Phase:            RunLivenessPhaseWaitingForProvider,
-		ActiveStatus:     runActiveStatus(RunActiveStatusWaitingForProvider, "Waiting for Codex", RunActiveHeadlineLiveness),
-		Cancellable:      true,
-		SteeringDisabled: "Codex has not linked a provider turn yet.",
+		WorkspaceID:    "workspace_api",
+		ConversationID: conversation.ID,
+		RunID:          result.Run.ID,
+		Harness:        HarnessCodex,
+		Status:         RunLivenessReconciling,
+		Reason:         RunLivenessReasonProviderRefPending,
+		Cancellable:    true,
 	})
 
 	list, err := service.ListConversations("workspace_api")
@@ -84,20 +80,16 @@ func TestServiceProjectsAttachedLivenessAfterProviderThreadLink(t *testing.T) {
 		t.Fatal("active run was missing after provider link")
 	}
 	assertRunLiveness(t, liveness, RunLiveness{
-		WorkspaceID:           "workspace_api",
-		ConversationID:        conversation.ID,
-		RunID:                 result.Run.ID,
-		Harness:               HarnessCodex,
-		Status:                RunLivenessAttached,
-		Reason:                RunLivenessReasonProviderTurnLinked,
-		Phase:                 RunLivenessPhaseAttached,
-		ActiveStatus:          runActiveStatus(RunActiveStatusWorking, "Working", RunActiveHeadlineFallback),
-		Cancellable:           true,
-		Steerable:             true,
-		ProviderThreadID:      "thread_live",
-		ProviderTurnID:        "turn_live",
-		LastProviderEventAt:   "2026-05-29T20:00:00Z",
-		LastVisibleActivityAt: "2026-05-29T20:00:00Z",
+		WorkspaceID:         "workspace_api",
+		ConversationID:      conversation.ID,
+		RunID:               result.Run.ID,
+		Harness:             HarnessCodex,
+		Status:              RunLivenessAttached,
+		Reason:              RunLivenessReasonProviderTurnLinked,
+		Cancellable:         true,
+		ProviderThreadID:    "thread_live",
+		ProviderTurnID:      "turn_live",
+		LastProviderEventAt: "2026-05-29T20:00:00Z",
 	})
 
 	events := receiveEventsUntil(t, subscription, func(event Event) bool {
@@ -110,182 +102,6 @@ func TestServiceProjectsAttachedLivenessAfterProviderThreadLink(t *testing.T) {
 	if payload.Status != RunLivenessReconciling && payload.Status != RunLivenessAttached {
 		t.Fatalf("first liveness event status = %q, want reconciling or attached", payload.Status)
 	}
-
-	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
-		t.Fatalf("cancel active run: %v", err)
-	}
-}
-
-func TestServiceUsesPublicReasoningHeadlineForActiveLiveness(t *testing.T) {
-	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
-		{Type: FakeEventThreadLinked, ThreadID: "thread_reason", SessionID: "session_reason", TurnID: "turn_reason"},
-		{Type: FakeEventWaitForCancel},
-	}))
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("reason"))
-	if err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_reason")
-
-	if err := service.upsertRunItem("workspace_api", conversation.ID, result.Run.ID, RunItem{
-		ProviderItemID: "reason_public",
-		Type:           RunItemTypeReasoning,
-		Status:         RunItemStatusRunning,
-		Title:          "Reasoning summary",
-		Progress:       "Preparing **Mapping",
-	}); err != nil {
-		t.Fatalf("upsert partial reasoning item: %v", err)
-	}
-	_, liveness, ok, err := service.ActiveRunWithLiveness("workspace_api", conversation.ID)
-	if err != nil || !ok {
-		t.Fatalf("active run with liveness ok=%v err=%v", ok, err)
-	}
-	if liveness.ActiveStatus != runActiveStatus(RunActiveStatusWorking, "Working", RunActiveHeadlineFallback) {
-		t.Fatalf("active status for partial headline = %+v, want working fallback", liveness.ActiveStatus)
-	}
-
-	if err := service.upsertRunItem("workspace_api", conversation.ID, result.Run.ID, RunItem{
-		ProviderItemID: "reason_public",
-		Type:           RunItemTypeReasoning,
-		Status:         RunItemStatusRunning,
-		Title:          "Reasoning summary",
-		Progress:       " parser modules** now that details arrived.\nChecked request flow and parser boundaries.",
-	}); err != nil {
-		t.Fatalf("upsert complete reasoning item: %v", err)
-	}
-	_, liveness, ok, err = service.ActiveRunWithLiveness("workspace_api", conversation.ID)
-	if err != nil || !ok {
-		t.Fatalf("active run with liveness ok=%v err=%v", ok, err)
-	}
-	if liveness.ActiveStatus != runActiveStatus(RunActiveStatusThinking, "Mapping parser modules", RunActiveHeadlinePublicReasoning) {
-		t.Fatalf("active status = %+v, want public reasoning headline", liveness.ActiveStatus)
-	}
-	if !liveness.Steerable || liveness.Phase != RunLivenessPhaseAttached {
-		t.Fatalf("liveness = %+v, want attached steerable thinking run", *liveness)
-	}
-
-	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
-		t.Fatalf("cancel active run: %v", err)
-	}
-}
-
-func TestServiceIgnoresPrivateReasoningForActiveLivenessHeadline(t *testing.T) {
-	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
-		{Type: FakeEventThreadLinked, ThreadID: "thread_private", SessionID: "session_private", TurnID: "turn_private"},
-		{Type: FakeEventWaitForCancel},
-	}))
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("private reason"))
-	if err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_private")
-
-	if err := service.upsertRunItem("workspace_api", conversation.ID, result.Run.ID, RunItem{
-		ProviderItemID: "reason_private",
-		Type:           RunItemTypeReasoning,
-		Status:         RunItemStatusRunning,
-		HiddenText:     "private chain of thought",
-	}); err != nil {
-		t.Fatalf("upsert private reasoning item: %v", err)
-	}
-	_, liveness, ok, err := service.ActiveRunWithLiveness("workspace_api", conversation.ID)
-	if err != nil || !ok {
-		t.Fatalf("active run with liveness ok=%v err=%v", ok, err)
-	}
-	if liveness.ActiveStatus != runActiveStatus(RunActiveStatusWorking, "Working", RunActiveHeadlineFallback) {
-		t.Fatalf("active status = %+v, want working fallback", liveness.ActiveStatus)
-	}
-
-	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
-		t.Fatalf("cancel active run: %v", err)
-	}
-}
-
-func TestServiceUpdatesAttachedLivenessFreshnessOnProviderEvents(t *testing.T) {
-	now := mustTime(t, "2026-05-29T20:00:00Z")
-	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
-		{Type: FakeEventThreadLinked, ThreadID: "thread_fresh", SessionID: "session_fresh", TurnID: "turn_fresh"},
-		{Type: FakeEventWaitForCancel},
-	}))
-	service.now = func() time.Time { return now }
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("fresh"))
-	if err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fresh")
-
-	now = now.Add(2 * time.Minute)
-	if err := service.appendAssistantDelta("workspace_api", conversation.ID, result.Run.ID, "answer", "fresh activity"); err != nil {
-		t.Fatalf("append assistant delta: %v", err)
-	}
-	_, liveness, ok, err := service.ActiveRunWithLiveness("workspace_api", conversation.ID)
-	if err != nil || !ok {
-		t.Fatalf("active run with liveness ok=%v err=%v", ok, err)
-	}
-	if liveness.LastProviderEventAt != "2026-05-29T20:02:00Z" || liveness.LastVisibleActivityAt != "2026-05-29T20:02:00Z" {
-		t.Fatalf("freshness timestamps = provider %q visible %q, want updated provider event time", liveness.LastProviderEventAt, liveness.LastVisibleActivityAt)
-	}
-
-	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
-		t.Fatalf("cancel active run: %v", err)
-	}
-}
-
-func TestServiceMarksInactiveAttachedRunStalled(t *testing.T) {
-	now := mustTime(t, "2026-05-29T20:00:00Z")
-	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
-		{Type: FakeEventThreadLinked, ThreadID: "thread_stale", SessionID: "session_stale", TurnID: "turn_stale"},
-		{Type: FakeEventWaitForCancel},
-	}))
-	service.now = func() time.Time { return now }
-	service.freshnessBudget = 10 * time.Millisecond
-	subscription, err := service.SubscribeEvents(EventCursor{})
-	if err != nil {
-		t.Fatalf("subscribe events: %v", err)
-	}
-	defer subscription.Unsubscribe()
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("stale"))
-	if err != nil {
-		t.Fatalf("send message: %v", err)
-	}
-	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_stale")
-	now = now.Add(time.Minute)
-
-	stalled := waitForRunLiveness(t, subscription, result.Run.ID, RunLivenessReconciling, RunLivenessReasonProviderInactive)
-	assertRunLiveness(t, &stalled, RunLiveness{
-		WorkspaceID:           "workspace_api",
-		ConversationID:        conversation.ID,
-		RunID:                 result.Run.ID,
-		Harness:               HarnessCodex,
-		Status:                RunLivenessReconciling,
-		Reason:                RunLivenessReasonProviderInactive,
-		Phase:                 RunLivenessPhaseStalled,
-		ActiveStatus:          runActiveStatus(RunActiveStatusStalled, "Waiting for Codex activity", RunActiveHeadlineLiveness),
-		Retryable:             true,
-		Cancellable:           true,
-		SteeringDisabled:      "Codex has not emitted activity recently.",
-		ProviderThreadID:      "thread_stale",
-		ProviderTurnID:        "turn_stale",
-		LastProviderEventAt:   "2026-05-29T20:00:00Z",
-		LastVisibleActivityAt: "2026-05-29T20:00:00Z",
-		LastReconciledAt:      "2026-05-29T20:01:00Z",
-	})
 
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
 		t.Fatalf("cancel active run: %v", err)
@@ -320,19 +136,15 @@ func TestServicePublishesTerminalRunLiveness(t *testing.T) {
 	})
 	terminal := requireRunLivenessPayload(t, events[len(events)-1])
 	assertRunLiveness(t, &terminal, RunLiveness{
-		WorkspaceID:           "workspace_api",
-		ConversationID:        conversation.ID,
-		RunID:                 result.Run.ID,
-		Harness:               HarnessCodex,
-		Status:                RunLivenessTerminal,
-		Reason:                RunLivenessReasonRunTerminal,
-		Phase:                 RunLivenessPhaseTerminal,
-		ActiveStatus:          runActiveStatus(RunActiveStatusFinished, "Finished", RunActiveHeadlineTerminal),
-		SteeringDisabled:      "The run has finished.",
-		ProviderThreadID:      "thread_done",
-		ProviderTurnID:        "turn_done",
-		LastProviderEventAt:   "2026-05-29T20:00:00Z",
-		LastVisibleActivityAt: "2026-05-29T20:00:00Z",
+		WorkspaceID:         "workspace_api",
+		ConversationID:      conversation.ID,
+		RunID:               result.Run.ID,
+		Harness:             HarnessCodex,
+		Status:              RunLivenessTerminal,
+		Reason:              RunLivenessReasonRunTerminal,
+		ProviderThreadID:    "thread_done",
+		ProviderTurnID:      "turn_done",
+		LastProviderEventAt: "2026-05-29T20:00:00Z",
 	})
 
 	if _, liveness, ok, err := service.ActiveRunWithLiveness("workspace_api", conversation.ID); err != nil || ok || liveness != nil {
@@ -366,22 +178,18 @@ func TestServiceProviderLifecycleErrorReconcilesWithProviderRestartedReason(t *t
 
 	restarted := waitForProviderRestartedLiveness(t, subscription, result.Run.ID)
 	assertRunLiveness(t, &restarted, RunLiveness{
-		WorkspaceID:           "workspace_api",
-		ConversationID:        conversation.ID,
-		RunID:                 result.Run.ID,
-		Harness:               HarnessCodex,
-		Status:                RunLivenessReconciling,
-		Reason:                RunLivenessReasonProviderRestarted,
-		Phase:                 RunLivenessPhaseReconnecting,
-		ActiveStatus:          runActiveStatus(RunActiveStatusReconnecting, "Reconnecting", RunActiveHeadlineLiveness),
-		Retryable:             true,
-		Cancellable:           true,
-		SteeringDisabled:      "Setta is reconnecting to Codex.",
-		ProviderThreadID:      "thread_restart",
-		ProviderTurnID:        "turn_restart",
-		LastProviderEventAt:   "2026-05-29T20:00:00Z",
-		LastVisibleActivityAt: "2026-05-29T20:00:00Z",
-		LastReconciledAt:      "2026-05-29T20:00:00Z",
+		WorkspaceID:         "workspace_api",
+		ConversationID:      conversation.ID,
+		RunID:               result.Run.ID,
+		Harness:             HarnessCodex,
+		Status:              RunLivenessReconciling,
+		Reason:              RunLivenessReasonProviderRestarted,
+		Retryable:           true,
+		Cancellable:         true,
+		ProviderThreadID:    "thread_restart",
+		ProviderTurnID:      "turn_restart",
+		LastProviderEventAt: "2026-05-29T20:00:00Z",
+		LastReconciledAt:    "2026-05-29T20:00:00Z",
 	})
 	assertProviderRestartReconcileRequest(t, harness)
 	assertActiveRunLiveness(t, service, conversation.ID, restarted)
@@ -726,13 +534,21 @@ func assertRunLiveness(t *testing.T, got *RunLiveness, want RunLiveness) {
 	if got == nil {
 		t.Fatalf("liveness was nil, want %+v", want)
 	}
-	if !reflect.DeepEqual(*got, want) {
+	if got.WorkspaceID != want.WorkspaceID ||
+		got.ConversationID != want.ConversationID ||
+		got.RunID != want.RunID ||
+		got.Harness != want.Harness ||
+		got.Status != want.Status ||
+		got.Reason != want.Reason ||
+		got.Retryable != want.Retryable ||
+		got.Cancellable != want.Cancellable ||
+		got.ProviderThreadID != want.ProviderThreadID ||
+		got.ProviderTurnID != want.ProviderTurnID ||
+		got.LastProviderEventAt != want.LastProviderEventAt ||
+		got.LastReconciledAt != want.LastReconciledAt ||
+		got.Error != want.Error {
 		t.Fatalf("liveness = %+v, want %+v", *got, want)
 	}
-}
-
-func runActiveStatus(kind RunActiveStatusKind, headline string, source RunActiveHeadlineSource) RunActiveStatus {
-	return RunActiveStatus{Kind: kind, Headline: headline, HeadlineSource: source}
 }
 
 func requireRunLivenessPayload(t *testing.T, event Event) RunLiveness {

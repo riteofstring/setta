@@ -128,7 +128,6 @@ function focusTextareaSoon(textarea: HTMLTextAreaElement) {
 
 export function PermissionPickerButton({
   disabled,
-  disabledReason: disabledReasonOverride,
   onOpen,
   onSelect,
   permissionPicker,
@@ -146,13 +145,11 @@ export function PermissionPickerButton({
 }) {
   const open = permissionPicker?.result.action === "permission_picker";
   const label = permissionPickerLabel(permissionPicker, permissionLabel);
-  const disabledReason =
-    disabledReasonOverride ??
-    permissionPickerDisabledReason({
-      disabled,
-      running,
-      selected,
-    });
+  const disabledReason = permissionPickerDisabledReason({
+    disabled,
+    running,
+    selected,
+  });
   return (
     <div className="relative inline-flex min-w-0">
       <button
@@ -343,7 +340,6 @@ function DisabledIconButton({
 
 export function ModelPickerButton({
   disabled,
-  disabledReason: disabledReasonOverride,
   modelLabel,
   modelPicker,
   onOpen,
@@ -360,13 +356,11 @@ export function ModelPickerButton({
   selected: boolean;
 }) {
   const summary = modelPickerSummary(modelPicker, modelLabel, reasoningLabel);
-  const disabledReason =
-    disabledReasonOverride ??
-    modelPickerDisabledReason({
-      disabled,
-      running,
-      selected,
-    });
+  const disabledReason = modelPickerDisabledReason({
+    disabled,
+    running,
+    selected,
+  });
   return (
     <button
       aria-expanded={modelPicker?.result.action === "model_picker" ? "true" : "false"}
@@ -499,7 +493,7 @@ export function ComposerButton({
   sendImmediateSteering?: () => Promise<void>;
   stopActiveRun?: () => Promise<void>;
 }) {
-  if (running && !runPresentation.canSteer) {
+  if (running && runPresentation.kind !== "working") {
     return (
       <DegradedRunButtons
         operation={operation}

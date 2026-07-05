@@ -72,7 +72,6 @@ export interface ChatTranscriptProps {
   loadRunItemOutput?: LoadRunItemOutput;
   messages: ChatMessage[];
   operation: string | null;
-  pendingSteeringMessages: ChatMessage[];
   queuedMessages: ChatMessage[];
   removeQueuedMessage?: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
@@ -411,7 +410,6 @@ export function ChatTranscript({
   loadRunItemOutput,
   messages,
   operation,
-  pendingSteeringMessages,
   queuedMessages,
   removeQueuedMessage,
   removingQueuedMessageId,
@@ -453,17 +451,9 @@ export function ChatTranscript({
         expandedActivityGroupIds,
         forceExpandedActivitySourceRunItemIds: focusedActivitySourceRunItemIds,
         messages,
-        pendingSteeringMessages,
         queuedMessages,
       }),
-    [
-      blocks,
-      expandedActivityGroupIds,
-      focusedActivitySourceRunItemIds,
-      messages,
-      pendingSteeringMessages,
-      queuedMessages,
-    ],
+    [blocks, expandedActivityGroupIds, focusedActivitySourceRunItemIds, messages, queuedMessages],
   );
   const baseSearchIndex = useMemo(() => transcriptSearchIndex(baseRows), [baseRows]);
   const search = useTranscriptSearch({
@@ -497,7 +487,6 @@ export function ChatTranscript({
         forceExpandedActivityBlockIds,
         forceExpandedActivitySourceRunItemIds: focusedActivitySourceRunItemIds,
         messages,
-        pendingSteeringMessages,
         queuedMessages,
       }),
     [
@@ -506,7 +495,6 @@ export function ChatTranscript({
       focusedActivitySourceRunItemIds,
       forceExpandedActivityBlockIds,
       messages,
-      pendingSteeringMessages,
       queuedMessages,
     ],
   );
@@ -517,10 +505,9 @@ export function ChatTranscript({
         blocks,
         expandedActivityGroupIds: collapsedActivityGroupIds,
         messages,
-        pendingSteeringMessages,
         queuedMessages,
       }),
-    [blocks, messages, pendingSteeringMessages, queuedMessages],
+    [blocks, messages, queuedMessages],
   );
   const tailRevision = useMemo(
     () =>

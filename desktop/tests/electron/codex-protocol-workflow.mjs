@@ -665,9 +665,9 @@ export async function runProtocolLivenessReconciliationWorkflow(client, backend,
     },
   ]);
   assertReconciledRunLiveness(reconciled, run.id);
-  await waitForRendererLiveness(client, run.id, "reconciling", "reconnecting");
-  await waitForTexts(client, ["Checking Codex"]);
-  await assertRunLivenessControls(client, { retry: true, stop: true });
+  await waitForRendererLiveness(client, run.id, "reconciling", "working");
+  await waitForTexts(client, ["Working"]);
+  await assertRunLivenessControls(client, { retry: false, stop: true });
 
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
@@ -826,7 +826,7 @@ export async function runProtocolStreamErrorLivenessWorkflow(client, backend, wo
     "running",
   );
   await waitForTexts(client, ["Partial before stream loss."]);
-  await waitForRendererLiveness(client, lostRun.id, "lost", "connection_lost");
+  await waitForRendererLiveness(client, lostRun.id, "lost", "lost");
   await assertConversationSidebarIndicator(
     client,
     "nonretryable stream error workflow",

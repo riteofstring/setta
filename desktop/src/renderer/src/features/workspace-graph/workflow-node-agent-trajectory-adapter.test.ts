@@ -4,7 +4,6 @@ import type {
   RunItem,
   RunItemOutput,
   RunItemOutputPage,
-  RunLiveness,
   WorkflowAgentTrajectoryPage,
 } from "@generated/backend";
 import { describe, expect, test } from "vitest";
@@ -518,12 +517,21 @@ function trajectoryPage(
 function stoppableTrajectoryPage() {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
-    activeRunLiveness: trajectoryRunLiveness({
+    activeRunLiveness: {
+      cancellable: true,
+      conversationId: "conversation_api",
+      error: "",
+      harness: "codex",
+      lastProviderEventAt: "2026-06-07T00:00:01Z",
+      lastReconciledAt: "",
+      providerThreadId: "thread_api",
+      providerTurnId: "turn_api",
+      reason: "provider_turn_linked",
+      retryable: false,
       runId: "run_a",
-      steerable: false,
-      steeringDisabledReason: "Codex has not linked a provider turn yet.",
+      status: "attached",
       workspaceId: "workspace_test",
-    }),
+    },
     capabilities: {
       canLoadOlderHistory: true,
       canLoadMoreActivity: false,
@@ -540,10 +548,21 @@ function stoppableTrajectoryPage() {
 function steerableTrajectoryPage() {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
-    activeRunLiveness: trajectoryRunLiveness({
+    activeRunLiveness: {
+      cancellable: true,
+      conversationId: "conversation_api",
+      error: "",
+      harness: "codex",
+      lastProviderEventAt: "2026-06-07T00:00:01Z",
+      lastReconciledAt: "",
+      providerThreadId: "thread_api",
+      providerTurnId: "turn_api",
+      reason: "provider_turn_linked",
+      retryable: false,
       runId: "run_a",
+      status: "attached",
       workspaceId: "workspace_test",
-    }),
+    },
     capabilities: {
       canLoadOlderHistory: true,
       canLoadMoreActivity: false,
@@ -560,24 +579,21 @@ function steerableTrajectoryPage() {
 function retryableTrajectoryPage() {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
-    activeRunLiveness: trajectoryRunLiveness({
-      activeStatus: {
-        detail: "stream disconnected before completion",
-        headline: "Reconnecting",
-        headlineSource: "liveness",
-        kind: "reconnecting",
-      },
+    activeRunLiveness: {
+      cancellable: true,
+      conversationId: "conversation_api",
       error: "stream disconnected before completion",
+      harness: "codex",
+      lastProviderEventAt: "2026-06-07T00:00:01Z",
       lastReconciledAt: "2026-06-07T00:00:02Z",
-      phase: "reconnecting",
+      providerThreadId: "thread_api",
+      providerTurnId: "turn_api",
       reason: "user_retry",
       retryable: true,
       runId: "run_a",
       status: "reconciling",
-      steerable: false,
-      steeringDisabledReason: "Setta is reconnecting to Codex.",
       workspaceId: "workspace_test",
-    }),
+    },
     capabilities: {
       canLoadOlderHistory: true,
       canLoadMoreActivity: false,
@@ -589,35 +605,6 @@ function retryableTrajectoryPage() {
     },
     run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
   });
-}
-
-function trajectoryRunLiveness(overrides: Partial<RunLiveness> = {}): RunLiveness {
-  return {
-    activeStatus: {
-      detail: "",
-      headline: "Working",
-      headlineSource: "fallback",
-      kind: "working",
-    },
-    cancellable: true,
-    conversationId: "conversation_api",
-    error: "",
-    harness: "codex",
-    lastProviderEventAt: "2026-06-07T00:00:01Z",
-    lastVisibleActivityAt: "2026-06-07T00:00:01Z",
-    lastReconciledAt: "",
-    phase: "attached",
-    providerThreadId: "thread_api",
-    providerTurnId: "turn_api",
-    reason: "provider_turn_linked",
-    retryable: false,
-    runId: "run_a",
-    status: "attached",
-    steerable: true,
-    steeringDisabledReason: "",
-    workspaceId: "workspace_test",
-    ...overrides,
-  };
 }
 
 function runItem(): RunItem {

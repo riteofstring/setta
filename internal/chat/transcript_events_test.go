@@ -283,8 +283,8 @@ func TestTranscriptReasoningModeUpdateEvent(t *testing.T) {
 	}
 }
 
-// TestTranscriptSteeringBlockCreatedEvent verifies a provider-committed steering
-// message publishes a created user_message block at the provider insertion point,
+// TestTranscriptSteeringBlockCreatedEvent verifies a steering message sent into an
+// active run publishes a created user_message block for the interleaved steering,
 // distinct from the trigger block.
 func TestTranscriptSteeringBlockCreatedEvent(t *testing.T) {
 	steered := make(chan string, 1)

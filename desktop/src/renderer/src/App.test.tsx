@@ -12,12 +12,7 @@ import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { App, sidebarWorkspaceBusy } from "./App";
-import {
-  activityDetails,
-  queuedChatMessage,
-  runLivenessActiveStatus,
-  runLivenessPhase,
-} from "./App.test.fixtures";
+import { activityDetails, queuedChatMessage } from "./App.test.fixtures";
 import { compactPaneWidth } from "./app-layout";
 import {
   ChatTranscript,
@@ -440,8 +435,8 @@ describe("workspace renderer states", () => {
       />,
     );
 
-    expect(hasAriaLabel(html, "Chat response running")).toBe(false);
-    expect(hasAriaLabel(html, "Chat response reconnecting")).toBe(true);
+    expect(hasAriaLabel(html, "Chat response running")).toBe(true);
+    expect(hasAriaLabel(html, "Chat response reconnecting")).toBe(false);
   });
 
   test("bounds large workspace list row rendering", () => {
@@ -678,10 +673,10 @@ describe("chat renderer states", () => {
       />,
     );
 
-    expect(html).toContain('data-run-status-mode="reconnecting"');
+    expect(html).toContain('data-run-status-mode="working"');
     expect(html).toContain('data-live-headline="active"');
-    expect(html).toContain("Reconnecting");
-    expect(html).not.toContain("Working");
+    expect(html).toContain("Working");
+    expect(html).not.toContain("Reconnecting");
   });
 
   test("renders stream resync as reconnecting without the normal working indicator", () => {
@@ -707,7 +702,7 @@ describe("chat renderer states", () => {
 
     expect(html).toContain('data-run-status-mode="reconnecting"');
     expect(html).toContain("Reconnecting");
-    expect(html).not.toContain("Working");
+    expect(html).not.toContain('data-live-headline="active"');
   });
 
   test("renders lost run status without the normal working indicator", () => {
@@ -729,10 +724,10 @@ describe("chat renderer states", () => {
       />,
     );
 
-    expect(html).toContain('data-run-status-mode="connection_lost"');
+    expect(html).toContain('data-run-status-mode="lost"');
     expect(html).toContain("Connection lost");
     expect(html).toContain("thread/read failed");
-    expect(html).not.toContain("Working");
+    expect(html).not.toContain('data-live-headline="active"');
   });
 
   test("renders queued, steering, and slim activity rows", () => {
@@ -1105,17 +1100,7 @@ describe("chat renderer states", () => {
     const html = renderToString(
       <TestChatTranscript
         activeRun={activeRun}
-        activeRunLiveness={runLivenessFixture(activeRun, "attached", {
-          activeStatus: {
-            detail: "",
-            headline: "Awaiting approval",
-            headlineSource: "approval",
-            kind: "blocked",
-          },
-          phase: "blocked",
-          steerable: false,
-          steeringDisabledReason: "Codex is waiting for approval.",
-        })}
+        activeRunLiveness={runLivenessFixture(activeRun, "attached")}
         blocks={[
           runStatusBlock({
             id: "block_working",
@@ -1129,9 +1114,9 @@ describe("chat renderer states", () => {
       />,
     );
 
-    expect(html).toContain('data-run-status-mode="blocked"');
+    expect(html).toContain('data-run-status-mode="approval"');
     expect(html).toContain("Awaiting approval");
-    expect(html).not.toContain("Working");
+    expect(html).not.toContain('data-live-headline="active"');
   });
 });
 
@@ -1144,7 +1129,6 @@ interface TestChatTranscriptOptions {
   focusedSourceRunItemId?: string | null;
   messages?: ChatMessage[];
   operation?: string | null;
-  pendingSteeringMessages?: ChatMessage[];
   queuedMessages?: ChatMessage[];
   removeQueuedMessage?: ChatTranscriptProps["removeQueuedMessage"];
   removingQueuedMessageId?: string | null;
@@ -1178,7 +1162,6 @@ function TestChatTranscript(options: TestChatTranscriptOptions) {
     focusedSourceRunItemId: null,
     messages: [],
     operation: null,
-    pendingSteeringMessages: [],
     queuedMessages: [],
     removeQueuedMessage: noop,
     removingQueuedMessageId: null,
@@ -1202,7 +1185,6 @@ function TestChatTranscript(options: TestChatTranscriptOptions) {
       loadRunItemOutput={noop}
       messages={resolved.messages}
       operation={resolved.operation}
-      pendingSteeringMessages={resolved.pendingSteeringMessages}
       queuedMessages={resolved.queuedMessages}
       removeQueuedMessage={resolved.removeQueuedMessage}
       removingQueuedMessageId={resolved.removingQueuedMessageId}
@@ -1238,17 +1220,13 @@ function runLivenessFixture(
   status: RunLiveness["status"],
   values: Partial<RunLiveness> = {},
 ): RunLiveness {
-  const activeStatus = values.activeStatus ?? runLivenessActiveStatus(status);
   return {
-    activeStatus,
     cancellable: status !== "terminal",
     conversationId: run.conversationId,
     error: "",
     harness: run.harness,
     lastProviderEventAt: "2026-05-29T20:00:00Z",
-    lastVisibleActivityAt: "2026-05-29T20:00:00Z",
     lastReconciledAt: "",
-    phase: runLivenessPhase(status),
     providerThreadId: "thread_api",
     providerTurnId: "turn_api",
     reason:
@@ -1262,8 +1240,6 @@ function runLivenessFixture(
     retryable: status === "reconciling" || status === "lost",
     runId: run.id,
     status,
-    steerable: status === "attached",
-    steeringDisabledReason: status === "attached" ? "" : "Setta is checking the provider turn.",
     workspaceId: run.workspaceId,
     ...values,
   };

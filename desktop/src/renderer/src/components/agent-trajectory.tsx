@@ -55,7 +55,6 @@ export interface AgentTrajectoryViewModel {
   hasMoreOlder: boolean;
   messages: ChatMessage[];
   operation: string | null;
-  pendingSteeringMessages: ChatMessage[];
   queuedMessages: ChatMessage[];
   removingQueuedMessageId: string | null;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
@@ -110,7 +109,6 @@ export function AgentTrajectorySurface({
         loadRunItemOutput={resolvedActions.loadRunItemOutput}
         messages={viewModel.messages}
         operation={viewModel.operation}
-        pendingSteeringMessages={viewModel.pendingSteeringMessages}
         queuedMessages={viewModel.queuedMessages}
         removeQueuedMessage={resolvedActions.removeQueuedMessage}
         removingQueuedMessageId={viewModel.removingQueuedMessageId}

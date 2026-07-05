@@ -1,9 +1,4 @@
-import type {
-  ChatMessage,
-  MessageStatus,
-  RunActivityDetailsProjection,
-  RunLiveness,
-} from "@generated/backend";
+import type { ChatMessage, MessageStatus, RunActivityDetailsProjection } from "@generated/backend";
 
 // activityDetails builds a complete RunActivityDetailsProjection from a partial
 // override so activity_item block fixtures can set just the fields a test cares
@@ -74,47 +69,3 @@ export function queuedChatMessage(
     updatedAt: "2026-05-29T20:00:00Z",
   };
 }
-
-export function runLivenessActiveStatus(
-  status: RunLiveness["status"],
-): RunLiveness["activeStatus"] {
-  return runLivenessActiveStatusByStatus[status];
-}
-
-export function runLivenessPhase(status: RunLiveness["status"]): RunLiveness["phase"] {
-  return runLivenessPhaseByStatus[status];
-}
-
-const runLivenessActiveStatusByStatus = {
-  attached: {
-    detail: "",
-    headline: "Working",
-    headlineSource: "fallback",
-    kind: "working",
-  },
-  lost: {
-    detail: "",
-    headline: "Connection lost",
-    headlineSource: "liveness",
-    kind: "connection_lost",
-  },
-  reconciling: {
-    detail: "",
-    headline: "Reconnecting",
-    headlineSource: "liveness",
-    kind: "reconnecting",
-  },
-  terminal: {
-    detail: "",
-    headline: "Finished",
-    headlineSource: "terminal",
-    kind: "finished",
-  },
-} satisfies Record<RunLiveness["status"], RunLiveness["activeStatus"]>;
-
-const runLivenessPhaseByStatus = {
-  attached: "attached",
-  lost: "lost",
-  reconciling: "reconnecting",
-  terminal: "terminal",
-} satisfies Record<RunLiveness["status"], RunLiveness["phase"]>;

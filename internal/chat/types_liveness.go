@@ -42,65 +42,22 @@ var (
 		RunLivenessReasonProviderUnavailable,
 		RunLivenessReasonTurnNotFound,
 	}
-	runLivenessPhaseValues = []RunLivenessPhase{
-		RunLivenessPhaseStarting,
-		RunLivenessPhaseWaitingForProvider,
-		RunLivenessPhaseAttached,
-		RunLivenessPhaseStalled,
-		RunLivenessPhaseReconnecting,
-		RunLivenessPhaseLost,
-		RunLivenessPhaseBlocked,
-		RunLivenessPhaseTerminal,
-	}
-	runActiveStatusKindValues = []RunActiveStatusKind{
-		RunActiveStatusStarting,
-		RunActiveStatusWaitingForProvider,
-		RunActiveStatusWorking,
-		RunActiveStatusThinking,
-		RunActiveStatusWaiting,
-		RunActiveStatusStalled,
-		RunActiveStatusReconnecting,
-		RunActiveStatusConnectionLost,
-		RunActiveStatusBlocked,
-		RunActiveStatusFinished,
-	}
-	runActiveHeadlineSourceValues = []RunActiveHeadlineSource{
-		RunActiveHeadlineNone,
-		RunActiveHeadlineFallback,
-		RunActiveHeadlinePublicReasoning,
-		RunActiveHeadlineCommand,
-		RunActiveHeadlineApproval,
-		RunActiveHeadlineLiveness,
-		RunActiveHeadlineTerminal,
-	}
 )
 
-type RunActiveStatus struct {
-	Kind           RunActiveStatusKind     `json:"kind"`
-	Headline       string                  `json:"headline"`
-	HeadlineSource RunActiveHeadlineSource `json:"headlineSource"`
-	Detail         string                  `json:"detail"`
-}
-
 type RunLiveness struct {
-	WorkspaceID           string            `json:"workspaceId"`
-	ConversationID        string            `json:"conversationId"`
-	RunID                 string            `json:"runId"`
-	Harness               HarnessKind       `json:"harness"`
-	Status                RunLivenessStatus `json:"status"`
-	Reason                RunLivenessReason `json:"reason"`
-	Phase                 RunLivenessPhase  `json:"phase"`
-	ActiveStatus          RunActiveStatus   `json:"activeStatus"`
-	Retryable             bool              `json:"retryable"`
-	Cancellable           bool              `json:"cancellable"`
-	Steerable             bool              `json:"steerable"`
-	SteeringDisabled      string            `json:"steeringDisabledReason"`
-	ProviderThreadID      string            `json:"providerThreadId"`
-	ProviderTurnID        string            `json:"providerTurnId"`
-	LastProviderEventAt   string            `json:"lastProviderEventAt"`
-	LastVisibleActivityAt string            `json:"lastVisibleActivityAt"`
-	LastReconciledAt      string            `json:"lastReconciledAt"`
-	Error                 string            `json:"error"`
+	WorkspaceID         string            `json:"workspaceId"`
+	ConversationID      string            `json:"conversationId"`
+	RunID               string            `json:"runId"`
+	Harness             HarnessKind       `json:"harness"`
+	Status              RunLivenessStatus `json:"status"`
+	Reason              RunLivenessReason `json:"reason"`
+	Retryable           bool              `json:"retryable"`
+	Cancellable         bool              `json:"cancellable"`
+	ProviderThreadID    string            `json:"providerThreadId"`
+	ProviderTurnID      string            `json:"providerTurnId"`
+	LastProviderEventAt string            `json:"lastProviderEventAt"`
+	LastReconciledAt    string            `json:"lastReconciledAt"`
+	Error               string            `json:"error"`
 }
 
 type RunLivenessReconciliationResult struct {

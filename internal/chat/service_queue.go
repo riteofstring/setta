@@ -946,7 +946,7 @@ func (service *Service) markPendingSteeringCommitted(workspaceID string, convers
 		if err := service.store.SaveMessage(workspaceID, message); err != nil {
 			return err
 		}
-		if err := service.ensureCommittedSteeringMessageBlockLocked(workspaceID, conversationID, runID, message); err != nil {
+		if err := service.syncUserMessageBlockLocked(workspaceID, conversationID, runID, message); err != nil {
 			return err
 		}
 		if err := service.traceLocked(workspaceID, runID, "steering_message_committed", "Steering message committed by provider"); err != nil {
@@ -958,17 +958,6 @@ func (service *Service) markPendingSteeringCommitted(workspaceID string, convers
 		return service.publishFreshProviderEventLivenessLocked(workspaceID, conversationID, runID)
 	}
 	return nil
-}
-
-func (service *Service) ensureCommittedSteeringMessageBlockLocked(workspaceID string, conversationID string, runID string, message ChatMessage) error {
-	active, ok := service.active[activeKey(workspaceID, conversationID)]
-	if !ok || active.runID != runID || active.transcript == nil {
-		return nil
-	}
-	if _, exists := active.transcript.userMessageBlockByID[message.ID]; exists {
-		return service.syncUserMessageBlockLocked(workspaceID, conversationID, runID, message)
-	}
-	return service.appendUserMessageBlockLocked(workspaceID, active.transcript, message)
 }
 
 func (service *Service) markPendingSteeringMessagesLocked(workspaceID string, conversationID string, runID string, status MessageStatus) ([]ChatMessage, error) {

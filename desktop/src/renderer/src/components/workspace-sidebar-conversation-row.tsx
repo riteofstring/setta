@@ -246,41 +246,37 @@ function conversationRunIndicator(
 function runIndicatorForActiveRunPresentation(
   kind: ReturnType<typeof activeRunPresentation>["kind"],
 ): ConversationRunIndicator {
-  return activeRunConversationIndicators[kind];
+  switch (kind) {
+    case "blocked":
+    case "working":
+      return "working";
+    case "reconnecting":
+      return "reconnecting";
+    case "lost":
+      return "lost";
+    case "idle":
+      return null;
+    default:
+      return assertNever(kind);
+  }
 }
 
 function runIndicatorForLivenessPresentation(
   kind: RunLivenessPresentationKind,
 ): ConversationRunIndicator {
-  return livenessConversationIndicators[kind];
+  switch (kind) {
+    case "working":
+      return "working";
+    case "reconnecting":
+      return "reconnecting";
+    case "lost":
+      return "lost";
+    case "terminal":
+      return null;
+    default:
+      return assertNever(kind);
+  }
 }
-
-const activeRunConversationIndicators = {
-  blocked: "working",
-  connection_lost: "lost",
-  finished: null,
-  idle: null,
-  reconnecting: "reconnecting",
-  stalled: "reconnecting",
-  starting: "working",
-  thinking: "working",
-  waiting: "working",
-  waiting_for_provider: "working",
-  working: "working",
-} satisfies Record<ReturnType<typeof activeRunPresentation>["kind"], ConversationRunIndicator>;
-
-const livenessConversationIndicators = {
-  blocked: "working",
-  connection_lost: "lost",
-  finished: null,
-  reconnecting: "reconnecting",
-  stalled: "reconnecting",
-  starting: "working",
-  thinking: "working",
-  waiting: "working",
-  waiting_for_provider: "working",
-  working: "working",
-} satisfies Record<RunLivenessPresentationKind, ConversationRunIndicator>;
 
 function clampedHoverCardTop(rowRect: DOMRect, cardHeight: number) {
   const maxTop = Math.max(
@@ -341,6 +337,10 @@ function ConversationStatusIndicator({
       ) : null}
     </span>
   );
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled conversation run indicator: ${JSON.stringify(value)}`);
 }
 
 function formatConversationAge(updatedAt: string) {

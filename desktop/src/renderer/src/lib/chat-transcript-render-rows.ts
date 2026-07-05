@@ -12,12 +12,11 @@ import {
 // header by default. Member rows are emitted only when the user expands that
 // group or when focus/search targets a hidden member.
 //
-// Three message sources are not transcript blocks and are merged in here:
-// standalone messages that do not belong to a run (command results, system
-// notices) sort by their conversation message ordinal among the runs, pending
-// steering waits behind the active run, and queued messages wait at the tail.
-// Messages never drive block content; they only contribute these non-block rows
-// and the conversation ordinal used to place standalone rows.
+// Two message sources are not transcript blocks and are merged in here: standalone
+// messages that do not belong to a run (command results, system notices) sort by
+// their conversation message ordinal among the runs, and queued messages wait at
+// the tail. Messages never drive block content; they only contribute these
+// non-block rows and the conversation ordinal used to place standalone rows.
 
 export type TranscriptRenderRow =
   | {
@@ -69,7 +68,6 @@ export interface TranscriptRenderSource {
   forceExpandedActivityBlockIds?: ReadonlySet<string>;
   forceExpandedActivitySourceRunItemIds?: ReadonlySet<string>;
   messages: ChatMessage[];
-  pendingSteeringMessages?: ChatMessage[];
   queuedMessages: ChatMessage[];
 }
 
@@ -91,14 +89,6 @@ export function transcriptRenderRows(source: TranscriptRenderSource): Transcript
   const entries: TranscriptRenderEntry[] = [];
   for (const item of ordered) {
     appendOrderedItemEntries(entries, item, context);
-  }
-  for (const message of source.pendingSteeringMessages ?? []) {
-    entries.push({
-      kind: "message",
-      key: `pending-steering:${message.id}`,
-      message,
-      showTimestamp: true,
-    });
   }
   for (const message of source.queuedMessages) {
     if (message.delivery !== "goal") {

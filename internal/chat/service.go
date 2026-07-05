@@ -13,11 +13,10 @@ import (
 )
 
 const (
-	defaultPageLimit                  = 40
-	defaultRunLivenessFreshnessBudget = 90 * time.Second
-	deltaPersistInterval              = 250 * time.Millisecond
-	maxConversationTitle              = 80
-	maxPromptSummary                  = 120
+	defaultPageLimit     = 40
+	deltaPersistInterval = 250 * time.Millisecond
+	maxConversationTitle = 80
+	maxPromptSummary     = 120
 )
 
 type WorkspaceResolver interface {
@@ -34,14 +33,12 @@ type Service struct {
 	codexDefaults     ChatCodexDefaults
 	newID             func(prefix string) (string, error)
 	now               func() time.Time
-	freshnessBudget   time.Duration
 
 	postCommitTurnStartInterceptor func(postCommitHarnessTurnStart) postCommitHarnessTurnStart
 
-	mu             sync.Mutex
-	active         map[string]activeTurn
-	liveness       map[string]RunLiveness
-	livenessTimers map[string]*time.Timer
+	mu       sync.Mutex
+	active   map[string]activeTurn
+	liveness map[string]RunLiveness
 
 	backgroundOutputMu       sync.Mutex
 	backgroundOutputBatches  map[backgroundTerminalOutputBatchKey][]backgroundTerminalOutputEntry
@@ -55,6 +52,23 @@ type Service struct {
 }
 
 type Option func(*Service)
+
+type activeTurn struct {
+	assistantMessage            ChatMessage
+	assistantTextByProviderItem map[string]assistantProviderTextState
+	completedAssistantTexts     []string
+	cancel                      context.CancelFunc
+	cancelDrain                 bool
+	goalOperation               HarnessGoalOperation
+	lastPersistedAt             time.Time
+	livenessCheckGeneration     uint64
+	providerEventGeneration     uint64
+	runID                       string
+	threadID                    string
+	turnID                      string
+	workspaceID                 string
+	transcript                  *transcriptIngest
+}
 
 type SendMessageResult struct {
 	Conversation     Conversation `json:"conversation"`
@@ -79,11 +93,9 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		workspaceResolver:        workspaceResolver,
 		newID:                    randomID,
 		now:                      time.Now,
-		freshnessBudget:          defaultRunLivenessFreshnessBudget,
 		codexDefaults:            codexDefaults,
 		active:                   map[string]activeTurn{},
 		liveness:                 map[string]RunLiveness{},
-		livenessTimers:           map[string]*time.Timer{},
 		backgroundOutputBatches:  map[backgroundTerminalOutputBatchKey][]backgroundTerminalOutputEntry{},
 		backgroundOutputFlushes:  map[backgroundTerminalOutputBatchKey][][]backgroundTerminalOutputEntry{},
 		backgroundOutputTimers:   map[backgroundTerminalOutputBatchKey]*time.Timer{},
@@ -161,12 +173,6 @@ func WithIDGenerator(newID func(prefix string) (string, error)) Option {
 func WithClock(now func() time.Time) Option {
 	return func(service *Service) {
 		service.now = now
-	}
-}
-
-func WithRunLivenessFreshnessBudget(budget time.Duration) Option {
-	return func(service *Service) {
-		service.freshnessBudget = budget
 	}
 }
 

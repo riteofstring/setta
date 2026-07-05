@@ -31,7 +31,6 @@ func (service *Service) handleProviderTurnError(workspaceID string, conversation
 	if providerError.Retryable {
 		liveness = service.markActiveRunLivenessReconcilingLocked(workspaceID, conversationID, run, active, RunLivenessReasonStreamResync, observedAt)
 		liveness.Error = providerError.Message
-		liveness = service.projectRunLivenessLocked(workspaceID, conversationID, run, active, liveness)
 		service.liveness[activeKey(workspaceID, conversationID)] = liveness
 	} else {
 		liveness = service.markActiveRunLivenessLostLocked(workspaceID, conversationID, run, active, RunLivenessReasonProviderUnavailable, observedAt, providerError.Message)

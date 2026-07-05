@@ -71,11 +71,8 @@ export function runPresentationPropsEqual(
     previous.canRetry === next.canRetry &&
     previous.canSteer === next.canSteer &&
     previous.canStop === next.canStop &&
-    previous.detail === next.detail &&
-    previous.headline === next.headline &&
     previous.kind === next.kind &&
     previous.liveness === next.liveness &&
-    previous.running === next.running &&
-    previous.steeringDisabledReason === next.steeringDisabledReason
+    previous.running === next.running
   );
 }

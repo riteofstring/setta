@@ -971,61 +971,13 @@ func TestServiceSteeringPersistsMessageAndCallsHarness(t *testing.T) {
 		t.Fatalf("steering requests = %+v, want S1 for active turn", requests)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
-	uncommitted, err := service.store.LoadMessageByID("workspace_api", conversation.ID, result.UserMessage.ID)
+	committed, err := service.store.LoadMessageByID("workspace_api", conversation.ID, result.UserMessage.ID)
 	if err != nil {
 		t.Fatalf("load steering message: %v", err)
 	}
-	if uncommitted.Status != MessageStatusCancelled {
-		t.Fatalf("uncommitted steering status = %s, want cancelled", uncommitted.Status)
+	if committed.Status != MessageStatusComplete {
+		t.Fatalf("committed steering status = %s, want complete", committed.Status)
 	}
-}
-
-func TestServiceSteeringProviderCommitCompletesMessageAndCreatesTranscriptBlock(t *testing.T) {
-	harness := NewFakeHarness([]FakeHarnessEvent{
-		{Type: FakeEventThreadLinked, ThreadID: "thread_commit", SessionID: "session_commit", TurnID: "turn_commit"},
-		{Type: FakeEventWaitForCancel},
-	})
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-	result, err := service.SendUserInput("workspace_api", conversation.ID, TextChatInput("active"))
-	if err != nil {
-		t.Fatalf("send active: %v", err)
-	}
-	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_commit")
-
-	steered, err := service.SteerActiveRunInput("workspace_api", conversation.ID, TextChatInput("committed steer"))
-	if err != nil {
-		t.Fatalf("steer active: %v", err)
-	}
-	if err := service.markPendingSteeringCommitted("workspace_api", conversation.ID, result.Run.ID, "committed steer"); err != nil {
-		t.Fatalf("commit steering: %v", err)
-	}
-	message, err := service.store.LoadMessageByID("workspace_api", conversation.ID, steered.UserMessage.ID)
-	if err != nil {
-		t.Fatalf("load steering message: %v", err)
-	}
-	if message.Status != MessageStatusComplete {
-		t.Fatalf("steering status = %s, want complete", message.Status)
-	}
-	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
-	if err != nil {
-		t.Fatalf("load message page: %v", err)
-	}
-	for _, block := range page.Blocks {
-		if block.Kind != TranscriptBlockKindUserMessage || block.UserMessage == nil {
-			continue
-		}
-		if block.UserMessage.MessageID == steered.UserMessage.ID && block.UserMessage.Status == MessageStatusComplete {
-			if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
-				t.Fatalf("cancel active run: %v", err)
-			}
-			return
-		}
-	}
-	t.Fatalf("transcript blocks = %+v, want committed steering user_message block", page.Blocks)
 }
 
 func TestServiceSteeringRequiresStartedTurn(t *testing.T) {
@@ -1453,5 +1405,96 @@ func TestServiceListConversationsReturnsValidItemsWithMalformedConversationState
 	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
 	if !strings.Contains(diagnostic.Message, `unknown field "extra"`) {
 		t.Fatalf("diagnostic = %q, want unknown field", diagnostic.Message)
+	}
+}
+
+func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := mustStore(t, appDataDir)
+	conversation := Conversation{
+		SchemaVersion: SchemaVersion,
+		ID:            "conversation_api",
+		WorkspaceID:   "workspace_api",
+		Title:         "API",
+		CreatedAt:     "2026-05-29T20:00:00Z",
+		UpdatedAt:     "2026-05-29T20:00:00Z",
+		HarnessRefs:   []HarnessThreadRef{},
+	}
+	if err := store.SaveConversation(conversation); err != nil {
+		t.Fatalf("save conversation: %v", err)
+	}
+	if err := store.SaveMessage("workspace_api", ChatMessage{
+		SchemaVersion:  SchemaVersion,
+		ID:             "message_user",
+		ConversationID: conversation.ID,
+		RunID:          "run_api",
+		Role:           RoleUser,
+		Delivery:       MessageDeliveryNormal,
+		Ordinal:        1,
+		CreatedAt:      "2026-05-29T20:00:00Z",
+		UpdatedAt:      "2026-05-29T20:00:00Z",
+		Status:         MessageStatusComplete,
+		Parts: []MessagePart{{
+			ID:   "part_user",
+			Type: MessagePartText,
+			Text: &MessageTextPart{Text: "prompt", Format: TextFormatPlain},
+		}},
+	}); err != nil {
+		t.Fatalf("save user message: %v", err)
+	}
+	if err := store.SaveMessage("workspace_api", ChatMessage{
+		SchemaVersion:  SchemaVersion,
+		ID:             "message_assistant",
+		ConversationID: conversation.ID,
+		RunID:          "run_api",
+		Role:           RoleAssistant,
+		Delivery:       MessageDeliveryNormal,
+		Ordinal:        2,
+		CreatedAt:      "2026-05-29T20:00:00Z",
+		UpdatedAt:      "2026-05-29T20:00:00Z",
+		Status:         MessageStatusStreaming,
+		Parts: []MessagePart{{
+			ID:   "part_assistant",
+			Type: MessagePartText,
+			Text: &MessageTextPart{Text: "partial", Format: TextFormatMarkdown},
+		}},
+	}); err != nil {
+		t.Fatalf("save message: %v", err)
+	}
+	if err := store.SaveRun(Run{
+		SchemaVersion:      SchemaVersion,
+		ID:                 "run_api",
+		WorkspaceID:        "workspace_api",
+		ConversationID:     conversation.ID,
+		TriggerMessageID:   "message_user",
+		AssistantMessageID: "message_assistant",
+		Harness:            HarnessCodex,
+		Status:             RunStatusRunning,
+		StartedAt:          "2026-05-29T20:00:00Z",
+		PromptSummary:      "prompt",
+	}); err != nil {
+		t.Fatalf("save run: %v", err)
+	}
+
+	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	run, err := restarted.store.LoadRun("workspace_api", "run_api")
+	if err != nil {
+		t.Fatalf("load recovered run: %v", err)
+	}
+	if run.Status != RunStatusFailed || run.Error != "run interrupted by backend restart" {
+		t.Fatalf("recovered run = %+v, want failed restart error", run)
+	}
+	page, err := restarted.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load recovered page: %v", err)
+	}
+	if len(page.Messages) != 2 {
+		t.Fatalf("message count = %d, want 2", len(page.Messages))
+	}
+	if page.Messages[0].ID != "message_user" || page.Messages[0].Status != MessageStatusComplete {
+		t.Fatalf("user message = %+v, want complete user message", page.Messages[0])
+	}
+	if page.Messages[1].ID != "message_assistant" || page.Messages[1].Status != MessageStatusError {
+		t.Fatalf("assistant message = %+v, want error assistant message", page.Messages[1])
 	}
 }

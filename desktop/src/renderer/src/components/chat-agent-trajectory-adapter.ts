@@ -29,7 +29,6 @@ export interface SelectedConversationAgentTrajectorySource {
   loadRunItemOutput: LoadRunItemOutput;
   messages: ChatMessage[];
   operation: string | null;
-  pendingSteeringMessages: ChatMessage[];
   queuedMessages: ChatMessage[];
   removeQueuedMessage: (messageId: string) => Promise<void>;
   removingQueuedMessageId: string | null;
@@ -60,7 +59,6 @@ export function selectedConversationAgentTrajectory(
     hasMoreOlder: source.hasMoreOlder,
     messages: source.messages,
     operation: source.operation,
-    pendingSteeringMessages: source.pendingSteeringMessages,
     queuedMessages: source.queuedMessages,
     removingQueuedMessageId: source.removingQueuedMessageId,
     runItemOutputIdsByRunItemId: source.runItemOutputIdsByRunItemId,
