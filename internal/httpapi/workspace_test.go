@@ -241,58 +241,6 @@ func TestWorkspaceUIPaneIntrospectionEndpoints(t *testing.T) {
 	}
 }
 
-func TestWorkspaceUIPaneOperationEndpointAppliesFocusPane(t *testing.T) {
-	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
-		mustTime(t, "2026-05-29T20:00:00Z"),
-	})
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: workspaceUILayout(opened.Workspace.ID),
-	}, http.StatusOK)
-
-	result := postJSON[workspaceui.WorkspaceUIPaneOperationResult](t, handler, "/workspaces/ui/panes/operation", ApplyWorkspaceUIPaneOperationRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Operation: workspaceui.WorkspaceUIPaneOperation{
-			Kind:   workspaceui.WorkspaceUIPaneOperationKindFocusPane,
-			PaneID: "workspace_pane_0",
-		},
-	}, http.StatusOK)
-	if !result.Changed || result.Revision != 2 || result.OperationResult.FocusedPaneID != "workspace_pane_0" {
-		t.Fatalf("operation result = %+v, want changed focus at revision 2", result)
-	}
-	if result.OperationResult.Kind != workspaceui.WorkspaceUIPaneOperationKindFocusPane {
-		t.Fatalf("operation kind = %q, want focus_pane", result.OperationResult.Kind)
-	}
-
-	read := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
-		WorkspaceID: opened.Workspace.ID,
-	}, http.StatusOK)
-	if read.Layout == nil || read.Layout.FocusedPaneID != "workspace_pane_0" || read.Layout.Revision != 2 {
-		t.Fatalf("read layout = %+v, want focused pane 0 at revision 2", read.Layout)
-	}
-}
-
-func TestWorkspaceUIPaneOperationEndpointReturnsStableOperationErrorCode(t *testing.T) {
-	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
-		mustTime(t, "2026-05-29T20:00:00Z"),
-	})
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: workspaceUILayout(opened.Workspace.ID),
-	}, http.StatusOK)
-
-	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/panes/operation", ApplyWorkspaceUIPaneOperationRequest{
-		WorkspaceID: opened.Workspace.ID,
-		Operation: workspaceui.WorkspaceUIPaneOperation{
-			Kind:   workspaceui.WorkspaceUIPaneOperationKindFocusPane,
-			PaneID: "workspace_pane_missing",
-		},
-	}, http.StatusBadRequest)
-	if errResponse.Error.Code != string(workspaceui.WorkspaceUIOperationErrorCodePaneNotFound) {
-		t.Fatalf("error code = %q, want pane_not_found", errResponse.Error.Code)
-	}
-}
-
 func TestWorkspaceUIPaneReadRejectsMissingPane(t *testing.T) {
 	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
 		mustTime(t, "2026-05-29T20:00:00Z"),
