@@ -45,3 +45,16 @@ type QueueWorkspaceUIChatResponse struct {
 	ConversationID string                                `json:"conversationId"`
 	Result         chat.QueueMessageResult               `json:"result"`
 }
+
+type SteerWorkspaceUIChatRequest struct {
+	WorkspaceID string         `json:"workspaceId"`
+	PaneID      string         `json:"paneId"`
+	Input       chat.ChatInput `json:"input"`
+}
+
+type SteerWorkspaceUIChatResponse struct {
+	WorkspaceID    string                                `json:"workspaceId"`
+	Pane           workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
+	ConversationID string                                `json:"conversationId"`
+	Result         chat.SteerMessageResult               `json:"result"`
+}

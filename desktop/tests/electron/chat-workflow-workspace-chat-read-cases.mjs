@@ -93,9 +93,12 @@ export async function runWorkspaceChatReadWorkflow({
         text.includes(workspaceChatQueueMarkerText) &&
         text.includes("Queued"),
     );
-    await backend.post("/chat/messages/steer", {
+    const steered = await runWorkspaceChatSteerCommand(appDataDir, pane.paneId);
+    validateWorkspaceChatSteerCLIResult(steered, {
+      activeRunId: active.result.run.id,
       conversationId,
-      input: chatTextInput(workspaceChatQueueSteerText),
+      markerText: workspaceChatQueueSteerText,
+      paneId: pane.paneId,
       workspaceId,
     });
     await waitForWorkspaceChatRunStatusByID(
@@ -199,7 +202,8 @@ async function waitForWorkspaceChatPaneBinding(client, workspaceId, paneId, conv
       state.conversationId === conversationId &&
       state.readModes.includes("chat_state") &&
       state.writeModes.includes("chat_send") &&
-      state.writeModes.includes("chat_queue"),
+      state.writeModes.includes("chat_queue") &&
+      state.writeModes.includes("chat_steer"),
   );
 }
 
@@ -227,6 +231,11 @@ async function runWorkspaceChatQueueCommand(appDataDir, paneId) {
   return runSettaWorkspaceCommandJSON(appDataDir, ["chats", "queue", paneId, "--input", inputPath]);
 }
 
+async function runWorkspaceChatSteerCommand(appDataDir, paneId) {
+  const inputPath = await writeWorkspaceChatInput(appDataDir, workspaceChatQueueSteerText);
+  return runSettaWorkspaceCommandJSON(appDataDir, ["chats", "steer", paneId, "--input", inputPath]);
+}
+
 async function writeWorkspaceChatInput(appDataDir, text) {
   const inputPath = join(appDataDir, "workspace-chat-input.json");
   await writeFile(
@@ -248,20 +257,6 @@ async function writeWorkspaceChatInput(appDataDir, text) {
     ),
   );
   return inputPath;
-}
-
-function chatTextInput(text) {
-  return {
-    parts: [
-      {
-        type: "text",
-        text: {
-          text,
-          format: "plain",
-        },
-      },
-    ],
-  };
 }
 
 function validateWorkspaceChatSendCLIResult(sent, expected) {
@@ -350,6 +345,96 @@ function validateWorkspaceChatQueueCLIResult(queued, expected) {
   if (!JSON.stringify(queued.result).includes(expected.markerText)) {
     throw new Error(`workspace chat queue result missed marker text: ${JSON.stringify(queued)}`);
   }
+}
+
+function validateWorkspaceChatSteerCLIResult(steered, expected) {
+  if (!workspaceChatSteerTargetMatches(steered, expected)) {
+    throw new Error(`workspace chat steer returned wrong target: ${JSON.stringify(steered)}`);
+  }
+  if (!workspaceChatSteerPaneWriteModes(steered).includes("chat_steer")) {
+    throw new Error(
+      `workspace chat steer pane did not advertise chat_steer: ${JSON.stringify(steered)}`,
+    );
+  }
+  if (workspaceChatSteerUserMessageDelivery(steered) !== "steering") {
+    throw new Error(
+      `workspace chat steer user message was not steering: ${JSON.stringify(steered)}`,
+    );
+  }
+  if (!JSON.stringify(steered.result).includes(expected.markerText)) {
+    throw new Error(`workspace chat steer result missed marker text: ${JSON.stringify(steered)}`);
+  }
+}
+
+function workspaceChatSteerTargetMatches(steered, expected) {
+  return (
+    JSON.stringify(workspaceChatSteerTarget(steered)) ===
+    JSON.stringify(expectedChatSteerTarget(expected))
+  );
+}
+
+function workspaceChatSteerTarget(steered) {
+  return {
+    conversationId: steered.conversationId,
+    pageConversationId: workspaceChatSteerPageConversationId(steered),
+    paneId: workspaceChatSteerPaneId(steered),
+    resultConversationId: workspaceChatSteerResultConversationId(steered),
+    runConversationId: workspaceChatSteerRunConversationId(steered),
+    runId: workspaceChatSteerRunId(steered),
+    userMessageConversationId: workspaceChatSteerUserMessageConversationId(steered),
+    userMessageRunId: workspaceChatSteerUserMessageRunId(steered),
+    workspaceId: steered.workspaceId,
+  };
+}
+
+function workspaceChatSteerPageConversationId(steered) {
+  return steered.result?.page?.conversation?.id;
+}
+
+function workspaceChatSteerPaneId(steered) {
+  return steered.pane?.paneId;
+}
+
+function workspaceChatSteerResultConversationId(steered) {
+  return steered.result?.conversation?.id;
+}
+
+function workspaceChatSteerRunConversationId(steered) {
+  return steered.result?.run?.conversationId;
+}
+
+function workspaceChatSteerRunId(steered) {
+  return steered.result?.run?.id;
+}
+
+function workspaceChatSteerUserMessageConversationId(steered) {
+  return steered.result?.userMessage?.conversationId;
+}
+
+function workspaceChatSteerUserMessageRunId(steered) {
+  return steered.result?.userMessage?.runId;
+}
+
+function expectedChatSteerTarget(expected) {
+  return {
+    conversationId: expected.conversationId,
+    pageConversationId: expected.conversationId,
+    paneId: expected.paneId,
+    resultConversationId: expected.conversationId,
+    runConversationId: expected.conversationId,
+    runId: expected.activeRunId,
+    userMessageConversationId: expected.conversationId,
+    userMessageRunId: expected.activeRunId,
+    workspaceId: expected.workspaceId,
+  };
+}
+
+function workspaceChatSteerPaneWriteModes(steered) {
+  return steered.pane?.writeModes ?? [];
+}
+
+function workspaceChatSteerUserMessageDelivery(steered) {
+  return steered.result?.userMessage?.delivery;
 }
 
 function workspaceChatQueueTargetMatches(queued, expected) {

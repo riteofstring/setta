@@ -31,9 +31,15 @@ type workspaceChatQueueOptions struct {
 	PaneID     string
 }
 
+type workspaceChatSteerOptions struct {
+	AppDataDir string
+	InputPath  string
+	PaneID     string
+}
+
 func runWorkspaceChats(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workspace chats requires a subcommand: queue, read, or send")}
+		return usageError{err: errors.New("setta workspace chats requires a subcommand: queue, read, send, or steer")}
 	}
 	switch args[0] {
 	case "queue":
@@ -42,6 +48,8 @@ func runWorkspaceChats(args []string, deps cliDeps) error {
 		return runWorkspaceChatsRead(args[1:], deps)
 	case "send":
 		return runWorkspaceChatsSend(args[1:], deps)
+	case "steer":
+		return runWorkspaceChatsSteer(args[1:], deps)
 	default:
 		return usageError{err: fmt.Errorf("unknown workspace chats subcommand %q", args[0])}
 	}
@@ -89,6 +97,22 @@ func runWorkspaceChatsSend(args []string, deps cliDeps) error {
 		return err
 	}
 	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace chat send result")
+}
+
+func runWorkspaceChatsSteer(args []string, deps cliDeps) error {
+	options, err := workspaceChatSteerOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	input, err := readWorkspaceChatSteerInputFile(options.InputPath)
+	if err != nil {
+		return err
+	}
+	result, err := steerWorkspaceChat(context.Background(), options, input, deps)
+	if err != nil {
+		return err
+	}
+	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace chat steer result")
 }
 
 func workspaceChatReadOptionsFromArgs(args []string, deps cliDeps) (workspaceChatReadOptions, error) {
@@ -145,6 +169,18 @@ func workspaceChatSendOptionsFromArgs(args []string, deps cliDeps) (workspaceCha
 		return workspaceChatSendOptions{}, err
 	}
 	return workspaceChatSendOptions{
+		AppDataDir: appDataDir,
+		InputPath:  inputPath,
+		PaneID:     paneID,
+	}, nil
+}
+
+func workspaceChatSteerOptionsFromArgs(args []string, deps cliDeps) (workspaceChatSteerOptions, error) {
+	appDataDir, inputPath, paneID, err := workspaceChatWriteOptionsFromArgs("setta workspace chats steer", args, deps)
+	if err != nil {
+		return workspaceChatSteerOptions{}, err
+	}
+	return workspaceChatSteerOptions{
 		AppDataDir: appDataDir,
 		InputPath:  inputPath,
 		PaneID:     paneID,
@@ -273,12 +309,46 @@ func sendWorkspaceChat(
 	return result, nil
 }
 
+func steerWorkspaceChat(
+	ctx context.Context,
+	options workspaceChatSteerOptions,
+	input chat.ChatInput,
+	deps cliDeps,
+) (httpapi.SteerWorkspaceUIChatResponse, error) {
+	state, token, cleanup, err := workspaceCommandAuth(ctx, options.AppDataDir, workspaceChatsSteerCLIAuthDisplayName, deps)
+	if err != nil {
+		return httpapi.SteerWorkspaceUIChatResponse{}, err
+	}
+	defer cleanup()
+
+	currentWorkspace, err := currentWorkspaceForWorkspaceCommand(ctx, deps.httpClient, state.BaseURL, token)
+	if err != nil {
+		return httpapi.SteerWorkspaceUIChatResponse{}, err
+	}
+	result, err := postWorkspaceAPI[httpapi.SteerWorkspaceUIChatResponse](ctx, deps.httpClient, state.BaseURL, token, "workspace chats steer", "/workspaces/ui/chats/steer", httpapi.SteerWorkspaceUIChatRequest{
+		WorkspaceID: currentWorkspace.ID,
+		PaneID:      options.PaneID,
+		Input:       input,
+	})
+	if err != nil {
+		return httpapi.SteerWorkspaceUIChatResponse{}, err
+	}
+	if err := validateWorkspaceChatSteerResponse(result, currentWorkspace.ID, options.PaneID); err != nil {
+		return httpapi.SteerWorkspaceUIChatResponse{}, err
+	}
+	return result, nil
+}
+
 func readWorkspaceChatSendInputFile(path string) (chat.ChatInput, error) {
 	return readWorkspaceChatInputFile(path, "send")
 }
 
 func readWorkspaceChatQueueInputFile(path string) (chat.ChatInput, error) {
 	return readWorkspaceChatInputFile(path, "queue")
+}
+
+func readWorkspaceChatSteerInputFile(path string) (chat.ChatInput, error) {
+	return readWorkspaceChatInputFile(path, "steer")
 }
 
 func readWorkspaceChatInputFile(path string, command string) (chat.ChatInput, error) {

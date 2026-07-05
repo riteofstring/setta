@@ -381,8 +381,9 @@ func TestWorkspaceUIChatReadEndpointResolvesPaneConversation(t *testing.T) {
 		t.Fatalf("chat read modes = %+v, want chat_state", read.Pane.ReadModes)
 	}
 	if !workspacePaneWriteModesContain(read.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatSend) ||
-		!workspacePaneWriteModesContain(read.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatQueue) {
-		t.Fatalf("chat write modes = %+v, want chat_send and chat_queue", read.Pane.WriteModes)
+		!workspacePaneWriteModesContain(read.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatQueue) ||
+		!workspacePaneWriteModesContain(read.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatSteer) {
+		t.Fatalf("chat write modes = %+v, want chat_send, chat_queue, and chat_steer", read.Pane.WriteModes)
 	}
 	if read.Page.Conversation.ID != conversation.ID || read.Page.Conversation.WorkspaceID != opened.Workspace.ID {
 		t.Fatalf("chat page conversation = %+v, want bound conversation", read.Page.Conversation)
@@ -559,6 +560,53 @@ func TestWorkspaceUIChatQueueEndpointRequiresActiveRun(t *testing.T) {
 	if len(runs.Runs) != 0 {
 		t.Fatalf("runs after rejected workspace queue = %+v, want none", runs.Runs)
 	}
+}
+
+func TestWorkspaceUIChatSteerEndpointResolvesPaneConversation(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithChatEvents(t, []chat.FakeHarnessEvent{
+		{Type: chat.FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},
+		{Type: chat.FakeEventWaitForSteer},
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Bound conversation",
+	}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+
+	started := postJSON[SendWorkspaceUIChatResponse](t, handler, "/workspaces/ui/chats/send", SendWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+		Input:       chat.TextChatInput("active before workspace steer"),
+	}, http.StatusOK)
+	waitForHarnessTurn(t, handler, opened.Workspace.ID, conversation.ID, "turn_fake")
+
+	steered := postJSON[SteerWorkspaceUIChatResponse](t, handler, "/workspaces/ui/chats/steer", SteerWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+		Input:       chat.TextChatInput("steered through bound pane"),
+	}, http.StatusOK)
+	if steered.WorkspaceID != opened.Workspace.ID || steered.Pane.PaneID != "workspace_pane_0" {
+		t.Fatalf("chat steer envelope = %+v, want workspace chat pane", steered)
+	}
+	if steered.ConversationID != conversation.ID || steered.Result.Conversation.ID != conversation.ID {
+		t.Fatalf("chat steer conversation = %s result %+v, want %s", steered.ConversationID, steered.Result.Conversation, conversation.ID)
+	}
+	if steered.Pane.ContentRefs.Chat == nil || steered.Pane.ContentRefs.Chat.ConversationID != conversation.ID {
+		t.Fatalf("chat content ref = %+v, want conversation %s", steered.Pane.ContentRefs.Chat, conversation.ID)
+	}
+	if !workspacePaneWriteModesContain(steered.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatSteer) {
+		t.Fatalf("chat write modes = %+v, want chat_steer", steered.Pane.WriteModes)
+	}
+	if steered.Result.UserMessage.ConversationID != conversation.ID ||
+		steered.Result.UserMessage.Delivery != chat.MessageDeliverySteering ||
+		steered.Result.UserMessage.RunID != started.Result.Run.ID ||
+		steered.Result.Run.ID != started.Result.Run.ID {
+		t.Fatalf("chat steer result = %+v, want steering for active run %s", steered.Result, started.Result.Run.ID)
+	}
+	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, started.Result.Run.ID, chat.MessageStatusComplete)
 }
 
 func TestWorkspaceUITerminalWriteEndpointsPrepareAndCommit(t *testing.T) {

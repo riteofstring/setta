@@ -16,6 +16,7 @@ import (
 
 	"setta/internal/chat"
 	"setta/internal/httpapi"
+	"setta/internal/runtime"
 	"setta/internal/workspace"
 	"setta/internal/workspaceui"
 )
@@ -246,6 +247,39 @@ func TestWorkspaceChatsQueueCommandIntegration(t *testing.T) {
 	}
 	if !workspacePaneWriteModesContain(queued.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatQueue) {
 		t.Fatalf("chat queue pane write modes = %+v, want chat_queue", queued.Pane.WriteModes)
+	}
+}
+
+func TestWorkspaceChatsSteerCommandIntegration(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	conversation := createWorkspaceChatConversationForCLITest(t, fixture)
+	layout := cliTestWorkspaceUILayout(fixture.opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayoutForCLITest(t, fixture.appDataDir, layout)
+	sendInputPath := writeWorkspaceChatSendInputForCLITest(t, chat.TextChatInput("workflow hold for queue and steering"))
+
+	sent := runWorkspaceCommandJSON[httpapi.SendWorkspaceUIChatResponse](t, fixture, "chats", "send", "workspace_pane_0", "--input", sendInputPath)
+	if sent.Result.Run.Status != chat.RunStatusRunning {
+		t.Fatalf("chat send run status = %s, want running", sent.Result.Run.Status)
+	}
+	waitForWorkspaceCLIHarnessTurn(t, fixture, conversation.ID, "scripted-turn-"+sent.Result.Run.ID)
+	steerInputPath := writeWorkspaceChatSendInputForCLITest(t, chat.TextChatInput("steer through workspace chat pane"))
+
+	steered := runWorkspaceCommandJSON[httpapi.SteerWorkspaceUIChatResponse](t, fixture, "chats", "steer", "workspace_pane_0", "--input", steerInputPath)
+	if steered.WorkspaceID != fixture.opened.Workspace.ID || steered.Pane.PaneID != "workspace_pane_0" {
+		t.Fatalf("chat steer envelope = %+v, want workspace chat pane", steered)
+	}
+	if steered.ConversationID != conversation.ID || steered.Result.Conversation.ID != conversation.ID {
+		t.Fatalf("chat steer conversation = %s result %+v, want %s", steered.ConversationID, steered.Result.Conversation, conversation.ID)
+	}
+	if steered.Result.UserMessage.ConversationID != conversation.ID ||
+		steered.Result.UserMessage.Delivery != chat.MessageDeliverySteering ||
+		steered.Result.UserMessage.RunID != sent.Result.Run.ID ||
+		steered.Result.Run.ID != sent.Result.Run.ID {
+		t.Fatalf("chat steer result = %+v, want steering for active run %s", steered.Result, sent.Result.Run.ID)
+	}
+	if !workspacePaneWriteModesContain(steered.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatSteer) {
+		t.Fatalf("chat steer pane write modes = %+v, want chat_steer", steered.Pane.WriteModes)
 	}
 }
 
@@ -632,6 +666,38 @@ func TestWorkspaceChatsQueueCommandRejectsIdentityInInput(t *testing.T) {
 	}
 }
 
+func TestWorkspaceChatsSteerCommandRejectsIdentityInInput(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	inputPath := writeRawWorkspaceChatSendInputForCLITest(t, `{
+  "conversationId": "conversation_attacker",
+  "parts": [
+    {
+      "type": "text",
+      "text": {
+        "text": "hello",
+        "format": "plain"
+      }
+    }
+  ]
+}`)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "chats", "steer", "workspace_pane_0", "--input", inputPath), commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "workspace_chat_steer_input_decode_failed" {
+		t.Fatalf("error code = %q, want workspace_chat_steer_input_decode_failed", errResponse.Error.Code)
+	}
+}
+
 func TestWorkspaceTerminalsWritePrepareRejectsDeviceSessionInput(t *testing.T) {
 	fixture := newWorkspaceCLITestFixture(t)
 	inputPath := writeRawWorkspaceTerminalWriteInputForCLITest(t, `{
@@ -667,9 +733,10 @@ func newWorkspaceCLITestFixture(t *testing.T) workspaceCLITestFixture {
 	serveDeps := deps
 	serveDeps.stdout = io.Discard
 	instance, err := startServe(context.Background(), serveOptions{
-		AppDataDir: appDataDir,
-		Host:       "127.0.0.1",
-		Port:       0,
+		AppDataDir:  appDataDir,
+		ChatHarness: runtime.ChatHarnessScriptedWorkflow,
+		Host:        "127.0.0.1",
+		Port:        0,
 	}, serveDeps)
 	if err != nil {
 		t.Fatalf("start serve: %v", err)
@@ -786,6 +853,31 @@ func seedWorkspaceChatActiveRunForCLITest(t *testing.T, fixture workspaceCLITest
 	}); err != nil {
 		t.Fatalf("save active run: %v", err)
 	}
+}
+
+func waitForWorkspaceCLIHarnessTurn(t *testing.T, fixture workspaceCLITestFixture, conversationID string, turnID string) {
+	t.Helper()
+	token, cleanup, err := createRuntimeCLIAuthSession(context.Background(), fixture.appDataDir, "Setta CLI test chat harness observer")
+	if err != nil {
+		t.Fatalf("create CLI auth session: %v", err)
+	}
+	defer cleanup()
+	baseURL := readServeBaseURLForCLITest(t, fixture.appDataDir)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		page := postAuthedRuntimeJSON[chat.MessagePage](t, fixture.deps.httpClient, baseURL, token, "/chat/messages/page", httpapi.GetMessagePageRequest{
+			WorkspaceID:    fixture.opened.Workspace.ID,
+			ConversationID: conversationID,
+			Limit:          20,
+		})
+		for _, ref := range page.Conversation.HarnessRefs {
+			if ref.LastTurnID == turnID {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for harness turn %s", turnID)
 }
 
 func readServeBaseURLForCLITest(t *testing.T, appDataDir string) string {

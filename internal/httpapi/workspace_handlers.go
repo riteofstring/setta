@@ -285,6 +285,37 @@ func (handler handler) queueWorkspaceUIChat(response http.ResponseWriter, reques
 	})
 }
 
+func (handler handler) steerWorkspaceUIChat(response http.ResponseWriter, request *http.Request) {
+	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if workspaceUIService == nil {
+		return
+	}
+	chatService := requireChatService(response, handler.chatService)
+	if chatService == nil {
+		return
+	}
+	var payload SteerWorkspaceUIChatRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	pane, ok := readWorkspaceUIChatPane(response, workspaceUIService, payload.WorkspaceID, payload.PaneID, "steer_workspace_ui_chat_failed")
+	if !ok {
+		return
+	}
+	conversationID := pane.ContentRefs.Chat.ConversationID
+	result, err := chatService.SteerActiveRunInput(payload.WorkspaceID, conversationID, payload.Input)
+	if err != nil {
+		writeChatError(response, "steer_workspace_ui_chat_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, SteerWorkspaceUIChatResponse{
+		WorkspaceID:    payload.WorkspaceID,
+		Pane:           pane,
+		ConversationID: conversationID,
+		Result:         result,
+	})
+}
+
 func (handler handler) readWorkspaceUITerminal(response http.ResponseWriter, request *http.Request) {
 	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
 	if workspaceUIService == nil {

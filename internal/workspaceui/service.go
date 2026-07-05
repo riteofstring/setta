@@ -258,7 +258,7 @@ func readModesForPane(pane WorkspaceUIPane) []WorkspaceUIPaneReadMode {
 
 func writeModesForPane(pane WorkspaceUIPane) []WorkspaceUIPaneWriteMode {
 	if pane.SurfaceKind == SurfaceKindChatDOM && pane.ChatConfig != nil {
-		return []WorkspaceUIPaneWriteMode{WorkspaceUIPaneWriteModeChatSend, WorkspaceUIPaneWriteModeChatQueue}
+		return []WorkspaceUIPaneWriteMode{WorkspaceUIPaneWriteModeChatSend, WorkspaceUIPaneWriteModeChatQueue, WorkspaceUIPaneWriteModeChatSteer}
 	}
 	if pane.SurfaceKind == SurfaceKindTerminal && pane.TerminalConfig != nil {
 		return []WorkspaceUIPaneWriteMode{WorkspaceUIPaneWriteModeTerminalInput}

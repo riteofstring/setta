@@ -1,4 +1,4 @@
 interface:
   display_name: "Workspace Manager"
   short_description: "Manage Setta workspace panes safely"
-  default_prompt: "Use $workspace-manager to inspect, read or send bound chat pane messages, read terminal pane state, and update Setta workspace panes through the CLI."
+  default_prompt: "Use $workspace-manager to inspect, read, send, queue, or steer bound chat pane messages, read terminal pane state, and update Setta workspace panes through the CLI."

@@ -104,12 +104,15 @@ The first post-implementation audit addressed the data and control-reuse gaps:
 
 ### Workspace Agent API Integration Note
 
-The workspace-agent API work exposed pane-targeted chat queueing on 2026-07-08
-as a wrapper around the existing conversation queue service. The wrapper
-preserves this plan's conversation-level policy by requiring an active run in
-the pane's explicitly bound conversation before queueing, and it fails instead
-of promoting idle queue requests into a second send path. It does not change the
-core queue, steering, or provider concurrency semantics in this plan.
+The workspace-agent API work exposed pane-targeted chat queueing and steering
+on 2026-07-08 as wrappers around the existing conversation services. The queue
+wrapper preserves this plan's conversation-level policy by requiring an active
+run in the pane's explicitly bound conversation before queueing, and it fails
+instead of promoting idle queue requests into a second send path. The steer
+wrapper resolves only the pane's explicit `contentRefs.chat.conversationId` and
+delegates to the existing active-run steering path, so it does not accept run
+IDs from callers, switch conversations, infer targets, or change the core
+queue, steering, or provider concurrency semantics in this plan.
 
 ### Settings Layout Gap Resolution
 

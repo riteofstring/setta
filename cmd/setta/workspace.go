@@ -26,6 +26,7 @@ const (
 	workspaceChatsQueueCLIAuthDisplayName     = "Setta CLI workspace chats queue"
 	workspaceChatsReadCLIAuthDisplayName      = "Setta CLI workspace chats read"
 	workspaceChatsSendCLIAuthDisplayName      = "Setta CLI workspace chats send"
+	workspaceChatsSteerCLIAuthDisplayName     = "Setta CLI workspace chats steer"
 	workspaceLayoutApplyCLIAuthDisplayName    = "Setta CLI workspace layout apply"
 	workspacePanesCloseCLIAuthDisplayName     = "Setta CLI workspace panes close"
 	workspacePanesFocusCLIAuthDisplayName     = "Setta CLI workspace panes focus"

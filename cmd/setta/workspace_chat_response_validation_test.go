@@ -113,6 +113,37 @@ func TestValidateWorkspaceChatQueueResponseRejectsPromotedRun(t *testing.T) {
 	}
 }
 
+func TestValidateWorkspaceChatSteerResponseAcceptsValidResponse(t *testing.T) {
+	response := validWorkspaceChatSteerResponseForTest()
+
+	if err := validateWorkspaceChatSteerResponse(response, "workspace_api", "workspace_pane_0"); err != nil {
+		t.Fatalf("validate steer response: %v", err)
+	}
+}
+
+func TestValidateWorkspaceChatSteerResponseRejectsMissingChatSteerMode(t *testing.T) {
+	response := validWorkspaceChatSteerResponseForTest()
+	response.Pane.WriteModes = []workspaceui.WorkspaceUIPaneWriteMode{
+		workspaceui.WorkspaceUIPaneWriteModeChatSend,
+		workspaceui.WorkspaceUIPaneWriteModeChatQueue,
+	}
+
+	err := validateWorkspaceChatSteerResponse(response, "workspace_api", "workspace_pane_0")
+	if err == nil || !strings.Contains(err.Error(), "chat_steer") {
+		t.Fatalf("error = %v, want missing chat_steer", err)
+	}
+}
+
+func TestValidateWorkspaceChatSteerResponseRejectsNormalDelivery(t *testing.T) {
+	response := validWorkspaceChatSteerResponseForTest()
+	response.Result.UserMessage.Delivery = chat.MessageDeliveryNormal
+
+	err := validateWorkspaceChatSteerResponse(response, "workspace_api", "workspace_pane_0")
+	if err == nil || !strings.Contains(err.Error(), "want steering") {
+		t.Fatalf("error = %v, want steering delivery validation", err)
+	}
+}
+
 func validWorkspaceChatReadResponseForTest() httpapi.ReadWorkspaceUIChatResponse {
 	return httpapi.ReadWorkspaceUIChatResponse{
 		WorkspaceID:    "workspace_api",
@@ -146,6 +177,7 @@ func validWorkspaceChatReadResponseForTest() httpapi.ReadWorkspaceUIChatResponse
 			WriteModes: []workspaceui.WorkspaceUIPaneWriteMode{
 				workspaceui.WorkspaceUIPaneWriteModeChatSend,
 				workspaceui.WorkspaceUIPaneWriteModeChatQueue,
+				workspaceui.WorkspaceUIPaneWriteModeChatSteer,
 			},
 			ContentRefs: workspaceui.WorkspaceUIPaneContentRefs{
 				Chat: &workspaceui.WorkspaceUIChatPaneContentRef{ConversationID: "conversation_api"},
@@ -162,6 +194,28 @@ func validWorkspaceChatReadResponseForTest() httpapi.ReadWorkspaceUIChatResponse
 				Runs:     []chat.Run{},
 			},
 			Blocks: []chat.TranscriptBlock{},
+		},
+	}
+}
+
+func validWorkspaceChatSteerResponseForTest() httpapi.SteerWorkspaceUIChatResponse {
+	read := validWorkspaceChatReadResponseForTest()
+	user := workspaceChatResponseTestMessage("message_steer", "run_api", chat.RoleUser, chat.MessageDeliverySteering)
+	return httpapi.SteerWorkspaceUIChatResponse{
+		WorkspaceID:    read.WorkspaceID,
+		ConversationID: read.ConversationID,
+		Pane:           read.Pane,
+		Result: chat.SteerMessageResult{
+			Conversation: read.Page.Conversation,
+			UserMessage:  user,
+			Run: chat.Run{
+				ID:               "run_api",
+				WorkspaceID:      "workspace_api",
+				ConversationID:   "conversation_api",
+				TriggerMessageID: "message_user",
+				Status:           chat.RunStatusRunning,
+			},
+			Page: read.Page,
 		},
 	}
 }

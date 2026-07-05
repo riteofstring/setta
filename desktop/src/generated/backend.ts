@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 29;
-export const backendContractSchemaHash = "sha256:0a5fa6a1a56e138cd27cdc8f9b103ba51d5ebc49cba1d09603449a44644d969b";
+export const backendProtocolVersion = 30;
+export const backendContractSchemaHash = "sha256:1db0eea88f1fbb7b75c423a9912b4cbd47da5db29c929aff9d0c885a606f62bf";
 
 export type DeviceScope = "full";
 
@@ -3841,6 +3841,26 @@ export interface QueueWorkspaceUIChatResponse {
   result: QueueMessageResult;
 }
 
+export interface SteerWorkspaceUIChatRequest {
+  workspaceId: string;
+  paneId: string;
+  input: ChatInput;
+}
+
+export interface SteerMessageResult {
+  conversation: Conversation;
+  userMessage: ChatMessage;
+  run: Run;
+  page: MessagePage;
+}
+
+export interface SteerWorkspaceUIChatResponse {
+  workspaceId: string;
+  pane: WorkspaceUIPaneDescriptor;
+  conversationId: string;
+  result: SteerMessageResult;
+}
+
 export interface ReadWorkspaceUITerminalRequest {
   workspaceId: string;
   paneId: string;
@@ -4646,13 +4666,6 @@ export interface SteerChatMessageRequest {
   workspaceId: string;
   conversationId: string;
   input: ChatInput;
-}
-
-export interface SteerMessageResult {
-  conversation: Conversation;
-  userMessage: ChatMessage;
-  run: Run;
-  page: MessagePage;
 }
 
 export interface SendSteeringImmediatelyRequest {
@@ -7514,6 +7527,11 @@ export const backendEndpoints = {
     path: "/workspaces/ui/chats/queue",
     requestBodyLimitBytes: 4194304,
   },
+  SteerWorkspaceUIChat: {
+    method: "POST",
+    path: "/workspaces/ui/chats/steer",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadWorkspaceUITerminal: {
     method: "POST",
     path: "/workspaces/ui/terminals/read",
@@ -9509,6 +9527,38 @@ export function decodeQueueWorkspaceUIChatResponse(value: unknown): QueueWorkspa
   };
 }
 
+export function decodeSteerWorkspaceUIChatRequest(value: unknown): SteerWorkspaceUIChatRequest {
+  const record = assertRecord(value, "SteerWorkspaceUIChatRequest");
+  assertKnownFields(record, "SteerWorkspaceUIChatRequest", ["workspaceId", "paneId", "input"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SteerWorkspaceUIChatRequest"), "SteerWorkspaceUIChatRequest.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "SteerWorkspaceUIChatRequest"), "SteerWorkspaceUIChatRequest.paneId"),
+    input: decodeChatInput(requireField(record, "input", "SteerWorkspaceUIChatRequest")),
+  };
+}
+
+export function decodeSteerMessageResult(value: unknown): SteerMessageResult {
+  const record = assertRecord(value, "SteerMessageResult");
+  assertKnownFields(record, "SteerMessageResult", ["conversation", "userMessage", "run", "page"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "SteerMessageResult")),
+    userMessage: decodeChatMessage(requireField(record, "userMessage", "SteerMessageResult")),
+    run: decodeRun(requireField(record, "run", "SteerMessageResult")),
+    page: decodeMessagePage(requireField(record, "page", "SteerMessageResult")),
+  };
+}
+
+export function decodeSteerWorkspaceUIChatResponse(value: unknown): SteerWorkspaceUIChatResponse {
+  const record = assertRecord(value, "SteerWorkspaceUIChatResponse");
+  assertKnownFields(record, "SteerWorkspaceUIChatResponse", ["workspaceId", "pane", "conversationId", "result"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SteerWorkspaceUIChatResponse"), "SteerWorkspaceUIChatResponse.workspaceId"),
+    pane: decodeWorkspaceUIPaneDescriptor(requireField(record, "pane", "SteerWorkspaceUIChatResponse")),
+    conversationId: decodeString(requireField(record, "conversationId", "SteerWorkspaceUIChatResponse"), "SteerWorkspaceUIChatResponse.conversationId"),
+    result: decodeSteerMessageResult(requireField(record, "result", "SteerWorkspaceUIChatResponse")),
+  };
+}
+
 export function decodeReadWorkspaceUITerminalRequest(value: unknown): ReadWorkspaceUITerminalRequest {
   const record = assertRecord(value, "ReadWorkspaceUITerminalRequest");
   assertKnownFields(record, "ReadWorkspaceUITerminalRequest", ["workspaceId", "paneId", "recentOutputByteLimit"]);
@@ -10689,17 +10739,6 @@ export function decodeSteerChatMessageRequest(value: unknown): SteerChatMessageR
     workspaceId: decodeString(requireField(record, "workspaceId", "SteerChatMessageRequest"), "SteerChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SteerChatMessageRequest"), "SteerChatMessageRequest.conversationId"),
     input: decodeChatInput(requireField(record, "input", "SteerChatMessageRequest")),
-  };
-}
-
-export function decodeSteerMessageResult(value: unknown): SteerMessageResult {
-  const record = assertRecord(value, "SteerMessageResult");
-  assertKnownFields(record, "SteerMessageResult", ["conversation", "userMessage", "run", "page"]);
-  return {
-    conversation: decodeConversation(requireField(record, "conversation", "SteerMessageResult")),
-    userMessage: decodeChatMessage(requireField(record, "userMessage", "SteerMessageResult")),
-    run: decodeRun(requireField(record, "run", "SteerMessageResult")),
-    page: decodeMessagePage(requireField(record, "page", "SteerMessageResult")),
   };
 }
 
@@ -14598,6 +14637,7 @@ export interface BackendClient {
   readWorkspaceUIChat: (request: ReadWorkspaceUIChatRequest) => Promise<ReadWorkspaceUIChatResponse>;
   sendWorkspaceUIChat: (request: SendWorkspaceUIChatRequest) => Promise<SendWorkspaceUIChatResponse>;
   queueWorkspaceUIChat: (request: QueueWorkspaceUIChatRequest) => Promise<QueueWorkspaceUIChatResponse>;
+  steerWorkspaceUIChat: (request: SteerWorkspaceUIChatRequest) => Promise<SteerWorkspaceUIChatResponse>;
   readWorkspaceUITerminal: (request: ReadWorkspaceUITerminalRequest) => Promise<ReadWorkspaceUITerminalResponse>;
   prepareWorkspaceUITerminalWrite: (request: PrepareWorkspaceUITerminalWriteRequest) => Promise<PrepareWorkspaceUITerminalWriteResponse>;
   commitWorkspaceUITerminalWrite: (request: CommitWorkspaceUITerminalWriteRequest) => Promise<CommitWorkspaceUITerminalWriteResponse>;
@@ -14928,6 +14968,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueWorkspaceUIChatResponse,
       endpoint: backendEndpoints.QueueWorkspaceUIChat,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    steerWorkspaceUIChat: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSteerWorkspaceUIChatResponse,
+      endpoint: backendEndpoints.SteerWorkspaceUIChat,
       fetchImpl,
       requestPayload: request,
     }),

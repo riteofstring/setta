@@ -58,6 +58,7 @@ func TestHelpUsageIncludesWorkspaceCommands(t *testing.T) {
 		"setta workspace chats queue [--app-data-dir DIR] <pane-id> --input <path>",
 		"setta workspace chats read [--app-data-dir DIR] <pane-id> [--limit N]",
 		"setta workspace chats send [--app-data-dir DIR] <pane-id> --input <path>",
+		"setta workspace chats steer [--app-data-dir DIR] <pane-id> --input <path>",
 		"setta workspace panes reorder --input <path> [--app-data-dir DIR]",
 		"setta workspace layout apply --input <path> [--app-data-dir DIR]",
 		"setta workspace terminals read [--app-data-dir DIR] <pane-id> [--recent-output-byte-limit N]",

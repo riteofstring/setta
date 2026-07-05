@@ -45,6 +45,14 @@ func validateWorkspaceChatQueueResponse(response httpapi.QueueWorkspaceUIChatRes
 	return validateWorkspaceChatQueueResult(response.Result, workspaceID, conversationID)
 }
 
+func validateWorkspaceChatSteerResponse(response httpapi.SteerWorkspaceUIChatResponse, workspaceID string, paneID string) error {
+	conversationID, err := validateWorkspaceChatSteerEnvelope(response, workspaceID, paneID)
+	if err != nil {
+		return err
+	}
+	return validateWorkspaceChatSteerResult(response.Result, workspaceID, conversationID)
+}
+
 func validateWorkspaceChatSendEnvelope(response httpapi.SendWorkspaceUIChatResponse, workspaceID string, paneID string) (string, error) {
 	if response.WorkspaceID != workspaceID {
 		return "", fmt.Errorf("workspace chat send returned workspaceId %s, want %s", response.WorkspaceID, workspaceID)
@@ -75,6 +83,23 @@ func validateWorkspaceChatQueueEnvelope(response httpapi.QueueWorkspaceUIChatRes
 	contentRef := response.Pane.ContentRefs.Chat
 	if response.ConversationID != contentRef.ConversationID {
 		return "", fmt.Errorf("workspace chat queue conversationId = %s, want %s", response.ConversationID, contentRef.ConversationID)
+	}
+	return response.ConversationID, nil
+}
+
+func validateWorkspaceChatSteerEnvelope(response httpapi.SteerWorkspaceUIChatResponse, workspaceID string, paneID string) (string, error) {
+	if response.WorkspaceID != workspaceID {
+		return "", fmt.Errorf("workspace chat steer returned workspaceId %s, want %s", response.WorkspaceID, workspaceID)
+	}
+	if response.Pane.PaneID != paneID {
+		return "", fmt.Errorf("workspace chat steer returned paneId %s, want %s", response.Pane.PaneID, paneID)
+	}
+	if err := validateWorkspaceChatSteerPane(response.Pane); err != nil {
+		return "", fmt.Errorf("workspace chat steer pane descriptor is invalid: %w", err)
+	}
+	contentRef := response.Pane.ContentRefs.Chat
+	if response.ConversationID != contentRef.ConversationID {
+		return "", fmt.Errorf("workspace chat steer conversationId = %s, want %s", response.ConversationID, contentRef.ConversationID)
 	}
 	return response.ConversationID, nil
 }
@@ -135,6 +160,31 @@ func validateWorkspaceChatQueueResult(result chat.QueueMessageResult, workspaceI
 	return nil
 }
 
+func validateWorkspaceChatSteerResult(result chat.SteerMessageResult, workspaceID string, conversationID string) error {
+	if result.Conversation.WorkspaceID != workspaceID {
+		return fmt.Errorf("workspace chat steer result conversation workspaceId = %s, want %s", result.Conversation.WorkspaceID, workspaceID)
+	}
+	if result.Conversation.ID != conversationID {
+		return fmt.Errorf("workspace chat steer result conversation id = %s, want %s", result.Conversation.ID, conversationID)
+	}
+	if err := validateWorkspaceChatMessage(result.UserMessage, conversationID); err != nil {
+		return fmt.Errorf("workspace chat steer user message is invalid: %w", err)
+	}
+	if result.UserMessage.Delivery != chat.MessageDeliverySteering {
+		return fmt.Errorf("workspace chat steer user message delivery = %s, want steering", result.UserMessage.Delivery)
+	}
+	if err := validateWorkspaceChatRun(result.Run, workspaceID, conversationID); err != nil {
+		return fmt.Errorf("workspace chat steer run is invalid: %w", err)
+	}
+	if result.UserMessage.RunID != result.Run.ID {
+		return fmt.Errorf("workspace chat steer message run id = %s, want %s", result.UserMessage.RunID, result.Run.ID)
+	}
+	if err := validateWorkspaceChatReadPage(result.Page, workspaceID, conversationID); err != nil {
+		return fmt.Errorf("workspace chat steer page is invalid: %w", err)
+	}
+	return nil
+}
+
 func validateWorkspaceChatReadPane(pane workspaceui.WorkspaceUIPaneDescriptor) error {
 	if err := validateWorkspacePaneDescriptor(pane); err != nil {
 		return err
@@ -170,6 +220,16 @@ func validateWorkspaceChatQueuePane(pane workspaceui.WorkspaceUIPaneDescriptor) 
 	}
 	if !workspacePaneWriteModesContain(pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatQueue) {
 		return errors.New("chat pane descriptor did not advertise chat_queue")
+	}
+	return nil
+}
+
+func validateWorkspaceChatSteerPane(pane workspaceui.WorkspaceUIPaneDescriptor) error {
+	if err := validateWorkspaceChatReadPane(pane); err != nil {
+		return err
+	}
+	if !workspacePaneWriteModesContain(pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatSteer) {
+		return errors.New("chat pane descriptor did not advertise chat_steer")
 	}
 	return nil
 }
