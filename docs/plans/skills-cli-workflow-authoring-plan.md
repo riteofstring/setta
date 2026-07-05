@@ -278,6 +278,9 @@ Progress on 2026-07-06:
   workflow-graph-smoke` passed. The final pre-commit gates
   `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after
   splitting response validation to satisfy the Go complexity check.
+- Audit follow-up: added focused CLI integration coverage for listing an opened
+  workspace with no workflow definitions, verifying the command returns an
+  empty JSON array through real CLI dispatch, runtime auth, and backend HTTP.
 - Remaining Phase 2 work: add definitions read, validate, and save with the
   explicit create/update save input and structured diagnostics, then execution
   start/read. Add the broader workflow-authoring Electron coverage as mutating

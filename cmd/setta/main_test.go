@@ -430,6 +430,51 @@ func TestWorkflowDefinitionsListCommandIntegration(t *testing.T) {
 	}
 }
 
+func TestWorkflowDefinitionsListCommandReturnsEmptyArray(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+
+	var stdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &stdout
+	if code := runWithDeps([]string{"workflow", "definitions", "list", "--app-data-dir", appDataDir}, commandDeps); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+
+	var listed httpapi.ListWorkflowDefinitionsResponse
+	if err := json.NewDecoder(&stdout).Decode(&listed); err != nil {
+		t.Fatalf("decode workflow definitions list output: %v\noutput:\n%s", err, stdout.String())
+	}
+	if listed.Definitions == nil {
+		t.Fatalf("listed definitions = nil, want empty array")
+	}
+	if len(listed.Definitions) != 0 {
+		t.Fatalf("listed definitions = %+v, want empty", listed.Definitions)
+	}
+}
+
 func TestWorkflowSchemaCommandIntegration(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()
