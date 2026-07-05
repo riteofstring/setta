@@ -63,6 +63,7 @@ const (
 	WorkspaceUIPaneOperationKindClosePane   WorkspaceUIPaneOperationKind = "close_pane"
 	WorkspaceUIPaneOperationKindFocusPane   WorkspaceUIPaneOperationKind = "focus_pane"
 	WorkspaceUIPaneOperationKindMovePane    WorkspaceUIPaneOperationKind = "move_pane"
+	WorkspaceUIPaneOperationKindOpenPane    WorkspaceUIPaneOperationKind = "open_pane"
 	WorkspaceUIPaneOperationKindRenamePane  WorkspaceUIPaneOperationKind = "rename_pane"
 	WorkspaceUIPaneOperationKindReorderPane WorkspaceUIPaneOperationKind = "reorder_pane"
 	WorkspaceUIPaneOperationKindResizePane  WorkspaceUIPaneOperationKind = "resize_pane"
@@ -211,6 +212,7 @@ type WorkspaceUIPaneOperation struct {
 	PaneID  string                           `json:"paneId"`
 	Close   *WorkspaceUIPaneCloseOperation   `json:"close"`
 	Move    *WorkspaceUIPaneMoveOperation    `json:"move"`
+	Open    *WorkspaceUIPaneOpenOperation    `json:"open"`
 	Rename  *WorkspaceUIPaneRenameOperation  `json:"rename"`
 	Reorder *WorkspaceUIPaneReorderOperation `json:"reorder"`
 	Resize  *WorkspaceUIPaneResizeOperation  `json:"resize"`
@@ -222,6 +224,16 @@ type WorkspaceUIPaneCloseOperation struct {
 
 type WorkspaceUIPaneMoveOperation struct {
 	Direction WorkspaceUIPaneMoveDirection `json:"direction"`
+}
+
+type WorkspaceUIPaneOpenOperation struct {
+	AdjacentToColumnID string              `json:"adjacentToColumnId"`
+	Subtitle           string              `json:"subtitle"`
+	SurfaceKind        SurfaceKind         `json:"surfaceKind"`
+	TerminalConfig     *TerminalPaneConfig `json:"terminalConfig"`
+	Title              string              `json:"title"`
+	Tone               PaneTone            `json:"tone"`
+	WidthSpec          *ColumnWidthSpec    `json:"widthSpec"`
 }
 
 type WorkspaceUIPaneRenameOperation struct {
@@ -282,6 +294,7 @@ type WorkspaceUIPaneOperationOutcome struct {
 	Kind                  WorkspaceUIPaneOperationKind   `json:"kind"`
 	Close                 *WorkspaceUIPaneCloseOutcome   `json:"close"`
 	Move                  *WorkspaceUIPaneMoveOutcome    `json:"move"`
+	Open                  *WorkspaceUIPaneOpenOutcome    `json:"open"`
 	Rename                *WorkspaceUIPaneRenameOutcome  `json:"rename"`
 	Reorder               *WorkspaceUIPaneReorderOutcome `json:"reorder"`
 	Resize                *WorkspaceUIPaneResizeOutcome  `json:"resize"`
@@ -309,6 +322,18 @@ type WorkspaceUIPaneMoveOutcome struct {
 	PreviousColumnIndex int                          `json:"previousColumnIndex"`
 	PreviousPaneIndex   int                          `json:"previousPaneIndex"`
 	PreviousPlaneIndex  int                          `json:"previousPlaneIndex"`
+}
+
+type WorkspaceUIPaneOpenOutcome struct {
+	AdjacentToColumnID string          `json:"adjacentToColumnId"`
+	ColumnID           string          `json:"columnId"`
+	ColumnIndex        int             `json:"columnIndex"`
+	PaneIndex          int             `json:"paneIndex"`
+	PlaneIndex         int             `json:"planeIndex"`
+	SurfaceID          string          `json:"surfaceId"`
+	SurfaceKind        SurfaceKind     `json:"surfaceKind"`
+	Title              string          `json:"title"`
+	WidthSpec          ColumnWidthSpec `json:"widthSpec"`
 }
 
 type WorkspaceUIPaneRenameOutcome struct {
@@ -578,6 +603,7 @@ func supportedPaneOperationKinds() []WorkspaceUIPaneOperationKind {
 		WorkspaceUIPaneOperationKindClosePane,
 		WorkspaceUIPaneOperationKindFocusPane,
 		WorkspaceUIPaneOperationKindMovePane,
+		WorkspaceUIPaneOperationKindOpenPane,
 		WorkspaceUIPaneOperationKindRenamePane,
 		WorkspaceUIPaneOperationKindReorderPane,
 		WorkspaceUIPaneOperationKindResizePane,

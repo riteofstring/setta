@@ -7,28 +7,31 @@ import (
 	"strings"
 )
 
+var paneOperationValidators = map[WorkspaceUIPaneOperationKind]func(WorkspaceUIPaneOperation) error{
+	WorkspaceUIPaneOperationKindClosePane:   validateClosePaneOperation,
+	WorkspaceUIPaneOperationKindFocusPane:   validateFocusPaneOperation,
+	WorkspaceUIPaneOperationKindMovePane:    validateMovePaneOperation,
+	WorkspaceUIPaneOperationKindOpenPane:    validateOpenPaneOperation,
+	WorkspaceUIPaneOperationKindRenamePane:  validateRenamePaneOperation,
+	WorkspaceUIPaneOperationKindReorderPane: validateReorderPaneOperation,
+	WorkspaceUIPaneOperationKindResizePane:  validateResizePaneOperation,
+}
+
 func validatePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Kind == "" {
 		return errors.New("workspace pane operation kind is required")
 	}
-	if operation.PaneID == "" {
+	if operation.Kind == WorkspaceUIPaneOperationKindOpenPane && operation.PaneID != "" {
+		return errors.New("workspace pane open operation must not include paneId")
+	}
+	if operation.Kind != WorkspaceUIPaneOperationKindOpenPane && operation.PaneID == "" {
 		return errors.New("workspace pane operation paneId is required")
 	}
-	switch operation.Kind {
-	case WorkspaceUIPaneOperationKindClosePane:
-		return validateClosePaneOperation(operation)
-	case WorkspaceUIPaneOperationKindFocusPane:
-		return validateFocusPaneOperation(operation)
-	case WorkspaceUIPaneOperationKindMovePane:
-		return validateMovePaneOperation(operation)
-	case WorkspaceUIPaneOperationKindRenamePane:
-		return validateRenamePaneOperation(operation)
-	case WorkspaceUIPaneOperationKindReorderPane:
-		return validateReorderPaneOperation(operation)
-	case WorkspaceUIPaneOperationKindResizePane:
-		return validateResizePaneOperation(operation)
+	validator := paneOperationValidators[operation.Kind]
+	if validator == nil {
+		return nil
 	}
-	return nil
+	return validator(operation)
 }
 
 func validateClosePaneOperation(operation WorkspaceUIPaneOperation) error {
@@ -37,6 +40,9 @@ func validateClosePaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
+	}
+	if operation.Open != nil {
+		return errors.New("workspace pane operation open payload is only valid for open_pane")
 	}
 	if operation.Rename != nil {
 		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
@@ -60,6 +66,9 @@ func validateFocusPaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
 	}
+	if operation.Open != nil {
+		return errors.New("workspace pane operation open payload is only valid for open_pane")
+	}
 	if operation.Rename != nil {
 		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
 	}
@@ -75,6 +84,9 @@ func validateFocusPaneOperation(operation WorkspaceUIPaneOperation) error {
 func validateMovePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Close != nil {
 		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Open != nil {
+		return errors.New("workspace pane operation open payload is only valid for open_pane")
 	}
 	if operation.Rename != nil {
 		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
@@ -101,6 +113,9 @@ func validateRenamePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
 	}
+	if operation.Open != nil {
+		return errors.New("workspace pane operation open payload is only valid for open_pane")
+	}
 	if operation.Reorder != nil {
 		return errors.New("workspace pane operation reorder payload is only valid for reorder_pane")
 	}
@@ -126,6 +141,9 @@ func validateReorderPaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
 	}
+	if operation.Open != nil {
+		return errors.New("workspace pane operation open payload is only valid for open_pane")
+	}
 	if operation.Rename != nil {
 		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
 	}
@@ -136,6 +154,85 @@ func validateReorderPaneOperation(operation WorkspaceUIPaneOperation) error {
 		return errors.New("workspace pane reorder payload is required")
 	}
 	return validateReorderPaneIntent(operation.Reorder.Intent)
+}
+
+func validateOpenPaneOperation(operation WorkspaceUIPaneOperation) error {
+	if err := validateOpenPanePayloadExclusivity(operation); err != nil {
+		return err
+	}
+	if operation.Open == nil {
+		return errors.New("workspace pane open payload is required")
+	}
+	open := *operation.Open
+	if err := validateOpenPaneMetadata(open); err != nil {
+		return err
+	}
+	if open.WidthSpec != nil {
+		if err := validateResizeColumnWidthSpec(*open.WidthSpec); err != nil {
+			return err
+		}
+	}
+	return validateOpenPaneTerminalConfig(open.SurfaceKind, open.TerminalConfig)
+}
+
+func validateOpenPanePayloadExclusivity(operation WorkspaceUIPaneOperation) error {
+	if operation.Close != nil {
+		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Move != nil {
+		return errors.New("workspace pane operation move payload is only valid for move_pane")
+	}
+	if operation.Rename != nil {
+		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
+	}
+	if operation.Reorder != nil {
+		return errors.New("workspace pane operation reorder payload is only valid for reorder_pane")
+	}
+	if operation.Resize != nil {
+		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
+	return nil
+}
+
+func validateOpenPaneMetadata(open WorkspaceUIPaneOpenOperation) error {
+	if open.SurfaceKind == "" {
+		return errors.New("workspace pane open surfaceKind is required")
+	}
+	if !validSurfaceKind(open.SurfaceKind) {
+		return fmt.Errorf("workspace pane open surfaceKind is unsupported: %s", open.SurfaceKind)
+	}
+	if open.Title == "" {
+		return errors.New("workspace pane open title is required")
+	}
+	if strings.TrimSpace(open.Title) != open.Title {
+		return errors.New("workspace pane open title must not have surrounding whitespace")
+	}
+	if strings.TrimSpace(open.Subtitle) != open.Subtitle {
+		return errors.New("workspace pane open subtitle must not have surrounding whitespace")
+	}
+	if !validPaneTone(open.Tone) {
+		return fmt.Errorf("workspace pane open tone is unsupported: %s", open.Tone)
+	}
+	return nil
+}
+
+func validateOpenPaneTerminalConfig(surfaceKind SurfaceKind, config *TerminalPaneConfig) error {
+	if config == nil {
+		return nil
+	}
+	if surfaceKind != SurfaceKindTerminal {
+		return errors.New("workspace pane open terminalConfig is only valid for terminal panes")
+	}
+	if strings.TrimSpace(config.ProfileID) != config.ProfileID {
+		return errors.New("workspace pane open terminalConfig.profileId must not have surrounding whitespace")
+	}
+	if strings.TrimSpace(config.CWDOverride) != config.CWDOverride {
+		return errors.New("workspace pane open terminalConfig.cwdOverride must not have surrounding whitespace")
+	}
+	if strings.TrimSpace(config.TitleOverride) != config.TitleOverride {
+		return errors.New("workspace pane open terminalConfig.titleOverride must not have surrounding whitespace")
+	}
+	return nil
 }
 
 func validateReorderPaneIntent(intent WorkspaceUIPaneReorderIntent) error {
@@ -235,6 +332,9 @@ func validateResizePaneOperation(operation WorkspaceUIPaneOperation) error {
 	}
 	if operation.Rename != nil {
 		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
+	}
+	if operation.Open != nil {
+		return errors.New("workspace pane operation open payload is only valid for open_pane")
 	}
 	if operation.Reorder != nil {
 		return errors.New("workspace pane operation reorder payload is only valid for reorder_pane")

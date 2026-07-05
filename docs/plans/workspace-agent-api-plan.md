@@ -863,10 +863,27 @@ Progress on 2026-07-07:
   drops without persisting partial layout changes.
 - Verification for the audit follow-up:
   `./scripts/go.sh test ./internal/workspaceui` passed.
-- Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for open, then cut renderer-originated layout mutations over to
-  that backend operation API before exposing agent or CLI workspace mutation
-  commands.
+- Backend open operation reducer follow-up: added backend-only `open_pane`
+  support without exposing an HTTP, CLI, IPC, renderer, or agent write surface.
+  The reducer keeps pane identity backend-owned by rejecting caller-supplied
+  `paneId`, supports the initial terminal, chat, and workflow graph surface
+  kinds, creates deterministic pane/surface/column IDs from the persisted
+  layout, appends a new column or inserts one after an explicit adjacent
+  column, normalizes requested column widths with structured warnings, focuses
+  the created pane, increments the revision and persists exactly once, and
+  returns a structured open outcome. Unsupported surface kinds, invalid payload
+  shape, and missing adjacent columns fail with stable operation error codes and
+  leave the persisted layout unchanged.
+- Verification for the backend open reducer follow-up:
+  `./scripts/go.sh test ./internal/workspaceui`,
+  `./scripts/go.sh run ./cmd/generate-contracts`, and
+  `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi` passed. The
+  generator completed with no generated diffs because the write operation
+  contract remains unexposed through the endpoint registry.
+- Remaining Phase 2 work: add backend configure support if required for the
+  renderer write cutover, add push-based workspace UI event sync, then cut
+  renderer-originated layout mutations over to the backend operation API before
+  exposing agent or CLI workspace mutation commands.
 
 ### Phase 3: Renderer Event Sync
 

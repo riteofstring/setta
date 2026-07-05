@@ -24,6 +24,18 @@ type WorkspaceUIOperationError struct {
 	Err           error
 }
 
+type paneOperationApplier func(*Service, WorkspaceUILayout, WorkspaceUIPaneOperation) (WorkspaceUIPaneOperationResult, error)
+
+var paneOperationAppliers = map[WorkspaceUIPaneOperationKind]paneOperationApplier{
+	WorkspaceUIPaneOperationKindClosePane:   (*Service).applyClosePaneOperation,
+	WorkspaceUIPaneOperationKindFocusPane:   (*Service).applyFocusPaneOperation,
+	WorkspaceUIPaneOperationKindMovePane:    (*Service).applyMovePaneOperation,
+	WorkspaceUIPaneOperationKindOpenPane:    (*Service).applyOpenPaneOperation,
+	WorkspaceUIPaneOperationKindRenamePane:  (*Service).applyRenamePaneOperation,
+	WorkspaceUIPaneOperationKindReorderPane: (*Service).applyReorderPaneOperation,
+	WorkspaceUIPaneOperationKindResizePane:  (*Service).applyResizePaneOperation,
+}
+
 func (err *WorkspaceUIOperationError) Error() string {
 	if err == nil {
 		return ""
@@ -49,14 +61,8 @@ func (service *Service) ApplyPaneOperation(workspaceID string, operation Workspa
 	if err := validatePaneOperation(operation); err != nil {
 		return WorkspaceUIPaneOperationResult{}, operationError(workspaceID, operation, WorkspaceUIOperationErrorCodeInvalidOperation, err)
 	}
-	switch operation.Kind {
-	case WorkspaceUIPaneOperationKindClosePane,
-		WorkspaceUIPaneOperationKindFocusPane,
-		WorkspaceUIPaneOperationKindMovePane,
-		WorkspaceUIPaneOperationKindRenamePane,
-		WorkspaceUIPaneOperationKindReorderPane,
-		WorkspaceUIPaneOperationKindResizePane:
-	default:
+	applier := paneOperationAppliers[operation.Kind]
+	if applier == nil {
 		return WorkspaceUIPaneOperationResult{}, operationError(
 			workspaceID,
 			operation,
@@ -77,27 +83,7 @@ func (service *Service) ApplyPaneOperation(workspaceID string, operation Workspa
 			errors.New("workspace UI layout is required before applying pane operations"),
 		)
 	}
-	switch operation.Kind {
-	case WorkspaceUIPaneOperationKindClosePane:
-		return service.applyClosePaneOperation(*read.Layout, operation)
-	case WorkspaceUIPaneOperationKindFocusPane:
-		return service.applyFocusPaneOperation(*read.Layout, operation)
-	case WorkspaceUIPaneOperationKindMovePane:
-		return service.applyMovePaneOperation(*read.Layout, operation)
-	case WorkspaceUIPaneOperationKindRenamePane:
-		return service.applyRenamePaneOperation(*read.Layout, operation)
-	case WorkspaceUIPaneOperationKindReorderPane:
-		return service.applyReorderPaneOperation(*read.Layout, operation)
-	case WorkspaceUIPaneOperationKindResizePane:
-		return service.applyResizePaneOperation(*read.Layout, operation)
-	default:
-		return WorkspaceUIPaneOperationResult{}, operationError(
-			workspaceID,
-			operation,
-			WorkspaceUIOperationErrorCodeUnsupportedOperation,
-			fmt.Errorf("unsupported workspace pane operation kind: %s", operation.Kind),
-		)
-	}
+	return applier(service, *read.Layout, operation)
 }
 
 func (service *Service) applyClosePaneOperation(layout WorkspaceUILayout, operation WorkspaceUIPaneOperation) (WorkspaceUIPaneOperationResult, error) {
