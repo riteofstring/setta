@@ -19,6 +19,7 @@ type provisionExecutionActionKind string
 const (
 	provisionActionProbeIdentity       provisionExecutionActionKind = "probe_identity"
 	provisionActionResolveMachineTypes provisionExecutionActionKind = "resolve_machine_types"
+	provisionActionDiagnoseCreation    provisionExecutionActionKind = "diagnose_creation"
 	provisionActionCreateRuntime       provisionExecutionActionKind = "create_runtime"
 	provisionActionDeleteRuntime       provisionExecutionActionKind = "delete_runtime"
 )
@@ -562,7 +563,7 @@ func provisionExecutionActionKey(provider string, action provisionExecutionActio
 
 func isSupportedProvisionExecutionAction(action provisionExecutionActionKind) bool {
 	switch action {
-	case provisionActionProbeIdentity, provisionActionResolveMachineTypes, provisionActionCreateRuntime, provisionActionDeleteRuntime:
+	case provisionActionProbeIdentity, provisionActionResolveMachineTypes, provisionActionDiagnoseCreation, provisionActionCreateRuntime, provisionActionDeleteRuntime:
 		return true
 	default:
 		return false

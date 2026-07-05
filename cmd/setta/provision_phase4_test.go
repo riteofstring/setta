@@ -176,6 +176,40 @@ func TestProvisionExecutionManifestBuildsAWSCreateStackPlan(t *testing.T) {
 	}
 }
 
+func TestProvisionExecutionManifestBuildsAWSDiagnosePlan(t *testing.T) {
+	plan, err := buildProvisionExecutionPlan(provisionExecutionAction{
+		Provider:  "aws",
+		Kind:      provisionActionDiagnoseCreation,
+		Region:    "us-east-1",
+		StackName: "setta-setta-test-runtime",
+	})
+	if err != nil {
+		t.Fatalf("build execution plan: %v", err)
+	}
+	wantArgv := []string{
+		"aws",
+		"cloudformation",
+		"describe-stack-events",
+		"--stack-name",
+		"setta-setta-test-runtime",
+		"--region",
+		"us-east-1",
+		"--max-items",
+		"20",
+		"--output",
+		"json",
+	}
+	if !reflect.DeepEqual(plan.Argv, wantArgv) {
+		t.Fatalf("argv = %#v, want %#v", plan.Argv, wantArgv)
+	}
+	if plan.ActionID != "aws.cloudformation.diagnose_creation" ||
+		plan.Mutating ||
+		plan.RequiresApproval ||
+		!plan.SecretFree {
+		t.Fatalf("plan metadata = %+v", plan)
+	}
+}
+
 func TestProvisionExecutionManifestRejectsShellRunnerShape(t *testing.T) {
 	manifest := provisionExecutionManifest{
 		SchemaVersion: provisionExecutionManifestSchemaVersion,
@@ -406,6 +440,120 @@ func TestProvisionUpApprovedUpdatesFailedRecordAndReturnsProviderOutput(t *testi
 	}
 }
 
+func TestProvisionDiagnoseAWSUpdatesRecordWithStackFailureSummary(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	record := writeSucceededAWSCreationRecord(t, appDataDir, deps)
+	var stdout bytes.Buffer
+	deps.stdout = &stdout
+	deps.lookPath = expectAWSLookPath(t)
+	deps.commandRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		assertAWSDiagnoseCommand(t, name, args)
+		return []byte(`{
+			"StackEvents": [
+				{
+					"LogicalResourceId": "SettaInstance",
+					"ResourceStatus": "CREATE_FAILED",
+					"ResourceStatusReason": "The requested configuration is currently not supported."
+				},
+				{
+					"LogicalResourceId": "setta-setta-test-runtime",
+					"ResourceStatus": "ROLLBACK_IN_PROGRESS",
+					"ResourceStatusReason": "The following resource(s) failed to create: [SettaInstance]."
+				}
+			]
+		}`), nil
+	}
+
+	code := runWithDeps([]string{
+		"provision", "diagnose",
+		"--json",
+		"--app-data-dir", appDataDir,
+		"--record-id", record.RecordID,
+	}, deps)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	var result provisionDiagnoseResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse diagnose JSON: %v\n%s", err, stdout.String())
+	}
+	if !result.OK || result.Diagnostic == nil || result.Execution == nil {
+		t.Fatalf("result = %+v", result)
+	}
+	if !strings.Contains(result.Execution.ProviderOutput, "CREATE_FAILED") {
+		t.Fatalf("execution provider output = %q", result.Execution.ProviderOutput)
+	}
+	wantSummary := []string{
+		"SettaInstance: CREATE_FAILED: The requested configuration is currently not supported.",
+		"setta-setta-test-runtime: ROLLBACK_IN_PROGRESS: The following resource(s) failed to create: [SettaInstance].",
+	}
+	if !reflect.DeepEqual(result.Diagnostic.Summary, wantSummary) {
+		t.Fatalf("diagnostic summary = %#v, want %#v", result.Diagnostic.Summary, wantSummary)
+	}
+	updated := readProvisionCreationRecordForTest(t, appDataDir, deps, record.RecordID)
+	if len(updated.ProviderDiagnostics) != 1 {
+		t.Fatalf("provider diagnostics = %+v", updated.ProviderDiagnostics)
+	}
+	diagnostic := updated.ProviderDiagnostics[0]
+	if diagnostic.ActionID != "aws.cloudformation.diagnose_creation" ||
+		diagnostic.ProviderOutputSHA256 == "" ||
+		diagnostic.Status != provisionCreationStatusSucceeded ||
+		!reflect.DeepEqual(diagnostic.Summary, wantSummary) {
+		t.Fatalf("stored diagnostic = %+v", diagnostic)
+	}
+	if strings.Contains(strings.Join(diagnostic.RedactedArgv, " "), "TailscaleAuthKey") {
+		t.Fatalf("diagnostic argv leaked secret parameter: %#v", diagnostic.RedactedArgv)
+	}
+}
+
+func TestProvisionDiagnoseHetznerRequiresKnownResourceID(t *testing.T) {
+	appDataDir := t.TempDir()
+	cloudInitPath := writeProvisionExecutionTempFile(t, "cloud-init.yaml", "#cloud-config\n", 0o600)
+	deps := testDeps()
+	options := provisionUpOptions{
+		Provider:      "hetzner",
+		RuntimeName:   "setta-test-runtime",
+		Shape:         "dev-standard",
+		Region:        "fsn1",
+		InstanceType:  "cx42",
+		DiskGB:        96,
+		CloudInitFile: cloudInitPath,
+	}
+	plan, err := planProvisionUp(options)
+	if err != nil {
+		t.Fatalf("plan provision up: %v", err)
+	}
+	record, err := newProvisionCreationRecord(options, plan, deps.now().UTC())
+	if err != nil {
+		t.Fatalf("new creation record: %v", err)
+	}
+	record = record.withExecutionResult(provisionExecutionRunResult{
+		Status: provisionCreationStatusFailed,
+		Error:  "quota exceeded",
+	}, deps.now().UTC())
+	if err := newProvisionCreationStore(appDataDir, deps).write(provisionCreationRegistry{
+		Creations: []provisionCreationRecord{record},
+	}); err != nil {
+		t.Fatalf("write creation record: %v", err)
+	}
+	var stderr bytes.Buffer
+	deps.stderr = &stderr
+
+	code := runWithDeps([]string{
+		"provision", "diagnose",
+		"--json",
+		"--app-data-dir", appDataDir,
+		"--record-id", record.RecordID,
+	}, deps)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want runtime failure", code)
+	}
+	if !strings.Contains(stderr.String(), "cannot be diagnosed by hcloud until resourceId is known") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 func TestProvisionDownWithoutApprovalRefusesMutation(t *testing.T) {
 	var stderr bytes.Buffer
 	deps := testDeps()
@@ -632,6 +780,51 @@ func writeSucceededHetznerCreationRecord(t *testing.T, appDataDir string, deps c
 	return record
 }
 
+func writeSucceededAWSCreationRecord(t *testing.T, appDataDir string, deps cliDeps) provisionCreationRecord {
+	t.Helper()
+	templatePath := writeProvisionExecutionTempFile(t, "aws-template.yaml", "Resources: {}\n", 0o644)
+	parametersPath := writeProvisionExecutionTempFile(t, "aws-parameters.json", "[]\n", 0o600)
+	options := provisionUpOptions{
+		Provider:                     "aws",
+		RuntimeName:                  "setta-test-runtime",
+		Shape:                        "dev-standard",
+		Region:                       "us-east-1",
+		InstanceType:                 "t3.xlarge",
+		DiskGB:                       96,
+		StackName:                    "setta-setta-test-runtime",
+		CloudFormationTemplateFile:   templatePath,
+		CloudFormationParametersFile: parametersPath,
+	}
+	plan, err := planProvisionUp(options)
+	if err != nil {
+		t.Fatalf("plan provision up: %v", err)
+	}
+	record, err := newProvisionCreationRecord(options, plan, deps.now().UTC())
+	if err != nil {
+		t.Fatalf("new creation record: %v", err)
+	}
+	record = record.withExecutionResult(provisionExecutionRunResult{
+		Status:     provisionCreationStatusSucceeded,
+		ResourceID: "arn:aws:cloudformation:us-east-1:123456789012:stack/setta-setta-test-runtime/stack-id",
+	}, deps.now().UTC())
+	if err := newProvisionCreationStore(appDataDir, deps).write(provisionCreationRegistry{
+		Creations: []provisionCreationRecord{record},
+	}); err != nil {
+		t.Fatalf("write creation record: %v", err)
+	}
+	return record
+}
+
+func expectAWSLookPath(t *testing.T) func(string) (string, error) {
+	t.Helper()
+	return func(name string) (string, error) {
+		if name != "aws" {
+			t.Fatalf("lookPath name = %s, want aws", name)
+		}
+		return "/usr/bin/aws", nil
+	}
+}
+
 func expectHcloudLookPath(t *testing.T) func(string) (string, error) {
 	t.Helper()
 	return func(name string) (string, error) {
@@ -639,6 +832,28 @@ func expectHcloudLookPath(t *testing.T) func(string) (string, error) {
 			t.Fatalf("lookPath name = %s, want hcloud", name)
 		}
 		return "/usr/bin/hcloud", nil
+	}
+}
+
+func assertAWSDiagnoseCommand(t *testing.T, name string, args []string) {
+	t.Helper()
+	if name != "aws" {
+		t.Fatalf("command name = %s, want aws", name)
+	}
+	want := []string{
+		"cloudformation",
+		"describe-stack-events",
+		"--stack-name",
+		"setta-setta-test-runtime",
+		"--region",
+		"us-east-1",
+		"--max-items",
+		"20",
+		"--output",
+		"json",
+	}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("args = %#v, want %#v", args, want)
 	}
 }
 

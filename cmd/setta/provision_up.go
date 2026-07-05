@@ -236,6 +236,11 @@ func runApprovedProvisionUp(options provisionUpOptions, plan provisionExecutionP
 }
 
 func executeProvisionPlan(timeout time.Duration, plan provisionExecutionPlan, deps cliDeps) (provisionExecutionRunResult, error) {
+	result, _, err := executeProvisionPlanWithOutput(timeout, plan, deps)
+	return result, err
+}
+
+func executeProvisionPlanWithOutput(timeout time.Duration, plan provisionExecutionPlan, deps cliDeps) (provisionExecutionRunResult, []byte, error) {
 	ctx, stop := signalContext()
 	defer stop()
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
@@ -243,9 +248,9 @@ func executeProvisionPlan(timeout time.Duration, plan provisionExecutionPlan, de
 	output, err := deps.commandRunner(runCtx, plan.Argv[0], plan.Argv[1:]...)
 	result := provisionExecutionRunResultFromOutput(plan, output, err)
 	if err != nil {
-		return result, fmt.Errorf("provider command failed for %s: %w", plan.ActionID, err)
+		return result, output, fmt.Errorf("provider command failed for %s: %w", plan.ActionID, err)
 	}
-	return result, nil
+	return result, output, nil
 }
 
 func provisionUpFileInputs(options provisionUpOptions) ([]provisionExecutionFileInput, error) {

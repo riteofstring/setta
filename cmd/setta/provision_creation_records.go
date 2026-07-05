@@ -43,6 +43,7 @@ type provisionCreationRecord struct {
 	CreateAction         provisionCreationActionRecord   `json:"createAction"`
 	TeardownAction       provisionCreationTeardownRecord `json:"teardownAction"`
 	InputDigests         []provisionCreationInputDigest  `json:"inputDigests,omitempty"`
+	ProviderDiagnostics  []provisionCreationDiagnostic   `json:"providerDiagnostics,omitempty"`
 	ResourceID           string                          `json:"resourceId,omitempty"`
 	ProviderOutputSHA256 string                          `json:"providerOutputSha256,omitempty"`
 	TeardownOutputSHA256 string                          `json:"teardownOutputSha256,omitempty"`
@@ -79,6 +80,19 @@ type provisionCreationInputDigest struct {
 	SizeBytes int64  `json:"sizeBytes"`
 	SHA256    string `json:"sha256"`
 	Sensitive bool   `json:"sensitive"`
+}
+
+type provisionCreationDiagnostic struct {
+	ActionID             string                       `json:"actionId"`
+	TypedAction          provisionExecutionActionKind `json:"typedAction"`
+	CLIBinary            string                       `json:"cliBinary"`
+	RedactedArgv         []string                     `json:"redactedArgv"`
+	LastVerified         string                       `json:"lastVerified"`
+	Status               provisionCreationStatus      `json:"status"`
+	CheckedAt            string                       `json:"checkedAt"`
+	ProviderOutputSHA256 string                       `json:"providerOutputSha256,omitempty"`
+	Error                string                       `json:"error,omitempty"`
+	Summary              []string                     `json:"summary,omitempty"`
 }
 
 type provisionCreationRegistry struct {
@@ -172,6 +186,15 @@ func (record provisionCreationRecord) withTeardownResult(result provisionExecuti
 		record.Status = provisionCreationStatusDeleted
 		record.DeletedAt = record.UpdatedAt
 		record.LastError = ""
+	}
+	return record
+}
+
+func (record provisionCreationRecord) withProviderDiagnostic(diagnostic provisionCreationDiagnostic, now time.Time) provisionCreationRecord {
+	record.UpdatedAt = now.Format(time.RFC3339Nano)
+	record.ProviderDiagnostics = append(record.ProviderDiagnostics, diagnostic)
+	if diagnostic.Error != "" {
+		record.LastError = diagnostic.Error
 	}
 	return record
 }
@@ -474,7 +497,15 @@ func validateProvisionCreationRecord(record provisionCreationRecord) error {
 	if err := validateProvisionCreationAction(record.RecordID, record.CreateAction); err != nil {
 		return err
 	}
-	return validateProvisionCreationTeardown(record.RecordID, record.TeardownAction)
+	if err := validateProvisionCreationTeardown(record.RecordID, record.TeardownAction); err != nil {
+		return err
+	}
+	for _, diagnostic := range record.ProviderDiagnostics {
+		if err := validateProvisionCreationDiagnostic(record.RecordID, diagnostic); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func validateProvisionCreationRecordHeader(record provisionCreationRecord) error {
@@ -588,6 +619,72 @@ func validateProvisionCreationReadyTeardown(recordID string, teardown provisionC
 	for _, token := range teardown.RedactedArgv {
 		if err := validateProvisionExecutionCommandToken("provision creation teardown argv token", token); err != nil {
 			return fmt.Errorf("provision creation record %q: %w", recordID, err)
+		}
+	}
+	return nil
+}
+
+func validateProvisionCreationDiagnostic(recordID string, diagnostic provisionCreationDiagnostic) error {
+	if err := validateProvisionCreationDiagnosticIdentity(recordID, diagnostic); err != nil {
+		return err
+	}
+	if err := validateProvisionCreationDiagnosticStatus(recordID, diagnostic); err != nil {
+		return err
+	}
+	if err := validateProvisionCreationDiagnosticArgv(recordID, diagnostic); err != nil {
+		return err
+	}
+	return validateProvisionCreationDiagnosticSummary(recordID, diagnostic.Summary)
+}
+
+func validateProvisionCreationDiagnosticIdentity(recordID string, diagnostic provisionCreationDiagnostic) error {
+	if _, err := requirePlainField("provision creation diagnostic action id", diagnostic.ActionID, 1, 128); err != nil {
+		return fmt.Errorf("provision creation record %q: %w", recordID, err)
+	}
+	if diagnostic.TypedAction != provisionActionDiagnoseCreation {
+		return fmt.Errorf("provision creation record %q diagnostic has typedAction %q, want %q", recordID, diagnostic.TypedAction, provisionActionDiagnoseCreation)
+	}
+	return validateProvisionExecutionBinary(diagnostic.ActionID, diagnostic.CLIBinary)
+}
+
+func validateProvisionCreationDiagnosticStatus(recordID string, diagnostic provisionCreationDiagnostic) error {
+	if _, err := validateRFC3339Date("provision creation diagnostic lastVerified", diagnostic.LastVerified); err != nil {
+		return fmt.Errorf("provision creation record %q: %w", recordID, err)
+	}
+	if diagnostic.Status != provisionCreationStatusSucceeded && diagnostic.Status != provisionCreationStatusFailed {
+		return fmt.Errorf("provision creation record %q diagnostic has status %q, want succeeded or failed", recordID, diagnostic.Status)
+	}
+	if _, err := validateRFC3339NanoField("provision creation diagnostic checkedAt", diagnostic.CheckedAt); err != nil {
+		return fmt.Errorf("provision creation record %q: %w", recordID, err)
+	}
+	if diagnostic.ProviderOutputSHA256 == "" {
+		return nil
+	}
+	if _, err := validateSHA256Hex("provision creation diagnostic providerOutputSha256", diagnostic.ProviderOutputSHA256); err != nil {
+		return fmt.Errorf("provision creation record %q: %w", recordID, err)
+	}
+	return nil
+}
+
+func validateProvisionCreationDiagnosticArgv(recordID string, diagnostic provisionCreationDiagnostic) error {
+	if len(diagnostic.RedactedArgv) == 0 {
+		return fmt.Errorf("provision creation record %q diagnostic has no redactedArgv", recordID)
+	}
+	for _, token := range diagnostic.RedactedArgv {
+		if err := validateProvisionExecutionCommandToken("provision creation diagnostic argv token", token); err != nil {
+			return fmt.Errorf("provision creation record %q: %w", recordID, err)
+		}
+	}
+	return nil
+}
+
+func validateProvisionCreationDiagnosticSummary(recordID string, summary []string) error {
+	for _, line := range summary {
+		if strings.TrimSpace(line) == "" {
+			return fmt.Errorf("provision creation record %q diagnostic summary contains an empty line", recordID)
+		}
+		if containsControlCharacter(line) {
+			return fmt.Errorf("provision creation record %q diagnostic summary contains control characters", recordID)
 		}
 	}
 	return nil

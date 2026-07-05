@@ -73,6 +73,17 @@ interface ProvisionUpCLIResult {
   warnings: string[];
 }
 
+interface ProvisionDiagnoseCLIResult {
+  diagnostic: {
+    summary: string[];
+  } | null;
+  execution: {
+    error: string | null;
+    providerOutput: string | null;
+  } | null;
+  ok: boolean;
+}
+
 export async function runApprovedCloudRuntimeProvision(
   request: CloudRuntimeProvisionExecuteRequest,
   options: CloudRuntimeProvisionExecutorOptions,
@@ -106,18 +117,23 @@ export async function runApprovedCloudRuntimeProvision(
       scheme: "http",
     });
     const up = await runProvisionUpCLI(options, upArgs);
-    const snapshot = await options.runtimeRegistry.watchProvisionAndPair({
-      pending,
-      tailnetClient: options.tailnetClient ?? new TailscaleStatusClient(),
-      ...provisionWatchTiming(options.env),
-    });
-    await options.pendingProvisionStore.delete(pending.provisionId);
-    return {
-      ...up,
-      provisionId: pending.provisionId,
-      runtimeName: pending.runtimeName,
-      snapshot,
-    };
+    try {
+      const snapshot = await options.runtimeRegistry.watchProvisionAndPair({
+        pending,
+        tailnetClient: options.tailnetClient ?? new TailscaleStatusClient(),
+        ...provisionWatchTiming(options.env),
+      });
+      await options.pendingProvisionStore.delete(pending.provisionId);
+      return {
+        ...up,
+        provisionId: pending.provisionId,
+        runtimeName: pending.runtimeName,
+        snapshot,
+      };
+    } catch (error) {
+      const diagnosis = await diagnoseProvisionWatchFailure(options, up.creationRecord.recordId);
+      throw new Error(provisionWatchFailureMessage(error, diagnosis), { cause: error });
+    }
   } finally {
     await rm(tempDir, { force: true, recursive: true });
   }
@@ -377,6 +393,33 @@ async function runProvisionUpCLI(
   return parseProvisionUpResult(stdout);
 }
 
+async function diagnoseProvisionWatchFailure(
+  options: CloudRuntimeProvisionExecutorOptions,
+  recordId: string,
+): Promise<ProvisionDiagnoseCLIResult | null> {
+  try {
+    const stdout = await runProvisionCLI(options, [
+      "provision",
+      "diagnose",
+      "--json",
+      "--app-data-dir",
+      options.appDataDir,
+      "--record-id",
+      recordId,
+    ]);
+    return parseProvisionDiagnoseResult(stdout);
+  } catch (error) {
+    return {
+      diagnostic: null,
+      execution: {
+        error: `provider diagnostic unavailable: ${errorMessage(error)}`,
+        providerOutput: null,
+      },
+      ok: false,
+    };
+  }
+}
+
 async function runProvisionCLI(
   options: CloudRuntimeProvisionExecutorOptions,
   args: string[],
@@ -409,6 +452,75 @@ function parseProvisionUpResult(stdout: string): ProvisionUpCLIResult {
     provider: requireString(record.provider, "provider"),
     warnings: requireStringArrayOrEmpty(record.warnings, "warnings"),
   };
+}
+
+function parseProvisionDiagnoseResult(stdout: string): ProvisionDiagnoseCLIResult {
+  const record = parseJSONRecord(stdout, "setta provision diagnose");
+  return {
+    diagnostic: parseProvisionDiagnostic(record.diagnostic),
+    execution: parseProvisionDiagnosisExecution(record.execution),
+    ok: requireBoolean(record.ok, "ok"),
+  };
+}
+
+function parseProvisionDiagnostic(value: unknown): ProvisionDiagnoseCLIResult["diagnostic"] {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  const record = requireRecord(value, "diagnostic");
+  return {
+    summary: requireStringArrayOrEmpty(record.summary, "diagnostic.summary"),
+  };
+}
+
+function parseProvisionDiagnosisExecution(value: unknown): ProvisionDiagnoseCLIResult["execution"] {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  const record = requireRecord(value, "execution");
+  return {
+    error: optionalString(record.error),
+    providerOutput: optionalString(record.providerOutput),
+  };
+}
+
+function provisionWatchFailureMessage(
+  error: unknown,
+  diagnosis: ProvisionDiagnoseCLIResult | null,
+): string {
+  const base = errorMessage(error);
+  if (!diagnosis) {
+    return base;
+  }
+  const details = provisionDiagnosisMessage(diagnosis);
+  if (!details) {
+    return base;
+  }
+  return `${base}\nProvider diagnosis: ${details}`;
+}
+
+function provisionDiagnosisMessage(diagnosis: ProvisionDiagnoseCLIResult): string | null {
+  const summary = diagnosis.diagnostic?.summary ?? [];
+  if (summary.length > 0) {
+    return summary.join("; ");
+  }
+  const providerOutput = diagnosis.execution?.providerOutput;
+  if (providerOutput) {
+    return truncateDiagnosticText(providerOutput);
+  }
+  const error = diagnosis.execution?.error;
+  if (error) {
+    return error;
+  }
+  return diagnosis.ok ? null : "provider diagnostic probe did not return details";
+}
+
+function truncateDiagnosticText(value: string): string {
+  const normalized = value.trim();
+  if (normalized.length <= 2000) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 2000)}...`;
 }
 
 function parseCreationRecord(record: Record<string, unknown>): CloudRuntimeProvisionCreationRecord {

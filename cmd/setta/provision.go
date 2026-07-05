@@ -12,6 +12,8 @@ func runProvision(args []string, deps cliDeps) error {
 	switch args[0] {
 	case "detect":
 		return runProvisionDetect(args[1:], deps)
+	case "diagnose":
+		return runProvisionDiagnose(args[1:], deps)
 	case "render-link":
 		return runProvisionRenderLink(args[1:], deps)
 	case "render-cloudinit":

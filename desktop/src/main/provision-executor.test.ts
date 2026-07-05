@@ -117,6 +117,77 @@ describe("cloud runtime provision executor", () => {
       `delete:${result.provisionId}`,
     ]);
   });
+
+  test("runs provider diagnosis when watch fails after creation", async () => {
+    const appDataDir = await mkdtemp(join(tmpdir(), "setta-provision-executor-"));
+    const events: string[] = [];
+
+    await expect(
+      runApprovedCloudRuntimeProvision(requestFixture(), {
+        appDataDir,
+        env: {
+          SETTA_CLI_PATH: "/opt/setta",
+        },
+        execFileRunner: async (command, args) => {
+          expect(command).toBe("/opt/setta");
+          if (args[0] === "provision" && args[1] === "render-cloudinit") {
+            events.push("render-cloudinit");
+            return {
+              stderr: "",
+              stdout: JSON.stringify({
+                cloudInit: "#cloud-config\nsetta: true\n",
+                cloudInitSha256: "a".repeat(64),
+                ok: true,
+              }),
+            };
+          }
+          if (args[0] === "provision" && args[1] === "up") {
+            events.push("up");
+            return {
+              stderr: "",
+              stdout: JSON.stringify(provisionUpOutput(requiredArg(args, "--cloud-init-file"))),
+            };
+          }
+          if (args[0] === "provision" && args[1] === "diagnose") {
+            events.push("diagnose");
+            expect(requiredArg(args, "--app-data-dir")).toBe(appDataDir);
+            expect(requiredArg(args, "--record-id")).toBe("hetzner:setta-worker");
+            return {
+              stderr: "",
+              stdout: JSON.stringify(provisionDiagnoseOutput()),
+            };
+          }
+          throw new Error(`unexpected CLI args: ${args.join(" ")}`);
+        },
+        now: () => new Date("2026-07-07T10:00:00.000Z"),
+        pendingProvisionStore: {
+          delete: async () => {
+            throw new Error("failed watch should keep pending provision for resume");
+          },
+          upsert: async (input) => {
+            events.push("upsert");
+            return pendingFromInput(input);
+          },
+        },
+        repoRoot: "/repo",
+        runtimeRegistry: {
+          watchProvisionAndPair: async () => {
+            events.push("watch");
+            throw new Error("timed out waiting for setta-worker to pair");
+          },
+        },
+        tailscaleOAuthService: {
+          mintAuthKey: async () => {
+            throw new Error("manual auth path should not mint OAuth keys");
+          },
+        },
+      }),
+    ).rejects.toThrow(
+      "timed out waiting for setta-worker to pair\nProvider diagnosis: server 123: setta-worker: status initializing",
+    );
+
+    expect(events).toEqual(["render-cloudinit", "upsert", "up", "watch", "diagnose"]);
+  });
 });
 
 function requestFixture(): CloudRuntimeProvisionExecuteRequest {
@@ -201,6 +272,28 @@ function provisionUpOutput(cloudInitPath: string) {
     },
     provider: "hetzner",
     warnings: [],
+  };
+}
+
+function provisionDiagnoseOutput() {
+  return {
+    diagnostic: {
+      actionId: "hetzner.server.diagnose_creation",
+      checkedAt: "2026-07-07T10:00:04.000Z",
+      cliBinary: "hcloud",
+      lastVerified: "2026-07-07",
+      redactedArgv: ["hcloud", "server", "describe", "123", "-o", "json"],
+      status: "succeeded",
+      summary: ["server 123: setta-worker: status initializing"],
+      typedAction: "diagnose_creation",
+    },
+    execution: {
+      providerOutput: '{"server":{"id":123,"name":"setta-worker","status":"initializing"}}',
+      status: "succeeded",
+    },
+    ok: true,
+    provider: "hetzner",
+    recordId: "hetzner:setta-worker",
   };
 }
 
