@@ -78,6 +78,7 @@ func (handler handler) runtimeInfoResponse(identity RuntimeIdentity) RuntimeInfo
 		BackendName:            handler.metadata.Name,
 		BackendVersion:         handler.metadata.Version,
 		ProtocolVersion:        ProtocolVersion,
+		FeatureSet:             RuntimeFeatureSetIdentity(),
 		VAPIDPublicKey:         handler.notifyPublicKey(),
 	}
 }

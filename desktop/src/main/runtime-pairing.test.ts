@@ -177,7 +177,7 @@ describe("runtime connection verification", () => {
   test("marks older protocol versions incompatible", async () => {
     const fetchImpl: BackendFetch = async (input) => {
       if (input.pathname === "/runtime/info") {
-        return jsonResponse(legacyRuntimeInfo("runtime_expected", backendProtocolVersion - 1));
+        return jsonResponse(runtimeInfo("runtime_expected", backendProtocolVersion - 1));
       }
       return jsonResponse({ devices: [] });
     };
@@ -190,6 +190,27 @@ describe("runtime connection verification", () => {
         fetchImpl,
       }),
     ).rejects.toMatchObject({ reason: "incompatible" } satisfies Partial<RuntimeConnectionError>);
+  });
+
+  test("marks missing runtime feature identity incompatible", async () => {
+    const fetchImpl: BackendFetch = async (input) => {
+      if (input.pathname === "/runtime/info") {
+        return jsonResponse(legacyRuntimeInfo("runtime_expected", backendProtocolVersion));
+      }
+      return jsonResponse({ devices: [] });
+    };
+
+    await expect(
+      verifyRuntimeConnection({
+        baseUrl: "http://100.64.0.12:7345/",
+        deviceToken: "device_token",
+        expectedRuntimeId: "runtime_expected",
+        fetchImpl,
+      }),
+    ).rejects.toMatchObject({
+      details: { protocolVersion: backendProtocolVersion },
+      reason: "incompatible",
+    } satisfies Partial<RuntimeConnectionError>);
   });
 
   test("blocks different runtimes at the stored address", async () => {
@@ -247,6 +268,7 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: "Remote",
+    featureSet: runtimeFeatureSet(),
     infrastructureProvider: {
       displayName: "Unknown provider",
       iconUrl: "",
@@ -255,6 +277,13 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
     protocolVersion,
     runtimeId,
     vapidPublicKey: "test-vapid-public-key",
+  };
+}
+
+function runtimeFeatureSet() {
+  return {
+    features: ["device_pairing_url", "runtime_web_app", "web_push"],
+    version: 1,
   };
 }
 

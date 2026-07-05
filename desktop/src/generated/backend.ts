@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 7;
-export const backendContractSchemaHash = "sha256:4a0be16f44629c62dd24b5a02c03aa5af318b401644ec3b2d20c4b4e18a0e88b";
+export const backendProtocolVersion = 8;
+export const backendContractSchemaHash = "sha256:ceb9203f9d0dca78388fb6aec1f5a5d4238fd3b0aef6a3facabffce1a78b7b27";
 
 export type DeviceScope = "full";
 
@@ -2609,6 +2609,11 @@ export interface RuntimeInfrastructureProvider {
   iconUrl: string;
 }
 
+export interface RuntimeFeatureSet {
+  version: number;
+  features: string[];
+}
+
 export interface RuntimeInfoResponse {
   runtimeId: string;
   displayName: string;
@@ -2616,6 +2621,7 @@ export interface RuntimeInfoResponse {
   backendName: string;
   backendVersion: string;
   protocolVersion: number;
+  featureSet: RuntimeFeatureSet;
   vapidPublicKey: string;
 }
 
@@ -7148,9 +7154,18 @@ export function decodeRuntimeInfrastructureProvider(value: unknown): RuntimeInfr
   };
 }
 
+export function decodeRuntimeFeatureSet(value: unknown): RuntimeFeatureSet {
+  const record = assertRecord(value, "RuntimeFeatureSet");
+  assertKnownFields(record, "RuntimeFeatureSet", ["version", "features"]);
+  return {
+    version: decodeInteger(requireField(record, "version", "RuntimeFeatureSet"), "RuntimeFeatureSet.version"),
+    features: decodeArray(requireField(record, "features", "RuntimeFeatureSet"), "RuntimeFeatureSet.features", (item) => decodeString(item, "RuntimeFeatureSet.features item")),
+  };
+}
+
 export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
   const record = assertRecord(value, "RuntimeInfoResponse");
-  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion", "vapidPublicKey"]);
+  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion", "featureSet", "vapidPublicKey"]);
   return {
     runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeInfoResponse"), "RuntimeInfoResponse.runtimeId"),
     displayName: decodeString(requireField(record, "displayName", "RuntimeInfoResponse"), "RuntimeInfoResponse.displayName"),
@@ -7158,6 +7173,7 @@ export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
     backendName: decodeString(requireField(record, "backendName", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendName"),
     backendVersion: decodeString(requireField(record, "backendVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendVersion"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.protocolVersion"),
+    featureSet: decodeRuntimeFeatureSet(requireField(record, "featureSet", "RuntimeInfoResponse")),
     vapidPublicKey: decodeString(requireField(record, "vapidPublicKey", "RuntimeInfoResponse"), "RuntimeInfoResponse.vapidPublicKey"),
   };
 }

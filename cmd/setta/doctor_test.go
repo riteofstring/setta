@@ -172,6 +172,7 @@ func (doctorTestTransport) RoundTrip(request *http.Request) (*http.Response, err
 			BackendName:            httpapi.BackendName,
 			BackendVersion:         "test",
 			ProtocolVersion:        httpapi.ProtocolVersion,
+			FeatureSet:             httpapi.RuntimeFeatureSetIdentity(),
 			VAPIDPublicKey:         "vapid_public",
 		}, http.StatusOK), nil
 	}

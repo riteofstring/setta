@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -52,6 +53,9 @@ func TestUnauthenticatedRuntimeRoutesAreReachable(t *testing.T) {
 	info := getJSON[RuntimeInfoResponse](t, handler, "/runtime/info", http.StatusOK)
 	if info.RuntimeID != "runtime_test" || info.ProtocolVersion != ProtocolVersion {
 		t.Fatalf("runtime info = %+v", info)
+	}
+	if !reflect.DeepEqual(info.FeatureSet, RuntimeFeatureSetIdentity()) {
+		t.Fatalf("runtime info feature set = %+v, want %+v", info.FeatureSet, RuntimeFeatureSetIdentity())
 	}
 	health := getJSON[BackendHealth](t, handler, "/health", http.StatusOK)
 	if !health.OK || health.ProtocolVersion != ProtocolVersion {

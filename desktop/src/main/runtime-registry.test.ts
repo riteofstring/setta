@@ -352,6 +352,10 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: runtimeId === "runtime_local" ? "Local runtime" : "Remote runtime",
+    featureSet: {
+      features: ["device_pairing_url", "runtime_web_app", "web_push"],
+      version: 1,
+    },
     infrastructureProvider:
       runtimeId === "runtime_remote"
         ? runtimeInfrastructureProvider("aws")

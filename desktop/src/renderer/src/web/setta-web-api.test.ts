@@ -217,6 +217,10 @@ function runtimeInfo() {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: "Web runtime",
+    featureSet: {
+      features: ["device_pairing_url", "runtime_web_app", "web_push"],
+      version: 1,
+    },
     infrastructureProvider: {
       displayName: "Unknown provider",
       iconUrl: "",

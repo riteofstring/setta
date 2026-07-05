@@ -21,6 +21,7 @@ type RuntimeInfoResponse struct {
 	BackendName            string                        `json:"backendName"`
 	BackendVersion         string                        `json:"backendVersion"`
 	ProtocolVersion        int                           `json:"protocolVersion"`
+	FeatureSet             RuntimeFeatureSet             `json:"featureSet"`
 	VAPIDPublicKey         string                        `json:"vapidPublicKey"`
 }
 
@@ -28,6 +29,11 @@ type RuntimeInfrastructureProvider struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName"`
 	IconURL     string `json:"iconUrl"`
+}
+
+type RuntimeFeatureSet struct {
+	Version  int      `json:"version"`
+	Features []string `json:"features"`
 }
 
 type UpdateRuntimeDisplayNameRequest struct {

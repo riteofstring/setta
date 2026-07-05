@@ -139,6 +139,9 @@ export async function fetchRuntimeInfo(
       }),
     );
   } catch (error) {
+    if (error instanceof RuntimeConnectionError) {
+      throw error;
+    }
     if (error instanceof RuntimeHTTPError) {
       throw new RuntimeConnectionError(
         "unreachable",
@@ -150,11 +153,28 @@ export async function fetchRuntimeInfo(
 }
 
 function decodeCompatibleRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
-  return decodeRuntimeInfoResponse(runtimeInfoResponseWithProviderFallback(value));
+  return decodeRuntimeInfoResponse(runtimeInfoResponseWithCompatibilityDiagnostics(value));
+}
+
+function runtimeInfoResponseWithCompatibilityDiagnostics(value: unknown): unknown {
+  const response = runtimeInfoResponseWithProviderFallback(value);
+  if (!isRuntimeInfoRecord(response)) {
+    return response;
+  }
+  if (!("featureSet" in response)) {
+    throw new RuntimeConnectionError(
+      "incompatible",
+      "runtime info is missing feature identity; update the runtime to match this app",
+      {
+        protocolVersion: runtimeInfoProtocolVersion(response),
+      },
+    );
+  }
+  return response;
 }
 
 function runtimeInfoResponseWithProviderFallback(value: unknown): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+  if (!isRuntimeInfoRecord(value)) {
     return value;
   }
   if ("infrastructureProvider" in value) {
@@ -164,6 +184,16 @@ function runtimeInfoResponseWithProviderFallback(value: unknown): unknown {
     ...value,
     infrastructureProvider: unknownRuntimeInfrastructureProvider,
   };
+}
+
+function isRuntimeInfoRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function runtimeInfoProtocolVersion(value: Record<string, unknown>): number | null {
+  return typeof value.protocolVersion === "number" && Number.isInteger(value.protocolVersion)
+    ? value.protocolVersion
+    : null;
 }
 
 export async function completePairing(
