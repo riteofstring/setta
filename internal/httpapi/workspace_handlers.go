@@ -268,14 +268,11 @@ func (handler handler) queueWorkspaceUIChat(response http.ResponseWriter, reques
 		return
 	}
 	conversationID := pane.ContentRefs.Chat.ConversationID
-	if _, _, hasActiveRun, err := chatService.ActiveRunWithLiveness(payload.WorkspaceID, conversationID); err != nil {
-		writeChatError(response, "queue_workspace_ui_chat_active_run_failed", err)
-		return
-	} else if !hasActiveRun {
+	result, err := chatService.QueueUserInputForActiveRun(payload.WorkspaceID, conversationID, payload.Input)
+	if errors.Is(err, chat.ErrQueueRequiresActiveRun) {
 		writeError(response, http.StatusConflict, "workspace_chat_queue_requires_active_run", "workspace chat queue requires an active run in the bound conversation")
 		return
 	}
-	result, err := chatService.QueueUserInput(payload.WorkspaceID, conversationID, payload.Input)
 	if err != nil {
 		writeChatError(response, "queue_workspace_ui_chat_failed", err)
 		return

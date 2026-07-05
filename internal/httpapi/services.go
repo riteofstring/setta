@@ -82,6 +82,7 @@ type ChatService interface {
 	OpenChatCodexModelPicker(workspaceID string, conversationID string) (chat.ChatCommandExecuteResult, error)
 	OpenChatCodexPermissionPicker(workspaceID string, conversationID string) (chat.ChatCommandExecuteResult, error)
 	QueueUserInput(workspaceID string, conversationID string, input chat.ChatInput) (chat.QueueMessageResult, error)
+	QueueUserInputForActiveRun(workspaceID string, conversationID string, input chat.ChatInput) (chat.QueueMessageResult, error)
 	ReadChatCodexDefaults(context.Context) (chat.ChatCodexDefaultsView, error)
 	RemoveQueuedMessage(workspaceID string, conversationID string, messageID string) (chat.QueueRemoveResult, error)
 	SendUserInput(workspaceID string, conversationID string, input chat.ChatInput) (chat.SendMessageResult, error)
