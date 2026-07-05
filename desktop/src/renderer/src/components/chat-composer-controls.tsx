@@ -392,44 +392,6 @@ export function ModelPickerButton({
   );
 }
 
-export function ReadOnlyChatSettingsControls({
-  className,
-  modelLabel,
-  permissionLabel,
-  reasoningLabel,
-}: {
-  className?: string;
-  modelLabel: string;
-  permissionLabel: string;
-  reasoningLabel: string;
-}) {
-  const readOnlyReason = "Run settings are read-only.";
-  return (
-    <div className={cn("flex min-w-0 flex-wrap items-center gap-1", className)}>
-      <PermissionPickerButton
-        disabled
-        disabledReason={readOnlyReason}
-        onOpen={noop}
-        onSelect={noop}
-        permissionLabel={permissionLabel}
-        permissionPicker={null}
-        running={false}
-        selected
-      />
-      <ModelPickerButton
-        disabled
-        disabledReason={readOnlyReason}
-        modelLabel={modelLabel}
-        modelPicker={null}
-        onOpen={noop}
-        reasoningLabel={reasoningLabel}
-        running={false}
-        selected
-      />
-    </div>
-  );
-}
-
 function modelPickerDisabledReason({
   disabled,
   running,
@@ -517,8 +479,6 @@ export function reasoningEffortOptionSelected(
   }
   return effort.effort === selectedReasoningEffort;
 }
-
-function noop() {}
 
 export function ComposerButton({
   canSend,

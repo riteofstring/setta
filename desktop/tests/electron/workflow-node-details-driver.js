@@ -192,7 +192,11 @@
     const surface = lastSurface(surfaces);
     const trajectories = queryAll(details, '[data-testid="agent-trajectory-surface"]');
     const detailsDock = workflowRunDetailsDockState(details);
-    const settingsBar = workflowRunDetailsSettingsBarState(details);
+    const composerSettings = workflowRunDetailsComposerSettingsState(details);
+    const standaloneSettingsBarCount = countSelector(
+      details,
+      '[data-testid="workflow-agent-run-settings"]',
+    );
     return {
       activityGroupHeaderCount: countSelector(details, '[data-testid="activity-group-header"]'),
       chatConversationTrajectoryCount: scopedTrajectoryCount(trajectories, "chatConversation"),
@@ -211,9 +215,10 @@
       nodeStatusChipCount: countSelector(details, '[data-testid="workflow-node-status-chip"]'),
       present: surface !== null,
       runActivityRowCount: countSelector(details, '[data-testid="run-activity-row"]'),
-      settingsBar,
-      settingsBarCount: settingsBar.count,
-      settingsBarText: settingsBar.text,
+      composerSettings,
+      settingsBarCount: standaloneSettingsBarCount,
+      settingsBarText: "",
+      standaloneSettingsBarCount,
       text: elementText(details),
       trajectory: workflowNodeTrajectoryStateForDetails(details),
       workflowStatusText: workflowRunDetailsWorkflowStatusText(details),
@@ -229,27 +234,31 @@
     };
   }
 
-  function workflowRunDetailsSettingsBarState(details) {
-    const settingsBar =
-      details?.querySelector('[data-testid="workflow-agent-run-settings"]') ?? null;
+  function workflowRunDetailsComposerSettingsState(details) {
+    const composer = workflowNodeTrajectoryComposerElement(details);
+    const toolbar = composer?.querySelector('[data-testid="chat-composer-bottom-toolbar"]') ?? null;
+    const textarea = workflowNodeTrajectoryComposerTextarea(composer);
     const permissionButton = disabledButtonState(
-      settingsBar,
+      toolbar,
       'button[aria-label="Open permission mode picker"]',
     );
     const modelButton = disabledButtonState(
-      settingsBar,
+      toolbar,
       'button[aria-label="Open model and reasoning picker"]',
     );
     return {
-      count: elementPresenceCount(settingsBar),
+      composerMode: composer?.getAttribute("data-chat-composer-mode") ?? "",
+      count: elementPresenceCount(toolbar),
       modelButtonDisabled: modelButton.disabled,
       modelButtonText: modelButton.text,
       modelButtonTitle: modelButton.title,
       permissionButtonDisabled: permissionButton.disabled,
       permissionButtonText: permissionButton.text,
       permissionButtonTitle: permissionButton.title,
-      readOnly: settingsBar?.getAttribute("data-chat-settings-readonly") === "true",
-      text: elementText(settingsBar),
+      readOnly: toolbar?.getAttribute("data-chat-settings-readonly") === "true",
+      text: elementText(toolbar),
+      textareaBeforeToolbar: elementBefore(textarea, toolbar),
+      textareaExists: textarea instanceof HTMLTextAreaElement,
     };
   }
 
@@ -264,6 +273,15 @@
 
   function elementPresenceCount(element) {
     return element === null ? 0 : 1;
+  }
+
+  function elementBefore(first, second) {
+    return (
+      first !== null &&
+      second !== null &&
+      typeof first.compareDocumentPosition === "function" &&
+      Boolean(first.compareDocumentPosition(second) & 4)
+    );
   }
 
   function workflowRunDetailsWorkflowStatusText(details) {

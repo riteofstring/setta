@@ -308,7 +308,7 @@ function workflowNodeTrajectoryReadyForSteering(state) {
   return (
     state.trajectoryPresent &&
     state.text.includes("Workflow stream started.") &&
-    state.trajectorySteeringComposer.composerPresent
+    state.trajectorySteeringComposer.textareaExists
   );
 }
 
@@ -321,7 +321,7 @@ function steeredTrajectoryRenderedLive(state, beforeText, steeringPrompt) {
     state.trajectoryPresent &&
     state.text.length > beforeText.length &&
     stateIncludesSteeredText(state, steeringPrompt) &&
-    !state.trajectorySteeringComposer.composerPresent
+    !state.trajectorySteeringComposer.textareaExists
   );
 }
 

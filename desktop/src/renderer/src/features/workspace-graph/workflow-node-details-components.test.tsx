@@ -88,7 +88,7 @@ describe("WorkflowRunDetailsContent activity focus", () => {
     expect(html).toContain("workflow running");
   });
 
-  test("renders read-only workflow agent run settings from the trajectory snapshot", () => {
+  test("renders completed workflow agent run settings inside the normal composer toolbar", () => {
     const html = renderToString(
       <WorkflowRunDetailsContent
         actions={trajectoryActions()}
@@ -102,17 +102,32 @@ describe("WorkflowRunDetailsContent activity focus", () => {
       />,
     );
 
-    expect(html).toContain('data-testid="workflow-agent-run-settings"');
-    expect(html).toContain('data-chat-settings-readonly="true"');
-    expect(html).toContain('aria-label="Open permission mode picker"');
-    expect(html).toContain('aria-label="Open model and reasoning picker"');
-    expect(occurrences(html, 'title="Run settings are read-only."')).toBe(2);
-    expect(html).toContain("Full Access");
-    expect(html).toContain("GPT-5");
-    expect(html).toContain("High");
-    expect(html).not.toContain("node override");
-    expect(html).not.toContain("workflow default");
-    expect(html).not.toContain("app default");
+    expect(html).not.toContain('data-testid="workflow-agent-run-settings"');
+    expect(html).toContain('data-chat-composer-mode="read-only-settings"');
+    expect(html).not.toContain('aria-label="Ask Setta"');
+    expectReadOnlySettingsControls(html);
+  });
+
+  test("renders active workflow agent run settings below the steering input", () => {
+    const html = renderToString(
+      <WorkflowRunDetailsContent
+        actions={trajectoryActions()}
+        focus={null}
+        inspection={inspection({
+          trajectory: workflowNodeTrajectoryStateFromPage(
+            steerablePage({ runSettings: runSettings() }),
+          ),
+        })}
+        target={target()}
+      />,
+    );
+
+    expect(html).not.toContain('data-testid="workflow-agent-run-settings"');
+    expect(html).toContain('aria-label="Ask Setta"');
+    expectReadOnlySettingsControls(html);
+    expect(
+      elementOrder(html, 'aria-label="Ask Setta"', 'data-testid="chat-composer-bottom-toolbar"'),
+    ).toBe("before");
   });
 
   test("opens the workflow details dock when an activity focus targets a detail row", () => {
@@ -527,7 +542,9 @@ function runSettings(): WorkflowAgentEffectiveRunSettings {
   };
 }
 
-function stoppablePage(): WorkflowAgentTrajectoryPage {
+function stoppablePage(
+  overrides: Partial<WorkflowAgentTrajectoryPage> = {},
+): WorkflowAgentTrajectoryPage {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
     activeRunLiveness: {
@@ -565,10 +582,13 @@ function stoppablePage(): WorkflowAgentTrajectoryPage {
       canSubmitApproval: false,
     },
     run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+    ...overrides,
   });
 }
 
-function steerablePage(): WorkflowAgentTrajectoryPage {
+function steerablePage(
+  overrides: Partial<WorkflowAgentTrajectoryPage> = {},
+): WorkflowAgentTrajectoryPage {
   return trajectoryPage({
     activeRun: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
     activeRunLiveness: {
@@ -606,6 +626,7 @@ function steerablePage(): WorkflowAgentTrajectoryPage {
       canSubmitApproval: false,
     },
     run: { ...testRun("running", "run_a"), workspaceId: "workspace_test" },
+    ...overrides,
   });
 }
 
@@ -683,4 +704,27 @@ function workflowEvent(id: string, message: string): WorkflowEvent {
 
 function occurrences(haystack: string, needle: string) {
   return haystack.split(needle).length - 1;
+}
+
+function expectReadOnlySettingsControls(html: string) {
+  expect(html).toContain('data-testid="chat-composer-bottom-toolbar"');
+  expect(html).toContain('data-chat-settings-readonly="true"');
+  expect(html).toContain('aria-label="Open permission mode picker"');
+  expect(html).toContain('aria-label="Open model and reasoning picker"');
+  expect(occurrences(html, 'title="Run settings are read-only."')).toBe(2);
+  expect(html).toContain("Full Access");
+  expect(html).toContain("GPT-5");
+  expect(html).toContain("High");
+  expect(html).not.toContain("node override");
+  expect(html).not.toContain("workflow default");
+  expect(html).not.toContain("app default");
+}
+
+function elementOrder(html: string, first: string, second: string) {
+  const firstIndex = html.indexOf(first);
+  const secondIndex = html.indexOf(second);
+  if (firstIndex < 0 || secondIndex < 0) {
+    return "missing";
+  }
+  return firstIndex < secondIndex ? "before" : "after";
 }

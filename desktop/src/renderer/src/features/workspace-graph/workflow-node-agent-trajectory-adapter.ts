@@ -756,12 +756,13 @@ function workflowNodeComposerSession(
   if (state.page.activeRun?.status !== "running") {
     return null;
   }
+  const settings = state.page.runSettings;
   return {
     commandListContextKey: "",
     id: `workflow-node:${state.page.scope.nodeExecutionId}`,
-    modelLabel: "Workflow node",
-    permissionLabel: "Workflow node",
-    reasoningLabel: "Workflow node",
+    modelLabel: settings?.modelDisplayName ?? "Workflow node",
+    permissionLabel: settings?.permissionDisplayLabel ?? "Workflow node",
+    reasoningLabel: settings?.reasoningEffortDisplayName ?? "Workflow node",
     supportsImages: false,
     workspaceId: state.page.scope.workspaceId,
   };

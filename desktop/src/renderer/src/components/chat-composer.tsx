@@ -51,7 +51,7 @@ import {
   composerSlashDraftEnabled,
   composerSubmitActionAvailable,
 } from "./chat-composer-derived-state";
-import { ComposerFrame } from "./chat-composer-frame";
+import { ComposerFrame, type ReadOnlyComposerSettings } from "./chat-composer-frame";
 import { useComposerPromptHistory, type ComposerPromptHistoryDraft } from "./chat-composer-history";
 import { useComposerPermissionPicker } from "./chat-composer-permission";
 import {
@@ -85,6 +85,7 @@ interface ComposerProps {
   frameClassName?: string;
   onSendPrompt?: (input: ChatInput) => Promise<void>;
   placeholder?: string;
+  readOnlySettings?: ReadOnlyComposerSettings | null;
   running: boolean;
   runPresentation: ActiveRunPresentation;
   viewModel: ComposerViewModel;
@@ -98,6 +99,7 @@ function ComposerComponent({
   frameClassName,
   onSendPrompt,
   placeholder = "",
+  readOnlySettings,
   running,
   runPresentation,
   viewModel,
@@ -833,6 +835,7 @@ function ComposerComponent({
       permissionPickerDisabled={permissionPickerDisabled}
       placeholder={placeholder}
       queueDraft={actions.queueMessage === undefined ? undefined : queueDraft}
+      readOnlySettings={readOnlySettings}
       retryActiveRunLiveness={actions.retryActiveRunLiveness}
       runPresentation={runPresentation}
       running={running}

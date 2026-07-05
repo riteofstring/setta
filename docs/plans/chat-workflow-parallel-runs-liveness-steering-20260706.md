@@ -88,7 +88,7 @@ Correctness beats process reuse.
 
 ## Post-Implementation Audit Status
 
-The UI gaps found in the post-implementation audit are now addressed:
+The first post-implementation audit addressed the data and control-reuse gaps:
 
 - workflow-agent trajectory pages include uncommitted steering messages in a
   dedicated contract field so pending, cancelled, and errored steering can render
@@ -101,6 +101,36 @@ The UI gaps found in the post-implementation audit are now addressed:
 - backend, renderer, and deterministic Electron tests prove pending steering is
   visible before provider commit and that settings use the normal disabled chat
   controls rather than workflow-specific pills or static labels
+
+### Settings Layout Gap Resolution
+
+The second post-implementation audit addressed the remaining workflow-agent
+trajectory settings layout gap. The settings controls were present, but rendered
+in a separate bar above the steering input, which visually produced:
+
+- permission/model/reasoning controls on the top row
+- the prompt input below them
+- send/stop controls at the right edge of the input
+
+The required layout is the normal composer layout:
+
+- prompt input on the top row of the composer frame
+- permission controls in the lower-left composer toolbar
+- model/reasoning, voice, and send/stop controls in the lower-right composer
+  toolbar
+- no separate workflow-specific settings strip between the transcript and
+  composer
+
+The source was the standalone `WorkflowAgentRunSettingsBar` in
+`desktop/src/renderer/src/features/workspace-graph/workflow-node-details-components.tsx`,
+which called read-only settings controls outside the `Composer` frame. The
+workflow-agent trajectory now renders the persisted read-only settings snapshot
+through the normal composer frame/control placement, with mutation actions
+disabled or omitted.
+
+Renderer and Electron tests now fail if a separate settings bar is rendered
+above the input, and they verify completed nodes hide the steering input while
+preserving read-only settings in the normal bottom-toolbar presentation.
 
 ## Codex Reference Protocol Findings
 
@@ -379,22 +409,30 @@ when ambiguous.
 Workflow-agent run settings remain part of this work because the same details
 surface shows the liveness and steering state.
 
-The workflow-agent trajectory surface should use the normal chat settings
-controls in disabled/read-only mode:
+The workflow-agent trajectory surface should use the normal chat composer
+settings controls in disabled/read-only mode:
 
 - model
 - reasoning effort
 - permission profile
 
 The values must come from the persisted effective run settings snapshot, not
-current defaults. Completed nodes should hide the steering input but keep the
-read-only settings controls.
+current defaults. Active steerable nodes should show those controls in the
+composer toolbar, in the same placement as normal chat. Completed nodes should
+hide the steering input but keep the read-only settings controls in a composer
+settings presentation that preserves the normal bottom-toolbar placement.
 
 Do not satisfy this requirement with a workflow-specific custom summary row,
 pill strip, static labels, or text-only facsimile. The trajectory viewer should
 reuse the same settings control components, styling, disabled states, and
 accessibility semantics as the normal chat composer/settings bar, with mutation
 actions omitted or disabled because the run snapshot is read-only.
+
+Do not render a standalone settings bar between the transcript and the composer.
+The layout must not put permission/model/reasoning controls above the prompt
+input. If the current `Composer` cannot render read-only snapshot settings
+without live mutation actions, extend the composer contract or extract a shared
+composer-frame read-only variant rather than creating workflow-only chrome.
 
 ## Contract Plan
 
@@ -486,6 +524,9 @@ Add focused renderer tests for:
 - workflow-agent run settings tests fail if the implementation uses a
   workflow-specific pill strip or static text instead of the normal disabled
   chat settings controls
+- workflow-agent run settings tests fail if permission/model/reasoning controls
+  render in a separate bar above the steering input instead of inside the normal
+  composer bottom toolbar
 
 ### Deterministic Electron E2E
 
@@ -509,6 +550,9 @@ Add production-path Electron coverage for:
 - verify liveness, sidebar indicators, transcript rows, pending steering,
   workflow trajectory disabled settings controls, and workflow node details
   after restart/reload
+- assert the workflow-agent details DOM has one normal composer frame with the
+  read-only permission/model/reasoning controls in the composer toolbar, and no
+  standalone `workflow-agent-run-settings` strip between transcript and composer
 
 ### Live Codex E2E
 

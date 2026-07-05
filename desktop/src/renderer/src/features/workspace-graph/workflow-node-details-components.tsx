@@ -12,7 +12,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { AgentTrajectorySurface } from "../../components/agent-trajectory";
 import { Composer } from "../../components/chat-composer";
-import { ReadOnlyChatSettingsControls } from "../../components/chat-composer-controls";
+import {
+  ReadOnlyComposerSettingsFrame,
+  type ReadOnlyComposerSettings,
+} from "../../components/chat-composer-frame";
 import type { LoadRunItemOutput } from "../../components/chat-transcript-activity";
 import type { SubmitApproval } from "../../components/chat-transcript-approvals";
 import { cn } from "../../lib/utils";
@@ -613,6 +616,9 @@ function WorkflowAgentTrajectoryPane({
     stopRun: actions.stopRun,
   });
   const showComposer = composerViewModel.session !== null;
+  const readOnlySettings = workflowAgentReadOnlyComposerSettings(
+    inspection.trajectory.page.runSettings,
+  );
   return (
     <div
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -623,46 +629,73 @@ function WorkflowAgentTrajectoryPane({
       <div className="min-h-0 flex-1">
         <AgentTrajectorySurface actions={trajectoryActions} viewModel={viewModel} />
       </div>
-      <WorkflowAgentRunSettingsBar settings={inspection.trajectory.page.runSettings} />
-      {showComposer ? (
-        <Composer
-          actions={composerActions}
-          busy={inspection.operation !== null}
-          disabled={!runPresentation.canSteer}
-          frameClassName="border-zinc-800 bg-zinc-950/90 shadow-none"
-          placeholder={
-            runPresentation.canSteer ? "" : "Steering is not available for this workflow node."
-          }
-          running={runPresentation.running}
-          runPresentation={runPresentation}
-          viewModel={composerViewModel}
-        />
-      ) : null}
+      <WorkflowAgentTrajectoryComposerSlot
+        actions={composerActions}
+        busy={inspection.operation !== null}
+        readOnlySettings={readOnlySettings}
+        runPresentation={runPresentation}
+        showComposer={showComposer}
+        viewModel={composerViewModel}
+      />
     </div>
   );
 }
 
-function WorkflowAgentRunSettingsBar({
-  settings,
+function WorkflowAgentTrajectoryComposerSlot({
+  actions,
+  busy,
+  readOnlySettings,
+  runPresentation,
+  showComposer,
+  viewModel,
 }: {
-  settings: WorkflowAgentEffectiveRunSettings | null;
+  actions: ComposerActions;
+  busy: boolean;
+  readOnlySettings: ReadOnlyComposerSettings | null;
+  runPresentation: ReturnType<typeof workflowNodeComposerRunPresentation>;
+  showComposer: boolean;
+  viewModel: ReturnType<typeof workflowNodeComposerViewModel>;
 }) {
-  if (settings === null) {
+  if (showComposer) {
+    return (
+      <Composer
+        actions={actions}
+        busy={busy}
+        disabled={!runPresentation.canSteer}
+        frameClassName="border-zinc-800 bg-zinc-950/90 shadow-none"
+        placeholder={
+          runPresentation.canSteer ? "" : "Steering is not available for this workflow node."
+        }
+        readOnlySettings={readOnlySettings}
+        running={runPresentation.running}
+        runPresentation={runPresentation}
+        viewModel={viewModel}
+      />
+    );
+  }
+  if (readOnlySettings === null) {
     return null;
   }
   return (
-    <div
-      className="border-t border-zinc-800 bg-zinc-950/90 px-4 py-2"
-      data-chat-settings-readonly="true"
-      data-testid="workflow-agent-run-settings"
-    >
-      <ReadOnlyChatSettingsControls
-        modelLabel={settings.modelDisplayName}
-        permissionLabel={settings.permissionDisplayLabel}
-        reasoningLabel={settings.reasoningEffortDisplayName}
-      />
-    </div>
+    <ReadOnlyComposerSettingsFrame
+      frameClassName="border-zinc-800 bg-zinc-950/90 shadow-none"
+      settings={readOnlySettings}
+    />
   );
+}
+
+function workflowAgentReadOnlyComposerSettings(
+  settings: WorkflowAgentEffectiveRunSettings | null,
+): ReadOnlyComposerSettings | null {
+  if (settings === null) {
+    return null;
+  }
+  return {
+    disabledReason: "Run settings are read-only.",
+    modelLabel: settings.modelDisplayName,
+    permissionLabel: settings.permissionDisplayLabel,
+    reasoningLabel: settings.reasoningEffortDisplayName,
+  };
 }
 
 function WorkflowProjectionFlowSection({ target }: { target: WorkflowNodeDetailsTarget }) {

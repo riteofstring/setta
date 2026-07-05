@@ -13,6 +13,7 @@ import {
 import { activityWorkflowGraph } from "./workflow-activity-feed-fixtures.mjs";
 
 const settingsTrajectoryPrompt = "chat activity projection reload workflow";
+const activeSettingsTrajectoryPrompt = "workflow hold for queue and steering";
 
 export async function assertWorkflowAgentRunSettingsSnapshot(client, workspaceId, recordingDir) {
   const defaults = await rendererChat(client, "readCodexDefaults", []);
@@ -89,12 +90,18 @@ export async function assertWorkflowAgentRunSettingsSnapshot(client, workspaceId
   );
   await openWorkflowNodeRunDetails(client, startedRun.graphSurfaceId, runGraph, "activity");
   await waitForState(client, driverCallExpression("workflowRunDetailsState"), (state) =>
-    workflowRunSettingsSnapshotReady(state, {
+    completedWorkflowRunSettingsSnapshotReady(state, {
       model,
       permissionPreset: readOnlyPreset,
       reasoningEffortDisplayName: trajectory.runSettings.reasoningEffortDisplayName,
     }),
   );
+  await assertActiveWorkflowAgentRunSettingsComposer(client, workspaceId, {
+    defaultPreset,
+    model,
+    readOnlyPreset,
+    recordingDir,
+  });
   await appendWorkflowState(recordingDir, {
     executionId: completed.id,
     nodeExecutionId: activityNode.id,
@@ -102,24 +109,156 @@ export async function assertWorkflowAgentRunSettingsSnapshot(client, workspaceId
   });
 }
 
-function workflowRunSettingsSnapshotReady(state, expected) {
-  if (state.settingsBarCount !== 1 || state.nodeStatusChipCount !== 1) {
-    return false;
+async function assertActiveWorkflowAgentRunSettingsComposer(
+  client,
+  workspaceId,
+  { defaultPreset, model, readOnlyPreset, recordingDir },
+) {
+  const graph = activityWorkflowGraph(activeSettingsTrajectoryPrompt, {
+    activitySettings: {
+      model: "",
+      permission: permissionSettingsFromPreset(readOnlyPreset),
+      reasoningEffort: null,
+    },
+    agentDefaults: {
+      model: model.model,
+      permission: permissionSettingsFromPreset(defaultPreset),
+      reasoningEffort: null,
+    },
+  });
+  const validation = await rendererWorkflow(client, "validateDefinition", [workspaceId, graph]);
+  if (!validation.valid) {
+    throw new Error(`active settings workflow graph invalid: ${JSON.stringify(validation)}`);
   }
-  return workflowRunSettingsBarReady(state.settingsBar, expected);
+  const definition = await rendererWorkflow(client, "createDefinition", [
+    workspaceId,
+    "Node trajectory active run settings",
+    "Verifies workflow-agent active composer run settings placement.",
+    graph,
+  ]);
+  const graphSurfaceId = await openWorkflowGraphForDefinition(client, workspaceId, definition.id);
+  const startedRun = await startWorkflowRunFromToolbar(
+    client,
+    graphSurfaceId,
+    workspaceId,
+    definition.id,
+  );
+  const running = await waitForWorkflowExecution(
+    client,
+    workspaceId,
+    startedRun.executionId,
+    workflowActivityNodeRunning,
+  );
+  const activityNode = latestNodeExecution(running, "activity");
+  if (!activityNode) {
+    throw new Error(`active settings workflow missing activity node: ${JSON.stringify(running)}`);
+  }
+  assertWorkflowAgentRunSettings(activityNode.agentRunSettings, {
+    model,
+    nodeExecution: activityNode,
+    permissionPreset: readOnlyPreset,
+  });
+  const runGraph = await ensureWorkflowRunProjection(
+    client,
+    startedRun.graphSurfaceId,
+    definition.id,
+    startedRun.executionId,
+  );
+  await openWorkflowNodeRunDetails(client, startedRun.graphSurfaceId, runGraph, "activity");
+  await waitForState(client, driverCallExpression("workflowRunDetailsState"), (state) =>
+    activeWorkflowRunSettingsSnapshotReady(state, {
+      model,
+      permissionPreset: readOnlyPreset,
+      reasoningEffortDisplayName: activityNode.agentRunSettings.reasoningEffortDisplayName,
+    }),
+  );
+  await rendererWorkflow(client, "stopNodeRun", [
+    {
+      executionId: running.id,
+      nodeExecutionId: activityNode.id,
+      workspaceId,
+    },
+  ]);
+  await waitForWorkflowExecution(client, workspaceId, running.id, (execution) => {
+    const nodeExecution = latestNodeExecution(execution, "activity");
+    return execution.status === "cancelled" && nodeExecution?.status === "cancelled";
+  });
+  await appendWorkflowState(recordingDir, {
+    executionId: running.id,
+    nodeExecutionId: activityNode.id,
+    type: "workflow_agent_active_run_settings_layout_verified",
+  });
 }
 
-function workflowRunSettingsBarReady(settingsBar, expected) {
+function completedWorkflowRunSettingsSnapshotReady(state, expected) {
+  if (!workflowRunDetailsSettingsBaseReady(state)) {
+    return false;
+  }
+  return workflowRunSettingsToolbarReady(state.composerSettings, {
+    ...expected,
+    composerMode: "read-only-settings",
+    textareaExpected: false,
+  });
+}
+
+function activeWorkflowRunSettingsSnapshotReady(state, expected) {
+  if (!workflowRunDetailsSettingsBaseReady(state)) {
+    return false;
+  }
+  return workflowRunSettingsToolbarReady(state.composerSettings, {
+    ...expected,
+    composerMode: "",
+    textareaExpected: true,
+  });
+}
+
+function workflowRunDetailsSettingsBaseReady(state) {
   return (
-    settingsBar.readOnly &&
-    settingsBar.permissionButtonDisabled &&
-    settingsBar.modelButtonDisabled &&
-    settingsBar.permissionButtonTitle === "Run settings are read-only." &&
-    settingsBar.modelButtonTitle === "Run settings are read-only." &&
+    state.settingsBarCount === 0 &&
+    state.standaloneSettingsBarCount === 0 &&
+    state.nodeStatusChipCount === 1
+  );
+}
+
+function workflowRunSettingsToolbarReady(settingsBar, expected) {
+  return Object.values(workflowRunSettingsToolbarEvidence(settingsBar, expected)).every(Boolean);
+}
+
+function workflowRunSettingsToolbarEvidence(settingsBar, expected) {
+  return {
+    buttonLabels: workflowRunSettingsButtonLabelsReady(settingsBar, expected),
+    buttonTitles: workflowRunSettingsButtonTitlesReady(settingsBar),
+    buttonsDisabled: workflowRunSettingsButtonsDisabled(settingsBar),
+    composerMode: settingsBar.composerMode === expected.composerMode,
+    readOnly: settingsBar.readOnly,
+    textareaPlacement: workflowRunSettingsTextareaPlacementReady(settingsBar, expected),
+  };
+}
+
+function workflowRunSettingsButtonLabelsReady(settingsBar, expected) {
+  return (
     settingsBar.permissionButtonText.includes(expected.permissionPreset.label) &&
     settingsBar.modelButtonText.includes(expected.model.displayName) &&
     settingsBar.modelButtonText.includes(expected.reasoningEffortDisplayName)
   );
+}
+
+function workflowRunSettingsButtonTitlesReady(settingsBar) {
+  return (
+    settingsBar.permissionButtonTitle === "Run settings are read-only." &&
+    settingsBar.modelButtonTitle === "Run settings are read-only."
+  );
+}
+
+function workflowRunSettingsButtonsDisabled(settingsBar) {
+  return settingsBar.permissionButtonDisabled && settingsBar.modelButtonDisabled;
+}
+
+function workflowRunSettingsTextareaPlacementReady(settingsBar, expected) {
+  if (settingsBar.textareaExists !== expected.textareaExpected) {
+    return false;
+  }
+  return !expected.textareaExpected || settingsBar.textareaBeforeToolbar;
 }
 
 async function openWorkflowGraphForDefinition(client, workspaceId, definitionId) {
@@ -397,6 +536,11 @@ async function waitForWorkflowExecution(client, workspaceId, executionId, isRead
 function latestNodeExecution(execution, nodeId) {
   const matches = execution.nodeExecutions.filter((node) => node.nodeId === nodeId);
   return matches[matches.length - 1] ?? null;
+}
+
+function workflowActivityNodeRunning(execution) {
+  const nodeExecution = latestNodeExecution(execution, "activity");
+  return execution.status === "running" && nodeExecution?.status === "running";
 }
 
 function permissionPreset(defaults, presetId) {
