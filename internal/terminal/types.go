@@ -186,45 +186,6 @@ type TerminalReadResult struct {
 	RecentOutput TerminalRecentOutputPage `json:"recentOutput"`
 }
 
-type TerminalWritePrepareInput struct {
-	WorkspaceID     string `json:"workspaceId"`
-	PaneID          string `json:"paneId"`
-	DeviceSessionID string `json:"deviceSessionId"`
-	DataBase64      string `json:"dataBase64"`
-	ByteCount       int    `json:"byteCount"`
-	SHA256          string `json:"sha256"`
-}
-
-type TerminalPreparedWrite struct {
-	PreparedWriteID string `json:"preparedWriteId"`
-	WorkspaceID     string `json:"workspaceId"`
-	PaneID          string `json:"paneId"`
-	SessionID       string `json:"sessionId"`
-	DeviceSessionID string `json:"deviceSessionId"`
-	ByteCount       int    `json:"byteCount"`
-	SHA256          string `json:"sha256"`
-	Preview         string `json:"preview"`
-	CreatedAt       string `json:"createdAt"`
-	ExpiresAt       string `json:"expiresAt"`
-}
-
-type TerminalWriteCommitInput struct {
-	PreparedWriteID string `json:"preparedWriteId"`
-	DeviceSessionID string `json:"deviceSessionId"`
-	SHA256          string `json:"sha256"`
-}
-
-type TerminalWriteCommitResult struct {
-	PreparedWriteID  string `json:"preparedWriteId"`
-	WorkspaceID      string `json:"workspaceId"`
-	PaneID           string `json:"paneId"`
-	SessionID        string `json:"sessionId"`
-	DeviceSessionID  string `json:"deviceSessionId"`
-	ByteCount        int    `json:"byteCount"`
-	SHA256           string `json:"sha256"`
-	WrittenByteCount int    `json:"writtenByteCount"`
-}
-
 type TerminalScreenSnapshot struct {
 	Cols                     int                    `json:"cols"`
 	Rows                     int                    `json:"rows"`
