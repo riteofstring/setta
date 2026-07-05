@@ -223,8 +223,9 @@ func assertTerminalSnapshotChronology(t *testing.T, events []Event) {
 	}
 }
 
-// TestTranscriptReasoningModeUpdateEvent verifies a reasoning block with a public
-// bold-summary headline updates in place as the provider completes the summary.
+// TestTranscriptReasoningModeUpdateEvent verifies a reasoning block that gains a
+// public summary updates in place: the same block ID and kind transition from a
+// created thinking block to an updated summary block.
 func TestTranscriptReasoningModeUpdateEvent(t *testing.T) {
 	harness := &scriptedTranscriptHarness{
 		start: func(_ context.Context, _ TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -234,10 +235,10 @@ func TestTranscriptReasoningModeUpdateEvent(t *testing.T) {
 			if err := sink.AssistantTextDelta("intro", "Checking ownership."); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "reason", Type: RunItemTypeReasoning, Status: RunItemStatusRunning, Progress: "**Mapping parser modules**"}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "reason", Type: RunItemTypeReasoning, Status: RunItemStatusRunning, Title: "Mapping parser modules"}); err != nil {
 				return TurnCompletion{}, err
 			}
-			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "reason", Type: RunItemTypeReasoning, Status: RunItemStatusCompleted, Summary: "**Mapping parser modules**\nTraced the request flow and the bounded fix."}); err != nil {
+			if err := sink.RunItemUpsert(RunItem{ProviderItemID: "reason", Type: RunItemTypeReasoning, Status: RunItemStatusCompleted, Title: "Mapping parser modules", Summary: "Traced the request flow and the bounded fix."}); err != nil {
 				return TurnCompletion{}, err
 			}
 			return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
@@ -260,8 +261,8 @@ func TestTranscriptReasoningModeUpdateEvent(t *testing.T) {
 	if createdReasoning.ID == "" {
 		t.Fatalf("no reasoning block created: %v", eventTypes(events))
 	}
-	if createdReasoning.Reasoning.Mode != ReasoningBlockModeSummary {
-		t.Fatalf("created reasoning mode = %s, want summary", createdReasoning.Reasoning.Mode)
+	if createdReasoning.Reasoning.Mode != ReasoningBlockModeThinking {
+		t.Fatalf("created reasoning mode = %s, want thinking", createdReasoning.Reasoning.Mode)
 	}
 
 	updatedToSummary := false
@@ -273,7 +274,7 @@ func TestTranscriptReasoningModeUpdateEvent(t *testing.T) {
 		if block.Reasoning.Mode == ReasoningBlockModeSummary {
 			updatedToSummary = true
 			if block.Reasoning.Headline != "Mapping parser modules" {
-				t.Fatalf("summary headline = %q, want stable public bold headline", block.Reasoning.Headline)
+				t.Fatalf("summary headline = %q, want stable thinking headline", block.Reasoning.Headline)
 			}
 		}
 	}
@@ -282,8 +283,8 @@ func TestTranscriptReasoningModeUpdateEvent(t *testing.T) {
 	}
 }
 
-// TestTranscriptSteeringBlockCreatedEvent verifies a provider-committed steering
-// message publishes a created user_message block for the interleaved steering,
+// TestTranscriptSteeringBlockCreatedEvent verifies a steering message sent into an
+// active run publishes a created user_message block for the interleaved steering,
 // distinct from the trigger block.
 func TestTranscriptSteeringBlockCreatedEvent(t *testing.T) {
 	steered := make(chan string, 1)
@@ -307,9 +308,6 @@ func TestTranscriptSteeringBlockCreatedEvent(t *testing.T) {
 			}
 			close(commandEmitted)
 			text := <-steered
-			if err := sink.UserMessageCommitted(text); err != nil {
-				return TurnCompletion{}, err
-			}
 			if err := sink.AssistantTextDelta("post", "Including "+text+"."); err != nil {
 				return TurnCompletion{}, err
 			}

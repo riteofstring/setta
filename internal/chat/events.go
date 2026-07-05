@@ -617,18 +617,6 @@ func (hub *EventHub) Subscribe(cursor EventCursor) (*EventSubscription, error) {
 	return &EventSubscription{Events: channel, hub: hub, channel: channel}, nil
 }
 
-func (hub *EventHub) Cursor() EventCursor {
-	if hub == nil {
-		return EventCursor{}
-	}
-	hub.mu.Lock()
-	defer hub.mu.Unlock()
-	return EventCursor{
-		StreamID: hub.streamID,
-		Sequence: hub.nextSequence - 1,
-	}
-}
-
 func (subscription *EventSubscription) Unsubscribe() {
 	if subscription == nil || subscription.hub == nil {
 		return

@@ -41,7 +41,7 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	codexapp.CodexNotificationAccountLoginCompleted:                   handleCodexAccountLoginCompleted,
 	codexapp.CodexNotificationAccountUpdated:                          handleCodexAccountUpdated,
 	codexapp.CodexNotificationAppListUpdated:                          handleCodexAppListUpdated,
-	codexapp.CodexNotificationCommandExecOutputDelta:                  handleCodexTraceOnlyNotification,
+	codexapp.CodexNotificationCommandExecOutputDelta:                  handleCodexCommandExecOutputDelta,
 	codexapp.CodexNotificationConfigWarning:                           handleCodexNotice,
 	codexapp.CodexNotificationDeprecationNotice:                       handleCodexNotice,
 	codexapp.CodexNotificationError:                                   handleCodexErrorNotification,
@@ -69,8 +69,8 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	codexapp.CodexNotificationMcpServerStartupStatusUpdated:           handleCodexMCPServerStartupStatusUpdated,
 	codexapp.CodexNotificationModelRerouted:                           handleCodexNotice,
 	codexapp.CodexNotificationModelVerification:                       handleCodexModelVerification,
-	codexapp.CodexNotificationProcessExited:                           handleCodexTraceOnlyNotification,
-	codexapp.CodexNotificationProcessOutputDelta:                      handleCodexTraceOnlyNotification,
+	codexapp.CodexNotificationProcessExited:                           handleCodexProcessExited,
+	codexapp.CodexNotificationProcessOutputDelta:                      handleCodexProcessOutputDelta,
 	codexapp.CodexNotificationRemoteControlStatusChanged:              handleCodexRemoteControlStatusChanged,
 	codexapp.CodexNotificationServerRequestResolved:                   handleCodexServerRequestResolvedNotification,
 	codexapp.CodexNotificationSkillsChanged:                           handleCodexSkillsChanged,
@@ -187,26 +187,18 @@ func handleCodexThreadTokenUsageUpdated(message jsonRPCMessage, threadID string,
 	return codexNotificationResult{}, sink.Trace("codex_thread_token_usage_updated", traceTurnID)
 }
 
-func codexRemoteControlStatusChangedTrace(message jsonRPCMessage) (string, error) {
+func handleCodexRemoteControlStatusChanged(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
 	params, err := objectValue(message.Params, "codex remote control status params")
 	if err != nil {
-		return "", err
+		return codexNotificationResult{}, err
 	}
 	if _, err := requireString(params, "installationId", "codex remote control status"); err != nil {
-		return "", err
+		return codexNotificationResult{}, err
 	}
 	if _, err := requireString(params, "serverName", "codex remote control status"); err != nil {
-		return "", err
+		return codexNotificationResult{}, err
 	}
 	status, err := requireString(params, "status", "codex remote control status")
-	if err != nil {
-		return "", err
-	}
-	return status, nil
-}
-
-func handleCodexRemoteControlStatusChanged(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
-	status, err := codexRemoteControlStatusChangedTrace(message)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
@@ -739,33 +731,7 @@ func handleCodexTurnCompleted(message jsonRPCMessage, threadID string, turnID st
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := upsertCodexCompletedTurnAgentMessages(message, threadID, turnID, sink); err != nil {
-		return codexNotificationResult{}, err
-	}
 	return codexTurnCompletionForStatus(status, turn, message, sink)
-}
-
-func upsertCodexCompletedTurnAgentMessages(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) error {
-	params, err := codexapp.DecodeTurnCompletedNotification(message.Params)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.Turn.ID, sink); err != nil {
-		return err
-	}
-	for _, item := range params.Turn.Items {
-		if item.Type != codexapp.ThreadItemTypeAgentMessage {
-			continue
-		}
-		runItem, err := runItemFromCodexItem(item, RunItemStatusCompleted)
-		if err != nil {
-			return err
-		}
-		if err := sink.RunItemUpsert(runItem); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func codexCompletedTurnStatus(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (string, map[string]any, error) {

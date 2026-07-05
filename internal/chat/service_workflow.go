@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,16 +10,16 @@ import (
 )
 
 type WorkflowAgentTurnRequest struct {
-	DefinitionID           string
-	DefinitionVersionID    string
-	ExecutionID            string
-	NodeID                 string
-	NodeExecutionID        string
-	Prompt                 string
-	SemanticContext        *semanticcontext.Delivery
-	FreshConversation      bool
-	CodexSettings          ChatCodexSettings
-	CodexEffectiveSettings *ChatCodexEffectiveSettings
+	DefinitionID        string
+	DefinitionVersionID string
+	ExecutionID         string
+	NodeID              string
+	NodeExecutionID     string
+	Prompt              string
+	SemanticContext     *semanticcontext.Delivery
+	FreshConversation   bool
+	Model               string
+	ReasoningEffort     *ReasoningEffort
 }
 
 type workflowAgentTurnSender interface {
@@ -33,14 +32,6 @@ func (service *Service) SendWorkflowAgentTurn(workspaceID string, request Workfl
 	prompt, workspaceSummary, err := service.validateWorkflowAgentTurn(workspaceID, request)
 	if err != nil {
 		return SendMessageResult{}, err
-	}
-	if request.CodexEffectiveSettings == nil {
-		settings, effectiveSettings, err := service.ResolveWorkflowAgentCodexSettings(workspaceID, request.CodexSettings)
-		if err != nil {
-			return SendMessageResult{}, err
-		}
-		request.CodexSettings = settings
-		request.CodexEffectiveSettings = effectiveSettings
 	}
 
 	service.mu.Lock()
@@ -65,32 +56,6 @@ func (service *Service) validateWorkflowAgentTurn(workspaceID string, request Wo
 		return "", workspace.WorkspaceSummary{}, err
 	}
 	return prompt, workspaceSummary, nil
-}
-
-func (service *Service) ResolveWorkflowAgentCodexSettings(workspaceID string, overrides ChatCodexSettings) (ChatCodexSettings, *ChatCodexEffectiveSettings, error) {
-	workspaceSummary, err := service.resolveWorkspaceForRequest(workspaceID)
-	if err != nil {
-		return ChatCodexSettings{}, nil, err
-	}
-	settings := workflowAgentCodexSettingsFromDefaults(service.currentChatCodexDefaultSettings(), overrides)
-	if err := validateChatCodexSettings("workflow_agent", settings); err != nil {
-		return ChatCodexSettings{}, nil, err
-	}
-	conversation := Conversation{
-		SchemaVersion: SchemaVersion,
-		ID:            "workflow_agent_settings",
-		WorkspaceID:   workspaceID,
-		Title:         "Workflow agent settings",
-		CreatedAt:     timestamp(service.now()),
-		UpdatedAt:     timestamp(service.now()),
-		CodexSettings: &settings,
-		HarnessRefs:   []HarnessThreadRef{},
-	}
-	conversation, err = service.conversationWithResolvedEffectiveSettings(context.Background(), workspaceSummary, conversation)
-	if err != nil {
-		return ChatCodexSettings{}, nil, err
-	}
-	return settings, cloneChatCodexEffectiveSettingsPointer(conversation.CodexEffectiveSettings), nil
 }
 
 func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request WorkflowAgentTurnRequest, prompt string, workspaceSummary workspace.WorkspaceSummary) (SendMessageResult, error) {
@@ -253,13 +218,8 @@ func validateWorkflowAgentTurnRequest(request WorkflowAgentTurnRequest) error {
 	if err := validateStorageID("workflow node execution id", request.NodeExecutionID); err != nil {
 		return err
 	}
-	if err := validateChatCodexSettings("workflow_agent", request.CodexSettings); err != nil {
-		return err
-	}
-	if request.CodexEffectiveSettings != nil {
-		if err := validateChatCodexEffectiveSettings("workflow_agent", *request.CodexEffectiveSettings); err != nil {
-			return err
-		}
+	if request.ReasoningEffort != nil && !validValue(*request.ReasoningEffort, reasoningEffortValues) {
+		return fmt.Errorf("workflow agent reasoning effort has unsupported value %s", *request.ReasoningEffort)
 	}
 	return nil
 }
@@ -336,9 +296,7 @@ func (service *Service) prepareWorkflowAgentConversation(conversation Conversati
 	conversation.Internal = true
 	conversation.Workflow = workflowMetadataFromTurnRequest(request)
 	conversation.UpdatedAt = now
-	settings := cloneChatCodexSettings(request.CodexSettings)
-	conversation.CodexSettings = &settings
-	conversation.CodexEffectiveSettings = cloneChatCodexEffectiveSettingsPointer(request.CodexEffectiveSettings)
+	conversation.CodexSettings = workflowCodexSettings(conversation.CodexSettings, request.Model, request.ReasoningEffort)
 	if conversation.HarnessRefs == nil {
 		conversation.HarnessRefs = []HarnessThreadRef{}
 	}
@@ -355,40 +313,22 @@ func workflowMetadataFromTurnRequest(request WorkflowAgentTurnRequest) *Conversa
 	}
 }
 
-func workflowAgentCodexSettingsFromDefaults(defaults ChatCodexSettings, overrides ChatCodexSettings) ChatCodexSettings {
-	settings := cloneChatCodexSettings(defaults)
-	if overrides.Model != "" {
-		settings.Model = overrides.Model
+func workflowCodexSettings(existing *ChatCodexSettings, model string, reasoning *ReasoningEffort) *ChatCodexSettings {
+	if model == "" && reasoning == nil {
+		return existing
 	}
-	if overrides.ReasoningEffort != nil {
-		value := *overrides.ReasoningEffort
+	settings := ChatCodexSettings{}
+	if existing != nil {
+		settings = *existing
+	}
+	if model != "" {
+		settings.Model = model
+	}
+	if reasoning != nil {
+		value := *reasoning
 		settings.ReasoningEffort = &value
 	}
-	if overrides.Permission != nil {
-		permission := *overrides.Permission
-		settings.Permission = &permission
-	}
-	return settings
-}
-
-func cloneChatCodexEffectiveSettingsPointer(settings *ChatCodexEffectiveSettings) *ChatCodexEffectiveSettings {
-	if settings == nil {
-		return nil
-	}
-	clone := *settings
-	if settings.ReasoningEffort != nil {
-		effort := *settings.ReasoningEffort
-		clone.ReasoningEffort = &effort
-	}
-	if settings.Permission != nil {
-		permission := *settings.Permission
-		if settings.Permission.Preset != nil {
-			preset := *settings.Permission.Preset
-			permission.Preset = &preset
-		}
-		clone.Permission = &permission
-	}
-	return &clone
+	return &settings
 }
 
 func workflowAgentConversationTitle(request WorkflowAgentTurnRequest) string {

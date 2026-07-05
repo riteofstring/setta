@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/netip"
 	"os/exec"
 	"strings"
 )
 
 type commandRunner func(context.Context, string, ...string) ([]byte, error)
+type commandStdinRunner func(context.Context, string, []string, io.Reader) ([]byte, error)
 
 func resolveTailnetIPv4(ctx context.Context, runner commandRunner) (string, error) {
 	output, err := runner(ctx, "tailscale", "ip", "-4")
@@ -56,6 +58,16 @@ func runExternalCommand(ctx context.Context, name string, args ...string) ([]byt
 	return command.CombinedOutput()
 }
 
+func runExternalCommandWithStdin(ctx context.Context, name string, args []string, stdin io.Reader) ([]byte, error) {
+	command := exec.CommandContext(ctx, name, args...)
+	command.Stdin = stdin
+	return command.CombinedOutput()
+}
+
 func tailscaleServeCommand(addr string) string {
-	return "tailscale serve --bg --tls-terminated-tcp=443 tcp://" + addr
+	return "tailscale " + strings.Join(tailscaleServeArgs(addr), " ")
+}
+
+func tailscaleServeArgs(addr string) []string {
+	return []string{"serve", "--bg", "--tls-terminated-tcp=443", "tcp://" + addr}
 }

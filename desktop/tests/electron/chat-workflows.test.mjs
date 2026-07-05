@@ -62,10 +62,7 @@ import { runChronologicalTranscriptWorkflow } from "./chat-workflow-chronologica
 import { runCommandStartFailureWorkflow } from "./chat-workflow-command-start-failure-cases.mjs";
 import { runComposerPromptHistoryWorkflow } from "./chat-workflow-composer-history-cases.mjs";
 import { runCrossWorkspaceSidebarSummaryWorkflow } from "./chat-workflow-cross-workspace-sidebar-cases.mjs";
-import {
-  assertNoConversationDraftDefaults,
-  runChatDefaultsSettingsWorkflow,
-} from "./chat-workflow-defaults-cases.mjs";
+import { runChatDefaultsSettingsWorkflow } from "./chat-workflow-defaults-cases.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runImageAttachmentWorkflow } from "./chat-workflow-image-attachment-cases.mjs";
@@ -76,7 +73,6 @@ import {
   exerciseLinkedCodexPermissionPicker,
 } from "./chat-workflow-codex-permission-cases.mjs";
 import { runPermissionModeWorkflow } from "./chat-workflow-permission-cases.mjs";
-import { runParallelRunsWorkflowLaunch } from "./chat-workflow-parallel-runs-cases.mjs";
 import { runPostCommitStartupFailureWorkflowLaunch } from "./chat-workflow-post-commit-startup-cases.mjs";
 import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
 import { runRestartRecoveryWorkflow } from "./chat-workflow-restart-recovery-cases.mjs";
@@ -101,10 +97,6 @@ import {
   runProtocolProviderRestartLivenessWorkflow,
   runProtocolStreamErrorLivenessWorkflow,
 } from "./codex-protocol-workflow.mjs";
-import {
-  assertProtocolWorkflowAuthoringRestartRecording,
-  runProtocolWorkflowAuthoringPersistenceWorkflow,
-} from "./codex-protocol-workflow-authoring.mjs";
 import { runCodexAppServerLifecycleWorkflowLaunch } from "./codex-app-server-lifecycle-cases.mjs";
 import { runProtocolGoalBackgroundTerminalWorkflow } from "./codex-protocol-background-terminal-cases.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
@@ -117,7 +109,6 @@ const singleWorkflowArgs = new Map([
   ["--codex-approval-policy-removal-only", "codexApprovalPolicyRemovalOnly"],
   ["--codex-app-server-lifecycle-only", "codexAppServerLifecycleOnly"],
   ["--image-attachment-only", "imageAttachmentOnly"],
-  ["--parallel-runs-only", "parallelRunsOnly"],
   ["--post-commit-startup-failure-only", "postCommitStartupFailureOnly"],
   ["--transcript-scroll-only", "transcriptScrollOnly"],
   ["--workflow-runner-post-start-failure-only", "workflowRunnerPostStartFailureOnly"],
@@ -148,10 +139,6 @@ const singleWorkflowRunners = [
   {
     option: "imageAttachmentOnly",
     run: (results) => runImageAttachmentWorkflowLaunch(results, { recordingRoot }),
-  },
-  {
-    option: "parallelRunsOnly",
-    run: (results) => runParallelRunsWorkflowLaunch(results, { recordingRoot }),
   },
   {
     option: "postCommitStartupFailureOnly",
@@ -188,7 +175,6 @@ function parseArgs(args) {
     imageAttachmentOnly: false,
     keepArtifacts: false,
     live: false,
-    parallelRunsOnly: false,
     postCommitStartupFailureOnly: false,
     transcriptScrollOnly: false,
     visible: process.env.SETTA_E2E_VISIBLE === "1",
@@ -234,7 +220,6 @@ function selectSingleWorkflow(parsed, selected) {
   parsed.codexApprovalPolicyRemovalOnly = selected === "codexApprovalPolicyRemovalOnly";
   parsed.codexProtocolOnly = selected === "codexProtocolOnly";
   parsed.imageAttachmentOnly = selected === "imageAttachmentOnly";
-  parsed.parallelRunsOnly = selected === "parallelRunsOnly";
   parsed.postCommitStartupFailureOnly = selected === "postCommitStartupFailureOnly";
   parsed.transcriptScrollOnly = selected === "transcriptScrollOnly";
   parsed.workflowRunnerPostStartFailureOnly = selected === "workflowRunnerPostStartFailureOnly";
@@ -265,7 +250,6 @@ async function main() {
   }
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
-    await runParallelRunsWorkflowLaunch(results, { recordingRoot });
     await runPostCommitStartupFailureWorkflowLaunch(results, { recordingRoot });
     await runWorkflowRunnerPostStartFailureWorkflowLaunch(results, { recordingRoot });
     await runWorkflowVersionCommitOrderingWorkflowLaunch(results, { recordingRoot });
@@ -697,7 +681,8 @@ async function runChatActivityProjectionWorkflow(client, backend, workspaceId, c
     "Projection command",
     "Projection reasoning",
   ]);
-  // The transient reasoning persists as a real timeline status block rather than a placeholder
+  // The meaningfully-titled transient reasoning persists as a thinking-mode reasoning block: the
+  // chronological model keeps reasoning as a real timeline status block rather than a placeholder
   // that vanishes after the first assistant text.
   await assertReasoningBlockPresent(client, "Streaming reasoning placeholder");
   await assertTextAbsent(client, "private projection reasoning");
@@ -1252,21 +1237,17 @@ async function runCodexProtocolWorkflow(results) {
   const fixture = await createFixture("codex-protocol");
   const fakeCodex = await installFakeCodexAppServer(fixture);
   const recordingDir = join(recordingRoot, "codex-protocol");
-  const restartRecordingDir = join(recordingRoot, "codex-protocol-restart");
-  const launchOptions = {
+  const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
     },
     harness: "codex",
-  };
-  let context = await launchContext(fixture, recordingDir, launchOptions);
-  const collectedLogs = [];
+  });
   let failure = null;
 
   try {
     const backend = await backendProbe(recordingDir);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
-    await assertNoConversationDraftDefaults(context.client, backend, workspaceId);
     const conversationId = await createChat(context.client, backend, workspaceId);
     await assertCodexProtocolNewChatPermissionContract(backend, workspaceId, conversationId);
     await waitForModelPickerSummary(waitForState, context.client, "GPT Test", "Extra high");
@@ -1281,6 +1262,7 @@ async function runCodexProtocolWorkflow(results) {
     await waitForTexts(context.client, ["coverage complete", "Workspace context"]);
     await assertCollapsedActivityGroupHeader(context.client, {
       absent: "+8",
+      count: "12",
       preview: "Workspace context",
     });
     await assertTextAbsent(context.client, "Reasoning text");
@@ -1303,33 +1285,18 @@ async function runCodexProtocolWorkflow(results) {
     await runProtocolLivenessReconciliationWorkflow(context.client, backend, workspaceId);
     await runProtocolProviderRestartLivenessWorkflow(context.client, backend, workspaceId);
     await runProtocolStreamErrorLivenessWorkflow(context.client, backend, workspaceId);
-    const authoringPersistence = await runProtocolWorkflowAuthoringPersistenceWorkflow({
-      backend,
-      context,
-      fakeCodexBinDir: fakeCodex.binDir,
-      fixture,
-      launchOptions,
-      onContextChanged: (nextContext) => {
-        context = nextContext;
-      },
-      recordingDir,
-      restartRecordingDir,
-      workspaceId,
-    });
-    collectedLogs.push(...authoringPersistence.logs);
+    await captureScreenshot(context.client, join(recordingDir, "success.png"));
   } catch (error) {
     failure = error;
-    await captureScreenshot(
-      context?.client,
-      join(recordingRoot, "codex-protocol-failure.png"),
-    ).catch(() => {});
+    await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
   } finally {
-    await stopLaunchedContext(context);
+    context.client?.close();
+    await stopElectron(context.electron);
     await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 
   if (failure) {
-    throw failureWithLogs(failure, [...collectedLogs, ...(context?.electron.logs ?? [])]);
+    throw failureWithLogs(failure, context.electron.logs);
   }
   await assertRecordingEvidence(recordingDir, {
     backendPaths: [
@@ -1346,8 +1313,6 @@ async function runCodexProtocolWorkflow(results) {
       "/chat/runs/reconcile",
       "/chat/runs/list",
       "/chat/diagnostics/list",
-      "/workflows/definitions/list",
-      "/workflows/executions/list",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
@@ -1359,7 +1324,6 @@ async function runCodexProtocolWorkflow(results) {
       "chat:send-message",
     ],
   });
-  await assertProtocolWorkflowAuthoringRestartRecording(restartRecordingDir);
   results.push("codex-protocol-notifications");
   process.stdout.write("Electron chat workflow passed: codex-protocol-notifications\n");
 }
