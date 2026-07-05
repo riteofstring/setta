@@ -690,6 +690,9 @@ func redactedProvisionCloudInitOptions(options provisionRenderCloudInitOptions) 
 }
 
 func diskFloorGB(shape string) int {
+	if floor, ok := provisionCatalogDiskFloorGB(shape); ok {
+		return floor
+	}
 	if strings.HasPrefix(shape, "gpu-") {
 		return 128
 	}
