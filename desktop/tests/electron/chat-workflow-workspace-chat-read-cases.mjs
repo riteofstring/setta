@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { clearTimeout, setTimeout as startTimer } from "node:timers";
 import { fileURLToPath } from "node:url";
@@ -11,6 +12,7 @@ const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
 const workspaceChatReadCLICommandTimeoutMs = 15_000;
 const workspaceChatReadMarkerText = "workflow hold for queue and steering";
+const workspaceChatSendMarkerText = "workspace chat send through pane command";
 
 export async function runWorkspaceChatReadWorkflow({
   appDataDir,
@@ -35,6 +37,27 @@ export async function runWorkspaceChatReadWorkflow({
       paneId: pane.paneId,
       workspaceId,
     });
+    const sent = await runWorkspaceChatSendCommand(appDataDir, pane.paneId);
+    validateWorkspaceChatSendCLIResult(sent, {
+      conversationId,
+      markerText: workspaceChatSendMarkerText,
+      paneId: pane.paneId,
+      workspaceId,
+    });
+    await waitForWorkspaceChatSendCompletion(
+      backend,
+      workspaceId,
+      conversationId,
+      workspaceChatSendMarkerText,
+    );
+    await waitForState(
+      client,
+      "document.body.innerText",
+      (text) =>
+        typeof text === "string" &&
+        text.includes(workspaceChatSendMarkerText) &&
+        text.includes(`Scripted response: ${workspaceChatSendMarkerText}`),
+    );
   } finally {
     await closeTemporaryWorkspaceChatPane(backend, workspaceId, pane.paneId);
   }
@@ -104,6 +127,7 @@ async function waitForWorkspaceChatPaneBinding(client, workspaceId, paneId, conv
         paneId: pane?.paneId ?? "",
         readModes: pane?.readModes ?? [],
         surfaceKind: pane?.surfaceKind ?? "",
+        writeModes: pane?.writeModes ?? [],
       };
     })()`,
     (state) =>
@@ -111,7 +135,8 @@ async function waitForWorkspaceChatPaneBinding(client, workspaceId, paneId, conv
       state.paneId === paneId &&
       state.surfaceKind === "chat-dom" &&
       state.conversationId === conversationId &&
-      state.readModes.includes("chat_state"),
+      state.readModes.includes("chat_state") &&
+      state.writeModes.includes("chat_send"),
   );
 }
 
@@ -127,6 +152,115 @@ function validateWorkspaceChatReadCLIResult(read, expected) {
   if (!JSON.stringify(read.page).includes(expected.markerText)) {
     throw new Error(`workspace chat read page missed marker text: ${JSON.stringify(read)}`);
   }
+}
+
+async function runWorkspaceChatSendCommand(appDataDir, paneId) {
+  const inputPath = await writeWorkspaceChatSendInput(appDataDir, workspaceChatSendMarkerText);
+  return runSettaWorkspaceCommandJSON(appDataDir, ["chats", "send", paneId, "--input", inputPath]);
+}
+
+async function writeWorkspaceChatSendInput(appDataDir, text) {
+  const inputPath = join(appDataDir, "workspace-chat-send-input.json");
+  await writeFile(
+    inputPath,
+    JSON.stringify(
+      {
+        parts: [
+          {
+            type: "text",
+            text: {
+              text,
+              format: "plain",
+            },
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+  return inputPath;
+}
+
+function validateWorkspaceChatSendCLIResult(sent, expected) {
+  if (!workspaceChatSendTargetMatches(sent, expected)) {
+    throw new Error(`workspace chat send returned wrong target: ${JSON.stringify(sent)}`);
+  }
+  if (!sent.pane.writeModes?.includes("chat_send")) {
+    throw new Error(
+      `workspace chat send pane did not advertise chat_send: ${JSON.stringify(sent)}`,
+    );
+  }
+  if (sent.result?.userMessage?.delivery !== "normal") {
+    throw new Error(`workspace chat send user message was not normal: ${JSON.stringify(sent)}`);
+  }
+  if (!JSON.stringify(sent.result).includes(expected.markerText)) {
+    throw new Error(`workspace chat send result missed marker text: ${JSON.stringify(sent)}`);
+  }
+}
+
+function workspaceChatSendTargetMatches(sent, expected) {
+  return (
+    JSON.stringify(workspaceChatSendTarget(sent)) ===
+    JSON.stringify(expectedChatSendTarget(expected))
+  );
+}
+
+function workspaceChatSendTarget(sent) {
+  return {
+    conversationId: sent.conversationId,
+    pageConversationId: workspaceChatSendPageConversationId(sent),
+    paneId: workspaceChatSendPaneId(sent),
+    resultConversationId: workspaceChatSendResultConversationId(sent),
+    runConversationId: workspaceChatSendRunConversationId(sent),
+    userMessageConversationId: workspaceChatSendUserMessageConversationId(sent),
+    workspaceId: sent.workspaceId,
+  };
+}
+
+function workspaceChatSendPageConversationId(sent) {
+  return sent.result?.page?.conversation?.id;
+}
+
+function workspaceChatSendPaneId(sent) {
+  return sent.pane?.paneId;
+}
+
+function workspaceChatSendResultConversationId(sent) {
+  return sent.result?.conversation?.id;
+}
+
+function workspaceChatSendRunConversationId(sent) {
+  return sent.result?.run?.conversationId;
+}
+
+function workspaceChatSendUserMessageConversationId(sent) {
+  return sent.result?.userMessage?.conversationId;
+}
+
+function expectedChatSendTarget(expected) {
+  return {
+    conversationId: expected.conversationId,
+    pageConversationId: expected.conversationId,
+    paneId: expected.paneId,
+    resultConversationId: expected.conversationId,
+    runConversationId: expected.conversationId,
+    userMessageConversationId: expected.conversationId,
+    workspaceId: expected.workspaceId,
+  };
+}
+
+async function waitForWorkspaceChatSendCompletion(backend, workspaceId, conversationId, prompt) {
+  return waitForBackendState(
+    async () => backend.post("/chat/runs/list", { conversationId, workspaceId }),
+    (candidate) =>
+      candidate.runs?.some(
+        (run) =>
+          run.conversationId === conversationId &&
+          run.promptSummary === prompt &&
+          run.status === "completed",
+      ),
+  );
 }
 
 function workspaceChatReadTargetMatches(read, expected) {

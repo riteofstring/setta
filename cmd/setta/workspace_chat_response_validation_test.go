@@ -57,6 +57,34 @@ func TestValidateWorkspaceChatReadResponseRejectsActiveRunWithoutMatchingLivenes
 	}
 }
 
+func TestValidateWorkspaceChatSendResponseAcceptsValidResponse(t *testing.T) {
+	response := validWorkspaceChatSendResponseForTest()
+
+	if err := validateWorkspaceChatSendResponse(response, "workspace_api", "workspace_pane_0"); err != nil {
+		t.Fatalf("validate send response: %v", err)
+	}
+}
+
+func TestValidateWorkspaceChatSendResponseRejectsMissingChatSendMode(t *testing.T) {
+	response := validWorkspaceChatSendResponseForTest()
+	response.Pane.WriteModes = []workspaceui.WorkspaceUIPaneWriteMode{}
+
+	err := validateWorkspaceChatSendResponse(response, "workspace_api", "workspace_pane_0")
+	if err == nil || !strings.Contains(err.Error(), "chat_send") {
+		t.Fatalf("error = %v, want missing chat_send", err)
+	}
+}
+
+func TestValidateWorkspaceChatSendResponseRejectsMismatchedResultConversation(t *testing.T) {
+	response := validWorkspaceChatSendResponseForTest()
+	response.Result.Run.ConversationID = "conversation_other"
+
+	err := validateWorkspaceChatSendResponse(response, "workspace_api", "workspace_pane_0")
+	if err == nil || !strings.Contains(err.Error(), "workspace chat send run") {
+		t.Fatalf("error = %v, want send run target mismatch", err)
+	}
+}
+
 func validWorkspaceChatReadResponseForTest() httpapi.ReadWorkspaceUIChatResponse {
 	return httpapi.ReadWorkspaceUIChatResponse{
 		WorkspaceID:    "workspace_api",
@@ -87,7 +115,7 @@ func validWorkspaceChatReadResponseForTest() httpapi.ReadWorkspaceUIChatResponse
 				workspaceui.WorkspaceUIPaneReadModeMetadata,
 				workspaceui.WorkspaceUIPaneReadModeChatState,
 			},
-			WriteModes: []workspaceui.WorkspaceUIPaneWriteMode{},
+			WriteModes: []workspaceui.WorkspaceUIPaneWriteMode{workspaceui.WorkspaceUIPaneWriteModeChatSend},
 			ContentRefs: workspaceui.WorkspaceUIPaneContentRefs{
 				Chat: &workspaceui.WorkspaceUIChatPaneContentRef{ConversationID: "conversation_api"},
 			},
@@ -104,5 +132,42 @@ func validWorkspaceChatReadResponseForTest() httpapi.ReadWorkspaceUIChatResponse
 			},
 			Blocks: []chat.TranscriptBlock{},
 		},
+	}
+}
+
+func validWorkspaceChatSendResponseForTest() httpapi.SendWorkspaceUIChatResponse {
+	read := validWorkspaceChatReadResponseForTest()
+	user := workspaceChatResponseTestMessage("message_user", "run_api", chat.RoleUser, chat.MessageDeliveryNormal)
+	assistant := workspaceChatResponseTestMessage("message_assistant", "run_api", chat.RoleAssistant, chat.MessageDeliveryNormal)
+	return httpapi.SendWorkspaceUIChatResponse{
+		WorkspaceID:    read.WorkspaceID,
+		ConversationID: read.ConversationID,
+		Pane:           read.Pane,
+		Result: chat.SendMessageResult{
+			Conversation:     read.Page.Conversation,
+			UserMessage:      user,
+			AssistantMessage: assistant,
+			Run: chat.Run{
+				ID:                 "run_api",
+				WorkspaceID:        "workspace_api",
+				ConversationID:     "conversation_api",
+				TriggerMessageID:   user.ID,
+				AssistantMessageID: assistant.ID,
+				Status:             chat.RunStatusRunning,
+			},
+			Page: read.Page,
+		},
+	}
+}
+
+func workspaceChatResponseTestMessage(id string, runID string, role chat.MessageRole, delivery chat.MessageDelivery) chat.ChatMessage {
+	return chat.ChatMessage{
+		ID:             id,
+		ConversationID: "conversation_api",
+		RunID:          runID,
+		Role:           role,
+		Delivery:       delivery,
+		Status:         chat.MessageStatusComplete,
+		Parts:          []chat.MessagePart{},
 	}
 }

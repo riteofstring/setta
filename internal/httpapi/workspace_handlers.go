@@ -219,6 +219,37 @@ func (handler handler) readWorkspaceUIChat(response http.ResponseWriter, request
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) sendWorkspaceUIChat(response http.ResponseWriter, request *http.Request) {
+	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if workspaceUIService == nil {
+		return
+	}
+	chatService := requireChatService(response, handler.chatService)
+	if chatService == nil {
+		return
+	}
+	var payload SendWorkspaceUIChatRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	pane, ok := readWorkspaceUIChatPane(response, workspaceUIService, payload.WorkspaceID, payload.PaneID, "send_workspace_ui_chat_failed")
+	if !ok {
+		return
+	}
+	conversationID := pane.ContentRefs.Chat.ConversationID
+	result, err := chatService.SendUserInput(payload.WorkspaceID, conversationID, payload.Input)
+	if err != nil {
+		writeChatError(response, "send_workspace_ui_chat_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, SendWorkspaceUIChatResponse{
+		WorkspaceID:    payload.WorkspaceID,
+		Pane:           pane,
+		ConversationID: conversationID,
+		Result:         result,
+	})
+}
+
 func (handler handler) readWorkspaceUITerminal(response http.ResponseWriter, request *http.Request) {
 	workspaceUIService := requireWorkspaceUIService(response, handler.workspaceUIService)
 	if workspaceUIService == nil {

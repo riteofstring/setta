@@ -151,21 +151,6 @@ type ReadWorkspaceUITerminalResponse struct {
 	Terminal    terminal.TerminalReadResult           `json:"terminal"`
 }
 
-type ReadWorkspaceUIChatRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	PaneID      string `json:"paneId"`
-	Limit       int    `json:"limit"`
-}
-
-type ReadWorkspaceUIChatResponse struct {
-	WorkspaceID       string                                `json:"workspaceId"`
-	Pane              workspaceui.WorkspaceUIPaneDescriptor `json:"pane"`
-	ConversationID    string                                `json:"conversationId"`
-	Page              chat.MessagePage                      `json:"page"`
-	ActiveRun         *chat.Run                             `json:"activeRun"`
-	ActiveRunLiveness *chat.RunLiveness                     `json:"activeRunLiveness"`
-}
-
 type PrepareWorkspaceUITerminalWriteRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	PaneID      string `json:"paneId"`

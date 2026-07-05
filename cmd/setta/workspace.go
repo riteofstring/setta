@@ -24,6 +24,7 @@ import (
 const (
 	workspaceCurrentCLIAuthDisplayName        = "Setta CLI workspace current"
 	workspaceChatsReadCLIAuthDisplayName      = "Setta CLI workspace chats read"
+	workspaceChatsSendCLIAuthDisplayName      = "Setta CLI workspace chats send"
 	workspaceLayoutApplyCLIAuthDisplayName    = "Setta CLI workspace layout apply"
 	workspacePanesCloseCLIAuthDisplayName     = "Setta CLI workspace panes close"
 	workspacePanesFocusCLIAuthDisplayName     = "Setta CLI workspace panes focus"

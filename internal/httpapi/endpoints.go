@@ -71,6 +71,7 @@ var apiEndpoints = []endpoint{
 	post[ListWorkspaceUIPanesRequest, workspaceui.WorkspaceUIPaneListResult]("ListWorkspaceUIPanes", "/workspaces/ui/panes/list", handler.listWorkspaceUIPanes),
 	post[ReadWorkspaceUIPaneRequest, workspaceui.WorkspaceUIPaneReadResult]("ReadWorkspaceUIPane", "/workspaces/ui/panes/read", handler.readWorkspaceUIPane),
 	post[ReadWorkspaceUIChatRequest, ReadWorkspaceUIChatResponse]("ReadWorkspaceUIChat", "/workspaces/ui/chats/read", handler.readWorkspaceUIChat),
+	post[SendWorkspaceUIChatRequest, SendWorkspaceUIChatResponse]("SendWorkspaceUIChat", "/workspaces/ui/chats/send", handler.sendWorkspaceUIChat),
 	post[ReadWorkspaceUITerminalRequest, ReadWorkspaceUITerminalResponse]("ReadWorkspaceUITerminal", "/workspaces/ui/terminals/read", handler.readWorkspaceUITerminal),
 	post[PrepareWorkspaceUITerminalWriteRequest, PrepareWorkspaceUITerminalWriteResponse]("PrepareWorkspaceUITerminalWrite", "/workspaces/ui/terminals/writes/prepare", handler.prepareWorkspaceUITerminalWrite),
 	post[CommitWorkspaceUITerminalWriteRequest, CommitWorkspaceUITerminalWriteResponse]("CommitWorkspaceUITerminalWrite", "/workspaces/ui/terminals/writes/commit", handler.commitWorkspaceUITerminalWrite),

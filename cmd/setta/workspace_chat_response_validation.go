@@ -29,6 +29,56 @@ func validateWorkspaceChatReadResponse(response httpapi.ReadWorkspaceUIChatRespo
 	return validateWorkspaceChatReadActiveRun(response.ActiveRun, response.ActiveRunLiveness, workspaceID, response.ConversationID)
 }
 
+func validateWorkspaceChatSendResponse(response httpapi.SendWorkspaceUIChatResponse, workspaceID string, paneID string) error {
+	conversationID, err := validateWorkspaceChatSendEnvelope(response, workspaceID, paneID)
+	if err != nil {
+		return err
+	}
+	return validateWorkspaceChatSendResult(response.Result, workspaceID, conversationID)
+}
+
+func validateWorkspaceChatSendEnvelope(response httpapi.SendWorkspaceUIChatResponse, workspaceID string, paneID string) (string, error) {
+	if response.WorkspaceID != workspaceID {
+		return "", fmt.Errorf("workspace chat send returned workspaceId %s, want %s", response.WorkspaceID, workspaceID)
+	}
+	if response.Pane.PaneID != paneID {
+		return "", fmt.Errorf("workspace chat send returned paneId %s, want %s", response.Pane.PaneID, paneID)
+	}
+	if err := validateWorkspaceChatSendPane(response.Pane); err != nil {
+		return "", fmt.Errorf("workspace chat send pane descriptor is invalid: %w", err)
+	}
+	contentRef := response.Pane.ContentRefs.Chat
+	if response.ConversationID != contentRef.ConversationID {
+		return "", fmt.Errorf("workspace chat send conversationId = %s, want %s", response.ConversationID, contentRef.ConversationID)
+	}
+	return response.ConversationID, nil
+}
+
+func validateWorkspaceChatSendResult(result chat.SendMessageResult, workspaceID string, conversationID string) error {
+	if result.Conversation.WorkspaceID != workspaceID {
+		return fmt.Errorf("workspace chat send result conversation workspaceId = %s, want %s", result.Conversation.WorkspaceID, workspaceID)
+	}
+	if result.Conversation.ID != conversationID {
+		return fmt.Errorf("workspace chat send result conversation id = %s, want %s", result.Conversation.ID, conversationID)
+	}
+	if err := validateWorkspaceChatMessage(result.UserMessage, conversationID); err != nil {
+		return fmt.Errorf("workspace chat send user message is invalid: %w", err)
+	}
+	if result.UserMessage.Delivery != chat.MessageDeliveryNormal {
+		return fmt.Errorf("workspace chat send user message delivery = %s, want normal", result.UserMessage.Delivery)
+	}
+	if err := validateWorkspaceChatMessage(result.AssistantMessage, conversationID); err != nil {
+		return fmt.Errorf("workspace chat send assistant message is invalid: %w", err)
+	}
+	if err := validateWorkspaceChatRun(result.Run, workspaceID, conversationID); err != nil {
+		return fmt.Errorf("workspace chat send run is invalid: %w", err)
+	}
+	if err := validateWorkspaceChatReadPage(result.Page, workspaceID, conversationID); err != nil {
+		return fmt.Errorf("workspace chat send page is invalid: %w", err)
+	}
+	return nil
+}
+
 func validateWorkspaceChatReadPane(pane workspaceui.WorkspaceUIPaneDescriptor) error {
 	if err := validateWorkspacePaneDescriptor(pane); err != nil {
 		return err
@@ -44,6 +94,16 @@ func validateWorkspaceChatReadPane(pane workspaceui.WorkspaceUIPaneDescriptor) e
 	}
 	if !workspacePaneReadModesContain(pane.ReadModes, workspaceui.WorkspaceUIPaneReadModeChatState) {
 		return errors.New("chat pane descriptor did not advertise chat_state")
+	}
+	return nil
+}
+
+func validateWorkspaceChatSendPane(pane workspaceui.WorkspaceUIPaneDescriptor) error {
+	if err := validateWorkspaceChatReadPane(pane); err != nil {
+		return err
+	}
+	if !workspacePaneWriteModesContain(pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatSend) {
+		return errors.New("chat pane descriptor did not advertise chat_send")
 	}
 	return nil
 }

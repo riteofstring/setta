@@ -194,6 +194,34 @@ func TestWorkspaceChatsReadCommandIntegration(t *testing.T) {
 	}
 }
 
+func TestWorkspaceChatsSendCommandIntegration(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	conversation := createWorkspaceChatConversationForCLITest(t, fixture)
+	layout := cliTestWorkspaceUILayout(fixture.opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayoutForCLITest(t, fixture.appDataDir, layout)
+	inputPath := writeWorkspaceChatSendInputForCLITest(t, chat.TextChatInput("send through workspace chat pane"))
+
+	sent := runWorkspaceCommandJSON[httpapi.SendWorkspaceUIChatResponse](t, fixture, "chats", "send", "workspace_pane_0", "--input", inputPath)
+	if sent.WorkspaceID != fixture.opened.Workspace.ID || sent.Pane.PaneID != "workspace_pane_0" {
+		t.Fatalf("chat send envelope = %+v, want workspace chat pane", sent)
+	}
+	if sent.ConversationID != conversation.ID || sent.Result.Conversation.ID != conversation.ID {
+		t.Fatalf("chat send conversation = %s result %+v, want %s", sent.ConversationID, sent.Result.Conversation, conversation.ID)
+	}
+	if sent.Result.UserMessage.ConversationID != conversation.ID ||
+		sent.Result.AssistantMessage.ConversationID != conversation.ID ||
+		sent.Result.Run.ConversationID != conversation.ID {
+		t.Fatalf("chat send result target = %+v, want bound conversation %s", sent.Result, conversation.ID)
+	}
+	if sent.Result.UserMessage.Delivery != chat.MessageDeliveryNormal {
+		t.Fatalf("chat send delivery = %s, want normal", sent.Result.UserMessage.Delivery)
+	}
+	if !workspacePaneWriteModesContain(sent.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatSend) {
+		t.Fatalf("chat send pane write modes = %+v, want chat_send", sent.Pane.WriteModes)
+	}
+}
+
 func TestWorkspaceTerminalsWriteCommandsIntegration(t *testing.T) {
 	fixture := newWorkspaceCLITestFixture(t)
 	session := createWorkspaceTerminalSessionForCLITest(t, fixture)
@@ -513,6 +541,38 @@ func TestWorkspaceChatsReadCommandRejectsUnboundPane(t *testing.T) {
 	}
 }
 
+func TestWorkspaceChatsSendCommandRejectsIdentityInInput(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	inputPath := writeRawWorkspaceChatSendInputForCLITest(t, `{
+  "conversationId": "conversation_attacker",
+  "parts": [
+    {
+      "type": "text",
+      "text": {
+        "text": "hello",
+        "format": "plain"
+      }
+    }
+  ]
+}`)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "chats", "send", "workspace_pane_0", "--input", inputPath), commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "workspace_chat_send_input_decode_failed" {
+		t.Fatalf("error code = %q, want workspace_chat_send_input_decode_failed", errResponse.Error.Code)
+	}
+}
+
 func TestWorkspaceTerminalsWritePrepareRejectsDeviceSessionInput(t *testing.T) {
 	fixture := newWorkspaceCLITestFixture(t)
 	inputPath := writeRawWorkspaceTerminalWriteInputForCLITest(t, `{
@@ -710,6 +770,24 @@ func writeRawWorkspacePaneOpenInputForCLITest(t *testing.T, data string) string 
 	path := filepath.Join(t.TempDir(), "open-pane.json")
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatalf("write workspace pane open input: %v", err)
+	}
+	return path
+}
+
+func writeWorkspaceChatSendInputForCLITest(t *testing.T, input chat.ChatInput) string {
+	t.Helper()
+	data, err := json.MarshalIndent(input, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal workspace chat send input: %v", err)
+	}
+	return writeRawWorkspaceChatSendInputForCLITest(t, string(data))
+}
+
+func writeRawWorkspaceChatSendInputForCLITest(t *testing.T, data string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "chat-message.json")
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write workspace chat send input: %v", err)
 	}
 	return path
 }

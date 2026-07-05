@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 27;
-export const backendContractSchemaHash = "sha256:b4cc667d9baad22dd33da77055c0379954e53a21e5daef7dfb664665e17b1a98";
+export const backendProtocolVersion = 28;
+export const backendContractSchemaHash = "sha256:9d9d6324cf2ab714e0a164767206e28f9bf6f28a114ffbb03381ad33b707567b";
 
 export type DeviceScope = "full";
 
@@ -3779,6 +3779,47 @@ export interface ReadWorkspaceUIChatResponse {
   activeRunLiveness: RunLiveness | null;
 }
 
+export interface ChatTextInput {
+  text: string;
+  format: TextFormat;
+}
+
+export interface ChatImageInput {
+  attachmentId: string;
+  detail: ImageDetail | null;
+}
+
+export interface ChatInputPart {
+  type: MessagePartType;
+  text: ChatTextInput | null;
+  image: ChatImageInput | null;
+}
+
+export interface ChatInput {
+  parts: ChatInputPart[];
+}
+
+export interface SendWorkspaceUIChatRequest {
+  workspaceId: string;
+  paneId: string;
+  input: ChatInput;
+}
+
+export interface SendMessageResult {
+  conversation: Conversation;
+  userMessage: ChatMessage;
+  assistantMessage: ChatMessage;
+  run: Run;
+  page: MessagePage;
+}
+
+export interface SendWorkspaceUIChatResponse {
+  workspaceId: string;
+  pane: WorkspaceUIPaneDescriptor;
+  conversationId: string;
+  result: SendMessageResult;
+}
+
 export interface ReadWorkspaceUITerminalRequest {
   workspaceId: string;
   paneId: string;
@@ -4509,26 +4550,6 @@ export interface ListComposerPromptHistoryRequest {
   limit: number;
 }
 
-export interface ChatTextInput {
-  text: string;
-  format: TextFormat;
-}
-
-export interface ChatImageInput {
-  attachmentId: string;
-  detail: ImageDetail | null;
-}
-
-export interface ChatInputPart {
-  type: MessagePartType;
-  text: ChatTextInput | null;
-  image: ChatImageInput | null;
-}
-
-export interface ChatInput {
-  parts: ChatInputPart[];
-}
-
 export interface ImageAttachment {
   schemaVersion: number;
   id: string;
@@ -4563,14 +4584,6 @@ export interface SendChatMessageRequest {
   workspaceId: string;
   conversationId: string;
   input: ChatInput;
-}
-
-export interface SendMessageResult {
-  conversation: Conversation;
-  userMessage: ChatMessage;
-  assistantMessage: ChatMessage;
-  run: Run;
-  page: MessagePage;
 }
 
 export interface QueueChatMessageRequest {
@@ -7478,6 +7491,11 @@ export const backendEndpoints = {
     path: "/workspaces/ui/chats/read",
     requestBodyLimitBytes: 4194304,
   },
+  SendWorkspaceUIChat: {
+    method: "POST",
+    path: "/workspaces/ui/chats/send",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadWorkspaceUITerminal: {
     method: "POST",
     path: "/workspaces/ui/terminals/read",
@@ -9366,6 +9384,80 @@ export function decodeReadWorkspaceUIChatResponse(value: unknown): ReadWorkspace
   };
 }
 
+export function decodeChatTextInput(value: unknown): ChatTextInput {
+  const record = assertRecord(value, "ChatTextInput");
+  assertKnownFields(record, "ChatTextInput", ["text", "format"]);
+  return {
+    text: decodeString(requireField(record, "text", "ChatTextInput"), "ChatTextInput.text"),
+    format: decodeTextFormat(requireField(record, "format", "ChatTextInput"), "ChatTextInput.format"),
+  };
+}
+
+export function decodeChatImageInput(value: unknown): ChatImageInput {
+  const record = assertRecord(value, "ChatImageInput");
+  assertKnownFields(record, "ChatImageInput", ["attachmentId", "detail"]);
+  return {
+    attachmentId: decodeString(requireField(record, "attachmentId", "ChatImageInput"), "ChatImageInput.attachmentId"),
+    detail: decodeNullable(requireField(record, "detail", "ChatImageInput"), "ChatImageInput.detail", (item) => decodeImageDetail(item, "ChatImageInput.detail")),
+  };
+}
+
+export function decodeChatInputPart(value: unknown): ChatInputPart {
+  const record = assertRecord(value, "ChatInputPart");
+  assertKnownFields(record, "ChatInputPart", ["type", "text", "image"]);
+  const result: ChatInputPart = {
+    type: decodeMessagePartType(requireField(record, "type", "ChatInputPart"), "ChatInputPart.type"),
+    text: decodeNullable(requireField(record, "text", "ChatInputPart"), "ChatInputPart.text", (item) => decodeChatTextInput(item)),
+    image: decodeNullable(requireField(record, "image", "ChatInputPart"), "ChatInputPart.image", (item) => decodeChatImageInput(item)),
+  };
+  assertTaggedUnionBranch("ChatInputPart", result.type, {
+    "text": result.text,
+    "image": result.image,
+  });
+  return result;
+}
+
+export function decodeChatInput(value: unknown): ChatInput {
+  const record = assertRecord(value, "ChatInput");
+  assertKnownFields(record, "ChatInput", ["parts"]);
+  return {
+    parts: decodeArray(requireField(record, "parts", "ChatInput"), "ChatInput.parts", (item) => decodeChatInputPart(item)),
+  };
+}
+
+export function decodeSendWorkspaceUIChatRequest(value: unknown): SendWorkspaceUIChatRequest {
+  const record = assertRecord(value, "SendWorkspaceUIChatRequest");
+  assertKnownFields(record, "SendWorkspaceUIChatRequest", ["workspaceId", "paneId", "input"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SendWorkspaceUIChatRequest"), "SendWorkspaceUIChatRequest.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "SendWorkspaceUIChatRequest"), "SendWorkspaceUIChatRequest.paneId"),
+    input: decodeChatInput(requireField(record, "input", "SendWorkspaceUIChatRequest")),
+  };
+}
+
+export function decodeSendMessageResult(value: unknown): SendMessageResult {
+  const record = assertRecord(value, "SendMessageResult");
+  assertKnownFields(record, "SendMessageResult", ["conversation", "userMessage", "assistantMessage", "run", "page"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "SendMessageResult")),
+    userMessage: decodeChatMessage(requireField(record, "userMessage", "SendMessageResult")),
+    assistantMessage: decodeChatMessage(requireField(record, "assistantMessage", "SendMessageResult")),
+    run: decodeRun(requireField(record, "run", "SendMessageResult")),
+    page: decodeMessagePage(requireField(record, "page", "SendMessageResult")),
+  };
+}
+
+export function decodeSendWorkspaceUIChatResponse(value: unknown): SendWorkspaceUIChatResponse {
+  const record = assertRecord(value, "SendWorkspaceUIChatResponse");
+  assertKnownFields(record, "SendWorkspaceUIChatResponse", ["workspaceId", "pane", "conversationId", "result"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SendWorkspaceUIChatResponse"), "SendWorkspaceUIChatResponse.workspaceId"),
+    pane: decodeWorkspaceUIPaneDescriptor(requireField(record, "pane", "SendWorkspaceUIChatResponse")),
+    conversationId: decodeString(requireField(record, "conversationId", "SendWorkspaceUIChatResponse"), "SendWorkspaceUIChatResponse.conversationId"),
+    result: decodeSendMessageResult(requireField(record, "result", "SendWorkspaceUIChatResponse")),
+  };
+}
+
 export function decodeReadWorkspaceUITerminalRequest(value: unknown): ReadWorkspaceUITerminalRequest {
   const record = assertRecord(value, "ReadWorkspaceUITerminalRequest");
   assertKnownFields(record, "ReadWorkspaceUITerminalRequest", ["workspaceId", "paneId", "recentOutputByteLimit"]);
@@ -10432,47 +10524,6 @@ export function decodeListComposerPromptHistoryRequest(value: unknown): ListComp
   };
 }
 
-export function decodeChatTextInput(value: unknown): ChatTextInput {
-  const record = assertRecord(value, "ChatTextInput");
-  assertKnownFields(record, "ChatTextInput", ["text", "format"]);
-  return {
-    text: decodeString(requireField(record, "text", "ChatTextInput"), "ChatTextInput.text"),
-    format: decodeTextFormat(requireField(record, "format", "ChatTextInput"), "ChatTextInput.format"),
-  };
-}
-
-export function decodeChatImageInput(value: unknown): ChatImageInput {
-  const record = assertRecord(value, "ChatImageInput");
-  assertKnownFields(record, "ChatImageInput", ["attachmentId", "detail"]);
-  return {
-    attachmentId: decodeString(requireField(record, "attachmentId", "ChatImageInput"), "ChatImageInput.attachmentId"),
-    detail: decodeNullable(requireField(record, "detail", "ChatImageInput"), "ChatImageInput.detail", (item) => decodeImageDetail(item, "ChatImageInput.detail")),
-  };
-}
-
-export function decodeChatInputPart(value: unknown): ChatInputPart {
-  const record = assertRecord(value, "ChatInputPart");
-  assertKnownFields(record, "ChatInputPart", ["type", "text", "image"]);
-  const result: ChatInputPart = {
-    type: decodeMessagePartType(requireField(record, "type", "ChatInputPart"), "ChatInputPart.type"),
-    text: decodeNullable(requireField(record, "text", "ChatInputPart"), "ChatInputPart.text", (item) => decodeChatTextInput(item)),
-    image: decodeNullable(requireField(record, "image", "ChatInputPart"), "ChatInputPart.image", (item) => decodeChatImageInput(item)),
-  };
-  assertTaggedUnionBranch("ChatInputPart", result.type, {
-    "text": result.text,
-    "image": result.image,
-  });
-  return result;
-}
-
-export function decodeChatInput(value: unknown): ChatInput {
-  const record = assertRecord(value, "ChatInput");
-  assertKnownFields(record, "ChatInput", ["parts"]);
-  return {
-    parts: decodeArray(requireField(record, "parts", "ChatInput"), "ChatInput.parts", (item) => decodeChatInputPart(item)),
-  };
-}
-
 export function decodeImageAttachment(value: unknown): ImageAttachment {
   const record = assertRecord(value, "ImageAttachment");
   assertKnownFields(record, "ImageAttachment", ["schemaVersion", "id", "workspaceId", "conversationId", "fileName", "mimeType", "byteSize", "width", "height", "createdAt", "variants"]);
@@ -10522,18 +10573,6 @@ export function decodeSendChatMessageRequest(value: unknown): SendChatMessageReq
     workspaceId: decodeString(requireField(record, "workspaceId", "SendChatMessageRequest"), "SendChatMessageRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SendChatMessageRequest"), "SendChatMessageRequest.conversationId"),
     input: decodeChatInput(requireField(record, "input", "SendChatMessageRequest")),
-  };
-}
-
-export function decodeSendMessageResult(value: unknown): SendMessageResult {
-  const record = assertRecord(value, "SendMessageResult");
-  assertKnownFields(record, "SendMessageResult", ["conversation", "userMessage", "assistantMessage", "run", "page"]);
-  return {
-    conversation: decodeConversation(requireField(record, "conversation", "SendMessageResult")),
-    userMessage: decodeChatMessage(requireField(record, "userMessage", "SendMessageResult")),
-    assistantMessage: decodeChatMessage(requireField(record, "assistantMessage", "SendMessageResult")),
-    run: decodeRun(requireField(record, "run", "SendMessageResult")),
-    page: decodeMessagePage(requireField(record, "page", "SendMessageResult")),
   };
 }
 
@@ -14518,6 +14557,7 @@ export interface BackendClient {
   listWorkspaceUIPanes: (request: ListWorkspaceUIPanesRequest) => Promise<WorkspaceUIPaneListResult>;
   readWorkspaceUIPane: (request: ReadWorkspaceUIPaneRequest) => Promise<WorkspaceUIPaneReadResult>;
   readWorkspaceUIChat: (request: ReadWorkspaceUIChatRequest) => Promise<ReadWorkspaceUIChatResponse>;
+  sendWorkspaceUIChat: (request: SendWorkspaceUIChatRequest) => Promise<SendWorkspaceUIChatResponse>;
   readWorkspaceUITerminal: (request: ReadWorkspaceUITerminalRequest) => Promise<ReadWorkspaceUITerminalResponse>;
   prepareWorkspaceUITerminalWrite: (request: PrepareWorkspaceUITerminalWriteRequest) => Promise<PrepareWorkspaceUITerminalWriteResponse>;
   commitWorkspaceUITerminalWrite: (request: CommitWorkspaceUITerminalWriteRequest) => Promise<CommitWorkspaceUITerminalWriteResponse>;
@@ -14832,6 +14872,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkspaceUIChatResponse,
       endpoint: backendEndpoints.ReadWorkspaceUIChat,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    sendWorkspaceUIChat: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSendWorkspaceUIChatResponse,
+      endpoint: backendEndpoints.SendWorkspaceUIChat,
       fetchImpl,
       requestPayload: request,
     }),

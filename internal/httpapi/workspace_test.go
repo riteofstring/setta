@@ -380,8 +380,8 @@ func TestWorkspaceUIChatReadEndpointResolvesPaneConversation(t *testing.T) {
 	if !workspacePaneReadModesContain(read.Pane.ReadModes, workspaceui.WorkspaceUIPaneReadModeChatState) {
 		t.Fatalf("chat read modes = %+v, want chat_state", read.Pane.ReadModes)
 	}
-	if len(read.Pane.WriteModes) != 0 {
-		t.Fatalf("chat write modes = %+v, want none in read-only slice", read.Pane.WriteModes)
+	if len(read.Pane.WriteModes) != 1 || read.Pane.WriteModes[0] != workspaceui.WorkspaceUIPaneWriteModeChatSend {
+		t.Fatalf("chat write modes = %+v, want chat_send", read.Pane.WriteModes)
 	}
 	if read.Page.Conversation.ID != conversation.ID || read.Page.Conversation.WorkspaceID != opened.Workspace.ID {
 		t.Fatalf("chat page conversation = %+v, want bound conversation", read.Page.Conversation)
@@ -402,6 +402,80 @@ func TestWorkspaceUIChatReadEndpointRejectsUnboundChatPane(t *testing.T) {
 	}, http.StatusBadRequest)
 	if errResponse.Error.Code != "unsupported_workspace_ui_chat_pane" {
 		t.Fatalf("error code = %q, want unsupported_workspace_ui_chat_pane", errResponse.Error.Code)
+	}
+}
+
+func TestWorkspaceUIChatSendEndpointResolvesPaneConversation(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithChat(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Bound conversation",
+	}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+
+	sent := postJSON[SendWorkspaceUIChatResponse](t, handler, "/workspaces/ui/chats/send", SendWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+		Input:       chat.TextChatInput("send through bound pane"),
+	}, http.StatusOK)
+	if sent.WorkspaceID != opened.Workspace.ID || sent.Pane.PaneID != "workspace_pane_0" {
+		t.Fatalf("chat send envelope = %+v, want workspace chat pane", sent)
+	}
+	if sent.ConversationID != conversation.ID || sent.Result.Conversation.ID != conversation.ID {
+		t.Fatalf("chat send conversation = %s result %+v, want %s", sent.ConversationID, sent.Result.Conversation, conversation.ID)
+	}
+	if sent.Pane.ContentRefs.Chat == nil || sent.Pane.ContentRefs.Chat.ConversationID != conversation.ID {
+		t.Fatalf("chat content ref = %+v, want conversation %s", sent.Pane.ContentRefs.Chat, conversation.ID)
+	}
+	if !workspacePaneWriteModesContain(sent.Pane.WriteModes, workspaceui.WorkspaceUIPaneWriteModeChatSend) {
+		t.Fatalf("chat write modes = %+v, want chat_send", sent.Pane.WriteModes)
+	}
+	if sent.Result.UserMessage.ConversationID != conversation.ID ||
+		sent.Result.AssistantMessage.ConversationID != conversation.ID ||
+		sent.Result.Run.ConversationID != conversation.ID ||
+		sent.Result.Page.Conversation.ID != conversation.ID {
+		t.Fatalf("chat send result target = %+v, want bound conversation %s", sent.Result, conversation.ID)
+	}
+	waitForWorkspaceUIChatRunStatus(t, handler, opened.Workspace.ID, conversation.ID, sent.Result.Run.ID, chat.RunStatusCompleted)
+}
+
+func TestWorkspaceUIChatSendEndpointRejectsActiveRunInsteadOfQueueing(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithChatEvents(t, []chat.FakeHarnessEvent{{Type: chat.FakeEventWaitForCancel}})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Bound conversation",
+	}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[0].ChatConfig = &workspaceui.ChatPaneConfig{ConversationID: conversation.ID}
+	seedWorkspaceUILayout(t, appDataDir, layout)
+
+	started := postJSON[SendWorkspaceUIChatResponse](t, handler, "/workspaces/ui/chats/send", SendWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+		Input:       chat.TextChatInput("active through bound pane"),
+	}, http.StatusOK)
+	if started.Result.Run.Status != chat.RunStatusRunning {
+		t.Fatalf("started run status = %s, want running", started.Result.Run.Status)
+	}
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/chats/send", SendWorkspaceUIChatRequest{
+		WorkspaceID: opened.Workspace.ID,
+		PaneID:      "workspace_pane_0",
+		Input:       chat.TextChatInput("must not silently queue"),
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "send_workspace_ui_chat_failed" {
+		t.Fatalf("error code = %q, want send_workspace_ui_chat_failed", errResponse.Error.Code)
+	}
+	cancelled := postJSON[chat.Run](t, handler, "/chat/runs/cancel", CancelRunRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if cancelled.ID != started.Result.Run.ID || cancelled.Status != chat.RunStatusCancelled {
+		t.Fatalf("cancelled run = %+v, want cancelled %s", cancelled, started.Result.Run.ID)
 	}
 }
 
@@ -589,6 +663,31 @@ func TestWorkspaceUITerminalWriteCommitRejectsRemovedPaneBeforeWrite(t *testing.
 func terminalWriteHTTPTestSHA256(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
+}
+
+func waitForWorkspaceUIChatRunStatus(
+	t *testing.T,
+	handler http.Handler,
+	workspaceID string,
+	conversationID string,
+	runID string,
+	status chat.RunStatus,
+) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		list := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+		}, http.StatusOK)
+		for _, run := range list.Runs {
+			if run.ID == runID && run.Status == status {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for run %s status %s", runID, status)
 }
 
 func TestWorkspaceUIPaneReadRejectsMissingPane(t *testing.T) {
@@ -930,6 +1029,10 @@ func newWorkspaceHandlerWithTerminal(t *testing.T) (http.Handler, string, *httpR
 }
 
 func newWorkspaceHandlerWithChat(t *testing.T) (http.Handler, string) {
+	return newWorkspaceHandlerWithChatEvents(t, nil)
+}
+
+func newWorkspaceHandlerWithChatEvents(t *testing.T, events []chat.FakeHarnessEvent) (http.Handler, string) {
 	t.Helper()
 
 	appDataDir := t.TempDir()
@@ -965,7 +1068,7 @@ func newWorkspaceHandlerWithChat(t *testing.T) (http.Handler, string) {
 	if err != nil {
 		t.Fatalf("new chat store: %v", err)
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewFakeHarness(nil))
+	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewFakeHarness(events))
 	if err != nil {
 		t.Fatalf("new chat service: %v", err)
 	}
