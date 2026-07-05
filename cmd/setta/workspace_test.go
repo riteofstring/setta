@@ -61,6 +61,25 @@ func TestWorkspacePaneLayoutWriteCommandsIntegration(t *testing.T) {
 	assertWorkspacePaneListAfterWriteCLITest(t, list)
 }
 
+func TestWorkspacePaneLayoutWriteCommandsAcceptPaneIDBeforeOperationFlags(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+
+	rename := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "rename", "workspace_pane_1", "--title", "Shell")
+	if !rename.Changed || rename.Revision != 2 || rename.OperationResult.Rename == nil || rename.OperationResult.Rename.Title != "Shell" {
+		t.Fatalf("rename result = %+v, want changed revision 2 title Shell", rename)
+	}
+
+	move := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "move", "workspace_pane_1", "--direction", "left")
+	if !move.Changed || move.Revision != 3 || move.OperationResult.Move == nil || move.OperationResult.Move.Direction != workspaceui.WorkspaceUIPaneMoveDirectionLeft {
+		t.Fatalf("move result = %+v, want changed revision 3 left move", move)
+	}
+
+	closeResult := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "close", "workspace_pane_1", "--surface-close", "none")
+	if !closeResult.Changed || closeResult.Revision != 4 || closeResult.OperationResult.Close == nil {
+		t.Fatalf("close result = %+v, want changed revision 4 close outcome", closeResult)
+	}
+}
+
 func assertWorkspacePaneFocusCLIResult(t *testing.T, result workspaceui.WorkspaceUIPaneOperationResult) {
 	t.Helper()
 	if !result.Changed || result.Revision != 2 || result.Layout.FocusedPaneID != "workspace_pane_0" {

@@ -222,9 +222,13 @@ func workspacePaneIDOptionsFromArgs(name string, args []string, deps cliDeps) (w
 	if err != nil {
 		return workspacePaneFocusOptions{}, err
 	}
+	normalizedArgs, err := normalizeWorkspacePaneFlagArgs(args, "app-data-dir")
+	if err != nil {
+		return workspacePaneFocusOptions{}, usageError{err: err}
+	}
 	flagSet := newWorkspaceFlagSet(name)
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
-	if err := flagSet.Parse(args); err != nil {
+	if err := flagSet.Parse(normalizedArgs); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return workspacePaneFocusOptions{}, usageError{err: err}
 		}
@@ -246,10 +250,14 @@ func workspacePaneCloseOptionsFromArgs(args []string, deps cliDeps) (workspacePa
 		return workspacePaneCloseOptions{}, err
 	}
 	surfaceClose := string(workspaceui.WorkspaceUISurfaceCloseModeNone)
+	normalizedArgs, err := normalizeWorkspacePaneFlagArgs(args, "app-data-dir", "surface-close")
+	if err != nil {
+		return workspacePaneCloseOptions{}, usageError{err: err}
+	}
 	flagSet := newWorkspaceFlagSet("setta workspace panes close")
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&surfaceClose, "surface-close", surfaceClose, "surface close mode: none, safe, or force")
-	if err := flagSet.Parse(args); err != nil {
+	if err := flagSet.Parse(normalizedArgs); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return workspacePaneCloseOptions{}, usageError{err: err}
 		}
@@ -283,10 +291,14 @@ func workspacePaneMoveOptionsFromArgs(args []string, deps cliDeps) (workspacePan
 		return workspacePaneMoveOptions{}, err
 	}
 	var direction string
+	normalizedArgs, err := normalizeWorkspacePaneFlagArgs(args, "app-data-dir", "direction")
+	if err != nil {
+		return workspacePaneMoveOptions{}, usageError{err: err}
+	}
 	flagSet := newWorkspaceFlagSet("setta workspace panes move")
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&direction, "direction", "", "move direction: left, right, up, or down")
-	if err := flagSet.Parse(args); err != nil {
+	if err := flagSet.Parse(normalizedArgs); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return workspacePaneMoveOptions{}, usageError{err: err}
 		}
@@ -315,9 +327,13 @@ func workspacePaneReadOptionsFromArgs(args []string, deps cliDeps) (workspacePan
 	if err != nil {
 		return workspacePaneReadOptions{}, err
 	}
+	normalizedArgs, err := normalizeWorkspacePaneFlagArgs(args, "app-data-dir")
+	if err != nil {
+		return workspacePaneReadOptions{}, usageError{err: err}
+	}
 	flagSet := newWorkspaceFlagSet("setta workspace panes read")
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
-	if err := flagSet.Parse(args); err != nil {
+	if err := flagSet.Parse(normalizedArgs); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return workspacePaneReadOptions{}, usageError{err: err}
 		}
@@ -339,10 +355,14 @@ func workspacePaneRenameOptionsFromArgs(args []string, deps cliDeps) (workspaceP
 		return workspacePaneRenameOptions{}, err
 	}
 	var title string
+	normalizedArgs, err := normalizeWorkspacePaneFlagArgs(args, "app-data-dir", "title")
+	if err != nil {
+		return workspacePaneRenameOptions{}, usageError{err: err}
+	}
 	flagSet := newWorkspaceFlagSet("setta workspace panes rename")
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&title, "title", "", "new pane title")
-	if err := flagSet.Parse(args); err != nil {
+	if err := flagSet.Parse(normalizedArgs); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return workspacePaneRenameOptions{}, usageError{err: err}
 		}
@@ -366,6 +386,40 @@ func workspacePaneRenameOptionsFromArgs(args []string, deps cliDeps) (workspaceP
 		PaneID:     paneID,
 		Title:      title,
 	}, nil
+}
+
+func normalizeWorkspacePaneFlagArgs(args []string, valueFlagNames ...string) ([]string, error) {
+	valueFlags := make(map[string]struct{}, len(valueFlagNames))
+	for _, name := range valueFlagNames {
+		valueFlags[name] = struct{}{}
+	}
+	flags := make([]string, 0, len(args))
+	positionals := make([]string, 0, len(args))
+	for index := 0; index < len(args); index++ {
+		arg := args[index]
+		if arg == "--" {
+			positionals = append(positionals, args[index+1:]...)
+			break
+		}
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positionals = append(positionals, arg)
+			continue
+		}
+		flags = append(flags, arg)
+		name := strings.TrimLeft(arg, "-")
+		if equalIndex := strings.IndexByte(name, '='); equalIndex >= 0 {
+			name = name[:equalIndex]
+		}
+		if _, ok := valueFlags[name]; !ok || strings.Contains(arg, "=") {
+			continue
+		}
+		if index+1 >= len(args) {
+			return nil, fmt.Errorf("flag needs an argument: -%s", name)
+		}
+		index++
+		flags = append(flags, args[index])
+	}
+	return append(flags, positionals...), nil
 }
 
 func closeWorkspacePane(ctx context.Context, appDataDir string, paneID string, surfaceClose workspaceui.WorkspaceUISurfaceCloseMode, deps cliDeps) (workspaceui.WorkspaceUIPaneOperationResult, error) {
