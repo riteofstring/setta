@@ -838,11 +838,11 @@ start/stop:
   generated TypeScript contracts regenerated and backend protocol version
   bumped to 8 for the schema hash change.
 - Added the Electron/preload/web typed `easyRun` API surface: main handles
-  snapshot reads, while preload/web expose typed event subscriptions backed by
-  the generated easy-run contracts. Automatic app-shell event forwarding and
-  pane hydration stay deferred until Phase 2b has real easy-run lifecycle
-  events. No start/stop endpoints, no hidden chat run launch, and no raw chat
-  transcript event consumption were added.
+  snapshot reads, and both desktop and web event subscriptions are backed by
+  the generated easy-run contracts and push event streams. Pane hydration stays
+  deferred until Phase 2b has real easy-run lifecycle events. No start/stop
+  endpoints, no hidden chat run launch, and no raw chat transcript event
+  consumption were added.
 - Added renderer `stores/easy-run-store.ts` and `easy-run-events.ts` with
   snapshot hydration, duplicate/gap/stream-change handling, resync handling,
   run-change rail reset, and focused reducer/store tests. The pane remains
@@ -854,6 +854,8 @@ Verification performed:
 - `./scripts/go.sh test ./internal/easyrun ./internal/httpapi ./internal/runtime ./cmd/generate-contracts`
 - `pnpm -C desktop exec vitest run
 src/main/backend-supervisor.test.ts
+src/main/easy-run-event-forwarding.test.ts
+src/main/easy-run-event-stream.test.ts
 src/renderer/src/stores/easy-run-store.test.ts
 src/shared/backend-runtime.test.ts`
 - `pnpm -C desktop typecheck`

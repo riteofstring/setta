@@ -30,6 +30,7 @@ import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { registerChatIpcHandlers } from "./chat-ipc";
+import { startEasyRunEventForwarding } from "./easy-run-event-forwarding-stream";
 import { registerEasyRunIpcHandlers } from "./easy-run-ipc";
 import { KnownRuntimeStore } from "./known-runtime-store";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
@@ -51,6 +52,7 @@ import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
+let easyRunEventStream: ReturnType<typeof startEasyRunEventForwarding> | null = null;
 let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
 let terminalEventStream: TerminalEventStream | null = null;
 let workspaceActivityEventStream: ReturnType<typeof startWorkspaceActivityEventForwarding> | null =
@@ -237,9 +239,29 @@ function startWorkspaceActivityEventStreamForwarding() {
   });
 }
 
+function startEasyRunEventStreamForwarding() {
+  const runtime = activeRuntime();
+  if (!runtime) {
+    return;
+  }
+  void stopEasyRunEventStreamForwarding();
+  easyRunEventStream = startEasyRunEventForwarding({
+    authToken: runtime.deviceToken,
+    baseURL: runtime.baseUrl,
+    fetchImpl: backendFetch(),
+    recorder,
+  });
+}
+
 async function stopChatEventStream() {
   const stream = backendEventStream;
   backendEventStream = null;
+  await stream?.stop();
+}
+
+async function stopEasyRunEventStreamForwarding() {
+  const stream = easyRunEventStream;
+  easyRunEventStream = null;
   await stream?.stop();
 }
 
@@ -270,6 +292,7 @@ async function stopWorkspaceActivityEventStreamForwarding() {
 async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
+    stopEasyRunEventStreamForwarding(),
     stopSemanticGraphEventStreamForwarding(),
     stopTerminalEventStreamForwarding(),
     stopWorkspaceActivityEventStreamForwarding(),
@@ -279,6 +302,7 @@ async function stopBackendEventStreams() {
 
 function startBackendEventStreams() {
   startChatEventStream();
+  startEasyRunEventStreamForwarding();
   startSemanticGraphEventStreamForwarding();
   startTerminalEventStreamForwarding();
   startWorkspaceActivityEventStreamForwarding();
