@@ -36,7 +36,6 @@ describe("ChatTranscript activity rows", () => {
                 durationMs: 1234,
                 error: "1 failed",
                 exitCode: 1,
-                outputAvailability: "captured",
                 processId: "process_1",
                 result: "3 passed",
                 source: "agent",
@@ -142,16 +141,6 @@ describe("ChatTranscript activity rows", () => {
     expect(html).toContain('aria-label="Open current plan"');
   });
 
-  test("renders explicit command output availability states", () => {
-    const emptyHtml = renderCommandOutputAvailability("empty");
-    expect(emptyHtml).toContain("Command completed with no output.");
-    expect(emptyHtml).toContain('data-activity-detail-section="Output"');
-
-    const unavailableHtml = renderCommandOutputAvailability("unavailable");
-    expect(unavailableHtml).toContain("Command output was unavailable from the provider.");
-    expect(unavailableHtml).toContain('data-activity-detail-section="Output"');
-  });
-
   test("does not render the current-plan row action without an open handler", () => {
     const html = renderToString(
       <TestChatTranscript
@@ -219,39 +208,6 @@ function TestChatTranscript({
       onOpenCurrentPlanSurface={onOpenCurrentPlanSurface}
       submitApproval={noop}
     />
-  );
-}
-
-function renderCommandOutputAvailability(outputAvailability: "empty" | "unavailable") {
-  return renderToString(
-    <TestChatTranscript
-      blocks={[
-        activityBlock({
-          id: `block_${outputAvailability}`,
-          runId: "run_api",
-          ordinal: 1,
-          sourceRunItemId: `item_${outputAvailability}`,
-          hasDetails: true,
-          details: activityDetails({
-            command: "true",
-            commandExecution: {
-              command: "true",
-              cwd: "/workspace",
-              durationMs: 2,
-              error: "",
-              exitCode: 0,
-              outputAvailability,
-              processId: "",
-              result: "",
-              source: "agent",
-            },
-            cwd: "/workspace",
-          }),
-        }),
-      ]}
-      focusedSourceRunItemId={`item_${outputAvailability}`}
-      runItemOutputs={[]}
-    />,
   );
 }
 

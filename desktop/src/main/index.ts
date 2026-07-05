@@ -30,7 +30,12 @@ import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { registerChatIpcHandlers } from "./chat-ipc";
+import { createElectronRuntimeSecretStore } from "./electron-runtime-secret-store";
 import { KnownRuntimeStore } from "./known-runtime-store";
+import { PendingProvisionStore } from "./pending-provision-store";
+import { ProvisionCreationResourceStore } from "./provision-creation-resource-store";
+import { TailscaleStatusClient } from "./provision-watch";
+import { resumePendingProvisionWatches } from "./provision-watch-resume";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
@@ -58,6 +63,7 @@ let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
+let pendingProvisionStore: PendingProvisionStore | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
@@ -87,13 +93,14 @@ async function prepareBackend(appDataDir: string) {
       runtimeRegistry: () => runtimeRegistry,
       stopBackendEventStreams,
     });
-    runtimeRegistry = createRuntimeRegistry();
+    runtimeRegistry = createRuntimeRegistry(appDataDir);
     await runtimeRegistry.load();
     const localRuntime = await runtimeRegistry.registerLocalRuntime({
       baseUrl: backend.url,
       deviceToken: backend.bootstrapToken,
     });
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
+    resumeProvisionWatches();
   } catch (error) {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
@@ -103,7 +110,10 @@ async function prepareBackend(appDataDir: string) {
   }
 }
 
-function createRuntimeRegistry() {
+function createRuntimeRegistry(appDataDir: string) {
+  const userDataDir = app.getPath("userData");
+  const secretStore = createElectronRuntimeSecretStore(userDataDir);
+  pendingProvisionStore = new PendingProvisionStore(userDataDir, secretStore);
   return new RuntimeRegistryController({
     clientDisplayName,
     fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
@@ -114,7 +124,28 @@ function createRuntimeRegistry() {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
-    store: new KnownRuntimeStore(app.getPath("userData")),
+    provisionResources: new ProvisionCreationResourceStore(appDataDir),
+    store: new KnownRuntimeStore(userDataDir, secretStore),
+  });
+}
+
+function resumeProvisionWatches() {
+  const registry = runtimeRegistry;
+  const store = pendingProvisionStore;
+  if (!registry || !store) {
+    return;
+  }
+  void resumePendingProvisionWatches({
+    onError: ({ error, provision }) => {
+      recorder?.recordAppEvent("provision_watch_resume_failed", {
+        error: error instanceof Error ? error.message : String(error),
+        provisionId: provision.provisionId,
+        runtimeName: provision.runtimeName,
+      });
+    },
+    registry,
+    store,
+    tailnetClient: new TailscaleStatusClient(),
   });
 }
 
@@ -506,7 +537,14 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerRuntimeIpcHandlers({ ipcMain, ipcObserver, requireRuntimeRegistry });
+  registerRuntimeIpcHandlers({
+    appDataDir: settaAppDataDir(),
+    ipcMain,
+    ipcObserver,
+    repoRoot: repoRoot(),
+    requirePendingProvisionStore,
+    requireRuntimeRegistry,
+  });
   handleIpc(
     ipcMain,
     "appearanceRead",
@@ -717,6 +755,13 @@ function requireRuntimeRegistry(): RuntimeRegistryController {
     throw new Error(backendStartupError ?? "runtime registry is not ready");
   }
   return runtimeRegistry;
+}
+
+function requirePendingProvisionStore(): PendingProvisionStore {
+  if (!pendingProvisionStore) {
+    throw new Error(backendStartupError ?? "pending provision store is not ready");
+  }
+  return pendingProvisionStore;
 }
 
 function runtimeUnavailableMessage() {

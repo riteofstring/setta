@@ -95,7 +95,6 @@ export function workflowEvent(): WorkflowEvent {
   return {
     createdAt: "2026-06-05T12:00:00Z",
     definitionId: "workflow_definition_api",
-    definitionName: "",
     definitionVersionId: "workflow_version_api",
     details: {},
     executionId: "workflow_execution_api",
@@ -114,7 +113,6 @@ export function workflowEvent(): WorkflowEvent {
 
 export function workflowGraph(): WorkflowGraph {
   return {
-    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges: [
       {
         condition: null,

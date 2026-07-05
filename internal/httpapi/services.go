@@ -13,7 +13,6 @@ import (
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
-	"setta/internal/workflowaudit"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -109,25 +108,17 @@ type WorkflowService interface {
 	ReadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (orchestrator.WorkflowExecutionEventPage, error)
 	ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (orchestrator.WorkflowGraphProjection, bool, error)
 	ReadWorkflowNodeTrajectory(workspaceID string, executionID string, nodeExecutionID string, beforeBlockOrdinal int, transcriptLimit int, afterItemID string, itemLimit int, outputLimit int) (orchestrator.WorkflowAgentTrajectoryPage, error)
-	ReportExecutionResult(workspaceID string, input orchestrator.WorkflowExecutionResultInput) (orchestrator.WorkflowExecution, error)
 	RetryWorkflowNodeRunLiveness(context.Context, string, string, string) (chat.RunLivenessReconciliationResult, error)
-	SaveDefinition(workspaceID string, input orchestrator.WorkflowDefinitionSaveInput) (orchestrator.WorkflowDefinitionSaveResult, error)
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
-	StartExecutionWithValidation(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, orchestrator.WorkflowValidationResult, error)
 	SteerWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	StopWorkflowNodeRun(workspaceID string, executionID string, nodeExecutionID string) (orchestrator.WorkflowExecution, error)
 	SubscribeEvents(cursor orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error)
 	SubmitApproval(workspaceID string, executionID string, nodeExecutionID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (orchestrator.WorkflowExecution, error)
 	UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	ValidateDefinition(workspaceID string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowValidationResult, error)
-	WorkflowSchema() (orchestrator.WorkflowSchema, error)
 }
 
 var _ WorkflowService = (*orchestrator.Service)(nil)
-
-type WorkflowAuditService interface {
-	Record(context.Context, workflowaudit.RecordInput) (workflowaudit.Record, error)
-}
 
 type SemanticGraphService interface {
 	ReadGraph(context.Context, string) (semanticgraph.SemanticGraph, error)
@@ -189,6 +180,8 @@ type TerminalService interface {
 
 type RuntimeAuthService interface {
 	CompletePairing(context.Context, string, string) (runtimeauth.DeviceSession, string, bool, error)
+	CreatePairingToken(context.Context) (runtimeauth.PairingToken, string, error)
+	CreateSetupAttestation(context.Context, runtimeauth.SetupAttestationChallenge) (runtimeauth.SetupAttestation, runtimeauth.SetupAttestationStatus, error)
 	IsDeviceSessionRevoked(context.Context, string) (bool, error)
 	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
 	ResolveDeviceToken(context.Context, string) (runtimeauth.DeviceSession, bool, error)
@@ -215,23 +208,23 @@ type NotifyService interface {
 }
 
 type HandlerConfig struct {
-	AppearanceService        AppearanceService
-	Metadata                 BackendMetadata
-	ChatService              ChatService
-	CodexAccountService      CodexAccountService
-	NotifyService            NotifyService
-	PairingFailureLimiter    *PairingFailureLimiter
-	RevocationSweepInterval  time.Duration
-	RuntimeAuthService       RuntimeAuthService
-	RuntimeIdentityService   RuntimeIdentityService
-	RuntimeMetadata          RuntimeMetadata
-	SemanticGraphService     SemanticGraphService
-	TerminalService          TerminalService
-	WorkspaceActivityService WorkspaceActivityService
-	WorkflowAuditService     WorkflowAuditService
-	WorkspaceUIService       WorkspaceUIService
-	WorkspaceService         WorkspaceService
-	WorkflowService          WorkflowService
+	AppearanceService              AppearanceService
+	Metadata                       BackendMetadata
+	ChatService                    ChatService
+	CodexAccountService            CodexAccountService
+	NotifyService                  NotifyService
+	PairingFailureLimiter          *PairingFailureLimiter
+	SetupAttestationFailureLimiter *PairingFailureLimiter
+	RevocationSweepInterval        time.Duration
+	RuntimeAuthService             RuntimeAuthService
+	RuntimeIdentityService         RuntimeIdentityService
+	RuntimeMetadata                RuntimeMetadata
+	SemanticGraphService           SemanticGraphService
+	TerminalService                TerminalService
+	WorkspaceActivityService       WorkspaceActivityService
+	WorkspaceUIService             WorkspaceUIService
+	WorkspaceService               WorkspaceService
+	WorkflowService                WorkflowService
 }
 
 type handler struct {
@@ -241,6 +234,7 @@ type handler struct {
 	codexAccountService      CodexAccountService
 	notifyService            NotifyService
 	pairingFailureLimiter    *PairingFailureLimiter
+	setupAttestationLimiter  *PairingFailureLimiter
 	revocationSweepInterval  time.Duration
 	runtimeAuthService       RuntimeAuthService
 	runtimeIdentityService   RuntimeIdentityService
@@ -248,7 +242,6 @@ type handler struct {
 	semanticGraphService     SemanticGraphService
 	terminalService          TerminalService
 	workspaceActivityService WorkspaceActivityService
-	workflowAuditService     WorkflowAuditService
 	workspaceUIService       WorkspaceUIService
 	workspaceService         WorkspaceService
 	workflowService          WorkflowService
@@ -258,6 +251,10 @@ func NewHandler(config HandlerConfig) http.Handler {
 	pairingFailureLimiter := config.PairingFailureLimiter
 	if pairingFailureLimiter == nil {
 		pairingFailureLimiter = NewPairingFailureLimiter(10, time.Minute)
+	}
+	setupAttestationLimiter := config.SetupAttestationFailureLimiter
+	if setupAttestationLimiter == nil {
+		setupAttestationLimiter = NewPairingFailureLimiter(30, time.Minute)
 	}
 	revocationSweepInterval := config.RevocationSweepInterval
 	if revocationSweepInterval <= 0 {
@@ -270,6 +267,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		codexAccountService:      config.CodexAccountService,
 		notifyService:            config.NotifyService,
 		pairingFailureLimiter:    pairingFailureLimiter,
+		setupAttestationLimiter:  setupAttestationLimiter,
 		revocationSweepInterval:  revocationSweepInterval,
 		runtimeAuthService:       config.RuntimeAuthService,
 		runtimeIdentityService:   config.RuntimeIdentityService,
@@ -277,7 +275,6 @@ func NewHandler(config HandlerConfig) http.Handler {
 		semanticGraphService:     config.SemanticGraphService,
 		terminalService:          config.TerminalService,
 		workspaceActivityService: config.WorkspaceActivityService,
-		workflowAuditService:     config.WorkflowAuditService,
 		workspaceUIService:       config.WorkspaceUIService,
 		workspaceService:         config.WorkspaceService,
 		workflowService:          config.WorkflowService,

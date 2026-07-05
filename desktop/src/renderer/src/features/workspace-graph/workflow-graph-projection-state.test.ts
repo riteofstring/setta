@@ -346,7 +346,6 @@ function event({
   return {
     createdAt: "2026-06-22T12:00:00Z",
     definitionId,
-    definitionName: "",
     definitionVersionId: versionId,
     details: null,
     executionId,

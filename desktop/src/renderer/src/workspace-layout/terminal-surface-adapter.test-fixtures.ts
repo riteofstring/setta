@@ -331,6 +331,7 @@ export function runtimeSnapshot(
 ): RuntimeRegistrySnapshot {
   return {
     activeRuntimeId,
+    cloudResources: [],
     connection: {
       message: "",
       protocolVersion: 1,

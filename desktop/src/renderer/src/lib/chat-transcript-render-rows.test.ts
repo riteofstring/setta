@@ -1,4 +1,4 @@
-import type { ChatMessage, MessageRole, MessageStatus } from "@generated/backend";
+import type { ChatMessage, MessageRole } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -36,20 +36,6 @@ function chatMessage(
     schemaVersion: 1,
     status: "complete",
     updatedAt: "2026-05-29T20:00:00Z",
-  };
-}
-
-function pendingSteeringMessage(
-  id: string,
-  ordinal: number,
-  runId: string,
-  text = id,
-  status: MessageStatus = "pending",
-): ChatMessage {
-  return {
-    ...chatMessage(id, ordinal, "user", runId, text),
-    delivery: "steering",
-    status,
   };
 }
 
@@ -199,45 +185,6 @@ describe("transcriptRenderRows", () => {
       throw new Error("expected a queued tail row");
     }
     expect(queued.message.id).toBe("queued_1");
-  });
-
-  test("appends pending steering messages before queued work", () => {
-    const rows = transcriptRenderRows({
-      blocks: [
-        userMessageBlock({ id: "user_1", runId: "run", ordinal: 1, text: "hi" }),
-        assistantTextBlock({
-          id: "assistant_1",
-          runId: "run",
-          ordinal: 2,
-          status: "streaming",
-          text: "working",
-        }),
-      ],
-      messages: [pendingSteeringMessage("steer_1", 3, "run", "wait")],
-      queuedMessages: [queuedChatMessage("queued_1", "run_queue", "later")],
-    });
-
-    expect(rows.map((row) => row.kind)).toEqual(["block", "block", "message", "queued"]);
-    const steering = rows[2];
-    expect(steering?.kind === "message" && steering.message.id).toBe("steer_1");
-    const queued = rows[3];
-    expect(queued?.kind === "queued" && queued.message.id).toBe("queued_1");
-  });
-
-  test("keeps uncommitted cancelled and errored steering messages outside transcript chronology", () => {
-    const rows = transcriptRenderRows({
-      blocks: [assistantTextBlock({ id: "assistant_1", runId: "run", ordinal: 1, text: "done" })],
-      messages: [
-        pendingSteeringMessage("steer_error", 2, "run", "failed steer", "error"),
-        pendingSteeringMessage("steer_cancelled", 3, "run", "cancelled steer", "cancelled"),
-        pendingSteeringMessage("steer_complete", 4, "run", "committed steer", "complete"),
-      ],
-      queuedMessages: [],
-    });
-
-    expect(rows.map((row) => row.kind)).toEqual(["block", "message", "message"]);
-    expect(rows[1]?.kind === "message" && rows[1].message.id).toBe("steer_error");
-    expect(rows[2]?.kind === "message" && rows[2].message.id).toBe("steer_cancelled");
   });
 
   test("hides goal-delivery user messages from the transcript", () => {
