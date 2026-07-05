@@ -39,6 +39,19 @@ function chatMessage(
   };
 }
 
+function pendingSteeringMessage(
+  id: string,
+  ordinal: number,
+  runId: string,
+  text = id,
+): ChatMessage {
+  return {
+    ...chatMessage(id, ordinal, "user", runId, text),
+    delivery: "steering",
+    status: "pending",
+  };
+}
+
 describe("transcriptRenderRows", () => {
   test("collapses adjacent activity blocks to one slim group header by default", () => {
     const rows = transcriptRenderRows({
@@ -185,6 +198,29 @@ describe("transcriptRenderRows", () => {
       throw new Error("expected a queued tail row");
     }
     expect(queued.message.id).toBe("queued_1");
+  });
+
+  test("appends pending steering messages before queued work", () => {
+    const rows = transcriptRenderRows({
+      blocks: [
+        userMessageBlock({ id: "user_1", runId: "run", ordinal: 1, text: "hi" }),
+        assistantTextBlock({
+          id: "assistant_1",
+          runId: "run",
+          ordinal: 2,
+          status: "streaming",
+          text: "working",
+        }),
+      ],
+      messages: [pendingSteeringMessage("steer_1", 3, "run", "wait")],
+      queuedMessages: [queuedChatMessage("queued_1", "run_queue", "later")],
+    });
+
+    expect(rows.map((row) => row.kind)).toEqual(["block", "block", "message", "queued"]);
+    const steering = rows[2];
+    expect(steering?.kind === "message" && steering.message.id).toBe("steer_1");
+    const queued = rows[3];
+    expect(queued?.kind === "queued" && queued.message.id).toBe("queued_1");
   });
 
   test("hides goal-delivery user messages from the transcript", () => {

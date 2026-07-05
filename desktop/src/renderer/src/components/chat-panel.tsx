@@ -1,4 +1,4 @@
-import type { ChatInput, ChatMessage, TranscriptBlock, WorkspaceSummary } from "@generated/backend";
+import type { ChatInput, ChatMessage, WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, Check, Maximize2, Minimize2 } from "lucide-react";
 import { Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -549,12 +549,11 @@ export function useChatViewState() {
     if (activeRunId === "") {
       return emptyPendingSteeringMessageIds;
     }
-    const pendingIds = transcriptBlocks
-      .filter((block) => isPendingSteeringBlock(block, activeRunId))
-      .map((block) => block.userMessage?.messageId ?? "")
-      .filter((messageId) => messageId !== "");
+    const pendingIds = messages
+      .filter((message) => isPendingSteeringMessage(message, activeRunId))
+      .map((message) => message.id);
     return pendingIds.length === 0 ? emptyPendingSteeringMessageIds : pendingIds;
-  }, [activeRunId, transcriptBlocks]);
+  }, [activeRunId, messages]);
   const visiblePendingGoalSubmission =
     pendingGoalSubmission?.conversationId === selectedConversation?.id
       ? pendingGoalSubmission
@@ -660,11 +659,8 @@ function queuedMessagesFromRuns(
     .filter((message): message is ChatMessage => message !== undefined);
 }
 
-function isPendingSteeringBlock(block: TranscriptBlock, activeRunId: string) {
+function isPendingSteeringMessage(message: ChatMessage, activeRunId: string) {
   return (
-    block.kind === "user_message" &&
-    block.runId === activeRunId &&
-    block.userMessage?.delivery === "steering" &&
-    block.userMessage.status === "pending"
+    message.runId === activeRunId && message.delivery === "steering" && message.status === "pending"
   );
 }

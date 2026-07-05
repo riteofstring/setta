@@ -28,6 +28,11 @@ const fakeCodexAppServerFixture = join(
   "fixtures",
   "fake-codex-app-server.mjs",
 );
+const fakeCodexParallelRunsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-parallel-runs.mjs",
+);
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
@@ -49,7 +54,9 @@ export async function installFakeCodexAppServer(fixture) {
   const binDir = join(fixture.tempRoot, "fake-bin");
   await mkdir(binDir, { recursive: true });
   const scriptPath = join(binDir, "fake-codex-app-server.mjs");
+  const parallelRunsPath = join(binDir, "fake-codex-parallel-runs.mjs");
   await copyFile(fakeCodexAppServerFixture, scriptPath);
+  await copyFile(fakeCodexParallelRunsFixture, parallelRunsPath);
   if (process.platform === "win32") {
     const commandPath = join(binDir, "codex.cmd");
     await writeFile(commandPath, `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
@@ -86,8 +93,9 @@ export async function assertProtocolNotificationActivity(
   await assertRunActivityItem(
     page,
     "command_execution",
-    (item) => commandExecutionDetails(item)?.processId === "process_fake",
+    (item) => commandExecutionDetails(item)?.processId === "scoped_process_fake",
   );
+  assertNoStandaloneProcessActivity(page);
   await assertRunActivityItem(
     page,
     "dynamic_tool_call",
@@ -118,7 +126,7 @@ export async function assertProtocolNotificationActivity(
   await assertProtocolMCPActivitySearchable(client, mcpActivity.sourceRunItemId);
   await assertProtocolFileChangeSearchable(client);
   await assertProtocolDiffSearchable(client);
-  await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "deprecationNotice");
+  await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "warning");
   if ((page.activity ?? []).some((row) => row.type === "reasoning")) {
     throw new Error(`reasoning leaked into projected activity: ${JSON.stringify(page.activity)}`);
   }
@@ -134,12 +142,45 @@ export async function assertProtocolNotificationActivity(
     workspaceId,
   });
   const warningCodes = diagnostics.diagnostics.map((diagnostic) => diagnostic.code);
-  if (
-    !warningCodes.includes("codex_windows_world_writable_warning") ||
-    !warningCodes.includes("codex_realtime_notification_ignored")
-  ) {
+  if (!warningCodes.includes("codex_realtime_notification_ignored")) {
     throw new Error(
       `protocol diagnostics missing expected warnings: ${JSON.stringify(diagnostics)}`,
+    );
+  }
+  const workspaceDiagnostics = await backend.post("/chat/diagnostics/list", {
+    conversationId: "",
+    runId: "",
+    workspaceId,
+  });
+  const workspaceWarning = workspaceDiagnostics.diagnostics.find(
+    (diagnostic) =>
+      diagnostic.code === "codex_windows_world_writable_warning" &&
+      diagnostic.conversationId === "" &&
+      diagnostic.runId === "",
+  );
+  if (!workspaceWarning) {
+    throw new Error(
+      `protocol workspace diagnostics missing Windows warning: ${JSON.stringify(workspaceDiagnostics)}`,
+    );
+  }
+}
+
+function assertNoStandaloneProcessActivity(page) {
+  const leaked = (page.items ?? []).filter((item) => {
+    if (
+      item.providerItemId === "command_exec_process_fake" ||
+      item.providerItemId === "process_process_fake"
+    ) {
+      return true;
+    }
+    const commandDetails = commandExecutionDetails(item);
+    return (
+      commandDetails?.processId === "process_fake" && item.providerItemId !== "command_item_fake"
+    );
+  });
+  if (leaked.length > 0) {
+    throw new Error(
+      `standalone process output leaked into run activity: ${JSON.stringify(leaked)}`,
     );
   }
 }
@@ -665,9 +706,9 @@ export async function runProtocolLivenessReconciliationWorkflow(client, backend,
     },
   ]);
   assertReconciledRunLiveness(reconciled, run.id);
-  await waitForRendererLiveness(client, run.id, "reconciling", "working");
-  await waitForTexts(client, ["Working"]);
-  await assertRunLivenessControls(client, { retry: false, stop: true });
+  await waitForRendererLiveness(client, run.id, "reconciling", "reconnecting");
+  await waitForTexts(client, ["Reconnecting"]);
+  await assertRunLivenessControls(client, { retry: true, stop: true });
 
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");

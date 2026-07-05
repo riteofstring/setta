@@ -743,9 +743,9 @@ export function decodeRunLivenessStatus(value: unknown, label = "RunLivenessStat
   }
 }
 
-export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "attachment_missing" | "run_terminal" | "wake_recheck" | "snapshot_load" | "stream_resync" | "user_retry" | "provider_restarted" | "provider_unavailable" | "turn_not_found";
+export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "provider_inactive" | "attachment_missing" | "run_terminal" | "wake_recheck" | "snapshot_load" | "stream_resync" | "user_retry" | "provider_restarted" | "provider_unavailable" | "turn_not_found";
 
-export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "attachment_missing", "run_terminal", "wake_recheck", "snapshot_load", "stream_resync", "user_retry", "provider_restarted", "provider_unavailable", "turn_not_found"] as const satisfies readonly RunLivenessReason[];
+export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "provider_inactive", "attachment_missing", "run_terminal", "wake_recheck", "snapshot_load", "stream_resync", "user_retry", "provider_restarted", "provider_unavailable", "turn_not_found"] as const satisfies readonly RunLivenessReason[];
 
 export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReason"): RunLivenessReason {
   const decoded = decodeString(value, label);
@@ -753,6 +753,8 @@ export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReas
     case "provider_ref_pending":
       return decoded;
     case "provider_turn_linked":
+      return decoded;
+    case "provider_inactive":
       return decoded;
     case "attachment_missing":
       return decoded;
@@ -771,6 +773,92 @@ export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReas
     case "provider_unavailable":
       return decoded;
     case "turn_not_found":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunLivenessPhase = "starting" | "waiting_for_provider" | "attached" | "stalled" | "reconnecting" | "lost" | "blocked" | "terminal";
+
+export const runLivenessPhaseValues = ["starting", "waiting_for_provider", "attached", "stalled", "reconnecting", "lost", "blocked", "terminal"] as const satisfies readonly RunLivenessPhase[];
+
+export function decodeRunLivenessPhase(value: unknown, label = "RunLivenessPhase"): RunLivenessPhase {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "starting":
+      return decoded;
+    case "waiting_for_provider":
+      return decoded;
+    case "attached":
+      return decoded;
+    case "stalled":
+      return decoded;
+    case "reconnecting":
+      return decoded;
+    case "lost":
+      return decoded;
+    case "blocked":
+      return decoded;
+    case "terminal":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunActiveStatusKind = "starting" | "waiting_for_provider" | "working" | "thinking" | "waiting" | "stalled" | "reconnecting" | "connection_lost" | "blocked" | "finished";
+
+export const runActiveStatusKindValues = ["starting", "waiting_for_provider", "working", "thinking", "waiting", "stalled", "reconnecting", "connection_lost", "blocked", "finished"] as const satisfies readonly RunActiveStatusKind[];
+
+export function decodeRunActiveStatusKind(value: unknown, label = "RunActiveStatusKind"): RunActiveStatusKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "starting":
+      return decoded;
+    case "waiting_for_provider":
+      return decoded;
+    case "working":
+      return decoded;
+    case "thinking":
+      return decoded;
+    case "waiting":
+      return decoded;
+    case "stalled":
+      return decoded;
+    case "reconnecting":
+      return decoded;
+    case "connection_lost":
+      return decoded;
+    case "blocked":
+      return decoded;
+    case "finished":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunActiveHeadlineSource = "none" | "fallback" | "public_reasoning" | "command" | "approval" | "liveness" | "terminal";
+
+export const runActiveHeadlineSourceValues = ["none", "fallback", "public_reasoning", "command", "approval", "liveness", "terminal"] as const satisfies readonly RunActiveHeadlineSource[];
+
+export function decodeRunActiveHeadlineSource(value: unknown, label = "RunActiveHeadlineSource"): RunActiveHeadlineSource {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "none":
+      return decoded;
+    case "fallback":
+      return decoded;
+    case "public_reasoning":
+      return decoded;
+    case "command":
+      return decoded;
+    case "approval":
+      return decoded;
+    case "liveness":
+      return decoded;
+    case "terminal":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3104,6 +3192,13 @@ export interface Conversation {
   workflow: ConversationWorkflowMetadata | null;
 }
 
+export interface RunActiveStatus {
+  kind: RunActiveStatusKind;
+  headline: string;
+  headlineSource: RunActiveHeadlineSource;
+  detail: string;
+}
+
 export interface RunLiveness {
   workspaceId: string;
   conversationId: string;
@@ -3111,11 +3206,16 @@ export interface RunLiveness {
   harness: HarnessKind;
   status: RunLivenessStatus;
   reason: RunLivenessReason;
+  phase: RunLivenessPhase;
+  activeStatus: RunActiveStatus;
   retryable: boolean;
   cancellable: boolean;
+  steerable: boolean;
+  steeringDisabledReason: string;
   providerThreadId: string;
   providerTurnId: string;
   lastProviderEventAt: string;
+  lastVisibleActivityAt: string;
   lastReconciledAt: string;
   error: string;
 }
@@ -7754,9 +7854,20 @@ export function decodeConversation(value: unknown): Conversation {
   };
 }
 
+export function decodeRunActiveStatus(value: unknown): RunActiveStatus {
+  const record = assertRecord(value, "RunActiveStatus");
+  assertKnownFields(record, "RunActiveStatus", ["kind", "headline", "headlineSource", "detail"]);
+  return {
+    kind: decodeRunActiveStatusKind(requireField(record, "kind", "RunActiveStatus"), "RunActiveStatus.kind"),
+    headline: decodeString(requireField(record, "headline", "RunActiveStatus"), "RunActiveStatus.headline"),
+    headlineSource: decodeRunActiveHeadlineSource(requireField(record, "headlineSource", "RunActiveStatus"), "RunActiveStatus.headlineSource"),
+    detail: decodeString(requireField(record, "detail", "RunActiveStatus"), "RunActiveStatus.detail"),
+  };
+}
+
 export function decodeRunLiveness(value: unknown): RunLiveness {
   const record = assertRecord(value, "RunLiveness");
-  assertKnownFields(record, "RunLiveness", ["workspaceId", "conversationId", "runId", "harness", "status", "reason", "retryable", "cancellable", "providerThreadId", "providerTurnId", "lastProviderEventAt", "lastReconciledAt", "error"]);
+  assertKnownFields(record, "RunLiveness", ["workspaceId", "conversationId", "runId", "harness", "status", "reason", "phase", "activeStatus", "retryable", "cancellable", "steerable", "steeringDisabledReason", "providerThreadId", "providerTurnId", "lastProviderEventAt", "lastVisibleActivityAt", "lastReconciledAt", "error"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "RunLiveness"), "RunLiveness.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "RunLiveness"), "RunLiveness.conversationId"),
@@ -7764,11 +7875,16 @@ export function decodeRunLiveness(value: unknown): RunLiveness {
     harness: decodeHarnessKind(requireField(record, "harness", "RunLiveness"), "RunLiveness.harness"),
     status: decodeRunLivenessStatus(requireField(record, "status", "RunLiveness"), "RunLiveness.status"),
     reason: decodeRunLivenessReason(requireField(record, "reason", "RunLiveness"), "RunLiveness.reason"),
+    phase: decodeRunLivenessPhase(requireField(record, "phase", "RunLiveness"), "RunLiveness.phase"),
+    activeStatus: decodeRunActiveStatus(requireField(record, "activeStatus", "RunLiveness")),
     retryable: decodeBoolean(requireField(record, "retryable", "RunLiveness"), "RunLiveness.retryable"),
     cancellable: decodeBoolean(requireField(record, "cancellable", "RunLiveness"), "RunLiveness.cancellable"),
+    steerable: decodeBoolean(requireField(record, "steerable", "RunLiveness"), "RunLiveness.steerable"),
+    steeringDisabledReason: decodeString(requireField(record, "steeringDisabledReason", "RunLiveness"), "RunLiveness.steeringDisabledReason"),
     providerThreadId: decodeString(requireField(record, "providerThreadId", "RunLiveness"), "RunLiveness.providerThreadId"),
     providerTurnId: decodeString(requireField(record, "providerTurnId", "RunLiveness"), "RunLiveness.providerTurnId"),
     lastProviderEventAt: decodeString(requireField(record, "lastProviderEventAt", "RunLiveness"), "RunLiveness.lastProviderEventAt"),
+    lastVisibleActivityAt: decodeString(requireField(record, "lastVisibleActivityAt", "RunLiveness"), "RunLiveness.lastVisibleActivityAt"),
     lastReconciledAt: decodeString(requireField(record, "lastReconciledAt", "RunLiveness"), "RunLiveness.lastReconciledAt"),
     error: decodeString(requireField(record, "error", "RunLiveness"), "RunLiveness.error"),
   };

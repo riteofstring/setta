@@ -599,7 +599,7 @@ function workflowNodeTrajectoryCanSteer(
   return (
     activeRun?.status === "running" &&
     activeRun.pendingApproval === null &&
-    activeRunLiveness?.status === "attached"
+    activeRunLiveness?.steerable === true
   );
 }
 

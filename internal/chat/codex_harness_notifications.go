@@ -1,17 +1,11 @@
 package chat
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 
 	"setta/internal/codexapp"
 )
-
-var codexOutputStreams = map[string]struct{}{
-	"stderr": {},
-	"stdout": {},
-}
 
 var codexHookStatuses = map[string]RunItemStatus{
 	"blocked":   RunItemStatusFailed,
@@ -27,149 +21,6 @@ var codexGuardianReviewStatuses = map[string]RunItemStatus{
 	"denied":     RunItemStatusCancelled,
 	"inProgress": RunItemStatusRunning,
 	"timedOut":   RunItemStatusFailed,
-}
-
-type codexProcessExitEvent struct {
-	processID string
-	exitCode  int
-	stdout    string
-	stderr    string
-}
-
-type codexBase64OutputDelta struct {
-	deltaBase64 string
-	stream      string
-}
-
-func handleCodexCommandExecOutputDelta(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := codexapp.DecodeCommandExecOutputDeltaNotification(message.Params)
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	delta, err := codexBase64OutputDeltaFromCommandExec(params)
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	return handleCodexBase64OutputDelta(delta, "command_exec_"+params.ProcessId, params.ProcessId, "codex command exec output delta", RunItemTypeCommandExecution, "Command execution", sink)
-}
-
-func handleCodexProcessOutputDelta(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := codexapp.DecodeProcessOutputDeltaNotification(message.Params)
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	delta, err := codexBase64OutputDeltaFromProcess(params)
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	return handleCodexBase64OutputDelta(delta, "process_"+params.ProcessHandle, params.ProcessHandle, "codex process output delta", RunItemTypeCommandExecution, "Process output", sink)
-}
-
-func codexBase64OutputDeltaFromCommandExec(params codexapp.CommandExecOutputDeltaNotification) (codexBase64OutputDelta, error) {
-	stream, err := codexOutputStreamFromRaw(string(params.Stream))
-	if err != nil {
-		return codexBase64OutputDelta{}, err
-	}
-	return codexBase64OutputDelta{deltaBase64: params.DeltaBase64, stream: stream}, nil
-}
-
-func codexBase64OutputDeltaFromProcess(params codexapp.ProcessOutputDeltaNotification) (codexBase64OutputDelta, error) {
-	stream, err := codexOutputStreamFromRaw(string(params.Stream))
-	if err != nil {
-		return codexBase64OutputDelta{}, err
-	}
-	return codexBase64OutputDelta{deltaBase64: params.DeltaBase64, stream: stream}, nil
-}
-
-func codexOutputStreamFromRaw(stream string) (string, error) {
-	if _, ok := codexOutputStreams[stream]; !ok {
-		return "", fmt.Errorf("unsupported codex output stream: %s", stream)
-	}
-	return stream, nil
-}
-
-func handleCodexBase64OutputDelta(delta codexBase64OutputDelta, providerItemID string, processID string, label string, itemType RunItemType, title string, sink TurnSink) (codexNotificationResult, error) {
-	data, err := base64.StdEncoding.DecodeString(delta.deltaBase64)
-	if err != nil {
-		return codexNotificationResult{}, fmt.Errorf("%s.deltaBase64 must be base64: %w", label, err)
-	}
-	if err := sink.RunItemUpsert(RunItem{
-		ProviderItemID: providerItemID,
-		Type:           itemType,
-		Status:         RunItemStatusRunning,
-		Title:          title,
-		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
-			ProcessID: processID,
-		}),
-	}); err != nil {
-		return codexNotificationResult{}, err
-	}
-	if len(data) == 0 {
-		return codexNotificationResult{}, nil
-	}
-	return codexNotificationResult{}, sink.RunItemOutputDelta(providerItemID, delta.stream, string(data))
-}
-
-func handleCodexProcessExited(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
-	event, err := codexProcessExitEventFromMessage(message)
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	providerItemID := "process_" + event.processID
-	if err := sink.RunItemUpsert(processExitRunItem(providerItemID, event)); err != nil {
-		return codexNotificationResult{}, err
-	}
-	if err := emitProcessExitOutputs(sink, providerItemID, event.stdout, event.stderr); err != nil {
-		return codexNotificationResult{}, err
-	}
-	return codexNotificationResult{}, nil
-}
-
-func codexProcessExitEventFromMessage(message jsonRPCMessage) (codexProcessExitEvent, error) {
-	params, err := codexapp.DecodeProcessExitedNotification(message.Params)
-	if err != nil {
-		return codexProcessExitEvent{}, err
-	}
-	return codexProcessExitEvent{
-		processID: params.ProcessHandle,
-		exitCode:  params.ExitCode,
-		stdout:    params.Stdout,
-		stderr:    params.Stderr,
-	}, nil
-}
-
-func processExitRunItem(providerItemID string, event codexProcessExitEvent) RunItem {
-	return RunItem{
-		ProviderItemID: providerItemID,
-		Type:           RunItemTypeCommandExecution,
-		Status:         processExitStatus(event.exitCode),
-		Title:          "Process exited",
-		Details: NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{
-			ProcessID: event.processID,
-			ExitCode:  event.exitCode,
-		}),
-	}
-}
-
-func processExitStatus(exitCode int) RunItemStatus {
-	if exitCode != 0 {
-		return RunItemStatusFailed
-	}
-	return RunItemStatusCompleted
-}
-
-func emitProcessExitOutputs(sink TurnSink, providerItemID string, stdout string, stderr string) error {
-	if stdout != "" {
-		if err := sink.RunItemOutputDelta(providerItemID, "stdout", stdout); err != nil {
-			return err
-		}
-	}
-	if stderr != "" {
-		if err := sink.RunItemOutputDelta(providerItemID, "stderr", stderr); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func handleCodexReasoningTextDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
@@ -479,53 +330,82 @@ func handleCodexSkillsChanged(message jsonRPCMessage, _ string, _ string, sink T
 }
 
 func handleCodexWindowsWorldWritableWarning(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex windows world writable warning params")
+	diagnostic, err := codexWindowsWorldWritableWarningDiagnostic(message)
 	if err != nil {
 		return codexNotificationResult{}, err
+	}
+	return codexNotificationResult{}, sink.ProviderDiagnostic(diagnostic.code, diagnostic.message, diagnostic.context, diagnostic.resyncRequired, diagnostic.severity)
+}
+
+func codexWindowsWorldWritableWarningDiagnostic(message jsonRPCMessage) (codexConnectionDiagnostic, error) {
+	params, err := objectValue(message.Params, "codex windows world writable warning params")
+	if err != nil {
+		return codexConnectionDiagnostic{}, err
 	}
 	paths, err := requireStringArray(params, "samplePaths", "codex windows world writable warning")
 	if err != nil {
-		return codexNotificationResult{}, err
+		return codexConnectionDiagnostic{}, err
 	}
 	extraCount, err := requireInt(params, "extraCount", "codex windows world writable warning")
 	if err != nil {
-		return codexNotificationResult{}, err
+		return codexConnectionDiagnostic{}, err
 	}
 	failedScan, err := requireBool(params, "failedScan", "codex windows world writable warning")
 	if err != nil {
-		return codexNotificationResult{}, err
+		return codexConnectionDiagnostic{}, err
 	}
-	return codexNotificationResult{}, sink.ProviderDiagnostic("codex_windows_world_writable_warning", "Codex reported world-writable Windows paths", map[string]string{
-		"extraCount":  fmt.Sprintf("%d", extraCount),
-		"failedScan":  fmt.Sprintf("%t", failedScan),
-		"samplePaths": strings.Join(paths, "\n"),
-	}, false, DiagnosticSeverityWarning)
+	return codexConnectionDiagnostic{
+		code:    "codex_windows_world_writable_warning",
+		message: "Codex reported world-writable Windows paths",
+		context: map[string]string{
+			"extraCount":  fmt.Sprintf("%d", extraCount),
+			"failedScan":  fmt.Sprintf("%t", failedScan),
+			"samplePaths": strings.Join(paths, "\n"),
+		},
+		severity: DiagnosticSeverityWarning,
+	}, nil
 }
 
 func handleCodexWindowsSandboxSetupCompleted(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex windows sandbox setup completed params")
+	diagnostic, ok, mode, err := codexWindowsSandboxSetupDiagnostic(message)
 	if err != nil {
 		return codexNotificationResult{}, err
+	}
+	if ok {
+		return codexNotificationResult{}, sink.ProviderDiagnostic(diagnostic.code, diagnostic.message, diagnostic.context, diagnostic.resyncRequired, diagnostic.severity)
+	}
+	return codexNotificationResult{}, sink.Trace("codex_windows_sandbox_setup_completed", mode)
+}
+
+func codexWindowsSandboxSetupDiagnostic(message jsonRPCMessage) (codexConnectionDiagnostic, bool, string, error) {
+	params, err := objectValue(message.Params, "codex windows sandbox setup completed params")
+	if err != nil {
+		return codexConnectionDiagnostic{}, false, "", err
 	}
 	mode, err := requireString(params, "mode", "codex windows sandbox setup completed")
 	if err != nil {
-		return codexNotificationResult{}, err
+		return codexConnectionDiagnostic{}, false, "", err
 	}
 	if mode != "elevated" && mode != "unelevated" {
-		return codexNotificationResult{}, fmt.Errorf("unsupported codex windows sandbox setup mode: %s", mode)
+		return codexConnectionDiagnostic{}, false, "", fmt.Errorf("unsupported codex windows sandbox setup mode: %s", mode)
 	}
 	success, err := requireBool(params, "success", "codex windows sandbox setup completed")
 	if err != nil {
-		return codexNotificationResult{}, err
+		return codexConnectionDiagnostic{}, false, "", err
 	}
 	errorMessage, err := optionalString(params, "error", "codex windows sandbox setup completed")
 	if err != nil {
-		return codexNotificationResult{}, err
+		return codexConnectionDiagnostic{}, false, "", err
 	}
 	if !success {
-		return codexNotificationResult{}, sink.ProviderDiagnostic("codex_windows_sandbox_setup_failed", loginFailedMessage(errorMessage), map[string]string{"mode": mode, "error": errorMessage}, false, DiagnosticSeverityWarning)
+		return codexConnectionDiagnostic{
+			code:     "codex_windows_sandbox_setup_failed",
+			message:  loginFailedMessage(errorMessage),
+			context:  map[string]string{"mode": mode, "error": errorMessage},
+			severity: DiagnosticSeverityWarning,
+		}, true, mode, nil
 	}
-	return codexNotificationResult{}, sink.Trace("codex_windows_sandbox_setup_completed", mode)
+	return codexConnectionDiagnostic{}, false, mode, nil
 }
 
 func handleCodexRealtimeIgnored(message jsonRPCMessage, threadID string, _ string, sink TurnSink) (codexNotificationResult, error) {
