@@ -229,6 +229,7 @@ const MessageRow = memo(function MessageRow({
       data-message-delivery={message.delivery}
       data-message-id={message.id}
       data-message-role={message.role}
+      data-message-status={message.status}
       data-run-id={message.runId}
       data-search-active={activeSearchMatch ? "true" : "false"}
       data-testid={messageRowTestId(message)}

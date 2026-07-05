@@ -37,7 +37,6 @@ import type {
   CreateSemanticSteeringDirectiveRequest,
   CloseTerminalRequest,
   CloseTerminalResponse,
-  CreateDevicePairingResponse,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
@@ -372,7 +371,6 @@ export interface SettaAPI {
   };
   runtimes: {
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
-    createDevicePairing: () => Promise<CreateDevicePairingResponse>;
     current: () => Promise<RuntimeRegistrySnapshot>;
     list: () => Promise<KnownRuntimeView[]>;
     onConnectionState: (listener: (snapshot: RuntimeRegistrySnapshot) => void) => () => void;
