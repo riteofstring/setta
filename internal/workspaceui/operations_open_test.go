@@ -365,6 +365,48 @@ func TestServiceAppliesOpenPaneWorkflowGraphWithWidthNormalizationWarning(t *tes
 	}
 }
 
+func TestServiceAppliesOpenPaneSettingsDOMForRendererCutover(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind: WorkspaceUIPaneOperationKindOpenPane,
+		Open: openPaneOperation(
+			SurfaceKindSettingsDOM,
+			"Settings",
+			"workspace settings",
+			PaneToneSlate,
+		),
+	})
+	if err != nil {
+		t.Fatalf("apply open operation: %v", err)
+	}
+	if result.Layout.FocusedPaneID != "workspace_pane_2" || result.Revision != 2 {
+		t.Fatalf("result = %+v, want created settings pane focused at revision 2", result)
+	}
+	pane := paneByID(t, result.Layout, "workspace_pane_2")
+	if pane.SurfaceKind != SurfaceKindSettingsDOM ||
+		pane.TerminalConfig != nil ||
+		pane.WorkflowNodeDetailsConfig != nil {
+		t.Fatalf("created pane = %+v, want settings pane without domain config", pane)
+	}
+	assertOpenOutcome(t, result.OperationResult.Open, WorkspaceUIPaneOpenOutcome{
+		ColumnID:    "workspace_column_1",
+		ColumnIndex: 1,
+		PaneIndex:   0,
+		PlaneIndex:  0,
+		SurfaceID:   "workspace_surface_2",
+		SurfaceKind: SurfaceKindSettingsDOM,
+		TargetKind:  WorkspaceUIPaneOpenTargetKindColumnEnd,
+		Title:       "Settings",
+		WidthSpec:   defaultOpenPaneColumnWidthSpec(),
+	})
+}
+
 func TestServiceAppliesOpenPaneWorkflowNodeDetailsWithConfig(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -426,10 +468,10 @@ func TestServiceRejectsOpenPaneUnsupportedSurfaceKind(t *testing.T) {
 	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
 		Kind: WorkspaceUIPaneOperationKindOpenPane,
 		Open: openPaneOperation(
-			SurfaceKindSettingsDOM,
-			"Settings",
-			"workspace settings",
-			PaneToneSlate,
+			SurfaceKindSemanticNodeDetails,
+			"Semantic Node",
+			"semantic node details",
+			PaneTonePink,
 		),
 	})
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeUnsupportedOperation {

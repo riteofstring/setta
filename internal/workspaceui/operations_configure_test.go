@@ -199,6 +199,47 @@ func TestServiceAppliesConfigurePaneOperationToEmptyFrame(t *testing.T) {
 	})
 }
 
+func TestServiceAppliesConfigurePaneOperationToSettingsDOMForRendererCutover(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindEmptyFrame
+	layout.Panes[0].Title = "New frame"
+	layout.Panes[0].Subtitle = "choose a pane type"
+	layout.Panes[0].Tone = PaneToneSlate
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:      WorkspaceUIPaneOperationKindConfigurePane,
+		PaneID:    "workspace_pane_0",
+		Configure: configurePaneOperation(SurfaceKindSettingsDOM, "Settings", "workspace settings", PaneToneSlate),
+	})
+	if err != nil {
+		t.Fatalf("apply configure operation: %v", err)
+	}
+	configuredPane := paneByID(t, result.Layout, "workspace_pane_0")
+	if configuredPane.SurfaceKind != SurfaceKindSettingsDOM ||
+		configuredPane.TerminalConfig != nil ||
+		configuredPane.WorkflowNodeDetailsConfig != nil {
+		t.Fatalf("configured pane = %+v, want settings pane without domain config", configuredPane)
+	}
+	assertConfigureOutcome(t, result.OperationResult.Configure, WorkspaceUIPaneConfigureOutcome{
+		PreviousSubtitle:    "choose a pane type",
+		PreviousSurfaceID:   "workspace_surface_0",
+		PreviousSurfaceKind: SurfaceKindEmptyFrame,
+		PreviousTitle:       "New frame",
+		PreviousTone:        PaneToneSlate,
+		Subtitle:            "workspace settings",
+		SurfaceID:           "workspace_surface_2",
+		SurfaceKind:         SurfaceKindSettingsDOM,
+		Title:               "Settings",
+		Tone:                PaneToneSlate,
+	})
+}
+
 func TestServiceAppliesConfigurePaneOperationToWorkflowNodeDetails(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -322,7 +363,7 @@ func TestServiceRejectsConfigurePaneUnsupportedSurfaceKindWithoutPersisting(t *t
 	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
 		Kind:      WorkspaceUIPaneOperationKindConfigurePane,
 		PaneID:    "workspace_pane_0",
-		Configure: configurePaneOperation(SurfaceKindSettingsDOM, "Settings", "workspace settings", PaneToneSlate),
+		Configure: configurePaneOperation(SurfaceKindSemanticNodeDetails, "Semantic Node", "semantic node details", PaneTonePink),
 	})
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeUnsupportedOperation {
 		t.Fatalf("error = %v, want unsupported operation", err)

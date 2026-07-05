@@ -343,7 +343,7 @@ func terminalConfigForOpenPane(surfaceKind SurfaceKind, config *TerminalPaneConf
 
 func validOpenPaneSurfaceKind(surfaceKind SurfaceKind) bool {
 	switch surfaceKind {
-	case SurfaceKindChatDOM, SurfaceKindEmptyFrame, SurfaceKindTerminal, SurfaceKindWorkflowGraph, SurfaceKindWorkflowNodeDetails:
+	case SurfaceKindChatDOM, SurfaceKindEmptyFrame, SurfaceKindSettingsDOM, SurfaceKindTerminal, SurfaceKindWorkflowGraph, SurfaceKindWorkflowNodeDetails:
 		return true
 	default:
 		return false

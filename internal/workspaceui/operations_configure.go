@@ -173,7 +173,7 @@ func configuredTone(value *PaneTone, current PaneTone) PaneTone {
 
 func validConfigurePaneSurfaceKind(surfaceKind SurfaceKind) bool {
 	switch surfaceKind {
-	case SurfaceKindChatDOM, SurfaceKindEmptyFrame, SurfaceKindTerminal, SurfaceKindWorkflowGraph, SurfaceKindWorkflowNodeDetails:
+	case SurfaceKindChatDOM, SurfaceKindEmptyFrame, SurfaceKindSettingsDOM, SurfaceKindTerminal, SurfaceKindWorkflowGraph, SurfaceKindWorkflowNodeDetails:
 		return true
 	default:
 		return false
