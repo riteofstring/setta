@@ -170,6 +170,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta provision shapes --json")
 	fmt.Fprintln(output, "  setta provision detect --json")
 	fmt.Fprintln(output, "  setta provision resolve --json [--provider ID] [--shape ID] [--region REGION]")
+	fmt.Fprintln(output, "  setta provision render-link --provider aws --json [flags]")
 	fmt.Fprintln(output, "  setta provision render-cloudinit --json [flags]")
 	fmt.Fprintln(output, "  setta remote add ssh://user@host [flags]")
 	fmt.Fprintln(output, "  setta service wait-tailnet [--timeout DURATION] [--poll-interval DURATION]")
