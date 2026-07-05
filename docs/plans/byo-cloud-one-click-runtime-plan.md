@@ -1,6 +1,6 @@
 # BYO Cloud One-Click Runtime Plan
 
-**Date:** 2026-07-05 (revised 2026-07-06)
+**Date:** 2026-07-05 (revised 2026-07-07)
 **Status:** Plan of record. This is the single source of truth for the
 remote-runtime and BYO-cloud runtime direction. It supersedes
 the earlier remote-runtime plan and BYO runtime architecture report. If another
@@ -309,6 +309,69 @@ Caveats to be honest about:
   The guided setup must validate the chosen tag and fail specifically when
   the OAuth client cannot mint keys for it. Manual auth-key paste remains the
   fallback for users who do not want to touch ACL/tag ownership yet.
+
+## Source Control Credential Readiness
+
+A runtime is not development-ready just because SSH, Tailscale, and Setta
+pairing work. It is ready only when the exact shell or terminal surface the
+user will work from can authenticate to source control and perform a real
+fetch or pull. Credential readiness is part of runtime readiness.
+
+The AWS/Tailscale/YubiKey live session on 2026-07-07 exposed the failure mode:
+one terminal could pull from GitHub because it was opened from the user's Mac
+with SSH agent forwarding, while an already-open cloud shell failed with
+`Permission denied (publickey)`. The repository folder was not the real
+boundary; the SSH session and its credential socket were. A separate failure
+then appeared after authentication succeeded: the branch lacked upstream
+tracking, so `git pull` still could not decide what to pull.
+
+Setta must model source-control credentials as explicit modes:
+
+```text
+Interactive credential mode:
+  Uses a forwarded local SSH agent, YubiKey, or equivalent user-presence key.
+  Requires the user's machine to stay online and the user to approve signing.
+  Good for human-driven terminal work.
+
+Autonomous credential mode:
+  Uses repo-scoped deploy keys or equivalent least-privilege credentials stored
+  on the runtime.
+  Does not require the user's machine, SSH session, or YubiKey touch.
+  Required for background agents, scheduled work, and non-forwarded terminals.
+```
+
+The setup and doctor flows should report these checks separately:
+
+```text
+Runtime reachable
+Setta paired
+Terminal has SSH_AUTH_SOCK
+Forwarded agent responds
+GitHub/Git provider auth works
+Repo remote uses a usable auth method
+Current branch tracks an upstream
+Credential mode: forwarded-agent | deploy-key | missing
+```
+
+The verification must run from the same runtime shell path the user or agent
+will use, not from a helper session that happens to have different credentials.
+Useful probes include:
+
+```sh
+echo "$SSH_AUTH_SOCK"
+ssh-add -l
+ssh -T git@github.com
+git remote -v
+git status -sb
+git pull --ff-only
+```
+
+For existing shell surfaces, Setta should either inject a stable forwarded
+agent socket and make shells opt into it explicitly, or tell the user that the
+terminal is not using their forwarded credentials. For unattended work, Setta
+should prefer read-only repo deploy keys when the user has repository admin
+permission, and should state clearly when that setup is blocked by insufficient
+GitHub/Git provider permissions.
 
 ## Provider Drift Strategy
 
