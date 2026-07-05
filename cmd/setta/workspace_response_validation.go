@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"setta/internal/workspaceui"
 )
@@ -241,8 +242,144 @@ func validateWorkspacePaneReorderOperationOutcome(response workspaceui.Workspace
 }
 
 func validateWorkspacePaneResizeOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
-	if response.OperationResult.Resize == nil {
+	outcome := response.OperationResult.Resize
+	if outcome == nil {
 		return errors.New("workspace pane operation outcome resize details are required")
+	}
+	switch operation.Kind {
+	case workspaceui.WorkspaceUIPaneOperationKindResizeColumn:
+		return validateWorkspaceColumnResizeOperationOutcome(response.Layout, *outcome, operation)
+	case workspaceui.WorkspaceUIPaneOperationKindResizePane:
+		return validateWorkspacePaneResizePaneOperationOutcome(response.Layout, *outcome, operation)
+	default:
+		return fmt.Errorf("workspace pane operation resize outcome kind is unsupported: %s", operation.Kind)
+	}
+}
+
+func validateWorkspaceColumnResizeOperationOutcome(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneResizeOutcome, operation workspaceui.WorkspaceUIPaneOperation) error {
+	if operation.ResizeColumn == nil {
+		return errors.New("workspace column resize operation payload is required for response validation")
+	}
+	if outcome.TargetColumnID != operation.ResizeColumn.ColumnID {
+		return fmt.Errorf("workspace pane operation resize targetColumnId = %s, want %s", outcome.TargetColumnID, operation.ResizeColumn.ColumnID)
+	}
+	return validateWorkspaceResizeWidthOutcome(layout, outcome, operation.ResizeColumn.WidthSpec.Unit)
+}
+
+func validateWorkspacePaneResizePaneOperationOutcome(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneResizeOutcome, operation workspaceui.WorkspaceUIPaneOperation) error {
+	if operation.Resize == nil {
+		return errors.New("workspace pane resize operation payload is required for response validation")
+	}
+	resize := *operation.Resize
+	switch {
+	case resize.WidthSpec != nil:
+		columnID, ok := workspaceUILayoutPaneColumnID(layout, operation.PaneID)
+		if !ok {
+			return fmt.Errorf("workspace pane operation resize paneId %s is not present in the returned layout", operation.PaneID)
+		}
+		if outcome.TargetColumnID != columnID {
+			return fmt.Errorf("workspace pane operation resize targetColumnId = %s, want %s", outcome.TargetColumnID, columnID)
+		}
+		return validateWorkspaceResizeWidthOutcome(layout, outcome, resize.WidthSpec.Unit)
+	case resize.HeightPX != nil || resize.HeightScale != nil:
+		return validateWorkspaceResizeHeightOutcome(layout, outcome, operation.PaneID, true)
+	case resize.ResetHeight:
+		return validateWorkspaceResizeHeightOutcome(layout, outcome, operation.PaneID, false)
+	case resize.Split != nil:
+		return validateWorkspaceResizeSplitOutcome(layout, outcome, operation.PaneID, *resize.Split)
+	default:
+		return errors.New("workspace pane resize operation target is required for response validation")
+	}
+}
+
+func validateWorkspaceResizeWidthOutcome(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneResizeOutcome, expectedUnit workspaceui.ColumnWidthUnit) error {
+	if outcome.TargetColumnID == "" {
+		return errors.New("workspace pane operation resize targetColumnId is required")
+	}
+	if outcome.WidthSpec.Unit != expectedUnit {
+		return fmt.Errorf("workspace pane operation resize width unit = %s, want %s", outcome.WidthSpec.Unit, expectedUnit)
+	}
+	if err := validateWorkspaceColumnWidthSpec(outcome.WidthSpec); err != nil {
+		return fmt.Errorf("workspace pane operation resize widthSpec is invalid: %w", err)
+	}
+	column, ok := workspaceUILayoutColumnByID(layout, outcome.TargetColumnID)
+	if !ok {
+		return fmt.Errorf("workspace pane operation resize targetColumnId %s is not present in the returned layout", outcome.TargetColumnID)
+	}
+	if !workspaceColumnWidthSpecsEqual(column.WidthSpec, outcome.WidthSpec) {
+		return fmt.Errorf("workspace pane operation resize layout column width = %+v, want %+v", column.WidthSpec, outcome.WidthSpec)
+	}
+	return nil
+}
+
+func validateWorkspaceResizeHeightOutcome(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneResizeOutcome, paneID string, expectHeight bool) error {
+	if err := validateWorkspaceResizeHeightOutcomeShape(outcome, paneID, expectHeight); err != nil {
+		return err
+	}
+	return validateWorkspaceResizeTargetPaneHeights(layout, outcome)
+}
+
+func validateWorkspaceResizeHeightOutcomeShape(outcome workspaceui.WorkspaceUIPaneResizeOutcome, paneID string, expectHeight bool) error {
+	if err := validateWorkspaceResizeHeightTargets(outcome, paneID); err != nil {
+		return err
+	}
+	return validateWorkspaceResizeHeightValue(outcome, expectHeight)
+}
+
+func validateWorkspaceResizeHeightTargets(outcome workspaceui.WorkspaceUIPaneResizeOutcome, paneID string) error {
+	if outcome.TargetPaneIDs == nil || len(outcome.TargetPaneIDs) == 0 {
+		return errors.New("workspace pane operation resize targetPaneIds are required")
+	}
+	if !stringSliceContains(outcome.TargetPaneIDs, paneID) {
+		return fmt.Errorf("workspace pane operation resize targetPaneIds do not include %s", paneID)
+	}
+	if outcome.PlaneIndex < 0 || outcome.RowIndex < 0 {
+		return fmt.Errorf("workspace pane operation resize plane/row index is invalid: %d/%d", outcome.PlaneIndex, outcome.RowIndex)
+	}
+	return nil
+}
+
+func validateWorkspaceResizeHeightValue(outcome workspaceui.WorkspaceUIPaneResizeOutcome, expectHeight bool) error {
+	if expectHeight && outcome.HeightPX == nil {
+		return errors.New("workspace pane operation resize heightPx is required")
+	}
+	if !expectHeight && outcome.HeightPX != nil {
+		return errors.New("workspace pane operation resize heightPx must be nil for reset-height")
+	}
+	if outcome.HeightPX != nil && *outcome.HeightPX <= 0 {
+		return fmt.Errorf("workspace pane operation resize heightPx must be positive: %d", *outcome.HeightPX)
+	}
+	return nil
+}
+
+func validateWorkspaceResizeTargetPaneHeights(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneResizeOutcome) error {
+	for _, targetPaneID := range outcome.TargetPaneIDs {
+		pane, ok := workspaceUILayoutPaneByID(layout, targetPaneID)
+		if !ok {
+			return fmt.Errorf("workspace pane operation resize targetPaneId %s is not present in the returned layout", targetPaneID)
+		}
+		if !optionalWorkspaceIntPointersEqual(pane.HeightPX, outcome.HeightPX) {
+			return fmt.Errorf("workspace pane operation resize targetPaneId %s layout height = %s, want %s", targetPaneID, formatOptionalInt(pane.HeightPX), formatOptionalInt(outcome.HeightPX))
+		}
+	}
+	return nil
+}
+
+func validateWorkspaceResizeSplitOutcome(layout workspaceui.WorkspaceUILayout, outcome workspaceui.WorkspaceUIPaneResizeOutcome, paneID string, split workspaceui.WorkspaceUIPaneSplitResizeOperation) error {
+	if outcome.UpperPaneID != paneID {
+		return fmt.Errorf("workspace pane operation resize upperPaneId = %s, want %s", outcome.UpperPaneID, paneID)
+	}
+	if outcome.LowerPaneID != split.LowerPaneID {
+		return fmt.Errorf("workspace pane operation resize lowerPaneId = %s, want %s", outcome.LowerPaneID, split.LowerPaneID)
+	}
+	if !workspaceUILayoutHasPane(layout, outcome.UpperPaneID) {
+		return fmt.Errorf("workspace pane operation resize upperPaneId %s is not present in the returned layout", outcome.UpperPaneID)
+	}
+	if !workspaceUILayoutHasPane(layout, outcome.LowerPaneID) {
+		return fmt.Errorf("workspace pane operation resize lowerPaneId %s is not present in the returned layout", outcome.LowerPaneID)
+	}
+	if !positiveFiniteNumber(outcome.UpperWeight) || !positiveFiniteNumber(outcome.LowerWeight) {
+		return fmt.Errorf("workspace pane operation resize split weights must be positive and finite")
 	}
 	return nil
 }
@@ -343,6 +480,75 @@ func validWorkspacePaneDropPlacement(placement workspaceui.WorkspaceUIPaneDropPl
 func workspaceUILayoutHasPane(layout workspaceui.WorkspaceUILayout, paneID string) bool {
 	for _, pane := range layout.Panes {
 		if pane.PaneID == paneID {
+			return true
+		}
+	}
+	return false
+}
+
+func workspaceUILayoutPaneByID(layout workspaceui.WorkspaceUILayout, paneID string) (workspaceui.WorkspaceUIPane, bool) {
+	for _, pane := range layout.Panes {
+		if pane.PaneID == paneID {
+			return pane, true
+		}
+	}
+	return workspaceui.WorkspaceUIPane{}, false
+}
+
+func workspaceUILayoutPaneColumnID(layout workspaceui.WorkspaceUILayout, paneID string) (string, bool) {
+	pane, ok := workspaceUILayoutPaneByID(layout, paneID)
+	if !ok {
+		return "", false
+	}
+	return pane.ColumnID, true
+}
+
+func workspaceUILayoutColumnByID(layout workspaceui.WorkspaceUILayout, columnID string) (workspaceui.WorkspaceUIColumn, bool) {
+	for _, column := range layout.Columns {
+		if column.ColumnID == columnID {
+			return column, true
+		}
+	}
+	return workspaceui.WorkspaceUIColumn{}, false
+}
+
+func validateWorkspaceColumnWidthSpec(widthSpec workspaceui.ColumnWidthSpec) error {
+	switch widthSpec.Unit {
+	case workspaceui.ColumnWidthUnitPX, workspaceui.ColumnWidthUnitProportion:
+	default:
+		return fmt.Errorf("unit is unsupported: %s", widthSpec.Unit)
+	}
+	if !positiveFiniteNumber(widthSpec.Value) {
+		return fmt.Errorf("value must be positive and finite: %v", widthSpec.Value)
+	}
+	return nil
+}
+
+func workspaceColumnWidthSpecsEqual(left workspaceui.ColumnWidthSpec, right workspaceui.ColumnWidthSpec) bool {
+	return left.Unit == right.Unit && left.Value == right.Value
+}
+
+func positiveFiniteNumber(value float64) bool {
+	return value > 0 && !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func optionalWorkspaceIntPointersEqual(left *int, right *int) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func formatOptionalInt(value *int) string {
+	if value == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("%d", *value)
+}
+
+func stringSliceContains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
 			return true
 		}
 	}
