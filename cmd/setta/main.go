@@ -143,6 +143,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  setta workflow current-workspace [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workflow definitions list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workflow definitions read <definition-id> [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta workflow definitions save --input <path> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workflow definitions validate --graph <path> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta workflow schema [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")

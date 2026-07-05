@@ -567,6 +567,138 @@ func TestWorkflowDefinitionsReadCommandFailsForMissingDefinition(t *testing.T) {
 	}
 }
 
+func TestWorkflowDefinitionsSaveCommandCreatesAndUpdatesDefinition(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	inputPath := filepath.Join(t.TempDir(), "save.json")
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	opened := openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+	writeWorkflowDefinitionSaveInputForCLITest(t, inputPath, orchestrator.WorkflowDefinitionSaveInput{
+		Operation:   orchestrator.WorkflowDefinitionSaveCreate,
+		Name:        "Saved Flow",
+		Description: "created through CLI save",
+		Graph:       cliTestStartEndWorkflowGraph(),
+	})
+
+	var createStdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &createStdout
+	if code := runWithDeps([]string{"workflow", "definitions", "save", "--app-data-dir", appDataDir, "--input", inputPath}, commandDeps); code != 0 {
+		t.Fatalf("create save exit code = %d, want 0", code)
+	}
+	var created orchestrator.WorkflowDefinitionSaveResult
+	if err := json.NewDecoder(&createStdout).Decode(&created); err != nil {
+		t.Fatalf("decode workflow definition save output: %v\noutput:\n%s", err, createStdout.String())
+	}
+	if !created.Saved || !created.Validation.Valid || created.Definition == nil {
+		t.Fatalf("created save result = %+v, want saved valid definition", created)
+	}
+	if created.Definition.WorkspaceID != opened.Workspace.ID || created.Definition.Name != "Saved Flow" {
+		t.Fatalf("created definition = %+v, want workspace %s saved flow", created.Definition, opened.Workspace.ID)
+	}
+
+	writeWorkflowDefinitionSaveInputForCLITest(t, inputPath, orchestrator.WorkflowDefinitionSaveInput{
+		Operation:    orchestrator.WorkflowDefinitionSaveUpdate,
+		DefinitionID: created.Definition.ID,
+		Name:         "Updated Flow",
+		Description:  "updated through CLI save",
+		Graph:        cliTestStartEndWorkflowGraph(),
+	})
+	var updateStdout bytes.Buffer
+	commandDeps.stdout = &updateStdout
+	if code := runWithDeps([]string{"workflow", "definitions", "save", "--app-data-dir", appDataDir, "--input", inputPath}, commandDeps); code != 0 {
+		t.Fatalf("update save exit code = %d, want 0", code)
+	}
+	var updated orchestrator.WorkflowDefinitionSaveResult
+	if err := json.NewDecoder(&updateStdout).Decode(&updated); err != nil {
+		t.Fatalf("decode workflow definition update save output: %v\noutput:\n%s", err, updateStdout.String())
+	}
+	if !updated.Saved || updated.Definition == nil || updated.Definition.ID != created.Definition.ID || updated.Definition.Name != "Updated Flow" {
+		t.Fatalf("updated save result = %+v, want updated definition %s", updated, created.Definition.ID)
+	}
+}
+
+func TestWorkflowDefinitionsSaveCommandReturnsDiagnosticsWithoutSaving(t *testing.T) {
+	appDataDir := t.TempDir()
+	workspaceRoot := t.TempDir()
+	inputPath := filepath.Join(t.TempDir(), "save.json")
+	deps := testDeps()
+	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	serveDeps := deps
+	serveDeps.stdout = io.Discard
+	instance, err := startServe(context.Background(), serveOptions{
+		AppDataDir: appDataDir,
+		Host:       "127.0.0.1",
+		Port:       0,
+	}, serveDeps)
+	if err != nil {
+		t.Fatalf("start serve: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := instance.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown serve: %v", err)
+		}
+	})
+
+	openWorkspaceForCLITest(t, deps.httpClient, appDataDir, instance.state.BaseURL, workspaceRoot)
+	writeWorkflowDefinitionSaveInputForCLITest(t, inputPath, orchestrator.WorkflowDefinitionSaveInput{
+		Operation: orchestrator.WorkflowDefinitionSaveCreate,
+		Name:      "Invalid Flow",
+		Graph:     cliTestMissingEndWorkflowGraph(),
+	})
+
+	var saveStdout bytes.Buffer
+	commandDeps := deps
+	commandDeps.stdout = &saveStdout
+	if code := runWithDeps([]string{"workflow", "definitions", "save", "--app-data-dir", appDataDir, "--input", inputPath}, commandDeps); code != 0 {
+		t.Fatalf("invalid save exit code = %d, want 0", code)
+	}
+	var result orchestrator.WorkflowDefinitionSaveResult
+	if err := json.NewDecoder(&saveStdout).Decode(&result); err != nil {
+		t.Fatalf("decode workflow definition invalid save output: %v\noutput:\n%s", err, saveStdout.String())
+	}
+	if result.Saved || result.Validation.Valid || result.Definition != nil {
+		t.Fatalf("invalid save result = %+v, want unsaved diagnostics", result)
+	}
+	assertWorkflowDiagnostic(t, result.Validation, "end_node_required")
+
+	var listStdout bytes.Buffer
+	commandDeps.stdout = &listStdout
+	if code := runWithDeps([]string{"workflow", "definitions", "list", "--app-data-dir", appDataDir}, commandDeps); code != 0 {
+		t.Fatalf("list exit code = %d, want 0", code)
+	}
+	var listed httpapi.ListWorkflowDefinitionsResponse
+	if err := json.NewDecoder(&listStdout).Decode(&listed); err != nil {
+		t.Fatalf("decode workflow definitions list output: %v\noutput:\n%s", err, listStdout.String())
+	}
+	if len(listed.Definitions) != 0 {
+		t.Fatalf("listed definitions = %+v, want invalid save to persist nothing", listed.Definitions)
+	}
+}
+
 func TestWorkflowDefinitionsValidateCommandIntegration(t *testing.T) {
 	appDataDir := t.TempDir()
 	workspaceRoot := t.TempDir()
@@ -838,6 +970,17 @@ func writeWorkflowGraphForCLITest(t *testing.T, path string, graph orchestrator.
 	}
 	if err := os.WriteFile(path, payload, 0o600); err != nil {
 		t.Fatalf("write workflow graph: %v", err)
+	}
+}
+
+func writeWorkflowDefinitionSaveInputForCLITest(t *testing.T, path string, input orchestrator.WorkflowDefinitionSaveInput) {
+	t.Helper()
+	payload, err := json.Marshal(input)
+	if err != nil {
+		t.Fatalf("marshal workflow definition save input: %v", err)
+	}
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("write workflow definition save input: %v", err)
 	}
 }
 

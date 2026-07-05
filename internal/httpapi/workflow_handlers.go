@@ -83,6 +83,23 @@ func (handler handler) updateWorkflowDefinition(response http.ResponseWriter, re
 	writeJSON(response, http.StatusOK, definition)
 }
 
+func (handler handler) saveWorkflowDefinition(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload SaveWorkflowDefinitionRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.SaveDefinition(payload.WorkspaceID, payload.Input)
+	if err != nil {
+		writeWorkflowError(response, "save_workflow_definition_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) deleteWorkflowDefinition(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

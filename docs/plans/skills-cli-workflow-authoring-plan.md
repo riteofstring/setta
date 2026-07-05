@@ -320,6 +320,33 @@ Progress on 2026-07-07:
   broader workflow-authoring Electron coverage as mutating CLI commands are
   introduced and the in-app path moves to this surface.
 
+Progress on 2026-07-07:
+
+- Added the backend-owned `SaveDefinition` workflow operation and authenticated
+  `POST /workflows/definitions/save` contract.
+- Added generated `WorkflowDefinitionSaveInput`,
+  `WorkflowDefinitionSaveResult`, and `WorkflowDefinitionSaveOperation`
+  surfaces. The save input uses an explicit `create` or `update` operation;
+  update requires `definitionId`, and create rejects `definitionId`.
+- Save validates the workflow graph before persistence. Invalid graphs return
+  `saved: false`, `definition: null`, and the structured backend validation
+  diagnostics without writing a definition. Valid create/update saves return
+  `saved: true`, the validation result, and the saved definition.
+- Added `setta workflow definitions save --input <path> [--app-data-dir DIR]`.
+  The command reads a strict single JSON save input, resolves the selected
+  workspace, calls the authenticated backend save contract, validates the typed
+  response, and prints `WorkflowDefinitionSaveResult` as JSON.
+- Regenerated the backend TypeScript contract surface and HTTP contract
+  snapshot; backend protocol version is now `9`.
+- Verification: `./scripts/go.sh test ./internal/orchestrator
+  ./internal/httpapi ./cmd/setta`, `pnpm -C desktop build`, and
+  `node desktop/tests/electron/run-workflows.mjs --workflow
+  workflow-graph-smoke` passed.
+- Remaining Phase 2 work: add `setta workflow executions start
+  <definition-id>` and `setta workflow executions read <execution-id>`, then
+  broaden workflow-authoring Electron coverage as the in-app path moves to this
+  CLI/API surface.
+
 ### Phase 3: Add The Workflow-Builder Skill
 
 Add the workflow-builder skill with instructions for the schema, draft,

@@ -126,6 +126,80 @@ func TestServiceStoresNullWorkflowDraftAndRejectsRun(t *testing.T) {
 	}
 }
 
+func TestServiceSaveDefinitionCreatesValidDefinition(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+
+	result, err := service.SaveDefinition(workspaceID, WorkflowDefinitionSaveInput{
+		Operation:   WorkflowDefinitionSaveCreate,
+		Name:        "Saved workflow",
+		Description: "created through save",
+		Graph:       startEndGraph(),
+	})
+	if err != nil {
+		t.Fatalf("save definition: %v", err)
+	}
+	if !result.Saved || !result.Validation.Valid || result.Definition == nil {
+		t.Fatalf("save result = %+v, want saved valid definition", result)
+	}
+	if result.Definition.Name != "Saved workflow" || result.Definition.Description != "created through save" {
+		t.Fatalf("saved definition = %+v, want create input", result.Definition)
+	}
+}
+
+func TestServiceSaveDefinitionReturnsDiagnosticsWithoutSavingInvalidGraph(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+
+	result, err := service.SaveDefinition(workspaceID, WorkflowDefinitionSaveInput{
+		Operation: WorkflowDefinitionSaveCreate,
+		Name:      "Invalid workflow",
+		Graph: WorkflowGraph{
+			Nodes: []WorkflowNode{
+				{ID: "start", Kind: NodeKindStart},
+			},
+			Edges: []WorkflowEdge{},
+		},
+	})
+	if err != nil {
+		t.Fatalf("save invalid definition: %v", err)
+	}
+	if result.Saved || result.Validation.Valid || result.Definition != nil {
+		t.Fatalf("save result = %+v, want invalid unsaved result", result)
+	}
+	assertDiagnostic(t, result.Validation, "end_node_required")
+	definitions, err := service.ListDefinitions(workspaceID)
+	if err != nil {
+		t.Fatalf("list definitions: %v", err)
+	}
+	if len(definitions) != 0 {
+		t.Fatalf("definitions = %+v, want invalid save to persist nothing", definitions)
+	}
+}
+
+func TestServiceSaveDefinitionUpdatesExistingDefinition(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	created, err := service.CreateDefinition(workspaceID, "Original", "", startEndGraph())
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+
+	result, err := service.SaveDefinition(workspaceID, WorkflowDefinitionSaveInput{
+		Operation:    WorkflowDefinitionSaveUpdate,
+		DefinitionID: created.ID,
+		Name:         "Updated",
+		Description:  "updated through save",
+		Graph:        startEndGraph(),
+	})
+	if err != nil {
+		t.Fatalf("save update definition: %v", err)
+	}
+	if !result.Saved || !result.Validation.Valid || result.Definition == nil {
+		t.Fatalf("save result = %+v, want saved valid update", result)
+	}
+	if result.Definition.ID != created.ID || result.Definition.Name != "Updated" || result.Definition.Description != "updated through save" {
+		t.Fatalf("updated definition = %+v, want updated definition %s", result.Definition, created.ID)
+	}
+}
+
 func TestServiceStartExecutionRejectsDuplicateActiveRunBeforeVersionSnapshot(t *testing.T) {
 	store, _, service, workspaceID := newTestWorkflowServiceWithRunner(t, newRecordingActionRunner())
 	definition, err := service.CreateDefinition(workspaceID, "One active", "", actionGraph("work"))

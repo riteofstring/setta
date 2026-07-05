@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 8;
-export const backendContractSchemaHash = "sha256:e3635be29fbc3ab6b159031fdd283ca89d53006b8318ae590d184a589aa1c896";
+export const backendProtocolVersion = 9;
+export const backendContractSchemaHash = "sha256:8cb6ed8b1cc1b71f7671f2229aee298aa0678d08f201650154d565faf5c32e74";
 
 export type DeviceScope = "full";
 
@@ -1666,6 +1666,22 @@ export function decodeWorkflowLoopLimitPolicy(value: unknown, label = "WorkflowL
     case "failed":
       return decoded;
     case "stopped":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowDefinitionSaveOperation = "create" | "update";
+
+export const workflowDefinitionSaveOperationValues = ["create", "update"] as const satisfies readonly WorkflowDefinitionSaveOperation[];
+
+export function decodeWorkflowDefinitionSaveOperation(value: unknown, label = "WorkflowDefinitionSaveOperation"): WorkflowDefinitionSaveOperation {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "create":
+      return decoded;
+    case "update":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -4456,18 +4472,17 @@ export interface UpdateWorkflowDefinitionRequest {
   graph: WorkflowGraph;
 }
 
-export interface DeleteWorkflowDefinitionRequest {
-  workspaceId: string;
+export interface WorkflowDefinitionSaveInput {
+  operation: WorkflowDefinitionSaveOperation;
   definitionId: string;
-}
-
-export interface DeleteWorkflowDefinitionResponse {
-  deleted: boolean;
-}
-
-export interface ValidateWorkflowDefinitionRequest {
-  workspaceId: string;
+  name: string;
+  description: string;
   graph: WorkflowGraph;
+}
+
+export interface SaveWorkflowDefinitionRequest {
+  workspaceId: string;
+  input: WorkflowDefinitionSaveInput;
 }
 
 export interface WorkflowValidationDiagnostic {
@@ -4481,6 +4496,27 @@ export interface WorkflowValidationDiagnostic {
 export interface WorkflowValidationResult {
   valid: boolean;
   diagnostics: WorkflowValidationDiagnostic[];
+}
+
+export interface WorkflowDefinitionSaveResult {
+  operation: WorkflowDefinitionSaveOperation;
+  saved: boolean;
+  validation: WorkflowValidationResult;
+  definition: WorkflowDefinition | null;
+}
+
+export interface DeleteWorkflowDefinitionRequest {
+  workspaceId: string;
+  definitionId: string;
+}
+
+export interface DeleteWorkflowDefinitionResponse {
+  deleted: boolean;
+}
+
+export interface ValidateWorkflowDefinitionRequest {
+  workspaceId: string;
+  graph: WorkflowGraph;
 }
 
 export interface ListWorkflowExecutionsRequest {
@@ -6924,6 +6960,11 @@ export const backendEndpoints = {
   UpdateWorkflowDefinition: {
     method: "POST",
     path: "/workflows/definitions/update",
+    requestBodyLimitBytes: 4194304,
+  },
+  SaveWorkflowDefinition: {
+    method: "POST",
+    path: "/workflows/definitions/save",
     requestBodyLimitBytes: 4194304,
   },
   DeleteWorkflowDefinition: {
@@ -9931,6 +9972,59 @@ export function decodeUpdateWorkflowDefinitionRequest(value: unknown): UpdateWor
   };
 }
 
+export function decodeWorkflowDefinitionSaveInput(value: unknown): WorkflowDefinitionSaveInput {
+  const record = assertRecord(value, "WorkflowDefinitionSaveInput");
+  assertKnownFields(record, "WorkflowDefinitionSaveInput", ["operation", "definitionId", "name", "description", "graph"]);
+  return {
+    operation: decodeWorkflowDefinitionSaveOperation(requireField(record, "operation", "WorkflowDefinitionSaveInput"), "WorkflowDefinitionSaveInput.operation"),
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowDefinitionSaveInput"), "WorkflowDefinitionSaveInput.definitionId"),
+    name: decodeString(requireField(record, "name", "WorkflowDefinitionSaveInput"), "WorkflowDefinitionSaveInput.name"),
+    description: decodeString(requireField(record, "description", "WorkflowDefinitionSaveInput"), "WorkflowDefinitionSaveInput.description"),
+    graph: decodeWorkflowGraph(requireField(record, "graph", "WorkflowDefinitionSaveInput")),
+  };
+}
+
+export function decodeSaveWorkflowDefinitionRequest(value: unknown): SaveWorkflowDefinitionRequest {
+  const record = assertRecord(value, "SaveWorkflowDefinitionRequest");
+  assertKnownFields(record, "SaveWorkflowDefinitionRequest", ["workspaceId", "input"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SaveWorkflowDefinitionRequest"), "SaveWorkflowDefinitionRequest.workspaceId"),
+    input: decodeWorkflowDefinitionSaveInput(requireField(record, "input", "SaveWorkflowDefinitionRequest")),
+  };
+}
+
+export function decodeWorkflowValidationDiagnostic(value: unknown): WorkflowValidationDiagnostic {
+  const record = assertRecord(value, "WorkflowValidationDiagnostic");
+  assertKnownFields(record, "WorkflowValidationDiagnostic", ["severity", "code", "message", "nodeId", "edgeId"]);
+  return {
+    severity: decodeWorkflowValidationSeverity(requireField(record, "severity", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.severity"),
+    code: decodeString(requireField(record, "code", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.code"),
+    message: decodeString(requireField(record, "message", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.message"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.nodeId"),
+    edgeId: decodeString(requireField(record, "edgeId", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.edgeId"),
+  };
+}
+
+export function decodeWorkflowValidationResult(value: unknown): WorkflowValidationResult {
+  const record = assertRecord(value, "WorkflowValidationResult");
+  assertKnownFields(record, "WorkflowValidationResult", ["valid", "diagnostics"]);
+  return {
+    valid: decodeBoolean(requireField(record, "valid", "WorkflowValidationResult"), "WorkflowValidationResult.valid"),
+    diagnostics: decodeArray(requireField(record, "diagnostics", "WorkflowValidationResult"), "WorkflowValidationResult.diagnostics", (item) => decodeWorkflowValidationDiagnostic(item)),
+  };
+}
+
+export function decodeWorkflowDefinitionSaveResult(value: unknown): WorkflowDefinitionSaveResult {
+  const record = assertRecord(value, "WorkflowDefinitionSaveResult");
+  assertKnownFields(record, "WorkflowDefinitionSaveResult", ["operation", "saved", "validation", "definition"]);
+  return {
+    operation: decodeWorkflowDefinitionSaveOperation(requireField(record, "operation", "WorkflowDefinitionSaveResult"), "WorkflowDefinitionSaveResult.operation"),
+    saved: decodeBoolean(requireField(record, "saved", "WorkflowDefinitionSaveResult"), "WorkflowDefinitionSaveResult.saved"),
+    validation: decodeWorkflowValidationResult(requireField(record, "validation", "WorkflowDefinitionSaveResult")),
+    definition: decodeNullable(requireField(record, "definition", "WorkflowDefinitionSaveResult"), "WorkflowDefinitionSaveResult.definition", (item) => decodeWorkflowDefinition(item)),
+  };
+}
+
 export function decodeDeleteWorkflowDefinitionRequest(value: unknown): DeleteWorkflowDefinitionRequest {
   const record = assertRecord(value, "DeleteWorkflowDefinitionRequest");
   assertKnownFields(record, "DeleteWorkflowDefinitionRequest", ["workspaceId", "definitionId"]);
@@ -9954,27 +10048,6 @@ export function decodeValidateWorkflowDefinitionRequest(value: unknown): Validat
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "ValidateWorkflowDefinitionRequest"), "ValidateWorkflowDefinitionRequest.workspaceId"),
     graph: decodeWorkflowGraph(requireField(record, "graph", "ValidateWorkflowDefinitionRequest")),
-  };
-}
-
-export function decodeWorkflowValidationDiagnostic(value: unknown): WorkflowValidationDiagnostic {
-  const record = assertRecord(value, "WorkflowValidationDiagnostic");
-  assertKnownFields(record, "WorkflowValidationDiagnostic", ["severity", "code", "message", "nodeId", "edgeId"]);
-  return {
-    severity: decodeWorkflowValidationSeverity(requireField(record, "severity", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.severity"),
-    code: decodeString(requireField(record, "code", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.code"),
-    message: decodeString(requireField(record, "message", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.message"),
-    nodeId: decodeString(requireField(record, "nodeId", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.nodeId"),
-    edgeId: decodeString(requireField(record, "edgeId", "WorkflowValidationDiagnostic"), "WorkflowValidationDiagnostic.edgeId"),
-  };
-}
-
-export function decodeWorkflowValidationResult(value: unknown): WorkflowValidationResult {
-  const record = assertRecord(value, "WorkflowValidationResult");
-  assertKnownFields(record, "WorkflowValidationResult", ["valid", "diagnostics"]);
-  return {
-    valid: decodeBoolean(requireField(record, "valid", "WorkflowValidationResult"), "WorkflowValidationResult.valid"),
-    diagnostics: decodeArray(requireField(record, "diagnostics", "WorkflowValidationResult"), "WorkflowValidationResult.diagnostics", (item) => decodeWorkflowValidationDiagnostic(item)),
   };
 }
 
@@ -12955,6 +13028,7 @@ export interface BackendClient {
   createWorkflowDefinition: (request: CreateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
   readWorkflowDefinition: (request: ReadWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
   updateWorkflowDefinition: (request: UpdateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
+  saveWorkflowDefinition: (request: SaveWorkflowDefinitionRequest) => Promise<WorkflowDefinitionSaveResult>;
   deleteWorkflowDefinition: (request: DeleteWorkflowDefinitionRequest) => Promise<DeleteWorkflowDefinitionResponse>;
   validateWorkflowDefinition: (request: ValidateWorkflowDefinitionRequest) => Promise<WorkflowValidationResult>;
   listWorkflowExecutions: (request: ListWorkflowExecutionsRequest) => Promise<ListWorkflowExecutionsResponse>;
@@ -13544,6 +13618,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowDefinition,
       endpoint: backendEndpoints.UpdateWorkflowDefinition,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    saveWorkflowDefinition: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowDefinitionSaveResult,
+      endpoint: backendEndpoints.SaveWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
     }),

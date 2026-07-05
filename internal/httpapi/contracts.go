@@ -410,6 +410,11 @@ type UpdateWorkflowDefinitionRequest struct {
 	Graph        orchestrator.WorkflowGraph `json:"graph"`
 }
 
+type SaveWorkflowDefinitionRequest struct {
+	WorkspaceID string                                   `json:"workspaceId"`
+	Input       orchestrator.WorkflowDefinitionSaveInput `json:"input"`
+}
+
 type DeleteWorkflowDefinitionRequest struct {
 	WorkspaceID  string `json:"workspaceId"`
 	DefinitionID string `json:"definitionId"`

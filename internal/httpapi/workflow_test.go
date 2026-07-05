@@ -112,6 +112,60 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 	}
 }
 
+func TestWorkflowEndpointSaveDefinitionValidatesBeforePersisting(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+
+	created := postJSON[orchestrator.WorkflowDefinitionSaveResult](t, handler, "/workflows/definitions/save", SaveWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Input: orchestrator.WorkflowDefinitionSaveInput{
+			Operation:   orchestrator.WorkflowDefinitionSaveCreate,
+			Name:        "Saved through HTTP",
+			Description: "created through save",
+			Graph:       httpWorkflowStartEndGraph(),
+		},
+	}, http.StatusOK)
+	if !created.Saved || !created.Validation.Valid || created.Definition == nil {
+		t.Fatalf("created save result = %+v, want saved valid definition", created)
+	}
+
+	invalid := postJSON[orchestrator.WorkflowDefinitionSaveResult](t, handler, "/workflows/definitions/save", SaveWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Input: orchestrator.WorkflowDefinitionSaveInput{
+			Operation: orchestrator.WorkflowDefinitionSaveCreate,
+			Name:      "Invalid through HTTP",
+			Graph:     httpWorkflowMissingEndGraph(),
+		},
+	}, http.StatusOK)
+	if invalid.Saved || invalid.Validation.Valid || invalid.Definition != nil {
+		t.Fatalf("invalid save result = %+v, want unsaved diagnostics", invalid)
+	}
+	if !httpWorkflowDiagnosticsContain(invalid.Validation.Diagnostics, "end_node_required") {
+		t.Fatalf("invalid diagnostics = %+v, want end_node_required", invalid.Validation.Diagnostics)
+	}
+
+	list := postJSON[ListWorkflowDefinitionsResponse](t, handler, "/workflows/definitions/list", ListWorkflowDefinitionsRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if len(list.Definitions) != 1 || list.Definitions[0].ID != created.Definition.ID {
+		t.Fatalf("definitions = %+v, want only valid saved definition", list.Definitions)
+	}
+
+	updated := postJSON[orchestrator.WorkflowDefinitionSaveResult](t, handler, "/workflows/definitions/save", SaveWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Input: orchestrator.WorkflowDefinitionSaveInput{
+			Operation:    orchestrator.WorkflowDefinitionSaveUpdate,
+			DefinitionID: created.Definition.ID,
+			Name:         "Updated through HTTP",
+			Description:  "updated through save",
+			Graph:        httpWorkflowStartEndGraph(),
+		},
+	}, http.StatusOK)
+	if !updated.Saved || updated.Definition == nil || updated.Definition.ID != created.Definition.ID || updated.Definition.Name != "Updated through HTTP" {
+		t.Fatalf("updated save result = %+v, want updated definition %s", updated, created.Definition.ID)
+	}
+}
+
 func TestWorkflowEndpointCancelReturnsCompletedExecutionWithoutFailure(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -639,6 +693,24 @@ func httpWorkflowStartEndGraph() orchestrator.WorkflowGraph {
 			{ID: "start_end", FromNodeID: "start", ToNodeID: "end", Kind: orchestrator.EdgeKindNormal},
 		},
 	}
+}
+
+func httpWorkflowMissingEndGraph() orchestrator.WorkflowGraph {
+	return orchestrator.WorkflowGraph{
+		Nodes: []orchestrator.WorkflowNode{
+			{ID: "start", Kind: orchestrator.NodeKindStart},
+		},
+		Edges: []orchestrator.WorkflowEdge{},
+	}
+}
+
+func httpWorkflowDiagnosticsContain(diagnostics []orchestrator.WorkflowValidationDiagnostic, code string) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func httpWorkflowApprovalGraph() orchestrator.WorkflowGraph {

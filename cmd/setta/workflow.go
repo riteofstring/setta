@@ -24,6 +24,7 @@ const (
 	workflowCurrentWorkspaceCLIAuthDisplayName    = "Setta CLI workflow current-workspace"
 	workflowDefinitionsListCLIAuthDisplayName     = "Setta CLI workflow definitions list"
 	workflowDefinitionsReadCLIAuthDisplayName     = "Setta CLI workflow definitions read"
+	workflowDefinitionsSaveCLIAuthDisplayName     = "Setta CLI workflow definitions save"
 	workflowDefinitionsValidateCLIAuthDisplayName = "Setta CLI workflow definitions validate"
 	workflowSchemaCLIAuthDisplayName              = "Setta CLI workflow schema"
 )
@@ -40,6 +41,11 @@ type workflowDefinitionReadOptions struct {
 type workflowDefinitionValidateOptions struct {
 	AppDataDir string
 	GraphPath  string
+}
+
+type workflowDefinitionSaveOptions struct {
+	AppDataDir string
+	InputPath  string
 }
 
 func runWorkflow(args []string, deps cliDeps) error {
@@ -77,13 +83,15 @@ func runWorkflowCurrentWorkspace(args []string, deps cliDeps) error {
 
 func runWorkflowDefinitions(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workflow definitions requires a subcommand: list, read, or validate")}
+		return usageError{err: errors.New("setta workflow definitions requires a subcommand: list, read, save, or validate")}
 	}
 	switch args[0] {
 	case "list":
 		return runWorkflowDefinitionsList(args[1:], deps)
 	case "read":
 		return runWorkflowDefinitionsRead(args[1:], deps)
+	case "save":
+		return runWorkflowDefinitionsSave(args[1:], deps)
 	case "validate":
 		return runWorkflowDefinitionsValidate(args[1:], deps)
 	default:
@@ -121,6 +129,27 @@ func runWorkflowDefinitionsRead(args []string, deps cliDeps) error {
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(definition); err != nil {
 		return fmt.Errorf("encode workflow definition: %w", err)
+	}
+	return nil
+}
+
+func runWorkflowDefinitionsSave(args []string, deps cliDeps) error {
+	options, err := workflowDefinitionSaveOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	input, err := readWorkflowDefinitionSaveInputFile(options.InputPath)
+	if err != nil {
+		return err
+	}
+	result, err := saveWorkflowDefinition(context.Background(), options.AppDataDir, input, deps)
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(deps.stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(result); err != nil {
+		return fmt.Errorf("encode workflow definition save result: %w", err)
 	}
 	return nil
 }
@@ -203,6 +232,31 @@ func workflowDefinitionReadOptionsFromArgs(args []string, deps cliDeps) (workflo
 		return workflowDefinitionReadOptions{}, usageError{err: errors.New("workflow definition id is required")}
 	}
 	return workflowDefinitionReadOptions{AppDataDir: appDataDir, DefinitionID: definitionID}, nil
+}
+
+func workflowDefinitionSaveOptionsFromArgs(args []string, deps cliDeps) (workflowDefinitionSaveOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workflowDefinitionSaveOptions{}, err
+	}
+	var inputPath string
+	flagSet := newFlagSet("setta workflow definitions save", deps.stderr)
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&inputPath, "input", "", "path to a workflow definition save JSON input file")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workflowDefinitionSaveOptions{}, usageError{err: err}
+		}
+		return workflowDefinitionSaveOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 0 {
+		return workflowDefinitionSaveOptions{}, usageError{err: errors.New("setta workflow definitions save does not accept positional arguments")}
+	}
+	inputPath = strings.TrimSpace(inputPath)
+	if inputPath == "" {
+		return workflowDefinitionSaveOptions{}, usageError{err: errors.New("setta workflow definitions save requires --input")}
+	}
+	return workflowDefinitionSaveOptions{AppDataDir: appDataDir, InputPath: inputPath}, nil
 }
 
 func workflowDefinitionValidateOptionsFromArgs(args []string, deps cliDeps) (workflowDefinitionValidateOptions, error) {
@@ -316,6 +370,34 @@ func readWorkflowDefinition(ctx context.Context, appDataDir string, definitionID
 	return definition, nil
 }
 
+func saveWorkflowDefinition(ctx context.Context, appDataDir string, input orchestrator.WorkflowDefinitionSaveInput, deps cliDeps) (orchestrator.WorkflowDefinitionSaveResult, error) {
+	state, token, cleanup, err := workflowCommandAuth(ctx, appDataDir, workflowDefinitionsSaveCLIAuthDisplayName, deps)
+	if err != nil {
+		return orchestrator.WorkflowDefinitionSaveResult{}, err
+	}
+	defer cleanup()
+
+	session, err := getWorkspaceSession(ctx, deps.httpClient, state.BaseURL, token)
+	if err != nil {
+		return orchestrator.WorkflowDefinitionSaveResult{}, err
+	}
+	currentWorkspace, err := currentWorkspaceFromSession(session)
+	if err != nil {
+		return orchestrator.WorkflowDefinitionSaveResult{}, err
+	}
+	result, err := postWorkflowAPI[orchestrator.WorkflowDefinitionSaveResult](ctx, deps.httpClient, state.BaseURL, token, "workflow definitions save", "/workflows/definitions/save", httpapi.SaveWorkflowDefinitionRequest{
+		WorkspaceID: currentWorkspace.ID,
+		Input:       input,
+	})
+	if err != nil {
+		return orchestrator.WorkflowDefinitionSaveResult{}, err
+	}
+	if err := validateWorkflowDefinitionSaveResultResponse(result, input.Operation, currentWorkspace.ID); err != nil {
+		return orchestrator.WorkflowDefinitionSaveResult{}, err
+	}
+	return result, nil
+}
+
 func validateWorkflowDefinition(ctx context.Context, appDataDir string, graph orchestrator.WorkflowGraph, deps cliDeps) (orchestrator.WorkflowValidationResult, error) {
 	state, token, cleanup, err := workflowCommandAuth(ctx, appDataDir, workflowDefinitionsValidateCLIAuthDisplayName, deps)
 	if err != nil {
@@ -356,6 +438,20 @@ func readWorkflowGraphFile(path string) (orchestrator.WorkflowGraph, error) {
 		return orchestrator.WorkflowGraph{}, fmt.Errorf("decode workflow graph %s: %w", path, err)
 	}
 	return graph, nil
+}
+
+func readWorkflowDefinitionSaveInputFile(path string) (orchestrator.WorkflowDefinitionSaveInput, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return orchestrator.WorkflowDefinitionSaveInput{}, fmt.Errorf("open workflow definition save input %s: %w", path, err)
+	}
+	defer file.Close()
+
+	var input orchestrator.WorkflowDefinitionSaveInput
+	if err := jsonio.DecodeSingle(file, &input); err != nil {
+		return orchestrator.WorkflowDefinitionSaveInput{}, fmt.Errorf("decode workflow definition save input %s: %w", path, err)
+	}
+	return input, nil
 }
 
 func workflowCommandAuth(ctx context.Context, appDataDir string, displayName string, deps cliDeps) (serveState, string, func(), error) {
@@ -571,6 +667,39 @@ func validateWorkflowDefinitionGraphArrays(definition orchestrator.WorkflowDefin
 	}
 	if definition.Graph.Layout.Nodes == nil {
 		return fmt.Errorf("workflow definition %s graph layout nodes array is required", definition.ID)
+	}
+	return nil
+}
+
+func validateWorkflowDefinitionSaveResultResponse(result orchestrator.WorkflowDefinitionSaveResult, operation orchestrator.WorkflowDefinitionSaveOperation, workspaceID string) error {
+	if result.Operation != operation {
+		return fmt.Errorf("workflow definition save result operation %q, want %q", result.Operation, operation)
+	}
+	if err := validateWorkflowValidationResultResponse(result.Validation); err != nil {
+		return fmt.Errorf("workflow definition save validation is invalid: %w", err)
+	}
+	if result.Saved {
+		return validateSavedWorkflowDefinitionResult(result, workspaceID)
+	}
+	return validateUnsavedWorkflowDefinitionResult(result)
+}
+
+func validateSavedWorkflowDefinitionResult(result orchestrator.WorkflowDefinitionSaveResult, workspaceID string) error {
+	if !result.Validation.Valid {
+		return errors.New("workflow definition save returned saved true with invalid validation")
+	}
+	if result.Definition == nil {
+		return errors.New("workflow definition save returned saved true without a definition")
+	}
+	return validateWorkflowDefinitionResponse(*result.Definition, workspaceID)
+}
+
+func validateUnsavedWorkflowDefinitionResult(result orchestrator.WorkflowDefinitionSaveResult) error {
+	if result.Validation.Valid {
+		return errors.New("workflow definition save returned saved false with valid validation")
+	}
+	if result.Definition != nil {
+		return errors.New("workflow definition save returned saved false with a definition")
 	}
 	return nil
 }

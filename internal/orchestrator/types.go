@@ -487,6 +487,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "WorkflowGraphNodeStatus", Values: stringValues(workflowGraphNodeStatusValues)},
 		{Name: "WorkflowGraphEdgeStatus", Values: stringValues(workflowGraphEdgeStatusValues)},
 		{Name: "WorkflowGraphViewMode", Values: stringValues(workflowGraphViewModeValues)},
+		{Name: "WorkflowDefinitionSaveOperation", Values: stringValues(workflowDefinitionSaveOperationValues)},
 		{Name: "WorkflowEventType", Values: stringValues(workflowEventTypeValues)},
 		{Name: "WorkflowValidationSeverity", Values: stringValues(workflowValidationSeverityValues)},
 		{Name: "WorkflowTerminalReason", Values: stringValues(workflowTerminalReasonValues)},
