@@ -163,9 +163,12 @@ func decodeAndVerifyTerminalWriteData(input TerminalWritePrepareInput) ([]byte, 
 func normalizeSHA256(value string) (string, error) {
 	decoded, err := hex.DecodeString(value)
 	if err != nil || len(decoded) != sha256.Size {
-		return "", fmt.Errorf("terminal write sha256 must be a %d-byte hex digest", sha256.Size)
+		return "", fmt.Errorf("terminal write sha256 must be a lowercase %d-byte hex digest", sha256.Size)
 	}
-	return strings.ToLower(value), nil
+	if value != strings.ToLower(value) {
+		return "", fmt.Errorf("terminal write sha256 must be a lowercase %d-byte hex digest", sha256.Size)
+	}
+	return value, nil
 }
 
 func terminalWriteSHA256(data []byte) string {

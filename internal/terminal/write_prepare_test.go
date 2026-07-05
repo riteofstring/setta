@@ -106,6 +106,13 @@ func TestManagerPrepareWriteValidatesBase64ByteCountAndHash(t *testing.T) {
 			want: "sha256 must be",
 		},
 		{
+			name: "uppercase hash",
+			mutate: func(input *TerminalWritePrepareInput) {
+				input.SHA256 = "A" + input.SHA256[1:]
+			},
+			want: "lowercase",
+		},
+		{
 			name: "hash mismatch",
 			mutate: func(input *TerminalWritePrepareInput) {
 				input.SHA256 = strings.Repeat("0", 64)
@@ -148,6 +155,14 @@ func TestManagerCommitPreparedWriteValidatesApprovalBinding(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "sha256 mismatch") {
 		t.Fatalf("wrong hash commit error = %v, want hash binding failure", err)
+	}
+	_, err = manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
+		PreparedWriteID: prepared.PreparedWriteID,
+		DeviceSessionID: testDeviceSessionID,
+		SHA256:          "A" + prepared.SHA256[1:],
+	})
+	if err == nil || !strings.Contains(err.Error(), "lowercase") {
+		t.Fatalf("uppercase hash commit error = %v, want lowercase hash failure", err)
 	}
 	committed, err := manager.CommitPreparedWrite(context.Background(), TerminalWriteCommitInput{
 		PreparedWriteID: prepared.PreparedWriteID,
