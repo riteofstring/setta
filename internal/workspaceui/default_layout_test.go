@@ -224,6 +224,45 @@ func TestServiceResetLayoutRecreatesCorruptState(t *testing.T) {
 	}
 }
 
+func TestServiceResetLayoutRecreatesCorruptStateAfterPublishedRevision(t *testing.T) {
+	appDataDir := t.TempDir()
+	service := newEventTestService(t, appDataDir, testResolver{
+		"workspace_api": "/tmp/api",
+	}, 4)
+	subscription := subscribeWorkspaceUIEvents(t, service, EventCursor{}, "workspace_api")
+	defer subscription.Unsubscribe()
+
+	existing := testLayout("workspace_api")
+	existing.Revision = 7
+	if _, err := service.SaveLayout(existing); err != nil {
+		t.Fatalf("save existing layout: %v", err)
+	}
+	if event := receiveWorkspaceUIEvent(t, subscription); event.Revision != 7 {
+		t.Fatalf("existing layout event = %+v, want revision 7", event)
+	}
+
+	statePath := StateFilePath(appDataDir, "workspace_api")
+	if err := os.WriteFile(statePath, []byte(`{"schemaVersion":1}`), 0o644); err != nil {
+		t.Fatalf("write corrupt state: %v", err)
+	}
+
+	layout, err := service.ResetLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("reset corrupt layout: %v", err)
+	}
+	if layout.WorkspaceID != "workspace_api" || layout.Revision != 8 || len(layout.Panes) != 4 {
+		t.Fatalf("reset corrupt layout = %+v, want default revision 8 layout", layout)
+	}
+
+	event := receiveWorkspaceUIEvent(t, subscription)
+	if event.Type != WorkspaceUIEventTypeLayoutUpdated || event.Revision != 8 || event.Layout == nil {
+		t.Fatalf("reset event = %+v, want layout update at revision 8", event)
+	}
+	if !reflect.DeepEqual(*event.Layout, layout) {
+		t.Fatalf("reset event layout = %+v, want reset layout %+v", event.Layout, layout)
+	}
+}
+
 func assertDefaultPane(
 	t *testing.T,
 	pane WorkspaceUIPane,

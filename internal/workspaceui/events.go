@@ -188,6 +188,17 @@ func (hub *EventHub) recordWorkspaceRevision(workspaceID string, revision int) e
 	return nil
 }
 
+func (hub *EventHub) currentWorkspaceRevision(workspaceID string) int {
+	if hub == nil || workspaceID == "" {
+		return 0
+	}
+
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+
+	return hub.currentRevisionByWorkspace[workspaceID]
+}
+
 func (subscription *EventSubscription) Unsubscribe() {
 	if subscription == nil || subscription.hub == nil {
 		return

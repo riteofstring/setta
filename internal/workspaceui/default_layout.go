@@ -94,6 +94,9 @@ func (service *Service) ResetLayout(workspaceID string) (WorkspaceUILayout, erro
 	if err == nil && read.Layout != nil {
 		revision = read.Layout.Revision + 1
 	}
+	if eventRevision := service.events.currentWorkspaceRevision(workspaceID); eventRevision >= revision {
+		revision = eventRevision + 1
+	}
 	layout := DefaultLayout(summary)
 	layout.Revision = revision
 	if layout.WorkspaceID != workspaceID {
