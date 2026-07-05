@@ -2,6 +2,19 @@ package httpapi
 
 import "net/http"
 
+func (handler handler) readWorkflowSchema(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	schema, err := service.WorkflowSchema()
+	if err != nil {
+		writeWorkflowError(response, "read_workflow_schema_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, schema)
+}
+
 func (handler handler) listWorkflowDefinitions(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

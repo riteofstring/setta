@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 7;
-export const backendContractSchemaHash = "sha256:04e63e9b6f698b6dbd4519cec2b795bdbfce2cc824369bcc389350d9bc471608";
+export const backendProtocolVersion = 8;
+export const backendContractSchemaHash = "sha256:e3635be29fbc3ab6b159031fdd283ca89d53006b8318ae590d184a589aa1c896";
 
 export type DeviceScope = "full";
 
@@ -1438,188 +1438,6 @@ export function decodeBackgroundTerminalStatus(value: unknown, label = "Backgrou
   }
 }
 
-export type WorkflowLoopLimitPolicy = "completed" | "failed" | "stopped";
-
-export const workflowLoopLimitPolicyValues = ["completed", "failed", "stopped"] as const satisfies readonly WorkflowLoopLimitPolicy[];
-
-export function decodeWorkflowLoopLimitPolicy(value: unknown, label = "WorkflowLoopLimitPolicy"): WorkflowLoopLimitPolicy {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "completed":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "stopped":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowValidationSeverity = "error" | "warning";
-
-export const workflowValidationSeverityValues = ["error", "warning"] as const satisfies readonly WorkflowValidationSeverity[];
-
-export function decodeWorkflowValidationSeverity(value: unknown, label = "WorkflowValidationSeverity"): WorkflowValidationSeverity {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "error":
-      return decoded;
-    case "warning":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowExecutionStatus = "idle" | "running" | "completed" | "failed" | "stopped" | "cancelled";
-
-export const workflowExecutionStatusValues = ["idle", "running", "completed", "failed", "stopped", "cancelled"] as const satisfies readonly WorkflowExecutionStatus[];
-
-export function decodeWorkflowExecutionStatus(value: unknown, label = "WorkflowExecutionStatus"): WorkflowExecutionStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "idle":
-      return decoded;
-    case "running":
-      return decoded;
-    case "completed":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "stopped":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowTerminalReason = "end_reached" | "limit_reached" | "action_failed" | "action_cancelled" | "execution_cancelled" | "interrupted" | "routing_failed";
-
-export const workflowTerminalReasonValues = ["end_reached", "limit_reached", "action_failed", "action_cancelled", "execution_cancelled", "interrupted", "routing_failed"] as const satisfies readonly WorkflowTerminalReason[];
-
-export function decodeWorkflowTerminalReason(value: unknown, label = "WorkflowTerminalReason"): WorkflowTerminalReason {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "end_reached":
-      return decoded;
-    case "limit_reached":
-      return decoded;
-    case "action_failed":
-      return decoded;
-    case "action_cancelled":
-      return decoded;
-    case "execution_cancelled":
-      return decoded;
-    case "interrupted":
-      return decoded;
-    case "routing_failed":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunnerRecoveryOutcome = "recovered_running" | "recovered_completed" | "recovered_failed" | "retry_scheduled" | "manual_recovery_required" | "failed_interrupted";
-
-export const runnerRecoveryOutcomeValues = ["recovered_running", "recovered_completed", "recovered_failed", "retry_scheduled", "manual_recovery_required", "failed_interrupted"] as const satisfies readonly RunnerRecoveryOutcome[];
-
-export function decodeRunnerRecoveryOutcome(value: unknown, label = "RunnerRecoveryOutcome"): RunnerRecoveryOutcome {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "recovered_running":
-      return decoded;
-    case "recovered_completed":
-      return decoded;
-    case "recovered_failed":
-      return decoded;
-    case "retry_scheduled":
-      return decoded;
-    case "manual_recovery_required":
-      return decoded;
-    case "failed_interrupted":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type SideEffectPolicyKind = "pure" | "idempotent" | "at_least_once" | "requires_approval" | "manual_recovery" | "compensatable";
-
-export const sideEffectPolicyKindValues = ["pure", "idempotent", "at_least_once", "requires_approval", "manual_recovery", "compensatable"] as const satisfies readonly SideEffectPolicyKind[];
-
-export function decodeSideEffectPolicyKind(value: unknown, label = "SideEffectPolicyKind"): SideEffectPolicyKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "pure":
-      return decoded;
-    case "idempotent":
-      return decoded;
-    case "at_least_once":
-      return decoded;
-    case "requires_approval":
-      return decoded;
-    case "manual_recovery":
-      return decoded;
-    case "compensatable":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type SideEffectScope = "none" | "workspace" | "external_service" | "provider_account" | "runner_defined";
-
-export const sideEffectScopeValues = ["none", "workspace", "external_service", "provider_account", "runner_defined"] as const satisfies readonly SideEffectScope[];
-
-export function decodeSideEffectScope(value: unknown, label = "SideEffectScope"): SideEffectScope {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "none":
-      return decoded;
-    case "workspace":
-      return decoded;
-    case "external_service":
-      return decoded;
-    case "provider_account":
-      return decoded;
-    case "runner_defined":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ApprovalTrigger = "network_access" | "workspace_write" | "out_of_workspace_write" | "protected_path_write" | "credential_access" | "external_write" | "destructive_action" | "unsandboxed_execution";
-
-export const approvalTriggerValues = ["network_access", "workspace_write", "out_of_workspace_write", "protected_path_write", "credential_access", "external_write", "destructive_action", "unsandboxed_execution"] as const satisfies readonly ApprovalTrigger[];
-
-export function decodeApprovalTrigger(value: unknown, label = "ApprovalTrigger"): ApprovalTrigger {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "network_access":
-      return decoded;
-    case "workspace_write":
-      return decoded;
-    case "out_of_workspace_write":
-      return decoded;
-    case "protected_path_write":
-      return decoded;
-    case "credential_access":
-      return decoded;
-    case "external_write":
-      return decoded;
-    case "destructive_action":
-      return decoded;
-    case "unsandboxed_execution":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type RunnerOperation = "start" | "cancel" | "signal" | "recover";
 
 export const runnerOperationValues = ["start", "cancel", "signal", "recover"] as const satisfies readonly RunnerOperation[];
@@ -1742,6 +1560,80 @@ export function decodeRunnerRequirementWorkspaceAccess(value: unknown, label = "
   }
 }
 
+export type SideEffectPolicyKind = "pure" | "idempotent" | "at_least_once" | "requires_approval" | "manual_recovery" | "compensatable";
+
+export const sideEffectPolicyKindValues = ["pure", "idempotent", "at_least_once", "requires_approval", "manual_recovery", "compensatable"] as const satisfies readonly SideEffectPolicyKind[];
+
+export function decodeSideEffectPolicyKind(value: unknown, label = "SideEffectPolicyKind"): SideEffectPolicyKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pure":
+      return decoded;
+    case "idempotent":
+      return decoded;
+    case "at_least_once":
+      return decoded;
+    case "requires_approval":
+      return decoded;
+    case "manual_recovery":
+      return decoded;
+    case "compensatable":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SideEffectScope = "none" | "workspace" | "external_service" | "provider_account" | "runner_defined";
+
+export const sideEffectScopeValues = ["none", "workspace", "external_service", "provider_account", "runner_defined"] as const satisfies readonly SideEffectScope[];
+
+export function decodeSideEffectScope(value: unknown, label = "SideEffectScope"): SideEffectScope {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "none":
+      return decoded;
+    case "workspace":
+      return decoded;
+    case "external_service":
+      return decoded;
+    case "provider_account":
+      return decoded;
+    case "runner_defined":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ApprovalTrigger = "network_access" | "workspace_write" | "out_of_workspace_write" | "protected_path_write" | "credential_access" | "external_write" | "destructive_action" | "unsandboxed_execution";
+
+export const approvalTriggerValues = ["network_access", "workspace_write", "out_of_workspace_write", "protected_path_write", "credential_access", "external_write", "destructive_action", "unsandboxed_execution"] as const satisfies readonly ApprovalTrigger[];
+
+export function decodeApprovalTrigger(value: unknown, label = "ApprovalTrigger"): ApprovalTrigger {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "network_access":
+      return decoded;
+    case "workspace_write":
+      return decoded;
+    case "out_of_workspace_write":
+      return decoded;
+    case "protected_path_write":
+      return decoded;
+    case "credential_access":
+      return decoded;
+    case "external_write":
+      return decoded;
+    case "destructive_action":
+      return decoded;
+    case "unsandboxed_execution":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type RunnerRecoveryCapability = "none" | "fail_interrupted" | "reconcile_refs" | "reattach_stream";
 
 export const runnerRecoveryCapabilityValues = ["none", "fail_interrupted", "reconcile_refs", "reattach_stream"] as const satisfies readonly RunnerRecoveryCapability[];
@@ -1756,6 +1648,114 @@ export function decodeRunnerRecoveryCapability(value: unknown, label = "RunnerRe
     case "reconcile_refs":
       return decoded;
     case "reattach_stream":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowLoopLimitPolicy = "completed" | "failed" | "stopped";
+
+export const workflowLoopLimitPolicyValues = ["completed", "failed", "stopped"] as const satisfies readonly WorkflowLoopLimitPolicy[];
+
+export function decodeWorkflowLoopLimitPolicy(value: unknown, label = "WorkflowLoopLimitPolicy"): WorkflowLoopLimitPolicy {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "completed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "stopped":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowValidationSeverity = "error" | "warning";
+
+export const workflowValidationSeverityValues = ["error", "warning"] as const satisfies readonly WorkflowValidationSeverity[];
+
+export function decodeWorkflowValidationSeverity(value: unknown, label = "WorkflowValidationSeverity"): WorkflowValidationSeverity {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "error":
+      return decoded;
+    case "warning":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowExecutionStatus = "idle" | "running" | "completed" | "failed" | "stopped" | "cancelled";
+
+export const workflowExecutionStatusValues = ["idle", "running", "completed", "failed", "stopped", "cancelled"] as const satisfies readonly WorkflowExecutionStatus[];
+
+export function decodeWorkflowExecutionStatus(value: unknown, label = "WorkflowExecutionStatus"): WorkflowExecutionStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "idle":
+      return decoded;
+    case "running":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "stopped":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowTerminalReason = "end_reached" | "limit_reached" | "action_failed" | "action_cancelled" | "execution_cancelled" | "interrupted" | "routing_failed";
+
+export const workflowTerminalReasonValues = ["end_reached", "limit_reached", "action_failed", "action_cancelled", "execution_cancelled", "interrupted", "routing_failed"] as const satisfies readonly WorkflowTerminalReason[];
+
+export function decodeWorkflowTerminalReason(value: unknown, label = "WorkflowTerminalReason"): WorkflowTerminalReason {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "end_reached":
+      return decoded;
+    case "limit_reached":
+      return decoded;
+    case "action_failed":
+      return decoded;
+    case "action_cancelled":
+      return decoded;
+    case "execution_cancelled":
+      return decoded;
+    case "interrupted":
+      return decoded;
+    case "routing_failed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunnerRecoveryOutcome = "recovered_running" | "recovered_completed" | "recovered_failed" | "retry_scheduled" | "manual_recovery_required" | "failed_interrupted";
+
+export const runnerRecoveryOutcomeValues = ["recovered_running", "recovered_completed", "recovered_failed", "retry_scheduled", "manual_recovery_required", "failed_interrupted"] as const satisfies readonly RunnerRecoveryOutcome[];
+
+export function decodeRunnerRecoveryOutcome(value: unknown, label = "RunnerRecoveryOutcome"): RunnerRecoveryOutcome {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "recovered_running":
+      return decoded;
+    case "recovered_completed":
+      return decoded;
+    case "recovered_failed":
+      return decoded;
+    case "retry_scheduled":
+      return decoded;
+    case "manual_recovery_required":
+      return decoded;
+    case "failed_interrupted":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -4301,6 +4301,60 @@ export interface SubmitApprovalRequest {
   cancelled: boolean;
 }
 
+export interface WorkflowSchemaValueSet {
+  name: string;
+  values: string[];
+}
+
+export interface RunnerRequirements {
+  network: RunnerRequirementNetwork;
+  sidecarProcess: RunnerRequirementSidecarProcess;
+  workspaceAccess: RunnerRequirementWorkspaceAccess;
+}
+
+export interface SideEffectPolicy {
+  kind: SideEffectPolicyKind;
+  scope: SideEffectScope;
+  approvalTriggers: ApprovalTrigger[];
+  idempotencyRequired: boolean;
+  compensationActionRef: string | null;
+  manualRecoveryInstructions: string;
+}
+
+export interface RunnerPolicyExtensionDescriptor {
+  extensionKind: string;
+  extensionVersion: number;
+}
+
+export interface RunnerCapabilities {
+  schemaVersion: number;
+  runnerKind: WorkflowActionKind;
+  displayName: string;
+  operations: RunnerOperation[];
+  emittedEvents: RunnerEventType[];
+  outputModes: RunnerOutputMode[];
+  approvalKinds: RunnerApprovalKind[];
+  requirements: RunnerRequirements;
+  sideEffectPolicy: SideEffectPolicy;
+  recovery: RunnerRecoveryCapability;
+  policyExtension: RunnerPolicyExtensionDescriptor;
+}
+
+export interface WorkflowActionSchema {
+  kind: WorkflowActionKind;
+  configType: string;
+  capabilities: RunnerCapabilities;
+}
+
+export interface WorkflowSchema {
+  schemaVersion: number;
+  graphType: string;
+  graphSchema: unknown;
+  valueSets: WorkflowSchemaValueSet[];
+  actions: WorkflowActionSchema[];
+  permissionPresets: ChatPermissionPreset[];
+}
+
 export interface ListWorkflowDefinitionsRequest {
   workspaceId: string;
 }
@@ -4459,15 +4513,6 @@ export interface StartWorkflowExecutionRequest {
   versionId: string;
 }
 
-export interface SideEffectPolicy {
-  kind: SideEffectPolicyKind;
-  scope: SideEffectScope;
-  approvalTriggers: ApprovalTrigger[];
-  idempotencyRequired: boolean;
-  compensationActionRef: string | null;
-  manualRecoveryInstructions: string;
-}
-
 export interface WorkflowActionPolicy {
   schemaVersion: number;
   runnerKind: WorkflowActionKind;
@@ -4477,31 +4522,6 @@ export interface WorkflowActionPolicy {
   extensionKind: string;
   extensionVersion: number;
   extensionJson: unknown;
-}
-
-export interface RunnerRequirements {
-  network: RunnerRequirementNetwork;
-  sidecarProcess: RunnerRequirementSidecarProcess;
-  workspaceAccess: RunnerRequirementWorkspaceAccess;
-}
-
-export interface RunnerPolicyExtensionDescriptor {
-  extensionKind: string;
-  extensionVersion: number;
-}
-
-export interface RunnerCapabilities {
-  schemaVersion: number;
-  runnerKind: WorkflowActionKind;
-  displayName: string;
-  operations: RunnerOperation[];
-  emittedEvents: RunnerEventType[];
-  outputModes: RunnerOutputMode[];
-  approvalKinds: RunnerApprovalKind[];
-  requirements: RunnerRequirements;
-  sideEffectPolicy: SideEffectPolicy;
-  recovery: RunnerRecoveryCapability;
-  policyExtension: RunnerPolicyExtensionDescriptor;
 }
 
 export interface WorkflowAgentEffectiveRunSettings {
@@ -6881,6 +6901,10 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/approvals/submit",
     requestBodyLimitBytes: 4194304,
+  },
+  ReadWorkflowSchema: {
+    method: "GET",
+    path: "/workflows/schema",
   },
   ListWorkflowDefinitions: {
     method: "POST",
@@ -9660,6 +9684,88 @@ export function decodeSubmitApprovalRequest(value: unknown): SubmitApprovalReque
   };
 }
 
+export function decodeWorkflowSchemaValueSet(value: unknown): WorkflowSchemaValueSet {
+  const record = assertRecord(value, "WorkflowSchemaValueSet");
+  assertKnownFields(record, "WorkflowSchemaValueSet", ["name", "values"]);
+  return {
+    name: decodeString(requireField(record, "name", "WorkflowSchemaValueSet"), "WorkflowSchemaValueSet.name"),
+    values: decodeArray(requireField(record, "values", "WorkflowSchemaValueSet"), "WorkflowSchemaValueSet.values", (item) => decodeString(item, "WorkflowSchemaValueSet.values item")),
+  };
+}
+
+export function decodeRunnerRequirements(value: unknown): RunnerRequirements {
+  const record = assertRecord(value, "RunnerRequirements");
+  assertKnownFields(record, "RunnerRequirements", ["network", "sidecarProcess", "workspaceAccess"]);
+  return {
+    network: decodeRunnerRequirementNetwork(requireField(record, "network", "RunnerRequirements"), "RunnerRequirements.network"),
+    sidecarProcess: decodeRunnerRequirementSidecarProcess(requireField(record, "sidecarProcess", "RunnerRequirements"), "RunnerRequirements.sidecarProcess"),
+    workspaceAccess: decodeRunnerRequirementWorkspaceAccess(requireField(record, "workspaceAccess", "RunnerRequirements"), "RunnerRequirements.workspaceAccess"),
+  };
+}
+
+export function decodeSideEffectPolicy(value: unknown): SideEffectPolicy {
+  const record = assertRecord(value, "SideEffectPolicy");
+  assertKnownFields(record, "SideEffectPolicy", ["kind", "scope", "approvalTriggers", "idempotencyRequired", "compensationActionRef", "manualRecoveryInstructions"]);
+  return {
+    kind: decodeSideEffectPolicyKind(requireField(record, "kind", "SideEffectPolicy"), "SideEffectPolicy.kind"),
+    scope: decodeSideEffectScope(requireField(record, "scope", "SideEffectPolicy"), "SideEffectPolicy.scope"),
+    approvalTriggers: decodeArray(requireField(record, "approvalTriggers", "SideEffectPolicy"), "SideEffectPolicy.approvalTriggers", (item) => decodeApprovalTrigger(item, "SideEffectPolicy.approvalTriggers item")),
+    idempotencyRequired: decodeBoolean(requireField(record, "idempotencyRequired", "SideEffectPolicy"), "SideEffectPolicy.idempotencyRequired"),
+    compensationActionRef: decodeNullable(requireField(record, "compensationActionRef", "SideEffectPolicy"), "SideEffectPolicy.compensationActionRef", (item) => decodeString(item, "SideEffectPolicy.compensationActionRef")),
+    manualRecoveryInstructions: decodeString(requireField(record, "manualRecoveryInstructions", "SideEffectPolicy"), "SideEffectPolicy.manualRecoveryInstructions"),
+  };
+}
+
+export function decodeRunnerPolicyExtensionDescriptor(value: unknown): RunnerPolicyExtensionDescriptor {
+  const record = assertRecord(value, "RunnerPolicyExtensionDescriptor");
+  assertKnownFields(record, "RunnerPolicyExtensionDescriptor", ["extensionKind", "extensionVersion"]);
+  return {
+    extensionKind: decodeString(requireField(record, "extensionKind", "RunnerPolicyExtensionDescriptor"), "RunnerPolicyExtensionDescriptor.extensionKind"),
+    extensionVersion: decodeInteger(requireField(record, "extensionVersion", "RunnerPolicyExtensionDescriptor"), "RunnerPolicyExtensionDescriptor.extensionVersion"),
+  };
+}
+
+export function decodeRunnerCapabilities(value: unknown): RunnerCapabilities {
+  const record = assertRecord(value, "RunnerCapabilities");
+  assertKnownFields(record, "RunnerCapabilities", ["schemaVersion", "runnerKind", "displayName", "operations", "emittedEvents", "outputModes", "approvalKinds", "requirements", "sideEffectPolicy", "recovery", "policyExtension"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunnerCapabilities"), "RunnerCapabilities.schemaVersion"),
+    runnerKind: decodeWorkflowActionKind(requireField(record, "runnerKind", "RunnerCapabilities"), "RunnerCapabilities.runnerKind"),
+    displayName: decodeString(requireField(record, "displayName", "RunnerCapabilities"), "RunnerCapabilities.displayName"),
+    operations: decodeArray(requireField(record, "operations", "RunnerCapabilities"), "RunnerCapabilities.operations", (item) => decodeRunnerOperation(item, "RunnerCapabilities.operations item")),
+    emittedEvents: decodeArray(requireField(record, "emittedEvents", "RunnerCapabilities"), "RunnerCapabilities.emittedEvents", (item) => decodeRunnerEventType(item, "RunnerCapabilities.emittedEvents item")),
+    outputModes: decodeArray(requireField(record, "outputModes", "RunnerCapabilities"), "RunnerCapabilities.outputModes", (item) => decodeRunnerOutputMode(item, "RunnerCapabilities.outputModes item")),
+    approvalKinds: decodeArray(requireField(record, "approvalKinds", "RunnerCapabilities"), "RunnerCapabilities.approvalKinds", (item) => decodeRunnerApprovalKind(item, "RunnerCapabilities.approvalKinds item")),
+    requirements: decodeRunnerRequirements(requireField(record, "requirements", "RunnerCapabilities")),
+    sideEffectPolicy: decodeSideEffectPolicy(requireField(record, "sideEffectPolicy", "RunnerCapabilities")),
+    recovery: decodeRunnerRecoveryCapability(requireField(record, "recovery", "RunnerCapabilities"), "RunnerCapabilities.recovery"),
+    policyExtension: decodeRunnerPolicyExtensionDescriptor(requireField(record, "policyExtension", "RunnerCapabilities")),
+  };
+}
+
+export function decodeWorkflowActionSchema(value: unknown): WorkflowActionSchema {
+  const record = assertRecord(value, "WorkflowActionSchema");
+  assertKnownFields(record, "WorkflowActionSchema", ["kind", "configType", "capabilities"]);
+  return {
+    kind: decodeWorkflowActionKind(requireField(record, "kind", "WorkflowActionSchema"), "WorkflowActionSchema.kind"),
+    configType: decodeString(requireField(record, "configType", "WorkflowActionSchema"), "WorkflowActionSchema.configType"),
+    capabilities: decodeRunnerCapabilities(requireField(record, "capabilities", "WorkflowActionSchema")),
+  };
+}
+
+export function decodeWorkflowSchema(value: unknown): WorkflowSchema {
+  const record = assertRecord(value, "WorkflowSchema");
+  assertKnownFields(record, "WorkflowSchema", ["schemaVersion", "graphType", "graphSchema", "valueSets", "actions", "permissionPresets"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowSchema"), "WorkflowSchema.schemaVersion"),
+    graphType: decodeString(requireField(record, "graphType", "WorkflowSchema"), "WorkflowSchema.graphType"),
+    graphSchema: decodeUnknown(requireField(record, "graphSchema", "WorkflowSchema"), "WorkflowSchema.graphSchema"),
+    valueSets: decodeArray(requireField(record, "valueSets", "WorkflowSchema"), "WorkflowSchema.valueSets", (item) => decodeWorkflowSchemaValueSet(item)),
+    actions: decodeArray(requireField(record, "actions", "WorkflowSchema"), "WorkflowSchema.actions", (item) => decodeWorkflowActionSchema(item)),
+    permissionPresets: decodeArray(requireField(record, "permissionPresets", "WorkflowSchema"), "WorkflowSchema.permissionPresets", (item) => decodeChatPermissionPreset(item)),
+  };
+}
+
 export function decodeListWorkflowDefinitionsRequest(value: unknown): ListWorkflowDefinitionsRequest {
   const record = assertRecord(value, "ListWorkflowDefinitionsRequest");
   assertKnownFields(record, "ListWorkflowDefinitionsRequest", ["workspaceId"]);
@@ -9918,19 +10024,6 @@ export function decodeStartWorkflowExecutionRequest(value: unknown): StartWorkfl
   };
 }
 
-export function decodeSideEffectPolicy(value: unknown): SideEffectPolicy {
-  const record = assertRecord(value, "SideEffectPolicy");
-  assertKnownFields(record, "SideEffectPolicy", ["kind", "scope", "approvalTriggers", "idempotencyRequired", "compensationActionRef", "manualRecoveryInstructions"]);
-  return {
-    kind: decodeSideEffectPolicyKind(requireField(record, "kind", "SideEffectPolicy"), "SideEffectPolicy.kind"),
-    scope: decodeSideEffectScope(requireField(record, "scope", "SideEffectPolicy"), "SideEffectPolicy.scope"),
-    approvalTriggers: decodeArray(requireField(record, "approvalTriggers", "SideEffectPolicy"), "SideEffectPolicy.approvalTriggers", (item) => decodeApprovalTrigger(item, "SideEffectPolicy.approvalTriggers item")),
-    idempotencyRequired: decodeBoolean(requireField(record, "idempotencyRequired", "SideEffectPolicy"), "SideEffectPolicy.idempotencyRequired"),
-    compensationActionRef: decodeNullable(requireField(record, "compensationActionRef", "SideEffectPolicy"), "SideEffectPolicy.compensationActionRef", (item) => decodeString(item, "SideEffectPolicy.compensationActionRef")),
-    manualRecoveryInstructions: decodeString(requireField(record, "manualRecoveryInstructions", "SideEffectPolicy"), "SideEffectPolicy.manualRecoveryInstructions"),
-  };
-}
-
 export function decodeWorkflowActionPolicy(value: unknown): WorkflowActionPolicy {
   const record = assertRecord(value, "WorkflowActionPolicy");
   assertKnownFields(record, "WorkflowActionPolicy", ["schemaVersion", "runnerKind", "sideEffectPolicy", "inputSchema", "outputSchema", "extensionKind", "extensionVersion", "extensionJson"]);
@@ -9943,43 +10036,6 @@ export function decodeWorkflowActionPolicy(value: unknown): WorkflowActionPolicy
     extensionKind: decodeString(requireField(record, "extensionKind", "WorkflowActionPolicy"), "WorkflowActionPolicy.extensionKind"),
     extensionVersion: decodeInteger(requireField(record, "extensionVersion", "WorkflowActionPolicy"), "WorkflowActionPolicy.extensionVersion"),
     extensionJson: decodeUnknown(requireField(record, "extensionJson", "WorkflowActionPolicy"), "WorkflowActionPolicy.extensionJson"),
-  };
-}
-
-export function decodeRunnerRequirements(value: unknown): RunnerRequirements {
-  const record = assertRecord(value, "RunnerRequirements");
-  assertKnownFields(record, "RunnerRequirements", ["network", "sidecarProcess", "workspaceAccess"]);
-  return {
-    network: decodeRunnerRequirementNetwork(requireField(record, "network", "RunnerRequirements"), "RunnerRequirements.network"),
-    sidecarProcess: decodeRunnerRequirementSidecarProcess(requireField(record, "sidecarProcess", "RunnerRequirements"), "RunnerRequirements.sidecarProcess"),
-    workspaceAccess: decodeRunnerRequirementWorkspaceAccess(requireField(record, "workspaceAccess", "RunnerRequirements"), "RunnerRequirements.workspaceAccess"),
-  };
-}
-
-export function decodeRunnerPolicyExtensionDescriptor(value: unknown): RunnerPolicyExtensionDescriptor {
-  const record = assertRecord(value, "RunnerPolicyExtensionDescriptor");
-  assertKnownFields(record, "RunnerPolicyExtensionDescriptor", ["extensionKind", "extensionVersion"]);
-  return {
-    extensionKind: decodeString(requireField(record, "extensionKind", "RunnerPolicyExtensionDescriptor"), "RunnerPolicyExtensionDescriptor.extensionKind"),
-    extensionVersion: decodeInteger(requireField(record, "extensionVersion", "RunnerPolicyExtensionDescriptor"), "RunnerPolicyExtensionDescriptor.extensionVersion"),
-  };
-}
-
-export function decodeRunnerCapabilities(value: unknown): RunnerCapabilities {
-  const record = assertRecord(value, "RunnerCapabilities");
-  assertKnownFields(record, "RunnerCapabilities", ["schemaVersion", "runnerKind", "displayName", "operations", "emittedEvents", "outputModes", "approvalKinds", "requirements", "sideEffectPolicy", "recovery", "policyExtension"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunnerCapabilities"), "RunnerCapabilities.schemaVersion"),
-    runnerKind: decodeWorkflowActionKind(requireField(record, "runnerKind", "RunnerCapabilities"), "RunnerCapabilities.runnerKind"),
-    displayName: decodeString(requireField(record, "displayName", "RunnerCapabilities"), "RunnerCapabilities.displayName"),
-    operations: decodeArray(requireField(record, "operations", "RunnerCapabilities"), "RunnerCapabilities.operations", (item) => decodeRunnerOperation(item, "RunnerCapabilities.operations item")),
-    emittedEvents: decodeArray(requireField(record, "emittedEvents", "RunnerCapabilities"), "RunnerCapabilities.emittedEvents", (item) => decodeRunnerEventType(item, "RunnerCapabilities.emittedEvents item")),
-    outputModes: decodeArray(requireField(record, "outputModes", "RunnerCapabilities"), "RunnerCapabilities.outputModes", (item) => decodeRunnerOutputMode(item, "RunnerCapabilities.outputModes item")),
-    approvalKinds: decodeArray(requireField(record, "approvalKinds", "RunnerCapabilities"), "RunnerCapabilities.approvalKinds", (item) => decodeRunnerApprovalKind(item, "RunnerCapabilities.approvalKinds item")),
-    requirements: decodeRunnerRequirements(requireField(record, "requirements", "RunnerCapabilities")),
-    sideEffectPolicy: decodeSideEffectPolicy(requireField(record, "sideEffectPolicy", "RunnerCapabilities")),
-    recovery: decodeRunnerRecoveryCapability(requireField(record, "recovery", "RunnerCapabilities"), "RunnerCapabilities.recovery"),
-    policyExtension: decodeRunnerPolicyExtensionDescriptor(requireField(record, "policyExtension", "RunnerCapabilities")),
   };
 }
 
@@ -12894,6 +12950,7 @@ export interface BackendClient {
   killAllBackgroundTerminals: (request: KillAllBackgroundTerminalsRequest) => Promise<BackgroundTerminalListProjection>;
   listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
+  readWorkflowSchema: () => Promise<WorkflowSchema>;
   listWorkflowDefinitions: (request: ListWorkflowDefinitionsRequest) => Promise<ListWorkflowDefinitionsResponse>;
   createWorkflowDefinition: (request: CreateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
   readWorkflowDefinition: (request: ReadWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
@@ -13449,6 +13506,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       endpoint: backendEndpoints.SubmitApproval,
       fetchImpl,
       requestPayload: request,
+    }),
+    readWorkflowSchema: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowSchema,
+      endpoint: backendEndpoints.ReadWorkflowSchema,
+      fetchImpl,
+      requestPayload: undefined,
     }),
     listWorkflowDefinitions: (request) => requestBackend({
       baseURL,

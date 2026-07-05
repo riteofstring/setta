@@ -17,6 +17,27 @@ import (
 	"setta/internal/workspacesession"
 )
 
+func TestWorkflowSchemaEndpointReturnsGeneratedSchema(t *testing.T) {
+	handler := newChatHandler(t, nil)
+
+	schema := getJSON[orchestrator.WorkflowSchema](t, handler, "/workflows/schema", http.StatusOK)
+	if schema.SchemaVersion != orchestrator.SchemaVersion {
+		t.Fatalf("schema version = %d, want %d", schema.SchemaVersion, orchestrator.SchemaVersion)
+	}
+	if schema.GraphType != "WorkflowGraph" {
+		t.Fatalf("graph type = %q, want WorkflowGraph", schema.GraphType)
+	}
+	if len(schema.GraphSchema) == 0 {
+		t.Fatal("graph schema was empty")
+	}
+	if !httpWorkflowSchemaValueSetContains(schema.ValueSets, "WorkflowActionKind", string(orchestrator.ActionKindAgentCodex)) {
+		t.Fatalf("value sets = %+v, want WorkflowActionKind containing %s", schema.ValueSets, orchestrator.ActionKindAgentCodex)
+	}
+	if len(schema.Actions) != 1 || schema.Actions[0].Kind != orchestrator.ActionKindAgentCodex {
+		t.Fatalf("actions = %+v, want agent.codex action schema", schema.Actions)
+	}
+}
+
 func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	workspaceRoot := t.TempDir()
@@ -776,6 +797,20 @@ func projectedHTTPNode(t *testing.T, projection *orchestrator.WorkflowGraphProje
 	}
 	t.Fatalf("projected node %s was not found in %+v", nodeID, projection.Nodes)
 	return orchestrator.WorkflowGraphNode{}
+}
+
+func httpWorkflowSchemaValueSetContains(sets []orchestrator.WorkflowSchemaValueSet, name string, value string) bool {
+	for _, set := range sets {
+		if set.Name != name {
+			continue
+		}
+		for _, candidate := range set.Values {
+			if candidate == value {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func readServerSentWorkflowEvent(t *testing.T, reader *bufio.Reader) orchestrator.WorkflowEvent {

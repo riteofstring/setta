@@ -197,6 +197,27 @@ sets.
 
 Keep workflow-authoring dynamic tools and MCP out of the target architecture.
 
+Progress on 2026-07-06:
+
+- Added the authenticated backend `ReadWorkflowSchema` contract at
+  `GET /workflows/schema`.
+- The response is owned by the orchestrator and generated from Go workflow
+  graph contracts, registered value sets, runner descriptors/capabilities, and
+  built-in Codex permission presets. It returns the graph JSON schema, value
+  sets, action schemas, and permission presets without hardcoded TypeScript or
+  prompt-only mirrors.
+- Regenerated the backend TypeScript contract surface and HTTP contract
+  snapshot; backend protocol version is now `8`.
+- Verification: `./scripts/go.sh test ./internal/orchestrator ./internal/httpapi`,
+  `pnpm -C desktop build`, and
+  `node desktop/tests/electron/run-workflows.mjs --workflow workflow-graph-smoke`
+  passed.
+- Remaining Phase 1 work: define the remaining CLI-facing request/response
+  shapes, especially the explicit create/update save input and structured error
+  handling for CLI commands. Phase 2 should then implement `setta workflow
+  schema` against this endpoint before broadening to list/read/validate/save
+  and execution commands.
+
 ### Phase 2: Build The Workflow CLI
 
 Implement the `setta workflow` command group.

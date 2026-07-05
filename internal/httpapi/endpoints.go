@@ -108,6 +108,7 @@ var apiEndpoints = []endpoint{
 	post[KillAllBackgroundTerminalsRequest, chat.BackgroundTerminalListProjection]("KillAllBackgroundTerminals", "/chat/background-terminals/kill-all", handler.killAllBackgroundTerminals),
 	post[ListDiagnosticsRequest, ListDiagnosticsResponse]("ListDiagnostics", "/chat/diagnostics/list", handler.listDiagnostics),
 	post[SubmitApprovalRequest, chat.Run]("SubmitApproval", "/chat/approvals/submit", handler.submitApproval),
+	get[orchestrator.WorkflowSchema]("ReadWorkflowSchema", "/workflows/schema", handler.readWorkflowSchema),
 	post[ListWorkflowDefinitionsRequest, ListWorkflowDefinitionsResponse]("ListWorkflowDefinitions", "/workflows/definitions/list", handler.listWorkflowDefinitions),
 	post[CreateWorkflowDefinitionRequest, orchestrator.WorkflowDefinition]("CreateWorkflowDefinition", "/workflows/definitions/create", handler.createWorkflowDefinition),
 	post[ReadWorkflowDefinitionRequest, orchestrator.WorkflowDefinition]("ReadWorkflowDefinition", "/workflows/definitions/read", handler.readWorkflowDefinition),
