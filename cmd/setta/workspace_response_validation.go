@@ -76,6 +76,65 @@ func validateWorkspacePaneReadResponse(response workspaceui.WorkspaceUIPaneReadR
 	return validateWorkspacePaneDescriptor(response.Pane)
 }
 
+func validateWorkspacePaneOperationResponse(response workspaceui.WorkspaceUIPaneOperationResult, workspaceID string, operation workspaceui.WorkspaceUIPaneOperation) error {
+	if err := validateWorkspacePaneOperationEnvelope(response, workspaceID); err != nil {
+		return err
+	}
+	if err := validateWorkspacePaneOperationOutcome(response, operation); err != nil {
+		return err
+	}
+	if response.BeforeAfterDimensions == nil {
+		return errors.New("workspace pane operation returned missing beforeAfterDimensions array")
+	}
+	if response.Warnings == nil {
+		return errors.New("workspace pane operation returned missing warnings array")
+	}
+	return nil
+}
+
+func validateWorkspacePaneOperationEnvelope(response workspaceui.WorkspaceUIPaneOperationResult, workspaceID string) error {
+	if response.WorkspaceID != workspaceID {
+		return fmt.Errorf("workspace pane operation returned workspaceId %s, want %s", response.WorkspaceID, workspaceID)
+	}
+	if response.Revision <= 0 {
+		return fmt.Errorf("workspace pane operation returned invalid revision %d", response.Revision)
+	}
+	if response.Layout.WorkspaceID != workspaceID {
+		return fmt.Errorf("workspace pane operation returned layout workspaceId %s, want %s", response.Layout.WorkspaceID, workspaceID)
+	}
+	if response.Layout.SchemaVersion != workspaceui.SchemaVersion {
+		return fmt.Errorf("workspace pane operation returned layout schemaVersion %d, want %d", response.Layout.SchemaVersion, workspaceui.SchemaVersion)
+	}
+	if response.Layout.Revision != response.Revision {
+		return fmt.Errorf("workspace pane operation returned layout revision %d, want %d", response.Layout.Revision, response.Revision)
+	}
+	if response.Layout.Columns == nil {
+		return errors.New("workspace pane operation returned missing layout columns array")
+	}
+	if response.Layout.Panes == nil {
+		return errors.New("workspace pane operation returned missing layout panes array")
+	}
+	return nil
+}
+
+func validateWorkspacePaneOperationOutcome(response workspaceui.WorkspaceUIPaneOperationResult, operation workspaceui.WorkspaceUIPaneOperation) error {
+	if response.OperationResult.Kind != operation.Kind {
+		return fmt.Errorf("workspace pane operation outcome kind = %s, want %s", response.OperationResult.Kind, operation.Kind)
+	}
+	if operation.Kind != workspaceui.WorkspaceUIPaneOperationKindOpenPane &&
+		operation.Kind != workspaceui.WorkspaceUIPaneOperationKindResizeColumn &&
+		response.OperationResult.PaneID != operation.PaneID {
+		return fmt.Errorf("workspace pane operation outcome paneId = %s, want %s", response.OperationResult.PaneID, operation.PaneID)
+	}
+	if response.OperationResult.FocusedPaneID == "" {
+		return errors.New("workspace pane operation outcome focusedPaneId is required")
+	}
+	if !workspaceUILayoutHasPane(response.Layout, response.OperationResult.FocusedPaneID) {
+		return fmt.Errorf("workspace pane operation outcome focusedPaneId %s is not present in the returned layout", response.OperationResult.FocusedPaneID)
+	}
+	return nil
+}
+
 func validateWorkspacePaneDescriptor(pane workspaceui.WorkspaceUIPaneDescriptor) error {
 	if err := validateWorkspacePaneDescriptorIdentity(pane); err != nil {
 		return err
@@ -145,4 +204,13 @@ func validWorkspaceSurfaceKind(kind workspaceui.SurfaceKind) bool {
 	default:
 		return false
 	}
+}
+
+func workspaceUILayoutHasPane(layout workspaceui.WorkspaceUILayout, paneID string) bool {
+	for _, pane := range layout.Panes {
+		if pane.PaneID == paneID {
+			return true
+		}
+	}
+	return false
 }

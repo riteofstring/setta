@@ -42,6 +42,66 @@ func TestWorkspaceReadOnlyCommandsIntegration(t *testing.T) {
 	}
 }
 
+func TestWorkspacePaneLayoutWriteCommandsIntegration(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+
+	focus := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "focus", "workspace_pane_0")
+	assertWorkspacePaneFocusCLIResult(t, focus)
+
+	rename := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "rename", "--title", "Shell", "workspace_pane_1")
+	assertWorkspacePaneRenameCLIResult(t, rename)
+
+	move := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "move", "--direction", "left", "workspace_pane_1")
+	assertWorkspacePaneMoveCLIResult(t, move)
+
+	closeResult := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneOperationResult](t, fixture, "panes", "close", "--surface-close", "none", "workspace_pane_1")
+	assertWorkspacePaneCloseCLIResult(t, closeResult)
+
+	list := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneListResult](t, fixture, "panes", "list")
+	assertWorkspacePaneListAfterWriteCLITest(t, list)
+}
+
+func assertWorkspacePaneFocusCLIResult(t *testing.T, result workspaceui.WorkspaceUIPaneOperationResult) {
+	t.Helper()
+	if !result.Changed || result.Revision != 2 || result.Layout.FocusedPaneID != "workspace_pane_0" {
+		t.Fatalf("focus result = %+v, want changed revision 2 focused chat pane", result)
+	}
+	if result.OperationResult.Kind != workspaceui.WorkspaceUIPaneOperationKindFocusPane || result.OperationResult.PaneID != "workspace_pane_0" {
+		t.Fatalf("focus outcome = %+v, want focus_pane for workspace_pane_0", result.OperationResult)
+	}
+}
+
+func assertWorkspacePaneRenameCLIResult(t *testing.T, result workspaceui.WorkspaceUIPaneOperationResult) {
+	t.Helper()
+	if !result.Changed || result.Revision != 3 || result.OperationResult.Rename == nil || result.OperationResult.Rename.Title != "Shell" {
+		t.Fatalf("rename result = %+v, want changed revision 3 title Shell", result)
+	}
+}
+
+func assertWorkspacePaneMoveCLIResult(t *testing.T, result workspaceui.WorkspaceUIPaneOperationResult) {
+	t.Helper()
+	if !result.Changed || result.Revision != 4 || result.OperationResult.Move == nil || result.OperationResult.Move.Direction != workspaceui.WorkspaceUIPaneMoveDirectionLeft {
+		t.Fatalf("move result = %+v, want changed revision 4 left move", result)
+	}
+}
+
+func assertWorkspacePaneCloseCLIResult(t *testing.T, closeResult workspaceui.WorkspaceUIPaneOperationResult) {
+	t.Helper()
+	if !closeResult.Changed || closeResult.Revision != 5 || closeResult.OperationResult.Close == nil {
+		t.Fatalf("close result = %+v, want changed revision 5 close outcome", closeResult)
+	}
+	if closeResult.OperationResult.Close.SurfaceClose != workspaceui.WorkspaceUISurfaceCloseModeNone {
+		t.Fatalf("close surface mode = %s, want none", closeResult.OperationResult.Close.SurfaceClose)
+	}
+}
+
+func assertWorkspacePaneListAfterWriteCLITest(t *testing.T, list workspaceui.WorkspaceUIPaneListResult) {
+	t.Helper()
+	if len(list.Panes) != 1 || list.Panes[0].PaneID != "workspace_pane_0" || !list.Panes[0].Focused {
+		t.Fatalf("pane list after writes = %+v, want only focused workspace_pane_0", list)
+	}
+}
+
 func TestWorkspacePanesReadCommandFailsForMissingPane(t *testing.T) {
 	fixture := newWorkspaceCLITestFixture(t)
 	var stdout bytes.Buffer
@@ -59,6 +119,50 @@ func TestWorkspacePanesReadCommandFailsForMissingPane(t *testing.T) {
 	errResponse := decodeCLIError(t, stderr.String())
 	if errResponse.Error.Code != "read_workspace_ui_pane_failed" {
 		t.Fatalf("error code = %q, want read_workspace_ui_pane_failed", errResponse.Error.Code)
+	}
+}
+
+func TestWorkspacePanesCloseCommandFailsForUnsupportedSurfaceClose(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "panes", "close", "--surface-close", "safe", "workspace_pane_1"), commandDeps); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != string(workspaceui.WorkspaceUIOperationErrorCodeUnsupportedSurfaceClose) {
+		t.Fatalf("error code = %q, want unsupported_surface_close", errResponse.Error.Code)
+	}
+	list := runWorkspaceCommandJSON[workspaceui.WorkspaceUIPaneListResult](t, fixture, "panes", "list")
+	if len(list.Panes) != 2 {
+		t.Fatalf("pane list after failed safe close = %+v, want original two panes", list)
+	}
+}
+
+func TestWorkspacePanesMoveCommandRejectsInvalidDirection(t *testing.T) {
+	fixture := newWorkspaceCLITestFixture(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	commandDeps := fixture.deps
+	commandDeps.stdout = &stdout
+	commandDeps.stderr = &stderr
+
+	if code := runWithDeps(workspaceCommandArgs(fixture, "panes", "move", "--direction", "sideways", "workspace_pane_1"), commandDeps); code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	errResponse := decodeCLIError(t, stderr.String())
+	if errResponse.Error.Code != "workspace_usage_error" {
+		t.Fatalf("error code = %q, want workspace_usage_error", errResponse.Error.Code)
 	}
 }
 
@@ -110,10 +214,11 @@ func runWorkspaceCommandJSON[T any](t *testing.T, fixture workspaceCLITestFixtur
 }
 
 func workspaceCommandArgs(fixture workspaceCLITestFixture, command ...string) []string {
-	args := []string{"workspace"}
-	if len(command) == 3 && command[0] == "panes" && command[1] == "read" {
-		return []string{"workspace", "panes", "read", "--app-data-dir", fixture.appDataDir, command[2]}
+	if len(command) >= 2 && command[0] == "panes" {
+		args := []string{"workspace", "panes", command[1], "--app-data-dir", fixture.appDataDir}
+		return append(args, command[2:]...)
 	}
+	args := []string{"workspace"}
 	args = append(args, command...)
 	args = append(args, "--app-data-dir", fixture.appDataDir)
 	return args

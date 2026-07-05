@@ -18,10 +18,14 @@ import (
 )
 
 const (
-	workspaceCurrentCLIAuthDisplayName   = "Setta CLI workspace current"
-	workspacePanesListCLIAuthDisplayName = "Setta CLI workspace panes list"
-	workspacePanesReadCLIAuthDisplayName = "Setta CLI workspace panes read"
-	workspaceSchemaCLIAuthDisplayName    = "Setta CLI workspace schema"
+	workspaceCurrentCLIAuthDisplayName     = "Setta CLI workspace current"
+	workspacePanesCloseCLIAuthDisplayName  = "Setta CLI workspace panes close"
+	workspacePanesFocusCLIAuthDisplayName  = "Setta CLI workspace panes focus"
+	workspacePanesListCLIAuthDisplayName   = "Setta CLI workspace panes list"
+	workspacePanesMoveCLIAuthDisplayName   = "Setta CLI workspace panes move"
+	workspacePanesReadCLIAuthDisplayName   = "Setta CLI workspace panes read"
+	workspacePanesRenameCLIAuthDisplayName = "Setta CLI workspace panes rename"
+	workspaceSchemaCLIAuthDisplayName      = "Setta CLI workspace schema"
 )
 
 type workspaceOptions struct {
@@ -31,6 +35,29 @@ type workspaceOptions struct {
 type workspacePaneReadOptions struct {
 	AppDataDir string
 	PaneID     string
+}
+
+type workspacePaneCloseOptions struct {
+	AppDataDir   string
+	PaneID       string
+	SurfaceClose workspaceui.WorkspaceUISurfaceCloseMode
+}
+
+type workspacePaneFocusOptions struct {
+	AppDataDir string
+	PaneID     string
+}
+
+type workspacePaneMoveOptions struct {
+	AppDataDir string
+	PaneID     string
+	Direction  workspaceui.WorkspaceUIPaneMoveDirection
+}
+
+type workspacePaneRenameOptions struct {
+	AppDataDir string
+	PaneID     string
+	Title      string
 }
 
 func runWorkspace(args []string, deps cliDeps) error {
@@ -79,16 +106,48 @@ func runWorkspaceSchema(args []string, deps cliDeps) error {
 
 func runWorkspacePanes(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workspace panes requires a subcommand: list or read")}
+		return usageError{err: errors.New("setta workspace panes requires a subcommand: close, focus, list, move, read, or rename")}
 	}
 	switch args[0] {
+	case "close":
+		return runWorkspacePanesClose(args[1:], deps)
+	case "focus":
+		return runWorkspacePanesFocus(args[1:], deps)
 	case "list":
 		return runWorkspacePanesList(args[1:], deps)
+	case "move":
+		return runWorkspacePanesMove(args[1:], deps)
 	case "read":
 		return runWorkspacePanesRead(args[1:], deps)
+	case "rename":
+		return runWorkspacePanesRename(args[1:], deps)
 	default:
 		return usageError{err: fmt.Errorf("unknown workspace panes subcommand %q", args[0])}
 	}
+}
+
+func runWorkspacePanesClose(args []string, deps cliDeps) error {
+	options, err := workspacePaneCloseOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	result, err := closeWorkspacePane(context.Background(), options.AppDataDir, options.PaneID, options.SurfaceClose, deps)
+	if err != nil {
+		return err
+	}
+	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace pane close result")
+}
+
+func runWorkspacePanesFocus(args []string, deps cliDeps) error {
+	options, err := workspacePaneFocusOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	result, err := focusWorkspacePane(context.Background(), options.AppDataDir, options.PaneID, deps)
+	if err != nil {
+		return err
+	}
+	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace pane focus result")
 }
 
 func runWorkspacePanesList(args []string, deps cliDeps) error {
@@ -103,6 +162,18 @@ func runWorkspacePanesList(args []string, deps cliDeps) error {
 	return encodeWorkspaceCommandOutput(deps.stdout, panes, "workspace panes list")
 }
 
+func runWorkspacePanesMove(args []string, deps cliDeps) error {
+	options, err := workspacePaneMoveOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	result, err := moveWorkspacePane(context.Background(), options.AppDataDir, options.PaneID, options.Direction, deps)
+	if err != nil {
+		return err
+	}
+	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace pane move result")
+}
+
 func runWorkspacePanesRead(args []string, deps cliDeps) error {
 	options, err := workspacePaneReadOptionsFromArgs(args, deps)
 	if err != nil {
@@ -113,6 +184,18 @@ func runWorkspacePanesRead(args []string, deps cliDeps) error {
 		return err
 	}
 	return encodeWorkspaceCommandOutput(deps.stdout, pane, "workspace pane")
+}
+
+func runWorkspacePanesRename(args []string, deps cliDeps) error {
+	options, err := workspacePaneRenameOptionsFromArgs(args, deps)
+	if err != nil {
+		return err
+	}
+	result, err := renameWorkspacePane(context.Background(), options.AppDataDir, options.PaneID, options.Title, deps)
+	if err != nil {
+		return err
+	}
+	return encodeWorkspaceCommandOutput(deps.stdout, result, "workspace pane rename result")
 }
 
 func workspaceOptionsFromArgs(name string, args []string, deps cliDeps) (workspaceOptions, error) {
@@ -132,6 +215,99 @@ func workspaceOptionsFromArgs(name string, args []string, deps cliDeps) (workspa
 		return workspaceOptions{}, usageError{err: fmt.Errorf("%s does not accept positional arguments", name)}
 	}
 	return workspaceOptions{AppDataDir: appDataDir}, nil
+}
+
+func workspacePaneIDOptionsFromArgs(name string, args []string, deps cliDeps) (workspacePaneFocusOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workspacePaneFocusOptions{}, err
+	}
+	flagSet := newWorkspaceFlagSet(name)
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workspacePaneFocusOptions{}, usageError{err: err}
+		}
+		return workspacePaneFocusOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 1 {
+		return workspacePaneFocusOptions{}, usageError{err: fmt.Errorf("%s requires exactly one pane id", name)}
+	}
+	paneID := strings.TrimSpace(flagSet.Arg(0))
+	if paneID == "" {
+		return workspacePaneFocusOptions{}, usageError{err: errors.New("workspace pane id is required")}
+	}
+	return workspacePaneFocusOptions{AppDataDir: appDataDir, PaneID: paneID}, nil
+}
+
+func workspacePaneCloseOptionsFromArgs(args []string, deps cliDeps) (workspacePaneCloseOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workspacePaneCloseOptions{}, err
+	}
+	surfaceClose := string(workspaceui.WorkspaceUISurfaceCloseModeNone)
+	flagSet := newWorkspaceFlagSet("setta workspace panes close")
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&surfaceClose, "surface-close", surfaceClose, "surface close mode: none, safe, or force")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workspacePaneCloseOptions{}, usageError{err: err}
+		}
+		return workspacePaneCloseOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 1 {
+		return workspacePaneCloseOptions{}, usageError{err: errors.New("setta workspace panes close requires exactly one pane id")}
+	}
+	paneID := strings.TrimSpace(flagSet.Arg(0))
+	if paneID == "" {
+		return workspacePaneCloseOptions{}, usageError{err: errors.New("workspace pane id is required")}
+	}
+	mode := workspaceui.WorkspaceUISurfaceCloseMode(strings.TrimSpace(surfaceClose))
+	if !validWorkspaceSurfaceCloseMode(mode) {
+		return workspacePaneCloseOptions{}, usageError{err: fmt.Errorf("workspace pane surface close mode is unsupported: %s", mode)}
+	}
+	return workspacePaneCloseOptions{
+		AppDataDir:   appDataDir,
+		PaneID:       paneID,
+		SurfaceClose: mode,
+	}, nil
+}
+
+func workspacePaneFocusOptionsFromArgs(args []string, deps cliDeps) (workspacePaneFocusOptions, error) {
+	return workspacePaneIDOptionsFromArgs("setta workspace panes focus", args, deps)
+}
+
+func workspacePaneMoveOptionsFromArgs(args []string, deps cliDeps) (workspacePaneMoveOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workspacePaneMoveOptions{}, err
+	}
+	var direction string
+	flagSet := newWorkspaceFlagSet("setta workspace panes move")
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&direction, "direction", "", "move direction: left, right, up, or down")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workspacePaneMoveOptions{}, usageError{err: err}
+		}
+		return workspacePaneMoveOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 1 {
+		return workspacePaneMoveOptions{}, usageError{err: errors.New("setta workspace panes move requires exactly one pane id")}
+	}
+	paneID := strings.TrimSpace(flagSet.Arg(0))
+	if paneID == "" {
+		return workspacePaneMoveOptions{}, usageError{err: errors.New("workspace pane id is required")}
+	}
+	moveDirection := workspaceui.WorkspaceUIPaneMoveDirection(strings.TrimSpace(direction))
+	if !validWorkspacePaneMoveDirection(moveDirection) {
+		return workspacePaneMoveOptions{}, usageError{err: fmt.Errorf("workspace pane move direction is unsupported: %s", moveDirection)}
+	}
+	return workspacePaneMoveOptions{
+		AppDataDir: appDataDir,
+		PaneID:     paneID,
+		Direction:  moveDirection,
+	}, nil
 }
 
 func workspacePaneReadOptionsFromArgs(args []string, deps cliDeps) (workspacePaneReadOptions, error) {
@@ -155,6 +331,109 @@ func workspacePaneReadOptionsFromArgs(args []string, deps cliDeps) (workspacePan
 		return workspacePaneReadOptions{}, usageError{err: errors.New("workspace pane id is required")}
 	}
 	return workspacePaneReadOptions{AppDataDir: appDataDir, PaneID: paneID}, nil
+}
+
+func workspacePaneRenameOptionsFromArgs(args []string, deps cliDeps) (workspacePaneRenameOptions, error) {
+	appDataDir, err := defaultAppDataDir(deps.getenv)
+	if err != nil {
+		return workspacePaneRenameOptions{}, err
+	}
+	var title string
+	flagSet := newWorkspaceFlagSet("setta workspace panes rename")
+	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	flagSet.StringVar(&title, "title", "", "new pane title")
+	if err := flagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return workspacePaneRenameOptions{}, usageError{err: err}
+		}
+		return workspacePaneRenameOptions{}, usageError{err: err}
+	}
+	if flagSet.NArg() != 1 {
+		return workspacePaneRenameOptions{}, usageError{err: errors.New("setta workspace panes rename requires exactly one pane id")}
+	}
+	paneID := strings.TrimSpace(flagSet.Arg(0))
+	if paneID == "" {
+		return workspacePaneRenameOptions{}, usageError{err: errors.New("workspace pane id is required")}
+	}
+	if title == "" {
+		return workspacePaneRenameOptions{}, usageError{err: errors.New("setta workspace panes rename requires --title")}
+	}
+	if strings.TrimSpace(title) != title {
+		return workspacePaneRenameOptions{}, usageError{err: errors.New("workspace pane title must not have surrounding whitespace")}
+	}
+	return workspacePaneRenameOptions{
+		AppDataDir: appDataDir,
+		PaneID:     paneID,
+		Title:      title,
+	}, nil
+}
+
+func closeWorkspacePane(ctx context.Context, appDataDir string, paneID string, surfaceClose workspaceui.WorkspaceUISurfaceCloseMode, deps cliDeps) (workspaceui.WorkspaceUIPaneOperationResult, error) {
+	return applyWorkspacePaneOperation(ctx, appDataDir, workspacePanesCloseCLIAuthDisplayName, "workspace panes close", workspaceui.WorkspaceUIPaneOperation{
+		Kind:   workspaceui.WorkspaceUIPaneOperationKindClosePane,
+		PaneID: paneID,
+		Close: &workspaceui.WorkspaceUIPaneCloseOperation{
+			SurfaceClose: surfaceClose,
+		},
+	}, deps)
+}
+
+func focusWorkspacePane(ctx context.Context, appDataDir string, paneID string, deps cliDeps) (workspaceui.WorkspaceUIPaneOperationResult, error) {
+	return applyWorkspacePaneOperation(ctx, appDataDir, workspacePanesFocusCLIAuthDisplayName, "workspace panes focus", workspaceui.WorkspaceUIPaneOperation{
+		Kind:   workspaceui.WorkspaceUIPaneOperationKindFocusPane,
+		PaneID: paneID,
+	}, deps)
+}
+
+func moveWorkspacePane(ctx context.Context, appDataDir string, paneID string, direction workspaceui.WorkspaceUIPaneMoveDirection, deps cliDeps) (workspaceui.WorkspaceUIPaneOperationResult, error) {
+	return applyWorkspacePaneOperation(ctx, appDataDir, workspacePanesMoveCLIAuthDisplayName, "workspace panes move", workspaceui.WorkspaceUIPaneOperation{
+		Kind:   workspaceui.WorkspaceUIPaneOperationKindMovePane,
+		PaneID: paneID,
+		Move: &workspaceui.WorkspaceUIPaneMoveOperation{
+			Direction: direction,
+		},
+	}, deps)
+}
+
+func renameWorkspacePane(ctx context.Context, appDataDir string, paneID string, title string, deps cliDeps) (workspaceui.WorkspaceUIPaneOperationResult, error) {
+	return applyWorkspacePaneOperation(ctx, appDataDir, workspacePanesRenameCLIAuthDisplayName, "workspace panes rename", workspaceui.WorkspaceUIPaneOperation{
+		Kind:   workspaceui.WorkspaceUIPaneOperationKindRenamePane,
+		PaneID: paneID,
+		Rename: &workspaceui.WorkspaceUIPaneRenameOperation{
+			Title: title,
+		},
+	}, deps)
+}
+
+func applyWorkspacePaneOperation(
+	ctx context.Context,
+	appDataDir string,
+	displayName string,
+	operationName string,
+	operation workspaceui.WorkspaceUIPaneOperation,
+	deps cliDeps,
+) (workspaceui.WorkspaceUIPaneOperationResult, error) {
+	state, token, cleanup, err := workspaceCommandAuth(ctx, appDataDir, displayName, deps)
+	if err != nil {
+		return workspaceui.WorkspaceUIPaneOperationResult{}, err
+	}
+	defer cleanup()
+
+	currentWorkspace, err := currentWorkspaceForWorkspaceCommand(ctx, deps.httpClient, state.BaseURL, token)
+	if err != nil {
+		return workspaceui.WorkspaceUIPaneOperationResult{}, err
+	}
+	result, err := postWorkspaceAPI[workspaceui.WorkspaceUIPaneOperationResult](ctx, deps.httpClient, state.BaseURL, token, operationName, "/workspaces/ui/panes/operation", httpapi.ApplyWorkspaceUIPaneOperationRequest{
+		WorkspaceID: currentWorkspace.ID,
+		Operation:   operation,
+	})
+	if err != nil {
+		return workspaceui.WorkspaceUIPaneOperationResult{}, err
+	}
+	if err := validateWorkspacePaneOperationResponse(result, currentWorkspace.ID, operation); err != nil {
+		return workspaceui.WorkspaceUIPaneOperationResult{}, err
+	}
+	return result, nil
 }
 
 func readWorkspaceCurrent(ctx context.Context, appDataDir string, deps cliDeps) (workspace.WorkspaceSummary, error) {
@@ -376,4 +655,27 @@ func encodeWorkspaceCommandOutput(output io.Writer, payload any, label string) e
 		return fmt.Errorf("encode %s: %w", label, err)
 	}
 	return nil
+}
+
+func validWorkspacePaneMoveDirection(direction workspaceui.WorkspaceUIPaneMoveDirection) bool {
+	switch direction {
+	case workspaceui.WorkspaceUIPaneMoveDirectionDown,
+		workspaceui.WorkspaceUIPaneMoveDirectionLeft,
+		workspaceui.WorkspaceUIPaneMoveDirectionRight,
+		workspaceui.WorkspaceUIPaneMoveDirectionUp:
+		return true
+	default:
+		return false
+	}
+}
+
+func validWorkspaceSurfaceCloseMode(mode workspaceui.WorkspaceUISurfaceCloseMode) bool {
+	switch mode {
+	case workspaceui.WorkspaceUISurfaceCloseModeForce,
+		workspaceui.WorkspaceUISurfaceCloseModeNone,
+		workspaceui.WorkspaceUISurfaceCloseModeSafe:
+		return true
+	default:
+		return false
+	}
 }
