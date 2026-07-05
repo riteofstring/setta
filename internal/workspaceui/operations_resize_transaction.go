@@ -14,31 +14,27 @@ type workspaceUIPaneOperationApplication struct {
 	warnings              []WorkspaceUIPaneOperationWarning
 }
 
-func (service *Service) applyPaneResizeOperations(workspaceID string, layout WorkspaceUILayout, operations []WorkspaceUIPaneOperation) (WorkspaceUIPaneResizeTransactionResult, error) {
-	if len(operations) == 0 {
-		return WorkspaceUIPaneResizeTransactionResult{}, resizeTransactionError(
+func (service *Service) ApplyLayoutOperations(workspaceID string, operations WorkspaceUILayoutOperations) (WorkspaceUILayoutOperationResult, error) {
+	if err := validatePaneResizeOperations(workspaceID, operations.Operations); err != nil {
+		return WorkspaceUILayoutOperationResult{}, err
+	}
+	read, err := service.ReadLayout(workspaceID)
+	if err != nil {
+		return WorkspaceUILayoutOperationResult{}, err
+	}
+	if read.Layout == nil {
+		return WorkspaceUILayoutOperationResult{}, resizeTransactionError(
 			workspaceID,
-			WorkspaceUIOperationErrorCodeInvalidOperation,
-			errors.New("workspace pane resize transaction requires at least one operation"),
+			WorkspaceUIOperationErrorCodeMissingLayout,
+			errors.New("workspace UI layout is required before applying layout operations"),
 		)
 	}
-	for _, operation := range operations {
-		if operation.Kind != WorkspaceUIPaneOperationKindResizePane {
-			return WorkspaceUIPaneResizeTransactionResult{}, operationError(
-				workspaceID,
-				operation,
-				WorkspaceUIOperationErrorCodeInvalidOperation,
-				fmt.Errorf("workspace pane resize transaction supports only resize_pane operations, got %s", operation.Kind),
-			)
-		}
-		if err := validatePaneOperation(operation); err != nil {
-			return WorkspaceUIPaneResizeTransactionResult{}, operationError(
-				workspaceID,
-				operation,
-				WorkspaceUIOperationErrorCodeInvalidOperation,
-				err,
-			)
-		}
+	return service.applyPaneResizeOperations(workspaceID, *read.Layout, operations.Operations)
+}
+
+func (service *Service) applyPaneResizeOperations(workspaceID string, layout WorkspaceUILayout, operations []WorkspaceUIPaneOperation) (WorkspaceUILayoutOperationResult, error) {
+	if err := validatePaneResizeOperations(workspaceID, operations); err != nil {
+		return WorkspaceUILayoutOperationResult{}, err
 	}
 	originalLayout := cloneWorkspaceUILayout(layout)
 	layout = cloneWorkspaceUILayout(layout)
@@ -50,7 +46,7 @@ func (service *Service) applyPaneResizeOperations(workspaceID string, layout Wor
 	for _, operation := range operations {
 		application, err := applyResizePaneOperationToLayout(layout, operation)
 		if err != nil {
-			return WorkspaceUIPaneResizeTransactionResult{}, err
+			return WorkspaceUILayoutOperationResult{}, err
 		}
 		layout = application.layout
 		operationResults = append(operationResults, application.operationResult)
@@ -61,7 +57,7 @@ func (service *Service) applyPaneResizeOperations(workspaceID string, layout Wor
 	changed := !reflect.DeepEqual(originalLayout, layout)
 	beforeAfterDimensions, err := dimensions.changes(layout)
 	if err != nil {
-		return WorkspaceUIPaneResizeTransactionResult{}, resizeTransactionError(
+		return WorkspaceUILayoutOperationResult{}, resizeTransactionError(
 			workspaceID,
 			WorkspaceUIOperationErrorCodePaneNotFound,
 			err,
@@ -71,12 +67,12 @@ func (service *Service) applyPaneResizeOperations(workspaceID string, layout Wor
 		layout.Revision += 1
 		saved, err := service.SaveLayout(layout)
 		if err != nil {
-			return WorkspaceUIPaneResizeTransactionResult{}, err
+			return WorkspaceUILayoutOperationResult{}, err
 		}
 		layout = saved
 	}
 
-	return WorkspaceUIPaneResizeTransactionResult{
+	return WorkspaceUILayoutOperationResult{
 		WorkspaceID:           layout.WorkspaceID,
 		Revision:              layout.Revision,
 		Layout:                layout,
@@ -87,7 +83,36 @@ func (service *Service) applyPaneResizeOperations(workspaceID string, layout Wor
 	}, nil
 }
 
-func paneOperationResultFromResizeTransaction(transaction WorkspaceUIPaneResizeTransactionResult) WorkspaceUIPaneOperationResult {
+func validatePaneResizeOperations(workspaceID string, operations []WorkspaceUIPaneOperation) error {
+	if len(operations) == 0 {
+		return resizeTransactionError(
+			workspaceID,
+			WorkspaceUIOperationErrorCodeInvalidOperation,
+			errors.New("workspace pane resize transaction requires at least one operation"),
+		)
+	}
+	for _, operation := range operations {
+		if operation.Kind != WorkspaceUIPaneOperationKindResizePane {
+			return operationError(
+				workspaceID,
+				operation,
+				WorkspaceUIOperationErrorCodeInvalidOperation,
+				fmt.Errorf("workspace pane resize transaction supports only resize_pane operations, got %s", operation.Kind),
+			)
+		}
+		if err := validatePaneOperation(operation); err != nil {
+			return operationError(
+				workspaceID,
+				operation,
+				WorkspaceUIOperationErrorCodeInvalidOperation,
+				err,
+			)
+		}
+	}
+	return nil
+}
+
+func paneOperationResultFromResizeTransaction(transaction WorkspaceUILayoutOperationResult) WorkspaceUIPaneOperationResult {
 	return WorkspaceUIPaneOperationResult{
 		WorkspaceID:           transaction.WorkspaceID,
 		Revision:              transaction.Revision,

@@ -37,6 +37,7 @@ type WorkspaceService interface {
 }
 
 type WorkspaceUIService interface {
+	ApplyLayoutOperations(workspaceID string, operations workspaceui.WorkspaceUILayoutOperations) (workspaceui.WorkspaceUILayoutOperationResult, error)
 	ApplyPaneOperation(workspaceID string, operation workspaceui.WorkspaceUIPaneOperation) (workspaceui.WorkspaceUIPaneOperationResult, error)
 	InitializeLayout(workspaceID string) (workspaceui.WorkspaceUILayout, error)
 	ListPanes(workspaceID string) (workspaceui.WorkspaceUIPaneListResult, error)

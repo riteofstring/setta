@@ -1,6 +1,10 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
+
+	"setta/internal/workspaceui"
+)
 
 func (handler handler) workspaceSession(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkspaceService(response, handler.workspaceService)
@@ -178,6 +182,25 @@ func (handler handler) applyWorkspaceUIPaneOperation(response http.ResponseWrite
 	result, err := service.ApplyPaneOperation(payload.WorkspaceID, payload.Operation)
 	if err != nil {
 		writeWorkspaceUIError(response, "apply_workspace_ui_pane_operation_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) applyWorkspaceUILayoutOperations(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceUIService(response, handler.workspaceUIService)
+	if service == nil {
+		return
+	}
+	var payload ApplyWorkspaceUILayoutOperationsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.ApplyLayoutOperations(payload.WorkspaceID, workspaceui.WorkspaceUILayoutOperations{
+		Operations: payload.Operations,
+	})
+	if err != nil {
+		writeWorkspaceUIError(response, "apply_workspace_ui_layout_operations_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, result)

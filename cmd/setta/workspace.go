@@ -23,6 +23,7 @@ import (
 
 const (
 	workspaceCurrentCLIAuthDisplayName      = "Setta CLI workspace current"
+	workspaceLayoutApplyCLIAuthDisplayName  = "Setta CLI workspace layout apply"
 	workspacePanesCloseCLIAuthDisplayName   = "Setta CLI workspace panes close"
 	workspacePanesFocusCLIAuthDisplayName   = "Setta CLI workspace panes focus"
 	workspacePanesListCLIAuthDisplayName    = "Setta CLI workspace panes list"
@@ -84,11 +85,13 @@ func runWorkspace(args []string, deps cliDeps) error {
 
 func runWorkspaceCommand(args []string, deps cliDeps) error {
 	if len(args) == 0 {
-		return usageError{err: errors.New("setta workspace requires a subcommand: current, panes, or schema")}
+		return usageError{err: errors.New("setta workspace requires a subcommand: current, layout, panes, or schema")}
 	}
 	switch args[0] {
 	case "current":
 		return runWorkspaceCurrent(args[1:], deps)
+	case "layout":
+		return runWorkspaceLayout(args[1:], deps)
 	case "panes":
 		return runWorkspacePanes(args[1:], deps)
 	case "schema":

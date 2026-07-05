@@ -320,7 +320,11 @@ type WorkspaceUIPaneOperationResult struct {
 	Warnings              []WorkspaceUIPaneOperationWarning `json:"warnings"`
 }
 
-type WorkspaceUIPaneResizeTransactionResult struct {
+type WorkspaceUILayoutOperations struct {
+	Operations []WorkspaceUIPaneOperation `json:"operations"`
+}
+
+type WorkspaceUILayoutOperationResult struct {
 	WorkspaceID           string                            `json:"workspaceId"`
 	Revision              int                               `json:"revision"`
 	Layout                WorkspaceUILayout                 `json:"layout"`

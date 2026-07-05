@@ -287,6 +287,96 @@ func TestWorkspaceUIPaneOperationEndpointPersistsLayoutOperation(t *testing.T) {
 	}
 }
 
+func TestWorkspaceUILayoutApplyEndpointPersistsTransaction(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, []string{"workspace_api"}, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	seedWorkspaceUILayout(t, appDataDir, workspaceUILayout(opened.Workspace.ID))
+	heightPX := 260
+	widthSpec := workspaceui.ColumnWidthSpec{Unit: workspaceui.ColumnWidthUnitPX, Value: 700}
+
+	result := postJSON[workspaceui.WorkspaceUILayoutOperationResult](t, handler, "/workspaces/ui/layout/apply", ApplyWorkspaceUILayoutOperationsRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Operations: []workspaceui.WorkspaceUIPaneOperation{
+			{
+				Kind:   workspaceui.WorkspaceUIPaneOperationKindResizePane,
+				PaneID: "workspace_pane_1",
+				Resize: &workspaceui.WorkspaceUIPaneResizeOperation{
+					WidthSpec: &widthSpec,
+				},
+			},
+			{
+				Kind:   workspaceui.WorkspaceUIPaneOperationKindResizePane,
+				PaneID: "workspace_pane_1",
+				Resize: &workspaceui.WorkspaceUIPaneResizeOperation{
+					HeightPX: &heightPX,
+				},
+			},
+		},
+	}, http.StatusOK)
+	if result.WorkspaceID != opened.Workspace.ID || result.Revision != 2 || !result.Changed || len(result.OperationResults) != 2 {
+		t.Fatalf("layout apply result = %+v, want changed revision 2 with two outcomes", result)
+	}
+	if result.Layout.Columns[1].WidthSpec != widthSpec {
+		t.Fatalf("layout column width = %+v, want %+v", result.Layout.Columns[1].WidthSpec, widthSpec)
+	}
+	if result.Layout.Panes[0].HeightPX == nil || *result.Layout.Panes[0].HeightPX != heightPX ||
+		result.Layout.Panes[1].HeightPX == nil || *result.Layout.Panes[1].HeightPX != heightPX {
+		t.Fatalf("layout pane heights = %+v, want transaction height %d", result.Layout.Panes, heightPX)
+	}
+
+	read := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if read.Layout == nil || read.Layout.Revision != 2 || read.Layout.Columns[1].WidthSpec != widthSpec {
+		t.Fatalf("read layout after apply = %+v, want persisted transaction", read.Layout)
+	}
+}
+
+func TestWorkspaceUILayoutApplyEndpointRollsBackFailedTransaction(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, []string{"workspace_api"}, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	seedWorkspaceUILayout(t, appDataDir, workspaceUILayout(opened.Workspace.ID))
+	widthSpec := workspaceui.ColumnWidthSpec{Unit: workspaceui.ColumnWidthUnitPX, Value: 700}
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/layout/apply", ApplyWorkspaceUILayoutOperationsRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Operations: []workspaceui.WorkspaceUIPaneOperation{
+			{
+				Kind:   workspaceui.WorkspaceUIPaneOperationKindResizePane,
+				PaneID: "workspace_pane_1",
+				Resize: &workspaceui.WorkspaceUIPaneResizeOperation{
+					WidthSpec: &widthSpec,
+				},
+			},
+			{
+				Kind:   workspaceui.WorkspaceUIPaneOperationKindResizePane,
+				PaneID: "workspace_pane_1",
+				Resize: &workspaceui.WorkspaceUIPaneResizeOperation{
+					Split: &workspaceui.WorkspaceUIPaneSplitResizeOperation{
+						LowerPaneID: "workspace_pane_missing",
+						UpperWeight: 1.2,
+						LowerWeight: 0.8,
+					},
+				},
+			},
+		},
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != string(workspaceui.WorkspaceUIOperationErrorCodePaneNotFound) {
+		t.Fatalf("error code = %q, want pane_not_found", errResponse.Error.Code)
+	}
+
+	read := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if read.Layout == nil || read.Layout.Revision != 1 || read.Layout.Columns[1].WidthSpec.Value != 520 {
+		t.Fatalf("read layout after failed apply = %+v, want original layout", read.Layout)
+	}
+}
+
 func TestWorkspaceSessionEndpointReturnsCurrentSession(t *testing.T) {
 	handler := newWorkspaceHandler(t, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/workspace-session", nil)

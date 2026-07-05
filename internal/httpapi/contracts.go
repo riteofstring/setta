@@ -146,6 +146,11 @@ type ApplyWorkspaceUIPaneOperationRequest struct {
 	Operation   workspaceui.WorkspaceUIPaneOperation `json:"operation"`
 }
 
+type ApplyWorkspaceUILayoutOperationsRequest struct {
+	WorkspaceID string                                 `json:"workspaceId"`
+	Operations  []workspaceui.WorkspaceUIPaneOperation `json:"operations"`
+}
+
 type ReadWorkspaceActivitySnapshotRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	Limit       int    `json:"limit"`

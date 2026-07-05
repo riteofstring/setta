@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 22;
-export const backendContractSchemaHash = "sha256:d2c1cb0ef1c5b7c916a0a1dfa70706ec028a127f46c05bc7b850601cf5c00983";
+export const backendProtocolVersion = 23;
+export const backendContractSchemaHash = "sha256:f8b576c937ae38b0cfa308310751dc35920f2d951d377d170b2c23dd306229f5";
 
 export type DeviceScope = "full";
 
@@ -3627,6 +3627,21 @@ export interface WorkspaceUIPaneOperationResult {
   layout: WorkspaceUILayout;
   changed: boolean;
   operationResult: WorkspaceUIPaneOperationOutcome;
+  beforeAfterDimensions: WorkspaceUIPaneDimensionChange[];
+  warnings: WorkspaceUIPaneOperationWarning[];
+}
+
+export interface ApplyWorkspaceUILayoutOperationsRequest {
+  workspaceId: string;
+  operations: WorkspaceUIPaneOperation[];
+}
+
+export interface WorkspaceUILayoutOperationResult {
+  workspaceId: string;
+  revision: number;
+  layout: WorkspaceUILayout;
+  changed: boolean;
+  operationResults: WorkspaceUIPaneOperationOutcome[];
   beforeAfterDimensions: WorkspaceUIPaneDimensionChange[];
   warnings: WorkspaceUIPaneOperationWarning[];
 }
@@ -7314,6 +7329,11 @@ export const backendEndpoints = {
     path: "/workspaces/ui/panes/operation",
     requestBodyLimitBytes: 4194304,
   },
+  ApplyWorkspaceUILayoutOperations: {
+    method: "POST",
+    path: "/workspaces/ui/layout/apply",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadWorkspaceUILayout: {
     method: "POST",
     path: "/workspaces/ui/layout/read",
@@ -8978,6 +8998,29 @@ export function decodeWorkspaceUIPaneOperationResult(value: unknown): WorkspaceU
     operationResult: decodeWorkspaceUIPaneOperationOutcome(requireField(record, "operationResult", "WorkspaceUIPaneOperationResult")),
     beforeAfterDimensions: decodeArray(requireField(record, "beforeAfterDimensions", "WorkspaceUIPaneOperationResult"), "WorkspaceUIPaneOperationResult.beforeAfterDimensions", (item) => decodeWorkspaceUIPaneDimensionChange(item)),
     warnings: decodeArray(requireField(record, "warnings", "WorkspaceUIPaneOperationResult"), "WorkspaceUIPaneOperationResult.warnings", (item) => decodeWorkspaceUIPaneOperationWarning(item)),
+  };
+}
+
+export function decodeApplyWorkspaceUILayoutOperationsRequest(value: unknown): ApplyWorkspaceUILayoutOperationsRequest {
+  const record = assertRecord(value, "ApplyWorkspaceUILayoutOperationsRequest");
+  assertKnownFields(record, "ApplyWorkspaceUILayoutOperationsRequest", ["workspaceId", "operations"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ApplyWorkspaceUILayoutOperationsRequest"), "ApplyWorkspaceUILayoutOperationsRequest.workspaceId"),
+    operations: decodeArray(requireField(record, "operations", "ApplyWorkspaceUILayoutOperationsRequest"), "ApplyWorkspaceUILayoutOperationsRequest.operations", (item) => decodeWorkspaceUIPaneOperation(item)),
+  };
+}
+
+export function decodeWorkspaceUILayoutOperationResult(value: unknown): WorkspaceUILayoutOperationResult {
+  const record = assertRecord(value, "WorkspaceUILayoutOperationResult");
+  assertKnownFields(record, "WorkspaceUILayoutOperationResult", ["workspaceId", "revision", "layout", "changed", "operationResults", "beforeAfterDimensions", "warnings"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUILayoutOperationResult"), "WorkspaceUILayoutOperationResult.workspaceId"),
+    revision: decodeInteger(requireField(record, "revision", "WorkspaceUILayoutOperationResult"), "WorkspaceUILayoutOperationResult.revision"),
+    layout: decodeWorkspaceUILayout(requireField(record, "layout", "WorkspaceUILayoutOperationResult")),
+    changed: decodeBoolean(requireField(record, "changed", "WorkspaceUILayoutOperationResult"), "WorkspaceUILayoutOperationResult.changed"),
+    operationResults: decodeArray(requireField(record, "operationResults", "WorkspaceUILayoutOperationResult"), "WorkspaceUILayoutOperationResult.operationResults", (item) => decodeWorkspaceUIPaneOperationOutcome(item)),
+    beforeAfterDimensions: decodeArray(requireField(record, "beforeAfterDimensions", "WorkspaceUILayoutOperationResult"), "WorkspaceUILayoutOperationResult.beforeAfterDimensions", (item) => decodeWorkspaceUIPaneDimensionChange(item)),
+    warnings: decodeArray(requireField(record, "warnings", "WorkspaceUILayoutOperationResult"), "WorkspaceUILayoutOperationResult.warnings", (item) => decodeWorkspaceUIPaneOperationWarning(item)),
   };
 }
 
@@ -14095,6 +14138,7 @@ export interface BackendClient {
   listWorkspaceUIPanes: (request: ListWorkspaceUIPanesRequest) => Promise<WorkspaceUIPaneListResult>;
   readWorkspaceUIPane: (request: ReadWorkspaceUIPaneRequest) => Promise<WorkspaceUIPaneReadResult>;
   applyWorkspaceUIPaneOperation: (request: ApplyWorkspaceUIPaneOperationRequest) => Promise<WorkspaceUIPaneOperationResult>;
+  applyWorkspaceUILayoutOperations: (request: ApplyWorkspaceUILayoutOperationsRequest) => Promise<WorkspaceUILayoutOperationResult>;
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
   initializeWorkspaceUILayout: (request: InitializeWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
   resetWorkspaceUILayout: (request: ResetWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
@@ -14404,6 +14448,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceUIPaneOperationResult,
       endpoint: backendEndpoints.ApplyWorkspaceUIPaneOperation,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    applyWorkspaceUILayoutOperations: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceUILayoutOperationResult,
+      endpoint: backendEndpoints.ApplyWorkspaceUILayoutOperations,
       fetchImpl,
       requestPayload: request,
     }),

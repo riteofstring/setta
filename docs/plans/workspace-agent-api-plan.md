@@ -110,9 +110,7 @@ the exposed layout surface is read, initialize, reset, typed pane operations, an
 workspace UI events:
 
 ```text
-POST /workspaces/ui/layout/read
-POST /workspaces/ui/layout/initialize
-POST /workspaces/ui/layout/reset
+POST /workspaces/ui/layout/{read,initialize,reset,apply}
 POST /workspaces/ui/panes/operation
 GET  /workspaces/ui/events
 ```
@@ -125,7 +123,7 @@ Terminal content already has backend HTTP APIs for create, attach, input, resize
 
 Chat, workflow graph, workflow node details, and semantic details already have domain APIs, but they are not yet exposed as pane-targeted workspace operations.
 
-The remaining pieces are the layout transaction workspace CLI command after the focus/move/rename/close/open/resize/reorder slice, a `workspace-manager` skill that teaches agents the safe operation lifecycle, per-surface read/write adapters, and richer live capability metadata beyond the current layout-only pane descriptors.
+The remaining pieces are a `workspace-manager` skill that teaches agents the safe operation lifecycle, per-surface read/write adapters, and richer live capability metadata beyond the current layout-only pane descriptors.
 
 ## Contract Principles
 
@@ -217,11 +215,9 @@ Candidate endpoints:
 
 ```text
 GET  /workspaces/ui/schema
-POST /workspaces/ui/panes/list
-POST /workspaces/ui/panes/read
-POST /workspaces/ui/panes/operation
-POST /workspaces/ui/surfaces/read
-POST /workspaces/ui/surfaces/write
+POST /workspaces/ui/panes/{list,read,operation}
+POST /workspaces/ui/layout/apply
+POST /workspaces/ui/surfaces/{read,write}
 GET  /workspaces/ui/events
 ```
 
@@ -924,6 +920,7 @@ Progress on 2026-07-07:
 - Workspace CLI resize-command follow-up (2026-07-08): added `setta workspace panes resize <pane-id>` for the existing low-risk backend-owned `resize_pane` operation. The command accepts exactly one of `--width-px`, `--width-scale`, `--height-px`, `--height-scale`, or `--reset-height`, supports pane-ID-before-operation-flag ordering, validates positive finite numeric input before HTTP, resolves the active workspace through local runtime auth, calls authenticated `/workspaces/ui/panes/operation`, validates the returned workspace/layout/operation envelope, and prints structured JSON including backend before/after dimensions and warnings. `--width-scale` maps to the Go-owned proportional `ColumnWidthSpec`; height scaling uses the backend `heightScale` field and fails loudly when the target row has no explicit height. Verification passed: `./scripts/go.sh test ./cmd/setta`, `./scripts/go.sh test ./cmd/setta ./internal/workspaceui ./internal/httpapi`, `./scripts/format.sh`, and `./check_quality.sh --git-changes`; coverage uses temporary runtime/app data/workspace paths, applies pixel width, proportional width, absolute height, scaled height, and height reset through production CLI/runtime/HTTP/store paths, confirms backend row-scoped dimension reporting, and rejects multi-target resize usage before mutation. Remaining Phase 2 CLI work: reorder and layout transaction commands before the `workspace-manager` skill and per-surface IO.
 - Audit follow-up: tightened workspace CLI resize response validation so successful `resize_pane` and future `resize_column` command responses must report a resize outcome matching the requested target shape and returned layout dimensions. Width responses now validate target column identity, width unit, and returned layout column width; height/reset responses validate row target panes and layout heights; split responses validate upper/lower pane identity. Added focused malformed-envelope coverage for wrong resize columns and reset-height shape mismatches. Verification passed: `./scripts/go.sh test ./cmd/setta`, `./scripts/go.sh test ./cmd/setta ./internal/workspaceui ./internal/httpapi`, `./scripts/format.sh`, and `./check_quality.sh --git-changes`.
 - Workspace CLI reorder-command follow-up (2026-07-08): added `setta workspace panes reorder --input reorder.json` for the existing low-risk backend-owned `reorder_pane` operation. The command reads a strict single JSON `WorkspaceUIPaneOperation`, requires `kind: "reorder_pane"`, stable `paneId`, and reorder payload, rejects mixed-operation payloads before runtime, calls authenticated `/workspaces/ui/panes/operation`, validates the returned layout/outcome target IDs, and prints structured JSON. Verification passed: `./scripts/go.sh test ./cmd/setta` and `./scripts/go.sh test ./cmd/setta ./internal/workspaceui ./internal/httpapi`; coverage uses temporary runtime/app data/workspace paths, applies a row reorder through production CLI/runtime/HTTP/store paths, confirms persistence by re-reading panes, covers missing `--input`, rejects non-reorder operation input before mutation, and covers malformed reorder response envelopes. Remaining Phase 2 CLI work: the layout transaction command before the `workspace-manager` skill and per-surface IO.
+- Workspace CLI layout-transaction follow-up (2026-07-08): added typed low-risk layout transactions as `POST /workspaces/ui/layout/apply` and `setta workspace layout apply --input layout-operations.json`. The input is a strict Go-owned `{ "operations": [...] }` contract currently limited to validated `resize_pane` operations, matching the existing atomic backend reducer: the service validates the whole operation list before layout read/persist, applies operations against a cloned layout, increments the revision at most once, persists once only after all operations succeed, and leaves persisted layout unchanged if a later operation fails. The CLI resolves the active workspace through local runtime auth, calls the authenticated backend endpoint, validates the returned workspace/layout/envelope plus each typed outcome, and prints structured JSON with all operation outcomes, before/after dimensions, and warnings. Regenerated the backend TypeScript contract surface and HTTP contract snapshot; backend protocol version is now `23`, and the embedded web app bundle was refreshed from the generated client. Verification passed: `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi ./cmd/setta`, `pnpm -C desktop typecheck`, `pnpm -C desktop build:web`, `pnpm -C desktop build`, and `node desktop/tests/electron/run-workflows.mjs --workflow pane-focus-click --skip-build`. The first Electron workflow attempt hit a non-reproduced pane-focus scroll assertion before passing on rerun. Remaining work: add the `workspace-manager` skill, per-surface IO, and richer live capability metadata.
 
 ### Phase 3: Renderer Event Sync
 Add workspace UI event streaming. Active renderers subscribe to layout revision events and apply backend-originated operations without polling.

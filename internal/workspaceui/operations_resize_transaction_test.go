@@ -186,6 +186,28 @@ func TestServicePaneResizeOperationsRejectsNonResizeOperation(t *testing.T) {
 	}
 }
 
+func TestServiceApplyLayoutOperationsRejectsMissingLayout(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	widthSpec := ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 700}
+
+	_, err := service.ApplyLayoutOperations("workspace_api", WorkspaceUILayoutOperations{
+		Operations: []WorkspaceUIPaneOperation{
+			{
+				Kind:   WorkspaceUIPaneOperationKindResizePane,
+				PaneID: "workspace_pane_0",
+				Resize: &WorkspaceUIPaneResizeOperation{
+					WidthSpec: &widthSpec,
+				},
+			},
+		},
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeMissingLayout {
+		t.Fatalf("error = %T %v, want missing_layout", err, err)
+	}
+}
+
 func readLayoutForResizeTransactionTest(t *testing.T, service *Service, workspaceID string) WorkspaceUILayout {
 	t.Helper()
 	read, err := service.ReadLayout(workspaceID)
