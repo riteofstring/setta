@@ -1374,8 +1374,31 @@
     }
     return String(value).replace(/["\\]/g, "\\$&");
   }
+  async function cloudProvisionWorkflow() {
+    const options = await window.setta.runtimes.cloudProvisionOptions();
+    const resolution = await window.setta.runtimes.cloudProvisionResolve({
+      intent: "cheap box for agents",
+      provider: "hetzner",
+      region: "fsn1",
+      shape: "dev-standard",
+    });
+    const execution = await window.setta.runtimes.cloudProvisionExecute({
+      auth: { kind: "manual", tailscaleAuthKey: "tskey-auth-secret" },
+      release: {
+        installerSha256: "a".repeat(64),
+        minisignPublicKey: "RWQtestminisignpublickey",
+        releaseBaseUrl: "https://downloads.example.test/setta/v1.2.3",
+        settaVersion: "v1.2.3",
+      },
+      resolution: resolution.resolution,
+      runtimeName: "setta-worker",
+    });
+    const snapshot = await window.setta.runtimes.current();
+    return { execution, options, resolution, snapshot };
+  }
   globalThis.__settaE2EDriver = {
     bodyText,
+    cloudProvisionWorkflow,
     clickButton,
     clickButtonContainingText,
     clickButtonContainingTextByRole,
@@ -1414,7 +1437,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v11",
+    version: "setta-e2e-driver-v12",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,

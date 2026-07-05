@@ -85,6 +85,7 @@ const api: SettaAPI = {
   runtimes: {
     addExistingMachineOverSSH: (request) => invoke("runtimeAddExistingMachineOverSSH", request),
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
+    cloudProvisionExecute: (request) => invoke("runtimeCloudProvisionExecute", request),
     cloudProvisionOptions: () => invoke("runtimeCloudProvisionOptions"),
     cloudProvisionResolve: (request) => invoke("runtimeCloudProvisionResolve", request),
     createDevicePairing: () => invoke("runtimeCreateDevicePairing"),

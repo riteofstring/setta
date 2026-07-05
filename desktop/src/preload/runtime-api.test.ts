@@ -44,6 +44,7 @@ describe("preload runtime API", () => {
     expect(Object.keys(api.runtimes).sort()).toEqual([
       "addByPairingUrl",
       "addExistingMachineOverSSH",
+      "cloudProvisionExecute",
       "cloudProvisionOptions",
       "cloudProvisionResolve",
       "createDevicePairing",
@@ -140,6 +141,15 @@ describe("preload runtime API", () => {
     expect(listener).toHaveBeenCalledWith(snapshot);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.runtimeConnectionState, handler);
   });
+
+  test("exposes cloud runtime execution through IPC", async () => {
+    const { api, invoke } = await exposePreloadAPI();
+    const request = cloudProvisionExecuteRequest();
+
+    await api.runtimes.cloudProvisionExecute?.(request);
+
+    expect(invoke.mock.calls).toEqual([[ipcChannels.runtimeCloudProvisionExecute, request]]);
+  });
 });
 
 function runtimeSnapshot() {
@@ -170,5 +180,57 @@ function runtimeSnapshot() {
       },
     ],
     switching: false,
+  };
+}
+
+function cloudResolution() {
+  return {
+    approval: {
+      commandPreview: [],
+      requiresMutationApproval: true,
+      secretFree: true,
+    },
+    cost: {
+      amount: null,
+      class: "standard",
+      currency: null,
+      description: "catalog cost class",
+      kind: "class",
+      pricingUrl: "https://www.hetzner.com/cloud",
+    },
+    diskGB: 64,
+    displayName: "Hetzner Cloud",
+    imageSelector: {
+      description: "Hetzner stable Ubuntu image alias",
+      kind: "image_alias",
+      value: "ubuntu-24.04",
+    },
+    instanceType: "cx42",
+    machine: {
+      cpus: 4,
+      diskGB: 64,
+      gpuClass: null,
+      memoryGB: 16,
+    },
+    provider: "hetzner",
+    region: "fsn1",
+    regionOptions: ["fsn1"],
+    shape: "dev-standard",
+    source: "catalog",
+    warnings: [],
+  };
+}
+
+function cloudProvisionExecuteRequest() {
+  return {
+    auth: { kind: "manual", tailscaleAuthKey: "tskey-auth-secret" } as const,
+    release: {
+      installerSha256: "a".repeat(64),
+      minisignPublicKey: "RWQtestminisignpublickey",
+      releaseBaseUrl: "https://downloads.example.test/setta/v1.2.3",
+      settaVersion: "v1.2.3",
+    },
+    resolution: cloudResolution(),
+    runtimeName: "setta-worker",
   };
 }

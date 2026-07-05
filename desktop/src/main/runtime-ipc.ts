@@ -6,6 +6,8 @@ import {
   listCloudRuntimeProvisionOptions,
   resolveCloudRuntimeProvision,
 } from "./provision-resolver";
+import { runApprovedCloudRuntimeProvision } from "./provision-executor";
+import type { PendingProvisionStore } from "./pending-provision-store";
 import type { RuntimeRegistryController } from "./runtime-registry";
 import { runSettaRemoteAddSSH } from "./runtime-ssh";
 import { TailscaleOAuthService } from "./tailscale-oauth";
@@ -15,6 +17,7 @@ interface RuntimeIpcRegistration {
   ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
   repoRoot: string;
+  requirePendingProvisionStore: () => PendingProvisionStore;
   requireRuntimeRegistry: () => RuntimeRegistryController;
   tailscaleOAuthService?: TailscaleOAuthService;
 }
@@ -24,6 +27,7 @@ export function registerRuntimeIpcHandlers({
   ipcMain,
   ipcObserver,
   repoRoot,
+  requirePendingProvisionStore,
   requireRuntimeRegistry,
   tailscaleOAuthService,
 }: RuntimeIpcRegistration): void {
@@ -88,6 +92,21 @@ export function registerRuntimeIpcHandlers({
       return resolveCloudRuntimeProvision(request, {
         env: process.env,
         repoRoot,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "runtimeCloudProvisionExecute",
+    async (_event, request) => {
+      return runApprovedCloudRuntimeProvision(request, {
+        appDataDir,
+        env: process.env,
+        pendingProvisionStore: requirePendingProvisionStore(),
+        repoRoot,
+        runtimeRegistry: requireRuntimeRegistry(),
+        tailscaleOAuthService: tailscaleOAuth,
       });
     },
     ipcObserver,

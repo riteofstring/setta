@@ -1,6 +1,8 @@
 import type {
+  CloudRuntimeProvisionAuthInput,
   CloudRuntimeProvisionOptions,
   CloudRuntimeProvisionProvider,
+  CloudRuntimeProvisionReleaseInput,
   CloudRuntimeProvisionResolveRequest,
   CloudRuntimeProvisionResolveResult,
   CloudRuntimeProvisionShape,
@@ -30,10 +32,14 @@ interface CloudRuntimeWizardForm {
   clientSecret: string;
   diskGB: string;
   intent: string;
+  installerSha256: string;
   manualTailscaleAuthKey: string;
+  minisignPublicKey: string;
   provider: string;
   region: string;
+  releaseBaseUrl: string;
   runtimeName: string;
+  settaVersion: string;
   shape: string;
 }
 
@@ -44,6 +50,7 @@ type CloudRuntimeWizardStatus =
   | "saving-oauth"
   | "validating-oauth"
   | "approving"
+  | "creating"
   | "approved"
   | "error";
 
@@ -86,6 +93,14 @@ const resolutionInputFields = new Set<keyof CloudRuntimeWizardForm>([
   "region",
   "shape",
 ]);
+const cloudRuntimeStatusMessages: Partial<Record<CloudRuntimeWizardStatus, string>> = {
+  approved: "Cloud runtime created",
+  creating: "Creating cloud runtime",
+  loading: "Loading cloud options",
+  resolving: "Resolving cloud runtime",
+  "saving-oauth": "Saving Tailscale OAuth",
+  "validating-oauth": "Validating Tailscale OAuth",
+};
 
 export function RuntimeCloudWizard({ busy }: RuntimeCloudWizardProps) {
   const controller = useRuntimeCloudWizardController(busy);
@@ -100,10 +115,14 @@ function useRuntimeCloudWizardController(busy: boolean): RuntimeCloudWizardContr
     clientSecret: "",
     diskGB: "",
     intent: "",
+    installerSha256: "",
     manualTailscaleAuthKey: "",
+    minisignPublicKey: "",
     provider: "",
     region: "",
+    releaseBaseUrl: "",
     runtimeName: defaultRuntimeName,
+    settaVersion: "",
     shape: "",
   });
   const [guide, setGuide] = useState<TailscaleOAuthSetupGuide | null>(null);
@@ -158,7 +177,8 @@ function useRuntimeCloudWizardController(busy: boolean): RuntimeCloudWizardContr
   );
   const oauthConfigured = Boolean(guide?.oauth.configured);
   const manualKeyRequired = !oauthConfigured;
-  const controlsDisabled = busy || status === "loading" || status === "resolving";
+  const controlsDisabled =
+    busy || status === "loading" || status === "resolving" || status === "creating";
 
   function resolveProvision(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -182,7 +202,7 @@ function useRuntimeCloudWizardController(busy: boolean): RuntimeCloudWizardContr
   }
 
   function approveResolution() {
-    approveCloudResolution({
+    void approveCloudResolution({
       form,
       manualKeyRequired,
       oauthConfigured,
@@ -300,6 +320,7 @@ function RuntimeCloudResolveForm({ controller }: { controller: RuntimeCloudWizar
         placeholder={defaultRuntimeName}
         value={controller.form.runtimeName}
       />
+      <RuntimeCloudReleaseInputs controller={controller} />
       <Button className="w-fit" disabled={resolveButtonDisabled(controller)} type="submit">
         {controller.status === "resolving" ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -307,6 +328,49 @@ function RuntimeCloudResolveForm({ controller }: { controller: RuntimeCloudWizar
         Resolve
       </Button>
     </form>
+  );
+}
+
+function RuntimeCloudReleaseInputs({ controller }: { controller: RuntimeCloudWizardController }) {
+  return (
+    <div className="grid gap-1">
+      <div className="grid grid-cols-2 gap-1">
+        <Input
+          aria-label="Cloud Setta version"
+          autoComplete="off"
+          disabled={controller.controlsDisabled}
+          onChange={(event) => controller.setFormField("settaVersion", event.target.value)}
+          placeholder="v1.2.3"
+          value={controller.form.settaVersion}
+        />
+        <Input
+          aria-label="Cloud release base URL"
+          autoComplete="off"
+          disabled={controller.controlsDisabled}
+          onChange={(event) => controller.setFormField("releaseBaseUrl", event.target.value)}
+          placeholder="https://downloads.example.test/setta/v1.2.3"
+          value={controller.form.releaseBaseUrl}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        <Input
+          aria-label="Cloud installer SHA-256"
+          autoComplete="off"
+          disabled={controller.controlsDisabled}
+          onChange={(event) => controller.setFormField("installerSha256", event.target.value)}
+          placeholder="installer sha256"
+          value={controller.form.installerSha256}
+        />
+        <Input
+          aria-label="Cloud minisign public key"
+          autoComplete="off"
+          disabled={controller.controlsDisabled}
+          onChange={(event) => controller.setFormField("minisignPublicKey", event.target.value)}
+          placeholder="RWQ..."
+          value={controller.form.minisignPublicKey}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -333,7 +397,7 @@ function RuntimeCloudManualKeyInput({ controller }: { controller: RuntimeCloudWi
     <Input
       aria-label="Manual cloud Tailscale auth key"
       autoComplete="off"
-      disabled={controller.busy}
+      disabled={controller.busy || controller.status === "creating"}
       onChange={(event) => controller.setFormField("manualTailscaleAuthKey", event.target.value)}
       placeholder="tskey-auth-..."
       type="password"
@@ -466,7 +530,7 @@ async function runValidateOAuthCredentials({
   }
 }
 
-function approveCloudResolution({
+async function approveCloudResolution({
   form,
   manualKeyRequired,
   oauthConfigured,
@@ -486,31 +550,83 @@ function approveCloudResolution({
   if (!resolution) {
     return;
   }
-  if (manualKeyRequired && form.manualTailscaleAuthKey.trim() === "") {
-    setError("Manual Tailscale auth key is required when OAuth is not configured.");
-    setStatus("error");
-    return;
-  }
+  const cloudProvisionExecute = window.setta.runtimes.cloudProvisionExecute;
   const runtimeName = normalizeRuntimeName(form.runtimeName);
-  if (runtimeName === "") {
-    setError("Runtime name is required.");
+  const validationError = cloudProvisionApprovalError({
+    executeAvailable: Boolean(cloudProvisionExecute),
+    form,
+    manualKeyRequired,
+    runtimeName,
+  });
+  if (validationError) {
+    setError(validationError);
     setStatus("error");
     return;
   }
   const authSource = oauthConfigured ? "oauth" : "manual";
-  setApproval({
-    authSource,
-    message: approvalMessage(authSource),
-    runtimeName,
-  });
   setError(null);
-  setStatus("approved");
+  setStatus("creating");
+  try {
+    const result = await cloudProvisionExecute!({
+      auth: cloudProvisionAuthInput(form, oauthConfigured),
+      release: releaseInput(form),
+      resolution: resolution.resolution,
+      runtimeName,
+    });
+    setApproval({
+      authSource,
+      message: approvalMessage(authSource, result.creationRecord.recordId),
+      runtimeName,
+    });
+    setStatus("approved");
+  } catch (approvalError) {
+    setError(errorMessage(approvalError));
+    setStatus("error");
+  }
 }
 
-function approvalMessage(authSource: CloudRuntimeApprovalState["authSource"]): string {
+function cloudProvisionApprovalError({
+  executeAvailable,
+  form,
+  manualKeyRequired,
+  runtimeName,
+}: {
+  executeAvailable: boolean;
+  form: CloudRuntimeWizardForm;
+  manualKeyRequired: boolean;
+  runtimeName: string;
+}): string | null {
+  if (!executeAvailable) {
+    return "Cloud runtime execution is unavailable in this build.";
+  }
+  if (manualKeyRequired && form.manualTailscaleAuthKey.trim() === "") {
+    return "Manual Tailscale auth key is required when OAuth is not configured.";
+  }
+  if (!releaseInputComplete(form)) {
+    return "Runtime release fields are required before cloud execution.";
+  }
+  if (runtimeName === "") {
+    return "Runtime name is required.";
+  }
+  return null;
+}
+
+function cloudProvisionAuthInput(
+  form: CloudRuntimeWizardForm,
+  oauthConfigured: boolean,
+): CloudRuntimeProvisionAuthInput {
+  return oauthConfigured
+    ? { kind: "oauth" }
+    : { kind: "manual", tailscaleAuthKey: form.manualTailscaleAuthKey };
+}
+
+function approvalMessage(
+  authSource: CloudRuntimeApprovalState["authSource"],
+  recordID: string,
+): string {
   return authSource === "oauth"
-    ? "Resolution approved with OAuth as the auth-key source."
-    : "Resolution approved with a manually supplied auth key.";
+    ? `Created ${recordID} with OAuth as the auth-key source.`
+    : `Created ${recordID} with a manually supplied auth key.`;
 }
 
 function clearResolvedState(
@@ -555,7 +671,8 @@ function oauthSetupDisabled(controller: RuntimeCloudWizardController): boolean {
   return (
     controller.busy ||
     controller.status === "saving-oauth" ||
-    controller.status === "validating-oauth"
+    controller.status === "validating-oauth" ||
+    controller.status === "creating"
   );
 }
 
@@ -567,6 +684,7 @@ function RuntimeCloudWizardStatusLine({
   status: CloudRuntimeWizardStatus;
 }) {
   const oauthConfigured = Boolean(guide?.oauth.configured);
+  const statusMessage = cloudRuntimeStatusMessage(status, oauthConfigured, guide);
   return (
     <div className="flex min-w-0 items-center gap-1.5 rounded-sm border border-border/70 bg-card px-2 py-1.5 text-xs text-muted-foreground">
       {status === "loading" ? (
@@ -576,15 +694,28 @@ function RuntimeCloudWizardStatusLine({
       ) : (
         <KeyRound className="h-3.5 w-3.5 shrink-0" />
       )}
-      <span className="min-w-0 flex-1 truncate">
-        {status === "loading"
-          ? "Loading cloud options"
-          : oauthConfigured
-            ? `OAuth ready for ${guide?.oauth.expectedTag ?? "tag:setta-runtime"}`
-            : "Manual key fallback active"}
-      </span>
+      <span className="min-w-0 flex-1 truncate">{statusMessage}</span>
     </div>
   );
+}
+
+function cloudRuntimeStatusMessage(
+  status: CloudRuntimeWizardStatus,
+  oauthConfigured: boolean,
+  guide: TailscaleOAuthSetupGuide | null,
+): string {
+  return (
+    cloudRuntimeStatusMessages[status] ?? cloudRuntimeAuthStatusMessage(oauthConfigured, guide)
+  );
+}
+
+function cloudRuntimeAuthStatusMessage(
+  oauthConfigured: boolean,
+  guide: TailscaleOAuthSetupGuide | null,
+): string {
+  return oauthConfigured
+    ? `OAuth ready for ${guide?.oauth.expectedTag ?? "tag:setta-runtime"}`
+    : "Manual key fallback active";
 }
 
 function RuntimeCloudOAuthSetup({
@@ -768,6 +899,19 @@ function resolveRequest(form: CloudRuntimeWizardForm): CloudRuntimeProvisionReso
     region: form.region,
     shape: form.shape,
   };
+}
+
+function releaseInput(form: CloudRuntimeWizardForm): CloudRuntimeProvisionReleaseInput {
+  return {
+    installerSha256: form.installerSha256,
+    minisignPublicKey: form.minisignPublicKey,
+    releaseBaseUrl: form.releaseBaseUrl,
+    settaVersion: form.settaVersion,
+  };
+}
+
+function releaseInputComplete(form: CloudRuntimeWizardForm): boolean {
+  return Object.values(releaseInput(form)).every((value) => value.trim() !== "");
 }
 
 function selectedCloudProvider(

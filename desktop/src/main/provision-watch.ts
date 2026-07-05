@@ -154,26 +154,65 @@ export async function watchProvisionUntilVerified(
   const now = options.now ?? (() => new Date());
   const sleep = options.sleep ?? sleepDuration;
   const startedAt = now().getTime();
+  let lastRejectedCandidates: ProvisionWatchRejectedCandidate[] = [];
   for (;;) {
     const attempt = await attemptProvisionVerification(options);
     if (attempt.result) {
       return attempt.result;
     }
+    lastRejectedCandidates = latestRejectedCandidates(lastRejectedCandidates, attempt);
     const currentTime = now().getTime();
-    if (Date.parse(options.pending.expiresAt) <= currentTime) {
-      throw new ProvisionWatchError(
-        "provision_expired",
-        `provision ${options.pending.provisionId} expired before pairing completed`,
-      );
-    }
-    if (currentTime - startedAt >= timeoutMs) {
-      throw new ProvisionWatchError(
-        "provision_watch_timeout",
-        `timed out waiting for ${options.pending.runtimeName} to pair`,
-      );
-    }
+    assertProvisionWatchStillActive(options, {
+      currentTime,
+      lastRejectedCandidates,
+      startedAt,
+      timeoutMs,
+    });
     await sleep(pollIntervalMs);
   }
+}
+
+function latestRejectedCandidates(
+  previous: ProvisionWatchRejectedCandidate[],
+  attempt: ProvisionVerificationAttempt,
+): ProvisionWatchRejectedCandidate[] {
+  return attempt.rejectedCandidates.length > 0 ? attempt.rejectedCandidates : previous;
+}
+
+function assertProvisionWatchStillActive(
+  options: ProvisionVerificationOptions,
+  check: {
+    currentTime: number;
+    lastRejectedCandidates: ProvisionWatchRejectedCandidate[];
+    startedAt: number;
+    timeoutMs: number;
+  },
+): void {
+  if (Date.parse(options.pending.expiresAt) <= check.currentTime) {
+    throw new ProvisionWatchError(
+      "provision_expired",
+      `provision ${options.pending.provisionId} expired before pairing completed`,
+    );
+  }
+  if (check.currentTime - check.startedAt >= check.timeoutMs) {
+    throw new ProvisionWatchError(
+      "provision_watch_timeout",
+      provisionWatchTimeoutMessage(options.pending.runtimeName, check.lastRejectedCandidates),
+    );
+  }
+}
+
+function provisionWatchTimeoutMessage(
+  runtimeName: string,
+  rejectedCandidates: ProvisionWatchRejectedCandidate[],
+): string {
+  if (rejectedCandidates.length === 0) {
+    return `timed out waiting for ${runtimeName} to pair`;
+  }
+  const reasons = rejectedCandidates
+    .map((candidate) => `${tailnetNodeDisplayName(candidate.node)}: ${candidate.reason}`)
+    .join("; ");
+  return `timed out waiting for ${runtimeName} to pair; last rejected candidates: ${reasons}`;
 }
 
 export async function attemptProvisionAutoPair(

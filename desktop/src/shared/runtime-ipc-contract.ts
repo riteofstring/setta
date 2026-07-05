@@ -3,6 +3,8 @@ import type { CreateDevicePairingResponse } from "@generated/backend";
 import type {
   AddExistingMachineSSHRuntimeRequest,
   CloudRuntimeProvisionOptions,
+  CloudRuntimeProvisionExecuteRequest,
+  CloudRuntimeProvisionExecuteResult,
   CloudRuntimeProvisionResolveRequest,
   CloudRuntimeProvisionResolveResult,
   KnownRuntimeView,
@@ -25,6 +27,10 @@ export interface RuntimeIpcContract {
   runtimeCloudProvisionResolve: {
     args: [request: CloudRuntimeProvisionResolveRequest];
     result: CloudRuntimeProvisionResolveResult;
+  };
+  runtimeCloudProvisionExecute: {
+    args: [request: CloudRuntimeProvisionExecuteRequest];
+    result: CloudRuntimeProvisionExecuteResult;
   };
   runtimeCreateDevicePairing: { args: []; result: CreateDevicePairingResponse };
   runtimeCurrent: { args: []; result: RuntimeRegistrySnapshot };

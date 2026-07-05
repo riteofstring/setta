@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-/* global console, process */
+/* global Buffer, URL, console, process */
 
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { appendFile, chmod, mkdir, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { createHmac, createHash } from "node:crypto";
+import { createServer } from "node:http";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +27,12 @@ configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = options.keepArtifacts
   ? join(repoRoot, "test-results", "electron-integration", "cloud-provision", pathTimestamp())
   : join(repoRoot, "test-results", "electron-integration", "cloud-provision");
+const fakeProvisionRuntimeRoutes = {
+  "GET /runtime/info": writeRuntimeInfoResponse,
+  "POST /devices/list": writeDeviceListResponse,
+  "POST /pairing/complete": writePairingCompleteResponse,
+  "POST /setup/attestation": writeSetupAttestationResponse,
+};
 
 if (options.help) {
   console.log(
@@ -38,25 +47,25 @@ await mkdir(recordingRoot, { recursive: true });
 const fixture = await createFixture("cloud-provision");
 const recordingDir = join(recordingRoot, "workflow");
 let context = null;
+let fakeRuntime = null;
 
 try {
-  const fakeSettaCLIPath = await writeFakeProvisionCLI(fixture.tempRoot);
+  const fakeProvisionStatePath = join(fixture.tempRoot, "fake-provision-state.json");
+  const fakeRuntimeLogPath = join(recordingDir, "fake-runtime.jsonl");
+  fakeRuntime = await startFakeProvisionRuntime(fakeProvisionStatePath, fakeRuntimeLogPath);
+  const fakeSettaCLIPath = await writeFakeProvisionCLI(fixture.tempRoot, fakeProvisionStatePath);
+  const fakeTailscaleBinDir = await writeFakeTailscaleCLI(fixture.tempRoot);
   context = await launchContext(fixture, recordingDir, {
     extraEnv: {
+      PATH: `${fakeTailscaleBinDir}:${process.env.PATH ?? ""}`,
+      SETTA_CLOUD_PROVISION_WATCH_POLL_INTERVAL_MS: "250",
+      SETTA_CLOUD_PROVISION_WATCH_TIMEOUT_MS: "15000",
       SETTA_CLI_PATH: fakeSettaCLIPath,
+      SETTA_E2E_RUNTIME_SECRET_STORE: "memory",
     },
   });
 
-  const result = await context.client.evaluate(`(async () => {
-    const options = await window.setta.runtimes.cloudProvisionOptions();
-    const resolution = await window.setta.runtimes.cloudProvisionResolve({
-      intent: "cheap box for agents",
-      provider: "hetzner",
-      shape: "dev-standard",
-      region: "fsn1"
-    });
-    return { options, resolution };
-  })()`);
+  const result = await context.client.driver("cloudProvisionWorkflow");
 
   if (
     result.options.defaultProvider !== "hetzner" ||
@@ -64,7 +73,12 @@ try {
     result.resolution.constraints.intent !== "cheap box for agents" ||
     result.resolution.resolution.instanceType !== "cx42" ||
     result.resolution.resolution.region !== "fsn1" ||
-    result.resolution.resolution.approval.secretFree !== true
+    result.resolution.resolution.approval.secretFree !== true ||
+    result.execution.creationRecord.recordId !== "hetzner:setta-worker" ||
+    result.execution.creationRecord.status !== "succeeded" ||
+    result.execution.plan.actionId !== "hetzner.server.create_runtime" ||
+    result.snapshot.connection.status !== "connected" ||
+    result.snapshot.activeRuntimeId !== "runtime_remote"
   ) {
     throw new Error(`unexpected cloud provision result: ${JSON.stringify(result)}`);
   }
@@ -81,6 +95,7 @@ try {
   throw context ? failureWithLogs(error, context.electron.logs) : error;
 } finally {
   await stopLaunchedContext(context);
+  await fakeRuntime?.close();
 }
 
 function parseArgs(args) {
@@ -108,18 +123,59 @@ function parseArgs(args) {
   return parsed;
 }
 
-async function writeFakeProvisionCLI(root) {
+async function writeFakeProvisionCLI(root, statePath) {
   const path = join(root, "fake-setta-provision.cjs");
-  await writeFile(path, fakeProvisionCLISource(), { mode: 0o700 });
+  await writeFile(path, fakeProvisionCLISource(statePath), { mode: 0o700 });
   await chmod(path, 0o700);
   return path;
 }
 
-function fakeProvisionCLISource() {
+async function writeFakeTailscaleCLI(root) {
+  const binDir = join(root, "fake-bin");
+  const path = join(binDir, "tailscale");
+  await mkdir(binDir, { recursive: true });
+  await writeFile(
+    path,
+    [
+      "#!/usr/bin/env node",
+      "",
+      "const args = process.argv.slice(2);",
+      'if (args.join(" ") !== "status --json") {',
+      '  throw new Error("unexpected tailscale args: " + args.join(" "));',
+      "}",
+      "process.stdout.write(JSON.stringify({",
+      "  Peer: {",
+      "    nodeFake: {",
+      '      DNSName: "",',
+      '      HostName: "setta-worker",',
+      '      ID: "node-fake",',
+      "      Online: true,",
+      '      PublicKey: "node-public-key",',
+      '      Tags: ["tag:setta-runtime"],',
+      '      TailscaleIPs: ["127.0.0.1"]',
+      "    }",
+      "  }",
+      '}) + "\\n");',
+      "",
+    ].join("\n"),
+    { mode: 0o700 },
+  );
+  await chmod(path, 0o700);
+  return binDir;
+}
+
+function fakeProvisionCLISource(statePath) {
   return [
     "#!/usr/bin/env node",
     "",
+    "const { readFileSync, writeFileSync } = require('node:fs');",
+    `const statePath = ${JSON.stringify(statePath)};`,
     "const args = process.argv.slice(2);",
+    "function argValue(flag) {",
+    "  const index = args.indexOf(flag);",
+    "  if (index < 0 || index + 1 >= args.length) throw new Error('missing ' + flag);",
+    "  return args[index + 1];",
+    "}",
     'if (args[0] !== "provision") {',
     '  throw new Error("expected setta provision, got " + args.join(" "));',
     "}",
@@ -165,7 +221,222 @@ function fakeProvisionCLISource() {
     "  process.exit(0);",
     "}",
     "",
+    'if (args[1] === "render-cloudinit" && args[2] === "--json") {',
+    "  const state = {",
+    "    attestationKey: argValue('--provision-attestation-key'),",
+    "    expiresAt: argValue('--expires-at'),",
+    "    pairingTokenHash: argValue('--pairing-token-hash'),",
+    "    provisionId: argValue('--provision-id'),",
+    "    runtimeName: argValue('--runtime-name')",
+    "  };",
+    "  writeFileSync(statePath, JSON.stringify(state, null, 2) + '\\n');",
+    "  process.stdout.write(JSON.stringify({",
+    "    ok: true,",
+    "    cloudInit: '#cloud-config\\nsetta: true\\n',",
+    `    cloudInitSha256: "${"b".repeat(64)}"`,
+    "  }) + '\\n');",
+    "  process.exit(0);",
+    "}",
+    "",
+    'if (args[1] === "up" && args[2] === "--json" && args[3] === "--approve") {',
+    "  const cloudInitPath = argValue('--cloud-init-file');",
+    "  if (!readFileSync(cloudInitPath, 'utf8').includes('setta: true')) {",
+    "    throw new Error('cloud-init file was not written');",
+    "  }",
+    "  process.stdout.write(JSON.stringify({",
+    "    ok: true,",
+    "    mode: 'executed',",
+    "    provider: 'hetzner',",
+    "    plan: {",
+    "      actionId: 'hetzner.server.create_runtime',",
+    "      provider: 'hetzner',",
+    "      typedAction: 'create_runtime',",
+    "      cliBinary: 'hcloud',",
+    "      argv: ['hcloud', 'server', 'create', '--user-data-from-file', cloudInitPath],",
+    "      mutating: true,",
+    "      requiresApproval: true,",
+    "      secretFree: true,",
+    "      lastVerified: '2026-07-07',",
+    "      fileInputs: [{ name: 'cloudInit', path: cloudInitPath, purpose: 'cloud-init user data with provisioning secrets', sizeBytes: 26, sha256: '" +
+      "c".repeat(64) +
+      "', sensitive: true }],",
+    "      teardownActionId: 'hetzner.server.delete_runtime'",
+    "    },",
+    "    creationRecord: {",
+    "      recordId: 'hetzner:setta-worker',",
+    "      status: 'succeeded',",
+    "      runtimeName: 'setta-worker',",
+    "      resourceId: '123'",
+    "    },",
+    "    execution: { status: 'succeeded', resourceId: '123' },",
+    "    warnings: []",
+    "  }) + '\\n');",
+    "  process.exit(0);",
+    "}",
+    "",
     'throw new Error("unexpected setta provision command " + args.join(" "));',
     "",
   ].join("\n");
+}
+
+async function startFakeProvisionRuntime(statePath, requestLogPath) {
+  const server = createServer((request, response) => {
+    void handleFakeProvisionRuntimeRequest(request, response, statePath, requestLogPath);
+  });
+  await new Promise((resolveListen, rejectListen) => {
+    server.once("error", rejectListen);
+    server.listen(7345, "127.0.0.1", () => {
+      server.off("error", rejectListen);
+      resolveListen();
+    });
+  });
+  return {
+    close: () =>
+      new Promise((resolveClose, rejectClose) => {
+        server.close((error) => (error ? rejectClose(error) : resolveClose()));
+      }),
+  };
+}
+
+async function handleFakeProvisionRuntimeRequest(request, response, statePath, requestLogPath) {
+  try {
+    logFakeProvisionRuntimeRequest(requestLogPath, request, response);
+    await routeFakeProvisionRuntimeRequest(request, response, statePath);
+  } catch (error) {
+    writeJSON(response, apiError("fake_runtime_failed", error.message), 500);
+  }
+}
+
+function logFakeProvisionRuntimeRequest(path, request, response) {
+  const entry = {
+    at: new Date().toISOString(),
+    method: request.method ?? "",
+    url: request.url ?? "",
+  };
+  response.on("finish", () => {
+    void appendFile(path, JSON.stringify({ ...entry, statusCode: response.statusCode }) + "\n");
+  });
+}
+
+async function routeFakeProvisionRuntimeRequest(request, response, statePath) {
+  const url = new URL(request.url ?? "/", "http://127.0.0.1:7345");
+  const handler = fakeProvisionRuntimeRoutes[`${request.method ?? ""} ${url.pathname}`];
+  return handler
+    ? handler(request, response, statePath)
+    : writeJSON(response, apiError("not_found", url.pathname), 404);
+}
+
+function writeRuntimeInfoResponse(_request, response) {
+  writeJSON(response, runtimeInfo());
+}
+
+function writeDeviceListResponse(_request, response) {
+  writeJSON(response, { devices: [] });
+}
+
+async function writeSetupAttestationResponse(request, response, statePath) {
+  const state = await readProvisionState(statePath);
+  const body = await readJSONRequest(request);
+  const nodeFingerprint = body.nodeFingerprint;
+  const nonce = body.nonce;
+  const provisionId = body.provisionId;
+  writeJSON(response, {
+    algorithm: "hmac-sha256-v1",
+    attestation: computeSetupAttestation({
+      attestationKey: state.attestationKey,
+      nodeFingerprint,
+      nonce,
+      provisionId,
+      runtimeId: "runtime_remote",
+    }),
+    expiresAt: state.expiresAt,
+    nodeFingerprint,
+    nonce,
+    provisionId,
+    runtimeId: "runtime_remote",
+  });
+}
+
+async function writePairingCompleteResponse(request, response, statePath) {
+  const state = await readProvisionState(statePath);
+  const body = await readJSONRequest(request);
+  const hash = createHash("sha256").update(String(body.pairingToken)).digest("hex");
+  if (hash !== state.pairingTokenHash) {
+    writeJSON(response, apiError("bad_pairing", "bad pairing token"), 401);
+    return;
+  }
+  writeJSON(response, {
+    deviceId: "device_desktop",
+    deviceToken: "device_token_remote",
+    protocolVersion: 9,
+    runtimeId: "runtime_remote",
+  });
+}
+
+async function readProvisionState(statePath) {
+  return JSON.parse(await readFile(statePath, "utf8"));
+}
+
+async function readJSONRequest(request) {
+  const chunks = [];
+  for await (const chunk of request) {
+    chunks.push(chunk);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+}
+
+function runtimeInfo() {
+  return {
+    backendName: "setta-backend",
+    backendVersion: "test",
+    displayName: "setta-worker",
+    featureSet: {
+      features: ["device_pairing_url", "runtime_web_app", "web_push"],
+      version: 1,
+    },
+    infrastructureProvider: {
+      displayName: "Hetzner",
+      iconUrl: "https://www.hetzner.com/favicon.ico",
+      id: "hetzner",
+    },
+    protocolVersion: 9,
+    runtimeId: "runtime_remote",
+    vapidPublicKey: "test-vapid-public-key",
+  };
+}
+
+function computeSetupAttestation({
+  attestationKey,
+  nodeFingerprint,
+  nonce,
+  provisionId,
+  runtimeId,
+}) {
+  const hmac = createHmac("sha256", attestationKey);
+  for (const value of [
+    "setta-setup-attestation-v1",
+    runtimeId,
+    provisionId,
+    nonce,
+    nodeFingerprint,
+  ]) {
+    hmac.update(value);
+    hmac.update("\0");
+  }
+  return hmac.digest("hex");
+}
+
+function writeJSON(response, payload, status = 200) {
+  response.writeHead(status, { "Content-Type": "application/json" });
+  response.end(JSON.stringify(payload));
+}
+
+function apiError(code, message) {
+  return {
+    error: {
+      activeExecution: null,
+      code,
+      message,
+    },
+  };
 }

@@ -540,6 +540,7 @@ function registerIpc() {
     ipcMain,
     ipcObserver,
     repoRoot: repoRoot(),
+    requirePendingProvisionStore,
     requireRuntimeRegistry,
   });
   handleIpc(
@@ -752,6 +753,13 @@ function requireRuntimeRegistry(): RuntimeRegistryController {
     throw new Error(backendStartupError ?? "runtime registry is not ready");
   }
   return runtimeRegistry;
+}
+
+function requirePendingProvisionStore(): PendingProvisionStore {
+  if (!pendingProvisionStore) {
+    throw new Error(backendStartupError ?? "pending provision store is not ready");
+  }
+  return pendingProvisionStore;
 }
 
 function runtimeUnavailableMessage() {

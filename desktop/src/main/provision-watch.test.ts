@@ -9,6 +9,7 @@ import {
   decodeTailscaleStatusNodes,
   tailnetNodeMatchesRuntimeName,
   watchProvisionUntilPaired,
+  watchProvisionUntilVerified,
   type TailnetNode,
 } from "./provision-watch";
 
@@ -152,6 +153,32 @@ describe("provision watch", () => {
     expect(attempt.rejectedCandidates[0]?.reason).toContain("setup attestation");
   });
 
+  test("includes the last rejected candidate reason when a watch times out", async () => {
+    const pending = pendingProvision();
+
+    await expect(
+      watchProvisionUntilVerified({
+        fetchImpl: rejectedAttestationFetch(pending),
+        nonce: () => "nonce-000000000000000000000000",
+        now: () => new Date("2026-07-07T10:00:00.000Z"),
+        pending,
+        pollIntervalMs: 1,
+        sleep: async () => {},
+        tailnetClient: {
+          listNodes: async () => [
+            tailnetNode({
+              dnsName: "setta-worker.tailnet.ts.net",
+              hostName: "setta-worker",
+              id: "node-squatter",
+              tags: ["tag:setta-runtime"],
+            }),
+          ],
+        },
+        timeoutMs: 0,
+      }),
+    ).rejects.toThrow(/setup attestation did not match pending provision/);
+  });
+
   test("parses Tailscale status peers with tags and addresses", () => {
     expect(
       decodeTailscaleStatusNodes({
@@ -216,6 +243,27 @@ function attestedRuntimeFetch(options: {
       });
     }
     throw new Error(`unexpected request: ${input.pathname}`);
+  };
+}
+
+function rejectedAttestationFetch(pending: PendingProvisionRecord): BackendFetch {
+  return async (input, init = {}) => {
+    if (input.pathname === "/runtime/info") {
+      return jsonResponse(runtimeInfo("runtime_remote"));
+    }
+    if (input.pathname === "/setup/attestation") {
+      const body = JSON.parse(String(init.body));
+      return jsonResponse({
+        algorithm: "hmac-sha256-v1",
+        attestation: "0".repeat(64),
+        expiresAt: "2026-07-07T11:00:00.000Z",
+        nodeFingerprint: body.nodeFingerprint,
+        nonce: body.nonce,
+        provisionId: pending.provisionId,
+        runtimeId: "runtime_remote",
+      });
+    }
+    throw new Error(`unexpected rejected-attestation request: ${input.pathname}`);
   };
 }
 
