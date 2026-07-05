@@ -459,10 +459,9 @@ Progress on 2026-07-07:
   `./scripts/go.sh test ./cmd/setta -run
   'TestWorkflowDefinitionsSaveCommandCreatesAndUpdatesDefinition|TestWorkflowExecutionsStartAndReadCommandIntegration|TestWorkflowExecutionsStartCommandFailsForMissingDefinition'`,
   `./scripts/format.sh`, and `./check_quality.sh --git-changes` passed.
-- Remaining work: Phase 3 should add the workflow-builder skill. Broader
-  workflow-authoring Electron coverage, in-app Codex movement to the
-  skill/CLI/API path, and removal of obsolete dynamic-tool authoring paths
-  remain Phase 4/5 work.
+- Remaining work: add broader workflow-authoring Electron coverage, move
+  in-app Codex to the skill/CLI/API path, and remove obsolete dynamic-tool
+  authoring paths in Phase 4/5.
 
 ### Phase 3: Add The Workflow-Builder Skill
 
@@ -471,6 +470,33 @@ validate, repair, save, and start lifecycle.
 
 The skill must call the CLI for authoritative schema and validation instead of
 embedding workflow contract mirrors.
+
+Progress on 2026-07-07:
+
+- Added the repo-scoped `workflow-builder` Codex skill at
+  `.codex/skills/workflow-builder/SKILL.md` with UI metadata at
+  `.codex/skills/workflow-builder/agents/openai.yaml`.
+- The skill instructs agents to resolve the active workspace, read the
+  authoritative `setta workflow schema` output, draft a JSON graph from that
+  schema, validate with `setta workflow definitions validate --graph`, repair
+  structured diagnostics, save only on explicit create/update requests with
+  `setta workflow definitions save --input`, and start executions only on
+  explicit run requests.
+- The skill explicitly forbids direct `.setta/workflows/*.json` authoring, MCP
+  workflow-authoring tools/resources/adapters, dynamic-tool workflow authoring,
+  prompt-only schema mirrors, guessed contracts, and silent fallbacks.
+- Verification: the provided skill validator passed in a disposable `/tmp`
+  virtualenv after installing the validator's missing `PyYAML==6.0.2`
+  dependency there:
+  `<tmp-venv>/bin/python /Users/kevin/.codex/skills/.system/skill-creator/scripts/quick_validate.py .codex/skills/workflow-builder`.
+  The global `python3` validator run failed only because `yaml` was not
+  installed. No Electron or live Codex workflow gate was required for this
+  artifact-only slice because no chat harness, provider protocol, runtime,
+  generated contract, renderer, IPC, or workflow execution code changed.
+- Remaining work: Phase 4 should wire in-app Codex to use this skill plus the
+  existing CLI/API workflow-authoring surface and add the required
+  deterministic Electron/live Codex coverage. Phase 5 should remove obsolete
+  workflow-authoring dynamic-tool code.
 
 ### Phase 4: Move In-App Codex To Skills + CLI/API
 
