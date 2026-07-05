@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -95,6 +96,22 @@ func TestSettaWorkspaceContextToolReturnsCurrentTurnContext(t *testing.T) {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("workspace_context text = %s, missing %s", text, expected)
 		}
+	}
+}
+
+func TestDefaultSettaAgentToolRegistryExposesOnlyRuntimeDynamicTools(t *testing.T) {
+	registry, err := NewSettaAgentToolRegistry()
+	if err != nil {
+		t.Fatalf("setta tool registry: %v", err)
+	}
+	tools := registry.Tools()
+	got := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		got = append(got, agentToolKey(tool.Namespace, tool.Name))
+	}
+	want := []string{"setta.workflow_result", "setta.workspace_context"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("setta dynamic tools = %v, want only %v", got, want)
 	}
 }
 

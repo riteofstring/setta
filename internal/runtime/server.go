@@ -31,6 +31,7 @@ import (
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/webapp"
+	"setta/internal/workflowaudit"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -109,6 +110,7 @@ type runtimeServices struct {
 	semanticGraphStore       *semanticgraph.Store
 	terminalService          *terminal.Manager
 	workspaceActivityService *workspaceactivity.Service
+	workflowAuditService     *workflowaudit.Store
 	workspaceUIService       *workspaceui.Service
 	workspaceService         *workspacesession.Service
 	workflowService          *orchestrator.Service
@@ -290,7 +292,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	workflowService, workflowStore, err := newWorkflowService(
+	workflowService, workflowStore, workflowAuditService, err := newRuntimeWorkflowServices(
 		config.AppDataDir,
 		workspaceService,
 		chatService,
@@ -343,6 +345,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		semanticGraphStore:       semanticServices.graphStore,
 		terminalService:          terminalService,
 		workspaceActivityService: semanticServices.activityService,
+		workflowAuditService:     workflowAuditService,
 		workspaceUIService:       workspaceUIService,
 		workspaceService:         workspaceService,
 		workflowService:          workflowService,
@@ -722,6 +725,24 @@ func newWorkflowService(
 	return workflowService, workflowStore, nil
 }
 
+func newRuntimeWorkflowServices(
+	appDataDir string,
+	workspaceService *workspacesession.Service,
+	chatService *chat.Service,
+) (*orchestrator.Service, *orchestrator.Store, *workflowaudit.Store, error) {
+	workflowService, workflowStore, err := newWorkflowService(appDataDir, workspaceService, chatService)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	workflowAuditService, err := workflowaudit.NewStore(appDataDir)
+	if err != nil {
+		workflowService.CloseEvents()
+		_ = workflowStore.Close()
+		return nil, nil, nil, fmt.Errorf("create workflow audit store: %w", err)
+	}
+	return workflowService, workflowStore, workflowAuditService, nil
+}
+
 type e2eWorkflowRunnerPostStartPersistFailStore struct {
 	*orchestrator.Store
 	mu     sync.Mutex
@@ -765,7 +786,6 @@ func newSemanticGraphService(
 		semanticgraph.WithWorkflowSourceResolver(workflowService),
 		semanticgraph.WithChatSourceResolver(chatService),
 		semanticgraph.WithCartographerHarnessTaskRunner(chatService.HarnessTaskRunner(), chat.HarnessCodex),
-		semanticgraph.WithSemanticCartographerDisabled(),
 	}
 	if disableAutomaticCartographerProcessing {
 		options = append(options, semanticgraph.WithAutomaticCartographerProcessingDisabled())
@@ -810,6 +830,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		SemanticGraphService:     services.semanticGraphService,
 		TerminalService:          services.terminalService,
 		WorkspaceActivityService: services.workspaceActivityService,
+		WorkflowAuditService:     services.workflowAuditService,
 		WorkspaceUIService:       services.workspaceUIService,
 		WorkspaceService:         services.workspaceService,
 		WorkflowService:          services.workflowService,

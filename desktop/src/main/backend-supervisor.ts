@@ -1,8 +1,12 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
+
+import { fetchRuntimeInfo } from "./runtime-pairing";
 
 export interface BackendReadyEvent {
   event: "ready";
@@ -12,6 +16,7 @@ export interface BackendReadyEvent {
 }
 
 export interface BackendLaunchOptions {
+  appDataDir?: string;
   args: string[];
   command: string;
   cwd: string;
@@ -46,7 +51,19 @@ export interface BackendHandle {
 
 const maxRecentLogs = 80;
 const defaultSpawnedBackendReadyTimeoutMs = 120_000;
+const serveStateSchemaVersion = 1;
 type BackendChild = ChildProcessByStdio<null, Readable, Readable>;
+
+interface SpawnedBackendServeState {
+  schemaVersion: typeof serveStateSchemaVersion;
+  pid: number;
+  addr: string;
+  baseUrl: string;
+  runtimeId: string;
+  displayName: string;
+  protocolVersion: number;
+  startedAt: string;
+}
 
 function resolveBackendLaunchOptions(
   repoRoot: string,
@@ -58,6 +75,7 @@ function resolveBackendLaunchOptions(
     defaultSpawnedBackendReadyTimeoutMs,
   );
   return {
+    appDataDir,
     args: ["run", "./cmd/setta-backend", "--app-data-dir", appDataDir],
     command: `${repoRoot}/scripts/go.sh`,
     cwd: repoRoot,
@@ -98,9 +116,15 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
   const readyPromise = waitForBackendReady(child, stdoutEvents, options.readyTimeoutMs);
   const lifecycle = monitorBackendProcess(child, events, stdoutEvents, logs);
   let ready: BackendReadyEvent;
+  let serveState: SpawnedBackendServeState | null = null;
+  let serveStatePath = "";
 
   try {
     ready = await readyPromise;
+    if (options.appDataDir) {
+      serveState = await publishSpawnedBackendServeState(options.appDataDir, ready, child.pid);
+      serveStatePath = spawnedBackendServeStatePath(options.appDataDir);
+    }
   } catch (error) {
     try {
       await stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise);
@@ -119,7 +143,14 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
     mode: "spawned",
     protocolVersion: ready.protocolVersion,
     recentLogs: () => [...logs],
-    stop: () => stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise),
+    stop: () =>
+      stopSpawnedBackend(
+        child,
+        lifecycle.markStopping,
+        lifecycle.exitPromise,
+        serveStatePath,
+        serveState,
+      ),
     url: `http://${ready.addr}`,
   };
 }
@@ -171,7 +202,11 @@ function readNonEmptyString(value: unknown): string | null {
 }
 
 function readPositiveInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+  return isPositiveInteger(value) ? value : null;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 function monitorBackendProcess(
@@ -267,6 +302,120 @@ async function stopBackend(
   }
 }
 
+async function stopSpawnedBackend(
+  child: BackendChild,
+  markStopping: () => void,
+  exitPromise: Promise<BackendExit>,
+  serveStatePath: string,
+  serveState: SpawnedBackendServeState | null,
+): Promise<void> {
+  try {
+    await stopBackend(child, markStopping, exitPromise);
+  } finally {
+    if (serveStatePath !== "" && serveState !== null) {
+      await removeSpawnedBackendServeState(serveStatePath, serveState);
+    }
+  }
+}
+
+async function publishSpawnedBackendServeState(
+  appDataDir: string,
+  ready: BackendReadyEvent,
+  pid: number | undefined,
+): Promise<SpawnedBackendServeState> {
+  if (pid === undefined || pid <= 0) {
+    throw new Error("spawned backend did not expose a process id for serve state");
+  }
+  const baseUrl = `http://${ready.addr}`;
+  const info = await fetchRuntimeInfo(baseUrl, fetch);
+  const state = {
+    addr: ready.addr,
+    baseUrl,
+    displayName: info.displayName,
+    pid,
+    protocolVersion: info.protocolVersion,
+    runtimeId: info.runtimeId,
+    schemaVersion: serveStateSchemaVersion,
+    startedAt: new Date().toISOString(),
+  } satisfies SpawnedBackendServeState;
+  const path = spawnedBackendServeStatePath(appDataDir);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+  return state;
+}
+
+async function removeSpawnedBackendServeState(
+  path: string,
+  expected: SpawnedBackendServeState,
+): Promise<void> {
+  const current = await readSpawnedBackendServeState(path);
+  if (current === null || !spawnedBackendServeStateMatches(current, expected)) {
+    return;
+  }
+  await rm(path, { force: true });
+}
+
+async function readSpawnedBackendServeState(
+  path: string,
+): Promise<SpawnedBackendServeState | null> {
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf8");
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+    throw error;
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return null;
+    }
+    throw error;
+  }
+  return isSpawnedBackendServeState(value) ? value : null;
+}
+
+function spawnedBackendServeStateMatches(
+  value: SpawnedBackendServeState,
+  expected: SpawnedBackendServeState,
+): boolean {
+  return (
+    value.pid === expected.pid &&
+    value.addr === expected.addr &&
+    value.runtimeId === expected.runtimeId
+  );
+}
+
+function isSpawnedBackendServeState(value: unknown): value is SpawnedBackendServeState {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    value.schemaVersion === serveStateSchemaVersion &&
+    isPositiveInteger(value.pid) &&
+    spawnedBackendServeStateStringsPresent(value) &&
+    isPositiveInteger(value.protocolVersion)
+  );
+}
+
+function spawnedBackendServeStateStringsPresent(value: Record<string, unknown>): boolean {
+  return (
+    readNonEmptyString(value.addr) !== null &&
+    readNonEmptyString(value.baseUrl) !== null &&
+    readNonEmptyString(value.runtimeId) !== null &&
+    readNonEmptyString(value.displayName) !== null &&
+    readNonEmptyString(value.startedAt) !== null
+  );
+}
+
+function spawnedBackendServeStatePath(appDataDir: string): string {
+  return join(appDataDir, "runtime", "serve-state.json");
+}
+
 function signalBackendProcess(child: BackendChild, signal: NodeJS.Signals): boolean {
   if (child.pid === undefined) {
     return false;
@@ -291,6 +440,10 @@ function signalBackendProcess(child: BackendChild, signal: NodeJS.Signals): bool
 
 function isMissingProcessError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error && error.code === "ESRCH";
+}
+
+function isMissingFileError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 function isPermissionError(error: unknown): error is NodeJS.ErrnoException {

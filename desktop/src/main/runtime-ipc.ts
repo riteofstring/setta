@@ -1,38 +1,19 @@
 import type { IpcMain } from "electron";
 
 import { handleIpc, type IpcObserver } from "@shared/ipc";
-import { createElectronRuntimeSecretStore } from "./electron-runtime-secret-store";
-import {
-  listCloudRuntimeProvisionOptions,
-  resolveCloudRuntimeProvision,
-} from "./provision-resolver";
 import type { RuntimeRegistryController } from "./runtime-registry";
-import { runSettaRemoteAddSSH } from "./runtime-ssh";
-import { TailscaleOAuthService } from "./tailscale-oauth";
 
 interface RuntimeIpcRegistration {
-  appDataDir: string;
   ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
-  repoRoot: string;
   requireRuntimeRegistry: () => RuntimeRegistryController;
-  tailscaleOAuthService?: TailscaleOAuthService;
 }
 
 export function registerRuntimeIpcHandlers({
-  appDataDir,
   ipcMain,
   ipcObserver,
-  repoRoot,
   requireRuntimeRegistry,
-  tailscaleOAuthService,
 }: RuntimeIpcRegistration): void {
-  const tailscaleOAuth =
-    tailscaleOAuthService ??
-    new TailscaleOAuthService({
-      secretStore: createElectronRuntimeSecretStore(appDataDir),
-      userDataDir: appDataDir,
-    });
   handleIpc(
     ipcMain,
     "runtimeCurrent",
@@ -59,49 +40,6 @@ export function registerRuntimeIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "runtimeAddExistingMachineOverSSH",
-    async (_event, request) => {
-      const result = await runSettaRemoteAddSSH(request, {
-        appDataDir,
-        env: process.env,
-        repoRoot,
-      });
-      return requireRuntimeRegistry().addByPairingURL(result.pairingUrl);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "runtimeCloudProvisionOptions",
-    async () => {
-      return listCloudRuntimeProvisionOptions({
-        env: process.env,
-        repoRoot,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "runtimeCloudProvisionResolve",
-    async (_event, request) => {
-      return resolveCloudRuntimeProvision(request, {
-        env: process.env,
-        repoRoot,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "runtimeCreateDevicePairing",
-    async () => {
-      return requireRuntimeRegistry().createDevicePairing();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "runtimeSwitch",
     async (_event, runtimeId) => {
       return requireRuntimeRegistry().switchToRuntime(runtimeId);
@@ -113,38 +51,6 @@ export function registerRuntimeIpcHandlers({
     "runtimeRemove",
     async (_event, runtimeId) => {
       return requireRuntimeRegistry().removeRuntime(runtimeId);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "runtimeTailscaleOAuthSetupGuide",
-    async () => {
-      return tailscaleOAuth.setupGuide();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "runtimeTailscaleOAuthSaveCredentials",
-    async (_event, request) => {
-      return tailscaleOAuth.saveCredentials(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "runtimeTailscaleOAuthValidate",
-    async () => {
-      return tailscaleOAuth.validateCredentials();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "runtimeTailscaleAuthKeyMint",
-    async (_event, request) => {
-      return tailscaleOAuth.mintAuthKey(request);
     },
     ipcObserver,
   );

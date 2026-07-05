@@ -83,11 +83,7 @@ const api: SettaAPI = {
     },
   },
   runtimes: {
-    addExistingMachineOverSSH: (request) => invoke("runtimeAddExistingMachineOverSSH", request),
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
-    cloudProvisionOptions: () => invoke("runtimeCloudProvisionOptions"),
-    cloudProvisionResolve: (request) => invoke("runtimeCloudProvisionResolve", request),
-    createDevicePairing: () => invoke("runtimeCreateDevicePairing"),
     current: () => invoke("runtimeCurrent"),
     list: () => invoke("runtimeList"),
     onConnectionState: (listener) => {
@@ -101,11 +97,6 @@ const api: SettaAPI = {
     },
     remove: (runtimeId) => invoke("runtimeRemove", runtimeId),
     switch: (runtimeId) => invoke("runtimeSwitch", runtimeId),
-    tailscaleAuthKeyMint: (request) => invoke("runtimeTailscaleAuthKeyMint", request),
-    tailscaleOAuthSaveCredentials: (request) =>
-      invoke("runtimeTailscaleOAuthSaveCredentials", request),
-    tailscaleOAuthSetupGuide: () => invoke("runtimeTailscaleOAuthSetupGuide"),
-    tailscaleOAuthValidate: () => invoke("runtimeTailscaleOAuthValidate"),
   },
   workspaceActivity: {
     onEvent: (listener) => {

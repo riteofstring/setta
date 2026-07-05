@@ -197,9 +197,10 @@ async function ensureWorkspaceOpen(client) {
     return currentWorkspaceId;
   }
   await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
-  return waitForState(
+  return waitForWorkspaceDriverState(
     client,
-    driverCallExpression("workspaceUltrawideWorkspaceId"),
+    "workspaceUltrawideWorkspaceId",
+    {},
     (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     workflowTimeoutMs,
   );
@@ -243,9 +244,10 @@ async function waitForLivePaneSnapshot(
     requiredFocusedPaneId,
     requiredIntersectingPaneId,
   };
-  return waitForState(
+  return waitForWorkspaceDriverState(
     client,
-    driverCallExpression("workspaceUltrawidePaneSnapshot"),
+    "workspaceUltrawidePaneSnapshot",
+    {},
     (snapshot) => paneSnapshotMatches(snapshot, options),
     workflowTimeoutMs,
   );
@@ -327,9 +329,10 @@ function hostsForSurfaceKind(snapshot, surfaceKind) {
 }
 
 async function waitForVerticalResizeTarget(client, { adjacentPaneId, paneId }) {
-  const snapshot = await waitForState(
+  const snapshot = await waitForWorkspaceDriverState(
     client,
-    driverCallExpression("workspaceUltrawidePaneSnapshot"),
+    "workspaceUltrawidePaneSnapshot",
+    {},
     (candidate) =>
       candidate.resizeHandles.some(
         (handle) =>
@@ -354,6 +357,11 @@ async function waitForVerticalResizeTarget(client, { adjacentPaneId, paneId }) {
     handle,
     snapshot,
   };
+}
+
+async function waitForWorkspaceDriverState(client, method, args, isReady, timeoutMs) {
+  await client.installDriver();
+  return waitForState(client, driverCallExpression(method, args), isReady, timeoutMs);
 }
 
 async function dispatchWorkspaceNavigationShortcut(client, key) {
