@@ -986,3 +986,15 @@ Remaining Phase 2c work: production-path active-run rejection coverage,
 latest-run snapshot restore after renderer reload, `easyrun.resync_required`
 handling in the pane workflow, second-request rail reset coverage, and the
 "Copy debug info" context-menu action. No blockers were discovered.
+
+### 2026-07-08 — Phase 2c startup-recovery audit follow-up
+Audit found the startup-recovery slice matches the first Phase 2c hardening
+step and does not violate the plan's hard constraints. Contract generation had
+no drift; focused easy-run service/store/build checks and the deterministic
+easy-button Electron workflow passed. ChatGPT auth was available:
+`live-codex-backend` passed, while `live-codex-electron` failed twice in the
+existing live semantic-cartographer subcheck after the live chat/provider
+portions completed, waiting for a workflow-execution-scoped cartographer run to
+become `applied`. Kept rerun artifacts:
+`test-results/electron-integration/chat-workflows/2026-07-09T034743-758Z/live-codex/`.
+Remaining Phase 2c work is unchanged; no easy-button blockers were discovered.
