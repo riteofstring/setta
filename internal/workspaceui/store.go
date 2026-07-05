@@ -154,6 +154,9 @@ func validateLayout(layout WorkspaceUILayout, path string) error {
 	if layout.FocusedPaneID == "" {
 		return corruptStateErrorf(path, "focusedPaneId is required")
 	}
+	if layout.Revision <= 0 {
+		return corruptStateErrorf(path, "revision must be positive")
+	}
 	if len(layout.Columns) == 0 {
 		return corruptStateErrorf(path, "columns are required")
 	}

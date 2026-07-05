@@ -47,6 +47,7 @@ export interface WorkspacePaneLimitState {
 }
 
 interface WorkspaceLayoutStoreOptions {
+  initialRevision?: number;
   paneLimits?: PaneLimitPolicy;
 }
 
@@ -82,6 +83,7 @@ export class WorkspaceLayoutStore {
     initialFocusedPaneId?: PaneId,
     private readonly options: WorkspaceLayoutStoreOptions = {},
   ) {
+    this.revision = nonNegativeInteger(options.initialRevision ?? 0);
     if (initialFocusedPaneId) {
       this.setFocusedPane(initialFocusedPaneId);
       this.snapScrollToTarget();
@@ -811,6 +813,13 @@ function clampPan(value: number, max: number): number {
 
 function clampRange(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
+}
+
+function nonNegativeInteger(value: number): number {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`workspace layout initial revision must be a non-negative integer: ${value}`);
+  }
+  return value;
 }
 
 function emptyFramePaneRequest(): OpenPaneRequest {

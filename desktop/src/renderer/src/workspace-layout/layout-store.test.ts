@@ -157,6 +157,16 @@ describe("workspace layout store", () => {
     expect(store.getSnapshot()).toBe(store.getSnapshot());
   });
 
+  test("continues from a restored persisted revision", () => {
+    const store = createStore(undefined, 12);
+
+    expect(store.getSnapshot().revision).toBe(12);
+
+    store.openPane({ title: "Logs" });
+
+    expect(store.getSnapshot().revision).toBe(13);
+  });
+
   test("enforces configured pane limits for explicit opens", () => {
     const store = createStore({
       "chat-dom": 10,
@@ -1149,7 +1159,7 @@ describe("workspace layout store", () => {
   });
 });
 
-function createStore(paneLimits?: PaneLimitPolicy): WorkspaceLayoutStore {
+function createStore(paneLimits?: PaneLimitPolicy, initialRevision?: number): WorkspaceLayoutStore {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {},
@@ -1160,6 +1170,7 @@ function createStore(paneLimits?: PaneLimitPolicy): WorkspaceLayoutStore {
     workspaceName: "Repo",
   });
   return new WorkspaceLayoutStore(new WorkspaceLikeLayoutEngine(scene), scene, focusedPaneId, {
+    initialRevision,
     paneLimits,
   });
 }

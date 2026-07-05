@@ -34,6 +34,9 @@ func TestStorePersistsWorkspaceUILayout(t *testing.T) {
 	if loaded.Layout.FocusedPaneID != "workspace_pane_1" {
 		t.Fatalf("focusedPaneId = %q, want workspace_pane_1", loaded.Layout.FocusedPaneID)
 	}
+	if loaded.Layout.Revision != 1 {
+		t.Fatalf("revision = %d, want 1", loaded.Layout.Revision)
+	}
 	if loaded.Layout.Columns[0].PreviousProportionWidth == nil || *loaded.Layout.Columns[0].PreviousProportionWidth != 0.42 {
 		t.Fatalf("previous proportion width = %#v", loaded.Layout.Columns[0].PreviousProportionWidth)
 	}
@@ -74,6 +77,40 @@ func TestStoreRejectsMalformedWorkspaceUILayout(t *testing.T) {
 	}
 	if !IsCorruptStateError(err) {
 		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsSchemaOneWorkspaceUILayout(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := newTestStore(t, appDataDir)
+	path := StateFilePath(appDataDir, "workspace_api")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create state dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(`{"schemaVersion":1}`), 0o644); err != nil {
+		t.Fatalf("write old layout: %v", err)
+	}
+
+	_, err := store.LoadLayout("workspace_api")
+	if err == nil {
+		t.Fatal("load succeeded, want unsupported schema error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "unsupported schemaVersion 1") {
+		t.Fatalf("error = %T %v, want unsupported schema corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsWorkspaceUILayoutWithoutPositiveRevision(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Revision = 0
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want missing revision error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "revision must be positive") {
+		t.Fatalf("error = %T %v, want revision corrupt state", err, err)
 	}
 }
 
@@ -426,6 +463,7 @@ func testLayout(workspaceID string) WorkspaceUILayout {
 	previous := 0.42
 	return WorkspaceUILayout{
 		SchemaVersion: SchemaVersion,
+		Revision:      1,
 		WorkspaceID:   workspaceID,
 		FocusedPaneID: "workspace_pane_1",
 		Columns: []WorkspaceUIColumn{

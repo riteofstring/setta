@@ -533,7 +533,8 @@ function twoPaneWorkspaceUILayout(workspaceId) {
         weight: 1,
       },
     ],
-    schemaVersion: 1,
+    revision: 1,
+    schemaVersion: 2,
     workspaceId,
   };
 }

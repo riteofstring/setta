@@ -2,7 +2,7 @@ package workspaceui
 
 import "setta/internal/orchestrator"
 
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 type ColumnWidthUnit string
 
@@ -120,6 +120,7 @@ type WorkspaceUIColumn struct {
 
 type WorkspaceUILayout struct {
 	SchemaVersion int                 `json:"schemaVersion"`
+	Revision      int                 `json:"revision"`
 	WorkspaceID   string              `json:"workspaceId"`
 	FocusedPaneID string              `json:"focusedPaneId"`
 	Columns       []WorkspaceUIColumn `json:"columns"`

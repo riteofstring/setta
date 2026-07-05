@@ -388,6 +388,7 @@ func mustTime(t *testing.T, value string) time.Time {
 func workspaceUILayout(workspaceID string) workspaceui.WorkspaceUILayout {
 	return workspaceui.WorkspaceUILayout{
 		SchemaVersion: workspaceui.SchemaVersion,
+		Revision:      1,
 		WorkspaceID:   workspaceID,
 		FocusedPaneID: "workspace_pane_1",
 		Columns: []workspaceui.WorkspaceUIColumn{

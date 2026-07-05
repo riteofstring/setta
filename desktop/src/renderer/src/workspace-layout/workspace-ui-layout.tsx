@@ -310,6 +310,7 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
       workspaceId,
       runtime.store.toScene(),
       runtime.store.focusedPaneId(),
+      runtime.store.getSnapshot().revision,
     );
     pendingLayoutSaveRef.current = pendingLayoutSaveRef.current
       .catch(() => {})

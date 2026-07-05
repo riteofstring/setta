@@ -58,6 +58,7 @@ export function createWorkspaceRuntime({
     scene,
     initialFocusedPaneIdForRuntime(mode, engine, realScene),
     {
+      initialRevision: realScene?.layoutRevision,
       paneLimits: paneLimitsForRuntime(mode),
     },
   );

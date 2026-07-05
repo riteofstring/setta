@@ -75,7 +75,7 @@ function workspaceUIBackendClient(): BackendClient {
 function workspaceUISchema() {
   return {
     columnWidthUnits: [],
-    layoutSchemaVersion: 1,
+    layoutSchemaVersion: 2,
     paneReadModes: [],
     paneRuntimeStatuses: [],
     paneTones: [],
@@ -128,7 +128,8 @@ function workspaceUILayout(): WorkspaceUILayout {
     columns: [],
     focusedPaneId: "workspace_pane_1",
     panes: [],
-    schemaVersion: 1,
+    revision: 1,
+    schemaVersion: 2,
     workspaceId: "workspace_api",
   };
 }

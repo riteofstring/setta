@@ -20,7 +20,7 @@ export function workspaceUIReadFixtureAPI(
 function emptyWorkspaceUISchema(): Awaited<ReturnType<SettaAPI["workspace"]["readUISchema"]>> {
   return {
     columnWidthUnits: [],
-    layoutSchemaVersion: 1,
+    layoutSchemaVersion: 2,
     paneReadModes: [],
     paneRuntimeStatuses: [],
     paneTones: [],

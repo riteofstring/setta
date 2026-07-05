@@ -146,6 +146,7 @@ func saveWorkspaceUILayoutForCLITest(t *testing.T, client *http.Client, appDataD
 func cliTestWorkspaceUILayout(workspaceID string) workspaceui.WorkspaceUILayout {
 	return workspaceui.WorkspaceUILayout{
 		SchemaVersion: workspaceui.SchemaVersion,
+		Revision:      1,
 		WorkspaceID:   workspaceID,
 		FocusedPaneID: "workspace_pane_1",
 		Columns: []workspaceui.WorkspaceUIColumn{

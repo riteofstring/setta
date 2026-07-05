@@ -135,7 +135,7 @@ function paneDescriptor(overrides: PaneDescriptorOverrides): WorkspaceUIPaneDesc
 function workspaceUISchema(): WorkspaceUIPaneListResult["schema"] {
   return {
     columnWidthUnits: [],
-    layoutSchemaVersion: 1,
+    layoutSchemaVersion: 2,
     paneReadModes: [],
     paneRuntimeStatuses: [],
     paneTones: [],

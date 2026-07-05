@@ -640,6 +640,37 @@ Verification:
 - Electron E2E proving an agent-originated operation updates the production
   renderer and persists across reload
 
+Progress on 2026-07-07:
+
+- Added the Phase 2 persisted layout revision prerequisite without exposing
+  workspace write commands to agents. `WorkspaceUILayout` now has a required
+  positive `revision`, and the persisted workspace UI layout schema is now
+  version `2`.
+- Regenerated the backend TypeScript contract surface and HTTP contract
+  snapshot from the Go-owned endpoint registry; backend protocol version is now
+  `15`.
+- The workspace UI store now fails loudly on schema-1 persisted UI layouts and
+  schema-2 layouts without a positive revision. No migration, compatibility
+  shim, dual-read path, or silent fallback was added.
+- The renderer layout store can start from a restored persisted revision, and
+  renderer whole-layout saves now include the current store revision so restored
+  layouts do not reset to revision `1` on the next save. This keeps the
+  existing renderer save path coherent while backend-owned operations and event
+  sync are still unexposed.
+- Updated Electron workflow fixtures that seed workspace UI layouts to write
+  schema version `2` with revision `1`.
+- Verification:
+  `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi`,
+  `./scripts/go.sh test ./cmd/setta`,
+  `pnpm -C desktop exec vitest run src/renderer/src/workspace-layout/layout-store.test.ts src/renderer/src/workspace-layout/workspace-scene.test.ts src/main/workspace-ui-ipc.test.ts src/preload/index.test.ts src/renderer/src/workspace-layout/workspace-pane-metadata.test.ts src/renderer/src/workspace-layout/workspace-ui-layout.test.ts`,
+  `pnpm -C desktop typecheck`, `pnpm -C desktop build`, and
+  `node desktop/tests/electron/run-workflows.mjs --workflow pane-focus-click`
+  passed.
+- Remaining Phase 2 work: implement the backend operation reducer/service and
+  event sync, then cut renderer-originated layout mutations over to that
+  backend operation API before exposing agent or CLI workspace mutation
+  commands.
+
 ### Phase 3: Renderer Event Sync
 
 Add workspace UI event streaming. Active renderers subscribe to layout revision

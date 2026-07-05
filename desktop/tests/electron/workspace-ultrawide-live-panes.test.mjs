@@ -465,7 +465,8 @@ function ultraWideLayout(workspaceId) {
     })),
     focusedPaneId: "workspace_pane_0",
     panes,
-    schemaVersion: 1,
+    revision: 1,
+    schemaVersion: 2,
     workspaceId,
   };
 }
@@ -509,7 +510,8 @@ function multiRowLayout(workspaceId) {
     })),
     focusedPaneId: "multirow_pane_0",
     panes,
-    schemaVersion: 1,
+    revision: 1,
+    schemaVersion: 2,
     workspaceId,
   };
 }
@@ -553,7 +555,8 @@ function verticalStackLayout(workspaceId) {
     ],
     focusedPaneId: "vertical_pane_0",
     panes,
-    schemaVersion: 1,
+    revision: 1,
+    schemaVersion: 2,
     workspaceId,
   };
 }

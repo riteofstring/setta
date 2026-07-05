@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 14;
-export const backendContractSchemaHash = "sha256:46e906d88fc5d391425c0cce44cdac82b9019883e9e395cf5cbe2402fd1df3d1";
+export const backendProtocolVersion = 15;
+export const backendContractSchemaHash = "sha256:4030ac145d8c2c145503463d2a378dff72f2e2d226103f1e01e87da3b0126a67";
 
 export type DeviceScope = "full";
 
@@ -3275,6 +3275,7 @@ export interface WorkspaceUIPane {
 
 export interface WorkspaceUILayout {
   schemaVersion: number;
+  revision: number;
   workspaceId: string;
   focusedPaneId: string;
   columns: WorkspaceUIColumn[];
@@ -8248,9 +8249,10 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
 
 export function decodeWorkspaceUILayout(value: unknown): WorkspaceUILayout {
   const record = assertRecord(value, "WorkspaceUILayout");
-  assertKnownFields(record, "WorkspaceUILayout", ["schemaVersion", "workspaceId", "focusedPaneId", "columns", "panes"]);
+  assertKnownFields(record, "WorkspaceUILayout", ["schemaVersion", "revision", "workspaceId", "focusedPaneId", "columns", "panes"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkspaceUILayout"), "WorkspaceUILayout.schemaVersion"),
+    revision: decodeInteger(requireField(record, "revision", "WorkspaceUILayout"), "WorkspaceUILayout.revision"),
     workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUILayout"), "WorkspaceUILayout.workspaceId"),
     focusedPaneId: decodeString(requireField(record, "focusedPaneId", "WorkspaceUILayout"), "WorkspaceUILayout.focusedPaneId"),
     columns: decodeArray(requireField(record, "columns", "WorkspaceUILayout"), "WorkspaceUILayout.columns", (item) => decodeWorkspaceUIColumn(item)),
