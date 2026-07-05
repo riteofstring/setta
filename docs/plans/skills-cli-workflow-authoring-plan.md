@@ -327,7 +327,7 @@ Progress on 2026-07-07:
 - Added generated `WorkflowDefinitionSaveInput`,
   `WorkflowDefinitionSaveResult`, and `WorkflowDefinitionSaveOperation`
   surfaces. The save input uses an explicit `create` or `update` operation;
-  update requires `definitionId`, and create rejects `definitionId`.
+  update requires `definitionId`, and create rejects non-empty `definitionId`.
 - Save validates the workflow graph before persistence. Invalid graphs return
   `saved: false`, `definition: null`, and the structured backend validation
   diagnostics without writing a definition. Valid create/update saves return
@@ -480,8 +480,9 @@ Progress on 2026-07-07:
   authoritative `setta workflow schema` output, draft a JSON graph from that
   schema, validate with `setta workflow definitions validate --graph`, repair
   structured diagnostics, save only on explicit create/update requests with
-  `setta workflow definitions save --input`, and start executions only on
-  explicit run requests.
+  `setta workflow definitions save --input` using an omitted or empty
+  `definitionId` for create saves, and start executions only on explicit run
+  requests.
 - The skill explicitly forbids direct `.setta/workflows/*.json` authoring, MCP
   workflow-authoring tools/resources/adapters, dynamic-tool workflow authoring,
   prompt-only schema mirrors, guessed contracts, and silent fallbacks.

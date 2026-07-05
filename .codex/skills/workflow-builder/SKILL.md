@@ -43,7 +43,7 @@ Do not write `.setta/workflows/*.json` directly as the primary workflow authorin
    setta workflow definitions save --input save.json
    ```
 
-   The save input is an explicit create/update request. Use `operation: "create"` with an empty `definitionId`, or `operation: "update"` with the existing definition ID. Include `name`, `description`, and the validated `graph`. The save result also contains backend validation; treat `saved: false` as not persisted.
+   The save input is an explicit create/update request. Use `operation: "create"` with `definitionId` omitted or empty, or `operation: "update"` with the existing definition ID. Include `name`, `description`, and the validated `graph`. The save result also contains backend validation; treat `saved: false` as not persisted.
 
 7. Start a workflow only when the user explicitly requested a run:
 
