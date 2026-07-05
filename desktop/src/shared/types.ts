@@ -40,6 +40,8 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  EasyRunEvent,
+  EasyRunSnapshot,
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
@@ -385,6 +387,10 @@ export interface SettaAPI {
       executionId: string,
       limit: number,
     ) => Promise<WorkspaceActivitySnapshot>;
+  };
+  easyRun: {
+    onEvent: (listener: (event: EasyRunEvent) => void) => () => void;
+    snapshot: (workspaceId: string) => Promise<EasyRunSnapshot>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

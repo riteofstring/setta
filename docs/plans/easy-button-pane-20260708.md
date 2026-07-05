@@ -823,3 +823,53 @@ Remaining work: Phase 2a is next. It should create the `internal/easyrun`
 domain, contracts, store, event/SSE shape, empty snapshot endpoint, generated
 contracts, and renderer easy-run store modules while keeping the pane visually
 idle and without exposing start/stop endpoints until Phase 2b.
+
+### 2026-07-08 — Phase 2a complete
+
+Implemented the easy-run contract and empty snapshot slice without exposing
+start/stop:
+
+- Added `internal/easyrun` ownership for typed runs, highlights, artifacts,
+  generated value sets, strict artifact/event tagged unions, an owned event
+  hub with replay/resync behavior, an empty snapshot store/service, and
+  shutdown wiring in the runtime.
+- Added `GET /easy-runs/snapshot?workspaceId=...` and
+  `/easy-runs/events` SSE endpoints through the HTTP endpoint registry, with
+  generated TypeScript contracts regenerated and backend protocol version
+  bumped to 8 for the schema hash change.
+- Added the Electron/preload/web typed `easyRun` API surface: main handles
+  snapshot reads, while preload/web expose typed event subscriptions backed by
+  the generated easy-run contracts. Automatic app-shell event forwarding and
+  pane hydration stay deferred until Phase 2b has real easy-run lifecycle
+  events. No start/stop endpoints, no hidden chat run launch, and no raw chat
+  transcript event consumption were added.
+- Added renderer `stores/easy-run-store.ts` and `easy-run-events.ts` with
+  snapshot hydration, duplicate/gap/stream-change handling, resync handling,
+  run-change rail reset, and focused reducer/store tests. The pane remains
+  visually idle.
+
+Verification performed:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./internal/easyrun ./internal/httpapi ./internal/runtime ./cmd/generate-contracts`
+- `pnpm -C desktop exec vitest run
+src/main/backend-supervisor.test.ts
+src/renderer/src/stores/easy-run-store.test.ts
+src/shared/backend-runtime.test.ts`
+- `pnpm -C desktop typecheck`
+- `pnpm -C desktop build`
+- `node tests/electron/chat-workflows.test.mjs --codex-protocol-only`
+- `./scripts/format.sh`
+- `./check_quality.sh --all`
+
+E2E/live note: Phase 2a does not start chat runs or touch hidden Codex
+orchestrator lifecycle, so the plan does not require live Codex E2E for this
+slice. Deterministic production-path Electron workflows were still exercised by
+the broad quality gate, and `chat-workflows --codex-protocol-only` was run as a
+protocol/runtime regression check after the backend protocol bump. Live Codex
+coverage begins in Phase 2b when real hidden runs are introduced.
+
+Remaining work: Phase 2b is next. It should add real start/stop endpoints,
+hidden internal conversations, yolo orchestrator turn launch, terminal status
+observation, and the first production-path Electron workflow for the working
+and complete states while keeping the left rail empty until narrator work.

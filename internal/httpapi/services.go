@@ -8,6 +8,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/easyrun"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
@@ -44,6 +45,11 @@ type WorkspaceActivityService interface {
 	ReadSnapshot(workspaceID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error)
 	ReadExecutionSnapshot(workspaceID string, executionID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error)
 	SubscribeEvents(cursor workspaceactivity.EventCursor, workspaceID string) (*workspaceactivity.EventSubscription, error)
+}
+
+type EasyRunService interface {
+	ReadSnapshot(workspaceID string) (easyrun.EasyRunSnapshot, error)
+	SubscribeEvents(cursor easyrun.EasyRunEventCursor) (*easyrun.EventSubscription, error)
 }
 
 type ChatService interface {
@@ -210,6 +216,7 @@ type HandlerConfig struct {
 	Metadata                 BackendMetadata
 	ChatService              ChatService
 	CodexAccountService      CodexAccountService
+	EasyRunService           EasyRunService
 	NotifyService            NotifyService
 	PairingFailureLimiter    *PairingFailureLimiter
 	RevocationSweepInterval  time.Duration
@@ -229,6 +236,7 @@ type handler struct {
 	metadata                 BackendMetadata
 	chatService              ChatService
 	codexAccountService      CodexAccountService
+	easyRunService           EasyRunService
 	notifyService            NotifyService
 	pairingFailureLimiter    *PairingFailureLimiter
 	revocationSweepInterval  time.Duration
@@ -257,6 +265,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		metadata:                 config.Metadata,
 		chatService:              config.ChatService,
 		codexAccountService:      config.CodexAccountService,
+		easyRunService:           config.EasyRunService,
 		notifyService:            config.NotifyService,
 		pairingFailureLimiter:    pairingFailureLimiter,
 		revocationSweepInterval:  revocationSweepInterval,

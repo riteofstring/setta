@@ -9,6 +9,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
@@ -72,6 +73,8 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkspaceActivitySnapshotRequest, ReadWorkspaceActivitySnapshotResponse]("ReadWorkspaceActivitySnapshot", "/workspace-activity/snapshot", handler.readWorkspaceActivitySnapshot),
 	post[ReadWorkflowExecutionActivityRequest, ReadWorkflowExecutionActivityResponse]("ReadWorkflowExecutionActivity", "/workspace-activity/execution-snapshot", handler.readWorkflowExecutionActivity),
 	streamEvent[workspaceactivity.WorkspaceActivityEvent]("WorkspaceActivityEventStream", "/workspace-activity/events", handler.workspaceActivityEventStream),
+	getWithQuery[ReadEasyRunSnapshotRequest, easyrun.EasyRunSnapshot]("ReadEasyRunSnapshot", "/easy-runs/snapshot", handler.readEasyRunSnapshot),
+	streamEvent[easyrun.EasyRunEvent]("EasyRunEventStream", "/easy-runs/events", handler.easyRunEventStream),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),
@@ -239,6 +242,19 @@ func get[Response any](name string, path string, handler routeHandler) endpoint 
 			Name:     name,
 			Method:   http.MethodGet,
 			Path:     path,
+			Response: reflect.TypeFor[Response](),
+		},
+		Handler: handler,
+	}
+}
+
+func getWithQuery[Request any, Response any](name string, path string, handler routeHandler) endpoint {
+	return endpoint{
+		ContractEndpoint: ContractEndpoint{
+			Name:     name,
+			Method:   http.MethodGet,
+			Path:     path,
+			Request:  reflect.TypeFor[Request](),
 			Response: reflect.TypeFor[Response](),
 		},
 		Handler: handler,

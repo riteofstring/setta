@@ -7,6 +7,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
@@ -81,6 +82,24 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 				{Field: "providerStreamLifecycle", KindValue: string(chat.RunItemDetailsKindProviderStreamLifecycle)},
 			},
 		},
+		reflect.TypeFor[easyrun.EasyArtifact](): {
+			Discriminator: "kind",
+			Branches: []taggedUnionBranch{
+				{Field: "markdown", KindValue: string(easyrun.EasyArtifactKindMarkdown)},
+				{Field: "table", KindValue: string(easyrun.EasyArtifactKindTable)},
+				{Field: "barChart", KindValue: string(easyrun.EasyArtifactKindBarChart)},
+				{Field: "file", KindValue: string(easyrun.EasyArtifactKindFile)},
+			},
+		},
+		reflect.TypeFor[easyrun.EasyRunEvent](): {
+			Discriminator: "type",
+			Branches: []taggedUnionBranch{
+				{Field: "runUpdated", KindValue: string(easyrun.EasyRunEventTypeRunUpdated)},
+				{Field: "highlightCreated", KindValue: string(easyrun.EasyRunEventTypeHighlightCreated)},
+				{Field: "artifactCreated", KindValue: string(easyrun.EasyRunEventTypeArtifactCreated)},
+				{Field: "resyncRequired", KindValue: string(easyrun.EasyRunEventTypeResyncRequired)},
+			},
+		},
 	}
 }
 
@@ -90,6 +109,9 @@ func contractValueSets() []chat.ContractValueSet {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range codexaccount.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
+	for _, set := range easyrun.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range orchestrator.ContractValueSets() {

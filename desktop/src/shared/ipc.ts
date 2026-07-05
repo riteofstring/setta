@@ -1,5 +1,4 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
-
 import type {
   AppearancePresetList,
   AppearanceSettings,
@@ -136,6 +135,7 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
+import type { EasyRunIpcContract } from "./easy-run-ipc";
 import type {
   AppWindowDragPoint,
   InstalledEditorApp,
@@ -201,6 +201,7 @@ export const ipcChannels = {
   chatSelectImageAttachments: "chat:select-image-attachments",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
+  easyRunSnapshot: "easy-run:snapshot",
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
   codexAccountRead: "codex-account:read",
@@ -299,6 +300,7 @@ export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
+  easyRunEvent: "easy-run:event",
   runtimeConnectionState: "runtimes:connection-state",
   semanticGraphEvent: "semantic-graph:event",
   workspaceActivityEvent: "workspace-activity:event",
@@ -308,7 +310,7 @@ export const ipcEvents = {
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract {
+interface IpcContract extends EasyRunIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];

@@ -137,6 +137,10 @@ type ReadWorkspaceActivitySnapshotResponse struct {
 	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
 }
 
+type ReadEasyRunSnapshotRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
 type ReadWorkflowExecutionActivityRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	ExecutionID string `json:"executionId"`

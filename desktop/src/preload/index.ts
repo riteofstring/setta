@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import {
   decodeChatEvent,
+  decodeEasyRunEvent,
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
@@ -121,6 +122,18 @@ const api: SettaAPI = {
       );
       return response.snapshot;
     },
+  },
+  easyRun: {
+    onEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeEasyRunEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.easyRunEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.easyRunEvent, handler);
+      };
+    },
+    snapshot: (workspaceId) => invoke("easyRunSnapshot", workspaceId),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),

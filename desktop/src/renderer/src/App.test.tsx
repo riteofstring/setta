@@ -63,6 +63,7 @@ describe("workspace renderer states", () => {
           },
           backend: { onEventStreamStatus: () => () => {}, onProcessStatus: () => () => {} },
           chat: { onEvent: () => () => {} },
+          easyRun: { onEvent: () => () => {} },
         },
       },
     });
@@ -109,6 +110,7 @@ describe("workspace renderer states", () => {
           },
           backend: { onEventStreamStatus: () => () => {}, onProcessStatus: () => () => {} },
           chat: { onEvent: () => () => {} },
+          easyRun: { onEvent: () => () => {} },
         },
       },
     });

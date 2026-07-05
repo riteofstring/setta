@@ -3,6 +3,7 @@ import {
   backendProtocolVersion,
   createBackendClient,
   decodeChatEvent,
+  decodeEasyRunEvent,
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
@@ -260,6 +261,19 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       steerMessage: (workspaceId, conversationId, input) =>
         requireClient().steerChatMessage({ conversationId, input, workspaceId }),
       submitApproval: (input) => requireClient().submitApproval(input),
+    },
+    easyRun: {
+      onEvent: (listener) =>
+        subscribeWebBackendEventStream({
+          baseURL,
+          cursorForEvent: cursorFromStreamedEvent,
+          decode: decodeEasyRunEvent,
+          endpoint: backendEndpoints.EasyRunEventStream,
+          fetchImpl: rawFetch,
+          sendEvent: listener,
+          streamName: "easy-run event stream",
+        }),
+      snapshot: (workspaceId) => requireClient().readEasyRunSnapshot({ workspaceId }),
     },
     codexAccount: {
       cancelLogin: (request) => requireClient().cancelCodexLogin(request),

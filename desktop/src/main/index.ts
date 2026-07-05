@@ -30,6 +30,7 @@ import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { registerChatIpcHandlers } from "./chat-ipc";
+import { registerEasyRunIpcHandlers } from "./easy-run-ipc";
 import { KnownRuntimeStore } from "./known-runtime-store";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
@@ -626,6 +627,7 @@ function registerIpc() {
     ipcObserver,
   );
   registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerEasyRunIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerChatIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });

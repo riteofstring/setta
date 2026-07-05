@@ -596,6 +596,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    easyRun: unimplementedEasyRunAPI(),
     workspaceActivity: unimplementedWorkspaceActivityAPI(),
     terminal: unimplementedTerminalAPI(),
     semanticGraph: unimplementedSemanticGraphAPI(),
@@ -619,6 +620,15 @@ function unimplementedWorkspaceActivityAPI(): SettaAPI["workspaceActivity"] {
     },
     executionSnapshot: async () => {
       throw new Error("workspace activity API is not implemented in this test");
+    },
+  };
+}
+
+function unimplementedEasyRunAPI(): SettaAPI["easyRun"] {
+  return {
+    onEvent: () => () => {},
+    snapshot: async () => {
+      throw new Error("easy-run API is not implemented in this test");
     },
   };
 }
