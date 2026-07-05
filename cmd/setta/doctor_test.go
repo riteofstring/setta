@@ -129,6 +129,75 @@ func TestDoctorJSONKeepsProbeFailuresInReport(t *testing.T) {
 	requireDoctorCheck(t, report.Checks, "agent_cli_codex", doctorStatusError)
 }
 
+func TestDoctorSourceControlDetectsSecurityKeyAndUsesTouchAwareProbe(t *testing.T) {
+	fixture := doctorSecurityKeyProbeFixture{WorkspaceDir: t.TempDir()}
+	deps := doctorSecurityKeyProbeDeps(t, &fixture)
+
+	report := doctorSourceControl(context.Background(), fixture.WorkspaceDir, deps)
+	if report.SSHAgentStatus != "identities_loaded" || !report.SSHSecurityKeyPresent {
+		t.Fatalf("source-control report = %+v", report)
+	}
+	if len(report.SSHIdentities) != 1 || report.SSHIdentities[0].KeyType != "ED25519-SK" || !report.SSHIdentities[0].SecurityKey {
+		t.Fatalf("ssh identities = %+v", report.SSHIdentities)
+	}
+	wantArgs := []string{"-T", "-o", "BatchMode=no", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=yes", "git@github.com"}
+	if !reflect.DeepEqual(fixture.SSHArgs, wantArgs) {
+		t.Fatalf("ssh args = %#v, want %#v", fixture.SSHArgs, wantArgs)
+	}
+	if report.GitHubAccepted == nil || *report.GitHubAccepted {
+		t.Fatalf("github accepted = %+v, want false", report.GitHubAccepted)
+	}
+	check := sourceControlDoctorCheck(report)
+	if check.Status != doctorStatusWarning || !strings.Contains(check.Message, "security-key touch") || !strings.Contains(check.Message, "deploy key") {
+		t.Fatalf("source-control check = %+v", check)
+	}
+}
+
+type doctorSecurityKeyProbeFixture struct {
+	WorkspaceDir string
+	SSHArgs      []string
+}
+
+func doctorSecurityKeyProbeDeps(t *testing.T, fixture *doctorSecurityKeyProbeFixture) cliDeps {
+	t.Helper()
+	deps := testDeps()
+	deps.getenv = func(name string) string {
+		if name == "SSH_AUTH_SOCK" {
+			return "/tmp/ssh-agent.sock"
+		}
+		return ""
+	}
+	deps.commandRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name == "git" && reflect.DeepEqual(args, []string{"-C", fixture.WorkspaceDir, "rev-parse", "--show-toplevel"}) {
+			return []byte(fixture.WorkspaceDir + "\n"), nil
+		}
+		if name == "git" && reflect.DeepEqual(args, []string{"-C", fixture.WorkspaceDir, "remote", "get-url", "origin"}) {
+			return []byte("git@github.com:owner/repo.git\n"), nil
+		}
+		if name == "ssh-add" && reflect.DeepEqual(args, []string{"-l"}) {
+			return []byte("256 SHA256:test developer@example.com (ED25519-SK)\n"), nil
+		}
+		if name == "ssh" {
+			fixture.SSHArgs = append([]string(nil), args...)
+			return []byte("Confirm user presence for key ED25519-SK SHA256:test\n"), doctorTestExitError(255)
+		}
+		t.Fatalf("unexpected command: %s %s", name, strings.Join(args, " "))
+		return nil, fmt.Errorf("unexpected command")
+	}
+	return deps
+}
+
+func TestDoctorSSHAgentStatusDistinguishesNoIdentitiesFromNoAgent(t *testing.T) {
+	noIdentities := 1
+	noAgent := 2
+	if got := doctorSSHAgentStatus(doctorCommandReport{Name: "ssh-add", ExitCode: &noIdentities}); got != "no_identities" {
+		t.Fatalf("exit 1 status = %q", got)
+	}
+	if got := doctorSSHAgentStatus(doctorCommandReport{Name: "ssh-add", ExitCode: &noAgent}); got != "no_agent" {
+		t.Fatalf("exit 2 status = %q", got)
+	}
+}
+
 func doctorCommandRunner(t *testing.T, workspaceDir string) commandRunner {
 	t.Helper()
 	return func(_ context.Context, name string, args ...string) ([]byte, error) {
@@ -159,6 +228,16 @@ func doctorCommandRunner(t *testing.T, workspaceDir string) commandRunner {
 		t.Fatalf("unexpected command: %s %s", name, strings.Join(args, " "))
 		return nil, fmt.Errorf("unexpected command")
 	}
+}
+
+type doctorTestExitError int
+
+func (err doctorTestExitError) Error() string {
+	return fmt.Sprintf("exit status %d", int(err))
+}
+
+func (err doctorTestExitError) ExitCode() int {
+	return int(err)
 }
 
 type doctorTestTransport struct{}

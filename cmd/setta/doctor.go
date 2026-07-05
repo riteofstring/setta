@@ -93,17 +93,27 @@ type doctorAgentCLIReport struct {
 }
 
 type doctorSourceControlReport struct {
-	GitRoot            string              `json:"gitRoot,omitempty"`
-	OriginRemote       string              `json:"originRemote,omitempty"`
-	OriginKind         string              `json:"originKind,omitempty"`
-	SSHAuthSock        string              `json:"sshAuthSock,omitempty"`
-	SSHAuthSockPresent bool                `json:"sshAuthSockPresent"`
-	GitRootCommand     doctorCommandReport `json:"gitRootCommand"`
-	OriginCommand      doctorCommandReport `json:"originCommand"`
-	SSHAddCommand      doctorCommandReport `json:"sshAddCommand"`
-	GitHubSSHCommand   doctorCommandReport `json:"githubSshCommand"`
-	GitHubAccepted     *bool               `json:"githubAccepted,omitempty"`
-	Error              string              `json:"error,omitempty"`
+	GitRoot                  string              `json:"gitRoot,omitempty"`
+	OriginRemote             string              `json:"originRemote,omitempty"`
+	OriginKind               string              `json:"originKind,omitempty"`
+	SSHAuthSock              string              `json:"sshAuthSock,omitempty"`
+	SSHAuthSockPresent       bool                `json:"sshAuthSockPresent"`
+	SSHAgentStatus           string              `json:"sshAgentStatus,omitempty"`
+	SSHIdentities            []doctorSSHIdentity `json:"sshIdentities,omitempty"`
+	SSHSecurityKeyPresent    bool                `json:"sshSecurityKeyPresent"`
+	GitRootCommand           doctorCommandReport `json:"gitRootCommand"`
+	OriginCommand            doctorCommandReport `json:"originCommand"`
+	SSHAddCommand            doctorCommandReport `json:"sshAddCommand"`
+	GitHubSSHCommand         doctorCommandReport `json:"githubSshCommand"`
+	GitHubSSHTouchAwareProbe bool                `json:"githubSshTouchAwareProbe"`
+	GitHubAccepted           *bool               `json:"githubAccepted,omitempty"`
+	Error                    string              `json:"error,omitempty"`
+}
+
+type doctorSSHIdentity struct {
+	Line        string `json:"line"`
+	KeyType     string `json:"keyType,omitempty"`
+	SecurityKey bool   `json:"securityKey"`
 }
 
 type doctorSetupReport struct {
@@ -114,11 +124,12 @@ type doctorSetupReport struct {
 }
 
 type doctorCommandReport struct {
-	Name   string   `json:"name"`
-	Args   []string `json:"args"`
-	OK     bool     `json:"ok"`
-	Output string   `json:"output,omitempty"`
-	Error  string   `json:"error,omitempty"`
+	Name     string   `json:"name"`
+	Args     []string `json:"args"`
+	OK       bool     `json:"ok"`
+	ExitCode *int     `json:"exitCode,omitempty"`
+	Output   string   `json:"output,omitempty"`
+	Error    string   `json:"error,omitempty"`
 }
 
 type tailscaleStatusReport struct {
@@ -318,8 +329,12 @@ func doctorSourceControl(ctx context.Context, workspaceDir string, deps cliDeps)
 		report.OriginKind = sourceControlOriginKind(report.OriginRemote)
 	}
 	report.SSHAddCommand = runDoctorCommand(ctx, deps, "ssh-add", "-l")
+	report.SSHAgentStatus = doctorSSHAgentStatus(report.SSHAddCommand)
+	report.SSHIdentities = doctorSSHIdentities(report.SSHAddCommand.Output)
+	report.SSHSecurityKeyPresent = doctorSSHIdentitiesHaveSecurityKey(report.SSHIdentities)
 	if report.OriginKind == "github_ssh" {
-		report.GitHubSSHCommand = runDoctorCommand(ctx, deps, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=yes", "git@github.com")
+		report.GitHubSSHTouchAwareProbe = report.SSHSecurityKeyPresent
+		report.GitHubSSHCommand = runDoctorCommand(ctx, deps, "ssh", githubSSHProbeArgs(report.GitHubSSHTouchAwareProbe)...)
 		report.GitHubAccepted = githubSSHAccepted(report.GitHubSSHCommand)
 	}
 	return report
@@ -355,6 +370,9 @@ func runDoctorCommand(ctx context.Context, deps cliDeps, name string, args ...st
 	}
 	if err != nil {
 		report.Error = err.Error()
+		if exitCode, ok := commandExitCode(err); ok {
+			report.ExitCode = &exitCode
+		}
 	}
 	return report
 }
@@ -422,7 +440,16 @@ func sourceControlDoctorCheck(report doctorSourceControlReport) doctorCheck {
 	if report.OriginKind == "github_https" {
 		return doctorCheck{ID: "source_control", Status: doctorStatusWarning, Message: "origin uses GitHub HTTPS; SSH agent forwarding will not affect git pulls until the remote or HTTPS credentials are configured"}
 	}
+	if report.OriginKind == "github_ssh" && report.SSHAgentStatus == "no_agent" {
+		return doctorCheck{ID: "source_control", Status: doctorStatusWarning, Message: "no SSH agent is reachable from this process; configure SSH_AUTH_SOCK or launch Setta from an environment that can see the agent"}
+	}
+	if report.OriginKind == "github_ssh" && report.SSHAgentStatus == "no_identities" {
+		return doctorCheck{ID: "source_control", Status: doctorStatusWarning, Message: "SSH agent is reachable but has no identities loaded; load a key for interactive work or add a repo-scoped deploy key for unattended pulls"}
+	}
 	if report.OriginKind == "github_ssh" && report.GitHubAccepted != nil && !*report.GitHubAccepted {
+		if report.SSHSecurityKeyPresent {
+			return doctorCheck{ID: "source_control", Status: doctorStatusWarning, Message: "GitHub SSH probe did not confirm authentication; a security-key touch may be required, and touch-required keys cannot serve unattended background pulls, so use agent forwarding for interactive work or a repo-scoped deploy key for unattended pulls"}
+		}
 		return doctorCheck{ID: "source_control", Status: doctorStatusWarning, Message: "GitHub SSH probe did not confirm authentication"}
 	}
 	return doctorCheck{ID: "source_control", Status: doctorStatusOK, Message: "source-control diagnostics completed"}
@@ -480,6 +507,22 @@ func sourceControlOriginKind(remote string) string {
 	return "other"
 }
 
+func githubSSHProbeArgs(touchAware bool) []string {
+	batchMode := "BatchMode=yes"
+	connectTimeout := "ConnectTimeout=5"
+	if touchAware {
+		batchMode = "BatchMode=no"
+		connectTimeout = "ConnectTimeout=10"
+	}
+	return []string{
+		"-T",
+		"-o", batchMode,
+		"-o", connectTimeout,
+		"-o", "StrictHostKeyChecking=yes",
+		"git@github.com",
+	}
+}
+
 func githubSSHAccepted(command doctorCommandReport) *bool {
 	if command.Name == "" {
 		return nil
@@ -487,6 +530,86 @@ func githubSSHAccepted(command doctorCommandReport) *bool {
 	output := command.Output
 	accepted := strings.Contains(output, "successfully authenticated")
 	return &accepted
+}
+
+func doctorSSHAgentStatus(command doctorCommandReport) string {
+	if command.Name == "" {
+		return ""
+	}
+	if command.OK {
+		if strings.TrimSpace(command.Output) == "" {
+			return "no_identities"
+		}
+		return "identities_loaded"
+	}
+	if command.ExitCode != nil {
+		switch *command.ExitCode {
+		case 1:
+			return "no_identities"
+		case 2:
+			return "no_agent"
+		}
+	}
+	lower := strings.ToLower(command.Output + "\n" + command.Error)
+	switch {
+	case strings.Contains(lower, "the agent has no identities"):
+		return "no_identities"
+	case strings.Contains(lower, "could not open a connection to your authentication agent"),
+		strings.Contains(lower, "no such file or directory"):
+		return "no_agent"
+	default:
+		return "error"
+	}
+}
+
+func doctorSSHIdentities(output string) []doctorSSHIdentity {
+	lines := nonEmptyLines(output)
+	identities := make([]doctorSSHIdentity, 0, len(lines))
+	for _, line := range lines {
+		identities = append(identities, doctorSSHIdentity{
+			Line:        line,
+			KeyType:     doctorSSHIdentityType(line),
+			SecurityKey: doctorSSHIdentityIsSecurityKey(line),
+		})
+	}
+	return identities
+}
+
+func doctorSSHIdentitiesHaveSecurityKey(identities []doctorSSHIdentity) bool {
+	for _, identity := range identities {
+		if identity.SecurityKey {
+			return true
+		}
+	}
+	return false
+}
+
+func doctorSSHIdentityType(line string) string {
+	start := strings.LastIndex(line, "(")
+	if start < 0 || !strings.HasSuffix(line, ")") {
+		return ""
+	}
+	return strings.TrimSpace(line[start+1 : len(line)-1])
+}
+
+func doctorSSHIdentityIsSecurityKey(line string) bool {
+	lower := strings.ToLower(line)
+	return strings.Contains(lower, "sk-ssh-ed25519@openssh.com") ||
+		strings.Contains(lower, "sk-ecdsa-sha2-") ||
+		strings.Contains(lower, "(ed25519-sk)") ||
+		strings.Contains(lower, "(ecdsa-sk)")
+}
+
+type commandExitCoder interface {
+	ExitCode() int
+}
+
+func commandExitCode(err error) (int, bool) {
+	var exitErr commandExitCoder
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode(), true
+	}
+	return 0, false
 }
 
 func trimDoctorOutput(output string) string {
