@@ -210,9 +210,11 @@ type WorkspaceUIPaneRenameOperation struct {
 }
 
 type WorkspaceUIPaneResizeOperation struct {
-	WidthSpec   *ColumnWidthSpec `json:"widthSpec"`
-	HeightPX    *int             `json:"heightPx"`
-	ResetHeight bool             `json:"resetHeight"`
+	WidthSpec     *ColumnWidthSpec `json:"widthSpec"`
+	HeightPX      *int             `json:"heightPx"`
+	HeightDeltaPX *int             `json:"heightDeltaPx"`
+	HeightScale   *float64         `json:"heightScale"`
+	ResetHeight   bool             `json:"resetHeight"`
 }
 
 type WorkspaceUIPaneOperationResult struct {

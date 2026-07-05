@@ -429,6 +429,119 @@ func TestServiceResizePaneOperationResetsPaneRowHeight(t *testing.T) {
 	})
 }
 
+func TestServiceAppliesResizePaneOperationToPaneRowHeightDelta(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testMultiColumnLayout("workspace_api")
+	height := 240
+	layout.Panes[0].HeightPX = &height
+	layout.Panes[1].HeightPX = &height
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindResizePane,
+		PaneID: "workspace_pane_1",
+		Resize: resizePaneHeightDeltaOperation(48),
+	})
+	if err != nil {
+		t.Fatalf("apply resize operation: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("changed = false, want true")
+	}
+	if result.Revision != 2 || result.Layout.Revision != 2 {
+		t.Fatalf("revision = result %d layout %d, want 2", result.Revision, result.Layout.Revision)
+	}
+	assertPaneHeightPX(t, paneByID(t, result.Layout, "workspace_pane_0"), 288)
+	assertPaneHeightPX(t, paneByID(t, result.Layout, "workspace_pane_1"), 288)
+	assertResizeOutcome(t, result.OperationResult.Resize, WorkspaceUIPaneResizeOutcome{
+		HeightPX:         intPointer(288),
+		PlaneIndex:       0,
+		PreviousHeightPX: intPointer(240),
+		RowIndex:         0,
+		TargetPaneIDs:    []string{"workspace_pane_0", "workspace_pane_1"},
+	})
+	assertDimensionChanges(t, result.BeforeAfterDimensions, []WorkspaceUIPaneDimensionChange{
+		{
+			PaneID: "workspace_pane_0",
+			Before: WorkspaceUIPaneDimensions{
+				HeightPX:  intPointer(240),
+				ColumnID:  "workspace_column_0",
+				Weight:    1.6,
+				WidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620},
+			},
+			After: WorkspaceUIPaneDimensions{
+				HeightPX:  intPointer(288),
+				ColumnID:  "workspace_column_0",
+				Weight:    1.6,
+				WidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620},
+			},
+		},
+		{
+			PaneID: "workspace_pane_1",
+			Before: WorkspaceUIPaneDimensions{
+				HeightPX:  intPointer(240),
+				ColumnID:  "workspace_column_1",
+				Weight:    1,
+				WidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 480},
+			},
+			After: WorkspaceUIPaneDimensions{
+				HeightPX:  intPointer(288),
+				ColumnID:  "workspace_column_1",
+				Weight:    1,
+				WidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 480},
+			},
+		},
+	})
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Revision != 2 {
+		t.Fatalf("loaded layout = %+v, want resized row at revision 2", loaded.Layout)
+	}
+	assertPaneHeightPX(t, paneByID(t, *loaded.Layout, "workspace_pane_0"), 288)
+	assertPaneHeightPX(t, paneByID(t, *loaded.Layout, "workspace_pane_1"), 288)
+}
+
+func TestServiceAppliesResizePaneOperationToPaneRowHeightScale(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testMultiColumnLayout("workspace_api")
+	height := 250
+	layout.Panes[0].HeightPX = &height
+	layout.Panes[1].HeightPX = &height
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindResizePane,
+		PaneID: "workspace_pane_0",
+		Resize: resizePaneHeightScaleOperation(1.5),
+	})
+	if err != nil {
+		t.Fatalf("apply resize operation: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("changed = false, want true")
+	}
+	assertPaneHeightPX(t, paneByID(t, result.Layout, "workspace_pane_0"), 375)
+	assertPaneHeightPX(t, paneByID(t, result.Layout, "workspace_pane_1"), 375)
+	assertResizeOutcome(t, result.OperationResult.Resize, WorkspaceUIPaneResizeOutcome{
+		HeightPX:         intPointer(375),
+		PlaneIndex:       0,
+		PreviousHeightPX: intPointer(250),
+		RowIndex:         0,
+		TargetPaneIDs:    []string{"workspace_pane_0", "workspace_pane_1"},
+	})
+}
+
 func TestServiceResizePaneOperationNoopsWhenWidthUnchanged(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -621,6 +734,43 @@ func TestServiceResizePaneOperationReturnsHeightNormalizationWarning(t *testing.
 	}
 }
 
+func TestServiceResizePaneOperationReturnsScaledHeightNormalizationWarning(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testMultiColumnLayout("workspace_api")
+	height := 120
+	layout.Panes[0].HeightPX = &height
+	layout.Panes[1].HeightPX = &height
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindResizePane,
+		PaneID: "workspace_pane_0",
+		Resize: resizePaneHeightScaleOperation(0.5),
+	})
+	if err != nil {
+		t.Fatalf("apply resize operation: %v", err)
+	}
+	assertPaneHeightPX(t, paneByID(t, result.Layout, "workspace_pane_0"), minimumPaneHeightPX)
+	assertPaneHeightPX(t, paneByID(t, result.Layout, "workspace_pane_1"), minimumPaneHeightPX)
+	if len(result.Warnings) != 1 {
+		t.Fatalf("warnings = %+v, want one normalization warning", result.Warnings)
+	}
+	warning := result.Warnings[0]
+	if warning.Code != "pane_height_normalized" {
+		t.Fatalf("warning = %+v, want pane_height_normalized", warning)
+	}
+	if !reflect.DeepEqual(warning.Fields, map[string]string{
+		"heightPx":          "96",
+		"requestedHeightPx": "60",
+	}) {
+		t.Fatalf("warning fields = %+v, want requested and normalized height", warning.Fields)
+	}
+}
+
 func TestServiceResizePaneOperationRejectsMissingPane(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -648,6 +798,85 @@ func TestServiceResizePaneOperationRejectsMissingPane(t *testing.T) {
 	if loaded.Layout == nil || loaded.Layout.Revision != 1 || loaded.Layout.Columns[0].WidthSpec != (ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620}) {
 		t.Fatalf("loaded layout = %+v, want original width and revision", loaded.Layout)
 	}
+}
+
+func TestServiceResizePaneOperationRejectsRelativeHeightWithoutExplicitBase(t *testing.T) {
+	cases := []struct {
+		name   string
+		resize *WorkspaceUIPaneResizeOperation
+	}{
+		{
+			name:   "delta",
+			resize: resizePaneHeightDeltaOperation(24),
+		},
+		{
+			name:   "scale",
+			resize: resizePaneHeightScaleOperation(1.1),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			service := newTestService(t, t.TempDir(), testResolver{
+				"workspace_api": "/tmp/api",
+			})
+			if _, err := service.SaveLayout(testMultiColumnLayout("workspace_api")); err != nil {
+				t.Fatalf("save layout: %v", err)
+			}
+
+			_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+				Kind:   WorkspaceUIPaneOperationKindResizePane,
+				PaneID: "workspace_pane_0",
+				Resize: tc.resize,
+			})
+			if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+				t.Fatalf("error = %T %v, want invalid_operation", err, err)
+			}
+
+			loaded, err := service.ReadLayout("workspace_api")
+			if err != nil {
+				t.Fatalf("read layout: %v", err)
+			}
+			if loaded.Layout == nil || loaded.Layout.Revision != 1 {
+				t.Fatalf("loaded layout = %+v, want unchanged revision 1", loaded.Layout)
+			}
+			if paneByID(t, *loaded.Layout, "workspace_pane_0").HeightPX != nil || paneByID(t, *loaded.Layout, "workspace_pane_1").HeightPX != nil {
+				t.Fatalf("row pane heights changed = %#v %#v, want nil", paneByID(t, *loaded.Layout, "workspace_pane_0").HeightPX, paneByID(t, *loaded.Layout, "workspace_pane_1").HeightPX)
+			}
+		})
+	}
+}
+
+func TestServiceResizePaneOperationRejectsHeightDeltaResolvingNonPositive(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testMultiColumnLayout("workspace_api")
+	height := 120
+	layout.Panes[0].HeightPX = &height
+	layout.Panes[1].HeightPX = &height
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Kind:   WorkspaceUIPaneOperationKindResizePane,
+		PaneID: "workspace_pane_0",
+		Resize: resizePaneHeightDeltaOperation(-120),
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Revision != 1 {
+		t.Fatalf("loaded layout = %+v, want unchanged revision 1", loaded.Layout)
+	}
+	assertPaneHeightPX(t, paneByID(t, *loaded.Layout, "workspace_pane_0"), 120)
+	assertPaneHeightPX(t, paneByID(t, *loaded.Layout, "workspace_pane_1"), 120)
 }
 
 func TestServicePaneOperationRejectsFocusWithRenamePayload(t *testing.T) {
@@ -841,6 +1070,47 @@ func TestServicePaneOperationRejectsInvalidResizeHeightPX(t *testing.T) {
 	}
 }
 
+func TestServicePaneOperationRejectsInvalidResizeHeightScale(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	cases := []struct {
+		name        string
+		heightScale float64
+	}{
+		{
+			name:        "zero",
+			heightScale: 0,
+		},
+		{
+			name:        "negative",
+			heightScale: -1,
+		},
+		{
+			name:        "nan",
+			heightScale: math.NaN(),
+		},
+		{
+			name:        "infinite",
+			heightScale: math.Inf(1),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+				Kind:   WorkspaceUIPaneOperationKindResizePane,
+				PaneID: "workspace_pane_0",
+				Resize: resizePaneHeightScaleOperation(tc.heightScale),
+			})
+			if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+				t.Fatalf("error = %T %v, want invalid_operation", err, err)
+			}
+		})
+	}
+}
+
 func TestServicePaneOperationRejectsRenameWithoutPayload(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -927,6 +1197,14 @@ func resizePaneOperation(widthSpec ColumnWidthSpec) *WorkspaceUIPaneResizeOperat
 
 func resizePaneHeightOperation(heightPX int) *WorkspaceUIPaneResizeOperation {
 	return &WorkspaceUIPaneResizeOperation{HeightPX: &heightPX}
+}
+
+func resizePaneHeightDeltaOperation(heightDeltaPX int) *WorkspaceUIPaneResizeOperation {
+	return &WorkspaceUIPaneResizeOperation{HeightDeltaPX: &heightDeltaPX}
+}
+
+func resizePaneHeightScaleOperation(heightScale float64) *WorkspaceUIPaneResizeOperation {
+	return &WorkspaceUIPaneResizeOperation{HeightScale: &heightScale}
 }
 
 func resizePaneResetHeightOperation() *WorkspaceUIPaneResizeOperation {

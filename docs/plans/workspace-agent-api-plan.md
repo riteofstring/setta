@@ -782,11 +782,28 @@ Progress on 2026-07-07:
   `internal/workspaceui/operations.go` exceeded the repository file-length
   limit after the new reducer branch; the height-specific reducer helpers were
   split into `operations_resize_height.go`, and the gate passed after that.
+- Backend relative/scaled row-height resize reducer follow-up: extended the
+  backend-only `resize_pane` operation with `heightDeltaPx` and `heightScale`
+  inputs without exposing an HTTP, CLI, IPC, renderer, or agent write surface.
+  These inputs are mutually exclusive with `widthSpec`, `heightPx`, and
+  `resetHeight`; `heightScale` must be finite and positive. Because persisted
+  layout stores only nullable explicit `heightPx` and not renderer viewport-
+  derived default heights, relative and scaled height changes require the target
+  pane row to already have an explicit `heightPx`; otherwise the operation fails
+  with `invalid_operation` instead of guessing. Successful operations apply the
+  computed height to the target visual row across columns in the same plane,
+  preserve focus, increment and persist only on actual dimension changes, return
+  structured before/after dimensions, and reuse the existing minimum-height
+  normalization warning when a computed height is below `96px`.
+- Verification for the backend relative/scaled row-height reducer follow-up:
+  `./scripts/go.sh test ./internal/workspaceui` passed, and
+  `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
+  diffs because the write operation contract is still not endpoint-exposed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for remaining resize slices (relative/scaled height changes,
-  adjacent split weight changes, and multi-operation transactions), open, and
-  reorder, then cut renderer-originated layout mutations over to that backend
-  operation API before exposing agent or CLI workspace mutation commands.
+  event sync for remaining resize slices (adjacent split weight changes and
+  multi-operation transactions), open, and reorder, then cut renderer-originated
+  layout mutations over to that backend operation API before exposing agent or
+  CLI workspace mutation commands.
 
 ### Phase 3: Renderer Event Sync
 

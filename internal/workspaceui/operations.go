@@ -208,26 +208,43 @@ func validateResizePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Resize == nil {
 		return errors.New("workspace pane resize payload is required")
 	}
+	return validateResizePaneTarget(*operation.Resize)
+}
+
+func validateResizePaneTarget(resize WorkspaceUIPaneResizeOperation) error {
+	if resizeTargetCount(resize) != 1 {
+		return errors.New("workspace pane resize requires exactly one of widthSpec, heightPx, heightDeltaPx, heightScale, or resetHeight")
+	}
+	switch {
+	case resize.WidthSpec != nil:
+		return validateResizeColumnWidthSpec(*resize.WidthSpec)
+	case resize.HeightPX != nil:
+		return validateResizePaneHeightPX(*resize.HeightPX)
+	case resize.HeightScale != nil:
+		return validateResizePaneHeightScale(*resize.HeightScale)
+	default:
+		return nil
+	}
+}
+
+func resizeTargetCount(resize WorkspaceUIPaneResizeOperation) int {
 	targetCount := 0
-	if operation.Resize.WidthSpec != nil {
+	if resize.WidthSpec != nil {
 		targetCount += 1
 	}
-	if operation.Resize.HeightPX != nil {
+	if resize.HeightPX != nil {
 		targetCount += 1
 	}
-	if operation.Resize.ResetHeight {
+	if resize.HeightDeltaPX != nil {
 		targetCount += 1
 	}
-	if targetCount != 1 {
-		return errors.New("workspace pane resize requires exactly one of widthSpec, heightPx, or resetHeight")
+	if resize.HeightScale != nil {
+		targetCount += 1
 	}
-	if operation.Resize.WidthSpec != nil {
-		return validateResizeColumnWidthSpec(*operation.Resize.WidthSpec)
+	if resize.ResetHeight {
+		targetCount += 1
 	}
-	if operation.Resize.HeightPX != nil {
-		return validateResizePaneHeightPX(*operation.Resize.HeightPX)
-	}
-	return nil
+	return targetCount
 }
 
 func validateResizeColumnWidthSpec(widthSpec ColumnWidthSpec) error {
@@ -246,6 +263,16 @@ func validateResizeColumnWidthSpec(widthSpec ColumnWidthSpec) error {
 func validateResizePaneHeightPX(heightPX int) error {
 	if heightPX <= 0 {
 		return errors.New("workspace pane resize heightPx must be positive")
+	}
+	return nil
+}
+
+func validateResizePaneHeightScale(heightScale float64) error {
+	if math.IsNaN(heightScale) || math.IsInf(heightScale, 0) {
+		return errors.New("workspace pane resize heightScale must be finite")
+	}
+	if heightScale <= 0 {
+		return errors.New("workspace pane resize heightScale must be positive")
 	}
 	return nil
 }
