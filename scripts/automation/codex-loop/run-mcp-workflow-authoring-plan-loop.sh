@@ -14,7 +14,7 @@ MAX_ITERATIONS="0"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/automation/codex-loop/run-review-workflow-meta-plan-loop.sh [options]
+Usage: scripts/automation/codex-loop/run-mcp-workflow-authoring-plan-loop.sh [options]
 
 Runs two fresh Codex agents in a loop for:
   docs/plans/mcp-workflow-authoring-plan.md
