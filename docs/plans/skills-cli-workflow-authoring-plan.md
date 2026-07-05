@@ -587,9 +587,21 @@ Progress on 2026-07-07:
   --workflow live-codex-electron`; `./scripts/format.sh`; and
   `./check_quality.sh --git-changes` passed. The live Codex tests ran with
   local ChatGPT auth and did not use `OPENAI_API_KEY`.
-- Remaining Phase 4 work: add the targeted restart/reload preservation
-  coverage for CLI-authored workflow definitions and runtime auth behavior,
-  then move to the Phase 5 source sweep/removal of any obsolete
+- Audit follow-up: added targeted reload/restart preservation coverage for
+  CLI-authored workflow definitions and runtime auth behavior. The deterministic
+  Codex protocol workflow now reloads the renderer after the `$workflow-builder`
+  CLI authoring run and verifies the saved definition remains visible through
+  backend state, renderer workflow state, and the sidebar. It then relaunches
+  Electron with the same temporary app data, verifies the selected workspace and
+  persisted definition through production backend and renderer paths, and runs
+  `setta workflow definitions read --app-data-dir <dir> <definition-id>` against
+  the relaunched runtime to prove serve-state discovery and CLI runtime auth
+  still work after restart.
+- Audit verification: `node --check
+  desktop/tests/electron/codex-protocol-workflow-authoring.mjs`, `node --check
+  desktop/tests/electron/chat-workflows.test.mjs`, and `node
+  desktop/tests/electron/chat-workflows.test.mjs --codex-protocol-only` passed.
+- Remaining work: move to the Phase 5 source sweep/removal of any obsolete
   workflow-authoring dynamic-tool code discovered outside the current
   non-authoring `workspace_context` and runtime `workflow_result` contracts.
 
