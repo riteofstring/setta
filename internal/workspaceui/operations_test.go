@@ -375,6 +375,71 @@ func TestServiceResizePaneOperationReturnsNormalizationWarning(t *testing.T) {
 	}
 }
 
+func TestServiceResizePaneOperationReturnsProportionNormalizationWarning(t *testing.T) {
+	cases := []struct {
+		name            string
+		requestedValue  float64
+		normalizedValue float64
+	}{
+		{
+			name:            "below minimum",
+			requestedValue:  0.01,
+			normalizedValue: minimumColumnWidthProportion,
+		},
+		{
+			name:            "above maximum",
+			requestedValue:  1.5,
+			normalizedValue: maximumColumnWidthProportion,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			service := newTestService(t, t.TempDir(), testResolver{
+				"workspace_api": "/tmp/api",
+			})
+			if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+				t.Fatalf("save layout: %v", err)
+			}
+
+			result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+				Kind:   WorkspaceUIPaneOperationKindResizePane,
+				PaneID: "workspace_pane_1",
+				Resize: resizePaneOperation(ColumnWidthSpec{
+					Unit:  ColumnWidthUnitProportion,
+					Value: tc.requestedValue,
+				}),
+			})
+			if err != nil {
+				t.Fatalf("apply resize operation: %v", err)
+			}
+			expectedWidth := ColumnWidthSpec{
+				Unit:  ColumnWidthUnitProportion,
+				Value: tc.normalizedValue,
+			}
+			if result.Layout.Columns[0].WidthSpec != expectedWidth {
+				t.Fatalf("resized width = %+v, want normalized proportion", result.Layout.Columns[0].WidthSpec)
+			}
+			assertPreviousProportionWidth(t, result.Layout.Columns[0], tc.normalizedValue)
+			if len(result.Warnings) != 1 {
+				t.Fatalf("warnings = %+v, want one normalization warning", result.Warnings)
+			}
+			warning := result.Warnings[0]
+			if warning.Code != "column_width_normalized" {
+				t.Fatalf("warning = %+v, want column_width_normalized", warning)
+			}
+			if !reflect.DeepEqual(warning.Fields, map[string]string{
+				"requestedUnit":  string(ColumnWidthUnitProportion),
+				"requestedValue": formatFloat(tc.requestedValue),
+				"widthSpecUnit":  string(ColumnWidthUnitProportion),
+				"widthSpecValue": formatFloat(tc.normalizedValue),
+			}) {
+				t.Fatalf("warning fields = %+v, want requested and normalized width", warning.Fields)
+			}
+		})
+	}
+}
+
 func TestServiceResizePaneOperationRejectsMissingPane(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -529,8 +594,16 @@ func TestServicePaneOperationRejectsInvalidResizeWidthSpec(t *testing.T) {
 			widthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 0},
 		},
 		{
+			name:      "negative value",
+			widthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: -1},
+		},
+		{
 			name:      "nan value",
 			widthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: math.NaN()},
+		},
+		{
+			name:      "infinite value",
+			widthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: math.Inf(1)},
 		},
 	}
 

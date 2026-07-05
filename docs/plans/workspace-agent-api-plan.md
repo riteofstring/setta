@@ -743,6 +743,12 @@ Progress on 2026-07-07:
   `./scripts/go.sh test ./internal/workspaceui` passed, and
   `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
   diffs because the write operation contract is still not endpoint-exposed.
+- Audit follow-up: expanded backend resize reducer tests for proportional width
+  normalization at both bounds and invalid negative/infinite width values.
+- Verification for the audit follow-up:
+  `./scripts/go.sh test ./internal/workspaceui`,
+  `./scripts/go.sh run ./cmd/generate-contracts`, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
   event sync for remaining resize slices (pane height, row/plane height, and
   multi-operation transactions), open, and reorder, then cut
