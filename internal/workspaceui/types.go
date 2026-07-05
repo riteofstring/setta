@@ -60,13 +60,14 @@ const (
 type WorkspaceUIPaneOperationKind string
 
 const (
-	WorkspaceUIPaneOperationKindClosePane   WorkspaceUIPaneOperationKind = "close_pane"
-	WorkspaceUIPaneOperationKindFocusPane   WorkspaceUIPaneOperationKind = "focus_pane"
-	WorkspaceUIPaneOperationKindMovePane    WorkspaceUIPaneOperationKind = "move_pane"
-	WorkspaceUIPaneOperationKindOpenPane    WorkspaceUIPaneOperationKind = "open_pane"
-	WorkspaceUIPaneOperationKindRenamePane  WorkspaceUIPaneOperationKind = "rename_pane"
-	WorkspaceUIPaneOperationKindReorderPane WorkspaceUIPaneOperationKind = "reorder_pane"
-	WorkspaceUIPaneOperationKindResizePane  WorkspaceUIPaneOperationKind = "resize_pane"
+	WorkspaceUIPaneOperationKindClosePane     WorkspaceUIPaneOperationKind = "close_pane"
+	WorkspaceUIPaneOperationKindConfigurePane WorkspaceUIPaneOperationKind = "configure_pane"
+	WorkspaceUIPaneOperationKindFocusPane     WorkspaceUIPaneOperationKind = "focus_pane"
+	WorkspaceUIPaneOperationKindMovePane      WorkspaceUIPaneOperationKind = "move_pane"
+	WorkspaceUIPaneOperationKindOpenPane      WorkspaceUIPaneOperationKind = "open_pane"
+	WorkspaceUIPaneOperationKindRenamePane    WorkspaceUIPaneOperationKind = "rename_pane"
+	WorkspaceUIPaneOperationKindReorderPane   WorkspaceUIPaneOperationKind = "reorder_pane"
+	WorkspaceUIPaneOperationKindResizePane    WorkspaceUIPaneOperationKind = "resize_pane"
 )
 
 type WorkspaceUIPaneMoveDirection string
@@ -208,18 +209,27 @@ type WorkspaceUIPaneReadResult struct {
 }
 
 type WorkspaceUIPaneOperation struct {
-	Kind    WorkspaceUIPaneOperationKind     `json:"kind"`
-	PaneID  string                           `json:"paneId"`
-	Close   *WorkspaceUIPaneCloseOperation   `json:"close"`
-	Move    *WorkspaceUIPaneMoveOperation    `json:"move"`
-	Open    *WorkspaceUIPaneOpenOperation    `json:"open"`
-	Rename  *WorkspaceUIPaneRenameOperation  `json:"rename"`
-	Reorder *WorkspaceUIPaneReorderOperation `json:"reorder"`
-	Resize  *WorkspaceUIPaneResizeOperation  `json:"resize"`
+	Kind      WorkspaceUIPaneOperationKind       `json:"kind"`
+	PaneID    string                             `json:"paneId"`
+	Close     *WorkspaceUIPaneCloseOperation     `json:"close"`
+	Configure *WorkspaceUIPaneConfigureOperation `json:"configure"`
+	Move      *WorkspaceUIPaneMoveOperation      `json:"move"`
+	Open      *WorkspaceUIPaneOpenOperation      `json:"open"`
+	Rename    *WorkspaceUIPaneRenameOperation    `json:"rename"`
+	Reorder   *WorkspaceUIPaneReorderOperation   `json:"reorder"`
+	Resize    *WorkspaceUIPaneResizeOperation    `json:"resize"`
 }
 
 type WorkspaceUIPaneCloseOperation struct {
 	SurfaceClose WorkspaceUISurfaceCloseMode `json:"surfaceClose"`
+}
+
+type WorkspaceUIPaneConfigureOperation struct {
+	Subtitle       *string             `json:"subtitle"`
+	SurfaceKind    *SurfaceKind        `json:"surfaceKind"`
+	TerminalConfig *TerminalPaneConfig `json:"terminalConfig"`
+	Title          *string             `json:"title"`
+	Tone           *PaneTone           `json:"tone"`
 }
 
 type WorkspaceUIPaneMoveOperation struct {
@@ -291,16 +301,17 @@ type WorkspaceUIPaneResizeTransactionResult struct {
 }
 
 type WorkspaceUIPaneOperationOutcome struct {
-	Kind                  WorkspaceUIPaneOperationKind   `json:"kind"`
-	Close                 *WorkspaceUIPaneCloseOutcome   `json:"close"`
-	Move                  *WorkspaceUIPaneMoveOutcome    `json:"move"`
-	Open                  *WorkspaceUIPaneOpenOutcome    `json:"open"`
-	Rename                *WorkspaceUIPaneRenameOutcome  `json:"rename"`
-	Reorder               *WorkspaceUIPaneReorderOutcome `json:"reorder"`
-	Resize                *WorkspaceUIPaneResizeOutcome  `json:"resize"`
-	PaneID                string                         `json:"paneId"`
-	PreviousFocusedPaneID string                         `json:"previousFocusedPaneId"`
-	FocusedPaneID         string                         `json:"focusedPaneId"`
+	Kind                  WorkspaceUIPaneOperationKind     `json:"kind"`
+	Close                 *WorkspaceUIPaneCloseOutcome     `json:"close"`
+	Configure             *WorkspaceUIPaneConfigureOutcome `json:"configure"`
+	Move                  *WorkspaceUIPaneMoveOutcome      `json:"move"`
+	Open                  *WorkspaceUIPaneOpenOutcome      `json:"open"`
+	Rename                *WorkspaceUIPaneRenameOutcome    `json:"rename"`
+	Reorder               *WorkspaceUIPaneReorderOutcome   `json:"reorder"`
+	Resize                *WorkspaceUIPaneResizeOutcome    `json:"resize"`
+	PaneID                string                           `json:"paneId"`
+	PreviousFocusedPaneID string                           `json:"previousFocusedPaneId"`
+	FocusedPaneID         string                           `json:"focusedPaneId"`
 }
 
 type WorkspaceUIPaneCloseOutcome struct {
@@ -310,6 +321,19 @@ type WorkspaceUIPaneCloseOutcome struct {
 	PlaneIndex    int                         `json:"planeIndex"`
 	RemovedColumn bool                        `json:"removedColumn"`
 	SurfaceClose  WorkspaceUISurfaceCloseMode `json:"surfaceClose"`
+}
+
+type WorkspaceUIPaneConfigureOutcome struct {
+	PreviousSubtitle    string      `json:"previousSubtitle"`
+	PreviousSurfaceID   string      `json:"previousSurfaceId"`
+	PreviousSurfaceKind SurfaceKind `json:"previousSurfaceKind"`
+	PreviousTitle       string      `json:"previousTitle"`
+	PreviousTone        PaneTone    `json:"previousTone"`
+	Subtitle            string      `json:"subtitle"`
+	SurfaceID           string      `json:"surfaceId"`
+	SurfaceKind         SurfaceKind `json:"surfaceKind"`
+	Title               string      `json:"title"`
+	Tone                PaneTone    `json:"tone"`
 }
 
 type WorkspaceUIPaneMoveOutcome struct {
@@ -601,6 +625,7 @@ func supportedPaneMoveDirections() []WorkspaceUIPaneMoveDirection {
 func supportedPaneOperationKinds() []WorkspaceUIPaneOperationKind {
 	return []WorkspaceUIPaneOperationKind{
 		WorkspaceUIPaneOperationKindClosePane,
+		WorkspaceUIPaneOperationKindConfigurePane,
 		WorkspaceUIPaneOperationKindFocusPane,
 		WorkspaceUIPaneOperationKindMovePane,
 		WorkspaceUIPaneOperationKindOpenPane,

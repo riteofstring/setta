@@ -27,13 +27,14 @@ type WorkspaceUIOperationError struct {
 type paneOperationApplier func(*Service, WorkspaceUILayout, WorkspaceUIPaneOperation) (WorkspaceUIPaneOperationResult, error)
 
 var paneOperationAppliers = map[WorkspaceUIPaneOperationKind]paneOperationApplier{
-	WorkspaceUIPaneOperationKindClosePane:   (*Service).applyClosePaneOperation,
-	WorkspaceUIPaneOperationKindFocusPane:   (*Service).applyFocusPaneOperation,
-	WorkspaceUIPaneOperationKindMovePane:    (*Service).applyMovePaneOperation,
-	WorkspaceUIPaneOperationKindOpenPane:    (*Service).applyOpenPaneOperation,
-	WorkspaceUIPaneOperationKindRenamePane:  (*Service).applyRenamePaneOperation,
-	WorkspaceUIPaneOperationKindReorderPane: (*Service).applyReorderPaneOperation,
-	WorkspaceUIPaneOperationKindResizePane:  (*Service).applyResizePaneOperation,
+	WorkspaceUIPaneOperationKindClosePane:     (*Service).applyClosePaneOperation,
+	WorkspaceUIPaneOperationKindConfigurePane: (*Service).applyConfigurePaneOperation,
+	WorkspaceUIPaneOperationKindFocusPane:     (*Service).applyFocusPaneOperation,
+	WorkspaceUIPaneOperationKindMovePane:      (*Service).applyMovePaneOperation,
+	WorkspaceUIPaneOperationKindOpenPane:      (*Service).applyOpenPaneOperation,
+	WorkspaceUIPaneOperationKindRenamePane:    (*Service).applyRenamePaneOperation,
+	WorkspaceUIPaneOperationKindReorderPane:   (*Service).applyReorderPaneOperation,
+	WorkspaceUIPaneOperationKindResizePane:    (*Service).applyResizePaneOperation,
 }
 
 func (err *WorkspaceUIOperationError) Error() string {

@@ -880,8 +880,26 @@ Progress on 2026-07-07:
   `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi` passed. The
   generator completed with no generated diffs because the write operation
   contract remains unexposed through the endpoint registry.
-- Remaining Phase 2 work: add backend configure support if required for the
-  renderer write cutover, add push-based workspace UI event sync, then cut
+- Backend configure operation reducer follow-up: added backend-only
+  `configure_pane` support without exposing an HTTP, CLI, IPC, renderer, or
+  agent write surface. The reducer supports the initial terminal, chat, and
+  workflow graph target surface kinds, keeps pane IDs stable, creates a fresh
+  surface ID for accepted configuration changes, preserves omitted metadata
+  fields explicitly, focuses the configured pane, persists exactly once, and
+  returns a structured configure outcome with previous/resulting surface and
+  pane chrome fields. Terminal configuration is accepted only for terminal
+  targets, existing terminal config is preserved when omitted, and unsupported
+  target surface kinds fail with stable operation error codes without changing
+  persisted layout state.
+- Verification for the backend configure reducer follow-up:
+  `./scripts/go.sh test ./internal/workspaceui`,
+  `./scripts/go.sh run ./cmd/generate-contracts`, and
+  `./scripts/go.sh test ./internal/workspaceui ./internal/httpapi` passed. The
+  generator completed with no generated diffs because the write operation
+  contract remains unexposed through the endpoint registry.
+- Remaining Phase 2 work: add explicit workflow-node-details open/configure
+  support if the renderer write cutover needs the current details-pane
+  retargeting behavior, add push-based workspace UI event sync, then cut
   renderer-originated layout mutations over to the backend operation API before
   exposing agent or CLI workspace mutation commands.
 

@@ -8,13 +8,14 @@ import (
 )
 
 var paneOperationValidators = map[WorkspaceUIPaneOperationKind]func(WorkspaceUIPaneOperation) error{
-	WorkspaceUIPaneOperationKindClosePane:   validateClosePaneOperation,
-	WorkspaceUIPaneOperationKindFocusPane:   validateFocusPaneOperation,
-	WorkspaceUIPaneOperationKindMovePane:    validateMovePaneOperation,
-	WorkspaceUIPaneOperationKindOpenPane:    validateOpenPaneOperation,
-	WorkspaceUIPaneOperationKindRenamePane:  validateRenamePaneOperation,
-	WorkspaceUIPaneOperationKindReorderPane: validateReorderPaneOperation,
-	WorkspaceUIPaneOperationKindResizePane:  validateResizePaneOperation,
+	WorkspaceUIPaneOperationKindClosePane:     validateClosePaneOperation,
+	WorkspaceUIPaneOperationKindConfigurePane: validateConfigurePaneOperation,
+	WorkspaceUIPaneOperationKindFocusPane:     validateFocusPaneOperation,
+	WorkspaceUIPaneOperationKindMovePane:      validateMovePaneOperation,
+	WorkspaceUIPaneOperationKindOpenPane:      validateOpenPaneOperation,
+	WorkspaceUIPaneOperationKindRenamePane:    validateRenamePaneOperation,
+	WorkspaceUIPaneOperationKindReorderPane:   validateReorderPaneOperation,
+	WorkspaceUIPaneOperationKindResizePane:    validateResizePaneOperation,
 }
 
 func validatePaneOperation(operation WorkspaceUIPaneOperation) error {
@@ -37,6 +38,9 @@ func validatePaneOperation(operation WorkspaceUIPaneOperation) error {
 func validateClosePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Close == nil {
 		return errors.New("workspace pane close payload is required")
+	}
+	if operation.Configure != nil {
+		return errors.New("workspace pane operation configure payload is only valid for configure_pane")
 	}
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
@@ -63,6 +67,9 @@ func validateFocusPaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Close != nil {
 		return errors.New("workspace pane operation close payload is only valid for close_pane")
 	}
+	if operation.Configure != nil {
+		return errors.New("workspace pane operation configure payload is only valid for configure_pane")
+	}
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
 	}
@@ -84,6 +91,9 @@ func validateFocusPaneOperation(operation WorkspaceUIPaneOperation) error {
 func validateMovePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Close != nil {
 		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Configure != nil {
+		return errors.New("workspace pane operation configure payload is only valid for configure_pane")
 	}
 	if operation.Open != nil {
 		return errors.New("workspace pane operation open payload is only valid for open_pane")
@@ -109,6 +119,9 @@ func validateMovePaneOperation(operation WorkspaceUIPaneOperation) error {
 func validateRenamePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Close != nil {
 		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Configure != nil {
+		return errors.New("workspace pane operation configure payload is only valid for configure_pane")
 	}
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
@@ -137,6 +150,9 @@ func validateRenamePaneOperation(operation WorkspaceUIPaneOperation) error {
 func validateReorderPaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Close != nil {
 		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Configure != nil {
+		return errors.New("workspace pane operation configure payload is only valid for configure_pane")
 	}
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
@@ -179,6 +195,9 @@ func validateOpenPanePayloadExclusivity(operation WorkspaceUIPaneOperation) erro
 	if operation.Close != nil {
 		return errors.New("workspace pane operation close payload is only valid for close_pane")
 	}
+	if operation.Configure != nil {
+		return errors.New("workspace pane operation configure payload is only valid for configure_pane")
+	}
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
 	}
@@ -190,6 +209,121 @@ func validateOpenPanePayloadExclusivity(operation WorkspaceUIPaneOperation) erro
 	}
 	if operation.Resize != nil {
 		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
+	return nil
+}
+
+func validateConfigurePaneOperation(operation WorkspaceUIPaneOperation) error {
+	if operation.Close != nil {
+		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Move != nil {
+		return errors.New("workspace pane operation move payload is only valid for move_pane")
+	}
+	if operation.Open != nil {
+		return errors.New("workspace pane operation open payload is only valid for open_pane")
+	}
+	if operation.Rename != nil {
+		return errors.New("workspace pane operation rename payload is only valid for rename_pane")
+	}
+	if operation.Reorder != nil {
+		return errors.New("workspace pane operation reorder payload is only valid for reorder_pane")
+	}
+	if operation.Resize != nil {
+		return errors.New("workspace pane operation resize payload is only valid for resize_pane")
+	}
+	if operation.Configure == nil {
+		return errors.New("workspace pane configure payload is required")
+	}
+	return validateConfigurePanePayload(*operation.Configure)
+}
+
+func validateConfigurePanePayload(configure WorkspaceUIPaneConfigureOperation) error {
+	if !configurePanePayloadHasField(configure) {
+		return errors.New("workspace pane configure requires at least one configurable field")
+	}
+	if err := validateConfigurePaneSurfaceKind(configure.SurfaceKind); err != nil {
+		return err
+	}
+	if err := validateConfigurePaneTitle(configure.Title); err != nil {
+		return err
+	}
+	if err := validateConfigurePaneSubtitle(configure.Subtitle); err != nil {
+		return err
+	}
+	if err := validateConfigurePaneTone(configure.Tone); err != nil {
+		return err
+	}
+	return validateConfigurePaneTerminalConfigForSurface(configure.SurfaceKind, configure.TerminalConfig)
+}
+
+func configurePanePayloadHasField(configure WorkspaceUIPaneConfigureOperation) bool {
+	return configure.SurfaceKind != nil ||
+		configure.Title != nil ||
+		configure.Subtitle != nil ||
+		configure.Tone != nil ||
+		configure.TerminalConfig != nil
+}
+
+func validateConfigurePaneSurfaceKind(surfaceKind *SurfaceKind) error {
+	if surfaceKind == nil {
+		return nil
+	}
+	if !validSurfaceKind(*surfaceKind) {
+		return fmt.Errorf("workspace pane configure surfaceKind is unsupported: %s", *surfaceKind)
+	}
+	return nil
+}
+
+func validateConfigurePaneTitle(title *string) error {
+	if title == nil {
+		return nil
+	}
+	if *title == "" {
+		return errors.New("workspace pane configure title is required when provided")
+	}
+	if strings.TrimSpace(*title) != *title {
+		return errors.New("workspace pane configure title must not have surrounding whitespace")
+	}
+	return nil
+}
+
+func validateConfigurePaneSubtitle(subtitle *string) error {
+	if subtitle == nil || strings.TrimSpace(*subtitle) == *subtitle {
+		return nil
+	}
+	return errors.New("workspace pane configure subtitle must not have surrounding whitespace")
+}
+
+func validateConfigurePaneTone(tone *PaneTone) error {
+	if tone == nil {
+		return nil
+	}
+	if !validPaneTone(*tone) {
+		return fmt.Errorf("workspace pane configure tone is unsupported: %s", *tone)
+	}
+	return nil
+}
+
+func validateConfigurePaneTerminalConfigForSurface(surfaceKind *SurfaceKind, config *TerminalPaneConfig) error {
+	if config == nil {
+		return nil
+	}
+	if surfaceKind != nil && *surfaceKind != SurfaceKindTerminal {
+		return errors.New("workspace pane configure terminalConfig is only valid for terminal panes")
+	}
+	return validateConfigurePaneTerminalConfig(*config)
+}
+
+func validateConfigurePaneTerminalConfig(config TerminalPaneConfig) error {
+	if strings.TrimSpace(config.ProfileID) != config.ProfileID {
+		return errors.New("workspace pane configure terminalConfig.profileId must not have surrounding whitespace")
+	}
+	if strings.TrimSpace(config.CWDOverride) != config.CWDOverride {
+		return errors.New("workspace pane configure terminalConfig.cwdOverride must not have surrounding whitespace")
+	}
+	if strings.TrimSpace(config.TitleOverride) != config.TitleOverride {
+		return errors.New("workspace pane configure terminalConfig.titleOverride must not have surrounding whitespace")
 	}
 	return nil
 }
@@ -326,6 +460,9 @@ func validPaneDropPlacement(placement WorkspaceUIPaneDropPlacement) bool {
 func validateResizePaneOperation(operation WorkspaceUIPaneOperation) error {
 	if operation.Close != nil {
 		return errors.New("workspace pane operation close payload is only valid for close_pane")
+	}
+	if operation.Configure != nil {
+		return errors.New("workspace pane operation configure payload is only valid for configure_pane")
 	}
 	if operation.Move != nil {
 		return errors.New("workspace pane operation move payload is only valid for move_pane")
