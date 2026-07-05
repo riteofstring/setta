@@ -12,10 +12,6 @@ import type {
   BackendEventStreamStatus,
   BackendProcessStatus,
   DesktopPlatform,
-  KnownRuntimeView,
-  RuntimeConnectionState,
-  RuntimeConnectionStatus,
-  RuntimeRegistrySnapshot,
   WorkspaceBrowserViewKeyEvent,
   WorkspaceBrowserViewSnapshot,
   SettaAPI,
@@ -81,22 +77,6 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.backendProcessStatus, handler);
       };
     },
-  },
-  runtimes: {
-    addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
-    current: () => invoke("runtimeCurrent"),
-    list: () => invoke("runtimeList"),
-    onConnectionState: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeRuntimeRegistrySnapshot(payload));
-      };
-      ipcRenderer.on(ipcEvents.runtimeConnectionState, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.runtimeConnectionState, handler);
-      };
-    },
-    remove: (runtimeId) => invoke("runtimeRemove", runtimeId),
-    switch: (runtimeId) => invoke("runtimeSwitch", runtimeId),
   },
   workspaceActivity: {
     onEvent: (listener) => {
@@ -415,8 +395,12 @@ const api: SettaAPI = {
   },
 };
 
-installRendererRecorder(ipcRenderer);
 contextBridge.exposeInMainWorld("setta", api);
+try {
+  installRendererRecorder(ipcRenderer);
+} catch (error) {
+  console.error("Setta renderer recorder failed to install.", error);
+}
 
 function parseWorkflowGraphSyntheticGraph(env: NodeJS.ProcessEnv) {
   const nodeCount = optionalPositiveIntegerEnv(
@@ -513,84 +497,6 @@ function decodeBackendEventStreamStatus(value: unknown): BackendEventStreamStatu
   throw new Error("BackendEventStreamStatus.status is unsupported: " + status);
 }
 
-function decodeRuntimeRegistrySnapshot(value: unknown): RuntimeRegistrySnapshot {
-  const record = assertStatusRecord(value, "RuntimeRegistrySnapshot");
-  const rawRuntimes = record.runtimes;
-  if (!Array.isArray(rawRuntimes)) {
-    throw new Error("RuntimeRegistrySnapshot.runtimes must be an array");
-  }
-  return {
-    activeRuntimeId: nullableStringField(record, "activeRuntimeId", "RuntimeRegistrySnapshot"),
-    connection: decodeRuntimeConnectionState(
-      requireRuntimeField(record, "connection", "RuntimeRegistrySnapshot"),
-    ),
-    runtimes: rawRuntimes.map((runtime, index) =>
-      decodeKnownRuntimeView(runtime, `RuntimeRegistrySnapshot.runtimes[${index}]`),
-    ),
-    switching: booleanField(record, "switching", "RuntimeRegistrySnapshot"),
-  };
-}
-
-function decodeKnownRuntimeView(value: unknown, label: string): KnownRuntimeView {
-  const record = assertStatusRecord(value, label);
-  return {
-    active: booleanField(record, "active", label),
-    baseUrl: stringField(record, "baseUrl", label),
-    connectionMessage: stringField(record, "connectionMessage", label),
-    connectionStatus: decodeRuntimeConnectionStatus(
-      stringField(record, "connectionStatus", label),
-      `${label}.connectionStatus`,
-    ),
-    displayName: stringField(record, "displayName", label),
-    infrastructureProvider: decodeRuntimeInfrastructureProvider(
-      requireRuntimeField(record, "infrastructureProvider", label),
-      `${label}.infrastructureProvider`,
-    ),
-    isLocal: booleanField(record, "isLocal", label),
-    lastConnected: nullableStringField(record, "lastConnected", label),
-    runtimeId: stringField(record, "runtimeId", label),
-  };
-}
-
-function decodeRuntimeInfrastructureProvider(
-  value: unknown,
-  label: string,
-): KnownRuntimeView["infrastructureProvider"] {
-  const record = assertStatusRecord(value, label);
-  return {
-    displayName: stringField(record, "displayName", label),
-    iconUrl: stringField(record, "iconUrl", label),
-    id: stringField(record, "id", label),
-  };
-}
-
-function decodeRuntimeConnectionState(value: unknown): RuntimeConnectionState {
-  const label = "RuntimeConnectionState";
-  const record = assertStatusRecord(value, label);
-  return {
-    message: stringField(record, "message", label),
-    protocolVersion: nullableNumberField(record, "protocolVersion", label),
-    runtimeId: nullableStringField(record, "runtimeId", label),
-    status: decodeRuntimeConnectionStatus(stringField(record, "status", label), `${label}.status`),
-    updatedAt: stringField(record, "updatedAt", label),
-  };
-}
-
-function decodeRuntimeConnectionStatus(value: string, label: string): RuntimeConnectionStatus {
-  switch (value) {
-    case "connected":
-    case "connecting":
-    case "disconnected":
-    case "incompatible":
-    case "mismatched":
-    case "revoked":
-    case "unreachable":
-      return value;
-    default:
-      throw new Error(label + " is unsupported: " + value);
-  }
-}
-
 function decodeWorkspaceBrowserViewKeyEvent(value: unknown): WorkspaceBrowserViewKeyEvent {
   const record = assertStatusRecord(value, "WorkspaceBrowserViewKeyEvent");
   const key = stringField(record, "key", "WorkspaceBrowserViewKeyEvent");
@@ -641,40 +547,10 @@ function stringField(record: Record<string, unknown>, field: string, label: stri
   return value;
 }
 
-function nullableStringField(
-  record: Record<string, unknown>,
-  field: string,
-  label: string,
-): string | null {
-  const value = record[field];
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== "string") {
-    throw new Error(label + "." + field + " must be a string or null");
-  }
-  return value;
-}
-
 function booleanField(record: Record<string, unknown>, field: string, label: string): boolean {
   const value = record[field];
   if (typeof value !== "boolean") {
     throw new Error(label + "." + field + " must be a boolean");
-  }
-  return value;
-}
-
-function nullableNumberField(
-  record: Record<string, unknown>,
-  field: string,
-  label: string,
-): number | null {
-  const value = record[field];
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(label + "." + field + " must be a finite number or null");
   }
   return value;
 }
@@ -685,17 +561,6 @@ function numberField(record: Record<string, unknown>, field: string, label: stri
     throw new Error(label + "." + field + " must be a finite number");
   }
   return value;
-}
-
-function requireRuntimeField(
-  record: Record<string, unknown>,
-  field: string,
-  label: string,
-): unknown {
-  if (!(field in record)) {
-    throw new Error(label + "." + field + " is required");
-  }
-  return record[field];
 }
 
 function integerField(record: Record<string, unknown>, field: string, label: string): number {

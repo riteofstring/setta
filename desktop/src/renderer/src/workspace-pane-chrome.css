@@ -14,7 +14,6 @@
   background: var(--workspace-pane-title-bar-surface);
   border-bottom: 1px solid color-mix(in oklch, var(--foreground) 12%, transparent);
   color: color-mix(in oklch, var(--foreground) 72%, transparent);
-  cursor: grab;
   display: flex;
   gap: 4px;
   height: var(--workspace-pane-top-bar-height);
@@ -25,41 +24,6 @@
   position: absolute;
   width: 100%;
   z-index: 6;
-}
-
-.workspace-pane-title-slot {
-  align-items: center;
-  display: inline-flex;
-  flex: 1 1 auto;
-  gap: 6px;
-  min-width: 0;
-}
-
-.workspace-pane-title-icon {
-  color: color-mix(in oklch, var(--foreground) 76%, transparent);
-  flex: 0 0 auto;
-  height: 14px;
-  width: 14px;
-}
-
-.workspace-pane-title {
-  color: color-mix(in oklch, var(--foreground) 84%, transparent);
-  display: block;
-  font-family: var(--setta-font-mono);
-  font-size: 11px;
-  font-weight: 520;
-  letter-spacing: 0;
-  line-height: 16px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workspace-pane-title[data-workspace-pane-title-truncation="start"] {
-  direction: rtl;
-  text-align: left;
-  unicode-bidi: plaintext;
 }
 
 .workspace-pane-action-strip {
@@ -78,10 +42,12 @@
   --workspace-pane-top-bar-height: 44px;
 }
 
-.workspace-layout-area[data-compact-layout="true"] .workspace-pane-action-strip {
+.workspace-layout-area[data-compact-layout="true"] .workspace-pane-action-strip,
+.workspace-layout-area[data-compact-layout="true"] .workspace-pane-drag-handle {
   display: none;
 }
 
+.workspace-pane-drag-handle,
 .workspace-pane-action-button {
   align-items: center;
   background: transparent;
@@ -101,9 +67,22 @@
   width: 22px;
 }
 
+.workspace-pane-drag-handle {
+  cursor: grab;
+}
+
 .workspace-pane-action-button {
   cursor: pointer;
   position: relative;
+}
+
+.workspace-pane-drag-handle::before {
+  background-image: radial-gradient(currentColor 1.1px, transparent 1.3px);
+  background-size: 5px 5px;
+  content: "";
+  height: 13px;
+  opacity: 0.9;
+  width: 10px;
 }
 
 .workspace-pane-action-button::before,
@@ -188,6 +167,8 @@
   transform: translate(-50%, -50%) rotate(-45deg);
 }
 
+.workspace-pane-drag-handle:hover,
+.workspace-pane-drag-handle:focus-visible,
 .workspace-pane-action-button:hover,
 .workspace-pane-action-button:focus-visible {
   background: color-mix(in oklch, var(--accent) 82%, transparent);
@@ -196,8 +177,8 @@
   outline: none;
 }
 
-.workspace-pane-top-bar:active,
-.workspace-pane-host[data-drag-source="true"] .workspace-pane-top-bar {
+.workspace-pane-drag-handle:active,
+.workspace-pane-host[data-drag-source="true"] .workspace-pane-drag-handle {
   cursor: grabbing;
 }
 

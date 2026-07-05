@@ -1,21 +1,10 @@
-.workspace-pane-content.workspace-xterm-surface {
-  align-items: stretch;
-  gap: 0;
+.workspace-xterm-surface {
   grid-template-rows: auto minmax(0, 1fr);
-  height: calc(100% - var(--workspace-pane-top-bar-height));
-  justify-items: stretch;
-  min-height: 0;
   padding: 0;
   position: relative;
 }
 
 .workspace-xterm-viewport {
-  align-self: stretch;
-  box-sizing: border-box;
-  display: block;
-  grid-row: 2;
-  height: 100%;
-  justify-self: stretch;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -23,14 +12,7 @@
 }
 
 .workspace-xterm-viewport .xterm {
-  height: var(--workspace-xterm-snapped-height, 100%);
-  margin: 0;
-  max-width: 100%;
-  width: 100%;
-}
-
-.workspace-xterm-viewport .xterm-screen {
-  margin: 0;
+  height: 100%;
 }
 
 .workspace-xterm-viewport .xterm-viewport {
@@ -102,20 +84,18 @@
   background: color-mix(in oklch, var(--background) 82%, black);
   border: 1px solid color-mix(in oklch, var(--border) 78%, transparent);
   border-radius: 8px;
+  bottom: 14px;
   box-shadow: 0 14px 40px rgb(0 0 0 / 0.26);
   display: grid;
   gap: 10px;
   justify-items: center;
   left: 50%;
-  max-height: calc(100% - 28px);
-  max-width: min(460px, calc(100% - 28px));
+  max-width: min(300px, calc(100% - 28px));
   min-width: 220px;
-  overflow: auto;
   padding: 12px;
   position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10;
+  transform: translateX(-50%);
+  z-index: 2;
 }
 
 .workspace-terminal-exit-overlay[hidden] {
@@ -128,7 +108,6 @@
   font-size: 11px;
   line-height: 1.25;
   max-width: 100%;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-align: center;
 }

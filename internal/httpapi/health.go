@@ -9,32 +9,16 @@ type BackendMetadata struct {
 	Version string
 }
 
-type RuntimeMetadata struct {
-	ID                     string
-	DisplayName            string
-	InfrastructureProvider RuntimeInfrastructureProvider
-}
-
 type BackendHealth struct {
-	OK              bool   `json:"ok"`
-	Name            string `json:"name"`
-	Version         string `json:"version"`
-	ProtocolVersion int    `json:"protocolVersion"`
+	OK      bool   `json:"ok"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
 }
 
 func (handler handler) health(response http.ResponseWriter, request *http.Request) {
 	writeJSON(response, http.StatusOK, BackendHealth{
-		OK:              true,
-		Name:            handler.metadata.Name,
-		Version:         handler.metadata.Version,
-		ProtocolVersion: ProtocolVersion,
+		OK:      true,
+		Name:    handler.metadata.Name,
+		Version: handler.metadata.Version,
 	})
-}
-
-func UnknownRuntimeInfrastructureProvider() RuntimeInfrastructureProvider {
-	return RuntimeInfrastructureProvider{
-		ID:          "unknown",
-		DisplayName: "Unknown provider",
-		IconURL:     "",
-	}
 }

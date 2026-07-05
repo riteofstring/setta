@@ -23,7 +23,6 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
-import { driverCallExpression } from "./cdp-client.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "workspace-ultrawide-live-panes";
@@ -116,8 +115,12 @@ try {
     requiredFocusedPaneId: "multirow_pane_1",
   });
   const clickPreservationChecks = [
-    await assertVisiblePaneClickFocusesWithoutReveal(context.client, multiRowSnapshot, "terminal"),
-    await assertVisiblePaneClickFocusesWithoutReveal(
+    await assertVisiblePaneClickPreservesWorkspaceFocus(
+      context.client,
+      multiRowSnapshot,
+      "terminal",
+    ),
+    await assertVisiblePaneClickPreservesWorkspaceFocus(
       context.client,
       multiRowSnapshot,
       "workflow-graph",
@@ -192,14 +195,14 @@ try {
 }
 
 async function ensureWorkspaceOpen(client) {
-  const currentWorkspaceId = await client.driver("workspaceUltrawideWorkspaceId");
+  const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return currentWorkspaceId;
   }
   await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   return waitForState(
     client,
-    driverCallExpression("workspaceUltrawideWorkspaceId"),
+    workspaceIdExpression(),
     (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     workflowTimeoutMs,
   );
@@ -218,7 +221,15 @@ async function persistVerticalStackLayout(client, workspaceId) {
 }
 
 async function persistLayout(client, layout) {
-  const result = await client.driver("workspaceUltrawideSaveUILayout", { layout });
+  const result = await client.evaluate(`(async () => {
+    const layout = ${JSON.stringify(layout)};
+    await window.setta.workspace.saveUILayout(layout);
+    const readback = await window.setta.workspace.readUILayout(layout.workspaceId);
+    return {
+      ok: readback.layout?.panes?.length === layout.panes.length,
+      readbackPaneCount: readback.layout?.panes?.length ?? 0,
+    };
+  })()`);
   if (!result.ok) {
     throw new Error(`workspace UI layout was not persisted: ${JSON.stringify(result)}`);
   }
@@ -235,101 +246,45 @@ async function waitForLivePaneSnapshot(
     requiredIntersectingPaneId = "",
   },
 ) {
-  const options = {
-    expectedIntersectingPaneCount,
-    maxIntersectingPaneCount,
-    minIntersectingPaneCount,
-    paneCount,
-    requiredFocusedPaneId,
-    requiredIntersectingPaneId,
-  };
   return waitForState(
     client,
-    driverCallExpression("workspaceUltrawidePaneSnapshot"),
-    (snapshot) => paneSnapshotMatches(snapshot, options),
+    paneSnapshotExpression(),
+    (snapshot) => {
+      const terminalHosts = snapshot.intersectingHosts.filter(
+        (host) => host.surfaceKind === "terminal",
+      );
+      const workflowHosts = snapshot.intersectingHosts.filter(
+        (host) => host.surfaceKind === "workflow-graph",
+      );
+      return (
+        snapshot.workspaceMode === "workspace" &&
+        snapshot.totalPanes === paneCount &&
+        (expectedIntersectingPaneCount === undefined ||
+          snapshot.intersectingHosts.length === expectedIntersectingPaneCount) &&
+        snapshot.intersectingHosts.length >= minIntersectingPaneCount &&
+        snapshot.intersectingHosts.length <= maxIntersectingPaneCount &&
+        (requiredFocusedPaneId === "" || snapshot.focusedPaneId === requiredFocusedPaneId) &&
+        (requiredIntersectingPaneId === "" ||
+          snapshot.intersectingHosts.some((host) => host.paneId === requiredIntersectingPaneId)) &&
+        snapshot.intersectingHosts.every((host) => host.runtimeState === "live") &&
+        snapshot.intersectingHosts.every((host) => host.pointerEvents === "auto") &&
+        snapshot.intersectingHosts.every((host) => host.surfaceId !== "") &&
+        snapshot.intersectingHosts.every((host) => host.surfaceKind !== "") &&
+        terminalHosts.length > 0 &&
+        terminalHosts.every((host) => host.hasTerminalViewport && host.terminalStatus !== "") &&
+        workflowHosts.length > 0 &&
+        terminalHosts.every((host) => host.terminalSessionId.startsWith("terminal_")) &&
+        workflowHosts.every((host) => host.hasWorkflowGraphHost && host.hasWorkflowGraphSurface)
+      );
+    },
     workflowTimeoutMs,
   );
-}
-
-function paneSnapshotMatches(snapshot, options) {
-  return (
-    paneSnapshotStructureMatches(snapshot, options) &&
-    paneSnapshotRequiredPanesMatch(snapshot, options) &&
-    paneSnapshotHostsAreLive(snapshot) &&
-    paneSnapshotTerminalHostsReady(snapshot) &&
-    paneSnapshotWorkflowHostsReady(snapshot)
-  );
-}
-
-function paneSnapshotStructureMatches(snapshot, options) {
-  return (
-    snapshot.workspaceMode === "workspace" &&
-    snapshot.totalPanes === options.paneCount &&
-    intersectingPaneCountMatches(snapshot.intersectingHosts.length, options)
-  );
-}
-
-function intersectingPaneCountMatches(count, options) {
-  if (options.expectedIntersectingPaneCount !== undefined) {
-    return count === options.expectedIntersectingPaneCount;
-  }
-  return count >= options.minIntersectingPaneCount && count <= options.maxIntersectingPaneCount;
-}
-
-function paneSnapshotRequiredPanesMatch(snapshot, options) {
-  return (
-    requiredFocusedPaneMatches(snapshot, options.requiredFocusedPaneId) &&
-    requiredIntersectingPaneMatches(snapshot, options.requiredIntersectingPaneId)
-  );
-}
-
-function requiredFocusedPaneMatches(snapshot, paneId) {
-  return paneId === "" || snapshot.focusedPaneId === paneId;
-}
-
-function requiredIntersectingPaneMatches(snapshot, paneId) {
-  return paneId === "" || snapshot.intersectingHosts.some((host) => host.paneId === paneId);
-}
-
-function paneSnapshotHostsAreLive(snapshot) {
-  return snapshot.intersectingHosts.every(
-    (host) =>
-      host.runtimeState === "live" &&
-      host.pointerEvents === "auto" &&
-      host.surfaceId !== "" &&
-      host.surfaceKind !== "",
-  );
-}
-
-function paneSnapshotTerminalHostsReady(snapshot) {
-  const terminalHosts = hostsForSurfaceKind(snapshot, "terminal");
-  return (
-    terminalHosts.length > 0 &&
-    terminalHosts.every(
-      (host) =>
-        host.hasTerminalViewport &&
-        host.terminalStatus !== "" &&
-        host.terminalSessionId.startsWith("terminal_"),
-    )
-  );
-}
-
-function paneSnapshotWorkflowHostsReady(snapshot) {
-  const workflowHosts = hostsForSurfaceKind(snapshot, "workflow-graph");
-  return (
-    workflowHosts.length > 0 &&
-    workflowHosts.every((host) => host.hasWorkflowGraphHost && host.hasWorkflowGraphSurface)
-  );
-}
-
-function hostsForSurfaceKind(snapshot, surfaceKind) {
-  return snapshot.intersectingHosts.filter((host) => host.surfaceKind === surfaceKind);
 }
 
 async function waitForVerticalResizeTarget(client, { adjacentPaneId, paneId }) {
   const snapshot = await waitForState(
     client,
-    driverCallExpression("workspaceUltrawidePaneSnapshot"),
+    paneSnapshotExpression(),
     (candidate) =>
       candidate.resizeHandles.some(
         (handle) =>
@@ -373,13 +328,13 @@ async function dispatchWorkspaceNavigationShortcut(client, key) {
 
 async function safePaneSnapshot(client) {
   try {
-    return await client.driver("workspaceUltrawidePaneSnapshot");
+    return await client.evaluate(paneSnapshotExpression());
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }
 
-async function assertVisiblePaneClickFocusesWithoutReveal(client, snapshot, surfaceKind) {
+async function assertVisiblePaneClickPreservesWorkspaceFocus(client, snapshot, surfaceKind) {
   const target = snapshot.intersectingHosts.find(
     (host) => host.surfaceKind === surfaceKind && !host.focused,
   );
@@ -391,33 +346,119 @@ async function assertVisiblePaneClickFocusesWithoutReveal(client, snapshot, surf
     y: Math.round(target.rect.top + target.rect.height / 2),
   });
   await delay(100);
-  const afterClick = await client.driver("workspaceUltrawidePaneSnapshot");
-  if (afterClick.focusedPaneId !== target.paneId) {
+  const afterClick = await client.evaluate(paneSnapshotExpression());
+  if (afterClick.focusedPaneId !== snapshot.focusedPaneId) {
     throw new Error(
-      `${surfaceKind} click did not focus the clicked pane: ${JSON.stringify({
+      `${surfaceKind} click moved workspace focus: ${JSON.stringify({
         after: afterClick.focusedPaneId,
-        expected: target.paneId,
+        before: snapshot.focusedPaneId,
         paneId: target.paneId,
       })}`,
     );
   }
-  if (Math.abs(afterClick.stageRect.left - snapshot.stageRect.left) > 1) {
-    throw new Error(
-      `${surfaceKind} click revealed the clicked pane instead of preserving scroll position: ${JSON.stringify(
-        {
-          afterLeft: afterClick.stageRect.left,
-          beforeLeft: snapshot.stageRect.left,
-          paneId: target.paneId,
-        },
-      )}`,
-    );
-  }
   return {
-    focusedPaneId: afterClick.focusedPaneId,
+    focusedPaneId: snapshot.focusedPaneId,
     paneId: target.paneId,
-    scrollPreserved: true,
+    preserved: true,
     surfaceKind,
   };
+}
+
+function workspaceIdExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
+  })()`;
+}
+
+function paneSnapshotExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
+    const rectFor = (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+      };
+    };
+    const stageRect = stage instanceof HTMLElement
+      ? rectFor(stage)
+      : { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 };
+    const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
+      .map((host) => {
+        const rect = rectFor(host);
+        const style = getComputedStyle(host);
+        return {
+          focused: host.dataset.focused === "true",
+          hasTerminalViewport: Boolean(host.querySelector('[data-terminal-viewport="true"]')),
+          hasWorkflowGraphHost: Boolean(host.querySelector('[data-testid="workflow-graph"]')),
+          hasWorkflowGraphSurface: Boolean(
+            host.querySelector('[data-testid="workspace-workflow-graph-surface"]')
+          ),
+          paneId: host.dataset.paneId ?? "",
+          pointerEvents: style.pointerEvents,
+          rect: {
+            ...rect,
+          },
+          runtimeState: host.dataset.runtimeState ?? "",
+          surfaceId: host.dataset.surfaceId ?? "",
+          surfaceKind: host.dataset.surfaceKind ?? "",
+          terminalStatus:
+            host.querySelector('[data-terminal-status="true"]')?.textContent?.trim() ?? "",
+          terminalSessionId: host.dataset.terminalSessionId ?? "",
+        };
+      });
+    const resizeHandles = Array.from(document.querySelectorAll('.workspace-pane-resize-handle'))
+      .filter((handle) => handle instanceof HTMLElement)
+      .map((handle) => {
+        const rect = rectFor(handle);
+        return {
+          adjacentPaneId: handle.dataset.adjacentPaneId ?? "",
+          axis: handle.dataset.workspacePaneResizeAxis ?? "",
+          center: {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          },
+          paneId: handle.dataset.paneId ?? "",
+          rect,
+        };
+      });
+    const intersectingHosts = hosts.filter(
+      (host) =>
+        host.rect.left < stageRect.right &&
+        host.rect.right > stageRect.left &&
+        host.rect.top < stageRect.bottom &&
+        host.rect.bottom > stageRect.top,
+    );
+    return {
+      focusedPaneId: hosts.find((host) => host.focused)?.paneId ?? "",
+      intersectingHosts,
+      mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
+      resizeHandles,
+      runtimeStates: hosts.reduce((states, host) => {
+        states[host.runtimeState] = (states[host.runtimeState] ?? 0) + 1;
+        return states;
+      }, {}),
+      stageRect: {
+        height: stageRect.height,
+        bottom: stageRect.bottom,
+        left: stageRect.left,
+        right: stageRect.right,
+        top: stageRect.top,
+        width: stageRect.width,
+      },
+      totalPanes: Number(area instanceof HTMLElement ? area.dataset.paneCount ?? "0" : "0"),
+      visibleHosts: hosts,
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+      workspaceMode: area instanceof HTMLElement ? area.dataset.workspaceMode ?? "" : "",
+    };
+  })()`;
 }
 
 function ultraWideLayout(workspaceId) {

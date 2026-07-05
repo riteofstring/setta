@@ -5,8 +5,12 @@ import process from "node:process";
 import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
 
+import { createParallelRunHandlers } from "./fake-codex-parallel-runs.mjs";
+
 const threadId = "thread_fake";
 const turnId = "turn_fake";
+const parallelThreadsEnabled = process.env.SETTA_FAKE_CODEX_PARALLEL_THREADS === "1";
+const parallelRuns = createParallelRunHandlers({ fakeTurnWithID, notify, respond, turnInputText });
 const goalBackgroundTerminal = {
   command: "npm run goal-bg",
   idleGapOutput: "goal background idle output\n",
@@ -134,6 +138,9 @@ function handleThreadStart(message) {
   assertThreadStartDeveloperInstructions(message.params);
   assertThreadStartDynamicTools(message.params);
   const options = threadResponseOptionsFromParams(message.params);
+  if (parallelThreadsEnabled) {
+    options.threadId = parallelRuns.nextThreadId();
+  }
   applyUnsupportedApprovalPolicyForSource(options, "thread-start");
   respond(message.id, fakeThreadResponse(options));
 }
@@ -148,13 +155,22 @@ function handleThreadResume(message) {
 }
 
 function handleThreadRead(message) {
-  if (message.params?.threadId !== threadId) {
+  if (!parallelThreadsEnabled && message.params?.threadId !== threadId) {
     throw new Error(`unexpected thread/read threadId: ${message.params?.threadId}`);
   }
-  respond(message.id, { thread: fakeThread({ activeTurn: activeTurnForThreadRead() }) });
+  const requestedThreadId = parallelThreadsEnabled ? message.params?.threadId : undefined;
+  respond(message.id, {
+    thread: fakeThread({
+      activeTurn: activeTurnForThreadRead(requestedThreadId),
+      threadId: requestedThreadId,
+    }),
+  });
 }
 
 function handleTurnStart(message) {
+  if (parallelThreadsEnabled && parallelRuns.handleTurnStart(message)) {
+    return;
+  }
   respond(message.id, { turn: fakeTurn("inProgress") });
   if (isStructuredTurnStart(message.params)) {
     assertStructuredTurnStart(message.params);
@@ -244,6 +260,9 @@ function fakeThreadResponse(options = {}) {
 
 function threadResponseOptionsFromParams(params) {
   const options = {};
+  if (typeof params?.threadId === "string" && params.threadId !== "") {
+    options.threadId = params.threadId;
+  }
   if (typeof params?.approvalPolicy === "string") {
     options.approvalPolicy = params.approvalPolicy;
   }
@@ -256,16 +275,17 @@ function threadResponseOptionsFromParams(params) {
 function fakeThread(options = {}) {
   const ephemeral = options.ephemeral === true;
   const activeTurn = options.activeTurn ?? null;
+  const id = options.threadId ?? threadId;
   return {
     cliVersion: "fake",
     createdAt: 1,
     cwd: "/tmp/setta-fake",
     ephemeral,
-    id: threadId,
+    id,
     modelProvider: "fake",
-    path: ephemeral ? undefined : "/tmp/codex/thread_fake.json",
+    path: ephemeral ? undefined : `/tmp/codex/${id}.json`,
     preview: "",
-    sessionId: "session_fake",
+    sessionId: `session_${id}`,
     source: "user",
     status: activeTurn === null ? { type: "idle" } : { activeFlags: [], type: "active" },
     turns: activeTurn === null ? [] : [activeTurn],
@@ -281,7 +301,10 @@ function fakeTurn(status) {
   };
 }
 
-function activeTurnForThreadRead() {
+function activeTurnForThreadRead(requestedThreadId) {
+  if (parallelThreadsEnabled && typeof requestedThreadId === "string") {
+    return parallelRuns.activeTurnForThreadRead(requestedThreadId);
+  }
   if (activeSilentLivenessTurn !== null) {
     return activeSilentLivenessTurn;
   }
@@ -472,6 +495,9 @@ function respondEmpty(message) {
 }
 
 function handleTurnInterrupt(message) {
+  if (parallelThreadsEnabled && parallelRuns.handleTurnInterrupt(message)) {
+    return;
+  }
   if (handleGoalTurnInterrupt(message)) {
     return;
   }
@@ -485,6 +511,9 @@ function handleTurnInterrupt(message) {
 }
 
 function handleTurnSteer(message) {
+  if (parallelThreadsEnabled && parallelRuns.handleTurnSteer(message)) {
+    return;
+  }
   if (handleCurrentPlanSteer(message)) {
     return;
   }
@@ -832,9 +861,14 @@ function emitProtocolCoverageTurn() {
     processId: "process_fake",
     stream: "stdout",
   });
+  emitProtocolCoverageCommandExecution();
   notify("deprecationNotice", {
     details: "Use the replacement protocol surface.",
     summary: "Protocol deprecation notice.",
+  });
+  notify("warning", {
+    message: "Protocol warning notice.",
+    threadId,
   });
   notify("externalAgentConfig/import/completed", {});
   notify("fs/changed", { changedPaths: ["/tmp/workspace/main.go"], watchId: "watch_fake" });
@@ -920,6 +954,17 @@ function emitProtocolCoverageTurn() {
     threadId,
     turn: fakeTurn("completed"),
   });
+}
+
+function emitProtocolCoverageCommandExecution() {
+  const execution = {
+    command: "printf protocol command",
+    itemId: "command_item_fake",
+    processId: "scoped_process_fake",
+  };
+  notifyUnifiedExecStarted(turnId, execution);
+  notifyUnifiedExecOutput(turnId, execution, "scoped command output\n");
+  notifyUnifiedExecCompleted(turnId, execution);
 }
 
 function emitBackpressureBurstTurn() {

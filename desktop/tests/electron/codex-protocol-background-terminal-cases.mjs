@@ -202,39 +202,6 @@ async function runProtocolGoalBackgroundTerminalFailureWorkflow(client, backend,
   await waitForState(
     client,
     protocolGoalBackgroundTerminalFooterExpression(),
-    (value) =>
-      value.footerPresent &&
-      value.footerPhase === "attention" &&
-      value.footerText.includes("1 background terminal needs attention"),
-  );
-  await delay(2700);
-  await waitForState(
-    client,
-    protocolGoalBackgroundTerminalFooterExpression(),
-    (value) =>
-      value.footerPresent &&
-      value.footerPhase === "attention" &&
-      value.footerText.includes("1 background terminal needs attention"),
-  );
-  await client.evaluate(
-    `document.querySelector('[data-testid="background-terminals-footer"]')?.click()`,
-  );
-  await waitForState(
-    client,
-    protocolGoalBackgroundTerminalMonitorExpression(),
-    (value) =>
-      value.monitorOpen &&
-      value.processes.some(
-        (process) =>
-          process.command === goalBackgroundTerminalFailure.command &&
-          process.status === "exited" &&
-          process.text.includes(`exited ${goalBackgroundTerminalFailure.exitCode}`),
-      ),
-  );
-  await clickButtonByAria(client, "Close background terminal monitor");
-  await waitForState(
-    client,
-    protocolGoalBackgroundTerminalFooterExpression(),
     (value) => !value.footerPresent && !value.monitorOpen,
   );
 }

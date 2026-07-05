@@ -73,7 +73,7 @@ async function runBackendOrchestratorLaunchSequence({
   state,
 }) {
   state.firstBackend = await startExternalScriptedBackend(fixture, repoRoot);
-  state.first = await launchExternalBackendContext(fixture, firstRecording, state.firstBackend);
+  state.first = await launchExternalBackendContext(fixture, firstRecording, state.firstBackend.url);
   const recovery = await exerciseBackendOrchestratorFirstLaunch({
     context: state.first,
     fixture,
@@ -85,7 +85,11 @@ async function runBackendOrchestratorLaunchSequence({
   state.first = null;
 
   state.secondBackend = await startExternalScriptedBackend(fixture, repoRoot);
-  state.second = await launchExternalBackendContext(fixture, secondRecording, state.secondBackend);
+  state.second = await launchExternalBackendContext(
+    fixture,
+    secondRecording,
+    state.secondBackend.url,
+  );
   await exerciseBackendOrchestratorRecoveryLaunch({
     context: state.second,
     recovery,
@@ -124,12 +128,9 @@ function backendLogsForHandle(handle) {
   return handle?.logs ?? [];
 }
 
-async function launchExternalBackendContext(fixture, recordingDir, backend) {
+async function launchExternalBackendContext(fixture, recordingDir, backendURL) {
   return launchContext(fixture, recordingDir, {
-    extraEnv: {
-      SETTA_BACKEND_TOKEN: backend.token,
-      SETTA_BACKEND_URL: backend.url,
-    },
+    extraEnv: { SETTA_BACKEND_URL: backendURL },
   });
 }
 
@@ -447,7 +448,16 @@ async function runLateGatewayArrivalWorkflow(client, backend, workspaceId) {
     started.id,
     hasReachedEndWithSlowBranchActive,
   );
+  assertIndependentWorkflowAgentRuns(reachedEnd, ["fast", "slow"]);
+  assertNodeStatus(reachedEnd, "fast", "succeeded");
+  assertNodeStatus(reachedEnd, "slow", "running");
+  assertNodeStatus(reachedEnd, "end", "succeeded");
+  const fast = latestNodeExecution(reachedEnd, "fast");
   const slow = latestNodeExecution(reachedEnd, "slow");
+  await assertWorkflowConversationMetadata(backend, workspaceId, reachedEnd.id, fast);
+  await assertWorkflowConversationMetadata(backend, workspaceId, reachedEnd.id, slow);
+  await waitForWorkflowChatRunStatus(backend, workspaceId, fast, "completed");
+  await waitForWorkflowChatRunStatus(backend, workspaceId, slow, "running");
   await backend.post("/chat/messages/steer", {
     conversationId: runnerRef(slow, "chat.conversation"),
     input: chatTextInput("finish late branch"),
@@ -482,7 +492,7 @@ async function startWorkflowWithPushedEvent({
   recordingDir,
   workspaceId,
 }) {
-  const stream = await openWorkflowEventStream(backend, recordingDir);
+  const stream = await openWorkflowEventStream(backend.baseURL, recordingDir);
   try {
     const started = await rendererWorkflow(client, "startExecution", [workspaceId, definitionId]);
     const pushed = await stream.next();
@@ -564,13 +574,23 @@ function hasRunningWork(execution) {
 }
 
 function hasReachedEndWithSlowBranchActive(execution) {
+  const fast = latestNodeExecution(execution, "fast");
   const slow = latestNodeExecution(execution, "slow");
   const end = latestNodeExecution(execution, "end");
   return (
     execution.status === "running" &&
+    fast?.status === "succeeded" &&
+    hasWorkflowAgentRunnerRefs(fast) &&
     slow?.status === "running" &&
-    runnerRef(slow, "chat.conversation") !== "" &&
+    hasWorkflowAgentRunnerRefs(slow) &&
     end?.status === "succeeded"
+  );
+}
+
+function hasWorkflowAgentRunnerRefs(nodeExecution) {
+  return (
+    runnerRef(nodeExecution, "chat.conversation") !== "" &&
+    runnerRef(nodeExecution, "chat.run") !== ""
   );
 }
 
@@ -605,10 +625,8 @@ async function waitForWorkflowExecution(client, workspaceId, executionId, isRead
   );
 }
 
-async function openWorkflowEventStream(backend, recordingDir) {
-  const response = await globalThis.fetch(backend.baseURL + "/workflows/events", {
-    headers: { Authorization: "Bearer " + backend.deviceToken },
-  });
+async function openWorkflowEventStream(baseURL, recordingDir) {
+  const response = await globalThis.fetch(baseURL + "/workflows/events");
   await appendWorkflowState(recordingDir, {
     method: "GET",
     ok: response.ok,
@@ -733,6 +751,37 @@ async function assertWorkflowConversationMetadata(
       `semantic context was persisted into authored workflow prompt: ${JSON.stringify(leakedContext)}`,
     );
   }
+}
+
+function assertIndependentWorkflowAgentRuns(execution, nodeIds) {
+  const conversationIds = new Set();
+  const runIds = new Set();
+  for (const nodeId of nodeIds) {
+    const nodeExecution = latestNodeExecution(execution, nodeId);
+    const conversationId = runnerRef(nodeExecution, "chat.conversation");
+    const runId = runnerRef(nodeExecution, "chat.run");
+    if (conversationId === "" || runId === "") {
+      throw new Error(`${nodeId} runner refs missing: ${JSON.stringify(nodeExecution)}`);
+    }
+    if (conversationIds.has(conversationId) || runIds.has(runId)) {
+      throw new Error(
+        `parallel workflow agent refs are not independent: ${JSON.stringify(
+          nodeIds.map((id) => latestNodeExecution(execution, id)?.runnerRefs ?? []),
+        )}`,
+      );
+    }
+    conversationIds.add(conversationId);
+    runIds.add(runId);
+  }
+}
+
+async function waitForWorkflowChatRunStatus(backend, workspaceId, nodeExecution, status) {
+  const conversationId = runnerRef(nodeExecution, "chat.conversation");
+  const chatRunId = runnerRef(nodeExecution, "chat.run");
+  await waitForBackendState(
+    async () => backend.post("/chat/runs/list", { conversationId, workspaceId }),
+    (list) => list.runs.some((run) => run.id === chatRunId && run.status === status),
+  );
 }
 
 async function assertWorkflowAgentSemanticContextPacks(client, workspaceId, execution) {
@@ -1037,6 +1086,7 @@ function lateGatewayArrivalWorkflowGraph() {
 
 function workflowGraph(nodes, edges) {
   return {
+    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges,
     layout: workflowLayout(nodes),
     nodes,
@@ -1080,9 +1130,8 @@ function workflowCodexNode(id, prompt, freshConversation) {
     action: {
       codex: {
         freshConversation,
-        model: "",
         prompt,
-        reasoningEffort: "",
+        settings: { model: "", permission: null, reasoningEffort: null },
       },
       kind: "agent.codex",
     },

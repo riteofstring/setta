@@ -1,10 +1,10 @@
-import type { ChatInput, ChatMessage, TranscriptBlock, WorkspaceSummary } from "@generated/backend";
+import type { ChatInput, ChatMessage, WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, Check, Maximize2, Minimize2 } from "lucide-react";
 import { Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
-import { runtimeControlsDisabled, useRuntimeStore } from "../stores/runtime-store";
+import { useChatDefaultsStore } from "../stores/chat-defaults-store";
 import type { QueuedRun } from "../stores/chat-store-normalization";
 import { activeRunPresentation } from "../lib/chat-run-liveness";
 import { cn } from "../lib/utils";
@@ -107,11 +107,10 @@ function ChatWorkspace({
   setSearchOpen: (open: boolean) => void;
   workspaceId: string;
 }) {
-  const runtimeUnavailable = useRuntimeStore((state) => runtimeControlsDisabled(state.snapshot));
   const switchingWorkspace = chat.workspaceId !== workspaceId;
   const runPresentation = activeRunPresentation(chat.activeRun, chat.activeRunLiveness);
   const blocked = !switchingWorkspace && isChatBlocked(chat);
-  const composerBusy = runtimeUnavailable || switchingWorkspace || isComposerBusy(chat);
+  const composerBusy = switchingWorkspace || isComposerBusy(chat);
   const running = !switchingWorkspace && runPresentation.running;
   const detail = chatWorkspaceDetailAttributes(chat, switchingWorkspace, workspaceId);
   const [currentPlanOpenRequest, setCurrentPlanOpenRequest] =
@@ -538,6 +537,9 @@ export function useChatViewState() {
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const transcriptBlocks = useChatStore((state) => state.transcriptBlocks);
+  const chatDefaultsView = useChatDefaultsStore((state) => state.view);
+  const chatDefaultsStatus = useChatDefaultsStore((state) => state.status);
+  const loadChatDefaults = useChatDefaultsStore((state) => state.load);
   const activeRunId = activeRun?.id ?? "";
   const queuedMessages = useMemo(
     () => queuedMessagesFromRuns(queuedRuns, messagesById),
@@ -547,12 +549,11 @@ export function useChatViewState() {
     if (activeRunId === "") {
       return emptyPendingSteeringMessageIds;
     }
-    const pendingIds = transcriptBlocks
-      .filter((block) => isPendingSteeringBlock(block, activeRunId))
-      .map((block) => block.userMessage?.messageId ?? "")
-      .filter((messageId) => messageId !== "");
+    const pendingIds = messages
+      .filter((message) => isPendingSteeringMessage(message, activeRunId))
+      .map((message) => message.id);
     return pendingIds.length === 0 ? emptyPendingSteeringMessageIds : pendingIds;
-  }, [activeRunId, transcriptBlocks]);
+  }, [activeRunId, messages]);
   const visiblePendingGoalSubmission =
     pendingGoalSubmission?.conversationId === selectedConversation?.id
       ? pendingGoalSubmission
@@ -576,6 +577,13 @@ export function useChatViewState() {
     void markConversationRead(selectedConversationSummary.conversation.id);
   }, [markConversationRead, selectedConversationSummary]);
 
+  useEffect(() => {
+    if (!storeWorkspaceId) {
+      return;
+    }
+    void loadChatDefaults();
+  }, [loadChatDefaults, storeWorkspaceId]);
+
   return {
     activeRun,
     activeRunLiveness,
@@ -586,6 +594,8 @@ export function useChatViewState() {
     backgroundTerminalsById,
     commandListError,
     commandListStatus,
+    chatDefaultsStatus,
+    chatDefaultsView,
     conversations,
     corruption,
     createImageAttachmentFromBytes,
@@ -649,11 +659,8 @@ function queuedMessagesFromRuns(
     .filter((message): message is ChatMessage => message !== undefined);
 }
 
-function isPendingSteeringBlock(block: TranscriptBlock, activeRunId: string) {
+function isPendingSteeringMessage(message: ChatMessage, activeRunId: string) {
   return (
-    block.kind === "user_message" &&
-    block.runId === activeRunId &&
-    block.userMessage?.delivery === "steering" &&
-    block.userMessage.status === "pending"
+    message.runId === activeRunId && message.delivery === "steering" && message.status === "pending"
   );
 }

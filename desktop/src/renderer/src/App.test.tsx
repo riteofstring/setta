@@ -49,7 +49,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("window.setta");
   });
 
-  test("renders the empty workspace surface inside the preserved shell", () => {
+  test("renders the workspace layout inside the preserved shell", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
@@ -80,14 +80,13 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="shell-settings-button"');
     expect(html).toContain('data-testid="workspace-layout-area"');
     expect(html).toContain('data-desktop-platform="darwin"');
-    expect(html).toContain('data-testid="workspace-empty-state"');
-    expect(html).toContain("Open a workspace");
-    expect(html).toContain('data-pane-count="0"');
+    expect(html).toContain('data-testid="workspace-presentation-engine"');
+    expect(html).toContain('data-pane-count="4"');
     expect(html).toContain('data-workspace-mode="workspace"');
     expect(html).not.toContain('data-testid="workspace-layout-status"');
     expect(html).not.toContain('data-testid="workspace-benchmark-status"');
     expect(html).not.toContain('data-testid="workspace-performance-stats"');
-    expect(html).not.toContain('data-testid="workspace-toolbar"');
+    expect(html).toContain('data-testid="workspace-toolbar"');
     expect(html).not.toContain('data-testid="sidebar-logo-shell"');
     expect(html).not.toContain('data-testid="sidebar-memory-footer"');
     expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
@@ -390,7 +389,7 @@ describe("workspace renderer states", () => {
     expect(hasAriaLabel(html, "Chat response running")).toBe(false);
   });
 
-  test("presents sidebar snapshot-load liveness as a running response", () => {
+  test("presents sidebar snapshot-load liveness as reconnecting", () => {
     const web = {
       displayName: "web",
       id: "workspace_web",
@@ -436,8 +435,8 @@ describe("workspace renderer states", () => {
       />,
     );
 
-    expect(hasAriaLabel(html, "Chat response running")).toBe(true);
-    expect(hasAriaLabel(html, "Chat response reconnecting")).toBe(false);
+    expect(hasAriaLabel(html, "Chat response reconnecting")).toBe(true);
+    expect(hasAriaLabel(html, "Chat response running")).toBe(false);
   });
 
   test("bounds large workspace list row rendering", () => {
@@ -652,7 +651,7 @@ describe("chat renderer states", () => {
     expect(html).toContain("Working");
   });
 
-  test("renders snapshot-load verification as the normal working indicator", () => {
+  test("renders snapshot-load verification as reconnecting", () => {
     const activeRun = runFixture("run_api", "running");
     const html = renderToString(
       <TestChatTranscript
@@ -674,10 +673,9 @@ describe("chat renderer states", () => {
       />,
     );
 
-    expect(html).toContain('data-run-status-mode="working"');
-    expect(html).toContain('data-live-headline="active"');
-    expect(html).toContain("Working");
-    expect(html).not.toContain("Reconnecting");
+    expect(html).toContain('data-run-status-mode="reconnecting"');
+    expect(html).toContain("Reconnecting");
+    expect(html).not.toContain('data-live-headline="active"');
   });
 
   test("renders stream resync as reconnecting without the normal working indicator", () => {
@@ -907,70 +905,6 @@ describe("chat renderer states", () => {
     );
   });
 
-  test("renders immediate steering action only for pending steering on the active run", () => {
-    const activeRun = runFixture("run_api", "running");
-
-    const html = renderToString(
-      <TestChatTranscript
-        activeRun={activeRun}
-        blocks={[
-          userMessageBlock({ id: "block_user", runId: activeRun.id, ordinal: 1, text: "prompt" }),
-          userMessageBlock({
-            id: "block_steer",
-            runId: activeRun.id,
-            ordinal: 2,
-            delivery: "steering",
-            messageStatus: "pending",
-            text: "steer",
-          }),
-        ]}
-      />,
-    );
-
-    expect(html).toContain("Steering pending");
-    expect(html).toContain('aria-label="Interrupt and send pending steering"');
-  });
-
-  test("renders pending steering after active assistant output", () => {
-    const activeRun = runFixture("run_active", "running");
-
-    const html = renderToString(
-      <TestChatTranscript
-        activeRun={activeRun}
-        blocks={[
-          userMessageBlock({
-            id: "block_user",
-            runId: activeRun.id,
-            ordinal: 1,
-            text: "Active prompt",
-          }),
-          assistantTextBlock({
-            id: "block_assistant",
-            runId: activeRun.id,
-            ordinal: 2,
-            status: "streaming",
-            text: "Assistant partial",
-          }),
-          userMessageBlock({
-            id: "block_steer",
-            runId: activeRun.id,
-            ordinal: 3,
-            delivery: "steering",
-            messageStatus: "pending",
-            text: "Steering prompt",
-          }),
-        ]}
-      />,
-    );
-
-    expectTextOrder(html, [
-      "Active prompt",
-      "Assistant partial",
-      "Steering prompt",
-      "Steering pending",
-    ]);
-  });
-
   test("orders runs by appearance and keeps queued messages at the tail", () => {
     const html = renderToString(
       <TestChatTranscript
@@ -1177,6 +1111,7 @@ function TestChatTranscript(options: TestChatTranscriptOptions) {
       activeRun={resolved.activeRun}
       activeRunLiveness={resolved.activeRunLiveness}
       blocks={resolved.blocks}
+      conversationKey="conversation_test"
       editQueuedMessage={resolved.editQueuedMessage}
       editingQueuedMessageId={resolved.editingQueuedMessageId}
       focusedSourceRunItemId={resolved.focusedSourceRunItemId}
@@ -1220,13 +1155,17 @@ function runLivenessFixture(
   status: RunLiveness["status"],
   values: Partial<RunLiveness> = {},
 ): RunLiveness {
+  const phase = values.phase ?? runLivenessPhaseForStatus(status);
   return {
+    activeStatus: runActiveStatusForPhase(phase),
     cancellable: status !== "terminal",
     conversationId: run.conversationId,
     error: "",
     harness: run.harness,
     lastProviderEventAt: "2026-05-29T20:00:00Z",
+    lastVisibleActivityAt: "2026-05-29T20:00:00Z",
     lastReconciledAt: "",
+    phase,
     providerThreadId: "thread_api",
     providerTurnId: "turn_api",
     reason:
@@ -1240,9 +1179,74 @@ function runLivenessFixture(
     retryable: status === "reconciling" || status === "lost",
     runId: run.id,
     status,
+    steerable: status === "attached",
+    steeringDisabledReason: status === "attached" ? "" : "not_attached",
     workspaceId: run.workspaceId,
     ...values,
   };
+}
+
+function runLivenessPhaseForStatus(status: RunLiveness["status"]): RunLiveness["phase"] {
+  switch (status) {
+    case "attached":
+      return "attached";
+    case "reconciling":
+      return "reconnecting";
+    case "lost":
+      return "lost";
+    case "terminal":
+      return "terminal";
+    default:
+      throw new Error(`Unsupported run liveness status: ${status}`);
+  }
+}
+
+function runActiveStatusForPhase(phase: RunLiveness["phase"]): RunLiveness["activeStatus"] {
+  switch (phase) {
+    case "attached":
+      return { detail: "", headline: "Working", headlineSource: "fallback", kind: "working" };
+    case "blocked":
+      return {
+        detail: "",
+        headline: "Approval required",
+        headlineSource: "approval",
+        kind: "blocked",
+      };
+    case "lost":
+      return {
+        detail: "",
+        headline: "Connection lost",
+        headlineSource: "liveness",
+        kind: "connection_lost",
+      };
+    case "terminal":
+      return { detail: "", headline: "Finished", headlineSource: "terminal", kind: "finished" };
+    case "starting":
+      return { detail: "", headline: "Starting", headlineSource: "liveness", kind: "starting" };
+    case "waiting_for_provider":
+      return {
+        detail: "",
+        headline: "Waiting for provider",
+        headlineSource: "liveness",
+        kind: "waiting_for_provider",
+      };
+    case "stalled":
+      return {
+        detail: "",
+        headline: "Provider stalled",
+        headlineSource: "liveness",
+        kind: "stalled",
+      };
+    case "reconnecting":
+      return {
+        detail: "",
+        headline: "Reconnecting",
+        headlineSource: "liveness",
+        kind: "reconnecting",
+      };
+    default:
+      throw new Error(`Unsupported run liveness phase: ${phase}`);
+  }
 }
 
 function approvalRun(): Run {

@@ -22,6 +22,11 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.chatWorkflowVersion === "setta-chat-workflow-driver-v1"',
+    path: join(driverScriptDir, "chat-workflow-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.domPaneSnapshotScrollVersion === "setta-dom-pane-snapshot-scroll-driver-v1"',
     path: join(driverScriptDir, "dom-pane-snapshot-scroll-driver.js"),
   },
@@ -34,16 +39,6 @@ const driverExtensionScripts = [
     installedExpression:
       'globalThis.__settaE2EDriver?.overviewPerformanceVersion === "setta-overview-performance-driver-v1"',
     path: join(driverScriptDir, "overview-performance-driver.js"),
-  },
-  {
-    installedExpression:
-      'globalThis.__settaE2EDriver?.paneDragDropPerformanceVersion === "setta-pane-drag-drop-performance-driver-v1"',
-    path: join(driverScriptDir, "pane-drag-drop-performance-driver.js"),
-  },
-  {
-    installedExpression:
-      'globalThis.__settaE2EDriver?.workspaceUltrawideLivePanesVersion === "setta-workspace-ultrawide-live-panes-driver-v1"',
-    path: join(driverScriptDir, "workspace-ultrawide-live-panes-driver.js"),
   },
   {
     installedExpression:
@@ -135,7 +130,7 @@ export class CDPClient {
 
   async installDriver() {
     const installed = await this.evaluate(
-      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v11"`,
+      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v9"`,
     );
     if (!installed) {
       await this.evaluate(await readFile(driverScriptPath, "utf8"));

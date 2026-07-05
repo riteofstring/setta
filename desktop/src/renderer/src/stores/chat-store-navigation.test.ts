@@ -423,7 +423,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       health: async (): Promise<BackendHealth> => ({
         name: "setta-backend",
         ok: true,
-        protocolVersion: 1,
         version: "test",
       }),
       onEventStreamStatus: () => () => {},
@@ -440,7 +439,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         throw new Error("appearance update is not used by chat store navigation tests");
       },
     },
-    runtimes: {} as SettaAPI["runtimes"],
     chat: {
       activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => testRun("cancelled"),

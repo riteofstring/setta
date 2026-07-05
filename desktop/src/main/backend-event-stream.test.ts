@@ -29,12 +29,10 @@ describe("backend event stream", () => {
     const fetchImpl: BackendFetch = vi.fn(async (input, init) => {
       expect(input.toString()).toBe("http://127.0.0.1:41000/events");
       expect(init.method).toBe("GET");
-      expect(init.headers).toEqual({ Authorization: "Bearer token_test" });
       return new Response(textStream(sseFrame(event)), { status: 200 });
     });
 
     const stream = startBackendEventStream({
-      authToken: "token_test",
       baseURL: "http://127.0.0.1:41000",
       fetchImpl,
       observer: {
@@ -65,7 +63,6 @@ describe("backend event stream", () => {
     const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
       const headers = init.headers as Record<string, string> | undefined;
       lastEventIds.push(headers?.["Last-Event-ID"] ?? "");
-      expect(headers?.Authorization).toBe("Bearer token_test");
       if (lastEventIds.length === 1) {
         return new Response(
           textStream("id: event_stream_test:1\nevent: chat.message.created\ndata: {bad\n\n"),
@@ -86,7 +83,6 @@ describe("backend event stream", () => {
     });
 
     const stream = startBackendEventStream({
-      authToken: "token_test",
       baseURL: "http://127.0.0.1:41000",
       fetchImpl,
       observer: {
@@ -125,7 +121,6 @@ describe("backend event stream", () => {
     const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
       const headers = init.headers as Record<string, string> | undefined;
       lastEventIds.push(headers?.["Last-Event-ID"] ?? "");
-      expect(headers?.Authorization).toBe("Bearer token_test");
       if (lastEventIds.length === 1) {
         return new Response(textStream(sseFrame(oldEvent)), { status: 200 });
       }
@@ -143,7 +138,6 @@ describe("backend event stream", () => {
     });
 
     const stream = startBackendEventStream({
-      authToken: "token_test",
       baseURL: "http://127.0.0.1:41000",
       fetchImpl,
       reconnect: {

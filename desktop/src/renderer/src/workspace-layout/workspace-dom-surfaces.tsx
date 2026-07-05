@@ -1,11 +1,10 @@
 import type { WorkspaceSummary } from "@generated/backend";
 import { MessageSquare, Settings } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ChatPanel, useChatViewState } from "../components/chat-panel";
 import { SettingsPanel } from "../components/settings-panel";
 import { useWorkspaceStore } from "../stores/workspace-store";
-import { chatPaneTitle, setHostPaneChromeTitle } from "./pane-title-metadata";
 import { eventTargetsTerminalSurface } from "./terminal-surface-utils";
 import type { WorkspacePane } from "./types";
 
@@ -71,7 +70,6 @@ function UnloadedPanePlaceholder({ label }: { label: string }) {
 export function WorkspaceChatSurface() {
   const workspace = useSelectedWorkspace();
   const chat = useChatViewState();
-  const rootRef = usePaneChromeTitle(chat.selectedConversation?.title ?? "");
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => {
     const handleSearchShortcut = (event: KeyboardEvent) => {
@@ -89,11 +87,7 @@ export function WorkspaceChatSurface() {
   }, []);
 
   return (
-    <section
-      className="workspace-dom-surface"
-      data-testid="workspace-chat-dom-surface"
-      ref={rootRef}
-    >
+    <section className="workspace-dom-surface" data-testid="workspace-chat-dom-surface">
       <div className="workspace-real-dom-surface-body">
         <ChatPanel
           chat={chat}
@@ -104,18 +98,6 @@ export function WorkspaceChatSurface() {
       </div>
     </section>
   );
-}
-
-function usePaneChromeTitle(conversationTitle: string) {
-  const rootRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    const host = rootRef.current?.closest<HTMLElement>('[data-testid="workspace-pane-host"]');
-    if (!host) {
-      return;
-    }
-    setHostPaneChromeTitle(host, chatPaneTitle(conversationTitle));
-  }, [conversationTitle]);
-  return rootRef;
 }
 
 function useSelectedWorkspace(): WorkspaceSummary | null {

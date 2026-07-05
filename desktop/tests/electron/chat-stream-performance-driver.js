@@ -13,7 +13,6 @@
       chatStreamPerformanceSnapshot,
       chatStreamPerformanceStart,
       chatStreamPerformanceVersion: version,
-      chatStreamPerformanceWorkflowGraphSettled,
     });
   }
 
@@ -137,45 +136,6 @@
       return { ok: false, reason: "missing-measurement" };
     }
     return window.__settaChatStreamPerformance.snapshot();
-  }
-
-  function chatStreamPerformanceWorkflowGraphSettled() {
-    const api = window.__settaWorkflowGraphDebug;
-    if (!api?.getSurfaceIds || !api?.getSnapshot) {
-      return { ready: true, skipped: "missing-debug-api" };
-    }
-    const surfaceIds = api.getSurfaceIds();
-    const surfaceId = surfaceIds.includes("workspace_surface_2")
-      ? "workspace_surface_2"
-      : (surfaceIds[0] ?? null);
-    if (surfaceId === null) {
-      return { ready: true, skipped: "missing-debug-surface" };
-    }
-    return workflowGraphSettledState(api, surfaceId);
-  }
-
-  function workflowGraphSettledState(api, surfaceId) {
-    try {
-      const snapshot = api.getSnapshot(surfaceId, { includeVisual: false });
-      return stableWorkflowGraphFrameState(surfaceId, snapshot?.render?.frameCount ?? 0);
-    } catch (error) {
-      return {
-        ready: false,
-        reason: error instanceof Error ? error.message : String(error),
-        surfaceId,
-      };
-    }
-  }
-
-  function stableWorkflowGraphFrameState(surfaceId, frameCount) {
-    const now = performance.now();
-    const previous = window.__settaChatStreamGraphSettle;
-    if (!previous || previous.surfaceId !== surfaceId || previous.frameCount !== frameCount) {
-      window.__settaChatStreamGraphSettle = { frameCount, stableSince: now, surfaceId };
-      return { frameCount, ready: false, stableMs: 0, surfaceId };
-    }
-    const stableMs = now - previous.stableSince;
-    return { frameCount, ready: stableMs >= 120, stableMs, surfaceId };
   }
 
   function frameStats(samples) {

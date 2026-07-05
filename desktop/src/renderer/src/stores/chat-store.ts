@@ -545,12 +545,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
         runChatStoreBackgroundResync("event-stream-resync");
       }
     },
-    invalidateRuntimeState: () => {
-      backendGeneration += 1;
-      streamEventBatcher.clear();
-      resync.clearQueuedResync();
-      operations.cancelAll({});
-    },
     loadOlder: async () => {
       const { olderBeforeBlockOrdinal, selectedConversation, workspaceId } = get();
       if (

@@ -115,10 +115,6 @@ export function createChatOperationTracker() {
     return { ...patch, operation: visibleOperation() };
   }
 
-  function cancelAll<Patch extends { operation?: ChatOperation }>(patch: Patch): Patch {
-    return cancelScopes([...chatOperationScopes], patch);
-  }
-
   function visibleOperation() {
     for (const scope of visibleOperationPriority) {
       const operation = activeOperationByScope[scope];
@@ -132,7 +128,6 @@ export function createChatOperationTracker() {
   return {
     begin,
     beginPatch,
-    cancelAll,
     cancelScopes,
     completePatch,
     isCurrent,

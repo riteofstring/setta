@@ -41,7 +41,6 @@ import {
   observeStageResize,
   requireWorkspaceLayoutElements,
 } from "./workspace-layout-area-mount";
-import { viewportRect } from "./workspace-layout-area-geometry";
 import {
   focusOrOpenPaneBySurfaceKind,
   WorkspaceMobileControlsLayer,
@@ -62,7 +61,6 @@ import {
   handleForwardedBrowserViewKey,
   handleWorkspaceClick,
   handleWorkspaceKeyDown,
-  handleWorkspacePaneFocusPointerDown,
   handleWorkspaceWheel,
 } from "./workspace-interactions";
 import {
@@ -92,7 +90,6 @@ import {
   workspaceRuntimeIdentity,
   workspaceSceneMode,
 } from "./workspace-layout-area-runtime";
-import { WorkspaceNoWorkspaceState } from "./workspace-empty-state";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import {
   WorkspaceLayoutLoading,
@@ -102,10 +99,12 @@ import {
   workspaceLayoutRecoveryMessage,
 } from "./workspace-ui-layout";
 import type { OpenPaneRequest, PaneDropIntent, Rect, SurfaceKind } from "./types";
+
 export interface WorkspaceSurfaceFocusRequest {
   requestId: number;
   surfaceKind: SurfaceKind;
 }
+
 const overviewDragThresholdPx = 6;
 
 export function WorkspaceLayoutArea({
@@ -121,14 +120,10 @@ export function WorkspaceLayoutArea({
   projectPaneOpen: boolean;
   projectPaneWidth: number;
 }) {
-  const workspaceTarget = useWorkspaceLayoutTarget();
-  const workspace = workspaceTarget.workspace;
+  const workspace = useSelectedWorkspaceSummary();
   const mode = workspaceSceneMode();
   const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
   const layoutLoad = useWorkspaceUILayoutLoad(workspaceId, mode);
-  if (!workspace && mode === "workspace") {
-    return <WorkspaceNoWorkspaceState platform={platform} status={workspaceTarget.status} />;
-  }
   if (layoutLoad.status === "loading") {
     return <WorkspaceLayoutLoading mode={mode} platform={platform} workspaceId={workspaceId} />;
   }
@@ -295,6 +290,7 @@ function WorkspaceLayoutRuntimeArea({
     },
     [clearOverviewInsertPreview, runLayoutAction, runtime, stageViewport],
   );
+
   useEffect(() => {
     if (!focusSurfaceRequest || runtime.mode !== "workspace") {
       return;
@@ -305,6 +301,7 @@ function WorkspaceLayoutRuntimeArea({
       runtime.store.snapScrollToTarget();
     });
   }, [focusSurfaceRequest, runLayoutAction, runtime, stageViewport]);
+
   useEffect(() => {
     if (runtime.mode !== "workspace") {
       return;
@@ -337,6 +334,7 @@ function WorkspaceLayoutRuntimeArea({
       window.removeEventListener(workspaceOpenPaneRequestEvent, handleOpenPaneRequest);
     };
   }, [runLayoutAction, runtime, stageViewport]);
+
   useEffect(() => {
     const { hosts, root, stage } = requireWorkspaceLayoutElements({
       hostPoolSize: runtime.hostPoolSize,
@@ -594,13 +592,6 @@ function WorkspaceLayoutRuntimeArea({
       if (runtime.mode !== "workspace" && runtime.mode !== "benchmark") {
         return;
       }
-      handleWorkspacePaneFocusPointerDown({
-        event,
-        runLayoutAction,
-        runtime,
-        scheduler,
-        viewportProvider: stageViewport,
-      });
       if (runtime.store.getSnapshot().presentationMode === "overview") {
         if (beginOverviewPan(event)) {
           return;
@@ -846,6 +837,7 @@ function WorkspaceLayoutRuntimeArea({
     shortcuts,
     stageViewport,
   ]);
+
   useEffect(() => {
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
     schedulerRef.current?.requestFrame();
@@ -858,12 +850,14 @@ function WorkspaceLayoutRuntimeArea({
       onToggleProjectPane();
     }
   };
+
   const layoutRecoveryMessage = workspaceLayoutRecoveryMessage({
     dismissed: layoutRecoveryDismissed,
     layoutLoadError,
     layoutPersistenceError,
     runtime,
   });
+
   return (
     <section
       aria-label={workspaceLayoutAreaLabel(runtime.mode)}
@@ -961,10 +955,9 @@ function useWorkspaceLayoutSnapshot(store: WorkspaceLayoutStore) {
   );
 }
 
-function useWorkspaceLayoutTarget() {
+function useSelectedWorkspaceSummary() {
   const session = useWorkspaceStore((state) => state.session);
-  const status = useWorkspaceStore((state) => state.status);
-  const workspace = useMemo(() => {
+  return useMemo(() => {
     if (!session) {
       return null;
     }
@@ -973,7 +966,6 @@ function useWorkspaceLayoutTarget() {
       null
     );
   }, [session]);
-  return { status, workspace };
 }
 
 function sameOverviewGhostTarget(
@@ -992,4 +984,15 @@ function sameOverviewGhostTarget(
     left.placement === right.placement &&
     frameFields.every((field) => left[field] === right[field])
   );
+}
+
+function viewportRect(element: HTMLElement, reservedLeftWidth = 0): Rect {
+  const rect = element.getBoundingClientRect();
+  const reservedWidth = Math.max(0, Math.min(rect.width - 1, reservedLeftWidth));
+  return {
+    height: rect.height,
+    width: rect.width - reservedWidth,
+    x: reservedWidth,
+    y: 0,
+  };
 }

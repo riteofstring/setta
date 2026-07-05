@@ -19,7 +19,6 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
-import { driverCallExpression } from "./cdp-client.mjs";
 import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
 import { configure4kViewport } from "./workspace-overview-performance-helpers.mjs";
 
@@ -162,7 +161,7 @@ async function performBenchmarkOverviewDrag(client) {
   await toggleOverviewByShortcut(client);
   await waitForState(
     client,
-    driverCallExpression("paneDragDropPaneSnapshot"),
+    paneSnapshotExpression(),
     (snapshot) =>
       snapshot.mode === "overview" &&
       snapshot.workspaceMode === "benchmark" &&
@@ -173,7 +172,7 @@ async function performBenchmarkOverviewDrag(client) {
   await delay(500);
   const overview = await waitForState(
     client,
-    driverCallExpression("paneDragDropPaneSnapshot"),
+    paneSnapshotExpression(),
     (snapshot) =>
       snapshot.mode === "overview" &&
       snapshot.workspaceMode === "benchmark" &&
@@ -189,7 +188,7 @@ async function performBenchmarkOverviewDrag(client) {
   await dispatchMouseMove(client, to, { buttons: 1, from: sourcePoint, steps: 2 });
   await waitForState(
     client,
-    driverCallExpression("paneDragDropOverviewState", { sourcePaneId: sourceHost.paneId }),
+    overviewPaneDragStateExpression(sourceHost.paneId),
     (state) => state.overviewDragging === "true" && state.sourceDragSource === true,
     workflowTimeoutMs,
   );
@@ -199,11 +198,11 @@ async function performBenchmarkOverviewDrag(client) {
   const frameSample = await stopBrowserFrameSampler(client);
   const duringMetrics = await readFrameMetrics(client);
   assertPaneDragDuringPerformance(duringMetrics, frameSample, "benchmark overview drag");
-  const during = await client.driver("paneDragDropPaneSnapshot");
+  const during = await client.evaluate(paneSnapshotExpression());
   await dispatchMouseRelease(client, to);
   const after = await waitForState(
     client,
-    driverCallExpression("paneDragDropPaneSnapshot"),
+    paneSnapshotExpression(),
     (snapshot) => {
       const source = snapshot.visibleHosts.find((host) => host.paneId === sourceHost.paneId);
       return (
@@ -237,7 +236,7 @@ async function measureDragGesture(
   await dispatchMouseMove(client, to, { buttons: 1, from: sourcePoint, steps: 1 });
   await waitForState(
     client,
-    driverCallExpression("paneDragDropTargetState", { sourcePaneId, targetPaneId }),
+    paneDragTargetStateExpression(sourcePaneId, targetPaneId),
     (state) =>
       state.paneDragging === "true" &&
       state.sourceDragSource === true &&
@@ -251,11 +250,11 @@ async function measureDragGesture(
   const frameSample = await stopBrowserFrameSampler(client);
   const duringMetrics = await readFrameMetrics(client);
   assertPaneDragDuringPerformance(duringMetrics, frameSample, label);
-  const during = await client.driver("paneDragDropPaneSnapshot");
+  const during = await client.evaluate(paneSnapshotExpression());
   await dispatchMouseRelease(client, to);
   const after = await waitForState(
     client,
-    driverCallExpression("paneDragDropPaneSnapshot"),
+    paneSnapshotExpression(),
     (snapshot) => {
       const source = snapshot.visibleHosts.find((host) => host.paneId === sourcePaneId);
       const target = snapshot.visibleHosts.find((host) => host.paneId === targetPaneId);
@@ -277,7 +276,7 @@ async function measureDragGesture(
 async function waitForBenchmarkPaneHosts(client) {
   return waitForState(
     client,
-    driverCallExpression("paneDragDropPaneSnapshot"),
+    paneSnapshotExpression(),
     (snapshot) =>
       snapshot.mode === "normal" &&
       snapshot.workspaceMode === "benchmark" &&
@@ -290,7 +289,7 @@ async function waitForBenchmarkPaneHosts(client) {
 async function waitForSnapshotWarmup(client) {
   return waitForState(
     client,
-    driverCallExpression("paneDragDropFrameMetrics"),
+    frameMetricsExpression(),
     (metrics) =>
       metrics !== null &&
       metrics.visiblePaneCount >= minimumVisibleBenchmarkHosts &&
@@ -320,28 +319,65 @@ async function settleDragSampler(client) {
 }
 
 async function ensureNormalMode(client) {
-  const mode = await client.driver("paneDragDropWorkspacePresentationMode");
+  const mode = await client.evaluate(workspacePresentationModeExpression());
   if (mode === "normal") {
     return;
   }
   await toggleOverviewByShortcut(client);
   await waitForState(
     client,
-    driverCallExpression("paneDragDropWorkspacePresentationMode"),
+    workspacePresentationModeExpression(),
     (currentMode) => currentMode === "normal",
     workflowTimeoutMs,
   );
 }
 
 async function toggleOverviewByShortcut(client) {
-  const toggled = await client.driver("paneDragDropToggleOverview");
+  const toggled = await client.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "o",
+      metaKey: true,
+    }));
+    return { ok: true };
+  })()`);
   if (!toggled.ok) {
     throw new Error(`overview shortcut failed: ${JSON.stringify(toggled)}`);
   }
 }
 
 async function dragHandleCenter(client, paneId) {
-  const center = await client.driver("paneDragDropHandleCenter", { paneId });
+  const center = await client.evaluate(`(() => {
+    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"][data-visible="true"]'))
+      .find((candidate) => candidate instanceof HTMLElement && candidate.dataset.paneId === ${JSON.stringify(paneId)});
+    const handle = host?.querySelector('[data-workspace-pane-drag-handle="true"]');
+    const hostRect = host instanceof HTMLElement ? host.getBoundingClientRect() : null;
+    const handleRect = handle instanceof HTMLElement ? handle.getBoundingClientRect() : null;
+    const handleCenter = handleRect
+      ? { x: handleRect.left + handleRect.width / 2, y: handleRect.top + handleRect.height / 2 }
+      : null;
+    const handleInsideHost = Boolean(
+      hostRect &&
+        handleCenter &&
+        handleCenter.x >= hostRect.left &&
+        handleCenter.x <= hostRect.right &&
+        handleCenter.y >= hostRect.top &&
+        handleCenter.y <= hostRect.bottom,
+    );
+    const target = handleRect && handleRect.width > 0 && handleRect.height > 0 && handleInsideHost
+      ? handle
+      : host;
+    if (!(target instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-target" };
+    }
+    const rect = target.getBoundingClientRect();
+    return {
+      ok: true,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+  })()`);
   if (!center.ok) {
     throw new Error(`drag handle was not found for ${paneId}: ${JSON.stringify(center)}`);
   }
@@ -398,14 +434,93 @@ async function dispatchMouseRelease(client, point) {
 }
 
 async function startBrowserFrameSampler(client) {
-  const started = await client.driver("paneDragDropStartFrameSampler");
+  const started = await client.evaluate(`(() => {
+    if (window.__settaWorkspaceDragPerfStop) {
+      return false;
+    }
+    const startedAt = performance.now();
+    const longTasks = [];
+    let previousTimestamp = startedAt;
+    let running = true;
+    let warmupFrames = 3;
+    let observer = null;
+    const frameDeltas = [];
+    if (
+      "PerformanceObserver" in window &&
+      PerformanceObserver.supportedEntryTypes.includes("longtask")
+    ) {
+      observer = new PerformanceObserver((entries) => {
+        for (const entry of entries.getEntries()) {
+          longTasks.push({ duration: entry.duration, startTime: entry.startTime });
+        }
+      });
+      observer.observe({ type: "longtask" });
+    }
+    function recordFrame(timestamp) {
+      if (!running) {
+        return;
+      }
+      if (warmupFrames > 0) {
+        warmupFrames -= 1;
+        previousTimestamp = timestamp;
+        requestAnimationFrame(recordFrame);
+        return;
+      }
+      frameDeltas.push(timestamp - previousTimestamp);
+      previousTimestamp = timestamp;
+      requestAnimationFrame(recordFrame);
+    }
+    requestAnimationFrame(recordFrame);
+    window.__settaWorkspaceDragPerfStop = () => {
+      running = false;
+      observer?.disconnect();
+      window.__settaWorkspaceDragPerfStop = null;
+      const samples = frameDeltas.slice(1).filter((value) => Number.isFinite(value) && value >= 0);
+      const sorted = [...samples].sort((left, right) => left - right);
+      const quantile = (percentile) => {
+        if (sorted.length === 0) {
+          return 0;
+        }
+        const index = Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * percentile));
+        return sorted[index];
+      };
+      const sum = samples.reduce((total, value) => total + value, 0);
+      const averageFrameDeltaMs = samples.length > 0 ? sum / samples.length : 0;
+      const observedFrameBudgetMs = quantile(0.5) <= 10 ? 8.33 : 16.67;
+      const gestureLongTasks = longTasks.filter((entry) => entry.startTime >= startedAt);
+      return {
+        averageFps: averageFrameDeltaMs > 0 ? 1000 / averageFrameDeltaMs : 0,
+        averageFrameDeltaMs,
+        durationMs: performance.now() - startedAt,
+        frameCount: samples.length,
+        framesMs: samples.map((value) => Number(value.toFixed(3))),
+        longTaskCount: gestureLongTasks.length,
+        longTaskTotalMs: gestureLongTasks.reduce((total, entry) => total + entry.duration, 0),
+        maxFrameDeltaMs: sorted.at(-1) ?? 0,
+        observedFrameBudgetMs,
+        p50FrameDeltaMs: quantile(0.5),
+        p95FrameDeltaMs: quantile(0.95),
+        p99FrameDeltaMs: quantile(0.99),
+        slowFramesOver120HzBudget: samples.filter((value) => value > 8.33).length,
+        slowFramesOver16Ms: samples.filter((value) => value > 16.67).length,
+        slowFramesOver32Ms: samples.filter((value) => value > 32).length,
+        slowFramesOver50Ms: samples.filter((value) => value > 50).length,
+      };
+    };
+    return true;
+  })()`);
   if (!started) {
     throw new Error("workspace drag frame sampler was already running");
   }
 }
 
 async function stopBrowserFrameSampler(client) {
-  const result = await client.driver("paneDragDropStopFrameSampler");
+  const result = await client.evaluate(`(() => {
+    if (!window.__settaWorkspaceDragPerfStop) {
+      return { ok: false, reason: "missing-sampler" };
+    }
+    return { ok: true, sample: window.__settaWorkspaceDragPerfStop() };
+  })()`);
   if (!result.ok) {
     throw new Error(`workspace drag frame sampler could not stop: ${JSON.stringify(result)}`);
   }
@@ -413,7 +528,7 @@ async function stopBrowserFrameSampler(client) {
 }
 
 async function readFrameMetrics(client) {
-  const metrics = await client.driver("paneDragDropFrameMetrics");
+  const metrics = await client.evaluate(frameMetricsExpression());
   if (!metrics) {
     throw new Error("workspace frame metrics hook was not installed");
   }
@@ -421,7 +536,7 @@ async function readFrameMetrics(client) {
 }
 
 async function resetFrameMetrics(client) {
-  const reset = await client.driver("paneDragDropResetFrameMetrics");
+  const reset = await client.evaluate(frameMetricsResetExpression());
   if (!reset) {
     throw new Error("workspace frame metrics reset hook was not installed");
   }
@@ -429,7 +544,7 @@ async function resetFrameMetrics(client) {
 
 async function safePaneSnapshot(client) {
   try {
-    return await client.driver("paneDragDropPaneSnapshot");
+    return await client.evaluate(paneSnapshotExpression());
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
@@ -546,4 +661,114 @@ function distanceSquared(left, right) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function workspacePresentationModeExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    return area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "";
+  })()`;
+}
+
+function frameMetricsExpression() {
+  return `(() => window.__settaWorkspaceReadFrameMetrics?.() ?? null)()`;
+}
+
+function frameMetricsResetExpression() {
+  return `(() => {
+    if (!window.__settaWorkspaceResetFrameMetrics) {
+      return false;
+    }
+    window.__settaWorkspaceResetFrameMetrics();
+    return true;
+  })()`;
+}
+
+function paneDragTargetStateExpression(sourcePaneId, targetPaneId) {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'));
+    const hostFor = (paneId) =>
+      hosts.find((host) => host instanceof HTMLElement && host.dataset.paneId === paneId);
+    const source = hostFor(${JSON.stringify(sourcePaneId)});
+    const target = hostFor(${JSON.stringify(targetPaneId)});
+    return {
+      paneDragging: area instanceof HTMLElement ? area.dataset.paneDragging ?? "" : "",
+      sourceDragSource: source instanceof HTMLElement && source.dataset.dragSource === "true",
+      targetDropAxis: target instanceof HTMLElement ? target.dataset.dropAxis ?? "" : "",
+      targetDropTarget: target instanceof HTMLElement ? target.dataset.dropTarget ?? "" : "",
+    };
+  })()`;
+}
+
+function overviewPaneDragStateExpression(sourcePaneId) {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const source = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .find((host) => host instanceof HTMLElement && host.dataset.paneId === ${JSON.stringify(
+        sourcePaneId,
+      )});
+    return {
+      overviewDragging: area instanceof HTMLElement ? area.dataset.overviewDragging ?? "" : "",
+      sourceDragSource: source instanceof HTMLElement && source.dataset.dragSource === "true",
+    };
+  })()`;
+}
+
+function paneSnapshotExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
+    const stageRect = stage instanceof HTMLElement
+      ? stage.getBoundingClientRect()
+      : { left: 0, top: 0, width: 0, height: 0 };
+    const ghost = document.querySelector('[data-workspace-overview-ghost]');
+    const ghostHost = ghost instanceof HTMLElement
+      ? (() => {
+          const rect = ghost.getBoundingClientRect();
+          return {
+            placement: ghost.dataset.overviewGhostPlacement ?? "",
+            paneId: ghost.dataset.overviewGhostPaneId ?? "",
+            rect: { height: rect.height, left: rect.left, top: rect.top, width: rect.width },
+          };
+        })()
+      : null;
+    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
+      .map((host) => {
+        const rect = host.getBoundingClientRect();
+        return {
+          dragSource: host.dataset.dragSource === "true",
+          dropAxis: host.dataset.dropAxis ?? "",
+          dropPreview: host.dataset.dropPreview === "true",
+          dropTarget: host.dataset.dropTarget ?? "",
+          focused: host.dataset.focused === "true",
+          paneId: host.dataset.paneId ?? "",
+          presentationMode: host.dataset.presentationMode ?? "",
+          rect: {
+            height: rect.height,
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+          },
+        };
+      });
+    return {
+      focusedPaneId: visibleHosts.find((host) => host.focused)?.paneId ?? "",
+      ghost: ghostHost,
+      mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
+      overviewDragging: area instanceof HTMLElement ? area.dataset.overviewDragging ?? "" : "",
+      paneDragging: area instanceof HTMLElement ? area.dataset.paneDragging ?? "" : "",
+      stageRect: {
+        height: stageRect.height,
+        left: stageRect.left,
+        top: stageRect.top,
+        width: stageRect.width,
+      },
+      totalPanes: area instanceof HTMLElement ? Number(area.dataset.paneCount ?? "0") : 0,
+      visibleHosts,
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+      workspaceMode: area instanceof HTMLElement ? area.dataset.workspaceMode ?? "" : "",
+    };
+  })()`;
 }

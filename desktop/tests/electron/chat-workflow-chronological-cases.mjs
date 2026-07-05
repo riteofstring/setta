@@ -128,10 +128,12 @@ async function expandProjectedActivityGroupDetails(client, rows) {
 async function toggleProjectedActivityGroupDetails(client, sourceRunItemIds, open) {
   const startedAt = Date.now();
   let anchorTopBefore = null;
+  let anchorMismatch = null;
   let toggled = null;
   while (Date.now() - startedAt < 2_000) {
     toggled = await client.driver("toggleProjectedActivityGroupDetails", {
       open,
+      shouldPrimeAnchor: anchorTopBefore === null,
       sourceRunItemIds,
     });
     if (anchorTopBefore === null && typeof toggled.anchorTopBefore === "number") {
@@ -139,13 +141,20 @@ async function toggleProjectedActivityGroupDetails(client, sourceRunItemIds, ope
     }
     if (toggled.ok) {
       if (anchorTopBefore !== null && Math.abs(toggled.anchorTop - anchorTopBefore) > 3) {
-        throw new Error(
-          `activity group anchor moved during toggle: before=${anchorTopBefore} after=${toggled.anchorTop} details=${JSON.stringify(toggled.details)}`,
-        );
+        anchorMismatch = {
+          after: toggled.anchorTop,
+          before: anchorTopBefore,
+          details: toggled.details,
+        };
+        await delay(50);
+        continue;
       }
       return;
     }
     await delay(50);
+  }
+  if (anchorMismatch !== null) {
+    throw new Error(`activity group anchor moved during toggle: ${JSON.stringify(anchorMismatch)}`);
   }
   throw new Error(`toggle all activity details failed: ${JSON.stringify(toggled)}`);
 }

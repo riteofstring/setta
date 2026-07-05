@@ -24,6 +24,7 @@ export interface TerminalSurfaceContent {
   restartButton: HTMLButtonElement;
   root: HTMLElement;
   search: TerminalSearchElements;
+  status: HTMLElement;
   viewport: HTMLElement;
 }
 
@@ -31,6 +32,11 @@ export function renderXtermContent(host: HTMLElement, pane: WorkspacePane): Term
   const document = host.ownerDocument;
   const root = document.createElement("div");
   root.className = "workspace-pane-content workspace-terminal-surface workspace-xterm-surface";
+
+  const status = document.createElement("span");
+  status.className = "workspace-terminal-status";
+  status.setAttribute("aria-live", "polite");
+  status.setAttribute("data-terminal-status", "true");
 
   const viewport = document.createElement("div");
   viewport.className = "workspace-xterm-viewport";
@@ -58,7 +64,7 @@ export function renderXtermContent(host: HTMLElement, pane: WorkspacePane): Term
   actions.append(restartButton, closeButton);
   exitOverlay.append(exitOverlayMessage, actions);
 
-  root.append(search.root, viewport, pasteOverlay.root, exitOverlay);
+  root.append(status, search.root, viewport, pasteOverlay.root, exitOverlay);
   return {
     closeButton,
     exitOverlay,
@@ -67,6 +73,7 @@ export function renderXtermContent(host: HTMLElement, pane: WorkspacePane): Term
     restartButton,
     root,
     search,
+    status,
     viewport,
   };
 }
@@ -142,107 +149,4 @@ function renderTerminalPasteOverlay(document: Document): TerminalPasteElements {
   actions.append(confirmButton, cancelButton);
   root.append(message, actions);
   return { cancelButton, confirmButton, message, root };
-}
-
-export class TerminalSurfaceChrome {
-  private exitOverlay: HTMLElement | null = null;
-  private exitOverlayMessage: HTMLElement | null = null;
-  private host: HTMLElement | null = null;
-  private pasteOverlay: TerminalPasteElements | null = null;
-  private restartButton: HTMLButtonElement | null = null;
-  private statusText = "";
-
-  mount(host: HTMLElement, content: TerminalSurfaceContent): void {
-    this.host = host;
-    this.exitOverlay = content.exitOverlay;
-    this.exitOverlayMessage = content.exitOverlayMessage;
-    this.pasteOverlay = content.pasteOverlay;
-    this.restartButton = content.restartButton;
-  }
-
-  unmount(): void {
-    this.exitOverlay = null;
-    this.exitOverlayMessage = null;
-    this.host = null;
-    this.pasteOverlay = null;
-    this.restartButton = null;
-  }
-
-  showStatus(message: string): void {
-    this.statusText = message;
-    if (this.host) {
-      this.host.dataset.terminalStatusText = message;
-    }
-  }
-
-  showExitOverlay(message: string): void {
-    this.showExitOverlayWithAction(message, "Restart");
-  }
-
-  showExitOverlayWithAction(message: string, actionLabel: string): void {
-    showTerminalExitOverlay(
-      this.exitOverlay,
-      this.exitOverlayMessage,
-      this.restartButton,
-      message,
-      actionLabel,
-    );
-  }
-
-  hideExitOverlay(): void {
-    hideTerminalExitOverlay(this.exitOverlay);
-  }
-
-  showPasteOverlay(message: string, confirmable: boolean): void {
-    showTerminalPasteOverlay(this.pasteOverlay, message, confirmable);
-  }
-
-  hidePasteOverlay(): void {
-    hideTerminalPasteOverlay(this.pasteOverlay);
-  }
-
-  syncHostStatus(): void {
-    if (this.host) {
-      this.host.dataset.terminalStatusText = this.statusText;
-    }
-  }
-}
-
-function showTerminalExitOverlay(
-  overlay: HTMLElement | null,
-  messageElement: HTMLElement | null,
-  actionButton: HTMLButtonElement | null,
-  message: string,
-  actionLabel: string,
-): void {
-  if (messageElement) {
-    messageElement.textContent = message;
-  }
-  if (actionButton) {
-    actionButton.textContent = actionLabel;
-  }
-  overlay?.removeAttribute("hidden");
-}
-
-function hideTerminalExitOverlay(overlay: HTMLElement | null): void {
-  overlay?.setAttribute("hidden", "true");
-}
-
-function showTerminalPasteOverlay(
-  overlay: TerminalPasteElements | null,
-  message: string,
-  confirmable: boolean,
-): void {
-  if (!overlay) {
-    return;
-  }
-  overlay.message.textContent = message;
-  overlay.confirmButton.hidden = !confirmable;
-  overlay.cancelButton.textContent = confirmable ? "Cancel" : "Dismiss";
-  overlay.root.removeAttribute("hidden");
-  overlay.cancelButton.focus?.();
-}
-
-function hideTerminalPasteOverlay(overlay: TerminalPasteElements | null): void {
-  overlay?.root.setAttribute("hidden", "true");
 }

@@ -124,6 +124,9 @@ func handleFakeGoalOperationPostResponseEvents(mode string, objective string) bo
 	case "goal-operation-foreground-unified-exec":
 		writeFakeGoalOperationForegroundUnifiedExec(objective)
 		return true
+	case "goal-operation-burst-output":
+		writeFakeGoalOperationBurstOutput(objective)
+		return true
 	case "goal-operation-session-failure-after-start":
 		writeFakeGoalOperationSessionFailureAfterStart(objective)
 		return true

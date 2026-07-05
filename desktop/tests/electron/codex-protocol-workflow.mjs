@@ -28,17 +28,35 @@ const fakeCodexAppServerFixture = join(
   "fixtures",
   "fake-codex-app-server.mjs",
 );
+const fakeCodexParallelRunsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-codex-parallel-runs.mjs",
+);
 const goalForegroundUnifiedExec = {
   command: "command -v tokei",
   itemId: "goal_fg_command",
   processId: "goal_fg_process",
 };
+const backpressureBurstCommand = {
+  command: "printf backpressure burst",
+  itemId: "burst_command",
+  processId: "burst_process",
+};
+const goalBackpressureBurstCommand = {
+  command: "npm run goal-burst",
+  itemId: "goal_burst_command",
+  processId: "goal_burst_process",
+};
+const backpressureMarkerText = "output skipped";
 
 export async function installFakeCodexAppServer(fixture) {
   const binDir = join(fixture.tempRoot, "fake-bin");
   await mkdir(binDir, { recursive: true });
   const scriptPath = join(binDir, "fake-codex-app-server.mjs");
+  const parallelRunsPath = join(binDir, "fake-codex-parallel-runs.mjs");
   await copyFile(fakeCodexAppServerFixture, scriptPath);
+  await copyFile(fakeCodexParallelRunsFixture, parallelRunsPath);
   if (process.platform === "win32") {
     const commandPath = join(binDir, "codex.cmd");
     await writeFile(commandPath, `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
@@ -75,8 +93,9 @@ export async function assertProtocolNotificationActivity(
   await assertRunActivityItem(
     page,
     "command_execution",
-    (item) => commandExecutionDetails(item)?.processId === "process_fake",
+    (item) => commandExecutionDetails(item)?.processId === "scoped_process_fake",
   );
+  assertNoStandaloneProcessActivity(page);
   await assertRunActivityItem(
     page,
     "dynamic_tool_call",
@@ -107,7 +126,7 @@ export async function assertProtocolNotificationActivity(
   await assertProtocolMCPActivitySearchable(client, mcpActivity.sourceRunItemId);
   await assertProtocolFileChangeSearchable(client);
   await assertProtocolDiffSearchable(client);
-  await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "deprecationNotice");
+  await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "warning");
   if ((page.activity ?? []).some((row) => row.type === "reasoning")) {
     throw new Error(`reasoning leaked into projected activity: ${JSON.stringify(page.activity)}`);
   }
@@ -123,12 +142,45 @@ export async function assertProtocolNotificationActivity(
     workspaceId,
   });
   const warningCodes = diagnostics.diagnostics.map((diagnostic) => diagnostic.code);
-  if (
-    !warningCodes.includes("codex_windows_world_writable_warning") ||
-    !warningCodes.includes("codex_realtime_notification_ignored")
-  ) {
+  if (!warningCodes.includes("codex_realtime_notification_ignored")) {
     throw new Error(
       `protocol diagnostics missing expected warnings: ${JSON.stringify(diagnostics)}`,
+    );
+  }
+  const workspaceDiagnostics = await backend.post("/chat/diagnostics/list", {
+    conversationId: "",
+    runId: "",
+    workspaceId,
+  });
+  const workspaceWarning = workspaceDiagnostics.diagnostics.find(
+    (diagnostic) =>
+      diagnostic.code === "codex_windows_world_writable_warning" &&
+      diagnostic.conversationId === "" &&
+      diagnostic.runId === "",
+  );
+  if (!workspaceWarning) {
+    throw new Error(
+      `protocol workspace diagnostics missing Windows warning: ${JSON.stringify(workspaceDiagnostics)}`,
+    );
+  }
+}
+
+function assertNoStandaloneProcessActivity(page) {
+  const leaked = (page.items ?? []).filter((item) => {
+    if (
+      item.providerItemId === "command_exec_process_fake" ||
+      item.providerItemId === "process_process_fake"
+    ) {
+      return true;
+    }
+    const commandDetails = commandExecutionDetails(item);
+    return (
+      commandDetails?.processId === "process_fake" && item.providerItemId !== "command_item_fake"
+    );
+  });
+  if (leaked.length > 0) {
+    throw new Error(
+      `standalone process output leaked into run activity: ${JSON.stringify(leaked)}`,
     );
   }
 }
@@ -335,9 +387,15 @@ async function openProtocolActivityRow(client, sourceRunItemId) {
   );
 }
 
-export async function runProtocolCurrentPlanAndGoalMultiTurnWorkflow(client, backend, workspaceId) {
+export async function runProtocolCurrentPlanGoalAndBackpressureWorkflows(
+  client,
+  backend,
+  workspaceId,
+) {
   await runProtocolCurrentPlanWorkflow(client, backend, workspaceId);
   await runProtocolGoalMultiTurnWorkflow(client, backend, workspaceId);
+  await runProtocolBackpressureBurstWorkflow(client, backend, workspaceId);
+  await runProtocolGoalBackpressureBurstWorkflow(client, backend, workspaceId);
 }
 
 async function runProtocolGoalMultiTurnWorkflow(client, backend, workspaceId) {
@@ -377,6 +435,52 @@ export async function runProtocolGoalForegroundUnifiedExecWorkflow(client, backe
     workspaceId,
     conversationId,
     run.id,
+  );
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+export async function runProtocolBackpressureBurstWorkflow(client, backend, workspaceId) {
+  const conversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "backpressure burst workflow", "Send message");
+  const run = await waitForRunStatusForPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "backpressure burst workflow",
+    "completed",
+  );
+  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
+  await waitForTexts(client, ["Backpressure burst complete.", backpressureBurstCommand.command]);
+  await assertProtocolBackpressureBurstCommand(
+    client,
+    backend,
+    workspaceId,
+    run.id,
+    backpressureBurstCommand,
+  );
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+export async function runProtocolGoalBackpressureBurstWorkflow(client, backend, workspaceId) {
+  const conversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "/goal phase6 codex output burst", "Send message");
+  const commandPage = await waitForCommandResult(
+    backend,
+    workspaceId,
+    conversationId,
+    "Goal set: phase6 codex output burst",
+  );
+  const runId = goalRunIDFromCommandPage(commandPage);
+  const run = await waitForRunStatus(backend, workspaceId, conversationId, runId, "completed");
+  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
+  await waitForGoalStatus(backend, workspaceId, conversationId, "complete");
+  await waitForTexts(client, ["Goal burst complete.", goalBackpressureBurstCommand.command]);
+  await assertProtocolBackpressureBurstCommand(
+    client,
+    backend,
+    workspaceId,
+    run.id,
+    goalBackpressureBurstCommand,
   );
   await assertNoActiveRun(backend, workspaceId, conversationId);
 }
@@ -602,9 +706,9 @@ export async function runProtocolLivenessReconciliationWorkflow(client, backend,
     },
   ]);
   assertReconciledRunLiveness(reconciled, run.id);
-  await waitForRendererLiveness(client, run.id, "reconciling", "working");
-  await waitForTexts(client, ["Working"]);
-  await assertRunLivenessControls(client, { retry: false, stop: true });
+  await waitForRendererLiveness(client, run.id, "reconciling", "reconnecting");
+  await waitForTexts(client, ["Reconnecting"]);
+  await assertRunLivenessControls(client, { retry: true, stop: true });
 
   await clickButtonByAria(client, "Stop run");
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, "cancelled");
@@ -1125,6 +1229,104 @@ async function assertProtocolGoalForegroundUnifiedExecProjections(
       `foreground unified exec rendered background-terminal UI: ${JSON.stringify(surface)}`,
     );
   }
+}
+
+async function assertProtocolBackpressureBurstCommand(
+  client,
+  backend,
+  workspaceId,
+  runId,
+  execution,
+) {
+  const commandItem = await waitForBackendState(async () => {
+    const page = await backend.post("/chat/runs/activity", {
+      limit: 100,
+      runId,
+      workspaceId,
+    });
+    const item = page.items.find((candidate) => candidate.providerItemId === execution.itemId);
+    if (!item) {
+      return null;
+    }
+    const details = commandExecutionDetails(item);
+    if (
+      item.status !== "completed" ||
+      details?.command !== execution.command ||
+      details.processId !== execution.processId
+    ) {
+      return null;
+    }
+    return item;
+  }, Boolean);
+  const output = await waitForRunItemOutputText(
+    backend,
+    workspaceId,
+    runId,
+    commandItem.id,
+    backpressureMarkerText,
+  );
+  if (!output.text.includes("item/commandExecution/outputDelta")) {
+    throw new Error(`backpressure marker omitted method metadata: ${output.text}`);
+  }
+  await assertBackpressureMarkerVisible(client, commandItem.id);
+}
+
+async function waitForRunItemOutputText(backend, workspaceId, runId, runItemId, expected) {
+  return waitForBackendState(async () => {
+    const page = await backend.post("/chat/runs/item-output", {
+      afterOrdinal: 0,
+      limit: 0,
+      runId,
+      runItemId,
+      workspaceId,
+    });
+    const text = (page.output ?? []).map((output) => output.text).join("");
+    if (!text.includes(expected)) {
+      return null;
+    }
+    return { page, text };
+  }, Boolean);
+}
+
+async function assertBackpressureMarkerVisible(client, sourceRunItemId) {
+  await openProtocolActivityRow(client, sourceRunItemId);
+  let lastState = null;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    lastState = await client.evaluate(`(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const row = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'))
+        .find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      const text = row?.innerText ?? "";
+      const loadMore = Array.from(row?.querySelectorAll("button") ?? [])
+        .find((candidate) => candidate.textContent?.trim() === "Load more");
+      return {
+        canLoadMore: loadMore instanceof HTMLButtonElement && !loadMore.disabled,
+        ok: text.includes(${JSON.stringify(backpressureMarkerText)}),
+        text: text.slice(-4000),
+      };
+    })()`);
+    if (lastState.ok) {
+      return;
+    }
+    if (!lastState.canLoadMore) {
+      await delay(100);
+      continue;
+    }
+    await client.evaluate(`(() => {
+      const sourceRunItemId = ${JSON.stringify(sourceRunItemId)};
+      const row = Array.from(document.querySelectorAll('[data-testid="run-activity-row"]'))
+        .find((candidate) => candidate.getAttribute("data-run-item-id") === sourceRunItemId);
+      const loadMore = Array.from(row?.querySelectorAll("button") ?? [])
+        .find((candidate) => candidate.textContent?.trim() === "Load more");
+      if (loadMore instanceof HTMLButtonElement && !loadMore.disabled) {
+        loadMore.click();
+      }
+    })()`);
+    await delay(100);
+  }
+  throw new Error(
+    `backpressure marker was not visible in activity output: ${JSON.stringify(lastState)}`,
+  );
 }
 
 function goalRunIDFromCommandPage(page) {
