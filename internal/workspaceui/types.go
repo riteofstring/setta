@@ -61,6 +61,16 @@ type WorkspaceUIPaneOperationKind string
 
 const (
 	WorkspaceUIPaneOperationKindFocusPane WorkspaceUIPaneOperationKind = "focus_pane"
+	WorkspaceUIPaneOperationKindMovePane  WorkspaceUIPaneOperationKind = "move_pane"
+)
+
+type WorkspaceUIPaneMoveDirection string
+
+const (
+	WorkspaceUIPaneMoveDirectionDown  WorkspaceUIPaneMoveDirection = "down"
+	WorkspaceUIPaneMoveDirectionLeft  WorkspaceUIPaneMoveDirection = "left"
+	WorkspaceUIPaneMoveDirectionRight WorkspaceUIPaneMoveDirection = "right"
+	WorkspaceUIPaneMoveDirectionUp    WorkspaceUIPaneMoveDirection = "up"
 )
 
 type WorkspaceUIPaneRuntimeStatus string
@@ -173,8 +183,9 @@ type WorkspaceUIPaneReadResult struct {
 }
 
 type WorkspaceUIPaneOperation struct {
-	Kind   WorkspaceUIPaneOperationKind `json:"kind"`
-	PaneID string                       `json:"paneId"`
+	Direction WorkspaceUIPaneMoveDirection `json:"direction"`
+	Kind      WorkspaceUIPaneOperationKind `json:"kind"`
+	PaneID    string                       `json:"paneId"`
 }
 
 type WorkspaceUIPaneOperationResult struct {
@@ -189,9 +200,22 @@ type WorkspaceUIPaneOperationResult struct {
 
 type WorkspaceUIPaneOperationOutcome struct {
 	Kind                  WorkspaceUIPaneOperationKind `json:"kind"`
+	Move                  *WorkspaceUIPaneMoveOutcome  `json:"move"`
 	PaneID                string                       `json:"paneId"`
 	PreviousFocusedPaneID string                       `json:"previousFocusedPaneId"`
 	FocusedPaneID         string                       `json:"focusedPaneId"`
+}
+
+type WorkspaceUIPaneMoveOutcome struct {
+	ColumnID            string                       `json:"columnId"`
+	ColumnIndex         int                          `json:"columnIndex"`
+	Direction           WorkspaceUIPaneMoveDirection `json:"direction"`
+	PaneIndex           int                          `json:"paneIndex"`
+	PlaneIndex          int                          `json:"planeIndex"`
+	PreviousColumnID    string                       `json:"previousColumnId"`
+	PreviousColumnIndex int                          `json:"previousColumnIndex"`
+	PreviousPaneIndex   int                          `json:"previousPaneIndex"`
+	PreviousPlaneIndex  int                          `json:"previousPlaneIndex"`
 }
 
 type WorkspaceUIPaneDimensionChange struct {
@@ -330,6 +354,10 @@ func ContractValueSets() []ContractValueSet {
 			Values: stringValues(supportedPaneWriteModes()),
 		},
 		{
+			Name:   "WorkspaceUIPaneMoveDirection",
+			Values: stringValues(supportedPaneMoveDirections()),
+		},
+		{
 			Name:   "WorkspaceUISurfaceCloseMode",
 			Values: stringValues(supportedSurfaceCloseModes()),
 		},
@@ -382,6 +410,15 @@ func supportedPaneWriteModes() []WorkspaceUIPaneWriteMode {
 		WorkspaceUIPaneWriteModeChatQueue,
 		WorkspaceUIPaneWriteModeChatSteer,
 		WorkspaceUIPaneWriteModeTerminalInput,
+	}
+}
+
+func supportedPaneMoveDirections() []WorkspaceUIPaneMoveDirection {
+	return []WorkspaceUIPaneMoveDirection{
+		WorkspaceUIPaneMoveDirectionDown,
+		WorkspaceUIPaneMoveDirectionLeft,
+		WorkspaceUIPaneMoveDirectionRight,
+		WorkspaceUIPaneMoveDirectionUp,
 	}
 }
 

@@ -683,11 +683,26 @@ Progress on 2026-07-07:
   layout, `changed`, operation outcome, empty dimension changes, and warnings.
 - Verification for the backend operation reducer follow-up:
   `./scripts/go.sh test ./internal/workspaceui` passed.
+- Backend move operation reducer follow-up: added backend-only `move_pane`
+  support without exposing an HTTP, CLI, or agent write surface. The reducer
+  validates the typed move direction, moves panes up/down within a column,
+  moves panes left/right into adjacent columns in the same plane, treats
+  boundary moves as successful no-ops without persisting or incrementing the
+  revision, increments the revision and persists once when layout order changes,
+  updates pane column ownership for horizontal moves, removes/reindexes emptied
+  source columns, and returns a structured move outcome with previous and
+  resulting pane locations. Missing panes and invalid directions use stable
+  operation error codes.
+- Verification for the backend move reducer follow-up:
+  `./scripts/go.sh run ./cmd/generate-contracts` completed with no generated
+  diffs because the write operation contract is not yet endpoint-exposed, and
+  `./scripts/go.sh test ./internal/workspaceui`, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed.
 - Remaining Phase 2 work: complete the backend operation reducer/service and
-  event sync for move, close-pane, rename, resize, open, reorder, and
-  multi-operation transactions, then cut renderer-originated layout mutations
-  over to that backend operation API before exposing agent or CLI workspace
-  mutation commands.
+  event sync for close-pane, rename, resize, open, reorder, and multi-operation
+  transactions, then cut renderer-originated layout mutations over to that
+  backend operation API before exposing agent or CLI workspace mutation
+  commands.
 
 ### Phase 3: Renderer Event Sync
 

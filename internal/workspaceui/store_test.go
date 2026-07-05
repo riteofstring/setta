@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -518,6 +519,193 @@ func TestServiceFocusPaneOperationRejectsMissingPane(t *testing.T) {
 	}
 }
 
+func TestServiceAppliesMovePaneOperationWithinColumn(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Direction: WorkspaceUIPaneMoveDirectionUp,
+		Kind:      WorkspaceUIPaneOperationKindMovePane,
+		PaneID:    "workspace_pane_1",
+	})
+	if err != nil {
+		t.Fatalf("apply move operation: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("changed = false, want true")
+	}
+	if result.Revision != 2 || result.Layout.Revision != 2 {
+		t.Fatalf("revision = result %d layout %d, want 2", result.Revision, result.Layout.Revision)
+	}
+	assertPaneIDs(t, result.Layout.Columns[0].PaneIDs, "workspace_pane_1", "workspace_pane_0")
+	if result.Layout.FocusedPaneID != "workspace_pane_1" {
+		t.Fatalf("focused pane = %q, want workspace_pane_1", result.Layout.FocusedPaneID)
+	}
+	assertMoveOutcome(t, result.OperationResult.Move, WorkspaceUIPaneMoveOutcome{
+		ColumnID:            "workspace_column_0",
+		ColumnIndex:         0,
+		Direction:           WorkspaceUIPaneMoveDirectionUp,
+		PaneIndex:           0,
+		PlaneIndex:          0,
+		PreviousColumnID:    "workspace_column_0",
+		PreviousColumnIndex: 0,
+		PreviousPaneIndex:   1,
+		PreviousPlaneIndex:  0,
+	})
+	if result.BeforeAfterDimensions == nil || len(result.BeforeAfterDimensions) != 0 {
+		t.Fatalf("beforeAfterDimensions = %+v, want empty slice", result.BeforeAfterDimensions)
+	}
+	if result.Warnings == nil || len(result.Warnings) != 0 {
+		t.Fatalf("warnings = %+v, want empty slice", result.Warnings)
+	}
+
+	loaded, err := service.ReadLayout("workspace_api")
+	if err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if loaded.Layout == nil {
+		t.Fatal("loaded layout = nil, want moved pane layout")
+	}
+	if loaded.Layout.Revision != 2 {
+		t.Fatalf("loaded layout = %+v, want moved pane at revision 2", loaded.Layout)
+	}
+	assertPaneIDs(t, loaded.Layout.Columns[0].PaneIDs, "workspace_pane_1", "workspace_pane_0")
+}
+
+func TestServiceAppliesMovePaneOperationToAdjacentColumn(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testMultiColumnLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Direction: WorkspaceUIPaneMoveDirectionRight,
+		Kind:      WorkspaceUIPaneOperationKindMovePane,
+		PaneID:    "workspace_pane_0",
+	})
+	if err != nil {
+		t.Fatalf("apply move operation: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("changed = false, want true")
+	}
+	if len(result.Layout.Columns) != 2 {
+		t.Fatalf("columns = %+v, want two non-empty columns", result.Layout.Columns)
+	}
+	assertPaneIDs(t, result.Layout.Columns[0].PaneIDs, "workspace_pane_2")
+	assertPaneIDs(t, result.Layout.Columns[1].PaneIDs, "workspace_pane_1", "workspace_pane_0")
+	movedPane := paneByID(t, result.Layout, "workspace_pane_0")
+	if movedPane.ColumnID != "workspace_column_1" {
+		t.Fatalf("moved pane columnId = %q, want workspace_column_1", movedPane.ColumnID)
+	}
+	assertMoveOutcome(t, result.OperationResult.Move, WorkspaceUIPaneMoveOutcome{
+		ColumnID:            "workspace_column_1",
+		ColumnIndex:         1,
+		Direction:           WorkspaceUIPaneMoveDirectionRight,
+		PaneIndex:           1,
+		PlaneIndex:          0,
+		PreviousColumnID:    "workspace_column_0",
+		PreviousColumnIndex: 0,
+		PreviousPaneIndex:   0,
+		PreviousPlaneIndex:  0,
+	})
+}
+
+func TestServiceMovePaneOperationRemovesEmptySourceColumn(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	layout := testMultiColumnLayout("workspace_api")
+	layout.Columns[0].PaneIDs = []string{"workspace_pane_0"}
+	layout.Panes = []WorkspaceUIPane{layout.Panes[0], layout.Panes[1]}
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Direction: WorkspaceUIPaneMoveDirectionRight,
+		Kind:      WorkspaceUIPaneOperationKindMovePane,
+		PaneID:    "workspace_pane_0",
+	})
+	if err != nil {
+		t.Fatalf("apply move operation: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("changed = false, want true")
+	}
+	if len(result.Layout.Columns) != 1 {
+		t.Fatalf("columns = %+v, want empty source removed", result.Layout.Columns)
+	}
+	column := result.Layout.Columns[0]
+	if column.ColumnID != "workspace_column_1" {
+		t.Fatalf("remaining column id = %q, want workspace_column_1", column.ColumnID)
+	}
+	if column.Index != 0 {
+		t.Fatalf("remaining column = %+v, want target column reindexed", column)
+	}
+	assertPaneIDs(t, column.PaneIDs, "workspace_pane_1", "workspace_pane_0")
+}
+
+func TestServiceMovePaneOperationNoopsAtBoundary(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	result, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Direction: WorkspaceUIPaneMoveDirectionUp,
+		Kind:      WorkspaceUIPaneOperationKindMovePane,
+		PaneID:    "workspace_pane_0",
+	})
+	if err != nil {
+		t.Fatalf("apply move operation: %v", err)
+	}
+	if result.Changed {
+		t.Fatal("changed = true, want false")
+	}
+	if result.Revision != 1 || result.Layout.Revision != 1 {
+		t.Fatalf("revision = result %d layout %d, want 1", result.Revision, result.Layout.Revision)
+	}
+	assertPaneIDs(t, result.Layout.Columns[0].PaneIDs, "workspace_pane_0", "workspace_pane_1")
+	assertMoveOutcome(t, result.OperationResult.Move, WorkspaceUIPaneMoveOutcome{
+		ColumnID:            "workspace_column_0",
+		ColumnIndex:         0,
+		Direction:           WorkspaceUIPaneMoveDirectionUp,
+		PaneIndex:           0,
+		PlaneIndex:          0,
+		PreviousColumnID:    "workspace_column_0",
+		PreviousColumnIndex: 0,
+		PreviousPaneIndex:   0,
+		PreviousPlaneIndex:  0,
+	})
+}
+
+func TestServiceMovePaneOperationRejectsMissingPane(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+	if _, err := service.SaveLayout(testLayout("workspace_api")); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Direction: WorkspaceUIPaneMoveDirectionDown,
+		Kind:      WorkspaceUIPaneOperationKindMovePane,
+		PaneID:    "workspace_pane_missing",
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodePaneNotFound {
+		t.Fatalf("error = %T %v, want pane_not_found", err, err)
+	}
+}
+
 func TestServicePaneOperationRejectsMissingLayout(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{
 		"workspace_api": "/tmp/api",
@@ -541,7 +729,7 @@ func TestServicePaneOperationRejectsUnsupportedOperation(t *testing.T) {
 	}
 
 	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
-		Kind:   WorkspaceUIPaneOperationKind("move_pane"),
+		Kind:   WorkspaceUIPaneOperationKind("close_pane"),
 		PaneID: "workspace_pane_0",
 	})
 	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeUnsupportedOperation {
@@ -562,6 +750,21 @@ func TestServicePaneOperationRejectsInvalidOperation(t *testing.T) {
 	}
 }
 
+func TestServicePaneOperationRejectsInvalidMoveDirection(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver{
+		"workspace_api": "/tmp/api",
+	})
+
+	_, err := service.ApplyPaneOperation("workspace_api", WorkspaceUIPaneOperation{
+		Direction: WorkspaceUIPaneMoveDirection("sideways"),
+		Kind:      WorkspaceUIPaneOperationKindMovePane,
+		PaneID:    "workspace_pane_0",
+	})
+	if operationErrorCode(t, err) != WorkspaceUIOperationErrorCodeInvalidOperation {
+		t.Fatalf("error = %T %v, want invalid_operation", err, err)
+	}
+}
+
 func operationErrorCode(t *testing.T, err error) WorkspaceUIOperationErrorCode {
 	t.Helper()
 	var operationError *WorkspaceUIOperationError
@@ -569,6 +772,34 @@ func operationErrorCode(t *testing.T, err error) WorkspaceUIOperationErrorCode {
 		t.Fatalf("error = %T %v, want WorkspaceUIOperationError", err, err)
 	}
 	return operationError.Code
+}
+
+func assertPaneIDs(t *testing.T, got []string, want ...string) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("pane ids = %+v, want %+v", got, want)
+	}
+}
+
+func assertMoveOutcome(t *testing.T, got *WorkspaceUIPaneMoveOutcome, want WorkspaceUIPaneMoveOutcome) {
+	t.Helper()
+	if got == nil {
+		t.Fatal("move outcome = nil")
+	}
+	if !reflect.DeepEqual(*got, want) {
+		t.Fatalf("move outcome = %+v, want %+v", got, want)
+	}
+}
+
+func paneByID(t *testing.T, layout WorkspaceUILayout, paneID string) WorkspaceUIPane {
+	t.Helper()
+	for _, pane := range layout.Panes {
+		if pane.PaneID == paneID {
+			return pane
+		}
+	}
+	t.Fatalf("pane %s not found in layout %+v", paneID, layout)
+	return WorkspaceUIPane{}
 }
 
 func newTestStore(t *testing.T, appDataDir string) *Store {
@@ -657,6 +888,44 @@ func testLayout(workspaceID string) WorkspaceUILayout {
 			},
 		},
 	}
+}
+
+func testMultiColumnLayout(workspaceID string) WorkspaceUILayout {
+	layout := testLayout(workspaceID)
+	layout.Columns = []WorkspaceUIColumn{
+		{
+			ColumnID:       "workspace_column_0",
+			IdealWidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 520},
+			Index:          0,
+			PaneIDs:        []string{"workspace_pane_0", "workspace_pane_2"},
+			PlaneIndex:     0,
+			SlotIndex:      0,
+			WidthSpec:      ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 620},
+		},
+		{
+			ColumnID:       "workspace_column_1",
+			IdealWidthSpec: ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 440},
+			Index:          1,
+			PaneIDs:        []string{"workspace_pane_1"},
+			PlaneIndex:     0,
+			SlotIndex:      1,
+			WidthSpec:      ColumnWidthSpec{Unit: ColumnWidthUnitPX, Value: 480},
+		},
+	}
+	layout.Panes[1].ColumnID = "workspace_column_1"
+	layout.Panes = append(layout.Panes, WorkspaceUIPane{
+		ColumnID:    "workspace_column_0",
+		Heat:        74,
+		PaneID:      "workspace_pane_2",
+		Sequence:    2,
+		Subtitle:    "workflow graph",
+		SurfaceID:   "workspace_surface_2",
+		SurfaceKind: SurfaceKindWorkflowGraph,
+		Title:       "Workflow",
+		Tone:        PaneToneOrange,
+		Weight:      1,
+	})
+	return layout
 }
 
 func testWorkflowNodeDetailsConfig(workspaceID string) *WorkflowNodeDetailsPaneConfig {
