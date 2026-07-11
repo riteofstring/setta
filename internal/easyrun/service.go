@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -42,6 +41,7 @@ type Service struct {
 type ChatService interface {
 	CancelActiveRunByID(workspaceID string, conversationID string, runID string) (chat.Run, error)
 	HarnessTaskRunner() chat.HarnessTaskRunner
+	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	ResolveEasyRunCodexSettings(workspaceID string, overrides chat.ChatCodexSettings) (chat.ChatCodexSettings, *chat.ChatCodexEffectiveSettings, error)
 	SendEasyRunTurn(workspaceID string, request chat.EasyRunTurnRequest) (chat.SendMessageResult, error)
 	SteerActiveRunInputByID(workspaceID string, conversationID string, runID string, input chat.ChatInput) (chat.SteerMessageResult, error)
@@ -771,120 +771,6 @@ func (service *Service) recoverInterruptedRun(record storedRunRecord, endedAt st
 		return EasyRun{}, err
 	}
 	return record.Run, nil
-}
-
-func (service *Service) startChatObserver() error {
-	if service.chat == nil {
-		return nil
-	}
-	subscription, err := service.chat.SubscribeEvents(chat.EventCursor{})
-	if err != nil {
-		return fmt.Errorf("subscribe easy-run chat observer: %w", err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	service.observerCancel = cancel
-	service.observerWG.Add(1)
-	go func() {
-		defer service.observerWG.Done()
-		service.observeChatEvents(ctx, subscription)
-	}()
-	return nil
-}
-
-func (service *Service) observeChatEvents(ctx context.Context, subscription *chat.EventSubscription) {
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case event, ok := <-subscription.Events:
-			if !ok {
-				return
-			}
-			service.handleChatEvent(ctx, event)
-		}
-	}
-}
-
-func (service *Service) handleChatEvent(ctx context.Context, event chat.Event) {
-	if target, ok := service.appendNarratorDigestFromChatEvent(event); ok {
-		service.launchWorkingNarratorProjection(ctx, target)
-	}
-	if event.Type != chat.EventTypeRunUpdated {
-		return
-	}
-	var payload chat.RunUpdatedPayload
-	if err := json.Unmarshal(event.Payload, &payload); err != nil {
-		log.Printf("easy-run chat run event decode failed: %v", err)
-		return
-	}
-	if payload.Run.Status != chat.RunStatusCompleted && payload.Run.Status != chat.RunStatusCancelled && payload.Run.Status != chat.RunStatusFailed {
-		return
-	}
-	service.launchTerminalChatRunProjection(ctx, payload.Run)
-}
-
-func (service *Service) launchWorkingNarratorProjection(ctx context.Context, target workingNarratorProjection) {
-	service.observerWG.Add(1)
-	go func() {
-		defer service.observerWG.Done()
-		narration := service.runWorkingNarrator(ctx, target)
-		if _, err := service.saveWorkingNarratorProjection(target, narration); err != nil {
-			log.Printf("easy-run working narrator projection failed: %v", err)
-		}
-	}()
-}
-
-func (service *Service) launchTerminalChatRunProjection(ctx context.Context, run chat.Run) {
-	service.observerWG.Add(1)
-	go func() {
-		defer service.observerWG.Done()
-		if _, err := service.applyTerminalChatRunWithNarrator(ctx, run); err != nil {
-			if errors.Is(err, errEasyRunConversationNotFound) {
-				return
-			}
-			log.Printf("easy-run terminal chat run projection failed: %v", err)
-		}
-	}()
-}
-
-func (service *Service) appendNarratorDigestFromChatEvent(event chat.Event) (workingNarratorProjection, bool) {
-	entries, err := narratorDigestEntriesFromChatEvent(event)
-	if err != nil {
-		log.Printf("easy-run narrator digest chat event decode failed: %v", err)
-		return workingNarratorProjection{}, false
-	}
-	if len(entries) == 0 {
-		return workingNarratorProjection{}, false
-	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	easyRunID := service.narratorByConversation[activeKey(event.WorkspaceID, event.ConversationID)]
-	if easyRunID == "" {
-		record, ok, err := service.store.findRunByConversationID(event.WorkspaceID, event.ConversationID)
-		if err != nil {
-			log.Printf("easy-run narrator digest ownership lookup failed: %v", err)
-			return workingNarratorProjection{}, false
-		}
-		if !ok || record.Run.Status != EasyRunStatusWorking {
-			return workingNarratorProjection{}, false
-		}
-		easyRunID = record.Run.ID
-		service.narratorByConversation[activeKey(event.WorkspaceID, event.ConversationID)] = easyRunID
-	}
-	service.narratorStateLocked(easyRunID).digest.append(entries...)
-	return service.beginWorkingNarratorProjectionLocked(event.WorkspaceID, easyRunID)
-}
-
-func (service *Service) appendNarratorDigestFromEasyRunEventLocked(event EasyRunEvent) (workingNarratorProjection, bool) {
-	entries := narratorDigestEntriesFromEasyRunEvent(event)
-	if len(entries) == 0 {
-		return workingNarratorProjection{}, false
-	}
-	service.narratorStateLocked(event.EasyRunID).digest.append(entries...)
-	return service.beginWorkingNarratorProjectionLocked(event.WorkspaceID, event.EasyRunID)
 }
 
 func stringPointer(value string) *string {

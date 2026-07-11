@@ -61,6 +61,25 @@ func TestEventHubResyncsAfterStreamMismatch(t *testing.T) {
 	})
 }
 
+func TestEventHubClosedSubscriptionReportsSourceClosed(t *testing.T) {
+	hub := newEventHubTestHub(t)
+	hub.Close()
+
+	subscription := subscribeEventHub(t, hub, EventCursor{})
+	defer subscription.Unsubscribe()
+	if !subscription.SourceClosed() {
+		t.Fatal("closed hub subscription did not report source closure")
+	}
+	select {
+	case _, ok := <-subscription.Events:
+		if ok {
+			t.Fatal("closed hub subscription yielded an event")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("closed hub subscription did not close its event channel")
+	}
+}
+
 func TestServicePublishesTurnLifecycleEvents(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
 		{Type: FakeEventAssistantDelta, Text: "hello"},
