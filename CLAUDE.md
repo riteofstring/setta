@@ -18,7 +18,7 @@ the installed `codex@openai-codex` plugin.
   `subagent_type: "codex:codex-rescue"`. Pass a clear, self-contained task
   prompt (files involved, expected behavior, constraints, how to verify).
   Use foreground for small bounded tasks; background for long/multi-step work.
-- Default runtime for every delegation: include `--model gpt-5.5 --effort xhigh`
+- Default runtime for every delegation: include `--model gpt-5.6-sol --effort medium`
   in the delegated request. (The "fast" service tier is already set globally in
   `~/.codex/config.toml` via `service_tier = "fast"`.) Only deviate if the user
   explicitly asks for a different model or effort.
