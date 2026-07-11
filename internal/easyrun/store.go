@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	easyRunsDirName      = "easy-runs"
-	easyRunArtifactsName = "artifacts.json"
-	easyRunFileName      = "run.json"
+	easyRunsDirName       = "easy-runs"
+	easyRunArtifactsName  = "artifacts.json"
+	easyRunHighlightsName = "highlights.json"
+	easyRunFileName       = "run.json"
 )
 
 type Store struct {
@@ -42,6 +43,11 @@ type storedRunRecord struct {
 type storedArtifactCollection struct {
 	SchemaVersion int            `json:"schemaVersion"`
 	Artifacts     []EasyArtifact `json:"artifacts"`
+}
+
+type storedHighlightCollection struct {
+	SchemaVersion int             `json:"schemaVersion"`
+	Highlights    []EasyHighlight `json:"highlights"`
 }
 
 func (err *PersistenceError) Error() string {
@@ -112,9 +118,14 @@ func (store *Store) LoadLatestSnapshot(workspaceID string, cursor EasyRunEventCu
 	}
 	var run *EasyRun
 	artifacts := []EasyArtifact{}
+	highlights := []EasyHighlight{}
 	if ok {
 		next := latest.Run
 		run = &next
+		highlights, err = store.loadHighlights(workspaceID, latest.Run.ID)
+		if err != nil {
+			return EasyRunSnapshot{}, err
+		}
 		artifacts, err = store.loadArtifacts(workspaceID, latest.Run.ID)
 		if err != nil {
 			return EasyRunSnapshot{}, err
@@ -123,7 +134,7 @@ func (store *Store) LoadLatestSnapshot(workspaceID string, cursor EasyRunEventCu
 	return EasyRunSnapshot{
 		Artifacts:         artifacts,
 		EventStreamCursor: cursor,
-		Highlights:        []EasyHighlight{},
+		Highlights:        highlights,
 		LatestRun:         run,
 	}, nil
 }
@@ -209,6 +220,45 @@ func (store *Store) saveArtifacts(workspaceID string, easyRunID string, artifact
 		return err
 	}
 	return writeJSONFile(store.easyRunArtifactsPath(workspaceID, easyRunID), collection)
+}
+
+func (store *Store) loadHighlights(workspaceID string, easyRunID string) ([]EasyHighlight, error) {
+	if err := validateWorkspaceID(workspaceID); err != nil {
+		return nil, err
+	}
+	if err := validateEasyRunID(easyRunID); err != nil {
+		return nil, err
+	}
+	path := store.easyRunHighlightsPath(workspaceID, easyRunID)
+	var collection storedHighlightCollection
+	if err := readJSONFile(path, &collection); err != nil {
+		var persistenceError *PersistenceError
+		if errors.As(err, &persistenceError) && errors.Is(persistenceError.Err, os.ErrNotExist) {
+			return []EasyHighlight{}, nil
+		}
+		return nil, err
+	}
+	if err := validateStoredHighlightCollection(easyRunID, collection); err != nil {
+		return nil, corruptStateError(path, err)
+	}
+	return append([]EasyHighlight{}, collection.Highlights...), nil
+}
+
+func (store *Store) saveHighlights(workspaceID string, easyRunID string, highlights []EasyHighlight) error {
+	if err := validateWorkspaceID(workspaceID); err != nil {
+		return err
+	}
+	if err := validateEasyRunID(easyRunID); err != nil {
+		return err
+	}
+	collection := storedHighlightCollection{
+		SchemaVersion: SchemaVersion,
+		Highlights:    append([]EasyHighlight{}, highlights...),
+	}
+	if err := validateStoredHighlightCollection(easyRunID, collection); err != nil {
+		return err
+	}
+	return writeJSONFile(store.easyRunHighlightsPath(workspaceID, easyRunID), collection)
 }
 
 func (store *Store) findWorkingRun(workspaceID string) (storedRunRecord, bool, error) {
@@ -316,6 +366,10 @@ func (store *Store) easyRunPath(workspaceID string, easyRunID string) string {
 
 func (store *Store) easyRunArtifactsPath(workspaceID string, easyRunID string) string {
 	return filepath.Join(store.easyRunDir(workspaceID, easyRunID), easyRunArtifactsName)
+}
+
+func (store *Store) easyRunHighlightsPath(workspaceID string, easyRunID string) string {
+	return filepath.Join(store.easyRunDir(workspaceID, easyRunID), easyRunHighlightsName)
 }
 
 func writeJSONFile(path string, payload any) error {

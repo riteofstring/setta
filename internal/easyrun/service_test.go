@@ -287,6 +287,100 @@ func TestEmitArtifactToolPersistsAndPublishesTypedArtifact(t *testing.T) {
 	}
 }
 
+func TestRecordNarratorHighlightsPersistsPublishesAndSnapshotsTypedHighlights(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_highlight")
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_highlight",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	subscription, err := service.SubscribeEvents(EasyRunEventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe easy-run events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	highlights, err := service.RecordNarratorHighlights("workspace_api", run.ID, []string{
+		" Scoping the deliverable ",
+		"Drafting the final table",
+	})
+	if err != nil {
+		t.Fatalf("record narrator highlights: %v", err)
+	}
+	assertRecordedNarratorHighlights(t, highlights)
+	assertHighlightCreatedEvents(t, subscription, []string{"highlight_0001", "highlight_0002"})
+	assertSnapshotHighlights(t, service, []string{"Scoping the deliverable", "Drafting the final table"})
+}
+
+func TestRecordNarratorHighlightsEnforcesCallAndRunCaps(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_highlight_cap")
+	existing := make([]EasyHighlight, 0, maxEasyHighlightsPerRun-1)
+	for index := 1; index < maxEasyHighlightsPerRun; index++ {
+		existing = append(existing, testHighlight(run.ID, index))
+	}
+	run.HighlightCount = len(existing)
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_highlight_cap",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	if err := store.saveHighlights(run.WorkspaceID, run.ID, existing); err != nil {
+		t.Fatalf("save existing highlights: %v", err)
+	}
+
+	accepted, err := service.RecordNarratorHighlights("workspace_api", run.ID, []string{"one", "two", "three"})
+	if err != nil {
+		t.Fatalf("record capped highlights: %v", err)
+	}
+	if len(accepted) != 1 || accepted[0].Text != "one" || accepted[0].Ordinal != maxEasyHighlightsPerRun {
+		t.Fatalf("accepted highlights = %+v, want first text only at run cap", accepted)
+	}
+	overflow, err := service.RecordNarratorHighlights("workspace_api", run.ID, []string{"overflow"})
+	if err != nil {
+		t.Fatalf("record overflow highlight: %v", err)
+	}
+	if len(overflow) != 0 {
+		t.Fatalf("overflow highlights = %+v, want none after run cap", overflow)
+	}
+	snapshot, err := service.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read capped snapshot: %v", err)
+	}
+	if snapshot.LatestRun == nil || snapshot.LatestRun.HighlightCount != maxEasyHighlightsPerRun || len(snapshot.Highlights) != maxEasyHighlightsPerRun {
+		t.Fatalf("snapshot = %+v highlights=%d, want run cap", snapshot.LatestRun, len(snapshot.Highlights))
+	}
+}
+
+func TestRecordNarratorHighlightsRejectsInvalidText(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_highlight_invalid")
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_highlight_invalid",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+
+	_, err := service.RecordNarratorHighlights("workspace_api", run.ID, []string{"   "})
+	if err == nil || !strings.Contains(err.Error(), "text is required") {
+		t.Fatalf("invalid highlight error = %v, want text validation", err)
+	}
+	snapshot, err := service.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read snapshot: %v", err)
+	}
+	if snapshot.LatestRun == nil || snapshot.LatestRun.HighlightCount != 0 || len(snapshot.Highlights) != 0 {
+		t.Fatalf("snapshot = %+v highlights=%d, want invalid output rejected", snapshot.LatestRun, len(snapshot.Highlights))
+	}
+}
+
 func TestEmitArtifactToolRejectsNonEasyRunConversation(t *testing.T) {
 	service := newTestService(t)
 	tool := NewEmitArtifactAgentTool(service)
@@ -648,6 +742,57 @@ func requireEasyRunEvent(t *testing.T, subscription *EventSubscription) EasyRunE
 	}
 }
 
+func assertRecordedNarratorHighlights(t *testing.T, highlights []EasyHighlight) {
+	t.Helper()
+	if len(highlights) != 2 {
+		t.Fatalf("highlights = %+v, want two narrator highlights", highlights)
+	}
+	if highlights[0].ID != "highlight_0001" || highlights[0].Ordinal != 1 || highlights[0].Text != "Scoping the deliverable" {
+		t.Fatalf("first highlight = %+v, want trimmed first narrator highlight", highlights[0])
+	}
+	if highlights[1].ID != "highlight_0002" || highlights[1].Ordinal != 2 || highlights[1].Text != "Drafting the final table" {
+		t.Fatalf("second highlight = %+v, want second narrator highlight", highlights[1])
+	}
+}
+
+func assertHighlightCreatedEvents(t *testing.T, subscription *EventSubscription, ids []string) {
+	t.Helper()
+	for _, id := range ids {
+		event := requireEasyRunEvent(t, subscription)
+		highlight := highlightFromCreatedEvent(t, event)
+		if highlight.ID != id {
+			t.Fatalf("highlight event = %+v, want highlight id %s", event, id)
+		}
+	}
+}
+
+func highlightFromCreatedEvent(t *testing.T, event EasyRunEvent) EasyHighlight {
+	t.Helper()
+	if event.Type != EasyRunEventTypeHighlightCreated || event.HighlightCreated == nil {
+		t.Fatalf("highlight event = %+v, want typed highlight.created event", event)
+	}
+	return event.HighlightCreated.Highlight
+}
+
+func assertSnapshotHighlights(t *testing.T, service *Service, texts []string) {
+	t.Helper()
+	snapshot, err := service.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read snapshot: %v", err)
+	}
+	if snapshot.LatestRun == nil || snapshot.LatestRun.HighlightCount != len(texts) {
+		t.Fatalf("snapshot run = %+v, want highlight count %d", snapshot.LatestRun, len(texts))
+	}
+	if len(snapshot.Highlights) != len(texts) {
+		t.Fatalf("snapshot highlights = %+v, want %d highlights", snapshot.Highlights, len(texts))
+	}
+	for index, text := range texts {
+		if snapshot.Highlights[index].Text != text {
+			t.Fatalf("snapshot highlight[%d] = %+v, want text %q", index, snapshot.Highlights[index], text)
+		}
+	}
+}
+
 func assertStartedEasyRun(t *testing.T, run EasyRun, requestText string) {
 	t.Helper()
 	if run.ID != "easy_run_0001" || run.RequestText != requestText || run.WorkspaceID != "workspace_api" {
@@ -780,5 +925,15 @@ func testRun(id string) EasyRun {
 		StartedAt:        "2026-07-08T12:00:00Z",
 		Status:           EasyRunStatusWorking,
 		WorkspaceID:      "workspace_api",
+	}
+}
+
+func testHighlight(easyRunID string, ordinal int) EasyHighlight {
+	return EasyHighlight{
+		At:        fmt.Sprintf("2026-07-08T12:00:%02dZ", ordinal),
+		EasyRunID: easyRunID,
+		ID:        fmt.Sprintf("highlight_existing_%02d", ordinal),
+		Ordinal:   ordinal,
+		Text:      fmt.Sprintf("Existing highlight %02d", ordinal),
 	}
 }

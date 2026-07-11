@@ -255,7 +255,7 @@ func validateHighlightCreatedDraft(draft EventDraft) error {
 	if draft.Highlight.EasyRunID != draft.EasyRunID {
 		return errors.New("easy-run highlight.created payload ownership does not match event")
 	}
-	return nil
+	return validateEasyHighlight(*draft.Highlight)
 }
 
 func validateArtifactCreatedDraft(draft EventDraft) error {

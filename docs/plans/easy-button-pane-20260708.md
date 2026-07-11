@@ -967,3 +967,34 @@ Live note: ChatGPT auth was available. The live gate passed
 Remaining work: Phase 4 is next. It should add the narrator digest, selective
 highlights, narrative completion summary, narrator degradation status, and the
 Phase 4 deterministic/live coverage. No blockers were discovered.
+
+### 2026-07-08 — Phase 4 highlight persistence slice complete
+
+Implemented the first Phase 4 backend slice for narrator-authored highlights:
+
+- Added persisted `highlights.json` storage for typed `EasyHighlight` records,
+  snapshot restoration of the latest run's highlights, and fail-loud validation
+  for highlight state and `easyrun.highlight.created` payloads.
+- Added `EasyRunService.RecordNarratorHighlights` as the backend boundary the
+  narrator will call. It trims narrator output, rejects empty highlight text,
+  accepts at most two highlights per narrator call, enforces the 12-highlight
+  run cap with logged drops, updates `EasyRun.HighlightCount`, persists the
+  records, and publishes typed `easyrun.highlight.created` events.
+- Added focused service coverage for persistence, event publication, snapshot
+  restore, per-call/run caps, and invalid narrator output. No generated
+  contracts changed; contract generation produced no diff.
+
+Verification performed:
+
+- `./scripts/go.sh run ./cmd/generate-contracts`
+- `./scripts/go.sh test ./internal/easyrun`
+- `./scripts/go.sh test ./internal/httpapi -run 'Test(ReadEasyRunSnapshot|EasyRunEventStream|ContractSchemaSnapshot)'`
+- `./scripts/go.sh test ./cmd/generate-contracts`
+- `./scripts/format.sh`
+- `./check_quality.sh --git-changes`
+
+Remaining Phase 4 work: add `HarnessSurfaceEasyRunNarrator`, digest buffering
+and trigger policy, structured narrator calls, narrator degradation status,
+narrative terminal summaries, left-rail rendering from typed highlight
+contracts, and the Phase 4 deterministic/live E2E coverage. No blockers were
+discovered.

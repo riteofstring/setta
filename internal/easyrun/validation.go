@@ -9,6 +9,7 @@ import (
 
 const (
 	maxEasyArtifactsPerRun       = 20
+	maxEasyHighlightsPerRun      = 12
 	maxEasyMarkdownArtifactBytes = 16 * 1024
 	maxEasyTableArtifactColumns  = 12
 	maxEasyTableArtifactRows     = 100
@@ -88,6 +89,37 @@ func validateStoredArtifactCollection(easyRunID string, collection storedArtifac
 		}
 		ids[artifact.ID] = struct{}{}
 		ordinals[artifact.Ordinal] = struct{}{}
+	}
+	return nil
+}
+
+func validateStoredHighlightCollection(easyRunID string, collection storedHighlightCollection) error {
+	if err := validateEasyRunID(easyRunID); err != nil {
+		return err
+	}
+	if collection.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("easy-run highlight collection schemaVersion = %d, want %d", collection.SchemaVersion, SchemaVersion)
+	}
+	if len(collection.Highlights) > maxEasyHighlightsPerRun {
+		return fmt.Errorf("easy-run highlight count %d exceeds cap %d", len(collection.Highlights), maxEasyHighlightsPerRun)
+	}
+	ids := map[string]struct{}{}
+	ordinals := map[int]struct{}{}
+	for index, highlight := range collection.Highlights {
+		if err := validateEasyHighlight(highlight); err != nil {
+			return fmt.Errorf("highlight[%d]: %w", index, err)
+		}
+		if highlight.EasyRunID != easyRunID {
+			return fmt.Errorf("highlight[%d] belongs to easy-run %s, not %s", index, highlight.EasyRunID, easyRunID)
+		}
+		if _, exists := ids[highlight.ID]; exists {
+			return fmt.Errorf("duplicate easy-run highlight id %s", highlight.ID)
+		}
+		if _, exists := ordinals[highlight.Ordinal]; exists {
+			return fmt.Errorf("duplicate easy-run highlight ordinal %d", highlight.Ordinal)
+		}
+		ids[highlight.ID] = struct{}{}
+		ordinals[highlight.Ordinal] = struct{}{}
 	}
 	return nil
 }
@@ -245,6 +277,22 @@ func validateEasyArtifact(artifact EasyArtifact) error {
 		return err
 	}
 	return validateArtifactPayload(artifact)
+}
+
+func validateEasyHighlight(highlight EasyHighlight) error {
+	if err := validateStorageID("highlight id", highlight.ID); err != nil {
+		return err
+	}
+	if err := validateEasyRunID(highlight.EasyRunID); err != nil {
+		return err
+	}
+	if highlight.Ordinal <= 0 {
+		return fmt.Errorf("highlight ordinal must be positive: %d", highlight.Ordinal)
+	}
+	if err := validateRequiredTrimmedText("highlight text", highlight.Text); err != nil {
+		return err
+	}
+	return validateTimestamp("highlight at", highlight.At)
 }
 
 func validateArtifactBranchCount(artifact EasyArtifact) error {
