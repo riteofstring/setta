@@ -3427,6 +3427,44 @@ snapshot never auto-plays and that replay of the still-mounted source reuses
 its synthesized Blob. Item 6 then closes recording preemption and TTS failure
 isolation before Phase 5 begins.
 
+### 2026-07-10 — Phase 4 live terminal-summary auto-play audit complete
+
+Audited commit `21f578cae` against Phase 4 item 4, `AGENTS.md`, its parent, the
+clean starting worktree, the checked-in PWA bundle, renderer/store event
+ownership, source-ID synthesis boundaries, focused tests, and the retained
+production-path artifacts. The slice correctly publishes a transient playback
+intent only after an applied same-run live `working -> completed` or
+`working -> failed` event. Hydration and command responses do not publish;
+duplicate, gapped, and unexpected-stream events return before application;
+workspace-mismatched and non-transition updates produce no intent; and
+`stopped` remains silent. The mounted playback hook additionally requires an
+enabled final mode, configured output, a connected runtime, and the matching
+workspace before enqueuing the persisted run/summary source. No practical
+slice-owned defect or generated-artifact drift was found, so no implementation
+fix was required and Phase 4 item 5 was not started.
+
+Audit verification completed:
+
+- all 42 focused Easy Run store/event, automatic eligibility,
+  playback-controller, and terminal-source tests passed, followed by all 1,115
+  desktop Vitest tests;
+- fresh Electron and web typechecks/builds passed, the web build reproduced the
+  checked-in PWA bundle exactly, and the embedded-webapp Go test passed;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-terminal-autoplay-audit-20260710`
+  with exact completed/failed auto-play, stopped silence, all three manual
+  replays, five persisted-summary syntheses, and no recorded speech secret or
+  audio payload leakage;
+- with `OPENAI_API_KEY` removed, `live-codex-electron` and all four supplemental
+  backend live Codex probes passed. The first `easy-button-live` attempt
+  completed without the requested artifact and reported that provider-output
+  miss in its persisted summary; the prescribed focused retry passed.
+
+The plan remains incomplete. Phase 4 item 5 is next: prove that restored
+terminal state never auto-plays and that replay of the still-mounted automatic
+summary reuses its synthesized Blob. Item 6 then covers recording preemption
+and TTS failure isolation before Phase 5 begins.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
