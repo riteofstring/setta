@@ -1664,6 +1664,53 @@ failure classification, and fake-transport unit tests. No deterministic blocker
 was found for that work; the live Codex `max` drift and pinned-toolchain advisory
 remain separate repository issues.
 
+### 2026-07-10 — Phase 1 final audit complete
+
+Audited all eleven Phase 1 implementation and audit commits against this plan,
+`AGENTS.md`, the clean starting worktree, Go-owned contracts, generated
+TypeScript and PWA artifacts, persistence, narrator ordering, renderer state,
+and production-path coverage. The version-2-only Easy Run shape, immutable
+lossless chat record, persisted Current focus, narrator-only NOW rail,
+human-readable terminal summary, and structured accepted-steering partial
+outcome remain correctly separated at their owning boundaries. Contract
+regeneration and the checked-in protocol-12 generated client were idempotent.
+
+The audit found one practical Phase 1 gap: production still used the old
+asymmetric `minmax(240px, 300px)` / `minmax(280px, 380px)` rail grid even though
+the settled plan and canonical mockup require equal `minmax(260px, 340px)`
+tracks. Production now uses the equal tracks, the stale pixel-harness comments
+describe that contract, and the production Electron driver asserts both equal
+rendered rail widths and alignment of the center-stage and surface midpoints at
+desktop widths. The checked-in PWA bundle was rebuilt from the corrected source.
+
+Audit verification completed:
+
+- focused `internal/easyrun`, `internal/httpapi`, `internal/chat`, generator,
+  backend-transport, IPC, preload, web-adapter, and renderer-store tests passed;
+- all 995 desktop Vitest tests, Electron/web typechecks, and Electron/web
+  production builds passed;
+- the production Easy Button workflow passed at
+  `desktop/.recordings/easy-button-speech-phase1-rail-audit-20260710`, including
+  lossless start/steer persistence, current/updating/stale focus, the accepted
+  partial outcome, summaries, restart/reload, compact/reduced-motion cases, and
+  its pixel-match companion. The focused production/mockup metrics both report
+  340-pixel left and right rails, and the updated screenshots were inspected;
+- `./scripts/format.sh` passed. `./check_quality.sh --all` passed file length,
+  syntax, Go vet, all non-live Go tests, dead-code, formatting, TypeScript lint
+  and complexity, typecheck, all 995 Vitest tests, the Electron build, and the
+  complete required Electron manifest. The previously reported deterministic
+  Codex-protocol notification timeout passed in this audit run.
+
+The broad gate remains nonzero only because all four live backend Codex probes
+still reject the provider's newly advertised `max` reasoning effort before
+conversation creation. Direct live Electron chat and Easy Button attempts with
+`OPENAI_API_KEY` removed reach the same provider-drift boundary, so they are not
+live validation for Phase 1. Supply-chain verification remains blocked by
+GO-2026-5856 in the pinned Go 1.26.4 standard library, fixed in Go 1.26.5.
+Neither blocker prevents Phase 2 implementation. The next iteration remains
+Phase 2 item 1; the complete speech-specific still/pinned-animation matrix and
+performance acceptance remain later work after the speech states exist.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

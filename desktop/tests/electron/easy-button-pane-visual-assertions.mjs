@@ -28,6 +28,25 @@ export function assertRailLabelText(state, label) {
   }
 }
 
+export function assertEqualDesktopRailGeometry(state) {
+  if (state.surfaceRect.width <= 720) {
+    return;
+  }
+  const widthDelta = Math.abs(state.leftRailRect.width - state.rightRailRect.width);
+  const surfaceMidpoint = state.surfaceRect.left + state.surfaceRect.width / 2;
+  const centerMidpoint = state.centerRect.left + state.centerRect.width / 2;
+  if (
+    state.leftRailRect.width === 0 ||
+    state.rightRailRect.width === 0 ||
+    widthDelta > 1 ||
+    Math.abs(surfaceMidpoint - centerMidpoint) > 1
+  ) {
+    throw new Error(
+      `easy-button desktop rails did not keep the center stage geometrically centered: ${JSON.stringify(state)}`,
+    );
+  }
+}
+
 // Expectations come from each rail's own content rather than a hardcoded pair,
 // so this does not depend on whether a given scripted run also emits highlights.
 export function railLabelsMatchContent(state) {

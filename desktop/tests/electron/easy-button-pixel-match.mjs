@@ -7,8 +7,8 @@
 // it look right" into a diff a reviewer can read.
 //
 // The mockup is a fixed 1180x660 card and the real pane fills a workspace column,
-// so a whole-pane diff would be noise. Both rails clamp to the same 300px / 380px
-// tracks at this viewport, which is what makes the per-component crops comparable.
+// so a whole-pane diff would be noise. Both rails use the same 260px / 340px
+// track at this viewport, which is what makes the per-component crops comparable.
 
 import { rm } from "node:fs/promises";
 import { join } from "node:path";

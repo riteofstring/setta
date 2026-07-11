@@ -154,6 +154,8 @@
 
   function easyButtonState(host) {
     const surface = host.querySelector('[data-testid="easy-button-surface"]');
+    const leftRail = host.querySelector(".easy-button-rail-left");
+    const rightRail = host.querySelector(".easy-button-rail-right");
     const button = host.querySelector(".easy-button-control");
     const input = host.querySelector('[data-testid="easy-button-input"]');
     const inputWrap = host.querySelector(".easy-button-input-wrap");
@@ -198,8 +200,10 @@
       inputTransitionDuration: elementStyleValue(input, "transitionDuration"),
       inputValue: inputValue(input),
       inputWrapTransitionDuration: elementStyleValue(inputWrap, "transitionDuration"),
+      leftRailRect: rectSnapshot(elementRectOrZero(leftRail)),
       narratorStatusText: elementText(narratorStatus),
       reducedMotionMatches: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      rightRailRect: rectSnapshot(elementRectOrZero(rightRail)),
       stopButtonAriaLabel: buttonAriaLabel(stopButton),
       stopButtonDisabled: buttonDisabled(stopButton),
       stopButtonRect: rectSnapshot(elementRectOrZero(stopButton)),
@@ -209,6 +213,7 @@
       summaryText: elementText(summary),
       summaryTextMetrics: textBoxMetrics(summary),
       summaryTextRect: rectSnapshot(elementRectOrZero(summary)),
+      surfaceRect: rectSnapshot(elementRectOrZero(surface)),
       swirl: easyButtonSwirl(host),
       toneColors: {
         completed: resolveTokenColor(surface, "--accent-green"),

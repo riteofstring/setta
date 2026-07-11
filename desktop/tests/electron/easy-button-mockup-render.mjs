@@ -36,8 +36,8 @@ const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
 const mockupPath = join(repoRoot, "docs", "mockups", "easy_button_pane_mockup.html");
 
-// Width matches the workflow's desktop viewport, so both rails clamp to the same
-// 300px / 380px tracks. Height is taller only because the mockup is a document
+// Width matches the workflow's desktop viewport, so both rails use the same
+// 260px / 340px track. Height is taller only because the mockup is a document
 // with prose above and below the pane; nothing in its CSS reads viewport height,
 // while the production pane sizes its button well from `min(24vw, 24vh)` and so
 // must be measured at exactly 1440x900.

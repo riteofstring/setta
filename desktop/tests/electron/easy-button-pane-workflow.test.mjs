@@ -29,6 +29,7 @@ import {
 } from "./electron-cdp-harness.mjs";
 import {
   assertArtifactMotionParameters,
+  assertEqualDesktopRailGeometry,
   assertHighlightCascade,
   assertHighlightDotPulse,
   assertNewestDotTone,
@@ -116,8 +117,7 @@ try {
   const toolbarOpen = await waitForEasyButtonPane(context.client);
   assertFullWidthColumn(toolbarOpen);
   assertIdleVisual(toolbarOpen);
-  // The idle control border is the resting reference every terminal tone is
-  // measured against, so no assertion has to hardcode a serialized color.
+  // The idle border is the resting reference, avoiding a hardcoded serialized color.
   const restingBorderColor = toolbarOpen.buttonBorderColor;
   await captureScreenshot(context.client, join(artifactDir, "easy-button-toolbar-open.png"));
 
@@ -835,6 +835,7 @@ function assertFullWidthColumn(state) {
       `easy-button pane was not opened as a full-width column: ${JSON.stringify(state)}`,
     );
   }
+  assertEqualDesktopRailGeometry(state);
 }
 
 function assertIdleVisual(state) {
