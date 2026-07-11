@@ -14,7 +14,6 @@ const seededSurfaceKinds = new Map<number, SurfaceKind>([
 const surfaceKindLabels = {
   browser: "browser",
   "chat-dom": "real chat",
-  "easy-button": "easy button",
   "empty-frame": "empty frame",
   "fake-dom": "fake light",
   "fake-heavy-dom": "fake heavy",

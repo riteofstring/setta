@@ -51,10 +51,6 @@ describe("pane chrome title metadata", () => {
       icon: "settings",
       title: "Settings",
     });
-    expect(paneChromeTitleModel(fakePane("easy-button", "Easy Button"))).toMatchObject({
-      icon: "sparkles",
-      title: "Easy Button",
-    });
     expect(paneChromeTitleModel(fakePane("semantic-node-details", "Semantic Node"))).toMatchObject({
       icon: "network",
       title: "Semantic Node",

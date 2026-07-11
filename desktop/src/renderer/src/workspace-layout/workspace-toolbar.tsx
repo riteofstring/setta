@@ -4,7 +4,6 @@ import {
   MessageSquarePlus,
   Plus,
   Settings,
-  Sparkles,
   Terminal,
   ZoomIn,
   ZoomOut,
@@ -99,15 +98,6 @@ export const openPaneActions = [
     label: "Chat",
     request: openPaneRequest("Chat", "chat workspace surface", "chat-dom", "cyan"),
     shortcutKey: "c",
-  },
-  {
-    Icon: Sparkles,
-    label: "Easy Button",
-    request: {
-      ...openPaneRequest("Easy Button", "one request surface", "easy-button", "cyan"),
-      widthSpec: { unit: "proportion", value: 1 },
-    },
-    shortcutKey: "e",
   },
   {
     Icon: Globe,

@@ -853,6 +853,13 @@ func (service *Service) saveSteeringMessageLocked(workspaceID string, conversati
 	if err := service.store.SaveMessage(workspaceID, message); err != nil {
 		return ChatMessage{}, err
 	}
+	// Assign the steering message a run-local transcript ordinal at the moment it
+	// is sent so it interleaves with the assistant/activity blocks already emitted.
+	if active, ok := service.active[activeKey(workspaceID, conversationID)]; ok && active.runID == run.ID && active.transcript != nil {
+		if err := service.appendUserMessageBlockLocked(workspaceID, active.transcript, message); err != nil {
+			return ChatMessage{}, err
+		}
+	}
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
 		return ChatMessage{}, err
@@ -930,46 +937,27 @@ func (service *Service) markPendingSteeringCommitted(workspaceID string, convers
 	if err != nil {
 		return err
 	}
-	matches := make([]ChatMessage, 0, 1)
 	for _, message := range pending {
 		if promptFromMessage(message) != text {
 			continue
 		}
-		matches = append(matches, message)
+		message.Status = MessageStatusComplete
+		message.UpdatedAt = timestamp(service.now())
+		if err := service.store.SaveMessage(workspaceID, message); err != nil {
+			return err
+		}
+		if err := service.syncUserMessageBlockLocked(workspaceID, conversationID, runID, message); err != nil {
+			return err
+		}
+		if err := service.traceLocked(workspaceID, runID, "steering_message_committed", "Steering message committed by provider"); err != nil {
+			return err
+		}
+		if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, runID, message)); err != nil {
+			return err
+		}
+		return service.publishFreshProviderEventLivenessLocked(workspaceID, conversationID, runID)
 	}
-	if len(matches) == 0 {
-		return nil
-	}
-	if len(matches) > 1 {
-		return fmt.Errorf("provider committed steering text %q for run %s but matched %d pending steering messages", text, runID, len(matches))
-	}
-	message := matches[0]
-	message.Status = MessageStatusComplete
-	message.UpdatedAt = timestamp(service.now())
-	if err := service.store.SaveMessage(workspaceID, message); err != nil {
-		return err
-	}
-	if err := service.commitSteeringMessageBlockLocked(workspaceID, conversationID, runID, message); err != nil {
-		return err
-	}
-	if err := service.traceLocked(workspaceID, runID, "steering_message_committed", "Steering message committed by provider"); err != nil {
-		return err
-	}
-	if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, runID, message)); err != nil {
-		return err
-	}
-	return service.publishFreshProviderEventLivenessLocked(workspaceID, conversationID, runID)
-}
-
-func (service *Service) commitSteeringMessageBlockLocked(workspaceID string, conversationID string, runID string, message ChatMessage) error {
-	active, ok := service.active[activeKey(workspaceID, conversationID)]
-	if !ok || active.runID != runID || active.transcript == nil {
-		return nil
-	}
-	if _, exists := active.transcript.userMessageBlockByID[message.ID]; exists {
-		return service.syncUserMessageBlockLocked(workspaceID, conversationID, runID, message)
-	}
-	return service.appendUserMessageBlockLocked(workspaceID, active.transcript, message)
+	return nil
 }
 
 func (service *Service) markPendingSteeringMessagesLocked(workspaceID string, conversationID string, runID string, status MessageStatus) ([]ChatMessage, error) {

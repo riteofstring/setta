@@ -25,7 +25,6 @@ import {
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
-import { useEasyRunStore } from "./stores/easy-run-store";
 import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
 import {
@@ -113,11 +112,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   useEffect(() => {
     return setta.chat.onEvent((event) => {
       useChatStore.getState().handleEvent(event);
-    });
-  }, [setta]);
-  useEffect(() => {
-    return setta.easyRun.onEvent((event) => {
-      useEasyRunStore.getState().handleEvent(event);
     });
   }, [setta]);
 

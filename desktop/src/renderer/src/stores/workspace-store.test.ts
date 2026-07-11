@@ -348,7 +348,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       },
     },
     runtimes: {} as SettaAPI["runtimes"],
-    speech: {} as SettaAPI["speech"],
     chat: {
       activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => emptyRun(),
@@ -597,7 +596,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
-    easyRun: unimplementedEasyRunAPI(),
     workspaceActivity: unimplementedWorkspaceActivityAPI(),
     terminal: unimplementedTerminalAPI(),
     semanticGraph: unimplementedSemanticGraphAPI(),
@@ -625,19 +623,6 @@ function unimplementedWorkspaceActivityAPI(): SettaAPI["workspaceActivity"] {
   };
 }
 
-function unimplementedEasyRunAPI(): SettaAPI["easyRun"] {
-  const unavailable = async (): Promise<never> => {
-    throw new Error("easy-run API is not implemented in this test");
-  };
-  return {
-    onEvent: () => () => {},
-    snapshot: unavailable,
-    start: unavailable,
-    steer: unavailable,
-    stop: unavailable,
-  };
-}
-
 function unimplementedTerminalAPI(): SettaAPI["terminal"] {
   const unavailable = async (): Promise<never> => {
     throw new Error("terminal API is not implemented in this test");
@@ -651,6 +636,9 @@ function unimplementedTerminalAPI(): SettaAPI["terminal"] {
     input: unavailable,
     listProfiles: unavailable,
     onEvent: () => () => {},
+    onStatus: () => () => {},
+    recordLatency: () => {},
+    recordingRunId: "terminal_latency_test",
     resize: unavailable,
     selectDefaultProfile: unavailable,
     updateProfile: unavailable,
@@ -755,7 +743,6 @@ function emptyConversation() {
     title: "Test",
     updatedAt: "2026-05-29T20:00:00Z",
     workflow: null,
-    easyRun: null,
     workspaceId: "workspace_api",
   };
 }

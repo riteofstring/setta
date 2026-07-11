@@ -37,12 +37,10 @@ import type {
   CreateSemanticSteeringDirectiveRequest,
   CloseTerminalRequest,
   CloseTerminalResponse,
+  CreateDevicePairingResponse,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
-  EasyRun,
-  EasyRunEvent,
-  EasyRunSnapshot,
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
@@ -108,26 +106,15 @@ import type {
   SemanticSteeringState,
   SendMessageResult,
   SelectDefaultTerminalProfileRequest,
-  SpeechAudio,
-  SpeechCapabilities,
-  SpeechTranscriptionSession,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
-  StartEasyRunRequest,
-  CreateSpeechTranscriptionSessionRequest,
-  SteerEasyRunRequest,
   SteerMessageResult,
   SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
-  StopEasyRunRequest,
-  SynthesizeEasyRunHighlightRequest,
-  SynthesizeEasyRunSummaryRequest,
   StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
-  TerminalInputRequest,
-  TerminalInputResponse,
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
@@ -151,7 +138,41 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
-import type { EasyRunSteerResult } from "./easy-run-ipc";
+import type { TerminalStreamStatus } from "./terminal-stream-client";
+import type { TerminalLatencyRendererEvent } from "./recording";
+
+import type {
+  CloudRuntimeProvisionExecuteRequest,
+  CloudRuntimeProvisionExecuteResult,
+  CloudRuntimeProvisionOptions,
+  CloudRuntimeProvisionResolveRequest,
+  CloudRuntimeProvisionResolveResult,
+} from "./cloud-provision-types";
+
+export type {
+  CloudRuntimeProvisionApproval,
+  CloudRuntimeProvisionAWSPlacement,
+  CloudRuntimeProvisionAuthInput,
+  CloudRuntimeProvisionCost,
+  CloudRuntimeProvisionCreationRecord,
+  CloudRuntimeProvisionExecutedResult,
+  CloudRuntimeProvisionExecuteRequest,
+  CloudRuntimeProvisionExecuteResult,
+  CloudRuntimeProvisionExecutionFileInput,
+  CloudRuntimeProvisionExecutionPlan,
+  CloudRuntimeProvisionExistingRecordAction,
+  CloudRuntimeProvisionExistingRecordResult,
+  CloudRuntimeProvisionImageSelector,
+  CloudRuntimeProvisionMachine,
+  CloudRuntimeProvisionOptions,
+  CloudRuntimeProvisionProvider,
+  CloudRuntimeProvisionReleaseInput,
+  CloudRuntimeProvisionResolution,
+  CloudRuntimeProvisionResolvedConstraints,
+  CloudRuntimeProvisionResolveRequest,
+  CloudRuntimeProvisionResolveResult,
+  CloudRuntimeProvisionShape,
+} from "./cloud-provision-types";
 
 export interface RuntimeVersions {
   app: string;
@@ -324,6 +345,20 @@ export type RuntimeConnectionStatus =
   | "incompatible"
   | "mismatched";
 
+export interface TerminalInputTrace {
+  clientId: string;
+  inputSequence: number;
+  preloadReceivedAt: string;
+  rendererReceivedAt: string;
+  runId: string;
+}
+
+export interface TerminalInputRequest {
+  dataBase64: string;
+  sessionId: string;
+  trace: TerminalInputTrace;
+}
+
 export interface RuntimeConnectionState {
   message: string;
   protocolVersion: number | null;
@@ -344,8 +379,137 @@ export interface KnownRuntimeView {
   runtimeId: string;
 }
 
+interface CloudRuntimeProvisionResourceCommands {
+  diagnose: string;
+  inspect: string;
+  teardownApprove: string | null;
+  teardownPlan: string | null;
+}
+
+export interface CloudRuntimeProvisionResourceView {
+  account: string | null;
+  billingWarning: string | null;
+  cleanupSummary: string;
+  commands: CloudRuntimeProvisionResourceCommands;
+  createdAt: string;
+  expectedResourceName: string;
+  infrastructureProvider: RuntimeInfrastructureProvider;
+  lastError: string | null;
+  lastReachableAt: string | null;
+  recordId: string;
+  region: string;
+  resourceId: string | null;
+  runtimeName: string;
+  status: string;
+  statusMessage: string;
+  teardownReady: boolean;
+  updatedAt: string;
+}
+
+export interface AddExistingMachineSSHRuntimeRequest {
+  installerSha256: string;
+  minisignPublicKey: string;
+  releaseBaseUrl: string;
+  runtimeName?: string;
+  settaVersion: string;
+  sshTarget: string;
+  tailscaleAuthKey: string;
+}
+
+export interface RuntimeSecretStorageStatus {
+  backend: string;
+  message: string | null;
+  security: "encrypted" | "plaintext-equivalent" | "unavailable";
+}
+
+export interface TailscaleLocalTailnetStatus {
+  dnsName: string | null;
+  error: string | null;
+  loginName: string | null;
+  status: "joined" | "not_found" | "not_joined" | "error";
+  tailnetName: string | null;
+}
+
+export interface TailscaleOAuthCredentialStatus {
+  clientIdPreview: string | null;
+  configured: boolean;
+  expectedTag: string;
+  lastValidatedAt: string | null;
+  lastValidationError: string | null;
+  lastValidationStatus: "valid" | "failed" | null;
+  secretStorage: RuntimeSecretStorageStatus;
+  tailnet: string;
+}
+
+export interface TailscaleOAuthSetupGuide {
+  aclSnippet: string;
+  adminConsoleUrl: string;
+  credentialFields: {
+    clientIdLabel: string;
+    clientSecretLabel: string;
+  };
+  docsUrl: string;
+  localTailnet: TailscaleLocalTailnetStatus;
+  manualAuthKeyFallback: {
+    adminConsoleUrl: string;
+    description: string;
+    expectedTag: string;
+  };
+  oauth: TailscaleOAuthCredentialStatus;
+  requiredScope: "auth_keys";
+  requiredTag: string;
+  runtimeIsolationPolicySnippet: string;
+}
+
+export interface SaveTailscaleOAuthCredentialsRequest {
+  clientId: string;
+  clientSecret: string;
+  expectedTag?: string;
+  tailnet?: string;
+}
+
+export interface TailscaleOAuthValidationResult {
+  code:
+    | "tailscale_oauth_valid"
+    | "tailscale_oauth_not_configured"
+    | "tailscale_oauth_invalid_credentials"
+    | "tailscale_oauth_permission_denied"
+    | "tailscale_oauth_revoke_failed"
+    | "tailscale_oauth_api_error"
+    | "tailscale_oauth_network_failed";
+  keyId: string | null;
+  message: string;
+  ok: boolean;
+  revoked: boolean;
+  tag: string;
+}
+
+export interface MintTailscaleAuthKeyRequest {
+  description?: string;
+  ephemeral?: boolean;
+  expirySeconds?: number;
+  preauthorized?: boolean;
+  reusable?: boolean;
+  runtimeName: string;
+  tags?: string[];
+}
+
+export interface MintTailscaleAuthKeyResult {
+  authKey: string;
+  createdAt: string;
+  description: string;
+  ephemeral: boolean;
+  expiresAt: string | null;
+  expirySeconds: number;
+  keyId: string | null;
+  preauthorized: boolean;
+  reusable: boolean;
+  tags: string[];
+}
+
 export interface RuntimeRegistrySnapshot {
   activeRuntimeId: string | null;
+  cloudResources: CloudRuntimeProvisionResourceView[];
   connection: RuntimeConnectionState;
   runtimes: KnownRuntimeView[];
   switching: boolean;
@@ -383,12 +547,31 @@ export interface SettaAPI {
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
   runtimes: {
+    addExistingMachineOverSSH: (
+      request: AddExistingMachineSSHRuntimeRequest,
+    ) => Promise<RuntimeRegistrySnapshot>;
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
+    cloudProvisionOptions?: () => Promise<CloudRuntimeProvisionOptions>;
+    cloudProvisionResolve?: (
+      request: CloudRuntimeProvisionResolveRequest,
+    ) => Promise<CloudRuntimeProvisionResolveResult>;
+    cloudProvisionExecute?: (
+      request: CloudRuntimeProvisionExecuteRequest,
+    ) => Promise<CloudRuntimeProvisionExecuteResult>;
+    createDevicePairing: () => Promise<CreateDevicePairingResponse>;
     current: () => Promise<RuntimeRegistrySnapshot>;
     list: () => Promise<KnownRuntimeView[]>;
     onConnectionState: (listener: (snapshot: RuntimeRegistrySnapshot) => void) => () => void;
     remove: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
     switch: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
+    tailscaleAuthKeyMint?: (
+      request: MintTailscaleAuthKeyRequest,
+    ) => Promise<MintTailscaleAuthKeyResult>;
+    tailscaleOAuthSaveCredentials?: (
+      request: SaveTailscaleOAuthCredentialsRequest,
+    ) => Promise<TailscaleOAuthCredentialStatus>;
+    tailscaleOAuthSetupGuide?: () => Promise<TailscaleOAuthSetupGuide>;
+    tailscaleOAuthValidate?: () => Promise<TailscaleOAuthValidationResult>;
   };
   workspaceActivity: {
     onEvent: (listener: (event: WorkspaceActivityEvent) => void) => () => void;
@@ -398,28 +581,6 @@ export interface SettaAPI {
       executionId: string,
       limit: number,
     ) => Promise<WorkspaceActivitySnapshot>;
-  };
-  easyRun: {
-    onEvent: (listener: (event: EasyRunEvent) => void) => () => void;
-    snapshot: (workspaceId: string) => Promise<EasyRunSnapshot>;
-    start: (request: StartEasyRunRequest) => Promise<EasyRun>;
-    steer: (request: SteerEasyRunRequest) => Promise<EasyRunSteerResult>;
-    stop: (request: StopEasyRunRequest) => Promise<EasyRun>;
-  };
-  speech: {
-    cancelSynthesis: (operationId: string) => Promise<void>;
-    createTranscriptionSession: (
-      request: CreateSpeechTranscriptionSessionRequest,
-    ) => Promise<SpeechTranscriptionSession>;
-    readCapabilities: () => Promise<SpeechCapabilities>;
-    synthesizeEasyRunHighlight: (
-      request: SynthesizeEasyRunHighlightRequest,
-      operationId: string,
-    ) => Promise<SpeechAudio>;
-    synthesizeEasyRunSummary: (
-      request: SynthesizeEasyRunSummaryRequest,
-      operationId: string,
-    ) => Promise<SpeechAudio>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;
@@ -450,9 +611,12 @@ export interface SettaAPI {
       },
     ) => Promise<TerminalSessionResponse>;
     deleteProfile: (request: DeleteTerminalProfileRequest) => Promise<TerminalProfileList>;
-    input: (input: TerminalInputRequest) => Promise<TerminalInputResponse>;
+    input: (input: TerminalInputRequest) => void;
     listProfiles: () => Promise<TerminalProfileList>;
     onEvent: (listener: (event: TerminalEvent) => void) => () => void;
+    onStatus: (listener: (status: TerminalStreamStatus) => void) => () => void;
+    recordLatency: (event: TerminalLatencyRendererEvent) => void;
+    recordingRunId: string;
     resize: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
     selectDefaultProfile: (
       request: SelectDefaultTerminalProfileRequest,

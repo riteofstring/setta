@@ -1,0 +1,112 @@
+import type { TerminalEvent } from "@generated/backend";
+import type { TerminalInputTrace } from "@shared/types";
+import type { TerminalLatencyRendererEvent, TerminalOutputSchedule } from "@shared/recording";
+
+const terminalClientIdStorageKey = "setta.terminal-latency.client-id.v1";
+const terminalInputSequenceStoragePrefix = "setta.terminal-latency.input-sequence.v1";
+
+export type TerminalOutputLatencyStage =
+  | "terminal_output_painted"
+  | "terminal_output_renderer_received"
+  | "terminal_output_xterm_write";
+
+export function createTerminalInputTrace(sessionId: string, byteCount: number): TerminalInputTrace {
+  const terminal = window.setta?.terminal;
+  const runId = terminal?.recordingRunId ?? "";
+  const clientId = terminalClientId();
+  const inputSequence = nextInputSequence(clientId, sessionId);
+  const rendererReceivedAt = timestamp();
+  terminal?.recordLatency({
+    at: rendererReceivedAt,
+    byteCount,
+    clientId,
+    inputSequence,
+    runId,
+    sessionId,
+    type: "terminal_input_renderer_received",
+    url: window.location?.href ?? "",
+  });
+  return {
+    clientId,
+    inputSequence,
+    preloadReceivedAt: "",
+    rendererReceivedAt,
+    runId,
+  };
+}
+
+export function recordTerminalOutputStage(
+  stage: "terminal_output_renderer_received",
+  event: TerminalEvent,
+): void;
+export function recordTerminalOutputStage(
+  stage: "terminal_output_painted" | "terminal_output_xterm_write",
+  event: TerminalEvent,
+  outputSchedule: TerminalOutputSchedule,
+): void;
+export function recordTerminalOutputStage(
+  stage: TerminalOutputLatencyStage,
+  event: TerminalEvent,
+  outputSchedule?: TerminalOutputSchedule,
+): void {
+  const terminal = window.setta?.terminal;
+  if (!terminal || event.type !== "terminal.output") {
+    return;
+  }
+  const base = {
+    at: timestamp(),
+    byteCount: event.payload.byteCount,
+    clientId: terminalClientId(),
+    emittedAt: event.emittedAt,
+    eventId: event.eventId,
+    runId: terminal.recordingRunId,
+    sessionId: event.sessionId,
+    transportSequence: event.sequence,
+    url: window.location?.href ?? "",
+  };
+  const record: TerminalLatencyRendererEvent =
+    stage === "terminal_output_renderer_received"
+      ? { ...base, type: stage }
+      : {
+          ...base,
+          outputSchedule: requireOutputSchedule(stage, outputSchedule),
+          type: stage,
+        };
+  terminal.recordLatency(record);
+}
+
+function requireOutputSchedule(
+  stage: "terminal_output_painted" | "terminal_output_xterm_write",
+  outputSchedule: TerminalOutputSchedule | undefined,
+): TerminalOutputSchedule {
+  if (!outputSchedule) {
+    throw new Error(`${stage} requires the scheduler's recorded output decision`);
+  }
+  return outputSchedule;
+}
+
+function terminalClientId(): string {
+  const existing = window.sessionStorage.getItem(terminalClientIdStorageKey);
+  if (existing) {
+    return existing;
+  }
+  const created = `terminal-client-${crypto.randomUUID()}`;
+  window.sessionStorage.setItem(terminalClientIdStorageKey, created);
+  return created;
+}
+
+function nextInputSequence(clientId: string, sessionId: string): number {
+  const key = `${terminalInputSequenceStoragePrefix}:${clientId}:${sessionId}`;
+  const stored = window.sessionStorage.getItem(key);
+  const current = stored === null ? 0 : Number.parseInt(stored, 10);
+  if (!Number.isInteger(current) || current < 0) {
+    throw new Error(`invalid terminal input sequence ${stored} for ${clientId}:${sessionId}`);
+  }
+  const next = current + 1;
+  window.sessionStorage.setItem(key, String(next));
+  return next;
+}
+
+function timestamp(): string {
+  return new Date().toISOString();
+}

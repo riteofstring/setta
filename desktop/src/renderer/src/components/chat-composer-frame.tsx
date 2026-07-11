@@ -33,13 +33,6 @@ import type { ComposerSessionViewModel } from "./chat-composer-contract";
 type CommandPaletteProps = Parameters<typeof CommandPalette>[0];
 type PermissionPickerButtonProps = Parameters<typeof PermissionPickerButton>[0];
 
-export interface ReadOnlyComposerSettings {
-  disabledReason: string;
-  modelLabel: string;
-  permissionLabel: string;
-  reasoningLabel: string;
-}
-
 export interface ComposerFrameProps {
   acceptsPrompt: boolean;
   attachmentActionsAvailable: boolean;
@@ -70,7 +63,6 @@ export interface ComposerFrameProps {
   permissionPickerDisabled: boolean;
   placeholder: string;
   queueDraft?: () => Promise<void>;
-  readOnlySettings?: ReadOnlyComposerSettings | null;
   retryActiveRunLiveness?: () => Promise<void>;
   runPresentation: ActiveRunPresentation;
   running: boolean;
@@ -160,7 +152,10 @@ export function ComposerFrame(props: ComposerFrameProps) {
               error={props.attachmentError}
               onRemove={props.onRemoveAttachment}
             />
-            <ComposerBottomToolbar {...props} />
+            <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
+              <ComposerLeftControls {...props} />
+              <ComposerRightControls {...props} />
+            </div>
           </div>
         </div>
       </form>
@@ -170,36 +165,6 @@ export function ComposerFrame(props: ComposerFrameProps) {
         preset={props.permissionConfirmation}
       />
     </>
-  );
-}
-
-export function ReadOnlyComposerSettingsFrame({
-  formClassName,
-  frameClassName,
-  settings,
-}: {
-  formClassName?: string;
-  frameClassName?: string;
-  settings: ReadOnlyComposerSettings;
-}) {
-  return (
-    <form
-      className={cn("workspace-chat-pane-surface px-3 pt-1 pb-1.5", formClassName)}
-      data-chat-composer-mode="read-only-settings"
-      data-testid="chat-composer"
-      onSubmit={(event) => event.preventDefault()}
-    >
-      <div {...chatReadableColumnAttributes} className={cn("relative", chatReadableColumnClass)}>
-        <div
-          className={cn(
-            "min-w-0 rounded-sm border border-border bg-card/90 px-2 py-1.5 shadow-lg shadow-black/15",
-            frameClassName,
-          )}
-        >
-          <ReadOnlyComposerBottomToolbar settings={settings} />
-        </div>
-      </div>
-    </form>
   );
 }
 
@@ -225,37 +190,6 @@ function ComposerPaletteSlot(props: ComposerFrameProps) {
   );
 }
 
-function ComposerBottomToolbar(props: ComposerFrameProps) {
-  return (
-    <div
-      className="mt-1 flex min-w-0 items-center justify-between gap-1.5"
-      data-chat-settings-readonly={props.readOnlySettings == null ? undefined : "true"}
-      data-testid="chat-composer-bottom-toolbar"
-    >
-      <ComposerLeftControls {...props} />
-      <ComposerRightControls {...props} />
-    </div>
-  );
-}
-
-function ReadOnlyComposerBottomToolbar({ settings }: { settings: ReadOnlyComposerSettings }) {
-  return (
-    <div
-      className="flex min-w-0 items-center justify-between gap-1.5"
-      data-chat-settings-readonly="true"
-      data-testid="chat-composer-bottom-toolbar"
-    >
-      <div className="flex min-w-0 items-center gap-1">
-        <ReadOnlyPermissionPickerButton settings={settings} />
-      </div>
-      <div className="flex min-w-0 items-center gap-1">
-        <ReadOnlyModelPickerButton settings={settings} />
-        <VoiceInputUnavailableButton />
-      </div>
-    </div>
-  );
-}
-
 function ComposerLeftControls(props: ComposerFrameProps) {
   return (
     <div className="flex min-w-0 items-center gap-1">
@@ -269,8 +203,6 @@ function ComposerLeftControls(props: ComposerFrameProps) {
           running={props.running}
           selected={props.selected}
         />
-      ) : props.readOnlySettings != null ? (
-        <ReadOnlyPermissionPickerButton settings={props.readOnlySettings} />
       ) : null}
       {props.attachmentActionsAvailable ? (
         <button
@@ -301,8 +233,6 @@ function ComposerRightControls(props: ComposerFrameProps) {
           running={props.running}
           selected={props.selected}
         />
-      ) : props.readOnlySettings != null ? (
-        <ReadOnlyModelPickerButton settings={props.readOnlySettings} />
       ) : null}
       <VoiceInputUnavailableButton />
       <ComposerButton
@@ -319,35 +249,3 @@ function ComposerRightControls(props: ComposerFrameProps) {
     </div>
   );
 }
-
-function ReadOnlyPermissionPickerButton({ settings }: { settings: ReadOnlyComposerSettings }) {
-  return (
-    <PermissionPickerButton
-      disabled
-      disabledReason={settings.disabledReason}
-      onOpen={noop}
-      onSelect={noop}
-      permissionLabel={settings.permissionLabel}
-      permissionPicker={null}
-      running={false}
-      selected
-    />
-  );
-}
-
-function ReadOnlyModelPickerButton({ settings }: { settings: ReadOnlyComposerSettings }) {
-  return (
-    <ModelPickerButton
-      disabled
-      disabledReason={settings.disabledReason}
-      modelLabel={settings.modelLabel}
-      modelPicker={null}
-      onOpen={noop}
-      reasoningLabel={settings.reasoningLabel}
-      running={false}
-      selected
-    />
-  );
-}
-
-function noop() {}

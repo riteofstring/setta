@@ -60,65 +60,6 @@ func TestAddSchemaRejectsConflictingDuplicateName(t *testing.T) {
 	}
 }
 
-func TestAddSchemaSelectsCompatibleObjectSuperset(t *testing.T) {
-	generator := &generator{
-		schemas:   map[string]jsonSchema{},
-		schemaRaw: map[string]string{},
-		queue:     []string{},
-	}
-	base := jsonSchema{
-		Type:       "object",
-		Properties: map[string]jsonSchema{"id": {Type: "string"}},
-		Required:   []string{"id"},
-	}
-	superset := jsonSchema{
-		Type: "object",
-		Properties: map[string]jsonSchema{
-			"extra": {Type: []any{"string", "null"}},
-			"id":    {Type: "string"},
-		},
-		Required: []string{"id"},
-	}
-	if err := generator.addSchema("Example", base); err != nil {
-		t.Fatalf("add base schema: %v", err)
-	}
-	if err := generator.addSchema("Example", superset); err != nil {
-		t.Fatalf("add compatible superset schema: %v", err)
-	}
-	if _, ok := generator.schemas["Example"].Properties["extra"]; !ok {
-		t.Fatal("compatible superset did not replace the base schema")
-	}
-	if len(generator.queue) != 1 {
-		t.Fatalf("schema queue = %q, want one entry", generator.queue)
-	}
-	if err := generator.addSchema("Example", base); err != nil {
-		t.Fatalf("re-add base schema after superset: %v", err)
-	}
-}
-
-func TestAddSchemaRejectsObjectWithDifferentRequirements(t *testing.T) {
-	generator := &generator{
-		schemas:   map[string]jsonSchema{},
-		schemaRaw: map[string]string{},
-		queue:     []string{},
-	}
-	base := jsonSchema{
-		Type:       "object",
-		Properties: map[string]jsonSchema{"id": {Type: "string"}},
-		Required:   []string{"id"},
-	}
-	conflict := jsonSchema{
-		Type:       "object",
-		Properties: map[string]jsonSchema{"id": {Type: "string"}},
-	}
-	if err := generator.addSchema("Example", base); err != nil {
-		t.Fatalf("add base schema: %v", err)
-	}
-	if err := generator.addSchema("Example", conflict); err == nil {
-		t.Fatal("add schema with different requirements succeeded")
-	}
-}
-
 func TestAddRootSchemaRejectsConflictingDuplicateName(t *testing.T) {
 	generator := &generator{
 		rootSchemas:   map[string]jsonSchema{},

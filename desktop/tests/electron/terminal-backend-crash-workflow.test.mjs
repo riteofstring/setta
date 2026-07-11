@@ -201,7 +201,7 @@ async function waitForBackendPort(recordingDir) {
           continue;
         }
         const url = new URL(entry.url);
-        if (url.pathname === "/terminals/events" && url.port !== "") {
+        if (url.pathname === "/terminals/stream/ticket" && url.port !== "") {
           return Number.parseInt(url.port, 10);
         }
       }

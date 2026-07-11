@@ -191,108 +191,19 @@
     const surfaces = document.querySelectorAll('[data-testid="workflow-node-details-surface"]');
     const surface = lastSurface(surfaces);
     const trajectories = queryAll(details, '[data-testid="agent-trajectory-surface"]');
-    const detailsDock = workflowRunDetailsDockState(details);
-    const composerSettings = workflowRunDetailsComposerSettingsState(details);
-    const standaloneSettingsBarCount = countSelector(
-      details,
-      '[data-testid="workflow-agent-run-settings"]',
-    );
     return {
       activityGroupHeaderCount: countSelector(details, '[data-testid="activity-group-header"]'),
       chatConversationTrajectoryCount: scopedTrajectoryCount(trajectories, "chatConversation"),
       chatMessageCount: countSelector(surface, "[data-chat-message]"),
-      chatTranscriptScrollerCount: countSelector(
-        details,
-        '[data-testid="chat-transcript-scroller"]',
-      ),
-      detailsDockOpen: detailsDock.open,
-      detailsDockPresent: detailsDock.present,
       detailsSurfaceCount: surfaces.length,
       focusElementId: focusedActivityId(surface),
-      layout: details?.getAttribute("data-workflow-node-run-layout") ?? "",
-      nestedTrajectoryFramePresent: nestedTrajectoryFramePresent(details),
       nodeId: workflowNodeDetailsNodeId(surface),
-      nodeStatusChipCount: countSelector(details, '[data-testid="workflow-node-status-chip"]'),
       present: surface !== null,
       runActivityRowCount: countSelector(details, '[data-testid="run-activity-row"]'),
-      composerSettings,
-      settingsBarCount: standaloneSettingsBarCount,
-      settingsBarText: "",
-      standaloneSettingsBarCount,
       text: elementText(details),
       trajectory: workflowNodeTrajectoryStateForDetails(details),
-      workflowStatusText: workflowRunDetailsWorkflowStatusText(details),
       workflowTrajectorySurfaceCount: scopedTrajectoryCount(trajectories, "workflowNodeExecution"),
     };
-  }
-
-  function workflowRunDetailsDockState(details) {
-    const dock = details?.querySelector('[data-testid="workflow-run-details-dock"]') ?? null;
-    return {
-      open: dock?.hasAttribute("open") ?? false,
-      present: dock !== null,
-    };
-  }
-
-  function workflowRunDetailsComposerSettingsState(details) {
-    const composer = workflowNodeTrajectoryComposerElement(details);
-    const toolbar = composer?.querySelector('[data-testid="chat-composer-bottom-toolbar"]') ?? null;
-    const textarea = workflowNodeTrajectoryComposerTextarea(composer);
-    const permissionButton = disabledButtonState(
-      toolbar,
-      'button[aria-label="Open permission mode picker"]',
-    );
-    const modelButton = disabledButtonState(
-      toolbar,
-      'button[aria-label="Open model and reasoning picker"]',
-    );
-    return {
-      composerMode: composer?.getAttribute("data-chat-composer-mode") ?? "",
-      count: elementPresenceCount(toolbar),
-      modelButtonDisabled: modelButton.disabled,
-      modelButtonText: modelButton.text,
-      modelButtonTitle: modelButton.title,
-      permissionButtonDisabled: permissionButton.disabled,
-      permissionButtonText: permissionButton.text,
-      permissionButtonTitle: permissionButton.title,
-      readOnly: toolbar?.getAttribute("data-chat-settings-readonly") === "true",
-      text: elementText(toolbar),
-      textareaBeforeToolbar: elementBefore(textarea, toolbar),
-      textareaExists: textarea instanceof HTMLTextAreaElement,
-    };
-  }
-
-  function disabledButtonState(container, selector) {
-    const button = container?.querySelector(selector) ?? null;
-    return {
-      disabled: button instanceof HTMLButtonElement && button.disabled,
-      text: elementText(button),
-      title: button?.getAttribute("title") ?? "",
-    };
-  }
-
-  function elementPresenceCount(element) {
-    return element === null ? 0 : 1;
-  }
-
-  function elementBefore(first, second) {
-    return (
-      first !== null &&
-      second !== null &&
-      typeof first.compareDocumentPosition === "function" &&
-      Boolean(first.compareDocumentPosition(second) & 4)
-    );
-  }
-
-  function workflowRunDetailsWorkflowStatusText(details) {
-    const workflowStatus =
-      details?.querySelector('[data-testid="workflow-node-run-workflow-status"]') ?? null;
-    return elementText(workflowStatus);
-  }
-
-  function nestedTrajectoryFramePresent(details) {
-    const trajectory = details?.querySelector('[data-testid="workflow-node-agent-trajectory"]');
-    return trajectory?.className.includes("h-[36rem]") ?? false;
   }
 
   function workflowNodeTrajectoryState() {
@@ -306,10 +217,6 @@
     const outputButtons = queryAll(trajectory, "button").filter(
       (button) => button.textContent?.trim() === "Load more",
     );
-    const pendingSteeringRows = queryAll(
-      trajectory,
-      '[data-message-delivery="steering"][data-message-status="pending"]',
-    );
     return {
       approvalApproveButtonReady: approvalDecisionButtonReady(approvalCards, "Approve"),
       approvalCardCount: approvalCards.length,
@@ -319,11 +226,6 @@
       loadMoreButtonCount: outputButtons.length,
       nodeExecutionId: trajectory?.getAttribute("data-workflow-node-execution-id") ?? "",
       outputText: outputTextForTrajectory(trajectory),
-      pendingSteeringBlockCount: pendingSteeringRows.filter(
-        (row) => row.getAttribute("data-transcript-block") === "true",
-      ).length,
-      pendingSteeringRowCount: pendingSteeringRows.length,
-      pendingSteeringText: pendingSteeringRows.map((row) => elementText(row)).join("\n"),
       runId: trajectory?.getAttribute("data-workflow-node-run-id") ?? "",
       text: elementText(trajectory),
       trajectoryPresent: trajectory !== null,

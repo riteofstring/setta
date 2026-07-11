@@ -2,9 +2,11 @@ import {
   backendEndpoints,
   backendProtocolVersion,
   decodeCompletePairingResponse,
+  decodeCreateDevicePairingResponse,
   decodeErrorResponse,
   decodeRuntimeInfoResponse,
   type CompletePairingResponse,
+  type CreateDevicePairingResponse,
   type RuntimeInfoResponse,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
@@ -24,7 +26,7 @@ export type RuntimeConnectionFailureReason =
 export interface ParsedPairingURL {
   baseUrl: string;
   pairingToken: string;
-  runtimeId: string;
+  runtimeId: string | null;
 }
 
 export class RuntimePairingError extends Error {
@@ -74,16 +76,13 @@ export function parsePairingURL(rawURL: string): ParsedPairingURL {
   } catch (error) {
     throw new RuntimePairingError("invalid_pairing_url", errorMessage(error));
   }
-  if (parsed.protocol !== "setta:" || parsed.hostname !== "pair") {
-    throw new RuntimePairingError(
-      "invalid_pairing_url",
-      "pairing URL must start with setta://pair",
-    );
+  if (parsed.protocol === "setta:" && parsed.hostname === "pair") {
+    const runtimeId = requiredPairingParam(parsed, "rt");
+    const pairingToken = requiredPairingParam(parsed, "tok");
+    const baseUrl = validateRemoteRuntimeBaseURL(requiredPairingParam(parsed, "url"));
+    return { baseUrl, pairingToken, runtimeId };
   }
-  const runtimeId = requiredPairingParam(parsed, "rt");
-  const pairingToken = requiredPairingParam(parsed, "tok");
-  const baseUrl = validateRemoteRuntimeBaseURL(requiredPairingParam(parsed, "url"));
-  return { baseUrl, pairingToken, runtimeId };
+  return parseHTTPSFragmentPairingURL(parsed);
 }
 
 export function validateRemoteRuntimeBaseURL(rawURL: string): string {
@@ -94,6 +93,37 @@ export function validateRemoteRuntimeBaseURL(rawURL: string): string {
   requireRuntimeURLOriginOnly(parsed);
   parsed.pathname = "/";
   return parsed.toString();
+}
+
+export async function createDevicePairing(options: {
+  baseUrl: string;
+  deviceToken: string;
+  fetchImpl: BackendFetch;
+}): Promise<CreateDevicePairingResponse> {
+  try {
+    return decodeCreateDevicePairingResponse(
+      await requestRuntimeJSON({
+        authToken: options.deviceToken,
+        baseUrl: options.baseUrl,
+        endpoint: backendEndpoints.CreateDevicePairing,
+        fetchImpl: options.fetchImpl,
+        requestPayload: {
+          runtimeBaseUrl: validatePhonePairingRuntimeBaseURL(options.baseUrl),
+        },
+      }),
+    );
+  } catch (error) {
+    if (error instanceof RuntimeHTTPError) {
+      throw new RuntimePairingError("unreachable", error.message);
+    }
+    if (error instanceof RuntimePairingError) {
+      throw error;
+    }
+    throw new RuntimePairingError(
+      "unreachable",
+      `create device pairing failed: ${errorMessage(error)}`,
+    );
+  }
 }
 
 export async function fetchRuntimeInfo(
@@ -109,6 +139,9 @@ export async function fetchRuntimeInfo(
       }),
     );
   } catch (error) {
+    if (error instanceof RuntimeConnectionError) {
+      throw error;
+    }
     if (error instanceof RuntimeHTTPError) {
       throw new RuntimeConnectionError(
         "unreachable",
@@ -120,11 +153,28 @@ export async function fetchRuntimeInfo(
 }
 
 function decodeCompatibleRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
-  return decodeRuntimeInfoResponse(runtimeInfoResponseWithProviderFallback(value));
+  return decodeRuntimeInfoResponse(runtimeInfoResponseWithCompatibilityDiagnostics(value));
+}
+
+function runtimeInfoResponseWithCompatibilityDiagnostics(value: unknown): unknown {
+  const response = runtimeInfoResponseWithProviderFallback(value);
+  if (!isRuntimeInfoRecord(response)) {
+    return response;
+  }
+  if (!("featureSet" in response)) {
+    throw new RuntimeConnectionError(
+      "incompatible",
+      "runtime info is missing feature identity; update the runtime to match this app",
+      {
+        protocolVersion: runtimeInfoProtocolVersion(response),
+      },
+    );
+  }
+  return response;
 }
 
 function runtimeInfoResponseWithProviderFallback(value: unknown): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+  if (!isRuntimeInfoRecord(value)) {
     return value;
   }
   if ("infrastructureProvider" in value) {
@@ -134,6 +184,16 @@ function runtimeInfoResponseWithProviderFallback(value: unknown): unknown {
     ...value,
     infrastructureProvider: unknownRuntimeInfrastructureProvider,
   };
+}
+
+function isRuntimeInfoRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function runtimeInfoProtocolVersion(value: Record<string, unknown>): number | null {
+  return typeof value.protocolVersion === "number" && Number.isInteger(value.protocolVersion)
+    ? value.protocolVersion
+    : null;
 }
 
 export async function completePairing(
@@ -170,7 +230,7 @@ export async function completePairing(
     }
     throw new RuntimePairingError("unreachable", `runtime is unreachable: ${errorMessage(error)}`);
   }
-  if (response.runtimeId !== parsed.runtimeId) {
+  if (parsed.runtimeId !== null && response.runtimeId !== parsed.runtimeId) {
     throw new RuntimePairingError(
       "runtime_id_mismatch",
       `pairing response runtime_id ${response.runtimeId} does not match URL runtime_id ${parsed.runtimeId}`,
@@ -228,8 +288,8 @@ function parseRuntimeBaseURL(rawURL: string): URL {
 }
 
 function requireHTTPRuntimeURL(parsed: URL): void {
-  if (parsed.protocol !== "http:") {
-    throw new RuntimePairingError("invalid_pairing_url", "runtime URL must use http");
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new RuntimePairingError("invalid_pairing_url", "runtime URL must use http or https");
   }
 }
 
@@ -324,6 +384,66 @@ function requiredPairingParam(parsed: URL, name: string): string {
     throw new RuntimePairingError("invalid_pairing_url", `pairing URL is missing ${name}`);
   }
   return value;
+}
+
+function parseHTTPSFragmentPairingURL(parsed: URL): ParsedPairingURL {
+  if (parsed.protocol !== "https:") {
+    throw new RuntimePairingError(
+      "invalid_pairing_url",
+      "pairing URL must be setta://pair or https://<runtime>.ts.net/#pair=<token>",
+    );
+  }
+  requireRuntimeURLHost(parsed);
+  requireRuntimeURLWithoutCredentials(parsed);
+  if (parsed.pathname !== "" && parsed.pathname !== "/") {
+    throw new RuntimePairingError("invalid_pairing_url", "pairing URL must not include a path");
+  }
+  if (parsed.search !== "") {
+    throw new RuntimePairingError("invalid_pairing_url", "pairing URL must not include a query");
+  }
+  const fragment = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+  const pairingToken = fragment.get("pair");
+  if (pairingToken === null || pairingToken === "") {
+    throw new RuntimePairingError("invalid_pairing_url", "pairing URL is missing pair fragment");
+  }
+  if (!isTailscaleHTTPSHostname(parsed.hostname)) {
+    throw new RuntimePairingError(
+      "invalid_pairing_url",
+      "pairing URL must use an official Tailscale ts.net hostname",
+    );
+  }
+  parsed.hash = "";
+  parsed.pathname = "/";
+  return {
+    baseUrl: parsed.toString(),
+    pairingToken,
+    runtimeId: null,
+  };
+}
+
+function validatePhonePairingRuntimeBaseURL(rawURL: string): string {
+  const parsed = parseRuntimeBaseURL(rawURL);
+  if (parsed.protocol !== "https:") {
+    throw new RuntimePairingError(
+      "invalid_pairing_url",
+      "Pair another device requires the runtime to be connected through its https://*.ts.net address.",
+    );
+  }
+  requireRuntimeURLHost(parsed);
+  requireRuntimeURLWithoutCredentials(parsed);
+  requireRuntimeURLOriginOnly(parsed);
+  if (!isTailscaleHTTPSHostname(parsed.hostname)) {
+    throw new RuntimePairingError(
+      "invalid_pairing_url",
+      "Pair another device requires an official Tailscale ts.net runtime address.",
+    );
+  }
+  parsed.pathname = "/";
+  return parsed.toString();
+}
+
+function isTailscaleHTTPSHostname(hostname: string): boolean {
+  return hostname.toLowerCase().replace(/\.$/, "").endsWith(".ts.net");
 }
 
 function unreachableConnectionError(baseUrl: string, error: unknown): RuntimeConnectionError {

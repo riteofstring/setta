@@ -31,6 +31,20 @@ out/
 /.gocache/
 .tools/
 
+# Terraform/OpenTofu local state
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 # Local workspace scratch
 tmp/
 .recordings/
