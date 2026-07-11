@@ -38,15 +38,17 @@
     font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
-    padding: 32px 24px 80px;
+    /* tight at the top on purpose: the control strip is five rows tall, and every
+       pixel it wastes pushes the pane's summary below a laptop's fold */
+    padding: 10px 24px 64px;
   }
   .page { max-width: 1180px; margin: 0 auto; }
 
-  h1 { font-size: 22px; font-weight: 650; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h1 { font-size: 19px; font-weight: 650; margin: 0 0 2px; letter-spacing: -0.01em; }
   h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
        color: var(--faint); margin: 40px 0 14px; }
   h3 { font-size: 13.5px; font-weight: 620; margin: 22px 0 8px; }
-  .lede { color: var(--muted); max-width: 880px; margin: 0 0 14px; }
+  .lede { color: var(--muted); max-width: 940px; margin: 0 0 8px; font-size: 13px; }
   .notes p, .notes li { color: var(--muted); font-size: 13px; max-width: 880px; }
   .notes code, .lede code {
     background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
@@ -69,15 +71,24 @@
   .diag[hidden] { display: none; }
 
   /* ── Mockup chrome: state control strip (NOT part of the product) ───────── */
+  /* One row per axis. The run, the microphone, the runtime's speech capability,
+     and audio playback are independent — driving them from one enum is exactly
+     the mistake this mockup used to make. */
+  .controls-stack { display: flex; flex-direction: column; gap: 3px; margin: 0 0 6px; }
   .controls {
-    display: flex; align-items: center; gap: 6px; margin: 0 0 10px;
+    display: flex; align-items: center; gap: 6px; margin: 0; flex-wrap: wrap;
     font-family: var(--mono); font-size: 11px;
   }
-  .controls .lbl { color: var(--faint); margin-right: 6px; letter-spacing: 0.06em; }
+  .controls .lbl {
+    color: var(--faint); margin-right: 6px; letter-spacing: 0.06em;
+    min-width: 58px; flex: 0 0 auto;
+  }
+  /* a second axis sharing the row: two short axes cost one row, not two */
+  .controls .lbl-inline { min-width: 0; margin-left: 20px; }
   .controls button {
     font-family: inherit; font-size: 11px; color: var(--muted); cursor: pointer;
     background: transparent; border: 1px dashed var(--border); border-radius: 5px;
-    padding: 3px 9px; transition: color 120ms ease, border-color 120ms ease;
+    padding: 2px 8px; transition: color 120ms ease, border-color 120ms ease;
   }
   .controls button:hover { color: var(--fg); border-color: var(--faint); }
   .controls button[data-active="true"] {
@@ -85,7 +96,16 @@
     border-color: color-mix(in oklch, var(--primary) 45%, transparent);
     border-style: solid;
   }
+  /* A control the pane could not reach from here is not offered. The rows are
+     four axes, but they are not independent, and letting them be clicked into
+     impossible products would make this page lie about the product. */
+  .controls button:disabled,
+  .controls button:disabled:hover {
+    opacity: 0.28; cursor: not-allowed;
+    color: var(--muted); border-color: var(--border); border-style: dashed;
+  }
   .controls .spacer { flex: 1 1 auto; }
+  .controls-note { font-size: 11px; color: var(--faint); margin: 1px 0 0; max-width: 880px; }
 
   /* ══════════════════════════════════════════════════════════════════════════
      PANE FRAME — mimics .workspace-pane-host
@@ -115,13 +135,111 @@
     color: color-mix(in oklch, var(--fg) 84%, transparent);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .pane-action-strip { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
+  .pane-action-strip { display: inline-flex; align-items: center; gap: 2px; }
   .pane-action-strip svg { width: 14px; height: 14px; opacity: 0.32; }
+
+  /* ── Top-bar tools: voice output lives here ─────────────────────────────────
+     The stage is a fixed composition and the caption slot is height-budgeted, so
+     the output controls go in the top bar, left of the window chrome. They are
+     product controls, not chrome: keep the divider between them. */
+  .pane-tools { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+  .pane-tools-divider { width: 1px; height: 14px; background: var(--border); flex: 0 0 auto; }
+
+  .audio-cluster, .voice-off-cluster { position: relative; display: inline-flex; align-items: center; }
+  .pane-host[data-speech="configured"]   .voice-off-cluster { display: none; }
+  .pane-host[data-speech="unconfigured"] .audio-cluster     { display: none; }
+
+  .audio-toggle {
+    display: grid; place-items: center; width: 22px; height: 22px; padding: 0;
+    background: transparent; border: 0; border-radius: 5px; cursor: pointer;
+    color: color-mix(in oklch, var(--fg) 55%, transparent);
+    transition: color 200ms ease, background-color 140ms ease;
+  }
+  .audio-toggle:hover { background: color-mix(in oklch, var(--fg) 8%, transparent); color: var(--fg); }
+  .audio-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .audio-glyph { grid-area: 1 / 1; width: 14px; height: 14px; }
+  .audio-glyph .wave-1, .audio-glyph .wave-2, .audio-glyph .mute-slash { transition: opacity 160ms ease; }
+
+  /* the glyph says which mode is armed, before the menu is ever opened */
+  .pane-host[data-output-mode="off"] .wave-1,
+  .pane-host[data-output-mode="off"] .wave-2,
+  .pane-host[data-output-mode="final"] .wave-2 { opacity: 0; }
+  .pane-host[data-output-mode="final"] .mute-slash,
+  .pane-host[data-output-mode="highlights_and_final"] .mute-slash { opacity: 0; }
+  .pane-host[data-output-mode="off"] .audio-toggle { color: color-mix(in oklch, var(--fg) 35%, transparent); }
+  .pane-host[data-output-mode="final"] .audio-toggle { color: color-mix(in oklch, var(--primary) 80%, var(--fg)); }
+  .pane-host[data-output-mode="highlights_and_final"] .audio-toggle { color: var(--primary); }
+
+  /* synthesis is a wait, not a sound: pulse the glyph, never fake the bars */
+  .pane-host[data-playback="synthesizing"] .audio-glyph { animation: glow-breathe 1.4s ease-in-out infinite; }
+  .pane-host[data-playback="speaking"] .audio-glyph { display: none; }
+  .pane-host[data-playback="speaking"] .audio-eq { display: flex; }
+  .pane-host[data-playback="failed"] .audio-toggle { color: var(--accent-amber); }
+
+  .audio-eq { grid-area: 1 / 1; display: none; align-items: flex-end; gap: 2px; height: 12px; }
+  .audio-eq i { width: 2px; border-radius: 1px; background: currentColor; transform-origin: bottom; animation: eq 900ms ease-in-out infinite; }
+  .audio-eq i:nth-child(1) { height: 5px; }
+  .audio-eq i:nth-child(2) { height: 11px; animation-delay: 150ms; }
+  .audio-eq i:nth-child(3) { height: 7px;  animation-delay: 300ms; }
+  @keyframes eq { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+
+  .audio-menu {
+    position: absolute; top: 26px; right: 0; z-index: 7; width: 244px; padding: 6px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: 0 10px 30px rgb(from var(--bg) r g b / 0.65);
+    display: flex; flex-direction: column; gap: 2px; cursor: default;
+  }
+  .audio-menu[hidden] { display: none; }
+  .audio-menu button {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    background: transparent; border: 0; border-radius: 5px; cursor: pointer;
+    color: var(--muted); font-family: var(--sans); font-size: 12px; text-align: left;
+    padding: 6px 8px;
+  }
+  .audio-menu button:hover { background: color-mix(in oklch, var(--fg) 7%, transparent); color: var(--fg); }
+  .audio-menu button::before {
+    content: ""; width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto;
+    border: 1px solid var(--faint);
+  }
+  .audio-menu button[data-active="true"] { color: var(--fg); }
+  .audio-menu button[data-active="true"]::before {
+    border-color: var(--primary);
+    box-shadow: inset 0 0 0 2px var(--primary);
+  }
+  /* OpenAI's TTS policy requires this wherever the voice can be enabled. It is a
+     product requirement, not decoration — it does not get to be a tooltip. */
+  .audio-disclosure {
+    margin: 4px 0 1px; padding: 8px 8px 2px;
+    border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+    font-size: 11px; line-height: 1.4; color: var(--faint);
+  }
+
+  .voice-off-chip {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
+    color: var(--faint); background: transparent; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;
+  }
+  .voice-off-chip:hover { color: var(--muted); border-color: var(--faint); }
+  .voice-off-popover {
+    position: absolute; top: 24px; right: 0; z-index: 7; width: 264px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: 0 10px 30px rgb(from var(--bg) r g b / 0.65);
+    padding: 9px 11px; font-size: 11.5px; line-height: 1.5; color: var(--muted);
+  }
+  .voice-off-popover[hidden] { display: none; }
+  .voice-off-popover code { font-family: var(--mono); font-size: 10.5px; color: var(--fg); }
 
   .pane-body {
     position: absolute; inset: 30px 0 0 0;
     display: grid;
-    grid-template-columns: minmax(240px, 300px) 1fr minmax(280px, 380px);
+    /* The rails MUST be the same track, or the middle column is not centred on
+       the pane and the button sits off-centre — which is what `300px` / `380px`
+       used to do, by exactly half their 80px difference. Equal tracks centre the
+       button at every width with no magic offset.
+       260/340 keeps the old rail budget exactly (240+280 and 300+380 both still
+       sum the same), so the middle column, and with it the caption slot, is
+       unchanged. Only the split between the rails moved. */
+    grid-template-columns: minmax(260px, 340px) 1fr minmax(260px, 340px);
     grid-template-rows: 1fr auto;
     overflow: hidden;
   }
@@ -141,8 +259,7 @@
   }
   /* a rail header labelling an empty rail is just noise — and idle is the state
      that most needs to be empty. Fade them in with their first content. */
-  .pane-host[data-state="idle"] .rail-label,
-  .pane-host[data-state="listening"] .rail-label { opacity: 0; }
+  .pane-host[data-state="idle"] .rail-label { opacity: 0; }
   /* artifacts stack from the top: they accumulate downward and a run can emit
      more than fit, so centring them would make the rail jump on every arrival */
   .rail-right {
@@ -164,6 +281,7 @@
     animation: hl-in 380ms ease-out;
   }
   .hl-dot {
+    position: relative;   /* anchors the "being spoken" bars, which overflow it */
     width: 6px; height: 6px; border-radius: 50%; align-self: center;
     background: var(--faint); flex: 0 0 auto;
   }
@@ -182,7 +300,38 @@
     animation: dot-pulse 1.5s ease-in-out infinite;
   }
   .pane-host[data-state="complete"] .hl:nth-last-child(1) { color: var(--muted); opacity: 0.6; }
-  .pane-host[data-state="complete"] .hl:nth-last-child(1) .hl-dot { background: var(--accent-green); }
+
+  /* Tone belongs to the run's status, never to the terminal view state. A run
+     the user stopped keeps the resting faint dot — only `failed` earns an alarm
+     colour, and only `completed` earns the green. */
+  .pane-host[data-status="completed"] .hl:nth-last-child(1) .hl-dot { background: var(--accent-green); }
+  .pane-host[data-status="failed"]    .hl:nth-last-child(1) .hl-dot { background: var(--accent-red); }
+
+  /* Speech is anchored to the highlight it is reading. TTS synthesizes a stored
+     highlight by ID, so the pane can always point at the row being spoken —
+     which is the whole reason the synthesis endpoint refuses free prose.
+     Specificity is tuned to beat the working/complete dot rules above, and this
+     block must stay after them.
+
+     The row's own dot becomes a small equalizer: the thing being read is the
+     thing that moves. A pulsing dot says "this row is interesting"; bars say
+     "this row is coming out of your speakers", which is the actual claim. */
+  .hl-dot i { display: none; }
+  .pane-host[data-playback="speaking"] .hl[data-speaking="true"] { color: var(--fg); opacity: 1; }
+  /* The dot's 6x6 box never changes size, and the bars are absolutely positioned
+     inside it. Growing the box instead would change the rail's total height, and
+     `justify-content: safe center` would re-centre the whole list — every row
+     jumping half a pixel the moment speech begins. */
+  .pane-host[data-playback="speaking"] .hl[data-speaking="true"] .hl-dot { background: none; }
+  .pane-host[data-playback="speaking"] .hl[data-speaking="true"] .hl-dot i {
+    display: block; position: absolute; bottom: -2px;
+    width: 2px; border-radius: 1px;
+    background: var(--accent-teal); transform-origin: bottom;
+    animation: eq 900ms ease-in-out infinite;
+  }
+  .pane-host[data-playback="speaking"] .hl[data-speaking="true"] .hl-dot i:nth-child(1) { left: -1px; height: 4px; }
+  .pane-host[data-playback="speaking"] .hl[data-speaking="true"] .hl-dot i:nth-child(2) { left: 2px; height: 10px; animation-delay: 150ms; }
+  .pane-host[data-playback="speaking"] .hl[data-speaking="true"] .hl-dot i:nth-child(3) { left: 5px; height: 6px; animation-delay: 300ms; }
 
   @keyframes hl-in {
     from { opacity: 0; transform: translateY(5px); }
@@ -289,19 +438,56 @@
   .pane-host[data-state="complete"] .swirl-layer-2 { animation-duration: 87s; }
   .pane-host[data-state="complete"] .swirl-layer-3 { animation-duration: 123s; }
 
-  /* Listening rings */
-  .rings { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  /* Steering: the run keeps working while the microphone is open. Both signals
+     are on screen at once, so the swirl steps back and lets the rings read. The
+     run is still alive — it is just no longer the thing you are doing. */
+  .pane-host[data-state="working"][data-capturing="true"] .swirl { opacity: 0.45; }
+
+  /* Listening field — keyed to the microphone, not to the run.
+     Soft, not linear. Crisp 1px strokes cut across the live transcript sitting a
+     few pixels below the button and pulled the eye off the words being captured,
+     which are the thing that actually matters in this state. So the rings are
+     built the way the swirl is: a static blur on the container, gradients on the
+     children. The two motions now belong to the same pane. (Same caveat as the
+     swirl, noted below: a blur over animating children repaints every frame.) */
+  .rings {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    filter: blur(7px);
+  }
   .ring {
     position: absolute; inset: 0; border-radius: 50%;
-    border: 1px solid color-mix(in oklch, var(--primary) 50%, transparent);
     opacity: 0;
+    /* an annulus — and it fades to `rgb(… / 0)`, never the `transparent` keyword,
+       which is rgba(0,0,0,0) and would drag the cyan through muddy black */
+    background: radial-gradient(closest-side,
+      rgb(from var(--primary) r g b / 0)    56%,
+      rgb(from var(--primary) r g b / 0.30) 76%,
+      rgb(from var(--primary) r g b / 0)    94%);
   }
-  .pane-host[data-state="listening"] .ring { animation: ring-out 2.4s ease-out infinite; }
-  .ring:nth-child(2) { animation-delay: 0.8s; }
-  .ring:nth-child(3) { animation-delay: 1.6s; }
-  @keyframes ring-out {
-    0%   { transform: scale(1);    opacity: 0.55; }
-    100% { transform: scale(1.85); opacity: 0; }
+  /* Only `listening` gets rings. Permission and connection are waits, and a ring
+     that animates before the microphone is live is a lie about what is captured. */
+  .pane-host[data-capture="listening"] .ring { animation: ring-in 3s ease-in infinite; }
+  /* These MUST carry the same `[data-capture]` qualifier. The rule above sets the
+     `animation` shorthand, which resets `animation-delay` to 0s, and it outranks a
+     bare `.ring:nth-child(n)` (0,3,0 beats 0,2,0). Written that way — as this
+     mockup wrote it for months — all three rings fire in lockstep, stacked exactly
+     on top of one another: one apparent ring at triple the intended alpha. */
+  .pane-host[data-capture="listening"] .ring:nth-child(2) { animation-delay: 1s; }
+  .pane-host[data-capture="listening"] .ring:nth-child(3) { animation-delay: 2s; }
+
+  /* Rings converge INWARD, and are absorbed at the button's rim. Rings that
+     radiate outward are the universal sign for *emitting* — a ping, a transmit,
+     a loudspeaker — which is precisely the opposite of what an open microphone
+     is doing. `ease-in` makes them accelerate as they arrive, so they read as
+     drawn in rather than merely shrinking.
+
+     Quick and faint. The transcript below the button is the thing being watched;
+     this is peripheral evidence that the microphone is open, and peripheral
+     evidence should stay peripheral. */
+  @keyframes ring-in {
+    0%   { transform: scale(1.72); opacity: 0; }
+    30%  { opacity: 0.3; }
+    100% { transform: scale(1);    opacity: 0; }
   }
 
   /* The button */
@@ -329,27 +515,84 @@
   }
 
   .glyph { grid-area: 1 / 1; width: 40px; height: 40px; color: var(--muted); transition: opacity 260ms ease, color 260ms ease; }
-  .glyph-stop { opacity: 0; width: 34px; height: 34px; }
-
-  .pane-host[data-state="listening"] .easy-button {
-    border-color: var(--primary);
-    box-shadow: inset 0 0 46px color-mix(in oklch, var(--primary) 16%, transparent);
-  }
-  .pane-host[data-state="listening"] .glyph-mic { color: var(--fg); }
+  /* Voice unavailable falls back to the shipped pane's Sparkles glyph and the
+     footer input. Never draw a microphone the runtime cannot honour. */
+  .glyph-sparkles { opacity: 0; }
+  .pane-host[data-speech="unconfigured"] .glyph-mic      { opacity: 0; }
+  .pane-host[data-speech="unconfigured"] .glyph-sparkles { opacity: 1; }
 
   .pane-host[data-state="working"] .easy-button {
     border-color: color-mix(in oklch, var(--border) 70%, transparent);
     box-shadow: inset 0 0 30px color-mix(in oklch, var(--primary) 5%, transparent);
   }
   .pane-host[data-state="working"] .easy-button::after { opacity: 0.14; animation: none; }
-  .pane-host[data-state="working"] .glyph-mic  { opacity: 0; }
-  .pane-host[data-state="working"] .glyph-stop { opacity: 1; }
 
-  .pane-host[data-state="complete"] .easy-button { border-color: color-mix(in oklch, var(--primary) 40%, transparent); }
+  /* Terminal tone, keyed to the run's status rather than to `complete`.
+     `stopped` gets no rule at all — it rests, which is the honest reading of a
+     run the user cancelled. Only `failed` is worth an alarm.
+
+     Mix toward `transparent`, never toward another chromatic token: `color-mix(in
+     oklch, …)` interpolates hue, and the short arc from red (25deg) to any of
+     this pane's blue-greys (263deg) runs backwards through magenta, landing on
+     hue 330 and painting pink. (Where a red must meet a neutral — the Stop
+     button — mix `in oklab` instead.) */
+  .pane-host[data-status="completed"] .easy-button { border-color: color-mix(in oklch, var(--primary) 40%, transparent); }
+  .pane-host[data-status="failed"] .easy-button {
+    border-color: color-mix(in oklch, var(--accent-red) 55%, transparent);
+  }
+  .pane-host[data-status="failed"] .glyph-mic { color: var(--accent-red); }
+
+  /* Capture rules follow the run-state rules deliberately: they carry equal
+     specificity, so source order decides, and the microphone wins. What the
+     control is *doing* outranks what the run happens to be. */
+  .pane-host[data-capture="requesting-permission"] .easy-button,
+  .pane-host[data-capture="connecting"] .easy-button {
+    animation: border-wait 1.6s ease-in-out infinite;
+  }
+  .pane-host[data-capture="listening"] .easy-button,
+  .pane-host[data-capture="committing"] .easy-button {
+    border-color: var(--primary);
+    box-shadow: inset 0 0 46px color-mix(in oklch, var(--primary) 16%, transparent);
+  }
+  /* the button's resting glow joins the listening field: a touch brighter, and
+     breathing on the rings' quicker period rather than its own slow idle rhythm */
+  .pane-host[data-capture="listening"] .easy-button::after {
+    opacity: 0.55;
+    animation-duration: 3s;
+    background: radial-gradient(circle, color-mix(in oklch, var(--primary) 24%, transparent) 0%, transparent 66%);
+  }
+  .pane-host[data-capture="listening"] .glyph-mic,
+  .pane-host[data-capture="committing"] .glyph-mic { color: var(--fg); }
+  /* `in oklab`, not `in oklch`: mixing red with the blue-grey border in oklch
+     takes the short hue arc through magenta and lands on purple. The rest of
+     this file mixes a single hue with `transparent`, where oklch is fine.
+     The shipped pane mixes `--destructive` in oklab for the same reason. */
+  .pane-host[data-capture="failed"] .easy-button {
+    border-color: color-mix(in oklab, var(--accent-red) 45%, var(--border));
+  }
+
+  @keyframes border-wait {
+    0%, 100% { border-color: color-mix(in oklch, var(--primary) 26%, transparent); }
+    50%      { border-color: color-mix(in oklch, var(--primary) 68%, transparent); }
+  }
+
   .confirm-pulse { animation: confirm 900ms ease-out 1; }
   @keyframes confirm {
     0%   { box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 45%, transparent); }
     100% { box-shadow: 0 0 0 26px color-mix(in oklch, var(--primary) 0%, transparent); }
+  }
+  /* commit collapses inward — the mirror of `confirm`, and the only motion that
+     distinguishes `committing` from `listening` once the rings stop */
+  .commit-pulse { animation: commit 620ms ease-out 1; }
+  @keyframes commit {
+    0% {
+      box-shadow: inset 0 0 46px color-mix(in oklch, var(--primary) 16%, transparent),
+                  0 0 0 22px color-mix(in oklch, var(--primary) 0%, transparent);
+    }
+    100% {
+      box-shadow: inset 0 0 46px color-mix(in oklch, var(--primary) 16%, transparent),
+                  0 0 0 0 color-mix(in oklch, var(--primary) 40%, transparent);
+    }
   }
 
   /* agent chip — sits above the button, working state only */
@@ -367,27 +610,160 @@
     margin-top: 22px; min-height: 66px; width: 100%; max-width: 460px;
     display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
   }
+  /* The slot grows by exactly one row while the microphone is open. `display:
+     none` rather than a zero-height box, because a flex `gap` still spaces an
+     empty child — and the three captured stills must keep the 66px the
+     pixel-match report was built on. */
+  .pane-host[data-capturing="true"] .caption-slot { min-height: 92px; }
+
   .helper { font-size: 12.5px; color: var(--faint); }
-  .transcript {
+  .pane-host[data-capture="failed"] .helper { display: none; }
+
+  /* Each distinct failure gets its own sentence. "Something went wrong" is what
+     you write when you have not decided which of these actually happened. */
+  .capture-error { display: none; font-size: 12.5px; color: var(--accent-red); }
+  .pane-host[data-capture="failed"] .capture-error { display: block; }
+
+  /* The live utterance. Separate from `.current-focus` on purpose: while steering,
+     both are on screen — the new user-authored words bright, the narrator-derived
+     focus dimmed beneath them. One node cannot hold two authors. */
+  .capture-line {
+    display: none;
     font-size: 13.5px; color: var(--fg); line-height: 1.45; min-height: 20px;
-    opacity: 0; transition: opacity 400ms ease, color 400ms ease;
   }
-  .transcript::after {
-    content: "▌"; color: var(--primary); margin-left: 1px; opacity: 0;
-    animation: caret 1s step-end infinite;
+  .pane-host[data-capturing="true"] .capture-line { display: block; }
+  .capture-line::after { content: "▌"; color: var(--primary); margin-left: 1px; opacity: 0; }
+  .pane-host[data-capture="listening"] .capture-line::after {
+    opacity: 1; animation: caret 1s step-end infinite;
   }
-  .pane-host[data-state="listening"] .transcript { opacity: 1; }
-  .pane-host[data-state="listening"] .transcript::after { opacity: 1; }
-  .pane-host[data-state="working"] .transcript { opacity: 0.42; color: var(--muted); }
-  .pane-host[data-state="complete"] .transcript { opacity: 0.42; color: var(--muted); }
+
+  /* Current focus — the presentation projection of the active objective and the
+     constraints still in force. Revision zero begins with the shared-normalized
+     initial request; later revisions are narrator-authored as accepted steering
+     changes the goal. It therefore carries a standing label: unlabelled prose in
+     the centre would read as a verbatim user quotation even after the narrator
+     revised it. It is never sent back to the working agent and is never spoken. */
+  .focus-block {
+    display: none; width: 100%;
+    transition: opacity 400ms ease;
+  }
+  .pane-host:not([data-state="idle"]) .focus-block { display: block; }
+  .focus-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--faint); font-weight: 600; margin-bottom: 5px;
+  }
+  .current-focus {
+    font-size: 13.5px; color: var(--muted); line-height: 1.45; min-height: 20px;
+  }
+  /* While the microphone is open the live utterance is the bright thing and the
+     standing focus steps back — but it never disappears, because the user is
+     steering *against* it. */
+  .pane-host[data-capturing="true"] .focus-block { opacity: 0.5; }
+
+  /* The steer reached the agent; the narrator has not yet said what it means.
+     Keep the last good text and say so, rather than blanking or guessing. */
+  .pane-host[data-focus="updating"] .focus-label {
+    animation: focus-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes focus-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
   @keyframes caret { 50% { opacity: 0; } }
 
+  /* The summary is prose, not a stat line: one or two narrator sentences plus the
+     mechanical tail. It can run long, so it scrolls inside a bounded box exactly
+     as the shipped pane's does.
+
+     `display: none` rather than `opacity: 0`, because the shipped pane does not
+     render it at all outside `complete`. Two sentences of invisible prose would
+     otherwise reserve three lines of caption in every state and push the button
+     up the stage. */
   .summary {
-    font-size: 12.5px; color: var(--muted); opacity: 0;
-    transition: opacity 600ms ease;
+    display: none;
+    font-size: 12.5px; color: var(--muted);
+    max-width: 100%; overflow-wrap: anywhere;
+    max-height: min(14vh, 112px); overflow-y: auto; scrollbar-gutter: stable both-edges;
   }
-  .summary .ok { color: var(--accent-green); }
-  .pane-host[data-state="complete"] .summary { opacity: 1; }
+  .pane-host[data-state="complete"] .summary { display: block; }
+
+  /* The narrator failing is not the run failing, and not the voice failing.
+     Three different systems, three different lines, three different colours. */
+  .narrator-status { display: none; font-size: 11px; color: var(--faint); }
+  .pane-host[data-narrator="degraded"] .narrator-status { display: block; }
+  /* Only a run that actually completed gets the check mark. A cancelled or
+     failed run keeps its summary — the narrator still wrote one — and simply
+     does not wear a success mark it did not earn. */
+  .summary .ok { display: none; color: var(--accent-green); margin-right: 4px; }
+  .pane-host[data-status="completed"] .summary .ok { display: inline; }
+
+  .summary-eq {
+    display: none; align-items: flex-end; gap: 2px; height: 9px;
+    margin-right: 3px; vertical-align: -1px; color: var(--accent-teal);
+  }
+  .summary-eq i { width: 2px; border-radius: 1px; background: currentColor; transform-origin: bottom; animation: eq 900ms ease-in-out infinite; }
+  .summary-eq i:nth-child(1) { height: 4px; }
+  .summary-eq i:nth-child(2) { height: 9px; animation-delay: 150ms; }
+  .summary-eq i:nth-child(3) { height: 6px; animation-delay: 300ms; }
+  /* the equalizer sits with whatever is actually being read — the summary here,
+     the highlight's own dot in the left rail otherwise — and the spoken text
+     lifts to full foreground, so the source is legible at a glance */
+  .pane-host[data-playback="speaking"][data-speaking-source="summary"] .summary-eq { display: inline-flex; }
+  .pane-host[data-playback="speaking"][data-speaking-source="summary"] .summary { color: var(--fg); }
+
+  /* Replay survives `output-mode: off`. Automatic playback is a preference;
+     being able to hear the summary you already have is a capability. */
+  .replay-button {
+    display: none; align-items: center; gap: 5px; margin-left: 10px;
+    background: transparent; border: 1px solid transparent; border-radius: 5px;
+    color: var(--faint); cursor: pointer; font-family: var(--sans); font-size: 11.5px;
+    padding: 1px 6px; vertical-align: -2px;
+  }
+  .replay-button:hover { color: var(--fg); border-color: var(--border); }
+  .replay-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .pane-host[data-speech="configured"] .replay-button { display: inline-flex; }
+
+  /* A failed voice never touches the ✓. Speech degradation and run degradation
+     are different facts about different systems, and this line says so in amber
+     rather than the run's own red.
+
+     It sits outside `.summary` deliberately: a highlight can fail to synthesize
+     while the run is still `working`, when there is no summary on screen to hang
+     the message on. Inside the summary, that failure would have been silent. */
+  .speech-error { display: none; font-size: 11.5px; color: var(--accent-amber); }
+  .pane-host[data-playback="failed"] .speech-error { display: block; }
+
+  /* ── Secondary Stop — the only control that cancels the run ──────────────────
+     Mirrors the shipped `.easy-button-action-slot`: reserved in every state at
+     34px + 14px so the stage never jumps when Stop appears. */
+  .action-slot {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    height: 34px; margin-top: 14px;
+  }
+  .stop-button {
+    display: none; align-items: center; gap: 8px; height: 30px; padding: 0 12px;
+    background: var(--surface);
+    border: 1px solid color-mix(in oklab, var(--accent-red) 36%, var(--border));
+    border-radius: 8px;
+    color: color-mix(in oklab, var(--accent-red) 70%, var(--fg));
+    cursor: pointer; font-family: var(--sans); font-size: 12.5px;
+    transition: border-color 160ms ease, color 160ms ease;
+  }
+  .stop-button:hover {
+    border-color: color-mix(in oklab, var(--accent-red) 58%, var(--border));
+    color: color-mix(in oklab, var(--accent-red) 82%, var(--fg));
+  }
+  .stop-button:focus-visible { outline: 2px solid var(--accent-red); outline-offset: 2px; }
+  .stop-button svg { width: 12px; height: 12px; }
+  /* Visible through a steering utterance: stopping the run must never require
+     finishing a sentence first. */
+  .pane-host[data-state="working"] .stop-button { display: inline-flex; }
+
+  /* Capture-state changes are announced; transcript deltas are not. Reading the
+     whole string back on every token is how you make a screen reader useless. */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
 
   /* ── Right rail — artifacts ─────────────────────────────────────────────── */
   #artifacts { display: flex; flex-direction: column; gap: 12px; }
@@ -471,13 +847,27 @@
 
   /* ── Reduced motion ─────────────────────────────────────────────────────── */
   @media (prefers-reduced-motion: reduce) {
-    .swirl-layer, .swirl-inner, .easy-button::after, .hl, .artifact, .transcript::after {
+    .swirl-layer, .swirl-inner, .easy-button::after, .hl, .artifact,
+    .capture-line::after, .audio-eq i, .summary-eq i, .audio-glyph, .focus-label,
+    .hl[data-speaking="true"] .hl-dot i, .easy-button, .ring {
       animation: none !important;
     }
+    /* `Updating focus…` still reads without the pulse: the label says it in words */
+    .pane-host[data-focus="updating"] .focus-label { opacity: 1; }
     .swirl { transition: none; }
+    /* The speech plan asks for "static rings". Three motionless concentric
+       circles read as a rendering bug, so keep one halo and drop the other two:
+       border, glyph colour, and helper copy still say `recording`. `ring-out` is
+       killed above — a running animation would otherwise out-rank the opacity
+       and transform set here. */
     .ring { display: none; }
+    .pane-host[data-capture="listening"] .ring:nth-child(1) {
+      display: block; transform: scale(1.35); opacity: 0.35;
+    }
     .easy-button::after { opacity: 0.4; }
     .pane-host[data-state="working"] .swirl { opacity: 0.5; }
+    /* the equalizers still say "audio is playing" — they just stop dancing */
+    .audio-eq i, .summary-eq i, .hl[data-speaking="true"] .hl-dot i { transform: scaleY(1); }
   }
 </style>
 </head>
@@ -486,33 +876,82 @@
 
   <h1>Easy Button — pane mockup</h1>
   <p class="lede">
-    A new full-width <code>SurfaceKind</code>. Radically minimal: no agent transcript. You speak a request,
-    the system works, and you see only <strong>occasional high-level notes</strong> on the left and the
-    <strong>finished artifacts</strong> on the right. The left rail changes often; the right rail is the payload.
+    A new full-width <code>SurfaceKind</code>. Radically minimal: no agent transcript — you speak a request, and see
+    only <strong>narrator highlights</strong> on the left and the <strong>finished artifacts</strong> on the right.
   </p>
 
   <noscript>
     <div class="diag">
       <strong>JavaScript is disabled in this browser.</strong> This mockup is an interactive prototype — the
-      state buttons, the typing transcript, and the streaming rails all need scripting. The page below is frozen
+      state buttons, the live capture line, and the streaming rails all need scripting. The page below is frozen
       in its idle state. In Brave: <code>Settings → Privacy and security → Site and Shields Settings →
       JavaScript</code>, and allow <code>file://</code>.
     </div>
   </noscript>
   <div class="diag" id="errBanner" hidden></div>
 
-  <div class="controls">
-    <span class="lbl">STATE</span>
-    <button type="button" data-goto="idle">Idle</button>
-    <button type="button" data-goto="listening">Listening</button>
-    <button type="button" data-goto="working">Working</button>
-    <button type="button" data-goto="complete">Complete</button>
-    <span class="spacer"></span>
-    <button type="button" id="replay">↻ Replay full sequence</button>
+  <div class="controls-stack">
+    <div class="controls">
+      <span class="lbl">RUN</span>
+      <button type="button" data-goto="idle">Idle</button>
+      <button type="button" data-goto="working">Working</button>
+      <button type="button" data-goto="complete">Complete</button>
+      <span class="lbl lbl-inline">TERMINAL</span>
+      <button type="button" data-terminal="completed">Completed</button>
+      <button type="button" data-terminal="failed">Failed</button>
+      <button type="button" data-terminal="stopped">Stopped</button>
+      <span class="spacer"></span>
+      <button type="button" id="replay">↻ Replay full sequence</button>
+    </div>
+    <div class="controls">
+      <span class="lbl">FOCUS</span>
+      <button type="button" data-focus="initial">Initial</button>
+      <button type="button" data-focus="updating">Updating</button>
+      <button type="button" data-focus="revised">Revised</button>
+      <button type="button" data-focus="stale">Stale</button>
+      <span class="lbl lbl-inline">NARRATOR</span>
+      <button type="button" data-narrator="ok">Healthy</button>
+      <button type="button" data-narrator="degraded">Degraded</button>
+    </div>
+    <div class="controls">
+      <span class="lbl">CAPTURE</span>
+      <button type="button" data-capture="off">Off</button>
+      <button type="button" data-capture="requesting-permission">Permission</button>
+      <button type="button" data-capture="connecting">Connecting</button>
+      <button type="button" data-capture="listening">Listening</button>
+      <button type="button" data-capture="committing">Committing</button>
+    </div>
+    <div class="controls">
+      <span class="lbl">MIC ERROR</span>
+      <button type="button" data-fail="permission">Denied</button>
+      <button type="button" data-fail="insecure-context">Insecure</button>
+      <button type="button" data-fail="unsupported">Unsupported</button>
+      <button type="button" data-fail="provider">Provider</button>
+      <button type="button" data-fail="no-speech">No speech</button>
+      <button type="button" data-fail="submit">Submit</button>
+    </div>
+    <div class="controls">
+      <span class="lbl">VOICE</span>
+      <button type="button" data-speech="configured">Configured</button>
+      <button type="button" data-speech="unconfigured">Unconfigured</button>
+      <span class="lbl lbl-inline">AUDIO</span>
+      <button type="button" data-playback="idle">Idle</button>
+      <button type="button" data-playback="synthesizing">Synthesizing</button>
+      <button type="button" data-playback="speaking">Speaking</button>
+      <button type="button" data-playback="failed">Failed</button>
+    </div>
+    <p class="controls-note">
+      Greyed controls are unreachable from the current state — hover for the reason.
+    </p>
   </div>
 
-  <!-- ══ PANE ══════════════════════════════════════════════════════════════ -->
-  <div class="pane-host" id="pane" data-state="idle" data-tone="cyan">
+  <!-- ══ PANE ═══════════════════════════════════════════════════════════════
+       `data-state` is the run. `data-capture` is the microphone. They are
+       independent: `working` + `listening` is a voice steer, and it is the state
+       the old single-enum mockup could not express. -->
+  <div class="pane-host" id="pane" data-state="idle" data-tone="cyan"
+       data-capture="off" data-capturing="false" data-status="none" data-narrator="ok"
+       data-speech="configured" data-playback="idle" data-output-mode="off">
 
     <div class="pane-top-bar">
       <span class="pane-title-slot">
@@ -523,16 +962,51 @@
         </svg>
         <span class="pane-title" id="paneTitle">Easy Button</span>
       </span>
-      <span class="pane-action-strip" aria-hidden="true">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <path d="M3.5 8h9" />
-        </svg>
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
-          <rect x="3.25" y="3.25" width="9.5" height="9.5" rx="1.5" />
-        </svg>
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
-        </svg>
+      <span class="pane-tools">
+
+        <!-- voice output: mode, disclosure, and the stop-audio control -->
+        <span class="audio-cluster" id="audioCluster">
+          <button type="button" class="audio-toggle" id="audioToggle"
+                  aria-haspopup="true" aria-expanded="false" aria-label="Voice output: off">
+            <svg class="audio-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z" />
+              <path class="wave-1" d="M15.5 9.5a4 4 0 0 1 0 5" />
+              <path class="wave-2" d="M18 7a7.5 7.5 0 0 1 0 10" />
+              <path class="mute-slash" d="M16 9.5l5 5M21 9.5l-5 5" />
+            </svg>
+            <span class="audio-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+          </button>
+
+          <div class="audio-menu" id="audioMenu" role="menu" hidden>
+            <button type="button" role="menuitemradio" aria-checked="true"  data-mode="off">Off</button>
+            <button type="button" role="menuitemradio" aria-checked="false" data-mode="final">Speak the summary</button>
+            <button type="button" role="menuitemradio" aria-checked="false" data-mode="highlights_and_final">Speak highlights and summary</button>
+            <p class="audio-disclosure">Voice is AI-generated, not a human recording.</p>
+          </div>
+        </span>
+
+        <!-- no key on the runtime: say so, and never render a mic or an output mode -->
+        <span class="voice-off-cluster" id="voiceOffCluster">
+          <button type="button" class="voice-off-chip" id="voiceOffChip" aria-expanded="false">Voice off</button>
+          <div class="voice-off-popover" id="voiceOffPopover" hidden>
+            Voice needs <code>SETTA_OPENAI_SPEECH_API_KEY</code> on the runtime. Typed requests work either way.
+          </div>
+        </span>
+
+        <span class="pane-tools-divider" aria-hidden="true"></span>
+
+        <span class="pane-action-strip" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M3.5 8h9" />
+          </svg>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+            <rect x="3.25" y="3.25" width="9.5" height="9.5" rx="1.5" />
+          </svg>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
+          </svg>
+        </span>
       </span>
     </div>
 
@@ -572,17 +1046,49 @@
               <path d="M12 17.5V21" />
               <path d="M8.5 21h7" />
             </svg>
-            <svg class="glyph glyph-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <rect x="6" y="6" width="12" height="12" rx="2.5" />
+            <svg class="glyph glyph-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+              <path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />
             </svg>
           </button>
         </div>
 
         <div class="caption-slot">
-          <div class="transcript" id="transcript"></div>
+          <!-- live utterance (bright, caret) — the user's own words -->
+          <div class="capture-line" id="captureLine" aria-live="off"></div>
+          <!-- the narrator's projection of the active objective (never a quotation) -->
+          <div class="focus-block">
+            <div class="focus-label" id="focusLabel">Current focus</div>
+            <div class="current-focus" id="currentFocus"></div>
+          </div>
           <div class="helper" id="helper">Tap to speak</div>
-          <div class="summary" id="summary"><span class="ok">✓</span> Done in 2m 14s · 3 artifacts</div>
+          <div class="capture-error" id="captureError"></div>
+          <!-- narrator sentences + the mechanical tail the service appends -->
+          <div class="summary" id="summary">
+            <span class="summary-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="ok" aria-hidden="true">✓</span><span id="summaryText"></span>
+            <button type="button" class="replay-button" id="replayVoice" aria-label="Replay the spoken summary">
+              <span aria-hidden="true">↻</span> Replay
+            </button>
+          </div>
+          <!-- the narrator died; the run did not, and the instruction still landed -->
+          <div class="narrator-status" id="narratorStatus"></div>
+          <!-- and outside the summary entirely: a highlight can fail to speak mid-run -->
+          <div class="speech-error">Voice failed — the run is unaffected.</div>
         </div>
+
+        <!-- Reserved in every state, exactly as the shipped pane reserves it. -->
+        <div class="action-slot">
+          <button type="button" class="stop-button" id="stopButton" aria-label="Stop easy run">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="6" y="6" width="12" height="12" rx="2.5" />
+            </svg>
+            Stop
+          </button>
+        </div>
+
+        <p class="sr-only" id="captureStatus" role="status" aria-live="polite"></p>
       </div>
 
       <!-- RIGHT: artifacts -->
@@ -604,6 +1110,157 @@
 
   <!-- ══ DESIGN NOTES ══════════════════════════════════════════════════════ -->
   <section class="notes">
+    <h2>How to drive this mockup</h2>
+    <p>
+      The pane carries four independent attributes, and the control rows above drive them separately.
+      <code>data-state</code> is the run (<code>idle</code>, <code>working</code>, <code>complete</code>).
+      <code>data-capture</code> is the microphone (<code>off</code>, <code>requesting-permission</code>,
+      <code>connecting</code>, <code>listening</code>, <code>committing</code>, <code>failed</code>).
+      <code>data-speech</code> is what the runtime can do, and <code>data-playback</code> is what is coming out of
+      the speaker. The combination worth looking at is <strong><code>working</code> + <code>listening</code></strong>:
+      a voice steer, with the swirl stepped back, the rings live, the new utterance bright, the Current focus
+      faint beneath it, and Stop still reachable. A single enum could not express that, which is why the previous
+      version of this mockup had no design for the plan's headline feature.
+    </p>
+    <p>
+      <code>data-focus</code> is the narrator's projection of the objective: <code>none</code> before a run,
+      <code>current</code>, <code>updating</code> while a revision is in flight after accepted steering, and
+      <code>stale</code> when the narrator has died and the visible text may be out of date. Steer a live run — by
+      voice, or by typing into the footer — and watch the focus hold its last good text under
+      <code>Updating focus…</code> before the revision replaces it. The <code>FOCUS</code> row jumps straight to any
+      of those states.
+    </p>
+    <p>
+      The axes are independent in the DOM and emphatically not in the product, so a control the pane could not reach
+      from where it is now is greyed out, with the reason on hover. A terminal status needs a run to be about; a
+      degraded narrator can write no focus revision, so <code>FOCUS</code> collapses to <code>Stale</code>; the
+      microphone rows need a runtime with voice configured; <code>Committing</code> needs an open microphone;
+      <code>No speech</code> and <code>Submit</code> are failures of an utterance that already exists; and nothing can
+      be spoken in <code>idle</code>, where there is neither a highlight nor a summary to read. Clicking
+      <code>TERMINAL</code> during a run <em>lands</em> it that way — a live transition, which pulses and speaks by
+      the rules above. Clicking it on a run that has already ended merely restates it, and does neither.
+    </p>
+
+    <h2>Settled</h2>
+    <p>Answered by <code>docs/plans/easy-button-speech-20260709.md</code>; they used to be open questions here.</p>
+    <ul>
+      <li><strong>Mic interaction.</strong> Tap-to-toggle. The second tap is the end-of-speech signal — no silence
+          timeout, no punctuation heuristic, and only the provider's completed transcript is eligible to submit.
+          <code>Escape</code> cancels without submitting and gives the typed draft back. Permission is requested on
+          first tap; denial points at the footer input and is <em>not</em> reported as a provider failure.</li>
+      <li><strong>Stop semantics.</strong> The centre control never cancels the run. It is the recorder in every
+          state: it starts a request from <code>idle</code>, steers from <code>working</code>, and starts a new
+          request from <code>complete</code>. Cancelling the run belongs to the secondary Stop button, which is
+          reserved in <code>.action-slot</code> in every state and stays live through a steering utterance —
+          stopping a run must never require finishing a sentence first. Stopping does not <em>discard</em> the run:
+          it ends it. The run becomes terminal with status <code>stopped</code>, keeps every artifact it already
+          emitted, and shows its summary without a check mark.</li>
+      <li><strong>Terminal status.</strong> Three of them, and the pane treats them differently, exactly as the
+          shipped pane does. <code>completed</code> earns the green dot, the cyan border, the check mark, and the
+          confirm pulse. <code>failed</code> earns the alarm colour on the border, the glyph, and the last highlight
+          dot. <code>stopped</code> earns nothing — it rests, because a run the user cancelled did not go wrong, it
+          was told to stop. Neither <code>failed</code> nor <code>stopped</code> pulses: a celebration would
+          contradict the summary line sitting right below it.</li>
+      <li><strong>The centre is Current focus, not the user's words.</strong> It begins as revision zero of the
+          shared-normalized initial request and is then revised by the narrator as accepted steering changes the
+          objective. It describes the goal and the constraints still in force — never recent activity, never a
+          quotation — so it carries a standing <code>CURRENT FOCUS</code> label. It is never sent back to the working
+          agent and is never spoken. Accepted steering shows <code>Updating focus…</code> over the last good text
+          until the revision lands; there is no <code>Steering: …</code> echo, because the pane does not quote the
+          user back and a timer-based confirmation would be a fact the renderer invented. A dead narrator leaves the
+          focus <em>stale</em>: the instruction reached the agent, but the projection may be out of date.</li>
+      <li><strong>NOW stays narrator-only.</strong> Raw typed or spoken steering never appears in the rail, never
+          counts against highlight caps, and is never spoken. A focus revision is not a highlight. The full-fidelity
+          user/agent record lives in the hidden chat conversation; a request-history surface is a separate feature.</li>
+      <li><strong>Highlights and summaries are written to be read aloud.</strong> The narrator stays the sole author,
+          and its prompt now requires short, grammatical, pronounceable text: no paths, no terse identifiers, no
+          symbolic durations. The mechanical tail the service appends is human-readable prose
+          (<code>Done in 2 minutes 14 seconds with 3 artifacts.</code>), so the one exact persisted string works for
+          both the eye and the ear — including when a degraded narrator leaves the tail standing alone. No second
+          model rewrites anything on its way to the speaker.</li>
+      <li><strong>Terminal outcome never changes the glyph.</strong> While speech is configured the centre control
+          stays a microphone in every state, including terminal ones, because it is still the recorder. Outcome is
+          carried by border and rail tone, the summary's check mark, and the completion pulse — which is why the
+          shipped pane's <code>Check</code>/<code>X</code> glyph swap does not survive into this design.</li>
+      <li><strong>Speech output.</strong> Opt-in and device-local, initially <code>off</code>. Only live events
+          speak; a restored snapshot, or a jump straight to a terminal state, never replays its history. Automatic
+          final speech fires for <code>completed</code> and <code>failed</code> but never for <code>stopped</code> —
+          you just pressed Stop, and a pane that then talks at you is ignoring the instruction you gave it, while an
+          unattended run going wrong is most of why voice output exists at all. Replay stays available for all three,
+          whenever voice is configured, even with automatic playback off. The AI-voice disclosure lives in the output
+          menu, because OpenAI policy requires it wherever the voice can be enabled.</li>
+    </ul>
+
+    <h2>Deltas from the previous mockup</h2>
+    <p>The pixel-match stills move. These moves are deliberate:</p>
+    <ol>
+      <li>The working-state centre glyph was a stop square. It is now the mic — the centre control is the recorder,
+          not the stop button.</li>
+      <li><code>.action-slot</code> is reserved in every state (34px, plus a 14px margin), which grows the stage in
+          all three captured stills. This brings the mockup <em>toward</em> the shipped pane, which already reserves
+          it. The mockup was the one that was wrong.</li>
+      <li>The complete-state summary row gained the replay control.</li>
+      <li><strong><code>.transcript</code> is gone.</strong> The centre no longer holds an immutable copy of the initial request.
+          It holds <code>.focus-block</code> — a <code>.focus-label</code> plus <code>.current-focus</code> — and the
+          caret lives on <code>.capture-line</code>, since a narrator projection is not something anyone is typing.
+          <code>.steer-note</code> and <code>data-steer</code> are deleted outright. The pixel-match probe's
+          <code>requestText</code> component must be repointed at <code>.current-focus</code>, and given the new
+          <code>actionSlot</code>, <code>stopButton</code>, <code>captureLine</code>, and <code>focusLabel</code>
+          spellings.</li>
+      <li><code>.capture-line</code> is <code>display: none</code> — not a zero-height box, because a flex
+          <code>gap</code> still spaces an empty child — so the caption slot keeps its 66px in every state where the
+          microphone is closed. Only active capture grows it.</li>
+      <li><strong>The summary is the narrator's, not a stat line.</strong> The persisted
+          <code>EasyRun.Summary</code> is one or two plain-language narrator sentences answering <em>what happened or
+          what was produced</em>, followed by the service's human-readable mechanical sentence
+          (<code>Done in 2 minutes 14 seconds with 3 artifacts.</code>). The narrator is explicitly forbidden from
+          mentioning commands, file paths, tool calls, or agent mechanics, and forbidden from inventing those facts.
+          The mechanical sentence stands alone when narration is degraded, so the same exact persisted string remains
+          useful to both the eye and the ear.</li>
+      <li><strong>Narrator health is now an axis.</strong> <code>data-narrator</code> is
+          <code>ok | degraded</code>. Degraded means the narrator died while the run lived: highlights stop arriving,
+          the summary collapses to its mechanical tail, and the pane prints <code>narration degraded</code> — a
+          separate line, in a separate colour, from the amber <code>Voice failed</code>. Three systems, three
+          failures, three lines. The summary also scrolls inside a bounded box now, and is not rendered at all outside
+          <code>complete</code>, both as the shipped pane does.</li>
+      <li><strong>The listening field converges, and is soft.</strong> The rings used to expand outward from the
+          button, which is the universal sign for <em>emitting</em> — a ping, a transmit, a loudspeaker. An open
+          microphone is doing the opposite. They now start wide, fade in, accelerate inward, and are absorbed at the
+          button's rim. They are also no longer 1px strokes: crisp rings cut across the live transcript a few pixels
+          below and pulled the eye off the words being captured. They are built the way the swirl is now — a static
+          blur on the container, gradients on the children — so the two motions belong to the same pane.</li>
+      <li><strong>Speech points at its source, and the source follows the run.</strong> The highlight being read turns
+          its own dot into a small teal equalizer and lifts its text to full foreground; the summary gets the same
+          equalizer inline before the ✓, and the same lift. Which one is read is <em>not</em> a preference: highlights
+          are spoken live while the run works, the summary is spoken when the run lands, and nothing else exists to be
+          read. <code>outputMode</code> decides whether speech happens at all, never what is spoken — deriving the
+          source from it produced a completed run pointing at a highlight, and a working run pointing at a summary it
+          did not have. The bars sit absolutely inside the dot's unchanged 6&times;6 box, because growing the box
+          would change the rail's height and <code>justify-content: safe center</code> would re-centre every row the
+          moment speech began.</li>
+      <li><strong>Terminal status is now an axis.</strong> The old mockup had one terminal state and it was always
+          a success. It now carries <code>data-status</code> (<code>none | completed | failed | stopped</code>), which
+          drives the check mark, the border and glyph tone, the last highlight's dot, the confirm pulse, and whether
+          the summary is spoken. Stop no longer returns the pane to <code>idle</code>: it ends the run as
+          <code>stopped</code> and keeps the artifacts already emitted, which is what the shipped pane does and what
+          the old "Stop semantics" open question was asking about.</li>
+      <li><strong>The button was off-centre.</strong> <code>.pane-body</code> used
+          <code>minmax(240px, 300px) 1fr minmax(280px, 380px)</code>. Unequal rails put the middle column's midpoint
+          40px to the left of the pane's, so the button, the caption, and the whole stage were off-centre by half the
+          rails' 80px difference. The tracks are now equal — <code>minmax(260px, 340px)</code> on both sides — which
+          centres the stage at every width with no magic offset. Both clamps preserve the old rail budget exactly
+          (<code>240 + 280</code> and <code>300 + 380</code> each still sum the same), so the middle column, and with
+          it the 460px caption slot, is unchanged. Only the split between the two rails moved: the notes rail gains
+          40px and the artifacts rail gives up 40px.</li>
+    </ol>
+    <p>
+      Follow-ups, not done here. <strong>The shipped pane copies the off-centre grid verbatim</strong>
+      (<code>easy-button.css</code>), so it is off-centre by the same 40px and needs the same fix.
+      <code>easy-button-pixel-match-probe.js</code> should gain <code>actionSlot</code> and <code>stopButton</code>
+      components, now that both spellings exist — and its <code>railLeft</code> / <code>railRight</code> width
+      comparisons will flag until the pane's grid is squared up.
+    </p>
+
     <h2>Open questions</h2>
     <ul>
       <li><strong>Rail lifetime.</strong> Does the <code>NOW</code> rail retain history across a whole session, or
@@ -619,14 +1276,10 @@
       <li><strong>Artifact depth.</strong> Are artifacts click-through-able to a full detail view / the underlying
           run / a terminal? If yes, the pane leaks back into the transcript world. If no, artifacts must be
           genuinely self-sufficient, which raises the bar on their generation.</li>
-      <li><strong>Mic interaction.</strong> Push-to-talk (hold the button) vs tap-to-toggle. Tap-to-toggle is shown
-          here, but it needs a clear end-of-speech signal (silence timeout? explicit tap?). Mic permission also has
-          to be requested somewhere — likely on first tap, with a denied-state fallback that points at the footer input.</li>
-      <li><strong>Stop semantics.</strong> Tapping the button while working — does it cancel in-flight agents,
-          pause them, or just detach the UI? With multiple agents this needs a real answer, including what happens
-          to artifacts already emitted.</li>
-      <li><strong>Left/right coupling.</strong> This mockup shows the request text (faintly) during Working. That is
-          the user's own words, not AI transcript — but it's a judgment call worth confirming.</li>
+      <li><strong>Focus revision cadence.</strong> An accepted steer revises focus immediately. Ordinary progress may
+          revise it only when a requested subgoal demonstrably finished and another became active — otherwise the
+          narrator must return the previous focus verbatim. That rule is easy to state and hard to hold: a model with
+          a revision slot available will want to fill it. Worth watching in the live evaluation.</li>
     </ul>
 
     <h2>Integration checklist</h2>
@@ -685,28 +1338,65 @@ window.addEventListener("error", function (e) {
 (function () {
   "use strict";
 
-  var pane       = document.getElementById("pane");
-  var paneTitle  = document.getElementById("paneTitle");
-  var button     = document.getElementById("easyButton");
-  var helper     = document.getElementById("helper");
-  var transcript = document.getElementById("transcript");
-  var highlights = document.getElementById("highlights");
-  var artifacts  = document.getElementById("artifacts");
-  var textInput  = document.getElementById("textInput");
-  var replayBtn  = document.getElementById("replay");
-  var gotoBtns   = Array.prototype.slice.call(document.querySelectorAll("[data-goto]"));
+  var pane         = document.getElementById("pane");
+  var paneTitle    = document.getElementById("paneTitle");
+  var button       = document.getElementById("easyButton");
+  var helper       = document.getElementById("helper");
+  var captureLine  = document.getElementById("captureLine");
+  var captureErrEl = document.getElementById("captureError");
+  var focusLabel   = document.getElementById("focusLabel");
+  var currentFocus = document.getElementById("currentFocus");
+  var narratorRow  = document.getElementById("narratorStatus");
+  var highlights   = document.getElementById("highlights");
+  var artifacts    = document.getElementById("artifacts");
+  var summaryText  = document.getElementById("summaryText");
+  var textInput    = document.getElementById("textInput");
+  var replayBtn    = document.getElementById("replay");
+  var stopButton   = document.getElementById("stopButton");
+  var statusLine   = document.getElementById("captureStatus");
+  var audioToggle  = document.getElementById("audioToggle");
+  var audioMenu    = document.getElementById("audioMenu");
+  var voiceChip    = document.getElementById("voiceOffChip");
+  var voicePopover = document.getElementById("voiceOffPopover");
+  var replayVoice  = document.getElementById("replayVoice");
+
+  // Scoped to `.controls` on purpose: `#pane` also carries `data-capture`,
+  // `data-speech`, and `data-playback`, and an unscoped query would collect the
+  // pane itself as though it were a button.
+  function axis(name) {
+    return Array.prototype.slice.call(document.querySelectorAll(".controls [data-" + name + "]"));
+  }
+  var stateBtns    = axis("goto");
+  var terminalBtns = axis("terminal");
+  var focusBtns    = axis("focus");
+  var narratorBtns = axis("narrator");
+  var captureBtns  = axis("capture");
+  var failBtns     = axis("fail");
+  var speechBtns   = axis("speech");
+  var playbackBtns = axis("playback");
+  var modeBtns     = Array.prototype.slice.call(audioMenu.querySelectorAll("[data-mode]"));
 
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var REQUEST = "Compare the three swirl approaches and show me which one is cheapest to paint.";
+  var STEER   = "Also include the memory cost, not just paint time.";
+
+  // Revision zero of Current focus IS the shared-normalized initial request.
+  // Revision one is what the narrator writes once the steer above is accepted: it
+  // folds the new constraint in without dropping the original one, describes the
+  // objective rather than the activity, and is nobody's verbatim words.
+  var FOCUS_TEXT = [
+    REQUEST,
+    "Compare the three swirl approaches on both paint cost and memory, and say which is cheapest overall."
+  ];
 
   var HIGHLIGHTS = [
-    { text: "Understanding the request",            time: "0:02" },
-    { text: "Reading the workspace layout engine",  time: "0:11" },
-    { text: "Found 8 pane registration sites",      time: "0:29" },
-    { text: "Spawned 3 agents to compare approaches", time: "0:47" },
-    { text: "Benchmarking paint cost per frame",    time: "1:24" },
-    { text: "Writing up the comparison",            time: "2:03" }
+    { text: "Clarifying the comparison criteria", time: "0:02" },
+    { text: "Mapping the rendering approaches",   time: "0:11" },
+    { text: "Narrowing the viable options",       time: "0:29" },
+    { text: "Comparing the strongest candidates", time: "0:47" },
+    { text: "Measuring paint and memory costs",   time: "1:24" },
+    { text: "Preparing the recommendation",       time: "2:03" }
   ];
 
   // Artifacts land out of phase with the highlights: roughly at highlight #3, #5, #6.
@@ -716,28 +1406,86 @@ window.addEventListener("error", function (e) {
     { at: 5, html: diagramArtifact() }
   ];
 
-  var HELPER_TEXT = {
-    idle:      "Tap to speak",
-    listening: "Listening…",
-    working:   "Working — tap to stop",
-    complete:  "Tap to start a new request"
+  // Every failure the plan distinguishes gets its own sentence, and each one
+  // still points at the typed path. "Something went wrong" is what you write
+  // when you have not decided which of these actually happened.
+  var CAPTURE_ERROR_TEXT = {
+    "permission":       "Microphone permission denied — type your request below",
+    "insecure-context": "Voice needs a secure connection (HTTPS) — type your request below",
+    "unsupported":      "This browser cannot capture audio — type your request below",
+    "provider":         "Voice service unreachable — try again, or type below",
+    "no-speech":        "No speech detected",
+    "submit":           "Could not send — your words are in the box below"
+  };
+
+  var MODE_LABEL = {
+    "off":                  "off",
+    "final":                "summary only",
+    "highlights_and_final": "highlights and summary"
+  };
+
+  // `EasyRun.Summary` is two things joined, exactly as `terminalSummaryWithNarration`
+  // joins them: one or two plain-language sentences from the narrator, then a
+  // human-readable mechanical sentence the service appends. The
+  // narrator is forbidden from inventing the tail, and forbidden from mentioning
+  // commands, paths, tool calls, or agent mechanics in its own sentences.
+  //
+  // The tail alone is what a *degraded* narrator leaves behind. This mockup used
+  // to show the tail by itself and call it the summary, which quietly presented
+  // the failure mode as the normal case — and, since speech reads this exact
+  // string, would have had the pane read out its own stopwatch instead of an answer.
+  var NARRATOR_SUMMARY = {
+    "completed": "Three conic gradients are the cheapest way to paint the swirl, at about a third the cost of canvas 2D. The comparison, the benchmark, and a proposed render path are on the right.",
+    "failed":    "I couldn't finish the comparison. The benchmark harness wouldn't build, so the numbers cover only the two approaches that ran.",
+    "stopped":   "I stopped partway through the benchmark. The table and the chart I had already produced are still on the right."
+  };
+
+  // Human-readable and pronounceable, because this exact string is what TTS reads
+  // — including when a degraded narrator leaves it standing alone. The backend
+  // owns the duration and artifact grammar; nothing parses or rewrites the tail.
+  var MECHANICAL_SUMMARY = {
+    "completed": "Done in 2 minutes 14 seconds with 3 artifacts.",
+    "failed":    "Failed after 1 minute 47 seconds: benchmark harness exited with status 1. 2 artifacts were preserved.",
+    "stopped":   "Stopped after 1 minute 12 seconds with 2 artifacts."
+  };
+
+  function summaryFor(status) {
+    // A degraded narrator wrote nothing, so the run keeps only its mechanical facts.
+    if (narrator === "degraded") return MECHANICAL_SUMMARY[status];
+    return NARRATOR_SUMMARY[status] + " " + MECHANICAL_SUMMARY[status];
+  }
+
+  // the four states in which the microphone is open or opening
+  var CAPTURING = {
+    "requesting-permission": true,
+    "connecting":            true,
+    "listening":             true,
+    "committing":            true
   };
 
   // ── timer bookkeeping ─────────────────────────────────────────────────────
-  // Every pending timer lives here. Cleared on every transition so that rapid
-  // clicking can never leave an orphaned timer double-appending content.
-  var timeouts  = [];
-  var intervals = [];
-
-  function after(ms, fn) { timeouts.push(setTimeout(fn, ms)); }
-  function every(ms, fn) { var id = setInterval(fn, ms); intervals.push(id); return id; }
-
-  function clearTimers() {
-    timeouts.forEach(clearTimeout);
-    intervals.forEach(clearInterval);
-    timeouts = [];
-    intervals = [];
+  // Two buckets, not one. A steer starts and ends inside a live run, so
+  // cancelling the microphone must not sweep away the run's own rail-staging
+  // timers — and a run landing must not strand a half-typed utterance.
+  //
+  // Both read `setTimeout` off the global at call time, which is what lets the
+  // pixel-match harness freeze this page by stubbing it.
+  function timerBucket() {
+    var timeouts  = [];
+    var intervals = [];
+    return {
+      after: function (ms, fn) { timeouts.push(setTimeout(fn, ms)); },
+      every: function (ms, fn) { var id = setInterval(fn, ms); intervals.push(id); return id; },
+      clear: function () {
+        timeouts.forEach(clearTimeout);
+        intervals.forEach(clearInterval);
+        timeouts  = [];
+        intervals = [];
+      }
+    };
   }
+  var run = timerBucket();   // rail staging and the working -> complete advance
+  var mic = timerBucket();   // the capture lifecycle
 
   // ── rendering helpers ─────────────────────────────────────────────────────
   function addHighlight(item) {
@@ -746,6 +1494,11 @@ window.addEventListener("error", function (e) {
 
     var dot = document.createElement("span");
     dot.className = "hl-dot";
+    // The dot doubles as the "being spoken" equalizer. The bars sit dormant and
+    // hidden until this row is the one coming out of the speakers.
+    for (var bar = 0; bar < 3; bar += 1) {
+      dot.appendChild(document.createElement("i"));
+    }
 
     var text = document.createElement("span");
     text.className = "hl-text";
@@ -759,6 +1512,13 @@ window.addEventListener("error", function (e) {
     li.appendChild(text);
     li.appendChild(time);
     highlights.appendChild(li);
+
+    // Only a live highlight-created event may speak. Directly populated terminal
+    // and restored states call this helper too, but `state !== working` keeps
+    // those historical rows silent.
+    if (state === "working" && speech === "configured" && outputMode === "highlights_and_final") {
+      speakHighlight(li);
+    }
   }
 
   function addArtifact(html) {
@@ -771,30 +1531,267 @@ window.addEventListener("error", function (e) {
   function reset() {
     highlights.innerHTML = "";
     artifacts.innerHTML = "";
-    transcript.textContent = "";
     button.classList.remove("confirm-pulse");
+    button.classList.remove("commit-pulse");
   }
 
-  function typeOut(str, done) {
+  function clearSpeakingHighlight() {
+    var marked = highlights.querySelector('[data-speaking="true"]');
+    if (marked) delete marked.dataset.speaking;
+  }
+
+  // Stands in for transcript deltas. Which utterance is being spoken depends on
+  // the run: from `working` the user is steering, not restating the request.
+  function typeCapture(done) {
+    var text = state === "working" ? STEER : REQUEST;
+    captureLine.textContent = "";
     if (reduced) {
-      transcript.textContent = str;
-      if (done) after(500, done);
+      captureLine.textContent = text;
+      if (done) mic.after(500, done);
       return;
     }
     var i = 0;
-    var id = every(28, function () {
+    var id = mic.every(28, function () {
       i += 1;
-      transcript.textContent = str.slice(0, i);
-      if (i >= str.length) {
+      captureLine.textContent = text.slice(0, i);
+      if (i >= text.length) {
         clearInterval(id);
-        if (done) after(650, done);
+        if (done) mic.after(650, done);
       }
     });
   }
 
-  // ── state machine ─────────────────────────────────────────────────────────
-  var state = "idle";
+  // ── state ─────────────────────────────────────────────────────────────────
+  // Four independent axes. `state` is the run; `capture` is the microphone;
+  // `speech` is what the runtime can do; `playback` is what is coming out of the
+  // speaker. Collapsing any pair of them into one enum is how the previous
+  // version of this mockup ended up unable to draw a voice steer.
+  var state          = "idle";
+  var capture        = "off";
+  var captureReason  = "permission";
+  var speech         = "configured";
+  var playback       = "idle";
+  var speakingSource = "summary";
+  var activeHighlight = null;
+  var outputMode     = "off";   // the plan's initial device-local value
+  var draft          = "";      // footer text preserved across a capture
 
+  // What the terminal run on screen is. A run always lands `completed` unless
+  // something says otherwise: the Stop button, or a TERMINAL click during a run.
+  var terminalStatus = "completed";
+
+  // The narrator can fail without failing the run. When it does, highlights stop
+  // arriving, the summary falls back to its mechanical tail, Current focus goes
+  // stale, and the pane says so. This is a different fact from a failed *voice*,
+  // which is why they get different rows in the caption slot and different colours.
+  var narrator = "ok";
+
+  // Current focus: which persisted revision is on screen, and whether a narrator
+  // revision is in flight. Status is derived, never stored twice.
+  var focusRevision = 0;
+  var focusUpdating = false;
+
+  function focusStatus() {
+    if (state === "idle") return "none";           // no run, no focus
+    if (narrator === "degraded") return "stale";   // last good text, possibly outdated
+    return focusUpdating ? "updating" : "current";
+  }
+
+  function helperText() {
+    if (speech === "unconfigured") {
+      if (state === "working")  return "Working…";
+      if (state === "complete") return "Tap to start a new request";
+      return "Tap to type your request";
+    }
+    if (capture === "requesting-permission") return "Allow microphone access…";
+    if (capture === "connecting")            return "Connecting…";
+    if (capture === "committing")            return "Committing…";
+    if (capture === "listening") {
+      return (state === "working" ? "Listening — tap to steer" : "Listening — tap to send") +
+             " · Esc to cancel";
+    }
+    if (state === "working") return "Tap to steer";
+    return "Tap to speak";
+  }
+
+  function audioLabel() {
+    if (playback === "speaking")     return "Stop speaking";
+    if (playback === "synthesizing") return "Preparing voice";
+    if (playback === "failed")       return "Voice failed";
+    return "Voice output: " + MODE_LABEL[outputMode];
+  }
+
+  function paneTitleText() {
+    if (CAPTURING[capture])   return "Easy Button · " + capture;
+    if (state === "idle")     return "Easy Button";
+    if (state === "complete") return "Easy Button · " + terminalStatus;
+    return "Easy Button · " + state;
+  }
+
+  function mark(list, key, value) {
+    list.forEach(function (b) { b.dataset.active = String(b.dataset[key] === value); });
+  }
+
+  // Which FOCUS control describes what is on screen. `stale` outranks the rest,
+  // because a dead narrator means the visible revision may no longer be true.
+  function focusToken() {
+    var status = focusStatus();
+    if (status === "none") return "";
+    if (status === "stale" || status === "updating") return status;
+    return focusRevision === 0 ? "initial" : "revised";
+  }
+
+  // ── which controls the pane can actually reach from here ──────────────────
+  // The four axes are independent of each other in the DOM and emphatically not
+  // in the product. This is the single place that says so; returning a sentence
+  // rather than a boolean means the page can explain itself on hover instead of
+  // just refusing.
+  var NO_VOICE = "voice is not configured on this runtime";
+
+  function disabledReason(kind, value) {
+    var configured = speech === "configured";
+
+    if (kind === "terminal") {
+      // A status is a fact about a run. `idle` means no run has happened.
+      return state === "idle" ? "a terminal status needs a run — start one first" : null;
+    }
+    if (kind === "narrator") {
+      // So is the narrator's health.
+      return state === "idle" ? "the narrator belongs to a run — start one first" : null;
+    }
+    if (kind === "focus") {
+      if (state === "idle") return "a current focus needs a run — start one first";
+      // A dead narrator writes no revisions. `stale` is the only reachable focus.
+      if (narrator === "degraded" && value !== "stale") {
+        return "a degraded narrator cannot revise focus — it is stale";
+      }
+      return null;
+    }
+    if (kind === "capture") {
+      if (!configured) return NO_VOICE;
+      // You cannot commit an utterance you are not recording.
+      if (value === "committing" && capture !== "listening") {
+        return "nothing to commit until the microphone is open";
+      }
+      return null;
+    }
+    if (kind === "fail") {
+      if (!configured) return NO_VOICE;
+      // Permission, secure context, browser support, and provider reach all fail
+      // on the way in. Empty speech and a failed submit can only happen to an
+      // utterance that already exists.
+      if ((value === "no-speech" || value === "submit") && !CAPTURING[capture]) {
+        return "only reachable once an utterance exists — start recording first";
+      }
+      return null;
+    }
+    if (kind === "playback") {
+      if (!configured) return NO_VOICE;
+      if (value === "idle") return null;   // silencing is always available
+      // Speech reads a persisted highlight or summary. In `idle` there is neither.
+      if (state === "idle") return "nothing to speak until a run has highlights or a summary";
+      // Mid-run, the only speakable thing is a highlight — and only that mode
+      // speaks them. A terminal run can always be replayed, whatever the mode.
+      if (state === "working" && outputMode !== "highlights_and_final") {
+        return "only highlights can speak mid-run — turn on 'Speak highlights and summary'";
+      }
+      return null;
+    }
+    return null;   // RUN and VOICE are always reachable
+  }
+
+  function applyEnabled(list, kind, key) {
+    list.forEach(function (b) {
+      var reason = disabledReason(kind, b.dataset[key]);
+      b.disabled = reason !== null;
+      if (reason) b.title = reason;
+      else b.removeAttribute("title");
+    });
+  }
+
+  // Single writer for every derived attribute. Each setter mutates its own axis
+  // and then calls this, so no transition can leave the DOM describing a state
+  // that no variable holds.
+  function applyChrome() {
+    pane.dataset.state      = state;
+    pane.dataset.capture    = capture;
+    pane.dataset.capturing  = CAPTURING[capture] ? "true" : "false";
+    pane.dataset.speech     = speech;
+    pane.dataset.playback   = playback;
+    pane.dataset.outputMode = outputMode;
+    // Status is a fact about a terminal run. Outside `complete` there is no run
+    // to have one, and `none` says so rather than leaving a stale `failed` on.
+    pane.dataset.status     = state === "complete" ? terminalStatus : "none";
+    pane.dataset.narrator   = state === "idle" ? "ok" : narrator;
+    pane.dataset.focus      = focusStatus();
+    summaryText.textContent = summaryFor(terminalStatus);
+
+    // The label is the whole reason this prose cannot be read as a quotation.
+    focusLabel.textContent   = focusStatus() === "updating" ? "Updating focus…" : "Current focus";
+    currentFocus.textContent = FOCUS_TEXT[focusRevision];
+    // A stale focus is the one case where the degraded narrator has a consequence
+    // the user must act on: the instruction landed, the projection did not.
+    narratorRow.textContent  = "Narration degraded — current focus may be outdated.";
+
+    if (capture === "failed") pane.dataset.captureError = captureReason;
+    else delete pane.dataset.captureError;
+
+    if (playback === "speaking") pane.dataset.speakingSource = speakingSource;
+    else delete pane.dataset.speakingSource;
+
+    // mirror state into the pane chrome, the way the real pane would via
+    // setHostPaneChromeTitle — also makes any transition unmistakable
+    paneTitle.textContent = paneTitleText();
+
+    var text = helperText();
+    helper.textContent = text;
+    captureErrEl.textContent = CAPTURE_ERROR_TEXT[captureReason];
+    // the label follows the control's actual action, and a failure is the most
+    // important thing a screen reader can be told about this button
+    button.setAttribute("aria-label", capture === "failed" ? CAPTURE_ERROR_TEXT[captureReason] : text);
+
+    audioToggle.setAttribute("aria-label", audioLabel());
+    audioToggle.setAttribute("aria-expanded", String(!audioMenu.hidden));
+    voiceChip.setAttribute("aria-expanded", String(!voicePopover.hidden));
+    modeBtns.forEach(function (b) {
+      var on = b.dataset.mode === outputMode;
+      b.dataset.active = String(on);
+      b.setAttribute("aria-checked", String(on));
+    });
+
+    mark(stateBtns,    "goto",     state);
+    // only a terminal run has a status to be `active`
+    mark(terminalBtns, "terminal", state === "complete" ? terminalStatus : "");
+    mark(focusBtns,    "focus",    focusToken());
+    mark(narratorBtns, "narrator", state === "idle" ? "" : narrator);
+    mark(captureBtns,  "capture",  capture);
+    mark(failBtns,     "fail",     capture === "failed" ? captureReason : "");
+    mark(speechBtns,   "speech",   speech);
+    mark(playbackBtns, "playback", playback);
+
+    applyEnabled(terminalBtns, "terminal", "terminal");
+    applyEnabled(focusBtns,    "focus",    "focus");
+    applyEnabled(narratorBtns, "narrator", "narrator");
+    applyEnabled(captureBtns,  "capture",  "capture");
+    applyEnabled(failBtns,     "fail",     "fail");
+    applyEnabled(playbackBtns, "playback", "playback");
+  }
+
+  function announce(text) { statusLine.textContent = text; }
+
+  function closeMenus() {
+    audioMenu.hidden = true;
+    voicePopover.hidden = true;
+  }
+
+  function pulse(cls, ms) {
+    button.classList.remove(cls);
+    void button.offsetWidth;   // reflow, so a repeat entry restarts the pulse
+    button.classList.add(cls);
+    mic.after(ms, function () { button.classList.remove(cls); });
+  }
+
+  // ── the run ───────────────────────────────────────────────────────────────
   function setState(next, opts) {
     opts = opts || {};
 
@@ -805,78 +1802,405 @@ window.addEventListener("error", function (e) {
     // would also swallow a manual jump out of a half-staged run, leaving the
     // rails empty.
     var continuous = opts.continuous === true && state === "working" && next === "complete";
+    var previous = state;
 
-    clearTimers();
+    run.clear();
+    mic.clear();
     if (!continuous) reset();
 
+    // A run-state jump is a clean still — the pixel-match harness screenshots
+    // immediately after clicking these, so nothing ephemeral may survive it.
+    capture  = "off";
+    playback = "idle";
+    captureLine.textContent = "";
+    clearSpeakingHighlight();
+    closeMenus();
+
+    // A terminal status is only meaningful for a terminal run. A run lands
+    // `completed` unless the caller says otherwise — Stop, or a TERMINAL click.
+    if (next === "complete") terminalStatus = opts.status || "completed";
+
+    // Narrator health and Current focus belong to a run. A fresh run gets a fresh
+    // narrator and revision zero — which is exactly the initial request.
+    if (next === "idle" || (next === "working" && previous !== "working")) {
+      narrator = "ok";
+      focusRevision = 0;
+      focusUpdating = false;
+    }
+
     state = next;
-    pane.dataset.state = next;
-    // mirror state into the pane chrome, the way the real pane would via
-    // setHostPaneChromeTitle — also makes any transition unmistakable
-    paneTitle.textContent = next === "idle" ? "Easy Button" : "Easy Button · " + next;
-    helper.textContent = HELPER_TEXT[next];
-    button.setAttribute("aria-label", HELPER_TEXT[next]);
-    gotoBtns.forEach(function (b) {
-      b.dataset.active = String(b.dataset.goto === next);
-    });
+    applyChrome();
 
     if (next === "idle") return;
 
-    if (next === "listening") {
-      typeOut(REQUEST, opts.autoAdvance ? function () { setState("working", opts); } : null);
-      return;
-    }
-
     if (next === "working") {
-      transcript.textContent = REQUEST;
+      // Current focus is written by applyChrome() from the persisted revision —
+      // never assembled here out of the raw request.
       HIGHLIGHTS.forEach(function (h, i) {
-        after(400 + i * 1600, function () { addHighlight(h); });
+        run.after(400 + i * 1600, function () { addHighlight(h); });
       });
       ARTIFACTS.forEach(function (a) {
-        after(400 + a.at * 1600 + 700, function () { addArtifact(a.html); });
+        run.after(400 + a.at * 1600 + 700, function () { addArtifact(a.html); });
       });
       var total = 400 + (HIGHLIGHTS.length - 1) * 1600 + 1800;
-      after(total, function () { setState("complete", { continuous: true }); });
+      run.after(total, function () { setState("complete", { continuous: true }); });
       return;
     }
 
     if (next === "complete") {
-      transcript.textContent = REQUEST;
       if (!continuous) {
         // Jumped straight here — populate the terminal state with no staging.
         HIGHLIGHTS.forEach(addHighlight);
         ARTIFACTS.forEach(function (a) { addArtifact(a.html); });
       }
+
+      var live = previous === "working";
+
+      // The pulse is a celebration. A run the user cancelled — or one that
+      // failed — would contradict the summary line, which withholds its check
+      // mark for exactly those two statuses.
       button.classList.remove("confirm-pulse");
-      // reflow so the pulse restarts even on a repeat entry into this state
-      void button.offsetWidth;
-      button.classList.add("confirm-pulse");
-      after(1000, function () { button.classList.remove("confirm-pulse"); });
+      if (live && terminalStatus === "completed") {
+        void button.offsetWidth;   // reflow, so a repeat entry restarts the pulse
+        button.classList.add("confirm-pulse");
+        run.after(1000, function () { button.classList.remove("confirm-pulse"); });
+      }
+
+      // Only the live working -> terminal transition speaks. A restored snapshot,
+      // or a jump straight to `complete`, must stay silent.
+      //
+      // `stopped` is silent too: you just pressed Stop, and a pane that then
+      // talks at you is ignoring the instruction you gave it. `failed` does
+      // speak — an unattended run going wrong is exactly when you want to be
+      // told, which is most of why voice output exists.
+      if (live && outputMode !== "off" && terminalStatus !== "stopped") speakSummary();
     }
+  }
+
+  // ── the microphone ────────────────────────────────────────────────────────
+  function setCapture(next, opts) {
+    opts = opts || {};
+    mic.clear();
+
+    // An unconfigured runtime has no microphone path at all. Guarding here means
+    // no caller can open a capture the runtime cannot honour.
+    if (speech !== "configured" && next !== "off") return;
+
+    // Preserve the typed draft on the way in, whichever path opened the
+    // microphone. Cancelling hands it back; a successful utterance clears it.
+    // Saving this in `startCapture` alone would lose the draft for any other
+    // entry point, and hand `cancelCapture` a stale empty string to restore.
+    if (!CAPTURING[capture] && CAPTURING[next]) draft = textInput.value;
+
+    capture = next;
+    if (next === "failed") captureReason = opts.reason || "provider";
+    if (next === "off" || next === "failed") captureLine.textContent = "";
+    applyChrome();
+
+    if (next === "listening")  announce("Listening");
+    if (next === "committing") announce("Committing");
+    if (next === "failed") {
+      announce(CAPTURE_ERROR_TEXT[captureReason]);
+      // The plan's recovery path: a submission failure hands the words back.
+      if (captureReason === "submit") {
+        textInput.value = state === "working" ? STEER : REQUEST;
+        textInput.focus();
+      }
+      return;
+    }
+
+    if (next === "requesting-permission") {
+      // The real prompt is the browser's. The mockup just spends the time, and
+      // shows no rings while it does: nothing is being captured yet.
+      mic.after(520, function () { setCapture("connecting", opts); });
+      return;
+    }
+    if (next === "connecting") {
+      mic.after(620, function () { setCapture("listening", opts); });
+      return;
+    }
+    if (next === "listening") {
+      // Audio playing into an open microphone is feedback. The plan makes
+      // silencing it the first step of every capture.
+      if (playback !== "idle") setPlayback("idle");
+      typeCapture(opts.autoAdvance ? commitCapture : null);
+      return;
+    }
+    if (next === "committing") {
+      pulse("commit-pulse", 620);
+      mic.after(660, landCapture);
+    }
+  }
+
+  function startCapture(opts) {
+    setCapture("requesting-permission", opts);
+  }
+
+  function commitCapture() { setCapture("committing"); }
+
+  function landCapture() {
+    var text = captureLine.textContent.trim();
+
+    // Only a completed transcript submits. Silence is not a request.
+    if (!text) { setCapture("failed", { reason: "no-speech" }); return; }
+
+    textInput.value = "";
+
+    if (state === "working") {
+      // A steer refines the run in flight. The run keeps working, no second run
+      // is created, and the words go to the working agent untouched. What the
+      // pane shows is not the utterance — it is what the narrator makes of it.
+      capture = "off";
+      captureLine.textContent = "";
+      acceptSteer();
+      return;
+    }
+    capture = "off";
+    captureLine.textContent = "";
+    setState("working");
+  }
+
+  // The instruction reached the working agent. Focus keeps its last good text and
+  // says it is updating; the narrator's revision replaces it when it lands. There
+  // is deliberately no `Steering: …` echo: the pane does not quote the user back,
+  // and a timer-based confirmation would be a renderer-authored fact.
+  function acceptSteer() {
+    announce("Sent");
+    if (narrator === "degraded") {
+      // Sent, but nothing will revise the projection. It stays stale.
+      applyChrome();
+      return;
+    }
+    focusUpdating = true;
+    applyChrome();
+    // The `run` bucket, not `mic`: the revision belongs to the run, and must
+    // survive the user opening the microphone again before it arrives.
+    run.after(2200, function () {
+      focusUpdating = false;
+      focusRevision = 1;
+      applyChrome();
+    });
+  }
+
+  function cancelCapture() {
+    if (!CAPTURING[capture]) return;
+    setCapture("off");
+    textInput.value = draft;   // the typed draft outlives a cancelled utterance
+    announce("Cancelled");
+  }
+
+  // ── speech capability and playback ────────────────────────────────────────
+  function setSpeech(next) {
+    speech = next;
+    if (next === "unconfigured") {
+      setCapture("off");
+      setPlayback("idle");
+      closeMenus();
+    }
+    applyChrome();
+  }
+
+  function setPlayback(next, highlight) {
+    playback = next;
+
+    // The source is not a preference — it is a consequence of *when* speech
+    // happens. Highlights are spoken live, while the run works. The summary is
+    // spoken when the run lands. Nothing else is speakable, because nothing else
+    // exists yet. `outputMode` decides whether speech happens at all, never what
+    // is read; deriving the source from it produced a completed run pointing at a
+    // highlight, and a working run pointing at a summary it did not have.
+    speakingSource = state === "working" ? "highlight" : "summary";
+    if (highlight) activeHighlight = highlight;
+    if (next === "idle" || speakingSource !== "highlight") activeHighlight = null;
+
+    clearSpeakingHighlight();
+    if (next === "speaking" && speakingSource === "highlight") {
+      var source = activeHighlight || highlights.lastElementChild;
+      if (source) source.dataset.speaking = "true";
+    }
+    applyChrome();
+  }
+
+  // The staged demo leaves enough time between highlights for this short
+  // synthesis/speaking cycle. Production owns the full FIFO, source-ID
+  // deduplication, cancellation, and terminal-priority rules described by the
+  // plan; the mockup's job is to make the live-event behavior and source
+  // indication inspectable.
+  function speakHighlight(highlight) {
+    setPlayback("synthesizing", highlight);
+    run.after(320, function () {
+      if (state !== "working" || speech !== "configured" ||
+          outputMode !== "highlights_and_final" || playback !== "synthesizing" ||
+          activeHighlight !== highlight || !highlight.isConnected) return;
+      setPlayback("speaking", highlight);
+      run.after(900, function () {
+        if (playback === "speaking" && activeHighlight === highlight) setPlayback("idle");
+      });
+    });
+  }
+
+  // Synthesis, then audio, then silence. Nothing here is inferred from a
+  // snapshot: only an explicit act — a live event, or this button — speaks.
+  function speakSummary() {
+    setPlayback("synthesizing");
+    run.after(520, function () {
+      setPlayback("speaking");
+      run.after(2600, function () { setPlayback("idle"); });
+    });
   }
 
   // ── interaction ───────────────────────────────────────────────────────────
   button.addEventListener("click", function () {
-    if (state === "idle")           setState("listening", { autoAdvance: true });
-    else if (state === "listening") setState("working");
-    else if (state === "working")   setState("idle");   // stop
-    else                            setState("idle");   // complete → new request
+    if (speech === "unconfigured") { textInput.focus(); return; }
+    if (capture === "off" || capture === "failed") { startCapture({ autoAdvance: true }); return; }
+    if (capture === "listening") { commitCapture(); return; }
+    // requesting-permission / connecting / committing: the control is busy, and
+    // it never cancels the run. That is the Stop button's job, and only its job.
+  });
+
+  stopButton.addEventListener("click", function () {
+    if (state !== "working") return;
+    // Stopping does not discard the run: it ends it. The run becomes terminal
+    // with status `stopped`, keeps every artifact it already emitted, and shows
+    // its summary without a check mark. `continuous` is what preserves the
+    // rails — a stopped run that wiped its own output would be a worse outcome
+    // than one that never ran.
+    //
+    // Reachable mid-utterance: stopping must never require finishing a sentence
+    // first. setState() takes the microphone down with the run.
+    setState("complete", { continuous: true, status: "stopped" });
   });
 
   textInput.addEventListener("keydown", function (e) {
     if (e.key !== "Enter") return;
     e.preventDefault();
+    // Typed and spoken input converge on the same start/steer path. Steering a
+    // live run must therefore look identical whichever produced the words.
+    if (state === "working") {
+      textInput.value = "";
+      textInput.blur();
+      acceptSteer();
+      return;
+    }
     setState("working");
     textInput.blur();
   });
 
-  gotoBtns.forEach(function (b) {
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (!audioMenu.hidden || !voicePopover.hidden) { closeMenus(); applyChrome(); return; }
+    cancelCapture();
+  });
+
+  audioToggle.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (playback === "speaking") { setPlayback("idle"); return; }   // stop-audio
+    var open = audioMenu.hidden;
+    closeMenus();
+    audioMenu.hidden = !open;
+    applyChrome();
+  });
+
+  modeBtns.forEach(function (b) {
+    b.addEventListener("click", function (e) {
+      e.stopPropagation();
+      outputMode = b.dataset.mode;
+      if (outputMode === "off" && playback !== "idle") setPlayback("idle");
+      closeMenus();
+      applyChrome();
+    });
+  });
+
+  voiceChip.addEventListener("click", function (e) {
+    e.stopPropagation();
+    var open = voicePopover.hidden;
+    closeMenus();
+    voicePopover.hidden = !open;
+    applyChrome();
+  });
+
+  replayVoice.addEventListener("click", function (e) {
+    e.stopPropagation();
+    speakSummary();
+  });
+
+  // clicking inside an open popover is not an outside click
+  audioMenu.addEventListener("click", function (e) { e.stopPropagation(); });
+  voicePopover.addEventListener("click", function (e) { e.stopPropagation(); });
+
+  document.addEventListener("click", function () {
+    if (audioMenu.hidden && voicePopover.hidden) return;
+    closeMenus();
+    applyChrome();
+  });
+
+  // ── mockup chrome ─────────────────────────────────────────────────────────
+  stateBtns.forEach(function (b) {
     b.addEventListener("click", function () { setState(b.dataset.goto); });
+  });
+
+  terminalBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var status = b.dataset.terminal;
+      if (state === "working") {
+        // A live landing: the run ends now, keeps the rails it has staged, and
+        // obeys this status's pulse and speech rules. This is the only way to
+        // watch `failed` speak and `stopped` stay silent.
+        setState("complete", { continuous: true, status: status });
+        return;
+      }
+      // Already terminal — restate the same run under a different status. A jump,
+      // not a transition, so it neither pulses nor speaks.
+      setState("complete", { status: status });
+    });
+  });
+
+  captureBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      // `permission` runs the whole chain; the rest jump straight in, so each
+      // state can be held still and inspected.
+      if (b.dataset.capture === "requesting-permission") startCapture();
+      else setCapture(b.dataset.capture);
+    });
+  });
+
+  failBtns.forEach(function (b) {
+    b.addEventListener("click", function () { setCapture("failed", { reason: b.dataset.fail }); });
+  });
+
+  focusBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var value = b.dataset.focus;
+      // `stale` is not a focus the narrator can write — it is what a dead narrator
+      // leaves behind. The only honest way to reach it is to kill the narrator.
+      if (value === "stale") { narrator = "degraded"; applyChrome(); return; }
+      focusUpdating = value === "updating";
+      if (value === "initial") focusRevision = 0;
+      if (value === "revised") focusRevision = 1;
+      applyChrome();
+    });
+  });
+
+  narratorBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      // The run is untouched. Only the summary's authorship and the focus
+      // projection change — and with them, what speech would read aloud.
+      narrator = b.dataset.narrator;
+      applyChrome();
+    });
+  });
+
+  speechBtns.forEach(function (b) {
+    b.addEventListener("click", function () { setSpeech(b.dataset.speech); });
+  });
+
+  playbackBtns.forEach(function (b) {
+    b.addEventListener("click", function () { setPlayback(b.dataset.playback); });
   });
 
   replayBtn.addEventListener("click", function () {
     setState("idle");
-    after(600, function () { setState("listening", { autoAdvance: true }); });
+    run.after(600, function () { startCapture({ autoAdvance: true }); });
   });
 
   setState("idle");

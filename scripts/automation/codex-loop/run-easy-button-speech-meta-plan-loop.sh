@@ -4,24 +4,24 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PLAN_PATH="docs/plans/easy-button-pane-20260708.md"
-SENTINEL="EASY_BUTTON_PANE_IMPLEMENTATION_COMPLETE"
-MODEL="gpt-5.5"
+PLAN_PATH="docs/plans/easy-button-speech-20260709.md"
+SENTINEL="EASY_BUTTON_SPEECH_IMPLEMENTATION_COMPLETE"
+MODEL="gpt-5.6-sol"
 REASONING_CONFIG='reasoning_effort="xhigh"'
 OUTPUT_DIR=""
 MAX_ITERATIONS="0"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/automation/codex-loop/run-easy-button-pane-meta-plan-loop.sh [options]
+Usage: scripts/automation/codex-loop/run-easy-button-speech-meta-plan-loop.sh [options]
 
 Runs two fresh Codex agents in a loop for:
-  docs/plans/easy-button-pane-20260708.md
+  docs/plans/easy-button-speech-20260709.md
 
 Agent 1 implements the next coherent step in the plan and commits the work.
 Agent 2 audits the work, fixes or documents any gaps, commits if needed, and
 the loop stops only when Agent 2's final message is exactly:
-  EASY_BUTTON_PANE_IMPLEMENTATION_COMPLETE
+  EASY_BUTTON_SPEECH_IMPLEMENTATION_COMPLETE
 Agent 2 may also use that sentinel when the plan is implemented as much as
 possible and the remaining work is blocked.
 
@@ -38,7 +38,7 @@ Options:
                       Default: mktemp directory outside the repository.
   --iterations N      Maximum number of loop iterations. Default: 0, which
                       means no iteration cap.
-  --model NAME        Codex model to use. Default: gpt-5.5.
+  --model NAME        Codex model to use. Default: gpt-5.6-sol.
   --help             Show this help text.
 EOF
 }
@@ -160,26 +160,18 @@ if ! command -v codex >/dev/null 2>&1; then
 fi
 
 if [[ -z "${OUTPUT_DIR}" ]]; then
-  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/easy-button-pane-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
+  OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/easy-button-speech-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
 else
   mkdir -p "${OUTPUT_DIR}"
 fi
 
-AGENT_ONE_PROMPT="Implement the next coherent step in ${PLAN_PATH}.
+AGENT_ONE_PROMPT="Implement the next coherent incomplete step in ${PLAN_PATH}.
 
-First inspect the plan, AGENTS.md, git history, the current worktree, and the source/tests for the earliest incomplete phase. Respect the plan's phase order and ownership boundaries. Keep the slice disciplined: finish the smallest coherent easy-button-pane step that can be verified and committed cleanly.
+Read ${PLAN_PATH} and all applicable AGENTS.md instructions completely, then inspect the current worktree, recent history, and relevant implementation and tests. Follow the plan's order and boundaries. Implement a coherent, reviewable slice; run every verification required for the surfaces you touched; update the plan with progress, verification, remaining work, and real blockers; and commit the completed slice."
 
-Follow AGENTS.md and the plan exactly. In particular: do not hand-edit generated outputs; regenerate Go-owned contracts before cleanup when contract inputs change; do not add polling, timer-based guessing, transcript keyword heuristics, silent fallbacks, compatibility shims, migrations, transitional dual paths, feature flags for old/new behavior, speculative voice/listening stubs, raw HTML artifact rendering, or unrelated cleanup. Preserve the execution-plane/presentation-plane split: the renderer must consume only typed easy-run contracts, never raw transcript events.
+AGENT_TWO_PROMPT="Audit the latest implementation work against ${PLAN_PATH}, all applicable AGENTS.md instructions, and the actual repository state.
 
-Run the narrowest verification for the changed behavior first, then the plan-required checks for the touched area. For chat/run, Codex harness, provider protocol, run lifecycle, queueing/steering, approvals, event streaming, IPC/preload contracts, generated backend contracts, renderer chat state, or transcript UI changes, include deterministic production-path Electron E2E coverage. Run live Codex E2E when the local Codex CLI has ChatGPT auth; if it is unavailable, say it was skipped and do not count the skip as provider proof. For performance-relevant frontend work, baseline first, re-measure, and append the report under docs/reports/performance/.
-
-When the step is implemented and verified, update ${PLAN_PATH} with progress made, verification performed, and any remaining work or blockers discovered. Commit the implementation, tests, generated artifacts, performance reports when required, and plan updates together."
-
-AGENT_TWO_PROMPT="Another agent worked on the next step in ${PLAN_PATH}. Audit the result against the plan, AGENTS.md, and the actual code.
-
-Inspect the latest commits, changed files, generated artifacts, tests, and ${PLAN_PATH}. Verify the work matches the earliest incomplete phase and does not violate the plan's hard constraints: no renderer-derived highlights/artifacts from transcripts, no heuristic highlight generation, no polling, no silent narrator/artifact fallbacks, no raw HTML artifact rendering, no compatibility layers or migrations, no speculative voice/listening stubs, no hand-edited generated outputs, and no unverified chat/harness/Electron workflow changes.
-
-If the audit finds gaps, fix them if practical, run the required focused verification, and commit your fixes. If generated contracts are stale, regenerate them through the repo tooling and commit the result. If plan docs need to be updated to reflect what was learned, update and commit them. If the current step is good and the next step is ready, say so in your final message.
+Inspect the commits, worktree, generated artifacts, implementation, and tests. Fix practical gaps, run the required verification, update the plan with anything learned, and commit any audit fixes. If the current slice is correct but the plan is not complete, leave a concise handoff for the next iteration.
 
 If the whole plan is fully implemented and verified, or if the plan is implemented as much as possible and a genuine blocker prevents full completion after you update and commit the plan with the blocker and remaining work, respond with exactly:
 ${SENTINEL}"
