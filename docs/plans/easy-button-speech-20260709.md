@@ -3706,6 +3706,51 @@ that row to the foreground without rail reflow. Item 3 then owns terminal
 priority, run/workspace switching, queue cancellation, and stale-response
 rules. No implementation blocker was found.
 
+### 2026-07-10 — Phase 5 live narrator-highlight playback audit complete
+
+Audited commit `7406f595f` against Phase 5 item 1, the complete plan,
+`AGENTS.md`, the clean worktree, the checked-in PWA bundle, and the preserved
+production-path recordings. The implementation stays inside the intended
+slice: only applied live typed `easyrun.highlight.created` events publish
+persisted-ID highlight intents; mode/runtime/workspace eligibility is checked
+at receipt; snapshot hydration, duplicate/gapped/foreign events, chat input,
+and working-to-working Current focus revisions cannot enqueue speech. The
+controller uses the generated highlight synthesis surface, validates the exact
+returned source ID and WAV metadata, and keeps summary presentation isolated
+from highlight playback. It does not add the Phase 5 item 2 rail indicator or
+the item 3 terminal-priority and run-switch rules.
+
+The audit found one focused coverage gap rather than a production defect: the
+store tests asserted generic non-terminal silence but did not directly send a
+working-to-working Current focus revision. The regression now does so before a
+stopped transition and proves neither event publishes a speech intent. Chat
+messages are excluded structurally because the publisher accepts only the
+generated `EasyRunEvent` union.
+
+Fresh audit verification passed:
+
+- 46 focused store, eligibility, controller, and terminal-source Vitest cases;
+- Electron and web TypeScript checks plus both production builds; rebuilding
+  the checked-in PWA produced no diff, and `./scripts/go.sh test
+  ./internal/webapp` passed;
+- the complete configured speech workflow at
+  `desktop/.recordings/easy-button-speech-phase5-highlight-intent-audit-20260710`,
+  including two ordered live narrator highlights through the production
+  renderer/preload/main/HTTP/service path and all existing teardown, terminal,
+  failure, persistence, and redaction assertions;
+- with `OPENAI_API_KEY` explicitly removed, the ChatGPT-authenticated live
+  Electron chat, live Easy Button, and all four supplemental backend Codex
+  probes passed;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  audit-only test and plan update.
+
+No generated contract, dependency, manifest, module, package-manager,
+toolchain, or production source changed, so contract regeneration and
+supply-chain verification were not required. Phase 5 item 1 remains complete.
+The next coherent slice remains item 2: mark the exact speaking highlight
+inside its existing dot box and lift only that row without rail reflow. No
+implementation blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

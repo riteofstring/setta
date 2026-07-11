@@ -118,8 +118,17 @@ describe("easy-run store", () => {
     ]);
   });
 
-  test("does not publish terminal speech for hydration, stopped runs, or non-transition updates", () => {
+  test("does not publish speech for hydration, current-focus updates, or stopped runs", () => {
     const working = easyRun("easy_run_silent");
+    const revisedFocus: EasyRun = {
+      ...working,
+      currentFocus: {
+        revision: 1,
+        status: "current",
+        text: "Finish the revised objective.",
+        updatedAt: "2026-07-08T12:00:01Z",
+      },
+    };
     const intents: unknown[] = [];
     const unsubscribe = subscribeEasyRunSpeechPlaybackIntents((intent) => {
       intents.push(intent);
@@ -137,9 +146,10 @@ describe("easy-run store", () => {
       useEasyRunStore
         .getState()
         .hydrateSnapshot(workspaceId, easyRunSnapshot({ latestRun: working, sequence: 4 }));
+      useEasyRunStore.getState().handleEvent(runUpdatedEvent(5, revisedFocus));
       useEasyRunStore
         .getState()
-        .handleEvent(runUpdatedEvent(5, terminalEasyRun(working, "stopped")));
+        .handleEvent(runUpdatedEvent(6, terminalEasyRun(revisedFocus, "stopped")));
     } finally {
       unsubscribe();
     }
