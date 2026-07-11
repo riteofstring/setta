@@ -921,6 +921,19 @@ type TerminalInputResponseTrace struct {
 	PTYWriteCompletedAt string `json:"ptyWriteCompletedAt"`
 }
 
+type CreateTerminalStreamTicketRequest struct {
+	ClientStreamID string `json:"clientStreamId"`
+}
+
+type CreateTerminalStreamTicketResponse struct {
+	Ticket              string `json:"ticket"`
+	ClientStreamID      string `json:"clientStreamId"`
+	ExpiresAt           string `json:"expiresAt"`
+	ExpiresInSeconds    int    `json:"expiresInSeconds"`
+	MaxInputBytes       int    `json:"maxInputBytes"`
+	MaxQueuedInputBytes int    `json:"maxQueuedInputBytes"`
+}
+
 type ResizeTerminalRequest struct {
 	SessionID string `json:"sessionId"`
 	Cols      int    `json:"cols"`

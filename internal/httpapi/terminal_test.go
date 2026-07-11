@@ -231,6 +231,30 @@ func TestTerminalEndpointMapsUnsupportedPTYToNotImplemented(t *testing.T) {
 	}
 }
 
+func TestTerminalStreamRoutesAreRegisteredButDeferredToPhaseThree(t *testing.T) {
+	handler, _ := newTerminalHandler(t, nil)
+	ticketError := postJSON[ErrorResponse](t, handler, "/terminals/stream/ticket", CreateTerminalStreamTicketRequest{
+		ClientStreamID: "terminal_stream_test",
+	}, http.StatusNotImplemented)
+	if ticketError.Error.Code != "terminal_stream_not_implemented" {
+		t.Fatalf("ticket error code = %q, want terminal_stream_not_implemented", ticketError.Error.Code)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/terminals/stream", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotImplemented {
+		t.Fatalf("stream status = %d, want %d", response.Code, http.StatusNotImplemented)
+	}
+	var streamError ErrorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &streamError); err != nil {
+		t.Fatalf("decode stream error: %v", err)
+	}
+	if streamError.Error.Code != "terminal_stream_not_implemented" {
+		t.Fatalf("stream error code = %q, want terminal_stream_not_implemented", streamError.Error.Code)
+	}
+}
+
 func TestTerminalEventStreamPushesTerminalEvents(t *testing.T) {
 	handler, starter := newTerminalHandler(t, nil)
 	server := httptest.NewServer(handler)

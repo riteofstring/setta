@@ -18,22 +18,24 @@ import (
 func contractUnions() map[reflect.Type]unionSpec {
 	specs := map[reflect.Type]unionSpec{}
 	for _, union := range chat.ContractUnions() {
+		registerContractUnion(specs, union.Discriminator, union.Name, union.Type, union.Variants)
+	}
+	for _, union := range terminal.ContractUnions() {
 		variants := make([]unionVariantSpec, 0, len(union.Variants))
 		for _, variant := range union.Variants {
-			variants = append(variants, unionVariantSpec{
-				KindValue: variant.KindValue,
-				Name:      variant.Name,
-				Type:      variant.Type,
-			})
+			variants = append(variants, unionVariantSpec{KindValue: variant.KindValue, Name: variant.Name, Type: variant.Type})
 		}
-		specs[union.Type] = unionSpec{
-			Discriminator: union.Discriminator,
-			Name:          union.Name,
-			Type:          union.Type,
-			Variants:      variants,
-		}
+		specs[union.Type] = unionSpec{Discriminator: union.Discriminator, Name: union.Name, Type: union.Type, Variants: variants}
 	}
 	return specs
+}
+
+func registerContractUnion(specs map[reflect.Type]unionSpec, discriminator string, name string, unionType reflect.Type, variants []chat.ContractUnionVariant) {
+	registeredVariants := make([]unionVariantSpec, 0, len(variants))
+	for _, variant := range variants {
+		registeredVariants = append(registeredVariants, unionVariantSpec{KindValue: variant.KindValue, Name: variant.Name, Type: variant.Type})
+	}
+	specs[unionType] = unionSpec{Discriminator: discriminator, Name: name, Type: unionType, Variants: registeredVariants}
 }
 
 // contractTaggedUnions registers struct contracts whose `kind` discriminator

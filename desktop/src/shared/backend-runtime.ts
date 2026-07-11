@@ -110,6 +110,18 @@ export function decodeString(value: unknown, label: string): string {
   return value;
 }
 
+export function decodeLiteralString<T extends string>(
+  value: unknown,
+  label: string,
+  expected: T,
+): T {
+  const decoded = decodeString(value, label);
+  if (decoded !== expected) {
+    throw new Error(label + " must be " + expected);
+  }
+  return expected;
+}
+
 export function decodeArray<T>(
   value: unknown,
   label: string,

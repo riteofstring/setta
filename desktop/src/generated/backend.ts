@@ -14,13 +14,14 @@ import {
   decodeString,
   decodeUnknown,
   assertTaggedUnionBranch,
+  decodeLiteralString,
   requestBackend,
   requireField,
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 11;
-export const backendContractSchemaHash = "sha256:826e5acc48b1a07673076ba6c6d4993a98abb475a161ea8328556758f24102a1";
+export const backendProtocolVersion = 12;
+export const backendContractSchemaHash = "sha256:0b53396451bfda46e2a5f395801f0b28ce469ee472fd618dbe2f44f7bd59d559";
 
 export type DeviceScope = "full";
 
@@ -2350,6 +2351,104 @@ export function decodeSessionStatus(value: unknown, label = "SessionStatus"): Se
   }
 }
 
+export type TerminalStreamClientMessageKind = "terminal.stream.start" | "terminal.stream.resume" | "terminal.stream.input";
+
+export const terminalStreamClientMessageKindValues = ["terminal.stream.start", "terminal.stream.resume", "terminal.stream.input"] as const satisfies readonly TerminalStreamClientMessageKind[];
+
+export function decodeTerminalStreamClientMessageKind(value: unknown, label = "TerminalStreamClientMessageKind"): TerminalStreamClientMessageKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "terminal.stream.start":
+      return decoded;
+    case "terminal.stream.resume":
+      return decoded;
+    case "terminal.stream.input":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TerminalStreamServerMessageKind = "terminal.stream.ready" | "terminal.stream.inputAck" | "terminal.stream.event" | "terminal.stream.replayTruncated" | "terminal.stream.error";
+
+export const terminalStreamServerMessageKindValues = ["terminal.stream.ready", "terminal.stream.inputAck", "terminal.stream.event", "terminal.stream.replayTruncated", "terminal.stream.error"] as const satisfies readonly TerminalStreamServerMessageKind[];
+
+export function decodeTerminalStreamServerMessageKind(value: unknown, label = "TerminalStreamServerMessageKind"): TerminalStreamServerMessageKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "terminal.stream.ready":
+      return decoded;
+    case "terminal.stream.inputAck":
+      return decoded;
+    case "terminal.stream.event":
+      return decoded;
+    case "terminal.stream.replayTruncated":
+      return decoded;
+    case "terminal.stream.error":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TerminalEventType = "terminal.output" | "terminal.started" | "terminal.exited" | "terminal.closed" | "terminal.error" | "terminal.bufferTruncated";
+
+export const terminalEventTypeValues = ["terminal.output", "terminal.started", "terminal.exited", "terminal.closed", "terminal.error", "terminal.bufferTruncated"] as const satisfies readonly TerminalEventType[];
+
+export function decodeTerminalEventType(value: unknown, label = "TerminalEventType"): TerminalEventType {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "terminal.output":
+      return decoded;
+    case "terminal.started":
+      return decoded;
+    case "terminal.exited":
+      return decoded;
+    case "terminal.closed":
+      return decoded;
+    case "terminal.error":
+      return decoded;
+    case "terminal.bufferTruncated":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TerminalStreamErrorCode = "malformed_frame" | "unsupported_message" | "stream_not_ready" | "stream_identity_mismatch" | "session_not_found" | "input_sequence_gap" | "input_sequence_conflict" | "input_too_large" | "input_backpressure" | "event_cursor_unavailable" | "internal_error";
+
+export const terminalStreamErrorCodeValues = ["malformed_frame", "unsupported_message", "stream_not_ready", "stream_identity_mismatch", "session_not_found", "input_sequence_gap", "input_sequence_conflict", "input_too_large", "input_backpressure", "event_cursor_unavailable", "internal_error"] as const satisfies readonly TerminalStreamErrorCode[];
+
+export function decodeTerminalStreamErrorCode(value: unknown, label = "TerminalStreamErrorCode"): TerminalStreamErrorCode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "malformed_frame":
+      return decoded;
+    case "unsupported_message":
+      return decoded;
+    case "stream_not_ready":
+      return decoded;
+    case "stream_identity_mismatch":
+      return decoded;
+    case "session_not_found":
+      return decoded;
+    case "input_sequence_gap":
+      return decoded;
+    case "input_sequence_conflict":
+      return decoded;
+    case "input_too_large":
+      return decoded;
+    case "input_backpressure":
+      return decoded;
+    case "event_cursor_unavailable":
+      return decoded;
+    case "internal_error":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type TerminalCloseResultKind = "closed" | "confirmation_required";
 
 export const terminalCloseResultKindValues = ["closed", "confirmation_required"] as const satisfies readonly TerminalCloseResultKind[];
@@ -2454,30 +2553,6 @@ export function decodeThemeID(value: unknown, label = "ThemeID"): ThemeID {
     case "high-contrast-dark":
       return decoded;
     case "setta-light":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type TerminalEventType = "terminal.output" | "terminal.started" | "terminal.exited" | "terminal.closed" | "terminal.error" | "terminal.bufferTruncated";
-
-export const terminalEventTypeValues = ["terminal.output", "terminal.started", "terminal.exited", "terminal.closed", "terminal.error", "terminal.bufferTruncated"] as const satisfies readonly TerminalEventType[];
-
-export function decodeTerminalEventType(value: unknown, label = "TerminalEventType"): TerminalEventType {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "terminal.output":
-      return decoded;
-    case "terminal.started":
-      return decoded;
-    case "terminal.exited":
-      return decoded;
-    case "terminal.closed":
-      return decoded;
-    case "terminal.error":
-      return decoded;
-    case "terminal.bufferTruncated":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3843,13 +3918,13 @@ export interface ListChatCommandsRequest {
 }
 
 export interface ChatCommandLiteralArgumentSpec {
-  kind: ChatCommandArgumentKind;
+  kind: "literal";
   token: string;
   description: string;
 }
 
 export interface ChatCommandFreeTextArgumentSpec {
-  kind: ChatCommandArgumentKind;
+  kind: "free_text";
   name: string;
   description: string;
   maxRunes: number;
@@ -5851,6 +5926,117 @@ export interface TerminalInputResponse {
   trace: TerminalInputResponseTrace;
 }
 
+export interface CreateTerminalStreamTicketRequest {
+  clientStreamId: string;
+}
+
+export interface CreateTerminalStreamTicketResponse {
+  ticket: string;
+  clientStreamId: string;
+  expiresAt: string;
+  expiresInSeconds: number;
+  maxInputBytes: number;
+  maxQueuedInputBytes: number;
+}
+
+export interface TerminalStreamEventCursor {
+  streamId: string;
+  afterSequence: number;
+}
+
+export interface TerminalStreamStartMessage {
+  kind: "terminal.stream.start";
+  clientStreamId: string;
+  eventCursor: TerminalStreamEventCursor;
+}
+
+export interface TerminalStreamResumeSession {
+  sessionId: string;
+  lastAcknowledgedInputSequence: number;
+}
+
+export interface TerminalStreamResumeMessage {
+  kind: "terminal.stream.resume";
+  clientStreamId: string;
+  eventCursor: TerminalStreamEventCursor;
+  sessions: TerminalStreamResumeSession[];
+}
+
+export interface TerminalStreamInputMessage {
+  kind: "terminal.stream.input";
+  sessionId: string;
+  inputSequence: number;
+  dataBase64: string;
+}
+
+export interface TerminalStreamSessionState {
+  sessionId: string;
+  acknowledgedInputSequence: number;
+}
+
+export interface TerminalStreamReadyMessage {
+  kind: "terminal.stream.ready";
+  protocolVersion: number;
+  clientStreamId: string;
+  serverStreamId: string;
+  eventCursor: TerminalStreamEventCursor;
+  sessions: TerminalStreamSessionState[];
+  maxInputBytes: number;
+  maxQueuedInputBytes: number;
+}
+
+export interface TerminalStreamInputAckMessage {
+  kind: "terminal.stream.inputAck";
+  sessionId: string;
+  acknowledgedInputSequence: number;
+  acceptedBytes: number;
+}
+
+export interface TerminalEventPayload {
+  dataBase64: string;
+  byteCount: number;
+  droppedBytes: number;
+  droppedChunks: number;
+  status: SessionStatus;
+  cwd: string;
+  cols: number;
+  rows: number;
+  exitCode: number;
+  message: string;
+}
+
+export interface TerminalEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: TerminalEventType;
+  emittedAt: string;
+  workspaceId: string;
+  paneId: string;
+  sessionId: string;
+  payload: TerminalEventPayload;
+}
+
+export interface TerminalStreamEventMessage {
+  kind: "terminal.stream.event";
+  event: TerminalEvent;
+}
+
+export interface TerminalStreamReplayTruncatedMessage {
+  kind: "terminal.stream.replayTruncated";
+  event: TerminalEvent;
+}
+
+export interface TerminalStreamErrorMessage {
+  kind: "terminal.stream.error";
+  code: TerminalStreamErrorCode;
+  message: string;
+  retryable: boolean;
+  sessionId: string;
+  inputSequence: number;
+}
+
 export interface ResizeTerminalRequest {
   sessionId: string;
   cols: number;
@@ -5935,32 +6121,6 @@ export interface DeleteTerminalProfileRequest {
 
 export interface SelectDefaultTerminalProfileRequest {
   id: string;
-}
-
-export interface TerminalEventPayload {
-  dataBase64: string;
-  byteCount: number;
-  droppedBytes: number;
-  droppedChunks: number;
-  status: SessionStatus;
-  cwd: string;
-  cols: number;
-  rows: number;
-  exitCode: number;
-  message: string;
-}
-
-export interface TerminalEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: TerminalEventType;
-  emittedAt: string;
-  workspaceId: string;
-  paneId: string;
-  sessionId: string;
-  payload: TerminalEventPayload;
 }
 
 export interface CodexAccount {
@@ -6135,6 +6295,20 @@ export interface CodexAccountChangedPayload {
 export type ChatCommandArgumentSpec =
   ChatCommandLiteralArgumentSpec
   | ChatCommandFreeTextArgumentSpec
+;
+
+export type TerminalStreamClientMessage =
+  TerminalStreamStartMessage
+  | TerminalStreamResumeMessage
+  | TerminalStreamInputMessage
+;
+
+export type TerminalStreamServerMessage =
+  TerminalStreamReadyMessage
+  | TerminalStreamInputAckMessage
+  | TerminalStreamEventMessage
+  | TerminalStreamReplayTruncatedMessage
+  | TerminalStreamErrorMessage
 ;
 
 export type ChatEvent =
@@ -7106,6 +7280,16 @@ export const backendEndpoints = {
     path: "/terminals/input",
     requestBodyLimitBytes: 4194304,
   },
+  CreateTerminalStreamTicket: {
+    method: "POST",
+    path: "/terminals/stream/ticket",
+    requestBodyLimitBytes: 4194304,
+  },
+  TerminalStream: {
+    method: "GET",
+    path: "/terminals/stream",
+    duplex: true,
+  },
   ResizeTerminal: {
     method: "POST",
     path: "/terminals/resize",
@@ -7171,6 +7355,14 @@ export const backendEndpoints = {
   EventStream: {
     method: "GET",
     path: "/events",
+  },
+} as const;
+
+export const backendDuplexProtocols = {
+  TerminalStream: {
+    endpoint: backendEndpoints.TerminalStream,
+    decodeClientMessage: decodeTerminalStreamClientMessage,
+    decodeServerMessage: decodeTerminalStreamServerMessage,
   },
 } as const;
 
@@ -9047,7 +9239,7 @@ export function decodeChatCommandLiteralArgumentSpec(value: unknown): ChatComman
   const record = assertRecord(value, "ChatCommandLiteralArgumentSpec");
   assertKnownFields(record, "ChatCommandLiteralArgumentSpec", ["kind", "token", "description"]);
   return {
-    kind: decodeChatCommandArgumentKind(requireField(record, "kind", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.kind"),
+    kind: decodeLiteralString(requireField(record, "kind", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.kind", "literal"),
     token: decodeString(requireField(record, "token", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.token"),
     description: decodeString(requireField(record, "description", "ChatCommandLiteralArgumentSpec"), "ChatCommandLiteralArgumentSpec.description"),
   };
@@ -9057,7 +9249,7 @@ export function decodeChatCommandFreeTextArgumentSpec(value: unknown): ChatComma
   const record = assertRecord(value, "ChatCommandFreeTextArgumentSpec");
   assertKnownFields(record, "ChatCommandFreeTextArgumentSpec", ["kind", "name", "description", "maxRunes", "required"]);
   return {
-    kind: decodeChatCommandArgumentKind(requireField(record, "kind", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.kind"),
+    kind: decodeLiteralString(requireField(record, "kind", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.kind", "free_text"),
     name: decodeString(requireField(record, "name", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.name"),
     description: decodeString(requireField(record, "description", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.description"),
     maxRunes: decodeInteger(requireField(record, "maxRunes", "ChatCommandFreeTextArgumentSpec"), "ChatCommandFreeTextArgumentSpec.maxRunes"),
@@ -11928,6 +12120,177 @@ export function decodeTerminalInputResponse(value: unknown): TerminalInputRespon
   };
 }
 
+export function decodeCreateTerminalStreamTicketRequest(value: unknown): CreateTerminalStreamTicketRequest {
+  const record = assertRecord(value, "CreateTerminalStreamTicketRequest");
+  assertKnownFields(record, "CreateTerminalStreamTicketRequest", ["clientStreamId"]);
+  return {
+    clientStreamId: decodeString(requireField(record, "clientStreamId", "CreateTerminalStreamTicketRequest"), "CreateTerminalStreamTicketRequest.clientStreamId"),
+  };
+}
+
+export function decodeCreateTerminalStreamTicketResponse(value: unknown): CreateTerminalStreamTicketResponse {
+  const record = assertRecord(value, "CreateTerminalStreamTicketResponse");
+  assertKnownFields(record, "CreateTerminalStreamTicketResponse", ["ticket", "clientStreamId", "expiresAt", "expiresInSeconds", "maxInputBytes", "maxQueuedInputBytes"]);
+  return {
+    ticket: decodeString(requireField(record, "ticket", "CreateTerminalStreamTicketResponse"), "CreateTerminalStreamTicketResponse.ticket"),
+    clientStreamId: decodeString(requireField(record, "clientStreamId", "CreateTerminalStreamTicketResponse"), "CreateTerminalStreamTicketResponse.clientStreamId"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "CreateTerminalStreamTicketResponse"), "CreateTerminalStreamTicketResponse.expiresAt"),
+    expiresInSeconds: decodeInteger(requireField(record, "expiresInSeconds", "CreateTerminalStreamTicketResponse"), "CreateTerminalStreamTicketResponse.expiresInSeconds"),
+    maxInputBytes: decodeInteger(requireField(record, "maxInputBytes", "CreateTerminalStreamTicketResponse"), "CreateTerminalStreamTicketResponse.maxInputBytes"),
+    maxQueuedInputBytes: decodeInteger(requireField(record, "maxQueuedInputBytes", "CreateTerminalStreamTicketResponse"), "CreateTerminalStreamTicketResponse.maxQueuedInputBytes"),
+  };
+}
+
+export function decodeTerminalStreamEventCursor(value: unknown): TerminalStreamEventCursor {
+  const record = assertRecord(value, "TerminalStreamEventCursor");
+  assertKnownFields(record, "TerminalStreamEventCursor", ["streamId", "afterSequence"]);
+  return {
+    streamId: decodeString(requireField(record, "streamId", "TerminalStreamEventCursor"), "TerminalStreamEventCursor.streamId"),
+    afterSequence: decodeInteger(requireField(record, "afterSequence", "TerminalStreamEventCursor"), "TerminalStreamEventCursor.afterSequence"),
+  };
+}
+
+export function decodeTerminalStreamStartMessage(value: unknown): TerminalStreamStartMessage {
+  const record = assertRecord(value, "TerminalStreamStartMessage");
+  assertKnownFields(record, "TerminalStreamStartMessage", ["kind", "clientStreamId", "eventCursor"]);
+  return {
+    kind: decodeLiteralString(requireField(record, "kind", "TerminalStreamStartMessage"), "TerminalStreamStartMessage.kind", "terminal.stream.start"),
+    clientStreamId: decodeString(requireField(record, "clientStreamId", "TerminalStreamStartMessage"), "TerminalStreamStartMessage.clientStreamId"),
+    eventCursor: decodeTerminalStreamEventCursor(requireField(record, "eventCursor", "TerminalStreamStartMessage")),
+  };
+}
+
+export function decodeTerminalStreamResumeSession(value: unknown): TerminalStreamResumeSession {
+  const record = assertRecord(value, "TerminalStreamResumeSession");
+  assertKnownFields(record, "TerminalStreamResumeSession", ["sessionId", "lastAcknowledgedInputSequence"]);
+  return {
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalStreamResumeSession"), "TerminalStreamResumeSession.sessionId"),
+    lastAcknowledgedInputSequence: decodeInteger(requireField(record, "lastAcknowledgedInputSequence", "TerminalStreamResumeSession"), "TerminalStreamResumeSession.lastAcknowledgedInputSequence"),
+  };
+}
+
+export function decodeTerminalStreamResumeMessage(value: unknown): TerminalStreamResumeMessage {
+  const record = assertRecord(value, "TerminalStreamResumeMessage");
+  assertKnownFields(record, "TerminalStreamResumeMessage", ["kind", "clientStreamId", "eventCursor", "sessions"]);
+  return {
+    kind: decodeLiteralString(requireField(record, "kind", "TerminalStreamResumeMessage"), "TerminalStreamResumeMessage.kind", "terminal.stream.resume"),
+    clientStreamId: decodeString(requireField(record, "clientStreamId", "TerminalStreamResumeMessage"), "TerminalStreamResumeMessage.clientStreamId"),
+    eventCursor: decodeTerminalStreamEventCursor(requireField(record, "eventCursor", "TerminalStreamResumeMessage")),
+    sessions: decodeArray(requireField(record, "sessions", "TerminalStreamResumeMessage"), "TerminalStreamResumeMessage.sessions", (item) => decodeTerminalStreamResumeSession(item)),
+  };
+}
+
+export function decodeTerminalStreamInputMessage(value: unknown): TerminalStreamInputMessage {
+  const record = assertRecord(value, "TerminalStreamInputMessage");
+  assertKnownFields(record, "TerminalStreamInputMessage", ["kind", "sessionId", "inputSequence", "dataBase64"]);
+  return {
+    kind: decodeLiteralString(requireField(record, "kind", "TerminalStreamInputMessage"), "TerminalStreamInputMessage.kind", "terminal.stream.input"),
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalStreamInputMessage"), "TerminalStreamInputMessage.sessionId"),
+    inputSequence: decodeInteger(requireField(record, "inputSequence", "TerminalStreamInputMessage"), "TerminalStreamInputMessage.inputSequence"),
+    dataBase64: decodeString(requireField(record, "dataBase64", "TerminalStreamInputMessage"), "TerminalStreamInputMessage.dataBase64"),
+  };
+}
+
+export function decodeTerminalStreamSessionState(value: unknown): TerminalStreamSessionState {
+  const record = assertRecord(value, "TerminalStreamSessionState");
+  assertKnownFields(record, "TerminalStreamSessionState", ["sessionId", "acknowledgedInputSequence"]);
+  return {
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalStreamSessionState"), "TerminalStreamSessionState.sessionId"),
+    acknowledgedInputSequence: decodeInteger(requireField(record, "acknowledgedInputSequence", "TerminalStreamSessionState"), "TerminalStreamSessionState.acknowledgedInputSequence"),
+  };
+}
+
+export function decodeTerminalStreamReadyMessage(value: unknown): TerminalStreamReadyMessage {
+  const record = assertRecord(value, "TerminalStreamReadyMessage");
+  assertKnownFields(record, "TerminalStreamReadyMessage", ["kind", "protocolVersion", "clientStreamId", "serverStreamId", "eventCursor", "sessions", "maxInputBytes", "maxQueuedInputBytes"]);
+  return {
+    kind: decodeLiteralString(requireField(record, "kind", "TerminalStreamReadyMessage"), "TerminalStreamReadyMessage.kind", "terminal.stream.ready"),
+    protocolVersion: decodeInteger(requireField(record, "protocolVersion", "TerminalStreamReadyMessage"), "TerminalStreamReadyMessage.protocolVersion"),
+    clientStreamId: decodeString(requireField(record, "clientStreamId", "TerminalStreamReadyMessage"), "TerminalStreamReadyMessage.clientStreamId"),
+    serverStreamId: decodeString(requireField(record, "serverStreamId", "TerminalStreamReadyMessage"), "TerminalStreamReadyMessage.serverStreamId"),
+    eventCursor: decodeTerminalStreamEventCursor(requireField(record, "eventCursor", "TerminalStreamReadyMessage")),
+    sessions: decodeArray(requireField(record, "sessions", "TerminalStreamReadyMessage"), "TerminalStreamReadyMessage.sessions", (item) => decodeTerminalStreamSessionState(item)),
+    maxInputBytes: decodeInteger(requireField(record, "maxInputBytes", "TerminalStreamReadyMessage"), "TerminalStreamReadyMessage.maxInputBytes"),
+    maxQueuedInputBytes: decodeInteger(requireField(record, "maxQueuedInputBytes", "TerminalStreamReadyMessage"), "TerminalStreamReadyMessage.maxQueuedInputBytes"),
+  };
+}
+
+export function decodeTerminalStreamInputAckMessage(value: unknown): TerminalStreamInputAckMessage {
+  const record = assertRecord(value, "TerminalStreamInputAckMessage");
+  assertKnownFields(record, "TerminalStreamInputAckMessage", ["kind", "sessionId", "acknowledgedInputSequence", "acceptedBytes"]);
+  return {
+    kind: decodeLiteralString(requireField(record, "kind", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.kind", "terminal.stream.inputAck"),
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.sessionId"),
+    acknowledgedInputSequence: decodeInteger(requireField(record, "acknowledgedInputSequence", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.acknowledgedInputSequence"),
+    acceptedBytes: decodeInteger(requireField(record, "acceptedBytes", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.acceptedBytes"),
+  };
+}
+
+export function decodeTerminalEventPayload(value: unknown): TerminalEventPayload {
+  const record = assertRecord(value, "TerminalEventPayload");
+  assertKnownFields(record, "TerminalEventPayload", ["dataBase64", "byteCount", "droppedBytes", "droppedChunks", "status", "cwd", "cols", "rows", "exitCode", "message"]);
+  return {
+    dataBase64: decodeString(requireField(record, "dataBase64", "TerminalEventPayload"), "TerminalEventPayload.dataBase64"),
+    byteCount: decodeInteger(requireField(record, "byteCount", "TerminalEventPayload"), "TerminalEventPayload.byteCount"),
+    droppedBytes: decodeInteger(requireField(record, "droppedBytes", "TerminalEventPayload"), "TerminalEventPayload.droppedBytes"),
+    droppedChunks: decodeInteger(requireField(record, "droppedChunks", "TerminalEventPayload"), "TerminalEventPayload.droppedChunks"),
+    status: decodeSessionStatus(requireField(record, "status", "TerminalEventPayload"), "TerminalEventPayload.status"),
+    cwd: decodeString(requireField(record, "cwd", "TerminalEventPayload"), "TerminalEventPayload.cwd"),
+    cols: decodeInteger(requireField(record, "cols", "TerminalEventPayload"), "TerminalEventPayload.cols"),
+    rows: decodeInteger(requireField(record, "rows", "TerminalEventPayload"), "TerminalEventPayload.rows"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "TerminalEventPayload"), "TerminalEventPayload.exitCode"),
+    message: decodeString(requireField(record, "message", "TerminalEventPayload"), "TerminalEventPayload.message"),
+  };
+}
+
+export function decodeTerminalEvent(value: unknown): TerminalEvent {
+  const record = assertRecord(value, "TerminalEvent");
+  assertKnownFields(record, "TerminalEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "paneId", "sessionId", "payload"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "TerminalEvent"), "TerminalEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "TerminalEvent"), "TerminalEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "TerminalEvent"), "TerminalEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "TerminalEvent"), "TerminalEvent.eventId"),
+    type: decodeTerminalEventType(requireField(record, "type", "TerminalEvent"), "TerminalEvent.type"),
+    emittedAt: decodeString(requireField(record, "emittedAt", "TerminalEvent"), "TerminalEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "TerminalEvent"), "TerminalEvent.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "TerminalEvent"), "TerminalEvent.paneId"),
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalEvent"), "TerminalEvent.sessionId"),
+    payload: decodeTerminalEventPayload(requireField(record, "payload", "TerminalEvent")),
+  };
+}
+
+export function decodeTerminalStreamEventMessage(value: unknown): TerminalStreamEventMessage {
+  const record = assertRecord(value, "TerminalStreamEventMessage");
+  assertKnownFields(record, "TerminalStreamEventMessage", ["kind", "event"]);
+  return {
+    kind: decodeLiteralString(requireField(record, "kind", "TerminalStreamEventMessage"), "TerminalStreamEventMessage.kind", "terminal.stream.event"),
+    event: decodeTerminalEvent(requireField(record, "event", "TerminalStreamEventMessage")),
+  };
+}
+
+export function decodeTerminalStreamReplayTruncatedMessage(value: unknown): TerminalStreamReplayTruncatedMessage {
+  const record = assertRecord(value, "TerminalStreamReplayTruncatedMessage");
+  assertKnownFields(record, "TerminalStreamReplayTruncatedMessage", ["kind", "event"]);
+  return {
+    kind: decodeLiteralString(requireField(record, "kind", "TerminalStreamReplayTruncatedMessage"), "TerminalStreamReplayTruncatedMessage.kind", "terminal.stream.replayTruncated"),
+    event: decodeTerminalEvent(requireField(record, "event", "TerminalStreamReplayTruncatedMessage")),
+  };
+}
+
+export function decodeTerminalStreamErrorMessage(value: unknown): TerminalStreamErrorMessage {
+  const record = assertRecord(value, "TerminalStreamErrorMessage");
+  assertKnownFields(record, "TerminalStreamErrorMessage", ["kind", "code", "message", "retryable", "sessionId", "inputSequence"]);
+  return {
+    kind: decodeLiteralString(requireField(record, "kind", "TerminalStreamErrorMessage"), "TerminalStreamErrorMessage.kind", "terminal.stream.error"),
+    code: decodeTerminalStreamErrorCode(requireField(record, "code", "TerminalStreamErrorMessage"), "TerminalStreamErrorMessage.code"),
+    message: decodeString(requireField(record, "message", "TerminalStreamErrorMessage"), "TerminalStreamErrorMessage.message"),
+    retryable: decodeBoolean(requireField(record, "retryable", "TerminalStreamErrorMessage"), "TerminalStreamErrorMessage.retryable"),
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalStreamErrorMessage"), "TerminalStreamErrorMessage.sessionId"),
+    inputSequence: decodeInteger(requireField(record, "inputSequence", "TerminalStreamErrorMessage"), "TerminalStreamErrorMessage.inputSequence"),
+  };
+}
+
 export function decodeResizeTerminalRequest(value: unknown): ResizeTerminalRequest {
   const record = assertRecord(value, "ResizeTerminalRequest");
   assertKnownFields(record, "ResizeTerminalRequest", ["sessionId", "cols", "rows"]);
@@ -12059,40 +12422,6 @@ export function decodeSelectDefaultTerminalProfileRequest(value: unknown): Selec
   assertKnownFields(record, "SelectDefaultTerminalProfileRequest", ["id"]);
   return {
     id: decodeString(requireField(record, "id", "SelectDefaultTerminalProfileRequest"), "SelectDefaultTerminalProfileRequest.id"),
-  };
-}
-
-export function decodeTerminalEventPayload(value: unknown): TerminalEventPayload {
-  const record = assertRecord(value, "TerminalEventPayload");
-  assertKnownFields(record, "TerminalEventPayload", ["dataBase64", "byteCount", "droppedBytes", "droppedChunks", "status", "cwd", "cols", "rows", "exitCode", "message"]);
-  return {
-    dataBase64: decodeString(requireField(record, "dataBase64", "TerminalEventPayload"), "TerminalEventPayload.dataBase64"),
-    byteCount: decodeInteger(requireField(record, "byteCount", "TerminalEventPayload"), "TerminalEventPayload.byteCount"),
-    droppedBytes: decodeInteger(requireField(record, "droppedBytes", "TerminalEventPayload"), "TerminalEventPayload.droppedBytes"),
-    droppedChunks: decodeInteger(requireField(record, "droppedChunks", "TerminalEventPayload"), "TerminalEventPayload.droppedChunks"),
-    status: decodeSessionStatus(requireField(record, "status", "TerminalEventPayload"), "TerminalEventPayload.status"),
-    cwd: decodeString(requireField(record, "cwd", "TerminalEventPayload"), "TerminalEventPayload.cwd"),
-    cols: decodeInteger(requireField(record, "cols", "TerminalEventPayload"), "TerminalEventPayload.cols"),
-    rows: decodeInteger(requireField(record, "rows", "TerminalEventPayload"), "TerminalEventPayload.rows"),
-    exitCode: decodeInteger(requireField(record, "exitCode", "TerminalEventPayload"), "TerminalEventPayload.exitCode"),
-    message: decodeString(requireField(record, "message", "TerminalEventPayload"), "TerminalEventPayload.message"),
-  };
-}
-
-export function decodeTerminalEvent(value: unknown): TerminalEvent {
-  const record = assertRecord(value, "TerminalEvent");
-  assertKnownFields(record, "TerminalEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "paneId", "sessionId", "payload"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "TerminalEvent"), "TerminalEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "TerminalEvent"), "TerminalEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "TerminalEvent"), "TerminalEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "TerminalEvent"), "TerminalEvent.eventId"),
-    type: decodeTerminalEventType(requireField(record, "type", "TerminalEvent"), "TerminalEvent.type"),
-    emittedAt: decodeString(requireField(record, "emittedAt", "TerminalEvent"), "TerminalEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "TerminalEvent"), "TerminalEvent.workspaceId"),
-    paneId: decodeString(requireField(record, "paneId", "TerminalEvent"), "TerminalEvent.paneId"),
-    sessionId: decodeString(requireField(record, "sessionId", "TerminalEvent"), "TerminalEvent.sessionId"),
-    payload: decodeTerminalEventPayload(requireField(record, "payload", "TerminalEvent")),
   };
 }
 
@@ -12415,6 +12744,40 @@ export function decodeChatCommandArgumentSpec(value: unknown): ChatCommandArgume
       return decodeChatCommandFreeTextArgumentSpec(value);
     default:
       throw new Error("ChatCommandArgumentSpec.kind" + " is unsupported: " + discriminator);
+  }
+}
+
+export function decodeTerminalStreamClientMessage(value: unknown): TerminalStreamClientMessage {
+  const record = assertRecord(value, "TerminalStreamClientMessage");
+  const discriminator = decodeString(requireField(record, "kind", "TerminalStreamClientMessage"), "TerminalStreamClientMessage.kind");
+  switch (discriminator) {
+    case "terminal.stream.start":
+      return decodeTerminalStreamStartMessage(value);
+    case "terminal.stream.resume":
+      return decodeTerminalStreamResumeMessage(value);
+    case "terminal.stream.input":
+      return decodeTerminalStreamInputMessage(value);
+    default:
+      throw new Error("TerminalStreamClientMessage.kind" + " is unsupported: " + discriminator);
+  }
+}
+
+export function decodeTerminalStreamServerMessage(value: unknown): TerminalStreamServerMessage {
+  const record = assertRecord(value, "TerminalStreamServerMessage");
+  const discriminator = decodeString(requireField(record, "kind", "TerminalStreamServerMessage"), "TerminalStreamServerMessage.kind");
+  switch (discriminator) {
+    case "terminal.stream.ready":
+      return decodeTerminalStreamReadyMessage(value);
+    case "terminal.stream.inputAck":
+      return decodeTerminalStreamInputAckMessage(value);
+    case "terminal.stream.event":
+      return decodeTerminalStreamEventMessage(value);
+    case "terminal.stream.replayTruncated":
+      return decodeTerminalStreamReplayTruncatedMessage(value);
+    case "terminal.stream.error":
+      return decodeTerminalStreamErrorMessage(value);
+    default:
+      throw new Error("TerminalStreamServerMessage.kind" + " is unsupported: " + discriminator);
   }
 }
 
@@ -12900,6 +13263,7 @@ export interface BackendClient {
   createTerminal: (request: CreateTerminalRequest) => Promise<TerminalSessionResponse>;
   attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
   terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
+  createTerminalStreamTicket: (request: CreateTerminalStreamTicketRequest) => Promise<CreateTerminalStreamTicketResponse>;
   resizeTerminal: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
   closeTerminal: (request: CloseTerminalRequest) => Promise<CloseTerminalResponse>;
   listTerminalProfiles: () => Promise<TerminalProfileList>;
@@ -13889,6 +14253,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalInputResponse,
       endpoint: backendEndpoints.TerminalInput,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createTerminalStreamTicket: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCreateTerminalStreamTicketResponse,
+      endpoint: backendEndpoints.CreateTerminalStreamTicket,
       fetchImpl,
       requestPayload: request,
     }),

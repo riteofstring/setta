@@ -30,6 +30,9 @@ type ContractEndpoint struct {
 	Response              reflect.Type
 	StreamEvent           reflect.Type
 	Streaming             bool
+	DuplexClientMessage   reflect.Type
+	DuplexServerMessage   reflect.Type
+	Duplex                bool
 	RequestBodyLimitBytes int64
 }
 
@@ -172,6 +175,8 @@ var apiEndpoints = []endpoint{
 	post[CreateTerminalRequest, TerminalSessionResponse]("CreateTerminal", "/terminals/create", handler.createTerminal),
 	post[AttachTerminalRequest, TerminalSessionResponse]("AttachTerminal", "/terminals/attach", handler.attachTerminal),
 	post[TerminalInputRequest, TerminalInputResponse]("TerminalInput", "/terminals/input", handler.terminalInput),
+	post[CreateTerminalStreamTicketRequest, CreateTerminalStreamTicketResponse]("CreateTerminalStreamTicket", "/terminals/stream/ticket", handler.createTerminalStreamTicket),
+	duplex[terminal.TerminalStreamClientMessage, terminal.TerminalStreamServerMessage]("TerminalStream", "/terminals/stream", handler.terminalStream),
 	post[ResizeTerminalRequest, TerminalSessionResponse]("ResizeTerminal", "/terminals/resize", handler.resizeTerminal),
 	post[CloseTerminalRequest, CloseTerminalResponse]("CloseTerminal", "/terminals/close", handler.closeTerminal),
 	get[terminal.TerminalProfileList]("ListTerminalProfiles", "/terminals/profiles", handler.listTerminalProfiles),
@@ -267,6 +272,21 @@ func streamEvent[StreamEvent any](name string, path string, handler routeHandler
 			Path:        path,
 			StreamEvent: reflect.TypeFor[StreamEvent](),
 			Streaming:   true,
+		},
+		Handler: handler,
+	}
+}
+
+func duplex[ClientMessage any, ServerMessage any](name string, path string, handler routeHandler) endpoint {
+	return endpoint{
+		ContractEndpoint: ContractEndpoint{
+			Name:                name,
+			Method:              http.MethodGet,
+			Path:                path,
+			Streaming:           true,
+			Duplex:              true,
+			DuplexClientMessage: reflect.TypeFor[ClientMessage](),
+			DuplexServerMessage: reflect.TypeFor[ServerMessage](),
 		},
 		Handler: handler,
 	}

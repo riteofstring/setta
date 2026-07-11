@@ -2,9 +2,10 @@
 
 **Date:** 2026-07-10
 
-**Status:** Phase 1 complete. The local and direct-Tailscale causal baselines
-confirm H1 and H3 and reject H2 for the controlled direct-route reproduction.
-Phase 2 is the next phase and has not started.
+**Status:** Phase 2 complete. The duplex terminal protocol is owned by Go,
+generated into TypeScript, and registered as protocol 12. Phase 3 is next and
+has not started; ticket lifecycle and WebSocket transport remain explicitly
+unimplemented.
 
 ## Progress
 
@@ -21,6 +22,15 @@ Phase 2 is the next phase and has not started.
   `docs/reports/performance/2026-07-10-remote-terminal-latency-phase-1.md`.
 - [x] Deploy protocol 11 to the Tailscale runtime and run the identical workload.
 - [x] Record route-specific remote results and finish the H1-H3 evidence gate.
+- [x] Register the authenticated terminal ticket and duplex stream endpoints.
+- [x] Define Go-owned start, resume, input, ready, acknowledgement, terminal
+  event, replay truncation, and protocol error frames.
+- [x] Define stable stream identity, per-session sequence, acknowledgement,
+  deduplication, gap, replay, and bounded-backpressure semantics.
+- [x] Generate literal-discriminated TypeScript unions, strict codecs, value
+  sets, endpoint paths, and the duplex protocol descriptor.
+- [x] Verify the protocol contracts and the unchanged production terminal
+  workflow; record the result in the Phase 2 report.
 
 ## Decision
 
@@ -192,6 +202,10 @@ prediction.
    measurements confirm the existing request path is a material contributor.
 
 ### Phase 2: Define the Go-owned duplex protocol
+
+**Phase status:** Complete in protocol 12. Implementation stops at the contract
+boundary; the registered routes return `terminal_stream_not_implemented` until
+Phase 3.
 
 1. Add the stream endpoint and any ticket endpoint to the
    `internal/httpapi` endpoint registry. Do not maintain a second endpoint

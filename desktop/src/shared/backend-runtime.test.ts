@@ -6,6 +6,7 @@ import {
   decodeBackendEventBase,
   decodeBoolean,
   decodeInteger,
+  decodeLiteralString,
   decodeString,
   requestBackend,
   requireField,
@@ -34,6 +35,7 @@ describe("backend runtime decoders", () => {
   test("decodes primitives and arrays", () => {
     expect(decodeBoolean(true, "Payload.ok")).toBe(true);
     expect(decodeInteger(4, "Payload.count")).toBe(4);
+    expect(decodeLiteralString("ready", "Payload.state", "ready")).toBe("ready");
     expect(decodeString("ready", "Payload.state")).toBe("ready");
     expect(
       decodeArray(["a", "b"], "Payload.items", (value) => decodeString(value, "Item")),
@@ -41,6 +43,9 @@ describe("backend runtime decoders", () => {
 
     expect(() => decodeBoolean("true", "Payload.ok")).toThrow("Payload.ok must be a boolean");
     expect(() => decodeInteger(4.5, "Payload.count")).toThrow("Payload.count must be an integer");
+    expect(() => decodeLiteralString("stopped", "Payload.state", "ready")).toThrow(
+      "Payload.state must be ready",
+    );
     expect(() => decodeString(4, "Payload.state")).toThrow("Payload.state must be a string");
     expect(() => decodeArray("a", "Payload.items", (value) => decodeString(value, "Item"))).toThrow(
       "Payload.items must be an array",
