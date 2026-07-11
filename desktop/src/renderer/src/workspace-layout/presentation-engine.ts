@@ -115,6 +115,11 @@ export class PresentationEngine {
   }
 
   mount(hosts: readonly HTMLElement[], debugOverlay: HTMLElement | null): void {
+    this.syncHosts(hosts);
+    this.debugOverlay = debugOverlay;
+  }
+
+  syncHosts(hosts: readonly HTMLElement[]): void {
     this.bindings = hosts.map((host) => ({
       contentPaneId: host.dataset.paneId ?? null,
       host,
@@ -133,7 +138,6 @@ export class PresentationEngine {
       lastWidth: -1,
       lastZ: -1,
     }));
-    this.debugOverlay = debugOverlay;
   }
 
   setDebugOverlay(debugOverlay: HTMLElement | null): void {

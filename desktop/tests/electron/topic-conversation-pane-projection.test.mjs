@@ -69,6 +69,12 @@ try {
     workflowTimeoutMs,
   );
   assertPersistedBindings(duplicatedPersisted, workspaceId, 2);
+  const duplicated = await waitForBoundConversationSurfaces(context.client, workspaceId, 2);
+  for (const surface of duplicated.surfaces) {
+    assertBoundUnloadedProjection(surface);
+  }
+  assertDistinctPaneViews(duplicated.surfaces);
+  await captureScreenshot(context.client, join(artifactDir, "bound-conversation-views-opened.png"));
 
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -86,6 +92,7 @@ try {
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     conversationId,
+    duplicated,
     duplicatedPersisted,
     opened,
     reloaded,

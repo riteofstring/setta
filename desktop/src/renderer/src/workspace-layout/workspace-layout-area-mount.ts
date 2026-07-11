@@ -1,21 +1,33 @@
+import { useLayoutEffect, type RefObject } from "react";
+
+import type { FrameScheduler } from "./frame-scheduler";
 import { installWindowReportHooks } from "./performance-report";
 import type { WorkspaceLayoutSnapshot } from "./layout-store";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 
-export interface WorkspaceLayoutMountedElements {
+interface WorkspaceLayoutMountedElements {
   hosts: HTMLDivElement[];
   root: HTMLDivElement;
   stage: HTMLDivElement;
 }
 
-export interface WorkspaceLayoutMountedElementInput {
+interface WorkspaceLayoutMountedElementInput {
   hostPoolSize: number;
   hostRefs: Array<HTMLDivElement | null>;
   root: HTMLDivElement | null;
   stage: HTMLDivElement | null;
 }
 
-export function requireWorkspaceLayoutElements({
+interface PresentationHostPoolInput {
+  hostPoolSize: number;
+  hostRefs: RefObject<Array<HTMLDivElement | null>>;
+  rootRef: RefObject<HTMLDivElement | null>;
+  runtime: WorkspaceRuntime;
+  schedulerRef: RefObject<FrameScheduler | null>;
+  stageRef: RefObject<HTMLDivElement | null>;
+}
+
+function requireWorkspaceLayoutElements({
   hostPoolSize,
   hostRefs,
   root,
@@ -26,6 +38,26 @@ export function requireWorkspaceLayoutElements({
     throw new Error("workspace layout host pool did not mount");
   }
   return { hosts, root, stage };
+}
+
+export function usePresentationHostPool({
+  hostPoolSize,
+  hostRefs,
+  rootRef,
+  runtime,
+  schedulerRef,
+  stageRef,
+}: PresentationHostPoolInput): void {
+  useLayoutEffect(() => {
+    const { hosts } = requireWorkspaceLayoutElements({
+      hostPoolSize,
+      hostRefs: hostRefs.current,
+      root: rootRef.current,
+      stage: stageRef.current,
+    });
+    runtime.presentation.syncHosts(hosts);
+    schedulerRef.current?.requestFrame();
+  }, [hostPoolSize, hostRefs, rootRef, runtime, schedulerRef, stageRef]);
 }
 
 export function installWindowReportHooksForRuntime(runtime: WorkspaceRuntime): void {

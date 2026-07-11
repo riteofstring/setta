@@ -2434,3 +2434,13 @@ Implementation is in progress under this plan.
   Generated inputs and outputs changed: none. Phase 3 item 5, the virtualized
   conversation navigator and deterministic focus-existing-or-open behavior,
   is next with no external blocker.
+- 2026-07-11: The Phase 3 item 4 review fixed the workspace host pool remaining
+  frozen at its initial pane count. A second Easy Button binding was persisted,
+  but from a one-pane restored layout only the newly focused surface could mount
+  until reload. The runtime area now sizes and remounts its presentation host
+  pool from the current scene after pane-count changes. The deterministic
+  production Electron workflow now requires both same-conversation views to be
+  rendered with distinct pane ids immediately after the real pane-open event and
+  again after reload. Focused layout tests, desktop typecheck/build, and the
+  corrected Electron workflow passed. Phase 3 item 5 remains next; this review
+  did not begin the navigator work.
