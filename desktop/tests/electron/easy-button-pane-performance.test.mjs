@@ -26,6 +26,7 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "easy-button-pane-performance";
 const workflowTimeoutMs = 25_000;
 const sampleDurationMs = 1200;
+const workingPerformancePrompt = "cancel active workflow";
 
 if (options.help) {
   console.log(
@@ -62,20 +63,30 @@ try {
   const idle = await sampleEasyButton(context.client, "idle");
   assertSmoothFrameSample(idle.frameSample, "easy button idle", { minFrameCount: 20 });
 
+  await submitEasyButtonRequest(context.client, workingPerformancePrompt);
+  const workingState = await waitForEasyButtonWorking(context.client, workingPerformancePrompt);
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-performance-working.png"));
+  const working = await sampleEasyButton(context.client, "working");
+  assertSmoothFrameSample(working.frameSample, "easy button working", { minFrameCount: 20 });
+
   await forceEasyButtonFrozenAttribute(context.client);
-  const frozenState = await waitForEasyButtonFrozen(context.client);
+  const frozenState = await waitForEasyButtonFrozen(context.client, workingPerformancePrompt);
   const frozen = await sampleEasyButton(context.client, "frozen");
   assertSmoothFrameSample(frozen.frameSample, "easy button frozen", { minFrameCount: 20 });
-  if (frozenState.buttonAnimationPlayState !== "paused") {
-    throw new Error(`easy button frozen animation did not pause: ${JSON.stringify(frozenState)}`);
-  }
+  assertEasyButtonAnimationsPaused(frozenState);
   await captureScreenshot(context.client, join(artifactDir, "easy-button-performance-frozen.png"));
+  await clickEasyButtonStop(context.client);
+  const stopped = await waitForEasyButtonTerminal(context.client, workingPerformancePrompt);
+  if (!stopped.summaryText.includes("Stopped after")) {
+    throw new Error(`easy button performance run did not stop cleanly: ${JSON.stringify(stopped)}`);
+  }
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     frameBudgets: {
       frozen: frameBudgetSummary(frozen.frameSample),
       idle: frameBudgetSummary(idle.frameSample),
+      working: frameBudgetSummary(working.frameSample),
     },
     frozen,
     frozenState,
@@ -83,6 +94,9 @@ try {
     pane,
     sampleDurationMs,
     status: "passed",
+    stopped,
+    working,
+    workingState,
     workspaceName: basename(fixture.workspaceRoot),
   });
   console.log(`Electron easy button pane performance passed: ${artifactDir}`);
@@ -119,7 +133,24 @@ async function ensureWorkspaceOpen(client) {
 }
 
 async function openEasyButtonFromShortcut(client) {
-  await client.driver("easyButtonPaneOpenShortcut");
+  const dispatched = await client.driver("easyButtonPaneOpenShortcut");
+  if (!dispatched) {
+    throw new Error("easy button shortcut was not dispatched");
+  }
+}
+
+async function submitEasyButtonRequest(client, requestText) {
+  const submitted = await client.driver("easyButtonPaneSubmitRequest", requestText);
+  if (!submitted) {
+    throw new Error(`easy button request input was not submittable: ${requestText}`);
+  }
+}
+
+async function clickEasyButtonStop(client) {
+  const clicked = await client.driver("easyButtonPaneClickStop");
+  if (!clicked) {
+    throw new Error("easy button stop control was not clickable");
+  }
 }
 
 async function sampleEasyButton(client, label) {
@@ -174,6 +205,31 @@ async function forceEasyButtonFrozenAttribute(client) {
   }
 }
 
+function assertEasyButtonAnimationsPaused(state) {
+  const animationFields = [
+    "buttonAnimationPlayState",
+    "controlRingAnimationPlayState",
+    "spinnerAnimationPlayState",
+  ];
+  const unpaused = animationFields.filter(
+    (field) => !animationPlayStateIncludesPaused(state[field]),
+  );
+  if (unpaused.length > 0) {
+    throw new Error(
+      `easy button frozen animations did not pause ${unpaused.join(", ")}: ${JSON.stringify(
+        state,
+      )}`,
+    );
+  }
+}
+
+function animationPlayStateIncludesPaused(value) {
+  return String(value)
+    .split(",")
+    .map((part) => part.trim())
+    .includes("paused");
+}
+
 async function waitForEasyButtonPane(client) {
   return waitForState(
     client,
@@ -187,11 +243,43 @@ async function waitForEasyButtonPane(client) {
   );
 }
 
-async function waitForEasyButtonFrozen(client) {
+async function waitForEasyButtonFrozen(client, requestText) {
   return waitForState(
     client,
     easyButtonStateExpression(),
-    (state) => state.exists && state.hostFrozen === "true",
+    (state) =>
+      state.exists &&
+      state.hostFrozen === "true" &&
+      state.easyState === "working" &&
+      state.requestText === requestText,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonWorking(client, requestText) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists &&
+      state.surfaceKind === "easy-button" &&
+      state.easyState === "working" &&
+      state.requestText === requestText &&
+      state.stopButtonVisible === true &&
+      state.stopButtonDisabled === false,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonTerminal(client, requestText) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists &&
+      state.surfaceKind === "easy-button" &&
+      state.easyState === "complete" &&
+      state.requestText === requestText,
     workflowTimeoutMs,
   );
 }

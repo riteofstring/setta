@@ -1,4 +1,4 @@
-/* global Event, HTMLButtonElement, HTMLElement, HTMLInputElement, KeyboardEvent, document, getComputedStyle, window */
+/* global Element, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, KeyboardEvent, document, getComputedStyle, window */
 
 (() => {
   const version = "setta-easy-button-pane-driver-v1";
@@ -104,6 +104,8 @@
     const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
     const narratorStatus = host.querySelector(".easy-button-narrator-status");
     const stopButton = host.querySelector('[data-testid="easy-button-stop-button"]');
+    const controlRing = host.querySelector(".easy-button-control-ring");
+    const spinner = host.querySelector(".easy-button-spinner");
     const buttonRect = elementRectOrZero(button);
     return {
       agentChipText: elementText(agentChip),
@@ -112,11 +114,15 @@
       buttonAnimationPlayState: buttonPseudoStyleValue(button, "animationPlayState"),
       buttonRect: rectSnapshot(buttonRect),
       buttonVisible: buttonVisible(buttonRect),
+      controlRingAnimationName: elementStyleValue(controlRing, "animationName"),
+      controlRingAnimationPlayState: elementStyleValue(controlRing, "animationPlayState"),
       inputFocused: input instanceof HTMLInputElement && document.activeElement === input,
       inputDisabled: inputDisabled(input),
       inputValue: inputValue(input),
       narratorStatusText: elementText(narratorStatus),
       requestText: elementText(requestText),
+      spinnerAnimationName: elementStyleValue(spinner, "animationName"),
+      spinnerAnimationPlayState: elementStyleValue(spinner, "animationPlayState"),
       stopButtonAriaLabel: buttonAriaLabel(stopButton),
       stopButtonDisabled: buttonDisabled(stopButton),
       stopButtonText: elementText(stopButton),
@@ -144,6 +150,13 @@
       return "";
     }
     return getComputedStyle(button, "::after")[property] ?? "";
+  }
+
+  function elementStyleValue(element, property) {
+    if (!(element instanceof Element)) {
+      return "";
+    }
+    return getComputedStyle(element)[property] ?? "";
   }
 
   function buttonVisible(rect) {
