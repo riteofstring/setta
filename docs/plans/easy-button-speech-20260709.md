@@ -4007,6 +4007,53 @@ expanded report currently exposes real production/mockup metric deltas; none is
 claimed resolved or accepted by this mapping-only slice. No implementation
 blocker was found.
 
+### 2026-07-10 — Phase 5 visual component-map foundation audit complete
+
+Audited commit `dd934d5cc` against Phase 5 item 4, the complete speech plan,
+`AGENTS.md`, the clean parent/worktree state, the recorded evidence, and the
+current production and mockup surfaces. The foundation correctly configured the
+isolated production runtime, preserved production Electron/main/preload/HTTP/
+store paths, added the intended base-state crops, and kept provider operations
+at zero. The already-shipped production and mockup rail tracks are both the
+required `minmax(260px, 340px)`.
+
+The audit found that probe v2 could not yet support the plan's named motion
+contract: it measured only the first listening ring and first highlight
+equalizer bar, measured only the containers for the audio and summary
+equalizers, omitted the transcript-caret pseudo-element and synthesizing audio
+glyph, and treated SVG components as absent. Its report also emitted
+`absent`/`absent` presence rows as apparent deltas. Probe v3 fixes those gaps. It
+maps 71 roles, including all three delayed rings and all three bars in each
+equalizer family, the capture caret, audio glyph, active menu item, and
+unconfigured wrapper; accepts SVG elements; and reports only actual presence
+mismatches. The newly introduced fake-provider and temporary-fixture resources
+also now clean up even if launch or Electron teardown fails. Stale harness
+comments that contradicted this plan's required image-diff gate were corrected.
+
+Independent audit verification completed before the final repository gates:
+
+- focused Prettier and ESLint passed for the six touched harness files, and a
+  direct report check proved equal missing components produce no row while a
+  one-sided presence mismatch remains visible;
+- the complete deterministic Easy Button production workflow passed at
+  `desktop/.recordings/easy-button-speech-phase5-visual-map-audit-20260710-r2`;
+  its configured pixel companion covered all six existing production states
+  with 71 probe-v3 roles, zero fake OpenAI operations, and no renderer console
+  errors;
+- the canonical mockup renderer consumed that fresh production metrics file,
+  emitted the same 71 roles, preserved all real component/style/geometry
+  differences, emitted no false absent/absent rows, and the production/mockup
+  working stills were inspected;
+- Electron and web typechecks/builds, the reproducibly unchanged checked-in PWA
+  bundle, and `./scripts/go.sh test ./internal/webapp` passed.
+
+This audit does not complete or advance the next visual slice. Phase 5 item 4
+still requires synchronized speech-state fixtures, real crop assertions with
+side-by-side and heatmap failures, named animation phases, the complete still
+and reduced-motion matrix, and deliberate-difference proof. Item 5's repeat-run
+noise baseline and narrow tolerances remain after that. No implementation
+blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

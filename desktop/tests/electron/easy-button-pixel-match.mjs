@@ -1,10 +1,8 @@
-// Phase C of docs/plans/easy-button-pixel-match-20260709.md: deterministic frames
-// and measured component geometry for the Easy Button pane.
+// Deterministic frames and measured component geometry for the Easy Button pane.
 //
-// Per-frame equality with the mockup is neither achievable nor meaningful, but
-// every animation parameter other than the current time is static. Pinning the
-// time turns the comparison into two stills, and the component metrics turn "does
-// it look right" into a diff a reviewer can read.
+// docs/plans/easy-button-speech-20260709.md supersedes the earlier decision not
+// to image-diff these frames. Pinning time turns each comparison into two stable
+// stills; the component metrics and captures here are the inputs to that gate.
 //
 // The mockup is a fixed 1180x660 card and the real pane fills a workspace column,
 // so a whole-pane diff would be noise. Both rails use the same 260px / 340px
@@ -58,9 +56,10 @@ const capturePlan = [
 
 export async function runEasyButtonPixelMatchCaptures({ artifactDir, visible }) {
   const fixture = await createElectronFixture("easy-button-pixel-match");
-  const speechProvider = await startSpeechProviderFixture();
+  let speechProvider = null;
   let context = null;
   try {
+    speechProvider = await startSpeechProviderFixture();
     context = await launchElectronCdpContext({
       artifactDir,
       extraEnv: {
@@ -88,9 +87,15 @@ export async function runEasyButtonPixelMatchCaptures({ artifactDir, visible }) 
     }
     return metrics;
   } finally {
-    await stopElectronCdpContext(context);
-    await speechProvider.close();
-    await rm(fixture.tempRoot, { force: true, recursive: true });
+    try {
+      await stopElectronCdpContext(context);
+    } finally {
+      try {
+        await speechProvider?.close();
+      } finally {
+        await rm(fixture.tempRoot, { force: true, recursive: true });
+      }
+    }
   }
 }
 

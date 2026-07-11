@@ -1,4 +1,4 @@
-/* global CSSTransition, HTMLElement, document, getComputedStyle, window */
+/* global CSSTransition, Element, HTMLElement, document, getComputedStyle, window */
 
 // Pixel-match probe for docs/plans/easy-button-pixel-match-20260709.md.
 //
@@ -11,7 +11,7 @@
 // Animations API, which owns every CSS animation whether or not anyone asked.
 
 (() => {
-  const version = "setta-easy-button-pixel-match-probe-v2";
+  const version = "setta-easy-button-pixel-match-probe-v3";
 
   // `rect` names which box dimensions are worth comparing. The pane, its rails,
   // and every text block are sized by their container or their content, and the
@@ -45,9 +45,24 @@
       rect: "size",
     },
     {
-      key: "highlightEqualizerBar",
-      mockup: ".hl:last-child .hl-dot i:first-child",
-      production: ".easy-button-highlight-item:last-child .easy-button-highlight-dot i:first-child",
+      key: "highlightEqualizerBar1",
+      mockup: ".hl:last-child .hl-dot i:nth-child(1)",
+      production:
+        ".easy-button-highlight-item:last-child .easy-button-highlight-dot i:nth-child(1)",
+      rect: "size",
+    },
+    {
+      key: "highlightEqualizerBar2",
+      mockup: ".hl:last-child .hl-dot i:nth-child(2)",
+      production:
+        ".easy-button-highlight-item:last-child .easy-button-highlight-dot i:nth-child(2)",
+      rect: "size",
+    },
+    {
+      key: "highlightEqualizerBar3",
+      mockup: ".hl:last-child .hl-dot i:nth-child(3)",
+      production:
+        ".easy-button-highlight-item:last-child .easy-button-highlight-dot i:nth-child(3)",
       rect: "size",
     },
     {
@@ -79,9 +94,21 @@
     },
     { key: "rings", mockup: ".rings", production: ".easy-button-rings", rect: "size" },
     {
-      key: "ring",
-      mockup: ".ring:first-child",
-      production: ".easy-button-ring:first-child",
+      key: "ring1",
+      mockup: ".ring:nth-child(1)",
+      production: ".easy-button-ring:nth-child(1)",
+      rect: "size",
+    },
+    {
+      key: "ring2",
+      mockup: ".ring:nth-child(2)",
+      production: ".easy-button-ring:nth-child(2)",
+      rect: "size",
+    },
+    {
+      key: "ring3",
+      mockup: ".ring:nth-child(3)",
+      production: ".easy-button-ring:nth-child(3)",
       rect: "size",
     },
     { key: "swirl", mockup: ".swirl", production: ".easy-button-swirl", rect: "size" },
@@ -147,12 +174,37 @@
       production: ".easy-button-capture-line",
       rect: "width",
     },
+    {
+      key: "captureCaret",
+      mockup: ".capture-line",
+      production: ".easy-button-capture-line",
+      pseudo: "::after",
+      rect: "none",
+    },
     { key: "helper", mockup: ".helper", production: ".easy-button-helper", rect: "none" },
     { key: "summary", mockup: ".summary", production: ".easy-button-summary", rect: "none" },
     {
       key: "summaryEqualizer",
       mockup: ".summary-eq",
       production: ".easy-button-summary-equalizer",
+      rect: "size",
+    },
+    {
+      key: "summaryEqualizerBar1",
+      mockup: ".summary-eq i:nth-child(1)",
+      production: ".easy-button-summary-equalizer i:nth-child(1)",
+      rect: "size",
+    },
+    {
+      key: "summaryEqualizerBar2",
+      mockup: ".summary-eq i:nth-child(2)",
+      production: ".easy-button-summary-equalizer i:nth-child(2)",
+      rect: "size",
+    },
+    {
+      key: "summaryEqualizerBar3",
+      mockup: ".summary-eq i:nth-child(3)",
+      production: ".easy-button-summary-equalizer i:nth-child(3)",
       rect: "size",
     },
     {
@@ -282,9 +334,33 @@
       rect: "size",
     },
     {
+      key: "audioGlyph",
+      mockup: ".audio-glyph",
+      production: ".easy-button-audio-glyph",
+      rect: "size",
+    },
+    {
       key: "audioEqualizer",
       mockup: ".audio-eq",
       production: ".easy-button-audio-equalizer",
+      rect: "size",
+    },
+    {
+      key: "audioEqualizerBar1",
+      mockup: ".audio-eq i:nth-child(1)",
+      production: ".easy-button-audio-equalizer i:nth-child(1)",
+      rect: "size",
+    },
+    {
+      key: "audioEqualizerBar2",
+      mockup: ".audio-eq i:nth-child(2)",
+      production: ".easy-button-audio-equalizer i:nth-child(2)",
+      rect: "size",
+    },
+    {
+      key: "audioEqualizerBar3",
+      mockup: ".audio-eq i:nth-child(3)",
+      production: ".easy-button-audio-equalizer i:nth-child(3)",
       rect: "size",
     },
     {
@@ -295,11 +371,24 @@
       scope: "document",
     },
     {
+      key: "audioMenuItem",
+      mockup: '.audio-menu button[aria-checked="true"]',
+      production: '.easy-button-audio-menu-item[aria-checked="true"]',
+      rect: "size",
+      scope: "document",
+    },
+    {
       key: "audioDisclosure",
       mockup: ".audio-disclosure",
       production: ".easy-button-audio-disclosure",
       rect: "none",
       scope: "document",
+    },
+    {
+      key: "voiceOffCluster",
+      mockup: ".voice-off-cluster",
+      production: ".easy-button-voice-off-cluster",
+      rect: "size",
     },
     {
       key: "voiceOffChip",
@@ -463,7 +552,7 @@
     }
     const queryRoot = component.scope === "document" ? document : scope;
     const element = queryRoot.querySelector(selector);
-    if (!(element instanceof HTMLElement)) {
+    if (!(element instanceof Element)) {
       return { exists: false, rect: null, rectMode: component.rect, styles: null };
     }
     const style = getComputedStyle(element, component.pseudo ?? null);
@@ -548,11 +637,11 @@
 
   function describeTarget(animation) {
     const target = animation.effect?.target;
-    if (!(target instanceof HTMLElement)) {
+    if (!(target instanceof Element)) {
       return "";
     }
     const pseudo = animation.effect?.pseudoElement ?? "";
-    return `${target.className || target.tagName.toLowerCase()}${pseudo}`;
+    return `${target.getAttribute("class") || target.tagName.toLowerCase()}${pseudo}`;
   }
 
   function componentSelector(key, surface) {

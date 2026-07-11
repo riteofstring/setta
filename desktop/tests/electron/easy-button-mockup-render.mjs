@@ -6,8 +6,9 @@
 // to the pane's, and lets it emit the component delta table the pixel-match report
 // is built on.
 //
-// Standalone on purpose: it asserts nothing, so it has no business inside a
-// required workflow. Run it after the workflow has written production-metrics.json.
+// Standalone while the expanded comparison gate is under construction: it emits
+// mockup captures and deltas after the production workflow writes its metrics.
+// The completed matrix will orchestrate this renderer from its required gate.
 //
 //   desktop/node_modules/.bin/electron desktop/tests/electron/easy-button-mockup-render.mjs \
 //     --out .recordings/easy-button-phaseC/pixel-match \

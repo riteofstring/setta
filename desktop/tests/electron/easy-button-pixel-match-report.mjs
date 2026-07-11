@@ -48,12 +48,15 @@ export function compareEasyButtonMetrics(production, mockup) {
   for (const [key, mockupComponent] of Object.entries(mockup.components)) {
     const productionComponent = production.components[key];
     if (!productionComponent?.exists || !mockupComponent.exists) {
-      rows.push({
-        key,
-        kind: "presence",
-        mockup: mockupComponent.exists,
-        production: Boolean(productionComponent?.exists),
-      });
+      const productionExists = Boolean(productionComponent?.exists);
+      if (productionExists !== mockupComponent.exists) {
+        rows.push({
+          key,
+          kind: "presence",
+          mockup: mockupComponent.exists,
+          production: productionExists,
+        });
+      }
       continue;
     }
     rows.push(...styleDeltas(key, productionComponent, mockupComponent));
