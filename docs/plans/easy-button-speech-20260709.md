@@ -4333,6 +4333,28 @@ terminal sizes, reduced-motion); the real box-size fixes above; deterministic
 animation-phase capture; and the measured repeat-run noise baseline with a
 narrow, component-local tolerance plus the deliberate-difference gate proof.
 
+### 2026-07-11 — Phase 5 Stop-control geometry + disabled-dimming decision
+
+- Stop control geometry now matches the canonical mockup's `.stop-button`: a
+  30px pill that hugs its content inside the reserved 34px action slot, with a
+  12px icon. It was a 34px box forced to `min-width: 92px` with a 14px icon.
+  The working `stopButton` and `actionSlot` crops are now dimension-matched
+  (73×30 and 73×34, were 92×34); dimension failures fell 16 → 12.
+- Decision recorded: the control's `opacity: 0.72` disabled dimming in
+  requesting-permission / connecting / committing is kept as intentional (it is
+  the correct affordance for a momentarily non-interactive control). The mockup
+  does not model interactivity, so those states read brighter; this is a
+  justified production-vs-mockup difference to be classified in the report
+  alongside the measured-tolerance work, not a bug to fix.
+- The remaining 12 dimension failures are: the working `swirl` (540×540 vs
+  540×531 — a crop-clip artifact where the mockup's swirl extends 9px past its
+  shorter pane bound; the swirl element itself is 540×540 on both per the metric
+  rects, not a size difference), the terminal `summaryReplay` (66×21 vs 65×18),
+  and a 1px terminal `captionSlot`. These are pixel-tier and still open.
+- Verified: the complete deterministic Easy Button workflow passed at
+  `desktop/.recordings/eb-fullgate2`; `./scripts/format.sh` and
+  `./check_quality.sh --git-changes` passed.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

@@ -744,10 +744,13 @@
   font: inherit;
   font-size: 12.5px;
   gap: 8px;
-  height: 34px;
+  /* Matches the canonical mockup's `.stop-button`: a 30px pill that hugs its
+     content (icon + "Stop") inside the reserved 34px action slot, rather than a
+     34px-tall box forced to a 92px minimum width. The slot itself still reserves
+     34px + 14px in every state so the stage never jumps when Stop appears. */
+  height: 30px;
   justify-content: center;
   line-height: 1;
-  min-width: 92px;
   padding: 0 12px;
   transition:
     border-color 160ms ease,
@@ -772,8 +775,8 @@
 }
 
 .easy-button-stop-button-icon {
-  height: 14px;
-  width: 14px;
+  height: 12px;
+  width: 12px;
 }
 
 .easy-button-footer {
