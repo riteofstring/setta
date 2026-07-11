@@ -11,6 +11,7 @@ import {
   assertBuildExists,
   captureScreenshot,
   clickEnabledButtonByAria,
+  dispatchMouseClick,
   dispatchKeyEvent,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -147,13 +148,19 @@ try {
   assertListeningCapture(listening, false);
   await captureScreenshot(context.client, join(artifactDir, "speech-capture-listening.png"));
 
+  await callBrowserFixture(context.client, "emitDelta", "partial provider words");
+  const withStreamingDelta = await waitForCaptureState(
+    context.client,
+    (state) => state.capture === "listening" && state.captureLine === "partial provider words",
+  );
+  assertListeningCapture(withStreamingDelta, false);
+  assertDraftPreserved(withStreamingDelta, preservedDraft);
   await clickEnabledButtonByAria(context.client, "Finish voice request");
   const committing = await waitForCaptureState(
     context.client,
     (state) => state.capture === "committing" && state.fixture.commitCount === 1,
   );
   assertDraftPreserved(committing, preservedDraft);
-  await callBrowserFixture(context.client, "emitDelta", "partial provider words");
   const withDelta = await waitForCaptureState(
     context.client,
     (state) => state.captureLine === "partial provider words",
@@ -472,6 +479,7 @@ async function exerciseConfiguredSpeechOutputControl(client, recordingRoot) {
       state.speechOutputStatus === "configured" &&
       state.speechOutputMode === "off" &&
       state.speechOutputPlayback === "idle" &&
+      state.hostMoving === "false" &&
       state.audioControlAriaLabel === "Voice output: Off",
     workflowTimeoutMs,
   );
@@ -481,7 +489,8 @@ async function exerciseConfiguredSpeechOutputControl(client, recordingRoot) {
     );
   }
 
-  await client.driver("easyButtonPaneClickOutputControl");
+  const outputControlPoint = await client.driver("easyButtonPaneOutputControlPoint");
+  await dispatchMouseClick(client, outputControlPoint);
   const menu = await waitForState(
     client,
     easyButtonStateExpression(),

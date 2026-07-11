@@ -3,8 +3,10 @@ import { describe, expect, test, vi } from "vitest";
 
 import {
   RealtimeTranscriptionError,
-  type CreateRealtimeTranscriptionTransportOptions,
   type RealtimeTranscriptionErrorCode,
+} from "./realtime-transcription-error";
+import {
+  type CreateRealtimeTranscriptionTransportOptions,
   type RealtimeTranscriptionTransport,
 } from "./realtime-transcription-transport";
 import {
@@ -179,11 +181,11 @@ describe("Easy Button speech capture controller", () => {
     "invalid_media",
     "invalid_session",
     "malformed_event",
+    "protocol_violation",
     "provider_rate_limited",
     "provider_rejected",
     "provider_response_malformed",
     "provider_unavailable",
-    "stale_event",
     "transcript_too_large",
     "transcription_failed",
   ] satisfies Exclude<RealtimeTranscriptionErrorCode, "aborted">[])(

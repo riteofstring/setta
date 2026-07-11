@@ -201,6 +201,11 @@ export const electronWorkflows = [
     name: "easy-button-live",
     tiers: ["live"],
   },
+  {
+    file: "live-openai-speech-workflow.test.mjs",
+    name: "live-openai-speech",
+    tiers: ["live-openai"],
+  },
 ];
 
 export function electronWorkflowNames() {

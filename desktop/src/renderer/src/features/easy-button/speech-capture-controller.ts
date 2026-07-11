@@ -1,12 +1,14 @@
 import type { SpeechCapabilities, SpeechTranscriptionSession } from "@generated/backend";
 
 import {
-  createRealtimeTranscriptionTransport,
   RealtimeTranscriptionError,
   type RealtimeTranscriptionErrorCode,
+} from "./realtime-transcription-error";
+import {
+  createRealtimeTranscriptionTransport,
   type RealtimeTranscriptionTransport,
-  type RealtimeTranscriptionUpdate,
 } from "./realtime-transcription-transport";
+import type { RealtimeTranscriptionUpdate } from "./realtime-transcription-session";
 
 export type SpeechCaptureIntent = "start" | "steer";
 
@@ -28,12 +30,12 @@ export type SpeechCaptureFailureCode =
   | "microphone_unavailable"
   | "no_speech"
   | "not_configured"
+  | "protocol_violation"
   | "provider_rate_limited"
   | "provider_rejected"
   | "provider_response_malformed"
   | "provider_unavailable"
   | "session_failed"
-  | "stale_event"
   | "transcript_too_large"
   | "transcription_failed"
   | "unsupported_browser";
@@ -273,6 +275,9 @@ export class SpeechCaptureController {
       }
       return;
     }
+    console.info(
+      `Realtime transcription transport failed: code=${error.code} message=${error.message}`,
+    );
     const failure = failureForRealtimeError(error.code);
     this.fail(lifecycle, failure.code, failure.message);
   }
@@ -444,6 +449,10 @@ function failureForRealtimeError(code: Exclude<RealtimeTranscriptionErrorCode, "
         code,
         message: "OpenAI sent an invalid transcription event. Please try again.",
       },
+      protocol_violation: {
+        code,
+        message: "OpenAI sent an invalid transcription sequence. Please try again.",
+      },
       provider_rate_limited: {
         code,
         message: "OpenAI speech rate limit or quota was reached.",
@@ -459,10 +468,6 @@ function failureForRealtimeError(code: Exclude<RealtimeTranscriptionErrorCode, "
       provider_unavailable: {
         code,
         message: "OpenAI transcription is unavailable. Please try again.",
-      },
-      stale_event: {
-        code,
-        message: "A stale transcription event was rejected. Please try again.",
       },
       transcript_too_large: {
         code,

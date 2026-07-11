@@ -1,5 +1,12 @@
 import { Volume1, Volume2, VolumeX } from "lucide-react";
-import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import type { SpeechCapabilities } from "@generated/backend";
@@ -92,6 +99,14 @@ function ConfiguredSpeechOutputControl({
   const menuRef = useRef<HTMLDivElement | null>(null);
   useDismissedSpeechPopover(open, setOpen, rootRef, menuRef);
   const canStop = playbackState.type === "speaking" || playbackState.type === "synthesizing";
+  const activation = usePointerSafeActivation(() => {
+    if (canStop) {
+      stop();
+      setOpen(false);
+      return;
+    }
+    setOpen((current) => !current);
+  });
 
   return (
     <span className="easy-button-audio-cluster app-no-drag" ref={rootRef}>
@@ -103,14 +118,8 @@ function ConfiguredSpeechOutputControl({
         data-easy-button-output-mode={mode}
         data-easy-button-playback={playbackState.type}
         data-testid="easy-button-audio-toggle"
-        onClick={() => {
-          if (canStop) {
-            stop();
-            setOpen(false);
-            return;
-          }
-          setOpen((current) => !current);
-        }}
+        onClick={activation.handleClick}
+        onPointerUp={activation.handlePointerUp}
         ref={buttonRef}
         title={speechOutputControlLabel(mode, playbackState)}
         type="button"
@@ -164,6 +173,7 @@ function UnavailableSpeechOutputControl({
   const menuRef = useRef<HTMLDivElement | null>(null);
   useDismissedSpeechPopover(open, setOpen, rootRef, menuRef);
   const notConfigured = availability.type === "not_configured";
+  const activation = usePointerSafeActivation(() => setOpen((current) => !current));
 
   return (
     <span className="easy-button-voice-off-cluster app-no-drag" ref={rootRef}>
@@ -173,7 +183,8 @@ function UnavailableSpeechOutputControl({
         aria-label={notConfigured ? "Explain why voice is off" : "Explain why voice is unavailable"}
         className="easy-button-voice-off-chip"
         data-testid="easy-button-voice-off-chip"
-        onClick={() => setOpen((current) => !current)}
+        onClick={activation.handleClick}
+        onPointerUp={activation.handlePointerUp}
         ref={buttonRef}
         type="button"
       >
@@ -199,6 +210,32 @@ function UnavailableSpeechOutputControl({
       </FloatingMenu>
     </span>
   );
+}
+
+function usePointerSafeActivation(activate: () => void): {
+  handleClick: () => void;
+  handlePointerUp: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+} {
+  const activatedByPointer = useRef(false);
+  return {
+    handleClick: () => {
+      if (activatedByPointer.current) {
+        activatedByPointer.current = false;
+        return;
+      }
+      activate();
+    },
+    handlePointerUp: (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      activatedByPointer.current = true;
+      window.setTimeout(() => {
+        activatedByPointer.current = false;
+      }, 0);
+      activate();
+    },
+  };
 }
 
 function SpeechOutputGlyph({ mode }: { mode: SpeechOutputMode }) {
@@ -267,21 +304,20 @@ function usePaneTopBarPortalTarget(rootRef: RefObject<HTMLElement | null>): HTML
     const syncPortalTarget = () => {
       const placement = paneTopBarPlacement(rootRef);
       if (!placement) {
-        portalContainer?.remove();
-        portalContainer = null;
-        setTarget(null);
         return;
       }
       const { actionStrip, topBar } = placement;
       if (portalContainer?.parentElement === topBar) {
         return;
       }
-      portalContainer?.remove();
-      portalContainer = topBar.ownerDocument.createElement("span");
-      portalContainer.className = "easy-button-pane-tools app-no-drag";
-      portalContainer.dataset.easyButtonPaneTools = "true";
+      if (!portalContainer) {
+        portalContainer = topBar.ownerDocument.createElement("span");
+        portalContainer.className = "easy-button-pane-tools app-no-drag";
+        portalContainer.dataset.easyButtonPaneTools = "true";
+        portalContainer.dataset.workspacePaneInteractiveControl = "true";
+        setTarget(portalContainer);
+      }
       topBar.insertBefore(portalContainer, actionStrip);
-      setTarget(portalContainer);
     };
     syncPortalTarget();
     surfaceContainer?.addEventListener(reactDomSurfaceHostChangedEvent, syncPortalTarget);

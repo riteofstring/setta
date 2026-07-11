@@ -1,3 +1,11 @@
+import {
+  isOpenAIRealtimeServerEventType,
+  openAIRealtimeServerEventContracts,
+  openAIRealtimeServerEventType,
+  type OpenAISchemaShape,
+  type OpenAIRealtimeServerEventType,
+} from "@generated/openai-realtime";
+
 type RealtimeTranscriptionProviderError = {
   code: string | null;
   message: string;
@@ -8,73 +16,102 @@ export type RealtimeTranscriptionServerEvent =
   | {
       eventId: string;
       providerSessionId: string;
-      type: "session.created";
+      type: typeof openAIRealtimeServerEventType.sessionCreated;
     }
   | {
       eventId: string;
       itemId: string;
-      type: "conversation.item.created";
+      type: typeof openAIRealtimeServerEventType.conversationItemAdded;
     }
   | {
       eventId: string;
       itemId: string;
-      type: "input_audio_buffer.committed";
+      type: typeof openAIRealtimeServerEventType.conversationItemDone;
+    }
+  | {
+      eventId: string;
+      itemId: string;
+      type: typeof openAIRealtimeServerEventType.inputAudioBufferCommitted;
     }
   | {
       contentIndex: number;
       delta: string;
       eventId: string;
       itemId: string;
-      type: "conversation.item.input_audio_transcription.delta";
+      type: typeof openAIRealtimeServerEventType.transcriptionDelta;
     }
   | {
       contentIndex: number;
       eventId: string;
       itemId: string;
       transcript: string;
-      type: "conversation.item.input_audio_transcription.completed";
+      type: typeof openAIRealtimeServerEventType.transcriptionCompleted;
     }
   | {
       contentIndex: number;
       error: RealtimeTranscriptionProviderError;
       eventId: string;
       itemId: string;
-      type: "conversation.item.input_audio_transcription.failed";
+      type: typeof openAIRealtimeServerEventType.transcriptionFailed;
     }
   | {
       error: RealtimeTranscriptionProviderError;
       eventId: string;
-      type: "error";
+      type: typeof openAIRealtimeServerEventType.error;
     }
   | {
       eventId: string;
-      type: "rate_limits.updated";
+      type: typeof openAIRealtimeServerEventType.rateLimitsUpdated;
     };
+
+type RealtimeTranscriptionFailureOrAdministrativeEventType =
+  | typeof openAIRealtimeServerEventType.transcriptionFailed
+  | typeof openAIRealtimeServerEventType.error
+  | typeof openAIRealtimeServerEventType.rateLimitsUpdated;
 
 export function decodeRealtimeTranscriptionServerEvent(
   message: unknown,
 ): RealtimeTranscriptionServerEvent {
   const record = parseEventRecord(message);
-  const type = requiredString(record, "type", "Realtime transcription event");
+  const type = documentedEventType(record);
+  return decodeDocumentedEvent(record, type);
+}
+
+function decodeDocumentedEvent(
+  record: Record<string, unknown>,
+  type: OpenAIRealtimeServerEventType,
+): RealtimeTranscriptionServerEvent {
   switch (type) {
-    case "session.created":
+    case openAIRealtimeServerEventType.sessionCreated:
       return decodeSessionCreated(record);
-    case "conversation.item.created":
-      return decodeConversationItemCreated(record);
-    case "input_audio_buffer.committed":
+    case openAIRealtimeServerEventType.conversationItemAdded:
+      return decodeConversationItemLifecycle(record, type);
+    case openAIRealtimeServerEventType.conversationItemDone:
+      return decodeConversationItemLifecycle(record, type);
+    case openAIRealtimeServerEventType.inputAudioBufferCommitted:
       return decodeInputAudioBufferCommitted(record);
-    case "conversation.item.input_audio_transcription.delta":
+    case openAIRealtimeServerEventType.transcriptionDelta:
       return decodeTranscriptDelta(record);
-    case "conversation.item.input_audio_transcription.completed":
+    case openAIRealtimeServerEventType.transcriptionCompleted:
       return decodeTranscriptCompleted(record);
-    case "conversation.item.input_audio_transcription.failed":
+    default:
+      return decodeFailureOrAdministrativeEvent(record, type);
+  }
+}
+
+function decodeFailureOrAdministrativeEvent(
+  record: Record<string, unknown>,
+  type: RealtimeTranscriptionFailureOrAdministrativeEventType,
+): RealtimeTranscriptionServerEvent {
+  switch (type) {
+    case openAIRealtimeServerEventType.transcriptionFailed:
       return decodeTranscriptFailed(record);
-    case "error":
+    case openAIRealtimeServerEventType.error:
       return decodeErrorEvent(record);
-    case "rate_limits.updated":
+    case openAIRealtimeServerEventType.rateLimitsUpdated:
       return { eventId: eventId(record), type };
     default:
-      throw new Error(`Unsupported Realtime transcription event type ${JSON.stringify(type)}.`);
+      return assertNever(type);
   }
 }
 
@@ -89,23 +126,26 @@ function decodeSessionCreated(record: Record<string, unknown>): RealtimeTranscri
   return {
     eventId: eventId(record),
     providerSessionId: requiredString(session, "id", "session.created session"),
-    type: "session.created",
+    type: openAIRealtimeServerEventType.sessionCreated,
   };
 }
 
-function decodeConversationItemCreated(
+function decodeConversationItemLifecycle(
   record: Record<string, unknown>,
+  type:
+    | typeof openAIRealtimeServerEventType.conversationItemAdded
+    | typeof openAIRealtimeServerEventType.conversationItemDone,
 ): RealtimeTranscriptionServerEvent {
-  const item = requiredRecord(record, "item", "conversation.item.created event");
-  const itemType = requiredString(item, "type", "conversation.item.created item");
-  const role = requiredString(item, "role", "conversation.item.created item");
+  const item = requiredRecord(record, "item", `${type} event`);
+  const itemType = requiredString(item, "type", `${type} item`);
+  const role = requiredString(item, "role", `${type} item`);
   if (itemType !== "message" || role !== "user") {
     throw new Error("Realtime transcription created an unexpected non-user message item.");
   }
   return {
     eventId: eventId(record),
-    itemId: requiredString(item, "id", "conversation.item.created item"),
-    type: "conversation.item.created",
+    itemId: requiredString(item, "id", `${type} item`),
+    type,
   };
 }
 
@@ -115,7 +155,7 @@ function decodeInputAudioBufferCommitted(
   return {
     eventId: eventId(record),
     itemId: requiredString(record, "item_id", "input_audio_buffer.committed event"),
-    type: "input_audio_buffer.committed",
+    type: openAIRealtimeServerEventType.inputAudioBufferCommitted,
   };
 }
 
@@ -125,7 +165,7 @@ function decodeTranscriptDelta(record: Record<string, unknown>): RealtimeTranscr
     delta: requiredString(record, "delta", "transcription delta event", true),
     eventId: eventId(record),
     itemId: transcriptItemId(record),
-    type: "conversation.item.input_audio_transcription.delta",
+    type: openAIRealtimeServerEventType.transcriptionDelta,
   };
 }
 
@@ -137,7 +177,7 @@ function decodeTranscriptCompleted(
     eventId: eventId(record),
     itemId: transcriptItemId(record),
     transcript: requiredString(record, "transcript", "transcription completed event", true),
-    type: "conversation.item.input_audio_transcription.completed",
+    type: openAIRealtimeServerEventType.transcriptionCompleted,
   };
 }
 
@@ -147,7 +187,7 @@ function decodeTranscriptFailed(record: Record<string, unknown>): RealtimeTransc
     error: providerError(record, "transcription failed event", false),
     eventId: eventId(record),
     itemId: transcriptItemId(record),
-    type: "conversation.item.input_audio_transcription.failed",
+    type: openAIRealtimeServerEventType.transcriptionFailed,
   };
 }
 
@@ -155,7 +195,7 @@ function decodeErrorEvent(record: Record<string, unknown>): RealtimeTranscriptio
   return {
     error: providerError(record, "Realtime error event", true),
     eventId: eventId(record),
-    type: "error",
+    type: openAIRealtimeServerEventType.error,
   };
 }
 
@@ -191,6 +231,53 @@ function parseEventRecord(message: unknown): Record<string, unknown> {
     throw new Error("Realtime transcription event must be a JSON object.");
   }
   return parsed;
+}
+
+function documentedEventType(record: Record<string, unknown>): OpenAIRealtimeServerEventType {
+  const type = requiredString(record, "type", "Realtime transcription event");
+  if (!isOpenAIRealtimeServerEventType(type)) {
+    throw new Error(`Unsupported Realtime transcription event type ${JSON.stringify(type)}.`);
+  }
+  validateDocumentedEnvelope(record, type);
+  return type;
+}
+
+function validateDocumentedEnvelope(
+  record: Record<string, unknown>,
+  type: OpenAIRealtimeServerEventType,
+): void {
+  const contract = openAIRealtimeServerEventContracts[type];
+  for (const field of contract.requiredFields) {
+    if (!(field in record)) {
+      throw new Error(`${type} event requires documented field ${field}.`);
+    }
+  }
+  for (const [field, shape] of Object.entries(contract.properties)) {
+    if (field in record && !matchesDocumentedShape(record[field], shape)) {
+      throw new Error(`${type} event field ${field} must match documented ${shape} shape.`);
+    }
+  }
+}
+
+const documentedShapeValidators = {
+  array: (value: unknown) => Array.isArray(value),
+  boolean: (value: unknown) => typeof value === "boolean",
+  integer: (value: unknown) => Number.isInteger(value),
+  null: (value: unknown) => value === null,
+  number: (value: unknown) => typeof value === "number",
+  object: (value: unknown) => isRecord(value),
+  reference: (value: unknown) => isRecord(value),
+  string: (value: unknown) => typeof value === "string",
+  union: documentedShapeAlwaysMatches,
+  unknown: documentedShapeAlwaysMatches,
+} satisfies Record<OpenAISchemaShape, (value: unknown) => boolean>;
+
+function documentedShapeAlwaysMatches(): boolean {
+  return true;
+}
+
+function matchesDocumentedShape(value: unknown, shape: OpenAISchemaShape): boolean {
+  return documentedShapeValidators[shape](value);
 }
 
 function eventId(record: Record<string, unknown>): string {
@@ -251,4 +338,8 @@ function optionalString(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled OpenAI Realtime contract value: ${JSON.stringify(value)}`);
 }

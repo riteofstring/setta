@@ -359,6 +359,28 @@ describe("workspace pane click focus", () => {
     expect(event.stopPropagation).not.toHaveBeenCalled();
   });
 
+  test("leaves interactive pane controls mounted throughout a click gesture", () => {
+    const context = workspaceClickContext();
+    const pointerDown = pointerEvent({
+      clientX: 240,
+      clientY: 52,
+      target: context.interactiveControlTarget,
+    });
+    const click = mouseEvent({ clientX: 240, clientY: 52, target: context.retargetedControlClick });
+
+    handleWorkspacePaneFocusPointerDown({ ...context, event: pointerDown });
+    handleWorkspaceClick({ ...context, event: click });
+
+    expect(context.runtime.store.focusPane).not.toHaveBeenCalled();
+    expect(context.runtime.store.focusPaneWithoutReveal).not.toHaveBeenCalled();
+    expect(context.runtime.store.ensureFocusedPaneVisible).not.toHaveBeenCalled();
+    expect(context.scheduler.pauseBenchmark).not.toHaveBeenCalled();
+    expect(pointerDown.preventDefault).not.toHaveBeenCalled();
+    expect(pointerDown.stopPropagation).not.toHaveBeenCalled();
+    expect(click.preventDefault).not.toHaveBeenCalled();
+    expect(click.stopPropagation).not.toHaveBeenCalled();
+  });
+
   test("reveals top bar clicks on panes already focused by content", () => {
     const context = workspaceClickContext({ focusedPaneId: "terminal-pane" });
     const event = pointerEvent({ clientX: 240, clientY: 52, target: context.terminalTarget });
@@ -423,6 +445,16 @@ function workspaceClickContext({
     closestHost: paneHost,
     terminal,
   });
+  const interactiveControlTarget = new FakeElement({
+    closestHost: paneHost,
+    interactiveControl: true,
+    terminal,
+  });
+  const retargetedControlClick = new FakeElement({
+    closestHost: paneHost,
+    pointTarget: interactiveControlTarget,
+    terminal,
+  });
   const store = {
     canOpenPane: vi.fn(() => false),
     ensureFocusedPaneVisible: vi.fn(),
@@ -435,10 +467,12 @@ function workspaceClickContext({
   const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
   return {
     event: mouseEvent({ clientX: 240, clientY: 160, target: paneTarget }),
+    interactiveControlTarget,
     runLayoutAction: (action: () => void) => action(),
     runtime,
     scheduler,
     paneTarget,
+    retargetedControlClick,
     terminalTarget: paneTarget,
     viewport,
     viewportProvider: () => viewport,
@@ -593,6 +627,8 @@ class FakeElement {
   constructor(
     private readonly options: {
       closestHost?: FakeElement;
+      interactiveControl?: boolean;
+      pointTarget?: FakeElement;
       rect?: { bottom: number; left: number; right: number; top: number };
       surfaceKind?: string;
       terminal: boolean;
@@ -603,12 +639,22 @@ class FakeElement {
     }
   }
 
+  get ownerDocument(): { elementFromPoint: () => FakeElement | null } {
+    return { elementFromPoint: () => this.options.pointTarget ?? null };
+  }
+
   closest(selector: string): FakeElement | null {
     if (
       this.options.closestHost &&
       selector === '[data-testid="workspace-pane-host"][data-visible="true"]'
     ) {
       return this.options.closestHost;
+    }
+    if (
+      this.options.interactiveControl &&
+      selector === '[data-workspace-pane-interactive-control="true"]'
+    ) {
+      return this;
     }
     return this.terminal && selector === ".workspace-terminal-surface" ? this : null;
   }

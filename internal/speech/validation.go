@@ -113,8 +113,8 @@ func validateSafetyIdentifier(identifier string) error {
 	if err := validateRequiredTrimmedText("OpenAI safety identifier", identifier); err != nil {
 		return err
 	}
-	if len(identifier) > 256 {
-		return errors.New("OpenAI safety identifier exceeds 256 bytes")
+	if len(identifier) > 64 {
+		return errors.New("OpenAI safety identifier exceeds 64 bytes")
 	}
 	for _, char := range identifier {
 		if char < 0x21 || char > 0x7e {

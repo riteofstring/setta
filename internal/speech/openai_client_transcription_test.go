@@ -80,7 +80,6 @@ func validClientSecretPayload(expiresAt time.Time) map[string]any {
 				"input": map[string]any{
 					"transcription": map[string]any{
 						"model": TranscriptionModel,
-						"delay": TranscriptionDelay,
 					},
 					"turn_detection": nil,
 				},
@@ -191,7 +190,7 @@ func TestOpenAIClientRejectsInvalidSafetyIdentifierBeforeRequest(t *testing.T) {
 		calls.Add(1)
 		return nil, nil
 	}))
-	identifiers := []string{"", " hash", "hash value", "håsh", strings.Repeat("a", 257)}
+	identifiers := []string{"", " hash", "hash value", "håsh", strings.Repeat("a", 65)}
 	for _, identifier := range identifiers {
 		if _, err := client.CreateTranscriptionClientSecret(context.Background(), identifier); err == nil {
 			t.Fatalf("identifier %q unexpectedly passed validation", identifier)

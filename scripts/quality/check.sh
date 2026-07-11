@@ -227,7 +227,7 @@ is_length_excluded_path() {
     docs/mockups/*)
       return 0
       ;;
-    internal/codexapp/protocolschema/json/*|internal/codexapp/protocolschema/json_experimental/*)
+    internal/codexapp/protocolschema/json/*|internal/codexapp/protocolschema/json_experimental/*|internal/speech/openaischema/openapi.yaml)
       return 0
       ;;
     LICENSE|desktop/pnpm-lock.yaml|pnpm-lock.yaml|*.lock|go.sum)

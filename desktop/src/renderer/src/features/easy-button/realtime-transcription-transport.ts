@@ -1,54 +1,22 @@
 import type { SpeechTranscriptionSession } from "@generated/backend";
+import {
+  openAIOperations,
+  openAIRealtimeClientEventType,
+  openAIRealtimeServerEventType,
+} from "@generated/openai-realtime";
 
+import { RealtimeTranscriptionError } from "./realtime-transcription-error";
 import {
   decodeRealtimeTranscriptionServerEvent,
   type RealtimeTranscriptionServerEvent,
 } from "./realtime-transcription-events";
+import {
+  RealtimeTranscriptionSession,
+  type RealtimeTranscriptionUpdate,
+} from "./realtime-transcription-session";
 
 const maximumSDPResponseBytes = 64 * 1024;
 const maximumRealtimeEventOverheadCharacters = 64 * 1024;
-
-export type RealtimeTranscriptionErrorCode =
-  | "aborted"
-  | "connection_failed"
-  | "connection_lost"
-  | "invalid_media"
-  | "invalid_session"
-  | "malformed_event"
-  | "provider_rate_limited"
-  | "provider_rejected"
-  | "provider_response_malformed"
-  | "provider_unavailable"
-  | "stale_event"
-  | "transcript_too_large"
-  | "transcription_failed";
-
-export class RealtimeTranscriptionError extends Error {
-  readonly code: RealtimeTranscriptionErrorCode;
-
-  constructor(code: RealtimeTranscriptionErrorCode, message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "RealtimeTranscriptionError";
-    this.code = code;
-  }
-}
-
-export type RealtimeTranscriptionUpdate =
-  | {
-      captureSessionId: string;
-      delta: string;
-      itemId: string;
-      providerSessionId: string;
-      transcript: string;
-      type: "delta";
-    }
-  | {
-      captureSessionId: string;
-      itemId: string;
-      providerSessionId: string;
-      transcript: string;
-      type: "completed";
-    };
 
 interface RealtimeTranscriptionReady {
   captureSessionId: string;
@@ -136,12 +104,9 @@ class BrowserRealtimeTranscriptionTransport implements RealtimeTranscriptionTran
   private readonly resolveReady: (ready: RealtimeTranscriptionReady) => void;
   private readonly signal: AbortSignal | undefined;
   private readonly stream: MediaStream;
+  private readonly transcriptionSession: RealtimeTranscriptionSession;
 
   private channelOpen = false;
-  private committedItemId: string | null = null;
-  private observedItemId: string | null = null;
-  private partialTranscript = "";
-  private providerSessionId: string | null = null;
   private readySettled = false;
   private remoteDescriptionSet = false;
   private state: TransportState = "connecting";
@@ -158,6 +123,10 @@ class BrowserRealtimeTranscriptionTransport implements RealtimeTranscriptionTran
     this.signal = options.signal;
     this.stream = options.stream;
     this.peer = peer;
+    this.transcriptionSession = new RealtimeTranscriptionSession(
+      options.captureSessionId,
+      options.session.maximumTranscriptCharacters,
+    );
     this.channel = this.peer.createDataChannel("oai-events");
     let rejectReady!: (error: RealtimeTranscriptionError) => void;
     let resolveReady!: (ready: RealtimeTranscriptionReady) => void;
@@ -179,12 +148,15 @@ class BrowserRealtimeTranscriptionTransport implements RealtimeTranscriptionTran
         "Realtime transcription is not ready to commit audio.",
       );
     }
+    this.transcriptionSession.beginCommit();
+    this.state = "committing";
     for (const track of this.stream.getAudioTracks()) {
       track.enabled = false;
     }
-    this.state = "committing";
     try {
-      this.channel.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+      this.channel.send(
+        JSON.stringify({ type: openAIRealtimeClientEventType.inputAudioBufferCommit }),
+      );
     } catch (cause) {
       this.fail(
         new RealtimeTranscriptionError(
@@ -239,9 +211,9 @@ class BrowserRealtimeTranscriptionTransport implements RealtimeTranscriptionTran
         cache: "no-store",
         credentials: "omit",
         headers: {
-          Accept: "application/sdp",
+          Accept: openAIOperations.createRealtimeCall.responseMediaType,
           Authorization: `Bearer ${session.clientSecret}`,
-          "Content-Type": "application/sdp",
+          "Content-Type": openAIOperations.createRealtimeCall.requestMediaType,
         },
         method: "POST",
         redirect: "error",
@@ -307,136 +279,26 @@ class BrowserRealtimeTranscriptionTransport implements RealtimeTranscriptionTran
     }
     try {
       this.assertEventSize(message);
-      this.applyEvent(decodeRealtimeTranscriptionServerEvent(message));
+      const event = decodeRealtimeTranscriptionServerEvent(message);
+      this.applyEvent(event);
     } catch (error) {
       this.fail(eventError(error));
     }
   };
 
   private applyEvent(event: RealtimeTranscriptionServerEvent): void {
-    switch (event.type) {
-      case "session.created":
-        this.acceptProviderSession(event.providerSessionId);
-        return;
-      case "conversation.item.created":
-        this.acceptConversationItem(event.itemId);
-        return;
-      case "input_audio_buffer.committed":
-        this.acceptCommittedItem(event.itemId);
-        return;
-      case "conversation.item.input_audio_transcription.delta":
-        this.acceptTranscriptDelta(event.itemId, event.contentIndex, event.delta);
-        return;
-      case "conversation.item.input_audio_transcription.completed":
-        this.acceptCompletedTranscript(event.itemId, event.contentIndex, event.transcript);
-        return;
-      case "conversation.item.input_audio_transcription.failed":
-        this.assertCurrentItem(event.itemId, event.contentIndex);
-        this.fail(
-          new RealtimeTranscriptionError(
-            "transcription_failed",
-            "OpenAI could not transcribe the recorded audio.",
-          ),
-        );
-        return;
-      case "error":
-        this.fail(
-          new RealtimeTranscriptionError(
-            "transcription_failed",
-            "OpenAI reported a Realtime transcription error.",
-          ),
-        );
-        return;
-      case "rate_limits.updated":
-        return;
-      default:
-        assertNever(event);
+    const update = this.transcriptionSession.accept(event);
+    if (event.type === openAIRealtimeServerEventType.sessionCreated) {
+      this.resolveReadyWhenComplete();
     }
-  }
-
-  private acceptProviderSession(providerSessionId: string): void {
-    if (this.providerSessionId !== null) {
-      throw new RealtimeTranscriptionError(
-        "stale_event",
-        "Realtime transcription received a duplicate or cross-session event.",
-      );
+    if (update === null) {
+      return;
     }
-    this.providerSessionId = providerSessionId;
-    this.resolveReadyWhenComplete();
-  }
-
-  private acceptConversationItem(itemId: string): void {
-    if (this.state !== "committing" || this.observedItemId !== null) {
-      throw staleItemError();
+    if (update.type === "completed") {
+      this.state = "completed";
+      this.closeResources();
     }
-    if (this.committedItemId !== null && this.committedItemId !== itemId) {
-      throw staleItemError();
-    }
-    this.observedItemId = itemId;
-  }
-
-  private acceptCommittedItem(itemId: string): void {
-    if (this.state !== "committing" || this.committedItemId !== null) {
-      throw staleItemError();
-    }
-    if (this.observedItemId !== null && this.observedItemId !== itemId) {
-      throw staleItemError();
-    }
-    this.committedItemId = itemId;
-  }
-
-  private acceptTranscriptDelta(itemId: string, contentIndex: number, delta: string): void {
-    this.assertCurrentItem(itemId, contentIndex);
-    const transcript = this.partialTranscript + delta;
-    this.assertTranscriptLength(transcript);
-    this.partialTranscript = transcript;
-    this.onTranscript({
-      captureSessionId: this.captureSessionId,
-      delta,
-      itemId,
-      providerSessionId: this.requireProviderSessionId(),
-      transcript,
-      type: "delta",
-    });
-  }
-
-  private acceptCompletedTranscript(
-    itemId: string,
-    contentIndex: number,
-    transcript: string,
-  ): void {
-    this.assertCurrentItem(itemId, contentIndex);
-    this.assertTranscriptLength(transcript);
-    this.state = "completed";
-    const providerSessionId = this.requireProviderSessionId();
-    this.closeResources();
-    this.onTranscript({
-      captureSessionId: this.captureSessionId,
-      itemId,
-      providerSessionId,
-      transcript,
-      type: "completed",
-    });
-  }
-
-  private assertCurrentItem(itemId: string, contentIndex: number): void {
-    if (
-      this.state !== "committing" ||
-      contentIndex !== 0 ||
-      this.committedItemId === null ||
-      this.committedItemId !== itemId
-    ) {
-      throw staleItemError();
-    }
-  }
-
-  private assertTranscriptLength(transcript: string): void {
-    if ([...transcript].length > this.maximumTranscriptCharacters) {
-      throw new RealtimeTranscriptionError(
-        "transcript_too_large",
-        `Realtime transcript exceeds ${this.maximumTranscriptCharacters} characters.`,
-      );
-    }
+    this.onTranscript(update);
   }
 
   private assertConnecting(): void {
@@ -457,22 +319,13 @@ class BrowserRealtimeTranscriptionTransport implements RealtimeTranscriptionTran
     }
   }
 
-  private requireProviderSessionId(): string {
-    if (this.providerSessionId === null) {
-      throw new RealtimeTranscriptionError(
-        "stale_event",
-        "Realtime transcription event arrived before its session was established.",
-      );
-    }
-    return this.providerSessionId;
-  }
-
   private resolveReadyWhenComplete(): void {
+    const providerSessionId = this.transcriptionSession.providerSessionId;
     if (
       this.state !== "connecting" ||
       !this.channelOpen ||
       !this.remoteDescriptionSet ||
-      this.providerSessionId === null
+      providerSessionId === null
     ) {
       return;
     }
@@ -480,7 +333,7 @@ class BrowserRealtimeTranscriptionTransport implements RealtimeTranscriptionTran
     this.readySettled = true;
     this.resolveReady({
       captureSessionId: this.captureSessionId,
-      providerSessionId: this.providerSessionId,
+      providerSessionId,
     });
   }
 
@@ -525,13 +378,7 @@ function validateProviderAnswerHeaders(response: Response): number | null {
   if (response.status !== 201) {
     throw providerStatusError(response.status);
   }
-  const mediaType = response.headers.get("Content-Type")?.split(";", 1)[0]?.trim().toLowerCase();
-  if (mediaType !== "application/sdp") {
-    throw new RealtimeTranscriptionError(
-      "provider_response_malformed",
-      "OpenAI returned an invalid Realtime session response type.",
-    );
-  }
+  validateProviderAnswerMediaType(response.headers.get("Content-Type"));
   const declaredLengthHeader = response.headers.get("Content-Length");
   if (declaredLengthHeader === null) {
     return null;
@@ -545,6 +392,22 @@ function validateProviderAnswerHeaders(response: Response): number | null {
     throw malformedSDPError();
   }
   return declaredLength;
+}
+
+function validateProviderAnswerMediaType(contentType: string | null): void {
+  const mediaType = contentType?.split(";", 1)[0]?.trim().toLowerCase();
+  if (!providerAnswerMediaTypeAllowed(mediaType)) {
+    throw new RealtimeTranscriptionError(
+      "provider_response_malformed",
+      `OpenAI returned Realtime session response type ${JSON.stringify(mediaType ?? "")}.`,
+    );
+  }
+}
+
+function providerAnswerMediaTypeAllowed(mediaType: string | undefined): boolean {
+  return openAIOperations.createRealtimeCall.wireResponseMediaTypes.some(
+    (candidate) => candidate === mediaType,
+  );
 }
 
 async function readProviderAnswerText(
@@ -718,13 +581,6 @@ function invalidSessionError(message: string, cause?: unknown): RealtimeTranscri
   return new RealtimeTranscriptionError("invalid_session", message, { cause });
 }
 
-function staleItemError(): RealtimeTranscriptionError {
-  return new RealtimeTranscriptionError(
-    "stale_event",
-    "Realtime transcription received a stale or mismatched item event.",
-  );
-}
-
 function malformedSDPError(): RealtimeTranscriptionError {
   return new RealtimeTranscriptionError(
     "provider_response_malformed",
@@ -744,10 +600,6 @@ function stopMediaStream(stream: MediaStream): void {
   for (const track of stream.getTracks()) {
     track.stop();
   }
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled Realtime transcription event: ${JSON.stringify(value)}`);
 }
 
 const browserRealtimeTranscriptionDependencies: RealtimeTranscriptionDependencies = {

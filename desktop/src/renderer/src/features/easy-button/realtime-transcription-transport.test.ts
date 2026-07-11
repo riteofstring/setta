@@ -1,15 +1,18 @@
 import type { SpeechTranscriptionSession } from "@generated/backend";
+import { openAIRealtimeClientEventType } from "@generated/openai-realtime";
 import { describe, expect, test, vi } from "vitest";
 
+import type {
+  RealtimeTranscriptionError,
+  RealtimeTranscriptionErrorCode,
+} from "./realtime-transcription-error";
 import {
   createRealtimeTranscriptionTransport,
   type RealtimeDataChannelPort,
   type RealtimePeerConnectionPort,
   type RealtimeTranscriptionDependencies,
-  type RealtimeTranscriptionError,
-  type RealtimeTranscriptionErrorCode,
-  type RealtimeTranscriptionUpdate,
 } from "./realtime-transcription-transport";
+import type { RealtimeTranscriptionUpdate } from "./realtime-transcription-session";
 
 describe("Realtime transcription WebRTC transport", () => {
   test("posts only SDP with the ephemeral credential and waits for the provider session", async () => {
@@ -44,17 +47,36 @@ describe("Realtime transcription WebRTC transport", () => {
     expect(harness.channel.sent).toEqual([]);
   });
 
-  test("commits once, accumulates bounded deltas, and emits only the authoritative completion", async () => {
+  test("accepts the live provider's text/plain SDP response", async () => {
+    const harness = createHarness({
+      response: new Response("answer-sdp", {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        status: 201,
+      }),
+    });
+
+    await establish(harness);
+
+    expect(harness.peer.remoteDescriptions).toEqual([{ sdp: "answer-sdp", type: "answer" }]);
+    expect(harness.errors).toEqual([]);
+  });
+
+  test("streams correlated deltas before commit and emits the authoritative completion", async () => {
     const harness = createHarness();
     await establish(harness);
 
-    harness.transport.commit();
-    expect(harness.track.enabled).toBe(false);
-    expect(harness.channel.sent).toEqual([JSON.stringify({ type: "input_audio_buffer.commit" })]);
-    harness.channel.message(committedEvent("item_current"));
-    harness.channel.message(conversationItemEvent("item_current"));
     harness.channel.message(deltaEvent("item_current", "Hello worl"));
     harness.channel.message(deltaEvent("item_current", "d"));
+    expect(harness.track.enabled).toBe(true);
+    expect(harness.channel.sent).toEqual([]);
+    harness.transport.commit();
+    expect(harness.track.enabled).toBe(false);
+    expect(harness.channel.sent).toEqual([
+      JSON.stringify({ type: openAIRealtimeClientEventType.inputAudioBufferCommit }),
+    ]);
+    harness.channel.message(conversationItemDoneEvent("item_current"));
+    harness.channel.message(committedEvent("item_current"));
+    harness.channel.message(conversationItemAddedEvent("item_current"));
     harness.channel.message(completedEvent("item_current", "Hello, world."));
 
     expect(harness.updates).toEqual([
@@ -91,14 +113,16 @@ describe("Realtime transcription WebRTC transport", () => {
   test("rejects cross-item events and ignores every stale message after teardown", async () => {
     const harness = createHarness();
     await establish(harness);
+    harness.channel.message(deltaEvent("item_current", "accepted"));
     harness.transport.commit();
     harness.channel.message(committedEvent("item_current"));
 
     harness.channel.message(deltaEvent("item_stale", "do not accept"));
     harness.channel.message(completedEvent("item_current", "also ignored"));
 
-    expect(harness.errors.map((error) => error.code)).toEqual(["stale_event"]);
-    expect(harness.updates).toEqual([]);
+    expect(harness.errors.map((error) => error.code)).toEqual(["protocol_violation"]);
+    expect(harness.updates).toHaveLength(1);
+    expect(harness.updates[0]).toMatchObject({ transcript: "accepted", type: "delta" });
     expect(harness.track.stop).toHaveBeenCalledOnce();
   });
 
@@ -108,15 +132,13 @@ describe("Realtime transcription WebRTC transport", () => {
 
     harness.channel.message(sessionCreatedEvent("sess_stale"));
 
-    expect(harness.errors.map((error) => error.code)).toEqual(["stale_event"]);
+    expect(harness.errors.map((error) => error.code)).toEqual(["protocol_violation"]);
     expect(harness.updates).toEqual([]);
   });
 
   test("enforces the backend-provided transcript limit by Unicode character", async () => {
     const harness = createHarness({ maximumTranscriptCharacters: 2 });
     await establish(harness);
-    harness.transport.commit();
-    harness.channel.message(committedEvent("item_current"));
     harness.channel.message(deltaEvent("item_current", "😀😀"));
     harness.channel.message(deltaEvent("item_current", "é"));
 
@@ -211,7 +233,7 @@ describe("Realtime transcription WebRTC transport", () => {
   test("rejects malformed SDP responses before applying a remote description", async () => {
     const wrongType = createHarness({
       response: new Response("answer-sdp", {
-        headers: { "Content-Type": "text/plain" },
+        headers: { "Content-Type": "application/json" },
         status: 201,
       }),
     });
@@ -487,11 +509,19 @@ function sessionCreatedEvent(providerSessionId: string): string {
   });
 }
 
-function conversationItemEvent(itemId: string): string {
+function conversationItemAddedEvent(itemId: string): string {
   return JSON.stringify({
-    event_id: `event_created_${itemId}`,
+    event_id: `event_added_${itemId}`,
     item: { id: itemId, role: "user", type: "message" },
-    type: "conversation.item.created",
+    type: "conversation.item.added",
+  });
+}
+
+function conversationItemDoneEvent(itemId: string): string {
+  return JSON.stringify({
+    event_id: `event_done_${itemId}`,
+    item: { id: itemId, role: "user", type: "message" },
+    type: "conversation.item.done",
   });
 }
 
@@ -520,6 +550,7 @@ function completedEvent(itemId: string, transcript: string): string {
     item_id: itemId,
     transcript,
     type: "conversation.item.input_audio_transcription.completed",
+    usage: { seconds: 1, type: "duration" },
   });
 }
 

@@ -199,9 +199,14 @@
       type: "input_audio_buffer.committed",
     });
     channel.message({
-      event_id: nextEventId("event_created"),
+      event_id: nextEventId("event_added"),
       item: { id: itemId, role: "user", type: "message" },
-      type: "conversation.item.created",
+      type: "conversation.item.added",
+    });
+    channel.message({
+      event_id: nextEventId("event_done"),
+      item: { id: itemId, role: "user", type: "message" },
+      type: "conversation.item.done",
     });
   }
 
@@ -328,11 +333,11 @@
         item_id: itemId,
         transcript,
         type: "conversation.item.input_audio_transcription.completed",
+        usage: { seconds: 1, type: "duration" },
       });
     },
     emitDelta(delta) {
       const itemId = "item_fixture";
-      acknowledgeItem(itemId);
       latestChannel().message({
         content_index: 0,
         delta,

@@ -17,6 +17,7 @@
       easyButtonPaneChatRecord,
       easyButtonPaneClickControl,
       easyButtonPaneClickOutputControl,
+      easyButtonPaneOutputControlPoint,
       easyButtonPaneClickSummaryReplay,
       easyButtonPaneClickStop,
       easyButtonPaneClickVoiceOff,
@@ -126,6 +127,8 @@
     const surface = host.querySelector('[data-testid="easy-button-surface"]');
     return {
       easyState: surface instanceof HTMLElement ? (surface.dataset.easyButtonState ?? "") : "",
+      speechCapture: elementDatasetValue(surface, "easyButtonCapture"),
+      speechCapturing: elementDatasetValue(surface, "easyButtonCapturing"),
       statusTone: elementDatasetValue(surface, "easyButtonStatus"),
       speechStatus: elementDatasetValue(surface, "easyButtonSpeech"),
       speechOutputMode: host.dataset.easyButtonOutputMode ?? "",
@@ -138,6 +141,7 @@
     return {
       focused: host.dataset.focused ?? "",
       hostFrozen: host.dataset.surfaceFrozen ?? "",
+      hostMoving: host.dataset.moving ?? "",
       paneChromeTitle: host.dataset.workspacePaneChromeTitle ?? "",
       paneId: host.dataset.paneId ?? "",
       surfaceKind: host.dataset.surfaceKind ?? "",
@@ -184,6 +188,7 @@
     const focusBlock = host.querySelector(".easy-button-focus-block");
     const focusLabel = host.querySelector('[data-testid="easy-button-focus-label"]');
     const helper = host.querySelector('[data-testid="easy-button-helper"]');
+    const captureError = host.querySelector('[data-testid="easy-button-capture-error"]');
     const error = host.querySelector('[data-testid="easy-button-error"]');
     const summary = host.querySelector('[data-testid="easy-button-summary"]');
     const summaryEqualizer = host.querySelector(".easy-button-summary-equalizer");
@@ -217,6 +222,7 @@
       buttonTransitionDuration: elementStyleValue(button, "transitionDuration"),
       buttonVisible: buttonVisible(buttonRect),
       captionRect: rectSnapshot(elementRectOrZero(caption)),
+      captureErrorText: elementText(captureError),
       centerRect: rectSnapshot(elementRectOrZero(center)),
       confirmActive: elementDatasetValue(button, "easyButtonConfirm"),
       controlAnimationName: elementStyleValue(button, "animationName"),
@@ -292,6 +298,17 @@
     }
     button.click();
     return true;
+  }
+
+  function easyButtonPaneOutputControlPoint() {
+    const button = requireEasyButtonHost().querySelector(
+      '[data-testid="easy-button-audio-toggle"]',
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error("easy-button audio control is not mounted");
+    }
+    const rect = button.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   }
 
   function easyButtonPaneSelectOutputMode(mode) {

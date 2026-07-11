@@ -102,8 +102,8 @@ func TestDeviceSafetyIdentifierIsStableAndDeviceScoped(t *testing.T) {
 	if first != repeated || first == second {
 		t.Fatalf("safety identifiers first=%q repeated=%q second=%q", first, repeated, second)
 	}
-	if len(first) != len(safetyIdentifierPrefix)+64 {
-		t.Fatalf("safety identifier length = %d, want %d", len(first), len(safetyIdentifierPrefix)+64)
+	if len(first) > 64 {
+		t.Fatalf("safety identifier length = %d, want at most 64", len(first))
 	}
 }
 

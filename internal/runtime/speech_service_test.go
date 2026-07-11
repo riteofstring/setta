@@ -3,13 +3,11 @@ package runtime
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -254,14 +252,14 @@ func (provider *runtimeSpeechProvider) handleSynthesis(t *testing.T, response ht
 		Voice          string `json:"voice"`
 	}
 	decodeRuntimeProviderJSON(t, request, &payload)
-	if payload.Model != speech.SynthesisModel || payload.Voice != speech.SynthesisVoice || payload.ResponseFormat != speech.SynthesisFormat {
+	if payload.Model != speech.SynthesisModel || payload.Voice != speech.SynthesisVoice || payload.ResponseFormat != speech.OpenAISynthesisResponseFormat {
 		t.Errorf("synthesis provider payload = %+v", payload)
 	}
 	provider.mu.Lock()
 	provider.synthesisInputs = append(provider.synthesisInputs, payload.Input)
 	provider.mu.Unlock()
 	response.Header().Set("Content-Type", "application/octet-stream")
-	if _, err := response.Write(runtimeSpeechWAV()); err != nil {
+	if _, err := response.Write([]byte{0, 0}); err != nil {
 		t.Errorf("write fake speech audio: %v", err)
 	}
 }
@@ -289,13 +287,15 @@ func decodeRuntimeProviderJSON(t *testing.T, request *http.Request, target any) 
 }
 
 func validRuntimeSafetyIdentifier(identifier string) bool {
-	const prefix = "setta-device-"
-	if !strings.HasPrefix(identifier, prefix) {
+	if identifier == "" || len(identifier) > 64 {
 		return false
 	}
-	digest := strings.TrimPrefix(identifier, prefix)
-	decoded, err := hex.DecodeString(digest)
-	return err == nil && len(decoded) == 32
+	for _, char := range identifier {
+		if char < 0x21 || char > 0x7e {
+			return false
+		}
+	}
+	return true
 }
 
 func equalRuntimeSpeechInputs(got []string, want []string) bool {
@@ -314,7 +314,7 @@ func runtimeSpeechWAV() []byte {
 	return []byte{
 		'R', 'I', 'F', 'F', 38, 0, 0, 0, 'W', 'A', 'V', 'E',
 		'f', 'm', 't', ' ', 16, 0, 0, 0, 1, 0, 1, 0,
-		0x40, 0x1f, 0, 0, 0x80, 0x3e, 0, 0, 2, 0, 16, 0,
+		0xc0, 0x5d, 0, 0, 0x80, 0xbb, 0, 0, 2, 0, 16, 0,
 		'd', 'a', 't', 'a', 2, 0, 0, 0, 0, 0,
 	}
 }

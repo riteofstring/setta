@@ -13,13 +13,14 @@ import (
 )
 
 func TestOpenAIClientSynthesizesExactPersistedTextAsBoundedWAV(t *testing.T) {
+	pcm := []byte{0, 0}
 	wav := validTestWAV()
 	text := "The persisted narrator summary is spoken exactly."
 	var calls atomic.Int32
 	client := newFakeOpenAIClient(t, fakeRoundTripper(func(request *http.Request) (*http.Response, error) {
 		calls.Add(1)
 		assertSynthesisRequest(t, request, text)
-		return fakeResponse(http.StatusOK, "application/octet-stream", wav), nil
+		return fakeResponse(http.StatusOK, "application/octet-stream", pcm), nil
 	}))
 
 	audio, err := client.SynthesizeSpeech(context.Background(), text)
@@ -60,18 +61,18 @@ func assertSynthesisRequest(t *testing.T, request *http.Request, text string) {
 		Model:          SynthesisModel,
 		Input:          text,
 		Voice:          SynthesisVoice,
-		ResponseFormat: SynthesisFormat,
+		ResponseFormat: OpenAISynthesisResponseFormat,
 	}
 	if payload != want {
 		t.Fatalf("synthesis payload = %+v, want %+v", payload, want)
 	}
 }
 
-func TestOpenAIClientAcceptsDocumentedWAVContentTypes(t *testing.T) {
-	for _, contentType := range []string{"application/octet-stream", "audio/wav", "audio/x-wav; charset=binary"} {
+func TestOpenAIClientAcceptsDocumentedPCMContentType(t *testing.T) {
+	for _, contentType := range []string{"application/octet-stream", "audio/pcm"} {
 		t.Run(contentType, func(t *testing.T) {
 			client := newFakeOpenAIClient(t, fakeRoundTripper(func(*http.Request) (*http.Response, error) {
-				return fakeResponse(http.StatusOK, contentType, validTestWAV()), nil
+				return fakeResponse(http.StatusOK, contentType, []byte{0, 0}), nil
 			}))
 			if _, err := client.SynthesizeSpeech(context.Background(), "Persisted summary."); err != nil {
 				t.Fatalf("synthesize speech: %v", err)
@@ -107,25 +108,21 @@ func TestOpenAIClientRejectsMalformedOrOversizedSynthesisAudio(t *testing.T) {
 		{name: "wrong content type", response: func() *http.Response {
 			return fakeResponse(http.StatusOK, "application/json", []byte(`{"not":"audio"}`))
 		}, code: ErrorProviderResponseMalformed, want: "content type"},
-		{name: "truncated WAV", response: func() *http.Response {
-			wav := validTestWAV()
-			return fakeResponse(http.StatusOK, "audio/wav", wav[:20])
-		}, code: ErrorProviderResponseMalformed, want: "malformed WAV"},
-		{name: "invalid WAV", response: func() *http.Response {
-			return fakeResponse(http.StatusOK, "audio/wav", []byte("not wave audio"))
-		}, code: ErrorProviderResponseMalformed, want: "malformed WAV"},
+		{name: "unaligned PCM", response: func() *http.Response {
+			return fakeResponse(http.StatusOK, "application/octet-stream", []byte{0})
+		}, code: ErrorProviderResponseMalformed, want: "malformed PCM"},
 		{name: "declared response too large", response: func() *http.Response {
-			response := fakeResponse(http.StatusOK, "audio/wav", nil)
+			response := fakeResponse(http.StatusOK, "application/octet-stream", nil)
 			response.ContentLength = MaximumSynthesisAudioBytes + 1
 			return response
 		}, code: ErrorAudioTooLarge, want: "exceeded"},
 		{name: "chunked response too large", response: func() *http.Response {
-			response := fakeResponse(http.StatusOK, "audio/wav", bytes.Repeat([]byte{1}, MaximumSynthesisAudioBytes+1))
+			response := fakeResponse(http.StatusOK, "application/octet-stream", bytes.Repeat([]byte{1}, MaximumSynthesisAudioBytes+1))
 			response.ContentLength = -1
 			return response
 		}, code: ErrorAudioTooLarge, want: "exceeded"},
 		{name: "content length mismatch", response: func() *http.Response {
-			response := fakeResponse(http.StatusOK, "audio/wav", validTestWAV())
+			response := fakeResponse(http.StatusOK, "application/octet-stream", []byte{0, 0})
 			response.ContentLength++
 			return response
 		}, code: ErrorProviderResponseMalformed, want: "truncated"},
@@ -168,7 +165,7 @@ func TestOpenAIClientClassifiesTruncatedAndFailedAudioReads(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			client := newFakeOpenAIClient(t, fakeRoundTripper(func(*http.Request) (*http.Response, error) {
-				response := fakeResponse(http.StatusOK, "audio/wav", nil)
+				response := fakeResponse(http.StatusOK, "application/octet-stream", nil)
 				response.Body = errorReader{err: test.err}
 				response.ContentLength = -1
 				return response, nil

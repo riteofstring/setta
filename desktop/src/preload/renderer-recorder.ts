@@ -52,11 +52,52 @@ export function installRendererRecorder(ipcRenderer: Pick<IpcRenderer, "send">) 
       record(ipcRenderer, {
         at: timestamp(),
         button: event.button,
+        clientX: round(event.clientX),
+        clientY: round(event.clientY),
+        hitTargets: summarizeHitTargets(event.clientX, event.clientY),
         target: summarizeTarget(event.target),
         type: "click",
         url: window.location.href,
       });
       layoutRecorder.schedule("click");
+    },
+    true,
+  );
+
+  window.addEventListener(
+    "pointerdown",
+    (event) => {
+      record(ipcRenderer, {
+        at: timestamp(),
+        button: event.button,
+        clientX: round(event.clientX),
+        clientY: round(event.clientY),
+        hitTargets: summarizeHitTargets(event.clientX, event.clientY),
+        pointerId: event.pointerId,
+        pointerType: truncate(event.pointerType),
+        target: summarizeTarget(event.target),
+        type: "pointerdown",
+        url: window.location.href,
+      });
+    },
+    true,
+  );
+
+  window.addEventListener(
+    "pointerup",
+    (event) => {
+      record(ipcRenderer, {
+        at: timestamp(),
+        button: event.button,
+        clientX: round(event.clientX),
+        clientY: round(event.clientY),
+        hitTargets: summarizeHitTargets(event.clientX, event.clientY),
+        pointerId: event.pointerId,
+        pointerType: truncate(event.pointerType),
+        target: summarizeTarget(event.target),
+        type: "pointerup",
+        url: window.location.href,
+      });
     },
     true,
   );
@@ -412,6 +453,14 @@ function summarizeTarget(target: EventTarget | null) {
     text: truncate(textContent(element)),
     type: truncate(element.getAttribute("type") ?? ""),
   };
+}
+
+function summarizeHitTargets(clientX: number, clientY: number) {
+  return document
+    .elementsFromPoint(clientX, clientY)
+    .slice(0, 6)
+    .map((element) => summarizeTarget(element))
+    .filter((summary) => summary !== undefined);
 }
 
 function closestUsefulElement(element: Element): Element {

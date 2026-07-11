@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -219,7 +218,7 @@ func deviceSafetyIdentifier(deviceID string) (string, error) {
 		return "", err
 	}
 	digest := sha256.Sum256([]byte("setta-openai-speech-device\x00" + deviceID))
-	return safetyIdentifierPrefix + hex.EncodeToString(digest[:]), nil
+	return safetyIdentifierPrefix + base64.RawURLEncoding.EncodeToString(digest[:]), nil
 }
 
 func validateSourceID(label string, value string) error {

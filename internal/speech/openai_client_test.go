@@ -207,14 +207,14 @@ func TestOpenAIClientClosesProviderResponseBodies(t *testing.T) {
 		status int
 		body   []byte
 	}{
-		{name: "success", status: http.StatusOK, body: validTestWAV()},
+		{name: "success", status: http.StatusOK, body: []byte{0, 0}},
 		{name: "failure", status: http.StatusInternalServerError, body: []byte("provider failure")},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var closed atomic.Bool
 			client := newFakeOpenAIClient(t, fakeRoundTripper(func(*http.Request) (*http.Response, error) {
-				response := fakeResponse(test.status, "audio/wav", nil)
+				response := fakeResponse(test.status, "application/octet-stream", nil)
 				response.Body = trackingBody{reader: bytes.NewReader(test.body), closed: &closed}
 				response.ContentLength = int64(len(test.body))
 				return response, nil

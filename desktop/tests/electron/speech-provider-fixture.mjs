@@ -3,10 +3,8 @@ import { createServer } from "node:http";
 
 const apiKey = "sk-setta-speech-electron-fixture";
 const clientSecret = "ek_setta_speech_electron_ephemeral";
-const wav = Buffer.from([
-  82, 73, 70, 70, 38, 0, 0, 0, 87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 1, 0, 64, 31,
-  0, 0, 128, 62, 0, 0, 2, 0, 16, 0, 100, 97, 116, 97, 2, 0, 0, 0, 0, 0,
-]);
+const pcm = Buffer.from([0, 0]);
+const wav = pcm16MonoWAV(pcm);
 
 export async function startSpeechProviderFixture() {
   const failures = [];
@@ -91,7 +89,9 @@ function handleTranscriptionRequest(request, response, payload) {
   const safetyIdentifier = request.headers["openai-safety-identifier"];
   if (
     typeof safetyIdentifier !== "string" ||
-    !/^setta-device-[0-9a-f]{64}$/.test(safetyIdentifier)
+    safetyIdentifier.length === 0 ||
+    safetyIdentifier.length > 64 ||
+    !/^[!-~]+$/.test(safetyIdentifier)
   ) {
     throw new Error("speech provider fixture received an invalid safety identifier");
   }
@@ -111,7 +111,7 @@ function handleTranscriptionRequest(request, response, payload) {
       session: {
         audio: {
           input: {
-            transcription: { delay: "medium", model: "gpt-realtime-whisper" },
+            transcription: { model: "gpt-realtime-whisper" },
             turn_detection: null,
           },
         },
@@ -129,7 +129,7 @@ function handleSynthesisRequest(request, response, payload, synthesisControl, sy
   if (
     payload.model !== "gpt-4o-mini-tts" ||
     payload.voice !== "marin" ||
-    payload.response_format !== "wav" ||
+    payload.response_format !== "pcm" ||
     typeof payload.input !== "string" ||
     payload.input === ""
   ) {
@@ -139,12 +139,12 @@ function handleSynthesisRequest(request, response, payload, synthesisControl, sy
   if (synthesisControl.consume(response)) {
     return;
   }
-  writeWAV(response);
+  writePCM(response);
 }
 
-function writeWAV(response) {
-  response.writeHead(200, { "Content-Type": "audio/wav" });
-  response.end(wav);
+function writePCM(response) {
+  response.writeHead(200, { "Content-Type": "application/octet-stream" });
+  response.end(pcm);
 }
 
 function createSynthesisControl() {
@@ -197,7 +197,7 @@ function createSynthesisControl() {
       }
       const response = heldResponse;
       heldResponse = null;
-      writeWAV(response);
+      writePCM(response);
       return true;
     },
     waitForHeldCancellation() {
@@ -207,6 +207,27 @@ function createSynthesisControl() {
       return heldCancelled;
     },
   };
+}
+
+function pcm16MonoWAV(samples) {
+  const wavHeaderBytes = 44;
+  const sampleRate = 24_000;
+  const wav = Buffer.alloc(wavHeaderBytes + samples.length);
+  wav.write("RIFF", 0, "ascii");
+  wav.writeUInt32LE(wav.length - 8, 4);
+  wav.write("WAVE", 8, "ascii");
+  wav.write("fmt ", 12, "ascii");
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * 2, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36, "ascii");
+  wav.writeUInt32LE(samples.length, 40);
+  samples.copy(wav, wavHeaderBytes);
+  return wav;
 }
 
 function requireSynthesisControlIdle(behavior, heldResponse) {

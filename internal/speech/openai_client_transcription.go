@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	realtimeClientSecretTTLSeconds       = 600
 	realtimeClientSecretClockSkewSeconds = 30
 )
 
@@ -59,8 +58,13 @@ type realtimeTranscriptionAudioEcho struct {
 }
 
 type realtimeTranscriptionInputEcho struct {
-	Transcription *realtimeTranscriptionModel `json:"transcription"`
-	TurnDetection json.RawMessage             `json:"turn_detection"`
+	Transcription *realtimeTranscriptionModelEcho `json:"transcription"`
+	TurnDetection json.RawMessage                 `json:"turn_detection"`
+}
+
+type realtimeTranscriptionModelEcho struct {
+	Model string  `json:"model"`
+	Delay *string `json:"delay"`
 }
 
 func (client *OpenAIClient) CreateTranscriptionClientSecret(ctx context.Context, safetyIdentifier string) (SpeechTranscriptionClientSecret, error) {
@@ -77,7 +81,13 @@ func (client *OpenAIClient) CreateTranscriptionClientSecret(ctx context.Context,
 			}},
 		},
 	}
-	response, err := client.postJSON(ctx, "/realtime/client_secrets", payload, "application/json", safetyIdentifier)
+	response, err := client.postJSON(
+		ctx,
+		openAICreateRealtimeClientSecretPath,
+		payload,
+		openAICreateRealtimeClientSecretResponseMediaType,
+		safetyIdentifier,
+	)
 	if err != nil {
 		return SpeechTranscriptionClientSecret{}, err
 	}
@@ -121,8 +131,8 @@ func validateEffectiveTranscriptionSession(session *realtimeTranscriptionSession
 	if transcription.Model != TranscriptionModel {
 		return fmt.Errorf("OpenAI transcription model = %q, want %q", transcription.Model, TranscriptionModel)
 	}
-	if transcription.Delay != TranscriptionDelay {
-		return fmt.Errorf("OpenAI transcription delay = %q, want %q", transcription.Delay, TranscriptionDelay)
+	if transcription.Delay != nil && *transcription.Delay != TranscriptionDelay {
+		return fmt.Errorf("OpenAI transcription delay = %q, want %q", *transcription.Delay, TranscriptionDelay)
 	}
 	if !bytes.Equal(bytes.TrimSpace(session.Audio.Input.TurnDetection), []byte("null")) {
 		return errors.New("OpenAI transcription turn detection must be null")

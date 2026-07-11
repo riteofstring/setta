@@ -17,14 +17,25 @@ describe("Realtime transcription event decoder", () => {
     });
     expect(
       decodeEvent({
-        event_id: "event_item",
+        event_id: "event_item_added",
         item: { id: "item_current", role: "user", type: "message" },
-        type: "conversation.item.created",
+        type: "conversation.item.added",
       }),
     ).toEqual({
-      eventId: "event_item",
+      eventId: "event_item_added",
       itemId: "item_current",
-      type: "conversation.item.created",
+      type: "conversation.item.added",
+    });
+    expect(
+      decodeEvent({
+        event_id: "event_item_done",
+        item: { id: "item_current", role: "user", type: "message" },
+        type: "conversation.item.done",
+      }),
+    ).toEqual({
+      eventId: "event_item_done",
+      itemId: "item_current",
+      type: "conversation.item.done",
     });
     expect(
       decodeEvent({
@@ -115,6 +126,7 @@ describe("Realtime transcription event decoder", () => {
         item_id: "item_current",
         transcript: "",
         type: "conversation.item.input_audio_transcription.completed",
+        usage: { seconds: 0, type: "duration" },
       }),
     ).toMatchObject({ transcript: "" });
   });
@@ -160,6 +172,14 @@ describe("Realtime transcription event decoder", () => {
       value: JSON.stringify({ event_id: "event_unknown", type: "response.created" }),
     },
     {
+      name: "superseded conversation item event",
+      value: JSON.stringify({
+        event_id: "event_old_item",
+        item: { id: "item_old", role: "user", type: "message" },
+        type: "conversation.item.created",
+      }),
+    },
+    {
       name: "realtime rather than transcription session",
       value: JSON.stringify({
         event_id: "event_session",
@@ -172,7 +192,7 @@ describe("Realtime transcription event decoder", () => {
       value: JSON.stringify({
         event_id: "event_item",
         item: { id: "item_wrong", role: "assistant", type: "message" },
-        type: "conversation.item.created",
+        type: "conversation.item.added",
       }),
     },
     {
@@ -192,6 +212,25 @@ describe("Realtime transcription event decoder", () => {
         event_id: "event_completed",
         item_id: "item_current",
         type: "conversation.item.input_audio_transcription.completed",
+        usage: { seconds: 1, type: "duration" },
+      }),
+    },
+    {
+      name: "missing documented completion usage",
+      value: JSON.stringify({
+        content_index: 0,
+        event_id: "event_completed",
+        item_id: "item_current",
+        transcript: "Complete",
+        type: "conversation.item.input_audio_transcription.completed",
+      }),
+    },
+    {
+      name: "wrong documented rate limit shape",
+      value: JSON.stringify({
+        event_id: "event_limits",
+        rate_limits: {},
+        type: "rate_limits.updated",
       }),
     },
     {

@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	openAIBaseURL                = "https://api.openai.com/v1"
 	openAISafetyIdentifierHeader = "OpenAI-Safety-Identifier"
 	defaultProviderTimeout       = 30 * time.Second
 	maximumJSONResponseBytes     = 64 * 1024
