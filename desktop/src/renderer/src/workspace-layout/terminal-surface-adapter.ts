@@ -45,10 +45,17 @@ import {
 } from "./terminal-surface-session";
 import { renderXtermContent, TerminalSurfaceChrome } from "./terminal-surface-dom";
 import { TerminalOutputBuffer } from "./terminal-surface-output-buffer";
+import {
+  type ScheduledTerminalOutput,
+  TerminalOutputScheduler,
+  TerminalPresentationScheduler,
+} from "./terminal-output-scheduler";
+import { writeTerminalOutputBatch } from "./terminal-output-writer";
 import { TerminalPasteController } from "./terminal-surface-paste";
 import { TerminalSurfaceSessionResizer } from "./terminal-surface-resize-scheduler";
 import { TerminalSearchController } from "./terminal-surface-search";
 import { mountXtermTerminal, type TerminalDisposable } from "./terminal-surface-xterm";
+import { recordTerminalOutputStage } from "./terminal-latency-recorder";
 import { setHostPaneChromeTitle, terminalPaneTitle } from "./pane-title-metadata";
 import { assertNever, emptyTerminalStats, performanceNow } from "./terminal-surface-utils";
 import { requestTerminalPaneClose } from "./terminal-pane-close";
@@ -71,8 +78,7 @@ import type {
   TerminalSurfaceStats,
 } from "./types";
 
-const { defaultCols, defaultRows, resizeDebounceMs } = terminalSurfaceLimits;
-const sessionStartFitWaitMs = 250;
+const { defaultCols, defaultRows, resizeDebounceMs, sessionStartFitWaitMs } = terminalSurfaceLimits;
 
 type FitWaiter = (dimensions: { cols: number; rows: number } | null) => void;
 
@@ -89,6 +95,19 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private deferOutputUntilSessionReady = false;
   private lostSession = false;
   private readonly outputBuffer = new TerminalOutputBuffer();
+  private readonly outputScheduler = new TerminalOutputScheduler<ScheduledTerminalOutput>({
+    cancelFrame: (handle) => window.cancelAnimationFrame(handle),
+    requestFrame: (callback) => window.requestAnimationFrame(callback),
+    write: (outputs) => this.writeOutputBatch(outputs),
+  });
+  private readonly presentationScheduler = new TerminalPresentationScheduler({
+    cancelFrame: (handle) => window.cancelAnimationFrame(handle),
+    present: (dirtyRows) => {
+      this.writeStats(dirtyRows);
+      this.syncHostState();
+    },
+    requestFrame: (callback) => window.requestAnimationFrame(callback),
+  });
   private fitWaiters: FitWaiter[] = [];
   private profilesLoaded = false;
   private reattachRequired = false;
@@ -114,6 +133,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private unsubscribeProfileChanges: (() => void) | null = null;
   private unsubscribeBackendStatus: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
+  private unsubscribeStreamStatus: (() => void) | null = null;
   private unsubscribeRuntimeChanges: (() => void) | null = null;
   private visible = false;
   private runtimeProfileScopeKey = "";
@@ -188,6 +208,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     this.unsubscribeEvents = api.onEvent((event) => this.handleTerminalEvent(event));
+    this.unsubscribeStreamStatus = api.onStatus((status) => {
+      if (status.kind === "backpressure" || status.kind === "error") {
+        this.chrome.showStatus(status.message);
+      }
+    });
     this.unsubscribeBackendStatus =
       window.setta?.backend.onProcessStatus((status) => this.handleBackendProcessStatus(status)) ??
       null;
@@ -222,8 +247,12 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.fitScheduler.clear();
     this.clearFitRetry();
     this.resolveFitWaiters(null);
+    this.outputScheduler.clear();
+    this.presentationScheduler.clear();
     this.unsubscribeEvents?.();
     this.unsubscribeEvents = null;
+    this.unsubscribeStreamStatus?.();
+    this.unsubscribeStreamStatus = null;
     this.unsubscribeBackendStatus?.();
     this.unsubscribeBackendStatus = null;
     this.unsubscribeProfileChanges?.();
@@ -400,7 +429,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
         this.searchController.handleResults(results);
       },
       settings: this.settings,
-      terminalKeyHandler: (event) => this.handleTerminalKeyEvent(event),
+      terminalKeyHandler: (event) =>
+        handleTerminalKeyEvent(event, {
+          pasteController: this.pasteController,
+          searchController: this.searchController,
+        }),
       viewport,
     });
     if (!mounted) {
@@ -601,14 +634,18 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.syncHostState();
   }
   private handleTerminalEvent(event: TerminalEvent): void {
-    if (!this.eventMatchesPane(event)) {
+    const matchesPane = this.sessionId
+      ? event.sessionId === this.sessionId
+      : event.workspaceId === this.workspaceId && event.paneId === this.pane.paneId;
+    if (!matchesPane) {
       return;
     }
     this.sessionId = event.sessionId;
     this.sessionStatus = event.payload.status;
     if (event.type === "terminal.output") {
+      recordTerminalOutputStage("terminal_output_renderer_received", event);
       this.chrome.hideExitOverlay();
-      this.writeOutput(event.payload.dataBase64, event.payload.byteCount);
+      this.writeOutput(event);
       this.syncHostState();
       return;
     }
@@ -646,24 +683,18 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
         assertNever(event.type);
     }
   }
-  private eventMatchesPane(event: TerminalEvent): boolean {
-    if (this.sessionId) {
-      return event.sessionId === this.sessionId;
-    }
-    return event.workspaceId === this.workspaceId && event.paneId === this.pane.paneId;
-  }
-  private writeOutput(dataBase64: string, byteCount: number): void {
+  private writeOutput(event: TerminalEvent): void {
     const terminal = this.terminal;
+    const { byteCount, dataBase64 } = event.payload;
     if (dataBase64 === "") {
       return;
     }
     if (!terminal || this.frozen || this.deferOutputUntilSessionReady) {
-      this.outputBuffer.enqueue({ byteCount, dataBase64 });
-      this.writeStats(0);
-      this.syncHostState();
+      this.outputBuffer.enqueue({ byteCount, dataBase64, event });
+      this.presentationScheduler.schedule(0);
       return;
     }
-    this.writeOutputToTerminal(terminal, dataBase64, byteCount);
+    this.outputScheduler.enqueue({ bytes: bytesFromBase64(dataBase64), event });
   }
   private drainPendingOutput(): void {
     const terminal = this.terminal;
@@ -679,28 +710,18 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     const outputs = this.outputBuffer.drain();
-    let dirtyRows = 0;
-    for (const output of outputs) {
-      this.writeOutputToTerminal(terminal, output.dataBase64, output.byteCount);
-      dirtyRows = Math.max(dirtyRows, Math.max(1, Math.min(defaultRows, output.byteCount)));
+    this.outputScheduler.enqueueBulk(
+      outputs.map((output) => ({
+        bytes: bytesFromBase64(output.dataBase64),
+        event: output.event,
+      })),
+    );
+  }
+  private writeOutputBatch(outputs: ScheduledTerminalOutput[]): void {
+    const dirtyRows = writeTerminalOutputBatch(this.terminal, outputs);
+    if (dirtyRows !== null) {
+      this.presentationScheduler.schedule(dirtyRows);
     }
-    this.writeStats(dirtyRows);
-    this.syncHostState();
-  }
-  private writeOutputToTerminal(
-    terminal: XtermTerminal,
-    dataBase64: string,
-    byteCount: number,
-  ): void {
-    terminal.write(bytesFromBase64(dataBase64), () => terminal.scrollToBottom());
-    this.writeStats(Math.max(1, Math.min(defaultRows, byteCount)));
-    this.syncHostState();
-  }
-  private handleTerminalKeyEvent(event: KeyboardEvent): boolean {
-    return handleTerminalKeyEvent(event, {
-      pasteController: this.pasteController,
-      searchController: this.searchController,
-    });
   }
   private sendInput(data: string): void {
     sendTerminalInput(data, this.sessionId, {

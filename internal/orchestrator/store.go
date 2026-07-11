@@ -17,7 +17,7 @@ import (
 
 const (
 	workflowDatabaseName = "workflow-kernel.sqlite"
-	workflowStoreVersion = 3
+	workflowStoreVersion = 2
 	sqliteDriverName     = "sqlite"
 )
 
@@ -249,7 +249,6 @@ CREATE TABLE IF NOT EXISTS workflow_node_attempts (
   action_policy_json TEXT,
   side_effect_policy_json TEXT NOT NULL DEFAULT '{}',
   runner_capabilities_json TEXT,
-  agent_run_settings_json TEXT,
   scheduled_at TEXT NOT NULL,
   started_at TEXT,
   completed_at TEXT,

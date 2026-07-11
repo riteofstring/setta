@@ -420,18 +420,21 @@ export class SurfaceRegistry {
       return;
     }
 
-    previousHost.replaceChildren();
-    delete previousHost.dataset.browserRuntimeState;
-    delete previousHost.dataset.surfaceFocused;
-    delete previousHost.dataset.surfaceId;
-    delete previousHost.dataset.surfaceKind;
-    delete previousHost.dataset.surfaceViewport;
-    delete previousHost.dataset.surfaceVisible;
-    delete previousHost.dataset.viewportReason;
-    previousHost.removeAttribute?.("data-freeze-reason");
-    previousHost.removeAttribute?.("data-resume-reason");
-    this.hostRecords.delete(previousHost);
-    this.hostBySurfaceId.delete(surfaceId);
+    this.unmountHostRecord(previousHost, previousRecord);
+    this.clearHostPresentationState(previousHost);
+  }
+
+  private clearHostPresentationState(host: HTMLElement): void {
+    host.replaceChildren();
+    delete host.dataset.browserRuntimeState;
+    delete host.dataset.surfaceFocused;
+    delete host.dataset.surfaceId;
+    delete host.dataset.surfaceKind;
+    delete host.dataset.surfaceViewport;
+    delete host.dataset.surfaceVisible;
+    delete host.dataset.viewportReason;
+    host.removeAttribute?.("data-freeze-reason");
+    host.removeAttribute?.("data-resume-reason");
   }
 
   private unmountHostRecord(host: HTMLElement, hostRecord: HostRecord): void {
@@ -726,7 +729,6 @@ function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
 function bitmapSnapshotSurfaceKind(kind: SurfaceKind): boolean {
   return (
     kind === "chat-dom" ||
-    kind === "easy-button" ||
     kind === "fake-heavy-dom" ||
     kind === "fake-long-chat" ||
     kind === "terminal" ||

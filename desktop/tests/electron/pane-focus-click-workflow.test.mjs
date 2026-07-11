@@ -5,7 +5,6 @@ import { basename, join } from "node:path";
 import process from "node:process";
 
 import { backendProbe } from "./chat-workflow-harness.mjs";
-import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -240,7 +239,7 @@ async function waitForFocusAwayScenarioState(client, scenario, label) {
 async function waitForPaneFocusState(client, label, predicate) {
   return waitForLoggedState(
     client,
-    driverCallExpression("paneFocusWorkflowState"),
+    paneFocusWorkflowStateExpression(),
     label,
     (state) => state.ok && predicate(state),
     summarizePaneFocusState,
@@ -248,7 +247,7 @@ async function waitForPaneFocusState(client, label, predicate) {
 }
 
 async function readPaneFocusState(client) {
-  return client.driver("paneFocusWorkflowState");
+  return client.evaluate(paneFocusWorkflowStateExpression());
 }
 
 async function clickPaneTopBar(client, paneId, label) {
@@ -268,7 +267,7 @@ async function clickPaneContent(client, paneId) {
 }
 
 async function paneClickPoint(client, paneId, targetKind) {
-  return client.driver("paneClickPoint", { paneId, targetKind });
+  return client.evaluate(paneClickPointExpression(paneId, targetKind));
 }
 
 async function sendTerminalCommand(client, paneId, text) {
@@ -498,4 +497,205 @@ function twoPaneWorkspaceUILayout(workspaceId) {
     schemaVersion: 1,
     workspaceId,
   };
+}
+
+function paneFocusWorkflowStateExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
+    if (!(area instanceof HTMLElement) || !(stage instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-workspace-layout" };
+    }
+    const layoutResult = globalThis.__settaE2EDriver?.layoutState
+      ? globalThis.__settaE2EDriver.layoutState()
+      : { ok: false, reason: "driver-missing" };
+    if (!layoutResult.ok) {
+      return { ok: false, reason: layoutResult.reason ?? "layout-state-unavailable" };
+    }
+    const elementRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+        x: rect.x,
+        y: rect.y,
+      };
+    };
+    const rectInsideRect = (inner, outer) =>
+      inner.width > 0 &&
+      inner.height > 0 &&
+      inner.left >= outer.left &&
+      inner.right <= outer.right &&
+      inner.top >= outer.top &&
+      inner.bottom <= outer.bottom;
+    const elementIntersectsViewport = (element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 &&
+        rect.height > 0 &&
+        rect.right > 0 &&
+        rect.bottom > 0 &&
+        rect.left < window.innerWidth &&
+        rect.top < window.innerHeight;
+    };
+    const stageRect = elementRect(stage);
+    const layout = {
+      ...layoutResult.snapshot,
+      workspaceId: area.dataset.workspaceId ?? "",
+    };
+    const panes = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
+      .map((host) => {
+        const rect = elementRect(host);
+        const topBar = host.querySelector(".workspace-pane-top-bar");
+        const hasTopBar = topBar instanceof HTMLElement;
+        const closeButton = host.querySelector('[data-workspace-pane-action="close"]');
+        return {
+          closeClickable: closeButton instanceof HTMLButtonElement && !closeButton.disabled,
+          focused: host.dataset.focused === "true",
+          hasTopBar,
+          paneId: host.dataset.paneId ?? "",
+          rect,
+          stageContained: rectInsideRect(rect, stageRect),
+          surfaceKind: host.dataset.surfaceKind ?? "",
+          terminalReady: Boolean(host.querySelector(".xterm-helper-textarea")),
+          topBarClickable: hasTopBar && elementIntersectsViewport(topBar),
+          visible: host.dataset.visible === "true",
+        };
+      });
+    const scenario = (${paneFocusScenarioFromPanes.toString()})(panes);
+    if (scenario.ok) {
+      const terminal = panes.find((pane) => pane.paneId === scenario.terminalPaneId);
+      const focusAway = panes.find((pane) => pane.paneId === scenario.focusAwayPaneId);
+      scenario.minimal = panes.length === 2 &&
+        Boolean(terminal?.stageContained) &&
+        Boolean(focusAway?.stageContained);
+    }
+    return {
+      layout,
+      ok: true,
+      panes,
+      scenario,
+      stageRect,
+    };
+  })()`;
+}
+
+function paneClickPointExpression(paneId, targetKind) {
+  return `(() => {
+    const paneId = ${JSON.stringify(paneId)};
+    const targetKind = ${JSON.stringify(targetKind)};
+    const elementRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+        x: rect.x,
+        y: rect.y,
+      };
+    };
+    const elementIntersectsViewport = (element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 &&
+        rect.height > 0 &&
+        rect.right > 0 &&
+        rect.bottom > 0 &&
+        rect.left < window.innerWidth &&
+        rect.top < window.innerHeight;
+    };
+    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).find(
+      (candidate) =>
+        candidate instanceof HTMLElement &&
+        candidate.dataset.paneId === paneId &&
+        candidate.dataset.visible === "true",
+    );
+    if (!(host instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-visible-pane-host" };
+    }
+    const target =
+      targetKind === "top-bar"
+        ? host.querySelector(".workspace-pane-top-bar")
+        : host.dataset.surfaceKind === "terminal"
+          ? (host.querySelector(".workspace-xterm-viewport") ?? host.querySelector(".xterm-screen"))
+          : host;
+    if (!(target instanceof HTMLElement)) {
+      return {
+        ok: false,
+        reason: targetKind === "top-bar" ? "missing-pane-top-bar" : "missing-pane-content",
+        rect: elementRect(host),
+      };
+    }
+    if (!elementIntersectsViewport(target)) {
+      return {
+        ok: false,
+        reason:
+          targetKind === "top-bar" ? "pane-top-bar-outside-viewport" : "pane-content-outside-viewport",
+        rect: elementRect(target),
+      };
+    }
+    const rect = target.getBoundingClientRect();
+    const x = Math.min(Math.max(rect.left + rect.width / 2, 8), window.innerWidth - 8);
+    const y = Math.min(
+      Math.max(
+        rect.top + (targetKind === "top-bar" ? Math.min(15, rect.height / 2) : rect.height / 2),
+        8,
+      ),
+      window.innerHeight - 8,
+    );
+    return {
+      ok: true,
+      x,
+      y,
+    };
+  })()`;
+}
+
+function paneFocusScenarioFromPanes(panes) {
+  const rectsVerticallyOverlap = (left, right) =>
+    left.rect.height > 0 &&
+    right.rect.height > 0 &&
+    Math.max(left.rect.top, right.rect.top) < Math.min(left.rect.bottom, right.rect.bottom);
+  const rectCenterX = (pane) => pane.rect.left + pane.rect.width / 2;
+  const terminals = panes
+    .filter(
+      (pane) =>
+        pane.surfaceKind === "terminal" &&
+        pane.stageContained &&
+        pane.terminalReady &&
+        pane.hasTopBar,
+    )
+    .toSorted((left, right) => Number(right.focused) - Number(left.focused));
+  for (const terminal of terminals) {
+    const focusAway = panes
+      .filter(
+        (pane) =>
+          pane.paneId !== terminal.paneId &&
+          pane.surfaceKind !== "terminal" &&
+          pane.topBarClickable &&
+          rectsVerticallyOverlap(pane, terminal),
+      )
+      .toSorted(
+        (left, right) =>
+          Number(right.stageContained) - Number(left.stageContained) ||
+          Math.abs(rectCenterX(left) - rectCenterX(terminal)) -
+            Math.abs(rectCenterX(right) - rectCenterX(terminal)),
+      )
+      .at(0);
+    if (focusAway) {
+      return {
+        focusAwayPaneId: focusAway.paneId,
+        minimal: false,
+        ok: true,
+        terminalPaneId: terminal.paneId,
+      };
+    }
+  }
+  return { ok: false, reason: "missing-contained-terminal-and-clickable-focus-away-pane" };
 }

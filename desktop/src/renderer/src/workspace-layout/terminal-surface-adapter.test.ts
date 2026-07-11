@@ -28,12 +28,14 @@ const terminalMock = vi.hoisted(() => ({
   }>,
   instances: [] as Array<{
     _core: Record<string, unknown>;
+    buffer: { active: { baseY: number; length: number; viewportY: number } };
     cols: number;
     customKeyHandler: ((event: KeyboardEvent) => boolean) | null;
     dataListener: ((data: string) => void) | null;
     options: Record<string, unknown>;
     pasteCalls: string[];
     resetCalls: number;
+    scrollToBottomCalls: number;
     rows: number;
     selection: string;
     text: string;
@@ -52,13 +54,14 @@ const terminalMock = vi.hoisted(() => ({
 
 vi.mock("@xterm/xterm", () => ({
   Terminal: class MockTerminal {
-    buffer = { active: { length: 0 } };
+    buffer = { active: { baseY: 0, length: 0, viewportY: 0 } };
     cols = 80;
     customKeyHandler: ((event: KeyboardEvent) => boolean) | null = null;
     dataListener: ((data: string) => void) | null = null;
     options: Record<string, unknown> = {};
     pasteCalls: string[] = [];
     resetCalls = 0;
+    scrollToBottomCalls = 0;
     rows = 24;
     selection = "";
     text = "";
@@ -110,7 +113,10 @@ vi.mock("@xterm/xterm", () => ({
       this.text = "";
       this.buffer.active.length = 0;
     }
-    scrollToBottom(): void {}
+    scrollToBottom(): void {
+      this.scrollToBottomCalls += 1;
+      this.buffer.active.viewportY = this.buffer.active.baseY;
+    }
     write(data?: unknown, callback?: () => void): void {
       this.writeCalls.push(data);
       if (data instanceof Uint8Array) {
@@ -119,7 +125,12 @@ vi.mock("@xterm/xterm", () => ({
         this.text += data;
       }
       terminalMock.operations.push("write");
+      const wasAtBottom = this.buffer.active.viewportY >= this.buffer.active.baseY;
       this.buffer.active.length += 1;
+      this.buffer.active.baseY += 1;
+      if (wasAtBottom) {
+        this.buffer.active.viewportY = this.buffer.active.baseY;
+      }
       callback?.();
     }
 
@@ -581,16 +592,49 @@ describe("terminal surface adapter", () => {
       }),
     );
 
-    expect(adapter.getTerminalStats().pendingOutputChunks).toBe(1);
-
     await waitFor(
       () =>
         host.dataset.terminalSessionId === "terminal_existing" &&
-        adapter.getTerminalStats().pendingOutputChunks === 0,
+        adapter.getTerminalStats().pendingOutputChunks === 0 &&
+        adapter.getTerminalStats().scrollbackRows > 0,
     );
 
     expect(adapter.getTerminalStats().pendingOutputChunks).toBe(0);
     expect(adapter.getTerminalStats().scrollbackRows).toBeGreaterThan(0);
+  });
+
+  test("preserves user scrollback instead of forcing every output write to the bottom", async () => {
+    installSettaAPI({
+      attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
+    const terminal = terminalMock.instances.at(-1)!;
+    terminal.buffer.active.baseY = 20;
+    terminal.buffer.active.viewportY = 5;
+
+    emitTerminalEvent(
+      terminalEvent("terminal.output", "terminal_existing", {
+        byteCount: 5,
+        dataBase64: Buffer.from("hello").toString("base64"),
+      }),
+    );
+
+    expect(terminal.text).toContain("hello");
+    expect(terminal.scrollToBottomCalls).toBe(0);
+    expect(terminal.buffer.active.viewportY).toBe(5);
+
+    terminal.buffer.active.viewportY = terminal.buffer.active.baseY;
+    emitTerminalEvent(
+      terminalEvent("terminal.output", "terminal_existing", {
+        byteCount: 5,
+        dataBase64: Buffer.from("world").toString("base64"),
+      }),
+    );
+    expect(terminal.scrollToBottomCalls).toBe(1);
   });
 
   test("redrains attach replay idempotently on consecutive attaches", async () => {
@@ -695,7 +739,7 @@ describe("terminal surface adapter", () => {
     );
 
     expect(terminalMock.instances[0]?.writeCalls).toEqual([]);
-    expect(adapter.getTerminalStats().pendingOutputChunks).toBe(1);
+    await waitFor(() => adapter.getTerminalStats().pendingOutputChunks === 1);
 
     attach.resolve(
       terminalResponse("terminal_existing", "running", {

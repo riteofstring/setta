@@ -15,7 +15,6 @@ type SurfaceKind string
 
 const (
 	SurfaceKindChatDOM             SurfaceKind = "chat-dom"
-	SurfaceKindEasyButton          SurfaceKind = "easy-button"
 	SurfaceKindEmptyFrame          SurfaceKind = "empty-frame"
 	SurfaceKindWorkflowGraph       SurfaceKind = "workflow-graph"
 	SurfaceKindSettingsDOM         SurfaceKind = "settings-dom"
@@ -121,7 +120,6 @@ func ContractValueSets() []ContractValueSet {
 			Name: "SurfaceKind",
 			Values: []string{
 				string(SurfaceKindChatDOM),
-				string(SurfaceKindEasyButton),
 				string(SurfaceKindEmptyFrame),
 				string(SurfaceKindWorkflowGraph),
 				string(SurfaceKindSettingsDOM),

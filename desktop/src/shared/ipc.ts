@@ -1,4 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
+
+import type { RuntimeIpcContract } from "./runtime-ipc-contract";
 import type {
   AppearancePresetList,
   AppearanceSettings,
@@ -113,8 +115,6 @@ import type {
   SubmitApprovalRequest,
   StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
-  TerminalInputRequest,
-  TerminalInputResponse,
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
@@ -135,19 +135,16 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
-import { easyRunIpcChannels, type EasyRunIpcContract } from "./easy-run-ipc";
-import { speechIpcChannels, type SpeechIpcContract } from "./speech-ipc";
 import type {
   AppWindowDragPoint,
   InstalledEditorApp,
-  KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
-  RuntimeRegistrySnapshot,
   WorkspaceBrowserViewStats,
   RuntimeVersions,
   WorkspaceGitInfo,
 } from "./types";
+
 export const ipcChannels = {
   appInstalledEditors: "app:installed-editors",
   appCaptureRendererRegion: "app:capture-renderer-region",
@@ -162,11 +159,20 @@ export const ipcChannels = {
   appearanceRead: "appearance:read",
   appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
+  runtimeAddExistingMachineOverSSH: "runtimes:add-existing-machine-over-ssh",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
+  runtimeCloudProvisionExecute: "runtimes:cloud-provision-execute",
+  runtimeCloudProvisionOptions: "runtimes:cloud-provision-options",
+  runtimeCloudProvisionResolve: "runtimes:cloud-provision-resolve",
+  runtimeCreateDevicePairing: "runtimes:create-device-pairing",
   runtimeCurrent: "runtimes:current",
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
+  runtimeTailscaleAuthKeyMint: "runtimes:tailscale-auth-key-mint",
+  runtimeTailscaleOAuthSaveCredentials: "runtimes:tailscale-oauth-save-credentials",
+  runtimeTailscaleOAuthSetupGuide: "runtimes:tailscale-oauth-setup-guide",
+  runtimeTailscaleOAuthValidate: "runtimes:tailscale-oauth-validate",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatReconcileRuns: "chat:reconcile-runs",
@@ -201,8 +207,6 @@ export const ipcChannels = {
   chatSelectImageAttachments: "chat:select-image-attachments",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
-  ...easyRunIpcChannels,
-  ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
   codexAccountRead: "codex-account:read",
@@ -257,7 +261,6 @@ export const ipcChannels = {
   terminalCreate: "terminal:create",
   terminalCreateProfile: "terminal:create-profile",
   terminalDeleteProfile: "terminal:delete-profile",
-  terminalInput: "terminal:input",
   terminalListProfiles: "terminal:list-profiles",
   terminalResize: "terminal:resize",
   terminalSelectDefaultProfile: "terminal:select-default-profile",
@@ -293,6 +296,7 @@ export const ipcChannels = {
 } as const;
 
 export const ipcMessages = {
+  terminalInput: "terminal:input",
   workspaceBrowserViewBatch: "workspace:browser-view-batch",
 } as const;
 
@@ -301,17 +305,17 @@ export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
-  easyRunEvent: "easy-run:event",
   runtimeConnectionState: "runtimes:connection-state",
   semanticGraphEvent: "semantic-graph:event",
   workspaceActivityEvent: "workspace-activity:event",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
   terminalEvent: "terminal:event",
+  terminalStreamStatus: "terminal:stream-status",
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract extends EasyRunIpcContract, SpeechIpcContract {
+interface IpcContract extends RuntimeIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
@@ -360,30 +364,7 @@ interface IpcContract extends EasyRunIpcContract, SpeechIpcContract {
     args: [request: UpdateAppearanceSettingsRequest];
     result: AppearanceSettings;
   };
-  backendHealth: {
-    args: [];
-    result: BackendHealth;
-  };
-  runtimeAddByPairingUrl: {
-    args: [pairingUrl: string];
-    result: RuntimeRegistrySnapshot;
-  };
-  runtimeCurrent: {
-    args: [];
-    result: RuntimeRegistrySnapshot;
-  };
-  runtimeList: {
-    args: [];
-    result: KnownRuntimeView[];
-  };
-  runtimeRemove: {
-    args: [runtimeId: string];
-    result: RuntimeRegistrySnapshot;
-  };
-  runtimeSwitch: {
-    args: [runtimeId: string];
-    result: RuntimeRegistrySnapshot;
-  };
+  backendHealth: { args: []; result: BackendHealth };
   chatActiveRun: {
     args: [workspaceId: string, conversationId: string];
     result: GetActiveRunResponse;
@@ -765,10 +746,6 @@ interface IpcContract extends EasyRunIpcContract, SpeechIpcContract {
     args: [request: DeleteTerminalProfileRequest];
     result: TerminalProfileList;
   };
-  terminalInput: {
-    args: [input: TerminalInputRequest];
-    result: TerminalInputResponse;
-  };
   terminalListProfiles: {
     args: [];
     result: TerminalProfileList;
@@ -935,12 +912,14 @@ export interface IpcObservedFinish {
   id: number;
   result: unknown;
 }
+
 export interface IpcObservedFailure {
   channel: string;
   durationMs: number;
   error: unknown;
   id: number;
 }
+
 let nextObservedIpcID = 1;
 
 export function createRendererIpcInvoke(renderer: Pick<IpcRenderer, "invoke">): RendererIpcInvoke {
