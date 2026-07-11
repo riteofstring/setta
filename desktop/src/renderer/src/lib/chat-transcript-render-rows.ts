@@ -12,11 +12,13 @@ import {
 // header by default. Member rows are emitted only when the user expands that
 // group or when focus/search targets a hidden member.
 //
-// Two message sources are not transcript blocks and are merged in here: standalone
-// messages that do not belong to a run (command results, system notices) sort by
-// their conversation message ordinal among the runs, and queued messages wait at
-// the tail. Messages never drive block content; they only contribute these
-// non-block rows and the conversation ordinal used to place standalone rows.
+// Three message sources are not transcript blocks and are merged in here:
+// standalone messages that do not belong to a run (command results, system
+// notices) sort by their conversation message ordinal among the runs, pending
+// steering messages wait behind provider-owned run chronology until Codex commits
+// them, and queued messages wait at the tail. Messages never drive block content;
+// they only contribute these non-block rows and the conversation ordinal used to
+// place standalone rows.
 
 export type TranscriptRenderRow =
   | {
@@ -89,6 +91,14 @@ export function transcriptRenderRows(source: TranscriptRenderSource): Transcript
   const entries: TranscriptRenderEntry[] = [];
   for (const item of ordered) {
     appendOrderedItemEntries(entries, item, context);
+  }
+  for (const message of uncommittedSteeringMessages(source.messages)) {
+    entries.push({
+      kind: "message",
+      key: `message:${message.id}`,
+      message,
+      showTimestamp: true,
+    });
   }
   for (const message of source.queuedMessages) {
     if (message.delivery !== "goal") {
@@ -330,4 +340,13 @@ function isVisibleTranscriptBlock(block: TranscriptBlock) {
 
 function isStandaloneTranscriptMessage(message: ChatMessage) {
   return message.runId === "" && message.delivery !== "goal";
+}
+
+function uncommittedSteeringMessages(messages: ChatMessage[]) {
+  return messages
+    .filter(
+      (message) =>
+        message.runId !== "" && message.delivery === "steering" && message.status !== "complete",
+    )
+    .toSorted((left, right) => left.ordinal - right.ordinal);
 }

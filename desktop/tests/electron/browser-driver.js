@@ -849,30 +849,6 @@
       y,
     };
   }
-  function focusWorkspacePane({ paneId = null } = {}) {
-    if (paneId === null || paneId === "") {
-      return { ok: false, reason: "missing-pane-id" };
-    }
-    const host = document.querySelector(
-      `[data-testid="workspace-pane-host"][data-pane-id="${cssEscape(paneId)}"][data-visible="true"]`,
-    );
-    if (!(host instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-visible-pane-host" };
-    }
-    const rect = host.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) {
-      return { ok: false, reason: "pane-host-empty", rect: elementRect(host) };
-    }
-    const event = new MouseEvent("click", {
-      bubbles: true,
-      cancelable: true,
-      clientX: rect.left + rect.width / 2,
-      clientY: rect.top + Math.min(15, rect.height / 2),
-      view: window,
-    });
-    host.dispatchEvent(event);
-    return { defaultPrevented: event.defaultPrevented, ok: true, paneId };
-  }
   function workflowGraphPaneState({ surfaceId = null } = {}) {
     const host = workflowGraphHostBySurfaceId(surfaceId) ?? activeWorkflowGraphHost();
     return {
@@ -1021,6 +997,7 @@
   }
   async function nullWorkflowValidation({ workspaceId }) {
     return window.setta.workflow.validateDefinition(workspaceId, {
+      agentDefaults: { model: "", permission: null, reasoningEffort: null },
       edges: [],
       layout: { nodes: [] },
       nodes: [],
@@ -1058,6 +1035,7 @@
       ],
     };
     return {
+      agentDefaults: { model: "", permission: null, reasoningEffort: null },
       edges: [
         {
           condition: alwaysCondition(),
@@ -1088,9 +1066,8 @@
           action: {
             codex: {
               freshConversation: true,
-              model: "",
               prompt: "workflow result action",
-              reasoningEffort: "",
+              settings: { model: "", permission: null, reasoningEffort: null },
             },
             kind: "agent.codex",
           },
@@ -1352,6 +1329,8 @@
       right: rect.right,
       top: rect.top,
       width: rect.width,
+      x: rect.x,
+      y: rect.y,
     };
   }
   function clamp(value, min, max) {
@@ -1398,31 +1377,8 @@
     }
     return String(value).replace(/["\\]/g, "\\$&");
   }
-  async function cloudProvisionWorkflow() {
-    const options = await window.setta.runtimes.cloudProvisionOptions();
-    const resolution = await window.setta.runtimes.cloudProvisionResolve({
-      intent: "cheap box for agents",
-      provider: "hetzner",
-      region: "fsn1",
-      shape: "dev-standard",
-    });
-    const execution = await window.setta.runtimes.cloudProvisionExecute({
-      auth: { kind: "manual", tailscaleAuthKey: "tskey-auth-secret" },
-      release: {
-        installerSha256: "a".repeat(64),
-        minisignPublicKey: "RWQtestminisignpublickey",
-        releaseBaseUrl: "https://downloads.example.test/setta/v1.2.3",
-        settaVersion: "v1.2.3",
-      },
-      resolution: resolution.resolution,
-      runtimeName: "setta-worker",
-    });
-    const snapshot = await window.setta.runtimes.current();
-    return { execution, options, resolution, snapshot };
-  }
   globalThis.__settaE2EDriver = {
     bodyText,
-    cloudProvisionWorkflow,
     clickButton,
     clickButtonContainingText,
     clickButtonContainingTextByRole,
@@ -1437,7 +1393,6 @@
     dispatchDocumentEscape,
     elementValue,
     focusNonTerminalPane,
-    focusWorkspacePane,
     focusTerminalTextarea,
     maximizeTerminalPane,
     modelPicker,
@@ -1462,7 +1417,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v12",
+    version: "setta-e2e-driver-v11",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,

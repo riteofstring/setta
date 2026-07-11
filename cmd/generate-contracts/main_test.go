@@ -2,14 +2,17 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/conversation"
 	"setta/internal/httpapi"
-	"setta/internal/terminal"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 type ContractTestLeaf struct {
@@ -219,6 +222,44 @@ func TestRenderProducesGeneratedClientSmoke(t *testing.T) {
 	}
 }
 
+func TestConversationPaletteCatalogRendersFromGoOwner(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractConversationSnapshot",
+			Method:   "GET",
+			Path:     "/contract-conversation-snapshot",
+			Response: reflect.TypeFor[conversation.ConversationSnapshot](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{})
+	if err != nil {
+		t.Fatalf("collect contracts: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+	if !strings.Contains(output, "export const conversationPaletteCatalog = {") ||
+		!strings.Contains(
+			output,
+			"as const satisfies Readonly<Record<ConversationPaletteID, unknown>>;",
+		) {
+		t.Fatalf("generated output is missing the typed conversation palette catalog:\n%s", output)
+	}
+	for _, palette := range conversationpalette.Catalog() {
+		encoded, marshalErr := json.Marshal(palette)
+		if marshalErr != nil {
+			t.Fatalf("marshal palette %q: %v", palette.ID, marshalErr)
+		}
+		want := fmt.Sprintf("  %q: %s,", palette.ID, encoded)
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated output is missing Go-owned palette %q:\n%s", palette.ID, output)
+		}
+	}
+}
+
 func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{{
@@ -246,6 +287,8 @@ func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
 	for _, want := range []string{
 		"export type ChatCommandArgumentSpec =",
 		"ChatCommandLiteralArgumentSpec",
+		"export interface ChatCommandLiteralArgumentSpec {\n  kind: \"literal\";",
+		"decodeContractLiteral(decodeChatCommandArgumentKind(",
 		"export function decodeChatCommandArgumentSpec(value: unknown): ChatCommandArgumentSpec",
 		"case \"literal\":",
 		"case \"free_text\":",
@@ -256,43 +299,39 @@ func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
 	}
 }
 
-func TestContractSpecsRenderDuplexProtocolFromEndpointRegistry(t *testing.T) {
+func TestConversationEventUnionRendersExactDiscriminators(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{{
-			Name:                "TerminalStream",
-			Method:              "GET",
-			Path:                "/terminals/stream",
-			Streaming:           true,
-			Duplex:              true,
-			DuplexClientMessage: reflect.TypeFor[terminal.TerminalStreamClientMessage](),
-			DuplexServerMessage: reflect.TypeFor[terminal.TerminalStreamServerMessage](),
+			Name:     "ContractConversationEvent",
+			Method:   "GET",
+			Path:     "/contract-conversation-event",
+			Response: reflect.TypeFor[conversation.ConversationEvent](),
 		}},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
 	}, chat.EventContractSchema{})
 	if err != nil {
-		t.Fatalf("collect duplex contracts: %v", err)
+		t.Fatalf("collect conversation event contracts: %v", err)
 	}
-	if len(specs.Unions) != 2 || !specs.Endpoints[0].Duplex {
-		t.Fatalf("duplex specs = %+v, unions = %+v", specs.Endpoints, specs.Unions)
+	if len(specs.Unions) != 1 || specs.Unions[0].Name != "ConversationEventPayload" {
+		t.Fatalf("unions = %+v, want ConversationEventPayload", specs.Unions)
 	}
 
 	var buffer bytes.Buffer
 	if err := render(&buffer, specs); err != nil {
-		t.Fatalf("render duplex contracts: %v", err)
+		t.Fatalf("render conversation event contracts: %v", err)
 	}
 	output := buffer.String()
 	for _, want := range []string{
-		"duplex: true",
-		"export const backendDuplexProtocols = {",
-		"decodeClientMessage: decodeTerminalStreamClientMessage",
-		"decodeServerMessage: decodeTerminalStreamServerMessage",
-		"export type TerminalStreamClientMessage =",
-		"export interface TerminalStreamInputMessage {\n  kind: \"terminal.stream.input\";",
-		"export type TerminalStreamServerMessage =",
-		"case \"terminal.stream.inputAck\":",
+		"export type ConversationEventPayload =",
+		"export interface ConversationUpdatedEventPayload {\n  type: \"conversation.updated\";",
+		"export interface ConversationResyncRequiredEventPayload {\n  type: \"conversation.resync_required\";",
+		"decodeContractLiteral(decodeConversationEventType(",
+		"export function decodeConversationEventPayload(value: unknown): ConversationEventPayload",
+		"case \"conversation.presentation_profile.updated\":",
+		"case \"conversation.resync_required\":",
 	} {
 		if !strings.Contains(output, want) {
-			t.Fatalf("generated duplex output missing %q:\n%s", want, output)
+			t.Fatalf("generated conversation union missing %q:\n%s", want, output)
 		}
 	}
 }

@@ -15,7 +15,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/httpapi"
 	"setta/internal/runtimeauth"
-	"setta/internal/semanticgraph"
+	"setta/internal/speech"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -86,6 +86,8 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 		"non loopback host": withHost(t, "0.0.0.0"),
 		"negative port":     withPort(t, -1),
 		"large port":        withPort(t, 65536),
+		"bad speech key":    withSpeech(t, speech.OpenAIClientConfig{APIKey: "secret value"}),
+		"speech test URL":   withSpeech(t, speech.OpenAIClientConfig{BaseURL: "http://127.0.0.1:24891/v1"}),
 		"empty version":     withVersion(t, ""),
 	}
 
@@ -108,6 +110,24 @@ func TestAllowRemotePermitsNonLoopbackNumericHost(t *testing.T) {
 		t.Fatalf("start backend with allow remote: %v", err)
 	}
 	defer shutdownServer(t, server)
+}
+
+func TestStartAcceptsConfiguredSpeechClient(t *testing.T) {
+	config := testConfig(t)
+	config.Speech = speech.OpenAIClientConfig{APIKey: "sk-setta-speech-runtime-test"}
+
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend with configured speech client: %v", err)
+	}
+	defer shutdownServer(t, server)
+}
+
+func TestCodexProcessExcludesSpeechCredential(t *testing.T) {
+	config := codexProcessConfig()
+	if len(config.ExcludedEnv) != 1 || config.ExcludedEnv[0] != speech.APIKeyEnvironmentVariable {
+		t.Fatalf("Codex excluded environment = %q, want speech credential only", config.ExcludedEnv)
+	}
 }
 
 func TestStartCanSkipBootstrapDeviceSession(t *testing.T) {
@@ -180,31 +200,6 @@ func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
 	}
 	if ready.Event != "ready" {
 		t.Fatalf("ready event = %q, want ready", ready.Event)
-	}
-}
-
-func TestRuntimeDisablesSemanticCartographerGlobally(t *testing.T) {
-	server, ready := startRuntimeTestServer(t, testConfig(t))
-	defer shutdownServer(t, server)
-
-	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 5*time.Second)
-	baseURL := "http://" + server.Addr()
-	state := postRuntimeJSON[semanticgraph.CartographerProcessingState](t, client, baseURL, "/semantic-graph/cartographer/processing/state", httpapi.ReadCartographerProcessingStateRequest{}, http.StatusOK)
-	if state.Enabled || state.Started || state.QueuedWindowCount != 0 || state.RunningWindowCount != 0 {
-		t.Fatalf("runtime cartographer state = %+v, want globally disabled and idle", state)
-	}
-
-	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
-		RootPath: t.TempDir(),
-	}, http.StatusOK)
-	response := postRuntimeJSON[httpapi.ErrorResponse](t, client, baseURL, "/semantic-graph/cartographer/windows/build", httpapi.BuildCartographerWindowRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		TriggerKind:    semanticgraph.CartographerTriggerManual,
-		TargetEntityID: "node_runtime_disabled",
-		Summary:        "Runtime disabled cartographer request.",
-	}, http.StatusBadRequest)
-	if response.Error.Code != "build_cartographer_window_failed" || response.Error.Message != "semantic cartographer is disabled" {
-		t.Fatalf("runtime disabled build response = %+v, want disabled cartographer error", response)
 	}
 }
 
@@ -405,5 +400,13 @@ func withBootstrapDisplayName(t *testing.T, displayName string) Config {
 
 	config := testConfig(t)
 	config.BootstrapDeviceDisplayName = displayName
+	return config
+}
+
+func withSpeech(t *testing.T, speechConfig speech.OpenAIClientConfig) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.Speech = speechConfig
 	return config
 }

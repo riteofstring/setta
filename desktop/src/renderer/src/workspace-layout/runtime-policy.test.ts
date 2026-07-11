@@ -112,6 +112,26 @@ describe("workspace pane runtime policy", () => {
     expect(summary.liveThrottled).toBe(2);
   });
 
+  test("budgets easy button panes as heavy DOM surfaces", () => {
+    const noHeavyDom = {
+      ...budget,
+      maxLiveHeavyDomPanes: 0,
+    };
+    const items = [
+      renderItem("focused-easy", "easy-button", true),
+      renderItem("background-easy", "easy-button", false),
+    ];
+
+    const summary = new PaneRuntimePolicy(noHeavyDom).apply(items, "idle");
+
+    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["focused-easy", "live"],
+      ["background-easy", "snapshot"],
+    ]);
+    expect(summary.live).toBe(1);
+    expect(summary.snapshot).toBe(1);
+  });
+
   test("keeps a focused workflow graph live when unfocused graph canvases are frozen", () => {
     const noUnfocusedCanvases = {
       ...budget,
