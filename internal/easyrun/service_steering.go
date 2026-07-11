@@ -196,12 +196,12 @@ func (service *Service) acceptSteeringForNarration(accepted acceptedEasyRunSteer
 		return EasyRun{}, nil, err
 	}
 	state := service.narratorStateLocked(record.Run.ID)
-	if err := validateAcceptedSteeringFocusUpdate(record, state, accepted, backingRunID); err != nil {
+	if err := validateAcceptedSteeringFocusUpdate(record, accepted, backingRunID); err != nil {
 		return service.failAcceptedSteeringFocusUpdateLocked(record, state, err)
 	}
-	through := state.digest.append(acceptedSteeringDigestEntry(accepted))
-	if through == 0 {
-		return service.failAcceptedSteeringFocusUpdateLocked(record, state, errors.New("accepted steering did not produce a narrator digest entry"))
+	through, err := state.digest.appendUserSteer(acceptedSteeringDigestEntry(accepted))
+	if err != nil {
+		return service.failAcceptedSteeringFocusUpdateLocked(record, state, err)
 	}
 	state.markFocusDirty(through)
 	record.Run.CurrentFocus.Status = EasyRunFocusStatusUpdating
@@ -221,7 +221,7 @@ func (service *Service) acceptSteeringForNarration(accepted acceptedEasyRunSteer
 	return service.failAcceptedSteeringFocusUpdateLocked(record, state, errors.New("accepted steering did not trigger narrator projection"))
 }
 
-func validateAcceptedSteeringFocusUpdate(record storedRunRecord, state *narratorRunState, accepted acceptedEasyRunSteering, backingRunID string) error {
+func validateAcceptedSteeringFocusUpdate(record storedRunRecord, accepted acceptedEasyRunSteering, backingRunID string) error {
 	if record.Run.ConversationID != accepted.run.ConversationID || record.BackingRunID != backingRunID {
 		return fmt.Errorf(
 			"easy-run backing conversation/run changed to %s/%s, want %s/%s",
@@ -236,9 +236,6 @@ func validateAcceptedSteeringFocusUpdate(record storedRunRecord, state *narrator
 	}
 	if record.Run.NarratorStatus == EasyRunNarratorStatusDegraded {
 		return errors.New("easy-run narrator is already degraded")
-	}
-	if len(accepted.text) > state.digest.maxBytes {
-		return fmt.Errorf("accepted steering text has %d bytes, narrator digest maximum is %d", len(accepted.text), state.digest.maxBytes)
 	}
 	return nil
 }

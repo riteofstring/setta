@@ -2,6 +2,7 @@ package easyrun
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -89,6 +90,39 @@ func (buffer *narratorDigestBuffer) append(entries ...narratorDigestEntry) int {
 	return lastOrdinal
 }
 
+func (buffer *narratorDigestBuffer) appendUserSteer(entry narratorDigestEntry) (int, error) {
+	if buffer == nil {
+		return 0, fmt.Errorf("accepted steering requires a narrator digest buffer")
+	}
+	if entry.Source != narratorDigestSourceUserSteer {
+		return 0, fmt.Errorf("accepted steering narrator digest source is %s, want %s", entry.Source, narratorDigestSourceUserSteer)
+	}
+	entry.Text = strings.TrimSpace(entry.Text)
+	if entry.Text == "" {
+		return 0, fmt.Errorf("accepted steering narrator digest text is required")
+	}
+	pendingCount, pendingBytes := buffer.pendingUserSteerUsage()
+	if pendingCount+1 > buffer.maxEntries {
+		return 0, fmt.Errorf("accepted steering would exceed the narrator digest maximum of %d pending entries", buffer.maxEntries)
+	}
+	if pendingBytes+len(entry.Text) > buffer.maxBytes {
+		return 0, fmt.Errorf("accepted steering would exceed the narrator digest maximum of %d pending bytes", buffer.maxBytes)
+	}
+	return buffer.append(entry), nil
+}
+
+func (buffer *narratorDigestBuffer) pendingUserSteerUsage() (int, int) {
+	count := 0
+	textBytes := 0
+	for _, entry := range buffer.entries {
+		if buffer.isPendingUserSteer(entry) {
+			count++
+			textBytes += len(entry.Text)
+		}
+	}
+	return count, textBytes
+}
+
 func (buffer *narratorDigestBuffer) pendingCount() int {
 	if buffer == nil {
 		return 0
@@ -132,12 +166,26 @@ func (buffer *narratorDigestBuffer) snapshot() []narratorDigestEntry {
 
 func (buffer *narratorDigestBuffer) enforceBounds() {
 	for len(buffer.entries) > buffer.maxEntries || buffer.totalTextBytes > buffer.maxBytes {
-		buffer.totalTextBytes -= len(buffer.entries[0].Text)
-		buffer.entries = buffer.entries[1:]
-		if len(buffer.entries) == 0 {
+		index := buffer.oldestEvictableEntryIndex()
+		if index < 0 {
 			break
 		}
+		buffer.totalTextBytes -= len(buffer.entries[index].Text)
+		buffer.entries = append(buffer.entries[:index], buffer.entries[index+1:]...)
 	}
+}
+
+func (buffer *narratorDigestBuffer) oldestEvictableEntryIndex() int {
+	for index, entry := range buffer.entries {
+		if !buffer.isPendingUserSteer(entry) {
+			return index
+		}
+	}
+	return -1
+}
+
+func (buffer *narratorDigestBuffer) isPendingUserSteer(entry narratorDigestEntry) bool {
+	return entry.Source == narratorDigestSourceUserSteer && entry.Ordinal > buffer.consumedThrough
 }
 
 func shouldTriggerNarrator(input narratorTriggerInput) bool {

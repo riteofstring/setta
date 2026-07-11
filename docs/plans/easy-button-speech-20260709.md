@@ -1294,6 +1294,68 @@ renderer, deterministic, and live coverage. No implementation blocker was
 found for item 6; only its live-provider proof is currently blocked by the
 unrelated `max` drift.
 
+### 2026-07-10 — Phase 1 narrator-maintained focus audit complete
+
+Audited commit `f00bb0d31` and the preceding Phase 1 commits against this plan,
+`AGENTS.md`, the clean starting worktree, generated contracts and the checked-in
+PWA bundle, the Easy Run/chat ownership boundary, narrator runtime ordering,
+failure semantics, fixtures, and deterministic production-path coverage. The
+slice correctly keeps accepted steering on the regular-chat path, uses the
+persisted user message as the typed narrator fact, serializes narrator calls,
+and leaves Current focus, NOW, and the hidden conversation in their owning
+domains. Contract regeneration and the web build were idempotent; protocol 11,
+required version-2 Current focus decoding, and the checked-in PWA bundle remain
+current.
+
+The audit fixed three practical ordering and strictness gaps:
+
+- an older in-flight narrator result is now held only as an internal provisional
+  input while a newer accepted steer remains beyond its digest watermark. The
+  persisted last-good focus stays textually and revision-stable with
+  `status = updating`; the complete projection is persisted once, only after
+  every accepted steer has been evaluated;
+- bounded digest eviction now protects pending `user_steer` entries from heavy
+  ordinary event traffic. Pending accepted steering that cannot fit by itself
+  fails explicitly through the existing partial-outcome path and marks the last
+  focus stale instead of silently losing an instruction;
+- a stale/degraded projection can no longer be healed by an older working or
+  terminal narrator result, and non-terminal narrator output is rejected if it
+  contains a summary. The scripted harness now obeys that strict working-output
+  contract. The persisted chat message remains authoritative in every failure
+  case.
+
+Audit verification completed:
+
+- focused watermark, digest-bound, stale-result, strict-output, and terminal
+  race regressions passed repeatedly, followed by the complete `internal/easyrun`,
+  `internal/httpapi`, and `internal/chat` suites and the Easy Run race detector;
+- `./scripts/go.sh run ./cmd/generate-contracts` produced no generated changes;
+- all 990 desktop Vitest tests, Electron typecheck/build, and web typecheck/build
+  passed, with no PWA artifact drift;
+- the deterministic production Electron workflow passed at
+  `desktop/.recordings/easy-button-speech-phase1-focus-audit-20260710`, including
+  start, stream, accepted steering, exact hidden-chat persistence, focus events,
+  terminal/stop, reload/restart, compact/reduced-motion, and pixel-match paths;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed before the
+  audit commit.
+
+ChatGPT authentication was available, so the live Electron chat, live Easy
+Button, and all four backend Codex probes were rerun with `OPENAI_API_KEY`
+removed. They remain blocked before conversation creation by the existing
+provider drift: `model/list` advertises reasoning effort `max`, which Setta's
+current decoder rejects. These failures are not live-provider validation for
+this slice. Supply-chain verification was not required because the audit
+changes no dependency, manifest, package-manager configuration, Go module,
+generated contract, or supply-chain input.
+
+The implementation plan is not complete. The next iteration is Phase 1 item 6:
+render persisted Current focus in the center, expose updating and stale copy,
+and remove the transient steering presentation while keeping NOW narrator-only.
+Phase 1 items 7-8 then add speakable mechanical terminal summaries and finish
+the phase-wide renderer/generated/E2E coverage. No implementation blocker was
+found for item 6; only live-provider proof remains blocked by the unrelated
+`max` drift.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

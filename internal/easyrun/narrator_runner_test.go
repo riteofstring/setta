@@ -59,6 +59,21 @@ func TestDecodeNarratorTaskOutputRequiresBoundedCurrentFocus(t *testing.T) {
 	}
 }
 
+func TestWorkingNarratorRejectsTerminalSummary(t *testing.T) {
+	result, err := narratorHarnessResult(map[string]any{
+		"currentFocus": "Keep the working objective current.",
+		"highlights":   []string{},
+		"summary":      "This must not appear before the run is terminal.",
+	})
+	if err != nil {
+		t.Fatalf("build working narrator result: %v", err)
+	}
+	narration := workingNarrationFromHarnessResult(result)
+	if narration.err == nil || !strings.Contains(narration.err.Error(), "working summary must be empty") {
+		t.Fatalf("working narration error = %v, want non-empty summary rejection", narration.err)
+	}
+}
+
 func TestApplyNarratorCurrentFocusRevisesOnlyChangedText(t *testing.T) {
 	run := testRun("easy_run_focus_projection")
 	initialUpdatedAt := run.CurrentFocus.UpdatedAt

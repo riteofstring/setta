@@ -127,6 +127,56 @@ func TestNarratorDigestBufferBoundsAndConsumesPendingOnce(t *testing.T) {
 	}
 }
 
+func TestNarratorDigestBufferPreservesPendingAcceptedSteeringAtBounds(t *testing.T) {
+	buffer := newNarratorDigestBuffer(3, 24)
+	buffer.append(narratorDigestEntry{Source: narratorDigestSourceAssistantText, Text: "in flight"})
+	buffer.consumePending()
+	steer := narratorDigestEntry{Source: narratorDigestSourceUserSteer, Text: "keep this"}
+	if _, err := buffer.appendUserSteer(steer); err != nil {
+		t.Fatalf("append accepted steering: %v", err)
+	}
+	buffer.append(
+		narratorDigestEntry{Source: narratorDigestSourceAssistantText, Text: "ordinary one"},
+		narratorDigestEntry{Source: narratorDigestSourceAssistantText, Text: "ordinary two"},
+		narratorDigestEntry{Source: narratorDigestSourceAssistantText, Text: "ordinary three"},
+	)
+
+	snapshot := buffer.snapshot()
+	if len(snapshot) > buffer.maxEntries || buffer.totalTextBytes > buffer.maxBytes {
+		t.Fatalf("bounded digest = %+v bytes=%d, want configured limits", snapshot, buffer.totalTextBytes)
+	}
+	if !containsDigestEntry(snapshot, narratorDigestSourceUserSteer, steer.Text) {
+		t.Fatalf("bounded digest = %+v, want pending accepted steering preserved", snapshot)
+	}
+	pending := buffer.consumePending()
+	if !containsDigestEntry(pending, narratorDigestSourceUserSteer, steer.Text) {
+		t.Fatalf("pending digest = %+v, want accepted steering delivered to the next narrator call", pending)
+	}
+}
+
+func TestNarratorDigestBufferRejectsPendingSteeringBeyondBound(t *testing.T) {
+	buffer := newNarratorDigestBuffer(3, 10)
+	if _, err := buffer.appendUserSteer(narratorDigestEntry{Source: narratorDigestSourceUserSteer, Text: "first"}); err != nil {
+		t.Fatalf("append first accepted steering: %v", err)
+	}
+	_, err := buffer.appendUserSteer(narratorDigestEntry{Source: narratorDigestSourceUserSteer, Text: "second"})
+	if err == nil || !strings.Contains(err.Error(), "maximum of 10 pending bytes") {
+		t.Fatalf("overflow error = %v, want explicit pending steering bound", err)
+	}
+	if snapshot := buffer.snapshot(); len(snapshot) != 1 || snapshot[0].Text != "first" {
+		t.Fatalf("digest after rejected steering = %+v, want first accepted fact intact", snapshot)
+	}
+}
+
+func containsDigestEntry(entries []narratorDigestEntry, source narratorDigestSourceKind, text string) bool {
+	for _, entry := range entries {
+		if entry.Source == source && entry.Text == text {
+			return true
+		}
+	}
+	return false
+}
+
 func TestNarratorTriggerPolicyRespectsCadenceThresholdAndTerminal(t *testing.T) {
 	now := time.Date(2026, 7, 9, 12, 0, 0, 0, time.UTC)
 	tests := []struct {

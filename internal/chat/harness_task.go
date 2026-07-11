@@ -144,10 +144,14 @@ func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
 			"summary":      "",
 		}
 	}
+	summary := ""
+	if input.Terminal {
+		summary = scriptedEasyRunNarratorSummary(input.Status)
+	}
 	return map[string]any{
 		"currentFocus": scriptedEasyRunCurrentFocus(input.RequestText, input.PreviousCurrentFocus, input.DigestEntries),
 		"highlights":   []string{},
-		"summary":      scriptedEasyRunNarratorSummary(input.Status),
+		"summary":      summary,
 	}
 }
 

@@ -429,21 +429,23 @@ func (service *Service) easyRunRecordForTerminalChatRun(run chat.Run) (storedRun
 }
 
 type terminalChatRunProjection struct {
-	digest             []narratorDigestEntry
-	digestThrough      int
-	mechanicalSummary  string
-	previousHighlights []EasyHighlight
-	record             storedRunRecord
-	shouldProject      bool
-	status             chat.RunStatus
-	waitForNarrator    <-chan struct{}
+	digest               []narratorDigestEntry
+	digestThrough        int
+	mechanicalSummary    string
+	previousCurrentFocus string
+	previousHighlights   []EasyHighlight
+	record               storedRunRecord
+	shouldProject        bool
+	status               chat.RunStatus
+	waitForNarrator      <-chan struct{}
 }
 
 type workingNarratorProjection struct {
-	digest             []narratorDigestEntry
-	digestThrough      int
-	previousHighlights []EasyHighlight
-	record             storedRunRecord
+	digest               []narratorDigestEntry
+	digestThrough        int
+	previousCurrentFocus string
+	previousHighlights   []EasyHighlight
+	record               storedRunRecord
 }
 
 func (service *Service) beginTerminalChatRunProjection(run chat.Run) (terminalChatRunProjection, error) {
@@ -472,13 +474,14 @@ func (service *Service) beginTerminalChatRunProjection(run chat.Run) (terminalCh
 	state.beginCall(service.now())
 	digest, digestThrough := state.digest.consumePendingThrough()
 	return terminalChatRunProjection{
-		digest:             digest,
-		digestThrough:      digestThrough,
-		mechanicalSummary:  mechanicalSummary,
-		previousHighlights: highlights,
-		record:             record,
-		shouldProject:      true,
-		status:             run.Status,
+		digest:               digest,
+		digestThrough:        digestThrough,
+		mechanicalSummary:    mechanicalSummary,
+		previousCurrentFocus: state.previousCurrentFocusText(record.Run.CurrentFocus.Text),
+		previousHighlights:   highlights,
+		record:               record,
+		shouldProject:        true,
+		status:               run.Status,
 	}, nil
 }
 
@@ -513,10 +516,11 @@ func (service *Service) beginWorkingNarratorProjectionLocked(workspaceID string,
 	state.beginCall(service.now())
 	digest, digestThrough := state.digest.consumePendingThrough()
 	return workingNarratorProjection{
-		digest:             digest,
-		digestThrough:      digestThrough,
-		previousHighlights: highlights,
-		record:             record,
+		digest:               digest,
+		digestThrough:        digestThrough,
+		previousCurrentFocus: state.previousCurrentFocusText(record.Run.CurrentFocus.Text),
+		previousHighlights:   highlights,
+		record:               record,
 	}, true
 }
 
@@ -558,6 +562,10 @@ func (service *Service) saveTerminalChatRunProjection(target terminalChatRunProj
 }
 
 func (service *Service) applyTerminalNarrationLocked(record storedRunRecord, state *narratorRunState, target terminalChatRunProjection, narration terminalNarrationResult) (storedRunRecord, string, error) {
+	if record.Run.NarratorStatus == EasyRunNarratorStatusDegraded {
+		state.failFocusProjection()
+		return record, "", nil
+	}
 	if narration.err != nil {
 		degradeNarratorProjection(&record, state, narration.err)
 		return record, "", nil
@@ -570,7 +578,7 @@ func (service *Service) applyTerminalNarrationLocked(record storedRunRecord, sta
 	if err != nil {
 		return storedRunRecord{}, "", err
 	}
-	if err := applyNarratorCurrentFocus(&record.Run, narration.currentFocus, state.finishFocusProjection(target.digestThrough), service.now()); err != nil {
+	if err := applyNarratorCurrentFocusProjection(&record.Run, state, narration.currentFocus, target.digestThrough, service.now()); err != nil {
 		degradeNarratorProjection(&record, state, err)
 		return record, "", nil
 	}
@@ -590,6 +598,10 @@ func (service *Service) saveWorkingNarratorProjection(target workingNarratorProj
 	if record.Run.Status != EasyRunStatusWorking {
 		return record.Run, nil
 	}
+	if record.Run.NarratorStatus == EasyRunNarratorStatusDegraded {
+		state.failFocusProjection()
+		return record.Run, nil
+	}
 	if narration.err != nil {
 		return service.saveDegradedWorkingNarratorLocked(record, state, narration.err)
 	}
@@ -605,7 +617,7 @@ func (service *Service) saveWorkingNarratorProjection(target workingNarratorProj
 
 func (service *Service) saveWorkingCurrentFocusLocked(record storedRunRecord, state *narratorRunState, target workingNarratorProjection, currentFocus string) (EasyRun, error) {
 	lastGoodRecord := record
-	if err := applyNarratorCurrentFocus(&record.Run, currentFocus, state.finishFocusProjection(target.digestThrough), service.now()); err != nil {
+	if err := applyNarratorCurrentFocusProjection(&record.Run, state, currentFocus, target.digestThrough, service.now()); err != nil {
 		return service.saveDegradedWorkingNarratorLocked(record, state, err)
 	}
 	record.Run.NarratorStatus = EasyRunNarratorStatusOK
@@ -658,6 +670,24 @@ func applyNarratorCurrentFocus(run *EasyRun, text string, status EasyRunFocusSta
 	}
 	run.CurrentFocus.Status = status
 	return nil
+}
+
+func applyNarratorCurrentFocusProjection(run *EasyRun, state *narratorRunState, text string, through int, now time.Time) error {
+	if state == nil {
+		return errors.New("easy-run narrator state is required for current focus projection")
+	}
+	validated, err := narratorCurrentFocusText(text)
+	if err != nil {
+		return err
+	}
+	status := state.finishFocusProjection(through)
+	if status == EasyRunFocusStatusUpdating {
+		state.pendingCurrentFocusText = validated
+		run.CurrentFocus.Status = status
+		return nil
+	}
+	state.pendingCurrentFocusText = ""
+	return applyNarratorCurrentFocus(run, validated, status, now)
 }
 
 func terminalEasyRun(run EasyRun, chatRun chat.Run, narratorSummary string) (EasyRun, error) {

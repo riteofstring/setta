@@ -3,6 +3,7 @@ package easyrun
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -248,20 +249,20 @@ func TestAcceptedSteeringQueuesImmediateFocusProjectionByDigestWatermark(t *test
 		t.Fatalf("second steer focus = %+v, want older in-flight result unable to clear updating", second.CurrentFocus)
 	}
 	runner.ReleaseFirst()
+	runner.WaitForRequestCount(t, 2)
 
-	focused := waitForEasyRunFocus(
+	updating := waitForEasyRunFocus(
 		t,
 		service,
 		started.WorkspaceID,
 		started.ID,
-		EasyRunFocusStatusCurrent,
-		2,
-		"Compare renderer paint, memory, and startup latency before choosing an approach.",
+		EasyRunFocusStatusUpdating,
+		0,
+		started.RequestText,
 	)
-	if focused.RequestText != "compare renderer approaches" {
-		t.Fatalf("focused run request = %q, want immutable initial request", focused.RequestText)
+	if updating.CurrentFocus.UpdatedAt != started.CurrentFocus.UpdatedAt {
+		t.Fatalf("intermediate focus = %+v, want last persisted focus stable until every steer is evaluated", updating.CurrentFocus)
 	}
-	runner.WaitForRequestCount(t, 2)
 	requests := runner.Requests()
 	firstInput := decodeNarratorTaskInputForTest(t, requests[0])
 	secondInput := decodeNarratorTaskInputForTest(t, requests[1])
@@ -272,7 +273,20 @@ func TestAcceptedSteeringQueuesImmediateFocusProjectionByDigestWatermark(t *test
 		"Compare renderer paint and memory cost before choosing an approach.",
 		secondSteer,
 	)
+	runner.ReleaseSecond()
 
+	focused := waitForEasyRunFocus(
+		t,
+		service,
+		started.WorkspaceID,
+		started.ID,
+		EasyRunFocusStatusCurrent,
+		1,
+		"Compare renderer paint, memory, and startup latency before choosing an approach.",
+	)
+	if focused.RequestText != "compare renderer approaches" {
+		t.Fatalf("focused run request = %q, want immutable initial request", focused.RequestText)
+	}
 	snapshot, err := service.ReadSnapshot(started.WorkspaceID)
 	if err != nil {
 		t.Fatalf("read focused snapshot: %v", err)
@@ -322,6 +336,56 @@ func TestAcceptedSteeringNarratorFailureMarksLastFocusStale(t *testing.T) {
 	assertAcceptedSteeringDigest(t, decodeNarratorTaskInputForTest(t, requests[0]), started.RequestText, steeringText)
 	if _, err := service.Stop(started.WorkspaceID, started.ID); err != nil {
 		t.Fatalf("stop stale-focus easy-run: %v", err)
+	}
+}
+
+func TestOlderNarratorResultCannotHealAcceptedSteeringProjectionFailure(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_stale_focus_watermark")
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_stale_focus_watermark",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+
+	service.mu.Lock()
+	state := service.narratorStateLocked(run.ID)
+	state.beginCall(service.now())
+	service.mu.Unlock()
+	olderTarget := workingNarratorProjection{
+		digestThrough:        0,
+		previousCurrentFocus: run.CurrentFocus.Text,
+		record: storedRunRecord{
+			BackingRunID:  "run_stale_focus_watermark",
+			Run:           run,
+			SchemaVersion: SchemaVersion,
+		},
+	}
+	if err := service.failAcceptedSteeringResult(run, errors.New("accepted focus projection failed")); err == nil {
+		t.Fatal("mark accepted steering projection stale: expected partial-outcome error")
+	}
+
+	updated, err := service.saveWorkingNarratorProjection(olderTarget, workingNarrationResult{
+		currentFocus: "An older result must not become current.",
+		highlights:   []string{"An older highlight must not be added."},
+	})
+	if err != nil {
+		t.Fatalf("discard older narrator result: %v", err)
+	}
+	if updated.NarratorStatus != EasyRunNarratorStatusDegraded ||
+		updated.CurrentFocus.Status != EasyRunFocusStatusStale ||
+		updated.CurrentFocus.Revision != 0 ||
+		updated.CurrentFocus.Text != run.CurrentFocus.Text {
+		t.Fatalf("run after older narrator result = %+v, want stale projection preserved", updated)
+	}
+	snapshot, err := service.ReadSnapshot(run.WorkspaceID)
+	if err != nil {
+		t.Fatalf("read stale snapshot: %v", err)
+	}
+	if len(snapshot.Highlights) != 0 {
+		t.Fatalf("highlights after stale projection = %+v, want older narrator output discarded", snapshot.Highlights)
 	}
 }
 
@@ -404,14 +468,14 @@ func TestTerminalNarratorRetriesWhenSteeringArrivesAfterItsDigestWatermark(t *te
 	}
 
 	intermediate, retry, err := service.saveTerminalChatRunProjection(olderTarget, chatRun, terminalNarrationResult{
-		currentFocus: run.CurrentFocus.Text,
+		currentFocus: "Complete the original objective before the accepted terminal constraint.",
 		highlights:   []string{},
 		summary:      "The older terminal narrator call completed.",
 	})
 	if err != nil {
 		t.Fatalf("save older terminal narrator call: %v", err)
 	}
-	if !retry || intermediate.Status != EasyRunStatusWorking || intermediate.CurrentFocus.Status != EasyRunFocusStatusUpdating {
+	if !isStableUpdatingTerminalProjection(intermediate, run.CurrentFocus) || !retry {
 		t.Fatalf("older terminal result = %+v retry=%v, want working updating retry", intermediate, retry)
 	}
 
@@ -419,9 +483,7 @@ func TestTerminalNarratorRetriesWhenSteeringArrivesAfterItsDigestWatermark(t *te
 	if err != nil {
 		t.Fatalf("begin terminal narrator retry: %v", err)
 	}
-	if len(newerTarget.digest) != 1 ||
-		newerTarget.digest[0].Source != narratorDigestSourceUserSteer ||
-		newerTarget.digest[0].Text != accepted.text {
+	if !terminalRetryIncludesAcceptedSteering(newerTarget, accepted.text) {
 		t.Fatalf("terminal retry digest = %+v, want exact queued accepted steer", newerTarget.digest)
 	}
 	completed, retry, err := service.saveTerminalChatRunProjection(newerTarget, chatRun, terminalNarrationResult{
@@ -440,6 +502,73 @@ func TestTerminalNarratorRetriesWhenSteeringArrivesAfterItsDigestWatermark(t *te
 	}
 }
 
+func isStableUpdatingTerminalProjection(run EasyRun, previous EasyCurrentFocus) bool {
+	return run.Status == EasyRunStatusWorking &&
+		run.CurrentFocus.Status == EasyRunFocusStatusUpdating &&
+		run.CurrentFocus.Revision == previous.Revision &&
+		run.CurrentFocus.Text == previous.Text
+}
+
+func terminalRetryIncludesAcceptedSteering(target terminalChatRunProjection, text string) bool {
+	return len(target.digest) == 1 &&
+		target.digest[0].Source == narratorDigestSourceUserSteer &&
+		target.digest[0].Text == text &&
+		target.previousCurrentFocus == "Complete the original objective before the accepted terminal constraint."
+}
+
+func TestOlderTerminalNarratorResultCannotHealAcceptedSteeringProjectionFailure(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_terminal_stale_focus")
+	backingRunID := "run_terminal_stale_focus"
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  backingRunID,
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	chatRun := chat.Run{
+		CompletedAt:    "2026-07-08T12:01:00Z",
+		ConversationID: run.ConversationID,
+		ID:             backingRunID,
+		Status:         chat.RunStatusCompleted,
+		WorkspaceID:    run.WorkspaceID,
+	}
+	target, err := service.beginTerminalChatRunProjection(chatRun)
+	if err != nil {
+		t.Fatalf("begin terminal narrator call: %v", err)
+	}
+	if err := service.failAcceptedSteeringResult(run, errors.New("accepted focus projection failed")); err == nil {
+		t.Fatal("mark accepted steering projection stale: expected partial-outcome error")
+	}
+
+	completed, retry, err := service.saveTerminalChatRunProjection(target, chatRun, terminalNarrationResult{
+		currentFocus: "An older terminal result must not become current.",
+		highlights:   []string{"An older terminal highlight must not be added."},
+		summary:      "An older terminal summary must not be used.",
+	})
+	if err != nil {
+		t.Fatalf("discard older terminal narrator result: %v", err)
+	}
+	if retry ||
+		completed.Status != EasyRunStatusCompleted ||
+		completed.NarratorStatus != EasyRunNarratorStatusDegraded ||
+		completed.CurrentFocus.Status != EasyRunFocusStatusStale ||
+		completed.CurrentFocus.Revision != 0 ||
+		completed.CurrentFocus.Text != run.CurrentFocus.Text ||
+		completed.Summary == nil ||
+		!strings.HasPrefix(*completed.Summary, "Done in") {
+		t.Fatalf("completed run after older narrator result = %+v retry=%v, want stale focus and mechanical summary", completed, retry)
+	}
+	snapshot, err := service.ReadSnapshot(run.WorkspaceID)
+	if err != nil {
+		t.Fatalf("read completed stale snapshot: %v", err)
+	}
+	if len(snapshot.Highlights) != 0 {
+		t.Fatalf("terminal highlights after stale projection = %+v, want older narrator output discarded", snapshot.Highlights)
+	}
+}
+
 func assertAcceptedSteeringDigest(t *testing.T, input narratorTaskInput, previousFocus string, text string) {
 	t.Helper()
 	if input.PreviousCurrentFocus != previousFocus || len(input.DigestEntries) != 1 {
@@ -452,8 +581,9 @@ func assertAcceptedSteeringDigest(t *testing.T, input narratorTaskInput, previou
 }
 
 type orderedFocusNarratorRunner struct {
-	firstStarted chan struct{}
-	releaseFirst chan struct{}
+	firstStarted  chan struct{}
+	releaseFirst  chan struct{}
+	releaseSecond chan struct{}
 
 	mu       sync.Mutex
 	requests []chat.HarnessTaskRequest
@@ -461,8 +591,9 @@ type orderedFocusNarratorRunner struct {
 
 func newOrderedFocusNarratorRunner() *orderedFocusNarratorRunner {
 	return &orderedFocusNarratorRunner{
-		firstStarted: make(chan struct{}, 1),
-		releaseFirst: make(chan struct{}),
+		firstStarted:  make(chan struct{}, 1),
+		releaseFirst:  make(chan struct{}),
+		releaseSecond: make(chan struct{}),
 	}
 }
 
@@ -495,6 +626,11 @@ func (runner *orderedFocusNarratorRunner) RunTask(ctx context.Context, request c
 			"summary":      "",
 		})
 	}
+	select {
+	case <-ctx.Done():
+		return chat.HarnessTaskResult{}, ctx.Err()
+	case <-runner.releaseSecond:
+	}
 	return narratorHarnessResult(map[string]any{
 		"currentFocus": "Compare renderer paint, memory, and startup latency before choosing an approach.",
 		"highlights":   []string{},
@@ -516,6 +652,10 @@ func (runner *orderedFocusNarratorRunner) WaitForRequestCount(t *testing.T, coun
 
 func (runner *orderedFocusNarratorRunner) ReleaseFirst() {
 	close(runner.releaseFirst)
+}
+
+func (runner *orderedFocusNarratorRunner) ReleaseSecond() {
+	close(runner.releaseSecond)
 }
 
 func (runner *orderedFocusNarratorRunner) Requests() []chat.HarnessTaskRequest {
@@ -550,8 +690,11 @@ func waitForPersistedSteeringMessage(t *testing.T, chatService *chat.Service, ru
 			if message.Delivery != chat.MessageDeliverySteering || chatMessageTextForTest(message) != text {
 				continue
 			}
-			if message.Role != chat.RoleUser || message.RunID != backingRunID || message.Status != chat.MessageStatusComplete {
-				t.Fatalf("persisted steering message = %+v, want complete user steering for %s", message, backingRunID)
+			if message.Role != chat.RoleUser || message.RunID != backingRunID {
+				t.Fatalf("persisted steering message = %+v, want user steering for %s", message, backingRunID)
+			}
+			if message.Status != chat.MessageStatusComplete {
+				continue
 			}
 			return message
 		}

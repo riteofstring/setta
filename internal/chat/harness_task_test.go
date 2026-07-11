@@ -69,7 +69,7 @@ func TestScriptedHarnessAcceptsEasyRunNarratorStructuredSurface(t *testing.T) {
 				LastOpenedAt: "2026-06-10T12:00:00Z",
 			},
 			Prompt: "narrate",
-			Input:  json.RawMessage(`{"requestText":"summarize","digest":[]}`),
+			Input:  json.RawMessage(`{"requestText":"summarize","digestEntries":[],"status":"completed","terminal":true}`),
 			Model:  "gpt-5-codex",
 		},
 	})
@@ -89,5 +89,16 @@ func TestScriptedHarnessAcceptsEasyRunNarratorStructuredSurface(t *testing.T) {
 	}
 	if result.Audit.RequestID != "scripted-easy-run-narrator-request" || result.Audit.ResponseID != "scripted-easy-run-narrator-response" {
 		t.Fatalf("scripted narrator audit = %+v, want deterministic request/response ids", result.Audit)
+	}
+}
+
+func TestScriptedEasyRunNarratorKeepsWorkingSummaryEmpty(t *testing.T) {
+	output := scriptedEasyRunNarratorOutput(HarnessTaskRequest{
+		StructuredTask: &HarnessStructuredTask{
+			Input: json.RawMessage(`{"requestText":"keep working","status":"running","terminal":false}`),
+		},
+	})
+	if output["currentFocus"] != "keep working" || output["summary"] != "" {
+		t.Fatalf("scripted working narrator output = %+v, want request focus and empty summary", output)
 	}
 }

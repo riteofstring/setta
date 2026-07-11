@@ -22,12 +22,13 @@ const (
 var narratorReasoningEffort = chat.ReasoningEffortNone
 
 type narratorRunState struct {
-	digest            *narratorDigestBuffer
-	focusDirty        bool
-	focusDirtyThrough int
-	inFlight          bool
-	inFlightDone      chan struct{}
-	lastCallAt        time.Time
+	digest                  *narratorDigestBuffer
+	focusDirty              bool
+	focusDirtyThrough       int
+	inFlight                bool
+	inFlightDone            chan struct{}
+	lastCallAt              time.Time
+	pendingCurrentFocusText string
 }
 
 type terminalNarrationResult struct {
@@ -110,6 +111,14 @@ func (state *narratorRunState) finishFocusProjection(through int) EasyRunFocusSt
 
 func (state *narratorRunState) failFocusProjection() {
 	state.focusDirty = false
+	state.pendingCurrentFocusText = ""
+}
+
+func (state *narratorRunState) previousCurrentFocusText(persisted string) string {
+	if state.pendingCurrentFocusText != "" {
+		return state.pendingCurrentFocusText
+	}
+	return persisted
 }
 
 func (service *Service) runWorkingNarrator(ctx context.Context, target workingNarratorProjection) workingNarrationResult {
@@ -220,6 +229,9 @@ func workingNarrationFromHarnessResult(result chat.HarnessTaskResult) workingNar
 	if err != nil {
 		return workingNarrationResult{err: err}
 	}
+	if output.Summary != "" {
+		return workingNarrationResult{err: errors.New("narrator working summary must be empty")}
+	}
 	highlights, err := narratorHighlightTexts(output.Highlights)
 	if err != nil {
 		return workingNarrationResult{err: err}
@@ -257,7 +269,7 @@ func narratorInputForWorking(target workingNarratorProjection) narratorTaskInput
 		EasyRunID:            target.record.Run.ID,
 		HighlightCount:       target.record.Run.HighlightCount,
 		MechanicalSummary:    "",
-		PreviousCurrentFocus: target.record.Run.CurrentFocus.Text,
+		PreviousCurrentFocus: target.previousCurrentFocus,
 		PreviousHighlights:   previousHighlights,
 		RequestText:          target.record.Run.RequestText,
 		Status:               chat.RunStatusRunning,
@@ -277,7 +289,7 @@ func narratorInputForTerminal(target terminalChatRunProjection) narratorTaskInpu
 		EasyRunID:            target.record.Run.ID,
 		HighlightCount:       target.record.Run.HighlightCount,
 		MechanicalSummary:    target.mechanicalSummary,
-		PreviousCurrentFocus: target.record.Run.CurrentFocus.Text,
+		PreviousCurrentFocus: target.previousCurrentFocus,
 		PreviousHighlights:   previousHighlights,
 		RequestText:          target.record.Run.RequestText,
 		Status:               target.status,
