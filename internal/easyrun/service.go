@@ -348,10 +348,19 @@ func (service *Service) markStartFailure(workspaceID string, easyRunID string, s
 	}
 	endedAt := timestamp(service.now())
 	errorMessage := startErr.Error()
+	mechanicalSummary, err := mechanicalEasyRunSummary(
+		record.Run,
+		EasyRunStatusFailed,
+		endedAt,
+		errorMessage,
+	)
+	if err != nil {
+		return false, err
+	}
 	record.Run.Status = EasyRunStatusFailed
 	record.Run.EndedAt = &endedAt
 	record.Run.Error = &errorMessage
-	record.Run.Summary = stringPointer("Failed before starting - no artifacts")
+	record.Run.Summary = stringPointer(mechanicalSummary)
 	record.Run.ActiveAgentCount = 0
 	if err := service.store.saveRun(record); err != nil {
 		return false, err
@@ -727,23 +736,54 @@ func mechanicalTerminalEasyRunSummary(run EasyRun, chatRun chat.Run) (string, er
 	if err := validateTimestamp("chat run completedAt", endedAt); err != nil {
 		return "", err
 	}
-	duration, err := easyRunDuration(run.StartedAt, endedAt)
-	if err != nil {
-		return "", err
-	}
 	switch chatRun.Status {
 	case chat.RunStatusCompleted:
-		return fmt.Sprintf("Done in %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)), nil
+		return mechanicalEasyRunSummary(run, EasyRunStatusCompleted, endedAt, "")
 	case chat.RunStatusCancelled:
-		return fmt.Sprintf("Stopped after %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)), nil
+		return mechanicalEasyRunSummary(run, EasyRunStatusStopped, endedAt, "")
 	case chat.RunStatusFailed:
 		errorMessage := strings.TrimSpace(chatRun.Error)
 		if errorMessage == "" {
 			return "", fmt.Errorf("failed chat run %s has empty error", chatRun.ID)
 		}
-		return fmt.Sprintf("Failed after %s - %s - %s", duration, errorMessage, easyRunArtifactCountSummary(run.ArtifactCount)), nil
+		return mechanicalEasyRunSummary(run, EasyRunStatusFailed, endedAt, errorMessage)
 	default:
 		return "", fmt.Errorf("unsupported terminal chat run status %s", chatRun.Status)
+	}
+}
+
+func mechanicalEasyRunSummary(
+	run EasyRun,
+	status EasyRunStatus,
+	endedAt string,
+	failureReason string,
+) (string, error) {
+	duration, err := easyRunDuration(run.StartedAt, endedAt)
+	if err != nil {
+		return "", err
+	}
+	if err := validateNonNegativeEasyRunCount("artifactCount", run.ArtifactCount); err != nil {
+		return "", err
+	}
+	artifacts := easyRunArtifactCountSummary(run.ArtifactCount)
+	switch status {
+	case EasyRunStatusCompleted:
+		return fmt.Sprintf("Done in %s with %s.", duration, artifacts), nil
+	case EasyRunStatusStopped:
+		return fmt.Sprintf("Stopped after %s with %s.", duration, artifacts), nil
+	case EasyRunStatusFailed:
+		failureReason = strings.TrimSpace(failureReason)
+		if failureReason == "" {
+			return "", errors.New("failed easy-run summary requires a failure reason")
+		}
+		return fmt.Sprintf(
+			"Failed after %s: %s %s",
+			duration,
+			terminalSummarySentence(failureReason),
+			easyRunPreservedArtifactSummary(run.ArtifactCount),
+		), nil
+	default:
+		return "", fmt.Errorf("unsupported terminal easy-run status %s", status)
 	}
 }
 
@@ -752,10 +792,14 @@ func terminalSummaryWithNarration(narratorSummary string, mechanicalSummary stri
 	if narratorSummary == "" {
 		return mechanicalSummary
 	}
-	if strings.HasSuffix(narratorSummary, ".") || strings.HasSuffix(narratorSummary, "!") || strings.HasSuffix(narratorSummary, "?") {
-		return narratorSummary + " " + mechanicalSummary
+	return terminalSummarySentence(narratorSummary) + " " + mechanicalSummary
+}
+
+func terminalSummarySentence(text string) string {
+	if strings.HasSuffix(text, ".") || strings.HasSuffix(text, "!") || strings.HasSuffix(text, "?") {
+		return text
 	}
-	return narratorSummary + ". " + mechanicalSummary
+	return text + "."
 }
 
 func easyRunDuration(startedAt string, endedAt string) (string, error) {
@@ -773,9 +817,32 @@ func easyRunDuration(startedAt string, endedAt string) (string, error) {
 	}
 	duration = duration.Round(time.Second)
 	if duration < time.Second {
-		return "<1s", nil
+		return "less than 1 second", nil
 	}
-	return duration.String(), nil
+	remainingSeconds := int64(duration / time.Second)
+	units := []struct {
+		label   string
+		seconds int64
+	}{
+		{label: "day", seconds: 24 * 60 * 60},
+		{label: "hour", seconds: 60 * 60},
+		{label: "minute", seconds: 60},
+		{label: "second", seconds: 1},
+	}
+	parts := make([]string, 0, len(units))
+	for _, unit := range units {
+		value := remainingSeconds / unit.seconds
+		remainingSeconds %= unit.seconds
+		if value == 0 {
+			continue
+		}
+		label := unit.label
+		if value != 1 {
+			label += "s"
+		}
+		parts = append(parts, fmt.Sprintf("%d %s", value, label))
+	}
+	return strings.Join(parts, " "), nil
 }
 
 func easyRunArtifactCountSummary(count int) string {
@@ -786,6 +853,17 @@ func easyRunArtifactCountSummary(count int) string {
 		return "1 artifact"
 	default:
 		return fmt.Sprintf("%d artifacts", count)
+	}
+}
+
+func easyRunPreservedArtifactSummary(count int) string {
+	switch count {
+	case 0:
+		return "No artifacts were preserved."
+	case 1:
+		return "1 artifact was preserved."
+	default:
+		return fmt.Sprintf("%d artifacts were preserved.", count)
 	}
 }
 
@@ -813,19 +891,19 @@ func (service *Service) recoverInterruptedRuns() error {
 }
 
 func (service *Service) recoverInterruptedRun(record storedRunRecord, endedAt string) (EasyRun, error) {
-	duration, err := easyRunDuration(record.Run.StartedAt, endedAt)
+	mechanicalSummary, err := mechanicalEasyRunSummary(
+		record.Run,
+		EasyRunStatusFailed,
+		endedAt,
+		easyRunInterruptedOnRestartReason,
+	)
 	if err != nil {
 		return EasyRun{}, err
 	}
 	record.Run.Status = EasyRunStatusFailed
 	record.Run.EndedAt = &endedAt
 	record.Run.Error = stringPointer(easyRunInterruptedOnRestartReason)
-	record.Run.Summary = stringPointer(fmt.Sprintf(
-		"Failed after %s - %s - %s",
-		duration,
-		easyRunInterruptedOnRestartReason,
-		easyRunArtifactCountSummary(record.Run.ArtifactCount),
-	))
+	record.Run.Summary = stringPointer(mechanicalSummary)
 	record.Run.ActiveAgentCount = 0
 	if err := service.store.saveRun(record); err != nil {
 		return EasyRun{}, err

@@ -87,7 +87,7 @@ describe("easy-run store", () => {
       activeAgentCount: 0,
       endedAt: "2026-07-08T12:00:05Z",
       status: "stopped",
-      summary: "Stopped after 5s - no artifacts",
+      summary: "Stopped after 5 seconds with no artifacts.",
     };
     const stop = vi.fn<SettaAPI["easyRun"]["stop"]>().mockResolvedValue(stopped);
     installEasyRunAPI({ stop });
@@ -137,7 +137,7 @@ describe("easy-run store", () => {
 
   test("does not regress a terminal run when a same-run action response is stale", async () => {
     const working = easyRun("easy_run_current");
-    const terminal = completedEasyRun(working, "Done in <1s - no artifacts");
+    const terminal = completedEasyRun(working, "Done in less than 1 second with no artifacts.");
     const steer = vi.fn<SettaAPI["easyRun"]["steer"]>().mockResolvedValue(working);
     installEasyRunAPI({ steer });
     useEasyRunStore.getState().hydrateSnapshot(

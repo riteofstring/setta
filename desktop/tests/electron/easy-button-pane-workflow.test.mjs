@@ -55,6 +55,7 @@ import {
   workflowTimeoutMs,
 } from "./easy-button-pane-actions.mjs";
 import { assertLosslessSteeringChatRecord } from "./easy-button-chat-record-assertions.mjs";
+import { assertHumanReadableTerminalSummary } from "./easy-button-summary-assertions.mjs";
 import {
   assertAcceptedSteeringFocusEvents,
   assertCurrentFocusConstrained,
@@ -347,6 +348,12 @@ try {
     2,
   );
   assertWorkingNarratorTerminalVisual(workingNarratorTerminal);
+  assertHumanReadableTerminalSummary(
+    workingNarratorTerminal.summaryText,
+    "completed",
+    0,
+    "working narrator terminal",
+  );
   assertTerminalTone(workingNarratorTerminal, "completed", "working narrator terminal");
   assertNewestDotTone(workingNarratorTerminal, "completed", "working narrator terminal");
   await captureScreenshot(
@@ -370,6 +377,12 @@ try {
     context.client,
     "easy run working narrator cadence",
     2,
+  );
+  assertHumanReadableTerminalSummary(
+    stoppedWithHighlights.summaryText,
+    "stopped",
+    0,
+    "stopped with highlights",
   );
   assertTerminalTone(stoppedWithHighlights, "stopped", "stopped with highlights");
   assertNewestDotTone(stoppedWithHighlights, "resting", "stopped with highlights");
@@ -913,11 +926,15 @@ function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
     "easy-button terminal visual did not match Phase 2d",
   );
   assertNarratorHealth(state, options.expectedNarration ?? null);
-  if (!state.summaryText.includes(summaryFact) || !state.summaryText.includes("no artifacts")) {
-    throw new Error(
-      `easy-button terminal summary did not match Phase 2d: ${JSON.stringify(state)}`,
-    );
+  const status = {
+    "Done in": "completed",
+    "Failed after": "failed",
+    "Stopped after": "stopped",
+  }[summaryFact];
+  if (!status) {
+    throw new Error(`unsupported easy-button terminal summary fact ${summaryFact}`);
   }
+  assertHumanReadableTerminalSummary(state.summaryText, status, 0, "terminal");
   assertSummaryOkMark(state, summaryFact);
   if (options.expectedCurrentFocus) {
     assertRevisedCurrentFocus(state, options.expectedCurrentFocus);
@@ -942,9 +959,7 @@ function assertArtifactTerminalVisual(state, requestText) {
     "easy-button artifact terminal visual did not match Phase 3",
   );
   assertNarratorHealth(state, "The Easy Button run finished.");
-  if (!state.summaryText.includes("Done in") || !state.summaryText.includes("4 artifacts")) {
-    throw new Error(`easy-button artifact summary did not include count: ${JSON.stringify(state)}`);
-  }
+  assertHumanReadableTerminalSummary(state.summaryText, "completed", 4, "artifact terminal");
   const titles = state.artifacts.map((artifact) => artifact.title);
   const kinds = state.artifacts.map((artifact) => artifact.kind);
   if (state.artifacts.length !== 4 || kinds.join(",") !== "markdown,table,bar_chart,file") {
@@ -1020,6 +1035,7 @@ function assertArtifactCapOverflowVisual(state, requestText) {
       `easy-button artifact cap summary did not expose the cap failure: ${JSON.stringify(state)}`,
     );
   }
+  assertHumanReadableTerminalSummary(state.summaryText, "failed", 20, "artifact cap terminal");
   const titles = state.artifacts.map((artifact) => artifact.title);
   if (
     state.artifacts.length !== 20 ||
@@ -1217,6 +1233,7 @@ function assertNarratorTerminalVisual(state, requestText) {
   ) {
     throw new Error(`easy-button narrator summary did not render: ${JSON.stringify(state)}`);
   }
+  assertHumanReadableTerminalSummary(state.summaryText, "completed", 0, "narrator terminal");
   assertNarratorHealth(state, null);
   const highlightTexts = state.highlights.map((highlight) => highlight.text);
   if (

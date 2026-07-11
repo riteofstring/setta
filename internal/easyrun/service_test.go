@@ -470,7 +470,7 @@ func TestFailedTerminalSummaryIncludesFailureReason(t *testing.T) {
 		failed.Summary == nil ||
 		!strings.Contains(*failed.Summary, "Failed after") ||
 		!strings.Contains(*failed.Summary, *failed.Error) ||
-		!strings.Contains(*failed.Summary, "no artifacts") {
+		!strings.HasSuffix(*failed.Summary, "No artifacts were preserved.") {
 		t.Fatalf("failed run = %+v, want failure reason in terminal summary", failed)
 	}
 }
@@ -816,7 +816,7 @@ func TestServiceStartupRecoveryMarksWorkingRunsFailed(t *testing.T) {
 	completed.ActiveAgentCount = 0
 	completed.EndedAt = &endedAt
 	completed.Status = EasyRunStatusCompleted
-	completed.Summary = stringPointer("Done in 1m0s - no artifacts")
+	completed.Summary = stringPointer("Done in 1 minute with no artifacts.")
 	if err := store.saveNewRun(storedRunRecord{
 		BackingRunID:  "run_completed",
 		Run:           completed,
@@ -868,7 +868,7 @@ func TestServiceStartupRecoveryMarksWorkingRunsFailed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load completed run: %v", err)
 	}
-	if unchanged.Run.Status != EasyRunStatusCompleted || unchanged.Run.Summary == nil || *unchanged.Run.Summary != "Done in 1m0s - no artifacts" {
+	if unchanged.Run.Status != EasyRunStatusCompleted || unchanged.Run.Summary == nil || *unchanged.Run.Summary != "Done in 1 minute with no artifacts." {
 		t.Fatalf("completed run changed during recovery: %+v", unchanged.Run)
 	}
 }
@@ -1351,9 +1351,9 @@ func assertRestartRecoveredEasyRun(t *testing.T, run EasyRun) {
 		run.Error == nil ||
 		*run.Error != easyRunInterruptedOnRestartReason ||
 		run.Summary == nil ||
-		!strings.Contains(*run.Summary, "Failed after 2m0s") ||
+		!strings.Contains(*run.Summary, "Failed after 2 minutes") ||
 		!strings.Contains(*run.Summary, easyRunInterruptedOnRestartReason) ||
-		!strings.Contains(*run.Summary, "no artifacts") ||
+		!strings.HasSuffix(*run.Summary, "No artifacts were preserved.") ||
 		run.ActiveAgentCount != 0 {
 		t.Fatalf("recovered run = %+v, want failed restart projection", run)
 	}

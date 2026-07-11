@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 items 1-6 complete
+**Status:** Implementation in progress — Phase 1 items 1-7 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1466,6 +1466,61 @@ human-readable duration and artifact prose. Item 8 then completes the
 phase-wide partial-outcome and acceptance coverage before backend speech work
 begins. No implementation blocker was found for item 7; only live-provider
 proof remains blocked by the separate `max` provider drift.
+
+### 2026-07-10 — Phase 1 human-readable terminal summaries complete
+
+Implemented Phase 1 item 7 as one backend-owned terminal-summary slice. Normal
+completed, stopped, and failed chat-run projections, prepared-run start
+failures, and backend-restart recovery now use the same deterministic formatter.
+Elapsed time rounds to the nearest whole second with half-seconds rounding up;
+a smaller result reads `less than 1 second`, and longer results spell only their
+nonzero day, hour, minute, and second units with correct singular/plural forms.
+
+Completed and stopped runs now persist natural `with no artifacts`,
+`with 1 artifact`, or `with N artifacts` sentences. Failed runs retain the exact
+trimmed failure reason after a colon and add `No artifacts were preserved.`,
+`1 artifact was preserved.`, or `N artifacts were preserved.` The narrator
+sentence, when healthy, still precedes that mechanical prose in the one exact
+persisted `EasyRun.Summary`; degraded narration leaves the same mechanical text
+standing alone. Existing version-2 renderer fixtures no longer encode compact
+duration symbols or hyphen-separated tails.
+
+Verification completed for this slice:
+
+- focused formatter tests cover sub-second rounding boundaries through
+  multi-day durations, negative elapsed time, every completed/stopped/failed
+  zero/one/many-artifact combination, exact narrated-summary persistence, and
+  the prepared-run start-failure path;
+- the complete `internal/chat`, `internal/easyrun`, and `internal/httpapi`
+  suites passed;
+- all 990 desktop Vitest tests, Electron typecheck, and the production Electron
+  build passed;
+- the deterministic production Electron workflow passed at
+  `desktop/.recordings/easy-button-speech-phase1-human-summary-20260710`. Its
+  production-path semantic assertion rejects compact duration syntax and checks
+  duration-unit and artifact inflection for completed, stopped, failed,
+  narrated, degraded, artifact-bearing, and restart-recovered runs. The
+  completion, 20-preserved-artifact failure, and restart-recovery screenshots
+  were inspected; the longer text remained contained and readable, and the
+  existing pixel-match companion also passed;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  source, fixtures, deterministic assertion, and this plan were final.
+
+ChatGPT authentication was available, so the live Electron chat and Easy
+Button workflows plus all four backend Codex probes were attempted with
+`OPENAI_API_KEY` removed. Every surface remains blocked before conversation
+creation because `model/list` advertises reasoning effort `max`, which Setta's
+current provider decoder rejects. These failures are not live-provider proof
+for this slice. Supply-chain verification was not required because no
+dependency, manifest, package-manager configuration, Go module, generated
+contract, or supply-chain input changed.
+
+The implementation plan is not complete. The next iteration is Phase 1 item 8:
+regenerate contracts and the checked-in PWA bundle before cleanup, then finish
+the phase-wide focused chat/Easy Run store, event, renderer, deterministic,
+partial-outcome, and live Codex acceptance coverage. No deterministic blocker
+was found for item 8; live-provider proof remains blocked by the separate
+`max` provider drift.
 
 ## Verification Plan
 
