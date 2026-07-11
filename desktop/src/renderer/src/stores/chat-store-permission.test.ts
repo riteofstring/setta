@@ -101,7 +101,6 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
     workflow: null,
     workspaceId: "workspace_api",
     ...overrides,
-    easyRun: overrides.easyRun ?? null,
   };
 }
 

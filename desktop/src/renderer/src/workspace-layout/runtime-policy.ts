@@ -24,7 +24,6 @@ export interface PaneRuntimePolicyOptions {
 type LiveCanvasSurfaceKind = "workflow-graph";
 type LiveHeavyDomSurfaceKind =
   | "chat-dom"
-  | "easy-button"
   | "fake-heavy-dom"
   | "fake-long-chat"
   | "semantic-node-details"
@@ -43,7 +42,6 @@ type SurfaceRuntimeCategory =
 const liveCanvasSurfaceKinds = new Set<SurfaceKind>(["workflow-graph"]);
 const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
   "chat-dom",
-  "easy-button",
   "fake-heavy-dom",
   "fake-long-chat",
   "semantic-node-details",
@@ -52,7 +50,6 @@ const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
 ]);
 const frozenLiveVisualSurfaceKinds = new Set<SurfaceKind>([
   "chat-dom",
-  "easy-button",
   "empty-frame",
   "fake-dom",
   "fake-heavy-dom",
@@ -69,7 +66,6 @@ const frozenLiveVisualSurfaceKinds = new Set<SurfaceKind>([
 const movementDegradedSurfaceKinds = new Set<SurfaceKind>([
   "browser",
   "chat-dom",
-  "easy-button",
   "fake-heavy-dom",
   "fake-long-chat",
   "fake-terminal",
@@ -84,7 +80,6 @@ const movementDegradedSurfaceKinds = new Set<SurfaceKind>([
 const surfaceRuntimeCategories = {
   browser: "browser",
   "chat-dom": "heavy-dom",
-  "easy-button": "heavy-dom",
   "empty-frame": "always-live",
   "fake-dom": "always-live",
   "fake-heavy-dom": "heavy-dom",

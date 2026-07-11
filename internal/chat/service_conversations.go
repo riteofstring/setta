@@ -226,7 +226,6 @@ func (service *Service) LoadRunTranscriptPage(workspaceID string, runID string, 
 	}
 	start, end := transcriptBlockWindow(len(refs), beforeBlockOrdinal, limit)
 	blocks, err := service.materializeTranscriptBlockRefs(workspaceID, refs[start:end])
-	cursor := service.events.Cursor()
 	service.mu.Unlock()
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, runID)
@@ -240,8 +239,6 @@ func (service *Service) LoadRunTranscriptPage(workspaceID string, runID string, 
 		WorkspaceID:             workspaceID,
 		ConversationID:          run.ConversationID,
 		RunID:                   runID,
-		LastChatEventStreamID:   cursor.StreamID,
-		LastChatEventSequence:   cursor.Sequence,
 		Blocks:                  blocks,
 		HasMoreOlder:            start > 0,
 		OlderBeforeBlockOrdinal: olderBeforeBlockOrdinal,

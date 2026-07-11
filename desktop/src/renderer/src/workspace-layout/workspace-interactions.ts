@@ -42,9 +42,6 @@ export function handleWorkspaceClick({
   if (runtime.mode !== "workspace" || !(event.target instanceof Element)) {
     return;
   }
-  if (eventTargetsPaneInteractiveControl(event)) {
-    return;
-  }
   if (
     handlePaneChromeActionClick({
       event,
@@ -81,8 +78,7 @@ export function handleWorkspacePaneFocusPointerDown({
   if (
     event.button !== 0 ||
     runtime.mode !== "workspace" ||
-    runtime.store.getSnapshot().presentationMode === "overview" ||
-    eventTargetsPaneInteractiveControl(event)
+    runtime.store.getSnapshot().presentationMode === "overview"
   ) {
     return;
   }
@@ -93,19 +89,6 @@ export function eventTargetsPaneChromeAction(event: PointerEvent): boolean {
   return (
     event.target instanceof Element &&
     event.target.closest("[data-workspace-pane-action]") instanceof HTMLButtonElement
-  );
-}
-
-export function eventTargetsPaneInteractiveControl(event: MouseEvent | PointerEvent): boolean {
-  if (!(event.target instanceof Element)) {
-    return false;
-  }
-  const selector = '[data-workspace-pane-interactive-control="true"]';
-  if (event.target.closest(selector)) {
-    return true;
-  }
-  return Boolean(
-    event.target.ownerDocument.elementFromPoint(event.clientX, event.clientY)?.closest(selector),
   );
 }
 

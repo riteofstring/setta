@@ -15,10 +15,6 @@ const (
 	codexJSONRPCErrorToolFailed            = -32003
 )
 
-func (harness *CodexHarness) registerConnectionRequestHandlers() {
-	harness.manager.RegisterRequestHandler(codexapp.CodexServerRequestAttestationGenerate, harness.handleConnectionAttestationGenerate)
-}
-
 func mcpElicitationApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
 	input, err := structuredInputFromMCP(params, context.requestID)
 	if err != nil {
@@ -137,7 +133,7 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 	if err != nil {
 		return err
 	}
-	tool, ok := harness.agentToolRegistry().Lookup(call.Namespace, call.Tool)
+	tool, ok := harness.config.Tools.Lookup(call.Namespace, call.Tool)
 	item := codexDynamicToolRunItem(call, tool, ok)
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
@@ -335,23 +331,6 @@ func (harness *CodexHarness) handleCodexAttestationGenerate(ctx context.Context,
 		return message.RespondError(codexJSONRPCErrorCapabilityUnavailable, messageText)
 	}
 	return message.RespondResult(map[string]any{"token": token})
-}
-
-func (harness *CodexHarness) handleConnectionAttestationGenerate(message jsonRPCMessage) {
-	if _, err := objectValue(message.Params, "codex attestation generate params"); err != nil {
-		_ = message.RespondError(codexJSONRPCErrorCapabilityUnavailable, err.Error())
-		return
-	}
-	if harness.config.AttestationProvider == nil {
-		_ = message.RespondError(codexJSONRPCErrorCapabilityUnavailable, "attestation is unavailable in Setta")
-		return
-	}
-	token, err := harness.config.AttestationProvider.GenerateAttestation(context.Background())
-	if err != nil {
-		_ = message.RespondError(codexJSONRPCErrorCapabilityUnavailable, "attestation generation failed: "+err.Error())
-		return
-	}
-	_ = message.RespondResult(map[string]any{"token": token})
 }
 
 func (harness *CodexHarness) applyCodexServerRequestResolved(message jsonRPCMessage, _ string, threadID string, sink TurnSink) error {

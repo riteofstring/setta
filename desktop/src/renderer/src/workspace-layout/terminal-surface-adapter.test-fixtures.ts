@@ -30,6 +30,9 @@ interface InstalledTerminalAPI {
   input: MockFunction;
   listProfiles: MockFunction;
   onEvent: MockFunction;
+  onStatus: MockFunction;
+  recordLatency: MockFunction;
+  recordingRunId: string;
   resize: MockFunction;
 }
 
@@ -129,6 +132,9 @@ function createTerminalAPI(
     input: vi.fn(async () => ({ acceptedBytes: 0 })),
     listProfiles: withFallback(overrides.listProfiles, () => defaultListProfiles(overrides)),
     onEvent: vi.fn(addTerminalListener),
+    onStatus: vi.fn(() => () => {}),
+    recordLatency: vi.fn(),
+    recordingRunId: "terminal_latency_test",
     resize: withFallback(overrides.resize, defaultResizeTerminal),
   };
 }
@@ -207,7 +213,7 @@ function createWindowStub({
     },
     atob: (value: string) => Buffer.from(value, "base64").toString("binary"),
     btoa: (value: string) => Buffer.from(value, "binary").toString("base64"),
-    cancelAnimationFrame: vi.fn(),
+    cancelAnimationFrame: (handle: number) => clearTimeout(handle),
     clearTimeout,
     dispatchEvent: (event: Event) => dispatchWindowEvent(windowListeners, event),
     localStorage,
@@ -220,7 +226,9 @@ function createWindowStub({
     removeEventListener: (type: string, listener: EventListener) => {
       windowListeners.get(type)?.delete(listener);
     },
-    requestAnimationFrame: vi.fn(),
+    requestAnimationFrame: (callback: FrameRequestCallback) =>
+      setTimeout(() => callback(performance.now()), 0) as unknown as number,
+    sessionStorage: new MemoryStorage(),
     setTimeout,
     setta: {
       app: {
@@ -331,6 +339,7 @@ export function runtimeSnapshot(
 ): RuntimeRegistrySnapshot {
   return {
     activeRuntimeId,
+    cloudResources: [],
     connection: {
       message: "",
       protocolVersion: 1,

@@ -362,46 +362,6 @@ func TestServiceSteerWorkflowNodeRunSteersWorkflowOwnedRun(t *testing.T) {
 	waitForScriptedHarnessIdle(t, harness)
 }
 
-func TestServiceReadWorkflowNodeTrajectoryIncludesPendingSteeringOutsideTranscript(t *testing.T) {
-	workflowService, _, harness, workspaceID := newCodexRunnerTestServices(t)
-	definition, err := workflowService.CreateDefinition(workspaceID, "Trajectory pending steering", "", codexActionGraph("workflow hold for draft event", true))
-	if err != nil {
-		t.Fatalf("create definition: %v", err)
-	}
-	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
-	if err != nil {
-		t.Fatalf("start execution: %v", err)
-	}
-	work := latestNodeExecutionForTest(t, started, "work")
-	page := waitForWorkflowNodeTrajectory(t, workflowService, workspaceID, started.ID, work.ID, func(page WorkflowAgentTrajectoryPage) bool {
-		return page.Capabilities.CanSteer
-	})
-
-	steered, err := workflowService.SteerWorkflowNodeRun(workspaceID, started.ID, work.ID, chat.TextChatInput("hold pending steering"))
-	if err != nil {
-		t.Fatalf("steer workflow node: %v", err)
-	}
-	page = waitForWorkflowNodeTrajectory(t, workflowService, workspaceID, started.ID, work.ID, func(page WorkflowAgentTrajectoryPage) bool {
-		return len(page.PendingSteeringMessages) == 1
-	})
-
-	pending := page.PendingSteeringMessages[0]
-	if pending.ID != steered.UserMessage.ID ||
-		pending.RunID != page.RunID ||
-		pending.Delivery != chat.MessageDeliverySteering ||
-		pending.Status != chat.MessageStatusPending {
-		t.Fatalf("trajectory pending steering = %+v, want pending message %+v for run %s", pending, steered.UserMessage, page.RunID)
-	}
-	if trajectoryBlocksContainMessage(page.Blocks, pending.ID) {
-		t.Fatalf("pending steering was committed into trajectory transcript blocks before provider commit: %+v", page.Blocks)
-	}
-
-	if _, err := workflowService.StopWorkflowNodeRun(workspaceID, started.ID, work.ID); err != nil {
-		t.Fatalf("stop workflow node after pending steering assertion: %v", err)
-	}
-	waitForScriptedHarnessIdle(t, harness)
-}
-
 func TestServiceSteerWorkflowNodeRunRejectsWrongActiveRun(t *testing.T) {
 	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
 	definition, err := workflowService.CreateDefinition(workspaceID, "Trajectory steer wrong run", "", codexActionGraph("workflow hold for queue and steering", true))
@@ -581,12 +541,6 @@ func assertTrajectoryScope(t *testing.T, page WorkflowAgentTrajectoryPage, execu
 		page.Scope.Iteration != nodeExecution.Iteration {
 		t.Fatalf("trajectory scope = %+v, want execution %+v node %+v", page.Scope, execution, nodeExecution)
 	}
-	if page.LastWorkflowEventOrdinal != execution.LastEventOrdinal {
-		t.Fatalf("trajectory workflow cursor = %d, want execution last ordinal %d", page.LastWorkflowEventOrdinal, execution.LastEventOrdinal)
-	}
-	if page.LastChatEventStreamID == "" || page.LastChatEventSequence <= 0 {
-		t.Fatalf("trajectory chat cursor = %s:%d, want populated cursor", page.LastChatEventStreamID, page.LastChatEventSequence)
-	}
 }
 
 func readCompletedTrajectoryForPrompt(t *testing.T, workflowService *Service, workspaceID string, prompt string) (WorkflowAgentTrajectoryPage, WorkflowExecution, WorkflowNodeExecution) {
@@ -763,15 +717,6 @@ func trajectoryOutputByID(outputs []chat.RunItemOutput, outputID string) (chat.R
 func trajectoryBlocksContainAssistantText(blocks []chat.TranscriptBlock, text string) bool {
 	for _, block := range blocks {
 		if block.AssistantText != nil && strings.Contains(block.AssistantText.Text, text) {
-			return true
-		}
-	}
-	return false
-}
-
-func trajectoryBlocksContainMessage(blocks []chat.TranscriptBlock, messageID string) bool {
-	for _, block := range blocks {
-		if block.UserMessage != nil && block.UserMessage.MessageID == messageID {
 			return true
 		}
 	}

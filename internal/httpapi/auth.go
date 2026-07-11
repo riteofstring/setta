@@ -17,7 +17,7 @@ func authenticatedDeviceSession(request *http.Request) (runtimeauth.DeviceSessio
 }
 
 func (handler handler) dispatch(route endpoint, response http.ResponseWriter, request *http.Request) {
-	if route.Unauthenticated {
+	if route.Unauthenticated || route.TicketAuthenticated {
 		route.Handler(handler, response, request)
 		return
 	}

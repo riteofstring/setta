@@ -9,7 +9,21 @@ import (
 	"strings"
 
 	"setta/internal/chat"
+	"setta/internal/terminal"
 )
+
+type contractUnion struct {
+	Discriminator string
+	Name          string
+	Type          reflect.Type
+	Variants      []contractUnionVariant
+}
+
+type contractUnionVariant struct {
+	KindValue string
+	Name      string
+	Type      reflect.Type
+}
 
 type contractSchemaHashInput struct {
 	Endpoints      []contractEndpointHashInput `json:"endpoints"`
@@ -17,13 +31,16 @@ type contractSchemaHashInput struct {
 }
 
 type contractEndpointHashInput struct {
-	Method      string                 `json:"method"`
-	Name        string                 `json:"name"`
-	Path        string                 `json:"path"`
-	Request     *contractTypeHashInput `json:"request,omitempty"`
-	Response    *contractTypeHashInput `json:"response,omitempty"`
-	StreamEvent *contractTypeHashInput `json:"streamEvent,omitempty"`
-	Streaming   bool                   `json:"streaming"`
+	Method              string                 `json:"method"`
+	Name                string                 `json:"name"`
+	Path                string                 `json:"path"`
+	Request             *contractTypeHashInput `json:"request,omitempty"`
+	Response            *contractTypeHashInput `json:"response,omitempty"`
+	StreamEvent         *contractTypeHashInput `json:"streamEvent,omitempty"`
+	Streaming           bool                   `json:"streaming"`
+	Duplex              bool                   `json:"duplex"`
+	DuplexClientMessage *contractTypeHashInput `json:"duplexClientMessage,omitempty"`
+	DuplexServerMessage *contractTypeHashInput `json:"duplexServerMessage,omitempty"`
 }
 
 type contractTypeHashInput struct {
@@ -96,14 +113,25 @@ func contractEndpointHashInputFor(endpoint ContractEndpoint) (contractEndpointHa
 	if err != nil {
 		return contractEndpointHashInput{}, fmt.Errorf("%s stream event: %w", endpoint.Name, err)
 	}
+	duplexClientMessage, err := optionalContractTypeHashInput(endpoint.DuplexClientMessage)
+	if err != nil {
+		return contractEndpointHashInput{}, fmt.Errorf("%s duplex client message: %w", endpoint.Name, err)
+	}
+	duplexServerMessage, err := optionalContractTypeHashInput(endpoint.DuplexServerMessage)
+	if err != nil {
+		return contractEndpointHashInput{}, fmt.Errorf("%s duplex server message: %w", endpoint.Name, err)
+	}
 	return contractEndpointHashInput{
-		Method:      endpoint.Method,
-		Name:        endpoint.Name,
-		Path:        endpoint.Path,
-		Request:     request,
-		Response:    response,
-		StreamEvent: streamEvent,
-		Streaming:   endpoint.Streaming,
+		Method:              endpoint.Method,
+		Name:                endpoint.Name,
+		Path:                endpoint.Path,
+		Request:             request,
+		Response:            response,
+		StreamEvent:         streamEvent,
+		Streaming:           endpoint.Streaming,
+		Duplex:              endpoint.Duplex,
+		DuplexClientMessage: duplexClientMessage,
+		DuplexServerMessage: duplexServerMessage,
 	}, nil
 }
 
@@ -222,13 +250,26 @@ func unionContractTypeHashInput(
 	}, nil
 }
 
-func contractUnionForType(goType reflect.Type) (chat.ContractUnion, bool) {
+func contractUnionForType(goType reflect.Type) (contractUnion, bool) {
 	for _, union := range chat.ContractUnions() {
 		if union.Type == goType {
-			return union, true
+			variants := make([]contractUnionVariant, 0, len(union.Variants))
+			for _, variant := range union.Variants {
+				variants = append(variants, contractUnionVariant(variant))
+			}
+			return contractUnion{Discriminator: union.Discriminator, Name: union.Name, Type: union.Type, Variants: variants}, true
 		}
 	}
-	return chat.ContractUnion{}, false
+	for _, union := range terminal.ContractUnions() {
+		if union.Type == goType {
+			variants := make([]contractUnionVariant, 0, len(union.Variants))
+			for _, variant := range union.Variants {
+				variants = append(variants, contractUnionVariant(variant))
+			}
+			return contractUnion{Discriminator: union.Discriminator, Name: union.Name, Type: union.Type, Variants: variants}, true
+		}
+	}
+	return contractUnion{}, false
 }
 
 func structContractTypeHashInput(

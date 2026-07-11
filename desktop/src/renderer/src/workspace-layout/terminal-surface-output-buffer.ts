@@ -3,6 +3,7 @@ const maxPendingOutputChunks = 640;
 export interface PendingTerminalOutput {
   byteCount: number;
   dataBase64: string;
+  event: TerminalEvent;
 }
 
 export class TerminalOutputBuffer {
@@ -43,3 +44,4 @@ export class TerminalOutputBuffer {
     this.droppedOutputChunks = 0;
   }
 }
+import type { TerminalEvent } from "@generated/backend";
