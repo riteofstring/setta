@@ -232,7 +232,7 @@ try {
   assertAcceptedSteeringFocusEvents(steeringEvents, completedRequest, steeredCurrentFocus);
   const steeredChatRecord = await context.client.driver("easyButtonPaneChatRecord");
   assertLosslessSteeringChatRecord(steeredChatRecord, completedRequest, completedSteering);
-  await exerciseTerminalSummaryReplay(context.client, provider, {
+  const completedReplay = await exerciseTerminalSummaryReplay(context.client, provider, {
     artifactDir,
     label: "completed",
     state: steeredTerminal,
@@ -251,6 +251,7 @@ try {
     "stale",
   );
   assertStaleCurrentFocus(staleFocus, narratorFailureRequest);
+  await assertUnmountedSummaryAudioReleased(context.client, completedReplay.expectedRevokedCount);
   await completeSpeechCapture(context.client, {
     draft: preservedDraft,
     finishLabel: "Finish voice steering",
@@ -488,6 +489,7 @@ async function exerciseConfiguredSpeechOutputControl(client, recordingRoot) {
 async function exerciseTerminalSummaryReplay(client, provider, { artifactDir, label, state }) {
   assertSummaryReplayAvailable(state, label);
   const snapshot = await readPersistedSummary(client, state, label);
+  const audioBefore = (await callBrowserFixture(client, "state")).audio;
   const synthesisCount = provider.synthesisInputs.length;
   await client.driver("easyButtonPaneClickSummaryReplay");
   const speaking = await waitForSummarySpeaking(client, snapshot.latestRun.id);
@@ -495,6 +497,22 @@ async function exerciseTerminalSummaryReplay(client, provider, { artifactDir, la
   await captureScreenshot(client, join(artifactDir, `speech-summary-${label}-speaking.png`));
   await callBrowserFixture(client, "finishAudio");
   await waitForSummaryPlaybackIdle(client);
+  const audioAfter = (await callBrowserFixture(client, "state")).audio;
+  if (audioAfter.createdObjectURLCount !== audioBefore.createdObjectURLCount + 1) {
+    throw new Error(`summary replay created unexpected Blob URLs: ${JSON.stringify(audioAfter)}`);
+  }
+  return { expectedRevokedCount: audioBefore.revokedObjectURLCount + 1 };
+}
+
+async function assertUnmountedSummaryAudioReleased(client, expectedRevokedCount) {
+  if (expectedRevokedCount < 1) {
+    throw new Error("summary replay did not create a mounted audio Blob");
+  }
+  await waitForCaptureState(
+    client,
+    (state) =>
+      state.audio.activeCount === 0 && state.audio.revokedObjectURLCount >= expectedRevokedCount,
+  );
 }
 
 function assertSummaryReplayAvailable(state, label) {

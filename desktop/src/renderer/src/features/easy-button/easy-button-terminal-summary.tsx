@@ -1,4 +1,5 @@
 import { RotateCcw } from "lucide-react";
+import { useEffect } from "react";
 
 import type { EasyRun } from "@generated/backend";
 
@@ -10,7 +11,7 @@ type SummaryPlaybackType = SpeechPlaybackState["type"];
 interface EasyButtonTerminalSummaryProps {
   latestRun: EasyRun | null;
   outputConfigured: boolean;
-  playback: Pick<EasyButtonSpeechPlayback, "replaySummary" | "state">;
+  playback: Pick<EasyButtonSpeechPlayback, "releaseSummary" | "replaySummary" | "state">;
   terminal: boolean;
   workspaceId: string | null;
 }
@@ -22,10 +23,11 @@ export function EasyButtonTerminalSummary({
   terminal,
   workspaceId,
 }: EasyButtonTerminalSummaryProps) {
+  const source = terminalSummarySource(latestRun, terminal, workspaceId);
+  useReleaseSummaryOnUnmount(playback.releaseSummary, source);
   if (!terminal || !latestRun?.summary) {
     return null;
   }
-  const source = workspaceId ? { easyRunId: latestRun.id, workspaceId } : null;
   const playbackType = terminalSummaryPlaybackType(playback.state, source);
   const replayDisabled = playbackType === "speaking" || playbackType === "synthesizing";
 
@@ -64,6 +66,31 @@ export function EasyButtonTerminalSummary({
       ) : null}
     </p>
   );
+}
+
+function terminalSummarySource(
+  latestRun: EasyRun | null,
+  terminal: boolean,
+  workspaceId: string | null,
+): SpeechSummarySource | null {
+  if (!terminal || !latestRun?.summary || !workspaceId) {
+    return null;
+  }
+  return { easyRunId: latestRun.id, workspaceId };
+}
+
+function useReleaseSummaryOnUnmount(
+  releaseSummary: EasyButtonSpeechPlayback["releaseSummary"],
+  source: SpeechSummarySource | null,
+): void {
+  const easyRunId = source?.easyRunId ?? null;
+  const workspaceId = source?.workspaceId ?? null;
+  useEffect(() => {
+    if (!easyRunId || !workspaceId) {
+      return;
+    }
+    return () => releaseSummary({ easyRunId, workspaceId });
+  }, [easyRunId, releaseSummary, workspaceId]);
 }
 
 export function terminalSummaryPlaybackType(

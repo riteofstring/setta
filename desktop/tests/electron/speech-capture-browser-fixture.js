@@ -4,6 +4,8 @@
   const providerURL = "https://api.openai.com/v1/realtime/calls";
   const originalFetch = globalThis.fetch.bind(globalThis);
   const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  const originalCreateObjectURL = URL.createObjectURL.bind(URL);
+  const originalRevokeObjectURL = URL.revokeObjectURL.bind(URL);
   const peers = [];
   const playbackAudios = [];
   const mediaRequests = [];
@@ -11,6 +13,8 @@
   const microphoneWaiters = [];
   let holdMicrophone = true;
   let eventOrdinal = 0;
+  let createdObjectURLCount = 0;
+  let revokedObjectURLCount = 0;
 
   class FixtureDataChannel {
     constructor(label) {
@@ -135,6 +139,14 @@
 
   globalThis.RTCPeerConnection = FixturePeerConnection;
   globalThis.Audio = FixturePlaybackAudio;
+  URL.createObjectURL = (blob) => {
+    createdObjectURLCount += 1;
+    return originalCreateObjectURL(blob);
+  };
+  URL.revokeObjectURL = (url) => {
+    revokedObjectURLCount += 1;
+    originalRevokeObjectURL(url);
+  };
   globalThis.fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (url !== providerURL) {
@@ -200,7 +212,9 @@
       audio: {
         activeCount: playbackAudios.filter((audio) => audio.playing).length,
         count: playbackAudios.length,
+        createdObjectURLCount,
         playCount: playbackAudios.reduce((total, audio) => total + audio.playCount, 0),
+        revokedObjectURLCount,
       },
       fixture: captureFixtureState(peer),
     };

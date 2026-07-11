@@ -3314,6 +3314,51 @@ when summary output is enabled, never stopped or hydrated terminal snapshots.
 Items 5-6 then prove hydration/cache behavior, recording preemption, and TTS
 failure isolation. No implementation blocker was found.
 
+### 2026-07-10 — Phase 4 terminal-summary replay audit complete
+
+Audited commit `1a0822809` against this plan, `AGENTS.md`, its parent, the clean
+starting worktree, generated and checked-in web artifacts, renderer/controller
+ownership, source-ID synthesis boundaries, tests, and the recorded completed,
+stopped, and failed speaking states. The slice correctly exposes replay for
+every terminal status while automatic output is off, resolves speech from the
+persisted workspace/run IDs, keeps the completed-only check mark independent,
+and marks only the exact speaking summary.
+
+The audit found one practical lifecycle gap introduced by mounting replay: the
+controller cached a synthesized summary Blob until another source was requested
+or the whole pane/runtime/workspace reset, so a new same-workspace run could
+unmount the old terminal summary without releasing its cached audio. The
+terminal-summary component now releases its exact persisted source on unmount;
+the controller aborts matching pending or active work, clears matching state,
+and revokes matching cached audio without leaving stale source state. Focused
+controller coverage proves the released source must synthesize again if later
+remounted, and the production Electron fixture measures the replay-specific
+Blob create/revoke delta when the next run replaces the completed summary.
+
+Audit verification completed:
+
+- all 1,106 desktop Vitest tests passed, including 30 focused summary,
+  playback-controller, and output-preference tests; focused lint, Electron/web
+  typechecks, both production builds, and the embedded-webapp Go test passed;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-summary-replay-audit-final-20260710`,
+  covering exact persisted replay for completed, stopped, and failed summaries
+  plus mounted-source Blob release on the next same-workspace run;
+- the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase4-summary-replay-audit-regression-20260710`;
+- with `OPENAI_API_KEY` removed, live Easy Button and all four supplemental
+  backend Codex probes passed. The general live Electron workflow first timed
+  out in an unrelated semantic-cartographer state after completing its chat
+  assertions, then passed on the prescribed narrow retry;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  checked-in PWA bundle was regenerated from the audited renderer source.
+
+No dependency, manifest, module, package-manager, toolchain, Go-owned contract,
+or generated TypeScript contract changed, so supply-chain verification remains
+unrequired. No live OpenAI speech result is claimed. The plan is not complete,
+and this audit does not start the next slice: Phase 4 item 4 remains next,
+followed by items 5-6 and Phase 5.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

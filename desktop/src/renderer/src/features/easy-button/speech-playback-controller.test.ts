@@ -77,6 +77,23 @@ describe("Easy Button speech playback controller", () => {
     expect(harness.currentState()).toEqual({ source, type: "speaking" });
   });
 
+  test("releases cached audio when its mounted summary source disappears", async () => {
+    const harness = createHarness();
+    const source = summarySource("run_unmounted");
+
+    harness.controller.replaySummary(source);
+    harness.resolveSynthesis(0, speechAudio("run_unmounted"));
+    await flushPromises();
+    harness.audios[0]?.emit("ended");
+
+    harness.controller.releaseSummary(source);
+    expect(harness.revokedURLs).toEqual(["blob:speech-1"]);
+    expect(harness.currentState()).toEqual({ type: "idle" });
+
+    harness.controller.replaySummary(source);
+    expect(harness.synthesisRequests).toHaveLength(2);
+  });
+
   test("stop aborts synthesis and rejects a stale response", async () => {
     const harness = createHarness();
     const source = summarySource("run_abort");

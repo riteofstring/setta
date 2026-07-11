@@ -87,6 +87,20 @@ export class SpeechPlaybackController {
     this.enqueue({ source: copySource(source), sourceKey });
   };
 
+  releaseSummary = (source: SpeechSummarySource): void => {
+    const sourceKey = summarySourceKey(source);
+    const stateMatches =
+      this.state.type !== "idle" && summarySourceKey(this.state.source) === sourceKey;
+    if (
+      stateMatches ||
+      this.activeItem?.sourceKey === sourceKey ||
+      this.cachedAudio?.sourceKey === sourceKey ||
+      this.queue.some((item) => item.sourceKey === sourceKey)
+    ) {
+      this.reset();
+    }
+  };
+
   stop = (): void => {
     if (!this.activeItem && this.queue.length === 0) {
       return;

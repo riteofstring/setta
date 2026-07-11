@@ -10,6 +10,7 @@ import { type SpeechOutputMode, useSpeechOutputMode } from "./speech-output-pref
 
 export interface EasyButtonSpeechPlayback {
   mode: SpeechOutputMode;
+  releaseSummary: (source: SpeechSummarySource) => void;
   replaySummary: (source: SpeechSummarySource) => void;
   setMode: (mode: SpeechOutputMode) => void;
   state: SpeechPlaybackState;
@@ -56,6 +57,7 @@ export function useSpeechPlayback(workspaceId: string | null): EasyButtonSpeechP
 
   return {
     mode,
+    releaseSummary: controller.releaseSummary,
     replaySummary: controller.replaySummary,
     setMode,
     state,
