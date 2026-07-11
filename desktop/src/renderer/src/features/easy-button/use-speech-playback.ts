@@ -12,6 +12,7 @@ import { type SpeechOutputMode, useSpeechOutputMode } from "./speech-output-pref
 
 export interface EasyButtonSpeechPlayback {
   mode: SpeechOutputMode;
+  preemptForRecording: () => void;
   releaseSummary: (source: SpeechSummarySource) => void;
   replaySummary: (source: SpeechSummarySource) => void;
   setMode: (mode: SpeechOutputMode) => void;
@@ -85,6 +86,7 @@ export function useSpeechPlayback(
 
   return {
     mode,
+    preemptForRecording: controller.reset,
     releaseSummary: controller.releaseSummary,
     replaySummary: controller.replaySummary,
     setMode,

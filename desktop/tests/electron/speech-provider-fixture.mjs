@@ -11,9 +11,16 @@ const wav = Buffer.from([
 export async function startSpeechProviderFixture() {
   const failures = [];
   const requests = [];
+  const synthesisControl = createSynthesisControl();
   const synthesisInputs = [];
   const server = createServer((request, response) => {
-    void handleProviderRequest({ request, requests, response, synthesisInputs }).catch((error) => {
+    void handleProviderRequest({
+      request,
+      requests,
+      response,
+      synthesisControl,
+      synthesisInputs,
+    }).catch((error) => {
       failures.push(error);
       response.writeHead(500, { "Content-Type": "text/plain" });
       response.end("speech provider fixture rejected the request");
@@ -41,14 +48,24 @@ export async function startSpeechProviderFixture() {
     clientSecret,
     close: () =>
       new Promise((resolvePromise, reject) => {
+        synthesisControl.releaseHeld();
         server.close((error) => (error ? reject(error) : resolvePromise()));
       }),
+    failNextSynthesis: synthesisControl.failNext,
+    holdNextSynthesis: synthesisControl.holdNext,
+    releaseHeldSynthesis: synthesisControl.releaseHeld,
     requests,
     synthesisInputs,
   };
 }
 
-async function handleProviderRequest({ request, requests, response, synthesisInputs }) {
+async function handleProviderRequest({
+  request,
+  requests,
+  response,
+  synthesisControl,
+  synthesisInputs,
+}) {
   if (request.method !== "POST") {
     throw new Error("speech provider fixture requires POST");
   }
@@ -62,7 +79,7 @@ async function handleProviderRequest({ request, requests, response, synthesisInp
       handleTranscriptionRequest(request, response, payload);
       return;
     case "/v1/audio/speech":
-      handleSynthesisRequest(request, response, payload, synthesisInputs);
+      handleSynthesisRequest(request, response, payload, synthesisControl, synthesisInputs);
       return;
     default:
       throw new Error(`speech provider fixture received an unexpected path: ${request.url}`);
@@ -104,7 +121,7 @@ function handleTranscriptionRequest(request, response, payload) {
   );
 }
 
-function handleSynthesisRequest(request, response, payload, synthesisInputs) {
+function handleSynthesisRequest(request, response, payload, synthesisControl, synthesisInputs) {
   if (request.headers["openai-safety-identifier"] !== undefined) {
     throw new Error("speech synthesis unexpectedly carried a safety identifier");
   }
@@ -118,8 +135,65 @@ function handleSynthesisRequest(request, response, payload, synthesisInputs) {
     throw new Error("speech provider fixture received an invalid synthesis request");
   }
   synthesisInputs.push(payload.input);
+  if (synthesisControl.consume(response)) {
+    return;
+  }
+  writeWAV(response);
+}
+
+function writeWAV(response) {
   response.writeHead(200, { "Content-Type": "audio/wav" });
   response.end(wav);
+}
+
+function createSynthesisControl() {
+  let behavior = "succeed";
+  let heldResponse = null;
+  let heldReady = null;
+  return {
+    consume(response) {
+      const selected = behavior;
+      behavior = "succeed";
+      if (selected === "fail") {
+        response.writeHead(500, { "Content-Type": "text/plain" });
+        response.end("fixture synthesis provider body must stay hidden");
+        return true;
+      }
+      if (selected === "hold") {
+        heldResponse = response;
+        heldReady?.();
+        heldReady = null;
+        return true;
+      }
+      return false;
+    },
+    failNext() {
+      requireSynthesisControlIdle(behavior, heldResponse);
+      behavior = "fail";
+    },
+    holdNext() {
+      requireSynthesisControlIdle(behavior, heldResponse);
+      behavior = "hold";
+      return new Promise((resolve) => {
+        heldReady = resolve;
+      });
+    },
+    releaseHeld() {
+      if (!heldResponse) {
+        return false;
+      }
+      const response = heldResponse;
+      heldResponse = null;
+      writeWAV(response);
+      return true;
+    },
+  };
+}
+
+function requireSynthesisControlIdle(behavior, heldResponse) {
+  if (behavior !== "succeed" || heldResponse) {
+    throw new Error("speech provider fixture already has controlled synthesis work");
+  }
 }
 
 async function readJSONBody(request) {

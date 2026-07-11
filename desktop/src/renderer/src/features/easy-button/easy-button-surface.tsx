@@ -240,6 +240,7 @@ function useEasyButtonController(): EasyButtonController {
     inputRef,
     latestRun,
     pendingAction,
+    playback,
     selectedWorkspaceId,
     viewState,
   });
@@ -522,6 +523,7 @@ interface ControlClickOptions {
   inputRef: RefObject<HTMLInputElement | null>;
   latestRun: EasyRun | null;
   pendingAction: boolean;
+  playback: Pick<EasyButtonSpeechPlayback, "preemptForRecording">;
   selectedWorkspaceId: string | null;
   viewState: EasyButtonViewState;
 }
@@ -531,6 +533,7 @@ function useEasyButtonControlClick({
   inputRef,
   latestRun,
   pendingAction,
+  playback,
   selectedWorkspaceId,
   viewState,
 }: ControlClickOptions) {
@@ -541,10 +544,11 @@ function useEasyButtonControlClick({
         inputRef,
         latestRun,
         pendingAction,
+        playback,
         selectedWorkspaceId,
         viewState,
       }),
-    [capture, inputRef, latestRun, pendingAction, selectedWorkspaceId, viewState],
+    [capture, inputRef, latestRun, pendingAction, playback, selectedWorkspaceId, viewState],
   );
 }
 
@@ -558,6 +562,7 @@ function handleEasyButtonControlClick(options: ControlClickOptions): void {
       options.capture.commit();
       return;
     case "start":
+      options.playback.preemptForRecording();
       options.capture.start(speechCaptureIntent(options.viewState, options.latestRun));
       return;
     case "focus_input":

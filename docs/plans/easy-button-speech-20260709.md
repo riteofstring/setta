@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-3 complete, Phase 4 in progress
+**Status:** Implementation in progress — Phases 1-4 complete, Phase 5 next
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -3537,6 +3537,63 @@ Audit verification completed:
 The plan remains incomplete. Phase 4 item 6 is next: prove recording preempts
 active summary synthesis and playback, and prove TTS failure leaves the Easy
 Run, narrator state, and persisted summary untouched. No blocker was found.
+
+### 2026-07-10 — Phase 4 recording preemption and TTS failure closure complete
+
+Completed Phase 4 item 6 and closed the terminal-summary TTS phase. Starting a
+real voice capture now resets the pane-scoped playback controller before the
+microphone request begins. That one boundary aborts the local synthesis
+lifecycle, rejects stale responses, pauses and rewinds active audio, clears
+queued work and automatic-source deduplication, revokes the mounted Blob URL,
+and returns playback to idle. The second tap still commits the recording; it
+does not reset playback or change the capture/run separation.
+
+The configured production Electron speech workflow now exercises both sides of
+that boundary. One restored terminal-summary replay is held in the speaking
+state, then a real center-control recording start proves audio is paused,
+rewound, released, and idle before microphone permission resolves. A second
+replay is held at the fake OpenAI TTS response boundary; recording start clears
+the synthesizing state, and the later valid WAV response cannot create a Blob
+or audio element. Both cases preserve the footer draft and leave the complete
+persisted Easy Run snapshot unchanged.
+
+The same workflow forces one exact-source TTS request to return a provider 500.
+The top-bar and terminal source show the typed playback failure while the full
+backend snapshot, terminal status/tone, narrator status, persisted summary,
+highlights, and artifacts remain unchanged. The renderer creates no audio, the
+raw provider body remains absent from recordings, and replay remains available.
+The fake provider gained one-shot hold/fail controls solely at its external
+OpenAI boundary; production renderer, preload, main, HTTP, speech service, Easy
+Run store, and event paths remain in use.
+
+Verification completed for this slice:
+
+- all 22 focused playback-controller and automatic-summary tests passed,
+  including active-audio reset, rewind, Blob revocation, stale synthesis, and
+  existing queue/cache behavior;
+- all 1,115 desktop Vitest tests, focused ESLint, Electron/web typechecks, and
+  both production builds passed; the checked-in PWA bundle was regenerated and
+  the embedded-webapp Go test passed;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-preemption-failure-20260710-r2`
+  with 12 transcription sessions, seven persisted-summary synthesis requests,
+  active playback preemption, in-flight synthesis preemption, forced TTS
+  failure isolation, and no recorded credential, client-secret, provider-body,
+  or audio payload leakage. The failure screenshot was inspected and remained
+  contained and readable;
+- the complete deterministic Easy Button workflow and pixel-match companion
+  passed at
+  `desktop/.recordings/easy-button-speech-phase4-preemption-failure-regression-20260710`;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  final source, tests, generated web bundle, and this plan update.
+
+No dependency, manifest, module, package-manager, toolchain, Go-owned contract,
+or generated TypeScript contract changed, so supply-chain verification is not
+required for this slice. No live OpenAI speech result is claimed; the dedicated
+opt-in provider workflow remains Phase 5 item 8. Phases 1-4 are complete. The
+next coherent work is Phase 5 item 1: enqueue only live typed narrator-highlight
+events in `highlights_and_final` mode while excluding chat messages, Current
+focus, hydration, and all other sources. No implementation blocker was found.
 
 ## Verification Plan
 

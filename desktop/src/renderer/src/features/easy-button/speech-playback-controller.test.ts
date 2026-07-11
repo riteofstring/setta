@@ -138,15 +138,21 @@ describe("Easy Button speech playback controller", () => {
     expect(harness.audios[1]?.url).toBe("blob:speech-1");
   });
 
-  test("reset aborts playback scope, revokes cached audio, and permits a new automatic intent", async () => {
+  test("reset preempts active playback, revokes cached audio, and permits a new automatic intent", async () => {
     const harness = createHarness();
     const source = summarySource("run_reset");
 
     harness.controller.enqueueAutomaticSummary(source);
     harness.resolveSynthesis(0, speechAudio("run_reset"));
     await flushPromises();
-    harness.audios[0]?.emit("ended");
+    const activeAudio = harness.audios[0];
+    if (!activeAudio) {
+      throw new Error("expected active test audio");
+    }
+    activeAudio.currentTime = 4;
     harness.controller.reset();
+    expect(activeAudio.pause).toHaveBeenCalledOnce();
+    expect(activeAudio.currentTime).toBe(0);
     expect(harness.revokedURLs).toEqual(["blob:speech-1"]);
     expect(harness.currentState()).toEqual({ type: "idle" });
 

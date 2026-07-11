@@ -393,14 +393,15 @@ try {
   });
   await assertRestoredTerminalSummarySilent(context.client, provider, failedTerminal);
   const failedReplayState = await selectSpeechOutputMode(context.client, "off");
-  await exerciseTerminalSummaryReplay(context.client, provider, {
+  await exerciseRecordingPreemptsSummaryPlayback(context.client, provider, failedReplayState);
+  await exerciseRecordingPreemptsSummarySynthesis(context.client, provider, failedReplayState);
+  await exerciseTerminalSynthesisFailure(context.client, provider, {
     artifactDir,
-    label: "failed",
     state: failedReplayState,
   });
 
   provider.assertHealthy();
-  assertProviderOperationCount(provider, { synthesis: 5, transcription: 12 });
+  assertProviderOperationCount(provider, { synthesis: 7, transcription: 12 });
   await stopElectronCdpContext(context);
   context = null;
   await assertNoRendererConsoleErrors(artifactDir);
@@ -418,7 +419,10 @@ try {
     automaticSpeechExcludedStatuses: ["stopped"],
     hydratedTerminalAutoPlaySuppressed: true,
     mountedAutomaticSummaryReplayReusedBlob: true,
+    recordingPreemptedSummaryPlayback: true,
+    recordingPreemptedSummarySynthesis: true,
     replayedTerminalStatuses: ["completed", "stopped", "failed"],
+    terminalSynthesisFailurePreservedRun: true,
     providerOperationCount: provider.requests.length,
     status: "passed",
   });
@@ -635,6 +639,143 @@ async function exerciseTerminalSummaryReplay(client, provider, { artifactDir, la
     throw new Error(`summary replay created unexpected Blob URLs: ${JSON.stringify(audioAfter)}`);
   }
   return { expectedRevokedCount: audioBefore.revokedObjectURLCount + 1 };
+}
+
+async function exerciseRecordingPreemptsSummaryPlayback(client, provider, state) {
+  const snapshot = await readPersistedSummary(client, state, "failed playback preemption");
+  const synthesisCount = provider.synthesisInputs.length;
+  const audioBefore = (await callBrowserFixture(client, "state")).audio;
+  await client.driver("easyButtonPaneClickSummaryReplay");
+  const speaking = await waitForSummarySpeaking(client, snapshot.latestRun.id);
+  assertPersistedSummarySpoken(speaking, provider, snapshot, synthesisCount, "failed");
+  const audioSpeaking = (await callBrowserFixture(client, "state")).audio;
+
+  await beginHeldPermissionCapture(client);
+  const preempted = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (next) =>
+      next.summaryPlayback === "idle" &&
+      next.speechOutputPlayback === "idle" &&
+      next.audioControlAriaLabel === "Voice output: Off",
+    workflowTimeoutMs,
+  );
+  const audioAfter = (await callBrowserFixture(client, "state")).audio;
+  if (
+    audioAfter.activeCount !== 0 ||
+    audioAfter.pauseCount !== audioSpeaking.pauseCount + 1 ||
+    audioAfter.revokedObjectURLCount !== audioSpeaking.revokedObjectURLCount + 1 ||
+    audioAfter.createdObjectURLCount !== audioBefore.createdObjectURLCount + 1
+  ) {
+    throw new Error(
+      `recording did not preempt summary playback: ${JSON.stringify({ audioAfter, audioBefore, audioSpeaking, preempted })}`,
+    );
+  }
+  await assertSnapshotUnchanged(client, state.workspaceId, snapshot, "playback preemption");
+  await cancelHeldPermissionCapture(client);
+}
+
+async function exerciseRecordingPreemptsSummarySynthesis(client, provider, state) {
+  const snapshot = await readPersistedSummary(client, state, "failed synthesis preemption");
+  const audioBefore = (await callBrowserFixture(client, "state")).audio;
+  const heldSynthesisReady = provider.holdNextSynthesis();
+  await client.driver("easyButtonPaneClickSummaryReplay");
+  await heldSynthesisReady;
+  await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (next) =>
+      next.summaryPlayback === "synthesizing" &&
+      next.speechOutputPlayback === "synthesizing" &&
+      next.audioControlAriaLabel === "Stop preparing voice",
+    workflowTimeoutMs,
+  );
+
+  await beginHeldPermissionCapture(client);
+  await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (next) => next.summaryPlayback === "idle" && next.speechOutputPlayback === "idle",
+    workflowTimeoutMs,
+  );
+  if (!provider.releaseHeldSynthesis()) {
+    throw new Error("recording preemption did not leave a held synthesis request");
+  }
+  await client.evaluate("new Promise((resolve) => setTimeout(resolve, 250))");
+  const audioAfter = (await callBrowserFixture(client, "state")).audio;
+  if (
+    audioAfter.activeCount !== 0 ||
+    audioAfter.count !== audioBefore.count ||
+    audioAfter.createdObjectURLCount !== audioBefore.createdObjectURLCount
+  ) {
+    throw new Error(
+      `stale synthesis created playback after recording began: ${JSON.stringify({ audioAfter, audioBefore })}`,
+    );
+  }
+  await assertSnapshotUnchanged(client, state.workspaceId, snapshot, "synthesis preemption");
+  await cancelHeldPermissionCapture(client);
+}
+
+async function exerciseTerminalSynthesisFailure(client, provider, { artifactDir, state }) {
+  const snapshot = await readPersistedSummary(client, state, "failed synthesis isolation");
+  const paneBefore = await client.driver("easyButtonPaneState");
+  const audioBefore = (await callBrowserFixture(client, "state")).audio;
+  provider.failNextSynthesis();
+  await client.driver("easyButtonPaneClickSummaryReplay");
+  const failed = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (next) =>
+      next.summaryPlayback === "failed" &&
+      next.speechOutputPlayback === "failed" &&
+      next.audioControlAriaLabel === "Voice playback failed: OpenAI speech is unavailable.",
+    workflowTimeoutMs,
+  );
+  const audioAfter = (await callBrowserFixture(client, "state")).audio;
+  if (
+    failed.latestRunId !== snapshot.latestRun.id ||
+    failed.summaryText !== snapshot.latestRun.summary ||
+    failed.statusTone !== paneBefore.statusTone ||
+    failed.narratorStatusText !== paneBefore.narratorStatusText ||
+    audioAfter.count !== audioBefore.count ||
+    audioAfter.createdObjectURLCount !== audioBefore.createdObjectURLCount
+  ) {
+    throw new Error(
+      `TTS failure changed the Easy Run presentation: ${JSON.stringify({ audioAfter, audioBefore, failed, paneBefore })}`,
+    );
+  }
+  await assertSnapshotUnchanged(client, state.workspaceId, snapshot, "TTS failure");
+  await captureScreenshot(client, join(artifactDir, "speech-summary-synthesis-failed.png"));
+}
+
+async function beginHeldPermissionCapture(client) {
+  await setFooterDraft(client, preservedDraft);
+  await callBrowserFixture(client, "holdMicrophone");
+  await clickEnabledButtonByAria(client, "Start voice request");
+  await waitForCaptureState(
+    client,
+    (state) => state.capture === "requesting-permission" && state.audio.activeCount === 0,
+  );
+}
+
+async function cancelHeldPermissionCapture(client) {
+  await dispatchKeyEvent(client, { code: "Escape", key: "Escape" });
+  await dispatchKeyEvent(client, { code: "Escape", key: "Escape", type: "keyUp" });
+  await waitForCaptureState(
+    client,
+    (state) => state.capture === "off" && state.inputValue === preservedDraft,
+  );
+  await callBrowserFixture(client, "allowMicrophone");
+  await waitForCaptureState(client, (state) => state.fixture.activeTrackCount === 0);
+}
+
+async function assertSnapshotUnchanged(client, workspaceId, expected, boundary) {
+  const actual = await client.evaluate(
+    `window.setta.easyRun.snapshot(${JSON.stringify(workspaceId)})`,
+  );
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${boundary} changed persisted Easy Run state`);
+  }
 }
 
 async function assertUnmountedSummaryAudioReleased(client, expectedRevokedCount) {
@@ -963,6 +1104,7 @@ async function assertNoSensitiveSpeechArtifacts(root, providerFixture) {
     ["Realtime client secret", providerFixture.clientSecret],
     ["generated audio base64", providerFixture.audioBase64],
     ["provider failure body", "fixture provider body must stay hidden"],
+    ["synthesis provider failure body", "fixture synthesis provider body must stay hidden"],
   ];
   for (const path of await textArtifactPaths(root)) {
     const content = await readFile(path, "utf8");

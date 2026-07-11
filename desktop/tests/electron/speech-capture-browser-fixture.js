@@ -213,6 +213,7 @@
         activeCount: playbackAudios.filter((audio) => audio.playing).length,
         count: playbackAudios.length,
         createdObjectURLCount,
+        pauseCount: playbackAudios.reduce((total, audio) => total + audio.pauseCount, 0),
         playCount: playbackAudios.reduce((total, audio) => total + audio.playCount, 0),
         revokedObjectURLCount,
       },
