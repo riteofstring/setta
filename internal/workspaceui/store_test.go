@@ -113,6 +113,72 @@ func TestStoreAllowsDefaultTerminalProfile(t *testing.T) {
 	}
 }
 
+func TestStorePersistsEasyButtonPaneConfig(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindEasyButton
+	layout.Panes[0].EasyButtonConfig = &EasyButtonPaneConfig{ConversationID: "conversation-1"}
+
+	if _, err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout with easy button config: %v", err)
+	}
+	loaded, err := store.LoadLayout(layout.WorkspaceID)
+	if err != nil {
+		t.Fatalf("load layout: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.Panes[0].EasyButtonConfig == nil {
+		t.Fatalf("loaded easy button config = %+v", loaded.Layout)
+	}
+	if loaded.Layout.Panes[0].EasyButtonConfig.ConversationID != "conversation-1" {
+		t.Fatalf("loaded conversation id = %q, want conversation-1", loaded.Layout.Panes[0].EasyButtonConfig.ConversationID)
+	}
+}
+
+func TestStoreRejectsInvalidEasyButtonPaneConfig(t *testing.T) {
+	tests := []struct {
+		name           string
+		surfaceKind    SurfaceKind
+		conversationID string
+		want           string
+	}{
+		{
+			name:           "missing conversation",
+			surfaceKind:    SurfaceKindEasyButton,
+			conversationID: "",
+			want:           "conversationId is required",
+		},
+		{
+			name:           "surrounding whitespace",
+			surfaceKind:    SurfaceKindEasyButton,
+			conversationID: " conversation-1",
+			want:           "must not have surrounding whitespace",
+		},
+		{
+			name:           "wrong surface",
+			surfaceKind:    SurfaceKindChatDOM,
+			conversationID: "conversation-1",
+			want:           "only valid for easy-button panes",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store := newTestStore(t, t.TempDir())
+			layout := testLayout("workspace_api")
+			layout.Panes[0].SurfaceKind = test.surfaceKind
+			layout.Panes[0].EasyButtonConfig = &EasyButtonPaneConfig{ConversationID: test.conversationID}
+
+			_, err := store.SaveLayout(layout)
+			if err == nil {
+				t.Fatal("save succeeded, want invalid easy button config error")
+			}
+			if !IsCorruptStateError(err) || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %T %v, want corrupt state containing %q", err, err, test.want)
+			}
+		})
+	}
+}
+
 func TestStorePersistsWorkflowNodeDetailsPaneConfig(t *testing.T) {
 	store := newTestStore(t, t.TempDir())
 	layout := testLayout("workspace_api")

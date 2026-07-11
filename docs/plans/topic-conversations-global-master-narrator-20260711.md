@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-2 are complete
+**Status:** In progress; Phases 0-2 and Phase 3 item 1 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1598,6 +1598,8 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
+**Progress:** Item 1 is complete. Item 2 is next.
+
 Implement:
 
 1. Add `EasyButtonPaneConfig{conversationId}` to Go-owned workspace UI
@@ -2274,3 +2276,32 @@ Implementation is in progress under this plan.
   while retaining current user input and commentary; Phase 7 therefore owns
   the typed normalized `SideInFlightContextFrame` correction now specified in
   the plan. There is no external blocker to Phase 3.
+- 2026-07-11: Completed Phase 3 item 1. `internal/workspaceui` now owns
+  `EasyButtonPaneConfig{conversationId}`, and `WorkspaceUIPane` carries its
+  typed nullable envelope rather than an untyped metadata bag. Supplied
+  bindings are valid only on Easy Button panes and require an exact nonblank
+  conversation id. The renderer imports the generated config, preserves it
+  through pane open/configure and layout save/reload, and clears it when a pane
+  changes to another surface kind. Backend protocol version 15, the contract
+  schema snapshot, and `desktop/src/generated/backend.ts` were regenerated
+  from the Go-owned endpoint graph; reproducible regeneration produced no
+  further diff.
+- 2026-07-11: Focused verification passed the race-enabled workspace UI store
+  suite, the race-enabled workspace layout HTTP tests, the complete non-race
+  HTTP and contract-generator suites, 59 focused renderer layout tests,
+  desktop typecheck/build, and the deterministic production Electron Easy
+  Button workflow including close, reopen, and reload. This contract slice
+  does not invent a conversation id for the legacy Easy Run toolbar path;
+  production conversation-keyed state and creation/binding remain Phase 3
+  items 2-6. Item 2, the normalized conversation-keyed renderer state, is next
+  with no external blocker.
+- 2026-07-11: The additionally run `./check_quality.sh --all` passed repository
+  formatting/static analysis, every changed owner, all 1,143 Vitest tests, and
+  the production build, but it was not clean. The obsolete `internal/chat`
+  protocol-coverage test nondeterministically inspected its sink before all
+  notification callbacks completed: a single focused run and ten race-enabled
+  repetitions passed, while 100 non-race repetitions reproduced different
+  missing tail notifications. The required Electron manifest later reached
+  the previously recorded `codex-protocol-notifications` timeout. Neither
+  failure enters the workspace UI contract or renderer layout paths changed by
+  this slice; the dedicated production Easy Button workflow is clean.

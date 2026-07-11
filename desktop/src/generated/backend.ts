@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 14;
-export const backendContractSchemaHash = "sha256:0138b61b955b7f3e0a9a6f32f4826339ef9bb63b31383d061b13cefa3f58b014";
+export const backendProtocolVersion = 15;
+export const backendContractSchemaHash = "sha256:11611eb437747588f0fb906ee81f99544d13d647fe2e471676f9c54652c2eb1b";
 
 export type DeviceScope = "full";
 
@@ -3879,6 +3879,10 @@ export interface WorkspaceUIColumn {
   widthSpec: ColumnWidthSpec;
 }
 
+export interface EasyButtonPaneConfig {
+  conversationId: string;
+}
+
 export interface TerminalPaneConfig {
   profileId: string;
   cwdOverride: string;
@@ -3928,6 +3932,7 @@ export interface WorkflowNodeDetailsPaneConfig {
 
 export interface WorkspaceUIPane {
   columnId: string;
+  easyButtonConfig: EasyButtonPaneConfig | null;
   heat: number;
   paneId: string;
   sequence: number;
@@ -9517,6 +9522,14 @@ export function decodeWorkspaceUIColumn(value: unknown): WorkspaceUIColumn {
   };
 }
 
+export function decodeEasyButtonPaneConfig(value: unknown): EasyButtonPaneConfig {
+  const record = assertRecord(value, "EasyButtonPaneConfig");
+  assertKnownFields(record, "EasyButtonPaneConfig", ["conversationId"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "EasyButtonPaneConfig"), "EasyButtonPaneConfig.conversationId"),
+  };
+}
+
 export function decodeTerminalPaneConfig(value: unknown): TerminalPaneConfig {
   const record = assertRecord(value, "TerminalPaneConfig");
   assertKnownFields(record, "TerminalPaneConfig", ["profileId", "cwdOverride", "titleOverride"]);
@@ -9582,9 +9595,10 @@ export function decodeWorkflowNodeDetailsPaneConfig(value: unknown): WorkflowNod
 
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
-  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight", "workflowNodeDetailsConfig"]);
+  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "easyButtonConfig", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight", "workflowNodeDetailsConfig"]);
   return {
     columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
+    easyButtonConfig: decodeNullable(requireField(record, "easyButtonConfig", "WorkspaceUIPane"), "WorkspaceUIPane.easyButtonConfig", (item) => decodeEasyButtonPaneConfig(item)),
     heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
     paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPane"), "WorkspaceUIPane.paneId"),
     sequence: decodeInteger(requireField(record, "sequence", "WorkspaceUIPane"), "WorkspaceUIPane.sequence"),
