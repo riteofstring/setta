@@ -170,6 +170,7 @@
     const summary = host.querySelector('[data-testid="easy-button-summary"]');
     const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
     const narratorStatus = host.querySelector(".easy-button-narrator-status");
+    const voiceStatus = host.querySelector(".easy-button-voice-status");
     const stopButton = host.querySelector('[data-testid="easy-button-stop-button"]');
     const center = host.querySelector(".easy-button-center");
     const caption = host.querySelector(".easy-button-caption-slot");
@@ -222,6 +223,7 @@
         failed: resolveTokenColor(surface, "--destructive"),
         resting: resolveTokenColor(surface, "--easy-button-faint"),
       },
+      voiceStatusText: elementText(voiceStatus),
     };
   }
 

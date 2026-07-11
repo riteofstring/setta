@@ -51,6 +51,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "speech-pwa-secure-context-workflow.test.mjs",
+    name: "speech-pwa-secure-context",
+    tiers: ["required"],
+  },
+  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
     tiers: ["required"],

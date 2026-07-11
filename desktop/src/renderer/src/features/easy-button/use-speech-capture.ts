@@ -93,7 +93,7 @@ export function useSpeechCapture({
     void window.setta.speech.readCapabilities().then(
       (capabilities) => {
         if (current) {
-          setCapabilitiesState(availabilityForCapabilities(capabilities));
+          setCapabilitiesState(speechAvailabilityForCapabilities(capabilities));
         }
       },
       () => {
@@ -146,16 +146,18 @@ export function sameCaptureContext(
   );
 }
 
-function availabilityForCapabilities(capabilities: SpeechCapabilities): SpeechCaptureAvailability {
+export function speechAvailabilityForCapabilities(
+  capabilities: SpeechCapabilities,
+  support = browserSpeechCaptureSupport(),
+): SpeechCaptureAvailability {
+  if (!support.supported) {
+    return { ...support, type: "unsupported" };
+  }
   if (capabilities.providerStatus === "not_configured") {
     return {
       message: "Voice needs OPENAI_API_KEY on the runtime. Typed requests still work.",
       type: "not_configured",
     };
-  }
-  const support = browserSpeechCaptureSupport();
-  if (!support.supported) {
-    return { ...support, type: "unsupported" };
   }
   return { capabilities, type: "configured" };
 }

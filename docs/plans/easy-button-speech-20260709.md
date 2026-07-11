@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-7 complete
+**Status:** Implementation in progress — Phases 1-2, Phase 3 items 1-7, and the item-8 remote/PWA boundary complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2983,6 +2983,67 @@ Audit verification completed:
 Phase 3 items 1-7 remain complete. This audit did not start Phase 3 item 8; the
 next iteration remains remote-runtime/PWA secure-context coverage plus the
 narrow opt-in live OpenAI speech acceptance workflow.
+
+### 2026-07-10 — Phase 3 remote/PWA secure-context boundary complete
+
+Completed the remote-runtime/PWA half of Phase 3 item 8. Speech availability
+now evaluates the browser security boundary before runtime configuration, so a
+remote plain-HTTP page always gives the specific HTTPS-or-localhost explanation
+instead of potentially directing the user to configure `OPENAI_API_KEY` for an
+origin that cannot capture audio. Secure Electron and localhost behavior is
+unchanged, and typed Easy Button operation remains available in the unsupported
+remote page.
+
+A new required production PWA workflow starts a real configured `setta serve`
+runtime with temporary app data, opens a disposable workspace, and seeds its
+normal server-owned Easy Button layout through authenticated production
+endpoints. It renders the checked-in web bundle in the pinned Electron Chromium
+as an Android browser on two mapped remote hostnames. Plain HTTP proves
+`isSecureContext = false`, no microphone or service-worker capability, the
+Sparkles fallback, the exact secure-connection explanation, footer focus, and
+zero OpenAI operations. An isolated HTTP/2 TLS proxy then proves the HTTPS page
+is a secure context, registers the production service worker, exposes the real
+microphone affordance, and completes a spoken request through the web adapter,
+generated authenticated client, HTTP speech service, Easy Run/chat/store/event
+paths, and scripted working provider. Only browser media/Realtime and OpenAI
+remain deterministic fixtures; the completed transcript is persisted exactly
+through the existing Easy Run path.
+
+The browser fixture accepts its checked-in self-signed certificate only for the
+synthetic secure test hostname. Browser profiles live in disposable OS temp
+directories rather than recording artifacts and are deleted during teardown.
+The retained workflow artifacts exclude browser cache/storage and reject the
+permanent key, Realtime client secret, and WAV base64. The fake OpenAI server
+received exactly one validated transcription-session request and no request
+from the plain-HTTP page.
+
+Verification completed for this slice:
+
+- the focused secure-context precedence test passed, followed by all 1,075
+  desktop Vitest tests, Electron/web typechecks, both production builds, and
+  the embedded-webapp Go test; the checked-in PWA bundle was regenerated from
+  the availability change;
+- the new required PWA workflow passed at
+  `desktop/.recordings/easy-button-speech-phase3-pwa-secure-context-20260710`.
+  Its plain-HTTP and HTTPS Android screenshots were inspected and remained
+  readable and contained;
+- the configured Electron speech-capture regression passed at
+  `desktop/.recordings/easy-button-speech-phase3-pwa-secure-context-electron-regression-20260710`,
+  and the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase3-pwa-secure-context-regression-20260710`;
+- ChatGPT authentication was available. With `OPENAI_API_KEY` explicitly
+  removed, `live-codex-electron`, `easy-button-live`, and all four supplemental
+  live backend Codex probes passed;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  final source, workflow, regenerated PWA bundle, and plan update.
+
+No dependency, manifest, module, package-manager, toolchain, or Go-owned
+contract changed. Phase 3 item 8 remains partially incomplete: the next ordered
+slice is the narrow opt-in live OpenAI speech workflow using a short consented
+checked-in audio fixture, deterministic transcript word-error-rate scoring, and
+real TTS WAV/playback validation. `OPENAI_API_KEY` was absent from this process,
+so no live `gpt-realtime-whisper` or `gpt-4o-mini-tts` result is claimed, and the
+passing fake-provider workflow is not treated as provider proof.
 
 ## Verification Plan
 
