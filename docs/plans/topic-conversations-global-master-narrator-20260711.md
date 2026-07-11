@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-2 and Phase 3 item 1 are complete
+**Status:** In progress; Phases 0-2 and Phase 3 items 1-2 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1598,7 +1598,7 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Progress:** Item 1 is complete. Item 2 is next.
+**Progress:** Items 1-2 are complete. Item 3 is next.
 
 Implement:
 
@@ -2305,3 +2305,40 @@ Implementation is in progress under this plan.
   the previously recorded `codex-protocol-notifications` timeout. Neither
   failure enters the workspace UI contract or renderer layout paths changed by
   this slice; the dedicated production Easy Button workflow is clean.
+- 2026-07-11: Completed Phase 3 item 2. The renderer now has one normalized
+  Zustand `Map<conversationId, ConversationProjection>` whose entries own a
+  bounded generated snapshot plus independent load, error, cursor, and typed
+  resynchronization state. Snapshot hydration rejects cross-workspace or
+  cross-conversation ownership and cannot regress a projection after newer
+  live events. Event application is immutable and batched: an interleaved
+  event batch produces one store commit, replaces only affected conversation
+  projections, and preserves referential identity for every unrelated topic
+  selector.
+- 2026-07-11: The generated thirteen-variant conversation event union is
+  applied through an exhaustive `satisfies` mapping. Duplicate envelopes are
+  ignored without notifying subscribers; pre-hydration events, schema or
+  stream changes, sequence gaps, and server-requested resyncs retain an
+  explicit minimum snapshot cursor, so an older reload cannot silently clear
+  stale state. Focused coverage exercises every payload branch, two
+  interleaved conversations, batching/reference stability, cursor recovery,
+  stale snapshot races, cleanup, and ownership rejection. The focused desktop
+  quality gate passed formatting, lint/complexity, typecheck, all 1,154 Vitest
+  tests, production build, and dead-code analysis after removing three unused
+  type exports. The deterministic production Electron Easy Button workflow
+  also passed and recorded under `.recordings/easy-button-pane/`.
+- 2026-07-11: The currently mounted legacy Easy Button continues to read only
+  `useEasyRunStore` until Phase 3 item 3 switches the surface to its typed pane
+  `conversationId`; no mirror, adapter, or dual read/write was added between
+  the stores. Generated inputs and outputs changed: none. Phase 3 item 3, making
+  `EasyButtonSurface` a pure projection of its bound conversation, is next with
+  no external blocker.
+- 2026-07-11: ChatGPT authentication was available without `OPENAI_API_KEY`.
+  The live Codex Electron regression completed its real goal, ordinary-message,
+  and image turns, then did not pass the unrelated legacy semantic-cartographer
+  smoke: it timed out waiting for a workflow-generated graph update. Evidence
+  is under `test-results/electron-integration/chat-workflows/live-codex/`. The
+  new conversation store is not imported by the production surface until item
+  3, and the failing semantic path does not enter the changed files; this live
+  result is therefore recorded as a regression failure, not treated as proof
+  of conversation-store provider integration or expanded into obsolete-path
+  repair in this slice.
