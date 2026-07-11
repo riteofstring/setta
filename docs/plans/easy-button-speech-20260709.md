@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-2 complete
+**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-3 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2412,6 +2412,15 @@ Verification completed for this slice:
 - `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
   source, tests, and this plan entry were final.
 
+ChatGPT authentication was available, so the live Codex safety gates were run
+with `OPENAI_API_KEY` removed. The focused live Easy Button workflow and all
+four supplemental backend live Codex probes passed. The broader live Electron
+chat workflow reached the real provider but timed out waiting for an unrelated
+semantic-cartographer state after its underlying live run had completed; that
+aggregate result is not claimed as passing coverage for this slice. The failure
+does not enter the new, currently unmounted Realtime transport and does not
+block Phase 3 item 3.
+
 The focused transport uses an injected browser boundary because no microphone
 or capture state is mounted in production until ordered Phase 3 items 3-4. The
 production Electron workflows above are therefore regression and existing
@@ -2422,6 +2431,65 @@ contract, dependency, manifest, module, package-manager, or supply-chain input
 changed. Phase 3 item 3 is next: add the trusted-main-renderer Electron audio
 permission request/check boundary while denying video, workspace browser views,
 external origins, and unknown webContents. No implementation blocker was found.
+
+### 2026-07-10 — Phase 3 Electron microphone permission boundary complete
+
+Implemented Phase 3 item 3 without pulling the capture controller, microphone
+glyph, listening state, or transcript submission forward. Every production
+Electron main window now installs both session permission handlers before its
+renderer loads. Media checks and requests grant only audio capture from the
+exact configured Setta renderer document, its main frame, and that window's
+exact `webContents`. Video, audio-plus-video, unknown media, non-media
+permissions, subframes, workspace browser views, external documents and
+origins, malformed origins, and unknown `webContents` fail closed.
+
+The policy handles the production file renderer's opaque origin only in
+combination with exact document and `webContents` identity; development HTTP or
+HTTPS renderers require their exact configured origin and document. No fake
+media switch, OS-permission bypass, or automatic system grant was added, so
+Chromium's approved request still reaches the platform's normal microphone
+consent boundary. The repository does not yet have packaging configuration;
+the planned `NSMicrophoneUsageDescription` remains required when that
+configuration is introduced or updated rather than creating an unrelated
+packaging system in this slice.
+
+Verification completed for this slice:
+
+- 10 focused main-process Vitest cases cover both installed handler paths, the
+  trusted HTTP and file renderer cases, and every denied caller/media/origin
+  category above;
+- all 1,040 desktop Vitest tests, TypeScript typecheck, and the production
+  Electron build passed;
+- the authenticated production speech API workflow passed at
+  `.recordings/easy-button-speech-phase3-microphone-permissions-api-20260710`,
+  and the complete production Easy Button regression passed at
+  `.recordings/easy-button-speech-phase3-microphone-permissions-regression-20260710`,
+  including the existing start, streaming, exact steering, Current focus,
+  terminal, stop, persistence/reload, compact/reduced-motion, and pixel-match
+  paths;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  source, tests, and this plan entry were final.
+
+ChatGPT authentication was available, so the live Codex safety gates were run
+with `OPENAI_API_KEY` removed. The focused live Easy Button workflow and all
+four supplemental backend live probes passed. The broader live Electron chat
+workflow again reached the real provider, but its semantic-cartographer check
+timed out after a generated patch used a colon-bearing chat event ID where that
+separate schema accepts only letters, numbers, underscores, or hyphens. This is
+not passing aggregate coverage, does not enter the microphone boundary, and
+does not block the capture-state implementation.
+
+No live OpenAI speech result is claimed because microphone capture remains
+unmounted until Phase 3 item 4. No Go-owned contract, generated artifact,
+checked-in PWA source, dependency, manifest, module, package-manager,
+packaging, or supply-chain input changed, so contract regeneration, the web
+build, and supply-chain verification were not required. Phase 3 item 4 is next:
+mount the exhaustive capture state machine and transport, preserve the footer
+draft, add the separate bounded live capture line and inward listening visuals,
+and implement commit, cancellation, teardown, duration limits, and typed error
+recovery. Items 5-8 then connect successful completion to the existing
+start/steer path and finish deterministic Electron and secure-context/PWA
+coverage. No implementation blocker was found for item 4.
 
 ## Verification Plan
 
