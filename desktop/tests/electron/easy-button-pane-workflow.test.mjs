@@ -97,7 +97,9 @@ try {
     "easy run phase2 complete workflow",
     "Done in",
   );
-  assertTerminalVisual(completed, "easy run phase2 complete workflow", "Done in");
+  assertTerminalVisual(completed, "easy run phase2 complete workflow", "Done in", {
+    expectedNarration: "The Easy Button run finished.",
+  });
   await captureScreenshot(context.client, join(artifactDir, "easy-button-complete.png"));
 
   await reloadPage(context.client);
@@ -108,7 +110,9 @@ try {
     "easy run phase2 complete workflow",
     "Done in",
   );
-  assertTerminalVisual(restoredTerminal, "easy run phase2 complete workflow", "Done in");
+  assertTerminalVisual(restoredTerminal, "easy run phase2 complete workflow", "Done in", {
+    expectedNarration: "The Easy Button run finished.",
+  });
   await captureScreenshot(context.client, join(artifactDir, "easy-button-restored-terminal.png"));
   const focusedAfterCenterClick = await focusEasyButtonInputFromCenter(context.client);
   if (!focusedAfterCenterClick.inputFocused) {
@@ -123,7 +127,9 @@ try {
     "easy run phase2 second workflow",
     "Done in",
   );
-  assertTerminalVisual(secondCompleted, "easy run phase2 second workflow", "Done in");
+  assertTerminalVisual(secondCompleted, "easy run phase2 second workflow", "Done in", {
+    expectedNarration: "The Easy Button run finished.",
+  });
   await captureScreenshot(context.client, join(artifactDir, "easy-button-second-complete.png"));
 
   await submitEasyButtonRequest(context.client, "easy run phase2 steering workflow");
@@ -138,7 +144,9 @@ try {
     "easy run phase2 steering workflow",
     "Done in",
   );
-  assertTerminalVisual(steeredTerminal, "easy run phase2 steering workflow", "Done in");
+  assertTerminalVisual(steeredTerminal, "easy run phase2 steering workflow", "Done in", {
+    expectedNarration: "The Easy Button run finished.",
+  });
   await captureScreenshot(context.client, join(artifactDir, "easy-button-steered-complete.png"));
 
   await submitEasyButtonRequest(context.client, "easy run phase3 artifacts workflow");
@@ -173,7 +181,9 @@ try {
     "cancel active workflow",
     "Stopped after",
   );
-  assertTerminalVisual(stopped, "cancel active workflow", "Stopped after");
+  assertTerminalVisual(stopped, "cancel active workflow", "Stopped after", {
+    expectedNarration: "The run was stopped before finishing.",
+  });
 
   await forceEasyButtonFrozenAttribute(context.client);
   const frozen = await waitForEasyButtonFrozen(context.client);
@@ -453,7 +463,7 @@ function assertWorkingVisual(state, requestText) {
   );
 }
 
-function assertTerminalVisual(state, requestText, summaryPrefix) {
+function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
   assertStateFields(
     state,
     {
@@ -467,7 +477,8 @@ function assertTerminalVisual(state, requestText, summaryPrefix) {
     },
     "easy-button terminal visual did not match Phase 2d",
   );
-  if (!state.summaryText.startsWith(summaryPrefix) || !state.summaryText.includes("no artifacts")) {
+  assertNarratorHealth(state, options.expectedNarration ?? null);
+  if (!state.summaryText.includes(summaryFact) || !state.summaryText.includes("no artifacts")) {
     throw new Error(
       `easy-button terminal summary did not match Phase 2d: ${JSON.stringify(state)}`,
     );
@@ -487,7 +498,8 @@ function assertArtifactTerminalVisual(state, requestText) {
     },
     "easy-button artifact terminal visual did not match Phase 3",
   );
-  if (!state.summaryText.startsWith("Done in") || !state.summaryText.includes("2 artifacts")) {
+  assertNarratorHealth(state, "The Easy Button run finished.");
+  if (!state.summaryText.includes("Done in") || !state.summaryText.includes("2 artifacts")) {
     throw new Error(`easy-button artifact summary did not include count: ${JSON.stringify(state)}`);
   }
   const titles = state.artifacts.map((artifact) => artifact.title);
@@ -527,6 +539,7 @@ function assertNarratorTerminalVisual(state, requestText) {
   ) {
     throw new Error(`easy-button narrator summary did not render: ${JSON.stringify(state)}`);
   }
+  assertNarratorHealth(state, null);
   const highlightTexts = state.highlights.map((highlight) => highlight.text);
   if (
     state.highlights.length !== 2 ||
@@ -549,11 +562,22 @@ function assertStateFields(state, expected, message) {
 }
 
 function assertRestartRecoveredVisual(state) {
-  assertTerminalVisual(state, restartRecoveryPrompt, "Failed after");
+  assertTerminalVisual(state, restartRecoveryPrompt, "Failed after", {
+    expectedNarration: null,
+  });
   if (!state.summaryText.includes(restartRecoveryError)) {
     throw new Error(
       `easy-button restart recovery summary omitted reason: ${JSON.stringify(state)}`,
     );
+  }
+}
+
+function assertNarratorHealth(state, expectedNarration) {
+  if (state.narratorStatusText !== "") {
+    throw new Error(`easy-button narrator unexpectedly degraded: ${JSON.stringify(state)}`);
+  }
+  if (expectedNarration && !state.summaryText.includes(expectedNarration)) {
+    throw new Error(`easy-button narrator summary was missing: ${JSON.stringify(state)}`);
   }
 }
 
@@ -597,7 +621,7 @@ async function waitForEasyButtonTerminal(client, requestText, summaryPrefix) {
       state.surfaceKind === "easy-button" &&
       state.easyState === "complete" &&
       state.requestText === requestText &&
-      state.summaryText.startsWith(summaryPrefix),
+      state.summaryText.includes(summaryPrefix),
     workflowTimeoutMs,
   );
 }
@@ -611,7 +635,7 @@ async function waitForEasyButtonTerminalWithArtifacts(client, requestText, artif
       state.surfaceKind === "easy-button" &&
       state.easyState === "complete" &&
       state.requestText === requestText &&
-      state.summaryText.startsWith("Done in") &&
+      state.summaryText.includes("Done in") &&
       state.artifacts.length === artifactCount,
     workflowTimeoutMs,
   );

@@ -83,8 +83,8 @@ func TestScriptedHarnessAcceptsEasyRunNarratorStructuredSurface(t *testing.T) {
 	if err := json.Unmarshal(result.StructuredOutput, &envelope); err != nil {
 		t.Fatalf("decode scripted narrator envelope: %v", err)
 	}
-	if envelope.Highlights == nil || envelope.Summary != "" {
-		t.Fatalf("scripted narrator envelope = %s, want empty highlights and summary", result.StructuredOutput)
+	if envelope.Highlights == nil || envelope.Summary != "The Easy Button run finished." {
+		t.Fatalf("scripted narrator envelope = %s, want empty highlights and default summary", result.StructuredOutput)
 	}
 	if result.Audit.RequestID != "scripted-easy-run-narrator-request" || result.Audit.ResponseID != "scripted-easy-run-narrator-response" {
 		t.Fatalf("scripted narrator audit = %+v, want deterministic request/response ids", result.Audit)

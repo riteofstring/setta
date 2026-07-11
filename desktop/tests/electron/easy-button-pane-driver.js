@@ -102,6 +102,7 @@
     const requestText = host.querySelector('[data-testid="easy-button-request-text"]');
     const summary = host.querySelector('[data-testid="easy-button-summary"]');
     const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
+    const narratorStatus = host.querySelector(".easy-button-narrator-status");
     const stopButton = host.querySelector('[data-testid="easy-button-stop-button"]');
     const buttonRect = elementRectOrZero(button);
     return {
@@ -114,6 +115,7 @@
       inputFocused: input instanceof HTMLInputElement && document.activeElement === input,
       inputDisabled: inputDisabled(input),
       inputValue: inputValue(input),
+      narratorStatusText: elementText(narratorStatus),
       requestText: elementText(requestText),
       stopButtonAriaLabel: buttonAriaLabel(stopButton),
       stopButtonDisabled: buttonDisabled(stopButton),

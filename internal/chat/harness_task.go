@@ -99,9 +99,16 @@ func runScriptedEasyRunNarratorTask(request HarnessTaskRequest) (HarnessTaskResu
 func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
 	var input struct {
 		RequestText string `json:"requestText"`
+		Status      string `json:"status"`
 	}
 	if request.StructuredTask != nil && len(request.StructuredTask.Input) > 0 {
 		_ = json.Unmarshal(request.StructuredTask.Input, &input)
+	}
+	if input.RequestText == "default narrator empty summary" {
+		return map[string]any{
+			"highlights": []string{},
+			"summary":    "",
+		}
 	}
 	if input.RequestText == "easy run phase4 narrator workflow" {
 		return map[string]any{
@@ -114,7 +121,18 @@ func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
 	}
 	return map[string]any{
 		"highlights": []string{},
-		"summary":    "",
+		"summary":    scriptedEasyRunNarratorSummary(input.Status),
+	}
+}
+
+func scriptedEasyRunNarratorSummary(status string) string {
+	switch status {
+	case string(RunStatusCancelled):
+		return "The run was stopped before finishing."
+	case string(RunStatusFailed):
+		return "The run could not finish."
+	default:
+		return "The Easy Button run finished."
 	}
 }
 
