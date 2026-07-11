@@ -24,8 +24,6 @@ func (harness *CodexHarness) runStructuredTask(ctx context.Context, request Harn
 	if err != nil {
 		return HarnessTaskResult{}, err
 	}
-	session.AcceptUnscopedNotifications()
-	session.AcceptUnscopedRequests()
 	defer session.Close()
 
 	thread, err := harness.startCodexStructuredTaskThread(ctx, session, request)
@@ -83,7 +81,7 @@ func validateCodexStructuredTaskShape(request HarnessTaskRequest) error {
 	if request.StructuredTask == nil {
 		return fmt.Errorf("%w: structured task is required", ErrUnsupportedHarnessTask)
 	}
-	if request.Surface != HarnessSurfaceSemanticCartographer {
+	if !isStructuredHarnessSurface(request.Surface) {
 		return fmt.Errorf("%w: codex structured surface %s", ErrUnsupportedHarnessTask, request.Surface)
 	}
 	if request.TurnMode != HarnessTurnStructuredTask {
@@ -100,7 +98,7 @@ func validateCodexStructuredTaskShape(request HarnessTaskRequest) error {
 
 func validateCodexStructuredTaskCapabilityPolicy(policy HarnessCapabilityPolicy) error {
 	if len(policy.AllowedTools) != 0 || policy.WorkspaceMutation || policy.Approvals || policy.Streaming {
-		return fmt.Errorf("%w: codex semantic cartographer capability policy must disable tools, mutation, approvals, and streaming", ErrUnsupportedHarnessTask)
+		return fmt.Errorf("%w: codex structured task capability policy must disable tools, mutation, approvals, and streaming", ErrUnsupportedHarnessTask)
 	}
 	return nil
 }
@@ -133,6 +131,7 @@ type codexStructuredTaskThread struct {
 func (harness *CodexHarness) startCodexStructuredTaskThread(ctx context.Context, session *codexapp.Session, request HarnessTaskRequest) (codexStructuredTaskThread, error) {
 	params := map[string]any{
 		"approvalPolicy":        "never",
+		"config":                codexStructuredTaskThreadConfig(),
 		"cwd":                   request.StructuredTask.Workspace.RootPath,
 		"developerInstructions": request.StructuredTask.Prompt,
 		"ephemeral":             true,
@@ -154,6 +153,15 @@ func (harness *CodexHarness) startCodexStructuredTaskThread(ctx context.Context,
 		return codexStructuredTaskThread{}, err
 	}
 	return codexStructuredTaskThread{id: threadID, model: response.Model}, nil
+}
+
+func codexStructuredTaskThreadConfig() map[string]any {
+	return map[string]any{
+		"features": map[string]bool{
+			"image_generation": false,
+		},
+		"web_search": "disabled",
+	}
 }
 
 func startCodexStructuredTaskTurn(ctx context.Context, session *codexapp.Session, threadID string, request HarnessTaskRequest) (string, error) {
@@ -186,7 +194,7 @@ func codexReadOnlySandboxPolicy() codexapp.SandboxPolicy {
 }
 
 func codexStructuredTaskInputText(task HarnessStructuredTask) string {
-	return task.Prompt + "\n\nCartographer input bundle JSON:\n" + string(task.Input)
+	return task.Prompt + "\n\nStructured task input bundle JSON:\n" + string(task.Input)
 }
 
 type codexStructuredTaskWaitResult struct {
@@ -217,7 +225,7 @@ func (harness *CodexHarness) waitForStructuredTask(ctx context.Context, session 
 func (harness *CodexHarness) applyCodexStructuredTaskEvent(ctx context.Context, event codexapp.Event, threadID string, turnID string, sink *codexStructuredTaskSink) (codexStructuredTaskWaitResult, bool, error) {
 	switch event.Kind {
 	case codexapp.EventRequest:
-		err := fmt.Errorf("codex structured cartographer task attempted disallowed server request %s", event.Message.Method)
+		err := fmt.Errorf("codex structured task attempted disallowed server request %s", event.Message.Method)
 		_ = event.Message.RespondError(codexJSONRPCErrorCapabilityUnavailable, err.Error())
 		return codexStructuredTaskWaitResult{}, false, err
 	case codexapp.EventNotification:
@@ -365,11 +373,11 @@ func (sink *codexStructuredTaskSink) AssistantTextDelta(_ string, text string) e
 }
 
 func (sink *codexStructuredTaskSink) ApprovalRequested(ApprovalRequest) error {
-	return errors.New("codex structured cartographer task attempted approval request")
+	return errors.New("codex structured task attempted approval request")
 }
 
 func (sink *codexStructuredTaskSink) ApprovalResolved(string, bool, string) error {
-	return errors.New("codex structured cartographer task attempted approval resolution")
+	return errors.New("codex structured task attempted approval resolution")
 }
 
 func (sink *codexStructuredTaskSink) ProviderDiagnostic(code string, message string, context map[string]string, _ bool, severity DiagnosticSeverity) error {
@@ -393,7 +401,7 @@ func (sink *codexStructuredTaskSink) ProviderTurnError(providerError ProviderTur
 }
 
 func (sink *codexStructuredTaskSink) GoalUpdated(*ChatGoalState) error {
-	return errors.New("codex structured cartographer task attempted goal update")
+	return errors.New("codex structured task attempted goal update")
 }
 
 func (sink *codexStructuredTaskSink) CodexEffectiveSettingsUpdated(ChatCodexEffectiveSettings) error {
@@ -401,7 +409,7 @@ func (sink *codexStructuredTaskSink) CodexEffectiveSettingsUpdated(ChatCodexEffe
 }
 
 func (sink *codexStructuredTaskSink) RunItemOutputDelta(string, string, string) error {
-	return errors.New("codex structured cartographer task attempted run item output stream")
+	return errors.New("codex structured task attempted run item output stream")
 }
 
 func (sink *codexStructuredTaskSink) RunItemUpsert(item RunItem) error {
@@ -409,7 +417,7 @@ func (sink *codexStructuredTaskSink) RunItemUpsert(item RunItem) error {
 	case RunItemTypeAgentMessage, RunItemTypeReasoning, RunItemTypePlan, RunItemTypeNotice, RunItemTypeContextCompaction:
 		return nil
 	default:
-		return fmt.Errorf("codex structured cartographer task attempted disallowed run item type %s", item.Type)
+		return fmt.Errorf("codex structured task attempted disallowed run item type %s", item.Type)
 	}
 }
 

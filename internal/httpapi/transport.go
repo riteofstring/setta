@@ -9,6 +9,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/chat"
+	"setta/internal/easyrun"
 	"setta/internal/jsonio"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
@@ -52,6 +53,14 @@ func requireAppearanceService(response http.ResponseWriter, service AppearanceSe
 func requireChatService(response http.ResponseWriter, service ChatService) ChatService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "chat_service_unavailable", "chat service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireEasyRunService(response http.ResponseWriter, service EasyRunService) EasyRunService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "easy_run_service_unavailable", "easy-run service is not available")
 		return nil
 	}
 	return service
@@ -193,6 +202,18 @@ func writeChatError(response http.ResponseWriter, code string, err error) {
 		return
 	}
 	if chat.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeEasyRunError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if easyrun.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_easy_run_state", err.Error())
+		return
+	}
+	if easyrun.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())

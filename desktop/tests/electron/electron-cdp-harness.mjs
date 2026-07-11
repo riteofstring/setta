@@ -113,6 +113,7 @@ export async function launchElectronCdpContext({
   artifactDir,
   extraEnv = {},
   fixture,
+  unsetEnv = [],
   visible = false,
 }) {
   await rm(artifactDir, { force: true, recursive: true });
@@ -124,6 +125,7 @@ export async function launchElectronCdpContext({
     debugPort,
     extraEnv,
     fixture,
+    unsetEnv,
     visible,
   });
   const client = await connectToSettaPage(debugPort);
@@ -461,24 +463,28 @@ async function openPort() {
   return address.port;
 }
 
-function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) {
+function launchElectron({ artifactDir, debugPort, extraEnv, fixture, unsetEnv, visible }) {
+  const env = {
+    ...process.env,
+    ...extraEnv,
+    ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
+    SETTA_APP_DATA_DIR: fixture.appDataDir,
+    SETTA_BACKEND_READY_TIMEOUT_MS: "30000",
+    SETTA_E2E: "1",
+    SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
+    SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
+    SETTA_RECORD_INCLUDE_PAYLOADS: "1",
+    SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
+    SETTA_RECORDING: "1",
+    SETTA_RECORDING_DIR: artifactDir,
+    ...(visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
+  };
+  for (const name of unsetEnv) {
+    delete env[name];
+  }
   const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
     cwd: desktopRoot,
-    env: {
-      ...process.env,
-      ...extraEnv,
-      ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
-      SETTA_APP_DATA_DIR: fixture.appDataDir,
-      SETTA_BACKEND_READY_TIMEOUT_MS: "30000",
-      SETTA_E2E: "1",
-      SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
-      SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
-      SETTA_RECORD_INCLUDE_PAYLOADS: "1",
-      SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
-      SETTA_RECORDING: "1",
-      SETTA_RECORDING_DIR: artifactDir,
-      ...(visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
-    },
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
   electron.logs = [];

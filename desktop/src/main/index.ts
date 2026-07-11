@@ -30,12 +30,9 @@ import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { registerChatIpcHandlers } from "./chat-ipc";
-import { createElectronRuntimeSecretStore } from "./electron-runtime-secret-store";
+import { startEasyRunEventForwarding } from "./easy-run-event-forwarding-stream";
+import { registerEasyRunIpcHandlers } from "./easy-run-ipc";
 import { KnownRuntimeStore } from "./known-runtime-store";
-import { PendingProvisionStore } from "./pending-provision-store";
-import { ProvisionCreationResourceStore } from "./provision-creation-resource-store";
-import { TailscaleStatusClient } from "./provision-watch";
-import { resumePendingProvisionWatches } from "./provision-watch-resume";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
@@ -55,6 +52,7 @@ import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
+let easyRunEventStream: ReturnType<typeof startEasyRunEventForwarding> | null = null;
 let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
 let terminalEventStream: TerminalEventStream | null = null;
 let workspaceActivityEventStream: ReturnType<typeof startWorkspaceActivityEventForwarding> | null =
@@ -63,7 +61,6 @@ let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
-let pendingProvisionStore: PendingProvisionStore | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
@@ -93,14 +90,13 @@ async function prepareBackend(appDataDir: string) {
       runtimeRegistry: () => runtimeRegistry,
       stopBackendEventStreams,
     });
-    runtimeRegistry = createRuntimeRegistry(appDataDir);
+    runtimeRegistry = createRuntimeRegistry();
     await runtimeRegistry.load();
     const localRuntime = await runtimeRegistry.registerLocalRuntime({
       baseUrl: backend.url,
       deviceToken: backend.bootstrapToken,
     });
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
-    resumeProvisionWatches();
   } catch (error) {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
@@ -110,10 +106,7 @@ async function prepareBackend(appDataDir: string) {
   }
 }
 
-function createRuntimeRegistry(appDataDir: string) {
-  const userDataDir = app.getPath("userData");
-  const secretStore = createElectronRuntimeSecretStore(userDataDir);
-  pendingProvisionStore = new PendingProvisionStore(userDataDir, secretStore);
+function createRuntimeRegistry() {
   return new RuntimeRegistryController({
     clientDisplayName,
     fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
@@ -124,28 +117,7 @@ function createRuntimeRegistry(appDataDir: string) {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
-    provisionResources: new ProvisionCreationResourceStore(appDataDir),
-    store: new KnownRuntimeStore(userDataDir, secretStore),
-  });
-}
-
-function resumeProvisionWatches() {
-  const registry = runtimeRegistry;
-  const store = pendingProvisionStore;
-  if (!registry || !store) {
-    return;
-  }
-  void resumePendingProvisionWatches({
-    onError: ({ error, provision }) => {
-      recorder?.recordAppEvent("provision_watch_resume_failed", {
-        error: error instanceof Error ? error.message : String(error),
-        provisionId: provision.provisionId,
-        runtimeName: provision.runtimeName,
-      });
-    },
-    registry,
-    store,
-    tailnetClient: new TailscaleStatusClient(),
+    store: new KnownRuntimeStore(app.getPath("userData")),
   });
 }
 
@@ -267,9 +239,29 @@ function startWorkspaceActivityEventStreamForwarding() {
   });
 }
 
+function startEasyRunEventStreamForwarding() {
+  const runtime = activeRuntime();
+  if (!runtime) {
+    return;
+  }
+  void stopEasyRunEventStreamForwarding();
+  easyRunEventStream = startEasyRunEventForwarding({
+    authToken: runtime.deviceToken,
+    baseURL: runtime.baseUrl,
+    fetchImpl: backendFetch(),
+    recorder,
+  });
+}
+
 async function stopChatEventStream() {
   const stream = backendEventStream;
   backendEventStream = null;
+  await stream?.stop();
+}
+
+async function stopEasyRunEventStreamForwarding() {
+  const stream = easyRunEventStream;
+  easyRunEventStream = null;
   await stream?.stop();
 }
 
@@ -300,6 +292,7 @@ async function stopWorkspaceActivityEventStreamForwarding() {
 async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
+    stopEasyRunEventStreamForwarding(),
     stopSemanticGraphEventStreamForwarding(),
     stopTerminalEventStreamForwarding(),
     stopWorkspaceActivityEventStreamForwarding(),
@@ -309,6 +302,7 @@ async function stopBackendEventStreams() {
 
 function startBackendEventStreams() {
   startChatEventStream();
+  startEasyRunEventStreamForwarding();
   startSemanticGraphEventStreamForwarding();
   startTerminalEventStreamForwarding();
   startWorkspaceActivityEventStreamForwarding();
@@ -537,14 +531,7 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerRuntimeIpcHandlers({
-    appDataDir: settaAppDataDir(),
-    ipcMain,
-    ipcObserver,
-    repoRoot: repoRoot(),
-    requirePendingProvisionStore,
-    requireRuntimeRegistry,
-  });
+  registerRuntimeIpcHandlers({ ipcMain, ipcObserver, requireRuntimeRegistry });
   handleIpc(
     ipcMain,
     "appearanceRead",
@@ -664,6 +651,7 @@ function registerIpc() {
     ipcObserver,
   );
   registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerEasyRunIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerChatIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
@@ -755,13 +743,6 @@ function requireRuntimeRegistry(): RuntimeRegistryController {
     throw new Error(backendStartupError ?? "runtime registry is not ready");
   }
   return runtimeRegistry;
-}
-
-function requirePendingProvisionStore(): PendingProvisionStore {
-  if (!pendingProvisionStore) {
-    throw new Error(backendStartupError ?? "pending provision store is not ready");
-  }
-  return pendingProvisionStore;
 }
 
 function runtimeUnavailableMessage() {

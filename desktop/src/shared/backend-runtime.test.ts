@@ -131,6 +131,29 @@ describe("backend runtime requests", () => {
       }),
     ).rejects.toThrow("backend failed");
   });
+
+  test("serializes GET request payloads as query parameters", async () => {
+    const calls: FetchCall[] = [];
+    const fetchImpl: BackendFetch = async (input, init) => {
+      calls.push({ init, input });
+      return jsonResponse({ ok: true });
+    };
+
+    await requestBackend({
+      baseURL: "http://127.0.0.1:41000",
+      decodeErrorResponse: decodeRuntimeError,
+      decodeResponse: decodeOKPayload,
+      endpoint: { method: "GET", path: "/snapshot" },
+      fetchImpl,
+      requestPayload: { active: true, limit: 4, workspaceId: "workspace_api" },
+    });
+
+    const call = onlyCall(calls);
+    expect(call.input.toString()).toBe(
+      "http://127.0.0.1:41000/snapshot?active=true&limit=4&workspaceId=workspace_api",
+    );
+    expect(call.init).toEqual({ method: "GET" });
+  });
 });
 
 interface FetchCall {

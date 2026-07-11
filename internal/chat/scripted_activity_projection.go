@@ -37,7 +37,7 @@ func emitProjectionTransientActivity(harness *ScriptedWorkflowHarness, ctx conte
 		ProviderItemID: "provider_projection_transient_reasoning_" + request.Run.ID,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusRunning,
-		Title:          "Streaming reasoning placeholder",
+		Progress:       "**Streaming reasoning placeholder**",
 	}
 	if err := sink.RunItemUpsert(transient); err != nil {
 		return err
@@ -45,7 +45,11 @@ func emitProjectionTransientActivity(harness *ScriptedWorkflowHarness, ctx conte
 	if harness == nil {
 		return fmt.Errorf("scripted activity projection requires harness steering")
 	}
-	if _, err := harness.waitForSteer(ctx, request.Run.ID); err != nil {
+	steer, err := harness.waitForSteer(ctx, request.Run.ID)
+	if err != nil {
+		return err
+	}
+	if err := sink.UserMessageCommitted(chatInputText(steer.Input)); err != nil {
 		return err
 	}
 	transient.Status = RunItemStatusCompleted
@@ -96,8 +100,7 @@ func emitProjectionReasoningItems(request TurnRequest, sink TurnSink) error {
 		ProviderItemID: "provider_projection_public_reasoning_" + request.Run.ID,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusCompleted,
-		Title:          "Projection reasoning",
-		Summary:        "Public reasoning summary visible.",
+		Summary:        "**Projection reasoning**\nPublic reasoning summary visible.",
 	}); err != nil {
 		return err
 	}

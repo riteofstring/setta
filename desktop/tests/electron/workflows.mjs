@@ -31,6 +31,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "easy-button-pane-workflow.test.mjs",
+    name: "easy-button-pane",
+    tiers: ["required"],
+  },
+  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
     tiers: ["required"],
@@ -146,6 +151,11 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    file: "easy-button-pane-performance.test.mjs",
+    name: "easy-button-pane-performance",
+    tiers: ["performance"],
+  },
+  {
     file: "niri-navigation-performance.test.mjs",
     name: "niri-navigation-performance",
     tiers: ["performance"],
@@ -164,6 +174,11 @@ export const electronWorkflows = [
     args: ["--live-only"],
     file: "chat-workflows.test.mjs",
     name: "live-codex-electron",
+    tiers: ["live"],
+  },
+  {
+    file: "easy-button-live-workflow.test.mjs",
+    name: "easy-button-live",
     tiers: ["live"],
   },
 ];

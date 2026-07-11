@@ -3,21 +3,14 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
 
-	"setta/internal/runtimeauth"
 	"setta/internal/workspaceactivity"
 )
 
@@ -58,9 +51,6 @@ func TestUnauthenticatedRuntimeRoutesAreReachable(t *testing.T) {
 	if info.RuntimeID != "runtime_test" || info.ProtocolVersion != ProtocolVersion {
 		t.Fatalf("runtime info = %+v", info)
 	}
-	if !reflect.DeepEqual(info.FeatureSet, RuntimeFeatureSetIdentity()) {
-		t.Fatalf("runtime info feature set = %+v, want %+v", info.FeatureSet, RuntimeFeatureSetIdentity())
-	}
 	health := getJSON[BackendHealth](t, handler, "/health", http.StatusOK)
 	if !health.OK || health.ProtocolVersion != ProtocolVersion {
 		t.Fatalf("health = %+v", health)
@@ -71,88 +61,6 @@ func TestUnauthenticatedRuntimeRoutesAreReachable(t *testing.T) {
 	}, http.StatusOK)
 	if paired.DeviceID == "" || paired.DeviceToken == "" || paired.RuntimeID != "runtime_test" {
 		t.Fatalf("pairing response = %+v", paired)
-	}
-}
-
-func TestSetupAttestationUnauthenticatedAndStopsAfterPairing(t *testing.T) {
-	store, _ := newTestRuntimeAuthStore(t)
-	pairingToken := "3333333333333333333333333333333333333333333333333333333333333333"
-	provisionID := "provision_http_012345"
-	attestationKey := "attestation-key-3333333333333333"
-	tokenHash := sha256.Sum256([]byte(pairingToken))
-	if _, err := store.SeedProvisionedPairingToken(context.Background(), runtimeauth.SeedProvisionedPairingTokenInput{
-		PairingTokenHash: hex.EncodeToString(tokenHash[:]),
-		ProvisionID:      provisionID,
-		AttestationKey:   attestationKey,
-	}); err != nil {
-		t.Fatalf("seed provisioned pairing token: %v", err)
-	}
-	handler := NewHandler(HandlerConfig{
-		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
-		RuntimeAuthService: store,
-		RuntimeMetadata:    RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
-	})
-
-	request := SetupAttestationRequest{
-		ProvisionID:     provisionID,
-		Nonce:           "nonce-3333333333333333",
-		NodeFingerprint: "nodekey:3333333333333333",
-	}
-	attestation := postJSON[SetupAttestationResponse](t, handler, "/setup/attestation", request, http.StatusOK)
-	if attestation.RuntimeID != "runtime_test" ||
-		attestation.ProvisionID != provisionID ||
-		attestation.Nonce != request.Nonce ||
-		attestation.NodeFingerprint != request.NodeFingerprint ||
-		attestation.Algorithm != "hmac-sha256-v1" {
-		t.Fatalf("setup attestation response = %+v", attestation)
-	}
-	expected := expectedSetupAttestation(attestationKey, attestation.RuntimeID, provisionID, request.Nonce, request.NodeFingerprint)
-	if attestation.Attestation != expected {
-		t.Fatalf("setup attestation hmac = %s, want %s", attestation.Attestation, expected)
-	}
-
-	replay := postJSON[ErrorResponse](t, handler, "/setup/attestation", request, http.StatusUnauthorized)
-	if replay.Error.Code != "setup_attestation_replayed_nonce" {
-		t.Fatalf("replay error code = %q, want setup_attestation_replayed_nonce", replay.Error.Code)
-	}
-
-	paired := postJSON[CompletePairingResponse](t, handler, "/pairing/complete", CompletePairingRequest{
-		ClientDisplayName: "Provisioned desktop",
-		PairingToken:      pairingToken,
-	}, http.StatusOK)
-	if paired.DeviceID == "" || paired.DeviceToken == "" {
-		t.Fatalf("pairing response = %+v", paired)
-	}
-
-	request.Nonce = "nonce-3333333333334444"
-	afterPairing := postJSON[ErrorResponse](t, handler, "/setup/attestation", request, http.StatusUnauthorized)
-	if afterPairing.Error.Code != "setup_attestation_already_paired" {
-		t.Fatalf("after pairing error code = %q, want setup_attestation_already_paired", afterPairing.Error.Code)
-	}
-}
-
-func TestSetupAttestationUsesGlobalFailureRateLimit(t *testing.T) {
-	store, _ := newTestRuntimeAuthStore(t)
-	limiter := NewPairingFailureLimiter(2, time.Minute)
-	handler := NewHandler(HandlerConfig{
-		Metadata:                       BackendMetadata{Name: BackendName, Version: "test"},
-		RuntimeAuthService:             store,
-		RuntimeMetadata:                RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
-		SetupAttestationFailureLimiter: limiter,
-	})
-	request := SetupAttestationRequest{
-		ProvisionID:     "provision_missing",
-		Nonce:           "nonce-4444444444444444",
-		NodeFingerprint: "nodekey:4444444444444444",
-	}
-
-	postJSON[ErrorResponse](t, handler, "/setup/attestation", request, http.StatusUnauthorized)
-	request.Nonce = "nonce-5555555555555555"
-	postJSON[ErrorResponse](t, handler, "/setup/attestation", request, http.StatusUnauthorized)
-	request.Nonce = "nonce-6666666666666666"
-	response := postJSON[ErrorResponse](t, handler, "/setup/attestation", request, http.StatusTooManyRequests)
-	if response.Error.Code != "setup_attestation_rate_limited" {
-		t.Fatalf("error code = %q, want setup_attestation_rate_limited", response.Error.Code)
 	}
 }
 
@@ -205,81 +113,6 @@ func TestPairingCompleteUsesGlobalFailureRateLimit(t *testing.T) {
 	response := postJSON[ErrorResponse](t, handler, "/pairing/complete", request, http.StatusTooManyRequests)
 	if response.Error.Code != "pairing_rate_limited" {
 		t.Fatalf("error code = %q, want pairing_rate_limited", response.Error.Code)
-	}
-}
-
-func TestCreateDevicePairingRequiresAuth(t *testing.T) {
-	store, _ := newTestRuntimeAuthStore(t)
-	handler := NewHandler(HandlerConfig{
-		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
-		RuntimeAuthService: store,
-		RuntimeMetadata:    RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
-	})
-
-	response := postJSON[ErrorResponse](t, handler, "/pairing/create-device", CreateDevicePairingRequest{
-		RuntimeBaseURL: "https://setta-runtime.tailnet.ts.net",
-	}, http.StatusUnauthorized)
-
-	if response.Error.Code != "unauthorized" {
-		t.Fatalf("error code = %q, want unauthorized", response.Error.Code)
-	}
-}
-
-func TestCreateDevicePairingMintsPhoneURLAndUsableToken(t *testing.T) {
-	store, token := newTestRuntimeAuthStore(t)
-	handler := NewHandler(HandlerConfig{
-		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
-		RuntimeAuthService: store,
-		RuntimeMetadata:    RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
-	})
-
-	created := postJSONWithToken[CreateDevicePairingResponse](t, handler, "/pairing/create-device", CreateDevicePairingRequest{
-		RuntimeBaseURL: "https://setta-runtime.tailnet.ts.net",
-	}, token, http.StatusOK)
-	if created.ExpiresAt == "" {
-		t.Fatal("pairing response did not include expiresAt")
-	}
-	parsed, err := url.Parse(created.PairingURL)
-	if err != nil {
-		t.Fatalf("parse pairing URL: %v", err)
-	}
-	if parsed.Scheme != "https" || parsed.Host != "setta-runtime.tailnet.ts.net" || parsed.Path != "/" || parsed.RawQuery != "" {
-		t.Fatalf("pairing URL = %s, want https ts.net origin with fragment only", created.PairingURL)
-	}
-	pairingToken := requiredFragmentValue(t, parsed, "pair")
-	if strings.Contains(created.PairingURL, "?") || strings.Contains(parsed.EscapedPath(), pairingToken) {
-		t.Fatalf("pairing URL leaked token outside fragment: %s", created.PairingURL)
-	}
-
-	paired := postJSON[CompletePairingResponse](t, handler, "/pairing/complete", CompletePairingRequest{
-		ClientDisplayName: "Phone",
-		PairingToken:      pairingToken,
-	}, http.StatusOK)
-	if paired.DeviceID == "" || paired.DeviceToken == "" || paired.RuntimeID != "runtime_test" {
-		t.Fatalf("pairing response = %+v", paired)
-	}
-}
-
-func TestCreateDevicePairingRequiresTailscaleHTTPSBaseURL(t *testing.T) {
-	store, token := newTestRuntimeAuthStore(t)
-	handler := NewHandler(HandlerConfig{
-		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
-		RuntimeAuthService: store,
-		RuntimeMetadata:    RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
-	})
-
-	for _, runtimeBaseURL := range []string{
-		"http://setta-runtime.tailnet.ts.net",
-		"https://setta-runtime.example.com",
-		"https://setta-runtime.tailnet.ts.net/path",
-		"https://setta-runtime.tailnet.ts.net?token=bad",
-	} {
-		response := postJSONWithToken[ErrorResponse](t, handler, "/pairing/create-device", CreateDevicePairingRequest{
-			RuntimeBaseURL: runtimeBaseURL,
-		}, token, http.StatusBadRequest)
-		if response.Error.Code != "invalid_pairing_base_url" {
-			t.Fatalf("%s error code = %q, want invalid_pairing_base_url", runtimeBaseURL, response.Error.Code)
-		}
 	}
 }
 
@@ -423,40 +256,6 @@ func postJSONWithToken[T any](t *testing.T, handler http.Handler, path string, p
 		t.Fatalf("decode response %s: %v", path, err)
 	}
 	return decoded
-}
-
-func requiredFragmentValue(t *testing.T, parsed *url.URL, name string) string {
-	t.Helper()
-	values, err := url.ParseQuery(parsed.Fragment)
-	if err != nil {
-		t.Fatalf("parse fragment: %v", err)
-	}
-	value := values.Get(name)
-	if value == "" {
-		t.Fatalf("fragment missing %s: %s", name, parsed.Fragment)
-	}
-	return value
-}
-
-func expectedSetupAttestation(
-	attestationKey string,
-	runtimeID string,
-	provisionID string,
-	nonce string,
-	nodeFingerprint string,
-) string {
-	mac := hmac.New(sha256.New, []byte(attestationKey))
-	for _, value := range []string{
-		"setta-setup-attestation-v1",
-		runtimeID,
-		provisionID,
-		nonce,
-		nodeFingerprint,
-	} {
-		_, _ = mac.Write([]byte(value))
-		_, _ = mac.Write([]byte{0})
-	}
-	return hex.EncodeToString(mac.Sum(nil))
 }
 
 type fakeRuntimeIdentityService struct {

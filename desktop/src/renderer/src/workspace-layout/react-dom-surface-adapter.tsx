@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
+import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
 import { WorkflowGraphSurface } from "../features/workspace-graph/workflow-graph-surface";
 import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { SemanticNodeDetailsSurface } from "../features/workspace-graph/semantic-node-details-surface";
@@ -383,48 +384,39 @@ export function createReactDomSurfaceAdapter(
   rootFactory?: ReactSurfaceRootFactory,
   options: ReactDomSurfaceAdapterOptions = {},
 ): ReactDomSurfaceAdapter {
-  if (pane.surfaceKind === "chat-dom") {
-    return new ReactDomSurfaceAdapter(pane, () => <WorkspaceChatSurface />, rootFactory);
-  }
-  if (pane.surfaceKind === "fake-long-chat") {
-    return new ReactDomSurfaceAdapter(pane, () => <FakeLongChatSurface pane={pane} />, rootFactory);
-  }
-  if (pane.surfaceKind === "workflow-graph") {
-    return new ReactDomSurfaceAdapter(
-      pane,
-      ({ interactive }) => (
-        <WorkflowGraphSurface
-          debugEnabled={workflowGraphDebugEnabled()}
-          focused={interactive}
-          syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
-          surfaceId={pane.surfaceId}
-        />
-      ),
-      rootFactory,
-    );
-  }
-  if (pane.surfaceKind === "settings-dom") {
-    return new ReactDomSurfaceAdapter(
-      pane,
-      ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
-      rootFactory,
-    );
-  }
-  if (pane.surfaceKind === "semantic-node-details") {
-    return new ReactDomSurfaceAdapter(pane, () => <SemanticNodeDetailsSurface />, rootFactory);
-  }
-  if (pane.surfaceKind === "workflow-node-details") {
-    return new ReactDomSurfaceAdapter(
-      pane,
-      () => <WorkflowNodeDetailsSurface pane={pane} />,
-      rootFactory,
-    );
-  }
-  if (pane.surfaceKind === "workflow-settings") {
-    return new ReactDomSurfaceAdapter(pane, () => <WorkflowSettingsSurface />, rootFactory);
+  const renderSurface = reactDomSurfaceRenderFactories[pane.surfaceKind]?.(pane, options);
+  if (renderSurface) {
+    return new ReactDomSurfaceAdapter(pane, renderSurface, rootFactory);
   }
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }
+
+type ReactDomSurfaceRenderFactory = (
+  pane: WorkspacePane,
+  options: ReactDomSurfaceAdapterOptions,
+) => (state: ReactDomSurfaceState) => ReactNode;
+
+const reactDomSurfaceRenderFactories: Partial<Record<SurfaceKind, ReactDomSurfaceRenderFactory>> = {
+  "chat-dom": () => () => <WorkspaceChatSurface />,
+  "easy-button": () => () => <EasyButtonSurface />,
+  "fake-long-chat": (pane) => () => <FakeLongChatSurface pane={pane} />,
+  "workflow-graph":
+    (pane, options) =>
+    ({ interactive }) => (
+      <WorkflowGraphSurface
+        debugEnabled={workflowGraphDebugEnabled()}
+        focused={interactive}
+        syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
+        surfaceId={pane.surfaceId}
+      />
+    ),
+  "settings-dom":
+    () =>
+    ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
+  "semantic-node-details": () => () => <SemanticNodeDetailsSurface />,
+  "workflow-node-details": (pane) => () => <WorkflowNodeDetailsSurface pane={pane} />,
+  "workflow-settings": () => () => <WorkflowSettingsSurface />,
+};
 
 function workflowGraphDebugEnabled(): boolean {
   return typeof window !== "undefined" && Boolean(window.setta?.app.flags.workflowGraphDebug);

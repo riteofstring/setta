@@ -229,51 +229,6 @@ func TestBuildPairingURL(t *testing.T) {
 	}
 }
 
-func TestPairCommandJSONWithExistingToken(t *testing.T) {
-	appDataDir := t.TempDir()
-	deps := testDeps()
-	deps.httpClient = &http.Client{Timeout: 5 * time.Second}
-
-	instance, err := startServe(context.Background(), serveOptions{
-		AppDataDir: appDataDir,
-		Host:       "127.0.0.1",
-		Port:       0,
-	}, deps)
-	if err != nil {
-		t.Fatalf("start serve: %v", err)
-	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := instance.Shutdown(ctx); err != nil {
-			t.Fatalf("shutdown serve: %v", err)
-		}
-	})
-
-	var stdout bytes.Buffer
-	deps.stdout = &stdout
-	code := runWithDeps([]string{
-		"pair",
-		"--json",
-		"--app-data-dir", appDataDir,
-		"--existing-token", "seeded_pairing_token_12345",
-	}, deps)
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0", code)
-	}
-	var result pairingJSONResult
-	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
-		t.Fatalf("parse pairing JSON: %v\n%s", err, stdout.String())
-	}
-	parsed, err := url.Parse(result.PairingURL)
-	if err != nil {
-		t.Fatalf("parse pairing URL: %v", err)
-	}
-	if parsed.Query().Get("tok") != "seeded_pairing_token_12345" {
-		t.Fatalf("pairing URL token = %q, want existing token", parsed.Query().Get("tok"))
-	}
-}
-
 func TestServeStateRoundTrip(t *testing.T) {
 	appDataDir := t.TempDir()
 	state := serveState{
@@ -363,7 +318,7 @@ func TestPairingRevocationIntegration(t *testing.T) {
 		}
 	})
 
-	pairing, err := pairFromServeState(context.Background(), pairOptions{AppDataDir: appDataDir}, deps)
+	pairing, err := pairFromServeState(context.Background(), appDataDir, deps)
 	if err != nil {
 		t.Fatalf("pair from serve state: %v", err)
 	}

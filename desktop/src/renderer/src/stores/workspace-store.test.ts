@@ -596,6 +596,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    easyRun: unimplementedEasyRunAPI(),
     workspaceActivity: unimplementedWorkspaceActivityAPI(),
     terminal: unimplementedTerminalAPI(),
     semanticGraph: unimplementedSemanticGraphAPI(),
@@ -620,6 +621,19 @@ function unimplementedWorkspaceActivityAPI(): SettaAPI["workspaceActivity"] {
     executionSnapshot: async () => {
       throw new Error("workspace activity API is not implemented in this test");
     },
+  };
+}
+
+function unimplementedEasyRunAPI(): SettaAPI["easyRun"] {
+  const unavailable = async (): Promise<never> => {
+    throw new Error("easy-run API is not implemented in this test");
+  };
+  return {
+    onEvent: () => () => {},
+    snapshot: unavailable,
+    start: unavailable,
+    steer: unavailable,
+    stop: unavailable,
   };
 }
 
@@ -740,6 +754,7 @@ function emptyConversation() {
     title: "Test",
     updatedAt: "2026-05-29T20:00:00Z",
     workflow: null,
+    easyRun: null,
     workspaceId: "workspace_api",
   };
 }
