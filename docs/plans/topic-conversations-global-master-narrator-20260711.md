@@ -1,0 +1,1657 @@
+# Topic Conversations, Global Master, And Narrator Plan
+
+**Date:** 2026-07-11
+
+**Status:** Proposed plan of record; implementation has not started
+
+**Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
+global speech, conversation routing, pane binding, persistence, and removal of
+obsolete chat/terminal/workflow/git product paths
+
+This plan supersedes the future architectural direction in
+[Easy Button Pane](easy-button-pane-20260708.md) and
+[Easy Button Speech](easy-button-speech-20260709.md) wherever they conflict.
+Their completed-work logs remain historical records. In particular, this plan
+replaces these earlier decisions:
+
+- one active Easy Run per workspace
+- one Easy Button pane per workspace
+- one fresh hidden conversation per request
+- a workspace-global latest-run snapshot
+- an ephemeral narrator fed only incremental digest fragments
+- narrator settings inherited from chat/Easy Run defaults
+- pane-owned microphone and speech playback
+
+The implementation is a clean break. There will be no backward compatibility,
+legacy support, migrations, transitional adapters, dual reads or writes,
+old-field aliases, or silent fallbacks for the replaced architecture.
+
+## Outcome
+
+Setta becomes a conversation-centered, voice-capable multi-agent desktop
+environment:
+
+- A durable **topic conversation** owns an underlying workspace agent and its
+  recent and historical work.
+- A lightweight **narrator** observes that agent's authoritative trajectory,
+  produces sparse milestones and final summaries, and answers direct status
+  questions.
+- A global **master** receives app-level speech or text, finds or creates the
+  right topic conversation, routes work, and asks the renderer to focus or open
+  panes.
+- An Easy Button pane is a view of a topic conversation. A conversation may
+  have no pane, one pane, or multiple panes.
+- Multiple topic conversations may run concurrently in one workspace. Each
+  conversation still serializes its own primary turns.
+- The microphone and speech queue belong to the application shell, not an Easy
+  Button component.
+- Agent, narrator, and master model profiles are independent and configurable.
+  The default agent may be heavy while the default narrator is explicitly
+  lightweight.
+- Side conversations and durable forks are first-class relationships, not
+  slash-command text passed through a message endpoint.
+
+The intended experience is:
+
+1. The user opens Setta with global microphone capture enabled.
+2. The user asks the master to bring up a recent conversation about a topic.
+3. The master retrieves the conversation, focuses an existing pane or opens a
+   new Easy Button pane, and reports what it did.
+4. The user submits more work to that topic. Its heavy agent runs while its
+   lightweight narrator observes and emits presentation events.
+5. The user asks for an update. The request routes to that conversation's
+   narrator without steering or interrupting the agent.
+6. If the user changes topics, the master either routes to another existing
+   topic, creates a new one, asks for clarification, or deliberately creates a
+   side conversation.
+7. Conversation work and narration continue even when no Easy Button pane is
+   mounted.
+
+## Non-Negotiable Product Decisions
+
+### Topic conversation is the aggregate root
+
+`EasyRun` is not retained as a parallel top-level domain. A user request is a
+turn inside a durable topic conversation. Run/turn state, artifacts,
+highlights, narrator state, and provider thread references are children of that
+conversation.
+
+Setta owns conversation identity. A Codex thread id is an external provider
+reference and must never become the application's primary key.
+
+### Panes are views, not owners
+
+An Easy Button pane contains a typed `conversationId`. Mounting or unmounting a
+pane does not create, stop, resume, or destroy the conversation. Pane layout
+state and conversation execution state have separate lifecycles.
+
+The pane coordinator owns this mapping:
+
+```text
+conversationId -> zero or more paneIds
+```
+
+When the master requests presentation of a conversation, the coordinator
+focuses an existing pane when appropriate and otherwise creates one.
+
+### The left pane is a conversation navigator
+
+Retain the resizable, collapsible application-shell left pane, but replace its
+current chat/workflow ownership with a conversation navigator. It lists one
+row per durable topic conversation, grouped by workspace, regardless of
+whether that conversation currently has zero, one, or multiple Easy Button
+panes.
+
+Selecting a row focuses the most recently focused existing pane for that
+conversation or opens an Easy Button pane when none exists. Opening another
+view is an explicit secondary action; multiple panes do not create duplicate
+conversation rows. Closing the last pane does not remove, archive, stop, or
+hide the conversation from the navigator.
+
+The navigator does not expose the master thread, narrator threads, provider
+thread ids, or ephemeral side threads as ordinary topic conversations. A
+durable fork is listed as a conversation with lineage. An active ephemeral
+side conversation may be indicated beneath its parent while open, but it is
+not globally indexed or independently navigable after disposal.
+
+There is no replacement for the old application-wide
+`selectedConversationId`. Pane focus, conversation identity, and navigator
+selection are distinct state. The navigator is virtualized and paginated or
+incrementally loaded so every durable conversation remains addressable without
+rendering an unbounded DOM.
+
+The intended information architecture is:
+
+```text
+Ask Setta…  [microphone state]    fixed global master entry
+Search conversations…            fixed navigator filter
+Workspace A
+  Pinned / working topics
+  Recent topics
+Workspace B
+  Topics
+Runtime/account/settings          fixed shell controls
+```
+
+### Master input is shell-owned and multimodal
+
+Voice and text are two input modalities for the same global master session and
+routing pipeline. The shell provides a compact `Ask Setta` launcher in the
+fixed portion of the left navigator. Activating it opens an expanded master
+overlay with a text composer, recent master exchanges, route results, and room
+for clarification turns. A global keyboard shortcut and an app-chrome control
+open the same overlay when the left pane is collapsed; these are presentations
+of one controller, not separate master sessions.
+
+The overlay may look and behave like a command palette for quick requests, but
+it is not dismiss-on-submit command execution. It remains open when the master
+asks a clarification or returns a conversational answer. Voice transcripts
+and typed submissions appear in the same master interaction history.
+
+An Easy Button composer and the global master composer have deliberately
+different scope. Input sent from an Easy Button is explicitly addressed to
+that topic conversation. Input sent from the shell master surface is globally
+routed and includes the focused workspace/conversation as a hint, not as a
+forced destination.
+
+### Master owns cross-conversation routing
+
+The master is the only actor authorized to make app-global routing decisions.
+A topic narrator may identify that an utterance appears unrelated or propose a
+side conversation, but it may not directly move the user to another topic,
+create panes, or dispatch work to another conversation.
+
+The master has conversation-management and presentation tools. It does not
+have shell, filesystem mutation, or unrestricted workspace tools. Workspace
+work is delegated to the chosen topic agent.
+
+### Narrator is persistent logically and reconstructable physically
+
+Narrator continuity lives in Setta-owned durable state, not only in a model
+thread. The narrator has a durable cursor, checkpoint, prior outputs, current
+focus, and topic descriptor per conversation.
+
+The first implementation uses fresh schema-constrained narrator model calls.
+Every call is rehydrated from the authoritative trajectory and previous
+narration state. A persistent provider narrator thread is not required for
+correctness and is not part of this plan. It may be evaluated later only as a
+measured latency or cost optimization.
+
+### Narration has distinct presentation channels
+
+Do not overload one `highlights` array with every kind of narrator output.
+Narration is a discriminated union:
+
+- `milestone`: a sparse automatic phase change suitable for the NOW rail
+- `status_reply`: a direct answer to a user asking what is happening
+- `final_summary`: the terminal result for one agent turn
+- `topic_descriptor`: retrieval metadata describing the conversation
+
+A short or single-phase task may legitimately produce no working milestone. If
+the product later wants periodic spoken updates regardless of phase change,
+that is a separate `status_update` policy and event type, not a relaxation of
+milestone semantics.
+
+### Voice is global
+
+One application-level speech coordinator owns the microphone lease,
+transcription lifecycle, global enablement, playback queue, preemption, and
+source attribution. Easy Button panes render controls and state but do not own
+capture or playback controllers.
+
+### Models are configured by role
+
+There is no cross-role model inheritance. Agent, narrator, master, and side
+agent profiles resolve independently. Model availability and reasoning efforts
+come from the provider model catalog. Missing or unsupported configured models
+fail loudly with an actionable configuration error; Setta does not guess a
+replacement from model-name strings.
+
+### Clean persistence break
+
+The new conversation store uses a new schema and namespace. Existing chat,
+Easy Run, workflow, semantic graph, terminal, and workspace-layout files are
+not imported or read. The implementation does not delete user files
+silently—it simply does not treat the old application state as valid input.
+Development and acceptance environments start with fresh app data.
+
+## Explicit Non-Goals
+
+This plan does not include:
+
+- migration or import of existing chat or Easy Run history
+- compatibility endpoints for old renderer builds
+- a chat-transcript pane under a new name
+- a manual terminal pane
+- a workflow graph or workflow execution engine
+- a git graph pane
+- preservation of semantic graph/cartographer APIs for possible future reuse
+- heuristic topic routing based on keywords alone
+- heuristic highlight generation
+- a narrator that reads private chain-of-thought
+- an always-privileged global master
+- a provider-neutral abstraction with speculative implementations; Codex is
+  the provider, while the domain remains insulated from Codex identifiers and
+  wire payloads
+- automatic creation of a new conversation when routing confidence is
+  genuinely ambiguous; the master asks a clarification question instead
+- speech wake-word selection or continuous-listening privacy UX details beyond
+  the ownership and lifecycle boundary needed by the architecture
+
+## Current-State Findings That Require The Refactor
+
+The current repository cannot express the target behavior without changing
+its primary ownership boundaries:
+
+- `internal/easyrun/service.go` rejects a new start when any Easy Run is working
+  in the workspace.
+- `internal/chat/service_easyrun.go` creates a fresh internal conversation for
+  every request.
+- `internal/easyrun/store.go` exposes the latest run snapshot per workspace,
+  not a conversation-keyed collection.
+- `desktop/src/renderer/src/workspace-layout/workspace-scene.ts` limits
+  `easy-button` to one pane.
+- `WorkspacePane` has a `surfaceKind` but no conversation binding.
+- `desktop/src/renderer/src/stores/easy-run-store.ts` is a singleton keyed by
+  the selected workspace and latest run.
+- `internal/chat/codex_harness_structured.go` starts a new ephemeral Codex
+  thread for every narrator call.
+- `internal/easyrun/narrator_digest.go` reduces streamed activity into bounded
+  first-line digest entries and triggers calls by entry count and elapsed time.
+- `internal/easyrun/narrator_runner.go` resolves the narrator model through the
+  Easy Run agent settings and hardcodes narrator reasoning effort separately.
+- `EasyButtonSurface` mounts its own speech capture and playback controllers.
+- `desktop/src/renderer/src/App.tsx` owns one selected chat conversation and
+  converts sidebar selection into focus of the singleton `chat-dom` surface.
+- `desktop/src/renderer/src/components/workspace-sidebar.tsx` and its model are
+  coupled to the old chat store, workflow rows, runtime shortcuts, and
+  application-wide selection. The shell pane boundary is useful, but these
+  contents cannot become the new conversation navigator by retaining their
+  contracts.
+
+The recording at `.recordings/20260711T172220Z` demonstrated the practical
+effect: working narrator calls completed successfully but returned no
+milestones, while the terminal narrator emitted the only milestone together
+with the final summary. The logs were sufficient to diagnose the behavior. The
+architectural problem is that the narrator saw lossy incremental fragments and
+shared the agent's model selection, not that the renderer failed to display
+events.
+
+## Codex Capability Baseline
+
+Current official Codex app-server documentation and the checked Codex source
+at `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` (inspected at
+commit `2b9c050460`) expose the primitives this plan needs:
+
+- `thread/start`
+- `thread/resume`
+- `thread/fork`
+- `thread/inject_items`
+- `thread/read`
+- `thread/list`
+- `thread/search`
+- `turn/start`
+- `turn/steer`
+- `turn/interrupt`
+- streamed thread, turn, and item notifications
+- `model/list`
+
+The checked upstream protocol schema also includes thread
+fork/injection/list/search/read, pagination, parent/ancestor relationships, and
+experimental realtime speech methods. Setta's current generated
+supported-protocol registry intentionally allows only a subset and omits the
+additional methods needed here.
+
+The implementation must extend the Go-owned supported-protocol input and
+regenerate the generated protocol output. Do not hand-edit
+`internal/codexapp/protocol_gen.go` or generated TypeScript.
+
+Codex's `/side` and `/btw` commands are TUI presentation behavior, not a
+documented app-server `side` RPC. The source implementation is nevertheless a
+direct reference design: it creates an ephemeral `thread/fork`, applies hidden
+side-specific developer instructions, injects a boundary item, keeps inherited
+history available to the model while hiding it from the child transcript, and
+discards the child when normal navigation leaves it. The command remains
+available while the parent task is running.
+
+Setta owns the product semantics and presentation, but it should reproduce
+that provider lifecycle instead of inventing a synthetic side protocol. Codex
+TUI currently inherits the parent model, effort, and service tier for `/side`;
+Setta deliberately overrides those values through the explicit `side_agent`
+role profile so role configuration remains independent.
+
+Sources:
+
+- [Codex App Server](https://learn.chatgpt.com/docs/app-server)
+- [Codex built-in slash commands](https://learn.chatgpt.com/docs/developer-commands#built-in-slash-commands)
+- Codex source: `codex-rs/tui/src/app/side.rs`
+- Codex protocol: `codex-rs/app-server-protocol/src/protocol/v2/thread.rs`
+
+`thread/read` and provider rollout history are useful for reconciliation, but
+they do not replace Setta's live normalized trajectory. The narrator must be
+able to observe in-flight work, Setta artifacts, routing decisions, and
+application state that are not guaranteed to be represented as complete
+provider history.
+
+## Target Architecture
+
+```text
+Global microphone / shell master text input
+                   |
+                   v
+             Master actor
+                   |
+        deterministic candidate retrieval
+                   |
+                   v
+         typed RouteDecision
+             /           \
+            v             v
+ Conversation registry   Pane coordinator <--- Left conversation navigator
+            |             focus/open view       ^
+            |                                   |
+            +---------- topic projections ------+
+            |
+            v
+ Topic conversation actor
+      |              |
+      v              v
+ Agent runtime    Narrator projector
+      |              ^
+      v              |
+ Codex thread -> Trajectory ledger
+                         |
+                         v
+                 Narration event stream
+                    /             \
+                   v               v
+          Easy Button panes   Global speech queue
+```
+
+### Backend package boundaries
+
+The target package layout is:
+
+```text
+internal/codexapp
+  low-level app-server process, session, generated protocol, JSON-RPC
+
+internal/agent
+  Codex thread runtime, turns, steering, cancellation, approvals,
+  provider notification normalization, liveness, model catalog
+
+internal/conversation
+  topic conversation aggregate, turns, artifacts, trajectory ledger,
+  persistence, event stream, snapshots, branch relationships
+
+internal/narration
+  narrator context builder, durable state, actor mailbox, triggers,
+  structured output validation, narration events
+
+internal/conversationindex
+  global topic cards, full-text candidate retrieval, recency ranking,
+  optional future semantic retriever seam
+
+internal/master
+  durable master session, route-decision schema, candidate orchestration,
+  conversation commands, renderer presentation intents
+
+internal/speech
+  provider capabilities, transcription sessions, generic synthesis,
+  source-aware speech contracts
+
+internal/workspaceui
+  surviving pane/layout contracts with typed conversation pane config
+```
+
+Avoid a generic `common`, `shared`, or global constants package. Event kinds,
+role values, branch kinds, and status values live at their owning domain
+boundary and are exported through generated contracts when needed.
+
+### Frontend ownership
+
+The renderer target is:
+
+```text
+application shell
+  global speech store/controller
+  one master input/presentation controller shared by voice, text, launcher,
+  shortcut, and overlay
+  workspace and pane coordinator
+
+ConversationNavigator
+  shell-owned, virtualized rows keyed by durable conversationId
+  groups conversations by workspace and displays execution/pane status
+  focuses an existing pane or requests a new Easy Button view
+
+conversation stores
+  normalized Map<conversationId, ConversationProjection>
+  event cursors keyed by conversationId
+
+EasyButtonSurface
+  receives conversationId from pane config
+  selects only that conversation's projection
+  emits conversation commands
+  renders focus, milestones, artifacts, summary, approval/status controls
+```
+
+The conversation store may be one normalized Zustand store or narrowly split
+stores, but it must not create one hook/controller instance per conversation
+that subscribes to an unbounded global event stream. Event application is
+keyed, batched, and push-driven to preserve large-DOM performance.
+
+## Domain Model
+
+The Go domain owns these conceptual records. Exact field names may change while
+implementing the first generated contract, but the ownership and relationships
+are settled.
+
+### TopicConversation
+
+```text
+TopicConversation
+  id
+  workspaceId
+  title
+  topicDescriptor
+  status: idle | working | waiting_for_approval | failed
+  createdAt
+  updatedAt
+  archivedAt
+  parentConversationId?
+  branchKind?: fork
+  forkedAtTurnId?
+  agentThreadBinding?
+  roleOverrides
+```
+
+`status` describes conversation execution, not pane visibility. Completion of
+one turn returns the conversation to `idle`; it does not complete the
+conversation permanently.
+
+An ephemeral side interaction is not a `TopicConversation` and never acquires
+a topic-index document merely because a provider thread exists for it.
+
+### SideConversation
+
+```text
+SideConversation
+  id
+  parentConversationId
+  parentPaneId
+  providerThreadId
+  sourceProviderTurnId?
+  sourceTrajectorySequence
+  status: preparing | active | disposing | failed
+  resolvedSideAgentInvocation
+  createdAt
+```
+
+This is a lifecycle child of a parent conversation/pane association, not a
+durable topic aggregate. Persist enough state to recover or clean up an
+interrupted disposal and retain an audit record, but do not surface it through
+normal conversation list/search contracts. A later explicit promotion feature
+would create a new durable fork; it would not mutate this record into a topic
+conversation.
+
+### ConversationTurn
+
+```text
+ConversationTurn
+  id
+  conversationId
+  authoredInput
+  delivery: normal | queued | steering
+  status: queued | running | completed | cancelled | failed
+  startedAt
+  endedAt?
+  requestedRoleProfile
+  resolvedInvocation
+  providerTurnId?
+  error?
+```
+
+There is at most one running primary turn per conversation. Queued turns and
+steering are scoped to the conversation, not the workspace. Different
+conversations may run in parallel.
+
+### AgentThreadBinding
+
+```text
+AgentThreadBinding
+  conversationId
+  provider: codex
+  threadId
+  status: linked | missing | unavailable
+  createdAt
+  lastResumedAt
+  lastTurnId?
+  providerMetadata
+```
+
+The binding is replaceable provider state. If reconciliation proves it missing,
+the conversation exposes a typed unavailable state. Do not silently start an
+unrelated fresh thread under the same conversation.
+
+### TrajectoryEvent
+
+```text
+TrajectoryEvent
+  id
+  conversationId
+  turnId
+  sequence
+  emittedAt
+  kind
+  actor
+  providerEventId?
+  providerThreadId?
+  providerTurnId?
+  payload
+```
+
+The initial normalized event union includes:
+
+- user input accepted
+- turn queued, promoted, started, steered, interrupted, completed, failed
+- agent public text delta and completed message
+- public reasoning summary update
+- plan created or changed
+- tool/command started, progressed, completed, or failed
+- file change proposed or completed
+- approval requested and resolved
+- subagent started, updated, and completed
+- artifact emitted
+- liveness or provider lifecycle changed
+- model rerouted
+
+Large tool output is stored separately and referenced by typed metadata. The
+narrator context builder receives bounded, complete representations rather
+than arbitrary byte chunks.
+
+Raw provider payloads may be retained in diagnostic recordings when safe, but
+renderer and narrator contracts consume only normalized events.
+
+### NarratorState
+
+```text
+NarratorState
+  conversationId
+  observedThroughSequence
+  checkpointThroughSequence
+  checkpointText
+  currentFocus
+  currentFocusRevision
+  topicDescriptor
+  lastInvocationAt?
+  status: ready | running | degraded
+  degradation?
+```
+
+Milestones, status replies, and final summaries are separate immutable records
+with source sequence ranges. Previous narrator output is never reconstructed
+from rendered DOM or synthesized audio.
+
+### RoleProfile
+
+```text
+RoleProfile
+  role: master | agent | narrator | side_agent
+  provider: codex
+  modelSelection
+  reasoningEffort
+  serviceTier?
+  permissionProfile
+  contextBudget
+```
+
+`modelSelection` is either an exact provider model id or an explicit
+`provider_default` mode where that role permits it. Narrator defaults must use
+an exact lightweight model selected by the release configuration; they must not
+inherit `provider_default` from the agent.
+
+Resolved invocation metadata is captured at every turn so later settings
+changes do not rewrite history.
+
+### Pane configuration
+
+`WorkspaceUIPane` gains an Easy Button-specific discriminated configuration:
+
+```text
+EasyButtonPaneConfig
+  conversationId
+```
+
+Do not add a generic untyped `metadata` bag. Terminal and workflow configuration
+fields are deleted with their surface kinds.
+
+## Persistence And Transactions
+
+Use a Setta-owned SQLite database for the new local conversation system. This
+is justified by concurrent actors, atomic narrator cursors, global search, and
+multi-record lifecycle transitions that are brittle across independent JSON
+files.
+
+The initial schema includes logical tables for:
+
+- conversations
+- conversation branches
+- ephemeral side-conversation lifecycle/audit records
+- thread bindings
+- turns and queued inputs
+- trajectory events
+- artifacts
+- narrator state
+- narration events
+- topic index documents
+- role profile overrides
+- master session and route decisions
+- persisted pane bindings/layout references
+
+Use an append-only trajectory plus transactional current-state projections; do
+not force every setting or layout operation into full event sourcing.
+
+Critical transactions include:
+
+1. Persist accepted input, create/queue a turn, and append the corresponding
+   trajectory event.
+2. Apply a normalized provider notification, update turn state, and append its
+   trajectory event.
+3. Persist narrator outputs and advance `observedThroughSequence` atomically.
+4. Create a conversation branch and its provider binding atomically after the
+   provider fork succeeds.
+5. Apply a master route decision and persist the resulting conversation command
+   before emitting a presentation intent.
+
+Publication uses an in-process outbox/event-hub boundary sourced from committed
+records. A crash may replay a committed event, so consumers are idempotent by
+stream id and sequence. A crash must not advance a narrator cursor without its
+corresponding narration records.
+
+The new database starts at schema version 1. This plan includes schema creation,
+not migration from legacy stores. If a new direct dependency is needed for
+SQLite, pin it exactly through `./update_dependencies.sh` and run the supply
+chain gate required by repository policy.
+
+## Agent Runtime
+
+Replace the presentation-oriented `chat.Harness` surface/mode abstraction with
+a thread runtime focused on provider operations:
+
+```text
+ListModels
+StartThread
+ResumeThread
+ReadThread
+ListThreads
+ForkThread
+StartTurn
+SteerTurn
+InterruptTurn
+SubmitApproval
+ReconcileTurn
+SubscribeEvents
+```
+
+The interface remains Codex-shaped where that reflects real capabilities; do
+not invent support for other providers. Domain callers receive Setta types,
+not app-server JSON objects.
+
+Preserve and rehome the difficult existing behavior that remains load-bearing:
+
+- app-server process/session management
+- strict protocol validation and generated decoders
+- turn notification scoping
+- steering and cancellation
+- liveness and restart reconciliation
+- approvals and structured user input
+- provider model catalog and supported efforts
+- command/file/tool/subagent lifecycle normalization
+- background process cleanup required for an agent-created process
+
+Delete chat-transcript presentation projections, composer history, read
+markers, pinning, message pagination, slash-command UI machinery, and manual
+background-terminal inspection endpoints.
+
+Agent background processes are not the manual Terminal pane. Retain only the
+provider lifecycle needed to stop, reconcile, and report processes started by
+an agent. Surface their meaningful state through normalized trajectory and
+typed controls.
+
+## Narrator Architecture
+
+### Actor and cursor
+
+Each topic conversation has one narrator mailbox. The mailbox serializes:
+
+- automatic projection requests
+- explicit status questions
+- terminal projection
+- retry after recoverable provider failure
+
+Only the actor may advance narrator state. A terminal event queued behind an
+in-flight working projection is processed next; it does not start a competing
+goroutine and wait on ad hoc channels.
+
+### Context materialization
+
+Every narrator call receives a `NarratorContextBundle` assembled from the
+authoritative store:
+
+```text
+conversation identity and topic
+current user objective and all still-applicable constraints
+active turn input and accepted steering
+latest durable checkpoint of older trajectory
+all normalized events after that checkpoint within the context budget
+current plan and active tool/approval/subagent states
+artifact metadata
+prior current focus
+all prior milestones for the active turn
+prior final summaries needed for conversation continuity
+invocation trigger and requested output channel
+```
+
+Context trimming is deterministic and typed:
+
+1. Never remove current user constraints or unconsumed steering.
+2. Prefer complete recent events over text-delta fragments.
+3. Replace older covered events with the durable checkpoint.
+4. Preserve prior narration needed for novelty decisions.
+5. Fail loudly when required context alone exceeds the configured budget.
+
+Do not use keyword rules, first-line extraction, or command-name matching to
+fabricate a semantic phase.
+
+### Triggers
+
+Trigger reasons are typed and logged:
+
+- `progress_window_elapsed`
+- `plan_changed`
+- `phase_activity_completed`
+- `approval_required`
+- `user_steered`
+- `explicit_status_requested`
+- `turn_terminal`
+
+Event triggers are debounced through the actor. Time windows use scheduled
+timers, not polling. A trigger asks the narrator to evaluate the accumulated
+trajectory; it does not guarantee a milestone.
+
+### Structured output
+
+The narrator output schema includes:
+
+```text
+observedThroughSequence
+currentFocus
+milestones[]
+statusReply?
+finalSummary?
+topicDescriptor?
+```
+
+Validation requires:
+
+- the observed sequence is within the supplied context range
+- working calls do not emit a final summary
+- terminal calls emit exactly one non-empty final summary
+- status calls emit exactly one status reply
+- milestones are short, voice-ready, and bounded per call
+- current focus is non-empty and bounded
+- no unknown fields
+
+Previous milestones are always supplied to the model. Exact duplicate output
+is rejected. Semantic novelty remains the narrator's decision rather than a
+string-similarity heuristic.
+
+### Failure behavior
+
+Narrator failure never fails or cancels the agent turn. It produces a typed
+degraded narrator state with a diagnostic reference. The UI says narration is
+temporarily unavailable and retains the last valid projection. It does not
+generate a mechanical replacement highlight or pretend the agent stopped.
+
+An explicit user status request receives a clear failure response if narration
+cannot run. It is not silently rerouted to the workspace agent.
+
+## Master And Routing Architecture
+
+### Shell master surface
+
+The global master surface is one shell-owned interaction controller with
+multiple entry points:
+
+```text
+left-pane Ask Setta launcher ---+
+global keyboard shortcut -------+--> master overlay --> MasterInput
+app-chrome master control ------+
+global voice transcription -----+
+```
+
+The compact left-pane control is always above the scrollable conversation
+list. It may accept a short one-line submission directly, but focus or a
+multi-line request expands the overlay. The overlay retains the recent master
+exchange, candidate/route result presentation, and unresolved clarification so
+it behaves conversationally rather than like a fire-and-forget command
+palette. Collapsing or reopening it does not create or resume a different
+provider thread.
+
+Every submission normalizes into one contract containing input id, text,
+modality (`text` or `voice`), timestamp, and optional focused workspace,
+conversation, and pane hints. Routing behavior does not diverge by modality.
+The renderer may show interim voice transcription, but only a finalized
+submission enters master history.
+
+The master surface is not a topic conversation and does not appear as a row in
+the conversation navigator. Its recent transcript and audit information are
+available from the overlay.
+
+### Master session
+
+The master is app-global for the local Setta runtime/user. It has a durable
+Codex thread plus Setta-owned route history and application context. Its model
+profile is independent from every workspace conversation.
+
+The master sees compact application state:
+
+- open workspaces
+- focused workspace and pane
+- open conversation-pane bindings
+- active topic conversations and statuses
+- candidate topic cards returned by the conversation index
+- recent master route decisions
+
+It does not receive arbitrary full workspace trajectories unless it explicitly
+asks a topic narrator for a compact status.
+
+### Conversation index
+
+Setta owns a global index containing one topic card per durable conversation:
+
+```text
+conversationId
+workspaceId and workspace name
+title
+topicDescriptor
+recent user requests
+recent final summaries
+updatedAt
+active status
+open pane ids
+```
+
+The first implementation uses SQLite full-text search plus deterministic
+recency and workspace filters to produce a bounded candidate set. The master
+reranks and selects from those candidates. An embedding-backed retriever may be
+added behind `conversationindex` later, but the plan does not add a fake
+semantic score or preserve the current semantic graph as a substitute.
+
+Codex `thread/list`, its title `searchTerm`, and full-text `thread/search` are
+reconciliation and provider-discovery tools. They do not replace the Setta
+conversation index.
+
+The left conversation navigator reads this Setta-owned index/projection rather
+than listing raw Codex threads. Semantically every non-archived durable
+conversation is available, while the visible UI may prioritize pinned,
+working, waiting, and recent rows and retrieve older rows through search or
+incremental paging. Grouping by workspace remains useful because topic agents
+operate against workspace roots; global search may cross those groups.
+
+Each row exposes title, recency, running/waiting/error or unread state, durable
+fork lineage, and whether an Easy Button pane is already open. Clicking a row
+is a deterministic navigation command, not a model-routing request: focus the
+last-focused existing pane or open one. The master uses the same validated
+presentation command after a route decision.
+
+### Route decision
+
+Master output is strict, typed, and auditable:
+
+```text
+RouteDecision =
+  send_to_agent(conversationId, authoredInput)
+  ask_narrator(conversationId, question)
+  focus_conversation(conversationId)
+  create_conversation(workspaceId, initialInput, proposedTitle)
+  create_side_conversation(parentConversationId, input)
+  fork_conversation(parentConversationId, forkedAtTurnId, input)
+  clarify(question)
+  answer_global(text)
+```
+
+The backend validates that referenced conversations and workspaces exist and
+that the requested operation is allowed. The model does not emit renderer DOM
+commands or arbitrary endpoint names.
+
+Each decision records:
+
+- input transcript/text and source
+- focused conversation hint
+- candidate ids and compact scores
+- chosen action and target
+- requested and resolved master model/effort
+- provider request/response ids
+- timing and error
+
+Do not rely on a self-reported confidence number as proof. Deterministic policy
+requires clarification when the candidate set and action are ambiguous.
+
+### Presentation intents
+
+Routing and presentation are separate effects. A successful backend command
+emits a typed renderer intent:
+
+```text
+focus_existing_conversation_pane
+open_conversation_pane
+open_side_conversation_in_parent_pane
+show_master_reply
+```
+
+The renderer pane coordinator applies the intent against the current layout.
+If there is no live window, conversation work remains valid and the
+presentation intent may be delivered when a renderer reconnects. The backend
+does not mutate persisted workspace layout by pretending to be the renderer.
+
+## Side Conversations And Forks
+
+Use separate domain meanings:
+
+- **Fork:** a durable child topic conversation indexed and independently
+  pane-addressable. Its agent thread starts with parent history through a
+  completed turn using `thread/fork`.
+- **Side conversation:** an ephemeral child associated with a parent pane and
+  fork point. It is not included in global topic retrieval and does not append
+  messages or model output to the parent thread.
+
+The side agent has its own explicit role profile. It does not inherit narrator
+or primary-agent settings implicitly, even though the Codex TUI currently
+inherits its parent model settings.
+
+For an ephemeral side conversation, reproduce the checked Codex TUI lifecycle:
+
+1. Call `thread/fork` without `lastTurnId`, with `ephemeral: true` and the
+   resolved `side_agent` model, permissions, service tier, and developer
+   instructions.
+2. Inject the explicit side-conversation boundary through
+   `thread/inject_items` before accepting the side user's turn.
+3. Keep forked history in provider context but omit it from the rendered side
+   transcript.
+4. Record the source provider thread and Setta trajectory sequence visible at
+   branch creation, and keep the parent status observable while the side is
+   active.
+5. Dispose the ephemeral provider thread and pane association when the user
+   leaves the side conversation according to the declared lifecycle policy.
+
+The source implementation demonstrates that this path is available while the
+parent task is active. Do not add a Setta-generated in-flight context frame by
+default. Deterministic and live tests must establish the exact active-turn
+snapshot semantics of the pinned Codex revision. If those tests demonstrate a
+real public-context gap, stop and specify a typed correction; do not add a
+heuristic digest fallback, duplicate raw tool output, or expose private
+reasoning.
+
+Promotion of an ephemeral side conversation into a durable fork is deferred.
+Do not add replay, copy, or compatibility machinery for it in this plan.
+
+## Global Speech Architecture
+
+### Capture
+
+Move capture ownership out of `features/easy-button` into an application-shell
+speech controller. One controller owns:
+
+- microphone permission and device errors
+- one active media stream/track lease
+- transcription session creation and teardown
+- global enabled/disabled preference
+- capture state and transcript preview
+- submission of completed text to the master
+- explicit cancellation on runtime disconnect or sign-out
+
+The transcription endpoint becomes app-global. It is not parameterized by the
+currently selected Easy Run. Runtime/auth identity remains explicit.
+
+The plan does not settle whether global enablement means push-to-talk, local
+voice activity detection, or a wake phrase. Those UX decisions must not change
+the ownership boundary or create one microphone controller per pane.
+
+### Playback
+
+One playback coordinator subscribes to narration and master speech intents. It
+owns:
+
+- synthesis request cancellation
+- audio caching and URL lifecycle
+- one ordered queue across conversations
+- source identity and UI speaking state
+- global mute/output mode
+- user-requested replay
+- preemption and supersession
+
+Initial priority order:
+
+1. Direct user-requested status reply or master answer
+2. Approval/error requiring user attention
+3. Final summary
+4. Automatic milestone
+
+A final summary may supersede an unplayed milestone from the same turn when the
+summary covers that milestone. The decision and reason are logged. Output from
+different simultaneous conversations is never silently dropped; it remains
+queued or is announced with topic attribution according to explicit policy.
+
+Synthesis endpoints become generic narration/master speech endpoints keyed by
+source event id. Delete endpoints named specifically for Easy Run highlights
+and summaries.
+
+### Experimental Codex realtime speech
+
+Keep the speech provider boundary independent from Codex thread realtime. The
+checked protocol contains experimental realtime methods, but this plan keeps
+the existing separate transcription/synthesis architecture until those methods
+are intentionally evaluated. Do not add an unused adapter or feature flag.
+
+## Model And Permission Configuration
+
+### Resolution precedence
+
+Each role resolves independently through:
+
+```text
+built-in role default
+  -> user-global role override
+  -> workspace role override
+  -> conversation role override
+```
+
+Master has no workspace override unless the master is explicitly executing
+within a workspace-scoped subcontext. Narrator and side-agent profiles may be
+overridden per conversation.
+
+### Defaults
+
+Release configuration owns exact provider-specific defaults:
+
+- primary agent: heavy/capable model, higher reasoning effort, workspace
+  permission profile
+- narrator: explicit lightweight model, low or none reasoning effort, no tools,
+  no approvals, read-only supplied context
+- master: capable general model, restricted Setta management capabilities
+- side agent: explicit model and restricted capabilities suitable for focused
+  follow-up
+
+Do not hardcode model ids in renderer code or scatter them across Go packages.
+The backend role-configuration boundary owns defaults and exposes generated
+views. Validate defaults against `model/list` at configuration read/update and
+before starting a new provider thread.
+
+### Effective invocation audit
+
+Every master, agent, narrator, and side call records:
+
+- role
+- requested model, effort, service tier, and permission profile
+- resolved model, effort, service tier, and permission profile
+- provider model reroute notification, if any
+- input/context byte and token estimates
+- provider thread/turn/request/response ids
+- start/end timestamps and outcome
+
+This metadata is available in logs and recording artifacts without exposing
+chain-of-thought.
+
+## HTTP, IPC, And Generated Contracts
+
+The endpoint registry remains the owner of HTTP request and response
+contracts. Generate TypeScript from Go-owned contracts. Do not maintain a
+separate endpoint/type list in the generator.
+
+The replacement surface needs endpoints or streams for these operations:
+
+### Conversation commands
+
+- list/search topic conversations
+- create/read/archive a topic conversation
+- read a conversation snapshot
+- send or queue a turn
+- steer or stop the active turn
+- submit an approval or structured input response
+- ask the narrator for status
+- create a side conversation
+- fork a durable conversation
+- read/update per-conversation role overrides
+- subscribe to conversation events
+
+### Master commands
+
+- read master state
+- submit global text/transcribed utterance
+- subscribe to master replies and presentation intents
+- cancel an active master operation
+
+### Role configuration
+
+- read role defaults and effective model options
+- update global role defaults
+- read model catalog and supported effort options
+
+### Speech
+
+- read speech capabilities
+- create/cancel transcription sessions
+- synthesize a typed narration/master source event
+
+Conversation and master event unions have exhaustive payload branches. The
+renderer uses generated decoders and `never` assertions for event handling.
+
+Delete old chat, Easy Run, workflow, semantic graph, workspace activity, and
+terminal endpoints from `internal/httpapi/endpoints.go`; do not leave handlers
+registered but unreachable.
+
+## Deletion Plan
+
+Deletion is part of the architecture, not optional cleanup after the new
+feature works.
+
+### Renderer and desktop deletion
+
+Delete:
+
+- `chat-dom` product surface and all chat panel, transcript, composer,
+  chat-specific sidebar contents, chat command-palette, message-action, and chat
+  store code; the replacement master overlay and conversation navigator are
+  new shell-owned surfaces, not retained chat components
+- `terminal` product surface, xterm adapter/session code, terminal profiles,
+  terminal IPC/preload contracts, and terminal-specific CSS
+- workflow graph, workflow settings, workflow node details, approval overlays,
+  workflow stores, workflow IPC, and workspace activity projection UI
+- git graph surface/worker/layout and diagnostic registrations intended only
+  for that pane
+- semantic node details and semantic graph projection UI when their backend is
+  removed
+- Easy Run singleton store and Easy Run-specific IPC/event forwarding
+- Easy Button-owned speech hooks/controllers after their global replacements
+  are connected
+- toolbar actions, keyboard shortcuts, pane icons/titles, runtime policies,
+  benchmark fixtures, snapshots, and tests for deleted surface kinds
+
+Keep and simplify:
+
+- the resizable/collapsible left application pane boundary, rebuilt around the
+  conversation navigator and compact master launcher
+- the workspace layout engine, compositor/runtime budgeting, drag/drop,
+  overview, resize, and persistence machinery
+- Easy Button presentation components that remain useful as pure projections
+- settings and any separately retained browser surface
+- global runtime/workspace connection stores
+
+### Backend deletion
+
+Delete:
+
+- `internal/easyrun` after its replacement conversation/narration vertical slice
+  is connected
+- chat-specific storage and public presentation behavior in `internal/chat`
+- `internal/orchestrator`
+- `internal/terminal`
+- `internal/semanticgraph`
+- `internal/semanticcontext`
+- `internal/workspaceactivity`
+- workflow, semantic graph, chat, Easy Run, manual terminal, and workspace
+  activity HTTP handlers, contracts, event streams, runtime wiring, seed tools,
+  and tests
+- old Chat Codex defaults once role profiles replace them
+- old workspace selected-conversation state that existed only for the chat pane
+
+Move—not wrap—the load-bearing Codex runtime pieces from `internal/chat` into
+the new agent boundary. Once callers are cut over, delete the old package paths.
+Do not leave type aliases or forwarding services to preserve old imports.
+
+Review `internal/notify` independently. Retain a generic notification service
+only if it has a product consumer after chat/workflow removal; otherwise delete
+it. A chat observer is not kept merely in case it becomes useful.
+
+### Persistence deletion
+
+Remove code that reads or writes:
+
+- chat conversation/message/run JSON trees
+- Easy Run directories and latest snapshots
+- workflow definitions/executions
+- semantic graph/cartographer state
+- workspace activity state
+- terminal pane/session state
+- old workspace layouts containing deleted surface kinds
+
+Do not write a cleanup migration. Tests and development instructions use fresh
+app data.
+
+## Implementation Sequence
+
+These phases describe dependency order on one cutover branch. They are not
+permission to ship dual systems. Intermediate local work may temporarily have
+old and new packages present, but no completed cutover or release may contain
+dual reads/writes, compatibility endpoints, renderer feature flags, or adapters
+between the old and new domains.
+
+### Phase 0: Freeze scope and baseline
+
+Before source changes:
+
+1. Record the current deterministic Easy Button workflow and working-state
+   frontend performance baseline.
+2. Capture file/package/endpoint ownership inventories for the deletion diff.
+3. Confirm ChatGPT-authenticated live Codex tests are available without
+   `OPENAI_API_KEY`.
+4. Record the current generated-contract hash and supported Codex protocol
+   registry.
+5. Confirm the exact release-time role defaults to use for master, agent,
+   narrator, and side agent.
+
+Exit criteria:
+
+- baseline recordings and performance report exist
+- deletion inventory is reviewed
+- model defaults are explicit, available in `model/list`, and documented
+
+### Phase 1: New persistence and core contracts
+
+Implement:
+
+1. SQLite store bootstrap and schema version 1.
+2. Conversation, turn, thread-binding, trajectory, artifact, narrator-state,
+   narration-event, role-profile, and branch domain types.
+3. Transaction helpers and committed-event outbox.
+4. Conversation snapshot/event contracts and generated TypeScript.
+5. Focused store tests for atomic state/event/cursor transitions, corruption,
+   concurrency, and restart.
+
+Do not connect old chat/Easy Run records to the new store.
+
+Exit criteria:
+
+- new state is created from an empty app-data directory
+- old state is never read
+- narrator output and cursor commit atomically
+- generated contracts contain no manual mirrors
+
+### Phase 2: Codex agent runtime extraction
+
+Implement:
+
+1. Move app-server turn lifecycle behind `internal/agent`.
+2. Add generated support for `thread/fork` and `thread/list`; regenerate.
+3. Normalize provider notifications into trajectory events.
+4. Preserve turns, queueing, steering, cancellation, approvals, liveness,
+   restart reconciliation, model catalog, and necessary background-process
+   cleanup.
+5. Add provider protocol contract and fake-app-server tests.
+6. Add a live Codex test that creates, resumes, reads, lists, and forks threads
+   through the new runtime.
+
+Exit criteria:
+
+- one durable topic conversation can run multiple sequential turns
+- two conversations in one workspace can run concurrently
+- restart/reload resumes or reports missing provider state explicitly
+- no new code depends on chat presentation types
+
+### Phase 3: Conversation-keyed Easy Button cutover
+
+Implement:
+
+1. Add `EasyButtonPaneConfig{conversationId}` to Go-owned workspace UI
+   contracts and regenerate.
+2. Replace the workspace/latest-run store with normalized
+   conversation-keyed state.
+3. Make `EasyButtonSurface` a pure projection of its pane's conversation.
+4. Remove the one-Easy-Button pane limit.
+5. Replace the selected-chat sidebar with the virtualized conversation
+   navigator and deterministic focus-existing-or-open behavior.
+6. Support create, send, queue, steer, stop, approval, artifact, terminal
+   result, close pane, reopen pane, and reload through production paths.
+7. Delete the old Easy Run store, service, endpoints, IPC, renderer store, and
+   persisted shapes.
+
+Exit criteria:
+
+- two Easy Button panes show independent conversations and active runs
+- closing a pane does not stop its conversation
+- reopening/focusing a conversation restores its projection
+- one navigator row represents the conversation even when multiple panes show
+  it, and a conversation with no pane remains navigable
+- no Easy Run endpoint, type, store, or persisted directory remains
+
+### Phase 4: Narrator projector
+
+Implement:
+
+1. Narrator actor/mailbox per conversation.
+2. Durable context checkpoint and deterministic context materialization.
+3. Role-specific lightweight model resolution.
+4. Typed triggers and schema-constrained fresh narrator calls.
+5. Milestone, status reply, final summary, and topic descriptor persistence and
+   events.
+6. Typed degradation and retry behavior.
+7. Explicit narrator-status command path that never steers the primary agent.
+
+Exit criteria:
+
+- every call logs its trigger, model, context range, prior-output counts, and
+  result
+- previous milestones are always in narrator context
+- terminal projection cannot race a working projection
+- asking for status returns a narrator reply while the agent continues
+- a narrator process/session failure can be recovered from Setta state
+
+### Phase 5: Global speech cutover
+
+Implement:
+
+1. App-shell microphone controller and global preference.
+2. Global transcription submission to the master boundary.
+3. Generic speech synthesis contracts keyed by narration/master event.
+4. One source-aware playback queue with explicit priority and supersession.
+5. Global speaking/capture state rendered by panes and app chrome.
+6. Delete Easy Button-owned speech controllers, Easy Run speech endpoints, and
+   pane-local playback subscriptions.
+
+Exit criteria:
+
+- microphone capture works with no Easy Button pane mounted
+- opening or closing panes does not restart global capture
+- narration from multiple conversations is queued and attributed correctly
+- recording preempts playback according to explicit policy
+- highlights/final summaries/status replies have deterministic speech behavior
+
+### Phase 6: Master and conversation index
+
+Implement:
+
+1. Topic-card index and bounded candidate retrieval.
+2. Durable restricted master thread and role configuration.
+3. One shell-owned master interaction controller accepting normalized voice and
+   text input.
+4. Compact left-pane launcher plus an expanded, conversational master overlay
+   reachable by global shortcut and app chrome while the pane is collapsed.
+5. Strict `RouteDecision` generation and validation.
+6. Conversation commands and renderer presentation intents.
+7. Pane focus/open coordinator behavior shared by master decisions and direct
+   navigator selection.
+8. Clarification behavior for ambiguous routing without dismissing the master
+   overlay.
+9. Route/model/context observability in desktop recordings.
+
+Exit criteria:
+
+- the master can find and open a recent topic by description
+- it focuses an existing pane rather than duplicating it when policy says so
+- global typed master input remains available when the left pane is collapsed
+  and shares history/routing behavior with voice input
+- unrelated work creates a new conversation only after an unambiguous route
+- direct status questions route to the narrator, not the primary agent
+- the master cannot invoke filesystem or shell mutation directly
+
+### Phase 7: Side conversations and durable forks
+
+Implement:
+
+1. Durable fork through `thread/fork` at a completed turn.
+2. Ephemeral `thread/fork` linked to parent and pane, using the resolved
+   `side_agent` profile.
+3. Side boundary injection and hidden inherited transcript matching the Codex
+   source lifecycle.
+4. Active-parent status projection, isolated events, disposal, and failure
+   handling.
+5. Parent/child presentation and durable-fork lineage controls.
+6. Deterministic and live verification of active-turn fork snapshot semantics.
+
+Exit criteria:
+
+- side output never enters the parent agent thread or transcript history
+- durable forks appear as independent indexed topic conversations
+- side conversations are not returned by global topic search
+- branch source turn/trajectory sequence is auditable
+- no synthetic in-flight context fallback exists without an explicitly proven
+  and designed provider gap
+
+### Phase 8: Obsolete surface and backend eradication
+
+Complete the deletion inventory and remove all remaining dead code:
+
+1. Chat, terminal, workflow, git, semantic graph, and workspace activity
+   renderer paths.
+2. Backend packages, handlers, runtime wiring, seed commands, contracts, and
+   generated types that have no surviving consumer.
+3. Pane kinds/config fields, toolbar actions, shortcuts, runtime-policy
+   branches, snapshots, CSS, assets, and tests.
+4. Old app-data paths and test fixtures.
+5. Temporary development scaffolding used during the cutover.
+
+Run `rg` audits for deleted endpoint names, surface kinds, package imports, old
+storage paths, and compatibility vocabulary.
+
+Exit criteria:
+
+- no old surface kind or endpoint is accepted
+- no compatibility/migration/dual-path code remains
+- no generated output contains removed contracts
+- production and test builds contain only surviving product paths
+
+### Phase 9: Hardening and acceptance
+
+1. Exercise crashes and restarts during agent, narrator, master, speech, and
+   branch operations.
+2. Profile large numbers of conversation events and multiple Easy Button panes.
+3. Validate audio arbitration under simultaneous conversation completions.
+4. Audit permission boundaries and secret/raw-audio/log handling.
+5. Run deterministic and live production-path acceptance suites.
+6. Record append-only before/after frontend performance results under
+   `docs/reports/performance/`.
+
+## Verification Plan
+
+Repository verification rules apply throughout. Use `./scripts/go.sh` for Go
+commands, generate contracts from owner-defined Go inputs, and never edit
+generated output manually.
+
+### Focused backend tests
+
+Cover:
+
+- conversation/turn state transitions
+- concurrent conversations in one workspace
+- queue promotion and steering isolation
+- provider thread start/resume/read/list/fork
+- provider event normalization and ordering
+- approval and structured-input lifecycle
+- cancellation/failure/restart reconciliation
+- narrator context construction and deterministic trimming
+- narrator cursor/output transaction atomicity
+- narrator trigger serialization and terminal ordering
+- route decision validation and missing targets
+- topic index retrieval and archive filtering
+- side/fork parent relationships and isolation
+- role-profile precedence and model/effort validation
+- speech synthesis source validation
+
+### Focused renderer tests
+
+Cover:
+
+- conversation-keyed event application
+- multiple Easy Button pane isolation
+- pane focus/open reuse policy
+- pane close without conversation cancellation
+- one navigator row per durable conversation across zero, one, or multiple
+  panes; workspace grouping, paging, and large-list virtualization
+- master launcher/overlay state shared across sidebar, shortcut, app chrome,
+  text, and voice entry points
+- explicit scope separation between the global master composer and an Easy
+  Button conversation composer
+- global capture state independent of pane mounts
+- global playback priority, preemption, and attribution
+- exhaustive generated event unions
+- large-event-list rendering and batching
+- deleted surface kinds absent from registries and toolbar actions
+
+### Deterministic Electron E2E
+
+Through production Electron/main/preload/renderer/HTTP/store paths with
+temporary app data and a scripted Codex app-server, cover:
+
+1. Open a workspace and create two topic conversations through the left
+   navigator and global text master surface.
+2. Open one Easy Button pane for each conversation, then open a second view of
+   one conversation while retaining one navigator row.
+3. Start both agents and receive interleaved streamed events.
+4. Queue and steer one conversation without affecting the other.
+5. Ask one narrator for status while its agent remains active.
+6. Produce milestones, artifacts, an approval, completion, cancellation, and
+   failure through real contracts.
+7. Close a working pane, let work continue, and reopen it.
+8. Restart/reload during active work and reconcile provider state.
+9. Use global speech with no pane, one pane, and multiple panes.
+10. Route typed and spoken master input to an existing topic, focus its pane,
+    create a new topic, retain an ambiguous clarification in the master
+    overlay, and open a side conversation while the parent is active.
+11. Fork a durable conversation and verify parent/child isolation.
+12. Verify old chat/terminal/workflow/git panes and endpoints do not exist.
+
+The scripted provider must exercise production code paths rather than mocks or
+test-only bypasses.
+
+### Live Codex E2E
+
+When the local Codex CLI is signed in with ChatGPT auth, run live tests without
+`OPENAI_API_KEY` covering:
+
+- durable topic thread across multiple turns
+- two conversations running concurrently
+- steering and cancellation
+- narrator fresh structured calls using the configured lightweight model
+- master routing using the configured master model
+- thread read/list/fork behavior
+- restart/reload reconciliation
+- side/fork isolation where supported
+
+If ChatGPT auth is unavailable, report the live-provider tests as skipped. A
+skip is not evidence of provider integration.
+
+### Performance
+
+Baseline before frontend cutover and re-measure after:
+
+- workspace layout frame time with multiple Easy Button panes
+- renderer commits and DOM writes during interleaved conversation streams
+- event-store application throughput for large trajectories
+- conversation navigator scrolling, paging, and row updates with a large
+  cross-workspace topic collection
+- hidden/snapshot pane resource behavior
+- microphone controller stability across pane churn
+- playback queue behavior during simultaneous completions
+
+Record results append-only under `docs/reports/performance/`.
+
+### Broad gates
+
+After the implementation is stable and generated outputs are current:
+
+```bash
+./scripts/format.sh
+./check_quality.sh --all
+./scripts/check_supply_chain.sh
+```
+
+The supply-chain gate is required if SQLite or other dependency manifests and
+lockfiles change. Run the deterministic and live chat/agent workflow gates
+required by `AGENTS.md` before the final source commit.
+
+## Recording And Observability Requirements
+
+Desktop recordings must make future narrator/routing/speech diagnoses possible
+without adding emergency logging. Record structured events for:
+
+### Agent invocation
+
+- Setta conversation/turn ids
+- provider thread/turn ids
+- requested and resolved role profile
+- model/effort/service tier/permission profile
+- lifecycle and liveness changes
+
+### Narrator invocation
+
+- conversation/turn ids
+- trigger reason
+- context checkpoint and sequence range
+- event counts by kind and input size/token estimate
+- previous milestone/final-summary counts
+- requested and resolved model/effort
+- structured output or validation failure
+- cursor commit
+
+### Master routing
+
+- input source and focused-conversation hint
+- candidate conversation ids and retrieval metadata
+- route decision and validation result
+- presentation intent
+- requested/resolved model metadata
+- shared master interaction/session id across text and voice entry surfaces
+
+### Speech
+
+- capture lifecycle and transcription operation id
+- narration/master source event id
+- synthesis request/result
+- queue position and priority
+- play, stop, preempt, supersede, or drop reason
+
+Do not record private chain-of-thought, secrets, unredacted approval secrets, or
+raw microphone audio by default.
+
+## Acceptance Criteria
+
+This plan is complete only when all of the following are true:
+
+- Topic conversations, not Easy Runs, are the persistent user-facing unit.
+- A conversation owns a durable primary agent thread and reconstructable
+  narrator state.
+- Multiple conversations can work concurrently in one workspace.
+- Easy Button panes are keyed by conversation and may be absent while work
+  continues.
+- The left pane remains as a virtualized workspace-grouped navigator with one
+  row per durable conversation; selecting a row focuses an existing pane or
+  opens one.
+- The master can retrieve, focus, open, create, and route conversations through
+  typed decisions.
+- The same global master is reachable through voice and shell-owned text UI,
+  including while the left pane is collapsed.
+- Asking for an update reaches the narrator without steering the primary agent.
+- Narrator input includes an authoritative recent trajectory plus prior
+  narration, not only new digest fragments.
+- Narrator defaults are explicitly lightweight and independently configurable.
+- Agent defaults may be heavy and are independently configurable.
+- Global microphone and playback work without an Easy Button pane.
+- Audio from simultaneous conversations follows explicit, observable policy.
+- Side conversations and forks do not contaminate parent threads.
+- Provider thread list/read/fork primitives are supported through generated
+  contracts and verified live.
+- Chat, terminal, workflow, git, semantic graph, workspace activity, and old
+  Easy Run product/backend paths that became dead are deleted.
+- No migration, compatibility, alias, adapter, dual read/write, or feature flag
+  for the old architecture remains.
+- Generated TypeScript matches Go-owned contracts.
+- Deterministic Electron production-path tests pass with temporary app data.
+- Live Codex tests pass when ChatGPT auth is available, or the lack of auth is
+  reported explicitly.
+- Final performance reports show that multiple live Easy Button panes and large
+  trajectories remain within established workspace UI budgets.
+
+## Progress Log
+
+No implementation work has started under this plan.
