@@ -2,10 +2,10 @@
 
 **Date:** 2026-07-10
 
-**Status:** Phase 2 complete. The duplex terminal protocol is owned by Go,
-generated into TypeScript, and registered as protocol 12. Phase 3 is next and
-has not started; ticket lifecycle and WebSocket transport remain explicitly
-unimplemented.
+**Status:** Phase 3 complete. The backend duplex terminal stream is implemented
+as protocol 13 with authenticated one-time tickets, bounded connection loops,
+ordered and deduplicated PTY input, event replay, and content-free recorder
+hooks. Phase 4 client migration has not started.
 
 ## Progress
 
@@ -31,6 +31,18 @@ unimplemented.
   sets, endpoint paths, and the duplex protocol descriptor.
 - [x] Verify the protocol contracts and the unchanged production terminal
   workflow; record the result in the Phase 2 report.
+- [x] Implement short-lived, single-use terminal stream tickets bound to the
+  authenticated device and runtime.
+- [x] Implement the WebSocket reader, input, event, and writer loops with
+  cancellation and byte-bounded queues.
+- [x] Serialize PTY writes per session; acknowledge contiguous input and
+  preserve stable-stream deduplication across reconnects.
+- [x] Bridge the terminal event cursor, replay buffer, and explicit replay
+  truncation frames to the duplex stream.
+- [x] Add typed input/output backpressure behavior and content-free structured
+  recorder hooks.
+- [x] Verify the backend stream and unchanged production Electron terminal
+  workflow; record the result in the Phase 3 report.
 
 ## Decision
 

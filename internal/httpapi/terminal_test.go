@@ -231,27 +231,27 @@ func TestTerminalEndpointMapsUnsupportedPTYToNotImplemented(t *testing.T) {
 	}
 }
 
-func TestTerminalStreamRoutesAreRegisteredButDeferredToPhaseThree(t *testing.T) {
+func TestTerminalStreamTicketAndUpgradeRequireValidCredentials(t *testing.T) {
 	handler, _ := newTerminalHandler(t, nil)
-	ticketError := postJSON[ErrorResponse](t, handler, "/terminals/stream/ticket", CreateTerminalStreamTicketRequest{
+	ticket := postJSON[CreateTerminalStreamTicketResponse](t, handler, "/terminals/stream/ticket", CreateTerminalStreamTicketRequest{
 		ClientStreamID: "terminal_stream_test",
-	}, http.StatusNotImplemented)
-	if ticketError.Error.Code != "terminal_stream_not_implemented" {
-		t.Fatalf("ticket error code = %q, want terminal_stream_not_implemented", ticketError.Error.Code)
+	}, http.StatusOK)
+	if ticket.Ticket == "" || ticket.ClientStreamID != "terminal_stream_test" || ticket.ExpiresInSeconds != terminal.TerminalStreamTicketTTLSeconds {
+		t.Fatalf("terminal stream ticket = %+v", ticket)
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "/terminals/stream", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusNotImplemented {
-		t.Fatalf("stream status = %d, want %d", response.Code, http.StatusNotImplemented)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("stream status = %d, want %d", response.Code, http.StatusUnauthorized)
 	}
 	var streamError ErrorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &streamError); err != nil {
 		t.Fatalf("decode stream error: %v", err)
 	}
-	if streamError.Error.Code != "terminal_stream_not_implemented" {
-		t.Fatalf("stream error code = %q, want terminal_stream_not_implemented", streamError.Error.Code)
+	if streamError.Error.Code != "invalid_terminal_stream_ticket" {
+		t.Fatalf("stream error code = %q, want invalid_terminal_stream_ticket", streamError.Error.Code)
 	}
 }
 

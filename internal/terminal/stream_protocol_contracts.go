@@ -66,6 +66,7 @@ func streamContractValueSets() []ContractValueSet {
 			string(TerminalStreamErrorInputSequenceConflict),
 			string(TerminalStreamErrorInputTooLarge),
 			string(TerminalStreamErrorInputBackpressure),
+			string(TerminalStreamErrorOutputBackpressure),
 			string(TerminalStreamErrorEventCursorUnavailable),
 			string(TerminalStreamErrorInternal),
 		}},

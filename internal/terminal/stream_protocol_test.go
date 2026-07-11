@@ -40,6 +40,7 @@ func TestTerminalStreamContractOwnsMessageKindsAndErrors(t *testing.T) {
 		string(TerminalStreamErrorInputSequenceConflict),
 		string(TerminalStreamErrorInputTooLarge),
 		string(TerminalStreamErrorInputBackpressure),
+		string(TerminalStreamErrorOutputBackpressure),
 		string(TerminalStreamErrorEventCursorUnavailable),
 		string(TerminalStreamErrorInternal),
 	})

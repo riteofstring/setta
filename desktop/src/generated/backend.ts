@@ -20,7 +20,7 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 12;
+export const backendProtocolVersion = 13;
 export const backendContractSchemaHash = "sha256:0b53396451bfda46e2a5f395801f0b28ce469ee472fd618dbe2f44f7bd59d559";
 
 export type DeviceScope = "full";
@@ -2415,9 +2415,9 @@ export function decodeTerminalEventType(value: unknown, label = "TerminalEventTy
   }
 }
 
-export type TerminalStreamErrorCode = "malformed_frame" | "unsupported_message" | "stream_not_ready" | "stream_identity_mismatch" | "session_not_found" | "input_sequence_gap" | "input_sequence_conflict" | "input_too_large" | "input_backpressure" | "event_cursor_unavailable" | "internal_error";
+export type TerminalStreamErrorCode = "malformed_frame" | "unsupported_message" | "stream_not_ready" | "stream_identity_mismatch" | "session_not_found" | "input_sequence_gap" | "input_sequence_conflict" | "input_too_large" | "input_backpressure" | "output_backpressure" | "event_cursor_unavailable" | "internal_error";
 
-export const terminalStreamErrorCodeValues = ["malformed_frame", "unsupported_message", "stream_not_ready", "stream_identity_mismatch", "session_not_found", "input_sequence_gap", "input_sequence_conflict", "input_too_large", "input_backpressure", "event_cursor_unavailable", "internal_error"] as const satisfies readonly TerminalStreamErrorCode[];
+export const terminalStreamErrorCodeValues = ["malformed_frame", "unsupported_message", "stream_not_ready", "stream_identity_mismatch", "session_not_found", "input_sequence_gap", "input_sequence_conflict", "input_too_large", "input_backpressure", "output_backpressure", "event_cursor_unavailable", "internal_error"] as const satisfies readonly TerminalStreamErrorCode[];
 
 export function decodeTerminalStreamErrorCode(value: unknown, label = "TerminalStreamErrorCode"): TerminalStreamErrorCode {
   const decoded = decodeString(value, label);
@@ -2439,6 +2439,8 @@ export function decodeTerminalStreamErrorCode(value: unknown, label = "TerminalS
     case "input_too_large":
       return decoded;
     case "input_backpressure":
+      return decoded;
+    case "output_backpressure":
       return decoded;
     case "event_cursor_unavailable":
       return decoded;

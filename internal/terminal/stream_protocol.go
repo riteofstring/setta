@@ -37,6 +37,7 @@ const (
 	TerminalStreamErrorInputSequenceConflict  TerminalStreamErrorCode = "input_sequence_conflict"
 	TerminalStreamErrorInputTooLarge          TerminalStreamErrorCode = "input_too_large"
 	TerminalStreamErrorInputBackpressure      TerminalStreamErrorCode = "input_backpressure"
+	TerminalStreamErrorOutputBackpressure     TerminalStreamErrorCode = "output_backpressure"
 	TerminalStreamErrorEventCursorUnavailable TerminalStreamErrorCode = "event_cursor_unavailable"
 	TerminalStreamErrorInternal               TerminalStreamErrorCode = "internal_error"
 )
@@ -147,4 +148,16 @@ func (TerminalStreamErrorMessage) terminalStreamServerMessage() {}
 type TerminalStreamSessionState struct {
 	SessionID                 string `json:"sessionId"`
 	AcknowledgedInputSequence int    `json:"acknowledgedInputSequence"`
+}
+
+type TerminalStreamProtocolError struct {
+	Code          TerminalStreamErrorCode
+	Message       string
+	Retryable     bool
+	SessionID     string
+	InputSequence int
+}
+
+func (err *TerminalStreamProtocolError) Error() string {
+	return err.Message
 }

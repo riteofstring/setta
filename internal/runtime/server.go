@@ -793,6 +793,14 @@ func newTerminalService(
 }
 
 func newHTTPServer(config Config, services runtimeServices) *http.Server {
+	identity := runtimeIdentity{}
+	if services.runtimeIdentityManager != nil {
+		identity = services.runtimeIdentityManager.identitySnapshot()
+	}
+	terminalStreamWriter := config.Stderr
+	if terminalStreamWriter == nil {
+		terminalStreamWriter = io.Discard
+	}
 	apiHandler := httpapi.NewHandler(httpapi.HandlerConfig{
 		Metadata: httpapi.BackendMetadata{
 			Name:    httpapi.BackendName,
@@ -805,10 +813,13 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		RuntimeAuthService:     services.authStore,
 		RuntimeIdentityService: services.runtimeIdentityManager,
 		RuntimeMetadata: httpapi.RuntimeMetadata{
+			ID:                     identity.RuntimeID,
+			DisplayName:            identity.DisplayName,
 			InfrastructureProvider: services.infrastructureProvider,
 		},
 		SemanticGraphService:     services.semanticGraphService,
 		TerminalService:          services.terminalService,
+		TerminalStreamRecorder:   newTerminalStreamJSONRecorder(terminalStreamWriter),
 		WorkspaceActivityService: services.workspaceActivityService,
 		WorkspaceUIService:       services.workspaceUIService,
 		WorkspaceService:         services.workspaceService,

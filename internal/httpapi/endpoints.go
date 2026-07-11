@@ -38,8 +38,9 @@ type ContractEndpoint struct {
 
 type endpoint struct {
 	ContractEndpoint
-	Handler         routeHandler
-	Unauthenticated bool
+	Handler             routeHandler
+	TicketAuthenticated bool
+	Unauthenticated     bool
 }
 
 type routeHandler func(handler, http.ResponseWriter, *http.Request)
@@ -288,7 +289,8 @@ func duplex[ClientMessage any, ServerMessage any](name string, path string, hand
 			DuplexClientMessage: reflect.TypeFor[ClientMessage](),
 			DuplexServerMessage: reflect.TypeFor[ServerMessage](),
 		},
-		Handler: handler,
+		Handler:             handler,
+		TicketAuthenticated: true,
 	}
 }
 
