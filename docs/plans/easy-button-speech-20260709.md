@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-4 and Phase 5 item 1 complete
+**Status:** Implementation in progress — Phases 1-4 and Phase 5 items 1-2 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -3750,6 +3750,74 @@ supply-chain verification were not required. Phase 5 item 1 remains complete.
 The next coherent slice remains item 2: mark the exact speaking highlight
 inside its existing dot box and lift only that row without rail reflow. No
 implementation blocker was found.
+
+### 2026-07-10 — Phase 5 exact highlight source indication complete
+
+Implemented Phase 5 item 2 without pulling terminal priority, run/workspace
+switch cancellation, stale-response rules, or the expanded visual matrix
+forward. Every narrator-highlight row now keeps three dormant equalizer bars
+inside its existing fixed 6-by-6-pixel dot. While the playback controller is
+actually speaking a highlight, the rail matches the exact persisted workspace,
+Easy Run, and highlight IDs, replaces only that row's dot with the small teal
+equalizer, and lifts only that row to full foreground. Summary sources,
+synthesizing/stopped/failed states, other workspaces, other runs, and other
+highlight IDs cannot mark a row.
+
+The dot remains the same positioned layout box before, during, and after
+playback, so moving the marker cannot resize or recenter the safely centered
+rail. Reduced motion keeps the three bars visible at a fixed full height while
+removing their animation. The production selector is scoped to the pane's
+actual speaking state and has enough specificity to replace the newest working
+highlight's normal pulsing dot; the first rebuilt production run exposed that
+the initial lower-specificity rule left the cyan pulse underneath the bars, and
+the focused selector correction closed that defect.
+
+Verification completed for this slice:
+
+- 33 focused narrator-highlight source, terminal-source, automatic eligibility,
+  and playback-controller Vitest cases passed, including exact workspace/run/
+  highlight matching, summary-source exclusion, non-speaking-state exclusion,
+  and six dormant bars retained across two rendered rows;
+- all 1,125 desktop Vitest tests, focused ESLint, Electron/web typechecks, and
+  both production builds passed. The checked-in PWA bundle was regenerated and
+  `./scripts/go.sh test ./internal/webapp` passed; an initial invocation used a
+  desktop-relative Go package path and failed at setup, then the exact test
+  passed from the repository root;
+- the complete configured speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase5-highlight-indicator-20260710-r4`.
+  It moved the visible marker between two live persisted highlight IDs in
+  speech order, required the exact active row's foreground/equalizer state and
+  inactive rows' hidden bars, and compared every row and dot rectangle at
+  0.001-pixel precision without finding rail reflow. The retained speaking
+  screenshot was inspected. All existing capture, terminal TTS, cancellation,
+  failure, hydration, persistence, and redaction assertions remained green;
+- the complete deterministic Easy Button workflow and its existing pixel-match
+  companion passed at
+  `desktop/.recordings/easy-button-speech-phase5-highlight-indicator-regression-20260710`.
+
+The workflow manifest only checks for an existing Electron build; the first
+attempt therefore launched the preceding build and correctly failed because
+the new marker DOM was absent. After the required production rebuild, the next
+run exposed and led to the specificity fix above, and the final complete run
+passed. The first `./check_quality.sh --git-changes` attempt found only
+slice-owned complexity in the strengthened production predicates and
+assertions. Those checks were split at their owning source/presentation
+boundaries, then focused lint, the 33 focused tests, and the complete configured
+workflow passed again before the final quality rerun. No live OpenAI speech
+result is claimed; `./scripts/format.sh` and the final
+`./check_quality.sh --git-changes` passed. The dedicated provider
+workflow remains Phase 5 item 8. This source-indicator-only slice does not
+change chat delivery, run lifecycle, steering, Codex protocol handling, or a
+provider boundary, so live Codex gates were not required. No generated Go
+contract, dependency, manifest, module, package-manager, toolchain, or
+supply-chain input changed, so contract regeneration and supply-chain
+verification are not required.
+
+Phase 5 items 1-2 are complete. Item 3 is next: implement terminal priority,
+run/workspace switching, pending-queue cancellation, and stale synthesis-
+response rejection across the persisted source union. Item 4 then owns the
+expanded synchronized mockup/production still and named-animation pixel matrix.
+No implementation blocker was found.
 
 ## Verification Plan
 

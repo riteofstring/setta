@@ -473,6 +473,11 @@
     return Array.from(host.querySelectorAll(".easy-button-highlight-item")).map((item) => ({
       animationFillMode: elementStyleValue(item, "animationFillMode"),
       animationName: elementStyleValue(item, "animationName"),
+      color: elementStyleValue(item, "color"),
+      dotBars: Array.from(item.querySelectorAll(".easy-button-highlight-dot i")).map((bar) => ({
+        animationName: elementStyleValue(bar, "animationName"),
+        display: elementStyleValue(bar, "display"),
+      })),
       dotAnimationName: elementStyleValue(
         item.querySelector(".easy-button-highlight-dot"),
         "animationName",
@@ -481,7 +486,13 @@
         item.querySelector(".easy-button-highlight-dot"),
         "backgroundColor",
       ),
+      dotRect: preciseRectSnapshot(
+        elementRectOrZero(item.querySelector(".easy-button-highlight-dot")),
+      ),
+      id: item instanceof HTMLElement ? (item.dataset.easyButtonHighlightId ?? "") : "",
       opacity: elementStyleValue(item, "opacity"),
+      rect: preciseRectSnapshot(elementRectOrZero(item)),
+      speaking: item instanceof HTMLElement && item.dataset.easyButtonHighlightSpeaking === "true",
       text: elementText(item.querySelector(".easy-button-highlight-text")),
       time: elementText(item.querySelector(".easy-button-highlight-time")),
       transitionDuration: elementStyleValue(item, "transitionDuration"),
@@ -694,6 +705,15 @@
       left: Math.round(rect.left),
       top: Math.round(rect.top),
       width: Math.round(rect.width),
+    };
+  }
+
+  function preciseRectSnapshot(rect) {
+    return {
+      height: Number(rect.height.toFixed(3)),
+      left: Number(rect.left.toFixed(3)),
+      top: Number(rect.top.toFixed(3)),
+      width: Number(rect.width.toFixed(3)),
     };
   }
 

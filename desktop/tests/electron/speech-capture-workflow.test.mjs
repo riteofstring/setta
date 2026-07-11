@@ -529,13 +529,7 @@ async function exerciseAutomaticHighlightSpeech(client, provider, artifactDir) {
   const firstSpeaking = await waitForState(
     client,
     easyButtonStateExpression(),
-    (state) =>
-      state.runRequestText === requestText &&
-      state.easyState === "working" &&
-      state.highlights.length === 2 &&
-      state.speechOutputMode === "highlights_and_final" &&
-      state.speechOutputPlayback === "speaking" &&
-      state.summaryPlayback === "",
+    (state) => firstAutomaticHighlightIsSpeaking(state, requestText),
     workflowTimeoutMs,
   );
   const snapshot = await client.evaluate(
@@ -555,17 +549,21 @@ async function exerciseAutomaticHighlightSpeech(client, provider, artifactDir) {
     client,
     easyButtonStateExpression(),
     (state) =>
-      state.latestRunId === snapshot.latestRun.id &&
-      state.speechOutputPlayback === "speaking" &&
-      state.summaryPlayback === "" &&
-      provider.synthesisInputs.length === synthesisCount + 2,
+      secondAutomaticHighlightIsSpeaking(
+        state,
+        snapshot.latestRun.id,
+        provider.synthesisInputs.length,
+        synthesisCount + 2,
+      ),
     workflowTimeoutMs,
   );
-  if (!secondHighlight || provider.synthesisInputs.at(-1) !== secondHighlight.text) {
-    throw new Error(
-      `second live narrator highlight used the wrong speech source: ${JSON.stringify(secondSpeaking)}`,
-    );
-  }
+  assertSecondAutomaticHighlight({
+    firstHighlight,
+    provider,
+    secondHighlight,
+    secondSpeaking,
+  });
+  assertHighlightRailDidNotReflow(firstSpeaking, secondSpeaking);
   await callBrowserFixture(client, "finishAudio");
   await waitForState(
     client,
@@ -584,6 +582,35 @@ function assertFirstAutomaticHighlight({
   snapshot,
   synthesisCount,
 }) {
+  assertFirstAutomaticHighlightSource({
+    firstHighlight,
+    firstSpeaking,
+    provider,
+    snapshot,
+    synthesisCount,
+  });
+  if (
+    !highlightSourceIsMarked(firstSpeaking, firstHighlight.id) ||
+    firstSpeaking.highlights[0]?.color !== firstSpeaking.highlights.at(-1)?.color ||
+    firstSpeaking.highlights.some(
+      (highlight) =>
+        highlight.id !== firstHighlight.id &&
+        !highlightSourceIsUnmarked(firstSpeaking, highlight.id),
+    )
+  ) {
+    throw new Error(
+      `first live narrator highlight marked the wrong row: ${JSON.stringify(firstSpeaking)}`,
+    );
+  }
+}
+
+function assertFirstAutomaticHighlightSource({
+  firstHighlight,
+  firstSpeaking,
+  provider,
+  snapshot,
+  synthesisCount,
+}) {
   if (
     snapshot.latestRun?.id !== firstSpeaking.latestRunId ||
     snapshot.latestRun.status !== "working" ||
@@ -593,6 +620,111 @@ function assertFirstAutomaticHighlight({
   ) {
     throw new Error(
       `first live narrator highlight used the wrong speech source: ${JSON.stringify({ firstSpeaking, snapshot })}`,
+    );
+  }
+}
+
+function assertSecondAutomaticHighlight({
+  firstHighlight,
+  provider,
+  secondHighlight,
+  secondSpeaking,
+}) {
+  if (
+    !secondHighlight ||
+    provider.synthesisInputs.at(-1) !== secondHighlight.text ||
+    !highlightSourceIsMarked(secondSpeaking, secondHighlight.id) ||
+    !highlightSourceIsUnmarked(secondSpeaking, firstHighlight.id) ||
+    secondSpeaking.highlights[0]?.color === secondSpeaking.highlights[1]?.color
+  ) {
+    throw new Error(
+      `second live narrator highlight used the wrong speech source: ${JSON.stringify(secondSpeaking)}`,
+    );
+  }
+}
+
+function firstAutomaticHighlightIsSpeaking(state, requestText) {
+  return (
+    automaticHighlightRunIsSpeaking(state, requestText) && firstHighlightIsLifted(state.highlights)
+  );
+}
+
+function automaticHighlightRunIsSpeaking(state, requestText) {
+  return (
+    state.runRequestText === requestText &&
+    state.easyState === "working" &&
+    state.highlights.length === 2 &&
+    state.speechOutputMode === "highlights_and_final" &&
+    state.speechOutputPlayback === "speaking" &&
+    state.summaryPlayback === ""
+  );
+}
+
+function firstHighlightIsLifted(highlights) {
+  const first = highlights[0];
+  return (
+    first?.speaking === true && first.opacity === "1" && first.color === highlights.at(-1)?.color
+  );
+}
+
+function secondAutomaticHighlightIsSpeaking(state, runId, synthesisCount, expectedCount) {
+  const [first, second] = state.highlights;
+  return (
+    highlightPlaybackMatchesRun(state, runId) &&
+    firstHighlightHasRested(first, second) &&
+    second?.speaking === true &&
+    synthesisCount === expectedCount
+  );
+}
+
+function highlightPlaybackMatchesRun(state, runId) {
+  return (
+    state.latestRunId === runId &&
+    state.speechOutputPlayback === "speaking" &&
+    state.summaryPlayback === ""
+  );
+}
+
+function firstHighlightHasRested(first, second) {
+  return first?.speaking === false && first.opacity === "0.72" && first.color !== second?.color;
+}
+
+function highlightSourceIsMarked(state, highlightId) {
+  const highlight = state.highlights.find((item) => item.id === highlightId);
+  return (
+    highlight?.speaking === true &&
+    highlight.opacity === "1" &&
+    highlight.dotBackgroundColor === "rgba(0, 0, 0, 0)" &&
+    highlight.dotBars.length === 3 &&
+    highlight.dotBars.every(
+      (bar) => bar.display === "block" && bar.animationName === "easy-button-audio-equalizer",
+    )
+  );
+}
+
+function highlightSourceIsUnmarked(state, highlightId) {
+  const highlight = state.highlights.find((item) => item.id === highlightId);
+  return (
+    highlight?.speaking === false &&
+    highlight.dotBars.length === 3 &&
+    highlight.dotBars.every((bar) => bar.display === "none")
+  );
+}
+
+function assertHighlightRailDidNotReflow(firstSpeaking, secondSpeaking) {
+  const firstGeometry = firstSpeaking.highlights.map(({ dotRect, id, rect }) => ({
+    dotRect,
+    id,
+    rect,
+  }));
+  const secondGeometry = secondSpeaking.highlights.map(({ dotRect, id, rect }) => ({
+    dotRect,
+    id,
+    rect,
+  }));
+  if (JSON.stringify(firstGeometry) !== JSON.stringify(secondGeometry)) {
+    throw new Error(
+      `moving the spoken-source indicator reflowed the highlight rail: ${JSON.stringify({ firstGeometry, secondGeometry })}`,
     );
   }
 }

@@ -66,7 +66,12 @@ export function EasyButtonSurface() {
         data-testid="easy-button-surface"
         ref={controller.rootRef}
       >
-        <HighlightRail highlights={controller.highlights} latestRun={controller.latestRun} />
+        <HighlightRail
+          highlights={controller.highlights}
+          latestRun={controller.latestRun}
+          playbackState={controller.playback.state}
+          workspaceId={controller.selectedWorkspaceId}
+        />
         <main className="easy-button-stage">
           <div className="easy-button-center">
             <div className="easy-button-agent-chip-slot">

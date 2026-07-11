@@ -124,6 +124,7 @@
   background: var(--easy-button-faint);
   border-radius: 50%;
   height: 6px;
+  position: relative;
   width: 6px;
 }
 

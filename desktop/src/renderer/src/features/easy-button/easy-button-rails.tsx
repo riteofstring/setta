@@ -3,13 +3,18 @@ import type { CSSProperties } from "react";
 import type { EasyArtifact, EasyHighlight, EasyRun } from "@generated/backend";
 
 import { MarkdownText } from "../../components/markdown-text";
+import type { SpeechPlaybackState } from "./speech-playback-controller";
 
 export function HighlightRail({
   highlights,
   latestRun,
+  playbackState,
+  workspaceId,
 }: {
   highlights: EasyHighlight[];
   latestRun: EasyRun | null;
+  playbackState: SpeechPlaybackState;
+  workspaceId: string | null;
 }) {
   return (
     <aside
@@ -23,7 +28,9 @@ export function HighlightRail({
           <HighlightItem
             highlight={highlight}
             key={highlight.id}
+            playbackState={playbackState}
             startedAt={latestRun?.startedAt ?? null}
+            workspaceId={workspaceId}
           />
         ))}
       </ol>
@@ -33,19 +40,46 @@ export function HighlightRail({
 
 function HighlightItem({
   highlight,
+  playbackState,
   startedAt,
+  workspaceId,
 }: {
   highlight: EasyHighlight;
+  playbackState: SpeechPlaybackState;
   startedAt: string | null;
+  workspaceId: string | null;
 }) {
+  const speaking = highlightIsSpeaking(playbackState, highlight, workspaceId);
   return (
-    <li className="easy-button-highlight-item">
-      <span aria-hidden="true" className="easy-button-highlight-dot" />
+    <li
+      className="easy-button-highlight-item"
+      data-easy-button-highlight-id={highlight.id}
+      data-easy-button-highlight-speaking={speaking ? "true" : "false"}
+    >
+      <span aria-hidden="true" className="easy-button-highlight-dot">
+        <i />
+        <i />
+        <i />
+      </span>
       <span className="easy-button-highlight-text">{highlight.text}</span>
       <span className="easy-button-highlight-time">
         {highlightElapsedLabel(startedAt, highlight.at)}
       </span>
     </li>
+  );
+}
+
+export function highlightIsSpeaking(
+  state: SpeechPlaybackState,
+  highlight: EasyHighlight,
+  workspaceId: string | null,
+): boolean {
+  return (
+    state.type === "speaking" &&
+    state.source.kind === "highlight" &&
+    state.source.workspaceId === workspaceId &&
+    state.source.easyRunId === highlight.easyRunId &&
+    state.source.highlightId === highlight.id
   );
 }
 
