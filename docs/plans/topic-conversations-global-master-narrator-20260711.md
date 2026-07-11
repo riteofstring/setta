@@ -648,6 +648,11 @@ Milestones, status replies, and final summaries are separate immutable records
 with source sequence ranges. Previous narrator output is never reconstructed
 from rendered DOM or synthesized audio.
 
+`observedThroughSequence` is specifically the contiguous working/terminal
+projection cursor. It is not the highest sequence a read-only status request
+has inspected. `checkpointThroughSequence` can advance only within that
+contiguous observed prefix.
+
 ### RoleProfile
 
 ```text
@@ -719,6 +724,22 @@ is justified by concurrent actors, atomic narrator cursors, global search, and
 multi-record lifecycle transitions that are brittle across independent JSON
 files.
 
+SQLite gives this system ACID transactions and full-text search, not
+concurrent writes. The conversation, narrator, and master actors are
+concurrent readers but share one serialized writer. Open the database in WAL
+mode with one dedicated write connection fed by a bounded, context-aware write
+queue and a separate bounded read pool; do not give each actor a write
+connection. Apply and verify connection-scoped pragmas, including a bounded
+`busy_timeout`, on every applicable connection.
+
+Write jobs contain only short database work. They never wait on a model,
+provider, renderer, speech, or other external operation while holding a
+transaction, and they never call back into an actor from inside the writer.
+Queue admission has explicit backpressure and cancellation, and shutdown
+drains or rejects pending writes deterministically. Simultaneous completion of
+multiple conversations must serialize at that writer without exposing raw
+`SQLITE_BUSY` or `database is locked` errors to callers.
+
 The initial schema includes logical tables for:
 
 - conversations
@@ -745,10 +766,14 @@ Critical transactions include:
    trajectory event.
 2. Apply a normalized provider notification, update turn state, and append its
    trajectory event.
-3. Persist narrator outputs and advance `observedThroughSequence` atomically.
-4. Create a conversation branch and its provider binding atomically after the
+3. Persist working/terminal narrator projection output and its permitted
+   `observedThroughSequence` advance atomically; persist a status reply without
+   changing that projection cursor.
+4. Persist a narrator checkpoint and advance `checkpointThroughSequence`
+   atomically without changing `observedThroughSequence`.
+5. Create a conversation branch and its provider binding atomically after the
    provider fork succeeds.
-5. Apply a master route decision and persist the resulting conversation command
+6. Apply a master route decision and persist the resulting conversation command
    before emitting a presentation intent.
 
 Publication uses an in-process outbox/event-hub boundary sourced from committed
@@ -815,16 +840,25 @@ Each topic conversation has one narrator mailbox. The mailbox serializes:
 - automatic projection requests
 - explicit status questions
 - terminal projection
+- checkpoint generation
 - retry after recoverable provider failure
 
 Only the actor may advance narrator state. A terminal event queued behind an
 in-flight working projection is processed next; it does not start a competing
 goroutine and wait on ad hoc channels.
 
+Mailbox priority is explicit: terminal and approval-required projection,
+explicit status, other automatic projection, recoverable retry, then checkpoint
+maintenance. Checkpoint generation starts only while no higher-priority work
+is pending. If higher-priority work arrives during a checkpoint model call, the
+actor cancels or supersedes that call and invalidates its generation token; a
+late checkpoint response cannot commit. State commits remain serialized, and
+there is at most one commit-eligible narrator invocation per conversation.
+
 ### Context materialization
 
-Every narrator call receives a `NarratorContextBundle` assembled from the
-authoritative store:
+Every working or terminal projection call receives a
+`NarratorContextBundle` assembled from the authoritative store:
 
 ```text
 conversation identity and topic
@@ -840,6 +874,15 @@ prior final summaries needed for conversation continuity
 invocation trigger and requested output channel
 ```
 
+A status call receives a separate read-only `NarratorStatusContext` containing
+the authoritative current objective, constraints, plan, active
+tool/approval/subagent state, artifact metadata, current focus, latest bounded
+events, and recent summaries needed to answer the question. It may omit an old
+unobserved middle range during backlog catch-up because it does not advance the
+projection cursor. Any omitted range is represented explicitly in the bundle;
+the model is never shown noncontiguous events as though they were contiguous.
+Checkpoint calls use the separate historical compaction schema below.
+
 Context trimming is deterministic and typed:
 
 1. Never remove current user constraints or unconsumed steering.
@@ -850,6 +893,58 @@ Context trimming is deterministic and typed:
 
 Do not use keyword rules, first-line extraction, or command-name matching to
 fabricate a semantic phase.
+
+### Checkpoint generation
+
+`checkpointText` is produced by the narrator actor itself, not a separate
+process. It is allowed only over a contiguous trajectory prefix the narrator
+has already evaluated. The state invariant is:
+
+```text
+checkpointThroughSequence <= observedThroughSequence <= latestTrajectorySequence
+```
+
+When already-observed trajectory after `checkpointThroughSequence` grows past
+a configured event or token bound, the actor issues a dedicated
+schema-constrained checkpoint call that folds the prior checkpoint and a
+complete contiguous range ending at or before `observedThroughSequence` into a
+new bounded historical summary. It must never cover an unobserved event. The
+new `checkpointText` and advanced `checkpointThroughSequence` commit in one
+transaction without advancing `observedThroughSequence`.
+
+Checkpoint output is a separate strict schema:
+
+```text
+CheckpointOutput
+  coveredThroughSequence
+  historicalSummary
+```
+
+`coveredThroughSequence` must equal the requested contiguous range end, the
+summary is size-bounded and non-empty, and unknown fields are rejected. The
+schema has no field capable of updating the current objective, constraints,
+steering, focus, milestones, status reply, final summary, or topic descriptor.
+
+The checkpoint call receives the current objective and still-applicable
+constraints so it can interpret historical events, but those fields remain
+separate authoritative inputs. The checkpoint schema is historical context and
+cannot redefine, preserve as current, or override an objective, constraint, or
+steering instruction. A context bundle always labels the checkpoint as
+historical and states that the current structured fields win.
+
+If an outage creates more unobserved trajectory than fits in one context
+window, recovery evaluates contiguous bounded windows in sequence and advances
+`observedThroughSequence` atomically with any narration output before those
+events become checkpoint-eligible. It never jumps to the newest events by
+summarizing across an unobserved gap. A status-only request may use the
+authoritative current-state projection while catch-up is pending, but it does
+not advance `observedThroughSequence` across omitted events.
+
+Checkpoint generation is low-priority serialized maintenance. A failed,
+cancelled, superseded, or stale-generation call retains the prior checkpoint
+and retries without advancing either cursor or fabricating a summary. Current
+required fields plus the latest checkpoint that still exceed the budget fail
+loudly rather than truncating silently.
 
 ### Triggers
 
@@ -867,32 +962,57 @@ Event triggers are debounced through the actor. Time windows use scheduled
 timers, not polling. A trigger asks the narrator to evaluate the accumulated
 trajectory; it does not guarantee a milestone.
 
+`checkpoint_window_exceeded` is a separate typed maintenance reason. It is
+logged and scheduled through the mailbox but is not a user-visible projection
+trigger and cannot itself emit a milestone, status reply, or final summary.
+
 ### Structured output
 
-The narrator output schema includes:
+Narrator projection output is a strict discriminated union rather than one
+object with optional cross-channel fields:
 
 ```text
-observedThroughSequence
-currentFocus
-milestones[]
-statusReply?
-finalSummary?
-topicDescriptor?
+NarratorCallOutput =
+  working_projection(
+    observedThroughSequence,
+    currentFocus,
+    milestones[],
+    topicDescriptor?
+  )
+  | terminal_projection(
+      observedThroughSequence,
+      currentFocus,
+      milestones[],
+      finalSummary,
+      topicDescriptor?
+    )
+  | status_reply(
+      sourceThroughSequence,
+      statusReply
+    )
 ```
 
-Validation requires:
+Working and terminal projections receive a complete contiguous range beginning
+after the durable projection cursor. Their observed sequence must fall within
+that supplied range, and committing their output advances
+`observedThroughSequence` atomically. A status call is a read-only query over
+the supplied current-state/status bundle: it persists an immutable reply and
+source sequence but never advances the projection cursor, changes current
+focus, or suppresses later milestone evaluation.
 
-- the observed sequence is within the supplied context range
-- working calls do not emit a final summary
-- terminal calls emit exactly one non-empty final summary
-- status calls emit exactly one status reply
+Validation additionally requires:
+
+- terminal projections emit exactly one non-empty final summary
+- status calls emit exactly one non-empty status reply and no projection fields
 - milestones are short, voice-ready, and bounded per call
-- current focus is non-empty and bounded
+- projection current focus is non-empty and bounded
 - no unknown fields
 
-Previous milestones are always supplied to the model. Exact duplicate output
-is rejected. Semantic novelty remains the narrator's decision rather than a
-string-similarity heuristic.
+Previous milestones are always supplied to projection calls. An exact duplicate
+milestone for the active turn is rejected. A requested status reply may
+legitimately restate an unchanged status; do not reject or rewrite it merely
+because its text matches an earlier reply. Semantic milestone novelty remains
+the narrator's decision rather than a string-similarity heuristic.
 
 ### Failure behavior
 
@@ -940,7 +1060,11 @@ available from the overlay.
 
 The master is app-global for the local Setta runtime/user. It has a durable
 Codex thread plus Setta-owned route history and application context. Its model
-profile is independent from every workspace conversation.
+profile is independent from every workspace conversation. A per-workspace
+master was considered and rejected: routing is inherently a cross-workspace
+concern, and one master session keeps global topic retrieval and
+disambiguation coherent. The focused workspace is a routing hint, never a
+partition.
 
 The master sees compact application state:
 
@@ -1075,8 +1199,9 @@ For an ephemeral side conversation, reproduce the checked Codex TUI lifecycle:
 
 The source implementation demonstrates that this path is available while the
 parent task is active. Do not add a Setta-generated in-flight context frame by
-default. Deterministic and live tests must establish the exact active-turn
-snapshot semantics of the pinned Codex revision. If those tests demonstrate a
+default. Deterministic and live tests establish the exact active-turn snapshot
+semantics of the pinned Codex revision early in Phase 2, before this lifecycle
+is built on them. If those tests demonstrate a
 real public-context gap, stop and specify a typed correction; do not add a
 heuristic digest fallback, duplicate raw tool output, or expose private
 reasoning.
@@ -1398,14 +1523,17 @@ Exit criteria:
 
 Implement:
 
-1. SQLite store bootstrap and schema version 1.
+1. SQLite store bootstrap and schema version 1 in WAL mode with a dedicated
+   writer connection, bounded write queue, bounded read pool, and verified
+   connection pragmas including `busy_timeout`.
 2. Conversation, turn, thread-binding, trajectory, artifact, narrator-state,
    narration-event, role-profile, presentation-profile, and branch domain
    types.
 3. Transaction helpers and committed-event outbox.
 4. Conversation snapshot/event contracts and generated TypeScript.
 5. Focused store tests for atomic state/event/cursor transitions, corruption,
-   concurrency, and restart.
+   concurrent actor writes, queue backpressure/cancellation, deterministic
+   shutdown, and restart.
 
 Do not connect old chat/Easy Run records to the new store.
 
@@ -1415,6 +1543,10 @@ Exit criteria:
 - old state is never read
 - narrator output and cursor commit atomically
 - generated contracts contain no manual mirrors
+- concurrent actor writes serialize at the single writer without surfacing
+  `SQLITE_BUSY`
+- a cancelled or saturated write request has a typed outcome, and shutdown
+  cannot silently discard an accepted write
 
 ### Phase 2: Codex agent runtime extraction
 
@@ -1430,6 +1562,20 @@ Implement:
 5. Add provider protocol contract and fake-app-server tests.
 6. Add a live Codex test that creates, resumes, reads, lists, searches, forks,
    and injects boundary items through the new runtime.
+7. Establish, with deterministic and live tests against the pinned Codex
+   revision, the exact active-turn `thread/fork` snapshot semantics that the
+   Phase 7 side-conversation design depends on. Record which persisted and
+   in-flight history items the child receives at the fork boundary, whether the
+   parent continues without interruption, and confirm that later parent events
+   do not leak into the child snapshot.
+
+The scripted provider proves Setta's request and lifecycle handling but is not
+evidence of live Codex snapshot behavior. If ChatGPT-authenticated live testing
+is unavailable or the result is inconclusive, record the test as skipped and
+leave the active-turn side path blocked. Completed-turn durable forks may
+proceed. If live behavior exposes a context gap, revise Phase 7 explicitly as
+required by the side-conversation section; do not make the fake provider
+simulate the desired answer and call it proof.
 
 Exit criteria:
 
@@ -1437,6 +1583,8 @@ Exit criteria:
 - two conversations in one workspace can run concurrently
 - restart/reload resumes or reports missing provider state explicitly
 - no new code depends on chat presentation types
+- live active-turn fork snapshot semantics are established and recorded, or
+  the dependent Phase 7 path is explicitly blocked rather than assumed
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
@@ -1468,10 +1616,12 @@ Exit criteria:
 
 Implement:
 
-1. Narrator actor/mailbox per conversation.
-2. Durable context checkpoint and deterministic context materialization.
+1. Priority-aware narrator actor/mailbox per conversation with stale-generation
+   invalidation for cancelled or superseded checkpoint work.
+2. Durable context checkpoint, cursor invariants, ordered backlog catch-up, and
+   deterministic context materialization.
 3. Role-specific lightweight model resolution.
-4. Typed triggers and schema-constrained fresh narrator calls.
+4. Typed triggers and schema-constrained fresh narrator/checkpoint calls.
 5. Milestone, status reply, final summary, and topic descriptor persistence and
    events.
 6. Typed degradation and retry behavior.
@@ -1483,6 +1633,13 @@ Exit criteria:
   result
 - previous milestones are always in narrator context
 - terminal projection cannot race a working projection
+- checkpoint compaction never crosses `observedThroughSequence`, cannot hide an
+  unevaluated milestone candidate, and a stale checkpoint response cannot
+  commit
+- current objective, constraints, and steering remain authoritative over
+  historical checkpoint text
+- explicit status and terminal work are not delayed behind checkpoint
+  maintenance
 - asking for status returns a narrator reply while the agent continues
 - a narrator process/session failure can be recovered from Setta state
 
@@ -1553,7 +1710,8 @@ Implement:
 4. Active-parent status projection, isolated events, disposal, and failure
    handling.
 5. Parent/child presentation and durable-fork lineage controls.
-6. Deterministic and live verification of active-turn fork snapshot semantics.
+6. Re-verification of the active-turn fork snapshot semantics established in
+   Phase 2, now exercised through the full side-conversation lifecycle.
 
 Exit criteria:
 
@@ -1619,14 +1777,24 @@ Cover:
 
 - conversation/turn state transitions
 - concurrent conversations in one workspace
+- serialized-writer queue backpressure, cancellation, shutdown, and absence of
+  raw busy/locked errors under concurrent actor completion
 - queue promotion and steering isolation
 - provider thread start/resume/read/list/search/fork/item-injection
 - provider event normalization and ordering
 - approval and structured-input lifecycle
 - cancellation/failure/restart reconciliation
 - narrator context construction and deterministic trimming
-- narrator cursor/output transaction atomicity
-- narrator trigger serialization and terminal ordering
+- narrator cursor/output and checkpoint transaction atomicity
+- checkpoint cursor ordering, contiguous coverage, failed/stale response
+  rejection, and crash/retry behavior
+- ordered catch-up of an over-budget unobserved backlog without skipped
+  milestone evaluation
+- narrator priority, checkpoint supersession, status responsiveness, and
+  terminal ordering
+- status-only context/reply persistence without projection-cursor advancement
+  or later milestone suppression
+- current constraints and steering overriding historical checkpoint text
 - route decision validation and missing targets
 - topic index retrieval and archive filtering
 - side/fork parent relationships and isolation
@@ -1672,22 +1840,34 @@ temporary app data and a scripted Codex app-server, cover:
 3. Start both agents and receive interleaved streamed events.
 4. Queue and steer one conversation without affecting the other.
 5. Ask one narrator for status while its agent remains active.
-6. Produce milestones, artifacts, an approval, completion, cancellation, and
+6. Accumulate an over-budget trajectory while narration is unavailable, then
+   recover through ordered catch-up; verify checkpoint maintenance cannot hide
+   a milestone or delay a requested status/terminal projection.
+7. Produce milestones, artifacts, an approval, completion, cancellation, and
    failure through real contracts.
-7. Close a working pane, let work continue, and reopen it.
-8. Restart/reload during active work and reconcile provider state while
+8. Close a working pane, let work continue, and reopen it.
+9. Restart/reload during active work and reconcile provider state while
    preserving voice and palette assignments.
-9. Use global speech with no pane, one pane, and multiple panes; verify the
+10. Use global speech with no pane, one pane, and multiple panes; verify the
    master and active narrators receive distinct stable voices when available
    and explicit reuse when the catalog is exhausted.
-10. Route typed and spoken master input to an existing topic, focus its pane,
+11. Route typed and spoken master input to an existing topic, focus its pane,
     create a new topic, retain an ambiguous clarification in the master
     overlay, and open a side conversation while the parent is active.
-11. Fork a durable conversation and verify parent/child isolation.
-12. Verify old chat/terminal/workflow/git panes and endpoints do not exist.
+12. Fork a durable conversation and verify parent/child isolation.
+13. Verify old chat/terminal/workflow/git panes and endpoints do not exist.
 
 The scripted provider must exercise production code paths rather than mocks or
-test-only bypasses.
+test-only bypasses. Treat it as a first-class, separately budgeted
+deliverable, not a fixture detail: it grows across phases as new provider
+methods—fork, item injection, steering, interruption, liveness, and restart
+reconciliation—come into use. Building and maintaining it is explicit
+scheduled work in every phase that adds provider behavior.
+
+The harness and Electron workflow use event-driven readiness, temporary app
+data, bounded condition waits, and deterministic teardown. Fix sources of
+flakiness; do not normalize them with fixed sleeps, blanket retries, broad
+skips, weakened assertions, or test-only production bypasses.
 
 ### Live Codex E2E
 
@@ -1752,8 +1932,15 @@ without adding emergency logging. Record structured events for:
 ### Narrator invocation
 
 - conversation/turn ids
-- trigger reason
-- context checkpoint and sequence range
+- call kind (`projection`, `status`, `terminal`, or `checkpoint`) and typed
+  trigger/maintenance reason
+- context kind, checkpoint, included sequence range(s), and any intentionally
+  omitted status-only backlog range
+- pre-call `checkpointThroughSequence` and `observedThroughSequence`, proposed
+  checkpoint/cursor-advance range, cursor-advance decision, and post-commit
+  cursors
+- invocation generation token plus completed, cancelled, superseded, stale, or
+  committed outcome
 - event counts by kind and input size/token estimate
 - previous milestone/final-summary counts
 - requested and resolved model/effort
@@ -1810,6 +1997,9 @@ This plan is complete only when all of the following are true:
 - Asking for an update reaches the narrator without steering the primary agent.
 - Narrator input includes an authoritative recent trajectory plus prior
   narration, not only new digest fragments.
+- Checkpoint compaction covers only contiguous already-observed trajectory;
+  backlog recovery cannot skip milestone evaluation, and checkpoint work cannot
+  delay explicit status or terminal narration.
 - Narrator defaults are explicitly lightweight and independently configurable.
 - Agent defaults may be heavy and are independently configurable.
 - Global microphone and playback work without an Easy Button pane.
@@ -1837,5 +2027,22 @@ This plan is complete only when all of the following are true:
   trajectories remain within established workspace UI budgets.
 
 ## Progress Log
+
+- 2026-07-11: Plan reviewed and the motivating current-state findings verified
+  against the code (one-active-run gate, one-Easy-Button-pane limit, singleton
+  Easy Run store, narrator model coupled to agent settings, lossy narrator
+  digest, fresh ephemeral thread per structured call). Folded in the SQLite
+  single-writer model, the narrator checkpoint-generation mechanism,
+  scripted-provider budgeting, and an early Phase 2 proof of active-turn fork
+  snapshot semantics. Settled two open decisions: the master is app-global
+  (per-workspace rejected) and the semantic graph/cartographer are deleted
+  entirely.
+- 2026-07-11: Follow-up review made checkpoint coverage subordinate to the
+  contiguous observed cursor, added ordered backlog catch-up and low-priority
+  checkpoint cancellation, kept current constraints authoritative outside
+  historical summaries, made the SQLite writer queue lifecycle explicit, and
+  replaced flake-tolerance wording with deterministic E2E synchronization
+  requirements. Live active-turn fork behavior is now a Phase 7 prerequisite,
+  not something the scripted provider may claim to prove.
 
 No implementation work has started under this plan.
