@@ -111,6 +111,7 @@ export async function createElectronFixture(name) {
 
 export async function launchElectronCdpContext({
   artifactDir,
+  electronArgs = [],
   extraEnv = {},
   fixture,
   unsetEnv = [],
@@ -123,6 +124,7 @@ export async function launchElectronCdpContext({
   const electron = launchElectron({
     artifactDir,
     debugPort,
+    electronArgs,
     extraEnv,
     fixture,
     unsetEnv,
@@ -463,7 +465,15 @@ async function openPort() {
   return address.port;
 }
 
-function launchElectron({ artifactDir, debugPort, extraEnv, fixture, unsetEnv, visible }) {
+function launchElectron({
+  artifactDir,
+  debugPort,
+  electronArgs,
+  extraEnv,
+  fixture,
+  unsetEnv,
+  visible,
+}) {
   const env = {
     ...process.env,
     ...extraEnv,
@@ -482,11 +492,15 @@ function launchElectron({ artifactDir, debugPort, extraEnv, fixture, unsetEnv, v
   for (const name of unsetEnv) {
     delete env[name];
   }
-  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
-    cwd: desktopRoot,
-    env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const electron = spawn(
+    electronBin(),
+    [`--remote-debugging-port=${debugPort}`, ...electronArgs, "."],
+    {
+      cwd: desktopRoot,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   electron.logs = [];
   electron.stdout.on("data", (data) => appendLog(electron.logs, data));
   electron.stderr.on("data", (data) => appendLog(electron.logs, data));

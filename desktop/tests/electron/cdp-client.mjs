@@ -42,6 +42,11 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.microphonePermissionsVersion === "setta-microphone-permissions-driver-v1"',
+    path: join(driverScriptDir, "microphone-permissions-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.semanticGraphWorkflowVersion === "setta-semantic-graph-workflow-driver-v1"',
     path: join(driverScriptDir, "semantic-graph-workflow-driver.js"),
   },

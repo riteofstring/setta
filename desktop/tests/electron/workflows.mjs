@@ -41,6 +41,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "microphone-permissions-workflow.test.mjs",
+    name: "microphone-permissions",
+    tiers: ["required"],
+  },
+  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
     tiers: ["required"],

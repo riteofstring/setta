@@ -2491,6 +2491,50 @@ recovery. Items 5-8 then connect successful completion to the existing
 start/steer path and finish deterministic Electron and secure-context/PWA
 coverage. No implementation blocker was found for item 4.
 
+### 2026-07-10 — Phase 3 Electron microphone permission audit complete
+
+Audited commit `f52b8c95b`, its clean starting worktree, the pinned Electron
+permission types, production main-window construction, shared-session workspace
+browser views, generated artifacts, focused tests, and claimed workflow
+recordings. The production policy is correctly installed before the renderer
+loads, grants only main-frame audio for the exact trusted renderer document and
+`webContents`, and fails closed for every other caller or permission. No
+generated input, generated output, package, or packaging configuration changed
+in the slice, and the still-deferred macOS usage-description requirement is
+accurately recorded.
+
+The audit found one practical verification gap: mocked session callbacks did
+not prove that the pinned Chromium/Electron build supplies permission details
+accepted by the production policy. A new required production Electron workflow
+now launches with a synthetic media device only in the test process, calls the
+real main renderer's `navigator.mediaDevices.getUserMedia`, stops the returned
+track, and proves that audio succeeds while video and combined audio/video fail
+with `NotAllowedError`. The shared CDP harness accepts explicit per-workflow
+Electron arguments so this test-only device switch does not enter production
+startup or bypass the application permission handlers.
+
+Verification completed for the audited slice:
+
+- all 10 focused permission-policy Vitest cases passed;
+- the new production Electron microphone-permission workflow passed at
+  `.recordings/easy-button-speech-phase3-microphone-permissions-audit-20260710`
+  with one granted audio track, no video track, and denied video and combined
+  requests;
+- the original speech API and complete Easy Button production recordings were
+  inspected and still report success; neither is misrepresented as a media
+  capture test;
+- contract generation was idempotent, and no generated TypeScript or checked-in
+  web artifact changed;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  audit test and this plan entry were final.
+
+Phase 3 items 1-3 remain complete. Item 4 is next: mount the capture state
+machine and existing Realtime transport, preserve the footer draft, add the
+separate bounded live capture line and inward listening visuals, and implement
+commit, cancellation, teardown, duration limits, and typed error recovery. Do
+not start item 5's completed-transcript submission wiring until that state
+machine is complete. No implementation blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
