@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -22,35 +21,19 @@ const defaultServePort = 7345
 var version = "dev"
 
 type cliDeps struct {
-	commandRunner      commandRunner
-	commandStdinRunner commandStdinRunner
-	getenv             func(string) string
-	lookPath           func(string) (string, error)
-	httpClient         *http.Client
-	now                func() time.Time
-	pid                func() int
-	renderQR           func(io.Writer, string)
-	sleep              func(context.Context, time.Duration) error
-	stderr             io.Writer
-	stdout             io.Writer
+	commandRunner commandRunner
+	getenv        func(string) string
+	unsetenv      func(string) error
+	httpClient    *http.Client
+	now           func() time.Time
+	pid           func() int
+	renderQR      func(io.Writer, string)
+	stderr        io.Writer
+	stdout        io.Writer
 }
 
 type usageError struct {
 	err error
-}
-
-type cliCommandHandler func([]string, cliDeps) error
-
-var cliCommandHandlers = map[string]cliCommandHandler{
-	"serve":     runServe,
-	"pair":      runPair,
-	"devices":   runDevices,
-	"doctor":    runDoctor,
-	"provision": runProvision,
-	"remote":    runRemote,
-	"service":   runService,
-	"runtime":   runRuntime,
-	"version":   runVersion,
 }
 
 func main() {
@@ -72,36 +55,38 @@ func runWithDeps(args []string, deps cliDeps) int {
 		return 2
 	}
 
-	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+	var err error
+	switch args[0] {
+	case "serve":
+		err = runServe(args[1:], deps)
+	case "pair":
+		err = runPair(args[1:], deps)
+	case "devices":
+		err = runDevices(args[1:], deps)
+	case "runtime":
+		err = runRuntime(args[1:], deps)
+	case "version":
+		if len(args) != 1 {
+			err = usageError{err: fmt.Errorf("setta version does not accept arguments")}
+		} else {
+			fmt.Fprintln(deps.stdout, version)
+			return 0
+		}
+	case "help", "-h", "--help":
 		printUsage(deps.stdout)
 		return 0
+	default:
+		err = usageError{err: fmt.Errorf("unknown command %q", args[0])}
 	}
-	handler, ok := cliCommandHandlers[args[0]]
-	if !ok {
-		return commandErrorExitCode(usageError{err: fmt.Errorf("unknown command %q", args[0])}, deps)
-	}
-	err := handler(args[1:], deps)
 	if err == nil {
 		return 0
 	}
-	return commandErrorExitCode(err, deps)
-}
-
-func commandErrorExitCode(err error, deps cliDeps) int {
 	fmt.Fprintf(deps.stderr, "%v\n", err)
 	var usage usageError
 	if errors.As(err, &usage) {
 		return 2
 	}
 	return 1
-}
-
-func runVersion(args []string, deps cliDeps) error {
-	if len(args) != 0 {
-		return usageError{err: fmt.Errorf("setta version does not accept arguments")}
-	}
-	fmt.Fprintln(deps.stdout, version)
-	return nil
 }
 
 func normalizeDeps(deps cliDeps) cliDeps {
@@ -114,10 +99,11 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	if deps.getenv == nil {
 		deps.getenv = os.Getenv
 	}
-	deps.commandRunner = normalizedCommandRunner(deps.commandRunner)
-	deps.commandStdinRunner = normalizedCommandStdinRunner(deps.commandStdinRunner)
-	if deps.lookPath == nil {
-		deps.lookPath = exec.LookPath
+	if deps.unsetenv == nil {
+		deps.unsetenv = os.Unsetenv
+	}
+	if deps.commandRunner == nil {
+		deps.commandRunner = runExternalCommand
 	}
 	if deps.httpClient == nil {
 		deps.httpClient = &http.Client{Timeout: 5 * time.Second}
@@ -131,24 +117,7 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	if deps.renderQR == nil {
 		deps.renderQR = renderTerminalQR
 	}
-	if deps.sleep == nil {
-		deps.sleep = sleepContext
-	}
 	return deps
-}
-
-func normalizedCommandRunner(runner commandRunner) commandRunner {
-	if runner != nil {
-		return runner
-	}
-	return runExternalCommand
-}
-
-func normalizedCommandStdinRunner(runner commandStdinRunner) commandStdinRunner {
-	if runner != nil {
-		return runner
-	}
-	return runExternalCommandWithStdin
 }
 
 func (err usageError) Error() string {
@@ -162,23 +131,10 @@ func (err usageError) Unwrap() error {
 func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage:")
 	fmt.Fprintln(output, "  setta serve [--app-data-dir DIR] [--port PORT] [--tailnet]")
-	fmt.Fprintln(output, "  setta pair [--json] [--app-data-dir DIR]")
+	fmt.Fprintln(output, "  setta pair [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta runtime rename <display-name> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices revoke <device-id> [--app-data-dir DIR]")
-	fmt.Fprintln(output, "  setta doctor --json [--app-data-dir DIR] [--workspace-dir DIR]")
-	fmt.Fprintln(output, "  setta provision shapes --json")
-	fmt.Fprintln(output, "  setta provision detect --json")
-	fmt.Fprintln(output, "  setta provision resolve --json [--provider ID] [--shape ID] [--region REGION]")
-	fmt.Fprintln(output, "  setta provision inspect --json --provider ID --runtime-name NAME [flags]")
-	fmt.Fprintln(output, "  setta provision diagnose --json (--record-id ID | --runtime-name NAME) [flags]")
-	fmt.Fprintln(output, "  setta provision render-link --provider aws --json [flags]")
-	fmt.Fprintln(output, "  setta provision render-cloudinit --json [flags]")
-	fmt.Fprintln(output, "  setta provision up --json (--plan-only | --approve) [flags]")
-	fmt.Fprintln(output, "  setta provision down --json (--plan-only | --approve) [flags]")
-	fmt.Fprintln(output, "  setta remote add ssh://user@host [flags]")
-	fmt.Fprintln(output, "  setta service wait-tailnet [--timeout DURATION] [--poll-interval DURATION]")
-	fmt.Fprintln(output, "  setta service configure-tailscale-serve [--app-data-dir DIR] [--timeout DURATION] [--poll-interval DURATION]")
 	fmt.Fprintln(output, "  setta version")
 }
 
@@ -205,18 +161,4 @@ func renderTerminalQR(output io.Writer, text string) {
 
 func signalContext() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-}
-
-func sleepContext(ctx context.Context, duration time.Duration) error {
-	if duration <= 0 {
-		return nil
-	}
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
 }

@@ -9,7 +9,6 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/httpapi"
-	"setta/internal/terminal"
 )
 
 type ContractTestLeaf struct {
@@ -252,47 +251,6 @@ func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("generated output missing %q:\n%s", want, output)
-		}
-	}
-}
-
-func TestContractSpecsRenderDuplexProtocolFromEndpointRegistry(t *testing.T) {
-	specs, err := contractSpecs(httpapi.ContractSchema{
-		Endpoints: []httpapi.ContractEndpoint{{
-			Name:                "TerminalStream",
-			Method:              "GET",
-			Path:                "/terminals/stream",
-			Streaming:           true,
-			Duplex:              true,
-			DuplexClientMessage: reflect.TypeFor[terminal.TerminalStreamClientMessage](),
-			DuplexServerMessage: reflect.TypeFor[terminal.TerminalStreamServerMessage](),
-		}},
-		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
-	if err != nil {
-		t.Fatalf("collect duplex contracts: %v", err)
-	}
-	if len(specs.Unions) != 2 || !specs.Endpoints[0].Duplex {
-		t.Fatalf("duplex specs = %+v, unions = %+v", specs.Endpoints, specs.Unions)
-	}
-
-	var buffer bytes.Buffer
-	if err := render(&buffer, specs); err != nil {
-		t.Fatalf("render duplex contracts: %v", err)
-	}
-	output := buffer.String()
-	for _, want := range []string{
-		"duplex: true",
-		"export const backendDuplexProtocols = {",
-		"decodeClientMessage: decodeTerminalStreamClientMessage",
-		"decodeServerMessage: decodeTerminalStreamServerMessage",
-		"export type TerminalStreamClientMessage =",
-		"export interface TerminalStreamInputMessage {\n  kind: \"terminal.stream.input\";",
-		"export type TerminalStreamServerMessage =",
-		"case \"terminal.stream.inputAck\":",
-	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("generated duplex output missing %q:\n%s", want, output)
 		}
 	}
 }

@@ -32,7 +32,7 @@ func (sink *bufferingRunnerEventSink) Events() []RunnerEvent {
 	return append([]RunnerEvent{}, sink.events...)
 }
 
-func buildActionStartRequest(workspaceID string, execution WorkflowExecution, node WorkflowNode, nodeExecution WorkflowNodeExecution, descriptor ActionRunnerDescriptor, context TransitionContext) (WorkflowActionStartMetadata, ActionStartRequest, error) {
+func buildActionStartRequest(workspaceID string, execution WorkflowExecution, graph WorkflowGraph, node WorkflowNode, nodeExecution WorkflowNodeExecution, descriptor ActionRunnerDescriptor, context TransitionContext) (WorkflowActionStartMetadata, ActionStartRequest, error) {
 	if node.Action == nil {
 		return WorkflowActionStartMetadata{}, ActionStartRequest{}, fmt.Errorf("action node %s has no action config", node.ID)
 	}
@@ -62,16 +62,17 @@ func buildActionStartRequest(workspaceID string, execution WorkflowExecution, no
 		ActivityRefs:     []WorkflowActivityRef{},
 	}
 	request := ActionStartRequest{
-		WorkspaceID:         workspaceID,
-		DefinitionID:        execution.DefinitionID,
-		DefinitionVersionID: execution.DefinitionVersionID,
-		Execution:           execution,
-		Node:                node,
-		NodeExecution:       nodeExecution,
-		Policy:              policy,
-		Capabilities:        capabilities,
-		InputHash:           inputHash,
-		Input:               input,
+		WorkspaceID:           workspaceID,
+		DefinitionID:          execution.DefinitionID,
+		DefinitionVersionID:   execution.DefinitionVersionID,
+		WorkflowAgentDefaults: graph.AgentDefaults,
+		Execution:             execution,
+		Node:                  node,
+		NodeExecution:         nodeExecution,
+		Policy:                policy,
+		Capabilities:          capabilities,
+		InputHash:             inputHash,
+		Input:                 input,
 	}
 	return metadata, request, nil
 }
@@ -198,7 +199,7 @@ func (service *Service) beginNextReadyActionStart(workspaceID string, executionI
 		if !ok {
 			return nil, ActionStartRequest{}, WorkflowExecution{}, false, fmt.Errorf("node execution %s references unknown node %s", nodeExecution.ID, nodeExecution.NodeID)
 		}
-		metadata, request, err := buildActionStartRequest(workspaceID, execution, node, nodeExecution, runner, service.transitionContext())
+		metadata, request, err := buildActionStartRequest(workspaceID, execution, version.Graph, node, nodeExecution, runner, service.transitionContext())
 		if err != nil {
 			return nil, ActionStartRequest{}, WorkflowExecution{}, false, err
 		}
@@ -348,7 +349,7 @@ func (service *Service) startReadyActionForCompletionLocked(workspaceID string, 
 	if !ok {
 		return WorkflowExecution{}, fmt.Errorf("node execution %s has no runner descriptor for %s", nodeExecutionID, *nodeExecution.ActionKind)
 	}
-	metadata, _, err := buildActionStartRequest(workspaceID, execution, node, nodeExecution, descriptor, service.transitionContext())
+	metadata, _, err := buildActionStartRequest(workspaceID, execution, graph, node, nodeExecution, descriptor, service.transitionContext())
 	if err != nil {
 		return WorkflowExecution{}, err
 	}
