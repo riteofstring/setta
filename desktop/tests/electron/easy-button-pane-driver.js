@@ -111,6 +111,7 @@
     return {
       easyState: surface instanceof HTMLElement ? (surface.dataset.easyButtonState ?? "") : "",
       statusTone: elementDatasetValue(surface, "easyButtonStatus"),
+      speechStatus: elementDatasetValue(surface, "easyButtonSpeech"),
     };
   }
 

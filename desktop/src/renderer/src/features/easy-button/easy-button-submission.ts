@@ -75,7 +75,6 @@ export async function submitCompletedSpeechTranscript({
     }
   } catch (error) {
     setInputValue(transcript);
-    inputRef.current?.focus();
     throw error;
   } finally {
     setPendingAction(false);

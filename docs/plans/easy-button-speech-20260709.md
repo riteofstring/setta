@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-6 complete
+**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-7 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2872,6 +2872,71 @@ Phase 3 items 1-6 remain complete. Phase 3 item 7 is still the next coherent
 slice: broaden the deterministic production workflow where needed and close
 the phase-wide scripted media/Realtime coverage. This audit did not start that
 work, and no blocker was found.
+
+### 2026-07-10 — Phase 3 deterministic transcription workflow closure complete
+
+Completed Phase 3 item 7 by extending the required production Electron speech
+workflow across the remaining renderer-owned transcription failure and teardown
+boundaries. The same temporary-runtime path now covers denied microphone
+permission, an empty authoritative completion, a typed provider transcription
+failure, pane teardown, workspace switching, reload during commit, and an
+ordinary spoken-start rejection caused by a concurrently started Easy Run.
+Every case traverses the mounted pane and real main/preload/generated HTTP,
+speech service, Easy Run, chat, store, and event paths; only browser media,
+Realtime, and OpenAI remain deterministic fixtures.
+
+The new assertions prove that failed or partial speech preserves the existing
+footer draft, closes the data channel and peer, stops every microphone track,
+does not change the latest Easy Run, and never enters the hidden chat record.
+Pane close and workspace switch prove live resource teardown in the existing
+document. Reload proves that the committing transcript, capture state, and
+browser fixture are not restored or submitted. The unconfigured production
+workflow now also explicitly requires the non-microphone `unavailable` state.
+Provider failure prose joins the API key, client secret, and audio base64 in the
+recording-artifact rejection scan.
+
+The ordinary rejection case exposed one production defect. The submission
+helper tried to focus the footer while capture was still `committing`, when the
+input is necessarily disabled, so the exact transcript was restored but focus
+was lost. Focus recovery now belongs to the mounted capture lifecycle: after
+the controller publishes `completion_failed` and pending submission clears, a
+React effect focuses the enabled footer. Applied steering partial outcomes
+remain cleared and blurred, and non-submission capture failures do not steal
+focus.
+
+Verification completed for this slice:
+
+- 34 focused capture-scope, controller, and submission Vitest cases passed,
+  followed by all 1,074 desktop Vitest tests, focused ESLint, Electron/web
+  typechecks, and both production builds;
+- the checked-in PWA bundle was regenerated from the focus-recovery source, and
+  `./scripts/go.sh test ./internal/webapp` passed;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase3-deterministic-closure-20260710`
+  with 12 authenticated transcription sessions and the complete success,
+  active-run, failure, cancellation, teardown, reload, and redaction matrix;
+- the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase3-deterministic-closure-regression-20260710`,
+  preserving typed start/steer, Current focus, narrator-only NOW, artifacts,
+  terminal/Stop, persistence/restart, compact/reduced-motion, and pixel-match
+  behavior;
+- ChatGPT authentication was available and all four supplemental live backend
+  Codex probes passed with `OPENAI_API_KEY` removed. The broader live Electron
+  chat workflow again failed only because the visual model called the yellow
+  fixture square blue. The live Easy Button run completed, but the model did
+  not call the requested artifact tool, so those two aggregate workflows are
+  not claimed as passing coverage for this slice;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  final source, tests, generated web bundle, and plan update. The quality gate
+  used an isolated unsigned Codex home after the separate signed-in live
+  attempts above.
+
+No dependency, manifest, module, package-manager, toolchain, or Go-owned
+contract changed. Phase 3 items 1-7 are complete. Phase 3 item 8 is next:
+cover the remote-runtime/PWA secure-context boundary and add the narrow opt-in
+live OpenAI speech acceptance workflow. `OPENAI_API_KEY` was absent from this
+process, so no live OpenAI speech result is claimed; deterministic fixture
+coverage is not treated as provider proof.
 
 ## Verification Plan
 

@@ -230,6 +230,7 @@ function useEasyButtonController(): EasyButtonController {
   useEasyButtonSnapshot(selectedWorkspaceId, loadSnapshot, resetStore);
   useEasyButtonPaneTitle(rootRef, viewState, capture.state);
   useEasyButtonCaptureCancellation(capture, latestRun);
+  useCompletedSpeechFailureFocus(capture.state, inputRef, pendingAction);
   const confirmActive = useEasyButtonConfirmPulse(viewState, statusTone, latestRun?.id ?? null);
 
   const handleSubmit = useCallback(
@@ -279,6 +280,22 @@ function useEasyButtonController(): EasyButtonController {
     stopDisabled: pendingAction || !canStopRun(latestRun),
     viewState,
   };
+}
+
+function useCompletedSpeechFailureFocus(
+  captureState: SpeechCaptureState,
+  inputRef: RefObject<HTMLInputElement | null>,
+  pendingAction: boolean,
+) {
+  useEffect(() => {
+    if (
+      !pendingAction &&
+      captureState.type === "failed" &&
+      captureState.code === "completion_failed"
+    ) {
+      inputRef.current?.focus();
+    }
+  }, [captureState, inputRef, pendingAction]);
 }
 
 function useEasyButtonSnapshot(

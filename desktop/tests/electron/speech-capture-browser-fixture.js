@@ -1,4 +1,4 @@
-/* global HTMLButtonElement, HTMLElement, HTMLInputElement, Headers, Response, URL, document, getComputedStyle, navigator, structuredClone */
+/* global DOMException, HTMLButtonElement, HTMLElement, HTMLInputElement, Headers, Response, URL, document, getComputedStyle, navigator, structuredClone */
 
 (() => {
   const providerURL = "https://api.openai.com/v1/realtime/calls";
@@ -87,7 +87,7 @@
   navigator.mediaDevices.getUserMedia = async (constraints) => {
     mediaRequests.push(structuredClone(constraints));
     if (holdMicrophone) {
-      await new Promise((resolve) => microphoneWaiters.push(resolve));
+      await new Promise((resolve, reject) => microphoneWaiters.push({ reject, resolve }));
     }
     const stream = await originalGetUserMedia(constraints);
     tracks.push(...stream.getTracks());
@@ -173,6 +173,7 @@
       capturing: surfaceData("easyButtonCapturing"),
       helper: elementText('[data-testid="easy-button-helper"]'),
       inputDisabled: inputState().disabled,
+      inputFocused: inputState().focused,
       inputValue: inputState().value,
       ringAnimations: Array.from(document.querySelectorAll(".easy-button-ring")).map(
         (ring) => getComputedStyle(ring).animationName,
@@ -236,15 +237,20 @@
   function inputState() {
     const input = document.querySelector('[data-testid="easy-button-input"]');
     return input instanceof HTMLInputElement
-      ? { disabled: input.disabled, value: input.value }
-      : { disabled: true, value: "" };
+      ? { disabled: input.disabled, focused: document.activeElement === input, value: input.value }
+      : { disabled: true, focused: false, value: "" };
   }
 
   globalThis.__settaSpeechCaptureFixture = {
     allowMicrophone() {
       holdMicrophone = false;
-      for (const resolve of microphoneWaiters.splice(0)) {
-        resolve();
+      for (const waiter of microphoneWaiters.splice(0)) {
+        waiter.resolve();
+      }
+    },
+    denyMicrophone() {
+      for (const waiter of microphoneWaiters.splice(0)) {
+        waiter.reject(new DOMException("fixture microphone denied", "NotAllowedError"));
       }
     },
     disconnect() {
@@ -270,6 +276,21 @@
         event_id: nextEventId("event_delta"),
         item_id: itemId,
         type: "conversation.item.input_audio_transcription.delta",
+      });
+    },
+    emitTranscriptionFailed() {
+      const itemId = "item_fixture";
+      acknowledgeItem(itemId);
+      latestChannel().message({
+        content_index: 0,
+        error: {
+          code: "audio_unintelligible",
+          message: "fixture provider body must stay hidden",
+          type: "transcription_error",
+        },
+        event_id: nextEventId("event_failed"),
+        item_id: itemId,
+        type: "conversation.item.input_audio_transcription.failed",
       });
     },
     holdMicrophone() {

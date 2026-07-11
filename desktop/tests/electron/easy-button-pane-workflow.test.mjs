@@ -867,12 +867,12 @@ function assertIdleControls(state) {
       confirmActive: "false",
       inputDisabled: false,
       paneChromeTitle: "Easy Button",
+      speechStatus: "unavailable",
       stopButtonVisible: false,
     },
     "easy-button idle controls did not match Phase 2d",
   );
 }
-
 function assertIdleCaption(state) {
   if (state.helperText !== "Type a request to begin" || state.enterChipText !== "⏎") {
     throw new Error(`easy-button idle caption did not match the mockup: ${JSON.stringify(state)}`);

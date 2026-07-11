@@ -10,7 +10,6 @@ import {
   assertBuildExists,
   captureScreenshot,
   clickEnabledButtonByAria,
-  createElectronFixture,
   dispatchKeyEvent,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -22,6 +21,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { createTwoWorkspaceFixture } from "./chat-workflow-harness.mjs";
 import {
   clickEasyButtonStop,
   easyButtonStateExpression,
@@ -41,6 +41,7 @@ import {
   waitForEasyButtonFocusStatus,
 } from "./easy-button-focus-assertions.mjs";
 import { startSpeechProviderFixture } from "./speech-provider-fixture.mjs";
+import { runSpeechCaptureFailureCases } from "./speech-capture-failure-cases.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "speech-capture";
@@ -57,6 +58,7 @@ const narratorFailureRequest = narratorFailureTranscript.trim();
 const partialOutcomeTranscript = "  Keep the accepted work running despite stale narration.  ";
 const partialOutcomeSteering = partialOutcomeTranscript.trim();
 const partialOutcomeMessage = "Instruction sent, but Current focus could not be updated.";
+const rejectedTranscript = "  speech submission must remain editable  ";
 const browserFixturePath = new URL("./speech-capture-browser-fixture.js", import.meta.url);
 
 if (options.help) {
@@ -71,7 +73,7 @@ if (!options.skipBuild) {
 
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
 await writeLatestRecordingPointer(workflowName, artifactDir);
-const fixture = await createElectronFixture(workflowName);
+const fixture = await createTwoWorkspaceFixture(workflowName);
 const provider = await startSpeechProviderFixture();
 let context = null;
 
@@ -313,13 +315,31 @@ try {
   assertCaptureFailure(disconnected, preservedDraft);
   await captureScreenshot(context.client, join(artifactDir, "speech-capture-disconnected.png"));
 
+  const stoppedRunId = await latestEasyRunId(context.client, workspaceId);
+  await runSpeechCaptureFailureCases({
+    client: context.client,
+    firstWorkspaceId: workspaceId,
+    narratorFailureRequest,
+    preservedDraft,
+    rejectedTranscript,
+    secondWorkspace: fixture.secondWorkspace,
+    stoppedRunId,
+  });
+
   provider.assertHealthy();
-  assertProviderOperationCount(provider, 6);
+  assertProviderOperationCount(provider, 12);
   await stopElectronCdpContext(context);
   context = null;
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     captureStates: ["requesting-permission", "connecting", "listening", "committing", "failed"],
+    coveredFailures: [
+      "microphone-permission-denied",
+      "no-speech",
+      "provider-transcription-failed",
+      "submission-rejected",
+    ],
+    coveredTeardown: ["escape", "disconnect", "pane-close", "workspace-switch", "reload", "stop"],
     providerOperationCount: provider.requests.length,
     status: "passed",
   });
@@ -578,6 +598,13 @@ function assertCaptureFailure(state, expectedDraft) {
   }
 }
 
+async function latestEasyRunId(client, workspaceId) {
+  const snapshot = await client.evaluate(
+    `window.setta.easyRun.snapshot(${JSON.stringify(workspaceId)})`,
+  );
+  return snapshot.latestRun?.id ?? null;
+}
+
 function assertProviderOperationCount(providerFixture, expected) {
   if (
     providerFixture.requests.length !== expected ||
@@ -592,6 +619,7 @@ async function assertNoSensitiveSpeechArtifacts(root, providerFixture) {
     ["permanent speech key", providerFixture.apiKey],
     ["Realtime client secret", providerFixture.clientSecret],
     ["generated audio base64", providerFixture.audioBase64],
+    ["provider failure body", "fixture provider body must stay hidden"],
   ];
   for (const path of await textArtifactPaths(root)) {
     const content = await readFile(path, "utf8");

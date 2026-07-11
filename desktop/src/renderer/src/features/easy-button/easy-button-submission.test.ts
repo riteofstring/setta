@@ -55,7 +55,7 @@ describe("Easy Button submission", () => {
   );
 
   test.each(["start", "steer"] as const)(
-    "restores and focuses the final transcript after ordinary speech %s rejection",
+    "restores the final transcript after ordinary speech %s rejection",
     async (intent) => {
       const rejection = new Error(`${intent} rejected`);
       const harness = speechSubmissionHarness({ reject: rejection });
@@ -67,7 +67,7 @@ describe("Easy Button submission", () => {
       expect(harness.submittedText()).toBe(transcript);
       expect(harness.inputValues).toEqual([transcript]);
       expect(harness.pendingValues).toEqual([true, false]);
-      expect(harness.input.focus).toHaveBeenCalledOnce();
+      expect(harness.input.focus).not.toHaveBeenCalled();
       expect(harness.input.blur).not.toHaveBeenCalled();
     },
   );
@@ -108,7 +108,7 @@ describe("Easy Button submission", () => {
     expect(harness.submittedText()).toBe(transcript);
     expect(harness.inputValues).toEqual([transcript]);
     expect(harness.pendingValues).toEqual([true, false]);
-    expect(harness.input.focus).toHaveBeenCalledOnce();
+    expect(harness.input.focus).not.toHaveBeenCalled();
     expect(harness.input.blur).not.toHaveBeenCalled();
   });
 });
