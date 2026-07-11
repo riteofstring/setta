@@ -6,6 +6,7 @@ import {
   browserSpeechCaptureSupport,
   SpeechCaptureController,
   speechCaptureIsActive,
+  type SpeechCaptureContext,
   type SpeechCaptureFailureCode,
   type SpeechCaptureIntent,
   type SpeechCaptureState,
@@ -43,6 +44,14 @@ export function useSpeechCapture({
   const runtimeId = useActiveConnectedRuntimeId();
   const completionRef = useRef(onCompletedTranscript);
   completionRef.current = onCompletedTranscript;
+  const currentContextRef = useRef<SpeechCaptureContext | null>(null);
+  currentContextRef.current =
+    runtimeId && workspaceId
+      ? {
+          runtimeId,
+          workspaceId,
+        }
+      : null;
   const [state, setState] = useState<SpeechCaptureState>({ type: "idle" });
   const [capabilitiesState, setCapabilitiesState] = useState<SpeechCaptureAvailability>({
     type: "loading",
@@ -50,7 +59,14 @@ export function useSpeechCapture({
   const controllerRef = useRef<SpeechCaptureController | null>(null);
   if (controllerRef.current === null) {
     controllerRef.current = new SpeechCaptureController({
-      onCompletedTranscript: (transcript, intent) => completionRef.current(transcript, intent),
+      onCompletedTranscript: (transcript, intent, captureContext) => {
+        if (!sameCaptureContext(captureContext, currentContextRef.current)) {
+          throw new Error(
+            "The active runtime or workspace changed before the transcript could be submitted.",
+          );
+        }
+        return completionRef.current(transcript, intent);
+      },
       onStateChange: setState,
     });
   }
@@ -96,16 +112,17 @@ export function useSpeechCapture({
 
   const start = useCallback(
     (intent: SpeechCaptureIntent) => {
-      if (!workspaceId || capabilitiesState.type !== "configured") {
+      if (!runtimeId || !workspaceId || capabilitiesState.type !== "configured") {
         return;
       }
       void controller.start({
         capabilities: capabilitiesState.capabilities,
         intent,
+        runtimeId,
         workspaceId,
       });
     },
-    [capabilitiesState, controller, workspaceId],
+    [capabilitiesState, controller, runtimeId, workspaceId],
   );
 
   return {
@@ -116,6 +133,17 @@ export function useSpeechCapture({
     start,
     state,
   };
+}
+
+export function sameCaptureContext(
+  captureContext: SpeechCaptureContext,
+  currentContext: SpeechCaptureContext | null,
+): boolean {
+  return (
+    currentContext !== null &&
+    captureContext.runtimeId === currentContext.runtimeId &&
+    captureContext.workspaceId === currentContext.workspaceId
+  );
 }
 
 function availabilityForCapabilities(capabilities: SpeechCapabilities): SpeechCaptureAvailability {

@@ -10,6 +10,11 @@ import {
 
 export type SpeechCaptureIntent = "start" | "steer";
 
+export interface SpeechCaptureContext {
+  runtimeId: string;
+  workspaceId: string;
+}
+
 export type SpeechCaptureFailureCode =
   | "completion_failed"
   | "connection_failed"
@@ -59,10 +64,9 @@ export type SpeechCaptureSupport =
       supported: false;
     };
 
-export interface StartSpeechCaptureOptions {
+export interface StartSpeechCaptureOptions extends SpeechCaptureContext {
   capabilities: SpeechCapabilities;
   intent: SpeechCaptureIntent;
-  workspaceId: string;
 }
 
 export interface SpeechCaptureControllerDependencies {
@@ -77,7 +81,11 @@ export interface SpeechCaptureControllerDependencies {
 
 interface SpeechCaptureControllerOptions {
   dependencies?: SpeechCaptureControllerDependencies;
-  onCompletedTranscript: (transcript: string, intent: SpeechCaptureIntent) => Promise<void> | void;
+  onCompletedTranscript: (
+    transcript: string,
+    intent: SpeechCaptureIntent,
+    context: SpeechCaptureContext,
+  ) => Promise<void> | void;
   onStateChange: (state: SpeechCaptureState) => void;
 }
 
@@ -86,6 +94,7 @@ export class SpeechCaptureController {
   private readonly onCompletedTranscript: SpeechCaptureControllerOptions["onCompletedTranscript"];
   private readonly onStateChange: SpeechCaptureControllerOptions["onStateChange"];
 
+  private activeContext: SpeechCaptureContext | null = null;
   private activeLifecycle: number | null = null;
   private durationTimer: unknown = null;
   private lifecycleSequence = 0;
@@ -103,6 +112,10 @@ export class SpeechCaptureController {
   start = async (options: StartSpeechCaptureOptions): Promise<void> => {
     this.closeActiveResources();
     const lifecycle = this.beginLifecycle();
+    this.activeContext = {
+      runtimeId: options.runtimeId,
+      workspaceId: options.workspaceId,
+    };
     const support = this.dependencies.support();
     if (!support.supported) {
       this.fail(lifecycle, support.code, support.message);
@@ -167,6 +180,7 @@ export class SpeechCaptureController {
 
   cancel = (): void => {
     this.activeLifecycle = null;
+    this.activeContext = null;
     this.closeActiveResources();
     if (this.state.type !== "idle") {
       this.transition({ type: "idle" });
@@ -231,10 +245,15 @@ export class SpeechCaptureController {
       return;
     }
     const intent = this.state.intent;
+    const context = this.activeContext;
+    if (!context) {
+      this.fail(lifecycle, "completion_failed", "The voice capture scope was lost.");
+      return;
+    }
     this.transition({ ...this.state, transcript });
     this.closeActiveResources();
     try {
-      await this.onCompletedTranscript(transcript, intent);
+      await this.onCompletedTranscript(transcript, intent, context);
     } catch (error) {
       this.fail(lifecycle, "completion_failed", safeCompletionErrorMessage(error));
       return;
@@ -243,6 +262,7 @@ export class SpeechCaptureController {
       return;
     }
     this.activeLifecycle = null;
+    this.activeContext = null;
     this.transition({ type: "idle" });
   }
 
@@ -278,6 +298,7 @@ export class SpeechCaptureController {
       return;
     }
     this.activeLifecycle = null;
+    this.activeContext = null;
     this.closeActiveResources();
     this.transition({ code, message, type: "failed" });
   }

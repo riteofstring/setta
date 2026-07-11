@@ -46,7 +46,11 @@ describe("Easy Button speech capture controller", () => {
     await flushPromises();
 
     expect(harness.completions).toEqual([
-      { intent: "start", transcript: "  Provider final, unchanged.  " },
+      {
+        context: { runtimeId: "runtime_capture", workspaceId: "workspace_capture" },
+        intent: "start",
+        transcript: "  Provider final, unchanged.  ",
+      },
     ]);
     expect(harness.currentState()).toEqual({ type: "idle" });
     expect(harness.transport.close).toHaveBeenCalledOnce();
@@ -294,13 +298,21 @@ describe("Easy Button speech capture controller", () => {
 interface HarnessOverrides {
   createTranscriptionSession?: (workspaceId: string) => Promise<SpeechTranscriptionSession>;
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
-  onCompletedTranscript?: (transcript: string, intent: "start" | "steer") => Promise<void> | void;
+  onCompletedTranscript?: (
+    transcript: string,
+    intent: "start" | "steer",
+    context: { runtimeId: string; workspaceId: string },
+  ) => Promise<void> | void;
   support?: SpeechCaptureControllerDependencies["support"];
 }
 
 function createHarness(overrides: HarnessOverrides = {}) {
   const states: SpeechCaptureState[] = [];
-  const completions: Array<{ intent: "start" | "steer"; transcript: string }> = [];
+  const completions: Array<{
+    context: { runtimeId: string; workspaceId: string };
+    intent: "start" | "steer";
+    transcript: string;
+  }> = [];
   const track = fakeAudioTrack();
   const stream = fakeMediaStream(track);
   const transports: FakeTransport[] = [];
@@ -340,9 +352,9 @@ function createHarness(overrides: HarnessOverrides = {}) {
   };
   const controller = new SpeechCaptureController({
     dependencies,
-    onCompletedTranscript: async (transcript, intent) => {
-      completions.push({ intent, transcript });
-      await overrides.onCompletedTranscript?.(transcript, intent);
+    onCompletedTranscript: async (transcript, intent, context) => {
+      completions.push({ context, intent, transcript });
+      await overrides.onCompletedTranscript?.(transcript, intent, context);
     },
     onStateChange: (state) => states.push(state),
   });
@@ -458,6 +470,7 @@ function startOptions(
   return {
     capabilities: overrides.capabilities ?? capabilities(),
     intent: overrides.intent ?? ("start" as const),
+    runtimeId: "runtime_capture",
     workspaceId: "workspace_capture",
   };
 }

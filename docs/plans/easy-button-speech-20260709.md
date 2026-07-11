@@ -2737,6 +2737,49 @@ finish the explicit working-plus-listening Stop/current-focus presentation
 coverage and prove no transient steering transcript is rendered. No blocker
 was found for that work.
 
+### 2026-07-10 — Phase 3 completed-transcript submission audit complete
+
+Audited commit `6f68bf315` against this plan, `AGENTS.md`, its parent, the clean
+starting worktree, the regenerated web bundle, the mounted capture lifecycle,
+the Easy Run store actions, and the deterministic and live production paths.
+The completed provider string correctly enters the existing start/steer action
+without renderer rewriting, partial deltas remain presentation-only, ordinary
+failure restores the exact provider string, and the applied focus-projection
+failure remains cleared and visibly distinct from rejection.
+
+The audit found and fixed one scope race. Completion previously called the
+latest render's callback without retaining the runtime and workspace where the
+capture began. Although the normal selection-change effect cancels capture, a
+provider completion could arrive after the selection render and before that
+effect, causing the transcript to enter the newly selected surface. Capture
+now owns its immutable runtime/workspace context through completion, and the
+hook rejects the handoff unless both still match the active connected surface.
+Focused coverage proves exact context retention plus rejection of missing,
+runtime-changed, and workspace-changed contexts. The checked-in PWA bundle was
+regenerated from that source fix.
+
+Audit verification completed:
+
+- all 52 focused Realtime transport, capture-controller, submission, and scope
+  tests passed, followed by all 1,074 desktop Vitest tests, focused ESLint,
+  desktop/web typechecks, both production builds, and
+  `./scripts/go.sh test ./internal/webapp`;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase3-submission-audit-20260710`,
+  and the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase3-submission-audit-regression-20260710`;
+- ChatGPT authentication was available. With `OPENAI_API_KEY` removed,
+  `live-codex-electron`, `easy-button-live`, and all supplemental live backend
+  Codex probes passed;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes` passed.
+
+No dependency or supply-chain input changed, so the supply-chain gate was not
+required. Phase 3 items 1-5 remain complete. The plan is not complete, and the
+next coherent slice remains Phase 3 item 6: finish explicit
+working-plus-listening Stop/current-focus coverage and prove no transient
+steering transcript is rendered. This audit did not start that work, and no
+blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
