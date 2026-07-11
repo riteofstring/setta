@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-2 and Phase 3 items 1-3 are complete
+**Status:** In progress; Phases 0-2 and Phase 3 items 1-4 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1598,7 +1598,7 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Progress:** Items 1-3 are complete. Item 4 is next.
+**Progress:** Items 1-4 are complete. Item 5 is next.
 
 Implement:
 
@@ -2418,3 +2418,19 @@ Implementation is in progress under this plan.
   supply-chain audit likewise reproduced the existing `GO-2026-5856` finding in
   pinned Go 1.26.4, fixed in 1.26.5; no dependency or toolchain pin changed.
   Phase 3 item 4 remains next with no external blocker.
+- 2026-07-11: Completed Phase 3 item 4. The production workspace policy no
+  longer treats Easy Button as a singleton: it uses the same bounded ten-pane
+  allowance as the other repeatable workspace surfaces. Multiple panes may
+  carry the same typed `conversationId`, and layout serialization/reload keeps
+  their pane and surface identities distinct while preserving the shared
+  conversation binding.
+- 2026-07-11: Focused workspace-scene and layout-store coverage passed (60
+  tests), as did desktop typecheck and the production build. The deterministic
+  production Electron `topic-conversation-pane-projection` workflow opened a
+  second view through the real renderer pane-open event, observed both bindings
+  in the workspace-layout HTTP store, reloaded the application, and rendered
+  both bound projections under distinct pane ids. Evidence is under
+  `.recordings/topic-conversation-pane-projection/20260712T032258683Z/`.
+  Generated inputs and outputs changed: none. Phase 3 item 5, the virtualized
+  conversation navigator and deterministic focus-existing-or-open behavior,
+  is next with no external blocker.

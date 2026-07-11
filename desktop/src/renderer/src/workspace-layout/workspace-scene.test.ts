@@ -56,7 +56,7 @@ describe("real workspace layout scene", () => {
   test("defines default pane limits for addable real workspace surfaces", () => {
     expect(defaultRealWorkspacePaneLimits).toEqual({
       "chat-dom": 10,
-      "easy-button": 1,
+      "easy-button": 10,
       "semantic-node-details": 1,
       "settings-dom": 1,
       terminal: 10,
@@ -219,6 +219,54 @@ describe("real workspace layout scene", () => {
       easyButtonConfig,
     );
     expect(restored.scene.paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
+  });
+
+  test("opens and restores multiple easy button views of one conversation", () => {
+    const workspaceId = "workspace_api";
+    const initial = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId,
+      workspaceName: "Repo",
+    });
+    const engine = new WorkspaceLikeLayoutEngine(initial.scene);
+    const store = new WorkspaceLayoutStore(engine, initial.scene, initial.focusedPaneId, {
+      paneLimits: defaultRealWorkspacePaneLimits,
+    });
+    const easyButtonConfig = { conversationId: "conversation-1" };
+    const firstPaneId = store.openPane({
+      easyButtonConfig,
+      surfaceKind: "easy-button",
+      title: "Topic",
+    });
+    const secondPaneId = store.openPane({
+      easyButtonConfig,
+      surfaceKind: "easy-button",
+      title: "Topic copy",
+    });
+
+    expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
+      allowed: true,
+      count: 2,
+      limit: 10,
+      surfaceKind: "easy-button",
+    });
+
+    const persisted = workspaceUILayoutFromScene(
+      workspaceId,
+      store.toScene(),
+      store.focusedPaneId(),
+    );
+    const restored = createRealWorkspaceScene({
+      storedLayout: persisted,
+      workspaceId,
+      workspaceName: "Ignored after restore",
+    });
+
+    expect(
+      [firstPaneId, secondPaneId].map(
+        (paneId) => restored.scene.paneById.get(paneId)?.easyButtonConfig,
+      ),
+    ).toEqual([easyButtonConfig, easyButtonConfig]);
   });
 
   test("drops persisted columns that reference missing pane metadata", () => {

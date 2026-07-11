@@ -4,7 +4,7 @@
 import { basename, join } from "node:path";
 import process from "node:process";
 
-import { backendProbe } from "./chat-workflow-harness.mjs";
+import { backendProbe, waitForBackendState } from "./chat-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
@@ -59,19 +59,34 @@ try {
   assertBoundUnloadedProjection(opened);
   await captureScreenshot(context.client, join(artifactDir, "bound-conversation-open.png"));
 
-  const persisted = await backend.post("/workspaces/ui/layout/read", { workspaceId });
-  assertPersistedBinding(persisted, workspaceId);
+  const firstPersisted = await backend.post("/workspaces/ui/layout/read", { workspaceId });
+  assertPersistedBindings(firstPersisted, workspaceId, 1);
+
+  await context.client.driver("topicConversationOpenBoundPane", { conversationId });
+  const duplicatedPersisted = await waitForBackendState(
+    async () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    (result) => easyButtonPanes(result, workspaceId).length === 2,
+    workflowTimeoutMs,
+  );
+  assertPersistedBindings(duplicatedPersisted, workspaceId, 2);
 
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  const reloaded = await waitForBoundConversationSurface(context.client, workspaceId);
-  assertBoundUnloadedProjection(reloaded);
-  await captureScreenshot(context.client, join(artifactDir, "bound-conversation-reloaded.png"));
+  const reloaded = await waitForBoundConversationSurfaces(context.client, workspaceId, 2);
+  for (const surface of reloaded.surfaces) {
+    assertBoundUnloadedProjection(surface);
+  }
+  assertDistinctPaneViews(reloaded.surfaces);
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "bound-conversation-views-reloaded.png"),
+  );
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     conversationId,
+    duplicatedPersisted,
     opened,
     reloaded,
     status: "passed",
@@ -141,6 +156,20 @@ async function waitForBoundConversationSurface(client, workspaceId) {
   );
 }
 
+async function waitForBoundConversationSurfaces(client, workspaceId, expectedCount) {
+  return waitForState(
+    client,
+    driverCallExpression("topicConversationSurfaceStates", { workspaceId }),
+    (state) =>
+      state.workspaceId === workspaceId &&
+      state.surfaces.length === expectedCount &&
+      state.surfaces.every(
+        (surface) => surface.conversationId === conversationId && surface.projectionStatus !== "",
+      ),
+    workflowTimeoutMs,
+  );
+}
+
 function assertBoundUnloadedProjection(state) {
   const expected = {
     conversationId,
@@ -162,13 +191,31 @@ function assertBoundUnloadedProjection(state) {
   }
 }
 
-function assertPersistedBinding(result, workspaceId) {
-  if (result.workspaceId !== workspaceId || !result.layout) {
-    throw new Error(`persisted layout missing: ${JSON.stringify(result)}`);
+function assertPersistedBindings(result, workspaceId, expectedCount) {
+  const panes = easyButtonPanes(result, workspaceId);
+  if (
+    panes.length !== expectedCount ||
+    panes.some((pane) => pane.easyButtonConfig?.conversationId !== conversationId) ||
+    new Set(panes.map((pane) => pane.paneId)).size !== expectedCount ||
+    new Set(panes.map((pane) => pane.surfaceId)).size !== expectedCount
+  ) {
+    throw new Error(`persisted conversation bindings mismatch: ${JSON.stringify(result.layout)}`);
   }
-  const panes = result.layout.panes.filter((pane) => pane.surfaceKind === "easy-button");
-  if (panes.length !== 1 || panes[0]?.easyButtonConfig?.conversationId !== conversationId) {
-    throw new Error(`persisted conversation binding mismatch: ${JSON.stringify(result.layout)}`);
+}
+
+function easyButtonPanes(result, workspaceId) {
+  if (result.workspaceId !== workspaceId || !result.layout) {
+    return [];
+  }
+  return result.layout.panes.filter((pane) => pane.surfaceKind === "easy-button");
+}
+
+function assertDistinctPaneViews(surfaces) {
+  const paneIds = surfaces.map((surface) => surface.paneId);
+  if (paneIds.some((paneId) => paneId === "") || new Set(paneIds).size !== surfaces.length) {
+    throw new Error(
+      `conversation views do not have distinct pane ids: ${JSON.stringify(surfaces)}`,
+    );
   }
 }
 
