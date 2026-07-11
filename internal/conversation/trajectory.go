@@ -61,6 +61,9 @@ const (
 	TrajectoryActivityImageGeneration TrajectoryActivityKind = "image_generation"
 	TrajectoryActivitySleep           TrajectoryActivityKind = "sleep"
 	TrajectoryActivityHook            TrajectoryActivityKind = "hook"
+	TrajectoryActivityFileChange      TrajectoryActivityKind = "file_change"
+	TrajectoryActivitySubagent        TrajectoryActivityKind = "subagent"
+	TrajectoryActivityOther           TrajectoryActivityKind = "other"
 
 	FileChangeAdd    FileChangeKind = "add"
 	FileChangeDelete FileChangeKind = "delete"
@@ -75,6 +78,7 @@ const (
 	TrajectoryApprovalKindPermission      TrajectoryApprovalKind = "permission"
 	TrajectoryApprovalKindStructuredInput TrajectoryApprovalKind = "structured_input"
 	TrajectoryApprovalKindUserInput       TrajectoryApprovalKind = "user_input"
+	TrajectoryApprovalKindMCPElicitation  TrajectoryApprovalKind = "mcp_elicitation"
 
 	TrajectoryApprovalDecisionApproved           TrajectoryApprovalDecision = "approved"
 	TrajectoryApprovalDecisionApprovedForSession TrajectoryApprovalDecision = "approved_for_session"
@@ -211,11 +215,11 @@ type TrajectoryApprovalRequest struct {
 }
 
 type TrajectoryApprovalResolution struct {
-	ApprovalID string                     `json:"approvalId"`
-	Decision   TrajectoryApprovalDecision `json:"decision"`
-	Response   string                     `json:"response"`
-	Answers    map[string]string          `json:"answers"`
-	ResolvedAt string                     `json:"resolvedAt"`
+	ApprovalID string                       `json:"approvalId"`
+	Decision   TrajectoryApprovalDecision   `json:"decision"`
+	Response   string                       `json:"response"`
+	Answers    []ConversationApprovalAnswer `json:"answers"`
+	ResolvedAt string                       `json:"resolvedAt"`
 }
 
 type Subagent struct {

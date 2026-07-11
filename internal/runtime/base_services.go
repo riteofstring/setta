@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 
+	"setta/internal/agent"
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexapp"
@@ -15,60 +16,48 @@ import (
 )
 
 type runtimeBaseServices struct {
-	appearanceService  *appearance.Service
-	chatService        *chat.Service
-	codexManager       *codexapp.Manager
-	conversationStore  *conversation.Store
-	easyRunService     *easyrun.Service
-	speechService      *speech.Service
-	workspaceService   *workspacesession.Service
-	workspaceUIService *workspaceui.Service
-	workflowService    *orchestrator.Service
-	workflowStore      *orchestrator.Store
+	appearanceService   *appearance.Service
+	chatService         *chat.Service
+	codexManager        *codexapp.Manager
+	conversationService *conversation.Service
+	conversationStore   *conversation.Store
+	easyRunService      *easyrun.Service
+	speechService       *speech.Service
+	workspaceService    *workspacesession.Service
+	workspaceUIService  *workspaceui.Service
+	workflowService     *orchestrator.Service
+	workflowStore       *orchestrator.Store
 }
 
 func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
-	appearanceService, err := newAppearanceService(config.AppDataDir)
+	foundation, err := newRuntimeFoundation(config)
 	if err != nil {
 		return runtimeBaseServices{}, err
-	}
-	workspaceService, err := newWorkspaceService(config.AppDataDir)
-	if err != nil {
-		return runtimeBaseServices{}, err
-	}
-	workspaceUIService, err := newWorkspaceUIService(config.AppDataDir, workspaceService)
-	if err != nil {
-		return runtimeBaseServices{}, err
-	}
-	conversationStore, err := conversation.NewStore(config.AppDataDir)
-	if err != nil {
-		return runtimeBaseServices{}, fmt.Errorf("create conversation store: %w", err)
 	}
 	closeConversationStoreOnFailure := true
 	defer func() {
 		if closeConversationStoreOnFailure {
-			_ = conversationStore.Close()
+			_ = foundation.conversationStore.Close()
 		}
 	}()
-	codexManager := newCodexManager()
-	chatService, err := newChatService(config.AppDataDir, workspaceService, codexManager, config.ChatHarness)
+	chatService, err := newChatService(config.AppDataDir, foundation.workspaceService, foundation.codexManager, config.ChatHarness)
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
 	workflowService, workflowStore, err := newWorkflowService(
 		config.AppDataDir,
-		workspaceService,
+		foundation.workspaceService,
 		chatService,
 	)
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
-	easyRunService, err := newEasyRunService(config.AppDataDir, chatService, workspaceService)
+	easyRunService, err := newEasyRunService(config.AppDataDir, chatService, foundation.workspaceService)
 	if err != nil {
 		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err
 	}
-	speechService, err := newSpeechService(config.Speech, easyRunService, workspaceService)
+	speechService, err := newSpeechService(config.Speech, easyRunService, foundation.workspaceService)
 	if err != nil {
 		easyRunService.CloseEvents()
 		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
@@ -81,16 +70,60 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 	}
 	closeConversationStoreOnFailure = false
 	return runtimeBaseServices{
-		appearanceService:  appearanceService,
-		chatService:        chatService,
-		codexManager:       codexManager,
-		conversationStore:  conversationStore,
-		easyRunService:     easyRunService,
-		speechService:      speechService,
-		workspaceService:   workspaceService,
-		workspaceUIService: workspaceUIService,
-		workflowService:    workflowService,
-		workflowStore:      workflowStore,
+		appearanceService:   foundation.appearanceService,
+		chatService:         chatService,
+		codexManager:        foundation.codexManager,
+		conversationService: foundation.conversationService,
+		conversationStore:   foundation.conversationStore,
+		easyRunService:      easyRunService,
+		speechService:       speechService,
+		workspaceService:    foundation.workspaceService,
+		workspaceUIService:  foundation.workspaceUIService,
+		workflowService:     workflowService,
+		workflowStore:       workflowStore,
+	}, nil
+}
+
+type runtimeFoundation struct {
+	appearanceService   *appearance.Service
+	codexManager        *codexapp.Manager
+	conversationService *conversation.Service
+	conversationStore   *conversation.Store
+	workspaceService    *workspacesession.Service
+	workspaceUIService  *workspaceui.Service
+}
+
+func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
+	appearanceService, err := newAppearanceService(config.AppDataDir)
+	if err != nil {
+		return runtimeFoundation{}, err
+	}
+	workspaceService, err := newWorkspaceService(config.AppDataDir)
+	if err != nil {
+		return runtimeFoundation{}, err
+	}
+	workspaceUIService, err := newWorkspaceUIService(config.AppDataDir, workspaceService)
+	if err != nil {
+		return runtimeFoundation{}, err
+	}
+	conversationStore, err := conversation.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
+	}
+	codexManager := newCodexManager()
+	agentRuntime := agent.NewRuntime(agent.Config{Manager: codexManager, Version: config.Version})
+	conversationService, err := conversation.NewService(conversationStore, workspaceService, agentRuntime)
+	if err != nil {
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("create conversation service: %w", err)
+	}
+	return runtimeFoundation{
+		appearanceService:   appearanceService,
+		codexManager:        codexManager,
+		conversationService: conversationService,
+		conversationStore:   conversationStore,
+		workspaceService:    workspaceService,
+		workspaceUIService:  workspaceUIService,
 	}, nil
 }
 

@@ -58,6 +58,17 @@ type EasyRunService interface {
 }
 
 type ConversationService interface {
+	CreateTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
+	SendTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
+	QueueTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
+	SteerTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
+	StopTurn(context.Context, string, string) (conversation.ConversationSnapshot, error)
+	SubmitApproval(
+		context.Context,
+		string,
+		string,
+		conversation.ConversationApprovalResponse,
+	) (conversation.ConversationSnapshot, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SubscribeEvents(
 		conversation.ConversationEventCursor,

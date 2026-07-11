@@ -1,15 +1,12 @@
 package runtime
 
-import (
-	"setta/internal/conversation"
-	"setta/internal/httpapi"
-)
+import "context"
 
-func conversationNavigatorService(store *conversation.Store) httpapi.ConversationNavigatorService {
-	if store == nil {
+func (server *Server) shutdownConversationTurns(ctx context.Context) error {
+	if server.drainConversationTurns == nil {
 		return nil
 	}
-	return store
+	return server.drainConversationTurns(ctx)
 }
 
 func (server *Server) shutdownConversationStore() error {

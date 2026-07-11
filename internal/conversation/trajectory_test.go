@@ -98,7 +98,7 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			event.ApprovalRequested = &TrajectoryApprovalRequested{Approval: approval}
 		}},
 		{TrajectoryEventApprovalResolved, func(event *TrajectoryEvent) {
-			event.ApprovalResolved = &TrajectoryApprovalResolved{Resolution: TrajectoryApprovalResolution{ApprovalID: approval.ID, Decision: TrajectoryApprovalDecisionApproved, Answers: map[string]string{}, ResolvedAt: testTimeEnded}}
+			event.ApprovalResolved = &TrajectoryApprovalResolved{Resolution: TrajectoryApprovalResolution{ApprovalID: approval.ID, Decision: TrajectoryApprovalDecisionApproved, Answers: []ConversationApprovalAnswer{}, ResolvedAt: testTimeEnded}}
 		}},
 		{TrajectoryEventSubagentStarted, func(event *TrajectoryEvent) {
 			event.SubagentStarted = &TrajectorySubagentStarted{Subagent: subagent}
@@ -189,7 +189,7 @@ func TestStructuredInputContractsRejectAmbiguousQuestionAndResolutionShapes(t *t
 		ApprovalID: "approval-1",
 		Decision:   TrajectoryApprovalDecisionApproved,
 		Response:   "unexpected",
-		Answers:    map[string]string{},
+		Answers:    []ConversationApprovalAnswer{},
 		ResolvedAt: testTimeEnded,
 	}
 	assertValidationErrorContains(t, resolution.Validate(), "must not include a response")

@@ -92,14 +92,15 @@ type ApprovalQuestion struct {
 }
 
 type ApprovalRequest struct {
-	ID             string             `json:"id"`
-	ProviderItemID string             `json:"providerItemId"`
-	Kind           ApprovalKind       `json:"kind"`
-	Title          string             `json:"title"`
-	Body           string             `json:"body,omitempty"`
-	Command        string             `json:"command,omitempty"`
-	Path           string             `json:"path,omitempty"`
-	Questions      []ApprovalQuestion `json:"questions,omitempty"`
+	ID                string             `json:"id"`
+	ProviderItemID    string             `json:"providerItemId"`
+	Kind              ApprovalKind       `json:"kind"`
+	Title             string             `json:"title"`
+	Body              string             `json:"body,omitempty"`
+	Command           string             `json:"command,omitempty"`
+	Path              string             `json:"path,omitempty"`
+	PermissionProfile string             `json:"permissionProfile,omitempty"`
+	Questions         []ApprovalQuestion `json:"questions,omitempty"`
 }
 
 type ModelRerouteEvent struct {

@@ -48,6 +48,7 @@ export interface ReactDomSurfaceState {
 }
 
 export interface ReactDomSurfaceAdapterOptions {
+  workspaceId?: string;
   workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
 
@@ -403,8 +404,11 @@ type ReactDomSurfaceRenderFactory = (
 
 const reactDomSurfaceRenderFactories: Partial<Record<SurfaceKind, ReactDomSurfaceRenderFactory>> = {
   "chat-dom": () => () => <WorkspaceChatSurface />,
-  "easy-button": (pane) => () => (
-    <EasyButtonSurface conversationId={pane.easyButtonConfig?.conversationId ?? null} />
+  "easy-button": (pane, options) => () => (
+    <EasyButtonSurface
+      conversationId={pane.easyButtonConfig?.conversationId ?? null}
+      workspaceId={options.workspaceId ?? null}
+    />
   ),
   "fake-long-chat": (pane) => () => <FakeLongChatSurface pane={pane} />,
   "workflow-graph":

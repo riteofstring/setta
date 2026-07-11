@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import {
   decodeChatEvent,
+  decodeConversationEvent,
   decodeEasyRunEvent,
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
@@ -124,7 +125,25 @@ const api: SettaAPI = {
     },
   },
   conversations: {
+    create: (request) => invoke("conversationCreateTopic", request),
     list: (request) => invoke("conversationListTopicConversations", request),
+    onEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeConversationEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.conversationEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.conversationEvent, handler);
+      };
+    },
+    queue: (request) => invoke("conversationQueueTurn", request),
+    read: (request) => invoke("conversationReadSnapshot", request),
+    release: (request) => invoke("conversationReleaseEvents", request),
+    send: (request) => invoke("conversationSendTurn", request),
+    steer: (request) => invoke("conversationSteerTurn", request),
+    stop: (request) => invoke("conversationStopTurn", request),
+    submitApproval: (request) => invoke("conversationSubmitApproval", request),
+    subscribe: (request) => invoke("conversationSubscribeEvents", request),
   },
   easyRun: {
     onEvent: (listener) => {

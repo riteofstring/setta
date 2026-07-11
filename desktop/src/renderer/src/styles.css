@@ -6,6 +6,7 @@
 @import "./workspace-pane-chrome.css";
 @import "./features/easy-button/easy-button-conversation-palette.css";
 @import "./features/easy-button/easy-button.css";
+@import "./features/easy-button/easy-button-conversation-controls.css";
 
 @theme inline {
   --color-background: var(--background);

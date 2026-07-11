@@ -27,6 +27,7 @@ import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
 import { useEasyRunStore } from "./stores/easy-run-store";
+import { handleConversationProjectionEvent } from "./stores/conversation-projection-runtime";
 import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
 import {
@@ -111,6 +112,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       useEasyRunStore.getState().handleEvent(event);
     });
   }, [setta]);
+  useEffect(() => setta.conversations.onEvent(handleConversationProjectionEvent), [setta]);
 
   return (
     <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground">

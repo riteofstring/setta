@@ -1,4 +1,10 @@
-import type { NavigatorCursor, NavigatorItem, NavigatorPage } from "@generated/backend";
+import type {
+  ConversationEvent,
+  ConversationSnapshot,
+  NavigatorCursor,
+  NavigatorItem,
+  NavigatorPage,
+} from "@generated/backend";
 import { create } from "zustand";
 
 const navigatorPageLimit = 80;
@@ -11,13 +17,37 @@ export interface ConversationNavigatorWorkspaceState {
 }
 
 interface ConversationNavigatorStore {
+  applyEvent: (event: ConversationEvent) => void;
   loadMore: (workspaceId: string) => Promise<void>;
   query: string;
   resetRuntimeState: () => void;
   setQuery: (query: string) => void;
   syncWorkspaces: (workspaceIds: readonly string[]) => Promise<void>;
+  upsertSnapshot: (snapshot: ConversationSnapshot) => void;
   workspaces: Readonly<Record<string, ConversationNavigatorWorkspaceState | undefined>>;
 }
+
+type NavigatorMutatingEventType =
+  | "conversation.updated"
+  | "conversation.presentation_profile.updated"
+  | "conversation.branch.created";
+type NavigatorIgnoredEventType = Exclude<
+  ConversationEvent["payload"]["type"],
+  NavigatorMutatingEventType
+>;
+
+const navigatorIgnoredEventTypes = {
+  "conversation.artifact.created": true,
+  "conversation.narration.created": true,
+  "conversation.narrator_state.updated": true,
+  "conversation.queue.updated": true,
+  "conversation.resync_required": true,
+  "conversation.role_profile_override.updated": true,
+  "conversation.side_conversation.updated": true,
+  "conversation.thread_binding.updated": true,
+  "conversation.trajectory.appended": true,
+  "conversation.turn.updated": true,
+} satisfies Record<NavigatorIgnoredEventType, true>;
 
 export const useConversationNavigatorStore = create<ConversationNavigatorStore>((set, get) => {
   let generation = 0;
@@ -76,6 +106,22 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
   }
 
   return {
+    applyEvent: (event) => {
+      const workspace = get().workspaces[event.workspaceId];
+      if (!workspace) {
+        return;
+      }
+      const items = applyNavigatorEvent(workspace.items, event);
+      if (items === workspace.items) {
+        return;
+      }
+      set((state) => ({
+        workspaces: {
+          ...state.workspaces,
+          [event.workspaceId]: { ...workspace, items },
+        },
+      }));
+    },
     loadMore: async (workspaceId) => {
       const workspace = get().workspaces[workspaceId];
       if (!workspace || workspace.loading || !workspace.nextCursor) {
@@ -110,6 +156,34 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
         }),
       );
     },
+    upsertSnapshot: (snapshot) => {
+      const workspaceId = snapshot.conversation.workspaceId;
+      const current = get().workspaces[workspaceId] ?? {
+        error: null,
+        items: [],
+        loading: false,
+        nextCursor: null,
+      };
+      const item: NavigatorItem = {
+        branch: snapshot.branch,
+        conversation: snapshot.conversation,
+        presentationProfile: snapshot.presentationProfile,
+      };
+      set((state) => ({
+        workspaces: {
+          ...state.workspaces,
+          [workspaceId]: {
+            ...current,
+            items: sortNavigatorItems([
+              ...current.items.filter(
+                (candidate) => candidate.conversation.id !== snapshot.conversation.id,
+              ),
+              item,
+            ]),
+          },
+        },
+      }));
+    },
     workspaces: {},
   };
 });
@@ -130,6 +204,62 @@ function loadedWorkspaceState(
     loading: false,
     nextCursor: page.nextCursor,
   };
+}
+
+function applyNavigatorEvent(
+  current: readonly NavigatorItem[],
+  event: ConversationEvent,
+): readonly NavigatorItem[] {
+  switch (event.payload.type) {
+    case "conversation.updated": {
+      const payload = event.payload;
+      return updateNavigatorItem(current, event.conversationId, (item) => ({
+        ...item,
+        conversation: payload.conversation,
+      }));
+    }
+    case "conversation.presentation_profile.updated": {
+      const payload = event.payload;
+      return updateNavigatorItem(current, event.conversationId, (item) => ({
+        ...item,
+        presentationProfile: payload.profile,
+      }));
+    }
+    case "conversation.branch.created": {
+      const payload = event.payload;
+      return updateNavigatorItem(current, event.conversationId, (item) => ({
+        ...item,
+        branch: payload.branch,
+      }));
+    }
+    default: {
+      const ignoredType: NavigatorIgnoredEventType = event.payload.type;
+      void navigatorIgnoredEventTypes[ignoredType];
+      return current;
+    }
+  }
+}
+
+function updateNavigatorItem(
+  current: readonly NavigatorItem[],
+  conversationId: string,
+  update: (item: NavigatorItem) => NavigatorItem,
+): readonly NavigatorItem[] {
+  const index = current.findIndex((item) => item.conversation.id === conversationId);
+  if (index < 0) {
+    return current;
+  }
+  return sortNavigatorItems(
+    current.map((item, candidate) => (candidate === index ? update(item) : item)),
+  );
+}
+
+function sortNavigatorItems(items: readonly NavigatorItem[]): NavigatorItem[] {
+  return [...items].sort(
+    (left, right) =>
+      right.conversation.updatedAt.localeCompare(left.conversation.updatedAt) ||
+      right.conversation.id.localeCompare(left.conversation.id),
+  );
 }
 
 function assertNavigatorPageOwnership(page: NavigatorPage, workspaceId: string) {

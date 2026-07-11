@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 16;
-export const backendContractSchemaHash = "sha256:49d4a9644784165d2ba2479446387819022a0fe7b0a653b6e201d798fddf656c";
+export const backendProtocolVersion = 17;
+export const backendContractSchemaHash = "sha256:f19940aff9ad6765a2373f1ec2f8eb4d3f58cb9862b8d98618d5366e3a92fabd";
 
 export type DeviceScope = "full";
 
@@ -1071,9 +1071,9 @@ export function decodePlanStepStatus(value: unknown, label = "PlanStepStatus"): 
   }
 }
 
-export type TrajectoryActivityKind = "command" | "mcp_tool" | "dynamic_tool" | "web_search" | "image_view" | "image_generation" | "sleep" | "hook";
+export type TrajectoryActivityKind = "command" | "mcp_tool" | "dynamic_tool" | "web_search" | "image_view" | "image_generation" | "sleep" | "hook" | "file_change" | "subagent" | "other";
 
-export const trajectoryActivityKindValues = ["command", "mcp_tool", "dynamic_tool", "web_search", "image_view", "image_generation", "sleep", "hook"] as const satisfies readonly TrajectoryActivityKind[];
+export const trajectoryActivityKindValues = ["command", "mcp_tool", "dynamic_tool", "web_search", "image_view", "image_generation", "sleep", "hook", "file_change", "subagent", "other"] as const satisfies readonly TrajectoryActivityKind[];
 
 export function decodeTrajectoryActivityKind(value: unknown, label = "TrajectoryActivityKind"): TrajectoryActivityKind {
   const decoded = decodeString(value, label);
@@ -1093,6 +1093,12 @@ export function decodeTrajectoryActivityKind(value: unknown, label = "Trajectory
     case "sleep":
       return decoded;
     case "hook":
+      return decoded;
+    case "file_change":
+      return decoded;
+    case "subagent":
+      return decoded;
+    case "other":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1135,9 +1141,9 @@ export function decodeFileChangeOutcome(value: unknown, label = "FileChangeOutco
   }
 }
 
-export type TrajectoryApprovalKind = "command" | "file_change" | "permission" | "structured_input" | "user_input";
+export type TrajectoryApprovalKind = "command" | "file_change" | "permission" | "structured_input" | "user_input" | "mcp_elicitation";
 
-export const trajectoryApprovalKindValues = ["command", "file_change", "permission", "structured_input", "user_input"] as const satisfies readonly TrajectoryApprovalKind[];
+export const trajectoryApprovalKindValues = ["command", "file_change", "permission", "structured_input", "user_input", "mcp_elicitation"] as const satisfies readonly TrajectoryApprovalKind[];
 
 export function decodeTrajectoryApprovalKind(value: unknown, label = "TrajectoryApprovalKind"): TrajectoryApprovalKind {
   const decoded = decodeString(value, label);
@@ -1151,6 +1157,8 @@ export function decodeTrajectoryApprovalKind(value: unknown, label = "Trajectory
     case "structured_input":
       return decoded;
     case "user_input":
+      return decoded;
+    case "mcp_elicitation":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -4268,9 +4276,9 @@ export interface EasyRunEvent {
   resyncRequired: EasyRunResyncRequired | null;
 }
 
-export interface ReadConversationSnapshotRequest {
+export interface CreateTopicConversationRequest {
   workspaceId: string;
-  conversationId: string;
+  title: string;
 }
 
 export interface TopicConversation {
@@ -4563,11 +4571,16 @@ export interface TrajectoryApprovalRequested {
   approval: TrajectoryApprovalRequest;
 }
 
+export interface ConversationApprovalAnswer {
+  questionId: string;
+  answers: string[];
+}
+
 export interface TrajectoryApprovalResolution {
   approvalId: string;
   decision: TrajectoryApprovalDecision;
   response: string;
-  answers: Record<string, string>;
+  answers: ConversationApprovalAnswer[];
   resolvedAt: string;
 }
 
@@ -4827,6 +4840,11 @@ export interface ConversationSnapshot {
   eventCursor: ConversationEventCursor;
 }
 
+export interface ReadConversationSnapshotRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
 export interface NavigatorCursor {
   updatedAt: string;
   conversationId: string;
@@ -4848,6 +4866,42 @@ export interface NavigatorItem {
 export interface NavigatorPage {
   items: NavigatorItem[];
   nextCursor: NavigatorCursor | null;
+}
+
+export interface SendTopicConversationTurnRequest {
+  workspaceId: string;
+  conversationId: string;
+  text: string;
+}
+
+export interface QueueTopicConversationTurnRequest {
+  workspaceId: string;
+  conversationId: string;
+  text: string;
+}
+
+export interface SteerTopicConversationTurnRequest {
+  workspaceId: string;
+  conversationId: string;
+  text: string;
+}
+
+export interface StopTopicConversationTurnRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
+export interface ConversationApprovalResponse {
+  approvalId: string;
+  decision: TrajectoryApprovalDecision;
+  response: string;
+  answers: ConversationApprovalAnswer[];
+}
+
+export interface SubmitTopicConversationApprovalRequest {
+  workspaceId: string;
+  conversationId: string;
+  response: ConversationApprovalResponse;
 }
 
 export interface SubscribeConversationEventsRequest {
@@ -8495,6 +8549,11 @@ export const backendEndpoints = {
     method: "GET",
     path: "/easy-runs/events",
   },
+  CreateTopicConversation: {
+    method: "POST",
+    path: "/conversations/create",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadConversationSnapshot: {
     method: "POST",
     path: "/conversations/snapshot/read",
@@ -8503,6 +8562,31 @@ export const backendEndpoints = {
   ListTopicConversations: {
     method: "POST",
     path: "/conversations/navigator/list",
+    requestBodyLimitBytes: 4194304,
+  },
+  SendTopicConversationTurn: {
+    method: "POST",
+    path: "/conversations/turns/send",
+    requestBodyLimitBytes: 4194304,
+  },
+  QueueTopicConversationTurn: {
+    method: "POST",
+    path: "/conversations/turns/queue",
+    requestBodyLimitBytes: 4194304,
+  },
+  SteerTopicConversationTurn: {
+    method: "POST",
+    path: "/conversations/turns/steer",
+    requestBodyLimitBytes: 4194304,
+  },
+  StopTopicConversationTurn: {
+    method: "POST",
+    path: "/conversations/turns/stop",
+    requestBodyLimitBytes: 4194304,
+  },
+  SubmitTopicConversationApproval: {
+    method: "POST",
+    path: "/conversations/approvals/submit",
     requestBodyLimitBytes: 4194304,
   },
   ConversationEventStream: {
@@ -10137,12 +10221,12 @@ export function decodeEasyRunEvent(value: unknown): EasyRunEvent {
   return result;
 }
 
-export function decodeReadConversationSnapshotRequest(value: unknown): ReadConversationSnapshotRequest {
-  const record = assertRecord(value, "ReadConversationSnapshotRequest");
-  assertKnownFields(record, "ReadConversationSnapshotRequest", ["workspaceId", "conversationId"]);
+export function decodeCreateTopicConversationRequest(value: unknown): CreateTopicConversationRequest {
+  const record = assertRecord(value, "CreateTopicConversationRequest");
+  assertKnownFields(record, "CreateTopicConversationRequest", ["workspaceId", "title"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.conversationId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.workspaceId"),
+    title: decodeString(requireField(record, "title", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.title"),
   };
 }
 
@@ -10608,6 +10692,15 @@ export function decodeTrajectoryApprovalRequested(value: unknown): TrajectoryApp
   };
 }
 
+export function decodeConversationApprovalAnswer(value: unknown): ConversationApprovalAnswer {
+  const record = assertRecord(value, "ConversationApprovalAnswer");
+  assertKnownFields(record, "ConversationApprovalAnswer", ["questionId", "answers"]);
+  return {
+    questionId: decodeString(requireField(record, "questionId", "ConversationApprovalAnswer"), "ConversationApprovalAnswer.questionId"),
+    answers: decodeArray(requireField(record, "answers", "ConversationApprovalAnswer"), "ConversationApprovalAnswer.answers", (item) => decodeString(item, "ConversationApprovalAnswer.answers item")),
+  };
+}
+
 export function decodeTrajectoryApprovalResolution(value: unknown): TrajectoryApprovalResolution {
   const record = assertRecord(value, "TrajectoryApprovalResolution");
   assertKnownFields(record, "TrajectoryApprovalResolution", ["approvalId", "decision", "response", "answers", "resolvedAt"]);
@@ -10615,7 +10708,7 @@ export function decodeTrajectoryApprovalResolution(value: unknown): TrajectoryAp
     approvalId: decodeString(requireField(record, "approvalId", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.approvalId"),
     decision: decodeTrajectoryApprovalDecision(requireField(record, "decision", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.decision"),
     response: decodeString(requireField(record, "response", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.response"),
-    answers: decodeStringRecord(requireField(record, "answers", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.answers"),
+    answers: decodeArray(requireField(record, "answers", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.answers", (item) => decodeConversationApprovalAnswer(item)),
     resolvedAt: decodeString(requireField(record, "resolvedAt", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.resolvedAt"),
   };
 }
@@ -11033,6 +11126,15 @@ export function decodeConversationSnapshot(value: unknown): ConversationSnapshot
   };
 }
 
+export function decodeReadConversationSnapshotRequest(value: unknown): ReadConversationSnapshotRequest {
+  const record = assertRecord(value, "ReadConversationSnapshotRequest");
+  assertKnownFields(record, "ReadConversationSnapshotRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.conversationId"),
+  };
+}
+
 export function decodeNavigatorCursor(value: unknown): NavigatorCursor {
   const record = assertRecord(value, "NavigatorCursor");
   assertKnownFields(record, "NavigatorCursor", ["updatedAt", "conversationId"]);
@@ -11069,6 +11171,66 @@ export function decodeNavigatorPage(value: unknown): NavigatorPage {
   return {
     items: decodeArray(requireField(record, "items", "NavigatorPage"), "NavigatorPage.items", (item) => decodeNavigatorItem(item)),
     nextCursor: decodeNullable(requireField(record, "nextCursor", "NavigatorPage"), "NavigatorPage.nextCursor", (item) => decodeNavigatorCursor(item)),
+  };
+}
+
+export function decodeSendTopicConversationTurnRequest(value: unknown): SendTopicConversationTurnRequest {
+  const record = assertRecord(value, "SendTopicConversationTurnRequest");
+  assertKnownFields(record, "SendTopicConversationTurnRequest", ["workspaceId", "conversationId", "text"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SendTopicConversationTurnRequest"), "SendTopicConversationTurnRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SendTopicConversationTurnRequest"), "SendTopicConversationTurnRequest.conversationId"),
+    text: decodeString(requireField(record, "text", "SendTopicConversationTurnRequest"), "SendTopicConversationTurnRequest.text"),
+  };
+}
+
+export function decodeQueueTopicConversationTurnRequest(value: unknown): QueueTopicConversationTurnRequest {
+  const record = assertRecord(value, "QueueTopicConversationTurnRequest");
+  assertKnownFields(record, "QueueTopicConversationTurnRequest", ["workspaceId", "conversationId", "text"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "QueueTopicConversationTurnRequest"), "QueueTopicConversationTurnRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "QueueTopicConversationTurnRequest"), "QueueTopicConversationTurnRequest.conversationId"),
+    text: decodeString(requireField(record, "text", "QueueTopicConversationTurnRequest"), "QueueTopicConversationTurnRequest.text"),
+  };
+}
+
+export function decodeSteerTopicConversationTurnRequest(value: unknown): SteerTopicConversationTurnRequest {
+  const record = assertRecord(value, "SteerTopicConversationTurnRequest");
+  assertKnownFields(record, "SteerTopicConversationTurnRequest", ["workspaceId", "conversationId", "text"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SteerTopicConversationTurnRequest"), "SteerTopicConversationTurnRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SteerTopicConversationTurnRequest"), "SteerTopicConversationTurnRequest.conversationId"),
+    text: decodeString(requireField(record, "text", "SteerTopicConversationTurnRequest"), "SteerTopicConversationTurnRequest.text"),
+  };
+}
+
+export function decodeStopTopicConversationTurnRequest(value: unknown): StopTopicConversationTurnRequest {
+  const record = assertRecord(value, "StopTopicConversationTurnRequest");
+  assertKnownFields(record, "StopTopicConversationTurnRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "StopTopicConversationTurnRequest"), "StopTopicConversationTurnRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "StopTopicConversationTurnRequest"), "StopTopicConversationTurnRequest.conversationId"),
+  };
+}
+
+export function decodeConversationApprovalResponse(value: unknown): ConversationApprovalResponse {
+  const record = assertRecord(value, "ConversationApprovalResponse");
+  assertKnownFields(record, "ConversationApprovalResponse", ["approvalId", "decision", "response", "answers"]);
+  return {
+    approvalId: decodeString(requireField(record, "approvalId", "ConversationApprovalResponse"), "ConversationApprovalResponse.approvalId"),
+    decision: decodeTrajectoryApprovalDecision(requireField(record, "decision", "ConversationApprovalResponse"), "ConversationApprovalResponse.decision"),
+    response: decodeString(requireField(record, "response", "ConversationApprovalResponse"), "ConversationApprovalResponse.response"),
+    answers: decodeArray(requireField(record, "answers", "ConversationApprovalResponse"), "ConversationApprovalResponse.answers", (item) => decodeConversationApprovalAnswer(item)),
+  };
+}
+
+export function decodeSubmitTopicConversationApprovalRequest(value: unknown): SubmitTopicConversationApprovalRequest {
+  const record = assertRecord(value, "SubmitTopicConversationApprovalRequest");
+  assertKnownFields(record, "SubmitTopicConversationApprovalRequest", ["workspaceId", "conversationId", "response"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SubmitTopicConversationApprovalRequest"), "SubmitTopicConversationApprovalRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SubmitTopicConversationApprovalRequest"), "SubmitTopicConversationApprovalRequest.conversationId"),
+    response: decodeConversationApprovalResponse(requireField(record, "response", "SubmitTopicConversationApprovalRequest")),
   };
 }
 
@@ -16128,8 +16290,14 @@ export interface BackendClient {
   startEasyRun: (request: StartEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
   steerEasyRun: (request: SteerEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
   stopEasyRun: (request: StopEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
+  createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   listTopicConversations: (request: ListTopicConversationsRequest, options?: BackendRequestOptions) => Promise<NavigatorPage>;
+  sendTopicConversationTurn: (request: SendTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  queueTopicConversationTurn: (request: QueueTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  steerTopicConversationTurn: (request: SteerTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  stopTopicConversationTurn: (request: StopTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  submitTopicConversationApproval: (request: SubmitTopicConversationApprovalRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
   synthesizeEasyRunSummary: (request: SynthesizeEasyRunSummaryRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
@@ -16498,6 +16666,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
       signal: options?.signal,
     }),
+    createTopicConversation: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.CreateTopicConversation,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
     readConversationSnapshot: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -16512,6 +16689,51 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeNavigatorPage,
       endpoint: backendEndpoints.ListTopicConversations,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    sendTopicConversationTurn: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.SendTopicConversationTurn,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    queueTopicConversationTurn: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.QueueTopicConversationTurn,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    steerTopicConversationTurn: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.SteerTopicConversationTurn,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    stopTopicConversationTurn: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.StopTopicConversationTurn,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    submitTopicConversationApproval: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.SubmitTopicConversationApproval,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

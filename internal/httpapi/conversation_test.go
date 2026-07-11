@@ -34,6 +34,83 @@ func TestReadConversationSnapshotUsesTypedServiceBoundary(t *testing.T) {
 	}
 }
 
+func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationService: service,
+		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	created := postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/create",
+		CreateTopicConversationRequest{WorkspaceID: "workspace-api", Title: "Created topic"},
+		http.StatusOK,
+	)
+	if service.command != "create" || created.Conversation.Title != "Created topic" {
+		t.Fatalf("create command = %q snapshot = %+v", service.command, created.Conversation)
+	}
+
+	for _, command := range []struct {
+		name string
+		path string
+	}{
+		{name: "send", path: "/conversations/turns/send"},
+		{name: "queue", path: "/conversations/turns/queue"},
+		{name: "steer", path: "/conversations/turns/steer"},
+	} {
+		postJSON[conversation.ConversationSnapshot](
+			t,
+			handler,
+			command.path,
+			SendTopicConversationTurnRequest{
+				WorkspaceID:    "workspace-api",
+				ConversationID: "conversation-api",
+				Text:           command.name + " text",
+			},
+			http.StatusOK,
+		)
+		if service.command != command.name || service.commandText != command.name+" text" {
+			t.Fatalf("%s service command = %q text = %q", command.name, service.command, service.commandText)
+		}
+	}
+
+	postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/turns/stop",
+		StopTopicConversationTurnRequest{WorkspaceID: "workspace-api", ConversationID: "conversation-api"},
+		http.StatusOK,
+	)
+	if service.command != "stop" {
+		t.Fatalf("stop service command = %q", service.command)
+	}
+
+	approval := conversation.ConversationApprovalResponse{
+		ApprovalID: "approval-api",
+		Decision:   conversation.TrajectoryApprovalDecisionApproved,
+		Answers:    []conversation.ConversationApprovalAnswer{},
+	}
+	postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/approvals/submit",
+		SubmitTopicConversationApprovalRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+			Response:       approval,
+		},
+		http.StatusOK,
+	)
+	if service.command != "approval" || service.approval.ApprovalID != approval.ApprovalID {
+		t.Fatalf("approval service command = %q response = %+v", service.command, service.approval)
+	}
+	if service.commandWorkspaceID != "workspace-api" || service.commandConversationID != "conversation-api" {
+		t.Fatalf("last command scope = %q/%q", service.commandWorkspaceID, service.commandConversationID)
+	}
+}
+
 func TestReadConversationSnapshotRejectsMissingIdentityBeforeService(t *testing.T) {
 	service := newHTTPTestConversationService(t)
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{
@@ -228,6 +305,85 @@ type httpTestConversationService struct {
 	navigatorCursor         *conversation.NavigatorCursor
 	navigatorLimit          int
 	navigatorCalled         bool
+	command                 string
+	commandWorkspaceID      string
+	commandConversationID   string
+	commandText             string
+	approval                conversation.ConversationApprovalResponse
+}
+
+func (service *httpTestConversationService) CreateTopic(
+	_ context.Context,
+	workspaceID string,
+	title string,
+) (conversation.ConversationSnapshot, error) {
+	service.command = "create"
+	service.commandWorkspaceID = workspaceID
+	service.snapshot.Conversation.WorkspaceID = workspaceID
+	service.snapshot.Conversation.Title = title
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) SendTurn(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	text string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("send", workspaceID, conversationID, text)
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) QueueTurn(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	text string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("queue", workspaceID, conversationID, text)
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) SteerTurn(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	text string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("steer", workspaceID, conversationID, text)
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) StopTurn(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("stop", workspaceID, conversationID, "")
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) SubmitApproval(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	response conversation.ConversationApprovalResponse,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("approval", workspaceID, conversationID, "")
+	service.approval = response
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) recordCommand(
+	command string,
+	workspaceID string,
+	conversationID string,
+	text string,
+) {
+	service.command = command
+	service.commandWorkspaceID = workspaceID
+	service.commandConversationID = conversationID
+	service.commandText = text
 }
 
 func newHTTPTestConversationService(t *testing.T) *httpTestConversationService {

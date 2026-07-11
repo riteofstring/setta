@@ -20,9 +20,102 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
+	"setta/internal/conversation"
 	"setta/internal/httpapi"
 	"setta/internal/workspacesession"
 )
+
+func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
+	unsetRuntimeEnv(t, "OPENAI_API_KEY")
+	requireRuntimeLiveCodexChatGPTAuth(t)
+
+	config := testConfig(t)
+	config.Version = "test"
+	server, ready := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, server)
+
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 45*time.Second)
+	baseURL := "http://" + server.Addr()
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	created := postRuntimeJSON[conversation.ConversationSnapshot](t, client, baseURL, "/conversations/create", httpapi.CreateTopicConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Live topic conversation",
+	}, http.StatusOK)
+	if created.ThreadBinding == nil || created.ThreadBinding.ThreadID == "" {
+		t.Fatalf("created live topic has no provider thread binding: %+v", created.ThreadBinding)
+	}
+
+	for index, prompt := range []string{
+		"Reply with exactly TOPIC_ONE_OK.",
+		"Reply with exactly TOPIC_TWO_OK.",
+	} {
+		postRuntimeJSON[conversation.ConversationSnapshot](t, client, baseURL, "/conversations/turns/send", httpapi.SendTopicConversationTurnRequest{
+			WorkspaceID:    opened.Workspace.ID,
+			ConversationID: created.Conversation.ID,
+			Text:           prompt,
+		}, http.StatusOK)
+		snapshot := waitForRuntimeLiveTopicTurns(
+			t,
+			client,
+			baseURL,
+			opened.Workspace.ID,
+			created.Conversation.ID,
+			index+1,
+		)
+		latest := snapshot.Turns.Turns[len(snapshot.Turns.Turns)-1]
+		if latest.Status != conversation.TurnStatusCompleted {
+			t.Fatalf("live topic turn %d status = %s, want completed", index+1, latest.Status)
+		}
+		if !runtimeTopicTrajectoryHasCompletedText(snapshot, latest.ID) {
+			t.Fatalf("live topic turn %s has no completed public agent text", latest.ID)
+		}
+		if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID != created.ThreadBinding.ThreadID {
+			t.Fatalf("live topic provider thread changed across turns: before=%+v after=%+v", created.ThreadBinding, snapshot.ThreadBinding)
+		}
+	}
+}
+
+func waitForRuntimeLiveTopicTurns(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	workspaceID string,
+	conversationID string,
+	wantTurns int,
+) conversation.ConversationSnapshot {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Minute)
+	var last conversation.ConversationSnapshot
+	for time.Now().Before(deadline) {
+		last = postRuntimeJSON[conversation.ConversationSnapshot](t, client, baseURL, "/conversations/snapshot/read", httpapi.ReadConversationSnapshotRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+		}, http.StatusOK)
+		if len(last.Turns.Turns) == wantTurns {
+			status := last.Turns.Turns[len(last.Turns.Turns)-1].Status
+			if status == conversation.TurnStatusCompleted || status == conversation.TurnStatusFailed || status == conversation.TurnStatusCancelled {
+				return last
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d live topic turns; last snapshot = %+v", wantTurns, last)
+	return conversation.ConversationSnapshot{}
+}
+
+func runtimeTopicTrajectoryHasCompletedText(snapshot conversation.ConversationSnapshot, turnID string) bool {
+	for _, event := range snapshot.Trajectory.Events {
+		if event.TurnID == nil || *event.TurnID != turnID || event.AgentMessageCompleted == nil {
+			continue
+		}
+		if strings.TrimSpace(event.AgentMessageCompleted.Text) != "" {
+			return true
+		}
+	}
+	return false
+}
 
 func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 	unsetRuntimeEnv(t, "OPENAI_API_KEY")

@@ -293,7 +293,6 @@ export const ipcChannels = {
   workspaceSetSelectedConversation: "workspace:set-selected-conversation",
   workspaceSession: "workspace:session",
 } as const;
-
 export const ipcMessages = {
   workspaceBrowserViewBatch: "workspace:browser-view-batch",
 } as const;
@@ -303,6 +302,7 @@ export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
+  conversationEvent: "conversation:event",
   easyRunEvent: "easy-run:event",
   runtimeConnectionState: "runtimes:connection-state",
   semanticGraphEvent: "semantic-graph:event",

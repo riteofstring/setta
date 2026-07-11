@@ -282,6 +282,50 @@ WHERE turn_id = ? AND conversation_id = ? AND ordinal = ?
 	return transaction.recordStateMutation()
 }
 
+func (transaction *WriteTransaction) CompactQueuedTurns(
+	conversationID string,
+	removedOrdinal int,
+) error {
+	if err := transaction.ensureActive(); err != nil {
+		return err
+	}
+	if err := validateIdentifier("queued turn conversation id", conversationID); err != nil {
+		return err
+	}
+	if removedOrdinal <= 0 {
+		return fmt.Errorf("removed queue ordinal must be positive: %d", removedOrdinal)
+	}
+	rows, err := transaction.tx.QueryContext(transaction.ctx, `
+SELECT turn_id, conversation_id, ordinal, queued_at
+FROM conversation_queue
+WHERE conversation_id = ? AND ordinal > ?
+ORDER BY ordinal ASC
+`, conversationID, removedOrdinal)
+	if err != nil {
+		return fmt.Errorf("read queued turns after ordinal %d: %w", removedOrdinal, err)
+	}
+	queued := make([]QueuedConversationTurn, 0)
+	for rows.Next() {
+		var item QueuedConversationTurn
+		if err := rows.Scan(&item.TurnID, &item.ConversationID, &item.Ordinal, &item.QueuedAt); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		queued = append(queued, item)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, item := range queued {
+		expectedOrdinal := item.Ordinal
+		item.Ordinal--
+		if err := transaction.UpdateQueuedTurn(expectedOrdinal, item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (transaction *WriteTransaction) UpsertAgentThreadBinding(binding AgentThreadBinding) error {
 	if err := transaction.ensureActive(); err != nil {
 		return err

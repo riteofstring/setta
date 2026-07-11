@@ -1,0 +1,437 @@
+package conversation
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
+	"setta/internal/agent"
+	"setta/internal/workspace"
+)
+
+func TestServiceRunsDurableConversationCommandsAndReload(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	created, subscription := createSubscribedServiceTopic(t, ctx, service, workspaceID)
+	defer subscription.Unsubscribe()
+	conversationID := created.Conversation.ID
+	exerciseQueuedServiceTurns(t, ctx, service, runtime, workspaceID, conversationID, created, subscription)
+	exerciseServiceApproval(t, ctx, service, runtime, workspaceID, conversationID)
+	exerciseServiceCancellation(t, ctx, service, runtime, workspaceID, conversationID)
+	assertReloadedServiceState(t, ctx, store, service, appDataDir, workspaceID, conversationID)
+}
+
+func createSubscribedServiceTopic(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	workspaceID string,
+) (ConversationSnapshot, ConversationEventSubscription) {
+	t.Helper()
+	created, err := service.CreateTopic(ctx, workspaceID, "Durable lifecycle")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	subscription, err := service.SubscribeEvents(created.EventCursor, workspaceID, created.Conversation.ID)
+	if err != nil {
+		t.Fatalf("SubscribeEvents: %v", err)
+	}
+	return created, subscription
+}
+
+func exerciseQueuedServiceTurns(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	workspaceID string,
+	conversationID string,
+	created ConversationSnapshot,
+	subscription ConversationEventSubscription,
+) {
+	t.Helper()
+	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "hold"); err != nil {
+		t.Fatalf("SendTurn hold: %v", err)
+	}
+	runtime.waitForStart(t, "hold")
+	assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.Conversation.Status == ConversationStatusWorking && latestSnapshotTurn(snapshot).Status == TurnStatusRunning
+	})
+	if event := readServiceEvent(t, subscription); event.Sequence <= created.EventCursor.Sequence {
+		t.Fatalf("first live event sequence = %d, want after %d", event.Sequence, created.EventCursor.Sequence)
+	}
+
+	if _, err := service.QueueTurn(ctx, workspaceID, conversationID, "queued artifact"); err != nil {
+		t.Fatalf("QueueTurn: %v", err)
+	}
+	if _, err := service.QueueTurn(ctx, workspaceID, conversationID, "queued artifact two"); err != nil {
+		t.Fatalf("QueueTurn second: %v", err)
+	}
+	if _, err := service.SteerTurn(ctx, workspaceID, conversationID, "finish held work"); err != nil {
+		t.Fatalf("SteerTurn: %v", err)
+	}
+	runtime.waitForStart(t, "queued artifact")
+	runtime.waitForStart(t, "queued artifact two")
+	completed := assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return len(snapshot.Turns.Turns) == 3 &&
+			latestSnapshotTurn(snapshot).Status == TurnStatusCompleted &&
+			len(snapshot.Queue) == 0 && len(snapshot.Artifacts.Artifacts) >= 3
+	})
+	if completed.Conversation.Status != ConversationStatusIdle {
+		t.Fatalf("completed conversation status = %s, want idle", completed.Conversation.Status)
+	}
+}
+
+func exerciseServiceApproval(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	workspaceID string,
+	conversationID string,
+) {
+	t.Helper()
+	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "approval"); err != nil {
+		t.Fatalf("SendTurn approval: %v", err)
+	}
+	runtime.waitForStart(t, "approval")
+	approval := assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.Conversation.Status == ConversationStatusWaitingForApproval
+	})
+	approvalID := latestPendingApprovalID(approval)
+	if _, err := service.SubmitApproval(ctx, workspaceID, conversationID, ConversationApprovalResponse{
+		ApprovalID: approvalID,
+		Decision:   TrajectoryApprovalDecisionAnswered,
+		Answers: []ConversationApprovalAnswer{{
+			QuestionID: "scope",
+			Answers:    []string{"focused"},
+		}},
+	}); err != nil {
+		t.Fatalf("SubmitApproval: %v", err)
+	}
+	assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+}
+
+func exerciseServiceCancellation(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	workspaceID string,
+	conversationID string,
+) {
+	t.Helper()
+	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "hold cancel"); err != nil {
+		t.Fatalf("SendTurn cancel: %v", err)
+	}
+	runtime.waitForStart(t, "hold cancel")
+	if _, err := service.StopTurn(ctx, workspaceID, conversationID); err != nil {
+		t.Fatalf("StopTurn: %v", err)
+	}
+	terminal := assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCancelled
+	})
+	if terminal.Conversation.Status != ConversationStatusIdle {
+		t.Fatalf("cancelled conversation status = %s, want idle", terminal.Conversation.Status)
+	}
+}
+
+func assertReloadedServiceState(
+	t *testing.T,
+	ctx context.Context,
+	store *Store,
+	service *Service,
+	appDataDir string,
+	workspaceID string,
+	conversationID string,
+) {
+	t.Helper()
+	if err := service.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	reopened, err := NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	reloaded, err := reopened.ReadSnapshot(ctx, workspaceID, conversationID)
+	if err != nil {
+		t.Fatalf("ReadSnapshot after reload: %v", err)
+	}
+	if latestSnapshotTurn(reloaded).Status != TurnStatusCancelled || len(reloaded.Artifacts.Artifacts) < 2 {
+		t.Fatalf("reloaded snapshot lost terminal/artifact state: %+v", reloaded)
+	}
+}
+
+func newConversationServiceTestHarness(
+	t *testing.T,
+	appDataDir string,
+) (*Store, *Service, *serviceTestAgentRuntime, string) {
+	t.Helper()
+	store, err := NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	workspaceRoot := t.TempDir()
+	workspaceID := "workspace-service"
+	runtime := newServiceTestAgentRuntime()
+	var idMu sync.Mutex
+	idCounts := map[string]int{}
+	var clockMu sync.Mutex
+	now := time.Date(2026, 7, 11, 20, 0, 0, 0, time.UTC)
+	service, err := NewService(
+		store,
+		serviceTestWorkspaceResolver{summary: workspace.WorkspaceSummary{
+			ID:       workspaceID,
+			RootPath: filepath.Clean(workspaceRoot),
+		}},
+		runtime,
+		WithServiceIDGenerator(func(prefix string) (string, error) {
+			idMu.Lock()
+			defer idMu.Unlock()
+			idCounts[prefix]++
+			return fmt.Sprintf("%s-%d", prefix, idCounts[prefix]), nil
+		}),
+		WithServiceClock(func() time.Time {
+			clockMu.Lock()
+			defer clockMu.Unlock()
+			now = now.Add(time.Second)
+			return now
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	return store, service, runtime, workspaceID
+}
+
+type serviceTestWorkspaceResolver struct {
+	summary workspace.WorkspaceSummary
+}
+
+func (resolver serviceTestWorkspaceResolver) ResolveActiveWorkspace(id string) (workspace.WorkspaceSummary, error) {
+	if id != resolver.summary.ID {
+		return workspace.WorkspaceSummary{}, fmt.Errorf("workspace not active: %s", id)
+	}
+	return resolver.summary, nil
+}
+
+type serviceTestAgentRuntime struct {
+	mu       sync.Mutex
+	controls map[string]chan string
+	started  chan string
+	turns    int
+}
+
+func newServiceTestAgentRuntime() *serviceTestAgentRuntime {
+	return &serviceTestAgentRuntime{
+		controls: map[string]chan string{},
+		started:  make(chan string, 16),
+	}
+}
+
+func (runtime *serviceTestAgentRuntime) ResolveInvocation(
+	_ context.Context,
+	request agent.Invocation,
+) (agent.ResolvedInvocation, error) {
+	return agent.ResolvedInvocation{
+		Requested:       request,
+		Model:           request.Model,
+		ReasoningEffort: request.ReasoningEffort,
+		ServiceTier:     request.ServiceTier,
+		PermissionMode:  request.PermissionMode,
+		ApprovalMode:    request.ApprovalMode,
+	}, nil
+}
+
+func (runtime *serviceTestAgentRuntime) StartThread(
+	context.Context,
+	agent.StartThreadRequest,
+) (agent.Thread, error) {
+	return agent.Thread{ID: "provider-thread", SessionID: "session", Model: "gpt-5.6-sol"}, nil
+}
+
+func (runtime *serviceTestAgentRuntime) RunTurn(
+	_ context.Context,
+	request agent.TurnRequest,
+	sink agent.EventSink,
+) (agent.TurnResult, error) {
+	runtime.mu.Lock()
+	runtime.turns++
+	providerTurnID := fmt.Sprintf("provider-turn-%d", runtime.turns)
+	control := make(chan string, 1)
+	runtime.controls[providerTurnID] = control
+	runtime.mu.Unlock()
+	base := agent.Event{
+		ConversationID:   request.ConversationID,
+		TurnID:           request.TurnID,
+		ProviderThreadID: request.ProviderThreadID,
+		ProviderTurnID:   providerTurnID,
+	}
+	started := base
+	started.Kind = agent.EventKindTurnStarted
+	if err := sink.HandleAgentEvent(started); err != nil {
+		return agent.TurnResult{}, err
+	}
+	runtime.started <- request.Text
+	if request.Text == "approval" {
+		approval := base
+		approval.Kind = agent.EventKindApprovalRequested
+		approval.Approval = &agent.ApprovalRequest{
+			ID: "approval-" + providerTurnID, ProviderItemID: "approval-item", Kind: agent.ApprovalKindUserInput,
+			Title: "Scope", Body: "Choose scope", Questions: []agent.ApprovalQuestion{{
+				ID: "scope", Header: "Scope", Question: "Which scope?", Options: []string{"focused"},
+			}},
+		}
+		if err := sink.HandleAgentEvent(approval); err != nil {
+			return agent.TurnResult{}, err
+		}
+		<-control
+	} else if request.Text == "hold" || request.Text == "hold cancel" {
+		action := <-control
+		if action == "interrupt" {
+			return runtime.emitTerminal(sink, base, agent.TurnOutcomeInterrupted)
+		}
+	}
+	return runtime.emitCompletedTurn(sink, base, request.Text)
+}
+
+func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
+	sink agent.EventSink,
+	base agent.Event,
+	text string,
+) (agent.TurnResult, error) {
+	message := base
+	message.Kind = agent.EventKindAgentTextCompleted
+	message.Text = &agent.TextEvent{ProviderItemID: "message-" + base.ProviderTurnID, Text: "completed " + text}
+	if err := sink.HandleAgentEvent(message); err != nil {
+		return agent.TurnResult{}, err
+	}
+	artifact := base
+	artifact.Kind = agent.EventKindActivityCompleted
+	artifact.Activity = &agent.ActivityEvent{
+		ProviderItemID: "artifact-" + base.ProviderTurnID,
+		Kind:           agent.ActivityKindArtifact,
+		Status:         "completed",
+		Title:          "Result file",
+		Summary:        "/tmp/result-" + base.ProviderTurnID + ".md",
+	}
+	if err := sink.HandleAgentEvent(artifact); err != nil {
+		return agent.TurnResult{}, err
+	}
+	return runtime.emitTerminal(sink, base, agent.TurnOutcomeCompleted)
+}
+
+func (runtime *serviceTestAgentRuntime) emitTerminal(
+	sink agent.EventSink,
+	base agent.Event,
+	outcome agent.TurnOutcome,
+) (agent.TurnResult, error) {
+	terminal := base
+	terminal.Kind = agent.EventKindTurnTerminal
+	terminal.Terminal = &agent.TerminalEvent{Outcome: outcome}
+	if err := sink.HandleAgentEvent(terminal); err != nil {
+		return agent.TurnResult{}, err
+	}
+	return agent.TurnResult{
+		ProviderThreadID: base.ProviderThreadID,
+		ProviderTurnID:   base.ProviderTurnID,
+		Outcome:          outcome,
+	}, nil
+}
+
+func (runtime *serviceTestAgentRuntime) SteerTurn(_ context.Context, request agent.TurnControlRequest) error {
+	runtime.signal(request.ProviderTurnID, "steer")
+	return nil
+}
+
+func (runtime *serviceTestAgentRuntime) InterruptTurn(_ context.Context, request agent.TurnControlRequest) error {
+	runtime.signal(request.ProviderTurnID, "interrupt")
+	return nil
+}
+
+func (runtime *serviceTestAgentRuntime) SubmitApproval(response agent.ApprovalResponse) error {
+	providerTurnID := response.RequestID[len("approval-"):]
+	runtime.signal(providerTurnID, "approval")
+	return nil
+}
+
+func (*serviceTestAgentRuntime) UnsubscribeThread(context.Context, string) error { return nil }
+
+func (runtime *serviceTestAgentRuntime) signal(providerTurnID string, value string) {
+	runtime.mu.Lock()
+	control := runtime.controls[providerTurnID]
+	runtime.mu.Unlock()
+	control <- value
+}
+
+func (runtime *serviceTestAgentRuntime) waitForStart(t *testing.T, text string) {
+	t.Helper()
+	select {
+	case got := <-runtime.started:
+		if got != text {
+			t.Fatalf("started turn text = %q, want %q", got, text)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for turn %q to start", text)
+	}
+}
+
+func assertServiceSnapshot(
+	t *testing.T,
+	service *Service,
+	workspaceID string,
+	conversationID string,
+	done func(ConversationSnapshot) bool,
+) ConversationSnapshot {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		snapshot, err := service.ReadSnapshot(context.Background(), workspaceID, conversationID)
+		if err != nil {
+			t.Fatalf("ReadSnapshot: %v", err)
+		}
+		if done(snapshot) {
+			return snapshot
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for snapshot state: %+v", snapshot)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func latestSnapshotTurn(snapshot ConversationSnapshot) ConversationTurn {
+	return snapshot.Turns.Turns[len(snapshot.Turns.Turns)-1]
+}
+
+func latestPendingApprovalID(snapshot ConversationSnapshot) string {
+	for index := len(snapshot.Trajectory.Events) - 1; index >= 0; index-- {
+		if approval := snapshot.Trajectory.Events[index].ApprovalRequested; approval != nil {
+			return approval.Approval.ID
+		}
+	}
+	return ""
+}
+
+func readServiceEvent(t *testing.T, subscription ConversationEventSubscription) ConversationEvent {
+	t.Helper()
+	select {
+	case event := <-subscription.Events():
+		return event
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for conversation event")
+		return ConversationEvent{}
+	}
+}

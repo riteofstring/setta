@@ -36,6 +36,7 @@ export interface SnapshotSurfaceAdapterOptions {
 }
 
 export interface DefaultSurfaceAdapterOptions {
+  workspaceId?: string;
   workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
 
@@ -516,7 +517,8 @@ export function createDefaultSurfaceAdapter(
 const defaultSurfaceAdapterFactories = {
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
   "chat-dom": (pane) => createReactDomSurfaceAdapter(pane),
-  "easy-button": (pane) => createReactDomSurfaceAdapter(pane),
+  "easy-button": (pane, options) =>
+    createReactDomSurfaceAdapter(pane, undefined, { workspaceId: options.workspaceId }),
   "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),

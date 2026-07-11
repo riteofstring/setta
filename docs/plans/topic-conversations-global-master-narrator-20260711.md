@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-2 and Phase 3 items 1-5 are complete
+**Status:** In progress; Phases 0-2 and Phase 3 items 1-6 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1598,7 +1598,7 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Progress:** Items 1-5 are complete. Item 6 is next.
+**Progress:** Items 1-6 are complete. Item 7 is next.
 
 Implement:
 
@@ -2495,3 +2495,58 @@ Implementation is in progress under this plan.
   Electron workflow passed; evidence is under
   `.recordings/topic-conversation-pane-projection/20260712T050345370Z/`. Phase 3
   item 6 remains next; this review did not begin it.
+- 2026-07-11: Completed Phase 3 item 6. The production conversation service now
+  owns topic creation, snapshot/event replay, send, queue, steer, stop,
+  structured approval response, durable agent progress, artifacts, terminal
+  outcomes, queue promotion, restart reads, and bounded shutdown on top of the
+  Phase 2 Codex runtime. The authenticated endpoint registry owns those command
+  contracts; protocol version 17, the contract schema snapshot, and
+  `desktop/src/generated/backend.ts` were regenerated from the Go owners. The
+  Electron main process keeps one ordered SSE stream per conversation target,
+  preload/web APIs expose the generated command boundary, and the renderer
+  projection runtime shares a conversation across duplicate panes while
+  retaining active zero-pane subscriptions through close, reopen, and reload.
+- 2026-07-11: The Easy Button and navigator now provide production topic
+  creation and conversation-keyed send/queue/steer/stop controls, structured
+  approval answers, live agent output, artifact projection, queued-work state,
+  and explicit completed/cancelled/failed results. Deterministic verification
+  exercised two concurrent conversations, duplicate panes, active-run close and
+  reopen, active-run reload, queue promotion, steering, approval, artifact,
+  cancellation, failure, persistence, and final reload through the real
+  Electron/main/preload/renderer/HTTP/SQLite paths. Evidence is under
+  `.recordings/topic-conversation-pane-projection/20260712T065249015Z/`. All
+  1,176 desktop tests, desktop typecheck/build, focused conversation/HTTP/runtime
+  Go tests, the new HTTP path under the race detector, and conversation snapshot
+  contention repeated under the race detector passed. The test matrix caught
+  and corrected queue ordinals after promotion and cross-generation snapshot
+  reads by compacting the durable queue atomically and assembling each snapshot
+  in one SQLite read transaction.
+- 2026-07-11: ChatGPT-authenticated live verification passed without
+  `OPENAI_API_KEY`. The new backend workflow created a topic and completed two
+  sequential production HTTP turns on one durable Codex thread; the established
+  live thread lifecycle, concurrent execution, fork, and active-turn snapshot
+  characterization also remained clean. Generated inputs and outputs changed:
+  the HTTP endpoint graph/protocol input, contract schema snapshot, and generated
+  backend TypeScript. The Codex source reference was not needed because the new
+  service consumes the already established Phase 2 normalized runtime rather
+  than adding provider-protocol behavior. Phase 3 item 7, deleting the obsolete
+  Easy Run path, is next with no external blocker.
+- 2026-07-11: Final formatting, file-size, complexity, vet, static analysis,
+  generated-contract reproducibility, desktop typecheck, all 1,176 tests,
+  dead-code analysis, production build, focused race checks, and the dedicated
+  production Electron workflow passed on the final tree. The final
+  `./check_quality.sh --git-changes` gate was clean. The broad quality gate was
+  not clean: the previously recorded nondeterministic legacy `internal/chat`
+  goal-operation test observed its sink before notification callbacks completed,
+  and the required legacy chat Electron workflow stopped at its removed `New
+  chat` sidebar control. Neither path enters the new topic service or workflow;
+  Phase 3 item 7 and the later obsolete-product deletion phases own removal of
+  those retired surfaces rather than reintroducing them.
+- 2026-07-11: The post-refactor live backend topic workflow passed again with
+  ChatGPT auth and no `OPENAI_API_KEY`. A repeat of the broader Phase 2 live
+  lifecycle/fork characterization timed out in its existing signaling sink after
+  the same test had passed earlier in this slice; no `internal/agent` behavior
+  changed between those runs, so the timeout is recorded rather than treated as
+  contrary provider evidence. The supply-chain audit again reported the
+  pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4, fixed in Go 1.26.5;
+  this slice changed no dependency manifest or toolchain pin.

@@ -258,6 +258,13 @@ func writeEasyRunError(response http.ResponseWriter, code string, err error) {
 
 func writeConversationError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
+	if conversation.IsConversationNotFound(err) {
+		writeError(response, http.StatusNotFound, "conversation_not_found", err.Error())
+		return
+	}
+	if conversation.IsCommandConflict(err) {
+		status = http.StatusConflict
+	}
 	if conversation.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_conversation_state", err.Error())
 		return

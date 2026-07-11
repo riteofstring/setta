@@ -1,10 +1,11 @@
 import type { WorkspaceSummary } from "@generated/backend";
-import { AlertTriangle, Search, X } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
+import { AlertTriangle, Plus, Search, X } from "lucide-react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 import { useConversationNavigatorStore } from "../stores/conversation-navigator-store";
+import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
 import { useConversationPaneStore } from "../stores/conversation-pane-store";
 import { RuntimePicker, RuntimePickerAddButton } from "./runtime-picker";
 import {
@@ -186,6 +187,28 @@ function WorkspaceSidebarContent({
           <RuntimePicker adding={runtimePairingOpen} setAdding={setRuntimePairingOpen} />
         </SidebarAccordionSection>
         <ConversationSearch query={conversationQuery} setQuery={setConversationQuery} />
+        <ConversationCreate
+          disabled={busy || !selectedWorkspaceId}
+          onCreated={async (title) => {
+            setNavigationError(null);
+            try {
+              const snapshot = await window.setta.conversations.create({
+                title,
+                workspaceId: selectedWorkspaceId,
+              });
+              hydrateConversationProjectionSnapshot(snapshot);
+              await presentConversation(
+                selectedWorkspaceId,
+                snapshot.conversation.id,
+                snapshot.conversation.title,
+              );
+              return true;
+            } catch (error) {
+              setNavigationError(errorMessage(error));
+              return false;
+            }
+          }}
+        />
         <SidebarOperationError message={visibleError} onDismiss={dismissVisibleError} />
       </div>
       <div
@@ -229,6 +252,59 @@ function WorkspaceSidebarContent({
       </div>
       <SidebarFooterSettings onOpenSettings={openSettingsPane} visible={showFooterSettings} />
     </aside>
+  );
+}
+
+function ConversationCreate({
+  disabled,
+  onCreated,
+}: {
+  disabled: boolean;
+  onCreated: (title: string) => Promise<boolean>;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [title, setTitle] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const requestedTitle = title.trim();
+    if (disabled || creating || !requestedTitle) {
+      return;
+    }
+    setCreating(true);
+    try {
+      if (await onCreated(requestedTitle)) {
+        setTitle("");
+      }
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <form
+      className="mt-2 grid h-8 grid-cols-[minmax(0,1fr)_28px] items-center rounded-sm border border-border/70"
+      data-testid="conversation-create-form"
+      onSubmit={submit}
+    >
+      <input
+        aria-label="New topic title"
+        className="min-w-0 bg-transparent px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground"
+        disabled={disabled || creating}
+        maxLength={200}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder="New topic…"
+        value={title}
+      />
+      <button
+        aria-label="Create topic conversation"
+        className="grid h-full place-items-center border-l border-border/70 text-muted-foreground disabled:opacity-50"
+        disabled={disabled || creating || title.trim() === ""}
+        type="submit"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    </form>
   );
 }
 

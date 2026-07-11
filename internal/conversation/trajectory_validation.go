@@ -492,7 +492,10 @@ func validateActivityKindFields(activity TrajectoryActivity) error {
 		TrajectoryActivityImageView,
 		TrajectoryActivityImageGeneration,
 		TrajectoryActivitySleep,
-		TrajectoryActivityHook:
+		TrajectoryActivityHook,
+		TrajectoryActivityFileChange,
+		TrajectoryActivitySubagent,
+		TrajectoryActivityOther:
 	default:
 		return fmt.Errorf("unsupported trajectory activity kind %q", activity.Kind)
 	}
@@ -644,6 +647,7 @@ func validateApprovalRequestKind(request TrajectoryApprovalRequest) error {
 		if len(request.Questions) == 0 {
 			return fmt.Errorf("%s approval requires questions", request.Kind)
 		}
+	case TrajectoryApprovalKindMCPElicitation:
 	default:
 		return fmt.Errorf("unsupported approval kind %q", request.Kind)
 	}
@@ -655,10 +659,17 @@ func (resolution TrajectoryApprovalResolution) Validate() error {
 		return err
 	}
 	if resolution.Answers == nil {
-		return fmt.Errorf("approval resolution answers must be an object, not null")
+		return fmt.Errorf("approval resolution answers must be an array, not null")
 	}
-	if err := validateStringMap("approval answers", resolution.Answers); err != nil {
-		return err
+	seen := map[string]bool{}
+	for _, answer := range resolution.Answers {
+		if err := answer.Validate(); err != nil {
+			return err
+		}
+		if seen[answer.QuestionID] {
+			return fmt.Errorf("approval answer %s is duplicated", answer.QuestionID)
+		}
+		seen[answer.QuestionID] = true
 	}
 	if err := validateApprovalResolutionDecision(resolution); err != nil {
 		return err

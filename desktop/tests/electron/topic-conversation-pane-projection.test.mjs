@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /* global console */
 
-import { execFile } from "node:child_process";
-import { basename, join } from "node:path";
+import { chmod, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { basename, delimiter, dirname, join } from "node:path";
 import process from "node:process";
-import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 import { backendProbe, waitForBackendState } from "./chat-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
@@ -26,9 +26,12 @@ import {
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
-const conversationId = "conversation_projection_e2e";
-const workflowTimeoutMs = 25_000;
-const execFileAsync = promisify(execFile);
+const workflowTimeoutMs = 35_000;
+const fakeTopicCodexFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-topic-codex-app-server.mjs",
+);
 
 if (options.help) {
   console.log(
@@ -44,138 +47,256 @@ if (!options.skipBuild) {
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
 await writeLatestRecordingPointer(workflowName, artifactDir);
 const fixture = await createElectronFixture(workflowName);
+const fakeCodex = await installFakeTopicCodex(fixture);
 let context = null;
 
 try {
   context = await launchElectronCdpContext({
     artifactDir,
-    extraEnv: { SETTA_E2E_CHAT_HARNESS: "scripted-workflow" },
+    extraEnv: {
+      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+    },
     fixture,
     visible: options.visible,
   });
   await context.client.installDriver();
   const backend = await backendProbe(artifactDir);
-  const workspaceId = await seedBoundConversationPane(backend, fixture);
-  await openSeededWorkspace(context.client, workspaceId);
+  const workspaceId = await openWorkspace(context.client);
 
-  const opened = await waitForBoundConversationSurface(context.client, workspaceId);
-  assertBoundUnloadedProjection(opened);
-  assertNavigatorState(await waitForNavigatorState(context.client, 1), 1);
-  await captureScreenshot(context.client, join(artifactDir, "bound-conversation-open.png"));
-
-  const firstPersisted = await backend.post("/workspaces/ui/layout/read", { workspaceId });
-  assertPersistedBindings(firstPersisted, workspaceId, 1);
-
-  await context.client.driver("topicConversationOpenBoundPane", { conversationId });
-  const duplicatedPersisted = await waitForBackendState(
-    async () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
-    (result) => easyButtonPanes(result, workspaceId).length === 2,
-    workflowTimeoutMs,
-  );
-  assertPersistedBindings(duplicatedPersisted, workspaceId, 2);
-  const duplicated = await waitForBoundConversationSurfaces(context.client, workspaceId, 2);
-  for (const surface of duplicated.surfaces) {
-    assertBoundUnloadedProjection(surface);
-  }
-  assertDistinctPaneViews(duplicated.surfaces);
-  assertNavigatorState(await waitForNavigatorState(context.client, 2), 2);
-  await captureScreenshot(context.client, join(artifactDir, "bound-conversation-views-opened.png"));
-
-  await reloadPage(context.client);
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await context.client.installDriver();
-  const reloaded = await waitForBoundConversationSurfaces(context.client, workspaceId, 2);
-  for (const surface of reloaded.surfaces) {
-    assertBoundUnloadedProjection(surface);
-  }
-  assertDistinctPaneViews(reloaded.surfaces);
-  const navigatorBeforeFocusAway = await waitForNavigatorState(context.client, 2);
-  assertNavigatorState(navigatorBeforeFocusAway, 2);
-  if (
-    !navigatorBeforeFocusAway.focusedPaneId ||
-    navigatorBeforeFocusAway.focusedPaneId === "shell_pane"
-  ) {
-    throw new Error(
-      `expected a focused conversation pane before focus-away: ${JSON.stringify(navigatorBeforeFocusAway)}`,
-    );
-  }
-  await captureScreenshot(
+  const alpha = await createTopic(context.client, backend, workspaceId, "Alpha topic");
+  const beta = await createTopic(context.client, backend, workspaceId, "Beta topic");
+  const initial = await waitForConversationSurfaces(
     context.client,
-    join(artifactDir, "bound-conversation-views-reloaded.png"),
+    (surfaces) =>
+      hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
   );
+  assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
 
-  const maximizeShell = await context.client.driver("topicConversationTogglePaneMaximized", {
-    paneId: "shell_pane",
-  });
-  if (!maximizeShell.clicked) {
-    throw new Error(`shell pane was not maximizable: ${JSON.stringify(maximizeShell)}`);
-  }
-  await waitForNavigatorFocus(context.client, "shell_pane", 2, "shell_pane");
-  await context.client.driver("topicConversationPresentFromNavigator", { conversationId });
-  const focusedExisting = await waitForNavigatorFocus(
+  await context.client.driver("topicConversationOpenBoundPane", { conversationId: alpha.id });
+  const duplicated = await waitForConversationSurfaces(
     context.client,
-    navigatorBeforeFocusAway.focusedPaneId,
-    2,
-    "",
+    (surfaces) =>
+      conversationSurfaces(surfaces, alpha.id).length === 2 &&
+      conversationSurfaces(surfaces, beta.id).length === 1 &&
+      conversationSurfaces(surfaces, alpha.id).every(
+        (surface) => surface.projectionStatus === "ready",
+      ),
   );
-  assertNavigatorState(focusedExisting, 2);
-  const focusedPersisted = await backend.post("/workspaces/ui/layout/read", { workspaceId });
-  assertPersistedBindings(focusedPersisted, workspaceId, 2);
+  assertDuplicateConversationPalette(duplicated.surfaces, alpha.id);
+  assertNavigator(await waitForNavigator(context.client, alpha.id, 2), alpha, 2);
+  await captureScreenshot(context.client, join(artifactDir, "two-topics-and-duplicate.png"));
 
-  await closeOneBoundPane(context.client, backend, workspaceId, 1);
-  await closeOneBoundPane(context.client, backend, workspaceId, 0);
-  const zeroPaneNavigator = await waitForNavigatorState(context.client, 0);
-  assertNavigatorState(zeroPaneNavigator, 0);
-  await captureScreenshot(
+  assertDriverAction(
+    await context.client.driver("topicConversationSubmit", {
+      conversationId: alpha.id,
+      text: "hold alpha",
+    }),
+    "submitted",
+  );
+  await waitForConversationSurface(
     context.client,
-    join(artifactDir, "conversation-zero-pane-navigable.png"),
+    alpha.id,
+    (surface) => surface.state === "working" && surface.agentText.includes("Streaming hold alpha"),
   );
-
-  await context.client.driver("topicConversationPresentFromNavigator", { conversationId });
-  const reopenedPersisted = await waitForBackendState(
-    async () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
-    (result) => easyButtonPanes(result, workspaceId).length === 1,
-    workflowTimeoutMs,
+  assertDriverAction(
+    await context.client.driver("topicConversationSubmit", {
+      conversationId: beta.id,
+      text: "hold beta",
+    }),
+    "submitted",
   );
-  assertPersistedBindings(reopenedPersisted, workspaceId, 1);
-  const reopened = await waitForBoundConversationSurface(context.client, workspaceId);
-  assertBoundUnloadedProjection(reopened);
-  assertNavigatorState(await waitForNavigatorState(context.client, 1), 1);
-
-  await reloadPage(context.client);
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await context.client.installDriver();
-  const reopenedAfterReload = await waitForBoundConversationSurfaces(
+  const concurrent = await waitForConversationSurfaces(
     context.client,
+    (surfaces) =>
+      conversationSurfaces(surfaces, alpha.id).every((surface) => surface.state === "working") &&
+      conversationSurfaces(surfaces, beta.id).some(
+        (surface) =>
+          surface.state === "working" && surface.agentText.includes("Streaming hold beta"),
+      ),
+  );
+  assertIndependentWorkingTopics(concurrent.surfaces, alpha.id, beta.id);
+
+  await submitAndWaitForQueue(context.client, alpha.id, "artifact alpha", 1);
+  await submitAndWaitForQueue(context.client, alpha.id, "approval alpha", 2);
+
+  await closeConversationPane(context.client, alpha.id);
+  await closeConversationPane(context.client, alpha.id);
+  await waitForConversationSurfaces(
+    context.client,
+    (surfaces) => conversationSurfaces(surfaces, alpha.id).length === 0,
+  );
+  assertNavigator(await waitForNavigator(context.client, alpha.id, 0), alpha, 0);
+  const closedWorkingSnapshot = await waitForConversationSnapshot(
+    backend,
     workspaceId,
-    1,
+    alpha.id,
+    (snapshot) => snapshot.conversation.status === "working" && snapshot.queue.length === 2,
   );
-  assertBoundUnloadedProjection(reopenedAfterReload.surfaces[0]);
-  assertNavigatorState(await waitForNavigatorState(context.client, 1), 1);
-  await captureScreenshot(context.client, join(artifactDir, "conversation-reopened.png"));
+  assertRunningTurn(closedWorkingSnapshot, "closed working conversation");
+
+  assertDriverAction(
+    await context.client.driver("topicConversationPresentFromNavigator", {
+      conversationId: alpha.id,
+    }),
+    "clicked",
+  );
+  const reopenedWorking = await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) => surface.state === "working" && surface.queueCount === 2,
+  );
+  if (reopenedWorking.paletteId !== alpha.paletteId) {
+    throw new Error(`reopened Alpha palette changed: ${JSON.stringify(reopenedWorking)}`);
+  }
+
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
+  const reloadedWorking = await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) =>
+      surface.projectionStatus === "ready" &&
+      surface.state === "working" &&
+      surface.queueCount === 2 &&
+      surface.paletteId === alpha.paletteId,
+  );
+  await waitForConversationSurface(
+    context.client,
+    beta.id,
+    (surface) => surface.projectionStatus === "ready" && surface.state === "working",
+  );
+
+  assertDriverAction(
+    await context.client.driver("topicConversationSteer", {
+      conversationId: alpha.id,
+      text: "steer alpha now",
+    }),
+    "steered",
+  );
+  const awaitingApproval = await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) =>
+      surface.approvalId !== "" &&
+      surface.artifactCount === 1 &&
+      surface.artifactText.includes("artifact.png") &&
+      surface.helperText === "Waiting for approval",
+  );
+  assertDriverAction(
+    await context.client.driver("topicConversationRespondApproval", {
+      answer: "focused",
+      conversationId: alpha.id,
+    }),
+    "answered",
+  );
+  const alphaComplete = await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) =>
+      surface.state === "complete" &&
+      surface.status === "completed" &&
+      surface.summaryText.includes("Approval answered and work completed"),
+  );
+  if (alphaComplete.artifactCount !== 1) {
+    throw new Error(`Alpha artifact was not retained: ${JSON.stringify(alphaComplete)}`);
+  }
+
+  assertDriverAction(
+    await context.client.driver("topicConversationStop", { conversationId: beta.id }),
+    "stopped",
+  );
+  await waitForConversationSurface(
+    context.client,
+    beta.id,
+    (surface) =>
+      surface.state === "complete" &&
+      surface.status === "stopped" &&
+      surface.summaryText === "Work cancelled.",
+  );
+  assertDriverAction(
+    await context.client.driver("topicConversationSubmit", {
+      conversationId: beta.id,
+      text: "fail beta",
+    }),
+    "submitted",
+  );
+  const betaFailed = await waitForConversationSurface(
+    context.client,
+    beta.id,
+    (surface) =>
+      surface.state === "complete" &&
+      surface.status === "failed" &&
+      surface.summaryText === "Scripted topic failure",
+  );
+
+  const alphaSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    alpha.id,
+    (snapshot) =>
+      snapshot.turns.turns.length === 3 &&
+      snapshot.turns.turns.every((turn) => turn.status === "completed"),
+  );
+  const betaSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    beta.id,
+    (snapshot) =>
+      snapshot.turns.turns.length === 2 &&
+      snapshot.turns.turns[0]?.status === "cancelled" &&
+      snapshot.turns.turns[1]?.status === "failed",
+  );
+  assertAlphaLifecycle(alphaSnapshot, awaitingApproval.approvalId);
+  assertBetaLifecycle(betaSnapshot);
+
+  await captureScreenshot(context.client, join(artifactDir, "commands-complete.png"));
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
+  const reloaded = await waitForConversationSurfaces(
+    context.client,
+    (surfaces) =>
+      conversationSurfaces(surfaces, alpha.id).some(
+        (surface) =>
+          surface.projectionStatus === "ready" &&
+          surface.status === "completed" &&
+          surface.artifactCount === 1,
+      ) &&
+      conversationSurfaces(surfaces, beta.id).some(
+        (surface) => surface.projectionStatus === "ready" && surface.status === "failed",
+      ),
+  );
+  assertReloadedProjection(reloaded.surfaces, alpha, beta);
+  assertNavigator(await waitForNavigator(context.client, alpha.id, 1), alpha, 1);
+  assertNavigator(await waitForNavigator(context.client, beta.id, 1), beta, 1);
+  await captureScreenshot(context.client, join(artifactDir, "commands-reloaded.png"));
 
   await writeJson(join(artifactDir, "summary.json"), {
+    alpha,
+    alphaComplete,
+    alphaSnapshot,
     artifactDir,
-    conversationId,
+    beta,
+    betaFailed,
+    betaSnapshot,
+    closedWorkingSnapshot,
+    concurrent,
     duplicated,
-    duplicatedPersisted,
-    focusedExisting,
-    focusedPersisted,
-    opened,
     reloaded,
-    reopened,
-    reopenedAfterReload,
-    reopenedPersisted,
+    reopenedWorking,
+    reloadedWorking,
     status: "passed",
     workspaceId,
     workspaceName: basename(fixture.workspaceRoot),
   });
-  console.log(`Electron topic conversation pane projection workflow passed: ${artifactDir}`);
+  console.log(`Electron topic conversation production workflow passed: ${artifactDir}`);
 } catch (error) {
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
     await writeJson(join(artifactDir, "failure-snapshot.json"), {
-      surface: await safeConversationSurface(context.client),
+      surfaces: await safeSurfaceStates(context.client),
     }).catch(() => {});
   }
   await writeJson(join(artifactDir, "summary.json"), {
@@ -188,274 +309,279 @@ try {
   await stopElectronCdpContext(context);
 }
 
-async function seedBoundConversationPane(backend, fixture) {
-  const opened = await backend.post("/workspaces/open", { rootPath: fixture.workspaceRoot });
-  const workspaceId = requireOpenedWorkspaceId(opened);
-  await seedTopicConversation(fixture.appDataDir, workspaceId);
-  const navigator = await backend.post("/conversations/navigator/list", {
+async function installFakeTopicCodex(fixture) {
+  const binDir = join(fixture.tempRoot, "fake-topic-bin");
+  await mkdir(binDir, { recursive: true });
+  const scriptPath = join(binDir, "fake-topic-codex-app-server.mjs");
+  await copyFile(fakeTopicCodexFixture, scriptPath);
+  if (process.platform === "win32") {
+    await writeFile(join(binDir, "codex.cmd"), `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
+  } else {
+    const commandPath = join(binDir, "codex");
+    await writeFile(commandPath, `#!/usr/bin/env sh\nexec node "${scriptPath}" "$@"\n`, "utf8");
+    await chmod(commandPath, 0o755);
+  }
+  return { binDir };
+}
+
+async function openWorkspace(client) {
+  const initial = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  if (!validWorkspaceId(initial.workspaceId)) {
+    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  }
+  const opened = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  return opened.workspaceId;
+}
+
+function validWorkspaceId(workspaceId) {
+  return workspaceId !== "" && workspaceId !== "empty";
+}
+
+async function createTopic(client, backend, workspaceId, title) {
+  const before = await listTopics(backend, workspaceId);
+  assertDriverAction(await client.driver("topicConversationCreate", { title }), "created");
+  const page = await waitForBackendState(
+    async () => listTopics(backend, workspaceId),
+    (current) =>
+      current.items.length === before.items.length + 1 &&
+      current.items.some((item) => item.conversation.title === title),
+    workflowTimeoutMs,
+  );
+  const item = page.items.find((candidate) => candidate.conversation.title === title);
+  if (!item) {
+    throw new Error(`created topic ${title} was not listed: ${JSON.stringify(page)}`);
+  }
+  await waitForConversationSurface(
+    client,
+    item.conversation.id,
+    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
+  );
+  return {
+    id: item.conversation.id,
+    paletteId: item.presentationProfile.resolvedPaletteId,
+    title,
+  };
+}
+
+function listTopics(backend, workspaceId) {
+  return backend.post("/conversations/navigator/list", {
     cursor: null,
     limit: 80,
     query: "",
     workspaceId,
   });
-  assertSeededNavigator(navigator);
-  const saved = await backend.post("/workspaces/ui/layout/save", {
-    layout: boundConversationLayout(workspaceId),
+}
+
+async function submitAndWaitForQueue(client, conversationId, text, queueCount) {
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", { conversationId, text }),
+    "submitted",
+  );
+  await waitForConversationSurface(
+    client,
+    conversationId,
+    (surface) => surface.queueCount === queueCount,
+  );
+}
+
+async function closeConversationPane(client, conversationId) {
+  assertDriverAction(
+    await client.driver("topicConversationCloseOneBoundPane", { conversationId }),
+    "clicked",
+  );
+}
+
+async function waitForConversationSurfaces(client, ready) {
+  return waitForState(
+    client,
+    driverCallExpression("topicConversationSurfaceStates", {}),
+    (state) => ready(state.surfaces),
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForConversationSurface(client, conversationId, ready) {
+  const state = await waitForConversationSurfaces(client, (surfaces) => {
+    const surface = conversationSurfaces(surfaces, conversationId)[0];
+    return Boolean(surface && ready(surface));
   });
-  assertSavedLayoutOwnership(saved, workspaceId);
-  return workspaceId;
+  return conversationSurfaces(state.surfaces, conversationId)[0];
 }
 
-function requireOpenedWorkspaceId(opened) {
-  const workspaceId = opened.workspace?.id ?? "";
-  if (!workspaceId) {
-    throw new Error(`workspace open response missing id: ${JSON.stringify(opened)}`);
-  }
-  return workspaceId;
+function conversationSurfaces(surfaces, conversationId) {
+  return surfaces.filter((surface) => surface.conversationId === conversationId);
 }
 
-function assertSeededNavigator(navigator) {
-  if (navigator.items?.length !== 1 || navigator.items[0]?.conversation?.id !== conversationId) {
-    throw new Error(`seeded navigator mismatch: ${JSON.stringify(navigator)}`);
-  }
-}
-
-function assertSavedLayoutOwnership(saved, workspaceId) {
-  if (saved.workspaceId !== workspaceId) {
-    throw new Error(`saved layout ownership mismatch: ${JSON.stringify(saved)}`);
-  }
-}
-
-async function seedTopicConversation(appDataDir, workspaceId) {
-  const databasePath = join(appDataDir, "topic-conversations", "conversations.sqlite");
-  const timestamp = "2026-07-11T20:00:00Z";
-  const sql = `
-PRAGMA busy_timeout = 5000;
-BEGIN IMMEDIATE;
-INSERT INTO conversations (
-  id, workspace_id, title, topic_descriptor, status, created_at, updated_at,
-  archived_at, last_trajectory_sequence
-) VALUES (
-  ${sqlLiteral(conversationId)}, ${sqlLiteral(workspaceId)},
-  'Navigator topic', 'durable topic conversation', 'idle',
-  ${sqlLiteral(timestamp)}, ${sqlLiteral(timestamp)}, NULL, 0
-);
-INSERT INTO conversation_presentation_profiles (
-  conversation_id, palette_selection, requested_palette_id, resolved_palette_id,
-  palette_reuse_json, narrator_voice_selection, requested_narrator_voice_id,
-  resolved_narrator_voice_id, narrator_voice_reuse_json,
-  narrator_speech_enabled, updated_at
-) VALUES (
-  ${sqlLiteral(conversationId)}, 'auto_distinct', NULL, 'sky', NULL,
-  'auto_distinct', NULL, 'alloy', NULL, 1, ${sqlLiteral(timestamp)}
-);
-COMMIT;
-`;
-  await execFileAsync("sqlite3", [databasePath, sql]);
-}
-
-function sqlLiteral(value) {
-  return `'${String(value).replaceAll("'", "''")}'`;
-}
-
-async function openSeededWorkspace(client, workspaceId) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId }),
-    (state) => state.workspaceId === workspaceId || state.openButtonReady,
-    workflowTimeoutMs,
-  );
-  if (initial.workspaceId !== workspaceId) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
-  }
-  await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId }),
-    (state) => state.workspaceId === workspaceId,
-    workflowTimeoutMs,
+function hasReadyConversation(surfaces, conversationId) {
+  return conversationSurfaces(surfaces, conversationId).some(
+    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
   );
 }
 
-async function waitForBoundConversationSurface(client, workspaceId) {
-  return waitForState(
-    client,
-    driverCallExpression("topicConversationSurfaceState", { workspaceId }),
-    (state) =>
-      state.workspaceId === workspaceId &&
-      state.conversationId === conversationId &&
-      state.projectionStatus !== "",
-    workflowTimeoutMs,
-  );
-}
-
-async function waitForBoundConversationSurfaces(client, workspaceId, expectedCount) {
-  return waitForState(
-    client,
-    driverCallExpression("topicConversationSurfaceStates", { workspaceId }),
-    (state) =>
-      state.workspaceId === workspaceId &&
-      state.surfaces.length === expectedCount &&
-      state.surfaces.every(
-        (surface) => surface.conversationId === conversationId && surface.projectionStatus !== "",
-      ),
-    workflowTimeoutMs,
-  );
-}
-
-async function waitForNavigatorState(client, expectedOpenViews) {
+async function waitForNavigator(client, conversationId, openViewCount) {
   return waitForState(
     client,
     driverCallExpression("topicConversationNavigatorState", { conversationId }),
-    (state) =>
-      state.rowCount === 1 &&
-      state.conversationId === conversationId &&
-      state.openViewCount === expectedOpenViews,
+    (state) => state.rowCount === 1 && state.openViewCount === openViewCount,
     workflowTimeoutMs,
   );
 }
 
-async function waitForNavigatorFocus(client, focusedPaneId, expectedOpenViews, maximizedPaneId) {
-  return waitForState(
-    client,
-    driverCallExpression("topicConversationNavigatorState", { conversationId }),
-    (state) =>
-      state.rowCount === 1 &&
-      state.openViewCount === expectedOpenViews &&
-      state.focusedPaneId === focusedPaneId &&
-      state.maximizedPaneId === maximizedPaneId,
+async function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
+  return waitForBackendState(
+    async () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
+    ready,
     workflowTimeoutMs,
   );
 }
 
-function assertNavigatorState(state, expectedOpenViews) {
+function assertDriverAction(result, property) {
+  if (result?.[property] !== true) {
+    throw new Error(`topic conversation action ${property} failed: ${JSON.stringify(result)}`);
+  }
+}
+
+function assertDistinctConversationPalettes(surfaces, alphaId, betaId) {
+  const alpha = conversationSurfaces(surfaces, alphaId)[0];
+  const beta = conversationSurfaces(surfaces, betaId)[0];
+  if (!alpha?.paletteId || !beta?.paletteId || alpha.paletteId === beta.paletteId) {
+    throw new Error(`topic palettes were not distinct: ${JSON.stringify({ alpha, beta })}`);
+  }
+}
+
+function assertDuplicateConversationPalette(surfaces, conversationId) {
+  const duplicates = conversationSurfaces(surfaces, conversationId);
+  const palettes = new Set(duplicates.map((surface) => surface.paletteId));
+  const paneIds = new Set(duplicates.map((surface) => surface.paneId));
+  if (duplicates.length !== 2 || palettes.size !== 1 || paneIds.size !== 2 || palettes.has("")) {
+    throw new Error(`duplicate topic views diverged: ${JSON.stringify(duplicates)}`);
+  }
+}
+
+function assertNavigator(state, topic, expectedOpenViews) {
   if (
     state.rowCount !== 1 ||
-    state.conversationId !== conversationId ||
+    state.conversationId !== topic.id ||
     state.openViewCount !== expectedOpenViews ||
-    !state.label.includes("Navigator topic")
+    !state.label.includes(topic.title)
   ) {
     throw new Error(
-      `conversation navigator state mismatch: ${JSON.stringify({ expectedOpenViews, state })}`,
+      `conversation navigator mismatch: ${JSON.stringify({ expectedOpenViews, state, topic })}`,
     );
   }
 }
 
-async function closeOneBoundPane(client, backend, workspaceId, expectedCount) {
-  const result = await client.driver("topicConversationCloseOneBoundPane", { conversationId });
-  if (!result.clicked) {
-    throw new Error(`bound conversation pane was not closable: ${JSON.stringify(result)}`);
-  }
-  await waitForBackendState(
-    async () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
-    (layout) => easyButtonPanes(layout, workspaceId).length === expectedCount,
-    workflowTimeoutMs,
-  );
-}
-
-function assertBoundUnloadedProjection(state) {
-  const expected = {
-    conversationId,
-    errorText: "",
-    helperText: "Conversation projection is not loaded",
-    inputDisabled: true,
-    projectionStatus: "unloaded",
-    state: "idle",
-  };
-  for (const [key, value] of Object.entries(expected)) {
-    if (state[key] !== value) {
-      throw new Error(
-        `bound conversation surface ${key} mismatch: ${JSON.stringify({ expected, state })}`,
-      );
-    }
-  }
-  if (state.captureState !== "" || state.speechState !== "") {
-    throw new Error(`bound surface retained pane-owned speech state: ${JSON.stringify(state)}`);
-  }
-}
-
-function assertPersistedBindings(result, workspaceId, expectedCount) {
-  const panes = easyButtonPanes(result, workspaceId);
+function assertIndependentWorkingTopics(surfaces, alphaId, betaId) {
+  const alpha = conversationSurfaces(surfaces, alphaId);
+  const beta = conversationSurfaces(surfaces, betaId);
   if (
-    panes.length !== expectedCount ||
-    panes.some((pane) => pane.easyButtonConfig?.conversationId !== conversationId) ||
-    new Set(panes.map((pane) => pane.paneId)).size !== expectedCount ||
-    new Set(panes.map((pane) => pane.surfaceId)).size !== expectedCount
+    alpha.length !== 2 ||
+    beta.length !== 1 ||
+    alpha.some((surface) => !surface.agentText.includes("hold alpha")) ||
+    beta.some((surface) => !surface.agentText.includes("hold beta"))
   ) {
-    throw new Error(`persisted conversation bindings mismatch: ${JSON.stringify(result.layout)}`);
+    throw new Error(`concurrent topic streams crossed: ${JSON.stringify({ alpha, beta })}`);
   }
 }
 
-function easyButtonPanes(result, workspaceId) {
-  if (result.workspaceId !== workspaceId || !result.layout) {
-    return [];
+function assertRunningTurn(snapshot, label) {
+  const running = snapshot.turns.turns.find((turn) => turn.status === "running");
+  if (!running?.providerTurnId) {
+    throw new Error(`${label} lost its running turn: ${JSON.stringify(snapshot.turns)}`);
   }
-  return result.layout.panes.filter((pane) => pane.surfaceKind === "easy-button");
 }
 
-function assertDistinctPaneViews(surfaces) {
-  const paneIds = surfaces.map((surface) => surface.paneId);
-  if (paneIds.some((paneId) => paneId === "") || new Set(paneIds).size !== surfaces.length) {
+function assertAlphaLifecycle(snapshot, approvalId) {
+  const kinds = snapshot.trajectory.events.map((event) => event.kind);
+  assertAlphaQueueAndArtifact(snapshot);
+  assertAlphaTrajectoryKinds(kinds, snapshot);
+  assertAlphaApproval(snapshot, approvalId);
+}
+
+function assertAlphaQueueAndArtifact(snapshot) {
+  if (snapshot.queue.length !== 0 || snapshot.artifacts.artifacts.length !== 1) {
     throw new Error(
-      `conversation views do not have distinct pane ids: ${JSON.stringify(surfaces)}`,
+      `Alpha queue or artifact projection is incomplete: ${JSON.stringify(snapshot)}`,
     );
   }
 }
 
-function boundConversationLayout(workspaceId) {
-  return {
-    columns: [
-      {
-        columnId: "topic_column",
-        idealWidthSpec: { unit: "proportion", value: 1 },
-        index: 0,
-        paneIds: ["topic_pane", "shell_pane"],
-        planeIndex: 0,
-        previousProportionWidth: null,
-        slotIndex: 0,
-        widthSpec: { unit: "proportion", value: 1 },
-      },
-    ],
-    focusedPaneId: "topic_pane",
-    panes: [
-      {
-        columnId: "topic_column",
-        easyButtonConfig: { conversationId },
-        heat: 100,
-        paneId: "topic_pane",
-        sequence: 0,
-        subtitle: "topic conversation",
-        surfaceId: "topic_surface",
-        surfaceKind: "easy-button",
-        terminalConfig: null,
-        title: "Topic conversation",
-        tone: "cyan",
-        weight: 1,
-        workflowNodeDetailsConfig: null,
-      },
-      {
-        columnId: "topic_column",
-        easyButtonConfig: null,
-        heat: 0,
-        paneId: "shell_pane",
-        sequence: 1,
-        subtitle: "persistent shell pane",
-        surfaceId: "shell_surface",
-        surfaceKind: "empty-frame",
-        terminalConfig: null,
-        title: "Workspace",
-        tone: "slate",
-        weight: 1,
-        workflowNodeDetailsConfig: null,
-      },
-    ],
-    schemaVersion: 1,
-    workspaceId,
-  };
+function assertAlphaTrajectoryKinds(kinds, snapshot) {
+  const required = ["turn_queued", "turn_promoted", "turn_steered", "artifact_emitted"];
+  const missing = required.filter((kind) => !kinds.includes(kind));
+  if (missing.length > 0) {
+    throw new Error(
+      `Alpha trajectory is missing ${missing.join(", ")}: ${JSON.stringify(snapshot)}`,
+    );
+  }
 }
 
-async function safeConversationSurface(client) {
+function assertAlphaApproval(snapshot, approvalId) {
+  const request = snapshot.trajectory.events.find(
+    (event) => event.approvalRequested && event.approvalRequested.approval.id === approvalId,
+  );
+  const resolutionEvent = snapshot.trajectory.events.find(
+    (event) =>
+      event.approvalResolved && event.approvalResolved.resolution.approvalId === approvalId,
+  );
+  if (!request || !resolutionEvent) {
+    throw new Error(`Alpha approval lifecycle is incomplete: ${JSON.stringify(snapshot)}`);
+  }
+  const answers = resolutionEvent.approvalResolved.resolution.answers;
+  if (answers.length !== 1 || answers[0].answers[0] !== "focused") {
+    throw new Error(`Alpha approval answer is incomplete: ${JSON.stringify(snapshot)}`);
+  }
+}
+
+function assertBetaLifecycle(snapshot) {
+  const kinds = snapshot.trajectory.events.map((event) => event.kind);
+  if (!kinds.includes("turn_interrupted") || !kinds.includes("turn_failed")) {
+    throw new Error(`Beta terminal lifecycle is incomplete: ${JSON.stringify(snapshot)}`);
+  }
+}
+
+function assertReloadedProjection(surfaces, alpha, beta) {
+  const alphaSurface = requiredConversationSurface(surfaces, alpha.id);
+  const betaSurface = requiredConversationSurface(surfaces, beta.id);
+  if (
+    alphaSurface.paletteId !== alpha.paletteId ||
+    alphaSurface.artifactCount !== 1 ||
+    alphaSurface.status !== "completed"
+  ) {
+    throw new Error(
+      `reloaded topic projections do not match durable state: ${JSON.stringify({ alphaSurface, betaSurface })}`,
+    );
+  }
+  if (betaSurface.paletteId !== beta.paletteId || betaSurface.status !== "failed") {
+    throw new Error(
+      `reloaded topic projections do not match durable state: ${JSON.stringify({ alphaSurface, betaSurface })}`,
+    );
+  }
+}
+
+function requiredConversationSurface(surfaces, conversationId) {
+  const surface = conversationSurfaces(surfaces, conversationId)[0];
+  if (!surface) {
+    throw new Error(
+      `conversation surface ${conversationId} is missing: ${JSON.stringify(surfaces)}`,
+    );
+  }
+  return surface;
+}
+
+async function safeSurfaceStates(client) {
   try {
-    return await client.driver("topicConversationSurfaceState", { workspaceId: "" });
+    return await client.driver("topicConversationSurfaceStates", {});
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }

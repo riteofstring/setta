@@ -31,7 +31,10 @@ import type {
   CodexAccountState,
   ComposerPromptHistoryPage,
   Conversation,
+  ConversationEvent,
+  ConversationSnapshot,
   ConversationListItem,
+  CreateTopicConversationRequest,
   CreateSemanticEdgeRequest,
   CreateSemanticNodeRequest,
   CreateSemanticSteeringDirectiveRequest,
@@ -63,6 +66,7 @@ import type {
   NavigatorPage,
   ProcessCartographerWindowRequest,
   QueueEditResult,
+  QueueTopicConversationTurnRequest,
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
@@ -70,6 +74,7 @@ import type {
   ReconcileChatRunsResponse,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
+  ReadConversationSnapshotRequest,
   ReadSemanticActivitySummaryRequest,
   ReadSemanticContextPackRequest,
   ReadSemanticEventHistoryRequest,
@@ -109,6 +114,7 @@ import type {
   SemanticNodeOperationRequest,
   SemanticSteeringState,
   SendMessageResult,
+  SendTopicConversationTurnRequest,
   SelectDefaultTerminalProfileRequest,
   SpeechAudio,
   SpeechCapabilities,
@@ -118,11 +124,14 @@ import type {
   StartEasyRunRequest,
   CreateSpeechTranscriptionSessionRequest,
   SteerEasyRunRequest,
+  SteerTopicConversationTurnRequest,
   SteerMessageResult,
   SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
   StopEasyRunRequest,
+  StopTopicConversationTurnRequest,
+  SubmitTopicConversationApprovalRequest,
   SynthesizeEasyRunHighlightRequest,
   SynthesizeEasyRunSummaryRequest,
   StopWorkflowNodeRunRequest,
@@ -153,6 +162,10 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
+import type {
+  ConversationEventReleaseRequest,
+  ConversationEventSubscriptionRequest,
+} from "./conversation-ipc";
 import type { EasyRunSteerResult } from "./easy-run-ipc";
 
 export interface RuntimeVersions {
@@ -402,7 +415,19 @@ export interface SettaAPI {
     ) => Promise<WorkspaceActivitySnapshot>;
   };
   conversations: {
+    create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
     list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
+    onEvent: (listener: (event: ConversationEvent) => void) => () => void;
+    queue: (request: QueueTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
+    read: (request: ReadConversationSnapshotRequest) => Promise<ConversationSnapshot>;
+    release: (request: ConversationEventReleaseRequest) => Promise<void>;
+    send: (request: SendTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
+    steer: (request: SteerTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
+    stop: (request: StopTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
+    submitApproval: (
+      request: SubmitTopicConversationApprovalRequest,
+    ) => Promise<ConversationSnapshot>;
+    subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
   };
   easyRun: {
     onEvent: (listener: (event: EasyRunEvent) => void) => () => void;

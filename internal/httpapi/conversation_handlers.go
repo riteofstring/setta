@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,152 @@ import (
 
 	"setta/internal/conversation"
 )
+
+func (handler handler) createTopicConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload CreateTopicConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if strings.TrimSpace(payload.WorkspaceID) == "" || payload.WorkspaceID != strings.TrimSpace(payload.WorkspaceID) {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_create_request", "workspace id is required without surrounding whitespace")
+		return
+	}
+	snapshot, err := service.CreateTopic(request.Context(), payload.WorkspaceID, payload.Title)
+	if err != nil {
+		writeConversationError(response, "create_topic_conversation_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
+func (handler handler) sendTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
+	handler.runTopicConversationTextCommand(response, request, "send", func(
+		ctx context.Context,
+		service ConversationService,
+		workspaceID string,
+		conversationID string,
+		text string,
+	) (conversation.ConversationSnapshot, error) {
+		return service.SendTurn(ctx, workspaceID, conversationID, text)
+	})
+}
+
+func (handler handler) queueTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
+	handler.runTopicConversationTextCommand(response, request, "queue", func(
+		ctx context.Context,
+		service ConversationService,
+		workspaceID string,
+		conversationID string,
+		text string,
+	) (conversation.ConversationSnapshot, error) {
+		return service.QueueTurn(ctx, workspaceID, conversationID, text)
+	})
+}
+
+func (handler handler) steerTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
+	handler.runTopicConversationTextCommand(response, request, "steer", func(
+		ctx context.Context,
+		service ConversationService,
+		workspaceID string,
+		conversationID string,
+		text string,
+	) (conversation.ConversationSnapshot, error) {
+		return service.SteerTurn(ctx, workspaceID, conversationID, text)
+	})
+}
+
+type topicConversationTextCommand func(
+	context.Context,
+	ConversationService,
+	string,
+	string,
+	string,
+) (conversation.ConversationSnapshot, error)
+
+func (handler handler) runTopicConversationTextCommand(
+	response http.ResponseWriter,
+	request *http.Request,
+	command string,
+	run topicConversationTextCommand,
+) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload SendTopicConversationTurnRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_"+command+"_request", err.Error())
+		return
+	}
+	snapshot, err := run(request.Context(), service, payload.WorkspaceID, payload.ConversationID, payload.Text)
+	if err != nil {
+		writeConversationError(response, command+"_topic_conversation_turn_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
+func (handler handler) stopTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload StopTopicConversationTurnRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_stop_request", err.Error())
+		return
+	}
+	snapshot, err := service.StopTurn(request.Context(), payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeConversationError(response, "stop_topic_conversation_turn_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
+func (handler handler) submitTopicConversationApproval(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload SubmitTopicConversationApprovalRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_approval_request", err.Error())
+		return
+	}
+	snapshot, err := service.SubmitApproval(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ConversationID,
+		payload.Response,
+	)
+	if err != nil {
+		writeConversationError(response, "submit_topic_conversation_approval_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
+func writeConversationSnapshot(response http.ResponseWriter, snapshot conversation.ConversationSnapshot) {
+	if err := snapshot.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_conversation_snapshot", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, snapshot)
+}
 
 func (handler handler) listTopicConversations(response http.ResponseWriter, request *http.Request) {
 	service := requireConversationNavigatorService(response, handler.conversationNavigatorService)
@@ -80,11 +227,7 @@ func (handler handler) readConversationSnapshot(response http.ResponseWriter, re
 		writeConversationError(response, "read_conversation_snapshot_failed", err)
 		return
 	}
-	if err := snapshot.Validate(); err != nil {
-		writeError(response, http.StatusInternalServerError, "invalid_conversation_snapshot", err.Error())
-		return
-	}
-	writeJSON(response, http.StatusOK, snapshot)
+	writeConversationSnapshot(response, snapshot)
 }
 
 func (handler handler) conversationEventStream(response http.ResponseWriter, request *http.Request) {

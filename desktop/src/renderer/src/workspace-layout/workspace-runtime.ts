@@ -124,6 +124,7 @@ function createSurfaceAdapterFactory(
     }
     return createDefaultSurfaceAdapter(pane, {
       workflowGraphSyntheticGraphFallback,
+      workspaceId,
     });
   };
 }

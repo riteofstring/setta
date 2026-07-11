@@ -97,6 +97,7 @@ type Server struct {
 	closeNotify             func() error
 	closeWorkflowEvents     func()
 	drainChatTurns          func(context.Context) error
+	drainConversationTurns  func(context.Context) error
 	codexManager            *codexapp.Manager
 	server                  *http.Server
 	listener                net.Listener
@@ -110,6 +111,7 @@ type runtimeServices struct {
 	chatService              *chat.Service
 	codexAccountService      *codexaccount.Service
 	codexManager             *codexapp.Manager
+	conversationService      *conversation.Service
 	conversationStore        *conversation.Store
 	easyRunService           *easyrun.Service
 	notifyService            *notify.Service
@@ -259,6 +261,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeNotify:             services.notifyService.Close,
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
 		drainChatTurns:          services.chatService.ShutdownActiveTurns,
+		drainConversationTurns:  services.conversationService.Shutdown,
 		codexManager:            services.codexManager,
 		server:                  newHTTPServer(config, services),
 		listener:                listener,
@@ -351,6 +354,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		chatService:              baseServices.chatService,
 		codexAccountService:      codexAccountService,
 		codexManager:             baseServices.codexManager,
+		conversationService:      baseServices.conversationService,
 		conversationStore:        baseServices.conversationStore,
 		easyRunService:           baseServices.easyRunService,
 		notifyService:            notifyService,
@@ -821,7 +825,8 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		},
 		AppearanceService:            services.appearanceService,
 		ChatService:                  services.chatService,
-		ConversationNavigatorService: conversationNavigatorService(services.conversationStore),
+		ConversationNavigatorService: services.conversationService,
+		ConversationService:          services.conversationService,
 		CodexAccountService:          services.codexAccountService,
 		EasyRunService:               services.easyRunService,
 		NotifyService:                services.notifyService,
@@ -853,6 +858,7 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	var shutdownErr error
 	httpShutdown := server.startHTTPShutdown(ctx)
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownChatTurns(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationTurns(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.closeEventStreams(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))
@@ -879,13 +885,6 @@ func waitHTTPShutdown(ctx context.Context, done <-chan error) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-func (server *Server) shutdownChatTurns(ctx context.Context) error {
-	if server.drainChatTurns == nil {
-		return nil
-	}
-	return server.drainChatTurns(ctx)
 }
 
 func (server *Server) closeEventStreams(ctx context.Context) error {

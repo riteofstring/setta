@@ -32,6 +32,7 @@ import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { registerChatIpcHandlers } from "./chat-ipc";
 import { registerConversationIpcHandlers } from "./conversation-ipc";
+import { ConversationEventRegistry } from "./conversation-event-registry";
 import { startEasyRunEventForwarding } from "./easy-run-event-forwarding-stream";
 import { registerEasyRunIpcHandlers } from "./easy-run-ipc";
 import { KnownRuntimeStore } from "./known-runtime-store";
@@ -70,6 +71,24 @@ let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
 const backendRequests = createBackendRequestLifecycle();
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
+const conversationEvents = new ConversationEventRegistry({
+  backendConnection: () => {
+    const runtime = activeRuntime();
+    if (!runtime) {
+      throw new Error(runtimeUnavailableMessage());
+    }
+    return { baseURL: runtime.baseUrl, fetchImpl: backendFetch() };
+  },
+  recordEvent: (event) => {
+    recorder?.recordAppEvent("conversation_event_forwarded", {
+      conversationId: event.conversationId,
+      eventId: event.eventId,
+      sequence: event.sequence,
+      type: event.payload.type,
+      workspaceId: event.workspaceId,
+    });
+  },
+});
 const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
 const backendRequestDrainTimeoutMs = 1_500;
@@ -301,6 +320,7 @@ async function stopBackendEventStreams() {
     stopTerminalEventStreamForwarding(),
     stopWorkspaceActivityEventStreamForwarding(),
     stopWorkflowEventStreamForwarding(),
+    conversationEvents.stopAll(),
   ]);
 }
 
@@ -677,7 +697,12 @@ function registerIpc() {
   registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerEasyRunIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerSpeechIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
-  registerConversationIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerConversationIpcHandlers({
+    conversationEvents,
+    ipcMain,
+    ipcObserver,
+    requireBackendClient,
+  });
   registerChatIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });

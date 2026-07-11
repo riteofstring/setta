@@ -94,6 +94,7 @@ func permissionApproval(raw json.RawMessage, base Event, requestID string, pendi
 	return ApprovalRequest{
 		ID: requestID, ProviderItemID: params.ItemId, Kind: ApprovalKindPermission,
 		Title: "Permission approval", Path: string(params.CWD), Body: optionalString(params.Reason),
+		PermissionProfile: string(encoded),
 	}, nil
 }
 
