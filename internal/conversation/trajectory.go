@@ -6,8 +6,8 @@ type PlanStepStatus string
 type TrajectoryActivityKind string
 type FileChangeKind string
 type FileChangeOutcome string
-type ApprovalKind string
-type ApprovalDecision string
+type TrajectoryApprovalKind string
+type TrajectoryApprovalDecision string
 type SubagentStatus string
 type AgentLivenessStatus string
 type AgentLivenessReason string
@@ -70,17 +70,17 @@ const (
 	FileChangeOutcomeFailed    FileChangeOutcome = "failed"
 	FileChangeOutcomeDeclined  FileChangeOutcome = "declined"
 
-	ApprovalKindCommand         ApprovalKind = "command"
-	ApprovalKindFileChange      ApprovalKind = "file_change"
-	ApprovalKindPermission      ApprovalKind = "permission"
-	ApprovalKindStructuredInput ApprovalKind = "structured_input"
-	ApprovalKindUserInput       ApprovalKind = "user_input"
+	TrajectoryApprovalKindCommand         TrajectoryApprovalKind = "command"
+	TrajectoryApprovalKindFileChange      TrajectoryApprovalKind = "file_change"
+	TrajectoryApprovalKindPermission      TrajectoryApprovalKind = "permission"
+	TrajectoryApprovalKindStructuredInput TrajectoryApprovalKind = "structured_input"
+	TrajectoryApprovalKindUserInput       TrajectoryApprovalKind = "user_input"
 
-	ApprovalDecisionApproved           ApprovalDecision = "approved"
-	ApprovalDecisionApprovedForSession ApprovalDecision = "approved_for_session"
-	ApprovalDecisionDenied             ApprovalDecision = "denied"
-	ApprovalDecisionCancelled          ApprovalDecision = "cancelled"
-	ApprovalDecisionAnswered           ApprovalDecision = "answered"
+	TrajectoryApprovalDecisionApproved           TrajectoryApprovalDecision = "approved"
+	TrajectoryApprovalDecisionApprovedForSession TrajectoryApprovalDecision = "approved_for_session"
+	TrajectoryApprovalDecisionDenied             TrajectoryApprovalDecision = "denied"
+	TrajectoryApprovalDecisionCancelled          TrajectoryApprovalDecision = "cancelled"
+	TrajectoryApprovalDecisionAnswered           TrajectoryApprovalDecision = "answered"
 
 	SubagentStatusPendingInit SubagentStatus = "pending_init"
 	SubagentStatusRunning     SubagentStatus = "running"
@@ -188,7 +188,7 @@ type FileChange struct {
 	Diff     string         `json:"diff"`
 }
 
-type ApprovalQuestion struct {
+type TrajectoryApprovalQuestion struct {
 	ID          string   `json:"id"`
 	Header      string   `json:"header"`
 	Question    string   `json:"question"`
@@ -196,26 +196,26 @@ type ApprovalQuestion struct {
 	AllowsOther bool     `json:"allowsOther"`
 }
 
-type ApprovalRequest struct {
-	ID                         string             `json:"id"`
-	ProviderItemID             string             `json:"providerItemId"`
-	Kind                       ApprovalKind       `json:"kind"`
-	Title                      string             `json:"title"`
-	Body                       string             `json:"body"`
-	Command                    *string            `json:"command"`
-	CWD                        *string            `json:"cwd"`
-	FilePaths                  []string           `json:"filePaths"`
-	RequestedPermissionProfile *string            `json:"requestedPermissionProfile"`
-	Questions                  []ApprovalQuestion `json:"questions"`
-	RequestedAt                string             `json:"requestedAt"`
+type TrajectoryApprovalRequest struct {
+	ID                         string                       `json:"id"`
+	ProviderItemID             string                       `json:"providerItemId"`
+	Kind                       TrajectoryApprovalKind       `json:"kind"`
+	Title                      string                       `json:"title"`
+	Body                       string                       `json:"body"`
+	Command                    *string                      `json:"command"`
+	CWD                        *string                      `json:"cwd"`
+	FilePaths                  []string                     `json:"filePaths"`
+	RequestedPermissionProfile *string                      `json:"requestedPermissionProfile"`
+	Questions                  []TrajectoryApprovalQuestion `json:"questions"`
+	RequestedAt                string                       `json:"requestedAt"`
 }
 
-type ApprovalResolution struct {
-	ApprovalID string            `json:"approvalId"`
-	Decision   ApprovalDecision  `json:"decision"`
-	Response   string            `json:"response"`
-	Answers    map[string]string `json:"answers"`
-	ResolvedAt string            `json:"resolvedAt"`
+type TrajectoryApprovalResolution struct {
+	ApprovalID string                     `json:"approvalId"`
+	Decision   TrajectoryApprovalDecision `json:"decision"`
+	Response   string                     `json:"response"`
+	Answers    map[string]string          `json:"answers"`
+	ResolvedAt string                     `json:"resolvedAt"`
 }
 
 type Subagent struct {
@@ -340,11 +340,11 @@ type TrajectoryFileChangeCompleted struct {
 }
 
 type TrajectoryApprovalRequested struct {
-	Approval ApprovalRequest `json:"approval"`
+	Approval TrajectoryApprovalRequest `json:"approval"`
 }
 
 type TrajectoryApprovalResolved struct {
-	Resolution ApprovalResolution `json:"resolution"`
+	Resolution TrajectoryApprovalResolution `json:"resolution"`
 }
 
 type TrajectorySubagentStarted struct {

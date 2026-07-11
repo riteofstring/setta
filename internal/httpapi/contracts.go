@@ -141,6 +141,16 @@ type ReadEasyRunSnapshotRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
 
+type ReadConversationSnapshotRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type SubscribeConversationEventsRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
 type StartEasyRunRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	RequestText string `json:"requestText"`

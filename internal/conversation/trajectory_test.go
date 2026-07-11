@@ -18,16 +18,16 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 		Command: &command,
 		CWD:     &cwd,
 	}
-	approval := ApprovalRequest{
+	approval := TrajectoryApprovalRequest{
 		ID:             "approval-1",
 		ProviderItemID: "provider-item-approval",
-		Kind:           ApprovalKindCommand,
+		Kind:           TrajectoryApprovalKindCommand,
 		Title:          "Run command",
 		Body:           "Allow the focused test command.",
 		Command:        &command,
 		CWD:            &cwd,
 		FilePaths:      []string{},
-		Questions:      []ApprovalQuestion{},
+		Questions:      []TrajectoryApprovalQuestion{},
 		RequestedAt:    testTimeStarted,
 	}
 	subagent := Subagent{
@@ -98,7 +98,7 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			event.ApprovalRequested = &TrajectoryApprovalRequested{Approval: approval}
 		}},
 		{TrajectoryEventApprovalResolved, func(event *TrajectoryEvent) {
-			event.ApprovalResolved = &TrajectoryApprovalResolved{Resolution: ApprovalResolution{ApprovalID: approval.ID, Decision: ApprovalDecisionApproved, Answers: map[string]string{}, ResolvedAt: testTimeEnded}}
+			event.ApprovalResolved = &TrajectoryApprovalResolved{Resolution: TrajectoryApprovalResolution{ApprovalID: approval.ID, Decision: TrajectoryApprovalDecisionApproved, Answers: map[string]string{}, ResolvedAt: testTimeEnded}}
 		}},
 		{TrajectoryEventSubagentStarted, func(event *TrajectoryEvent) {
 			event.SubagentStarted = &TrajectorySubagentStarted{Subagent: subagent}
@@ -170,7 +170,7 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 }
 
 func TestStructuredInputContractsRejectAmbiguousQuestionAndResolutionShapes(t *testing.T) {
-	question := ApprovalQuestion{
+	question := TrajectoryApprovalQuestion{
 		ID:       "question-1",
 		Header:   "Scope",
 		Question: "Which scope should be used?",
@@ -185,15 +185,15 @@ func TestStructuredInputContractsRejectAmbiguousQuestionAndResolutionShapes(t *t
 	question.Options = []string{"Workspace", "Workspace"}
 	assertValidationErrorContains(t, question.Validate(), "is duplicated")
 
-	resolution := ApprovalResolution{
+	resolution := TrajectoryApprovalResolution{
 		ApprovalID: "approval-1",
-		Decision:   ApprovalDecisionApproved,
+		Decision:   TrajectoryApprovalDecisionApproved,
 		Response:   "unexpected",
 		Answers:    map[string]string{},
 		ResolvedAt: testTimeEnded,
 	}
 	assertValidationErrorContains(t, resolution.Validate(), "must not include a response")
-	resolution.Decision = ApprovalDecisionAnswered
+	resolution.Decision = TrajectoryApprovalDecisionAnswered
 	resolution.Response = " padded "
 	assertValidationErrorContains(t, resolution.Validate(), "surrounding whitespace")
 }

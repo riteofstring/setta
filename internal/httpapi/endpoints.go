@@ -9,6 +9,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/conversation"
 	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
@@ -79,6 +80,8 @@ var apiEndpoints = []endpoint{
 	post[SteerEasyRunRequest, easyrun.EasyRun]("SteerEasyRun", "/easy-runs/steer", handler.steerEasyRun),
 	post[StopEasyRunRequest, easyrun.EasyRun]("StopEasyRun", "/easy-runs/stop", handler.stopEasyRun),
 	streamEvent[easyrun.EasyRunEvent]("EasyRunEventStream", "/easy-runs/events", handler.easyRunEventStream),
+	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),
+	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
 	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
 	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),
 	postWithRequestBodyLimit[SynthesizeEasyRunSummaryRequest, speech.SpeechAudio]("SynthesizeEasyRunSummary", "/speech/easy-runs/summary", speechRequestBodyLimitBytes, handler.synthesizeEasyRunSummary),
@@ -287,6 +290,20 @@ func streamEvent[StreamEvent any](name string, path string, handler routeHandler
 			Name:        name,
 			Method:      http.MethodGet,
 			Path:        path,
+			StreamEvent: reflect.TypeFor[StreamEvent](),
+			Streaming:   true,
+		},
+		Handler: handler,
+	}
+}
+
+func streamEventWithQuery[Request any, StreamEvent any](name string, path string, handler routeHandler) endpoint {
+	return endpoint{
+		ContractEndpoint: ContractEndpoint{
+			Name:        name,
+			Method:      http.MethodGet,
+			Path:        path,
+			Request:     reflect.TypeFor[Request](),
 			StreamEvent: reflect.TypeFor[StreamEvent](),
 			Streaming:   true,
 		},

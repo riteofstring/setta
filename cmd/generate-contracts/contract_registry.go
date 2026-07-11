@@ -7,6 +7,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/conversation"
 	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
@@ -35,6 +36,22 @@ func contractUnions() map[reflect.Type]unionSpec {
 			Variants:      variants,
 		}
 	}
+	for _, union := range conversation.ContractUnions() {
+		variants := make([]unionVariantSpec, 0, len(union.Variants))
+		for _, variant := range union.Variants {
+			variants = append(variants, unionVariantSpec{
+				KindValue: variant.KindValue,
+				Name:      variant.Name,
+				Type:      variant.Type,
+			})
+		}
+		specs[union.Type] = unionSpec{
+			Discriminator: union.Discriminator,
+			Name:          union.Name,
+			Type:          union.Type,
+			Variants:      variants,
+		}
+	}
 	return specs
 }
 
@@ -43,7 +60,7 @@ func contractUnions() map[reflect.Type]unionSpec {
 // that invariant (exactly one branch populated, matching kind) so a malformed
 // block fails loudly at the decode boundary instead of null-dereferencing later.
 func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
-	return map[reflect.Type]taggedUnionSpec{
+	result := map[reflect.Type]taggedUnionSpec{
 		reflect.TypeFor[chat.ChatInputPart](): {
 			Discriminator: "type",
 			Branches: []taggedUnionBranch{
@@ -102,6 +119,14 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 			},
 		},
 	}
+	for _, union := range conversation.ContractTaggedUnions() {
+		branches := make([]taggedUnionBranch, 0, len(union.Branches))
+		for _, branch := range union.Branches {
+			branches = append(branches, taggedUnionBranch{Field: branch.Field, KindValue: branch.KindValue})
+		}
+		result[union.Type] = taggedUnionSpec{Discriminator: union.Discriminator, Branches: branches}
+	}
+	return result
 }
 
 func contractValueSets() []chat.ContractValueSet {
@@ -112,12 +137,19 @@ func contractValueSets() []chat.ContractValueSet {
 	for _, set := range codexaccount.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
+	for _, set := range conversation.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
 	for _, set := range easyrun.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range orchestrator.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
+	return appendAdditionalContractValueSets(sets)
+}
+
+func appendAdditionalContractValueSets(sets []chat.ContractValueSet) []chat.ContractValueSet {
 	for _, set := range runtimeauth.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}

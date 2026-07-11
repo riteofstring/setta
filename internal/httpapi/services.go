@@ -8,6 +8,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/conversation"
 	"setta/internal/easyrun"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
@@ -54,6 +55,15 @@ type EasyRunService interface {
 	Steer(workspaceID string, text string) (easyrun.EasyRun, error)
 	Stop(workspaceID string, easyRunID string) (easyrun.EasyRun, error)
 	SubscribeEvents(cursor easyrun.EasyRunEventCursor) (*easyrun.EventSubscription, error)
+}
+
+type ConversationService interface {
+	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
+	SubscribeEvents(
+		conversation.ConversationEventCursor,
+		string,
+		string,
+	) (conversation.ConversationEventSubscription, error)
 }
 
 type SpeechService interface {
@@ -226,6 +236,7 @@ type HandlerConfig struct {
 	AppearanceService        AppearanceService
 	Metadata                 BackendMetadata
 	ChatService              ChatService
+	ConversationService      ConversationService
 	CodexAccountService      CodexAccountService
 	EasyRunService           EasyRunService
 	NotifyService            NotifyService
@@ -247,6 +258,7 @@ type handler struct {
 	appearanceService        AppearanceService
 	metadata                 BackendMetadata
 	chatService              ChatService
+	conversationService      ConversationService
 	codexAccountService      CodexAccountService
 	easyRunService           EasyRunService
 	notifyService            NotifyService
@@ -277,6 +289,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		appearanceService:        config.AppearanceService,
 		metadata:                 config.Metadata,
 		chatService:              config.ChatService,
+		conversationService:      config.ConversationService,
 		codexAccountService:      config.CodexAccountService,
 		easyRunService:           config.EasyRunService,
 		notifyService:            config.NotifyService,

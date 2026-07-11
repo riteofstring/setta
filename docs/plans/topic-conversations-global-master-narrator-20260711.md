@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phase 0 and Phase 1 items 1-3 are complete
+**Status:** In progress; Phase 0 and Phase 1 items 1-4 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1521,8 +1521,8 @@ Exit criteria:
 
 ### Phase 1: New persistence and core contracts
 
-**Progress:** Items 1-3 are complete. Items 4-5 remain, beginning with the
-conversation snapshot/event contracts and generated TypeScript.
+**Progress:** Items 1-4 are complete. Item 5 remains: finish the focused store
+hardening matrix before Phase 2 begins.
 
 Implement:
 
@@ -2207,3 +2207,35 @@ Implementation is in progress under this plan.
   the valid atomic queue-promotion path. Race-enabled conversation tests and
   the focused quality gate pass. Generated inputs and outputs changed: none.
   Phase 1 item 4 remains next, with no external blocker.
+- 2026-07-11: Completed Phase 1 item 4. `internal/conversation` now owns a
+  bounded cold-start `ConversationSnapshot` with explicit recent turn,
+  trajectory, artifact, and narration windows; queue, narrator cursor,
+  presentation identity, lineage, side-lifecycle, role-override, and durable
+  event-cursor state remain conversation-keyed and validate ownership and
+  source coverage. The new `ConversationEvent` envelope carries a sealed
+  thirteen-variant payload union for conversation, turn, queue, binding,
+  trajectory, artifact, narrator, narration, role, presentation, branch, side,
+  and resync changes. Event ids are durable conversation-stream cursors, and
+  malformed cross-conversation ownership or mismatched discriminators fail at
+  the contract boundary.
+- 2026-07-11: The HTTP endpoint registry now owns `ReadConversationSnapshot`
+  and `ConversationEventStream`, including their request and stream roots; no
+  parallel generator type list was added. Protocol version 14 and the schema
+  snapshot were regenerated with `desktop/src/generated/backend.ts`. The
+  generator now projects registered union discriminators as exact TypeScript
+  literals and validates them at decode time, so renderer switches over all
+  conversation event variants narrow exhaustively and support `never`
+  assertions. The transport service seam is deliberately not installed in the
+  production runtime composition root in this contract-only slice; the
+  conversation store/service production wiring remains part of the Phase 3
+  cutover rather than a second live domain path.
+- 2026-07-11: Item 4 verification passed race-enabled conversation tests and
+  the new HTTP handler tests, the complete non-race HTTP and generator suites,
+  generated-artifact reproducibility, the focused generated TypeScript decoder
+  tests, desktop typecheck/build, and the deterministic production Electron
+  Easy Button workflow. Running the entire legacy HTTP package under the race
+  detector additionally exposed pre-existing chat/workflow response races in
+  old harness transcript objects; the traces do not enter the new conversation
+  package or handlers, and the narrowed new-handler race run is clean. The next
+  incomplete step is Phase 1 item 5's focused store hardening matrix; there is
+  no blocker.

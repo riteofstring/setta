@@ -532,7 +532,7 @@ func validateFileChanges(changes []FileChange) error {
 	return nil
 }
 
-func (question ApprovalQuestion) Validate() error {
+func (question TrajectoryApprovalQuestion) Validate() error {
 	if err := validateIdentifier("approval question id", question.ID); err != nil {
 		return err
 	}
@@ -558,7 +558,7 @@ func (question ApprovalQuestion) Validate() error {
 	return nil
 }
 
-func (request ApprovalRequest) Validate() error {
+func (request TrajectoryApprovalRequest) Validate() error {
 	if err := validateApprovalRequestIdentity(request); err != nil {
 		return err
 	}
@@ -575,7 +575,7 @@ func (request ApprovalRequest) Validate() error {
 	return err
 }
 
-func validateApprovalRequestIdentity(request ApprovalRequest) error {
+func validateApprovalRequestIdentity(request TrajectoryApprovalRequest) error {
 	if err := validateIdentifier("approval id", request.ID); err != nil {
 		return err
 	}
@@ -591,7 +591,7 @@ func validateApprovalRequestIdentity(request ApprovalRequest) error {
 	return nil
 }
 
-func validateApprovalRequestCollections(request ApprovalRequest) error {
+func validateApprovalRequestCollections(request TrajectoryApprovalRequest) error {
 	if request.FilePaths == nil || request.Questions == nil {
 		return fmt.Errorf("approval filePaths and questions must be arrays, not null")
 	}
@@ -608,7 +608,7 @@ func validateApprovalRequestCollections(request ApprovalRequest) error {
 	return nil
 }
 
-func validateApprovalRequestOptionalFields(request ApprovalRequest) error {
+func validateApprovalRequestOptionalFields(request TrajectoryApprovalRequest) error {
 	for _, field := range []struct {
 		label string
 		value *string
@@ -626,21 +626,21 @@ func validateApprovalRequestOptionalFields(request ApprovalRequest) error {
 	return nil
 }
 
-func validateApprovalRequestKind(request ApprovalRequest) error {
+func validateApprovalRequestKind(request TrajectoryApprovalRequest) error {
 	switch request.Kind {
-	case ApprovalKindCommand:
+	case TrajectoryApprovalKindCommand:
 		if request.Command == nil || request.CWD == nil {
 			return fmt.Errorf("command approval requires command and cwd")
 		}
-	case ApprovalKindFileChange:
+	case TrajectoryApprovalKindFileChange:
 		if len(request.FilePaths) == 0 {
 			return fmt.Errorf("file-change approval requires file paths")
 		}
-	case ApprovalKindPermission:
+	case TrajectoryApprovalKindPermission:
 		if request.RequestedPermissionProfile == nil {
 			return fmt.Errorf("permission approval requires requested permission profile")
 		}
-	case ApprovalKindStructuredInput, ApprovalKindUserInput:
+	case TrajectoryApprovalKindStructuredInput, TrajectoryApprovalKindUserInput:
 		if len(request.Questions) == 0 {
 			return fmt.Errorf("%s approval requires questions", request.Kind)
 		}
@@ -650,7 +650,7 @@ func validateApprovalRequestKind(request ApprovalRequest) error {
 	return nil
 }
 
-func (resolution ApprovalResolution) Validate() error {
+func (resolution TrajectoryApprovalResolution) Validate() error {
 	if err := validateIdentifier("approval resolution id", resolution.ApprovalID); err != nil {
 		return err
 	}
@@ -667,21 +667,21 @@ func (resolution ApprovalResolution) Validate() error {
 	return err
 }
 
-func validateApprovalResolutionDecision(resolution ApprovalResolution) error {
+func validateApprovalResolutionDecision(resolution TrajectoryApprovalResolution) error {
 	switch resolution.Decision {
-	case ApprovalDecisionApproved,
-		ApprovalDecisionApprovedForSession,
-		ApprovalDecisionDenied,
-		ApprovalDecisionCancelled:
+	case TrajectoryApprovalDecisionApproved,
+		TrajectoryApprovalDecisionApprovedForSession,
+		TrajectoryApprovalDecisionDenied,
+		TrajectoryApprovalDecisionCancelled:
 		return validateApprovalResolutionWithoutAnswer(resolution)
-	case ApprovalDecisionAnswered:
+	case TrajectoryApprovalDecisionAnswered:
 		return validateAnsweredApprovalResolution(resolution)
 	default:
 		return fmt.Errorf("unsupported approval decision %q", resolution.Decision)
 	}
 }
 
-func validateApprovalResolutionWithoutAnswer(resolution ApprovalResolution) error {
+func validateApprovalResolutionWithoutAnswer(resolution TrajectoryApprovalResolution) error {
 	if len(resolution.Answers) != 0 {
 		return fmt.Errorf("approval decision %s must not include structured answers", resolution.Decision)
 	}
@@ -691,7 +691,7 @@ func validateApprovalResolutionWithoutAnswer(resolution ApprovalResolution) erro
 	return nil
 }
 
-func validateAnsweredApprovalResolution(resolution ApprovalResolution) error {
+func validateAnsweredApprovalResolution(resolution TrajectoryApprovalResolution) error {
 	if len(resolution.Answers) == 0 && strings.TrimSpace(resolution.Response) == "" {
 		return fmt.Errorf("answered approval requires answers or response")
 	}
