@@ -22,13 +22,42 @@ describe("TerminalOutputScheduler", () => {
       scheduler.enqueue(value);
     }
 
-    expect(write.mock.calls.slice(0, 4)).toEqual([[[1]], [[2]], [[3]], [[4]]]);
+    expect(write.mock.calls.slice(0, 4)).toEqual([
+      [[{ item: 1, outputSchedule: "immediate" }]],
+      [[{ item: 2, outputSchedule: "immediate" }]],
+      [[{ item: 3, outputSchedule: "immediate" }]],
+      [[{ item: 4, outputSchedule: "immediate" }]],
+    ]);
     expect(write).toHaveBeenCalledTimes(4);
     frames[0]?.(0);
-    expect(write).toHaveBeenLastCalledWith([
-      5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-    ]);
+    expect(write).toHaveBeenLastCalledWith(
+      Array.from({ length: 16 }, (_, index) => ({
+        item: index + 5,
+        outputSchedule: "coalesced",
+      })),
+    );
     expect(write).toHaveBeenCalledTimes(5);
+  });
+
+  test("tags replay output with the recorded scheduler decision", () => {
+    const frames: FrameRequestCallback[] = [];
+    const write = vi.fn();
+    const scheduler = new TerminalOutputScheduler<number>({
+      cancelFrame: vi.fn(),
+      requestFrame: (callback) => {
+        frames.push(callback);
+        return 1;
+      },
+      write,
+    });
+
+    scheduler.enqueueBulk([1, 2, 3]);
+    frames[0]?.(0);
+    expect(write).toHaveBeenCalledWith([
+      { item: 1, outputSchedule: "replay" },
+      { item: 2, outputSchedule: "replay" },
+      { item: 3, outputSchedule: "replay" },
+    ]);
   });
 
   test("coalesces replay output and cancels queued work on teardown", () => {

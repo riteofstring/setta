@@ -577,7 +577,7 @@ describe("terminal surface adapter", () => {
   });
 
   test("queues output that arrives before xterm finishes mounting", async () => {
-    installSettaAPI({
+    const api = installSettaAPI({
       attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
     });
     const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
@@ -601,6 +601,12 @@ describe("terminal surface adapter", () => {
 
     expect(adapter.getTerminalStats().pendingOutputChunks).toBe(0);
     expect(adapter.getTerminalStats().scrollbackRows).toBeGreaterThan(0);
+    expect(api.terminal.recordLatency).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outputSchedule: "replay",
+        type: "terminal_output_xterm_write",
+      }),
+    );
   });
 
   test("preserves user scrollback instead of forcing every output write to the bottom", async () => {

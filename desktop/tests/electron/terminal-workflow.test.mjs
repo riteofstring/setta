@@ -807,6 +807,16 @@ function assertRendererTerminalLatencyStages(rendererEvents) {
       throw new Error(`recording missing renderer terminal latency stage: ${type}`);
     }
   }
+  for (const outputSchedule of ["immediate", "coalesced"]) {
+    if (
+      !rendererEvents.some(
+        (entry) =>
+          entry.type === "terminal_output_xterm_write" && entry.outputSchedule === outputSchedule,
+      )
+    ) {
+      throw new Error(`recording missing ${outputSchedule} terminal xterm-write event`);
+    }
+  }
 }
 
 function assertTerminalInputRecordsAreSequenced(events) {

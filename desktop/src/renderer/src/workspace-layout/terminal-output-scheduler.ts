@@ -1,10 +1,17 @@
 import type { TerminalEvent } from "@generated/backend";
+import type { TerminalOutputSchedule } from "@shared/recording";
 
 const interactiveOutputBurstLimit = 4;
 
 export interface ScheduledTerminalOutput {
   bytes: Uint8Array;
   event: TerminalEvent;
+  outputSchedule: TerminalOutputSchedule;
+}
+
+export interface ScheduledTerminalOutputItem<T> {
+  item: T;
+  outputSchedule: TerminalOutputSchedule;
 }
 
 type FrameRequest = (callback: FrameRequestCallback) => number;
@@ -13,7 +20,7 @@ type FrameCancel = (handle: number) => void;
 interface TerminalOutputSchedulerOptions<T> {
   cancelFrame: FrameCancel;
   requestFrame: FrameRequest;
-  write: (items: T[]) => void;
+  write: (items: ScheduledTerminalOutputItem<T>[]) => void;
 }
 
 interface TerminalPresentationSchedulerOptions {
@@ -23,7 +30,7 @@ interface TerminalPresentationSchedulerOptions {
 }
 
 export class TerminalOutputScheduler<T> {
-  private bulkItems: T[] = [];
+  private bulkItems: ScheduledTerminalOutputItem<T>[] = [];
   private frameHandle: number | null = null;
   private interactiveWrites = 0;
 
@@ -32,11 +39,11 @@ export class TerminalOutputScheduler<T> {
   enqueue(item: T): void {
     if (this.bulkItems.length === 0 && this.interactiveWrites < interactiveOutputBurstLimit) {
       this.interactiveWrites += 1;
-      this.options.write([item]);
+      this.options.write([{ item, outputSchedule: "immediate" }]);
       this.ensureFrame();
       return;
     }
-    this.bulkItems.push(item);
+    this.bulkItems.push({ item, outputSchedule: "coalesced" });
     this.ensureFrame();
   }
 
@@ -44,7 +51,7 @@ export class TerminalOutputScheduler<T> {
     if (items.length === 0) {
       return;
     }
-    this.bulkItems.push(...items);
+    this.bulkItems.push(...items.map((item) => ({ item, outputSchedule: "replay" as const })));
     this.ensureFrame();
   }
 

@@ -95,10 +95,15 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private deferOutputUntilSessionReady = false;
   private lostSession = false;
   private readonly outputBuffer = new TerminalOutputBuffer();
-  private readonly outputScheduler = new TerminalOutputScheduler<ScheduledTerminalOutput>({
+  private readonly outputScheduler = new TerminalOutputScheduler<
+    Omit<ScheduledTerminalOutput, "outputSchedule">
+  >({
     cancelFrame: (handle) => window.cancelAnimationFrame(handle),
     requestFrame: (callback) => window.requestAnimationFrame(callback),
-    write: (outputs) => this.writeOutputBatch(outputs),
+    write: (outputs) =>
+      this.writeOutputBatch(
+        outputs.map(({ item, outputSchedule }) => ({ ...item, outputSchedule })),
+      ),
   });
   private readonly presentationScheduler = new TerminalPresentationScheduler({
     cancelFrame: (handle) => window.cancelAnimationFrame(handle),

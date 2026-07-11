@@ -47,6 +47,6 @@ function recordOutputStage(
   stage: "terminal_output_xterm_write" | "terminal_output_painted",
 ): void {
   for (const output of outputs) {
-    recordTerminalOutputStage(stage, output.event);
+    recordTerminalOutputStage(stage, output.event, output.outputSchedule);
   }
 }

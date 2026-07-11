@@ -1,5 +1,7 @@
 export const recordingRendererEventChannel = "recording:renderer-event";
 
+export type TerminalOutputSchedule = "coalesced" | "immediate" | "replay";
+
 export type RendererRecordedEvent =
   | RendererClickEvent
   | RendererKeydownEvent
@@ -85,10 +87,12 @@ interface TerminalOutputRendererReceivedEvent extends TerminalOutputEventBase {
 }
 
 interface TerminalOutputXtermWriteEvent extends TerminalOutputEventBase {
+  outputSchedule: TerminalOutputSchedule;
   type: "terminal_output_xterm_write";
 }
 
 interface TerminalOutputPaintedEvent extends TerminalOutputEventBase {
+  outputSchedule: TerminalOutputSchedule;
   type: "terminal_output_painted";
 }
 

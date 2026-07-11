@@ -23,6 +23,14 @@ const inputSamples = collectInputSamples(events, rendererEvents);
 const clockCalibration = calibrateRemoteClock(inputSamples);
 applyRemoteClockCalibration(inputSamples, clockCalibration.offsetMs);
 const outputSamples = collectOutputSamples(events, rendererEvents, clockCalibration.offsetMs);
+const outputStages = [
+  "emissionToMain",
+  "mainToRenderer",
+  "mainToXtermWrite",
+  "rendererToXtermWrite",
+  "xtermWriteToPaint",
+  "emissionToPaint",
+];
 const report = {
   clockCalibration,
   input: {
@@ -39,15 +47,18 @@ const report = {
     ]),
   },
   output: {
-    sampleCount: outputSamples.length,
-    stagesMs: summarizeStages(outputSamples, [
-      "emissionToMain",
-      "mainToRenderer",
-      "mainToXtermWrite",
-      "rendererToXtermWrite",
-      "xtermWriteToPaint",
-      "emissionToPaint",
-    ]),
+    interactive: summarizeOutputSamples(
+      outputSamples.filter((sample) => sample.outputSchedule === "immediate"),
+      outputStages,
+    ),
+    bulk: summarizeOutputSamples(
+      outputSamples.filter((sample) => sample.outputSchedule !== "immediate"),
+      outputStages,
+    ),
+    replay: summarizeOutputSamples(
+      outputSamples.filter((sample) => sample.outputSchedule === "replay"),
+      outputStages,
+    ),
   },
   recordingDir: root,
   runId: manifest.terminalLatencyRunId ?? "",
@@ -158,10 +169,16 @@ function collectMainOutputSamples(events) {
 
 function attachRendererOutputTimes(samples, rendererEvents) {
   for (const event of rendererEvents) {
+    if (event.type === "terminal_output_xterm_write") {
+      assertOutputSchedule(event);
+    }
     const sample = samples.get(event.eventId);
     if (!sample) continue;
     if (event.type === "terminal_output_renderer_received") sample.rendererReceivedAt = event.at;
-    if (event.type === "terminal_output_xterm_write") sample.xtermWriteAt = event.at;
+    if (event.type === "terminal_output_xterm_write") {
+      sample.xtermWriteAt = event.at;
+      sample.outputSchedule = event.outputSchedule;
+    }
     if (event.type === "terminal_output_painted") sample.paintedAt = event.at;
   }
 }
@@ -181,10 +198,19 @@ function toOutputLatencySample(sample, remoteClockOffsetMs) {
       emissionToPaint: times.paintedAt - times.emittedAt + remoteClockOffsetMs,
       mainToXtermWrite: times.xtermWriteAt - times.mainReceivedAt,
       mainToRenderer: times.rendererReceivedAt - times.mainReceivedAt,
+      outputSchedule: sample.outputSchedule,
       rendererToXtermWrite: times.xtermWriteAt - times.rendererReceivedAt,
       xtermWriteToPaint: times.paintedAt - times.xtermWriteAt,
     },
   ];
+}
+
+function assertOutputSchedule(event) {
+  if (!["immediate", "coalesced", "replay"].includes(event.outputSchedule)) {
+    throw new Error(
+      `terminal_output_xterm_write event ${event.eventId ?? "<unknown>"} is missing a valid outputSchedule`,
+    );
+  }
 }
 
 function calibrateRemoteClock(inputSamples) {
@@ -227,6 +253,13 @@ function summarizeStages(samples, stages) {
   return Object.fromEntries(
     stages.map((stage) => [stage, distribution(samples.map((sample) => sample[stage]))]),
   );
+}
+
+function summarizeOutputSamples(samples, stages) {
+  return {
+    sampleCount: samples.length,
+    stagesMs: summarizeStages(samples, stages),
+  };
 }
 
 function distribution(values) {

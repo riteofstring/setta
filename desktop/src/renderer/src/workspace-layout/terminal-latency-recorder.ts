@@ -1,6 +1,6 @@
 import type { TerminalEvent } from "@generated/backend";
 import type { TerminalInputTrace } from "@shared/types";
-import type { TerminalLatencyRendererEvent } from "@shared/recording";
+import type { TerminalLatencyRendererEvent, TerminalOutputSchedule } from "@shared/recording";
 
 const terminalClientIdStorageKey = "setta.terminal-latency.client-id.v1";
 const terminalInputSequenceStoragePrefix = "setta.terminal-latency.input-sequence.v1";
@@ -36,14 +36,24 @@ export function createTerminalInputTrace(sessionId: string, byteCount: number): 
 }
 
 export function recordTerminalOutputStage(
+  stage: "terminal_output_renderer_received",
+  event: TerminalEvent,
+): void;
+export function recordTerminalOutputStage(
+  stage: "terminal_output_painted" | "terminal_output_xterm_write",
+  event: TerminalEvent,
+  outputSchedule: TerminalOutputSchedule,
+): void;
+export function recordTerminalOutputStage(
   stage: TerminalOutputLatencyStage,
   event: TerminalEvent,
+  outputSchedule?: TerminalOutputSchedule,
 ): void {
   const terminal = window.setta?.terminal;
   if (!terminal || event.type !== "terminal.output") {
     return;
   }
-  const record: TerminalLatencyRendererEvent = {
+  const base = {
     at: timestamp(),
     byteCount: event.payload.byteCount,
     clientId: terminalClientId(),
@@ -52,10 +62,27 @@ export function recordTerminalOutputStage(
     runId: terminal.recordingRunId,
     sessionId: event.sessionId,
     transportSequence: event.sequence,
-    type: stage,
     url: window.location?.href ?? "",
   };
+  const record: TerminalLatencyRendererEvent =
+    stage === "terminal_output_renderer_received"
+      ? { ...base, type: stage }
+      : {
+          ...base,
+          outputSchedule: requireOutputSchedule(stage, outputSchedule),
+          type: stage,
+        };
   terminal.recordLatency(record);
+}
+
+function requireOutputSchedule(
+  stage: "terminal_output_painted" | "terminal_output_xterm_write",
+  outputSchedule: TerminalOutputSchedule | undefined,
+): TerminalOutputSchedule {
+  if (!outputSchedule) {
+    throw new Error(`${stage} requires the scheduler's recorded output decision`);
+  }
+  return outputSchedule;
 }
 
 function terminalClientId(): string {
