@@ -213,7 +213,7 @@ function createWindowStub({
     },
     atob: (value: string) => Buffer.from(value, "base64").toString("binary"),
     btoa: (value: string) => Buffer.from(value, "binary").toString("base64"),
-    cancelAnimationFrame: vi.fn(),
+    cancelAnimationFrame: (handle: number) => clearTimeout(handle),
     clearTimeout,
     dispatchEvent: (event: Event) => dispatchWindowEvent(windowListeners, event),
     localStorage,
@@ -226,7 +226,8 @@ function createWindowStub({
     removeEventListener: (type: string, listener: EventListener) => {
       windowListeners.get(type)?.delete(listener);
     },
-    requestAnimationFrame: vi.fn(),
+    requestAnimationFrame: (callback: FrameRequestCallback) =>
+      setTimeout(() => callback(performance.now()), 0) as unknown as number,
     sessionStorage: new MemoryStorage(),
     setTimeout,
     setta: {

@@ -2,9 +2,10 @@
 
 **Date:** 2026-07-10
 
-**Status:** Phase 4 complete. Desktop and web clients share one runtime-scoped,
-ordered duplex terminal stream as protocol 14. The legacy terminal input HTTP
-and terminal event SSE routes have been removed. Phase 5 has not started.
+**Status:** Phase 5 complete. Renderer output preserves user scrollback,
+coalesces sustained output and presentation work by animation frame, and keeps
+interactive output immediate. The identical production workload reduced local
+emission-to-paint p95 from 101 ms to 87 ms. Phase 6 is next.
 
 ## Progress
 
@@ -51,6 +52,14 @@ and terminal event SSE routes have been removed. Phase 5 has not started.
   reconnect, renderer reload, and runtime switching.
 - [x] Remove `/terminals/input` and `/terminals/events`, regenerate protocol 14,
   and verify the production Electron and web paths.
+- [x] Preserve terminal scrollback and follow output only when the viewport was
+  already at the bottom.
+- [x] Coalesce terminal statistics and host dataset presentation to one update
+  per animation frame.
+- [x] Keep interactive output immediate while coalescing sustained and replay
+  output with a one-frame bound.
+- [x] Profile the identical sustained-output, multi-pane workspace workload
+  before and after; record the result in the Phase 5 performance report.
 
 ## Decision
 
