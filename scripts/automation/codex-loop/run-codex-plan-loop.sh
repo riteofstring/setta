@@ -15,9 +15,6 @@ Required:
 Options:
   --commit-prefix TEXT   Commit prefix Codex should use when it changes files.
   --iterations N         Maximum loop iterations. Default: 1000
-  --tracking-file PATH   Optional durable progress tracker, relative to the
-                         repository root. Codex reads it with the plan and
-                         updates it with committed implementation progress.
   --output-dir PATH      Directory for prompts, checklist, logs, and loop runs.
                          Default: mktemp dir under TMPDIR
   --state-dir PATH       Directory for checklist and loop state.
@@ -62,7 +59,6 @@ allow_clean_failures="10"
 progress_log_interval_seconds="120"
 complete_exit_code="42"
 plan_relpath=""
-tracking_relpath=""
 stop_sentinel=""
 loop_name=""
 commit_prefix="codex-plan:"
@@ -207,11 +203,6 @@ while [[ $# -gt 0 ]]; do
       iterations="$2"
       shift 2
       ;;
-    --tracking-file)
-      require_value "$1" "${2:-}"
-      tracking_relpath="$2"
-      shift 2
-      ;;
     --output-dir)
       require_value "$1" "${2:-}"
       output_dir="$2"
@@ -314,16 +305,6 @@ if [[ ! -f "${SOURCE_ROOT_DIR}/${plan_relpath}" ]]; then
   echo "Plan file not found: ${SOURCE_ROOT_DIR}/${plan_relpath}" >&2
   exit 1
 fi
-if [[ -n "${tracking_relpath}" ]]; then
-  if [[ "${tracking_relpath}" == /* ]]; then
-    echo "--tracking-file must be relative to the repository root" >&2
-    exit 1
-  fi
-  if [[ ! -f "${SOURCE_ROOT_DIR}/${tracking_relpath}" ]]; then
-    echo "Tracking file not found: ${SOURCE_ROOT_DIR}/${tracking_relpath}" >&2
-    exit 1
-  fi
-fi
 
 if [[ -z "${output_dir}" ]]; then
   timestamp="$(date '+%Y%m%d-%H%M%S')"
@@ -358,21 +339,6 @@ plan_file="${loop_root_dir}/${plan_relpath}"
 if [[ ! -f "${plan_file}" ]]; then
   echo "Plan file not found after preparing the loop workspace: ${plan_file}" >&2
   exit 1
-fi
-
-tracking_file=""
-tracking_read_line=""
-tracking_rule_line=""
-tracking_checklist_rule_line=""
-if [[ -n "${tracking_relpath}" ]]; then
-  tracking_file="${loop_root_dir}/${tracking_relpath}"
-  if [[ ! -f "${tracking_file}" ]]; then
-    echo "Tracking file not found after preparing the loop workspace: ${tracking_file}" >&2
-    exit 1
-  fi
-  tracking_read_line="- ${tracking_file}"
-  tracking_rule_line="- Keep ${tracking_file} as the durable phase-progress tracker. Update it in the same commit as implementation work that completes, reopens, or materially changes tracked phase status; do not use it as a run diary."
-  tracking_checklist_rule_line="- Keep ${tracking_file} updated as the committed durable phase-progress tracker."
 fi
 
 checklist_file="${state_dir}/checklist.md"
@@ -410,7 +376,6 @@ Keep this file accurate while the loop runs.
 
 Rules:
 - Treat ${plan_file} as the source-of-truth plan.
-${tracking_checklist_rule_line}
 - The active phase is the earliest phase with any unchecked item.
 - Work only on the active phase unless a later change reopens an earlier item.
 - Mark a checklist item \`[x]\` only after fresh code inspection and targeted verification show it is complete.
@@ -437,7 +402,6 @@ Execute ${plan_file} to completion.
 Read first, in this order:
 - ${loop_root_dir}/AGENTS.md
 - ${plan_file}
-${tracking_read_line}
 - \`git log --oneline --decorate -n 20\`
 - ${checklist_file}
 - ${audit_file}
@@ -450,7 +414,6 @@ Execution rules for every iteration:
 - Do not hand-edit generated files.
 - If Go-owned contracts or generated TypeScript surfaces change, regenerate affected outputs before cleanup.
 - Run focused verification for the behavior you changed.
-${tracking_rule_line}
 - Before every commit, run the repository-required cleanup and quality checks from the plan or AGENTS.md.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`${commit_prefix}\`.
 - If you make no repo changes, leave the repo clean and advance ${checklist_file} and/or ${audit_file} meaningfully for the next audited step.
@@ -524,9 +487,6 @@ if [[ ${#combined_codex_extra_args[@]} -gt 0 ]]; then
 fi
 
 echo "Plan: ${plan_file}"
-if [[ -n "${tracking_file}" ]]; then
-  echo "Tracking file: ${tracking_file}"
-fi
 echo "Checklist: ${checklist_file}"
 echo "Architecture audit file: ${audit_file}"
 echo "Execution mode: ${execution_mode}"

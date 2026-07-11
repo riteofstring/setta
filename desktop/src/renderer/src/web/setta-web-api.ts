@@ -3,7 +3,9 @@ import {
   backendProtocolVersion,
   createBackendClient,
   decodeChatEvent,
+  decodeEasyRunEvent,
   decodeSemanticGraphChangeEvent,
+  decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
   decodeWorkflowEvent,
   type BackendClient,
@@ -20,25 +22,29 @@ import type {
 import {
   detectWebPlatform,
   errorMessage,
-  sameOriginBaseURL,
   sleepWithAbort,
   transparentSVGDataURL,
   webDeviceDisplayName,
   webRuntimeVersions,
 } from "./setta-web-api-utils";
+import { steerEasyRunForWeb } from "./easy-run-web-api";
 import { subscribeForWebPush } from "./setta-web-push";
-import {
-  clearStoredDeviceSession,
-  loadStoredDeviceSession,
-  saveStoredDeviceSession,
-} from "./web-device-session";
-import { createWebTerminalStream, type WebTerminalStream } from "./web-terminal-stream";
+import { createSpeechWebAPI } from "./speech-web-api";
 
+const webDeviceStorageKey = "setta.web.device-session.v1";
 const reconnectDelayMs = 500;
+
+interface StoredWebDeviceSession {
+  deviceId: string;
+  deviceToken: string;
+  pairedAt: string;
+  protocolVersion: number;
+  runtimeId: string;
+}
 
 interface ParsedWebPairingURL {
   pairingToken: string;
-  runtimeId: string | null;
+  runtimeId: string;
 }
 
 interface StreamCursor {
@@ -78,13 +84,11 @@ export function installWebSettaAPIIfNeeded(): void {
 
 export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): SettaAPI {
   const baseURL = sameOriginBaseURL();
-  const terminalRecordingRunId = `terminal-latency-web-${crypto.randomUUID()}`;
   const rawFetch = options.fetchImpl ?? fetch.bind(window);
   const connectionListeners = new Set<(snapshot: RuntimeRegistrySnapshot) => void>();
   const processStatusListeners = new Set<(status: BackendProcessStatus) => void>();
   const eventStreamStatusListeners = new Set<(status: BackendEventStreamStatus) => void>();
   const eventStreams = new Set<WebEventStreamRegistration>();
-  let terminalStream: WebTerminalStream | null = null;
 
   const api: SettaAPI = {
     app: {
@@ -260,6 +264,22 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         requireClient().steerChatMessage({ conversationId, input, workspaceId }),
       submitApproval: (input) => requireClient().submitApproval(input),
     },
+    easyRun: {
+      onEvent: (listener) =>
+        subscribeWebBackendEventStream({
+          baseURL,
+          cursorForEvent: cursorFromStreamedEvent,
+          decode: decodeEasyRunEvent,
+          endpoint: backendEndpoints.EasyRunEventStream,
+          fetchImpl: rawFetch,
+          sendEvent: listener,
+          streamName: "easy-run event stream",
+        }),
+      snapshot: (workspaceId) => requireClient().readEasyRunSnapshot({ workspaceId }),
+      start: (request) => requireClient().startEasyRun(request),
+      steer: (request) => steerEasyRunForWeb(requireClient(), request),
+      stop: (request) => requireClient().stopEasyRun(request),
+    },
     codexAccount: {
       cancelLogin: (request) => requireClient().cancelCodexLogin(request),
       logout: (request) => requireClient().logoutCodexAccount(request),
@@ -268,11 +288,10 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       startLogin: (request) => requireClient().startCodexLogin(request),
     },
     runtimes: {
-      addExistingMachineOverSSH: () => Promise.reject(new Error("SSH setup is desktop-only.")),
       addByPairingUrl: async (pairingUrl) => {
         const parsed = parseWebPairingURL(pairingUrl);
         const info = await publicClient().runtimeInfo();
-        if (parsed.runtimeId !== null && info.runtimeId !== parsed.runtimeId) {
+        if (info.runtimeId !== parsed.runtimeId) {
           throw new Error(
             `pairing URL runtime_id ${parsed.runtimeId} does not match this runtime ${info.runtimeId}`,
           );
@@ -299,7 +318,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         await subscribeForWebPush(info, requireClient(), true);
         return snapshot;
       },
-      createDevicePairing: () => requireClient().createDevicePairing({ runtimeBaseUrl: baseURL }),
       current: async () => {
         const snapshot = await runtimeSnapshot("loaded current web runtime");
         emitConnectionSnapshot(snapshot);
@@ -318,7 +336,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       remove: async (runtimeId) => {
         const stored = loadStoredDeviceSession();
         if (stored && stored.runtimeId === runtimeId) {
-          clearStoredDeviceSession();
+          localStorage.removeItem(webDeviceStorageKey);
           stopActiveEventStreams();
         }
         const snapshot = await runtimeSnapshot("removed web runtime credentials");
@@ -327,6 +345,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       },
       switch: async () => runtimeSnapshot("same-origin web runtime is already active"),
     },
+    speech: createSpeechWebAPI(requireClient),
     semanticGraph: {
       acceptCartographerPatch: (request) => requireClient().acceptCartographerPatch(request),
       attachChatMessage: (request) => requireClient().attachSemanticNodeToChatMessage(request),
@@ -397,21 +416,18 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         }),
       createProfile: (request) => requireClient().createTerminalProfile(request),
       deleteProfile: (request) => requireClient().deleteTerminalProfile(request),
-      input: (input) => {
-        requireTerminalStream().input(input);
-      },
+      input: (input) => requireClient().terminalInput(input),
       listProfiles: () => requireClient().listTerminalProfiles(),
-      onEvent: (listener) => {
-        const stream = requireTerminalStream();
-        const unsubscribe = stream.onEvent(listener);
-        stream.start();
-        return unsubscribe;
-      },
-      onStatus: (listener) => {
-        return requireTerminalStream().onStatus(listener);
-      },
-      recordLatency: () => {},
-      recordingRunId: terminalRecordingRunId,
+      onEvent: (listener) =>
+        subscribeWebBackendEventStream({
+          baseURL,
+          cursorForEvent: cursorFromStreamedEvent,
+          decode: decodeTerminalEvent,
+          endpoint: backendEndpoints.TerminalEventStream,
+          fetchImpl: rawFetch,
+          sendEvent: listener,
+          streamName: "terminal event stream",
+        }),
       resize: (request) => requireClient().resizeTerminal(request),
       selectDefaultProfile: (request) => requireClient().selectDefaultTerminalProfile(request),
       updateProfile: (request) => requireClient().updateTerminalProfile(request),
@@ -526,25 +542,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     return createBackendClient(baseURL, rawFetch);
   }
 
-  function requireTerminalStream(): WebTerminalStream {
-    if (terminalStream) {
-      return terminalStream;
-    }
-    const stored = loadStoredDeviceSession();
-    if (!stored) {
-      throw new Error("Pair this browser with the runtime before opening the terminal stream.");
-    }
-    terminalStream = createWebTerminalStream({
-      baseURL,
-      createTicket: (clientStreamId) =>
-        requireClient().createTerminalStreamTicket({ clientStreamId }),
-      deviceId: stored.deviceId,
-      runtimeId: stored.runtimeId,
-    });
-    terminalStream.start();
-    return terminalStream;
-  }
-
   function requireClient(): BackendClient {
     const stored = loadStoredDeviceSession();
     if (!stored) {
@@ -556,7 +553,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         rawFetch,
         () => stored.deviceToken,
         () => {
-          clearStoredDeviceSession();
+          localStorage.removeItem(webDeviceStorageKey);
           stopActiveEventStreams();
           void runtimeSnapshot("runtime access was revoked").then(emitConnectionSnapshot);
         },
@@ -575,7 +572,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     } catch (error) {
       return {
         activeRuntimeId: null,
-        cloudResources: [],
         connection: {
           message: errorMessage(error),
           protocolVersion: null,
@@ -610,7 +606,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     try {
       await requireClient().listDevices({});
     } catch (error) {
-      clearStoredDeviceSession();
+      localStorage.removeItem(webDeviceStorageKey);
       stopActiveEventStreams();
       return runtimeSnapshotForInfo(info, "revoked", errorMessage(error), now);
     }
@@ -626,7 +622,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
   ): RuntimeRegistrySnapshot {
     return {
       activeRuntimeId: info.runtimeId,
-      cloudResources: [],
       connection: {
         message,
         protocolVersion: info.protocolVersion,
@@ -704,8 +699,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     for (const registration of eventStreams) {
       registration.stopActive();
     }
-    terminalStream?.stop();
-    terminalStream = null;
   }
 
   return api;
@@ -890,20 +883,12 @@ function parseWebPairingURL(rawURL: string): ParsedWebPairingURL {
   } catch (error) {
     throw new Error(errorMessage(error), { cause: error });
   }
-  if (parsed.protocol === "setta:" && parsed.hostname === "pair") {
-    return {
-      pairingToken: requiredPairingParam(parsed, "tok"),
-      runtimeId: requiredPairingParam(parsed, "rt"),
-    };
-  }
-  const fragment = new URLSearchParams(parsed.hash.replace(/^#/, ""));
-  const pairingToken = fragment.get("pair");
-  if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") || !pairingToken) {
-    throw new Error("pairing URL must be setta://pair or include #pair=<token>");
+  if (parsed.protocol !== "setta:" || parsed.hostname !== "pair") {
+    throw new Error("pairing URL must start with setta://pair");
   }
   return {
-    pairingToken,
-    runtimeId: null,
+    pairingToken: requiredPairingParam(parsed, "tok"),
+    runtimeId: requiredPairingParam(parsed, "rt"),
   };
 }
 
@@ -913,6 +898,48 @@ function requiredPairingParam(parsed: URL, name: string): string {
     throw new Error(`pairing URL is missing ${name}`);
   }
   return value;
+}
+
+function sameOriginBaseURL(): string {
+  const url = new URL(window.location.origin);
+  url.pathname = "/";
+  return url.toString();
+}
+
+function saveStoredDeviceSession(session: StoredWebDeviceSession) {
+  localStorage.setItem(webDeviceStorageKey, JSON.stringify(session));
+}
+
+function loadStoredDeviceSession(): StoredWebDeviceSession | null {
+  const raw = localStorage.getItem(webDeviceStorageKey);
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isStoredWebDeviceSession(parsed)) {
+      localStorage.removeItem(webDeviceStorageKey);
+      return null;
+    }
+    return parsed;
+  } catch {
+    localStorage.removeItem(webDeviceStorageKey);
+    return null;
+  }
+}
+
+function isStoredWebDeviceSession(value: unknown): value is StoredWebDeviceSession {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const record = value as Partial<Record<keyof StoredWebDeviceSession, unknown>>;
+  return (
+    typeof record.deviceId === "string" &&
+    typeof record.deviceToken === "string" &&
+    typeof record.pairedAt === "string" &&
+    typeof record.protocolVersion === "number" &&
+    typeof record.runtimeId === "string"
+  );
 }
 
 function installWebPWA(api: SettaAPI) {
@@ -945,15 +972,6 @@ function installWebPWA(api: SettaAPI) {
 
 async function completePairingFromLocation(api: SettaAPI) {
   const url = new URL(window.location.href);
-  const fragment = new URLSearchParams(url.hash.replace(/^#/, ""));
-  const fragmentPairingToken = fragment.get("pair");
-  if (fragmentPairingToken) {
-    await api.runtimes.addByPairingUrl(url.toString());
-    fragment.delete("pair");
-    url.hash = fragment.toString();
-    window.history.replaceState({}, "", url);
-    return;
-  }
   const pairingUrl = url.searchParams.get("pair");
   if (!pairingUrl) {
     await applyNotificationNavigation(url, api);
