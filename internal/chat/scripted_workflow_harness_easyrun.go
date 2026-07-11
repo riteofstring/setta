@@ -3,8 +3,13 @@ package chat
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
+
+const scriptedEasyRunPhase5LongRequestSteer = "finish easy run phase5 long request"
+
+var scriptedEasyRunPhase5LongRequestPrompt = "easy run phase5 long request workflow " + strings.Repeat("unbrokenlayouttoken", 36)
 
 func scriptedEasyRunPhase2CompleteTurn(_ *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Easy run started. "); err != nil {
@@ -118,6 +123,27 @@ func scriptedEasyRunPhase5ArtifactCapTurn(harness *ScriptedWorkflowHarness, ctx 
 		"artifact_cap_call_overflow",
 		[]byte(`{"kind":"markdown","title":"Overflow Artifact","markdown":"This card must not be persisted."}`),
 	)
+}
+
+func scriptedEasyRunPhase5LongRequestTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Holding the long request layout open. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	steer, err := harness.waitForSteer(ctx, request.Run.ID)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	text := chatInputText(steer.Input)
+	if text != scriptedEasyRunPhase5LongRequestSteer {
+		return TurnCompletion{
+			ErrorMessage: fmt.Sprintf("unexpected long-request steering text: %s", text),
+			Outcome:      TurnOutcomeFailed,
+		}, nil
+	}
+	if err := sink.UserMessageCommitted(text); err != nil {
+		return TurnCompletion{}, err
+	}
+	return scriptedReply(sink, request.Run.ID, "Easy run phase 5 long request completed.")
 }
 
 func (harness *ScriptedWorkflowHarness) callEasyRunArtifactTool(ctx context.Context, request TurnRequest, callID string, arguments []byte) error {

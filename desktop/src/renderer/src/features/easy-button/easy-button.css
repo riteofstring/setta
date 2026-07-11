@@ -291,6 +291,8 @@
   justify-content: center;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
+  padding-block: 10px;
 }
 
 .easy-button-control {
@@ -433,11 +435,16 @@
 .easy-button-run-copy {
   align-items: center;
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: 8px;
+  max-height: min(32vh, 220px);
   max-width: min(420px, 100%);
   min-height: 64px;
+  min-width: 0;
+  overflow: hidden;
   text-align: center;
+  width: 100%;
 }
 
 .easy-button-request-text,
@@ -452,14 +459,25 @@
 
 .easy-button-request-text {
   color: color-mix(in oklch, var(--foreground) 72%, var(--easy-button-muted));
+  display: -webkit-box;
+  max-height: calc(1.35em * 4);
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
 }
 
 .easy-button-summary {
   color: var(--easy-button-muted);
+  max-height: min(14vh, 112px);
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
 }
 
 .easy-button-error {
   color: color-mix(in oklch, var(--destructive) 80%, var(--foreground));
+  max-height: min(12vh, 96px);
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
 }
 
 .easy-button-narrator-status {

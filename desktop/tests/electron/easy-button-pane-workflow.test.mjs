@@ -32,8 +32,12 @@ import { driverCallExpression } from "./cdp-client.mjs";
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "easy-button-pane";
 const workflowTimeoutMs = 25_000;
+const desktopViewport = { deviceScaleFactor: 1, height: 900, mobile: false, width: 1440 };
+const mobileViewport = { deviceScaleFactor: 1, height: 700, mobile: false, width: 390 };
 const restartRecoveryPrompt = "cancel active workflow";
 const restartRecoveryError = "run interrupted by backend restart";
+const longRequestText = `easy run phase5 long request workflow ${"unbrokenlayouttoken".repeat(36)}`;
+const longRequestSteerText = "finish easy run phase5 long request";
 
 if (options.help) {
   console.log(
@@ -166,6 +170,8 @@ try {
     join(artifactDir, "easy-button-artifact-cap-overflow.png"),
   );
 
+  const longRequestLayout = await exerciseLongRequestLayout(context.client, artifactDir);
+
   await submitEasyButtonRequest(context.client, "easy run phase4 narrator workflow");
   const narratorTerminal = await waitForEasyButtonTerminalWithHighlights(
     context.client,
@@ -226,12 +232,17 @@ try {
   await stopElectronCdpContext(context);
   context = null;
   const restartRecovery = await runEasyButtonRestartRecovery(join(artifactDir, "restart-recovery"));
+  const mobileLongRequestLayout = await runEasyButtonMobileLongRequest(
+    join(artifactDir, "mobile-long-request"),
+  );
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     completed,
     focusedAfterCenterClick,
     frozen,
+    longRequestLayout,
+    mobileLongRequestLayout,
     restartRecovery,
     restoredTerminal,
     restored,
@@ -332,6 +343,77 @@ async function runEasyButtonRestartRecovery(recordingRoot) {
     await stopExternalBackend(secondBackend);
     await rm(recoveryFixture.tempRoot, { force: true, recursive: true });
   }
+}
+
+async function runEasyButtonMobileLongRequest(recordingRoot) {
+  const mobileFixture = await createElectronFixture("easy-button-mobile-long-request");
+  let mobileContext = null;
+  try {
+    mobileContext = await launchElectronCdpContext({
+      artifactDir: recordingRoot,
+      extraEnv: {
+        SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+      },
+      fixture: mobileFixture,
+      visible: options.visible,
+    });
+    await mobileContext.client.call("Emulation.setDeviceMetricsOverride", desktopViewport);
+    await waitForSelector(mobileContext.client, '[data-testid="workspace-layout-area"]');
+    await mobileContext.client.installDriver();
+    await ensureWorkspaceOpen(mobileContext.client);
+
+    await mobileContext.client.call("Emulation.setDeviceMetricsOverride", mobileViewport);
+    await waitForCompactLayout(mobileContext.client);
+    await openEasyButtonFromShortcut(mobileContext.client);
+    const opened = await waitForEasyButtonPane(mobileContext.client);
+    assertFullWidthColumn(opened);
+    const openedContained = await waitForEasyButtonStageContained(mobileContext.client);
+    assertIdleVisual(openedContained);
+
+    await submitEasyButtonRequest(mobileContext.client, longRequestText);
+    await waitForEasyButtonWorking(mobileContext.client, longRequestText);
+    const working = await waitForEasyButtonStageContained(mobileContext.client);
+    assertWorkingVisual(working, longRequestText);
+    assertLongRequestLayout(working, "mobile working long request");
+    await captureScreenshot(
+      mobileContext.client,
+      join(recordingRoot, "easy-button-mobile-long-request-working.png"),
+    );
+
+    await submitEasyButtonRequest(mobileContext.client, longRequestSteerText);
+    await waitForEasyButtonTerminal(mobileContext.client, longRequestText, "Done in");
+    const terminalContained = await waitForEasyButtonStageContained(mobileContext.client);
+    assertTerminalVisual(terminalContained, longRequestText, "Done in", {
+      expectedNarration: "The Easy Button run finished.",
+    });
+    assertLongRequestLayout(terminalContained, "mobile terminal long request");
+    await captureScreenshot(
+      mobileContext.client,
+      join(recordingRoot, "easy-button-mobile-long-request-complete.png"),
+    );
+    return { opened: openedContained, terminal: terminalContained, working };
+  } finally {
+    await stopElectronCdpContext(mobileContext);
+    await rm(mobileFixture.tempRoot, { force: true, recursive: true });
+  }
+}
+
+async function waitForCompactLayout(client) {
+  return waitForState(
+    client,
+    `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-compact-layout") ?? "")()`,
+    (value) => value === "true",
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonStageContained(client) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) => state.exists && rectContains(state.stageRect, state.rect),
+    workflowTimeoutMs,
+  );
 }
 
 async function assertEasyRunResyncForwarded(recordingDir) {
@@ -438,6 +520,24 @@ async function assertActiveRunStartRejected(client, requestText, activeRequestTe
   const state = await waitForEasyButtonWorking(client, activeRequestText);
   assertWorkingVisual(state, activeRequestText);
   return result;
+}
+
+async function exerciseLongRequestLayout(client, artifactDir) {
+  await client.call("Emulation.setDeviceMetricsOverride", desktopViewport);
+  await submitEasyButtonRequest(client, longRequestText);
+  const working = await waitForEasyButtonWorking(client, longRequestText);
+  assertWorkingVisual(working, longRequestText);
+  assertLongRequestLayout(working, "desktop working long request");
+  await captureScreenshot(client, join(artifactDir, "easy-button-long-request-working.png"));
+
+  await submitEasyButtonRequest(client, longRequestSteerText);
+  const terminal = await waitForEasyButtonTerminal(client, longRequestText, "Done in");
+  assertTerminalVisual(terminal, longRequestText, "Done in", {
+    expectedNarration: "The Easy Button run finished.",
+  });
+  assertLongRequestLayout(terminal, "desktop terminal long request");
+  await captureScreenshot(client, join(artifactDir, "easy-button-long-request-complete.png"));
+  return { terminal, working };
 }
 
 async function forceEasyButtonFrozenAttribute(client) {
@@ -586,6 +686,88 @@ function assertArtifactCapOverflowVisual(state, requestText) {
   ) {
     throw new Error(`easy-button artifact cap cards were wrong: ${JSON.stringify(state)}`);
   }
+}
+
+function assertLongRequestLayout(state, label) {
+  assertRequestTextConstrained(state, label);
+  assertTextHasNoHorizontalOverflow(state.requestTextMetrics, label, "request text");
+  assertRectContains(state.stageRect, state.rect, label, "pane host");
+  assertRectContains(state.centerRect, state.runCopyRect, label, "run copy");
+  assertNoRectOverlap(state.buttonRect, state.runCopyRect, label, "control", "run copy");
+  assertNoRectOverlap(state.runCopyRect, state.inputRect, label, "run copy", "input");
+  if (state.stopButtonVisible) {
+    assertNoRectOverlap(state.runCopyRect, state.stopButtonRect, label, "run copy", "stop");
+  }
+  if (state.summaryText !== "") {
+    assertTextHasNoHorizontalOverflow(state.summaryTextMetrics, label, "summary");
+  }
+}
+
+function assertRequestTextConstrained(state, label) {
+  const metrics = state.requestTextMetrics;
+  if (!metrics.exists || metrics.webkitLineClamp !== "4" || metrics.overflowWrap !== "anywhere") {
+    throw new Error(
+      `easy-button ${label} request text was not constrained: ${JSON.stringify(state)}`,
+    );
+  }
+  const maxClampedHeight = metrics.lineHeightPx * 4 + 4;
+  if (metrics.clientHeight > maxClampedHeight || metrics.scrollHeight <= metrics.clientHeight) {
+    throw new Error(`easy-button ${label} request text did not clamp: ${JSON.stringify(state)}`);
+  }
+}
+
+function assertTextHasNoHorizontalOverflow(metrics, label, name) {
+  if (metrics.exists && metrics.scrollWidth > metrics.clientWidth + 2) {
+    throw new Error(
+      `easy-button ${label} ${name} overflowed horizontally: ${JSON.stringify(metrics)}`,
+    );
+  }
+}
+
+function assertRectContains(container, child, label, childName) {
+  if (!rectHasArea(container) || !rectHasArea(child) || !rectContains(container, child)) {
+    throw new Error(
+      `easy-button ${label} ${childName} escaped its container: ${JSON.stringify({ child, container })}`,
+    );
+  }
+}
+
+function assertNoRectOverlap(first, second, label, firstName, secondName) {
+  if (rectHasArea(first) && rectHasArea(second) && rectsOverlap(first, second)) {
+    throw new Error(
+      `easy-button ${label} ${firstName} overlapped ${secondName}: ${JSON.stringify({ first, second })}`,
+    );
+  }
+}
+
+function rectHasArea(rect) {
+  return rect.width > 0 && rect.height > 0;
+}
+
+function rectContains(container, child) {
+  return (
+    child.left >= container.left - 2 &&
+    child.top >= container.top - 2 &&
+    rectRight(child) <= rectRight(container) + 2 &&
+    rectBottom(child) <= rectBottom(container) + 2
+  );
+}
+
+function rectsOverlap(first, second) {
+  return (
+    first.left < rectRight(second) &&
+    rectRight(first) > second.left &&
+    first.top < rectBottom(second) &&
+    rectBottom(first) > second.top
+  );
+}
+
+function rectRight(rect) {
+  return rect.left + rect.width;
+}
+
+function rectBottom(rect) {
+  return rect.top + rect.height;
 }
 
 function assertNarratorTerminalVisual(state, requestText) {

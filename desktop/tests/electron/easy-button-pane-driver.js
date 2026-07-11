@@ -106,6 +106,8 @@
     const stopButton = host.querySelector('[data-testid="easy-button-stop-button"]');
     const controlRing = host.querySelector(".easy-button-control-ring");
     const spinner = host.querySelector(".easy-button-spinner");
+    const center = host.querySelector(".easy-button-center");
+    const runCopy = host.querySelector(".easy-button-run-copy");
     const buttonRect = elementRectOrZero(button);
     return {
       agentChipText: elementText(agentChip),
@@ -114,20 +116,28 @@
       buttonAnimationPlayState: buttonPseudoStyleValue(button, "animationPlayState"),
       buttonRect: rectSnapshot(buttonRect),
       buttonVisible: buttonVisible(buttonRect),
+      centerRect: rectSnapshot(elementRectOrZero(center)),
       controlRingAnimationName: elementStyleValue(controlRing, "animationName"),
       controlRingAnimationPlayState: elementStyleValue(controlRing, "animationPlayState"),
       inputFocused: input instanceof HTMLInputElement && document.activeElement === input,
       inputDisabled: inputDisabled(input),
+      inputRect: rectSnapshot(elementRectOrZero(input)),
       inputValue: inputValue(input),
       narratorStatusText: elementText(narratorStatus),
       requestText: elementText(requestText),
+      requestTextMetrics: textBoxMetrics(requestText),
+      requestTextRect: rectSnapshot(elementRectOrZero(requestText)),
+      runCopyRect: rectSnapshot(elementRectOrZero(runCopy)),
       spinnerAnimationName: elementStyleValue(spinner, "animationName"),
       spinnerAnimationPlayState: elementStyleValue(spinner, "animationPlayState"),
       stopButtonAriaLabel: buttonAriaLabel(stopButton),
       stopButtonDisabled: buttonDisabled(stopButton),
+      stopButtonRect: rectSnapshot(elementRectOrZero(stopButton)),
       stopButtonText: elementText(stopButton),
       stopButtonVisible: stopButton instanceof HTMLButtonElement,
       summaryText: elementText(summary),
+      summaryTextMetrics: textBoxMetrics(summary),
+      summaryTextRect: rectSnapshot(elementRectOrZero(summary)),
     };
   }
 
@@ -182,6 +192,33 @@
       return "";
     }
     return input.value;
+  }
+
+  function textBoxMetrics(element) {
+    if (!(element instanceof HTMLElement)) {
+      return {
+        clientHeight: 0,
+        clientWidth: 0,
+        exists: false,
+        lineHeightPx: 0,
+        overflowWrap: "",
+        scrollHeight: 0,
+        scrollWidth: 0,
+        webkitLineClamp: "",
+      };
+    }
+    const style = getComputedStyle(element);
+    const lineHeight = Number.parseFloat(style.lineHeight);
+    return {
+      clientHeight: element.clientHeight,
+      clientWidth: element.clientWidth,
+      exists: true,
+      lineHeightPx: Number.isFinite(lineHeight) ? lineHeight : 0,
+      overflowWrap: style.overflowWrap,
+      scrollHeight: element.scrollHeight,
+      scrollWidth: element.scrollWidth,
+      webkitLineClamp: style.webkitLineClamp || style.getPropertyValue("-webkit-line-clamp") || "",
+    };
   }
 
   function easyButtonRailText(host) {
