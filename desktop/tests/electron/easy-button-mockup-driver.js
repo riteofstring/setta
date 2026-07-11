@@ -35,7 +35,30 @@
     if (state in captureStates) {
       enterCaptureState(captureStates[state], fixture);
     }
-    return { ...paneState(), stateKey: state };
+    const actual = paneState();
+    const expectedCapture = state in captureStates ? captureStates[state] : "off";
+    assertStateAxes(state, actual, baseState, expectedCapture);
+    assertFixtureCopy(state, actual, fixture);
+    return { ...actual, stateKey: state };
+  }
+
+  function assertStateAxes(state, actual, baseState, expectedCapture) {
+    if (actual.dataState !== baseState || actual.capture !== expectedCapture) {
+      throw new Error(
+        `easy-button mockup did not enter ${state}: ${JSON.stringify({ actual, baseState, expectedCapture })}`,
+      );
+    }
+  }
+
+  function assertFixtureCopy(state, actual, fixture) {
+    if (
+      (typeof fixture.captureText === "string" && actual.captureText !== fixture.captureText) ||
+      (typeof fixture.captureError === "string" && actual.captureError !== fixture.captureError)
+    ) {
+      throw new Error(
+        `easy-button mockup did not apply the ${state} fixture: ${JSON.stringify({ actual, fixture })}`,
+      );
+    }
   }
 
   function clickControl(axis, value) {
@@ -70,6 +93,8 @@
     return {
       artifacts: pane.querySelectorAll(".artifact").length,
       capture: pane.dataset.capture ?? "",
+      captureError: document.getElementById("captureError")?.textContent ?? "",
+      captureText: document.getElementById("captureLine")?.textContent ?? "",
       dataState: pane.dataset.state ?? "",
       highlights: pane.querySelectorAll(".hl").length,
     };

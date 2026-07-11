@@ -120,7 +120,8 @@ async function runMockupComparison(artifactDir) {
   const output = [];
   child.stdout.on("data", (data) => output.push(data.toString()));
   child.stderr.on("data", (data) => output.push(data.toString()));
-  const { code, signal } = await new Promise((resolvePromise) => {
+  const { code, signal } = await new Promise((resolvePromise, reject) => {
+    child.once("error", reject);
     child.once("exit", (exitCode, exitSignal) =>
       resolvePromise({ code: exitCode, signal: exitSignal }),
     );

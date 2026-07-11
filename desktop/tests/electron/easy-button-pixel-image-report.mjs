@@ -16,10 +16,18 @@ export async function writeEasyButtonImageDiffReport({ mockup, outDir, pairs, pr
   for (const pair of pairs) {
     const productionState = requireState(production, pair.production);
     const mockupState = requireState(mockup, pair.mockup);
-    const crops = productionState.crops.filter((crop) => mockupState.crops.includes(crop));
-    const times = productionState.frames
-      .map((frame) => frame.timeMs)
-      .filter((timeMs) => mockupState.frames.some((frame) => frame.timeMs === timeMs));
+    const crops = requireCoveredValues({
+      kind: "crop",
+      mockup: mockupState.crops,
+      pair,
+      production: productionState.crops,
+    });
+    const times = requireCoveredValues({
+      kind: "frame",
+      mockup: mockupState.frames.map((frame) => frame.timeMs),
+      pair,
+      production: productionState.frames.map((frame) => frame.timeMs),
+    });
     for (const timeMs of times) {
       for (const crop of crops) {
         rows.push(await compareCapturedCrop({ crop, mockup: pair.mockup, outDir, pair, timeMs }));
@@ -46,7 +54,7 @@ async function compareCapturedCrop({ crop, mockup, outDir, pair, timeMs }) {
   const diff = compareImages(productionImage, mockupImage);
   const prefix = `${pair.production}-vs-${mockup}-t${timeMs}-${crop}`;
   const artifacts = { heatmap: "", sideBySide: "" };
-  if (diff.changedPixels > 0) {
+  if (!diff.dimensionMatch || diff.changedPixels > 0) {
     artifacts.heatmap = join("image-diffs", `${prefix}-heatmap.png`);
     artifacts.sideBySide = join("image-diffs", `${prefix}-side-by-side.png`);
     await Promise.all([
@@ -209,9 +217,30 @@ function requireState(metrics, state) {
   return captured;
 }
 
+function requireCoveredValues({ kind, mockup, pair, production }) {
+  if (production.length === 0) {
+    throw new Error(
+      `easy-button ${pair.production} vs ${pair.mockup} image report has no production ${kind}s`,
+    );
+  }
+  const duplicates = production.filter((value, index) => production.indexOf(value) !== index);
+  if (duplicates.length > 0) {
+    throw new Error(
+      `easy-button ${pair.production} vs ${pair.mockup} image report repeats production ${kind}s: ${duplicates.join(", ")}`,
+    );
+  }
+  const missing = production.filter((value) => !mockup.includes(value));
+  if (missing.length > 0) {
+    throw new Error(
+      `easy-button ${pair.production} vs ${pair.mockup} image report is missing mockup ${kind}s: ${missing.join(", ")}`,
+    );
+  }
+  return production;
+}
+
 function summarizeRows(rows) {
   return {
-    changedCropCount: rows.filter((row) => row.changedPixels > 0).length,
+    changedCropCount: rows.filter((row) => !row.dimensionMatch || row.changedPixels > 0).length,
     comparedCropCount: rows.length,
     dimensionMismatchCount: rows.filter((row) => !row.dimensionMatch).length,
   };

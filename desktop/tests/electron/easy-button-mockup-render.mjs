@@ -81,8 +81,8 @@ const captureStates = [
 // leaves a headless process behind that a user cannot see or close.
 const watchdogMs = 120_000;
 
-app.disableHardwareAcceleration();
-
+// Keep Electron's default compositor configuration so mockup and production
+// pixels come from the same acceleration path.
 process.on("uncaughtException", (error) => exitWithError(error));
 process.on("unhandledRejection", (error) => exitWithError(error));
 
@@ -175,6 +175,9 @@ async function captureMockupState(webContents, outDir, { crops, state }) {
 }
 
 function mockupFixture(state) {
+  if (state === "idle" || !pixelMatchSpeechCapturePlan.some((step) => step.state === state)) {
+    return {};
+  }
   return {
     captureError: state === "captureFailure" ? synchronizedCaptureFailureText : "",
     captureText: state === "committing" ? synchronizedCaptureText : "",

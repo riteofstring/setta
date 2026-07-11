@@ -4113,6 +4113,56 @@ focused gate to fail. Named animation-phase capture also remains in item 4;
 item 5 then owns repeat-run noise measurement and the adjacent narrow component
 tolerances. No external implementation blocker was found.
 
+### 2026-07-10 — Phase 5 synchronized capture-state image-diff audit complete
+
+Audited commit `52502837d` against Phase 5 item 4, the complete speech plan,
+`AGENTS.md`, its parent, the clean starting worktree, the generated-artifact
+state, and the retained production/mockup recordings. The bounded slice really
+does drive the five microphone states through the production Electron, preload,
+authenticated HTTP, runtime speech service, and browser/provider fixtures; its
+mockup companion uses the same state/crop plan and fixture copy, and its exact
+BGRA comparator emits side-by-side and heatmap artifacts without introducing a
+golden-image set or tolerance.
+
+The audit fixed four practical visual-gate gaps:
+
+- the mockup renderer no longer disables hardware acceleration while production
+  uses Electron's default compositor, so both sides now use the same Chromium
+  acceleration path before any later noise baseline or tolerance is chosen;
+- the mockup driver now verifies the actual run axis, capture axis, transcript,
+  and visible failure copy after every requested state instead of accepting its
+  own requested `stateKey` as proof that the interactive prototype transitioned;
+- the image report now requires every production crop and named frame to have a
+  mockup counterpart rather than silently intersecting the two lists, and it
+  rejects empty or duplicate production comparison inputs;
+- dimension-only mismatches now produce failure artifacts and count as changed
+  crops, while a missing Electron executable fails promptly instead of leaving
+  the comparison waiting for an exit event that may never arrive.
+
+Audit verification completed:
+
+- focused Prettier and ESLint checks passed for the four changed harness files;
+- after the strengthened state assertion exposed and narrowed a hidden
+  non-capture error-text assumption, the complete deterministic Easy Button
+  workflow passed at
+  `desktop/.recordings/easy-button-speech-phase5-visual-states-diff-audit-final-20260710-r2`;
+- the automatic companion again produced 72 required crop/frame comparisons,
+  72 side-by-side images, and 72 heatmaps with its exact-comparator self-test
+  passing. The committing production/mockup control comparison was inspected,
+  the renderer console was empty, and fresh artifacts contained no speech key,
+  client-secret, authorization, SDP, or audio/base64 markers;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  audit source, tests, and this progress entry were final.
+
+No Go-owned contract, generated TypeScript, checked-in PWA source, dependency,
+manifest, module, package-manager, toolchain, or supply-chain input changed, so
+contract regeneration, a PWA rebuild, and supply-chain verification were not
+required. Phase 5 item 4 remains incomplete and no next visual slice was
+started. The next iteration still owns the unexplained still-state deltas, the
+remaining curated states, deliberate-difference failure proof, and named
+animation phases before item 5 can baseline repeat-run noise and set narrow
+adjacent tolerances.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
