@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-2 and Phase 3 item 1 complete
+**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-2 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2354,6 +2354,74 @@ Verification completed for this compatibility update:
 The live OpenAI speech workflow remains a later acceptance-phase item, so the
 available local `.env` Platform key has not yet been used as live speech proof.
 Phase 3 item 2 remains next.
+
+### 2026-07-10 — Phase 3 Realtime transcription transport complete
+
+Implemented Phase 3 item 2 without pulling Electron microphone permission,
+capture state, submission, or voice UI work forward. The renderer now owns a
+small injectable WebRTC transport over the generated
+`SpeechTranscriptionSession`. It attaches one live audio-only track, creates the
+`oai-events` data channel, posts only the browser SDP offer to the backend-owned
+WebRTC URL with the ephemeral bearer credential, requires the documented
+`201 application/sdp` answer, and never sends a renderer-authored
+`session.update` or otherwise overrides the backend-selected transcription
+configuration.
+
+The strict Realtime decoder accepts only the transcription session/item
+lifecycle needed by this product: `session.created`, the committed user item,
+append-only transcript deltas, the authoritative completed transcript, typed
+transcription/provider failures, and rate-limit metadata. The transport waits
+for the transcription-typed provider session as well as the open data channel
+and applied remote description before becoming ready. Manual commit disables
+the outgoing track and sends only `input_audio_buffer.commit`. Deltas and the
+final transcript must match the one acknowledged provider item and content
+part; duplicate sessions, mismatched items, events after teardown, malformed or
+unknown event types, and oversized transcripts fail specifically instead of
+cross-submitting stale text.
+
+The generated maximum transcript count is enforced by Unicode character, while
+the provider's completed string remains authoritative even when it differs from
+the accumulated partial presentation. SDP responses are content-type/status
+checked and read through a 64 KiB streaming bound. HTTP/provider bodies and
+Realtime error prose are not surfaced, and connection failure, rejection,
+quota, malformed response/event, stale item, transcription failure, transcript
+overflow, and cancellation remain typed renderer errors. Completion, explicit
+cancel, disconnect, malformed input, and setup failure all close the data
+channel and peer connection, abort in-flight SDP exchange, detach listeners,
+and stop every media track.
+
+Verification completed for this slice:
+
+- 32 focused Vitest cases cover every accepted event shape, malformed and
+  unknown events, SDP request/response shape, readiness ordering, exact manual
+  commit, authoritative completion, Unicode limits, provider status mapping,
+  bounded declared and chunked SDP, stale session/item rejection, disconnect,
+  abort, invalid media/session input, failed commit delivery, and
+  partial-construction cleanup;
+- all 1,030 desktop Vitest tests, Electron/web typechecks, dead-code analysis,
+  focused lint/complexity checks, and both production builds passed. The web
+  build produced no checked-in PWA drift because this transport remains behind
+  the later capture controller;
+- the authenticated production speech API workflow passed at
+  `.recordings/easy-button-speech-phase3-transport-api-20260710`, and the
+  complete production Easy Button regression passed at
+  `.recordings/easy-button-speech-phase3-transport-regression-20260710`,
+  including its current chat/run, persistence, compact/reduced-motion, and
+  pixel-match paths. The 145 fresh recording artifacts contain none of the
+  scanned credential, authorization, provider-prose, or test-secret markers;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  source, tests, and this plan entry were final.
+
+The focused transport uses an injected browser boundary because no microphone
+or capture state is mounted in production until ordered Phase 3 items 3-4. The
+production Electron workflows above are therefore regression and existing
+speech-path coverage, not a claim that voice capture is already reachable.
+The opt-in live OpenAI speech workflow remains ordered for the later integrated
+acceptance phase, and no live speech result is claimed here. No generated Go
+contract, dependency, manifest, module, package-manager, or supply-chain input
+changed. Phase 3 item 3 is next: add the trusted-main-renderer Electron audio
+permission request/check boundary while denying video, workspace browser views,
+external origins, and unknown webContents. No implementation blocker was found.
 
 ## Verification Plan
 
