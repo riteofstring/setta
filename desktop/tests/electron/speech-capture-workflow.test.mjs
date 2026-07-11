@@ -49,6 +49,7 @@ const completedTranscript = "  easy run phase2 steering workflow  ";
 const completedRequest = completedTranscript.trim();
 const completedSteeringTranscript = "  steer easy run phase2  ";
 const completedSteering = completedSteeringTranscript.trim();
+const liveSteeringDelta = "steer easy run phase2 with the captured direction";
 const steeredCurrentFocus =
   "Complete the Easy Button phase 2 workflow while following the accepted steering direction.";
 const narratorFailureTranscript = "  easy run narrator failure workflow  ";
@@ -159,13 +160,53 @@ try {
   assertRevisionZeroCurrentFocus(speechStartedRun, completedRequest);
 
   await context.client.driver("easyButtonPaneResetEventLog");
-  await completeSpeechCapture(context.client, {
+  const workingListeningCapture = await beginSpeechCapture(context.client, {
     draft: preservedDraft,
-    finishLabel: "Finish voice steering",
     runWorking: true,
     startLabel: "Start voice steering",
-    transcript: completedSteeringTranscript,
   });
+  const workingListeningPane = await waitForWorkingCapturePane(
+    context.client,
+    completedRequest,
+    "Finish voice steering",
+    "listening",
+  );
+  assertWorkingListeningPresentation(workingListeningPane, workingListeningCapture, {
+    focusStatus: "current",
+    focusText: completedRequest,
+    transcript: "",
+  });
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "speech-capture-working-listening.png"),
+  );
+  await clickEnabledButtonByAria(context.client, "Finish voice steering");
+  await waitForCaptureState(
+    context.client,
+    (state) => state.capture === "committing" && state.fixture.commitCount === 1,
+  );
+  await callBrowserFixture(context.client, "emitDelta", liveSteeringDelta);
+  const committingSteeringCapture = await waitForCaptureState(
+    context.client,
+    (state) => state.capture === "committing" && state.captureLine === liveSteeringDelta,
+  );
+  const committingSteeringPane = await waitForWorkingCapturePane(
+    context.client,
+    completedRequest,
+    "Committing voice transcript",
+    "committing",
+  );
+  assertWorkingListeningPresentation(committingSteeringPane, committingSteeringCapture, {
+    focusStatus: "current",
+    focusText: completedRequest,
+    transcript: liveSteeringDelta,
+  });
+  await callBrowserFixture(context.client, "emitCompleted", completedSteeringTranscript);
+  const submittedSteeringCapture = await waitForCaptureState(
+    context.client,
+    (state) => state.capture === "off" && state.captureLine === "",
+  );
+  assertCaptureTeardown(submittedSteeringCapture);
   const updatingFocus = await waitForEasyButtonFocusStatus(
     context.client,
     completedRequest,
@@ -207,8 +248,38 @@ try {
     narratorFailureRequest,
     partialOutcomeSteering,
   );
+  const stoppedListeningCapture = await beginSpeechCapture(context.client, {
+    draft: preservedDraft,
+    runWorking: true,
+    startLabel: "Start voice steering",
+  });
+  const stoppedListeningPane = await waitForWorkingCapturePane(
+    context.client,
+    narratorFailureRequest,
+    "Finish voice steering",
+    "listening",
+  );
+  assertWorkingListeningPresentation(stoppedListeningPane, stoppedListeningCapture, {
+    focusStatus: "stale",
+    focusText: narratorFailureRequest,
+    transcript: "",
+  });
   await clickEasyButtonStop(context.client);
-  await waitForEasyButtonTerminal(context.client, narratorFailureRequest);
+  const stoppedRun = await waitForEasyButtonTerminal(context.client, narratorFailureRequest);
+  const stoppedCapture = await waitForCaptureState(
+    context.client,
+    (state) =>
+      state.capture === "off" && state.captureLine === "" && state.fixture.activeTrackCount === 0,
+  );
+  assertCaptureTeardown(stoppedCapture);
+  assertDraftPreserved(stoppedCapture, preservedDraft);
+  assertStoppedWhileListening(stoppedRun);
+  const stoppedChatRecord = await context.client.driver("easyButtonPaneChatRecord");
+  assertLosslessSteeringChatRecord(
+    stoppedChatRecord,
+    narratorFailureRequest,
+    partialOutcomeSteering,
+  );
 
   await setFooterDraft(context.client, preservedDraft);
   await callBrowserFixture(context.client, "holdMicrophone");
@@ -240,7 +311,7 @@ try {
   await captureScreenshot(context.client, join(artifactDir, "speech-capture-disconnected.png"));
 
   provider.assertHealthy();
-  assertProviderOperationCount(provider, 5);
+  assertProviderOperationCount(provider, 6);
   await stopElectronCdpContext(context);
   context = null;
   await writeJson(join(artifactDir, "summary.json"), {
@@ -276,6 +347,11 @@ async function completeSpeechCapture(
   client,
   { draft, finishLabel, runWorking, startLabel, transcript },
 ) {
+  await beginSpeechCapture(client, { draft, runWorking, startLabel });
+  await commitSpeechCapture(client, { finishLabel, transcript });
+}
+
+async function beginSpeechCapture(client, { draft, runWorking, startLabel }) {
   await setFooterDraft(client, draft);
   await clickEnabledButtonByAria(client, startLabel);
   await waitForCaptureState(
@@ -286,12 +362,34 @@ async function completeSpeechCapture(
   const listening = await waitForCaptureState(client, (state) => state.capture === "listening");
   assertDraftPreserved(listening, draft);
   assertListeningCapture(listening, runWorking);
+  return listening;
+}
+
+async function commitSpeechCapture(client, { finishLabel, transcript }) {
   await clickEnabledButtonByAria(client, finishLabel);
   await waitForCaptureState(
     client,
     (state) => state.capture === "committing" && state.fixture.commitCount === 1,
   );
   await callBrowserFixture(client, "emitCompleted", transcript);
+}
+
+function waitForWorkingCapturePane(client, requestText, buttonAriaLabel, capturePhase) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists &&
+      state.surfaceKind === "easy-button" &&
+      state.easyState === "working" &&
+      state.paneChromeTitle === `Easy Button · ${capturePhase}` &&
+      state.runRequestText === requestText &&
+      state.buttonAriaLabel === buttonAriaLabel &&
+      state.swirl.opacity === "0.45" &&
+      state.stopButtonVisible &&
+      !state.stopButtonDisabled,
+    workflowTimeoutMs,
+  );
 }
 
 function waitForEasyButtonWorking(client, requestText) {
@@ -400,6 +498,56 @@ function assertListeningCapture(state, runWorking) {
     state.ringAnimations.some((name) => name !== "easy-button-ring-in")
   ) {
     throw new Error(`speech capture did not render listening accurately: ${JSON.stringify(state)}`);
+  }
+}
+
+function assertWorkingListeningPresentation(pane, capture, expected) {
+  assertWorkingCaptureFocus(pane, expected);
+  assertWorkingCaptureControls(pane);
+  assertCaptureTranscriptPlacement(pane, capture, expected.transcript);
+}
+
+function assertWorkingCaptureFocus(pane, expected) {
+  if (
+    pane.currentFocusText !== expected.focusText ||
+    pane.currentFocus?.text !== expected.focusText ||
+    pane.currentFocus?.status !== expected.focusStatus ||
+    pane.focusStatus !== expected.focusStatus ||
+    pane.focusBlockDisplay !== "block"
+  ) {
+    throw new Error(`working voice capture displaced Current focus: ${JSON.stringify(pane)}`);
+  }
+}
+
+function assertWorkingCaptureControls(pane) {
+  if (pane.stopButtonAriaLabel !== "Stop easy run" || pane.swirl.opacity !== "0.45") {
+    throw new Error(`working voice capture displaced working controls: ${JSON.stringify(pane)}`);
+  }
+}
+
+function assertCaptureTranscriptPlacement(pane, capture, transcript) {
+  if (
+    capture.captureLine !== transcript ||
+    pane.railText.includes("Steering:") ||
+    (transcript !== "" &&
+      (pane.railText.includes(transcript) || pane.currentFocusText.includes(transcript)))
+  ) {
+    throw new Error(
+      `working voice capture escaped its dedicated line: ${JSON.stringify({ capture, pane })}`,
+    );
+  }
+}
+
+function assertStoppedWhileListening(state) {
+  if (
+    state.statusTone !== "stopped" ||
+    !state.summaryText.startsWith("Stopped after") ||
+    state.stopButtonVisible ||
+    state.railText.includes("Steering:")
+  ) {
+    throw new Error(
+      `stopping during voice capture left an invalid presentation: ${JSON.stringify(state)}`,
+    );
   }
 }
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-5 complete
+**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-6 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2779,6 +2779,56 @@ next coherent slice remains Phase 3 item 6: finish explicit
 working-plus-listening Stop/current-focus coverage and prove no transient
 steering transcript is rendered. This audit did not start that work, and no
 blocker was found.
+
+### 2026-07-10 — Phase 3 working-plus-listening behavior complete
+
+Completed Phase 3 item 6 by extending the configured production Electron
+speech workflow across the already-mounted run/capture state axes. A working
+spoken-steering capture now explicitly proves that true listening and
+committing keep the last persisted Current focus visible, retain the working
+swirl, preserve the footer draft, and leave the secondary Stop control enabled.
+The live steering delta remains confined to the dedicated capture line: it is
+never copied into Current focus, the narrator-only NOW rail, or a transient
+`Steering:` presentation. The existing accepted completion still publishes
+`updating`, preserves revision zero until narration completes, and applies the
+persisted revision afterward.
+
+The same production workflow now starts a fresh recording while a stale-focus
+run is working, presses the real secondary Stop control, and verifies that the
+capture channel and peer close, every microphone track stops, the capture line
+clears, the preserved draft remains available, and the run reaches the neutral
+stopped presentation without adding or duplicating a steering chat message.
+The first focused run exposed only a test synchronization gap: capture teardown
+finishes before the in-flight Stop request re-enables the footer. The final
+assertion therefore waits for the authoritative stopped run before requiring
+the complete resting footer state; production behavior did not require a
+source change.
+
+Verification completed for this slice:
+
+- focused ESLint and Prettier checks passed for the changed Electron workflow;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase3-working-listening-final` with six
+  authenticated transcription-session requests and no speech credential,
+  client-secret, or audio-base64 leakage. Its working-listening screenshot was
+  inspected and showed the microphone, Current focus, working state, Stop, and
+  preserved draft together without overlap;
+- the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase3-working-listening-regression`,
+  preserving typed start/steer, lossless chat state, narrator highlights,
+  artifacts, terminal and Stop behavior, persistence/restart, compact and
+  reduced-motion coverage, and the existing pixel-match companion;
+- ChatGPT authentication was available. With `OPENAI_API_KEY` explicitly
+  removed, the complete live chat gate passed `live-codex-electron`,
+  `easy-button-live`, and `live-codex-backend`.
+
+No dependency, manifest, module, package-manager, toolchain, generated contract,
+or supply-chain input changed, so the supply-chain gate is not required for
+this slice. Phase 3 item 7 is next: broaden the deterministic production
+workflow where needed beyond this explicit item-6 case and close the phase-wide
+scripted media/Realtime coverage. Item 8 then covers remote-runtime/PWA secure
+context behavior and the opt-in live OpenAI speech acceptance workflow. No
+implementation blocker was found.
 
 ## Verification Plan
 
