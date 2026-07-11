@@ -10,6 +10,8 @@ MODEL="gpt-5.6-sol"
 REASONING_CONFIG='reasoning_effort="max"'
 OUTPUT_DIR=""
 MAX_ITERATIONS="0"
+INITIAL_RETRY_DELAY_SECONDS="15"
+MAX_RETRY_DELAY_SECONDS="300"
 
 usage() {
   cat <<'EOF'
@@ -39,6 +41,8 @@ Options:
   --iterations N      Maximum number of loop iterations. Default: 0, which
                       means no iteration cap.
   --model NAME        Codex model to use. Default: gpt-5.6-sol.
+  --retry-delay N     Initial retry delay in seconds. Default: 15.
+  --retry-max-delay N Maximum retry delay in seconds. Default: 300.
   --help             Show this help text.
 EOF
 }
@@ -69,39 +73,64 @@ run_agent() {
   local last_message_file="${run_dir}/${agent_name}.last-message.txt"
   local status_file="${run_dir}/${agent_name}.status.txt"
   local exit_code="0"
+  local attempt="1"
+  local retry_delay_seconds="${INITIAL_RETRY_DELAY_SECONDS}"
 
   mkdir -p "${run_dir}"
+  rm -f "${transcript_file}" "${last_message_file}" "${status_file}"
 
   log_info "Starting ${agent_name}. Transcript: ${transcript_file}. Last message: ${last_message_file}"
 
-  # This dedicated plan loop is intentionally allowed to mutate and commit in
-  # the current checkout without approval prompts or filesystem sandboxing.
-  set +e
-  codex exec \
-    --color never \
-    --cd "${ROOT_DIR}" \
-    --ephemeral \
-    --model "${MODEL}" \
-    --config "${REASONING_CONFIG}" \
-    --dangerously-bypass-approvals-and-sandbox \
-    --output-last-message "${last_message_file}" \
-    "${prompt}" >"${transcript_file}" 2>&1
+  while true; do
+    rm -f "${last_message_file}"
+    printf '\n===== attempt %s at %s =====\n' \
+      "${attempt}" \
+      "$(timestamp_now)" >>"${transcript_file}"
 
-  exit_code="$?"
-  set -e
+    # This dedicated plan loop is intentionally allowed to mutate and commit
+    # in the current checkout without approval prompts or filesystem
+    # sandboxing. Unlimited retries keep unattended runs alive through
+    # provider, transport, and other Codex failures until manually stopped.
+    set +e
+    codex exec \
+      --color never \
+      --cd "${ROOT_DIR}" \
+      --ephemeral \
+      --model "${MODEL}" \
+      --config "${REASONING_CONFIG}" \
+      --dangerously-bypass-approvals-and-sandbox \
+      --output-last-message "${last_message_file}" \
+      "${prompt}" >>"${transcript_file}" 2>&1
 
-  printf '%s\n' "${exit_code}" >"${status_file}"
-  if [[ "${exit_code}" -ne 0 ]]; then
-    echo "${agent_name} failed with exit code ${exit_code}. See ${transcript_file}" >&2
-    exit "${exit_code}"
-  fi
+    exit_code="$?"
+    set -e
 
-  if [[ ! -s "${last_message_file}" ]]; then
-    echo "${agent_name} did not produce a last-message file: ${last_message_file}" >&2
-    exit 1
-  fi
+    printf 'attempt=%s exit_code=%s last_message=%s\n' \
+      "${attempt}" \
+      "${exit_code}" \
+      "$([[ -s "${last_message_file}" ]] && printf 'present' || printf 'missing')" \
+      >>"${status_file}"
 
-  log_info "${agent_name} finished."
+    if [[ "${exit_code}" -eq 0 ]] && [[ -s "${last_message_file}" ]]; then
+      log_info "${agent_name} finished after ${attempt} attempt(s)."
+      return
+    fi
+
+    if [[ "${exit_code}" -ne 0 ]]; then
+      log_info "${agent_name} attempt ${attempt} failed with exit code ${exit_code}; retrying in ${retry_delay_seconds}s."
+    else
+      log_info "${agent_name} attempt ${attempt} produced no last message; retrying in ${retry_delay_seconds}s."
+    fi
+
+    sleep "${retry_delay_seconds}"
+    attempt="$((attempt + 1))"
+    if [[ "${retry_delay_seconds}" -lt "${MAX_RETRY_DELAY_SECONDS}" ]]; then
+      retry_delay_seconds="$((retry_delay_seconds * 2))"
+      if [[ "${retry_delay_seconds}" -gt "${MAX_RETRY_DELAY_SECONDS}" ]]; then
+        retry_delay_seconds="${MAX_RETRY_DELAY_SECONDS}"
+      fi
+    fi
+  done
 }
 
 trimmed_nonempty_message() {
@@ -132,6 +161,16 @@ while [[ $# -gt 0 ]]; do
       MODEL="$2"
       shift 2
       ;;
+    --retry-delay)
+      require_value "$1" "${2:-}"
+      INITIAL_RETRY_DELAY_SECONDS="$2"
+      shift 2
+      ;;
+    --retry-max-delay)
+      require_value "$1" "${2:-}"
+      MAX_RETRY_DELAY_SECONDS="$2"
+      shift 2
+      ;;
     --help|-h)
       usage
       exit 0
@@ -151,6 +190,21 @@ fi
 
 if [[ ! "${MAX_ITERATIONS}" =~ ^[0-9]+$ ]]; then
   echo "--iterations must be a non-negative integer" >&2
+  exit 1
+fi
+
+if [[ ! "${INITIAL_RETRY_DELAY_SECONDS}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "--retry-delay must be a positive integer" >&2
+  exit 1
+fi
+
+if [[ ! "${MAX_RETRY_DELAY_SECONDS}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "--retry-max-delay must be a positive integer" >&2
+  exit 1
+fi
+
+if [[ "${MAX_RETRY_DELAY_SECONDS}" -lt "${INITIAL_RETRY_DELAY_SECONDS}" ]]; then
+  echo "--retry-max-delay must be greater than or equal to --retry-delay" >&2
   exit 1
 fi
 
@@ -180,6 +234,8 @@ log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
 log_info "Model: ${MODEL}"
 log_info "Reasoning effort: max"
+log_info "Agent attempts: unlimited"
+log_info "Retry delays: ${INITIAL_RETRY_DELAY_SECONDS}s initial, ${MAX_RETRY_DELAY_SECONDS}s maximum"
 log_info "Approvals/sandbox bypass: enabled"
 if [[ "${MAX_ITERATIONS}" -eq 0 ]]; then
   log_info "Iteration cap: none"
