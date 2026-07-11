@@ -2046,3 +2046,27 @@ This plan is complete only when all of the following are true:
   not something the scripted provider may claim to prove.
 
 No implementation work has started under this plan.
+
+- 2026-07-11: Completed the Phase 0 freeze/baseline slice. The
+  [functional and performance baseline](../reports/performance/topic-conversations-phase0-baseline-20260711.md)
+  records a fresh production Electron Easy Button workflow and 1,200 ms idle,
+  working, terminal, and frozen-working frame samples. The
+  [ownership and configuration inventory](../reports/topic-conversations-phase0-inventory-20260711.md)
+  reviews all 146 endpoint registrations, backend/renderer/desktop owners,
+  obsolete persistence paths, generated contract and supported-protocol
+  fingerprints, the pinned Codex source, live ChatGPT auth and `model/list`,
+  exact independent role defaults, the synthesis voice catalog/selection
+  modes, and the initial seven-palette accessible catalog. This closes the
+  Phase 0 exit criteria without changing production code or reading legacy
+  state through a new path.
+- 2026-07-11: Phase 0 verification passed with `pnpm -C desktop build`, the
+  deterministic production-path `easy-button-pane-workflow.test.mjs`, the
+  production-path `easy-button-pane-performance.test.mjs`, and
+  `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`.
+  The authenticated app-server returned every selected role model and effort
+  from `model/list`. Generated outputs changed: none; the exact schema and file
+  hashes are recorded in the inventory. Remaining work starts at Phase 1's new
+  SQLite persistence/core-contract owner. There is no blocker to Phase 1. Live
+  active-turn fork snapshot semantics remain deliberately unclaimed and must
+  still be established in Phase 2 before the dependent Phase 7 active side
+  path; neither Phase 0 scripted workflow is evidence for that prerequisite.
