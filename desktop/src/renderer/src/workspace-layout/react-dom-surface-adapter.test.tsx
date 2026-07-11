@@ -300,11 +300,12 @@ describe("workspace React DOM surface adapter", () => {
     adapter.mount(host);
 
     const renderedNode = root.renderedNodes.at(-1);
-    if (!isValidElement(renderedNode)) {
+    if (!isValidElement<{ conversationId: string | null }>(renderedNode)) {
       throw new Error("easy button surface did not render a React element");
     }
     expect(host.dataset.surfaceKind).toBe("easy-button");
     expect(renderedNode.type).toBe(EasyButtonSurface);
+    expect(renderedNode.props.conversationId).toBe("conversation_test");
   });
 
   test("forwards workflow graph visible live state to the renderer runtime handle", () => {
@@ -414,6 +415,8 @@ function waitForMicrotask(): Promise<void> {
 function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
   return {
     columnId: "column",
+    easyButtonConfig:
+      surfaceKind === "easy-button" ? { conversationId: "conversation_test" } : undefined,
     heat: 42,
     paneId: "pane",
     sequence: 0,

@@ -5,7 +5,6 @@
 @import "./workspace-snapshot.css";
 @import "./workspace-pane-chrome.css";
 @import "./features/easy-button/easy-button.css";
-@import "./features/easy-button/easy-button-speech.css";
 
 @theme inline {
   --color-background: var(--background);

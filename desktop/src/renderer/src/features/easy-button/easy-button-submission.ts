@@ -24,15 +24,6 @@ interface CompletedSpeechSubmission extends EasyButtonSubmissionActions {
   workspaceId: string;
 }
 
-interface TypedSubmission extends EasyButtonSubmissionActions {
-  inputRef: RefObject<HTMLInputElement | null>;
-  intent: SpeechCaptureIntent;
-  requestText: string;
-  setInputValue: (value: string) => void;
-  setPendingAction: (pending: boolean) => void;
-  workspaceId: string;
-}
-
 export async function performEasyButtonSubmission({
   intent,
   requestText,
@@ -76,36 +67,6 @@ export async function submitCompletedSpeechTranscript({
   } catch (error) {
     setInputValue(transcript);
     throw error;
-  } finally {
-    setPendingAction(false);
-  }
-}
-
-export async function submitTypedEasyButtonRequest({
-  inputRef,
-  intent,
-  requestText,
-  setInputValue,
-  setPendingAction,
-  start,
-  steer,
-  workspaceId,
-}: TypedSubmission): Promise<void> {
-  setPendingAction(true);
-  try {
-    const steeringResult = await performEasyButtonSubmission({
-      intent,
-      requestText,
-      start,
-      steer,
-      workspaceId,
-    });
-    setInputValue("");
-    if (steeringResult?.kind === "failure") {
-      inputRef.current?.blur();
-    }
-  } catch {
-    inputRef.current?.focus();
   } finally {
     setPendingAction(false);
   }

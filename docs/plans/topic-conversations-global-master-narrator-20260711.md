@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-2 and Phase 3 items 1-2 are complete
+**Status:** In progress; Phases 0-2 and Phase 3 items 1-3 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1598,7 +1598,7 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Progress:** Items 1-2 are complete. Item 3 is next.
+**Progress:** Items 1-3 are complete. Item 4 is next.
 
 Implement:
 
@@ -2353,3 +2353,42 @@ Implementation is in progress under this plan.
   the generated event union through an explicit exhaustive `never` branch.
   Focused regression coverage passes. Phase 3 item 3 remains next; this review
   did not connect the store to `EasyButtonSurface` or begin the next plan item.
+- 2026-07-11: Completed Phase 3 item 3. The React surface adapter now passes
+  the pane's typed `conversationId` into `EasyButtonSurface`, which subscribes
+  to only that entry in the normalized conversation map. The surface no longer
+  reads selected-workspace state or `useEasyRunStore`. Its bounded presentation
+  is derived entirely from the generated conversation snapshot: conversation
+  execution state, exact-turn terminal outcome, narrator current focus and
+  degradation, milestone and final-summary channels, artifacts, active
+  subagents, and the resolved palette identity. Missing bindings, unloaded or
+  failed projections, and resynchronization are explicit states rather than
+  legacy fallbacks.
+- 2026-07-11: Legacy Easy Run submission and pane-owned speech presentation
+  are detached from the mounted Easy Button, and the now-unreachable React
+  speech presentation/hook/style layer was removed. Conversation controls remain
+  visibly unavailable until Phase 3 item 6 adds their production command
+  contracts; this slice does not dispatch a topic request into old Easy Run or
+  chat state. Lower-level capture/playback provider primitives are not claimed
+  as the Phase 5 global speech cutover and remain for that dedicated lifecycle
+  work.
+- 2026-07-11: Focused projection, rail, summary, adapter, and surviving speech
+  helper coverage passed, as did all 1,161 renderer tests, desktop typecheck,
+  production build, and dead-code analysis. The new deterministic production
+  Electron `topic-conversation-pane-projection` workflow passed through the
+  real workspace-layout HTTP/main/preload/renderer path, preserving the typed
+  binding across reload and proving an absent snapshot remains an explicit
+  unloaded conversation projection; evidence is under
+  `.recordings/topic-conversation-pane-projection/`. Generated inputs and
+  outputs changed: none. The supply-chain gate again reached `govulncheck` and
+  reported the pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4,
+  fixed in Go 1.26.5; this slice changed no dependency manifest or toolchain
+  pin.
+- 2026-07-11: ChatGPT authentication remained available without
+  `OPENAI_API_KEY`. The live Codex Electron regression reached the obsolete
+  semantic-cartographer smoke after its real provider work, then timed out
+  waiting for the expected graph update; evidence is under
+  `test-results/electron-integration/chat-workflows/live-codex/`. The new topic
+  projection has no provider transport until Phase 3 item 6 and is not involved
+  in that legacy semantic path, so the result is recorded as a regression
+  failure rather than provider proof. Phase 3 item 4, removing the one-Easy-Button
+  pane limit, is next with no external blocker.

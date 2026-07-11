@@ -36,6 +36,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "topic-conversation-pane-projection.test.mjs",
+    name: "topic-conversation-pane-projection",
+    tiers: ["required"],
+  },
+  {
     file: "speech-api-workflow.test.mjs",
     name: "speech-api",
     tiers: ["required"],

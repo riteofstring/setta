@@ -331,15 +331,6 @@ export class SpeechCaptureController {
   }
 }
 
-export function speechCaptureIsActive(state: SpeechCaptureState): boolean {
-  return (
-    state.type === "requesting_permission" ||
-    state.type === "connecting" ||
-    state.type === "listening" ||
-    state.type === "committing"
-  );
-}
-
 export function browserSpeechCaptureSupport(): SpeechCaptureSupport {
   if (!globalThis.isSecureContext) {
     return {

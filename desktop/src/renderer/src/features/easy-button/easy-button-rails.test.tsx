@@ -1,77 +1,66 @@
-import type { EasyHighlight } from "@generated/backend";
+import type { Artifact } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { HighlightRail, highlightIsSpeaking } from "./easy-button-rails";
-import type { SpeechPlaybackState } from "./speech-playback-controller";
+import {
+  ArtifactRail,
+  HighlightRail,
+  type EasyButtonMilestone,
+  milestoneElapsedLabel,
+} from "./easy-button-rails";
 
-describe("Easy Button narrator-highlight speech source", () => {
-  const first = highlight("highlight_first");
-  const second = highlight("highlight_second");
-  const speaking: SpeechPlaybackState = {
-    source: {
-      easyRunId: first.easyRunId,
-      highlightId: first.id,
-      kind: "highlight",
-      workspaceId: "workspace_visible",
-    },
-    type: "speaking",
-  };
-
-  test("marks only the exact persisted highlight while it is speaking", () => {
-    expect(highlightIsSpeaking(speaking, first, "workspace_visible")).toBe(true);
-    expect(highlightIsSpeaking(speaking, second, "workspace_visible")).toBe(false);
-    expect(highlightIsSpeaking(speaking, first, "workspace_other")).toBe(false);
-    expect(highlightIsSpeaking(speaking, first, null)).toBe(false);
-    expect(
-      highlightIsSpeaking({ ...speaking, type: "synthesizing" }, first, "workspace_visible"),
-    ).toBe(false);
-  });
-
-  test("does not point at a terminal summary from the same run", () => {
-    expect(
-      highlightIsSpeaking(
-        {
-          source: {
-            easyRunId: first.easyRunId,
-            kind: "terminal_summary",
-            workspaceId: "workspace_visible",
-          },
-          type: "speaking",
-        },
-        first,
-        "workspace_visible",
-      ),
-    ).toBe(false);
-  });
-
-  test("keeps equalizer bars mounted inside every fixed dot box", () => {
+describe("Easy Button conversation rails", () => {
+  test("renders persisted narrator milestones without speech or Easy Run identity", () => {
     const html = renderToString(
-      <HighlightRail
-        highlights={[first, second]}
-        latestRun={null}
-        playbackState={speaking}
-        workspaceId="workspace_visible"
-      />,
+      <HighlightRail milestones={[milestone("milestone_first"), milestone("milestone_second")]} />,
     );
 
-    expect(html).toContain(
-      'data-easy-button-highlight-id="highlight_first" data-easy-button-highlight-speaking="true"',
-    );
-    expect(html).toContain(
-      'data-easy-button-highlight-id="highlight_second" data-easy-button-highlight-speaking="false"',
-    );
+    expect(html).toContain('aria-label="Milestones"');
+    expect(html).toContain('data-easy-button-highlight-id="milestone_first"');
+    expect(html).toContain('data-easy-button-highlight-id="milestone_second"');
+    expect(html).not.toContain("easyRunId");
     expect(html.match(/class="easy-button-highlight-dot"/g)).toHaveLength(2);
-    expect(html.match(/<i><\/i>/g)).toHaveLength(6);
+    expect(html).not.toContain("data-easy-button-highlight-speaking");
+  });
+
+  test("measures each milestone from its own conversation turn", () => {
+    expect(milestoneElapsedLabel("2026-07-11T20:00:00Z", "2026-07-11T20:02:03Z")).toBe("2:03");
+    expect(milestoneElapsedLabel(null, "2026-07-11T20:02:03Z")).toBe("");
+    expect(milestoneElapsedLabel("later", "earlier")).toBe("");
+  });
+
+  test("renders the typed conversation artifact identity and reference", () => {
+    const html = renderToString(<ArtifactRail artifacts={[artifact()]} />);
+
+    expect(html).toContain('data-artifact-id="artifact_topic"');
+    expect(html).toContain('data-artifact-kind="tool_output"');
+    expect(html).toContain("Tool output");
+    expect(html).toContain("Conversation report");
+    expect(html).toContain("setta://artifacts/topic-report");
+    expect(html).toContain("application/json");
   });
 });
 
-function highlight(id: string): EasyHighlight {
+function milestone(id: string): EasyButtonMilestone {
   return {
-    at: "2026-07-10T12:00:01Z",
-    easyRunId: "easy_run_visible",
+    at: "2026-07-11T20:00:01Z",
     id,
-    ordinal: id === "highlight_first" ? 1 : 2,
     text: id,
+    turnStartedAt: "2026-07-11T20:00:00Z",
+  };
+}
+
+function artifact(): Artifact {
+  return {
+    conversationId: "conversation_topic",
+    createdAt: "2026-07-11T20:00:01Z",
+    id: "artifact_topic",
+    kind: "tool_output",
+    mediaType: "application/json",
+    metadata: {},
+    title: "Conversation report",
+    trajectorySequence: null,
+    turnId: "turn_topic",
+    uri: "setta://artifacts/topic-report",
   };
 }

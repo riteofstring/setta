@@ -1,89 +1,42 @@
-import type { CSSProperties } from "react";
+import type { Artifact } from "@generated/backend";
 
-import type { EasyArtifact, EasyHighlight, EasyRun } from "@generated/backend";
+export interface EasyButtonMilestone {
+  at: string;
+  id: string;
+  text: string;
+  turnStartedAt: string | null;
+}
 
-import { MarkdownText } from "../../components/markdown-text";
-import type { SpeechPlaybackState } from "./speech-playback-controller";
-
-export function HighlightRail({
-  highlights,
-  latestRun,
-  playbackState,
-  workspaceId,
-}: {
-  highlights: EasyHighlight[];
-  latestRun: EasyRun | null;
-  playbackState: SpeechPlaybackState;
-  workspaceId: string | null;
-}) {
+export function HighlightRail({ milestones }: { milestones: readonly EasyButtonMilestone[] }) {
   return (
     <aside
-      aria-label="Highlights"
+      aria-label="Milestones"
       className="easy-button-rail easy-button-rail-left"
-      data-easy-button-rail-empty={highlights.length === 0 ? "true" : "false"}
+      data-easy-button-rail-empty={milestones.length === 0 ? "true" : "false"}
     >
       <p className="easy-button-rail-label">Now</p>
       <ol className="easy-button-highlight-list" data-testid="easy-button-highlights">
-        {highlights.map((highlight) => (
-          <HighlightItem
-            highlight={highlight}
-            key={highlight.id}
-            playbackState={playbackState}
-            startedAt={latestRun?.startedAt ?? null}
-            workspaceId={workspaceId}
-          />
+        {milestones.map((milestone) => (
+          <MilestoneItem key={milestone.id} milestone={milestone} />
         ))}
       </ol>
     </aside>
   );
 }
 
-function HighlightItem({
-  highlight,
-  playbackState,
-  startedAt,
-  workspaceId,
-}: {
-  highlight: EasyHighlight;
-  playbackState: SpeechPlaybackState;
-  startedAt: string | null;
-  workspaceId: string | null;
-}) {
-  const speaking = highlightIsSpeaking(playbackState, highlight, workspaceId);
+function MilestoneItem({ milestone }: { milestone: EasyButtonMilestone }) {
   return (
-    <li
-      className="easy-button-highlight-item"
-      data-easy-button-highlight-id={highlight.id}
-      data-easy-button-highlight-speaking={speaking ? "true" : "false"}
-    >
-      <span aria-hidden="true" className="easy-button-highlight-dot">
-        <i />
-        <i />
-        <i />
-      </span>
-      <span className="easy-button-highlight-text">{highlight.text}</span>
+    <li className="easy-button-highlight-item" data-easy-button-highlight-id={milestone.id}>
+      <span aria-hidden="true" className="easy-button-highlight-dot" />
+      <span className="easy-button-highlight-text">{milestone.text}</span>
       <span className="easy-button-highlight-time">
-        {highlightElapsedLabel(startedAt, highlight.at)}
+        {milestoneElapsedLabel(milestone.turnStartedAt, milestone.at)}
       </span>
     </li>
   );
 }
 
-export function highlightIsSpeaking(
-  state: SpeechPlaybackState,
-  highlight: EasyHighlight,
-  workspaceId: string | null,
-): boolean {
-  return (
-    state.type === "speaking" &&
-    state.source.kind === "highlight" &&
-    state.source.workspaceId === workspaceId &&
-    state.source.easyRunId === highlight.easyRunId &&
-    state.source.highlightId === highlight.id
-  );
-}
-
-export function ArtifactRail({ artifacts }: { artifacts: EasyArtifact[] }) {
+export function ArtifactRail({ artifacts }: { artifacts: readonly Artifact[] }) {
   return (
     <aside
       aria-label="Artifacts"
@@ -100,110 +53,39 @@ export function ArtifactRail({ artifacts }: { artifacts: EasyArtifact[] }) {
   );
 }
 
-function ArtifactCard({ artifact }: { artifact: EasyArtifact }) {
+function ArtifactCard({ artifact }: { artifact: Artifact }) {
   return (
-    <article className="easy-button-artifact-card" data-artifact-kind={artifact.kind}>
-      {artifact.kicker ? <p className="easy-button-artifact-kicker">{artifact.kicker}</p> : null}
-      <h2 className="easy-button-artifact-title">{artifact.title}</h2>
-      <ArtifactPayload artifact={artifact} />
+    <article
+      className="easy-button-artifact-card"
+      data-artifact-id={artifact.id}
+      data-artifact-kind={artifact.kind}
+    >
+      <p className="easy-button-artifact-kicker">{artifactKindLabel(artifact.kind)}</p>
+      {artifact.title ? <h2 className="easy-button-artifact-title">{artifact.title}</h2> : null}
+      <div className="easy-button-artifact-file">
+        <code>{artifact.uri}</code>
+        {artifact.mediaType ? <p>{artifact.mediaType}</p> : null}
+      </div>
     </article>
   );
 }
 
-function ArtifactPayload({ artifact }: { artifact: EasyArtifact }) {
-  switch (artifact.kind) {
+function artifactKindLabel(kind: Artifact["kind"]): string {
+  switch (kind) {
     case "markdown":
-      return <MarkdownArtifact artifact={artifact} />;
+      return "Markdown";
     case "table":
-      return <TableArtifact artifact={artifact} />;
+      return "Table";
     case "bar_chart":
-      return <BarChartArtifact artifact={artifact} />;
+      return "Bar chart";
     case "file":
-      return <FileArtifact artifact={artifact} />;
+      return "File";
+    case "tool_output":
+      return "Tool output";
   }
-  const _exhaustive: never = artifact.kind;
-  return _exhaustive;
 }
 
-function MarkdownArtifact({ artifact }: { artifact: EasyArtifact }) {
-  const payload = requireArtifactPayload(artifact.markdown, artifact.kind);
-  return (
-    <div className="easy-button-artifact-markdown">
-      <MarkdownText text={payload.markdown} />
-    </div>
-  );
-}
-
-function TableArtifact({ artifact }: { artifact: EasyArtifact }) {
-  const payload = requireArtifactPayload(artifact.table, artifact.kind);
-  return (
-    <div className="easy-button-artifact-table-wrap">
-      <table className="easy-button-artifact-table">
-        <thead>
-          <tr>
-            {payload.columns.map((column) => (
-              <th key={column.key}>{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {payload.rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {payload.columns.map((column, columnIndex) => (
-                <td key={column.key}>{row[columnIndex] ?? ""}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function BarChartArtifact({ artifact }: { artifact: EasyArtifact }) {
-  const payload = requireArtifactPayload(artifact.barChart, artifact.kind);
-  const maxValue = Math.max(...payload.items.map((item) => item.value), 0);
-  return (
-    <div className="easy-button-artifact-bars">
-      {payload.items.map((item) => (
-        <div className="easy-button-artifact-bar-row" key={item.label}>
-          <div className="easy-button-artifact-bar-label">{item.label}</div>
-          <div className="easy-button-artifact-bar-track">
-            <div className="easy-button-artifact-bar" style={barWidthStyle(item.value, maxValue)} />
-            <div className="easy-button-artifact-bar-value">
-              {item.value}
-              {item.unit ?? ""}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FileArtifact({ artifact }: { artifact: EasyArtifact }) {
-  const payload = requireArtifactPayload(artifact.file, artifact.kind);
-  return (
-    <div className="easy-button-artifact-file">
-      <code>{payload.path}</code>
-      {payload.description ? <p>{payload.description}</p> : null}
-    </div>
-  );
-}
-
-function barWidthStyle(value: number, maxValue: number): CSSProperties {
-  const ratio = maxValue > 0 ? Math.max(0, Math.min(value / maxValue, 1)) : 0;
-  return { width: `${Math.round(ratio * 100)}%` };
-}
-
-function requireArtifactPayload<T>(payload: T | null, kind: EasyArtifact["kind"]): T {
-  if (!payload) {
-    throw new Error(`Easy artifact ${kind} is missing its typed payload`);
-  }
-  return payload;
-}
-
-function highlightElapsedLabel(startedAt: string | null, at: string): string {
+export function milestoneElapsedLabel(startedAt: string | null, at: string): string {
   if (!startedAt) {
     return "";
   }

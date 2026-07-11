@@ -403,7 +403,9 @@ type ReactDomSurfaceRenderFactory = (
 
 const reactDomSurfaceRenderFactories: Partial<Record<SurfaceKind, ReactDomSurfaceRenderFactory>> = {
   "chat-dom": () => () => <WorkspaceChatSurface />,
-  "easy-button": () => () => <EasyButtonSurface />,
+  "easy-button": (pane) => () => (
+    <EasyButtonSurface conversationId={pane.easyButtonConfig?.conversationId ?? null} />
+  ),
   "fake-long-chat": (pane) => () => <FakeLongChatSurface pane={pane} />,
   "workflow-graph":
     (pane, options) =>
