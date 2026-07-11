@@ -5,7 +5,12 @@
 **Status:** Phase 5 complete. Renderer output preserves user scrollback,
 coalesces sustained output and presentation work by animation frame, and keeps
 interactive output immediate. The identical production workload reduced local
-emission-to-paint p95 from 101 ms to 87 ms. Phase 6 is next.
+emission-to-paint p95 from 101 ms to 87 ms. All post-change measurements so
+far are local, aggregate-workload, and output-side: the new stream has not yet
+been measured over Tailscale, input-path latency has not been re-measured
+since the transport change, and the latency budgets have not been asserted.
+Phase 6 is next and begins with a remote spot-check before any test-matrix
+work.
 
 ## Progress
 
@@ -60,6 +65,18 @@ emission-to-paint p95 from 101 ms to 87 ms. Phase 6 is next.
   output with a one-frame bound.
 - [x] Profile the identical sustained-output, multi-pane workspace workload
   before and after; record the result in the Phase 5 performance report.
+- [ ] Run the interim remote Tailscale spot-check of the duplex stream and
+  compare input-path and output-path latency against the Phase 1 remote
+  baseline.
+- [ ] Record the scheduler's immediate/coalesced decision per output event and
+  segment interactive from bulk output in the recording analyzer.
+- [ ] Build the deterministic network-delay proxy and the local, 40 ms, and
+  100 ms latency workflow with interactive-budget assertions.
+- [ ] Add the remaining Phase 6 Go, TypeScript, renderer, and workflow
+  coverage.
+- [ ] Run the final live Tailscale validation; report the direct route as the
+  acceptance run and the DERP route separately, or record explicitly that a
+  relay route could not be captured.
 
 ## Decision
 
@@ -198,6 +215,18 @@ For a direct Tailscale route:
 - Keep terminal content out of performance logs. Record byte counts, sequence
   numbers, timestamps, session IDs, and transport state only.
 
+The main-receipt-to-write and write-to-paint budgets apply to interactive
+output only. An output event is interactive when the Phase 5 scheduler writes
+it immediately; frame-coalesced bulk output and attach replay are measured
+separately and are bounded by the one-frame coalescing guarantee, not by the
+interactive budgets. To make that segmentation exact, the renderer must record
+the scheduler's actual immediate/coalesced decision with each output timing
+event, and the recording analyzer must classify by that recorded decision
+rather than reconstructing it heuristically. Budget assertions written against
+the aggregate workload without this segmentation are invalid: they would
+either fail on intentionally coalesced bulk output or be loosened until they
+assert nothing.
+
 Sub-5-ms visible echo is not a goal because it would require local prediction.
 On a 35-50 ms path, a correct remote echo cannot beat the network RTT without
 prediction.
@@ -313,14 +342,30 @@ Do this after Phase 1 measurements identify material renderer cost.
    animation frame instead of repeating them for each output chunk.
 3. Let interactive echo output reach `xterm.write` immediately. Coalesce only
    sustained bulk output, with a bound that keeps interactive output within
-   one frame.
+   one frame. The implemented bound writes the first four output chunks in an
+   animation frame immediately and coalesces the remainder of that frame into
+   one write; four covers a keystroke's echo plus its common control-sequence
+   companions. Revisit the constant only with measurements showing interactive
+   bursts that exceed it.
 4. Profile large-output workloads and large workspace DOMs before and after.
    Record the results in an append-only report under
    `docs/reports/performance/`.
 
 ### Phase 6: Verification
 
-Add deterministic coverage before live validation:
+First, de-risk the remote path before building any test-matrix infrastructure.
+Phases 2-5 replaced the entire terminal transport with only local
+measurements; the original complaint is remote and input-side. Run the
+production workload against the Tailscale runtime on the new stream, record
+input-path latency (renderer `onData` to PTY write acknowledgement),
+output-path latency, the route, and RTT samples, and compare against the
+Phase 1 remote baseline. Any unforeseen remote stream problem — ticket
+round-trip cost, long-lived WebSocket behavior over the Tailscale HTTPS path,
+relay interaction — must surface in this spot-check, not after the
+deterministic matrix is built. Record the result as an interim entry in the
+Phase 6 report.
+
+Then add deterministic coverage before final live validation:
 
 - Go tests for ticket authentication/expiry/one-time use, message decoding,
   ordered PTY writes, duplicate suppression, sequence gaps, bounded
@@ -336,12 +381,19 @@ Add deterministic coverage before live validation:
 - A latency workflow with a deterministic network-delay proxy outside the app
   production path. Measure at local, 40 ms RTT, and 100 ms RTT profiles. Assert
   input ordering and the transport/render budgets rather than merely asserting
-  that output eventually appears.
+  that output eventually appears. Budget assertions must use the recorded
+  interactive/coalesced segmentation defined in Goals and Budgets; the
+  deterministic profiles are the acceptance basis, and live runs are
+  confirmatory.
 - Reload/reattach, disconnect/reconnect, backend failure, multiple panes,
   fast typing, paste, backspace, control sequences, resize, cancellation, and
   output-flood scenarios.
 - A final live Tailscale run that records the route and RTT alongside the app
-  measurements. Direct and DERP runs must be reported separately.
+  measurements. Direct and DERP runs must be reported separately. The direct
+  route is the acceptance run. Attempt a relay-routed run by blocking the
+  direct UDP path so Tailscale falls back to DERP; if a relay route cannot be
+  captured, record that explicitly and treat the deterministic 100 ms profile
+  as the DERP stand-in rather than blocking completion on it.
 
 Regenerate `desktop/src/generated/backend.ts` whenever the Go-owned contracts
 or endpoint registry change. Do not edit it manually.
@@ -353,7 +405,10 @@ broad protocol change:
 2. Run the focused Go tests through `./scripts/go.sh`.
 3. Run the focused desktop unit and Electron workflow tests.
 4. Run `./check_quality.sh --all` because this changes generated contracts and
-   a cross-boundary runtime protocol.
+   a cross-boundary runtime protocol. The terminal, terminal-profile, and
+   terminal-backend-crash workflows must pass; record any pre-existing
+   unrelated failures explicitly (as the Phase 4 report did) rather than
+   treating the overall gate color as the verdict.
 5. If a WebSocket dependency is added, pin it exactly, update lock/module state
    through `./update_dependencies.sh`, and run
    `./scripts/check_supply_chain.sh`.
