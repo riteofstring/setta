@@ -215,7 +215,7 @@ func (harness *CodexHarness) waitForStructuredTask(ctx context.Context, session 
 func (harness *CodexHarness) applyCodexStructuredTaskEvent(ctx context.Context, event codexapp.Event, threadID string, turnID string, sink *codexStructuredTaskSink) (codexStructuredTaskWaitResult, bool, error) {
 	switch event.Kind {
 	case codexapp.EventRequest:
-		err := fmt.Errorf("codex structured cartographer task attempted disallowed server request %s", event.Message.Method)
+		err := fmt.Errorf("codex structured task attempted disallowed server request %s", event.Message.Method)
 		_ = event.Message.RespondError(codexJSONRPCErrorCapabilityUnavailable, err.Error())
 		return codexStructuredTaskWaitResult{}, false, err
 	case codexapp.EventNotification:
@@ -363,11 +363,11 @@ func (sink *codexStructuredTaskSink) AssistantTextDelta(_ string, text string) e
 }
 
 func (sink *codexStructuredTaskSink) ApprovalRequested(ApprovalRequest) error {
-	return errors.New("codex structured cartographer task attempted approval request")
+	return errors.New("codex structured task attempted approval request")
 }
 
 func (sink *codexStructuredTaskSink) ApprovalResolved(string, bool, string) error {
-	return errors.New("codex structured cartographer task attempted approval resolution")
+	return errors.New("codex structured task attempted approval resolution")
 }
 
 func (sink *codexStructuredTaskSink) ProviderDiagnostic(code string, message string, context map[string]string, _ bool, severity DiagnosticSeverity) error {
@@ -391,7 +391,7 @@ func (sink *codexStructuredTaskSink) ProviderTurnError(providerError ProviderTur
 }
 
 func (sink *codexStructuredTaskSink) GoalUpdated(*ChatGoalState) error {
-	return errors.New("codex structured cartographer task attempted goal update")
+	return errors.New("codex structured task attempted goal update")
 }
 
 func (sink *codexStructuredTaskSink) CodexEffectiveSettingsUpdated(ChatCodexEffectiveSettings) error {
@@ -399,7 +399,7 @@ func (sink *codexStructuredTaskSink) CodexEffectiveSettingsUpdated(ChatCodexEffe
 }
 
 func (sink *codexStructuredTaskSink) RunItemOutputDelta(string, string, string) error {
-	return errors.New("codex structured cartographer task attempted run item output stream")
+	return errors.New("codex structured task attempted run item output stream")
 }
 
 func (sink *codexStructuredTaskSink) RunItemUpsert(item RunItem) error {
@@ -407,7 +407,7 @@ func (sink *codexStructuredTaskSink) RunItemUpsert(item RunItem) error {
 	case RunItemTypeAgentMessage, RunItemTypeReasoning, RunItemTypePlan, RunItemTypeNotice, RunItemTypeContextCompaction:
 		return nil
 	default:
-		return fmt.Errorf("codex structured cartographer task attempted disallowed run item type %s", item.Type)
+		return fmt.Errorf("codex structured task attempted disallowed run item type %s", item.Type)
 	}
 }
 

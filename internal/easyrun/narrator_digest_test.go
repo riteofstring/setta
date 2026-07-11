@@ -24,7 +24,8 @@ func TestNarratorDigestCondensesTypedEventsWithoutRawOutputs(t *testing.T) {
 		}),
 		chatDigestEvent(chat.EventTypeRunItemCreated, chat.RunItemCreatedPayload{
 			Item: chat.RunItem{
-				Type: chat.RunItemTypeCommandExecution,
+				Title: "Testing desktop package",
+				Type:  chat.RunItemTypeCommandExecution,
 				Details: chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{
 					Command: "pnpm -C desktop test",
 					Result:  "raw command output must not enter the digest",
@@ -68,7 +69,7 @@ func TestNarratorDigestCondensesTypedEventsWithoutRawOutputs(t *testing.T) {
 	if got, want := digestTexts(entries), []string{
 		"Inspecting the request",
 		"**Mapping parser modules**",
-		"pnpm -C desktop test",
+		"Testing desktop package",
 		"service.go, README.md",
 		"Implementation Report",
 	}; strings.Join(got, "\n") != strings.Join(want, "\n") {
@@ -84,7 +85,7 @@ func TestNarratorDigestCondensesTypedEventsWithoutRawOutputs(t *testing.T) {
 		t.Fatalf("digest sources = %#v, want %#v", got, want)
 	}
 	joined := strings.Join(digestTexts(entries), "\n")
-	for _, forbidden := range []string{"secret private chain", "raw command output", "raw output delta", "+raw patch", "-raw patch"} {
+	for _, forbidden := range []string{"secret private chain", "pnpm -C desktop test", "raw command output", "raw output delta", "+raw patch", "-raw patch"} {
 		if strings.Contains(joined, forbidden) {
 			t.Fatalf("digest leaked %q in %q", forbidden, joined)
 		}

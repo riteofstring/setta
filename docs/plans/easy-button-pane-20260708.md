@@ -956,7 +956,6 @@ highlights, narrative completion summary, narrator degradation status, and the
 Phase 4 deterministic/live coverage. No blockers were discovered.
 
 ### 2026-07-08 — Phase 4 highlight persistence slice complete
-
 Implemented persisted `EasyHighlight` storage/snapshot restore and
 `EasyRunService.RecordNarratorHighlights`, including trimming, empty-text
 rejection, per-call cap 2, run cap 12, `HighlightCount` updates, and typed
@@ -968,32 +967,34 @@ Phase 4 work at the time: narrator surface, digest/trigger policy, structured
 calls, degradation, narrative summaries, left-rail rendering, and Phase 4 E2E.
 
 ### 2026-07-09 — Phase 4 highlight persistence audit follow-up
-
 Audit confirmed the backend-owned presentation boundary and no contract drift.
 Follow-up fixed two hardening gaps: renderer `easyrun.resync_required` handling
 now precedes duplicate filtering, and stored artifact/highlight collections fail
-loudly unless ordinals are ordered and contiguous. Verification included
-focused easy-run/renderer tests, no-diff contract generation, formatting,
-typecheck, build, deterministic easy-button workflow
-(`.recordings/easy-button-phase4-audit-fixes`), ChatGPT auth check, and live
-chat workflow gate; `live-codex-electron` and `live-codex-backend` passed.
-Remaining Phase 4 work was unchanged.
+loudly unless ordinals are ordered and contiguous. Verification included focused
+easy-run/renderer tests, no-diff contract generation, formatting, typecheck,
+build, deterministic easy-button workflow, ChatGPT auth check, and live chat
+workflow gate; `live-codex-electron` and `live-codex-backend` passed. Remaining
+Phase 4 work was unchanged.
 
 ### 2026-07-09 — Phase 4 narrator infrastructure slice complete
+Added `HarnessSurfaceEasyRunNarrator` plus bounded narrator digest/trigger
+infrastructure: source-tagged entries, entry/byte caps, consume-once pending
+entries, 15s/8-entry cadence, and terminal-trigger support. Focused tests prove
+raw command output, output deltas, file patches, and private reasoning text are
+excluded. Verification included focused/full chat and easy-run Go tests,
+typecheck, build, deterministic easy-button workflow, ChatGPT auth check, live
+chat workflows, formatting, and `./check_quality.sh --git-changes`. Remaining:
+narrator observer/structured calls, degradation, narrative summaries, left-rail
+rendering, and Phase 4 narrator E2E.
 
-Added `HarnessSurfaceEasyRunNarrator`, surface-neutral structured-task input
-wording, and bounded narrator digest/trigger infrastructure: source-tagged
-assistant/reasoning/command/file/artifact entries, entry/byte caps,
-consume-once pending entries, 15s/8-entry cadence, and terminal-trigger support.
-Focused tests prove raw command output, run-item output deltas, file patches,
-and private reasoning text are excluded. Verification included focused/full
-chat and easy-run Go tests, typecheck, build, deterministic easy-button workflow
-(`.recordings/easy-button-phase4-narrator-infra`), ChatGPT auth check, and live
-chat workflows; `live-codex-electron`, `live-codex-backend`, formatting, and
-`./check_quality.sh --git-changes` passed. Extra
-`chat-workflows.test.mjs --codex-protocol-only` runs failed before new-path
-assertions in an unrelated terminal/settings UI state (`terminal session not
-found`); artifacts are under
-`test-results/electron-integration/chat-workflows/codex-protocol/`. Remaining:
-narrator observer/structured calls, degradation, narrative summaries,
-left-rail rendering, and Phase 4 narrator E2E.
+### 2026-07-09 — Phase 4 narrator infrastructure audit follow-up
+Audit found no generated-contract drift and no renderer-side presentation
+derivation, polling, raw-HTML artifact rendering, compatibility layers, or
+voice/listening stubs. Follow-up made command digest entries title-only, never
+raw command strings, and made shared structured-task capability errors
+surface-neutral. Verification performed: no-diff contract generation,
+focused/full easy-run/chat Go tests, desktop build, deterministic easy-button
+Electron workflow, live Codex workflow gate, formatting, and
+`./check_quality.sh --git-changes`. Remaining Phase 4 work is unchanged:
+narrator observer/structured calls, degradation, narrative summaries, left-rail
+rendering, and Phase 4 narrator E2E.

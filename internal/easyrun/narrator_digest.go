@@ -226,12 +226,6 @@ func commandDigestText(item chat.RunItem) string {
 		if source := details.Source; source != nil && *source != chat.RunItemCommandSourceAgent {
 			return ""
 		}
-		if strings.TrimSpace(details.Command) != "" {
-			return details.Command
-		}
-	}
-	if strings.TrimSpace(item.Command) != "" {
-		return item.Command
 	}
 	return item.Title
 }
