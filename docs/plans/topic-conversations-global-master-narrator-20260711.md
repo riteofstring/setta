@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phase 0 and Phase 1 item 1 are complete
+**Status:** In progress; Phase 0 and Phase 1 items 1-2 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1521,8 +1521,8 @@ Exit criteria:
 
 ### Phase 1: New persistence and core contracts
 
-**Progress:** Item 1 is complete. Items 2-5 remain, beginning with the
-Go-owned conversation/core domain types.
+**Progress:** Items 1-2 are complete. Items 3-5 remain, beginning with
+transaction helpers and the committed-event outbox.
 
 Implement:
 
@@ -2124,3 +2124,30 @@ Implementation is in progress under this plan.
   focused `./check_quality.sh --files` gate.
   Generated inputs and outputs changed: none. Phase 1 item 2 remains next and
   there is no external blocker.
+- 2026-07-11: Completed Phase 1 item 2. `internal/conversation` now owns the
+  durable topic-conversation, turn/queue, Codex thread-binding, artifact,
+  branch, ephemeral-side, role-profile, resolved-invocation audit,
+  presentation-profile, narrator-state, narration-event, and normalized
+  trajectory types. Domain validation makes lifecycle state explicit, keeps
+  provider ids replaceable rather than using them as Setta identity, enforces
+  `checkpointThroughSequence <= observedThroughSequence`, separates the four
+  narration channels, and rejects mismatched or multiply populated trajectory
+  and narration payload branches. The 27 trajectory variants cover the
+  plan-owned turn, public agent text/reasoning, plan, activity, file-change,
+  approval, subagent, artifact, liveness, provider-lifecycle, and model-reroute
+  facts without importing legacy chat/Easy Run types or Codex wire objects.
+- 2026-07-11: Role profiles now model exact versus explicit
+  `provider_default` selection, provider-advertised reasoning-effort strings,
+  service tier, explicit tool/approval/mutation permissions, context budgets,
+  all three override scopes, and requested-versus-resolved invocation audit.
+  The clean `internal/workspaceui/conversationpalette` owner defines the seven
+  approved accessible palettes and semantic token pairs in deterministic
+  allocator order; conversation presentation profiles persist exact or
+  `auto_distinct` palette/voice selection and explicit catalog-exhaustion
+  reuse. Focused race tests, repository formatting, and the git-change quality
+  gate passed for both new owners. Generated inputs and outputs changed: none;
+  these domain types are
+  deliberately not registered as HTTP/event surfaces until Phase 1 item 4.
+  No production composition root changed, so a chat/Electron workflow gate is
+  not evidence needed for this isolated type slice. Phase 1 item 3 is next,
+  with no external blocker.
