@@ -3507,6 +3507,37 @@ is next: prove recording preempts active summary synthesis/playback and that
 TTS failure leaves the run, narrator state, and persisted summary untouched.
 No implementation blocker was found.
 
+### 2026-07-10 — Phase 4 terminal-summary hydration and cache audit complete
+
+Audited commit `c20652f95` against Phase 4 item 5, `AGENTS.md`, the clean
+starting worktree, the retained workflow artifacts, and the mounted playback
+implementation and controller tests. The restored-state assertion reloads the
+production renderer with `final` output still selected, waits for the persisted
+failed summary to hydrate, and then proves that neither the fake OpenAI
+synthesis boundary nor the fresh page's audio boundary was touched. The
+following manual replay proves the restored source remains usable. The mounted
+completed-summary replay separately proves that replay creates and starts a new
+audio element without another synthesis request or Blob URL; the focused
+controller test retains the exact same-URL assertion. No practical defect,
+generated-artifact drift, or slice-owned coverage gap was found, so no
+implementation fix was required and Phase 4 item 6 was not started.
+
+Audit verification completed:
+
+- focused Prettier and ESLint checks passed for the changed Electron workflow,
+  and all 16 speech playback controller tests passed;
+- the configured production speech workflow passed with fresh temporary app
+  data at
+  `desktop/.recordings/easy-button-speech-phase4-hydration-cache-audit-20260710`,
+  retaining 12 transcription sessions and exactly five persisted-summary
+  syntheses while the added mounted replay and hydration checks issued none;
+- the workflow's production-path privacy assertion passed, and the fresh audit
+  artifacts contain no recorded speech secret or audio payload.
+
+The plan remains incomplete. Phase 4 item 6 is next: prove recording preempts
+active summary synthesis and playback, and prove TTS failure leaves the Easy
+Run, narrator state, and persisted summary untouched. No blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
