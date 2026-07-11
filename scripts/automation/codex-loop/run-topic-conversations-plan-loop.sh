@@ -7,6 +7,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 PLAN_PATH="docs/plans/topic-conversations-global-master-narrator-20260711.md"
 COMPLETION_SENTINEL="TOPIC_CONVERSATIONS_IMPLEMENTATION_COMPLETE"
 BLOCKED_SENTINEL="TOPIC_CONVERSATIONS_IMPLEMENTATION_BLOCKED"
+FINAL_AUDIT_SENTINEL="TOPIC_CONVERSATIONS_READY_FOR_FINAL_AUDIT"
 MODEL="gpt-5.6-sol"
 AGENT_ONE_REASONING_EFFORT="xhigh"
 AGENT_TWO_REASONING_EFFORT="max"
@@ -25,8 +26,9 @@ Usage: scripts/automation/codex-loop/run-topic-conversations-plan-loop.sh [optio
 Runs two fresh Codex agents in a loop for:
   docs/plans/topic-conversations-global-master-narrator-20260711.md
 
-Agent 1 implements the next coherent plan slice. Agent 2 reviews the result,
-finishes or fixes it as needed, and decides whether the plan should continue.
+Agent 1 implements the next coherent plan slice. Agent 2 reviews only that
+slice, fixes it as needed, and then stops. When Agent 1 finds no remaining
+step, Agent 2 performs a separate whole-plan completion audit.
 
 The loop succeeds only when Agent 2's final message is exactly:
   TOPIC_CONVERSATIONS_IMPLEMENTATION_COMPLETE
@@ -384,9 +386,7 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 OUTPUT_DIR="$(cd "${OUTPUT_DIR}" && pwd -P)"
 
-AGENT_ONE_PROMPT="Implement the next incomplete step in ${PLAN_PATH}. Use ${CODEX_REFERENCE_REPO} as the Codex source reference when needed. Verify and commit the work, and update the plan."
-
-AGENT_TWO_PROMPT="Review the latest work against ${PLAN_PATH}. Fix, verify, and commit anything needed. Return exactly ${COMPLETION_SENTINEL} if the whole plan is complete, or exactly ${BLOCKED_SENTINEL} if an external blocker prevents further progress."
+AGENT_ONE_PROMPT="Implement the next incomplete step in ${PLAN_PATH}. Use ${CODEX_REFERENCE_REPO} as the Codex source reference when needed. Verify and commit the work, and update the plan. If the plan is already fully implemented, make no changes and return exactly ${FINAL_AUDIT_SENTINEL}."
 
 log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
@@ -405,6 +405,7 @@ else
 fi
 log_info "Completion sentinel: ${COMPLETION_SENTINEL}"
 log_info "Blocked sentinel: ${BLOCKED_SENTINEL}"
+log_info "Final audit request: ${FINAL_AUDIT_SENTINEL}"
 
 iteration=1
 while true; do
@@ -414,16 +415,34 @@ while true; do
   fi
 
   run_dir="$(printf '%s/iteration-%04d' "${OUTPUT_DIR}" "${iteration}")"
+  implementer_last_message="${run_dir}/agent-1.last-message.txt"
+  implementer_message=""
   reviewer_last_message="${run_dir}/agent-2.last-message.txt"
   reviewer_message=""
+  iteration_start_head=""
+  implementer_head=""
+  final_audit="0"
+  reviewer_prompt=""
   log_info "Starting iteration ${iteration}."
   require_clean_repo "before iteration ${iteration}"
+  iteration_start_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
   run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_REASONING_EFFORT}" 0
-  run_agent "agent-2" "${AGENT_TWO_PROMPT}" "${run_dir}" "${AGENT_TWO_REASONING_EFFORT}" 1
+  implementer_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
+  implementer_message="$(trimmed_nonempty_message "${implementer_last_message}")"
+  if [[ "${implementer_message}" == "${FINAL_AUDIT_SENTINEL}" ]] \
+    && [[ "${implementer_head}" == "${iteration_start_head}" ]] \
+    && repo_is_clean; then
+    final_audit="1"
+    reviewer_prompt="Audit the whole implementation against ${PLAN_PATH}. Do not implement remaining plan steps. Return exactly ${COMPLETION_SENTINEL} only if the whole plan is complete, or exactly ${BLOCKED_SENTINEL} if an external blocker prevents completion. Otherwise record the next missing work in the plan, commit that plan update if needed, and return a brief audit summary."
+    log_info "Agent 1 requested the final whole-plan audit."
+  else
+    reviewer_prompt="Review only Agent 1's work from this iteration (${iteration_start_head}..${implementer_head}, plus any uncommitted changes) against ${PLAN_PATH}. Fix, verify, and commit issues, then stop. Do not start the next plan step. Return exactly ${BLOCKED_SENTINEL} if the review uncovers an external blocker. Otherwise return a brief review summary."
+  fi
+  run_agent "agent-2" "${reviewer_prompt}" "${run_dir}" "${AGENT_TWO_REASONING_EFFORT}" 1
   require_clean_repo "after agent-2 review"
 
   reviewer_message="$(trimmed_nonempty_message "${reviewer_last_message}")"
-  if [[ "${reviewer_message}" == "${COMPLETION_SENTINEL}" ]]; then
+  if [[ "${final_audit}" -eq 1 ]] && [[ "${reviewer_message}" == "${COMPLETION_SENTINEL}" ]]; then
     require_clean_repo "at completion"
     log_info "Agent 2 returned ${COMPLETION_SENTINEL}; implementation is complete."
     exit 0
@@ -435,6 +454,10 @@ while true; do
     exit 2
   fi
 
-  log_info "Agent 2 did not return a terminal sentinel; continuing."
+  if [[ "${final_audit}" -eq 1 ]]; then
+    log_info "The final audit found remaining work; continuing."
+  else
+    log_info "Agent 2 finished the iteration review; continuing."
+  fi
   iteration="$((iteration + 1))"
 done
