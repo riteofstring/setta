@@ -688,6 +688,8 @@ function unimplementedTerminalAPI(): SettaAPI["terminal"] {
     input: unavailable,
     listProfiles: unavailable,
     onEvent: () => () => {},
+    recordLatency: () => {},
+    recordingRunId: "terminal_latency_test",
     resize: unavailable,
     selectDefaultProfile: unavailable,
     updateProfile: unavailable,

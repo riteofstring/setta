@@ -21,6 +21,7 @@ import type {
 import {
   detectWebPlatform,
   errorMessage,
+  sameOriginBaseURL,
   sleepWithAbort,
   transparentSVGDataURL,
   webDeviceDisplayName,
@@ -81,6 +82,7 @@ export function installWebSettaAPIIfNeeded(): void {
 
 export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): SettaAPI {
   const baseURL = sameOriginBaseURL();
+  const terminalRecordingRunId = `terminal-latency-web-${crypto.randomUUID()}`;
   const rawFetch = options.fetchImpl ?? fetch.bind(window);
   const connectionListeners = new Set<(snapshot: RuntimeRegistrySnapshot) => void>();
   const processStatusListeners = new Set<(status: BackendProcessStatus) => void>();
@@ -410,6 +412,8 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           sendEvent: listener,
           streamName: "terminal event stream",
         }),
+      recordLatency: () => {},
+      recordingRunId: terminalRecordingRunId,
       resize: (request) => requireClient().resizeTerminal(request),
       selectDefaultProfile: (request) => requireClient().selectDefaultTerminalProfile(request),
       updateProfile: (request) => requireClient().updateTerminalProfile(request),
@@ -890,12 +894,6 @@ function requiredPairingParam(parsed: URL, name: string): string {
     throw new Error(`pairing URL is missing ${name}`);
   }
   return value;
-}
-
-function sameOriginBaseURL(): string {
-  const url = new URL(window.location.origin);
-  url.pathname = "/";
-  return url.toString();
 }
 
 function saveStoredDeviceSession(session: StoredWebDeviceSession) {

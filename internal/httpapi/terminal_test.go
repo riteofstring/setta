@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"setta/internal/terminal"
 	"setta/internal/workspace"
@@ -40,9 +41,23 @@ func TestTerminalEndpointsCreateInputResizeAndClose(t *testing.T) {
 	input := postJSON[TerminalInputResponse](t, handler, "/terminals/input", TerminalInputRequest{
 		SessionID:  created.Session.ID,
 		DataBase64: base64.StdEncoding.EncodeToString([]byte("echo ok\n")),
+		Trace: TerminalInputTrace{
+			RunID:         "terminal_latency_test",
+			ClientID:      "terminal_client_test",
+			InputSequence: 7,
+		},
 	}, http.StatusOK)
 	if input.AcceptedBytes != len("echo ok\n") {
 		t.Fatalf("accepted input bytes = %d, want %d", input.AcceptedBytes, len("echo ok\n"))
+	}
+	if input.Trace.RunID != "terminal_latency_test" || input.Trace.ClientID != "terminal_client_test" || input.Trace.InputSequence != 7 {
+		t.Fatalf("input trace correlation = %+v", input.Trace)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, input.Trace.HandlerReceivedAt); err != nil {
+		t.Fatalf("handler received timestamp = %q: %v", input.Trace.HandlerReceivedAt, err)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, input.Trace.PTYWriteCompletedAt); err != nil {
+		t.Fatalf("pty write timestamp = %q: %v", input.Trace.PTYWriteCompletedAt, err)
 	}
 	if written := starter.handleAt(t, 0).writtenString(); written != "echo ok\n" {
 		t.Fatalf("terminal input = %q, want echo ok", written)

@@ -8,6 +8,7 @@ import {
   decodeWorkflowEvent,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
+import { recordingRendererEventChannel } from "@shared/recording";
 import type {
   BackendEventStreamStatus,
   CloudRuntimeProvisionResourceView,
@@ -24,6 +25,9 @@ import type {
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
+const terminalRecordingRunId =
+  process.env.SETTA_TERMINAL_LATENCY_RUN_ID?.trim() ||
+  `terminal-latency-${globalThis.crypto.randomUUID()}`;
 const appFlags = {
   workflowGraphDebug:
     process.env.SETTA_E2E === "1" || process.env.SETTA_WORKFLOW_GRAPH_DEBUG === "1",
@@ -179,7 +183,14 @@ const api: SettaAPI = {
         options.rows,
       ),
     deleteProfile: (request) => invoke("terminalDeleteProfile", request),
-    input: (input) => invoke("terminalInput", input),
+    input: (input) =>
+      invoke("terminalInput", {
+        ...input,
+        trace: {
+          ...input.trace,
+          preloadReceivedAt: new Date().toISOString(),
+        },
+      }),
     listProfiles: () => invoke("terminalListProfiles"),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
@@ -190,6 +201,8 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.terminalEvent, handler);
       };
     },
+    recordLatency: (event) => ipcRenderer.send(recordingRendererEventChannel, event),
+    recordingRunId: terminalRecordingRunId,
     resize: (request) => invoke("terminalResize", request),
     selectDefaultProfile: (request) => invoke("terminalSelectDefaultProfile", request),
     updateProfile: (request) => invoke("terminalUpdateProfile", request),

@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 9;
-export const backendContractSchemaHash = "sha256:b54b4490d490352e9d7c060778357777f7801d1fdfefe39a20eab076069eb35e";
+export const backendProtocolVersion = 11;
+export const backendContractSchemaHash = "sha256:826e5acc48b1a07673076ba6c6d4993a98abb475a161ea8328556758f24102a1";
 
 export type DeviceScope = "full";
 
@@ -5822,13 +5822,33 @@ export interface AttachTerminalRequest {
   paneId: string;
 }
 
+export interface TerminalInputTrace {
+  runId: string;
+  clientId: string;
+  inputSequence: number;
+  rendererReceivedAt: string;
+  preloadReceivedAt: string;
+  mainReceivedAt: string;
+  httpDispatchedAt: string;
+}
+
 export interface TerminalInputRequest {
   sessionId: string;
   dataBase64: string;
+  trace: TerminalInputTrace;
+}
+
+export interface TerminalInputResponseTrace {
+  runId: string;
+  clientId: string;
+  inputSequence: number;
+  handlerReceivedAt: string;
+  ptyWriteCompletedAt: string;
 }
 
 export interface TerminalInputResponse {
   acceptedBytes: number;
+  trace: TerminalInputResponseTrace;
 }
 
 export interface ResizeTerminalRequest {
@@ -11863,20 +11883,48 @@ export function decodeAttachTerminalRequest(value: unknown): AttachTerminalReque
   };
 }
 
+export function decodeTerminalInputTrace(value: unknown): TerminalInputTrace {
+  const record = assertRecord(value, "TerminalInputTrace");
+  assertKnownFields(record, "TerminalInputTrace", ["runId", "clientId", "inputSequence", "rendererReceivedAt", "preloadReceivedAt", "mainReceivedAt", "httpDispatchedAt"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "TerminalInputTrace"), "TerminalInputTrace.runId"),
+    clientId: decodeString(requireField(record, "clientId", "TerminalInputTrace"), "TerminalInputTrace.clientId"),
+    inputSequence: decodeInteger(requireField(record, "inputSequence", "TerminalInputTrace"), "TerminalInputTrace.inputSequence"),
+    rendererReceivedAt: decodeString(requireField(record, "rendererReceivedAt", "TerminalInputTrace"), "TerminalInputTrace.rendererReceivedAt"),
+    preloadReceivedAt: decodeString(requireField(record, "preloadReceivedAt", "TerminalInputTrace"), "TerminalInputTrace.preloadReceivedAt"),
+    mainReceivedAt: decodeString(requireField(record, "mainReceivedAt", "TerminalInputTrace"), "TerminalInputTrace.mainReceivedAt"),
+    httpDispatchedAt: decodeString(requireField(record, "httpDispatchedAt", "TerminalInputTrace"), "TerminalInputTrace.httpDispatchedAt"),
+  };
+}
+
 export function decodeTerminalInputRequest(value: unknown): TerminalInputRequest {
   const record = assertRecord(value, "TerminalInputRequest");
-  assertKnownFields(record, "TerminalInputRequest", ["sessionId", "dataBase64"]);
+  assertKnownFields(record, "TerminalInputRequest", ["sessionId", "dataBase64", "trace"]);
   return {
     sessionId: decodeString(requireField(record, "sessionId", "TerminalInputRequest"), "TerminalInputRequest.sessionId"),
     dataBase64: decodeString(requireField(record, "dataBase64", "TerminalInputRequest"), "TerminalInputRequest.dataBase64"),
+    trace: decodeTerminalInputTrace(requireField(record, "trace", "TerminalInputRequest")),
+  };
+}
+
+export function decodeTerminalInputResponseTrace(value: unknown): TerminalInputResponseTrace {
+  const record = assertRecord(value, "TerminalInputResponseTrace");
+  assertKnownFields(record, "TerminalInputResponseTrace", ["runId", "clientId", "inputSequence", "handlerReceivedAt", "ptyWriteCompletedAt"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.runId"),
+    clientId: decodeString(requireField(record, "clientId", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.clientId"),
+    inputSequence: decodeInteger(requireField(record, "inputSequence", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.inputSequence"),
+    handlerReceivedAt: decodeString(requireField(record, "handlerReceivedAt", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.handlerReceivedAt"),
+    ptyWriteCompletedAt: decodeString(requireField(record, "ptyWriteCompletedAt", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.ptyWriteCompletedAt"),
   };
 }
 
 export function decodeTerminalInputResponse(value: unknown): TerminalInputResponse {
   const record = assertRecord(value, "TerminalInputResponse");
-  assertKnownFields(record, "TerminalInputResponse", ["acceptedBytes"]);
+  assertKnownFields(record, "TerminalInputResponse", ["acceptedBytes", "trace"]);
   return {
     acceptedBytes: decodeInteger(requireField(record, "acceptedBytes", "TerminalInputResponse"), "TerminalInputResponse.acceptedBytes"),
+    trace: decodeTerminalInputResponseTrace(requireField(record, "trace", "TerminalInputResponse")),
   };
 }
 

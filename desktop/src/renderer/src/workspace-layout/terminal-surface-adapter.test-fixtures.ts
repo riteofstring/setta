@@ -30,6 +30,8 @@ interface InstalledTerminalAPI {
   input: MockFunction;
   listProfiles: MockFunction;
   onEvent: MockFunction;
+  recordLatency: MockFunction;
+  recordingRunId: string;
   resize: MockFunction;
 }
 
@@ -129,6 +131,8 @@ function createTerminalAPI(
     input: vi.fn(async () => ({ acceptedBytes: 0 })),
     listProfiles: withFallback(overrides.listProfiles, () => defaultListProfiles(overrides)),
     onEvent: vi.fn(addTerminalListener),
+    recordLatency: vi.fn(),
+    recordingRunId: "terminal_latency_test",
     resize: withFallback(overrides.resize, defaultResizeTerminal),
   };
 }
@@ -221,6 +225,7 @@ function createWindowStub({
       windowListeners.get(type)?.delete(listener);
     },
     requestAnimationFrame: vi.fn(),
+    sessionStorage: new MemoryStorage(),
     setTimeout,
     setta: {
       app: {

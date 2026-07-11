@@ -363,11 +363,14 @@ function forwardWorkflowEvent(event: WorkflowEvent) {
 
 function forwardTerminalEvent(event: TerminalEvent) {
   recorder?.recordAppEvent("terminal_event_forwarded", {
+    byteCount: event.payload.byteCount,
+    emittedAt: event.emittedAt,
     eventId: event.eventId,
     paneId: event.paneId,
-    sequence: event.sequence,
+    runId: recorder.terminalLatencyRunId,
     sessionId: event.sessionId,
     streamId: event.streamId,
+    transportSequence: event.sequence,
     type: event.type,
     workspaceId: event.workspaceId,
   });
@@ -724,7 +727,12 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerTerminalIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerTerminalIpcHandlers({
+    ipcMain,
+    ipcObserver,
+    recordAppEvent: (type, payload) => recorder?.recordAppEvent(type, payload),
+    requireBackendClient,
+  });
 }
 
 function requireBackendClient(): BackendClient {

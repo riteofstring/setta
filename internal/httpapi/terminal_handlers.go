@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"setta/internal/terminal"
 )
@@ -54,6 +55,7 @@ func (handler handler) attachTerminal(response http.ResponseWriter, request *htt
 }
 
 func (handler handler) terminalInput(response http.ResponseWriter, request *http.Request) {
+	handlerReceivedAt := time.Now().UTC()
 	service := requireTerminalService(response, handler.terminalService)
 	if service == nil {
 		return
@@ -67,11 +69,21 @@ func (handler handler) terminalInput(response http.ResponseWriter, request *http
 		return
 	}
 	acceptedBytes, err := service.WriteInput(request.Context(), payload.SessionID, data)
+	ptyWriteCompletedAt := time.Now().UTC()
 	if err != nil {
 		writeTerminalError(response, "terminal_input_failed", err)
 		return
 	}
-	writeJSON(response, http.StatusOK, TerminalInputResponse{AcceptedBytes: acceptedBytes})
+	writeJSON(response, http.StatusOK, TerminalInputResponse{
+		AcceptedBytes: acceptedBytes,
+		Trace: TerminalInputResponseTrace{
+			RunID:               payload.Trace.RunID,
+			ClientID:            payload.Trace.ClientID,
+			InputSequence:       payload.Trace.InputSequence,
+			HandlerReceivedAt:   handlerReceivedAt.Format(time.RFC3339Nano),
+			PTYWriteCompletedAt: ptyWriteCompletedAt.Format(time.RFC3339Nano),
+		},
+	})
 }
 
 func (handler handler) resizeTerminal(response http.ResponseWriter, request *http.Request) {

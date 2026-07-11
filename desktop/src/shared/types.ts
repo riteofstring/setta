@@ -140,6 +140,7 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
+import type { TerminalLatencyRendererEvent } from "./recording";
 
 import type {
   CloudRuntimeProvisionExecuteRequest,
@@ -600,6 +601,8 @@ export interface SettaAPI {
     input: (input: TerminalInputRequest) => Promise<TerminalInputResponse>;
     listProfiles: () => Promise<TerminalProfileList>;
     onEvent: (listener: (event: TerminalEvent) => void) => () => void;
+    recordLatency: (event: TerminalLatencyRendererEvent) => void;
+    recordingRunId: string;
     resize: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
     selectDefaultProfile: (
       request: SelectDefaultTerminalProfileRequest,
