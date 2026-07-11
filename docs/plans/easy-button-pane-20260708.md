@@ -278,8 +278,11 @@ Structured-task plumbing: add a new `HarnessSurface` constant (e.g.
 `HarnessSurfaceEasyRunNarrator`) and relax
 `validateCodexStructuredTaskShape` / the cartographer-only surface gate in
 `internal/chat/codex_harness_structured.go` to accept it. The narrator task
-runs with the workspace default model at `minimal` reasoning effort (constants
-owned by `internal/easyrun`, tunable).
+runs with the workspace default model at `none` reasoning effort (constants
+owned by `internal/easyrun`, tunable). Live Codex 0.142.5 rejects `minimal`
+structured turns when the app-server includes the built-in `image_gen` tool; the
+structured-task thread start therefore disables provider image generation and
+web search explicitly before the turn starts.
 
 **Highlight selectivity policy (hard product constraint).** The left rail must
 read like the mockup: ~6 lines over a 2-minute run, each a phase, not an
@@ -897,20 +900,9 @@ Implemented the Phase 2d text steering/control split:
   backing run; the workflow also asserts center-focus behavior and secondary
   stop behavior.
 
-Verification performed:
-
-- `./scripts/go.sh run ./cmd/generate-contracts`
-- `./scripts/go.sh test ./internal/easyrun`
-- `./scripts/go.sh test ./internal/httpapi -run 'Test(ReadEasyRunSnapshot|SteerEasyRun|EasyRunEventStream|ContractSchemaSnapshot)'`
-- `./scripts/go.sh test ./internal/chat -run 'TestServiceRoutes(EasyRun|WorkflowAgent|MasterChat)ThroughSharedHarnessTask'`
-- `pnpm -C desktop exec vitest run src/renderer/src/stores/easy-run-store.test.ts`
-- `pnpm -C desktop typecheck`
-- `pnpm -C desktop build`
-- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase2d-steering`
-- `node desktop/tests/electron/chat-live-auth.mjs`
-- `./scripts/test_chat_workflows.sh --skip-build --live-only`
-- `./scripts/format.sh`
-- `./check_quality.sh --git-changes`
+Verification performed: contract generation, focused easy-run/httpapi/chat/store
+checks, typecheck/build, deterministic Electron workflow, ChatGPT auth check,
+live workflow gate, formatting, and `./check_quality.sh --git-changes`.
 
 Live note: ChatGPT auth was available. The live gate passed
 `live-codex-electron` and `live-codex-backend` on retry after an initial
@@ -998,3 +990,5 @@ Implemented terminal narrator projection: terminal easy runs consume typed diges
 ### 2026-07-09 - Phase 5 artifact-cap overflow messaging slice complete: made the `setta.emit_artifact` cap error user-suitable without exposing the internal easy-run id, included failed chat-run error reasons in backend-owned mechanical terminal summaries, and added a scripted production-path overflow run that emits 20 retained artifacts through the real artifact tool before the 21st call fails loudly. The deterministic Easy Button Electron workflow now asserts the pane keeps exactly the 20 typed artifact cards, omits the rejected overflow card, and shows the typed failed summary with `artifact limit reached` and `20 artifacts`. Verification performed: focused easy-run tests, full easy-run/chat tests, desktop build, deterministic Easy Button workflow, ChatGPT auth check, live backend pass, and narrow live Electron retry pass after the combined live gate's first Electron attempt timed out in the existing semantic-cartographer wait path. Remaining then: long-request layout hardening, reduced-motion audit, and final hardening/live acceptance checks.
 ### 2026-07-09 - Phase 5 long-request layout slice complete: bounded the Easy Button center copy area, clamped the user's request context to four wrapped lines, kept summaries/errors within scrollable text budgets, and extended the deterministic production-path workflow with desktop and fresh compact-layout long unbroken request runs that assert no horizontal text overflow, no control/input overlap, and host containment before and after steering. Verification performed: `./scripts/go.sh test ./internal/chat -run 'TestScripted|TestServiceRoutesEasyRunThroughSharedHarnessTask'`; `pnpm -C desktop build`; `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase5-long-request-layout-final`; `node desktop/tests/electron/chat-live-auth.mjs`; `./scripts/test_chat_workflows.sh --skip-build --live-only` (live backend passed, live Electron hit the existing semantic-cartographer wait failure); narrow `node desktop/tests/electron/run-workflows.mjs --workflow live-codex-electron` retry passed; `./scripts/format.sh`; and `./check_quality.sh --git-changes`. ChatGPT auth was available. Remaining Phase 5 work: reduced-motion audit and final hardening/live acceptance checks. No blockers were discovered.
 ### 2026-07-09 - Phase 5 reduced-motion audit slice complete: extended the production-path Easy Button Electron workflow with a fresh `prefers-reduced-motion: reduce` session that starts a hidden working run, stops it, and separately verifies typed artifact cards and narrator highlights; the driver now reports media-match, animation names, and transition durations, and the workflow asserts the control glow, working ring/spinner, stop/input transitions, artifact arrivals, and highlight arrivals are all disabled without reading transcript events. Verification performed: `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase5-reduced-motion-final`; `node desktop/tests/electron/chat-live-auth.mjs`; `./scripts/test_chat_workflows.sh --skip-build --live-only` (`live-codex-electron` and `live-codex-backend` passed); `./scripts/format.sh`; and `./check_quality.sh --git-changes`. ChatGPT auth was available. Remaining Phase 5 work: final hardening/live acceptance checks. No blockers were discovered.
+### 2026-07-09 - Phase 5 final audit/live acceptance follow-up
+Final audit found no generated drift or forbidden-path violations and added a production Electron Easy Button live workflow to the live gate. The first live run exposed a real Codex app-server/provider issue: `minimal` structured narrator turns failed with `image_gen` in the provider tool list. Follow-up starts structured task threads with provider image generation and web search disabled, changes the Easy Button narrator to `none` reasoning as the lowest live-supported no-image setting, and asserts that config in the fake protocol test. Verification passed no-diff contract generation, focused chat/easy-run tests, desktop typecheck/build, deterministic Easy Button workflow, performance workflow, ChatGPT auth check, focused live Easy Button workflow `.recordings/easy-button-final-audit-live-rerun`, and the full live workflow gate (`live-codex-electron`, `easy-button-live`, `live-codex-backend`). The focused live Easy Button run completed with one typed table artifact, `narratorStatus=ok`, and one narrator-authored highlight. Phase 5 final hardening/live acceptance is complete; no blockers were discovered.

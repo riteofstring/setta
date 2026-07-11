@@ -15,7 +15,7 @@ import (
 
 const easyRunNarratorSurfaceMetadata = "easy_run_narrator"
 
-var narratorReasoningEffort = chat.ReasoningEffortMinimal
+var narratorReasoningEffort = chat.ReasoningEffortNone
 
 type narratorRunState struct {
 	digest       *narratorDigestBuffer

@@ -131,6 +131,7 @@ type codexStructuredTaskThread struct {
 func (harness *CodexHarness) startCodexStructuredTaskThread(ctx context.Context, session *codexapp.Session, request HarnessTaskRequest) (codexStructuredTaskThread, error) {
 	params := map[string]any{
 		"approvalPolicy":        "never",
+		"config":                codexStructuredTaskThreadConfig(),
 		"cwd":                   request.StructuredTask.Workspace.RootPath,
 		"developerInstructions": request.StructuredTask.Prompt,
 		"ephemeral":             true,
@@ -152,6 +153,15 @@ func (harness *CodexHarness) startCodexStructuredTaskThread(ctx context.Context,
 		return codexStructuredTaskThread{}, err
 	}
 	return codexStructuredTaskThread{id: threadID, model: response.Model}, nil
+}
+
+func codexStructuredTaskThreadConfig() map[string]any {
+	return map[string]any{
+		"features": map[string]bool{
+			"image_generation": false,
+		},
+		"web_search": "disabled",
+	}
 }
 
 func startCodexStructuredTaskTurn(ctx context.Context, session *codexapp.Session, threadID string, request HarnessTaskRequest) (string, error) {

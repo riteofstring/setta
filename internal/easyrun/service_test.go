@@ -424,8 +424,8 @@ func TestTerminalNarratorPersistsHighlightsAndNarrativeSummary(t *testing.T) {
 		tasks[0].TurnMode != chat.HarnessTurnStructuredTask ||
 		tasks[0].StructuredTask == nil ||
 		tasks[0].StructuredTask.ReasoningEffort == nil ||
-		*tasks[0].StructuredTask.ReasoningEffort != chat.ReasoningEffortMinimal {
-		t.Fatalf("narrator task = %+v, want minimal structured easy-run narrator", tasks)
+		*tasks[0].StructuredTask.ReasoningEffort != chat.ReasoningEffortNone {
+		t.Fatalf("narrator task = %+v, want no-reasoning structured easy-run narrator", tasks)
 	}
 	if !strings.Contains(string(tasks[0].StructuredTask.Input), "Command noise that must stay hidden") {
 		t.Fatalf("narrator input = %s, want typed command title digest", string(tasks[0].StructuredTask.Input))

@@ -176,6 +176,11 @@ export const electronWorkflows = [
     name: "live-codex-electron",
     tiers: ["live"],
   },
+  {
+    file: "easy-button-live-workflow.test.mjs",
+    name: "easy-button-live",
+    tiers: ["live"],
+  },
 ];
 
 export function electronWorkflowNames() {
