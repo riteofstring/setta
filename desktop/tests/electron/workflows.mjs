@@ -46,6 +46,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "speech-capture-workflow.test.mjs",
+    name: "speech-capture",
+    tiers: ["required"],
+  },
+  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
     tiers: ["required"],

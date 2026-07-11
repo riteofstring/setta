@@ -3,7 +3,6 @@ import {
   type FormEvent,
   type KeyboardEvent,
   type RefObject,
-  type CSSProperties,
   useCallback,
   useEffect,
   useRef,
@@ -13,10 +12,26 @@ import {
 import type { EasyArtifact, EasyHighlight, EasyRun, EasyRunFocusStatus } from "@generated/backend";
 import type { EasyRunSteerResult } from "@shared/easy-run-ipc";
 
-import { MarkdownText } from "../../components/markdown-text";
 import { useEasyRunStore } from "../../stores/easy-run-store";
 import { useWorkspaceStore } from "../../stores/workspace-store";
 import { setHostPaneChromeTitle } from "../../workspace-layout/pane-title-metadata";
+import {
+  SpeechAvailabilityStatus,
+  SpeechCaptureError,
+  SpeechCaptureLine,
+  SpeechCaptureRings,
+  SpeechControlGlyph,
+  speechCaptureControlLabel,
+  speechCaptureDOMState,
+  speechCaptureHelperCopy,
+} from "./easy-button-speech-presentation";
+import { ArtifactRail, HighlightRail } from "./easy-button-rails";
+import type { SpeechCaptureState } from "./speech-capture-controller";
+import {
+  type EasyButtonSpeechCapture,
+  type SpeechCaptureAvailability,
+  useSpeechCapture,
+} from "./use-speech-capture";
 
 type EasyButtonViewState = "idle" | "working" | "complete";
 
@@ -34,7 +49,10 @@ export function EasyButtonSurface() {
     <section
       aria-label="Easy Button"
       className="easy-button-surface"
+      data-easy-button-capture={speechCaptureDOMState(controller.capture.state)}
+      data-easy-button-capturing={controller.capture.active ? "true" : "false"}
       data-easy-button-focus={currentFocusStatus(controller.latestRun, controller.viewState)}
+      data-easy-button-speech={controller.speechConfigured ? "configured" : "unavailable"}
       data-easy-button-state={controller.viewState}
       data-easy-button-status={controller.statusTone}
       data-testid="easy-button-surface"
@@ -51,6 +69,7 @@ export function EasyButtonSurface() {
           </div>
           <div className="easy-button-button-well">
             <SwirlField />
+            <SpeechCaptureRings />
             <button
               aria-label={controller.controlLabel}
               className="easy-button-control"
@@ -60,12 +79,19 @@ export function EasyButtonSurface() {
               onClick={controller.handleControlClick}
               type="button"
             >
-              <ControlGlyph statusTone={controller.statusTone} viewState={controller.viewState} />
+              <ControlGlyph
+                speechConfigured={controller.speechConfigured}
+                statusTone={controller.statusTone}
+                viewState={controller.viewState}
+              />
             </button>
           </div>
           <CaptionSlot
+            capture={controller.capture.state}
             error={controller.error}
             latestRun={controller.latestRun}
+            speechAvailability={controller.capture.availability}
+            speechConfigured={controller.speechConfigured}
             viewState={controller.viewState}
           />
           <div className="easy-button-action-slot">
@@ -104,6 +130,7 @@ export function EasyButtonSurface() {
 interface EasyButtonController {
   activeAgentCount: number;
   artifacts: EasyArtifact[];
+  capture: EasyButtonSpeechCapture;
   confirmActive: boolean;
   controlDisabled: boolean;
   controlLabel: string;
@@ -119,6 +146,7 @@ interface EasyButtonController {
   latestRun: EasyRun | null;
   rootRef: RefObject<HTMLElement | null>;
   setInputValue: (value: string) => void;
+  speechConfigured: boolean;
   statusTone: EasyButtonStatusTone;
   stopDisabled: boolean;
   viewState: EasyButtonViewState;
@@ -139,6 +167,12 @@ function useEasyButtonController(): EasyButtonController {
   const stop = useEasyRunStore((state) => state.stop);
   const [inputValue, setInputValue] = useState("");
   const [pendingAction, setPendingAction] = useState(false);
+  const capture = useSpeechCapture({
+    onCompletedTranscript: (transcript) => {
+      setInputValue(transcript);
+    },
+    workspaceId: selectedWorkspaceId,
+  });
   const viewState = easyButtonViewState(latestRun, pendingAction);
   const canSubmit = canSubmitRequest(selectedWorkspaceId, inputValue, latestRun, viewState);
   const submitRequest = useEasyButtonSubmit({
@@ -154,6 +188,7 @@ function useEasyButtonController(): EasyButtonController {
     viewState,
   });
   const stopRequest = useEasyButtonStop({
+    cancelCapture: capture.cancel,
     inputRef,
     latestRun,
     selectedWorkspaceId,
@@ -161,13 +196,20 @@ function useEasyButtonController(): EasyButtonController {
     stop,
   });
   const handleControlClick = useEasyButtonControlClick({
+    capture,
     inputRef,
+    latestRun,
+    pendingAction,
+    selectedWorkspaceId,
+    viewState,
   });
 
   const statusTone = statusToneForState(viewState, latestRun);
+  const speechConfigured = capture.availability.type === "configured";
 
   useEasyButtonSnapshot(selectedWorkspaceId, loadSnapshot, resetStore);
-  useEasyButtonPaneTitle(rootRef, viewState);
+  useEasyButtonPaneTitle(rootRef, viewState, capture.state);
+  useEasyButtonCaptureCancellation(capture, latestRun);
   const confirmActive = useEasyButtonConfirmPulse(viewState, statusTone, latestRun?.id ?? null);
 
   const handleSubmit = useCallback(
@@ -192,9 +234,12 @@ function useEasyButtonController(): EasyButtonController {
   return {
     activeAgentCount: activeAgentCountForState(viewState, latestRun),
     artifacts,
+    capture,
     confirmActive,
-    controlDisabled: controlDisabled(selectedWorkspaceId),
-    controlLabel: controlAriaLabel(viewState),
+    controlDisabled: controlDisabled(selectedWorkspaceId, pendingAction, capture),
+    controlLabel: speechConfigured
+      ? speechCaptureControlLabel(capture.state, viewState === "working")
+      : controlAriaLabel(viewState),
     error,
     handleControlClick,
     handleInputKeyDown,
@@ -203,181 +248,17 @@ function useEasyButtonController(): EasyButtonController {
     },
     handleSubmit,
     highlights,
-    inputDisabled: inputDisabled(selectedWorkspaceId, pendingAction),
+    inputDisabled: inputDisabled(selectedWorkspaceId, pendingAction, capture.active),
     inputRef,
     inputValue,
     latestRun,
     rootRef,
     setInputValue,
+    speechConfigured,
     statusTone,
     stopDisabled: pendingAction || !canStopRun(latestRun),
     viewState,
   };
-}
-
-function HighlightRail({
-  highlights,
-  latestRun,
-}: {
-  highlights: EasyHighlight[];
-  latestRun: EasyRun | null;
-}) {
-  return (
-    <aside
-      aria-label="Highlights"
-      className="easy-button-rail easy-button-rail-left"
-      data-easy-button-rail-empty={highlights.length === 0 ? "true" : "false"}
-    >
-      <p className="easy-button-rail-label">Now</p>
-      <ol className="easy-button-highlight-list" data-testid="easy-button-highlights">
-        {highlights.map((highlight) => (
-          <HighlightItem
-            highlight={highlight}
-            key={highlight.id}
-            startedAt={latestRun?.startedAt ?? null}
-          />
-        ))}
-      </ol>
-    </aside>
-  );
-}
-
-function HighlightItem({
-  highlight,
-  startedAt,
-}: {
-  highlight: EasyHighlight;
-  startedAt: string | null;
-}) {
-  return (
-    <li className="easy-button-highlight-item">
-      <span aria-hidden="true" className="easy-button-highlight-dot" />
-      <span className="easy-button-highlight-text">{highlight.text}</span>
-      <span className="easy-button-highlight-time">
-        {highlightElapsedLabel(startedAt, highlight.at)}
-      </span>
-    </li>
-  );
-}
-
-function ArtifactRail({ artifacts }: { artifacts: EasyArtifact[] }) {
-  return (
-    <aside
-      aria-label="Artifacts"
-      className="easy-button-rail easy-button-rail-right"
-      data-easy-button-rail-empty={artifacts.length === 0 ? "true" : "false"}
-    >
-      <p className="easy-button-rail-label">Artifacts</p>
-      <div className="easy-button-artifact-stack" data-testid="easy-button-artifacts">
-        {artifacts.map((artifact) => (
-          <ArtifactCard artifact={artifact} key={artifact.id} />
-        ))}
-      </div>
-    </aside>
-  );
-}
-
-function ArtifactCard({ artifact }: { artifact: EasyArtifact }) {
-  return (
-    <article className="easy-button-artifact-card" data-artifact-kind={artifact.kind}>
-      {artifact.kicker ? <p className="easy-button-artifact-kicker">{artifact.kicker}</p> : null}
-      <h2 className="easy-button-artifact-title">{artifact.title}</h2>
-      <ArtifactPayload artifact={artifact} />
-    </article>
-  );
-}
-
-function ArtifactPayload({ artifact }: { artifact: EasyArtifact }) {
-  switch (artifact.kind) {
-    case "markdown":
-      return <MarkdownArtifact artifact={artifact} />;
-    case "table":
-      return <TableArtifact artifact={artifact} />;
-    case "bar_chart":
-      return <BarChartArtifact artifact={artifact} />;
-    case "file":
-      return <FileArtifact artifact={artifact} />;
-  }
-  const _exhaustive: never = artifact.kind;
-  return _exhaustive;
-}
-
-function MarkdownArtifact({ artifact }: { artifact: EasyArtifact }) {
-  const payload = requireArtifactPayload(artifact.markdown, artifact.kind);
-  return (
-    <div className="easy-button-artifact-markdown">
-      <MarkdownText text={payload.markdown} />
-    </div>
-  );
-}
-
-function TableArtifact({ artifact }: { artifact: EasyArtifact }) {
-  const payload = requireArtifactPayload(artifact.table, artifact.kind);
-  return (
-    <div className="easy-button-artifact-table-wrap">
-      <table className="easy-button-artifact-table">
-        <thead>
-          <tr>
-            {payload.columns.map((column) => (
-              <th key={column.key}>{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {payload.rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {payload.columns.map((column, columnIndex) => (
-                <td key={column.key}>{row[columnIndex] ?? ""}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function BarChartArtifact({ artifact }: { artifact: EasyArtifact }) {
-  const payload = requireArtifactPayload(artifact.barChart, artifact.kind);
-  const maxValue = Math.max(...payload.items.map((item) => item.value), 0);
-  return (
-    <div className="easy-button-artifact-bars">
-      {payload.items.map((item) => (
-        <div className="easy-button-artifact-bar-row" key={item.label}>
-          <div className="easy-button-artifact-bar-label">{item.label}</div>
-          <div className="easy-button-artifact-bar-track">
-            <div className="easy-button-artifact-bar" style={barWidthStyle(item.value, maxValue)} />
-            <div className="easy-button-artifact-bar-value">
-              {item.value}
-              {item.unit ?? ""}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FileArtifact({ artifact }: { artifact: EasyArtifact }) {
-  const payload = requireArtifactPayload(artifact.file, artifact.kind);
-  return (
-    <div className="easy-button-artifact-file">
-      <code>{payload.path}</code>
-      {payload.description ? <p>{payload.description}</p> : null}
-    </div>
-  );
-}
-
-function barWidthStyle(value: number, maxValue: number): CSSProperties {
-  const ratio = maxValue > 0 ? Math.max(0, Math.min(value / maxValue, 1)) : 0;
-  return { width: `${Math.round(ratio * 100)}%` };
-}
-
-function requireArtifactPayload<T>(payload: T | null, kind: EasyArtifact["kind"]): T {
-  if (!payload) {
-    throw new Error(`Easy artifact ${kind} is missing its typed payload`);
-  }
-  return payload;
 }
 
 function useEasyButtonSnapshot(
@@ -397,19 +278,45 @@ function useEasyButtonSnapshot(
 function useEasyButtonPaneTitle(
   rootRef: RefObject<HTMLElement | null>,
   viewState: EasyButtonViewState,
+  captureState: SpeechCaptureState,
 ) {
   useEffect(() => {
     const host = rootRef.current?.closest<HTMLElement>('[data-testid="workspace-pane-host"]');
     if (!host) {
       return;
     }
-    const title = paneTitleForState(viewState);
+    const title = paneTitleForState(viewState, captureState);
     setHostPaneChromeTitle(host, {
       fullTitle: title,
       title,
       truncation: "end",
     });
-  }, [rootRef, viewState]);
+  }, [captureState, rootRef, viewState]);
+}
+
+function useEasyButtonCaptureCancellation(
+  capture: EasyButtonSpeechCapture,
+  latestRun: EasyRun | null,
+): void {
+  useEffect(() => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || !capture.active) {
+        return;
+      }
+      event.preventDefault();
+      capture.cancel();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [capture.active, capture.cancel]);
+
+  useEffect(() => {
+    if (captureIsSteering(capture.state) && !canStopRun(latestRun)) {
+      capture.cancel();
+    }
+  }, [capture.cancel, capture.state, latestRun]);
 }
 
 // The pulse must restart on every fresh entry into the terminal state, so it is
@@ -552,6 +459,7 @@ async function performEasyButtonSubmission({
 }
 
 interface StopOptions {
+  cancelCapture: () => void;
   inputRef: RefObject<HTMLInputElement | null>;
   latestRun: EasyRun | null;
   selectedWorkspaceId: string | null;
@@ -560,6 +468,7 @@ interface StopOptions {
 }
 
 function useEasyButtonStop({
+  cancelCapture,
   inputRef,
   latestRun,
   selectedWorkspaceId,
@@ -570,6 +479,7 @@ function useEasyButtonStop({
     if (!selectedWorkspaceId || !canStopRun(latestRun)) {
       return;
     }
+    cancelCapture();
     setPendingAction(true);
     try {
       await stop(selectedWorkspaceId, latestRun.id);
@@ -578,32 +488,123 @@ function useEasyButtonStop({
     } finally {
       setPendingAction(false);
     }
-  }, [inputRef, latestRun, selectedWorkspaceId, setPendingAction, stop]);
+  }, [cancelCapture, inputRef, latestRun, selectedWorkspaceId, setPendingAction, stop]);
 }
 
 interface ControlClickOptions {
+  capture: EasyButtonSpeechCapture;
   inputRef: RefObject<HTMLInputElement | null>;
-}
-
-function useEasyButtonControlClick({ inputRef }: ControlClickOptions) {
-  return useCallback(() => {
-    inputRef.current?.focus();
-  }, [inputRef]);
-}
-
-interface CaptionSlotProps {
-  error: string | null;
   latestRun: EasyRun | null;
+  pendingAction: boolean;
+  selectedWorkspaceId: string | null;
   viewState: EasyButtonViewState;
 }
 
-function CaptionSlot({ error, latestRun, viewState }: CaptionSlotProps) {
+function useEasyButtonControlClick({
+  capture,
+  inputRef,
+  latestRun,
+  pendingAction,
+  selectedWorkspaceId,
+  viewState,
+}: ControlClickOptions) {
+  return useCallback(
+    () =>
+      handleEasyButtonControlClick({
+        capture,
+        inputRef,
+        latestRun,
+        pendingAction,
+        selectedWorkspaceId,
+        viewState,
+      }),
+    [capture, inputRef, latestRun, pendingAction, selectedWorkspaceId, viewState],
+  );
+}
+
+function handleEasyButtonControlClick(options: ControlClickOptions): void {
+  if (!canUseSpeechCapture(options)) {
+    focusEasyButtonInput(options.inputRef);
+    return;
+  }
+  switch (speechCaptureControlAction(options.capture.state)) {
+    case "commit":
+      options.capture.commit();
+      return;
+    case "start":
+      options.capture.start(speechCaptureIntent(options.viewState, options.latestRun));
+      return;
+    case "focus_input":
+      focusEasyButtonInput(options.inputRef);
+  }
+}
+
+function canUseSpeechCapture(options: ControlClickOptions): boolean {
+  return (
+    options.capture.availability.type === "configured" &&
+    options.selectedWorkspaceId !== null &&
+    !options.pendingAction
+  );
+}
+
+function speechCaptureControlAction(state: SpeechCaptureState): "commit" | "focus_input" | "start" {
+  switch (state.type) {
+    case "listening":
+      return "commit";
+    case "idle":
+    case "failed":
+      return "start";
+    case "requesting_permission":
+    case "connecting":
+    case "committing":
+      return "focus_input";
+  }
+}
+
+function speechCaptureIntent(
+  viewState: EasyButtonViewState,
+  latestRun: EasyRun | null,
+): "start" | "steer" {
+  return viewState === "working" && canStopRun(latestRun) ? "steer" : "start";
+}
+
+function focusEasyButtonInput(inputRef: RefObject<HTMLInputElement | null>): void {
+  inputRef.current?.focus();
+}
+
+interface CaptionSlotProps {
+  capture: SpeechCaptureState;
+  error: string | null;
+  latestRun: EasyRun | null;
+  speechAvailability: SpeechCaptureAvailability;
+  speechConfigured: boolean;
+  viewState: EasyButtonViewState;
+}
+
+function CaptionSlot({
+  capture,
+  error,
+  latestRun,
+  speechAvailability,
+  speechConfigured,
+  viewState,
+}: CaptionSlotProps) {
   return (
     <div className="easy-button-caption-slot">
+      <SpeechCaptureLine state={capture} />
       <CurrentFocus latestRun={latestRun} viewState={viewState} />
-      <p className="easy-button-helper" data-testid="easy-button-helper">
-        {helperCopyForState(viewState)}
+      <p
+        aria-live="polite"
+        className="easy-button-helper"
+        data-testid="easy-button-helper"
+        role="status"
+      >
+        {speechConfigured
+          ? speechCaptureHelperCopy(capture, viewState === "working")
+          : helperCopyForState(viewState)}
       </p>
+      <SpeechCaptureError state={capture} />
+      <SpeechAvailabilityStatus availability={speechAvailability} />
       <SummaryText latestRun={latestRun} viewState={viewState} />
       <NarratorStatus latestRun={latestRun} />
       <ErrorText error={error} />
@@ -722,12 +723,17 @@ function SwirlField() {
 }
 
 function ControlGlyph({
+  speechConfigured,
   statusTone,
   viewState,
 }: {
+  speechConfigured: boolean;
   statusTone: EasyButtonStatusTone;
   viewState: EasyButtonViewState;
 }) {
+  if (speechConfigured) {
+    return <SpeechControlGlyph />;
+  }
   switch (viewState) {
     case "complete":
       return statusTone === "failed" ? (
@@ -771,12 +777,30 @@ function canStopRun(latestRun: EasyRun | null): latestRun is EasyRun {
   return latestRun?.status === "working";
 }
 
-function controlDisabled(selectedWorkspaceId: string | null) {
-  return !selectedWorkspaceId;
+function controlDisabled(
+  selectedWorkspaceId: string | null,
+  pendingAction: boolean,
+  capture: EasyButtonSpeechCapture,
+) {
+  if (!selectedWorkspaceId || pendingAction) {
+    return true;
+  }
+  if (capture.availability.type !== "configured") {
+    return false;
+  }
+  return (
+    capture.state.type === "requesting_permission" ||
+    capture.state.type === "connecting" ||
+    capture.state.type === "committing"
+  );
 }
 
-function inputDisabled(selectedWorkspaceId: string | null, pendingAction: boolean) {
-  return !selectedWorkspaceId || pendingAction;
+function inputDisabled(
+  selectedWorkspaceId: string | null,
+  pendingAction: boolean,
+  captureActive: boolean,
+) {
+  return !selectedWorkspaceId || pendingAction || captureActive;
 }
 
 function agentLabel(activeAgentCount: number) {
@@ -873,7 +897,35 @@ function helperCopyForState(viewState: EasyButtonViewState): string {
   }
 }
 
-function paneTitleForState(viewState: EasyButtonViewState): string {
+function paneTitleForState(
+  viewState: EasyButtonViewState,
+  captureState: SpeechCaptureState,
+): string {
+  const captureTitle = paneTitleForCaptureState(captureState);
+  if (captureTitle) {
+    return captureTitle;
+  }
+  return paneTitleForRunState(viewState);
+}
+
+function paneTitleForCaptureState(captureState: SpeechCaptureState): string | null {
+  switch (captureState.type) {
+    case "requesting_permission":
+      return "Easy Button · microphone permission";
+    case "connecting":
+      return "Easy Button · connecting";
+    case "listening":
+      return "Easy Button · listening";
+    case "committing":
+      return "Easy Button · committing";
+    case "failed":
+      return "Easy Button · voice failed";
+    case "idle":
+      return null;
+  }
+}
+
+function paneTitleForRunState(viewState: EasyButtonViewState): string {
   switch (viewState) {
     case "working":
       return "Easy Button · working";
@@ -884,17 +936,15 @@ function paneTitleForState(viewState: EasyButtonViewState): string {
   }
 }
 
-function highlightElapsedLabel(startedAt: string | null, at: string): string {
-  if (!startedAt) {
-    return "";
+function captureIsSteering(state: SpeechCaptureState): boolean {
+  switch (state.type) {
+    case "requesting_permission":
+    case "connecting":
+    case "listening":
+    case "committing":
+      return state.intent === "steer";
+    case "idle":
+    case "failed":
+      return false;
   }
-  const startMs = Date.parse(startedAt);
-  const atMs = Date.parse(at);
-  if (!Number.isFinite(startMs) || !Number.isFinite(atMs) || atMs < startMs) {
-    return "";
-  }
-  const totalSeconds = Math.round((atMs - startMs) / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }

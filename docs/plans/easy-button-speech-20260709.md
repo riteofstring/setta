@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-3 complete
+**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-4 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2534,6 +2534,100 @@ separate bounded live capture line and inward listening visuals, and implement
 commit, cancellation, teardown, duration limits, and typed error recovery. Do
 not start item 5's completed-transcript submission wiring until that state
 machine is complete. No implementation blocker was found.
+
+### 2026-07-10 — Phase 3 capture state machine complete
+
+Implemented Phase 3 item 4 without pulling completed-transcript start/steer
+submission forward. The renderer now owns an exhaustive local
+`idle | requesting_permission | connecting | listening | committing | failed`
+capture controller over the existing strict Realtime transport. It checks the
+runtime capability and browser secure-media boundary, requests one audio-only
+stream, mints one workspace-scoped transcription session, waits for the actual
+provider session/data channel/peer readiness boundary, commits only on the
+second tap, accepts deltas only for the current capture, and hands off only the
+provider's exact non-empty completed transcript. The backend-owned recording
+and transcript limits are enforced without silence, punctuation, or timing
+heuristics.
+
+Typed failures now distinguish permission denial, missing microphone, insecure
+context, unsupported browser, session creation, provider rejection/quota/
+unavailability, malformed/stale events, transcript overflow, disconnect,
+empty speech, duration exhaustion, and completion handoff. Escape, workspace or
+runtime change, pane teardown, an active steering run ending, the secondary
+Stop action, timeout, transport failure, and a replacement capture all close
+the data channel and peer, clear the duration timer, and stop every media track.
+The footer draft remains untouched through permission, connection, listening,
+cancel, timeout, and provider failure. In this ordered item-4 slice, a successful
+authoritative completion is staged exactly into that existing footer rather
+than submitted; Phase 3 item 5 will attach the existing start/steer action to
+the same completion callback and retain the footer staging only for ordinary
+submission failure.
+
+Configured runtimes now render the microphone as the center control regardless
+of idle, working, or terminal run state. The run and capture axes remain
+independent, so capture does not hide the working swirl, Current focus, or Stop
+control. Permission and connection use truthful wait copy without rings; only
+true listening renders the soft inward-converging rings and live microphone
+tone. The bounded bright capture line is a separate text node from the dimmed
+narrator-owned Current focus, its changing deltas are not live-announced, and
+capture-state helper changes use a polite status. Committing has its own inward
+pulse, reduced motion retains one static listening halo, and unconfigured
+runtimes retain the shipped typed/Sparkles path. The existing rail and artifact
+rendering was moved unchanged to its own component boundary to keep the growing
+surface below repository file-length limits.
+
+Verification completed for this slice:
+
+- 26 focused capture-controller cases cover the complete state lifecycle,
+  permission and support failures, exact media/session calls, current-session
+  delta and completed handling, empty final rejection, every typed Realtime
+  failure, duration limits, cancellation at each async boundary, exact final
+  handoff, retry, teardown, and late-callback rejection. Together with the
+  strict decoder and transport suites, all 58 focused speech tests passed;
+- all 1,066 desktop Vitest tests, Electron/web typechecks, the Electron build,
+  and the web build passed. `./scripts/go.sh test ./internal/webapp` passed, and
+  the checked-in PWA bundle was rebuilt from the mounted capture source;
+- the required configured production Electron workflow passed at
+  `.recordings/easy-button-speech-phase3-capture-20260710-r4`. It uses a real
+  temporary workspace, main/preload/generated HTTP speech path, active-workspace
+  resolver, speech service, and fake OpenAI client-secret server with only the
+  browser media/Realtime peer boundary scripted. It proves permission wait,
+  connection, true listening, one bounded capture node, exact commit/delta/final
+  handling, no Easy Run before item 5, footer-draft preservation, Escape,
+  disconnect recovery, complete media/peer teardown, and key/client-secret/
+  audio redaction. The listening and disconnect screenshots from the equivalent
+  first clean run were inspected and remained contained and readable;
+- the complete existing production Easy Button workflow passed at
+  `.recordings/easy-button-speech-phase3-capture-regression-20260710-r1`,
+  preserving typed start/steer, lossless chat persistence, Current focus,
+  narrator-only NOW, artifacts, terminal/Stop behavior, reload/restart,
+  compact/reduced-motion, and the existing pixel-match companion;
+- ChatGPT authentication was available, so the focused live Easy Button
+  workflow passed at
+  `.recordings/easy-button-speech-phase3-capture-live-20260710-r1` and all four
+  supplemental live backend Codex probes passed with `OPENAI_API_KEY` explicitly
+  removed;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes` passed.
+  The first quality attempt found only slice-owned browser-template,
+  callback-complexity, and unused-export issues; the browser program moved to
+  the normal fixture source and the owning functions were split before the
+  focused checks and clean complete rerun.
+
+The supply-chain release-age and module checks passed. Vulnerability scanning
+remains blocked repository-wide by GO-2026-5856 in the pinned Go 1.26.4
+standard library, fixed in Go 1.26.5; this slice changes no dependency,
+manifest, module, package-manager, toolchain, or supply-chain input. No live
+OpenAI speech result is claimed because the opt-in real-audio acceptance
+workflow remains ordered for Phase 3 item 8.
+
+Phase 3 item 5 is next: route the controller's authoritative completed
+transcript through the existing Easy Run start/steer actions, clear the
+preserved draft only on success, and put the final transcript in the footer on
+ordinary rejection while preserving the existing structured accepted-steering
+partial outcome. Items 6-8 then complete working-plus-listening Stop/focus
+behavior, broader deterministic production coverage, and secure-context/PWA
+and live speech acceptance. No deterministic implementation blocker was found
+for item 5.
 
 ## Verification Plan
 
