@@ -1,5 +1,3 @@
-import { Mic } from "lucide-react";
-
 import type { SpeechCaptureState } from "./speech-capture-controller";
 import type { SpeechCaptureAvailability } from "./use-speech-capture";
 
@@ -57,8 +55,29 @@ export function SpeechAvailabilityStatus({
   }
 }
 
+// The canonical mockup draws the microphone as a rounded-rectangle capsule over a
+// U-shaped cradle with a stand and base bar (docs/mockups/easy_button_pane_mockup.html,
+// `.glyph-mic`). lucide's <Mic> is a different silhouette — a pill capsule with no
+// base bar and a heavier 2px stroke — so the control glyph is drawn inline to match
+// the reference exactly (viewBox, stroke width, and paths identical to the mockup).
 export function SpeechControlGlyph() {
-  return <Mic aria-hidden="true" className="easy-button-glyph" />;
+  return (
+    <svg
+      aria-hidden="true"
+      className="easy-button-glyph"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.6}
+      viewBox="0 0 24 24"
+    >
+      <rect height="11" rx="3" width="6" x="9" y="2" />
+      <path d="M5 10.5a7 7 0 0 0 14 0" />
+      <path d="M12 17.5V21" />
+      <path d="M8.5 21h7" />
+    </svg>
+  );
 }
 
 export function speechCaptureDOMState(state: SpeechCaptureState): string {

@@ -4257,6 +4257,82 @@ The next iteration still owns the remaining curated speech, focus, terminal,
 and reduced-motion states; deliberate-difference failure proof; named animation
 phases; and removal of unexplained still deltas before Phase 5 item 5 begins.
 
+### 2026-07-11 — Phase 5 visual-fidelity methodology honesty and listening slice
+
+Made the pixel-match comparison honest, then aligned the listening vertical
+slice against `docs/mockups/easy_button_pane_mockup.html`. Done directly in the
+main thread (Codex delegation was disabled for this task).
+
+Methodology (harness only; no tolerance introduced, nothing masked):
+
+- `clipToBounds` snaps crop size and origin independently — it rounds the box
+  extent (`right - left`) rather than `ceil(left) … floor(right)` — so two
+  surfaces that place the same CSS box at different sub-pixel origins yield
+  identically-sized crops. Genuine >=1px box-size differences still surface.
+- The exact BGRA comparator computes changed-pixel statistics over the shared
+  overlap only, so a one-row size gap no longer inflates a matching crop toward
+  100% changed; a dimension mismatch stays a loud, separate failure.
+- Each compared crop is labelled true-match / dimension-fail / pixel-fail; a
+  crop absent on either surface still throws and is never counted a match.
+- The shared probe drops four non-visual/noise computed properties
+  (`fontFamily`, `animationName`, `borderTopStyle`, `willChange`), each covered
+  by a truer signal (font advance width; animation timing + pinned pixels;
+  border width+color), and measures only rendered components, so the mockup's
+  `display:none` voice-off cluster no longer reads as present-vs-absent.
+- `artifactCard` is excluded from the image crops — its mockup body is
+  illustrative (SVG `.a-plate`, `.winner` row); only its shared shell styling is
+  compared in the metric report, which now separates unexplained deltas from
+  classified intentional ones (`token:accentMagenta` is the one sanctioned
+  divergence). Production capture uses `captureBeyondViewport` to match the
+  mockup's screenshot path.
+
+Listening slice (production CSS/component fixes to match the mockup):
+
+- The control microphone glyph used lucide's `<Mic>` (pill capsule, no base bar,
+  2px stroke). Replaced with an inline SVG identical to the mockup's `.glyph-mic`
+  (rect capsule, U cradle, stand, base bar, 1.6px stroke); the glyphs now match
+  on inspection.
+- The live capture line forced `width: 100%`, marooning the caret at the centre
+  of a 460px box while the mockup's line hugs its content. Removed the forced
+  width (kept `max-width: 100%` and the four-line clamp), so an empty listening
+  line is the caret's own width and is dimension-matched to the mockup
+  (14×20, was 460 vs 14); a committing transcript still fills and wraps to 460.
+
+Before/after (focused pixel-match, 82 crops):
+
+- Dimension failures: 80 → 16. The remaining 16 are real box-size differences to
+  fix next: actionSlot/stopButton 92 vs 73, swirl 540 vs 531, summaryReplay
+  66×21 vs 65×18, and a 1px terminal captionSlot.
+- The listening control face/glow/border and the rings CSS are identical to the
+  mockup; their residual pixel "changes" are concentric-ring sub-pixel
+  radial-gradient jitter (small per-channel deltas), owned by the still-open
+  measured-tolerance work, not a design difference.
+
+Manually inspected side-by-sides/heatmaps: idle/listening/requesting-permission
+control (mic glyph now matches; face rings are sub-pixel noise), listening
+captureLine (caret hugs content), listening rings, idle inputWrap. Raw pixel
+sampling confirmed the control background matches exactly across states and that
+requesting-permission's ~4/channel face dimming is the disabled state, below.
+
+Intentional / needs a design decision: production disables the control
+(`opacity: 0.72`) in requesting-permission, connecting, and committing; the
+mockup shows those states at full brightness. That uniform dimming is the real
+difference behind those states' high changed-pixel counts. The functional
+disable is correct (the control is momentarily non-interactive); whether it
+should also dim, or stay bright to match the mockup's active look, is a pending
+product decision, not yet applied.
+
+Verified: focused Prettier + ESLint on the changed harness files; the complete
+deterministic Easy Button production workflow passed at
+`desktop/.recordings/eb-fullgate`; `./scripts/format.sh` and
+`./check_quality.sh --git-changes` passed.
+
+Remaining visual work: the still matrix beyond listening (the speech transient
+states including the disabled-dimming decision, focus, output-menu, playback,
+terminal sizes, reduced-motion); the real box-size fixes above; deterministic
+animation-phase capture; and the measured repeat-run noise baseline with a
+narrow, component-local tolerance plus the deliberate-difference gate proof.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

@@ -326,7 +326,12 @@ async function captureComponentClip(client, path, metrics, key) {
 }
 
 async function captureClip(client, path, rect) {
+  // `captureBeyondViewport: true` matches the mockup renderer's capture options,
+  // so both surfaces go through the same Chromium screenshot path. The pane fits
+  // inside the desktop viewport, so this does not change what production
+  // captures; it removes an asymmetry between the two capture calls.
   const result = await client.call("Page.captureScreenshot", {
+    captureBeyondViewport: true,
     clip: { ...rect, scale: 1 },
     format: "png",
   });

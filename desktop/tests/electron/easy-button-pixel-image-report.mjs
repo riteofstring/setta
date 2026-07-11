@@ -52,9 +52,10 @@ async function compareCapturedCrop({ crop, mockup, outDir, pair, timeMs }) {
   const productionImage = requireImage(productionPath);
   const mockupImage = requireImage(mockupPath);
   const diff = compareImages(productionImage, mockupImage);
+  const status = classifyCrop(diff);
   const prefix = `${pair.production}-vs-${mockup}-t${timeMs}-${crop}`;
   const artifacts = { heatmap: "", sideBySide: "" };
-  if (!diff.dimensionMatch || diff.changedPixels > 0) {
+  if (status !== "match") {
     artifacts.heatmap = join("image-diffs", `${prefix}-heatmap.png`);
     artifacts.sideBySide = join("image-diffs", `${prefix}-side-by-side.png`);
     await Promise.all([
@@ -77,16 +78,37 @@ async function compareCapturedCrop({ crop, mockup, outDir, pair, timeMs }) {
     mockupSize: mockupImage.getSize(),
     production: pair.production,
     productionSize: productionImage.getSize(),
+    status,
     timeMs,
     totalPixels: diff.totalPixels,
   };
 }
 
+// Every compared crop is exactly one of: a true match (equal dimensions, zero
+// changed pixels over the overlap), a dimension failure (the two crops are not
+// the same size — a real box-size difference), or a pixel failure (same size,
+// but content differs). A crop absent on either surface never reaches here:
+// requireImage throws on a missing PNG, so absent/absent can never be counted a
+// match.
+function classifyCrop(diff) {
+  if (!diff.dimensionMatch) {
+    return "dimension-fail";
+  }
+  return diff.changedPixels > 0 ? "pixel-fail" : "match";
+}
+
 function compareImages(productionImage, mockupImage) {
   const production = imageData(productionImage);
   const mockup = imageData(mockupImage);
-  const width = Math.max(production.width, mockup.width);
-  const height = Math.max(production.height, mockup.height);
+  // A dimension mismatch is its own explicit failure (see `dimensionMatch`); it
+  // must not also inflate the changed-pixel count by comparing the larger crop
+  // against the smaller one's out-of-bounds transparent pixels. Earlier this
+  // iterated over the max extent, so a mockup crop one row taller than
+  // production reported ~100% of a tiny icon changed. Changed-pixel statistics
+  // are computed over the shared overlap only, so a matching component's ratio
+  // reflects real content differences, not a one-row size gap.
+  const width = Math.min(production.width, mockup.width);
+  const height = Math.min(production.height, mockup.height);
   const heatmap = Buffer.alloc(width * height * bytesPerPixel);
   let changedPixels = 0;
   let maxChannelDelta = 0;
@@ -239,24 +261,31 @@ function requireCoveredValues({ kind, mockup, pair, production }) {
 }
 
 function summarizeRows(rows) {
+  const byStatus = (status) => rows.filter((row) => row.status === status).length;
   return {
-    changedCropCount: rows.filter((row) => !row.dimensionMatch || row.changedPixels > 0).length,
+    changedCropCount: rows.filter((row) => row.status !== "match").length,
     comparedCropCount: rows.length,
-    dimensionMismatchCount: rows.filter((row) => !row.dimensionMatch).length,
+    dimensionMismatchCount: byStatus("dimension-fail"),
+    matchCount: byStatus("match"),
+    pixelFailCount: byStatus("pixel-fail"),
   };
 }
 
 function formatImageDiffReport(report) {
+  const { comparedCropCount, matchCount, pixelFailCount, dimensionMismatchCount } = report.summary;
   return [
     "# Easy Button pixel image differences",
     "",
     `Comparator self-test: ${report.comparatorSelfTest}.`,
     "",
-    "| pair | frame | crop | dimensions | changed pixels | ratio | max channel delta |",
-    "| --- | ---: | --- | --- | ---: | ---: | ---: |",
+    `Compared ${comparedCropCount} crops: ${matchCount} true matches, ${pixelFailCount} pixel failures, ${dimensionMismatchCount} dimension failures.`,
+    "Changed-pixel counts are over the shared overlap; a dimension failure is a real box-size difference, not overlap content.",
+    "",
+    "| pair | frame | crop | status | dimensions | changed pixels | ratio | max channel delta |",
+    "| --- | ---: | --- | --- | --- | ---: | ---: | ---: |",
     ...report.rows.map(
       (row) =>
-        `| ${row.production} vs ${row.mockup} | ${row.timeMs} ms | ${row.crop} | ${formatDimensions(row)} | ${row.changedPixels} / ${row.totalPixels} | ${row.changedPixelRatio} | ${row.maxChannelDelta} |`,
+        `| ${row.production} vs ${row.mockup} | ${row.timeMs} ms | ${row.crop} | ${row.status} | ${formatDimensions(row)} | ${row.changedPixels} / ${row.totalPixels} | ${row.changedPixelRatio} | ${row.maxChannelDelta} |`,
     ),
     "",
   ].join("\n");

@@ -57,14 +57,23 @@ export const pixelMatchCapturePlan = [
   },
   { crops: ["audioToggle", "captionSlot", "highlightItem"], state: "stopped" },
   {
-    crops: ["artifactCard", "audioToggle", "inputWrap", "summaryReplay"],
+    // artifactCard is not an image-diff target: the mockup card is illustrative
+    // (its .a-plate SVG diagram and .winner table row have no production
+    // counterpart), so its body pixels are intentionally different — comparing
+    // them would report the mockup's demo content as a production regression.
+    // The shared artifact shell, kicker, title, table, bar-chart, and inset
+    // styling are still compared as computed-style/geometry deltas in the
+    // metric report, which measures those roles on both surfaces.
+    crops: ["audioToggle", "inputWrap", "summaryReplay"],
     state: "completedArtifacts",
   },
   {
     crops: ["audioToggle", "captionSlot", "highlightItem", "summaryReplay"],
     state: "completedHighlights",
   },
-  { crops: ["artifactCard", "audioToggle", "control", "summaryReplay"], state: "failed" },
+  // artifactCard excluded from image crops for the same reason as
+  // completedArtifacts; its styling stays in the metric-delta report.
+  { crops: ["audioToggle", "control", "summaryReplay"], state: "failed" },
 ];
 
 // The pane cannot show both rails at once — no scripted run emits highlights and
@@ -97,18 +106,28 @@ export async function writePng(path, base64) {
 // The swirl is three times the width of the button well and the stage clips it,
 // so its own rect runs outside the pane. A screenshot clip may not.
 //
-// Clips are snapped to whole pixels: a fractional origin lands the same content
-// on a different subpixel grid, and the crop then differs between runs by a
-// channel step or two for reasons that have nothing to do with the pane.
+// Clips are snapped to whole pixels, but size and origin are snapped
+// independently. The earlier `ceil(left) … floor(right)` coupled a crop's width
+// to the sub-pixel phase of its origin: the same 180px control measured at
+// x=100.4 on one surface and x=200.6 on the other produced a 179px and a 180px
+// crop, and the comparator then flagged a phantom dimension mismatch for two
+// identical boxes. Rounding the extent (`right - left`) instead gives the crop
+// the box's own rounded size wherever it sits, so equal boxes yield equal-size
+// crops on both surfaces; only a genuine >=1px box-size difference (the swirl,
+// an over-long capture line) survives as a real dimension mismatch. A fractional
+// origin still lands the content on a slightly different subpixel grid — that
+// residual is antialiasing noise, measured and bounded later, not a size delta.
 export function clipToBounds(rect, bounds) {
-  const x = Math.ceil(Math.max(rect.x, bounds.x));
-  const y = Math.ceil(Math.max(rect.y, bounds.y));
-  const right = Math.floor(Math.min(rect.x + rect.width, bounds.x + bounds.width));
-  const bottom = Math.floor(Math.min(rect.y + rect.height, bounds.y + bounds.height));
-  if (right <= x || bottom <= y) {
+  const left = Math.max(rect.x, bounds.x);
+  const top = Math.max(rect.y, bounds.y);
+  const right = Math.min(rect.x + rect.width, bounds.x + bounds.width);
+  const bottom = Math.min(rect.y + rect.height, bounds.y + bounds.height);
+  const width = Math.round(right - left);
+  const height = Math.round(bottom - top);
+  if (width <= 0 || height <= 0) {
     throw new Error(`easy-button pixel-match clip is empty: ${JSON.stringify({ bounds, rect })}`);
   }
-  return { height: bottom - y, width: right - x, x, y };
+  return { height, width, x: Math.round(left), y: Math.round(top) };
 }
 
 export function compareEasyButtonMetrics(production, mockup) {
@@ -135,6 +154,15 @@ export function compareEasyButtonMetrics(production, mockup) {
   return rows;
 }
 
+// Differences the plan accepts on purpose. They stay visible in the report as
+// classified rows so no unknown delta can hide behind them, but they do not
+// count as unexplained. `token:accentMagenta` is the plan's single sanctioned
+// token divergence; every other role is required to match exactly.
+const intentionalDivergences = {
+  "token:accentMagenta":
+    "the plan accepts the magenta token's oklch divergence; every other token matches",
+};
+
 function tokenDeltas(production, mockup) {
   return Object.entries(mockup.tokens)
     .filter(([role, value]) => production.tokens[role] !== value)
@@ -142,6 +170,7 @@ function tokenDeltas(production, mockup) {
       key: `token:${role}`,
       kind: "token",
       mockup: value,
+      note: intentionalDivergences[`token:${role}`] ?? "",
       production: production.tokens[role],
     }));
 }
@@ -204,17 +233,23 @@ export function formatEasyButtonMetricDeltas(pairLabel, rows) {
   if (rows.length === 0) {
     return `## ${pairLabel}\n\nNo differences.\n`;
   }
+  const unexplained = rows.filter((row) => !row.note);
+  const intentional = rows.filter((row) => row.note);
   return [
     `## ${pairLabel}`,
     "",
-    "| component | kind | property | production | mockup |",
-    "| --- | --- | --- | --- | --- |",
-    ...rows.map(
-      (row) =>
-        `| ${row.key} | ${row.kind} | ${row.property ?? "—"} | ${formatCell(row.production)} | ${formatCell(row.mockup)} |`,
-    ),
+    `Unexplained deltas: ${unexplained.length}. Intentional (classified): ${intentional.length}.`,
+    "",
+    "| component | kind | property | production | mockup | classification |",
+    "| --- | --- | --- | --- | --- | --- |",
+    ...unexplained.map((row) => formatDeltaRow(row, "unexplained")),
+    ...intentional.map((row) => formatDeltaRow(row, `intentional — ${row.note}`)),
     "",
   ].join("\n");
+}
+
+function formatDeltaRow(row, classification) {
+  return `| ${row.key} | ${row.kind} | ${row.property ?? "—"} | ${formatCell(row.production)} | ${formatCell(row.mockup)} | ${classification} |`;
 }
 
 function formatCell(value) {

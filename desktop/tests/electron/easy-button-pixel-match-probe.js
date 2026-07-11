@@ -407,6 +407,21 @@
 
   // Curated rather than the whole computed style: a 340-property dump buries the
   // handful of declarations that actually carry the design.
+  //
+  // Deliberately excluded as non-visual noise, each covered by a truer signal:
+  //   - fontFamily: the two stylesheets request different stacks ("Inter, …" vs
+  //     "system-ui, …") but production ships no @font-face for Inter, so both
+  //     resolve to the same rendered face. The honest signal is the measured
+  //     advance width in `fonts`, not the requested string.
+  //   - animationName: production namespaces every keyframe (easy-button-*) and
+  //     the two files pick independent names (confirm-pulse vs confirm,
+  //     artifact-arrive vs artifact-in, audio-equalizer vs eq). The name is not
+  //     a visual property; animation identity is proven by the timing
+  //     properties below plus the pinned-frame pixel diffs.
+  //   - borderTopStyle: production's reset sets `border-style: solid` at
+  //     `border-width: 0`, which paints nothing. borderTopWidth + borderTopColor
+  //     catch a border that actually renders.
+  //   - willChange: a compositor hint with no rendered result.
   const comparedProperties = [
     "alignItems",
     "animationDelay",
@@ -414,13 +429,11 @@
     "animationDuration",
     "animationFillMode",
     "animationIterationCount",
-    "animationName",
     "animationPlayState",
     "animationTimingFunction",
     "backgroundColor",
     "borderTopColor",
     "borderTopLeftRadius",
-    "borderTopStyle",
     "borderTopWidth",
     "boxShadow",
     "color",
@@ -428,7 +441,6 @@
     "display",
     "filter",
     "flexDirection",
-    "fontFamily",
     "fontSize",
     "fontVariantNumeric",
     "fontWeight",
@@ -460,7 +472,6 @@
     "transitionTimingFunction",
     "verticalAlign",
     "whiteSpace",
-    "willChange",
     "zIndex",
   ];
 
@@ -552,7 +563,14 @@
     }
     const queryRoot = component.scope === "document" ? document : scope;
     const element = queryRoot.querySelector(selector);
-    if (!(element instanceof Element)) {
+    // "exists" means rendered, not merely in the DOM. The mockup is a static
+    // document that keeps its `data-speech="unconfigured"` voice-off cluster in
+    // the tree at `display: none`, while production removes those nodes from the
+    // tree in configured states. Both are "not shown here"; reporting them as a
+    // present-vs-absent delta is noise. `getClientRects()` is empty for a
+    // display:none subtree but non-empty for a reserved zero-width box (the
+    // terminal action slot), which must stay measurable.
+    if (!(element instanceof Element) || element.getClientRects().length === 0) {
       return { exists: false, rect: null, rectMode: component.rect, styles: null };
     }
     const style = getComputedStyle(element, component.pseudo ?? null);

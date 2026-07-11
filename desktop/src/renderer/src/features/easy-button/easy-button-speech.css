@@ -462,7 +462,12 @@
   max-height: calc(1.45em * 4);
   min-height: 20px;
   overflow: hidden;
-  width: 100%;
+  /* No `width: 100%`: like the canonical mockup's `.capture-line`, this hugs its
+     content so an empty line is just the caret and a short utterance is its own
+     width, centered by the caption slot. The shared rule above caps it at
+     `max-width: 100%`, so a long transcript still wraps to the 460px slot and
+     clamps to four lines. A forced full width left the caret marooned at the
+     centre of a 460px box that no longer matched the reference. */
 }
 
 .easy-button-surface[data-easy-button-capturing="true"] .easy-button-capture-line {
