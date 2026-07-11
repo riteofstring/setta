@@ -2830,6 +2830,49 @@ scripted media/Realtime coverage. Item 8 then covers remote-runtime/PWA secure
 context behavior and the opt-in live OpenAI speech acceptance workflow. No
 implementation blocker was found.
 
+### 2026-07-10 — Phase 3 working-plus-listening audit complete
+
+Audited commit `f5652487a` against this plan, `AGENTS.md`, its parent, the clean
+starting worktree, the mounted capture/submission implementation, generated
+contracts and checked-in PWA bundle, required workflow registration, and the
+recorded configured and regression production Electron runs. The item-6 slice
+correctly keeps the active-run and capture axes independent: Current focus,
+the working swirl, and enabled Stop control remain visible through listening
+and committing; partial steering stays in the dedicated capture line; stopping
+while listening tears down media/Realtime state without submitting another
+steering message.
+
+The audit found one practical coverage gap rather than a production defect.
+The progress entry claimed the preserved footer draft through both listening
+and committing, but the new production assertion checked it only while
+listening. The shared working-capture assertion now requires the exact draft in
+current-focus listening, committing-with-delta, and stale-focus listening
+states, so a commit-path draft regression cannot satisfy the item-6 gate.
+
+Audit verification completed:
+
+- the configured production Electron speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase3-working-listening-audit-20260710`
+  with six transcription sessions and the stronger draft checks;
+- contract regeneration and the web production build were idempotent, and the
+  Electron/web typecheck plus checked-in PWA bundle remained current;
+- all 1,074 desktop Vitest tests, the Electron production build, dead-code and
+  changed-test complexity checks, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed;
+- with `OPENAI_API_KEY` removed, the focused live Easy Button workflow and all
+  supplemental backend live Codex probes passed. The broader live Electron chat
+  workflow reached the provider but failed an unrelated visual-model assertion
+  after identifying a yellow fixture square as blue, so that aggregate is not
+  claimed as passing coverage for this slice.
+
+No dependency, manifest, module, package-manager, toolchain, generated contract,
+or supply-chain input changed, so the supply-chain gate was not required.
+
+Phase 3 items 1-6 remain complete. Phase 3 item 7 is still the next coherent
+slice: broaden the deterministic production workflow where needed and close
+the phase-wide scripted media/Realtime coverage. This audit did not start that
+work, and no blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

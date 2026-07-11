@@ -172,6 +172,7 @@ try {
     "listening",
   );
   assertWorkingListeningPresentation(workingListeningPane, workingListeningCapture, {
+    draft: preservedDraft,
     focusStatus: "current",
     focusText: completedRequest,
     transcript: "",
@@ -197,6 +198,7 @@ try {
     "committing",
   );
   assertWorkingListeningPresentation(committingSteeringPane, committingSteeringCapture, {
+    draft: preservedDraft,
     focusStatus: "current",
     focusText: completedRequest,
     transcript: liveSteeringDelta,
@@ -260,6 +262,7 @@ try {
     "listening",
   );
   assertWorkingListeningPresentation(stoppedListeningPane, stoppedListeningCapture, {
+    draft: preservedDraft,
     focusStatus: "stale",
     focusText: narratorFailureRequest,
     transcript: "",
@@ -504,6 +507,7 @@ function assertListeningCapture(state, runWorking) {
 function assertWorkingListeningPresentation(pane, capture, expected) {
   assertWorkingCaptureFocus(pane, expected);
   assertWorkingCaptureControls(pane);
+  assertDraftPreserved(capture, expected.draft);
   assertCaptureTranscriptPlacement(pane, capture, expected.transcript);
 }
 
