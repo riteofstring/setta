@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-4 and Phase 5 items 1-2 complete
+**Status:** Implementation in progress — Phases 1-4 and Phase 5 items 1-3 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -3861,6 +3861,62 @@ Phase 5 item 8. Phase 5 items 1-2 remain complete. Item 3 remains the next
 coherent slice: implement terminal priority, run/workspace switching,
 pending-queue cancellation, and stale synthesis-response rejection without
 pulling the visual matrix forward. No implementation blocker was found.
+
+### 2026-07-10 — Phase 5 playback priority and lifecycle hardening complete
+
+Implemented Phase 5 item 3 without starting the expanded visual matrix. The
+playback controller now gives a live terminal summary priority over narrator
+highlights that have not begun speaking: queued highlights are discarded, an
+active highlight synthesis is canceled, and the terminal summary starts next.
+An already speaking highlight is allowed to finish before the summary, so the
+controller neither overlaps sources nor cuts off audible narration.
+
+Automatic playback eligibility is now scoped to the exact current Easy Run in
+addition to the connected runtime and workspace. Changing the Easy Run,
+workspace, runtime connection, or speech-output configuration resets the
+controller, aborts synthesis, stops audio, clears the queue and deduplication
+state, revokes the mounted Blob URL, and rejects late work through the existing
+lifecycle token. Highlight responses now have direct stale-response coverage
+alongside summaries. No persisted state, Go-owned contract, source text, chat
+path, provider protocol, or visual styling changed.
+
+Verification completed for this slice:
+
+- 37 focused playback-controller, automatic-eligibility, terminal-source, and
+  highlight-source Vitest cases passed, including speaking-highlight
+  completion, queued-highlight removal, unspoken synthesis preemption, exact
+  terminal ordering, same-run filtering, and stale highlight responses;
+- all 1,129 desktop Vitest tests, focused ESLint, Electron/web typechecks, both
+  production builds, the regenerated checked-in PWA bundle, and
+  `./scripts/go.sh test ./internal/webapp` passed;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase5-terminal-priority-final-20260710`.
+  Through the real renderer, preload, main, authenticated HTTP, speech service,
+  store, and fake OpenAI boundary, it canceled an unspoken persisted highlight,
+  rejected the stale work, skipped the queued highlight, spoke the exact
+  terminal summary next, then canceled and revoked that playback when a new
+  same-workspace run replaced it. The retained terminal-priority screenshot
+  was inspected. The first workflow attempt reached these new assertions and
+  then exposed a test setup mismatch: the new scenario left
+  `highlights_and_final` selected while a later hydration assertion expected
+  `final`; restoring that expected preference made the complete retry pass;
+- the complete deterministic Easy Button workflow and its existing pixel-match
+  companion passed at
+  `desktop/.recordings/easy-button-speech-phase5-terminal-priority-regression-20260710`;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes`
+  passed. Earlier quality attempts found only slice-owned test complexity and
+  file-length limits; the terminal-priority predicates moved to the existing
+  speech-output assertion boundary, then focused lint and the complete
+  production workflow passed before the clean final gate.
+
+This renderer playback-only slice does not change chat delivery, run lifecycle,
+steering, Codex protocol handling, or a live provider contract, so live Codex
+and live OpenAI speech gates were not required. No dependency, manifest,
+module, package-manager, toolchain, Go-owned contract, or supply-chain input
+changed, so contract regeneration and supply-chain verification are not
+required. Phase 5 item 4 is next: square the rail tracks and extend the shared
+mockup/production harness across the synchronized still and named-animation
+pixel matrix. No implementation blocker was found.
 
 ## Verification Plan
 

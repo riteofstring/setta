@@ -216,6 +216,7 @@ function useEasyButtonController(): EasyButtonController {
   });
   const playback = useSpeechPlayback(
     selectedWorkspaceId,
+    latestRun?.id ?? null,
     isSpeechOutputConfigured(capture.availability),
   );
   const viewState = easyButtonViewState(latestRun, pendingAction);

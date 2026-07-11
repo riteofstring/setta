@@ -22,6 +22,7 @@ export interface EasyButtonSpeechPlayback {
 }
 
 export interface AutomaticSpeechPlaybackContext {
+  easyRunId: string | null;
   mode: SpeechOutputMode;
   outputConfigured: boolean;
   runtimeId: string | null;
@@ -30,6 +31,7 @@ export interface AutomaticSpeechPlaybackContext {
 
 export function useSpeechPlayback(
   workspaceId: string | null,
+  easyRunId: string | null,
   outputConfigured: boolean,
 ): EasyButtonSpeechPlayback {
   const runtimeId = useActiveConnectedRuntimeId();
@@ -48,16 +50,23 @@ export function useSpeechPlayback(
   }
   const controller = controllerRef.current;
   const automaticPlaybackContextRef = useRef<AutomaticSpeechPlaybackContext>({
+    easyRunId,
     mode,
     outputConfigured,
     runtimeId,
     workspaceId,
   });
-  automaticPlaybackContextRef.current = { mode, outputConfigured, runtimeId, workspaceId };
+  automaticPlaybackContextRef.current = {
+    easyRunId,
+    mode,
+    outputConfigured,
+    runtimeId,
+    workspaceId,
+  };
 
   useEffect(() => {
     controller.reset();
-  }, [controller, runtimeId, workspaceId]);
+  }, [controller, easyRunId, outputConfigured, runtimeId, workspaceId]);
 
   useEffect(() => {
     return () => {
@@ -103,7 +112,8 @@ export function automaticSpeechPlaybackSource(
   if (
     !context.outputConfigured ||
     !context.runtimeId ||
-    intent.source.workspaceId !== context.workspaceId
+    intent.source.workspaceId !== context.workspaceId ||
+    intent.source.easyRunId !== context.easyRunId
   ) {
     return null;
   }

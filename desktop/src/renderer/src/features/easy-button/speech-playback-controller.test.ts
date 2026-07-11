@@ -86,6 +86,58 @@ describe("Easy Button speech playback controller", () => {
     expect(harness.synthesisRequests).toHaveLength(2);
   });
 
+  test("finishes a speaking highlight, drops queued highlights, then speaks the terminal summary", async () => {
+    const harness = createHarness();
+    const speakingHighlight = highlightSource("run_terminal", "highlight_speaking");
+    const summary = summarySource("run_terminal");
+
+    harness.controller.enqueueAutomatic(speakingHighlight);
+    harness.controller.enqueueAutomatic(highlightSource("run_terminal", "highlight_queued_a"));
+    harness.controller.enqueueAutomatic(highlightSource("run_terminal", "highlight_queued_b"));
+    harness.resolveSynthesis(0, speechAudio("highlight_speaking"));
+    await flushPromises();
+    expect(harness.currentState()).toEqual({ source: speakingHighlight, type: "speaking" });
+
+    harness.controller.enqueueAutomatic(summary);
+    expect(harness.currentState()).toEqual({ source: speakingHighlight, type: "speaking" });
+    expect(harness.highlightSynthesisRequests).toHaveLength(1);
+
+    harness.audios[0]?.emit("ended");
+    expect(harness.currentState()).toEqual({ source: summary, type: "synthesizing" });
+    expect(harness.synthesisRequests).toEqual([
+      { easyRunId: "run_terminal", workspaceId: "workspace_playback" },
+    ]);
+    expect(harness.highlightSynthesisRequests).toHaveLength(1);
+  });
+
+  test("preempts an unspoken highlight synthesis and rejects its stale response for a terminal summary", async () => {
+    const harness = createHarness();
+    const summary = summarySource("run_terminal");
+
+    harness.controller.enqueueAutomatic(highlightSource("run_terminal", "highlight_synthesizing"));
+    harness.controller.enqueueAutomatic(highlightSource("run_terminal", "highlight_queued"));
+    const highlightSignal = harness.synthesisSignals[0];
+    harness.controller.enqueueAutomatic(summary);
+
+    expect(highlightSignal?.aborted).toBe(true);
+    expect(harness.currentState()).toEqual({ source: summary, type: "synthesizing" });
+    expect(harness.synthesisRequests).toEqual([
+      { easyRunId: "run_terminal", workspaceId: "workspace_playback" },
+    ]);
+
+    harness.resolveSynthesis(0, speechAudio("highlight_synthesizing"));
+    await flushPromises();
+    expect(harness.createdURLs).toEqual([]);
+    expect(harness.audios).toEqual([]);
+    expect(harness.currentState()).toEqual({ source: summary, type: "synthesizing" });
+
+    harness.resolveSynthesis(1, speechAudio("run_terminal"));
+    await flushPromises();
+    expect(harness.createdURLs).toEqual(["blob:speech-1"]);
+    expect(harness.currentState()).toEqual({ source: summary, type: "speaking" });
+    expect(harness.highlightSynthesisRequests).toHaveLength(1);
+  });
+
   test("manual replay reuses the mounted summary Blob without another billable request", async () => {
     const harness = createHarness();
     const source = summarySource("run_replay");
@@ -188,6 +240,22 @@ describe("Easy Button speech playback controller", () => {
     expect(harness.synthesisSignals[1]?.aborted).toBe(true);
     harness.controller.replaySummary(source);
     expect(harness.synthesisRequests).toHaveLength(2);
+  });
+
+  test("reset rejects a stale highlight response after a run or workspace switch", async () => {
+    const harness = createHarness();
+    const source = highlightSource("run_stale", "highlight_stale");
+
+    harness.controller.enqueueAutomatic(source);
+    const signal = harness.synthesisSignals[0];
+    harness.controller.reset();
+    expect(signal?.aborted).toBe(true);
+
+    harness.resolveSynthesis(0, speechAudio("highlight_stale"));
+    await flushPromises();
+    expect(harness.createdURLs).toEqual([]);
+    expect(harness.audios).toEqual([]);
+    expect(harness.currentState()).toEqual({ type: "idle" });
   });
 
   test.each([

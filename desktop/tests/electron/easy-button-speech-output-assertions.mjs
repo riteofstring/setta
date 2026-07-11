@@ -38,3 +38,52 @@ export async function assertVoiceOffExplanation(client) {
   }
   await client.driver("easyButtonPaneClickVoiceOff");
 }
+
+export function highlightSynthesisIsPending(state, requestText) {
+  return (
+    state.runRequestText === requestText &&
+    state.easyState === "working" &&
+    state.highlights.length === 2 &&
+    state.speechOutputPlayback === "synthesizing"
+  );
+}
+
+export function assertHeldFirstHighlight({
+  firstHighlight,
+  provider,
+  secondHighlight,
+  snapshot,
+  synthesisCount,
+  synthesizing,
+}) {
+  if (
+    !firstHighlight ||
+    !secondHighlight ||
+    provider.synthesisInputs.length !== synthesisCount + 1 ||
+    provider.synthesisInputs.at(-1) !== firstHighlight.text
+  ) {
+    throw new Error(
+      `terminal-priority fixture did not hold the first persisted highlight: ${JSON.stringify({ snapshot, synthesizing })}`,
+    );
+  }
+}
+
+export function assertTerminalPriorityInputs({
+  firstHighlight,
+  persisted,
+  priorityInputs,
+  secondHighlight,
+  speaking,
+}) {
+  if (
+    priorityInputs.length === 2 &&
+    priorityInputs[0] === firstHighlight.text &&
+    priorityInputs[1] === persisted.latestRun.summary &&
+    !priorityInputs.includes(secondHighlight.text)
+  ) {
+    return;
+  }
+  throw new Error(
+    `terminal summary did not replace queued highlight speech: ${JSON.stringify({ priorityInputs, speaking })}`,
+  );
+}

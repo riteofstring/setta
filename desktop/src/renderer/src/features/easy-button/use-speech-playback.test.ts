@@ -23,6 +23,7 @@ const highlightIntent: EasyRunSpeechPlaybackIntent = {
 };
 
 const enabledContext: AutomaticSpeechPlaybackContext = {
+  easyRunId: "easy_run_live",
   mode: "final",
   outputConfigured: true,
   runtimeId: "runtime_live",
@@ -58,6 +59,7 @@ describe("Easy Button automatic speech playback", () => {
     ["speech unconfigured", { outputConfigured: false }],
     ["runtime disconnected", { runtimeId: null }],
     ["workspace changed", { workspaceId: "workspace_other" }],
+    ["Easy Run changed", { easyRunId: "easy_run_other" }],
   ] satisfies ReadonlyArray<readonly [string, Partial<AutomaticSpeechPlaybackContext>]>)(
     "rejects an intent when %s",
     (_name, override) => {

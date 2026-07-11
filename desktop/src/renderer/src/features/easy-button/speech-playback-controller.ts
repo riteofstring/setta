@@ -97,7 +97,12 @@ export class SpeechPlaybackController {
       return;
     }
     this.automaticSourceKeys.add(sourceKey);
-    this.enqueue({ source: copySource(source), sourceKey });
+    const item = { source: copySource(source), sourceKey };
+    if (item.source.kind === "terminal_summary") {
+      this.enqueueTerminalSummary(item);
+      return;
+    }
+    this.enqueue(item);
   };
 
   replaySummary = (source: SpeechSummarySource): void => {
@@ -160,6 +165,21 @@ export class SpeechPlaybackController {
       return;
     }
     this.queue.push(item);
+    this.playNext();
+  }
+
+  private enqueueTerminalSummary(item: QueuedSpeech): void {
+    if (this.disposed || this.hasPendingSource(item.sourceKey)) {
+      return;
+    }
+    this.queue = this.queue.filter((queued) => queued.source.kind !== "highlight");
+    if (this.activeItem?.source.kind === "highlight" && !this.activePlayback) {
+      this.lifecycle += 1;
+      this.abortController?.abort();
+      this.abortController = null;
+      this.activeItem = null;
+    }
+    this.queue.unshift(item);
     this.playNext();
   }
 

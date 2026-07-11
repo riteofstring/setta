@@ -41,6 +41,11 @@ import {
   assertUpdatingCurrentFocus,
   waitForEasyButtonFocusStatus,
 } from "./easy-button-focus-assertions.mjs";
+import {
+  assertHeldFirstHighlight,
+  assertTerminalPriorityInputs,
+  highlightSynthesisIsPending,
+} from "./easy-button-speech-output-assertions.mjs";
 import { startSpeechProviderFixture } from "./speech-provider-fixture.mjs";
 import {
   closeTerminalPane,
@@ -371,22 +376,16 @@ try {
   await exerciseAutomaticHighlightSpeech(context.client, provider, artifactDir);
 
   const failedRequest = "easy run phase5 artifact cap workflow";
-  await selectSpeechOutputMode(context.client, "final");
-  const failedAutoSynthesisCount = provider.synthesisInputs.length;
-  const failedStarted = await context.client.driver("easyButtonPaneSubmitRequest", failedRequest);
-  if (!failedStarted) {
-    throw new Error("failed Easy Run replay fixture did not submit");
-  }
-  const failedTerminal = await waitForState(
+  const prioritySummary = await exerciseHighlightTerminalPriority(
     context.client,
-    easyButtonStateExpression(),
-    (state) =>
-      easyButtonStateSettled(state, "complete") &&
-      state.runRequestText === failedRequest &&
-      state.statusTone === "failed" &&
-      state.summaryText.includes("Failed after") &&
-      state.summaryText.includes("20 artifacts"),
-    workflowTimeoutMs,
+    provider,
+    artifactDir,
+  );
+  const { failedAutoSynthesisCount, failedTerminal } = await exercisePlaybackRunSwitch(
+    context.client,
+    provider,
+    prioritySummary,
+    failedRequest,
   );
   await exerciseAutomaticTerminalSummary(context.client, provider, {
     artifactDir,
@@ -394,6 +393,7 @@ try {
     state: failedTerminal,
     synthesisCount: failedAutoSynthesisCount,
   });
+  await selectSpeechOutputMode(context.client, "final");
   await assertRestoredTerminalSummarySilent(context.client, provider, failedTerminal);
   const failedReplayState = await selectSpeechOutputMode(context.client, "off");
   await exerciseRecordingPreemptsSummaryPlayback(context.client, provider, failedReplayState);
@@ -404,7 +404,7 @@ try {
   });
 
   provider.assertHealthy();
-  assertProviderOperationCount(provider, { synthesis: 9, transcription: 12 });
+  assertProviderOperationCount(provider, { synthesis: 11, transcription: 12 });
   await stopElectronCdpContext(context);
   context = null;
   await assertNoRendererConsoleErrors(artifactDir);
@@ -420,12 +420,15 @@ try {
     coveredTeardown: ["escape", "disconnect", "pane-close", "workspace-switch", "reload", "stop"],
     automaticallySpokenTerminalStatuses: ["completed", "failed"],
     automaticallySpokenHighlightCount: 2,
+    highlightTerminalPriority: true,
     automaticSpeechExcludedStatuses: ["stopped"],
     hydratedTerminalAutoPlaySuppressed: true,
     mountedAutomaticSummaryReplayReusedBlob: true,
     recordingPreemptedSummaryPlayback: true,
     recordingPreemptedSummarySynthesis: true,
     replayedTerminalStatuses: ["completed", "stopped", "failed"],
+    runSwitchCanceledPlayback: true,
+    staleHighlightSynthesisRejected: true,
     terminalSynthesisFailurePreservedRun: true,
     providerOperationCount: provider.requests.length,
     status: "passed",
@@ -573,6 +576,94 @@ async function exerciseAutomaticHighlightSpeech(client, provider, artifactDir) {
   );
   await clickEasyButtonStop(client);
   await waitForEasyButtonTerminal(client, requestText);
+}
+
+async function exerciseHighlightTerminalPriority(client, provider, artifactDir) {
+  const requestText = "easy run working narrator cadence";
+  await selectSpeechOutputMode(client, "highlights_and_final");
+  const synthesisCount = provider.synthesisInputs.length;
+  const heldSynthesisReady = provider.holdNextSynthesis();
+  const started = await client.driver("easyButtonPaneSubmitRequest", requestText);
+  if (!started) {
+    throw new Error("terminal-priority highlight fixture did not submit");
+  }
+  await heldSynthesisReady;
+  const synthesizing = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) => highlightSynthesisIsPending(state, requestText),
+    workflowTimeoutMs,
+  );
+  const snapshot = await client.evaluate(
+    `window.setta.easyRun.snapshot(${JSON.stringify(synthesizing.workspaceId)})`,
+  );
+  const [firstHighlight, secondHighlight] = snapshot.highlights;
+  assertHeldFirstHighlight({
+    firstHighlight,
+    provider,
+    secondHighlight,
+    snapshot,
+    synthesisCount,
+    synthesizing,
+  });
+
+  const finished = await client.driver(
+    "easyButtonPaneSubmitRequest",
+    "finish working narrator cadence",
+  );
+  if (!finished) {
+    throw new Error("terminal-priority fixture did not accept finishing steering");
+  }
+  await waitForProviderSynthesisCancellation(provider);
+  if (provider.releaseHeldSynthesis()) {
+    throw new Error("terminal priority left the unspoken highlight synthesis active");
+  }
+  const terminal = await waitForEasyButtonTerminal(client, requestText);
+  const speaking = await waitForSummarySpeaking(client, snapshot.latestRun.id);
+  const persisted = await readPersistedSummary(client, terminal, "terminal priority");
+  const priorityInputs = provider.synthesisInputs.slice(synthesisCount);
+  assertTerminalPriorityInputs({
+    firstHighlight,
+    persisted,
+    priorityInputs,
+    secondHighlight,
+    speaking,
+  });
+  const audio = (await callBrowserFixture(client, "state")).audio;
+  await captureScreenshot(client, join(artifactDir, "speech-highlight-terminal-priority.png"));
+  return { audio, runId: snapshot.latestRun.id, state: speaking };
+}
+
+async function exercisePlaybackRunSwitch(client, provider, prioritySummary, failedRequest) {
+  const failedAutoSynthesisCount = provider.synthesisInputs.length;
+  const started = await client.driver("easyButtonPaneSubmitRequest", failedRequest);
+  if (!started) {
+    throw new Error("run-switch playback fixture did not submit");
+  }
+  const failedTerminal = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      easyButtonStateSettled(state, "complete") &&
+      state.latestRunId !== prioritySummary.runId &&
+      state.runRequestText === failedRequest &&
+      state.statusTone === "failed" &&
+      state.summaryText.includes("Failed after") &&
+      state.summaryText.includes("20 artifacts"),
+    workflowTimeoutMs,
+  );
+  const failedSpeaking = await waitForSummarySpeaking(client, failedTerminal.latestRunId);
+  const audio = (await callBrowserFixture(client, "state")).audio;
+  if (
+    audio.pauseCount !== prioritySummary.audio.pauseCount + 1 ||
+    audio.revokedObjectURLCount !== prioritySummary.audio.revokedObjectURLCount + 1 ||
+    failedSpeaking.summarySourceId === prioritySummary.runId
+  ) {
+    throw new Error(
+      `same-workspace run switch leaked prior playback: ${JSON.stringify({ audio, failedSpeaking, prioritySummary })}`,
+    );
+  }
+  return { failedAutoSynthesisCount, failedTerminal };
 }
 
 function assertFirstAutomaticHighlight({
