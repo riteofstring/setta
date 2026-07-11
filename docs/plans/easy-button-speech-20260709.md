@@ -1885,6 +1885,59 @@ wire those services into runtime/HTTP, regenerate the TypeScript and PWA
 surfaces, and finish the credential/log/persistence audit. The existing live
 Codex `max` drift blocks live proof but does not block that deterministic work.
 
+### 2026-07-10 — Phase 2 runtime speech configuration audit complete
+
+Audited commit `4b18d80d7` against this plan, `AGENTS.md`, its parent, the clean
+starting worktree, both command launch paths, runtime and Codex process
+construction, generated contracts, the checked-in PWA bundle, tests, and the
+recorded production Electron workflow. The optional configuration, strict
+E2E-only provider URL, runtime validation, deliberate disregard of
+`OPENAI_API_KEY`, and defense-in-depth Codex exclusion remain correctly owned
+and scoped to Phase 2 item 2.
+
+The audit fixed one practical credential-boundary gap. Both launch paths copied
+the speech key into `runtime.Config`, but left the source variable in the Go
+process environment. Later terminal shells and helper processes could therefore
+inherit it, making the key observable outside the runtime and potentially in
+terminal output or recordings. The one Go-owned speech environment loader now
+copies and validates the value, immediately removes exactly
+`SETTA_OPENAI_SPEECH_API_KEY`, and fails startup if removal is impossible. The
+runtime retains the copied client configuration, while later children inherit
+no speech key; the explicit Codex exclusion remains defense in depth. A
+`setta serve --tailnet` regression proves the key is gone before the Tailscale
+helper runs.
+
+Audit verification completed:
+
+- complete `internal/speech`, `internal/codexapp`, `cmd/setta-backend`, and
+  `cmd/setta` suites passed, along with the complete non-live `internal/runtime`
+  suite; focused tests cover both launch paths, exact key removal, removal
+  failure, retained copied configuration, and pre-helper ordering;
+- race-enabled speech and command suites plus focused Go vet passed;
+- contract regeneration was idempotent, and the generated TypeScript client
+  and checked-in PWA bundle remain unchanged on protocol 12;
+- the deterministic production Easy Button Electron workflow passed at
+  `desktop/.recordings/easy-button-speech-phase2-runtime-config-audit-20260710`,
+  including start, stream, steering, focus, terminal, stop, reload/restart,
+  compact/reduced-motion, and pixel-match paths. Its fresh artifacts contain no
+  speech credential, client-secret, or audio/base64 markers;
+- ChatGPT authentication was available, so live Electron chat, live Easy
+  Button, and all four backend Codex probes were rerun with `OPENAI_API_KEY`
+  removed. Every surface still fails before conversation creation because
+  `model/list` advertises reasoning effort `max`, which the existing decoder
+  rejects. These failures are not live-provider validation for this slice;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed. Supply
+  chain verification was not required because the audit changes no dependency,
+  module, manifest, package-manager, toolchain, generated input, or
+  supply-chain configuration.
+
+The implementation plan is not complete. Phase 2 item 3 remains next: add the
+capability, transcription-session, summary-synthesis, and highlight-synthesis
+services, authenticated handlers, and endpoint-registry entries. Items 4-6
+then wire those services into runtime/HTTP, regenerate the TypeScript and PWA
+surfaces, and complete the credential/log/persistence audit. The existing live
+Codex `max` drift does not block that deterministic work.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

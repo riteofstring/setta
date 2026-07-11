@@ -100,6 +100,7 @@ func TestServeOptionsDisplayNameFromEnvAndFlag(t *testing.T) {
 
 func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 	deps := testDeps()
+	var cleared string
 	deps.getenv = func(name string) string {
 		switch name {
 		case "OPENAI_API_KEY":
@@ -113,6 +114,10 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 		default:
 			return ""
 		}
+	}
+	deps.unsetenv = func(name string) error {
+		cleared = name
+		return nil
 	}
 
 	options, err := serveOptionsFromArgs(context.Background(), []string{
@@ -132,6 +137,38 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 	if !reflect.DeepEqual(config.Speech, options.Speech) {
 		t.Fatalf("runtime speech config = %+v, want %+v", config.Speech, options.Speech)
 	}
+	if cleared != speech.APIKeyEnvironmentVariable {
+		t.Fatalf("cleared environment variable = %q, want %q", cleared, speech.APIKeyEnvironmentVariable)
+	}
+}
+
+func TestServeOptionsClearsSpeechCredentialBeforeTailnetCommand(t *testing.T) {
+	env := map[string]string{
+		speech.APIKeyEnvironmentVariable: "sk-setta-speech-tailnet",
+	}
+	deps := testDeps()
+	deps.getenv = func(name string) string { return env[name] }
+	deps.unsetenv = func(name string) error {
+		delete(env, name)
+		return nil
+	}
+	deps.commandRunner = func(context.Context, string, ...string) ([]byte, error) {
+		if value := env[speech.APIKeyEnvironmentVariable]; value != "" {
+			return nil, fmt.Errorf("tailnet helper inherited speech credential")
+		}
+		return []byte("100.64.0.12\n"), nil
+	}
+
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", t.TempDir(),
+		"--tailnet",
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if options.Host != "100.64.0.12" || options.Speech.APIKey != "sk-setta-speech-tailnet" {
+		t.Fatalf("serve options = %+v, want retained config and tailnet host", options)
+	}
 }
 
 func TestServeOptionsRejectsSpeechBaseURLWithoutE2E(t *testing.T) {
@@ -148,6 +185,19 @@ func TestServeOptionsRejectsSpeechBaseURLWithoutE2E(t *testing.T) {
 	}, deps)
 	if err == nil || !strings.Contains(err.Error(), "requires SETTA_E2E=1") {
 		t.Fatalf("error = %v, want SETTA_E2E guard error", err)
+	}
+}
+
+func TestServeOptionsRejectsUnclearedSpeechCredential(t *testing.T) {
+	deps := testDeps()
+	clearErr := errors.New("environment is read-only")
+	deps.unsetenv = func(string) error { return clearErr }
+
+	_, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", t.TempDir(),
+	}, deps)
+	if !errors.Is(err, clearErr) || !strings.Contains(err.Error(), speech.APIKeyEnvironmentVariable) {
+		t.Fatalf("error = %v, want wrapped speech credential clear failure", err)
 	}
 }
 
@@ -442,6 +492,9 @@ func testDeps() cliDeps {
 		},
 		getenv: func(string) string {
 			return ""
+		},
+		unsetenv: func(string) error {
+			return nil
 		},
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 		now: func() time.Time {

@@ -1,6 +1,7 @@
 package speech
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -15,7 +16,7 @@ func TestOpenAIClientConfigFromEnvironmentReadsOnlySpeechCredential(t *testing.T
 		default:
 			return ""
 		}
-	})
+	}, ignoreEnvironmentClear)
 	if err != nil {
 		t.Fatalf("speech config from environment: %v", err)
 	}
@@ -33,7 +34,7 @@ func TestOpenAIClientConfigFromEnvironmentLeavesSpeechOptional(t *testing.T) {
 			return "sk-generic-must-not-be-used"
 		}
 		return ""
-	})
+	}, ignoreEnvironmentClear)
 	if err != nil {
 		t.Fatalf("speech config from environment: %v", err)
 	}
@@ -50,7 +51,7 @@ func TestOpenAIClientConfigFromEnvironmentGuardsE2EBaseURL(t *testing.T) {
 				return baseURL
 			}
 			return ""
-		})
+		}, ignoreEnvironmentClear)
 		if err == nil || !strings.Contains(err.Error(), "requires SETTA_E2E=1") {
 			t.Fatalf("error = %v, want E2E guard error", err)
 		}
@@ -66,7 +67,7 @@ func TestOpenAIClientConfigFromEnvironmentGuardsE2EBaseURL(t *testing.T) {
 			default:
 				return ""
 			}
-		})
+		}, ignoreEnvironmentClear)
 		if err != nil {
 			t.Fatalf("speech config from environment: %v", err)
 		}
@@ -106,14 +107,44 @@ func TestOpenAIClientConfigFromEnvironmentValidatesValues(t *testing.T) {
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, err := OpenAIClientConfigFromEnvironment(test.getenv)
+			_, err := OpenAIClientConfigFromEnvironment(test.getenv, ignoreEnvironmentClear)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want containing %q", err, test.want)
 			}
 		})
 	}
 
-	if _, err := OpenAIClientConfigFromEnvironment(nil); err == nil {
+	if _, err := OpenAIClientConfigFromEnvironment(nil, ignoreEnvironmentClear); err == nil {
 		t.Fatal("nil environment reader succeeded")
 	}
+}
+
+func TestOpenAIClientConfigFromEnvironmentClearsAPIKey(t *testing.T) {
+	var cleared string
+	_, err := OpenAIClientConfigFromEnvironment(func(string) string { return "" }, func(name string) error {
+		cleared = name
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("clear speech API key: %v", err)
+	}
+	if cleared != APIKeyEnvironmentVariable {
+		t.Fatalf("cleared environment variable = %q, want %q", cleared, APIKeyEnvironmentVariable)
+	}
+
+	if _, err := OpenAIClientConfigFromEnvironment(func(string) string { return "" }, nil); err == nil {
+		t.Fatal("nil environment clearer succeeded")
+	}
+	clearErr := errors.New("environment is read-only")
+	_, err = OpenAIClientConfigFromEnvironment(
+		func(string) string { return "" },
+		func(string) error { return clearErr },
+	)
+	if !errors.Is(err, clearErr) || !strings.Contains(err.Error(), APIKeyEnvironmentVariable) {
+		t.Fatalf("clear error = %v, want wrapped variable-specific error", err)
+	}
+}
+
+func ignoreEnvironmentClear(string) error {
+	return nil
 }

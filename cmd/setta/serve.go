@@ -51,7 +51,7 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	if err != nil {
 		return serveOptions{}, err
 	}
-	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(deps.getenv)
+	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(deps.getenv, deps.unsetenv)
 	if err != nil {
 		return serveOptions{}, err
 	}

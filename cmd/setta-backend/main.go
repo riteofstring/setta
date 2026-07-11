@@ -16,11 +16,17 @@ import (
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv, os.Unsetenv))
 }
 
-func run(args []string, stdout io.Writer, stderr io.Writer, getenv func(string) string) int {
-	config, err := configFromArgs(args, stdout, stderr, getenv)
+func run(
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+	getenv func(string) string,
+	unsetenv func(string) error,
+) int {
+	config, err := configFromArgs(args, stdout, stderr, getenv, unsetenv)
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 2
@@ -50,7 +56,13 @@ func run(args []string, stdout io.Writer, stderr io.Writer, getenv func(string) 
 	return 0
 }
 
-func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv func(string) string) (runtime.Config, error) {
+func configFromArgs(
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+	getenv func(string) string,
+	unsetenv func(string) error,
+) (runtime.Config, error) {
 	config := runtime.DefaultConfig()
 	config.Stdout = stdout
 	config.Stderr = stderr
@@ -67,7 +79,7 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	if err != nil {
 		return config, err
 	}
-	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(getenv)
+	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(getenv, unsetenv)
 	if err != nil {
 		return config, err
 	}
