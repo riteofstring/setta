@@ -36,9 +36,14 @@ describe("Easy Button speech capture scope", () => {
 
     expect(
       speechAvailabilityForCapabilities(capabilities("not_configured"), insecureSupport),
-    ).toEqual({ ...insecureSupport, type: "unsupported" });
+    ).toEqual({
+      ...insecureSupport,
+      capabilities: capabilities("not_configured"),
+      type: "unsupported",
+    });
     expect(speechAvailabilityForCapabilities(capabilities("configured"), insecureSupport)).toEqual({
       ...insecureSupport,
+      capabilities: capabilities("configured"),
       type: "unsupported",
     });
     expect(

@@ -113,6 +113,7 @@ try {
       state.buttonAriaLabel === "Start voice request",
   );
   assertRestingCapture(configured);
+  await exerciseConfiguredSpeechOutputControl(context.client, artifactDir);
 
   await setFooterDraft(context.client, preservedDraft);
   await clickEnabledButtonByAria(context.client, "Start voice request");
@@ -381,6 +382,63 @@ async function completeSpeechCapture(
 ) {
   await beginSpeechCapture(client, { draft, runWorking, startLabel });
   await commitSpeechCapture(client, { finishLabel, transcript });
+}
+
+async function exerciseConfiguredSpeechOutputControl(client, recordingRoot) {
+  const initial = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.speechOutputStatus === "configured" &&
+      state.speechOutputMode === "off" &&
+      state.speechOutputPlayback === "idle" &&
+      state.audioControlAriaLabel === "Voice output: Off",
+    workflowTimeoutMs,
+  );
+  if (!initial.audioControlVisible || initial.voiceOffChipText !== "") {
+    throw new Error(
+      `configured voice output mounted the wrong control: ${JSON.stringify(initial)}`,
+    );
+  }
+
+  await client.driver("easyButtonPaneClickOutputControl");
+  const menu = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) => state.audioMenuOpen && state.audioMenuOptions.length === 3,
+    workflowTimeoutMs,
+  );
+  const expectedOptions = [
+    ["off", "Off"],
+    ["final", "Speak the summary"],
+    ["highlights_and_final", "Speak highlights and summary"],
+  ];
+  if (
+    menu.audioDisclosureText !== "This voice is AI-generated and not a human voice." ||
+    !expectedOptions.every(
+      ([mode, label], index) =>
+        menu.audioMenuOptions[index]?.mode === mode &&
+        menu.audioMenuOptions[index]?.label === label &&
+        menu.audioMenuOptions[index]?.active === (mode === "off"),
+    )
+  ) {
+    throw new Error(`configured voice output menu was incorrect: ${JSON.stringify(menu)}`);
+  }
+  await captureScreenshot(client, join(recordingRoot, "speech-output-menu.png"));
+
+  await client.driver("easyButtonPaneSelectOutputMode", "final");
+  const selected = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.speechOutputMode === "final" &&
+      state.audioControlAriaLabel === "Voice output: Speak the summary" &&
+      !state.audioMenuOpen,
+    workflowTimeoutMs,
+  );
+  if (selected.speechOutputPlayback !== "idle") {
+    throw new Error(`selecting final voice mode changed playback: ${JSON.stringify(selected)}`);
+  }
 }
 
 async function beginSpeechCapture(client, { draft, runWorking, startLabel }) {

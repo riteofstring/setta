@@ -30,6 +30,7 @@ import {
   submitTypedEasyButtonRequest,
 } from "./easy-button-submission";
 import { ArtifactRail, HighlightRail } from "./easy-button-rails";
+import { EasyButtonSpeechOutput } from "./easy-button-speech-output";
 import type { SpeechCaptureState } from "./speech-capture-controller";
 import {
   type EasyButtonSpeechCapture,
@@ -50,84 +51,91 @@ const confirmPulseDurationMs = 1000;
 export function EasyButtonSurface() {
   const controller = useEasyButtonController();
   return (
-    <section
-      aria-label="Easy Button"
-      className="easy-button-surface"
-      data-easy-button-capture={speechCaptureDOMState(controller.capture.state)}
-      data-easy-button-capturing={controller.capture.active ? "true" : "false"}
-      data-easy-button-focus={currentFocusStatus(controller.latestRun, controller.viewState)}
-      data-easy-button-speech={controller.speechConfigured ? "configured" : "unavailable"}
-      data-easy-button-state={controller.viewState}
-      data-easy-button-status={controller.statusTone}
-      data-testid="easy-button-surface"
-      ref={controller.rootRef}
-    >
-      <HighlightRail highlights={controller.highlights} latestRun={controller.latestRun} />
-      <main className="easy-button-stage">
-        <div className="easy-button-center">
-          <div className="easy-button-agent-chip-slot">
-            <AgentChip
-              activeAgentCount={controller.activeAgentCount}
-              viewState={controller.viewState}
-            />
-          </div>
-          <div className="easy-button-button-well">
-            <SwirlField />
-            <SpeechCaptureRings />
-            <button
-              aria-label={controller.controlLabel}
-              className="easy-button-control"
-              data-easy-button-confirm={controller.confirmActive ? "true" : "false"}
-              data-testid="easy-button-control"
-              disabled={controller.controlDisabled}
-              onClick={controller.handleControlClick}
-              type="button"
-            >
-              <ControlGlyph
-                speechConfigured={controller.speechConfigured}
-                statusTone={controller.statusTone}
+    <>
+      <section
+        aria-label="Easy Button"
+        className="easy-button-surface"
+        data-easy-button-capture={speechCaptureDOMState(controller.capture.state)}
+        data-easy-button-capturing={controller.capture.active ? "true" : "false"}
+        data-easy-button-focus={currentFocusStatus(controller.latestRun, controller.viewState)}
+        data-easy-button-speech={controller.speechConfigured ? "configured" : "unavailable"}
+        data-easy-button-state={controller.viewState}
+        data-easy-button-status={controller.statusTone}
+        data-testid="easy-button-surface"
+        ref={controller.rootRef}
+      >
+        <HighlightRail highlights={controller.highlights} latestRun={controller.latestRun} />
+        <main className="easy-button-stage">
+          <div className="easy-button-center">
+            <div className="easy-button-agent-chip-slot">
+              <AgentChip
+                activeAgentCount={controller.activeAgentCount}
                 viewState={controller.viewState}
               />
-            </button>
-          </div>
-          <CaptionSlot
-            capture={controller.capture.state}
-            error={controller.error}
-            latestRun={controller.latestRun}
-            speechAvailability={controller.capture.availability}
-            speechConfigured={controller.speechConfigured}
-            viewState={controller.viewState}
-          />
-          <div className="easy-button-action-slot">
-            <StopButton
-              disabled={controller.stopDisabled}
-              onClick={controller.handleStopClick}
+            </div>
+            <div className="easy-button-button-well">
+              <SwirlField />
+              <SpeechCaptureRings />
+              <button
+                aria-label={controller.controlLabel}
+                className="easy-button-control"
+                data-easy-button-confirm={controller.confirmActive ? "true" : "false"}
+                data-testid="easy-button-control"
+                disabled={controller.controlDisabled}
+                onClick={controller.handleControlClick}
+                type="button"
+              >
+                <ControlGlyph
+                  speechConfigured={controller.speechConfigured}
+                  statusTone={controller.statusTone}
+                  viewState={controller.viewState}
+                />
+              </button>
+            </div>
+            <CaptionSlot
+              capture={controller.capture.state}
+              error={controller.error}
+              latestRun={controller.latestRun}
+              speechAvailability={controller.capture.availability}
+              speechConfigured={controller.speechConfigured}
               viewState={controller.viewState}
             />
+            <div className="easy-button-action-slot">
+              <StopButton
+                disabled={controller.stopDisabled}
+                onClick={controller.handleStopClick}
+                viewState={controller.viewState}
+              />
+            </div>
           </div>
-        </div>
-      </main>
-      <ArtifactRail artifacts={controller.artifacts} />
-      <form className="easy-button-footer" onSubmit={controller.handleSubmit}>
-        <div className="easy-button-input-wrap">
-          <input
-            aria-label="Easy Button request"
-            className="easy-button-input"
-            data-testid="easy-button-input"
-            disabled={controller.inputDisabled}
-            onChange={(event) => controller.setInputValue(event.target.value)}
-            onKeyDown={controller.handleInputKeyDown}
-            placeholder="What should Setta do?"
-            ref={controller.inputRef}
-            type="text"
-            value={controller.inputValue}
-          />
-          <span aria-hidden="true" className="easy-button-enter-chip">
-            ⏎
-          </span>
-        </div>
-      </form>
-    </section>
+        </main>
+        <ArtifactRail artifacts={controller.artifacts} />
+        <form className="easy-button-footer" onSubmit={controller.handleSubmit}>
+          <div className="easy-button-input-wrap">
+            <input
+              aria-label="Easy Button request"
+              className="easy-button-input"
+              data-testid="easy-button-input"
+              disabled={controller.inputDisabled}
+              onChange={(event) => controller.setInputValue(event.target.value)}
+              onKeyDown={controller.handleInputKeyDown}
+              placeholder="What should Setta do?"
+              ref={controller.inputRef}
+              type="text"
+              value={controller.inputValue}
+            />
+            <span aria-hidden="true" className="easy-button-enter-chip">
+              ⏎
+            </span>
+          </div>
+        </form>
+      </section>
+      <EasyButtonSpeechOutput
+        availability={controller.capture.availability}
+        rootRef={controller.rootRef}
+        workspaceId={controller.selectedWorkspaceId}
+      />
+    </>
   );
 }
 
@@ -149,6 +157,7 @@ interface EasyButtonController {
   highlights: EasyHighlight[];
   latestRun: EasyRun | null;
   rootRef: RefObject<HTMLElement | null>;
+  selectedWorkspaceId: string | null;
   setInputValue: (value: string) => void;
   speechConfigured: boolean;
   statusTone: EasyButtonStatusTone;
@@ -274,6 +283,7 @@ function useEasyButtonController(): EasyButtonController {
     inputValue,
     latestRun,
     rootRef,
+    selectedWorkspaceId,
     setInputValue,
     speechConfigured,
     statusTone,

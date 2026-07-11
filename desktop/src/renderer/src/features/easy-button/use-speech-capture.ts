@@ -17,6 +17,7 @@ export type SpeechCaptureAvailability =
   | { capabilities: SpeechCapabilities; type: "configured" }
   | { message: string; type: "not_configured" }
   | {
+      capabilities: SpeechCapabilities;
       code: Extract<SpeechCaptureFailureCode, "insecure_context" | "unsupported_browser">;
       message: string;
       type: "unsupported";
@@ -151,7 +152,7 @@ export function speechAvailabilityForCapabilities(
   support = browserSpeechCaptureSupport(),
 ): SpeechCaptureAvailability {
   if (!support.supported) {
-    return { ...support, type: "unsupported" };
+    return { ...support, capabilities, type: "unsupported" };
   }
   if (capabilities.providerStatus === "not_configured") {
     return {

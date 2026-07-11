@@ -18,6 +18,7 @@ import {
   cloneSnapshotNode,
   recordSnapshotScrollOffsets,
 } from "./surface-dom-content";
+import { notifyReactDomSurfaceHostChanged } from "./react-dom-surface-events";
 import type {
   CanvasSurfaceStats,
   FreezeReason,
@@ -107,6 +108,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
     host.replaceChildren(this.container);
+    notifyReactDomSurfaceHostChanged(this.container);
     this.restoreParkedScrollOffsets();
     if (!this.root) {
       this.root = this.rootFactory.createRoot(this.container);
@@ -122,6 +124,9 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     this.removeFrozenVisual();
     this.frozenCanvasStats = null;
     this.host?.replaceChildren();
+    if (this.container) {
+      notifyReactDomSurfaceHostChanged(this.container);
+    }
     this.host = null;
     this.visible = false;
   }

@@ -16,13 +16,16 @@
       easyButtonPaneClickToolbarAction,
       easyButtonPaneChatRecord,
       easyButtonPaneClickControl,
+      easyButtonPaneClickOutputControl,
       easyButtonPaneClickStop,
+      easyButtonPaneClickVoiceOff,
       easyButtonPaneClose,
       easyButtonPaneCloseTerminal,
       easyButtonPaneForceFrozen,
       easyButtonPaneEventLog,
       easyButtonPaneOpenShortcut,
       easyButtonPaneResetEventLog,
+      easyButtonPaneSelectOutputMode,
       easyButtonPaneState,
       easyButtonPaneStartDirect,
       easyButtonPaneSubmitRequest,
@@ -113,6 +116,9 @@
       easyState: surface instanceof HTMLElement ? (surface.dataset.easyButtonState ?? "") : "",
       statusTone: elementDatasetValue(surface, "easyButtonStatus"),
       speechStatus: elementDatasetValue(surface, "easyButtonSpeech"),
+      speechOutputMode: host.dataset.easyButtonOutputMode ?? "",
+      speechOutputPlayback: host.dataset.easyButtonPlayback ?? "",
+      speechOutputStatus: host.dataset.easyButtonSpeechOutput ?? "",
     };
   }
 
@@ -172,11 +178,21 @@
     const narratorStatus = host.querySelector(".easy-button-narrator-status");
     const voiceStatus = host.querySelector(".easy-button-voice-status");
     const stopButton = host.querySelector('[data-testid="easy-button-stop-button"]');
+    const audioToggle = host.querySelector('[data-testid="easy-button-audio-toggle"]');
+    const voiceOffChip = host.querySelector('[data-testid="easy-button-voice-off-chip"]');
+    const audioMenu = document.querySelector(".easy-button-audio-menu");
+    const audioDisclosure = document.querySelector('[data-testid="easy-button-audio-disclosure"]');
+    const voiceOffPopover = document.querySelector(".easy-button-voice-off-popover");
     const center = host.querySelector(".easy-button-center");
     const caption = host.querySelector(".easy-button-caption-slot");
     const buttonRect = elementRectOrZero(button);
     return {
       agentChipText: elementText(agentChip),
+      audioControlAriaLabel: buttonAriaLabel(audioToggle),
+      audioControlVisible: audioToggle instanceof HTMLButtonElement,
+      audioDisclosureText: elementText(audioDisclosure),
+      audioMenuOpen: audioMenu instanceof HTMLElement,
+      audioMenuOptions: audioMenuOptions(audioMenu),
       buttonAriaLabel: buttonAriaLabel(button),
       buttonAnimationName: buttonPseudoStyleValue(button, "animationName"),
       buttonAnimationPlayState: buttonPseudoStyleValue(button, "animationPlayState"),
@@ -224,7 +240,54 @@
         resting: resolveTokenColor(surface, "--easy-button-faint"),
       },
       voiceStatusText: elementText(voiceStatus),
+      voiceOffChipAriaLabel: buttonAriaLabel(voiceOffChip),
+      voiceOffChipText: elementText(voiceOffChip),
+      voiceOffPopoverText: elementText(voiceOffPopover),
     };
+  }
+
+  function audioMenuOptions(menu) {
+    if (!(menu instanceof HTMLElement)) {
+      return [];
+    }
+    return Array.from(menu.querySelectorAll("[data-easy-button-output-option]")).map((option) => ({
+      active: option.getAttribute("aria-checked") === "true",
+      label: elementText(option),
+      mode: option.dataset.easyButtonOutputOption ?? "",
+    }));
+  }
+
+  function easyButtonPaneClickOutputControl() {
+    const button = requireEasyButtonHost().querySelector(
+      '[data-testid="easy-button-audio-toggle"]',
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error("easy-button audio control is not mounted");
+    }
+    button.click();
+    return true;
+  }
+
+  function easyButtonPaneSelectOutputMode(mode) {
+    const option = Array.from(document.querySelectorAll("[data-easy-button-output-option]")).find(
+      (candidate) => candidate.dataset.easyButtonOutputOption === mode,
+    );
+    if (!(option instanceof HTMLButtonElement)) {
+      throw new Error(`easy-button output option ${mode} is not mounted`);
+    }
+    option.click();
+    return true;
+  }
+
+  function easyButtonPaneClickVoiceOff() {
+    const button = requireEasyButtonHost().querySelector(
+      '[data-testid="easy-button-voice-off-chip"]',
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error("easy-button Voice off control is not mounted");
+    }
+    button.click();
+    return true;
   }
 
   function elementText(element) {

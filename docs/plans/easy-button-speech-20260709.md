@@ -3190,6 +3190,73 @@ mount the controller at the Easy Button pane scope and add the device-local
 output mode, AI-voice disclosure, top-bar playback states and stop behavior,
 and the unconfigured `Voice off` explanation.
 
+### 2026-07-10 — Phase 4 top-bar speech output control complete
+
+Implemented Phase 4 item 2 without pulling terminal replay, live terminal
+auto-play, restored-snapshot policy, or highlight narration forward. Every Easy
+Button pane now owns a mounted summary playback controller for its active
+runtime/workspace scope. Runtime or workspace changes reset synthesis,
+playback, queues, deduplication, and Blob state; pane destruction disposes the
+controller. Selecting `off` explicitly resets the same playback scope.
+
+The device-local output preference stores only `off | final |
+highlights_and_final` under the versioned
+`setta.easy-button.speech-output-mode.v1` key, defaults to `off`, and notifies
+other mounted Easy Button surfaces in the same renderer as well as normal
+cross-document storage listeners. Configured runtimes expose the pane top-bar
+audio control and its three radio choices. The enabling menu displays the exact
+backend-owned AI-voice disclosure instead of a renderer mirror. The one compact
+control has distinct idle-mode glyphs, synthesizing pulse, speaking equalizer,
+stopped mark, failure tone, accurate labels, and click-to-stop behavior for
+active synthesis or playback. Reduced motion keeps those states visible while
+removing their animation.
+
+Runtime configuration and browser microphone support remain separate facts. A
+configured runtime may offer TTS even when that browser cannot capture a
+microphone. A genuinely unconfigured runtime instead shows the top-bar `Voice
+off` explanation naming `OPENAI_API_KEY` and confirming typed operation; a
+capability-read failure says `Voice unavailable` without falsely blaming the
+credential. No permanent key, arbitrary text, synthesis result, audio payload,
+or preference crosses a new backend, IPC, or persistence boundary.
+
+The control portals into the existing production pane chrome immediately
+before its action strip. The parked React-surface boundary now emits a narrow
+host-change notification on detach, reattach, and initial chrome creation so a
+virtualized Easy Button keeps its tools with the current pane host instead of
+leaving stale controls behind. This is push-based and adds no DOM polling or
+whole-document observer.
+
+Verification completed for this slice:
+
+- focused preference, capture-capability, playback-controller, pane-host, and
+  presentation-engine tests passed, followed by all 1,100 desktop Vitest tests,
+  Electron/web typechecks, and both production builds;
+- the configured production Electron speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-output-control-final-r2-20260710`.
+  It proves the initial `off` state, all three output choices, the exact
+  disclosure, selection of summary mode, and the existing authenticated
+  capture/start/steer/chat/store/event/failure/teardown matrix. Its retained
+  menu screenshot was inspected;
+- the complete deterministic Easy Button workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-output-control-regression-final-20260710`,
+  including the `Voice off` credential explanation plus typed start/steer,
+  Current focus, narrator-only NOW, artifacts, terminal/Stop, reload/restart,
+  compact/reduced-motion, and pixel-match paths;
+- the checked-in PWA bundle was regenerated from the shared renderer source,
+  and the embedded-webapp test passed;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  final source, tests, generated web bundle, and plan update.
+
+No live OpenAI speech result is claimed: item 2 exposes preferences and mounted
+playback state but intentionally has no summary replay or live-event playback
+trigger yet, and the opt-in provider workflow remains Phase 5 item 8. No
+dependency, manifest, module, package-manager, toolchain, Go-owned contract, or
+generated TypeScript contract changed, so supply-chain verification was not
+required. Phase 4 item 3 is next: add terminal summary source indication and
+manual replay for completed, failed, and stopped runs. Items 4-6 then add
+live-transition auto-play, hydration/cache proof, recording preemption, and TTS
+failure coverage. No implementation blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

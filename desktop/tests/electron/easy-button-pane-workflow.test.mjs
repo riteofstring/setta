@@ -59,6 +59,10 @@ import { assertLosslessSteeringChatRecord } from "./easy-button-chat-record-asse
 import { exerciseSteeringPartialOutcome } from "./easy-button-partial-outcome-assertions.mjs";
 import { assertHumanReadableTerminalSummary } from "./easy-button-summary-assertions.mjs";
 import {
+  assertIdleControls,
+  assertVoiceOffExplanation,
+} from "./easy-button-speech-output-assertions.mjs";
+import {
   assertAcceptedSteeringFocusEvents,
   assertCurrentFocusConstrained,
   assertNarratorHealth,
@@ -117,6 +121,7 @@ try {
   const toolbarOpen = await waitForEasyButtonPane(context.client);
   assertFullWidthColumn(toolbarOpen);
   assertIdleVisual(toolbarOpen);
+  await assertVoiceOffExplanation(context.client);
   // The idle border is the resting reference, avoiding a hardcoded serialized color.
   const restingBorderColor = toolbarOpen.buttonBorderColor;
   await captureScreenshot(context.client, join(artifactDir, "easy-button-toolbar-open.png"));
@@ -859,20 +864,6 @@ function assertIdleVisual(state) {
   assertIdleRailLabels(state);
 }
 
-function assertIdleControls(state) {
-  assertStateFields(
-    state,
-    {
-      buttonAriaLabel: "Focus Easy Button request input",
-      confirmActive: "false",
-      inputDisabled: false,
-      paneChromeTitle: "Easy Button",
-      speechStatus: "unavailable",
-      stopButtonVisible: false,
-    },
-    "easy-button idle controls did not match Phase 2d",
-  );
-}
 function assertIdleCaption(state) {
   if (state.helperText !== "Type a request to begin" || state.enterChipText !== "⏎") {
     throw new Error(`easy-button idle caption did not match the mockup: ${JSON.stringify(state)}`);
@@ -1308,7 +1299,8 @@ async function waitForEasyButtonPane(client) {
       state.surfaceKind === "easy-button" &&
       state.easyState === "idle" &&
       state.buttonVisible &&
-      state.paneChromeTitle === "Easy Button",
+      state.paneChromeTitle === "Easy Button" &&
+      state.speechOutputStatus === "not_configured",
     workflowTimeoutMs,
   );
 }
