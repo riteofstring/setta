@@ -7,7 +7,8 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 PLAN_PATH="docs/plans/easy-button-speech-20260709.md"
 SENTINEL="EASY_BUTTON_SPEECH_IMPLEMENTATION_COMPLETE"
 MODEL="gpt-5.6-sol"
-REASONING_CONFIG='reasoning_effort="max"'
+AGENT_ONE_REASONING_EFFORT="xhigh"
+AGENT_TWO_REASONING_EFFORT="max"
 OUTPUT_DIR=""
 MAX_ITERATIONS="0"
 INITIAL_RETRY_DELAY_SECONDS="15"
@@ -20,9 +21,10 @@ Usage: scripts/automation/codex-loop/run-easy-button-speech-meta-plan-loop.sh [o
 Runs two fresh Codex agents in a loop for:
   docs/plans/easy-button-speech-20260709.md
 
-Agent 1 implements the next coherent step in the plan and commits the work.
-Agent 2 audits the work, fixes or documents any gaps, commits if needed, and
-the loop stops only when Agent 2's final message is exactly:
+Agent 1 implements the next coherent step with xhigh reasoning and commits the
+work. Agent 2 reviews that slice with max reasoning, fixes or documents any
+gaps, and commits if needed. The loop stops only when Agent 2's final message is
+exactly:
   EASY_BUTTON_SPEECH_IMPLEMENTATION_COMPLETE
 Agent 2 may also use that sentinel when the plan is implemented as much as
 possible and the remaining work is blocked.
@@ -69,6 +71,7 @@ run_agent() {
   local agent_name="$1"
   local prompt="$2"
   local run_dir="$3"
+  local reasoning_effort="$4"
   local transcript_file="${run_dir}/${agent_name}.transcript.log"
   local last_message_file="${run_dir}/${agent_name}.last-message.txt"
   local status_file="${run_dir}/${agent_name}.status.txt"
@@ -97,7 +100,7 @@ run_agent() {
       --cd "${ROOT_DIR}" \
       --ephemeral \
       --model "${MODEL}" \
-      --config "${REASONING_CONFIG}" \
+      --config "reasoning_effort=\"${reasoning_effort}\"" \
       --dangerously-bypass-approvals-and-sandbox \
       --output-last-message "${last_message_file}" \
       "${prompt}" >>"${transcript_file}" 2>&1
@@ -223,7 +226,7 @@ AGENT_ONE_PROMPT="Implement the next coherent incomplete step in ${PLAN_PATH}.
 
 Read ${PLAN_PATH} and all applicable AGENTS.md instructions completely, then inspect the current worktree, recent history, and relevant implementation and tests. Follow the plan's order and boundaries. Implement a coherent, reviewable slice; run every verification required for the surfaces you touched; update the plan with progress, verification, remaining work, and real blockers; and commit the completed slice."
 
-AGENT_TWO_PROMPT="Audit the latest implementation work against ${PLAN_PATH}, all applicable AGENTS.md instructions, and the actual repository state.
+AGENT_TWO_PROMPT="Act as the reviewer for Agent 1's latest committed slice. Audit that work against ${PLAN_PATH}, all applicable AGENTS.md instructions, and the actual repository state. Do not start the next planned implementation slice.
 
 Inspect the commits, worktree, generated artifacts, implementation, and tests. Fix practical gaps, run the required verification, update the plan with anything learned, and commit any audit fixes. If the current slice is correct but the plan is not complete, leave a concise handoff for the next iteration.
 
@@ -233,7 +236,8 @@ ${SENTINEL}"
 log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
 log_info "Model: ${MODEL}"
-log_info "Reasoning effort: max"
+log_info "Agent 1 reasoning effort: ${AGENT_ONE_REASONING_EFFORT}"
+log_info "Agent 2 reasoning effort: ${AGENT_TWO_REASONING_EFFORT}"
 log_info "Agent attempts: unlimited"
 log_info "Retry delays: ${INITIAL_RETRY_DELAY_SECONDS}s initial, ${MAX_RETRY_DELAY_SECONDS}s maximum"
 log_info "Approvals/sandbox bypass: enabled"
@@ -256,8 +260,8 @@ while true; do
   reviewer_message=""
 
   log_info "Starting iteration ${iteration}."
-  run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}"
-  run_agent "agent-2" "${AGENT_TWO_PROMPT}" "${run_dir}"
+  run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_REASONING_EFFORT}"
+  run_agent "agent-2" "${AGENT_TWO_PROMPT}" "${run_dir}" "${AGENT_TWO_REASONING_EFFORT}"
 
   reviewer_message="$(trimmed_nonempty_message "${reviewer_last_message}")"
   if [[ "${reviewer_message}" == "${SENTINEL}" ]]; then
