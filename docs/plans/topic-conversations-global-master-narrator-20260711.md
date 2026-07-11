@@ -2342,3 +2342,14 @@ Implementation is in progress under this plan.
   result is therefore recorded as a regression failure, not treated as proof
   of conversation-store provider integration or expanded into obsolete-path
   repair in this slice.
+- 2026-07-11: The Phase 3 item 2 review fixed control-event ordering in the
+  normalized renderer store. A server-required resync now retains its typed
+  reason and authoritative current cursor when it arrives before hydration or
+  with a duplicate or gapped envelope; an older control envelope cannot be
+  discarded merely because its payload reports a newer committed cursor.
+  Existing later resync coverage is never reduced. The review also preserves
+  snapshot-load errors while pre-hydration events record required recovery,
+  avoids no-op Zustand commits for rejected stale snapshots, and dispatches
+  the generated event union through an explicit exhaustive `never` branch.
+  Focused regression coverage passes. Phase 3 item 3 remains next; this review
+  did not connect the store to `EasyButtonSurface` or begin the next plan item.

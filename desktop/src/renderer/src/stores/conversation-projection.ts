@@ -41,6 +41,32 @@ type ConversationPayloadHandlers = {
   ) => ConversationSnapshot;
 };
 
+type AppliedConversationEventPayload = Exclude<
+  ConversationEventPayload,
+  { type: "conversation.resync_required" }
+>;
+type ConversationExecutionPayload = ConversationPayloadOf<
+  | "conversation.updated"
+  | "conversation.turn.updated"
+  | "conversation.queue.updated"
+  | "conversation.thread_binding.updated"
+  | "conversation.trajectory.appended"
+  | "conversation.artifact.created"
+>;
+type ConversationPresentationPayload = Exclude<
+  AppliedConversationEventPayload,
+  ConversationExecutionPayload
+>;
+
+const conversationExecutionPayloadTypes = new Set<AppliedConversationEventPayload["type"]>([
+  "conversation.updated",
+  "conversation.turn.updated",
+  "conversation.queue.updated",
+  "conversation.thread_binding.updated",
+  "conversation.trajectory.appended",
+  "conversation.artifact.created",
+]);
+
 type EventCursorDisposition = "duplicate" | "next" | "sequence_gap" | "stream_changed";
 
 export function loadingConversationProjection(
@@ -125,14 +151,17 @@ function applyConversationEvent(
   if (!current) {
     return unloadedProjectionForEvent(event);
   }
-  if (current.resync) {
-    return projectionWithLaterResyncCursor(current, event);
-  }
   if (!current.snapshot) {
-    return projectionWithResync(current, eventBeforeSnapshotRequirement(event));
+    return applyConversationEventBeforeHydration(current, event);
   }
   if (event.schemaVersion !== current.snapshot.schemaVersion) {
-    return projectionWithResync(current, schemaChangedRequirement(event));
+    return projectionWithTypedResync(current, schemaChangedRequirement(event));
+  }
+  if (event.payload.type === "conversation.resync_required") {
+    return projectionWithTypedResync(current, serverResyncRequirement(event));
+  }
+  if (current.resync) {
+    return projectionWithLaterResyncCursor(current, event);
   }
   const disposition = eventCursorDisposition(current.snapshot.eventCursor, event);
   if (disposition === "duplicate") {
@@ -141,9 +170,6 @@ function applyConversationEvent(
   if (disposition !== "next") {
     return projectionWithResync(current, cursorRequirement(current.snapshot, event, disposition));
   }
-  if (event.payload.type === "conversation.resync_required") {
-    return projectionWithResync(current, serverResyncRequirement(event));
-  }
   const snapshot = applyPayload(current.snapshot, event.payload);
   return {
     ...current,
@@ -151,6 +177,19 @@ function applyConversationEvent(
     snapshot: { ...snapshot, eventCursor: cursorFromEvent(event) },
     status: "ready",
   };
+}
+
+function applyConversationEventBeforeHydration(
+  current: ConversationProjection,
+  event: ConversationEvent,
+): ConversationProjection {
+  if (event.payload.type === "conversation.resync_required") {
+    return projectionWithTypedResync(current, serverResyncRequirement(event));
+  }
+  if (current.resync) {
+    return projectionWithLaterResyncCursor(current, event);
+  }
+  return projectionWithResync(current, eventBeforeSnapshotRequirement(event));
 }
 
 const payloadHandlers = {
@@ -288,13 +327,62 @@ const payloadHandlers = {
 
 function applyPayload(
   snapshot: ConversationSnapshot,
-  payload: Exclude<ConversationEventPayload, { type: "conversation.resync_required" }>,
+  payload: AppliedConversationEventPayload,
 ): ConversationSnapshot {
-  const handlers = payloadHandlers as Record<
-    ConversationEventType,
-    (current: ConversationSnapshot, next: ConversationEventPayload) => ConversationSnapshot
-  >;
-  return handlers[payload.type](snapshot, payload);
+  if (isConversationExecutionPayload(payload)) {
+    return applyExecutionPayload(snapshot, payload);
+  }
+  return applyPresentationPayload(snapshot, payload);
+}
+
+function isConversationExecutionPayload(
+  payload: AppliedConversationEventPayload,
+): payload is ConversationExecutionPayload {
+  return conversationExecutionPayloadTypes.has(payload.type);
+}
+
+function applyExecutionPayload(
+  snapshot: ConversationSnapshot,
+  payload: ConversationExecutionPayload,
+): ConversationSnapshot {
+  switch (payload.type) {
+    case "conversation.updated":
+      return payloadHandlers["conversation.updated"](snapshot, payload);
+    case "conversation.turn.updated":
+      return payloadHandlers["conversation.turn.updated"](snapshot, payload);
+    case "conversation.queue.updated":
+      return payloadHandlers["conversation.queue.updated"](snapshot, payload);
+    case "conversation.thread_binding.updated":
+      return payloadHandlers["conversation.thread_binding.updated"](snapshot, payload);
+    case "conversation.trajectory.appended":
+      return payloadHandlers["conversation.trajectory.appended"](snapshot, payload);
+    case "conversation.artifact.created":
+      return payloadHandlers["conversation.artifact.created"](snapshot, payload);
+    default:
+      return assertNever(payload);
+  }
+}
+
+function applyPresentationPayload(
+  snapshot: ConversationSnapshot,
+  payload: ConversationPresentationPayload,
+): ConversationSnapshot {
+  switch (payload.type) {
+    case "conversation.narrator_state.updated":
+      return payloadHandlers["conversation.narrator_state.updated"](snapshot, payload);
+    case "conversation.narration.created":
+      return payloadHandlers["conversation.narration.created"](snapshot, payload);
+    case "conversation.role_profile_override.updated":
+      return payloadHandlers["conversation.role_profile_override.updated"](snapshot, payload);
+    case "conversation.presentation_profile.updated":
+      return payloadHandlers["conversation.presentation_profile.updated"](snapshot, payload);
+    case "conversation.branch.created":
+      return payloadHandlers["conversation.branch.created"](snapshot, payload);
+    case "conversation.side_conversation.updated":
+      return payloadHandlers["conversation.side_conversation.updated"](snapshot, payload);
+    default:
+      return assertNever(payload);
+  }
 }
 
 function appendTrajectoryEvent(
@@ -427,7 +515,10 @@ function unloadedProjectionForEvent(event: ConversationEvent): ConversationProje
   return {
     conversationId: event.conversationId,
     error: null,
-    resync: eventBeforeSnapshotRequirement(event),
+    resync:
+      event.payload.type === "conversation.resync_required"
+        ? serverResyncRequirement(event)
+        : eventBeforeSnapshotRequirement(event),
     snapshot: null,
     status: "unloaded",
     workspaceId: event.workspaceId,
@@ -438,7 +529,34 @@ function projectionWithResync(
   current: ConversationProjection,
   resync: ConversationResyncRequirement,
 ): ConversationProjection {
-  return { ...current, error: null, resync };
+  return { ...current, resync };
+}
+
+function projectionWithTypedResync(
+  current: ConversationProjection,
+  requirement: ConversationResyncRequirement,
+): ConversationProjection {
+  const existing = current.resync;
+  if (!existing) {
+    if (current.snapshot && cursorCovers(current.snapshot.eventCursor, requirement.minimumCursor)) {
+      return current;
+    }
+    return projectionWithResync(current, requirement);
+  }
+  if (existing.minimumCursor.streamId !== requirement.minimumCursor.streamId) {
+    return projectionWithResync(current, requirement);
+  }
+  if (existing.minimumCursor.sequence > requirement.minimumCursor.sequence) {
+    return current;
+  }
+  if (
+    existing.minimumCursor.sequence === requirement.minimumCursor.sequence &&
+    existing.detail === requirement.detail &&
+    existing.reason === requirement.reason
+  ) {
+    return current;
+  }
+  return projectionWithResync(current, requirement);
 }
 
 function projectionWithLaterResyncCursor(
@@ -548,4 +666,8 @@ function assertOwner(label: string, actual: string, expected: string): void {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Conversation snapshot load failed";
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported conversation event payload: ${JSON.stringify(value)}`);
 }

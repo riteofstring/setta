@@ -41,9 +41,9 @@ export const useConversationStore = create<ConversationStore>((set) => ({
   applyEvent: (event) => set((state) => eventsPatch(state, [event])),
   applyEvents: (events) => set((state) => eventsPatch(state, events)),
   beginSnapshotLoad: (workspaceId, conversationId) =>
-    set((state) => ({
-      conversations: withProjection(
-        state.conversations,
+    set((state) =>
+      projectionPatch(
+        state,
         conversationId,
         loadingConversationProjection(
           state.conversations.get(conversationId),
@@ -51,11 +51,11 @@ export const useConversationStore = create<ConversationStore>((set) => ({
           conversationId,
         ),
       ),
-    })),
+    ),
   failSnapshotLoad: (workspaceId, conversationId, error) =>
-    set((state) => ({
-      conversations: withProjection(
-        state.conversations,
+    set((state) =>
+      projectionPatch(
+        state,
         conversationId,
         failedConversationProjection(
           state.conversations.get(conversationId),
@@ -64,11 +64,11 @@ export const useConversationStore = create<ConversationStore>((set) => ({
           error,
         ),
       ),
-    })),
+    ),
   hydrateSnapshot: (workspaceId, conversationId, snapshot) =>
-    set((state) => ({
-      conversations: withProjection(
-        state.conversations,
+    set((state) =>
+      projectionPatch(
+        state,
         conversationId,
         hydratedConversationProjection(
           state.conversations.get(conversationId),
@@ -77,7 +77,7 @@ export const useConversationStore = create<ConversationStore>((set) => ({
           snapshot,
         ),
       ),
-    })),
+    ),
   removeConversation: (conversationId) =>
     set((state) =>
       conversationsPatch(state, withoutConversation(state.conversations, conversationId)),
@@ -99,6 +99,14 @@ function conversationsPatch(
   conversations: ReadonlyMap<string, ConversationProjection>,
 ): ConversationStore | Pick<ConversationStoreData, "conversations"> {
   return conversations === state.conversations ? state : { conversations };
+}
+
+function projectionPatch(
+  state: ConversationStore,
+  conversationId: string,
+  projection: ConversationProjection,
+): ConversationStore | Pick<ConversationStoreData, "conversations"> {
+  return conversationsPatch(state, withProjection(state.conversations, conversationId, projection));
 }
 
 function withProjection(

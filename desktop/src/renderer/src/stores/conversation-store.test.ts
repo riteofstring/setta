@@ -231,21 +231,90 @@ describe("conversation store", () => {
 
   test("uses the server-required cursor as the resync coverage boundary", () => {
     hydrate(conversationA, 2);
-    useConversationStore.getState().applyEvent(
-      conversationEvent(conversationA, 3, {
-        currentSequence: 6,
-        currentStreamId: conversationStreamId(conversationA),
-        reason: "Committed events were compacted.",
-        requestedSequence: 2,
-        requestedStreamId: conversationStreamId(conversationA),
-        type: "conversation.resync_required",
-      }),
-    );
+    useConversationStore
+      .getState()
+      .applyEvent(serverResyncEvent(conversationA, 3, 2, 6, "Committed events were compacted."));
 
     expect(projection(conversationA).resync).toEqual({
       detail: "Committed events were compacted.",
       minimumCursor: { sequence: 6, streamId: conversationStreamId(conversationA) },
       reason: "server_required",
+    });
+  });
+
+  test.each([
+    { envelopeSequence: 1, source: "duplicate" },
+    { envelopeSequence: 5, source: "gapped" },
+  ])(
+    "honors a $source server resync envelope when its current cursor is newer",
+    ({ envelopeSequence }) => {
+      hydrate(conversationA, 2);
+
+      useConversationStore
+        .getState()
+        .applyEvent(serverResyncEvent(conversationA, envelopeSequence, 2, 6, "Reload now."));
+
+      expect(projection(conversationA).resync).toEqual({
+        detail: "Reload now.",
+        minimumCursor: { sequence: 6, streamId: conversationStreamId(conversationA) },
+        reason: "server_required",
+      });
+      expect(projection(conversationA).snapshot?.eventCursor.sequence).toBe(2);
+    },
+  );
+
+  test("retains server resync semantics before snapshot hydration", () => {
+    useConversationStore
+      .getState()
+      .applyEvent(serverResyncEvent(conversationA, 6, 0, 6, "The retained stream moved."));
+
+    expect(projection(conversationA)).toMatchObject({
+      error: null,
+      resync: {
+        detail: "The retained stream moved.",
+        minimumCursor: { sequence: 6, streamId: conversationStreamId(conversationA) },
+        reason: "server_required",
+      },
+      snapshot: null,
+      status: "unloaded",
+    });
+  });
+
+  test("upgrades an existing gap to a later authoritative server resync", () => {
+    hydrate(conversationA, 2);
+    useConversationStore
+      .getState()
+      .applyEvent(conversationEvent(conversationA, 4, updatedPayload(conversationA, "Gap")));
+
+    useConversationStore
+      .getState()
+      .applyEvent(serverResyncEvent(conversationA, 3, 2, 6, "The replay window expired."));
+
+    expect(projection(conversationA).resync).toEqual({
+      detail: "The replay window expired.",
+      minimumCursor: { sequence: 6, streamId: conversationStreamId(conversationA) },
+      reason: "server_required",
+    });
+  });
+
+  test("keeps a failed pre-hydration load error while recording a required resync", () => {
+    useConversationStore.getState().beginSnapshotLoad(workspaceId, conversationA);
+    useConversationStore
+      .getState()
+      .failSnapshotLoad(workspaceId, conversationA, new Error("snapshot unavailable"));
+
+    useConversationStore
+      .getState()
+      .applyEvent(conversationEvent(conversationA, 1, updatedPayload(conversationA, "Deferred")));
+
+    expect(projection(conversationA)).toMatchObject({
+      error: "snapshot unavailable",
+      resync: {
+        minimumCursor: { sequence: 1, streamId: conversationStreamId(conversationA) },
+        reason: "event_before_snapshot",
+      },
+      snapshot: null,
+      status: "error",
     });
   });
 
@@ -255,15 +324,22 @@ describe("conversation store", () => {
       .getState()
       .applyEvent(conversationEvent(conversationA, 1, updatedPayload(conversationA, "Live title")));
     const liveProjection = projection(conversationA);
+    const subscriber = vi.fn();
+    const unsubscribe = useConversationStore.subscribe(subscriber);
 
-    useConversationStore
-      .getState()
-      .hydrateSnapshot(
-        workspaceId,
-        conversationA,
-        conversationSnapshot(conversationA, 0, "Stale title"),
-      );
+    try {
+      useConversationStore
+        .getState()
+        .hydrateSnapshot(
+          workspaceId,
+          conversationA,
+          conversationSnapshot(conversationA, 0, "Stale title"),
+        );
+    } finally {
+      unsubscribe();
+    }
 
+    expect(subscriber).not.toHaveBeenCalled();
     expect(projection(conversationA)).toBe(liveProjection);
     expect(projection(conversationA).snapshot?.conversation.title).toBe("Live title");
   });
@@ -391,6 +467,23 @@ function conversationEvent(
     streamId,
     workspaceId,
   };
+}
+
+function serverResyncEvent(
+  conversationId: string,
+  envelopeSequence: number,
+  requestedSequence: number,
+  currentSequence: number,
+  reason: string,
+): ConversationEvent {
+  return conversationEvent(conversationId, envelopeSequence, {
+    currentSequence,
+    currentStreamId: conversationStreamId(conversationId),
+    reason,
+    requestedSequence,
+    requestedStreamId: conversationStreamId(conversationId),
+    type: "conversation.resync_required",
+  });
 }
 
 function conversationSnapshot(
