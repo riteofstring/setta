@@ -1,8 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { backendProtocolVersion } from "@generated/backend";
+import { backendProtocolVersion, type BackendClient } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { authenticatedWebFetch, createWebSettaAPI } from "./setta-web-api";
+import { createSpeechWebAPI } from "./speech-web-api";
 
 describe("web SettaAPI request auth", () => {
   test("injects bearer authorization while preserving existing headers", async () => {
@@ -190,15 +191,21 @@ describe("web SettaAPI unpaired runtime state", () => {
     const session = await api.speech.createTranscriptionSession({
       workspaceId: "workspace_api",
     });
-    const summary = await api.speech.synthesizeEasyRunSummary({
-      easyRunId: "easy_run_api",
-      workspaceId: "workspace_api",
-    });
-    const highlight = await api.speech.synthesizeEasyRunHighlight({
-      easyRunId: "easy_run_api",
-      highlightId: "highlight_api",
-      workspaceId: "workspace_api",
-    });
+    const summary = await api.speech.synthesizeEasyRunSummary(
+      {
+        easyRunId: "easy_run_api",
+        workspaceId: "workspace_api",
+      },
+      "speech_summary_web",
+    );
+    const highlight = await api.speech.synthesizeEasyRunHighlight(
+      {
+        easyRunId: "easy_run_api",
+        highlightId: "highlight_api",
+        workspaceId: "workspace_api",
+      },
+      "speech_highlight_web",
+    );
 
     expect(capabilities.providerStatus).toBe("configured");
     expect(session.clientSecret).toBe("ek_web_ephemeral");
@@ -226,6 +233,32 @@ describe("web SettaAPI unpaired runtime state", () => {
         path: "/speech/easy-runs/highlight",
       },
     ]);
+  });
+
+  test("cancels a matching web synthesis fetch", async () => {
+    const captured: { signal?: AbortSignal } = {};
+    const backend = {
+      synthesizeEasyRunSummary: vi.fn((_request, options) => {
+        captured.signal = options?.signal;
+        return new Promise((_resolve, reject) => {
+          captured.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("aborted", "AbortError")),
+            { once: true },
+          );
+        });
+      }),
+    } as unknown as BackendClient;
+    const speech = createSpeechWebAPI(() => backend);
+    const synthesis = speech.synthesizeEasyRunSummary(
+      { easyRunId: "easy_run_api", workspaceId: "workspace_api" },
+      "speech_cancel_web",
+    );
+
+    await speech.cancelSynthesis("speech_cancel_web");
+
+    expect(captured.signal?.aborted).toBe(true);
+    await expect(synthesis).rejects.toMatchObject({ name: "AbortError" });
   });
 });
 

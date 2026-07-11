@@ -15,6 +15,10 @@ type BackendPayloadDecoder<T> = (value: unknown) => T;
 
 export type BackendFetch = (input: URL, init: RequestInit) => Promise<Response>;
 
+export interface BackendRequestOptions {
+  signal?: AbortSignal;
+}
+
 export interface BackendEventBase<TType extends string> {
   schemaVersion: number;
   streamId: string;
@@ -34,6 +38,7 @@ interface BackendRequest<ResponsePayload, ErrorPayload extends BackendErrorPaylo
   endpoint: BackendRequestEndpoint;
   fetchImpl: BackendFetch;
   requestPayload: unknown | undefined;
+  signal?: AbortSignal;
 }
 
 const backendRequestErrorBrand = Symbol("BackendRequestError");
@@ -227,9 +232,18 @@ export function decodeBackendEventBase<TType extends string>(
 export async function requestBackend<ResponsePayload, ErrorPayload extends BackendErrorPayload>(
   request: BackendRequest<ResponsePayload, ErrorPayload>,
 ): Promise<ResponsePayload> {
-  const { baseURL, decodeErrorResponse, decodeResponse, endpoint, fetchImpl, requestPayload } =
-    request;
-  const init: RequestInit = { method: endpoint.method };
+  const {
+    baseURL,
+    decodeErrorResponse,
+    decodeResponse,
+    endpoint,
+    fetchImpl,
+    requestPayload,
+    signal,
+  } = request;
+  const init: RequestInit = signal
+    ? { method: endpoint.method, signal }
+    : { method: endpoint.method };
   const url = new URL(endpoint.path, baseURL);
   if (requestPayload !== undefined && endpoint.method === "GET") {
     appendQueryPayload(url, requestPayload);

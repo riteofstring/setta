@@ -120,6 +120,34 @@ describe("backend runtime requests", () => {
     expect(call.init.headers).toEqual({ "Content-Type": "application/json" });
   });
 
+  test("passes request cancellation to the fetch boundary", async () => {
+    const controller = new AbortController();
+    let receivedSignal: AbortSignal | null = null;
+    const request = requestBackend({
+      baseURL: "http://127.0.0.1:41000",
+      decodeErrorResponse: decodeRuntimeError,
+      decodeResponse: decodeOKPayload,
+      endpoint: { method: "POST", path: "/payload" },
+      fetchImpl: async (_input, init) => {
+        receivedSignal = init.signal ?? null;
+        return new Promise((_resolve, reject) => {
+          receivedSignal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("aborted", "AbortError")),
+            { once: true },
+          );
+        });
+      },
+      requestPayload: { id: "workspace_api" },
+      signal: controller.signal,
+    });
+
+    controller.abort();
+
+    expect(receivedSignal).toBe(controller.signal);
+    await expect(request).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   test("throws decoded backend error facts", async () => {
     const request = requestBackend({
       baseURL: "http://127.0.0.1:41000",

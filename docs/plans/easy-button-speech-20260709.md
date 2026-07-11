@@ -3595,6 +3595,55 @@ next coherent work is Phase 5 item 1: enqueue only live typed narrator-highlight
 events in `highlights_and_final` mode while excluding chat messages, Current
 focus, hydration, and all other sources. No implementation blocker was found.
 
+### 2026-07-10 — Phase 4 recording preemption and TTS failure audit complete
+
+Audited commit `ee3c3323d` against Phase 4 item 6, `AGENTS.md`, its parent, the
+clean starting worktree, generated and checked-in web artifacts, playback and
+capture lifecycles, IPC/preload/web boundaries, focused tests, and the retained
+production workflow. Active audio preemption, stale-response rejection, Blob
+release, and TTS failure isolation were correct, and the Easy Run snapshot
+remained unchanged through every exercised playback failure.
+
+The audit found one practical cancellation gap. Controller reset aborted only a
+renderer-local wrapper around the synthesis promise; the authenticated HTTP
+request and billable OpenAI TTS request continued to completion. The production
+test demonstrated that behavior by releasing the held provider response after
+claiming synthesis had been preempted. Speech synthesis now carries a bounded
+renderer operation ID through the typed Electron or web API. Electron main and
+the web adapter own the matching `AbortController`, and the generated backend
+client forwards its signal through authenticated `fetch`. Reset therefore
+cancels the real runtime request context and upstream OpenAI request as well as
+rejecting stale renderer results. The operation ID contains no prose or speech
+source content, and cancellation adds no backend endpoint or persisted state.
+
+Audit verification completed:
+
+- focused generated-client runtime, main IPC, preload, web adapter, controller,
+  and contract-generator tests passed, including matching-request cancellation
+  on both Electron and web paths;
+- all 1,118 desktop Vitest tests, Electron/web typechecks, both production
+  builds, and the embedded-webapp Go test passed; the checked-in PWA bundle was
+  regenerated from the current generated client and shared renderer source;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-preemption-audit-20260710`.
+  Its held fake OpenAI response observes the upstream connection close after
+  recording begins; it can no longer be released, create a Blob, or create an
+  audio element. Active playback preemption, TTS failure isolation, persisted
+  snapshot equality, and secret/audio/provider-body redaction also remain
+  covered;
+- the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase4-preemption-audit-regression-20260710`;
+- the authenticated speech API workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-preemption-audit-api-20260710-r2`.
+  Its first attempt encountered the existing disposable terminal-attach
+  fixture race before an Easy Button request was submittable; the prescribed
+  narrow retry passed and exercised both cancellable synthesis IPC operations.
+
+Phases 1-4 remain complete. This audit did not start Phase 5. The next coherent
+slice remains Phase 5 item 1: enqueue only live typed narrator-highlight events
+in `highlights_and_final` mode while excluding chat messages, Current focus,
+hydration, and every other source.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

@@ -28,17 +28,33 @@ describe("preload speech API", () => {
       highlightId: "highlight_api",
       workspaceId: "workspace_api",
     };
+    const summaryOperationId = "speech_summary_api";
+    const highlightOperationId = "speech_highlight_api";
 
     await api.speech.readCapabilities();
     await api.speech.createTranscriptionSession(sessionRequest);
-    await api.speech.synthesizeEasyRunSummary(summaryRequest);
-    await api.speech.synthesizeEasyRunHighlight(highlightRequest);
+    await api.speech.synthesizeEasyRunSummary(summaryRequest, summaryOperationId);
+    await api.speech.synthesizeEasyRunHighlight(highlightRequest, highlightOperationId);
+    await api.speech.cancelSynthesis(summaryOperationId);
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
       [ipcChannels.speechCreateTranscriptionSession, sessionRequest],
-      [ipcChannels.speechSynthesizeEasyRunSummary, summaryRequest],
-      [ipcChannels.speechSynthesizeEasyRunHighlight, highlightRequest],
+      [
+        ipcChannels.speechSynthesizeEasyRunSummary,
+        {
+          operationId: summaryOperationId,
+          request: summaryRequest,
+        },
+      ],
+      [
+        ipcChannels.speechSynthesizeEasyRunHighlight,
+        {
+          operationId: highlightOperationId,
+          request: highlightRequest,
+        },
+      ],
+      [ipcChannels.speechCancelSynthesis, summaryOperationId],
     ]);
   });
 });

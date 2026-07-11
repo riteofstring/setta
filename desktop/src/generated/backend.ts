@@ -17,6 +17,7 @@ import {
   requestBackend,
   requireField,
   type BackendFetch,
+  type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
 export const backendProtocolVersion = 13;
@@ -13500,1269 +13501,1409 @@ function decodeCodexAccountChangedEventFromRecord(record: Record<string, unknown
 }
 
 export interface BackendClient {
-  backendHealth: () => Promise<BackendHealth>;
-  runtimeInfo: () => Promise<RuntimeInfoResponse>;
-  completePairing: (request: CompletePairingRequest) => Promise<CompletePairingResponse>;
-  updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest) => Promise<RuntimeInfoResponse>;
-  listDevices: (request: ListDevicesRequest) => Promise<ListDevicesResponse>;
-  revokeDevice: (request: RevokeDeviceRequest) => Promise<RevokeDeviceResponse>;
-  pushSubscribe: (request: PushSubscribeRequest) => Promise<PushSubscribeResponse>;
-  pushUnsubscribe: (request: PushUnsubscribeRequest) => Promise<PushUnsubscribeResponse>;
-  pushTest: (request: PushTestRequest) => Promise<PushTestResponse>;
-  readAppearanceSettings: () => Promise<AppearanceSettings>;
-  readAppearancePresets: () => Promise<AppearancePresetList>;
-  updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
-  workspaceSession: () => Promise<WorkspaceSession>;
-  workspaceSelectedConversations: () => Promise<WorkspaceSelectedConversations>;
-  openWorkspace: (request: OpenWorkspaceRequest) => Promise<OpenWorkspaceResponse>;
-  selectWorkspace: (request: SelectWorkspaceRequest) => Promise<WorkspaceSession>;
-  setWorkspaceSelectedConversation: (request: SetWorkspaceSelectedConversationRequest) => Promise<WorkspaceSelectedConversations>;
-  closeWorkspace: (request: CloseWorkspaceRequest) => Promise<WorkspaceSession>;
-  reorderWorkspace: (request: ReorderWorkspaceRequest) => Promise<WorkspaceSession>;
-  removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
-  readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
-  saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
-  readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest) => Promise<ReadWorkspaceActivitySnapshotResponse>;
-  readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest) => Promise<ReadWorkflowExecutionActivityResponse>;
-  readEasyRunSnapshot: (request: ReadEasyRunSnapshotRequest) => Promise<EasyRunSnapshot>;
-  startEasyRun: (request: StartEasyRunRequest) => Promise<EasyRun>;
-  steerEasyRun: (request: SteerEasyRunRequest) => Promise<EasyRun>;
-  stopEasyRun: (request: StopEasyRunRequest) => Promise<EasyRun>;
-  readSpeechCapabilities: () => Promise<SpeechCapabilities>;
-  createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest) => Promise<SpeechTranscriptionSession>;
-  synthesizeEasyRunSummary: (request: SynthesizeEasyRunSummaryRequest) => Promise<SpeechAudio>;
-  synthesizeEasyRunHighlight: (request: SynthesizeEasyRunHighlightRequest) => Promise<SpeechAudio>;
-  listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
-  createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
-  deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
-  markConversationRead: (request: MarkConversationReadRequest) => Promise<ConversationListItem>;
-  setConversationPinned: (request: SetConversationPinnedRequest) => Promise<ConversationListItem>;
-  getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
-  listComposerPromptHistory: (request: ListComposerPromptHistoryRequest) => Promise<ComposerPromptHistoryPage>;
-  sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
-  queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
-  editQueuedChatMessage: (request: EditQueuedChatMessageRequest) => Promise<QueueEditResult>;
-  removeQueuedChatMessage: (request: RemoveQueuedChatMessageRequest) => Promise<QueueRemoveResult>;
-  steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
-  sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
-  createChatImageAttachmentFromBytes: (request: CreateChatImageAttachmentFromBytesRequest) => Promise<ImageAttachment>;
-  createChatImageAttachmentFromPath: (request: CreateChatImageAttachmentFromPathRequest) => Promise<ImageAttachment>;
-  listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
-  executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
-  readChatCodexDefaults: () => Promise<ChatCodexDefaultsView>;
-  updateChatCodexDefaults: (request: UpdateChatCodexDefaultsRequest) => Promise<ChatCodexDefaultsView>;
-  openChatCodexModelPicker: (request: OpenChatCodexModelPickerRequest) => Promise<ChatCommandExecuteResult>;
-  openChatCodexPermissionPicker: (request: OpenChatCodexPermissionPickerRequest) => Promise<ChatCommandExecuteResult>;
-  setChatCodexModel: (request: SetChatCodexModelRequest) => Promise<ChatCommandExecuteResult>;
-  setChatCodexPermissionPreset: (request: SetChatCodexPermissionPresetRequest) => Promise<ChatCommandExecuteResult>;
-  setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest) => Promise<ChatCommandExecuteResult>;
-  cancelRun: (request: CancelRunRequest) => Promise<Run>;
-  getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
-  reconcileChatRuns: (request: ReconcileChatRunsRequest) => Promise<ReconcileChatRunsResponse>;
-  listRuns: (request: ListRunsRequest) => Promise<ListRunsResponse>;
-  getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
-  getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
-  listBackgroundTerminals: (request: ListBackgroundTerminalsRequest) => Promise<BackgroundTerminalListProjection>;
-  getBackgroundTerminalOutput: (request: GetBackgroundTerminalOutputRequest) => Promise<BackgroundTerminalOutputPage>;
-  killBackgroundTerminal: (request: KillBackgroundTerminalRequest) => Promise<BackgroundTerminalProcess>;
-  killAllBackgroundTerminals: (request: KillAllBackgroundTerminalsRequest) => Promise<BackgroundTerminalListProjection>;
-  listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
-  submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
-  listWorkflowDefinitions: (request: ListWorkflowDefinitionsRequest) => Promise<ListWorkflowDefinitionsResponse>;
-  createWorkflowDefinition: (request: CreateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
-  readWorkflowDefinition: (request: ReadWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
-  updateWorkflowDefinition: (request: UpdateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
-  deleteWorkflowDefinition: (request: DeleteWorkflowDefinitionRequest) => Promise<DeleteWorkflowDefinitionResponse>;
-  validateWorkflowDefinition: (request: ValidateWorkflowDefinitionRequest) => Promise<WorkflowValidationResult>;
-  listWorkflowExecutions: (request: ListWorkflowExecutionsRequest) => Promise<ListWorkflowExecutionsResponse>;
-  startWorkflowExecution: (request: StartWorkflowExecutionRequest) => Promise<WorkflowExecution>;
-  cancelWorkflowExecution: (request: CancelWorkflowExecutionRequest) => Promise<WorkflowExecution>;
-  readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
-  readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
-  getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
-  readWorkflowNodeTrajectory: (request: ReadWorkflowNodeTrajectoryRequest) => Promise<WorkflowAgentTrajectoryPage>;
-  retryWorkflowNodeRunLiveness: (request: RetryWorkflowNodeRunLivenessRequest) => Promise<RunLivenessReconciliationResult>;
-  steerWorkflowNodeRun: (request: SteerWorkflowNodeRunRequest) => Promise<SteerMessageResult>;
-  stopWorkflowNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
-  submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
-  readSemanticGraph: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
-  readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest) => Promise<ReadSemanticNodeDetailResponse>;
-  listSemanticEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
-  listSemanticActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
-  listSemanticActivityPage: (request: ListSemanticActivityPageRequest) => Promise<SemanticActivityPage>;
-  readSemanticActivitySummary: (request: ReadSemanticActivitySummaryRequest) => Promise<SemanticActivitySummary>;
-  readSemanticSteeringState: (request: ReadSemanticSteeringStateRequest) => Promise<SemanticSteeringState>;
-  readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
-  readSemanticContextPack: (request: ReadSemanticContextPackRequest) => Promise<SemanticContextPackReadResponse>;
-  listSemanticContextPacks: (request: ListSemanticContextPacksRequest) => Promise<SemanticContextPackList>;
-  buildCartographerWindow: (request: BuildCartographerWindowRequest) => Promise<CartographerWindowBuildResult>;
-  processCartographerWindow: (request: ProcessCartographerWindowRequest) => Promise<CartographerWindowProcessResult>;
-  readCartographerProcessingState: (request: ReadCartographerProcessingStateRequest) => Promise<CartographerProcessingState>;
-  readCartographerRun: (request: ReadCartographerRunRequest) => Promise<CartographerRunReadResponse>;
-  listCartographerRuns: (request: ListCartographerRunsRequest) => Promise<CartographerRunList>;
-  listCartographerWindows: (request: ListCartographerWindowsRequest) => Promise<CartographerWindowList>;
-  listCartographerCursors: (request: ListCartographerCursorsRequest) => Promise<CartographerCursorList>;
-  listCartographerPatches: (request: ListCartographerPatchesRequest) => Promise<CartographerPatchList>;
-  acceptCartographerPatch: (request: ReviewCartographerPatchRequest) => Promise<CartographerPatchReviewResult>;
-  rejectCartographerPatch: (request: ReviewCartographerPatchRequest) => Promise<CartographerPatchReviewResult>;
-  updateSemanticLayoutPositions: (request: UpdateSemanticLayoutPositionsRequest) => Promise<SemanticLayoutPositionList>;
-  attachSemanticNodeToWorkflowExecution: (request: AttachSemanticNodeToWorkflowExecutionRequest) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToWorkflowNode: (request: AttachSemanticNodeToWorkflowNodeRequest) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToChatRun: (request: AttachSemanticNodeToChatRunRequest) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToChatMessage: (request: AttachSemanticNodeToChatMessageRequest) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToRunItem: (request: AttachSemanticNodeToRunItemRequest) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToFileRange: (request: AttachSemanticNodeToFileRangeRequest) => Promise<SemanticAttachmentResult>;
-  endSemanticActivity: (request: EndSemanticActivityRequest) => Promise<SemanticActivityEndResult>;
-  renameSemanticNode: (request: RenameSemanticNodeRequest) => Promise<SemanticMutationResult>;
-  updateSemanticNode: (request: UpdateSemanticNodeRequest) => Promise<SemanticMutationResult>;
-  dismissSemanticNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
-  promoteSemanticNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
-  splitSemanticNode: (request: SplitSemanticNodeRequest) => Promise<SemanticMutationResult>;
-  mergeSemanticNodes: (request: MergeSemanticNodesRequest) => Promise<SemanticMutationResult>;
-  createSemanticNode: (request: CreateSemanticNodeRequest) => Promise<SemanticMutationResult>;
-  createSemanticEdge: (request: CreateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
-  updateSemanticEdge: (request: UpdateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
-  removeSemanticEdge: (request: SemanticEdgeOperationRequest) => Promise<SemanticMutationResult>;
-  createSemanticSteeringDirective: (request: CreateSemanticSteeringDirectiveRequest) => Promise<SemanticMutationResult>;
-  updateSemanticSteeringDirective: (request: UpdateSemanticSteeringDirectiveRequest) => Promise<SemanticMutationResult>;
-  createTerminal: (request: CreateTerminalRequest) => Promise<TerminalSessionResponse>;
-  attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
-  terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
-  resizeTerminal: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
-  closeTerminal: (request: CloseTerminalRequest) => Promise<CloseTerminalResponse>;
-  listTerminalProfiles: () => Promise<TerminalProfileList>;
-  createTerminalProfile: (request: CreateTerminalProfileRequest) => Promise<TerminalProfileList>;
-  updateTerminalProfile: (request: UpdateTerminalProfileRequest) => Promise<TerminalProfileList>;
-  deleteTerminalProfile: (request: DeleteTerminalProfileRequest) => Promise<TerminalProfileList>;
-  selectDefaultTerminalProfile: (request: SelectDefaultTerminalProfileRequest) => Promise<TerminalProfileList>;
-  readCodexAccount: () => Promise<CodexAccountState>;
-  refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
-  startCodexLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
-  cancelCodexLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
-  logoutCodexAccount: (request: LogoutCodexAccountRequest) => Promise<CodexAccountState>;
+  backendHealth: (options?: BackendRequestOptions) => Promise<BackendHealth>;
+  runtimeInfo: (options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
+  completePairing: (request: CompletePairingRequest, options?: BackendRequestOptions) => Promise<CompletePairingResponse>;
+  updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest, options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
+  listDevices: (request: ListDevicesRequest, options?: BackendRequestOptions) => Promise<ListDevicesResponse>;
+  revokeDevice: (request: RevokeDeviceRequest, options?: BackendRequestOptions) => Promise<RevokeDeviceResponse>;
+  pushSubscribe: (request: PushSubscribeRequest, options?: BackendRequestOptions) => Promise<PushSubscribeResponse>;
+  pushUnsubscribe: (request: PushUnsubscribeRequest, options?: BackendRequestOptions) => Promise<PushUnsubscribeResponse>;
+  pushTest: (request: PushTestRequest, options?: BackendRequestOptions) => Promise<PushTestResponse>;
+  readAppearanceSettings: (options?: BackendRequestOptions) => Promise<AppearanceSettings>;
+  readAppearancePresets: (options?: BackendRequestOptions) => Promise<AppearancePresetList>;
+  updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest, options?: BackendRequestOptions) => Promise<AppearanceSettings>;
+  workspaceSession: (options?: BackendRequestOptions) => Promise<WorkspaceSession>;
+  workspaceSelectedConversations: (options?: BackendRequestOptions) => Promise<WorkspaceSelectedConversations>;
+  openWorkspace: (request: OpenWorkspaceRequest, options?: BackendRequestOptions) => Promise<OpenWorkspaceResponse>;
+  selectWorkspace: (request: SelectWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
+  setWorkspaceSelectedConversation: (request: SetWorkspaceSelectedConversationRequest, options?: BackendRequestOptions) => Promise<WorkspaceSelectedConversations>;
+  closeWorkspace: (request: CloseWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
+  reorderWorkspace: (request: ReorderWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
+  removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
+  readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayoutReadResult>;
+  saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayout>;
+  readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest, options?: BackendRequestOptions) => Promise<ReadWorkspaceActivitySnapshotResponse>;
+  readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest, options?: BackendRequestOptions) => Promise<ReadWorkflowExecutionActivityResponse>;
+  readEasyRunSnapshot: (request: ReadEasyRunSnapshotRequest, options?: BackendRequestOptions) => Promise<EasyRunSnapshot>;
+  startEasyRun: (request: StartEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
+  steerEasyRun: (request: SteerEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
+  stopEasyRun: (request: StopEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
+  readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
+  createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
+  synthesizeEasyRunSummary: (request: SynthesizeEasyRunSummaryRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
+  synthesizeEasyRunHighlight: (request: SynthesizeEasyRunHighlightRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
+  listConversations: (request: ListConversationsRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
+  createConversation: (request: CreateConversationRequest, options?: BackendRequestOptions) => Promise<Conversation>;
+  deleteConversation: (request: DeleteConversationRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
+  markConversationRead: (request: MarkConversationReadRequest, options?: BackendRequestOptions) => Promise<ConversationListItem>;
+  setConversationPinned: (request: SetConversationPinnedRequest, options?: BackendRequestOptions) => Promise<ConversationListItem>;
+  getMessagePage: (request: GetMessagePageRequest, options?: BackendRequestOptions) => Promise<MessagePage>;
+  listComposerPromptHistory: (request: ListComposerPromptHistoryRequest, options?: BackendRequestOptions) => Promise<ComposerPromptHistoryPage>;
+  sendChatMessage: (request: SendChatMessageRequest, options?: BackendRequestOptions) => Promise<SendMessageResult>;
+  queueChatMessage: (request: QueueChatMessageRequest, options?: BackendRequestOptions) => Promise<QueueMessageResult>;
+  editQueuedChatMessage: (request: EditQueuedChatMessageRequest, options?: BackendRequestOptions) => Promise<QueueEditResult>;
+  removeQueuedChatMessage: (request: RemoveQueuedChatMessageRequest, options?: BackendRequestOptions) => Promise<QueueRemoveResult>;
+  steerChatMessage: (request: SteerChatMessageRequest, options?: BackendRequestOptions) => Promise<SteerMessageResult>;
+  sendSteeringImmediately: (request: SendSteeringImmediatelyRequest, options?: BackendRequestOptions) => Promise<ImmediateSteeringResult>;
+  createChatImageAttachmentFromBytes: (request: CreateChatImageAttachmentFromBytesRequest, options?: BackendRequestOptions) => Promise<ImageAttachment>;
+  createChatImageAttachmentFromPath: (request: CreateChatImageAttachmentFromPathRequest, options?: BackendRequestOptions) => Promise<ImageAttachment>;
+  listChatCommands: (request: ListChatCommandsRequest, options?: BackendRequestOptions) => Promise<ChatCommandListResult>;
+  executeChatCommand: (request: ExecuteChatCommandRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
+  readChatCodexDefaults: (options?: BackendRequestOptions) => Promise<ChatCodexDefaultsView>;
+  updateChatCodexDefaults: (request: UpdateChatCodexDefaultsRequest, options?: BackendRequestOptions) => Promise<ChatCodexDefaultsView>;
+  openChatCodexModelPicker: (request: OpenChatCodexModelPickerRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
+  openChatCodexPermissionPicker: (request: OpenChatCodexPermissionPickerRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
+  setChatCodexModel: (request: SetChatCodexModelRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
+  setChatCodexPermissionPreset: (request: SetChatCodexPermissionPresetRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
+  setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
+  cancelRun: (request: CancelRunRequest, options?: BackendRequestOptions) => Promise<Run>;
+  getActiveRun: (request: GetActiveRunRequest, options?: BackendRequestOptions) => Promise<GetActiveRunResponse>;
+  reconcileChatRuns: (request: ReconcileChatRunsRequest, options?: BackendRequestOptions) => Promise<ReconcileChatRunsResponse>;
+  listRuns: (request: ListRunsRequest, options?: BackendRequestOptions) => Promise<ListRunsResponse>;
+  getRunActivity: (request: GetRunActivityRequest, options?: BackendRequestOptions) => Promise<RunActivityPage>;
+  getRunItemOutputPage: (request: GetRunItemOutputRequest, options?: BackendRequestOptions) => Promise<RunItemOutputPage>;
+  listBackgroundTerminals: (request: ListBackgroundTerminalsRequest, options?: BackendRequestOptions) => Promise<BackgroundTerminalListProjection>;
+  getBackgroundTerminalOutput: (request: GetBackgroundTerminalOutputRequest, options?: BackendRequestOptions) => Promise<BackgroundTerminalOutputPage>;
+  killBackgroundTerminal: (request: KillBackgroundTerminalRequest, options?: BackendRequestOptions) => Promise<BackgroundTerminalProcess>;
+  killAllBackgroundTerminals: (request: KillAllBackgroundTerminalsRequest, options?: BackendRequestOptions) => Promise<BackgroundTerminalListProjection>;
+  listDiagnostics: (request: ListDiagnosticsRequest, options?: BackendRequestOptions) => Promise<ListDiagnosticsResponse>;
+  submitApproval: (request: SubmitApprovalRequest, options?: BackendRequestOptions) => Promise<Run>;
+  listWorkflowDefinitions: (request: ListWorkflowDefinitionsRequest, options?: BackendRequestOptions) => Promise<ListWorkflowDefinitionsResponse>;
+  createWorkflowDefinition: (request: CreateWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<WorkflowDefinition>;
+  readWorkflowDefinition: (request: ReadWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<WorkflowDefinition>;
+  updateWorkflowDefinition: (request: UpdateWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<WorkflowDefinition>;
+  deleteWorkflowDefinition: (request: DeleteWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<DeleteWorkflowDefinitionResponse>;
+  validateWorkflowDefinition: (request: ValidateWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<WorkflowValidationResult>;
+  listWorkflowExecutions: (request: ListWorkflowExecutionsRequest, options?: BackendRequestOptions) => Promise<ListWorkflowExecutionsResponse>;
+  startWorkflowExecution: (request: StartWorkflowExecutionRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
+  cancelWorkflowExecution: (request: CancelWorkflowExecutionRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
+  readWorkflowExecution: (request: ReadWorkflowExecutionRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
+  readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest, options?: BackendRequestOptions) => Promise<ReadWorkflowGraphProjectionResponse>;
+  getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest, options?: BackendRequestOptions) => Promise<WorkflowExecutionEventPage>;
+  readWorkflowNodeTrajectory: (request: ReadWorkflowNodeTrajectoryRequest, options?: BackendRequestOptions) => Promise<WorkflowAgentTrajectoryPage>;
+  retryWorkflowNodeRunLiveness: (request: RetryWorkflowNodeRunLivenessRequest, options?: BackendRequestOptions) => Promise<RunLivenessReconciliationResult>;
+  steerWorkflowNodeRun: (request: SteerWorkflowNodeRunRequest, options?: BackendRequestOptions) => Promise<SteerMessageResult>;
+  stopWorkflowNodeRun: (request: StopWorkflowNodeRunRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
+  submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
+  readSemanticGraph: (request: ReadSemanticGraphRequest, options?: BackendRequestOptions) => Promise<SemanticGraph>;
+  readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest, options?: BackendRequestOptions) => Promise<ReadSemanticNodeDetailResponse>;
+  listSemanticEvidence: (request: ListSemanticEvidenceRequest, options?: BackendRequestOptions) => Promise<SemanticEvidenceList>;
+  listSemanticActivity: (request: ListSemanticActivityRequest, options?: BackendRequestOptions) => Promise<SemanticActivityList>;
+  listSemanticActivityPage: (request: ListSemanticActivityPageRequest, options?: BackendRequestOptions) => Promise<SemanticActivityPage>;
+  readSemanticActivitySummary: (request: ReadSemanticActivitySummaryRequest, options?: BackendRequestOptions) => Promise<SemanticActivitySummary>;
+  readSemanticSteeringState: (request: ReadSemanticSteeringStateRequest, options?: BackendRequestOptions) => Promise<SemanticSteeringState>;
+  readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest, options?: BackendRequestOptions) => Promise<SemanticEventHistory>;
+  readSemanticContextPack: (request: ReadSemanticContextPackRequest, options?: BackendRequestOptions) => Promise<SemanticContextPackReadResponse>;
+  listSemanticContextPacks: (request: ListSemanticContextPacksRequest, options?: BackendRequestOptions) => Promise<SemanticContextPackList>;
+  buildCartographerWindow: (request: BuildCartographerWindowRequest, options?: BackendRequestOptions) => Promise<CartographerWindowBuildResult>;
+  processCartographerWindow: (request: ProcessCartographerWindowRequest, options?: BackendRequestOptions) => Promise<CartographerWindowProcessResult>;
+  readCartographerProcessingState: (request: ReadCartographerProcessingStateRequest, options?: BackendRequestOptions) => Promise<CartographerProcessingState>;
+  readCartographerRun: (request: ReadCartographerRunRequest, options?: BackendRequestOptions) => Promise<CartographerRunReadResponse>;
+  listCartographerRuns: (request: ListCartographerRunsRequest, options?: BackendRequestOptions) => Promise<CartographerRunList>;
+  listCartographerWindows: (request: ListCartographerWindowsRequest, options?: BackendRequestOptions) => Promise<CartographerWindowList>;
+  listCartographerCursors: (request: ListCartographerCursorsRequest, options?: BackendRequestOptions) => Promise<CartographerCursorList>;
+  listCartographerPatches: (request: ListCartographerPatchesRequest, options?: BackendRequestOptions) => Promise<CartographerPatchList>;
+  acceptCartographerPatch: (request: ReviewCartographerPatchRequest, options?: BackendRequestOptions) => Promise<CartographerPatchReviewResult>;
+  rejectCartographerPatch: (request: ReviewCartographerPatchRequest, options?: BackendRequestOptions) => Promise<CartographerPatchReviewResult>;
+  updateSemanticLayoutPositions: (request: UpdateSemanticLayoutPositionsRequest, options?: BackendRequestOptions) => Promise<SemanticLayoutPositionList>;
+  attachSemanticNodeToWorkflowExecution: (request: AttachSemanticNodeToWorkflowExecutionRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToWorkflowNode: (request: AttachSemanticNodeToWorkflowNodeRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToChatRun: (request: AttachSemanticNodeToChatRunRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToChatMessage: (request: AttachSemanticNodeToChatMessageRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToRunItem: (request: AttachSemanticNodeToRunItemRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToFileRange: (request: AttachSemanticNodeToFileRangeRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
+  endSemanticActivity: (request: EndSemanticActivityRequest, options?: BackendRequestOptions) => Promise<SemanticActivityEndResult>;
+  renameSemanticNode: (request: RenameSemanticNodeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  updateSemanticNode: (request: UpdateSemanticNodeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  dismissSemanticNode: (request: SemanticNodeOperationRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  promoteSemanticNode: (request: SemanticNodeOperationRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  splitSemanticNode: (request: SplitSemanticNodeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  mergeSemanticNodes: (request: MergeSemanticNodesRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  createSemanticNode: (request: CreateSemanticNodeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  createSemanticEdge: (request: CreateSemanticEdgeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  updateSemanticEdge: (request: UpdateSemanticEdgeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  removeSemanticEdge: (request: SemanticEdgeOperationRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  createSemanticSteeringDirective: (request: CreateSemanticSteeringDirectiveRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  updateSemanticSteeringDirective: (request: UpdateSemanticSteeringDirectiveRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
+  createTerminal: (request: CreateTerminalRequest, options?: BackendRequestOptions) => Promise<TerminalSessionResponse>;
+  attachTerminal: (request: AttachTerminalRequest, options?: BackendRequestOptions) => Promise<TerminalSessionResponse>;
+  terminalInput: (request: TerminalInputRequest, options?: BackendRequestOptions) => Promise<TerminalInputResponse>;
+  resizeTerminal: (request: ResizeTerminalRequest, options?: BackendRequestOptions) => Promise<TerminalSessionResponse>;
+  closeTerminal: (request: CloseTerminalRequest, options?: BackendRequestOptions) => Promise<CloseTerminalResponse>;
+  listTerminalProfiles: (options?: BackendRequestOptions) => Promise<TerminalProfileList>;
+  createTerminalProfile: (request: CreateTerminalProfileRequest, options?: BackendRequestOptions) => Promise<TerminalProfileList>;
+  updateTerminalProfile: (request: UpdateTerminalProfileRequest, options?: BackendRequestOptions) => Promise<TerminalProfileList>;
+  deleteTerminalProfile: (request: DeleteTerminalProfileRequest, options?: BackendRequestOptions) => Promise<TerminalProfileList>;
+  selectDefaultTerminalProfile: (request: SelectDefaultTerminalProfileRequest, options?: BackendRequestOptions) => Promise<TerminalProfileList>;
+  readCodexAccount: (options?: BackendRequestOptions) => Promise<CodexAccountState>;
+  refreshCodexAccount: (request: RefreshCodexAccountRequest, options?: BackendRequestOptions) => Promise<CodexAccountState>;
+  startCodexLogin: (request: StartCodexLoginRequest, options?: BackendRequestOptions) => Promise<StartCodexLoginResponse>;
+  cancelCodexLogin: (request: CancelCodexLoginRequest, options?: BackendRequestOptions) => Promise<CodexAccountState>;
+  logoutCodexAccount: (request: LogoutCodexAccountRequest, options?: BackendRequestOptions) => Promise<CodexAccountState>;
 }
 
 export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {
   return {
-    backendHealth: () => requestBackend({
+    backendHealth: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackendHealth,
       endpoint: backendEndpoints.BackendHealth,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    runtimeInfo: () => requestBackend({
+    runtimeInfo: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRuntimeInfoResponse,
       endpoint: backendEndpoints.RuntimeInfo,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    completePairing: (request) => requestBackend({
+    completePairing: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    updateRuntimeDisplayName: (request) => requestBackend({
+    updateRuntimeDisplayName: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRuntimeInfoResponse,
       endpoint: backendEndpoints.UpdateRuntimeDisplayName,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listDevices: (request) => requestBackend({
+    listDevices: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListDevicesResponse,
       endpoint: backendEndpoints.ListDevices,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    revokeDevice: (request) => requestBackend({
+    revokeDevice: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRevokeDeviceResponse,
       endpoint: backendEndpoints.RevokeDevice,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    pushSubscribe: (request) => requestBackend({
+    pushSubscribe: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodePushSubscribeResponse,
       endpoint: backendEndpoints.PushSubscribe,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    pushUnsubscribe: (request) => requestBackend({
+    pushUnsubscribe: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodePushUnsubscribeResponse,
       endpoint: backendEndpoints.PushUnsubscribe,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    pushTest: (request) => requestBackend({
+    pushTest: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodePushTestResponse,
       endpoint: backendEndpoints.PushTest,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readAppearanceSettings: () => requestBackend({
+    readAppearanceSettings: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeAppearanceSettings,
       endpoint: backendEndpoints.ReadAppearanceSettings,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    readAppearancePresets: () => requestBackend({
+    readAppearancePresets: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeAppearancePresetList,
       endpoint: backendEndpoints.ReadAppearancePresets,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    updateAppearanceSettings: (request) => requestBackend({
+    updateAppearanceSettings: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeAppearanceSettings,
       endpoint: backendEndpoints.UpdateAppearanceSettings,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    workspaceSession: () => requestBackend({
+    workspaceSession: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.WorkspaceSession,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    workspaceSelectedConversations: () => requestBackend({
+    workspaceSelectedConversations: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSelectedConversations,
       endpoint: backendEndpoints.WorkspaceSelectedConversations,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    openWorkspace: (request) => requestBackend({
+    openWorkspace: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeOpenWorkspaceResponse,
       endpoint: backendEndpoints.OpenWorkspace,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    selectWorkspace: (request) => requestBackend({
+    selectWorkspace: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.SelectWorkspace,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    setWorkspaceSelectedConversation: (request) => requestBackend({
+    setWorkspaceSelectedConversation: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSelectedConversations,
       endpoint: backendEndpoints.SetWorkspaceSelectedConversation,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    closeWorkspace: (request) => requestBackend({
+    closeWorkspace: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.CloseWorkspace,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    reorderWorkspace: (request) => requestBackend({
+    reorderWorkspace: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.ReorderWorkspace,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    removeRecentWorkspace: (request) => requestBackend({
+    removeRecentWorkspace: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.RemoveRecentWorkspace,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readWorkspaceUILayout: (request) => requestBackend({
+    readWorkspaceUILayout: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceUILayoutReadResult,
       endpoint: backendEndpoints.ReadWorkspaceUILayout,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    saveWorkspaceUILayout: (request) => requestBackend({
+    saveWorkspaceUILayout: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceUILayout,
       endpoint: backendEndpoints.SaveWorkspaceUILayout,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readWorkspaceActivitySnapshot: (request) => requestBackend({
+    readWorkspaceActivitySnapshot: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkspaceActivitySnapshotResponse,
       endpoint: backendEndpoints.ReadWorkspaceActivitySnapshot,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readWorkflowExecutionActivity: (request) => requestBackend({
+    readWorkflowExecutionActivity: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkflowExecutionActivityResponse,
       endpoint: backendEndpoints.ReadWorkflowExecutionActivity,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readEasyRunSnapshot: (request) => requestBackend({
+    readEasyRunSnapshot: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeEasyRunSnapshot,
       endpoint: backendEndpoints.ReadEasyRunSnapshot,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    startEasyRun: (request) => requestBackend({
+    startEasyRun: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeEasyRun,
       endpoint: backendEndpoints.StartEasyRun,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    steerEasyRun: (request) => requestBackend({
+    steerEasyRun: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeEasyRun,
       endpoint: backendEndpoints.SteerEasyRun,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    stopEasyRun: (request) => requestBackend({
+    stopEasyRun: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeEasyRun,
       endpoint: backendEndpoints.StopEasyRun,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readSpeechCapabilities: () => requestBackend({
+    readSpeechCapabilities: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechCapabilities,
       endpoint: backendEndpoints.ReadSpeechCapabilities,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    createSpeechTranscriptionSession: (request) => requestBackend({
+    createSpeechTranscriptionSession: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechTranscriptionSession,
       endpoint: backendEndpoints.CreateSpeechTranscriptionSession,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    synthesizeEasyRunSummary: (request) => requestBackend({
+    synthesizeEasyRunSummary: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechAudio,
       endpoint: backendEndpoints.SynthesizeEasyRunSummary,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    synthesizeEasyRunHighlight: (request) => requestBackend({
+    synthesizeEasyRunHighlight: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechAudio,
       endpoint: backendEndpoints.SynthesizeEasyRunHighlight,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listConversations: (request) => requestBackend({
+    listConversations: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListConversationsResponse,
       endpoint: backendEndpoints.ListConversations,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    createConversation: (request) => requestBackend({
+    createConversation: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversation,
       endpoint: backendEndpoints.CreateConversation,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    deleteConversation: (request) => requestBackend({
+    deleteConversation: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListConversationsResponse,
       endpoint: backendEndpoints.DeleteConversation,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    markConversationRead: (request) => requestBackend({
+    markConversationRead: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationListItem,
       endpoint: backendEndpoints.MarkConversationRead,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    setConversationPinned: (request) => requestBackend({
+    setConversationPinned: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationListItem,
       endpoint: backendEndpoints.SetConversationPinned,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    getMessagePage: (request) => requestBackend({
+    getMessagePage: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeMessagePage,
       endpoint: backendEndpoints.GetMessagePage,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listComposerPromptHistory: (request) => requestBackend({
+    listComposerPromptHistory: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeComposerPromptHistoryPage,
       endpoint: backendEndpoints.ListComposerPromptHistory,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    sendChatMessage: (request) => requestBackend({
+    sendChatMessage: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSendMessageResult,
       endpoint: backendEndpoints.SendChatMessage,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    queueChatMessage: (request) => requestBackend({
+    queueChatMessage: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueMessageResult,
       endpoint: backendEndpoints.QueueChatMessage,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    editQueuedChatMessage: (request) => requestBackend({
+    editQueuedChatMessage: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueEditResult,
       endpoint: backendEndpoints.EditQueuedChatMessage,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    removeQueuedChatMessage: (request) => requestBackend({
+    removeQueuedChatMessage: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueRemoveResult,
       endpoint: backendEndpoints.RemoveQueuedChatMessage,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    steerChatMessage: (request) => requestBackend({
+    steerChatMessage: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSteerMessageResult,
       endpoint: backendEndpoints.SteerChatMessage,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    sendSteeringImmediately: (request) => requestBackend({
+    sendSteeringImmediately: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeImmediateSteeringResult,
       endpoint: backendEndpoints.SendSteeringImmediately,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    createChatImageAttachmentFromBytes: (request) => requestBackend({
+    createChatImageAttachmentFromBytes: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeImageAttachment,
       endpoint: backendEndpoints.CreateChatImageAttachmentFromBytes,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    createChatImageAttachmentFromPath: (request) => requestBackend({
+    createChatImageAttachmentFromPath: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeImageAttachment,
       endpoint: backendEndpoints.CreateChatImageAttachmentFromPath,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listChatCommands: (request) => requestBackend({
+    listChatCommands: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandListResult,
       endpoint: backendEndpoints.ListChatCommands,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    executeChatCommand: (request) => requestBackend({
+    executeChatCommand: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.ExecuteChatCommand,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readChatCodexDefaults: () => requestBackend({
+    readChatCodexDefaults: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCodexDefaultsView,
       endpoint: backendEndpoints.ReadChatCodexDefaults,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    updateChatCodexDefaults: (request) => requestBackend({
+    updateChatCodexDefaults: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCodexDefaultsView,
       endpoint: backendEndpoints.UpdateChatCodexDefaults,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    openChatCodexModelPicker: (request) => requestBackend({
+    openChatCodexModelPicker: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.OpenChatCodexModelPicker,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    openChatCodexPermissionPicker: (request) => requestBackend({
+    openChatCodexPermissionPicker: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.OpenChatCodexPermissionPicker,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    setChatCodexModel: (request) => requestBackend({
+    setChatCodexModel: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.SetChatCodexModel,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    setChatCodexPermissionPreset: (request) => requestBackend({
+    setChatCodexPermissionPreset: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.SetChatCodexPermissionPreset,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    setChatCodexReasoningEffort: (request) => requestBackend({
+    setChatCodexReasoningEffort: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.SetChatCodexReasoningEffort,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    cancelRun: (request) => requestBackend({
+    cancelRun: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRun,
       endpoint: backendEndpoints.CancelRun,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    getActiveRun: (request) => requestBackend({
+    getActiveRun: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeGetActiveRunResponse,
       endpoint: backendEndpoints.GetActiveRun,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    reconcileChatRuns: (request) => requestBackend({
+    reconcileChatRuns: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReconcileChatRunsResponse,
       endpoint: backendEndpoints.ReconcileChatRuns,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listRuns: (request) => requestBackend({
+    listRuns: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListRunsResponse,
       endpoint: backendEndpoints.ListRuns,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    getRunActivity: (request) => requestBackend({
+    getRunActivity: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunActivityPage,
       endpoint: backendEndpoints.GetRunActivity,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    getRunItemOutputPage: (request) => requestBackend({
+    getRunItemOutputPage: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunItemOutputPage,
       endpoint: backendEndpoints.GetRunItemOutputPage,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listBackgroundTerminals: (request) => requestBackend({
+    listBackgroundTerminals: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackgroundTerminalListProjection,
       endpoint: backendEndpoints.ListBackgroundTerminals,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    getBackgroundTerminalOutput: (request) => requestBackend({
+    getBackgroundTerminalOutput: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackgroundTerminalOutputPage,
       endpoint: backendEndpoints.GetBackgroundTerminalOutput,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    killBackgroundTerminal: (request) => requestBackend({
+    killBackgroundTerminal: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackgroundTerminalProcess,
       endpoint: backendEndpoints.KillBackgroundTerminal,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    killAllBackgroundTerminals: (request) => requestBackend({
+    killAllBackgroundTerminals: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackgroundTerminalListProjection,
       endpoint: backendEndpoints.KillAllBackgroundTerminals,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listDiagnostics: (request) => requestBackend({
+    listDiagnostics: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListDiagnosticsResponse,
       endpoint: backendEndpoints.ListDiagnostics,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    submitApproval: (request) => requestBackend({
+    submitApproval: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRun,
       endpoint: backendEndpoints.SubmitApproval,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listWorkflowDefinitions: (request) => requestBackend({
+    listWorkflowDefinitions: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListWorkflowDefinitionsResponse,
       endpoint: backendEndpoints.ListWorkflowDefinitions,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    createWorkflowDefinition: (request) => requestBackend({
+    createWorkflowDefinition: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowDefinition,
       endpoint: backendEndpoints.CreateWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readWorkflowDefinition: (request) => requestBackend({
+    readWorkflowDefinition: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowDefinition,
       endpoint: backendEndpoints.ReadWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    updateWorkflowDefinition: (request) => requestBackend({
+    updateWorkflowDefinition: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowDefinition,
       endpoint: backendEndpoints.UpdateWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    deleteWorkflowDefinition: (request) => requestBackend({
+    deleteWorkflowDefinition: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeDeleteWorkflowDefinitionResponse,
       endpoint: backendEndpoints.DeleteWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    validateWorkflowDefinition: (request) => requestBackend({
+    validateWorkflowDefinition: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowValidationResult,
       endpoint: backendEndpoints.ValidateWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listWorkflowExecutions: (request) => requestBackend({
+    listWorkflowExecutions: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListWorkflowExecutionsResponse,
       endpoint: backendEndpoints.ListWorkflowExecutions,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    startWorkflowExecution: (request) => requestBackend({
+    startWorkflowExecution: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.StartWorkflowExecution,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    cancelWorkflowExecution: (request) => requestBackend({
+    cancelWorkflowExecution: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.CancelWorkflowExecution,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readWorkflowExecution: (request) => requestBackend({
+    readWorkflowExecution: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.ReadWorkflowExecution,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readWorkflowGraphProjection: (request) => requestBackend({
+    readWorkflowGraphProjection: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkflowGraphProjectionResponse,
       endpoint: backendEndpoints.ReadWorkflowGraphProjection,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    getWorkflowExecutionEvents: (request) => requestBackend({
+    getWorkflowExecutionEvents: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecutionEventPage,
       endpoint: backendEndpoints.GetWorkflowExecutionEvents,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readWorkflowNodeTrajectory: (request) => requestBackend({
+    readWorkflowNodeTrajectory: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowAgentTrajectoryPage,
       endpoint: backendEndpoints.ReadWorkflowNodeTrajectory,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    retryWorkflowNodeRunLiveness: (request) => requestBackend({
+    retryWorkflowNodeRunLiveness: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunLivenessReconciliationResult,
       endpoint: backendEndpoints.RetryWorkflowNodeRunLiveness,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    steerWorkflowNodeRun: (request) => requestBackend({
+    steerWorkflowNodeRun: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSteerMessageResult,
       endpoint: backendEndpoints.SteerWorkflowNodeRun,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    stopWorkflowNodeRun: (request) => requestBackend({
+    stopWorkflowNodeRun: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.StopWorkflowNodeRun,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    submitWorkflowApproval: (request) => requestBackend({
+    submitWorkflowApproval: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.SubmitWorkflowApproval,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readSemanticGraph: (request) => requestBackend({
+    readSemanticGraph: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticGraph,
       endpoint: backendEndpoints.ReadSemanticGraph,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readSemanticNodeDetail: (request) => requestBackend({
+    readSemanticNodeDetail: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadSemanticNodeDetailResponse,
       endpoint: backendEndpoints.ReadSemanticNodeDetail,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listSemanticEvidence: (request) => requestBackend({
+    listSemanticEvidence: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticEvidenceList,
       endpoint: backendEndpoints.ListSemanticEvidence,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listSemanticActivity: (request) => requestBackend({
+    listSemanticActivity: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivityList,
       endpoint: backendEndpoints.ListSemanticActivity,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listSemanticActivityPage: (request) => requestBackend({
+    listSemanticActivityPage: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivityPage,
       endpoint: backendEndpoints.ListSemanticActivityPage,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readSemanticActivitySummary: (request) => requestBackend({
+    readSemanticActivitySummary: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivitySummary,
       endpoint: backendEndpoints.ReadSemanticActivitySummary,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readSemanticSteeringState: (request) => requestBackend({
+    readSemanticSteeringState: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticSteeringState,
       endpoint: backendEndpoints.ReadSemanticSteeringState,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readSemanticEventHistory: (request) => requestBackend({
+    readSemanticEventHistory: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticEventHistory,
       endpoint: backendEndpoints.ReadSemanticEventHistory,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readSemanticContextPack: (request) => requestBackend({
+    readSemanticContextPack: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticContextPackReadResponse,
       endpoint: backendEndpoints.ReadSemanticContextPack,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listSemanticContextPacks: (request) => requestBackend({
+    listSemanticContextPacks: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticContextPackList,
       endpoint: backendEndpoints.ListSemanticContextPacks,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    buildCartographerWindow: (request) => requestBackend({
+    buildCartographerWindow: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerWindowBuildResult,
       endpoint: backendEndpoints.BuildCartographerWindow,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    processCartographerWindow: (request) => requestBackend({
+    processCartographerWindow: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerWindowProcessResult,
       endpoint: backendEndpoints.ProcessCartographerWindow,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readCartographerProcessingState: (request) => requestBackend({
+    readCartographerProcessingState: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerProcessingState,
       endpoint: backendEndpoints.ReadCartographerProcessingState,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readCartographerRun: (request) => requestBackend({
+    readCartographerRun: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerRunReadResponse,
       endpoint: backendEndpoints.ReadCartographerRun,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listCartographerRuns: (request) => requestBackend({
+    listCartographerRuns: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerRunList,
       endpoint: backendEndpoints.ListCartographerRuns,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listCartographerWindows: (request) => requestBackend({
+    listCartographerWindows: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerWindowList,
       endpoint: backendEndpoints.ListCartographerWindows,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listCartographerCursors: (request) => requestBackend({
+    listCartographerCursors: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerCursorList,
       endpoint: backendEndpoints.ListCartographerCursors,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listCartographerPatches: (request) => requestBackend({
+    listCartographerPatches: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerPatchList,
       endpoint: backendEndpoints.ListCartographerPatches,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    acceptCartographerPatch: (request) => requestBackend({
+    acceptCartographerPatch: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerPatchReviewResult,
       endpoint: backendEndpoints.AcceptCartographerPatch,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    rejectCartographerPatch: (request) => requestBackend({
+    rejectCartographerPatch: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerPatchReviewResult,
       endpoint: backendEndpoints.RejectCartographerPatch,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    updateSemanticLayoutPositions: (request) => requestBackend({
+    updateSemanticLayoutPositions: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticLayoutPositionList,
       endpoint: backendEndpoints.UpdateSemanticLayoutPositions,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    attachSemanticNodeToWorkflowExecution: (request) => requestBackend({
+    attachSemanticNodeToWorkflowExecution: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToWorkflowExecution,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    attachSemanticNodeToWorkflowNode: (request) => requestBackend({
+    attachSemanticNodeToWorkflowNode: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToWorkflowNode,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    attachSemanticNodeToChatRun: (request) => requestBackend({
+    attachSemanticNodeToChatRun: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToChatRun,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    attachSemanticNodeToChatMessage: (request) => requestBackend({
+    attachSemanticNodeToChatMessage: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToChatMessage,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    attachSemanticNodeToRunItem: (request) => requestBackend({
+    attachSemanticNodeToRunItem: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToRunItem,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    attachSemanticNodeToFileRange: (request) => requestBackend({
+    attachSemanticNodeToFileRange: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToFileRange,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    endSemanticActivity: (request) => requestBackend({
+    endSemanticActivity: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivityEndResult,
       endpoint: backendEndpoints.EndSemanticActivity,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    renameSemanticNode: (request) => requestBackend({
+    renameSemanticNode: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.RenameSemanticNode,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    updateSemanticNode: (request) => requestBackend({
+    updateSemanticNode: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.UpdateSemanticNode,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    dismissSemanticNode: (request) => requestBackend({
+    dismissSemanticNode: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.DismissSemanticNode,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    promoteSemanticNode: (request) => requestBackend({
+    promoteSemanticNode: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.PromoteSemanticNode,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    splitSemanticNode: (request) => requestBackend({
+    splitSemanticNode: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.SplitSemanticNode,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    mergeSemanticNodes: (request) => requestBackend({
+    mergeSemanticNodes: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.MergeSemanticNodes,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    createSemanticNode: (request) => requestBackend({
+    createSemanticNode: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.CreateSemanticNode,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    createSemanticEdge: (request) => requestBackend({
+    createSemanticEdge: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.CreateSemanticEdge,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    updateSemanticEdge: (request) => requestBackend({
+    updateSemanticEdge: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.UpdateSemanticEdge,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    removeSemanticEdge: (request) => requestBackend({
+    removeSemanticEdge: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.RemoveSemanticEdge,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    createSemanticSteeringDirective: (request) => requestBackend({
+    createSemanticSteeringDirective: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.CreateSemanticSteeringDirective,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    updateSemanticSteeringDirective: (request) => requestBackend({
+    updateSemanticSteeringDirective: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.UpdateSemanticSteeringDirective,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    createTerminal: (request) => requestBackend({
+    createTerminal: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalSessionResponse,
       endpoint: backendEndpoints.CreateTerminal,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    attachTerminal: (request) => requestBackend({
+    attachTerminal: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalSessionResponse,
       endpoint: backendEndpoints.AttachTerminal,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    terminalInput: (request) => requestBackend({
+    terminalInput: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalInputResponse,
       endpoint: backendEndpoints.TerminalInput,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    resizeTerminal: (request) => requestBackend({
+    resizeTerminal: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalSessionResponse,
       endpoint: backendEndpoints.ResizeTerminal,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    closeTerminal: (request) => requestBackend({
+    closeTerminal: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCloseTerminalResponse,
       endpoint: backendEndpoints.CloseTerminal,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    listTerminalProfiles: () => requestBackend({
+    listTerminalProfiles: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.ListTerminalProfiles,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    createTerminalProfile: (request) => requestBackend({
+    createTerminalProfile: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.CreateTerminalProfile,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    updateTerminalProfile: (request) => requestBackend({
+    updateTerminalProfile: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.UpdateTerminalProfile,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    deleteTerminalProfile: (request) => requestBackend({
+    deleteTerminalProfile: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.DeleteTerminalProfile,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    selectDefaultTerminalProfile: (request) => requestBackend({
+    selectDefaultTerminalProfile: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.SelectDefaultTerminalProfile,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    readCodexAccount: () => requestBackend({
+    readCodexAccount: (options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
       endpoint: backendEndpoints.ReadCodexAccount,
       fetchImpl,
       requestPayload: undefined,
+      signal: options?.signal,
     }),
-    refreshCodexAccount: (request) => requestBackend({
+    refreshCodexAccount: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
       endpoint: backendEndpoints.RefreshCodexAccount,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    startCodexLogin: (request) => requestBackend({
+    startCodexLogin: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeStartCodexLoginResponse,
       endpoint: backendEndpoints.StartCodexLogin,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    cancelCodexLogin: (request) => requestBackend({
+    cancelCodexLogin: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
       endpoint: backendEndpoints.CancelCodexLogin,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
-    logoutCodexAccount: (request) => requestBackend({
+    logoutCodexAccount: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
       endpoint: backendEndpoints.LogoutCodexAccount,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
     }),
   };
 }

@@ -56,6 +56,7 @@ export async function startSpeechProviderFixture() {
     releaseHeldSynthesis: synthesisControl.releaseHeld,
     requests,
     synthesisInputs,
+    waitForHeldSynthesisCancellation: synthesisControl.waitForHeldCancellation,
   };
 }
 
@@ -148,6 +149,8 @@ function writeWAV(response) {
 
 function createSynthesisControl() {
   let behavior = "succeed";
+  let heldCancelled = null;
+  let heldCancelledResolve = null;
   let heldResponse = null;
   let heldReady = null;
   return {
@@ -161,6 +164,13 @@ function createSynthesisControl() {
       }
       if (selected === "hold") {
         heldResponse = response;
+        response.once("close", () => {
+          if (!response.writableEnded && heldResponse === response) {
+            heldResponse = null;
+            heldCancelledResolve?.();
+            heldCancelledResolve = null;
+          }
+        });
         heldReady?.();
         heldReady = null;
         return true;
@@ -174,6 +184,9 @@ function createSynthesisControl() {
     holdNext() {
       requireSynthesisControlIdle(behavior, heldResponse);
       behavior = "hold";
+      heldCancelled = new Promise((resolve) => {
+        heldCancelledResolve = resolve;
+      });
       return new Promise((resolve) => {
         heldReady = resolve;
       });
@@ -186,6 +199,12 @@ function createSynthesisControl() {
       heldResponse = null;
       writeWAV(response);
       return true;
+    },
+    waitForHeldCancellation() {
+      if (!heldCancelled) {
+        throw new Error("speech provider fixture has no held synthesis cancellation");
+      }
+      return heldCancelled;
     },
   };
 }

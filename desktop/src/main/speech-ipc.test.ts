@@ -60,14 +60,35 @@ describe("speech IPC handlers", () => {
     const session = await invoke(handlers, ipcChannels.speechCreateTranscriptionSession, {
       workspaceId: "workspace_api",
     });
-    const summary = await invoke(handlers, ipcChannels.speechSynthesizeEasyRunSummary, {
-      easyRunId: "easy_run_api",
-      workspaceId: "workspace_api",
+    const summaryRequest = {
+      operationId: "speech_summary_api",
+      request: { easyRunId: "easy_run_api", workspaceId: "workspace_api" },
+    };
+    const highlightRequest = {
+      operationId: "speech_highlight_api",
+      request: {
+        easyRunId: "easy_run_api",
+        highlightId: "highlight_api",
+        workspaceId: "workspace_api",
+      },
+    };
+    const summary = await invoke(
+      handlers,
+      ipcChannels.speechSynthesizeEasyRunSummary,
+      summaryRequest,
+    );
+    const highlight = await invoke(
+      handlers,
+      ipcChannels.speechSynthesizeEasyRunHighlight,
+      highlightRequest,
+    );
+    await invoke(handlers, ipcChannels.speechCancelSynthesis, "speech_completed_api");
+
+    expect(backend.synthesizeEasyRunSummary).toHaveBeenCalledWith(summaryRequest.request, {
+      signal: expect.any(AbortSignal),
     });
-    const highlight = await invoke(handlers, ipcChannels.speechSynthesizeEasyRunHighlight, {
-      easyRunId: "easy_run_api",
-      highlightId: "highlight_api",
-      workspaceId: "workspace_api",
+    expect(backend.synthesizeEasyRunHighlight).toHaveBeenCalledWith(highlightRequest.request, {
+      signal: expect.any(AbortSignal),
     });
 
     expect(capabilities).toMatchObject({ providerStatus: "configured" });
@@ -84,6 +105,38 @@ describe("speech IPC handlers", () => {
     ]);
     expect(JSON.stringify(observer.finished.mock.calls)).not.toContain(clientSecret);
     expect(JSON.stringify(observer.finished.mock.calls)).not.toContain(audioBase64);
+  });
+
+  test("cancels the matching backend synthesis request", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const ipcMain = {
+      handle: (channel, handler) => {
+        handlers.set(channel, handler);
+      },
+    } as Pick<IpcMain, "handle">;
+    const captured: { signal?: AbortSignal } = {};
+    const backend = {
+      synthesizeEasyRunSummary: vi.fn((_request, options) => {
+        captured.signal = options?.signal;
+        return new Promise((_resolve, reject) => {
+          captured.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("aborted", "AbortError")),
+            { once: true },
+          );
+        });
+      }),
+    } as unknown as BackendClient;
+    registerSpeechIpcHandlers({ ipcMain, requireBackendClient: () => backend });
+
+    const synthesis = invoke(handlers, ipcChannels.speechSynthesizeEasyRunSummary, {
+      operationId: "speech_cancel_api",
+      request: { easyRunId: "easy_run_api", workspaceId: "workspace_api" },
+    });
+    await invoke(handlers, ipcChannels.speechCancelSynthesis, "speech_cancel_api");
+
+    expect(captured.signal?.aborted).toBe(true);
+    await expect(synthesis).rejects.toMatchObject({ name: "AbortError" });
   });
 });
 

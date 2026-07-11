@@ -139,10 +139,13 @@ const api: SettaAPI = {
     stop: (request) => invoke("easyRunStop", request),
   },
   speech: {
+    cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
     createTranscriptionSession: (request) => invoke("speechCreateTranscriptionSession", request),
     readCapabilities: () => invoke("speechReadCapabilities"),
-    synthesizeEasyRunHighlight: (request) => invoke("speechSynthesizeEasyRunHighlight", request),
-    synthesizeEasyRunSummary: (request) => invoke("speechSynthesizeEasyRunSummary", request),
+    synthesizeEasyRunHighlight: (request, operationId) =>
+      invoke("speechSynthesizeEasyRunHighlight", { operationId, request }),
+    synthesizeEasyRunSummary: (request, operationId) =>
+      invoke("speechSynthesizeEasyRunSummary", { operationId, request }),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),

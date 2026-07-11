@@ -4,6 +4,7 @@
 import { readdir, readFile, rm } from "node:fs/promises";
 import { extname, join } from "node:path";
 import process from "node:process";
+import { clearTimeout, setTimeout } from "node:timers";
 import { URL } from "node:url";
 
 import {
@@ -698,10 +699,10 @@ async function exerciseRecordingPreemptsSummarySynthesis(client, provider, state
     (next) => next.summaryPlayback === "idle" && next.speechOutputPlayback === "idle",
     workflowTimeoutMs,
   );
-  if (!provider.releaseHeldSynthesis()) {
-    throw new Error("recording preemption did not leave a held synthesis request");
+  await waitForProviderSynthesisCancellation(provider);
+  if (provider.releaseHeldSynthesis()) {
+    throw new Error("recording preemption left the OpenAI synthesis request active");
   }
-  await client.evaluate("new Promise((resolve) => setTimeout(resolve, 250))");
   const audioAfter = (await callBrowserFixture(client, "state")).audio;
   if (
     audioAfter.activeCount !== 0 ||
@@ -775,6 +776,23 @@ async function assertSnapshotUnchanged(client, workspaceId, expected, boundary) 
   );
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`${boundary} changed persisted Easy Run state`);
+  }
+}
+
+async function waitForProviderSynthesisCancellation(provider) {
+  let timeout;
+  try {
+    await Promise.race([
+      provider.waitForHeldSynthesisCancellation(),
+      new Promise((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("recording did not cancel the OpenAI synthesis request")),
+          workflowTimeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

@@ -87,15 +87,25 @@ try {
     `window.setta.easyRun.snapshot(${JSON.stringify(workspaceId)})`,
   );
   assertSpeechSources(snapshot);
-  const summaryAudio = await callSpeechAPI(context.client, "synthesizeEasyRunSummary", {
-    easyRunId: snapshot.latestRun.id,
-    workspaceId,
-  });
-  const highlightAudio = await callSpeechAPI(context.client, "synthesizeEasyRunHighlight", {
-    easyRunId: snapshot.latestRun.id,
-    highlightId: snapshot.highlights[0].id,
-    workspaceId,
-  });
+  const summaryAudio = await callSpeechAPI(
+    context.client,
+    "synthesizeEasyRunSummary",
+    {
+      easyRunId: snapshot.latestRun.id,
+      workspaceId,
+    },
+    "speech_api_summary",
+  );
+  const highlightAudio = await callSpeechAPI(
+    context.client,
+    "synthesizeEasyRunHighlight",
+    {
+      easyRunId: snapshot.latestRun.id,
+      highlightId: snapshot.highlights[0].id,
+      workspaceId,
+    },
+    "speech_api_highlight",
+  );
   assertSpeechAudio(summaryAudio, snapshot.latestRun.id, provider.audioBase64);
   assertSpeechAudio(highlightAudio, snapshot.highlights[0].id, provider.audioBase64);
   provider.assertHealthy();
@@ -139,9 +149,9 @@ try {
   await rm(fixture.tempRoot, { force: true, recursive: true });
 }
 
-function callSpeechAPI(client, method, request) {
+function callSpeechAPI(client, method, request, operationId) {
   return client.evaluate(
-    `window.setta.speech[${JSON.stringify(method)}](${JSON.stringify(request)})`,
+    `window.setta.speech[${JSON.stringify(method)}](${JSON.stringify(request)}, ${JSON.stringify(operationId)})`,
   );
 }
 

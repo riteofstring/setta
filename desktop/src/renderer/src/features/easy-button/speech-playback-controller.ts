@@ -332,9 +332,24 @@ const browserSpeechPlaybackDependencies: SpeechPlaybackControllerDependencies = 
   createObjectURL: (blob) => URL.createObjectURL(blob),
   decodeBase64: decodeBase64,
   revokeObjectURL: (url) => URL.revokeObjectURL(url),
-  synthesizeSummary: (request, signal) =>
-    abortableSpeechRequest(window.setta.speech.synthesizeEasyRunSummary(request), signal),
+  synthesizeSummary: (request, signal) => {
+    const operationId = createSpeechSynthesisOperationId();
+    return abortableSpeechRequest(
+      () => window.setta.speech.synthesizeEasyRunSummary(request, operationId),
+      () => window.setta.speech.cancelSynthesis(operationId),
+      signal,
+    );
+  },
 };
+
+let nextSpeechSynthesisOperationSequence = 1;
+
+function createSpeechSynthesisOperationId(): string {
+  const pageEpoch = Math.trunc(globalThis.performance.timeOrigin * 1000).toString(36);
+  const sequence = nextSpeechSynthesisOperationSequence.toString(36);
+  nextSpeechSynthesisOperationSequence += 1;
+  return `speech_${pageEpoch}_${sequence}`;
+}
 
 function summarySourceKey(source: SpeechSummarySource): string {
   if (!source.workspaceId.trim() || !source.easyRunId.trim()) {
@@ -379,14 +394,21 @@ function playbackFailureMessage(error: unknown): string {
     : "The synthesized run summary could not be played.";
 }
 
-function abortableSpeechRequest<T>(request: Promise<T>, signal: AbortSignal): Promise<T> {
+function abortableSpeechRequest<T>(
+  start: () => Promise<T>,
+  cancel: () => Promise<void>,
+  signal: AbortSignal,
+): Promise<T> {
   if (signal.aborted) {
     return Promise.reject(new DOMException("Speech synthesis was stopped.", "AbortError"));
   }
   return new Promise<T>((resolve, reject) => {
-    const aborted = () => reject(new DOMException("Speech synthesis was stopped.", "AbortError"));
+    const aborted = () => {
+      void cancel().catch(() => undefined);
+      reject(new DOMException("Speech synthesis was stopped.", "AbortError"));
+    };
     signal.addEventListener("abort", aborted, { once: true });
-    void request.then(
+    void start().then(
       (value) => {
         signal.removeEventListener("abort", aborted);
         resolve(value);

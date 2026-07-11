@@ -407,14 +407,19 @@ export interface SettaAPI {
     stop: (request: StopEasyRunRequest) => Promise<EasyRun>;
   };
   speech: {
+    cancelSynthesis: (operationId: string) => Promise<void>;
     createTranscriptionSession: (
       request: CreateSpeechTranscriptionSessionRequest,
     ) => Promise<SpeechTranscriptionSession>;
     readCapabilities: () => Promise<SpeechCapabilities>;
     synthesizeEasyRunHighlight: (
       request: SynthesizeEasyRunHighlightRequest,
+      operationId: string,
     ) => Promise<SpeechAudio>;
-    synthesizeEasyRunSummary: (request: SynthesizeEasyRunSummaryRequest) => Promise<SpeechAudio>;
+    synthesizeEasyRunSummary: (
+      request: SynthesizeEasyRunSummaryRequest,
+      operationId: string,
+    ) => Promise<SpeechAudio>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;
