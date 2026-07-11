@@ -43,6 +43,7 @@
       artifacts: easyButtonArtifacts(host),
       highlights: easyButtonHighlights(host),
       layoutWidthSpec: columnRecord?.widthSpec ?? null,
+      railLabels: easyButtonRailLabels(host),
       railText: easyButtonRailText(host),
       rect: rectSnapshot(hostRect),
       stageRect: rectSnapshot(stageRect),
@@ -99,7 +100,10 @@
   function easyButtonState(host) {
     const button = host.querySelector(".easy-button-control");
     const input = host.querySelector('[data-testid="easy-button-input"]');
+    const inputWrap = host.querySelector(".easy-button-input-wrap");
+    const enterChip = host.querySelector(".easy-button-enter-chip");
     const requestText = host.querySelector('[data-testid="easy-button-request-text"]');
+    const helper = host.querySelector('[data-testid="easy-button-helper"]');
     const summary = host.querySelector('[data-testid="easy-button-summary"]');
     const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
     const narratorStatus = host.querySelector(".easy-button-narrator-status");
@@ -107,7 +111,7 @@
     const controlRing = host.querySelector(".easy-button-control-ring");
     const spinner = host.querySelector(".easy-button-spinner");
     const center = host.querySelector(".easy-button-center");
-    const runCopy = host.querySelector(".easy-button-run-copy");
+    const caption = host.querySelector(".easy-button-caption-slot");
     const buttonRect = elementRectOrZero(button);
     return {
       agentChipText: elementText(agentChip),
@@ -117,21 +121,26 @@
       buttonRect: rectSnapshot(buttonRect),
       buttonTransitionDuration: elementStyleValue(button, "transitionDuration"),
       buttonVisible: buttonVisible(buttonRect),
+      captionRect: rectSnapshot(elementRectOrZero(caption)),
       centerRect: rectSnapshot(elementRectOrZero(center)),
+      confirmActive: elementDatasetValue(button, "easyButtonConfirm"),
+      controlAnimationName: elementStyleValue(button, "animationName"),
       controlRingAnimationName: elementStyleValue(controlRing, "animationName"),
       controlRingAnimationPlayState: elementStyleValue(controlRing, "animationPlayState"),
       controlRingTransitionDuration: elementStyleValue(controlRing, "transitionDuration"),
+      enterChipText: elementText(enterChip),
+      helperText: elementText(helper),
       inputFocused: input instanceof HTMLInputElement && document.activeElement === input,
       inputDisabled: inputDisabled(input),
       inputRect: rectSnapshot(elementRectOrZero(input)),
       inputTransitionDuration: elementStyleValue(input, "transitionDuration"),
       inputValue: inputValue(input),
+      inputWrapTransitionDuration: elementStyleValue(inputWrap, "transitionDuration"),
       narratorStatusText: elementText(narratorStatus),
       reducedMotionMatches: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       requestText: elementText(requestText),
       requestTextMetrics: textBoxMetrics(requestText),
       requestTextRect: rectSnapshot(elementRectOrZero(requestText)),
-      runCopyRect: rectSnapshot(elementRectOrZero(runCopy)),
       spinnerAnimationName: elementStyleValue(spinner, "animationName"),
       spinnerAnimationPlayState: elementStyleValue(spinner, "animationPlayState"),
       spinnerTransitionDuration: elementStyleValue(spinner, "transitionDuration"),
@@ -173,6 +182,13 @@
       return "";
     }
     return getComputedStyle(element)[property] ?? "";
+  }
+
+  function elementDatasetValue(element, key) {
+    if (!(element instanceof HTMLElement)) {
+      return "";
+    }
+    return element.dataset[key] ?? "";
   }
 
   function buttonVisible(rect) {
@@ -227,16 +243,33 @@
     };
   }
 
+  // Rail labels are always rendered (they fade in with their content), so rail
+  // text means the rail's *content* — otherwise every empty rail reads as "Now".
   function easyButtonRailText(host) {
     return Array.from(host.querySelectorAll(".easy-button-rail"))
-      .map((rail) => rail.textContent ?? "")
+      .map((rail) =>
+        Array.from(rail.children)
+          .filter((child) => !child.classList.contains("easy-button-rail-label"))
+          .map((child) => child.textContent ?? "")
+          .join(""),
+      )
       .join("")
       .trim();
   }
 
+  function easyButtonRailLabels(host) {
+    return Array.from(host.querySelectorAll(".easy-button-rail-label")).map((label) => ({
+      opacity: elementStyleValue(label, "opacity"),
+      text: elementText(label),
+    }));
+  }
+
   function easyButtonArtifacts(host) {
     return Array.from(host.querySelectorAll(".easy-button-artifact-card")).map((card) => ({
+      animationDuration: elementStyleValue(card, "animationDuration"),
+      animationFillMode: elementStyleValue(card, "animationFillMode"),
       animationName: elementStyleValue(card, "animationName"),
+      animationTimingFunction: elementStyleValue(card, "animationTimingFunction"),
       kind: card instanceof HTMLElement ? (card.dataset.artifactKind ?? "") : "",
       text: (card.textContent ?? "").trim(),
       title: elementText(card.querySelector(".easy-button-artifact-title")),
@@ -246,7 +279,13 @@
 
   function easyButtonHighlights(host) {
     return Array.from(host.querySelectorAll(".easy-button-highlight-item")).map((item) => ({
+      animationFillMode: elementStyleValue(item, "animationFillMode"),
       animationName: elementStyleValue(item, "animationName"),
+      dotAnimationName: elementStyleValue(
+        item.querySelector(".easy-button-highlight-dot"),
+        "animationName",
+      ),
+      opacity: elementStyleValue(item, "opacity"),
       text: elementText(item.querySelector(".easy-button-highlight-text")),
       time: elementText(item.querySelector(".easy-button-highlight-time")),
       transitionDuration: elementStyleValue(item, "transitionDuration"),

@@ -19,6 +19,8 @@ import { setHostPaneChromeTitle } from "../../workspace-layout/pane-title-metada
 
 type EasyButtonViewState = "idle" | "working" | "complete";
 
+const confirmPulseDurationMs = 1000;
+
 export function EasyButtonSurface() {
   const controller = useEasyButtonController();
   return (
@@ -32,30 +34,43 @@ export function EasyButtonSurface() {
       <HighlightRail highlights={controller.highlights} latestRun={controller.latestRun} />
       <main className="easy-button-stage">
         <div className="easy-button-center">
-          <button
-            aria-label={controller.controlLabel}
-            className="easy-button-control"
-            data-testid="easy-button-control"
-            disabled={controller.controlDisabled}
-            onClick={controller.handleControlClick}
-            type="button"
-          >
-            <span className="easy-button-control-ring" />
-            <ControlGlyph viewState={controller.viewState} />
-          </button>
-          <RunStatusCopy
-            activeAgentCount={controller.activeAgentCount}
+          <div className="easy-button-agent-chip-slot">
+            <AgentChip
+              activeAgentCount={controller.activeAgentCount}
+              viewState={controller.viewState}
+            />
+          </div>
+          <div className="easy-button-button-well">
+            <button
+              aria-label={controller.controlLabel}
+              className="easy-button-control"
+              data-easy-button-confirm={controller.confirmActive ? "true" : "false"}
+              data-testid="easy-button-control"
+              disabled={controller.controlDisabled}
+              onClick={controller.handleControlClick}
+              type="button"
+            >
+              <span className="easy-button-control-ring" />
+              <ControlGlyph viewState={controller.viewState} />
+            </button>
+          </div>
+          <CaptionSlot
             error={controller.error}
             latestRun={controller.latestRun}
             viewState={controller.viewState}
           />
-          <StopButton
-            disabled={controller.stopDisabled}
-            onClick={controller.handleStopClick}
-            viewState={controller.viewState}
-          />
+          <div className="easy-button-action-slot">
+            <StopButton
+              disabled={controller.stopDisabled}
+              onClick={controller.handleStopClick}
+              viewState={controller.viewState}
+            />
+          </div>
         </div>
-        <form className="easy-button-footer" onSubmit={controller.handleSubmit}>
+      </main>
+      <ArtifactRail artifacts={controller.artifacts} />
+      <form className="easy-button-footer" onSubmit={controller.handleSubmit}>
+        <div className="easy-button-input-wrap">
           <input
             aria-label="Easy Button request"
             className="easy-button-input"
@@ -68,9 +83,11 @@ export function EasyButtonSurface() {
             type="text"
             value={controller.inputValue}
           />
-        </form>
-      </main>
-      <ArtifactRail artifacts={controller.artifacts} />
+          <span aria-hidden="true" className="easy-button-enter-chip">
+            ⏎
+          </span>
+        </div>
+      </form>
     </section>
   );
 }
@@ -78,6 +95,7 @@ export function EasyButtonSurface() {
 interface EasyButtonController {
   activeAgentCount: number;
   artifacts: EasyArtifact[];
+  confirmActive: boolean;
   controlDisabled: boolean;
   controlLabel: string;
   error: string | null;
@@ -138,6 +156,7 @@ function useEasyButtonController(): EasyButtonController {
 
   useEasyButtonSnapshot(selectedWorkspaceId, loadSnapshot, resetStore);
   useEasyButtonPaneTitle(rootRef, viewState);
+  const confirmActive = useEasyButtonConfirmPulse(viewState, latestRun);
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -161,6 +180,7 @@ function useEasyButtonController(): EasyButtonController {
   return {
     activeAgentCount: activeAgentCountForState(viewState, latestRun),
     artifacts,
+    confirmActive,
     controlDisabled: controlDisabled(selectedWorkspaceId),
     controlLabel: controlAriaLabel(viewState),
     error,
@@ -190,37 +210,35 @@ function HighlightRail({
   latestRun: EasyRun | null;
 }) {
   return (
-    <aside aria-label="Highlights" className="easy-button-rail easy-button-rail-left">
-      {highlights.length > 0 ? (
-        <div className="easy-button-highlight-rail" data-testid="easy-button-highlights">
-          <p className="easy-button-rail-label">Highlights</p>
-          <ol className="easy-button-highlight-list">
-            {highlights.map((highlight, index) => (
-              <HighlightItem
-                age={Math.min(highlights.length - index - 1, 3)}
-                highlight={highlight}
-                key={highlight.id}
-                startedAt={latestRun?.startedAt ?? null}
-              />
-            ))}
-          </ol>
-        </div>
-      ) : null}
+    <aside
+      aria-label="Highlights"
+      className="easy-button-rail easy-button-rail-left"
+      data-easy-button-rail-empty={highlights.length === 0 ? "true" : "false"}
+    >
+      <p className="easy-button-rail-label">Now</p>
+      <ol className="easy-button-highlight-list" data-testid="easy-button-highlights">
+        {highlights.map((highlight) => (
+          <HighlightItem
+            highlight={highlight}
+            key={highlight.id}
+            startedAt={latestRun?.startedAt ?? null}
+          />
+        ))}
+      </ol>
     </aside>
   );
 }
 
 function HighlightItem({
-  age,
   highlight,
   startedAt,
 }: {
-  age: number;
   highlight: EasyHighlight;
   startedAt: string | null;
 }) {
   return (
-    <li className="easy-button-highlight-item" data-highlight-age={age}>
+    <li className="easy-button-highlight-item">
+      <span aria-hidden="true" className="easy-button-highlight-dot" />
       <span className="easy-button-highlight-text">{highlight.text}</span>
       <span className="easy-button-highlight-time">
         {highlightElapsedLabel(startedAt, highlight.at)}
@@ -231,7 +249,12 @@ function HighlightItem({
 
 function ArtifactRail({ artifacts }: { artifacts: EasyArtifact[] }) {
   return (
-    <aside aria-label="Artifacts" className="easy-button-rail easy-button-rail-right">
+    <aside
+      aria-label="Artifacts"
+      className="easy-button-rail easy-button-rail-right"
+      data-easy-button-rail-empty={artifacts.length === 0 ? "true" : "false"}
+    >
+      <p className="easy-button-rail-label">Artifacts</p>
       <div className="easy-button-artifact-stack" data-testid="easy-button-artifacts">
         {artifacts.map((artifact) => (
           <ArtifactCard artifact={artifact} key={artifact.id} />
@@ -308,18 +331,13 @@ function BarChartArtifact({ artifact }: { artifact: EasyArtifact }) {
     <div className="easy-button-artifact-bars">
       {payload.items.map((item) => (
         <div className="easy-button-artifact-bar-row" key={item.label}>
-          <div className="easy-button-artifact-bar-label">
-            <span>{item.label}</span>
-            <strong>
+          <div className="easy-button-artifact-bar-label">{item.label}</div>
+          <div className="easy-button-artifact-bar-track">
+            <div className="easy-button-artifact-bar" style={barWidthStyle(item.value, maxValue)} />
+            <div className="easy-button-artifact-bar-value">
               {item.value}
               {item.unit ?? ""}
-            </strong>
-          </div>
-          <div className="easy-button-artifact-bar-track">
-            <span
-              className="easy-button-artifact-bar-fill"
-              style={barFillStyle(item.value, maxValue)}
-            />
+            </div>
           </div>
         </div>
       ))}
@@ -337,7 +355,7 @@ function FileArtifact({ artifact }: { artifact: EasyArtifact }) {
   );
 }
 
-function barFillStyle(value: number, maxValue: number): CSSProperties {
+function barWidthStyle(value: number, maxValue: number): CSSProperties {
   const ratio = maxValue > 0 ? Math.max(0, Math.min(value / maxValue, 1)) : 0;
   return { width: `${Math.round(ratio * 100)}%` };
 }
@@ -379,6 +397,51 @@ function useEasyButtonPaneTitle(
       truncation: "end",
     });
   }, [rootRef, viewState]);
+}
+
+// The pulse must restart on every fresh entry into the terminal state, so it is
+// keyed on the working -> complete transition rather than on the state itself.
+// The run id guard keeps a failed re-submit from re-pulsing the same run, and a
+// restored terminal run never pulses because it is never preceded by `working`.
+function useEasyButtonConfirmPulse(
+  viewState: EasyButtonViewState,
+  latestRun: EasyRun | null,
+): boolean {
+  const [confirmActive, setConfirmActive] = useState(false);
+  const previousViewState = useRef<EasyButtonViewState | null>(null);
+  const confirmedRunId = useRef<string | null>(null);
+  const runId = latestRun?.id ?? null;
+
+  useEffect(() => {
+    const previous = previousViewState.current;
+    previousViewState.current = viewState;
+    if (viewState !== "complete") {
+      setConfirmActive(false);
+      return;
+    }
+    if (previous !== "working" || !runId || confirmedRunId.current === runId) {
+      return;
+    }
+    confirmedRunId.current = runId;
+    setConfirmActive(true);
+  }, [runId, viewState]);
+
+  // The timer keys off `confirmActive` alone. Keyed off the run instead, a run
+  // swap that stays terminal (switching workspaces) would tear the timer down
+  // and strand the attribute at "true".
+  useEffect(() => {
+    if (!confirmActive) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setConfirmActive(false);
+    }, confirmPulseDurationMs);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [confirmActive]);
+
+  return confirmActive;
 }
 
 interface SubmitOptions {
@@ -479,21 +542,19 @@ function useEasyButtonControlClick({ inputRef }: ControlClickOptions) {
   }, [inputRef]);
 }
 
-interface RunStatusCopyProps {
-  activeAgentCount: number;
+interface CaptionSlotProps {
   error: string | null;
   latestRun: EasyRun | null;
   viewState: EasyButtonViewState;
 }
 
-function RunStatusCopy({ activeAgentCount, error, latestRun, viewState }: RunStatusCopyProps) {
-  if (!shouldRenderRunStatusCopy(viewState, error)) {
-    return null;
-  }
+function CaptionSlot({ error, latestRun, viewState }: CaptionSlotProps) {
   return (
-    <div className="easy-button-run-copy">
+    <div className="easy-button-caption-slot">
       <RequestText latestRun={latestRun} viewState={viewState} />
-      <AgentChip activeAgentCount={activeAgentCount} viewState={viewState} />
+      <p className="easy-button-helper" data-testid="easy-button-helper">
+        {helperCopyForState(viewState)}
+      </p>
       <SummaryText latestRun={latestRun} viewState={viewState} />
       <NarratorStatus latestRun={latestRun} />
       <ErrorText error={error} />
@@ -501,10 +562,7 @@ function RunStatusCopy({ activeAgentCount, error, latestRun, viewState }: RunSta
   );
 }
 
-function RequestText({
-  latestRun,
-  viewState,
-}: Pick<RunStatusCopyProps, "latestRun" | "viewState">) {
+function RequestText({ latestRun, viewState }: Pick<CaptionSlotProps, "latestRun" | "viewState">) {
   if (!latestRun || viewState === "idle") {
     return null;
   }
@@ -518,32 +576,36 @@ function RequestText({
 function AgentChip({
   activeAgentCount,
   viewState,
-}: Pick<RunStatusCopyProps, "activeAgentCount" | "viewState">) {
-  if (viewState !== "working") {
-    return null;
-  }
+}: {
+  activeAgentCount: number;
+  viewState: EasyButtonViewState;
+}) {
   return (
     <span className="easy-button-agent-chip" data-testid="easy-button-agent-chip">
-      {agentLabel(activeAgentCount)}
+      {viewState === "working" ? agentLabel(activeAgentCount) : ""}
     </span>
   );
 }
 
-function SummaryText({
-  latestRun,
-  viewState,
-}: Pick<RunStatusCopyProps, "latestRun" | "viewState">) {
+function SummaryText({ latestRun, viewState }: Pick<CaptionSlotProps, "latestRun" | "viewState">) {
   if (viewState !== "complete" || !latestRun?.summary) {
     return null;
   }
   return (
     <p className="easy-button-summary" data-testid="easy-button-summary">
+      {latestRun.status === "completed" ? (
+        <>
+          <span aria-hidden="true" className="easy-button-summary-ok">
+            ✓
+          </span>{" "}
+        </>
+      ) : null}
       {latestRun.summary}
     </p>
   );
 }
 
-function ErrorText({ error }: Pick<RunStatusCopyProps, "error">) {
+function ErrorText({ error }: Pick<CaptionSlotProps, "error">) {
   if (!error) {
     return null;
   }
@@ -554,7 +616,7 @@ function ErrorText({ error }: Pick<RunStatusCopyProps, "error">) {
   );
 }
 
-function NarratorStatus({ latestRun }: Pick<RunStatusCopyProps, "latestRun">) {
+function NarratorStatus({ latestRun }: Pick<CaptionSlotProps, "latestRun">) {
   if (latestRun?.narratorStatus !== "degraded") {
     return null;
   }
@@ -635,10 +697,6 @@ function inputDisabled(selectedWorkspaceId: string | null, pendingAction: boolea
   return !selectedWorkspaceId || pendingAction;
 }
 
-function shouldRenderRunStatusCopy(viewState: EasyButtonViewState, error: string | null) {
-  return viewState !== "idle" || Boolean(error);
-}
-
 function agentLabel(activeAgentCount: number) {
   if (activeAgentCount === 1) {
     return "1 agent";
@@ -675,6 +733,17 @@ function controlAriaLabel(viewState: EasyButtonViewState): string {
   }
 }
 
+function helperCopyForState(viewState: EasyButtonViewState): string {
+  switch (viewState) {
+    case "working":
+      return "Working — Stop to cancel";
+    case "complete":
+      return "Type a request to start again";
+    case "idle":
+      return "Type a request to begin";
+  }
+}
+
 function paneTitleForState(viewState: EasyButtonViewState): string {
   switch (viewState) {
     case "working":
@@ -696,10 +765,7 @@ function highlightElapsedLabel(startedAt: string | null, at: string): string {
     return "";
   }
   const totalSeconds = Math.round((atMs - startMs) / 1000);
-  if (totalSeconds < 60) {
-    return `+${totalSeconds}s`;
-  }
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return `+${minutes}m ${seconds}s`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }

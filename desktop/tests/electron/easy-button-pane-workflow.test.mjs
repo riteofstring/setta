@@ -117,6 +117,11 @@ try {
   assertTerminalVisual(restoredTerminal, "easy run phase2 complete workflow", "Done in", {
     expectedNarration: "The Easy Button run finished.",
   });
+  if (restoredTerminal.confirmActive !== "false") {
+    throw new Error(
+      `easy-button restored terminal replayed the confirm pulse: ${JSON.stringify(restoredTerminal)}`,
+    );
+  }
   await captureScreenshot(context.client, join(artifactDir, "easy-button-restored-terminal.png"));
   const focusedAfterCenterClick = await focusEasyButtonInputFromCenter(context.client);
   if (!focusedAfterCenterClick.inputFocused) {
@@ -126,6 +131,11 @@ try {
   }
 
   await submitEasyButtonRequest(context.client, "easy run phase2 second workflow");
+  const confirmPulse = await waitForEasyButtonConfirmPulse(
+    context.client,
+    "easy run phase2 second workflow",
+  );
+  const confirmPulseCleared = await waitForEasyButtonConfirmPulseCleared(context.client);
   const secondCompleted = await waitForEasyButtonTerminal(
     context.client,
     "easy run phase2 second workflow",
@@ -160,6 +170,9 @@ try {
     2,
   );
   assertArtifactTerminalVisual(artifactTerminal, "easy run phase3 artifacts workflow");
+  assertArtifactMotionParameters(artifactTerminal, "artifact terminal");
+  const artifactRailLabels = await waitForEasyButtonRailLabelsSettled(context.client);
+  assertRailLabelsMatchContent(artifactRailLabels, "artifact terminal");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-artifacts-complete.png"));
 
   await submitEasyButtonRequest(context.client, "easy run phase5 artifact cap workflow");
@@ -179,15 +192,29 @@ try {
     2,
   );
   assertNarratorTerminalVisual(narratorTerminal, "easy run phase4 narrator workflow");
+  const narratorCascade = await waitForEasyButtonHighlightCascade(
+    context.client,
+    "complete",
+    [0.72, 0.6],
+  );
+  assertHighlightCascade(narratorCascade, [0.72, 0.6], "narrator terminal");
+  assertRailLabelsMatchContent(narratorCascade, "narrator terminal");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-narrator-complete.png"));
 
   await submitEasyButtonRequest(context.client, "easy run working narrator cadence");
-  const workingNarrator = await waitForEasyButtonWorkingWithHighlights(
+  await waitForEasyButtonWorkingWithHighlights(
     context.client,
     "easy run working narrator cadence",
     2,
   );
+  const workingNarrator = await waitForEasyButtonHighlightCascade(
+    context.client,
+    "working",
+    [0.72, 1],
+  );
   assertWorkingNarratorVisual(workingNarrator, "easy run working narrator cadence");
+  assertHighlightCascade(workingNarrator, [0.72, 1], "working narrator");
+  assertHighlightDotPulse(workingNarrator, "working narrator");
   await captureScreenshot(
     context.client,
     join(artifactDir, "easy-button-working-narrator-highlights.png"),
@@ -240,6 +267,8 @@ try {
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     completed,
+    confirmPulse,
+    confirmPulseCleared,
     focusedAfterCenterClick,
     frozen,
     longRequestLayout,
@@ -250,8 +279,10 @@ try {
     restored,
     secondCompleted,
     shortcutOpen,
+    artifactRailLabels,
     artifactTerminal,
     artifactCapTerminal,
+    narratorCascade,
     narratorTerminal,
     workingNarrator,
     workingNarratorTerminal,
@@ -466,6 +497,9 @@ async function runEasyButtonReducedMotionAudit(recordingRoot) {
     );
     assertNarratorTerminalVisual(narratorTerminal, "easy run phase4 narrator workflow");
     assertReducedMotionVisual(narratorTerminal, "narrator terminal");
+    // Reduced motion kills the fade transitions, so the cascade is already at rest.
+    assertHighlightCascade(narratorTerminal, [0.72, 0.6], "reduced narrator terminal");
+    assertRailLabelsMatchContent(narratorTerminal, "reduced narrator terminal");
     await captureScreenshot(
       reducedContext.client,
       join(recordingRoot, "easy-button-reduced-highlights.png"),
@@ -652,13 +686,35 @@ function assertIdleVisual(state) {
   if (state.buttonAnimationName !== "easy-button-glow-breathe") {
     throw new Error(`easy-button idle glow animation was missing: ${JSON.stringify(state)}`);
   }
-  if (
-    state.buttonAriaLabel !== "Focus Easy Button request input" ||
-    state.inputDisabled !== false ||
-    state.stopButtonVisible !== false ||
-    state.paneChromeTitle !== "Easy Button"
-  ) {
-    throw new Error(`easy-button idle controls did not match Phase 2d: ${JSON.stringify(state)}`);
+  assertIdleControls(state);
+  assertIdleCaption(state);
+  assertIdleRailLabels(state);
+}
+
+function assertIdleControls(state) {
+  assertStateFields(
+    state,
+    {
+      buttonAriaLabel: "Focus Easy Button request input",
+      confirmActive: "false",
+      inputDisabled: false,
+      paneChromeTitle: "Easy Button",
+      stopButtonVisible: false,
+    },
+    "easy-button idle controls did not match Phase 2d",
+  );
+}
+
+function assertIdleCaption(state) {
+  if (state.helperText !== "Type a request to begin" || state.enterChipText !== "⏎") {
+    throw new Error(`easy-button idle caption did not match the mockup: ${JSON.stringify(state)}`);
+  }
+}
+
+function assertIdleRailLabels(state) {
+  assertRailLabelText(state, "idle");
+  if (!state.railLabels.every((label) => opacityMatches(label.opacity, 0))) {
+    throw new Error(`easy-button idle rail labels were not faded: ${JSON.stringify(state)}`);
   }
 }
 
@@ -669,6 +725,7 @@ function assertWorkingVisual(state, requestText) {
       agentChipText: "1 agent",
       buttonAriaLabel: "Focus Easy Button steering input",
       easyState: "working",
+      helperText: "Working — Stop to cancel",
       inputDisabled: false,
       paneChromeTitle: "Easy Button · working",
       railText: "",
@@ -688,6 +745,7 @@ function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
     {
       buttonAriaLabel: "Focus Easy Button request input",
       easyState: "complete",
+      helperText: "Type a request to start again",
       inputDisabled: false,
       paneChromeTitle: "Easy Button · complete",
       railText: "",
@@ -702,6 +760,84 @@ function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
       `easy-button terminal summary did not match Phase 2d: ${JSON.stringify(state)}`,
     );
   }
+  assertSummaryOkMark(state, summaryFact);
+}
+
+// The green check belongs to `completed` runs only; stopped and failed runs
+// carry the same summary slot with no mark.
+function assertSummaryOkMark(state, summaryFact) {
+  const expectsOkMark = summaryFact === "Done in";
+  if (expectsOkMark !== state.summaryText.startsWith("✓")) {
+    throw new Error(
+      `easy-button terminal ok mark did not match the run status: ${JSON.stringify(state)}`,
+    );
+  }
+}
+
+function assertRailLabelText(state, label) {
+  const texts = state.railLabels.map((entry) => entry.text);
+  if (texts.length !== 2 || texts[0] !== "Now" || texts[1] !== "Artifacts") {
+    throw new Error(`easy-button ${label} rail labels were wrong: ${JSON.stringify(state)}`);
+  }
+}
+
+function assertRailLabelsMatchContent(state, label) {
+  assertRailLabelText(state, label);
+  if (!railLabelsMatchContent(state)) {
+    throw new Error(
+      `easy-button ${label} rail labels did not fade with their content: ${JSON.stringify(state)}`,
+    );
+  }
+}
+
+// Guards the cascade bug: `animation-fill-mode: both` kept the arrival
+// keyframe's `opacity: 1` applied forever, so the age fade never rendered.
+function assertHighlightCascade(state, expectedOpacities, label) {
+  if (state.highlights.length !== expectedOpacities.length) {
+    throw new Error(`easy-button ${label} highlight count was wrong: ${JSON.stringify(state)}`);
+  }
+  for (const [index, highlight] of state.highlights.entries()) {
+    if (highlight.animationFillMode !== "none") {
+      throw new Error(
+        `easy-button ${label} highlight ${index + 1} filled its arrival keyframe: ${JSON.stringify(state)}`,
+      );
+    }
+    if (!opacityMatches(highlight.opacity, expectedOpacities[index])) {
+      throw new Error(
+        `easy-button ${label} highlight ${index + 1} did not age-fade: ${JSON.stringify(state)}`,
+      );
+    }
+  }
+}
+
+function assertHighlightDotPulse(state, label) {
+  const dots = state.highlights.map((highlight) => highlight.dotAnimationName);
+  if (dots.at(-1) !== "easy-button-dot-pulse") {
+    throw new Error(`easy-button ${label} newest dot did not pulse: ${JSON.stringify(state)}`);
+  }
+  if (dots.slice(0, -1).some((name) => name !== "none")) {
+    throw new Error(`easy-button ${label} aged dots pulsed: ${JSON.stringify(state)}`);
+  }
+}
+
+function assertArtifactMotionParameters(state, label) {
+  for (const [index, artifact] of state.artifacts.entries()) {
+    if (
+      artifact.animationName !== "easy-button-artifact-arrive" ||
+      artifact.animationDuration !== "0.52s" ||
+      artifact.animationTimingFunction !== "cubic-bezier(0.22, 1, 0.36, 1)" ||
+      artifact.animationFillMode !== "none"
+    ) {
+      throw new Error(
+        `easy-button ${label} artifact ${index + 1} arrival motion did not match the mockup: ${JSON.stringify(state)}`,
+      );
+    }
+  }
+}
+
+function opacityMatches(value, expected) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && Math.abs(parsed - expected) <= 0.01;
 }
 
 function assertArtifactTerminalVisual(state, requestText) {
@@ -777,11 +913,11 @@ function assertLongRequestLayout(state, label) {
   assertRequestTextConstrained(state, label);
   assertTextHasNoHorizontalOverflow(state.requestTextMetrics, label, "request text");
   assertRectContains(state.stageRect, state.rect, label, "pane host");
-  assertRectContains(state.centerRect, state.runCopyRect, label, "run copy");
-  assertNoRectOverlap(state.buttonRect, state.runCopyRect, label, "control", "run copy");
-  assertNoRectOverlap(state.runCopyRect, state.inputRect, label, "run copy", "input");
+  assertRectContains(state.centerRect, state.captionRect, label, "caption");
+  assertNoRectOverlap(state.buttonRect, state.captionRect, label, "control", "caption");
+  assertNoRectOverlap(state.captionRect, state.inputRect, label, "caption", "input");
   if (state.stopButtonVisible) {
-    assertNoRectOverlap(state.runCopyRect, state.stopButtonRect, label, "run copy", "stop");
+    assertNoRectOverlap(state.captionRect, state.stopButtonRect, label, "caption", "stop");
   }
   if (state.summaryText !== "") {
     assertTextHasNoHorizontalOverflow(state.summaryTextMetrics, label, "summary");
@@ -798,6 +934,7 @@ function assertReducedMotionVisual(state, label) {
   assertAnimationNamesCleared(
     {
       button: state.buttonAnimationName,
+      control: state.controlAnimationName,
       controlRing: state.controlRingAnimationName,
       spinner: state.spinnerAnimationName,
     },
@@ -808,6 +945,7 @@ function assertReducedMotionVisual(state, label) {
       button: state.buttonTransitionDuration,
       controlRing: state.controlRingTransitionDuration,
       input: state.inputTransitionDuration,
+      inputWrap: state.inputWrapTransitionDuration,
       spinner: state.spinnerTransitionDuration,
       stopButton: state.stopButtonTransitionDuration,
     },
@@ -821,7 +959,13 @@ function assertReducedMotionVisual(state, label) {
     );
   }
   for (const [index, highlight] of state.highlights.entries()) {
-    assertAnimationNamesCleared({ [`highlight ${index + 1}`]: highlight.animationName }, label);
+    assertAnimationNamesCleared(
+      {
+        [`highlight ${index + 1}`]: highlight.animationName,
+        [`highlight dot ${index + 1}`]: highlight.dotAnimationName,
+      },
+      label,
+    );
     assertTransitionDurationsCleared(
       { [`highlight ${index + 1}`]: highlight.transitionDuration },
       label,
@@ -1064,14 +1208,28 @@ async function waitForEasyButtonPane(client) {
   );
 }
 
+// The pane chrome title is written from a passive effect, so it lands one flush
+// after `data-easy-button-state`. Every wait that precedes an assertion on it
+// must gate on it too, or a poll can observe the half-applied commit.
+function easyButtonStateSettled(state, easyState) {
+  return (
+    state.exists &&
+    state.surfaceKind === "easy-button" &&
+    state.easyState === easyState &&
+    state.paneChromeTitle === paneChromeTitleForState(easyState)
+  );
+}
+
+function paneChromeTitleForState(easyState) {
+  return easyState === "idle" ? "Easy Button" : `Easy Button · ${easyState}`;
+}
+
 async function waitForEasyButtonWorking(client, requestText) {
   return waitForState(
     client,
     easyButtonStateExpression(),
     (state) =>
-      state.exists &&
-      state.surfaceKind === "easy-button" &&
-      state.easyState === "working" &&
+      easyButtonStateSettled(state, "working") &&
       state.requestText === requestText &&
       state.buttonAriaLabel === "Focus Easy Button steering input" &&
       state.inputDisabled === false &&
@@ -1086,9 +1244,7 @@ async function waitForEasyButtonTerminal(client, requestText, summaryPrefix) {
     client,
     easyButtonStateExpression(),
     (state) =>
-      state.exists &&
-      state.surfaceKind === "easy-button" &&
-      state.easyState === "complete" &&
+      easyButtonStateSettled(state, "complete") &&
       state.requestText === requestText &&
       state.summaryText.includes(summaryPrefix),
     workflowTimeoutMs,
@@ -1100,9 +1256,7 @@ async function waitForEasyButtonTerminalWithArtifacts(client, requestText, artif
     client,
     easyButtonStateExpression(),
     (state) =>
-      state.exists &&
-      state.surfaceKind === "easy-button" &&
-      state.easyState === "complete" &&
+      easyButtonStateSettled(state, "complete") &&
       state.requestText === requestText &&
       state.summaryText.includes("Done in") &&
       state.artifacts.length === artifactCount,
@@ -1115,9 +1269,7 @@ async function waitForEasyButtonArtifactCapTerminal(client) {
     client,
     easyButtonStateExpression(),
     (state) =>
-      state.exists &&
-      state.surfaceKind === "easy-button" &&
-      state.easyState === "complete" &&
+      easyButtonStateSettled(state, "complete") &&
       state.requestText === "easy run phase5 artifact cap workflow" &&
       state.summaryText.includes("Failed after") &&
       state.summaryText.includes("artifact limit reached") &&
@@ -1126,14 +1278,71 @@ async function waitForEasyButtonArtifactCapTerminal(client) {
   );
 }
 
-async function waitForEasyButtonTerminalWithHighlights(client, requestText, highlightCount) {
+// The pulse lives for confirmPulseDurationMs, and waitForState polls every
+// 100ms, so this must run with nothing slow between it and the transition.
+async function waitForEasyButtonConfirmPulse(client, requestText) {
   return waitForState(
     client,
     easyButtonStateExpression(),
     (state) =>
       state.exists &&
-      state.surfaceKind === "easy-button" &&
       state.easyState === "complete" &&
+      state.requestText === requestText &&
+      state.confirmActive === "true" &&
+      state.controlAnimationName === "easy-button-confirm-pulse",
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonConfirmPulseCleared(client) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists && state.confirmActive === "false" && state.controlAnimationName === "none",
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonHighlightCascade(client, easyState, expectedOpacities) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      easyButtonStateSettled(state, easyState) &&
+      state.highlights.length === expectedOpacities.length &&
+      state.highlights.every((highlight, index) =>
+        opacityMatches(highlight.opacity, expectedOpacities[index]),
+      ),
+    workflowTimeoutMs,
+  );
+}
+
+// Expectations come from each rail's own content rather than a hardcoded pair,
+// so this does not depend on whether a given scripted run also emits highlights.
+async function waitForEasyButtonRailLabelsSettled(client) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) => state.exists && railLabelsMatchContent(state),
+    workflowTimeoutMs,
+  );
+}
+
+function railLabelsMatchContent(state) {
+  const expected = [state.highlights.length > 0 ? 1 : 0, state.artifacts.length > 0 ? 1 : 0];
+  return (
+    state.railLabels.length === 2 &&
+    state.railLabels.every((entry, index) => opacityMatches(entry.opacity, expected[index]))
+  );
+}
+
+async function waitForEasyButtonTerminalWithHighlights(client, requestText, highlightCount) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      easyButtonStateSettled(state, "complete") &&
       state.requestText === requestText &&
       state.highlights.length === highlightCount,
     workflowTimeoutMs,
@@ -1145,9 +1354,7 @@ async function waitForEasyButtonWorkingWithHighlights(client, requestText, highl
     client,
     easyButtonStateExpression(),
     (state) =>
-      state.exists &&
-      state.surfaceKind === "easy-button" &&
-      state.easyState === "working" &&
+      easyButtonStateSettled(state, "working") &&
       state.requestText === requestText &&
       state.highlights.length === highlightCount,
     workflowTimeoutMs,
