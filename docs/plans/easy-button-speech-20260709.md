@@ -3392,8 +3392,20 @@ recognized transcript and deterministic word-error-rate result; validate TTS
 by its WAV structure and successful playback rather than subjective voice
 quality.
 
-If the speech key is unavailable, skip this live speech test loudly and do not
-treat deterministic fake-provider coverage as proof of OpenAI integration.
+Name the workflow
+`desktop/tests/electron/live-openai-speech-workflow.test.mjs` and run it only
+through `./scripts/test_live_openai_speech.sh`. The dedicated launcher first
+uses an explicitly exported `OPENAI_API_KEY`; otherwise it sources the ignored
+repository-root `.env` inside a private subshell, extracts only
+`OPENAI_API_KEY`, and passes that value only to the live speech workflow. It
+must not source `.env` in the meta-plan loop or export unrelated `.env` values
+to Codex. Absence from the loop's inherited environment is therefore not a
+valid reason to skip when the root `.env` contains the key.
+
+If the speech key is unavailable from both sources, skip this live speech test
+loudly and do not treat deterministic fake-provider coverage as proof of OpenAI
+integration. The dedicated launcher exits nonzero in this case so an explicit
+invocation cannot be mistaken for provider proof.
 
 This work also touches Easy Button chat/run and steering behavior. Run the
 existing live Codex Electron/backend gates when ChatGPT authentication is
@@ -3412,7 +3424,8 @@ After the implementation is stable and generated outputs are current:
 - run the complete Easy Button mockup/production still and pinned-animation
   pixel-match matrix and inspect its generated diff report;
 - run the Easy Button performance workflow and append its report;
-- run the live OpenAI speech workflow when configured;
+- run `./scripts/test_live_openai_speech.sh` for the live OpenAI speech
+  workflow when configured;
 - run required live Codex workflows with ChatGPT auth when available;
 - run `./scripts/format.sh`;
 - run `./check_quality.sh --all` because this is a broad implementation with
