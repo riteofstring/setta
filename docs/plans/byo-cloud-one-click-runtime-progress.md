@@ -3,8 +3,13 @@
 **Plan:** [BYO Cloud One-Click Runtime Plan](./byo-cloud-one-click-runtime-plan.md)
 **Initialized:** 2026-07-06
 **Current phase:** Phase 1A: Mobile Runtime Foundation
-**Overall status:** Tracking initialized; no phase item is marked complete by
-this tracker yet.
+**Overall status:** Phase 1A verified 2026-07-11 except the PWA HTTPS item,
+which is blocked on enabling HTTPS certificates for the tailnet in the
+Tailscale admin console (user action). A code audit the same day found
+Phases 1B-5 substantially implemented with tests (only Phase 4's guarded
+idle auto-stop is intentionally absent); their checklist items remain
+unchecked pending per-item verification passes and their live completion
+gates, several of which require real cloud provisioning runs.
 
 ## Tracking Rules
 
@@ -44,27 +49,49 @@ https://<runtime>.<tailnet>.ts.net after normal pairing.
 
 Checklist:
 
-- [ ] Add `setta doctor --json` for runtime capability checks, including
+- [x] Add `setta doctor --json` for runtime capability checks, including
   Tailscale status, `tailscale serve` status, ts.net cert validity, agent CLI
   PATH/auth checks, source-control SSH/GitHub checks, and setup report
   location.
-  Verification: pending.
-- [ ] Extend `/runtime/info` beyond protocol version with build or feature
+  Verification: `cmd/setta/doctor.go` inspected 2026-07-11;
+  `./scripts/go.sh test ./cmd/setta/...` passed; live
+  `setta doctor --json` ran on `setta-devbox` (Tailscale status/serve
+  probes green; source-control probes red because the box has no git
+  repo/SSH agent configured — accurate box state, not a defect; PWA TLS
+  red pending tailnet HTTPS, see the PWA item).
+- [x] Extend `/runtime/info` beyond protocol version with build or feature
   identity so desktop/runtime skew is diagnosed explicitly.
-  Verification: pending.
-- [ ] Add the supported service install shape for a normal Linux VM: non-root
+  Verification: live `GET /runtime/info` on `setta-devbox` 2026-07-11
+  returned `backendName`, `backendVersion` (`phase6-protocol15-b2ec9ab79`),
+  `protocolVersion` 15, and `featureSet` v1 with `device_pairing_url`,
+  `runtime_web_app`, `web_push`; `internal/httpapi` tests passed.
+- [x] Add the supported service install shape for a normal Linux VM: non-root
   service user, systemd unit, explicit working directory/environment, bounded
   wait for tailnet availability, and no public inbound ports.
-  Verification: pending.
+  Verification: `scripts/release/install.sh` + `cmd/setta/service.go`
+  inspected 2026-07-11; `./scripts/go.sh test ./cmd/setta/...` passed;
+  `scripts/release/install_verification_test.sh` passed on the Linux
+  devbox (it is Darwin-skipped locally). Note: `setta-devbox` itself
+  still runs a hand-made user unit predating `install.sh`.
 - [ ] Make the runtime-served PWA reachable through `tailscale serve` on an
   official Tailscale tailnet with HTTPS enabled.
-  Verification: pending.
-- [ ] Add the authenticated runtime API and desktop UI for "Pair another
+  Verification: blocked on a user action 2026-07-11.
+  `setta service configure-tailscale-serve` configured TLS-terminated
+  443 -> 7345 (tailnet only) on `setta-devbox` and
+  `tailscale serve status` confirms it, but certificate minting fails:
+  `tailscale cert` reports "HTTPS cert support is not enabled/configured
+  for your tailnet". Enabling HTTPS in the Tailscale admin console is
+  required before `doctor` PWA TLS and the phone PWA path can go green.
+- [x] Add the authenticated runtime API and desktop UI for "Pair another
   device" so the desktop can display a QR/pairing URL for the phone.
-  Verification: pending.
-- [ ] Preserve the existing interactive pairing flow (`setta pair` URL/QR) for
+  Verification: `POST /pairing/create-device` and desktop wiring
+  inspected 2026-07-11; `runtime-pairing.test.ts` +
+  `runtime-picker.test.tsx` passed (20 tests). Note: the desktop shows a
+  copyable pairing URL; a rendered QR image exists only in the CLI flow.
+- [x] Preserve the existing interactive pairing flow (`setta pair` URL/QR) for
   this slice.
-  Verification: pending.
+  Verification: `cmd/setta/pair.go` inspected 2026-07-11 (URL + terminal
+  QR + `--json`); `./scripts/go.sh test ./cmd/setta/...` passed.
 
 ## Later Phase Backlog
 
