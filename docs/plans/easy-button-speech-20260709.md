@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 items 1-3 complete
+**Status:** Implementation in progress — Phase 1 items 1-3 audited complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1177,6 +1177,55 @@ updating only after working-agent delivery succeeds, trigger narration
 immediately, and add digest-watermark ordering plus stale-focus failure
 semantics. The `max` provider drift blocks live validation but does not block
 that deterministic implementation work.
+
+### 2026-07-10 — Phase 1 accepted-steering audit complete
+
+Audited commit `0be8e7238` against this plan, `AGENTS.md`, its parent, the clean
+worktree, generated contracts and embedded PWA bundle, the regular-chat
+steering path, Easy Run ownership boundaries, and deterministic coverage. The
+slice remains correctly limited to Phase 1 item 3: it sends one
+shared-normalized plain-text `ChatInput` through the existing backing run,
+retains the returned persisted `UserMessage` as the authoritative accepted
+fact, and does not mutate Current focus, add a NOW row, or create a second
+execution record.
+
+The audit fixed two practical boundary and coverage gaps:
+
+- accepted steering now also requires the returned internal conversation to be
+  owned by the same Easy Run, rejecting a public conversation, workflow-owned
+  conversation, or mismatched Easy Run owner even when workspace and
+  conversation IDs happen to match;
+- the deterministic Electron assertion now requires exactly one complete,
+  plain-text part for both the trigger and steering messages and their
+  committed transcript blocks. Extra parts can no longer pass a check that
+  claims the hidden chat record is exact.
+
+Contract regeneration was idempotent. The generated TypeScript protocol and
+checked-in PWA bundle remain on backend protocol version 11 with required
+Current focus decoding; no generated files or dependency inputs changed.
+Focused Easy Run, chat, and HTTP API Go suites passed. The production Electron
+Easy Button workflow passed at
+`desktop/.recordings/easy-button-speech-phase1-accepted-steering-audit`,
+including exact trigger/steering persistence before and after reload plus the
+existing stream, terminal, stop, compact/reduced-motion, and pixel-match paths.
+Electron and web builds and typechecks passed, and `./scripts/format.sh` plus
+`./check_quality.sh --git-changes` passed before the audit commit.
+
+ChatGPT authentication was available, so the live Electron chat, live Easy
+Button, and all four backend Codex probes were rerun with `OPENAI_API_KEY`
+removed. They remain blocked before run creation by the existing provider
+drift: `model/list` advertises reasoning effort `max`, which Setta's current
+decoder rejects. These failures are not live-provider validation for this
+slice. Supply-chain verification was not required because the audit changes no
+dependency, manifest, package-manager, Go module, generated contract, or
+supply-chain input.
+
+The implementation plan is not complete. The next iteration remains Phase 1
+item 4: consume the retained accepted message as a typed `user_steer` narrator
+digest entry, publish Current focus as updating only after working-agent
+delivery succeeds, trigger the serialized narrator immediately, and implement
+digest-watermark ordering plus stale-focus partial-outcome semantics. The live
+`max` provider drift does not block that deterministic work.
 
 ## Verification Plan
 

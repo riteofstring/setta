@@ -297,14 +297,8 @@ func (service *Service) Steer(workspaceID string, text string) (EasyRun, error) 
 }
 
 func acceptedEasyRunSteeringFromChatResult(run EasyRun, backingRunID string, result chat.SteerMessageResult) (acceptedEasyRunSteering, error) {
-	if result.Conversation.ID != run.ConversationID || result.Conversation.WorkspaceID != run.WorkspaceID {
-		return acceptedEasyRunSteering{}, fmt.Errorf(
-			"steering conversation = %s/%s, want %s/%s",
-			result.Conversation.WorkspaceID,
-			result.Conversation.ID,
-			run.WorkspaceID,
-			run.ConversationID,
-		)
+	if err := validateAcceptedEasyRunSteeringConversation(run, result.Conversation); err != nil {
+		return acceptedEasyRunSteering{}, err
 	}
 	if result.Run.ID != backingRunID || result.Run.ConversationID != run.ConversationID || result.Run.WorkspaceID != run.WorkspaceID {
 		return acceptedEasyRunSteering{}, fmt.Errorf(
@@ -343,6 +337,25 @@ func acceptedEasyRunSteeringFromChatResult(run EasyRun, backingRunID string, res
 		return acceptedEasyRunSteering{}, err
 	}
 	return acceptedEasyRunSteering{run: run, text: text, userMessage: message}, nil
+}
+
+func validateAcceptedEasyRunSteeringConversation(run EasyRun, conversation chat.Conversation) error {
+	if conversation.ID != run.ConversationID || conversation.WorkspaceID != run.WorkspaceID {
+		return fmt.Errorf(
+			"steering conversation = %s/%s, want %s/%s",
+			conversation.WorkspaceID,
+			conversation.ID,
+			run.WorkspaceID,
+			run.ConversationID,
+		)
+	}
+	if !conversation.Internal ||
+		conversation.Workflow != nil ||
+		conversation.EasyRun == nil ||
+		conversation.EasyRun.EasyRunID != run.ID {
+		return fmt.Errorf("steering conversation %s is not owned by easy-run %s", conversation.ID, run.ID)
+	}
+	return nil
 }
 
 func acceptedEasyRunSteeringText(message chat.ChatMessage) (string, error) {

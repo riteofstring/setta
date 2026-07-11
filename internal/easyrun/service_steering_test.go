@@ -89,7 +89,12 @@ func TestAcceptedEasyRunSteeringRetainsPersistedChatMessage(t *testing.T) {
 		Status: chat.MessageStatusPending,
 	}
 	result := chat.SteerMessageResult{
-		Conversation: chat.Conversation{ID: run.ConversationID, WorkspaceID: run.WorkspaceID},
+		Conversation: chat.Conversation{
+			EasyRun:     &chat.ConversationEasyRunMetadata{EasyRunID: run.ID},
+			ID:          run.ConversationID,
+			Internal:    true,
+			WorkspaceID: run.WorkspaceID,
+		},
 		Run: chat.Run{
 			ConversationID: run.ConversationID,
 			ID:             message.RunID,
@@ -104,6 +109,28 @@ func TestAcceptedEasyRunSteeringRetainsPersistedChatMessage(t *testing.T) {
 	}
 	if accepted.run.ID != run.ID || accepted.userMessage.ID != message.ID || accepted.text != "Keep the exact accepted text." {
 		t.Fatalf("accepted steering = %+v, want intact run, persisted message, and exact text", accepted)
+	}
+
+	for name, conversation := range map[string]chat.Conversation{
+		"public conversation": {
+			ID:          run.ConversationID,
+			WorkspaceID: run.WorkspaceID,
+		},
+		"different easy run owner": {
+			EasyRun:     &chat.ConversationEasyRunMetadata{EasyRunID: "easy_run_other"},
+			ID:          run.ConversationID,
+			Internal:    true,
+			WorkspaceID: run.WorkspaceID,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			invalid := result
+			invalid.Conversation = conversation
+			_, err := acceptedEasyRunSteeringFromChatResult(run, message.RunID, invalid)
+			if err == nil || !strings.Contains(err.Error(), "is not owned by easy-run") {
+				t.Fatalf("invalid conversation ownership error = %v, want easy-run ownership rejection", err)
+			}
+		})
 	}
 }
 

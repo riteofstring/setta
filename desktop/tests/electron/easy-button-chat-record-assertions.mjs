@@ -4,22 +4,27 @@ export function assertLosslessSteeringChatRecord(page, requestText, steeringText
       `easy-button backing conversation was not hidden and Easy Run-owned: ${JSON.stringify(page)}`,
     );
   }
-  const trigger = page.messages.find((message) => triggerMessageMatches(message, requestText));
+  const triggerMessages = page.messages.filter((message) =>
+    exactUserMessageMatches(message, "normal", requestText),
+  );
   const steeringMessages = page.messages.filter(isSteeringUserMessage);
   const steering = steeringMessages.find((message) =>
-    messagePartsContainExactText(message.parts, steeringText),
+    exactUserMessageMatches(message, "steering", steeringText),
   );
-  if (!acceptedMessagesMatch(trigger, steeringMessages, steering)) {
+  if (triggerMessages.length !== 1 || steeringMessages.length !== 1 || !steering) {
     throw new Error(
       `easy-button chat record did not retain exact trigger and steering messages: ${JSON.stringify(page)}`,
     );
   }
-  const steeringBlock = page.blocks.find(
-    (block) => block.kind === "user_message" && block.userMessage?.messageId === steering.id,
-  );
-  if (!steeringBlockMatches(steeringBlock, steeringText)) {
+  const trigger = triggerMessages[0];
+  const triggerBlock = userMessageBlock(page, trigger.id);
+  const steeringBlock = userMessageBlock(page, steering.id);
+  if (
+    !exactUserMessageBlockMatches(triggerBlock, "normal", requestText) ||
+    !exactUserMessageBlockMatches(steeringBlock, "steering", steeringText)
+  ) {
     throw new Error(
-      `easy-button transcript did not retain the exact persisted steering message: ${JSON.stringify(page)}`,
+      `easy-button transcript did not retain exact committed trigger and steering messages: ${JSON.stringify(page)}`,
     );
   }
 }
@@ -28,11 +33,12 @@ function isHiddenEasyRunConversation(page) {
   return page?.conversation?.internal === true && Boolean(page.conversation.easyRun?.easyRunId);
 }
 
-function triggerMessageMatches(message, requestText) {
+function exactUserMessageMatches(message, delivery, text) {
   return (
     message.role === "user" &&
-    message.delivery === "normal" &&
-    messagePartsContainExactText(message.parts, requestText)
+    message.delivery === delivery &&
+    message.status === "complete" &&
+    messagePartsMatchExactPlainText(message.parts, text)
   );
 }
 
@@ -40,20 +46,29 @@ function isSteeringUserMessage(message) {
   return message.role === "user" && message.delivery === "steering";
 }
 
-function acceptedMessagesMatch(trigger, steeringMessages, steering) {
-  return Boolean(trigger) && steeringMessages.length === 1 && steering?.status === "complete";
-}
-
-function steeringBlockMatches(block, steeringText) {
-  const message = block?.userMessage;
-  return (
-    message?.role === "user" &&
-    message.delivery === "steering" &&
-    message.status === "complete" &&
-    messagePartsContainExactText(message.parts, steeringText)
+function userMessageBlock(page, messageId) {
+  return page.blocks.find(
+    (block) => block.kind === "user_message" && block.userMessage?.messageId === messageId,
   );
 }
 
-function messagePartsContainExactText(parts, text) {
-  return parts.some((part) => part.type === "text" && part.text?.text === text);
+function exactUserMessageBlockMatches(block, delivery, text) {
+  const message = block?.userMessage;
+  return (
+    message?.role === "user" &&
+    message.delivery === delivery &&
+    message.status === "complete" &&
+    messagePartsMatchExactPlainText(message.parts, text)
+  );
+}
+
+function messagePartsMatchExactPlainText(parts, text) {
+  const [part] = parts;
+  return (
+    parts.length === 1 &&
+    part.type === "text" &&
+    part.text?.format === "plain" &&
+    part.text.text === text &&
+    part.image === null
+  );
 }
