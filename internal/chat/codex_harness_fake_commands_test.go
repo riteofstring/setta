@@ -280,8 +280,6 @@ func writeFakeDefaultModelListResponse(id any) {
 				{"description": "Medium reasoning.", "reasoningEffort": "medium"},
 				{"description": "High reasoning.", "reasoningEffort": "high"},
 				{"description": "Extra high reasoning.", "reasoningEffort": "xhigh"},
-				{"description": "Maximum reasoning.", "reasoningEffort": "max"},
-				{"description": "Ultra reasoning.", "reasoningEffort": "ultra"},
 			},
 		}},
 		"nextCursor": nil,

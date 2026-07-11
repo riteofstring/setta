@@ -27,7 +27,6 @@ import {
 import { SurfaceRegistry, type SurfaceViewportSyncStats } from "./surface-registry";
 import { paneChromeTitleModel, paneTitleOverrideFromHost } from "./pane-title-metadata";
 import { createPaneTitleSlot, syncPaneTitleSlot } from "./pane-title-icons";
-import { notifyReactDomSurfaceHostChanged } from "./react-dom-surface-events";
 import type { WorkspacePane, PaneRenderItem, PaneRuntimeSummary, ResizePhase } from "./types";
 
 export interface PresentationApplyOptions {
@@ -451,12 +450,6 @@ export class PresentationEngine {
     actionStrip.className = "workspace-pane-action-strip app-no-drag";
     actionStrip.dataset.workspacePaneActionStrip = "true";
     topBar.append(actionStrip);
-    const reactSurface = Array.from(topBar.parentElement?.children ?? []).find((child) =>
-      child.classList.contains("workspace-react-dom-surface"),
-    );
-    if (reactSurface) {
-      notifyReactDomSurfaceHostChanged(reactSurface);
-    }
     return actionStrip;
   }
 

@@ -1,4 +1,5 @@
 import type { IpcMain } from "electron";
+import { Buffer } from "node:buffer";
 
 import type { BackendClient } from "@generated/backend";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
@@ -6,12 +7,14 @@ import { handleIpc, type IpcObserver } from "@shared/ipc";
 interface TerminalIpcRegistration {
   ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
+  recordAppEvent?: (type: string, payload: unknown) => void;
   requireBackendClient: () => BackendClient;
 }
 
 export function registerTerminalIpcHandlers({
   ipcMain,
   ipcObserver,
+  recordAppEvent,
   requireBackendClient,
 }: TerminalIpcRegistration): void {
   handleIpc(
@@ -42,7 +45,39 @@ export function registerTerminalIpcHandlers({
     ipcMain,
     "terminalInput",
     async (_event, input) => {
-      return requireBackendClient().terminalInput(input);
+      const mainReceivedAt = new Date().toISOString();
+      recordAppEvent?.("terminal_input_main_received", {
+        byteCount: Buffer.byteLength(input.dataBase64, "base64"),
+        clientId: input.trace.clientId,
+        inputSequence: input.trace.inputSequence,
+        mainReceivedAt,
+        runId: input.trace.runId,
+        sessionId: input.sessionId,
+      });
+      const httpDispatchedAt = new Date().toISOString();
+      recordAppEvent?.("terminal_input_http_dispatched", {
+        byteCount: Buffer.byteLength(input.dataBase64, "base64"),
+        clientId: input.trace.clientId,
+        httpDispatchedAt,
+        inputSequence: input.trace.inputSequence,
+        runId: input.trace.runId,
+        sessionId: input.sessionId,
+      });
+      const result = await requireBackendClient().terminalInput({
+        ...input,
+        trace: { ...input.trace, httpDispatchedAt, mainReceivedAt },
+      });
+      recordAppEvent?.("terminal_input_http_response_received", {
+        acceptedBytes: result.acceptedBytes,
+        clientId: result.trace.clientId,
+        handlerReceivedAt: result.trace.handlerReceivedAt,
+        inputSequence: result.trace.inputSequence,
+        ptyWriteCompletedAt: result.trace.ptyWriteCompletedAt,
+        receivedAt: new Date().toISOString(),
+        runId: result.trace.runId,
+        sessionId: input.sessionId,
+      });
+      return result;
     },
     ipcObserver,
   );

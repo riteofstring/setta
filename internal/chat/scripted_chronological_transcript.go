@@ -15,7 +15,7 @@ import (
 //	command A        running -> stdout chunks -> completed   (output streaming)
 //	command B        running -> completed                    (adjacent command rows)
 //	assistant_text   step two  (after the commands)
-//	reasoning R1     public bold summary headline, running    (active reasoning, no tool)
+//	reasoning R1     meaningful title, running, no summary    (active thinking, no tool)
 //	assistant_text   step three (after reasoning, still no tool between)
 //	reasoning R1     same provider item gains a public summary (thinking -> summary)
 //	reasoning R2     hidden text only, no public title/summary (private/generic only)
@@ -33,7 +33,7 @@ const (
 	chronologicalCommandATitle        = "Chronological command A"
 	chronologicalCommandBTitle        = "Chronological command B"
 	chronologicalReasoningTitle       = "Chronological reasoning headline"
-	chronologicalReasoningSummary     = "**Chronological reasoning headline**\nChronological public reasoning summary body."
+	chronologicalReasoningSummary     = "Chronological public reasoning summary body."
 	chronologicalPrivateReasoning     = "private chronological reasoning"
 	chronologicalCommandAOutputChunks = 4
 )
@@ -129,9 +129,9 @@ func emitChronologicalReasoning(runID string, sink TurnSink) error {
 		ProviderItemID: "chrono-reasoning-" + runID,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusRunning,
-		Progress:       "**" + chronologicalReasoningTitle + "**",
+		Title:          chronologicalReasoningTitle,
 	}
-	// Meaningful active reasoning with a public bold summary headline.
+	// Meaningful active reasoning with no public summary yet (the future mode: thinking).
 	if err := sink.RunItemUpsert(reasoning); err != nil {
 		return err
 	}

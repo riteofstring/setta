@@ -194,7 +194,6 @@ type StaticSnapshotRenderer = (host: HTMLElement, pane: WorkspacePane) => HTMLEl
 const staticSnapshotRenderers = {
   browser: renderWrappedStaticBrowserSnapshot,
   "chat-dom": renderWrappedGenericSnapshot,
-  "easy-button": renderWrappedGenericSnapshot,
   "empty-frame": renderWrappedEmptyFrameSnapshot,
   "fake-dom": renderWrappedGenericSnapshot,
   "fake-heavy-dom": renderWrappedGenericSnapshot,
