@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phase 0 and Phase 1 items 1-2 are complete
+**Status:** In progress; Phase 0 and Phase 1 items 1-3 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1521,8 +1521,8 @@ Exit criteria:
 
 ### Phase 1: New persistence and core contracts
 
-**Progress:** Items 1-2 are complete. Items 3-5 remain, beginning with
-transaction helpers and the committed-event outbox.
+**Progress:** Items 1-3 are complete. Items 4-5 remain, beginning with the
+conversation snapshot/event contracts and generated TypeScript.
 
 Implement:
 
@@ -2164,3 +2164,34 @@ Implementation is in progress under this plan.
   for `internal/conversation` and `internal/workspaceui/conversationpalette`.
   Generated inputs and outputs changed: none. Phase 1 item 3 remains next, with
   no external blocker.
+- 2026-07-11: Completed Phase 1 item 3. The conversation store now exposes a
+  bounded-writer transaction boundary whose value expires with its callback;
+  validated helpers persist every Phase 1 aggregate record without exposing a
+  raw SQL transaction. A transaction that mutates current state must append at
+  least one committed event, so conversation/turn/queue/trajectory changes,
+  narrator cursor/output changes, presentation and role configuration, and
+  fork/binding creation can commit or roll back with their publication record
+  as one unit. Optimistic expectations reject stale conversation, turn,
+  narrator, side-conversation, queue, and trajectory updates explicitly.
+  Trajectory appends advance only the next contiguous per-conversation
+  sequence; narrator state/output writes enforce source coverage; artifact and
+  binding references are conversation-owned; and a durable fork helper accepts
+  only a completed parent turn.
+- 2026-07-11: The committed-event outbox assigns a durable global commit
+  sequence and an independent contiguous sequence per stream inside the writer
+  transaction. Bounded global and per-stream reads replay records after a crash
+  or restart, payloads are copied at the boundary, and waiters use commit
+  notifications plus a durable reread rather than polling. Invalid, null, or
+  duplicate records roll back atomically, SQL nullable JSON remains SQL
+  `NULL`, state-only transactions are rejected, and a transaction object
+  cannot be used after commit. Focused verification passed with
+  `./scripts/go.sh test -race ./internal/conversation` and the focused
+  `./check_quality.sh --files` gate. No schema, dependency, generated input,
+  generated output, runtime composition root, or Codex protocol surface
+  changed, so no production Electron or live-provider workflow is implicated
+  by this isolated persistence slice. Phase 1 item 4 is next, with no external
+  blocker. Final repository formatting and `./check_quality.sh --git-changes`
+  also passed; 100 repeated outbox wake/restart-focused runs were clean. The
+  supply-chain gate again reached `govulncheck` and reported the pre-existing
+  `GO-2026-5856` in repository-pinned Go 1.26.4, fixed in Go 1.26.5. This slice
+  did not change the pinned toolchain or any dependency manifest.

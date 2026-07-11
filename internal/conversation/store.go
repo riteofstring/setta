@@ -92,6 +92,9 @@ type Store struct {
 	state       storeState
 	readersWG   sync.WaitGroup
 	closeErr    error
+
+	outboxMu   sync.Mutex
+	outboxWake chan struct{}
 }
 
 func WithWriteQueueCapacity(capacity int) StoreOption {
@@ -209,6 +212,7 @@ func NewStore(appDataDir string, options ...StoreOption) (*Store, error) {
 		closing:    make(chan struct{}),
 		closed:     make(chan struct{}),
 		state:      storeStateOpen,
+		outboxWake: make(chan struct{}),
 	}
 	if err := store.openConnections(context.Background(), config); err != nil {
 		if closeErr := store.closeConnections(); closeErr != nil {
@@ -495,7 +499,10 @@ func (store *Store) classifyWriteError(request writeRequest, err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return newWriteOutcomeError(request.operation, WriteOutcomeCancelled, err)
 	}
-	return databaseError(request.operation, store.dbPath, err)
+	if isSQLiteError(err) {
+		return databaseError(request.operation, store.dbPath, err)
+	}
+	return err
 }
 
 func (store *Store) closeConnections() error {
@@ -522,10 +529,20 @@ func (store *Store) closeConnections() error {
 }
 
 func databaseError(operation string, dbPath string, err error) error {
+	var persistenceError *PersistenceError
+	var corruptStateError *CorruptStateError
+	if errors.As(err, &persistenceError) || errors.As(err, &corruptStateError) {
+		return err
+	}
 	if isSQLiteCorruption(err) {
 		return &CorruptStateError{Path: dbPath, Err: err}
 	}
 	return &PersistenceError{Operation: operation, Path: dbPath, Err: err}
+}
+
+func isSQLiteError(err error) bool {
+	var sqliteError *sqlite.Error
+	return errors.As(err, &sqliteError)
 }
 
 func isSQLiteCorruption(err error) bool {
