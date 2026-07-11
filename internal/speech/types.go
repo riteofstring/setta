@@ -10,7 +10,7 @@ const (
 )
 
 const (
-	APIKeyEnvironmentVariable     = "SETTA_OPENAI_SPEECH_API_KEY"
+	APIKeyEnvironmentVariable     = "OPENAI_API_KEY"
 	E2EBaseURLEnvironmentVariable = "SETTA_E2E_OPENAI_SPEECH_BASE_URL"
 	TranscriptionModel            = "gpt-realtime-whisper"
 	TranscriptionDelay            = "medium"

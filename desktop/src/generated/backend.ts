@@ -776,9 +776,9 @@ export function decodeSpeechProviderStatus(value: unknown, label = "SpeechProvid
   }
 }
 
-export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 
-export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ReasoningEffort[];
+export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"] as const satisfies readonly ReasoningEffort[];
 
 export function decodeReasoningEffort(value: unknown, label = "ReasoningEffort"): ReasoningEffort {
   const decoded = decodeString(value, label);
@@ -794,6 +794,10 @@ export function decodeReasoningEffort(value: unknown, label = "ReasoningEffort")
     case "high":
       return decoded;
     case "xhigh":
+      return decoded;
+    case "max":
+      return decoded;
+    case "ultra":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);

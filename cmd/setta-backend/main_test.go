@@ -70,12 +70,10 @@ func TestConfigFromArgsMapsSpeechEnvironment(t *testing.T) {
 	var cleared string
 	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
 		switch name {
-		case "OPENAI_API_KEY":
-			return "sk-generic-must-not-be-used"
 		case "SETTA_E2E":
 			return "1"
 		case speech.APIKeyEnvironmentVariable:
-			return "sk-setta-speech-backend"
+			return "sk-openai-speech-backend"
 		case speech.E2EBaseURLEnvironmentVariable:
 			return "http://127.0.0.1:24891/v1"
 		default:
@@ -88,8 +86,8 @@ func TestConfigFromArgsMapsSpeechEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
-	if config.Speech.APIKey != "sk-setta-speech-backend" {
-		t.Fatalf("speech API key = %q, want Setta-specific value", config.Speech.APIKey)
+	if config.Speech.APIKey != "sk-openai-speech-backend" {
+		t.Fatalf("speech API key = %q, want OpenAI API key", config.Speech.APIKey)
 	}
 	if config.Speech.BaseURL != "http://127.0.0.1:24891/v1" || !config.Speech.AllowTestBaseURL {
 		t.Fatalf("speech provider config = %+v, want guarded E2E URL", config.Speech)

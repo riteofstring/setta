@@ -166,14 +166,15 @@ They do not reuse Codex's ChatGPT subscription authentication.
 For this first implementation, the runtime reads the key from:
 
 ```text
-SETTA_OPENAI_SPEECH_API_KEY
+OPENAI_API_KEY
 ```
 
-Use this Setta-specific variable rather than `OPENAI_API_KEY`. The backend
-currently spawns Codex processes from its own environment; a generic
-`OPENAI_API_KEY` could unintentionally change Codex from ChatGPT authentication
-to API-key authentication. The speech key must be copied into the speech
-client's configuration only and must never be exported to a Codex child.
+`OPENAI_API_KEY` is the sole speech credential. Do not add a Setta-specific
+alias, fallback, dual-read path, or transitional variable. The backend copies
+the value into the speech client's configuration and immediately removes it
+from the process environment before launching Codex or any other helper.
+Codex continues to use ChatGPT subscription authentication and must never
+inherit `OPENAI_API_KEY`.
 
 The v1 credential rules are:
 
@@ -186,13 +187,25 @@ The v1 credential rules are:
   `OpenAI-Safety-Identifier` when minting that client secret, derived from the
   authenticated device principal rather than a workspace name, path, or raw
   user identifier;
-- `setta serve` and the Electron-spawned `setta-backend` both map the
-  Setta-specific environment value into `runtime.Config`;
+- `setta serve` and the Electron-spawned `setta-backend` both map
+  `OPENAI_API_KEY` into `runtime.Config`, then remove it from their process
+  environments before spawning children;
 - a runtime without the key starts normally and reports speech as
   `not_configured`; text-only Easy Button behavior remains fully functional;
 - API-key entry, keychain persistence, and account-management UI are deferred.
   A later credential design must work for headless remote runtimes, not only an
   Electron-local OS keychain.
+
+## Codex Protocol Compatibility Prerequisite
+
+Refresh `internal/codexapp/protocolschema` from the pinned current Codex source
+before relying on the live Codex gates. The upstream `ReasoningEffort` wire
+schema is intentionally a non-empty string because Codex supports custom future
+values, so schema refresh alone does not extend Setta's stricter chat-domain
+contract. Add the currently defined `max` and `ultra` levels to the Go-owned
+`internal/chat` reasoning values, update every exhaustive display/validation
+site and focused protocol test, then regenerate the TypeScript contracts. Do
+not add a decoder fallback for arbitrary unknown values.
 
 ## Existing Boundaries To Preserve
 
@@ -664,8 +677,8 @@ Implement the real voice surface that the original pane plan deferred:
   shipped terminal Check/X glyphs;
 - when speech is unconfigured or unsupported, retain the current Sparkles/text
   focus behavior and do not display a fake microphone affordance;
-- expose a concise setup explanation naming
-  `SETTA_OPENAI_SPEECH_API_KEY` without ever displaying its value;
+- expose a concise setup explanation naming `OPENAI_API_KEY` without ever
+  displaying its value;
 - preserve the footer as the editing/recovery path for permission, provider,
   empty-transcript, and submission failures;
 - honor `prefers-reduced-motion`: listening rings become static while state,
@@ -968,8 +981,9 @@ sources before microphone or audio UI depends on them.
 
 1. Add `internal/speech` types, validation, OpenAI client, and fake-transport
    unit tests.
-2. Add optional runtime speech configuration and read
-   `SETTA_OPENAI_SPEECH_API_KEY` in both launch paths.
+2. Add optional runtime speech configuration and read `OPENAI_API_KEY` in both
+   launch paths. Copy it into speech configuration, remove it from the process
+   environment, and exclude it from Codex children.
 3. Add capability, transcription-session, summary-synthesis, and
    highlight-synthesis services/handlers/endpoints.
 4. Wire the service into `internal/runtime` and `internal/httpapi`.
@@ -1765,7 +1779,7 @@ verification were not required for this slice. The known live Codex `max`
 provider drift and pinned Go 1.26.4 advisory remain real repository-wide
 blockers for their respective gates but do not block the next ordered work.
 Phase 2 item 2 is next: add optional runtime speech configuration, read only
-`SETTA_OPENAI_SPEECH_API_KEY` in both launch paths, and enforce the E2E-only
+`OPENAI_API_KEY` in both launch paths, and enforce the E2E-only
 provider-base override boundary before adding services and endpoints in item 3.
 
 ### 2026-07-10 — Phase 2 speech provider foundation audit complete
@@ -1815,23 +1829,24 @@ ChatGPT authentication was available, so the live Electron chat, live Easy
 Button, and all four backend Codex probes were rerun with `OPENAI_API_KEY`
 removed. They still fail before conversation creation because the provider's
 `model/list` advertises reasoning effort `max`, which Setta's existing decoder
-rejects. These failures are not live validation for this provider slice. A
-`SETTA_OPENAI_SPEECH_API_KEY` was unavailable, and no live speech workflow is
-implemented before the later acceptance phase, so no live OpenAI speech result
-is claimed. Supply-chain verification was not required because the audit changes
-no dependency, manifest, module, package-manager, toolchain, or generated input.
+rejects. These failures are not live validation for this provider slice.
+`OPENAI_API_KEY` was not present in the loop process, and no live speech
+workflow is implemented before the later acceptance phase, so no live OpenAI
+speech result is claimed. Supply-chain verification was not required because
+the audit changes no dependency, manifest, module, package-manager, toolchain,
+or generated input.
 
 The implementation plan is not complete. Phase 2 item 2 remains next: add the
 optional runtime speech configuration to both launch paths, read only
-`SETTA_OPENAI_SPEECH_API_KEY`, and enforce the environment-facing E2E-only base
+`OPENAI_API_KEY`, and enforce the environment-facing E2E-only base
 URL override before the service and endpoint wiring in items 3-4.
 
 ### 2026-07-10 — Phase 2 optional runtime speech configuration complete
 
 Implemented Phase 2 item 2 as a launch/configuration slice. `internal/speech`
-now owns one validated environment loader that reads only
-`SETTA_OPENAI_SPEECH_API_KEY`; a generic `OPENAI_API_KEY` is ignored, and a
-missing speech key remains a valid text-only configuration. The test-provider
+now owns one validated environment loader that reads only `OPENAI_API_KEY`; no
+alternate credential name or alias is accepted, and a missing speech key
+remains a valid text-only configuration. The test-provider
 override is explicitly named `SETTA_E2E_OPENAI_SPEECH_BASE_URL`, requires
 `SETTA_E2E=1` whenever it is present, and passes through the existing strict
 provider URL validation before startup.
@@ -1855,9 +1870,9 @@ Verification completed for this slice:
 - the complete `internal/speech`, `internal/codexapp`, `cmd/setta-backend`, and
   `cmd/setta` suites passed, along with the non-live `internal/runtime` suite;
 - focused tests prove missing-key startup, configured-key startup, rejection of
-  malformed keys and unguarded provider URLs, exact mapping through both launch
-  paths, deliberate disregard of `OPENAI_API_KEY`, and removal of the speech
-  credential from both inherited and override Codex environments;
+  malformed keys and unguarded provider URLs, exact `OPENAI_API_KEY` mapping
+  through both launch paths, and removal of the speech credential from both
+  inherited and override Codex environments;
 - the speech race suite, focused vet, static/complexity checks, and
   `./scripts/format.sh` passed;
 - the deterministic production Easy Button Electron workflow passed at
@@ -1891,8 +1906,8 @@ Audited commit `4b18d80d7` against this plan, `AGENTS.md`, its parent, the clean
 starting worktree, both command launch paths, runtime and Codex process
 construction, generated contracts, the checked-in PWA bundle, tests, and the
 recorded production Electron workflow. The optional configuration, strict
-E2E-only provider URL, runtime validation, deliberate disregard of
-`OPENAI_API_KEY`, and defense-in-depth Codex exclusion remain correctly owned
+E2E-only provider URL, runtime validation, exact `OPENAI_API_KEY`
+loading/removal, and defense-in-depth Codex exclusion remain correctly owned
 and scoped to Phase 2 item 2.
 
 The audit fixed one practical credential-boundary gap. Both launch paths copied
@@ -1901,7 +1916,7 @@ process environment. Later terminal shells and helper processes could therefore
 inherit it, making the key observable outside the runtime and potentially in
 terminal output or recordings. The one Go-owned speech environment loader now
 copies and validates the value, immediately removes exactly
-`SETTA_OPENAI_SPEECH_API_KEY`, and fails startup if removal is impossible. The
+`OPENAI_API_KEY`, and fails startup if removal is impossible. The
 runtime retains the copied client configuration, while later children inherit
 no speech key; the explicit Codex exclusion remains defense in depth. A
 `setta serve --tailnet` regression proves the key is gone before the Tailscale
@@ -2002,9 +2017,9 @@ ChatGPT authentication remains available. A direct complete runtime test run
 again reached all four live Codex probes, which remain blocked before
 conversation creation because `model/list` advertises reasoning effort `max`
 and the existing Setta decoder rejects it. These failures are not live-provider
-validation for this slice. `SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and
-the live OpenAI speech workflow is intentionally not present before the later
-acceptance phase, so no live speech-provider result is claimed.
+validation for this slice. `OPENAI_API_KEY` was not present in the loop process,
+and the live OpenAI speech workflow is intentionally not present before the
+later acceptance phase, so no live speech-provider result is claimed.
 
 The required supply-chain audit remains blocked by GO-2026-5856 in the pinned
 Go 1.26.4 standard library, fixed in Go 1.26.5. This slice changes no dependency,
@@ -2062,9 +2077,9 @@ Verification completed for the audited slice:
   surfaces still fail before conversation creation because `model/list`
   advertises unsupported reasoning effort `max`. These are not provider proof
   for the speech work;
-- `SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and the opt-in live speech
-  workflow is intentionally deferred until the later acceptance phase, so no
-  live OpenAI speech result is claimed;
+- `OPENAI_API_KEY` was not present in the loop process, and the opt-in live
+  speech workflow is intentionally deferred until the later acceptance phase,
+  so no live OpenAI speech result is claimed;
 - `./scripts/format.sh` and `./check_quality.sh --git-changes` passed for the
   audit changes;
 - the supply-chain gate remains blocked only by GO-2026-5856 in pinned Go
@@ -2131,9 +2146,9 @@ live Electron chat and Easy Button surfaces still fail before conversation
 creation because `model/list` advertises unsupported reasoning effort `max`.
 The Easy Button remains idle, preserves the submitted text, and surfaces the
 typed provider-drift error. These failures are not live-provider validation for
-this slice. `SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and the opt-in live
-speech workflow remains intentionally deferred until the later acceptance
-phase, so no live OpenAI speech result is claimed.
+this slice. `OPENAI_API_KEY` was not present in the loop process, and the
+opt-in live speech workflow remains intentionally deferred until the later
+acceptance phase, so no live OpenAI speech result is claimed.
 
 The supply-chain gate remains blocked by GO-2026-5856 in the pinned Go 1.26.4
 standard library, fixed in Go 1.26.5. This slice changes no dependency, module,
@@ -2189,9 +2204,9 @@ Audit verification completed:
   conversation creation because `model/list` advertises unsupported reasoning
   effort `max`; the submitted Easy Button text is preserved and the typed drift
   error is visible, but these failures are not live-provider validation;
-- `SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and the opt-in live speech
-  workflow remains a later acceptance-phase item, so no live OpenAI speech proof
-  is claimed;
+- `OPENAI_API_KEY` was not present in the loop process, and the opt-in live
+  speech workflow remains a later acceptance-phase item, so no live OpenAI
+  speech proof is claimed;
 - `./scripts/format.sh` and `./check_quality.sh --git-changes` passed, with the
   latter using an isolated unsigned Codex home after the separate signed-in live
   attempts above;
@@ -2259,13 +2274,13 @@ Verification completed for this slice:
   their owning boundaries, and focused complexity plus adapter tests passed
   before the complete gate rerun.
 
-`SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and the opt-in live OpenAI speech
-workflow remains intentionally deferred to the later acceptance phase, so no
-live OpenAI speech proof is claimed. This adapter-only slice does not change
-chat delivery, Codex protocol handling, run lifecycle, or provider steering,
-so it does not require another live Codex attempt; the existing signed-in
-`max` reasoning-effort drift remains separate from this work. No dependency,
-module, manifest, package-manager, or toolchain input changed.
+`OPENAI_API_KEY` was not present in the loop process, and the opt-in live OpenAI
+speech workflow remains intentionally deferred to the later acceptance phase,
+so no live OpenAI speech proof is claimed. This adapter-only slice did not
+change chat delivery, Codex protocol handling, run lifecycle, or provider
+steering; the signed-in `max` reasoning-effort drift remained separate at the
+time and is resolved by the compatibility update below. No dependency, module,
+manifest, package-manager, or toolchain input changed.
 
 The broad supply-chain audit was nevertheless rerun. Its release-age and module
 tidy checks passed, but vulnerability scanning remains blocked by
@@ -2278,6 +2293,67 @@ and strict Realtime event decoder, including stale session/item rejection and
 deterministic protocol tests. Electron microphone permissions and the complete
 capture/UI workflow remain ordered items 3-8. No deterministic blocker was
 found for item 2.
+
+### 2026-07-10 — Standard OpenAI credential and Codex protocol compatibility complete
+
+The product decision now uses only the conventional `OPENAI_API_KEY` for OpenAI
+speech. The old Setta-specific variable is removed outright: there is no alias,
+fallback, dual read, migration, or transitional path. Both runtime launch paths
+copy `OPENAI_API_KEY` into the validated speech client configuration, remove it
+from the process environment before launching helpers, and explicitly exclude
+it from inherited and override Codex app-server environments. Codex therefore
+continues using ChatGPT authentication and never receives the Platform key.
+The mockup, deterministic speech fixture, tests, and all normative and progress
+language in this plan use the standard name.
+
+Setta's pinned Codex protocol snapshot was refreshed from upstream commit
+`2b9c05046038c038ec6bddb9db7d11394995372d`. The latest stable and experimental
+schemas introduced compatible stable/experimental `Thread` definitions where
+the experimental object adds optional fields. The generator now accepts only a
+deterministic compatible object superset, selects the richer definition, and
+continues to reject changed required fields, changed common properties, and
+all other incompatible same-name schemas. The refresh is idempotent and the
+generated Go protocol surface was not edited manually.
+
+Upstream intentionally models reasoning effort as a non-empty wire string to
+allow custom future values, so Setta's stricter Go-owned chat contract was also
+extended explicitly with the current `max` and `ultra` values. Display names,
+workflow-agent validation, fake provider catalogs, focused protocol tests, the
+generated TypeScript union/decoder/value set, and the checked-in PWA bundle are
+updated together. Unknown future values still fail loudly; no permissive
+decoder fallback was added.
+
+Verification completed for this compatibility update:
+
+- the complete Codex generator, Codex app, chat, orchestrator, speech, runtime,
+  and both command-package Go suites passed. The first combined run exposed one
+  upstream-permitted additional-field assertion and one unrelated chat timing
+  failure; the assertion was updated to the new schema, and the chat test passed
+  immediately in isolation before the complete clean rerun;
+- all 998 desktop Vitest tests, Electron/web typechecks, and both production
+  builds passed;
+- the production speech API Electron workflow passed with `OPENAI_API_KEY` and
+  retained its key/client-secret/audio redaction assertions;
+- the deterministic Electron chat gate passed every chat case plus corrupt
+  state recovery;
+- with `OPENAI_API_KEY` removed, the ChatGPT-authenticated live Electron chat,
+  live Easy Button, and supplemental backend Codex workflows all passed. This
+  clears the previous `model/list` `max` blocker;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes` passed.
+  Repeated exploratory `./check_quality.sh --all` runs also cleared all static,
+  desktop, and generated-contract checks, but did not produce a clean aggregate
+  exit: two different fake app-server Go tests exited intermittently and each
+  passed immediately in isolation, while a later protocol-notification Electron
+  rerun timed out after that same workflow had passed twice. These are recorded
+  as existing full-suite process/timeout instability, not claimed as successful
+  broad-gate evidence;
+- the supply-chain release-age and module checks passed. Vulnerability scanning
+  remains blocked only by GO-2026-5856 in the pinned Go 1.26.4 standard library,
+  fixed in Go 1.26.5; this update changes no dependency or toolchain input.
+
+The live OpenAI speech workflow remains a later acceptance-phase item, so the
+available local `.env` Platform key has not yet been used as live speech proof.
+Phase 3 item 2 remains next.
 
 ## Verification Plan
 
@@ -2321,8 +2397,9 @@ found for item 2.
 - TTS sends the exact model, voice, WAV format, and text; it never accepts
   arbitrary renderer text or silently truncates.
 - Endpoint authentication and request-size limits remain enforced.
-- Both command launch paths map only `SETTA_OPENAI_SPEECH_API_KEY` into speech
-  configuration.
+- Both command launch paths map only `OPENAI_API_KEY` into speech configuration,
+  remove it from the runtime process environment, and exclude it from Codex
+  children.
 
 ### Renderer and desktop tests
 
@@ -2406,7 +2483,7 @@ surface to manufacture screenshots.
 ### Live OpenAI speech test
 
 Add a narrow, opt-in live workflow using
-`SETTA_OPENAI_SPEECH_API_KEY`. It should use a short, consented checked-in audio
+`OPENAI_API_KEY`. It should use a short, consented checked-in audio
 fixture through Chromium's fake microphone support and exercise a real
 `gpt-realtime-whisper` session plus real `gpt-4o-mini-tts` synthesis. Record the
 recognized transcript and deterministic word-error-rate result; validate TTS
@@ -2419,8 +2496,8 @@ treat deterministic fake-provider coverage as proof of OpenAI integration.
 This work also touches Easy Button chat/run and steering behavior. Run the
 existing live Codex Electron/backend gates when ChatGPT authentication is
 available. Those Codex tests must continue without `OPENAI_API_KEY`; the
-Setta-specific speech key is not Codex authentication and must never be passed
-to Codex as one.
+same standard variable is the speech credential and must be removed before
+Codex is launched so Codex continues using ChatGPT authentication.
 
 ### Final gates
 

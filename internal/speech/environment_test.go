@@ -6,22 +6,18 @@ import (
 	"testing"
 )
 
-func TestOpenAIClientConfigFromEnvironmentReadsOnlySpeechCredential(t *testing.T) {
+func TestOpenAIClientConfigFromEnvironmentReadsOpenAIAPIKey(t *testing.T) {
 	config, err := OpenAIClientConfigFromEnvironment(func(name string) string {
-		switch name {
-		case APIKeyEnvironmentVariable:
+		if name == APIKeyEnvironmentVariable {
 			return testSpeechAPIKey
-		case "OPENAI_API_KEY":
-			return "sk-generic-must-not-be-used"
-		default:
-			return ""
 		}
+		return ""
 	}, ignoreEnvironmentClear)
 	if err != nil {
 		t.Fatalf("speech config from environment: %v", err)
 	}
 	if config.APIKey != testSpeechAPIKey {
-		t.Fatalf("speech API key = %q, want Setta-specific value", config.APIKey)
+		t.Fatalf("speech API key = %q, want OpenAI API key", config.APIKey)
 	}
 	if config.BaseURL != "" || config.AllowTestBaseURL {
 		t.Fatalf("provider override = %+v, want production defaults", config)
@@ -29,12 +25,7 @@ func TestOpenAIClientConfigFromEnvironmentReadsOnlySpeechCredential(t *testing.T
 }
 
 func TestOpenAIClientConfigFromEnvironmentLeavesSpeechOptional(t *testing.T) {
-	config, err := OpenAIClientConfigFromEnvironment(func(name string) string {
-		if name == "OPENAI_API_KEY" {
-			return "sk-generic-must-not-be-used"
-		}
-		return ""
-	}, ignoreEnvironmentClear)
+	config, err := OpenAIClientConfigFromEnvironment(func(string) string { return "" }, ignoreEnvironmentClear)
 	if err != nil {
 		t.Fatalf("speech config from environment: %v", err)
 	}

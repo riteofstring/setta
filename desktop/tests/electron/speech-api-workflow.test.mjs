@@ -55,7 +55,7 @@ try {
     extraEnv: {
       SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: provider.baseURL,
-      SETTA_OPENAI_SPEECH_API_KEY: provider.apiKey,
+      OPENAI_API_KEY: provider.apiKey,
     },
     fixture,
     visible: options.visible,

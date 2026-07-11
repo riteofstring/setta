@@ -103,12 +103,10 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 	var cleared string
 	deps.getenv = func(name string) string {
 		switch name {
-		case "OPENAI_API_KEY":
-			return "sk-generic-must-not-be-used"
 		case "SETTA_E2E":
 			return "1"
 		case speech.APIKeyEnvironmentVariable:
-			return "sk-setta-speech-serve"
+			return "sk-openai-speech-serve"
 		case speech.E2EBaseURLEnvironmentVariable:
 			return "http://127.0.0.1:24892/v1"
 		default:
@@ -126,8 +124,8 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serve options: %v", err)
 	}
-	if options.Speech.APIKey != "sk-setta-speech-serve" {
-		t.Fatalf("speech API key = %q, want Setta-specific value", options.Speech.APIKey)
+	if options.Speech.APIKey != "sk-openai-speech-serve" {
+		t.Fatalf("speech API key = %q, want OpenAI API key", options.Speech.APIKey)
 	}
 	if options.Speech.BaseURL != "http://127.0.0.1:24892/v1" || !options.Speech.AllowTestBaseURL {
 		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech)
