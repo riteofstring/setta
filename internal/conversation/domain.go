@@ -3,6 +3,7 @@ package conversation
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -229,17 +230,45 @@ func validateTurnTimeline(turn ConversationTurn) (turnTimeline, error) {
 }
 
 func validateTurnInvocation(turn ConversationTurn) error {
-	if turn.ResolvedInvocation != nil {
-		if err := turn.ResolvedInvocation.Validate(); err != nil {
-			return fmt.Errorf("turn %s resolved invocation: %w", turn.ID, err)
-		}
-		if turn.ResolvedInvocation.Role != RoleAgent {
-			return fmt.Errorf("turn %s resolved invocation role must be %s", turn.ID, RoleAgent)
-		}
+	if err := validateResolvedTurnInvocation(turn); err != nil {
+		return err
 	}
+	if err := validateTurnProviderReference(turn); err != nil {
+		return err
+	}
+	return validateTurnFailure(turn)
+}
+
+func validateResolvedTurnInvocation(turn ConversationTurn) error {
+	if turn.ResolvedInvocation == nil {
+		return nil
+	}
+	if err := turn.ResolvedInvocation.Validate(); err != nil {
+		return fmt.Errorf("turn %s resolved invocation: %w", turn.ID, err)
+	}
+	if turn.ResolvedInvocation.Role != RoleAgent {
+		return fmt.Errorf("turn %s resolved invocation role must be %s", turn.ID, RoleAgent)
+	}
+	if !reflect.DeepEqual(turn.ResolvedInvocation.Requested, turn.RequestedRoleProfile) {
+		return fmt.Errorf("turn %s resolved invocation requested profile does not match the accepted turn profile", turn.ID)
+	}
+	return nil
+}
+
+func validateTurnProviderReference(turn ConversationTurn) error {
 	if err := validateOptionalIdentifier("turn provider turn id", turn.ProviderTurnID); err != nil {
 		return err
 	}
+	if turn.ResolvedInvocation == nil && turn.ProviderTurnID != nil {
+		return fmt.Errorf("turn %s cannot have a provider turn without a resolved invocation", turn.ID)
+	}
+	if turn.ResolvedInvocation != nil && !equalOptionalString(turn.ProviderTurnID, turn.ResolvedInvocation.ProviderReferences.TurnID) {
+		return fmt.Errorf("turn %s provider turn id does not match the resolved invocation", turn.ID)
+	}
+	return nil
+}
+
+func validateTurnFailure(turn ConversationTurn) error {
 	if turn.Error != nil {
 		if err := turn.Error.Validate(); err != nil {
 			return fmt.Errorf("turn %s failure: %w", turn.ID, err)
@@ -276,12 +305,18 @@ func validateRunningTurnLifecycle(turn ConversationTurn, timeline turnTimeline) 
 	if !timeline.hasStarted || timeline.hasEnded || turn.ResolvedInvocation == nil || turn.ProviderTurnID == nil || turn.Error != nil {
 		return fmt.Errorf("running turn %s must have start, invocation, and provider turn without terminal state", turn.ID)
 	}
+	if turn.ResolvedInvocation.Outcome != InvocationOutcomeRunning {
+		return fmt.Errorf("running turn %s requires a running invocation, got %s", turn.ID, turn.ResolvedInvocation.Outcome)
+	}
 	return nil
 }
 
 func validateCompletedTurnLifecycle(turn ConversationTurn, timeline turnTimeline) error {
 	if !timeline.hasStarted || !timeline.hasEnded || turn.ResolvedInvocation == nil || turn.ProviderTurnID == nil || turn.Error != nil {
 		return fmt.Errorf("completed turn %s has incomplete or conflicting terminal state", turn.ID)
+	}
+	if turn.ResolvedInvocation.Outcome != InvocationOutcomeSucceeded {
+		return fmt.Errorf("completed turn %s requires a succeeded invocation, got %s", turn.ID, turn.ResolvedInvocation.Outcome)
 	}
 	return nil
 }
@@ -290,12 +325,28 @@ func validateFailedTurnLifecycle(turn ConversationTurn, timeline turnTimeline) e
 	if !timeline.hasEnded || turn.Error == nil {
 		return fmt.Errorf("failed turn %s must have end time and failure", turn.ID)
 	}
+	if err := validateOptionalTerminalTurnInvocation(turn, timeline, InvocationOutcomeFailed); err != nil {
+		return err
+	}
 	return nil
 }
 
 func validateCancelledTurnLifecycle(turn ConversationTurn, timeline turnTimeline) error {
 	if !timeline.hasEnded || turn.Error != nil {
 		return fmt.Errorf("cancelled turn %s must have end time and no failure", turn.ID)
+	}
+	if err := validateOptionalTerminalTurnInvocation(turn, timeline, InvocationOutcomeCancelled); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateOptionalTerminalTurnInvocation(turn ConversationTurn, timeline turnTimeline, expected InvocationOutcome) error {
+	if timeline.hasStarted != (turn.ResolvedInvocation != nil) {
+		return fmt.Errorf("%s turn %s start and resolved invocation must either both be present or both be absent", turn.Status, turn.ID)
+	}
+	if turn.ResolvedInvocation != nil && turn.ResolvedInvocation.Outcome != expected {
+		return fmt.Errorf("%s turn %s requires a %s invocation, got %s", turn.Status, turn.ID, expected, turn.ResolvedInvocation.Outcome)
 	}
 	return nil
 }
@@ -491,4 +542,11 @@ func validateStringMap(label string, values map[string]string) error {
 		}
 	}
 	return nil
+}
+
+func equalOptionalString(left *string, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }

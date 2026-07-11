@@ -368,6 +368,9 @@ func validateInvocationReroutes(invocation ResolvedInvocation) error {
 		if err := reroute.Validate(); err != nil {
 			return fmt.Errorf("invocation %s model reroute %d: %w", invocation.ID, index, err)
 		}
+		if index == 0 && reroute.FromModelID != invocation.Resolved.ModelID {
+			return fmt.Errorf("invocation %s first model reroute starts from %q, want resolved model %q", invocation.ID, reroute.FromModelID, invocation.Resolved.ModelID)
+		}
 		if index > 0 && invocation.ModelReroutes[index-1].ToModelID != reroute.FromModelID {
 			return fmt.Errorf("invocation %s model reroutes are not contiguous at index %d", invocation.ID, index)
 		}

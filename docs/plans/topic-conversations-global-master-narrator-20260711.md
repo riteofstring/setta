@@ -2151,3 +2151,16 @@ Implementation is in progress under this plan.
   No production composition root changed, so a chat/Electron workflow gate is
   not evidence needed for this isolated type slice. Phase 1 item 3 is next,
   with no external blocker.
+- 2026-07-11: The Phase 1 item 2 review tightened the committed domain
+  invariants before persistence helpers begin. A turn's accepted role profile
+  and provider turn reference must now match its resolved invocation, and
+  running/completed/failed/cancelled turn status cannot disagree with the
+  invocation outcome. Model-reroute audit chains must begin at the resolved
+  model. Status-only narrator calls cannot emit milestones or topic
+  descriptors, narrator degradation records require diagnostic references and
+  coherent timestamps, presentation reuse cannot identify the owning
+  conversation as its own conflict, and structured-input questions/resolutions
+  reject ambiguous shapes. Focused race tests and the focused quality gate pass
+  for `internal/conversation` and `internal/workspaceui/conversationpalette`.
+  Generated inputs and outputs changed: none. Phase 1 item 3 remains next, with
+  no external blocker.

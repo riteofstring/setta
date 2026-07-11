@@ -1,6 +1,9 @@
 package conversation
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type NarratorStatus string
 type NarrationEventKind string
@@ -89,6 +92,9 @@ func (degradation NarratorDegradation) Validate() error {
 	if err := validateTrimmedText("narrator degradation message", degradation.Message); err != nil {
 		return err
 	}
+	if err := validateIdentifier("narrator degradation diagnostic reference", degradation.DiagnosticReference); err != nil {
+		return err
+	}
 	_, err := validateTimestamp("narrator degradation degradedAt", degradation.DegradedAt)
 	return err
 }
@@ -103,11 +109,6 @@ func (state NarratorState) Validate() error {
 	if err := validateNarratorFocus(state); err != nil {
 		return err
 	}
-	if state.LastInvocationAt != nil {
-		if _, err := validateTimestampPointer("narrator lastInvocationAt", state.LastInvocationAt); err != nil {
-			return err
-		}
-	}
 	if state.Degradation != nil {
 		if err := state.Degradation.Validate(); err != nil {
 			return err
@@ -116,8 +117,46 @@ func (state NarratorState) Validate() error {
 	if err := validateNarratorStatus(state); err != nil {
 		return err
 	}
-	_, err := validateTimestamp("narrator state updatedAt", state.UpdatedAt)
-	return err
+	return validateNarratorStateTimeline(state)
+}
+
+func validateNarratorStateTimeline(state NarratorState) error {
+	updatedAt, err := validateTimestamp("narrator state updatedAt", state.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	if err := validateOptionalTimestampNotAfter("narrator lastInvocationAt", state.LastInvocationAt, updatedAt); err != nil {
+		return fmt.Errorf("narrator state %s: %w", state.ConversationID, err)
+	}
+	if state.Degradation == nil {
+		return nil
+	}
+	return validateNarratorDegradedAt(state, updatedAt)
+}
+
+func validateOptionalTimestampNotAfter(label string, value *string, limit time.Time) error {
+	if value == nil {
+		return nil
+	}
+	parsed, err := validateTimestampPointer(label, value)
+	if err != nil {
+		return err
+	}
+	if parsed.After(limit) {
+		return fmt.Errorf("%s follows updatedAt", label)
+	}
+	return nil
+}
+
+func validateNarratorDegradedAt(state NarratorState, updatedAt time.Time) error {
+	degradedAt, err := validateTimestamp("narrator degradation degradedAt", state.Degradation.DegradedAt)
+	if err != nil {
+		return err
+	}
+	if degradedAt.After(updatedAt) {
+		return fmt.Errorf("narrator state %s degradedAt follows updatedAt", state.ConversationID)
+	}
+	return nil
 }
 
 func validateNarratorCursors(state NarratorState) error {
@@ -257,6 +296,9 @@ func validateMilestoneEvent(event NarrationEvent) error {
 	if event.TurnID == nil {
 		return fmt.Errorf("milestone narration event %s requires turn id", event.ID)
 	}
+	if event.Trigger == NarrationTriggerExplicitStatusRequested {
+		return fmt.Errorf("milestone narration event %s cannot be emitted by a status-only call", event.ID)
+	}
 	return validateTrimmedText("narration milestone text", event.Milestone.Text)
 }
 
@@ -286,6 +328,12 @@ func validateFinalSummaryEvent(event NarrationEvent) error {
 func validateTopicDescriptorEvent(event NarrationEvent) error {
 	if event.TopicDescriptor == nil {
 		return fmt.Errorf("narration event %s kind %s requires topic descriptor payload", event.ID, event.Kind)
+	}
+	if event.TurnID == nil {
+		return fmt.Errorf("topic descriptor narration event %s requires turn id", event.ID)
+	}
+	if event.Trigger == NarrationTriggerExplicitStatusRequested {
+		return fmt.Errorf("topic descriptor narration event %s cannot be emitted by a status-only call", event.ID)
 	}
 	return validateTrimmedText("narration topic descriptor text", event.TopicDescriptor.Text)
 }

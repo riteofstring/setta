@@ -169,6 +169,35 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 	}
 }
 
+func TestStructuredInputContractsRejectAmbiguousQuestionAndResolutionShapes(t *testing.T) {
+	question := ApprovalQuestion{
+		ID:       "question-1",
+		Header:   "Scope",
+		Question: "Which scope should be used?",
+		Options:  []string{"Workspace", "Conversation"},
+	}
+	if err := question.Validate(); err != nil {
+		t.Fatalf("valid approval question: %v", err)
+	}
+	question.Header = ""
+	assertValidationErrorContains(t, question.Validate(), "header is required")
+	question.Header = "Scope"
+	question.Options = []string{"Workspace", "Workspace"}
+	assertValidationErrorContains(t, question.Validate(), "is duplicated")
+
+	resolution := ApprovalResolution{
+		ApprovalID: "approval-1",
+		Decision:   ApprovalDecisionApproved,
+		Response:   "unexpected",
+		Answers:    map[string]string{},
+		ResolvedAt: testTimeEnded,
+	}
+	assertValidationErrorContains(t, resolution.Validate(), "must not include a response")
+	resolution.Decision = ApprovalDecisionAnswered
+	resolution.Response = " padded "
+	assertValidationErrorContains(t, resolution.Validate(), "surrounding whitespace")
+}
+
 func TestTrajectoryEventRejectsMismatchedAndMultiplePayloadBranches(t *testing.T) {
 	event := baseTrajectoryEvent(TrajectoryEventTurnQueued)
 	event.TurnQueued = &TrajectoryTurnQueued{QueueOrdinal: 1}

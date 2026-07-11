@@ -536,16 +536,24 @@ func (question ApprovalQuestion) Validate() error {
 	if err := validateIdentifier("approval question id", question.ID); err != nil {
 		return err
 	}
+	if err := validateTrimmedText("approval question header", question.Header); err != nil {
+		return err
+	}
 	if err := validateTrimmedText("approval question", question.Question); err != nil {
 		return err
 	}
 	if question.Options == nil {
 		return fmt.Errorf("approval question options must be an array, not null")
 	}
+	seenOptions := map[string]bool{}
 	for _, option := range question.Options {
 		if err := validateTrimmedText("approval question option", option); err != nil {
 			return err
 		}
+		if seenOptions[option] {
+			return fmt.Errorf("approval question option %q is duplicated", option)
+		}
+		seenOptions[option] = true
 	}
 	return nil
 }
@@ -652,23 +660,45 @@ func (resolution ApprovalResolution) Validate() error {
 	if err := validateStringMap("approval answers", resolution.Answers); err != nil {
 		return err
 	}
+	if err := validateApprovalResolutionDecision(resolution); err != nil {
+		return err
+	}
+	_, err := validateTimestamp("approval resolvedAt", resolution.ResolvedAt)
+	return err
+}
+
+func validateApprovalResolutionDecision(resolution ApprovalResolution) error {
 	switch resolution.Decision {
 	case ApprovalDecisionApproved,
 		ApprovalDecisionApprovedForSession,
 		ApprovalDecisionDenied,
 		ApprovalDecisionCancelled:
-		if len(resolution.Answers) != 0 {
-			return fmt.Errorf("approval decision %s must not include structured answers", resolution.Decision)
-		}
+		return validateApprovalResolutionWithoutAnswer(resolution)
 	case ApprovalDecisionAnswered:
-		if len(resolution.Answers) == 0 && strings.TrimSpace(resolution.Response) == "" {
-			return fmt.Errorf("answered approval requires answers or response")
-		}
+		return validateAnsweredApprovalResolution(resolution)
 	default:
 		return fmt.Errorf("unsupported approval decision %q", resolution.Decision)
 	}
-	_, err := validateTimestamp("approval resolvedAt", resolution.ResolvedAt)
-	return err
+}
+
+func validateApprovalResolutionWithoutAnswer(resolution ApprovalResolution) error {
+	if len(resolution.Answers) != 0 {
+		return fmt.Errorf("approval decision %s must not include structured answers", resolution.Decision)
+	}
+	if resolution.Response != "" {
+		return fmt.Errorf("approval decision %s must not include a response", resolution.Decision)
+	}
+	return nil
+}
+
+func validateAnsweredApprovalResolution(resolution ApprovalResolution) error {
+	if len(resolution.Answers) == 0 && strings.TrimSpace(resolution.Response) == "" {
+		return fmt.Errorf("answered approval requires answers or response")
+	}
+	if resolution.Response != "" && strings.TrimSpace(resolution.Response) != resolution.Response {
+		return fmt.Errorf("approval response must not have surrounding whitespace")
+	}
+	return nil
 }
 
 func (subagent Subagent) Validate() error {

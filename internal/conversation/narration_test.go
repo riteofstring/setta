@@ -28,6 +28,9 @@ func TestNarratorStateEnforcesContiguousCursorAndDegradationInvariants(t *testin
 	invalid = state
 	invalid.Status = NarratorStatusDegraded
 	assertValidationErrorContains(t, invalid.Validate(), "requires degradation")
+	invalid = state
+	invalid.LastInvocationAt = stringPointer("2026-07-11T20:02:00Z")
+	assertValidationErrorContains(t, invalid.Validate(), "follows updatedAt")
 
 	state.Status = NarratorStatusDegraded
 	state.Degradation = &NarratorDegradation{
@@ -40,6 +43,8 @@ func TestNarratorStateEnforcesContiguousCursorAndDegradationInvariants(t *testin
 	if err := state.Validate(); err != nil {
 		t.Fatalf("valid degraded narrator state: %v", err)
 	}
+	state.Degradation.DiagnosticReference = ""
+	assertValidationErrorContains(t, state.Validate(), "diagnostic reference is required")
 }
 
 func TestNarrationEventsAreStrictChannelSpecificRecords(t *testing.T) {
@@ -106,6 +111,16 @@ func TestNarrationEventsAreStrictChannelSpecificRecords(t *testing.T) {
 	event.Trigger = NarrationTriggerCheckpointWindowExceeded
 	event.Milestone = &NarrationMilestone{Text: "Must not be emitted."}
 	assertValidationErrorContains(t, event.Validate(), "unsupported projection trigger")
+
+	event = baseNarrationEvent(NarrationEventKindMilestone)
+	event.Trigger = NarrationTriggerExplicitStatusRequested
+	event.Milestone = &NarrationMilestone{Text: "Must not be emitted by a status call."}
+	assertValidationErrorContains(t, event.Validate(), "status-only call")
+
+	event = baseNarrationEvent(NarrationEventKindTopicDescriptor)
+	event.Trigger = NarrationTriggerExplicitStatusRequested
+	event.TopicDescriptor = &NarrationTopicDescriptor{Text: "Must not be emitted by a status call."}
+	assertValidationErrorContains(t, event.Validate(), "status-only call")
 }
 
 func baseNarrationEvent(kind NarrationEventKind) NarrationEvent {

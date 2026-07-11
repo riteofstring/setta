@@ -40,8 +40,28 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	if err := turn.Validate(); err != nil {
 		t.Fatalf("valid running turn: %v", err)
 	}
+	mismatchedProfile := turn
+	mismatchedProfile.ResolvedInvocation = invocationPointer(*turn.ResolvedInvocation)
+	mismatchedProfile.ResolvedInvocation.Requested = validRoleProfile(RoleAgent)
+	mismatchedProfile.ResolvedInvocation.Requested.ReasoningEffort = ReasoningEffortHigh
+	assertValidationErrorContains(t, mismatchedProfile.Validate(), "requested profile does not match")
+	mismatchedProviderTurn := turn
+	mismatchedProviderTurn.ProviderTurnID = stringPointer("different-provider-turn")
+	assertValidationErrorContains(t, mismatchedProviderTurn.Validate(), "provider turn id does not match")
+	terminalInvocation := turn
+	terminalInvocation.ResolvedInvocation = invocationPointer(validInvocation(RoleAgent, InvocationOutcomeSucceeded))
+	assertValidationErrorContains(t, terminalInvocation.Validate(), "requires a running invocation")
 	turn.Status = TurnStatusCompleted
 	assertValidationErrorContains(t, turn.Validate(), "completed turn")
+
+	failed := validConversationTurn(TurnStatusFailed)
+	failed.ResolvedInvocation.Outcome = InvocationOutcomeCancelled
+	failed.ResolvedInvocation.Failure = nil
+	assertValidationErrorContains(t, failed.Validate(), "requires a failed invocation")
+
+	cancelled := validConversationTurn(TurnStatusCancelled)
+	cancelled.ProviderTurnID = stringPointer("orphan-provider-turn")
+	assertValidationErrorContains(t, cancelled.Validate(), "without a resolved invocation")
 
 	queued := QueuedConversationTurn{
 		TurnID:         "turn-queued",
@@ -126,7 +146,7 @@ func TestRoleProfilesKeepSelectionsPermissionsAndAuditIndependent(t *testing.T) 
 
 	invocation := validInvocation(RoleAgent, InvocationOutcomeSucceeded)
 	invocation.ModelReroutes = []InvocationModelReroute{
-		{FromModelID: "gpt-heavy", ToModelID: "gpt-fallback", Reason: "high_risk_cyber_activity"},
+		{FromModelID: invocation.Resolved.ModelID, ToModelID: "gpt-fallback", Reason: "high_risk_cyber_activity"},
 		{FromModelID: "gpt-fallback", ToModelID: "gpt-safe", Reason: "provider_policy"},
 	}
 	if err := invocation.Validate(); err != nil {
@@ -134,6 +154,8 @@ func TestRoleProfilesKeepSelectionsPermissionsAndAuditIndependent(t *testing.T) 
 	}
 	invocation.ModelReroutes[1].FromModelID = "not-contiguous"
 	assertValidationErrorContains(t, invocation.Validate(), "not contiguous")
+	invocation.ModelReroutes[0].FromModelID = "not-the-resolved-model"
+	assertValidationErrorContains(t, invocation.Validate(), "want resolved model")
 
 	failed := validInvocation(RoleAgent, InvocationOutcomeFailed)
 	failed.Failure = nil
@@ -167,6 +189,9 @@ func TestPresentationProfileMakesAutomaticReuseAndExactOverridesExplicit(t *test
 	if err := profile.Validate(); err != nil {
 		t.Fatalf("valid explicit catalog reuse: %v", err)
 	}
+	profile.NarratorVoiceReuse.ConflictingConversationIDs = []string{profile.ConversationID}
+	assertValidationErrorContains(t, profile.Validate(), "cannot conflict with itself")
+	profile.NarratorVoiceReuse.ConflictingConversationIDs = []string{"conversation-3"}
 
 	exactPalette := conversationpalette.ConversationPaletteViolet
 	profile.PaletteSelection = PresentationSelectionExact

@@ -78,6 +78,9 @@ func (profile ConversationPresentationProfile) Validate() error {
 	); err != nil {
 		return fmt.Errorf("presentation profile %s: %w", profile.ConversationID, err)
 	}
+	if err := validatePresentationReuseOwnership(profile.ConversationID, profile.PaletteReuse); err != nil {
+		return err
+	}
 	resolvedVoiceID := ""
 	if profile.ResolvedNarratorVoiceID != nil {
 		resolvedVoiceID = *profile.ResolvedNarratorVoiceID
@@ -94,8 +97,23 @@ func (profile ConversationPresentationProfile) Validate() error {
 	); err != nil {
 		return fmt.Errorf("presentation profile %s: %w", profile.ConversationID, err)
 	}
+	if err := validatePresentationReuseOwnership(profile.ConversationID, profile.NarratorVoiceReuse); err != nil {
+		return err
+	}
 	_, err := validateTimestamp("presentation profile updatedAt", profile.UpdatedAt)
 	return err
+}
+
+func validatePresentationReuseOwnership(conversationID string, reuse *PresentationReuse) error {
+	if reuse == nil {
+		return nil
+	}
+	for _, conflictingConversationID := range reuse.ConflictingConversationIDs {
+		if conflictingConversationID == conversationID {
+			return fmt.Errorf("presentation profile %s cannot conflict with itself", conversationID)
+		}
+	}
+	return nil
 }
 
 func validatePresentationSelection(
