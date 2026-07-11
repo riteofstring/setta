@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 items 1-2 complete
+**Status:** Implementation in progress — Phase 1 items 1-2 audited complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -956,8 +956,9 @@ plane:
    confirmation from the target UI.
 7. Replace compact mechanical terminal tails with deterministic human-readable
    duration/artifact prose.
-8. Regenerate contracts before cleanup and update focused chat/easy-run store,
-   event, renderer, deterministic Electron, and live Codex coverage.
+8. Regenerate contracts and the checked-in PWA bundle before cleanup, then
+   update focused chat/easy-run store, event, renderer, deterministic Electron,
+   and live Codex coverage.
 
 This phase applies equally to typed and future voice steering and should land
 first. It establishes lossless execution and the authoritative presentation
@@ -1087,6 +1088,49 @@ Items 4-8 then add narrator focus-dirty/watermark behavior, the focus-aware
 narrator contract, renderer Current focus states, speakable mechanical
 summaries, and the corresponding broader coverage. No blocker was found for
 the next Phase 1 implementation work itself.
+
+### 2026-07-10 — Phase 1 current-focus audit complete
+
+Audited commit `5599e05dc` against this plan, `AGENTS.md`, its parent, the clean
+worktree, the Go-owned contracts, generated TypeScript, persistence validation,
+renderer consumers, and production-path tests. The source slice correctly
+writes only schema version 2, rejects version 1 and missing Current focus,
+initializes revision zero from the same shared-normalized text delivered through
+the regular chat path, publishes the complete run, and keeps steering on the
+existing full-fidelity chat path. No compatibility path or parallel execution
+record was found.
+
+The audit found one practical generated-artifact gap: the checked-in PWA bundle
+still contained backend protocol version 10 even though the source contract had
+moved to version 11. A served web client would reject the new backend before it
+could decode Current focus. `pnpm -C desktop build:web` regenerated
+`internal/webapp/static` from the current generated client; the embedded bundle
+now carries protocol version 11 and the required Current focus decoder. Future
+generated-client changes must rebuild and commit this checked-in bundle as well
+as `desktop/src/generated/backend.ts`.
+
+Audit verification completed:
+
+- contract regeneration was idempotent, and focused Easy Run, HTTP API,
+  generator, embedded-webapp, main/event, and renderer-store tests passed;
+- Electron and web typechecks/builds passed;
+- the deterministic production Easy Button workflow passed at
+  `desktop/.recordings/easy-button-speech-audit-current-focus`, including
+  schema-version-2 focus through start, terminal state, stop, reload,
+  compact/reduced-motion cases, and the existing pixel-match companion;
+- `./scripts/format.sh` and the non-live portions of
+  `./check_quality.sh --all`, including the full required deterministic Electron
+  manifest, passed.
+
+ChatGPT authentication remains available. With `OPENAI_API_KEY` removed, the
+live Electron chat, live Easy Button, and all four backend live Codex probes
+again failed before run creation because `model/list` advertises reasoning
+effort `max` and the existing Setta provider decoder rejects it. The broad
+quality gate therefore remains non-zero and this is still not live-provider
+validation for the current-focus slice. The supply-chain gate also remains
+blocked by GO-2026-5856 in the pinned Go 1.26.4 standard library, fixed in Go
+1.26.5. Neither blocker prevents Phase 1 item 3; resolving them remains separate
+provider-contract and pinned-toolchain work.
 
 ## Verification Plan
 
