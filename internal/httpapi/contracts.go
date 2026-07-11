@@ -21,7 +21,6 @@ type RuntimeInfoResponse struct {
 	BackendName            string                        `json:"backendName"`
 	BackendVersion         string                        `json:"backendVersion"`
 	ProtocolVersion        int                           `json:"protocolVersion"`
-	FeatureSet             RuntimeFeatureSet             `json:"featureSet"`
 	VAPIDPublicKey         string                        `json:"vapidPublicKey"`
 }
 
@@ -29,11 +28,6 @@ type RuntimeInfrastructureProvider struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName"`
 	IconURL     string `json:"iconUrl"`
-}
-
-type RuntimeFeatureSet struct {
-	Version  int      `json:"version"`
-	Features []string `json:"features"`
 }
 
 type UpdateRuntimeDisplayNameRequest struct {
@@ -50,31 +44,6 @@ type CompletePairingResponse struct {
 	DeviceToken     string `json:"deviceToken"`
 	RuntimeID       string `json:"runtimeId"`
 	ProtocolVersion int    `json:"protocolVersion"`
-}
-
-type CreateDevicePairingRequest struct {
-	RuntimeBaseURL string `json:"runtimeBaseUrl"`
-}
-
-type CreateDevicePairingResponse struct {
-	PairingURL string `json:"pairingUrl"`
-	ExpiresAt  string `json:"expiresAt"`
-}
-
-type SetupAttestationRequest struct {
-	ProvisionID     string `json:"provisionId"`
-	Nonce           string `json:"nonce"`
-	NodeFingerprint string `json:"nodeFingerprint"`
-}
-
-type SetupAttestationResponse struct {
-	Algorithm       string `json:"algorithm"`
-	RuntimeID       string `json:"runtimeId"`
-	ProvisionID     string `json:"provisionId"`
-	Nonce           string `json:"nonce"`
-	NodeFingerprint string `json:"nodeFingerprint"`
-	ExpiresAt       string `json:"expiresAt"`
-	Attestation     string `json:"attestation"`
 }
 
 type ListDevicesRequest struct{}
@@ -166,6 +135,40 @@ type ReadWorkspaceActivitySnapshotRequest struct {
 
 type ReadWorkspaceActivitySnapshotResponse struct {
 	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
+}
+
+type ReadEasyRunSnapshotRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type StartEasyRunRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	RequestText string `json:"requestText"`
+}
+
+type SteerEasyRunRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	Text        string `json:"text"`
+}
+
+type StopEasyRunRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	EasyRunID   string `json:"easyRunId"`
+}
+
+type CreateSpeechTranscriptionSessionRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type SynthesizeEasyRunSummaryRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	EasyRunID   string `json:"easyRunId"`
+}
+
+type SynthesizeEasyRunHighlightRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	EasyRunID   string `json:"easyRunId"`
+	HighlightID string `json:"highlightId"`
 }
 
 type ReadWorkflowExecutionActivityRequest struct {
@@ -892,17 +895,13 @@ type TerminalSessionResponse struct {
 	Session TerminalSessionSummary `json:"session"`
 }
 
-type CreateTerminalStreamTicketRequest struct {
-	ClientStreamID string `json:"clientStreamId"`
+type TerminalInputRequest struct {
+	SessionID  string `json:"sessionId"`
+	DataBase64 string `json:"dataBase64"`
 }
 
-type CreateTerminalStreamTicketResponse struct {
-	Ticket              string `json:"ticket"`
-	ClientStreamID      string `json:"clientStreamId"`
-	ExpiresAt           string `json:"expiresAt"`
-	ExpiresInSeconds    int    `json:"expiresInSeconds"`
-	MaxInputBytes       int    `json:"maxInputBytes"`
-	MaxQueuedInputBytes int    `json:"maxQueuedInputBytes"`
+type TerminalInputResponse struct {
+	AcceptedBytes int `json:"acceptedBytes"`
 }
 
 type ResizeTerminalRequest struct {
@@ -940,9 +939,10 @@ type SelectDefaultTerminalProfileRequest struct {
 }
 
 type APIError struct {
-	Code            string                                 `json:"code"`
-	Message         string                                 `json:"message"`
-	ActiveExecution *orchestrator.WorkflowExecutionSummary `json:"activeExecution"`
+	Code             string                                 `json:"code"`
+	Message          string                                 `json:"message"`
+	OperationApplied bool                                   `json:"operationApplied"`
+	ActiveExecution  *orchestrator.WorkflowExecutionSummary `json:"activeExecution"`
 }
 
 type ErrorResponse struct {

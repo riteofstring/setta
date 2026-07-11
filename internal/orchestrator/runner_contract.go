@@ -22,12 +22,13 @@ type WorkflowActionStartMetadata struct {
 }
 
 type RunnerAttemptStartedPayload struct {
-	RunnerRefs       []WorkflowActionRunnerRef `json:"runnerRefs"`
-	Capabilities     RunnerCapabilities        `json:"capabilities"`
-	InputHash        string                    `json:"inputHash"`
-	IdempotencyKey   string                    `json:"idempotencyKey"`
-	SideEffectPolicy SideEffectPolicy          `json:"sideEffectPolicy"`
-	ActivityRefs     []WorkflowActivityRef     `json:"activityRefs"`
+	RunnerRefs       []WorkflowActionRunnerRef          `json:"runnerRefs"`
+	Capabilities     RunnerCapabilities                 `json:"capabilities"`
+	InputHash        string                             `json:"inputHash"`
+	IdempotencyKey   string                             `json:"idempotencyKey"`
+	SideEffectPolicy SideEffectPolicy                   `json:"sideEffectPolicy"`
+	ActivityRefs     []WorkflowActivityRef              `json:"activityRefs"`
+	RunSettings      *WorkflowAgentEffectiveRunSettings `json:"runSettings"`
 }
 
 type RunnerApprovalRequestedPayload struct {

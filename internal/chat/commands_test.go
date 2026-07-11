@@ -104,6 +104,15 @@ func TestModelSelectionCommandsAreTypedActions(t *testing.T) {
 	}
 }
 
+func TestReasoningEffortDisplayNamesIncludeCurrentCodexLevels(t *testing.T) {
+	if got := reasoningEffortDisplayName(ReasoningEffortMax); got != "Max" {
+		t.Fatalf("max display name = %q, want Max", got)
+	}
+	if got := reasoningEffortDisplayName(ReasoningEffortUltra); got != "Ultra" {
+		t.Fatalf("ultra display name = %q, want Ultra", got)
+	}
+}
+
 func TestParseChatCommandRejectsMalformedAndUnknownInput(t *testing.T) {
 	tests := []struct {
 		raw  string

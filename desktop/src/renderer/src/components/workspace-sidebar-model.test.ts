@@ -399,6 +399,7 @@ function conversationListItem(
       title,
       updatedAt: "2026-05-29T20:00:00Z",
       workflow: null,
+      easyRun: null,
       workspaceId,
     },
     latestReadRelevantMarker: markers.latestReadRelevantMarker,
@@ -420,6 +421,7 @@ function workflowDefinition(id: string, name: string): WorkflowDefinition {
     createdAt: "2026-05-29T20:00:00Z",
     description: "",
     graph: {
+      agentDefaults: { model: "", permission: null, reasoningEffort: null },
       edges: [],
       layout: { nodes: [] },
       nodes: [],
