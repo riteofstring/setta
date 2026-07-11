@@ -2,10 +2,61 @@
 
 **Date:** 2026-07-11
 
-**Phase status:** In progress. The interim remote Tailscale spot-check is
-complete and is recorded below. The scheduler-decision segmentation, the
-deterministic network-delay matrix, the remaining Go/TypeScript/renderer/
-workflow coverage, and the final live validation have not started.
+**Phase status:** Complete. The interim remote Tailscale spot-check, the
+scheduler-decision segmentation, the deterministic coverage additions, and
+the final live validation are recorded below. The deterministic
+network-delay matrix was built and then closed without suite registration by
+direction (it is expected to be deprecated); its findings are recorded in
+the plan's checklist note.
+
+## Final live Tailscale validation
+
+Run on desktop source `b0d0641fd` (which includes the scheduler
+immediate/coalesced recording, bulk-drain gating, and companion coalescing)
+against the deployed `phase6-protocol15-b2ec9ab79` runtime on `setta-devbox`.
+Artifact: `.recordings/remote-terminal-latency/phase-6-final-tailscale`.
+The workflow passed, the fast-typing ordered output marker was preserved,
+and all ten route samples were direct via `100.52.178.220` (35-61 ms). A
+DERP-routed run was not captured: forcing relay fallback requires blocking
+the direct UDP path with host firewall changes, which was not done; per the
+plan this is recorded explicitly rather than blocking completion, and with
+the deterministic matrix closed there is no 100 ms stand-in profile — the
+DERP behavior remains unmeasured.
+
+Input (110 samples; remote clock offset 186.5 ms ±17.5 by minimum-round-trip
+midpoint):
+
+| Input stage | Phase 1 baseline p50/p95 | Final p50/p95 |
+| --- | ---: | ---: |
+| Client round trip (dispatch-to-ack) | 69 / 275 ms | 45 / 111 ms |
+| Renderer receipt to acknowledgement | n/a | 46 / 112 ms |
+| Renderer receipt to PTY write, clock-corrected | 33 / 254 ms | 20.5 / 75.5 ms |
+| Handler receipt to PTY write | 0 / 1 ms | 0 / 0 ms |
+
+Output, segmented by the recorded scheduler decision (first remote run with
+segmentation; Phase 1 could only report aggregates):
+
+| Segment | Samples | Emission-to-paint p50 | Emission-to-paint p95 |
+| --- | ---: | ---: | ---: |
+| Interactive (immediate) | 139 | 38.5 ms | 247.5 ms |
+| Bulk (coalesced) | 243 | 133.5 ms | 264.5 ms |
+| Replay | 50 | 107.5 ms | 108.5 ms |
+
+Interactive typing echo paints at a median 38.5 ms on a 35-61 ms direct
+route — effectively network-bound. The interactive p95 tail is dominated by
+the emission-to-main network stage during the sustained-output window, where
+immediate-slot events share the socket with bulk delivery; the renderer-side
+stages stay at 13 ms p95 (main to xterm write) and 18 ms p95 (write to
+paint). The live recording contains no per-character `/terminals/input`
+requests; the endpoints no longer exist in protocol 15.
+
+Success criteria from the plan: terminal bytes remained ordered and lossless
+across the workload including fast typing (Phase 1 lost ordering); the local
+runtime workflows continue to pass; per-character HTTP requests are gone.
+The 15/35 ms transport-overhead budgets measure roughly 8-10 ms at p50
+(within budget) and above budget at p95 during burst windows; the formal
+budget-assertion mechanism was the deterministic matrix, which was closed by
+direction with its findings documented.
 
 ## Interim remote spot-check
 

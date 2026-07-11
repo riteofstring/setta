@@ -2,19 +2,19 @@
 
 **Date:** 2026-07-10
 
-**Status:** Phase 6 in progress. The interim remote Tailscale spot-check is
-complete on protocol 15 (input round trip improved from 69/275 ms p50/p95 to
-42/108 ms against the Phase 1 baseline; fast typing preserved ordering that
-the HTTP path lost; details in the Phase 6 report). The scheduler's
-immediate/coalesced/replay decision is recorded per output event and the
-analyzer segments by it. The renderer output scheduler now also suppresses
-immediate admissions while a coalesced write is still parsing and joins
-same-turn immediate chunks into one xterm write. The deterministic
-delay-profile workflow was built, surfaced real renderer-budget limits, and
-was closed without suite registration by direction (see the checklist note).
-Remaining: the rest of the Phase 6 deterministic coverage and the final live
-Tailscale validation, with the interim spot-check plus live runs as the
-acceptance evidence now that the deterministic matrix is closed.
+**Status:** Complete. All phases are done and the final live direct-route
+Tailscale validation passed on protocol 15: input round trip improved from
+69/275 ms p50/p95 (per-character HTTP baseline) to 45/111 ms on the duplex
+stream, interactive typing echo paints at a median 38.5 ms on a 35-61 ms
+route, fast typing preserves ordering the HTTP path lost, and per-character
+`/terminals/input` requests no longer exist. Known open ends, recorded
+deliberately: DERP-route behavior is unmeasured (no relay run was captured
+and the deterministic 100 ms stand-in was closed with the delay matrix by
+direction); the formal p95 transport/renderer budget assertions were closed
+with that matrix, with the measured limits documented in the checklist note;
+and the terminal-backend-crash workflow fails with a pre-existing CDP
+evaluate timeout unrelated to this work (see the Phase 6 coverage commit).
+Reports: Phase 1 through Phase 6 under `docs/reports/performance/`.
 
 ## Progress
 
@@ -87,11 +87,16 @@ acceptance evidence now that the deterministic matrix is closed.
   the write-to-paint budget as asserted measures requestAnimationFrame
   cadence and cannot pass as defined (p95 19 ms vs 16.7 ms). The 40/100 ms
   profiles did not execute because the workflow aborts on the local failure.
-- [ ] Add the remaining Phase 6 Go, TypeScript, renderer, and workflow
+- [x] Add the remaining Phase 6 Go, TypeScript, renderer, and workflow
   coverage.
-- [ ] Run the final live Tailscale validation; report the direct route as the
+- [x] Run the final live Tailscale validation; report the direct route as the
   acceptance run and the DERP route separately, or record explicitly that a
-  relay route could not be captured.
+  relay route could not be captured. The direct-route acceptance run passed
+  (input round trip 45/111 ms p50/p95 vs the 69/275 ms baseline; interactive
+  echo emission-to-paint p50 38.5 ms; ordering preserved). A relay route was
+  not captured: forcing DERP requires host firewall changes, and the 100 ms
+  deterministic stand-in was closed with the delay matrix; DERP behavior
+  remains unmeasured.
 
 ## Decision
 
