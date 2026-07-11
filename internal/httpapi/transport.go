@@ -13,6 +13,7 @@ import (
 	"setta/internal/jsonio"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
+	"setta/internal/speech"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspaceui"
@@ -61,6 +62,14 @@ func requireChatService(response http.ResponseWriter, service ChatService) ChatS
 func requireEasyRunService(response http.ResponseWriter, service EasyRunService) EasyRunService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "easy_run_service_unavailable", "easy-run service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireSpeechService(response http.ResponseWriter, service SpeechService) SpeechService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "speech_service_unavailable", "speech service is not available")
 		return nil
 	}
 	return service
@@ -225,6 +234,37 @@ func writeEasyRunError(response http.ResponseWriter, code string, err error) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())
+}
+
+func writeSpeechError(response http.ResponseWriter, fallbackCode string, err error) {
+	if speechError, ok := speech.AsError(err); ok {
+		writeError(response, speechErrorHTTPStatus(speechError.Code), string(speechError.Code), speechError.Error())
+		return
+	}
+	if easyrun.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_easy_run_state", err.Error())
+		return
+	}
+	status := http.StatusBadRequest
+	if easyrun.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, fallbackCode, err.Error())
+}
+
+func speechErrorHTTPStatus(code speech.ErrorCode) int {
+	switch code {
+	case speech.ErrorRateLimited:
+		return http.StatusTooManyRequests
+	case speech.ErrorProviderRejected, speech.ErrorProviderResponseMalformed, speech.ErrorAudioTooLarge:
+		return http.StatusBadGateway
+	case speech.ErrorNotConfigured, speech.ErrorProviderUnavailable:
+		return http.StatusServiceUnavailable
+	case speech.ErrorSourceUnavailable:
+		return http.StatusConflict
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 func writeCodexAccountError(response http.ResponseWriter, code string, err error) {

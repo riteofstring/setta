@@ -12,6 +12,7 @@ import (
 	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
+	"setta/internal/speech"
 	"setta/internal/terminal"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -78,6 +79,10 @@ var apiEndpoints = []endpoint{
 	post[SteerEasyRunRequest, easyrun.EasyRun]("SteerEasyRun", "/easy-runs/steer", handler.steerEasyRun),
 	post[StopEasyRunRequest, easyrun.EasyRun]("StopEasyRun", "/easy-runs/stop", handler.stopEasyRun),
 	streamEvent[easyrun.EasyRunEvent]("EasyRunEventStream", "/easy-runs/events", handler.easyRunEventStream),
+	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
+	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),
+	postWithRequestBodyLimit[SynthesizeEasyRunSummaryRequest, speech.SpeechAudio]("SynthesizeEasyRunSummary", "/speech/easy-runs/summary", speechRequestBodyLimitBytes, handler.synthesizeEasyRunSummary),
+	postWithRequestBodyLimit[SynthesizeEasyRunHighlightRequest, speech.SpeechAudio]("SynthesizeEasyRunHighlight", "/speech/easy-runs/highlight", speechRequestBodyLimitBytes, handler.synthesizeEasyRunHighlight),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),

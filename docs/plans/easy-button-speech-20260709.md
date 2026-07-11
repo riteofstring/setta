@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 complete; Phase 2 items 1-2 complete
+**Status:** Implementation in progress — Phase 1 complete; Phase 2 items 1-3 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1937,6 +1937,84 @@ services, authenticated handlers, and endpoint-registry entries. Items 4-6
 then wire those services into runtime/HTTP, regenerate the TypeScript and PWA
 surfaces, and complete the credential/log/persistence audit. The existing live
 Codex `max` drift does not block that deterministic work.
+
+### 2026-07-10 — Phase 2 speech service and endpoint contracts complete
+
+Implemented Phase 2 item 3 as a service/HTTP-contract slice without pulling
+production runtime wiring or renderer speech controls forward. `internal/speech`
+now owns a narrow application service over the existing OpenAI client, Easy Run
+snapshot reader, and workspace resolver. Capabilities report configuration facts
+without probing OpenAI. Transcription sessions first require a real open
+workspace, derive a stable SHA-256 safety identifier from the authenticated
+device principal without sending the raw device ID, and return only the
+ephemeral secret plus backend-owned effective model, delay, WebRTC URL, and
+limits.
+
+Summary and highlight synthesis accept persisted IDs only. Both require the
+requested Easy Run to be the latest visible run in the workspace. Summary
+synthesis accepts only completed, failed, or stopped runs with an exact bounded
+persisted summary; highlight synthesis requires exact highlight ownership by the
+same latest run. Neither path accepts arbitrary renderer text, rewrites a
+source, truncates it, or calls OpenAI after an unconfigured, stale, mismatched,
+missing, invalid, or oversized source is detected. Successful provider bytes
+are revalidated and returned as bounded generated-contract base64 with the
+persisted source ID.
+
+The four authenticated HTTP endpoints are now registered at
+`/speech/capabilities`, `/speech/transcription/sessions`,
+`/speech/easy-runs/summary`, and `/speech/easy-runs/highlight`. POST requests
+have a 16 KiB pre-decode limit, the transcription handler obtains the device ID
+only from authenticated request context, and typed speech failures preserve
+their specific safe codes and HTTP classifications. The backend protocol is now
+version 13. The TypeScript client, strict `SpeechProviderStatus` decoder,
+contract snapshot, and checked-in PWA bundle were generated from the endpoint
+registry; no generated output was edited manually.
+
+Verification completed for this slice:
+
+- complete `internal/speech`, `internal/httpapi`, contract-generator,
+  embedded-webapp, and non-live `internal/runtime` Go suites passed, along with
+  focused Go vet;
+- race-enabled `internal/speech` and speech-only HTTP tests passed. A broader
+  `internal/httpapi` race run exposed existing chat response/event races in
+  composer-history, chat-event-stream, and workflow-steering tests; none enters
+  the new speech service or handlers, so unrelated chat concurrency work was
+  not folded into this slice;
+- all 995 desktop Vitest tests, Electron/web typechecks, and Electron/web
+  production builds passed. The generated contract and checked-in PWA bundle
+  carry protocol 13 and all four speech operations;
+- the deterministic production Easy Button workflow passed at
+  `desktop/.recordings/easy-button-speech-phase2-services-20260710`, including
+  the existing start, streaming, exact steering, Current focus, terminal,
+  stop, reload/restart, compact/reduced-motion, and pixel-match paths. Its fresh
+  artifacts contain no speech credential, client-secret, or audio/base64
+  markers;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed. The
+  non-live portions of `./check_quality.sh --all` also passed, including all
+  repository static/complexity checks, non-live Go packages, all 995 Vitest
+  tests, the Electron build, and every workflow in the complete required
+  Electron manifest. Its first pass found only unformatted JSON in the fresh
+  ignored recording directory; the prescribed formatter and focused Prettier
+  check passed after correcting those artifacts. The broad command remains
+  nonzero for the four live runtime failures described below.
+
+ChatGPT authentication remains available. A direct complete runtime test run
+again reached all four live Codex probes, which remain blocked before
+conversation creation because `model/list` advertises reasoning effort `max`
+and the existing Setta decoder rejects it. These failures are not live-provider
+validation for this slice. `SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and
+the live OpenAI speech workflow is intentionally not present before the later
+acceptance phase, so no live speech-provider result is claimed.
+
+The required supply-chain audit remains blocked by GO-2026-5856 in the pinned
+Go 1.26.4 standard library, fixed in Go 1.26.5. This slice changes no dependency,
+module, manifest, package-manager, or toolchain input. Phase 2 item 4 is next:
+construct the speech client/service in `internal/runtime`, pass it through
+`internal/httpapi.Services`, and make configured and text-only production
+runtimes serve these endpoints. Generated artifacts are current for item 3 and
+must be regenerated again if item 4 changes any owner-defined contract. Phase 2
+item 6 then completes the broader credential/log/persistence audit. No
+deterministic implementation blocker was found for item 4.
 
 ## Verification Plan
 

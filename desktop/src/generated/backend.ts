@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 12;
-export const backendContractSchemaHash = "sha256:b83f191c87de908f05ab54381a23ca7b4afc4396d44ee280f40ce46effc7ab77";
+export const backendProtocolVersion = 13;
+export const backendContractSchemaHash = "sha256:e222517b5fb9825d654bae35f69da75313f972305da6c1c0dc059f9a5e9817f0";
 
 export type DeviceScope = "full";
 
@@ -754,6 +754,22 @@ export function decodeEasyRunEventType(value: unknown, label = "EasyRunEventType
     case "easyrun.artifact.created":
       return decoded;
     case "easyrun.resync_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SpeechProviderStatus = "configured" | "not_configured";
+
+export const speechProviderStatusValues = ["configured", "not_configured"] as const satisfies readonly SpeechProviderStatus[];
+
+export function decodeSpeechProviderStatus(value: unknown, label = "SpeechProviderStatus"): SpeechProviderStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "configured":
+      return decoded;
+    case "not_configured":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3467,6 +3483,49 @@ export interface EasyRunEvent {
   highlightCreated: EasyHighlightCreatedPayload | null;
   artifactCreated: EasyArtifactCreatedPayload | null;
   resyncRequired: EasyRunResyncRequired | null;
+}
+
+export interface SpeechCapabilities {
+  providerStatus: SpeechProviderStatus;
+  transcriptionModel: string;
+  synthesisModel: string;
+  synthesisVoice: string;
+  maximumRecordingSeconds: number;
+  maximumTranscriptCharacters: number;
+  maximumSynthesisCharacters: number;
+  aiVoiceDisclosure: string;
+}
+
+export interface CreateSpeechTranscriptionSessionRequest {
+  workspaceId: string;
+}
+
+export interface SpeechTranscriptionSession {
+  clientSecret: string;
+  expiresAt: string;
+  webRTCURL: string;
+  transcriptionModel: string;
+  transcriptionDelay: string;
+  maximumRecordingSeconds: number;
+  maximumTranscriptCharacters: number;
+}
+
+export interface SynthesizeEasyRunSummaryRequest {
+  workspaceId: string;
+  easyRunId: string;
+}
+
+export interface SpeechAudio {
+  audioBase64: string;
+  mediaType: string;
+  format: string;
+  sourceId: string;
+}
+
+export interface SynthesizeEasyRunHighlightRequest {
+  workspaceId: string;
+  easyRunId: string;
+  highlightId: string;
 }
 
 export interface ListConversationsRequest {
@@ -6970,6 +7029,25 @@ export const backendEndpoints = {
     method: "GET",
     path: "/easy-runs/events",
   },
+  ReadSpeechCapabilities: {
+    method: "GET",
+    path: "/speech/capabilities",
+  },
+  CreateSpeechTranscriptionSession: {
+    method: "POST",
+    path: "/speech/transcription/sessions",
+    requestBodyLimitBytes: 16384,
+  },
+  SynthesizeEasyRunSummary: {
+    method: "POST",
+    path: "/speech/easy-runs/summary",
+    requestBodyLimitBytes: 16384,
+  },
+  SynthesizeEasyRunHighlight: {
+    method: "POST",
+    path: "/speech/easy-runs/highlight",
+    requestBodyLimitBytes: 16384,
+  },
   ListConversations: {
     method: "POST",
     path: "/chat/conversations/list",
@@ -8568,6 +8646,73 @@ export function decodeEasyRunEvent(value: unknown): EasyRunEvent {
     "easyrun.resync_required": result.resyncRequired,
   });
   return result;
+}
+
+export function decodeSpeechCapabilities(value: unknown): SpeechCapabilities {
+  const record = assertRecord(value, "SpeechCapabilities");
+  assertKnownFields(record, "SpeechCapabilities", ["providerStatus", "transcriptionModel", "synthesisModel", "synthesisVoice", "maximumRecordingSeconds", "maximumTranscriptCharacters", "maximumSynthesisCharacters", "aiVoiceDisclosure"]);
+  return {
+    providerStatus: decodeSpeechProviderStatus(requireField(record, "providerStatus", "SpeechCapabilities"), "SpeechCapabilities.providerStatus"),
+    transcriptionModel: decodeString(requireField(record, "transcriptionModel", "SpeechCapabilities"), "SpeechCapabilities.transcriptionModel"),
+    synthesisModel: decodeString(requireField(record, "synthesisModel", "SpeechCapabilities"), "SpeechCapabilities.synthesisModel"),
+    synthesisVoice: decodeString(requireField(record, "synthesisVoice", "SpeechCapabilities"), "SpeechCapabilities.synthesisVoice"),
+    maximumRecordingSeconds: decodeInteger(requireField(record, "maximumRecordingSeconds", "SpeechCapabilities"), "SpeechCapabilities.maximumRecordingSeconds"),
+    maximumTranscriptCharacters: decodeInteger(requireField(record, "maximumTranscriptCharacters", "SpeechCapabilities"), "SpeechCapabilities.maximumTranscriptCharacters"),
+    maximumSynthesisCharacters: decodeInteger(requireField(record, "maximumSynthesisCharacters", "SpeechCapabilities"), "SpeechCapabilities.maximumSynthesisCharacters"),
+    aiVoiceDisclosure: decodeString(requireField(record, "aiVoiceDisclosure", "SpeechCapabilities"), "SpeechCapabilities.aiVoiceDisclosure"),
+  };
+}
+
+export function decodeCreateSpeechTranscriptionSessionRequest(value: unknown): CreateSpeechTranscriptionSessionRequest {
+  const record = assertRecord(value, "CreateSpeechTranscriptionSessionRequest");
+  assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateSpeechTranscriptionSessionRequest"), "CreateSpeechTranscriptionSessionRequest.workspaceId"),
+  };
+}
+
+export function decodeSpeechTranscriptionSession(value: unknown): SpeechTranscriptionSession {
+  const record = assertRecord(value, "SpeechTranscriptionSession");
+  assertKnownFields(record, "SpeechTranscriptionSession", ["clientSecret", "expiresAt", "webRTCURL", "transcriptionModel", "transcriptionDelay", "maximumRecordingSeconds", "maximumTranscriptCharacters"]);
+  return {
+    clientSecret: decodeString(requireField(record, "clientSecret", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.clientSecret"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.expiresAt"),
+    webRTCURL: decodeString(requireField(record, "webRTCURL", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.webRTCURL"),
+    transcriptionModel: decodeString(requireField(record, "transcriptionModel", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.transcriptionModel"),
+    transcriptionDelay: decodeString(requireField(record, "transcriptionDelay", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.transcriptionDelay"),
+    maximumRecordingSeconds: decodeInteger(requireField(record, "maximumRecordingSeconds", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.maximumRecordingSeconds"),
+    maximumTranscriptCharacters: decodeInteger(requireField(record, "maximumTranscriptCharacters", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.maximumTranscriptCharacters"),
+  };
+}
+
+export function decodeSynthesizeEasyRunSummaryRequest(value: unknown): SynthesizeEasyRunSummaryRequest {
+  const record = assertRecord(value, "SynthesizeEasyRunSummaryRequest");
+  assertKnownFields(record, "SynthesizeEasyRunSummaryRequest", ["workspaceId", "easyRunId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SynthesizeEasyRunSummaryRequest"), "SynthesizeEasyRunSummaryRequest.workspaceId"),
+    easyRunId: decodeString(requireField(record, "easyRunId", "SynthesizeEasyRunSummaryRequest"), "SynthesizeEasyRunSummaryRequest.easyRunId"),
+  };
+}
+
+export function decodeSpeechAudio(value: unknown): SpeechAudio {
+  const record = assertRecord(value, "SpeechAudio");
+  assertKnownFields(record, "SpeechAudio", ["audioBase64", "mediaType", "format", "sourceId"]);
+  return {
+    audioBase64: decodeString(requireField(record, "audioBase64", "SpeechAudio"), "SpeechAudio.audioBase64"),
+    mediaType: decodeString(requireField(record, "mediaType", "SpeechAudio"), "SpeechAudio.mediaType"),
+    format: decodeString(requireField(record, "format", "SpeechAudio"), "SpeechAudio.format"),
+    sourceId: decodeString(requireField(record, "sourceId", "SpeechAudio"), "SpeechAudio.sourceId"),
+  };
+}
+
+export function decodeSynthesizeEasyRunHighlightRequest(value: unknown): SynthesizeEasyRunHighlightRequest {
+  const record = assertRecord(value, "SynthesizeEasyRunHighlightRequest");
+  assertKnownFields(record, "SynthesizeEasyRunHighlightRequest", ["workspaceId", "easyRunId", "highlightId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SynthesizeEasyRunHighlightRequest"), "SynthesizeEasyRunHighlightRequest.workspaceId"),
+    easyRunId: decodeString(requireField(record, "easyRunId", "SynthesizeEasyRunHighlightRequest"), "SynthesizeEasyRunHighlightRequest.easyRunId"),
+    highlightId: decodeString(requireField(record, "highlightId", "SynthesizeEasyRunHighlightRequest"), "SynthesizeEasyRunHighlightRequest.highlightId"),
+  };
 }
 
 export function decodeListConversationsRequest(value: unknown): ListConversationsRequest {
@@ -13379,6 +13524,10 @@ export interface BackendClient {
   startEasyRun: (request: StartEasyRunRequest) => Promise<EasyRun>;
   steerEasyRun: (request: SteerEasyRunRequest) => Promise<EasyRun>;
   stopEasyRun: (request: StopEasyRunRequest) => Promise<EasyRun>;
+  readSpeechCapabilities: () => Promise<SpeechCapabilities>;
+  createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest) => Promise<SpeechTranscriptionSession>;
+  synthesizeEasyRunSummary: (request: SynthesizeEasyRunSummaryRequest) => Promise<SpeechAudio>;
+  synthesizeEasyRunHighlight: (request: SynthesizeEasyRunHighlightRequest) => Promise<SpeechAudio>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
   deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
@@ -13712,6 +13861,38 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeEasyRun,
       endpoint: backendEndpoints.StopEasyRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSpeechCapabilities: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSpeechCapabilities,
+      endpoint: backendEndpoints.ReadSpeechCapabilities,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
+    createSpeechTranscriptionSession: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSpeechTranscriptionSession,
+      endpoint: backendEndpoints.CreateSpeechTranscriptionSession,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    synthesizeEasyRunSummary: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSpeechAudio,
+      endpoint: backendEndpoints.SynthesizeEasyRunSummary,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    synthesizeEasyRunHighlight: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSpeechAudio,
+      endpoint: backendEndpoints.SynthesizeEasyRunHighlight,
       fetchImpl,
       requestPayload: request,
     }),

@@ -156,6 +156,21 @@ type StopEasyRunRequest struct {
 	EasyRunID   string `json:"easyRunId"`
 }
 
+type CreateSpeechTranscriptionSessionRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type SynthesizeEasyRunSummaryRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	EasyRunID   string `json:"easyRunId"`
+}
+
+type SynthesizeEasyRunHighlightRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	EasyRunID   string `json:"easyRunId"`
+	HighlightID string `json:"highlightId"`
+}
+
 type ReadWorkflowExecutionActivityRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	ExecutionID string `json:"executionId"`

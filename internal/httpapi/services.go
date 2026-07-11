@@ -13,6 +13,7 @@ import (
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
+	"setta/internal/speech"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
@@ -53,6 +54,13 @@ type EasyRunService interface {
 	Steer(workspaceID string, text string) (easyrun.EasyRun, error)
 	Stop(workspaceID string, easyRunID string) (easyrun.EasyRun, error)
 	SubscribeEvents(cursor easyrun.EasyRunEventCursor) (*easyrun.EventSubscription, error)
+}
+
+type SpeechService interface {
+	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
+	CreateTranscriptionSession(context.Context, string, string) (speech.SpeechTranscriptionSession, error)
+	SynthesizeEasyRunSummary(context.Context, string, string) (speech.SpeechAudio, error)
+	SynthesizeEasyRunHighlight(context.Context, string, string, string) (speech.SpeechAudio, error)
 }
 
 type ChatService interface {
@@ -227,6 +235,7 @@ type HandlerConfig struct {
 	RuntimeIdentityService   RuntimeIdentityService
 	RuntimeMetadata          RuntimeMetadata
 	SemanticGraphService     SemanticGraphService
+	SpeechService            SpeechService
 	TerminalService          TerminalService
 	WorkspaceActivityService WorkspaceActivityService
 	WorkspaceUIService       WorkspaceUIService
@@ -247,6 +256,7 @@ type handler struct {
 	runtimeIdentityService   RuntimeIdentityService
 	runtimeMetadata          RuntimeMetadata
 	semanticGraphService     SemanticGraphService
+	speechService            SpeechService
 	terminalService          TerminalService
 	workspaceActivityService WorkspaceActivityService
 	workspaceUIService       WorkspaceUIService
@@ -276,6 +286,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		runtimeIdentityService:   config.RuntimeIdentityService,
 		runtimeMetadata:          config.RuntimeMetadata,
 		semanticGraphService:     config.SemanticGraphService,
+		speechService:            config.SpeechService,
 		terminalService:          config.TerminalService,
 		workspaceActivityService: config.WorkspaceActivityService,
 		workspaceUIService:       config.WorkspaceUIService,

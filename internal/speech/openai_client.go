@@ -101,6 +101,10 @@ func (client *OpenAIClient) configured() bool {
 	return client != nil && client.apiKey != ""
 }
 
+func (client *OpenAIClient) Configured() bool {
+	return client.configured()
+}
+
 func (client *OpenAIClient) postJSON(ctx context.Context, path string, payload any, accept string, safetyIdentifier string) (*http.Response, error) {
 	if !client.configured() {
 		return nil, classifiedError(ErrorNotConfigured, "OpenAI speech is not configured.", nil)
