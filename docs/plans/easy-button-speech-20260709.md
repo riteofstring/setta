@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-3 complete
+**Status:** Implementation in progress — Phases 1-3 complete, Phase 4 in progress
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -3093,6 +3093,61 @@ Audit verification completed:
   final test-harness and plan updates. Supply-chain verification was not
   required because no dependency, manifest, module, package-manager, or
   toolchain input changed.
+
+### 2026-07-10 — Phase 4 terminal-summary playback controller complete
+
+Implemented Phase 4 item 1 as an isolated renderer playback foundation without
+pulling the top-bar mode control, terminal replay UI, or live-event auto-play
+forward. The new controller accepts only workspace and Easy Run IDs and calls
+the existing generated `synthesizeEasyRunSummary` surface; it never accepts or
+constructs summary prose. Returned audio must identify the requested Easy Run
+and retain the backend-owned WAV media type and format before it can become an
+in-memory Blob URL.
+
+Summary playback is serialized through an explicit FIFO queue. Automatic
+intents deduplicate by workspace and Easy Run for the controller lifetime,
+while explicit replay may reuse the one current in-memory Blob without another
+billable synthesis request. Synthesizing, speaking, stopped, failed, and idle
+are exhaustive typed states. Stop, reset, and disposal abort the controller's
+active synthesis lifecycle, reject stale responses, pause and rewind active
+audio, remove media listeners, clear queued work, and revoke Blob URLs at the
+scope boundary. Browser autoplay rejection and media failure remain visible
+speech failures and do not touch Easy Run or narrator state.
+
+Verification completed for this slice:
+
+- all 13 focused playback-controller tests passed, covering exact source-ID
+  calls, FIFO ordering, automatic and pending deduplication, replay cache reuse,
+  synthesis and playback stop, stale responses, queue clearing, reset/disposal,
+  Blob revocation, invalid source/WAV metadata, malformed base64, typed provider
+  failure, browser autoplay rejection, and audio-element failure;
+- all 1,088 desktop Vitest tests, dead-code analysis, focused lint, Electron/web
+  typechecks, and both production builds passed. The checked-in PWA build was
+  idempotent and the embedded-webapp Go test passed;
+- the authenticated production speech API workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-playback-controller-api-20260710-r2`,
+  retaining the real renderer/preload/main/HTTP persisted-summary synthesis
+  boundary and its credential/client-secret/audio redaction checks;
+- the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase4-playback-controller-regression-20260710`,
+  preserving the existing start, streaming, steering, Current focus,
+  narrator-only NOW, terminal, stop, reload/restart, compact/reduced-motion, and
+  pixel-match behavior;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes` passed.
+  The first quality run found the new async preparation method above the
+  repository complexity ceiling; cache selection and synthesis handling were
+  split at their owning boundaries, then focused lint/tests/typecheck and the
+  complete gate passed cleanly.
+
+No mounted production behavior changes in this item-1 slice, so it does not
+claim terminal playback acceptance or live OpenAI speech proof. It changes no
+Go-owned contract, generated output, dependency, manifest, module,
+package-manager, toolchain, or supply-chain input. Phase 4 item 2 is next: mount
+the controller at the Easy Button pane scope and add the device-local output
+mode, AI-voice disclosure, top-bar playback states/stop behavior, and the
+unconfigured `Voice off` explanation. Items 3-6 then add terminal source
+indication/replay, live completed/failed auto-play, hydration safeguards, and
+recording-preemption/failure coverage. No implementation blocker was found.
 
 ## Verification Plan
 
