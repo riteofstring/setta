@@ -127,6 +127,15 @@ stay gone; do not "pixel-match" backwards into them:
   diagram kind is an explicit v1 non-goal, and `winner` is mockup demo data
   with no contract field behind it. Inventing one would be fabricating content.
 
+**Port the mockup's CSS, not its browser hedges.** The mockup is a standalone
+HTML file someone might open in any browser, so it pairs every `mask-image` with
+a `-webkit-mask-image`. This app ships exactly one engine — Electron 41 is
+Chromium 146, and unprefixed `mask-image` shipped in Chrome 120 — so the prefixed
+copies are legacy support for a non-target and were removed. Verified by
+rendering: the masked artifacts-rail region is pixel-identical (563x1492px, zero
+differing rows) with and without them. `-webkit-line-clamp` on the request text
+stays: it predates this plan and remains the interoperable spelling.
+
 Conversely, `markdown` and `file` artifact kinds exist in the contract but not
 in the mockup. They are styled *in the mockup's idiom* (same card, kicker, and
 title treatment; `--setta-925` inset plate for the file path). Flagged as
