@@ -18,6 +18,12 @@ func (transaction *WriteTransaction) InsertConversation(conversation TopicConver
 	if err := conversation.Validate(); err != nil {
 		return err
 	}
+	if conversation.LastTrajectorySequence != 0 {
+		return fmt.Errorf(
+			"new conversation %s trajectory sequence must start at zero",
+			conversation.ID,
+		)
+	}
 	_, err := transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO conversations (
   id, workspace_id, title, topic_descriptor, status, created_at, updated_at,
@@ -138,6 +144,9 @@ func (transaction *WriteTransaction) UpdateTurn(expectedStatus TurnStatus, turn 
 	if err := turn.Validate(); err != nil {
 		return err
 	}
+	if err := validateTurnStatusTransition(expectedStatus, turn.Status, turn.ID); err != nil {
+		return err
+	}
 	authoredInputJSON, err := encodeJSONColumn("turn authored input", turn.AuthoredInput)
 	if err != nil {
 		return err
@@ -225,6 +234,14 @@ func (transaction *WriteTransaction) UpdateQueuedTurn(expectedOrdinal int, queue
 UPDATE conversation_queue
 SET ordinal = ?, queued_at = ?
 WHERE turn_id = ? AND conversation_id = ? AND ordinal = ?
+  AND EXISTS (
+    SELECT 1
+    FROM conversation_turns
+    WHERE conversation_turns.id = conversation_queue.turn_id
+      AND conversation_turns.conversation_id = conversation_queue.conversation_id
+      AND conversation_turns.status = 'queued'
+      AND conversation_turns.delivery = 'queued'
+  )
 `, queued.Ordinal, queued.QueuedAt, queued.TurnID, queued.ConversationID, expectedOrdinal)
 	if err != nil {
 		return fmt.Errorf("update queued turn %s: %w", queued.TurnID, err)
@@ -388,6 +405,36 @@ func validateConversationExpectation(expected ConversationExpectation, conversat
 			conversation.ID,
 			expected.LastTrajectorySequence,
 			conversation.LastTrajectorySequence,
+		)
+	}
+	return nil
+}
+
+func validateTurnStatusTransition(expected TurnStatus, next TurnStatus, turnID string) error {
+	if expected == next {
+		return nil
+	}
+	allowed := false
+	switch expected {
+	case TurnStatusQueued:
+		allowed = next == TurnStatusRunning ||
+			next == TurnStatusCompleted ||
+			next == TurnStatusCancelled ||
+			next == TurnStatusFailed
+	case TurnStatusRunning:
+		allowed = next == TurnStatusCompleted ||
+			next == TurnStatusCancelled ||
+			next == TurnStatusFailed
+	case TurnStatusCompleted, TurnStatusCancelled, TurnStatusFailed:
+		allowed = false
+	default:
+		return fmt.Errorf("turn %s has unsupported expected status %q", turnID, expected)
+	}
+	if !allowed {
+		return stateConflict(
+			"turn",
+			turnID,
+			fmt.Sprintf("status cannot transition from %s to %s", expected, next),
 		)
 	}
 	return nil

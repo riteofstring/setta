@@ -1,6 +1,10 @@
 package conversation
 
-import "fmt"
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+)
 
 type SideConversationExpectation struct {
 	Status    SideConversationStatus
@@ -12,6 +16,9 @@ func (transaction *WriteTransaction) InsertConversationBranch(branch Conversatio
 		return err
 	}
 	if err := branch.Validate(); err != nil {
+		return err
+	}
+	if err := transaction.requireForkWorkspaceMatch(branch); err != nil {
 		return err
 	}
 	if err := transaction.requireCompletedTurnBelongs(
@@ -112,22 +119,8 @@ func (transaction *WriteTransaction) UpdateSideConversation(
 	if err := transaction.ensureActive(); err != nil {
 		return err
 	}
-	if !validSideConversationStatus(expected.Status) {
-		return fmt.Errorf("side conversation %s has unsupported expected status %q", side.ID, expected.Status)
-	}
-	expectedUpdatedAt, err := validateTimestamp("side conversation expected updatedAt", expected.UpdatedAt)
-	if err != nil {
+	if err := validateSideConversationUpdate(expected, side); err != nil {
 		return err
-	}
-	if err := side.Validate(); err != nil {
-		return err
-	}
-	updatedAt, err := validateTimestamp("side conversation updatedAt", side.UpdatedAt)
-	if err != nil {
-		return err
-	}
-	if !updatedAt.After(expectedUpdatedAt) {
-		return fmt.Errorf("side conversation %s updatedAt must advance beyond its expected version", side.ID)
 	}
 	invocationJSON, err := encodeJSONColumn("side conversation invocation", side.ResolvedSideAgentInvocation)
 	if err != nil {
@@ -172,6 +165,30 @@ WHERE id = ?
 		return err
 	}
 	return transaction.recordStateMutation()
+}
+
+func validateSideConversationUpdate(expected SideConversationExpectation, side SideConversation) error {
+	if !validSideConversationStatus(expected.Status) {
+		return fmt.Errorf("side conversation %s has unsupported expected status %q", side.ID, expected.Status)
+	}
+	expectedUpdatedAt, err := validateTimestamp("side conversation expected updatedAt", expected.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	if err := side.Validate(); err != nil {
+		return err
+	}
+	if err := validateSideConversationStatusTransition(expected.Status, side.Status, side.ID); err != nil {
+		return err
+	}
+	updatedAt, err := validateTimestamp("side conversation updatedAt", side.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	if !updatedAt.After(expectedUpdatedAt) {
+		return fmt.Errorf("side conversation %s updatedAt must advance beyond its expected version", side.ID)
+	}
+	return nil
 }
 
 func (transaction *WriteTransaction) UpsertRoleProfileOverride(override RoleProfileOverride) error {
@@ -236,6 +253,72 @@ SELECT EXISTS(
 	}
 	if !completed {
 		return stateConflict(entity, entityID, "fork source is not a completed turn of the parent conversation")
+	}
+	return nil
+}
+
+func (transaction *WriteTransaction) requireForkWorkspaceMatch(branch ConversationBranch) error {
+	var parentWorkspaceID string
+	var childWorkspaceID string
+	err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT parent.workspace_id, child.workspace_id
+FROM conversations AS parent
+JOIN conversations AS child ON child.id = ?
+WHERE parent.id = ?
+`, branch.ChildConversationID, branch.ParentConversationID).Scan(&parentWorkspaceID, &childWorkspaceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return stateConflict(
+			"conversation branch",
+			branch.ChildConversationID,
+			"parent or child conversation does not exist",
+		)
+	}
+	if err != nil {
+		return fmt.Errorf("read conversation branch workspaces: %w", err)
+	}
+	if parentWorkspaceID != childWorkspaceID {
+		return stateConflict(
+			"conversation branch",
+			branch.ChildConversationID,
+			"fork parent and child must belong to the same workspace",
+		)
+	}
+	return nil
+}
+
+func validateSideConversationStatusTransition(
+	expected SideConversationStatus,
+	next SideConversationStatus,
+	sideConversationID string,
+) error {
+	if expected == next {
+		return nil
+	}
+	allowed := false
+	switch expected {
+	case SideConversationStatusPreparing:
+		allowed = next == SideConversationStatusActive ||
+			next == SideConversationStatusDisposing ||
+			next == SideConversationStatusFailed
+	case SideConversationStatusActive:
+		allowed = next == SideConversationStatusDisposing || next == SideConversationStatusFailed
+	case SideConversationStatusDisposing:
+		allowed = next == SideConversationStatusFailed
+	case SideConversationStatusFailed:
+		allowed = false
+	default:
+		return fmt.Errorf(
+			"side conversation %s has unsupported expected status %q",
+			sideConversationID,
+			expected,
+		)
+	}
+	if !allowed {
+		return stateConflict(
+			"side conversation",
+			sideConversationID,
+			fmt.Sprintf("status cannot transition from %s to %s", expected, next),
+		)
 	}
 	return nil
 }

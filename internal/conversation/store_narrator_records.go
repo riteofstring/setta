@@ -90,6 +90,9 @@ WHERE conversation_id = ?
   AND checkpoint_through_sequence = ?
   AND current_focus_revision = ?
   AND updated_at = ?
+  AND (? > observed_through_sequence OR topic_descriptor = ?)
+  AND (? > checkpoint_through_sequence OR checkpoint_text = ?)
+  AND (? > current_focus_revision OR current_focus = ?)
 `,
 		state.ObservedThroughSequence,
 		state.CheckpointThroughSequence,
@@ -106,6 +109,12 @@ WHERE conversation_id = ?
 		expected.CheckpointThroughSequence,
 		expected.CurrentFocusRevision,
 		expected.UpdatedAt,
+		state.ObservedThroughSequence,
+		state.TopicDescriptor,
+		state.CheckpointThroughSequence,
+		state.CheckpointText,
+		state.CurrentFocusRevision,
+		state.CurrentFocus,
 	)
 	if err != nil {
 		return fmt.Errorf("update narrator state for %s: %w", state.ConversationID, err)
@@ -114,7 +123,7 @@ WHERE conversation_id = ?
 		result,
 		"narrator state",
 		state.ConversationID,
-		"cursor, focus revision, or update-time expectation did not match",
+		"cursor, cursor-owned text, focus revision, or update-time expectation did not match",
 	); err != nil {
 		return err
 	}
@@ -264,6 +273,13 @@ func validateNarratorMonotonicUpdate(expected NarratorStateExpectation, state Na
 	}
 	if state.CurrentFocusRevision < expected.CurrentFocusRevision {
 		return fmt.Errorf("narrator state %s focus revision cannot move backward", state.ConversationID)
+	}
+	if state.CurrentFocusRevision > expected.CurrentFocusRevision &&
+		state.ObservedThroughSequence == expected.ObservedThroughSequence {
+		return fmt.Errorf(
+			"narrator state %s focus revision cannot advance without observing trajectory",
+			state.ConversationID,
+		)
 	}
 	return nil
 }

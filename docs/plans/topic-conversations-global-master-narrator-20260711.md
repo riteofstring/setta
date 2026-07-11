@@ -2195,3 +2195,15 @@ Implementation is in progress under this plan.
   supply-chain gate again reached `govulncheck` and reported the pre-existing
   `GO-2026-5856` in repository-pinned Go 1.26.4, fixed in Go 1.26.5. This slice
   did not change the pinned toolchain or any dependency manifest.
+- 2026-07-11: The Phase 1 item 3 review closed persistence-boundary gaps before
+  generated contracts begin. New conversations must now start at trajectory
+  sequence zero, so callers cannot create a ledger whose missing prefix can
+  never be filled. Turn and ephemeral-side updates enforce forward lifecycle
+  transitions, queue rows cannot be reordered after their turn is promoted,
+  and durable forks cannot cross workspace roots. Narrator checkpoint text,
+  topic descriptors, and current focus are tied to their owning cursor or
+  revision, preventing a same-version overwrite from silently changing
+  reconstructable state. Focused rollback tests cover every rejected path and
+  the valid atomic queue-promotion path. Race-enabled conversation tests and
+  the focused quality gate pass. Generated inputs and outputs changed: none.
+  Phase 1 item 4 remains next, with no external blocker.
