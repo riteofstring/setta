@@ -20,7 +20,11 @@ import (
 	"setta/internal/speech"
 )
 
-const runtimeSpeechAPIKey = "sk-setta-runtime-speech-test"
+const (
+	runtimeSpeechAPIKey              = "sk-setta-runtime-speech-test"
+	runtimeSpeechProviderFailureBody = "runtime-speech-provider-body-secret"
+	runtimeSpeechTranscriptionSecret = "ek_runtime_speech_ephemeral"
+)
 
 func TestRuntimeServesTextOnlySpeechCapabilitiesAndTypedFailures(t *testing.T) {
 	server, ready := startRuntimeTestServer(t, testConfig(t))
@@ -81,7 +85,7 @@ func TestConfiguredRuntimeServesEverySpeechOperation(t *testing.T) {
 		httpapi.CreateSpeechTranscriptionSessionRequest{WorkspaceID: opened.Workspace.ID},
 		http.StatusOK,
 	)
-	if session.ClientSecret != "ek_runtime_speech_ephemeral" {
+	if session.ClientSecret != runtimeSpeechTranscriptionSecret {
 		t.Fatalf("transcription client secret = %q", session.ClientSecret)
 	}
 	if err := speech.ValidateSpeechTranscriptionSession(session); err != nil {
@@ -169,6 +173,7 @@ type runtimeSpeechProvider struct {
 
 	transcriptionCalls atomic.Int32
 	synthesisCalls     atomic.Int32
+	rejectSynthesis    atomic.Bool
 	mu                 sync.Mutex
 	synthesisInputs    []string
 }
@@ -235,6 +240,10 @@ func (provider *runtimeSpeechProvider) handleTranscription(t *testing.T, respons
 
 func (provider *runtimeSpeechProvider) handleSynthesis(t *testing.T, response http.ResponseWriter, request *http.Request) {
 	provider.synthesisCalls.Add(1)
+	if provider.rejectSynthesis.Load() {
+		http.Error(response, runtimeSpeechProviderFailureBody, http.StatusInternalServerError)
+		return
+	}
 	if safetyIdentifier := request.Header.Get("OpenAI-Safety-Identifier"); safetyIdentifier != "" {
 		t.Errorf("synthesis safety identifier = %q, want empty", safetyIdentifier)
 	}
@@ -255,6 +264,10 @@ func (provider *runtimeSpeechProvider) handleSynthesis(t *testing.T, response ht
 	if _, err := response.Write(runtimeSpeechWAV()); err != nil {
 		t.Errorf("write fake speech audio: %v", err)
 	}
+}
+
+func (provider *runtimeSpeechProvider) RejectSynthesis() {
+	provider.rejectSynthesis.Store(true)
 }
 
 func (provider *runtimeSpeechProvider) SynthesisInputs() []string {

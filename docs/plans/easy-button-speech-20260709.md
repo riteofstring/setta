@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 complete; Phase 2 items 1-5 complete
+**Status:** Implementation in progress — Phases 1-2 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2143,6 +2143,70 @@ provider-body, audio, logging, diagnostics, and persisted-app-data audit across
 both production launch paths and their failure cases before beginning Phase 3
 IPC/preload/web client work. No deterministic implementation blocker was found
 for that audit.
+
+### 2026-07-10 — Phase 2 production speech runtime audit complete
+
+Audited commit `f16a2b909` and the cumulative Phase 2 implementation against
+this plan, `AGENTS.md`, the clean starting worktree, both command launch paths,
+the OpenAI client and speech-service boundaries, authenticated HTTP endpoints,
+runtime composition and cleanup, generated contracts, the checked-in PWA
+bundle, provider failure handling, runtime output, recordings, diagnostics, and
+persisted app/workspace data. Configured and text-only production runtimes serve
+the intended four operations, the renderer receives only the expected generated
+contracts, provider response bodies are discarded, and no speech operation
+writes credentials, ephemeral metadata, or generated audio.
+
+The audit found a practical verification gap rather than a production logic
+defect. The runtime integration proved successful client-secret and WAV
+responses but did not prove the privacy boundary after those values crossed the
+real authenticated server, and it did not exercise a raw provider failure body.
+A new configured-runtime regression now mints a sentinel client secret,
+synthesizes valid WAV audio, forces a provider 500 response containing a
+sentinel body, shuts the runtime down, and scans stdout, stderr, the safe HTTP
+failure, the full temporary app-data tree, and the opened workspace tree. It
+rejects the permanent key, client secret, provider body, raw WAV, and base64 WAV
+in every forbidden location. Focused production-launch regressions also prove
+that invalid speech credentials are not printed by either `setta-backend` or
+`setta serve` while their specific startup errors remain visible.
+
+Audit verification completed:
+
+- complete focused speech, HTTP, runtime, and both command-package suites
+  passed; the deterministic runtime suite also passed with an isolated unsigned
+  Codex home, and the configured/text-only/privacy runtime cases passed under
+  the race detector;
+- contract regeneration was idempotent. Electron and web typechecks/builds
+  passed, and the protocol-13 generated TypeScript, contract snapshot, and
+  checked-in PWA bundle remained unchanged;
+- the deterministic production Easy Button workflow passed at
+  `.recordings/easy-button-speech-phase2-runtime-audit-20260710`, including the
+  existing start, stream, exact steering, Current focus, terminal, stop,
+  reload/restart, compact/reduced-motion, and pixel-match paths. Its fresh
+  artifacts contain no speech credential, client-secret, authorization,
+  provider-body, or audio/base64 markers;
+- the signed-in live Easy Button workflow and all four live backend Codex probes
+  were rerun with `OPENAI_API_KEY` absent. They remain blocked before
+  conversation creation because `model/list` advertises unsupported reasoning
+  effort `max`; the submitted Easy Button text is preserved and the typed drift
+  error is visible, but these failures are not live-provider validation;
+- `SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and the opt-in live speech
+  workflow remains a later acceptance-phase item, so no live OpenAI speech proof
+  is claimed;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed, with the
+  latter using an isolated unsigned Codex home after the separate signed-in live
+  attempts above;
+- the supply-chain gate still fails only on GO-2026-5856 in the pinned Go 1.26.4
+  standard library, fixed in Go 1.26.5. The audit changes no dependency, module,
+  manifest, package-manager, toolchain, generated input, or supply-chain
+  configuration.
+
+Phase 2 is complete. The next coherent work is Phase 3 item 1: expose the
+generated speech operations through the Electron main IPC, preload `SettaAPI`,
+and web `SettaAPI` surfaces without recording client secrets or audio payloads.
+Then add the renderer-owned Realtime transport, microphone permission boundary,
+and exhaustive capture state machine in items 2-8. The live Codex `max` drift
+and pinned-toolchain advisory do not block that deterministic implementation
+work.
 
 ## Verification Plan
 
