@@ -6,8 +6,15 @@
 // seconds in. Freezing its clock is what turns each state into a still.
 
 (() => {
-  const version = "setta-easy-button-mockup-driver-v1";
-  const states = ["idle", "working", "complete"];
+  const version = "setta-easy-button-mockup-driver-v2";
+  const baseStates = ["idle", "working", "complete"];
+  const captureStates = {
+    captureFailure: "failed",
+    committing: "committing",
+    connecting: "connecting",
+    listening: "listening",
+    requestingPermission: "requesting-permission",
+  };
 
   // The demo schedules every rail arrival, and the working -> complete
   // auto-advance, through `after()`, which reads `setTimeout` off the global at
@@ -15,25 +22,54 @@
   // synchronous population path in `complete` intact, and removes the clock.
   function freezeDemoTimers() {
     window.setTimeout = () => 0;
+    window.setInterval = () => 0;
     return true;
   }
 
-  function gotoState(state) {
-    if (!states.includes(state)) {
+  function gotoState(state, fixture = {}) {
+    if (!baseStates.includes(state) && !(state in captureStates)) {
       throw new Error(`easy-button mockup state is not captured: ${state}`);
     }
-    const button = document.querySelector(`[data-goto="${state}"]`);
+    const baseState = state in captureStates ? "idle" : state;
+    clickControl("goto", baseState);
+    if (state in captureStates) {
+      enterCaptureState(captureStates[state], fixture);
+    }
+    return { ...paneState(), stateKey: state };
+  }
+
+  function clickControl(axis, value) {
+    const button = document.querySelector(`[data-${axis}="${value}"]`);
     if (!(button instanceof HTMLButtonElement)) {
-      throw new Error(`easy-button mockup has no control for ${state}`);
+      throw new Error(`easy-button mockup has no ${axis} control for ${value}`);
     }
     button.click();
-    return paneState();
+  }
+
+  function enterCaptureState(capture, fixture) {
+    if (capture === "committing") {
+      clickControl("capture", "listening");
+    }
+    if (capture === "failed") {
+      clickControl("fail", "provider");
+    } else {
+      clickControl("capture", capture);
+    }
+    const captureLine = document.getElementById("captureLine");
+    if (captureLine instanceof HTMLElement && typeof fixture.captureText === "string") {
+      captureLine.textContent = fixture.captureText;
+    }
+    const captureError = document.getElementById("captureError");
+    if (captureError instanceof HTMLElement && typeof fixture.captureError === "string") {
+      captureError.textContent = fixture.captureError;
+    }
   }
 
   function paneState() {
     const pane = requirePane();
     return {
       artifacts: pane.querySelectorAll(".artifact").length,
+      capture: pane.dataset.capture ?? "",
       dataState: pane.dataset.state ?? "",
       highlights: pane.querySelectorAll(".hl").length,
     };

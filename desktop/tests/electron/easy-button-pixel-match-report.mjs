@@ -11,11 +11,57 @@ import { dirname } from "node:path";
 // exactly reproducible, rotations: 4.5s is a quarter turn of the fastest layer.
 export const pinTimesMs = [0, 4500];
 
+export const synchronizedCaptureText =
+  "Compare the three swirl approaches and show me which one is cheapest to paint.";
+export const synchronizedCaptureFailureText =
+  "The transcription connection was lost. Please try again.";
+
+export const pixelMatchSpeechCapturePlan = [
+  { crops: ["audioToggle", "control", "inputWrap"], state: "idle" },
+  {
+    crops: ["audioToggle", "captionSlot", "control"],
+    state: "requestingPermission",
+  },
+  { crops: ["audioToggle", "captionSlot", "control"], state: "connecting" },
+  {
+    crops: ["audioToggle", "captureLine", "captionSlot", "control", "rings"],
+    state: "listening",
+  },
+  {
+    crops: ["audioToggle", "captureLine", "captionSlot", "control", "rings"],
+    state: "committing",
+  },
+  { crops: ["audioToggle", "captionSlot", "control"], state: "captureFailure" },
+];
+
+export const pixelMatchCapturePlan = [
+  ...pixelMatchSpeechCapturePlan,
+  {
+    crops: ["actionSlot", "audioToggle", "captionSlot", "control", "stopButton", "swirl"],
+    state: "working",
+  },
+  { crops: ["audioToggle", "captionSlot", "highlightItem"], state: "stopped" },
+  {
+    crops: ["artifactCard", "audioToggle", "inputWrap", "summaryReplay"],
+    state: "completedArtifacts",
+  },
+  {
+    crops: ["audioToggle", "captionSlot", "highlightItem", "summaryReplay"],
+    state: "completedHighlights",
+  },
+  { crops: ["artifactCard", "audioToggle", "control", "summaryReplay"], state: "failed" },
+];
+
 // The pane cannot show both rails at once — no scripted run emits highlights and
 // artifacts together — so the two `completed` frames split them, and both compare
 // against the mockup's single fully-populated `complete`.
 export const metricPairs = [
   { mockup: "idle", production: "idle" },
+  { mockup: "requestingPermission", production: "requestingPermission" },
+  { mockup: "connecting", production: "connecting" },
+  { mockup: "listening", production: "listening" },
+  { mockup: "committing", production: "committing" },
+  { mockup: "captureFailure", production: "captureFailure" },
   { mockup: "working", production: "working" },
   { mockup: "complete", production: "completedArtifacts" },
   { mockup: "complete", production: "completedHighlights" },

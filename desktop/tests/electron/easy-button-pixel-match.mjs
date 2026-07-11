@@ -8,11 +8,17 @@
 // so a whole-pane diff would be noise. Both rails use the same 260px / 340px
 // track at this viewport, which is what makes the per-component crops comparable.
 
-import { rm } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import process from "node:process";
+import { fileURLToPath, URL } from "node:url";
 
 import {
   createElectronFixture,
+  clickEnabledButtonByAria,
+  desktopRoot,
+  dispatchKeyEvent,
   launchElectronCdpContext,
   stopElectronCdpContext,
   waitForSelector,
@@ -29,39 +35,32 @@ import {
   submitEasyButtonRequest,
   workflowTimeoutMs,
 } from "./easy-button-pane-actions.mjs";
-import { clipToBounds, pinTimesMs, writePng } from "./easy-button-pixel-match-report.mjs";
+import {
+  clipToBounds,
+  pinTimesMs,
+  pixelMatchCapturePlan,
+  synchronizedCaptureFailureText,
+  synchronizedCaptureText,
+  writePng,
+} from "./easy-button-pixel-match-report.mjs";
 import { opacityMatches } from "./easy-button-pane-visual-assertions.mjs";
 import { startSpeechProviderFixture } from "./speech-provider-fixture.mjs";
 
 const swirlWorkingOpacity = 0.85;
 const swirlCompleteOpacity = 0.2;
-
-const capturePlan = [
-  { crops: ["audioToggle", "control", "inputWrap"], state: "idle" },
-  {
-    crops: ["actionSlot", "audioToggle", "captionSlot", "control", "stopButton", "swirl"],
-    state: "working",
-  },
-  { crops: ["audioToggle", "captionSlot", "highlightItem"], state: "stopped" },
-  {
-    crops: ["artifactCard", "audioToggle", "inputWrap", "summaryReplay"],
-    state: "completedArtifacts",
-  },
-  {
-    crops: ["audioToggle", "captionSlot", "highlightItem", "summaryReplay"],
-    state: "completedHighlights",
-  },
-  { crops: ["artifactCard", "audioToggle", "control", "summaryReplay"], state: "failed" },
-];
+const browserFixturePath = new URL("./speech-capture-browser-fixture.js", import.meta.url);
+const mockupRendererPath = new URL("./easy-button-mockup-render.mjs", import.meta.url);
 
 export async function runEasyButtonPixelMatchCaptures({ artifactDir, visible }) {
   const fixture = await createElectronFixture("easy-button-pixel-match");
   let speechProvider = null;
   let context = null;
+  let metrics;
   try {
     speechProvider = await startSpeechProviderFixture();
     context = await launchElectronCdpContext({
       artifactDir,
+      electronArgs: ["--use-fake-device-for-media-stream"],
       extraEnv: {
         OPENAI_API_KEY: speechProvider.apiKey,
         SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
@@ -70,6 +69,8 @@ export async function runEasyButtonPixelMatchCaptures({ artifactDir, visible }) 
       fixture,
       visible,
     });
+    await installBrowserFixture(context.client);
+    await context.client.call("Page.reload", { ignoreCache: true });
     await context.client.call("Emulation.setDeviceMetricsOverride", desktopViewport);
     await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
     await context.client.installDriver();
@@ -77,15 +78,17 @@ export async function runEasyButtonPixelMatchCaptures({ artifactDir, visible }) 
     await openEasyButtonFromShortcut(context.client);
 
     const states = await captureProductionStates(context.client, artifactDir);
-    const metrics = { states, surface: "production", viewport: desktopViewport };
+    metrics = { states, surface: "production", viewport: desktopViewport };
     await writeJson(join(artifactDir, "production-metrics.json"), metrics);
     speechProvider.assertHealthy();
-    if (speechProvider.requests.length !== 0) {
+    if (
+      speechProvider.requests.length !== 1 ||
+      speechProvider.requests[0]?.path !== "/v1/realtime/client_secrets"
+    ) {
       throw new Error(
-        `easy-button pixel-match unexpectedly called OpenAI: ${JSON.stringify(speechProvider.requests)}`,
+        `easy-button pixel-match made unexpected OpenAI calls: ${JSON.stringify(speechProvider.requests)}`,
       );
     }
-    return metrics;
   } finally {
     try {
       await stopElectronCdpContext(context);
@@ -97,11 +100,39 @@ export async function runEasyButtonPixelMatchCaptures({ artifactDir, visible }) 
       }
     }
   }
+  await runMockupComparison(artifactDir);
+  return metrics;
+}
+
+async function runMockupComparison(artifactDir) {
+  const electron = process.platform === "win32" ? "electron.cmd" : "electron";
+  const child = spawn(
+    join(desktopRoot, "node_modules", ".bin", electron),
+    [
+      fileURLToPath(mockupRendererPath),
+      "--out",
+      artifactDir,
+      "--production-metrics",
+      join(artifactDir, "production-metrics.json"),
+    ],
+    { cwd: desktopRoot, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  const output = [];
+  child.stdout.on("data", (data) => output.push(data.toString()));
+  child.stderr.on("data", (data) => output.push(data.toString()));
+  const { code, signal } = await new Promise((resolvePromise) => {
+    child.once("exit", (exitCode, exitSignal) =>
+      resolvePromise({ code: exitCode, signal: exitSignal }),
+    );
+  });
+  if (signal || code !== 0) {
+    throw new Error(`easy-button mockup comparison failed (${signal ?? code}): ${output.join("")}`);
+  }
 }
 
 async function captureProductionStates(client, artifactDir) {
   const states = {};
-  for (const step of capturePlan) {
+  for (const step of pixelMatchCapturePlan) {
     await advanceToState(client, step.state);
     await waitForRestingPaneRect(client);
     states[step.state] = await captureState(client, artifactDir, step);
@@ -130,26 +161,110 @@ async function waitForRestingPaneRect(client) {
 }
 
 async function advanceToState(client, state) {
-  switch (state) {
-    case "idle":
-      return waitForIdle(client);
-    case "working":
-      await submitEasyButtonRequest(client, "easy run working narrator cadence");
-      return waitForWorking(client, "easy run working narrator cadence", 2);
-    case "stopped":
-      await clickEasyButtonStop(client);
-      return waitForTerminal(client, { highlights: 2, statusTone: "stopped" });
-    case "completedArtifacts":
-      await submitEasyButtonRequest(client, "easy run phase3 artifacts workflow");
-      return waitForTerminal(client, { artifacts: 4, statusTone: "completed" });
-    case "completedHighlights":
-      await submitEasyButtonRequest(client, "easy run phase4 narrator workflow");
-      return waitForTerminal(client, { highlights: 2, statusTone: "completed" });
-    case "failed":
-      await submitEasyButtonRequest(client, "easy run phase5 artifact cap workflow");
-      return waitForTerminal(client, { artifacts: 20, statusTone: "failed" });
+  const advance = stateAdvancers[state];
+  if (!advance) {
+    throw new Error(`unknown easy-button pixel-match state: ${state}`);
   }
-  throw new Error(`unknown easy-button pixel-match state: ${state}`);
+  return advance(client);
+}
+
+const stateAdvancers = {
+  captureFailure: advanceToCaptureFailure,
+  committing: advanceToCommitting,
+  completedArtifacts: advanceToCompletedArtifacts,
+  completedHighlights: advanceToCompletedHighlights,
+  connecting: advanceToConnecting,
+  failed: advanceToFailed,
+  idle: waitForIdle,
+  listening: advanceToListening,
+  requestingPermission: advanceToRequestingPermission,
+  stopped: advanceToStopped,
+  working: advanceToWorking,
+};
+
+async function advanceToRequestingPermission(client) {
+  await clickEnabledButtonByAria(client, "Start voice request");
+  return waitForCaptureState(client, "requesting-permission");
+}
+
+async function advanceToConnecting(client) {
+  await callBrowserFixture(client, "allowMicrophone");
+  return waitForCaptureState(client, "connecting");
+}
+
+async function advanceToListening(client) {
+  await callBrowserFixture(client, "openProviderSession");
+  return waitForCaptureState(client, "listening");
+}
+
+async function advanceToCommitting(client) {
+  await clickEnabledButtonByAria(client, "Finish voice request");
+  await waitForCaptureState(client, "committing");
+  await callBrowserFixture(client, "emitDelta", synchronizedCaptureText);
+  return waitForCaptureState(client, "committing", synchronizedCaptureText);
+}
+
+async function advanceToCaptureFailure(client) {
+  await callBrowserFixture(client, "disconnect");
+  return waitForCaptureState(client, "failed", "", synchronizedCaptureFailureText);
+}
+
+async function advanceToWorking(client) {
+  await restoreIdleCapture(client);
+  await submitEasyButtonRequest(client, "easy run working narrator cadence");
+  return waitForWorking(client, "easy run working narrator cadence", 2);
+}
+
+async function advanceToStopped(client) {
+  await clickEasyButtonStop(client);
+  return waitForTerminal(client, { highlights: 2, statusTone: "stopped" });
+}
+
+async function advanceToCompletedArtifacts(client) {
+  await submitEasyButtonRequest(client, "easy run phase3 artifacts workflow");
+  return waitForTerminal(client, { artifacts: 4, statusTone: "completed" });
+}
+
+async function advanceToCompletedHighlights(client) {
+  await submitEasyButtonRequest(client, "easy run phase4 narrator workflow");
+  return waitForTerminal(client, { highlights: 2, statusTone: "completed" });
+}
+
+async function advanceToFailed(client) {
+  await submitEasyButtonRequest(client, "easy run phase5 artifact cap workflow");
+  return waitForTerminal(client, { artifacts: 20, statusTone: "failed" });
+}
+
+async function installBrowserFixture(client) {
+  const source = await readFile(browserFixturePath, "utf8");
+  await client.call("Page.addScriptToEvaluateOnNewDocument", { source });
+}
+
+async function callBrowserFixture(client, method, ...args) {
+  return client.evaluate(
+    `globalThis.__settaSpeechCaptureFixture[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
+  );
+}
+
+async function waitForCaptureState(client, capture, captureText = "", captureError = "") {
+  return waitForState(
+    client,
+    "globalThis.__settaSpeechCaptureFixture.state()",
+    (state) =>
+      state.capture === capture &&
+      state.captureLine === captureText &&
+      state.captureError === captureError,
+    workflowTimeoutMs,
+  );
+}
+
+async function restoreIdleCapture(client) {
+  await callBrowserFixture(client, "holdMicrophone");
+  await clickEnabledButtonByAria(client, "Retry voice request");
+  await waitForCaptureState(client, "requesting-permission");
+  await dispatchKeyEvent(client, { code: "Escape", key: "Escape" });
+  await dispatchKeyEvent(client, { code: "Escape", key: "Escape", type: "keyUp" });
+  return waitForIdle(client);
 }
 
 // Metrics are read after the first pin, so they describe the frame that was

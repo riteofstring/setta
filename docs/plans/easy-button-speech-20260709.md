@@ -4054,6 +4054,65 @@ and reduced-motion matrix, and deliberate-difference proof. Item 5's repeat-run
 noise baseline and narrow tolerances remain after that. No implementation
 blocker was found.
 
+### 2026-07-10 — Phase 5 synchronized capture-state image-diff foundation complete
+
+Advanced Phase 5 item 4 with the next bounded visual-harness slice. The shared
+capture plan now drives configured idle plus requesting-permission, connecting,
+listening, committing, and capture-failure states before the existing run-state
+matrix. The production side uses the mounted Easy Button through Electron,
+preload, authenticated HTTP, the runtime speech service, and a real temporary
+workspace. Only browser media/Realtime and OpenAI remain deterministic
+fixtures. It mints exactly one transcription session, opens the scripted peer,
+commits manually, accepts a provider delta only after commit, and tears the
+capture down through the real disconnect path.
+
+The mockup driver now holds the same five independent microphone states with
+the same visible completed fixture text or typed disconnect error and with zero
+highlights and artifacts. Its demo interval as well as timeout clock is frozen,
+so no background typewriter or run timer can change a pinned frame. Production
+and mockup consume the same Go-independent visual capture plan and one owned
+fixture transcript instead of maintaining separate state/crop lists.
+
+The mockup comparison is now an automatic companion of the required production
+workflow rather than a manual follow-up command. Chromium's pinned Electron
+`nativeImage` decoder compares every common component crop as exact BGRA pixels,
+records dimensions, changed-pixel count and ratio, mean and maximum channel
+delta, and emits side-by-side and red heatmap PNGs for every changed crop. The
+comparator self-checks that an identical bitmap has zero changes and that a
+deliberate one-channel mutation changes exactly one pixel. No PNG dependency,
+golden image set, broad mask, or threshold was added.
+
+Focused verification completed:
+
+- focused Prettier and ESLint passed for the changed production driver, mockup
+  driver/renderer, shared report, and image-diff module;
+- the complete deterministic Easy Button production workflow passed at
+  `desktop/.recordings/easy-button-speech-phase5-visual-states-diff-final-20260710`;
+  its pixel companion captured all eleven current states, made exactly one fake
+  OpenAI transcription-session request and no synthesis request, and the new
+  committing production/mockup stills were inspected;
+- the generated `image-diff.json` and Markdown report contain 72 real crop/frame
+  comparisons and the comparator self-test passed. The run emitted 72
+  side-by-sides and 72 heatmaps rather than hiding the current differences.
+
+`./scripts/format.sh` passed. The first `./check_quality.sh --git-changes`
+attempt found only slice-owned complexity in the expanded state dispatcher;
+the state transitions were split into named handlers at the production driver
+boundary, then focused ESLint and the complete deterministic workflow passed
+again. The final quality rerun passed formatting, changed-test complexity,
+TypeScript typecheck, all 1,129 Vitest tests, the production Electron build,
+and dead-code analysis.
+
+Phase 5 item 4 is not complete. The exact report currently finds changes in all
+72 comparisons and 44 dimension mismatches. These are visible design/crop/font
+alignment results, not accepted noise and not a reason to set a permissive
+threshold. The next visual slice must remove the unexplained still-state deltas,
+add output-menu, speaking-highlight, summary-playback, focus, terminal, and
+reduced-motion states, and prove a deliberate mockup property causes the
+focused gate to fail. Named animation-phase capture also remains in item 4;
+item 5 then owns repeat-run noise measurement and the adjacent narrow component
+tolerances. No external implementation blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

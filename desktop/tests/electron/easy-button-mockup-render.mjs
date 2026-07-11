@@ -23,12 +23,16 @@ import { fileURLToPath } from "node:url";
 
 import { app, BrowserWindow } from "electron";
 
+import { writeEasyButtonImageDiffReport } from "./easy-button-pixel-image-report.mjs";
 import {
   clipToBounds,
   compareEasyButtonMetrics,
   formatEasyButtonMetricDeltas,
   metricPairs,
   pinTimesMs,
+  pixelMatchSpeechCapturePlan,
+  synchronizedCaptureFailureText,
+  synchronizedCaptureText,
   writePng,
 } from "./easy-button-pixel-match-report.mjs";
 
@@ -51,7 +55,7 @@ const mockupViewport = { deviceScaleFactor: 1, height: 1240, mobile: false, widt
 const stateSettleMs = 700;
 
 const captureStates = [
-  { crops: ["audioToggle", "control", "inputWrap"], state: "idle" },
+  ...pixelMatchSpeechCapturePlan,
   {
     crops: ["actionSlot", "audioToggle", "captionSlot", "control", "stopButton", "swirl"],
     state: "working",
@@ -97,7 +101,7 @@ async function main() {
     const metrics = await renderMockup(options.out);
     await writeJsonFile(join(options.out, "mockup-metrics.json"), metrics);
     if (options.productionMetrics) {
-      await writeDeltaReport(options.out, options.productionMetrics, metrics);
+      await writeComparisonReports(options.out, options.productionMetrics, metrics);
     }
     clearTimeout(watchdog);
     console.log(`Easy Button mockup rendered: ${options.out}`);
@@ -144,9 +148,9 @@ async function installBrowserScripts(webContents) {
 async function captureMockupState(webContents, outDir, { crops, state }) {
   const paneState = await evaluate(
     webContents,
-    `__settaEasyButtonMockup.gotoState(${quote(state)})`,
+    `__settaEasyButtonMockup.gotoState(${quote(state)}, ${quote(mockupFixture(state))})`,
   );
-  if (paneState.dataState !== state) {
+  if (paneState.stateKey !== state) {
     throw new Error(`easy-button mockup did not enter ${state}: ${JSON.stringify(paneState)}`);
   }
   await delay(stateSettleMs);
@@ -170,6 +174,13 @@ async function captureMockupState(webContents, outDir, { crops, state }) {
   return { crops, frames, metrics, paneState };
 }
 
+function mockupFixture(state) {
+  return {
+    captureError: state === "captureFailure" ? synchronizedCaptureFailureText : "",
+    captureText: state === "committing" ? synchronizedCaptureText : "",
+  };
+}
+
 async function captureCrop(webContents, path, metrics, key) {
   const component = metrics.components[key];
   if (!component?.exists) {
@@ -187,7 +198,7 @@ async function captureClip(webContents, path, rect) {
   await writePng(path, result.data);
 }
 
-async function writeDeltaReport(outDir, productionMetricsPath, mockup) {
+async function writeComparisonReports(outDir, productionMetricsPath, mockup) {
   const production = JSON.parse(await readFile(productionMetricsPath, "utf8"));
   const pairs = metricPairs.map((pair) => ({
     ...pair,
@@ -211,6 +222,15 @@ async function writeDeltaReport(outDir, productionMetricsPath, mockup) {
   );
   console.log(
     `Component deltas: ${pairs.map((pair) => `${pair.production}=${pair.rows.length}`).join(" ")}`,
+  );
+  const imageReport = await writeEasyButtonImageDiffReport({
+    mockup,
+    outDir,
+    pairs: metricPairs,
+    production,
+  });
+  console.log(
+    `Image deltas: ${imageReport.summary.changedCropCount}/${imageReport.summary.comparedCropCount} crops; ${imageReport.summary.dimensionMismatchCount} dimension mismatches`,
   );
 }
 
