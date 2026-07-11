@@ -33,6 +33,59 @@ func TestServiceReadSnapshotReturnsEmptySnapshotWithCurrentCursor(t *testing.T) 
 	}
 }
 
+func TestStoreRejectsVersionOneRunRecord(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	run := testRun("easy_run_version_one")
+	if err := writeJSONFile(store.easyRunPath(run.WorkspaceID, run.ID), storedRunRecord{
+		BackingRunID:  "run_version_one",
+		Run:           run,
+		SchemaVersion: 1,
+	}); err != nil {
+		t.Fatalf("write version-one run: %v", err)
+	}
+
+	_, err = store.LoadLatestSnapshot(run.WorkspaceID, EasyRunEventCursor{})
+	if err == nil || !IsCorruptStateError(err) || !strings.Contains(err.Error(), "schemaVersion = 1, want 2") {
+		t.Fatalf("load version-one run error = %v, want unsupported schema failure", err)
+	}
+}
+
+func TestStoreRejectsVersionTwoRunWithoutCurrentFocus(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	run := testRun("easy_run_missing_focus")
+	payload, err := json.Marshal(storedRunRecord{
+		BackingRunID:  "run_missing_focus",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	})
+	if err != nil {
+		t.Fatalf("marshal run record: %v", err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(payload, &record); err != nil {
+		t.Fatalf("decode run record: %v", err)
+	}
+	runRecord, ok := record["run"].(map[string]any)
+	if !ok {
+		t.Fatalf("run record = %#v, want object", record["run"])
+	}
+	delete(runRecord, "currentFocus")
+	if err := writeJSONFile(store.easyRunPath(run.WorkspaceID, run.ID), record); err != nil {
+		t.Fatalf("write run without current focus: %v", err)
+	}
+
+	_, err = store.LoadLatestSnapshot(run.WorkspaceID, EasyRunEventCursor{})
+	if err == nil || !IsCorruptStateError(err) || !strings.Contains(err.Error(), "current focus text is required") {
+		t.Fatalf("load run without current focus error = %v, want required focus failure", err)
+	}
+}
+
 func TestEventSubscriptionReplaysAfterCursorAndRequestsResyncWhenRetainedEventsAreGone(t *testing.T) {
 	events, err := NewEventHub(EasyRunEventStreamID, WithEventBufferSize(1), WithEventClock(func() time.Time {
 		return time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
@@ -1057,6 +1110,7 @@ func assertStartedEasyRun(t *testing.T, run EasyRun, requestText string) {
 	if run.ID != "easy_run_0001" || run.RequestText != requestText || run.WorkspaceID != "workspace_api" {
 		t.Fatalf("started run = %+v, want deterministic easy-run request", run)
 	}
+	assertRevisionZeroCurrentFocus(t, run, requestText)
 }
 
 func assertWorkingRunEvent(t *testing.T, event EasyRunEvent) {
@@ -1066,6 +1120,17 @@ func assertWorkingRunEvent(t *testing.T, event EasyRunEvent) {
 	}
 	if event.RunUpdated.Run.Status != EasyRunStatusWorking {
 		t.Fatalf("working event run = %+v, want working status", event.RunUpdated.Run)
+	}
+	assertRevisionZeroCurrentFocus(t, event.RunUpdated.Run, event.RunUpdated.Run.RequestText)
+}
+
+func assertRevisionZeroCurrentFocus(t *testing.T, run EasyRun, requestText string) {
+	t.Helper()
+	if run.CurrentFocus.Revision != 0 ||
+		run.CurrentFocus.Status != EasyRunFocusStatusCurrent ||
+		run.CurrentFocus.Text != requestText ||
+		run.CurrentFocus.UpdatedAt != run.StartedAt {
+		t.Fatalf("current focus = %+v, want revision zero for %q at %s", run.CurrentFocus, requestText, run.StartedAt)
 	}
 }
 
@@ -1363,12 +1428,18 @@ func testRun(id string) EasyRun {
 		ActiveAgentCount: 1,
 		ArtifactCount:    0,
 		ConversationID:   "conversation_" + id,
-		ID:               id,
-		NarratorStatus:   EasyRunNarratorStatusOK,
-		RequestText:      "Do the work",
-		StartedAt:        "2026-07-08T12:00:00Z",
-		Status:           EasyRunStatusWorking,
-		WorkspaceID:      "workspace_api",
+		CurrentFocus: EasyCurrentFocus{
+			Revision:  0,
+			Status:    EasyRunFocusStatusCurrent,
+			Text:      "Do the work",
+			UpdatedAt: "2026-07-08T12:00:00Z",
+		},
+		ID:             id,
+		NarratorStatus: EasyRunNarratorStatusOK,
+		RequestText:    "Do the work",
+		StartedAt:      "2026-07-08T12:00:00Z",
+		Status:         EasyRunStatusWorking,
+		WorkspaceID:    "workspace_api",
 	}
 }
 

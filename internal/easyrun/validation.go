@@ -134,6 +134,7 @@ func validateEasyRun(run EasyRun) error {
 	validators := []func(EasyRun) error{
 		validateEasyRunIdentity,
 		validateEasyRunRequestText,
+		validateEasyRunCurrentFocus,
 		validateEasyRunCounts,
 		validateEasyRunTerminalFields,
 	}
@@ -141,6 +142,22 @@ func validateEasyRun(run EasyRun) error {
 		if err := validate(run); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateEasyRunCurrentFocus(run EasyRun) error {
+	if run.CurrentFocus.Revision < 0 {
+		return fmt.Errorf("easy-run current focus revision must be non-negative: %d", run.CurrentFocus.Revision)
+	}
+	if err := validateRequiredTrimmedText("easy-run current focus text", run.CurrentFocus.Text); err != nil {
+		return err
+	}
+	if err := validateTimestamp("easy-run current focus updatedAt", run.CurrentFocus.UpdatedAt); err != nil {
+		return err
+	}
+	if !validValue(run.CurrentFocus.Status, easyRunFocusStatusValues) {
+		return fmt.Errorf("unsupported easy-run current focus status %s", run.CurrentFocus.Status)
 	}
 	return nil
 }

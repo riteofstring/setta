@@ -58,11 +58,14 @@
     if (!(host instanceof HTMLElement)) {
       return { exists: false, stageRect: rectSnapshot(stageRect), workspaceId };
     }
-    const columnRecord = await easyButtonColumnRecord(workspaceId);
-    return easyButtonHostState(context, columnRecord);
+    const [columnRecord, snapshot] = await Promise.all([
+      easyButtonColumnRecord(workspaceId),
+      easyButtonSnapshot(workspaceId),
+    ]);
+    return easyButtonHostState(context, columnRecord, snapshot);
   }
 
-  function easyButtonHostState({ host, stageRect, workspaceId }, columnRecord) {
+  function easyButtonHostState({ host, stageRect, workspaceId }, columnRecord, snapshot) {
     const hostRect = host.getBoundingClientRect();
     return {
       ...easyButtonState(host),
@@ -71,6 +74,7 @@
       exists: true,
       artifacts: easyButtonArtifacts(host),
       highlights: easyButtonHighlights(host),
+      currentFocus: snapshot?.latestRun?.currentFocus ?? null,
       layoutWidthSpec: columnRecord?.widthSpec ?? null,
       railLabels: easyButtonRailLabels(host),
       railText: easyButtonRailText(host),
@@ -489,6 +493,13 @@
     const layout = await easyButtonLayout(workspaceId);
     const paneRecord = easyButtonPaneRecord(layout);
     return paneRecord ? easyButtonColumnForPane(layout, paneRecord.paneId) : null;
+  }
+
+  async function easyButtonSnapshot(workspaceId) {
+    if (!workspaceId || workspaceId === "empty") {
+      return null;
+    }
+    return window.setta.easyRun.snapshot(workspaceId);
   }
 
   async function easyButtonLayout(workspaceId) {

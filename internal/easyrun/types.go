@@ -2,6 +2,7 @@ package easyrun
 
 type EasyRunStatus string
 type EasyRunNarratorStatus string
+type EasyRunFocusStatus string
 type EasyArtifactKind string
 type EasyRunEventType string
 
@@ -14,6 +15,10 @@ const (
 	EasyRunNarratorStatusOK       EasyRunNarratorStatus = "ok"
 	EasyRunNarratorStatusDegraded EasyRunNarratorStatus = "degraded"
 
+	EasyRunFocusStatusCurrent  EasyRunFocusStatus = "current"
+	EasyRunFocusStatusUpdating EasyRunFocusStatus = "updating"
+	EasyRunFocusStatusStale    EasyRunFocusStatus = "stale"
+
 	EasyArtifactKindMarkdown EasyArtifactKind = "markdown"
 	EasyArtifactKindTable    EasyArtifactKind = "table"
 	EasyArtifactKindBarChart EasyArtifactKind = "bar_chart"
@@ -25,7 +30,7 @@ const (
 	EasyRunEventTypeResyncRequired   EasyRunEventType = "easyrun.resync_required"
 )
 
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 var easyRunStatusValues = []EasyRunStatus{
 	EasyRunStatusWorking,
@@ -37,6 +42,12 @@ var easyRunStatusValues = []EasyRunStatus{
 var easyRunNarratorStatusValues = []EasyRunNarratorStatus{
 	EasyRunNarratorStatusOK,
 	EasyRunNarratorStatusDegraded,
+}
+
+var easyRunFocusStatusValues = []EasyRunFocusStatus{
+	EasyRunFocusStatusCurrent,
+	EasyRunFocusStatusUpdating,
+	EasyRunFocusStatusStale,
 }
 
 var easyArtifactKindValues = []EasyArtifactKind{
@@ -58,6 +69,7 @@ type EasyRun struct {
 	WorkspaceID      string                `json:"workspaceId"`
 	Status           EasyRunStatus         `json:"status"`
 	RequestText      string                `json:"requestText"`
+	CurrentFocus     EasyCurrentFocus      `json:"currentFocus"`
 	ConversationID   string                `json:"conversationId"`
 	StartedAt        string                `json:"startedAt"`
 	EndedAt          *string               `json:"endedAt"`
@@ -67,6 +79,13 @@ type EasyRun struct {
 	ActiveAgentCount int                   `json:"activeAgentCount"`
 	ArtifactCount    int                   `json:"artifactCount"`
 	HighlightCount   int                   `json:"highlightCount"`
+}
+
+type EasyCurrentFocus struct {
+	Revision  int                `json:"revision"`
+	Text      string             `json:"text"`
+	UpdatedAt string             `json:"updatedAt"`
+	Status    EasyRunFocusStatus `json:"status"`
 }
 
 type EasyHighlight struct {
@@ -179,6 +198,7 @@ func ContractValueSets() []ContractValueSet {
 	return []ContractValueSet{
 		{Name: "EasyRunStatus", Values: stringValues(easyRunStatusValues)},
 		{Name: "EasyRunNarratorStatus", Values: stringValues(easyRunNarratorStatusValues)},
+		{Name: "EasyRunFocusStatus", Values: stringValues(easyRunFocusStatusValues)},
 		{Name: "EasyArtifactKind", Values: stringValues(easyArtifactKindValues)},
 		{Name: "EasyRunEventType", Values: stringValues(easyRunEventTypeValues)},
 	}

@@ -785,6 +785,7 @@ function assertWorkingVisual(state, requestText) {
     },
     "easy-button working visual did not match Phase 2d",
   );
+  assertRevisionZeroCurrentFocus(state, requestText);
 }
 
 function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
@@ -809,6 +810,21 @@ function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
     );
   }
   assertSummaryOkMark(state, summaryFact);
+  assertRevisionZeroCurrentFocus(state, requestText);
+}
+
+function assertRevisionZeroCurrentFocus(state, requestText) {
+  const focus = state.currentFocus;
+  if (
+    focus?.revision !== 0 ||
+    focus.status !== "current" ||
+    focus.text !== requestText ||
+    focus.updatedAt === ""
+  ) {
+    throw new Error(
+      `easy-button snapshot did not carry revision-zero current focus: ${JSON.stringify(state)}`,
+    );
+  }
 }
 
 function assertArtifactTerminalVisual(state, requestText) {

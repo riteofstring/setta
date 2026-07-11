@@ -1,4 +1,4 @@
-import type { EasyRunEvent } from "@generated/backend";
+import { decodeEasyRunEvent, type EasyRunEvent } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { describe, expect, test, vi } from "vitest";
 
@@ -138,6 +138,14 @@ describe("easy-run event stream", () => {
     expect(lastEventIds).toEqual(["", "easyrun_events:4", "easyrun_events:0"]);
     expect(forwarded).toEqual([first, resync, recovered]);
   });
+
+  test("rejects pre-version-two run payloads without current focus", () => {
+    const event = JSON.parse(JSON.stringify(runUpdatedEvent(1))) as Record<string, unknown>;
+    const runUpdated = event.runUpdated as { run: Record<string, unknown> };
+    delete runUpdated.run.currentFocus;
+
+    expect(() => decodeEasyRunEvent(event)).toThrow(/currentFocus/);
+  });
 });
 
 function textStream(text: string): ReadableStream<Uint8Array> {
@@ -192,6 +200,12 @@ function runUpdatedEvent(sequence: number, streamId = "easyrun_events"): EasyRun
         activeAgentCount: 1,
         artifactCount: 0,
         conversationId: "conversation_api",
+        currentFocus: {
+          revision: 0,
+          status: "current",
+          text: "Do the work",
+          updatedAt: "2026-07-08T12:00:00Z",
+        },
         endedAt: null,
         error: null,
         highlightCount: 0,
@@ -204,7 +218,7 @@ function runUpdatedEvent(sequence: number, streamId = "easyrun_events"): EasyRun
         workspaceId: "workspace_api",
       },
     },
-    schemaVersion: 1,
+    schemaVersion: 2,
     sequence,
     streamId,
     type: "easyrun.run.updated",
@@ -228,7 +242,7 @@ function resyncEvent(sequence: number, streamId: string): EasyRunEvent {
       requestedStreamId: "easyrun_events_old",
     },
     runUpdated: null,
-    schemaVersion: 1,
+    schemaVersion: 2,
     sequence,
     streamId,
     type: "easyrun.resync_required",

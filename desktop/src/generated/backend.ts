@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 10;
-export const backendContractSchemaHash = "sha256:b135875a96f5b9b12ba4a9b210d70ddbadd4e6491e430f3006f7e16501f45383";
+export const backendProtocolVersion = 11;
+export const backendContractSchemaHash = "sha256:0e4720d6f37fdb05b1f730516061c543bec134d169a8a18163f2b53b4346aa1a";
 
 export type DeviceScope = "full";
 
@@ -680,6 +680,24 @@ export function decodeEasyRunStatus(value: unknown, label = "EasyRunStatus"): Ea
     case "failed":
       return decoded;
     case "stopped":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type EasyRunFocusStatus = "current" | "updating" | "stale";
+
+export const easyRunFocusStatusValues = ["current", "updating", "stale"] as const satisfies readonly EasyRunFocusStatus[];
+
+export function decodeEasyRunFocusStatus(value: unknown, label = "EasyRunFocusStatus"): EasyRunFocusStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "current":
+      return decoded;
+    case "updating":
+      return decoded;
+    case "stale":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3313,11 +3331,19 @@ export interface ReadEasyRunSnapshotRequest {
   workspaceId: string;
 }
 
+export interface EasyCurrentFocus {
+  revision: number;
+  text: string;
+  updatedAt: string;
+  status: EasyRunFocusStatus;
+}
+
 export interface EasyRun {
   id: string;
   workspaceId: string;
   status: EasyRunStatus;
   requestText: string;
+  currentFocus: EasyCurrentFocus;
   conversationId: string;
   startedAt: string;
   endedAt: string | null;
@@ -8311,14 +8337,26 @@ export function decodeReadEasyRunSnapshotRequest(value: unknown): ReadEasyRunSna
   };
 }
 
+export function decodeEasyCurrentFocus(value: unknown): EasyCurrentFocus {
+  const record = assertRecord(value, "EasyCurrentFocus");
+  assertKnownFields(record, "EasyCurrentFocus", ["revision", "text", "updatedAt", "status"]);
+  return {
+    revision: decodeInteger(requireField(record, "revision", "EasyCurrentFocus"), "EasyCurrentFocus.revision"),
+    text: decodeString(requireField(record, "text", "EasyCurrentFocus"), "EasyCurrentFocus.text"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "EasyCurrentFocus"), "EasyCurrentFocus.updatedAt"),
+    status: decodeEasyRunFocusStatus(requireField(record, "status", "EasyCurrentFocus"), "EasyCurrentFocus.status"),
+  };
+}
+
 export function decodeEasyRun(value: unknown): EasyRun {
   const record = assertRecord(value, "EasyRun");
-  assertKnownFields(record, "EasyRun", ["id", "workspaceId", "status", "requestText", "conversationId", "startedAt", "endedAt", "summary", "error", "narratorStatus", "activeAgentCount", "artifactCount", "highlightCount"]);
+  assertKnownFields(record, "EasyRun", ["id", "workspaceId", "status", "requestText", "currentFocus", "conversationId", "startedAt", "endedAt", "summary", "error", "narratorStatus", "activeAgentCount", "artifactCount", "highlightCount"]);
   return {
     id: decodeString(requireField(record, "id", "EasyRun"), "EasyRun.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "EasyRun"), "EasyRun.workspaceId"),
     status: decodeEasyRunStatus(requireField(record, "status", "EasyRun"), "EasyRun.status"),
     requestText: decodeString(requireField(record, "requestText", "EasyRun"), "EasyRun.requestText"),
+    currentFocus: decodeEasyCurrentFocus(requireField(record, "currentFocus", "EasyRun")),
     conversationId: decodeString(requireField(record, "conversationId", "EasyRun"), "EasyRun.conversationId"),
     startedAt: decodeString(requireField(record, "startedAt", "EasyRun"), "EasyRun.startedAt"),
     endedAt: decodeNullable(requireField(record, "endedAt", "EasyRun"), "EasyRun.endedAt", (item) => decodeString(item, "EasyRun.endedAt")),

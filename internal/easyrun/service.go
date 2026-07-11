@@ -322,17 +322,24 @@ func (service *Service) prepareRunForConversation(workspaceID string, easyRunID 
 	} else if ok {
 		return fmt.Errorf("easy-run %s is already working", active.Run.ID)
 	}
+	startedAt := timestamp(service.now())
 	run := EasyRun{
 		ActiveAgentCount: 1,
 		ArtifactCount:    0,
 		ConversationID:   conversation.ID,
-		HighlightCount:   0,
-		ID:               easyRunID,
-		NarratorStatus:   EasyRunNarratorStatusOK,
-		RequestText:      requestText,
-		StartedAt:        timestamp(service.now()),
-		Status:           EasyRunStatusWorking,
-		WorkspaceID:      workspaceID,
+		CurrentFocus: EasyCurrentFocus{
+			Revision:  0,
+			Status:    EasyRunFocusStatusCurrent,
+			Text:      requestText,
+			UpdatedAt: startedAt,
+		},
+		HighlightCount: 0,
+		ID:             easyRunID,
+		NarratorStatus: EasyRunNarratorStatusOK,
+		RequestText:    requestText,
+		StartedAt:      startedAt,
+		Status:         EasyRunStatusWorking,
+		WorkspaceID:    workspaceID,
 	}
 	if err := service.store.saveNewRun(storedRunRecord{
 		SchemaVersion: SchemaVersion,

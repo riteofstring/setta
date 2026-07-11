@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Proposed implementation plan
+**Status:** Implementation in progress — Phase 1 items 1-2 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1030,6 +1030,63 @@ not promise voice before the complete provider path exists.
 7. Complete reduced-motion, compact-layout, keyboard, screen-reader, PWA, and
    failure-state audits.
 8. Run deterministic and live provider acceptance gates.
+
+## Progress Log
+
+### 2026-07-10 — Phase 1 current-focus schema slice complete
+
+Implemented Phase 1 items 1-2 as one schema-coherent slice. Easy Run schema
+version 2 now requires the Go-owned `EasyCurrentFocus` value and its exhaustive
+`current | updating | stale` status. New runs persist revision zero with the
+shared-normalized immutable request text, the run start timestamp, and
+`status = current`; the same complete run is published through
+`easyrun.run.updated`. Version-1 run records and version-2 records missing
+Current focus fail as corrupt unsupported state. The backend protocol is now
+version 11, and the generated TypeScript contract, decoder, value set, and
+schema snapshot were regenerated from the Go endpoint registry.
+
+Verification completed for this slice:
+
+- `./scripts/go.sh test ./internal/easyrun ./internal/httpapi ./cmd/generate-contracts`;
+- focused main/event/store Vitest coverage, including rejection of an old run
+  payload without `currentFocus`, plus backend-supervisor protocol-version
+  coverage;
+- `pnpm -C desktop build` and `pnpm -C desktop build:web`;
+- deterministic production-path Electron Easy Button coverage at
+  `.recordings/easy-button-speech-phase1-current-focus`, including revision-zero
+  focus through backend persistence, HTTP, main, preload, generated decoding,
+  renderer access, live events, and reload;
+- `./scripts/format.sh`.
+
+ChatGPT authentication was available, so the required live Codex gate was run
+with `OPENAI_API_KEY` removed. `live-codex-electron`, `easy-button-live`, and
+`live-codex-backend` were all blocked before a run could start because the
+current signed-in Codex `model/list` response advertises reasoning effort
+`max`, while Setta's existing provider decoder rejects that value. This is an
+external provider-protocol blocker outside this current-focus schema slice; the
+live failure is not counted as provider validation. Deterministic production
+coverage passed.
+
+The broad `./check_quality.sh --all` run exposed one slice-owned test fixture
+that still embedded protocol version 10. The fixture now receives
+`backendProtocolVersion` from the generated contract through its test
+environment instead of maintaining another mirror, and its focused 11-test
+Vitest suite passes. The broad run's unrelated Codex-protocol notification
+timeout passed on the prescribed narrow retry. The broad gate cannot complete
+cleanly while its live runtime tests encounter the same `max` provider drift
+described above.
+
+`./scripts/check_supply_chain.sh` is also blocked repository-wide: the pinned
+Go 1.26.4 standard library is affected by GO-2026-5856 in `crypto/tls`, fixed in
+Go 1.26.5. Updating the pinned toolchain is separate dependency/tooling work
+and is not folded into this current-focus schema commit.
+
+Remaining work starts with Phase 1 item 3: retain the successful regular-chat
+`SteerMessageResult.UserMessage` as the authoritative accepted steering fact.
+Items 4-8 then add narrator focus-dirty/watermark behavior, the focus-aware
+narrator contract, renderer Current focus states, speakable mechanical
+summaries, and the corresponding broader coverage. No blocker was found for
+the next Phase 1 implementation work itself.
 
 ## Verification Plan
 
