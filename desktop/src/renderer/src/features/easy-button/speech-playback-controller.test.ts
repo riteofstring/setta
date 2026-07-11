@@ -223,6 +223,36 @@ describe("Easy Button speech playback controller", () => {
       type: "failed",
     });
   });
+
+  test.each(["create", "play"] as const)(
+    "turns a synchronous audio %s failure into a replayable playback failure",
+    async (failurePoint) => {
+      const browserFailure = new Error("browser media setup failed");
+      const harness = createHarness({
+        createAudioError: failurePoint === "create" ? browserFailure : null,
+        playSynchronousError: failurePoint === "play" ? browserFailure : null,
+      });
+      const source = summarySource(`run_sync_${failurePoint}`);
+
+      harness.controller.replaySummary(source);
+      harness.resolveSynthesis(0, speechAudio(source.easyRunId));
+      await flushPromises();
+
+      expect(harness.currentState()).toEqual({
+        message: "The synthesized run summary could not be played.",
+        source,
+        type: "failed",
+      });
+      expect(harness.synthesisRequests).toHaveLength(1);
+
+      harness.setCreateAudioError(null);
+      harness.setPlaySynchronousError(null);
+      harness.controller.replaySummary(source);
+      await flushPromises();
+      expect(harness.synthesisRequests).toHaveLength(1);
+      expect(harness.currentState()).toEqual({ source, type: "speaking" });
+    },
+  );
 });
 
 class FakeAudio {
@@ -232,13 +262,17 @@ class FakeAudio {
     error: new Set<() => void>(),
   };
   readonly pause = vi.fn();
-  readonly play = vi.fn(() =>
-    this.playError ? Promise.reject(this.playError) : Promise.resolve(),
-  );
+  readonly play = vi.fn(() => {
+    if (this.playSynchronousError) {
+      throw this.playSynchronousError;
+    }
+    return this.playError ? Promise.reject(this.playError) : Promise.resolve();
+  });
 
   constructor(
     readonly url: string,
     private readonly playError: Error | null,
+    private readonly playSynchronousError: Error | null,
   ) {}
 
   addEventListener(type: "ended" | "error", listener: () => void): void {
@@ -258,8 +292,10 @@ class FakeAudio {
 
 function createHarness(
   options: {
+    createAudioError?: Error | null;
     decodeBase64?: SpeechPlaybackControllerDependencies["decodeBase64"];
     playError?: Error | null;
+    playSynchronousError?: Error | null;
   } = {},
 ) {
   const states: SpeechPlaybackState[] = [];
@@ -270,12 +306,17 @@ function createHarness(
   const createdURLs: string[] = [];
   const revokedURLs: string[] = [];
   const mutable = {
+    createAudioError: options.createAudioError ?? null,
     playError: options.playError ?? null,
+    playSynchronousError: options.playSynchronousError ?? null,
   };
   const dependencies: SpeechPlaybackControllerDependencies = {
     createAbortController: () => new AbortController(),
     createAudio: (url) => {
-      const audio = new FakeAudio(url, mutable.playError);
+      if (mutable.createAudioError) {
+        throw mutable.createAudioError;
+      }
+      const audio = new FakeAudio(url, mutable.playError, mutable.playSynchronousError);
       audios.push(audio);
       return audio;
     },
@@ -307,8 +348,14 @@ function createHarness(
     resolveSynthesis: (index: number, audio: SpeechAudio) =>
       synthesisResults[index]?.resolve(audio),
     revokedURLs,
+    setCreateAudioError: (error: Error | null) => {
+      mutable.createAudioError = error;
+    },
     setPlayError: (error: Error | null) => {
       mutable.playError = error;
+    },
+    setPlaySynchronousError: (error: Error | null) => {
+      mutable.playSynchronousError = error;
     },
     states,
     synthesisRequests,

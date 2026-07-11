@@ -3149,6 +3149,47 @@ unconfigured `Voice off` explanation. Items 3-6 then add terminal source
 indication/replay, live completed/failed auto-play, hydration safeguards, and
 recording-preemption/failure coverage. No implementation blocker was found.
 
+### 2026-07-10 — Phase 4 terminal-summary playback controller audit complete
+
+Audited commit `66c832493` against Phase 4 item 1, `AGENTS.md`, the clean
+worktree, generated and checked-in web artifacts, the existing speech API
+surfaces, retained workflow evidence, and the controller's queue, source,
+cache, abort, and media lifecycles. The slice remains correctly unmounted: it
+does not add the Phase 4 item-2 output preference or top-bar UI, terminal replay
+controls, live-event auto-play, or highlight speech.
+
+The audit found one practical browser failure gap. A synchronous exception
+while constructing the audio element or invoking `play()` escaped the async
+controller task, leaving the active source stuck and producing an unhandled
+rejection instead of the typed playback failure. Both setup boundaries now
+enter the existing `failed` state, clear the active playback lifecycle, retain
+the mounted summary Blob, and allow explicit replay without another synthesis
+request. Focused regression cases cover both synchronous failure points and
+the cache-reuse retry.
+
+Audit verification completed:
+
+- all 15 focused playback-controller cases passed, followed by all 1,090
+  desktop Vitest tests, focused lint, dead-code analysis, and Electron/web
+  typechecks;
+- both production builds passed, the checked-in PWA bundle remained
+  idempotent, and the embedded-webapp Go test passed;
+- the authenticated production speech API workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-playback-controller-audit-api-final-20260710`,
+  and the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase4-playback-controller-audit-regression-20260710`;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  controller, regression tests, and this plan update.
+
+No dependency, manifest, module, package-manager, Go-owned contract, generated
+contract, or supply-chain input changed, so the supply-chain gate was not
+required. No mounted production playback behavior exists yet, so this audit
+does not claim terminal playback acceptance or live OpenAI speech proof. The
+plan remains incomplete; the next implementation slice is Phase 4 item 2:
+mount the controller at the Easy Button pane scope and add the device-local
+output mode, AI-voice disclosure, top-bar playback states and stop behavior,
+and the unconfigured `Voice off` explanation.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

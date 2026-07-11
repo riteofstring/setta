@@ -213,14 +213,27 @@ export class SpeechPlaybackController {
   }
 
   private beginAudioPlayback(item: QueuedSummary, lifecycle: number, url: string): void {
-    const audio = this.dependencies.createAudio(url);
+    let audio: PlaybackAudio;
+    try {
+      audio = this.dependencies.createAudio(url);
+    } catch (error) {
+      this.fail(item, playbackFailureMessage(error));
+      return;
+    }
     const ended = () => this.finishAudio(item, lifecycle, audio);
     const failed = () => this.failAudio(item, lifecycle, audio);
     this.activePlayback = { audio, ended, failed };
     audio.addEventListener("ended", ended);
     audio.addEventListener("error", failed);
     this.transition({ source: item.source, type: "speaking" });
-    void audio.play().catch((error: unknown) => {
+    let playback: Promise<void>;
+    try {
+      playback = audio.play();
+    } catch (error) {
+      this.fail(item, playbackFailureMessage(error));
+      return;
+    }
+    void playback.catch((error: unknown) => {
       if (!this.isCurrent(item, lifecycle) || this.activePlayback?.audio !== audio) {
         return;
       }
