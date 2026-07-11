@@ -260,7 +260,8 @@ type TrajectoryTurnQueued struct {
 }
 
 type TrajectoryTurnPromoted struct {
-	FormerQueueOrdinal int `json:"formerQueueOrdinal"`
+	FormerQueueOrdinal int           `json:"formerQueueOrdinal"`
+	Input              AuthoredInput `json:"input"`
 }
 
 type TrajectoryTurnStarted struct {

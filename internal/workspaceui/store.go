@@ -206,7 +206,27 @@ func validatePane(layoutWorkspaceID string, pane WorkspaceUIPane, index int, pat
 	if err := validatePaneTerminalConfig(pane, index, path); err != nil {
 		return err
 	}
+	if err := validateEasyButtonPaneConfig(pane, index, path); err != nil {
+		return err
+	}
 	return validatePaneWorkflowNodeDetailsConfig(layoutWorkspaceID, pane, index, path)
+}
+
+func validateEasyButtonPaneConfig(pane WorkspaceUIPane, index int, path string) error {
+	if pane.SurfaceKind != SurfaceKindEasyButton {
+		if pane.EasyButtonConfig != nil {
+			return corruptStateErrorf(path, "panes[%d].easyButtonConfig is only valid for easy-button panes", index)
+		}
+		return nil
+	}
+	if pane.EasyButtonConfig == nil {
+		return corruptStateErrorf(path, "panes[%d].easyButtonConfig is required", index)
+	}
+	conversationID := pane.EasyButtonConfig.ConversationID
+	if strings.TrimSpace(conversationID) == "" || strings.TrimSpace(conversationID) != conversationID {
+		return corruptStateErrorf(path, "panes[%d].easyButtonConfig.conversationId is invalid", index)
+	}
+	return nil
 }
 
 func validatePaneRequiredFields(pane WorkspaceUIPane, index int, path string) error {

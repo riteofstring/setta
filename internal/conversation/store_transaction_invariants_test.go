@@ -93,7 +93,7 @@ func TestTransactionPromotesQueuedTurnAndRemovesQueueAtomically(t *testing.T) {
 		EmittedAt:      testTimeEnded,
 		Kind:           TrajectoryEventTurnPromoted,
 		Actor:          TrajectoryActorSystem,
-		TurnPromoted:   &TrajectoryTurnPromoted{FormerQueueOrdinal: 1},
+		TurnPromoted:   &TrajectoryTurnPromoted{FormerQueueOrdinal: 1, Input: AuthoredInput{Text: "Promoted work"}},
 	}
 
 	_, err := store.Transact(context.Background(), "promote queued turn", func(transaction *WriteTransaction) error {

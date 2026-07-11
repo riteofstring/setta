@@ -269,7 +269,7 @@ func supportedContractFixture() supportedContracts {
 			{Name: "error", Schema: "RealtimeServerEventError", Type: "error"},
 			{Name: "rateLimitsUpdated", Schema: "RealtimeServerEventRateLimitsUpdated", Type: "rate_limits.updated"},
 		},
-		Speech: supportedSpeech{Model: "gpt-4o-mini-tts", ResponseFormat: "pcm", Voice: "marin"},
+		Speech: supportedSpeech{Model: "gpt-4o-mini-tts", ResponseFormat: "pcm", Voice: "marin", Voices: []string{"marin"}},
 		Transcription: supportedTranscription{
 			ClientSecretTTLSeconds: 600,
 			Delay:                  "medium",

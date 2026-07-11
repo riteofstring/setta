@@ -29,4 +29,5 @@ var (
 	openAICreateSpeechWireResponseMediaTypes               = [...]string{"application/octet-stream", "audio/pcm"}
 	openAICreateRealtimeCallWireResponseMediaTypes         = [...]string{"application/sdp", "text/plain"}
 	openAICreateRealtimeClientSecretWireResponseMediaTypes = [...]string{"application/json"}
+	synthesisVoiceCatalog                                  = [...]string{"alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse", "marin", "cedar"}
 )

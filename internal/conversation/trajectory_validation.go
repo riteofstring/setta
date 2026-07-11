@@ -139,7 +139,10 @@ func validateTurnTrajectoryPayload(payload any) (error, bool) {
 	case *TrajectoryTurnQueued:
 		return validatePositiveOrdinal("queue ordinal", value.QueueOrdinal), true
 	case *TrajectoryTurnPromoted:
-		return validatePositiveOrdinal("former queue ordinal", value.FormerQueueOrdinal), true
+		if err := validatePositiveOrdinal("former queue ordinal", value.FormerQueueOrdinal); err != nil {
+			return err, true
+		}
+		return value.Input.Validate(), true
 	case *TrajectoryTurnStarted:
 		return validateTrajectoryTurnStarted(value), true
 	case *TrajectoryTurnSteered:

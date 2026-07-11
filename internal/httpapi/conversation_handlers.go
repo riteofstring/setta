@@ -10,6 +10,111 @@ import (
 	"setta/internal/conversation"
 )
 
+func (handler handler) listTopicConversations(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload ListTopicConversationsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	page, err := service.List(request.Context(), payload.WorkspaceID, payload.Cursor, payload.Limit)
+	if err != nil {
+		writeConversationError(response, "list_topic_conversations_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, page)
+}
+
+func (handler handler) createTopicConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload CreateTopicConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	snapshot, err := service.Create(request.Context(), conversation.CreateConversationRequest{
+		WorkspaceID: payload.WorkspaceID, Title: payload.Title, InitialInput: payload.InitialInput,
+	})
+	writeConversationSnapshotResult(response, snapshot, err, "create_topic_conversation_failed")
+}
+
+func (handler handler) sendConversationInput(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload SendConversationInputRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	snapshot, err := service.Send(request.Context(), conversation.SendConversationInputRequest{
+		WorkspaceID: payload.WorkspaceID, ConversationID: payload.ConversationID, Input: payload.Input,
+	})
+	writeConversationSnapshotResult(response, snapshot, err, "send_conversation_input_failed")
+}
+
+func (handler handler) steerConversationInput(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload SteerConversationInputRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	snapshot, err := service.Steer(request.Context(), conversation.SteerConversationRequest{
+		WorkspaceID: payload.WorkspaceID, ConversationID: payload.ConversationID, Input: payload.Input,
+	})
+	writeConversationSnapshotResult(response, snapshot, err, "steer_conversation_input_failed")
+}
+
+func (handler handler) stopConversationTurn(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload StopConversationTurnRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	snapshot, err := service.Stop(request.Context(), conversation.StopConversationRequest{
+		WorkspaceID: payload.WorkspaceID, ConversationID: payload.ConversationID,
+	})
+	writeConversationSnapshotResult(response, snapshot, err, "stop_conversation_turn_failed")
+}
+
+func (handler handler) submitConversationApproval(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload SubmitConversationApprovalRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	snapshot, err := service.SubmitApproval(request.Context(), conversation.SubmitConversationApprovalRequest{
+		WorkspaceID: payload.WorkspaceID, ConversationID: payload.ConversationID,
+		ApprovalID: payload.ApprovalID, Decision: payload.Decision, Answers: payload.Answers,
+	})
+	writeConversationSnapshotResult(response, snapshot, err, "submit_conversation_approval_failed")
+}
+
+func writeConversationSnapshotResult(response http.ResponseWriter, snapshot conversation.ConversationSnapshot, err error, code string) {
+	if err != nil {
+		writeConversationError(response, code, err)
+		return
+	}
+	if err := snapshot.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_conversation_snapshot", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, snapshot)
+}
+
 func (handler handler) readConversationSnapshot(response http.ResponseWriter, request *http.Request) {
 	service := requireConversationService(response, handler.conversationService)
 	if service == nil {

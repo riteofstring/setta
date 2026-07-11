@@ -60,5 +60,8 @@ INSERT INTO trajectory_events (
 	if err != nil {
 		return fmt.Errorf("append trajectory event %s: %w", event.ID, err)
 	}
+	if err := transaction.applyCurrentProjection(event); err != nil {
+		return fmt.Errorf("apply current projection for event %s: %w", event.ID, err)
+	}
 	return transaction.recordStateMutation()
 }

@@ -202,6 +202,13 @@ type TurnControlRequest struct {
 	Text             string `json:"text,omitempty"`
 }
 
+type ObserveTurnRequest struct {
+	ConversationID   string `json:"conversationId"`
+	TurnID           string `json:"turnId"`
+	ProviderThreadID string `json:"providerThreadId"`
+	ProviderTurnID   string `json:"providerTurnId"`
+}
+
 type ApprovalDecision string
 
 const (

@@ -209,6 +209,30 @@ func (service *httpTestConversationService) ReadSnapshot(
 	return service.snapshot, nil
 }
 
+func (service *httpTestConversationService) Create(_ context.Context, _ conversation.CreateConversationRequest) (conversation.ConversationSnapshot, error) {
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) List(_ context.Context, _ string, _ *string, _ int) (conversation.ConversationListPage, error) {
+	return conversation.ConversationListPage{Conversations: []conversation.TopicConversation{service.snapshot.Conversation}}, nil
+}
+
+func (service *httpTestConversationService) Send(_ context.Context, _ conversation.SendConversationInputRequest) (conversation.ConversationSnapshot, error) {
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) Steer(_ context.Context, _ conversation.SteerConversationRequest) (conversation.ConversationSnapshot, error) {
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) Stop(_ context.Context, _ conversation.StopConversationRequest) (conversation.ConversationSnapshot, error) {
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) SubmitApproval(_ context.Context, _ conversation.SubmitConversationApprovalRequest) (conversation.ConversationSnapshot, error) {
+	return service.snapshot, nil
+}
+
 func (service *httpTestConversationService) SubscribeEvents(
 	cursor conversation.ConversationEventCursor,
 	workspaceID string,

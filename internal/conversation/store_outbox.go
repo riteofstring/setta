@@ -170,6 +170,48 @@ LIMIT ?
 	return events, nil
 }
 
+func (store *Store) ReadCommittedStreamCursor(ctx context.Context, streamID string) (int, error) {
+	if store == nil {
+		return 0, errors.New("conversation store is required")
+	}
+	if err := validateIdentifier("committed event stream id", streamID); err != nil {
+		return 0, err
+	}
+	var sequence int
+	err := store.read(ctx, "read committed conversation stream cursor", func(ctx context.Context, reader *sql.Conn) error {
+		return reader.QueryRowContext(ctx, `
+SELECT COALESCE(MAX(stream_sequence), 0) FROM committed_events WHERE stream_id = ?
+`, streamID).Scan(&sequence)
+	})
+	return sequence, err
+}
+
+func (store *Store) ReadCommittedEventByID(ctx context.Context, eventID string) (CommittedEvent, error) {
+	if store == nil {
+		return CommittedEvent{}, errors.New("conversation store is required")
+	}
+	if err := validateIdentifier("committed event id", eventID); err != nil {
+		return CommittedEvent{}, err
+	}
+	var event CommittedEvent
+	err := store.read(ctx, "read committed event by id", func(ctx context.Context, reader *sql.Conn) error {
+		var payload string
+		err := reader.QueryRowContext(ctx, `
+SELECT commit_sequence, id, stream_id, stream_sequence, kind, payload_json, committed_at
+FROM committed_events WHERE id = ?
+`, eventID).Scan(&event.CommitSequence, &event.ID, &event.StreamID, &event.StreamSequence, &event.Kind, &payload, &event.CommittedAt)
+		event.Payload = json.RawMessage(payload)
+		return err
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return CommittedEvent{}, fmt.Errorf("committed event not found: %s", eventID)
+	}
+	if err != nil {
+		return CommittedEvent{}, err
+	}
+	return event, event.Validate()
+}
+
 // WaitForCommittedEvents blocks without polling until a record exists after
 // the supplied durable cursor, the context is cancelled, or the store closes.
 func (store *Store) WaitForCommittedEvents(
@@ -186,6 +228,34 @@ func (store *Store) WaitForCommittedEvents(
 	for {
 		wake := store.committedEventWakeChannel()
 		events, err := store.ReadCommittedEvents(ctx, cursor, limit)
+		if err != nil || len(events) > 0 {
+			return events, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-store.closing:
+			return nil, ErrStoreClosed
+		case <-wake:
+		}
+	}
+}
+
+func (store *Store) WaitForCommittedStreamEvents(
+	ctx context.Context,
+	streamID string,
+	afterSequence int,
+	limit int,
+) ([]CommittedEvent, error) {
+	if store == nil {
+		return nil, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return nil, errors.New("committed stream wait context is required")
+	}
+	for {
+		wake := store.committedEventWakeChannel()
+		events, err := store.ReadCommittedStreamEvents(ctx, streamID, afterSequence, limit)
 		if err != nil || len(events) > 0 {
 			return events, err
 		}

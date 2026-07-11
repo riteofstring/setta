@@ -27,9 +27,10 @@ type supportedRealtimeEvent struct {
 }
 
 type supportedSpeech struct {
-	Model          string `json:"model"`
-	ResponseFormat string `json:"responseFormat"`
-	Voice          string `json:"voice"`
+	Model          string   `json:"model"`
+	ResponseFormat string   `json:"responseFormat"`
+	Voice          string   `json:"voice"`
+	Voices         []string `json:"voices"`
 }
 
 type supportedTranscription struct {

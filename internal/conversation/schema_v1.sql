@@ -110,6 +110,17 @@ CREATE INDEX trajectory_events_turn_sequence_idx
   ON trajectory_events(turn_id, sequence)
   WHERE turn_id IS NOT NULL;
 
+CREATE TABLE conversation_current_projection (
+  conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  current_objective TEXT NOT NULL DEFAULT '',
+  accepted_steering_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(accepted_steering_json)),
+  current_plan_json TEXT CHECK (current_plan_json IS NULL OR json_valid(current_plan_json)),
+  active_activities_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(active_activities_json)),
+  pending_approval_json TEXT CHECK (pending_approval_json IS NULL OR json_valid(pending_approval_json)),
+  active_subagents_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(active_subagents_json)),
+  updated_through_sequence INTEGER NOT NULL DEFAULT 0 CHECK (updated_through_sequence >= 0)
+) STRICT;
+
 CREATE TABLE artifacts (
   id TEXT PRIMARY KEY,
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -235,13 +246,19 @@ CREATE TABLE master_route_decisions (
   stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
   master_session_id TEXT NOT NULL REFERENCES master_sessions(id) ON DELETE CASCADE,
+	input_id TEXT NOT NULL,
   input_modality TEXT NOT NULL CHECK (input_modality IN ('voice', 'text')),
   input_text TEXT NOT NULL,
+	input_submitted_at TEXT NOT NULL,
   focused_workspace_id TEXT,
   focused_conversation_id TEXT REFERENCES conversations(id),
+	focused_pane_id TEXT,
   candidate_context_json TEXT NOT NULL CHECK (json_valid(candidate_context_json)),
   route_decision_json TEXT NOT NULL CHECK (json_valid(route_decision_json)),
   resulting_command_json TEXT CHECK (resulting_command_json IS NULL OR json_valid(resulting_command_json)),
+	resolved_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_invocation_json)),
+	outcome TEXT NOT NULL CHECK (outcome IN ('succeeded', 'failed')),
+	error_json TEXT CHECK (error_json IS NULL OR json_valid(error_json)),
   created_at TEXT NOT NULL
 ) STRICT;
 

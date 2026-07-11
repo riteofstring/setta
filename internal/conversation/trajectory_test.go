@@ -47,7 +47,7 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			event.TurnQueued = &TrajectoryTurnQueued{QueueOrdinal: 2}
 		}},
 		{TrajectoryEventTurnPromoted, func(event *TrajectoryEvent) {
-			event.TurnPromoted = &TrajectoryTurnPromoted{FormerQueueOrdinal: 2}
+			event.TurnPromoted = &TrajectoryTurnPromoted{FormerQueueOrdinal: 2, Input: AuthoredInput{Text: "Promoted work"}}
 		}},
 		{TrajectoryEventTurnStarted, func(event *TrajectoryEvent) {
 			event.TurnStarted = &TrajectoryTurnStarted{Invocation: validInvocation(RoleAgent, InvocationOutcomeRunning)}
@@ -205,7 +205,7 @@ func TestTrajectoryEventRejectsMismatchedAndMultiplePayloadBranches(t *testing.T
 	assertValidationErrorContains(t, event.Validate(), "does not match populated")
 
 	event.Kind = TrajectoryEventTurnQueued
-	event.TurnPromoted = &TrajectoryTurnPromoted{FormerQueueOrdinal: 1}
+	event.TurnPromoted = &TrajectoryTurnPromoted{FormerQueueOrdinal: 1, Input: AuthoredInput{Text: "Promoted work"}}
 	assertValidationErrorContains(t, event.Validate(), "exactly one payload branch")
 
 	event = baseTrajectoryEvent(TrajectoryEventFileChangeCompleted)

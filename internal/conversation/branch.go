@@ -4,6 +4,7 @@ import "fmt"
 
 type BranchKind string
 type SideConversationStatus string
+type SideConversationEventKind string
 
 const (
 	BranchKindFork BranchKind = "fork"
@@ -12,6 +13,11 @@ const (
 	SideConversationStatusActive    SideConversationStatus = "active"
 	SideConversationStatusDisposing SideConversationStatus = "disposing"
 	SideConversationStatusFailed    SideConversationStatus = "failed"
+
+	SideConversationEventAgentTextDelta     SideConversationEventKind = "agent_text_delta"
+	SideConversationEventAgentTextCompleted SideConversationEventKind = "agent_text_completed"
+	SideConversationEventActivity           SideConversationEventKind = "activity"
+	SideConversationEventTerminal           SideConversationEventKind = "terminal"
 )
 
 type ConversationBranch struct {
@@ -37,6 +43,29 @@ type SideConversation struct {
 	UpdatedAt                   string                 `json:"updatedAt"`
 	DisposedAt                  *string                `json:"disposedAt"`
 	Failure                     *Failure               `json:"failure"`
+}
+
+type SideInFlightContextFrame struct {
+	SourceTrajectorySequence int                        `json:"sourceTrajectorySequence"`
+	CurrentObjective         string                     `json:"currentObjective"`
+	AcceptedSteering         []string                   `json:"acceptedSteering"`
+	CurrentPlan              *TrajectoryPlanChanged     `json:"currentPlan"`
+	ActiveActivities         []TrajectoryActivity       `json:"activeActivities"`
+	ActiveSubagents          []Subagent                 `json:"activeSubagents"`
+	PendingApproval          *TrajectoryApprovalRequest `json:"pendingApproval"`
+	Artifacts                []Artifact                 `json:"artifacts"`
+}
+
+type SideConversationEvent struct {
+	SideID               string                    `json:"sideId"`
+	ParentConversationID string                    `json:"parentConversationId"`
+	Kind                 SideConversationEventKind `json:"kind"`
+	ProviderEventID      *string                   `json:"providerEventId"`
+	Text                 *string                   `json:"text"`
+	Activity             *TrajectoryActivity       `json:"activity"`
+	Outcome              *InvocationOutcome        `json:"outcome"`
+	Failure              *Failure                  `json:"failure"`
+	EmittedAt            string                    `json:"emittedAt"`
 }
 
 func (branch ConversationBranch) Validate() error {
@@ -82,6 +111,50 @@ func (side SideConversation) Validate() error {
 		}
 	}
 	return validateSideConversationLifecycle(side, timeline.hasDisposed)
+}
+
+func (event SideConversationEvent) Validate() error {
+	if err := validateIdentifier("side event side id", event.SideID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("side event parent conversation id", event.ParentConversationID); err != nil {
+		return err
+	}
+	if err := validateOptionalIdentifier("side event provider id", event.ProviderEventID); err != nil {
+		return err
+	}
+	switch event.Kind {
+	case SideConversationEventAgentTextDelta, SideConversationEventAgentTextCompleted:
+		if event.Text == nil || *event.Text == "" || event.Activity != nil || event.Outcome != nil || event.Failure != nil {
+			return fmt.Errorf("side text event has invalid branch payload")
+		}
+	case SideConversationEventActivity:
+		if event.Activity == nil || event.Text != nil || event.Outcome != nil || event.Failure != nil {
+			return fmt.Errorf("side activity event has invalid branch payload")
+		}
+		if err := event.Activity.Validate(); err != nil {
+			return err
+		}
+	case SideConversationEventTerminal:
+		if event.Outcome == nil || event.Text != nil || event.Activity != nil {
+			return fmt.Errorf("side terminal event has invalid branch payload")
+		}
+		if *event.Outcome == InvocationOutcomeFailed && event.Failure == nil {
+			return fmt.Errorf("failed side terminal event requires failure")
+		}
+		if *event.Outcome != InvocationOutcomeFailed && event.Failure != nil {
+			return fmt.Errorf("successful side terminal event must not contain failure")
+		}
+	default:
+		return fmt.Errorf("unsupported side conversation event kind %q", event.Kind)
+	}
+	if event.Failure != nil {
+		if err := event.Failure.Validate(); err != nil {
+			return err
+		}
+	}
+	_, err := validateTimestamp("side event emittedAt", event.EmittedAt)
+	return err
 }
 
 func validateSideConversationIdentity(side SideConversation) error {

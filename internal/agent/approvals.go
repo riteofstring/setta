@@ -94,6 +94,7 @@ func permissionApproval(raw json.RawMessage, base Event, requestID string, pendi
 	return ApprovalRequest{
 		ID: requestID, ProviderItemID: params.ItemId, Kind: ApprovalKindPermission,
 		Title: "Permission approval", Path: string(params.CWD), Body: optionalString(params.Reason),
+		RequestedPermissionProfile: string(encoded),
 	}, nil
 }
 
@@ -150,9 +151,14 @@ func mcpElicitationApproval(raw json.RawMessage, base Event, requestID string, _
 		return ApprovalRequest{}, err
 	}
 	body, _ := params["message"].(string)
+	question := body
+	if strings.TrimSpace(question) == "" {
+		question = "Provide the requested MCP input."
+	}
 	return ApprovalRequest{
 		ID: requestID, ProviderItemID: "mcp_elicitation_" + requestID,
 		Kind: ApprovalKindMCPElicitation, Title: "MCP input requested: " + serverName, Body: body,
+		Questions: []ApprovalQuestion{{ID: "mcp_input", Header: serverName, Question: question}},
 	}, nil
 }
 

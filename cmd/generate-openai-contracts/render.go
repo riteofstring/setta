@@ -42,6 +42,7 @@ func renderGoContracts(model generationModel) ([]byte, error) {
 	writeGoStringArray(&output, "openAICreateSpeechWireResponseMediaTypes", createSpeech.WireResponseMediaTypes)
 	writeGoStringArray(&output, "openAICreateRealtimeCallWireResponseMediaTypes", createRealtimeCall.WireResponseMediaTypes)
 	writeGoStringArray(&output, "openAICreateRealtimeClientSecretWireResponseMediaTypes", createRealtimeClientSecret.WireResponseMediaTypes)
+	writeGoStringArray(&output, "synthesisVoiceCatalog", model.Speech.Voices)
 	output.WriteString(")\n")
 	return output.Bytes(), nil
 }

@@ -109,7 +109,13 @@ func normalizeReasoningDelta(raw []byte, base Event) ([]Event, *TerminalEvent, e
 	if err != nil {
 		return nil, nil, err
 	}
-	return normalizedTextDelta(base, notification.ThreadID, notification.TurnID, notification.ItemId, notification.Delta, EventKindReasoningSummary)
+	if err := requireProviderScope(base, notification.ThreadID, notification.TurnID); err != nil {
+		return nil, nil, err
+	}
+	// The completed reasoning item carries the authoritative public summary.
+	// Individual text deltas are intentionally not promoted as complete summary
+	// updates because doing so would create invalid partial trajectory records.
+	return nil, nil, nil
 }
 
 func normalizedTextDelta(base Event, threadID string, turnID string, itemID string, text string, kind EventKind) ([]Event, *TerminalEvent, error) {

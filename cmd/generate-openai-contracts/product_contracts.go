@@ -24,6 +24,22 @@ func validateSpeechContract(document *openAPIDocument, operations []operationCon
 	if !schemaPropertyDocumentsValue(document, request, speech.Voice, "voice") {
 		return 0, fmt.Errorf("OpenAI CreateSpeechRequest does not document voice %q", speech.Voice)
 	}
+	if len(speech.Voices) == 0 {
+		return 0, errors.New("OpenAI speech voice catalog must not be empty")
+	}
+	seenVoices := map[string]bool{}
+	for _, voice := range speech.Voices {
+		if strings.TrimSpace(voice) == "" || strings.TrimSpace(voice) != voice {
+			return 0, fmt.Errorf("OpenAI speech voice catalog contains invalid id %q", voice)
+		}
+		if seenVoices[voice] {
+			return 0, fmt.Errorf("OpenAI speech voice catalog duplicates %q", voice)
+		}
+		seenVoices[voice] = true
+	}
+	if !seenVoices[speech.Voice] {
+		return 0, fmt.Errorf("OpenAI default speech voice %q is absent from the catalog", speech.Voice)
+	}
 	if !schemaPropertyDocumentsValue(document, request, speech.ResponseFormat, "response_format") {
 		return 0, fmt.Errorf("OpenAI CreateSpeechRequest does not support response format %q", speech.ResponseFormat)
 	}

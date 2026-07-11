@@ -36,6 +36,26 @@ type ConversationPresentationProfile struct {
 	UpdatedAt                string                                     `json:"updatedAt"`
 }
 
+type MasterVoiceSelection struct {
+	Selection        PresentationSelectionMode `json:"selection"`
+	RequestedVoiceID *string                   `json:"requestedVoiceId"`
+	ResolvedVoiceID  *string                   `json:"resolvedVoiceId"`
+	Reuse            *PresentationReuse        `json:"reuse"`
+	UpdatedAt        string                    `json:"updatedAt"`
+}
+
+func (selection MasterVoiceSelection) Validate() error {
+	resolved := ""
+	if selection.ResolvedVoiceID != nil {
+		resolved = *selection.ResolvedVoiceID
+	}
+	if err := validatePresentationSelection("master voice", selection.Selection, selection.RequestedVoiceID, resolved, selection.Reuse); err != nil {
+		return err
+	}
+	_, err := validateTimestamp("master voice updatedAt", selection.UpdatedAt)
+	return err
+}
+
 func (reuse PresentationReuse) Validate(resolvedChoiceID string) error {
 	if reuse.Reason != PresentationReuseCatalogExhausted {
 		return fmt.Errorf("unsupported presentation reuse reason %q", reuse.Reason)
