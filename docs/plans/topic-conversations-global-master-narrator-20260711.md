@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** Proposed plan of record; implementation has not started
+**Status:** In progress; Phase 0 and Phase 1 item 1 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1521,6 +1521,9 @@ Exit criteria:
 
 ### Phase 1: New persistence and core contracts
 
+**Progress:** Item 1 is complete. Items 2-5 remain, beginning with the
+Go-owned conversation/core domain types.
+
 Implement:
 
 1. SQLite store bootstrap and schema version 1 in WAL mode with a dedicated
@@ -2045,7 +2048,7 @@ This plan is complete only when all of the following are true:
   requirements. Live active-turn fork behavior is now a Phase 7 prerequisite,
   not something the scripted provider may claim to prove.
 
-No implementation work has started under this plan.
+Implementation is in progress under this plan.
 
 - 2026-07-11: Completed the Phase 0 freeze/baseline slice. The
   [functional and performance baseline](../reports/performance/topic-conversations-phase0-baseline-20260711.md)
@@ -2070,3 +2073,42 @@ No implementation work has started under this plan.
   active-turn fork snapshot semantics remain deliberately unclaimed and must
   still be established in Phase 2 before the dependent Phase 7 active side
   path; neither Phase 0 scripted workflow is evidence for that prerequisite.
+- 2026-07-11: Completed Phase 1 item 1. The new `internal/conversation` owner
+  bootstraps schema version 1 only at
+  `<app-data>/topic-conversations/conversations.sqlite`; malformed legacy files
+  placed at the inventoried old paths are ignored, while a malformed,
+  unsupported, incomplete, or nonempty unversioned database at the new path is
+  rejected explicitly. The version-1 schema establishes the plan-owned tables,
+  named indexes, and FTS5 topic-search boundary for conversations, turns and
+  queue entries, branches and side-conversation audit state, thread bindings,
+  trajectory and artifacts, narrator state and output, role/presentation
+  configuration, topic documents, master state and decisions, pane bindings,
+  and committed events. Domain types and transaction-specific methods remain
+  Phase 1 items 2-3; this slice does not expose a compatibility or legacy read
+  path.
+- 2026-07-11: The store holds one dedicated SQLite writer connection behind a
+  bounded queue and a fixed query-only read pool. Every held connection applies
+  and verifies `foreign_keys`, `journal_mode=WAL`, `synchronous=NORMAL`, and a
+  bounded `busy_timeout`; readers additionally verify `query_only`. Write
+  admission reports typed `cancelled`, `saturated`, and `store_closed`
+  outcomes, accepted jobs always receive a result, and shutdown closes
+  admission before draining accepted writes. Focused verification passed with
+  `./scripts/go.sh test -race ./internal/conversation` and
+  `./check_quality.sh --files internal/conversation/store.go
+  internal/conversation/store_schema.go internal/conversation/store_test.go
+  internal/conversation/schema_v1.sql`. Generated inputs and outputs changed:
+  none. The next incomplete step is Phase 1 item 2, the Go-owned domain types;
+  there is no blocker.
+- 2026-07-11: Final slice verification also passed `./scripts/format.sh` and
+  `./check_quality.sh --git-changes`. An additional `./check_quality.sh --all`
+  run passed every Go package, static analysis, desktop formatting/typecheck,
+  all 1,139 Vitest tests, and the production build, then stopped in the
+  pre-existing `codex-protocol-notifications` Electron workflow because the
+  completed fake-provider run never projected its assistant text. The focused
+  `node tests/electron/chat-workflows.test.mjs --codex-protocol-only` rerun
+  reproduced the same timeout; `internal/conversation` is not imported by any
+  runtime composition root in this slice. The additionally run supply-chain
+  gate reached `govulncheck` and reported `GO-2026-5856` in the repository-pinned
+  Go 1.26.4 standard library, fixed in Go 1.26.5, with example traces through
+  existing runtime, semantic-graph, generator, and speech code. No dependency
+  manifest or pinned toolchain was changed as part of this persistence step.
