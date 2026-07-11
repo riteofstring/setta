@@ -198,7 +198,7 @@ async function prepareRemoteRuntimeFixture(fixture, remoteRuntime) {
 }
 
 async function captureTailscaleRoute(recordingDir, remoteRuntime) {
-  if (!remoteRuntime) {
+  if (!remoteRuntime || process.env.SETTA_E2E_SKIP_TAILSCALE_ROUTE === "1") {
     return;
   }
   const { stdout, stderr } = await execFileAsync("tailscale", [

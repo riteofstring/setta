@@ -3,15 +3,18 @@
 **Date:** 2026-07-10
 
 **Status:** Phase 6 in progress. The interim remote Tailscale spot-check is
-complete on protocol 15, which added stream input acknowledgement timing so
-the analyzer can measure the duplex input path and calibrate the remote
-clock. Against the Phase 1 remote baseline on a direct route, the input
-round trip improved from 69/275 ms (p50/p95) to 42/108 ms, renderer-to-PTY
-write from 33/254 ms to 19.5/41.5 ms, emission-to-paint from 110/286 ms to
-98.5/183.5 ms, and fast typing preserved output ordering that the HTTP path
-lost. Results are recorded in the Phase 6 report. Budget assertions still
-require the scheduler-decision segmentation and the deterministic delay
-matrix, which are next.
+complete on protocol 15 (input round trip improved from 69/275 ms p50/p95 to
+42/108 ms against the Phase 1 baseline; fast typing preserved ordering that
+the HTTP path lost; details in the Phase 6 report). The scheduler's
+immediate/coalesced/replay decision is recorded per output event and the
+analyzer segments by it. The renderer output scheduler now also suppresses
+immediate admissions while a coalesced write is still parsing and joins
+same-turn immediate chunks into one xterm write. The deterministic
+delay-profile workflow was built, surfaced real renderer-budget limits, and
+was closed without suite registration by direction (see the checklist note).
+Remaining: the rest of the Phase 6 deterministic coverage and the final live
+Tailscale validation, with the interim spot-check plus live runs as the
+acceptance evidence now that the deterministic matrix is closed.
 
 ## Progress
 
@@ -71,8 +74,19 @@ matrix, which are next.
   baseline.
 - [ ] Record the scheduler's immediate/coalesced decision per output event and
   segment interactive from bulk output in the recording analyzer.
-- [ ] Build the deterministic network-delay proxy and the local, 40 ms, and
-  100 ms latency workflow with interactive-budget assertions.
+- [x] Build the deterministic network-delay proxy and the local, 40 ms, and
+  100 ms latency workflow with interactive-budget assertions. Closed without
+  suite registration by direction on 2026-07-11: the workflow is expected to
+  be deprecated. It remains standalone-invocable
+  (`desktop/tests/electron/terminal-latency-profiles-workflow.test.mjs`). Its
+  local-profile run passes the transport budgets (dispatch-to-ack p95 4 ms)
+  and fails the two renderer budgets with a diagnosed cause: xterm 5.5
+  parses the first post-input write synchronously but timer-defers follower
+  chunks, and the continuous workspace Pixi ticker starves those timers to
+  the next frame (interactive main-to-write p95 14 ms vs the 8 ms budget);
+  the write-to-paint budget as asserted measures requestAnimationFrame
+  cadence and cannot pass as defined (p95 19 ms vs 16.7 ms). The 40/100 ms
+  profiles did not execute because the workflow aborts on the local failure.
 - [ ] Add the remaining Phase 6 Go, TypeScript, renderer, and workflow
   coverage.
 - [ ] Run the final live Tailscale validation; report the direct route as the

@@ -2,27 +2,19 @@
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 
+const invokedAsScript =
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const recordingDir = process.argv[2];
-if (!recordingDir || process.argv.includes("--help")) {
+if (invokedAsScript && (!recordingDir || process.argv.includes("--help"))) {
   process.stdout.write(
     "Usage: node scripts/analyze-terminal-latency-recording.mjs <recording-dir>\n",
   );
   process.exit(recordingDir ? 0 : 1);
 }
 
-const root = resolve(recordingDir);
-const [events, rendererEvents, manifest] = await Promise.all([
-  readJsonLines(`${root}/events.jsonl`),
-  readJsonLines(`${root}/renderer-events.jsonl`),
-  readJSON(`${root}/manifest.json`),
-]);
-
-const inputSamples = collectInputSamples(events, rendererEvents);
-const clockCalibration = calibrateRemoteClock(inputSamples);
-applyRemoteClockCalibration(inputSamples, clockCalibration.offsetMs);
-const outputSamples = collectOutputSamples(events, rendererEvents, clockCalibration.offsetMs);
 const outputStages = [
   "emissionToMain",
   "mainToRenderer",
@@ -31,40 +23,56 @@ const outputStages = [
   "xtermWriteToPaint",
   "emissionToPaint",
 ];
-const report = {
-  clockCalibration,
-  input: {
-    sampleCount: inputSamples.length,
-    stagesMs: summarizeStages(inputSamples, [
-      "rendererToPreload",
-      "preloadToMain",
-      "mainToDispatch",
-      "dispatchToHandler",
-      "handlerToPTYWrite",
-      "dispatchToAck",
-      "rendererToPTYWrite",
-      "rendererToAck",
-    ]),
-  },
-  output: {
-    interactive: summarizeOutputSamples(
-      outputSamples.filter((sample) => sample.outputSchedule === "immediate"),
-      outputStages,
-    ),
-    bulk: summarizeOutputSamples(
-      outputSamples.filter((sample) => sample.outputSchedule !== "immediate"),
-      outputStages,
-    ),
-    replay: summarizeOutputSamples(
-      outputSamples.filter((sample) => sample.outputSchedule === "replay"),
-      outputStages,
-    ),
-  },
-  recordingDir: root,
-  runId: manifest.terminalLatencyRunId ?? "",
-};
+export async function analyzeTerminalLatencyRecording(recordingDir) {
+  const root = resolve(recordingDir);
+  const [events, rendererEvents, manifest] = await Promise.all([
+    readJsonLines(`${root}/events.jsonl`),
+    readJsonLines(`${root}/renderer-events.jsonl`),
+    readJSON(`${root}/manifest.json`),
+  ]);
+  const inputSamples = collectInputSamples(events, rendererEvents);
+  const clockCalibration = calibrateRemoteClock(inputSamples);
+  applyRemoteClockCalibration(inputSamples, clockCalibration.offsetMs);
+  const outputSamples = collectOutputSamples(events, rendererEvents, clockCalibration.offsetMs);
+  return {
+    clockCalibration,
+    input: {
+      sampleCount: inputSamples.length,
+      stagesMs: summarizeStages(inputSamples, [
+        "rendererToPreload",
+        "preloadToMain",
+        "mainToDispatch",
+        "dispatchToHandler",
+        "handlerToPTYWrite",
+        "dispatchToAck",
+        "rendererToPTYWrite",
+        "rendererToAck",
+      ]),
+    },
+    output: {
+      interactive: summarizeOutputSamples(
+        outputSamples.filter((sample) => sample.outputSchedule === "immediate"),
+        outputStages,
+      ),
+      bulk: summarizeOutputSamples(
+        outputSamples.filter((sample) => sample.outputSchedule !== "immediate"),
+        outputStages,
+      ),
+      replay: summarizeOutputSamples(
+        outputSamples.filter((sample) => sample.outputSchedule === "replay"),
+        outputStages,
+      ),
+    },
+    recordingDir: root,
+    runId: manifest.terminalLatencyRunId ?? "",
+  };
+}
 
-process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+if (invokedAsScript) {
+  process.stdout.write(
+    `${JSON.stringify(await analyzeTerminalLatencyRecording(recordingDir), null, 2)}\n`,
+  );
+}
 
 function collectInputSamples(events, rendererEvents) {
   const samples = collectRendererInputSamples(rendererEvents);

@@ -47,10 +47,10 @@ import { renderXtermContent, TerminalSurfaceChrome } from "./terminal-surface-do
 import { TerminalOutputBuffer } from "./terminal-surface-output-buffer";
 import {
   type ScheduledTerminalOutput,
-  TerminalOutputScheduler,
   TerminalPresentationScheduler,
 } from "./terminal-output-scheduler";
 import { writeTerminalOutputBatch } from "./terminal-output-writer";
+import { createTerminalSurfaceOutputScheduler } from "./terminal-surface-output-scheduler";
 import { TerminalPasteController } from "./terminal-surface-paste";
 import { TerminalSurfaceSessionResizer } from "./terminal-surface-resize-scheduler";
 import { TerminalSearchController } from "./terminal-surface-search";
@@ -95,16 +95,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private deferOutputUntilSessionReady = false;
   private lostSession = false;
   private readonly outputBuffer = new TerminalOutputBuffer();
-  private readonly outputScheduler = new TerminalOutputScheduler<
-    Omit<ScheduledTerminalOutput, "outputSchedule">
-  >({
-    cancelFrame: (handle) => window.cancelAnimationFrame(handle),
-    requestFrame: (callback) => window.requestAnimationFrame(callback),
-    write: (outputs) =>
-      this.writeOutputBatch(
-        outputs.map(({ item, outputSchedule }) => ({ ...item, outputSchedule })),
-      ),
-  });
+  private readonly outputScheduler = createTerminalSurfaceOutputScheduler((outputs, onComplete) =>
+    this.writeOutputBatch(outputs, onComplete),
+  );
   private readonly presentationScheduler = new TerminalPresentationScheduler({
     cancelFrame: (handle) => window.cancelAnimationFrame(handle),
     present: (dirtyRows) => {
@@ -722,8 +715,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       })),
     );
   }
-  private writeOutputBatch(outputs: ScheduledTerminalOutput[]): void {
-    const dirtyRows = writeTerminalOutputBatch(this.terminal, outputs);
+  private writeOutputBatch(outputs: ScheduledTerminalOutput[], onComplete?: () => void): void {
+    const dirtyRows = writeTerminalOutputBatch(this.terminal, outputs, onComplete);
     if (dirtyRows !== null) {
       this.presentationScheduler.schedule(dirtyRows);
     }

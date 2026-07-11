@@ -629,6 +629,7 @@ describe("terminal surface adapter", () => {
       }),
     );
 
+    await waitFor(() => terminal.text.includes("hello"));
     expect(terminal.text).toContain("hello");
     expect(terminal.scrollToBottomCalls).toBe(0);
     expect(terminal.buffer.active.viewportY).toBe(5);
@@ -640,7 +641,44 @@ describe("terminal surface adapter", () => {
         dataBase64: Buffer.from("world").toString("base64"),
       }),
     );
+    await waitFor(() => terminal.text.includes("world"));
     expect(terminal.scrollToBottomCalls).toBe(1);
+  });
+
+  test("joins same-turn immediate output while recording every event decision", async () => {
+    const api = installSettaAPI({
+      attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => host.dataset.terminalSessionId === "terminal_existing");
+    const terminal = terminalMock.instances.at(-1)!;
+
+    for (const text of ["a", "bc", "def"]) {
+      emitTerminalEvent(
+        terminalEvent("terminal.output", "terminal_existing", {
+          byteCount: Buffer.byteLength(text),
+          dataBase64: Buffer.from(text).toString("base64"),
+        }),
+      );
+    }
+
+    await waitFor(() => terminal.writeCalls.length === 1);
+    expect(Buffer.from(terminal.writeCalls[0] as Uint8Array).toString("utf8")).toBe("abcdef");
+    const xtermWriteRecords = api.terminal.recordLatency.mock.calls
+      .map(([record]) => record)
+      .filter((record) => record.type === "terminal_output_xterm_write");
+    expect(xtermWriteRecords).toEqual(
+      [1, 2, 3].map((byteCount) =>
+        expect.objectContaining({
+          byteCount,
+          outputSchedule: "immediate",
+          type: "terminal_output_xterm_write",
+        }),
+      ),
+    );
   });
 
   test("redrains attach replay idempotently on consecutive attaches", async () => {

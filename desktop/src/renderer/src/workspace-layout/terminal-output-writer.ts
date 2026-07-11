@@ -7,8 +7,10 @@ import { terminalSurfaceLimits } from "./terminal-surface-state";
 export function writeTerminalOutputBatch(
   terminal: XtermTerminal | null,
   outputs: ScheduledTerminalOutput[],
+  onComplete?: () => void,
 ): number | null {
   if (!terminal || outputs.length === 0) {
+    onComplete?.();
     return null;
   }
   const followOutput = terminal.buffer.active.viewportY >= terminal.buffer.active.baseY;
@@ -17,6 +19,7 @@ export function writeTerminalOutputBatch(
     if (followOutput) {
       terminal.scrollToBottom();
     }
+    onComplete?.();
     window.requestAnimationFrame(() => {
       recordOutputStage(outputs, "terminal_output_painted");
     });
