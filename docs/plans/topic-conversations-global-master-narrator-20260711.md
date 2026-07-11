@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phase 0 and Phase 1 are complete
+**Status:** In progress; Phases 0-2 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1197,14 +1197,18 @@ For an ephemeral side conversation, reproduce the checked Codex TUI lifecycle:
 5. Dispose the ephemeral provider thread and pane association when the user
    leaves the side conversation according to the declared lifecycle policy.
 
-The source implementation demonstrates that this path is available while the
-parent task is active. Do not add a Setta-generated in-flight context frame by
-default. Deterministic and live tests establish the exact active-turn snapshot
-semantics of the pinned Codex revision early in Phase 2, before this lifecycle
-is built on them. If those tests demonstrate a
-real public-context gap, stop and specify a typed correction; do not add a
-heuristic digest fallback, duplicate raw tool output, or expose private
-reasoning.
+The Phase 2 live characterization established a real public-context gap in the
+pinned provider behavior: an active-turn fork contains the current user input
+and public assistant commentary, marks the cloned in-flight turn interrupted,
+and omits the active command item. Later parent output does not enter the child
+snapshot and the parent continues without interruption. Because the gap is now
+proven, the side lifecycle injects a typed `SideInFlightContextFrame` together
+with the boundary before accepting the side user's turn. The frame is built
+from the authoritative normalized trajectory and contains the source sequence,
+current objective and steering, current plan, active activity metadata,
+approval state, and artifact metadata. It never includes private reasoning,
+raw tool output, or a heuristic digest. The exact live evidence is recorded in
+[the Phase 2 active-fork report](../reports/topic-conversations-phase2-active-fork-20260711.md).
 
 Promotion of an ephemeral side conversation into a durable fork is deferred.
 Do not add replay, copy, or compatibility machinery for it in this plan.
@@ -1551,6 +1555,10 @@ Exit criteria:
   cannot silently discard an accepted write
 
 ### Phase 2: Codex agent runtime extraction
+
+**Progress:** Complete. The live snapshot result requires the typed Phase 7
+in-flight context frame specified above; the active side path is no longer
+blocked on unknown provider behavior.
 
 Implement:
 
@@ -2247,3 +2255,22 @@ Implementation is in progress under this plan.
   queue backpressure and cancellation, accepted-write draining, deterministic
   shutdown, read-pool bounds, outbox wake/replay, and restart. Phase 2 is next;
   there is no external blocker.
+- 2026-07-11: Completed Phase 2. `internal/agent` now owns Codex thread
+  start/resume/read/list/search/fork/injection/unsubscribe, turn execution,
+  per-conversation concurrency, steering, interruption, approvals, model
+  catalog validation, reconciliation, background-process termination, and
+  normalized provider events without importing chat presentation types. The
+  Go-owned supported-protocol registry includes fork, list, experimental
+  search, item injection, and unsubscribe; generated protocol contracts were
+  regenerated from the pinned schema inputs.
+- 2026-07-11: The race-enabled scripted app-server suite passed sequential and
+  concurrent conversations, strict thread primitives, model resolution,
+  streaming normalization, steering, cancellation, approval response, and
+  restart reconciliation paths. The ChatGPT-authenticated live suite passed
+  without `OPENAI_API_KEY`, including exact role-model availability, durable
+  multi-turn threads, concurrent conversations, read/list/search, completed
+  forks, injection, and active-turn snapshot isolation. The live
+  characterization proved that the active fork omits the in-flight command
+  while retaining current user input and commentary; Phase 7 therefore owns
+  the typed normalized `SideInFlightContextFrame` correction now specified in
+  the plan. There is no external blocker to Phase 3.
