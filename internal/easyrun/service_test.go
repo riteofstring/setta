@@ -455,6 +455,29 @@ func TestTerminalNarratorFailureDegradesToMechanicalSummary(t *testing.T) {
 	}
 }
 
+func TestFailedTerminalSummaryIncludesFailureReason(t *testing.T) {
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"easy run fails with typed reason": {
+			{Type: chat.FakeEventFailed, Error: "artifact limit reached: this Easy Button run already has 20 artifacts"},
+		},
+	})
+	service, _ := newTestServiceWithChat(t, harness)
+
+	started, err := service.Start("workspace_api", "easy run fails with typed reason")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	failed := waitForEasyRunStatus(t, service, "workspace_api", started.ID, EasyRunStatusFailed)
+	if failed.Error == nil ||
+		*failed.Error != "artifact limit reached: this Easy Button run already has 20 artifacts" ||
+		failed.Summary == nil ||
+		!strings.Contains(*failed.Summary, "Failed after") ||
+		!strings.Contains(*failed.Summary, *failed.Error) ||
+		!strings.Contains(*failed.Summary, "no artifacts") {
+		t.Fatalf("failed run = %+v, want failure reason in terminal summary", failed)
+	}
+}
+
 func TestWorkingNarratorCadencePersistsHighlightsBeforeTerminal(t *testing.T) {
 	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
 		"easy run working narrator cadence": append(
@@ -715,7 +738,9 @@ func TestEmitArtifactToolEnforcesArtifactCap(t *testing.T) {
 	_, err := tool.Handler(easyRunToolContext(run, "run_cap"), chat.AgentToolCall{
 		Arguments: []byte(`{"kind":"markdown","title":"Overflow","markdown":"Done"}`),
 	})
-	if err == nil || !strings.Contains(err.Error(), "already has 20 artifacts") {
+	if err == nil ||
+		!strings.Contains(err.Error(), "artifact limit reached") ||
+		!strings.Contains(err.Error(), "already has 20 artifacts") {
 		t.Fatalf("cap error = %v, want artifact cap failure", err)
 	}
 }

@@ -678,7 +678,11 @@ func mechanicalTerminalEasyRunSummary(run EasyRun, chatRun chat.Run) (string, er
 	case chat.RunStatusCancelled:
 		return fmt.Sprintf("Stopped after %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)), nil
 	case chat.RunStatusFailed:
-		return fmt.Sprintf("Failed after %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)), nil
+		errorMessage := strings.TrimSpace(chatRun.Error)
+		if errorMessage == "" {
+			return "", fmt.Errorf("failed chat run %s has empty error", chatRun.ID)
+		}
+		return fmt.Sprintf("Failed after %s - %s - %s", duration, errorMessage, easyRunArtifactCountSummary(run.ArtifactCount)), nil
 	default:
 		return "", fmt.Errorf("unsupported terminal chat run status %s", chatRun.Status)
 	}

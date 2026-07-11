@@ -289,7 +289,7 @@ func (service *Service) loadArtifactTarget(workspaceID string, easyRunID string,
 		return storedRunRecord{}, nil, err
 	}
 	if len(artifacts) >= maxEasyArtifactsPerRun {
-		return storedRunRecord{}, nil, fmt.Errorf("easy-run %s already has %d artifacts", easyRunID, maxEasyArtifactsPerRun)
+		return storedRunRecord{}, nil, fmt.Errorf("artifact limit reached: this Easy Button run already has %d artifacts", maxEasyArtifactsPerRun)
 	}
 	return record, artifacts, nil
 }

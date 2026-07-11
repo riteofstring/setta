@@ -158,6 +158,14 @@ try {
   assertArtifactTerminalVisual(artifactTerminal, "easy run phase3 artifacts workflow");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-artifacts-complete.png"));
 
+  await submitEasyButtonRequest(context.client, "easy run phase5 artifact cap workflow");
+  const artifactCapTerminal = await waitForEasyButtonArtifactCapTerminal(context.client);
+  assertArtifactCapOverflowVisual(artifactCapTerminal, "easy run phase5 artifact cap workflow");
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "easy-button-artifact-cap-overflow.png"),
+  );
+
   await submitEasyButtonRequest(context.client, "easy run phase4 narrator workflow");
   const narratorTerminal = await waitForEasyButtonTerminalWithHighlights(
     context.client,
@@ -230,6 +238,7 @@ try {
     secondCompleted,
     shortcutOpen,
     artifactTerminal,
+    artifactCapTerminal,
     narratorTerminal,
     workingNarrator,
     workingNarratorTerminal,
@@ -545,6 +554,40 @@ function assertArtifactTerminalVisual(state, requestText) {
   }
 }
 
+function assertArtifactCapOverflowVisual(state, requestText) {
+  assertStateFields(
+    state,
+    {
+      buttonAriaLabel: "Focus Easy Button request input",
+      easyState: "complete",
+      inputDisabled: false,
+      paneChromeTitle: "Easy Button · complete",
+      requestText,
+      stopButtonVisible: false,
+    },
+    "easy-button artifact cap terminal visual did not match Phase 5",
+  );
+  assertNarratorHealth(state, "The run could not finish.");
+  if (
+    !state.summaryText.includes("Failed after") ||
+    !state.summaryText.includes("artifact limit reached") ||
+    !state.summaryText.includes("20 artifacts")
+  ) {
+    throw new Error(
+      `easy-button artifact cap summary did not expose the cap failure: ${JSON.stringify(state)}`,
+    );
+  }
+  const titles = state.artifacts.map((artifact) => artifact.title);
+  if (
+    state.artifacts.length !== 20 ||
+    titles[0] !== "Cap Artifact 01" ||
+    titles[19] !== "Cap Artifact 20" ||
+    titles.includes("Overflow Artifact")
+  ) {
+    throw new Error(`easy-button artifact cap cards were wrong: ${JSON.stringify(state)}`);
+  }
+}
+
 function assertNarratorTerminalVisual(state, requestText) {
   assertStateFields(
     state,
@@ -726,6 +769,22 @@ async function waitForEasyButtonTerminalWithArtifacts(client, requestText, artif
       state.requestText === requestText &&
       state.summaryText.includes("Done in") &&
       state.artifacts.length === artifactCount,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonArtifactCapTerminal(client) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists &&
+      state.surfaceKind === "easy-button" &&
+      state.easyState === "complete" &&
+      state.requestText === "easy run phase5 artifact cap workflow" &&
+      state.summaryText.includes("Failed after") &&
+      state.summaryText.includes("artifact limit reached") &&
+      state.artifacts.length === 20,
     workflowTimeoutMs,
   );
 }

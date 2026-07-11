@@ -98,6 +98,28 @@ func scriptedEasyRunWorkingNarratorCadenceTurn(harness *ScriptedWorkflowHarness,
 	return scriptedReply(sink, request.Run.ID, "Easy run working narrator cadence finished.")
 }
 
+func scriptedEasyRunPhase5ArtifactCapTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Preparing capped artifacts. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	for index := 1; index <= 20; index++ {
+		arguments := fmt.Sprintf(
+			`{"kind":"markdown","title":"Cap Artifact %02d","kicker":"Cap","markdown":"Artifact %02d is retained before the cap is reached."}`,
+			index,
+			index,
+		)
+		if err := harness.callEasyRunArtifactTool(ctx, request, fmt.Sprintf("artifact_cap_call_%02d", index), []byte(arguments)); err != nil {
+			return TurnCompletion{}, err
+		}
+	}
+	return TurnCompletion{}, harness.callEasyRunArtifactTool(
+		ctx,
+		request,
+		"artifact_cap_call_overflow",
+		[]byte(`{"kind":"markdown","title":"Overflow Artifact","markdown":"This card must not be persisted."}`),
+	)
+}
+
 func (harness *ScriptedWorkflowHarness) callEasyRunArtifactTool(ctx context.Context, request TurnRequest, callID string, arguments []byte) error {
 	harness.mu.Lock()
 	tools := harness.tools
