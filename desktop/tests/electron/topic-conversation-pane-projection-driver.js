@@ -1,7 +1,7 @@
 /* global CustomEvent, HTMLButtonElement, HTMLElement, HTMLInputElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v3";
+  const version = "setta-topic-conversation-pane-projection-driver-v4";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -14,9 +14,9 @@
       topicConversationNavigatorState,
       topicConversationOpenBoundPane,
       topicConversationPresentFromNavigator,
-      topicConversationShellFocusPoint,
       topicConversationSurfaceState,
       topicConversationSurfaceStates,
+      topicConversationTogglePaneMaximized,
       topicConversationWorkspaceOpenState,
     });
   }
@@ -96,6 +96,7 @@
   }
 
   function topicConversationNavigatorState({ conversationId }) {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
     const rows = Array.from(
       document.querySelectorAll('[data-testid="conversation-navigator-item"]'),
     ).filter((row) => datasetValue(row, "conversationId") === conversationId);
@@ -109,6 +110,7 @@
           .querySelector('[data-testid="workspace-pane-host"][data-focused="true"]')
           ?.getAttribute("data-pane-id") ?? "",
       label: rows[0]?.getAttribute("aria-label") ?? "",
+      maximizedPaneId: datasetValue(area, "maximizedPaneId"),
       openViewCount: openViews.length,
       rowCount: rows.length,
     };
@@ -125,21 +127,16 @@
     return { clicked: true, conversationId };
   }
 
-  function topicConversationShellFocusPoint() {
+  function topicConversationTogglePaneMaximized({ paneId }) {
     const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).find(
-      (candidate) => datasetValue(candidate, "paneId") === "shell_pane",
+      (candidate) => datasetValue(candidate, "paneId") === paneId,
     );
-    const topBar = host?.querySelector(".workspace-pane-top-bar");
-    if (!(topBar instanceof HTMLElement)) {
-      return { ok: false, paneId: "shell_pane" };
+    const button = host?.querySelector('[data-workspace-pane-action="maximize"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { clicked: false, paneId };
     }
-    const rect = topBar.getBoundingClientRect();
-    return {
-      ok: rect.width > 0 && rect.height > 0,
-      paneId: "shell_pane",
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    };
+    button.click();
+    return { clicked: true, paneId };
   }
 
   function topicConversationCloseOneBoundPane({ conversationId }) {

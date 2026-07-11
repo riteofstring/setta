@@ -31,6 +31,7 @@ export function presentConversationPane(
     .map((pane) => pane.paneId);
   const existingPaneId = store.mostRecentlyFocusedPaneId(matchingPaneIds);
   if (existingPaneId !== null) {
+    clearMaximizedPane(store);
     store.focusPane(existingPaneId);
     return { kind: "focused", paneId: existingPaneId };
   }
@@ -48,5 +49,13 @@ export function presentConversationPane(
       reason: "The workspace has reached its Easy Button pane limit.",
     };
   }
+  clearMaximizedPane(store);
   return { kind: "opened", paneId: store.openPane(paneRequest) };
+}
+
+function clearMaximizedPane(store: WorkspaceLayoutStore): void {
+  const maximizedPaneId = store.getSnapshot().maximizedPaneId;
+  if (maximizedPaneId !== null) {
+    store.togglePaneMaximized(maximizedPaneId);
+  }
 }

@@ -73,14 +73,10 @@ function useConversationPanePresentation({
     lastFocusRequestIdRef.current = focusRequest.requestId;
     let blockedReason: string | null = null;
     runLayoutAction(() => {
-      const maximizedPaneId = runtime.store.getSnapshot().maximizedPaneId;
       const result = presentConversationPane(runtime.store, focusRequest);
       if (result.kind === "blocked") {
         blockedReason = result.reason;
         return;
-      }
-      if (maximizedPaneId !== null) {
-        runtime.store.togglePaneMaximized(maximizedPaneId);
       }
       runtime.store.ensureFocusedColumnVisible(stageViewport());
       runtime.store.snapScrollToTarget();

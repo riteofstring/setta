@@ -47,6 +47,40 @@ describe("conversation pane coordinator", () => {
     });
   });
 
+  test("keeps the requested existing conversation focused when another pane was maximized", () => {
+    const store = workspaceStore();
+    const conversationPaneId = store.openPane(boundRequest("conversation_shared"));
+    store.togglePaneMaximized("workspace_pane_1");
+
+    const result = presentConversationPane(store, {
+      conversationId: "conversation_shared",
+      title: "Shared topic",
+      workspaceId: "workspace_api",
+    });
+
+    expect(result).toEqual({ kind: "focused", paneId: conversationPaneId });
+    expect(store.getSnapshot().maximizedPaneId).toBeNull();
+    expect(store.focusedPaneId()).toBe(conversationPaneId);
+  });
+
+  test("keeps a newly opened conversation focused when another pane was maximized", () => {
+    const store = workspaceStore();
+    store.togglePaneMaximized("workspace_pane_1");
+
+    const result = presentConversationPane(store, {
+      conversationId: "conversation_zero_panes",
+      title: "Persistent topic",
+      workspaceId: "workspace_api",
+    });
+
+    expect(result.kind).toBe("opened");
+    if (result.kind !== "opened") {
+      throw new Error(`conversation pane was not opened: ${JSON.stringify(result)}`);
+    }
+    expect(store.getSnapshot().maximizedPaneId).toBeNull();
+    expect(store.focusedPaneId()).toBe(result.paneId);
+  });
+
   test("rejects a request for a workspace that is not mounted", () => {
     const result = presentConversationPane(workspaceStore(), {
       conversationId: "conversation_other",

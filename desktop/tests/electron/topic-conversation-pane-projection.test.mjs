@@ -13,7 +13,6 @@ import {
   captureScreenshot,
   clickEnabledButtonByAria,
   createElectronFixture,
-  dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   reloadPage,
@@ -105,17 +104,19 @@ try {
     join(artifactDir, "bound-conversation-views-reloaded.png"),
   );
 
-  const focusAway = await context.client.driver("topicConversationShellFocusPoint");
-  if (!focusAway.ok) {
-    throw new Error(`shell pane focus point was unavailable: ${JSON.stringify(focusAway)}`);
+  const maximizeShell = await context.client.driver("topicConversationTogglePaneMaximized", {
+    paneId: "shell_pane",
+  });
+  if (!maximizeShell.clicked) {
+    throw new Error(`shell pane was not maximizable: ${JSON.stringify(maximizeShell)}`);
   }
-  await dispatchMouseClick(context.client, focusAway);
-  await waitForNavigatorFocus(context.client, "shell_pane", 2);
+  await waitForNavigatorFocus(context.client, "shell_pane", 2, "shell_pane");
   await context.client.driver("topicConversationPresentFromNavigator", { conversationId });
   const focusedExisting = await waitForNavigatorFocus(
     context.client,
     navigatorBeforeFocusAway.focusedPaneId,
     2,
+    "",
   );
   assertNavigatorState(focusedExisting, 2);
   const focusedPersisted = await backend.post("/workspaces/ui/layout/read", { workspaceId });
@@ -313,14 +314,15 @@ async function waitForNavigatorState(client, expectedOpenViews) {
   );
 }
 
-async function waitForNavigatorFocus(client, focusedPaneId, expectedOpenViews) {
+async function waitForNavigatorFocus(client, focusedPaneId, expectedOpenViews, maximizedPaneId) {
   return waitForState(
     client,
     driverCallExpression("topicConversationNavigatorState", { conversationId }),
     (state) =>
       state.rowCount === 1 &&
       state.openViewCount === expectedOpenViews &&
-      state.focusedPaneId === focusedPaneId,
+      state.focusedPaneId === focusedPaneId &&
+      state.maximizedPaneId === maximizedPaneId,
     workflowTimeoutMs,
   );
 }

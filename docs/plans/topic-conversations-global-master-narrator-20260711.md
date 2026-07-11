@@ -2480,3 +2480,18 @@ Implementation is in progress under this plan.
   dependency or toolchain pin changed. The Codex source reference was not
   needed because this slice introduced no provider-protocol behavior. Phase 3
   item 6 is next.
+- 2026-07-11: The Phase 3 item 5 review fixed navigator activation while an
+  unrelated pane was maximized. The runtime previously focused or opened the
+  requested conversation and then unmaximized the old pane, whose layout-store
+  side effect restored focus to that old pane. Maximization teardown now belongs
+  to the pane coordinator and runs before the requested focus/open mutation,
+  while blocked presentations leave the existing maximized view intact. Focused
+  coordinator regressions cover existing and newly opened conversation panes.
+  The deterministic production Electron workflow now maximizes a non-topic
+  pane, activates the durable navigator row, and requires the intended existing
+  topic pane to become focused with maximization cleared before continuing its
+  close, reopen, persistence, and reload checks. Desktop typecheck/build, focused
+  renderer tests, focused conversation/HTTP/runtime Go suites, and the corrected
+  Electron workflow passed; evidence is under
+  `.recordings/topic-conversation-pane-projection/20260712T050345370Z/`. Phase 3
+  item 6 remains next; this review did not begin it.
