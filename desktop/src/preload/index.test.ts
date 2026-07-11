@@ -5,12 +5,11 @@ import type {
   UpdateAppearanceSettingsRequest,
   UpdateChatCodexDefaultsRequest,
 } from "@generated/backend";
-import { ipcChannels, ipcEvents, ipcMessages } from "@shared/ipc";
+import { ipcChannels, ipcEvents } from "@shared/ipc";
 import { chatTextInput } from "../renderer/src/lib/chat-input";
 import {
   chatEvent,
   terminalEvent,
-  terminalInputTrace,
   workflowEvent,
   workflowGraph,
   workspaceActivityEvent,
@@ -51,7 +50,6 @@ describe("preload workspace API", () => {
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
-    vi.stubEnv("SETTA_TERMINAL_LATENCY_RUN_ID", "terminal_latency_test");
   });
 
   test("exposes typed app methods through IPC", async () => {
@@ -512,7 +510,7 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed terminal methods through IPC", async () => {
-    const { api, invoke, on, removeListener, send } = await exposePreloadAPI();
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
     expect(Object.keys(api.terminal).sort()).toEqual([
       "attach",
       "close",
@@ -522,9 +520,6 @@ describe("preload workspace API", () => {
       "input",
       "listProfiles",
       "onEvent",
-      "onStatus",
-      "recordLatency",
-      "recordingRunId",
       "resize",
       "selectDefaultProfile",
       "updateProfile",
@@ -548,10 +543,9 @@ describe("preload workspace API", () => {
       rows: 24,
     });
     await api.terminal.attach("workspace_api", "pane_terminal");
-    api.terminal.input({
+    await api.terminal.input({
       dataBase64: "aGVsbG8=",
       sessionId: "terminal_api",
-      trace: terminalInputTrace(),
     });
     await api.terminal.resize({
       cols: 100,
@@ -579,6 +573,13 @@ describe("preload workspace API", () => {
       [ipcChannels.terminalCreate, "workspace_api", "pane_terminal", "", "", 80, 24],
       [ipcChannels.terminalAttach, "workspace_api", "pane_terminal"],
       [
+        ipcChannels.terminalInput,
+        {
+          dataBase64: "aGVsbG8=",
+          sessionId: "terminal_api",
+        },
+      ],
+      [
         ipcChannels.terminalResize,
         {
           cols: 100,
@@ -593,19 +594,6 @@ describe("preload workspace API", () => {
       [ipcChannels.terminalSelectDefaultProfile, { id: "profile_project" }],
       [ipcChannels.terminalDeleteProfile, { id: "profile_project" }],
     ]);
-    expect(send).toHaveBeenCalledWith(ipcMessages.terminalInput, {
-      dataBase64: "aGVsbG8=",
-      sessionId: "terminal_api",
-      trace: {
-        clientId: "terminal_client_test",
-        httpDispatchedAt: "",
-        inputSequence: 1,
-        mainReceivedAt: "",
-        preloadReceivedAt: expect.any(String),
-        rendererReceivedAt: "2026-07-10T12:00:00.000Z",
-        runId: "terminal_latency_test",
-      },
-    });
     expect(on).toHaveBeenCalledWith(ipcEvents.terminalEvent, expect.any(Function));
     expect(listener).toHaveBeenCalledWith(event);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.terminalEvent, handler);

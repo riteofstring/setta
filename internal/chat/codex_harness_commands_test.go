@@ -181,7 +181,10 @@ func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 	if result.SelectedReasoningEffort == nil || *result.SelectedReasoningEffort != ReasoningEffortXHigh {
 		t.Fatalf("selected reasoning effort = %v, want config effort", result.SelectedReasoningEffort)
 	}
-	if len(result.ReasoningEfforts) != 3 || result.ReasoningEfforts[2].Effort != ReasoningEffortXHigh {
+	if len(result.ReasoningEfforts) != 5 ||
+		result.ReasoningEfforts[2].Effort != ReasoningEffortXHigh ||
+		result.ReasoningEfforts[3].Effort != ReasoningEffortMax ||
+		result.ReasoningEfforts[4].Effort != ReasoningEffortUltra {
 		t.Fatalf("reasoning efforts = %+v, want fake model efforts", result.ReasoningEfforts)
 	}
 }

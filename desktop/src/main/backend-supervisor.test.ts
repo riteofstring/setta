@@ -69,10 +69,13 @@ describe("startSpawnedBackend", () => {
 
   test("captures logs and stops a ready backend process", async () => {
     const handle = await startSpawnedBackend({
-      args: [backendSupervisorFixture("ready-with-logs"), String(backendProtocolVersion)],
+      args: [backendSupervisorFixture("ready-with-logs")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: process.env,
+      env: {
+        ...process.env,
+        SETTA_BACKEND_SUPERVISOR_PROTOCOL_VERSION: String(backendProtocolVersion),
+      },
       readyTimeoutMs: 3000,
     });
 
@@ -91,7 +94,7 @@ describe("startSpawnedBackend", () => {
 
   test("continues capturing stdout after readiness", async () => {
     const handle = await startSpawnedBackend({
-      args: [backendSupervisorFixture("post-ready-stdout"), String(backendProtocolVersion)],
+      args: [backendSupervisorFixture("post-ready-stdout")],
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
@@ -210,7 +213,7 @@ describe("startSpawnedBackend", () => {
 
   test("reports unexpected exit after readiness", async () => {
     const handle = await startSpawnedBackend({
-      args: [backendSupervisorFixture("exit-after-ready"), String(backendProtocolVersion)],
+      args: [backendSupervisorFixture("exit-after-ready")],
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,

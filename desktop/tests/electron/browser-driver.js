@@ -997,6 +997,7 @@
   }
   async function nullWorkflowValidation({ workspaceId }) {
     return window.setta.workflow.validateDefinition(workspaceId, {
+      agentDefaults: { model: "", permission: null, reasoningEffort: null },
       edges: [],
       layout: { nodes: [] },
       nodes: [],
@@ -1034,6 +1035,7 @@
       ],
     };
     return {
+      agentDefaults: { model: "", permission: null, reasoningEffort: null },
       edges: [
         {
           condition: alwaysCondition(),
@@ -1064,9 +1066,8 @@
           action: {
             codex: {
               freshConversation: true,
-              model: "",
               prompt: "workflow result action",
-              reasoningEffort: "",
+              settings: { model: "", permission: null, reasoningEffort: null },
             },
             kind: "agent.codex",
           },
@@ -1328,6 +1329,8 @@
       right: rect.right,
       top: rect.top,
       width: rect.width,
+      x: rect.x,
+      y: rect.y,
     };
   }
   function clamp(value, min, max) {
@@ -1374,31 +1377,8 @@
     }
     return String(value).replace(/["\\]/g, "\\$&");
   }
-  async function cloudProvisionWorkflow() {
-    const options = await window.setta.runtimes.cloudProvisionOptions();
-    const resolution = await window.setta.runtimes.cloudProvisionResolve({
-      intent: "cheap box for agents",
-      provider: "hetzner",
-      region: "fsn1",
-      shape: "dev-standard",
-    });
-    const execution = await window.setta.runtimes.cloudProvisionExecute({
-      auth: { kind: "manual", tailscaleAuthKey: "tskey-auth-secret" },
-      release: {
-        installerSha256: "a".repeat(64),
-        minisignPublicKey: "RWQtestminisignpublickey",
-        releaseBaseUrl: "https://downloads.example.test/setta/v1.2.3",
-        settaVersion: "v1.2.3",
-      },
-      resolution: resolution.resolution,
-      runtimeName: "setta-worker",
-    });
-    const snapshot = await window.setta.runtimes.current();
-    return { execution, options, resolution, snapshot };
-  }
   globalThis.__settaE2EDriver = {
     bodyText,
-    cloudProvisionWorkflow,
     clickButton,
     clickButtonContainingText,
     clickButtonContainingTextByRole,
@@ -1437,7 +1417,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v12",
+    version: "setta-e2e-driver-v11",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,

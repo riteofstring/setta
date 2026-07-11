@@ -9,7 +9,6 @@ export const terminalSurfaceLimits = {
   maxPasteBytes: 1024 * 1024,
   maxPendingOutputChunks: 640,
   resizeDebounceMs: 80,
-  sessionStartFitWaitMs: 250,
 } as const;
 
 export type TerminalStatusEvent = TerminalEvent & {

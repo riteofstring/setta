@@ -52,7 +52,6 @@ type Manager struct {
 	pty               PTYStarter
 	sessionByID       map[string]*session
 	sessionByPane     map[workspacePaneKey]string
-	streamInputs      *streamInputRegistry
 	workspaceResolver WorkspaceResolver
 }
 
@@ -63,7 +62,6 @@ type session struct {
 	exitCode    int
 	handle      PTYHandle
 	id          string
-	inputMu     sync.Mutex
 	message     string
 	paneID      string
 	profileID   string
@@ -128,7 +126,6 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		pty:               ptyStarter,
 		sessionByID:       map[string]*session{},
 		sessionByPane:     map[workspacePaneKey]string{},
-		streamInputs:      newStreamInputRegistry(),
 		workspaceResolver: config.WorkspaceResolver,
 	}, nil
 }
@@ -221,8 +218,6 @@ func (manager *Manager) WriteInput(_ context.Context, sessionID string, data []b
 	if err != nil {
 		return 0, err
 	}
-	terminalSession.inputMu.Lock()
-	defer terminalSession.inputMu.Unlock()
 	written, err := terminalSession.handle.Write(data)
 	if err != nil {
 		return written, fmt.Errorf("write terminal input: %w", err)

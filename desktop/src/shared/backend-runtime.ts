@@ -5,13 +5,19 @@ interface BackendRequestEndpoint {
 
 interface BackendErrorPayload {
   error: {
+    code: string;
     message: string;
+    operationApplied: boolean;
   };
 }
 
 type BackendPayloadDecoder<T> = (value: unknown) => T;
 
 export type BackendFetch = (input: URL, init: RequestInit) => Promise<Response>;
+
+export interface BackendRequestOptions {
+  signal?: AbortSignal;
+}
 
 export interface BackendEventBase<TType extends string> {
   schemaVersion: number;
@@ -32,6 +38,34 @@ interface BackendRequest<ResponsePayload, ErrorPayload extends BackendErrorPaylo
   endpoint: BackendRequestEndpoint;
   fetchImpl: BackendFetch;
   requestPayload: unknown | undefined;
+  signal?: AbortSignal;
+}
+
+const backendRequestErrorBrand = Symbol("BackendRequestError");
+
+export interface BackendRequestError extends Error {
+  readonly [backendRequestErrorBrand]: true;
+  readonly code: string;
+  readonly operationApplied: boolean;
+}
+
+export function createBackendRequestError(
+  code: string,
+  message: string,
+  operationApplied: boolean,
+): BackendRequestError {
+  return Object.assign(new Error(message), {
+    [backendRequestErrorBrand]: true as const,
+    code,
+    operationApplied,
+  });
+}
+
+export function isBackendRequestError(error: unknown): error is BackendRequestError {
+  return (
+    error instanceof Error &&
+    (error as Partial<BackendRequestError>)[backendRequestErrorBrand] === true
+  );
 }
 
 export function assertRecord(value: unknown, label: string): Record<string, unknown> {
@@ -108,18 +142,6 @@ export function decodeString(value: unknown, label: string): string {
     throw new Error(label + " must be a string");
   }
   return value;
-}
-
-export function decodeLiteralString<T extends string>(
-  value: unknown,
-  label: string,
-  expected: T,
-): T {
-  const decoded = decodeString(value, label);
-  if (decoded !== expected) {
-    throw new Error(label + " must be " + expected);
-  }
-  return expected;
 }
 
 export function decodeArray<T>(
@@ -210,18 +232,49 @@ export function decodeBackendEventBase<TType extends string>(
 export async function requestBackend<ResponsePayload, ErrorPayload extends BackendErrorPayload>(
   request: BackendRequest<ResponsePayload, ErrorPayload>,
 ): Promise<ResponsePayload> {
-  const { baseURL, decodeErrorResponse, decodeResponse, endpoint, fetchImpl, requestPayload } =
-    request;
-  const init: RequestInit = { method: endpoint.method };
-  if (requestPayload !== undefined) {
+  const {
+    baseURL,
+    decodeErrorResponse,
+    decodeResponse,
+    endpoint,
+    fetchImpl,
+    requestPayload,
+    signal,
+  } = request;
+  const init: RequestInit = signal
+    ? { method: endpoint.method, signal }
+    : { method: endpoint.method };
+  const url = new URL(endpoint.path, baseURL);
+  if (requestPayload !== undefined && endpoint.method === "GET") {
+    appendQueryPayload(url, requestPayload);
+  } else if (requestPayload !== undefined) {
     init.body = JSON.stringify(requestPayload);
     init.headers = { "Content-Type": "application/json" };
   }
 
-  const response = await fetchImpl(new URL(endpoint.path, baseURL), init);
+  const response = await fetchImpl(url, init);
   const payload: unknown = await response.json();
   if (!response.ok) {
-    throw new Error(decodeErrorResponse(payload).error.message);
+    const decoded = decodeErrorResponse(payload).error;
+    throw createBackendRequestError(decoded.code, decoded.message, decoded.operationApplied);
   }
   return decodeResponse(payload);
+}
+
+function appendQueryPayload(url: URL, payload: unknown) {
+  const record = assertRecord(payload, "GET request payload");
+  for (const [key, value] of Object.entries(record)) {
+    switch (typeof value) {
+      case "boolean":
+      case "number":
+      case "string":
+        url.searchParams.set(key, String(value));
+        break;
+      default:
+        if (value === null) {
+          throw new Error(`GET request payload ${key} must not be null`);
+        }
+        throw new Error(`GET request payload ${key} must be a primitive`);
+    }
+  }
 }
