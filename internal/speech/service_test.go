@@ -362,7 +362,7 @@ type serviceTestWorkspaceResolver struct {
 	calls      int
 }
 
-func (resolver *serviceTestWorkspaceResolver) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {
+func (resolver *serviceTestWorkspaceResolver) ResolveActiveWorkspace(id string) (workspace.WorkspaceSummary, error) {
 	resolver.calls++
 	if summary, ok := resolver.workspaces[id]; ok {
 		return summary, nil

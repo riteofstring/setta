@@ -27,7 +27,7 @@ type EasyRunSnapshotReader interface {
 }
 
 type WorkspaceResolver interface {
-	ResolveWorkspace(id string) (workspace.WorkspaceSummary, error)
+	ResolveActiveWorkspace(id string) (workspace.WorkspaceSummary, error)
 }
 
 type ServiceConfig struct {
@@ -187,7 +187,7 @@ func (service *Service) requireWorkspace(workspaceID string) error {
 	if err := validateSourceID("speech workspace id", workspaceID); err != nil {
 		return err
 	}
-	summary, err := service.workspaces.ResolveWorkspace(workspaceID)
+	summary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
 	if err != nil {
 		return err
 	}

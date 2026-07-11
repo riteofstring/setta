@@ -2016,6 +2016,70 @@ must be regenerated again if item 4 changes any owner-defined contract. Phase 2
 item 6 then completes the broader credential/log/persistence audit. No
 deterministic implementation blocker was found for item 4.
 
+### 2026-07-10 — Phase 2 speech service and endpoint audit complete
+
+Audited commit `a550ade21`, the cumulative speech-provider work, the clean
+starting worktree, generated contracts and embedded PWA bundle, the claimed
+production recording, and the current OpenAI Realtime client-secret,
+transcription, and Text-to-Speech documentation. The fixed
+transcription-only session request, manual turn boundary, safety-identifier
+header, `gpt-realtime-whisper` model and `medium` delay remain current. The
+bounded `gpt-4o-mini-tts` request with built-in `marin`, WAV output, and the
+AI-voice disclosure also remains current. Regenerating the endpoint-registry
+surface and rebuilding the PWA produced no tracked drift.
+
+The audit found one practical service-boundary gap. Speech operations claimed
+to require an open workspace, but the general `ResolveWorkspace` path also
+accepts a closed workspace retained in Recents. `workspacesession.Service` now
+owns an atomic `ResolveActiveWorkspace` operation without changing the general
+resolver's existing semantics, and the speech service requires that narrower
+active-workspace contract before minting a client secret, reading an Easy Run
+snapshot, or calling TTS. Focused service and workspace-session coverage proves
+that active workspaces resolve while closed recent workspaces fail. This also
+gives Phase 2 item 4 a production resolver with the exact required semantics.
+
+Verification completed for the audited slice:
+
+- complete focused speech, workspace-session, HTTP, command-launch,
+  contract-generator, embedded-webapp, and non-live runtime Go tests passed,
+  along with focused vet; race-enabled speech/workspace-session tests and the
+  speech-only HTTP tests also passed;
+- all 995 desktop Vitest tests, Electron/web typechecks, and both production
+  builds passed. Regeneration and the web build left the protocol-13 generated
+  TypeScript, contract snapshot, and checked-in PWA bundle unchanged;
+- the deterministic production Easy Button workflow passed at
+  `desktop/.recordings/easy-button-speech-phase2-services-audit-20260710`.
+  Its 131 fresh artifacts contain no speech-key, client-secret,
+  authorization, or audio/base64 markers;
+- the non-live Go, static-analysis, desktop lint/typecheck/test/build, and
+  dead-code portions of `./check_quality.sh --all` passed. Its required
+  Electron manifest reached a chat protocol-notification timeout after 29
+  earlier chat cases; the exact isolated `codex-protocol-notifications`
+  workflow then passed. The focused Easy Button production workflow also
+  passed independently, so no reproducible failure intersects this slice;
+- ChatGPT authentication remains available. With `OPENAI_API_KEY` absent, all
+  four live backend Codex probes plus the live Electron chat and Easy Button
+  surfaces still fail before conversation creation because `model/list`
+  advertises unsupported reasoning effort `max`. These are not provider proof
+  for the speech work;
+- `SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and the opt-in live speech
+  workflow is intentionally deferred until the later acceptance phase, so no
+  live OpenAI speech result is claimed;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed for the
+  audit changes;
+- the supply-chain gate remains blocked only by GO-2026-5856 in pinned Go
+  1.26.4, fixed in Go 1.26.5. This audit changes no dependency, module,
+  manifest, package-manager, toolchain, generated input, or supply-chain
+  configuration.
+
+Phase 2 items 1-3 remain complete. Item 4 is next: construct the OpenAI client
+and speech service in `internal/runtime`, pass it through
+`internal/httpapi.Services`, and prove both configured and text-only production
+runtimes serve the endpoints using the new active-workspace resolver. Then
+regenerate if any Go-owned contract changes and complete item 6's broader
+credential/log/persistence audit. No deterministic blocker was found for that
+work.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
