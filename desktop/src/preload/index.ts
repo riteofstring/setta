@@ -123,6 +123,9 @@ const api: SettaAPI = {
       return response.snapshot;
     },
   },
+  conversations: {
+    list: (request) => invoke("conversationListTopicConversations", request),
+  },
   easyRun: {
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {

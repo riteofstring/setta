@@ -22,6 +22,7 @@ import {
   WorkspaceLayoutArea,
   type WorkspaceSurfaceFocusRequest,
 } from "./workspace-layout/WorkspaceLayoutArea";
+import type { WorkspaceConversationFocusRequest } from "./workspace-layout/conversation-pane-runtime";
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
@@ -44,7 +45,6 @@ export function App() {
 
 function SettaApp({ setta }: { setta: SettaAPI }) {
   const workspace = useWorkspaceViewState();
-  const projectChat = useProjectPaneChatState();
   const platform = setta.app.platform;
   const viewport = useViewportSize();
   useAppearanceSettings();
@@ -55,6 +55,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [workspaceSurfaceFocusRequest, setWorkspaceSurfaceFocusRequest] =
     useState<WorkspaceSurfaceFocusRequest | null>(null);
+  const [workspaceConversationFocusRequest, setWorkspaceConversationFocusRequest] =
+    useState<WorkspaceConversationFocusRequest | null>(null);
+  const [conversationPresentationError, setConversationPresentationError] = useState<string | null>(
+    null,
+  );
   const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
   const mobileViewport = isMobileViewportWidth(viewport.width);
   const toggleProjectPane = useCallback(() => {
@@ -81,34 +86,20 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const openSettingsPane = useCallback(() => {
     focusWorkspaceSurface("settings-dom");
   }, [focusWorkspaceSurface]);
-  const openWorkflowGraphPane = useCallback(() => {
-    focusWorkspaceSurface("workflow-graph");
-  }, [focusWorkspaceSurface]);
-  const createConversation = projectChat.createConversation;
-  const createWorkspaceConversation = projectChat.createWorkspaceConversation;
-  const deleteConversation = projectChat.deleteConversation;
-  const selectConversation = projectChat.selectConversation;
-  const setConversationPinned = projectChat.setConversationPinned;
-  const createConversationAndFocusChat = useCallback(
-    async (title?: string) => {
-      await createConversation(title);
-      focusWorkspaceSurface("chat-dom");
+  const presentConversation = useCallback(
+    async (workspaceId: string, conversationId: string, title: string) => {
+      setConversationPresentationError(null);
+      setWorkspaceConversationFocusRequest((current) => ({
+        conversationId,
+        requestId: (current?.requestId ?? 0) + 1,
+        title,
+        workspaceId,
+      }));
+      if (mobileViewport) {
+        setProjectPaneOpen(false);
+      }
     },
-    [createConversation, focusWorkspaceSurface],
-  );
-  const createWorkspaceConversationAndFocusChat = useCallback(
-    async (workspaceId: string, title?: string) => {
-      await createWorkspaceConversation(workspaceId, title);
-      focusWorkspaceSurface("chat-dom");
-    },
-    [createWorkspaceConversation, focusWorkspaceSurface],
-  );
-  const selectConversationAndFocusChat = useCallback(
-    async (conversationId: string, workspaceId?: string) => {
-      await selectConversation(conversationId, workspaceId);
-      focusWorkspaceSurface("chat-dom");
-    },
-    [focusWorkspaceSurface, selectConversation],
+    [mobileViewport],
   );
   useEffect(() => {
     return setta.chat.onEvent((event) => {
@@ -132,18 +123,12 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       />
       <main className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
         <ProjectPane
-          activeRun={projectChat.activeRun}
-          activeRunLiveness={projectChat.activeRunLiveness}
-          createConversation={createConversationAndFocusChat}
-          createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
-          deleteConversation={deleteConversation}
+          clearConversationPresentationError={() => setConversationPresentationError(null)}
+          conversationPresentationError={conversationPresentationError}
           mobileOverlay={mobileViewport}
           open={projectPaneOpen}
           openSettingsPane={openSettingsPane}
-          openWorkflowGraphPane={openWorkflowGraphPane}
-          selectConversation={selectConversationAndFocusChat}
-          selectedConversationId={projectChat.selectedConversationId}
-          setConversationPinned={setConversationPinned}
+          presentConversation={presentConversation}
           setWidth={setProjectPaneWidth}
           viewportWidth={viewport.width}
           width={effectiveProjectPaneWidth}
@@ -151,7 +136,9 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           workspace={workspace}
         />
         <WorkspaceLayoutArea
+          focusConversationRequest={workspaceConversationFocusRequest}
           focusSurfaceRequest={workspaceSurfaceFocusRequest}
+          onConversationPresentationError={setConversationPresentationError}
           onToggleProjectPane={toggleProjectPane}
           platform={platform}
           projectPaneOpen={projectPaneOpen}
@@ -265,61 +252,29 @@ function useSelectedWorkspaceChatSync(workspaceId: string | null) {
 }
 
 type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
-type ProjectPaneChatState = ReturnType<typeof useProjectPaneChatState>;
-
-function useProjectPaneChatState() {
-  const activeRun = useChatStore((state) => state.activeRun);
-  const activeRunLiveness = useChatStore((state) => state.activeRunLiveness);
-  const createConversation = useChatStore((state) => state.createConversation);
-  const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
-  const deleteConversation = useChatStore((state) => state.deleteConversation);
-  const selectConversation = useChatStore((state) => state.selectConversation);
-  const selectedConversationId = useChatStore((state) => state.selectedConversation?.id ?? "");
-  const setConversationPinned = useChatStore((state) => state.setConversationPinned);
-
-  return {
-    activeRun,
-    activeRunLiveness,
-    createConversation,
-    createWorkspaceConversation,
-    deleteConversation,
-    selectConversation,
-    selectedConversationId,
-    setConversationPinned,
-  };
-}
-
 function ProjectPane({
-  activeRun,
-  activeRunLiveness,
-  createConversation,
-  createWorkspaceConversation,
-  deleteConversation,
+  clearConversationPresentationError,
+  conversationPresentationError,
   mobileOverlay,
   open,
   openSettingsPane,
-  openWorkflowGraphPane,
-  selectConversation,
-  selectedConversationId,
-  setConversationPinned,
+  presentConversation,
   setWidth,
   viewportWidth,
   width,
   runtimeUnavailable,
   workspace,
 }: {
-  activeRun: ProjectPaneChatState["activeRun"];
-  activeRunLiveness: ProjectPaneChatState["activeRunLiveness"];
-  createConversation: ProjectPaneChatState["createConversation"];
-  createWorkspaceConversation: ProjectPaneChatState["createWorkspaceConversation"];
-  deleteConversation: ProjectPaneChatState["deleteConversation"];
+  clearConversationPresentationError: () => void;
+  conversationPresentationError: string | null;
   mobileOverlay: boolean;
   open: boolean;
   openSettingsPane: () => void;
-  openWorkflowGraphPane: () => void;
-  selectConversation: ProjectPaneChatState["selectConversation"];
-  selectedConversationId: ProjectPaneChatState["selectedConversationId"];
-  setConversationPinned: ProjectPaneChatState["setConversationPinned"];
+  presentConversation: (
+    workspaceId: string,
+    conversationId: string,
+    title: string,
+  ) => Promise<void>;
   setWidth: (width: number) => void;
   viewportWidth: number;
   width: number;
@@ -332,25 +287,19 @@ function ProjectPane({
 
   const sidebar = (
     <WorkspaceSidebar
-      activeRun={activeRun}
-      activeRunLiveness={activeRunLiveness}
       activeWorkspaces={workspace.activeWorkspaces}
       busy={runtimeUnavailable || sidebarWorkspaceBusy(workspace.operation, workspace.status)}
+      clearConversationPresentationError={clearConversationPresentationError}
       clearWorkspaceError={workspace.clearError}
       closeWorkspace={workspace.closeWorkspace}
-      createConversation={createConversation}
-      createWorkspaceConversation={createWorkspaceConversation}
-      deleteConversation={deleteConversation}
+      conversationPresentationError={conversationPresentationError}
       openLocalFolder={workspace.openLocalFolder}
       openSettingsPane={openSettingsPane}
-      openWorkflowGraphPane={openWorkflowGraphPane}
       openWorkspacePath={workspace.openWorkspacePath}
+      presentConversation={presentConversation}
       recentWorkspaces={workspace.recentWorkspaces}
       removeRecent={workspace.removeRecent}
-      selectConversation={selectConversation}
       selectWorkspace={workspace.selectWorkspace}
-      setConversationPinned={setConversationPinned}
-      selectedConversationId={selectedConversationId}
       selectedWorkspaceId={workspace.selectedWorkspaceId}
       showFooterSettings={mobileOverlay}
       showLogoHeader={mobileOverlay}

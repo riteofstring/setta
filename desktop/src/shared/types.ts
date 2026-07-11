@@ -52,6 +52,7 @@ import type {
   ListCartographerRunsRequest,
   ListCartographerWindowsRequest,
   ListConversationsResponse,
+  ListTopicConversationsRequest,
   ListWorkflowExecutionsResponse,
   ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
@@ -59,6 +60,7 @@ import type {
   MergeSemanticNodesRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  NavigatorPage,
   ProcessCartographerWindowRequest,
   QueueEditResult,
   QueueMessageResult,
@@ -398,6 +400,9 @@ export interface SettaAPI {
       executionId: string,
       limit: number,
     ) => Promise<WorkspaceActivitySnapshot>;
+  };
+  conversations: {
+    list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
   };
   easyRun: {
     onEvent: (listener: (event: EasyRunEvent) => void) => () => void;

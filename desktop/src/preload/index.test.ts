@@ -303,6 +303,21 @@ describe("preload workspace API", () => {
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.workspaceActivityEvent, handler);
   });
 
+  test("exposes the typed conversation navigator through IPC", async () => {
+    const { api, invoke } = await exposePreloadAPI();
+    expect(Object.keys(api.conversations).sort()).toEqual(["list"]);
+    const request = {
+      cursor: null,
+      limit: 80,
+      query: "status",
+      workspaceId: "workspace_api",
+    };
+
+    await api.conversations.list(request);
+
+    expectInvokeCalls(invoke, [[ipcChannels.conversationListTopicConversations, request]]);
+  });
+
   test("exposes typed chat methods through IPC", async () => {
     const { api, invoke, on, removeListener } = await exposePreloadAPI();
     expect(Object.keys(api.chat).sort()).toEqual([

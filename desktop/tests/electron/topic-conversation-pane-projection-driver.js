@@ -1,7 +1,7 @@
 /* global CustomEvent, HTMLButtonElement, HTMLElement, HTMLInputElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v2";
+  const version = "setta-topic-conversation-pane-projection-driver-v3";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -10,7 +10,11 @@
     }
     Object.assign(driver, {
       topicConversationPaneProjectionVersion: version,
+      topicConversationCloseOneBoundPane,
+      topicConversationNavigatorState,
       topicConversationOpenBoundPane,
+      topicConversationPresentFromNavigator,
+      topicConversationShellFocusPoint,
       topicConversationSurfaceState,
       topicConversationSurfaceStates,
       topicConversationWorkspaceOpenState,
@@ -89,6 +93,68 @@
       }),
     );
     return { conversationId, requested: true };
+  }
+
+  function topicConversationNavigatorState({ conversationId }) {
+    const rows = Array.from(
+      document.querySelectorAll('[data-testid="conversation-navigator-item"]'),
+    ).filter((row) => datasetValue(row, "conversationId") === conversationId);
+    const openViews = Array.from(
+      document.querySelectorAll('[data-testid="easy-button-surface"]'),
+    ).filter((surface) => datasetValue(surface, "conversationId") === conversationId);
+    return {
+      conversationId: rows.length === 1 ? datasetValue(rows[0], "conversationId") : "",
+      focusedPaneId:
+        document
+          .querySelector('[data-testid="workspace-pane-host"][data-focused="true"]')
+          ?.getAttribute("data-pane-id") ?? "",
+      label: rows[0]?.getAttribute("aria-label") ?? "",
+      openViewCount: openViews.length,
+      rowCount: rows.length,
+    };
+  }
+
+  function topicConversationPresentFromNavigator({ conversationId }) {
+    const row = Array.from(
+      document.querySelectorAll('[data-testid="conversation-navigator-item"]'),
+    ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
+    if (!(row instanceof HTMLButtonElement)) {
+      return { clicked: false, conversationId };
+    }
+    row.click();
+    return { clicked: true, conversationId };
+  }
+
+  function topicConversationShellFocusPoint() {
+    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).find(
+      (candidate) => datasetValue(candidate, "paneId") === "shell_pane",
+    );
+    const topBar = host?.querySelector(".workspace-pane-top-bar");
+    if (!(topBar instanceof HTMLElement)) {
+      return { ok: false, paneId: "shell_pane" };
+    }
+    const rect = topBar.getBoundingClientRect();
+    return {
+      ok: rect.width > 0 && rect.height > 0,
+      paneId: "shell_pane",
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+  }
+
+  function topicConversationCloseOneBoundPane({ conversationId }) {
+    const surface = Array.from(
+      document.querySelectorAll('[data-testid="easy-button-surface"]'),
+    ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
+    const paneId = datasetValue(surface?.closest('[data-testid="workspace-pane-host"]'), "paneId");
+    const button = Array.from(
+      document.querySelectorAll('[data-workspace-pane-action="close"]'),
+    ).find((candidate) => datasetValue(candidate, "paneId") === paneId);
+    if (!(button instanceof HTMLButtonElement)) {
+      return { clicked: false, conversationId, paneId };
+    }
+    button.click();
+    return { clicked: true, conversationId, paneId };
   }
 
   function datasetValue(element, key) {

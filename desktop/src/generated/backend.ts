@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 15;
-export const backendContractSchemaHash = "sha256:11611eb437747588f0fb906ee81f99544d13d647fe2e471676f9c54652c2eb1b";
+export const backendProtocolVersion = 16;
+export const backendContractSchemaHash = "sha256:49d4a9644784165d2ba2479446387819022a0fe7b0a653b6e201d798fddf656c";
 
 export type DeviceScope = "full";
 
@@ -4827,6 +4827,29 @@ export interface ConversationSnapshot {
   eventCursor: ConversationEventCursor;
 }
 
+export interface NavigatorCursor {
+  updatedAt: string;
+  conversationId: string;
+}
+
+export interface ListTopicConversationsRequest {
+  workspaceId: string;
+  query: string;
+  cursor: NavigatorCursor | null;
+  limit: number;
+}
+
+export interface NavigatorItem {
+  conversation: TopicConversation;
+  presentationProfile: ConversationPresentationProfile;
+  branch: ConversationBranch | null;
+}
+
+export interface NavigatorPage {
+  items: NavigatorItem[];
+  nextCursor: NavigatorCursor | null;
+}
+
 export interface SubscribeConversationEventsRequest {
   workspaceId: string;
   conversationId: string;
@@ -8477,6 +8500,11 @@ export const backendEndpoints = {
     path: "/conversations/snapshot/read",
     requestBodyLimitBytes: 4194304,
   },
+  ListTopicConversations: {
+    method: "POST",
+    path: "/conversations/navigator/list",
+    requestBodyLimitBytes: 4194304,
+  },
   ConversationEventStream: {
     method: "GET",
     path: "/conversations/events",
@@ -11002,6 +11030,45 @@ export function decodeConversationSnapshot(value: unknown): ConversationSnapshot
     branch: decodeNullable(requireField(record, "branch", "ConversationSnapshot"), "ConversationSnapshot.branch", (item) => decodeConversationBranch(item)),
     sideConversations: decodeArray(requireField(record, "sideConversations", "ConversationSnapshot"), "ConversationSnapshot.sideConversations", (item) => decodeSideConversation(item)),
     eventCursor: decodeConversationEventCursor(requireField(record, "eventCursor", "ConversationSnapshot")),
+  };
+}
+
+export function decodeNavigatorCursor(value: unknown): NavigatorCursor {
+  const record = assertRecord(value, "NavigatorCursor");
+  assertKnownFields(record, "NavigatorCursor", ["updatedAt", "conversationId"]);
+  return {
+    updatedAt: decodeString(requireField(record, "updatedAt", "NavigatorCursor"), "NavigatorCursor.updatedAt"),
+    conversationId: decodeString(requireField(record, "conversationId", "NavigatorCursor"), "NavigatorCursor.conversationId"),
+  };
+}
+
+export function decodeListTopicConversationsRequest(value: unknown): ListTopicConversationsRequest {
+  const record = assertRecord(value, "ListTopicConversationsRequest");
+  assertKnownFields(record, "ListTopicConversationsRequest", ["workspaceId", "query", "cursor", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListTopicConversationsRequest"), "ListTopicConversationsRequest.workspaceId"),
+    query: decodeString(requireField(record, "query", "ListTopicConversationsRequest"), "ListTopicConversationsRequest.query"),
+    cursor: decodeNullable(requireField(record, "cursor", "ListTopicConversationsRequest"), "ListTopicConversationsRequest.cursor", (item) => decodeNavigatorCursor(item)),
+    limit: decodeInteger(requireField(record, "limit", "ListTopicConversationsRequest"), "ListTopicConversationsRequest.limit"),
+  };
+}
+
+export function decodeNavigatorItem(value: unknown): NavigatorItem {
+  const record = assertRecord(value, "NavigatorItem");
+  assertKnownFields(record, "NavigatorItem", ["conversation", "presentationProfile", "branch"]);
+  return {
+    conversation: decodeTopicConversation(requireField(record, "conversation", "NavigatorItem")),
+    presentationProfile: decodeConversationPresentationProfile(requireField(record, "presentationProfile", "NavigatorItem")),
+    branch: decodeNullable(requireField(record, "branch", "NavigatorItem"), "NavigatorItem.branch", (item) => decodeConversationBranch(item)),
+  };
+}
+
+export function decodeNavigatorPage(value: unknown): NavigatorPage {
+  const record = assertRecord(value, "NavigatorPage");
+  assertKnownFields(record, "NavigatorPage", ["items", "nextCursor"]);
+  return {
+    items: decodeArray(requireField(record, "items", "NavigatorPage"), "NavigatorPage.items", (item) => decodeNavigatorItem(item)),
+    nextCursor: decodeNullable(requireField(record, "nextCursor", "NavigatorPage"), "NavigatorPage.nextCursor", (item) => decodeNavigatorCursor(item)),
   };
 }
 
@@ -16062,6 +16129,7 @@ export interface BackendClient {
   steerEasyRun: (request: SteerEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
   stopEasyRun: (request: StopEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  listTopicConversations: (request: ListTopicConversationsRequest, options?: BackendRequestOptions) => Promise<NavigatorPage>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
   synthesizeEasyRunSummary: (request: SynthesizeEasyRunSummaryRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
@@ -16435,6 +16503,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.ReadConversationSnapshot,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    listTopicConversations: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeNavigatorPage,
+      endpoint: backendEndpoints.ListTopicConversations,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

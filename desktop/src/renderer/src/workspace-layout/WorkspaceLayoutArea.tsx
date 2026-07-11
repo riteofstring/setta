@@ -1,21 +1,15 @@
 import type { DesktopPlatform } from "@shared/types";
 import type { WorkspaceUILayout } from "@generated/backend";
-import {
-  Profiler,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { Profiler, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isMobileViewportWidth } from "../app-layout";
 import { useAppearanceStore } from "../stores/appearance-store";
-import { useWorkspaceStore } from "../stores/workspace-store";
 import { useViewportSize } from "../use-viewport-size";
 import { FrameScheduler } from "./frame-scheduler";
-import type { WorkspaceLayoutStore } from "./layout-store";
+import {
+  type WorkspaceConversationFocusRequest,
+  useConversationPaneRuntime,
+} from "./conversation-pane-runtime";
 import {
   finishOverviewPanSession,
   beginOverviewPanSession,
@@ -94,6 +88,7 @@ import {
 } from "./workspace-layout-area-runtime";
 import { WorkspaceNoWorkspaceState } from "./workspace-empty-state";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
+import { useWorkspaceLayoutSnapshot, useWorkspaceLayoutTarget } from "./workspace-layout-state";
 import {
   WorkspaceLayoutLoading,
   useWorkspaceUILayoutLoad,
@@ -109,13 +104,17 @@ export interface WorkspaceSurfaceFocusRequest {
 const overviewDragThresholdPx = 6;
 
 export function WorkspaceLayoutArea({
+  focusConversationRequest = null,
   focusSurfaceRequest = null,
+  onConversationPresentationError,
   onToggleProjectPane,
   platform,
   projectPaneOpen,
   projectPaneWidth,
 }: {
+  focusConversationRequest?: WorkspaceConversationFocusRequest | null;
   focusSurfaceRequest?: WorkspaceSurfaceFocusRequest | null;
+  onConversationPresentationError?: (message: string | null) => void;
   onToggleProjectPane: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
@@ -134,11 +133,13 @@ export function WorkspaceLayoutArea({
   }
   return (
     <WorkspaceLayoutRuntimeArea
+      focusConversationRequest={focusConversationRequest}
       focusSurfaceRequest={focusSurfaceRequest}
       initialLayout={layoutLoad.layout}
       layoutLoadError={layoutLoad.error}
       mode={mode}
       onToggleProjectPane={onToggleProjectPane}
+      onConversationPresentationError={onConversationPresentationError}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
       projectPaneWidth={projectPaneWidth}
@@ -149,22 +150,26 @@ export function WorkspaceLayoutArea({
 }
 
 function WorkspaceLayoutRuntimeArea({
+  focusConversationRequest,
   focusSurfaceRequest,
   initialLayout,
   layoutLoadError,
   mode,
   onToggleProjectPane,
+  onConversationPresentationError,
   platform,
   projectPaneOpen,
   projectPaneWidth,
   workspaceId,
   workspaceName,
 }: {
+  focusConversationRequest: WorkspaceConversationFocusRequest | null;
   focusSurfaceRequest: WorkspaceSurfaceFocusRequest | null;
   initialLayout: WorkspaceUILayout | null;
   layoutLoadError: string | null;
   mode: WorkspaceSceneMode;
   onToggleProjectPane: () => void;
+  onConversationPresentationError?: (message: string | null) => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
   projectPaneWidth: number;
@@ -236,6 +241,7 @@ function WorkspaceLayoutRuntimeArea({
     null,
   );
   const [nativeViewOverlayActive, setNativeViewOverlayActive] = useState(false);
+
   const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
     if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
       return;
@@ -307,6 +313,16 @@ function WorkspaceLayoutRuntimeArea({
       runtime.store.snapScrollToTarget();
     });
   }, [focusSurfaceRequest, runLayoutAction, runtime, stageViewport]);
+  useConversationPaneRuntime({
+    focusRequest: focusConversationRequest,
+    focusedPaneId: layoutSnapshot.focusedPaneId,
+    layoutRevision: layoutSnapshot.revision,
+    onPresentationError: onConversationPresentationError,
+    runLayoutAction,
+    runtime,
+    stageViewport,
+    workspaceId,
+  });
   useEffect(() => {
     if (runtime.mode !== "workspace") {
       return;
@@ -951,29 +967,6 @@ function installResizeReportHooksForRuntime(
     viewportProvider,
     writer: runtime.resizeReportWriter,
   });
-}
-
-function useWorkspaceLayoutSnapshot(store: WorkspaceLayoutStore) {
-  return useSyncExternalStore(
-    (listener) => store.subscribe(listener),
-    () => store.getSnapshot(),
-    () => store.getSnapshot(),
-  );
-}
-
-function useWorkspaceLayoutTarget() {
-  const session = useWorkspaceStore((state) => state.session);
-  const status = useWorkspaceStore((state) => state.status);
-  const workspace = useMemo(() => {
-    if (!session) {
-      return null;
-    }
-    return (
-      session.activeWorkspaces.find((workspace) => workspace.id === session.selectedWorkspaceId) ??
-      null
-    );
-  }, [session]);
-  return { status, workspace };
 }
 
 function sameOverviewGhostTarget(

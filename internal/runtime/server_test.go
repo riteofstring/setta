@@ -13,9 +13,11 @@ import (
 	"time"
 
 	"setta/internal/chat"
+	"setta/internal/conversation"
 	"setta/internal/httpapi"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -55,6 +57,67 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("health status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+}
+
+func TestRuntimeServesDurableConversationNavigator(t *testing.T) {
+	config := testConfig(t)
+	store, err := conversation.NewStore(config.AppDataDir)
+	if err != nil {
+		t.Fatalf("create conversation store: %v", err)
+	}
+	topic := conversation.TopicConversation{
+		ID:          "conversation-runtime",
+		WorkspaceID: "workspace-runtime",
+		Title:       "Runtime topic",
+		Status:      conversation.ConversationStatusIdle,
+		CreatedAt:   "2026-07-11T20:00:00Z",
+		UpdatedAt:   "2026-07-11T20:00:00Z",
+	}
+	_, err = store.Transact(context.Background(), "seed runtime navigator", func(transaction *conversation.WriteTransaction) error {
+		if err := transaction.InsertConversation(topic); err != nil {
+			return err
+		}
+		if err := transaction.UpsertConversationPresentationProfile(
+			conversation.ConversationPresentationProfile{
+				ConversationID:         topic.ID,
+				PaletteSelection:       conversation.PresentationSelectionAutoDistinct,
+				ResolvedPaletteID:      conversationpalette.ConversationPaletteSky,
+				NarratorVoiceSelection: conversation.PresentationSelectionAutoDistinct,
+				NarratorSpeechEnabled:  true,
+				UpdatedAt:              topic.UpdatedAt,
+			},
+		); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(conversation.CommittedEventDraft{
+			ID:          "runtime-navigator-seeded",
+			StreamID:    "conversation:" + topic.ID,
+			Kind:        "conversation_state_changed",
+			Payload:     topic,
+			CommittedAt: topic.UpdatedAt,
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed runtime navigator: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close seeded conversation store: %v", err)
+	}
+
+	server, ready := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, server)
+	page := postRuntimeJSON[conversation.NavigatorPage](
+		t,
+		authenticatedRuntimeTestClient(ready.BootstrapToken, 5*time.Second),
+		"http://"+server.Addr(),
+		"/conversations/navigator/list",
+		httpapi.ListTopicConversationsRequest{WorkspaceID: topic.WorkspaceID, Limit: 80},
+		http.StatusOK,
+	)
+	if len(page.Items) != 1 || page.Items[0].Conversation.ID != topic.ID {
+		t.Fatalf("runtime navigator page = %+v", page)
 	}
 }
 

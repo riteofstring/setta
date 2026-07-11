@@ -23,6 +23,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
+	"setta/internal/conversation"
 	"setta/internal/easyrun"
 	"setta/internal/httpapi"
 	"setta/internal/notify"
@@ -85,6 +86,7 @@ type ReadyEvent struct {
 
 type Server struct {
 	closeCartographerEvents func(context.Context) error
+	closeConversationStore  func() error
 	closeSemanticStore      func() error
 	closeTerminal           func(context.Context) error
 	closeWorkspaceActivity  func()
@@ -108,6 +110,7 @@ type runtimeServices struct {
 	chatService              *chat.Service
 	codexAccountService      *codexaccount.Service
 	codexManager             *codexapp.Manager
+	conversationStore        *conversation.Store
 	easyRunService           *easyrun.Service
 	notifyService            *notify.Service
 	semanticGraphService     *semanticgraph.Service
@@ -245,6 +248,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 
 	server := &Server{
 		closeCartographerEvents: services.semanticGraphService.ShutdownCartographerEventObserver,
+		closeConversationStore:  services.conversationStore.Close,
 		closeSemanticStore:      services.semanticGraphStore.Close,
 		closeTerminal:           services.terminalService.Shutdown,
 		closeWorkspaceActivity:  services.workspaceActivityService.CloseEvents,
@@ -291,6 +295,12 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
+	closeConversationStoreOnFailure := true
+	defer func() {
+		if closeConversationStoreOnFailure {
+			_ = baseServices.conversationStore.Close()
+		}
+	}()
 	semanticServices, err := newRuntimeSemanticServices(
 		config,
 		baseServices.workspaceService,
@@ -333,6 +343,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	}
 
 	closeAuthOnFailure = false
+	closeConversationStoreOnFailure = false
 	return runtimeServices{
 		appearanceService:        baseServices.appearanceService,
 		authStore:                authBootstrap.store,
@@ -340,6 +351,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		chatService:              baseServices.chatService,
 		codexAccountService:      codexAccountService,
 		codexManager:             baseServices.codexManager,
+		conversationStore:        baseServices.conversationStore,
 		easyRunService:           baseServices.easyRunService,
 		notifyService:            notifyService,
 		semanticGraphService:     semanticServices.graphService,
@@ -538,6 +550,7 @@ func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
 	defer cancel()
 	_ = server.closeEventStreams(shutdownCtx)
 	_ = server.shutdownTerminal(shutdownCtx)
+	_ = server.shutdownConversationStore()
 	_ = server.shutdownRuntimeAuth()
 	_ = server.shutdownCodex(shutdownCtx)
 	_ = server.shutdownSemanticStore()
@@ -806,13 +819,14 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 			Name:    httpapi.BackendName,
 			Version: config.Version,
 		},
-		AppearanceService:      services.appearanceService,
-		ChatService:            services.chatService,
-		CodexAccountService:    services.codexAccountService,
-		EasyRunService:         services.easyRunService,
-		NotifyService:          services.notifyService,
-		RuntimeAuthService:     services.authStore,
-		RuntimeIdentityService: services.runtimeIdentityManager,
+		AppearanceService:            services.appearanceService,
+		ChatService:                  services.chatService,
+		ConversationNavigatorService: conversationNavigatorService(services.conversationStore),
+		CodexAccountService:          services.codexAccountService,
+		EasyRunService:               services.easyRunService,
+		NotifyService:                services.notifyService,
+		RuntimeAuthService:           services.authStore,
+		RuntimeIdentityService:       services.runtimeIdentityManager,
 		RuntimeMetadata: httpapi.RuntimeMetadata{
 			InfrastructureProvider: services.infrastructureProvider,
 		},
@@ -832,10 +846,6 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 	}
 }
 
-func (server *Server) Addr() string {
-	return server.listener.Addr().String()
-}
-
 func (server *Server) Shutdown(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("shutdown context is required")
@@ -846,6 +856,7 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	shutdownErr = firstShutdownError(shutdownErr, server.closeEventStreams(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationStore())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownRuntimeAuth())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownSemanticStore())

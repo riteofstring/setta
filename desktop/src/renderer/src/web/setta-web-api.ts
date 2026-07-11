@@ -46,7 +46,6 @@ interface ParsedWebPairingURL {
   pairingToken: string;
   runtimeId: string;
 }
-
 interface StreamCursor {
   sequence: number;
   streamId: string;
@@ -264,6 +263,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         requireClient().steerChatMessage({ conversationId, input, workspaceId }),
       submitApproval: (input) => requireClient().submitApproval(input),
     },
+    conversations: { list: (request) => requireClient().listTopicConversations(request) },
     easyRun: {
       onEvent: (listener) =>
         subscribeWebBackendEventStream({

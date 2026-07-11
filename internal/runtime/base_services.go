@@ -1,9 +1,12 @@
 package runtime
 
 import (
+	"fmt"
+
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexapp"
+	"setta/internal/conversation"
 	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/speech"
@@ -15,6 +18,7 @@ type runtimeBaseServices struct {
 	appearanceService  *appearance.Service
 	chatService        *chat.Service
 	codexManager       *codexapp.Manager
+	conversationStore  *conversation.Store
 	easyRunService     *easyrun.Service
 	speechService      *speech.Service
 	workspaceService   *workspacesession.Service
@@ -36,6 +40,16 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
+	conversationStore, err := conversation.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeBaseServices{}, fmt.Errorf("create conversation store: %w", err)
+	}
+	closeConversationStoreOnFailure := true
+	defer func() {
+		if closeConversationStoreOnFailure {
+			_ = conversationStore.Close()
+		}
+	}()
 	codexManager := newCodexManager()
 	chatService, err := newChatService(config.AppDataDir, workspaceService, codexManager, config.ChatHarness)
 	if err != nil {
@@ -60,21 +74,17 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err
 	}
-	tools, err := chat.NewSettaAgentToolRegistry(easyrun.NewEmitArtifactAgentTool(easyRunService))
-	if err != nil {
+	if err := configureSettaAgentTools(chatService, easyRunService); err != nil {
 		easyRunService.CloseEvents()
 		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err
 	}
-	if err := chatService.SetAgentToolRegistry(tools); err != nil {
-		easyRunService.CloseEvents()
-		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
-		return runtimeBaseServices{}, err
-	}
+	closeConversationStoreOnFailure = false
 	return runtimeBaseServices{
 		appearanceService:  appearanceService,
 		chatService:        chatService,
 		codexManager:       codexManager,
+		conversationStore:  conversationStore,
 		easyRunService:     easyRunService,
 		speechService:      speechService,
 		workspaceService:   workspaceService,
@@ -82,4 +92,12 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		workflowService:    workflowService,
 		workflowStore:      workflowStore,
 	}, nil
+}
+
+func configureSettaAgentTools(chatService *chat.Service, easyRunService *easyrun.Service) error {
+	tools, err := chat.NewSettaAgentToolRegistry(easyrun.NewEmitArtifactAgentTool(easyRunService))
+	if err != nil {
+		return err
+	}
+	return chatService.SetAgentToolRegistry(tools)
 }

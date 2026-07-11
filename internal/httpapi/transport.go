@@ -76,6 +76,17 @@ func requireConversationService(response http.ResponseWriter, service Conversati
 	return service
 }
 
+func requireConversationNavigatorService(
+	response http.ResponseWriter,
+	service ConversationNavigatorService,
+) ConversationNavigatorService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "conversation_navigator_service_unavailable", "conversation navigator service is not available")
+		return nil
+	}
+	return service
+}
+
 func requireSpeechService(response http.ResponseWriter, service SpeechService) SpeechService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "speech_service_unavailable", "speech service is not available")

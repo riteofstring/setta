@@ -637,6 +637,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    conversations: { list: async () => ({ items: [], nextCursor: null }) },
     easyRun: unimplementedEasyRunAPI(),
     workspaceActivity: unimplementedWorkspaceActivityAPI(),
     terminal: unimplementedTerminalAPI(),

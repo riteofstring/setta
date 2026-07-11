@@ -66,6 +66,16 @@ type ConversationService interface {
 	) (conversation.ConversationEventSubscription, error)
 }
 
+type ConversationNavigatorService interface {
+	ListNavigatorPage(
+		context.Context,
+		string,
+		string,
+		*conversation.NavigatorCursor,
+		int,
+	) (conversation.NavigatorPage, error)
+}
+
 type SpeechService interface {
 	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
 	CreateTranscriptionSession(context.Context, string, string) (speech.SpeechTranscriptionSession, error)
@@ -233,47 +243,49 @@ type NotifyService interface {
 }
 
 type HandlerConfig struct {
-	AppearanceService        AppearanceService
-	Metadata                 BackendMetadata
-	ChatService              ChatService
-	ConversationService      ConversationService
-	CodexAccountService      CodexAccountService
-	EasyRunService           EasyRunService
-	NotifyService            NotifyService
-	PairingFailureLimiter    *PairingFailureLimiter
-	RevocationSweepInterval  time.Duration
-	RuntimeAuthService       RuntimeAuthService
-	RuntimeIdentityService   RuntimeIdentityService
-	RuntimeMetadata          RuntimeMetadata
-	SemanticGraphService     SemanticGraphService
-	SpeechService            SpeechService
-	TerminalService          TerminalService
-	WorkspaceActivityService WorkspaceActivityService
-	WorkspaceUIService       WorkspaceUIService
-	WorkspaceService         WorkspaceService
-	WorkflowService          WorkflowService
+	AppearanceService            AppearanceService
+	Metadata                     BackendMetadata
+	ChatService                  ChatService
+	ConversationNavigatorService ConversationNavigatorService
+	ConversationService          ConversationService
+	CodexAccountService          CodexAccountService
+	EasyRunService               EasyRunService
+	NotifyService                NotifyService
+	PairingFailureLimiter        *PairingFailureLimiter
+	RevocationSweepInterval      time.Duration
+	RuntimeAuthService           RuntimeAuthService
+	RuntimeIdentityService       RuntimeIdentityService
+	RuntimeMetadata              RuntimeMetadata
+	SemanticGraphService         SemanticGraphService
+	SpeechService                SpeechService
+	TerminalService              TerminalService
+	WorkspaceActivityService     WorkspaceActivityService
+	WorkspaceUIService           WorkspaceUIService
+	WorkspaceService             WorkspaceService
+	WorkflowService              WorkflowService
 }
 
 type handler struct {
-	appearanceService        AppearanceService
-	metadata                 BackendMetadata
-	chatService              ChatService
-	conversationService      ConversationService
-	codexAccountService      CodexAccountService
-	easyRunService           EasyRunService
-	notifyService            NotifyService
-	pairingFailureLimiter    *PairingFailureLimiter
-	revocationSweepInterval  time.Duration
-	runtimeAuthService       RuntimeAuthService
-	runtimeIdentityService   RuntimeIdentityService
-	runtimeMetadata          RuntimeMetadata
-	semanticGraphService     SemanticGraphService
-	speechService            SpeechService
-	terminalService          TerminalService
-	workspaceActivityService WorkspaceActivityService
-	workspaceUIService       WorkspaceUIService
-	workspaceService         WorkspaceService
-	workflowService          WorkflowService
+	appearanceService            AppearanceService
+	metadata                     BackendMetadata
+	chatService                  ChatService
+	conversationNavigatorService ConversationNavigatorService
+	conversationService          ConversationService
+	codexAccountService          CodexAccountService
+	easyRunService               EasyRunService
+	notifyService                NotifyService
+	pairingFailureLimiter        *PairingFailureLimiter
+	revocationSweepInterval      time.Duration
+	runtimeAuthService           RuntimeAuthService
+	runtimeIdentityService       RuntimeIdentityService
+	runtimeMetadata              RuntimeMetadata
+	semanticGraphService         SemanticGraphService
+	speechService                SpeechService
+	terminalService              TerminalService
+	workspaceActivityService     WorkspaceActivityService
+	workspaceUIService           WorkspaceUIService
+	workspaceService             WorkspaceService
+	workflowService              WorkflowService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
@@ -286,25 +298,26 @@ func NewHandler(config HandlerConfig) http.Handler {
 		revocationSweepInterval = 30 * time.Second
 	}
 	apiHandler := handler{
-		appearanceService:        config.AppearanceService,
-		metadata:                 config.Metadata,
-		chatService:              config.ChatService,
-		conversationService:      config.ConversationService,
-		codexAccountService:      config.CodexAccountService,
-		easyRunService:           config.EasyRunService,
-		notifyService:            config.NotifyService,
-		pairingFailureLimiter:    pairingFailureLimiter,
-		revocationSweepInterval:  revocationSweepInterval,
-		runtimeAuthService:       config.RuntimeAuthService,
-		runtimeIdentityService:   config.RuntimeIdentityService,
-		runtimeMetadata:          config.RuntimeMetadata,
-		semanticGraphService:     config.SemanticGraphService,
-		speechService:            config.SpeechService,
-		terminalService:          config.TerminalService,
-		workspaceActivityService: config.WorkspaceActivityService,
-		workspaceUIService:       config.WorkspaceUIService,
-		workspaceService:         config.WorkspaceService,
-		workflowService:          config.WorkflowService,
+		appearanceService:            config.AppearanceService,
+		metadata:                     config.Metadata,
+		chatService:                  config.ChatService,
+		conversationNavigatorService: config.ConversationNavigatorService,
+		conversationService:          config.ConversationService,
+		codexAccountService:          config.CodexAccountService,
+		easyRunService:               config.EasyRunService,
+		notifyService:                config.NotifyService,
+		pairingFailureLimiter:        pairingFailureLimiter,
+		revocationSweepInterval:      revocationSweepInterval,
+		runtimeAuthService:           config.RuntimeAuthService,
+		runtimeIdentityService:       config.RuntimeIdentityService,
+		runtimeMetadata:              config.RuntimeMetadata,
+		semanticGraphService:         config.SemanticGraphService,
+		speechService:                config.SpeechService,
+		terminalService:              config.TerminalService,
+		workspaceActivityService:     config.WorkspaceActivityService,
+		workspaceUIService:           config.WorkspaceUIService,
+		workspaceService:             config.WorkspaceService,
+		workflowService:              config.WorkflowService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)

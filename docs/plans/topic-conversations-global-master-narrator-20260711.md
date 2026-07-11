@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-2 and Phase 3 items 1-4 are complete
+**Status:** In progress; Phases 0-2 and Phase 3 items 1-5 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1598,7 +1598,7 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Progress:** Items 1-4 are complete. Item 5 is next.
+**Progress:** Items 1-5 are complete. Item 6 is next.
 
 Implement:
 
@@ -2444,3 +2444,39 @@ Implementation is in progress under this plan.
   again after reload. Focused layout tests, desktop typecheck/build, and the
   corrected Electron workflow passed. Phase 3 item 5 remains next; this review
   did not begin the navigator work.
+- 2026-07-11: Completed Phase 3 item 5. The runtime now exposes a generated,
+  authenticated topic-conversation navigator endpoint backed by the durable
+  conversation store. It returns non-archived conversations with their owned
+  presentation profiles and optional branch lineage, uses deterministic
+  `updatedAt DESC, id ASC` keyset pagination, supports bounded title/topic
+  search, and rejects corrupt ownership or missing profile state. Backend
+  protocol version 16, the contract schema snapshot, and generated TypeScript
+  were regenerated from the Go-owned endpoint registry.
+- 2026-07-11: The selected-chat sidebar was replaced with a workspace-grouped
+  virtualized conversation navigator. Its normalized renderer store isolates
+  workspace pages and stale search generations; durable rows expose topic
+  status, stable generated palette identity, branch attribution, pane count,
+  and pane focus without using global chat selection. One conversation produces
+  one row across zero, one, or multiple views. Activation focuses the most
+  recently focused matching Easy Button pane or opens a typed bound pane when
+  none exists, while layout persistence and reload preserve the binding.
+- 2026-07-11: Focused conversation, HTTP, runtime, IPC/preload, navigator-store,
+  pane-index, coordinator, sidebar, and application coverage passed. The clean
+  changed-file quality gate passed file and complexity limits, Go vet/tests and
+  static analysis, all 1,173 desktop tests, formatting, lint, typecheck,
+  dead-code analysis, and the production build. The deterministic production
+  Electron topic-conversation workflow proved one row for two views, focus
+  without a third view, zero-pane navigation, reopen, and reload through real
+  Electron/main/preload/renderer/HTTP/store paths. Evidence is under
+  `.recordings/topic-conversation-pane-projection/20260712T044850767Z/`.
+- 2026-07-11: The broad quality gate cleared all Go packages and all non-Electron
+  desktop gates, then the required legacy chat workflow reached its retired
+  `New chat` sidebar action and stopped; its workspace-open assertion now uses
+  the replacement navigator labels. That old selected-chat action is not a
+  valid navigator contract, and Phase 3 item 6 owns replacement topic create and
+  command paths, so the failure is recorded rather than reintroducing an old
+  sidebar control. The supply-chain audit again reported the pre-existing
+  `GO-2026-5856` in repository-pinned Go 1.26.4, fixed in Go 1.26.5; no
+  dependency or toolchain pin changed. The Codex source reference was not
+  needed because this slice introduced no provider-protocol behavior. Phase 3
+  item 6 is next.

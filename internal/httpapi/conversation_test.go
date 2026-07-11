@@ -56,6 +56,67 @@ func TestReadConversationSnapshotRejectsMissingIdentityBeforeService(t *testing.
 	}
 }
 
+func TestListTopicConversationsUsesTypedPaginatedServiceBoundary(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	service.navigatorPage = conversation.NavigatorPage{
+		Items: []conversation.NavigatorItem{{
+			Conversation:        service.snapshot.Conversation,
+			PresentationProfile: service.snapshot.PresentationProfile,
+		}},
+	}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationNavigatorService: service,
+		Metadata:                     BackendMetadata{Name: BackendName, Version: "test"},
+	})
+	cursor := &conversation.NavigatorCursor{
+		UpdatedAt:      "2026-07-11T19:59:00Z",
+		ConversationID: "conversation-before",
+	}
+
+	response := postJSON[conversation.NavigatorPage](
+		t,
+		handler,
+		"/conversations/navigator/list",
+		ListTopicConversationsRequest{
+			WorkspaceID: "workspace-api",
+			Query:       "contracts",
+			Cursor:      cursor,
+			Limit:       40,
+		},
+		http.StatusOK,
+	)
+	if len(response.Items) != 1 || response.Items[0].Conversation.ID != "conversation-api" {
+		t.Fatalf("navigator response = %+v", response)
+	}
+	if service.navigatorWorkspaceID != "workspace-api" || service.navigatorQuery != "contracts" ||
+		service.navigatorLimit != 40 || service.navigatorCursor == nil ||
+		service.navigatorCursor.ConversationID != cursor.ConversationID {
+		t.Fatalf("navigator service request = workspace %q query %q cursor %+v limit %d", service.navigatorWorkspaceID, service.navigatorQuery, service.navigatorCursor, service.navigatorLimit)
+	}
+}
+
+func TestListTopicConversationsRejectsInvalidLimitBeforeService(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationNavigatorService: service,
+		Metadata:                     BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	response := postJSON[ErrorResponse](
+		t,
+		handler,
+		"/conversations/navigator/list",
+		ListTopicConversationsRequest{WorkspaceID: "workspace-api", Limit: 0},
+		http.StatusBadRequest,
+	)
+	if response.Error.Code != "invalid_conversation_navigator_request" {
+		t.Fatalf("navigator error code = %q", response.Error.Code)
+	}
+	if service.navigatorCalled {
+		t.Fatal("invalid navigator request reached service")
+	}
+}
+
 func TestConversationEventStreamUsesConversationScopedCursorAndTypedEvent(t *testing.T) {
 	service := newHTTPTestConversationService(t)
 	streamID, err := conversation.ConversationStreamID("conversation-api")
@@ -161,6 +222,12 @@ type httpTestConversationService struct {
 	subscribeWorkspaceID    string
 	subscribeConversationID string
 	subscribed              bool
+	navigatorPage           conversation.NavigatorPage
+	navigatorWorkspaceID    string
+	navigatorQuery          string
+	navigatorCursor         *conversation.NavigatorCursor
+	navigatorLimit          int
+	navigatorCalled         bool
 }
 
 func newHTTPTestConversationService(t *testing.T) *httpTestConversationService {
@@ -207,6 +274,21 @@ func (service *httpTestConversationService) ReadSnapshot(
 	service.readWorkspaceID = workspaceID
 	service.readConversationID = conversationID
 	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) ListNavigatorPage(
+	_ context.Context,
+	workspaceID string,
+	query string,
+	cursor *conversation.NavigatorCursor,
+	limit int,
+) (conversation.NavigatorPage, error) {
+	service.navigatorCalled = true
+	service.navigatorWorkspaceID = workspaceID
+	service.navigatorQuery = query
+	service.navigatorCursor = cursor
+	service.navigatorLimit = limit
+	return service.navigatorPage, nil
 }
 
 func (service *httpTestConversationService) SubscribeEvents(

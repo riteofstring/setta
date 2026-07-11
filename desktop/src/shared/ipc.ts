@@ -135,6 +135,7 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
+import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
 import { easyRunIpcChannels, type EasyRunIpcContract } from "./easy-run-ipc";
 import { speechIpcChannels, type SpeechIpcContract } from "./speech-ipc";
 import type {
@@ -201,6 +202,7 @@ export const ipcChannels = {
   chatSelectImageAttachments: "chat:select-image-attachments",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
+  ...conversationIpcChannels,
   ...easyRunIpcChannels,
   ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
@@ -311,7 +313,7 @@ export const ipcEvents = {
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract extends EasyRunIpcContract, SpeechIpcContract {
+interface IpcContract extends ConversationIpc, EasyRunIpcContract, SpeechIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
@@ -906,7 +908,6 @@ interface IpcContract extends EasyRunIpcContract, SpeechIpcContract {
 }
 
 export type IpcChannelKey = keyof IpcContract;
-
 export type RendererIpcInvoke = <Channel extends IpcChannelKey>(
   channel: Channel,
   ...args: IpcContract[Channel]["args"]

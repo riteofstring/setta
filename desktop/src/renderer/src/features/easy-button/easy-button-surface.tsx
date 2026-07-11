@@ -1,8 +1,7 @@
 import { Check, Sparkles, Square, X } from "lucide-react";
-import { type CSSProperties, type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 
 import {
-  conversationPaletteCatalog,
   type Artifact,
   type ConversationPaletteID,
   type ConversationSnapshot,
@@ -17,6 +16,7 @@ import {
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { useConversationStore } from "../../stores/conversation-store";
 import { setHostPaneChromeTitle } from "../../workspace-layout/pane-title-metadata";
+import { conversationPaletteStyle } from "./conversation-palette-style";
 import { ArtifactRail, HighlightRail, type EasyButtonMilestone } from "./easy-button-rails";
 import {
   EasyButtonTerminalSummary,
@@ -33,15 +33,6 @@ type EasyButtonProjectionStatus =
   | "ready"
   | "error"
   | "resyncing";
-type ConversationPaletteStyle = CSSProperties & {
-  "--conversation-accent-dark": string;
-  "--conversation-accent-foreground-dark": string;
-  "--conversation-accent-foreground-light": string;
-  "--conversation-accent-light": string;
-  "--conversation-focus-ring-dark": string;
-  "--conversation-focus-ring-light": string;
-};
-
 interface EasyButtonSurfaceProps {
   conversationId: string | null;
 }
@@ -86,7 +77,7 @@ export function EasyButtonProjectionSurface({ view }: { view: EasyButtonProjecti
   return (
     <section
       aria-label={`Easy Button: ${view.title}`}
-      className="easy-button-surface"
+      className="conversation-presentation-identity easy-button-surface"
       data-conversation-id={view.conversationId ?? undefined}
       data-conversation-palette={view.paletteId ?? undefined}
       data-easy-button-focus={view.focusStatus}
@@ -547,23 +538,6 @@ function conversationControlLabel(view: EasyButtonProjectionView): string {
     case "none":
       return view.helperCopy;
   }
-}
-
-function conversationPaletteStyle(
-  paletteId: ConversationPaletteID | null,
-): ConversationPaletteStyle | undefined {
-  if (!paletteId) {
-    return undefined;
-  }
-  const palette = conversationPaletteCatalog[paletteId];
-  return {
-    "--conversation-accent-dark": palette.dark.conversationAccent,
-    "--conversation-accent-foreground-dark": palette.dark.conversationAccentForeground,
-    "--conversation-accent-foreground-light": palette.light.conversationAccentForeground,
-    "--conversation-accent-light": palette.light.conversationAccent,
-    "--conversation-focus-ring-dark": palette.dark.conversationFocusRing,
-    "--conversation-focus-ring-light": palette.light.conversationFocusRing,
-  };
 }
 
 function useEasyButtonPaneTitle(

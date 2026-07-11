@@ -10,6 +10,58 @@ import (
 	"setta/internal/conversation"
 )
 
+func (handler handler) listTopicConversations(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationNavigatorService(response, handler.conversationNavigatorService)
+	if service == nil {
+		return
+	}
+	var payload ListTopicConversationsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateListTopicConversationsRequest(payload); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_conversation_navigator_request", err.Error())
+		return
+	}
+	page, err := service.ListNavigatorPage(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.Query,
+		payload.Cursor,
+		payload.Limit,
+	)
+	if err != nil {
+		writeConversationError(response, "list_topic_conversations_failed", err)
+		return
+	}
+	if err := page.Validate(payload.WorkspaceID, payload.Limit); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_conversation_navigator_page", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, page)
+}
+
+func validateListTopicConversationsRequest(payload ListTopicConversationsRequest) error {
+	if strings.TrimSpace(payload.WorkspaceID) == "" {
+		return fmt.Errorf("workspace id is required")
+	}
+	if payload.WorkspaceID != strings.TrimSpace(payload.WorkspaceID) {
+		return fmt.Errorf("workspace id must not have surrounding whitespace")
+	}
+	if payload.Cursor != nil {
+		if err := payload.Cursor.Validate(); err != nil {
+			return err
+		}
+	}
+	if payload.Limit <= 0 || payload.Limit > conversation.MaxNavigatorPageLimit {
+		return fmt.Errorf(
+			"limit must be between 1 and %d",
+			conversation.MaxNavigatorPageLimit,
+		)
+	}
+	return nil
+}
+
 func (handler handler) readConversationSnapshot(response http.ResponseWriter, request *http.Request) {
 	service := requireConversationService(response, handler.conversationService)
 	if service == nil {

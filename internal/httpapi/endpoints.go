@@ -81,6 +81,7 @@ var apiEndpoints = []endpoint{
 	post[StopEasyRunRequest, easyrun.EasyRun]("StopEasyRun", "/easy-runs/stop", handler.stopEasyRun),
 	streamEvent[easyrun.EasyRunEvent]("EasyRunEventStream", "/easy-runs/events", handler.easyRunEventStream),
 	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),
+	post[ListTopicConversationsRequest, conversation.NavigatorPage]("ListTopicConversations", "/conversations/navigator/list", handler.listTopicConversations),
 	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
 	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
 	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),

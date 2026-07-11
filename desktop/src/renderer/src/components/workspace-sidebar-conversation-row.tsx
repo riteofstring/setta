@@ -1,376 +1,144 @@
-import type { ConversationListItem, Run, RunLiveness } from "@generated/backend";
-import { AlertTriangle, Pin, PinOff, RefreshCw, Trash2, WifiOff } from "lucide-react";
-import { type FocusEvent, type RefObject, useLayoutEffect, useRef, useState } from "react";
+import type { NavigatorItem } from "@generated/backend";
+import { AlertTriangle, Check, Copy, LoaderCircle } from "lucide-react";
 
-import {
-  activeRunPresentation,
-  runLivenessPresentationKind,
-  type RunLivenessPresentationKind,
-} from "../lib/chat-run-liveness";
+import { conversationPaletteStyle } from "../features/easy-button/conversation-palette-style";
 import { cn } from "../lib/utils";
-import { AsciiSpinner } from "./ascii-spinner";
-import { SidebarIconButton } from "./sidebar-header-actions";
 
-const hoverCardViewportInset = 8;
-
-interface ConversationRowProps {
-  activeRun: Run | null;
-  activeRunLiveness: RunLiveness | null;
-  busy: boolean;
-  corruptionLabel: string | null;
-  deleteConversation: () => Promise<void>;
-  item: ConversationListItem;
-  selectConversation: (conversationId: string) => Promise<void>;
-  selected: boolean;
-  setConversationPinned: () => Promise<void>;
-  unread: boolean;
-}
-
-export function ConversationRow({
-  activeRun,
-  activeRunLiveness,
+export function ConversationNavigatorRow({
   busy,
-  corruptionLabel,
-  deleteConversation,
+  focused,
   item,
-  selectConversation,
-  selected,
-  setConversationPinned,
-  unread,
-}: ConversationRowProps) {
-  const runActive =
-    item.activeRunId !== "" || activeRunMatchesConversation(activeRun, item.conversation.id);
-  const runIndicator = conversationRunIndicator(item, activeRun, activeRunLiveness);
-  const pinned = item.pinnedAt !== "";
-  const responseAge = formatConversationAge(item.conversation.updatedAt);
-  const hoverCard = useConversationHoverCard({
-    corruptionLabel,
-    title: item.conversation.title,
-  });
-
+  openPaneCount,
+  present,
+}: {
+  busy: boolean;
+  focused: boolean;
+  item: NavigatorItem;
+  openPaneCount: number;
+  present: () => Promise<void>;
+}) {
+  const { conversation, presentationProfile } = item;
   return (
-    <div
-      className="relative min-w-0"
-      onBlur={hoverCard.closeIfFocusLeaves}
-      onFocus={hoverCard.open}
-      onMouseEnter={hoverCard.open}
-      onMouseLeave={hoverCard.close}
-      ref={hoverCard.rowRef}
+    <button
+      aria-current={focused ? "page" : undefined}
+      aria-label={conversationRowLabel(item, openPaneCount)}
+      className={cn(
+        "conversation-presentation-identity group/conversation-row grid h-9 w-full min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left hover:bg-accent/70 hover:text-foreground",
+        focused ? "bg-accent/55 text-foreground" : "text-muted-foreground",
+      )}
+      data-conversation-id={conversation.id}
+      data-testid="conversation-navigator-item"
+      disabled={busy}
+      onClick={() => void present()}
+      style={conversationPaletteStyle(presentationProfile.resolvedPaletteId)}
+      title={conversation.title}
+      type="button"
     >
-      <div
-        className={cn(
-          "group/conversation-row grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-accent/70 hover:text-foreground",
-          selected ? "text-foreground" : "text-muted-foreground",
-        )}
-      >
-        <button
-          className="grid h-7 min-w-0 grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 px-2 text-left"
-          data-testid="conversation-list-item"
-          disabled={busy}
-          onClick={() => void selectConversation(item.conversation.id)}
-          type="button"
-        >
-          <ConversationStatusIndicator
-            corruptionLabel={corruptionLabel}
-            indicator={runIndicator}
-            pinned={pinned}
-            unread={unread && !selected}
-          />
-          <span className="truncate text-xs" title={item.conversation.title}>
-            {item.conversation.title}
-          </span>
-          {responseAge ? (
-            <time
-              className="justify-self-end text-right text-[11px] text-muted-foreground transition-opacity group-hover/conversation-row:opacity-0 group-focus-within/conversation-row:opacity-0"
-              dateTime={item.conversation.updatedAt}
-              title={item.conversation.updatedAt}
-            >
-              {responseAge}
-            </time>
-          ) : null}
-        </button>
-        <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/conversation-row:opacity-100 group-focus-within/conversation-row:opacity-100">
-          <SidebarIconButton
-            disabled={busy}
-            label={pinned ? "Unpin chat" : "Pin chat"}
-            onClick={() => void setConversationPinned()}
-          >
-            {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-          </SidebarIconButton>
-          <SidebarIconButton
-            disabled={busy || runActive}
-            label="Delete chat"
-            onClick={() => void deleteConversation()}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </SidebarIconButton>
-        </div>
-      </div>
-      <ConversationHoverCard
-        cardRef={hoverCard.cardRef}
-        corruptionLabel={corruptionLabel}
-        open={hoverCard.visible}
-        title={item.conversation.title}
-        top={hoverCard.top}
-      />
-    </div>
+      <ConversationStatus status={conversation.status} />
+      <span className="min-w-0">
+        <span className="block truncate text-xs">{conversation.title}</span>
+        <span className="block truncate text-[10px] text-muted-foreground">
+          {conversationSubtitle(item)}
+        </span>
+      </span>
+      <ConversationPaneCount count={openPaneCount} />
+    </button>
   );
 }
 
-function ConversationHoverCard({
-  cardRef,
-  corruptionLabel,
-  open,
-  title,
-  top,
-}: {
-  cardRef: RefObject<HTMLDivElement | null>;
-  corruptionLabel: string | null;
-  open: boolean;
-  title: string;
-  top: number;
-}) {
-  if (!corruptionLabel) {
+function ConversationStatus({ status }: { status: NavigatorItem["conversation"]["status"] }) {
+  const commonClass = "h-3.5 w-3.5";
+  switch (status) {
+    case "working":
+      return (
+        <LoaderCircle
+          aria-label="Conversation working"
+          className={cn(commonClass, "animate-spin text-[var(--conversation-accent)]")}
+          role="status"
+        />
+      );
+    case "waiting_for_approval":
+      return (
+        <AlertTriangle
+          aria-label="Conversation waiting for approval"
+          className={cn(commonClass, "text-status-warning")}
+          role="status"
+        />
+      );
+    case "failed":
+      return (
+        <AlertTriangle
+          aria-label="Conversation failed"
+          className={cn(commonClass, "text-status-critical-muted")}
+          role="status"
+        />
+      );
+    case "idle":
+      return (
+        <span
+          aria-label="Conversation idle"
+          className="h-2.5 w-2.5 rounded-full bg-[var(--conversation-accent)] opacity-70"
+          role="status"
+        />
+      );
+    default:
+      return assertNever(status);
+  }
+}
+
+function ConversationPaneCount({ count }: { count: number }) {
+  if (count <= 0) {
     return null;
   }
-
-  return (
-    <div
-      className={cn(
-        "pointer-events-none fixed z-50 max-h-[calc(100vh-16px)] min-w-52 max-w-72 overflow-y-auto overscroll-contain rounded-sm border border-border bg-popover/95 px-2 py-1.5 text-xs text-popover-foreground shadow-xl shadow-black/35 backdrop-blur",
-        !open && "hidden",
-      )}
-      data-testid="conversation-hover-card"
-      ref={cardRef}
-      style={{ left: "calc(var(--sidebar-width, 220px) + 8px)", top }}
-    >
-      <div className="truncate text-xs font-medium">{title}</div>
-      <ConversationCorruptionDetails label={corruptionLabel} />
-    </div>
-  );
-}
-
-function ConversationCorruptionDetails({ label }: { label: string }) {
-  return (
-    <div className="mt-1.5 grid min-w-0 grid-cols-[14px_minmax(0,1fr)] gap-1.5 text-status-warning">
-      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-      <div className="min-w-0">
-        <div className="text-[11px] text-status-warning">Malformed chat data</div>
-        <div className="break-words text-muted-foreground">{label}</div>
-      </div>
-    </div>
-  );
-}
-
-function useConversationHoverCard({
-  corruptionLabel,
-  title,
-}: {
-  corruptionLabel: string | null;
-  title: string;
-}) {
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
-  const [top, setTop] = useState(hoverCardViewportInset);
-
-  useLayoutEffect(() => {
-    if (!visible || !corruptionLabel) {
-      return;
-    }
-
-    function updatePosition() {
-      const row = rowRef.current;
-      const card = cardRef.current;
-      if (!row || !card) {
-        return;
-      }
-      setTop(clampedHoverCardTop(row.getBoundingClientRect(), card.getBoundingClientRect().height));
-    }
-
-    updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
-    return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
-    };
-  }, [corruptionLabel, title, visible]);
-
-  function closeIfFocusLeaves(event: FocusEvent<HTMLDivElement>) {
-    const nextTarget = event.relatedTarget as Node | null;
-    if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
-      setVisible(false);
-    }
+  if (count === 1) {
+    return <Check aria-label="One open view" className="h-3.5 w-3.5" role="status" />;
   }
-
-  return {
-    cardRef,
-    close: () => setVisible(false),
-    closeIfFocusLeaves,
-    open: () => setVisible(corruptionLabel !== null),
-    rowRef,
-    top,
-    visible,
-  };
-}
-
-function activeRunMatchesConversation(activeRun: Run | null, conversationId: string) {
-  return (
-    activeRun?.conversationId === conversationId &&
-    (activeRun.status === "queued" || activeRun.status === "running")
-  );
-}
-
-type ConversationRunIndicator = "working" | "reconnecting" | "lost" | null;
-
-function conversationRunIndicator(
-  item: ConversationListItem,
-  activeRun: Run | null,
-  activeRunLiveness: RunLiveness | null,
-): ConversationRunIndicator {
-  if (
-    activeRun?.status === "running" &&
-    activeRunMatchesConversation(activeRun, item.conversation.id)
-  ) {
-    const liveness =
-      activeRunLiveness?.runId === activeRun.id ? activeRunLiveness : item.activeRunLiveness;
-    const presentation = activeRunPresentation(activeRun, liveness);
-    return runIndicatorForActiveRunPresentation(presentation.kind);
-  }
-  return item.activeRunLiveness
-    ? runIndicatorForLivenessPresentation(runLivenessPresentationKind(item.activeRunLiveness))
-    : null;
-}
-
-function runIndicatorForActiveRunPresentation(
-  kind: ReturnType<typeof activeRunPresentation>["kind"],
-): ConversationRunIndicator {
-  switch (kind) {
-    case "blocked":
-    case "working":
-      return "working";
-    case "reconnecting":
-      return "reconnecting";
-    case "lost":
-      return "lost";
-    case "idle":
-      return null;
-    default:
-      return assertNever(kind);
-  }
-}
-
-function runIndicatorForLivenessPresentation(
-  kind: RunLivenessPresentationKind,
-): ConversationRunIndicator {
-  switch (kind) {
-    case "working":
-      return "working";
-    case "reconnecting":
-      return "reconnecting";
-    case "lost":
-      return "lost";
-    case "terminal":
-      return null;
-    default:
-      return assertNever(kind);
-  }
-}
-
-function clampedHoverCardTop(rowRect: DOMRect, cardHeight: number) {
-  const maxTop = Math.max(
-    hoverCardViewportInset,
-    window.innerHeight - cardHeight - hoverCardViewportInset,
-  );
-  return Math.min(Math.max(hoverCardViewportInset, rowRect.top), maxTop);
-}
-
-function ConversationStatusIndicator({
-  corruptionLabel,
-  indicator,
-  pinned,
-  unread,
-}: {
-  corruptionLabel: string | null;
-  indicator: ConversationRunIndicator;
-  pinned: boolean;
-  unread: boolean;
-}) {
   return (
     <span
-      className="grid h-4 w-[18px] place-items-center overflow-hidden"
-      title={corruptionLabel ?? undefined}
+      aria-label={`${count} open views`}
+      className="flex items-center gap-0.5 text-[10px]"
+      role="status"
     >
-      {corruptionLabel ? (
-        <AlertTriangle
-          aria-label={corruptionLabel}
-          className="h-3.5 w-3.5 text-status-warning"
-          data-testid="conversation-corruption-status"
-          role="status"
-        />
-      ) : indicator === "working" ? (
-        <AsciiSpinner
-          className="w-[18px] text-[7px] text-accent-violet"
-          label="Chat response running"
-        />
-      ) : indicator === "reconnecting" ? (
-        <RefreshCw
-          aria-label="Chat response reconnecting"
-          className="h-3.5 w-3.5 text-muted-foreground"
-          role="status"
-        />
-      ) : indicator === "lost" ? (
-        <WifiOff
-          aria-label="Chat connection lost"
-          className="h-3.5 w-3.5 text-status-critical-muted"
-          role="status"
-        />
-      ) : unread ? (
-        <span
-          aria-label="Unread assistant response"
-          className="h-1.5 w-1.5 rounded-full bg-primary"
-          role="status"
-        />
-      ) : pinned ? (
-        <Pin aria-label="Pinned chat" className="h-3 w-3 text-muted-foreground" role="status" />
-      ) : null}
+      <Copy className="h-3 w-3" />
+      {count}
     </span>
   );
 }
 
-function assertNever(value: never): never {
-  throw new Error(`Unhandled conversation run indicator: ${JSON.stringify(value)}`);
+function conversationSubtitle(item: NavigatorItem) {
+  if (item.branch) {
+    return "Forked conversation";
+  }
+  if (item.conversation.topicDescriptor) {
+    return item.conversation.topicDescriptor;
+  }
+  return statusLabel(item.conversation.status);
 }
 
-function formatConversationAge(updatedAt: string) {
-  const timestamp = Date.parse(updatedAt);
-  if (!Number.isFinite(timestamp)) {
-    return "";
+function conversationRowLabel(item: NavigatorItem, openPaneCount: number) {
+  const lineage = item.branch ? ", durable fork" : "";
+  const views =
+    openPaneCount === 0
+      ? ", no open views"
+      : `, ${openPaneCount} open ${openPaneCount === 1 ? "view" : "views"}`;
+  return `${item.conversation.title}, ${statusLabel(item.conversation.status)}${lineage}${views}`;
+}
+
+function statusLabel(status: NavigatorItem["conversation"]["status"]) {
+  switch (status) {
+    case "failed":
+      return "Failed";
+    case "idle":
+      return "Idle";
+    case "waiting_for_approval":
+      return "Waiting for approval";
+    case "working":
+      return "Working";
+    default:
+      return assertNever(status);
   }
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-  if (elapsedSeconds < 60) {
-    return "now";
-  }
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  if (elapsedMinutes < 60) {
-    return `${elapsedMinutes}m`;
-  }
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) {
-    return `${elapsedHours}h`;
-  }
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < 14) {
-    return `${elapsedDays}d`;
-  }
-  const elapsedWeeks = Math.floor(elapsedDays / 7);
-  if (elapsedWeeks < 8) {
-    return `${elapsedWeeks}w`;
-  }
-  const elapsedMonths = Math.floor(elapsedDays / 30);
-  if (elapsedDays < 365) {
-    return `${Math.max(1, elapsedMonths)}mo`;
-  }
-  return `${Math.floor(elapsedDays / 365)}y`;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported conversation status: ${String(value)}`);
 }
