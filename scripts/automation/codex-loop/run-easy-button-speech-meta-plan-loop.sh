@@ -7,7 +7,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 PLAN_PATH="docs/plans/easy-button-speech-20260709.md"
 SENTINEL="EASY_BUTTON_SPEECH_IMPLEMENTATION_COMPLETE"
 MODEL="gpt-5.6-sol"
-REASONING_CONFIG='reasoning_effort="xhigh"'
+REASONING_CONFIG='reasoning_effort="max"'
 OUTPUT_DIR=""
 MAX_ITERATIONS="0"
 
@@ -179,7 +179,7 @@ ${SENTINEL}"
 log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
 log_info "Model: ${MODEL}"
-log_info "Reasoning effort: xhigh"
+log_info "Reasoning effort: max"
 log_info "Approvals/sandbox bypass: enabled"
 if [[ "${MAX_ITERATIONS}" -eq 0 ]]; then
   log_info "Iteration cap: none"
