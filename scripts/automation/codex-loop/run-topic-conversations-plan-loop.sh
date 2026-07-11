@@ -15,7 +15,6 @@ MAX_ITERATIONS="0"
 INITIAL_RETRY_DELAY_SECONDS="15"
 MAX_RETRY_DELAY_SECONDS="300"
 PROGRESS_LOG_INTERVAL_SECONDS="120"
-POST_AGENT_SETTLE_SECONDS="20"
 CODEX_REFERENCE_REPO="${CODEX_REFERENCE_REPO:-/Users/kevin/Documents/AppDevelopment/reference_repos/codex}"
 ACTIVE_CODEX_PID=""
 
@@ -26,9 +25,8 @@ Usage: scripts/automation/codex-loop/run-topic-conversations-plan-loop.sh [optio
 Runs two fresh Codex agents in a loop for:
   docs/plans/topic-conversations-global-master-narrator-20260711.md
 
-Agent 1 implements the earliest coherent incomplete plan slice with xhigh
-reasoning and commits it. Agent 2 reviews only that slice with max reasoning,
-fixes and commits practical gaps, and decides whether the plan should continue.
+Agent 1 implements the next coherent plan slice. Agent 2 reviews the result,
+finishes or fixes it as needed, and decides whether the plan should continue.
 
 The loop succeeds only when Agent 2's final message is exactly:
   TOPIC_CONVERSATIONS_IMPLEMENTATION_COMPLETE
@@ -36,9 +34,7 @@ The loop succeeds only when Agent 2's final message is exactly:
 A genuine external blocker has a separate terminal result and exits non-zero:
   TOPIC_CONVERSATIONS_IMPLEMENTATION_BLOCKED
 
-A blocker is never treated as completion. Agents must not skip ahead around a
-blocked phase or claim that deterministic fake-provider coverage proves live
-Codex behavior.
+A blocker is never treated as completion.
 
 This dedicated automation helper intentionally runs Codex in the current
 repository checkout with approvals and sandbox bypassed. That behavior is
@@ -65,9 +61,6 @@ Options:
   --progress-log-interval-seconds N
                         Print an in-flight agent status line at most every N
                         seconds. Default: 120. Use 0 to disable.
-  --post-agent-settle-seconds N
-                        Verify the clean repository remains settled for N
-                        seconds after each agent. Default: 20.
   --help                Show this help text.
 EOF
 }
@@ -136,19 +129,6 @@ require_clean_repo() {
   exit 1
 }
 
-run_post_agent_settle_check() {
-  local transcript_file="$1"
-
-  if ! "${SCRIPT_DIR}/codex-authority-post-iteration-clean-check.sh" \
-    --root-dir "${ROOT_DIR}" \
-    --settle-seconds "${POST_AGENT_SETTLE_SECONDS}" \
-    >>"${transcript_file}" 2>&1; then
-    echo "Post-agent clean/settle verification failed. See ${transcript_file}" >&2
-    print_repo_state
-    exit 1
-  fi
-}
-
 stop_active_codex() {
   if [[ -z "${ACTIVE_CODEX_PID}" ]] || ! kill -0 "${ACTIVE_CODEX_PID}" 2>/dev/null; then
     return
@@ -166,6 +146,7 @@ run_agent() {
   local prompt="$2"
   local run_dir="$3"
   local reasoning_effort="$4"
+  local must_finish_clean="$5"
   local transcript_file="${run_dir}/${agent_name}.transcript.log"
   local last_message_file="${run_dir}/${agent_name}.last-message.txt"
   local status_file="${run_dir}/${agent_name}.status.txt"
@@ -180,6 +161,7 @@ run_agent() {
   local current_epoch=""
   local elapsed_seconds=""
   local last_message_state="missing"
+  local worktree_state="clean"
 
   mkdir -p "${run_dir}"
   rm -f "${transcript_file}" "${last_message_file}" "${status_file}"
@@ -187,16 +169,12 @@ run_agent() {
   log_info "Starting ${agent_name}. Transcript: ${transcript_file}. Last message: ${last_message_file}"
 
   while true; do
-    require_clean_repo "before ${agent_name} attempt ${attempt}"
     attempt_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
     rm -f "${last_message_file}"
     printf '\n===== attempt %s at %s =====\n' \
       "${attempt}" \
       "$(timestamp_now)" >>"${transcript_file}"
 
-    # Retry only clean, unchanged attempts. A failed attempt that dirties the
-    # repository stops the loop for manual inspection instead of layering a
-    # fresh agent over partial work.
     codex exec \
       --color never \
       --cd "${ROOT_DIR}" \
@@ -234,38 +212,42 @@ run_agent() {
     if [[ -s "${last_message_file}" ]]; then
       last_message_state="present"
     fi
+    worktree_state="clean"
+    if ! repo_is_clean; then
+      worktree_state="dirty"
+    fi
 
-    printf 'attempt=%s exit_code=%s last_message=%s head_before=%s head_after=%s\n' \
+    printf 'attempt=%s exit_code=%s last_message=%s worktree=%s head_before=%s head_after=%s\n' \
       "${attempt}" \
       "${exit_code}" \
       "${last_message_state}" \
+      "${worktree_state}" \
       "${attempt_head}" \
       "${completed_head}" \
       >>"${status_file}"
 
-    if ! repo_is_clean; then
-      echo "${agent_name} attempt ${attempt} left the repository dirty; refusing to retry." >&2
-      print_repo_state
-      exit 1
-    fi
-
     if [[ "${exit_code}" -eq 0 ]] && [[ -s "${last_message_file}" ]]; then
-      run_post_agent_settle_check "${transcript_file}"
-      log_info "${agent_name} finished after ${attempt} attempt(s)."
-      return
-    fi
+      if [[ "${must_finish_clean}" -eq 0 ]] || [[ "${worktree_state}" == "clean" ]]; then
+        log_info "${agent_name} finished after ${attempt} attempt(s)."
+        return
+      fi
 
-    if [[ "${completed_head}" != "${attempt_head}" ]]; then
-      printf '%s\n' \
-        "${agent_name} advanced HEAD after an incomplete Codex result; the next audit must inspect the commit." \
-        >"${last_message_file}"
-      run_post_agent_settle_check "${transcript_file}"
-      log_info "${agent_name} advanced HEAD despite an incomplete Codex result; continuing to audit the committed state."
-      return
-    fi
+      log_info "${agent_name} left work to finish; starting another review attempt in ${retry_delay_seconds}s."
+    elif [[ "${completed_head}" != "${attempt_head}" ]] || [[ "${worktree_state}" == "dirty" ]]; then
+      if [[ ! -s "${last_message_file}" ]]; then
+        printf '%s\n' \
+          "${agent_name} left work in the repository; inspect and continue it." \
+          >"${last_message_file}"
+      fi
 
-    if [[ "${exit_code}" -ne 0 ]]; then
-      log_info "${agent_name} clean unchanged attempt ${attempt} failed with exit code ${exit_code}; retrying in ${retry_delay_seconds}s."
+      if [[ "${must_finish_clean}" -eq 0 ]] || [[ "${worktree_state}" == "clean" ]]; then
+        log_info "${agent_name} left work for the next agent to inspect."
+        return
+      fi
+
+      log_info "${agent_name} left work to finish after an incomplete result; retrying in ${retry_delay_seconds}s."
+    elif [[ "${exit_code}" -ne 0 ]]; then
+      log_info "${agent_name} attempt ${attempt} failed without changing the repository; retrying in ${retry_delay_seconds}s."
     else
       log_info "${agent_name} attempt ${attempt} produced no last message; retrying in ${retry_delay_seconds}s."
     fi
@@ -329,11 +311,6 @@ while [[ $# -gt 0 ]]; do
       PROGRESS_LOG_INTERVAL_SECONDS="$2"
       shift 2
       ;;
-    --post-agent-settle-seconds)
-      require_value "$1" "${2:-}"
-      POST_AGENT_SETTLE_SECONDS="$2"
-      shift 2
-      ;;
     --help|-h)
       usage
       exit 0
@@ -358,11 +335,6 @@ fi
 
 if [[ ! "${PROGRESS_LOG_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]]; then
   echo "--progress-log-interval-seconds must be a non-negative integer" >&2
-  exit 1
-fi
-
-if [[ ! "${POST_AGENT_SETTLE_SECONDS}" =~ ^[0-9]+$ ]]; then
-  echo "--post-agent-settle-seconds must be a non-negative integer" >&2
   exit 1
 fi
 
@@ -391,11 +363,6 @@ if [[ ! -d "${CODEX_REFERENCE_REPO}" ]]; then
   exit 1
 fi
 CODEX_REFERENCE_REPO="$(cd "${CODEX_REFERENCE_REPO}" && pwd -P)"
-if [[ ! -f "${CODEX_REFERENCE_REPO}/AGENTS.md" ]] \
-  || [[ ! -d "${CODEX_REFERENCE_REPO}/codex-rs/app-server-protocol" ]]; then
-  echo "Codex reference repository is missing expected source paths: ${CODEX_REFERENCE_REPO}" >&2
-  exit 1
-fi
 
 require_clean_repo "before starting the loop"
 
@@ -417,25 +384,9 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 OUTPUT_DIR="$(cd "${OUTPUT_DIR}" && pwd -P)"
 
-AGENT_ONE_PROMPT="Implement the earliest coherent incomplete slice in ${PLAN_PATH}.
+AGENT_ONE_PROMPT="Implement the next incomplete step in ${PLAN_PATH}. Use ${CODEX_REFERENCE_REPO} as the Codex source reference when needed. Verify and commit the work, and update the plan."
 
-Before acting, read ${PLAN_PATH}. Inspect git status, recent commits, the plan progress log, and the actual owners/tests for the earliest incomplete phase. When Codex behavior or protocol is relevant, inspect the source under ${CODEX_REFERENCE_REPO}; the checked source is the implementation authority for undocumented behavior.
-
-Follow phase dependency order. Do not skip ahead around an unmet exit criterion, and do not treat progress-log claims as proof without fresh source and test evidence. Complete one reviewable owner-level slice. Follow the plan's functional priorities rather than spending the iteration on mockup parity or unrelated visual polish.
-
-Run the verification required for the slice. A scripted provider proves Setta behavior, not live Codex semantics; do not use it to satisfy the plan's live active-turn fork prerequisite.
-
-Update ${PLAN_PATH} with append-only progress evidence: exact scope completed, verification run, generated outputs, remaining work, and genuine blockers. Commit the implementation, tests, generated artifacts, and plan update together, and leave the repository clean. Do not emit either loop sentinel; completion and blocker classification belong to Agent 2."
-
-AGENT_TWO_PROMPT="Review Agent 1's latest slice against ${PLAN_PATH}, recent commits, the current worktree, generated artifacts, and the actual implementation/tests. Do not begin the next implementation slice.
-
-Audit phase ordering, the plan's architectural invariants, Codex behavior, verification evidence, deletion scope, and progress claims as applicable to the slice. Inspect ${CODEX_REFERENCE_REPO} when the review depends on Codex behavior. A fake provider must not be accepted as proof of live active-turn fork semantics.
-
-Fix practical gaps, run the required verification, update ${PLAN_PATH} with evidence, commit all audit fixes, and leave the repository clean. If the slice is correct but the plan remains incomplete, return a concise handoff without either sentinel.
-
-Return exactly ${COMPLETION_SENTINEL} only when every plan phase and acceptance criterion is actually complete, the deletion inventory has no surviving dead vertical slices, generated outputs are current, all required deterministic gates pass, live Codex requirements are satisfied where they gate behavior, the plan records final evidence, and the repository is clean.
-
-Return exactly ${BLOCKED_SENTINEL} only for a genuine external blocker that prevents the earliest remaining phase after safe in-scope alternatives are exhausted. First update and commit the plan with the blocker, evidence, completed work, and precise resume condition. Difficulty, a failing test, missing implementation, unavailable mockup parity, or work remaining is not a blocker and never justifies the completion sentinel."
+AGENT_TWO_PROMPT="Review the latest work against ${PLAN_PATH}. Fix, verify, and commit anything needed. Return exactly ${COMPLETION_SENTINEL} if the whole plan is complete, or exactly ${BLOCKED_SENTINEL} if an external blocker prevents further progress."
 
 log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
@@ -446,7 +397,6 @@ log_info "Agent 2 reasoning effort: ${AGENT_TWO_REASONING_EFFORT}"
 log_info "Agent attempts: unlimited"
 log_info "Retry delays: ${INITIAL_RETRY_DELAY_SECONDS}s initial, ${MAX_RETRY_DELAY_SECONDS}s maximum"
 log_info "Progress log interval: ${PROGRESS_LOG_INTERVAL_SECONDS}s"
-log_info "Post-agent settle check: ${POST_AGENT_SETTLE_SECONDS}s"
 log_info "Approvals/sandbox bypass: enabled"
 if [[ "${MAX_ITERATIONS}" -eq 0 ]]; then
   log_info "Iteration cap: none"
@@ -466,12 +416,11 @@ while true; do
   run_dir="$(printf '%s/iteration-%04d' "${OUTPUT_DIR}" "${iteration}")"
   reviewer_last_message="${run_dir}/agent-2.last-message.txt"
   reviewer_message=""
-  iteration_start_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
-
   log_info "Starting iteration ${iteration}."
   require_clean_repo "before iteration ${iteration}"
-  run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_REASONING_EFFORT}"
-  run_agent "agent-2" "${AGENT_TWO_PROMPT}" "${run_dir}" "${AGENT_TWO_REASONING_EFFORT}"
+  run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_REASONING_EFFORT}" 0
+  run_agent "agent-2" "${AGENT_TWO_PROMPT}" "${run_dir}" "${AGENT_TWO_REASONING_EFFORT}" 1
+  require_clean_repo "after agent-2 review"
 
   reviewer_message="$(trimmed_nonempty_message "${reviewer_last_message}")"
   if [[ "${reviewer_message}" == "${COMPLETION_SENTINEL}" ]]; then
@@ -482,10 +431,6 @@ while true; do
 
   if [[ "${reviewer_message}" == "${BLOCKED_SENTINEL}" ]]; then
     require_clean_repo "at blocked stop"
-    if [[ "$(git -C "${ROOT_DIR}" rev-parse HEAD)" == "${iteration_start_head}" ]]; then
-      echo "Agent 2 returned ${BLOCKED_SENTINEL} without committing blocker evidence to the plan." >&2
-      exit 1
-    fi
     log_info "Agent 2 returned ${BLOCKED_SENTINEL}; see the plan progress log and ${reviewer_last_message}."
     exit 2
   fi

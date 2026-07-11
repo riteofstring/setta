@@ -10,11 +10,11 @@ Use `run-codex-plan-loop.sh` for generic plan-driven fresh-session loops and
 Use `run-topic-conversations-plan-loop.sh` for the dedicated
 `topic-conversations-global-master-narrator-20260711.md` implementation loop.
 It runs a fresh implementer followed by a fresh reviewer for every slice,
-requires a clean in-place worktree, verifies the full Codex source checkout,
-and treats external blockage as a non-success result distinct from full plan
-completion. It intentionally bypasses approvals and sandboxing because its
-agents implement, verify, update the plan, and commit directly in the current
-checkout.
+starts from a clean in-place worktree, and gives agents the full Codex source
+checkout as a reference. The reviewer can finish partial work left by the
+implementer, and external blockage remains distinct from full plan completion.
+It intentionally bypasses approvals and sandboxing because its agents edit and
+commit directly in the current checkout.
 
 Use `run-review-workflow-meta-plan-loop.sh` for the dedicated review findings
 and workflow trajectory meta-plan loop. It follows the older two-agent
