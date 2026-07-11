@@ -45,6 +45,12 @@ environment:
   conversation still serializes its own primary turns.
 - The microphone and speech queue belong to the application shell, not an Easy
   Button component.
+- The master has a stable global voice, and each topic narrator has a stable
+  per-conversation voice selected to be distinct from other active speakers
+  when the synthesis catalog permits it.
+- Each topic conversation has a stable accessible color palette shared by all
+  of its Easy Button views, making concurrently visible conversations easier
+  to distinguish.
 - Agent, narrator, and master model profiles are independent and configurable.
   The default agent may be heavy while the default narrator is explicitly
   lightweight.
@@ -199,6 +205,29 @@ transcription lifecycle, global enablement, playback queue, preemption, and
 source attribution. Easy Button panes render controls and state but do not own
 capture or playback controllers.
 
+### Presentation identity belongs to the conversation
+
+The master has one app-global speech identity. Each topic conversation owns a
+stable presentation profile containing its narrator voice selection and color
+palette. The identity is independent from the narrator model and from pane
+instances:
+
+- two panes showing the same conversation use the same palette and narrator
+  voice
+- different concurrently visible conversations use different palettes when
+  the palette catalog has capacity
+- the master voice is reserved, and active narrator voices differ from it and
+  from one another when the synthesis catalog has capacity
+- assignments survive pane close/reopen and application restart
+- exact user overrides remain exact; automatic assignment is an explicit
+  selection mode rather than a silent fallback
+
+Voice and color catalogs are finite. When there are more simultaneously active
+conversations than available choices, the allocator records and exposes the
+reuse instead of pretending uniqueness. Titles, status labels, source
+attribution, and accessible contrast remain required; neither voice nor color
+is the sole identifier.
+
 ### Models are configured by role
 
 There is no cross-role model inheritance. Agent, narrator, master, and side
@@ -206,6 +235,21 @@ agent profiles resolve independently. Model availability and reasoning efforts
 come from the provider model catalog. Missing or unsupported configured models
 fail loudly with an actionable configuration error; Setta does not guess a
 replacement from model-name strings.
+
+### Functional correctness precedes visual refinement
+
+The current application appearance is an acceptable starting point. Further
+mockup iteration, pixel-level parity with an existing mockup, broad restyling,
+and screenshot matching are not implementation priorities or acceptance
+gates. Preserve existing visual language where practical and add only the UI
+needed to make new behavior, state, errors, and controls understandable.
+
+The implementation order is lifecycle correctness, persistence, concurrency,
+recovery, observability, and production-path verification before nonessential
+visual polish. Accessibility, legibility, and large-DOM performance remain
+requirements because they affect functional use. The basic conversation color
+identity is implemented with semantic tokens; refining those palettes later
+must not block the architecture cutover.
 
 ### Clean persistence break
 
@@ -219,6 +263,8 @@ Development and acceptance environments start with fresh app data.
 
 This plan does not include:
 
+- further mockup design work, pixel-perfect visual parity, or a broad visual
+  redesign as a prerequisite for functional acceptance
 - migration or import of existing chat or Easy Run history
 - compatibility endpoints for old renderer builds
 - a chat-transcript pane under a new name
@@ -237,6 +283,10 @@ This plan does not include:
   genuinely ambiguous; the master asks a clarification question instead
 - speech wake-word selection or continuous-listening privacy UX details beyond
   the ownership and lifecycle boundary needed by the architecture
+- guaranteed globally unique voices or colors across an unbounded conversation
+  archive; uniqueness is best-effort among simultaneously active/visible
+  conversations and explicit reuse is allowed when a finite catalog is
+  exhausted
 
 ## Current-State Findings That Require The Refactor
 
@@ -382,7 +432,8 @@ internal/agent
 
 internal/conversation
   topic conversation aggregate, turns, artifacts, trajectory ledger,
-  persistence, event stream, snapshots, branch relationships
+  persistence, event stream, snapshots, branch relationships, presentation
+  profile persistence
 
 internal/narration
   narrator context builder, durable state, actor mailbox, triggers,
@@ -397,11 +448,12 @@ internal/master
   conversation commands, renderer presentation intents
 
 internal/speech
-  provider capabilities, transcription sessions, generic synthesis,
-  source-aware speech contracts
+  provider capabilities and voice catalog, voice assignment, transcription
+  sessions, generic synthesis, source-aware speech contracts
 
 internal/workspaceui
-  surviving pane/layout contracts with typed conversation pane config
+  surviving pane/layout contracts, accessible palette catalog/allocation, typed
+  conversation pane config
 ```
 
 Avoid a generic `common`, `shared`, or global constants package. Event kinds,
@@ -422,6 +474,8 @@ application shell
 ConversationNavigator
   shell-owned, virtualized rows keyed by durable conversationId
   groups conversations by workspace and displays execution/pane status
+  renders the conversation's stable palette identity without relying on color
+  alone
   focuses an existing pane or requests a new Easy Button view
 
 conversation stores
@@ -431,6 +485,7 @@ conversation stores
 EasyButtonSurface
   receives conversationId from pane config
   selects only that conversation's projection
+  derives semantic color tokens from the conversation presentation profile
   emits conversation commands
   renders focus, milestones, artifacts, summary, approval/status controls
 ```
@@ -463,6 +518,7 @@ TopicConversation
   forkedAtTurnId?
   agentThreadBinding?
   roleOverrides
+  presentationProfile
 ```
 
 `status` describes conversation execution, not pane visibility. Completion of
@@ -613,6 +669,33 @@ inherit `provider_default` from the agent.
 Resolved invocation metadata is captured at every turn so later settings
 changes do not rewrite history.
 
+### ConversationPresentationProfile
+
+```text
+ConversationPresentationProfile
+  conversationId
+  paletteSelection: auto_distinct | exact
+  resolvedPaletteId
+  narratorVoiceSelection: auto_distinct | exact
+  resolvedNarratorVoiceId?
+  narratorSpeechEnabled
+  updatedAt
+```
+
+The profile is created with the conversation and persists independently from
+pane layout and narrator process/session lifetime. `auto_distinct` uses the
+backend-owned catalog and allocator; `exact` records a user selection and fails
+specifically if that selection is unavailable. Automatic re-resolution after
+a provider voice-catalog change is allowed only because the user selected an
+explicit automatic mode, and every resolved change is logged.
+
+The application shell owns the corresponding global master voice selection.
+The narrator voice allocator excludes the resolved master voice and voices
+already assigned to other active narrators when possible. The palette
+allocator avoids palettes already used by other visible conversations when
+possible. Catalog exhaustion produces an explicit reused assignment with a
+reason.
+
 ### Pane configuration
 
 `WorkspaceUIPane` gains an Easy Button-specific discriminated configuration:
@@ -621,6 +704,10 @@ changes do not rewrite history.
 EasyButtonPaneConfig
   conversationId
 ```
+
+Palette and voice are deliberately absent from pane configuration. They are
+resolved from the conversation presentation profile so duplicate views cannot
+drift into different identities.
 
 Do not add a generic untyped `metadata` bag. Terminal and workflow configuration
 fields are deleted with their surface kinds.
@@ -645,6 +732,7 @@ The initial schema includes logical tables for:
 - narration events
 - topic index documents
 - role profile overrides
+- conversation presentation profiles and the global master voice selection
 - master session and route decisions
 - persisted pane bindings/layout references
 
@@ -1026,6 +1114,7 @@ owns:
 - synthesis request cancellation
 - audio caching and URL lifecycle
 - one ordered queue across conversations
+- master and per-conversation narrator voice resolution
 - source identity and UI speaking state
 - global mute/output mode
 - user-requested replay
@@ -1043,6 +1132,18 @@ summary covers that milestone. The decision and reason are logged. Output from
 different simultaneous conversations is never silently dropped; it remains
 queued or is announced with topic attribution according to explicit policy.
 
+Every speech intent identifies `master` or `narrator`, and narrator intents
+carry `conversationId`. The coordinator resolves the global master voice or
+the conversation's narrator voice before synthesis. The resolved voice remains
+stable across reloads while it is available. Automatic assignment prefers a
+voice different from the master and other active narrators; finite-catalog
+reuse is explicit, retains topic attribution, and is recorded.
+
+An unavailable exact voice produces a typed speech-configuration error rather
+than silently changing the speaker. An `auto_distinct` selection may resolve
+again against a changed provider catalog because that behavior is part of the
+declared selection mode; the old/new voice and reason are observable.
+
 Synthesis endpoints become generic narration/master speech endpoints keyed by
 source event id. Delete endpoints named specifically for Easy Run highlights
 and summaries.
@@ -1054,7 +1155,7 @@ checked protocol contains experimental realtime methods, but this plan keeps
 the existing separate transcription/synthesis architecture until those methods
 are intentionally evaluated. Do not add an unused adapter or feature flag.
 
-## Model And Permission Configuration
+## Model, Voice, And Permission Configuration
 
 ### Resolution precedence
 
@@ -1103,6 +1204,22 @@ Every master, agent, narrator, and side call records:
 This metadata is available in logs and recording artifacts without exposing
 chain-of-thought.
 
+### Voice and palette configuration
+
+Speech capabilities expose the provider's typed voice catalog. Presentation
+configuration exposes the Go-owned accessible palette catalog. Its palette
+ids, metadata, and renderer token data are generated; do not maintain a
+handwritten TypeScript/CSS mirror of backend values. Settings allow:
+
+- a global master voice selection
+- the default narrator voice mode, initially `auto_distinct`
+- a per-conversation exact or automatic narrator voice override
+- a per-conversation exact or automatic palette override
+- disabling narrator speech without disabling visual narration
+
+The renderer consumes generated resolved presentation profiles. It does not
+invent voice ids, palette ids, or collision policy.
+
 ## HTTP, IPC, And Generated Contracts
 
 The endpoint registry remains the owner of HTTP request and response
@@ -1123,6 +1240,7 @@ The replacement surface needs endpoints or streams for these operations:
 - create a side conversation
 - fork a durable conversation
 - read/update per-conversation role overrides
+- read/update the conversation presentation profile
 - subscribe to conversation events
 
 ### Master commands
@@ -1137,6 +1255,12 @@ The replacement surface needs endpoints or streams for these operations:
 - read role defaults and effective model options
 - update global role defaults
 - read model catalog and supported effort options
+
+### Presentation configuration
+
+- read the synthesis voice and accessible palette catalogs
+- read/update the global master voice selection and default narrator voice mode
+- read resolved voice/palette assignments and explicit reuse reasons
 
 ### Speech
 
@@ -1155,6 +1279,14 @@ registered but unreachable.
 
 Deletion is part of the architecture, not optional cleanup after the new
 feature works.
+
+Deleting a pane means deleting its complete unused vertical slice, not only
+removing its renderer registration. For each old chat, terminal, workflow, git,
+semantic-graph, and workspace-activity surface, inventory and remove associated
+backend handlers, packages, event streams, IPC/preload contracts, generated
+contracts, persistence, runtime wiring, commands, fixtures, and tests that have
+no named surviving consumer. Shared code is retained only when the finished
+product uses it directly; speculative future usefulness is not a consumer.
 
 ### Renderer and desktop deletion
 
@@ -1242,7 +1374,8 @@ between the old and new domains.
 Before source changes:
 
 1. Record the current deterministic Easy Button workflow and working-state
-   frontend performance baseline.
+   frontend performance baseline. This is a behavioral/performance baseline,
+   not a mockup-parity or screenshot-matching baseline.
 2. Capture file/package/endpoint ownership inventories for the deletion diff.
 3. Confirm ChatGPT-authenticated live Codex tests are available without
    `OPENAI_API_KEY`.
@@ -1250,12 +1383,16 @@ Before source changes:
    registry.
 5. Confirm the exact release-time role defaults to use for master, agent,
    narrator, and side agent.
+6. Capture the synthesis voice capabilities and approve the initial accessible
+   conversation palette catalog; this is configuration inventory, not visual
+   mockup work.
 
 Exit criteria:
 
 - baseline recordings and performance report exist
 - deletion inventory is reviewed
 - model defaults are explicit, available in `model/list`, and documented
+- master/narrator voice selection modes and the palette catalog are explicit
 
 ### Phase 1: New persistence and core contracts
 
@@ -1263,7 +1400,8 @@ Implement:
 
 1. SQLite store bootstrap and schema version 1.
 2. Conversation, turn, thread-binding, trajectory, artifact, narrator-state,
-   narration-event, role-profile, and branch domain types.
+   narration-event, role-profile, presentation-profile, and branch domain
+   types.
 3. Transaction helpers and committed-event outbox.
 4. Conversation snapshot/event contracts and generated TypeScript.
 5. Focused store tests for atomic state/event/cursor transitions, corruption,
@@ -1283,14 +1421,15 @@ Exit criteria:
 Implement:
 
 1. Move app-server turn lifecycle behind `internal/agent`.
-2. Add generated support for `thread/fork` and `thread/list`; regenerate.
+2. Add generated support for `thread/fork`, `thread/list`, `thread/search`, and
+   `thread/inject_items`; regenerate.
 3. Normalize provider notifications into trajectory events.
 4. Preserve turns, queueing, steering, cancellation, approvals, liveness,
    restart reconciliation, model catalog, and necessary background-process
    cleanup.
 5. Add provider protocol contract and fake-app-server tests.
-6. Add a live Codex test that creates, resumes, reads, lists, and forks threads
-   through the new runtime.
+6. Add a live Codex test that creates, resumes, reads, lists, searches, forks,
+   and injects boundary items through the new runtime.
 
 Exit criteria:
 
@@ -1353,10 +1492,15 @@ Implement:
 
 1. App-shell microphone controller and global preference.
 2. Global transcription submission to the master boundary.
-3. Generic speech synthesis contracts keyed by narration/master event.
-4. One source-aware playback queue with explicit priority and supersession.
-5. Global speaking/capture state rendered by panes and app chrome.
-6. Delete Easy Button-owned speech controllers, Easy Run speech endpoints, and
+3. Typed provider voice catalog plus global master and per-conversation
+   narrator voice selections.
+4. Stable `auto_distinct` allocator, exact overrides, finite-catalog reuse, and
+   explicit unavailable-voice behavior.
+5. Generic speech synthesis contracts keyed by narration/master event and
+   resolved speaker voice.
+6. One source-aware playback queue with explicit priority and supersession.
+7. Global speaking/capture state rendered by panes and app chrome.
+8. Delete Easy Button-owned speech controllers, Easy Run speech endpoints, and
    pane-local playback subscriptions.
 
 Exit criteria:
@@ -1364,6 +1508,8 @@ Exit criteria:
 - microphone capture works with no Easy Button pane mounted
 - opening or closing panes does not restart global capture
 - narration from multiple conversations is queued and attributed correctly
+- the master and active narrators use stable distinct voices when available;
+  restart preserves assignments and finite-catalog reuse is visible
 - recording preempts playback according to explicit policy
 - highlights/final summaries/status replies have deterministic speech behavior
 
@@ -1425,7 +1571,8 @@ Complete the deletion inventory and remove all remaining dead code:
 1. Chat, terminal, workflow, git, semantic graph, and workspace activity
    renderer paths.
 2. Backend packages, handlers, runtime wiring, seed commands, contracts, and
-   generated types that have no surviving consumer.
+   generated types associated with deleted panes that have no surviving
+   consumer.
 3. Pane kinds/config fields, toolbar actions, shortcuts, runtime-policy
    branches, snapshots, CSS, assets, and tests.
 4. Old app-data paths and test fixtures.
@@ -1448,9 +1595,17 @@ Exit criteria:
 2. Profile large numbers of conversation events and multiple Easy Button panes.
 3. Validate audio arbitration under simultaneous conversation completions.
 4. Audit permission boundaries and secret/raw-audio/log handling.
-5. Run deterministic and live production-path acceptance suites.
-6. Record append-only before/after frontend performance results under
+5. Run the functional deterministic and live production-path acceptance suites
+   before presentation-identity polish.
+6. Assign and apply one stable accessible palette per conversation, shared by
+   duplicate panes and distinct among visible conversations when catalog
+   capacity permits.
+7. Run the focused palette identity, contrast, reload, and multi-pane tests;
+   these validate the requested identity feature rather than mockup parity.
+8. Record append-only before/after frontend performance results under
    `docs/reports/performance/`.
+9. Refine conversation palette presentation only after functional acceptance;
+   do not add a mockup-parity gate or expand this phase into broad restyling.
 
 ## Verification Plan
 
@@ -1465,7 +1620,7 @@ Cover:
 - conversation/turn state transitions
 - concurrent conversations in one workspace
 - queue promotion and steering isolation
-- provider thread start/resume/read/list/fork
+- provider thread start/resume/read/list/search/fork/item-injection
 - provider event normalization and ordering
 - approval and structured-input lifecycle
 - cancellation/failure/restart reconciliation
@@ -1476,7 +1631,10 @@ Cover:
 - topic index retrieval and archive filtering
 - side/fork parent relationships and isolation
 - role-profile precedence and model/effort validation
-- speech synthesis source validation
+- presentation-profile persistence and deterministic palette allocation
+- master/narrator voice selection, exact-unavailable failure, automatic
+  re-resolution, and finite-catalog reuse
+- speech synthesis source and resolved-voice validation
 
 ### Focused renderer tests
 
@@ -1486,6 +1644,9 @@ Cover:
 - multiple Easy Button pane isolation
 - pane focus/open reuse policy
 - pane close without conversation cancellation
+- stable accessible conversation palettes: distinct visible conversations when
+  available, identical palettes for duplicate views, and non-color identity
+  labels
 - one navigator row per durable conversation across zero, one, or multiple
   panes; workspace grouping, paging, and large-list virtualization
 - master launcher/overlay state shared across sidebar, shortcut, app chrome,
@@ -1505,16 +1666,20 @@ temporary app data and a scripted Codex app-server, cover:
 
 1. Open a workspace and create two topic conversations through the left
    navigator and global text master surface.
-2. Open one Easy Button pane for each conversation, then open a second view of
-   one conversation while retaining one navigator row.
+2. Open one Easy Button pane for each conversation, verify distinct palettes,
+   then open a second view of one conversation and verify it retains one
+   navigator row and the same palette.
 3. Start both agents and receive interleaved streamed events.
 4. Queue and steer one conversation without affecting the other.
 5. Ask one narrator for status while its agent remains active.
 6. Produce milestones, artifacts, an approval, completion, cancellation, and
    failure through real contracts.
 7. Close a working pane, let work continue, and reopen it.
-8. Restart/reload during active work and reconcile provider state.
-9. Use global speech with no pane, one pane, and multiple panes.
+8. Restart/reload during active work and reconcile provider state while
+   preserving voice and palette assignments.
+9. Use global speech with no pane, one pane, and multiple panes; verify the
+   master and active narrators receive distinct stable voices when available
+   and explicit reuse when the catalog is exhausted.
 10. Route typed and spoken master input to an existing topic, focus its pane,
     create a new topic, retain an ambiguous clarification in the master
     overlay, and open a side conversation while the parent is active.
@@ -1534,7 +1699,7 @@ When the local Codex CLI is signed in with ChatGPT auth, run live tests without
 - steering and cancellation
 - narrator fresh structured calls using the configured lightweight model
 - master routing using the configured master model
-- thread read/list/fork behavior
+- thread read/list/search/fork/item-injection behavior
 - restart/reload reconciliation
 - side/fork isolation where supported
 
@@ -1553,6 +1718,7 @@ Baseline before frontend cutover and re-measure after:
 - hidden/snapshot pane resource behavior
 - microphone controller stability across pane churn
 - playback queue behavior during simultaneous completions
+- semantic palette-token updates across multiple visible Easy Button panes
 
 Record results append-only under `docs/reports/performance/`.
 
@@ -1603,10 +1769,20 @@ without adding emergency logging. Record structured events for:
 - requested/resolved model metadata
 - shared master interaction/session id across text and voice entry surfaces
 
+### Presentation identity
+
+- conversation id
+- requested palette selection, resolved palette id, catalog version, and
+  allocation/reuse reason
+- open pane ids sharing the presentation identity
+- contrast/accessibility validation failure
+
 ### Speech
 
 - capture lifecycle and transcription operation id
 - narration/master source event id
+- requested selection mode, requested exact voice if any, resolved voice id,
+  catalog version, and allocation/reuse reason
 - synthesis request/result
 - queue position and priority
 - play, stop, preempt, supersede, or drop reason
@@ -1637,10 +1813,16 @@ This plan is complete only when all of the following are true:
 - Narrator defaults are explicitly lightweight and independently configurable.
 - Agent defaults may be heavy and are independently configurable.
 - Global microphone and playback work without an Easy Button pane.
+- The master and each active conversation narrator use stable distinct voices
+  when the provider catalog permits it; exact failures and finite-catalog reuse
+  are explicit rather than silent.
 - Audio from simultaneous conversations follows explicit, observable policy.
+- Different visible conversations use stable accessible palettes when
+  available, while multiple panes for the same conversation share one palette
+  and color is never the sole identifier.
 - Side conversations and forks do not contaminate parent threads.
-- Provider thread list/read/fork primitives are supported through generated
-  contracts and verified live.
+- Provider thread list/search/read/fork/item-injection primitives are supported
+  through generated contracts and verified live.
 - Chat, terminal, workflow, git, semantic graph, workspace activity, and old
   Easy Run product/backend paths that became dead are deleted.
 - No migration, compatibility, alias, adapter, dual read/write, or feature flag
@@ -1649,6 +1831,8 @@ This plan is complete only when all of the following are true:
 - Deterministic Electron production-path tests pass with temporary app data.
 - Live Codex tests pass when ChatGPT auth is available, or the lack of auth is
   reported explicitly.
+- Functional acceptance does not depend on mockup parity, pixel matching, or
+  broad visual restyling.
 - Final performance reports show that multiple live Easy Button panes and large
   trajectories remain within established workspace UI budgets.
 
