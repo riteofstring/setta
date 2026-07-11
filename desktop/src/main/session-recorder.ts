@@ -1,6 +1,4 @@
 import type { BrowserWindow } from "electron";
-import { Buffer } from "node:buffer";
-import { randomUUID } from "node:crypto";
 import { createWriteStream, mkdirSync, writeFileSync, type WriteStream } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -24,7 +22,6 @@ interface SessionRecorderOptions extends SessionRecorderMetadata {
   dir: string;
   includePayloads: boolean;
   screenshotIntervalMs: number;
-  terminalLatencyRunId: string;
 }
 
 interface RecordingManifest extends SessionRecorderMetadata {
@@ -36,7 +33,6 @@ interface RecordingManifest extends SessionRecorderMetadata {
   recordingDir: string;
   screenshotIntervalMs: number;
   startedAt: string;
-  terminalLatencyRunId: string;
 }
 
 interface JsonLineRecord {
@@ -53,7 +49,6 @@ const maxObjectKeys = 80;
 
 export class SessionRecorder {
   readonly dir: string;
-  readonly terminalLatencyRunId: string;
 
   private readonly backendHTTPStream: WriteStream;
   private readonly backendLogStream: WriteStream;
@@ -73,7 +68,6 @@ export class SessionRecorder {
     this.dir = options.dir;
     this.includePayloads = options.includePayloads;
     this.screenshotIntervalMs = options.screenshotIntervalMs;
-    this.terminalLatencyRunId = options.terminalLatencyRunId;
     this.screenshotDir = join(this.dir, "screenshots");
 
     mkdirSync(this.screenshotDir, { recursive: true });
@@ -163,7 +157,7 @@ export class SessionRecorder {
         at: timestamp(),
         id,
         method: init.method ?? "GET",
-        requestBody: this.backendRequestPayload(input, init.body),
+        requestBody: this.payload(init.body),
         type: "backend_http_request",
         url: input.toString(),
       });
@@ -289,7 +283,7 @@ export class SessionRecorder {
 
   private recordIpcStart(event: IpcObservedStart) {
     this.writeJSONLine(this.ipcStream, {
-      args: this.ipcArgsPayload(event.channel, event.args),
+      args: this.payload(event.args),
       at: timestamp(),
       channel: event.channel,
       id: event.id,
@@ -342,20 +336,6 @@ export class SessionRecorder {
     return summarizeValue(value);
   }
 
-  private backendRequestPayload(input: URL, body: BodyInit | null | undefined): unknown {
-    if (input.pathname === "/terminals/input") {
-      return terminalInputSummaryFromBody(body);
-    }
-    return this.payload(body);
-  }
-
-  private ipcArgsPayload(channel: string, args: unknown[]): unknown {
-    if (channel === "terminal:input") {
-      return args.map((arg) => terminalInputSummary(arg));
-    }
-    return this.payload(args);
-  }
-
   private nextID(): number {
     const id = this.eventSeq;
     this.eventSeq += 1;
@@ -370,50 +350,6 @@ export class SessionRecorder {
   }
 }
 
-function terminalInputSummaryFromBody(body: BodyInit | null | undefined): unknown {
-  if (typeof body !== "string") {
-    return { redacted: true };
-  }
-  try {
-    return terminalInputSummary(JSON.parse(body));
-  } catch {
-    return { redacted: true };
-  }
-}
-
-function terminalInputSummary(value: unknown): unknown {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return { redacted: true };
-  }
-  const input = value as Record<string, unknown>;
-  const trace =
-    input.trace !== null && typeof input.trace === "object" && !Array.isArray(input.trace)
-      ? (input.trace as Record<string, unknown>)
-      : {};
-  return {
-    byteCount:
-      typeof input.dataBase64 === "string" ? Buffer.byteLength(input.dataBase64, "base64") : 0,
-    sessionId: typeof input.sessionId === "string" ? input.sessionId : "",
-    trace: {
-      clientId: stringValue(trace.clientId),
-      httpDispatchedAt: stringValue(trace.httpDispatchedAt),
-      inputSequence: integerValue(trace.inputSequence),
-      mainReceivedAt: stringValue(trace.mainReceivedAt),
-      preloadReceivedAt: stringValue(trace.preloadReceivedAt),
-      rendererReceivedAt: stringValue(trace.rendererReceivedAt),
-      runId: stringValue(trace.runId),
-    },
-  };
-}
-
-function stringValue(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function integerValue(value: unknown): number {
-  return typeof value === "number" && Number.isInteger(value) ? value : 0;
-}
-
 export function createSessionRecorder(
   env: NodeJS.ProcessEnv,
   metadata: SessionRecorderMetadata,
@@ -422,9 +358,6 @@ export function createSessionRecorder(
     return null;
   }
   const dir = env.SETTA_RECORDING_DIR ?? join(metadata.repoRoot, ".recordings", pathTimestamp());
-  const terminalLatencyRunId =
-    env.SETTA_TERMINAL_LATENCY_RUN_ID?.trim() || `terminal-latency-${randomUUID()}`;
-  env.SETTA_TERMINAL_LATENCY_RUN_ID = terminalLatencyRunId;
   mkdirSync(dir, { recursive: true });
   return new SessionRecorder({
     ...metadata,
@@ -434,7 +367,6 @@ export function createSessionRecorder(
       env.SETTA_RECORD_SCREENSHOT_INTERVAL_MS,
       defaultScreenshotIntervalMs,
     ),
-    terminalLatencyRunId,
   });
 }
 
@@ -451,7 +383,6 @@ function manifest(options: SessionRecorderOptions): RecordingManifest {
     repoRoot: options.repoRoot,
     screenshotIntervalMs: options.screenshotIntervalMs,
     startedAt: timestamp(),
-    terminalLatencyRunId: options.terminalLatencyRunId,
   };
 }
 

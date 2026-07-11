@@ -107,6 +107,14 @@ if [[ "${run_live}" -eq 1 ]]; then
       status=1
     fi
 
+    echo "Live Codex Electron Easy Button workflow..."
+    if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
+      --workflow easy-button-live; then
+      passed_workflows+=("easy-button-live")
+    else
+      status=1
+    fi
+
     echo "Live Codex backend chat workflow..."
     if "${repo_root}/scripts/go.sh" test ./internal/runtime -run 'TestBackend(AppWorkflowWithLiveCodex|LiveCodexRunLivenessReconcileDuringActiveTurn|LiveCodexSilentUpstreamLossReconciliation|LiveCodexStaleTurnInterruptRegression)' -count=1; then
       passed_workflows+=("live-codex-backend")

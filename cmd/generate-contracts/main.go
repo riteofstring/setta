@@ -247,9 +247,6 @@ func validateRouteContract(endpoint httpapi.ContractEndpoint) error {
 }
 
 func validateRouteRequestContract(endpoint httpapi.ContractEndpoint) error {
-	if endpoint.Method == http.MethodGet && endpoint.Request != nil {
-		return fmt.Errorf("%s GET endpoint must not declare a request body", endpoint.Name)
-	}
 	if endpoint.Method == http.MethodGet && endpoint.RequestBodyLimitBytes != 0 {
 		return fmt.Errorf("%s GET endpoint must not declare a request body limit", endpoint.Name)
 	}
@@ -744,19 +741,19 @@ func renderClientMethod(buffer *bytes.Buffer, endpoint endpointSpec, semicolon b
 		suffix = ";"
 	}
 	if endpoint.Request == nil {
-		fmt.Fprintf(buffer, "  %s: () => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Response), suffix)
+		fmt.Fprintf(buffer, "  %s: (options?: BackendRequestOptions) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Response), suffix)
 		return
 	}
-	fmt.Fprintf(buffer, "  %s: (request: %s) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Request), typeName(endpoint.Response), suffix)
+	fmt.Fprintf(buffer, "  %s: (request: %s, options?: BackendRequestOptions) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Request), typeName(endpoint.Response), suffix)
 }
 
 func renderClientOperation(buffer *bytes.Buffer, endpoint endpointSpec, errorResponse reflect.Type) {
 	if endpoint.Request == nil {
-		fmt.Fprintf(buffer, "    %s: () => requestBackend({\n", endpoint.OperationName)
+		fmt.Fprintf(buffer, "    %s: (options) => requestBackend({\n", endpoint.OperationName)
 		renderRequestBackendProperties(buffer, endpoint, errorResponse, "undefined")
 		return
 	}
-	fmt.Fprintf(buffer, "    %s: (request) => requestBackend({\n", endpoint.OperationName)
+	fmt.Fprintf(buffer, "    %s: (request, options) => requestBackend({\n", endpoint.OperationName)
 	renderRequestBackendProperties(buffer, endpoint, errorResponse, "request")
 }
 
@@ -767,6 +764,7 @@ func renderRequestBackendProperties(buffer *bytes.Buffer, endpoint endpointSpec,
 	fmt.Fprintf(buffer, "      endpoint: backendEndpoints.%s,\n", endpoint.Name)
 	buffer.WriteString("      fetchImpl,\n")
 	fmt.Fprintf(buffer, "      requestPayload: %s,\n", requestPayload)
+	buffer.WriteString("      signal: options?.signal,\n")
 	buffer.WriteString("    }),\n")
 }
 

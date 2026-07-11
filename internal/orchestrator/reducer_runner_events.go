@@ -172,6 +172,10 @@ func applyRunnerAttemptStarted(nodeExecution *WorkflowNodeExecution, payloadJSON
 	nodeExecution.ActivityRefs = mergeActivityRefs(nodeExecution.ActivityRefs, payload.ActivityRefs)
 	nodeExecution.InputHash = nonEmpty(payload.InputHash, nodeExecution.InputHash)
 	nodeExecution.RunnerCapabilities = &payload.Capabilities
+	if payload.RunSettings != nil {
+		settings := *payload.RunSettings
+		nodeExecution.AgentRunSettings = &settings
+	}
 	nodeExecution.RunnerState.Status = RunnerStateStatusRunning
 	return nil
 }

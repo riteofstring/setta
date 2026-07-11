@@ -6,6 +6,7 @@ export type SurfaceId = string;
 
 export const productSurfaceKinds = [
   "chat-dom",
+  "easy-button",
   "empty-frame",
   "workflow-graph",
   "settings-dom",

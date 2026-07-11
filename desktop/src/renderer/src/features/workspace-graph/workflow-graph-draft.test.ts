@@ -11,6 +11,7 @@ import {
 describe("workflow graph drafts", () => {
   test("creates a null workflow graph with stable empty arrays", () => {
     expect(emptyWorkflowGraph()).toEqual({
+      agentDefaults: { model: "", permission: null, reasoningEffort: null },
       edges: [],
       layout: { nodes: [] },
       nodes: [],
@@ -28,9 +29,8 @@ describe("workflow graph drafts", () => {
         action: {
           codex: {
             freshConversation: true,
-            model: "",
             prompt: "Describe this agent task.",
-            reasoningEffort: "",
+            settings: { model: "", permission: null, reasoningEffort: null },
           },
           kind: "agent.codex",
         },

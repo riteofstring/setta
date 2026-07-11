@@ -22,10 +22,12 @@ type ScriptedWorkflowHarness struct {
 	phase4ReviewerBarriers   map[string]map[string]chan struct{}
 	reasoning                ReasoningEffort
 	steers                   map[string]chan SteerRequest
+	tools                    *AgentToolRegistry
+	turnErrors               map[string]string
+	turnStatuses             map[string]HarnessTurnRuntimeStatus
 }
 
 type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
-
 type scriptedWorkflowFixture struct {
 	Prompt string
 	Run    scriptedWorkflowRunner
@@ -63,6 +65,14 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow trajectory page limit workflow", Run: scriptedWorkflowTrajectoryPageLimitTurn},
 	{Prompt: "workflow trajectory activity item page workflow", Run: scriptedWorkflowTrajectoryActivityItemPageTurn},
 	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
+	{Prompt: "easy run phase2 complete workflow", Run: scriptedEasyRunPhase2CompleteTurn},
+	{Prompt: "easy run phase2 steering workflow", Run: scriptedEasyRunPhase2SteeringTurn},
+	{Prompt: "easy run phase3 artifacts workflow", Run: scriptedEasyRunPhase3ArtifactsTurn},
+	{Prompt: "easy run phase4 narrator workflow", Run: scriptedEasyRunPhase4NarratorTurn},
+	{Prompt: "easy run working narrator cadence", Run: scriptedEasyRunWorkingNarratorCadenceTurn},
+	{Prompt: scriptedEasyRunNarratorFailurePrompt, Run: scriptedEasyRunNarratorFailureTurn},
+	{Prompt: "easy run phase5 artifact cap workflow", Run: scriptedEasyRunPhase5ArtifactCapTurn},
+	{Prompt: scriptedEasyRunPhase5LongRequestPrompt, Run: scriptedEasyRunPhase5LongRequestTurn},
 	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer c workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
@@ -72,28 +82,12 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 }
 
-func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
-	defaultModel := fakeModelOptions()[0]
-	return &ScriptedWorkflowHarness{
-		approvals:                map[string]chan ApprovalResponse{},
-		model:                    defaultModel.Model,
-		phase4ConsolidatorCounts: map[string]int{},
-		phase4ReviewerBarriers:   map[string]map[string]chan struct{}{},
-		reasoning:                defaultModel.DefaultReasoningEffort,
-		steers:                   map[string]chan SteerRequest{},
-	}
-}
-
-func (harness *ScriptedWorkflowHarness) ActiveRunCount() int {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-	return len(harness.steers)
-}
-
 func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.registerRun(request.Run.ID)
-	defer harness.unregisterRun(request.Run.ID)
-	return harness.runScriptedTurn(ctx, request, sink)
+	completion, err := harness.runScriptedTurn(ctx, request, sink)
+	harness.finishRun(request.Run.ID, completion, err)
+	harness.unregisterRun(request.Run.ID)
+	return completion, err
 }
 
 func (harness *ScriptedWorkflowHarness) runScriptedTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -260,9 +254,10 @@ func (harness *ScriptedWorkflowHarness) BeginGoalOperation(ctx context.Context, 
 
 func (operation *scriptedGoalOperation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	operation.harness.registerRun(request.Run.ID)
-	defer operation.harness.unregisterRun(request.Run.ID)
 
 	completion, err := operation.harness.runScriptedTurn(ctx, request, sink)
+	operation.harness.finishRun(request.Run.ID, completion, err)
+	operation.harness.unregisterRun(request.Run.ID)
 	if err != nil || completion.Outcome != TurnOutcomeCompleted {
 		return completion, err
 	}
@@ -339,7 +334,6 @@ func (harness *ScriptedWorkflowHarness) setGoalStatusLocked(status string, threa
 func scriptedQueuedReply(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	return scriptedReply(sink, request.Run.ID, "Queued response for "+chatInputText(request.Input)+".")
 }
-
 func scriptedCommandApprovalTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	return harness.decisionApprovalTurn(ctx, request, sink, scriptedCommandApproval(request.Run.ID))
 }
@@ -358,6 +352,9 @@ func (harness *ScriptedWorkflowHarness) workflowTurn(ctx context.Context, reques
 	}
 	steer, err := harness.waitForSteer(ctx, request.Run.ID)
 	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := sink.UserMessageCommitted(chatInputText(steer.Input)); err != nil {
 		return TurnCompletion{}, err
 	}
 	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Steered with "+chatInputText(steer.Input)+". "); err != nil {
@@ -751,6 +748,8 @@ func (harness *ScriptedWorkflowHarness) registerRun(runID string) {
 
 	harness.approvals[runID] = make(chan ApprovalResponse, 1)
 	harness.steers[runID] = make(chan SteerRequest, 4)
+	harness.turnErrors[runID] = ""
+	harness.turnStatuses[runID] = HarnessTurnRuntimeInProgress
 }
 
 func (harness *ScriptedWorkflowHarness) unregisterRun(runID string) {

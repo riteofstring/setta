@@ -10,7 +10,6 @@ import { chatTextInput } from "../renderer/src/lib/chat-input";
 import {
   chatEvent,
   terminalEvent,
-  terminalInputTrace,
   workflowEvent,
   workflowGraph,
   workspaceActivityEvent,
@@ -51,7 +50,6 @@ describe("preload workspace API", () => {
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
-    vi.stubEnv("SETTA_TERMINAL_LATENCY_RUN_ID", "terminal_latency_test");
   });
 
   test("exposes typed app methods through IPC", async () => {
@@ -522,8 +520,6 @@ describe("preload workspace API", () => {
       "input",
       "listProfiles",
       "onEvent",
-      "recordLatency",
-      "recordingRunId",
       "resize",
       "selectDefaultProfile",
       "updateProfile",
@@ -550,7 +546,6 @@ describe("preload workspace API", () => {
     await api.terminal.input({
       dataBase64: "aGVsbG8=",
       sessionId: "terminal_api",
-      trace: terminalInputTrace(),
     });
     await api.terminal.resize({
       cols: 100,
@@ -582,15 +577,6 @@ describe("preload workspace API", () => {
         {
           dataBase64: "aGVsbG8=",
           sessionId: "terminal_api",
-          trace: {
-            clientId: "terminal_client_test",
-            httpDispatchedAt: "",
-            inputSequence: 1,
-            mainReceivedAt: "",
-            preloadReceivedAt: expect.any(String),
-            rendererReceivedAt: "2026-07-10T12:00:00.000Z",
-            runId: "terminal_latency_test",
-          },
         },
       ],
       [

@@ -17,6 +17,7 @@ electron_args=()
 electron_arg_count=0
 backend_pid=""
 backend_ready_file=""
+backend_token_file=""
 
 usage() {
   cat <<'USAGE'
@@ -50,6 +51,9 @@ cleanup() {
   fi
   if [[ -n "${backend_ready_file}" ]]; then
     rm -f "${backend_ready_file}"
+  fi
+  if [[ -n "${backend_token_file}" ]]; then
+    rm -f "${backend_token_file}"
   fi
   exit "${status}"
 }
@@ -110,23 +114,30 @@ app_data_dir() {
   printf '%s/.setta\n' "${HOME%/}"
 }
 
-parse_ready_event() {
+parse_ready_field() {
   node -e '
 const line = process.argv[1] ?? "";
+const field = process.argv[2] ?? "";
 try {
   const value = JSON.parse(line);
   if (
     value &&
     value.event === "ready" &&
-    typeof value.addr === "string" &&
-    value.addr.length > 0 &&
-    typeof value.bootstrapToken === "string" &&
-    value.bootstrapToken.length > 0
+    typeof value[field] === "string" &&
+    value[field].length > 0
   ) {
-    process.stdout.write(value.addr + "\n" + value.bootstrapToken);
+    process.stdout.write(value[field]);
   }
 } catch {}
-' "$1"
+' "$1" "$2"
+}
+
+parse_ready_addr() {
+  parse_ready_field "$1" "addr"
+}
+
+parse_ready_bootstrap_token() {
+  parse_ready_field "$1" "bootstrapToken"
 }
 
 start_backend() {
@@ -134,15 +145,16 @@ start_backend() {
   [[ "${data_dir}" = /* ]] || fail "SETTA_APP_DATA_DIR must be absolute: ${data_dir}"
 
   backend_ready_file="$(mktemp "${TMPDIR:-/tmp}/setta-prod-backend-ready.XXXXXX")"
-  chmod 600 "${backend_ready_file}"
+  backend_token_file="$(mktemp "${TMPDIR:-/tmp}/setta-prod-backend-token.XXXXXX")"
   "${BACKEND_BIN}" --app-data-dir "${data_dir}" --port 0 > >(
     while IFS= read -r line; do
       printf '%s\n' "${line}"
       if [[ ! -s "${backend_ready_file}" ]]; then
-        local ready_event
-        ready_event="$(parse_ready_event "${line}")"
-        if [[ -n "${ready_event}" ]]; then
-          printf '%s\n' "${ready_event}" > "${backend_ready_file}"
+        local addr
+        addr="$(parse_ready_addr "${line}")"
+        if [[ -n "${addr}" ]]; then
+          parse_ready_bootstrap_token "${line}" > "${backend_token_file}"
+          printf '%s\n' "${addr}" > "${backend_ready_file}"
         fi
       fi
     done
@@ -190,18 +202,10 @@ start_backend "${data_dir}"
 wait_for_backend
 
 export NODE_ENV=production
-backend_addr=""
-backend_token=""
-if ! {
-  IFS= read -r backend_addr
-  IFS= read -r backend_token
-} < "${backend_ready_file}"
-then
-  fail "backend readiness file was incomplete."
-fi
-[[ -n "${backend_addr}" ]] || fail "backend readiness file was missing the address."
-[[ -n "${backend_token}" ]] || fail "backend readiness file was missing the bootstrap token."
-export SETTA_BACKEND_URL="http://${backend_addr}"
+backend_url="http://$(< "${backend_ready_file}")"
+backend_token="$(< "${backend_token_file}")"
+[[ -n "${backend_token}" ]] || fail "backend readiness did not include a bootstrap token."
+export SETTA_BACKEND_URL="${backend_url}"
 export SETTA_BACKEND_TOKEN="${backend_token}"
 unset ELECTRON_RENDERER_URL
 

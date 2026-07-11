@@ -163,10 +163,10 @@ func (service *Service) newTranscriptIngestLocked(workspaceID string, run Run) (
 	return ingest, nil
 }
 
-// appendUserMessageBlockLocked records a user-side message (trigger or steering)
-// as a user_message block at the next run-local ordinal. A new visible block
-// closes the open assistant text segment so later assistant text starts a fresh
-// block beneath the message.
+// appendUserMessageBlockLocked records a user-side message (trigger or
+// provider-committed steering) as a user_message block at the next run-local
+// ordinal. A new visible block closes the open assistant text segment so later
+// assistant text starts a fresh block beneath the message.
 func (service *Service) appendUserMessageBlockLocked(workspaceID string, ingest *transcriptIngest, message ChatMessage) error {
 	blockID, err := service.newID("transcript_block")
 	if err != nil {
@@ -847,20 +847,11 @@ func (service *Service) workingRunStatusBlock(ingest *transcriptIngest) Transcri
 	}
 }
 
-// reasoningHeadline derives the stable one-line public headline for a reasoning
-// item. A non-generic title is preferred so the headline persists unchanged
-// across the thinking-to-summary transition; otherwise the first line of the
-// public progress or summary body is used. Hidden/private reasoning text is never
-// consulted, and the generic provider title is treated as a label, not a
-// headline.
+// reasoningHeadline mirrors Codex TUI's live reasoning header: it uses the first
+// complete public Markdown bold span in the accumulated reasoning summary.
+// Hidden/private reasoning text and provider titles are never consulted.
 func reasoningHeadline(item RunItem) string {
-	if headline := nonGenericReasoningTitle(item.Title); headline != "" {
-		return boundedTextPreview(headline, reasoningHeadlineLimit, "…")
-	}
-	if headline := firstLine(item.Progress); headline != "" {
-		return boundedTextPreview(headline, reasoningHeadlineLimit, "…")
-	}
-	if headline := firstLine(item.Summary); headline != "" {
+	if headline := firstCompleteMarkdownBoldSpan(reasoningBody(item)); headline != "" {
 		return boundedTextPreview(headline, reasoningHeadlineLimit, "…")
 	}
 	return ""
@@ -880,21 +871,19 @@ func reasoningBody(item RunItem) string {
 	return ""
 }
 
-func nonGenericReasoningTitle(title string) string {
-	trimmed := strings.TrimSpace(title)
-	if trimmed == "" || trimmed == runActivityDefaultTitles[RunItemTypeReasoning] {
+func firstCompleteMarkdownBoldSpan(value string) string {
+	for index := 0; index+1 < len(value); index++ {
+		if value[index] != '*' || value[index+1] != '*' {
+			continue
+		}
+		start := index + 2
+		for end := start; end+1 < len(value); end++ {
+			if value[end] != '*' || value[end+1] != '*' {
+				continue
+			}
+			return strings.TrimSpace(value[start:end])
+		}
 		return ""
 	}
-	return trimmed
-}
-
-func firstLine(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return ""
-	}
-	if index := strings.IndexByte(trimmed, '\n'); index >= 0 {
-		trimmed = trimmed[:index]
-	}
-	return strings.TrimSpace(trimmed)
+	return ""
 }
