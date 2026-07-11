@@ -2,6 +2,7 @@ package speech
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"strings"
 	"testing"
 	"time"
@@ -128,6 +129,32 @@ func TestValidateSpeechAudio(t *testing.T) {
 				t.Fatal("validation unexpectedly passed")
 			}
 		})
+	}
+}
+
+func TestValidateSpeechAudioAcceptsExactMaximumSize(t *testing.T) {
+	audio := validTestWAVWithDataLength(MaximumSynthesisAudioBytes - 44)
+	value := SpeechAudio{
+		AudioBase64: base64.StdEncoding.EncodeToString(audio),
+		MediaType:   SynthesisMediaType,
+		Format:      SynthesisFormat,
+		SourceID:    "summary",
+	}
+	if err := ValidateSpeechAudio(value); err != nil {
+		t.Fatalf("validate exact-limit speech audio: %v", err)
+	}
+}
+
+func TestValidateWAVRequiresOddChunkPadding(t *testing.T) {
+	padded := validTestWAVWithDataLength(1)
+	if err := validateWAV(padded); err != nil {
+		t.Fatalf("validate padded odd-length WAV: %v", err)
+	}
+
+	missingPadding := append([]byte(nil), padded[:len(padded)-1]...)
+	binary.LittleEndian.PutUint32(missingPadding[4:8], uint32(len(missingPadding)-8))
+	if err := validateWAV(missingPadding); err == nil || !strings.Contains(err.Error(), "padding byte") {
+		t.Fatalf("missing-padding error = %v", err)
 	}
 }
 

@@ -62,7 +62,15 @@ func fakeResponse(status int, contentType string, body []byte) *http.Response {
 }
 
 func validTestWAV() []byte {
-	audio := make([]byte, 46)
+	return validTestWAVWithDataLength(2)
+}
+
+func validTestWAVWithDataLength(dataLength int) []byte {
+	audioLength := 44 + dataLength
+	if dataLength%2 != 0 {
+		audioLength++
+	}
+	audio := make([]byte, audioLength)
 	copy(audio[0:4], "RIFF")
 	binary.LittleEndian.PutUint32(audio[4:8], uint32(len(audio)-8))
 	copy(audio[8:12], "WAVE")
@@ -75,7 +83,7 @@ func validTestWAV() []byte {
 	binary.LittleEndian.PutUint16(audio[32:34], 2)
 	binary.LittleEndian.PutUint16(audio[34:36], 16)
 	copy(audio[36:40], "data")
-	binary.LittleEndian.PutUint32(audio[40:44], 2)
+	binary.LittleEndian.PutUint32(audio[40:44], uint32(dataLength))
 	return audio
 }
 
@@ -101,10 +109,12 @@ func TestNewOpenAIClientValidatesConfiguration(t *testing.T) {
 		want   string
 	}{
 		{name: "api key whitespace", config: OpenAIClientConfig{APIKey: " secret"}, want: "API key must not contain"},
+		{name: "api key embedded whitespace", config: OpenAIClientConfig{APIKey: "secret value"}, want: "only visible ASCII"},
 		{name: "negative timeout", config: OpenAIClientConfig{RequestTimeout: -time.Second}, want: "request timeout must be positive"},
 		{name: "unapproved base URL", config: OpenAIClientConfig{BaseURL: "http://127.0.0.1:1234/v1"}, want: "requires explicit test authorization"},
 		{name: "base URL query", config: OpenAIClientConfig{BaseURL: "http://127.0.0.1:1234/v1?secret=value", AllowTestBaseURL: true}, want: "must not contain user info"},
 		{name: "base URL without host", config: OpenAIClientConfig{BaseURL: "http:///v1", AllowTestBaseURL: true}, want: "requires a scheme and host"},
+		{name: "base URL unsupported scheme", config: OpenAIClientConfig{BaseURL: "ftp://example.test/v1", AllowTestBaseURL: true}, want: "must use HTTP or HTTPS"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

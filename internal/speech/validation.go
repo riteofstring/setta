@@ -86,12 +86,15 @@ func ValidateSpeechAudio(audio SpeechAudio) error {
 	if audio.AudioBase64 == "" {
 		return errors.New("speech audio base64 is required")
 	}
-	if base64.StdEncoding.DecodedLen(len(audio.AudioBase64)) > MaximumSynthesisAudioBytes {
+	if len(audio.AudioBase64) > base64.StdEncoding.EncodedLen(MaximumSynthesisAudioBytes) {
 		return fmt.Errorf("speech audio exceeds %d bytes", MaximumSynthesisAudioBytes)
 	}
 	decoded, err := base64.StdEncoding.DecodeString(audio.AudioBase64)
 	if err != nil {
 		return fmt.Errorf("speech audio base64 is invalid: %w", err)
+	}
+	if len(decoded) > MaximumSynthesisAudioBytes {
+		return fmt.Errorf("speech audio exceeds %d bytes", MaximumSynthesisAudioBytes)
 	}
 	return validateWAV(decoded)
 }
@@ -177,7 +180,13 @@ func validateWAVChunks(audio []byte) error {
 		case "data":
 			foundAudio = chunkLength > 0
 		}
-		offset = chunkEnd + chunkLength%2
+		offset = chunkEnd
+		if chunkLength%2 != 0 {
+			if offset >= len(audio) {
+				return fmt.Errorf("speech audio contains a truncated %q WAV chunk padding byte", chunkType)
+			}
+			offset++
+		}
 	}
 	if !foundFormat {
 		return errors.New("speech WAV format chunk is missing or invalid")

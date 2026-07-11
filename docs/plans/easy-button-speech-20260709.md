@@ -1768,6 +1768,64 @@ Phase 2 item 2 is next: add optional runtime speech configuration, read only
 `SETTA_OPENAI_SPEECH_API_KEY` in both launch paths, and enforce the E2E-only
 provider-base override boundary before adding services and endpoints in item 3.
 
+### 2026-07-10 — Phase 2 speech provider foundation audit complete
+
+Audited commit `3e62b2ce6` against this plan, `AGENTS.md`, its parent, the clean
+starting worktree, the current official OpenAI Realtime transcription,
+client-secret, safety-identifier, and Speech API contracts, generated artifacts,
+and repository tests. The isolated provider slice uses the planned endpoints,
+models, `medium` delay, manual turn boundary, safety header, `marin` voice,
+4,096-character input limit, bounded WAV response, one-call behavior, deadlines,
+and typed failures. It remains intentionally disconnected from runtime, HTTP,
+generated TypeScript, IPC, and renderer surfaces until the later Phase 2 items,
+so it does not expose a premature microphone or speech capability.
+
+The audit fixed four practical boundary gaps:
+
+- exact-limit 8 MiB WAV payloads now pass generated-contract validation instead
+  of being rejected because padded base64's decoded size was overestimated;
+- decoded audio still receives an exact post-decode size check, so the corrected
+  boundary does not permit oversized payloads;
+- RIFF/WAVE validation now requires the padding byte after an odd-length chunk
+  rather than accepting a structurally truncated file;
+- non-empty API keys must contain only non-whitespace visible ASCII, and injected
+  provider URLs must use HTTP or HTTPS, so malformed configuration fails during
+  construction instead of being misclassified later as provider unavailability.
+
+Audit verification completed:
+
+- contract regeneration was idempotent; the generated TypeScript client and
+  checked-in PWA bundle remain on protocol 12 because this slice registers no
+  endpoint or generated surface yet;
+- `./scripts/go.sh test ./internal/speech`, the race-enabled package suite,
+  focused vet, and focused complexity checks passed, including new exact-limit,
+  odd-chunk-padding, invalid-key, and invalid-scheme regressions;
+- the production Easy Button workflow passed at
+  `.recordings/easy-button-speech-phase2-provider-audit-20260710`, including the
+  existing start, stream, steering, terminal, stop, persistence/reload,
+  compact/reduced-motion, and pixel-match paths. This is regression coverage;
+  the speech provider cannot traverse an app path until Phase 2 items 2-4 wire
+  it, and its present wire behavior is covered by the fake-transport suite;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed. The first
+  quality pass found the URL validator at the Go complexity threshold; the
+  scheme predicate was split at its owning boundary and the focused complexity
+  check passed before the final clean gate.
+
+ChatGPT authentication was available, so the live Electron chat, live Easy
+Button, and all four backend Codex probes were rerun with `OPENAI_API_KEY`
+removed. They still fail before conversation creation because the provider's
+`model/list` advertises reasoning effort `max`, which Setta's existing decoder
+rejects. These failures are not live validation for this provider slice. A
+`SETTA_OPENAI_SPEECH_API_KEY` was unavailable, and no live speech workflow is
+implemented before the later acceptance phase, so no live OpenAI speech result
+is claimed. Supply-chain verification was not required because the audit changes
+no dependency, manifest, module, package-manager, toolchain, or generated input.
+
+The implementation plan is not complete. Phase 2 item 2 remains next: add the
+optional runtime speech configuration to both launch paths, read only
+`SETTA_OPENAI_SPEECH_API_KEY`, and enforce the environment-facing E2E-only base
+URL override before the service and endpoint wiring in items 3-4.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

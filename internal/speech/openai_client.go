@@ -37,8 +37,10 @@ type OpenAIClient struct {
 }
 
 func NewOpenAIClient(config OpenAIClientConfig) (*OpenAIClient, error) {
-	if config.APIKey != strings.TrimSpace(config.APIKey) {
-		return nil, errors.New("speech API key must not contain leading or trailing whitespace")
+	if config.APIKey != "" {
+		if err := validateSecret("speech API key", config.APIKey); err != nil {
+			return nil, err
+		}
 	}
 	baseURL, err := validateProviderBaseURL(config.BaseURL, config.AllowTestBaseURL)
 	if err != nil {
@@ -82,10 +84,17 @@ func validateProviderBaseURL(rawURL string, allowTestBaseURL bool) (string, erro
 	if parsed.Scheme == "" || parsed.Host == "" {
 		return "", errors.New("speech provider base URL requires a scheme and host")
 	}
+	if !validProviderScheme(parsed.Scheme) {
+		return "", errors.New("speech provider base URL must use HTTP or HTTPS")
+	}
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return "", errors.New("speech provider base URL must not contain user info, a query, or a fragment")
 	}
 	return parsed.String(), nil
+}
+
+func validProviderScheme(scheme string) bool {
+	return scheme == "http" || scheme == "https"
 }
 
 func (client *OpenAIClient) configured() bool {
