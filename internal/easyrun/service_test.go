@@ -437,6 +437,7 @@ func TestTerminalNarratorFailureDegradesToMechanicalSummary(t *testing.T) {
 	}
 	completed := waitForEasyRunStatus(t, service, "workspace_api", started.ID, EasyRunStatusCompleted)
 	if completed.NarratorStatus != EasyRunNarratorStatusDegraded ||
+		completed.CurrentFocus.Status != EasyRunFocusStatusStale ||
 		completed.Summary == nil ||
 		!strings.HasPrefix(*completed.Summary, "Done in") ||
 		!strings.Contains(*completed.Summary, "no artifacts") {
@@ -529,7 +530,7 @@ func TestWorkingNarratorFailureDegradesRunWhileExecutionContinues(t *testing.T) 
 		t.Fatalf("start easy-run: %v", err)
 	}
 	degraded := waitForEasyRunNarratorStatus(t, service, "workspace_api", started.ID, EasyRunNarratorStatusDegraded)
-	if degraded.Status != EasyRunStatusWorking || degraded.Summary != nil {
+	if degraded.Status != EasyRunStatusWorking || degraded.CurrentFocus.Status != EasyRunFocusStatusStale || degraded.Summary != nil {
 		t.Fatalf("degraded working run = %+v, want execution still working without fabricated summary", degraded)
 	}
 	if len(failingRunner.Requests()) != 1 {
@@ -1277,13 +1278,15 @@ func (runner *blockingNarratorRunner) RunTask(ctx context.Context, request chat.
 		case <-runner.releaseFirst:
 		}
 		return narratorHarnessResult(map[string]any{
-			"highlights": []string{"Working narrator call finished"},
-			"summary":    "",
+			"currentFocus": input.PreviousCurrentFocus,
+			"highlights":   []string{"Working narrator call finished"},
+			"summary":      "",
 		})
 	}
 	return narratorHarnessResult(map[string]any{
-		"highlights": []string{},
-		"summary":    "The delayed narrator finished.",
+		"currentFocus": input.PreviousCurrentFocus,
+		"highlights":   []string{},
+		"summary":      "The delayed narrator finished.",
 	})
 }
 

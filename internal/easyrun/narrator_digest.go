@@ -24,6 +24,7 @@ const (
 	narratorDigestSourceCommand       narratorDigestSourceKind = "command"
 	narratorDigestSourceFileChange    narratorDigestSourceKind = "file_change"
 	narratorDigestSourceArtifact      narratorDigestSourceKind = "artifact"
+	narratorDigestSourceUserSteer     narratorDigestSourceKind = "user_steer"
 )
 
 type narratorDigestEntry struct {
@@ -45,6 +46,7 @@ type narratorDigestBuffer struct {
 }
 
 type narratorTriggerInput struct {
+	FocusDirty          bool
 	InFlight            bool
 	LastCallAt          time.Time
 	NewDigestEntryCount int
@@ -67,10 +69,11 @@ func newNarratorDigestBuffer(maxEntries int, maxBytes int) *narratorDigestBuffer
 	}
 }
 
-func (buffer *narratorDigestBuffer) append(entries ...narratorDigestEntry) {
+func (buffer *narratorDigestBuffer) append(entries ...narratorDigestEntry) int {
 	if buffer == nil {
-		return
+		return 0
 	}
+	lastOrdinal := 0
 	for _, entry := range entries {
 		entry.Text = strings.TrimSpace(entry.Text)
 		if entry.Text == "" {
@@ -81,7 +84,9 @@ func (buffer *narratorDigestBuffer) append(entries ...narratorDigestEntry) {
 		buffer.entries = append(buffer.entries, entry)
 		buffer.totalTextBytes += len(entry.Text)
 		buffer.enforceBounds()
+		lastOrdinal = entry.Ordinal
 	}
+	return lastOrdinal
 }
 
 func (buffer *narratorDigestBuffer) pendingCount() int {
@@ -98,8 +103,13 @@ func (buffer *narratorDigestBuffer) pendingCount() int {
 }
 
 func (buffer *narratorDigestBuffer) consumePending() []narratorDigestEntry {
+	pending, _ := buffer.consumePendingThrough()
+	return pending
+}
+
+func (buffer *narratorDigestBuffer) consumePendingThrough() ([]narratorDigestEntry, int) {
 	if buffer == nil {
-		return []narratorDigestEntry{}
+		return []narratorDigestEntry{}, 0
 	}
 	pending := make([]narratorDigestEntry, 0, buffer.pendingCount())
 	for _, entry := range buffer.entries {
@@ -110,7 +120,7 @@ func (buffer *narratorDigestBuffer) consumePending() []narratorDigestEntry {
 	if len(pending) > 0 {
 		buffer.consumedThrough = pending[len(pending)-1].Ordinal
 	}
-	return pending
+	return pending, buffer.consumedThrough
 }
 
 func (buffer *narratorDigestBuffer) snapshot() []narratorDigestEntry {
@@ -135,6 +145,9 @@ func shouldTriggerNarrator(input narratorTriggerInput) bool {
 		return false
 	}
 	if input.Terminal {
+		return true
+	}
+	if input.FocusDirty {
 		return true
 	}
 	if input.NewDigestEntryCount < minNewDigestEntries {

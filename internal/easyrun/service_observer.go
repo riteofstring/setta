@@ -16,6 +16,7 @@ func (service *Service) startChatObserver() error {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.observerCancel = cancel
+	service.observerContext = ctx
 	service.observerWG.Add(1)
 	go func() {
 		defer service.observerWG.Done()
@@ -173,8 +174,19 @@ func (service *Service) launchWorkingNarratorProjection(ctx context.Context, tar
 		narration := service.runWorkingNarrator(ctx, target)
 		if _, err := service.saveWorkingNarratorProjection(target, narration); err != nil {
 			log.Printf("easy-run working narrator projection failed: %v", err)
+			return
+		}
+		next, ok := service.beginWorkingNarratorProjection(target.record.Run.WorkspaceID, target.record.Run.ID)
+		if ok {
+			service.launchWorkingNarratorProjection(ctx, next)
 		}
 	}()
+}
+
+func (service *Service) beginWorkingNarratorProjection(workspaceID string, easyRunID string) (workingNarratorProjection, bool) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	return service.beginWorkingNarratorProjectionLocked(workspaceID, easyRunID)
 }
 
 func (service *Service) launchTerminalChatRunProjection(ctx context.Context, run chat.Run) {

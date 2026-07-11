@@ -159,6 +159,12 @@ func validateEasyRunCurrentFocus(run EasyRun) error {
 	if !validValue(run.CurrentFocus.Status, easyRunFocusStatusValues) {
 		return fmt.Errorf("unsupported easy-run current focus status %s", run.CurrentFocus.Status)
 	}
+	if run.CurrentFocus.Status == EasyRunFocusStatusStale && run.NarratorStatus != EasyRunNarratorStatusDegraded {
+		return errors.New("stale easy-run current focus requires degraded narrator status")
+	}
+	if run.NarratorStatus == EasyRunNarratorStatusDegraded && run.CurrentFocus.Status != EasyRunFocusStatusStale {
+		return fmt.Errorf("degraded easy-run narrator requires stale current focus, got %s", run.CurrentFocus.Status)
+	}
 	return nil
 }
 

@@ -118,9 +118,12 @@ func TestNarratorDigestBufferBoundsAndConsumesPendingOnce(t *testing.T) {
 	}
 
 	buffer.append(narratorDigestEntry{Text: "six"})
-	pending = buffer.consumePending()
+	pending, through := buffer.consumePendingThrough()
 	if got, want := digestTexts(pending), []string{"six"}; strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("pending after append = %#v, want %#v", got, want)
+	}
+	if through != 6 {
+		t.Fatalf("pending watermark = %d, want 6", through)
 	}
 }
 
@@ -157,6 +160,26 @@ func TestNarratorTriggerPolicyRespectsCadenceThresholdAndTerminal(t *testing.T) 
 				Now:                 now,
 			},
 			want: true,
+		},
+		{
+			name: "dirty focus bypasses digest threshold and interval",
+			input: narratorTriggerInput{
+				FocusDirty:          true,
+				LastCallAt:          now,
+				NewDigestEntryCount: 1,
+				Now:                 now,
+			},
+			want: true,
+		},
+		{
+			name: "in flight queues dirty focus instead of starting concurrently",
+			input: narratorTriggerInput{
+				FocusDirty:          true,
+				InFlight:            true,
+				NewDigestEntryCount: 1,
+				Now:                 now,
+			},
+			want: false,
 		},
 		{
 			name: "terminal summary call bypasses digest threshold",

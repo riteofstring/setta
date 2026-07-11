@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 items 1-3 audited complete
+**Status:** Implementation in progress — Phase 1 items 1-5 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1226,6 +1226,73 @@ digest entry, publish Current focus as updating only after working-agent
 delivery succeeds, trigger the serialized narrator immediately, and implement
 digest-watermark ordering plus stale-focus partial-outcome semantics. The live
 `max` provider drift does not block that deterministic work.
+
+### 2026-07-10 — Phase 1 narrator-maintained focus complete
+
+Implemented Phase 1 items 4-5 as one coherent projection slice. After the
+regular-chat steering call succeeds, Easy Run now appends the exact retained
+plain-text `UserMessage` as a typed `user_steer` digest entry, persists and
+publishes the last good Current focus with `status = updating`, and immediately
+triggers the existing serialized narrator. The narrator input includes
+`previousCurrentFocus`; every working and terminal output must include a
+strict, non-empty Current focus of at most 320 Unicode characters. Revised text
+increments the persisted revision and timestamp, while an unchanged result may
+return the same revision to `current` without creating a highlight.
+
+The narrator state now carries a focus-dirty watermark. A steer accepted during
+an in-flight working or terminal call queues one follow-up, and the older result
+cannot clear `updating`. Terminal projection retries through the newer digest
+before finalizing the run. Narrator, output-validation, highlight-persistence,
+or focus-persistence failures preserve the last good text as `stale`, mark the
+narrator degraded, never retry the instruction, and leave the authoritative
+chat message untouched. A synchronous projection setup/publish failure returns
+the distinct `steer_easy_run_focus_update_failed` partial outcome so later UI
+work can say the instruction was sent without repopulating it as rejected.
+
+The narrator prompt now separates objective/constraint-focused Current focus
+from sparse NOW highlights and requires highlights and terminal summaries to be
+grammatical and pronounceable. Revision-zero requests may exceed the narrator
+output limit; their first projection must condense them within the strict bound
+without dropping the objective or constraints. The scripted production harness
+provides deterministic focus revisions for the steering and long-request
+workflows. No steering store, mixed timeline, renderer-authored row, execution
+prompt rewrite, generated contract change, or compatibility path was added.
+
+Verification completed for this slice:
+
+- focused Easy Run, chat, and HTTP API Go suites passed, including exact
+  multiline `user_steer` input, immediate updating state, unchanged and revised
+  focus output, two-steer in-flight ordering, a terminal-call watermark race,
+  strict missing/whitespace/oversized output rejection, stale degradation, and
+  typed HTTP partial-outcome classification;
+- desktop typecheck/production build, web typecheck/build, and all 990 desktop
+  Vitest tests passed;
+- the deterministic production Electron workflow passed at
+  `desktop/.recordings/easy-button-speech-phase1-focus-projection-final-r4`,
+  including ordered `updating -> current` events, persisted revision one before
+  and after reload, exact hidden-chat steering, narrator-only NOW, terminal and
+  stop behavior, restart recovery, compact/reduced-motion coverage, and the
+  existing pixel-match companion;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed.
+
+ChatGPT authentication was available, so the live gate was attempted with
+`OPENAI_API_KEY` removed. Live Electron chat and all four backend probes again
+failed before conversation creation because `model/list` advertises reasoning
+effort `max`, which the existing Setta provider decoder rejects. Live Easy
+Button remained idle after submission through the same backend creation
+boundary. These failures are not live-provider validation for this slice. The
+known provider drift remains separate work and does not block deterministic
+Phase 1 progress. Supply-chain verification was not required because this slice
+changes no dependencies, manifests, package-manager configuration, Go modules,
+generated contracts, or supply-chain tooling.
+
+Remaining Phase 1 work starts with item 6: render persisted Current focus in the
+center, expose updating/stale language, and remove the transient steering
+confirmation while keeping NOW highlight-only. Items 7-8 then add the
+human-readable terminal mechanics and finish the phase-wide generated-bundle,
+renderer, deterministic, and live coverage. No implementation blocker was
+found for item 6; only its live-provider proof is currently blocked by the
+unrelated `max` drift.
 
 ## Verification Plan
 

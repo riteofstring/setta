@@ -55,6 +55,10 @@ import {
   workflowTimeoutMs,
 } from "./easy-button-pane-actions.mjs";
 import { assertLosslessSteeringChatRecord } from "./easy-button-chat-record-assertions.mjs";
+import {
+  assertAcceptedSteeringFocusEvents,
+  assertRevisedCurrentFocus,
+} from "./easy-button-focus-assertions.mjs";
 import { runEasyButtonPixelMatchCaptures } from "./easy-button-pixel-match.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -64,6 +68,10 @@ const restartRecoveryPrompt = "cancel active workflow";
 const restartRecoveryError = "run interrupted by backend restart";
 const longRequestText = `easy run phase5 long request workflow ${"unbrokenlayouttoken".repeat(36)}`;
 const longRequestSteerText = "finish easy run phase5 long request";
+const longRequestCurrentFocus =
+  "Complete the Easy Button long-request workflow while preserving all of its constraints.";
+const steeredCurrentFocus =
+  "Complete the Easy Button phase 2 workflow while following the accepted steering direction.";
 
 if (options.help) {
   console.log(
@@ -181,6 +189,7 @@ try {
     "easy run phase2 steering workflow",
   );
   assertWorkingVisual(steeringWorking, "easy run phase2 steering workflow");
+  await context.client.driver("easyButtonPaneResetEventLog");
   await submitEasyButtonRequest(context.client, "steer easy run phase2");
   const steeredTerminal = await waitForEasyButtonTerminal(
     context.client,
@@ -188,8 +197,15 @@ try {
     "Done in",
   );
   assertTerminalVisual(steeredTerminal, "easy run phase2 steering workflow", "Done in", {
+    expectedCurrentFocus: steeredCurrentFocus,
     expectedNarration: "The Easy Button run finished.",
   });
+  const steeringEvents = await context.client.driver("easyButtonPaneEventLog");
+  assertAcceptedSteeringFocusEvents(
+    steeringEvents,
+    "easy run phase2 steering workflow",
+    steeredCurrentFocus,
+  );
   const steeredChatRecord = await context.client.driver("easyButtonPaneChatRecord");
   assertLosslessSteeringChatRecord(
     steeredChatRecord,
@@ -207,6 +223,7 @@ try {
     "Done in",
   );
   assertTerminalVisual(restoredSteeredTerminal, "easy run phase2 steering workflow", "Done in", {
+    expectedCurrentFocus: steeredCurrentFocus,
     expectedNarration: "The Easy Button run finished.",
   });
   const restoredSteeredChatRecord = await context.client.driver("easyButtonPaneChatRecord");
@@ -513,6 +530,7 @@ async function runEasyButtonMobileLongRequest(recordingRoot) {
     await waitForEasyButtonTerminal(mobileContext.client, longRequestText, "Done in");
     const terminalContained = await waitForEasyButtonStageContained(mobileContext.client);
     assertTerminalVisual(terminalContained, longRequestText, "Done in", {
+      expectedCurrentFocus: longRequestCurrentFocus,
       expectedNarration: "The Easy Button run finished.",
     });
     assertLongRequestLayout(terminalContained, "mobile terminal long request");
@@ -727,6 +745,7 @@ async function exerciseLongRequestLayout(client, artifactDir) {
   await submitEasyButtonRequest(client, longRequestSteerText);
   const terminal = await waitForEasyButtonTerminal(client, longRequestText, "Done in");
   assertTerminalVisual(terminal, longRequestText, "Done in", {
+    expectedCurrentFocus: longRequestCurrentFocus,
     expectedNarration: "The Easy Button run finished.",
   });
   assertLongRequestLayout(terminal, "desktop terminal long request");
@@ -838,7 +857,11 @@ function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
     );
   }
   assertSummaryOkMark(state, summaryFact);
-  assertRevisionZeroCurrentFocus(state, requestText);
+  if (options.expectedCurrentFocus) {
+    assertRevisedCurrentFocus(state, options.expectedCurrentFocus);
+  } else {
+    assertRevisionZeroCurrentFocus(state, requestText);
+  }
 }
 
 function assertRevisionZeroCurrentFocus(state, requestText) {

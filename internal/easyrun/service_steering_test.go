@@ -1,7 +1,10 @@
 package easyrun
 
 import (
+	"context"
+	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,28 +39,58 @@ func TestServiceSteerForwardsTextToBackingHiddenRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("steer easy-run: %v", err)
 	}
+	backingRunID := assertAcceptedEasyRunSteer(t, harness, working, steered, steeringText)
+	message := waitForPersistedSteeringMessage(t, chatService, steered, backingRunID, steeringText)
+	assertPersistedSteeringTranscript(t, chatService, steered, message, steeringText)
+	assertFocusedSteeringProjection(t, service, harness, steered, message, steeringText)
+	stopAndAssertHiddenEasyRun(t, service, chatService, started, steered)
+}
+
+func assertAcceptedEasyRunSteer(t *testing.T, harness *chat.FakeHarness, working EasyRun, steered EasyRun, steeringText string) string {
+	t.Helper()
 	if steered.ID != working.ID || steered.Status != EasyRunStatusWorking {
 		t.Fatalf("steered run = %+v, want current working run %s", steered, working.ID)
+	}
+	if steered.CurrentFocus.Status != EasyRunFocusStatusUpdating || steered.CurrentFocus.Text != "wait for steering" {
+		t.Fatalf("steered focus = %+v, want stable revision zero marked updating", steered.CurrentFocus)
 	}
 	requests := harness.SteeringRequests()
 	if len(requests) != 1 || chatInputTextForTest(requests[0].Input) != steeringText || requests[0].RunID == "" {
 		t.Fatalf("steering requests = %+v, want shared-normalized text for backing run", requests)
 	}
-	message := waitForPersistedSteeringMessage(t, chatService, steered, requests[0].RunID, steeringText)
-	assertPersistedSteeringTranscript(t, chatService, steered, message, steeringText)
+	return requests[0].RunID
+}
 
+func assertFocusedSteeringProjection(t *testing.T, service *Service, harness *chat.FakeHarness, steered EasyRun, message chat.ChatMessage, steeringText string) {
+	t.Helper()
+	focused := waitForEasyRunFocus(t, service, "workspace_api", steered.ID, EasyRunFocusStatusCurrent, 0, "wait for steering")
 	snapshot, err := service.ReadSnapshot("workspace_api")
 	if err != nil {
-		t.Fatalf("read steered snapshot: %v", err)
+		t.Fatalf("read focused snapshot: %v", err)
 	}
 	if snapshot.LatestRun == nil || snapshot.LatestRun.ID != steered.ID {
 		t.Fatalf("steered snapshot run = %+v, want %s", snapshot.LatestRun, steered.ID)
 	}
-	assertRevisionZeroCurrentFocus(t, *snapshot.LatestRun, "wait for steering")
+	assertRevisionZeroCurrentFocus(t, focused, "wait for steering")
 	if len(snapshot.Highlights) != 0 {
 		t.Fatalf("steering highlights = %+v, want NOW to remain narrator-only", snapshot.Highlights)
 	}
+	tasks := harness.StructuredTaskRequests()
+	if len(tasks) != 1 {
+		t.Fatalf("steering narrator tasks = %d, want one immediate projection", len(tasks))
+	}
+	input := decodeNarratorTaskInputForTest(t, tasks[0])
+	if input.PreviousCurrentFocus != "wait for steering" || len(input.DigestEntries) != 1 {
+		t.Fatalf("steering narrator input = %+v, want previous focus and one accepted fact", input)
+	}
+	entry := input.DigestEntries[0]
+	if entry.Source != narratorDigestSourceUserSteer || entry.Text != steeringText || entry.EventID != message.ID {
+		t.Fatalf("steering narrator digest = %+v, want exact persisted user_steer", entry)
+	}
+}
 
+func stopAndAssertHiddenEasyRun(t *testing.T, service *Service, chatService *chat.Service, started EasyRun, steered EasyRun) {
+	t.Helper()
 	stopped, err := service.Stop("workspace_api", steered.ID)
 	if err != nil {
 		t.Fatalf("stop steered easy-run: %v", err)
@@ -65,12 +98,32 @@ func TestServiceSteerForwardsTextToBackingHiddenRun(t *testing.T) {
 	if stopped.Status != EasyRunStatusStopped {
 		stopped = waitForEasyRunStatus(t, service, "workspace_api", steered.ID, EasyRunStatusStopped)
 	}
-
 	page, err := chatService.LoadMessagePage("workspace_api", stopped.ConversationID, 0, 20)
 	if err != nil {
 		t.Fatalf("load hidden message page: %v", err)
 	}
 	assertHiddenEasyRunConversation(t, page.Conversation, started.ID)
+}
+
+func waitForEasyRunFocus(t *testing.T, service *Service, workspaceID string, easyRunID string, status EasyRunFocusStatus, revision int, text string) EasyRun {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		snapshot, err := service.ReadSnapshot(workspaceID)
+		if err != nil {
+			t.Fatalf("read easy-run focus: %v", err)
+		}
+		if snapshot.LatestRun != nil &&
+			snapshot.LatestRun.ID == easyRunID &&
+			snapshot.LatestRun.CurrentFocus.Status == status &&
+			snapshot.LatestRun.CurrentFocus.Revision == revision &&
+			snapshot.LatestRun.CurrentFocus.Text == text {
+			return *snapshot.LatestRun
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for easy-run %s focus %s revision %d text %q", easyRunID, status, revision, text)
+	return EasyRun{}
 }
 
 func TestAcceptedEasyRunSteeringRetainsPersistedChatMessage(t *testing.T) {
@@ -132,6 +185,343 @@ func TestAcceptedEasyRunSteeringRetainsPersistedChatMessage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInvalidAcceptedSteeringResultMarksFocusStale(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_invalid_accepted_steering")
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_invalid_accepted_steering",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+
+	_, err := service.finishAcceptedSteering(run, "run_invalid_accepted_steering", chat.SteerMessageResult{})
+	if err == nil || !IsAcceptedSteeringFocusUpdateError(err) || !strings.Contains(err.Error(), "persisted chat result is invalid") {
+		t.Fatalf("invalid accepted result error = %v, want typed partial outcome", err)
+	}
+	stale := waitForEasyRunFocus(t, service, run.WorkspaceID, run.ID, EasyRunFocusStatusStale, 0, run.CurrentFocus.Text)
+	if stale.NarratorStatus != EasyRunNarratorStatusDegraded {
+		t.Fatalf("invalid accepted result run = %+v, want stale degraded focus", stale)
+	}
+}
+
+func TestAcceptedSteeringQueuesImmediateFocusProjectionByDigestWatermark(t *testing.T) {
+	firstSteer := "Include memory cost\nand keep the original comparison."
+	secondSteer := "Also compare startup latency."
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"compare renderer approaches": {
+			threadLinkedEvent(),
+			{Type: chat.FakeEventWaitForSteer},
+			{Type: chat.FakeEventUserMessage, Text: firstSteer},
+			{Type: chat.FakeEventWaitForSteer},
+			{Type: chat.FakeEventUserMessage, Text: secondSteer},
+			{Type: chat.FakeEventWaitForCancel},
+		},
+	})
+	service, chatService := newTestServiceWithChat(t, harness)
+	runner := newOrderedFocusNarratorRunner()
+	service.narrator = runner
+
+	started, err := service.Start("workspace_api", "compare renderer approaches")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	waitForEasyRunHarnessRef(t, chatService, started.WorkspaceID, started.ConversationID, "turn_easy")
+
+	first, err := service.Steer(started.WorkspaceID, firstSteer)
+	if err != nil {
+		t.Fatalf("first steer: %v", err)
+	}
+	if first.CurrentFocus.Status != EasyRunFocusStatusUpdating || first.CurrentFocus.Revision != 0 {
+		t.Fatalf("first steer focus = %+v, want revision zero updating", first.CurrentFocus)
+	}
+	runner.WaitForRequestCount(t, 1)
+
+	second, err := service.Steer(started.WorkspaceID, secondSteer)
+	if err != nil {
+		t.Fatalf("second steer: %v", err)
+	}
+	if second.CurrentFocus.Status != EasyRunFocusStatusUpdating || second.CurrentFocus.Revision != 0 {
+		t.Fatalf("second steer focus = %+v, want older in-flight result unable to clear updating", second.CurrentFocus)
+	}
+	runner.ReleaseFirst()
+
+	focused := waitForEasyRunFocus(
+		t,
+		service,
+		started.WorkspaceID,
+		started.ID,
+		EasyRunFocusStatusCurrent,
+		2,
+		"Compare renderer paint, memory, and startup latency before choosing an approach.",
+	)
+	if focused.RequestText != "compare renderer approaches" {
+		t.Fatalf("focused run request = %q, want immutable initial request", focused.RequestText)
+	}
+	runner.WaitForRequestCount(t, 2)
+	requests := runner.Requests()
+	firstInput := decodeNarratorTaskInputForTest(t, requests[0])
+	secondInput := decodeNarratorTaskInputForTest(t, requests[1])
+	assertAcceptedSteeringDigest(t, firstInput, "compare renderer approaches", firstSteer)
+	assertAcceptedSteeringDigest(
+		t,
+		secondInput,
+		"Compare renderer paint and memory cost before choosing an approach.",
+		secondSteer,
+	)
+
+	snapshot, err := service.ReadSnapshot(started.WorkspaceID)
+	if err != nil {
+		t.Fatalf("read focused snapshot: %v", err)
+	}
+	if len(snapshot.Highlights) != 0 {
+		t.Fatalf("focus projections added NOW entries: %+v", snapshot.Highlights)
+	}
+	if _, err := service.Stop(started.WorkspaceID, started.ID); err != nil {
+		t.Fatalf("stop focused easy-run: %v", err)
+	}
+}
+
+func TestAcceptedSteeringNarratorFailureMarksLastFocusStale(t *testing.T) {
+	steeringText := "Keep the exact accepted constraint."
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"wait for failing focus": {
+			threadLinkedEvent(),
+			{Type: chat.FakeEventWaitForSteer},
+			{Type: chat.FakeEventUserMessage, Text: steeringText},
+			{Type: chat.FakeEventWaitForCancel},
+		},
+	})
+	service, chatService := newTestServiceWithChat(t, harness)
+	runner := &failingNarratorRunner{err: context.DeadlineExceeded}
+	service.narrator = runner
+
+	started, err := service.Start("workspace_api", "wait for failing focus")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	waitForEasyRunHarnessRef(t, chatService, started.WorkspaceID, started.ConversationID, "turn_easy")
+	steered, err := service.Steer(started.WorkspaceID, steeringText)
+	if err != nil {
+		t.Fatalf("steer accepted run: %v", err)
+	}
+	if steered.CurrentFocus.Status != EasyRunFocusStatusUpdating {
+		t.Fatalf("accepted steer focus = %+v, want updating before narrator failure", steered.CurrentFocus)
+	}
+	stale := waitForEasyRunFocus(t, service, started.WorkspaceID, started.ID, EasyRunFocusStatusStale, 0, started.RequestText)
+	if stale.NarratorStatus != EasyRunNarratorStatusDegraded || stale.Status != EasyRunStatusWorking {
+		t.Fatalf("stale run = %+v, want degraded presentation with working execution", stale)
+	}
+	requests := runner.Requests()
+	if len(requests) != 1 {
+		t.Fatalf("failing narrator requests = %d, want one without retry", len(requests))
+	}
+	assertAcceptedSteeringDigest(t, decodeNarratorTaskInputForTest(t, requests[0]), started.RequestText, steeringText)
+	if _, err := service.Stop(started.WorkspaceID, started.ID); err != nil {
+		t.Fatalf("stop stale-focus easy-run: %v", err)
+	}
+}
+
+func TestAcceptedSteeringReportsPartialOutcomeWhenFocusUpdateCannotPublish(t *testing.T) {
+	steeringText := "The instruction still reaches the working agent."
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"wait for partial focus failure": {
+			threadLinkedEvent(),
+			{Type: chat.FakeEventWaitForSteer},
+			{Type: chat.FakeEventUserMessage, Text: steeringText},
+			{Type: chat.FakeEventWaitForCancel},
+		},
+	})
+	service, chatService := newTestServiceWithChat(t, harness)
+	started, err := service.Start("workspace_api", "wait for partial focus failure")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	waitForEasyRunHarnessRef(t, chatService, started.WorkspaceID, started.ConversationID, "turn_easy")
+	service.CloseEvents()
+
+	_, err = service.Steer(started.WorkspaceID, steeringText)
+	if err == nil || !IsAcceptedSteeringFocusUpdateError(err) || !strings.Contains(err.Error(), "steering accepted but focus update failed") {
+		t.Fatalf("partial steering error = %v, want typed accepted-focus failure", err)
+	}
+	run := waitForEasyRunFocus(t, service, started.WorkspaceID, started.ID, EasyRunFocusStatusStale, 0, started.RequestText)
+	if run.NarratorStatus != EasyRunNarratorStatusDegraded {
+		t.Fatalf("partial-outcome run = %+v, want stale degraded focus", run)
+	}
+	steeringRequests := harness.SteeringRequests()
+	if len(steeringRequests) != 1 {
+		t.Fatalf("partial-outcome steering requests = %+v, want one accepted delivery", steeringRequests)
+	}
+	message := waitForPersistedSteeringMessage(t, chatService, run, steeringRequests[0].RunID, steeringText)
+	assertPersistedSteeringTranscript(t, chatService, run, message, steeringText)
+	if tasks := harness.StructuredTaskRequests(); len(tasks) != 0 {
+		t.Fatalf("partial focus failure retried narrator work: %+v", tasks)
+	}
+}
+
+func TestTerminalNarratorRetriesWhenSteeringArrivesAfterItsDigestWatermark(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_terminal_focus_watermark")
+	backingRunID := "run_terminal_focus_watermark"
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  backingRunID,
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	chatRun := chat.Run{
+		CompletedAt:    "2026-07-08T12:01:00Z",
+		ConversationID: run.ConversationID,
+		ID:             backingRunID,
+		Status:         chat.RunStatusCompleted,
+		WorkspaceID:    run.WorkspaceID,
+	}
+
+	olderTarget, err := service.beginTerminalChatRunProjection(chatRun)
+	if err != nil {
+		t.Fatalf("begin older terminal narrator call: %v", err)
+	}
+	accepted := acceptedEasyRunSteering{
+		run:  run,
+		text: "Include the accepted terminal constraint.",
+		userMessage: chat.ChatMessage{
+			ConversationID: run.ConversationID,
+			CreatedAt:      "2026-07-08T12:00:30Z",
+			ID:             "message_terminal_focus_watermark",
+			Ordinal:        2,
+		},
+	}
+	updating, immediate, err := service.acceptSteeringForNarration(accepted, backingRunID)
+	if err != nil {
+		t.Fatalf("accept steering during terminal narration: %v", err)
+	}
+	if immediate != nil || updating.CurrentFocus.Status != EasyRunFocusStatusUpdating {
+		t.Fatalf("accepted terminal-race focus = %+v target=%+v, want queued updating projection", updating.CurrentFocus, immediate)
+	}
+
+	intermediate, retry, err := service.saveTerminalChatRunProjection(olderTarget, chatRun, terminalNarrationResult{
+		currentFocus: run.CurrentFocus.Text,
+		highlights:   []string{},
+		summary:      "The older terminal narrator call completed.",
+	})
+	if err != nil {
+		t.Fatalf("save older terminal narrator call: %v", err)
+	}
+	if !retry || intermediate.Status != EasyRunStatusWorking || intermediate.CurrentFocus.Status != EasyRunFocusStatusUpdating {
+		t.Fatalf("older terminal result = %+v retry=%v, want working updating retry", intermediate, retry)
+	}
+
+	newerTarget, err := service.beginTerminalChatRunProjection(chatRun)
+	if err != nil {
+		t.Fatalf("begin terminal narrator retry: %v", err)
+	}
+	if len(newerTarget.digest) != 1 ||
+		newerTarget.digest[0].Source != narratorDigestSourceUserSteer ||
+		newerTarget.digest[0].Text != accepted.text {
+		t.Fatalf("terminal retry digest = %+v, want exact queued accepted steer", newerTarget.digest)
+	}
+	completed, retry, err := service.saveTerminalChatRunProjection(newerTarget, chatRun, terminalNarrationResult{
+		currentFocus: "Complete the original objective with the accepted terminal constraint.",
+		highlights:   []string{},
+		summary:      "The current terminal narrator call completed.",
+	})
+	if err != nil {
+		t.Fatalf("save current terminal narrator call: %v", err)
+	}
+	if retry ||
+		completed.Status != EasyRunStatusCompleted ||
+		completed.CurrentFocus.Status != EasyRunFocusStatusCurrent ||
+		completed.CurrentFocus.Revision != 1 {
+		t.Fatalf("completed terminal retry = %+v retry=%v, want terminal current revision one", completed, retry)
+	}
+}
+
+func assertAcceptedSteeringDigest(t *testing.T, input narratorTaskInput, previousFocus string, text string) {
+	t.Helper()
+	if input.PreviousCurrentFocus != previousFocus || len(input.DigestEntries) != 1 {
+		t.Fatalf("narrator input = %+v, want previous focus %q and one entry", input, previousFocus)
+	}
+	entry := input.DigestEntries[0]
+	if entry.Source != narratorDigestSourceUserSteer || entry.Text != text || entry.EventID == "" {
+		t.Fatalf("narrator digest = %+v, want exact persisted user_steer %q", entry, text)
+	}
+}
+
+type orderedFocusNarratorRunner struct {
+	firstStarted chan struct{}
+	releaseFirst chan struct{}
+
+	mu       sync.Mutex
+	requests []chat.HarnessTaskRequest
+}
+
+func newOrderedFocusNarratorRunner() *orderedFocusNarratorRunner {
+	return &orderedFocusNarratorRunner{
+		firstStarted: make(chan struct{}, 1),
+		releaseFirst: make(chan struct{}),
+	}
+}
+
+func (runner *orderedFocusNarratorRunner) RunTask(ctx context.Context, request chat.HarnessTaskRequest) (chat.HarnessTaskResult, error) {
+	runner.mu.Lock()
+	callIndex := len(runner.requests)
+	runner.requests = append(runner.requests, request)
+	runner.mu.Unlock()
+	input := narratorTaskInput{}
+	if request.StructuredTask != nil {
+		_ = json.Unmarshal(request.StructuredTask.Input, &input)
+	}
+	if input.Terminal {
+		return narratorHarnessResult(map[string]any{
+			"currentFocus": input.PreviousCurrentFocus,
+			"highlights":   []string{},
+			"summary":      "The ordered focus run was stopped.",
+		})
+	}
+	if callIndex == 0 {
+		runner.firstStarted <- struct{}{}
+		select {
+		case <-ctx.Done():
+			return chat.HarnessTaskResult{}, ctx.Err()
+		case <-runner.releaseFirst:
+		}
+		return narratorHarnessResult(map[string]any{
+			"currentFocus": "Compare renderer paint and memory cost before choosing an approach.",
+			"highlights":   []string{},
+			"summary":      "",
+		})
+	}
+	return narratorHarnessResult(map[string]any{
+		"currentFocus": "Compare renderer paint, memory, and startup latency before choosing an approach.",
+		"highlights":   []string{},
+		"summary":      "",
+	})
+}
+
+func (runner *orderedFocusNarratorRunner) WaitForRequestCount(t *testing.T, count int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(runner.Requests()) >= count {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d ordered focus narrator requests", count)
+}
+
+func (runner *orderedFocusNarratorRunner) ReleaseFirst() {
+	close(runner.releaseFirst)
+}
+
+func (runner *orderedFocusNarratorRunner) Requests() []chat.HarnessTaskRequest {
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	return append([]chat.HarnessTaskRequest{}, runner.requests...)
 }
 
 func TestServiceSteerRejectsWithoutActiveRun(t *testing.T) {

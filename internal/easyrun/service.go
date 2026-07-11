@@ -35,6 +35,7 @@ type Service struct {
 	narratorByConversation map[string]string
 	narrators              map[string]*narratorRunState
 	observerCancel         context.CancelFunc
+	observerContext        context.Context
 	observerWG             sync.WaitGroup
 }
 
@@ -50,15 +51,6 @@ type ChatService interface {
 
 type WorkspaceResolver interface {
 	ResolveWorkspace(id string) (workspace.WorkspaceSummary, error)
-}
-
-// acceptedEasyRunSteering keeps the regular-chat result intact at the Easy Run
-// boundary. The persisted user message is the authoritative accepted steering
-// fact for later presentation projection; the renderer request is not.
-type acceptedEasyRunSteering struct {
-	run         EasyRun
-	text        string
-	userMessage chat.ChatMessage
 }
 
 type Option func(*Service)
@@ -252,127 +244,6 @@ func (service *Service) Stop(workspaceID string, easyRunID string) (EasyRun, err
 	return service.applyTerminalChatRun(run)
 }
 
-func (service *Service) Steer(workspaceID string, text string) (EasyRun, error) {
-	if service == nil {
-		return EasyRun{}, errors.New("easy-run service is required")
-	}
-	trimmed := strings.TrimSpace(text)
-	if err := validateWorkspaceID(workspaceID); err != nil {
-		return EasyRun{}, err
-	}
-	if trimmed == "" {
-		return EasyRun{}, errors.New("easy-run steering text is required")
-	}
-	if service.chat == nil {
-		return EasyRun{}, errors.New("easy-run chat service is required")
-	}
-
-	service.mu.Lock()
-	record, ok, err := service.store.findWorkingRun(workspaceID)
-	if err != nil {
-		service.mu.Unlock()
-		return EasyRun{}, err
-	}
-	if !ok {
-		service.mu.Unlock()
-		return EasyRun{}, fmt.Errorf("workspace %s has no active easy-run", workspaceID)
-	}
-	if record.BackingRunID == "" {
-		service.mu.Unlock()
-		return EasyRun{}, fmt.Errorf("easy-run %s does not have an active backing run", record.Run.ID)
-	}
-	run := record.Run
-	backingRunID := record.BackingRunID
-	service.mu.Unlock()
-
-	result, err := service.chat.SteerActiveRunInputByID(workspaceID, run.ConversationID, backingRunID, chat.TextChatInput(trimmed))
-	if err != nil {
-		return EasyRun{}, err
-	}
-	accepted, err := acceptedEasyRunSteeringFromChatResult(run, backingRunID, result)
-	if err != nil {
-		return EasyRun{}, fmt.Errorf("steering accepted but persisted chat result is invalid: %w", err)
-	}
-	return accepted.run, nil
-}
-
-func acceptedEasyRunSteeringFromChatResult(run EasyRun, backingRunID string, result chat.SteerMessageResult) (acceptedEasyRunSteering, error) {
-	if err := validateAcceptedEasyRunSteeringConversation(run, result.Conversation); err != nil {
-		return acceptedEasyRunSteering{}, err
-	}
-	if result.Run.ID != backingRunID || result.Run.ConversationID != run.ConversationID || result.Run.WorkspaceID != run.WorkspaceID {
-		return acceptedEasyRunSteering{}, fmt.Errorf(
-			"steering run = %s/%s/%s, want %s/%s/%s",
-			result.Run.WorkspaceID,
-			result.Run.ConversationID,
-			result.Run.ID,
-			run.WorkspaceID,
-			run.ConversationID,
-			backingRunID,
-		)
-	}
-	message := result.UserMessage
-	if message.ConversationID != run.ConversationID || message.RunID != backingRunID {
-		return acceptedEasyRunSteering{}, fmt.Errorf(
-			"steering message %s belongs to conversation/run %s/%s, want %s/%s",
-			message.ID,
-			message.ConversationID,
-			message.RunID,
-			run.ConversationID,
-			backingRunID,
-		)
-	}
-	if message.Role != chat.RoleUser || message.Delivery != chat.MessageDeliverySteering {
-		return acceptedEasyRunSteering{}, fmt.Errorf(
-			"steering message %s role/delivery = %s/%s, want %s/%s",
-			message.ID,
-			message.Role,
-			message.Delivery,
-			chat.RoleUser,
-			chat.MessageDeliverySteering,
-		)
-	}
-	text, err := acceptedEasyRunSteeringText(message)
-	if err != nil {
-		return acceptedEasyRunSteering{}, err
-	}
-	return acceptedEasyRunSteering{run: run, text: text, userMessage: message}, nil
-}
-
-func validateAcceptedEasyRunSteeringConversation(run EasyRun, conversation chat.Conversation) error {
-	if conversation.ID != run.ConversationID || conversation.WorkspaceID != run.WorkspaceID {
-		return fmt.Errorf(
-			"steering conversation = %s/%s, want %s/%s",
-			conversation.WorkspaceID,
-			conversation.ID,
-			run.WorkspaceID,
-			run.ConversationID,
-		)
-	}
-	if !conversation.Internal ||
-		conversation.Workflow != nil ||
-		conversation.EasyRun == nil ||
-		conversation.EasyRun.EasyRunID != run.ID {
-		return fmt.Errorf("steering conversation %s is not owned by easy-run %s", conversation.ID, run.ID)
-	}
-	return nil
-}
-
-func acceptedEasyRunSteeringText(message chat.ChatMessage) (string, error) {
-	if len(message.Parts) != 1 {
-		return "", fmt.Errorf("steering message %s has %d parts, want one text part", message.ID, len(message.Parts))
-	}
-	part := message.Parts[0]
-	if part.Type != chat.MessagePartText || part.Text == nil || part.Image != nil || part.Text.Format != chat.TextFormatPlain {
-		return "", fmt.Errorf("steering message %s does not contain one plain-text part", message.ID)
-	}
-	text := part.Text.Text
-	if strings.TrimSpace(text) == "" || text != strings.TrimSpace(text) {
-		return "", fmt.Errorf("steering message %s text must be non-empty shared-normalized text", message.ID)
-	}
-	return text, nil
-}
-
 func (service *Service) ReadSnapshot(workspaceID string) (EasyRunSnapshot, error) {
 	if service == nil {
 		return EasyRunSnapshot{}, errors.New("easy-run service is required")
@@ -516,7 +387,14 @@ func (service *Service) applyTerminalChatRunWithNarrator(ctx context.Context, ru
 			return target.record.Run, nil
 		}
 		narration := service.runTerminalNarrator(ctx, target)
-		return service.saveTerminalChatRunProjection(target.record, run, narration)
+		updated, retry, err := service.saveTerminalChatRunProjection(target, run, narration)
+		if err != nil {
+			return EasyRun{}, err
+		}
+		if retry {
+			continue
+		}
+		return updated, nil
 	}
 }
 
@@ -552,6 +430,7 @@ func (service *Service) easyRunRecordForTerminalChatRun(run chat.Run) (storedRun
 
 type terminalChatRunProjection struct {
 	digest             []narratorDigestEntry
+	digestThrough      int
 	mechanicalSummary  string
 	previousHighlights []EasyHighlight
 	record             storedRunRecord
@@ -562,6 +441,7 @@ type terminalChatRunProjection struct {
 
 type workingNarratorProjection struct {
 	digest             []narratorDigestEntry
+	digestThrough      int
 	previousHighlights []EasyHighlight
 	record             storedRunRecord
 }
@@ -590,8 +470,10 @@ func (service *Service) beginTerminalChatRunProjection(run chat.Run) (terminalCh
 		return terminalChatRunProjection{record: record, waitForNarrator: state.inFlightDone}, nil
 	}
 	state.beginCall(service.now())
+	digest, digestThrough := state.digest.consumePendingThrough()
 	return terminalChatRunProjection{
-		digest:             state.digest.consumePending(),
+		digest:             digest,
+		digestThrough:      digestThrough,
 		mechanicalSummary:  mechanicalSummary,
 		previousHighlights: highlights,
 		record:             record,
@@ -603,6 +485,7 @@ func (service *Service) beginTerminalChatRunProjection(run chat.Run) (terminalCh
 func (service *Service) beginWorkingNarratorProjectionLocked(workspaceID string, easyRunID string) (workingNarratorProjection, bool) {
 	state := service.narratorStateLocked(easyRunID)
 	if !shouldTriggerNarrator(narratorTriggerInput{
+		FocusDirty:          state.focusDirty,
 		InFlight:            state.inFlight,
 		LastCallAt:          state.lastCallAt,
 		NewDigestEntryCount: state.digest.pendingCount(),
@@ -628,71 +511,78 @@ func (service *Service) beginWorkingNarratorProjectionLocked(workspaceID string,
 		return workingNarratorProjection{}, false
 	}
 	state.beginCall(service.now())
+	digest, digestThrough := state.digest.consumePendingThrough()
 	return workingNarratorProjection{
-		digest:             state.digest.consumePending(),
+		digest:             digest,
+		digestThrough:      digestThrough,
 		previousHighlights: highlights,
 		record:             record,
 	}, true
 }
 
-func (service *Service) saveTerminalChatRunProjection(record storedRunRecord, run chat.Run, narration terminalNarrationResult) (EasyRun, error) {
+func (service *Service) saveTerminalChatRunProjection(target terminalChatRunProjection, run chat.Run, narration terminalNarrationResult) (EasyRun, bool, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
-
-	state := service.narratorStateLocked(record.Run.ID)
-	defer func() {
-		state.finishCall()
-		delete(service.narratorByConversation, activeKey(record.Run.WorkspaceID, record.Run.ConversationID))
-	}()
-
-	latest, err := service.store.loadRun(record.Run.WorkspaceID, record.Run.ID)
+	state := service.narratorStateLocked(target.record.Run.ID)
+	defer state.finishCall()
+	record, err := service.store.loadRun(target.record.Run.WorkspaceID, target.record.Run.ID)
 	if err != nil {
-		return EasyRun{}, err
+		return EasyRun{}, false, err
 	}
-	if latest.Run.Status != EasyRunStatusWorking {
-		return latest.Run, nil
+	if record.Run.Status != EasyRunStatusWorking {
+		return record.Run, false, nil
 	}
-	record = latest
 	if record.BackingRunID == "" {
 		record.BackingRunID = run.ID
 	}
-	if narration.err != nil {
-		log.Printf("easy-run narrator degraded for %s: %v", record.Run.ID, narration.err)
-		record.Run.NarratorStatus = EasyRunNarratorStatusDegraded
-	} else {
-		if _, err := service.recordNarratorHighlightsLocked(record.Run.WorkspaceID, record.Run.ID, narration.highlights); err != nil {
-			log.Printf("easy-run narrator highlight persistence degraded for %s: %v", record.Run.ID, err)
-			record.Run.NarratorStatus = EasyRunNarratorStatusDegraded
-			narration.summary = ""
-		} else {
-			record, err = service.store.loadRun(record.Run.WorkspaceID, record.Run.ID)
-			if err != nil {
-				return EasyRun{}, err
-			}
-			record.Run.NarratorStatus = EasyRunNarratorStatusOK
-		}
-	}
-	updated, err := terminalEasyRun(record.Run, run, narration.summary)
+	record, narratorSummary, err := service.applyTerminalNarrationLocked(record, state, target, narration)
 	if err != nil {
-		return EasyRun{}, err
+		return EasyRun{}, false, err
+	}
+	if record.Run.CurrentFocus.Status == EasyRunFocusStatusUpdating {
+		if err := service.saveRunAndPublishLocked(record); err != nil {
+			return EasyRun{}, false, err
+		}
+		return record.Run, true, nil
+	}
+	updated, err := terminalEasyRun(record.Run, run, narratorSummary)
+	if err != nil {
+		return EasyRun{}, false, err
 	}
 	record.Run = updated
-	if err := service.store.saveRun(record); err != nil {
-		return EasyRun{}, err
+	if err := service.saveRunAndPublishLocked(record); err != nil {
+		return EasyRun{}, false, err
 	}
-	if _, err := service.events.Publish(NewRunUpdatedEvent(record.Run)); err != nil {
-		return EasyRun{}, err
+	delete(service.narratorByConversation, activeKey(record.Run.WorkspaceID, record.Run.ConversationID))
+	return record.Run, false, nil
+}
+
+func (service *Service) applyTerminalNarrationLocked(record storedRunRecord, state *narratorRunState, target terminalChatRunProjection, narration terminalNarrationResult) (storedRunRecord, string, error) {
+	if narration.err != nil {
+		degradeNarratorProjection(&record, state, narration.err)
+		return record, "", nil
 	}
-	return record.Run, nil
+	if _, err := service.recordNarratorHighlightsLocked(record.Run.WorkspaceID, record.Run.ID, narration.highlights); err != nil {
+		degradeNarratorProjection(&record, state, err)
+		return record, "", nil
+	}
+	record, err := service.store.loadRun(record.Run.WorkspaceID, record.Run.ID)
+	if err != nil {
+		return storedRunRecord{}, "", err
+	}
+	if err := applyNarratorCurrentFocus(&record.Run, narration.currentFocus, state.finishFocusProjection(target.digestThrough), service.now()); err != nil {
+		degradeNarratorProjection(&record, state, err)
+		return record, "", nil
+	}
+	record.Run.NarratorStatus = EasyRunNarratorStatusOK
+	return record, narration.summary, nil
 }
 
 func (service *Service) saveWorkingNarratorProjection(target workingNarratorProjection, narration workingNarrationResult) (EasyRun, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
-
 	state := service.narratorStateLocked(target.record.Run.ID)
 	defer state.finishCall()
-
 	record, err := service.store.loadRun(target.record.Run.WorkspaceID, target.record.Run.ID)
 	if err != nil {
 		return EasyRun{}, err
@@ -701,32 +591,73 @@ func (service *Service) saveWorkingNarratorProjection(target workingNarratorProj
 		return record.Run, nil
 	}
 	if narration.err != nil {
-		log.Printf("easy-run narrator degraded for %s: %v", record.Run.ID, narration.err)
-		record.Run.NarratorStatus = EasyRunNarratorStatusDegraded
-		if err := service.store.saveRun(record); err != nil {
-			return EasyRun{}, err
-		}
-		if _, err := service.events.Publish(NewRunUpdatedEvent(record.Run)); err != nil {
-			return EasyRun{}, err
-		}
-		return record.Run, nil
+		return service.saveDegradedWorkingNarratorLocked(record, state, narration.err)
 	}
 	if _, err := service.recordNarratorHighlightsLocked(record.Run.WorkspaceID, record.Run.ID, narration.highlights); err != nil {
-		log.Printf("easy-run narrator highlight persistence degraded for %s: %v", record.Run.ID, err)
-		record.Run.NarratorStatus = EasyRunNarratorStatusDegraded
-		if err := service.store.saveRun(record); err != nil {
-			return EasyRun{}, err
-		}
-		if _, err := service.events.Publish(NewRunUpdatedEvent(record.Run)); err != nil {
-			return EasyRun{}, err
-		}
-		return record.Run, nil
+		return service.saveDegradedWorkingNarratorLocked(record, state, err)
 	}
 	record, err = service.store.loadRun(record.Run.WorkspaceID, record.Run.ID)
 	if err != nil {
 		return EasyRun{}, err
 	}
+	return service.saveWorkingCurrentFocusLocked(record, state, target, narration.currentFocus)
+}
+
+func (service *Service) saveWorkingCurrentFocusLocked(record storedRunRecord, state *narratorRunState, target workingNarratorProjection, currentFocus string) (EasyRun, error) {
+	lastGoodRecord := record
+	if err := applyNarratorCurrentFocus(&record.Run, currentFocus, state.finishFocusProjection(target.digestThrough), service.now()); err != nil {
+		return service.saveDegradedWorkingNarratorLocked(record, state, err)
+	}
+	record.Run.NarratorStatus = EasyRunNarratorStatusOK
+	if err := service.store.saveRun(record); err != nil {
+		failed, failureErr := service.markFocusProjectionStaleLocked(lastGoodRecord, state, err)
+		return failed, failureErr
+	}
+	if _, err := service.events.Publish(NewRunUpdatedEvent(record.Run)); err != nil {
+		failed, failureErr := service.markFocusProjectionStaleLocked(lastGoodRecord, state, err)
+		return failed, failureErr
+	}
 	return record.Run, nil
+}
+
+func (service *Service) saveDegradedWorkingNarratorLocked(record storedRunRecord, state *narratorRunState, cause error) (EasyRun, error) {
+	degradeNarratorProjection(&record, state, cause)
+	if err := service.saveRunAndPublishLocked(record); err != nil {
+		return EasyRun{}, err
+	}
+	return record.Run, nil
+}
+
+func degradeNarratorProjection(record *storedRunRecord, state *narratorRunState, cause error) {
+	log.Printf("easy-run narrator degraded for %s: %v", record.Run.ID, cause)
+	state.failFocusProjection()
+	record.Run.CurrentFocus.Status = EasyRunFocusStatusStale
+	record.Run.NarratorStatus = EasyRunNarratorStatusDegraded
+}
+
+func (service *Service) saveRunAndPublishLocked(record storedRunRecord) error {
+	if err := service.store.saveRun(record); err != nil {
+		return err
+	}
+	_, err := service.events.Publish(NewRunUpdatedEvent(record.Run))
+	return err
+}
+
+func applyNarratorCurrentFocus(run *EasyRun, text string, status EasyRunFocusStatus, now time.Time) error {
+	if run == nil {
+		return errors.New("easy-run is required for current focus projection")
+	}
+	validated, err := narratorCurrentFocusText(text)
+	if err != nil {
+		return err
+	}
+	if validated != run.CurrentFocus.Text {
+		run.CurrentFocus.Revision++
+		run.CurrentFocus.Text = validated
+		run.CurrentFocus.UpdatedAt = timestamp(now)
+	}
+	run.CurrentFocus.Status = status
+	return nil
 }
 
 func terminalEasyRun(run EasyRun, chatRun chat.Run, narratorSummary string) (EasyRun, error) {

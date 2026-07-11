@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
@@ -96,23 +97,31 @@ func runScriptedEasyRunNarratorTask(request HarnessTaskRequest) (HarnessTaskResu
 	}, nil
 }
 
+type scriptedEasyRunNarratorDigestEntry struct {
+	Text string `json:"text"`
+}
+
 func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
 	var input struct {
-		RequestText string `json:"requestText"`
-		Status      string `json:"status"`
-		Terminal    bool   `json:"terminal"`
+		DigestEntries        []scriptedEasyRunNarratorDigestEntry `json:"digestEntries"`
+		PreviousCurrentFocus string                               `json:"previousCurrentFocus"`
+		RequestText          string                               `json:"requestText"`
+		Status               string                               `json:"status"`
+		Terminal             bool                                 `json:"terminal"`
 	}
 	if request.StructuredTask != nil && len(request.StructuredTask.Input) > 0 {
 		_ = json.Unmarshal(request.StructuredTask.Input, &input)
 	}
 	if input.RequestText == "default narrator empty summary" {
 		return map[string]any{
-			"highlights": []string{},
-			"summary":    "",
+			"currentFocus": scriptedEasyRunCurrentFocus(input.RequestText, input.PreviousCurrentFocus, input.DigestEntries),
+			"highlights":   []string{},
+			"summary":      "",
 		}
 	}
 	if input.RequestText == "easy run phase4 narrator workflow" {
 		return map[string]any{
+			"currentFocus": scriptedEasyRunCurrentFocus(input.RequestText, input.PreviousCurrentFocus, input.DigestEntries),
 			"highlights": []string{
 				"Framing the request as a user-facing result",
 				"Preparing the final visible answer",
@@ -121,18 +130,43 @@ func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
 		}
 	}
 	if input.RequestText == "easy run working narrator cadence" && !input.Terminal {
+		currentFocus := scriptedEasyRunCurrentFocus(input.RequestText, input.PreviousCurrentFocus, input.DigestEntries)
+		highlights := []string{
+			"Working through the request shape",
+			"Preparing a visible result",
+		}
+		if currentFocus != input.PreviousCurrentFocus {
+			highlights = []string{}
+		}
 		return map[string]any{
-			"highlights": []string{
-				"Working through the request shape",
-				"Preparing a visible result",
-			},
-			"summary": "",
+			"currentFocus": currentFocus,
+			"highlights":   highlights,
+			"summary":      "",
 		}
 	}
 	return map[string]any{
-		"highlights": []string{},
-		"summary":    scriptedEasyRunNarratorSummary(input.Status),
+		"currentFocus": scriptedEasyRunCurrentFocus(input.RequestText, input.PreviousCurrentFocus, input.DigestEntries),
+		"highlights":   []string{},
+		"summary":      scriptedEasyRunNarratorSummary(input.Status),
 	}
+}
+
+func scriptedEasyRunCurrentFocus(requestText string, previous string, digestEntries []scriptedEasyRunNarratorDigestEntry) string {
+	if previous == "" {
+		previous = requestText
+	}
+	if strings.HasPrefix(requestText, "easy run phase5 long request workflow ") {
+		return "Complete the Easy Button long-request workflow while preserving all of its constraints."
+	}
+	for _, entry := range digestEntries {
+		switch entry.Text {
+		case "steer easy run phase2":
+			return "Complete the Easy Button phase 2 workflow while following the accepted steering direction."
+		case "finish working narrator cadence", "finish":
+			return "Finish the working narrator cadence."
+		}
+	}
+	return previous
 }
 
 func scriptedEasyRunNarratorSummary(status string) string {

@@ -9,48 +9,58 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"setta/internal/chat"
 )
 
-const easyRunNarratorSurfaceMetadata = "easy_run_narrator"
+const (
+	easyRunNarratorSurfaceMetadata = "easy_run_narrator"
+	maxNarratorCurrentFocusRunes   = 320
+)
 
 var narratorReasoningEffort = chat.ReasoningEffortNone
 
 type narratorRunState struct {
-	digest       *narratorDigestBuffer
-	inFlight     bool
-	inFlightDone chan struct{}
-	lastCallAt   time.Time
+	digest            *narratorDigestBuffer
+	focusDirty        bool
+	focusDirtyThrough int
+	inFlight          bool
+	inFlightDone      chan struct{}
+	lastCallAt        time.Time
 }
 
 type terminalNarrationResult struct {
-	err        error
-	highlights []string
-	summary    string
+	currentFocus string
+	err          error
+	highlights   []string
+	summary      string
 }
 
 type workingNarrationResult struct {
-	err        error
-	highlights []string
+	currentFocus string
+	err          error
+	highlights   []string
 }
 
 type narratorTaskInput struct {
-	ArtifactCount      int                   `json:"artifactCount"`
-	DigestEntries      []narratorDigestEntry `json:"digestEntries"`
-	EasyRunID          string                `json:"easyRunId"`
-	HighlightCount     int                   `json:"highlightCount"`
-	MechanicalSummary  string                `json:"mechanicalSummary"`
-	PreviousHighlights []string              `json:"previousHighlights"`
-	RequestText        string                `json:"requestText"`
-	Status             chat.RunStatus        `json:"status"`
-	Terminal           bool                  `json:"terminal"`
-	WorkspaceID        string                `json:"workspaceId"`
+	ArtifactCount        int                   `json:"artifactCount"`
+	DigestEntries        []narratorDigestEntry `json:"digestEntries"`
+	EasyRunID            string                `json:"easyRunId"`
+	HighlightCount       int                   `json:"highlightCount"`
+	MechanicalSummary    string                `json:"mechanicalSummary"`
+	PreviousCurrentFocus string                `json:"previousCurrentFocus"`
+	PreviousHighlights   []string              `json:"previousHighlights"`
+	RequestText          string                `json:"requestText"`
+	Status               chat.RunStatus        `json:"status"`
+	Terminal             bool                  `json:"terminal"`
+	WorkspaceID          string                `json:"workspaceId"`
 }
 
 type narratorTaskOutput struct {
-	Highlights []string `json:"highlights"`
-	Summary    string   `json:"summary"`
+	CurrentFocus string   `json:"currentFocus"`
+	Highlights   []string `json:"highlights"`
+	Summary      string   `json:"summary"`
 }
 
 func newNarratorRunState() *narratorRunState {
@@ -79,6 +89,27 @@ func (state *narratorRunState) finishCall() {
 	state.inFlight = false
 	close(state.inFlightDone)
 	state.inFlightDone = nil
+}
+
+func (state *narratorRunState) markFocusDirty(through int) {
+	state.focusDirty = true
+	if through > state.focusDirtyThrough {
+		state.focusDirtyThrough = through
+	}
+}
+
+func (state *narratorRunState) finishFocusProjection(through int) EasyRunFocusStatus {
+	if state.focusDirty && through >= state.focusDirtyThrough {
+		state.focusDirty = false
+	}
+	if state.focusDirty {
+		return EasyRunFocusStatusUpdating
+	}
+	return EasyRunFocusStatusCurrent
+}
+
+func (state *narratorRunState) failFocusProjection() {
+	state.focusDirty = false
 }
 
 func (service *Service) runWorkingNarrator(ctx context.Context, target workingNarratorProjection) workingNarrationResult {
@@ -193,7 +224,7 @@ func workingNarrationFromHarnessResult(result chat.HarnessTaskResult) workingNar
 	if err != nil {
 		return workingNarrationResult{err: err}
 	}
-	return workingNarrationResult{highlights: highlights}
+	return workingNarrationResult{currentFocus: output.CurrentFocus, highlights: highlights}
 }
 
 func terminalNarrationFromHarnessResult(result chat.HarnessTaskResult) terminalNarrationResult {
@@ -212,7 +243,7 @@ func terminalNarrationFromHarnessResult(result chat.HarnessTaskResult) terminalN
 	if summary == "" {
 		return terminalNarrationResult{err: errors.New("narrator terminal summary is required")}
 	}
-	return terminalNarrationResult{highlights: highlights, summary: summary}
+	return terminalNarrationResult{currentFocus: output.CurrentFocus, highlights: highlights, summary: summary}
 }
 
 func narratorInputForWorking(target workingNarratorProjection) narratorTaskInput {
@@ -221,16 +252,17 @@ func narratorInputForWorking(target workingNarratorProjection) narratorTaskInput
 		previousHighlights = append(previousHighlights, highlight.Text)
 	}
 	return narratorTaskInput{
-		ArtifactCount:      target.record.Run.ArtifactCount,
-		DigestEntries:      target.digest,
-		EasyRunID:          target.record.Run.ID,
-		HighlightCount:     target.record.Run.HighlightCount,
-		MechanicalSummary:  "",
-		PreviousHighlights: previousHighlights,
-		RequestText:        target.record.Run.RequestText,
-		Status:             chat.RunStatusRunning,
-		Terminal:           false,
-		WorkspaceID:        target.record.Run.WorkspaceID,
+		ArtifactCount:        target.record.Run.ArtifactCount,
+		DigestEntries:        target.digest,
+		EasyRunID:            target.record.Run.ID,
+		HighlightCount:       target.record.Run.HighlightCount,
+		MechanicalSummary:    "",
+		PreviousCurrentFocus: target.record.Run.CurrentFocus.Text,
+		PreviousHighlights:   previousHighlights,
+		RequestText:          target.record.Run.RequestText,
+		Status:               chat.RunStatusRunning,
+		Terminal:             false,
+		WorkspaceID:          target.record.Run.WorkspaceID,
 	}
 }
 
@@ -240,16 +272,17 @@ func narratorInputForTerminal(target terminalChatRunProjection) narratorTaskInpu
 		previousHighlights = append(previousHighlights, highlight.Text)
 	}
 	return narratorTaskInput{
-		ArtifactCount:      target.record.Run.ArtifactCount,
-		DigestEntries:      target.digest,
-		EasyRunID:          target.record.Run.ID,
-		HighlightCount:     target.record.Run.HighlightCount,
-		MechanicalSummary:  target.mechanicalSummary,
-		PreviousHighlights: previousHighlights,
-		RequestText:        target.record.Run.RequestText,
-		Status:             target.status,
-		Terminal:           true,
-		WorkspaceID:        target.record.Run.WorkspaceID,
+		ArtifactCount:        target.record.Run.ArtifactCount,
+		DigestEntries:        target.digest,
+		EasyRunID:            target.record.Run.ID,
+		HighlightCount:       target.record.Run.HighlightCount,
+		MechanicalSummary:    target.mechanicalSummary,
+		PreviousCurrentFocus: target.record.Run.CurrentFocus.Text,
+		PreviousHighlights:   previousHighlights,
+		RequestText:          target.record.Run.RequestText,
+		Status:               target.status,
+		Terminal:             true,
+		WorkspaceID:          target.record.Run.WorkspaceID,
 	}
 }
 
@@ -284,6 +317,11 @@ func decodeNarratorTaskOutput(raw json.RawMessage) (narratorTaskOutput, error) {
 	if output.Highlights == nil {
 		return narratorTaskOutput{}, errors.New("narrator highlights array is required")
 	}
+	currentFocus, err := narratorCurrentFocusText(output.CurrentFocus)
+	if err != nil {
+		return narratorTaskOutput{}, err
+	}
+	output.CurrentFocus = currentFocus
 	if len(output.Highlights) > maxEasyHighlightsPerNarratorCall {
 		output.Highlights = output.Highlights[:maxEasyHighlightsPerNarratorCall]
 	}
@@ -291,11 +329,16 @@ func decodeNarratorTaskOutput(raw json.RawMessage) (narratorTaskOutput, error) {
 }
 
 func defaultNarratorOutputSchema() json.RawMessage {
-	return json.RawMessage(`{
+	return json.RawMessage(fmt.Sprintf(`{
   "type": "object",
   "additionalProperties": false,
-  "required": ["highlights", "summary"],
+  "required": ["currentFocus", "highlights", "summary"],
   "properties": {
+    "currentFocus": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": %d
+    },
     "highlights": {
       "type": "array",
       "items": {"type": "string"},
@@ -303,15 +346,35 @@ func defaultNarratorOutputSchema() json.RawMessage {
     },
     "summary": {"type": "string"}
   }
-}`)
+}`, maxNarratorCurrentFocusRunes))
 }
 
 func productionNarratorPrompt() string {
 	return `You are Setta's Easy Button narrator. Return only strict JSON matching the supplied schema.
 
-Write for the Easy Button presentation plane, not for an engineering transcript. Highlights are sparse phase changes, not actions. Return an empty highlights array when the new evidence does not show a meaningful phase change. Never turn command names, file names, tests, retries, tool calls, approvals, or lifecycle mechanics into highlights by themselves.
+Write for the Easy Button presentation plane, not for an engineering transcript.
+
+Current focus is one concise description of the active objective and every still-applicable constraint. It is not a status update, activity log, quotation, or completion answer. Incorporate every supplied user_steer entry without dropping constraints that it did not supersede. Do not claim that Current focus is the user's exact wording. On ordinary progress, revise it only when the evidence proves that one requested subgoal finished and another requested subgoal became active. If the objective has not materially changed, return previousCurrentFocus exactly. The only exception is a revision-zero previousCurrentFocus longer than the currentFocus schema limit: condense it within the limit without dropping its objective or constraints. Never invent a requirement from assistant output, tool activity, or a guess about user intent. When uncertain, return previousCurrentFocus exactly unless that value exceeds the schema limit.
+
+Highlights are sparse phase changes, not actions. Return an empty highlights array when the new evidence does not show a meaningful phase change. Never quote a user_steer as a highlight or treat the steering event itself as a phase change. Never turn command names, file names, tests, retries, tool calls, approvals, or lifecycle mechanics into highlights by themselves.
 
 For non-terminal requests, summary must be an empty string. For terminal requests, summary must be one or two plain-language sentences that answer what happened or what was produced. Do not mention commands, file paths, tool calls, provider events, transcripts, or agent mechanics. The service will append mechanical duration and artifact-count facts; do not invent them.
 
-Use only the supplied request, previous highlights, mechanical facts, and digest entries. Do not include chain-of-thought, private reasoning, markdown fences, raw logs, diffs, or prose outside JSON.`
+Every highlight and terminal summary must work when read aloud verbatim. Use short grammatical phrases or sentences and common spoken wording. Do not include file paths, command names, opaque identifiers, raw status codes, unexplained abbreviations, symbolic duration formats, or visual-only fragments. Voice readiness is not permission to emit more highlights.
+
+Use only the supplied request, previous Current focus, previous highlights, mechanical facts, and digest entries. Do not include chain-of-thought, private reasoning, markdown fences, raw logs, diffs, or prose outside JSON.`
+}
+
+func narratorCurrentFocusText(text string) (string, error) {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return "", errors.New("narrator current focus is required")
+	}
+	if text != trimmed {
+		return "", errors.New("narrator current focus must not contain leading or trailing whitespace")
+	}
+	if count := utf8.RuneCountInString(text); count > maxNarratorCurrentFocusRunes {
+		return "", fmt.Errorf("narrator current focus has %d characters, maximum is %d", count, maxNarratorCurrentFocusRunes)
+	}
+	return text, nil
 }

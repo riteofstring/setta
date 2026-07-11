@@ -110,13 +110,15 @@ func (runner *recordingNarratorRunner) RunTask(_ context.Context, request chat.H
 	}
 	if input.Terminal {
 		return narratorHarnessResult(map[string]any{
-			"highlights": []string{},
-			"summary":    "Observer resync completed the hidden run.",
+			"currentFocus": input.PreviousCurrentFocus,
+			"highlights":   []string{},
+			"summary":      "Observer resync completed the hidden run.",
 		})
 	}
 	return narratorHarnessResult(map[string]any{
-		"highlights": []string{"Observer recovered the working phase", "Preparing the visible result"},
-		"summary":    "",
+		"currentFocus": input.PreviousCurrentFocus,
+		"highlights":   []string{"Observer recovered the working phase", "Preparing the visible result"},
+		"summary":      "",
 	})
 }
 

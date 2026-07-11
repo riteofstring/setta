@@ -4,6 +4,9 @@
   const version = "setta-easy-button-pane-driver-v3";
   const paneHostSelector = '[data-testid="workspace-pane-host"]';
 
+  let easyRunEventLog = [];
+  let stopEasyRunEventLog = null;
+
   function installEasyButtonPaneDriver() {
     const driver = globalThis.__settaE2EDriver;
     if (!driver) {
@@ -16,7 +19,9 @@
       easyButtonPaneClickStop,
       easyButtonPaneClose,
       easyButtonPaneForceFrozen,
+      easyButtonPaneEventLog,
       easyButtonPaneOpenShortcut,
+      easyButtonPaneResetEventLog,
       easyButtonPaneState,
       easyButtonPaneStartDirect,
       easyButtonPaneSubmitRequest,
@@ -24,6 +29,20 @@
       easyButtonPinAnimations,
       easyButtonPixelMatchMetrics,
     });
+  }
+
+  function easyButtonPaneEventLog() {
+    return easyRunEventLog;
+  }
+
+  function easyButtonPaneResetEventLog() {
+    easyRunEventLog = [];
+    if (stopEasyRunEventLog === null) {
+      stopEasyRunEventLog = window.setta.easyRun.onEvent((event) => {
+        easyRunEventLog.push(event);
+      });
+    }
+    return true;
   }
 
   // Freezing the pane's motion at a chosen time turns "pixel-match an animation"

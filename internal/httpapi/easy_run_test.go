@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -86,6 +87,38 @@ func TestSteerEasyRunEndpointReturnsTypedError(t *testing.T) {
 	}
 }
 
+func TestSteerEasyRunEndpointClassifiesAcceptedFocusUpdatePartialOutcome(t *testing.T) {
+	service := &partialFocusHTTPTestEasyRunService{
+		httpTestEasyRunService: newHTTPTestEasyRunService(t),
+	}
+	server := httptest.NewServer(newAuthenticatedTestHandler(t, HandlerConfig{
+		EasyRunService: service,
+		Metadata:       BackendMetadata{Name: BackendName, Version: "test"},
+	}))
+	defer server.Close()
+
+	response, err := http.Post(
+		server.URL+"/easy-runs/steer",
+		"application/json",
+		strings.NewReader(`{"workspaceId":"workspace_api","text":"already delivered"}`),
+	)
+	if err != nil {
+		t.Fatalf("post accepted steering partial outcome: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", response.StatusCode)
+	}
+	var body ErrorResponse
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatalf("decode partial-outcome error: %v", err)
+	}
+	if body.Error.Code != "steer_easy_run_focus_update_failed" ||
+		!strings.Contains(body.Error.Message, "steering accepted but focus update failed") {
+		t.Fatalf("partial-outcome error = %+v, want typed accepted-focus code", body.Error)
+	}
+}
+
 func TestEasyRunEventStreamRejectsMalformedCursor(t *testing.T) {
 	service := newHTTPTestEasyRunService(t)
 	server := httptest.NewServer(newAuthenticatedTestHandler(t, HandlerConfig{
@@ -111,6 +144,14 @@ func TestEasyRunEventStreamRejectsMalformedCursor(t *testing.T) {
 
 type httpTestEasyRunService struct {
 	*easyrun.Service
+}
+
+type partialFocusHTTPTestEasyRunService struct {
+	*httpTestEasyRunService
+}
+
+func (service *partialFocusHTTPTestEasyRunService) Steer(string, string) (easyrun.EasyRun, error) {
+	return easyrun.EasyRun{}, &easyrun.AcceptedSteeringFocusUpdateError{Err: errors.New("event stream is unavailable")}
 }
 
 func newHTTPTestEasyRunService(t *testing.T) *httpTestEasyRunService {

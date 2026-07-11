@@ -1,6 +1,10 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
+
+	"setta/internal/easyrun"
+)
 
 func (handler handler) readEasyRunSnapshot(response http.ResponseWriter, request *http.Request) {
 	service := requireEasyRunService(response, handler.easyRunService)
@@ -46,7 +50,11 @@ func (handler handler) steerEasyRun(response http.ResponseWriter, request *http.
 	}
 	run, err := service.Steer(payload.WorkspaceID, payload.Text)
 	if err != nil {
-		writeEasyRunError(response, "steer_easy_run_failed", err)
+		code := "steer_easy_run_failed"
+		if easyrun.IsAcceptedSteeringFocusUpdateError(err) {
+			code = "steer_easy_run_focus_update_failed"
+		}
+		writeEasyRunError(response, code, err)
 		return
 	}
 	writeJSON(response, http.StatusOK, run)
