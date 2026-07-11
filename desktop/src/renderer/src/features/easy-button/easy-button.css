@@ -3,7 +3,14 @@
   --easy-button-panel: var(--setta-875);
   --easy-button-plate: var(--setta-925);
   --easy-button-border: var(--setta-750);
-  --easy-button-muted: var(--muted-foreground);
+
+  /* Pinned, like every other token here. `--muted-foreground` resolves to
+     --setta-400 at runtime: the appearance store writes the Go-derived shadcn
+     palette onto the root as inline styles, and the dark scheme's
+     firstReadableForeground() prefers the dimmest readable candidate. This pane
+     pins its whole dark ladder, so tracking that token bought no theming — and
+     on a dark surface --setta-300 has more contrast, not less. */
+  --easy-button-muted: var(--setta-300);
   --easy-button-faint: var(--setta-500);
   --easy-button-well: clamp(132px, min(24vw, 24vh), 180px);
 
@@ -13,6 +20,13 @@
   grid-template-columns: minmax(240px, 300px) 1fr minmax(280px, 380px);
   grid-template-rows: minmax(0, 1fr) auto;
   height: 100%;
+
+  /* The mockup states its line height exactly once, on `body`. Tailwind's
+     preflight states the same unitless 1.5 on `html`, so the pane inherits the
+     mockup's value already; pinning it here only makes that independent of the
+     app root. Per-element line heights below would override it with numbers the
+     mockup never had — and the mockup's margins were tuned against 1.5 boxes. */
+  line-height: 1.5;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -48,7 +62,6 @@
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.14em;
-  line-height: 1;
   margin: 0;
   text-transform: uppercase;
   transition: opacity 400ms ease;
@@ -78,7 +91,6 @@
   font-size: 13px;
   gap: 9px;
   grid-template-columns: 6px 1fr auto;
-  line-height: 1.4;
   min-width: 0;
   opacity: 0.3;
   transition:
@@ -125,7 +137,6 @@
   font-family: var(--setta-font-mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
 }
 
 .easy-button-surface[data-easy-button-state="working"]
@@ -184,7 +195,6 @@
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.14em;
-  line-height: 1.2;
   margin-bottom: 3px;
   text-transform: uppercase;
 }
@@ -192,7 +202,6 @@
 .easy-button-artifact-title {
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.25;
   margin-bottom: 10px;
 }
 
@@ -210,7 +219,6 @@
 .easy-button-artifact-table {
   border-collapse: collapse;
   font-size: 12px;
-  line-height: 1.3;
   width: 100%;
 }
 
@@ -310,7 +318,6 @@
   color: var(--accent-teal);
   font-family: var(--setta-font-mono);
   font-size: 11.5px;
-  line-height: 1.35;
   overflow-wrap: anywhere;
   padding: 7px 8px;
 }
@@ -318,7 +325,6 @@
 .easy-button-artifact-file p {
   color: var(--easy-button-muted);
   font-size: 12.5px;
-  line-height: 1.35;
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -343,6 +349,19 @@
   width: 100%;
 }
 
+/* The swirl is `inset: -100%` on the button well, so its field reaches 180px past
+   the well on every side and covers the chip above it, the caption below it, and
+   the top of the Stop button. It is a positioned element with `z-index: 0`, and
+   these slots are in flow, so without a layer of their own the blurred field
+   paints *over* their text. Lifting them to the control's layer is what the
+   mockup does, and it is the only reason its caption reads at full contrast. */
+.easy-button-agent-chip-slot,
+.easy-button-caption-slot,
+.easy-button-action-slot {
+  position: relative;
+  z-index: 2;
+}
+
 .easy-button-agent-chip-slot {
   align-items: center;
   display: flex;
@@ -356,7 +375,6 @@
   font-family: var(--setta-font-mono);
   font-size: 10.5px;
   letter-spacing: 0.05em;
-  line-height: 1;
   opacity: 0;
   transition: opacity 500ms ease;
   white-space: nowrap;
@@ -653,14 +671,12 @@
 .easy-button-helper {
   color: var(--easy-button-faint);
   font-size: 12.5px;
-  line-height: 1.35;
   margin: 0;
 }
 
 .easy-button-summary {
   color: var(--easy-button-muted);
   font-size: 12.5px;
-  line-height: 1.35;
   max-height: min(14vh, 112px);
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
@@ -673,7 +689,6 @@
 .easy-button-error {
   color: color-mix(in oklab, var(--destructive) 80%, var(--foreground));
   font-size: 12.5px;
-  line-height: 1.35;
   max-height: min(12vh, 96px);
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
@@ -682,7 +697,6 @@
 .easy-button-narrator-status {
   color: var(--easy-button-faint);
   font-size: 11px;
-  line-height: 1.2;
   margin: 0;
 }
 
@@ -773,6 +787,12 @@
   flex: 1 1 auto;
   font: inherit;
   font-size: 13px;
+
+  /* `font: inherit` also inherits the app's line height, which a text input
+     otherwise takes from the UA as `normal`. Left alone it makes the pill's
+     height a function of the app's root typography — 45.5px against the mockup's
+     41px — rather than of its own font. */
+  line-height: normal;
   min-width: 0;
   outline: none;
   padding: 12px 0;
@@ -794,7 +814,6 @@
   flex: 0 0 auto;
   font-family: var(--setta-font-mono);
   font-size: 10px;
-  line-height: 1.4;
   padding: 1px 5px;
 }
 

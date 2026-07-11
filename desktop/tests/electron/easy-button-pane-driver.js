@@ -1,7 +1,7 @@
 /* global Element, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, KeyboardEvent, document, getComputedStyle, window */
 
 (() => {
-  const version = "setta-easy-button-pane-driver-v1";
+  const version = "setta-easy-button-pane-driver-v3";
   const paneHostSelector = '[data-testid="workspace-pane-host"]';
 
   function installEasyButtonPaneDriver() {
@@ -20,7 +20,36 @@
       easyButtonPaneStartDirect,
       easyButtonPaneSubmitRequest,
       easyButtonPaneVersion: version,
+      easyButtonPinAnimations,
+      easyButtonPixelMatchMetrics,
     });
+  }
+
+  // Freezing the pane's motion at a chosen time turns "pixel-match an animation"
+  // into "compare two stills". Both live in the pixel-match probe, which the
+  // mockup renderer evaluates too — one implementation, two surfaces.
+  function easyButtonPinAnimations(timeMs) {
+    return pixelMatchProbe().pin(requireEasyButtonHost(), timeMs);
+  }
+
+  function easyButtonPixelMatchMetrics() {
+    return pixelMatchProbe().measure(requireEasyButtonHost(), "production");
+  }
+
+  function pixelMatchProbe() {
+    const probe = globalThis.__settaEasyButtonPixelMatch;
+    if (!probe) {
+      throw new Error("easy-button pixel-match probe is not installed");
+    }
+    return probe;
+  }
+
+  function requireEasyButtonHost() {
+    const host = easyButtonHost();
+    if (!(host instanceof HTMLElement)) {
+      throw new Error("easy-button pane host is not mounted");
+    }
+    return host;
   }
 
   async function easyButtonPaneState() {
@@ -287,6 +316,12 @@
       animationFillMode: elementStyleValue(card, "animationFillMode"),
       animationName: elementStyleValue(card, "animationName"),
       animationTimingFunction: elementStyleValue(card, "animationTimingFunction"),
+      // The inline width, because that is what `barWidthStyle` computes. The
+      // resolved px would report the flex-shrunk box instead.
+      barWidths: Array.from(card.querySelectorAll(".easy-button-artifact-bar")).map((bar) =>
+        bar instanceof HTMLElement ? bar.style.width : "",
+      ),
+      filePath: elementText(card.querySelector(".easy-button-artifact-file code")),
       kind: card instanceof HTMLElement ? (card.dataset.artifactKind ?? "") : "",
       text: (card.textContent ?? "").trim(),
       title: elementText(card.querySelector(".easy-button-artifact-title")),

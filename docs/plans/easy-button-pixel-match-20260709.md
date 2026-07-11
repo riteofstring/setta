@@ -154,7 +154,7 @@ token with an **exact** `oklch()` match except where noted.
 | `--surface` | `--setta-925` | footer input, inset plates |
 | `--border` | `--setta-750` | |
 | `--fg` | `--foreground` (`--setta-100`) | |
-| `--muted` | `--muted-foreground` (`--setta-300`) | **not** `--muted`, which is a surface (`--setta-875`) |
+| `--muted` | `--setta-300` | **not** `--muted` (a surface, `--setta-875`) and **not** `--muted-foreground` — see below. |
 | `--faint` | `--setta-500` | labels, times, kickers |
 | `--primary` | `--accent-cyan` | exact |
 | `--accent-violet` / `-blue` / `-green` / `-teal` | same names | exact |
@@ -167,6 +167,22 @@ Current code reaches for `color-mix(... var(--setta-300) ...)` and
 mockup names a flat token. Replace the color-mixes with the flat tokens; keep
 `color-mix` only where the mockup itself uses it (`box-shadow`, focus rings,
 border tinting).
+
+**Do not route `--muted` through `--muted-foreground`.** `styles.css` declares
+`--muted-foreground: var(--setta-300)`, but `appearance-store.ts` writes the
+shadcn palette onto `<html>` as inline styles at runtime, and
+`internal/appearance/color_schemes.go` derives the dark scheme's
+`mutedForeground` with `firstReadableForeground([setta-875, setta-850],
+setta-400, setta-300, …)` — which selects **`--setta-400`**, because that helper
+prefers the *dimmest readable* candidate. The inline style beats the stylesheet,
+so the pane rendered `oklch(0.6255 0.0618 263.97)` against the mockup's
+`oklch(0.7167 0.0439 264.25)`.
+
+Phase C first accepted that, on theming and contrast grounds. Both grounds are
+wrong here: the pane pins its entire dark ladder (decisions 1 and 2), so tracking
+one themeable token bought nothing, and on a dark surface `--setta-300` has *more*
+contrast than `--setta-400`, not less. Pinned to `--setta-300`; measured in the
+live pane as `oklch(0.7167 0.0439 264.25)`, matching the mockup exactly.
 
 ## The Delta, By Region
 
@@ -464,11 +480,105 @@ Sampling gotcha, now encoded in both workflows: the swirl crossfades over
 1600ms, so any state read the instant a view state lands reports an interpolated
 opacity that equals neither endpoint. Waits gate on the settled field.
 
-### Phase C — Fidelity harness (tests only)
+### Phase C — Fidelity harness, and the delta list it produced
 
-- `easyButtonPinAnimations(t)` in the driver.
-- Phase-pinned captures per state into `.recordings/…/pixel-match/`.
-- Optional side-by-side capture of the mockup in the same renderer.
+Landed. Report: `docs/reports/easy-button-pane-pixel-match-20260709.md`.
+
+The harness was the means, not the end: it exists to produce a classified list of
+what still differs from the mockup. Both surfaces render in the same Electron
+binary at the same viewport, where both rails clamp to the same 300px / 380px
+tracks — which is what makes a per-component comparison well-defined, and a
+whole-pane diff meaningless.
+
+- `easyButtonPinAnimations(t)` and `easyButtonPixelMatchMetrics()` in the driver,
+  over a shared probe the mockup renderer evaluates too.
+- Phase-pinned captures per state (`idle`, `working`, `stopped`, `completed` with
+  artifacts, `completed` with highlights, `failed`) at `t = 0ms` and `4500ms`,
+  into `.recordings/…/pixel-match/`, from inside the existing `easy-button-pane`
+  workflow.
+- Side-by-side mockup render: `easy-button-mockup-render.mjs`, standalone —
+  it asserts nothing, so it is not a workflow. It also emits `delta.md`.
+
+**Pin semantics matter.** Only perpetual animations are seeked. Transitions and
+one-shot entrances are `finish()`ed: pausing the swirl's 1600ms crossfade
+part-way pins it to an opacity that is neither 0.85 nor 0.2, and a card frozen
+inside its 520ms arrival is still transparent. Metrics are read *after* pinning,
+so they describe the captured frame; `getComputedStyle` still reports the CSS
+`animation-play-state` rather than the Web Animations one, so the idle pause
+survives the freeze.
+
+**Four production defects found and fixed** (CSS only):
+
+1. The swirl (`inset: -100%`, 540x540, `z-index: 0`) painted **over** the agent
+   chip and the caption slot, because both were in flow with `z-index: auto`.
+   The mockup lifts `.agent-chip` and `.caption-slot` to `z-index: 2`; that pair
+   of declarations had not been carried across. Verified against the token rather
+   than the cascade: the helper line's brightest pixel was `rgb(93, 132, 165)`,
+   +18.7 luma above its own `--setta-500` and green-shifted by the field; after
+   the fix it is `rgb(90, 105, 141)`, the token itself. (The Stop button was
+   lifted too, but its top edge sits ~201px from the well's centre against a
+   205px mask radius, so its reddest border pixel is byte-identical before and
+   after — it never had the defect.)
+2. `.easy-button-input { font: inherit }` also inherited the app's line-height
+   into a control the UA gives `normal`, making the footer pill 45.5px instead of
+   the mockup's 41px. Fixed with `line-height: normal`; the pill now measures
+   560x41 exactly.
+3. `--easy-button-muted` routed through `--muted-foreground` and rendered one
+   step dark. Pinned to `--setta-300` (see the token note above).
+4. **Fourteen invented line-heights.** Phase C first accepted these as "values
+   the mockup never specifies". It specifies them exactly once, on `body`
+   (`line-height: 1.5`, unitless) — and Tailwind's preflight states the identical
+   unitless 1.5 on `html`, so the pane inherits the mockup's value for anything
+   unpinned. Phase A then overrode it on fourteen elements with numbers that have
+   no source (`1`, `1.2`, `1.25`, `1.3`, `1.35`, `1.4`), while copying the
+   mockup's `margin-bottom: 3px` / `10px` verbatim — margins tuned against 1.5
+   line boxes. The card's internal spacing was therefore a rhythm nobody designed.
+   Deleted all fourteen; one `line-height: 1.5` on `.easy-button-surface` keeps
+   the pane independent of the app root *and* matches the mockup. Net −13
+   declarations. Three carve-outs survive, all structural: `.request-text` at
+   `1.45` (the mockup's `.transcript` specifies it), `.input` at `normal` (#2),
+   and `.stop-button` at `1` (a fixed 34px control with no mockup counterpart).
+
+After those four, **zero leaf components differ on `lineHeight`, `color`, or
+`fontSize` in any of the four captured states.** The `lineHeight` rows that remain
+in `delta.json` are containers that render no text of their own — both sides are
+1.5 × their own inherited font size (production's root 16px, the mockup's body
+14px) — plus `control`/`controlGlow`, where the mockup sets `color` on `.glyph`
+rather than on the `<button>`. Both resolve the glyph to `--setta-300`.
+
+Still accepted, with reasons: `--accent-magenta`; font stacks that differ in
+spelling but resolve to the same faces (mono advance 66.23px on both); namespaced
+keyframe names; Phase B's `will-change` scoping and idle pause; production's
+overflow/wrap guards.
+
+**Determinism, and Tier 3 stays declined.** With animations pinned the mockup is
+28/28 frames byte-identical across runs. The pane needed two harness fixes to get
+there — the workspace column is still sliding when the pane first opens (the
+capture now waits for three identical rect reads), and fractional clip origins
+resample the same content — after which 35/38 frames are byte-identical; the other
+three carry the run's own elapsed-time text. A genuine defect moved a channel by
+53/255; machine noise moved it by 0–2. Parameter diffs separate those. An image
+hash would not.
+
+**Coverage gap, found by the probe and closed.** No scripted run emitted a
+`bar_chart` or `file` artifact, so neither renderer had ever executed in any test
+— the probe reported all five bar-chart components absent from production while
+the mockup rendered them. Their Phase A restyle was entirely unmeasured, which is
+the same blind spot that hid the highlight age-fade bug. The phase-3 scripted turn
+now emits all four kinds; the workflow asserts the kinds, the file artifact's path
+and description, and that `barWidthStyle` scales each bar against the largest
+value (`33% / 50% / 100%` for `0.8 / 1.2 / 2.4`).
+
+**Still uncovered:** the confirm pulse, being finite, is landed on its endpoint by
+`pin` and is never photographed. Its parameters are asserted by the workflow.
+
+**One footgun, fixed.** `easy-button-mockup-render.mjs` parsed its arguments at
+module scope, *before* `app.whenReady().then(main)` was registered. Any throw
+there left nothing to call `app.exit()`, and an Electron main process with no
+window never exits on its own — it spins invisibly forever. Reproduced (exit 142,
+process survived), then fixed: parsing moved inside `main()`, plus
+`uncaughtException` / `unhandledRejection` handlers and a 120s watchdog. Anything
+in this repo that boots Electron outside the CDP harness needs the same care.
 
 ## Verification
 

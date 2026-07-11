@@ -48,9 +48,14 @@ func scriptedEasyRunPhase3ArtifactsTurn(harness *ScriptedWorkflowHarness, ctx co
 	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Preparing artifacts. "); err != nil {
 		return TurnCompletion{}, err
 	}
+	// Every artifact kind, so each renderer is exercised. `bar_chart` and `file`
+	// went unrendered by any test until this emitted them, which left their
+	// components unmeasurable by the pixel-match probe.
 	artifactCalls := []string{
 		`{"kind":"markdown","title":"Phase 3 Report","kicker":"Summary","markdown":"## Result\n\nThe scripted easy run emitted a markdown artifact."}`,
 		`{"kind":"table","title":"Artifact Table","columns":[{"key":"name","label":"Name"},{"key":"status","label":"Status"}],"rows":[["Markdown","Ready"],["Table","Ready"]]}`,
+		`{"kind":"bar_chart","title":"Paint Cost Per Frame","kicker":"Benchmark","items":[{"label":"conic x3","value":0.8,"unit":"ms"},{"label":"WebGL","value":1.2,"unit":"ms"},{"label":"canvas 2D","value":2.4,"unit":"ms"}]}`,
+		`{"kind":"file","title":"Swirl Stylesheet","kicker":"File","path":"desktop/src/renderer/src/features/easy-button/easy-button.css","description":"The conic layers and their blur stack."}`,
 	}
 	for index, arguments := range artifactCalls {
 		if err := harness.callEasyRunArtifactTool(ctx, request, fmt.Sprintf("artifact_call_%d", index+1), []byte(arguments)); err != nil {

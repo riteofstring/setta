@@ -44,12 +44,20 @@ import {
   opacityMatches,
   railLabelsMatchContent,
 } from "./easy-button-pane-visual-assertions.mjs";
-import { driverCallExpression } from "./cdp-client.mjs";
+import {
+  clickEasyButtonStop,
+  desktopViewport,
+  easyButtonStateExpression,
+  easyButtonStateSettled,
+  ensureWorkspaceOpen,
+  openEasyButtonFromShortcut,
+  submitEasyButtonRequest,
+  workflowTimeoutMs,
+} from "./easy-button-pane-actions.mjs";
+import { runEasyButtonPixelMatchCaptures } from "./easy-button-pixel-match.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "easy-button-pane";
-const workflowTimeoutMs = 25_000;
-const desktopViewport = { deviceScaleFactor: 1, height: 900, mobile: false, width: 1440 };
 const mobileViewport = { deviceScaleFactor: 1, height: 700, mobile: false, width: 390 };
 const restartRecoveryPrompt = "cancel active workflow";
 const restartRecoveryError = "run interrupted by backend restart";
@@ -187,7 +195,7 @@ try {
   const artifactTerminal = await waitForEasyButtonTerminalWithArtifacts(
     context.client,
     "easy run phase3 artifacts workflow",
-    2,
+    4,
   );
   assertArtifactTerminalVisual(artifactTerminal, "easy run phase3 artifacts workflow");
   assertArtifactMotionParameters(artifactTerminal, "artifact terminal");
@@ -326,6 +334,13 @@ try {
     join(artifactDir, "mobile-long-request"),
   );
   const reducedMotion = await runEasyButtonReducedMotionAudit(join(artifactDir, "reduced-motion"));
+  // Pinned stills, in their own context: freezing an animation through the Web
+  // Animations API is one-way for the CSS animations it touches, so this must not
+  // run before anything that reads `animation-play-state`.
+  const pixelMatch = await runEasyButtonPixelMatchCaptures({
+    artifactDir: join(artifactDir, "pixel-match"),
+    visible: options.visible,
+  });
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
@@ -336,6 +351,7 @@ try {
     frozen,
     longRequestLayout,
     mobileLongRequestLayout,
+    pixelMatchStates: Object.keys(pixelMatch.states),
     reducedMotion,
     restartRecovery,
     restoredTerminal,
@@ -377,20 +393,6 @@ try {
   throw error;
 } finally {
   await stopElectronCdpContext(context);
-}
-
-async function ensureWorkspaceOpen(client) {
-  const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
-  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
-    return;
-  }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
-  await waitForState(
-    client,
-    workspaceIdExpression(),
-    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
-    workflowTimeoutMs,
-  );
 }
 
 async function runEasyButtonRestartRecovery(recordingRoot) {
@@ -546,7 +548,7 @@ async function runEasyButtonReducedMotionAudit(recordingRoot) {
     const artifactTerminal = await waitForEasyButtonTerminalWithArtifacts(
       reducedContext.client,
       "easy run phase3 artifacts workflow",
-      2,
+      4,
     );
     assertArtifactTerminalVisual(artifactTerminal, "easy run phase3 artifacts workflow");
     assertReducedMotionVisual(artifactTerminal, "artifact terminal");
@@ -652,13 +654,6 @@ async function openEasyButtonFromToolbar(client) {
   }
 }
 
-async function openEasyButtonFromShortcut(client) {
-  const dispatched = await client.driver("easyButtonPaneOpenShortcut");
-  if (!dispatched) {
-    throw new Error("easy button shortcut was not dispatched");
-  }
-}
-
 async function closeEasyButtonPane(client, paneId) {
   const closed = await client.driver("easyButtonPaneClose", { paneId });
   if (!closed) {
@@ -666,24 +661,10 @@ async function closeEasyButtonPane(client, paneId) {
   }
 }
 
-async function submitEasyButtonRequest(client, requestText) {
-  const submitted = await client.driver("easyButtonPaneSubmitRequest", requestText);
-  if (!submitted) {
-    throw new Error(`easy button request input was not submittable: ${requestText}`);
-  }
-}
-
 async function clickEasyButtonControl(client) {
   const clicked = await client.driver("easyButtonPaneClickControl");
   if (!clicked) {
     throw new Error("easy button control was not clickable");
-  }
-}
-
-async function clickEasyButtonStop(client) {
-  const clicked = await client.driver("easyButtonPaneClickStop");
-  if (!clicked) {
-    throw new Error("easy button stop control was not clickable");
   }
 }
 
@@ -844,24 +825,56 @@ function assertArtifactTerminalVisual(state, requestText) {
     "easy-button artifact terminal visual did not match Phase 3",
   );
   assertNarratorHealth(state, "The Easy Button run finished.");
-  if (!state.summaryText.includes("Done in") || !state.summaryText.includes("2 artifacts")) {
+  if (!state.summaryText.includes("Done in") || !state.summaryText.includes("4 artifacts")) {
     throw new Error(`easy-button artifact summary did not include count: ${JSON.stringify(state)}`);
   }
   const titles = state.artifacts.map((artifact) => artifact.title);
   const kinds = state.artifacts.map((artifact) => artifact.kind);
-  if (state.artifacts.length !== 2 || kinds.join(",") !== "markdown,table") {
+  if (state.artifacts.length !== 4 || kinds.join(",") !== "markdown,table,bar_chart,file") {
     throw new Error(`easy-button artifact cards had wrong kinds: ${JSON.stringify(state)}`);
   }
-  if (!titles.includes("Phase 3 Report") || !titles.includes("Artifact Table")) {
-    throw new Error(`easy-button artifact cards had wrong titles: ${JSON.stringify(state)}`);
+  for (const title of [
+    "Phase 3 Report",
+    "Artifact Table",
+    "Paint Cost Per Frame",
+    "Swirl Stylesheet",
+  ]) {
+    if (!titles.includes(title)) {
+      throw new Error(`easy-button artifact cards had wrong titles: ${JSON.stringify(state)}`);
+    }
   }
   const railText = state.artifacts.map((artifact) => artifact.text).join("\n");
-  for (const expected of ["scripted easy run emitted", "Markdown", "Ready"]) {
+  for (const expected of ["scripted easy run emitted", "Markdown", "Ready", "conic x3", "0.8ms"]) {
     if (!railText.includes(expected)) {
       throw new Error(
         `easy-button artifact card text missing ${expected}: ${JSON.stringify(state)}`,
       );
     }
+  }
+  assertBarChartArtifact(state);
+  assertFileArtifact(state);
+}
+
+// `barWidthStyle` scales each bar against the largest value, so the max item is
+// the only one at 100%. Nothing rendered these two kinds before, so nothing
+// measured this.
+function assertBarChartArtifact(state) {
+  const chart = state.artifacts.find((artifact) => artifact.kind === "bar_chart");
+  const widths = chart?.barWidths ?? [];
+  // values 0.8 / 1.2 / 2.4 against a 2.4 max
+  if (widths.join(",") !== "33%,50%,100%") {
+    throw new Error(`easy-button bar chart widths were not proportional: ${JSON.stringify(chart)}`);
+  }
+}
+
+function assertFileArtifact(state) {
+  const file = state.artifacts.find((artifact) => artifact.kind === "file");
+  const expectedPath = "desktop/src/renderer/src/features/easy-button/easy-button.css";
+  if (file?.filePath !== expectedPath) {
+    throw new Error(`easy-button file artifact did not render its path: ${JSON.stringify(file)}`);
+  }
+  if (!file.text.includes("The conic layers and their blur stack.")) {
+    throw new Error(`easy-button file artifact dropped its description: ${JSON.stringify(file)}`);
   }
 }
 
@@ -1216,22 +1229,6 @@ async function waitForEasyButtonPane(client) {
   );
 }
 
-// The pane chrome title is written from a passive effect, so it lands one flush
-// after `data-easy-button-state`. Every wait that precedes an assertion on it
-// must gate on it too, or a poll can observe the half-applied commit.
-function easyButtonStateSettled(state, easyState) {
-  return (
-    state.exists &&
-    state.surfaceKind === "easy-button" &&
-    state.easyState === easyState &&
-    state.paneChromeTitle === paneChromeTitleForState(easyState)
-  );
-}
-
-function paneChromeTitleForState(easyState) {
-  return easyState === "idle" ? "Easy Button" : `Easy Button · ${easyState}`;
-}
-
 async function waitForEasyButtonWorking(client, requestText) {
   return waitForState(
     client,
@@ -1416,15 +1413,4 @@ async function safeEasyButtonState(client) {
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
-}
-
-function workspaceIdExpression() {
-  return `(() => {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
-  })()`;
-}
-
-function easyButtonStateExpression() {
-  return driverCallExpression("easyButtonPaneState");
 }
