@@ -50,10 +50,22 @@ const mockupViewport = { deviceScaleFactor: 1, height: 1240, mobile: false, widt
 const stateSettleMs = 700;
 
 const captureStates = [
-  { crops: ["control", "inputWrap"], state: "idle" },
-  { crops: ["swirl", "control", "captionSlot"], state: "working" },
+  { crops: ["audioToggle", "control", "inputWrap"], state: "idle" },
   {
-    crops: ["artifactCard", "highlightItem", "captionSlot", "inputWrap", "control", "swirl"],
+    crops: ["actionSlot", "audioToggle", "captionSlot", "control", "stopButton", "swirl"],
+    state: "working",
+  },
+  {
+    crops: [
+      "artifactCard",
+      "audioToggle",
+      "captionSlot",
+      "control",
+      "highlightItem",
+      "inputWrap",
+      "summaryReplay",
+      "swirl",
+    ],
     state: "complete",
   },
 ];

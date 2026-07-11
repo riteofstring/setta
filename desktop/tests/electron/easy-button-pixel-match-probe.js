@@ -11,7 +11,7 @@
 // Animations API, which owns every CSS animation whether or not anyone asked.
 
 (() => {
-  const version = "setta-easy-button-pixel-match-probe-v1";
+  const version = "setta-easy-button-pixel-match-probe-v2";
 
   // `rect` names which box dimensions are worth comparing. The pane, its rails,
   // and every text block are sized by their container or their content, and the
@@ -45,6 +45,12 @@
       rect: "size",
     },
     {
+      key: "highlightEqualizerBar",
+      mockup: ".hl:last-child .hl-dot i:first-child",
+      production: ".easy-button-highlight-item:last-child .easy-button-highlight-dot i:first-child",
+      rect: "size",
+    },
+    {
       key: "highlightText",
       mockup: ".hl:last-child .hl-text",
       production: ".easy-button-highlight-item:last-child .easy-button-highlight-text",
@@ -69,6 +75,13 @@
       key: "buttonWell",
       mockup: ".button-well",
       production: ".easy-button-button-well",
+      rect: "size",
+    },
+    { key: "rings", mockup: ".rings", production: ".easy-button-rings", rect: "size" },
+    {
+      key: "ring",
+      mockup: ".ring:first-child",
+      production: ".easy-button-ring:first-child",
       rect: "size",
     },
     { key: "swirl", mockup: ".swirl", production: ".easy-button-swirl", rect: "size" },
@@ -123,13 +136,43 @@
       rect: "none",
     },
     {
-      key: "requestText",
+      key: "currentFocus",
       mockup: ".current-focus",
       production: ".easy-button-current-focus",
       rect: "none",
     },
+    {
+      key: "captureLine",
+      mockup: ".capture-line",
+      production: ".easy-button-capture-line",
+      rect: "width",
+    },
     { key: "helper", mockup: ".helper", production: ".easy-button-helper", rect: "none" },
     { key: "summary", mockup: ".summary", production: ".easy-button-summary", rect: "none" },
+    {
+      key: "summaryEqualizer",
+      mockup: ".summary-eq",
+      production: ".easy-button-summary-equalizer",
+      rect: "size",
+    },
+    {
+      key: "summaryReplay",
+      mockup: ".replay-button",
+      production: ".easy-button-summary-replay",
+      rect: "size",
+    },
+    {
+      key: "actionSlot",
+      mockup: ".action-slot",
+      production: ".easy-button-action-slot",
+      rect: "size",
+    },
+    {
+      key: "stopButton",
+      mockup: ".stop-button",
+      production: ".easy-button-stop-button",
+      rect: "size",
+    },
     {
       key: "railRight",
       mockup: ".rail-right",
@@ -225,6 +268,51 @@
       mockup: ".enter-chip",
       production: ".easy-button-enter-chip",
       rect: "size",
+    },
+    {
+      key: "audioCluster",
+      mockup: ".audio-cluster",
+      production: ".easy-button-audio-cluster",
+      rect: "size",
+    },
+    {
+      key: "audioToggle",
+      mockup: ".audio-toggle",
+      production: ".easy-button-audio-toggle",
+      rect: "size",
+    },
+    {
+      key: "audioEqualizer",
+      mockup: ".audio-eq",
+      production: ".easy-button-audio-equalizer",
+      rect: "size",
+    },
+    {
+      key: "audioMenu",
+      mockup: ".audio-menu",
+      production: ".easy-button-audio-menu",
+      rect: "size",
+      scope: "document",
+    },
+    {
+      key: "audioDisclosure",
+      mockup: ".audio-disclosure",
+      production: ".easy-button-audio-disclosure",
+      rect: "none",
+      scope: "document",
+    },
+    {
+      key: "voiceOffChip",
+      mockup: ".voice-off-chip",
+      production: ".easy-button-voice-off-chip",
+      rect: "size",
+    },
+    {
+      key: "voiceOffPopover",
+      mockup: ".voice-off-popover",
+      production: ".easy-button-voice-off-popover",
+      rect: "none",
+      scope: "document",
     },
   ];
 
@@ -373,7 +461,8 @@
     if (!selector) {
       throw new Error(`easy-button pixel-match component has no ${surface} selector`);
     }
-    const element = scope.querySelector(selector);
+    const queryRoot = component.scope === "document" ? document : scope;
+    const element = queryRoot.querySelector(selector);
     if (!(element instanceof HTMLElement)) {
       return { exists: false, rect: null, rectMode: component.rect, styles: null };
     }

@@ -32,7 +32,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaEasyButtonPixelMatch?.version === "setta-easy-button-pixel-match-probe-v1"',
+      'globalThis.__settaEasyButtonPixelMatch?.version === "setta-easy-button-pixel-match-probe-v2"',
     path: join(driverScriptDir, "easy-button-pixel-match-probe.js"),
   },
   {

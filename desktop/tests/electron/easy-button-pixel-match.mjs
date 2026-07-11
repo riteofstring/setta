@@ -33,26 +33,41 @@ import {
 } from "./easy-button-pane-actions.mjs";
 import { clipToBounds, pinTimesMs, writePng } from "./easy-button-pixel-match-report.mjs";
 import { opacityMatches } from "./easy-button-pane-visual-assertions.mjs";
+import { startSpeechProviderFixture } from "./speech-provider-fixture.mjs";
 
 const swirlWorkingOpacity = 0.85;
 const swirlCompleteOpacity = 0.2;
 
 const capturePlan = [
-  { crops: ["control", "inputWrap"], state: "idle" },
-  { crops: ["swirl", "control", "captionSlot"], state: "working" },
-  { crops: ["captionSlot", "highlightItem"], state: "stopped" },
-  { crops: ["artifactCard", "inputWrap"], state: "completedArtifacts" },
-  { crops: ["highlightItem", "captionSlot"], state: "completedHighlights" },
-  { crops: ["artifactCard", "control"], state: "failed" },
+  { crops: ["audioToggle", "control", "inputWrap"], state: "idle" },
+  {
+    crops: ["actionSlot", "audioToggle", "captionSlot", "control", "stopButton", "swirl"],
+    state: "working",
+  },
+  { crops: ["audioToggle", "captionSlot", "highlightItem"], state: "stopped" },
+  {
+    crops: ["artifactCard", "audioToggle", "inputWrap", "summaryReplay"],
+    state: "completedArtifacts",
+  },
+  {
+    crops: ["audioToggle", "captionSlot", "highlightItem", "summaryReplay"],
+    state: "completedHighlights",
+  },
+  { crops: ["artifactCard", "audioToggle", "control", "summaryReplay"], state: "failed" },
 ];
 
 export async function runEasyButtonPixelMatchCaptures({ artifactDir, visible }) {
   const fixture = await createElectronFixture("easy-button-pixel-match");
+  const speechProvider = await startSpeechProviderFixture();
   let context = null;
   try {
     context = await launchElectronCdpContext({
       artifactDir,
-      extraEnv: { SETTA_E2E_CHAT_HARNESS: "scripted-workflow" },
+      extraEnv: {
+        OPENAI_API_KEY: speechProvider.apiKey,
+        SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+        SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
+      },
       fixture,
       visible,
     });
@@ -65,9 +80,16 @@ export async function runEasyButtonPixelMatchCaptures({ artifactDir, visible }) 
     const states = await captureProductionStates(context.client, artifactDir);
     const metrics = { states, surface: "production", viewport: desktopViewport };
     await writeJson(join(artifactDir, "production-metrics.json"), metrics);
+    speechProvider.assertHealthy();
+    if (speechProvider.requests.length !== 0) {
+      throw new Error(
+        `easy-button pixel-match unexpectedly called OpenAI: ${JSON.stringify(speechProvider.requests)}`,
+      );
+    }
     return metrics;
   } finally {
     await stopElectronCdpContext(context);
+    await speechProvider.close();
     await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 }
@@ -171,7 +193,10 @@ async function waitForIdle(client) {
   return waitForState(
     client,
     easyButtonStateExpression(),
-    (state) => easyButtonStateSettled(state, "idle") && state.buttonVisible,
+    (state) =>
+      easyButtonStateSettled(state, "idle") &&
+      state.buttonVisible &&
+      state.speechStatus === "configured",
     workflowTimeoutMs,
   );
 }

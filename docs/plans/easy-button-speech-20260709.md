@@ -3955,6 +3955,58 @@ Phase 5 item 4 remains the next coherent slice: square the rail tracks and
 extend the shared mockup/production harness across the synchronized still and
 named-animation pixel matrix. No implementation blocker was found.
 
+### 2026-07-10 — Phase 5 visual component-map foundation complete
+
+Started Phase 5 item 4 with the first reviewable visual-harness slice. The
+shared production/mockup probe now maps 57 current component roles, including
+the Current focus and capture nodes, listening rings, reserved action slot and
+Stop control, top-bar configured and unconfigured voice controls, output menu
+and disclosure, summary replay/equalizer, and the narrator-highlight equalizer.
+Portal-owned menus use an explicit document query scope while pane-owned
+components remain restricted to the exact Easy Button host. The obsolete
+`requestText` metric key is removed rather than retained as an alias; the
+persisted-focus node is now identified as `currentFocus` on both surfaces.
+
+The isolated production pixel companion now starts a configured temporary
+runtime through the existing fake OpenAI boundary, so its microphone and
+top-bar output controls match the canonical mockup's configured base state.
+It captures the audio control in every existing state, the action/Stop boxes
+while working, and terminal replay controls without issuing a transcription or
+synthesis request. Zero-width reserved terminal action slots remain measurable
+but are correctly excluded from screenshot clipping. The existing idle,
+working, stopped, completed-artifact, completed-highlight, and failed app paths
+remain production renderer/main/preload/HTTP/store paths with temporary data.
+
+Verification completed for this foundation:
+
+- focused Prettier and ESLint checks passed for the four changed Electron
+  harness files;
+- the isolated configured production capture passed at
+  `desktop/.recordings/easy-button-speech-phase5-visual-map-focused-20260710`
+  with probe version 2, 57 component roles, every new requested crop present,
+  and zero fake OpenAI operations;
+- the complete deterministic Easy Button workflow and its expanded production
+  pixel companion passed at
+  `desktop/.recordings/easy-button-speech-phase5-visual-map-20260710-r2`;
+- the canonical mockup renderer then consumed that fresh production metrics
+  file and produced all matching base-state crops plus the expanded metric
+  delta report in the same pixel-match artifact directory. The production and
+  mockup working stills were inspected;
+- `./scripts/format.sh` and the final
+  `./check_quality.sh --git-changes` passed, including changed-test complexity,
+  desktop typecheck, all 1,129 Vitest tests, the production Electron build, and
+  dead-code analysis.
+
+Phase 5 item 4 is not complete. The next visual slice must synchronize visible
+fixture copy and counts across the curated speech states, add those production
+and mockup states to the shared drivers, and implement real crop image diffs
+with side-by-side and heatmap artifacts. Named animation-phase capture, the
+complete still/reduced-motion matrix, deliberate-difference failure proof, and
+item 5's repeat-run noise baseline and narrow tolerances also remain. The
+expanded report currently exposes real production/mockup metric deltas; none is
+claimed resolved or accepted by this mapping-only slice. No implementation
+blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
