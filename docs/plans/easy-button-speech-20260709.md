@@ -3918,6 +3918,43 @@ required. Phase 5 item 4 is next: square the rail tracks and extend the shared
 mockup/production harness across the synchronized still and named-animation
 pixel matrix. No implementation blocker was found.
 
+### 2026-07-10 — Phase 5 playback priority and lifecycle hardening audit complete
+
+Audited commit `ea1b2f4ad` against Phase 5 item 3, the complete speech plan,
+the repository instructions, the clean worktree, and the regenerated PWA
+bundle. The controller and hook preserve the intended source-ID boundary and
+implement the complete slice: terminal summaries remove queued highlights and
+cancel an unspoken highlight synthesis, an already speaking highlight finishes
+without overlap before the summary, automatic intents are restricted to the
+current Easy Run, and run/workspace/runtime/configuration changes clear active,
+queued, cached, and deduplication state. No practical implementation, test, or
+generated-artifact gap was found, so this audit required no source fix and did
+not start Phase 5 item 4.
+
+Independent audit verification completed:
+
+- 50 focused Easy Run store, automatic-eligibility, playback-controller,
+  terminal-source, and highlight-source Vitest cases passed, and focused ESLint
+  passed for every source and test file changed by the slice;
+- Electron/web typechecks, both production builds, the reproducibly unchanged
+  checked-in PWA bundle, and `./scripts/go.sh test ./internal/webapp` passed;
+- the complete configured production speech workflow passed again at
+  `desktop/.recordings/easy-button-speech-phase5-terminal-priority-audit-20260710`
+  with 23 expected provider operations and no renderer console errors. It
+  re-proved terminal priority, stale highlight-response rejection,
+  same-workspace run-switch cancellation, all capture teardown paths, terminal
+  autoplay/replay rules, and synthesis-failure isolation through the production
+  renderer, preload, main, authenticated HTTP, service, and store paths;
+- the retained terminal-priority screenshot and workflow summary were
+  inspected, and the worktree remained clean after both builds.
+
+This audit changed only this progress log. Live Codex and live OpenAI speech
+were not applicable to the renderer-only slice, and no dependency or
+supply-chain input changed. Phases 1-4 and Phase 5 items 1-3 remain complete.
+Phase 5 item 4 remains the next coherent slice: square the rail tracks and
+extend the shared mockup/production harness across the synchronized still and
+named-animation pixel matrix. No implementation blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
