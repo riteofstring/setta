@@ -14,6 +14,7 @@ import {
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   reloadPage,
+  readJsonLinesOptional,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
@@ -26,7 +27,6 @@ import {
   clickEasyButtonStop,
   easyButtonStateExpression,
   easyButtonStateSettled,
-  ensureWorkspaceOpen,
   openEasyButtonFromShortcut,
   workflowTimeoutMs,
   workspaceIdExpression,
@@ -41,7 +41,10 @@ import {
   waitForEasyButtonFocusStatus,
 } from "./easy-button-focus-assertions.mjs";
 import { startSpeechProviderFixture } from "./speech-provider-fixture.mjs";
-import { runSpeechCaptureFailureCases } from "./speech-capture-failure-cases.mjs";
+import {
+  closeTerminalPane,
+  runSpeechCaptureFailureCases,
+} from "./speech-capture-failure-cases.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "speech-capture";
@@ -93,8 +96,13 @@ try {
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  await ensureWorkspaceOpen(context.client);
-  const workspaceId = await context.client.evaluate(workspaceIdExpression());
+  const workspaceId = await waitForState(
+    context.client,
+    workspaceIdExpression(),
+    (selectedWorkspaceId) => selectedWorkspaceId === fixture.firstWorkspace.id,
+    workflowTimeoutMs,
+  );
+  await closeTerminalPane(context.client);
   await openEasyButtonFromShortcut(context.client);
 
   const configured = await waitForCaptureState(
@@ -330,6 +338,7 @@ try {
   assertProviderOperationCount(provider, 12);
   await stopElectronCdpContext(context);
   context = null;
+  await assertNoRendererConsoleErrors(artifactDir);
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     captureStates: ["requesting-permission", "connecting", "listening", "committing", "failed"],
@@ -628,6 +637,14 @@ async function assertNoSensitiveSpeechArtifacts(root, providerFixture) {
         throw new Error(`${label} leaked into ${path}`);
       }
     }
+  }
+}
+
+async function assertNoRendererConsoleErrors(root) {
+  const rows = await readJsonLinesOptional(join(root, "renderer-console.jsonl"));
+  const errors = rows.filter((row) => Number(row.level) >= 2);
+  if (errors.length > 0) {
+    throw new Error(`speech capture workflow recorded renderer errors: ${JSON.stringify(errors)}`);
   }
 }
 

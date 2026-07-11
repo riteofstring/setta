@@ -2938,6 +2938,52 @@ live OpenAI speech acceptance workflow. `OPENAI_API_KEY` was absent from this
 process, so no live OpenAI speech result is claimed; deterministic fixture
 coverage is not treated as provider proof.
 
+### 2026-07-10 — Phase 3 deterministic transcription closure audit complete
+
+Audited commit `8197f22c0` against this plan, `AGENTS.md`, its parent, the clean
+starting worktree, source and checked-in web artifacts, the mounted capture and
+submission paths, and the retained production-workflow recordings. The capture
+and submission behavior remains correct: the authoritative completed transcript
+uses the existing start/steer actions, ordinary rejection restores and focuses
+that exact transcript only after the footer is enabled, partial outcomes remain
+cleared and unfocused, and the new failure/teardown cases keep ephemeral speech
+out of Easy Run and chat persistence.
+
+The audit found a practical workflow-integrity gap. The two-workspace fixture
+called the generic open-workspace fallback before its preselected workspace had
+finished mounting. It silently opened a third workspace, and the retained
+recording contained an uncaught xterm renderer exception while the speech test
+still reported success. The workflow now waits for the fixture's exact first
+workspace, closes the unrelated default terminal through the production pane
+path in each intended workspace before exercising speech teardown, and fails on
+any renderer console error. The shared Easy Button driver also ignores released
+presentation hosts with an empty pane ID, so a closed pane cannot be mistaken
+for a live pane during teardown assertions.
+
+Audit verification completed:
+
+- all 34 focused capture-scope, controller, and submission Vitest cases passed,
+  together with focused lint for every changed Electron workflow source;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase3-deterministic-closure-audit-20260710`
+  with 12 authenticated transcription sessions, the intended two workspaces,
+  all prior capture/failure/teardown assertions, and an empty renderer-console
+  log;
+- the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase3-deterministic-closure-audit-regression-20260710`.
+- contract regeneration and the checked-in web build were idempotent, the
+  embedded webapp test passed, and all 1,074 desktop Vitest tests plus Electron
+  and web typechecks/builds passed;
+- ChatGPT authentication was available. With `OPENAI_API_KEY` explicitly
+  removed, `live-codex-electron`, `easy-button-live`, and all four supplemental
+  live backend Codex probes passed;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  final audit source, workflow, and plan updates.
+
+Phase 3 items 1-7 remain complete. This audit did not start Phase 3 item 8; the
+next iteration remains remote-runtime/PWA secure-context coverage plus the
+narrow opt-in live OpenAI speech acceptance workflow.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

@@ -119,8 +119,17 @@ async function exerciseWorkspaceSwitch(client, draft, nextWorkspace) {
     await waitForCaptureState(client, captureResourcesClosed),
     "workspace switch",
   );
+  await closeTerminalPane(client);
   await openEasyButtonFromShortcut(client);
   assertRestingCapture(await waitForConfiguredRestingCapture(client));
+}
+
+export async function closeTerminalPane(client) {
+  const closed = await client.driver("easyButtonPaneCloseTerminal");
+  if (!closed) {
+    throw new Error("speech capture fixture terminal pane did not close");
+  }
+  await waitForCaptureState(client, (state) => state.terminalPaneCount === 0);
 }
 
 async function exerciseRejectedSpokenStart(

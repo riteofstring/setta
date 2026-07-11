@@ -179,6 +179,9 @@
         (ring) => getComputedStyle(ring).animationName,
       ),
       speech: surfaceData("easyButtonSpeech"),
+      terminalPaneCount: document.querySelectorAll(
+        '[data-testid="workspace-pane-host"][data-surface-kind="terminal"]:not([data-pane-id=""])',
+      ).length,
     };
   }
 

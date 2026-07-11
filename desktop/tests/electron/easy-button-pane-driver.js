@@ -18,6 +18,7 @@
       easyButtonPaneClickControl,
       easyButtonPaneClickStop,
       easyButtonPaneClose,
+      easyButtonPaneCloseTerminal,
       easyButtonPaneForceFrozen,
       easyButtonPaneEventLog,
       easyButtonPaneOpenShortcut,
@@ -514,6 +515,21 @@
     return true;
   }
 
+  function easyButtonPaneCloseTerminal() {
+    const host = Array.from(document.querySelectorAll(paneHostSelector)).find(
+      (candidate) =>
+        candidate instanceof HTMLElement &&
+        candidate.dataset.paneId !== "" &&
+        candidate.dataset.surfaceKind === "terminal",
+    );
+    const button = host?.querySelector('[data-workspace-pane-action="close"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  }
+
   function easyButtonPaneForceFrozen() {
     const host = easyButtonHost();
     if (!(host instanceof HTMLElement)) {
@@ -565,7 +581,10 @@
   function easyButtonHost() {
     return Array.from(document.querySelectorAll(paneHostSelector))
       .filter((candidate) => candidate instanceof HTMLElement)
-      .find((candidate) => candidate.dataset.surfaceKind === "easy-button");
+      .find(
+        (candidate) =>
+          candidate.dataset.paneId !== "" && candidate.dataset.surfaceKind === "easy-button",
+      );
   }
 
   function rectSnapshot(rect) {
