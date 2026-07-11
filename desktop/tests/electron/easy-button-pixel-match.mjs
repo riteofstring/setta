@@ -275,6 +275,7 @@ async function restoreIdleCapture(client) {
 // not the Web Animations one, so the idle pause survives the freeze.
 async function captureState(client, artifactDir, { crops, state }) {
   const frames = [];
+  const fixture = synchronizedVisualFixture(await client.driver("easyButtonPaneState"));
   let metrics = null;
   for (const timeMs of pinTimesMs) {
     const pinned = await client.driver("easyButtonPinAnimations", timeMs);
@@ -291,7 +292,25 @@ async function captureState(client, artifactDir, { crops, state }) {
       timeMs,
     });
   }
-  return { crops, frames, metrics };
+  return { crops, fixture, frames, metrics };
+}
+
+function synchronizedVisualFixture(state) {
+  return {
+    agentChipText: state.agentChipText,
+    artifactCount: state.artifacts.length,
+    currentFocusText: state.currentFocusText,
+    focusLabelText: state.focusLabelText,
+    focusStatus: state.focusStatus,
+    helperText: state.helperText,
+    highlights: state.highlights.map(({ text, time }) => ({ text, time })),
+    inputPlaceholder: state.inputPlaceholder,
+    narratorStatusText: state.narratorStatusText,
+    outputMode: state.speechOutputMode,
+    playback: state.speechOutputPlayback,
+    statusTone: state.statusTone,
+    summaryText: state.summaryText,
+  };
 }
 
 async function captureComponentClip(client, path, metrics, key) {

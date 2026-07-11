@@ -30,6 +30,7 @@ import {
   formatEasyButtonMetricDeltas,
   metricPairs,
   pinTimesMs,
+  pixelMatchCapturePlan,
   pixelMatchSpeechCapturePlan,
   synchronizedCaptureFailureText,
   synchronizedCaptureText,
@@ -54,26 +55,7 @@ const mockupViewport = { deviceScaleFactor: 1, height: 1240, mobile: false, widt
 // animation on its endpoint itself.
 const stateSettleMs = 700;
 
-const captureStates = [
-  ...pixelMatchSpeechCapturePlan,
-  {
-    crops: ["actionSlot", "audioToggle", "captionSlot", "control", "stopButton", "swirl"],
-    state: "working",
-  },
-  {
-    crops: [
-      "artifactCard",
-      "audioToggle",
-      "captionSlot",
-      "control",
-      "highlightItem",
-      "inputWrap",
-      "summaryReplay",
-      "swirl",
-    ],
-    state: "complete",
-  },
-];
+const captureStates = pixelMatchCapturePlan;
 
 // An Electron main process with no window never exits on its own: nothing closes,
 // so `window-all-closed` never fires and the run loop spins forever. Anything that
@@ -98,10 +80,13 @@ async function main() {
     // Parsed here, not at module scope. A module-scope throw happens before this
     // callback is ever registered, so nothing would be left to call `app.exit`.
     const options = parseArgs(process.argv.slice(2));
-    const metrics = await renderMockup(options.out);
+    const production = options.productionMetrics
+      ? JSON.parse(await readFile(options.productionMetrics, "utf8"))
+      : null;
+    const metrics = await renderMockup(options.out, production);
     await writeJsonFile(join(options.out, "mockup-metrics.json"), metrics);
-    if (options.productionMetrics) {
-      await writeComparisonReports(options.out, options.productionMetrics, metrics);
+    if (production) {
+      await writeComparisonReports(options.out, production, metrics);
     }
     clearTimeout(watchdog);
     console.log(`Easy Button mockup rendered: ${options.out}`);
@@ -117,7 +102,7 @@ function exitWithError(error) {
   app.exit(1);
 }
 
-async function renderMockup(outDir) {
+async function renderMockup(outDir, production) {
   const window = new BrowserWindow({
     height: mockupViewport.height,
     show: false,
@@ -134,7 +119,12 @@ async function renderMockup(outDir) {
 
   const states = {};
   for (const step of captureStates) {
-    states[step.state] = await captureMockupState(webContents, outDir, step);
+    states[step.state] = await captureMockupState(
+      webContents,
+      outDir,
+      step,
+      production?.states[step.state]?.fixture,
+    );
   }
   return { states, surface: "mockup", viewport: mockupViewport };
 }
@@ -145,11 +135,20 @@ async function installBrowserScripts(webContents) {
   }
 }
 
-async function captureMockupState(webContents, outDir, { crops, state }) {
+async function captureMockupState(webContents, outDir, { crops, state }, productionFixture) {
   const paneState = await evaluate(
     webContents,
-    `__settaEasyButtonMockup.gotoState(${quote(state)}, ${quote(mockupFixture(state))})`,
+    `(() => {
+      try {
+        return __settaEasyButtonMockup.gotoState(${quote(state)}, ${quote(mockupFixture(state, productionFixture))});
+      } catch (error) {
+        return { driverError: error instanceof Error ? error.stack : String(error) };
+      }
+    })()`,
   );
+  if (paneState.driverError) {
+    throw new Error(`easy-button mockup ${state} driver failed: ${paneState.driverError}`);
+  }
   if (paneState.stateKey !== state) {
     throw new Error(`easy-button mockup did not enter ${state}: ${JSON.stringify(paneState)}`);
   }
@@ -174,11 +173,12 @@ async function captureMockupState(webContents, outDir, { crops, state }) {
   return { crops, frames, metrics, paneState };
 }
 
-function mockupFixture(state) {
+function mockupFixture(state, productionFixture = {}) {
   if (state === "idle" || !pixelMatchSpeechCapturePlan.some((step) => step.state === state)) {
-    return {};
+    return productionFixture;
   }
   return {
+    ...productionFixture,
     captureError: state === "captureFailure" ? synchronizedCaptureFailureText : "",
     captureText: state === "committing" ? synchronizedCaptureText : "",
   };
@@ -201,8 +201,7 @@ async function captureClip(webContents, path, rect) {
   await writePng(path, result.data);
 }
 
-async function writeComparisonReports(outDir, productionMetricsPath, mockup) {
-  const production = JSON.parse(await readFile(productionMetricsPath, "utf8"));
+async function writeComparisonReports(outDir, production, mockup) {
   const pairs = metricPairs.map((pair) => ({
     ...pair,
     rows: compareEasyButtonMetrics(

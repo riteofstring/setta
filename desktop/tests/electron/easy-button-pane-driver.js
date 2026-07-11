@@ -231,6 +231,7 @@
       helperText: elementText(helper),
       inputFocused: input instanceof HTMLInputElement && document.activeElement === input,
       inputDisabled: inputDisabled(input),
+      inputPlaceholder: input instanceof HTMLInputElement ? input.placeholder : "",
       inputRect: rectSnapshot(elementRectOrZero(input)),
       inputTransitionDuration: elementStyleValue(input, "transitionDuration"),
       inputValue: inputValue(input),

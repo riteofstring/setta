@@ -4163,6 +4163,56 @@ remaining curated states, deliberate-difference failure proof, and named
 animation phases before item 5 can baseline repeat-run noise and set narrow
 adjacent tolerances.
 
+### 2026-07-10 — Phase 5 synchronized run-state fixture matrix complete
+
+Advanced Phase 5 item 4 with the next bounded visual-harness slice. Every
+currently captured production state now records the exact visible fixture that
+affects comparison geometry: agent count, Current focus text/status/label,
+helper and narrator copy, narrator highlights and timestamps, footer
+placeholder, terminal summary/status, output mode/playback state, and artifact
+count. The mockup consumes and asserts that fixture before measuring or
+capturing, so the existing working and terminal comparisons no longer compare
+different requests, highlights, summaries, counts, or status axes. Artifact
+content remains intentionally illustrative under the existing mockup boundary;
+only the in-scope count is synchronized.
+
+The mockup now captures the same eleven named states as production rather than
+mapping both completed production variants to one generic `complete` frame.
+Stopped and failed were already produced as screenshots but were omitted from
+the metric/image pairs; both now participate in the automatic one-to-one
+comparison. A mockup-driver failure now reports its actual browser-side stack
+instead of Electron's generic execute-script error, so fixture drift fails with
+the mismatched field and state visible.
+
+Verification completed for this slice:
+
+- focused Prettier and ESLint passed for all five changed Electron harness
+  files;
+- the complete deterministic Easy Button production workflow passed at
+  `desktop/.recordings/easy-button-speech-phase5-run-state-sync-rerun-20260710`;
+  its production pixel companion exercised the existing start, stream,
+  steering, Current focus, narrator highlights, artifacts, terminal states,
+  stop, persistence/restart, compact, reduced-motion, and speech capture paths;
+- the automatic mockup companion asserted the synchronized fixture for all
+  eleven states and emitted 86 required exact crop/frame comparisons, including
+  the newly covered stopped and failed pairs, with side-by-side and heatmap
+  artifacts for every current difference. The synchronized working, stopped,
+  completed-highlight, and failed mockup stills were inspected;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes`
+  passed. The first quality attempt found only slice-owned complexity in the
+  expanded mockup state reader; DOM reads were split into small owning helpers,
+  then focused ESLint and the complete mockup comparison passed before the clean
+  quality rerun. All 1,129 desktop Vitest tests, TypeScript typecheck, the
+  production Electron build, and dead-code analysis passed in that final gate.
+
+Phase 5 item 4 remains incomplete. The report still exposes changes in all 86
+comparisons and 80 dimension mismatches; none is accepted, masked, or converted
+into a tolerance by this fixture-only slice. Output-menu, speaking-highlight,
+summary-playback, focus-transition, terminal/reduced-motion additions,
+deliberate mockup-property failure proof, named animation phases, and removal of
+the unexplained still deltas remain before item 5 can baseline repeat-run noise.
+No external blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

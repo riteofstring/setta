@@ -63,8 +63,10 @@ export const metricPairs = [
   { mockup: "committing", production: "committing" },
   { mockup: "captureFailure", production: "captureFailure" },
   { mockup: "working", production: "working" },
-  { mockup: "complete", production: "completedArtifacts" },
-  { mockup: "complete", production: "completedHighlights" },
+  { mockup: "stopped", production: "stopped" },
+  { mockup: "completedArtifacts", production: "completedArtifacts" },
+  { mockup: "completedHighlights", production: "completedHighlights" },
+  { mockup: "failed", production: "failed" },
 ];
 
 export async function writePng(path, base64) {
