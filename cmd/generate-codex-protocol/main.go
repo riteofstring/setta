@@ -469,51 +469,12 @@ func (generator *generator) addSchema(name string, schema jsonSchema) error {
 		if existing == raw {
 			return nil
 		}
-		existingSchema := generator.schemas[name]
-		if schemaIsCompatibleObjectSuperset(existingSchema, schema) {
-			return nil
-		}
-		if schemaIsCompatibleObjectSuperset(schema, existingSchema) {
-			generator.schemas[name] = schema
-			generator.schemaRaw[name] = raw
-			return nil
-		}
 		return fmt.Errorf("schema %s has conflicting definitions", name)
 	}
 	generator.schemas[name] = schema
 	generator.schemaRaw[name] = raw
 	generator.queue = append(generator.queue, name)
 	return nil
-}
-
-func schemaIsCompatibleObjectSuperset(candidate jsonSchema, base jsonSchema) bool {
-	if !isObjectSchema(candidate) || !isObjectSchema(base) {
-		return false
-	}
-	candidateWithoutProperties := candidate
-	baseWithoutProperties := base
-	candidateWithoutProperties.Properties = nil
-	baseWithoutProperties.Properties = nil
-	candidateWithoutProperties.raw = nil
-	baseWithoutProperties.raw = nil
-	if !schemasCanonicallyEqual(candidateWithoutProperties, baseWithoutProperties) {
-		return false
-	}
-	for name, baseProperty := range base.Properties {
-		candidateProperty, ok := candidate.Properties[name]
-		if !ok || !schemasCanonicallyEqual(candidateProperty, baseProperty) {
-			return false
-		}
-	}
-	return true
-}
-
-func schemasCanonicallyEqual(left jsonSchema, right jsonSchema) bool {
-	left.raw = nil
-	right.raw = nil
-	leftText, leftErr := schemaCanonicalText("left", left)
-	rightText, rightErr := schemaCanonicalText("right", right)
-	return leftErr == nil && rightErr == nil && leftText == rightText
 }
 
 func schemaCanonicalText(name string, schema jsonSchema) (string, error) {

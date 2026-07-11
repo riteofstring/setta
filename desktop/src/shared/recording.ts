@@ -6,7 +6,14 @@ export type RendererRecordedEvent =
   | RendererSubmitEvent
   | RendererErrorEvent
   | RendererLayoutSnapshotEvent
-  | RendererUnhandledRejectionEvent;
+  | RendererUnhandledRejectionEvent
+  | TerminalLatencyRendererEvent;
+
+export type TerminalLatencyRendererEvent =
+  | TerminalInputRendererReceivedEvent
+  | TerminalOutputRendererReceivedEvent
+  | TerminalOutputXtermWriteEvent
+  | TerminalOutputPaintedEvent;
 
 interface RendererRecordedEventBase {
   at: string;
@@ -53,6 +60,36 @@ interface RendererErrorEvent extends RendererRecordedEventBase {
 interface RendererUnhandledRejectionEvent extends RendererRecordedEventBase {
   reason: string;
   type: "unhandledrejection";
+}
+
+interface TerminalLatencyEventBase extends RendererRecordedEventBase {
+  byteCount: number;
+  clientId: string;
+  runId: string;
+  sessionId: string;
+}
+
+interface TerminalInputRendererReceivedEvent extends TerminalLatencyEventBase {
+  inputSequence: number;
+  type: "terminal_input_renderer_received";
+}
+
+interface TerminalOutputEventBase extends TerminalLatencyEventBase {
+  emittedAt: string;
+  eventId: string;
+  transportSequence: number;
+}
+
+interface TerminalOutputRendererReceivedEvent extends TerminalOutputEventBase {
+  type: "terminal_output_renderer_received";
+}
+
+interface TerminalOutputXtermWriteEvent extends TerminalOutputEventBase {
+  type: "terminal_output_xterm_write";
+}
+
+interface TerminalOutputPaintedEvent extends TerminalOutputEventBase {
+  type: "terminal_output_painted";
 }
 
 interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {

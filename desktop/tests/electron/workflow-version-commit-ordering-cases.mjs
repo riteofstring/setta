@@ -172,7 +172,6 @@ async function rendererWorkflow(client, method, args) {
 
 function blankGraph() {
   return {
-    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges: [],
     layout: { nodes: [] },
     nodes: [],
@@ -181,7 +180,6 @@ function blankGraph() {
 
 function startEndGraph() {
   return {
-    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges: [{ fromNodeId: "start", id: "start_end", kind: "normal", toNodeId: "end" }],
     layout: {
       nodes: [

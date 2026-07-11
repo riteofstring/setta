@@ -188,7 +188,7 @@ type ContractValueSet struct {
 }
 
 func ContractValueSets() []ContractValueSet {
-	return []ContractValueSet{
+	sets := []ContractValueSet{
 		{
 			Name: "SessionStatus",
 			Values: []string{
@@ -260,4 +260,5 @@ func ContractValueSets() []ContractValueSet {
 			},
 		},
 	}
+	return append(sets, streamContractValueSets()...)
 }

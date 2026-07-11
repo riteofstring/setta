@@ -13,11 +13,10 @@ import (
 )
 
 const (
-	defaultPageLimit                     = 40
-	defaultRunLivenessProviderInactiveIn = 90 * time.Second
-	deltaPersistInterval                 = 250 * time.Millisecond
-	maxConversationTitle                 = 80
-	maxPromptSummary                     = 120
+	defaultPageLimit     = 40
+	deltaPersistInterval = 250 * time.Millisecond
+	maxConversationTitle = 80
+	maxPromptSummary     = 120
 )
 
 type WorkspaceResolver interface {
@@ -37,11 +36,9 @@ type Service struct {
 
 	postCommitTurnStartInterceptor func(postCommitHarnessTurnStart) postCommitHarnessTurnStart
 
-	mu                                sync.Mutex
-	active                            map[string]activeTurn
-	liveness                          map[string]RunLiveness
-	runLivenessProviderInactiveAfter  time.Duration
-	runLivenessProviderInactiveTimers map[string]*time.Timer
+	mu       sync.Mutex
+	active   map[string]activeTurn
+	liveness map[string]RunLiveness
 
 	backgroundOutputMu       sync.Mutex
 	backgroundOutputBatches  map[backgroundTerminalOutputBatchKey][]backgroundTerminalOutputEntry
@@ -90,22 +87,20 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		return nil, err
 	}
 	service := &Service{
-		store:                             store,
-		harness:                           harness,
-		taskRunner:                        HarnessTaskRunnerFor(harness),
-		workspaceResolver:                 workspaceResolver,
-		newID:                             randomID,
-		now:                               time.Now,
-		codexDefaults:                     codexDefaults,
-		active:                            map[string]activeTurn{},
-		liveness:                          map[string]RunLiveness{},
-		runLivenessProviderInactiveAfter:  defaultRunLivenessProviderInactiveIn,
-		runLivenessProviderInactiveTimers: map[string]*time.Timer{},
-		backgroundOutputBatches:           map[backgroundTerminalOutputBatchKey][]backgroundTerminalOutputEntry{},
-		backgroundOutputFlushes:           map[backgroundTerminalOutputBatchKey][][]backgroundTerminalOutputEntry{},
-		backgroundOutputTimers:            map[backgroundTerminalOutputBatchKey]*time.Timer{},
-		backgroundOutputInflight:          map[backgroundTerminalOutputBatchKey]int{},
-		backgroundOutputWaiters:           map[backgroundTerminalOutputBatchKey][]chan struct{}{},
+		store:                    store,
+		harness:                  harness,
+		taskRunner:               HarnessTaskRunnerFor(harness),
+		workspaceResolver:        workspaceResolver,
+		newID:                    randomID,
+		now:                      time.Now,
+		codexDefaults:            codexDefaults,
+		active:                   map[string]activeTurn{},
+		liveness:                 map[string]RunLiveness{},
+		backgroundOutputBatches:  map[backgroundTerminalOutputBatchKey][]backgroundTerminalOutputEntry{},
+		backgroundOutputFlushes:  map[backgroundTerminalOutputBatchKey][][]backgroundTerminalOutputEntry{},
+		backgroundOutputTimers:   map[backgroundTerminalOutputBatchKey]*time.Timer{},
+		backgroundOutputInflight: map[backgroundTerminalOutputBatchKey]int{},
+		backgroundOutputWaiters:  map[backgroundTerminalOutputBatchKey][]chan struct{}{},
 	}
 	for _, option := range options {
 		option(service)
@@ -117,7 +112,6 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		return nil, err
 	}
 	service.attachBackgroundTerminalSink(harness)
-	service.attachConnectionDiagnosticSink(harness)
 	return service, nil
 }
 
@@ -132,6 +126,42 @@ func validateNewServiceDependencies(store *Store, workspaceResolver WorkspaceRes
 		return errors.New("chat harness is required")
 	}
 	return nil
+}
+
+func (service *Service) ensureEventHub() error {
+	if service.events == nil {
+		streamID, err := service.newID("event_stream")
+		if err != nil {
+			return fmt.Errorf("create event stream id: %w", err)
+		}
+		events, err := NewEventHub(streamID, WithEventClock(service.now))
+		if err != nil {
+			return err
+		}
+		service.events = events
+	}
+	return nil
+}
+
+func (service *Service) recoverStartupState() error {
+	if err := service.recoverInterruptedRuns(); err != nil {
+		service.recordCorruptStateDiagnostic(err, "", "", "")
+		return err
+	}
+	if err := service.recoverBackgroundTerminals(); err != nil {
+		service.recordCorruptStateDiagnostic(err, "", "", "")
+		return err
+	}
+	return nil
+}
+
+func (service *Service) attachBackgroundTerminalSink(harness Harness) {
+	// Harnesses that run background terminals on a long-lived provider connection
+	// (Codex) receive the conversation-scoped sink that late unified-exec output
+	// and completion update after the starting turn has finished.
+	if attacher, ok := harness.(backgroundTerminalSinkAttacher); ok {
+		attacher.SetBackgroundTerminalSink(service.backgroundTerminalSink())
+	}
 }
 
 func WithIDGenerator(newID func(prefix string) (string, error)) Option {
@@ -149,12 +179,6 @@ func WithClock(now func() time.Time) Option {
 func WithEventHub(events *EventHub) Option {
 	return func(service *Service) {
 		service.events = events
-	}
-}
-
-func WithRunLivenessProviderInactiveAfter(timeout time.Duration) Option {
-	return func(service *Service) {
-		service.runLivenessProviderInactiveAfter = timeout
 	}
 }
 
@@ -647,7 +671,7 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 		service.mu.Unlock()
 		return err
 	}
-	pendingSteering, err := service.markPendingSteeringMessagesLocked(workspaceID, conversationID, run.ID, MessageStatusCancelled)
+	pendingSteering, err := service.markPendingSteeringMessagesLocked(workspaceID, conversationID, run.ID, MessageStatusComplete)
 	if err != nil {
 		service.mu.Unlock()
 		return err
