@@ -1,21 +1,13 @@
 export const recordingRendererEventChannel = "recording:renderer-event";
 
-export type TerminalOutputSchedule = "coalesced" | "immediate" | "replay";
-
 export type RendererRecordedEvent =
   | RendererClickEvent
   | RendererKeydownEvent
+  | RendererPointerEvent
   | RendererSubmitEvent
   | RendererErrorEvent
   | RendererLayoutSnapshotEvent
-  | RendererUnhandledRejectionEvent
-  | TerminalLatencyRendererEvent;
-
-export type TerminalLatencyRendererEvent =
-  | TerminalInputRendererReceivedEvent
-  | TerminalOutputRendererReceivedEvent
-  | TerminalOutputXtermWriteEvent
-  | TerminalOutputPaintedEvent;
+  | RendererUnhandledRejectionEvent;
 
 interface RendererRecordedEventBase {
   at: string;
@@ -37,7 +29,20 @@ interface RendererTargetSummary {
 
 interface RendererClickEvent extends RendererRecordedEventBase {
   button: number;
+  clientX: number;
+  clientY: number;
+  hitTargets: RendererTargetSummary[];
   type: "click";
+}
+
+interface RendererPointerEvent extends RendererRecordedEventBase {
+  button: number;
+  clientX: number;
+  clientY: number;
+  hitTargets: RendererTargetSummary[];
+  pointerId: number;
+  pointerType: string;
+  type: "pointerdown" | "pointerup";
 }
 
 interface RendererKeydownEvent extends RendererRecordedEventBase {
@@ -62,38 +67,6 @@ interface RendererErrorEvent extends RendererRecordedEventBase {
 interface RendererUnhandledRejectionEvent extends RendererRecordedEventBase {
   reason: string;
   type: "unhandledrejection";
-}
-
-interface TerminalLatencyEventBase extends RendererRecordedEventBase {
-  byteCount: number;
-  clientId: string;
-  runId: string;
-  sessionId: string;
-}
-
-interface TerminalInputRendererReceivedEvent extends TerminalLatencyEventBase {
-  inputSequence: number;
-  type: "terminal_input_renderer_received";
-}
-
-interface TerminalOutputEventBase extends TerminalLatencyEventBase {
-  emittedAt: string;
-  eventId: string;
-  transportSequence: number;
-}
-
-interface TerminalOutputRendererReceivedEvent extends TerminalOutputEventBase {
-  type: "terminal_output_renderer_received";
-}
-
-interface TerminalOutputXtermWriteEvent extends TerminalOutputEventBase {
-  outputSchedule: TerminalOutputSchedule;
-  type: "terminal_output_xterm_write";
-}
-
-interface TerminalOutputPaintedEvent extends TerminalOutputEventBase {
-  outputSchedule: TerminalOutputSchedule;
-  type: "terminal_output_painted";
 }
 
 interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {

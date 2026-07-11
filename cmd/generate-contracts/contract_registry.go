@@ -7,9 +7,11 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
+	"setta/internal/speech"
 	"setta/internal/terminal"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspaceui"
@@ -18,24 +20,22 @@ import (
 func contractUnions() map[reflect.Type]unionSpec {
 	specs := map[reflect.Type]unionSpec{}
 	for _, union := range chat.ContractUnions() {
-		registerContractUnion(specs, union.Discriminator, union.Name, union.Type, union.Variants)
-	}
-	for _, union := range terminal.ContractUnions() {
 		variants := make([]unionVariantSpec, 0, len(union.Variants))
 		for _, variant := range union.Variants {
-			variants = append(variants, unionVariantSpec{KindValue: variant.KindValue, Name: variant.Name, Type: variant.Type})
+			variants = append(variants, unionVariantSpec{
+				KindValue: variant.KindValue,
+				Name:      variant.Name,
+				Type:      variant.Type,
+			})
 		}
-		specs[union.Type] = unionSpec{Discriminator: union.Discriminator, Name: union.Name, Type: union.Type, Variants: variants}
+		specs[union.Type] = unionSpec{
+			Discriminator: union.Discriminator,
+			Name:          union.Name,
+			Type:          union.Type,
+			Variants:      variants,
+		}
 	}
 	return specs
-}
-
-func registerContractUnion(specs map[reflect.Type]unionSpec, discriminator string, name string, unionType reflect.Type, variants []chat.ContractUnionVariant) {
-	registeredVariants := make([]unionVariantSpec, 0, len(variants))
-	for _, variant := range variants {
-		registeredVariants = append(registeredVariants, unionVariantSpec{KindValue: variant.KindValue, Name: variant.Name, Type: variant.Type})
-	}
-	specs[unionType] = unionSpec{Discriminator: discriminator, Name: name, Type: unionType, Variants: registeredVariants}
 }
 
 // contractTaggedUnions registers struct contracts whose `kind` discriminator
@@ -83,6 +83,24 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 				{Field: "providerStreamLifecycle", KindValue: string(chat.RunItemDetailsKindProviderStreamLifecycle)},
 			},
 		},
+		reflect.TypeFor[easyrun.EasyArtifact](): {
+			Discriminator: "kind",
+			Branches: []taggedUnionBranch{
+				{Field: "markdown", KindValue: string(easyrun.EasyArtifactKindMarkdown)},
+				{Field: "table", KindValue: string(easyrun.EasyArtifactKindTable)},
+				{Field: "barChart", KindValue: string(easyrun.EasyArtifactKindBarChart)},
+				{Field: "file", KindValue: string(easyrun.EasyArtifactKindFile)},
+			},
+		},
+		reflect.TypeFor[easyrun.EasyRunEvent](): {
+			Discriminator: "type",
+			Branches: []taggedUnionBranch{
+				{Field: "runUpdated", KindValue: string(easyrun.EasyRunEventTypeRunUpdated)},
+				{Field: "highlightCreated", KindValue: string(easyrun.EasyRunEventTypeHighlightCreated)},
+				{Field: "artifactCreated", KindValue: string(easyrun.EasyRunEventTypeArtifactCreated)},
+				{Field: "resyncRequired", KindValue: string(easyrun.EasyRunEventTypeResyncRequired)},
+			},
+		},
 	}
 }
 
@@ -94,6 +112,9 @@ func contractValueSets() []chat.ContractValueSet {
 	for _, set := range codexaccount.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
+	for _, set := range easyrun.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
 	for _, set := range orchestrator.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
@@ -101,6 +122,9 @@ func contractValueSets() []chat.ContractValueSet {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range semanticgraph.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
+	for _, set := range speech.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range terminal.ContractValueSets() {

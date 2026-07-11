@@ -56,6 +56,7 @@ describe("real workspace layout scene", () => {
   test("defines default pane limits for addable real workspace surfaces", () => {
     expect(defaultRealWorkspacePaneLimits).toEqual({
       "chat-dom": 10,
+      "easy-button": 1,
       "semantic-node-details": 1,
       "settings-dom": 1,
       terminal: 10,

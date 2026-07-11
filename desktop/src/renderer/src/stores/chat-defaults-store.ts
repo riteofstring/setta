@@ -3,6 +3,7 @@ import type {
   ChatCodexPermissionSettings,
   ChatCodexSettings,
   ChatModelOption,
+  ChatPermissionPreset,
   ChatPermissionPresetID,
   ReasoningEffort,
 } from "@generated/backend";
@@ -175,6 +176,12 @@ function permissionSettingsForPreset(
   if (!option) {
     return null;
   }
+  return chatCodexPermissionSettingsFromPreset(option);
+}
+
+export function chatCodexPermissionSettingsFromPreset(
+  option: ChatPermissionPreset,
+): ChatCodexPermissionSettings {
   return {
     approvalPolicy: option.approvalPolicy,
     permissions: option.activePermissionProfileId,

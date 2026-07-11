@@ -4,9 +4,9 @@ go 1.26.4
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
-	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
 	github.com/mdp/qrterminal/v3 v3.2.1
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.51.0
 )
 

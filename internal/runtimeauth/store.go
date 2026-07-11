@@ -572,12 +572,11 @@ func (store *Store) markPairingTokenUsed(
 	pairingID string,
 	deviceID string,
 ) error {
-	usedAt := timestamp(store.clock())
 	result, err := tx.ExecContext(ctx, `
 UPDATE pairing_tokens
 SET used_at = ?, client_device_id = ?
 WHERE id = ? AND used_at IS NULL
-`, usedAt, deviceID, pairingID)
+`, timestamp(store.clock()), deviceID, pairingID)
 	if err != nil {
 		return store.persistenceError("mark pairing token used", err)
 	}
@@ -587,13 +586,6 @@ WHERE id = ? AND used_at IS NULL
 	}
 	if rows != 1 {
 		return store.corruptError("pairing token", fmt.Errorf("unexpected update count %d", rows))
-	}
-	if _, err := tx.ExecContext(ctx, `
-UPDATE provisioned_pairing_tokens
-SET first_paired_at = ?, attestation_key = NULL
-WHERE pairing_token_id = ?
-`, usedAt, pairingID); err != nil {
-		return store.persistenceError("clear provisioned pairing attestation key", err)
 	}
 	return nil
 }
@@ -736,23 +728,4 @@ CREATE TABLE IF NOT EXISTS pairing_tokens (
 
 CREATE INDEX IF NOT EXISTS pairing_tokens_available_idx
   ON pairing_tokens(used_at, expires_at, id);
-
-CREATE TABLE IF NOT EXISTS provisioned_pairing_tokens (
-  pairing_token_id TEXT PRIMARY KEY REFERENCES pairing_tokens(id) ON DELETE CASCADE,
-  provision_id TEXT NOT NULL UNIQUE,
-  attestation_key BLOB,
-  created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL,
-  first_paired_at TEXT
-);
-
-CREATE INDEX IF NOT EXISTS provisioned_pairing_tokens_available_idx
-  ON provisioned_pairing_tokens(provision_id, expires_at, first_paired_at);
-
-CREATE TABLE IF NOT EXISTS setup_attestation_nonces (
-  pairing_token_id TEXT NOT NULL REFERENCES pairing_tokens(id) ON DELETE CASCADE,
-  nonce_hash BLOB NOT NULL,
-  created_at TEXT NOT NULL,
-  PRIMARY KEY(pairing_token_id, nonce_hash)
-);
 `)
