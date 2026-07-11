@@ -115,25 +115,31 @@
       buttonAnimationName: buttonPseudoStyleValue(button, "animationName"),
       buttonAnimationPlayState: buttonPseudoStyleValue(button, "animationPlayState"),
       buttonRect: rectSnapshot(buttonRect),
+      buttonTransitionDuration: elementStyleValue(button, "transitionDuration"),
       buttonVisible: buttonVisible(buttonRect),
       centerRect: rectSnapshot(elementRectOrZero(center)),
       controlRingAnimationName: elementStyleValue(controlRing, "animationName"),
       controlRingAnimationPlayState: elementStyleValue(controlRing, "animationPlayState"),
+      controlRingTransitionDuration: elementStyleValue(controlRing, "transitionDuration"),
       inputFocused: input instanceof HTMLInputElement && document.activeElement === input,
       inputDisabled: inputDisabled(input),
       inputRect: rectSnapshot(elementRectOrZero(input)),
+      inputTransitionDuration: elementStyleValue(input, "transitionDuration"),
       inputValue: inputValue(input),
       narratorStatusText: elementText(narratorStatus),
+      reducedMotionMatches: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       requestText: elementText(requestText),
       requestTextMetrics: textBoxMetrics(requestText),
       requestTextRect: rectSnapshot(elementRectOrZero(requestText)),
       runCopyRect: rectSnapshot(elementRectOrZero(runCopy)),
       spinnerAnimationName: elementStyleValue(spinner, "animationName"),
       spinnerAnimationPlayState: elementStyleValue(spinner, "animationPlayState"),
+      spinnerTransitionDuration: elementStyleValue(spinner, "transitionDuration"),
       stopButtonAriaLabel: buttonAriaLabel(stopButton),
       stopButtonDisabled: buttonDisabled(stopButton),
       stopButtonRect: rectSnapshot(elementRectOrZero(stopButton)),
       stopButtonText: elementText(stopButton),
+      stopButtonTransitionDuration: elementStyleValue(stopButton, "transitionDuration"),
       stopButtonVisible: stopButton instanceof HTMLButtonElement,
       summaryText: elementText(summary),
       summaryTextMetrics: textBoxMetrics(summary),
@@ -230,16 +236,20 @@
 
   function easyButtonArtifacts(host) {
     return Array.from(host.querySelectorAll(".easy-button-artifact-card")).map((card) => ({
+      animationName: elementStyleValue(card, "animationName"),
       kind: card instanceof HTMLElement ? (card.dataset.artifactKind ?? "") : "",
       text: (card.textContent ?? "").trim(),
       title: elementText(card.querySelector(".easy-button-artifact-title")),
+      transitionDuration: elementStyleValue(card, "transitionDuration"),
     }));
   }
 
   function easyButtonHighlights(host) {
     return Array.from(host.querySelectorAll(".easy-button-highlight-item")).map((item) => ({
+      animationName: elementStyleValue(item, "animationName"),
       text: elementText(item.querySelector(".easy-button-highlight-text")),
       time: elementText(item.querySelector(".easy-button-highlight-time")),
+      transitionDuration: elementStyleValue(item, "transitionDuration"),
     }));
   }
 

@@ -235,6 +235,7 @@ try {
   const mobileLongRequestLayout = await runEasyButtonMobileLongRequest(
     join(artifactDir, "mobile-long-request"),
   );
+  const reducedMotion = await runEasyButtonReducedMotionAudit(join(artifactDir, "reduced-motion"));
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
@@ -243,6 +244,7 @@ try {
     frozen,
     longRequestLayout,
     mobileLongRequestLayout,
+    reducedMotion,
     restartRecovery,
     restoredTerminal,
     restored,
@@ -396,6 +398,89 @@ async function runEasyButtonMobileLongRequest(recordingRoot) {
     await stopElectronCdpContext(mobileContext);
     await rm(mobileFixture.tempRoot, { force: true, recursive: true });
   }
+}
+
+async function runEasyButtonReducedMotionAudit(recordingRoot) {
+  const reducedFixture = await createElectronFixture("easy-button-reduced-motion");
+  let reducedContext = null;
+  try {
+    reducedContext = await launchElectronCdpContext({
+      artifactDir: recordingRoot,
+      extraEnv: {
+        SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+      },
+      fixture: reducedFixture,
+      visible: options.visible,
+    });
+    await emulateReducedMotion(reducedContext.client);
+    await waitForSelector(reducedContext.client, '[data-testid="workspace-layout-area"]');
+    await reducedContext.client.installDriver();
+    await ensureWorkspaceOpen(reducedContext.client);
+
+    await openEasyButtonFromShortcut(reducedContext.client);
+    const idle = await waitForEasyButtonPane(reducedContext.client);
+    assertFullWidthColumn(idle);
+    assertReducedMotionVisual(idle, "idle");
+    await captureScreenshot(
+      reducedContext.client,
+      join(recordingRoot, "easy-button-reduced-idle.png"),
+    );
+
+    await submitEasyButtonRequest(reducedContext.client, "cancel active workflow");
+    const working = await waitForEasyButtonWorking(reducedContext.client, "cancel active workflow");
+    assertWorkingVisual(working, "cancel active workflow");
+    assertReducedMotionVisual(working, "working");
+    await captureScreenshot(
+      reducedContext.client,
+      join(recordingRoot, "easy-button-reduced-working.png"),
+    );
+    await clickEasyButtonStop(reducedContext.client);
+    const stopped = await waitForEasyButtonTerminal(
+      reducedContext.client,
+      "cancel active workflow",
+      "Stopped after",
+    );
+    assertTerminalVisual(stopped, "cancel active workflow", "Stopped after", {
+      expectedNarration: "The run was stopped before finishing.",
+    });
+    assertReducedMotionVisual(stopped, "stopped");
+
+    await submitEasyButtonRequest(reducedContext.client, "easy run phase3 artifacts workflow");
+    const artifactTerminal = await waitForEasyButtonTerminalWithArtifacts(
+      reducedContext.client,
+      "easy run phase3 artifacts workflow",
+      2,
+    );
+    assertArtifactTerminalVisual(artifactTerminal, "easy run phase3 artifacts workflow");
+    assertReducedMotionVisual(artifactTerminal, "artifact terminal");
+    await captureScreenshot(
+      reducedContext.client,
+      join(recordingRoot, "easy-button-reduced-artifacts.png"),
+    );
+
+    await submitEasyButtonRequest(reducedContext.client, "easy run phase4 narrator workflow");
+    const narratorTerminal = await waitForEasyButtonTerminalWithHighlights(
+      reducedContext.client,
+      "easy run phase4 narrator workflow",
+      2,
+    );
+    assertNarratorTerminalVisual(narratorTerminal, "easy run phase4 narrator workflow");
+    assertReducedMotionVisual(narratorTerminal, "narrator terminal");
+    await captureScreenshot(
+      reducedContext.client,
+      join(recordingRoot, "easy-button-reduced-highlights.png"),
+    );
+    return { artifactTerminal, idle, narratorTerminal, stopped, working };
+  } finally {
+    await stopElectronCdpContext(reducedContext);
+    await rm(reducedFixture.tempRoot, { force: true, recursive: true });
+  }
+}
+
+async function emulateReducedMotion(client) {
+  await client.call("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
 }
 
 async function waitForCompactLayout(client) {
@@ -701,6 +786,76 @@ function assertLongRequestLayout(state, label) {
   if (state.summaryText !== "") {
     assertTextHasNoHorizontalOverflow(state.summaryTextMetrics, label, "summary");
   }
+}
+
+function assertReducedMotionVisual(state, label) {
+  if (state.reducedMotionMatches !== true) {
+    throw new Error(`easy-button ${label} did not match reduced motion: ${JSON.stringify(state)}`);
+  }
+  if (state.easyState === "working" && state.spinnerAnimationName === "") {
+    throw new Error(`easy-button ${label} missing working spinner: ${JSON.stringify(state)}`);
+  }
+  assertAnimationNamesCleared(
+    {
+      button: state.buttonAnimationName,
+      controlRing: state.controlRingAnimationName,
+      spinner: state.spinnerAnimationName,
+    },
+    label,
+  );
+  assertTransitionDurationsCleared(
+    {
+      button: state.buttonTransitionDuration,
+      controlRing: state.controlRingTransitionDuration,
+      input: state.inputTransitionDuration,
+      spinner: state.spinnerTransitionDuration,
+      stopButton: state.stopButtonTransitionDuration,
+    },
+    label,
+  );
+  for (const [index, artifact] of state.artifacts.entries()) {
+    assertAnimationNamesCleared({ [`artifact ${index + 1}`]: artifact.animationName }, label);
+    assertTransitionDurationsCleared(
+      { [`artifact ${index + 1}`]: artifact.transitionDuration },
+      label,
+    );
+  }
+  for (const [index, highlight] of state.highlights.entries()) {
+    assertAnimationNamesCleared({ [`highlight ${index + 1}`]: highlight.animationName }, label);
+    assertTransitionDurationsCleared(
+      { [`highlight ${index + 1}`]: highlight.transitionDuration },
+      label,
+    );
+  }
+}
+
+function assertAnimationNamesCleared(fields, label) {
+  const animated = Object.entries(fields).filter(([, value]) => value && value !== "none");
+  if (animated.length > 0) {
+    throw new Error(
+      `easy-button ${label} reduced motion left animations enabled: ${JSON.stringify(animated)}`,
+    );
+  }
+}
+
+function assertTransitionDurationsCleared(fields, label) {
+  const transitioning = Object.entries(fields).filter(
+    ([, value]) => value && !transitionDurationsAreZero(value),
+  );
+  if (transitioning.length > 0) {
+    throw new Error(
+      `easy-button ${label} reduced motion left transitions enabled: ${JSON.stringify(
+        transitioning,
+      )}`,
+    );
+  }
+}
+
+function transitionDurationsAreZero(value) {
+  return String(value)
+    .split(",")
+    .map((part) => part.trim())
+    .every((part) => part === "0s" || part === "0ms");
 }
 
 function assertRequestTextConstrained(state, label) {
