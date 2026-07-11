@@ -185,6 +185,24 @@ describe("easy-run store", () => {
     expect(useEasyRunStore.getState().lastEventSequence).toBe(9);
   });
 
+  test("handles resync-required events before duplicate filtering", async () => {
+    const snapshot = easyRunSnapshot({ latestRun: easyRun("easy_run_resynced"), sequence: 7 });
+    const readSnapshot = vi.fn<SettaAPI["easyRun"]["snapshot"]>().mockResolvedValue(snapshot);
+    installEasyRunAPI({ snapshot: readSnapshot });
+    useEasyRunStore
+      .getState()
+      .hydrateSnapshot(
+        workspaceId,
+        easyRunSnapshot({ latestRun: easyRun("easy_run_selected"), sequence: 5 }),
+      );
+
+    useEasyRunStore.getState().handleEvent(resyncRequiredEvent(4));
+    await vi.waitFor(() => expect(readSnapshot).toHaveBeenCalledWith(workspaceId));
+
+    expect(useEasyRunStore.getState().latestRun?.id).toBe("easy_run_resynced");
+    expect(useEasyRunStore.getState().lastEventSequence).toBe(7);
+  });
+
   test("advances the cursor for other workspaces without mutating selected workspace data", () => {
     useEasyRunStore
       .getState()
@@ -340,6 +358,30 @@ function artifactCreatedEvent(sequence: number, artifact: EasyArtifact): EasyRun
     sequence,
     streamId: eventStreamId,
     type: "easyrun.artifact.created",
+    workspaceId,
+  };
+}
+
+function resyncRequiredEvent(sequence: number): EasyRunEvent {
+  return {
+    artifactCreated: null,
+    easyRunId: "easy_run_selected",
+    emittedAt: "2026-07-08T12:00:00Z",
+    eventId: `${eventStreamId}:${sequence}`,
+    highlightCreated: null,
+    resyncRequired: {
+      currentSequence: sequence,
+      currentStreamId: eventStreamId,
+      earliestSequence: sequence,
+      reason: "event replay is no longer available",
+      requestedSequence: 5,
+      requestedStreamId: eventStreamId,
+    },
+    runUpdated: null,
+    schemaVersion: 1,
+    sequence,
+    streamId: eventStreamId,
+    type: "easyrun.resync_required",
     workspaceId,
   };
 }

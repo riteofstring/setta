@@ -87,6 +87,9 @@ func validateStoredArtifactCollection(easyRunID string, collection storedArtifac
 		if _, exists := ordinals[artifact.Ordinal]; exists {
 			return fmt.Errorf("duplicate easy-run artifact ordinal %d", artifact.Ordinal)
 		}
+		if artifact.Ordinal != index+1 {
+			return fmt.Errorf("artifact[%d] ordinal = %d, want %d", index, artifact.Ordinal, index+1)
+		}
 		ids[artifact.ID] = struct{}{}
 		ordinals[artifact.Ordinal] = struct{}{}
 	}
@@ -117,6 +120,9 @@ func validateStoredHighlightCollection(easyRunID string, collection storedHighli
 		}
 		if _, exists := ordinals[highlight.Ordinal]; exists {
 			return fmt.Errorf("duplicate easy-run highlight ordinal %d", highlight.Ordinal)
+		}
+		if highlight.Ordinal != index+1 {
+			return fmt.Errorf("highlight[%d] ordinal = %d, want %d", index, highlight.Ordinal, index+1)
 		}
 		ids[highlight.ID] = struct{}{}
 		ordinals[highlight.Ordinal] = struct{}{}

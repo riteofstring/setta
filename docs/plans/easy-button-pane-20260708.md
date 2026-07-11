@@ -945,24 +945,11 @@ Implemented Phase 3 typed artifact emission:
   working response from `steer` can no longer regress a terminal run received
   first from the push event stream.
 
-Verification performed:
-
-- `./scripts/go.sh test ./internal/easyrun`
-- `./scripts/go.sh test ./internal/chat -run 'Test(CodexDynamicToolSpecs|SettaWorkspaceContextTool|CodexHarnessStartsThreadWithDynamicTools|CodexHarnessDoesNotSendDynamicToolsOnResume|AgentToolRegistry)'`
-- `./scripts/go.sh test ./internal/runtime ./internal/httpapi -run 'Test(ConfigFromArgsCanSkipBootstrapDeviceSession|ReadEasyRunSnapshot|EasyRunEventStream|ContractSchemaSnapshot)'`
-- `pnpm -C desktop exec vitest run src/renderer/src/stores/easy-run-store.test.ts`
-- `pnpm -C desktop typecheck`
-- `pnpm -C desktop build`
-- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase3-artifacts-rerun`
-- `node desktop/tests/electron/easy-button-pane-workflow.test.mjs --skip-build --artifact-dir .recordings/easy-button-phase3-artifacts-final`
-- `node desktop/tests/electron/chat-live-auth.mjs`
-- `./scripts/test_chat_workflows.sh --skip-build --live-only`
-- `./scripts/format.sh`
-- `./scripts/go.sh run ./cmd/generate-contracts` (no diff)
-- `./check_quality.sh --git-changes`
-
-Live note: ChatGPT auth was available. The live gate passed
-`live-codex-electron` and `live-codex-backend`.
+Verification included focused easy-run/chat/runtime/httpapi checks, renderer
+store tests, typecheck, build, two deterministic easy-button workflow runs,
+formatting, no-diff contract generation, and `./check_quality.sh --git-changes`.
+ChatGPT auth was available; the live gate passed `live-codex-electron` and
+`live-codex-backend`.
 
 Remaining work: Phase 4 is next. It should add the narrator digest, selective
 highlights, narrative completion summary, narrator degradation status, and the
@@ -984,17 +971,29 @@ Implemented the first Phase 4 backend slice for narrator-authored highlights:
   restore, per-call/run caps, and invalid narrator output. No generated
   contracts changed; contract generation produced no diff.
 
-Verification performed:
-
-- `./scripts/go.sh run ./cmd/generate-contracts`
-- `./scripts/go.sh test ./internal/easyrun`
-- `./scripts/go.sh test ./internal/httpapi -run 'Test(ReadEasyRunSnapshot|EasyRunEventStream|ContractSchemaSnapshot)'`
-- `./scripts/go.sh test ./cmd/generate-contracts`
-- `./scripts/format.sh`
-- `./check_quality.sh --git-changes`
+Verification included no-diff contract generation, focused easy-run/httpapi
+and generator tests, formatting, and `./check_quality.sh --git-changes`.
 
 Remaining Phase 4 work: add `HarnessSurfaceEasyRunNarrator`, digest buffering
 and trigger policy, structured narrator calls, narrator degradation status,
 narrative terminal summaries, left-rail rendering from typed highlight
 contracts, and the Phase 4 deterministic/live E2E coverage. No blockers were
+discovered.
+
+### 2026-07-09 — Phase 4 highlight persistence audit follow-up
+
+Audit found the highlight persistence slice preserves the backend-owned
+presentation-plane boundary and has no generated-contract drift. Follow-up fixed
+two hardening gaps: `easyrun.resync_required` is now handled before duplicate
+filtering in the renderer store, and stored artifact/highlight collections now
+fail loudly unless ordinals are ordered and contiguous.
+
+Verification included focused easy-run and renderer store tests, no-diff
+contract generation, formatting, typecheck, build, the deterministic
+easy-button workflow (`.recordings/easy-button-phase4-audit-fixes`), ChatGPT
+auth check, and the live chat workflow gate. ChatGPT auth was available; the
+live gate passed `live-codex-electron` and `live-codex-backend`. Remaining
+Phase 4 work is unchanged: narrator harness surface, digest/trigger policy,
+structured narrator calls, degradation status, narrative summaries, typed
+left-rail rendering, and Phase 4 deterministic/live coverage. No blockers were
 discovered.

@@ -381,6 +381,54 @@ func TestRecordNarratorHighlightsRejectsInvalidText(t *testing.T) {
 	}
 }
 
+func TestReadSnapshotRejectsNonContiguousStoredHighlightOrdinals(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_highlight_gap")
+	run.HighlightCount = 2
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_highlight_gap",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	if err := writeCorruptHighlightsForTest(store, run.WorkspaceID, run.ID, []EasyHighlight{
+		testHighlight(run.ID, 1),
+		testHighlight(run.ID, 3),
+	}); err != nil {
+		t.Fatalf("write corrupt highlights: %v", err)
+	}
+
+	_, err := service.ReadSnapshot(run.WorkspaceID)
+	if err == nil || !strings.Contains(err.Error(), "highlight[1] ordinal = 3, want 2") {
+		t.Fatalf("read snapshot error = %v, want non-contiguous highlight ordinal failure", err)
+	}
+}
+
+func TestReadSnapshotRejectsNonContiguousStoredArtifactOrdinals(t *testing.T) {
+	service, store := newTestServiceWithStore(t)
+	run := testRun("easy_run_artifact_gap")
+	run.ArtifactCount = 2
+	if err := store.saveNewRun(storedRunRecord{
+		BackingRunID:  "run_artifact_gap",
+		Run:           run,
+		SchemaVersion: SchemaVersion,
+	}); err != nil {
+		t.Fatalf("save working run: %v", err)
+	}
+	if err := writeCorruptArtifactsForTest(store, run.WorkspaceID, run.ID, []EasyArtifact{
+		testMarkdownArtifact(run.ID, 1),
+		testMarkdownArtifact(run.ID, 3),
+	}); err != nil {
+		t.Fatalf("write corrupt artifacts: %v", err)
+	}
+
+	_, err := service.ReadSnapshot(run.WorkspaceID)
+	if err == nil || !strings.Contains(err.Error(), "artifact[1] ordinal = 3, want 2") {
+		t.Fatalf("read snapshot error = %v, want non-contiguous artifact ordinal failure", err)
+	}
+}
+
 func TestEmitArtifactToolRejectsNonEasyRunConversation(t *testing.T) {
 	service := newTestService(t)
 	tool := NewEmitArtifactAgentTool(service)
@@ -936,4 +984,30 @@ func testHighlight(easyRunID string, ordinal int) EasyHighlight {
 		Ordinal:   ordinal,
 		Text:      fmt.Sprintf("Existing highlight %02d", ordinal),
 	}
+}
+
+func testMarkdownArtifact(easyRunID string, ordinal int) EasyArtifact {
+	return EasyArtifact{
+		CreatedAt: "2026-07-08T12:00:00Z",
+		EasyRunID: easyRunID,
+		ID:        fmt.Sprintf("artifact_existing_%02d", ordinal),
+		Kind:      EasyArtifactKindMarkdown,
+		Markdown:  &EasyMarkdownArtifactPayload{Markdown: "Done"},
+		Ordinal:   ordinal,
+		Title:     fmt.Sprintf("Artifact %02d", ordinal),
+	}
+}
+
+func writeCorruptHighlightsForTest(store *Store, workspaceID string, easyRunID string, highlights []EasyHighlight) error {
+	return writeJSONFile(store.easyRunHighlightsPath(workspaceID, easyRunID), storedHighlightCollection{
+		SchemaVersion: SchemaVersion,
+		Highlights:    highlights,
+	})
+}
+
+func writeCorruptArtifactsForTest(store *Store, workspaceID string, easyRunID string, artifacts []EasyArtifact) error {
+	return writeJSONFile(store.easyRunArtifactsPath(workspaceID, easyRunID), storedArtifactCollection{
+		SchemaVersion: SchemaVersion,
+		Artifacts:     artifacts,
+	})
 }

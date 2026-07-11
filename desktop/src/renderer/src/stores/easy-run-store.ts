@@ -60,9 +60,6 @@ export const useEasyRunStore = create<EasyRunStore>((set, get) => {
     ...initialEasyRunStoreData,
     handleEvent: (event) => {
       const state = get();
-      if (isDuplicateEvent(state, event)) {
-        return;
-      }
       if (event.type === "easyrun.resync_required") {
         const payload = event.resyncRequired;
         if (!payload) {
@@ -73,6 +70,9 @@ export const useEasyRunStore = create<EasyRunStore>((set, get) => {
           lastEventStreamId: payload.currentStreamId,
         });
         resyncFromEventStream();
+        return;
+      }
+      if (isDuplicateEvent(state, event)) {
         return;
       }
       if (isUnexpectedStream(state, event) || hasSequenceGap(state, event)) {
