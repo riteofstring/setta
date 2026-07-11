@@ -5,6 +5,16 @@ import type { EasyRunStoreData } from "./easy-run-store";
 export interface EasyRunEventApplyResult {
   patch: Partial<EasyRunStoreData>;
   resync: boolean;
+  speechPlaybackIntent: EasyRunSpeechPlaybackIntent | null;
+}
+
+export interface EasyRunSpeechPlaybackIntent {
+  eventId: string;
+  source: {
+    easyRunId: string;
+    workspaceId: string;
+  };
+  type: "terminal_summary";
 }
 
 export function applyEasyRunEvent(
@@ -19,7 +29,7 @@ export function applyEasyRunEvent(
   }
   switch (event.type) {
     case "easyrun.run.updated":
-      return applyRunUpdatedEvent(state, requireBranch(event.runUpdated, event.type).run);
+      return applyRunUpdatedEvent(state, event);
     case "easyrun.highlight.created":
       return applyHighlightCreatedEvent(
         state,
@@ -37,7 +47,11 @@ export function applyEasyRunEvent(
   }
 }
 
-function applyRunUpdatedEvent(state: EasyRunStoreData, run: EasyRun): EasyRunEventApplyResult {
+function applyRunUpdatedEvent(
+  state: EasyRunStoreData,
+  event: EasyRunEvent,
+): EasyRunEventApplyResult {
+  const run = requireBranch(event.runUpdated, event.type).run;
   const sameRun = state.latestRun?.id === run.id;
   return {
     patch: {
@@ -47,7 +61,30 @@ function applyRunUpdatedEvent(state: EasyRunStoreData, run: EasyRun): EasyRunEve
       status: "ready",
     },
     resync: false,
+    speechPlaybackIntent: terminalSummaryPlaybackIntent(state.latestRun, run, event.eventId),
   };
+}
+
+function terminalSummaryPlaybackIntent(
+  previousRun: EasyRun | null,
+  run: EasyRun,
+  eventId: string,
+): EasyRunSpeechPlaybackIntent | null {
+  if (previousRun?.id !== run.id || previousRun.status !== "working") {
+    return null;
+  }
+  switch (run.status) {
+    case "completed":
+    case "failed":
+      return {
+        eventId,
+        source: { easyRunId: run.id, workspaceId: run.workspaceId },
+        type: "terminal_summary",
+      };
+    case "stopped":
+    case "working":
+      return null;
+  }
 }
 
 function applyHighlightCreatedEvent(
@@ -64,6 +101,7 @@ function applyHighlightCreatedEvent(
       status: "ready",
     },
     resync: false,
+    speechPlaybackIntent: null,
   };
 }
 
@@ -81,6 +119,7 @@ function applyArtifactCreatedEvent(
       status: "ready",
     },
     resync: false,
+    speechPlaybackIntent: null,
   };
 }
 
@@ -92,7 +131,7 @@ function upsertByOrdinal<T extends { id: string; ordinal: number }>(items: T[], 
 }
 
 function unchangedEventResult(resync: boolean): EasyRunEventApplyResult {
-  return { patch: {}, resync };
+  return { patch: {}, resync, speechPlaybackIntent: null };
 }
 
 function requireBranch<T>(branch: T | null, eventType: EasyRunEvent["type"]): T {

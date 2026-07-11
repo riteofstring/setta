@@ -3359,6 +3359,74 @@ unrequired. No live OpenAI speech result is claimed. The plan is not complete,
 and this audit does not start the next slice: Phase 4 item 4 remains next,
 followed by items 5-6 and Phase 5.
 
+### 2026-07-10 — Phase 4 live terminal-summary auto-play complete
+
+Implemented Phase 4 item 4 without pulling restored-snapshot/cache acceptance,
+recording preemption, TTS failure closure, or highlight narration forward. The
+typed Easy Run event reducer now creates a transient speech intent only for a
+same-run live `working -> completed` or `working -> failed` update. The store
+publishes that intent after applying the event; hydration, action responses,
+duplicate/gapped events, unrelated workspaces, non-transition updates, and
+`stopped` runs publish nothing. No terminal state is inferred by comparing
+hydrated snapshots.
+
+The mounted pane playback controller subscribes to those push-only intents and
+enqueues the persisted workspace/Easy Run source only when speech output is
+configured, the runtime remains connected, the workspace still matches, and
+the device-local mode is `final` or `highlights_and_final`. Output `off`, an
+unconfigured runtime, disconnect, or a workspace switch rejects the intent.
+The existing controller continues to own source deduplication, exact ID-based
+synthesis, FIFO serialization, Blob lifetime, visible source indication, and
+playback failure state; no renderer prose, Current focus, chat message, or
+steering text enters the speech request.
+
+The required production Electron speech workflow now enables final speech
+before live completed and failed transitions, holds the deterministic audio in
+the speaking state, requires the exact persisted summary and inline source
+equalizer, and then completes playback. It enables the same mode before a live
+stopped transition and proves that playback stays idle and the fake OpenAI
+server receives no synthesis request. Manual replay with automatic output off
+still synthesizes completed, failed, and stopped summaries through their exact
+persisted IDs.
+
+Verification completed for this slice:
+
+- 42 focused Easy Run event/store, auto-play eligibility, playback-controller,
+  and terminal-source Vitest cases passed, including live completed/failed
+  intent publication and explicit silence for hydration and stopped runs;
+- all 1,115 desktop Vitest tests, focused ESLint, Electron/web typechecks, and
+  both production builds passed. The checked-in PWA bundle was regenerated and
+  the embedded-webapp Go test passed;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-terminal-autoplay-20260710-r2`
+  with exact completed/failed auto-play, stopped silence, all three manual
+  replays, 12 transcription sessions, five persisted-summary syntheses, and no
+  credential, client-secret, provider-prose, or audio-base64 leakage. The two
+  automatic speaking screenshots were inspected and remained contained and
+  readable;
+- the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase4-terminal-autoplay-regression-20260710`;
+- ChatGPT authentication was available. With `OPENAI_API_KEY` removed,
+  `live-codex-electron`, `easy-button-live`, and all four supplemental live
+  backend Codex probes passed;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes`
+  passed after the source, tests, plan, and regenerated PWA bundle were final.
+
+The first focused production run exposed only a workflow predicate that
+required a terminal-summary DOM state while the stopped fixture was still
+working. The predicate now waits on the pane-scoped top-bar playback state, and
+the complete workflow passed on the prescribed narrow rerun. No production
+defect or remaining blocker was found. No dependency, manifest, module,
+package-manager, toolchain, Go-owned contract, or generated TypeScript contract
+changed, so supply-chain verification is not required for this slice. No live
+OpenAI speech result is claimed because the opt-in real-provider workflow
+remains Phase 5 item 8.
+
+Phase 4 item 5 is next: prove in the production path that a restored terminal
+snapshot never auto-plays and that replay of the still-mounted source reuses
+its synthesized Blob. Item 6 then closes recording preemption and TTS failure
+isolation before Phase 5 begins.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

@@ -8,7 +8,7 @@ import type {
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { useEasyRunStore } from "./easy-run-store";
+import { subscribeEasyRunSpeechPlaybackIntents, useEasyRunStore } from "./easy-run-store";
 
 const workspaceId = "workspace_api";
 const eventStreamId = "easyrun_events";
@@ -49,6 +49,64 @@ describe("easy-run store", () => {
     expect(useEasyRunStore.getState().highlights.map((item) => item.ordinal)).toEqual([1, 2]);
     expect(useEasyRunStore.getState().artifacts.map((item) => item.id)).toEqual(["artifact_1"]);
     expect(useEasyRunStore.getState().lastEventSequence).toBe(4);
+  });
+
+  test.each(["completed", "failed"] as const)(
+    "publishes only the live working-to-%s terminal summary intent",
+    (status) => {
+      const working = easyRun(`easy_run_${status}`);
+      const terminal = terminalEasyRun(working, status);
+      const intents: unknown[] = [];
+      const unsubscribe = subscribeEasyRunSpeechPlaybackIntents((intent) => {
+        intents.push(intent);
+      });
+      try {
+        useEasyRunStore
+          .getState()
+          .hydrateSnapshot(workspaceId, easyRunSnapshot({ latestRun: working, sequence: 4 }));
+        useEasyRunStore.getState().handleEvent(runUpdatedEvent(5, terminal));
+      } finally {
+        unsubscribe();
+      }
+
+      expect(intents).toEqual([
+        {
+          eventId: `${eventStreamId}:5`,
+          source: { easyRunId: working.id, workspaceId },
+          type: "terminal_summary",
+        },
+      ]);
+    },
+  );
+
+  test("does not publish terminal speech for hydration, stopped runs, or non-transition events", () => {
+    const working = easyRun("easy_run_silent");
+    const intents: unknown[] = [];
+    const unsubscribe = subscribeEasyRunSpeechPlaybackIntents((intent) => {
+      intents.push(intent);
+    });
+    try {
+      useEasyRunStore
+        .getState()
+        .hydrateSnapshot(
+          workspaceId,
+          easyRunSnapshot({ latestRun: terminalEasyRun(working, "completed"), sequence: 2 }),
+        );
+      useEasyRunStore
+        .getState()
+        .handleEvent(runUpdatedEvent(3, terminalEasyRun(working, "completed")));
+      useEasyRunStore
+        .getState()
+        .hydrateSnapshot(workspaceId, easyRunSnapshot({ latestRun: working, sequence: 4 }));
+      useEasyRunStore
+        .getState()
+        .handleEvent(runUpdatedEvent(5, terminalEasyRun(working, "stopped")));
+      useEasyRunStore.getState().handleEvent(highlightCreatedEvent(6, highlight(1)));
+    } finally {
+      unsubscribe();
+    }
+
+    expect(intents).toEqual([]);
   });
 
   test("starts a run through the typed easy-run API and clears stale rails", async () => {
@@ -341,6 +399,17 @@ function completedEasyRun(run: EasyRun, summary: string): EasyRun {
     endedAt: "2026-07-08T12:00:01Z",
     status: "completed",
     summary,
+  };
+}
+
+function terminalEasyRun(run: EasyRun, status: "completed" | "failed" | "stopped"): EasyRun {
+  return {
+    ...run,
+    activeAgentCount: 0,
+    endedAt: "2026-07-08T12:00:01Z",
+    error: status === "failed" ? "fixture failure" : null,
+    status,
+    summary: `${status} summary`,
   };
 }
 

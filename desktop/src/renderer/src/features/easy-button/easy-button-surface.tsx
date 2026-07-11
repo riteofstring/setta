@@ -187,7 +187,6 @@ function useEasyButtonController(): EasyButtonController {
   const stop = useEasyRunStore((state) => state.stop);
   const [inputValue, setInputValue] = useState("");
   const [pendingAction, setPendingAction] = useState(false);
-  const playback = useSpeechPlayback(selectedWorkspaceId);
   const submitSpeechTranscript = useCallback(
     async (transcript: string, intent: "start" | "steer") => {
       if (!selectedWorkspaceId) {
@@ -210,6 +209,10 @@ function useEasyButtonController(): EasyButtonController {
     onCompletedTranscript: submitSpeechTranscript,
     workspaceId: selectedWorkspaceId,
   });
+  const playback = useSpeechPlayback(
+    selectedWorkspaceId,
+    isSpeechOutputConfigured(capture.availability),
+  );
   const viewState = easyButtonViewState(latestRun, pendingAction);
   const canSubmit = canSubmitRequest(selectedWorkspaceId, inputValue, latestRun, viewState);
   const submitRequest = useEasyButtonSubmit({

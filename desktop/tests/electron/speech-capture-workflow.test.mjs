@@ -214,6 +214,7 @@ try {
     focusText: completedRequest,
     transcript: liveSteeringDelta,
   });
+  const completedAutoSynthesisCount = provider.synthesisInputs.length;
   await callBrowserFixture(context.client, "emitCompleted", completedSteeringTranscript);
   const submittedSteeringCapture = await waitForCaptureState(
     context.client,
@@ -232,10 +233,17 @@ try {
   assertAcceptedSteeringFocusEvents(steeringEvents, completedRequest, steeredCurrentFocus);
   const steeredChatRecord = await context.client.driver("easyButtonPaneChatRecord");
   assertLosslessSteeringChatRecord(steeredChatRecord, completedRequest, completedSteering);
-  const completedReplay = await exerciseTerminalSummaryReplay(context.client, provider, {
+  await exerciseAutomaticTerminalSummary(context.client, provider, {
     artifactDir,
     label: "completed",
     state: steeredTerminal,
+    synthesisCount: completedAutoSynthesisCount,
+  });
+  const completedReplayState = await selectSpeechOutputMode(context.client, "off");
+  const completedReplay = await exerciseTerminalSummaryReplay(context.client, provider, {
+    artifactDir,
+    label: "completed",
+    state: completedReplayState,
   });
 
   await completeSpeechCapture(context.client, {
@@ -284,6 +292,8 @@ try {
     focusText: narratorFailureRequest,
     transcript: "",
   });
+  await selectSpeechOutputMode(context.client, "final");
+  const stoppedAutoSynthesisCount = provider.synthesisInputs.length;
   await clickEasyButtonStop(context.client);
   const stoppedRun = await waitForEasyButtonTerminal(context.client, narratorFailureRequest);
   const stoppedCapture = await waitForCaptureState(
@@ -294,10 +304,17 @@ try {
   assertCaptureTeardown(stoppedCapture);
   assertDraftPreserved(stoppedCapture, preservedDraft);
   assertStoppedWhileListening(stoppedRun);
+  await assertNoAutomaticTerminalSummary(
+    context.client,
+    provider,
+    stoppedRun,
+    stoppedAutoSynthesisCount,
+  );
+  const stoppedReplayState = await selectSpeechOutputMode(context.client, "off");
   await exerciseTerminalSummaryReplay(context.client, provider, {
     artifactDir,
     label: "stopped",
-    state: stoppedRun,
+    state: stoppedReplayState,
   });
   const stoppedChatRecord = await context.client.driver("easyButtonPaneChatRecord");
   assertLosslessSteeringChatRecord(
@@ -347,6 +364,8 @@ try {
   });
 
   const failedRequest = "easy run phase5 artifact cap workflow";
+  await selectSpeechOutputMode(context.client, "final");
+  const failedAutoSynthesisCount = provider.synthesisInputs.length;
   const failedStarted = await context.client.driver("easyButtonPaneSubmitRequest", failedRequest);
   if (!failedStarted) {
     throw new Error("failed Easy Run replay fixture did not submit");
@@ -362,14 +381,21 @@ try {
       state.summaryText.includes("20 artifacts"),
     workflowTimeoutMs,
   );
-  await exerciseTerminalSummaryReplay(context.client, provider, {
+  await exerciseAutomaticTerminalSummary(context.client, provider, {
     artifactDir,
     label: "failed",
     state: failedTerminal,
+    synthesisCount: failedAutoSynthesisCount,
+  });
+  const failedReplayState = await selectSpeechOutputMode(context.client, "off");
+  await exerciseTerminalSummaryReplay(context.client, provider, {
+    artifactDir,
+    label: "failed",
+    state: failedReplayState,
   });
 
   provider.assertHealthy();
-  assertProviderOperationCount(provider, { synthesis: 3, transcription: 12 });
+  assertProviderOperationCount(provider, { synthesis: 5, transcription: 12 });
   await stopElectronCdpContext(context);
   context = null;
   await assertNoRendererConsoleErrors(artifactDir);
@@ -383,6 +409,8 @@ try {
       "submission-rejected",
     ],
     coveredTeardown: ["escape", "disconnect", "pane-close", "workspace-switch", "reload", "stop"],
+    automaticallySpokenTerminalStatuses: ["completed", "failed"],
+    automaticSpeechExcludedStatuses: ["stopped"],
     replayedTerminalStatuses: ["completed", "stopped", "failed"],
     providerOperationCount: provider.requests.length,
     status: "passed",
@@ -473,17 +501,55 @@ async function exerciseConfiguredSpeechOutputControl(client, recordingRoot) {
   if (selected.speechOutputPlayback !== "idle") {
     throw new Error(`selecting final voice mode changed playback: ${JSON.stringify(selected)}`);
   }
+}
+
+async function selectSpeechOutputMode(client, mode) {
   await client.driver("easyButtonPaneClickOutputControl");
-  await client.driver("easyButtonPaneSelectOutputMode", "off");
-  await waitForState(
+  await client.driver("easyButtonPaneSelectOutputMode", mode);
+  return waitForState(
     client,
     easyButtonStateExpression(),
     (state) =>
-      state.speechOutputMode === "off" &&
-      state.audioControlAriaLabel === "Voice output: Off" &&
-      !state.audioMenuOpen,
+      state.speechOutputMode === mode &&
+      !state.audioMenuOpen &&
+      state.speechOutputPlayback === "idle",
     workflowTimeoutMs,
   );
+}
+
+async function exerciseAutomaticTerminalSummary(
+  client,
+  provider,
+  { artifactDir, label, state, synthesisCount },
+) {
+  const snapshot = await readPersistedSummary(client, state, label);
+  const speaking = await waitForSummarySpeaking(client, snapshot.latestRun.id);
+  assertPersistedSummarySpoken(speaking, provider, snapshot, synthesisCount, label);
+  if (speaking.speechOutputMode === "off") {
+    throw new Error(`${label} summary auto-played while output was off`);
+  }
+  await captureScreenshot(client, join(artifactDir, `speech-summary-${label}-automatic.png`));
+  await callBrowserFixture(client, "finishAudio");
+  await waitForSummaryPlaybackIdle(client);
+}
+
+async function assertNoAutomaticTerminalSummary(client, provider, state, synthesisCount) {
+  await client.evaluate("new Promise((resolve) => setTimeout(resolve, 250))");
+  const settled = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (next) =>
+      next.latestRunId === state.latestRunId &&
+      next.statusTone === "stopped" &&
+      next.speechOutputMode === "final" &&
+      next.summaryPlayback === "idle" &&
+      next.speechOutputPlayback === "idle",
+    workflowTimeoutMs,
+  );
+  const fixture = await callBrowserFixture(client, "state");
+  if (provider.synthesisInputs.length !== synthesisCount || fixture.audio.activeCount !== 0) {
+    throw new Error(`stopped summary auto-played unexpectedly: ${JSON.stringify(settled)}`);
+  }
 }
 
 async function exerciseTerminalSummaryReplay(client, provider, { artifactDir, label, state }) {

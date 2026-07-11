@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useRuntimeStore } from "../../stores/runtime-store";
+import type { EasyRunSpeechPlaybackIntent } from "../../stores/easy-run-events";
+import { subscribeEasyRunSpeechPlaybackIntents } from "../../stores/easy-run-store";
 import {
   SpeechPlaybackController,
   type SpeechPlaybackState,
@@ -17,7 +19,17 @@ export interface EasyButtonSpeechPlayback {
   stop: () => void;
 }
 
-export function useSpeechPlayback(workspaceId: string | null): EasyButtonSpeechPlayback {
+export interface AutomaticSummaryPlaybackContext {
+  mode: SpeechOutputMode;
+  outputConfigured: boolean;
+  runtimeId: string | null;
+  workspaceId: string | null;
+}
+
+export function useSpeechPlayback(
+  workspaceId: string | null,
+  outputConfigured: boolean,
+): EasyButtonSpeechPlayback {
   const runtimeId = useActiveConnectedRuntimeId();
   const mountedRef = useRef(true);
   const [state, setState] = useState<SpeechPlaybackState>({ type: "idle" });
@@ -33,6 +45,13 @@ export function useSpeechPlayback(workspaceId: string | null): EasyButtonSpeechP
     });
   }
   const controller = controllerRef.current;
+  const automaticPlaybackContextRef = useRef<AutomaticSummaryPlaybackContext>({
+    mode,
+    outputConfigured,
+    runtimeId,
+    workspaceId,
+  });
+  automaticPlaybackContextRef.current = { mode, outputConfigured, runtimeId, workspaceId };
 
   useEffect(() => {
     controller.reset();
@@ -43,6 +62,15 @@ export function useSpeechPlayback(workspaceId: string | null): EasyButtonSpeechP
       mountedRef.current = false;
       controller.dispose();
     };
+  }, [controller]);
+
+  useEffect(() => {
+    return subscribeEasyRunSpeechPlaybackIntents((intent) => {
+      const source = automaticSummarySource(intent, automaticPlaybackContextRef.current);
+      if (source) {
+        controller.enqueueAutomaticSummary(source);
+      }
+    });
   }, [controller]);
 
   const setMode = useCallback(
@@ -63,6 +91,21 @@ export function useSpeechPlayback(workspaceId: string | null): EasyButtonSpeechP
     state,
     stop: controller.stop,
   };
+}
+
+export function automaticSummarySource(
+  intent: EasyRunSpeechPlaybackIntent,
+  context: AutomaticSummaryPlaybackContext,
+): SpeechSummarySource | null {
+  if (
+    context.mode === "off" ||
+    !context.outputConfigured ||
+    !context.runtimeId ||
+    intent.source.workspaceId !== context.workspaceId
+  ) {
+    return null;
+  }
+  return { ...intent.source };
 }
 
 function useActiveConnectedRuntimeId(): string | null {

@@ -8,7 +8,7 @@ import type {
 import type { EasyRunSteerResult } from "@shared/easy-run-ipc";
 import { create } from "zustand";
 
-import { applyEasyRunEvent } from "./easy-run-events";
+import { applyEasyRunEvent, type EasyRunSpeechPlaybackIntent } from "./easy-run-events";
 
 type EasyRunStoreStatus = "idle" | "loading" | "ready" | "error";
 
@@ -45,6 +45,17 @@ const initialEasyRunStoreData: EasyRunStoreData = {
   status: "idle",
   workspaceId: null,
 };
+
+type EasyRunSpeechPlaybackIntentListener = (intent: EasyRunSpeechPlaybackIntent) => void;
+
+const speechPlaybackIntentListeners = new Set<EasyRunSpeechPlaybackIntentListener>();
+
+export function subscribeEasyRunSpeechPlaybackIntents(
+  listener: EasyRunSpeechPlaybackIntentListener,
+): () => void {
+  speechPlaybackIntentListeners.add(listener);
+  return () => speechPlaybackIntentListeners.delete(listener);
+}
 
 export const useEasyRunStore = create<EasyRunStore>((set, get) => {
   let snapshotRequestID = 0;
@@ -87,6 +98,9 @@ export const useEasyRunStore = create<EasyRunStore>((set, get) => {
         lastEventSequence: event.sequence,
         lastEventStreamId: event.streamId,
       });
+      if (result.speechPlaybackIntent) {
+        publishSpeechPlaybackIntent(result.speechPlaybackIntent);
+      }
       if (result.resync) {
         resyncFromEventStream();
       }
@@ -200,6 +214,12 @@ export const useEasyRunStore = create<EasyRunStore>((set, get) => {
     },
   };
 });
+
+function publishSpeechPlaybackIntent(intent: EasyRunSpeechPlaybackIntent): void {
+  for (const listener of speechPlaybackIntentListeners) {
+    listener(intent);
+  }
+}
 
 function runPatch(
   state: EasyRunStoreData,
