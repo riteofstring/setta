@@ -656,16 +656,6 @@ func fakeReasoningEffortOptions() []ChatReasoningEffortOption {
 			DisplayName: reasoningEffortDisplayName(ReasoningEffortXHigh),
 			Effort:      ReasoningEffortXHigh,
 		},
-		{
-			Description: "Maximum reasoning depth for the hardest problems.",
-			DisplayName: reasoningEffortDisplayName(ReasoningEffortMax),
-			Effort:      ReasoningEffortMax,
-		},
-		{
-			Description: "Ultra reasoning with proactive multi-agent behavior.",
-			DisplayName: reasoningEffortDisplayName(ReasoningEffortUltra),
-			Effort:      ReasoningEffortUltra,
-		},
 	}
 }
 

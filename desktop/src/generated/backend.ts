@@ -17,11 +17,10 @@ import {
   requestBackend,
   requireField,
   type BackendFetch,
-  type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 13;
-export const backendContractSchemaHash = "sha256:e222517b5fb9825d654bae35f69da75313f972305da6c1c0dc059f9a5e9817f0";
+export const backendProtocolVersion = 9;
+export const backendContractSchemaHash = "sha256:b54b4490d490352e9d7c060778357777f7801d1fdfefe39a20eab076069eb35e";
 
 export type DeviceScope = "full";
 
@@ -151,16 +150,14 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "chat-dom" | "easy-button" | "empty-frame" | "workflow-graph" | "settings-dom" | "terminal" | "semantic-node-details" | "workflow-node-details" | "workflow-settings";
+export type SurfaceKind = "chat-dom" | "empty-frame" | "workflow-graph" | "settings-dom" | "terminal" | "semantic-node-details" | "workflow-node-details" | "workflow-settings";
 
-export const surfaceKindValues = ["chat-dom", "easy-button", "empty-frame", "workflow-graph", "settings-dom", "terminal", "semantic-node-details", "workflow-node-details", "workflow-settings"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["chat-dom", "empty-frame", "workflow-graph", "settings-dom", "terminal", "semantic-node-details", "workflow-node-details", "workflow-settings"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "chat-dom":
-      return decoded;
-    case "easy-button":
       return decoded;
     case "empty-frame":
       return decoded;
@@ -667,119 +664,9 @@ export function decodeWorkspaceActivityDeltaKind(value: unknown, label = "Worksp
   }
 }
 
-export type EasyRunStatus = "working" | "completed" | "failed" | "stopped";
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
-export const easyRunStatusValues = ["working", "completed", "failed", "stopped"] as const satisfies readonly EasyRunStatus[];
-
-export function decodeEasyRunStatus(value: unknown, label = "EasyRunStatus"): EasyRunStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "working":
-      return decoded;
-    case "completed":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "stopped":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyRunFocusStatus = "current" | "updating" | "stale";
-
-export const easyRunFocusStatusValues = ["current", "updating", "stale"] as const satisfies readonly EasyRunFocusStatus[];
-
-export function decodeEasyRunFocusStatus(value: unknown, label = "EasyRunFocusStatus"): EasyRunFocusStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "current":
-      return decoded;
-    case "updating":
-      return decoded;
-    case "stale":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyRunNarratorStatus = "ok" | "degraded";
-
-export const easyRunNarratorStatusValues = ["ok", "degraded"] as const satisfies readonly EasyRunNarratorStatus[];
-
-export function decodeEasyRunNarratorStatus(value: unknown, label = "EasyRunNarratorStatus"): EasyRunNarratorStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "ok":
-      return decoded;
-    case "degraded":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyArtifactKind = "markdown" | "table" | "bar_chart" | "file";
-
-export const easyArtifactKindValues = ["markdown", "table", "bar_chart", "file"] as const satisfies readonly EasyArtifactKind[];
-
-export function decodeEasyArtifactKind(value: unknown, label = "EasyArtifactKind"): EasyArtifactKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "markdown":
-      return decoded;
-    case "table":
-      return decoded;
-    case "bar_chart":
-      return decoded;
-    case "file":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyRunEventType = "easyrun.run.updated" | "easyrun.highlight.created" | "easyrun.artifact.created" | "easyrun.resync_required";
-
-export const easyRunEventTypeValues = ["easyrun.run.updated", "easyrun.highlight.created", "easyrun.artifact.created", "easyrun.resync_required"] as const satisfies readonly EasyRunEventType[];
-
-export function decodeEasyRunEventType(value: unknown, label = "EasyRunEventType"): EasyRunEventType {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "easyrun.run.updated":
-      return decoded;
-    case "easyrun.highlight.created":
-      return decoded;
-    case "easyrun.artifact.created":
-      return decoded;
-    case "easyrun.resync_required":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type SpeechProviderStatus = "configured" | "not_configured";
-
-export const speechProviderStatusValues = ["configured", "not_configured"] as const satisfies readonly SpeechProviderStatus[];
-
-export function decodeSpeechProviderStatus(value: unknown, label = "SpeechProviderStatus"): SpeechProviderStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "configured":
-      return decoded;
-    case "not_configured":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
-
-export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"] as const satisfies readonly ReasoningEffort[];
+export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ReasoningEffort[];
 
 export function decodeReasoningEffort(value: unknown, label = "ReasoningEffort"): ReasoningEffort {
   const decoded = decodeString(value, label);
@@ -795,10 +682,6 @@ export function decodeReasoningEffort(value: unknown, label = "ReasoningEffort")
     case "high":
       return decoded;
     case "xhigh":
-      return decoded;
-    case "max":
-      return decoded;
-    case "ultra":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -877,9 +760,9 @@ export function decodeRunLivenessStatus(value: unknown, label = "RunLivenessStat
   }
 }
 
-export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "provider_inactive" | "attachment_missing" | "run_terminal" | "wake_recheck" | "snapshot_load" | "stream_resync" | "user_retry" | "provider_restarted" | "provider_unavailable" | "turn_not_found";
+export type RunLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "attachment_missing" | "run_terminal" | "wake_recheck" | "snapshot_load" | "stream_resync" | "user_retry" | "provider_restarted" | "provider_unavailable" | "turn_not_found";
 
-export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "provider_inactive", "attachment_missing", "run_terminal", "wake_recheck", "snapshot_load", "stream_resync", "user_retry", "provider_restarted", "provider_unavailable", "turn_not_found"] as const satisfies readonly RunLivenessReason[];
+export const runLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "attachment_missing", "run_terminal", "wake_recheck", "snapshot_load", "stream_resync", "user_retry", "provider_restarted", "provider_unavailable", "turn_not_found"] as const satisfies readonly RunLivenessReason[];
 
 export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReason"): RunLivenessReason {
   const decoded = decodeString(value, label);
@@ -887,8 +770,6 @@ export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReas
     case "provider_ref_pending":
       return decoded;
     case "provider_turn_linked":
-      return decoded;
-    case "provider_inactive":
       return decoded;
     case "attachment_missing":
       return decoded;
@@ -907,92 +788,6 @@ export function decodeRunLivenessReason(value: unknown, label = "RunLivenessReas
     case "provider_unavailable":
       return decoded;
     case "turn_not_found":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunLivenessPhase = "starting" | "waiting_for_provider" | "attached" | "stalled" | "reconnecting" | "lost" | "blocked" | "terminal";
-
-export const runLivenessPhaseValues = ["starting", "waiting_for_provider", "attached", "stalled", "reconnecting", "lost", "blocked", "terminal"] as const satisfies readonly RunLivenessPhase[];
-
-export function decodeRunLivenessPhase(value: unknown, label = "RunLivenessPhase"): RunLivenessPhase {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "starting":
-      return decoded;
-    case "waiting_for_provider":
-      return decoded;
-    case "attached":
-      return decoded;
-    case "stalled":
-      return decoded;
-    case "reconnecting":
-      return decoded;
-    case "lost":
-      return decoded;
-    case "blocked":
-      return decoded;
-    case "terminal":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunActiveStatusKind = "starting" | "waiting_for_provider" | "working" | "thinking" | "waiting" | "stalled" | "reconnecting" | "connection_lost" | "blocked" | "finished";
-
-export const runActiveStatusKindValues = ["starting", "waiting_for_provider", "working", "thinking", "waiting", "stalled", "reconnecting", "connection_lost", "blocked", "finished"] as const satisfies readonly RunActiveStatusKind[];
-
-export function decodeRunActiveStatusKind(value: unknown, label = "RunActiveStatusKind"): RunActiveStatusKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "starting":
-      return decoded;
-    case "waiting_for_provider":
-      return decoded;
-    case "working":
-      return decoded;
-    case "thinking":
-      return decoded;
-    case "waiting":
-      return decoded;
-    case "stalled":
-      return decoded;
-    case "reconnecting":
-      return decoded;
-    case "connection_lost":
-      return decoded;
-    case "blocked":
-      return decoded;
-    case "finished":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type RunActiveHeadlineSource = "none" | "fallback" | "public_reasoning" | "command" | "approval" | "liveness" | "terminal";
-
-export const runActiveHeadlineSourceValues = ["none", "fallback", "public_reasoning", "command", "approval", "liveness", "terminal"] as const satisfies readonly RunActiveHeadlineSource[];
-
-export function decodeRunActiveHeadlineSource(value: unknown, label = "RunActiveHeadlineSource"): RunActiveHeadlineSource {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "none":
-      return decoded;
-    case "fallback":
-      return decoded;
-    case "public_reasoning":
-      return decoded;
-    case "command":
-      return decoded;
-    case "approval":
-      return decoded;
-    case "liveness":
-      return decoded;
-    case "terminal":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1873,24 +1668,6 @@ export function decodeRunnerRecoveryCapability(value: unknown, label = "RunnerRe
     case "reconcile_refs":
       return decoded;
     case "reattach_stream":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type WorkflowAgentSettingsSource = "node" | "workflow" | "default";
-
-export const workflowAgentSettingsSourceValues = ["node", "workflow", "default"] as const satisfies readonly WorkflowAgentSettingsSource[];
-
-export function decodeWorkflowAgentSettingsSource(value: unknown, label = "WorkflowAgentSettingsSource"): WorkflowAgentSettingsSource {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "node":
-      return decoded;
-    case "workflow":
-      return decoded;
-    case "default":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2832,6 +2609,11 @@ export interface RuntimeInfrastructureProvider {
   iconUrl: string;
 }
 
+export interface RuntimeFeatureSet {
+  version: number;
+  features: string[];
+}
+
 export interface RuntimeInfoResponse {
   runtimeId: string;
   displayName: string;
@@ -2839,6 +2621,7 @@ export interface RuntimeInfoResponse {
   backendName: string;
   backendVersion: string;
   protocolVersion: number;
+  featureSet: RuntimeFeatureSet;
   vapidPublicKey: string;
 }
 
@@ -2852,6 +2635,31 @@ export interface CompletePairingResponse {
   deviceToken: string;
   runtimeId: string;
   protocolVersion: number;
+}
+
+export interface SetupAttestationRequest {
+  provisionId: string;
+  nonce: string;
+  nodeFingerprint: string;
+}
+
+export interface SetupAttestationResponse {
+  algorithm: string;
+  runtimeId: string;
+  provisionId: string;
+  nonce: string;
+  nodeFingerprint: string;
+  expiresAt: string;
+  attestation: string;
+}
+
+export interface CreateDevicePairingRequest {
+  runtimeBaseUrl: string;
+}
+
+export interface CreateDevicePairingResponse {
+  pairingUrl: string;
+  expiresAt: string;
 }
 
 export interface UpdateRuntimeDisplayNameRequest {
@@ -3348,191 +3156,6 @@ export interface WorkspaceActivityEvent {
   resync: WorkspaceActivityResyncRequired | null;
 }
 
-export interface ReadEasyRunSnapshotRequest {
-  workspaceId: string;
-}
-
-export interface EasyCurrentFocus {
-  revision: number;
-  text: string;
-  updatedAt: string;
-  status: EasyRunFocusStatus;
-}
-
-export interface EasyRun {
-  id: string;
-  workspaceId: string;
-  status: EasyRunStatus;
-  requestText: string;
-  currentFocus: EasyCurrentFocus;
-  conversationId: string;
-  startedAt: string;
-  endedAt: string | null;
-  summary: string | null;
-  error: string | null;
-  narratorStatus: EasyRunNarratorStatus;
-  activeAgentCount: number;
-  artifactCount: number;
-  highlightCount: number;
-}
-
-export interface EasyHighlight {
-  id: string;
-  easyRunId: string;
-  ordinal: number;
-  text: string;
-  at: string;
-}
-
-export interface EasyMarkdownArtifactPayload {
-  markdown: string;
-}
-
-export interface EasyArtifactTableColumn {
-  key: string;
-  label: string;
-}
-
-export interface EasyTableArtifactPayload {
-  columns: EasyArtifactTableColumn[];
-  rows: string[][];
-}
-
-export interface EasyArtifactBarChartItem {
-  label: string;
-  value: number;
-  unit: string | null;
-}
-
-export interface EasyBarChartArtifactPayload {
-  items: EasyArtifactBarChartItem[];
-}
-
-export interface EasyFileArtifactPayload {
-  path: string;
-  description: string | null;
-}
-
-export interface EasyArtifact {
-  id: string;
-  easyRunId: string;
-  ordinal: number;
-  kind: EasyArtifactKind;
-  title: string;
-  kicker: string | null;
-  createdAt: string;
-  markdown: EasyMarkdownArtifactPayload | null;
-  table: EasyTableArtifactPayload | null;
-  barChart: EasyBarChartArtifactPayload | null;
-  file: EasyFileArtifactPayload | null;
-}
-
-export interface EasyRunEventCursor {
-  streamId: string;
-  sequence: number;
-}
-
-export interface EasyRunSnapshot {
-  latestRun: EasyRun | null;
-  highlights: EasyHighlight[];
-  artifacts: EasyArtifact[];
-  eventStreamCursor: EasyRunEventCursor;
-}
-
-export interface StartEasyRunRequest {
-  workspaceId: string;
-  requestText: string;
-}
-
-export interface SteerEasyRunRequest {
-  workspaceId: string;
-  text: string;
-}
-
-export interface StopEasyRunRequest {
-  workspaceId: string;
-  easyRunId: string;
-}
-
-export interface EasyRunUpdatedPayload {
-  run: EasyRun;
-}
-
-export interface EasyHighlightCreatedPayload {
-  highlight: EasyHighlight;
-}
-
-export interface EasyArtifactCreatedPayload {
-  artifact: EasyArtifact;
-}
-
-export interface EasyRunResyncRequired {
-  reason: string;
-  requestedStreamId: string;
-  requestedSequence: number;
-  currentStreamId: string;
-  currentSequence: number;
-  earliestSequence: number;
-}
-
-export interface EasyRunEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: EasyRunEventType;
-  emittedAt: string;
-  workspaceId: string;
-  easyRunId: string;
-  runUpdated: EasyRunUpdatedPayload | null;
-  highlightCreated: EasyHighlightCreatedPayload | null;
-  artifactCreated: EasyArtifactCreatedPayload | null;
-  resyncRequired: EasyRunResyncRequired | null;
-}
-
-export interface SpeechCapabilities {
-  providerStatus: SpeechProviderStatus;
-  transcriptionModel: string;
-  synthesisModel: string;
-  synthesisVoice: string;
-  maximumRecordingSeconds: number;
-  maximumTranscriptCharacters: number;
-  maximumSynthesisCharacters: number;
-  aiVoiceDisclosure: string;
-}
-
-export interface CreateSpeechTranscriptionSessionRequest {
-  workspaceId: string;
-}
-
-export interface SpeechTranscriptionSession {
-  clientSecret: string;
-  expiresAt: string;
-  webRTCURL: string;
-  transcriptionModel: string;
-  transcriptionDelay: string;
-  maximumRecordingSeconds: number;
-  maximumTranscriptCharacters: number;
-}
-
-export interface SynthesizeEasyRunSummaryRequest {
-  workspaceId: string;
-  easyRunId: string;
-}
-
-export interface SpeechAudio {
-  audioBase64: string;
-  mediaType: string;
-  format: string;
-  sourceId: string;
-}
-
-export interface SynthesizeEasyRunHighlightRequest {
-  workspaceId: string;
-  easyRunId: string;
-  highlightId: string;
-}
-
 export interface ListConversationsRequest {
   workspaceId: string;
 }
@@ -3586,10 +3209,6 @@ export interface ConversationWorkflowMetadata {
   nodeExecutionId: string;
 }
 
-export interface ConversationEasyRunMetadata {
-  easyRunId: string;
-}
-
 export interface Conversation {
   schemaVersion: number;
   id: string;
@@ -3603,14 +3222,6 @@ export interface Conversation {
   codexEffectiveSettings: ChatCodexEffectiveSettings | null;
   harnessRefs: HarnessThreadRef[];
   workflow: ConversationWorkflowMetadata | null;
-  easyRun: ConversationEasyRunMetadata | null;
-}
-
-export interface RunActiveStatus {
-  kind: RunActiveStatusKind;
-  headline: string;
-  headlineSource: RunActiveHeadlineSource;
-  detail: string;
 }
 
 export interface RunLiveness {
@@ -3620,16 +3231,11 @@ export interface RunLiveness {
   harness: HarnessKind;
   status: RunLivenessStatus;
   reason: RunLivenessReason;
-  phase: RunLivenessPhase;
-  activeStatus: RunActiveStatus;
   retryable: boolean;
   cancellable: boolean;
-  steerable: boolean;
-  steeringDisabledReason: string;
   providerThreadId: string;
   providerTurnId: string;
   lastProviderEventAt: string;
-  lastVisibleActivityAt: string;
   lastReconciledAt: string;
   error: string;
 }
@@ -4612,16 +4218,11 @@ export interface ListWorkflowDefinitionsRequest {
   workspaceId: string;
 }
 
-export interface WorkflowAgentSettings {
-  model: string;
-  reasoningEffort: ReasoningEffort | null;
-  permission: ChatCodexPermissionSettings | null;
-}
-
 export interface WorkflowCodexActionConfig {
   prompt: string;
   freshConversation: boolean;
-  settings: WorkflowAgentSettings;
+  model: string;
+  reasoningEffort: string;
 }
 
 export interface WorkflowActionConfig {
@@ -4671,7 +4272,6 @@ export interface WorkflowGraph {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   layout: WorkflowGraphLayout;
-  agentDefaults: WorkflowAgentSettings;
 }
 
 export interface WorkflowDefinition {
@@ -4811,21 +4411,6 @@ export interface RunnerCapabilities {
   policyExtension: RunnerPolicyExtensionDescriptor;
 }
 
-export interface WorkflowAgentEffectiveRunSettings {
-  model: string;
-  modelDisplayName: string;
-  modelSource: WorkflowAgentSettingsSource;
-  reasoningEffort: ReasoningEffort | null;
-  reasoningEffortDisplayName: string;
-  reasoningEffortSource: WorkflowAgentSettingsSource;
-  permissionPreset: ChatPermissionPresetID | null;
-  permissionProfileId: string;
-  permissionDisplayLabel: string;
-  approvalPolicy: string;
-  permissions: string;
-  permissionSource: WorkflowAgentSettingsSource;
-}
-
 export interface WorkflowActionSignal {
   name: string;
   value: string;
@@ -4903,7 +4488,6 @@ export interface WorkflowNodeExecution {
   actionPolicy: WorkflowActionPolicy | null;
   sideEffectPolicy: SideEffectPolicy | null;
   runnerCapabilities: RunnerCapabilities | null;
-  agentRunSettings: WorkflowAgentEffectiveRunSettings | null;
   result: WorkflowActionResult | null;
   runnerRefs: WorkflowActionRunnerRef[];
   runnerState: WorkflowRunnerState | null;
@@ -5095,15 +4679,10 @@ export interface WorkflowAgentTrajectoryPage {
   scope: WorkflowAgentTrajectoryScope;
   conversationId: string;
   runId: string;
-  lastChatEventStreamId: string;
-  lastChatEventSequence: number;
-  lastWorkflowEventOrdinal: number;
   run: Run;
   activeRun: Run | null;
   activeRunLiveness: RunLiveness | null;
-  runSettings: WorkflowAgentEffectiveRunSettings | null;
   blocks: TranscriptBlock[];
-  pendingSteeringMessages: ChatMessage[];
   items: RunItem[];
   activity: ActivityItemBlockProjection[];
   outputPages: WorkflowAgentTrajectoryRunItemOutputPageState[];
@@ -6412,7 +5991,6 @@ export interface LogoutCodexAccountRequest {
 export interface APIError {
   code: string;
   message: string;
-  operationApplied: boolean;
   activeExecution: WorkflowExecutionSummary | null;
 }
 
@@ -6906,6 +6484,16 @@ export const backendEndpoints = {
     path: "/pairing/complete",
     requestBodyLimitBytes: 4194304,
   },
+  SetupAttestation: {
+    method: "POST",
+    path: "/setup/attestation",
+    requestBodyLimitBytes: 4194304,
+  },
+  CreateDevicePairing: {
+    method: "POST",
+    path: "/pairing/create-device",
+    requestBodyLimitBytes: 4194304,
+  },
   UpdateRuntimeDisplayName: {
     method: "POST",
     path: "/runtime/display-name/update",
@@ -7010,48 +6598,6 @@ export const backendEndpoints = {
   WorkspaceActivityEventStream: {
     method: "GET",
     path: "/workspace-activity/events",
-  },
-  ReadEasyRunSnapshot: {
-    method: "GET",
-    path: "/easy-runs/snapshot",
-  },
-  StartEasyRun: {
-    method: "POST",
-    path: "/easy-runs/start",
-    requestBodyLimitBytes: 4194304,
-  },
-  SteerEasyRun: {
-    method: "POST",
-    path: "/easy-runs/steer",
-    requestBodyLimitBytes: 4194304,
-  },
-  StopEasyRun: {
-    method: "POST",
-    path: "/easy-runs/stop",
-    requestBodyLimitBytes: 4194304,
-  },
-  EasyRunEventStream: {
-    method: "GET",
-    path: "/easy-runs/events",
-  },
-  ReadSpeechCapabilities: {
-    method: "GET",
-    path: "/speech/capabilities",
-  },
-  CreateSpeechTranscriptionSession: {
-    method: "POST",
-    path: "/speech/transcription/sessions",
-    requestBodyLimitBytes: 16384,
-  },
-  SynthesizeEasyRunSummary: {
-    method: "POST",
-    path: "/speech/easy-runs/summary",
-    requestBodyLimitBytes: 16384,
-  },
-  SynthesizeEasyRunHighlight: {
-    method: "POST",
-    path: "/speech/easy-runs/highlight",
-    requestBodyLimitBytes: 16384,
   },
   ListConversations: {
     method: "POST",
@@ -7629,9 +7175,18 @@ export function decodeRuntimeInfrastructureProvider(value: unknown): RuntimeInfr
   };
 }
 
+export function decodeRuntimeFeatureSet(value: unknown): RuntimeFeatureSet {
+  const record = assertRecord(value, "RuntimeFeatureSet");
+  assertKnownFields(record, "RuntimeFeatureSet", ["version", "features"]);
+  return {
+    version: decodeInteger(requireField(record, "version", "RuntimeFeatureSet"), "RuntimeFeatureSet.version"),
+    features: decodeArray(requireField(record, "features", "RuntimeFeatureSet"), "RuntimeFeatureSet.features", (item) => decodeString(item, "RuntimeFeatureSet.features item")),
+  };
+}
+
 export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
   const record = assertRecord(value, "RuntimeInfoResponse");
-  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion", "vapidPublicKey"]);
+  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion", "featureSet", "vapidPublicKey"]);
   return {
     runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeInfoResponse"), "RuntimeInfoResponse.runtimeId"),
     displayName: decodeString(requireField(record, "displayName", "RuntimeInfoResponse"), "RuntimeInfoResponse.displayName"),
@@ -7639,6 +7194,7 @@ export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
     backendName: decodeString(requireField(record, "backendName", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendName"),
     backendVersion: decodeString(requireField(record, "backendVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendVersion"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.protocolVersion"),
+    featureSet: decodeRuntimeFeatureSet(requireField(record, "featureSet", "RuntimeInfoResponse")),
     vapidPublicKey: decodeString(requireField(record, "vapidPublicKey", "RuntimeInfoResponse"), "RuntimeInfoResponse.vapidPublicKey"),
   };
 }
@@ -7660,6 +7216,47 @@ export function decodeCompletePairingResponse(value: unknown): CompletePairingRe
     deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
     runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
+  };
+}
+
+export function decodeSetupAttestationRequest(value: unknown): SetupAttestationRequest {
+  const record = assertRecord(value, "SetupAttestationRequest");
+  assertKnownFields(record, "SetupAttestationRequest", ["provisionId", "nonce", "nodeFingerprint"]);
+  return {
+    provisionId: decodeString(requireField(record, "provisionId", "SetupAttestationRequest"), "SetupAttestationRequest.provisionId"),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationRequest"), "SetupAttestationRequest.nonce"),
+    nodeFingerprint: decodeString(requireField(record, "nodeFingerprint", "SetupAttestationRequest"), "SetupAttestationRequest.nodeFingerprint"),
+  };
+}
+
+export function decodeSetupAttestationResponse(value: unknown): SetupAttestationResponse {
+  const record = assertRecord(value, "SetupAttestationResponse");
+  assertKnownFields(record, "SetupAttestationResponse", ["algorithm", "runtimeId", "provisionId", "nonce", "nodeFingerprint", "expiresAt", "attestation"]);
+  return {
+    algorithm: decodeString(requireField(record, "algorithm", "SetupAttestationResponse"), "SetupAttestationResponse.algorithm"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "SetupAttestationResponse"), "SetupAttestationResponse.runtimeId"),
+    provisionId: decodeString(requireField(record, "provisionId", "SetupAttestationResponse"), "SetupAttestationResponse.provisionId"),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationResponse"), "SetupAttestationResponse.nonce"),
+    nodeFingerprint: decodeString(requireField(record, "nodeFingerprint", "SetupAttestationResponse"), "SetupAttestationResponse.nodeFingerprint"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "SetupAttestationResponse"), "SetupAttestationResponse.expiresAt"),
+    attestation: decodeString(requireField(record, "attestation", "SetupAttestationResponse"), "SetupAttestationResponse.attestation"),
+  };
+}
+
+export function decodeCreateDevicePairingRequest(value: unknown): CreateDevicePairingRequest {
+  const record = assertRecord(value, "CreateDevicePairingRequest");
+  assertKnownFields(record, "CreateDevicePairingRequest", ["runtimeBaseUrl"]);
+  return {
+    runtimeBaseUrl: decodeString(requireField(record, "runtimeBaseUrl", "CreateDevicePairingRequest"), "CreateDevicePairingRequest.runtimeBaseUrl"),
+  };
+}
+
+export function decodeCreateDevicePairingResponse(value: unknown): CreateDevicePairingResponse {
+  const record = assertRecord(value, "CreateDevicePairingResponse");
+  assertKnownFields(record, "CreateDevicePairingResponse", ["pairingUrl", "expiresAt"]);
+  return {
+    pairingUrl: decodeString(requireField(record, "pairingUrl", "CreateDevicePairingResponse"), "CreateDevicePairingResponse.pairingUrl"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "CreateDevicePairingResponse"), "CreateDevicePairingResponse.expiresAt"),
   };
 }
 
@@ -8413,313 +8010,6 @@ export function decodeWorkspaceActivityEvent(value: unknown): WorkspaceActivityE
   };
 }
 
-export function decodeReadEasyRunSnapshotRequest(value: unknown): ReadEasyRunSnapshotRequest {
-  const record = assertRecord(value, "ReadEasyRunSnapshotRequest");
-  assertKnownFields(record, "ReadEasyRunSnapshotRequest", ["workspaceId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadEasyRunSnapshotRequest"), "ReadEasyRunSnapshotRequest.workspaceId"),
-  };
-}
-
-export function decodeEasyCurrentFocus(value: unknown): EasyCurrentFocus {
-  const record = assertRecord(value, "EasyCurrentFocus");
-  assertKnownFields(record, "EasyCurrentFocus", ["revision", "text", "updatedAt", "status"]);
-  return {
-    revision: decodeInteger(requireField(record, "revision", "EasyCurrentFocus"), "EasyCurrentFocus.revision"),
-    text: decodeString(requireField(record, "text", "EasyCurrentFocus"), "EasyCurrentFocus.text"),
-    updatedAt: decodeString(requireField(record, "updatedAt", "EasyCurrentFocus"), "EasyCurrentFocus.updatedAt"),
-    status: decodeEasyRunFocusStatus(requireField(record, "status", "EasyCurrentFocus"), "EasyCurrentFocus.status"),
-  };
-}
-
-export function decodeEasyRun(value: unknown): EasyRun {
-  const record = assertRecord(value, "EasyRun");
-  assertKnownFields(record, "EasyRun", ["id", "workspaceId", "status", "requestText", "currentFocus", "conversationId", "startedAt", "endedAt", "summary", "error", "narratorStatus", "activeAgentCount", "artifactCount", "highlightCount"]);
-  return {
-    id: decodeString(requireField(record, "id", "EasyRun"), "EasyRun.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "EasyRun"), "EasyRun.workspaceId"),
-    status: decodeEasyRunStatus(requireField(record, "status", "EasyRun"), "EasyRun.status"),
-    requestText: decodeString(requireField(record, "requestText", "EasyRun"), "EasyRun.requestText"),
-    currentFocus: decodeEasyCurrentFocus(requireField(record, "currentFocus", "EasyRun")),
-    conversationId: decodeString(requireField(record, "conversationId", "EasyRun"), "EasyRun.conversationId"),
-    startedAt: decodeString(requireField(record, "startedAt", "EasyRun"), "EasyRun.startedAt"),
-    endedAt: decodeNullable(requireField(record, "endedAt", "EasyRun"), "EasyRun.endedAt", (item) => decodeString(item, "EasyRun.endedAt")),
-    summary: decodeNullable(requireField(record, "summary", "EasyRun"), "EasyRun.summary", (item) => decodeString(item, "EasyRun.summary")),
-    error: decodeNullable(requireField(record, "error", "EasyRun"), "EasyRun.error", (item) => decodeString(item, "EasyRun.error")),
-    narratorStatus: decodeEasyRunNarratorStatus(requireField(record, "narratorStatus", "EasyRun"), "EasyRun.narratorStatus"),
-    activeAgentCount: decodeInteger(requireField(record, "activeAgentCount", "EasyRun"), "EasyRun.activeAgentCount"),
-    artifactCount: decodeInteger(requireField(record, "artifactCount", "EasyRun"), "EasyRun.artifactCount"),
-    highlightCount: decodeInteger(requireField(record, "highlightCount", "EasyRun"), "EasyRun.highlightCount"),
-  };
-}
-
-export function decodeEasyHighlight(value: unknown): EasyHighlight {
-  const record = assertRecord(value, "EasyHighlight");
-  assertKnownFields(record, "EasyHighlight", ["id", "easyRunId", "ordinal", "text", "at"]);
-  return {
-    id: decodeString(requireField(record, "id", "EasyHighlight"), "EasyHighlight.id"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "EasyHighlight"), "EasyHighlight.easyRunId"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "EasyHighlight"), "EasyHighlight.ordinal"),
-    text: decodeString(requireField(record, "text", "EasyHighlight"), "EasyHighlight.text"),
-    at: decodeString(requireField(record, "at", "EasyHighlight"), "EasyHighlight.at"),
-  };
-}
-
-export function decodeEasyMarkdownArtifactPayload(value: unknown): EasyMarkdownArtifactPayload {
-  const record = assertRecord(value, "EasyMarkdownArtifactPayload");
-  assertKnownFields(record, "EasyMarkdownArtifactPayload", ["markdown"]);
-  return {
-    markdown: decodeString(requireField(record, "markdown", "EasyMarkdownArtifactPayload"), "EasyMarkdownArtifactPayload.markdown"),
-  };
-}
-
-export function decodeEasyArtifactTableColumn(value: unknown): EasyArtifactTableColumn {
-  const record = assertRecord(value, "EasyArtifactTableColumn");
-  assertKnownFields(record, "EasyArtifactTableColumn", ["key", "label"]);
-  return {
-    key: decodeString(requireField(record, "key", "EasyArtifactTableColumn"), "EasyArtifactTableColumn.key"),
-    label: decodeString(requireField(record, "label", "EasyArtifactTableColumn"), "EasyArtifactTableColumn.label"),
-  };
-}
-
-export function decodeEasyTableArtifactPayload(value: unknown): EasyTableArtifactPayload {
-  const record = assertRecord(value, "EasyTableArtifactPayload");
-  assertKnownFields(record, "EasyTableArtifactPayload", ["columns", "rows"]);
-  return {
-    columns: decodeArray(requireField(record, "columns", "EasyTableArtifactPayload"), "EasyTableArtifactPayload.columns", (item) => decodeEasyArtifactTableColumn(item)),
-    rows: decodeArray(requireField(record, "rows", "EasyTableArtifactPayload"), "EasyTableArtifactPayload.rows", (item) => decodeArray(item, "EasyTableArtifactPayload.rows item", (item) => decodeString(item, "EasyTableArtifactPayload.rows item item"))),
-  };
-}
-
-export function decodeEasyArtifactBarChartItem(value: unknown): EasyArtifactBarChartItem {
-  const record = assertRecord(value, "EasyArtifactBarChartItem");
-  assertKnownFields(record, "EasyArtifactBarChartItem", ["label", "value", "unit"]);
-  return {
-    label: decodeString(requireField(record, "label", "EasyArtifactBarChartItem"), "EasyArtifactBarChartItem.label"),
-    value: decodeNumber(requireField(record, "value", "EasyArtifactBarChartItem"), "EasyArtifactBarChartItem.value"),
-    unit: decodeNullable(requireField(record, "unit", "EasyArtifactBarChartItem"), "EasyArtifactBarChartItem.unit", (item) => decodeString(item, "EasyArtifactBarChartItem.unit")),
-  };
-}
-
-export function decodeEasyBarChartArtifactPayload(value: unknown): EasyBarChartArtifactPayload {
-  const record = assertRecord(value, "EasyBarChartArtifactPayload");
-  assertKnownFields(record, "EasyBarChartArtifactPayload", ["items"]);
-  return {
-    items: decodeArray(requireField(record, "items", "EasyBarChartArtifactPayload"), "EasyBarChartArtifactPayload.items", (item) => decodeEasyArtifactBarChartItem(item)),
-  };
-}
-
-export function decodeEasyFileArtifactPayload(value: unknown): EasyFileArtifactPayload {
-  const record = assertRecord(value, "EasyFileArtifactPayload");
-  assertKnownFields(record, "EasyFileArtifactPayload", ["path", "description"]);
-  return {
-    path: decodeString(requireField(record, "path", "EasyFileArtifactPayload"), "EasyFileArtifactPayload.path"),
-    description: decodeNullable(requireField(record, "description", "EasyFileArtifactPayload"), "EasyFileArtifactPayload.description", (item) => decodeString(item, "EasyFileArtifactPayload.description")),
-  };
-}
-
-export function decodeEasyArtifact(value: unknown): EasyArtifact {
-  const record = assertRecord(value, "EasyArtifact");
-  assertKnownFields(record, "EasyArtifact", ["id", "easyRunId", "ordinal", "kind", "title", "kicker", "createdAt", "markdown", "table", "barChart", "file"]);
-  const result: EasyArtifact = {
-    id: decodeString(requireField(record, "id", "EasyArtifact"), "EasyArtifact.id"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "EasyArtifact"), "EasyArtifact.easyRunId"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "EasyArtifact"), "EasyArtifact.ordinal"),
-    kind: decodeEasyArtifactKind(requireField(record, "kind", "EasyArtifact"), "EasyArtifact.kind"),
-    title: decodeString(requireField(record, "title", "EasyArtifact"), "EasyArtifact.title"),
-    kicker: decodeNullable(requireField(record, "kicker", "EasyArtifact"), "EasyArtifact.kicker", (item) => decodeString(item, "EasyArtifact.kicker")),
-    createdAt: decodeString(requireField(record, "createdAt", "EasyArtifact"), "EasyArtifact.createdAt"),
-    markdown: decodeNullable(requireField(record, "markdown", "EasyArtifact"), "EasyArtifact.markdown", (item) => decodeEasyMarkdownArtifactPayload(item)),
-    table: decodeNullable(requireField(record, "table", "EasyArtifact"), "EasyArtifact.table", (item) => decodeEasyTableArtifactPayload(item)),
-    barChart: decodeNullable(requireField(record, "barChart", "EasyArtifact"), "EasyArtifact.barChart", (item) => decodeEasyBarChartArtifactPayload(item)),
-    file: decodeNullable(requireField(record, "file", "EasyArtifact"), "EasyArtifact.file", (item) => decodeEasyFileArtifactPayload(item)),
-  };
-  assertTaggedUnionBranch("EasyArtifact", result.kind, {
-    "markdown": result.markdown,
-    "table": result.table,
-    "bar_chart": result.barChart,
-    "file": result.file,
-  });
-  return result;
-}
-
-export function decodeEasyRunEventCursor(value: unknown): EasyRunEventCursor {
-  const record = assertRecord(value, "EasyRunEventCursor");
-  assertKnownFields(record, "EasyRunEventCursor", ["streamId", "sequence"]);
-  return {
-    streamId: decodeString(requireField(record, "streamId", "EasyRunEventCursor"), "EasyRunEventCursor.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "EasyRunEventCursor"), "EasyRunEventCursor.sequence"),
-  };
-}
-
-export function decodeEasyRunSnapshot(value: unknown): EasyRunSnapshot {
-  const record = assertRecord(value, "EasyRunSnapshot");
-  assertKnownFields(record, "EasyRunSnapshot", ["latestRun", "highlights", "artifacts", "eventStreamCursor"]);
-  return {
-    latestRun: decodeNullable(requireField(record, "latestRun", "EasyRunSnapshot"), "EasyRunSnapshot.latestRun", (item) => decodeEasyRun(item)),
-    highlights: decodeArray(requireField(record, "highlights", "EasyRunSnapshot"), "EasyRunSnapshot.highlights", (item) => decodeEasyHighlight(item)),
-    artifacts: decodeArray(requireField(record, "artifacts", "EasyRunSnapshot"), "EasyRunSnapshot.artifacts", (item) => decodeEasyArtifact(item)),
-    eventStreamCursor: decodeEasyRunEventCursor(requireField(record, "eventStreamCursor", "EasyRunSnapshot")),
-  };
-}
-
-export function decodeStartEasyRunRequest(value: unknown): StartEasyRunRequest {
-  const record = assertRecord(value, "StartEasyRunRequest");
-  assertKnownFields(record, "StartEasyRunRequest", ["workspaceId", "requestText"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "StartEasyRunRequest"), "StartEasyRunRequest.workspaceId"),
-    requestText: decodeString(requireField(record, "requestText", "StartEasyRunRequest"), "StartEasyRunRequest.requestText"),
-  };
-}
-
-export function decodeSteerEasyRunRequest(value: unknown): SteerEasyRunRequest {
-  const record = assertRecord(value, "SteerEasyRunRequest");
-  assertKnownFields(record, "SteerEasyRunRequest", ["workspaceId", "text"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SteerEasyRunRequest"), "SteerEasyRunRequest.workspaceId"),
-    text: decodeString(requireField(record, "text", "SteerEasyRunRequest"), "SteerEasyRunRequest.text"),
-  };
-}
-
-export function decodeStopEasyRunRequest(value: unknown): StopEasyRunRequest {
-  const record = assertRecord(value, "StopEasyRunRequest");
-  assertKnownFields(record, "StopEasyRunRequest", ["workspaceId", "easyRunId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "StopEasyRunRequest"), "StopEasyRunRequest.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "StopEasyRunRequest"), "StopEasyRunRequest.easyRunId"),
-  };
-}
-
-export function decodeEasyRunUpdatedPayload(value: unknown): EasyRunUpdatedPayload {
-  const record = assertRecord(value, "EasyRunUpdatedPayload");
-  assertKnownFields(record, "EasyRunUpdatedPayload", ["run"]);
-  return {
-    run: decodeEasyRun(requireField(record, "run", "EasyRunUpdatedPayload")),
-  };
-}
-
-export function decodeEasyHighlightCreatedPayload(value: unknown): EasyHighlightCreatedPayload {
-  const record = assertRecord(value, "EasyHighlightCreatedPayload");
-  assertKnownFields(record, "EasyHighlightCreatedPayload", ["highlight"]);
-  return {
-    highlight: decodeEasyHighlight(requireField(record, "highlight", "EasyHighlightCreatedPayload")),
-  };
-}
-
-export function decodeEasyArtifactCreatedPayload(value: unknown): EasyArtifactCreatedPayload {
-  const record = assertRecord(value, "EasyArtifactCreatedPayload");
-  assertKnownFields(record, "EasyArtifactCreatedPayload", ["artifact"]);
-  return {
-    artifact: decodeEasyArtifact(requireField(record, "artifact", "EasyArtifactCreatedPayload")),
-  };
-}
-
-export function decodeEasyRunResyncRequired(value: unknown): EasyRunResyncRequired {
-  const record = assertRecord(value, "EasyRunResyncRequired");
-  assertKnownFields(record, "EasyRunResyncRequired", ["reason", "requestedStreamId", "requestedSequence", "currentStreamId", "currentSequence", "earliestSequence"]);
-  return {
-    reason: decodeString(requireField(record, "reason", "EasyRunResyncRequired"), "EasyRunResyncRequired.reason"),
-    requestedStreamId: decodeString(requireField(record, "requestedStreamId", "EasyRunResyncRequired"), "EasyRunResyncRequired.requestedStreamId"),
-    requestedSequence: decodeInteger(requireField(record, "requestedSequence", "EasyRunResyncRequired"), "EasyRunResyncRequired.requestedSequence"),
-    currentStreamId: decodeString(requireField(record, "currentStreamId", "EasyRunResyncRequired"), "EasyRunResyncRequired.currentStreamId"),
-    currentSequence: decodeInteger(requireField(record, "currentSequence", "EasyRunResyncRequired"), "EasyRunResyncRequired.currentSequence"),
-    earliestSequence: decodeInteger(requireField(record, "earliestSequence", "EasyRunResyncRequired"), "EasyRunResyncRequired.earliestSequence"),
-  };
-}
-
-export function decodeEasyRunEvent(value: unknown): EasyRunEvent {
-  const record = assertRecord(value, "EasyRunEvent");
-  assertKnownFields(record, "EasyRunEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "easyRunId", "runUpdated", "highlightCreated", "artifactCreated", "resyncRequired"]);
-  const result: EasyRunEvent = {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "EasyRunEvent"), "EasyRunEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "EasyRunEvent"), "EasyRunEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "EasyRunEvent"), "EasyRunEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "EasyRunEvent"), "EasyRunEvent.eventId"),
-    type: decodeEasyRunEventType(requireField(record, "type", "EasyRunEvent"), "EasyRunEvent.type"),
-    emittedAt: decodeString(requireField(record, "emittedAt", "EasyRunEvent"), "EasyRunEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "EasyRunEvent"), "EasyRunEvent.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "EasyRunEvent"), "EasyRunEvent.easyRunId"),
-    runUpdated: decodeNullable(requireField(record, "runUpdated", "EasyRunEvent"), "EasyRunEvent.runUpdated", (item) => decodeEasyRunUpdatedPayload(item)),
-    highlightCreated: decodeNullable(requireField(record, "highlightCreated", "EasyRunEvent"), "EasyRunEvent.highlightCreated", (item) => decodeEasyHighlightCreatedPayload(item)),
-    artifactCreated: decodeNullable(requireField(record, "artifactCreated", "EasyRunEvent"), "EasyRunEvent.artifactCreated", (item) => decodeEasyArtifactCreatedPayload(item)),
-    resyncRequired: decodeNullable(requireField(record, "resyncRequired", "EasyRunEvent"), "EasyRunEvent.resyncRequired", (item) => decodeEasyRunResyncRequired(item)),
-  };
-  assertTaggedUnionBranch("EasyRunEvent", result.type, {
-    "easyrun.run.updated": result.runUpdated,
-    "easyrun.highlight.created": result.highlightCreated,
-    "easyrun.artifact.created": result.artifactCreated,
-    "easyrun.resync_required": result.resyncRequired,
-  });
-  return result;
-}
-
-export function decodeSpeechCapabilities(value: unknown): SpeechCapabilities {
-  const record = assertRecord(value, "SpeechCapabilities");
-  assertKnownFields(record, "SpeechCapabilities", ["providerStatus", "transcriptionModel", "synthesisModel", "synthesisVoice", "maximumRecordingSeconds", "maximumTranscriptCharacters", "maximumSynthesisCharacters", "aiVoiceDisclosure"]);
-  return {
-    providerStatus: decodeSpeechProviderStatus(requireField(record, "providerStatus", "SpeechCapabilities"), "SpeechCapabilities.providerStatus"),
-    transcriptionModel: decodeString(requireField(record, "transcriptionModel", "SpeechCapabilities"), "SpeechCapabilities.transcriptionModel"),
-    synthesisModel: decodeString(requireField(record, "synthesisModel", "SpeechCapabilities"), "SpeechCapabilities.synthesisModel"),
-    synthesisVoice: decodeString(requireField(record, "synthesisVoice", "SpeechCapabilities"), "SpeechCapabilities.synthesisVoice"),
-    maximumRecordingSeconds: decodeInteger(requireField(record, "maximumRecordingSeconds", "SpeechCapabilities"), "SpeechCapabilities.maximumRecordingSeconds"),
-    maximumTranscriptCharacters: decodeInteger(requireField(record, "maximumTranscriptCharacters", "SpeechCapabilities"), "SpeechCapabilities.maximumTranscriptCharacters"),
-    maximumSynthesisCharacters: decodeInteger(requireField(record, "maximumSynthesisCharacters", "SpeechCapabilities"), "SpeechCapabilities.maximumSynthesisCharacters"),
-    aiVoiceDisclosure: decodeString(requireField(record, "aiVoiceDisclosure", "SpeechCapabilities"), "SpeechCapabilities.aiVoiceDisclosure"),
-  };
-}
-
-export function decodeCreateSpeechTranscriptionSessionRequest(value: unknown): CreateSpeechTranscriptionSessionRequest {
-  const record = assertRecord(value, "CreateSpeechTranscriptionSessionRequest");
-  assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", ["workspaceId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "CreateSpeechTranscriptionSessionRequest"), "CreateSpeechTranscriptionSessionRequest.workspaceId"),
-  };
-}
-
-export function decodeSpeechTranscriptionSession(value: unknown): SpeechTranscriptionSession {
-  const record = assertRecord(value, "SpeechTranscriptionSession");
-  assertKnownFields(record, "SpeechTranscriptionSession", ["clientSecret", "expiresAt", "webRTCURL", "transcriptionModel", "transcriptionDelay", "maximumRecordingSeconds", "maximumTranscriptCharacters"]);
-  return {
-    clientSecret: decodeString(requireField(record, "clientSecret", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.clientSecret"),
-    expiresAt: decodeString(requireField(record, "expiresAt", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.expiresAt"),
-    webRTCURL: decodeString(requireField(record, "webRTCURL", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.webRTCURL"),
-    transcriptionModel: decodeString(requireField(record, "transcriptionModel", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.transcriptionModel"),
-    transcriptionDelay: decodeString(requireField(record, "transcriptionDelay", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.transcriptionDelay"),
-    maximumRecordingSeconds: decodeInteger(requireField(record, "maximumRecordingSeconds", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.maximumRecordingSeconds"),
-    maximumTranscriptCharacters: decodeInteger(requireField(record, "maximumTranscriptCharacters", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.maximumTranscriptCharacters"),
-  };
-}
-
-export function decodeSynthesizeEasyRunSummaryRequest(value: unknown): SynthesizeEasyRunSummaryRequest {
-  const record = assertRecord(value, "SynthesizeEasyRunSummaryRequest");
-  assertKnownFields(record, "SynthesizeEasyRunSummaryRequest", ["workspaceId", "easyRunId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SynthesizeEasyRunSummaryRequest"), "SynthesizeEasyRunSummaryRequest.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "SynthesizeEasyRunSummaryRequest"), "SynthesizeEasyRunSummaryRequest.easyRunId"),
-  };
-}
-
-export function decodeSpeechAudio(value: unknown): SpeechAudio {
-  const record = assertRecord(value, "SpeechAudio");
-  assertKnownFields(record, "SpeechAudio", ["audioBase64", "mediaType", "format", "sourceId"]);
-  return {
-    audioBase64: decodeString(requireField(record, "audioBase64", "SpeechAudio"), "SpeechAudio.audioBase64"),
-    mediaType: decodeString(requireField(record, "mediaType", "SpeechAudio"), "SpeechAudio.mediaType"),
-    format: decodeString(requireField(record, "format", "SpeechAudio"), "SpeechAudio.format"),
-    sourceId: decodeString(requireField(record, "sourceId", "SpeechAudio"), "SpeechAudio.sourceId"),
-  };
-}
-
-export function decodeSynthesizeEasyRunHighlightRequest(value: unknown): SynthesizeEasyRunHighlightRequest {
-  const record = assertRecord(value, "SynthesizeEasyRunHighlightRequest");
-  assertKnownFields(record, "SynthesizeEasyRunHighlightRequest", ["workspaceId", "easyRunId", "highlightId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SynthesizeEasyRunHighlightRequest"), "SynthesizeEasyRunHighlightRequest.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "SynthesizeEasyRunHighlightRequest"), "SynthesizeEasyRunHighlightRequest.easyRunId"),
-    highlightId: decodeString(requireField(record, "highlightId", "SynthesizeEasyRunHighlightRequest"), "SynthesizeEasyRunHighlightRequest.highlightId"),
-  };
-}
-
 export function decodeListConversationsRequest(value: unknown): ListConversationsRequest {
   const record = assertRecord(value, "ListConversationsRequest");
   assertKnownFields(record, "ListConversationsRequest", ["workspaceId"]);
@@ -8801,17 +8091,9 @@ export function decodeConversationWorkflowMetadata(value: unknown): Conversation
   };
 }
 
-export function decodeConversationEasyRunMetadata(value: unknown): ConversationEasyRunMetadata {
-  const record = assertRecord(value, "ConversationEasyRunMetadata");
-  assertKnownFields(record, "ConversationEasyRunMetadata", ["easyRunId"]);
-  return {
-    easyRunId: decodeString(requireField(record, "easyRunId", "ConversationEasyRunMetadata"), "ConversationEasyRunMetadata.easyRunId"),
-  };
-}
-
 export function decodeConversation(value: unknown): Conversation {
   const record = assertRecord(value, "Conversation");
-  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow", "easyRun"]);
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
     id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
@@ -8825,24 +8107,12 @@ export function decodeConversation(value: unknown): Conversation {
     codexEffectiveSettings: decodeNullable(requireField(record, "codexEffectiveSettings", "Conversation"), "Conversation.codexEffectiveSettings", (item) => decodeChatCodexEffectiveSettings(item)),
     harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
     workflow: decodeNullable(requireField(record, "workflow", "Conversation"), "Conversation.workflow", (item) => decodeConversationWorkflowMetadata(item)),
-    easyRun: decodeNullable(requireField(record, "easyRun", "Conversation"), "Conversation.easyRun", (item) => decodeConversationEasyRunMetadata(item)),
-  };
-}
-
-export function decodeRunActiveStatus(value: unknown): RunActiveStatus {
-  const record = assertRecord(value, "RunActiveStatus");
-  assertKnownFields(record, "RunActiveStatus", ["kind", "headline", "headlineSource", "detail"]);
-  return {
-    kind: decodeRunActiveStatusKind(requireField(record, "kind", "RunActiveStatus"), "RunActiveStatus.kind"),
-    headline: decodeString(requireField(record, "headline", "RunActiveStatus"), "RunActiveStatus.headline"),
-    headlineSource: decodeRunActiveHeadlineSource(requireField(record, "headlineSource", "RunActiveStatus"), "RunActiveStatus.headlineSource"),
-    detail: decodeString(requireField(record, "detail", "RunActiveStatus"), "RunActiveStatus.detail"),
   };
 }
 
 export function decodeRunLiveness(value: unknown): RunLiveness {
   const record = assertRecord(value, "RunLiveness");
-  assertKnownFields(record, "RunLiveness", ["workspaceId", "conversationId", "runId", "harness", "status", "reason", "phase", "activeStatus", "retryable", "cancellable", "steerable", "steeringDisabledReason", "providerThreadId", "providerTurnId", "lastProviderEventAt", "lastVisibleActivityAt", "lastReconciledAt", "error"]);
+  assertKnownFields(record, "RunLiveness", ["workspaceId", "conversationId", "runId", "harness", "status", "reason", "retryable", "cancellable", "providerThreadId", "providerTurnId", "lastProviderEventAt", "lastReconciledAt", "error"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "RunLiveness"), "RunLiveness.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "RunLiveness"), "RunLiveness.conversationId"),
@@ -8850,16 +8120,11 @@ export function decodeRunLiveness(value: unknown): RunLiveness {
     harness: decodeHarnessKind(requireField(record, "harness", "RunLiveness"), "RunLiveness.harness"),
     status: decodeRunLivenessStatus(requireField(record, "status", "RunLiveness"), "RunLiveness.status"),
     reason: decodeRunLivenessReason(requireField(record, "reason", "RunLiveness"), "RunLiveness.reason"),
-    phase: decodeRunLivenessPhase(requireField(record, "phase", "RunLiveness"), "RunLiveness.phase"),
-    activeStatus: decodeRunActiveStatus(requireField(record, "activeStatus", "RunLiveness")),
     retryable: decodeBoolean(requireField(record, "retryable", "RunLiveness"), "RunLiveness.retryable"),
     cancellable: decodeBoolean(requireField(record, "cancellable", "RunLiveness"), "RunLiveness.cancellable"),
-    steerable: decodeBoolean(requireField(record, "steerable", "RunLiveness"), "RunLiveness.steerable"),
-    steeringDisabledReason: decodeString(requireField(record, "steeringDisabledReason", "RunLiveness"), "RunLiveness.steeringDisabledReason"),
     providerThreadId: decodeString(requireField(record, "providerThreadId", "RunLiveness"), "RunLiveness.providerThreadId"),
     providerTurnId: decodeString(requireField(record, "providerTurnId", "RunLiveness"), "RunLiveness.providerTurnId"),
     lastProviderEventAt: decodeString(requireField(record, "lastProviderEventAt", "RunLiveness"), "RunLiveness.lastProviderEventAt"),
-    lastVisibleActivityAt: decodeString(requireField(record, "lastVisibleActivityAt", "RunLiveness"), "RunLiveness.lastVisibleActivityAt"),
     lastReconciledAt: decodeString(requireField(record, "lastReconciledAt", "RunLiveness"), "RunLiveness.lastReconciledAt"),
     error: decodeString(requireField(record, "error", "RunLiveness"), "RunLiveness.error"),
   };
@@ -10334,23 +9599,14 @@ export function decodeListWorkflowDefinitionsRequest(value: unknown): ListWorkfl
   };
 }
 
-export function decodeWorkflowAgentSettings(value: unknown): WorkflowAgentSettings {
-  const record = assertRecord(value, "WorkflowAgentSettings");
-  assertKnownFields(record, "WorkflowAgentSettings", ["model", "reasoningEffort", "permission"]);
-  return {
-    model: decodeString(requireField(record, "model", "WorkflowAgentSettings"), "WorkflowAgentSettings.model"),
-    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "WorkflowAgentSettings"), "WorkflowAgentSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "WorkflowAgentSettings.reasoningEffort")),
-    permission: decodeNullable(requireField(record, "permission", "WorkflowAgentSettings"), "WorkflowAgentSettings.permission", (item) => decodeChatCodexPermissionSettings(item)),
-  };
-}
-
 export function decodeWorkflowCodexActionConfig(value: unknown): WorkflowCodexActionConfig {
   const record = assertRecord(value, "WorkflowCodexActionConfig");
-  assertKnownFields(record, "WorkflowCodexActionConfig", ["prompt", "freshConversation", "settings"]);
+  assertKnownFields(record, "WorkflowCodexActionConfig", ["prompt", "freshConversation", "model", "reasoningEffort"]);
   return {
     prompt: decodeString(requireField(record, "prompt", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.prompt"),
     freshConversation: decodeBoolean(requireField(record, "freshConversation", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.freshConversation"),
-    settings: decodeWorkflowAgentSettings(requireField(record, "settings", "WorkflowCodexActionConfig")),
+    model: decodeString(requireField(record, "model", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.model"),
+    reasoningEffort: decodeString(requireField(record, "reasoningEffort", "WorkflowCodexActionConfig"), "WorkflowCodexActionConfig.reasoningEffort"),
   };
 }
 
@@ -10427,12 +9683,11 @@ export function decodeWorkflowGraphLayout(value: unknown): WorkflowGraphLayout {
 
 export function decodeWorkflowGraph(value: unknown): WorkflowGraph {
   const record = assertRecord(value, "WorkflowGraph");
-  assertKnownFields(record, "WorkflowGraph", ["nodes", "edges", "layout", "agentDefaults"]);
+  assertKnownFields(record, "WorkflowGraph", ["nodes", "edges", "layout"]);
   return {
     nodes: decodeArray(requireField(record, "nodes", "WorkflowGraph"), "WorkflowGraph.nodes", (item) => decodeWorkflowNode(item)),
     edges: decodeArray(requireField(record, "edges", "WorkflowGraph"), "WorkflowGraph.edges", (item) => decodeWorkflowEdge(item)),
     layout: decodeWorkflowGraphLayout(requireField(record, "layout", "WorkflowGraph")),
-    agentDefaults: decodeWorkflowAgentSettings(requireField(record, "agentDefaults", "WorkflowGraph")),
   };
 }
 
@@ -10649,25 +9904,6 @@ export function decodeRunnerCapabilities(value: unknown): RunnerCapabilities {
   };
 }
 
-export function decodeWorkflowAgentEffectiveRunSettings(value: unknown): WorkflowAgentEffectiveRunSettings {
-  const record = assertRecord(value, "WorkflowAgentEffectiveRunSettings");
-  assertKnownFields(record, "WorkflowAgentEffectiveRunSettings", ["model", "modelDisplayName", "modelSource", "reasoningEffort", "reasoningEffortDisplayName", "reasoningEffortSource", "permissionPreset", "permissionProfileId", "permissionDisplayLabel", "approvalPolicy", "permissions", "permissionSource"]);
-  return {
-    model: decodeString(requireField(record, "model", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.model"),
-    modelDisplayName: decodeString(requireField(record, "modelDisplayName", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.modelDisplayName"),
-    modelSource: decodeWorkflowAgentSettingsSource(requireField(record, "modelSource", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.modelSource"),
-    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "WorkflowAgentEffectiveRunSettings.reasoningEffort")),
-    reasoningEffortDisplayName: decodeString(requireField(record, "reasoningEffortDisplayName", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.reasoningEffortDisplayName"),
-    reasoningEffortSource: decodeWorkflowAgentSettingsSource(requireField(record, "reasoningEffortSource", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.reasoningEffortSource"),
-    permissionPreset: decodeNullable(requireField(record, "permissionPreset", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionPreset", (item) => decodeChatPermissionPresetID(item, "WorkflowAgentEffectiveRunSettings.permissionPreset")),
-    permissionProfileId: decodeString(requireField(record, "permissionProfileId", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionProfileId"),
-    permissionDisplayLabel: decodeString(requireField(record, "permissionDisplayLabel", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionDisplayLabel"),
-    approvalPolicy: decodeString(requireField(record, "approvalPolicy", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.approvalPolicy"),
-    permissions: decodeString(requireField(record, "permissions", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissions"),
-    permissionSource: decodeWorkflowAgentSettingsSource(requireField(record, "permissionSource", "WorkflowAgentEffectiveRunSettings"), "WorkflowAgentEffectiveRunSettings.permissionSource"),
-  };
-}
-
 export function decodeWorkflowActionSignal(value: unknown): WorkflowActionSignal {
   const record = assertRecord(value, "WorkflowActionSignal");
   assertKnownFields(record, "WorkflowActionSignal", ["name", "value"]);
@@ -10752,7 +9988,7 @@ export function decodeWorkflowActivityRef(value: unknown): WorkflowActivityRef {
 
 export function decodeWorkflowNodeExecution(value: unknown): WorkflowNodeExecution {
   const record = assertRecord(value, "WorkflowNodeExecution");
-  assertKnownFields(record, "WorkflowNodeExecution", ["schemaVersion", "id", "executionId", "nodeId", "attempt", "iteration", "status", "idempotencyKey", "scheduledAt", "startedAt", "completedAt", "actionKind", "runnerKind", "inputHash", "input", "actionPolicy", "sideEffectPolicy", "runnerCapabilities", "agentRunSettings", "result", "runnerRefs", "runnerState", "activityRefs", "recoveryOutcome", "recoveryMessage", "error"]);
+  assertKnownFields(record, "WorkflowNodeExecution", ["schemaVersion", "id", "executionId", "nodeId", "attempt", "iteration", "status", "idempotencyKey", "scheduledAt", "startedAt", "completedAt", "actionKind", "runnerKind", "inputHash", "input", "actionPolicy", "sideEffectPolicy", "runnerCapabilities", "result", "runnerRefs", "runnerState", "activityRefs", "recoveryOutcome", "recoveryMessage", "error"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowNodeExecution"), "WorkflowNodeExecution.schemaVersion"),
     id: decodeString(requireField(record, "id", "WorkflowNodeExecution"), "WorkflowNodeExecution.id"),
@@ -10772,7 +10008,6 @@ export function decodeWorkflowNodeExecution(value: unknown): WorkflowNodeExecuti
     actionPolicy: decodeNullable(requireField(record, "actionPolicy", "WorkflowNodeExecution"), "WorkflowNodeExecution.actionPolicy", (item) => decodeWorkflowActionPolicy(item)),
     sideEffectPolicy: decodeNullable(requireField(record, "sideEffectPolicy", "WorkflowNodeExecution"), "WorkflowNodeExecution.sideEffectPolicy", (item) => decodeSideEffectPolicy(item)),
     runnerCapabilities: decodeNullable(requireField(record, "runnerCapabilities", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerCapabilities", (item) => decodeRunnerCapabilities(item)),
-    agentRunSettings: decodeNullable(requireField(record, "agentRunSettings", "WorkflowNodeExecution"), "WorkflowNodeExecution.agentRunSettings", (item) => decodeWorkflowAgentEffectiveRunSettings(item)),
     result: decodeNullable(requireField(record, "result", "WorkflowNodeExecution"), "WorkflowNodeExecution.result", (item) => decodeWorkflowActionResult(item)),
     runnerRefs: decodeArray(requireField(record, "runnerRefs", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerRefs", (item) => decodeWorkflowActionRunnerRef(item)),
     runnerState: decodeNullable(requireField(record, "runnerState", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerState", (item) => decodeWorkflowRunnerState(item)),
@@ -11026,21 +10261,16 @@ export function decodeWorkflowAgentTrajectoryCapabilities(value: unknown): Workf
 
 export function decodeWorkflowAgentTrajectoryPage(value: unknown): WorkflowAgentTrajectoryPage {
   const record = assertRecord(value, "WorkflowAgentTrajectoryPage");
-  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "lastChatEventStreamId", "lastChatEventSequence", "lastWorkflowEventOrdinal", "run", "activeRun", "activeRunLiveness", "runSettings", "blocks", "pendingSteeringMessages", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
+  assertKnownFields(record, "WorkflowAgentTrajectoryPage", ["schemaVersion", "scope", "conversationId", "runId", "run", "activeRun", "activeRunLiveness", "blocks", "items", "activity", "outputPages", "outputs", "pendingApproval", "hasMoreOlder", "olderBeforeBlockOrdinal", "hasMoreItems", "nextItemId", "capabilities"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.schemaVersion"),
     scope: decodeWorkflowAgentTrajectoryScope(requireField(record, "scope", "WorkflowAgentTrajectoryPage")),
     conversationId: decodeString(requireField(record, "conversationId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.conversationId"),
     runId: decodeString(requireField(record, "runId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runId"),
-    lastChatEventStreamId: decodeString(requireField(record, "lastChatEventStreamId", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.lastChatEventStreamId"),
-    lastChatEventSequence: decodeInteger(requireField(record, "lastChatEventSequence", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.lastChatEventSequence"),
-    lastWorkflowEventOrdinal: decodeInteger(requireField(record, "lastWorkflowEventOrdinal", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.lastWorkflowEventOrdinal"),
     run: decodeRun(requireField(record, "run", "WorkflowAgentTrajectoryPage")),
     activeRun: decodeNullable(requireField(record, "activeRun", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRun", (item) => decodeRun(item)),
     activeRunLiveness: decodeNullable(requireField(record, "activeRunLiveness", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activeRunLiveness", (item) => decodeRunLiveness(item)),
-    runSettings: decodeNullable(requireField(record, "runSettings", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.runSettings", (item) => decodeWorkflowAgentEffectiveRunSettings(item)),
     blocks: decodeArray(requireField(record, "blocks", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.blocks", (item) => decodeTranscriptBlock(item)),
-    pendingSteeringMessages: decodeArray(requireField(record, "pendingSteeringMessages", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.pendingSteeringMessages", (item) => decodeChatMessage(item)),
     items: decodeArray(requireField(record, "items", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.items", (item) => decodeRunItem(item)),
     activity: decodeArray(requireField(record, "activity", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.activity", (item) => decodeActivityItemBlockProjection(item)),
     outputPages: decodeArray(requireField(record, "outputPages", "WorkflowAgentTrajectoryPage"), "WorkflowAgentTrajectoryPage.outputPages", (item) => decodeWorkflowAgentTrajectoryRunItemOutputPageState(item)),
@@ -12897,11 +12127,10 @@ export function decodeLogoutCodexAccountRequest(value: unknown): LogoutCodexAcco
 
 export function decodeAPIError(value: unknown): APIError {
   const record = assertRecord(value, "APIError");
-  assertKnownFields(record, "APIError", ["code", "message", "operationApplied", "activeExecution"]);
+  assertKnownFields(record, "APIError", ["code", "message", "activeExecution"]);
   return {
     code: decodeString(requireField(record, "code", "APIError"), "APIError.code"),
     message: decodeString(requireField(record, "message", "APIError"), "APIError.message"),
-    operationApplied: decodeBoolean(requireField(record, "operationApplied", "APIError"), "APIError.operationApplied"),
     activeExecution: decodeNullable(requireField(record, "activeExecution", "APIError"), "APIError.activeExecution", (item) => decodeWorkflowExecutionSummary(item)),
   };
 }
@@ -13501,1409 +12730,1215 @@ function decodeCodexAccountChangedEventFromRecord(record: Record<string, unknown
 }
 
 export interface BackendClient {
-  backendHealth: (options?: BackendRequestOptions) => Promise<BackendHealth>;
-  runtimeInfo: (options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
-  completePairing: (request: CompletePairingRequest, options?: BackendRequestOptions) => Promise<CompletePairingResponse>;
-  updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest, options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
-  listDevices: (request: ListDevicesRequest, options?: BackendRequestOptions) => Promise<ListDevicesResponse>;
-  revokeDevice: (request: RevokeDeviceRequest, options?: BackendRequestOptions) => Promise<RevokeDeviceResponse>;
-  pushSubscribe: (request: PushSubscribeRequest, options?: BackendRequestOptions) => Promise<PushSubscribeResponse>;
-  pushUnsubscribe: (request: PushUnsubscribeRequest, options?: BackendRequestOptions) => Promise<PushUnsubscribeResponse>;
-  pushTest: (request: PushTestRequest, options?: BackendRequestOptions) => Promise<PushTestResponse>;
-  readAppearanceSettings: (options?: BackendRequestOptions) => Promise<AppearanceSettings>;
-  readAppearancePresets: (options?: BackendRequestOptions) => Promise<AppearancePresetList>;
-  updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest, options?: BackendRequestOptions) => Promise<AppearanceSettings>;
-  workspaceSession: (options?: BackendRequestOptions) => Promise<WorkspaceSession>;
-  workspaceSelectedConversations: (options?: BackendRequestOptions) => Promise<WorkspaceSelectedConversations>;
-  openWorkspace: (request: OpenWorkspaceRequest, options?: BackendRequestOptions) => Promise<OpenWorkspaceResponse>;
-  selectWorkspace: (request: SelectWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
-  setWorkspaceSelectedConversation: (request: SetWorkspaceSelectedConversationRequest, options?: BackendRequestOptions) => Promise<WorkspaceSelectedConversations>;
-  closeWorkspace: (request: CloseWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
-  reorderWorkspace: (request: ReorderWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
-  removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
-  readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayoutReadResult>;
-  saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayout>;
-  readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest, options?: BackendRequestOptions) => Promise<ReadWorkspaceActivitySnapshotResponse>;
-  readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest, options?: BackendRequestOptions) => Promise<ReadWorkflowExecutionActivityResponse>;
-  readEasyRunSnapshot: (request: ReadEasyRunSnapshotRequest, options?: BackendRequestOptions) => Promise<EasyRunSnapshot>;
-  startEasyRun: (request: StartEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
-  steerEasyRun: (request: SteerEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
-  stopEasyRun: (request: StopEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
-  readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
-  createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
-  synthesizeEasyRunSummary: (request: SynthesizeEasyRunSummaryRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
-  synthesizeEasyRunHighlight: (request: SynthesizeEasyRunHighlightRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
-  listConversations: (request: ListConversationsRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
-  createConversation: (request: CreateConversationRequest, options?: BackendRequestOptions) => Promise<Conversation>;
-  deleteConversation: (request: DeleteConversationRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
-  markConversationRead: (request: MarkConversationReadRequest, options?: BackendRequestOptions) => Promise<ConversationListItem>;
-  setConversationPinned: (request: SetConversationPinnedRequest, options?: BackendRequestOptions) => Promise<ConversationListItem>;
-  getMessagePage: (request: GetMessagePageRequest, options?: BackendRequestOptions) => Promise<MessagePage>;
-  listComposerPromptHistory: (request: ListComposerPromptHistoryRequest, options?: BackendRequestOptions) => Promise<ComposerPromptHistoryPage>;
-  sendChatMessage: (request: SendChatMessageRequest, options?: BackendRequestOptions) => Promise<SendMessageResult>;
-  queueChatMessage: (request: QueueChatMessageRequest, options?: BackendRequestOptions) => Promise<QueueMessageResult>;
-  editQueuedChatMessage: (request: EditQueuedChatMessageRequest, options?: BackendRequestOptions) => Promise<QueueEditResult>;
-  removeQueuedChatMessage: (request: RemoveQueuedChatMessageRequest, options?: BackendRequestOptions) => Promise<QueueRemoveResult>;
-  steerChatMessage: (request: SteerChatMessageRequest, options?: BackendRequestOptions) => Promise<SteerMessageResult>;
-  sendSteeringImmediately: (request: SendSteeringImmediatelyRequest, options?: BackendRequestOptions) => Promise<ImmediateSteeringResult>;
-  createChatImageAttachmentFromBytes: (request: CreateChatImageAttachmentFromBytesRequest, options?: BackendRequestOptions) => Promise<ImageAttachment>;
-  createChatImageAttachmentFromPath: (request: CreateChatImageAttachmentFromPathRequest, options?: BackendRequestOptions) => Promise<ImageAttachment>;
-  listChatCommands: (request: ListChatCommandsRequest, options?: BackendRequestOptions) => Promise<ChatCommandListResult>;
-  executeChatCommand: (request: ExecuteChatCommandRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
-  readChatCodexDefaults: (options?: BackendRequestOptions) => Promise<ChatCodexDefaultsView>;
-  updateChatCodexDefaults: (request: UpdateChatCodexDefaultsRequest, options?: BackendRequestOptions) => Promise<ChatCodexDefaultsView>;
-  openChatCodexModelPicker: (request: OpenChatCodexModelPickerRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
-  openChatCodexPermissionPicker: (request: OpenChatCodexPermissionPickerRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
-  setChatCodexModel: (request: SetChatCodexModelRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
-  setChatCodexPermissionPreset: (request: SetChatCodexPermissionPresetRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
-  setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest, options?: BackendRequestOptions) => Promise<ChatCommandExecuteResult>;
-  cancelRun: (request: CancelRunRequest, options?: BackendRequestOptions) => Promise<Run>;
-  getActiveRun: (request: GetActiveRunRequest, options?: BackendRequestOptions) => Promise<GetActiveRunResponse>;
-  reconcileChatRuns: (request: ReconcileChatRunsRequest, options?: BackendRequestOptions) => Promise<ReconcileChatRunsResponse>;
-  listRuns: (request: ListRunsRequest, options?: BackendRequestOptions) => Promise<ListRunsResponse>;
-  getRunActivity: (request: GetRunActivityRequest, options?: BackendRequestOptions) => Promise<RunActivityPage>;
-  getRunItemOutputPage: (request: GetRunItemOutputRequest, options?: BackendRequestOptions) => Promise<RunItemOutputPage>;
-  listBackgroundTerminals: (request: ListBackgroundTerminalsRequest, options?: BackendRequestOptions) => Promise<BackgroundTerminalListProjection>;
-  getBackgroundTerminalOutput: (request: GetBackgroundTerminalOutputRequest, options?: BackendRequestOptions) => Promise<BackgroundTerminalOutputPage>;
-  killBackgroundTerminal: (request: KillBackgroundTerminalRequest, options?: BackendRequestOptions) => Promise<BackgroundTerminalProcess>;
-  killAllBackgroundTerminals: (request: KillAllBackgroundTerminalsRequest, options?: BackendRequestOptions) => Promise<BackgroundTerminalListProjection>;
-  listDiagnostics: (request: ListDiagnosticsRequest, options?: BackendRequestOptions) => Promise<ListDiagnosticsResponse>;
-  submitApproval: (request: SubmitApprovalRequest, options?: BackendRequestOptions) => Promise<Run>;
-  listWorkflowDefinitions: (request: ListWorkflowDefinitionsRequest, options?: BackendRequestOptions) => Promise<ListWorkflowDefinitionsResponse>;
-  createWorkflowDefinition: (request: CreateWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<WorkflowDefinition>;
-  readWorkflowDefinition: (request: ReadWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<WorkflowDefinition>;
-  updateWorkflowDefinition: (request: UpdateWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<WorkflowDefinition>;
-  deleteWorkflowDefinition: (request: DeleteWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<DeleteWorkflowDefinitionResponse>;
-  validateWorkflowDefinition: (request: ValidateWorkflowDefinitionRequest, options?: BackendRequestOptions) => Promise<WorkflowValidationResult>;
-  listWorkflowExecutions: (request: ListWorkflowExecutionsRequest, options?: BackendRequestOptions) => Promise<ListWorkflowExecutionsResponse>;
-  startWorkflowExecution: (request: StartWorkflowExecutionRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
-  cancelWorkflowExecution: (request: CancelWorkflowExecutionRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
-  readWorkflowExecution: (request: ReadWorkflowExecutionRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
-  readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest, options?: BackendRequestOptions) => Promise<ReadWorkflowGraphProjectionResponse>;
-  getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest, options?: BackendRequestOptions) => Promise<WorkflowExecutionEventPage>;
-  readWorkflowNodeTrajectory: (request: ReadWorkflowNodeTrajectoryRequest, options?: BackendRequestOptions) => Promise<WorkflowAgentTrajectoryPage>;
-  retryWorkflowNodeRunLiveness: (request: RetryWorkflowNodeRunLivenessRequest, options?: BackendRequestOptions) => Promise<RunLivenessReconciliationResult>;
-  steerWorkflowNodeRun: (request: SteerWorkflowNodeRunRequest, options?: BackendRequestOptions) => Promise<SteerMessageResult>;
-  stopWorkflowNodeRun: (request: StopWorkflowNodeRunRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
-  submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest, options?: BackendRequestOptions) => Promise<WorkflowExecution>;
-  readSemanticGraph: (request: ReadSemanticGraphRequest, options?: BackendRequestOptions) => Promise<SemanticGraph>;
-  readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest, options?: BackendRequestOptions) => Promise<ReadSemanticNodeDetailResponse>;
-  listSemanticEvidence: (request: ListSemanticEvidenceRequest, options?: BackendRequestOptions) => Promise<SemanticEvidenceList>;
-  listSemanticActivity: (request: ListSemanticActivityRequest, options?: BackendRequestOptions) => Promise<SemanticActivityList>;
-  listSemanticActivityPage: (request: ListSemanticActivityPageRequest, options?: BackendRequestOptions) => Promise<SemanticActivityPage>;
-  readSemanticActivitySummary: (request: ReadSemanticActivitySummaryRequest, options?: BackendRequestOptions) => Promise<SemanticActivitySummary>;
-  readSemanticSteeringState: (request: ReadSemanticSteeringStateRequest, options?: BackendRequestOptions) => Promise<SemanticSteeringState>;
-  readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest, options?: BackendRequestOptions) => Promise<SemanticEventHistory>;
-  readSemanticContextPack: (request: ReadSemanticContextPackRequest, options?: BackendRequestOptions) => Promise<SemanticContextPackReadResponse>;
-  listSemanticContextPacks: (request: ListSemanticContextPacksRequest, options?: BackendRequestOptions) => Promise<SemanticContextPackList>;
-  buildCartographerWindow: (request: BuildCartographerWindowRequest, options?: BackendRequestOptions) => Promise<CartographerWindowBuildResult>;
-  processCartographerWindow: (request: ProcessCartographerWindowRequest, options?: BackendRequestOptions) => Promise<CartographerWindowProcessResult>;
-  readCartographerProcessingState: (request: ReadCartographerProcessingStateRequest, options?: BackendRequestOptions) => Promise<CartographerProcessingState>;
-  readCartographerRun: (request: ReadCartographerRunRequest, options?: BackendRequestOptions) => Promise<CartographerRunReadResponse>;
-  listCartographerRuns: (request: ListCartographerRunsRequest, options?: BackendRequestOptions) => Promise<CartographerRunList>;
-  listCartographerWindows: (request: ListCartographerWindowsRequest, options?: BackendRequestOptions) => Promise<CartographerWindowList>;
-  listCartographerCursors: (request: ListCartographerCursorsRequest, options?: BackendRequestOptions) => Promise<CartographerCursorList>;
-  listCartographerPatches: (request: ListCartographerPatchesRequest, options?: BackendRequestOptions) => Promise<CartographerPatchList>;
-  acceptCartographerPatch: (request: ReviewCartographerPatchRequest, options?: BackendRequestOptions) => Promise<CartographerPatchReviewResult>;
-  rejectCartographerPatch: (request: ReviewCartographerPatchRequest, options?: BackendRequestOptions) => Promise<CartographerPatchReviewResult>;
-  updateSemanticLayoutPositions: (request: UpdateSemanticLayoutPositionsRequest, options?: BackendRequestOptions) => Promise<SemanticLayoutPositionList>;
-  attachSemanticNodeToWorkflowExecution: (request: AttachSemanticNodeToWorkflowExecutionRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToWorkflowNode: (request: AttachSemanticNodeToWorkflowNodeRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToChatRun: (request: AttachSemanticNodeToChatRunRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToChatMessage: (request: AttachSemanticNodeToChatMessageRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToRunItem: (request: AttachSemanticNodeToRunItemRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
-  attachSemanticNodeToFileRange: (request: AttachSemanticNodeToFileRangeRequest, options?: BackendRequestOptions) => Promise<SemanticAttachmentResult>;
-  endSemanticActivity: (request: EndSemanticActivityRequest, options?: BackendRequestOptions) => Promise<SemanticActivityEndResult>;
-  renameSemanticNode: (request: RenameSemanticNodeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  updateSemanticNode: (request: UpdateSemanticNodeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  dismissSemanticNode: (request: SemanticNodeOperationRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  promoteSemanticNode: (request: SemanticNodeOperationRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  splitSemanticNode: (request: SplitSemanticNodeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  mergeSemanticNodes: (request: MergeSemanticNodesRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  createSemanticNode: (request: CreateSemanticNodeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  createSemanticEdge: (request: CreateSemanticEdgeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  updateSemanticEdge: (request: UpdateSemanticEdgeRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  removeSemanticEdge: (request: SemanticEdgeOperationRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  createSemanticSteeringDirective: (request: CreateSemanticSteeringDirectiveRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  updateSemanticSteeringDirective: (request: UpdateSemanticSteeringDirectiveRequest, options?: BackendRequestOptions) => Promise<SemanticMutationResult>;
-  createTerminal: (request: CreateTerminalRequest, options?: BackendRequestOptions) => Promise<TerminalSessionResponse>;
-  attachTerminal: (request: AttachTerminalRequest, options?: BackendRequestOptions) => Promise<TerminalSessionResponse>;
-  terminalInput: (request: TerminalInputRequest, options?: BackendRequestOptions) => Promise<TerminalInputResponse>;
-  resizeTerminal: (request: ResizeTerminalRequest, options?: BackendRequestOptions) => Promise<TerminalSessionResponse>;
-  closeTerminal: (request: CloseTerminalRequest, options?: BackendRequestOptions) => Promise<CloseTerminalResponse>;
-  listTerminalProfiles: (options?: BackendRequestOptions) => Promise<TerminalProfileList>;
-  createTerminalProfile: (request: CreateTerminalProfileRequest, options?: BackendRequestOptions) => Promise<TerminalProfileList>;
-  updateTerminalProfile: (request: UpdateTerminalProfileRequest, options?: BackendRequestOptions) => Promise<TerminalProfileList>;
-  deleteTerminalProfile: (request: DeleteTerminalProfileRequest, options?: BackendRequestOptions) => Promise<TerminalProfileList>;
-  selectDefaultTerminalProfile: (request: SelectDefaultTerminalProfileRequest, options?: BackendRequestOptions) => Promise<TerminalProfileList>;
-  readCodexAccount: (options?: BackendRequestOptions) => Promise<CodexAccountState>;
-  refreshCodexAccount: (request: RefreshCodexAccountRequest, options?: BackendRequestOptions) => Promise<CodexAccountState>;
-  startCodexLogin: (request: StartCodexLoginRequest, options?: BackendRequestOptions) => Promise<StartCodexLoginResponse>;
-  cancelCodexLogin: (request: CancelCodexLoginRequest, options?: BackendRequestOptions) => Promise<CodexAccountState>;
-  logoutCodexAccount: (request: LogoutCodexAccountRequest, options?: BackendRequestOptions) => Promise<CodexAccountState>;
+  backendHealth: () => Promise<BackendHealth>;
+  runtimeInfo: () => Promise<RuntimeInfoResponse>;
+  completePairing: (request: CompletePairingRequest) => Promise<CompletePairingResponse>;
+  setupAttestation: (request: SetupAttestationRequest) => Promise<SetupAttestationResponse>;
+  createDevicePairing: (request: CreateDevicePairingRequest) => Promise<CreateDevicePairingResponse>;
+  updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest) => Promise<RuntimeInfoResponse>;
+  listDevices: (request: ListDevicesRequest) => Promise<ListDevicesResponse>;
+  revokeDevice: (request: RevokeDeviceRequest) => Promise<RevokeDeviceResponse>;
+  pushSubscribe: (request: PushSubscribeRequest) => Promise<PushSubscribeResponse>;
+  pushUnsubscribe: (request: PushUnsubscribeRequest) => Promise<PushUnsubscribeResponse>;
+  pushTest: (request: PushTestRequest) => Promise<PushTestResponse>;
+  readAppearanceSettings: () => Promise<AppearanceSettings>;
+  readAppearancePresets: () => Promise<AppearancePresetList>;
+  updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
+  workspaceSession: () => Promise<WorkspaceSession>;
+  workspaceSelectedConversations: () => Promise<WorkspaceSelectedConversations>;
+  openWorkspace: (request: OpenWorkspaceRequest) => Promise<OpenWorkspaceResponse>;
+  selectWorkspace: (request: SelectWorkspaceRequest) => Promise<WorkspaceSession>;
+  setWorkspaceSelectedConversation: (request: SetWorkspaceSelectedConversationRequest) => Promise<WorkspaceSelectedConversations>;
+  closeWorkspace: (request: CloseWorkspaceRequest) => Promise<WorkspaceSession>;
+  reorderWorkspace: (request: ReorderWorkspaceRequest) => Promise<WorkspaceSession>;
+  removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
+  readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
+  saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
+  readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest) => Promise<ReadWorkspaceActivitySnapshotResponse>;
+  readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest) => Promise<ReadWorkflowExecutionActivityResponse>;
+  listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
+  createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
+  deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
+  markConversationRead: (request: MarkConversationReadRequest) => Promise<ConversationListItem>;
+  setConversationPinned: (request: SetConversationPinnedRequest) => Promise<ConversationListItem>;
+  getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
+  listComposerPromptHistory: (request: ListComposerPromptHistoryRequest) => Promise<ComposerPromptHistoryPage>;
+  sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
+  queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
+  editQueuedChatMessage: (request: EditQueuedChatMessageRequest) => Promise<QueueEditResult>;
+  removeQueuedChatMessage: (request: RemoveQueuedChatMessageRequest) => Promise<QueueRemoveResult>;
+  steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
+  sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
+  createChatImageAttachmentFromBytes: (request: CreateChatImageAttachmentFromBytesRequest) => Promise<ImageAttachment>;
+  createChatImageAttachmentFromPath: (request: CreateChatImageAttachmentFromPathRequest) => Promise<ImageAttachment>;
+  listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
+  executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
+  readChatCodexDefaults: () => Promise<ChatCodexDefaultsView>;
+  updateChatCodexDefaults: (request: UpdateChatCodexDefaultsRequest) => Promise<ChatCodexDefaultsView>;
+  openChatCodexModelPicker: (request: OpenChatCodexModelPickerRequest) => Promise<ChatCommandExecuteResult>;
+  openChatCodexPermissionPicker: (request: OpenChatCodexPermissionPickerRequest) => Promise<ChatCommandExecuteResult>;
+  setChatCodexModel: (request: SetChatCodexModelRequest) => Promise<ChatCommandExecuteResult>;
+  setChatCodexPermissionPreset: (request: SetChatCodexPermissionPresetRequest) => Promise<ChatCommandExecuteResult>;
+  setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest) => Promise<ChatCommandExecuteResult>;
+  cancelRun: (request: CancelRunRequest) => Promise<Run>;
+  getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
+  reconcileChatRuns: (request: ReconcileChatRunsRequest) => Promise<ReconcileChatRunsResponse>;
+  listRuns: (request: ListRunsRequest) => Promise<ListRunsResponse>;
+  getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
+  getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
+  listBackgroundTerminals: (request: ListBackgroundTerminalsRequest) => Promise<BackgroundTerminalListProjection>;
+  getBackgroundTerminalOutput: (request: GetBackgroundTerminalOutputRequest) => Promise<BackgroundTerminalOutputPage>;
+  killBackgroundTerminal: (request: KillBackgroundTerminalRequest) => Promise<BackgroundTerminalProcess>;
+  killAllBackgroundTerminals: (request: KillAllBackgroundTerminalsRequest) => Promise<BackgroundTerminalListProjection>;
+  listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
+  submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
+  listWorkflowDefinitions: (request: ListWorkflowDefinitionsRequest) => Promise<ListWorkflowDefinitionsResponse>;
+  createWorkflowDefinition: (request: CreateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
+  readWorkflowDefinition: (request: ReadWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
+  updateWorkflowDefinition: (request: UpdateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
+  deleteWorkflowDefinition: (request: DeleteWorkflowDefinitionRequest) => Promise<DeleteWorkflowDefinitionResponse>;
+  validateWorkflowDefinition: (request: ValidateWorkflowDefinitionRequest) => Promise<WorkflowValidationResult>;
+  listWorkflowExecutions: (request: ListWorkflowExecutionsRequest) => Promise<ListWorkflowExecutionsResponse>;
+  startWorkflowExecution: (request: StartWorkflowExecutionRequest) => Promise<WorkflowExecution>;
+  cancelWorkflowExecution: (request: CancelWorkflowExecutionRequest) => Promise<WorkflowExecution>;
+  readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
+  readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
+  getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
+  readWorkflowNodeTrajectory: (request: ReadWorkflowNodeTrajectoryRequest) => Promise<WorkflowAgentTrajectoryPage>;
+  retryWorkflowNodeRunLiveness: (request: RetryWorkflowNodeRunLivenessRequest) => Promise<RunLivenessReconciliationResult>;
+  steerWorkflowNodeRun: (request: SteerWorkflowNodeRunRequest) => Promise<SteerMessageResult>;
+  stopWorkflowNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
+  submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
+  readSemanticGraph: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
+  readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest) => Promise<ReadSemanticNodeDetailResponse>;
+  listSemanticEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
+  listSemanticActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
+  listSemanticActivityPage: (request: ListSemanticActivityPageRequest) => Promise<SemanticActivityPage>;
+  readSemanticActivitySummary: (request: ReadSemanticActivitySummaryRequest) => Promise<SemanticActivitySummary>;
+  readSemanticSteeringState: (request: ReadSemanticSteeringStateRequest) => Promise<SemanticSteeringState>;
+  readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
+  readSemanticContextPack: (request: ReadSemanticContextPackRequest) => Promise<SemanticContextPackReadResponse>;
+  listSemanticContextPacks: (request: ListSemanticContextPacksRequest) => Promise<SemanticContextPackList>;
+  buildCartographerWindow: (request: BuildCartographerWindowRequest) => Promise<CartographerWindowBuildResult>;
+  processCartographerWindow: (request: ProcessCartographerWindowRequest) => Promise<CartographerWindowProcessResult>;
+  readCartographerProcessingState: (request: ReadCartographerProcessingStateRequest) => Promise<CartographerProcessingState>;
+  readCartographerRun: (request: ReadCartographerRunRequest) => Promise<CartographerRunReadResponse>;
+  listCartographerRuns: (request: ListCartographerRunsRequest) => Promise<CartographerRunList>;
+  listCartographerWindows: (request: ListCartographerWindowsRequest) => Promise<CartographerWindowList>;
+  listCartographerCursors: (request: ListCartographerCursorsRequest) => Promise<CartographerCursorList>;
+  listCartographerPatches: (request: ListCartographerPatchesRequest) => Promise<CartographerPatchList>;
+  acceptCartographerPatch: (request: ReviewCartographerPatchRequest) => Promise<CartographerPatchReviewResult>;
+  rejectCartographerPatch: (request: ReviewCartographerPatchRequest) => Promise<CartographerPatchReviewResult>;
+  updateSemanticLayoutPositions: (request: UpdateSemanticLayoutPositionsRequest) => Promise<SemanticLayoutPositionList>;
+  attachSemanticNodeToWorkflowExecution: (request: AttachSemanticNodeToWorkflowExecutionRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToWorkflowNode: (request: AttachSemanticNodeToWorkflowNodeRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToChatRun: (request: AttachSemanticNodeToChatRunRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToChatMessage: (request: AttachSemanticNodeToChatMessageRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToRunItem: (request: AttachSemanticNodeToRunItemRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToFileRange: (request: AttachSemanticNodeToFileRangeRequest) => Promise<SemanticAttachmentResult>;
+  endSemanticActivity: (request: EndSemanticActivityRequest) => Promise<SemanticActivityEndResult>;
+  renameSemanticNode: (request: RenameSemanticNodeRequest) => Promise<SemanticMutationResult>;
+  updateSemanticNode: (request: UpdateSemanticNodeRequest) => Promise<SemanticMutationResult>;
+  dismissSemanticNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
+  promoteSemanticNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
+  splitSemanticNode: (request: SplitSemanticNodeRequest) => Promise<SemanticMutationResult>;
+  mergeSemanticNodes: (request: MergeSemanticNodesRequest) => Promise<SemanticMutationResult>;
+  createSemanticNode: (request: CreateSemanticNodeRequest) => Promise<SemanticMutationResult>;
+  createSemanticEdge: (request: CreateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
+  updateSemanticEdge: (request: UpdateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
+  removeSemanticEdge: (request: SemanticEdgeOperationRequest) => Promise<SemanticMutationResult>;
+  createSemanticSteeringDirective: (request: CreateSemanticSteeringDirectiveRequest) => Promise<SemanticMutationResult>;
+  updateSemanticSteeringDirective: (request: UpdateSemanticSteeringDirectiveRequest) => Promise<SemanticMutationResult>;
+  createTerminal: (request: CreateTerminalRequest) => Promise<TerminalSessionResponse>;
+  attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
+  terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
+  resizeTerminal: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
+  closeTerminal: (request: CloseTerminalRequest) => Promise<CloseTerminalResponse>;
+  listTerminalProfiles: () => Promise<TerminalProfileList>;
+  createTerminalProfile: (request: CreateTerminalProfileRequest) => Promise<TerminalProfileList>;
+  updateTerminalProfile: (request: UpdateTerminalProfileRequest) => Promise<TerminalProfileList>;
+  deleteTerminalProfile: (request: DeleteTerminalProfileRequest) => Promise<TerminalProfileList>;
+  selectDefaultTerminalProfile: (request: SelectDefaultTerminalProfileRequest) => Promise<TerminalProfileList>;
+  readCodexAccount: () => Promise<CodexAccountState>;
+  refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
+  startCodexLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
+  cancelCodexLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
+  logoutCodexAccount: (request: LogoutCodexAccountRequest) => Promise<CodexAccountState>;
 }
 
 export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {
   return {
-    backendHealth: (options) => requestBackend({
+    backendHealth: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackendHealth,
       endpoint: backendEndpoints.BackendHealth,
       fetchImpl,
       requestPayload: undefined,
-      signal: options?.signal,
     }),
-    runtimeInfo: (options) => requestBackend({
+    runtimeInfo: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRuntimeInfoResponse,
       endpoint: backendEndpoints.RuntimeInfo,
       fetchImpl,
       requestPayload: undefined,
-      signal: options?.signal,
     }),
-    completePairing: (request, options) => requestBackend({
+    completePairing: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    updateRuntimeDisplayName: (request, options) => requestBackend({
+    setupAttestation: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSetupAttestationResponse,
+      endpoint: backendEndpoints.SetupAttestation,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createDevicePairing: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCreateDevicePairingResponse,
+      endpoint: backendEndpoints.CreateDevicePairing,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateRuntimeDisplayName: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRuntimeInfoResponse,
       endpoint: backendEndpoints.UpdateRuntimeDisplayName,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listDevices: (request, options) => requestBackend({
+    listDevices: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListDevicesResponse,
       endpoint: backendEndpoints.ListDevices,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    revokeDevice: (request, options) => requestBackend({
+    revokeDevice: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRevokeDeviceResponse,
       endpoint: backendEndpoints.RevokeDevice,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    pushSubscribe: (request, options) => requestBackend({
+    pushSubscribe: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodePushSubscribeResponse,
       endpoint: backendEndpoints.PushSubscribe,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    pushUnsubscribe: (request, options) => requestBackend({
+    pushUnsubscribe: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodePushUnsubscribeResponse,
       endpoint: backendEndpoints.PushUnsubscribe,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    pushTest: (request, options) => requestBackend({
+    pushTest: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodePushTestResponse,
       endpoint: backendEndpoints.PushTest,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readAppearanceSettings: (options) => requestBackend({
+    readAppearanceSettings: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeAppearanceSettings,
       endpoint: backendEndpoints.ReadAppearanceSettings,
       fetchImpl,
       requestPayload: undefined,
-      signal: options?.signal,
     }),
-    readAppearancePresets: (options) => requestBackend({
+    readAppearancePresets: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeAppearancePresetList,
       endpoint: backendEndpoints.ReadAppearancePresets,
       fetchImpl,
       requestPayload: undefined,
-      signal: options?.signal,
     }),
-    updateAppearanceSettings: (request, options) => requestBackend({
+    updateAppearanceSettings: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeAppearanceSettings,
       endpoint: backendEndpoints.UpdateAppearanceSettings,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    workspaceSession: (options) => requestBackend({
+    workspaceSession: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.WorkspaceSession,
       fetchImpl,
       requestPayload: undefined,
-      signal: options?.signal,
     }),
-    workspaceSelectedConversations: (options) => requestBackend({
+    workspaceSelectedConversations: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSelectedConversations,
       endpoint: backendEndpoints.WorkspaceSelectedConversations,
       fetchImpl,
       requestPayload: undefined,
-      signal: options?.signal,
     }),
-    openWorkspace: (request, options) => requestBackend({
+    openWorkspace: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeOpenWorkspaceResponse,
       endpoint: backendEndpoints.OpenWorkspace,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    selectWorkspace: (request, options) => requestBackend({
+    selectWorkspace: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.SelectWorkspace,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    setWorkspaceSelectedConversation: (request, options) => requestBackend({
+    setWorkspaceSelectedConversation: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSelectedConversations,
       endpoint: backendEndpoints.SetWorkspaceSelectedConversation,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    closeWorkspace: (request, options) => requestBackend({
+    closeWorkspace: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.CloseWorkspace,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    reorderWorkspace: (request, options) => requestBackend({
+    reorderWorkspace: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.ReorderWorkspace,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    removeRecentWorkspace: (request, options) => requestBackend({
+    removeRecentWorkspace: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.RemoveRecentWorkspace,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readWorkspaceUILayout: (request, options) => requestBackend({
+    readWorkspaceUILayout: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceUILayoutReadResult,
       endpoint: backendEndpoints.ReadWorkspaceUILayout,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    saveWorkspaceUILayout: (request, options) => requestBackend({
+    saveWorkspaceUILayout: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceUILayout,
       endpoint: backendEndpoints.SaveWorkspaceUILayout,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readWorkspaceActivitySnapshot: (request, options) => requestBackend({
+    readWorkspaceActivitySnapshot: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkspaceActivitySnapshotResponse,
       endpoint: backendEndpoints.ReadWorkspaceActivitySnapshot,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readWorkflowExecutionActivity: (request, options) => requestBackend({
+    readWorkflowExecutionActivity: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkflowExecutionActivityResponse,
       endpoint: backendEndpoints.ReadWorkflowExecutionActivity,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readEasyRunSnapshot: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRunSnapshot,
-      endpoint: backendEndpoints.ReadEasyRunSnapshot,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    startEasyRun: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRun,
-      endpoint: backendEndpoints.StartEasyRun,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    steerEasyRun: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRun,
-      endpoint: backendEndpoints.SteerEasyRun,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    stopEasyRun: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRun,
-      endpoint: backendEndpoints.StopEasyRun,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    readSpeechCapabilities: (options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechCapabilities,
-      endpoint: backendEndpoints.ReadSpeechCapabilities,
-      fetchImpl,
-      requestPayload: undefined,
-      signal: options?.signal,
-    }),
-    createSpeechTranscriptionSession: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechTranscriptionSession,
-      endpoint: backendEndpoints.CreateSpeechTranscriptionSession,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    synthesizeEasyRunSummary: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechAudio,
-      endpoint: backendEndpoints.SynthesizeEasyRunSummary,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    synthesizeEasyRunHighlight: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechAudio,
-      endpoint: backendEndpoints.SynthesizeEasyRunHighlight,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    listConversations: (request, options) => requestBackend({
+    listConversations: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListConversationsResponse,
       endpoint: backendEndpoints.ListConversations,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    createConversation: (request, options) => requestBackend({
+    createConversation: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversation,
       endpoint: backendEndpoints.CreateConversation,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    deleteConversation: (request, options) => requestBackend({
+    deleteConversation: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListConversationsResponse,
       endpoint: backendEndpoints.DeleteConversation,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    markConversationRead: (request, options) => requestBackend({
+    markConversationRead: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationListItem,
       endpoint: backendEndpoints.MarkConversationRead,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    setConversationPinned: (request, options) => requestBackend({
+    setConversationPinned: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationListItem,
       endpoint: backendEndpoints.SetConversationPinned,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    getMessagePage: (request, options) => requestBackend({
+    getMessagePage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeMessagePage,
       endpoint: backendEndpoints.GetMessagePage,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listComposerPromptHistory: (request, options) => requestBackend({
+    listComposerPromptHistory: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeComposerPromptHistoryPage,
       endpoint: backendEndpoints.ListComposerPromptHistory,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    sendChatMessage: (request, options) => requestBackend({
+    sendChatMessage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSendMessageResult,
       endpoint: backendEndpoints.SendChatMessage,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    queueChatMessage: (request, options) => requestBackend({
+    queueChatMessage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueMessageResult,
       endpoint: backendEndpoints.QueueChatMessage,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    editQueuedChatMessage: (request, options) => requestBackend({
+    editQueuedChatMessage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueEditResult,
       endpoint: backendEndpoints.EditQueuedChatMessage,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    removeQueuedChatMessage: (request, options) => requestBackend({
+    removeQueuedChatMessage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueRemoveResult,
       endpoint: backendEndpoints.RemoveQueuedChatMessage,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    steerChatMessage: (request, options) => requestBackend({
+    steerChatMessage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSteerMessageResult,
       endpoint: backendEndpoints.SteerChatMessage,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    sendSteeringImmediately: (request, options) => requestBackend({
+    sendSteeringImmediately: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeImmediateSteeringResult,
       endpoint: backendEndpoints.SendSteeringImmediately,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    createChatImageAttachmentFromBytes: (request, options) => requestBackend({
+    createChatImageAttachmentFromBytes: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeImageAttachment,
       endpoint: backendEndpoints.CreateChatImageAttachmentFromBytes,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    createChatImageAttachmentFromPath: (request, options) => requestBackend({
+    createChatImageAttachmentFromPath: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeImageAttachment,
       endpoint: backendEndpoints.CreateChatImageAttachmentFromPath,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listChatCommands: (request, options) => requestBackend({
+    listChatCommands: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandListResult,
       endpoint: backendEndpoints.ListChatCommands,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    executeChatCommand: (request, options) => requestBackend({
+    executeChatCommand: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.ExecuteChatCommand,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readChatCodexDefaults: (options) => requestBackend({
+    readChatCodexDefaults: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCodexDefaultsView,
       endpoint: backendEndpoints.ReadChatCodexDefaults,
       fetchImpl,
       requestPayload: undefined,
-      signal: options?.signal,
     }),
-    updateChatCodexDefaults: (request, options) => requestBackend({
+    updateChatCodexDefaults: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCodexDefaultsView,
       endpoint: backendEndpoints.UpdateChatCodexDefaults,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    openChatCodexModelPicker: (request, options) => requestBackend({
+    openChatCodexModelPicker: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.OpenChatCodexModelPicker,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    openChatCodexPermissionPicker: (request, options) => requestBackend({
+    openChatCodexPermissionPicker: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.OpenChatCodexPermissionPicker,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    setChatCodexModel: (request, options) => requestBackend({
+    setChatCodexModel: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.SetChatCodexModel,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    setChatCodexPermissionPreset: (request, options) => requestBackend({
+    setChatCodexPermissionPreset: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.SetChatCodexPermissionPreset,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    setChatCodexReasoningEffort: (request, options) => requestBackend({
+    setChatCodexReasoningEffort: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.SetChatCodexReasoningEffort,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    cancelRun: (request, options) => requestBackend({
+    cancelRun: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRun,
       endpoint: backendEndpoints.CancelRun,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    getActiveRun: (request, options) => requestBackend({
+    getActiveRun: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeGetActiveRunResponse,
       endpoint: backendEndpoints.GetActiveRun,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    reconcileChatRuns: (request, options) => requestBackend({
+    reconcileChatRuns: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReconcileChatRunsResponse,
       endpoint: backendEndpoints.ReconcileChatRuns,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listRuns: (request, options) => requestBackend({
+    listRuns: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListRunsResponse,
       endpoint: backendEndpoints.ListRuns,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    getRunActivity: (request, options) => requestBackend({
+    getRunActivity: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunActivityPage,
       endpoint: backendEndpoints.GetRunActivity,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    getRunItemOutputPage: (request, options) => requestBackend({
+    getRunItemOutputPage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunItemOutputPage,
       endpoint: backendEndpoints.GetRunItemOutputPage,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listBackgroundTerminals: (request, options) => requestBackend({
+    listBackgroundTerminals: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackgroundTerminalListProjection,
       endpoint: backendEndpoints.ListBackgroundTerminals,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    getBackgroundTerminalOutput: (request, options) => requestBackend({
+    getBackgroundTerminalOutput: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackgroundTerminalOutputPage,
       endpoint: backendEndpoints.GetBackgroundTerminalOutput,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    killBackgroundTerminal: (request, options) => requestBackend({
+    killBackgroundTerminal: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackgroundTerminalProcess,
       endpoint: backendEndpoints.KillBackgroundTerminal,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    killAllBackgroundTerminals: (request, options) => requestBackend({
+    killAllBackgroundTerminals: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackgroundTerminalListProjection,
       endpoint: backendEndpoints.KillAllBackgroundTerminals,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listDiagnostics: (request, options) => requestBackend({
+    listDiagnostics: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListDiagnosticsResponse,
       endpoint: backendEndpoints.ListDiagnostics,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    submitApproval: (request, options) => requestBackend({
+    submitApproval: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRun,
       endpoint: backendEndpoints.SubmitApproval,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listWorkflowDefinitions: (request, options) => requestBackend({
+    listWorkflowDefinitions: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListWorkflowDefinitionsResponse,
       endpoint: backendEndpoints.ListWorkflowDefinitions,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    createWorkflowDefinition: (request, options) => requestBackend({
+    createWorkflowDefinition: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowDefinition,
       endpoint: backendEndpoints.CreateWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readWorkflowDefinition: (request, options) => requestBackend({
+    readWorkflowDefinition: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowDefinition,
       endpoint: backendEndpoints.ReadWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    updateWorkflowDefinition: (request, options) => requestBackend({
+    updateWorkflowDefinition: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowDefinition,
       endpoint: backendEndpoints.UpdateWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    deleteWorkflowDefinition: (request, options) => requestBackend({
+    deleteWorkflowDefinition: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeDeleteWorkflowDefinitionResponse,
       endpoint: backendEndpoints.DeleteWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    validateWorkflowDefinition: (request, options) => requestBackend({
+    validateWorkflowDefinition: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowValidationResult,
       endpoint: backendEndpoints.ValidateWorkflowDefinition,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listWorkflowExecutions: (request, options) => requestBackend({
+    listWorkflowExecutions: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListWorkflowExecutionsResponse,
       endpoint: backendEndpoints.ListWorkflowExecutions,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    startWorkflowExecution: (request, options) => requestBackend({
+    startWorkflowExecution: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.StartWorkflowExecution,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    cancelWorkflowExecution: (request, options) => requestBackend({
+    cancelWorkflowExecution: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.CancelWorkflowExecution,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readWorkflowExecution: (request, options) => requestBackend({
+    readWorkflowExecution: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.ReadWorkflowExecution,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readWorkflowGraphProjection: (request, options) => requestBackend({
+    readWorkflowGraphProjection: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadWorkflowGraphProjectionResponse,
       endpoint: backendEndpoints.ReadWorkflowGraphProjection,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    getWorkflowExecutionEvents: (request, options) => requestBackend({
+    getWorkflowExecutionEvents: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecutionEventPage,
       endpoint: backendEndpoints.GetWorkflowExecutionEvents,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readWorkflowNodeTrajectory: (request, options) => requestBackend({
+    readWorkflowNodeTrajectory: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowAgentTrajectoryPage,
       endpoint: backendEndpoints.ReadWorkflowNodeTrajectory,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    retryWorkflowNodeRunLiveness: (request, options) => requestBackend({
+    retryWorkflowNodeRunLiveness: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunLivenessReconciliationResult,
       endpoint: backendEndpoints.RetryWorkflowNodeRunLiveness,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    steerWorkflowNodeRun: (request, options) => requestBackend({
+    steerWorkflowNodeRun: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSteerMessageResult,
       endpoint: backendEndpoints.SteerWorkflowNodeRun,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    stopWorkflowNodeRun: (request, options) => requestBackend({
+    stopWorkflowNodeRun: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.StopWorkflowNodeRun,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    submitWorkflowApproval: (request, options) => requestBackend({
+    submitWorkflowApproval: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.SubmitWorkflowApproval,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readSemanticGraph: (request, options) => requestBackend({
+    readSemanticGraph: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticGraph,
       endpoint: backendEndpoints.ReadSemanticGraph,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readSemanticNodeDetail: (request, options) => requestBackend({
+    readSemanticNodeDetail: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeReadSemanticNodeDetailResponse,
       endpoint: backendEndpoints.ReadSemanticNodeDetail,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listSemanticEvidence: (request, options) => requestBackend({
+    listSemanticEvidence: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticEvidenceList,
       endpoint: backendEndpoints.ListSemanticEvidence,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listSemanticActivity: (request, options) => requestBackend({
+    listSemanticActivity: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivityList,
       endpoint: backendEndpoints.ListSemanticActivity,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listSemanticActivityPage: (request, options) => requestBackend({
+    listSemanticActivityPage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivityPage,
       endpoint: backendEndpoints.ListSemanticActivityPage,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readSemanticActivitySummary: (request, options) => requestBackend({
+    readSemanticActivitySummary: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivitySummary,
       endpoint: backendEndpoints.ReadSemanticActivitySummary,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readSemanticSteeringState: (request, options) => requestBackend({
+    readSemanticSteeringState: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticSteeringState,
       endpoint: backendEndpoints.ReadSemanticSteeringState,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readSemanticEventHistory: (request, options) => requestBackend({
+    readSemanticEventHistory: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticEventHistory,
       endpoint: backendEndpoints.ReadSemanticEventHistory,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readSemanticContextPack: (request, options) => requestBackend({
+    readSemanticContextPack: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticContextPackReadResponse,
       endpoint: backendEndpoints.ReadSemanticContextPack,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listSemanticContextPacks: (request, options) => requestBackend({
+    listSemanticContextPacks: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticContextPackList,
       endpoint: backendEndpoints.ListSemanticContextPacks,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    buildCartographerWindow: (request, options) => requestBackend({
+    buildCartographerWindow: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerWindowBuildResult,
       endpoint: backendEndpoints.BuildCartographerWindow,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    processCartographerWindow: (request, options) => requestBackend({
+    processCartographerWindow: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerWindowProcessResult,
       endpoint: backendEndpoints.ProcessCartographerWindow,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readCartographerProcessingState: (request, options) => requestBackend({
+    readCartographerProcessingState: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerProcessingState,
       endpoint: backendEndpoints.ReadCartographerProcessingState,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readCartographerRun: (request, options) => requestBackend({
+    readCartographerRun: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerRunReadResponse,
       endpoint: backendEndpoints.ReadCartographerRun,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listCartographerRuns: (request, options) => requestBackend({
+    listCartographerRuns: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerRunList,
       endpoint: backendEndpoints.ListCartographerRuns,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listCartographerWindows: (request, options) => requestBackend({
+    listCartographerWindows: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerWindowList,
       endpoint: backendEndpoints.ListCartographerWindows,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listCartographerCursors: (request, options) => requestBackend({
+    listCartographerCursors: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerCursorList,
       endpoint: backendEndpoints.ListCartographerCursors,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listCartographerPatches: (request, options) => requestBackend({
+    listCartographerPatches: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerPatchList,
       endpoint: backendEndpoints.ListCartographerPatches,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    acceptCartographerPatch: (request, options) => requestBackend({
+    acceptCartographerPatch: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerPatchReviewResult,
       endpoint: backendEndpoints.AcceptCartographerPatch,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    rejectCartographerPatch: (request, options) => requestBackend({
+    rejectCartographerPatch: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerPatchReviewResult,
       endpoint: backendEndpoints.RejectCartographerPatch,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    updateSemanticLayoutPositions: (request, options) => requestBackend({
+    updateSemanticLayoutPositions: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticLayoutPositionList,
       endpoint: backendEndpoints.UpdateSemanticLayoutPositions,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    attachSemanticNodeToWorkflowExecution: (request, options) => requestBackend({
+    attachSemanticNodeToWorkflowExecution: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToWorkflowExecution,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    attachSemanticNodeToWorkflowNode: (request, options) => requestBackend({
+    attachSemanticNodeToWorkflowNode: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToWorkflowNode,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    attachSemanticNodeToChatRun: (request, options) => requestBackend({
+    attachSemanticNodeToChatRun: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToChatRun,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    attachSemanticNodeToChatMessage: (request, options) => requestBackend({
+    attachSemanticNodeToChatMessage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToChatMessage,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    attachSemanticNodeToRunItem: (request, options) => requestBackend({
+    attachSemanticNodeToRunItem: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToRunItem,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    attachSemanticNodeToFileRange: (request, options) => requestBackend({
+    attachSemanticNodeToFileRange: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticAttachmentResult,
       endpoint: backendEndpoints.AttachSemanticNodeToFileRange,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    endSemanticActivity: (request, options) => requestBackend({
+    endSemanticActivity: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivityEndResult,
       endpoint: backendEndpoints.EndSemanticActivity,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    renameSemanticNode: (request, options) => requestBackend({
+    renameSemanticNode: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.RenameSemanticNode,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    updateSemanticNode: (request, options) => requestBackend({
+    updateSemanticNode: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.UpdateSemanticNode,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    dismissSemanticNode: (request, options) => requestBackend({
+    dismissSemanticNode: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.DismissSemanticNode,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    promoteSemanticNode: (request, options) => requestBackend({
+    promoteSemanticNode: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.PromoteSemanticNode,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    splitSemanticNode: (request, options) => requestBackend({
+    splitSemanticNode: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.SplitSemanticNode,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    mergeSemanticNodes: (request, options) => requestBackend({
+    mergeSemanticNodes: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.MergeSemanticNodes,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    createSemanticNode: (request, options) => requestBackend({
+    createSemanticNode: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.CreateSemanticNode,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    createSemanticEdge: (request, options) => requestBackend({
+    createSemanticEdge: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.CreateSemanticEdge,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    updateSemanticEdge: (request, options) => requestBackend({
+    updateSemanticEdge: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.UpdateSemanticEdge,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    removeSemanticEdge: (request, options) => requestBackend({
+    removeSemanticEdge: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.RemoveSemanticEdge,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    createSemanticSteeringDirective: (request, options) => requestBackend({
+    createSemanticSteeringDirective: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.CreateSemanticSteeringDirective,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    updateSemanticSteeringDirective: (request, options) => requestBackend({
+    updateSemanticSteeringDirective: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticMutationResult,
       endpoint: backendEndpoints.UpdateSemanticSteeringDirective,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    createTerminal: (request, options) => requestBackend({
+    createTerminal: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalSessionResponse,
       endpoint: backendEndpoints.CreateTerminal,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    attachTerminal: (request, options) => requestBackend({
+    attachTerminal: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalSessionResponse,
       endpoint: backendEndpoints.AttachTerminal,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    terminalInput: (request, options) => requestBackend({
+    terminalInput: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalInputResponse,
       endpoint: backendEndpoints.TerminalInput,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    resizeTerminal: (request, options) => requestBackend({
+    resizeTerminal: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalSessionResponse,
       endpoint: backendEndpoints.ResizeTerminal,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    closeTerminal: (request, options) => requestBackend({
+    closeTerminal: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCloseTerminalResponse,
       endpoint: backendEndpoints.CloseTerminal,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    listTerminalProfiles: (options) => requestBackend({
+    listTerminalProfiles: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.ListTerminalProfiles,
       fetchImpl,
       requestPayload: undefined,
-      signal: options?.signal,
     }),
-    createTerminalProfile: (request, options) => requestBackend({
+    createTerminalProfile: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.CreateTerminalProfile,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    updateTerminalProfile: (request, options) => requestBackend({
+    updateTerminalProfile: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.UpdateTerminalProfile,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    deleteTerminalProfile: (request, options) => requestBackend({
+    deleteTerminalProfile: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.DeleteTerminalProfile,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    selectDefaultTerminalProfile: (request, options) => requestBackend({
+    selectDefaultTerminalProfile: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalProfileList,
       endpoint: backendEndpoints.SelectDefaultTerminalProfile,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    readCodexAccount: (options) => requestBackend({
+    readCodexAccount: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
       endpoint: backendEndpoints.ReadCodexAccount,
       fetchImpl,
       requestPayload: undefined,
-      signal: options?.signal,
     }),
-    refreshCodexAccount: (request, options) => requestBackend({
+    refreshCodexAccount: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
       endpoint: backendEndpoints.RefreshCodexAccount,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    startCodexLogin: (request, options) => requestBackend({
+    startCodexLogin: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeStartCodexLoginResponse,
       endpoint: backendEndpoints.StartCodexLogin,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    cancelCodexLogin: (request, options) => requestBackend({
+    cancelCodexLogin: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
       endpoint: backendEndpoints.CancelCodexLogin,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
-    logoutCodexAccount: (request, options) => requestBackend({
+    logoutCodexAccount: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
       endpoint: backendEndpoints.LogoutCodexAccount,
       fetchImpl,
       requestPayload: request,
-      signal: options?.signal,
     }),
   };
 }

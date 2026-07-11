@@ -46,11 +46,9 @@ type Manager struct {
 	sessions      map[int]*Session
 
 	notificationHandlers map[string][]NotificationHandler
-	requestHandlers      map[string][]RequestHandler
 }
 
 type NotificationHandler func(Message)
-type RequestHandler func(Message)
 
 type Session struct {
 	id      int
@@ -137,7 +135,6 @@ func NewManager(config ManagerConfig) *Manager {
 		state:                ManagerStateStopped,
 		sessions:             map[int]*Session{},
 		notificationHandlers: map[string][]NotificationHandler{},
-		requestHandlers:      map[string][]RequestHandler{},
 	}
 }
 
@@ -151,12 +148,6 @@ func (manager *Manager) RegisterNotificationHandler(method string, handler Notif
 	manager.mu.Lock()
 	defer manager.mu.Unlock()
 	manager.notificationHandlers[method] = append(manager.notificationHandlers[method], handler)
-}
-
-func (manager *Manager) RegisterRequestHandler(method string, handler RequestHandler) {
-	manager.mu.Lock()
-	defer manager.mu.Unlock()
-	manager.requestHandlers[method] = append(manager.requestHandlers[method], handler)
 }
 
 func (manager *Manager) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {
@@ -345,13 +336,6 @@ func (manager *Manager) dispatchNotificationWithCancel(message Message, cancel <
 }
 
 func (manager *Manager) dispatchRequest(message Message) {
-	manager.mu.Lock()
-	handlers := append([]RequestHandler{}, manager.requestHandlers[message.Method]...)
-	manager.mu.Unlock()
-	for _, handler := range handlers {
-		handler(message)
-		return
-	}
 	matches := manager.matchingSessions(message, EventRequest)
 	if len(matches) != 1 {
 		if len(matches) == 0 {
@@ -408,9 +392,6 @@ func bestSessionMatches(sessions []*Session, scope messageScope, kind EventKind)
 		if score == bestScore {
 			matches = append(matches, sessionMatch{session: session, score: score})
 		}
-	}
-	if len(matches) == 0 && scope.ThreadID == "" && (scope.ProviderItemID != "" || scope.ProviderProcessID != "") {
-		return providerScopeUnownedFallbackMatches(sessions, kind)
 	}
 	return matches
 }
@@ -518,22 +499,6 @@ func (session *Session) AcceptUnscopedRequests() {
 	session.mu.Lock()
 	defer session.mu.Unlock()
 	session.acceptsUnscopedRequests = true
-}
-
-func (session *Session) acceptsUnscopedKind(kind EventKind) bool {
-	session.mu.Lock()
-	defer session.mu.Unlock()
-	if session.closed {
-		return false
-	}
-	switch kind {
-	case EventRequest:
-		return session.acceptsUnscopedRequests
-	case EventNotification:
-		return session.acceptsUnscopedNotifications
-	default:
-		return false
-	}
 }
 
 func (session *Session) Close() {
@@ -889,7 +854,7 @@ func messageScopeFor(message Message) messageScope {
 		ThreadID:          firstString(stringValue(params["threadId"]), nestedString(params["thread"], "id")),
 		TurnID:            firstString(stringValue(params["turnId"]), nestedString(params["turn"], "id")),
 		ProviderItemID:    firstString(stringValue(params["itemId"]), nestedString(params["item"], "id")),
-		ProviderProcessID: firstString(stringValue(params["processId"]), stringValue(params["processHandle"]), nestedString(params["item"], "processId")),
+		ProviderProcessID: firstString(stringValue(params["processId"]), stringValue(params["processHandle"])),
 		Stream:            stringValue(params["stream"]),
 	}
 }
@@ -961,26 +926,15 @@ func (session *Session) matchScore(scope messageScope, kind EventKind) (int, boo
 		return 0, false
 	}
 	if scope.ThreadID == "" {
-		return session.matchUnscopedScore(scope, kind)
+		switch kind {
+		case EventRequest:
+			return 0, session.acceptsUnscopedRequests
+		case EventNotification:
+			return 0, session.acceptsUnscopedNotifications
+		default:
+			return 0, false
+		}
 	}
-	return session.matchThreadScore(scope, kind)
-}
-
-func (session *Session) matchUnscopedScore(scope messageScope, kind EventKind) (int, bool) {
-	if scope.ProviderItemID != "" || scope.ProviderProcessID != "" {
-		return 0, false
-	}
-	switch kind {
-	case EventRequest:
-		return 0, session.acceptsUnscopedRequests
-	case EventNotification:
-		return 0, session.acceptsUnscopedNotifications
-	default:
-		return 0, false
-	}
-}
-
-func (session *Session) matchThreadScore(scope messageScope, kind EventKind) (int, bool) {
 	if _, ok := session.threads[scope.ThreadID]; !ok {
 		return 0, false
 	}

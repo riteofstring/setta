@@ -441,7 +441,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       },
     },
     runtimes: {} as SettaAPI["runtimes"],
-    speech: {} as SettaAPI["speech"],
     chat: {
       activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => testRun("cancelled"),
@@ -637,7 +636,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
-    easyRun: unimplementedEasyRunAPI(),
     workspaceActivity: unimplementedWorkspaceActivityAPI(),
     terminal: unimplementedTerminalAPI(),
     semanticGraph: unimplementedSemanticGraphAPI(),
@@ -674,19 +672,6 @@ function unimplementedWorkspaceActivityAPI(): SettaAPI["workspaceActivity"] {
     executionSnapshot: async () => {
       throw new Error("workspace activity API is not implemented in this test");
     },
-  };
-}
-
-function unimplementedEasyRunAPI(): SettaAPI["easyRun"] {
-  const unavailable = async (): Promise<never> => {
-    throw new Error("easy-run API is not implemented in this test");
-  };
-  return {
-    onEvent: () => () => {},
-    snapshot: unavailable,
-    start: unavailable,
-    steer: unavailable,
-    stop: unavailable,
   };
 }
 
@@ -862,7 +847,6 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
     workflow: null,
     workspaceId: "workspace_api",
     ...overrides,
-    easyRun: overrides.easyRun ?? null,
   };
 }
 

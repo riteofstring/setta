@@ -1,5 +1,4 @@
 import { driverCallExpression } from "./cdp-client.mjs";
-import { waitForState } from "./chat-workflow-harness.mjs";
 
 export async function assertRendererQueueMatchesBackend(client, queuedPrompt) {
   const body = await client.driver("bodyText");
@@ -23,7 +22,7 @@ export async function assertNoCriticalDiagnostics(backend, workspaceId, conversa
 }
 
 export async function assertCollapsedActivityGroupHeader(client, expected) {
-  const expression = `(() => {
+  const rendered = await client.evaluate(`(() => {
     const transcript = document.querySelector('[data-testid="chat-transcript-region"]') ?? document;
     return {
       headers: Array.from(transcript.querySelectorAll('[data-testid="activity-group-header"]')).map((header) => ({
@@ -31,36 +30,23 @@ export async function assertCollapsedActivityGroupHeader(client, expected) {
         text: header.innerText,
       })),
     };
-  })()`;
-  const rendered = await waitForState(client, expression, (candidate) =>
-    Boolean(collapsedActivityGroupHeader(candidate, expected)),
+  })()`);
+  const header = rendered.headers.find(
+    (candidate) =>
+      candidate.expanded === "false" &&
+      candidate.text.includes(expected.count) &&
+      candidate.text.includes(expected.preview),
   );
-  const header = collapsedActivityGroupHeader(rendered, expected);
+  if (!header) {
+    throw new Error(
+      `collapsed activity group header missing ${JSON.stringify(expected)}: ${JSON.stringify(rendered.headers)}`,
+    );
+  }
   if (expected.absent && header.text.includes(expected.absent)) {
     throw new Error(
       `collapsed activity group header included removed text ${JSON.stringify(expected.absent)}: ${JSON.stringify(header)}`,
     );
   }
-}
-
-function collapsedActivityGroupHeader(rendered, expected) {
-  return rendered.headers.find(
-    (candidate) =>
-      candidate.expanded === "false" &&
-      collapsedActivityGroupCountMatches(candidate.text, expected) &&
-      candidate.text.includes(expected.preview),
-  );
-}
-
-function collapsedActivityGroupCountMatches(text, expected) {
-  if (expected.count !== undefined) {
-    return text.includes(expected.count);
-  }
-  const firstLine = text
-    .split("\n")
-    .map((line) => line.trim())
-    .find((line) => line.length > 0);
-  return firstLine !== undefined && /^\d+$/.test(firstLine);
 }
 
 export async function waitForComposerFocus(waitForState, client) {

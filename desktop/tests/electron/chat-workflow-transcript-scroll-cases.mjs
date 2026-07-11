@@ -155,7 +155,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
     (page) => pageText(page).includes("Scroll stickiness chunk 030"),
   );
   const scrollable = await waitForInitialScrollableTranscript(client);
-  await assertUpwardWheelDetachesAutoFollowWhileStreaming(client);
+  await assertNearBottomDetachWhileStreaming(client);
   await assertTopNoOpWheelJumpToLatest(client);
 
   const detachedTop = Math.max(0, Math.floor(scrollable.maxScrollTop * 0.35));
@@ -188,8 +188,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
   await clickButtonByAria(client, "Jump to latest");
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) =>
-      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
+    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
     "auto-follow after jump to latest",
   );
   await waitForBackendState(
@@ -201,7 +200,6 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
     (snapshot) =>
       snapshot.debug.mode === "auto_follow" &&
       snapshot.debug.atBottom &&
-      !snapshot.jumpVisible &&
       snapshot.visibleRows.some((row) => row.text.includes("Scroll stickiness chunk 650")),
     "auto-follow keeps chunk 650 visible",
   );
@@ -212,8 +210,7 @@ async function runTranscriptScrollStickinessWorkflow(client, backend, workspaceI
   );
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) =>
-      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
+    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
     "auto-follow after final line",
   );
   await openChatSearch(client);
@@ -232,66 +229,47 @@ async function waitForInitialScrollableTranscript(client) {
     (snapshot) =>
       snapshot.debug.mode === "auto_follow" &&
       snapshot.debug.atBottom &&
-      !snapshot.jumpVisible &&
       snapshot.debug.scrollHeight > snapshot.debug.clientHeight + 240,
     "initial auto-follow scrollable transcript",
   );
 }
 
-async function assertUpwardWheelDetachesAutoFollowWhileStreaming(client) {
-  const beforeWheel = await waitForTranscriptScrollSnapshot(
-    client,
-    (snapshot) =>
-      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
-    "auto-follow before upward wheel while streaming",
-  );
-  const nearBottomScrolled = await scrollChatTranscript(client, {
-    debugDetach: false,
-    distanceFromBottom: 128,
-  });
+async function assertNearBottomDetachWhileStreaming(client) {
+  const nearBottomScrolled = await scrollChatTranscript(client, { distanceFromBottom: 128 });
   if (!nearBottomScrolled.ok) {
     throw new Error(
-      `transcript did not perform upward-wheel history scroll: ${JSON.stringify(nearBottomScrolled)}`,
+      `transcript did not perform near-bottom history scroll: ${JSON.stringify(nearBottomScrolled)}`,
     );
   }
-  if (
-    nearBottomScrolled.afterWheelSnapshot?.debug?.mode !== "user_detached" ||
-    nearBottomScrolled.afterWheelSnapshot.debug.atBottom !== true
-  ) {
-    throw new Error(
-      `upward wheel did not detach through production event handling before scrollTop mutation: ${JSON.stringify(nearBottomScrolled.afterWheelSnapshot)}`,
-    );
-  }
-  const detached = await waitForTranscriptScrollSnapshot(
+  const nearBottomDetached = await waitForTranscriptScrollSnapshot(
     client,
     (snapshot) =>
       snapshot.debug.mode === "user_detached" &&
-      snapshot.debug.tailRevision >= beforeWheel.debug.tailRevision &&
       !snapshot.debug.atBottom &&
       snapshot.debug.distanceFromBottom > 96,
-    "detached after upward-wheel history scroll while streaming",
+    "near-bottom detached after manual history scroll",
   );
-  const afterGrowth = await waitForTranscriptScrollSnapshot(
+  const afterNearBottomGrowth = await waitForTranscriptScrollSnapshot(
     client,
     (snapshot) =>
-      snapshot.debug.tailRevision !== detached.debug.tailRevision &&
+      snapshot.debug.tailRevision !== nearBottomDetached.debug.tailRevision &&
       snapshot.debug.mode === "user_detached" &&
       !snapshot.debug.atBottom &&
-      snapshot.debug.distanceFromBottom > 96 &&
-      snapshot.jumpVisible,
-    "still detached after streaming growth from upward-wheel history scroll",
+      snapshot.debug.distanceFromBottom > 96,
+    "still detached near bottom while streaming grows tail",
   );
-  if (afterGrowth.debug.distanceFromBottom <= detached.debug.distanceFromBottom) {
+  if (
+    afterNearBottomGrowth.debug.distanceFromBottom <= nearBottomDetached.debug.distanceFromBottom
+  ) {
     throw new Error(
-      `upward-wheel detached transcript unexpectedly followed the tail: before=${JSON.stringify(detached.debug)} after=${JSON.stringify(afterGrowth.debug)}`,
+      `near-bottom detached transcript unexpectedly followed the tail: before=${JSON.stringify(nearBottomDetached.debug)} after=${JSON.stringify(afterNearBottomGrowth.debug)}`,
     );
   }
   await clickButtonByAria(client, "Jump to latest");
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) =>
-      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
-    "auto-follow after upward-wheel jump to latest",
+    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
+    "auto-follow after near-bottom jump to latest",
   );
 }
 
@@ -317,8 +295,7 @@ async function assertTopNoOpWheelJumpToLatest(client) {
   await clickButtonByAria(client, "Jump to latest");
   await waitForTranscriptScrollSnapshot(
     client,
-    (snapshot) =>
-      snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom && !snapshot.jumpVisible,
+    (snapshot) => snapshot.debug.mode === "auto_follow" && snapshot.debug.atBottom,
     "auto-follow after top no-op wheel jump to latest",
   );
 }
