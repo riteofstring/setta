@@ -72,6 +72,32 @@ func scriptedEasyRunPhase4NarratorTurn(_ *ScriptedWorkflowHarness, _ context.Con
 	return scriptedReply(sink, request.Run.ID, "Easy run phase 4 narrator evidence emitted.")
 }
 
+func scriptedEasyRunWorkingNarratorCadenceTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	for index := 1; index <= 8; index++ {
+		if err := sink.AssistantTextDelta(
+			fmt.Sprintf("scripted-working-narrator-%s-%02d", request.Run.ID, index),
+			fmt.Sprintf("Working narrator phase evidence %02d. ", index),
+		); err != nil {
+			return TurnCompletion{}, err
+		}
+	}
+	steer, err := harness.waitForSteer(ctx, request.Run.ID)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	text := chatInputText(steer.Input)
+	if text != "finish working narrator cadence" {
+		return TurnCompletion{
+			ErrorMessage: fmt.Sprintf("unexpected working narrator steering text: %s", text),
+			Outcome:      TurnOutcomeFailed,
+		}, nil
+	}
+	if err := sink.UserMessageCommitted(text); err != nil {
+		return TurnCompletion{}, err
+	}
+	return scriptedReply(sink, request.Run.ID, "Easy run working narrator cadence finished.")
+}
+
 func (harness *ScriptedWorkflowHarness) callEasyRunArtifactTool(ctx context.Context, request TurnRequest, callID string, arguments []byte) error {
 	harness.mu.Lock()
 	tools := harness.tools

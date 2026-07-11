@@ -167,6 +167,29 @@ try {
   assertNarratorTerminalVisual(narratorTerminal, "easy run phase4 narrator workflow");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-narrator-complete.png"));
 
+  await submitEasyButtonRequest(context.client, "easy run working narrator cadence");
+  const workingNarrator = await waitForEasyButtonWorkingWithHighlights(
+    context.client,
+    "easy run working narrator cadence",
+    2,
+  );
+  assertWorkingNarratorVisual(workingNarrator, "easy run working narrator cadence");
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "easy-button-working-narrator-highlights.png"),
+  );
+  await submitEasyButtonRequest(context.client, "finish working narrator cadence");
+  const workingNarratorTerminal = await waitForEasyButtonTerminalWithHighlights(
+    context.client,
+    "easy run working narrator cadence",
+    2,
+  );
+  assertWorkingNarratorTerminalVisual(workingNarratorTerminal, "easy run working narrator cadence");
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "easy-button-working-narrator-complete.png"),
+  );
+
   await submitEasyButtonRequest(context.client, "cancel active workflow");
   const stoppingWorking = await waitForEasyButtonWorking(context.client, "cancel active workflow");
   assertWorkingVisual(stoppingWorking, "cancel active workflow");
@@ -208,6 +231,8 @@ try {
     shortcutOpen,
     artifactTerminal,
     narratorTerminal,
+    workingNarrator,
+    workingNarratorTerminal,
     steeredTerminal,
     steeringWorking,
     status: "passed",
@@ -553,6 +578,70 @@ function assertNarratorTerminalVisual(state, requestText) {
   }
 }
 
+function assertWorkingNarratorVisual(state, requestText) {
+  assertStateFields(
+    state,
+    {
+      agentChipText: "1 agent",
+      buttonAriaLabel: "Focus Easy Button steering input",
+      easyState: "working",
+      inputDisabled: false,
+      paneChromeTitle: "Easy Button · working",
+      requestText,
+      stopButtonAriaLabel: "Stop easy run",
+      stopButtonDisabled: false,
+      stopButtonText: "Stop",
+      stopButtonVisible: true,
+    },
+    "easy-button working narrator visual did not match Phase 4",
+  );
+  assertNarratorHealth(state, null);
+  assertWorkingNarratorHighlights(state);
+  if (state.summaryText !== "") {
+    throw new Error(
+      `easy-button working narrator rendered terminal summary: ${JSON.stringify(state)}`,
+    );
+  }
+}
+
+function assertWorkingNarratorTerminalVisual(state, requestText) {
+  assertStateFields(
+    state,
+    {
+      buttonAriaLabel: "Focus Easy Button request input",
+      easyState: "complete",
+      inputDisabled: false,
+      paneChromeTitle: "Easy Button · complete",
+      requestText,
+      stopButtonVisible: false,
+    },
+    "easy-button working narrator terminal visual did not match Phase 4",
+  );
+  assertNarratorHealth(state, "The Easy Button run finished.");
+  assertWorkingNarratorHighlights(state);
+  if (!state.summaryText.includes("Done in") || !state.summaryText.includes("no artifacts")) {
+    throw new Error(
+      `easy-button working narrator terminal summary was wrong: ${JSON.stringify(state)}`,
+    );
+  }
+}
+
+function assertWorkingNarratorHighlights(state) {
+  const highlightTexts = state.highlights.map((highlight) => highlight.text);
+  if (
+    state.highlights.length !== 2 ||
+    highlightTexts[0] !== "Working through the request shape" ||
+    highlightTexts[1] !== "Preparing a visible result"
+  ) {
+    throw new Error(`easy-button working narrator highlights were wrong: ${JSON.stringify(state)}`);
+  }
+  if (state.railText.includes("Working narrator phase evidence")) {
+    throw new Error(
+      `easy-button working narrator leaked digest evidence: ${JSON.stringify(state)}`,
+    );
+  }
+}
+
 function assertStateFields(state, expected, message) {
   for (const [key, value] of Object.entries(expected)) {
     if (state[key] !== value) {
@@ -649,6 +738,20 @@ async function waitForEasyButtonTerminalWithHighlights(client, requestText, high
       state.exists &&
       state.surfaceKind === "easy-button" &&
       state.easyState === "complete" &&
+      state.requestText === requestText &&
+      state.highlights.length === highlightCount,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonWorkingWithHighlights(client, requestText, highlightCount) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists &&
+      state.surfaceKind === "easy-button" &&
+      state.easyState === "working" &&
       state.requestText === requestText &&
       state.highlights.length === highlightCount,
     workflowTimeoutMs,

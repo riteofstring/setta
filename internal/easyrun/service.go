@@ -401,15 +401,25 @@ func (service *Service) applyTerminalChatRunWithNarrator(ctx context.Context, ru
 	if err := validateTerminalChatRunForEasyRun(run); err != nil {
 		return EasyRun{}, err
 	}
-	target, err := service.beginTerminalChatRunProjection(run)
-	if err != nil {
-		return EasyRun{}, err
+	for {
+		target, err := service.beginTerminalChatRunProjection(run)
+		if err != nil {
+			return EasyRun{}, err
+		}
+		if target.waitForNarrator != nil {
+			select {
+			case <-ctx.Done():
+				return EasyRun{}, ctx.Err()
+			case <-target.waitForNarrator:
+				continue
+			}
+		}
+		if !target.shouldProject {
+			return target.record.Run, nil
+		}
+		narration := service.runTerminalNarrator(ctx, target)
+		return service.saveTerminalChatRunProjection(target.record, run, narration)
 	}
-	if !target.shouldProject {
-		return target.record.Run, nil
-	}
-	narration := service.runTerminalNarrator(ctx, target)
-	return service.saveTerminalChatRunProjection(target.record, run, narration)
 }
 
 func validateTerminalChatRunForEasyRun(run chat.Run) error {
@@ -449,6 +459,13 @@ type terminalChatRunProjection struct {
 	record             storedRunRecord
 	shouldProject      bool
 	status             chat.RunStatus
+	waitForNarrator    <-chan struct{}
+}
+
+type workingNarratorProjection struct {
+	digest             []narratorDigestEntry
+	previousHighlights []EasyHighlight
+	record             storedRunRecord
 }
 
 func (service *Service) beginTerminalChatRunProjection(run chat.Run) (terminalChatRunProjection, error) {
@@ -472,10 +489,9 @@ func (service *Service) beginTerminalChatRunProjection(run chat.Run) (terminalCh
 	}
 	state := service.narratorStateLocked(record.Run.ID)
 	if state.inFlight {
-		return terminalChatRunProjection{record: record}, nil
+		return terminalChatRunProjection{record: record, waitForNarrator: state.inFlightDone}, nil
 	}
-	state.inFlight = true
-	state.lastCallAt = service.now()
+	state.beginCall(service.now())
 	return terminalChatRunProjection{
 		digest:             state.digest.consumePending(),
 		mechanicalSummary:  mechanicalSummary,
@@ -486,13 +502,48 @@ func (service *Service) beginTerminalChatRunProjection(run chat.Run) (terminalCh
 	}, nil
 }
 
+func (service *Service) beginWorkingNarratorProjectionLocked(workspaceID string, easyRunID string) (workingNarratorProjection, bool) {
+	state := service.narratorStateLocked(easyRunID)
+	if !shouldTriggerNarrator(narratorTriggerInput{
+		InFlight:            state.inFlight,
+		LastCallAt:          state.lastCallAt,
+		NewDigestEntryCount: state.digest.pendingCount(),
+		Now:                 service.now(),
+		Terminal:            false,
+	}) {
+		return workingNarratorProjection{}, false
+	}
+	record, err := service.store.loadRun(workspaceID, easyRunID)
+	if err != nil {
+		log.Printf("easy-run working narrator run lookup failed: %v", err)
+		return workingNarratorProjection{}, false
+	}
+	if record.Run.Status != EasyRunStatusWorking {
+		return workingNarratorProjection{}, false
+	}
+	if record.Run.NarratorStatus == EasyRunNarratorStatusDegraded {
+		return workingNarratorProjection{}, false
+	}
+	highlights, err := service.store.loadHighlights(workspaceID, easyRunID)
+	if err != nil {
+		log.Printf("easy-run working narrator highlight lookup failed: %v", err)
+		return workingNarratorProjection{}, false
+	}
+	state.beginCall(service.now())
+	return workingNarratorProjection{
+		digest:             state.digest.consumePending(),
+		previousHighlights: highlights,
+		record:             record,
+	}, true
+}
+
 func (service *Service) saveTerminalChatRunProjection(record storedRunRecord, run chat.Run, narration terminalNarrationResult) (EasyRun, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
 	state := service.narratorStateLocked(record.Run.ID)
 	defer func() {
-		state.inFlight = false
+		state.finishCall()
 		delete(service.narratorByConversation, activeKey(record.Run.WorkspaceID, record.Run.ConversationID))
 	}()
 
@@ -532,6 +583,49 @@ func (service *Service) saveTerminalChatRunProjection(record storedRunRecord, ru
 		return EasyRun{}, err
 	}
 	if _, err := service.events.Publish(NewRunUpdatedEvent(record.Run)); err != nil {
+		return EasyRun{}, err
+	}
+	return record.Run, nil
+}
+
+func (service *Service) saveWorkingNarratorProjection(target workingNarratorProjection, narration workingNarrationResult) (EasyRun, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	state := service.narratorStateLocked(target.record.Run.ID)
+	defer state.finishCall()
+
+	record, err := service.store.loadRun(target.record.Run.WorkspaceID, target.record.Run.ID)
+	if err != nil {
+		return EasyRun{}, err
+	}
+	if record.Run.Status != EasyRunStatusWorking {
+		return record.Run, nil
+	}
+	if narration.err != nil {
+		log.Printf("easy-run narrator degraded for %s: %v", record.Run.ID, narration.err)
+		record.Run.NarratorStatus = EasyRunNarratorStatusDegraded
+		if err := service.store.saveRun(record); err != nil {
+			return EasyRun{}, err
+		}
+		if _, err := service.events.Publish(NewRunUpdatedEvent(record.Run)); err != nil {
+			return EasyRun{}, err
+		}
+		return record.Run, nil
+	}
+	if _, err := service.recordNarratorHighlightsLocked(record.Run.WorkspaceID, record.Run.ID, narration.highlights); err != nil {
+		log.Printf("easy-run narrator highlight persistence degraded for %s: %v", record.Run.ID, err)
+		record.Run.NarratorStatus = EasyRunNarratorStatusDegraded
+		if err := service.store.saveRun(record); err != nil {
+			return EasyRun{}, err
+		}
+		if _, err := service.events.Publish(NewRunUpdatedEvent(record.Run)); err != nil {
+			return EasyRun{}, err
+		}
+		return record.Run, nil
+	}
+	record, err = service.store.loadRun(record.Run.WorkspaceID, record.Run.ID)
+	if err != nil {
 		return EasyRun{}, err
 	}
 	return record.Run, nil
@@ -714,7 +808,9 @@ func (service *Service) observeChatEvents(ctx context.Context, subscription *cha
 }
 
 func (service *Service) handleChatEvent(ctx context.Context, event chat.Event) {
-	service.appendNarratorDigestFromChatEvent(event)
+	if target, ok := service.appendNarratorDigestFromChatEvent(event); ok {
+		service.launchWorkingNarratorProjection(ctx, target)
+	}
 	if event.Type != chat.EventTypeRunUpdated {
 		return
 	}
@@ -727,6 +823,17 @@ func (service *Service) handleChatEvent(ctx context.Context, event chat.Event) {
 		return
 	}
 	service.launchTerminalChatRunProjection(ctx, payload.Run)
+}
+
+func (service *Service) launchWorkingNarratorProjection(ctx context.Context, target workingNarratorProjection) {
+	service.observerWG.Add(1)
+	go func() {
+		defer service.observerWG.Done()
+		narration := service.runWorkingNarrator(ctx, target)
+		if _, err := service.saveWorkingNarratorProjection(target, narration); err != nil {
+			log.Printf("easy-run working narrator projection failed: %v", err)
+		}
+	}()
 }
 
 func (service *Service) launchTerminalChatRunProjection(ctx context.Context, run chat.Run) {
@@ -742,14 +849,14 @@ func (service *Service) launchTerminalChatRunProjection(ctx context.Context, run
 	}()
 }
 
-func (service *Service) appendNarratorDigestFromChatEvent(event chat.Event) {
+func (service *Service) appendNarratorDigestFromChatEvent(event chat.Event) (workingNarratorProjection, bool) {
 	entries, err := narratorDigestEntriesFromChatEvent(event)
 	if err != nil {
 		log.Printf("easy-run narrator digest chat event decode failed: %v", err)
-		return
+		return workingNarratorProjection{}, false
 	}
 	if len(entries) == 0 {
-		return
+		return workingNarratorProjection{}, false
 	}
 	service.mu.Lock()
 	defer service.mu.Unlock()
@@ -759,23 +866,25 @@ func (service *Service) appendNarratorDigestFromChatEvent(event chat.Event) {
 		record, ok, err := service.store.findRunByConversationID(event.WorkspaceID, event.ConversationID)
 		if err != nil {
 			log.Printf("easy-run narrator digest ownership lookup failed: %v", err)
-			return
+			return workingNarratorProjection{}, false
 		}
 		if !ok || record.Run.Status != EasyRunStatusWorking {
-			return
+			return workingNarratorProjection{}, false
 		}
 		easyRunID = record.Run.ID
 		service.narratorByConversation[activeKey(event.WorkspaceID, event.ConversationID)] = easyRunID
 	}
 	service.narratorStateLocked(easyRunID).digest.append(entries...)
+	return service.beginWorkingNarratorProjectionLocked(event.WorkspaceID, easyRunID)
 }
 
-func (service *Service) appendNarratorDigestFromEasyRunEventLocked(event EasyRunEvent) {
+func (service *Service) appendNarratorDigestFromEasyRunEventLocked(event EasyRunEvent) (workingNarratorProjection, bool) {
 	entries := narratorDigestEntriesFromEasyRunEvent(event)
 	if len(entries) == 0 {
-		return
+		return workingNarratorProjection{}, false
 	}
 	service.narratorStateLocked(event.EasyRunID).digest.append(entries...)
+	return service.beginWorkingNarratorProjectionLocked(event.WorkspaceID, event.EasyRunID)
 }
 
 func stringPointer(value string) *string {

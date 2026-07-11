@@ -100,6 +100,7 @@ func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
 	var input struct {
 		RequestText string `json:"requestText"`
 		Status      string `json:"status"`
+		Terminal    bool   `json:"terminal"`
 	}
 	if request.StructuredTask != nil && len(request.StructuredTask.Input) > 0 {
 		_ = json.Unmarshal(request.StructuredTask.Input, &input)
@@ -117,6 +118,15 @@ func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
 				"Preparing the final visible answer",
 			},
 			"summary": "The scripted narrator condensed the hidden run for the Easy Button pane.",
+		}
+	}
+	if input.RequestText == "easy run working narrator cadence" && !input.Terminal {
+		return map[string]any{
+			"highlights": []string{
+				"Working through the request shape",
+				"Preparing a visible result",
+			},
+			"summary": "",
 		}
 	}
 	return map[string]any{

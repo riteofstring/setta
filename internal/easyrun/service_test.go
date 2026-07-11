@@ -2,9 +2,11 @@ package easyrun
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -450,6 +452,117 @@ func TestTerminalNarratorFailureDegradesToMechanicalSummary(t *testing.T) {
 	}
 	if len(snapshot.Highlights) != 0 {
 		t.Fatalf("degraded highlights = %+v, want none", snapshot.Highlights)
+	}
+}
+
+func TestWorkingNarratorCadencePersistsHighlightsBeforeTerminal(t *testing.T) {
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"easy run working narrator cadence": append(
+			append([]chat.FakeHarnessEvent{threadLinkedEvent()}, assistantDeltaEvents(8, "phase evidence")...),
+			chat.FakeHarnessEvent{Type: chat.FakeEventWaitForSteer},
+			chat.FakeHarnessEvent{Type: chat.FakeEventAssistantDelta, Text: "finishing after steering"},
+		),
+	})
+	service, _ := newTestServiceWithChat(t, harness)
+
+	started, err := service.Start("workspace_api", "easy run working narrator cadence")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	working := waitForSnapshotHighlights(t, service, started.ID, EasyRunStatusWorking, []string{
+		"Working through the request shape",
+		"Preparing a visible result",
+	})
+	if working.NarratorStatus != EasyRunNarratorStatusOK || working.Summary != nil {
+		t.Fatalf("working narrated run = %+v, want healthy working run without terminal summary", working)
+	}
+	tasks := harness.StructuredTaskRequests()
+	if len(tasks) != 1 {
+		t.Fatalf("structured narrator tasks = %d, want one working cadence call", len(tasks))
+	}
+	input := decodeNarratorTaskInputForTest(t, tasks[0])
+	if input.Terminal || input.Status != chat.RunStatusRunning || len(input.DigestEntries) != minNewDigestEntries {
+		t.Fatalf("working narrator input = %+v, want non-terminal running input with threshold digest", input)
+	}
+
+	if _, err := service.Steer("workspace_api", "finish"); err != nil {
+		t.Fatalf("steer easy-run to finish: %v", err)
+	}
+	completed := waitForEasyRunStatus(t, service, "workspace_api", started.ID, EasyRunStatusCompleted)
+	if completed.NarratorStatus != EasyRunNarratorStatusOK || completed.Summary == nil || !strings.Contains(*completed.Summary, "Done in") {
+		t.Fatalf("completed after working narration = %+v, want healthy terminal summary", completed)
+	}
+}
+
+func TestWorkingNarratorFailureDegradesRunWhileExecutionContinues(t *testing.T) {
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"easy run working narrator failure": append(
+			assistantDeltaEvents(8, "failure evidence"),
+			chat.FakeHarnessEvent{Type: chat.FakeEventWaitForCancel},
+		),
+	})
+	service, _ := newTestServiceWithChat(t, harness)
+	failingRunner := &failingNarratorRunner{err: fmt.Errorf("scripted narrator unavailable")}
+	service.narrator = failingRunner
+
+	started, err := service.Start("workspace_api", "easy run working narrator failure")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	degraded := waitForEasyRunNarratorStatus(t, service, "workspace_api", started.ID, EasyRunNarratorStatusDegraded)
+	if degraded.Status != EasyRunStatusWorking || degraded.Summary != nil {
+		t.Fatalf("degraded working run = %+v, want execution still working without fabricated summary", degraded)
+	}
+	if len(failingRunner.Requests()) != 1 {
+		t.Fatalf("failing narrator requests = %d, want one working request", len(failingRunner.Requests()))
+	}
+
+	stopped, err := service.Stop("workspace_api", started.ID)
+	if err != nil {
+		t.Fatalf("stop degraded easy-run: %v", err)
+	}
+	if stopped.Status != EasyRunStatusStopped || stopped.NarratorStatus != EasyRunNarratorStatusDegraded || stopped.Summary == nil || !strings.HasPrefix(*stopped.Summary, "Stopped after") {
+		t.Fatalf("stopped degraded run = %+v, want mechanical stopped summary", stopped)
+	}
+}
+
+func TestTerminalProjectionWaitsForWorkingNarratorInFlight(t *testing.T) {
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"easy run working narrator terminal handoff": assistantDeltaEvents(8, "handoff evidence"),
+	})
+	service, _ := newTestServiceWithChat(t, harness)
+	blockingRunner := newBlockingNarratorRunner()
+	service.narrator = blockingRunner
+
+	started, err := service.Start("workspace_api", "easy run working narrator terminal handoff")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	blockingRunner.WaitForFirstRequest(t)
+	snapshot, err := service.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read snapshot while narrator blocked: %v", err)
+	}
+	if snapshot.LatestRun == nil || snapshot.LatestRun.ID != started.ID || snapshot.LatestRun.Status != EasyRunStatusWorking {
+		t.Fatalf("snapshot while narrator blocked = %+v, want terminal projection waiting", snapshot.LatestRun)
+	}
+
+	blockingRunner.ReleaseFirst()
+	completed := waitForEasyRunStatus(t, service, "workspace_api", started.ID, EasyRunStatusCompleted)
+	if completed.Summary == nil ||
+		!strings.Contains(*completed.Summary, "The delayed narrator finished.") ||
+		!strings.Contains(*completed.Summary, "Done in") {
+		t.Fatalf("completed after narrator handoff = %+v, want terminal narrator summary", completed)
+	}
+	requests := blockingRunner.Requests()
+	if len(requests) != 2 {
+		t.Fatalf("blocking narrator requests = %d, want working then terminal", len(requests))
+	}
+	if first := decodeNarratorTaskInputForTest(t, requests[0]); first.Terminal {
+		t.Fatalf("first narrator input = %+v, want working request", first)
+	}
+	if second := decodeNarratorTaskInputForTest(t, requests[1]); !second.Terminal {
+		t.Fatalf("second narrator input = %+v, want terminal request", second)
 	}
 }
 
@@ -994,6 +1107,191 @@ func chatInputTextForTest(input chat.ChatInput) string {
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+func assistantDeltaEvents(count int, prefix string) []chat.FakeHarnessEvent {
+	events := make([]chat.FakeHarnessEvent, 0, count)
+	for index := 1; index <= count; index++ {
+		events = append(events, chat.FakeHarnessEvent{
+			ProviderItemID: fmt.Sprintf("assistant_%02d", index),
+			Text:           fmt.Sprintf("%s %02d", prefix, index),
+			Type:           chat.FakeEventAssistantDelta,
+		})
+	}
+	return events
+}
+
+func threadLinkedEvent() chat.FakeHarnessEvent {
+	return chat.FakeHarnessEvent{
+		SessionID: "session_easy",
+		ThreadID:  "thread_easy",
+		TurnID:    "turn_easy",
+		Type:      chat.FakeEventThreadLinked,
+	}
+}
+
+func waitForSnapshotHighlights(t *testing.T, service *Service, easyRunID string, status EasyRunStatus, texts []string) EasyRun {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		snapshot, err := service.ReadSnapshot("workspace_api")
+		if err != nil {
+			t.Fatalf("read easy-run snapshot: %v", err)
+		}
+		if snapshot.LatestRun != nil &&
+			snapshot.LatestRun.ID == easyRunID &&
+			snapshot.LatestRun.Status == status &&
+			highlightTexts(snapshot.Highlights, texts) {
+			return *snapshot.LatestRun
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	snapshot, err := service.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read final easy-run snapshot: %v", err)
+	}
+	t.Fatalf("snapshot = %+v highlights=%+v, want %s with highlights %#v", snapshot.LatestRun, snapshot.Highlights, status, texts)
+	return EasyRun{}
+}
+
+func waitForEasyRunNarratorStatus(t *testing.T, service *Service, workspaceID string, easyRunID string, status EasyRunNarratorStatus) EasyRun {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		snapshot, err := service.ReadSnapshot(workspaceID)
+		if err != nil {
+			t.Fatalf("read easy-run snapshot: %v", err)
+		}
+		if snapshot.LatestRun != nil && snapshot.LatestRun.ID == easyRunID && snapshot.LatestRun.NarratorStatus == status {
+			return *snapshot.LatestRun
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	snapshot, err := service.ReadSnapshot(workspaceID)
+	if err != nil {
+		t.Fatalf("read final easy-run snapshot: %v", err)
+	}
+	t.Fatalf("latest easy-run = %+v, want narrator status %s", snapshot.LatestRun, status)
+	return EasyRun{}
+}
+
+func highlightTexts(highlights []EasyHighlight, texts []string) bool {
+	if len(highlights) != len(texts) {
+		return false
+	}
+	for index, text := range texts {
+		if highlights[index].Text != text {
+			return false
+		}
+	}
+	return true
+}
+
+func decodeNarratorTaskInputForTest(t *testing.T, request chat.HarnessTaskRequest) narratorTaskInput {
+	t.Helper()
+	if request.StructuredTask == nil {
+		t.Fatalf("narrator request = %+v, want structured task", request)
+	}
+	var input narratorTaskInput
+	if err := json.Unmarshal(request.StructuredTask.Input, &input); err != nil {
+		t.Fatalf("decode narrator input: %v", err)
+	}
+	return input
+}
+
+type failingNarratorRunner struct {
+	err error
+
+	mu       sync.Mutex
+	requests []chat.HarnessTaskRequest
+}
+
+func (runner *failingNarratorRunner) RunTask(_ context.Context, request chat.HarnessTaskRequest) (chat.HarnessTaskResult, error) {
+	runner.mu.Lock()
+	runner.requests = append(runner.requests, request)
+	runner.mu.Unlock()
+	return chat.HarnessTaskResult{}, runner.err
+}
+
+func (runner *failingNarratorRunner) Requests() []chat.HarnessTaskRequest {
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	return append([]chat.HarnessTaskRequest{}, runner.requests...)
+}
+
+type blockingNarratorRunner struct {
+	firstStarted chan struct{}
+	releaseFirst chan struct{}
+
+	mu       sync.Mutex
+	requests []chat.HarnessTaskRequest
+}
+
+func newBlockingNarratorRunner() *blockingNarratorRunner {
+	return &blockingNarratorRunner{
+		firstStarted: make(chan struct{}, 1),
+		releaseFirst: make(chan struct{}),
+	}
+}
+
+func (runner *blockingNarratorRunner) RunTask(ctx context.Context, request chat.HarnessTaskRequest) (chat.HarnessTaskResult, error) {
+	runner.mu.Lock()
+	runner.requests = append(runner.requests, request)
+	runner.mu.Unlock()
+
+	input := narratorTaskInput{}
+	if request.StructuredTask != nil {
+		_ = json.Unmarshal(request.StructuredTask.Input, &input)
+	}
+	if !input.Terminal {
+		select {
+		case runner.firstStarted <- struct{}{}:
+		default:
+		}
+		select {
+		case <-ctx.Done():
+			return chat.HarnessTaskResult{}, ctx.Err()
+		case <-runner.releaseFirst:
+		}
+		return narratorHarnessResult(map[string]any{
+			"highlights": []string{"Working narrator call finished"},
+			"summary":    "",
+		})
+	}
+	return narratorHarnessResult(map[string]any{
+		"highlights": []string{},
+		"summary":    "The delayed narrator finished.",
+	})
+}
+
+func (runner *blockingNarratorRunner) WaitForFirstRequest(t *testing.T) {
+	t.Helper()
+	select {
+	case <-runner.firstStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for first narrator request")
+	}
+}
+
+func (runner *blockingNarratorRunner) ReleaseFirst() {
+	close(runner.releaseFirst)
+}
+
+func (runner *blockingNarratorRunner) Requests() []chat.HarnessTaskRequest {
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	return append([]chat.HarnessTaskRequest{}, runner.requests...)
+}
+
+func narratorHarnessResult(output map[string]any) (chat.HarnessTaskResult, error) {
+	encoded, err := json.Marshal(output)
+	if err != nil {
+		return chat.HarnessTaskResult{}, err
+	}
+	return chat.HarnessTaskResult{
+		Completion:       chat.TurnCompletion{Outcome: chat.TurnOutcomeCompleted},
+		StructuredOutput: encoded,
+	}, nil
 }
 
 func easyRunToolContext(run EasyRun, backingRunID string) context.Context {

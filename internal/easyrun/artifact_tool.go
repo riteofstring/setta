@@ -165,7 +165,7 @@ func (service *Service) EmitArtifactFromTool(ctx context.Context, arguments json
 	if err != nil {
 		return EasyArtifact{}, fmt.Errorf("create artifact id: %w", err)
 	}
-	return recordArtifact(service, runtime, input, artifactID)
+	return recordArtifact(ctx, service, runtime, input, artifactID)
 }
 
 func validateArtifactToolRuntime(runtime chat.AgentToolRuntimeContext) error {
@@ -245,19 +245,19 @@ func rejectUnexpectedArtifactFields(pairs ...any) error {
 	return nil
 }
 
-func recordArtifact(service *Service, runtime chat.AgentToolRuntimeContext, input emitArtifactInput, artifactID string) (EasyArtifact, error) {
+func recordArtifact(ctx context.Context, service *Service, runtime chat.AgentToolRuntimeContext, input emitArtifactInput, artifactID string) (EasyArtifact, error) {
 	workspaceID := runtime.Conversation.WorkspaceID
 	easyRunID := runtime.Conversation.EasyRun.EasyRunID
 
 	service.mu.Lock()
-	defer service.mu.Unlock()
-
 	record, artifacts, err := service.loadArtifactTarget(workspaceID, easyRunID, runtime)
 	if err != nil {
+		service.mu.Unlock()
 		return EasyArtifact{}, err
 	}
 	artifact := input.easyArtifact(artifactID, easyRunID, len(artifacts)+1, timestamp(service.now()))
 	if err := validateEasyArtifact(artifact); err != nil {
+		service.mu.Unlock()
 		return EasyArtifact{}, err
 	}
 	artifacts = append(artifacts, artifact)
@@ -265,8 +265,13 @@ func recordArtifact(service *Service, runtime chat.AgentToolRuntimeContext, inpu
 	if record.BackingRunID == "" {
 		record.BackingRunID = runtime.Run.ID
 	}
-	if err := service.saveRecordedArtifact(workspaceID, easyRunID, record, artifacts, artifact); err != nil {
+	target, shouldNarrate, err := service.saveRecordedArtifactLocked(workspaceID, easyRunID, record, artifacts, artifact)
+	service.mu.Unlock()
+	if err != nil {
 		return EasyArtifact{}, err
+	}
+	if shouldNarrate {
+		service.launchWorkingNarratorProjection(ctx, target)
 	}
 	return artifact, nil
 }
@@ -302,19 +307,19 @@ func validateArtifactRunRecord(record storedRunRecord, runtime chat.AgentToolRun
 	return nil
 }
 
-func (service *Service) saveRecordedArtifact(workspaceID string, easyRunID string, record storedRunRecord, artifacts []EasyArtifact, artifact EasyArtifact) error {
+func (service *Service) saveRecordedArtifactLocked(workspaceID string, easyRunID string, record storedRunRecord, artifacts []EasyArtifact, artifact EasyArtifact) (workingNarratorProjection, bool, error) {
 	if err := service.store.saveArtifacts(workspaceID, easyRunID, artifacts); err != nil {
-		return err
+		return workingNarratorProjection{}, false, err
 	}
 	if err := service.store.saveRun(record); err != nil {
-		return err
+		return workingNarratorProjection{}, false, err
 	}
 	event, err := service.events.Publish(NewArtifactCreatedEvent(workspaceID, artifact))
 	if err != nil {
-		return err
+		return workingNarratorProjection{}, false, err
 	}
-	service.appendNarratorDigestFromEasyRunEventLocked(event)
-	return nil
+	target, shouldNarrate := service.appendNarratorDigestFromEasyRunEventLocked(event)
+	return target, shouldNarrate, nil
 }
 
 func (input emitArtifactInput) easyArtifact(id string, easyRunID string, ordinal int, createdAt string) EasyArtifact {

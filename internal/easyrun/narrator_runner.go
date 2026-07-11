@@ -18,15 +18,21 @@ const easyRunNarratorSurfaceMetadata = "easy_run_narrator"
 var narratorReasoningEffort = chat.ReasoningEffortMinimal
 
 type narratorRunState struct {
-	digest     *narratorDigestBuffer
-	inFlight   bool
-	lastCallAt time.Time
+	digest       *narratorDigestBuffer
+	inFlight     bool
+	inFlightDone chan struct{}
+	lastCallAt   time.Time
 }
 
 type terminalNarrationResult struct {
 	err        error
 	highlights []string
 	summary    string
+}
+
+type workingNarrationResult struct {
+	err        error
+	highlights []string
 }
 
 type narratorTaskInput struct {
@@ -60,6 +66,33 @@ func (service *Service) narratorStateLocked(easyRunID string) *narratorRunState 
 	return state
 }
 
+func (state *narratorRunState) beginCall(now time.Time) {
+	state.inFlight = true
+	state.inFlightDone = make(chan struct{})
+	state.lastCallAt = now
+}
+
+func (state *narratorRunState) finishCall() {
+	if !state.inFlight {
+		return
+	}
+	state.inFlight = false
+	close(state.inFlightDone)
+	state.inFlightDone = nil
+}
+
+func (service *Service) runWorkingNarrator(ctx context.Context, target workingNarratorProjection) workingNarrationResult {
+	request, err := service.workingNarratorTaskRequest(target)
+	if err != nil {
+		return workingNarrationResult{err: err}
+	}
+	result, err := service.narrator.RunTask(ctx, request)
+	if err != nil {
+		return workingNarrationResult{err: err}
+	}
+	return workingNarrationFromHarnessResult(result)
+}
+
 func (service *Service) runTerminalNarrator(ctx context.Context, target terminalChatRunProjection) terminalNarrationResult {
 	request, err := service.terminalNarratorTaskRequest(target)
 	if err != nil {
@@ -72,23 +105,38 @@ func (service *Service) runTerminalNarrator(ctx context.Context, target terminal
 	return terminalNarrationFromHarnessResult(result)
 }
 
+func (service *Service) workingNarratorTaskRequest(target workingNarratorProjection) (chat.HarnessTaskRequest, error) {
+	if err := service.validateNarratorReady(target.record.Run); err != nil {
+		return chat.HarnessTaskRequest{}, err
+	}
+	input, err := json.Marshal(narratorInputForWorking(target))
+	if err != nil {
+		return chat.HarnessTaskRequest{}, fmt.Errorf("encode narrator input: %w", err)
+	}
+	return service.narratorTaskRequest(target.record.Run.WorkspaceID, input)
+}
+
 func (service *Service) terminalNarratorTaskRequest(target terminalChatRunProjection) (chat.HarnessTaskRequest, error) {
-	if err := service.validateTerminalNarratorReady(target); err != nil {
+	if err := service.validateNarratorReady(target.record.Run); err != nil {
 		return chat.HarnessTaskRequest{}, err
 	}
 	input, err := json.Marshal(narratorInputForTerminal(target))
 	if err != nil {
 		return chat.HarnessTaskRequest{}, fmt.Errorf("encode narrator input: %w", err)
 	}
+	return service.narratorTaskRequest(target.record.Run.WorkspaceID, input)
+}
+
+func (service *Service) narratorTaskRequest(workspaceID string, input json.RawMessage) (chat.HarnessTaskRequest, error) {
 	taskID, err := service.newID("easy_run_narrator_task")
 	if err != nil {
 		return chat.HarnessTaskRequest{}, fmt.Errorf("create narrator task id: %w", err)
 	}
-	model, err := service.narratorModel(target.record.Run.WorkspaceID)
+	model, err := service.narratorModel(workspaceID)
 	if err != nil {
 		return chat.HarnessTaskRequest{}, err
 	}
-	workspaceSummary, err := service.workspaces.ResolveWorkspace(target.record.Run.WorkspaceID)
+	workspaceSummary, err := service.workspaces.ResolveWorkspace(workspaceID)
 	if err != nil {
 		return chat.HarnessTaskRequest{}, fmt.Errorf("resolve narrator workspace: %w", err)
 	}
@@ -120,8 +168,8 @@ func (service *Service) terminalNarratorTaskRequest(target terminalChatRunProjec
 	}, nil
 }
 
-func (service *Service) validateTerminalNarratorReady(target terminalChatRunProjection) error {
-	if target.record.Run.NarratorStatus == EasyRunNarratorStatusDegraded {
+func (service *Service) validateNarratorReady(run EasyRun) error {
+	if run.NarratorStatus == EasyRunNarratorStatusDegraded {
 		return errors.New("easy-run narrator already degraded")
 	}
 	if service.narrator == nil {
@@ -131,6 +179,21 @@ func (service *Service) validateTerminalNarratorReady(target terminalChatRunProj
 		return errors.New("easy-run narrator workspace resolver is not configured")
 	}
 	return nil
+}
+
+func workingNarrationFromHarnessResult(result chat.HarnessTaskResult) workingNarrationResult {
+	if result.Completion.Outcome != chat.TurnOutcomeCompleted {
+		return workingNarrationResult{err: fmt.Errorf("narrator task finished with outcome %s: %s", result.Completion.Outcome, result.Completion.ErrorMessage)}
+	}
+	output, err := decodeNarratorTaskOutput(result.StructuredOutput)
+	if err != nil {
+		return workingNarrationResult{err: err}
+	}
+	highlights, err := narratorHighlightTexts(output.Highlights)
+	if err != nil {
+		return workingNarrationResult{err: err}
+	}
+	return workingNarrationResult{highlights: highlights}
 }
 
 func terminalNarrationFromHarnessResult(result chat.HarnessTaskResult) terminalNarrationResult {
@@ -150,6 +213,25 @@ func terminalNarrationFromHarnessResult(result chat.HarnessTaskResult) terminalN
 		return terminalNarrationResult{err: errors.New("narrator terminal summary is required")}
 	}
 	return terminalNarrationResult{highlights: highlights, summary: summary}
+}
+
+func narratorInputForWorking(target workingNarratorProjection) narratorTaskInput {
+	previousHighlights := make([]string, 0, len(target.previousHighlights))
+	for _, highlight := range target.previousHighlights {
+		previousHighlights = append(previousHighlights, highlight.Text)
+	}
+	return narratorTaskInput{
+		ArtifactCount:      target.record.Run.ArtifactCount,
+		DigestEntries:      target.digest,
+		EasyRunID:          target.record.Run.ID,
+		HighlightCount:     target.record.Run.HighlightCount,
+		MechanicalSummary:  "",
+		PreviousHighlights: previousHighlights,
+		RequestText:        target.record.Run.RequestText,
+		Status:             chat.RunStatusRunning,
+		Terminal:           false,
+		WorkspaceID:        target.record.Run.WorkspaceID,
+	}
 }
 
 func narratorInputForTerminal(target terminalChatRunProjection) narratorTaskInput {
@@ -229,7 +311,7 @@ func productionNarratorPrompt() string {
 
 Write for the Easy Button presentation plane, not for an engineering transcript. Highlights are sparse phase changes, not actions. Return an empty highlights array when the new evidence does not show a meaningful phase change. Never turn command names, file names, tests, retries, tool calls, approvals, or lifecycle mechanics into highlights by themselves.
 
-For terminal requests, summary must be one or two plain-language sentences that answer what happened or what was produced. Do not mention commands, file paths, tool calls, provider events, transcripts, or agent mechanics. The service will append mechanical duration and artifact-count facts; do not invent them.
+For non-terminal requests, summary must be an empty string. For terminal requests, summary must be one or two plain-language sentences that answer what happened or what was produced. Do not mention commands, file paths, tool calls, provider events, transcripts, or agent mechanics. The service will append mechanical duration and artifact-count facts; do not invent them.
 
 Use only the supplied request, previous highlights, mechanical facts, and digest entries. Do not include chain-of-thought, private reasoning, markdown fences, raw logs, diffs, or prose outside JSON.`
 }
