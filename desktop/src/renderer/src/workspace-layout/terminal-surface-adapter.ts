@@ -49,7 +49,6 @@ import { TerminalPasteController } from "./terminal-surface-paste";
 import { TerminalSurfaceSessionResizer } from "./terminal-surface-resize-scheduler";
 import { TerminalSearchController } from "./terminal-surface-search";
 import { mountXtermTerminal, type TerminalDisposable } from "./terminal-surface-xterm";
-import { recordTerminalOutputStage } from "./terminal-latency-recorder";
 import { setHostPaneChromeTitle, terminalPaneTitle } from "./pane-title-metadata";
 import { assertNever, emptyTerminalStats, performanceNow } from "./terminal-surface-utils";
 import { requestTerminalPaneClose } from "./terminal-pane-close";
@@ -115,7 +114,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private unsubscribeProfileChanges: (() => void) | null = null;
   private unsubscribeBackendStatus: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
-  private unsubscribeStreamStatus: (() => void) | null = null;
   private unsubscribeRuntimeChanges: (() => void) | null = null;
   private visible = false;
   private runtimeProfileScopeKey = "";
@@ -190,11 +188,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     this.unsubscribeEvents = api.onEvent((event) => this.handleTerminalEvent(event));
-    this.unsubscribeStreamStatus = api.onStatus((status) => {
-      if (status.kind === "backpressure" || status.kind === "error") {
-        this.chrome.showStatus(status.message);
-      }
-    });
     this.unsubscribeBackendStatus =
       window.setta?.backend.onProcessStatus((status) => this.handleBackendProcessStatus(status)) ??
       null;
@@ -231,8 +224,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.resolveFitWaiters(null);
     this.unsubscribeEvents?.();
     this.unsubscribeEvents = null;
-    this.unsubscribeStreamStatus?.();
-    this.unsubscribeStreamStatus = null;
     this.unsubscribeBackendStatus?.();
     this.unsubscribeBackendStatus = null;
     this.unsubscribeProfileChanges?.();
@@ -616,9 +607,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.sessionId = event.sessionId;
     this.sessionStatus = event.payload.status;
     if (event.type === "terminal.output") {
-      recordTerminalOutputStage("terminal_output_renderer_received", event);
       this.chrome.hideExitOverlay();
-      this.writeOutput(event);
+      this.writeOutput(event.payload.dataBase64, event.payload.byteCount);
       this.syncHostState();
       return;
     }
@@ -662,19 +652,18 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
     return event.workspaceId === this.workspaceId && event.paneId === this.pane.paneId;
   }
-  private writeOutput(event: TerminalEvent): void {
+  private writeOutput(dataBase64: string, byteCount: number): void {
     const terminal = this.terminal;
-    const { byteCount, dataBase64 } = event.payload;
     if (dataBase64 === "") {
       return;
     }
     if (!terminal || this.frozen || this.deferOutputUntilSessionReady) {
-      this.outputBuffer.enqueue({ byteCount, dataBase64, event });
+      this.outputBuffer.enqueue({ byteCount, dataBase64 });
       this.writeStats(0);
       this.syncHostState();
       return;
     }
-    this.writeOutputToTerminal(terminal, event);
+    this.writeOutputToTerminal(terminal, dataBase64, byteCount);
   }
   private drainPendingOutput(): void {
     const terminal = this.terminal;
@@ -692,21 +681,18 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     const outputs = this.outputBuffer.drain();
     let dirtyRows = 0;
     for (const output of outputs) {
-      this.writeOutputToTerminal(terminal, output.event);
+      this.writeOutputToTerminal(terminal, output.dataBase64, output.byteCount);
       dirtyRows = Math.max(dirtyRows, Math.max(1, Math.min(defaultRows, output.byteCount)));
     }
     this.writeStats(dirtyRows);
     this.syncHostState();
   }
-  private writeOutputToTerminal(terminal: XtermTerminal, event: TerminalEvent): void {
-    const { byteCount, dataBase64 } = event.payload;
-    terminal.write(bytesFromBase64(dataBase64), () => {
-      recordTerminalOutputStage("terminal_output_xterm_write", event);
-      terminal.scrollToBottom();
-      window.requestAnimationFrame(() => {
-        recordTerminalOutputStage("terminal_output_painted", event);
-      });
-    });
+  private writeOutputToTerminal(
+    terminal: XtermTerminal,
+    dataBase64: string,
+    byteCount: number,
+  ): void {
+    terminal.write(bytesFromBase64(dataBase64), () => terminal.scrollToBottom());
     this.writeStats(Math.max(1, Math.min(defaultRows, byteCount)));
     this.syncHostState();
   }

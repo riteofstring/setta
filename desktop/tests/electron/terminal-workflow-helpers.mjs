@@ -193,22 +193,17 @@ export async function waitForTerminalPaneStageContained(client, paneId, timeoutM
 }
 
 export async function closeTerminalPaneFromChrome(client, timeoutMs, { accept = true } = {}) {
+  void timeoutMs;
   await client.installDriver();
-  let settleDialog;
-  let rejectDialog;
-  const dialogHandled = new Promise((resolve, reject) => {
-    settleDialog = resolve;
-    rejectDialog = reject;
-  });
+  await client.evaluate(`window.confirm = () => ${JSON.stringify(accept)}`);
   const removeDialogListener = client.on("Page.javascriptDialogOpening", () => {
-    void client.call("Page.handleJavaScriptDialog", { accept }).then(settleDialog, rejectDialog);
+    void client.call("Page.handleJavaScriptDialog", { accept });
   });
   try {
     const result = await client.driver("closeTerminalPane");
     if (!result.ok) {
       throw new Error(`terminal pane close failed: ${JSON.stringify(result)}`);
     }
-    await Promise.race([dialogHandled, delay(Math.min(timeoutMs, 1_000))]);
   } finally {
     removeDialogListener();
   }

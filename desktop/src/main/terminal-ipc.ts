@@ -1,25 +1,18 @@
 import type { IpcMain } from "electron";
-import { Buffer } from "node:buffer";
 
 import type { BackendClient } from "@generated/backend";
-import { handleIpc, ipcMessages, type IpcObserver } from "@shared/ipc";
-import type { TerminalStreamInput } from "@shared/terminal-stream-client";
-import type { TerminalInputRequest } from "@shared/types";
+import { handleIpc, type IpcObserver } from "@shared/ipc";
 
 interface TerminalIpcRegistration {
-  ipcMain: Pick<IpcMain, "handle" | "on">;
+  ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
-  recordAppEvent?: (type: string, payload: unknown) => void;
   requireBackendClient: () => BackendClient;
-  sendTerminalInput: (input: TerminalStreamInput) => void;
 }
 
 export function registerTerminalIpcHandlers({
   ipcMain,
   ipcObserver,
-  recordAppEvent,
   requireBackendClient,
-  sendTerminalInput,
 }: TerminalIpcRegistration): void {
   handleIpc(
     ipcMain,
@@ -45,18 +38,14 @@ export function registerTerminalIpcHandlers({
     },
     ipcObserver,
   );
-  ipcMain.on(ipcMessages.terminalInput, (_event, input: TerminalInputRequest) => {
-    const mainReceivedAt = new Date().toISOString();
-    recordAppEvent?.("terminal_input_main_received", {
-      byteCount: Buffer.byteLength(input.dataBase64, "base64"),
-      clientId: input.trace.clientId,
-      inputSequence: input.trace.inputSequence,
-      mainReceivedAt,
-      runId: input.trace.runId,
-      sessionId: input.sessionId,
-    });
-    sendTerminalInput(input);
-  });
+  handleIpc(
+    ipcMain,
+    "terminalInput",
+    async (_event, input) => {
+      return requireBackendClient().terminalInput(input);
+    },
+    ipcObserver,
+  );
   handleIpc(
     ipcMain,
     "terminalResize",

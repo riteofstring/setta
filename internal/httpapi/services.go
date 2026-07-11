@@ -8,10 +8,12 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/easyrun"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
+	"setta/internal/speech"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
@@ -44,6 +46,21 @@ type WorkspaceActivityService interface {
 	ReadSnapshot(workspaceID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error)
 	ReadExecutionSnapshot(workspaceID string, executionID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error)
 	SubscribeEvents(cursor workspaceactivity.EventCursor, workspaceID string) (*workspaceactivity.EventSubscription, error)
+}
+
+type EasyRunService interface {
+	ReadSnapshot(workspaceID string) (easyrun.EasyRunSnapshot, error)
+	Start(workspaceID string, requestText string) (easyrun.EasyRun, error)
+	Steer(workspaceID string, text string) (easyrun.EasyRun, error)
+	Stop(workspaceID string, easyRunID string) (easyrun.EasyRun, error)
+	SubscribeEvents(cursor easyrun.EasyRunEventCursor) (*easyrun.EventSubscription, error)
+}
+
+type SpeechService interface {
+	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
+	CreateTranscriptionSession(context.Context, string, string) (speech.SpeechTranscriptionSession, error)
+	SynthesizeEasyRunSummary(context.Context, string, string) (speech.SpeechAudio, error)
+	SynthesizeEasyRunHighlight(context.Context, string, string, string) (speech.SpeechAudio, error)
 }
 
 type ChatService interface {
@@ -174,16 +191,12 @@ type TerminalService interface {
 	Resize(context.Context, string, int, int) (terminal.SessionSummary, error)
 	SetDefaultProfile(string) (terminal.TerminalProfileList, error)
 	SubscribeEvents(terminal.EventCursor) (*terminal.EventSubscription, error)
-	StartTerminalStream(string) ([]terminal.TerminalStreamSessionState, error)
-	ResumeTerminalStream(string, []terminal.TerminalStreamResumeSession) ([]terminal.TerminalStreamSessionState, error)
 	UpdateProfile(string, terminal.TerminalProfileInput) (terminal.TerminalProfileList, error)
-	WriteTerminalStreamInput(context.Context, string, terminal.TerminalStreamInputMessage) (terminal.TerminalStreamInputAckMessage, error)
+	WriteInput(context.Context, string, []byte) (int, error)
 }
 
 type RuntimeAuthService interface {
 	CompletePairing(context.Context, string, string) (runtimeauth.DeviceSession, string, bool, error)
-	CreatePairingToken(context.Context) (runtimeauth.PairingToken, string, error)
-	CreateSetupAttestation(context.Context, runtimeauth.SetupAttestationChallenge) (runtimeauth.SetupAttestation, runtimeauth.SetupAttestationStatus, error)
 	IsDeviceSessionRevoked(context.Context, string) (bool, error)
 	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
 	ResolveDeviceToken(context.Context, string) (runtimeauth.DeviceSession, bool, error)
@@ -210,50 +223,45 @@ type NotifyService interface {
 }
 
 type HandlerConfig struct {
-	AppearanceService              AppearanceService
-	Metadata                       BackendMetadata
-	ChatService                    ChatService
-	CodexAccountService            CodexAccountService
-	NotifyService                  NotifyService
-	PairingFailureLimiter          *PairingFailureLimiter
-	SetupAttestationFailureLimiter *PairingFailureLimiter
-	RevocationSweepInterval        time.Duration
-	RuntimeAuthService             RuntimeAuthService
-	RuntimeIdentityService         RuntimeIdentityService
-	RuntimeMetadata                RuntimeMetadata
-	SemanticGraphService           SemanticGraphService
-	TerminalService                TerminalService
-	TerminalStreamClock            func() time.Time
-	TerminalStreamOutputQueueBytes int
-	TerminalStreamRecorder         TerminalStreamRecorder
-	WorkspaceActivityService       WorkspaceActivityService
-	WorkspaceUIService             WorkspaceUIService
-	WorkspaceService               WorkspaceService
-	WorkflowService                WorkflowService
+	AppearanceService        AppearanceService
+	Metadata                 BackendMetadata
+	ChatService              ChatService
+	CodexAccountService      CodexAccountService
+	EasyRunService           EasyRunService
+	NotifyService            NotifyService
+	PairingFailureLimiter    *PairingFailureLimiter
+	RevocationSweepInterval  time.Duration
+	RuntimeAuthService       RuntimeAuthService
+	RuntimeIdentityService   RuntimeIdentityService
+	RuntimeMetadata          RuntimeMetadata
+	SemanticGraphService     SemanticGraphService
+	SpeechService            SpeechService
+	TerminalService          TerminalService
+	WorkspaceActivityService WorkspaceActivityService
+	WorkspaceUIService       WorkspaceUIService
+	WorkspaceService         WorkspaceService
+	WorkflowService          WorkflowService
 }
 
 type handler struct {
-	appearanceService              AppearanceService
-	metadata                       BackendMetadata
-	chatService                    ChatService
-	codexAccountService            CodexAccountService
-	notifyService                  NotifyService
-	pairingFailureLimiter          *PairingFailureLimiter
-	setupAttestationLimiter        *PairingFailureLimiter
-	revocationSweepInterval        time.Duration
-	runtimeAuthService             RuntimeAuthService
-	runtimeIdentityService         RuntimeIdentityService
-	runtimeMetadata                RuntimeMetadata
-	semanticGraphService           SemanticGraphService
-	terminalService                TerminalService
-	terminalStreamConnections      *terminalStreamConnectionRegistry
-	terminalStreamOutputQueueBytes int
-	terminalStreamRecorder         TerminalStreamRecorder
-	terminalStreamTickets          *terminalStreamTicketStore
-	workspaceActivityService       WorkspaceActivityService
-	workspaceUIService             WorkspaceUIService
-	workspaceService               WorkspaceService
-	workflowService                WorkflowService
+	appearanceService        AppearanceService
+	metadata                 BackendMetadata
+	chatService              ChatService
+	codexAccountService      CodexAccountService
+	easyRunService           EasyRunService
+	notifyService            NotifyService
+	pairingFailureLimiter    *PairingFailureLimiter
+	revocationSweepInterval  time.Duration
+	runtimeAuthService       RuntimeAuthService
+	runtimeIdentityService   RuntimeIdentityService
+	runtimeMetadata          RuntimeMetadata
+	semanticGraphService     SemanticGraphService
+	speechService            SpeechService
+	terminalService          TerminalService
+	workspaceActivityService WorkspaceActivityService
+	workspaceUIService       WorkspaceUIService
+	workspaceService         WorkspaceService
+	workflowService          WorkflowService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
@@ -261,44 +269,29 @@ func NewHandler(config HandlerConfig) http.Handler {
 	if pairingFailureLimiter == nil {
 		pairingFailureLimiter = NewPairingFailureLimiter(10, time.Minute)
 	}
-	setupAttestationLimiter := config.SetupAttestationFailureLimiter
-	if setupAttestationLimiter == nil {
-		setupAttestationLimiter = NewPairingFailureLimiter(30, time.Minute)
-	}
 	revocationSweepInterval := config.RevocationSweepInterval
 	if revocationSweepInterval <= 0 {
 		revocationSweepInterval = 30 * time.Second
 	}
-	clock := config.TerminalStreamClock
-	if clock == nil {
-		clock = time.Now
-	}
-	outputQueueBytes := config.TerminalStreamOutputQueueBytes
-	if outputQueueBytes <= 0 {
-		outputQueueBytes = defaultTerminalStreamOutputQueueBytes
-	}
 	apiHandler := handler{
-		appearanceService:              config.AppearanceService,
-		metadata:                       config.Metadata,
-		chatService:                    config.ChatService,
-		codexAccountService:            config.CodexAccountService,
-		notifyService:                  config.NotifyService,
-		pairingFailureLimiter:          pairingFailureLimiter,
-		setupAttestationLimiter:        setupAttestationLimiter,
-		revocationSweepInterval:        revocationSweepInterval,
-		runtimeAuthService:             config.RuntimeAuthService,
-		runtimeIdentityService:         config.RuntimeIdentityService,
-		runtimeMetadata:                config.RuntimeMetadata,
-		semanticGraphService:           config.SemanticGraphService,
-		terminalService:                config.TerminalService,
-		terminalStreamConnections:      newTerminalStreamConnectionRegistry(),
-		terminalStreamOutputQueueBytes: outputQueueBytes,
-		terminalStreamRecorder:         config.TerminalStreamRecorder,
-		terminalStreamTickets:          newTerminalStreamTicketStore(clock),
-		workspaceActivityService:       config.WorkspaceActivityService,
-		workspaceUIService:             config.WorkspaceUIService,
-		workspaceService:               config.WorkspaceService,
-		workflowService:                config.WorkflowService,
+		appearanceService:        config.AppearanceService,
+		metadata:                 config.Metadata,
+		chatService:              config.ChatService,
+		codexAccountService:      config.CodexAccountService,
+		easyRunService:           config.EasyRunService,
+		notifyService:            config.NotifyService,
+		pairingFailureLimiter:    pairingFailureLimiter,
+		revocationSweepInterval:  revocationSweepInterval,
+		runtimeAuthService:       config.RuntimeAuthService,
+		runtimeIdentityService:   config.RuntimeIdentityService,
+		runtimeMetadata:          config.RuntimeMetadata,
+		semanticGraphService:     config.SemanticGraphService,
+		speechService:            config.SpeechService,
+		terminalService:          config.TerminalService,
+		workspaceActivityService: config.WorkspaceActivityService,
+		workspaceUIService:       config.WorkspaceUIService,
+		workspaceService:         config.WorkspaceService,
+		workflowService:          config.WorkflowService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)

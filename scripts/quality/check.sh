@@ -224,6 +224,9 @@ is_prettier_path() {
 
 is_length_excluded_path() {
   case "$1" in
+    docs/mockups/*)
+      return 0
+      ;;
     internal/codexapp/protocolschema/json/*|internal/codexapp/protocolschema/json_experimental/*)
       return 0
       ;;
@@ -263,7 +266,7 @@ is_length_checked_path() {
     return 0
   fi
   case "$1" in
-    *.css|*.cjs|*.go|*.html|*.js|*.jsx|*.json|*.jsonc|*.md|*.mjs|*.mts|*.cts|*.py|*.toml|*.yaml|*.yml)
+    *.css|*.cjs|*.go|*.html|*.js|*.jsx|*.json|*.jsonc|*.mjs|*.mts|*.cts|*.py|*.toml|*.yaml|*.yml)
       return 0
       ;;
   esac

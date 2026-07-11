@@ -1172,7 +1172,7 @@ func persistRunningActionWithoutRunnerRefsForTest(t *testing.T, store *Store, wo
 	work := latestNodeExecutionForTest(t, started.Execution, "work")
 	node := testActionNode("work")
 	runner := newRecordingActionRunner()
-	metadata, _, err := buildActionStartRequest(workspaceID, started.Execution, node, work, runner, context)
+	metadata, _, err := buildActionStartRequest(workspaceID, started.Execution, definition.Graph, node, work, runner, context)
 	if err != nil {
 		t.Fatalf("build action start request: %v", err)
 	}
