@@ -135,6 +135,143 @@ export function assertNewestDotTone(state, toneKey, label) {
   }
 }
 
+// Layer geometry is fixed; only the periods change between states, so the two
+// state-specific expectations are just the duration triples.
+const swirlLayerNames = [
+  "easy-button-swirl-spin-cw",
+  "easy-button-swirl-spin-ccw",
+  "easy-button-swirl-spin-cw",
+];
+const swirlLayerOpacities = [0.62, 0.5, 0.4];
+const swirlWorkingDurations = ["18s", "29s", "41s"];
+const swirlCompleteDurations = ["54s", "87s", "123s"];
+
+function assertSwirlField(state, label) {
+  const { swirl } = state;
+  if (!swirl.exists) {
+    throw new Error(`easy-button ${label} has no swirl field: ${JSON.stringify(state)}`);
+  }
+  if (!swirl.filter.includes("blur(") || !swirl.filter.includes("saturate(1.3)")) {
+    throw new Error(
+      `easy-button ${label} swirl lost its blur/saturate stack — without a filter the layers screen-blend against the pane: ${JSON.stringify(swirl)}`,
+    );
+  }
+  if (!swirl.maskImage.includes("radial-gradient")) {
+    throw new Error(`easy-button ${label} swirl lost its radial mask: ${JSON.stringify(swirl)}`);
+  }
+  if (swirl.layers.length !== 3) {
+    throw new Error(`easy-button ${label} swirl layer count was wrong: ${JSON.stringify(swirl)}`);
+  }
+  assertSwirlPaints(swirl, label);
+}
+
+// The arms are relative colors over design tokens. A parse failure drops the
+// whole gradient, so the layer paints nothing while every timing parameter above
+// still reports exactly what the stylesheet asked for — a silently empty field.
+function assertSwirlPaints(swirl, label) {
+  if (!swirl.coreBackgroundImage.includes("radial-gradient")) {
+    throw new Error(`easy-button ${label} swirl core painted nothing: ${JSON.stringify(swirl)}`);
+  }
+  for (const [index, layer] of swirl.layers.entries()) {
+    if (!layer.backgroundImage.includes("conic-gradient")) {
+      throw new Error(
+        `easy-button ${label} swirl layer ${index + 1} painted nothing: ${JSON.stringify(swirl)}`,
+      );
+    }
+  }
+}
+
+// `playState` and `willChange` carry the idle-cost guarantee: `opacity: 0` does
+// not stop an animation, so an unpaused idle swirl still rotates and composites.
+function assertSwirlMotion(state, expectations, label) {
+  assertSwirlField(state, label);
+  assertSwirlBreathe(state.swirl, expectations.playState, label);
+  assertSwirlLayers(state.swirl, expectations, label);
+}
+
+function assertSwirlBreathe(swirl, playState, label) {
+  if (
+    swirl.inner.animationName !== "easy-button-swirl-breathe" ||
+    swirl.inner.animationDuration !== "17s" ||
+    swirl.inner.animationPlayState !== playState
+  ) {
+    throw new Error(
+      `easy-button ${label} swirl breathe did not match the mockup: ${JSON.stringify(swirl)}`,
+    );
+  }
+}
+
+function assertSwirlLayers(swirl, expectations, label) {
+  for (const [index, layer] of swirl.layers.entries()) {
+    if (!swirlLayerMatches(layer, index, expectations)) {
+      throw new Error(
+        `easy-button ${label} swirl layer ${index + 1} did not match the mockup: ${JSON.stringify(swirl)}`,
+      );
+    }
+  }
+}
+
+function swirlLayerMatches(layer, index, { durations, playState, willChange }) {
+  return (
+    layer.animationName === swirlLayerNames[index] &&
+    layer.animationDuration === durations[index] &&
+    layer.animationPlayState === playState &&
+    layer.mixBlendMode === "screen" &&
+    layer.willChange === willChange &&
+    opacityMatches(layer.opacity, swirlLayerOpacities[index])
+  );
+}
+
+export function assertSwirlIdle(state, label) {
+  assertSwirlMotion(
+    state,
+    { durations: swirlWorkingDurations, playState: "paused", willChange: "auto" },
+    label,
+  );
+  if (!opacityMatches(state.swirl.opacity, 0)) {
+    throw new Error(`easy-button ${label} swirl was visible at idle: ${JSON.stringify(state)}`);
+  }
+}
+
+// Called only on states whose opacity transition has settled: the swirl fades
+// over 1600ms, so a state read the instant `working` lands reports an
+// interpolated opacity that equals neither endpoint.
+export function assertSwirlWorking(state, label) {
+  assertSwirlMotion(
+    state,
+    { durations: swirlWorkingDurations, playState: "running", willChange: "transform" },
+    label,
+  );
+  if (!opacityMatches(state.swirl.opacity, 0.85)) {
+    throw new Error(
+      `easy-button ${label} swirl did not reach full field: ${JSON.stringify(state)}`,
+    );
+  }
+}
+
+export function assertSwirlComplete(state, label) {
+  assertSwirlMotion(
+    state,
+    { durations: swirlCompleteDurations, playState: "running", willChange: "auto" },
+    label,
+  );
+  if (!opacityMatches(state.swirl.opacity, 0.2)) {
+    throw new Error(`easy-button ${label} swirl did not settle: ${JSON.stringify(state)}`);
+  }
+}
+
+export function assertSwirlFrozen(state, label) {
+  const playStates = [
+    state.swirl.inner.animationPlayState,
+    ...state.swirl.layers.map((layer) => layer.animationPlayState),
+  ];
+  if (playStates.some((playState) => playState !== "paused")) {
+    throw new Error(
+      `easy-button ${label} swirl kept animating while frozen: ${JSON.stringify(state.swirl)}`,
+    );
+  }
+}
+
 export function assertArtifactMotionParameters(state, label) {
   for (const [index, artifact] of state.artifacts.entries()) {
     if (

@@ -36,6 +36,10 @@ import {
   assertRailLabelsMatchContent,
   assertRailLabelText,
   assertSummaryOkMark,
+  assertSwirlComplete,
+  assertSwirlFrozen,
+  assertSwirlIdle,
+  assertSwirlWorking,
   assertTerminalTone,
   opacityMatches,
   railLabelsMatchContent,
@@ -281,9 +285,14 @@ try {
     join(artifactDir, "easy-button-stopped-with-highlights.png"),
   );
 
+  // This run parks in `working` until it is stopped, so it is the only place the
+  // swirl's 1600ms fade has room to settle at both of its resting opacities.
   await submitEasyButtonRequest(context.client, "cancel active workflow");
   const stoppingWorking = await waitForEasyButtonWorking(context.client, "cancel active workflow");
   assertWorkingVisual(stoppingWorking, "cancel active workflow");
+  const swirlWorking = await waitForEasyButtonSwirlSettled(context.client, "working", 0.85);
+  assertSwirlWorking(swirlWorking, "cancel active workflow");
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-swirl-working.png"));
   const activeRunRejection = await assertActiveRunStartRejected(
     context.client,
     "second active workflow",
@@ -299,12 +308,15 @@ try {
     expectedNarration: "The run was stopped before finishing.",
   });
   assertTerminalTone(stopped, "stopped", "stopped");
+  const swirlComplete = await waitForEasyButtonSwirlSettled(context.client, "complete", 0.2);
+  assertSwirlComplete(swirlComplete, "stopped");
 
   await forceEasyButtonFrozenAttribute(context.client);
   const frozen = await waitForEasyButtonFrozen(context.client);
   if (frozen.buttonAnimationPlayState !== "paused") {
     throw new Error(`easy-button animation was not paused while frozen: ${JSON.stringify(frozen)}`);
   }
+  assertSwirlFrozen(frozen, "frozen");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-frozen.png"));
 
   await stopElectronCdpContext(context);
@@ -343,6 +355,8 @@ try {
     status: "passed",
     activeRunRejection,
     stopped,
+    swirlComplete,
+    swirlWorking,
     toolbarOpen,
     working,
     workspaceName: basename(fixture.workspaceRoot),
@@ -738,6 +752,7 @@ function assertIdleVisual(state) {
   if (state.buttonAnimationName !== "easy-button-glow-breathe") {
     throw new Error(`easy-button idle glow animation was missing: ${JSON.stringify(state)}`);
   }
+  assertSwirlIdle(state, "idle");
   assertIdleControls(state);
   assertIdleCaption(state);
   assertIdleRailLabels(state);
@@ -903,26 +918,21 @@ function assertReducedMotionVisual(state, label) {
   if (state.reducedMotionMatches !== true) {
     throw new Error(`easy-button ${label} did not match reduced motion: ${JSON.stringify(state)}`);
   }
-  if (state.easyState === "working" && state.spinnerAnimationName === "") {
-    throw new Error(`easy-button ${label} missing working spinner: ${JSON.stringify(state)}`);
-  }
+  assertReducedMotionSwirl(state, label);
   assertAnimationNamesCleared(
     {
       button: state.buttonAnimationName,
       control: state.controlAnimationName,
-      controlRing: state.controlRingAnimationName,
-      spinner: state.spinnerAnimationName,
     },
     label,
   );
   assertTransitionDurationsCleared(
     {
       button: state.buttonTransitionDuration,
-      controlRing: state.controlRingTransitionDuration,
       input: state.inputTransitionDuration,
       inputWrap: state.inputWrapTransitionDuration,
-      spinner: state.spinnerTransitionDuration,
       stopButton: state.stopButtonTransitionDuration,
+      swirl: state.swirl.transitionDuration,
     },
     label,
   );
@@ -944,6 +954,29 @@ function assertReducedMotionVisual(state, label) {
     assertTransitionDurationsCleared(
       { [`highlight ${index + 1}`]: highlight.transitionDuration },
       label,
+    );
+  }
+}
+
+// The swirl is now the only working-state indicator, so reduced motion cannot
+// simply hide it the way it could hide a spinner: it stays visible and still, at
+// half field, and every rotation is off.
+function assertReducedMotionSwirl(state, label) {
+  if (!state.swirl.exists) {
+    throw new Error(`easy-button ${label} lost its swirl field: ${JSON.stringify(state)}`);
+  }
+  assertAnimationNamesCleared(
+    {
+      "swirl breathe": state.swirl.inner.animationName,
+      ...Object.fromEntries(
+        state.swirl.layers.map((layer, index) => [`swirl layer ${index + 1}`, layer.animationName]),
+      ),
+    },
+    label,
+  );
+  if (state.easyState === "working" && !opacityMatches(state.swirl.opacity, 0.5)) {
+    throw new Error(
+      `easy-button ${label} reduced-motion swirl did not rest at half field: ${JSON.stringify(state)}`,
     );
   }
 }
@@ -1249,6 +1282,20 @@ async function waitForEasyButtonArtifactCapTerminal(client) {
       state.summaryText.includes("Failed after") &&
       state.summaryText.includes("artifact limit reached") &&
       state.artifacts.length === 20,
+    workflowTimeoutMs,
+  );
+}
+
+// The swirl crossfades over 1600ms, so a state read the instant the pane enters
+// a new view state reports an interpolated opacity that equals neither endpoint.
+async function waitForEasyButtonSwirlSettled(client, easyState, expectedOpacity) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      easyButtonStateSettled(state, easyState) &&
+      state.swirl.exists &&
+      opacityMatches(state.swirl.opacity, expectedOpacity),
     workflowTimeoutMs,
   );
 }

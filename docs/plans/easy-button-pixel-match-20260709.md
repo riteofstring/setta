@@ -429,6 +429,32 @@ is why the green-dot-on-failure defect went uncaught.
 - Tier-1 swirl assertions; idle-paused assertion; freeze assertion.
 - Performance re-baseline + report.
 
+Landed. Report: `docs/reports/performance/easy-button-pane-phaseB-swirl-20260709.md`.
+Every parameter matches the mockup, verified from the workflow's own recorded
+state: `blur(30px) saturate(1.3)`, `breathe 17s`, layer periods `18s/29s/41s`
+working and `54s/87s/123s` complete, `mix-blend-mode: screen`, opacity
+`0 / 0.85 / 0.2`, paused at idle and under freeze, `will-change: transform`
+scoped to working alone. Measured: 120fps, p95 8.7–8.9ms, zero long tasks and
+zero frames over 16ms in idle, working, complete, and frozen. The mitigation
+ladder was not needed.
+
+Two things the implementation added beyond the plan, both correct:
+
+- **A `complete` performance sample.** The terminal state is where the pane rests
+  after every run — potentially for hours — and the swirl keeps rotating there
+  without the `will-change` promotion. It was unmeasured. It costs the same as
+  working.
+- **A paint assertion.** The arms are relative colors (`rgb(from var(--token) r g
+  b / a)`). If that ever fails to parse, the whole gradient declaration is
+  dropped and the layer paints nothing, while every timing parameter still
+  reports exactly what the stylesheet asked for — a silently empty field. The
+  driver checks each layer's computed `background-image` still contains
+  `conic-gradient`.
+
+Sampling gotcha, now encoded in both workflows: the swirl crossfades over
+1600ms, so any state read the instant a view state lands reports an interpolated
+opacity that equals neither endpoint. Waits gate on the settled field.
+
 ### Phase C — Fidelity harness (tests only)
 
 - `easyButtonPinAnimations(t)` in the driver.

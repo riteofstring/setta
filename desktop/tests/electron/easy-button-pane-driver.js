@@ -110,8 +110,6 @@
     const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
     const narratorStatus = host.querySelector(".easy-button-narrator-status");
     const stopButton = host.querySelector('[data-testid="easy-button-stop-button"]');
-    const controlRing = host.querySelector(".easy-button-control-ring");
-    const spinner = host.querySelector(".easy-button-spinner");
     const center = host.querySelector(".easy-button-center");
     const caption = host.querySelector(".easy-button-caption-slot");
     const buttonRect = elementRectOrZero(button);
@@ -128,9 +126,6 @@
       centerRect: rectSnapshot(elementRectOrZero(center)),
       confirmActive: elementDatasetValue(button, "easyButtonConfirm"),
       controlAnimationName: elementStyleValue(button, "animationName"),
-      controlRingAnimationName: elementStyleValue(controlRing, "animationName"),
-      controlRingAnimationPlayState: elementStyleValue(controlRing, "animationPlayState"),
-      controlRingTransitionDuration: elementStyleValue(controlRing, "transitionDuration"),
       enterChipText: elementText(enterChip),
       helperText: elementText(helper),
       inputFocused: input instanceof HTMLInputElement && document.activeElement === input,
@@ -144,9 +139,6 @@
       requestText: elementText(requestText),
       requestTextMetrics: textBoxMetrics(requestText),
       requestTextRect: rectSnapshot(elementRectOrZero(requestText)),
-      spinnerAnimationName: elementStyleValue(spinner, "animationName"),
-      spinnerAnimationPlayState: elementStyleValue(spinner, "animationPlayState"),
-      spinnerTransitionDuration: elementStyleValue(spinner, "transitionDuration"),
       stopButtonAriaLabel: buttonAriaLabel(stopButton),
       stopButtonDisabled: buttonDisabled(stopButton),
       stopButtonRect: rectSnapshot(elementRectOrZero(stopButton)),
@@ -156,6 +148,7 @@
       summaryText: elementText(summary),
       summaryTextMetrics: textBoxMetrics(summary),
       summaryTextRect: rectSnapshot(elementRectOrZero(summary)),
+      swirl: easyButtonSwirl(host),
       toneColors: {
         completed: resolveTokenColor(surface, "--accent-green"),
         failed: resolveTokenColor(surface, "--destructive"),
@@ -318,6 +311,43 @@
       time: elementText(item.querySelector(".easy-button-highlight-time")),
       transitionDuration: elementStyleValue(item, "transitionDuration"),
     }));
+  }
+
+  // Every parameter of the swirl's motion except the current time is static and
+  // inspectable — keyframe names, durations, play state, blend mode, the filter
+  // stack, the mask, and the mapping from pane state to opacity. Those are what
+  // the pixel-match gate asserts; per-frame equality is neither achievable nor
+  // meaningful.
+  function easyButtonSwirl(host) {
+    const swirl = host.querySelector(".easy-button-swirl");
+    const inner = host.querySelector(".easy-button-swirl-inner");
+    const core = host.querySelector(".easy-button-swirl-core");
+    return {
+      // `backgroundImage` is not decoration in this probe. The arms are built
+      // from relative colors, `rgb(from var(--token) r g b / a)`; if that ever
+      // fails to parse, the whole gradient declaration is dropped, the layer
+      // paints nothing, and every other parameter here still reports correctly.
+      coreBackgroundImage: elementStyleValue(core, "backgroundImage"),
+      exists: swirl instanceof HTMLElement,
+      filter: elementStyleValue(swirl, "filter"),
+      inner: {
+        animationDuration: elementStyleValue(inner, "animationDuration"),
+        animationName: elementStyleValue(inner, "animationName"),
+        animationPlayState: elementStyleValue(inner, "animationPlayState"),
+      },
+      layers: Array.from(host.querySelectorAll(".easy-button-swirl-layer")).map((layer) => ({
+        animationDuration: elementStyleValue(layer, "animationDuration"),
+        animationName: elementStyleValue(layer, "animationName"),
+        animationPlayState: elementStyleValue(layer, "animationPlayState"),
+        backgroundImage: elementStyleValue(layer, "backgroundImage"),
+        mixBlendMode: elementStyleValue(layer, "mixBlendMode"),
+        opacity: elementStyleValue(layer, "opacity"),
+        willChange: elementStyleValue(layer, "willChange"),
+      })),
+      maskImage: elementStyleValue(swirl, "maskImage"),
+      opacity: elementStyleValue(swirl, "opacity"),
+      transitionDuration: elementStyleValue(swirl, "transitionDuration"),
+    };
   }
 
   function easyButtonPaneClickToolbarAction() {

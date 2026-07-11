@@ -58,6 +58,7 @@ try {
   await ensureWorkspaceOpen(context.client);
   await openEasyButtonFromShortcut(context.client);
   const pane = await waitForEasyButtonPane(context.client);
+  assertEasyButtonIdleSwirlPaused(pane);
   await captureScreenshot(context.client, join(artifactDir, "easy-button-performance-idle.png"));
 
   const idle = await sampleEasyButton(context.client, "idle");
@@ -69,6 +70,28 @@ try {
   const working = await sampleEasyButton(context.client, "working");
   assertSmoothFrameSample(working.frameSample, "easy button working", { minFrameCount: 20 });
 
+  // The terminal state is where the pane rests after every run, potentially for
+  // hours, and the swirl keeps rotating there — slower, dimmer, and without the
+  // `will-change` promotion working gets. It is sampled before the freeze step
+  // below, because forcing the frozen attribute pauses everything for good.
+  await clickEasyButtonStop(context.client);
+  const completeState = await waitForEasyButtonTerminal(context.client, workingPerformancePrompt);
+  if (!completeState.summaryText.includes("Stopped after")) {
+    throw new Error(
+      `easy button performance run did not stop cleanly: ${JSON.stringify(completeState)}`,
+    );
+  }
+  const complete = await sampleEasyButton(context.client, "complete");
+  assertSmoothFrameSample(complete.frameSample, "easy button complete", { minFrameCount: 20 });
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "easy-button-performance-complete.png"),
+  );
+
+  // Freeze has to be verified against a *running* swirl, so this needs a second
+  // live run rather than the terminal one left above.
+  await submitEasyButtonRequest(context.client, workingPerformancePrompt);
+  await waitForEasyButtonWorking(context.client, workingPerformancePrompt);
   await forceEasyButtonFrozenAttribute(context.client);
   const frozenState = await waitForEasyButtonFrozen(context.client, workingPerformancePrompt);
   const frozen = await sampleEasyButton(context.client, "frozen");
@@ -83,7 +106,10 @@ try {
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
+    complete,
+    completeState,
     frameBudgets: {
+      complete: frameBudgetSummary(complete.frameSample),
       frozen: frameBudgetSummary(frozen.frameSample),
       idle: frameBudgetSummary(idle.frameSample),
       working: frameBudgetSummary(working.frameSample),
@@ -206,21 +232,46 @@ async function forceEasyButtonFrozenAttribute(client) {
 }
 
 function assertEasyButtonAnimationsPaused(state) {
-  const animationFields = [
-    "buttonAnimationPlayState",
-    "controlRingAnimationPlayState",
-    "spinnerAnimationPlayState",
-  ];
-  const unpaused = animationFields.filter(
-    (field) => !animationPlayStateIncludesPaused(state[field]),
-  );
+  const unpaused = [
+    ["button glow", state.buttonAnimationPlayState],
+    ...easyButtonSwirlPlayStates(state),
+  ].filter(([, playState]) => !animationPlayStateIncludesPaused(playState));
   if (unpaused.length > 0) {
     throw new Error(
-      `easy button frozen animations did not pause ${unpaused.join(", ")}: ${JSON.stringify(
-        state,
-      )}`,
+      `easy button frozen animations did not pause ${unpaused
+        .map(([name]) => name)
+        .join(", ")}: ${JSON.stringify(state)}`,
     );
   }
+}
+
+// The swirl is the pane's one genuinely expensive layer: three screen-blended
+// conic gradients under a blur that re-rasterizes every frame. `opacity: 0` does
+// not stop it — only `animation-play-state: paused` does — so the idle frame
+// budget below is a claim about this assertion, not just about the sampler.
+// The button's resting glow is deliberately excluded: it breathes at idle by
+// design, and it is one small radial gradient rather than a blurred blend stack.
+function assertEasyButtonIdleSwirlPaused(state) {
+  const running = easyButtonSwirlPlayStates(state).filter(
+    ([, playState]) => playState !== "paused",
+  );
+  if (running.length > 0) {
+    throw new Error(
+      `easy button idle kept animating ${running
+        .map(([name]) => name)
+        .join(", ")}: ${JSON.stringify(state.swirl)}`,
+    );
+  }
+}
+
+function easyButtonSwirlPlayStates(state) {
+  return [
+    ["swirl breathe", state.swirl.inner.animationPlayState],
+    ...state.swirl.layers.map((layer, index) => [
+      `swirl layer ${index + 1}`,
+      layer.animationPlayState,
+    ]),
+  ];
 }
 
 function animationPlayStateIncludesPaused(value) {
@@ -256,6 +307,9 @@ async function waitForEasyButtonFrozen(client, requestText) {
   );
 }
 
+// Gates on the settled swirl, not merely on `working`. The field fades in over
+// 1600ms while the sample below runs for 1200ms, so sampling the moment the run
+// goes live would measure the fade and never the steady state users sit in.
 async function waitForEasyButtonWorking(client, requestText) {
   return waitForState(
     client,
@@ -266,11 +320,19 @@ async function waitForEasyButtonWorking(client, requestText) {
       state.easyState === "working" &&
       state.requestText === requestText &&
       state.stopButtonVisible === true &&
-      state.stopButtonDisabled === false,
+      state.stopButtonDisabled === false &&
+      swirlOpacityMatches(state, 0.85),
     workflowTimeoutMs,
   );
 }
 
+function swirlOpacityMatches(state, expected) {
+  const opacity = Number.parseFloat(state.swirl.opacity);
+  return Number.isFinite(opacity) && Math.abs(opacity - expected) <= 0.01;
+}
+
+// Settled at the terminal field, for the same reason `waitForEasyButtonWorking`
+// is: the 1600ms crossfade outlasts the 1200ms sample that follows it.
 async function waitForEasyButtonTerminal(client, requestText) {
   return waitForState(
     client,
@@ -279,7 +341,8 @@ async function waitForEasyButtonTerminal(client, requestText) {
       state.exists &&
       state.surfaceKind === "easy-button" &&
       state.easyState === "complete" &&
-      state.requestText === requestText,
+      state.requestText === requestText &&
+      swirlOpacityMatches(state, 0.2),
     workflowTimeoutMs,
   );
 }

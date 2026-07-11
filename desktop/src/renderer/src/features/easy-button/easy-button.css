@@ -375,6 +375,152 @@
   width: var(--easy-button-well);
 }
 
+/* Swirl field — three conic layers, rotate-only, over a static blur on the
+   container. The `filter` makes this element a stacking context and an isolated
+   group, so the layers screen-blend against each other and the core rather than
+   against the pane background. Removing the filter without also isolating the
+   group washes the field out.
+
+   `inset: -100%` makes the field 3x the well, so it tracks --easy-button-well
+   without a second size to keep in sync. */
+.easy-button-swirl {
+  filter: blur(calc(var(--easy-button-well) / 6)) saturate(1.3);
+  inset: -100%;
+  mask-image: radial-gradient(closest-side, black 0%, black 38%, transparent 76%);
+  -webkit-mask-image: radial-gradient(closest-side, black 0%, black 38%, transparent 76%);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 1600ms ease-out;
+  z-index: 0;
+}
+
+.easy-button-swirl-inner {
+  animation: easy-button-swirl-breathe 17s ease-in-out infinite;
+  animation-play-state: paused;
+  inset: 0;
+  position: absolute;
+}
+
+/* A cyan pool under the button, so it does not sit in a neutral grey hole. */
+.easy-button-swirl-core {
+  background: radial-gradient(
+    closest-side,
+    rgb(from var(--easy-button-primary) r g b / 0.2) 0%,
+    rgb(from var(--easy-button-primary) r g b / 0) 64%
+  );
+  border-radius: 50%;
+  inset: 0;
+  position: absolute;
+}
+
+/* Longhands, not the `animation` shorthand: the shorthand would reset
+   `animation-play-state` back to `running` in each layer rule below and undo the
+   idle pause. */
+.easy-button-swirl-layer {
+  animation-iteration-count: infinite;
+  animation-play-state: paused;
+  animation-timing-function: linear;
+  border-radius: 50%;
+  inset: 0;
+  mix-blend-mode: screen;
+  position: absolute;
+}
+
+/* Arms fade to `rgb(from <token> r g b / 0)` and never to the `transparent`
+   keyword: `transparent` is rgba(0, 0, 0, 0), so interpolating toward it drags
+   every arm through muddy black. Arms stay narrow with wide gaps — three broad
+   screen-blended arcs just sum to white and the field reads as grey fog. Each
+   layer spins at its own radius (--sc), so the arms cross rather than stack. */
+.easy-button-swirl-layer-1 {
+  --sc: 1;
+
+  animation-duration: 18s;
+  animation-name: easy-button-swirl-spin-cw;
+  background: conic-gradient(
+    from 0turn,
+    rgb(from var(--easy-button-primary) r g b / 0) 0%,
+    rgb(from var(--easy-button-primary) r g b / 0.85) 9%,
+    rgb(from var(--easy-button-primary) r g b / 0) 24%,
+    rgb(from var(--accent-teal) r g b / 0) 44%,
+    rgb(from var(--accent-teal) r g b / 0.7) 55%,
+    rgb(from var(--accent-teal) r g b / 0) 70%,
+    rgb(from var(--easy-button-primary) r g b / 0) 100%
+  );
+  opacity: 0.62;
+}
+
+.easy-button-swirl-layer-2 {
+  --sc: 0.78;
+
+  animation-duration: 29s;
+  animation-name: easy-button-swirl-spin-ccw;
+  background: conic-gradient(
+    from 0.28turn,
+    rgb(from var(--accent-violet) r g b / 0) 0%,
+    rgb(from var(--accent-violet) r g b / 0.8) 12%,
+    rgb(from var(--accent-violet) r g b / 0) 30%,
+    rgb(from var(--accent-magenta) r g b / 0) 52%,
+    rgb(from var(--accent-magenta) r g b / 0.55) 63%,
+    rgb(from var(--accent-magenta) r g b / 0) 78%,
+    rgb(from var(--accent-violet) r g b / 0) 100%
+  );
+  opacity: 0.5;
+}
+
+.easy-button-swirl-layer-3 {
+  --sc: 1.22;
+
+  animation-duration: 41s;
+  animation-name: easy-button-swirl-spin-cw;
+  background: conic-gradient(
+    from 0.62turn,
+    rgb(from var(--accent-blue) r g b / 0) 0%,
+    rgb(from var(--accent-blue) r g b / 0.72) 15%,
+    rgb(from var(--accent-blue) r g b / 0) 38%,
+    rgb(from var(--accent-blue) r g b / 0) 100%
+  );
+  opacity: 0.4;
+}
+
+/* `opacity: 0` does not stop an animation — Chromium keeps ticking the rotations
+   and compositing the blurred layers. Idle costs nothing only because the field
+   is paused, and only the working state is worth a compositor layer. */
+.easy-button-surface[data-easy-button-state="working"] .easy-button-swirl-inner,
+.easy-button-surface[data-easy-button-state="working"] .easy-button-swirl-layer,
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-inner,
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-layer {
+  animation-play-state: running;
+}
+
+.easy-button-surface[data-easy-button-state="working"] .easy-button-swirl-layer {
+  will-change: transform;
+}
+
+.easy-button-surface[data-easy-button-state="working"] .easy-button-swirl {
+  opacity: 0.85;
+}
+
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl {
+  opacity: 0.2;
+}
+
+/* Settle: stretch the periods so the field reads as decelerating while it fades.
+   Chromium preserves `currentTime` across a duration change, so the rotation
+   snaps to a new phase rather than easing into it; the simultaneous 1600ms fade
+   to 0.2 masks that, and the mockup has the identical artifact. */
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-layer-1 {
+  animation-duration: 54s;
+}
+
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-layer-2 {
+  animation-duration: 87s;
+}
+
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-layer-3 {
+  animation-duration: 123s;
+}
+
 .easy-button-control {
   align-items: center;
   background: var(--easy-button-panel);
@@ -416,17 +562,16 @@
   animation: easy-button-confirm-pulse 900ms ease-out 1;
 }
 
-.easy-button-control-ring {
-  border: 1px solid color-mix(in oklch, var(--easy-button-primary) 24%, transparent);
-  border-radius: 50%;
-  inset: 14px;
-  position: absolute;
+/* The swirl is the only working-state indicator: the button recedes behind it
+   and its resting glow stills, rather than growing an indicator of its own. */
+.easy-button-surface[data-easy-button-state="working"] .easy-button-control {
+  border-color: color-mix(in oklch, var(--easy-button-border) 70%, transparent);
+  box-shadow: inset 0 0 30px color-mix(in oklch, var(--easy-button-primary) 5%, transparent);
 }
 
-.easy-button-surface[data-easy-button-state="working"] .easy-button-control-ring {
-  animation: easy-button-working-ring 1.4s linear infinite;
-  border-color: color-mix(in oklch, var(--easy-button-primary) 70%, white);
-  border-top-color: transparent;
+.easy-button-surface[data-easy-button-state="working"] .easy-button-control::after {
+  animation: none;
+  opacity: 0.14;
 }
 
 .easy-button-surface[data-easy-button-status="completed"] .easy-button-control {
@@ -470,14 +615,6 @@
   position: relative;
   width: 40px;
   z-index: 1;
-}
-
-.easy-button-spinner {
-  animation: easy-button-spinner 1.2s linear infinite;
-  color: color-mix(in oklch, var(--easy-button-primary) 70%, var(--foreground));
-  height: 62px;
-  position: absolute;
-  width: 62px;
 }
 
 .easy-button-caption-slot {
@@ -704,23 +841,34 @@
   }
 }
 
-@keyframes easy-button-working-ring {
+@keyframes easy-button-swirl-spin-cw {
   from {
-    transform: rotate(0deg);
+    transform: rotate(0deg) scale(var(--sc));
   }
 
   to {
-    transform: rotate(360deg);
+    transform: rotate(360deg) scale(var(--sc));
   }
 }
 
-@keyframes easy-button-spinner {
+@keyframes easy-button-swirl-spin-ccw {
   from {
-    transform: rotate(0deg);
+    transform: rotate(0deg) scale(var(--sc));
   }
 
   to {
-    transform: rotate(360deg);
+    transform: rotate(-360deg) scale(var(--sc));
+  }
+}
+
+@keyframes easy-button-swirl-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.09);
   }
 }
 
@@ -780,5 +928,12 @@
   .easy-button-control::after {
     opacity: 0.4;
     transform: scale(1);
+  }
+
+  /* The field still has to say "working", so it stays visible — just still, and
+     dimmer than the 0.85 it fades to when motion is allowed. Same selector as
+     the unreduced rule and later in the file, so it wins on source order. */
+  .easy-button-surface[data-easy-button-state="working"] .easy-button-swirl {
+    opacity: 0.5;
   }
 }

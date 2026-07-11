@@ -1,4 +1,4 @@
-import { Check, LoaderCircle, Sparkles, Square, X } from "lucide-react";
+import { Check, Sparkles, Square, X } from "lucide-react";
 import {
   type FormEvent,
   type KeyboardEvent,
@@ -48,6 +48,7 @@ export function EasyButtonSurface() {
             />
           </div>
           <div className="easy-button-button-well">
+            <SwirlField />
             <button
               aria-label={controller.controlLabel}
               className="easy-button-control"
@@ -57,7 +58,6 @@ export function EasyButtonSurface() {
               onClick={controller.handleControlClick}
               type="button"
             >
-              <span className="easy-button-control-ring" />
               <ControlGlyph statusTone={controller.statusTone} viewState={controller.viewState} />
             </button>
           </div>
@@ -667,6 +667,21 @@ function StopButton({
   );
 }
 
+// The swirl is the pane's working-state indicator, and it is driven entirely by
+// `data-easy-button-state` on the surface — nothing here reads the controller.
+function SwirlField() {
+  return (
+    <div aria-hidden="true" className="easy-button-swirl">
+      <div className="easy-button-swirl-inner">
+        <div className="easy-button-swirl-core" />
+        <div className="easy-button-swirl-layer easy-button-swirl-layer-1" />
+        <div className="easy-button-swirl-layer easy-button-swirl-layer-2" />
+        <div className="easy-button-swirl-layer easy-button-swirl-layer-3" />
+      </div>
+    </div>
+  );
+}
+
 function ControlGlyph({
   statusTone,
   viewState,
@@ -675,14 +690,15 @@ function ControlGlyph({
   viewState: EasyButtonViewState;
 }) {
   switch (viewState) {
-    case "working":
-      return <LoaderCircle aria-hidden="true" className="easy-button-spinner easy-button-glyph" />;
     case "complete":
       return statusTone === "failed" ? (
         <X aria-hidden="true" className="easy-button-glyph" />
       ) : (
         <Check aria-hidden="true" className="easy-button-glyph" />
       );
+    // The button keeps its resting glyph while working; the swirl behind it, not
+    // a glyph swap, is what says the run is live.
+    case "working":
     case "idle":
       return <Sparkles aria-hidden="true" className="easy-button-glyph" />;
   }
