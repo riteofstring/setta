@@ -3575,6 +3575,16 @@ export function decodeCodexLoginType(value: unknown, label = "CodexLoginType"): 
   }
 }
 
+export const conversationPaletteCatalog = {
+  "sky": {"id":"sky","dark":{"conversationAccent":"oklch(0.846 0.1292 213.38)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.846 0.1292 213.38)"},"light":{"conversationAccent":"oklch(0.48 0.13 213.38)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 213.38)"}},
+  "blue": {"id":"blue","dark":{"conversationAccent":"oklch(0.76 0.115 250)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.76 0.115 250)"},"light":{"conversationAccent":"oklch(0.48 0.13 250)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 250)"}},
+  "violet": {"id":"violet","dark":{"conversationAccent":"oklch(0.76 0.125 290)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.76 0.125 290)"},"light":{"conversationAccent":"oklch(0.48 0.14 290)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.14 290)"}},
+  "magenta": {"id":"magenta","dark":{"conversationAccent":"oklch(0.77 0.135 335)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.77 0.135 335)"},"light":{"conversationAccent":"oklch(0.48 0.16 335)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.16 335)"}},
+  "amber": {"id":"amber","dark":{"conversationAccent":"oklch(0.82 0.135 78)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.82 0.135 78)"},"light":{"conversationAccent":"oklch(0.48 0.12 78)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.12 78)"}},
+  "green": {"id":"green","dark":{"conversationAccent":"oklch(0.79 0.145 152)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.79 0.145 152)"},"light":{"conversationAccent":"oklch(0.48 0.13 152)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 152)"}},
+  "teal": {"id":"teal","dark":{"conversationAccent":"oklch(0.82 0.125 185)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.82 0.125 185)"},"light":{"conversationAccent":"oklch(0.48 0.11 185)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.11 185)"}},
+} as const satisfies Readonly<Record<ConversationPaletteID, unknown>>;
+
 function decodeContractLiteral<T extends string>(value: string, expected: T, label: string): T {
   if (value !== expected) {
     throw new Error(label + " must be " + expected + ", got " + value);

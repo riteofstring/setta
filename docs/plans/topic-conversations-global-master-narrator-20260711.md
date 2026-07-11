@@ -2392,3 +2392,29 @@ Implementation is in progress under this plan.
   in that legacy semantic path, so the result is recorded as a regression
   failure rather than provider proof. Phase 3 item 4, removing the one-Easy-Button
   pane limit, is next with no external blocker.
+- 2026-07-11: The Phase 3 item 3 review fixed three projection gaps without
+  beginning item 4. The contract generator now emits the complete accessible
+  palette catalog and dark/light semantic renderer tokens directly from the
+  Go-owned `conversationpalette.Catalog`; `EasyButtonSurface` applies those
+  exact tokens instead of recording only a palette id while every pane retained
+  the cyan default. Retained snapshots now expose loading and failed refreshes
+  in visible helper copy, and cancelled turns use explicit cancelled copy,
+  accessible labeling, and a stop glyph rather than a success check.
+- 2026-07-11: The review also removed obsolete pane-owned Easy Button, speech,
+  performance, and live workflows from the active Electron manifest after
+  confirming the former required Easy Button workflow timed out against the
+  deliberately disabled legacy input. The replacement
+  `topic-conversation-pane-projection` workflow remains required; the standalone
+  historical files remain for the later planned obsolete-path deletion rather
+  than expanding this review into that step. Focused generator/catalog and
+  renderer tests passed, all 1,163 desktop tests passed, and desktop typecheck,
+  lint, dead-code analysis, production build, and the deterministic production
+  Electron topic-projection workflow passed. The generated backend TypeScript
+  changed; the HTTP contract schema snapshot did not. The final broad gate
+  cleared file limits, every Go package, formatting/static analysis, all desktop
+  tests, and the build, then reproduced the previously recorded unrelated
+  `codex-protocol-notifications` Electron timeout after all preceding chat cases
+  passed; focused production evidence for this slice remained clean. The
+  supply-chain audit likewise reproduced the existing `GO-2026-5856` finding in
+  pinned Go 1.26.4, fixed in 1.26.5; no dependency or toolchain pin changed.
+  Phase 3 item 4 remains next with no external blocker.

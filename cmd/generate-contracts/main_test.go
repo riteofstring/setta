@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -10,6 +12,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 type ContractTestLeaf struct {
@@ -215,6 +218,44 @@ func TestRenderProducesGeneratedClientSmoke(t *testing.T) {
 	} {
 		if strings.Contains(output, runtimeBlock) {
 			t.Fatalf("generated output contains stable runtime block %q:\n%s", runtimeBlock, output)
+		}
+	}
+}
+
+func TestConversationPaletteCatalogRendersFromGoOwner(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractConversationSnapshot",
+			Method:   "GET",
+			Path:     "/contract-conversation-snapshot",
+			Response: reflect.TypeFor[conversation.ConversationSnapshot](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{})
+	if err != nil {
+		t.Fatalf("collect contracts: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+	if !strings.Contains(output, "export const conversationPaletteCatalog = {") ||
+		!strings.Contains(
+			output,
+			"as const satisfies Readonly<Record<ConversationPaletteID, unknown>>;",
+		) {
+		t.Fatalf("generated output is missing the typed conversation palette catalog:\n%s", output)
+	}
+	for _, palette := range conversationpalette.Catalog() {
+		encoded, marshalErr := json.Marshal(palette)
+		if marshalErr != nil {
+			t.Fatalf("marshal palette %q: %v", palette.ID, marshalErr)
+		}
+		want := fmt.Sprintf("  %q: %s,", palette.ID, encoded)
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated output is missing Go-owned palette %q:\n%s", palette.ID, output)
 		}
 	}
 }

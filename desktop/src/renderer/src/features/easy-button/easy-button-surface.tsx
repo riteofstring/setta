@@ -1,16 +1,17 @@
-import { Check, Sparkles, X } from "lucide-react";
-import { type RefObject, useEffect, useRef } from "react";
+import { Check, Sparkles, Square, X } from "lucide-react";
+import { type CSSProperties, type RefObject, useEffect, useRef } from "react";
 
-import type {
-  Artifact,
-  ConversationPaletteID,
-  ConversationSnapshot,
-  ConversationTurn,
-  NarrationEvent,
-  NarratorState,
-  Subagent,
-  TopicConversation,
-  TrajectoryEvent,
+import {
+  conversationPaletteCatalog,
+  type Artifact,
+  type ConversationPaletteID,
+  type ConversationSnapshot,
+  type ConversationTurn,
+  type NarrationEvent,
+  type NarratorState,
+  type Subagent,
+  type TopicConversation,
+  type TrajectoryEvent,
 } from "@generated/backend";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
@@ -32,6 +33,14 @@ type EasyButtonProjectionStatus =
   | "ready"
   | "error"
   | "resyncing";
+type ConversationPaletteStyle = CSSProperties & {
+  "--conversation-accent-dark": string;
+  "--conversation-accent-foreground-dark": string;
+  "--conversation-accent-foreground-light": string;
+  "--conversation-accent-light": string;
+  "--conversation-focus-ring-dark": string;
+  "--conversation-focus-ring-light": string;
+};
 
 interface EasyButtonSurfaceProps {
   conversationId: string | null;
@@ -57,10 +66,17 @@ export interface EasyButtonProjectionView {
 
 export function EasyButtonSurface({ conversationId }: EasyButtonSurfaceProps) {
   const projection = useConversationStore((state) =>
-    conversationId ? state.conversations.get(conversationId) : undefined,
+    easyButtonConversationProjection(state.conversations, conversationId),
   );
   const view = easyButtonProjectionView(conversationId, projection);
   return <EasyButtonProjectionSurface view={view} />;
+}
+
+export function easyButtonConversationProjection(
+  conversations: ReadonlyMap<string, ConversationProjection>,
+  conversationId: string | null,
+): ConversationProjection | undefined {
+  return conversationId ? conversations.get(conversationId) : undefined;
 }
 
 export function EasyButtonProjectionSurface({ view }: { view: EasyButtonProjectionView }) {
@@ -79,6 +95,7 @@ export function EasyButtonProjectionSurface({ view }: { view: EasyButtonProjecti
       data-easy-button-status={view.statusTone}
       data-testid="easy-button-surface"
       ref={rootRef}
+      style={conversationPaletteStyle(view.paletteId)}
     >
       <HighlightRail milestones={view.milestones} />
       <main className="easy-button-stage">
@@ -89,7 +106,7 @@ export function EasyButtonProjectionSurface({ view }: { view: EasyButtonProjecti
           <div className="easy-button-button-well">
             <SwirlField />
             <button
-              aria-label="Conversation status"
+              aria-label={conversationControlLabel(view)}
               className="easy-button-control"
               data-testid="easy-button-control"
               disabled
@@ -298,7 +315,7 @@ function conversationHelperCopy(
   latestTurn: ConversationTurn | null,
   projectionStatus: EasyButtonProjectionStatus,
 ): string {
-  if (projectionStatus === "resyncing") {
+  if (projectionStatus !== "ready") {
     return projectionHelperCopy(projectionStatus);
   }
   switch (conversation.status) {
@@ -309,7 +326,21 @@ function conversationHelperCopy(
     case "failed":
       return "Conversation failed";
     case "idle":
-      return latestTurn && terminalTurn(latestTurn) ? "Ready for more work" : "Conversation ready";
+      return terminalHelperCopy(latestTurn);
+  }
+}
+
+function terminalHelperCopy(latestTurn: ConversationTurn | null): string {
+  if (!latestTurn || !terminalTurn(latestTurn)) {
+    return "Conversation ready";
+  }
+  switch (latestTurn.status) {
+    case "completed":
+      return "Ready for more work";
+    case "cancelled":
+      return "Work cancelled";
+    case "failed":
+      return "Work failed";
   }
 }
 
@@ -477,13 +508,62 @@ function ControlGlyph({
   viewState: EasyButtonViewState;
 }) {
   if (viewState === "complete") {
-    return statusTone === "failed" ? (
-      <X aria-hidden="true" className="easy-button-glyph" />
-    ) : (
-      <Check aria-hidden="true" className="easy-button-glyph" />
-    );
+    switch (statusTone) {
+      case "completed":
+        return (
+          <Check
+            aria-hidden="true"
+            className="easy-button-glyph"
+            data-easy-button-glyph="completed"
+          />
+        );
+      case "failed":
+        return (
+          <X aria-hidden="true" className="easy-button-glyph" data-easy-button-glyph="failed" />
+        );
+      case "stopped":
+        return (
+          <Square
+            aria-hidden="true"
+            className="easy-button-glyph"
+            data-easy-button-glyph="cancelled"
+          />
+        );
+      case "none":
+        return <Sparkles aria-hidden="true" className="easy-button-glyph" />;
+    }
   }
   return <Sparkles aria-hidden="true" className="easy-button-glyph" />;
+}
+
+function conversationControlLabel(view: EasyButtonProjectionView): string {
+  switch (view.statusTone) {
+    case "completed":
+      return "Conversation work completed";
+    case "failed":
+      return "Conversation work failed";
+    case "stopped":
+      return "Conversation work cancelled";
+    case "none":
+      return view.helperCopy;
+  }
+}
+
+function conversationPaletteStyle(
+  paletteId: ConversationPaletteID | null,
+): ConversationPaletteStyle | undefined {
+  if (!paletteId) {
+    return undefined;
+  }
+  const palette = conversationPaletteCatalog[paletteId];
+  return {
+    "--conversation-accent-dark": palette.dark.conversationAccent,
+    "--conversation-accent-foreground-dark": palette.dark.conversationAccentForeground,
+    "--conversation-accent-foreground-light": palette.light.conversationAccentForeground,
+    "--conversation-accent-light": palette.light.conversationAccent,
+    "--conversation-focus-ring-dark": palette.dark.conversationFocusRing,
+    "--conversation-focus-ring-light": palette.light.conversationFocusRing,
+  };
 }
 
 function useEasyButtonPaneTitle(

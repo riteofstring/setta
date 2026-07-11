@@ -16,14 +16,15 @@ import (
 )
 
 type contractSpec struct {
-	Endpoints       []endpointSpec
-	ErrorResponse   reflect.Type
-	Events          []eventSpec
-	Interfaces      []interfaceSpec
-	ProtocolVersion int
-	SchemaHash      string
-	Unions          []unionSpec
-	ValueSets       []valueSetSpec
+	ConversationPaletteCatalog []generatedValueSpec
+	Endpoints                  []endpointSpec
+	ErrorResponse              reflect.Type
+	Events                     []eventSpec
+	Interfaces                 []interfaceSpec
+	ProtocolVersion            int
+	SchemaHash                 string
+	Unions                     []unionSpec
+	ValueSets                  []valueSetSpec
 }
 
 type endpointSpec struct {
@@ -149,16 +150,23 @@ func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContract
 	if err != nil {
 		return contractSpec{}, err
 	}
+	conversationPaletteCatalog, err := conversationPaletteCatalogSpecs(
+		collector.usedValueNames["ConversationPaletteID"],
+	)
+	if err != nil {
+		return contractSpec{}, err
+	}
 	collector.attachFieldLiterals()
 	return contractSpec{
-		Endpoints:       endpoints,
-		ErrorResponse:   errorResponse,
-		Events:          events,
-		Interfaces:      collector.specs,
-		ProtocolVersion: httpapi.ProtocolVersion,
-		SchemaHash:      schemaHash,
-		Unions:          collector.unions,
-		ValueSets:       collector.usedValueSets,
+		ConversationPaletteCatalog: conversationPaletteCatalog,
+		Endpoints:                  endpoints,
+		ErrorResponse:              errorResponse,
+		Events:                     events,
+		Interfaces:                 collector.specs,
+		ProtocolVersion:            httpapi.ProtocolVersion,
+		SchemaHash:                 schemaHash,
+		Unions:                     collector.unions,
+		ValueSets:                  collector.usedValueSets,
 	}, nil
 }
 func endpointSpecs(endpoints []httpapi.ContractEndpoint, collector *contractCollector) ([]endpointSpec, error) {
@@ -497,6 +505,7 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 	renderRuntimeImports(buffer, specs)
 	renderProtocolMetadata(buffer, specs)
 	renderValueSets(buffer, specs.ValueSets)
+	renderConversationPaletteCatalog(buffer, specs.ConversationPaletteCatalog)
 	renderContractLiteralDecoder(buffer, specs.Interfaces)
 	if err := renderInterfaces(buffer, specs.Interfaces); err != nil {
 		return err
@@ -516,40 +525,6 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 func renderProtocolMetadata(buffer *bytes.Buffer, specs contractSpec) {
 	fmt.Fprintf(buffer, "export const backendProtocolVersion = %d;\n", specs.ProtocolVersion)
 	fmt.Fprintf(buffer, "export const backendContractSchemaHash = %q;\n\n", specs.SchemaHash)
-}
-
-func renderValueSets(buffer *bytes.Buffer, specs []valueSetSpec) {
-	for _, spec := range specs {
-		fmt.Fprintf(buffer, "export type %s = %s;\n\n", spec.Name, literalUnion(spec.Values))
-		fmt.Fprintf(buffer, "export const %sValues = [%s] as const satisfies readonly %s[];\n\n", lowerCamel(spec.Name), literalList(spec.Values), spec.Name)
-		fmt.Fprintf(buffer, "export function decode%s(value: unknown, label = %q): %s {\n", spec.Name, spec.Name, spec.Name)
-		buffer.WriteString("  const decoded = decodeString(value, label);\n")
-		buffer.WriteString("  switch (decoded) {\n")
-		for _, value := range spec.Values {
-			fmt.Fprintf(buffer, "    case %q:\n", value)
-			buffer.WriteString("      return decoded;\n")
-		}
-		buffer.WriteString("    default:\n")
-		buffer.WriteString("      throw new Error(label + \" is unsupported: \" + decoded);\n")
-		buffer.WriteString("  }\n")
-		buffer.WriteString("}\n\n")
-	}
-}
-
-func literalList(values []string) string {
-	quoted := make([]string, 0, len(values))
-	for _, value := range values {
-		quoted = append(quoted, fmt.Sprintf("%q", value))
-	}
-	return strings.Join(quoted, ", ")
-}
-
-func literalUnion(values []string) string {
-	quoted := make([]string, 0, len(values))
-	for _, value := range values {
-		quoted = append(quoted, fmt.Sprintf("%q", value))
-	}
-	return strings.Join(quoted, " | ")
 }
 
 func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec) error {

@@ -20,6 +20,7 @@ import { useConversationStore } from "../../stores/conversation-store";
 import {
   EasyButtonProjectionSurface,
   EasyButtonSurface,
+  easyButtonConversationProjection,
   easyButtonProjectionView,
 } from "./easy-button-surface";
 
@@ -44,7 +45,7 @@ describe("Easy Button topic conversation projection", () => {
       <EasyButtonProjectionSurface
         view={easyButtonProjectionView(
           working.conversation.id,
-          projections.get(working.conversation.id),
+          easyButtonConversationProjection(projections, working.conversation.id),
         )}
       />,
     );
@@ -52,13 +53,15 @@ describe("Easy Button topic conversation projection", () => {
       <EasyButtonProjectionSurface
         view={easyButtonProjectionView(
           completed.conversation.id,
-          projections.get(completed.conversation.id),
+          easyButtonConversationProjection(projections, completed.conversation.id),
         )}
       />,
     );
 
     expect(alpha).toContain('data-conversation-id="conversation_alpha"');
     expect(alpha).toContain('data-conversation-palette="violet"');
+    expect(alpha).toContain("--conversation-accent-dark:oklch(0.76 0.125 290)");
+    expect(alpha).toContain("--conversation-accent-light:oklch(0.48 0.14 290)");
     expect(alpha).toContain('data-easy-button-state="working"');
     expect(alpha).toContain("Implement Alpha topic");
     expect(alpha).toContain("Alpha topic milestone");
@@ -67,6 +70,7 @@ describe("Easy Button topic conversation projection", () => {
 
     expect(beta).toContain('data-conversation-id="conversation_beta"');
     expect(beta).toContain('data-conversation-palette="amber"');
+    expect(beta).toContain("--conversation-accent-dark:oklch(0.82 0.135 78)");
     expect(beta).toContain('data-easy-button-state="complete"');
     expect(beta).toContain("Beta topic is complete");
     expect(beta).not.toContain("Alpha topic milestone");
@@ -125,6 +129,46 @@ describe("Easy Button topic conversation projection", () => {
     expect(view.focusStatus).toBe("stale");
     expect(view.narratorDegradation).toBe("Narrator model is unavailable.");
     expect(view.activeAgentCount).toBe(1);
+  });
+
+  test("keeps loading and failed refresh state explicit while retaining a snapshot", () => {
+    const snapshot = workingSnapshot("conversation_refresh", "Refresh topic", "green");
+    const loading = easyButtonProjectionView(snapshot.conversation.id, {
+      ...readyProjection(snapshot),
+      status: "loading",
+    });
+    const failed = easyButtonProjectionView(snapshot.conversation.id, {
+      ...readyProjection(snapshot),
+      error: "Snapshot refresh failed.",
+      status: "error",
+    });
+
+    expect(loading.projectionStatus).toBe("loading");
+    expect(loading.helperCopy).toBe("Loading conversation…");
+    expect(failed.projectionStatus).toBe("error");
+    expect(failed.helperCopy).toBe("Conversation could not be loaded");
+    expect(failed.error).toBe("Snapshot refresh failed.");
+  });
+
+  test("presents cancellation without success affordances", () => {
+    const snapshot = completedSnapshot("conversation_cancelled", "Cancelled topic", "blue");
+    snapshot.turns.turns[0] = {
+      ...snapshot.turns.turns[0]!,
+      resolvedInvocation: resolvedInvocation("agent", "cancelled"),
+      status: "cancelled",
+    };
+
+    const html = renderToString(
+      <EasyButtonProjectionSurface
+        view={easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot))}
+      />,
+    );
+
+    expect(html).toContain('data-easy-button-status="stopped"');
+    expect(html).toContain('data-easy-button-glyph="cancelled"');
+    expect(html).toContain('aria-label="Conversation work cancelled"');
+    expect(html).toContain("Work cancelled");
+    expect(html).not.toContain('data-easy-button-glyph="completed"');
   });
 });
 

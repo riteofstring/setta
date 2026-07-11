@@ -149,7 +149,7 @@ function printUsage() {
   process.stdout.write(`Usage: node desktop/tests/electron/run-workflows.mjs [options]
 
 Options:
-  --tier <required|performance|live|live-openai|all>
+  --tier <required|performance|live|all>
                                            Run workflows in a manifest tier.
   --workflow <name>                       Run one named workflow; repeatable.
   --visible                               Show Electron windows for workflows that support it.

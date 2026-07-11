@@ -1,5 +1,5 @@
 .easy-button-surface {
-  --easy-button-primary: var(--accent-cyan);
+  --easy-button-primary: var(--conversation-accent);
   --easy-button-panel: var(--setta-875);
   --easy-button-plate: var(--setta-925);
   --easy-button-border: var(--setta-750);
@@ -617,7 +617,7 @@
 }
 
 .easy-button-control:focus-visible {
-  outline: 2px solid var(--easy-button-primary);
+  outline: 2px solid var(--conversation-focus-ring);
   outline-offset: 4px;
 }
 

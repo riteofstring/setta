@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -16,6 +17,7 @@ import (
 	"setta/internal/terminal"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspaceui"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 func contractUnions() map[reflect.Type]unionSpec {
@@ -206,4 +208,31 @@ func valueSetValues(valueSet chat.ContractValueSet) ([]string, error) {
 		values = append(values, value)
 	}
 	return values, nil
+}
+
+func conversationPaletteCatalogSpecs(enabled bool) ([]generatedValueSpec, error) {
+	if !enabled {
+		return nil, nil
+	}
+	catalog := conversationpalette.Catalog()
+	if len(catalog) == 0 {
+		return nil, fmt.Errorf("conversation palette catalog is empty")
+	}
+	specs := make([]generatedValueSpec, 0, len(catalog))
+	seen := make(map[conversationpalette.ConversationPaletteID]bool, len(catalog))
+	for _, palette := range catalog {
+		if palette.ID == "" {
+			return nil, fmt.Errorf("conversation palette catalog contains an empty id")
+		}
+		if seen[palette.ID] {
+			return nil, fmt.Errorf("conversation palette catalog contains duplicate id %q", palette.ID)
+		}
+		seen[palette.ID] = true
+		encoded, err := json.Marshal(palette)
+		if err != nil {
+			return nil, fmt.Errorf("encode conversation palette %q: %w", palette.ID, err)
+		}
+		specs = append(specs, generatedValueSpec{Key: string(palette.ID), JSON: string(encoded)})
+	}
+	return specs, nil
 }
