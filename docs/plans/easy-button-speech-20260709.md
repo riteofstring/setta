@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-4 complete, Phase 5 next
+**Status:** Implementation in progress — Phases 1-4 and Phase 5 item 1 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -3643,6 +3643,68 @@ Phases 1-4 remain complete. This audit did not start Phase 5. The next coherent
 slice remains Phase 5 item 1: enqueue only live typed narrator-highlight events
 in `highlights_and_final` mode while excluding chat messages, Current focus,
 hydration, and every other source.
+
+### 2026-07-10 — Phase 5 live narrator-highlight playback complete
+
+Implemented Phase 5 item 1 without pulling the rail source indicator, terminal
+priority, run-switch cancellation, stale-response hardening, or visual matrix
+forward. The typed Easy Run event reducer now publishes a transient highlight
+speech intent only after applying a live `easyrun.highlight.created` event for
+the selected run. Snapshot hydration, run/current-focus updates, artifact
+events, other workspaces, duplicate events, event gaps, and invalid ownership
+publish no highlight intent. The intent contains only the persisted workspace,
+Easy Run, and highlight IDs; it never carries highlight prose, chat messages,
+steering text, or Current focus.
+
+The mounted playback hook accepts that intent only in
+`highlights_and_final` mode on the still-connected matching runtime/workspace.
+The playback controller now owns an exhaustive persisted-source union for
+terminal summaries and narrator highlights, calls the existing generated
+highlight synthesis surface with the exact IDs, validates the returned
+highlight source ID and WAV metadata, and serializes the result through its
+existing queue. Summary playback remains available in both enabled modes, and
+highlight playback cannot mark the terminal summary as speaking. Phase 5 item
+2 remains the owner of the highlight-row equalizer and foreground lift.
+
+Verification completed for this slice:
+
+- 46 focused Easy Run event/store, automatic eligibility, playback-controller,
+  and terminal-source Vitest cases passed, including live-only intent
+  publication, hydration/duplicate/workspace exclusion, final/off mode
+  rejection, exact highlight endpoint arguments, source validation,
+  deduplication, and summary/highlight source separation;
+- all 1,122 desktop Vitest tests, focused ESLint, Electron/web typechecks, and
+  both production builds passed. The checked-in PWA bundle was regenerated and
+  the embedded-webapp Go test passed;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase5-highlight-intent-20260710-r3`.
+  It spoke two live narrator highlights in persisted order through the real
+  renderer, preload, main, authenticated HTTP, speech service, and
+  persisted-source path; the fake OpenAI boundary received the exact two
+  stored strings. All prior capture, terminal TTS, cancellation, failure,
+  persistence, hydration-silence, and secret/audio redaction assertions also
+  remained green;
+- the complete deterministic Easy Button workflow and existing pixel-match
+  companion passed at
+  `desktop/.recordings/easy-button-speech-phase5-highlight-intent-regression-20260710`;
+- ChatGPT authentication was available. With `OPENAI_API_KEY` removed, the
+  live Electron chat and all four supplemental backend Codex probes passed.
+  The first live Easy Button attempt completed but omitted its requested
+  artifact; the prescribed focused retry passed;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes`
+  passed. The first quality attempt found only slice-owned complexity in the
+  new production assertion; first-highlight validation was split at its owning
+  test boundary, then focused lint and the complete configured speech workflow
+  passed before the clean quality rerun.
+
+No dependency, manifest, module, package-manager, toolchain, Go-owned contract,
+or generated TypeScript contract changed, so supply-chain verification is not
+required for this slice. No live OpenAI speech result is claimed; the dedicated
+opt-in provider workflow remains Phase 5 item 8. Phase 5 item 2 is next: mark
+the exact speaking narrator highlight inside its existing dot box and lift only
+that row to the foreground without rail reflow. Item 3 then owns terminal
+priority, run/workspace switching, queue cancellation, and stale-response
+rules. No implementation blocker was found.
 
 ## Verification Plan
 

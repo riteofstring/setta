@@ -5,6 +5,7 @@ import type { EasyRunSpeechPlaybackIntent } from "../../stores/easy-run-events";
 import { subscribeEasyRunSpeechPlaybackIntents } from "../../stores/easy-run-store";
 import {
   SpeechPlaybackController,
+  type SpeechPlaybackSource,
   type SpeechPlaybackState,
   type SpeechSummarySource,
 } from "./speech-playback-controller";
@@ -20,7 +21,7 @@ export interface EasyButtonSpeechPlayback {
   stop: () => void;
 }
 
-export interface AutomaticSummaryPlaybackContext {
+export interface AutomaticSpeechPlaybackContext {
   mode: SpeechOutputMode;
   outputConfigured: boolean;
   runtimeId: string | null;
@@ -46,7 +47,7 @@ export function useSpeechPlayback(
     });
   }
   const controller = controllerRef.current;
-  const automaticPlaybackContextRef = useRef<AutomaticSummaryPlaybackContext>({
+  const automaticPlaybackContextRef = useRef<AutomaticSpeechPlaybackContext>({
     mode,
     outputConfigured,
     runtimeId,
@@ -67,9 +68,9 @@ export function useSpeechPlayback(
 
   useEffect(() => {
     return subscribeEasyRunSpeechPlaybackIntents((intent) => {
-      const source = automaticSummarySource(intent, automaticPlaybackContextRef.current);
+      const source = automaticSpeechPlaybackSource(intent, automaticPlaybackContextRef.current);
       if (source) {
-        controller.enqueueAutomaticSummary(source);
+        controller.enqueueAutomatic(source);
       }
     });
   }, [controller]);
@@ -95,19 +96,25 @@ export function useSpeechPlayback(
   };
 }
 
-export function automaticSummarySource(
+export function automaticSpeechPlaybackSource(
   intent: EasyRunSpeechPlaybackIntent,
-  context: AutomaticSummaryPlaybackContext,
-): SpeechSummarySource | null {
+  context: AutomaticSpeechPlaybackContext,
+): SpeechPlaybackSource | null {
   if (
-    context.mode === "off" ||
     !context.outputConfigured ||
     !context.runtimeId ||
     intent.source.workspaceId !== context.workspaceId
   ) {
     return null;
   }
-  return { ...intent.source };
+  switch (intent.type) {
+    case "terminal_summary":
+      return context.mode === "off" ? null : { ...intent.source, kind: "terminal_summary" };
+    case "highlight":
+      return context.mode === "highlights_and_final"
+        ? { ...intent.source, kind: "highlight" }
+        : null;
+  }
 }
 
 function useActiveConnectedRuntimeId(): string | null {

@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   SpeechPlaybackController,
   type SpeechPlaybackControllerDependencies,
+  type SpeechHighlightSource,
   type SpeechPlaybackState,
   type SpeechSummarySource,
 } from "./speech-playback-controller";
@@ -13,7 +14,7 @@ describe("Easy Button speech playback controller", () => {
     const harness = createHarness();
     const source = summarySource("run_a");
 
-    harness.controller.enqueueAutomaticSummary(source);
+    harness.controller.enqueueAutomatic(source);
     expect(harness.currentState()).toEqual({ source, type: "synthesizing" });
     expect(harness.synthesisRequests).toEqual([
       { easyRunId: "run_a", workspaceId: "workspace_playback" },
@@ -30,15 +31,40 @@ describe("Easy Button speech playback controller", () => {
     expect(harness.currentState()).toEqual({ type: "idle" });
   });
 
+  test("synthesizes an exact persisted highlight ID through the highlight endpoint", async () => {
+    const harness = createHarness();
+    const source = highlightSource("run_highlight", "highlight_live");
+
+    harness.controller.enqueueAutomatic(source);
+    expect(harness.currentState()).toEqual({ source, type: "synthesizing" });
+    expect(harness.highlightSynthesisRequests).toEqual([
+      {
+        easyRunId: "run_highlight",
+        highlightId: "highlight_live",
+        workspaceId: "workspace_playback",
+      },
+    ]);
+
+    harness.resolveSynthesis(0, speechAudio("highlight_live"));
+    await flushPromises();
+    expect(harness.currentState()).toEqual({ source, type: "speaking" });
+    expect(harness.audios[0]?.play).toHaveBeenCalledOnce();
+
+    harness.controller.enqueueAutomatic(source);
+    harness.controller.enqueueAutomatic(highlightSource("run_highlight", "highlight_live_2"));
+    harness.audios[0]?.emit("ended");
+    expect(harness.highlightSynthesisRequests).toHaveLength(2);
+  });
+
   test("keeps a FIFO queue and deduplicates automatic and pending summaries", async () => {
     const harness = createHarness();
     const sourceA = summarySource("run_a");
     const sourceB = summarySource("run_b");
 
-    harness.controller.enqueueAutomaticSummary(sourceA);
-    harness.controller.enqueueAutomaticSummary(sourceA);
+    harness.controller.enqueueAutomatic(sourceA);
+    harness.controller.enqueueAutomatic(sourceA);
     harness.controller.replaySummary(sourceA);
-    harness.controller.enqueueAutomaticSummary(sourceB);
+    harness.controller.enqueueAutomatic(sourceB);
     expect(harness.synthesisRequests).toHaveLength(1);
 
     harness.resolveSynthesis(0, speechAudio("run_a"));
@@ -55,8 +81,8 @@ describe("Easy Button speech playback controller", () => {
     await flushPromises();
     expect(harness.revokedURLs).toEqual(["blob:speech-1"]);
     harness.audios[1]?.emit("ended");
-    harness.controller.enqueueAutomaticSummary(sourceA);
-    harness.controller.enqueueAutomaticSummary(sourceB);
+    harness.controller.enqueueAutomatic(sourceA);
+    harness.controller.enqueueAutomatic(sourceB);
     expect(harness.synthesisRequests).toHaveLength(2);
   });
 
@@ -142,7 +168,7 @@ describe("Easy Button speech playback controller", () => {
     const harness = createHarness();
     const source = summarySource("run_reset");
 
-    harness.controller.enqueueAutomaticSummary(source);
+    harness.controller.enqueueAutomatic(source);
     harness.resolveSynthesis(0, speechAudio("run_reset"));
     await flushPromises();
     const activeAudio = harness.audios[0];
@@ -156,7 +182,7 @@ describe("Easy Button speech playback controller", () => {
     expect(harness.revokedURLs).toEqual(["blob:speech-1"]);
     expect(harness.currentState()).toEqual({ type: "idle" });
 
-    harness.controller.enqueueAutomaticSummary(source);
+    harness.controller.enqueueAutomatic(source);
     expect(harness.synthesisRequests).toHaveLength(2);
     harness.controller.dispose();
     expect(harness.synthesisSignals[1]?.aborted).toBe(true);
@@ -323,6 +349,11 @@ function createHarness(
 ) {
   const states: SpeechPlaybackState[] = [];
   const synthesisRequests: Array<{ easyRunId: string; workspaceId: string }> = [];
+  const highlightSynthesisRequests: Array<{
+    easyRunId: string;
+    highlightId: string;
+    workspaceId: string;
+  }> = [];
   const synthesisSignals: AbortSignal[] = [];
   const synthesisResults: Array<Deferred<SpeechAudio>> = [];
   const audios: FakeAudio[] = [];
@@ -350,6 +381,13 @@ function createHarness(
     },
     decodeBase64: options.decodeBase64 ?? (() => new Uint8Array([82, 73, 70, 70])),
     revokeObjectURL: (url) => revokedURLs.push(url),
+    synthesizeHighlight: (request, signal) => {
+      highlightSynthesisRequests.push(request);
+      synthesisSignals.push(signal);
+      const result = deferred<SpeechAudio>();
+      synthesisResults.push(result);
+      return result.promise;
+    },
     synthesizeSummary: (request, signal) => {
       synthesisRequests.push(request);
       synthesisSignals.push(signal);
@@ -367,6 +405,7 @@ function createHarness(
     controller,
     createdURLs,
     currentState: () => states.at(-1) ?? controller.state,
+    highlightSynthesisRequests,
     rejectSynthesis: (index: number, error: Error) => synthesisResults[index]?.reject(error),
     resolveSynthesis: (index: number, audio: SpeechAudio) =>
       synthesisResults[index]?.resolve(audio),
@@ -387,7 +426,11 @@ function createHarness(
 }
 
 function summarySource(easyRunId: string): SpeechSummarySource {
-  return { easyRunId, workspaceId: "workspace_playback" };
+  return { easyRunId, kind: "terminal_summary", workspaceId: "workspace_playback" };
+}
+
+function highlightSource(easyRunId: string, highlightId: string): SpeechHighlightSource {
+  return { easyRunId, highlightId, kind: "highlight", workspaceId: "workspace_playback" };
 }
 
 function speechAudio(sourceId: string): SpeechAudio {

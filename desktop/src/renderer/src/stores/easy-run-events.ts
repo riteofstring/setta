@@ -1,4 +1,4 @@
-import type { EasyArtifact, EasyHighlight, EasyRun, EasyRunEvent } from "@generated/backend";
+import type { EasyArtifact, EasyRun, EasyRunEvent } from "@generated/backend";
 
 import type { EasyRunStoreData } from "./easy-run-store";
 
@@ -8,14 +8,30 @@ export interface EasyRunEventApplyResult {
   speechPlaybackIntent: EasyRunSpeechPlaybackIntent | null;
 }
 
-export interface EasyRunSpeechPlaybackIntent {
+interface EasyRunSpeechPlaybackIntentBase {
   eventId: string;
+}
+
+interface EasyRunTerminalSummaryPlaybackIntent extends EasyRunSpeechPlaybackIntentBase {
   source: {
     easyRunId: string;
     workspaceId: string;
   };
   type: "terminal_summary";
 }
+
+interface EasyRunHighlightPlaybackIntent extends EasyRunSpeechPlaybackIntentBase {
+  source: {
+    easyRunId: string;
+    highlightId: string;
+    workspaceId: string;
+  };
+  type: "highlight";
+}
+
+export type EasyRunSpeechPlaybackIntent =
+  | EasyRunHighlightPlaybackIntent
+  | EasyRunTerminalSummaryPlaybackIntent;
 
 export function applyEasyRunEvent(
   state: EasyRunStoreData,
@@ -31,11 +47,7 @@ export function applyEasyRunEvent(
     case "easyrun.run.updated":
       return applyRunUpdatedEvent(state, event);
     case "easyrun.highlight.created":
-      return applyHighlightCreatedEvent(
-        state,
-        event.easyRunId,
-        requireBranch(event.highlightCreated, event.type).highlight,
-      );
+      return applyHighlightCreatedEvent(state, event);
     case "easyrun.artifact.created":
       return applyArtifactCreatedEvent(
         state,
@@ -89,9 +101,10 @@ function terminalSummaryPlaybackIntent(
 
 function applyHighlightCreatedEvent(
   state: EasyRunStoreData,
-  easyRunId: string,
-  highlight: EasyHighlight,
+  event: EasyRunEvent,
 ): EasyRunEventApplyResult {
+  const highlight = requireBranch(event.highlightCreated, event.type).highlight;
+  const easyRunId = event.easyRunId;
   if (state.latestRun?.id !== easyRunId || highlight.easyRunId !== easyRunId) {
     return unchangedEventResult(true);
   }
@@ -101,7 +114,15 @@ function applyHighlightCreatedEvent(
       status: "ready",
     },
     resync: false,
-    speechPlaybackIntent: null,
+    speechPlaybackIntent: {
+      eventId: event.eventId,
+      source: {
+        easyRunId,
+        highlightId: highlight.id,
+        workspaceId: event.workspaceId,
+      },
+      type: "highlight",
+    },
   };
 }
 

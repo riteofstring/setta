@@ -6,6 +6,7 @@ import { terminalSummaryPlaybackType } from "./easy-button-terminal-summary";
 describe("Easy Button terminal summary speech source", () => {
   const source: SpeechSummarySource = {
     easyRunId: "run_visible",
+    kind: "terminal_summary",
     workspaceId: "workspace_visible",
   };
 
@@ -29,6 +30,23 @@ describe("Easy Button terminal summary speech source", () => {
       terminalSummaryPlaybackType(speaking, { ...source, workspaceId: "workspace_other" }),
     ).toBe("idle");
     expect(terminalSummaryPlaybackType(speaking, null)).toBe("idle");
+  });
+
+  test("does not point at a highlight from the same run", () => {
+    expect(
+      terminalSummaryPlaybackType(
+        {
+          source: {
+            easyRunId: source.easyRunId,
+            highlightId: "highlight_live",
+            kind: "highlight",
+            workspaceId: source.workspaceId,
+          },
+          type: "speaking",
+        },
+        source,
+      ),
+    ).toBe("idle");
   });
 });
 

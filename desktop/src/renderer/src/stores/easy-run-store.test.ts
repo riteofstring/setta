@@ -79,7 +79,46 @@ describe("easy-run store", () => {
     },
   );
 
-  test("does not publish terminal speech for hydration, stopped runs, or non-transition events", () => {
+  test("publishes only an applied live typed narrator-highlight event", () => {
+    const working = easyRun("easy_run_api");
+    const liveHighlight = highlight(1);
+    const intents: unknown[] = [];
+    const unsubscribe = subscribeEasyRunSpeechPlaybackIntents((intent) => {
+      intents.push(intent);
+    });
+    try {
+      useEasyRunStore.getState().hydrateSnapshot(
+        workspaceId,
+        easyRunSnapshot({
+          highlights: [highlight(2)],
+          latestRun: working,
+          sequence: 4,
+        }),
+      );
+      useEasyRunStore.getState().handleEvent(highlightCreatedEvent(5, liveHighlight));
+      useEasyRunStore.getState().handleEvent(highlightCreatedEvent(5, liveHighlight));
+      useEasyRunStore.getState().handleEvent({
+        ...highlightCreatedEvent(6, liveHighlight),
+        workspaceId: "workspace_other",
+      });
+    } finally {
+      unsubscribe();
+    }
+
+    expect(intents).toEqual([
+      {
+        eventId: `${eventStreamId}:5`,
+        source: {
+          easyRunId: working.id,
+          highlightId: liveHighlight.id,
+          workspaceId,
+        },
+        type: "highlight",
+      },
+    ]);
+  });
+
+  test("does not publish terminal speech for hydration, stopped runs, or non-transition updates", () => {
     const working = easyRun("easy_run_silent");
     const intents: unknown[] = [];
     const unsubscribe = subscribeEasyRunSpeechPlaybackIntents((intent) => {
@@ -101,7 +140,6 @@ describe("easy-run store", () => {
       useEasyRunStore
         .getState()
         .handleEvent(runUpdatedEvent(5, terminalEasyRun(working, "stopped")));
-      useEasyRunStore.getState().handleEvent(highlightCreatedEvent(6, highlight(1)));
     } finally {
       unsubscribe();
     }

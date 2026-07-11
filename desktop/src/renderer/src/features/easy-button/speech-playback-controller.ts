@@ -1,16 +1,30 @@
-import type { SpeechAudio, SynthesizeEasyRunSummaryRequest } from "@generated/backend";
+import type {
+  SpeechAudio,
+  SynthesizeEasyRunHighlightRequest,
+  SynthesizeEasyRunSummaryRequest,
+} from "@generated/backend";
 
 export interface SpeechSummarySource {
   easyRunId: string;
+  kind: "terminal_summary";
   workspaceId: string;
 }
 
+export interface SpeechHighlightSource {
+  easyRunId: string;
+  highlightId: string;
+  kind: "highlight";
+  workspaceId: string;
+}
+
+export type SpeechPlaybackSource = SpeechHighlightSource | SpeechSummarySource;
+
 export type SpeechPlaybackState =
   | { type: "idle" }
-  | { source: SpeechSummarySource; type: "synthesizing" }
-  | { source: SpeechSummarySource; type: "speaking" }
-  | { source: SpeechSummarySource; type: "stopped" }
-  | { message: string; source: SpeechSummarySource; type: "failed" };
+  | { source: SpeechPlaybackSource; type: "synthesizing" }
+  | { source: SpeechPlaybackSource; type: "speaking" }
+  | { source: SpeechPlaybackSource; type: "stopped" }
+  | { message: string; source: SpeechPlaybackSource; type: "failed" };
 
 interface PlaybackAudio {
   currentTime: number;
@@ -26,6 +40,10 @@ export interface SpeechPlaybackControllerDependencies {
   createObjectURL: (blob: Blob) => string;
   decodeBase64: (value: string) => Uint8Array;
   revokeObjectURL: (url: string) => void;
+  synthesizeHighlight: (
+    request: SynthesizeEasyRunHighlightRequest,
+    signal: AbortSignal,
+  ) => Promise<SpeechAudio>;
   synthesizeSummary: (
     request: SynthesizeEasyRunSummaryRequest,
     signal: AbortSignal,
@@ -48,8 +66,8 @@ interface ActivePlayback {
   failed: () => void;
 }
 
-interface QueuedSummary {
-  source: SpeechSummarySource;
+interface QueuedSpeech {
+  source: SpeechPlaybackSource;
   sourceKey: string;
 }
 
@@ -58,13 +76,13 @@ export class SpeechPlaybackController {
   private readonly onStateChange: SpeechPlaybackControllerOptions["onStateChange"];
 
   private abortController: AbortController | null = null;
-  private activeItem: QueuedSummary | null = null;
+  private activeItem: QueuedSpeech | null = null;
   private activePlayback: ActivePlayback | null = null;
   private automaticSourceKeys = new Set<string>();
   private cachedAudio: CachedSpeechAudio | null = null;
   private disposed = false;
   private lifecycle = 0;
-  private queue: QueuedSummary[] = [];
+  private queue: QueuedSpeech[] = [];
 
   state: SpeechPlaybackState = { type: "idle" };
 
@@ -73,8 +91,8 @@ export class SpeechPlaybackController {
     this.onStateChange = options.onStateChange;
   }
 
-  enqueueAutomaticSummary = (source: SpeechSummarySource): void => {
-    const sourceKey = summarySourceKey(source);
+  enqueueAutomatic = (source: SpeechPlaybackSource): void => {
+    const sourceKey = speechSourceKey(source);
     if (this.automaticSourceKeys.has(sourceKey)) {
       return;
     }
@@ -83,14 +101,14 @@ export class SpeechPlaybackController {
   };
 
   replaySummary = (source: SpeechSummarySource): void => {
-    const sourceKey = summarySourceKey(source);
+    const sourceKey = speechSourceKey(source);
     this.enqueue({ source: copySource(source), sourceKey });
   };
 
   releaseSummary = (source: SpeechSummarySource): void => {
-    const sourceKey = summarySourceKey(source);
+    const sourceKey = speechSourceKey(source);
     const stateMatches =
-      this.state.type !== "idle" && summarySourceKey(this.state.source) === sourceKey;
+      this.state.type !== "idle" && speechSourceKey(this.state.source) === sourceKey;
     if (
       stateMatches ||
       this.activeItem?.sourceKey === sourceKey ||
@@ -137,7 +155,7 @@ export class SpeechPlaybackController {
     this.disposed = true;
   };
 
-  private enqueue(item: QueuedSummary): void {
+  private enqueue(item: QueuedSpeech): void {
     if (this.disposed || this.hasPendingSource(item.sourceKey)) {
       return;
     }
@@ -166,7 +184,7 @@ export class SpeechPlaybackController {
     void this.prepareAndPlay(item, lifecycle);
   }
 
-  private async prepareAndPlay(item: QueuedSummary, lifecycle: number): Promise<void> {
+  private async prepareAndPlay(item: QueuedSpeech, lifecycle: number): Promise<void> {
     const url = await this.resolveAudioURL(item, lifecycle);
     if (!url || !this.isCurrent(item, lifecycle)) {
       return;
@@ -174,14 +192,14 @@ export class SpeechPlaybackController {
     this.beginAudioPlayback(item, lifecycle, url);
   }
 
-  private resolveCachedAudioURL(item: QueuedSummary): string | null {
+  private resolveCachedAudioURL(item: QueuedSpeech): string | null {
     if (this.cachedAudio?.sourceKey !== item.sourceKey) {
       this.releaseCachedAudio();
     }
     return this.cachedAudio?.sourceKey === item.sourceKey ? this.cachedAudio.url : null;
   }
 
-  private async resolveAudioURL(item: QueuedSummary, lifecycle: number): Promise<string | null> {
+  private async resolveAudioURL(item: QueuedSpeech, lifecycle: number): Promise<string | null> {
     const cachedURL = this.resolveCachedAudioURL(item);
     if (cachedURL) {
       return cachedURL;
@@ -190,14 +208,11 @@ export class SpeechPlaybackController {
     const abortController = this.dependencies.createAbortController();
     this.abortController = abortController;
     try {
-      const response = await this.dependencies.synthesizeSummary(
-        { easyRunId: item.source.easyRunId, workspaceId: item.source.workspaceId },
-        abortController.signal,
-      );
+      const response = await this.synthesize(item.source, abortController.signal);
       return this.isCurrent(item, lifecycle) ? this.cacheResponse(item, response) : null;
     } catch (error) {
       if (this.isCurrent(item, lifecycle)) {
-        this.fail(item, synthesisFailureMessage(error));
+        this.fail(item, synthesisFailureMessage(item.source, error));
       }
       return null;
     } finally {
@@ -207,7 +222,26 @@ export class SpeechPlaybackController {
     }
   }
 
-  private cacheResponse(item: QueuedSummary, response: SpeechAudio): string {
+  private synthesize(source: SpeechPlaybackSource, signal: AbortSignal): Promise<SpeechAudio> {
+    switch (source.kind) {
+      case "terminal_summary":
+        return this.dependencies.synthesizeSummary(
+          { easyRunId: source.easyRunId, workspaceId: source.workspaceId },
+          signal,
+        );
+      case "highlight":
+        return this.dependencies.synthesizeHighlight(
+          {
+            easyRunId: source.easyRunId,
+            highlightId: source.highlightId,
+            workspaceId: source.workspaceId,
+          },
+          signal,
+        );
+    }
+  }
+
+  private cacheResponse(item: QueuedSpeech, response: SpeechAudio): string {
     validateSpeechAudioResponse(item.source, response);
     let bytes: Uint8Array;
     try {
@@ -226,12 +260,12 @@ export class SpeechPlaybackController {
     return url;
   }
 
-  private beginAudioPlayback(item: QueuedSummary, lifecycle: number, url: string): void {
+  private beginAudioPlayback(item: QueuedSpeech, lifecycle: number, url: string): void {
     let audio: PlaybackAudio;
     try {
       audio = this.dependencies.createAudio(url);
     } catch (error) {
-      this.fail(item, playbackFailureMessage(error));
+      this.fail(item, playbackFailureMessage(item.source, error));
       return;
     }
     const ended = () => this.finishAudio(item, lifecycle, audio);
@@ -244,18 +278,18 @@ export class SpeechPlaybackController {
     try {
       playback = audio.play();
     } catch (error) {
-      this.fail(item, playbackFailureMessage(error));
+      this.fail(item, playbackFailureMessage(item.source, error));
       return;
     }
     void playback.catch((error: unknown) => {
       if (!this.isCurrent(item, lifecycle) || this.activePlayback?.audio !== audio) {
         return;
       }
-      this.fail(item, playbackFailureMessage(error));
+      this.fail(item, playbackFailureMessage(item.source, error));
     });
   }
 
-  private finishAudio(item: QueuedSummary, lifecycle: number, audio: PlaybackAudio): void {
+  private finishAudio(item: QueuedSpeech, lifecycle: number, audio: PlaybackAudio): void {
     if (!this.isCurrent(item, lifecycle) || this.activePlayback?.audio !== audio) {
       return;
     }
@@ -266,14 +300,14 @@ export class SpeechPlaybackController {
     this.playNext();
   }
 
-  private failAudio(item: QueuedSummary, lifecycle: number, audio: PlaybackAudio): void {
+  private failAudio(item: QueuedSpeech, lifecycle: number, audio: PlaybackAudio): void {
     if (!this.isCurrent(item, lifecycle) || this.activePlayback?.audio !== audio) {
       return;
     }
-    this.fail(item, "The synthesized run summary could not be played.");
+    this.fail(item, playbackFailureMessage(item.source));
   }
 
-  private fail(item: QueuedSummary, message: string): void {
+  private fail(item: QueuedSpeech, message: string): void {
     this.abortController?.abort();
     this.abortController = null;
     this.stopActiveAudio();
@@ -282,7 +316,7 @@ export class SpeechPlaybackController {
     this.transition({ message, source: item.source, type: "failed" });
   }
 
-  private isCurrent(item: QueuedSummary, lifecycle: number): boolean {
+  private isCurrent(item: QueuedSpeech, lifecycle: number): boolean {
     return (
       !this.disposed &&
       this.lifecycle === lifecycle &&
@@ -332,15 +366,30 @@ const browserSpeechPlaybackDependencies: SpeechPlaybackControllerDependencies = 
   createObjectURL: (blob) => URL.createObjectURL(blob),
   decodeBase64: decodeBase64,
   revokeObjectURL: (url) => URL.revokeObjectURL(url),
+  synthesizeHighlight: (request, signal) =>
+    cancellableSpeechRequest(
+      (operationId) => window.setta.speech.synthesizeEasyRunHighlight(request, operationId),
+      signal,
+    ),
   synthesizeSummary: (request, signal) => {
-    const operationId = createSpeechSynthesisOperationId();
-    return abortableSpeechRequest(
-      () => window.setta.speech.synthesizeEasyRunSummary(request, operationId),
-      () => window.setta.speech.cancelSynthesis(operationId),
+    return cancellableSpeechRequest(
+      (operationId) => window.setta.speech.synthesizeEasyRunSummary(request, operationId),
       signal,
     );
   },
 };
+
+function cancellableSpeechRequest<T>(
+  start: (operationId: string) => Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
+  const operationId = createSpeechSynthesisOperationId();
+  return abortableSpeechRequest(
+    () => start(operationId),
+    () => window.setta.speech.cancelSynthesis(operationId),
+    signal,
+  );
+}
 
 let nextSpeechSynthesisOperationSequence = 1;
 
@@ -351,20 +400,44 @@ function createSpeechSynthesisOperationId(): string {
   return `speech_${pageEpoch}_${sequence}`;
 }
 
-function summarySourceKey(source: SpeechSummarySource): string {
+function speechSourceKey(source: SpeechPlaybackSource): string {
   if (!source.workspaceId.trim() || !source.easyRunId.trim()) {
-    throw new Error("Speech summary playback requires workspace and Easy Run IDs.");
+    throw new Error("Speech playback requires workspace and Easy Run IDs.");
   }
-  return JSON.stringify([source.workspaceId, source.easyRunId, "summary"]);
+  switch (source.kind) {
+    case "terminal_summary":
+      return JSON.stringify([source.workspaceId, source.easyRunId, source.kind]);
+    case "highlight":
+      if (!source.highlightId.trim()) {
+        throw new Error("Speech highlight playback requires a highlight ID.");
+      }
+      return JSON.stringify([
+        source.workspaceId,
+        source.easyRunId,
+        source.kind,
+        source.highlightId,
+      ]);
+  }
 }
 
-function copySource(source: SpeechSummarySource): SpeechSummarySource {
-  return { easyRunId: source.easyRunId, workspaceId: source.workspaceId };
+function copySource(source: SpeechPlaybackSource): SpeechPlaybackSource {
+  switch (source.kind) {
+    case "terminal_summary":
+      return { easyRunId: source.easyRunId, kind: source.kind, workspaceId: source.workspaceId };
+    case "highlight":
+      return {
+        easyRunId: source.easyRunId,
+        highlightId: source.highlightId,
+        kind: source.kind,
+        workspaceId: source.workspaceId,
+      };
+  }
 }
 
-function validateSpeechAudioResponse(source: SpeechSummarySource, response: SpeechAudio): void {
+function validateSpeechAudioResponse(source: SpeechPlaybackSource, response: SpeechAudio): void {
+  const expectedSourceId = source.kind === "highlight" ? source.highlightId : source.easyRunId;
   if (
-    response.sourceId !== source.easyRunId ||
+    response.sourceId !== expectedSourceId ||
     response.mediaType !== "audio/wav" ||
     response.format !== "wav" ||
     !response.audioBase64
@@ -382,16 +455,20 @@ function decodeBase64(value: string): Uint8Array {
   return bytes;
 }
 
-function synthesisFailureMessage(error: unknown): string {
+function synthesisFailureMessage(source: SpeechPlaybackSource, error: unknown): string {
   return error instanceof Error && error.message.trim()
     ? error.message
-    : "The run summary could not be synthesized.";
+    : source.kind === "highlight"
+      ? "The narrator highlight could not be synthesized."
+      : "The run summary could not be synthesized.";
 }
 
-function playbackFailureMessage(error: unknown): string {
+function playbackFailureMessage(source: SpeechPlaybackSource, error?: unknown): string {
   return error instanceof Error && error.name === "NotAllowedError"
     ? "Audio playback was blocked. Use replay to try again."
-    : "The synthesized run summary could not be played.";
+    : source.kind === "highlight"
+      ? "The synthesized narrator highlight could not be played."
+      : "The synthesized run summary could not be played.";
 }
 
 function abortableSpeechRequest<T>(

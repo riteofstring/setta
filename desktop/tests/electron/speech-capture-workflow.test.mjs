@@ -368,6 +368,8 @@ try {
     stoppedRunId,
   });
 
+  await exerciseAutomaticHighlightSpeech(context.client, provider, artifactDir);
+
   const failedRequest = "easy run phase5 artifact cap workflow";
   await selectSpeechOutputMode(context.client, "final");
   const failedAutoSynthesisCount = provider.synthesisInputs.length;
@@ -402,7 +404,7 @@ try {
   });
 
   provider.assertHealthy();
-  assertProviderOperationCount(provider, { synthesis: 7, transcription: 12 });
+  assertProviderOperationCount(provider, { synthesis: 9, transcription: 12 });
   await stopElectronCdpContext(context);
   context = null;
   await assertNoRendererConsoleErrors(artifactDir);
@@ -417,6 +419,7 @@ try {
     ],
     coveredTeardown: ["escape", "disconnect", "pane-close", "workspace-switch", "reload", "stop"],
     automaticallySpokenTerminalStatuses: ["completed", "failed"],
+    automaticallySpokenHighlightCount: 2,
     automaticSpeechExcludedStatuses: ["stopped"],
     hydratedTerminalAutoPlaySuppressed: true,
     mountedAutomaticSummaryReplayReusedBlob: true,
@@ -512,6 +515,85 @@ async function exerciseConfiguredSpeechOutputControl(client, recordingRoot) {
   );
   if (selected.speechOutputPlayback !== "idle") {
     throw new Error(`selecting final voice mode changed playback: ${JSON.stringify(selected)}`);
+  }
+}
+
+async function exerciseAutomaticHighlightSpeech(client, provider, artifactDir) {
+  const requestText = "easy run working narrator cadence";
+  await selectSpeechOutputMode(client, "highlights_and_final");
+  const synthesisCount = provider.synthesisInputs.length;
+  const started = await client.driver("easyButtonPaneSubmitRequest", requestText);
+  if (!started) {
+    throw new Error("automatic highlight speech fixture did not submit");
+  }
+  const firstSpeaking = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.runRequestText === requestText &&
+      state.easyState === "working" &&
+      state.highlights.length === 2 &&
+      state.speechOutputMode === "highlights_and_final" &&
+      state.speechOutputPlayback === "speaking" &&
+      state.summaryPlayback === "",
+    workflowTimeoutMs,
+  );
+  const snapshot = await client.evaluate(
+    `window.setta.easyRun.snapshot(${JSON.stringify(firstSpeaking.workspaceId)})`,
+  );
+  const [firstHighlight, secondHighlight] = snapshot.highlights;
+  assertFirstAutomaticHighlight({
+    firstHighlight,
+    firstSpeaking,
+    provider,
+    snapshot,
+    synthesisCount,
+  });
+  await captureScreenshot(client, join(artifactDir, "speech-highlight-automatic.png"));
+  await callBrowserFixture(client, "finishAudio");
+  const secondSpeaking = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.latestRunId === snapshot.latestRun.id &&
+      state.speechOutputPlayback === "speaking" &&
+      state.summaryPlayback === "" &&
+      provider.synthesisInputs.length === synthesisCount + 2,
+    workflowTimeoutMs,
+  );
+  if (!secondHighlight || provider.synthesisInputs.at(-1) !== secondHighlight.text) {
+    throw new Error(
+      `second live narrator highlight used the wrong speech source: ${JSON.stringify(secondSpeaking)}`,
+    );
+  }
+  await callBrowserFixture(client, "finishAudio");
+  await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) => state.latestRunId === snapshot.latestRun.id && state.speechOutputPlayback === "idle",
+    workflowTimeoutMs,
+  );
+  await clickEasyButtonStop(client);
+  await waitForEasyButtonTerminal(client, requestText);
+}
+
+function assertFirstAutomaticHighlight({
+  firstHighlight,
+  firstSpeaking,
+  provider,
+  snapshot,
+  synthesisCount,
+}) {
+  if (
+    snapshot.latestRun?.id !== firstSpeaking.latestRunId ||
+    snapshot.latestRun.status !== "working" ||
+    !firstHighlight ||
+    provider.synthesisInputs.length !== synthesisCount + 1 ||
+    provider.synthesisInputs.at(-1) !== firstHighlight.text
+  ) {
+    throw new Error(
+      `first live narrator highlight used the wrong speech source: ${JSON.stringify({ firstSpeaking, snapshot })}`,
+    );
   }
 }
 

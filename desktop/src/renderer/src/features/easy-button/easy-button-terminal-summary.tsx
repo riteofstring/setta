@@ -76,7 +76,7 @@ function terminalSummarySource(
   if (!terminal || !latestRun?.summary || !workspaceId) {
     return null;
   }
-  return { easyRunId: latestRun.id, workspaceId };
+  return { easyRunId: latestRun.id, kind: "terminal_summary", workspaceId };
 }
 
 function useReleaseSummaryOnUnmount(
@@ -89,7 +89,7 @@ function useReleaseSummaryOnUnmount(
     if (!easyRunId || !workspaceId) {
       return;
     }
-    return () => releaseSummary({ easyRunId, workspaceId });
+    return () => releaseSummary({ easyRunId, kind: "terminal_summary", workspaceId });
   }, [easyRunId, releaseSummary, workspaceId]);
 }
 
@@ -100,6 +100,7 @@ export function terminalSummaryPlaybackType(
   if (
     state.type === "idle" ||
     !source ||
+    state.source.kind !== "terminal_summary" ||
     state.source.easyRunId !== source.easyRunId ||
     state.source.workspaceId !== source.workspaceId
   ) {

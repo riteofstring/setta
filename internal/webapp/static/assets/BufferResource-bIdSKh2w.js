@@ -1,4 +1,4 @@
-import{aq as U,aa as g,S as c,ao as S,e as _,f as m,E as I,an as p}from"./pixi-renderer-B6c6T8pI.js";const x={name:"local-uniform-bit",vertex:{header:`
+import{aq as U,aa as g,S as c,ao as S,e as _,f as m,E as I,an as p}from"./pixi-renderer-DVh6c3hK.js";const x={name:"local-uniform-bit",vertex:{header:`
 
             struct LocalUniforms {
                 uTransformMatrix:mat3x3<f32>,
