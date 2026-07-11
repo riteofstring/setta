@@ -3819,6 +3819,49 @@ response rejection across the persisted source union. Item 4 then owns the
 expanded synchronized mockup/production still and named-animation pixel matrix.
 No implementation blocker was found.
 
+### 2026-07-10 — Phase 5 exact highlight source indication audit complete
+
+Audited commit `937fe86d2` against Phase 5 item 2, the complete plan,
+`AGENTS.md`, its parent, the clean starting worktree, the checked-in PWA bundle,
+and the retained production-path recordings. The implementation marks a row
+only while the playback controller is speaking the exact persisted workspace,
+Easy Run, and narrator-highlight source. Terminal summaries, synthesis and
+failure states, foreign workspaces or runs, and other highlight IDs remain
+unmarked. Three decorative bars stay mounted inside every fixed six-pixel dot
+box; only the active row displays them, the stronger selector suppresses the
+working-row pulse, and reduced motion preserves a static equalizer. No
+practical defect, generated-artifact drift, or slice-owned coverage gap was
+found, so no implementation fix was required and Phase 5 item 3 was not
+started.
+
+Fresh audit verification passed:
+
+- all 1,125 desktop Vitest tests, including 49 focused source-indication,
+  terminal-source, playback-controller, automatic-eligibility, and Easy Run
+  store tests;
+- focused ESLint, Electron and web TypeScript checks, and both production
+  builds. Rebuilding the checked-in PWA produced no diff, and
+  `./scripts/go.sh test ./internal/webapp` passed;
+- the complete configured speech workflow at
+  `desktop/.recordings/easy-button-speech-phase5-highlight-indicator-audit-20260710`.
+  It spoke two live persisted narrator highlights in order, moved the marker to
+  the exact active row, required all inactive bars to remain hidden, and found
+  no row or dot geometry change at 0.001-pixel precision. Existing capture,
+  terminal playback, cancellation, failure, persistence, and redaction checks
+  also passed, and the retained speaking screenshot was inspected;
+- the complete deterministic Easy Button workflow and its pixel-match
+  companion at
+  `desktop/.recordings/easy-button-speech-phase5-highlight-indicator-audit-regression-20260710`.
+
+No dependency, manifest, module, package-manager, toolchain, Go-owned contract,
+generated TypeScript contract, or production source changed during this audit,
+so supply-chain verification and contract regeneration were not required. No
+live OpenAI speech result is claimed; the dedicated provider workflow remains
+Phase 5 item 8. Phase 5 items 1-2 remain complete. Item 3 remains the next
+coherent slice: implement terminal priority, run/workspace switching,
+pending-queue cancellation, and stale synthesis-response rejection without
+pulling the visual matrix forward. No implementation blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
