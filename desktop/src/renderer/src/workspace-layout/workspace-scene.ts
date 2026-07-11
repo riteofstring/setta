@@ -213,7 +213,6 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
     surfaceKind: pane.surfaceKind,
-    easyButtonConfig: pane.easyButtonConfig ?? undefined,
     terminalConfig: pane.terminalConfig
       ? terminalConfigFromPersisted(pane.terminalConfig)
       : undefined,
@@ -254,7 +253,6 @@ function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
     surfaceKind: persistedSurfaceKind(pane.surfaceKind),
-    easyButtonConfig: pane.easyButtonConfig ?? null,
     terminalConfig: pane.terminalConfig ? terminalConfigToPersisted(pane.terminalConfig) : null,
     title: pane.title,
     tone: persistedPaneTone(pane.tone),
