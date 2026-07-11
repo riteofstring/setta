@@ -5,6 +5,7 @@
   "main": "out/main/index.js",
   "packageManager": "pnpm@10.23.0",
   "scripts": {
+    "analyze:terminal-latency": "node scripts/analyze-terminal-latency-recording.mjs",
     "build": "pnpm typecheck && electron-vite build",
     "build:web": "pnpm typecheck && vite build --config vite.web.config.ts",
     "dev": "electron-vite dev",

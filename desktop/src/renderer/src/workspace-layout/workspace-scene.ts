@@ -28,7 +28,6 @@ const realWorkspaceRenderOverscanColumns = 2;
 const realWorkspaceSurfaceKinds = productSurfaceKinds;
 export const defaultRealWorkspacePaneLimits = {
   "chat-dom": 10,
-  "easy-button": 1,
   "workflow-graph": 10,
   "settings-dom": 1,
   "semantic-node-details": 1,

@@ -469,8 +469,6 @@ type AppInfo struct {
 	Branding            *AppBranding                `json:"branding,omitempty"`
 	Description         *string                     `json:"description,omitempty"`
 	DistributionChannel *string                     `json:"distributionChannel,omitempty"`
-	IconAssets          *map[string]json.RawMessage `json:"iconAssets,omitempty"`
-	IconDarkAssets      *map[string]json.RawMessage `json:"iconDarkAssets,omitempty"`
 	ID                  string                      `json:"id"`
 	InstallUrl          *string                     `json:"installUrl,omitempty"`
 	IsAccessible        *bool                       `json:"isAccessible,omitempty"`
@@ -616,7 +614,6 @@ type AppToolApproval string
 const (
 	AppToolApprovalAuto    AppToolApproval = "auto"
 	AppToolApprovalPrompt  AppToolApproval = "prompt"
-	AppToolApprovalWrites  AppToolApproval = "writes"
 	AppToolApprovalApprove AppToolApproval = "approve"
 )
 
@@ -746,7 +743,6 @@ const (
 	AuthModeApikey              AuthMode = "apikey"
 	AuthModeChatgpt             AuthMode = "chatgpt"
 	AuthModeChatgptAuthTokens   AuthMode = "chatgptAuthTokens"
-	AuthModeHeaders             AuthMode = "headers"
 	AuthModeAgentIdentity       AuthMode = "agentIdentity"
 	AuthModePersonalAccessToken AuthMode = "personalAccessToken"
 	AuthModeBedrockApiKey       AuthMode = "bedrockApiKey"
@@ -2603,10 +2599,9 @@ func DecodeMcpServerElicitationRequestParams(raw json.RawMessage) (McpServerElic
 }
 
 type McpServerOauthLoginCompletedNotification struct {
-	Error    *string `json:"error,omitempty"`
-	Name     string  `json:"name"`
-	Success  bool    `json:"success"`
-	ThreadID *string `json:"threadId,omitempty"`
+	Error   *string `json:"error,omitempty"`
+	Name    string  `json:"name"`
+	Success bool    `json:"success"`
 }
 
 func validateMcpServerOauthLoginCompletedNotification(raw json.RawMessage, name string) error {
@@ -2626,12 +2621,6 @@ func DecodeMcpServerOauthLoginCompletedNotification(raw json.RawMessage) (McpSer
 	return value, err
 }
 
-type McpServerStartupFailureReason string
-
-const (
-	McpServerStartupFailureReasonReauthenticationRequired McpServerStartupFailureReason = "reauthenticationRequired"
-)
-
 type McpServerStartupState string
 
 const (
@@ -2642,11 +2631,10 @@ const (
 )
 
 type McpServerStatusUpdatedNotification struct {
-	Error         *string                        `json:"error,omitempty"`
-	FailureReason *McpServerStartupFailureReason `json:"failureReason,omitempty"`
-	Name          string                         `json:"name"`
-	Status        McpServerStartupState          `json:"status"`
-	ThreadID      *string                        `json:"threadId,omitempty"`
+	Error    *string               `json:"error,omitempty"`
+	Name     string                `json:"name"`
+	Status   McpServerStartupState `json:"status"`
+	ThreadID *string               `json:"threadId,omitempty"`
 }
 
 func validateMcpServerStatusUpdatedNotification(raw json.RawMessage, name string) error {
@@ -2667,12 +2655,9 @@ func DecodeMcpServerStatusUpdatedNotification(raw json.RawMessage) (McpServerSta
 }
 
 type McpToolCallAppContext struct {
-	ActionName  *string `json:"actionName,omitempty"`
-	AppName     *string `json:"appName,omitempty"`
 	ConnectorId string  `json:"connectorId"`
 	LinkId      *string `json:"linkId,omitempty"`
 	ResourceUri *string `json:"resourceUri,omitempty"`
-	TemplateId  *string `json:"templateId,omitempty"`
 }
 
 func validateMcpToolCallAppContext(raw json.RawMessage, name string) error {
@@ -3055,7 +3040,13 @@ func DecodeModelVerificationNotification(raw json.RawMessage) (ModelVerification
 	return value, err
 }
 
-type MultiAgentMode = json.RawMessage
+type MultiAgentMode string
+
+const (
+	MultiAgentModeNone                MultiAgentMode = "none"
+	MultiAgentModeExplicitRequestOnly MultiAgentMode = "explicitRequestOnly"
+	MultiAgentModeProactive           MultiAgentMode = "proactive"
+)
 
 type NetworkAccess string
 
@@ -3798,29 +3789,27 @@ func DecodeTextRange(raw json.RawMessage) (TextRange, error) {
 }
 
 type Thread struct {
-	AgentNickname  *string            `json:"agentNickname,omitempty"`
-	AgentRole      *string            `json:"agentRole,omitempty"`
-	CliVersion     string             `json:"cliVersion"`
-	CreatedAt      int                `json:"createdAt"`
-	CWD            AbsolutePathBuf    `json:"cwd"`
-	Ephemeral      bool               `json:"ephemeral"`
-	Extra          *ThreadExtra       `json:"extra,omitempty"`
-	ForkedFromId   *string            `json:"forkedFromId,omitempty"`
-	GitInfo        *GitInfo           `json:"gitInfo,omitempty"`
-	HistoryMode    *ThreadHistoryMode `json:"historyMode,omitempty"`
-	ID             string             `json:"id"`
-	ModelProvider  string             `json:"modelProvider"`
-	Name           *string            `json:"name,omitempty"`
-	ParentThreadId *string            `json:"parentThreadId,omitempty"`
-	Path           *string            `json:"path,omitempty"`
-	Preview        string             `json:"preview"`
-	RecencyAt      *int               `json:"recencyAt,omitempty"`
-	SessionId      string             `json:"sessionId"`
-	Source         SessionSource      `json:"source"`
-	Status         ThreadStatus       `json:"status"`
-	ThreadSource   *ThreadSource      `json:"threadSource,omitempty"`
-	Turns          []Turn             `json:"turns"`
-	UpdatedAt      int                `json:"updatedAt"`
+	AgentNickname  *string         `json:"agentNickname,omitempty"`
+	AgentRole      *string         `json:"agentRole,omitempty"`
+	CliVersion     string          `json:"cliVersion"`
+	CreatedAt      int             `json:"createdAt"`
+	CWD            AbsolutePathBuf `json:"cwd"`
+	Ephemeral      bool            `json:"ephemeral"`
+	ForkedFromId   *string         `json:"forkedFromId,omitempty"`
+	GitInfo        *GitInfo        `json:"gitInfo,omitempty"`
+	ID             string          `json:"id"`
+	ModelProvider  string          `json:"modelProvider"`
+	Name           *string         `json:"name,omitempty"`
+	ParentThreadId *string         `json:"parentThreadId,omitempty"`
+	Path           *string         `json:"path,omitempty"`
+	Preview        string          `json:"preview"`
+	RecencyAt      *int            `json:"recencyAt,omitempty"`
+	SessionId      string          `json:"sessionId"`
+	Source         SessionSource   `json:"source"`
+	Status         ThreadStatus    `json:"status"`
+	ThreadSource   *ThreadSource   `json:"threadSource,omitempty"`
+	Turns          []Turn          `json:"turns"`
+	UpdatedAt      int             `json:"updatedAt"`
 }
 
 func validateThread(raw json.RawMessage, name string) error {
@@ -3829,9 +3818,6 @@ func validateThread(raw json.RawMessage, name string) error {
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "cliVersion"}, {name: "createdAt"}, {name: "cwd"}, {name: "ephemeral"}, {name: "id"}, {name: "modelProvider"}, {name: "preview"}, {name: "sessionId"}, {name: "source"}, {name: "status"}, {name: "turns"}, {name: "updatedAt"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "extra", name+".extra", true, validateThreadExtra); err != nil {
 		return err
 	}
 	if err := validateCodexObjectField(fields, "gitInfo", name+".gitInfo", true, validateGitInfo); err != nil {
@@ -3890,6 +3876,9 @@ func validateThreadBackgroundTerminalsTerminateParams(raw json.RawMessage, name 
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "processId"}, {name: "threadId"}}); err != nil {
 		return err
 	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"processId", "threadId"}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -3909,6 +3898,9 @@ func validateThreadBackgroundTerminalsTerminateResponse(raw json.RawMessage, nam
 		return err
 	}
 	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "terminated"}}); err != nil {
+		return err
+	}
+	if err := rejectUnknownCodexFields(fields, name, []string{"terminated"}); err != nil {
 		return err
 	}
 	return nil
@@ -3938,26 +3930,6 @@ func validateThreadClosedNotification(raw json.RawMessage, name string) error {
 func DecodeThreadClosedNotification(raw json.RawMessage) (ThreadClosedNotification, error) {
 	var value ThreadClosedNotification
 	err := decodeCodexObject(raw, "ThreadClosedNotification", validateThreadClosedNotification, &value)
-	return value, err
-}
-
-type ThreadExtra struct {
-}
-
-func validateThreadExtra(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, nil); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeThreadExtra(raw json.RawMessage) (ThreadExtra, error) {
-	var value ThreadExtra
-	err := decodeCodexObject(raw, "ThreadExtra", validateThreadExtra, &value)
 	return value, err
 }
 
@@ -4181,13 +4153,6 @@ func DecodeThreadGoalUpdatedNotification(raw json.RawMessage) (ThreadGoalUpdated
 	err := decodeCodexObject(raw, "ThreadGoalUpdatedNotification", validateThreadGoalUpdatedNotification, &value)
 	return value, err
 }
-
-type ThreadHistoryMode string
-
-const (
-	ThreadHistoryModeLegacy    ThreadHistoryMode = "legacy"
-	ThreadHistoryModePaginated ThreadHistoryMode = "paginated"
-)
 
 type ThreadId = string
 
@@ -4547,9 +4512,9 @@ func DecodeWebSearchThreadItem(raw json.RawMessage) (WebSearchThreadItem, error)
 }
 
 type ImageViewThreadItem struct {
-	ID   string              `json:"id"`
-	Path LegacyAppPathString `json:"path"`
-	Type ThreadItemType      `json:"type"`
+	ID   string          `json:"id"`
+	Path AbsolutePathBuf `json:"path"`
+	Type ThreadItemType  `json:"type"`
 }
 
 func validateImageViewThreadItem(raw json.RawMessage, name string) error {
@@ -5432,31 +5397,29 @@ func DecodeThreadSettingsUpdatedNotification(raw json.RawMessage) (ThreadSetting
 type ThreadSource = string
 
 type ThreadStartParams struct {
-	AllowProviderModelFallback *bool                       `json:"allowProviderModelFallback,omitempty"`
-	ApprovalPolicy             *AskForApproval             `json:"approvalPolicy,omitempty"`
-	ApprovalsReviewer          *ApprovalsReviewer          `json:"approvalsReviewer,omitempty"`
-	BaseInstructions           *string                     `json:"baseInstructions,omitempty"`
-	Config                     *map[string]json.RawMessage `json:"config,omitempty"`
-	CWD                        *string                     `json:"cwd,omitempty"`
-	DeveloperInstructions      *string                     `json:"developerInstructions,omitempty"`
-	DynamicTools               *[]DynamicToolSpec          `json:"dynamicTools,omitempty"`
-	Environments               *[]TurnEnvironmentParams    `json:"environments,omitempty"`
-	Ephemeral                  *bool                       `json:"ephemeral,omitempty"`
-	ExperimentalRawEvents      *bool                       `json:"experimentalRawEvents,omitempty"`
-	HistoryMode                *ThreadHistoryMode          `json:"historyMode,omitempty"`
-	MockExperimentalField      *string                     `json:"mockExperimentalField,omitempty"`
-	Model                      *string                     `json:"model,omitempty"`
-	ModelProvider              *string                     `json:"modelProvider,omitempty"`
-	MultiAgentMode             *MultiAgentMode             `json:"multiAgentMode,omitempty"`
-	Permissions                *string                     `json:"permissions,omitempty"`
-	Personality                *Personality                `json:"personality,omitempty"`
-	RuntimeWorkspaceRoots      *[]AbsolutePathBuf          `json:"runtimeWorkspaceRoots,omitempty"`
-	Sandbox                    *SandboxMode                `json:"sandbox,omitempty"`
-	SelectedCapabilityRoots    *[]SelectedCapabilityRoot   `json:"selectedCapabilityRoots,omitempty"`
-	ServiceName                *string                     `json:"serviceName,omitempty"`
-	ServiceTier                *string                     `json:"serviceTier,omitempty"`
-	SessionStartSource         *ThreadStartSource          `json:"sessionStartSource,omitempty"`
-	ThreadSource               *ThreadSource               `json:"threadSource,omitempty"`
+	ApprovalPolicy          *AskForApproval             `json:"approvalPolicy,omitempty"`
+	ApprovalsReviewer       *ApprovalsReviewer          `json:"approvalsReviewer,omitempty"`
+	BaseInstructions        *string                     `json:"baseInstructions,omitempty"`
+	Config                  *map[string]json.RawMessage `json:"config,omitempty"`
+	CWD                     *string                     `json:"cwd,omitempty"`
+	DeveloperInstructions   *string                     `json:"developerInstructions,omitempty"`
+	DynamicTools            *[]DynamicToolSpec          `json:"dynamicTools,omitempty"`
+	Environments            *[]TurnEnvironmentParams    `json:"environments,omitempty"`
+	Ephemeral               *bool                       `json:"ephemeral,omitempty"`
+	ExperimentalRawEvents   *bool                       `json:"experimentalRawEvents,omitempty"`
+	MockExperimentalField   *string                     `json:"mockExperimentalField,omitempty"`
+	Model                   *string                     `json:"model,omitempty"`
+	ModelProvider           *string                     `json:"modelProvider,omitempty"`
+	MultiAgentMode          *MultiAgentMode             `json:"multiAgentMode,omitempty"`
+	Permissions             *string                     `json:"permissions,omitempty"`
+	Personality             *Personality                `json:"personality,omitempty"`
+	RuntimeWorkspaceRoots   *[]AbsolutePathBuf          `json:"runtimeWorkspaceRoots,omitempty"`
+	Sandbox                 *SandboxMode                `json:"sandbox,omitempty"`
+	SelectedCapabilityRoots *[]SelectedCapabilityRoot   `json:"selectedCapabilityRoots,omitempty"`
+	ServiceName             *string                     `json:"serviceName,omitempty"`
+	ServiceTier             *string                     `json:"serviceTier,omitempty"`
+	SessionStartSource      *ThreadStartSource          `json:"sessionStartSource,omitempty"`
+	ThreadSource            *ThreadSource               `json:"threadSource,omitempty"`
 }
 
 func validateThreadStartParams(raw json.RawMessage, name string) error {

@@ -36,7 +36,6 @@ describe("workflowGraphWithNodeLayout", () => {
 
 function testGraph(): WorkflowGraph {
   return {
-    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges: [
       {
         condition: null,

@@ -171,25 +171,6 @@ describe("workspace keyboard interactions", () => {
     );
   });
 
-  test("opens a full-width easy button pane with Mod+Alt+E", () => {
-    const context = workspaceKeyContext();
-    const event = keyboardEvent({ altKey: true, key: "e", metaKey: true });
-
-    handleWorkspaceKeyDown({ ...context, event });
-
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.canOpenPane).toHaveBeenCalledWith(
-      expect.objectContaining({ surfaceKind: "easy-button" }),
-    );
-    expect(context.runtime.store.openPane).toHaveBeenCalledWith(
-      expect.objectContaining({
-        surfaceKind: "easy-button",
-        title: "Easy Button",
-        widthSpec: { unit: "proportion", value: 1 },
-      }),
-    );
-  });
-
   test("uses active shortcut settings for forwarded BrowserView arrows", () => {
     const context = workspaceKeyContext({
       shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },

@@ -1,9 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { backendProtocolVersion, type BackendClient } from "@generated/backend";
+import { backendProtocolVersion } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { authenticatedWebFetch, createWebSettaAPI } from "./setta-web-api";
-import { createSpeechWebAPI } from "./speech-web-api";
 
 describe("web SettaAPI request auth", () => {
   test("injects bearer authorization while preserving existing headers", async () => {
@@ -104,69 +103,15 @@ describe("web SettaAPI unpaired runtime state", () => {
     unsubscribe();
   });
 
-  test("returns applied Easy Run steering failures without losing backend facts", async () => {
-    withWebGlobals();
-    const api = createWebSettaAPI({
-      fetchImpl: async (input) => {
-        switch (input.pathname) {
-          case "/runtime/info":
-            return jsonResponse(runtimeInfo());
-          case "/pairing/complete":
-            return jsonResponse({
-              deviceId: "device_web",
-              deviceToken: "token_web",
-              protocolVersion: backendProtocolVersion,
-              runtimeId: "runtime_web",
-            });
-          case "/devices/list":
-            return jsonResponse({ devices: [] });
-          case "/easy-runs/steer":
-            return jsonResponse(
-              {
-                error: {
-                  activeExecution: null,
-                  code: "steer_easy_run_focus_update_failed",
-                  message: "steering accepted but focus update failed: narrator unavailable",
-                  operationApplied: true,
-                },
-              },
-              500,
-            );
-          default:
-            throw new Error(`unexpected request: ${input.pathname}`);
-        }
-      },
-    });
-    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
-
-    const result = await api.easyRun.steer({
-      text: "keep going",
-      workspaceId: "workspace_api",
-    });
-
-    expect(result).toEqual({
-      code: "steer_easy_run_focus_update_failed",
-      kind: "failure",
-      message: "steering accepted but focus update failed: narrator unavailable",
-      operationApplied: true,
-    });
-  });
-
-  test("exposes authenticated generated speech operations", async () => {
-    withWebGlobals();
-    const requests: Array<{ authorization: string | null; body: unknown; path: string }> = [];
+  test("accepts phone pairing URLs with token in the fragment", async () => {
+    withWebGlobals("https://runtime.tailnet.ts.net");
+    const calls: Array<{ body: unknown; path: string }> = [];
     const api = createWebSettaAPI({
       fetchImpl: async (input, init = {}) => {
-        const headers = new Headers(init.headers);
-        requests.push({
-          authorization: headers.get("Authorization"),
-          body: typeof init.body === "string" ? JSON.parse(init.body) : null,
+        calls.push({
+          body: init.body ? JSON.parse(String(init.body)) : null,
           path: input.pathname,
         });
-        const speechResponse = webSpeechResponse(input.pathname);
-        if (speechResponse) {
-          return speechResponse;
-        }
         switch (input.pathname) {
           case "/runtime/info":
             return jsonResponse(runtimeInfo());
@@ -184,85 +129,59 @@ describe("web SettaAPI unpaired runtime state", () => {
         }
       },
     });
-    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
-    requests.length = 0;
 
-    const capabilities = await api.speech.readCapabilities();
-    const session = await api.speech.createTranscriptionSession({
-      workspaceId: "workspace_api",
+    const snapshot = await api.runtimes.addByPairingUrl(
+      "https://runtime.tailnet.ts.net/#pair=token_pair",
+    );
+
+    expect(snapshot.connection.status).toBe("connected");
+    expect(calls).toContainEqual({
+      body: {
+        clientDisplayName: "Setta Web",
+        pairingToken: "token_pair",
+      },
+      path: "/pairing/complete",
     });
-    const summary = await api.speech.synthesizeEasyRunSummary(
-      {
-        easyRunId: "easy_run_api",
-        workspaceId: "workspace_api",
-      },
-      "speech_summary_web",
-    );
-    const highlight = await api.speech.synthesizeEasyRunHighlight(
-      {
-        easyRunId: "easy_run_api",
-        highlightId: "highlight_api",
-        workspaceId: "workspace_api",
-      },
-      "speech_highlight_web",
-    );
-
-    expect(capabilities.providerStatus).toBe("configured");
-    expect(session.clientSecret).toBe("ek_web_ephemeral");
-    expect(summary.sourceId).toBe("easy_run_api:summary");
-    expect(highlight.sourceId).toBe("highlight_api");
-    expect(requests).toEqual([
-      { authorization: "Bearer token_web", body: null, path: "/speech/capabilities" },
-      {
-        authorization: "Bearer token_web",
-        body: { workspaceId: "workspace_api" },
-        path: "/speech/transcription/sessions",
-      },
-      {
-        authorization: "Bearer token_web",
-        body: { easyRunId: "easy_run_api", workspaceId: "workspace_api" },
-        path: "/speech/easy-runs/summary",
-      },
-      {
-        authorization: "Bearer token_web",
-        body: {
-          easyRunId: "easy_run_api",
-          highlightId: "highlight_api",
-          workspaceId: "workspace_api",
-        },
-        path: "/speech/easy-runs/highlight",
-      },
-    ]);
   });
 
-  test("cancels a matching web synthesis fetch", async () => {
-    const captured: { signal?: AbortSignal } = {};
-    const backend = {
-      synthesizeEasyRunSummary: vi.fn((_request, options) => {
-        captured.signal = options?.signal;
-        return new Promise((_resolve, reject) => {
-          captured.signal?.addEventListener(
-            "abort",
-            () => reject(new DOMException("aborted", "AbortError")),
-            { once: true },
-          );
-        });
-      }),
-    } as unknown as BackendClient;
-    const speech = createSpeechWebAPI(() => backend);
-    const synthesis = speech.synthesizeEasyRunSummary(
-      { easyRunId: "easy_run_api", workspaceId: "workspace_api" },
-      "speech_cancel_web",
-    );
+  test("creates device pairing links through the authenticated same-origin client", async () => {
+    withWebGlobals("https://runtime.tailnet.ts.net");
+    const createRequests: unknown[] = [];
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          case "/pairing/create-device":
+            createRequests.push(JSON.parse(String(init.body)));
+            return jsonResponse({
+              expiresAt: "2026-07-07T10:10:00Z",
+              pairingUrl: "https://runtime.tailnet.ts.net/#pair=token_phone",
+            });
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+    });
 
-    await speech.cancelSynthesis("speech_cancel_web");
+    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+    const pairing = await api.runtimes.createDevicePairing();
 
-    expect(captured.signal?.aborted).toBe(true);
-    await expect(synthesis).rejects.toMatchObject({ name: "AbortError" });
+    expect(pairing.pairingUrl).toBe("https://runtime.tailnet.ts.net/#pair=token_phone");
+    expect(createRequests).toEqual([{ runtimeBaseUrl: "https://runtime.tailnet.ts.net/" }]);
   });
 });
 
-function withWebGlobals() {
+function withWebGlobals(origin = "http://127.0.0.1:7345") {
   const storage = new Map<string, string>();
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
@@ -279,7 +198,7 @@ function withWebGlobals() {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
-      location: { origin: "http://127.0.0.1:7345" },
+      location: { origin },
       open: vi.fn(),
       prompt: vi.fn(),
       setTimeout,
@@ -298,6 +217,10 @@ function runtimeInfo() {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: "Web runtime",
+    featureSet: {
+      features: ["device_pairing_url", "runtime_web_app", "web_push"],
+      version: 1,
+    },
     infrastructureProvider: {
       displayName: "Unknown provider",
       iconUrl: "",
@@ -314,47 +237,6 @@ function jsonResponse(payload: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
     status,
   });
-}
-
-function speechAudioResponse(sourceId: string): Response {
-  return jsonResponse({
-    audioBase64: "UklGRiQAAABXQVZFZm10IA==",
-    format: "wav",
-    mediaType: "audio/wav",
-    sourceId,
-  });
-}
-
-function webSpeechResponse(path: string): Response | null {
-  switch (path) {
-    case "/speech/capabilities":
-      return jsonResponse({
-        aiVoiceDisclosure: "This voice is AI-generated.",
-        maximumRecordingSeconds: 120,
-        maximumSynthesisCharacters: 4096,
-        maximumTranscriptCharacters: 8000,
-        providerStatus: "configured",
-        synthesisModel: "gpt-4o-mini-tts",
-        synthesisVoice: "marin",
-        transcriptionModel: "gpt-realtime-whisper",
-      });
-    case "/speech/transcription/sessions":
-      return jsonResponse({
-        clientSecret: "ek_web_ephemeral",
-        expiresAt: "2026-07-10T18:10:00Z",
-        maximumRecordingSeconds: 120,
-        maximumTranscriptCharacters: 8000,
-        transcriptionDelay: "medium",
-        transcriptionModel: "gpt-realtime-whisper",
-        webRTCURL: "https://api.openai.com/v1/realtime/calls",
-      });
-    case "/speech/easy-runs/summary":
-      return speechAudioResponse("easy_run_api:summary");
-    case "/speech/easy-runs/highlight":
-      return speechAudioResponse("highlight_api");
-    default:
-      return null;
-  }
 }
 
 async function waitFor(assertion: () => boolean): Promise<void> {
