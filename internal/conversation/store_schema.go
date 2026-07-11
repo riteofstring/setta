@@ -13,42 +13,15 @@ import (
 //go:embed schema_v1.sql
 var schemaV1SQL string
 
-var schemaV1Tables = []string{
-	"agent_thread_bindings",
-	"artifacts",
-	"committed_events",
-	"conversation_branches",
-	"conversation_presentation_profiles",
-	"conversation_queue",
-	"conversation_turns",
-	"conversations",
-	"master_route_decisions",
-	"master_sessions",
-	"master_voice_selection",
-	"narration_events",
-	"narrator_state",
-	"pane_bindings",
-	"role_profile_overrides",
-	"side_conversations",
-	"topic_index_documents",
-	"topic_index_search",
-	"trajectory_events",
+type schemaObjectDefinition struct {
+	objectType string
+	sql        string
 }
 
-var schemaV1Indexes = []string{
-	"artifacts_conversation_created_idx",
-	"committed_events_stream_sequence_idx",
-	"conversation_branches_parent_idx",
-	"conversation_turns_conversation_accepted_idx",
-	"conversation_turns_one_running_idx",
-	"conversations_workspace_updated_idx",
-	"master_route_decisions_session_stream_idx",
-	"narration_events_conversation_stream_idx",
-	"pane_bindings_conversation_focus_idx",
-	"side_conversations_parent_status_idx",
-	"topic_index_documents_workspace_updated_idx",
-	"trajectory_events_conversation_sequence_idx",
-	"trajectory_events_turn_sequence_idx",
+var schemaV1Objects map[string]schemaObjectDefinition
+
+func init() {
+	schemaV1Objects = mustParseSchemaObjectDefinitions(schemaV1SQL)
 }
 
 func initializeSchema(ctx context.Context, connection *sql.Conn, dbPath string) error {
@@ -111,22 +84,23 @@ func createSchemaV1(ctx context.Context, connection *sql.Conn, dbPath string) er
 
 func validateSchemaV1(ctx context.Context, connection *sql.Conn, dbPath string) error {
 	rows, err := connection.QueryContext(ctx, `
-SELECT type, name
+SELECT type, name, sql
 FROM sqlite_schema
 WHERE type IN ('index', 'table')
 `)
 	if err != nil {
 		return databaseError("read conversation database schema", dbPath, err)
 	}
-	found := make(map[string]string, len(schemaV1Tables)+len(schemaV1Indexes))
+	found := make(map[string]schemaObjectDefinition, len(schemaV1Objects))
 	for rows.Next() {
 		var objectType string
 		var name string
-		if err := rows.Scan(&objectType, &name); err != nil {
+		var definitionSQL sql.NullString
+		if err := rows.Scan(&objectType, &name, &definitionSQL); err != nil {
 			_ = rows.Close()
 			return databaseError("decode conversation database schema", dbPath, err)
 		}
-		found[name] = objectType
+		found[name] = schemaObjectDefinition{objectType: objectType, sql: normalizeSchemaSQL(definitionSQL.String)}
 	}
 	if err := rows.Close(); err != nil {
 		return databaseError("close conversation database schema rows", dbPath, err)
@@ -134,22 +108,76 @@ WHERE type IN ('index', 'table')
 	if err := rows.Err(); err != nil {
 		return databaseError("read conversation database schema rows", dbPath, err)
 	}
-	missing := make([]string, 0, len(schemaV1Tables)+len(schemaV1Indexes))
-	for _, table := range schemaV1Tables {
-		if found[table] != "table" {
-			missing = append(missing, "table "+table)
+	problems := make([]string, 0)
+	for name, expected := range schemaV1Objects {
+		actual, ok := found[name]
+		if !ok || actual.objectType != expected.objectType {
+			problems = append(problems, "missing "+expected.objectType+" "+name)
+			continue
+		}
+		if actual.sql != expected.sql {
+			problems = append(problems, "unexpected definition for "+expected.objectType+" "+name)
 		}
 	}
-	for _, index := range schemaV1Indexes {
-		if found[index] != "index" {
-			missing = append(missing, "index "+index)
-		}
-	}
-	if len(missing) > 0 {
-		sort.Strings(missing)
-		return &CorruptStateError{Path: dbPath, Err: fmt.Errorf("schema version 1 is missing objects: %s", strings.Join(missing, ", "))}
+	if len(problems) > 0 {
+		sort.Strings(problems)
+		return &CorruptStateError{Path: dbPath, Err: fmt.Errorf("schema version 1 does not match its owner definition: %s", strings.Join(problems, ", "))}
 	}
 	return nil
+}
+
+func mustParseSchemaObjectDefinitions(sqlText string) map[string]schemaObjectDefinition {
+	definitions := make(map[string]schemaObjectDefinition)
+	for _, statement := range splitSQLStatements(sqlText) {
+		name, definition, ok := parseSchemaObjectDefinition(statement)
+		if !ok {
+			panic(fmt.Sprintf("unsupported conversation schema statement: %s", statement))
+		}
+		if _, exists := definitions[name]; exists {
+			panic("duplicate conversation schema object: " + name)
+		}
+		definitions[name] = definition
+	}
+	return definitions
+}
+
+func parseSchemaObjectDefinition(statement string) (string, schemaObjectDefinition, bool) {
+	fields := strings.Fields(statement)
+	var objectType string
+	var name string
+	switch {
+	case hasSchemaPrefix(fields, "CREATE", "TABLE"):
+		objectType = "table"
+		name = fields[2]
+	case hasSchemaPrefix(fields, "CREATE", "VIRTUAL", "TABLE"):
+		objectType = "table"
+		name = fields[3]
+	case hasSchemaPrefix(fields, "CREATE", "INDEX"):
+		objectType = "index"
+		name = fields[2]
+	case hasSchemaPrefix(fields, "CREATE", "UNIQUE", "INDEX"):
+		objectType = "index"
+		name = fields[3]
+	default:
+		return "", schemaObjectDefinition{}, false
+	}
+	return name, schemaObjectDefinition{objectType: objectType, sql: normalizeSchemaSQL(statement)}, true
+}
+
+func hasSchemaPrefix(fields []string, prefix ...string) bool {
+	if len(fields) <= len(prefix) {
+		return false
+	}
+	for index, expected := range prefix {
+		if !strings.EqualFold(fields[index], expected) {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeSchemaSQL(sqlText string) string {
+	return strings.Join(strings.Fields(sqlText), " ")
 }
 
 func hasUserSchema(ctx context.Context, connection *sql.Conn, dbPath string) (bool, error) {

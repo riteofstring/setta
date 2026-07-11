@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -145,6 +144,27 @@ func TestNewStoreRejectsUnsupportedIncompleteAndMalformedDatabases(t *testing.T)
 			},
 		},
 		{
+			name: "wrong version one table definition",
+			prepare: func(t *testing.T, path string) {
+				withRawDatabase(t, path, func(db *sql.DB) {
+					for _, statement := range splitSQLStatements(schemaV1SQL) {
+						if _, err := db.Exec(statement); err != nil {
+							t.Fatalf("create version one schema fixture: %v", err)
+						}
+					}
+					if _, err := db.Exec("DROP TABLE conversations"); err != nil {
+						t.Fatalf("drop conversations table: %v", err)
+					}
+					if _, err := db.Exec("CREATE TABLE conversations(id TEXT PRIMARY KEY) STRICT"); err != nil {
+						t.Fatalf("create malformed conversations table: %v", err)
+					}
+					if _, err := db.Exec("PRAGMA user_version = 1"); err != nil {
+						t.Fatalf("set version one: %v", err)
+					}
+				})
+			},
+		},
+		{
 			name: "malformed sqlite file",
 			prepare: func(t *testing.T, path string) {
 				if err := os.WriteFile(path, []byte("not a sqlite database"), 0o600); err != nil {
@@ -170,6 +190,45 @@ func TestNewStoreRejectsUnsupportedIncompleteAndMalformedDatabases(t *testing.T)
 				t.Fatalf("NewStore error = %T %v, want CorruptStateError", err, err)
 			}
 		})
+	}
+}
+
+func TestRoleProfileOverrideSchemaSupportsEveryResolutionScope(t *testing.T) {
+	store := newTestStore(t)
+	err := store.write(context.Background(), "insert role profile override scopes", func(ctx context.Context, tx *sql.Tx) error {
+		for _, scope := range []struct {
+			kind string
+			id   string
+		}{
+			{kind: "global", id: ""},
+			{kind: "workspace", id: "workspace-1"},
+			{kind: "conversation", id: "conversation-1"},
+		} {
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO role_profile_overrides(scope_kind, scope_id, role, provider, profile_json, updated_at)
+VALUES (?, ?, 'narrator', 'codex', '{}', '2026-07-11T00:00:00Z')
+`, scope.kind, scope.id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("insert valid override scopes: %v", err)
+	}
+	if got := countRows(t, store, "role_profile_overrides"); got != 3 {
+		t.Fatalf("role override count = %d, want 3", got)
+	}
+
+	err = store.write(context.Background(), "reject empty workspace override scope", func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO role_profile_overrides(scope_kind, scope_id, role, provider, profile_json, updated_at)
+VALUES ('workspace', '', 'agent', 'codex', '{}', '2026-07-11T00:00:00Z')
+`)
+		return err
+	})
+	if err == nil || !IsPersistenceError(err) {
+		t.Fatalf("empty workspace override scope error = %v, want PersistenceError", err)
 	}
 }
 
@@ -508,14 +567,9 @@ WHERE type IN ('index', 'table')
 	if err := rows.Err(); err != nil {
 		t.Fatalf("iterate schema tables: %v", err)
 	}
-	for _, table := range schemaV1Tables {
-		if found[table] != "table" {
-			t.Errorf("schema table %q was not created as a table", table)
-		}
-	}
-	for _, index := range schemaV1Indexes {
-		if found[index] != "index" {
-			t.Errorf("schema index %q was not created as an index", index)
+	for name, definition := range schemaV1Objects {
+		if found[name] != definition.objectType {
+			t.Errorf("schema %s %q was not created", definition.objectType, name)
 		}
 	}
 }
@@ -536,7 +590,7 @@ func newTestStore(t *testing.T, options ...StoreOption) *Store {
 
 func countRows(t *testing.T, store *Store, table string) int {
 	t.Helper()
-	allowed := slices.Contains(schemaV1Tables, table)
+	_, allowed := schemaV1Objects[table]
 	if !allowed {
 		t.Fatalf("test requested count from unexpected table %q", table)
 	}

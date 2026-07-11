@@ -2112,3 +2112,15 @@ Implementation is in progress under this plan.
   Go 1.26.4 standard library, fixed in Go 1.26.5, with example traces through
   existing runtime, semantic-graph, generator, and speech code. No dependency
   manifest or pinned toolchain was changed as part of this persistence step.
+- 2026-07-11: Phase 1 item 1 review corrected the version-1 schema's role
+  override scope to include the plan-owned workspace layer between global and
+  conversation overrides. Focused coverage now accepts all three valid scope
+  shapes and rejects an empty workspace scope. The review also removed the
+  hardcoded table/index inventory mirror: schema validation derives every
+  owned definition from `schema_v1.sql` and compares the normalized stored SQL,
+  so a version-1 database with the right object names but a wrong table or
+  index definition is rejected as corrupt rather than failing later at use.
+  Verification passed with the race-enabled focused conversation test and the
+  focused `./check_quality.sh --files` gate.
+  Generated inputs and outputs changed: none. Phase 1 item 2 remains next and
+  there is no external blocker.

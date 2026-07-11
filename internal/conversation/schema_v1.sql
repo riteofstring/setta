@@ -180,14 +180,17 @@ CREATE VIRTUAL TABLE topic_index_search USING fts5(
 );
 
 CREATE TABLE role_profile_overrides (
-  scope_kind TEXT NOT NULL CHECK (scope_kind IN ('global', 'conversation')),
+  scope_kind TEXT NOT NULL CHECK (scope_kind IN ('global', 'workspace', 'conversation')),
   scope_id TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('master', 'agent', 'narrator', 'side_agent')),
   provider TEXT NOT NULL CHECK (provider = 'codex'),
   profile_json TEXT NOT NULL CHECK (json_valid(profile_json)),
   updated_at TEXT NOT NULL,
   PRIMARY KEY(scope_kind, scope_id, role),
-  CHECK ((scope_kind = 'global' AND scope_id = '') OR (scope_kind = 'conversation' AND scope_id <> ''))
+  CHECK (
+    (scope_kind = 'global' AND scope_id = '')
+    OR (scope_kind IN ('workspace', 'conversation') AND scope_id <> '')
+  )
 ) STRICT;
 
 CREATE TABLE conversation_presentation_profiles (
