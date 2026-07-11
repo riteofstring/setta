@@ -115,8 +115,6 @@ import type {
   SubmitApprovalRequest,
   StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
-  TerminalInputRequest,
-  TerminalInputResponse,
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
@@ -263,7 +261,6 @@ export const ipcChannels = {
   terminalCreate: "terminal:create",
   terminalCreateProfile: "terminal:create-profile",
   terminalDeleteProfile: "terminal:delete-profile",
-  terminalInput: "terminal:input",
   terminalListProfiles: "terminal:list-profiles",
   terminalResize: "terminal:resize",
   terminalSelectDefaultProfile: "terminal:select-default-profile",
@@ -299,6 +296,7 @@ export const ipcChannels = {
 } as const;
 
 export const ipcMessages = {
+  terminalInput: "terminal:input",
   workspaceBrowserViewBatch: "workspace:browser-view-batch",
 } as const;
 
@@ -313,6 +311,7 @@ export const ipcEvents = {
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
   terminalEvent: "terminal:event",
+  terminalStreamStatus: "terminal:stream-status",
   workflowEvent: "workflow:event",
 } as const;
 
@@ -746,10 +745,6 @@ interface IpcContract extends RuntimeIpcContract {
   terminalDeleteProfile: {
     args: [request: DeleteTerminalProfileRequest];
     result: TerminalProfileList;
-  };
-  terminalInput: {
-    args: [input: TerminalInputRequest];
-    result: TerminalInputResponse;
   };
   terminalListProfiles: {
     args: [];

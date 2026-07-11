@@ -9,6 +9,7 @@ import {
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel } from "@shared/recording";
+import { decodeTerminalStreamStatus } from "@shared/terminal-stream-client";
 import type {
   BackendEventStreamStatus,
   CloudRuntimeProvisionResourceView,
@@ -184,7 +185,7 @@ const api: SettaAPI = {
       ),
     deleteProfile: (request) => invoke("terminalDeleteProfile", request),
     input: (input) =>
-      invoke("terminalInput", {
+      ipcRenderer.send(ipcMessages.terminalInput, {
         ...input,
         trace: {
           ...input.trace,
@@ -199,6 +200,15 @@ const api: SettaAPI = {
       ipcRenderer.on(ipcEvents.terminalEvent, handler);
       return () => {
         ipcRenderer.removeListener(ipcEvents.terminalEvent, handler);
+      };
+    },
+    onStatus: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeTerminalStreamStatus(payload));
+      };
+      ipcRenderer.on(ipcEvents.terminalStreamStatus, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.terminalStreamStatus, handler);
       };
     },
     recordLatency: (event) => ipcRenderer.send(recordingRendererEventChannel, event),

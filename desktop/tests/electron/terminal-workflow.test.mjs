@@ -731,12 +731,12 @@ async function assertTerminalRecordingEvidence(recordingDir) {
   const ipc = await readJsonLinesOptional(join(recordingDir, "ipc.jsonl"));
   assertNoUnexpectedIPCFailures(ipc);
   assertSuccessfulTerminalIPC(ipc);
-  assertTerminalInputRecordsAreRedactedAndSequenced(ipc);
 
   const backend = await readJsonLinesOptional(join(recordingDir, "backend-http.jsonl"));
   assertSuccessfulTerminalBackendRequests(backend);
 
   const events = await readJsonLinesOptional(join(recordingDir, "events.jsonl"));
+  assertTerminalInputRecordsAreSequenced(events);
   assertForwardedTerminalEvents(events);
   assertMainTerminalLatencyStages(events);
   assertForwardedTerminalEventMetadata(events);
@@ -763,7 +763,6 @@ function assertSuccessfulTerminalIPC(ipc) {
     "workspace:open-local-folder",
     "terminal:create",
     "terminal:attach",
-    "terminal:input",
     "terminal:resize",
     "terminal:close",
   ]) {
@@ -778,8 +777,7 @@ function assertSuccessfulTerminalBackendRequests(backend) {
     "/workspaces/open",
     "/terminals/create",
     "/terminals/attach",
-    "/terminals/events",
-    "/terminals/input",
+    "/terminals/stream/ticket",
     "/terminals/resize",
     "/terminals/close",
   ]) {
@@ -811,52 +809,31 @@ function assertRendererTerminalLatencyStages(rendererEvents) {
   }
 }
 
-function assertTerminalInputRecordsAreRedactedAndSequenced(ipc) {
-  const requests = ipc
-    .filter((entry) => entry.type === "ipc_start" && entry.channel === "terminal:input")
-    .map((entry) => entry.args?.[0]);
+function assertTerminalInputRecordsAreSequenced(events) {
+  const requests = events
+    .filter((entry) => entry.type === "terminal_input_main_received")
+    .map((entry) => entry.payload);
   if (requests.length === 0) {
     throw new Error("recording missing terminal input IPC requests");
   }
   const sequencesBySession = new Map();
   for (const request of requests) {
-    assertSafeTerminalInputSummary(request);
-    const key = `${request.trace?.clientId}:${request.sessionId}`;
+    const key = `${request.clientId}:${request.sessionId}`;
     const expected = (sequencesBySession.get(key) ?? 0) + 1;
-    assertTerminalInputSequence(request, key, expected);
+    if (request.inputSequence !== expected) {
+      throw new Error(
+        `terminal input sequence for ${key} = ${request.inputSequence}, want ${expected}`,
+      );
+    }
     sequencesBySession.set(key, expected);
   }
 }
 
-function assertSafeTerminalInputSummary(request) {
-  if (!request || request.dataBase64 !== undefined || request.byteCount <= 0) {
-    throw new Error(`terminal input IPC was not safely summarized: ${JSON.stringify(request)}`);
-  }
-}
-
-function assertTerminalInputSequence(request, key, expected) {
-  if (request.trace?.inputSequence !== expected) {
-    throw new Error(
-      `terminal input sequence for ${key} = ${request.trace?.inputSequence}, want ${expected}`,
-    );
-  }
-}
-
 function assertMainTerminalLatencyStages(events) {
-  for (const type of [
-    "terminal_input_main_received",
-    "terminal_input_http_dispatched",
-    "terminal_input_http_response_received",
-  ]) {
+  for (const type of ["terminal_input_main_received", "terminal_stream_status"]) {
     if (!events.some((entry) => entry.type === type)) {
       throw new Error(`recording missing main terminal latency stage: ${type}`);
     }
-  }
-  const response = events.find((entry) => entry.type === "terminal_input_http_response_received");
-  if (!response?.payload?.handlerReceivedAt || !response.payload.ptyWriteCompletedAt) {
-    throw new Error(
-      `terminal input response missing backend timestamps: ${JSON.stringify(response)}`,
-    );
   }
 }
 

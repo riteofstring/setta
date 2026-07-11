@@ -115,8 +115,6 @@ import type {
   StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
-  TerminalInputRequest,
-  TerminalInputResponse,
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
@@ -140,6 +138,7 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
+import type { TerminalStreamStatus } from "./terminal-stream-client";
 import type { TerminalLatencyRendererEvent } from "./recording";
 
 import type {
@@ -345,6 +344,22 @@ export type RuntimeConnectionStatus =
   | "revoked"
   | "incompatible"
   | "mismatched";
+
+export interface TerminalInputTrace {
+  clientId: string;
+  httpDispatchedAt: string;
+  inputSequence: number;
+  mainReceivedAt: string;
+  preloadReceivedAt: string;
+  rendererReceivedAt: string;
+  runId: string;
+}
+
+export interface TerminalInputRequest {
+  dataBase64: string;
+  sessionId: string;
+  trace: TerminalInputTrace;
+}
 
 export interface RuntimeConnectionState {
   message: string;
@@ -598,9 +613,10 @@ export interface SettaAPI {
       },
     ) => Promise<TerminalSessionResponse>;
     deleteProfile: (request: DeleteTerminalProfileRequest) => Promise<TerminalProfileList>;
-    input: (input: TerminalInputRequest) => Promise<TerminalInputResponse>;
+    input: (input: TerminalInputRequest) => void;
     listProfiles: () => Promise<TerminalProfileList>;
     onEvent: (listener: (event: TerminalEvent) => void) => () => void;
+    onStatus: (listener: (status: TerminalStreamStatus) => void) => () => void;
     recordLatency: (event: TerminalLatencyRendererEvent) => void;
     recordingRunId: string;
     resize: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;

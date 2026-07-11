@@ -177,7 +177,6 @@ type TerminalService interface {
 	StartTerminalStream(string) ([]terminal.TerminalStreamSessionState, error)
 	ResumeTerminalStream(string, []terminal.TerminalStreamResumeSession) ([]terminal.TerminalStreamSessionState, error)
 	UpdateProfile(string, terminal.TerminalProfileInput) (terminal.TerminalProfileList, error)
-	WriteInput(context.Context, string, []byte) (int, error)
 	WriteTerminalStreamInput(context.Context, string, terminal.TerminalStreamInputMessage) (terminal.TerminalStreamInputAckMessage, error)
 }
 

@@ -179,6 +179,88 @@ describe("web SettaAPI unpaired runtime state", () => {
     expect(pairing.pairingUrl).toBe("https://runtime.tailnet.ts.net/#pair=token_phone");
     expect(createRequests).toEqual([{ runtimeBaseUrl: "https://runtime.tailnet.ts.net/" }]);
   });
+
+  test("uses the authenticated duplex terminal stream for browser input and events", async () => {
+    withWebGlobals("https://runtime.tailnet.ts.net");
+    const sockets: WebSocketTestDouble[] = [];
+    vi.stubGlobal(
+      "WebSocket",
+      class extends WebSocketTestDouble {
+        constructor(url: URL) {
+          super(url);
+          sockets.push(this);
+        }
+      },
+    );
+    const ticketRequests: Array<{ authorization: string | null; body: unknown }> = [];
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          case "/terminals/stream/ticket":
+            ticketRequests.push({
+              authorization: new Headers(init.headers).get("Authorization"),
+              body: JSON.parse(String(init.body)),
+            });
+            return jsonResponse({
+              clientStreamId: JSON.parse(String(init.body)).clientStreamId,
+              expiresAt: "2026-07-11T00:00:30Z",
+              expiresInSeconds: 30,
+              maxInputBytes: 65536,
+              maxQueuedInputBytes: 262144,
+              ticket: "ticket_web",
+            });
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+    });
+    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+    const events: unknown[] = [];
+    const unsubscribe = api.terminal.onEvent((event) => events.push(event));
+    await waitFor(() => sockets.length === 1);
+    const socket = sockets[0]!;
+    socket.open();
+    const start = socket.sentJSON()[0] as { clientStreamId: string };
+    socket.message({
+      clientStreamId: start.clientStreamId,
+      eventCursor: { afterSequence: 0, streamId: "" },
+      kind: "terminal.stream.ready",
+      maxInputBytes: 65536,
+      maxQueuedInputBytes: 262144,
+      protocolVersion: 1,
+      serverStreamId: "server_web",
+      sessions: [],
+    });
+    api.terminal.input({
+      dataBase64: "YQ==",
+      sessionId: "session_web",
+      trace: terminalInputTrace(),
+    });
+    const event = terminalEvent();
+    socket.message({ event, kind: "terminal.stream.event" });
+
+    expect(ticketRequests[0]?.authorization).toBe("Bearer token_web");
+    expect(socket.url.toString()).toContain("/terminals/stream?ticket=ticket_web");
+    expect(socket.sentJSON()[1]).toEqual({
+      dataBase64: "YQ==",
+      inputSequence: 1,
+      kind: "terminal.stream.input",
+      sessionId: "session_web",
+    });
+    expect(events).toEqual([event]);
+    unsubscribe();
+  });
 });
 
 function withWebGlobals(origin = "http://127.0.0.1:7345") {
@@ -248,4 +330,83 @@ async function waitFor(assertion: () => boolean): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
   throw new Error("timed out waiting for condition");
+}
+
+class WebSocketTestDouble {
+  readyState = 0;
+  private readonly listeners = new Map<string, Array<(event: unknown) => void>>();
+  private readonly sent: string[] = [];
+
+  constructor(readonly url: URL) {}
+
+  addEventListener(type: string, listener: (event: never) => void): void {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener as (event: unknown) => void);
+    this.listeners.set(type, listeners);
+  }
+
+  close(): void {
+    this.readyState = 3;
+  }
+
+  message(message: unknown): void {
+    this.emit("message", { data: JSON.stringify(message) });
+  }
+
+  open(): void {
+    this.readyState = 1;
+    this.emit("open", undefined);
+  }
+
+  send(data: string): void {
+    this.sent.push(data);
+  }
+
+  sentJSON(): unknown[] {
+    return this.sent.map((value) => JSON.parse(value));
+  }
+
+  private emit(type: string, event: unknown): void {
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(event);
+    }
+  }
+}
+
+function terminalInputTrace() {
+  return {
+    clientId: "client_web",
+    httpDispatchedAt: "",
+    inputSequence: 1,
+    mainReceivedAt: "",
+    preloadReceivedAt: "",
+    rendererReceivedAt: "2026-07-11T00:00:00Z",
+    runId: "run_web",
+  };
+}
+
+function terminalEvent() {
+  return {
+    emittedAt: "2026-07-11T00:00:00Z",
+    eventId: "stream_web:1",
+    paneId: "pane_web",
+    payload: {
+      byteCount: 1,
+      cols: 0,
+      cwd: "",
+      dataBase64: "YQ==",
+      droppedBytes: 0,
+      droppedChunks: 0,
+      exitCode: 0,
+      message: "",
+      rows: 0,
+      status: "running" as const,
+    },
+    schemaVersion: 1,
+    sequence: 1,
+    sessionId: "session_web",
+    streamId: "stream_web",
+    type: "terminal.output" as const,
+    workspaceId: "workspace_web",
+  };
 }

@@ -20,8 +20,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 13;
-export const backendContractSchemaHash = "sha256:0b53396451bfda46e2a5f395801f0b28ce469ee472fd618dbe2f44f7bd59d559";
+export const backendProtocolVersion = 14;
+export const backendContractSchemaHash = "sha256:cfcedc6b1f48f4a39cb0348aaf432c2a461e33d34827880f4ba9d3e664333774";
 
 export type DeviceScope = "full";
 
@@ -5899,35 +5899,6 @@ export interface AttachTerminalRequest {
   paneId: string;
 }
 
-export interface TerminalInputTrace {
-  runId: string;
-  clientId: string;
-  inputSequence: number;
-  rendererReceivedAt: string;
-  preloadReceivedAt: string;
-  mainReceivedAt: string;
-  httpDispatchedAt: string;
-}
-
-export interface TerminalInputRequest {
-  sessionId: string;
-  dataBase64: string;
-  trace: TerminalInputTrace;
-}
-
-export interface TerminalInputResponseTrace {
-  runId: string;
-  clientId: string;
-  inputSequence: number;
-  handlerReceivedAt: string;
-  ptyWriteCompletedAt: string;
-}
-
-export interface TerminalInputResponse {
-  acceptedBytes: number;
-  trace: TerminalInputResponseTrace;
-}
-
 export interface CreateTerminalStreamTicketRequest {
   clientStreamId: string;
 }
@@ -7277,11 +7248,6 @@ export const backendEndpoints = {
     path: "/terminals/attach",
     requestBodyLimitBytes: 4194304,
   },
-  TerminalInput: {
-    method: "POST",
-    path: "/terminals/input",
-    requestBodyLimitBytes: 4194304,
-  },
   CreateTerminalStreamTicket: {
     method: "POST",
     path: "/terminals/stream/ticket",
@@ -7325,10 +7291,6 @@ export const backendEndpoints = {
     method: "POST",
     path: "/terminals/profiles/default",
     requestBodyLimitBytes: 4194304,
-  },
-  TerminalEventStream: {
-    method: "GET",
-    path: "/terminals/events",
   },
   ReadCodexAccount: {
     method: "GET",
@@ -12077,51 +12039,6 @@ export function decodeAttachTerminalRequest(value: unknown): AttachTerminalReque
   };
 }
 
-export function decodeTerminalInputTrace(value: unknown): TerminalInputTrace {
-  const record = assertRecord(value, "TerminalInputTrace");
-  assertKnownFields(record, "TerminalInputTrace", ["runId", "clientId", "inputSequence", "rendererReceivedAt", "preloadReceivedAt", "mainReceivedAt", "httpDispatchedAt"]);
-  return {
-    runId: decodeString(requireField(record, "runId", "TerminalInputTrace"), "TerminalInputTrace.runId"),
-    clientId: decodeString(requireField(record, "clientId", "TerminalInputTrace"), "TerminalInputTrace.clientId"),
-    inputSequence: decodeInteger(requireField(record, "inputSequence", "TerminalInputTrace"), "TerminalInputTrace.inputSequence"),
-    rendererReceivedAt: decodeString(requireField(record, "rendererReceivedAt", "TerminalInputTrace"), "TerminalInputTrace.rendererReceivedAt"),
-    preloadReceivedAt: decodeString(requireField(record, "preloadReceivedAt", "TerminalInputTrace"), "TerminalInputTrace.preloadReceivedAt"),
-    mainReceivedAt: decodeString(requireField(record, "mainReceivedAt", "TerminalInputTrace"), "TerminalInputTrace.mainReceivedAt"),
-    httpDispatchedAt: decodeString(requireField(record, "httpDispatchedAt", "TerminalInputTrace"), "TerminalInputTrace.httpDispatchedAt"),
-  };
-}
-
-export function decodeTerminalInputRequest(value: unknown): TerminalInputRequest {
-  const record = assertRecord(value, "TerminalInputRequest");
-  assertKnownFields(record, "TerminalInputRequest", ["sessionId", "dataBase64", "trace"]);
-  return {
-    sessionId: decodeString(requireField(record, "sessionId", "TerminalInputRequest"), "TerminalInputRequest.sessionId"),
-    dataBase64: decodeString(requireField(record, "dataBase64", "TerminalInputRequest"), "TerminalInputRequest.dataBase64"),
-    trace: decodeTerminalInputTrace(requireField(record, "trace", "TerminalInputRequest")),
-  };
-}
-
-export function decodeTerminalInputResponseTrace(value: unknown): TerminalInputResponseTrace {
-  const record = assertRecord(value, "TerminalInputResponseTrace");
-  assertKnownFields(record, "TerminalInputResponseTrace", ["runId", "clientId", "inputSequence", "handlerReceivedAt", "ptyWriteCompletedAt"]);
-  return {
-    runId: decodeString(requireField(record, "runId", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.runId"),
-    clientId: decodeString(requireField(record, "clientId", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.clientId"),
-    inputSequence: decodeInteger(requireField(record, "inputSequence", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.inputSequence"),
-    handlerReceivedAt: decodeString(requireField(record, "handlerReceivedAt", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.handlerReceivedAt"),
-    ptyWriteCompletedAt: decodeString(requireField(record, "ptyWriteCompletedAt", "TerminalInputResponseTrace"), "TerminalInputResponseTrace.ptyWriteCompletedAt"),
-  };
-}
-
-export function decodeTerminalInputResponse(value: unknown): TerminalInputResponse {
-  const record = assertRecord(value, "TerminalInputResponse");
-  assertKnownFields(record, "TerminalInputResponse", ["acceptedBytes", "trace"]);
-  return {
-    acceptedBytes: decodeInteger(requireField(record, "acceptedBytes", "TerminalInputResponse"), "TerminalInputResponse.acceptedBytes"),
-    trace: decodeTerminalInputResponseTrace(requireField(record, "trace", "TerminalInputResponse")),
-  };
-}
-
 export function decodeCreateTerminalStreamTicketRequest(value: unknown): CreateTerminalStreamTicketRequest {
   const record = assertRecord(value, "CreateTerminalStreamTicketRequest");
   assertKnownFields(record, "CreateTerminalStreamTicketRequest", ["clientStreamId"]);
@@ -13264,7 +13181,6 @@ export interface BackendClient {
   updateSemanticSteeringDirective: (request: UpdateSemanticSteeringDirectiveRequest) => Promise<SemanticMutationResult>;
   createTerminal: (request: CreateTerminalRequest) => Promise<TerminalSessionResponse>;
   attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
-  terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
   createTerminalStreamTicket: (request: CreateTerminalStreamTicketRequest) => Promise<CreateTerminalStreamTicketResponse>;
   resizeTerminal: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
   closeTerminal: (request: CloseTerminalRequest) => Promise<CloseTerminalResponse>;
@@ -14247,14 +14163,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalSessionResponse,
       endpoint: backendEndpoints.AttachTerminal,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    terminalInput: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeTerminalInputResponse,
-      endpoint: backendEndpoints.TerminalInput,
       fetchImpl,
       requestPayload: request,
     }),

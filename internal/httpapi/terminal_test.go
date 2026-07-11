@@ -1,10 +1,8 @@
 package httpapi
 
 import (
-	"bufio"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,16 +10,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 )
 
-func TestTerminalEndpointsCreateInputResizeAndClose(t *testing.T) {
+func TestTerminalEndpointsCreateResizeAndClose(t *testing.T) {
 	handler, starter := newTerminalHandler(t, nil)
 	resolvedRoot := mustResolveHTTPTestPath(t, starter.root)
 
@@ -36,31 +32,6 @@ func TestTerminalEndpointsCreateInputResizeAndClose(t *testing.T) {
 	}
 	if created.Session.CWD != resolvedRoot {
 		t.Fatalf("created cwd = %q, want %q", created.Session.CWD, resolvedRoot)
-	}
-
-	input := postJSON[TerminalInputResponse](t, handler, "/terminals/input", TerminalInputRequest{
-		SessionID:  created.Session.ID,
-		DataBase64: base64.StdEncoding.EncodeToString([]byte("echo ok\n")),
-		Trace: TerminalInputTrace{
-			RunID:         "terminal_latency_test",
-			ClientID:      "terminal_client_test",
-			InputSequence: 7,
-		},
-	}, http.StatusOK)
-	if input.AcceptedBytes != len("echo ok\n") {
-		t.Fatalf("accepted input bytes = %d, want %d", input.AcceptedBytes, len("echo ok\n"))
-	}
-	if input.Trace.RunID != "terminal_latency_test" || input.Trace.ClientID != "terminal_client_test" || input.Trace.InputSequence != 7 {
-		t.Fatalf("input trace correlation = %+v", input.Trace)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, input.Trace.HandlerReceivedAt); err != nil {
-		t.Fatalf("handler received timestamp = %q: %v", input.Trace.HandlerReceivedAt, err)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, input.Trace.PTYWriteCompletedAt); err != nil {
-		t.Fatalf("pty write timestamp = %q: %v", input.Trace.PTYWriteCompletedAt, err)
-	}
-	if written := starter.handleAt(t, 0).writtenString(); written != "echo ok\n" {
-		t.Fatalf("terminal input = %q, want echo ok", written)
 	}
 
 	resized := postJSON[TerminalSessionResponse](t, handler, "/terminals/resize", ResizeTerminalRequest{
@@ -191,32 +162,6 @@ func TestTerminalProfileEndpointsManageProfiles(t *testing.T) {
 	}
 }
 
-func TestTerminalEndpointRejectsInvalidInputEncoding(t *testing.T) {
-	handler, _ := newTerminalHandler(t, nil)
-	created := postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
-		WorkspaceID: "workspace_terminal",
-		PaneID:      "pane_shell",
-		Cols:        80,
-		Rows:        24,
-	}, http.StatusOK)
-
-	invalid := postJSON[ErrorResponse](t, handler, "/terminals/input", TerminalInputRequest{
-		SessionID:  created.Session.ID,
-		DataBase64: "@@@",
-	}, http.StatusBadRequest)
-	if invalid.Error.Code != "invalid_terminal_input" {
-		t.Fatalf("invalid input error code = %q, want invalid_terminal_input", invalid.Error.Code)
-	}
-
-	tooLarge := postJSON[ErrorResponse](t, handler, "/terminals/input", TerminalInputRequest{
-		SessionID:  created.Session.ID,
-		DataBase64: strings.Repeat("A", base64.StdEncoding.EncodedLen(terminal.MaxInputBytes+1)),
-	}, http.StatusBadRequest)
-	if tooLarge.Error.Code != "terminal_input_too_large" {
-		t.Fatalf("oversized input error code = %q, want terminal_input_too_large", tooLarge.Error.Code)
-	}
-}
-
 func TestTerminalEndpointMapsUnsupportedPTYToNotImplemented(t *testing.T) {
 	handler, _ := newTerminalHandler(t, terminal.UnsupportedPlatformError{Platform: "test-os"})
 
@@ -255,105 +200,6 @@ func TestTerminalStreamTicketAndUpgradeRequireValidCredentials(t *testing.T) {
 	}
 }
 
-func TestTerminalEventStreamPushesTerminalEvents(t *testing.T) {
-	handler, starter := newTerminalHandler(t, nil)
-	server := httptest.NewServer(handler)
-	defer server.Close()
-
-	response, err := http.Get(server.URL + "/terminals/events")
-	if err != nil {
-		t.Fatalf("open terminal event stream: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("terminal event stream status = %d, want 200", response.StatusCode)
-	}
-	reader := bufio.NewReader(response.Body)
-
-	created := postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
-		WorkspaceID: "workspace_terminal",
-		PaneID:      "pane_shell",
-		Cols:        80,
-		Rows:        24,
-	}, http.StatusOK)
-	started := readServerSentTerminalEvent(t, reader)
-	if started.Type != terminal.TerminalEventStarted || started.SessionID != created.Session.ID {
-		t.Fatalf("started event = %+v, want terminal.started for %s", started, created.Session.ID)
-	}
-
-	starter.handleAt(t, 0).emit([]byte("ready\n"))
-	output := readServerSentTerminalEvent(t, reader)
-	if output.Type != terminal.TerminalEventOutput || output.Payload.DataBase64 != "cmVhZHkK" {
-		t.Fatalf("output event = %+v, want base64 ready output", output)
-	}
-}
-
-func TestTerminalEventStreamReplaysFromCursor(t *testing.T) {
-	handler, starter := newTerminalHandler(t, nil)
-	server := httptest.NewServer(handler)
-	defer server.Close()
-
-	firstResponse, err := http.Get(server.URL + "/terminals/events")
-	if err != nil {
-		t.Fatalf("open terminal event stream: %v", err)
-	}
-	firstReader := bufio.NewReader(firstResponse.Body)
-
-	created := postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
-		WorkspaceID: "workspace_terminal",
-		PaneID:      "pane_shell",
-		Cols:        80,
-		Rows:        24,
-	}, http.StatusOK)
-	started := readServerSentTerminalEvent(t, firstReader)
-	if started.Type != terminal.TerminalEventStarted || started.SessionID != created.Session.ID {
-		t.Fatalf("started event = %+v, want terminal.started for %s", started, created.Session.ID)
-	}
-	starter.handleAt(t, 0).emit([]byte("replayed\n"))
-	output := readServerSentTerminalEvent(t, firstReader)
-	if output.Type != terminal.TerminalEventOutput {
-		t.Fatalf("output event = %+v, want terminal.output", output)
-	}
-	firstResponse.Body.Close()
-
-	request, err := http.NewRequest(http.MethodGet, server.URL+"/terminals/events", nil)
-	if err != nil {
-		t.Fatalf("create replay request: %v", err)
-	}
-	request.Header.Set("Last-Event-ID", started.EventID)
-	replayResponse, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("open replay terminal event stream: %v", err)
-	}
-	defer replayResponse.Body.Close()
-	if replayResponse.StatusCode != http.StatusOK {
-		t.Fatalf("replay terminal event stream status = %d, want 200", replayResponse.StatusCode)
-	}
-	replayed := readServerSentTerminalEvent(t, bufio.NewReader(replayResponse.Body))
-	if replayed.EventID != output.EventID || replayed.Payload.DataBase64 != output.Payload.DataBase64 {
-		t.Fatalf("replayed event = %+v, want original output event %+v", replayed, output)
-	}
-}
-
-func TestTerminalEventStreamRejectsInvalidCursor(t *testing.T) {
-	handler, _ := newTerminalHandler(t, nil)
-	request := httptest.NewRequest(http.MethodGet, "/terminals/events?lastEventId=bad", nil)
-	response := httptest.NewRecorder()
-
-	handler.ServeHTTP(response, request)
-
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("cursor response status = %d, want 400", response.Code)
-	}
-	var errResponse ErrorResponse
-	if err := json.NewDecoder(response.Body).Decode(&errResponse); err != nil {
-		t.Fatalf("decode cursor error response: %v", err)
-	}
-	if errResponse.Error.Code != "invalid_terminal_event_cursor" {
-		t.Fatalf("cursor error code = %q, want invalid_terminal_event_cursor", errResponse.Error.Code)
-	}
-}
-
 func newTerminalHandler(t *testing.T, startErr error) (http.Handler, *httpRecordingPTYStarter) {
 	t.Helper()
 	root := t.TempDir()
@@ -385,31 +231,6 @@ func httpTestExecutablePath(t *testing.T) string {
 		t.Fatalf("read test executable path: %v", err)
 	}
 	return executable
-}
-
-func readServerSentTerminalEvent(t *testing.T, reader *bufio.Reader) terminal.TerminalEvent {
-	t.Helper()
-	var data string
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			t.Fatalf("read terminal event stream line: %v", err)
-		}
-		line = strings.TrimRight(line, "\r\n")
-		if line == "" {
-			if data == "" {
-				continue
-			}
-			var event terminal.TerminalEvent
-			if err := json.Unmarshal([]byte(data), &event); err != nil {
-				t.Fatalf("decode terminal event stream data: %v", err)
-			}
-			return event
-		}
-		if strings.HasPrefix(line, "data: ") {
-			data = strings.TrimPrefix(line, "data: ")
-		}
-	}
 }
 
 func mustResolveHTTPTestPath(t *testing.T, path string) string {
@@ -533,10 +354,6 @@ func (handle *httpRecordingPTYHandle) CloseSafetyAssessment() terminal.TerminalC
 	handle.mu.Lock()
 	defer handle.mu.Unlock()
 	return handle.closeAssessment
-}
-
-func (handle *httpRecordingPTYHandle) emit(data []byte) {
-	handle.output <- data
 }
 
 func (handle *httpRecordingPTYHandle) writtenString() string {

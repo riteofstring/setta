@@ -2,10 +2,9 @@
 
 **Date:** 2026-07-10
 
-**Status:** Phase 3 complete. The backend duplex terminal stream is implemented
-as protocol 13 with authenticated one-time tickets, bounded connection loops,
-ordered and deduplicated PTY input, event replay, and content-free recorder
-hooks. Phase 4 client migration has not started.
+**Status:** Phase 4 complete. Desktop and web clients share one runtime-scoped,
+ordered duplex terminal stream as protocol 14. The legacy terminal input HTTP
+and terminal event SSE routes have been removed. Phase 5 has not started.
 
 ## Progress
 
@@ -43,6 +42,15 @@ hooks. Phase 4 client migration has not started.
   recorder hooks.
 - [x] Verify the backend stream and unchanged production Electron terminal
   workflow; record the result in the Phase 3 report.
+- [x] Replace the desktop terminal SSE and per-input request paths with one
+  active-runtime stream client and ordered one-way input IPC.
+- [x] Implement the same ticketed stream lifecycle for the browser/PWA API.
+- [x] Forward stream terminal events through the existing renderer event IPC
+  and expose typed stream failure/backpressure status events.
+- [x] Preserve one multiplexed stream across terminal pane mount/unmount,
+  reconnect, renderer reload, and runtime switching.
+- [x] Remove `/terminals/input` and `/terminals/events`, regenerate protocol 14,
+  and verify the production Electron and web paths.
 
 ## Decision
 
@@ -58,29 +66,29 @@ and would not solve the browser/PWA path.
 
 ## Current Architecture
 
-The production terminal path is:
+The production terminal path is now:
 
 ```text
 xterm onData
-  -> renderer preload IPC invoke
+  -> renderer preload one-way IPC send
   -> Electron main
-  -> authenticated POST /terminals/input over Tailscale
+  -> ordered runtime-scoped WebSocket queue over Tailscale
   -> remote Go terminal manager
   -> remote PTY
 
 remote PTY output
   -> Go terminal event hub
-  -> GET /terminals/events SSE over Tailscale
+  -> the same runtime-scoped WebSocket over Tailscale
   -> Electron main
   -> Electron event IPC
   -> renderer
   -> xterm.write
 ```
 
-The web/PWA adapter uses the same backend endpoints without the Electron IPC
-steps. This is consistent with the BYO plan of record: Tailscale is the remote
-transport, the runtime serves HTTP behind it, and SSH is only used to install a
-runtime.
+The web/PWA adapter uses the same ticketed stream directly through the browser
+WebSocket API. This is consistent with the BYO plan of record: Tailscale is the
+remote transport, the runtime serves HTTP behind it, and SSH is only used to
+install a runtime.
 
 ## Evidence
 

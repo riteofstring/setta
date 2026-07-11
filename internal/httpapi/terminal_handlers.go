@@ -1,13 +1,7 @@
 package httpapi
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
-	"time"
 
 	"setta/internal/terminal"
 )
@@ -52,38 +46,6 @@ func (handler handler) attachTerminal(response http.ResponseWriter, request *htt
 		return
 	}
 	writeJSON(response, http.StatusOK, TerminalSessionResponse{Session: terminalSessionSummary(session)})
-}
-
-func (handler handler) terminalInput(response http.ResponseWriter, request *http.Request) {
-	handlerReceivedAt := time.Now().UTC()
-	service := requireTerminalService(response, handler.terminalService)
-	if service == nil {
-		return
-	}
-	var payload TerminalInputRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	data, ok := decodeTerminalInput(response, payload.DataBase64)
-	if !ok {
-		return
-	}
-	acceptedBytes, err := service.WriteInput(request.Context(), payload.SessionID, data)
-	ptyWriteCompletedAt := time.Now().UTC()
-	if err != nil {
-		writeTerminalError(response, "terminal_input_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, TerminalInputResponse{
-		AcceptedBytes: acceptedBytes,
-		Trace: TerminalInputResponseTrace{
-			RunID:               payload.Trace.RunID,
-			ClientID:            payload.Trace.ClientID,
-			InputSequence:       payload.Trace.InputSequence,
-			HandlerReceivedAt:   handlerReceivedAt.Format(time.RFC3339Nano),
-			PTYWriteCompletedAt: ptyWriteCompletedAt.Format(time.RFC3339Nano),
-		},
-	})
 }
 
 func (handler handler) resizeTerminal(response http.ResponseWriter, request *http.Request) {
@@ -199,100 +161,6 @@ func (handler handler) selectDefaultTerminalProfile(response http.ResponseWriter
 		return
 	}
 	writeJSON(response, http.StatusOK, profiles)
-}
-
-func (handler handler) terminalEventStream(response http.ResponseWriter, request *http.Request) {
-	service := requireTerminalService(response, handler.terminalService)
-	if service == nil {
-		return
-	}
-	flusher, ok := response.(http.Flusher)
-	if !ok {
-		writeError(response, http.StatusInternalServerError, "terminal_event_stream_unavailable", "response writer does not support streaming")
-		return
-	}
-	cursor, err := terminalEventStreamCursor(request)
-	if err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_terminal_event_cursor", err.Error())
-		return
-	}
-	subscription, err := service.SubscribeEvents(cursor)
-	if err != nil {
-		writeTerminalError(response, "subscribe_terminal_events_failed", err)
-		return
-	}
-	defer subscription.Unsubscribe()
-
-	response.Header().Set("Cache-Control", "no-cache")
-	response.Header().Set("Content-Type", "text/event-stream")
-	response.Header().Set("X-Accel-Buffering", "no")
-	response.WriteHeader(http.StatusOK)
-	flusher.Flush()
-
-	for {
-		select {
-		case event, ok := <-subscription.Events:
-			if !ok {
-				return
-			}
-			if err := writeTerminalServerSentEvent(response, event); err != nil {
-				return
-			}
-			flusher.Flush()
-		case <-request.Context().Done():
-			return
-		}
-	}
-}
-
-func decodeTerminalInput(response http.ResponseWriter, dataBase64 string) ([]byte, bool) {
-	if dataBase64 == "" {
-		return []byte{}, true
-	}
-	if base64.StdEncoding.DecodedLen(len(dataBase64)) > terminal.MaxInputBytes {
-		writeError(response, http.StatusBadRequest, "terminal_input_too_large", fmt.Sprintf("terminal input exceeds %d bytes", terminal.MaxInputBytes))
-		return nil, false
-	}
-	data, err := base64.StdEncoding.DecodeString(dataBase64)
-	if err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_terminal_input", "dataBase64 must be valid base64")
-		return nil, false
-	}
-	if len(data) > terminal.MaxInputBytes {
-		writeError(response, http.StatusBadRequest, "terminal_input_too_large", fmt.Sprintf("terminal input exceeds %d bytes", terminal.MaxInputBytes))
-		return nil, false
-	}
-	return data, true
-}
-
-func terminalEventStreamCursor(request *http.Request) (terminal.EventCursor, error) {
-	value := request.Header.Get("Last-Event-ID")
-	if value == "" {
-		value = request.URL.Query().Get("lastEventId")
-	}
-	if value == "" {
-		return terminal.EventCursor{}, nil
-	}
-	streamID, sequenceText, ok := strings.Cut(value, ":")
-	if !ok || streamID == "" || sequenceText == "" {
-		return terminal.EventCursor{}, fmt.Errorf("terminal event cursor must be <stream-id>:<sequence>: %s", value)
-	}
-	sequence, err := strconv.Atoi(sequenceText)
-	if err != nil || sequence < 0 {
-		return terminal.EventCursor{}, fmt.Errorf("terminal event cursor sequence must be a non-negative integer: %s", value)
-	}
-	return terminal.EventCursor{StreamID: streamID, Sequence: sequence}, nil
-}
-
-func writeTerminalServerSentEvent(response http.ResponseWriter, event terminal.TerminalEvent) error {
-	payload, err := json.Marshal(event)
-	if err != nil {
-		return fmt.Errorf("marshal terminal event %s: %w", event.EventID, err)
-	}
-	if _, err := fmt.Fprintf(response, "id: %s\nevent: %s\ndata: %s\n\n", event.EventID, event.Type, payload); err != nil {
-		return fmt.Errorf("write terminal event %s: %w", event.EventID, err)
-	}
-	return nil
 }
 
 func terminalSessionSummary(summary terminal.SessionSummary) TerminalSessionSummary {

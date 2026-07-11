@@ -343,9 +343,7 @@ export class SessionRecorder {
   }
 
   private backendRequestPayload(input: URL, body: BodyInit | null | undefined): unknown {
-    if (input.pathname === "/terminals/input") {
-      return terminalInputSummaryFromBody(body);
-    }
+    void input;
     return this.payload(body);
   }
 
@@ -367,17 +365,6 @@ export class SessionRecorder {
       return;
     }
     stream.write(JSON.stringify(sanitizeValue(value)) + "\n");
-  }
-}
-
-function terminalInputSummaryFromBody(body: BodyInit | null | undefined): unknown {
-  if (typeof body !== "string") {
-    return { redacted: true };
-  }
-  try {
-    return terminalInputSummary(JSON.parse(body));
-  } catch {
-    return { redacted: true };
   }
 }
 

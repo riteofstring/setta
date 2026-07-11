@@ -115,6 +115,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private unsubscribeProfileChanges: (() => void) | null = null;
   private unsubscribeBackendStatus: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
+  private unsubscribeStreamStatus: (() => void) | null = null;
   private unsubscribeRuntimeChanges: (() => void) | null = null;
   private visible = false;
   private runtimeProfileScopeKey = "";
@@ -189,6 +190,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     this.unsubscribeEvents = api.onEvent((event) => this.handleTerminalEvent(event));
+    this.unsubscribeStreamStatus = api.onStatus((status) => {
+      if (status.kind === "backpressure" || status.kind === "error") {
+        this.chrome.showStatus(status.message);
+      }
+    });
     this.unsubscribeBackendStatus =
       window.setta?.backend.onProcessStatus((status) => this.handleBackendProcessStatus(status)) ??
       null;
@@ -225,6 +231,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.resolveFitWaiters(null);
     this.unsubscribeEvents?.();
     this.unsubscribeEvents = null;
+    this.unsubscribeStreamStatus?.();
+    this.unsubscribeStreamStatus = null;
     this.unsubscribeBackendStatus?.();
     this.unsubscribeBackendStatus = null;
     this.unsubscribeProfileChanges?.();

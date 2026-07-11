@@ -892,35 +892,6 @@ type TerminalSessionResponse struct {
 	Session TerminalSessionSummary `json:"session"`
 }
 
-type TerminalInputRequest struct {
-	SessionID  string             `json:"sessionId"`
-	DataBase64 string             `json:"dataBase64"`
-	Trace      TerminalInputTrace `json:"trace"`
-}
-
-type TerminalInputTrace struct {
-	RunID              string `json:"runId"`
-	ClientID           string `json:"clientId"`
-	InputSequence      int    `json:"inputSequence"`
-	RendererReceivedAt string `json:"rendererReceivedAt"`
-	PreloadReceivedAt  string `json:"preloadReceivedAt"`
-	MainReceivedAt     string `json:"mainReceivedAt"`
-	HTTPDispatchedAt   string `json:"httpDispatchedAt"`
-}
-
-type TerminalInputResponse struct {
-	AcceptedBytes int                        `json:"acceptedBytes"`
-	Trace         TerminalInputResponseTrace `json:"trace"`
-}
-
-type TerminalInputResponseTrace struct {
-	RunID               string `json:"runId"`
-	ClientID            string `json:"clientId"`
-	InputSequence       int    `json:"inputSequence"`
-	HandlerReceivedAt   string `json:"handlerReceivedAt"`
-	PTYWriteCompletedAt string `json:"ptyWriteCompletedAt"`
-}
-
 type CreateTerminalStreamTicketRequest struct {
 	ClientStreamID string `json:"clientStreamId"`
 }

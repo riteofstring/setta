@@ -1,4 +1,5 @@
-import type { TerminalEvent, TerminalInputTrace } from "@generated/backend";
+import type { TerminalEvent } from "@generated/backend";
+import type { TerminalInputTrace } from "@shared/types";
 import type { TerminalLatencyRendererEvent } from "@shared/recording";
 
 const terminalClientIdStorageKey = "setta.terminal-latency.client-id.v1";

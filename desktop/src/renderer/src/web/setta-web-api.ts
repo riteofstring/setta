@@ -4,7 +4,6 @@ import {
   createBackendClient,
   decodeChatEvent,
   decodeSemanticGraphChangeEvent,
-  decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
   decodeWorkflowEvent,
   type BackendClient,
@@ -28,17 +27,14 @@ import {
   webRuntimeVersions,
 } from "./setta-web-api-utils";
 import { subscribeForWebPush } from "./setta-web-push";
+import {
+  clearStoredDeviceSession,
+  loadStoredDeviceSession,
+  saveStoredDeviceSession,
+} from "./web-device-session";
+import { createWebTerminalStream, type WebTerminalStream } from "./web-terminal-stream";
 
-const webDeviceStorageKey = "setta.web.device-session.v1";
 const reconnectDelayMs = 500;
-
-interface StoredWebDeviceSession {
-  deviceId: string;
-  deviceToken: string;
-  pairedAt: string;
-  protocolVersion: number;
-  runtimeId: string;
-}
 
 interface ParsedWebPairingURL {
   pairingToken: string;
@@ -88,6 +84,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
   const processStatusListeners = new Set<(status: BackendProcessStatus) => void>();
   const eventStreamStatusListeners = new Set<(status: BackendEventStreamStatus) => void>();
   const eventStreams = new Set<WebEventStreamRegistration>();
+  let terminalStream: WebTerminalStream | null = null;
 
   const api: SettaAPI = {
     app: {
@@ -321,7 +318,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       remove: async (runtimeId) => {
         const stored = loadStoredDeviceSession();
         if (stored && stored.runtimeId === runtimeId) {
-          localStorage.removeItem(webDeviceStorageKey);
+          clearStoredDeviceSession();
           stopActiveEventStreams();
         }
         const snapshot = await runtimeSnapshot("removed web runtime credentials");
@@ -400,18 +397,19 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         }),
       createProfile: (request) => requireClient().createTerminalProfile(request),
       deleteProfile: (request) => requireClient().deleteTerminalProfile(request),
-      input: (input) => requireClient().terminalInput(input),
+      input: (input) => {
+        requireTerminalStream().input(input);
+      },
       listProfiles: () => requireClient().listTerminalProfiles(),
-      onEvent: (listener) =>
-        subscribeWebBackendEventStream({
-          baseURL,
-          cursorForEvent: cursorFromStreamedEvent,
-          decode: decodeTerminalEvent,
-          endpoint: backendEndpoints.TerminalEventStream,
-          fetchImpl: rawFetch,
-          sendEvent: listener,
-          streamName: "terminal event stream",
-        }),
+      onEvent: (listener) => {
+        const stream = requireTerminalStream();
+        const unsubscribe = stream.onEvent(listener);
+        stream.start();
+        return unsubscribe;
+      },
+      onStatus: (listener) => {
+        return requireTerminalStream().onStatus(listener);
+      },
       recordLatency: () => {},
       recordingRunId: terminalRecordingRunId,
       resize: (request) => requireClient().resizeTerminal(request),
@@ -528,6 +526,25 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     return createBackendClient(baseURL, rawFetch);
   }
 
+  function requireTerminalStream(): WebTerminalStream {
+    if (terminalStream) {
+      return terminalStream;
+    }
+    const stored = loadStoredDeviceSession();
+    if (!stored) {
+      throw new Error("Pair this browser with the runtime before opening the terminal stream.");
+    }
+    terminalStream = createWebTerminalStream({
+      baseURL,
+      createTicket: (clientStreamId) =>
+        requireClient().createTerminalStreamTicket({ clientStreamId }),
+      deviceId: stored.deviceId,
+      runtimeId: stored.runtimeId,
+    });
+    terminalStream.start();
+    return terminalStream;
+  }
+
   function requireClient(): BackendClient {
     const stored = loadStoredDeviceSession();
     if (!stored) {
@@ -539,7 +556,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         rawFetch,
         () => stored.deviceToken,
         () => {
-          localStorage.removeItem(webDeviceStorageKey);
+          clearStoredDeviceSession();
           stopActiveEventStreams();
           void runtimeSnapshot("runtime access was revoked").then(emitConnectionSnapshot);
         },
@@ -593,7 +610,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     try {
       await requireClient().listDevices({});
     } catch (error) {
-      localStorage.removeItem(webDeviceStorageKey);
+      clearStoredDeviceSession();
       stopActiveEventStreams();
       return runtimeSnapshotForInfo(info, "revoked", errorMessage(error), now);
     }
@@ -687,6 +704,8 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     for (const registration of eventStreams) {
       registration.stopActive();
     }
+    terminalStream?.stop();
+    terminalStream = null;
   }
 
   return api;
@@ -896,41 +915,6 @@ function requiredPairingParam(parsed: URL, name: string): string {
   return value;
 }
 
-function saveStoredDeviceSession(session: StoredWebDeviceSession) {
-  localStorage.setItem(webDeviceStorageKey, JSON.stringify(session));
-}
-
-function loadStoredDeviceSession(): StoredWebDeviceSession | null {
-  const raw = localStorage.getItem(webDeviceStorageKey);
-  if (!raw) {
-    return null;
-  }
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isStoredWebDeviceSession(parsed)) {
-      localStorage.removeItem(webDeviceStorageKey);
-      return null;
-    }
-    return parsed;
-  } catch {
-    localStorage.removeItem(webDeviceStorageKey);
-    return null;
-  }
-}
-
-function isStoredWebDeviceSession(value: unknown): value is StoredWebDeviceSession {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const record = value as Partial<Record<keyof StoredWebDeviceSession, unknown>>;
-  return (
-    typeof record.deviceId === "string" &&
-    typeof record.deviceToken === "string" &&
-    typeof record.pairedAt === "string" &&
-    typeof record.protocolVersion === "number" &&
-    typeof record.runtimeId === "string"
-  );
-}
 function installWebPWA(api: SettaAPI) {
   if ("serviceWorker" in navigator) {
     void navigator.serviceWorker.register("/sw.js");

@@ -14,6 +14,7 @@ import {
 import type { BackendFetch } from "@shared/backend-runtime";
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
+import type { TerminalStreamStatus } from "@shared/terminal-stream-client";
 import type {
   BackendEventStreamStatus,
   BackendProcessStatus,
@@ -43,8 +44,8 @@ import { createSessionRecorder, type SessionRecorder } from "./session-recorder"
 import { startSemanticGraphEventForwarding } from "./semantic-graph-event-forwarding-stream";
 import { registerSemanticGraphIpcHandlers } from "./semantic-graph-ipc";
 import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
-import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { registerTerminalIpcHandlers } from "./terminal-ipc";
+import { createMainTerminalStream, type MainTerminalStream } from "./terminal-stream";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
 import { startWorkspaceActivityEventForwarding } from "./workspace-activity-event-forwarding-stream";
 import { registerWorkspaceActivityIpcHandlers } from "./workspace-activity-ipc";
@@ -56,7 +57,7 @@ import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
 let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
-let terminalEventStream: TerminalEventStream | null = null;
+let terminalStream: MainTerminalStream | null = null;
 let workspaceActivityEventStream: ReturnType<typeof startWorkspaceActivityEventForwarding> | null =
   null;
 let workflowEventStream: WorkflowEventStream | null = null;
@@ -239,18 +240,21 @@ function startSemanticGraphEventStreamForwarding() {
   });
 }
 
-function startTerminalEventStreamForwarding() {
+function startTerminalStream() {
   const runtime = activeRuntime();
   if (!runtime) {
     return;
   }
-  void stopTerminalEventStreamForwarding();
-  terminalEventStream = startTerminalEventStream({
-    authToken: runtime.deviceToken,
+  stopTerminalStream();
+  terminalStream = createMainTerminalStream({
+    backendClient: requireBackendClient(),
     baseURL: runtime.baseUrl,
-    fetchImpl: backendFetch(),
+    deviceToken: runtime.deviceToken,
+    runtimeID: runtime.runtimeId,
     sendEvent: forwardTerminalEvent,
+    sendStatus: forwardTerminalStreamStatus,
   });
+  terminalStream.start();
 }
 
 function startWorkspaceActivityEventStreamForwarding() {
@@ -285,10 +289,10 @@ async function stopSemanticGraphEventStreamForwarding() {
   await stream?.stop();
 }
 
-async function stopTerminalEventStreamForwarding() {
-  const stream = terminalEventStream;
-  terminalEventStream = null;
-  await stream?.stop();
+function stopTerminalStream() {
+  const stream = terminalStream;
+  terminalStream = null;
+  stream?.stop();
 }
 
 async function stopWorkspaceActivityEventStreamForwarding() {
@@ -301,7 +305,7 @@ async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
     stopSemanticGraphEventStreamForwarding(),
-    stopTerminalEventStreamForwarding(),
+    Promise.resolve(stopTerminalStream()),
     stopWorkspaceActivityEventStreamForwarding(),
     stopWorkflowEventStreamForwarding(),
   ]);
@@ -310,7 +314,7 @@ async function stopBackendEventStreams() {
 function startBackendEventStreams() {
   startChatEventStream();
   startSemanticGraphEventStreamForwarding();
-  startTerminalEventStreamForwarding();
+  startTerminalStream();
   startWorkspaceActivityEventStreamForwarding();
   startWorkflowEventStreamForwarding();
 }
@@ -375,6 +379,15 @@ function forwardTerminalEvent(event: TerminalEvent) {
     workspaceId: event.workspaceId,
   });
   forwardTerminalEventToWindows(BrowserWindow.getAllWindows(), event);
+}
+
+function forwardTerminalStreamStatus(status: TerminalStreamStatus) {
+  recorder?.recordAppEvent("terminal_stream_status", status);
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.terminalStreamStatus, status);
+    }
+  }
 }
 
 function settaAppDataDir() {
@@ -732,6 +745,18 @@ function registerIpc() {
     ipcObserver,
     recordAppEvent: (type, payload) => recorder?.recordAppEvent(type, payload),
     requireBackendClient,
+    sendTerminalInput: (input) => {
+      if (!terminalStream) {
+        forwardTerminalStreamStatus({
+          code: "internal_error",
+          kind: "error",
+          message: "Terminal stream is unavailable.",
+          retryable: true,
+        });
+        return;
+      }
+      terminalStream.sendInput(input);
+    },
   });
 }
 

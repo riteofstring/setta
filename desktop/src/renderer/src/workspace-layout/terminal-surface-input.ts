@@ -71,18 +71,14 @@ export function sendTerminalInput(
     return;
   }
   if (bytes.length <= inputChunkBytes) {
-    void api
-      .input({
-        dataBase64: base64FromBytes(bytes),
-        sessionId,
-        trace: createTerminalInputTrace(sessionId, bytes.length),
-      })
-      .catch((error: unknown) => {
-        showStatus(`Terminal input failed: ${errorMessage(error)}`);
-      });
+    api.input({
+      dataBase64: base64FromBytes(bytes),
+      sessionId,
+      trace: createTerminalInputTrace(sessionId, bytes.length),
+    });
     return;
   }
-  void sendChunkedTerminalInput(api, sessionId, bytes, showStatus);
+  sendChunkedTerminalInput(api, sessionId, bytes);
 }
 
 export function openTerminalExternalUrl(
@@ -106,22 +102,17 @@ function dispatchWorkspaceShortcut(event: KeyboardEvent): void {
   window.dispatchEvent(new KeyboardEvent("keydown", workspaceShortcutKeyboardEventInit(event)));
 }
 
-async function sendChunkedTerminalInput(
+function sendChunkedTerminalInput(
   api: NonNullable<ReturnType<typeof terminalAPI>>,
   sessionId: string,
   bytes: Uint8Array,
-  showStatus: (message: string) => void,
-): Promise<void> {
-  try {
-    for (let offset = 0; offset < bytes.length; offset += inputChunkBytes) {
-      const chunk = bytes.slice(offset, offset + inputChunkBytes);
-      await api.input({
-        dataBase64: base64FromBytes(chunk),
-        sessionId,
-        trace: createTerminalInputTrace(sessionId, chunk.length),
-      });
-    }
-  } catch (error) {
-    showStatus(`Terminal input failed: ${errorMessage(error)}`);
+): void {
+  for (let offset = 0; offset < bytes.length; offset += inputChunkBytes) {
+    const chunk = bytes.slice(offset, offset + inputChunkBytes);
+    api.input({
+      dataBase64: base64FromBytes(chunk),
+      sessionId,
+      trace: createTerminalInputTrace(sessionId, chunk.length),
+    });
   }
 }

@@ -1,11 +1,11 @@
 import type {
   ChatEvent,
   TerminalEvent,
-  TerminalInputTrace,
   WorkspaceActivityEvent,
   WorkflowEvent,
   WorkflowGraph,
 } from "@generated/backend";
+import type { TerminalInputTrace } from "@shared/types";
 
 export function terminalInputTrace(): TerminalInputTrace {
   return {
