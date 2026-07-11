@@ -111,9 +111,21 @@
       rect: "width",
     },
     {
+      key: "focusBlock",
+      mockup: ".focus-block",
+      production: ".easy-button-focus-block",
+      rect: "width",
+    },
+    {
+      key: "focusLabel",
+      mockup: ".focus-label",
+      production: ".easy-button-focus-label",
+      rect: "none",
+    },
+    {
       key: "requestText",
-      mockup: ".transcript",
-      production: ".easy-button-request-text",
+      mockup: ".current-focus",
+      production: ".easy-button-current-focus",
       rect: "none",
     },
     { key: "helper", mockup: ".helper", production: ".easy-button-helper", rect: "none" },

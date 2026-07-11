@@ -57,7 +57,15 @@ import {
 import { assertLosslessSteeringChatRecord } from "./easy-button-chat-record-assertions.mjs";
 import {
   assertAcceptedSteeringFocusEvents,
+  assertCurrentFocusConstrained,
+  assertNarratorHealth,
   assertRevisedCurrentFocus,
+  assertRevisionZeroCurrentFocus,
+  assertStaleCurrentFocus,
+  assertUpdatingCurrentFocus,
+  assertWorkingNarratorHighlights,
+  assertWorkingNarratorTerminalVisual,
+  waitForEasyButtonFocusStatus,
 } from "./easy-button-focus-assertions.mjs";
 import { runEasyButtonPixelMatchCaptures } from "./easy-button-pixel-match.mjs";
 
@@ -191,6 +199,17 @@ try {
   assertWorkingVisual(steeringWorking, "easy run phase2 steering workflow");
   await context.client.driver("easyButtonPaneResetEventLog");
   await submitEasyButtonRequest(context.client, "steer easy run phase2");
+  const updatingSteeredFocus = await waitForEasyButtonFocusStatus(
+    context.client,
+    "easy run phase2 steering workflow",
+    "updating",
+  );
+  assertUpdatingCurrentFocus(
+    updatingSteeredFocus,
+    "easy run phase2 steering workflow",
+    "steer easy run phase2",
+  );
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-focus-updating.png"));
   const steeredTerminal = await waitForEasyButtonTerminal(
     context.client,
     "easy run phase2 steering workflow",
@@ -232,6 +251,22 @@ try {
     "easy run phase2 steering workflow",
     "steer easy run phase2",
   );
+
+  await submitEasyButtonRequest(context.client, "easy run narrator failure workflow");
+  const staleFocus = await waitForEasyButtonFocusStatus(
+    context.client,
+    "easy run narrator failure workflow",
+    "stale",
+  );
+  assertStaleCurrentFocus(staleFocus, "easy run narrator failure workflow");
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-focus-stale.png"));
+  await clickEasyButtonStop(context.client);
+  const staleFocusStopped = await waitForEasyButtonTerminal(
+    context.client,
+    "easy run narrator failure workflow",
+    "Stopped after",
+  );
+  assertStaleCurrentFocus(staleFocusStopped, "easy run narrator failure workflow");
 
   await submitEasyButtonRequest(context.client, "easy run phase3 artifacts workflow");
   const artifactTerminal = await waitForEasyButtonTerminalWithArtifacts(
@@ -301,7 +336,7 @@ try {
     "easy run working narrator cadence",
     2,
   );
-  assertWorkingNarratorTerminalVisual(workingNarratorTerminal, "easy run working narrator cadence");
+  assertWorkingNarratorTerminalVisual(workingNarratorTerminal);
   assertTerminalTone(workingNarratorTerminal, "completed", "working narrator terminal");
   assertNewestDotTone(workingNarratorTerminal, "completed", "working narrator terminal");
   await captureScreenshot(
@@ -413,12 +448,15 @@ try {
     steeredChatRecord,
     steeredTerminal,
     steeringWorking,
+    staleFocus,
+    staleFocusStopped,
     status: "passed",
     activeRunRejection,
     stopped,
     swirlComplete,
     swirlWorking,
     toolbarOpen,
+    updatingSteeredFocus,
     working,
     workspaceName: basename(fixture.workspaceRoot),
   });
@@ -774,7 +812,13 @@ function assertFullWidthColumn(state) {
 }
 
 function assertIdleVisual(state) {
-  if (state.easyState !== "idle" || !state.buttonVisible || state.railText !== "") {
+  if (
+    state.currentFocusText !== "" ||
+    state.easyState !== "idle" ||
+    state.focusStatus !== "none" ||
+    !state.buttonVisible ||
+    state.railText !== ""
+  ) {
     throw new Error(`easy-button idle visual did not match Phase 2b: ${JSON.stringify(state)}`);
   }
   if (state.buttonAnimationName !== "easy-button-glow-breathe") {
@@ -819,12 +863,14 @@ function assertWorkingVisual(state, requestText) {
     {
       agentChipText: "1 agent",
       buttonAriaLabel: "Focus Easy Button steering input",
+      currentFocusText: requestText,
       easyState: "working",
+      focusLabelText: "Current focus",
+      focusStatus: "current",
       helperText: "Working — Stop to cancel",
       inputDisabled: false,
       paneChromeTitle: "Easy Button · working",
       railText: "",
-      requestText,
       stopButtonAriaLabel: "Stop easy run",
       stopButtonDisabled: false,
       stopButtonText: "Stop",
@@ -840,12 +886,14 @@ function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
     state,
     {
       buttonAriaLabel: "Focus Easy Button request input",
+      currentFocusText: options.expectedCurrentFocus ?? requestText,
       easyState: "complete",
+      focusLabelText: "Current focus",
+      focusStatus: "current",
       helperText: "Type a request to start again",
       inputDisabled: false,
       paneChromeTitle: "Easy Button · complete",
       railText: "",
-      requestText,
       stopButtonVisible: false,
     },
     "easy-button terminal visual did not match Phase 2d",
@@ -864,29 +912,17 @@ function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
   }
 }
 
-function assertRevisionZeroCurrentFocus(state, requestText) {
-  const focus = state.currentFocus;
-  if (
-    focus?.revision !== 0 ||
-    focus.status !== "current" ||
-    focus.text !== requestText ||
-    focus.updatedAt === ""
-  ) {
-    throw new Error(
-      `easy-button snapshot did not carry revision-zero current focus: ${JSON.stringify(state)}`,
-    );
-  }
-}
-
 function assertArtifactTerminalVisual(state, requestText) {
   assertStateFields(
     state,
     {
       buttonAriaLabel: "Focus Easy Button request input",
+      currentFocusText: requestText,
       easyState: "complete",
+      focusLabelText: "Current focus",
+      focusStatus: "current",
       inputDisabled: false,
       paneChromeTitle: "Easy Button · complete",
-      requestText,
       stopButtonVisible: false,
     },
     "easy-button artifact terminal visual did not match Phase 3",
@@ -950,10 +986,12 @@ function assertArtifactCapOverflowVisual(state, requestText) {
     state,
     {
       buttonAriaLabel: "Focus Easy Button request input",
+      currentFocusText: requestText,
       easyState: "complete",
+      focusLabelText: "Current focus",
+      focusStatus: "current",
       inputDisabled: false,
       paneChromeTitle: "Easy Button · complete",
-      requestText,
       stopButtonVisible: false,
     },
     "easy-button artifact cap terminal visual did not match Phase 5",
@@ -980,8 +1018,8 @@ function assertArtifactCapOverflowVisual(state, requestText) {
 }
 
 function assertLongRequestLayout(state, label) {
-  assertRequestTextConstrained(state, label);
-  assertTextHasNoHorizontalOverflow(state.requestTextMetrics, label, "request text");
+  assertCurrentFocusConstrained(state, label, state.currentFocus?.revision === 0);
+  assertTextHasNoHorizontalOverflow(state.currentFocusMetrics, label, "current focus");
   assertRectContains(state.stageRect, state.rect, label, "pane host");
   assertRectContains(state.centerRect, state.captionRect, label, "caption");
   assertNoRectOverlap(state.buttonRect, state.captionRect, label, "control", "caption");
@@ -1090,19 +1128,6 @@ function transitionDurationsAreZero(value) {
     .every((part) => part === "0s" || part === "0ms");
 }
 
-function assertRequestTextConstrained(state, label) {
-  const metrics = state.requestTextMetrics;
-  if (!metrics.exists || metrics.webkitLineClamp !== "4" || metrics.overflowWrap !== "anywhere") {
-    throw new Error(
-      `easy-button ${label} request text was not constrained: ${JSON.stringify(state)}`,
-    );
-  }
-  const maxClampedHeight = metrics.lineHeightPx * 4 + 4;
-  if (metrics.clientHeight > maxClampedHeight || metrics.scrollHeight <= metrics.clientHeight) {
-    throw new Error(`easy-button ${label} request text did not clamp: ${JSON.stringify(state)}`);
-  }
-}
-
 function assertTextHasNoHorizontalOverflow(metrics, label, name) {
   if (metrics.exists && metrics.scrollWidth > metrics.clientWidth + 2) {
     throw new Error(
@@ -1162,10 +1187,12 @@ function assertNarratorTerminalVisual(state, requestText) {
     state,
     {
       buttonAriaLabel: "Focus Easy Button request input",
+      currentFocusText: requestText,
       easyState: "complete",
+      focusLabelText: "Current focus",
+      focusStatus: "current",
       inputDisabled: false,
       paneChromeTitle: "Easy Button · complete",
-      requestText,
       stopButtonVisible: false,
     },
     "easy-button narrator terminal visual did not match Phase 4",
@@ -1196,10 +1223,12 @@ function assertWorkingNarratorVisual(state, requestText) {
     {
       agentChipText: "1 agent",
       buttonAriaLabel: "Focus Easy Button steering input",
+      currentFocusText: requestText,
       easyState: "working",
+      focusLabelText: "Current focus",
+      focusStatus: "current",
       inputDisabled: false,
       paneChromeTitle: "Easy Button · working",
-      requestText,
       stopButtonAriaLabel: "Stop easy run",
       stopButtonDisabled: false,
       stopButtonText: "Stop",
@@ -1212,44 +1241,6 @@ function assertWorkingNarratorVisual(state, requestText) {
   if (state.summaryText !== "") {
     throw new Error(
       `easy-button working narrator rendered terminal summary: ${JSON.stringify(state)}`,
-    );
-  }
-}
-
-function assertWorkingNarratorTerminalVisual(state, requestText) {
-  assertStateFields(
-    state,
-    {
-      buttonAriaLabel: "Focus Easy Button request input",
-      easyState: "complete",
-      inputDisabled: false,
-      paneChromeTitle: "Easy Button · complete",
-      requestText,
-      stopButtonVisible: false,
-    },
-    "easy-button working narrator terminal visual did not match Phase 4",
-  );
-  assertNarratorHealth(state, "The Easy Button run finished.");
-  assertWorkingNarratorHighlights(state);
-  if (!state.summaryText.includes("Done in") || !state.summaryText.includes("no artifacts")) {
-    throw new Error(
-      `easy-button working narrator terminal summary was wrong: ${JSON.stringify(state)}`,
-    );
-  }
-}
-
-function assertWorkingNarratorHighlights(state) {
-  const highlightTexts = state.highlights.map((highlight) => highlight.text);
-  if (
-    state.highlights.length !== 2 ||
-    highlightTexts[0] !== "Working through the request shape" ||
-    highlightTexts[1] !== "Preparing a visible result"
-  ) {
-    throw new Error(`easy-button working narrator highlights were wrong: ${JSON.stringify(state)}`);
-  }
-  if (state.railText.includes("Working narrator phase evidence")) {
-    throw new Error(
-      `easy-button working narrator leaked digest evidence: ${JSON.stringify(state)}`,
     );
   }
 }
@@ -1273,15 +1264,6 @@ function assertRestartRecoveredVisual(state) {
   }
 }
 
-function assertNarratorHealth(state, expectedNarration) {
-  if (state.narratorStatusText !== "") {
-    throw new Error(`easy-button narrator unexpectedly degraded: ${JSON.stringify(state)}`);
-  }
-  if (expectedNarration && !state.summaryText.includes(expectedNarration)) {
-    throw new Error(`easy-button narrator summary was missing: ${JSON.stringify(state)}`);
-  }
-}
-
 async function waitForEasyButtonPane(client) {
   return waitForState(
     client,
@@ -1302,7 +1284,7 @@ async function waitForEasyButtonWorking(client, requestText) {
     easyButtonStateExpression(),
     (state) =>
       easyButtonStateSettled(state, "working") &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       state.buttonAriaLabel === "Focus Easy Button steering input" &&
       state.inputDisabled === false &&
       state.stopButtonDisabled === false &&
@@ -1317,7 +1299,7 @@ async function waitForEasyButtonTerminal(client, requestText, summaryPrefix) {
     easyButtonStateExpression(),
     (state) =>
       easyButtonStateSettled(state, "complete") &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       state.summaryText.includes(summaryPrefix),
     workflowTimeoutMs,
   );
@@ -1329,7 +1311,7 @@ async function waitForEasyButtonTerminalWithArtifacts(client, requestText, artif
     easyButtonStateExpression(),
     (state) =>
       easyButtonStateSettled(state, "complete") &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       state.summaryText.includes("Done in") &&
       state.artifacts.length === artifactCount,
     workflowTimeoutMs,
@@ -1342,7 +1324,7 @@ async function waitForEasyButtonArtifactCapTerminal(client) {
     easyButtonStateExpression(),
     (state) =>
       easyButtonStateSettled(state, "complete") &&
-      state.requestText === "easy run phase5 artifact cap workflow" &&
+      state.runRequestText === "easy run phase5 artifact cap workflow" &&
       state.summaryText.includes("Failed after") &&
       state.summaryText.includes("artifact limit reached") &&
       state.artifacts.length === 20,
@@ -1373,7 +1355,7 @@ async function waitForEasyButtonConfirmPulse(client, requestText) {
     (state) =>
       state.exists &&
       state.easyState === "complete" &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       state.confirmActive === "true" &&
       state.controlAnimationName === "easy-button-confirm-pulse",
     workflowTimeoutMs,
@@ -1438,7 +1420,7 @@ async function waitForEasyButtonTerminalWithHighlights(client, requestText, high
     easyButtonStateExpression(),
     (state) =>
       easyButtonStateSettled(state, "complete") &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       state.highlights.length === highlightCount,
     workflowTimeoutMs,
   );
@@ -1450,7 +1432,7 @@ async function waitForEasyButtonWorkingWithHighlights(client, requestText, highl
     easyButtonStateExpression(),
     (state) =>
       easyButtonStateSettled(state, "working") &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       state.highlights.length === highlightCount,
     workflowTimeoutMs,
   );

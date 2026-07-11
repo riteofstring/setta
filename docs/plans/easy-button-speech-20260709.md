@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 items 1-5 complete
+**Status:** Implementation in progress — Phase 1 items 1-6 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1355,6 +1355,62 @@ Phase 1 items 7-8 then add speakable mechanical terminal summaries and finish
 the phase-wide renderer/generated/E2E coverage. No implementation blocker was
 found for item 6; only live-provider proof remains blocked by the unrelated
 `max` drift.
+
+### 2026-07-10 — Phase 1 Current focus UI complete
+
+Implemented Phase 1 item 6 as a renderer-coherent slice. The center now renders
+only the required persisted `EasyRun.CurrentFocus` instead of the immutable
+`RequestText`. Its standing `Current focus` label makes the projection's
+narrator ownership explicit; `updating` changes that label to
+`Updating focus…` while preserving the last good text, and `stale` preserves
+the text while saying `Narration degraded — current focus may be outdated.`
+The old request-text DOM/test surface is removed. NOW still renders only typed
+`EasyRunSnapshot.Highlights`; accepted steering and focus revisions create no
+renderer-authored row or transient steering echo.
+
+The shared production/mockup pixel probe now maps its existing `requestText`
+comparison role to the mockup and production Current focus nodes and measures
+the new focus block and label. The production-path driver separately exposes
+the immutable run request for run identity and the rendered focus text/status
+for presentation assertions. Its scripted provider keeps the accepted-steer
+narrator turn open for a bounded deterministic window so the real
+HTTP/event/store/React `updating` state is observable, and adds a dedicated
+narrator-failure run that proves a stale projection does not stop execution.
+The checked-in PWA bundle was rebuilt from the same renderer source.
+
+Verification completed for this slice:
+
+- focused scripted-narrator tests and the complete `internal/chat`,
+  `internal/easyrun`, and `internal/httpapi` suites passed. The first combined
+  Go run encountered an unrelated goal-operation ordering flake; its exact
+  test passed on the required narrow retry and the complete `internal/chat`
+  package then passed cleanly;
+- Electron typecheck/build, web typecheck/build, and all 990 desktop Vitest
+  tests passed;
+- the deterministic production Electron workflow passed at
+  `desktop/.recordings/easy-button-speech-phase1-current-focus-ui-20260710-r3`,
+  including revision-zero rendering, visible `updating` with stable text,
+  narrator-only NOW, the persisted revision after completion and reload, a
+  working stale-focus failure, stop behavior, long/compact layouts,
+  reduced-motion coverage, restart recovery, and the existing pixel-match
+  companion. The new updating and stale screenshots were inspected;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  source, tests, plan, and checked-in web bundle were final.
+
+ChatGPT authentication was available, so the live Electron chat, live Easy
+Button, and all four backend Codex probes were attempted with `OPENAI_API_KEY`
+removed. They remain blocked before conversation creation by the existing
+provider drift: `model/list` advertises reasoning effort `max`, which Setta's
+current decoder rejects. These failures are not live-provider validation for
+this slice. Supply-chain verification was not required because the slice
+changes no dependency, manifest, package-manager configuration, Go module, or
+supply-chain tooling.
+
+The next implementation work is Phase 1 item 7: replace compact mechanical
+terminal tails with deterministic human-readable duration and artifact prose.
+Item 8 then finishes phase-wide generated-bundle, renderer, deterministic,
+partial-outcome, and live coverage. No implementation blocker was found for
+item 7; only live-provider proof remains blocked by the unrelated `max` drift.
 
 ## Verification Plan
 

@@ -5,9 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
+
+const scriptedEasyRunFocusUpdatingWindow = 500 * time.Millisecond
 
 func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
 	if err := ctx.Err(); err != nil {
@@ -29,7 +33,7 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured output contract %s", ErrUnsupportedHarnessTask, request.OutputContract.Kind)
 	}
 	if request.Surface == HarnessSurfaceEasyRunNarrator {
-		return runScriptedEasyRunNarratorTask(request)
+		return runScriptedEasyRunNarratorTask(ctx, request)
 	}
 	input, err := scriptedCartographerInputFromRequest(request)
 	if err != nil {
@@ -79,7 +83,21 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	}, nil
 }
 
-func runScriptedEasyRunNarratorTask(request HarnessTaskRequest) (HarnessTaskResult, error) {
+func runScriptedEasyRunNarratorTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
+	input := scriptedEasyRunNarratorInputFromRequest(request)
+	if input.RequestText == scriptedEasyRunNarratorFailurePrompt && !input.Terminal {
+		return HarnessTaskResult{}, errors.New("scripted easy-run narrator unavailable")
+	}
+	// Keep the fake provider turn open long enough for the production event,
+	// store, and React paths to render the persisted updating projection. The
+	// terminal narrator call remains serialized behind this one.
+	if input.RequestText == "easy run phase2 steering workflow" && hasScriptedNarratorDigestText(input, "steer easy run phase2") {
+		select {
+		case <-ctx.Done():
+			return HarnessTaskResult{}, ctx.Err()
+		case <-time.After(scriptedEasyRunFocusUpdatingWindow):
+		}
+	}
 	output, err := json.Marshal(scriptedEasyRunNarratorOutput(request))
 	if err != nil {
 		return HarnessTaskResult{}, err
@@ -101,17 +119,16 @@ type scriptedEasyRunNarratorDigestEntry struct {
 	Text string `json:"text"`
 }
 
+type scriptedEasyRunNarratorInput struct {
+	DigestEntries        []scriptedEasyRunNarratorDigestEntry `json:"digestEntries"`
+	PreviousCurrentFocus string                               `json:"previousCurrentFocus"`
+	RequestText          string                               `json:"requestText"`
+	Status               string                               `json:"status"`
+	Terminal             bool                                 `json:"terminal"`
+}
+
 func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
-	var input struct {
-		DigestEntries        []scriptedEasyRunNarratorDigestEntry `json:"digestEntries"`
-		PreviousCurrentFocus string                               `json:"previousCurrentFocus"`
-		RequestText          string                               `json:"requestText"`
-		Status               string                               `json:"status"`
-		Terminal             bool                                 `json:"terminal"`
-	}
-	if request.StructuredTask != nil && len(request.StructuredTask.Input) > 0 {
-		_ = json.Unmarshal(request.StructuredTask.Input, &input)
-	}
+	input := scriptedEasyRunNarratorInputFromRequest(request)
 	if input.RequestText == "default narrator empty summary" {
 		return map[string]any{
 			"currentFocus": scriptedEasyRunCurrentFocus(input.RequestText, input.PreviousCurrentFocus, input.DigestEntries),
@@ -153,6 +170,23 @@ func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
 		"highlights":   []string{},
 		"summary":      summary,
 	}
+}
+
+func scriptedEasyRunNarratorInputFromRequest(request HarnessTaskRequest) scriptedEasyRunNarratorInput {
+	var input scriptedEasyRunNarratorInput
+	if request.StructuredTask != nil && len(request.StructuredTask.Input) > 0 {
+		_ = json.Unmarshal(request.StructuredTask.Input, &input)
+	}
+	return input
+}
+
+func hasScriptedNarratorDigestText(input scriptedEasyRunNarratorInput, text string) bool {
+	for _, entry := range input.DigestEntries {
+		if entry.Text == text {
+			return true
+		}
+	}
+	return false
 }
 
 func scriptedEasyRunCurrentFocus(requestText string, previous string, digestEntries []scriptedEasyRunNarratorDigestEntry) string {

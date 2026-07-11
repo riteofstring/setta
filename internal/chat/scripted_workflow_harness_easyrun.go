@@ -8,6 +8,7 @@ import (
 )
 
 const scriptedEasyRunPhase5LongRequestSteer = "finish easy run phase5 long request"
+const scriptedEasyRunNarratorFailurePrompt = "easy run narrator failure workflow"
 
 var scriptedEasyRunPhase5LongRequestPrompt = "easy run phase5 long request workflow " + strings.Repeat("unbrokenlayouttoken", 36)
 
@@ -106,6 +107,19 @@ func scriptedEasyRunWorkingNarratorCadenceTurn(harness *ScriptedWorkflowHarness,
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Easy run working narrator cadence finished.")
+}
+
+func scriptedEasyRunNarratorFailureTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	for index := 1; index <= 8; index++ {
+		if err := sink.AssistantTextDelta(
+			fmt.Sprintf("scripted-narrator-failure-%s-%02d", request.Run.ID, index),
+			fmt.Sprintf("Narrator failure evidence %02d. ", index),
+		); err != nil {
+			return TurnCompletion{}, err
+		}
+	}
+	_, err := harness.waitForSteer(ctx, request.Run.ID)
+	return TurnCompletion{}, err
 }
 
 func scriptedEasyRunPhase5ArtifactCapTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

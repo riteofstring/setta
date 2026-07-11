@@ -99,6 +99,7 @@
       railLabels: easyButtonRailLabels(host),
       railText: easyButtonRailText(host),
       rect: rectSnapshot(hostRect),
+      runRequestText: snapshot?.latestRun?.requestText ?? "",
       stageRect: rectSnapshot(stageRect),
       widthRatio: easyButtonWidthRatio(hostRect, stageRect),
       workspaceId,
@@ -157,7 +158,8 @@
     const input = host.querySelector('[data-testid="easy-button-input"]');
     const inputWrap = host.querySelector(".easy-button-input-wrap");
     const enterChip = host.querySelector(".easy-button-enter-chip");
-    const requestText = host.querySelector('[data-testid="easy-button-request-text"]');
+    const currentFocus = host.querySelector('[data-testid="easy-button-current-focus"]');
+    const focusLabel = host.querySelector('[data-testid="easy-button-focus-label"]');
     const helper = host.querySelector('[data-testid="easy-button-helper"]');
     const summary = host.querySelector('[data-testid="easy-button-summary"]');
     const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
@@ -179,7 +181,12 @@
       centerRect: rectSnapshot(elementRectOrZero(center)),
       confirmActive: elementDatasetValue(button, "easyButtonConfirm"),
       controlAnimationName: elementStyleValue(button, "animationName"),
+      currentFocusMetrics: textBoxMetrics(currentFocus),
+      currentFocusRect: rectSnapshot(elementRectOrZero(currentFocus)),
+      currentFocusText: elementText(currentFocus),
       enterChipText: elementText(enterChip),
+      focusLabelText: elementText(focusLabel),
+      focusStatus: elementDatasetValue(surface, "easyButtonFocus"),
       helperText: elementText(helper),
       inputFocused: input instanceof HTMLInputElement && document.activeElement === input,
       inputDisabled: inputDisabled(input),
@@ -189,9 +196,6 @@
       inputWrapTransitionDuration: elementStyleValue(inputWrap, "transitionDuration"),
       narratorStatusText: elementText(narratorStatus),
       reducedMotionMatches: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-      requestText: elementText(requestText),
-      requestTextMetrics: textBoxMetrics(requestText),
-      requestTextRect: rectSnapshot(elementRectOrZero(requestText)),
       stopButtonAriaLabel: buttonAriaLabel(stopButton),
       stopButtonDisabled: buttonDisabled(stopButton),
       stopButtonRect: rectSnapshot(elementRectOrZero(stopButton)),

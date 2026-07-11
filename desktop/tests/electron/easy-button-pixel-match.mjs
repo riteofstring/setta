@@ -185,7 +185,7 @@ async function waitForWorking(client, requestText, highlights) {
     easyButtonStateExpression(),
     (state) =>
       easyButtonStateSettled(state, "working") &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       state.highlights.length === highlights &&
       opacityMatches(state.swirl.opacity, swirlWorkingOpacity),
     workflowTimeoutMs,

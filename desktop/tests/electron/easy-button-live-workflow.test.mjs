@@ -189,7 +189,7 @@ async function waitForEasyButtonWorking(client, requestText) {
       state.exists &&
       state.surfaceKind === "easy-button" &&
       state.easyState === "working" &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       state.stopButtonVisible === true,
     workflowTimeoutMs,
   );
@@ -203,7 +203,7 @@ async function waitForEasyButtonLiveTerminal(client) {
       state.exists &&
       state.surfaceKind === "easy-button" &&
       state.easyState === "complete" &&
-      state.requestText === liveRequestText &&
+      state.runRequestText === liveRequestText &&
       state.summaryText.includes("Done in") &&
       state.artifacts.some((artifact) => artifact.title === expectedArtifactTitle),
     workflowTimeoutMs,
@@ -213,6 +213,9 @@ async function waitForEasyButtonLiveTerminal(client) {
 function assertLiveEasyButtonTerminal(state) {
   if (state.narratorStatusText !== "") {
     throw new Error(`easy-button live narrator degraded: ${JSON.stringify(state)}`);
+  }
+  if (!liveCurrentFocusIsRendered(state)) {
+    throw new Error(`easy-button live current focus was not rendered: ${JSON.stringify(state)}`);
   }
   if (!state.summaryText.includes("Done in")) {
     throw new Error(`easy-button live summary was not successful: ${JSON.stringify(state)}`);
@@ -224,6 +227,15 @@ function assertLiveEasyButtonTerminal(state) {
   if (state.highlights.length > 12) {
     throw new Error(`easy-button live highlights exceeded cap: ${JSON.stringify(state)}`);
   }
+}
+
+function liveCurrentFocusIsRendered(state) {
+  return (
+    state.currentFocusText !== "" &&
+    state.currentFocusText === state.currentFocus?.text &&
+    state.focusLabelText === "Current focus" &&
+    state.focusStatus === "current"
+  );
 }
 
 function assertLiveEasyRunSnapshot(snapshot) {

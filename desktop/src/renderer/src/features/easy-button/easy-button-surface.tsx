@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 
-import type { EasyArtifact, EasyHighlight, EasyRun } from "@generated/backend";
+import type { EasyArtifact, EasyHighlight, EasyRun, EasyRunFocusStatus } from "@generated/backend";
 
 import { MarkdownText } from "../../components/markdown-text";
 import { useEasyRunStore } from "../../stores/easy-run-store";
@@ -33,6 +33,7 @@ export function EasyButtonSurface() {
     <section
       aria-label="Easy Button"
       className="easy-button-surface"
+      data-easy-button-focus={currentFocusStatus(controller.latestRun, controller.viewState)}
       data-easy-button-state={controller.viewState}
       data-easy-button-status={controller.statusTone}
       data-testid="easy-button-surface"
@@ -568,7 +569,7 @@ interface CaptionSlotProps {
 function CaptionSlot({ error, latestRun, viewState }: CaptionSlotProps) {
   return (
     <div className="easy-button-caption-slot">
-      <RequestText latestRun={latestRun} viewState={viewState} />
+      <CurrentFocus latestRun={latestRun} viewState={viewState} />
       <p className="easy-button-helper" data-testid="easy-button-helper">
         {helperCopyForState(viewState)}
       </p>
@@ -579,14 +580,17 @@ function CaptionSlot({ error, latestRun, viewState }: CaptionSlotProps) {
   );
 }
 
-function RequestText({ latestRun, viewState }: Pick<CaptionSlotProps, "latestRun" | "viewState">) {
-  if (!latestRun || viewState === "idle") {
-    return null;
-  }
+function CurrentFocus({ latestRun, viewState }: Pick<CaptionSlotProps, "latestRun" | "viewState">) {
+  const status = currentFocusStatus(latestRun, viewState);
   return (
-    <p className="easy-button-request-text" data-testid="easy-button-request-text">
-      {latestRun.requestText}
-    </p>
+    <div aria-live="polite" className="easy-button-focus-block">
+      <p className="easy-button-focus-label" data-testid="easy-button-focus-label">
+        {currentFocusLabel(status)}
+      </p>
+      <p className="easy-button-current-focus" data-testid="easy-button-current-focus">
+        {status === "none" ? "" : latestRun?.currentFocus.text}
+      </p>
+    </div>
   );
 }
 
@@ -637,7 +641,11 @@ function NarratorStatus({ latestRun }: Pick<CaptionSlotProps, "latestRun">) {
   if (latestRun?.narratorStatus !== "degraded") {
     return null;
   }
-  return <p className="easy-button-narrator-status">narration degraded</p>;
+  return (
+    <p className="easy-button-narrator-status">
+      Narration degraded — current focus may be outdated.
+    </p>
+  );
 }
 
 function StopButton({
@@ -781,6 +789,27 @@ function statusToneForState(
       return "stopped";
     case "working":
       return "none";
+  }
+}
+
+function currentFocusStatus(
+  latestRun: EasyRun | null,
+  viewState: EasyButtonViewState,
+): EasyRunFocusStatus | "none" {
+  if (!latestRun || viewState === "idle") {
+    return "none";
+  }
+  return latestRun.currentFocus.status;
+}
+
+function currentFocusLabel(status: EasyRunFocusStatus | "none"): string {
+  switch (status) {
+    case "updating":
+      return "Updating focus…";
+    case "current":
+    case "stale":
+    case "none":
+      return "Current focus";
   }
 }
 

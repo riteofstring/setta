@@ -102,3 +102,23 @@ func TestScriptedEasyRunNarratorKeepsWorkingSummaryEmpty(t *testing.T) {
 		t.Fatalf("scripted working narrator output = %+v, want request focus and empty summary", output)
 	}
 }
+
+func TestScriptedEasyRunNarratorExposesDeterministicFailure(t *testing.T) {
+	harness := NewScriptedWorkflowHarness()
+	_, err := harness.RunTask(context.Background(), HarnessTaskRequest{
+		Surface:     HarnessSurfaceEasyRunNarrator,
+		HarnessKind: HarnessCodex,
+		TurnMode:    HarnessTurnStructuredTask,
+		OutputContract: HarnessOutputContract{
+			Kind:       HarnessOutputStrictJSON,
+			JSONSchema: json.RawMessage(`{"type":"object"}`),
+		},
+		StructuredTask: &HarnessStructuredTask{
+			Input: json.RawMessage(`{"requestText":"easy run narrator failure workflow","status":"running","terminal":false}`),
+			Model: "gpt-5-codex",
+		},
+	})
+	if err == nil || err.Error() != "scripted easy-run narrator unavailable" {
+		t.Fatalf("scripted narrator failure = %v, want deterministic unavailable error", err)
+	}
+}

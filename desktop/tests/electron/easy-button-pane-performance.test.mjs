@@ -302,7 +302,7 @@ async function waitForEasyButtonFrozen(client, requestText) {
       state.exists &&
       state.hostFrozen === "true" &&
       state.easyState === "working" &&
-      state.requestText === requestText,
+      state.runRequestText === requestText,
     workflowTimeoutMs,
   );
 }
@@ -318,7 +318,7 @@ async function waitForEasyButtonWorking(client, requestText) {
       state.exists &&
       state.surfaceKind === "easy-button" &&
       state.easyState === "working" &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       state.stopButtonVisible === true &&
       state.stopButtonDisabled === false &&
       swirlOpacityMatches(state, 0.85),
@@ -341,7 +341,7 @@ async function waitForEasyButtonTerminal(client, requestText) {
       state.exists &&
       state.surfaceKind === "easy-button" &&
       state.easyState === "complete" &&
-      state.requestText === requestText &&
+      state.runRequestText === requestText &&
       swirlOpacityMatches(state, 0.2),
     workflowTimeoutMs,
   );
