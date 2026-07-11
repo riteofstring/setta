@@ -9,6 +9,7 @@ import (
 
 const (
 	SettaAgentToolNamespace          = "setta"
+	SettaEmitArtifactAgentToolName   = "emit_artifact"
 	SettaWorkflowResultAgentToolName = "workflow_result"
 )
 
@@ -23,8 +24,10 @@ type SettaWorkflowResultSignal struct {
 	Value string `json:"value"`
 }
 
-func NewSettaAgentToolRegistry() (*AgentToolRegistry, error) {
-	return NewAgentToolRegistry(settaWorkspaceContextTool(), settaWorkflowResultTool())
+func NewSettaAgentToolRegistry(extraTools ...AgentTool) (*AgentToolRegistry, error) {
+	tools := []AgentTool{settaWorkspaceContextTool(), settaWorkflowResultTool()}
+	tools = append(tools, extraTools...)
+	return NewAgentToolRegistry(tools...)
 }
 
 func mustNewSettaAgentToolRegistry() *AgentToolRegistry {

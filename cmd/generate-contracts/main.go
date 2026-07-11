@@ -35,9 +35,6 @@ type endpointSpec struct {
 	Response              reflect.Type
 	StreamEvent           reflect.Type
 	Streaming             bool
-	DuplexClientMessage   reflect.Type
-	DuplexServerMessage   reflect.Type
-	Duplex                bool
 	RequestBodyLimitBytes int64
 }
 
@@ -169,31 +166,22 @@ func endpointSpecs(endpoints []httpapi.ContractEndpoint, collector *contractColl
 		if err != nil {
 			return nil, err
 		}
-		if err := collectEndpointTypes(endpoint, collector); err != nil {
-			return nil, err
+		if err := collector.add(endpoint.Request); err != nil {
+			return nil, fmt.Errorf("%s request: %w", endpoint.Name, err)
+		}
+		if endpoint.Response != nil {
+			if err := collector.add(endpoint.Response); err != nil {
+				return nil, fmt.Errorf("%s response: %w", endpoint.Name, err)
+			}
+		}
+		if endpoint.StreamEvent != nil {
+			if err := collector.add(endpoint.StreamEvent); err != nil {
+				return nil, fmt.Errorf("%s stream event: %w", endpoint.Name, err)
+			}
 		}
 		specs = append(specs, spec)
 	}
 	return specs, nil
-}
-
-func collectEndpointTypes(endpoint httpapi.ContractEndpoint, collector *contractCollector) error {
-	types := []struct {
-		label  string
-		goType reflect.Type
-	}{
-		{label: "request", goType: endpoint.Request},
-		{label: "response", goType: endpoint.Response},
-		{label: "stream event", goType: endpoint.StreamEvent},
-		{label: "duplex client message", goType: endpoint.DuplexClientMessage},
-		{label: "duplex server message", goType: endpoint.DuplexServerMessage},
-	}
-	for _, item := range types {
-		if err := collector.add(item.goType); err != nil {
-			return fmt.Errorf("%s %s: %w", endpoint.Name, item.label, err)
-		}
-	}
-	return nil
 }
 
 func validateEndpoint(index int, endpoint httpapi.ContractEndpoint, names map[string]bool, routes map[string]bool) (endpointSpec, error) {
@@ -224,9 +212,6 @@ func validateEndpoint(index int, endpoint httpapi.ContractEndpoint, names map[st
 		Response:              endpoint.Response,
 		StreamEvent:           endpoint.StreamEvent,
 		Streaming:             endpoint.Streaming,
-		DuplexClientMessage:   endpoint.DuplexClientMessage,
-		DuplexServerMessage:   endpoint.DuplexServerMessage,
-		Duplex:                endpoint.Duplex,
 		RequestBodyLimitBytes: endpoint.RequestBodyLimitBytes,
 	}, nil
 }
@@ -262,9 +247,6 @@ func validateRouteContract(endpoint httpapi.ContractEndpoint) error {
 }
 
 func validateRouteRequestContract(endpoint httpapi.ContractEndpoint) error {
-	if endpoint.Method == http.MethodGet && endpoint.Request != nil {
-		return fmt.Errorf("%s GET endpoint must not declare a request body", endpoint.Name)
-	}
 	if endpoint.Method == http.MethodGet && endpoint.RequestBodyLimitBytes != 0 {
 		return fmt.Errorf("%s GET endpoint must not declare a request body limit", endpoint.Name)
 	}
@@ -278,9 +260,6 @@ func validateRouteRequestContract(endpoint httpapi.ContractEndpoint) error {
 }
 
 func validateRouteStreamContract(endpoint httpapi.ContractEndpoint) error {
-	if err := validateDuplexContract(endpoint); err != nil {
-		return err
-	}
 	if endpoint.Streaming && endpoint.Response != nil {
 		return fmt.Errorf("%s streaming endpoint must not declare a response type", endpoint.Name)
 	}
@@ -291,25 +270,6 @@ func validateRouteStreamContract(endpoint httpapi.ContractEndpoint) error {
 		if endpoint.StreamEvent.Kind() != reflect.Struct || endpoint.StreamEvent.Name() == "" {
 			return fmt.Errorf("%s has unsupported stream event type %s", endpoint.Name, endpoint.StreamEvent)
 		}
-	}
-	return nil
-}
-
-func validateDuplexContract(endpoint httpapi.ContractEndpoint) error {
-	if !endpoint.Duplex {
-		if endpoint.DuplexClientMessage != nil || endpoint.DuplexServerMessage != nil {
-			return fmt.Errorf("%s non-duplex endpoint must not declare duplex message types", endpoint.Name)
-		}
-		return nil
-	}
-	if !endpoint.Streaming {
-		return fmt.Errorf("%s duplex endpoint must be streaming", endpoint.Name)
-	}
-	if endpoint.DuplexClientMessage == nil || endpoint.DuplexServerMessage == nil {
-		return fmt.Errorf("%s duplex endpoint must declare client and server message types", endpoint.Name)
-	}
-	if endpoint.StreamEvent != nil {
-		return fmt.Errorf("%s duplex endpoint must not declare an SSE event type", endpoint.Name)
 	}
 	return nil
 }
@@ -534,13 +494,13 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 	renderRuntimeImports(buffer, specs)
 	renderProtocolMetadata(buffer, specs)
 	renderValueSets(buffer, specs.ValueSets)
-	if err := renderInterfaces(buffer, specs.Interfaces, specs.Unions); err != nil {
+	if err := renderInterfaces(buffer, specs.Interfaces); err != nil {
 		return err
 	}
 	renderUnions(buffer, specs.Unions)
 	renderEventUnion(buffer, specs.Events)
 	renderEndpointDescriptors(buffer, specs.Endpoints)
-	if err := renderDecoders(buffer, specs.Interfaces, specs.Unions); err != nil {
+	if err := renderDecoders(buffer, specs.Interfaces); err != nil {
 		return err
 	}
 	renderUnionDecoders(buffer, specs.Unions)
@@ -588,8 +548,7 @@ func literalUnion(values []string) string {
 	return strings.Join(quoted, " | ")
 }
 
-func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec, unions []unionSpec) error {
-	discriminators := unionVariantDiscriminators(unions)
+func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec) error {
 	for _, spec := range specs {
 		if spec.Type.Kind() != reflect.Struct {
 			return fmt.Errorf("%s must be generated from a struct", spec.Name)
@@ -605,14 +564,25 @@ func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec, unions []unio
 			if err != nil {
 				return fmt.Errorf("%s.%s: %w", spec.Name, field.Name, err)
 			}
-			if discriminator, ok := discriminators[spec.Type]; ok && name == discriminator.Field {
-				tsType = fmt.Sprintf("%q", discriminator.Value)
-			}
 			fmt.Fprintf(buffer, "  %s: %s;\n", name, tsType)
 		}
 		buffer.WriteString("}\n\n")
 	}
 	return nil
+}
+
+func renderUnions(buffer *bytes.Buffer, specs []unionSpec) {
+	for _, spec := range specs {
+		fmt.Fprintf(buffer, "export type %s =\n", spec.Name)
+		for index, variant := range spec.Variants {
+			prefix := "  | "
+			if index == 0 {
+				prefix = "  "
+			}
+			fmt.Fprintf(buffer, "%s%s\n", prefix, variant.Name)
+		}
+		buffer.WriteString(";\n\n")
+	}
 }
 
 func renderEventUnion(buffer *bytes.Buffer, events []eventSpec) {
@@ -640,6 +610,32 @@ func renderEventUnion(buffer *bytes.Buffer, events []eventSpec) {
 		buffer.WriteString("  conversationId: string;\n")
 		buffer.WriteString("  runId: string;\n")
 		fmt.Fprintf(buffer, "  payload: %s;\n", typeName(event.Payload))
+		buffer.WriteString("}\n\n")
+	}
+}
+
+func renderDecoders(buffer *bytes.Buffer, specs []interfaceSpec) error {
+	for _, spec := range specs {
+		if err := renderStructDecoder(buffer, spec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func renderUnionDecoders(buffer *bytes.Buffer, specs []unionSpec) {
+	for _, spec := range specs {
+		fmt.Fprintf(buffer, "export function %s(value: unknown): %s {\n", decoderFunctionName(spec.Type), spec.Name)
+		fmt.Fprintf(buffer, "  const record = assertRecord(value, %q);\n", spec.Name)
+		fmt.Fprintf(buffer, "  const discriminator = decodeString(requireField(record, %q, %q), %q);\n", spec.Discriminator, spec.Name, spec.Name+"."+spec.Discriminator)
+		buffer.WriteString("  switch (discriminator) {\n")
+		for _, variant := range spec.Variants {
+			fmt.Fprintf(buffer, "    case %q:\n", variant.KindValue)
+			fmt.Fprintf(buffer, "      return %s(value);\n", decoderFunctionName(variant.Type))
+		}
+		buffer.WriteString("    default:\n")
+		fmt.Fprintf(buffer, "      throw new Error(%q + \" is unsupported: \" + discriminator);\n", spec.Name+"."+spec.Discriminator)
+		buffer.WriteString("  }\n")
 		buffer.WriteString("}\n\n")
 	}
 }
@@ -678,21 +674,21 @@ func renderEventDecoder(buffer *bytes.Buffer, event eventSpec) {
 	buffer.WriteString("}\n\n")
 }
 
-func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec, discriminators map[reflect.Type]unionVariantDiscriminator) error {
+func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
 	fmt.Fprintf(buffer, "export function %s(value: unknown): %s {\n", decoderFunctionName(spec.Type), spec.Name)
 	fmt.Fprintf(buffer, "  const record = assertRecord(value, %q);\n", spec.Name)
 	fmt.Fprintf(buffer, "  assertKnownFields(record, %q, [%s]);\n", spec.Name, fieldNameLiterals(spec.Type))
 	taggedUnion, isTagged := contractTaggedUnionForType(spec.Type)
 	if !isTagged {
 		buffer.WriteString("  return {\n")
-		if err := renderStructDecoderFields(buffer, spec, discriminators); err != nil {
+		if err := renderStructDecoderFields(buffer, spec); err != nil {
 			return err
 		}
 		buffer.WriteString("  };\n}\n\n")
 		return nil
 	}
 	fmt.Fprintf(buffer, "  const result: %s = {\n", spec.Name)
-	if err := renderStructDecoderFields(buffer, spec, discriminators); err != nil {
+	if err := renderStructDecoderFields(buffer, spec); err != nil {
 		return err
 	}
 	buffer.WriteString("  };\n")
@@ -701,7 +697,7 @@ func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec, discriminator
 	return nil
 }
 
-func renderStructDecoderFields(buffer *bytes.Buffer, spec interfaceSpec, discriminators map[reflect.Type]unionVariantDiscriminator) error {
+func renderStructDecoderFields(buffer *bytes.Buffer, spec interfaceSpec) error {
 	for index := range spec.Type.NumField() {
 		field := spec.Type.Field(index)
 		name := jsonName(field)
@@ -712,9 +708,6 @@ func renderStructDecoderFields(buffer *bytes.Buffer, spec interfaceSpec, discrim
 		decoded, err := decoderExpression(field.Type, valueExpr, spec.Name+"."+name)
 		if err != nil {
 			return fmt.Errorf("%s.%s: %w", spec.Name, field.Name, err)
-		}
-		if discriminator, ok := discriminators[spec.Type]; ok && name == discriminator.Field {
-			decoded = fmt.Sprintf("decodeLiteralString(%s, %q, %q)", valueExpr, spec.Name+"."+name, discriminator.Value)
 		}
 		fmt.Fprintf(buffer, "    %s: %s,\n", name, decoded)
 	}
@@ -748,19 +741,19 @@ func renderClientMethod(buffer *bytes.Buffer, endpoint endpointSpec, semicolon b
 		suffix = ";"
 	}
 	if endpoint.Request == nil {
-		fmt.Fprintf(buffer, "  %s: () => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Response), suffix)
+		fmt.Fprintf(buffer, "  %s: (options?: BackendRequestOptions) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Response), suffix)
 		return
 	}
-	fmt.Fprintf(buffer, "  %s: (request: %s) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Request), typeName(endpoint.Response), suffix)
+	fmt.Fprintf(buffer, "  %s: (request: %s, options?: BackendRequestOptions) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Request), typeName(endpoint.Response), suffix)
 }
 
 func renderClientOperation(buffer *bytes.Buffer, endpoint endpointSpec, errorResponse reflect.Type) {
 	if endpoint.Request == nil {
-		fmt.Fprintf(buffer, "    %s: () => requestBackend({\n", endpoint.OperationName)
+		fmt.Fprintf(buffer, "    %s: (options) => requestBackend({\n", endpoint.OperationName)
 		renderRequestBackendProperties(buffer, endpoint, errorResponse, "undefined")
 		return
 	}
-	fmt.Fprintf(buffer, "    %s: (request) => requestBackend({\n", endpoint.OperationName)
+	fmt.Fprintf(buffer, "    %s: (request, options) => requestBackend({\n", endpoint.OperationName)
 	renderRequestBackendProperties(buffer, endpoint, errorResponse, "request")
 }
 
@@ -771,6 +764,7 @@ func renderRequestBackendProperties(buffer *bytes.Buffer, endpoint endpointSpec,
 	fmt.Fprintf(buffer, "      endpoint: backendEndpoints.%s,\n", endpoint.Name)
 	buffer.WriteString("      fetchImpl,\n")
 	fmt.Fprintf(buffer, "      requestPayload: %s,\n", requestPayload)
+	buffer.WriteString("      signal: options?.signal,\n")
 	buffer.WriteString("    }),\n")
 }
 

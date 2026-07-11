@@ -25,12 +25,6 @@ export function webDeviceDisplayName(): string {
   return navigator.userAgent.includes("Android") ? "Setta Android PWA" : "Setta Web";
 }
 
-export function sameOriginBaseURL(): string {
-  const url = new URL(window.location.origin);
-  url.pathname = "/";
-  return url.toString();
-}
-
 export function sleepWithAbort(ms: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) {
     return Promise.resolve();

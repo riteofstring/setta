@@ -15,7 +15,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"setta/internal/terminal"
 	"setta/internal/workspace"
@@ -41,23 +40,9 @@ func TestTerminalEndpointsCreateInputResizeAndClose(t *testing.T) {
 	input := postJSON[TerminalInputResponse](t, handler, "/terminals/input", TerminalInputRequest{
 		SessionID:  created.Session.ID,
 		DataBase64: base64.StdEncoding.EncodeToString([]byte("echo ok\n")),
-		Trace: TerminalInputTrace{
-			RunID:         "terminal_latency_test",
-			ClientID:      "terminal_client_test",
-			InputSequence: 7,
-		},
 	}, http.StatusOK)
 	if input.AcceptedBytes != len("echo ok\n") {
 		t.Fatalf("accepted input bytes = %d, want %d", input.AcceptedBytes, len("echo ok\n"))
-	}
-	if input.Trace.RunID != "terminal_latency_test" || input.Trace.ClientID != "terminal_client_test" || input.Trace.InputSequence != 7 {
-		t.Fatalf("input trace correlation = %+v", input.Trace)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, input.Trace.HandlerReceivedAt); err != nil {
-		t.Fatalf("handler received timestamp = %q: %v", input.Trace.HandlerReceivedAt, err)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, input.Trace.PTYWriteCompletedAt); err != nil {
-		t.Fatalf("pty write timestamp = %q: %v", input.Trace.PTYWriteCompletedAt, err)
 	}
 	if written := starter.handleAt(t, 0).writtenString(); written != "echo ok\n" {
 		t.Fatalf("terminal input = %q, want echo ok", written)
@@ -228,30 +213,6 @@ func TestTerminalEndpointMapsUnsupportedPTYToNotImplemented(t *testing.T) {
 	}, http.StatusNotImplemented)
 	if errResponse.Error.Code != "terminal_unsupported" {
 		t.Fatalf("unsupported error code = %q, want terminal_unsupported", errResponse.Error.Code)
-	}
-}
-
-func TestTerminalStreamTicketAndUpgradeRequireValidCredentials(t *testing.T) {
-	handler, _ := newTerminalHandler(t, nil)
-	ticket := postJSON[CreateTerminalStreamTicketResponse](t, handler, "/terminals/stream/ticket", CreateTerminalStreamTicketRequest{
-		ClientStreamID: "terminal_stream_test",
-	}, http.StatusOK)
-	if ticket.Ticket == "" || ticket.ClientStreamID != "terminal_stream_test" || ticket.ExpiresInSeconds != terminal.TerminalStreamTicketTTLSeconds {
-		t.Fatalf("terminal stream ticket = %+v", ticket)
-	}
-
-	request := httptest.NewRequest(http.MethodGet, "/terminals/stream", nil)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusUnauthorized {
-		t.Fatalf("stream status = %d, want %d", response.Code, http.StatusUnauthorized)
-	}
-	var streamError ErrorResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &streamError); err != nil {
-		t.Fatalf("decode stream error: %v", err)
-	}
-	if streamError.Error.Code != "invalid_terminal_stream_ticket" {
-		t.Fatalf("stream error code = %q, want invalid_terminal_stream_ticket", streamError.Error.Code)
 	}
 }
 

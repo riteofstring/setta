@@ -162,6 +162,8 @@ const (
 	ReasoningEffortMedium  ReasoningEffort = "medium"
 	ReasoningEffortHigh    ReasoningEffort = "high"
 	ReasoningEffortXHigh   ReasoningEffort = "xhigh"
+	ReasoningEffortMax     ReasoningEffort = "max"
+	ReasoningEffortUltra   ReasoningEffort = "ultra"
 
 	ChatCommandResultDisplay          ChatCommandResultAction = "display"
 	ChatCommandResultGoalEditor       ChatCommandResultAction = "goal_editor"
@@ -311,6 +313,8 @@ var (
 		ReasoningEffortMedium,
 		ReasoningEffortHigh,
 		ReasoningEffortXHigh,
+		ReasoningEffortMax,
+		ReasoningEffortUltra,
 	}
 	chatCommandResultActionValues = []ChatCommandResultAction{
 		ChatCommandResultDisplay,
@@ -323,50 +327,6 @@ var (
 		StructuredInputModeURL,
 	}
 )
-
-func ContractValueSets() []ContractValueSet {
-	return []ContractValueSet{
-		{Name: "HarnessKind", Values: stringValues(harnessKindValues)},
-		{Name: "MessageRole", Values: stringValues(messageRoleValues)},
-		{Name: "MessageStatus", Values: stringValues(messageStatusValues)},
-		{Name: "MessageDelivery", Values: stringValues(messageDeliveryValues)},
-		{Name: "MessagePartType", Values: stringValues(messagePartTypeValues)},
-		{Name: "ImageAttachmentMimeType", Values: stringValues(imageAttachmentMimeTypeValues)},
-		{Name: "ImageAttachmentVariantKind", Values: stringValues(imageAttachmentVariantKindValues)},
-		{Name: "ImageDetail", Values: stringValues(imageDetailValues)},
-		{Name: "TextFormat", Values: stringValues(textFormatValues)},
-		{Name: "HarnessRefStatus", Values: stringValues(harnessRefStatusValues)},
-		{Name: "RunStatus", Values: stringValues(runStatusValues)},
-		{Name: "RunLivenessStatus", Values: stringValues(runLivenessStatusValues)},
-		{Name: "RunLivenessReason", Values: stringValues(runLivenessReasonValues)},
-		{Name: "ApprovalStatus", Values: stringValues(approvalStatusValues)},
-		{Name: "ApprovalKind", Values: stringValues(approvalKindValues)},
-		{Name: "RunItemStatus", Values: stringValues(runItemStatusValues)},
-		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
-		{Name: "RunItemDetailsKind", Values: stringValues(runItemDetailsKindValues)},
-		{Name: "RunItemCommandSource", Values: stringValues(runItemCommandSourceValues)},
-		{Name: "RunItemPlanStepStatus", Values: stringValues(runItemPlanStepStatusValues)},
-		{Name: "RunItemFileChangeOperation", Values: stringValues(runItemFileChangeOperationValues)},
-		{Name: "BackgroundTerminalStatus", Values: stringValues(backgroundTerminalStatusValues)},
-		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},
-		{Name: "DiagnosticSource", Values: stringValues(diagnosticSourceValues)},
-		{Name: "StructuredInputMode", Values: stringValues(structuredInputModeValues)},
-		{Name: "ChatCommandKind", Values: stringValues(chatCommandKindValues)},
-		{Name: "ChatSlashCommandKind", Values: stringValues(chatSlashCommandKindValues)},
-		{Name: "ChatCommandArgumentKind", Values: stringValues(chatCommandArgumentKindValues)},
-		{Name: "ChatCommandLiteralMatchMode", Values: stringValues(chatCommandLiteralMatchModeValues)},
-		{Name: "GoalCommandAction", Values: stringValues(goalCommandActionValues)},
-		{Name: "ModelCommandAction", Values: stringValues(modelCommandActionValues)},
-		{Name: "PermissionCommandAction", Values: stringValues(permissionCommandActionValues)},
-		{Name: "ChatPermissionPresetID", Values: stringValues(chatPermissionPresetIDValues)},
-		{Name: "ReasoningEffort", Values: stringValues(reasoningEffortValues)},
-		{Name: "ChatCommandResultAction", Values: stringValues(chatCommandResultActionValues)},
-		{Name: "TranscriptBlockKind", Values: stringValues(transcriptBlockKindValues)},
-		{Name: "TranscriptBlockStatus", Values: stringValues(transcriptBlockStatusValues)},
-		{Name: "ReasoningBlockMode", Values: stringValues(reasoningBlockModeValues)},
-		{Name: "RunStatusBlockMode", Values: stringValues(runStatusBlockModeValues)},
-	}
-}
 
 func stringValues[T ~string](values []T) []string {
 	result := make([]string, 0, len(values))
@@ -389,6 +349,7 @@ type Conversation struct {
 	CodexEffectiveSettings *ChatCodexEffectiveSettings   `json:"codexEffectiveSettings"`
 	HarnessRefs            []HarnessThreadRef            `json:"harnessRefs"`
 	Workflow               *ConversationWorkflowMetadata `json:"workflow"`
+	EasyRun                *ConversationEasyRunMetadata  `json:"easyRun"`
 }
 
 type ChatCodexSettings struct {
@@ -412,6 +373,10 @@ type ConversationWorkflowMetadata struct {
 	ExecutionID         string `json:"executionId"`
 	NodeID              string `json:"nodeId"`
 	NodeExecutionID     string `json:"nodeExecutionId"`
+}
+
+type ConversationEasyRunMetadata struct {
+	EasyRunID string `json:"easyRunId"`
 }
 
 type ChatMessage struct {
