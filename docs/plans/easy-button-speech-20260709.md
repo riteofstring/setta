@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 complete; Phase 2 items 1-3 complete
+**Status:** Implementation in progress — Phase 1 complete; Phase 2 items 1-5 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2079,6 +2079,70 @@ runtimes serve the endpoints using the new active-workspace resolver. Then
 regenerate if any Go-owned contract changes and complete item 6's broader
 credential/log/persistence audit. No deterministic blocker was found for that
 work.
+
+### 2026-07-10 — Phase 2 production speech runtime wiring complete
+
+Implemented Phase 2 item 4 and confirmed item 5 remains current. Production
+runtime composition now constructs one validated OpenAI speech client from the
+copied `runtime.Config.Speech`, builds the speech service over the production
+Easy Run snapshot reader and active-workspace resolver, retains it with the
+other base services, and passes it into `httpapi.HandlerConfig`. Configured and
+text-only runtimes therefore serve the four authenticated speech endpoints
+instead of returning `speech_service_unavailable`; no renderer, IPC, microphone,
+playback, endpoint, or generated contract surface was pulled forward.
+
+Runtime-level integration coverage starts a real Setta server with temporary
+app data and authentication. The configured case opens a real workspace, uses
+the scripted production chat/Easy Run paths to persist a terminal summary and
+narrator highlight, mints a transcription client secret, and synthesizes both
+persisted sources through an injected fake OpenAI HTTP server. The fake server
+requires the configured bearer key, validates the privacy-preserving safety
+identifier and provider operation shapes, returns strict session metadata and
+a valid WAV, and proves the two exact stored strings are the only synthesis
+inputs. The text-only case validates `not_configured` capabilities and the
+typed `speech_not_configured` operation failure, proving optional speech does
+not prevent runtime startup.
+
+Verification completed for this slice:
+
+- complete `internal/speech` and `internal/httpapi` suites passed; the focused
+  configured/text-only runtime integration passed normally and under the race
+  detector, and focused Go vet passed;
+- the complete `internal/runtime` suite passed with an isolated unsigned Codex
+  home, so all deterministic runtime tests and the new production speech path
+  are clean independently of live-provider authentication;
+- contract regeneration was idempotent. The protocol-13 generated TypeScript,
+  schema snapshot, and checked-in PWA bundle did not change because item 4
+  changes no Go-owned contract;
+- the deterministic production Easy Button Electron workflow passed at
+  `desktop/.recordings/easy-button-speech-phase2-runtime-wiring-20260710`,
+  including start, stream, exact steering, Current focus, terminal, stop,
+  reload/restart, compact/reduced-motion, and pixel-match paths. Its 131 fresh
+  artifacts contain no speech-key, client-secret, authorization, or
+  audio/base64 markers;
+- `./scripts/format.sh` passed. `./check_quality.sh --git-changes` passed in
+  full with the isolated unsigned Codex home; with the normal signed-in
+  environment it passed file length, vet, dead-code, and complexity checks but
+  remained nonzero only for the four live runtime failures described below.
+
+ChatGPT authentication remains available, and every required live Codex gate
+was attempted with `OPENAI_API_KEY` absent. The four backend probes and both
+live Electron chat and Easy Button surfaces still fail before conversation
+creation because `model/list` advertises unsupported reasoning effort `max`.
+The Easy Button remains idle, preserves the submitted text, and surfaces the
+typed provider-drift error. These failures are not live-provider validation for
+this slice. `SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and the opt-in live
+speech workflow remains intentionally deferred until the later acceptance
+phase, so no live OpenAI speech result is claimed.
+
+The supply-chain gate remains blocked by GO-2026-5856 in the pinned Go 1.26.4
+standard library, fixed in Go 1.26.5. This slice changes no dependency, module,
+manifest, package-manager, toolchain, or supply-chain input. Phase 2 items 1-5
+are complete. Item 6 is next: complete the broader credential, client-secret,
+provider-body, audio, logging, diagnostics, and persisted-app-data audit across
+both production launch paths and their failure cases before beginning Phase 3
+IPC/preload/web client work. No deterministic implementation blocker was found
+for that audit.
 
 ## Verification Plan
 

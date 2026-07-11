@@ -6,6 +6,7 @@ import (
 	"setta/internal/codexapp"
 	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
+	"setta/internal/speech"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
@@ -15,6 +16,7 @@ type runtimeBaseServices struct {
 	chatService        *chat.Service
 	codexManager       *codexapp.Manager
 	easyRunService     *easyrun.Service
+	speechService      *speech.Service
 	workspaceService   *workspacesession.Service
 	workspaceUIService *workspaceui.Service
 	workflowService    *orchestrator.Service
@@ -52,6 +54,12 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err
 	}
+	speechService, err := newSpeechService(config.Speech, easyRunService, workspaceService)
+	if err != nil {
+		easyRunService.CloseEvents()
+		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
+		return runtimeBaseServices{}, err
+	}
 	tools, err := chat.NewSettaAgentToolRegistry(easyrun.NewEmitArtifactAgentTool(easyRunService))
 	if err != nil {
 		easyRunService.CloseEvents()
@@ -68,6 +76,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		chatService:        chatService,
 		codexManager:       codexManager,
 		easyRunService:     easyRunService,
+		speechService:      speechService,
 		workspaceService:   workspaceService,
 		workspaceUIService: workspaceUIService,
 		workflowService:    workflowService,

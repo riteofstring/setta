@@ -112,6 +112,7 @@ type runtimeServices struct {
 	notifyService            *notify.Service
 	semanticGraphService     *semanticgraph.Service
 	semanticGraphStore       *semanticgraph.Store
+	speechService            *speech.Service
 	terminalService          *terminal.Manager
 	workspaceActivityService *workspaceactivity.Service
 	workspaceUIService       *workspaceui.Service
@@ -343,6 +344,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		notifyService:            notifyService,
 		semanticGraphService:     semanticServices.graphService,
 		semanticGraphStore:       semanticServices.graphStore,
+		speechService:            baseServices.speechService,
 		terminalService:          terminalService,
 		workspaceActivityService: semanticServices.activityService,
 		workspaceUIService:       baseServices.workspaceUIService,
@@ -815,6 +817,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 			InfrastructureProvider: services.infrastructureProvider,
 		},
 		SemanticGraphService:     services.semanticGraphService,
+		SpeechService:            services.speechService,
 		TerminalService:          services.terminalService,
 		WorkspaceActivityService: services.workspaceActivityService,
 		WorkspaceUIService:       services.workspaceUIService,
