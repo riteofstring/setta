@@ -239,6 +239,10 @@ try {
     state: steeredTerminal,
     synthesisCount: completedAutoSynthesisCount,
   });
+  await exerciseMountedAutomaticSummaryReplayReuse(context.client, provider, {
+    label: "completed",
+    state: steeredTerminal,
+  });
   const completedReplayState = await selectSpeechOutputMode(context.client, "off");
   const completedReplay = await exerciseTerminalSummaryReplay(context.client, provider, {
     artifactDir,
@@ -387,6 +391,7 @@ try {
     state: failedTerminal,
     synthesisCount: failedAutoSynthesisCount,
   });
+  await assertRestoredTerminalSummarySilent(context.client, provider, failedTerminal);
   const failedReplayState = await selectSpeechOutputMode(context.client, "off");
   await exerciseTerminalSummaryReplay(context.client, provider, {
     artifactDir,
@@ -411,6 +416,8 @@ try {
     coveredTeardown: ["escape", "disconnect", "pane-close", "workspace-switch", "reload", "stop"],
     automaticallySpokenTerminalStatuses: ["completed", "failed"],
     automaticSpeechExcludedStatuses: ["stopped"],
+    hydratedTerminalAutoPlaySuppressed: true,
+    mountedAutomaticSummaryReplayReusedBlob: true,
     replayedTerminalStatuses: ["completed", "stopped", "failed"],
     providerOperationCount: provider.requests.length,
     status: "passed",
@@ -531,6 +538,66 @@ async function exerciseAutomaticTerminalSummary(
   await captureScreenshot(client, join(artifactDir, `speech-summary-${label}-automatic.png`));
   await callBrowserFixture(client, "finishAudio");
   await waitForSummaryPlaybackIdle(client);
+}
+
+async function exerciseMountedAutomaticSummaryReplayReuse(client, provider, { label, state }) {
+  const snapshot = await readPersistedSummary(client, state, label);
+  const synthesisCount = provider.synthesisInputs.length;
+  const audioBefore = (await callBrowserFixture(client, "state")).audio;
+  await client.driver("easyButtonPaneClickSummaryReplay");
+  const speaking = await waitForSummarySpeaking(client, snapshot.latestRun.id);
+  const audioDuringReplay = (await callBrowserFixture(client, "state")).audio;
+  if (
+    provider.synthesisInputs.length !== synthesisCount ||
+    provider.synthesisInputs.at(-1) !== snapshot.latestRun.summary ||
+    audioDuringReplay.createdObjectURLCount !== audioBefore.createdObjectURLCount ||
+    audioDuringReplay.count !== audioBefore.count + 1 ||
+    audioDuringReplay.playCount !== audioBefore.playCount + 1 ||
+    speaking.summaryColor !== speaking.toneColors.foreground
+  ) {
+    throw new Error(
+      `${label} mounted automatic summary replay did not reuse its Blob: ${JSON.stringify({ audioBefore, audioDuringReplay, speaking })}`,
+    );
+  }
+  await callBrowserFixture(client, "finishAudio");
+  await waitForSummaryPlaybackIdle(client);
+}
+
+async function assertRestoredTerminalSummarySilent(client, provider, state) {
+  const snapshot = await readPersistedSummary(client, state, "restored failed");
+  const synthesisCount = provider.synthesisInputs.length;
+  await reloadPage(client);
+  await waitForSelector(client, '[data-testid="workspace-layout-area"]');
+  await client.installDriver();
+  await waitForState(
+    client,
+    workspaceIdExpression(),
+    (workspaceId) => workspaceId === state.workspaceId,
+    workflowTimeoutMs,
+  );
+  const restored = await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (next) =>
+      easyButtonStateSettled(next, "complete") &&
+      next.latestRunId === snapshot.latestRun.id &&
+      next.summaryText === snapshot.latestRun.summary &&
+      next.speechOutputMode === "final" &&
+      next.summaryPlayback === "idle" &&
+      next.speechOutputPlayback === "idle",
+    workflowTimeoutMs,
+  );
+  await client.evaluate("new Promise((resolve) => setTimeout(resolve, 250))");
+  const fixture = await callBrowserFixture(client, "state");
+  if (
+    provider.synthesisInputs.length !== synthesisCount ||
+    fixture.audio.activeCount !== 0 ||
+    fixture.audio.count !== 0
+  ) {
+    throw new Error(
+      `hydrated terminal summary auto-played unexpectedly: ${JSON.stringify({ fixture, restored })}`,
+    );
+  }
 }
 
 async function assertNoAutomaticTerminalSummary(client, provider, state, synthesisCount) {

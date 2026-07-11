@@ -3465,6 +3465,48 @@ terminal state never auto-plays and that replay of the still-mounted automatic
 summary reuses its synthesized Blob. Item 6 then covers recording preemption
 and TTS failure isolation before Phase 5 begins.
 
+### 2026-07-10 — Phase 4 terminal-summary hydration and cache closure complete
+
+Completed Phase 4 item 5 through the required configured production Electron
+workflow. After a live completed transition auto-plays its persisted summary,
+manual replay now has an explicit production-path assertion that the same
+mounted source creates another audio element while issuing no additional
+synthesis request and creating no additional Blob URL. The existing controller
+unit test still proves that both audio elements receive the exact same URL; the
+production workflow now proves that behavior across the mounted renderer,
+preload, main, authenticated HTTP, persisted-source speech service, and fake
+OpenAI boundary.
+
+The same workflow now reloads while `final` output remains enabled and the
+latest persisted run is failed. It waits for the real snapshot hydration and
+restored terminal summary, then proves that playback remains idle, no audio
+element exists, and no synthesis request occurs. Manual replay after hydration
+remains available and performs one fresh source-ID synthesis, as expected
+because audio and Blob URLs are intentionally renderer-memory-only and do not
+survive reload. The workflow summary records both hydration silence and
+mounted-Blob reuse explicitly.
+
+Verification completed for this slice:
+
+- focused Prettier and ESLint checks passed for the changed Electron workflow;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-hydration-cache-20260710` with
+  12 transcription sessions and five persisted-summary syntheses. The added
+  replay and reload produced no sixth synthesis, proving both cache reuse and
+  hydration silence while retaining the existing exact-source, redaction,
+  failure, cancellation, and teardown assertions;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  workflow and this plan entry were final.
+
+No production source, generated contract or bundle, dependency, manifest,
+module, package-manager, toolchain, or supply-chain input changed, so builds,
+contract regeneration, live Codex gates, and supply-chain verification were
+not required for this coverage-only closure. No live OpenAI speech result is
+claimed; that opt-in provider workflow remains Phase 5 item 8. Phase 4 item 6
+is next: prove recording preempts active summary synthesis/playback and that
+TTS failure leaves the run, narrator state, and persisted summary untouched.
+No implementation blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
