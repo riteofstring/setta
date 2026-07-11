@@ -28,11 +28,18 @@ export function assertAcceptedSteeringFocusEvents(events, requestText, revisedTe
 }
 
 export function assertRevisedCurrentFocus(state, text) {
+  assertStateFields(
+    state,
+    {
+      currentFocusText: text,
+      focusBlockDisplay: "block",
+      focusLabelText: "Current focus",
+      focusStatus: "current",
+    },
+    "easy-button revised current focus presentation was wrong",
+  );
   const focus = state.currentFocus;
   if (
-    state.currentFocusText !== text ||
-    state.focusLabelText !== "Current focus" ||
-    state.focusStatus !== "current" ||
     focus?.revision !== 1 ||
     focus.status !== "current" ||
     focus.text !== text ||
@@ -64,6 +71,7 @@ export function assertUpdatingCurrentFocus(state, requestText, steeringText) {
     {
       currentFocusText: requestText,
       easyState: "working",
+      focusBlockDisplay: "block",
       focusLabelText: "Updating focus…",
       focusStatus: "updating",
       inputValue: "",
@@ -88,6 +96,7 @@ export function assertStaleCurrentFocus(state, requestText) {
     state,
     {
       currentFocusText: requestText,
+      focusBlockDisplay: "block",
       focusLabelText: "Current focus",
       focusStatus: "stale",
       narratorStatusText: "Narration degraded — current focus may be outdated.",

@@ -159,6 +159,7 @@
     const inputWrap = host.querySelector(".easy-button-input-wrap");
     const enterChip = host.querySelector(".easy-button-enter-chip");
     const currentFocus = host.querySelector('[data-testid="easy-button-current-focus"]');
+    const focusBlock = host.querySelector(".easy-button-focus-block");
     const focusLabel = host.querySelector('[data-testid="easy-button-focus-label"]');
     const helper = host.querySelector('[data-testid="easy-button-helper"]');
     const summary = host.querySelector('[data-testid="easy-button-summary"]');
@@ -185,6 +186,7 @@
       currentFocusRect: rectSnapshot(elementRectOrZero(currentFocus)),
       currentFocusText: elementText(currentFocus),
       enterChipText: elementText(enterChip),
+      focusBlockDisplay: elementStyleValue(focusBlock, "display"),
       focusLabelText: elementText(focusLabel),
       focusStatus: elementDatasetValue(surface, "easyButtonFocus"),
       helperText: elementText(helper),

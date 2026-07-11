@@ -663,7 +663,7 @@
   width: 100%;
 }
 
-.easy-button-surface:not([data-easy-button-state="idle"]) .easy-button-focus-block {
+.easy-button-surface:not([data-easy-button-focus="none"]) .easy-button-focus-block {
   display: block;
 }
 

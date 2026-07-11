@@ -796,7 +796,13 @@ function currentFocusStatus(
   latestRun: EasyRun | null,
   viewState: EasyButtonViewState,
 ): EasyRunFocusStatus | "none" {
-  if (!latestRun || viewState === "idle") {
+  // A new start enters the pending working layout before its Easy Run replaces
+  // the prior terminal snapshot. That prior run is not the active objective.
+  if (
+    !latestRun ||
+    viewState === "idle" ||
+    (viewState === "working" && latestRun.status !== "working")
+  ) {
     return "none";
   }
   return latestRun.currentFocus.status;
@@ -808,8 +814,9 @@ function currentFocusLabel(status: EasyRunFocusStatus | "none"): string {
       return "Updating focus…";
     case "current":
     case "stale":
-    case "none":
       return "Current focus";
+    case "none":
+      return "";
   }
 }
 

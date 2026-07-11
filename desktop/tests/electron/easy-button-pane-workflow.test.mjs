@@ -259,6 +259,16 @@ try {
     "stale",
   );
   assertStaleCurrentFocus(staleFocus, "easy run narrator failure workflow");
+  assertStateFields(
+    staleFocus,
+    {
+      easyState: "working",
+      helperText: "Working — Stop to cancel",
+      stopButtonDisabled: false,
+      stopButtonVisible: true,
+    },
+    "easy-button stale narrator projection stopped the working run",
+  );
   await captureScreenshot(context.client, join(artifactDir, "easy-button-focus-stale.png"));
   await clickEasyButtonStop(context.client);
   const staleFocusStopped = await waitForEasyButtonTerminal(
@@ -815,6 +825,8 @@ function assertIdleVisual(state) {
   if (
     state.currentFocusText !== "" ||
     state.easyState !== "idle" ||
+    state.focusBlockDisplay !== "none" ||
+    state.focusLabelText !== "" ||
     state.focusStatus !== "none" ||
     !state.buttonVisible ||
     state.railText !== ""
@@ -865,6 +877,7 @@ function assertWorkingVisual(state, requestText) {
       buttonAriaLabel: "Focus Easy Button steering input",
       currentFocusText: requestText,
       easyState: "working",
+      focusBlockDisplay: "block",
       focusLabelText: "Current focus",
       focusStatus: "current",
       helperText: "Working — Stop to cancel",
@@ -888,6 +901,7 @@ function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
       buttonAriaLabel: "Focus Easy Button request input",
       currentFocusText: options.expectedCurrentFocus ?? requestText,
       easyState: "complete",
+      focusBlockDisplay: "block",
       focusLabelText: "Current focus",
       focusStatus: "current",
       helperText: "Type a request to start again",

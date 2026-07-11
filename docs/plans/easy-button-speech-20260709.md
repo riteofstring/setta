@@ -1412,6 +1412,61 @@ Item 8 then finishes phase-wide generated-bundle, renderer, deterministic,
 partial-outcome, and live coverage. No implementation blocker was found for
 item 7; only live-provider proof remains blocked by the unrelated `max` drift.
 
+### 2026-07-10 — Phase 1 Current focus UI audit complete
+
+Audited commit `83660fb91` and the cumulative Phase 1 branch against this plan,
+`AGENTS.md`, the clean starting worktree, generated contracts and checked-in
+PWA bundle, persisted Easy Run state, renderer focus ownership, the canonical
+mockup, deterministic artifacts, and live-provider coverage. The implemented
+slice correctly renders only persisted Current focus, preserves the last good
+text through `updating` and `stale`, keeps NOW narrator-only, and leaves the
+immutable request and full-fidelity steering messages in their owning chat/run
+records.
+
+The audit fixed one practical renderer edge case. A new request enters the
+pending working layout before the new Easy Run replaces an empty or terminal
+snapshot. The new focus block used that layout state alone and could therefore
+show an empty `Current focus` heading or briefly present the preceding terminal
+run as the active objective. Focus visibility now requires a current Easy Run
+owned by the displayed state; the `none` state carries no visible or announced
+label. The production-path assertions also verify the focus block's actual
+display state and require a stale narrator projection to leave the run visibly
+working with its Stop control available.
+
+Audit verification completed:
+
+- focused TypeScript checks and the complete `internal/chat`,
+  `internal/easyrun`, and `internal/httpapi` suites passed;
+- contract regeneration was idempotent, and the generator plus embedded-webapp
+  tests passed;
+- all 990 desktop Vitest tests, Electron typecheck/build, and web
+  typecheck/build passed; the checked-in PWA bundle was regenerated from the
+  corrected renderer source;
+- the deterministic production Electron workflow passed at
+  `desktop/.recordings/easy-button-speech-audit-current-focus-20260710`,
+  including start, streaming, exact accepted steering, visible focus updating,
+  a stale narrator projection with the run still working, terminal/stop,
+  reload/restart, compact/reduced-motion, and pixel-match paths;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  final source, tests, plan, and generated web bundle.
+
+ChatGPT authentication remains available. The live Electron chat and Easy
+Button workflows plus all four backend Codex probes were rerun with
+`OPENAI_API_KEY` removed. Every surface remains blocked before conversation
+creation because `model/list` advertises reasoning effort `max`, which Setta's
+current provider decoder rejects. The Easy Button retained the submitted text,
+remained idle, and kept the nonexistent focus hidden, but this failure is not
+live-provider validation for the slice. Supply-chain verification was not
+required because this audit changes no dependency, manifest, package-manager,
+Go module, generated contract, or supply-chain input.
+
+The implementation plan is not complete. The next iteration remains Phase 1
+item 7: replace compact mechanical terminal tails with deterministic
+human-readable duration and artifact prose. Item 8 then completes the
+phase-wide partial-outcome and acceptance coverage before backend speech work
+begins. No implementation blocker was found for item 7; only live-provider
+proof remains blocked by the separate `max` provider drift.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
