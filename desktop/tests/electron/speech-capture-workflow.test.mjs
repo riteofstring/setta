@@ -232,6 +232,11 @@ try {
   assertAcceptedSteeringFocusEvents(steeringEvents, completedRequest, steeredCurrentFocus);
   const steeredChatRecord = await context.client.driver("easyButtonPaneChatRecord");
   assertLosslessSteeringChatRecord(steeredChatRecord, completedRequest, completedSteering);
+  await exerciseTerminalSummaryReplay(context.client, provider, {
+    artifactDir,
+    label: "completed",
+    state: steeredTerminal,
+  });
 
   await completeSpeechCapture(context.client, {
     draft: preservedDraft,
@@ -288,6 +293,11 @@ try {
   assertCaptureTeardown(stoppedCapture);
   assertDraftPreserved(stoppedCapture, preservedDraft);
   assertStoppedWhileListening(stoppedRun);
+  await exerciseTerminalSummaryReplay(context.client, provider, {
+    artifactDir,
+    label: "stopped",
+    state: stoppedRun,
+  });
   const stoppedChatRecord = await context.client.driver("easyButtonPaneChatRecord");
   assertLosslessSteeringChatRecord(
     stoppedChatRecord,
@@ -335,8 +345,30 @@ try {
     stoppedRunId,
   });
 
+  const failedRequest = "easy run phase5 artifact cap workflow";
+  const failedStarted = await context.client.driver("easyButtonPaneSubmitRequest", failedRequest);
+  if (!failedStarted) {
+    throw new Error("failed Easy Run replay fixture did not submit");
+  }
+  const failedTerminal = await waitForState(
+    context.client,
+    easyButtonStateExpression(),
+    (state) =>
+      easyButtonStateSettled(state, "complete") &&
+      state.runRequestText === failedRequest &&
+      state.statusTone === "failed" &&
+      state.summaryText.includes("Failed after") &&
+      state.summaryText.includes("20 artifacts"),
+    workflowTimeoutMs,
+  );
+  await exerciseTerminalSummaryReplay(context.client, provider, {
+    artifactDir,
+    label: "failed",
+    state: failedTerminal,
+  });
+
   provider.assertHealthy();
-  assertProviderOperationCount(provider, 12);
+  assertProviderOperationCount(provider, { synthesis: 3, transcription: 12 });
   await stopElectronCdpContext(context);
   context = null;
   await assertNoRendererConsoleErrors(artifactDir);
@@ -350,6 +382,7 @@ try {
       "submission-rejected",
     ],
     coveredTeardown: ["escape", "disconnect", "pane-close", "workspace-switch", "reload", "stop"],
+    replayedTerminalStatuses: ["completed", "stopped", "failed"],
     providerOperationCount: provider.requests.length,
     status: "passed",
   });
@@ -439,6 +472,91 @@ async function exerciseConfiguredSpeechOutputControl(client, recordingRoot) {
   if (selected.speechOutputPlayback !== "idle") {
     throw new Error(`selecting final voice mode changed playback: ${JSON.stringify(selected)}`);
   }
+  await client.driver("easyButtonPaneClickOutputControl");
+  await client.driver("easyButtonPaneSelectOutputMode", "off");
+  await waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.speechOutputMode === "off" &&
+      state.audioControlAriaLabel === "Voice output: Off" &&
+      !state.audioMenuOpen,
+    workflowTimeoutMs,
+  );
+}
+
+async function exerciseTerminalSummaryReplay(client, provider, { artifactDir, label, state }) {
+  assertSummaryReplayAvailable(state, label);
+  const snapshot = await readPersistedSummary(client, state, label);
+  const synthesisCount = provider.synthesisInputs.length;
+  await client.driver("easyButtonPaneClickSummaryReplay");
+  const speaking = await waitForSummarySpeaking(client, snapshot.latestRun.id);
+  assertPersistedSummarySpoken(speaking, provider, snapshot, synthesisCount, label);
+  await captureScreenshot(client, join(artifactDir, `speech-summary-${label}-speaking.png`));
+  await callBrowserFixture(client, "finishAudio");
+  await waitForSummaryPlaybackIdle(client);
+}
+
+function assertSummaryReplayAvailable(state, label) {
+  if (
+    !state.summaryReplayVisible ||
+    state.summaryReplayDisabled ||
+    state.summaryReplayAriaLabel !== "Replay the spoken summary" ||
+    state.summaryPlayback !== "idle" ||
+    state.speechOutputMode !== "off" ||
+    state.summarySourceId !== state.latestRunId
+  ) {
+    throw new Error(`${label} summary replay was unavailable: ${JSON.stringify(state)}`);
+  }
+}
+
+async function readPersistedSummary(client, state, label) {
+  const snapshot = await client.evaluate(
+    `window.setta.easyRun.snapshot(${JSON.stringify(state.workspaceId)})`,
+  );
+  if (
+    snapshot.latestRun?.id !== state.summarySourceId ||
+    snapshot.latestRun.summary !== state.summaryText
+  ) {
+    throw new Error(`${label} replay did not point at the persisted summary`);
+  }
+  return snapshot;
+}
+
+function waitForSummarySpeaking(client, easyRunId) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (next) =>
+      next.summaryPlayback === "speaking" &&
+      next.summarySourceId === easyRunId &&
+      next.summaryEqualizerDisplay === "inline-flex" &&
+      next.summaryReplayDisabled &&
+      next.audioControlAriaLabel === "Stop speaking",
+    workflowTimeoutMs,
+  );
+}
+
+function assertPersistedSummarySpoken(speaking, provider, snapshot, synthesisCount, label) {
+  if (
+    speaking.summaryColor !== speaking.toneColors.foreground ||
+    provider.synthesisInputs.length !== synthesisCount + 1 ||
+    provider.synthesisInputs.at(-1) !== snapshot.latestRun.summary
+  ) {
+    throw new Error(`${label} summary replay used the wrong source: ${JSON.stringify(speaking)}`);
+  }
+}
+
+function waitForSummaryPlaybackIdle(client) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (next) =>
+      next.summaryPlayback === "idle" &&
+      next.speechOutputPlayback === "idle" &&
+      next.summaryReplayDisabled === false,
+    workflowTimeoutMs,
+  );
 }
 
 async function beginSpeechCapture(client, { draft, runWorking, startLabel }) {
@@ -673,9 +791,16 @@ async function latestEasyRunId(client, workspaceId) {
 }
 
 function assertProviderOperationCount(providerFixture, expected) {
+  const transcription = providerFixture.requests.filter(
+    (request) => request.path === "/v1/realtime/client_secrets",
+  ).length;
+  const synthesis = providerFixture.requests.filter(
+    (request) => request.path === "/v1/audio/speech",
+  ).length;
   if (
-    providerFixture.requests.length !== expected ||
-    providerFixture.requests.some((request) => request.path !== "/v1/realtime/client_secrets")
+    providerFixture.requests.length !== expected.transcription + expected.synthesis ||
+    transcription !== expected.transcription ||
+    synthesis !== expected.synthesis
   ) {
     throw new Error("speech capture workflow issued unexpected provider operations");
   }

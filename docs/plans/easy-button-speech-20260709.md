@@ -3257,6 +3257,63 @@ manual replay for completed, failed, and stopped runs. Items 4-6 then add
 live-transition auto-play, hydration/cache proof, recording preemption, and TTS
 failure coverage. No implementation blocker was found.
 
+### 2026-07-10 — Phase 4 terminal-summary replay complete
+
+Implemented Phase 4 item 3 without pulling live terminal auto-play, restored-
+snapshot policy, recording preemption, TTS failure closure, or highlight speech
+forward. The pane-scoped playback controller is now shared by the top-bar
+control and terminal summary. Every completed, failed, or stopped run exposes
+manual replay whenever the runtime speech provider is configured, including
+while the device-local automatic output mode is `off`. The replay action sends
+only the active workspace and Easy Run IDs through the existing persisted-
+summary synthesis surface; it never accepts renderer prose.
+
+The terminal summary derives its playback marker from the exact matching
+workspace/run source. While that source is speaking, a fixed-size inline teal
+equalizer appears and only the persisted summary lifts to the foreground. A
+different run or workspace cannot inherit the marker. The replay control is
+temporarily disabled during synthesis and playback while the existing top-bar
+control remains the stop-audio affordance. Completed-only check-mark semantics
+remain independent from replay, and unconfigured runtimes render no replay
+button. The checked-in PWA bundle was rebuilt from the shared renderer source.
+
+Verification completed for this slice:
+
+- 29 focused terminal-source, playback-controller, and output-preference tests
+  passed, followed by all 1,105 desktop Vitest tests, focused lint, Electron/web
+  typechecks, and both production builds; the embedded-webapp Go test passed;
+- the configured production Electron speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase4-summary-replay-final-r2-20260710`.
+  With automatic output explicitly off, it manually replayed completed,
+  stopped, and failed summaries, held each deterministic audio element in the
+  speaking state, required the exact inline source indication, and proved that
+  the fake OpenAI server received the exact persisted summary for each ID. The
+  three speaking screenshots were inspected and remained contained and
+  readable;
+- the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase4-summary-replay-regression-final-r2-20260710`,
+  preserving typed start/steer, Current focus, narrator-only NOW, artifacts,
+  terminal/Stop, reload/restart, compact/reduced-motion, unconfigured voice,
+  and pixel-match behavior;
+- ChatGPT authentication was available. With `OPENAI_API_KEY` explicitly
+  removed, `live-codex-electron`, `easy-button-live`, and all four supplemental
+  live backend Codex probes passed;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes` passed.
+  The first quality attempt found only slice-owned complexity in two Electron
+  test helpers; snapshot extraction and replay assertions were split at their
+  owning boundaries, then the focused complexity check and both production
+  workflows passed before the clean complete gate rerun. The quality gate used
+  an isolated unsigned Codex home after the separate signed-in live attempts.
+
+No live OpenAI speech result is claimed because the opt-in real-provider
+workflow remains Phase 5 item 8. No dependency, manifest, module,
+package-manager, toolchain, Go-owned contract, or generated TypeScript contract
+changed, so supply-chain verification is not required for this slice. Phase 4
+item 4 is next: auto-speak only live completed and failed terminal transitions
+when summary output is enabled, never stopped or hydrated terminal snapshots.
+Items 5-6 then prove hydration/cache behavior, recording preemption, and TTS
+failure isolation. No implementation blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

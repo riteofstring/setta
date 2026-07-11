@@ -30,13 +30,15 @@ import {
   submitTypedEasyButtonRequest,
 } from "./easy-button-submission";
 import { ArtifactRail, HighlightRail } from "./easy-button-rails";
-import { EasyButtonSpeechOutput } from "./easy-button-speech-output";
+import { EasyButtonSpeechOutput, isSpeechOutputConfigured } from "./easy-button-speech-output";
+import { EasyButtonTerminalSummary } from "./easy-button-terminal-summary";
 import type { SpeechCaptureState } from "./speech-capture-controller";
 import {
   type EasyButtonSpeechCapture,
   type SpeechCaptureAvailability,
   useSpeechCapture,
 } from "./use-speech-capture";
+import { type EasyButtonSpeechPlayback, useSpeechPlayback } from "./use-speech-playback";
 
 type EasyButtonViewState = "idle" | "working" | "complete";
 
@@ -96,8 +98,11 @@ export function EasyButtonSurface() {
               capture={controller.capture.state}
               error={controller.error}
               latestRun={controller.latestRun}
+              playback={controller.playback}
               speechAvailability={controller.capture.availability}
-              speechConfigured={controller.speechConfigured}
+              speechCaptureConfigured={controller.speechConfigured}
+              speechOutputConfigured={controller.speechOutputConfigured}
+              workspaceId={controller.selectedWorkspaceId}
               viewState={controller.viewState}
             />
             <div className="easy-button-action-slot">
@@ -132,8 +137,8 @@ export function EasyButtonSurface() {
       </section>
       <EasyButtonSpeechOutput
         availability={controller.capture.availability}
+        playback={controller.playback}
         rootRef={controller.rootRef}
-        workspaceId={controller.selectedWorkspaceId}
       />
     </>
   );
@@ -156,10 +161,12 @@ interface EasyButtonController {
   inputValue: string;
   highlights: EasyHighlight[];
   latestRun: EasyRun | null;
+  playback: EasyButtonSpeechPlayback;
   rootRef: RefObject<HTMLElement | null>;
   selectedWorkspaceId: string | null;
   setInputValue: (value: string) => void;
   speechConfigured: boolean;
+  speechOutputConfigured: boolean;
   statusTone: EasyButtonStatusTone;
   stopDisabled: boolean;
   viewState: EasyButtonViewState;
@@ -180,6 +187,7 @@ function useEasyButtonController(): EasyButtonController {
   const stop = useEasyRunStore((state) => state.stop);
   const [inputValue, setInputValue] = useState("");
   const [pendingAction, setPendingAction] = useState(false);
+  const playback = useSpeechPlayback(selectedWorkspaceId);
   const submitSpeechTranscript = useCallback(
     async (transcript: string, intent: "start" | "steer") => {
       if (!selectedWorkspaceId) {
@@ -282,10 +290,12 @@ function useEasyButtonController(): EasyButtonController {
     inputRef,
     inputValue,
     latestRun,
+    playback,
     rootRef,
     selectedWorkspaceId,
     setInputValue,
     speechConfigured,
+    speechOutputConfigured: isSpeechOutputConfigured(capture.availability),
     statusTone,
     stopDisabled: pendingAction || !canStopRun(latestRun),
     viewState,
@@ -589,18 +599,24 @@ interface CaptionSlotProps {
   capture: SpeechCaptureState;
   error: string | null;
   latestRun: EasyRun | null;
+  playback: EasyButtonSpeechPlayback;
   speechAvailability: SpeechCaptureAvailability;
-  speechConfigured: boolean;
+  speechCaptureConfigured: boolean;
+  speechOutputConfigured: boolean;
   viewState: EasyButtonViewState;
+  workspaceId: string | null;
 }
 
 function CaptionSlot({
   capture,
   error,
   latestRun,
+  playback,
   speechAvailability,
-  speechConfigured,
+  speechCaptureConfigured,
+  speechOutputConfigured,
   viewState,
+  workspaceId,
 }: CaptionSlotProps) {
   return (
     <div className="easy-button-caption-slot">
@@ -612,13 +628,19 @@ function CaptionSlot({
         data-testid="easy-button-helper"
         role="status"
       >
-        {speechConfigured
+        {speechCaptureConfigured
           ? speechCaptureHelperCopy(capture, viewState === "working")
           : helperCopyForState(viewState)}
       </p>
       <SpeechCaptureError state={capture} />
       <SpeechAvailabilityStatus availability={speechAvailability} />
-      <SummaryText latestRun={latestRun} viewState={viewState} />
+      <EasyButtonTerminalSummary
+        latestRun={latestRun}
+        outputConfigured={speechOutputConfigured}
+        playback={playback}
+        terminal={viewState === "complete"}
+        workspaceId={workspaceId}
+      />
       <NarratorStatus latestRun={latestRun} />
       <ErrorText error={error} />
     </div>
@@ -650,24 +672,6 @@ function AgentChip({
     <span className="easy-button-agent-chip" data-testid="easy-button-agent-chip">
       {viewState === "working" ? agentLabel(activeAgentCount) : ""}
     </span>
-  );
-}
-
-function SummaryText({ latestRun, viewState }: Pick<CaptionSlotProps, "latestRun" | "viewState">) {
-  if (viewState !== "complete" || !latestRun?.summary) {
-    return null;
-  }
-  return (
-    <p className="easy-button-summary" data-testid="easy-button-summary">
-      {latestRun.status === "completed" ? (
-        <>
-          <span aria-hidden="true" className="easy-button-summary-ok">
-            ✓
-          </span>{" "}
-        </>
-      ) : null}
-      {latestRun.summary}
-    </p>
   );
 }
 

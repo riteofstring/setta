@@ -17,6 +17,7 @@
       easyButtonPaneChatRecord,
       easyButtonPaneClickControl,
       easyButtonPaneClickOutputControl,
+      easyButtonPaneClickSummaryReplay,
       easyButtonPaneClickStop,
       easyButtonPaneClickVoiceOff,
       easyButtonPaneClose,
@@ -95,18 +96,29 @@
       ...easyButtonState(host),
       ...easyButtonSurfaceState(host),
       ...easyButtonHostDatasetState(host),
+      ...easyButtonSnapshotState(snapshot),
       exists: true,
       artifacts: easyButtonArtifacts(host),
       highlights: easyButtonHighlights(host),
-      currentFocus: snapshot?.latestRun?.currentFocus ?? null,
       layoutWidthSpec: columnRecord?.widthSpec ?? null,
       railLabels: easyButtonRailLabels(host),
       railText: easyButtonRailText(host),
       rect: rectSnapshot(hostRect),
-      runRequestText: snapshot?.latestRun?.requestText ?? "",
       stageRect: rectSnapshot(stageRect),
       widthRatio: easyButtonWidthRatio(hostRect, stageRect),
       workspaceId,
+    };
+  }
+
+  function easyButtonSnapshotState(snapshot) {
+    const latestRun = snapshot && snapshot.latestRun;
+    if (!latestRun) {
+      return { currentFocus: null, latestRunId: "", runRequestText: "" };
+    }
+    return {
+      currentFocus: latestRun.currentFocus,
+      latestRunId: latestRun.id,
+      runRequestText: latestRun.requestText,
     };
   }
 
@@ -174,6 +186,10 @@
     const helper = host.querySelector('[data-testid="easy-button-helper"]');
     const error = host.querySelector('[data-testid="easy-button-error"]');
     const summary = host.querySelector('[data-testid="easy-button-summary"]');
+    const summaryEqualizer = host.querySelector(".easy-button-summary-equalizer");
+    const summaryOk = host.querySelector(".easy-button-summary-ok");
+    const summaryReplay = host.querySelector('[data-testid="easy-button-summary-replay"]');
+    const summaryText = host.querySelector('[data-testid="easy-button-summary-text"]');
     const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
     const narratorStatus = host.querySelector(".easy-button-narrator-status");
     const voiceStatus = host.querySelector(".easy-button-voice-status");
@@ -229,7 +245,15 @@
       stopButtonText: elementText(stopButton),
       stopButtonTransitionDuration: elementStyleValue(stopButton, "transitionDuration"),
       stopButtonVisible: stopButton instanceof HTMLButtonElement,
-      summaryText: elementText(summary),
+      summaryColor: elementStyleValue(summary, "color"),
+      summaryEqualizerDisplay: elementStyleValue(summaryEqualizer, "display"),
+      summaryOkVisible: summaryOk instanceof HTMLElement,
+      summaryPlayback: elementDatasetValue(summary, "easyButtonSummaryPlayback"),
+      summaryReplayAriaLabel: buttonAriaLabel(summaryReplay),
+      summaryReplayDisabled: buttonDisabled(summaryReplay),
+      summaryReplayVisible: summaryReplay instanceof HTMLButtonElement,
+      summarySourceId: elementDatasetValue(summary, "easyButtonSummarySource"),
+      summaryText: elementText(summaryText),
       summaryTextMetrics: textBoxMetrics(summary),
       summaryTextRect: rectSnapshot(elementRectOrZero(summary)),
       surfaceRect: rectSnapshot(elementRectOrZero(surface)),
@@ -237,6 +261,7 @@
       toneColors: {
         completed: resolveTokenColor(surface, "--accent-green"),
         failed: resolveTokenColor(surface, "--destructive"),
+        foreground: resolveTokenColor(surface, "--foreground"),
         resting: resolveTokenColor(surface, "--easy-button-faint"),
       },
       voiceStatusText: elementText(voiceStatus),
@@ -276,6 +301,17 @@
       throw new Error(`easy-button output option ${mode} is not mounted`);
     }
     option.click();
+    return true;
+  }
+
+  function easyButtonPaneClickSummaryReplay() {
+    const button = requireEasyButtonHost().querySelector(
+      '[data-testid="easy-button-summary-replay"]',
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      throw new Error("easy-button summary replay is not available");
+    }
+    button.click();
     return true;
   }
 

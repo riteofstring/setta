@@ -9,12 +9,12 @@ import { reactDomSurfaceHostChangedEvent } from "../../workspace-layout/react-do
 import type { SpeechPlaybackState } from "./speech-playback-controller";
 import { type SpeechOutputMode } from "./speech-output-preference";
 import type { SpeechCaptureAvailability } from "./use-speech-capture";
-import { useSpeechPlayback } from "./use-speech-playback";
+import type { EasyButtonSpeechPlayback } from "./use-speech-playback";
 
 interface EasyButtonSpeechOutputProps {
   availability: SpeechCaptureAvailability;
+  playback: EasyButtonSpeechPlayback;
   rootRef: RefObject<HTMLElement | null>;
-  workspaceId: string | null;
 }
 
 type SpeechOutputAvailability =
@@ -37,11 +37,10 @@ const outputModeLabels = {
 
 export function EasyButtonSpeechOutput({
   availability,
+  playback,
   rootRef,
-  workspaceId,
 }: EasyButtonSpeechOutputProps) {
   const portalTarget = usePaneTopBarPortalTarget(rootRef);
-  const playback = useSpeechPlayback(workspaceId);
   const outputAvailability = speechOutputAvailability(availability);
 
   useHostSpeechOutputState(
@@ -68,6 +67,10 @@ export function EasyButtonSpeechOutput({
     ),
     portalTarget,
   );
+}
+
+export function isSpeechOutputConfigured(availability: SpeechCaptureAvailability): boolean {
+  return speechOutputAvailability(availability).type === "configured";
 }
 
 function ConfiguredSpeechOutputControl({

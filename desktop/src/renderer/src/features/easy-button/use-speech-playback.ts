@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useRuntimeStore } from "../../stores/runtime-store";
-import { SpeechPlaybackController, type SpeechPlaybackState } from "./speech-playback-controller";
+import {
+  SpeechPlaybackController,
+  type SpeechPlaybackState,
+  type SpeechSummarySource,
+} from "./speech-playback-controller";
 import { type SpeechOutputMode, useSpeechOutputMode } from "./speech-output-preference";
 
 export interface EasyButtonSpeechPlayback {
   mode: SpeechOutputMode;
+  replaySummary: (source: SpeechSummarySource) => void;
   setMode: (mode: SpeechOutputMode) => void;
   state: SpeechPlaybackState;
   stop: () => void;
@@ -51,6 +56,7 @@ export function useSpeechPlayback(workspaceId: string | null): EasyButtonSpeechP
 
   return {
     mode,
+    replaySummary: controller.replaySummary,
     setMode,
     state,
     stop: controller.stop,

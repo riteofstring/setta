@@ -5,6 +5,7 @@
   const originalFetch = globalThis.fetch.bind(globalThis);
   const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   const peers = [];
+  const playbackAudios = [];
   const mediaRequests = [];
   const tracks = [];
   const microphoneWaiters = [];
@@ -84,6 +85,44 @@
     }
   }
 
+  class FixturePlaybackAudio {
+    constructor(url) {
+      this.currentTime = 0;
+      this.listeners = { ended: new Set(), error: new Set() };
+      this.pauseCount = 0;
+      this.playCount = 0;
+      this.playing = false;
+      this.url = url;
+      playbackAudios.push(this);
+    }
+
+    addEventListener(type, listener) {
+      this.listeners[type]?.add(listener);
+    }
+
+    finish() {
+      this.playing = false;
+      for (const listener of this.listeners.ended) {
+        listener();
+      }
+    }
+
+    pause() {
+      this.pauseCount += 1;
+      this.playing = false;
+    }
+
+    play() {
+      this.playCount += 1;
+      this.playing = true;
+      return Promise.resolve();
+    }
+
+    removeEventListener(type, listener) {
+      this.listeners[type]?.delete(listener);
+    }
+  }
+
   navigator.mediaDevices.getUserMedia = async (constraints) => {
     mediaRequests.push(structuredClone(constraints));
     if (holdMicrophone) {
@@ -95,6 +134,7 @@
   };
 
   globalThis.RTCPeerConnection = FixturePeerConnection;
+  globalThis.Audio = FixturePlaybackAudio;
   globalThis.fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (url !== providerURL) {
@@ -157,6 +197,11 @@
     const peer = peers.at(-1) ?? null;
     return {
       ...captureDOMState(),
+      audio: {
+        activeCount: playbackAudios.filter((audio) => audio.playing).length,
+        count: playbackAudios.length,
+        playCount: playbackAudios.reduce((total, audio) => total + audio.playCount, 0),
+      },
       fixture: captureFixtureState(peer),
     };
   }
@@ -295,6 +340,13 @@
         item_id: itemId,
         type: "conversation.item.input_audio_transcription.failed",
       });
+    },
+    finishAudio() {
+      const audio = playbackAudios.findLast((candidate) => candidate.playing);
+      if (!audio) {
+        throw new Error("speech capture fixture has no active playback audio");
+      }
+      audio.finish();
     },
     holdMicrophone() {
       holdMicrophone = true;

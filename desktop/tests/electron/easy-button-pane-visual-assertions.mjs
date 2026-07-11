@@ -14,7 +14,7 @@ export function opacityMatches(value, expected) {
 // carry the same summary slot with no mark.
 export function assertSummaryOkMark(state, summaryFact) {
   const expectsOkMark = summaryFact === "Done in";
-  if (expectsOkMark !== state.summaryText.startsWith("✓")) {
+  if (expectsOkMark !== state.summaryOkVisible) {
     throw new Error(
       `easy-button terminal ok mark did not match the run status: ${JSON.stringify(state)}`,
     );
