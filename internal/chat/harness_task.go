@@ -79,10 +79,7 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 }
 
 func runScriptedEasyRunNarratorTask(request HarnessTaskRequest) (HarnessTaskResult, error) {
-	output, err := json.Marshal(map[string]any{
-		"highlights": []string{},
-		"summary":    "",
-	})
+	output, err := json.Marshal(scriptedEasyRunNarratorOutput(request))
 	if err != nil {
 		return HarnessTaskResult{}, err
 	}
@@ -97,6 +94,28 @@ func runScriptedEasyRunNarratorTask(request HarnessTaskRequest) (HarnessTaskResu
 			ThreadRef:   request.ThreadRef,
 		},
 	}, nil
+}
+
+func scriptedEasyRunNarratorOutput(request HarnessTaskRequest) map[string]any {
+	var input struct {
+		RequestText string `json:"requestText"`
+	}
+	if request.StructuredTask != nil && len(request.StructuredTask.Input) > 0 {
+		_ = json.Unmarshal(request.StructuredTask.Input, &input)
+	}
+	if input.RequestText == "easy run phase4 narrator workflow" {
+		return map[string]any{
+			"highlights": []string{
+				"Framing the request as a user-facing result",
+				"Preparing the final visible answer",
+			},
+			"summary": "The scripted narrator condensed the hidden run for the Easy Button pane.",
+		}
+	}
+	return map[string]any{
+		"highlights": []string{},
+		"summary":    "",
+	}
 }
 
 type scriptedCartographerInput struct {

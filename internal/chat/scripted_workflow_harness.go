@@ -68,6 +68,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "easy run phase2 complete workflow", Run: scriptedEasyRunPhase2CompleteTurn},
 	{Prompt: "easy run phase2 steering workflow", Run: scriptedEasyRunPhase2SteeringTurn},
 	{Prompt: "easy run phase3 artifacts workflow", Run: scriptedEasyRunPhase3ArtifactsTurn},
+	{Prompt: "easy run phase4 narrator workflow", Run: scriptedEasyRunPhase4NarratorTurn},
 	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
 	{Prompt: "phase4 reviewer c workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},

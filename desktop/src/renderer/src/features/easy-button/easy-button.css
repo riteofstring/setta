@@ -21,6 +21,76 @@
   padding: 24px 22px;
 }
 
+.easy-button-rail-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.easy-button-highlight-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.easy-button-rail-label {
+  color: color-mix(in oklch, var(--easy-button-primary) 46%, var(--easy-button-muted));
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.easy-button-highlight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.easy-button-highlight-item {
+  animation: easy-button-highlight-arrive 220ms ease-out both;
+  border-left: 1px solid
+    color-mix(in oklch, var(--easy-button-primary) 44%, var(--easy-button-border));
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding-left: 11px;
+}
+
+.easy-button-highlight-item[data-highlight-age="1"] {
+  opacity: 0.82;
+}
+
+.easy-button-highlight-item[data-highlight-age="2"] {
+  opacity: 0.66;
+}
+
+.easy-button-highlight-item[data-highlight-age="3"] {
+  opacity: 0.5;
+}
+
+.easy-button-highlight-text {
+  color: color-mix(in oklch, var(--foreground) 82%, var(--easy-button-muted));
+  font-size: 0.84rem;
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+
+.easy-button-highlight-time {
+  color: color-mix(in oklch, var(--easy-button-muted) 68%, transparent);
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
 .easy-button-rail-right {
   overflow: hidden;
   position: relative;
@@ -392,6 +462,13 @@
   color: color-mix(in oklch, var(--destructive) 80%, var(--foreground));
 }
 
+.easy-button-narrator-status {
+  color: color-mix(in oklch, var(--easy-button-muted) 72%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  margin: 0;
+}
+
 .easy-button-agent-chip {
   border: 1px solid color-mix(in oklch, var(--easy-button-primary) 34%, var(--easy-button-border));
   border-radius: 999px;
@@ -482,6 +559,18 @@
 }
 
 @keyframes easy-button-artifact-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes easy-button-highlight-arrive {
   from {
     opacity: 0;
     transform: translateY(6px);

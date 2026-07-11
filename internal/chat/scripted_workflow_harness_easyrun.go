@@ -55,6 +55,23 @@ func scriptedEasyRunPhase3ArtifactsTurn(harness *ScriptedWorkflowHarness, ctx co
 	return scriptedReply(sink, request.Run.ID, "Easy run phase 3 artifacts emitted.")
 }
 
+func scriptedEasyRunPhase4NarratorTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Reviewing the request at a product level. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	source := RunItemCommandSourceAgent
+	if err := sink.RunItemUpsert(RunItem{
+		Details:        NewRunItemCommandExecutionDetails(RunItemCommandExecutionDetails{Source: &source}),
+		ProviderItemID: "scripted_phase4_command_noise",
+		Status:         RunItemStatusCompleted,
+		Title:          "Command noise that must stay hidden",
+		Type:           RunItemTypeCommandExecution,
+	}); err != nil {
+		return TurnCompletion{}, err
+	}
+	return scriptedReply(sink, request.Run.ID, "Easy run phase 4 narrator evidence emitted.")
+}
+
 func (harness *ScriptedWorkflowHarness) callEasyRunArtifactTool(ctx context.Context, request TurnRequest, callID string, arguments []byte) error {
 	harness.mu.Lock()
 	tools := harness.tools

@@ -150,6 +150,15 @@ try {
   assertArtifactTerminalVisual(artifactTerminal, "easy run phase3 artifacts workflow");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-artifacts-complete.png"));
 
+  await submitEasyButtonRequest(context.client, "easy run phase4 narrator workflow");
+  const narratorTerminal = await waitForEasyButtonTerminalWithHighlights(
+    context.client,
+    "easy run phase4 narrator workflow",
+    2,
+  );
+  assertNarratorTerminalVisual(narratorTerminal, "easy run phase4 narrator workflow");
+  await captureScreenshot(context.client, join(artifactDir, "easy-button-narrator-complete.png"));
+
   await submitEasyButtonRequest(context.client, "cancel active workflow");
   const stoppingWorking = await waitForEasyButtonWorking(context.client, "cancel active workflow");
   assertWorkingVisual(stoppingWorking, "cancel active workflow");
@@ -188,6 +197,7 @@ try {
     secondCompleted,
     shortcutOpen,
     artifactTerminal,
+    narratorTerminal,
     steeredTerminal,
     steeringWorking,
     status: "passed",
@@ -498,6 +508,38 @@ function assertArtifactTerminalVisual(state, requestText) {
   }
 }
 
+function assertNarratorTerminalVisual(state, requestText) {
+  assertStateFields(
+    state,
+    {
+      buttonAriaLabel: "Focus Easy Button request input",
+      easyState: "complete",
+      inputDisabled: false,
+      paneChromeTitle: "Easy Button · complete",
+      requestText,
+      stopButtonVisible: false,
+    },
+    "easy-button narrator terminal visual did not match Phase 4",
+  );
+  if (
+    !state.summaryText.includes("scripted narrator condensed") ||
+    !state.summaryText.includes("Done in")
+  ) {
+    throw new Error(`easy-button narrator summary did not render: ${JSON.stringify(state)}`);
+  }
+  const highlightTexts = state.highlights.map((highlight) => highlight.text);
+  if (
+    state.highlights.length !== 2 ||
+    highlightTexts[0] !== "Framing the request as a user-facing result" ||
+    highlightTexts[1] !== "Preparing the final visible answer"
+  ) {
+    throw new Error(`easy-button narrator highlights were wrong: ${JSON.stringify(state)}`);
+  }
+  if (state.railText.includes("Command noise")) {
+    throw new Error(`easy-button narrator leaked command noise: ${JSON.stringify(state)}`);
+  }
+}
+
 function assertStateFields(state, expected, message) {
   for (const [key, value] of Object.entries(expected)) {
     if (state[key] !== value) {
@@ -571,6 +613,20 @@ async function waitForEasyButtonTerminalWithArtifacts(client, requestText, artif
       state.requestText === requestText &&
       state.summaryText.startsWith("Done in") &&
       state.artifacts.length === artifactCount,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForEasyButtonTerminalWithHighlights(client, requestText, highlightCount) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      state.exists &&
+      state.surfaceKind === "easy-button" &&
+      state.easyState === "complete" &&
+      state.requestText === requestText &&
+      state.highlights.length === highlightCount,
     workflowTimeoutMs,
   );
 }

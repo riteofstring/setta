@@ -988,13 +988,12 @@ narrator observer/structured calls, degradation, narrative summaries, left-rail
 rendering, and Phase 4 narrator E2E.
 
 ### 2026-07-09 — Phase 4 narrator infrastructure audit follow-up
-Audit found no generated-contract drift and no renderer-side presentation
-derivation, polling, raw-HTML artifact rendering, compatibility layers, or
-voice/listening stubs. Follow-up made command digest entries title-only, never
-raw command strings, and made shared structured-task capability errors
-surface-neutral. Verification performed: no-diff contract generation,
-focused/full easy-run/chat Go tests, desktop build, deterministic easy-button
-Electron workflow, live Codex workflow gate, formatting, and
-`./check_quality.sh --git-changes`. Remaining Phase 4 work is unchanged:
-narrator observer/structured calls, degradation, narrative summaries, left-rail
-rendering, and Phase 4 narrator E2E.
+Audit found no generated-contract drift and no renderer-side presentation derivation, polling, raw-HTML artifact rendering, compatibility layers, or voice/listening stubs. Follow-up made command digest entries title-only, never raw command strings, and made shared structured-task capability errors surface-neutral. Verification: no-diff contract generation, focused/full easy-run/chat Go tests, desktop build, deterministic easy-button Electron workflow, live Codex workflow gate, formatting, and `./check_quality.sh --git-changes`. Remaining Phase 4 work was unchanged.
+
+### 2026-07-09 — Phase 4 terminal narrator slice complete
+
+Implemented terminal narrator projection: terminal easy runs consume typed digest entries, call `HarnessSurfaceEasyRunNarrator` with minimal reasoning, persist typed highlights, combine a valid narrator sentence with mechanical facts, and set `NarratorStatus=degraded` with mechanical summary only when narration fails. The observer buffers typed digest entries without blocking on narrator calls; artifact titles enter the digest through easy-run events; runtime passes the workspace resolver; the pane renders typed left-rail highlights, elapsed labels, and a typed degraded-narration indicator; the scripted Phase 4 workflow includes command noise and asserts only scripted highlights render.
+
+Verification: `./scripts/go.sh test ./internal/easyrun`; focused `./scripts/go.sh test ./internal/chat`; `./scripts/go.sh test ./internal/runtime ./cmd/setta-backend`; `pnpm -C desktop typecheck`; `pnpm -C desktop build`; deterministic easy-button Electron workflow at `.recordings/easy-button-phase4-terminal-narrator`; `node desktop/tests/electron/chat-live-auth.mjs`; `./scripts/test_chat_workflows.sh --skip-build --live-only`; `./scripts/format.sh`. ChatGPT auth was available; `live-codex-electron` and `live-codex-backend` passed.
+
+Remaining Phase 4 work: non-terminal narrator cadence while runs are working, observer resubscribe/drop recovery without duplicate highlights, and final Phase 4 audit/live easy-button acceptance after the full lifetime highlight flow lands. No blockers were discovered.

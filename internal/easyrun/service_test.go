@@ -381,6 +381,78 @@ func TestRecordNarratorHighlightsRejectsInvalidText(t *testing.T) {
 	}
 }
 
+func TestTerminalNarratorPersistsHighlightsAndNarrativeSummary(t *testing.T) {
+	source := chat.RunItemCommandSourceAgent
+	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
+		"easy run phase4 narrator workflow": {
+			{Type: chat.FakeEventAssistantDelta, Text: "Reviewing the request at a product level."},
+			{
+				Type:           chat.FakeEventRunItem,
+				ProviderItemID: "cmd_noise",
+				RunItem: chat.RunItem{
+					Details:        chat.NewRunItemCommandExecutionDetails(chat.RunItemCommandExecutionDetails{Source: &source}),
+					ProviderItemID: "cmd_noise",
+					Status:         chat.RunItemStatusCompleted,
+					Title:          "Command noise that must stay hidden",
+					Type:           chat.RunItemTypeCommandExecution,
+				},
+			},
+		},
+	})
+	service, _ := newTestServiceWithChat(t, harness)
+
+	started, err := service.Start("workspace_api", "easy run phase4 narrator workflow")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	completed := waitForEasyRunStatus(t, service, "workspace_api", started.ID, EasyRunStatusCompleted)
+	if completed.NarratorStatus != EasyRunNarratorStatusOK ||
+		completed.Summary == nil ||
+		!strings.Contains(*completed.Summary, "The scripted narrator condensed the hidden run for the Easy Button pane.") ||
+		!strings.Contains(*completed.Summary, "Done in") {
+		t.Fatalf("completed narrated run = %+v, want healthy narrative summary with mechanical facts", completed)
+	}
+	assertSnapshotHighlights(t, service, []string{
+		"Framing the request as a user-facing result",
+		"Preparing the final visible answer",
+	})
+	tasks := harness.StructuredTaskRequests()
+	if len(tasks) != 1 ||
+		tasks[0].Surface != chat.HarnessSurfaceEasyRunNarrator ||
+		tasks[0].TurnMode != chat.HarnessTurnStructuredTask ||
+		tasks[0].StructuredTask == nil ||
+		tasks[0].StructuredTask.ReasoningEffort == nil ||
+		*tasks[0].StructuredTask.ReasoningEffort != chat.ReasoningEffortMinimal {
+		t.Fatalf("narrator task = %+v, want minimal structured easy-run narrator", tasks)
+	}
+	if !strings.Contains(string(tasks[0].StructuredTask.Input), "Command noise that must stay hidden") {
+		t.Fatalf("narrator input = %s, want typed command title digest", string(tasks[0].StructuredTask.Input))
+	}
+}
+
+func TestTerminalNarratorFailureDegradesToMechanicalSummary(t *testing.T) {
+	service, _ := newTestServiceWithChat(t, chat.NewFakeHarness(nil))
+
+	started, err := service.Start("workspace_api", "default narrator empty summary")
+	if err != nil {
+		t.Fatalf("start easy-run: %v", err)
+	}
+	completed := waitForEasyRunStatus(t, service, "workspace_api", started.ID, EasyRunStatusCompleted)
+	if completed.NarratorStatus != EasyRunNarratorStatusDegraded ||
+		completed.Summary == nil ||
+		!strings.HasPrefix(*completed.Summary, "Done in") ||
+		!strings.Contains(*completed.Summary, "no artifacts") {
+		t.Fatalf("degraded run = %+v, want mechanical fallback summary", completed)
+	}
+	snapshot, err := service.ReadSnapshot("workspace_api")
+	if err != nil {
+		t.Fatalf("read degraded snapshot: %v", err)
+	}
+	if len(snapshot.Highlights) != 0 {
+		t.Fatalf("degraded highlights = %+v, want none", snapshot.Highlights)
+	}
+}
+
 func TestReadSnapshotRejectsNonContiguousStoredHighlightOrdinals(t *testing.T) {
 	service, store := newTestServiceWithStore(t)
 	run := testRun("easy_run_highlight_gap")
@@ -726,6 +798,7 @@ func newTestServiceWithChatResolver(t *testing.T, harness chat.Harness, resolver
 	service, err := NewService(
 		store,
 		WithChatService(chatService),
+		WithWorkspaceResolver(resolver),
 		WithClock(func() time.Time {
 			return time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
 		}),

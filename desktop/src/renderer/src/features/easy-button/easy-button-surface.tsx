@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 
-import type { EasyArtifact, EasyRun } from "@generated/backend";
+import type { EasyArtifact, EasyHighlight, EasyRun } from "@generated/backend";
 
 import { MarkdownText } from "../../components/markdown-text";
 import { useEasyRunStore } from "../../stores/easy-run-store";
@@ -29,7 +29,7 @@ export function EasyButtonSurface() {
       data-testid="easy-button-surface"
       ref={controller.rootRef}
     >
-      <aside aria-label="Highlights" className="easy-button-rail easy-button-rail-left" />
+      <HighlightRail highlights={controller.highlights} latestRun={controller.latestRun} />
       <main className="easy-button-stage">
         <div className="easy-button-center">
           <button
@@ -88,6 +88,7 @@ interface EasyButtonController {
   inputDisabled: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
   inputValue: string;
+  highlights: EasyHighlight[];
   latestRun: EasyRun | null;
   rootRef: RefObject<HTMLElement | null>;
   setInputValue: (value: string) => void;
@@ -101,6 +102,7 @@ function useEasyButtonController(): EasyButtonController {
   const selectedWorkspaceId = useSelectedWorkspaceId();
   const artifacts = useEasyRunStore((state) => state.artifacts);
   const error = useEasyRunStore((state) => state.error);
+  const highlights = useEasyRunStore((state) => state.highlights);
   const latestRun = useEasyRunStore((state) => state.latestRun);
   const loadSnapshot = useEasyRunStore((state) => state.loadSnapshot);
   const resetStore = useEasyRunStore((state) => state.reset);
@@ -168,6 +170,7 @@ function useEasyButtonController(): EasyButtonController {
       void stopRequest();
     },
     handleSubmit,
+    highlights,
     inputDisabled: inputDisabled(selectedWorkspaceId, pendingAction),
     inputRef,
     inputValue,
@@ -177,6 +180,53 @@ function useEasyButtonController(): EasyButtonController {
     stopDisabled: pendingAction || !canStopRun(latestRun),
     viewState,
   };
+}
+
+function HighlightRail({
+  highlights,
+  latestRun,
+}: {
+  highlights: EasyHighlight[];
+  latestRun: EasyRun | null;
+}) {
+  return (
+    <aside aria-label="Highlights" className="easy-button-rail easy-button-rail-left">
+      {highlights.length > 0 ? (
+        <div className="easy-button-highlight-rail" data-testid="easy-button-highlights">
+          <p className="easy-button-rail-label">Highlights</p>
+          <ol className="easy-button-highlight-list">
+            {highlights.map((highlight, index) => (
+              <HighlightItem
+                age={Math.min(highlights.length - index - 1, 3)}
+                highlight={highlight}
+                key={highlight.id}
+                startedAt={latestRun?.startedAt ?? null}
+              />
+            ))}
+          </ol>
+        </div>
+      ) : null}
+    </aside>
+  );
+}
+
+function HighlightItem({
+  age,
+  highlight,
+  startedAt,
+}: {
+  age: number;
+  highlight: EasyHighlight;
+  startedAt: string | null;
+}) {
+  return (
+    <li className="easy-button-highlight-item" data-highlight-age={age}>
+      <span className="easy-button-highlight-text">{highlight.text}</span>
+      <span className="easy-button-highlight-time">
+        {highlightElapsedLabel(startedAt, highlight.at)}
+      </span>
+    </li>
+  );
 }
 
 function ArtifactRail({ artifacts }: { artifacts: EasyArtifact[] }) {
@@ -445,6 +495,7 @@ function RunStatusCopy({ activeAgentCount, error, latestRun, viewState }: RunSta
       <RequestText latestRun={latestRun} viewState={viewState} />
       <AgentChip activeAgentCount={activeAgentCount} viewState={viewState} />
       <SummaryText latestRun={latestRun} viewState={viewState} />
+      <NarratorStatus latestRun={latestRun} />
       <ErrorText error={error} />
     </div>
   );
@@ -501,6 +552,13 @@ function ErrorText({ error }: Pick<RunStatusCopyProps, "error">) {
       {error}
     </p>
   );
+}
+
+function NarratorStatus({ latestRun }: Pick<RunStatusCopyProps, "latestRun">) {
+  if (latestRun?.narratorStatus !== "degraded") {
+    return null;
+  }
+  return <p className="easy-button-narrator-status">narration degraded</p>;
 }
 
 function StopButton({
@@ -626,4 +684,22 @@ function paneTitleForState(viewState: EasyButtonViewState): string {
     case "idle":
       return "Easy Button";
   }
+}
+
+function highlightElapsedLabel(startedAt: string | null, at: string): string {
+  if (!startedAt) {
+    return "";
+  }
+  const startMs = Date.parse(startedAt);
+  const atMs = Date.parse(at);
+  if (!Number.isFinite(startMs) || !Number.isFinite(atMs) || atMs < startMs) {
+    return "";
+  }
+  const totalSeconds = Math.round((atMs - startMs) / 1000);
+  if (totalSeconds < 60) {
+    return `+${totalSeconds}s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `+${minutes}m ${seconds}s`;
 }

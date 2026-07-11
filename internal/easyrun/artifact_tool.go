@@ -309,9 +309,11 @@ func (service *Service) saveRecordedArtifact(workspaceID string, easyRunID strin
 	if err := service.store.saveRun(record); err != nil {
 		return err
 	}
-	if _, err := service.events.Publish(NewArtifactCreatedEvent(workspaceID, artifact)); err != nil {
+	event, err := service.events.Publish(NewArtifactCreatedEvent(workspaceID, artifact))
+	if err != nil {
 		return err
 	}
+	service.appendNarratorDigestFromEasyRunEventLocked(event)
 	return nil
 }
 

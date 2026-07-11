@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"setta/internal/chat"
+	"setta/internal/workspace"
 )
 
 var errEasyRunConversationNotFound = errors.New("easy-run conversation not found")
@@ -25,19 +26,30 @@ type Service struct {
 	eventStreamID string
 	events        *EventHub
 	newID         func(string) (string, error)
+	narratorKind  chat.HarnessKind
+	narrator      chat.HarnessTaskRunner
 	now           func() time.Time
 	store         *Store
+	workspaces    WorkspaceResolver
 
-	mu             sync.Mutex
-	observerCancel context.CancelFunc
-	observerWG     sync.WaitGroup
+	mu                     sync.Mutex
+	narratorByConversation map[string]string
+	narrators              map[string]*narratorRunState
+	observerCancel         context.CancelFunc
+	observerWG             sync.WaitGroup
 }
 
 type ChatService interface {
 	CancelActiveRunByID(workspaceID string, conversationID string, runID string) (chat.Run, error)
+	HarnessTaskRunner() chat.HarnessTaskRunner
+	ResolveEasyRunCodexSettings(workspaceID string, overrides chat.ChatCodexSettings) (chat.ChatCodexSettings, *chat.ChatCodexEffectiveSettings, error)
 	SendEasyRunTurn(workspaceID string, request chat.EasyRunTurnRequest) (chat.SendMessageResult, error)
 	SteerActiveRunInputByID(workspaceID string, conversationID string, runID string, input chat.ChatInput) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
+}
+
+type WorkspaceResolver interface {
+	ResolveWorkspace(id string) (workspace.WorkspaceSummary, error)
 }
 
 type Option func(*Service)
@@ -45,6 +57,19 @@ type Option func(*Service)
 func WithChatService(chatService ChatService) Option {
 	return func(service *Service) {
 		service.chat = chatService
+	}
+}
+
+func WithWorkspaceResolver(resolver WorkspaceResolver) Option {
+	return func(service *Service) {
+		service.workspaces = resolver
+	}
+}
+
+func WithNarratorHarnessTaskRunner(runner chat.HarnessTaskRunner, harnessKind chat.HarnessKind) Option {
+	return func(service *Service) {
+		service.narrator = runner
+		service.narratorKind = harnessKind
 	}
 }
 
@@ -70,32 +95,13 @@ func NewService(store *Store, options ...Option) (*Service, error) {
 	if store == nil {
 		return nil, errors.New("easy-run store is required")
 	}
-	service := &Service{
-		newID: randomStorageID,
-		now:   time.Now,
-		store: store,
-	}
+	service := newServiceDefaults(store)
 	for _, option := range options {
 		option(service)
 	}
-	if service.eventStreamID == "" {
-		streamID, err := newEasyRunEventStreamID()
-		if err != nil {
-			return nil, fmt.Errorf("create easy-run event stream id: %w", err)
-		}
-		service.eventStreamID = streamID
-	}
-	if service.newID == nil {
-		return nil, errors.New("easy-run id generator is required")
-	}
-	if service.now == nil {
-		return nil, errors.New("easy-run clock is required")
-	}
-	events, err := NewEventHub(service.eventStreamID)
-	if err != nil {
+	if err := service.configureAfterOptions(); err != nil {
 		return nil, err
 	}
-	service.events = events
 	if err := service.recoverInterruptedRuns(); err != nil {
 		return nil, err
 	}
@@ -103,6 +109,50 @@ func NewService(store *Store, options ...Option) (*Service, error) {
 		return nil, err
 	}
 	return service, nil
+}
+
+func newServiceDefaults(store *Store) *Service {
+	return &Service{
+		narratorByConversation: map[string]string{},
+		narratorKind:           chat.HarnessCodex,
+		narrators:              map[string]*narratorRunState{},
+		newID:                  randomStorageID,
+		now:                    time.Now,
+		store:                  store,
+	}
+}
+
+func (service *Service) configureAfterOptions() error {
+	if service.narrator == nil && service.chat != nil {
+		service.narrator = service.chat.HarnessTaskRunner()
+	}
+	if err := service.ensureEventStreamID(); err != nil {
+		return err
+	}
+	if service.newID == nil {
+		return errors.New("easy-run id generator is required")
+	}
+	if service.now == nil {
+		return errors.New("easy-run clock is required")
+	}
+	events, err := NewEventHub(service.eventStreamID)
+	if err != nil {
+		return err
+	}
+	service.events = events
+	return nil
+}
+
+func (service *Service) ensureEventStreamID() error {
+	if service.eventStreamID != "" {
+		return nil
+	}
+	streamID, err := newEasyRunEventStreamID()
+	if err != nil {
+		return fmt.Errorf("create easy-run event stream id: %w", err)
+	}
+	service.eventStreamID = streamID
+	return nil
 }
 
 func (service *Service) Start(workspaceID string, requestText string) (EasyRun, error) {
@@ -290,6 +340,8 @@ func (service *Service) prepareRunForConversation(workspaceID string, easyRunID 
 	}); err != nil {
 		return err
 	}
+	service.narratorByConversation[activeKey(workspaceID, conversation.ID)] = easyRunID
+	service.narrators[easyRunID] = newNarratorRunState()
 	_, err := service.events.Publish(NewRunUpdatedEvent(run))
 	return err
 }
@@ -342,20 +394,22 @@ func (service *Service) markStartFailure(workspaceID string, easyRunID string, s
 }
 
 func (service *Service) applyTerminalChatRun(run chat.Run) (EasyRun, error) {
+	return service.applyTerminalChatRunWithNarrator(context.Background(), run)
+}
+
+func (service *Service) applyTerminalChatRunWithNarrator(ctx context.Context, run chat.Run) (EasyRun, error) {
 	if err := validateTerminalChatRunForEasyRun(run); err != nil {
 		return EasyRun{}, err
 	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	record, err := service.easyRunRecordForTerminalChatRun(run)
+	target, err := service.beginTerminalChatRunProjection(run)
 	if err != nil {
 		return EasyRun{}, err
 	}
-	if record.Run.Status != EasyRunStatusWorking {
-		return record.Run, nil
+	if !target.shouldProject {
+		return target.record.Run, nil
 	}
-	return service.saveTerminalChatRunProjection(record, run)
+	narration := service.runTerminalNarrator(ctx, target)
+	return service.saveTerminalChatRunProjection(target.record, run, narration)
 }
 
 func validateTerminalChatRunForEasyRun(run chat.Run) error {
@@ -388,11 +442,88 @@ func (service *Service) easyRunRecordForTerminalChatRun(run chat.Run) (storedRun
 	return record, nil
 }
 
-func (service *Service) saveTerminalChatRunProjection(record storedRunRecord, run chat.Run) (EasyRun, error) {
+type terminalChatRunProjection struct {
+	digest             []narratorDigestEntry
+	mechanicalSummary  string
+	previousHighlights []EasyHighlight
+	record             storedRunRecord
+	shouldProject      bool
+	status             chat.RunStatus
+}
+
+func (service *Service) beginTerminalChatRunProjection(run chat.Run) (terminalChatRunProjection, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	record, err := service.easyRunRecordForTerminalChatRun(run)
+	if err != nil {
+		return terminalChatRunProjection{}, err
+	}
+	if record.Run.Status != EasyRunStatusWorking {
+		return terminalChatRunProjection{record: record}, nil
+	}
+	mechanicalSummary, err := mechanicalTerminalEasyRunSummary(record.Run, run)
+	if err != nil {
+		return terminalChatRunProjection{}, err
+	}
+	highlights, err := service.store.loadHighlights(record.Run.WorkspaceID, record.Run.ID)
+	if err != nil {
+		return terminalChatRunProjection{}, err
+	}
+	state := service.narratorStateLocked(record.Run.ID)
+	if state.inFlight {
+		return terminalChatRunProjection{record: record}, nil
+	}
+	state.inFlight = true
+	state.lastCallAt = service.now()
+	return terminalChatRunProjection{
+		digest:             state.digest.consumePending(),
+		mechanicalSummary:  mechanicalSummary,
+		previousHighlights: highlights,
+		record:             record,
+		shouldProject:      true,
+		status:             run.Status,
+	}, nil
+}
+
+func (service *Service) saveTerminalChatRunProjection(record storedRunRecord, run chat.Run, narration terminalNarrationResult) (EasyRun, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	state := service.narratorStateLocked(record.Run.ID)
+	defer func() {
+		state.inFlight = false
+		delete(service.narratorByConversation, activeKey(record.Run.WorkspaceID, record.Run.ConversationID))
+	}()
+
+	latest, err := service.store.loadRun(record.Run.WorkspaceID, record.Run.ID)
+	if err != nil {
+		return EasyRun{}, err
+	}
+	if latest.Run.Status != EasyRunStatusWorking {
+		return latest.Run, nil
+	}
+	record = latest
 	if record.BackingRunID == "" {
 		record.BackingRunID = run.ID
 	}
-	updated, err := terminalEasyRun(record.Run, run)
+	if narration.err != nil {
+		log.Printf("easy-run narrator degraded for %s: %v", record.Run.ID, narration.err)
+		record.Run.NarratorStatus = EasyRunNarratorStatusDegraded
+	} else {
+		if _, err := service.recordNarratorHighlightsLocked(record.Run.WorkspaceID, record.Run.ID, narration.highlights); err != nil {
+			log.Printf("easy-run narrator highlight persistence degraded for %s: %v", record.Run.ID, err)
+			record.Run.NarratorStatus = EasyRunNarratorStatusDegraded
+			narration.summary = ""
+		} else {
+			record, err = service.store.loadRun(record.Run.WorkspaceID, record.Run.ID)
+			if err != nil {
+				return EasyRun{}, err
+			}
+			record.Run.NarratorStatus = EasyRunNarratorStatusOK
+		}
+	}
+	updated, err := terminalEasyRun(record.Run, run, narration.summary)
 	if err != nil {
 		return EasyRun{}, err
 	}
@@ -406,29 +537,21 @@ func (service *Service) saveTerminalChatRunProjection(record storedRunRecord, ru
 	return record.Run, nil
 }
 
-func terminalEasyRun(run EasyRun, chatRun chat.Run) (EasyRun, error) {
-	endedAt := chatRun.CompletedAt
-	if endedAt == "" {
-		return EasyRun{}, fmt.Errorf("terminal chat run %s completedAt is required", chatRun.ID)
-	}
-	if err := validateTimestamp("chat run completedAt", endedAt); err != nil {
-		return EasyRun{}, err
-	}
-	duration, err := easyRunDuration(run.StartedAt, endedAt)
+func terminalEasyRun(run EasyRun, chatRun chat.Run, narratorSummary string) (EasyRun, error) {
+	mechanicalSummary, err := mechanicalTerminalEasyRunSummary(run, chatRun)
 	if err != nil {
 		return EasyRun{}, err
 	}
+	endedAt := chatRun.CompletedAt
 	run.EndedAt = &endedAt
 	run.ActiveAgentCount = 0
 	switch chatRun.Status {
 	case chat.RunStatusCompleted:
 		run.Status = EasyRunStatusCompleted
 		run.Error = nil
-		run.Summary = stringPointer(fmt.Sprintf("Done in %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)))
 	case chat.RunStatusCancelled:
 		run.Status = EasyRunStatusStopped
 		run.Error = nil
-		run.Summary = stringPointer(fmt.Sprintf("Stopped after %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)))
 	case chat.RunStatusFailed:
 		run.Status = EasyRunStatusFailed
 		errorMessage := strings.TrimSpace(chatRun.Error)
@@ -436,11 +559,46 @@ func terminalEasyRun(run EasyRun, chatRun chat.Run) (EasyRun, error) {
 			return EasyRun{}, fmt.Errorf("failed chat run %s has empty error", chatRun.ID)
 		}
 		run.Error = &errorMessage
-		run.Summary = stringPointer(fmt.Sprintf("Failed after %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)))
 	default:
 		return EasyRun{}, fmt.Errorf("unsupported terminal chat run status %s", chatRun.Status)
 	}
+	run.Summary = stringPointer(terminalSummaryWithNarration(narratorSummary, mechanicalSummary))
 	return run, nil
+}
+
+func mechanicalTerminalEasyRunSummary(run EasyRun, chatRun chat.Run) (string, error) {
+	endedAt := chatRun.CompletedAt
+	if endedAt == "" {
+		return "", fmt.Errorf("terminal chat run %s completedAt is required", chatRun.ID)
+	}
+	if err := validateTimestamp("chat run completedAt", endedAt); err != nil {
+		return "", err
+	}
+	duration, err := easyRunDuration(run.StartedAt, endedAt)
+	if err != nil {
+		return "", err
+	}
+	switch chatRun.Status {
+	case chat.RunStatusCompleted:
+		return fmt.Sprintf("Done in %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)), nil
+	case chat.RunStatusCancelled:
+		return fmt.Sprintf("Stopped after %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)), nil
+	case chat.RunStatusFailed:
+		return fmt.Sprintf("Failed after %s - %s", duration, easyRunArtifactCountSummary(run.ArtifactCount)), nil
+	default:
+		return "", fmt.Errorf("unsupported terminal chat run status %s", chatRun.Status)
+	}
+}
+
+func terminalSummaryWithNarration(narratorSummary string, mechanicalSummary string) string {
+	narratorSummary = strings.TrimSpace(narratorSummary)
+	if narratorSummary == "" {
+		return mechanicalSummary
+	}
+	if strings.HasSuffix(narratorSummary, ".") || strings.HasSuffix(narratorSummary, "!") || strings.HasSuffix(narratorSummary, "?") {
+		return narratorSummary + " " + mechanicalSummary
+	}
+	return narratorSummary + ". " + mechanicalSummary
 }
 
 func easyRunDuration(startedAt string, endedAt string) (string, error) {
@@ -550,12 +708,13 @@ func (service *Service) observeChatEvents(ctx context.Context, subscription *cha
 			if !ok {
 				return
 			}
-			service.handleChatEvent(event)
+			service.handleChatEvent(ctx, event)
 		}
 	}
 }
 
-func (service *Service) handleChatEvent(event chat.Event) {
+func (service *Service) handleChatEvent(ctx context.Context, event chat.Event) {
+	service.appendNarratorDigestFromChatEvent(event)
 	if event.Type != chat.EventTypeRunUpdated {
 		return
 	}
@@ -567,16 +726,64 @@ func (service *Service) handleChatEvent(event chat.Event) {
 	if payload.Run.Status != chat.RunStatusCompleted && payload.Run.Status != chat.RunStatusCancelled && payload.Run.Status != chat.RunStatusFailed {
 		return
 	}
-	if _, err := service.applyTerminalChatRun(payload.Run); err != nil {
-		if errors.Is(err, errEasyRunConversationNotFound) {
+	service.launchTerminalChatRunProjection(ctx, payload.Run)
+}
+
+func (service *Service) launchTerminalChatRunProjection(ctx context.Context, run chat.Run) {
+	service.observerWG.Add(1)
+	go func() {
+		defer service.observerWG.Done()
+		if _, err := service.applyTerminalChatRunWithNarrator(ctx, run); err != nil {
+			if errors.Is(err, errEasyRunConversationNotFound) {
+				return
+			}
+			log.Printf("easy-run terminal chat run projection failed: %v", err)
+		}
+	}()
+}
+
+func (service *Service) appendNarratorDigestFromChatEvent(event chat.Event) {
+	entries, err := narratorDigestEntriesFromChatEvent(event)
+	if err != nil {
+		log.Printf("easy-run narrator digest chat event decode failed: %v", err)
+		return
+	}
+	if len(entries) == 0 {
+		return
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	easyRunID := service.narratorByConversation[activeKey(event.WorkspaceID, event.ConversationID)]
+	if easyRunID == "" {
+		record, ok, err := service.store.findRunByConversationID(event.WorkspaceID, event.ConversationID)
+		if err != nil {
+			log.Printf("easy-run narrator digest ownership lookup failed: %v", err)
 			return
 		}
-		log.Printf("easy-run terminal chat run projection failed: %v", err)
+		if !ok || record.Run.Status != EasyRunStatusWorking {
+			return
+		}
+		easyRunID = record.Run.ID
+		service.narratorByConversation[activeKey(event.WorkspaceID, event.ConversationID)] = easyRunID
 	}
+	service.narratorStateLocked(easyRunID).digest.append(entries...)
+}
+
+func (service *Service) appendNarratorDigestFromEasyRunEventLocked(event EasyRunEvent) {
+	entries := narratorDigestEntriesFromEasyRunEvent(event)
+	if len(entries) == 0 {
+		return
+	}
+	service.narratorStateLocked(event.EasyRunID).digest.append(entries...)
 }
 
 func stringPointer(value string) *string {
 	return &value
+}
+
+func activeKey(workspaceID string, conversationID string) string {
+	return workspaceID + "\x00" + conversationID
 }
 
 func randomStorageID(prefix string) (string, error) {

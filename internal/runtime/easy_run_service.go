@@ -6,6 +6,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
+	"setta/internal/workspacesession"
 )
 
 func closeRuntimeServicesBeforeEasyRunFailure(
@@ -18,12 +19,16 @@ func closeRuntimeServicesBeforeEasyRunFailure(
 	_ = workflowStore.Close()
 }
 
-func newEasyRunService(appDataDir string, chatService *chat.Service) (*easyrun.Service, error) {
+func newEasyRunService(appDataDir string, chatService *chat.Service, workspaceService *workspacesession.Service) (*easyrun.Service, error) {
 	store, err := easyrun.NewStore(appDataDir)
 	if err != nil {
 		return nil, fmt.Errorf("create easy-run store: %w", err)
 	}
-	service, err := easyrun.NewService(store, easyrun.WithChatService(chatService))
+	service, err := easyrun.NewService(
+		store,
+		easyrun.WithChatService(chatService),
+		easyrun.WithWorkspaceResolver(workspaceService),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create easy-run service: %w", err)
 	}

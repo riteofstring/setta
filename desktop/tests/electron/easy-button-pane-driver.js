@@ -41,6 +41,7 @@
       ...easyButtonHostDatasetState(host),
       exists: true,
       artifacts: easyButtonArtifacts(host),
+      highlights: easyButtonHighlights(host),
       layoutWidthSpec: columnRecord?.widthSpec ?? null,
       railText: easyButtonRailText(host),
       rect: rectSnapshot(hostRect),
@@ -180,6 +181,13 @@
       kind: card instanceof HTMLElement ? (card.dataset.artifactKind ?? "") : "",
       text: (card.textContent ?? "").trim(),
       title: elementText(card.querySelector(".easy-button-artifact-title")),
+    }));
+  }
+
+  function easyButtonHighlights(host) {
+    return Array.from(host.querySelectorAll(".easy-button-highlight-item")).map((item) => ({
+      text: elementText(item.querySelector(".easy-button-highlight-text")),
+      time: elementText(item.querySelector(".easy-button-highlight-time")),
     }));
   }
 
