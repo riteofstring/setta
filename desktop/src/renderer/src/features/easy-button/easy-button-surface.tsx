@@ -1,4 +1,4 @@
-import { Check, LoaderCircle, Sparkles, Square } from "lucide-react";
+import { Check, LoaderCircle, Sparkles, Square, X } from "lucide-react";
 import {
   type FormEvent,
   type KeyboardEvent,
@@ -19,6 +19,12 @@ import { setHostPaneChromeTitle } from "../../workspace-layout/pane-title-metada
 
 type EasyButtonViewState = "idle" | "working" | "complete";
 
+// `viewState` collapses the three terminal run statuses into `complete`, which is
+// all the layout and the pane title need. The tone of a terminal state is a
+// different question — a stopped or failed run must never wear the success
+// visuals — so the run status rides alongside it rather than inside it.
+type EasyButtonStatusTone = "none" | "completed" | "failed" | "stopped";
+
 const confirmPulseDurationMs = 1000;
 
 export function EasyButtonSurface() {
@@ -28,6 +34,7 @@ export function EasyButtonSurface() {
       aria-label="Easy Button"
       className="easy-button-surface"
       data-easy-button-state={controller.viewState}
+      data-easy-button-status={controller.statusTone}
       data-testid="easy-button-surface"
       ref={controller.rootRef}
     >
@@ -51,7 +58,7 @@ export function EasyButtonSurface() {
               type="button"
             >
               <span className="easy-button-control-ring" />
-              <ControlGlyph viewState={controller.viewState} />
+              <ControlGlyph statusTone={controller.statusTone} viewState={controller.viewState} />
             </button>
           </div>
           <CaptionSlot
@@ -110,6 +117,7 @@ interface EasyButtonController {
   latestRun: EasyRun | null;
   rootRef: RefObject<HTMLElement | null>;
   setInputValue: (value: string) => void;
+  statusTone: EasyButtonStatusTone;
   stopDisabled: boolean;
   viewState: EasyButtonViewState;
 }
@@ -154,9 +162,11 @@ function useEasyButtonController(): EasyButtonController {
     inputRef,
   });
 
+  const statusTone = statusToneForState(viewState, latestRun);
+
   useEasyButtonSnapshot(selectedWorkspaceId, loadSnapshot, resetStore);
   useEasyButtonPaneTitle(rootRef, viewState);
-  const confirmActive = useEasyButtonConfirmPulse(viewState, latestRun);
+  const confirmActive = useEasyButtonConfirmPulse(viewState, statusTone, latestRun?.id ?? null);
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -197,6 +207,7 @@ function useEasyButtonController(): EasyButtonController {
     latestRun,
     rootRef,
     setInputValue,
+    statusTone,
     stopDisabled: pendingAction || !canStopRun(latestRun),
     viewState,
   };
@@ -403,14 +414,17 @@ function useEasyButtonPaneTitle(
 // keyed on the working -> complete transition rather than on the state itself.
 // The run id guard keeps a failed re-submit from re-pulsing the same run, and a
 // restored terminal run never pulses because it is never preceded by `working`.
+// It fires only for `completed`: a pulse is a confirmation, and confirming a run
+// the user cancelled — or one that failed — would contradict the summary line,
+// which withholds its check mark for exactly those two statuses.
 function useEasyButtonConfirmPulse(
   viewState: EasyButtonViewState,
-  latestRun: EasyRun | null,
+  statusTone: EasyButtonStatusTone,
+  runId: string | null,
 ): boolean {
   const [confirmActive, setConfirmActive] = useState(false);
   const previousViewState = useRef<EasyButtonViewState | null>(null);
   const confirmedRunId = useRef<string | null>(null);
-  const runId = latestRun?.id ?? null;
 
   useEffect(() => {
     const previous = previousViewState.current;
@@ -419,12 +433,15 @@ function useEasyButtonConfirmPulse(
       setConfirmActive(false);
       return;
     }
-    if (previous !== "working" || !runId || confirmedRunId.current === runId) {
+    if (statusTone !== "completed" || previous !== "working" || !runId) {
+      return;
+    }
+    if (confirmedRunId.current === runId) {
       return;
     }
     confirmedRunId.current = runId;
     setConfirmActive(true);
-  }, [runId, viewState]);
+  }, [runId, statusTone, viewState]);
 
   // The timer keys off `confirmActive` alone. Keyed off the run instead, a run
   // swap that stays terminal (switching workspaces) would tear the timer down
@@ -650,12 +667,22 @@ function StopButton({
   );
 }
 
-function ControlGlyph({ viewState }: { viewState: EasyButtonViewState }) {
+function ControlGlyph({
+  statusTone,
+  viewState,
+}: {
+  statusTone: EasyButtonStatusTone;
+  viewState: EasyButtonViewState;
+}) {
   switch (viewState) {
     case "working":
       return <LoaderCircle aria-hidden="true" className="easy-button-spinner easy-button-glyph" />;
     case "complete":
-      return <Check aria-hidden="true" className="easy-button-glyph" />;
+      return statusTone === "failed" ? (
+        <X aria-hidden="true" className="easy-button-glyph" />
+      ) : (
+        <Check aria-hidden="true" className="easy-button-glyph" />
+      );
     case "idle":
       return <Sparkles aria-hidden="true" className="easy-button-glyph" />;
   }
@@ -720,6 +747,25 @@ function easyButtonViewState(
     return "complete";
   }
   return "idle";
+}
+
+function statusToneForState(
+  viewState: EasyButtonViewState,
+  latestRun: EasyRun | null,
+): EasyButtonStatusTone {
+  if (viewState !== "complete" || !latestRun) {
+    return "none";
+  }
+  switch (latestRun.status) {
+    case "completed":
+      return "completed";
+    case "failed":
+      return "failed";
+    case "stopped":
+      return "stopped";
+    case "working":
+      return "none";
+  }
 }
 
 function controlAriaLabel(viewState: EasyButtonViewState): string {

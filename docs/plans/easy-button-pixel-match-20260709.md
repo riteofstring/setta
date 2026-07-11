@@ -55,6 +55,45 @@ Confirmed with the user on 2026-07-09:
 4. **Restore the fixed-height caption slot and its helper line**, with honest
    non-voice copy. The mockup reserves this height so the center never reflows
    between states.
+5. **Terminal states are three, not one.** Added 2026-07-09 after Phase A
+   review. See below.
+
+## Terminal States: completed vs failed vs stopped
+
+The mockup only ever depicts success, so it has one terminal state. Production
+has three, and the renderer collapses all of them into
+`data-easy-button-state="complete"`. Phase A hung three success-coded visuals
+off that attribute — the cyan confirm pulse, the cyan button border, and the
+newest highlight dot turning `--accent-green` — so **cancelling a run, or a run
+failing, fired a celebratory confirm pulse.** The summary line withheld its
+green `✓` correctly, so the pane contradicted itself.
+
+The run status must be a separate attribute (`data-easy-button-status`, taking
+the `EasyRun.status` value), and the three terminal tones are:
+
+| | button border | confirm pulse | newest dot | glyph |
+| --- | --- | --- | --- | --- |
+| `completed` | `--accent-cyan` 40% | yes | `--accent-green` | check |
+| `stopped` | resting | no | faint (`--setta-500`) | check |
+| `failed` | `--destructive` | no | `--destructive` | ✕ |
+
+Use `--destructive`, which the pane already spends on the Stop button and the
+error line — do not introduce `--accent-red`. Gate the pulse in the controller
+(so `data-easy-button-confirm` never goes `true` for a non-`completed` run)
+rather than only in CSS; the attribute is what the E2E asserts on.
+
+**Never `color-mix(in oklch, …)` between two chromatic tokens.** `oklch` mixing
+interpolates *hue*, and the short arc from `--destructive` (hue 25deg) to any of
+this pane's blue-greys (hue 263deg) runs backwards through magenta — a 55% red
+mixed against `--easy-button-border` lands on hue 330 and paints **pink**.
+Measured on the rendered pane: hue 295deg before, 359deg after. Mix toward
+`transparent` (which preserves hue, as the `completed` cyan border already does),
+or mix `in oklab` (which interpolates in a/b space and passes through grey).
+The Stop button and error line shipped with this bug and were corrected.
+
+Do not scope success rules to `[data-easy-button-state="complete"]` and then
+override them for failure. Scope them to `[data-easy-button-status="completed"]`
+outright — an override chain is the transitional-code smell this repo forbids.
 
 ## Bug Found While Scoping
 
@@ -367,10 +406,15 @@ they are so the working state stays coherent.
   `data-highlight-age` and the `age` prop; **remove the `both` fill mode.**
 - Artifacts: card tokens, kicker/title scale, borderless table, inline bar
   chart, `artifact-in` easing; markdown/file styled in-idiom.
-- Complete: cyan border (not green) + confirm pulse via
-  `data-easy-button-confirm`; green `✓` prepended to the summary only when
-  `status === "completed"`.
+- Terminal states per the table above, keyed on `data-easy-button-status`;
+  green `✓` prepended to the summary only when `status === "completed"`.
 - Update the driver/workflow/perf assertions this changes.
+
+Landed as `e392e23e1`, except the terminal-state split, which that commit got
+wrong (it keyed the success visuals on `data-easy-button-state="complete"`).
+Fixed in a follow-up. Its deterministic coverage must include a non-`completed`
+terminal run that carries at least one highlight — no scripted run did, which
+is why the green-dot-on-failure defect went uncaught.
 
 ### Phase B — The swirl (atomic replacement)
 

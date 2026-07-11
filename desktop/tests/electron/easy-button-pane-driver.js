@@ -56,6 +56,7 @@
     const surface = host.querySelector('[data-testid="easy-button-surface"]');
     return {
       easyState: surface instanceof HTMLElement ? (surface.dataset.easyButtonState ?? "") : "",
+      statusTone: elementDatasetValue(surface, "easyButtonStatus"),
     };
   }
 
@@ -98,6 +99,7 @@
   }
 
   function easyButtonState(host) {
+    const surface = host.querySelector('[data-testid="easy-button-surface"]');
     const button = host.querySelector(".easy-button-control");
     const input = host.querySelector('[data-testid="easy-button-input"]');
     const inputWrap = host.querySelector(".easy-button-input-wrap");
@@ -118,6 +120,7 @@
       buttonAriaLabel: buttonAriaLabel(button),
       buttonAnimationName: buttonPseudoStyleValue(button, "animationName"),
       buttonAnimationPlayState: buttonPseudoStyleValue(button, "animationPlayState"),
+      buttonBorderColor: elementStyleValue(button, "borderTopColor"),
       buttonRect: rectSnapshot(buttonRect),
       buttonTransitionDuration: elementStyleValue(button, "transitionDuration"),
       buttonVisible: buttonVisible(buttonRect),
@@ -153,6 +156,11 @@
       summaryText: elementText(summary),
       summaryTextMetrics: textBoxMetrics(summary),
       summaryTextRect: rectSnapshot(elementRectOrZero(summary)),
+      toneColors: {
+        completed: resolveTokenColor(surface, "--accent-green"),
+        failed: resolveTokenColor(surface, "--destructive"),
+        resting: resolveTokenColor(surface, "--easy-button-faint"),
+      },
     };
   }
 
@@ -189,6 +197,22 @@
       return "";
     }
     return element.dataset[key] ?? "";
+  }
+
+  // Resolve a design token to the exact string `getComputedStyle` will report for
+  // an element painted with it, so tone assertions can name the token instead of
+  // hardcoding a serialized color that shifts with Chromium's color plumbing.
+  function resolveTokenColor(surface, token) {
+    if (!(surface instanceof HTMLElement)) {
+      return "";
+    }
+    const probe = document.createElement("span");
+    probe.style.display = "none";
+    probe.style.backgroundColor = `var(${token})`;
+    surface.appendChild(probe);
+    const value = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return value;
   }
 
   function buttonVisible(rect) {
@@ -284,6 +308,10 @@
       dotAnimationName: elementStyleValue(
         item.querySelector(".easy-button-highlight-dot"),
         "animationName",
+      ),
+      dotBackgroundColor: elementStyleValue(
+        item.querySelector(".easy-button-highlight-dot"),
+        "backgroundColor",
       ),
       opacity: elementStyleValue(item, "opacity"),
       text: elementText(item.querySelector(".easy-button-highlight-text")),

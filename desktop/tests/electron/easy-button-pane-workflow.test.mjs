@@ -27,6 +27,19 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import {
+  assertArtifactMotionParameters,
+  assertHighlightCascade,
+  assertHighlightDotPulse,
+  assertNewestDotTone,
+  assertControlBorderTone,
+  assertRailLabelsMatchContent,
+  assertRailLabelText,
+  assertSummaryOkMark,
+  assertTerminalTone,
+  opacityMatches,
+  railLabelsMatchContent,
+} from "./easy-button-pane-visual-assertions.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -72,6 +85,9 @@ try {
   const toolbarOpen = await waitForEasyButtonPane(context.client);
   assertFullWidthColumn(toolbarOpen);
   assertIdleVisual(toolbarOpen);
+  // The idle control border is the resting reference every terminal tone is
+  // measured against, so no assertion has to hardcode a serialized color.
+  const restingBorderColor = toolbarOpen.buttonBorderColor;
   await captureScreenshot(context.client, join(artifactDir, "easy-button-toolbar-open.png"));
 
   await closeEasyButtonPane(context.client, toolbarOpen.paneId);
@@ -178,6 +194,10 @@ try {
   await submitEasyButtonRequest(context.client, "easy run phase5 artifact cap workflow");
   const artifactCapTerminal = await waitForEasyButtonArtifactCapTerminal(context.client);
   assertArtifactCapOverflowVisual(artifactCapTerminal, "easy run phase5 artifact cap workflow");
+  assertTerminalTone(artifactCapTerminal, "failed", "artifact cap terminal");
+  // The failed run has no highlights, so the control border is its only tone.
+  const failedBorder = await waitForEasyButtonControlBorderSettled(context.client);
+  assertControlBorderTone(failedBorder, restingBorderColor, false, "artifact cap terminal");
   await captureScreenshot(
     context.client,
     join(artifactDir, "easy-button-artifact-cap-overflow.png"),
@@ -199,6 +219,8 @@ try {
   );
   assertHighlightCascade(narratorCascade, [0.72, 0.6], "narrator terminal");
   assertRailLabelsMatchContent(narratorCascade, "narrator terminal");
+  assertTerminalTone(narratorCascade, "completed", "narrator terminal");
+  assertNewestDotTone(narratorCascade, "completed", "narrator terminal");
   await captureScreenshot(context.client, join(artifactDir, "easy-button-narrator-complete.png"));
 
   await submitEasyButtonRequest(context.client, "easy run working narrator cadence");
@@ -226,9 +248,37 @@ try {
     2,
   );
   assertWorkingNarratorTerminalVisual(workingNarratorTerminal, "easy run working narrator cadence");
+  assertTerminalTone(workingNarratorTerminal, "completed", "working narrator terminal");
+  assertNewestDotTone(workingNarratorTerminal, "completed", "working narrator terminal");
   await captureScreenshot(
     context.client,
     join(artifactDir, "easy-button-working-narrator-complete.png"),
+  );
+
+  // The success visuals are keyed on the run status, not on the terminal view
+  // state, and the only way to prove that is a terminal run that is NOT
+  // `completed` yet still has a highlight to tone. The narrator cadence turn
+  // parks on steering after emitting its highlights, so stopping it there is the
+  // cheapest way to reach `stopped` with a populated rail.
+  await submitEasyButtonRequest(context.client, "easy run working narrator cadence");
+  await waitForEasyButtonWorkingWithHighlights(
+    context.client,
+    "easy run working narrator cadence",
+    2,
+  );
+  await clickEasyButtonStop(context.client);
+  const stoppedWithHighlights = await waitForEasyButtonTerminalWithHighlights(
+    context.client,
+    "easy run working narrator cadence",
+    2,
+  );
+  assertTerminalTone(stoppedWithHighlights, "stopped", "stopped with highlights");
+  assertNewestDotTone(stoppedWithHighlights, "resting", "stopped with highlights");
+  const stoppedBorder = await waitForEasyButtonControlBorderSettled(context.client);
+  assertControlBorderTone(stoppedBorder, restingBorderColor, true, "stopped with highlights");
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "easy-button-stopped-with-highlights.png"),
   );
 
   await submitEasyButtonRequest(context.client, "cancel active workflow");
@@ -248,6 +298,7 @@ try {
   assertTerminalVisual(stopped, "cancel active workflow", "Stopped after", {
     expectedNarration: "The run was stopped before finishing.",
   });
+  assertTerminalTone(stopped, "stopped", "stopped");
 
   await forceEasyButtonFrozenAttribute(context.client);
   const frozen = await waitForEasyButtonFrozen(context.client);
@@ -279,6 +330,7 @@ try {
     restored,
     secondCompleted,
     shortcutOpen,
+    stoppedWithHighlights,
     artifactRailLabels,
     artifactTerminal,
     artifactCapTerminal,
@@ -763,83 +815,6 @@ function assertTerminalVisual(state, requestText, summaryFact, options = {}) {
   assertSummaryOkMark(state, summaryFact);
 }
 
-// The green check belongs to `completed` runs only; stopped and failed runs
-// carry the same summary slot with no mark.
-function assertSummaryOkMark(state, summaryFact) {
-  const expectsOkMark = summaryFact === "Done in";
-  if (expectsOkMark !== state.summaryText.startsWith("✓")) {
-    throw new Error(
-      `easy-button terminal ok mark did not match the run status: ${JSON.stringify(state)}`,
-    );
-  }
-}
-
-function assertRailLabelText(state, label) {
-  const texts = state.railLabels.map((entry) => entry.text);
-  if (texts.length !== 2 || texts[0] !== "Now" || texts[1] !== "Artifacts") {
-    throw new Error(`easy-button ${label} rail labels were wrong: ${JSON.stringify(state)}`);
-  }
-}
-
-function assertRailLabelsMatchContent(state, label) {
-  assertRailLabelText(state, label);
-  if (!railLabelsMatchContent(state)) {
-    throw new Error(
-      `easy-button ${label} rail labels did not fade with their content: ${JSON.stringify(state)}`,
-    );
-  }
-}
-
-// Guards the cascade bug: `animation-fill-mode: both` kept the arrival
-// keyframe's `opacity: 1` applied forever, so the age fade never rendered.
-function assertHighlightCascade(state, expectedOpacities, label) {
-  if (state.highlights.length !== expectedOpacities.length) {
-    throw new Error(`easy-button ${label} highlight count was wrong: ${JSON.stringify(state)}`);
-  }
-  for (const [index, highlight] of state.highlights.entries()) {
-    if (highlight.animationFillMode !== "none") {
-      throw new Error(
-        `easy-button ${label} highlight ${index + 1} filled its arrival keyframe: ${JSON.stringify(state)}`,
-      );
-    }
-    if (!opacityMatches(highlight.opacity, expectedOpacities[index])) {
-      throw new Error(
-        `easy-button ${label} highlight ${index + 1} did not age-fade: ${JSON.stringify(state)}`,
-      );
-    }
-  }
-}
-
-function assertHighlightDotPulse(state, label) {
-  const dots = state.highlights.map((highlight) => highlight.dotAnimationName);
-  if (dots.at(-1) !== "easy-button-dot-pulse") {
-    throw new Error(`easy-button ${label} newest dot did not pulse: ${JSON.stringify(state)}`);
-  }
-  if (dots.slice(0, -1).some((name) => name !== "none")) {
-    throw new Error(`easy-button ${label} aged dots pulsed: ${JSON.stringify(state)}`);
-  }
-}
-
-function assertArtifactMotionParameters(state, label) {
-  for (const [index, artifact] of state.artifacts.entries()) {
-    if (
-      artifact.animationName !== "easy-button-artifact-arrive" ||
-      artifact.animationDuration !== "0.52s" ||
-      artifact.animationTimingFunction !== "cubic-bezier(0.22, 1, 0.36, 1)" ||
-      artifact.animationFillMode !== "none"
-    ) {
-      throw new Error(
-        `easy-button ${label} artifact ${index + 1} arrival motion did not match the mockup: ${JSON.stringify(state)}`,
-      );
-    }
-  }
-}
-
-function opacityMatches(value, expected) {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) && Math.abs(parsed - expected) <= 0.01;
-}
-
 function assertArtifactTerminalVisual(state, requestText) {
   assertStateFields(
     state,
@@ -1318,6 +1293,23 @@ async function waitForEasyButtonHighlightCascade(client, easyState, expectedOpac
   );
 }
 
+// The control transitions `border-color` over 320ms, so a single poll can catch
+// an interpolated value that matches neither endpoint. Two consecutive equal
+// samples mean the transition has landed.
+async function waitForEasyButtonControlBorderSettled(client) {
+  let previous = null;
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) => {
+      const settled = previous !== null && state.buttonBorderColor === previous;
+      previous = state.buttonBorderColor;
+      return settled;
+    },
+    workflowTimeoutMs,
+  );
+}
+
 // Expectations come from each rail's own content rather than a hardcoded pair,
 // so this does not depend on whether a given scripted run also emits highlights.
 async function waitForEasyButtonRailLabelsSettled(client) {
@@ -1326,14 +1318,6 @@ async function waitForEasyButtonRailLabelsSettled(client) {
     easyButtonStateExpression(),
     (state) => state.exists && railLabelsMatchContent(state),
     workflowTimeoutMs,
-  );
-}
-
-function railLabelsMatchContent(state) {
-  const expected = [state.highlights.length > 0 ? 1 : 0, state.artifacts.length > 0 ? 1 : 0];
-  return (
-    state.railLabels.length === 2 &&
-    state.railLabels.every((entry, index) => opacityMatches(entry.opacity, expected[index]))
   );
 }
 

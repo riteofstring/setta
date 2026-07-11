@@ -112,7 +112,6 @@
   align-self: center;
   background: var(--easy-button-faint);
   border-radius: 50%;
-  flex: 0 0 auto;
   height: 6px;
   width: 6px;
 }
@@ -143,10 +142,18 @@
   opacity: 0.6;
 }
 
-.easy-button-surface[data-easy-button-state="complete"]
+/* Tone belongs to the run's status, never to the terminal view state. A stopped
+   run keeps the resting faint dot; only `failed` earns the alarm color. */
+.easy-button-surface[data-easy-button-status="completed"]
   .easy-button-highlight-item:nth-last-child(1)
   .easy-button-highlight-dot {
   background: var(--accent-green);
+}
+
+.easy-button-surface[data-easy-button-status="failed"]
+  .easy-button-highlight-item:nth-last-child(1)
+  .easy-button-highlight-dot {
+  background: var(--destructive);
 }
 
 .easy-button-artifact-stack {
@@ -422,8 +429,20 @@
   border-top-color: transparent;
 }
 
-.easy-button-surface[data-easy-button-state="complete"] .easy-button-control {
+.easy-button-surface[data-easy-button-status="completed"] .easy-button-control {
   border-color: color-mix(in oklch, var(--easy-button-primary) 40%, transparent);
+}
+
+/* `stopped` gets no rule at all — it rests, which is the honest reading of a run
+   the user cancelled. Only `failed` is worth an alarm.
+
+   Mix toward `transparent`, never toward another chromatic token: `color-mix(in
+   oklch, …)` interpolates hue, and the short arc from red (25deg) to any of this
+   pane's blue-greys (263deg) runs backwards through magenta. A red mixed that way
+   lands on hue 330 and paints pink. */
+.easy-button-surface[data-easy-button-status="failed"] .easy-button-control {
+  border-color: color-mix(in oklch, var(--destructive) 55%, transparent);
+  color: var(--destructive);
 }
 
 .easy-button-control:disabled {
@@ -517,7 +536,7 @@
 }
 
 .easy-button-error {
-  color: color-mix(in oklch, var(--destructive) 80%, var(--foreground));
+  color: color-mix(in oklab, var(--destructive) 80%, var(--foreground));
   font-size: 12.5px;
   line-height: 1.35;
   max-height: min(12vh, 96px);
@@ -543,13 +562,13 @@
 .easy-button-stop-button {
   align-items: center;
   background: var(--easy-button-plate);
-  border: 1px solid color-mix(in oklch, var(--destructive) 36%, var(--easy-button-border));
+  border: 1px solid color-mix(in oklab, var(--destructive) 36%, var(--easy-button-border));
   border-radius: 8px;
-  color: color-mix(in oklch, var(--destructive) 70%, var(--foreground));
+  color: color-mix(in oklab, var(--destructive) 70%, var(--foreground));
   cursor: pointer;
   display: inline-flex;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 12.5px;
   gap: 8px;
   height: 34px;
   justify-content: center;
@@ -564,12 +583,12 @@
 
 .easy-button-stop-button:hover:not(:disabled),
 .easy-button-stop-button:focus-visible {
-  border-color: color-mix(in oklch, var(--destructive) 58%, var(--easy-button-border));
-  color: color-mix(in oklch, var(--destructive) 82%, var(--foreground));
+  border-color: color-mix(in oklab, var(--destructive) 58%, var(--easy-button-border));
+  color: color-mix(in oklab, var(--destructive) 82%, var(--foreground));
 }
 
 .easy-button-stop-button:focus-visible {
-  outline: 2px solid color-mix(in oklch, var(--destructive) 62%, var(--foreground));
+  outline: 2px solid color-mix(in oklab, var(--destructive) 62%, var(--foreground));
   outline-offset: 3px;
 }
 
