@@ -2,15 +2,16 @@
 
 **Date:** 2026-07-10
 
-**Status:** Phase 5 complete. Renderer output preserves user scrollback,
-coalesces sustained output and presentation work by animation frame, and keeps
-interactive output immediate. The identical production workload reduced local
-emission-to-paint p95 from 101 ms to 87 ms. All post-change measurements so
-far are local, aggregate-workload, and output-side: the new stream has not yet
-been measured over Tailscale, input-path latency has not been re-measured
-since the transport change, and the latency budgets have not been asserted.
-Phase 6 is next and begins with a remote spot-check before any test-matrix
-work.
+**Status:** Phase 6 in progress. The interim remote Tailscale spot-check is
+complete on protocol 15, which added stream input acknowledgement timing so
+the analyzer can measure the duplex input path and calibrate the remote
+clock. Against the Phase 1 remote baseline on a direct route, the input
+round trip improved from 69/275 ms (p50/p95) to 42/108 ms, renderer-to-PTY
+write from 33/254 ms to 19.5/41.5 ms, emission-to-paint from 110/286 ms to
+98.5/183.5 ms, and fast typing preserved output ordering that the HTTP path
+lost. Results are recorded in the Phase 6 report. Budget assertions still
+require the scheduler-decision segmentation and the deterministic delay
+matrix, which are next.
 
 ## Progress
 
@@ -65,7 +66,7 @@ work.
   output with a one-frame bound.
 - [x] Profile the identical sustained-output, multi-pane workspace workload
   before and after; record the result in the Phase 5 performance report.
-- [ ] Run the interim remote Tailscale spot-check of the duplex stream and
+- [x] Run the interim remote Tailscale spot-check of the duplex stream and
   compare input-path and output-path latency against the Phase 1 remote
   baseline.
 - [ ] Record the scheduler's immediate/coalesced decision per output event and
