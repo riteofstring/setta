@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import type { TerminalEvent } from "@generated/backend";
 import {
+  decodeTerminalStreamStatus,
   TerminalStreamClient,
   type TerminalStreamSocket,
   type TerminalStreamStatus,
@@ -194,6 +195,67 @@ describe("TerminalStreamClient", () => {
       message: "Terminal input queue is full.",
     });
     client.stop();
+  });
+
+  test("retries ticket failures and preserves their typed disconnect status", async () => {
+    const socket = new FakeTerminalSocket();
+    const statuses: TerminalStreamStatus[] = [];
+    const createTicket = vi
+      .fn<() => Promise<ReturnType<typeof ticket>>>()
+      .mockRejectedValueOnce(new Error("ticket unavailable"))
+      .mockResolvedValue(ticket());
+    const client = new TerminalStreamClient({
+      clientStreamId: "terminal_stream_ticket_retry",
+      createTicket,
+      onEvent: () => {},
+      onStatus: (status) => statuses.push(status),
+      openSocket: () => socket,
+      reconnectDelayMs: 0,
+    });
+
+    client.start();
+    await vi.waitFor(() => expect(createTicket).toHaveBeenCalledTimes(2));
+    expect(statuses).toContainEqual({
+      attempt: 1,
+      code: null,
+      kind: "reconnecting",
+      message: "ticket unavailable",
+    });
+    socket.open();
+    socket.message(ready([]));
+    socket.disconnect(1013, "output_backpressure");
+    await vi.waitFor(() =>
+      expect(statuses).toContainEqual({
+        attempt: 0,
+        code: "output_backpressure",
+        kind: "reconnecting",
+        message: "output_backpressure",
+      }),
+    );
+    client.stop();
+  });
+
+  test("strictly decodes typed renderer stream statuses", () => {
+    expect(
+      decodeTerminalStreamStatus({
+        attempt: 2,
+        code: "output_backpressure",
+        kind: "reconnecting",
+        message: "retrying",
+      }),
+    ).toEqual({
+      attempt: 2,
+      code: "output_backpressure",
+      kind: "reconnecting",
+      message: "retrying",
+    });
+    expect(() =>
+      decodeTerminalStreamStatus({
+        code: "malformed_frame",
+        kind: "backpressure",
+        message: "invalid",
+      }),
+    ).toThrow("Terminal stream backpressure code is invalid.");
   });
 });
 

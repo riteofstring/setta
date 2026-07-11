@@ -62,6 +62,14 @@ func TestTerminalStreamWritesAcknowledgesDeduplicatesAndResumes(t *testing.T) {
 	if _, err := time.Parse(time.RFC3339Nano, ack.PTYWriteCompletedAt); err != nil {
 		t.Fatalf("input ack ptyWriteCompletedAt = %q: %v", ack.PTYWriteCompletedAt, err)
 	}
+	secondInput := input
+	secondInput.InputSequence = 2
+	secondInput.DataBase64 = base64.StdEncoding.EncodeToString([]byte("printf ordered\n"))
+	writeTerminalStreamFrame(t, connection, secondInput)
+	secondAck := readTerminalStreamMessage[terminal.TerminalStreamInputAckMessage](t, connection, terminal.TerminalStreamServerInputAck)
+	if secondAck.AcknowledgedInputSequence != 2 || secondAck.AcceptedBytes != len("printf ordered\n") {
+		t.Fatalf("second input ack = %+v", secondAck)
+	}
 	_ = connection.Close(websocket.StatusNormalClosure, "test reconnect")
 
 	resumed := dialTerminalStream(t, server, issueTerminalStreamTicket(t, server, clientID))
@@ -71,30 +79,55 @@ func TestTerminalStreamWritesAcknowledgesDeduplicatesAndResumes(t *testing.T) {
 		ClientStreamID: clientID,
 		Sessions: []terminal.TerminalStreamResumeSession{{
 			SessionID:                     created.Session.ID,
-			LastAcknowledgedInputSequence: 1,
+			LastAcknowledgedInputSequence: 2,
 		}},
 	})
 	resumeReady := readTerminalStreamMessage[terminal.TerminalStreamReadyMessage](t, resumed, terminal.TerminalStreamServerReady)
-	if len(resumeReady.Sessions) != 1 || resumeReady.Sessions[0].AcknowledgedInputSequence != 1 {
+	if len(resumeReady.Sessions) != 1 || resumeReady.Sessions[0].AcknowledgedInputSequence != 2 {
 		t.Fatalf("resume ready sessions = %+v", resumeReady.Sessions)
 	}
-	writeTerminalStreamFrame(t, resumed, input)
+	writeTerminalStreamFrame(t, resumed, secondInput)
 	duplicateAck := readTerminalStreamMessage[terminal.TerminalStreamInputAckMessage](t, resumed, terminal.TerminalStreamServerInputAck)
-	if duplicateAck.AcknowledgedInputSequence != 1 {
+	if duplicateAck.AcknowledgedInputSequence != 2 {
 		t.Fatalf("duplicate input ack = %+v", duplicateAck)
 	}
 	if duplicateAck.HandlerReceivedAt != "" || duplicateAck.PTYWriteCompletedAt != "" {
 		t.Fatalf("duplicate input ack fabricated timing = %+v", duplicateAck)
 	}
-	conflictInput := input
+	conflictInput := secondInput
 	conflictInput.DataBase64 = base64.StdEncoding.EncodeToString([]byte("different\n"))
 	writeTerminalStreamFrame(t, resumed, conflictInput)
 	conflict := readTerminalStreamMessage[terminal.TerminalStreamErrorMessage](t, resumed, terminal.TerminalStreamServerError)
 	if conflict.Code != terminal.TerminalStreamErrorInputSequenceConflict || conflict.Retryable {
 		t.Fatalf("input sequence conflict = %+v", conflict)
 	}
-	if written := starter.handleAt(t, 0).writtenString(); written != "echo duplex\n" {
-		t.Fatalf("PTY input = %q, want one deduplicated write", written)
+	if written := starter.handleAt(t, 0).writtenString(); written != "echo duplex\nprintf ordered\n" {
+		t.Fatalf("PTY input = %q, want ordered deduplicated writes", written)
+	}
+}
+
+func TestTerminalStreamRejectsMalformedInputFrame(t *testing.T) {
+	handler, _ := newTerminalHandler(t, nil)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	clientID := "terminal_stream_malformed"
+	connection := dialTerminalStream(t, server, issueTerminalStreamTicket(t, server, clientID))
+	defer connection.CloseNow()
+	writeTerminalStreamFrame(t, connection, terminal.TerminalStreamStartMessage{
+		Kind:           terminal.TerminalStreamClientStart,
+		ClientStreamID: clientID,
+	})
+	readTerminalStreamMessage[terminal.TerminalStreamReadyMessage](t, connection, terminal.TerminalStreamServerReady)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := connection.Write(ctx, websocket.MessageText, []byte(`{"kind":"terminal.stream.input","sessionId":7}`)); err != nil {
+		t.Fatalf("write malformed terminal stream frame: %v", err)
+	}
+	message := readTerminalStreamMessage[terminal.TerminalStreamErrorMessage](t, connection, terminal.TerminalStreamServerError)
+	if message.Code != terminal.TerminalStreamErrorMalformedFrame || message.Retryable {
+		t.Fatalf("malformed frame error = %+v", message)
 	}
 }
 

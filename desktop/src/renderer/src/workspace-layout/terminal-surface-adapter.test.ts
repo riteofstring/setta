@@ -4,6 +4,7 @@ import type {
   TerminalSessionResponse,
 } from "@generated/backend";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { TerminalStreamStatus } from "@shared/terminal-stream-client";
 
 import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
 import {
@@ -273,6 +274,35 @@ describe("terminal surface adapter", () => {
     expect(api.terminal.attach).toHaveBeenCalledTimes(2);
     expect(secondHost.dataset.terminalSessionId).toBe("terminal_existing");
     expect(secondHost.style.getPropertyValue("--workspace-terminal-background")).toBe("#09090b");
+  });
+
+  test("surfaces typed stream failures without replacing healthy status updates", async () => {
+    const api = installSettaAPI({});
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    await waitFor(() => api.terminal.onStatus.mock.calls.length === 1);
+    const statusListener = api.terminal.onStatus.mock.calls[0]![0] as (
+      status: TerminalStreamStatus,
+    ) => void;
+    statusListener({ kind: "ready", message: "Terminal stream connected." });
+    expect(host.dataset.terminalStatusText).not.toBe("Terminal stream connected.");
+    statusListener({
+      code: "input_backpressure",
+      kind: "backpressure",
+      message: "Terminal input queue is full.",
+    });
+    expect(host.dataset.terminalStatusText).toBe("Terminal input queue is full.");
+    statusListener({
+      code: "malformed_frame",
+      kind: "error",
+      message: "Terminal stream frame was malformed.",
+      retryable: false,
+    });
+    expect(host.dataset.terminalStatusText).toBe("Terminal stream frame was malformed.");
+
+    adapter.destroy();
   });
 
   test("creates a safe visible terminal without waiting for focus", async () => {

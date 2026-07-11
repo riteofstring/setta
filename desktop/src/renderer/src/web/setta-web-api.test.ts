@@ -261,6 +261,91 @@ describe("web SettaAPI unpaired runtime state", () => {
     expect(events).toEqual([event]);
     unsubscribe();
   });
+
+  test("reconnects the browser stream and resends only unacknowledged input", async () => {
+    withWebGlobals("https://runtime.tailnet.ts.net");
+    const sockets: WebSocketTestDouble[] = [];
+    vi.stubGlobal(
+      "WebSocket",
+      class extends WebSocketTestDouble {
+        constructor(url: URL) {
+          super(url);
+          sockets.push(this);
+        }
+      },
+    );
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        if (input.pathname === "/runtime/info") return jsonResponse(runtimeInfo());
+        if (input.pathname === "/pairing/complete") {
+          return jsonResponse({
+            deviceId: "device_web",
+            deviceToken: "token_web",
+            protocolVersion: backendProtocolVersion,
+            runtimeId: "runtime_web",
+          });
+        }
+        if (input.pathname === "/devices/list") return jsonResponse({ devices: [] });
+        if (input.pathname === "/terminals/stream/ticket") {
+          const clientStreamId = JSON.parse(String(init.body)).clientStreamId;
+          return jsonResponse({
+            clientStreamId,
+            expiresAt: "2026-07-11T00:00:30Z",
+            expiresInSeconds: 30,
+            maxInputBytes: 65536,
+            maxQueuedInputBytes: 262144,
+            ticket: `ticket_web_${sockets.length + 1}`,
+          });
+        }
+        throw new Error(`unexpected request: ${input.pathname}`);
+      },
+    });
+    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+    const unsubscribe = api.terminal.onEvent(() => {});
+    await waitFor(() => sockets.length === 1);
+    sockets[0]!.open();
+    const start = sockets[0]!.sentJSON()[0] as { clientStreamId: string };
+    sockets[0]!.message(streamReady(start.clientStreamId, []));
+    api.terminal.input({
+      dataBase64: "YQ==",
+      sessionId: "session_web",
+      trace: terminalInputTrace(),
+    });
+    api.terminal.input({
+      dataBase64: "Yg==",
+      sessionId: "session_web",
+      trace: { ...terminalInputTrace(), inputSequence: 2 },
+    });
+    sockets[0]!.message({
+      acknowledgedInputSequence: 1,
+      acceptedBytes: 1,
+      handlerReceivedAt: "",
+      kind: "terminal.stream.inputAck",
+      ptyWriteCompletedAt: "",
+      sessionId: "session_web",
+    });
+    sockets[0]!.disconnect(1013, "output_backpressure");
+
+    await waitFor(() => sockets.length === 2);
+    sockets[1]!.open();
+    expect(sockets[1]!.sentJSON()[0]).toMatchObject({
+      clientStreamId: start.clientStreamId,
+      kind: "terminal.stream.resume",
+      sessions: [{ lastAcknowledgedInputSequence: 1, sessionId: "session_web" }],
+    });
+    sockets[1]!.message(
+      streamReady(start.clientStreamId, [
+        { acknowledgedInputSequence: 1, sessionId: "session_web" },
+      ]),
+    );
+    expect(sockets[1]!.sentJSON()[1]).toMatchObject({
+      dataBase64: "Yg==",
+      inputSequence: 2,
+      kind: "terminal.stream.input",
+      sessionId: "session_web",
+    });
+    unsubscribe();
+  });
 });
 
 function withWebGlobals(origin = "http://127.0.0.1:7345") {
@@ -349,6 +434,11 @@ class WebSocketTestDouble {
     this.readyState = 3;
   }
 
+  disconnect(code: number, reason: string): void {
+    this.readyState = 3;
+    this.emit("close", { code, reason });
+  }
+
   message(message: unknown): void {
     this.emit("message", { data: JSON.stringify(message) });
   }
@@ -371,6 +461,19 @@ class WebSocketTestDouble {
       listener(event);
     }
   }
+}
+
+function streamReady(clientStreamId: string, sessions: unknown[]) {
+  return {
+    clientStreamId,
+    eventCursor: { afterSequence: 0, streamId: "" },
+    kind: "terminal.stream.ready",
+    maxInputBytes: 65536,
+    maxQueuedInputBytes: 262144,
+    protocolVersion: 1,
+    serverStreamId: "server_web",
+    sessions,
+  };
 }
 
 function terminalInputTrace() {

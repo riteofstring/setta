@@ -45,6 +45,7 @@ const terminalFastOutput = "SETTA_TERMINAL_FAST_OK";
 const terminalFastRecoveryOutput = "SETTA_TERMINAL_FAST_RECOVERY_OK";
 const terminalIsolatedOutput = "SETTA_TERMINAL_ISOLATED_OK";
 const terminalPasteOutput = "SETTA_TERMINAL_PASTE_OK";
+const terminalSecondPaneOutput = "SETTA_TERMINAL_SECOND_PANE_OK";
 const terminalSustainedOutput = "SETTA_TERMINAL_SUSTAINED_200";
 const terminalCommand = "printf 'SETTA_TERMINAL_%s:%s\\n' 'E2E_OUTPUT' \"$PWD\"";
 const terminalSingleClickCommand = "printf 'SETTA_TERMINAL_%s\\n' 'SINGLE_CLICK_OK'";
@@ -114,6 +115,13 @@ try {
       `terminal output pane ${commandPaneId} session ${terminalState.sessionId} was not in visible terminal map ${formatTerminalSessionMap(
         terminalSessionsBeforeReload,
       )}`,
+    );
+  }
+  if (!remoteRuntime) {
+    await assertConcurrentTerminalPanes(
+      context.client,
+      terminalSessionsBeforeReload,
+      commandPaneId,
     );
   }
   await reloadPage(context.client);
@@ -296,6 +304,32 @@ async function waitForTerminalSessionReattach(client, expectedSessions) {
   return actual;
 }
 
+async function assertConcurrentTerminalPanes(client, sessions, primaryPaneId) {
+  const secondPaneId = [...sessions.keys()].find((paneId) => paneId !== primaryPaneId);
+  if (!secondPaneId) {
+    throw new Error(
+      `multi-pane terminal coverage requires a second pane: ${formatTerminalSessionMap(sessions)}`,
+    );
+  }
+  await clickEnabledButtonByAria(client, "Restore pane size", terminalWorkflowTimeoutMs);
+  await waitForState(
+    client,
+    terminalSnapshotExpression({ paneId: primaryPaneId }),
+    (snapshot) => snapshot.exists && !snapshot.maximized,
+    terminalWorkflowTimeoutMs,
+  );
+  await focusTerminalPane(client, secondPaneId);
+  await sendTerminalCommand(client, secondPaneId, "printf 'SETTA_TERMINAL_%s\\n' 'SECOND_PANE_OK'");
+  await waitForTerminalText(client, terminalSecondPaneOutput, secondPaneId);
+  await focusTerminalPane(client, primaryPaneId);
+  await sendTerminalCommand(
+    client,
+    primaryPaneId,
+    "printf 'SETTA_TERMINAL_%s\\n' 'PRIMARY_PANE_STILL_OK'",
+  );
+  await waitForTerminalText(client, "SETTA_TERMINAL_PRIMARY_PANE_STILL_OK", primaryPaneId);
+}
+
 async function waitForVisibleReattachedTerminalPane(
   client,
   expectedSessions,
@@ -361,6 +395,23 @@ async function focusNonTerminalPane(client, terminalPaneId) {
 }
 
 async function focusTerminalPane(client, paneId) {
+  await client.installDriver();
+  const focused = await client.driver("focusWorkspacePane", { paneId });
+  if (!focused.ok) {
+    throw new Error(
+      `terminal pane ${paneId} programmatic focus failed: ${JSON.stringify(focused)}`,
+    );
+  }
+  await waitForState(
+    client,
+    terminalSnapshotsExpression(),
+    (snapshots) => {
+      const snapshot = terminalSnapshotForPane(snapshots, paneId);
+      return Boolean(snapshot?.focused && snapshot.visible && snapshot.xtermReady);
+    },
+    terminalWorkflowTimeoutMs,
+  );
+  await waitForTerminalPaneStageContained(client, paneId, terminalWorkflowTimeoutMs);
   const point = await client.driver("terminalPaneFocusPoint", { paneId });
   if (!point.ok) {
     throw new Error(`terminal pane ${paneId} focus point unavailable: ${JSON.stringify(point)}`);
@@ -375,7 +426,6 @@ async function focusTerminalPane(client, paneId) {
     },
     terminalWorkflowTimeoutMs,
   );
-  await waitForTerminalPaneStageContained(client, paneId, terminalWorkflowTimeoutMs);
   const result = await client.driver("focusTerminalTextarea", { paneId });
   if (!result.ok) {
     throw new Error(`terminal pane ${paneId} focus failed: ${JSON.stringify(result)}`);
