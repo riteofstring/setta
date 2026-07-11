@@ -15,6 +15,21 @@ export const synchronizedCaptureText =
   "Compare the three swirl approaches and show me which one is cheapest to paint.";
 export const synchronizedCaptureFailureText =
   "The transcription connection was lost. Please try again.";
+const synchronizedFixtureFields = [
+  "agentChipText",
+  "artifactCount",
+  "currentFocusText",
+  "focusLabelText",
+  "focusStatus",
+  "helperText",
+  "highlights",
+  "inputPlaceholder",
+  "narratorStatusText",
+  "outputMode",
+  "playback",
+  "statusTone",
+  "summaryText",
+];
 
 export const pixelMatchSpeechCapturePlan = [
   { crops: ["audioToggle", "control", "inputWrap"], state: "idle" },
@@ -53,21 +68,26 @@ export const pixelMatchCapturePlan = [
 ];
 
 // The pane cannot show both rails at once — no scripted run emits highlights and
-// artifacts together — so the two `completed` frames split them, and both compare
-// against the mockup's single fully-populated `complete`.
-export const metricPairs = [
-  { mockup: "idle", production: "idle" },
-  { mockup: "requestingPermission", production: "requestingPermission" },
-  { mockup: "connecting", production: "connecting" },
-  { mockup: "listening", production: "listening" },
-  { mockup: "committing", production: "committing" },
-  { mockup: "captureFailure", production: "captureFailure" },
-  { mockup: "working", production: "working" },
-  { mockup: "stopped", production: "stopped" },
-  { mockup: "completedArtifacts", production: "completedArtifacts" },
-  { mockup: "completedHighlights", production: "completedHighlights" },
-  { mockup: "failed", production: "failed" },
-];
+// artifacts together — so the two `completed` frames split them. Every captured
+// state now has a same-named mockup fixture; deriving the pairs from the owned
+// plan prevents a new state from being captured without entering the comparison.
+export const metricPairs = pixelMatchCapturePlan.map(({ state }) => ({
+  mockup: state,
+  production: state,
+}));
+
+export function requireSynchronizedVisualFixture(fixture, label) {
+  if (!fixture || typeof fixture !== "object" || Array.isArray(fixture)) {
+    throw new Error(`easy-button ${label} metrics have no synchronized fixture`);
+  }
+  const missingFields = synchronizedFixtureFields.filter(
+    (field) => !(field in fixture) || fixture[field] === undefined,
+  );
+  if (missingFields.length > 0) {
+    throw new Error(`easy-button ${label} fixture is missing fields: ${missingFields.join(", ")}`);
+  }
+  return fixture;
+}
 
 export async function writePng(path, base64) {
   await mkdir(dirname(path), { recursive: true });

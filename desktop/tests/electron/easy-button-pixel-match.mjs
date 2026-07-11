@@ -39,6 +39,7 @@ import {
   clipToBounds,
   pinTimesMs,
   pixelMatchCapturePlan,
+  requireSynchronizedVisualFixture,
   synchronizedCaptureFailureText,
   synchronizedCaptureText,
   writePng,
@@ -296,21 +297,24 @@ async function captureState(client, artifactDir, { crops, state }) {
 }
 
 function synchronizedVisualFixture(state) {
-  return {
-    agentChipText: state.agentChipText,
-    artifactCount: state.artifacts.length,
-    currentFocusText: state.currentFocusText,
-    focusLabelText: state.focusLabelText,
-    focusStatus: state.focusStatus,
-    helperText: state.helperText,
-    highlights: state.highlights.map(({ text, time }) => ({ text, time })),
-    inputPlaceholder: state.inputPlaceholder,
-    narratorStatusText: state.narratorStatusText,
-    outputMode: state.speechOutputMode,
-    playback: state.speechOutputPlayback,
-    statusTone: state.statusTone,
-    summaryText: state.summaryText,
-  };
+  return requireSynchronizedVisualFixture(
+    {
+      agentChipText: state.agentChipText,
+      artifactCount: state.artifacts.length,
+      currentFocusText: state.currentFocusText,
+      focusLabelText: state.focusLabelText,
+      focusStatus: state.focusStatus,
+      helperText: state.helperText,
+      highlights: state.highlights.map(({ text, time }) => ({ text, time })),
+      inputPlaceholder: state.inputPlaceholder,
+      narratorStatusText: state.narratorStatusText,
+      outputMode: state.speechOutputMode,
+      playback: state.speechOutputPlayback,
+      statusTone: state.statusTone,
+      summaryText: state.summaryText,
+    },
+    "captured production",
+  );
 }
 
 async function captureComponentClip(client, path, metrics, key) {

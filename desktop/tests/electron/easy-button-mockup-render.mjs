@@ -32,6 +32,7 @@ import {
   pinTimesMs,
   pixelMatchCapturePlan,
   pixelMatchSpeechCapturePlan,
+  requireSynchronizedVisualFixture,
   synchronizedCaptureFailureText,
   synchronizedCaptureText,
   writePng,
@@ -123,10 +124,18 @@ async function renderMockup(outDir, production) {
       webContents,
       outDir,
       step,
-      production?.states[step.state]?.fixture,
+      production ? requireSynchronizedFixture(production, step.state) : undefined,
     );
   }
   return { states, surface: "mockup", viewport: mockupViewport };
+}
+
+function requireSynchronizedFixture(production, state) {
+  const captured = production.states?.[state];
+  if (!captured) {
+    throw new Error(`easy-button production metrics have no ${state} state fixture`);
+  }
+  return requireSynchronizedVisualFixture(captured.fixture, `production ${state}`);
 }
 
 async function installBrowserScripts(webContents) {

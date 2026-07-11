@@ -4213,6 +4213,50 @@ deliberate mockup-property failure proof, named animation phases, and removal of
 the unexplained still deltas remain before item 5 can baseline repeat-run noise.
 No external blocker was found.
 
+### 2026-07-10 — Phase 5 synchronized run-state fixture matrix audit complete
+
+Audited commit `8eb3c8c64` against Phase 5 item 4, the complete speech plan,
+`AGENTS.md`, its parent and clean worktree, the current production/mockup
+drivers, and the generated comparison artifacts. The eleven-state fixture
+handoff correctly records production-visible copy, counts, focus and terminal
+axes, output state, and playback state; the mockup asserts that content before
+capture. Stopped and failed now have one-to-one metric and image pairs, while
+artifact body content remains correctly outside the synchronized contract.
+
+The audit fixed two practical fail-open paths in that harness:
+
+- comparison pairs are now derived from the shared capture plan, so a newly
+  captured production/mockup state cannot repeat the earlier stopped/failed
+  omission from the metric and image reports;
+- a production comparison now requires every synchronized fixture and all of
+  its owned fields. Old or incomplete metrics fail specifically instead of
+  silently rendering the mockup's unrelated default copy.
+
+Focused Prettier and ESLint checks passed. A negative render against an older
+fixture-less production metrics file failed with the expected
+`no synchronized fixture` error. The complete deterministic production-path
+Easy Button workflow passed at
+`desktop/.recordings/easy-button-speech-phase5-run-state-sync-audit-r2-20260710`.
+Its automatic mockup companion covered all eleven states and all 86 required
+crop/frame comparisons under the stricter rules, with an empty renderer console
+and no speech credential, client-secret, authorization, or audio/base64 markers
+in its text artifacts. Representative working, stopped, completed-highlight,
+and failed side-by-side images were inspected and contain synchronized copy and
+counts. The report still exposes all 86 crops as changed and 80 dimension
+mismatches; the audit did not mask or accept those differences.
+
+`./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+audit changes. No Go-owned contract, generated TypeScript, checked-in PWA
+source, dependency, manifest, module, package-manager, toolchain, or
+supply-chain input changed, so regeneration, PWA rebuild, and supply-chain
+verification were not required. Live Codex and live OpenAI speech tests were
+not applicable to this visual-test-only audit.
+
+Phase 5 item 4 remains incomplete and no next implementation slice was started.
+The next iteration still owns the remaining curated speech, focus, terminal,
+and reduced-motion states; deliberate-difference failure proof; named animation
+phases; and removal of unexplained still deltas before Phase 5 item 5 begins.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
