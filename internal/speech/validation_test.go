@@ -160,14 +160,11 @@ func TestValidateWAVRequiresOddChunkPadding(t *testing.T) {
 
 func TestSpeechContractValueSetOwnsProviderStatuses(t *testing.T) {
 	sets := ContractValueSets()
-	var statuses []string
-	for _, set := range sets {
-		if set.Name == "SpeechProviderStatus" {
-			statuses = set.Values
-		}
+	if len(sets) != 1 || sets[0].Name != "SpeechProviderStatus" {
+		t.Fatalf("value sets = %+v", sets)
 	}
 	want := []string{string(SpeechProviderStatusConfigured), string(SpeechProviderStatusNotConfigured)}
-	if strings.Join(statuses, ",") != strings.Join(want, ",") {
-		t.Fatalf("provider statuses = %v, want %v", statuses, want)
+	if strings.Join(sets[0].Values, ",") != strings.Join(want, ",") {
+		t.Fatalf("provider statuses = %v, want %v", sets[0].Values, want)
 	}
 }

@@ -58,13 +58,7 @@ type EasyRunService interface {
 }
 
 type ConversationService interface {
-	Create(context.Context, conversation.CreateConversationRequest) (conversation.ConversationSnapshot, error)
-	List(context.Context, string, *string, int) (conversation.ConversationListPage, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	Send(context.Context, conversation.SendConversationInputRequest) (conversation.ConversationSnapshot, error)
-	Steer(context.Context, conversation.SteerConversationRequest) (conversation.ConversationSnapshot, error)
-	Stop(context.Context, conversation.StopConversationRequest) (conversation.ConversationSnapshot, error)
-	SubmitApproval(context.Context, conversation.SubmitConversationApprovalRequest) (conversation.ConversationSnapshot, error)
 	SubscribeEvents(
 		conversation.ConversationEventCursor,
 		string,

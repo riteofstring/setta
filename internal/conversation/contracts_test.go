@@ -50,7 +50,6 @@ func TestConversationSnapshotTrajectoryIsAContiguousLatestWindow(t *testing.T) {
 	second.Sequence = 2
 	second.TurnQueued = &TrajectoryTurnQueued{QueueOrdinal: 1}
 	snapshot.Conversation.LastTrajectorySequence = 2
-	snapshot.CurrentProjection.UpdatedThroughSequence = 2
 	snapshot.Trajectory.Events = []TrajectoryEvent{first, second}
 	if err := snapshot.Validate(); err != nil {
 		t.Fatalf("valid contiguous trajectory window: %v", err)
@@ -119,11 +118,6 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		CreatedAt:                   testTimeStarted,
 		UpdatedAt:                   testTimeStarted,
 	}
-	sideOutcome := InvocationOutcomeSucceeded
-	sideEvent := SideConversationEvent{
-		SideID: side.ID, ParentConversationID: conversationID,
-		Kind: SideConversationEventTerminal, Outcome: &sideOutcome, EmittedAt: testTimeStarted,
-	}
 	override := snapshot.RoleProfileOverrides[0]
 	payloads := []ConversationEventPayload{
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: snapshot.Conversation},
@@ -138,7 +132,6 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: snapshot.PresentationProfile},
 		ConversationBranchCreatedEventPayload{Type: ConversationEventTypeBranchCreated, Branch: branch},
 		ConversationSideConversationUpdatedEventPayload{Type: ConversationEventTypeSideConversationUpdated, SideConversation: side},
-		ConversationSideConversationEventCreatedEventPayload{Type: ConversationEventTypeSideConversationEventCreated, Event: sideEvent},
 		ConversationResyncRequiredEventPayload{
 			Type:              ConversationEventTypeResyncRequired,
 			Reason:            "The requested cursor does not belong to this conversation.",
@@ -268,11 +261,7 @@ func validConversationSnapshot() ConversationSnapshot {
 			Ordinal:        1,
 			QueuedAt:       testTimeStarted,
 		}},
-		Trajectory: ConversationTrajectoryWindow{Events: []TrajectoryEvent{}},
-		CurrentProjection: ConversationCurrentProjection{
-			ConversationID: conversation.ID, AcceptedSteering: []string{},
-			ActiveActivities: []TrajectoryActivity{}, ActiveSubagents: []Subagent{},
-		},
+		Trajectory:           ConversationTrajectoryWindow{Events: []TrajectoryEvent{}},
 		Artifacts:            ConversationArtifactWindow{Artifacts: []Artifact{}},
 		NarratorState:        narratorState,
 		Narration:            ConversationNarrationWindow{Events: []NarrationEvent{}},

@@ -146,43 +146,6 @@ type ReadConversationSnapshotRequest struct {
 	ConversationID string `json:"conversationId"`
 }
 
-type ListTopicConversationsRequest struct {
-	WorkspaceID string  `json:"workspaceId"`
-	Cursor      *string `json:"cursor"`
-	Limit       int     `json:"limit"`
-}
-
-type CreateTopicConversationRequest struct {
-	WorkspaceID  string                      `json:"workspaceId"`
-	Title        string                      `json:"title"`
-	InitialInput *conversation.AuthoredInput `json:"initialInput"`
-}
-
-type SendConversationInputRequest struct {
-	WorkspaceID    string                     `json:"workspaceId"`
-	ConversationID string                     `json:"conversationId"`
-	Input          conversation.AuthoredInput `json:"input"`
-}
-
-type SteerConversationInputRequest struct {
-	WorkspaceID    string                     `json:"workspaceId"`
-	ConversationID string                     `json:"conversationId"`
-	Input          conversation.AuthoredInput `json:"input"`
-}
-
-type StopConversationTurnRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
-type SubmitConversationApprovalRequest struct {
-	WorkspaceID    string                                  `json:"workspaceId"`
-	ConversationID string                                  `json:"conversationId"`
-	ApprovalID     string                                  `json:"approvalId"`
-	Decision       conversation.ApprovalSubmissionDecision `json:"decision"`
-	Answers        []conversation.ApprovalSubmissionAnswer `json:"answers"`
-}
-
 type SubscribeConversationEventsRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`

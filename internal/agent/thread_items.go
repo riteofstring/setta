@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -97,10 +96,6 @@ func commandActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 		Status:         string(item.CommandExecution.Status),
 		Title:          item.CommandExecution.Command,
 		ExitCode:       cloneInt(item.CommandExecution.ExitCode),
-		Command:        item.CommandExecution.Command,
-		CWD:            string(item.CommandExecution.CWD),
-		ProcessID:      optionalString(item.CommandExecution.ProcessId),
-		DurationMs:     cloneInt(item.CommandExecution.DurationMs),
 	}, nil
 }
 
@@ -108,20 +103,11 @@ func fileChangeActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.FileChange == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	changes := make([]ActivityFileChange, 0, len(item.FileChange.Changes))
-	for _, change := range item.FileChange.Changes {
-		kind, movePath, err := activityFileChangeKind(change.Kind)
-		if err != nil {
-			return ActivityEvent{}, err
-		}
-		changes = append(changes, ActivityFileChange{Path: change.Path, Kind: kind, MovePath: movePath, Diff: change.Diff})
-	}
 	return ActivityEvent{
 		ProviderItemID: item.FileChange.ID,
 		Kind:           ActivityKindFileChange,
 		Status:         string(item.FileChange.Status),
 		Title:          fmt.Sprintf("Changed %d file(s)", len(item.FileChange.Changes)),
-		FileChanges:    changes,
 	}, nil
 }
 
@@ -131,12 +117,9 @@ func mcpToolActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	}
 	return ActivityEvent{
 		ProviderItemID: item.McpToolCall.ID,
-		Kind:           ActivityKindMCPTool,
+		Kind:           ActivityKindTool,
 		Status:         string(item.McpToolCall.Status),
 		Title:          item.McpToolCall.Server + "/" + item.McpToolCall.Tool,
-		Server:         item.McpToolCall.Server,
-		Tool:           item.McpToolCall.Tool,
-		DurationMs:     cloneInt(item.McpToolCall.DurationMs),
 	}, nil
 }
 
@@ -148,7 +131,7 @@ func dynamicToolActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.DynamicToolCall.Namespace != nil {
 		title = *item.DynamicToolCall.Namespace + "/" + title
 	}
-	return ActivityEvent{ProviderItemID: item.DynamicToolCall.ID, Kind: ActivityKindDynamicTool, Status: string(item.DynamicToolCall.Status), Title: title, Tool: item.DynamicToolCall.Tool, Namespace: optionalString(item.DynamicToolCall.Namespace), DurationMs: cloneInt(item.DynamicToolCall.DurationMs)}, nil
+	return ActivityEvent{ProviderItemID: item.DynamicToolCall.ID, Kind: ActivityKindTool, Status: string(item.DynamicToolCall.Status), Title: title}, nil
 }
 
 func collabAgentActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
@@ -156,12 +139,11 @@ func collabAgentActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
 	return ActivityEvent{
-		ProviderItemID:   item.CollabAgentToolCall.ID,
-		Kind:             ActivityKindSubagent,
-		Status:           string(item.CollabAgentToolCall.Status),
-		Title:            string(item.CollabAgentToolCall.Tool),
-		Summary:          fmt.Sprintf("%d receiver thread(s)", len(item.CollabAgentToolCall.ReceiverThreadIds)),
-		ProviderThreadID: firstString(item.CollabAgentToolCall.ReceiverThreadIds),
+		ProviderItemID: item.CollabAgentToolCall.ID,
+		Kind:           ActivityKindSubagent,
+		Status:         string(item.CollabAgentToolCall.Status),
+		Title:          string(item.CollabAgentToolCall.Tool),
+		Summary:        fmt.Sprintf("%d receiver thread(s)", len(item.CollabAgentToolCall.ReceiverThreadIds)),
 	}, nil
 }
 
@@ -170,12 +152,11 @@ func subagentActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
 	return ActivityEvent{
-		ProviderItemID:   item.SubAgentActivity.ID,
-		Kind:             ActivityKindSubagent,
-		Status:           string(item.SubAgentActivity.Kind),
-		Title:            item.SubAgentActivity.AgentPath,
-		Summary:          item.SubAgentActivity.AgentThreadId,
-		ProviderThreadID: item.SubAgentActivity.AgentThreadId,
+		ProviderItemID: item.SubAgentActivity.ID,
+		Kind:           ActivityKindSubagent,
+		Status:         string(item.SubAgentActivity.Kind),
+		Title:          item.SubAgentActivity.AgentPath,
+		Summary:        item.SubAgentActivity.AgentThreadId,
 	}, nil
 }
 
@@ -183,14 +164,14 @@ func webSearchActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.WebSearch == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	return ActivityEvent{ProviderItemID: item.WebSearch.ID, Kind: ActivityKindWebSearch, Status: "completed", Title: "Web search", Summary: item.WebSearch.Query}, nil
+	return ActivityEvent{ProviderItemID: item.WebSearch.ID, Kind: ActivityKindTool, Status: "completed", Title: "Web search", Summary: item.WebSearch.Query}, nil
 }
 
 func imageViewActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.ImageView == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	return ActivityEvent{ProviderItemID: item.ImageView.ID, Kind: ActivityKindImageView, Status: "completed", Title: "Viewed image", Summary: string(item.ImageView.Path)}, nil
+	return ActivityEvent{ProviderItemID: item.ImageView.ID, Kind: ActivityKindTool, Status: "completed", Title: "Viewed image", Summary: item.ImageView.Path}, nil
 }
 
 func imageGenerationActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
@@ -201,14 +182,14 @@ func imageGenerationActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.ImageGeneration.SavedPath != nil {
 		summary = string(*item.ImageGeneration.SavedPath)
 	}
-	return ActivityEvent{ProviderItemID: item.ImageGeneration.ID, Kind: ActivityKindImageGeneration, Status: item.ImageGeneration.Status, Title: "Generated image", Summary: summary}, nil
+	return ActivityEvent{ProviderItemID: item.ImageGeneration.ID, Kind: ActivityKindArtifact, Status: item.ImageGeneration.Status, Title: "Generated image", Summary: summary}, nil
 }
 
 func sleepActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.Sleep == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	return ActivityEvent{ProviderItemID: item.Sleep.ID, Kind: ActivityKindSleep, Status: "completed", Title: "Waited", Summary: fmt.Sprintf("%d ms", item.Sleep.DurationMs), DurationMs: intPointer(item.Sleep.DurationMs)}, nil
+	return ActivityEvent{ProviderItemID: item.Sleep.ID, Kind: ActivityKindOther, Status: "completed", Title: "Waited", Summary: fmt.Sprintf("%d ms", item.Sleep.DurationMs)}, nil
 }
 
 func otherActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
@@ -217,17 +198,17 @@ func otherActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 		if item.EnteredReviewMode == nil {
 			return ActivityEvent{}, missingThreadItemPayload(item.Type)
 		}
-		return ActivityEvent{ProviderItemID: item.EnteredReviewMode.ID, Kind: ActivityKindHook, Status: "completed", Title: "Entered review mode", Summary: item.EnteredReviewMode.Review}, nil
+		return ActivityEvent{ProviderItemID: item.EnteredReviewMode.ID, Kind: ActivityKindOther, Status: "completed", Title: "Entered review mode", Summary: item.EnteredReviewMode.Review}, nil
 	case codexapp.ThreadItemTypeExitedReviewMode:
 		if item.ExitedReviewMode == nil {
 			return ActivityEvent{}, missingThreadItemPayload(item.Type)
 		}
-		return ActivityEvent{ProviderItemID: item.ExitedReviewMode.ID, Kind: ActivityKindHook, Status: "completed", Title: "Exited review mode", Summary: item.ExitedReviewMode.Review}, nil
+		return ActivityEvent{ProviderItemID: item.ExitedReviewMode.ID, Kind: ActivityKindOther, Status: "completed", Title: "Exited review mode", Summary: item.ExitedReviewMode.Review}, nil
 	case codexapp.ThreadItemTypeContextCompaction:
 		if item.ContextCompaction == nil {
 			return ActivityEvent{}, missingThreadItemPayload(item.Type)
 		}
-		return ActivityEvent{ProviderItemID: item.ContextCompaction.ID, Kind: ActivityKindHook, Status: "completed", Title: "Compacted context"}, nil
+		return ActivityEvent{ProviderItemID: item.ContextCompaction.ID, Kind: ActivityKindOther, Status: "completed", Title: "Compacted context"}, nil
 	default:
 		return ActivityEvent{}, fmt.Errorf("%w: %s", errUnsupportedThreadItem, item.Type)
 	}
@@ -243,31 +224,4 @@ func cloneInt(value *int) *int {
 	}
 	copy := *value
 	return &copy
-}
-
-func firstString(values []string) string {
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
-}
-
-func intPointer(value int) *int {
-	return &value
-}
-
-func activityFileChangeKind(raw []byte) (string, *string, error) {
-	var value struct {
-		Type     string  `json:"type"`
-		MovePath *string `json:"move_path"`
-	}
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return "", nil, fmt.Errorf("decode file change kind: %w", err)
-	}
-	switch value.Type {
-	case "add", "delete", "update":
-		return value.Type, value.MovePath, nil
-	default:
-		return "", nil, fmt.Errorf("unsupported file change kind %q", value.Type)
-	}
 }

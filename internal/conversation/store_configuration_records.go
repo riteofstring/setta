@@ -376,31 +376,3 @@ ON CONFLICT(conversation_id) DO UPDATE SET
 	}
 	return transaction.recordStateMutation()
 }
-
-func (transaction *WriteTransaction) UpsertMasterVoiceSelection(selection MasterVoiceSelection) error {
-	if err := transaction.ensureActive(); err != nil {
-		return err
-	}
-	if err := selection.Validate(); err != nil {
-		return err
-	}
-	reuseJSON, err := encodeOptionalJSONColumn("master voice reuse", selection.Reuse)
-	if err != nil {
-		return err
-	}
-	_, err = transaction.tx.ExecContext(transaction.ctx, `
-INSERT INTO master_voice_selection (
-  singleton, selection, requested_voice_id, resolved_voice_id, reuse_json, updated_at
-) VALUES (1, ?, ?, ?, ?, ?)
-ON CONFLICT(singleton) DO UPDATE SET
-  selection = excluded.selection,
-  requested_voice_id = excluded.requested_voice_id,
-  resolved_voice_id = excluded.resolved_voice_id,
-  reuse_json = excluded.reuse_json,
-  updated_at = excluded.updated_at
-`, selection.Selection, nullableString(selection.RequestedVoiceID), nullableString(selection.ResolvedVoiceID), reuseJSON, selection.UpdatedAt)
-	if err != nil {
-		return fmt.Errorf("upsert master voice selection: %w", err)
-	}
-	return transaction.recordStateMutation()
-}

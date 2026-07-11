@@ -72,7 +72,6 @@ type WorkspaceUIPane struct {
 	Subtitle                  string                         `json:"subtitle"`
 	SurfaceID                 string                         `json:"surfaceId"`
 	SurfaceKind               SurfaceKind                    `json:"surfaceKind"`
-	EasyButtonConfig          *EasyButtonPaneConfig          `json:"easyButtonConfig"`
 	TerminalConfig            *TerminalPaneConfig            `json:"terminalConfig"`
 	Title                     string                         `json:"title"`
 	Tone                      PaneTone                       `json:"tone"`

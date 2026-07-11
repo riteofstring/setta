@@ -27,44 +27,6 @@ func (runtime *Runtime) RunTurn(ctx context.Context, request TurnRequest, sink E
 	return runtime.waitForProviderTurn(ctx, session, base, sink)
 }
 
-// ObserveTurn attaches a new app-server session to a provider turn that was
-// already active when Setta restarted. It never starts or replays user input.
-func (runtime *Runtime) ObserveTurn(ctx context.Context, request ObserveTurnRequest, sink EventSink) (TurnResult, error) {
-	if runtime == nil || runtime.manager == nil {
-		return TurnResult{}, errors.New("agent runtime is required")
-	}
-	if sink == nil {
-		return TurnResult{}, errors.New("agent event sink is required")
-	}
-	if err := request.Validate(); err != nil {
-		return TurnResult{}, err
-	}
-	session, err := runtime.manager.NewSession(ctx)
-	if err != nil {
-		return TurnResult{}, fmt.Errorf("create observed agent turn session: %w", err)
-	}
-	defer session.Close()
-	turnRequest := TurnRequest{ConversationID: request.ConversationID, TurnID: request.TurnID, ProviderThreadID: request.ProviderThreadID}
-	if err := session.OwnThread(request.ProviderThreadID); err != nil {
-		return TurnResult{}, err
-	}
-	if err := runtime.reserveTurn(turnRequest, session); err != nil {
-		return TurnResult{}, err
-	}
-	defer runtime.releaseTurn(request.ConversationID)
-	if err := session.OwnTurn(request.ProviderThreadID, request.ProviderTurnID); err != nil {
-		return TurnResult{}, err
-	}
-	if err := runtime.setProviderTurnID(request.ConversationID, request.ProviderTurnID); err != nil {
-		return TurnResult{}, err
-	}
-	base := Event{
-		ConversationID: request.ConversationID, TurnID: request.TurnID,
-		ProviderThreadID: request.ProviderThreadID, ProviderTurnID: request.ProviderTurnID,
-	}
-	return runtime.waitForProviderTurn(ctx, session, base, sink)
-}
-
 func validateRunTurn(runtime *Runtime, request TurnRequest, sink EventSink) error {
 	if runtime == nil || runtime.manager == nil {
 		return errors.New("agent runtime is required")

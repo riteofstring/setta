@@ -43,14 +43,6 @@ INSERT INTO conversations (
 	if err != nil {
 		return fmt.Errorf("insert conversation %s: %w", conversation.ID, err)
 	}
-	if _, err := transaction.tx.ExecContext(transaction.ctx, `
-INSERT INTO conversation_current_projection (
-  conversation_id, accepted_steering_json, active_activities_json,
-  active_subagents_json, updated_through_sequence
-) VALUES (?, '[]', '[]', '[]', 0)
-`, conversation.ID); err != nil {
-		return fmt.Errorf("insert current projection %s: %w", conversation.ID, err)
-	}
 	return transaction.recordStateMutation()
 }
 

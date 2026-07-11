@@ -3,24 +3,10 @@ package speech
 import "time"
 
 type SpeechProviderStatus string
-type VoiceID string
-type SpeakerKind string
-type SpeechSourceKind string
 
 const (
 	SpeechProviderStatusConfigured    SpeechProviderStatus = "configured"
 	SpeechProviderStatusNotConfigured SpeechProviderStatus = "not_configured"
-)
-
-const (
-	SpeakerMaster   SpeakerKind = "master"
-	SpeakerNarrator SpeakerKind = "narrator"
-
-	SpeechSourceMasterAnswer SpeechSourceKind = "master_answer"
-	SpeechSourceStatusReply  SpeechSourceKind = "status_reply"
-	SpeechSourceAttention    SpeechSourceKind = "attention"
-	SpeechSourceFinalSummary SpeechSourceKind = "final_summary"
-	SpeechSourceMilestone    SpeechSourceKind = "milestone"
 )
 
 const (
@@ -48,34 +34,6 @@ type SpeechCapabilities struct {
 	MaximumTranscriptCharacters int                  `json:"maximumTranscriptCharacters"`
 	MaximumSynthesisCharacters  int                  `json:"maximumSynthesisCharacters"`
 	AIVoiceDisclosure           string               `json:"aiVoiceDisclosure"`
-}
-
-type SpeechVoice struct {
-	ID VoiceID `json:"id"`
-}
-
-type SpeechVoiceCatalog struct {
-	Version string        `json:"version"`
-	Voices  []SpeechVoice `json:"voices"`
-}
-
-type SourcedSynthesisRequest struct {
-	SourceEventID  string           `json:"sourceEventId"`
-	SourceKind     SpeechSourceKind `json:"sourceKind"`
-	Speaker        SpeakerKind      `json:"speaker"`
-	ConversationID *string          `json:"conversationId"`
-	Text           string           `json:"text"`
-}
-
-type SourcedSpeechAudio struct {
-	AudioBase64     string           `json:"audioBase64"`
-	MediaType       string           `json:"mediaType"`
-	Format          string           `json:"format"`
-	SourceEventID   string           `json:"sourceEventId"`
-	SourceKind      SpeechSourceKind `json:"sourceKind"`
-	Speaker         SpeakerKind      `json:"speaker"`
-	ConversationID  *string          `json:"conversationId"`
-	ResolvedVoiceID VoiceID          `json:"resolvedVoiceId"`
 }
 
 type SpeechTranscriptionSession struct {
@@ -115,29 +73,7 @@ func ContractValueSets() []ContractValueSet {
 	return []ContractValueSet{{
 		Name:   "SpeechProviderStatus",
 		Values: stringValues(speechProviderStatusValues),
-	}, {
-		Name: "VoiceID", Values: voiceIDStrings(VoiceCatalog()),
-	}, {
-		Name: "SpeakerKind", Values: []string{string(SpeakerMaster), string(SpeakerNarrator)},
-	}, {
-		Name: "SpeechSourceKind", Values: []string{string(SpeechSourceMasterAnswer), string(SpeechSourceStatusReply), string(SpeechSourceAttention), string(SpeechSourceFinalSummary), string(SpeechSourceMilestone)},
 	}}
-}
-
-func VoiceCatalog() []VoiceID {
-	result := make([]VoiceID, len(synthesisVoiceCatalog))
-	for index, voice := range synthesisVoiceCatalog {
-		result[index] = VoiceID(voice)
-	}
-	return result
-}
-
-func VoiceCatalogVersion() string {
-	return openAIContractSourceCommit
-}
-
-func voiceIDStrings(values []VoiceID) []string {
-	return stringValues(values)
 }
 
 func stringValues[T ~string](values []T) []string {

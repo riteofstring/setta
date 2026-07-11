@@ -22,20 +22,13 @@ type speechSynthesisRequest struct {
 }
 
 func (client *OpenAIClient) SynthesizeSpeech(ctx context.Context, text string) (SynthesizedAudio, error) {
-	return client.SynthesizeSpeechWithVoice(ctx, text, VoiceID(SynthesisVoice))
-}
-
-func (client *OpenAIClient) SynthesizeSpeechWithVoice(ctx context.Context, text string, voice VoiceID) (SynthesizedAudio, error) {
 	if err := validateSynthesisText(text); err != nil {
 		return SynthesizedAudio{}, err
-	}
-	if !supportedVoice(voice) {
-		return SynthesizedAudio{}, fmt.Errorf("speech voice %q is unavailable", voice)
 	}
 	payload := speechSynthesisRequest{
 		Model:          SynthesisModel,
 		Input:          text,
-		Voice:          string(voice),
+		Voice:          SynthesisVoice,
 		ResponseFormat: OpenAISynthesisResponseFormat,
 	}
 	response, err := client.postJSON(
@@ -64,15 +57,6 @@ func (client *OpenAIClient) SynthesizeSpeechWithVoice(ctx context.Context, text 
 		return SynthesizedAudio{}, fmt.Errorf("validate canonical speech WAV: %w", err)
 	}
 	return SynthesizedAudio{Bytes: audio, MediaType: SynthesisMediaType, Format: SynthesisFormat}, nil
-}
-
-func supportedVoice(voice VoiceID) bool {
-	for _, candidate := range VoiceCatalog() {
-		if candidate == voice {
-			return true
-		}
-	}
-	return false
 }
 
 func canonicalWAVFromOpenAIPCM(pcm []byte) ([]byte, error) {

@@ -82,16 +82,6 @@ func (request TurnControlRequest) Validate(requireText bool) error {
 	return nil
 }
 
-func (request ObserveTurnRequest) Validate() error {
-	if strings.TrimSpace(request.ConversationID) == "" || strings.TrimSpace(request.TurnID) == "" {
-		return errors.New("observed agent turn requires conversation and Setta turn ids")
-	}
-	if strings.TrimSpace(request.ProviderThreadID) == "" || strings.TrimSpace(request.ProviderTurnID) == "" {
-		return errors.New("observed agent turn requires provider thread and turn ids")
-	}
-	return nil
-}
-
 func validateWorkspaceRoot(root string) error {
 	if strings.TrimSpace(root) == "" {
 		return errors.New("agent workspace root is required")

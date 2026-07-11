@@ -138,7 +138,6 @@ describe("real workspace layout scene", () => {
               "Terminal",
             ),
             surfaceKind: "terminal",
-            easyButtonConfig: null,
             terminalConfig: {
               cwdOverride: "",
               profileId: "default",
@@ -242,7 +241,6 @@ function storedPane(paneId: string, columnId: string, surfaceId: string, title: 
     subtitle: "Repo",
     surfaceId,
     surfaceKind: "chat-dom" as const,
-    easyButtonConfig: null,
     terminalConfig: null,
     title,
     tone: "cyan" as const,

@@ -23,20 +23,19 @@ const (
 type ConversationEventType string
 
 const (
-	ConversationEventTypeConversationUpdated          ConversationEventType = "conversation.updated"
-	ConversationEventTypeTurnUpdated                  ConversationEventType = "conversation.turn.updated"
-	ConversationEventTypeQueueUpdated                 ConversationEventType = "conversation.queue.updated"
-	ConversationEventTypeThreadBindingUpdated         ConversationEventType = "conversation.thread_binding.updated"
-	ConversationEventTypeTrajectoryAppended           ConversationEventType = "conversation.trajectory.appended"
-	ConversationEventTypeArtifactCreated              ConversationEventType = "conversation.artifact.created"
-	ConversationEventTypeNarratorStateUpdated         ConversationEventType = "conversation.narrator_state.updated"
-	ConversationEventTypeNarrationCreated             ConversationEventType = "conversation.narration.created"
-	ConversationEventTypeRoleProfileOverrideUpdated   ConversationEventType = "conversation.role_profile_override.updated"
-	ConversationEventTypePresentationProfileUpdated   ConversationEventType = "conversation.presentation_profile.updated"
-	ConversationEventTypeBranchCreated                ConversationEventType = "conversation.branch.created"
-	ConversationEventTypeSideConversationUpdated      ConversationEventType = "conversation.side_conversation.updated"
-	ConversationEventTypeSideConversationEventCreated ConversationEventType = "conversation.side_conversation.event.created"
-	ConversationEventTypeResyncRequired               ConversationEventType = "conversation.resync_required"
+	ConversationEventTypeConversationUpdated        ConversationEventType = "conversation.updated"
+	ConversationEventTypeTurnUpdated                ConversationEventType = "conversation.turn.updated"
+	ConversationEventTypeQueueUpdated               ConversationEventType = "conversation.queue.updated"
+	ConversationEventTypeThreadBindingUpdated       ConversationEventType = "conversation.thread_binding.updated"
+	ConversationEventTypeTrajectoryAppended         ConversationEventType = "conversation.trajectory.appended"
+	ConversationEventTypeArtifactCreated            ConversationEventType = "conversation.artifact.created"
+	ConversationEventTypeNarratorStateUpdated       ConversationEventType = "conversation.narrator_state.updated"
+	ConversationEventTypeNarrationCreated           ConversationEventType = "conversation.narration.created"
+	ConversationEventTypeRoleProfileOverrideUpdated ConversationEventType = "conversation.role_profile_override.updated"
+	ConversationEventTypePresentationProfileUpdated ConversationEventType = "conversation.presentation_profile.updated"
+	ConversationEventTypeBranchCreated              ConversationEventType = "conversation.branch.created"
+	ConversationEventTypeSideConversationUpdated    ConversationEventType = "conversation.side_conversation.updated"
+	ConversationEventTypeResyncRequired             ConversationEventType = "conversation.resync_required"
 )
 
 var conversationEventTypeValues = []ConversationEventType{
@@ -52,7 +51,6 @@ var conversationEventTypeValues = []ConversationEventType{
 	ConversationEventTypePresentationProfileUpdated,
 	ConversationEventTypeBranchCreated,
 	ConversationEventTypeSideConversationUpdated,
-	ConversationEventTypeSideConversationEventCreated,
 	ConversationEventTypeResyncRequired,
 }
 
@@ -91,7 +89,6 @@ type ConversationSnapshot struct {
 	Queue                []QueuedConversationTurn        `json:"queue"`
 	ThreadBinding        *AgentThreadBinding             `json:"threadBinding"`
 	Trajectory           ConversationTrajectoryWindow    `json:"trajectory"`
-	CurrentProjection    ConversationCurrentProjection   `json:"currentProjection"`
 	Artifacts            ConversationArtifactWindow      `json:"artifacts"`
 	NarratorState        NarratorState                   `json:"narratorState"`
 	Narration            ConversationNarrationWindow     `json:"narration"`
@@ -186,11 +183,6 @@ type ConversationSideConversationUpdatedEventPayload struct {
 	SideConversation SideConversation      `json:"sideConversation"`
 }
 
-type ConversationSideConversationEventCreatedEventPayload struct {
-	Type  ConversationEventType `json:"type"`
-	Event SideConversationEvent `json:"event"`
-}
-
 type ConversationResyncRequiredEventPayload struct {
 	Type              ConversationEventType `json:"type"`
 	Reason            string                `json:"reason"`
@@ -241,12 +233,6 @@ func (snapshot ConversationSnapshot) Validate() error {
 	conversationID := snapshot.Conversation.ID
 	if err := validateSnapshotExecution(snapshot, conversationID); err != nil {
 		return err
-	}
-	if err := snapshot.CurrentProjection.Validate(); err != nil {
-		return err
-	}
-	if snapshot.CurrentProjection.ConversationID != conversationID || snapshot.CurrentProjection.UpdatedThroughSequence != snapshot.Conversation.LastTrajectorySequence {
-		return fmt.Errorf("conversation current projection cursor or ownership does not match snapshot")
 	}
 	if err := validateSnapshotNarrator(snapshot, conversationID); err != nil {
 		return err
@@ -802,20 +788,6 @@ func (payload ConversationSideConversationUpdatedEventPayload) validateConversat
 	return validateEventPayloadOwner("conversation.side_conversation.updated", payload.SideConversation.ParentConversationID, conversationID)
 }
 
-func (payload ConversationSideConversationEventCreatedEventPayload) conversationEventType() ConversationEventType {
-	return ConversationEventTypeSideConversationEventCreated
-}
-
-func (payload ConversationSideConversationEventCreatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
-	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
-		return err
-	}
-	if err := payload.Event.Validate(); err != nil {
-		return err
-	}
-	return validateEventPayloadOwner("conversation.side_conversation.event.created", payload.Event.ParentConversationID, conversationID)
-}
-
 func (payload ConversationResyncRequiredEventPayload) conversationEventType() ConversationEventType {
 	return ConversationEventTypeResyncRequired
 }
@@ -898,7 +870,6 @@ func ContractUnions() []ContractUnion {
 			contractEventVariant(ConversationEventTypePresentationProfileUpdated, ConversationPresentationProfileUpdatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeBranchCreated, ConversationBranchCreatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeSideConversationUpdated, ConversationSideConversationUpdatedEventPayload{}),
-			contractEventVariant(ConversationEventTypeSideConversationEventCreated, ConversationSideConversationEventCreatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeResyncRequired, ConversationResyncRequiredEventPayload{}),
 		},
 	}}
@@ -973,7 +944,6 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("InvocationOutcome", InvocationOutcomeRunning, InvocationOutcomeSucceeded, InvocationOutcomeFailed, InvocationOutcomeCancelled),
 		contractValueSet("BranchKind", BranchKindFork),
 		contractValueSet("SideConversationStatus", SideConversationStatusPreparing, SideConversationStatusActive, SideConversationStatusDisposing, SideConversationStatusFailed),
-		contractValueSet("SideConversationEventKind", SideConversationEventAgentTextDelta, SideConversationEventAgentTextCompleted, SideConversationEventActivity, SideConversationEventTerminal),
 		contractValueSet("NarratorStatus", NarratorStatusReady, NarratorStatusRunning, NarratorStatusDegraded),
 		contractValueSet("NarrationEventKind", NarrationEventKindMilestone, NarrationEventKindStatusReply, NarrationEventKindFinalSummary, NarrationEventKindTopicDescriptor),
 		contractValueSet("NarrationTrigger", NarrationTriggerProgressWindowElapsed, NarrationTriggerPlanChanged, NarrationTriggerPhaseActivityCompleted, NarrationTriggerApprovalRequired, NarrationTriggerUserSteered, NarrationTriggerExplicitStatusRequested, NarrationTriggerTurnTerminal, NarrationTriggerCheckpointWindowExceeded),
@@ -994,7 +964,6 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("TurnInterruptionReason", TurnInterruptionUserRequested, TurnInterruptionProviderInterrupted, TurnInterruptionRuntimeShutdown, TurnInterruptionReconciliation),
 		{Name: "ConversationEventType", Values: stringValues(conversationEventTypeValues)},
 		{Name: "ConversationPaletteID", Values: stringValues(conversationpalette.IDs())},
-		contractValueSet("ApprovalSubmissionDecision", ApprovalSubmissionAccept, ApprovalSubmissionDecline, ApprovalSubmissionCancel),
 	}
 }
 

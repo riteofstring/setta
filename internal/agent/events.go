@@ -56,41 +56,21 @@ type PlanEvent struct {
 type ActivityKind string
 
 const (
-	ActivityKindCommand         ActivityKind = "command"
-	ActivityKindFileChange      ActivityKind = "file_change"
-	ActivityKindMCPTool         ActivityKind = "mcp_tool"
-	ActivityKindDynamicTool     ActivityKind = "dynamic_tool"
-	ActivityKindSubagent        ActivityKind = "subagent"
-	ActivityKindWebSearch       ActivityKind = "web_search"
-	ActivityKindImageView       ActivityKind = "image_view"
-	ActivityKindImageGeneration ActivityKind = "image_generation"
-	ActivityKindSleep           ActivityKind = "sleep"
-	ActivityKindHook            ActivityKind = "hook"
+	ActivityKindCommand    ActivityKind = "command"
+	ActivityKindFileChange ActivityKind = "file_change"
+	ActivityKindTool       ActivityKind = "tool"
+	ActivityKindSubagent   ActivityKind = "subagent"
+	ActivityKindArtifact   ActivityKind = "artifact"
+	ActivityKindOther      ActivityKind = "other"
 )
 
-type ActivityFileChange struct {
-	Path     string  `json:"path"`
-	Kind     string  `json:"kind"`
-	MovePath *string `json:"movePath,omitempty"`
-	Diff     string  `json:"diff"`
-}
-
 type ActivityEvent struct {
-	ProviderItemID   string               `json:"providerItemId"`
-	Kind             ActivityKind         `json:"kind"`
-	Status           string               `json:"status"`
-	Title            string               `json:"title"`
-	Summary          string               `json:"summary,omitempty"`
-	ExitCode         *int                 `json:"exitCode,omitempty"`
-	Command          string               `json:"command,omitempty"`
-	CWD              string               `json:"cwd,omitempty"`
-	Server           string               `json:"server,omitempty"`
-	Tool             string               `json:"tool,omitempty"`
-	Namespace        string               `json:"namespace,omitempty"`
-	ProcessID        string               `json:"processId,omitempty"`
-	ProviderThreadID string               `json:"providerThreadId,omitempty"`
-	DurationMs       *int                 `json:"durationMs,omitempty"`
-	FileChanges      []ActivityFileChange `json:"fileChanges,omitempty"`
+	ProviderItemID string       `json:"providerItemId"`
+	Kind           ActivityKind `json:"kind"`
+	Status         string       `json:"status"`
+	Title          string       `json:"title"`
+	Summary        string       `json:"summary,omitempty"`
+	ExitCode       *int         `json:"exitCode,omitempty"`
 }
 
 type ApprovalKind string
@@ -112,15 +92,14 @@ type ApprovalQuestion struct {
 }
 
 type ApprovalRequest struct {
-	ID                         string             `json:"id"`
-	ProviderItemID             string             `json:"providerItemId"`
-	Kind                       ApprovalKind       `json:"kind"`
-	Title                      string             `json:"title"`
-	Body                       string             `json:"body,omitempty"`
-	Command                    string             `json:"command,omitempty"`
-	Path                       string             `json:"path,omitempty"`
-	RequestedPermissionProfile string             `json:"requestedPermissionProfile,omitempty"`
-	Questions                  []ApprovalQuestion `json:"questions,omitempty"`
+	ID             string             `json:"id"`
+	ProviderItemID string             `json:"providerItemId"`
+	Kind           ApprovalKind       `json:"kind"`
+	Title          string             `json:"title"`
+	Body           string             `json:"body,omitempty"`
+	Command        string             `json:"command,omitempty"`
+	Path           string             `json:"path,omitempty"`
+	Questions      []ApprovalQuestion `json:"questions,omitempty"`
 }
 
 type ModelRerouteEvent struct {
