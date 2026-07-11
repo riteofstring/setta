@@ -6,6 +6,13 @@ import type {
   StopEasyRunRequest,
 } from "@generated/backend";
 
+export const easyRunIpcChannels = {
+  easyRunSnapshot: "easy-run:snapshot",
+  easyRunStart: "easy-run:start",
+  easyRunSteer: "easy-run:steer",
+  easyRunStop: "easy-run:stop",
+} as const;
+
 export type EasyRunSteerResult =
   | {
       kind: "success";

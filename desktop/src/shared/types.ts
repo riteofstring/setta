@@ -108,15 +108,21 @@ import type {
   SemanticSteeringState,
   SendMessageResult,
   SelectDefaultTerminalProfileRequest,
+  SpeechAudio,
+  SpeechCapabilities,
+  SpeechTranscriptionSession,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   StartEasyRunRequest,
+  CreateSpeechTranscriptionSessionRequest,
   SteerEasyRunRequest,
   SteerMessageResult,
   SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
   StopEasyRunRequest,
+  SynthesizeEasyRunHighlightRequest,
+  SynthesizeEasyRunSummaryRequest,
   StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
@@ -399,6 +405,16 @@ export interface SettaAPI {
     start: (request: StartEasyRunRequest) => Promise<EasyRun>;
     steer: (request: SteerEasyRunRequest) => Promise<EasyRunSteerResult>;
     stop: (request: StopEasyRunRequest) => Promise<EasyRun>;
+  };
+  speech: {
+    createTranscriptionSession: (
+      request: CreateSpeechTranscriptionSessionRequest,
+    ) => Promise<SpeechTranscriptionSession>;
+    readCapabilities: () => Promise<SpeechCapabilities>;
+    synthesizeEasyRunHighlight: (
+      request: SynthesizeEasyRunHighlightRequest,
+    ) => Promise<SpeechAudio>;
+    synthesizeEasyRunSummary: (request: SynthesizeEasyRunSummaryRequest) => Promise<SpeechAudio>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

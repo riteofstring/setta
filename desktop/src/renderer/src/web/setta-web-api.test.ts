@@ -150,6 +150,83 @@ describe("web SettaAPI unpaired runtime state", () => {
       operationApplied: true,
     });
   });
+
+  test("exposes authenticated generated speech operations", async () => {
+    withWebGlobals();
+    const requests: Array<{ authorization: string | null; body: unknown; path: string }> = [];
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        const headers = new Headers(init.headers);
+        requests.push({
+          authorization: headers.get("Authorization"),
+          body: typeof init.body === "string" ? JSON.parse(init.body) : null,
+          path: input.pathname,
+        });
+        const speechResponse = webSpeechResponse(input.pathname);
+        if (speechResponse) {
+          return speechResponse;
+        }
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+    });
+    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+    requests.length = 0;
+
+    const capabilities = await api.speech.readCapabilities();
+    const session = await api.speech.createTranscriptionSession({
+      workspaceId: "workspace_api",
+    });
+    const summary = await api.speech.synthesizeEasyRunSummary({
+      easyRunId: "easy_run_api",
+      workspaceId: "workspace_api",
+    });
+    const highlight = await api.speech.synthesizeEasyRunHighlight({
+      easyRunId: "easy_run_api",
+      highlightId: "highlight_api",
+      workspaceId: "workspace_api",
+    });
+
+    expect(capabilities.providerStatus).toBe("configured");
+    expect(session.clientSecret).toBe("ek_web_ephemeral");
+    expect(summary.sourceId).toBe("easy_run_api:summary");
+    expect(highlight.sourceId).toBe("highlight_api");
+    expect(requests).toEqual([
+      { authorization: "Bearer token_web", body: null, path: "/speech/capabilities" },
+      {
+        authorization: "Bearer token_web",
+        body: { workspaceId: "workspace_api" },
+        path: "/speech/transcription/sessions",
+      },
+      {
+        authorization: "Bearer token_web",
+        body: { easyRunId: "easy_run_api", workspaceId: "workspace_api" },
+        path: "/speech/easy-runs/summary",
+      },
+      {
+        authorization: "Bearer token_web",
+        body: {
+          easyRunId: "easy_run_api",
+          highlightId: "highlight_api",
+          workspaceId: "workspace_api",
+        },
+        path: "/speech/easy-runs/highlight",
+      },
+    ]);
+  });
 });
 
 function withWebGlobals() {
@@ -204,6 +281,47 @@ function jsonResponse(payload: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
     status,
   });
+}
+
+function speechAudioResponse(sourceId: string): Response {
+  return jsonResponse({
+    audioBase64: "UklGRiQAAABXQVZFZm10IA==",
+    format: "wav",
+    mediaType: "audio/wav",
+    sourceId,
+  });
+}
+
+function webSpeechResponse(path: string): Response | null {
+  switch (path) {
+    case "/speech/capabilities":
+      return jsonResponse({
+        aiVoiceDisclosure: "This voice is AI-generated.",
+        maximumRecordingSeconds: 120,
+        maximumSynthesisCharacters: 4096,
+        maximumTranscriptCharacters: 8000,
+        providerStatus: "configured",
+        synthesisModel: "gpt-4o-mini-tts",
+        synthesisVoice: "marin",
+        transcriptionModel: "gpt-realtime-whisper",
+      });
+    case "/speech/transcription/sessions":
+      return jsonResponse({
+        clientSecret: "ek_web_ephemeral",
+        expiresAt: "2026-07-10T18:10:00Z",
+        maximumRecordingSeconds: 120,
+        maximumTranscriptCharacters: 8000,
+        transcriptionDelay: "medium",
+        transcriptionModel: "gpt-realtime-whisper",
+        webRTCURL: "https://api.openai.com/v1/realtime/calls",
+      });
+    case "/speech/easy-runs/summary":
+      return speechAudioResponse("easy_run_api:summary");
+    case "/speech/easy-runs/highlight":
+      return speechAudioResponse("highlight_api");
+    default:
+      return null;
+  }
 }
 
 async function waitFor(assertion: () => boolean): Promise<void> {

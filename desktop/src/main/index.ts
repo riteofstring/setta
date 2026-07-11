@@ -35,6 +35,7 @@ import { registerEasyRunIpcHandlers } from "./easy-run-ipc";
 import { KnownRuntimeStore } from "./known-runtime-store";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
+import { registerSpeechIpcHandlers } from "./speech-ipc";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { startSemanticGraphEventForwarding } from "./semantic-graph-event-forwarding-stream";
@@ -652,6 +653,7 @@ function registerIpc() {
   );
   registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerEasyRunIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerSpeechIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerChatIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });

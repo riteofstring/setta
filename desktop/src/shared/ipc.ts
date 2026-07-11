@@ -135,7 +135,8 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
-import type { EasyRunIpcContract } from "./easy-run-ipc";
+import { easyRunIpcChannels, type EasyRunIpcContract } from "./easy-run-ipc";
+import { speechIpcChannels, type SpeechIpcContract } from "./speech-ipc";
 import type {
   AppWindowDragPoint,
   InstalledEditorApp,
@@ -200,10 +201,8 @@ export const ipcChannels = {
   chatSelectImageAttachments: "chat:select-image-attachments",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
-  easyRunSnapshot: "easy-run:snapshot",
-  easyRunStart: "easy-run:start",
-  easyRunSteer: "easy-run:steer",
-  easyRunStop: "easy-run:stop",
+  ...easyRunIpcChannels,
+  ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
   codexAccountRead: "codex-account:read",
@@ -312,7 +311,7 @@ export const ipcEvents = {
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract extends EasyRunIpcContract {
+interface IpcContract extends EasyRunIpcContract, SpeechIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];

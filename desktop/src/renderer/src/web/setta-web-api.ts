@@ -29,6 +29,7 @@ import {
 } from "./setta-web-api-utils";
 import { steerEasyRunForWeb } from "./easy-run-web-api";
 import { subscribeForWebPush } from "./setta-web-push";
+import { createSpeechWebAPI } from "./speech-web-api";
 
 const webDeviceStorageKey = "setta.web.device-session.v1";
 const reconnectDelayMs = 500;
@@ -344,6 +345,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       },
       switch: async () => runtimeSnapshot("same-origin web runtime is already active"),
     },
+    speech: createSpeechWebAPI(requireClient),
     semanticGraph: {
       acceptCartographerPatch: (request) => requireClient().acceptCartographerPatch(request),
       attachChatMessage: (request) => requireClient().attachSemanticNodeToChatMessage(request),

@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-2 complete
+**Status:** Implementation in progress — Phases 1-2 and Phase 3 item 1 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2207,6 +2207,77 @@ Then add the renderer-owned Realtime transport, microphone permission boundary,
 and exhaustive capture state machine in items 2-8. The live Codex `max` drift
 and pinned-toolchain advisory do not block that deterministic implementation
 work.
+
+### 2026-07-10 — Phase 3 speech API surfaces complete
+
+Implemented Phase 3 item 1 without pulling WebRTC, microphone permission,
+capture state, or voice UI forward. The shared `SettaAPI` now has a required
+speech namespace for capabilities, transcription-session creation, persisted
+summary synthesis, and persisted highlight synthesis. Electron main registers
+typed handlers over the generated backend client, preload exposes the same
+typed calls, and the paired web client maps them through its authenticated
+generated client. Speech IPC channel values and argument/result contracts live
+at the speech boundary; the existing Easy Run channel values were moved to
+their corresponding owner while keeping the aggregate typed IPC surface.
+
+The Electron session recorder now observes speech calls without persisting
+sensitive results. Capability results remain inspectable, while Realtime
+session and synthesized-audio results are replaced in recorder events with
+typed redaction metadata. The renderer still receives the complete generated
+response needed by later transport and playback work. Focused coverage proves
+that the real client secret and WAV base64 cross the requested IPC call but are
+absent from observed results.
+
+A new required deterministic Electron workflow exercises all four operations
+through the production renderer global, preload, main, authenticated generated
+HTTP client, runtime speech service, Easy Run store, and a fake OpenAI server.
+It opens a temporary workspace, mints a transcription session, completes a
+scripted Easy Run with two narrator highlights, synthesizes the exact persisted
+summary and highlight, validates provider authorization and request shapes, and
+scans every text recording artifact for the permanent key, client secret, and
+audio base64. The checked-in PWA bundle was regenerated from the web adapter.
+
+Verification completed for this slice:
+
+- focused main IPC, preload, web adapter, and shared IPC Vitest coverage passed;
+- all 998 desktop Vitest tests, Electron/web typechecks, and both production
+  builds passed;
+- contract regeneration was idempotent, and the contract-generator and
+  embedded-webapp Go suites passed;
+- the focused production speech API workflow passed at
+  `.recordings/easy-button-speech-phase3-api-20260710`; its terminal screenshot
+  was inspected, its fake provider received exactly one Realtime request and
+  two exact-source TTS requests, and its recordings contain none of the three
+  sensitive sentinels;
+- the complete existing production Easy Button workflow passed at
+  `.recordings/easy-button-speech-phase3-api-regression-20260710`, preserving
+  start, streaming, typed steering, Current focus, narrator-only NOW, terminal,
+  stop, reload/restart, compact/reduced-motion, and pixel-match behavior;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes`
+  passed. The first quality pass found only slice-owned complexity thresholds
+  in the web and fake-provider test fixtures; those validations were split at
+  their owning boundaries, and focused complexity plus adapter tests passed
+  before the complete gate rerun.
+
+`SETTA_OPENAI_SPEECH_API_KEY` is unavailable, and the opt-in live OpenAI speech
+workflow remains intentionally deferred to the later acceptance phase, so no
+live OpenAI speech proof is claimed. This adapter-only slice does not change
+chat delivery, Codex protocol handling, run lifecycle, or provider steering,
+so it does not require another live Codex attempt; the existing signed-in
+`max` reasoning-effort drift remains separate from this work. No dependency,
+module, manifest, package-manager, or toolchain input changed.
+
+The broad supply-chain audit was nevertheless rerun. Its release-age and module
+tidy checks passed, but vulnerability scanning remains blocked by
+GO-2026-5856 in the pinned Go 1.26.4 standard library, fixed in Go 1.26.5.
+Updating the pinned toolchain remains separate dependency work and does not
+block Phase 3 item 2.
+
+Phase 3 item 2 is next: add the renderer-owned WebRTC transcription transport
+and strict Realtime event decoder, including stale session/item rejection and
+deterministic protocol tests. Electron microphone permissions and the complete
+capture/UI workflow remain ordered items 3-8. No deterministic blocker was
+found for item 2.
 
 ## Verification Plan
 

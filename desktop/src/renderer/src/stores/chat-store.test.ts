@@ -1066,6 +1066,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     },
     appearance: {} as SettaAPI["appearance"],
     runtimes: {} as SettaAPI["runtimes"],
+    speech: {} as SettaAPI["speech"],
     chat: {
       activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => testRun("cancelled"),
