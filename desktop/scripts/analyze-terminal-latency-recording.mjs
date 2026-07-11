@@ -13,14 +13,13 @@ if (!recordingDir || process.argv.includes("--help")) {
 }
 
 const root = resolve(recordingDir);
-const [events, ipc, rendererEvents, manifest] = await Promise.all([
+const [events, rendererEvents, manifest] = await Promise.all([
   readJsonLines(`${root}/events.jsonl`),
-  readJsonLines(`${root}/ipc.jsonl`),
   readJsonLines(`${root}/renderer-events.jsonl`),
   readJSON(`${root}/manifest.json`),
 ]);
 
-const inputSamples = collectInputSamples(events, ipc, rendererEvents);
+const inputSamples = collectInputSamples(events, rendererEvents);
 const clockCalibration = calibrateRemoteClock(inputSamples);
 applyRemoteClockCalibration(inputSamples, clockCalibration.offsetMs);
 const outputSamples = collectOutputSamples(events, rendererEvents, clockCalibration.offsetMs);
@@ -34,8 +33,9 @@ const report = {
       "mainToDispatch",
       "dispatchToHandler",
       "handlerToPTYWrite",
-      "dispatchToResponse",
+      "dispatchToAck",
       "rendererToPTYWrite",
+      "rendererToAck",
     ]),
   },
   output: {
@@ -55,9 +55,8 @@ const report = {
 
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 
-function collectInputSamples(events, ipc, rendererEvents) {
+function collectInputSamples(events, rendererEvents) {
   const samples = collectRendererInputSamples(rendererEvents);
-  attachPreloadInputTimes(samples, ipc);
   attachMainInputTimes(samples, events);
   return [...samples.values()].flatMap(toInputLatencySample);
 }
@@ -77,56 +76,60 @@ function collectRendererInputSamples(rendererEvents) {
   return samples;
 }
 
-function attachPreloadInputTimes(samples, ipc) {
-  for (const entry of ipc) {
-    if (entry.type !== "ipc_start" || entry.channel !== "terminal:input") continue;
-    const request = entry.args?.[0];
-    const sample = samples.get(inputKey(request?.trace, request?.sessionId));
-    if (sample) sample.preloadReceivedAt = request.trace.preloadReceivedAt;
-  }
-}
-
 function attachMainInputTimes(samples, events) {
   for (const entry of events) {
     const payload = entry.payload;
     const sample = samples.get(inputKey(payload));
     if (!sample) continue;
-    if (entry.type === "terminal_input_main_received")
-      sample.mainReceivedAt = payload.mainReceivedAt;
-    if (entry.type === "terminal_input_http_dispatched")
-      sample.httpDispatchedAt = payload.httpDispatchedAt;
-    if (entry.type === "terminal_input_http_response_received") {
-      sample.handlerReceivedAt = payload.handlerReceivedAt;
-      sample.ptyWriteCompletedAt = payload.ptyWriteCompletedAt;
-      sample.responseReceivedAt = payload.receivedAt;
-    }
+    attachMainInputEntry(sample, entry.type, payload);
   }
 }
 
+function attachMainInputEntry(sample, type, payload) {
+  if (type === "terminal_input_main_received") {
+    sample.mainReceivedAt = payload.mainReceivedAt;
+    sample.preloadReceivedAt = payload.preloadReceivedAt;
+  }
+  if (type === "terminal_input_stream_dispatched") {
+    sample.dispatches ??= [];
+    sample.dispatches.push(payload.dispatchedAt);
+  }
+  if (type !== "terminal_input_stream_ack_received") return;
+  sample.handlerReceivedAt = payload.handlerReceivedAt;
+  sample.ptyWriteCompletedAt = payload.ptyWriteCompletedAt;
+  sample.ackReceivedAt = payload.ackReceivedAt;
+}
+
 function toInputLatencySample(sample) {
+  const ackReceivedAt = Date.parse(sample.ackReceivedAt);
+  const dispatchedAt = (sample.dispatches ?? [])
+    .map(Date.parse)
+    .filter((value) => Number.isFinite(value) && value <= ackReceivedAt)
+    .sort((left, right) => right - left)[0];
+  if (!Number.isFinite(dispatchedAt)) return [];
   const times = parseTimes(sample, [
     "rendererReceivedAt",
     "preloadReceivedAt",
     "mainReceivedAt",
-    "httpDispatchedAt",
     "handlerReceivedAt",
     "ptyWriteCompletedAt",
-    "responseReceivedAt",
+    "ackReceivedAt",
   ]);
   if (!times) return [];
   return [
     {
       clockOffsetEstimate:
         (times.handlerReceivedAt + times.ptyWriteCompletedAt) / 2 -
-        (times.httpDispatchedAt + times.responseReceivedAt) / 2,
-      dispatchToResponse: times.responseReceivedAt - times.httpDispatchedAt,
+        (dispatchedAt + times.ackReceivedAt) / 2,
+      dispatchToAck: times.ackReceivedAt - dispatchedAt,
       handlerToPTYWrite: times.ptyWriteCompletedAt - times.handlerReceivedAt,
-      mainToDispatch: times.httpDispatchedAt - times.mainReceivedAt,
+      mainToDispatch: dispatchedAt - times.mainReceivedAt,
       preloadToMain: times.mainReceivedAt - times.preloadReceivedAt,
       rendererToPreload: times.preloadReceivedAt - times.rendererReceivedAt,
+      rendererToAck: times.ackReceivedAt - times.rendererReceivedAt,
       remoteHandlerReceivedAt: times.handlerReceivedAt,
       remotePTYWriteCompletedAt: times.ptyWriteCompletedAt,
-      localHTTPDispatchedAt: times.httpDispatchedAt,
+      localDispatchedAt: dispatchedAt,
       localRendererReceivedAt: times.rendererReceivedAt,
     },
   ];
@@ -187,27 +190,27 @@ function toOutputLatencySample(sample, remoteClockOffsetMs) {
 function calibrateRemoteClock(inputSamples) {
   const best = inputSamples.reduce(
     (current, sample) =>
-      current === null || sample.dispatchToResponse < current.dispatchToResponse ? sample : current,
+      current === null || sample.dispatchToAck < current.dispatchToAck ? sample : current,
     null,
   );
   return {
-    minimumRoundTripMs: best?.dispatchToResponse ?? null,
+    minimumRoundTripMs: best?.dispatchToAck ?? null,
     offsetMs: best?.clockOffsetEstimate ?? 0,
-    uncertaintyMs: best ? best.dispatchToResponse / 2 : null,
+    uncertaintyMs: best ? best.dispatchToAck / 2 : null,
   };
 }
 
 function applyRemoteClockCalibration(inputSamples, remoteClockOffsetMs) {
   for (const sample of inputSamples) {
     sample.dispatchToHandler =
-      sample.remoteHandlerReceivedAt - sample.localHTTPDispatchedAt - remoteClockOffsetMs;
+      sample.remoteHandlerReceivedAt - sample.localDispatchedAt - remoteClockOffsetMs;
     sample.rendererToPTYWrite =
       sample.remotePTYWriteCompletedAt - sample.localRendererReceivedAt - remoteClockOffsetMs;
   }
 }
 
-function inputKey(value, sessionId = value?.sessionId) {
-  return `${value?.clientId ?? ""}:${sessionId ?? ""}:${value?.inputSequence ?? 0}`;
+function inputKey(value, sessionId = value?.sessionId, inputSequence = value?.inputSequence) {
+  return `${value?.clientId ?? ""}:${sessionId ?? ""}:${inputSequence ?? 0}`;
 }
 
 function parseTimes(value, fields) {

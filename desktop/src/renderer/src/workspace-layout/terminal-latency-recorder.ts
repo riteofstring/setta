@@ -27,10 +27,8 @@ export function createTerminalInputTrace(sessionId: string, byteCount: number): 
     url: window.location?.href ?? "",
   });
   return {
-    httpDispatchedAt: "",
     clientId,
     inputSequence,
-    mainReceivedAt: "",
     preloadReceivedAt: "",
     rendererReceivedAt,
     runId,

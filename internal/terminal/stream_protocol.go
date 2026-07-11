@@ -114,6 +114,8 @@ type TerminalStreamInputAckMessage struct {
 	SessionID                 string                          `json:"sessionId"`
 	AcknowledgedInputSequence int                             `json:"acknowledgedInputSequence"`
 	AcceptedBytes             int                             `json:"acceptedBytes"`
+	HandlerReceivedAt         string                          `json:"handlerReceivedAt"`
+	PTYWriteCompletedAt       string                          `json:"ptyWriteCompletedAt"`
 }
 
 func (TerminalStreamInputAckMessage) terminalStreamServerMessage() {}

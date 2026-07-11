@@ -3,7 +3,6 @@ import { Buffer } from "node:buffer";
 
 import type { BackendClient } from "@generated/backend";
 import { handleIpc, ipcMessages, type IpcObserver } from "@shared/ipc";
-import type { TerminalStreamInput } from "@shared/terminal-stream-client";
 import type { TerminalInputRequest } from "@shared/types";
 
 interface TerminalIpcRegistration {
@@ -11,7 +10,7 @@ interface TerminalIpcRegistration {
   ipcObserver?: IpcObserver;
   recordAppEvent?: (type: string, payload: unknown) => void;
   requireBackendClient: () => BackendClient;
-  sendTerminalInput: (input: TerminalStreamInput) => void;
+  sendTerminalInput: (input: TerminalInputRequest) => void;
 }
 
 export function registerTerminalIpcHandlers({
@@ -52,6 +51,7 @@ export function registerTerminalIpcHandlers({
       clientId: input.trace.clientId,
       inputSequence: input.trace.inputSequence,
       mainReceivedAt,
+      preloadReceivedAt: input.trace.preloadReceivedAt,
       runId: input.trace.runId,
       sessionId: input.sessionId,
     });

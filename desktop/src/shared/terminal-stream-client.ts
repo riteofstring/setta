@@ -8,10 +8,12 @@ import {
   type TerminalStreamInputMessage,
   type TerminalStreamServerMessage,
 } from "@generated/backend";
+import type { TerminalInputTrace } from "@shared/types";
 
 export interface TerminalStreamInput {
   dataBase64: string;
   sessionId: string;
+  trace?: TerminalInputTrace;
 }
 
 export type TerminalStreamStatus =
@@ -79,10 +81,30 @@ export interface TerminalStreamSocket {
   send(data: string): void;
 }
 
+interface TerminalStreamInputDispatched {
+  byteCount: number;
+  dispatchedAt: string;
+  inputSequence: number;
+  sessionId: string;
+  trace?: TerminalInputTrace;
+}
+
+interface TerminalStreamInputAck {
+  acceptedBytes: number;
+  acknowledgedInputSequence: number;
+  ackReceivedAt: string;
+  handlerReceivedAt: string;
+  ptyWriteCompletedAt: string;
+  sessionId: string;
+  trace?: TerminalInputTrace;
+}
+
 interface TerminalStreamClientOptions {
   clientStreamId: string;
   createTicket: () => Promise<CreateTerminalStreamTicketResponse>;
   onEvent: (event: TerminalEvent) => void;
+  onInputAck?: (ack: TerminalStreamInputAck) => void;
+  onInputDispatched?: (dispatch: TerminalStreamInputDispatched) => void;
   onStatus: (status: TerminalStreamStatus) => void;
   openSocket: (ticket: string) => TerminalStreamSocket;
   reconnectDelayMs?: number;
@@ -90,6 +112,7 @@ interface TerminalStreamClientOptions {
 
 interface PendingInput extends TerminalStreamInputMessage {
   byteCount: number;
+  trace?: TerminalInputTrace;
 }
 
 interface SessionInputState {
@@ -164,6 +187,7 @@ export class TerminalStreamClient {
       inputSequence: state.nextSequence,
       kind: "terminal.stream.input",
       sessionId: input.sessionId,
+      trace: input.trace,
     };
     state.nextSequence += 1;
     state.pending.push(message);
@@ -267,10 +291,24 @@ export class TerminalStreamClient {
         this.options.onStatus({ kind: "ready", message: "Terminal stream connected." });
         this.flushInput();
         return;
-      case "terminal.stream.inputAck":
+      case "terminal.stream.inputAck": {
+        const state = this.session(message.sessionId);
+        const pending = state.pending.find(
+          (input) => input.inputSequence === message.acknowledgedInputSequence,
+        );
+        this.options.onInputAck?.({
+          acceptedBytes: message.acceptedBytes,
+          acknowledgedInputSequence: message.acknowledgedInputSequence,
+          ackReceivedAt: new Date().toISOString(),
+          handlerReceivedAt: message.handlerReceivedAt,
+          ptyWriteCompletedAt: message.ptyWriteCompletedAt,
+          sessionId: message.sessionId,
+          trace: pending?.trace,
+        });
         this.acknowledge(message.sessionId, message.acknowledgedInputSequence);
         this.flushInput();
         return;
+      }
       case "terminal.stream.event":
       case "terminal.stream.replayTruncated":
         if (isNewerEvent(message.event, this.cursor)) {
@@ -331,6 +369,13 @@ export class TerminalStreamClient {
           continue;
         }
         socket.send(JSON.stringify(withoutByteCount(input)));
+        this.options.onInputDispatched?.({
+          byteCount: input.byteCount,
+          dispatchedAt: new Date().toISOString(),
+          inputSequence: input.inputSequence,
+          sessionId: input.sessionId,
+          trace: input.trace,
+        });
         state.sentThrough = input.inputSequence;
       }
     }

@@ -11,10 +11,20 @@ describe("TerminalStreamClient", () => {
   test("orders input, acknowledges it, and resumes unacknowledged input after reconnect", async () => {
     const sockets: FakeTerminalSocket[] = [];
     const statuses: TerminalStreamStatus[] = [];
+    const dispatches: Array<{
+      byteCount: number;
+      dispatchedAt: string;
+      inputSequence: number;
+      sessionId: string;
+      trace?: ReturnType<typeof inputTrace>;
+    }> = [];
+    const acknowledgements: unknown[] = [];
     const client = new TerminalStreamClient({
       clientStreamId: "terminal_stream_test",
       createTicket: async () => ticket(),
       onEvent: () => {},
+      onInputAck: (ack) => acknowledgements.push(ack),
+      onInputDispatched: (dispatch) => dispatches.push(dispatch),
       onStatus: (status) => statuses.push(status),
       openSocket: () => {
         const socket = new FakeTerminalSocket();
@@ -36,8 +46,10 @@ describe("TerminalStreamClient", () => {
     ]);
     sockets[0]!.message(ready([]));
 
-    client.sendInput({ dataBase64: "YQ==", sessionId: "session_one" });
-    client.sendInput({ dataBase64: "Yg==", sessionId: "session_one" });
+    const firstTrace = inputTrace(41);
+    const secondTrace = inputTrace(42);
+    client.sendInput({ dataBase64: "YQ==", sessionId: "session_one", trace: firstTrace });
+    client.sendInput({ dataBase64: "Yg==", sessionId: "session_one", trace: secondTrace });
     expect(sockets[0]!.sentJSON().slice(1)).toEqual([
       {
         dataBase64: "YQ==",
@@ -55,7 +67,17 @@ describe("TerminalStreamClient", () => {
     sockets[0]!.message({
       acknowledgedInputSequence: 1,
       acceptedBytes: 1,
+      handlerReceivedAt: "2026-07-11T00:00:00.010Z",
       kind: "terminal.stream.inputAck",
+      ptyWriteCompletedAt: "2026-07-11T00:00:00.011Z",
+      sessionId: "session_one",
+    });
+    sockets[0]!.message({
+      acknowledgedInputSequence: 1,
+      acceptedBytes: 1,
+      handlerReceivedAt: "",
+      kind: "terminal.stream.inputAck",
+      ptyWriteCompletedAt: "",
       sessionId: "session_one",
     });
     sockets[0]!.disconnect(1013, "output_backpressure");
@@ -75,7 +97,73 @@ describe("TerminalStreamClient", () => {
       kind: "terminal.stream.input",
       sessionId: "session_one",
     });
+    expect(
+      dispatches.map(({ byteCount, inputSequence, sessionId, trace }) => ({
+        byteCount,
+        inputSequence,
+        sessionId,
+        trace,
+      })),
+    ).toEqual([
+      { byteCount: 1, inputSequence: 1, sessionId: "session_one", trace: firstTrace },
+      { byteCount: 1, inputSequence: 2, sessionId: "session_one", trace: secondTrace },
+      { byteCount: 1, inputSequence: 2, sessionId: "session_one", trace: secondTrace },
+    ]);
+    expect(dispatches.every((dispatch) => !Number.isNaN(Date.parse(dispatch.dispatchedAt)))).toBe(
+      true,
+    );
+    expect(acknowledgements).toEqual([
+      {
+        acceptedBytes: 1,
+        acknowledgedInputSequence: 1,
+        ackReceivedAt: expect.any(String),
+        handlerReceivedAt: "2026-07-11T00:00:00.010Z",
+        ptyWriteCompletedAt: "2026-07-11T00:00:00.011Z",
+        sessionId: "session_one",
+        trace: firstTrace,
+      },
+      {
+        acceptedBytes: 1,
+        acknowledgedInputSequence: 1,
+        ackReceivedAt: expect.any(String),
+        handlerReceivedAt: "",
+        ptyWriteCompletedAt: "",
+        sessionId: "session_one",
+        trace: undefined,
+      },
+    ]);
     expect(statuses.some((status) => status.kind === "reconnecting")).toBe(true);
+    client.stop();
+  });
+
+  test("does not guess a trace after a ready acknowledgement removes pending input", async () => {
+    const socket = new FakeTerminalSocket();
+    const acknowledgements: unknown[] = [];
+    const client = new TerminalStreamClient({
+      clientStreamId: "terminal_stream_test",
+      createTicket: async () => ticket(),
+      onEvent: () => {},
+      onInputAck: (ack) => acknowledgements.push(ack),
+      onStatus: () => {},
+      openSocket: () => socket,
+    });
+    client.start();
+    await vi.waitFor(() => expect(socket.listenerCount("open")).toBe(1));
+    socket.open();
+    socket.message(ready([]));
+    client.sendInput({ dataBase64: "YQ==", sessionId: "session_one", trace: inputTrace(51) });
+    socket.message(ready([{ acknowledgedInputSequence: 1, sessionId: "session_one" }]));
+    socket.message({
+      acknowledgedInputSequence: 1,
+      acceptedBytes: 1,
+      handlerReceivedAt: "",
+      kind: "terminal.stream.inputAck",
+      ptyWriteCompletedAt: "",
+      sessionId: "session_one",
+    });
+
+    expect(acknowledgements).toHaveLength(1);
+    expect(acknowledgements[0]).toMatchObject({ trace: undefined });
     client.stop();
   });
 
@@ -185,6 +273,16 @@ function ready(sessions: Array<{ acknowledgedInputSequence: number; sessionId: s
     protocolVersion: 1,
     serverStreamId: "server_test",
     sessions,
+  };
+}
+
+function inputTrace(inputSequence: number) {
+  return {
+    clientId: "renderer_client_test",
+    inputSequence,
+    preloadReceivedAt: "2026-07-11T00:00:00.001Z",
+    rendererReceivedAt: "2026-07-11T00:00:00.000Z",
+    runId: "run_test",
   };
 }
 

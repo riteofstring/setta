@@ -10,9 +10,7 @@ import type { TerminalInputTrace } from "@shared/types";
 export function terminalInputTrace(): TerminalInputTrace {
   return {
     clientId: "terminal_client_test",
-    httpDispatchedAt: "",
     inputSequence: 1,
-    mainReceivedAt: "",
     preloadReceivedAt: "",
     rendererReceivedAt: "2026-07-10T12:00:00.000Z",
     runId: "terminal_latency_test",

@@ -383,9 +383,7 @@ function terminalInputSummary(value: unknown): unknown {
     sessionId: typeof input.sessionId === "string" ? input.sessionId : "",
     trace: {
       clientId: stringValue(trace.clientId),
-      httpDispatchedAt: stringValue(trace.httpDispatchedAt),
       inputSequence: integerValue(trace.inputSequence),
-      mainReceivedAt: stringValue(trace.mainReceivedAt),
       preloadReceivedAt: stringValue(trace.preloadReceivedAt),
       rendererReceivedAt: stringValue(trace.rendererReceivedAt),
       runId: stringValue(trace.runId),

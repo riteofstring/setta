@@ -830,7 +830,12 @@ function assertTerminalInputRecordsAreSequenced(events) {
 }
 
 function assertMainTerminalLatencyStages(events) {
-  for (const type of ["terminal_input_main_received", "terminal_stream_status"]) {
+  for (const type of [
+    "terminal_input_main_received",
+    "terminal_input_stream_dispatched",
+    "terminal_input_stream_ack_received",
+    "terminal_stream_status",
+  ]) {
     if (!events.some((entry) => entry.type === type)) {
       throw new Error(`recording missing main terminal latency stage: ${type}`);
     }

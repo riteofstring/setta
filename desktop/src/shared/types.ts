@@ -347,9 +347,7 @@ export type RuntimeConnectionStatus =
 
 export interface TerminalInputTrace {
   clientId: string;
-  httpDispatchedAt: string;
   inputSequence: number;
-  mainReceivedAt: string;
   preloadReceivedAt: string;
   rendererReceivedAt: string;
   runId: string;

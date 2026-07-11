@@ -250,6 +250,7 @@ function startTerminalStream() {
     backendClient: requireBackendClient(),
     baseURL: runtime.baseUrl,
     deviceToken: runtime.deviceToken,
+    recordAppEvent: (type, payload) => recorder?.recordAppEvent(type, payload),
     runtimeID: runtime.runtimeId,
     sendEvent: forwardTerminalEvent,
     sendStatus: forwardTerminalStreamStatus,

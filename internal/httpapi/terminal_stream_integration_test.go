@@ -56,6 +56,12 @@ func TestTerminalStreamWritesAcknowledgesDeduplicatesAndResumes(t *testing.T) {
 	if ack.AcknowledgedInputSequence != 1 || ack.AcceptedBytes != len("echo duplex\n") {
 		t.Fatalf("input ack = %+v", ack)
 	}
+	if _, err := time.Parse(time.RFC3339Nano, ack.HandlerReceivedAt); err != nil {
+		t.Fatalf("input ack handlerReceivedAt = %q: %v", ack.HandlerReceivedAt, err)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, ack.PTYWriteCompletedAt); err != nil {
+		t.Fatalf("input ack ptyWriteCompletedAt = %q: %v", ack.PTYWriteCompletedAt, err)
+	}
 	_ = connection.Close(websocket.StatusNormalClosure, "test reconnect")
 
 	resumed := dialTerminalStream(t, server, issueTerminalStreamTicket(t, server, clientID))
@@ -76,6 +82,9 @@ func TestTerminalStreamWritesAcknowledgesDeduplicatesAndResumes(t *testing.T) {
 	duplicateAck := readTerminalStreamMessage[terminal.TerminalStreamInputAckMessage](t, resumed, terminal.TerminalStreamServerInputAck)
 	if duplicateAck.AcknowledgedInputSequence != 1 {
 		t.Fatalf("duplicate input ack = %+v", duplicateAck)
+	}
+	if duplicateAck.HandlerReceivedAt != "" || duplicateAck.PTYWriteCompletedAt != "" {
+		t.Fatalf("duplicate input ack fabricated timing = %+v", duplicateAck)
 	}
 	conflictInput := input
 	conflictInput.DataBase64 = base64.StdEncoding.EncodeToString([]byte("different\n"))

@@ -376,9 +376,7 @@ class WebSocketTestDouble {
 function terminalInputTrace() {
   return {
     clientId: "client_web",
-    httpDispatchedAt: "",
     inputSequence: 1,
-    mainReceivedAt: "",
     preloadReceivedAt: "",
     rendererReceivedAt: "2026-07-11T00:00:00Z",
     runId: "run_web",

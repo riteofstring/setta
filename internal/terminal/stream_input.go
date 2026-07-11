@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 )
 
 const terminalStreamDedupeSequenceLimit = 8192
@@ -70,6 +71,7 @@ func (manager *Manager) ResumeTerminalStream(clientStreamID string, sessions []T
 }
 
 func (manager *Manager) WriteTerminalStreamInput(ctx context.Context, clientStreamID string, input TerminalStreamInputMessage) (TerminalStreamInputAckMessage, error) {
+	handlerReceivedAt := time.Now().UTC()
 	manager.streamInputs.mu.Lock()
 	client := manager.streamInputs.streams[clientStreamID]
 	manager.streamInputs.mu.Unlock()
@@ -86,7 +88,7 @@ func (manager *Manager) WriteTerminalStreamInput(ctx context.Context, clientStre
 	hash := sha256.Sum256(data)
 	if input.InputSequence <= state.acknowledged {
 		if acceptedHash, ok := state.hashes[input.InputSequence]; ok && bytes.Equal(acceptedHash[:], hash[:]) {
-			return inputAck(input.SessionID, state.acknowledged, len(data)), nil
+			return inputAck(input.SessionID, state.acknowledged, len(data), time.Time{}, time.Time{}), nil
 		}
 		return TerminalStreamInputAckMessage{}, protocolError(TerminalStreamErrorInputSequenceConflict, "input sequence was already accepted with different or expired bytes", false, input.SessionID, input.InputSequence)
 	}
@@ -97,6 +99,7 @@ func (manager *Manager) WriteTerminalStreamInput(ctx context.Context, clientStre
 		return TerminalStreamInputAckMessage{}, protocolError(TerminalStreamErrorSessionNotFound, err.Error(), false, input.SessionID, input.InputSequence)
 	}
 	written, err := manager.WriteInput(ctx, input.SessionID, data)
+	ptyWriteCompletedAt := time.Now().UTC()
 	if err != nil {
 		return TerminalStreamInputAckMessage{}, protocolError(TerminalStreamErrorInternal, err.Error(), false, input.SessionID, input.InputSequence)
 	}
@@ -106,7 +109,7 @@ func (manager *Manager) WriteTerminalStreamInput(ctx context.Context, clientStre
 	state.acknowledged = input.InputSequence
 	state.hashes[input.InputSequence] = hash
 	delete(state.hashes, input.InputSequence-terminalStreamDedupeSequenceLimit)
-	return inputAck(input.SessionID, state.acknowledged, written), nil
+	return inputAck(input.SessionID, state.acknowledged, written, handlerReceivedAt, ptyWriteCompletedAt), nil
 }
 
 func decodeStreamInput(input TerminalStreamInputMessage) ([]byte, error) {
@@ -150,13 +153,22 @@ func (client *streamInputClient) snapshot() []TerminalStreamSessionState {
 	return states
 }
 
-func inputAck(sessionID string, sequence int, acceptedBytes int) TerminalStreamInputAckMessage {
+func inputAck(sessionID string, sequence int, acceptedBytes int, handlerReceivedAt time.Time, ptyWriteCompletedAt time.Time) TerminalStreamInputAckMessage {
 	return TerminalStreamInputAckMessage{
 		Kind:                      TerminalStreamServerInputAck,
 		SessionID:                 sessionID,
 		AcknowledgedInputSequence: sequence,
 		AcceptedBytes:             acceptedBytes,
+		HandlerReceivedAt:         formatStreamInputTime(handlerReceivedAt),
+		PTYWriteCompletedAt:       formatStreamInputTime(ptyWriteCompletedAt),
 	}
+}
+
+func formatStreamInputTime(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.Format(time.RFC3339Nano)
 }
 
 func protocolError(code TerminalStreamErrorCode, message string, retryable bool, sessionID string, sequence int) error {

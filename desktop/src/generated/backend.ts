@@ -20,8 +20,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 14;
-export const backendContractSchemaHash = "sha256:cfcedc6b1f48f4a39cb0348aaf432c2a461e33d34827880f4ba9d3e664333774";
+export const backendProtocolVersion = 15;
+export const backendContractSchemaHash = "sha256:b95ff7162e74ce4ecfe06cd7a0b9f4a9df928eca5bccdc955eab8228298a7ed6";
 
 export type DeviceScope = "full";
 
@@ -5963,6 +5963,8 @@ export interface TerminalStreamInputAckMessage {
   sessionId: string;
   acknowledgedInputSequence: number;
   acceptedBytes: number;
+  handlerReceivedAt: string;
+  ptyWriteCompletedAt: string;
 }
 
 export interface TerminalEventPayload {
@@ -12136,12 +12138,14 @@ export function decodeTerminalStreamReadyMessage(value: unknown): TerminalStream
 
 export function decodeTerminalStreamInputAckMessage(value: unknown): TerminalStreamInputAckMessage {
   const record = assertRecord(value, "TerminalStreamInputAckMessage");
-  assertKnownFields(record, "TerminalStreamInputAckMessage", ["kind", "sessionId", "acknowledgedInputSequence", "acceptedBytes"]);
+  assertKnownFields(record, "TerminalStreamInputAckMessage", ["kind", "sessionId", "acknowledgedInputSequence", "acceptedBytes", "handlerReceivedAt", "ptyWriteCompletedAt"]);
   return {
     kind: decodeLiteralString(requireField(record, "kind", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.kind", "terminal.stream.inputAck"),
     sessionId: decodeString(requireField(record, "sessionId", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.sessionId"),
     acknowledgedInputSequence: decodeInteger(requireField(record, "acknowledgedInputSequence", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.acknowledgedInputSequence"),
     acceptedBytes: decodeInteger(requireField(record, "acceptedBytes", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.acceptedBytes"),
+    handlerReceivedAt: decodeString(requireField(record, "handlerReceivedAt", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.handlerReceivedAt"),
+    ptyWriteCompletedAt: decodeString(requireField(record, "ptyWriteCompletedAt", "TerminalStreamInputAckMessage"), "TerminalStreamInputAckMessage.ptyWriteCompletedAt"),
   };
 }
 

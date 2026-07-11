@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 
 import { backendEndpoints, type BackendClient, type TerminalEvent } from "@generated/backend";
+import type { TerminalInputRequest } from "@shared/types";
 import {
   TerminalStreamClient,
-  type TerminalStreamInput,
   type TerminalStreamSocket,
   type TerminalStreamStatus,
 } from "@shared/terminal-stream-client";
@@ -13,12 +13,13 @@ interface MainTerminalStreamOptions {
   baseURL: string;
   deviceToken: string;
   runtimeID: string;
+  recordAppEvent?: (type: string, payload: unknown) => void;
   sendEvent: (event: TerminalEvent) => void;
   sendStatus: (status: TerminalStreamStatus) => void;
 }
 
 export interface MainTerminalStream {
-  sendInput: (input: TerminalStreamInput) => void;
+  sendInput: (input: TerminalInputRequest) => void;
   start: () => void;
   stop: () => void;
 }
@@ -29,6 +30,32 @@ export function createMainTerminalStream(options: MainTerminalStreamOptions): Ma
     clientStreamId,
     createTicket: () => options.backendClient.createTerminalStreamTicket({ clientStreamId }),
     onEvent: options.sendEvent,
+    onInputAck: (ack) => {
+      if (!ack.trace) return;
+      options.recordAppEvent?.("terminal_input_stream_ack_received", {
+        acceptedBytes: ack.acceptedBytes,
+        acknowledgedStreamSequence: ack.acknowledgedInputSequence,
+        ackReceivedAt: ack.ackReceivedAt,
+        clientId: ack.trace.clientId,
+        handlerReceivedAt: ack.handlerReceivedAt,
+        inputSequence: ack.trace.inputSequence,
+        ptyWriteCompletedAt: ack.ptyWriteCompletedAt,
+        runId: ack.trace.runId,
+        sessionId: ack.sessionId,
+      });
+    },
+    onInputDispatched: (dispatch) => {
+      if (!dispatch.trace) return;
+      options.recordAppEvent?.("terminal_input_stream_dispatched", {
+        byteCount: dispatch.byteCount,
+        clientId: dispatch.trace.clientId,
+        dispatchedAt: dispatch.dispatchedAt,
+        inputSequence: dispatch.trace.inputSequence,
+        runId: dispatch.trace.runId,
+        sessionId: dispatch.sessionId,
+        streamInputSequence: dispatch.inputSequence,
+      });
+    },
     onStatus: options.sendStatus,
     openSocket: (ticket) => openTerminalSocket(options.baseURL, ticket),
   });

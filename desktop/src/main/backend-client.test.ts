@@ -26,7 +26,9 @@ describe("generated backend client", () => {
       decodeTerminalStreamServerMessage({
         acceptedBytes: 1,
         acknowledgedInputSequence: 7,
+        handlerReceivedAt: "2026-07-11T00:00:00.010Z",
         kind: "terminal.stream.inputAck",
+        ptyWriteCompletedAt: "2026-07-11T00:00:00.011Z",
         sessionId: "terminal_api",
       }),
     ).toMatchObject({ kind: "terminal.stream.inputAck", acknowledgedInputSequence: 7 });
