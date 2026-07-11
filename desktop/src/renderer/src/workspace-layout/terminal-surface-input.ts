@@ -8,6 +8,7 @@ import {
 import type { TerminalPasteController } from "./terminal-surface-paste";
 import type { TerminalSearchController } from "./terminal-surface-search";
 import { terminalAPI } from "./terminal-surface-session";
+import { createTerminalInputTrace } from "./terminal-latency-recorder";
 import {
   isWorkspaceArrowNavigationShortcut,
   workspaceShortcutKeyboardEventInit,
@@ -74,6 +75,7 @@ export function sendTerminalInput(
       .input({
         dataBase64: base64FromBytes(bytes),
         sessionId,
+        trace: createTerminalInputTrace(sessionId, bytes.length),
       })
       .catch((error: unknown) => {
         showStatus(`Terminal input failed: ${errorMessage(error)}`);
@@ -116,6 +118,7 @@ async function sendChunkedTerminalInput(
       await api.input({
         dataBase64: base64FromBytes(chunk),
         sessionId,
+        trace: createTerminalInputTrace(sessionId, chunk.length),
       });
     }
   } catch (error) {

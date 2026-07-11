@@ -241,7 +241,6 @@ function testConversation(): Conversation {
     title: "API chat",
     updatedAt: "2026-05-29T20:00:00Z",
     workflow: null,
-    easyRun: null,
     workspaceId: "workspace_api",
   };
 }

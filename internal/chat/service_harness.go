@@ -193,9 +193,6 @@ func harnessSurfaceForTurn(request TurnRequest) HarnessSurface {
 	if request.Conversation.Internal && request.Conversation.Workflow != nil {
 		return HarnessSurfaceWorkflowAgent
 	}
-	if request.Conversation.Internal && request.Conversation.EasyRun != nil {
-		return HarnessSurfaceEasyRun
-	}
 	return HarnessSurfaceMasterChat
 }
 

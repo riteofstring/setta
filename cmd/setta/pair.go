@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -17,22 +18,32 @@ type pairingResult struct {
 	URL   string
 }
 
+type pairingJSONResult struct {
+	OK         bool   `json:"ok"`
+	PairingURL string `json:"pairingUrl"`
+}
+
 func runPair(args []string, deps cliDeps) error {
 	options, err := pairOptionsFromArgs(args, deps)
 	if err != nil {
 		return err
 	}
 	ctx := context.Background()
-	pairing, err := pairFromServeState(ctx, options.AppDataDir, deps)
+	pairing, err := pairFromServeState(ctx, options, deps)
 	if err != nil {
 		return err
+	}
+	if options.JSON {
+		return printPairingJSON(deps.stdout, pairing)
 	}
 	printPairing(deps.stdout, pairing, deps)
 	return nil
 }
 
 type pairOptions struct {
-	AppDataDir string
+	AppDataDir    string
+	ExistingToken string
+	JSON          bool
 }
 
 func pairOptionsFromArgs(args []string, deps cliDeps) (pairOptions, error) {
@@ -42,6 +53,8 @@ func pairOptionsFromArgs(args []string, deps cliDeps) (pairOptions, error) {
 	}
 	flagSet := newFlagSet("setta pair", deps.stderr)
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
+	existingToken := flagSet.String("existing-token", "", "build a pairing URL for an already-seeded pairing token")
+	jsonOutput := flagSet.Bool("json", false, "emit structured JSON without a terminal QR code")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return pairOptions{}, usageError{err: err}
@@ -51,18 +64,31 @@ func pairOptionsFromArgs(args []string, deps cliDeps) (pairOptions, error) {
 	if flagSet.NArg() != 0 {
 		return pairOptions{}, usageError{err: fmt.Errorf("setta pair does not accept positional arguments")}
 	}
-	return pairOptions{AppDataDir: appDataDir}, nil
+	if *existingToken != "" {
+		var err error
+		if *existingToken, err = requireSecretField("existing pairing token", *existingToken, 8); err != nil {
+			return pairOptions{}, err
+		}
+	}
+	return pairOptions{AppDataDir: appDataDir, ExistingToken: *existingToken, JSON: *jsonOutput}, nil
 }
 
-func pairFromServeState(ctx context.Context, appDataDir string, deps cliDeps) (pairingResult, error) {
-	state, err := readServeState(appDataDir)
+func pairFromServeState(ctx context.Context, options pairOptions, deps cliDeps) (pairingResult, error) {
+	state, err := readServeState(options.AppDataDir)
 	if err != nil {
 		return pairingResult{}, err
 	}
 	if _, err := verifyServeState(ctx, deps.httpClient, state); err != nil {
 		return pairingResult{}, err
 	}
-	return mintPairing(ctx, appDataDir, state)
+	if options.ExistingToken != "" {
+		pairingURL, err := buildPairingURL(state.RuntimeID, options.ExistingToken, state.BaseURL)
+		if err != nil {
+			return pairingResult{}, err
+		}
+		return pairingResult{Token: options.ExistingToken, URL: pairingURL}, nil
+	}
+	return mintPairing(ctx, options.AppDataDir, state)
 }
 
 func mintPairing(ctx context.Context, appDataDir string, state serveState) (pairingResult, error) {
@@ -114,4 +140,12 @@ func printPairing(output io.Writer, pairing pairingResult, deps cliDeps) {
 	fmt.Fprintln(output, "QR:")
 	deps.renderQR(output, pairing.URL)
 	fmt.Fprintln(output)
+}
+
+func printPairingJSON(output io.Writer, pairing pairingResult) error {
+	encoder := json.NewEncoder(output)
+	if err := encoder.Encode(pairingJSONResult{OK: true, PairingURL: pairing.URL}); err != nil {
+		return fmt.Errorf("encode pairing JSON: %w", err)
+	}
+	return nil
 }

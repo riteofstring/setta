@@ -71,7 +71,6 @@ const draftNodeSpecs = {
 
 export function emptyWorkflowGraph(): WorkflowGraph {
   return {
-    agentDefaults: emptyWorkflowAgentSettings(),
     edges: [],
     layout: { nodes: [] },
     nodes: [],
@@ -86,7 +85,6 @@ export function workflowGraphWithAddedDraftNode(
   const normalized = normalizeDraftGraph(graph);
   const node = draftNode(nodeType, nextDraftNodeId(normalized, draftNodeSpecs[nodeType].idBase));
   return {
-    agentDefaults: normalized.agentDefaults,
     edges: normalized.edges,
     layout: {
       nodes: [
@@ -130,7 +128,6 @@ export function workflowGraphWithoutDraftNodes(
     return normalized;
   }
   const nextGraph = {
-    agentDefaults: normalized.agentDefaults,
     edges: normalized.edges.filter(
       (edge) => !removedNodeIds.has(edge.fromNodeId) && !removedNodeIds.has(edge.toNodeId),
     ),
@@ -146,7 +143,6 @@ export function workflowGraphWithoutDraftNodes(
 
 function normalizeDraftGraph(graph: WorkflowGraph): WorkflowGraph {
   return {
-    agentDefaults: graph.agentDefaults ?? emptyWorkflowAgentSettings(),
     edges: graph.edges ?? [],
     layout: {
       nodes: graph.layout?.nodes ?? [],
@@ -223,18 +219,11 @@ function draftAgentAction(): WorkflowActionConfig {
   return {
     codex: {
       freshConversation: true,
+      model: "",
       prompt: "Describe this agent task.",
-      settings: emptyWorkflowAgentSettings(),
+      reasoningEffort: "",
     },
     kind: workflowActionKindValues[0],
-  };
-}
-
-function emptyWorkflowAgentSettings() {
-  return {
-    model: "",
-    permission: null,
-    reasoningEffort: null,
   };
 }
 
