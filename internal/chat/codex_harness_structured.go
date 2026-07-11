@@ -81,7 +81,7 @@ func validateCodexStructuredTaskShape(request HarnessTaskRequest) error {
 	if request.StructuredTask == nil {
 		return fmt.Errorf("%w: structured task is required", ErrUnsupportedHarnessTask)
 	}
-	if request.Surface != HarnessSurfaceSemanticCartographer {
+	if !isStructuredHarnessSurface(request.Surface) {
 		return fmt.Errorf("%w: codex structured surface %s", ErrUnsupportedHarnessTask, request.Surface)
 	}
 	if request.TurnMode != HarnessTurnStructuredTask {
@@ -98,7 +98,7 @@ func validateCodexStructuredTaskShape(request HarnessTaskRequest) error {
 
 func validateCodexStructuredTaskCapabilityPolicy(policy HarnessCapabilityPolicy) error {
 	if len(policy.AllowedTools) != 0 || policy.WorkspaceMutation || policy.Approvals || policy.Streaming {
-		return fmt.Errorf("%w: codex semantic cartographer capability policy must disable tools, mutation, approvals, and streaming", ErrUnsupportedHarnessTask)
+		return fmt.Errorf("%w: codex structured task capability policy must disable tools, mutation, approvals, and streaming", ErrUnsupportedHarnessTask)
 	}
 	return nil
 }
@@ -184,7 +184,7 @@ func codexReadOnlySandboxPolicy() codexapp.SandboxPolicy {
 }
 
 func codexStructuredTaskInputText(task HarnessStructuredTask) string {
-	return task.Prompt + "\n\nCartographer input bundle JSON:\n" + string(task.Input)
+	return task.Prompt + "\n\nStructured task input bundle JSON:\n" + string(task.Input)
 }
 
 type codexStructuredTaskWaitResult struct {

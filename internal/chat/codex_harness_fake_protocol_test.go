@@ -1038,7 +1038,7 @@ func assertFakeStructuredTaskTurnStart(message map[string]any) {
 	text, ok := first["text"].(string)
 	if !ok ||
 		!strings.Contains(text, "Return only a strict JSON patch envelope.") ||
-		!strings.Contains(text, "Cartographer input bundle JSON:") ||
+		!strings.Contains(text, "Structured task input bundle JSON:") ||
 		!strings.Contains(text, `"workspaceId":"workspace_api"`) {
 		panic("structured task turn input text mismatch")
 	}

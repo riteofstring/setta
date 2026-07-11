@@ -99,6 +99,7 @@ const (
 	HarnessSurfaceMasterChat           HarnessSurface = "master_chat"
 	HarnessSurfaceWorkflowAgent        HarnessSurface = "workflow_agent"
 	HarnessSurfaceEasyRun              HarnessSurface = "easy_run"
+	HarnessSurfaceEasyRunNarrator      HarnessSurface = "easy_run_narrator"
 	HarnessSurfaceSemanticCartographer HarnessSurface = "semantic_cartographer"
 
 	HarnessTurnInteractiveConversation HarnessTurnMode = "interactive_conversation"
@@ -107,6 +108,15 @@ const (
 	HarnessOutputFreeTextEvents HarnessOutputContractKind = "free_text_events"
 	HarnessOutputStrictJSON     HarnessOutputContractKind = "strict_json_schema"
 )
+
+func isStructuredHarnessSurface(surface HarnessSurface) bool {
+	switch surface {
+	case HarnessSurfaceSemanticCartographer, HarnessSurfaceEasyRunNarrator:
+		return true
+	default:
+		return false
+	}
+}
 
 type HarnessTaskRequest struct {
 	Surface          HarnessSurface          `json:"surface"`

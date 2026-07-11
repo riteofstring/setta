@@ -957,43 +957,43 @@ Phase 4 deterministic/live coverage. No blockers were discovered.
 
 ### 2026-07-08 — Phase 4 highlight persistence slice complete
 
-Implemented the first Phase 4 backend slice for narrator-authored highlights:
-
-- Added persisted `highlights.json` storage for typed `EasyHighlight` records,
-  snapshot restoration of the latest run's highlights, and fail-loud validation
-  for highlight state and `easyrun.highlight.created` payloads.
-- Added `EasyRunService.RecordNarratorHighlights` as the backend boundary the
-  narrator will call. It trims narrator output, rejects empty highlight text,
-  accepts at most two highlights per narrator call, enforces the 12-highlight
-  run cap with logged drops, updates `EasyRun.HighlightCount`, persists the
-  records, and publishes typed `easyrun.highlight.created` events.
-- Added focused service coverage for persistence, event publication, snapshot
-  restore, per-call/run caps, and invalid narrator output. No generated
-  contracts changed; contract generation produced no diff.
-
-Verification included no-diff contract generation, focused easy-run/httpapi
-and generator tests, formatting, and `./check_quality.sh --git-changes`.
-
-Remaining Phase 4 work: add `HarnessSurfaceEasyRunNarrator`, digest buffering
-and trigger policy, structured narrator calls, narrator degradation status,
-narrative terminal summaries, left-rail rendering from typed highlight
-contracts, and the Phase 4 deterministic/live E2E coverage. No blockers were
-discovered.
+Implemented persisted `EasyHighlight` storage/snapshot restore and
+`EasyRunService.RecordNarratorHighlights`, including trimming, empty-text
+rejection, per-call cap 2, run cap 12, `HighlightCount` updates, and typed
+`easyrun.highlight.created` publication. Focused service coverage exercises
+persistence, events, snapshot restore, caps, and invalid narrator output.
+Verification included no-diff contract generation, focused easy-run/httpapi and
+generator tests, formatting, and `./check_quality.sh --git-changes`. Remaining
+Phase 4 work at the time: narrator surface, digest/trigger policy, structured
+calls, degradation, narrative summaries, left-rail rendering, and Phase 4 E2E.
 
 ### 2026-07-09 — Phase 4 highlight persistence audit follow-up
 
-Audit found the highlight persistence slice preserves the backend-owned
-presentation-plane boundary and has no generated-contract drift. Follow-up fixed
-two hardening gaps: `easyrun.resync_required` is now handled before duplicate
-filtering in the renderer store, and stored artifact/highlight collections now
-fail loudly unless ordinals are ordered and contiguous.
+Audit confirmed the backend-owned presentation boundary and no contract drift.
+Follow-up fixed two hardening gaps: renderer `easyrun.resync_required` handling
+now precedes duplicate filtering, and stored artifact/highlight collections fail
+loudly unless ordinals are ordered and contiguous. Verification included
+focused easy-run/renderer tests, no-diff contract generation, formatting,
+typecheck, build, deterministic easy-button workflow
+(`.recordings/easy-button-phase4-audit-fixes`), ChatGPT auth check, and live
+chat workflow gate; `live-codex-electron` and `live-codex-backend` passed.
+Remaining Phase 4 work was unchanged.
 
-Verification included focused easy-run and renderer store tests, no-diff
-contract generation, formatting, typecheck, build, the deterministic
-easy-button workflow (`.recordings/easy-button-phase4-audit-fixes`), ChatGPT
-auth check, and the live chat workflow gate. ChatGPT auth was available; the
-live gate passed `live-codex-electron` and `live-codex-backend`. Remaining
-Phase 4 work is unchanged: narrator harness surface, digest/trigger policy,
-structured narrator calls, degradation status, narrative summaries, typed
-left-rail rendering, and Phase 4 deterministic/live coverage. No blockers were
-discovered.
+### 2026-07-09 — Phase 4 narrator infrastructure slice complete
+
+Added `HarnessSurfaceEasyRunNarrator`, surface-neutral structured-task input
+wording, and bounded narrator digest/trigger infrastructure: source-tagged
+assistant/reasoning/command/file/artifact entries, entry/byte caps,
+consume-once pending entries, 15s/8-entry cadence, and terminal-trigger support.
+Focused tests prove raw command output, run-item output deltas, file patches,
+and private reasoning text are excluded. Verification included focused/full
+chat and easy-run Go tests, typecheck, build, deterministic easy-button workflow
+(`.recordings/easy-button-phase4-narrator-infra`), ChatGPT auth check, and live
+chat workflows; `live-codex-electron`, `live-codex-backend`, formatting, and
+`./check_quality.sh --git-changes` passed. Extra
+`chat-workflows.test.mjs --codex-protocol-only` runs failed before new-path
+assertions in an unrelated terminal/settings UI state (`terminal session not
+found`); artifacts are under
+`test-results/electron-integration/chat-workflows/codex-protocol/`. Remaining:
+narrator observer/structured calls, degradation, narrative summaries,
+left-rail rendering, and Phase 4 narrator E2E.

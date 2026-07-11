@@ -18,7 +18,7 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	if request.StructuredTask == nil {
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured task is required", ErrUnsupportedHarnessTask)
 	}
-	if request.Surface != HarnessSurfaceSemanticCartographer {
+	if !isStructuredHarnessSurface(request.Surface) {
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured surface %s", ErrUnsupportedHarnessTask, request.Surface)
 	}
 	if request.TurnMode != HarnessTurnStructuredTask {
@@ -26,6 +26,9 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	}
 	if request.OutputContract.Kind != HarnessOutputStrictJSON {
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured output contract %s", ErrUnsupportedHarnessTask, request.OutputContract.Kind)
+	}
+	if request.Surface == HarnessSurfaceEasyRunNarrator {
+		return runScriptedEasyRunNarratorTask(request)
 	}
 	input, err := scriptedCartographerInputFromRequest(request)
 	if err != nil {
@@ -70,6 +73,27 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 			Model:       request.StructuredTask.Model,
 			RequestID:   "scripted-cartographer-request",
 			ResponseID:  "scripted-cartographer-response",
+			ThreadRef:   request.ThreadRef,
+		},
+	}, nil
+}
+
+func runScriptedEasyRunNarratorTask(request HarnessTaskRequest) (HarnessTaskResult, error) {
+	output, err := json.Marshal(map[string]any{
+		"highlights": []string{},
+		"summary":    "",
+	})
+	if err != nil {
+		return HarnessTaskResult{}, err
+	}
+	return HarnessTaskResult{
+		Completion:       TurnCompletion{Outcome: TurnOutcomeCompleted},
+		StructuredOutput: json.RawMessage(output),
+		Audit: HarnessAuditMetadata{
+			HarnessKind: request.HarnessKind,
+			Model:       request.StructuredTask.Model,
+			RequestID:   "scripted-easy-run-narrator-request",
+			ResponseID:  "scripted-easy-run-narrator-response",
 			ThreadRef:   request.ThreadRef,
 		},
 	}, nil
