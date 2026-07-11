@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 complete
+**Status:** Implementation in progress — Phase 1 complete; Phase 2 item 1 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1710,6 +1710,63 @@ GO-2026-5856 in the pinned Go 1.26.4 standard library, fixed in Go 1.26.5.
 Neither blocker prevents Phase 2 implementation. The next iteration remains
 Phase 2 item 1; the complete speech-specific still/pinned-animation matrix and
 performance acceptance remain later work after the speech states exist.
+
+### 2026-07-10 — Phase 2 speech provider foundation complete
+
+Implemented Phase 2 item 1 as an isolated `internal/speech` provider slice.
+The package now owns the generated-contract-facing `SpeechProviderStatus`,
+`SpeechCapabilities`, `SpeechTranscriptionSession`, and `SpeechAudio` types and
+their strict validators, along with the fixed OpenAI model, delay, voice, WAV,
+WebRTC, disclosure, credential-variable, and resource-limit constants. The
+initial backend-owned limits are 120 recording seconds, 8,000 completed
+transcript characters, 4,096 synthesis characters, and 8 MiB of WAV audio.
+They are not mirrored into TypeScript in this phase.
+
+The dependency-free OpenAI client now mints a 10-minute Realtime client secret
+with the exact transcription-only session configuration, a null manual turn
+boundary, and the backend-supplied `OpenAI-Safety-Identifier`. It strictly
+validates the returned ephemeral value, Unix expiry, and effective session.
+The synthesis path sends exact caller-owned text with `gpt-4o-mini-tts`,
+`marin`, and `response_format: wav`; it rejects empty, whitespace-mutated, or
+over-limit input instead of trimming or truncating it. Successful audio must
+have an allowed response content type and a structurally complete RIFF/WAVE
+body within the 8 MiB plus one-byte detection bound.
+
+Both operations have request deadlines, propagate cancellation, close response
+bodies, make exactly one billable request, refuse redirects, cap JSON before
+decoding, and never include the permanent key or provider body in an error.
+Typed errors distinguish unconfigured speech, rejected credential/model
+access, rate/quota exhaustion, provider unavailability, malformed responses,
+oversized audio, and the later service-owned missing/stale source case. An
+empty API key is valid client configuration so runtime startup can remain
+text-only; operations then fail before transport with the specific
+`speech_not_configured` classification. A non-production base URL requires an
+explicit test-only authorization flag. The environment-facing E2E override
+gate remains Phase 2 item 2 work and was not added early.
+
+Verification completed for this slice:
+
+- `./scripts/go.sh test ./internal/speech`,
+  `./scripts/go.sh test -race ./internal/speech`, and
+  `./scripts/go.sh vet ./internal/speech` passed;
+- fake-transport tests cover exact authorization, safety identifier, Realtime
+  and TTS payloads, expiry/session decoding, invalid input, 401/403, 429, 408,
+  5xx, unexpected statuses, redirect refusal, cancellation, deadline and
+  transport failure, wrong content types, malformed/truncated WAV, read
+  failure, both declared and chunked overflow, response closure, and one-call
+  behavior;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  package, tests, and this progress entry were final.
+
+No production runtime, HTTP endpoint, generated contract, IPC, renderer,
+Easy Run, chat, dependency, or manifest surface changed, so production-path
+Electron/live-provider workflows, contract regeneration, and supply-chain
+verification were not required for this slice. The known live Codex `max`
+provider drift and pinned Go 1.26.4 advisory remain real repository-wide
+blockers for their respective gates but do not block the next ordered work.
+Phase 2 item 2 is next: add optional runtime speech configuration, read only
+`SETTA_OPENAI_SPEECH_API_KEY` in both launch paths, and enforce the E2E-only
+provider-base override boundary before adding services and endpoints in item 3.
 
 ## Verification Plan
 
