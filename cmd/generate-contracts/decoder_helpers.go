@@ -34,9 +34,6 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 	if hasTaggedUnion(specs.Interfaces) {
 		imports = append(imports, "assertTaggedUnionBranch")
 	}
-	if len(specs.Unions) > 0 {
-		imports = append(imports, "decodeLiteralString")
-	}
 	imports = append(imports, "requestBackend", "requireField")
 
 	buffer.WriteString("import {\n")
@@ -44,6 +41,7 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 		fmt.Fprintf(buffer, "  %s,\n", name)
 	}
 	buffer.WriteString("  type BackendFetch,\n")
+	buffer.WriteString("  type BackendRequestOptions,\n")
 	buffer.WriteString("} from \"@shared/backend-runtime\";\n\n")
 }
 

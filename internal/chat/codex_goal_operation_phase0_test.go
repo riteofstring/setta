@@ -705,15 +705,15 @@ func TestCodexHarnessGoalOperationRejectsLinkedStartTurnBeforeProviderSession(t 
 	}
 }
 
-func TestCodexHarnessGoalOperationDoesNotHoldGlobalTurnMuAcrossIdleGap(t *testing.T) {
+func TestCodexHarnessGoalOperationDoesNotReserveUnrelatedActiveThreadAcrossIdleGap(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("goal-operation-idle-gap"))
 	_, continuation := beginPhase0GoalOperation(t, harness, "/goal finish renderer tests")
 	defer continuation.Close()
 
-	if !harness.turnMu.TryLock() {
-		t.Fatal("goal operation held the harness-global turnMu")
+	if err := harness.reserveActiveThread("thread_other", "run_other"); err != nil {
+		t.Fatalf("reserve unrelated active thread during goal idle gap: %v", err)
 	}
-	harness.turnMu.Unlock()
+	harness.releaseActiveThread("thread_other", "run_other")
 }
 
 func TestCodexHarnessGoalOperationAllowsDifferentThreadTurn(t *testing.T) {

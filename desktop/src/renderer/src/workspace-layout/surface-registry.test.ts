@@ -72,6 +72,7 @@ describe("workspace surface registry", () => {
 
   test.each([
     "chat-dom",
+    "easy-button",
     "fake-heavy-dom",
     "git-graph",
     "terminal",
@@ -281,39 +282,33 @@ describe("workspace surface registry", () => {
     ]);
   });
 
-  test("unmounts a live terminal adapter before rehoming it to a different host", () => {
-    const terminalPane = fakePane("terminal");
-    const terminalAdapter = new RecordingSurfaceAdapter(terminalPane);
-    const adapters = new Map([[terminalPane.surfaceId, terminalAdapter]]);
+  test("rehomes a live adapter without hiding the newly mounted host", () => {
+    const browserPane = fakePane("browser");
+    const fakeDomPane = fakePane("fake-dom", 1);
+    const browserAdapter = new RecordingSurfaceAdapter(browserPane);
+    const fakeDomAdapter = new RecordingSurfaceAdapter(fakeDomPane);
+    const adapters = new Map([
+      [browserPane.surfaceId, browserAdapter],
+      [fakeDomPane.surfaceId, fakeDomAdapter],
+    ]);
     const registry = new SurfaceRegistry(
-      [terminalPane],
+      [browserPane, fakeDomPane],
       (pane) => adapters.get(pane.surfaceId) ?? new RecordingSurfaceAdapter(pane),
     );
     const firstHost = createFakeHost();
     const secondHost = createFakeHost();
 
-    registry.syncHost(firstHost, renderItem(terminalPane, "live"), { resizePhase: "idle" });
-    registry.syncHost(secondHost, renderItem(terminalPane, "live", 240, 120), {
+    registry.syncHost(firstHost, renderItem(browserPane, "live"), { resizePhase: "idle" });
+    registry.syncHost(secondHost, renderItem(browserPane, "live", 240, 120), {
       resizePhase: "idle",
     });
+    registry.syncHost(firstHost, renderItem(fakeDomPane, "live"), { resizePhase: "idle" });
 
-    expect(terminalAdapter.events).toEqual([
-      "mount:surface",
-      "resume:visible",
-      "visible:true",
-      "focused:false",
-      "viewport:mount:160x120",
-      "visible:false",
-      "unmount",
-      "mount:surface",
-      "resume:visible",
-      "visible:true",
-      "focused:false",
-      "viewport:mount:240x120",
-    ]);
-    expect(firstHost.dataset.surfaceKind).toBeUndefined();
-    expect(firstHost.dataset.surfaceVisible).toBeUndefined();
-    expect(secondHost.dataset.surfaceKind).toBe("terminal");
+    expect(browserAdapter.events.filter((event) => event === "mount:surface")).toHaveLength(2);
+    expect(browserAdapter.events).not.toContain("visible:false");
+    expect(browserAdapter.events).not.toContain("unmount");
+    expect(browserAdapter.events).not.toContain("freeze:hidden");
+    expect(browserAdapter.events).toContain("viewport:mount:240x120");
   });
 
   test("does not rescan released adapters for cached activity metrics", () => {
@@ -568,7 +563,7 @@ describe("workspace surface registry", () => {
     }
   });
 
-  test.each(["terminal", "workflow-graph"] satisfies SurfaceKind[])(
+  test.each(["easy-button", "terminal", "workflow-graph"] satisfies SurfaceKind[])(
     "prewarms bitmap snapshots for %s panes while idle",
     (surfaceKind) => {
       const captureRendererRegion = vi.fn().mockResolvedValue({

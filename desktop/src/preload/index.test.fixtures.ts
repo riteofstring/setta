@@ -5,17 +5,6 @@ import type {
   WorkflowEvent,
   WorkflowGraph,
 } from "@generated/backend";
-import type { TerminalInputTrace } from "@shared/types";
-
-export function terminalInputTrace(): TerminalInputTrace {
-  return {
-    clientId: "terminal_client_test",
-    inputSequence: 1,
-    preloadReceivedAt: "",
-    rendererReceivedAt: "2026-07-10T12:00:00.000Z",
-    runId: "terminal_latency_test",
-  };
-}
 
 export function chatEvent(): ChatEvent {
   return {
@@ -124,6 +113,7 @@ export function workflowEvent(): WorkflowEvent {
 
 export function workflowGraph(): WorkflowGraph {
   return {
+    agentDefaults: { model: "", permission: null, reasoningEffort: null },
     edges: [
       {
         condition: null,

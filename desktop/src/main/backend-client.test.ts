@@ -1,47 +1,7 @@
-import {
-  backendDuplexProtocols,
-  createBackendClient,
-  decodeTerminalStreamClientMessage,
-  decodeTerminalStreamServerMessage,
-  type WorkspaceSession,
-} from "@generated/backend";
+import { createBackendClient, type WorkspaceSession } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 describe("generated backend client", () => {
-  test("exposes strict terminal duplex protocol codecs", () => {
-    expect(backendDuplexProtocols.TerminalStream.endpoint).toEqual({
-      duplex: true,
-      method: "GET",
-      path: "/terminals/stream",
-    });
-    expect(
-      decodeTerminalStreamClientMessage({
-        dataBase64: "YQ==",
-        inputSequence: 7,
-        kind: "terminal.stream.input",
-        sessionId: "terminal_api",
-      }),
-    ).toMatchObject({ kind: "terminal.stream.input", inputSequence: 7 });
-    expect(
-      decodeTerminalStreamServerMessage({
-        acceptedBytes: 1,
-        acknowledgedInputSequence: 7,
-        handlerReceivedAt: "2026-07-11T00:00:00.010Z",
-        kind: "terminal.stream.inputAck",
-        ptyWriteCompletedAt: "2026-07-11T00:00:00.011Z",
-        sessionId: "terminal_api",
-      }),
-    ).toMatchObject({ kind: "terminal.stream.inputAck", acknowledgedInputSequence: 7 });
-    expect(() =>
-      decodeTerminalStreamClientMessage({
-        dataBase64: "YQ==",
-        inputSequence: 7,
-        kind: "terminal.stream.resume",
-        sessionId: "terminal_api",
-      }),
-    ).toThrow("TerminalStreamResumeMessage contains unknown field dataBase64");
-  });
-
   test("decodes success responses", async () => {
     const session = workspaceSession();
     const client = createBackendClient("http://127.0.0.1:41000", async () =>
@@ -62,6 +22,7 @@ describe("generated backend client", () => {
             activeExecution: null,
             code: "select_workspace_failed",
             message: "workspace is not active: workspace_missing",
+            operationApplied: false,
           },
         },
         400,

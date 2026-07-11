@@ -182,6 +182,82 @@ func writeFakeStreamTurnForThread(threadID string) {
 	writeFakeCompletedTurnForThread(threadID, "completed")
 }
 
+func fakeTurnInputText(message map[string]any) string {
+	params := fakeParams(message)
+	input, ok := params["input"].([]any)
+	if !ok {
+		return ""
+	}
+	parts := make([]string, 0, len(input))
+	for _, raw := range input {
+		part, ok := raw.(map[string]any)
+		if !ok || part["type"] != "text" {
+			continue
+		}
+		text, _ := part["text"].(string)
+		parts = append(parts, text)
+	}
+	return strings.Join(parts, "\n")
+}
+
+func writeFakeParallelCommandLifecycle(threadID string, turnID string) {
+	itemID := "command_" + turnID
+	writeFakeNotification("item/started", map[string]any{
+		"startedAtMs": 1,
+		"threadId":    threadID,
+		"turnId":      turnID,
+		"item": map[string]any{
+			"id":             itemID,
+			"type":           "commandExecution",
+			"command":        "echo " + threadID,
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"status":         "inProgress",
+		},
+	})
+	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
+		"delta":    "output " + threadID + "\n",
+		"itemId":   itemID,
+		"threadId": threadID,
+		"turnId":   turnID,
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"completedAtMs": 2,
+		"threadId":      threadID,
+		"turnId":        turnID,
+		"item": map[string]any{
+			"durationMs":     1,
+			"exitCode":       0,
+			"id":             itemID,
+			"type":           "commandExecution",
+			"command":        "echo " + threadID,
+			"commandActions": []any{},
+			"cwd":            "/tmp/workspace",
+			"status":         "completed",
+		},
+	})
+}
+
+func writeFakeAssistantDeltaForThreadAndTurn(threadID string, turnID string, itemID string, delta string) {
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    delta,
+		"itemId":   itemID,
+		"threadId": threadID,
+		"turnId":   turnID,
+	})
+}
+
+func writeFakeCompletedTurnForThreadAndTurn(threadID string, turnID string, status string) {
+	writeFakeNotification("turn/completed", map[string]any{
+		"threadId": threadID,
+		"turn": map[string]any{
+			"id":     turnID,
+			"items":  []any{},
+			"status": status,
+		},
+	})
+}
+
 func writeFakeTurnStartedID(turnID string) {
 	writeFakeNotification("turn/started", map[string]any{
 		"threadId": "thread_fake",
@@ -546,7 +622,8 @@ func writeFakeUnsupportedOutputStreamTurn() {
 		"processId":   "command_process_fake",
 		"stream":      "stdlog",
 	})
-	time.Sleep(2 * time.Second)
+	writeFakeAssistantDelta("after standalone output")
+	writeFakeCompletedTurn("completed")
 }
 
 func writeFakeProtocolCoverageNotifications() {
@@ -558,9 +635,14 @@ func writeFakeProtocolCoverageNotifications() {
 		"processId":   "command_process_fake",
 		"stream":      "stdout",
 	})
+	writeFakeProtocolCoverageCommandExecution()
 	writeFakeNotification("deprecationNotice", map[string]any{
 		"details": "Use the replacement protocol surface.",
 		"summary": "Protocol deprecation notice.",
+	})
+	writeFakeNotification("warning", map[string]any{
+		"message":  "Protocol warning notice.",
+		"threadId": "thread_fake",
 	})
 	writeFakeNotification("externalAgentConfig/import/completed", map[string]any{})
 	writeFakeNotification("fs/changed", map[string]any{"changedPaths": []string{"/tmp/workspace/main.go"}, "watchId": "watch_fake"})
@@ -956,7 +1038,7 @@ func assertFakeStructuredTaskTurnStart(message map[string]any) {
 	text, ok := first["text"].(string)
 	if !ok ||
 		!strings.Contains(text, "Return only a strict JSON patch envelope.") ||
-		!strings.Contains(text, "Cartographer input bundle JSON:") ||
+		!strings.Contains(text, "Structured task input bundle JSON:") ||
 		!strings.Contains(text, `"workspaceId":"workspace_api"`) {
 		panic("structured task turn input text mismatch")
 	}
@@ -1182,12 +1264,24 @@ func assertFakeStructuredTaskThreadParams(message map[string]any) {
 	if params["ephemeral"] != true {
 		panic("structured task thread should be ephemeral")
 	}
+	assertFakeStructuredTaskThreadConfig(params)
 	if _, ok := params["dynamicTools"]; ok {
 		panic("structured task thread should not include dynamic tools")
 	}
 	instructions, ok := params["developerInstructions"].(string)
 	if !ok || !strings.Contains(instructions, "strict JSON patch envelope") {
 		panic("structured task thread missing production prompt")
+	}
+}
+
+func assertFakeStructuredTaskThreadConfig(params map[string]any) {
+	config, ok := params["config"].(map[string]any)
+	if !ok || config["web_search"] != "disabled" {
+		panic("structured task thread should disable web search in isolated config")
+	}
+	features, ok := config["features"].(map[string]any)
+	if !ok || features["image_generation"] != false {
+		panic("structured task thread should disable image generation in feature overrides")
 	}
 }
 
