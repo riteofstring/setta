@@ -145,7 +145,7 @@ func TestMarkStartFailurePersistsHumanReadableMechanicalSummary(t *testing.T) {
 		t.Fatalf("save working run: %v", err)
 	}
 
-	updated, err := service.markStartFailure(run.WorkspaceID, run.ID, errors.New("provider could not start"))
+	updated, err := service.markStartFailure(run.WorkspaceID, run.ID, errors.New(" \tprovider could not start\n"))
 	if err != nil {
 		t.Fatalf("mark start failure: %v", err)
 	}
@@ -159,5 +159,8 @@ func TestMarkStartFailurePersistsHumanReadableMechanicalSummary(t *testing.T) {
 	expected := "Failed after 1 second: provider could not start. No artifacts were preserved."
 	if persisted.Run.Summary == nil || *persisted.Run.Summary != expected {
 		t.Fatalf("start-failure summary = %v, want %q", persisted.Run.Summary, expected)
+	}
+	if persisted.Run.Error == nil || *persisted.Run.Error != "provider could not start" {
+		t.Fatalf("start-failure error = %v, want trimmed persisted reason", persisted.Run.Error)
 	}
 }

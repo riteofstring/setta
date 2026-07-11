@@ -347,7 +347,7 @@ func (service *Service) markStartFailure(workspaceID string, easyRunID string, s
 		return true, nil
 	}
 	endedAt := timestamp(service.now())
-	errorMessage := startErr.Error()
+	errorMessage := strings.TrimSpace(startErr.Error())
 	mechanicalSummary, err := mechanicalEasyRunSummary(
 		record.Run,
 		EasyRunStatusFailed,

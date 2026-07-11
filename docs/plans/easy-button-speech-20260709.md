@@ -1522,6 +1522,69 @@ partial-outcome, and live Codex acceptance coverage. No deterministic blocker
 was found for item 8; live-provider proof remains blocked by the separate
 `max` provider drift.
 
+### 2026-07-10 — Phase 1 human-readable terminal summaries audit complete
+
+Audited commit `7f2ab69d2` and the cumulative Phase 1 branch against this plan,
+`AGENTS.md`, the clean starting worktree, commit history, Go-owned persistence
+and contracts, generated TypeScript, the checked-in PWA bundle, every Easy Run
+terminal projection path, renderer fixtures, deterministic workflow artifacts,
+and live-provider coverage. The duration and zero/one/many-artifact formatter
+correctly owns completed, stopped, failed, prepared-start-failure, and
+restart-recovery prose, and the exact persisted summary remains the renderer's
+single visible source. Contract regeneration and the Electron/web builds were
+idempotent; no generated artifact drift or executable compact-summary fixture
+remained.
+
+The audit fixed two practical boundary gaps:
+
+- prepared-run start failures now trim the provider error once before storing
+  `EasyRun.Error` and constructing the summary, matching normal failed chat
+  runs so persisted failure state and the visible/future-spoken reason cannot
+  disagree;
+- the first deterministic workflow rerun exposed a real new-run persistence
+  race: `saveNewRun` made the final run directory visible before `run.json` was
+  installed, so a concurrent event-driven snapshot could report a valid new
+  run as missing/corrupt state. New runs are now written as complete staging
+  directories outside `easy-runs` and atomically renamed into the collection.
+  A repeated concurrency regression asserts that readers never observe a
+  partial run directory.
+
+Audit verification completed:
+
+- the focused summary/start-failure and atomic-publication regressions passed,
+  including ten repeated concurrency runs, followed by the complete
+  `internal/easyrun`, `internal/chat`, `internal/httpapi`, and contract-generator
+  suites;
+- contract generation produced no changes, all 990 desktop Vitest tests
+  passed, and Electron plus web typechecks/builds passed without generated PWA
+  drift;
+- after the prescribed narrow fix for the first workflow failure, the complete
+  deterministic production Easy Button workflow passed at
+  `desktop/.recordings/easy-button-speech-audit-human-summary-20260710-r2`,
+  including exact hidden-chat steering, focus events, human-readable terminal
+  variants, artifacts, stop/failure behavior, reload/restart, compact and
+  reduced-motion coverage, and the pixel-match companion. Completed,
+  20-artifact failure, and restart-recovery screenshots were inspected and the
+  summary prose remained contained and readable;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  final source, regression, plan, and generated-artifact checks.
+
+ChatGPT authentication was available, so the live Electron chat, Easy Button,
+and all four backend Codex probes were rerun with `OPENAI_API_KEY` removed. They
+remain blocked before conversation creation because `model/list` advertises
+reasoning effort `max`, which Setta's existing provider decoder rejects. These
+failures are not live-provider validation for this slice. Supply-chain
+verification was not required because the audit changes no dependency,
+manifest, package-manager configuration, Go module, generated contract, or
+supply-chain input.
+
+The implementation plan is not complete. The next iteration remains Phase 1
+item 8: finish the phase-wide generated-bundle, store/event/renderer,
+partial-outcome, deterministic, and acceptance coverage before beginning the
+backend speech provider. The atomic-publication regression is now part of that
+store baseline. No deterministic blocker remains; live-provider proof is still
+blocked by the separate `max` provider drift.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests

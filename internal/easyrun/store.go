@@ -143,13 +143,37 @@ func (store *Store) saveNewRun(record storedRunRecord) error {
 	if err := validateStoredRunRecord(record); err != nil {
 		return err
 	}
-	path := store.easyRunPath(record.Run.WorkspaceID, record.Run.ID)
-	if _, err := os.Stat(path); err == nil {
-		return &PersistenceError{Operation: "create easy-run", Path: path, Err: os.ErrExist}
+	runDir := store.easyRunDir(record.Run.WorkspaceID, record.Run.ID)
+	if _, err := os.Stat(runDir); err == nil {
+		return &PersistenceError{Operation: "create easy-run", Path: runDir, Err: os.ErrExist}
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return &PersistenceError{Operation: "stat easy-run", Path: path, Err: err}
+		return &PersistenceError{Operation: "stat easy-run", Path: runDir, Err: err}
 	}
-	return writeJSONFile(path, record)
+	runsDir := store.easyRunsDir(record.Run.WorkspaceID)
+	if err := os.MkdirAll(runsDir, 0o755); err != nil {
+		return &PersistenceError{Operation: "create directory", Path: runsDir, Err: err}
+	}
+	tempDir, err := os.MkdirTemp(store.workspaceDir(record.Run.WorkspaceID), ".tmp-easy-run-*")
+	if err != nil {
+		return &PersistenceError{Operation: "create temp directory", Path: store.workspaceDir(record.Run.WorkspaceID), Err: err}
+	}
+	removeTemp := true
+	defer func() {
+		if removeTemp {
+			_ = os.RemoveAll(tempDir)
+		}
+	}()
+	if err := os.Chmod(tempDir, 0o755); err != nil {
+		return &PersistenceError{Operation: "set directory permissions", Path: tempDir, Err: err}
+	}
+	if err := writeJSONFile(filepath.Join(tempDir, easyRunFileName), record); err != nil {
+		return err
+	}
+	if err := os.Rename(tempDir, runDir); err != nil {
+		return &PersistenceError{Operation: "create easy-run", Path: runDir, Err: err}
+	}
+	removeTemp = false
+	return nil
 }
 
 func (store *Store) saveRun(record storedRunRecord) error {
