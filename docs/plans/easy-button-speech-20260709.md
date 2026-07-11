@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-4 complete
+**Status:** Implementation in progress — Phases 1-2 and Phase 3 items 1-5 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -2672,6 +2672,70 @@ Phase 3 items 1-4 remain complete. Phase 3 item 5 is still the next coherent
 slice, with the same completion-submission, success clearing, ordinary failure
 draft restoration, and accepted-steering partial-outcome boundary described
 above. This audit did not start that work, and no blocker was found.
+
+### 2026-07-10 — Phase 3 completed-transcript submission complete
+
+Implemented Phase 3 item 5 as a renderer-to-execution slice. The capture
+controller's authoritative completed transcript now enters the existing Easy
+Run `start` or `steer` store action selected when capture begins. The Easy
+Button layer passes the provider string unchanged; shared chat validation and
+normalization remain the only boundary that trims and prepares the persisted
+user message and provider input. Partial transcript deltas still remain local
+presentation state and never enter an Easy Run or chat record.
+
+Typed and spoken submissions share one action router without adding an Easy
+Button transcript, narrator rewrite, or speech-specific backend path. A
+successful spoken start or steer clears the preserved footer draft. An
+ordinary rejected start or unapplied steer restores the exact completed
+provider transcript and focuses the footer for editing. The structured
+accepted-steering partial outcome remains distinct: when working-agent delivery
+succeeded but Current focus projection failed, the transcript stays cleared,
+the footer is blurred, and the persisted stale focus plus typed store error
+communicate that the instruction was already sent. The controller reports a
+submission failure only when the action actually rejects.
+
+The required production Electron speech workflow now drives two spoken starts
+and two spoken steers through the mounted renderer, preload, main, authenticated
+HTTP client, Easy Run service/store, full-fidelity chat persistence, scripted
+working provider, narrator, and event stream. It proves revision-zero focus,
+the ordered `updating -> current` successful focus revision, exact normalized
+trigger and steering chat messages and committed transcript blocks, narrator-
+only NOW, the stale-focus partial outcome without duplicate retry text, and the
+existing permission, Realtime, cancellation, disconnect, teardown, and secret-
+redaction behavior. Only the external browser media/peer and OpenAI endpoints
+remain scripted.
+
+Verification completed for this slice:
+
+- 33 focused submission and capture-controller Vitest cases passed, including
+  exact start/steer routing, successful clearing, ordinary start/steer rejection,
+  an explicit unapplied steering result, and the applied focus-projection
+  failure;
+- all 1,073 desktop Vitest tests, focused ESLint, Electron/web typechecks, and
+  both production builds passed. The checked-in PWA bundle was regenerated
+  from the mounted submission source, and
+  `./scripts/go.sh test ./internal/webapp` passed;
+- the configured production speech workflow passed at
+  `desktop/.recordings/easy-button-speech-phase3-submission-20260710` with five
+  transcription sessions and no credential, client-secret, or audio-base64
+  leakage;
+- the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase3-submission-regression-20260710`,
+  preserving typed start/steer, stop, lossless chat, Current focus, narrator-
+  only NOW, artifacts, terminal states, reload/restart, compact/reduced-motion,
+  and pixel-match behavior;
+- ChatGPT authentication was available. With `OPENAI_API_KEY` explicitly
+  removed, `live-codex-electron`, `easy-button-live`, and all supplemental live
+  backend Codex probes passed;
+- `./scripts/format.sh` and the final `./check_quality.sh --git-changes` passed.
+
+No dependency, manifest, module, package-manager, toolchain, generated Go
+contract, or supply-chain input changed, so the supply-chain gate was not
+required. No live OpenAI speech result is claimed; the opt-in real-audio
+acceptance workflow remains ordered for Phase 3 item 8. Phase 3 item 6 is next:
+finish the explicit working-plus-listening Stop/current-focus presentation
+coverage and prove no transient steering transcript is rendered. No blocker
+was found for that work.
 
 ## Verification Plan
 

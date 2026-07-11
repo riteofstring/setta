@@ -23,16 +23,39 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import {
+  clickEasyButtonStop,
+  easyButtonStateExpression,
+  easyButtonStateSettled,
   ensureWorkspaceOpen,
   openEasyButtonFromShortcut,
+  workflowTimeoutMs,
   workspaceIdExpression,
 } from "./easy-button-pane-actions.mjs";
+import { assertLosslessSteeringChatRecord } from "./easy-button-chat-record-assertions.mjs";
+import {
+  assertAcceptedSteeringFocusEvents,
+  assertRevisedCurrentFocus,
+  assertRevisionZeroCurrentFocus,
+  assertStaleCurrentFocus,
+  assertUpdatingCurrentFocus,
+  waitForEasyButtonFocusStatus,
+} from "./easy-button-focus-assertions.mjs";
 import { startSpeechProviderFixture } from "./speech-provider-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "speech-capture";
 const preservedDraft = "keep this typed draft";
-const completedTranscript = "  Provider final, unchanged.  ";
+const completedTranscript = "  easy run phase2 steering workflow  ";
+const completedRequest = completedTranscript.trim();
+const completedSteeringTranscript = "  steer easy run phase2  ";
+const completedSteering = completedSteeringTranscript.trim();
+const steeredCurrentFocus =
+  "Complete the Easy Button phase 2 workflow while following the accepted steering direction.";
+const narratorFailureTranscript = "  easy run narrator failure workflow  ";
+const narratorFailureRequest = narratorFailureTranscript.trim();
+const partialOutcomeTranscript = "  Keep the accepted work running despite stale narration.  ";
+const partialOutcomeSteering = partialOutcomeTranscript.trim();
+const partialOutcomeMessage = "Instruction sent, but Current focus could not be updated.";
 const browserFixturePath = new URL("./speech-capture-browser-fixture.js", import.meta.url);
 
 if (options.help) {
@@ -129,17 +152,63 @@ try {
   const completed = await waitForCaptureState(
     context.client,
     (state) =>
-      state.capture === "off" &&
-      state.inputValue === completedTranscript &&
-      state.fixture.activeTrackCount === 0,
+      state.capture === "off" && state.inputValue === "" && state.fixture.activeTrackCount === 0,
   );
   assertCaptureTeardown(completed);
-  const afterCompletion = await context.client.evaluate(
-    `window.setta.easyRun.snapshot(${JSON.stringify(workspaceId)})`,
+  const speechStartedRun = await waitForEasyButtonWorking(context.client, completedRequest);
+  assertRevisionZeroCurrentFocus(speechStartedRun, completedRequest);
+
+  await context.client.driver("easyButtonPaneResetEventLog");
+  await completeSpeechCapture(context.client, {
+    draft: preservedDraft,
+    finishLabel: "Finish voice steering",
+    runWorking: true,
+    startLabel: "Start voice steering",
+    transcript: completedSteeringTranscript,
+  });
+  const updatingFocus = await waitForEasyButtonFocusStatus(
+    context.client,
+    completedRequest,
+    "updating",
   );
-  if (afterCompletion.latestRun !== null) {
-    throw new Error("Phase 3 item 4 submitted a completed transcript before item 5");
-  }
+  assertUpdatingCurrentFocus(updatingFocus, completedRequest, completedSteering);
+  const steeredTerminal = await waitForEasyButtonTerminal(context.client, completedRequest);
+  assertRevisedCurrentFocus(steeredTerminal, steeredCurrentFocus);
+  const steeringEvents = await context.client.driver("easyButtonPaneEventLog");
+  assertAcceptedSteeringFocusEvents(steeringEvents, completedRequest, steeredCurrentFocus);
+  const steeredChatRecord = await context.client.driver("easyButtonPaneChatRecord");
+  assertLosslessSteeringChatRecord(steeredChatRecord, completedRequest, completedSteering);
+
+  await completeSpeechCapture(context.client, {
+    draft: preservedDraft,
+    finishLabel: "Finish voice request",
+    runWorking: false,
+    startLabel: "Start voice request",
+    transcript: narratorFailureTranscript,
+  });
+  const staleFocus = await waitForEasyButtonFocusStatus(
+    context.client,
+    narratorFailureRequest,
+    "stale",
+  );
+  assertStaleCurrentFocus(staleFocus, narratorFailureRequest);
+  await completeSpeechCapture(context.client, {
+    draft: preservedDraft,
+    finishLabel: "Finish voice steering",
+    runWorking: true,
+    startLabel: "Start voice steering",
+    transcript: partialOutcomeTranscript,
+  });
+  const partialOutcome = await waitForSpeechPartialOutcome(context.client);
+  assertStaleCurrentFocus(partialOutcome, narratorFailureRequest);
+  const partialOutcomeChatRecord = await context.client.driver("easyButtonPaneChatRecord");
+  assertLosslessSteeringChatRecord(
+    partialOutcomeChatRecord,
+    narratorFailureRequest,
+    partialOutcomeSteering,
+  );
+  await clickEasyButtonStop(context.client);
+  await waitForEasyButtonTerminal(context.client, narratorFailureRequest);
 
   await setFooterDraft(context.client, preservedDraft);
   await callBrowserFixture(context.client, "holdMicrophone");
@@ -171,7 +240,7 @@ try {
   await captureScreenshot(context.client, join(artifactDir, "speech-capture-disconnected.png"));
 
   provider.assertHealthy();
-  assertProviderOperationCount(provider, 2);
+  assertProviderOperationCount(provider, 5);
   await stopElectronCdpContext(context);
   context = null;
   await writeJson(join(artifactDir, "summary.json"), {
@@ -201,6 +270,72 @@ try {
 async function installBrowserFixture(client) {
   const source = await readFile(browserFixturePath, "utf8");
   await client.call("Page.addScriptToEvaluateOnNewDocument", { source });
+}
+
+async function completeSpeechCapture(
+  client,
+  { draft, finishLabel, runWorking, startLabel, transcript },
+) {
+  await setFooterDraft(client, draft);
+  await clickEnabledButtonByAria(client, startLabel);
+  await waitForCaptureState(
+    client,
+    (state) => state.capture === "connecting" && state.fixture.dataChannelLabel === "oai-events",
+  );
+  await callBrowserFixture(client, "openProviderSession");
+  const listening = await waitForCaptureState(client, (state) => state.capture === "listening");
+  assertDraftPreserved(listening, draft);
+  assertListeningCapture(listening, runWorking);
+  await clickEnabledButtonByAria(client, finishLabel);
+  await waitForCaptureState(
+    client,
+    (state) => state.capture === "committing" && state.fixture.commitCount === 1,
+  );
+  await callBrowserFixture(client, "emitCompleted", transcript);
+}
+
+function waitForEasyButtonWorking(client, requestText) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      easyButtonStateSettled(state, "working") &&
+      state.runRequestText === requestText &&
+      state.buttonAriaLabel === "Start voice steering" &&
+      state.inputValue === "" &&
+      state.stopButtonVisible &&
+      !state.stopButtonDisabled,
+    workflowTimeoutMs,
+  );
+}
+
+function waitForEasyButtonTerminal(client, requestText) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      easyButtonStateSettled(state, "complete") &&
+      state.runRequestText === requestText &&
+      state.summaryText !== "",
+    workflowTimeoutMs,
+  );
+}
+
+function waitForSpeechPartialOutcome(client) {
+  return waitForState(
+    client,
+    easyButtonStateExpression(),
+    (state) =>
+      easyButtonStateSettled(state, "working") &&
+      state.runRequestText === narratorFailureRequest &&
+      state.focusStatus === "stale" &&
+      state.errorText === partialOutcomeMessage &&
+      state.inputValue === "" &&
+      !state.inputFocused &&
+      state.stopButtonVisible &&
+      !state.stopButtonDisabled,
+    workflowTimeoutMs,
+  );
 }
 
 function captureStateExpression() {

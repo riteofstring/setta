@@ -25,6 +25,10 @@ import {
   speechCaptureDOMState,
   speechCaptureHelperCopy,
 } from "./easy-button-speech-presentation";
+import {
+  submitCompletedSpeechTranscript,
+  submitTypedEasyButtonRequest,
+} from "./easy-button-submission";
 import { ArtifactRail, HighlightRail } from "./easy-button-rails";
 import type { SpeechCaptureState } from "./speech-capture-controller";
 import {
@@ -167,10 +171,26 @@ function useEasyButtonController(): EasyButtonController {
   const stop = useEasyRunStore((state) => state.stop);
   const [inputValue, setInputValue] = useState("");
   const [pendingAction, setPendingAction] = useState(false);
-  const capture = useSpeechCapture({
-    onCompletedTranscript: (transcript) => {
-      setInputValue(transcript);
+  const submitSpeechTranscript = useCallback(
+    async (transcript: string, intent: "start" | "steer") => {
+      if (!selectedWorkspaceId) {
+        throw new Error("The active workspace changed before the transcript could be submitted.");
+      }
+      await submitCompletedSpeechTranscript({
+        inputRef,
+        intent,
+        setInputValue,
+        setPendingAction,
+        start,
+        steer,
+        transcript,
+        workspaceId: selectedWorkspaceId,
+      });
     },
+    [selectedWorkspaceId, start, steer],
+  );
+  const capture = useSpeechCapture({
+    onCompletedTranscript: submitSpeechTranscript,
     workspaceId: selectedWorkspaceId,
   });
   const viewState = easyButtonViewState(latestRun, pendingAction);
@@ -395,31 +415,21 @@ function useEasyButtonSubmit({
   steer,
   viewState,
 }: SubmitOptions) {
-  return useCallback(async () => {
+  return useCallback(() => {
     if (!selectedWorkspaceId || !canSubmit) {
       inputRef.current?.focus();
       return;
     }
-    const requestText = inputValue.trim();
-    setPendingAction(true);
-    try {
-      const steeringResult = await performEasyButtonSubmission({
-        latestRun,
-        requestText,
-        selectedWorkspaceId,
-        start,
-        steer,
-        viewState,
-      });
-      setInputValue("");
-      if (steeringResult?.kind === "failure") {
-        inputRef.current?.blur();
-      }
-    } catch {
-      inputRef.current?.focus();
-    } finally {
-      setPendingAction(false);
-    }
+    return submitTypedEasyButtonRequest({
+      inputRef,
+      intent: viewState === "working" && canStopRun(latestRun) ? "steer" : "start",
+      requestText: inputValue.trim(),
+      setInputValue,
+      setPendingAction,
+      start,
+      steer,
+      workspaceId: selectedWorkspaceId,
+    });
   }, [
     canSubmit,
     inputRef,
@@ -432,30 +442,6 @@ function useEasyButtonSubmit({
     steer,
     viewState,
   ]);
-}
-
-interface EasyButtonSubmission {
-  latestRun: EasyRun | null;
-  requestText: string;
-  selectedWorkspaceId: string;
-  start: (workspaceId: string, requestText: string) => Promise<EasyRun>;
-  steer: (workspaceId: string, text: string) => Promise<EasyRunSteerResult>;
-  viewState: EasyButtonViewState;
-}
-
-async function performEasyButtonSubmission({
-  latestRun,
-  requestText,
-  selectedWorkspaceId,
-  start,
-  steer,
-  viewState,
-}: EasyButtonSubmission): Promise<EasyRunSteerResult | null> {
-  if (viewState === "working" && canStopRun(latestRun)) {
-    return steer(selectedWorkspaceId, requestText);
-  }
-  await start(selectedWorkspaceId, requestText);
-  return null;
 }
 
 interface StopOptions {
