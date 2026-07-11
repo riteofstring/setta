@@ -1,6 +1,7 @@
 import type { IpcMain } from "electron";
 
 import type { BackendClient } from "@generated/backend";
+import { isBackendRequestError } from "@shared/backend-runtime";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 
 interface EasyRunIpcRegistration {
@@ -34,7 +35,22 @@ export function registerEasyRunIpcHandlers({
     ipcMain,
     "easyRunSteer",
     async (_event, request) => {
-      return requireBackendClient().steerEasyRun(request);
+      try {
+        return {
+          kind: "success" as const,
+          run: await requireBackendClient().steerEasyRun(request),
+        };
+      } catch (error) {
+        if (!isBackendRequestError(error)) {
+          throw error;
+        }
+        return {
+          code: error.code,
+          kind: "failure" as const,
+          message: error.message,
+          operationApplied: error.operationApplied,
+        };
+      }
     },
     ipcObserver,
   );

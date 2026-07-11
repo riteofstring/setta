@@ -55,6 +55,7 @@ import {
   workflowTimeoutMs,
 } from "./easy-button-pane-actions.mjs";
 import { assertLosslessSteeringChatRecord } from "./easy-button-chat-record-assertions.mjs";
+import { exerciseSteeringPartialOutcome } from "./easy-button-partial-outcome-assertions.mjs";
 import { assertHumanReadableTerminalSummary } from "./easy-button-summary-assertions.mjs";
 import {
   assertAcceptedSteeringFocusEvents,
@@ -271,6 +272,7 @@ try {
     "easy-button stale narrator projection stopped the working run",
   );
   await captureScreenshot(context.client, join(artifactDir, "easy-button-focus-stale.png"));
+  const partialOutcome = await exerciseSteeringPartialOutcome(context.client, artifactDir);
   await clickEasyButtonStop(context.client);
   const staleFocusStopped = await waitForEasyButtonTerminal(
     context.client,
@@ -452,6 +454,7 @@ try {
     longRequestLayout,
     mobileLongRequestLayout,
     pixelMatchStates: Object.keys(pixelMatch.states),
+    partialOutcome,
     reducedMotion,
     restartRecovery,
     restoredTerminal,

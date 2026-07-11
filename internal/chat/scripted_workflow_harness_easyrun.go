@@ -118,8 +118,15 @@ func scriptedEasyRunNarratorFailureTurn(harness *ScriptedWorkflowHarness, ctx co
 			return TurnCompletion{}, err
 		}
 	}
-	_, err := harness.waitForSteer(ctx, request.Run.ID)
-	return TurnCompletion{}, err
+	steer, err := harness.waitForSteer(ctx, request.Run.ID)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := sink.UserMessageCommitted(chatInputText(steer.Input)); err != nil {
+		return TurnCompletion{}, err
+	}
+	<-ctx.Done()
+	return TurnCompletion{}, ctx.Err()
 }
 
 func scriptedEasyRunPhase5ArtifactCapTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

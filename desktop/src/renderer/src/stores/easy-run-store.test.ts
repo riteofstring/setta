@@ -113,7 +113,9 @@ describe("easy-run store", () => {
 
   test("steers the current run through the typed easy-run API and preserves rails", async () => {
     const current = easyRun("easy_run_current");
-    const steer = vi.fn<SettaAPI["easyRun"]["steer"]>().mockResolvedValue(current);
+    const steer = vi
+      .fn<SettaAPI["easyRun"]["steer"]>()
+      .mockResolvedValue({ kind: "success", run: current });
     installEasyRunAPI({ steer });
     useEasyRunStore.getState().hydrateSnapshot(
       workspaceId,
@@ -128,7 +130,7 @@ describe("easy-run store", () => {
     const run = await useEasyRunStore.getState().steer(workspaceId, "keep going");
 
     expect(steer).toHaveBeenCalledWith({ text: "keep going", workspaceId });
-    expect(run).toBe(current);
+    expect(run).toEqual({ kind: "success", run: current });
     expect(useEasyRunStore.getState().latestRun).toBe(current);
     expect(useEasyRunStore.getState().highlights.map((item) => item.id)).toEqual(["highlight_1"]);
     expect(useEasyRunStore.getState().artifacts.map((item) => item.id)).toEqual(["artifact_1"]);
@@ -138,7 +140,9 @@ describe("easy-run store", () => {
   test("does not regress a terminal run when a same-run action response is stale", async () => {
     const working = easyRun("easy_run_current");
     const terminal = completedEasyRun(working, "Done in less than 1 second with no artifacts.");
-    const steer = vi.fn<SettaAPI["easyRun"]["steer"]>().mockResolvedValue(working);
+    const steer = vi
+      .fn<SettaAPI["easyRun"]["steer"]>()
+      .mockResolvedValue({ kind: "success", run: working });
     installEasyRunAPI({ steer });
     useEasyRunStore.getState().hydrateSnapshot(
       workspaceId,
@@ -153,6 +157,55 @@ describe("easy-run store", () => {
 
     expect(useEasyRunStore.getState().latestRun).toBe(terminal);
     expect(useEasyRunStore.getState().lastEventSequence).toBe(6);
+  });
+
+  test("treats applied steering with a failed focus projection as accepted", async () => {
+    const current = easyRun("easy_run_current");
+    const result = {
+      code: "steer_easy_run_focus_update_failed",
+      kind: "failure" as const,
+      message: "steering accepted but focus update failed: narrator unavailable",
+      operationApplied: true,
+    };
+    const steer = vi.fn<SettaAPI["easyRun"]["steer"]>().mockResolvedValue(result);
+    installEasyRunAPI({ steer });
+    useEasyRunStore
+      .getState()
+      .hydrateSnapshot(workspaceId, easyRunSnapshot({ latestRun: current, sequence: 5 }));
+
+    await expect(useEasyRunStore.getState().steer(workspaceId, "keep going")).resolves.toBe(result);
+
+    expect(useEasyRunStore.getState()).toMatchObject({
+      error: "Instruction sent, but Current focus could not be updated.",
+      latestRun: current,
+      status: "ready",
+      workspaceId,
+    });
+  });
+
+  test("rejects steering errors when the operation was not applied", async () => {
+    const current = easyRun("easy_run_current");
+    const steer = vi.fn<SettaAPI["easyRun"]["steer"]>().mockResolvedValue({
+      code: "steer_easy_run_failed",
+      kind: "failure",
+      message: "active run is unavailable",
+      operationApplied: false,
+    });
+    installEasyRunAPI({ steer });
+    useEasyRunStore
+      .getState()
+      .hydrateSnapshot(workspaceId, easyRunSnapshot({ latestRun: current, sequence: 5 }));
+
+    await expect(useEasyRunStore.getState().steer(workspaceId, "keep going")).rejects.toThrow(
+      "active run is unavailable",
+    );
+
+    expect(useEasyRunStore.getState()).toMatchObject({
+      error: "active run is unavailable",
+      latestRun: current,
+      status: "error",
+      workspaceId,
+    });
   });
 
   test("clears rails when a new run arrives", () => {
@@ -229,7 +282,7 @@ function installEasyRunAPI(overrides: Partial<SettaAPI["easyRun"]>) {
           onEvent: () => () => {},
           snapshot: async () => easyRunSnapshot({}),
           start: async () => easyRun("easy_run_started"),
-          steer: async () => easyRun("easy_run_steered"),
+          steer: async () => ({ kind: "success", run: easyRun("easy_run_steered") }),
           stop: async () => easyRun("easy_run_stopped"),
           ...overrides,
         },

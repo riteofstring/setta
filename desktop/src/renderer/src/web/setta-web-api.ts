@@ -27,6 +27,7 @@ import {
   webDeviceDisplayName,
   webRuntimeVersions,
 } from "./setta-web-api-utils";
+import { steerEasyRunForWeb } from "./easy-run-web-api";
 import { subscribeForWebPush } from "./setta-web-push";
 
 const webDeviceStorageKey = "setta.web.device-session.v1";
@@ -275,7 +276,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         }),
       snapshot: (workspaceId) => requireClient().readEasyRunSnapshot({ workspaceId }),
       start: (request) => requireClient().startEasyRun(request),
-      steer: (request) => requireClient().steerEasyRun(request),
+      steer: (request) => steerEasyRunForWeb(requireClient(), request),
       stop: (request) => requireClient().stopEasyRun(request),
     },
     codexAccount: {

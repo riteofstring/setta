@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 items 1-7 complete
+**Status:** Implementation in progress — Phase 1 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1584,6 +1584,85 @@ partial-outcome, deterministic, and acceptance coverage before beginning the
 backend speech provider. The atomic-publication regression is now part of that
 store baseline. No deterministic blocker remains; live-provider proof is still
 blocked by the separate `max` provider drift.
+
+### 2026-07-10 — Phase 1 closure complete
+
+Implemented Phase 1 item 8 and closed the lossless-execution/current-focus
+phase before beginning speech-provider work. The audit confirmed that the
+generated contract and checked-in PWA bundle were current, then completed the
+remaining accepted-steering partial-outcome boundary. `APIError` now carries a
+required Go-owned `operationApplied` fact, the backend protocol is version 12,
+and the generated client preserves error code, message, and application state
+without renderer message parsing. Ordinary rejected operations remain
+`operationApplied = false`; only steering that reached the working agent before
+Current focus projection failed is true.
+
+Electron main converts decoded backend steering results into an explicit typed
+IPC result, preload preserves it, and the web adapter implements the same
+contract. The Easy Run store treats only an applied failure as accepted: it
+keeps the run ready and working, shows `Instruction sent, but Current focus
+could not be updated.`, clears and blurs the composer, and relies on the
+persisted stale/degraded run event for presentation. A normal rejected steer
+still preserves and focuses the input. This uses structured backend facts, not
+error-message keywords or cross-language constant mirrors.
+
+The deterministic production harness now commits an exact steer after the
+existing narrator-failure scenario has made Current focus stale. The workflow
+proves through the production Electron, preload, generated HTTP client, chat,
+Easy Run store, event, and renderer paths that the instruction is persisted and
+committed exactly once, no NOW row is added, the stale focus remains visible,
+the input is empty and no longer retry-focused, and Stop remains available. The
+new partial-outcome screenshot was inspected and the complete state remained
+contained and readable.
+
+Verification completed for this slice:
+
+- complete `internal/httpapi`, `internal/easyrun`, `internal/chat`, and
+  contract-generator suites passed; contract regeneration was idempotent;
+- focused generated-client, main IPC, preload, web adapter, renderer store, and
+  shared transport coverage passed, including applied and rejected steering
+  errors across both Electron and web boundaries;
+- all 995 desktop Vitest tests, Electron/web typechecks, and Electron/web
+  production builds passed; the checked-in PWA bundle was regenerated from the
+  protocol-12 generated client;
+- the deterministic production Easy Button workflow passed at
+  `desktop/.recordings/easy-button-speech-phase1-closure-20260710-r2`, including
+  exact hidden-chat start/steer persistence, Current focus current/updating/
+  stale states, the accepted partial outcome, human-readable terminal variants,
+  stop/failure behavior, reload/restart, compact and reduced-motion coverage,
+  and the pixel-match companion;
+- `./scripts/format.sh` passed. The first `./check_quality.sh --all` pass exposed
+  slice-owned line-count and callback-complexity issues; the new preload, web,
+  submit, and Electron assertions were split at their owning boundaries, and
+  their prescribed focused lint, tests, and typecheck passed before the broad
+  gate was rerun. The rerun passed file-length, template, shell, Python, Go vet,
+  non-live Go, dead-code, formatting, TypeScript lint/complexity, typecheck, all
+  995 Vitest tests, and the production Electron build checks.
+
+ChatGPT authentication was available, so the live Electron chat, live Easy
+Button, and all four backend Codex probes were attempted with
+`OPENAI_API_KEY` removed. All remain blocked before conversation creation
+because `model/list` advertises reasoning effort `max`, which Setta's existing
+provider decoder rejects. These failures are not live-provider validation for
+Phase 1. `./scripts/check_supply_chain.sh` also remains blocked repository-wide
+by GO-2026-5856 in the pinned Go 1.26.4 standard library, fixed in Go 1.26.5;
+this slice changes no dependency or toolchain input.
+
+The broad gate remains nonzero for those live `internal/runtime` failures and
+for a separate deterministic Codex-protocol notification timeout: its backend
+run reaches `completed`, but `coverage complete` does not enter the visible
+transcript before the workflow deadline. The prescribed focused
+`--codex-protocol-only` check reproduced the same timeout twice, so it is a real
+current blocker rather than claimed passing coverage. It does not occur in the
+changed Easy Run path: the complete production Easy Button workflow and its
+pixel-match companion pass after the final refactor. No later required-manifest
+result is claimed after the chat workflow stops the manifest.
+
+Phase 1 is complete. The next coherent work is Phase 2 item 1: add the
+`internal/speech` package's Go-owned types, validation, bounded OpenAI client,
+failure classification, and fake-transport unit tests. No deterministic blocker
+was found for that work; the live Codex `max` drift and pinned-toolchain advisory
+remain separate repository issues.
 
 ## Verification Plan
 

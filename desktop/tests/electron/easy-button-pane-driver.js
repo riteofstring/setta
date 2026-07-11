@@ -162,6 +162,7 @@
     const focusBlock = host.querySelector(".easy-button-focus-block");
     const focusLabel = host.querySelector('[data-testid="easy-button-focus-label"]');
     const helper = host.querySelector('[data-testid="easy-button-helper"]');
+    const error = host.querySelector('[data-testid="easy-button-error"]');
     const summary = host.querySelector('[data-testid="easy-button-summary"]');
     const agentChip = host.querySelector('[data-testid="easy-button-agent-chip"]');
     const narratorStatus = host.querySelector(".easy-button-narrator-status");
@@ -186,6 +187,7 @@
       currentFocusRect: rectSnapshot(elementRectOrZero(currentFocus)),
       currentFocusText: elementText(currentFocus),
       enterChipText: elementText(enterChip),
+      errorText: elementText(error),
       focusBlockDisplay: elementStyleValue(focusBlock, "display"),
       focusLabelText: elementText(focusLabel),
       focusStatus: elementDatasetValue(surface, "easyButtonFocus"),

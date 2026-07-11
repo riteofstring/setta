@@ -19,8 +19,8 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 11;
-export const backendContractSchemaHash = "sha256:0e4720d6f37fdb05b1f730516061c543bec134d169a8a18163f2b53b4346aa1a";
+export const backendProtocolVersion = 12;
+export const backendContractSchemaHash = "sha256:b83f191c87de908f05ab54381a23ca7b4afc4396d44ee280f40ce46effc7ab77";
 
 export type DeviceScope = "full";
 
@@ -6348,6 +6348,7 @@ export interface LogoutCodexAccountRequest {
 export interface APIError {
   code: string;
   message: string;
+  operationApplied: boolean;
   activeExecution: WorkflowExecutionSummary | null;
 }
 
@@ -12746,10 +12747,11 @@ export function decodeLogoutCodexAccountRequest(value: unknown): LogoutCodexAcco
 
 export function decodeAPIError(value: unknown): APIError {
   const record = assertRecord(value, "APIError");
-  assertKnownFields(record, "APIError", ["code", "message", "activeExecution"]);
+  assertKnownFields(record, "APIError", ["code", "message", "operationApplied", "activeExecution"]);
   return {
     code: decodeString(requireField(record, "code", "APIError"), "APIError.code"),
     message: decodeString(requireField(record, "message", "APIError"), "APIError.message"),
+    operationApplied: decodeBoolean(requireField(record, "operationApplied", "APIError"), "APIError.operationApplied"),
     activeExecution: decodeNullable(requireField(record, "activeExecution", "APIError"), "APIError.activeExecution", (item) => decodeWorkflowExecutionSummary(item)),
   };
 }

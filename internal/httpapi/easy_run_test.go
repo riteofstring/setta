@@ -114,6 +114,7 @@ func TestSteerEasyRunEndpointClassifiesAcceptedFocusUpdatePartialOutcome(t *test
 		t.Fatalf("decode partial-outcome error: %v", err)
 	}
 	if body.Error.Code != "steer_easy_run_focus_update_failed" ||
+		!body.Error.OperationApplied ||
 		!strings.Contains(body.Error.Message, "steering accepted but focus update failed") {
 		t.Fatalf("partial-outcome error = %+v, want typed accepted-focus code", body.Error)
 	}

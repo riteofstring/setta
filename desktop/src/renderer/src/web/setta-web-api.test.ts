@@ -102,6 +102,54 @@ describe("web SettaAPI unpaired runtime state", () => {
     expect(eventStreamCall?.authorization).toBe("Bearer token_web");
     unsubscribe();
   });
+
+  test("returns applied Easy Run steering failures without losing backend facts", async () => {
+    withWebGlobals();
+    const api = createWebSettaAPI({
+      fetchImpl: async (input) => {
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          case "/easy-runs/steer":
+            return jsonResponse(
+              {
+                error: {
+                  activeExecution: null,
+                  code: "steer_easy_run_focus_update_failed",
+                  message: "steering accepted but focus update failed: narrator unavailable",
+                  operationApplied: true,
+                },
+              },
+              500,
+            );
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+    });
+    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+
+    const result = await api.easyRun.steer({
+      text: "keep going",
+      workspaceId: "workspace_api",
+    });
+
+    expect(result).toEqual({
+      code: "steer_easy_run_focus_update_failed",
+      kind: "failure",
+      message: "steering accepted but focus update failed: narrator unavailable",
+      operationApplied: true,
+    });
+  });
 });
 
 function withWebGlobals() {

@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import type { EasyArtifact, EasyHighlight, EasyRun, EasyRunFocusStatus } from "@generated/backend";
+import type { EasyRunSteerResult } from "@shared/easy-run-ipc";
 
 import { MarkdownText } from "../../components/markdown-text";
 import { useEasyRunStore } from "../../stores/easy-run-store";
@@ -471,7 +472,7 @@ interface SubmitOptions {
   setInputValue: (value: string) => void;
   setPendingAction: (pending: boolean) => void;
   start: (workspaceId: string, requestText: string) => Promise<EasyRun>;
-  steer: (workspaceId: string, text: string) => Promise<EasyRun>;
+  steer: (workspaceId: string, text: string) => Promise<EasyRunSteerResult>;
   viewState: EasyButtonViewState;
 }
 
@@ -495,12 +496,18 @@ function useEasyButtonSubmit({
     const requestText = inputValue.trim();
     setPendingAction(true);
     try {
-      if (viewState === "working" && canStopRun(latestRun)) {
-        await steer(selectedWorkspaceId, requestText);
-      } else {
-        await start(selectedWorkspaceId, requestText);
-      }
+      const steeringResult = await performEasyButtonSubmission({
+        latestRun,
+        requestText,
+        selectedWorkspaceId,
+        start,
+        steer,
+        viewState,
+      });
       setInputValue("");
+      if (steeringResult?.kind === "failure") {
+        inputRef.current?.blur();
+      }
     } catch {
       inputRef.current?.focus();
     } finally {
@@ -518,6 +525,30 @@ function useEasyButtonSubmit({
     steer,
     viewState,
   ]);
+}
+
+interface EasyButtonSubmission {
+  latestRun: EasyRun | null;
+  requestText: string;
+  selectedWorkspaceId: string;
+  start: (workspaceId: string, requestText: string) => Promise<EasyRun>;
+  steer: (workspaceId: string, text: string) => Promise<EasyRunSteerResult>;
+  viewState: EasyButtonViewState;
+}
+
+async function performEasyButtonSubmission({
+  latestRun,
+  requestText,
+  selectedWorkspaceId,
+  start,
+  steer,
+  viewState,
+}: EasyButtonSubmission): Promise<EasyRunSteerResult | null> {
+  if (viewState === "working" && canStopRun(latestRun)) {
+    return steer(selectedWorkspaceId, requestText);
+  }
+  await start(selectedWorkspaceId, requestText);
+  return null;
 }
 
 interface StopOptions {

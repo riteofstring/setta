@@ -145,6 +145,7 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
+import type { EasyRunSteerResult } from "./easy-run-ipc";
 
 export interface RuntimeVersions {
   app: string;
@@ -396,7 +397,7 @@ export interface SettaAPI {
     onEvent: (listener: (event: EasyRunEvent) => void) => () => void;
     snapshot: (workspaceId: string) => Promise<EasyRunSnapshot>;
     start: (request: StartEasyRunRequest) => Promise<EasyRun>;
-    steer: (request: SteerEasyRunRequest) => Promise<EasyRun>;
+    steer: (request: SteerEasyRunRequest) => Promise<EasyRunSteerResult>;
     stop: (request: StopEasyRunRequest) => Promise<EasyRun>;
   };
   appearance: {

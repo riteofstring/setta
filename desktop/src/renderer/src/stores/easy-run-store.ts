@@ -5,6 +5,7 @@ import type {
   EasyRunEvent,
   EasyRunSnapshot,
 } from "@generated/backend";
+import type { EasyRunSteerResult } from "@shared/easy-run-ipc";
 import { create } from "zustand";
 
 import { applyEasyRunEvent } from "./easy-run-events";
@@ -28,7 +29,7 @@ interface EasyRunStoreActions {
   loadSnapshot: (workspaceId: string) => Promise<void>;
   reset: () => void;
   start: (workspaceId: string, requestText: string) => Promise<EasyRun>;
-  steer: (workspaceId: string, text: string) => Promise<EasyRun>;
+  steer: (workspaceId: string, text: string) => Promise<EasyRunSteerResult>;
   stop: (workspaceId: string, easyRunId: string) => Promise<EasyRun>;
 }
 
@@ -156,9 +157,20 @@ export const useEasyRunStore = create<EasyRunStore>((set, get) => {
         workspaceId,
       });
       try {
-        const run = await window.setta.easyRun.steer({ text, workspaceId });
-        set((state) => runPatch(state, workspaceId, run));
-        return run;
+        const result = await window.setta.easyRun.steer({ text, workspaceId });
+        if (result.kind === "success") {
+          set((state) => runPatch(state, workspaceId, result.run));
+          return result;
+        }
+        if (result.operationApplied) {
+          set({
+            error: "Instruction sent, but Current focus could not be updated.",
+            status: "ready",
+            workspaceId,
+          });
+          return result;
+        }
+        throw new Error(result.message);
       } catch (error) {
         set({
           error: errorMessage(error),

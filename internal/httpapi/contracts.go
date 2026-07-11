@@ -924,9 +924,10 @@ type SelectDefaultTerminalProfileRequest struct {
 }
 
 type APIError struct {
-	Code            string                                 `json:"code"`
-	Message         string                                 `json:"message"`
-	ActiveExecution *orchestrator.WorkflowExecutionSummary `json:"activeExecution"`
+	Code             string                                 `json:"code"`
+	Message          string                                 `json:"message"`
+	OperationApplied bool                                   `json:"operationApplied"`
+	ActiveExecution  *orchestrator.WorkflowExecutionSummary `json:"activeExecution"`
 }
 
 type ErrorResponse struct {

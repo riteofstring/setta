@@ -6,6 +6,18 @@ import type {
   StopEasyRunRequest,
 } from "@generated/backend";
 
+export type EasyRunSteerResult =
+  | {
+      kind: "success";
+      run: EasyRun;
+    }
+  | {
+      code: string;
+      kind: "failure";
+      message: string;
+      operationApplied: boolean;
+    };
+
 export interface EasyRunIpcContract {
   easyRunSnapshot: {
     args: [workspaceId: string];
@@ -17,7 +29,7 @@ export interface EasyRunIpcContract {
   };
   easyRunSteer: {
     args: [request: SteerEasyRunRequest];
-    result: EasyRun;
+    result: EasyRunSteerResult;
   };
   easyRunStop: {
     args: [request: StopEasyRunRequest];

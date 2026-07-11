@@ -208,10 +208,15 @@ func writeChatError(response http.ResponseWriter, code string, err error) {
 }
 
 func writeEasyRunError(response http.ResponseWriter, code string, err error) {
-	status := http.StatusBadRequest
 	if easyrun.IsAcceptedSteeringFocusUpdateError(err) {
-		status = http.StatusInternalServerError
+		writeAPIError(response, http.StatusInternalServerError, APIError{
+			Code:             code,
+			Message:          err.Error(),
+			OperationApplied: true,
+		})
+		return
 	}
+	status := http.StatusBadRequest
 	if easyrun.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_easy_run_state", err.Error())
 		return

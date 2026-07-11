@@ -5,7 +5,9 @@ interface BackendRequestEndpoint {
 
 interface BackendErrorPayload {
   error: {
+    code: string;
     message: string;
+    operationApplied: boolean;
   };
 }
 
@@ -32,6 +34,33 @@ interface BackendRequest<ResponsePayload, ErrorPayload extends BackendErrorPaylo
   endpoint: BackendRequestEndpoint;
   fetchImpl: BackendFetch;
   requestPayload: unknown | undefined;
+}
+
+const backendRequestErrorBrand = Symbol("BackendRequestError");
+
+export interface BackendRequestError extends Error {
+  readonly [backendRequestErrorBrand]: true;
+  readonly code: string;
+  readonly operationApplied: boolean;
+}
+
+export function createBackendRequestError(
+  code: string,
+  message: string,
+  operationApplied: boolean,
+): BackendRequestError {
+  return Object.assign(new Error(message), {
+    [backendRequestErrorBrand]: true as const,
+    code,
+    operationApplied,
+  });
+}
+
+export function isBackendRequestError(error: unknown): error is BackendRequestError {
+  return (
+    error instanceof Error &&
+    (error as Partial<BackendRequestError>)[backendRequestErrorBrand] === true
+  );
 }
 
 export function assertRecord(value: unknown, label: string): Record<string, unknown> {
@@ -212,7 +241,8 @@ export async function requestBackend<ResponsePayload, ErrorPayload extends Backe
   const response = await fetchImpl(url, init);
   const payload: unknown = await response.json();
   if (!response.ok) {
-    throw new Error(decodeErrorResponse(payload).error.message);
+    const decoded = decodeErrorResponse(payload).error;
+    throw createBackendRequestError(decoded.code, decoded.message, decoded.operationApplied);
   }
   return decodeResponse(payload);
 }
