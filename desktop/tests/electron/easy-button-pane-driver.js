@@ -11,6 +11,7 @@
     }
     Object.assign(driver, {
       easyButtonPaneClickToolbarAction,
+      easyButtonPaneChatRecord,
       easyButtonPaneClickControl,
       easyButtonPaneClickStop,
       easyButtonPaneClose,
@@ -500,6 +501,16 @@
       return null;
     }
     return window.setta.easyRun.snapshot(workspaceId);
+  }
+
+  async function easyButtonPaneChatRecord() {
+    const workspaceId = currentWorkspaceId();
+    const snapshot = await easyButtonSnapshot(workspaceId);
+    const run = snapshot?.latestRun;
+    if (!run) {
+      return null;
+    }
+    return window.setta.chat.messagePage(workspaceId, run.conversationId, 0, 100);
   }
 
   async function easyButtonLayout(workspaceId) {

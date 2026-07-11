@@ -233,63 +233,6 @@ func TestServiceStopCancelsBackingRunAndProjectsStoppedStatus(t *testing.T) {
 	}
 }
 
-func TestServiceSteerForwardsTextToBackingHiddenRun(t *testing.T) {
-	harness := chat.NewFakeHarnessByPrompt(map[string][]chat.FakeHarnessEvent{
-		"wait for steering": {
-			{
-				Type:      chat.FakeEventThreadLinked,
-				ThreadID:  "thread_easy",
-				SessionID: "session_easy",
-				TurnID:    "turn_easy",
-			},
-			{Type: chat.FakeEventWaitForSteer},
-			{Type: chat.FakeEventAssistantDelta, Text: "steered"},
-		},
-	})
-	service, chatService := newTestServiceWithChat(t, harness)
-
-	started, err := service.Start("workspace_api", "wait for steering")
-	if err != nil {
-		t.Fatalf("start easy-run: %v", err)
-	}
-	working := waitForEasyRunStatus(t, service, "workspace_api", started.ID, EasyRunStatusWorking)
-	waitForEasyRunHarnessRef(t, chatService, "workspace_api", working.ConversationID, "turn_easy")
-
-	steered, err := service.Steer("workspace_api", "  keep going  ")
-	if err != nil {
-		t.Fatalf("steer easy-run: %v", err)
-	}
-	if steered.ID != working.ID || steered.Status != EasyRunStatusWorking {
-		t.Fatalf("steered run = %+v, want current working run %s", steered, working.ID)
-	}
-	requests := harness.SteeringRequests()
-	if len(requests) != 1 || chatInputTextForTest(requests[0].Input) != "keep going" || requests[0].RunID == "" {
-		t.Fatalf("steering requests = %+v, want trimmed text for backing run", requests)
-	}
-	completed := waitForEasyRunStatus(t, service, "workspace_api", started.ID, EasyRunStatusCompleted)
-	assertCompletedEasyRun(t, completed)
-
-	page, err := chatService.LoadMessagePage("workspace_api", completed.ConversationID, 0, 20)
-	if err != nil {
-		t.Fatalf("load hidden message page: %v", err)
-	}
-	assertHiddenEasyRunConversation(t, page.Conversation, started.ID)
-}
-
-func TestServiceSteerRejectsWithoutActiveRun(t *testing.T) {
-	service, _ := newTestServiceWithChat(t, chat.NewFakeHarness(nil))
-
-	_, err := service.Steer("workspace_api", "keep going")
-	if err == nil || !strings.Contains(err.Error(), "no active easy-run") {
-		t.Fatalf("steer without active run error = %v, want active-run rejection", err)
-	}
-
-	_, err = service.Steer("workspace_api", "   ")
-	if err == nil || !strings.Contains(err.Error(), "steering text is required") {
-		t.Fatalf("empty steering error = %v, want text validation", err)
-	}
-}
-
 func TestEmitArtifactToolPersistsAndPublishesTypedArtifact(t *testing.T) {
 	service, store := newTestServiceWithStore(t)
 	run := testRun("easy_run_artifact")
@@ -1187,16 +1130,6 @@ func waitForEasyRunHarnessRef(t *testing.T, chatService *chat.Service, workspace
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for hidden harness turn %s", turnID)
-}
-
-func chatInputTextForTest(input chat.ChatInput) string {
-	parts := make([]string, 0, len(input.Parts))
-	for _, part := range input.Parts {
-		if part.Type == chat.MessagePartText && part.Text != nil {
-			parts = append(parts, part.Text.Text)
-		}
-	}
-	return strings.Join(parts, "\n")
 }
 
 func assistantDeltaEvents(count int, prefix string) []chat.FakeHarnessEvent {

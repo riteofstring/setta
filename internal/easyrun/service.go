@@ -52,6 +52,15 @@ type WorkspaceResolver interface {
 	ResolveWorkspace(id string) (workspace.WorkspaceSummary, error)
 }
 
+// acceptedEasyRunSteering keeps the regular-chat result intact at the Easy Run
+// boundary. The persisted user message is the authoritative accepted steering
+// fact for later presentation projection; the renderer request is not.
+type acceptedEasyRunSteering struct {
+	run         EasyRun
+	text        string
+	userMessage chat.ChatMessage
+}
+
 type Option func(*Service)
 
 func WithChatService(chatService ChatService) Option {
@@ -276,10 +285,79 @@ func (service *Service) Steer(workspaceID string, text string) (EasyRun, error) 
 	backingRunID := record.BackingRunID
 	service.mu.Unlock()
 
-	if _, err := service.chat.SteerActiveRunInputByID(workspaceID, run.ConversationID, backingRunID, chat.TextChatInput(trimmed)); err != nil {
+	result, err := service.chat.SteerActiveRunInputByID(workspaceID, run.ConversationID, backingRunID, chat.TextChatInput(trimmed))
+	if err != nil {
 		return EasyRun{}, err
 	}
-	return run, nil
+	accepted, err := acceptedEasyRunSteeringFromChatResult(run, backingRunID, result)
+	if err != nil {
+		return EasyRun{}, fmt.Errorf("steering accepted but persisted chat result is invalid: %w", err)
+	}
+	return accepted.run, nil
+}
+
+func acceptedEasyRunSteeringFromChatResult(run EasyRun, backingRunID string, result chat.SteerMessageResult) (acceptedEasyRunSteering, error) {
+	if result.Conversation.ID != run.ConversationID || result.Conversation.WorkspaceID != run.WorkspaceID {
+		return acceptedEasyRunSteering{}, fmt.Errorf(
+			"steering conversation = %s/%s, want %s/%s",
+			result.Conversation.WorkspaceID,
+			result.Conversation.ID,
+			run.WorkspaceID,
+			run.ConversationID,
+		)
+	}
+	if result.Run.ID != backingRunID || result.Run.ConversationID != run.ConversationID || result.Run.WorkspaceID != run.WorkspaceID {
+		return acceptedEasyRunSteering{}, fmt.Errorf(
+			"steering run = %s/%s/%s, want %s/%s/%s",
+			result.Run.WorkspaceID,
+			result.Run.ConversationID,
+			result.Run.ID,
+			run.WorkspaceID,
+			run.ConversationID,
+			backingRunID,
+		)
+	}
+	message := result.UserMessage
+	if message.ConversationID != run.ConversationID || message.RunID != backingRunID {
+		return acceptedEasyRunSteering{}, fmt.Errorf(
+			"steering message %s belongs to conversation/run %s/%s, want %s/%s",
+			message.ID,
+			message.ConversationID,
+			message.RunID,
+			run.ConversationID,
+			backingRunID,
+		)
+	}
+	if message.Role != chat.RoleUser || message.Delivery != chat.MessageDeliverySteering {
+		return acceptedEasyRunSteering{}, fmt.Errorf(
+			"steering message %s role/delivery = %s/%s, want %s/%s",
+			message.ID,
+			message.Role,
+			message.Delivery,
+			chat.RoleUser,
+			chat.MessageDeliverySteering,
+		)
+	}
+	text, err := acceptedEasyRunSteeringText(message)
+	if err != nil {
+		return acceptedEasyRunSteering{}, err
+	}
+	return acceptedEasyRunSteering{run: run, text: text, userMessage: message}, nil
+}
+
+func acceptedEasyRunSteeringText(message chat.ChatMessage) (string, error) {
+	if len(message.Parts) != 1 {
+		return "", fmt.Errorf("steering message %s has %d parts, want one text part", message.ID, len(message.Parts))
+	}
+	part := message.Parts[0]
+	if part.Type != chat.MessagePartText || part.Text == nil || part.Image != nil || part.Text.Format != chat.TextFormatPlain {
+		return "", fmt.Errorf("steering message %s does not contain one plain-text part", message.ID)
+	}
+	text := part.Text.Text
+	if strings.TrimSpace(text) == "" || text != strings.TrimSpace(text) {
+		return "", fmt.Errorf("steering message %s text must be non-empty shared-normalized text", message.ID)
+	}
+	return text, nil
 }
 
 func (service *Service) ReadSnapshot(workspaceID string) (EasyRunSnapshot, error) {

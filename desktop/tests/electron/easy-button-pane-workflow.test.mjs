@@ -54,6 +54,7 @@ import {
   submitEasyButtonRequest,
   workflowTimeoutMs,
 } from "./easy-button-pane-actions.mjs";
+import { assertLosslessSteeringChatRecord } from "./easy-button-chat-record-assertions.mjs";
 import { runEasyButtonPixelMatchCaptures } from "./easy-button-pixel-match.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -189,7 +190,31 @@ try {
   assertTerminalVisual(steeredTerminal, "easy run phase2 steering workflow", "Done in", {
     expectedNarration: "The Easy Button run finished.",
   });
+  const steeredChatRecord = await context.client.driver("easyButtonPaneChatRecord");
+  assertLosslessSteeringChatRecord(
+    steeredChatRecord,
+    "easy run phase2 steering workflow",
+    "steer easy run phase2",
+  );
   await captureScreenshot(context.client, join(artifactDir, "easy-button-steered-complete.png"));
+
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
+  const restoredSteeredTerminal = await waitForEasyButtonTerminal(
+    context.client,
+    "easy run phase2 steering workflow",
+    "Done in",
+  );
+  assertTerminalVisual(restoredSteeredTerminal, "easy run phase2 steering workflow", "Done in", {
+    expectedNarration: "The Easy Button run finished.",
+  });
+  const restoredSteeredChatRecord = await context.client.driver("easyButtonPaneChatRecord");
+  assertLosslessSteeringChatRecord(
+    restoredSteeredChatRecord,
+    "easy run phase2 steering workflow",
+    "steer easy run phase2",
+  );
 
   await submitEasyButtonRequest(context.client, "easy run phase3 artifacts workflow");
   const artifactTerminal = await waitForEasyButtonTerminalWithArtifacts(
@@ -366,6 +391,9 @@ try {
     narratorTerminal,
     workingNarrator,
     workingNarratorTerminal,
+    restoredSteeredChatRecord,
+    restoredSteeredTerminal,
+    steeredChatRecord,
     steeredTerminal,
     steeringWorking,
     status: "passed",

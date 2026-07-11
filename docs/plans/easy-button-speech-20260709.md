@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 items 1-2 audited complete
+**Status:** Implementation in progress — Phase 1 items 1-3 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1131,6 +1131,52 @@ validation for the current-focus slice. The supply-chain gate also remains
 blocked by GO-2026-5856 in the pinned Go 1.26.4 standard library, fixed in Go
 1.26.5. Neither blocker prevents Phase 1 item 3; resolving them remains separate
 provider-contract and pinned-toolchain work.
+
+### 2026-07-10 — Phase 1 accepted-steering fact complete
+
+Implemented Phase 1 item 3 without pulling narrator focus mutation forward.
+`EasyRun.Steer` still sends the shared-normalized text through the existing
+regular-chat `SteerActiveRunInputByID` path. It now captures that call's complete
+`SteerMessageResult` as an explicit accepted-steering value, validates the
+returned conversation/run ownership and user/steering message shape, and
+retains the exact persisted plain text with the returned `UserMessage`. There is
+no Easy Run steering store, second transcript, renderer-authored history row,
+parallel execution prompt, Current focus change, or NOW entry in this slice.
+
+Focused verification completed:
+
+- regular-chat steering and Easy Run/HTTP Go tests passed, including multiline
+  shared normalization, exact provider input, the persisted steering message,
+  and its committed transcript block;
+- the full `internal/chat` package encountered one unrelated scripted
+  goal-operation app-server exit; the exact failing test passed immediately on
+  the prescribed narrow retry;
+- the deterministic production Electron workflow passed at
+  `desktop/.recordings/easy-button-speech-phase1-accepted-steering-final`,
+  including the existing start, stream, steering, terminal, stop, restart,
+  compact/reduced-motion, and pixel-match paths plus new assertions that the
+  hidden conversation retains the exact trigger and steering message before
+  and after reload while Current focus remains revision zero and NOW remains
+  narrator-only;
+- Electron/web source typecheck, the complete desktop Vitest suite, the
+  production Electron build, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed.
+
+ChatGPT authentication was available, so all prescribed live Codex gates were
+attempted with `OPENAI_API_KEY` removed. Live Electron chat, live Easy Button,
+and all four backend probes remain blocked before run creation by the existing
+provider drift: `model/list` advertises reasoning effort `max`, which Setta's
+current decoder rejects. These failures are not live-provider validation for
+this slice. The supply-chain gate was not required because this narrow slice
+does not change dependencies, manifests, package-manager configuration, Go
+modules, generated contracts, or supply-chain tooling.
+
+Remaining Phase 1 work starts with item 4: append the exact retained
+`UserMessage` text as the typed narrator `user_steer` source, mark Current focus
+updating only after working-agent delivery succeeds, trigger narration
+immediately, and add digest-watermark ordering plus stale-focus failure
+semantics. The `max` provider drift blocks live validation but does not block
+that deterministic implementation work.
 
 ## Verification Plan
 
