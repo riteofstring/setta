@@ -37,17 +37,16 @@ type RunnerConfigDiagnostic struct {
 }
 
 type ActionStartRequest struct {
-	WorkspaceID           string
-	DefinitionID          string
-	DefinitionVersionID   string
-	WorkflowAgentDefaults WorkflowAgentSettings
-	Execution             WorkflowExecution
-	Node                  WorkflowNode
-	NodeExecution         WorkflowNodeExecution
-	Policy                WorkflowActionPolicy
-	Capabilities          RunnerCapabilities
-	InputHash             string
-	Input                 json.RawMessage
+	WorkspaceID         string
+	DefinitionID        string
+	DefinitionVersionID string
+	Execution           WorkflowExecution
+	Node                WorkflowNode
+	NodeExecution       WorkflowNodeExecution
+	Policy              WorkflowActionPolicy
+	Capabilities        RunnerCapabilities
+	InputHash           string
+	Input               json.RawMessage
 }
 
 type ActionStartResult struct {
@@ -208,18 +207,11 @@ type graphValidator struct {
 func (validator *graphValidator) validate() {
 	validator.collectNodes()
 	validator.collectEdges()
-	validator.validateAgentDefaults()
 	validator.validateLayout()
 	validator.validateNodes()
 	validator.validateEdges()
 	validator.validateReachability()
 	validator.validateCycles()
-}
-
-func (validator *graphValidator) validateAgentDefaults() {
-	if err := validateWorkflowAgentSettings(validator.graph.AgentDefaults); err != nil {
-		validator.addDiagnostic("workflow_agent_defaults_invalid", "workflow agent defaults are invalid: "+err.Error(), "", "")
-	}
 }
 
 func (validator *graphValidator) collectNodes() {

@@ -253,7 +253,6 @@ export function useTranscriptScrollFollow({
       const wheelScrollIntent = wheelScrollIntentRef.current;
       const pointerScrollIntent = pointerScrollIntentRef.current;
       const programmaticAutoFollow = programmaticAutoFollowRef.current;
-      programmaticAutoFollowRef.current = false;
       tailScrollIntentRef.current = false;
       wheelScrollIntentRef.current = false;
       updateMetricsFromElement(target);
@@ -461,11 +460,6 @@ export function decideTranscriptScrollFollowAfterScroll({
   wheelScrollIntent,
 }: TranscriptScrollFollowScrollDecisionInput): TranscriptScrollFollowDecision {
   const scrollDirection = transcriptScrollDirection(metrics.scrollTop, previousScrollTop);
-  const tailDirectedIntent = transcriptScrollHasTailIntent({
-    pointerScrollIntent,
-    scrollDirection,
-    tailScrollIntent,
-  });
 
   switch (mode) {
     case "programmatic_anchor":
@@ -485,7 +479,6 @@ export function decideTranscriptScrollFollowAfterScroll({
     case "auto_follow":
       if (
         shouldDetachAutoFollowFromScroll({
-          pointerScrollIntent,
           programmaticAutoFollow,
           scrollDirection,
           tailScrollIntent,
@@ -494,10 +487,7 @@ export function decideTranscriptScrollFollowAfterScroll({
       ) {
         return { mode: "user_detached", shouldScrollToLatest: false };
       }
-      return {
-        mode,
-        shouldScrollToLatest: programmaticAutoFollow || tailDirectedIntent,
-      };
+      return { mode, shouldScrollToLatest: true };
   }
 }
 
@@ -517,37 +507,20 @@ function transcriptScrollDirection(
 }
 
 function shouldDetachAutoFollowFromScroll({
-  pointerScrollIntent,
   programmaticAutoFollow,
   scrollDirection,
   tailScrollIntent,
   wheelScrollIntent,
 }: {
-  pointerScrollIntent: boolean;
   programmaticAutoFollow: boolean;
   scrollDirection: TranscriptScrollDirection;
   tailScrollIntent: boolean;
   wheelScrollIntent: boolean;
 }) {
-  if (wheelScrollIntent) {
-    return true;
-  }
   if (programmaticAutoFollow || tailScrollIntent) {
     return false;
   }
-  return pointerScrollIntent && scrollDirection === "history";
-}
-
-function transcriptScrollHasTailIntent({
-  pointerScrollIntent,
-  scrollDirection,
-  tailScrollIntent,
-}: {
-  pointerScrollIntent: boolean;
-  scrollDirection: TranscriptScrollDirection;
-  tailScrollIntent: boolean;
-}) {
-  return tailScrollIntent || (pointerScrollIntent && scrollDirection === "tail");
+  return wheelScrollIntent || scrollDirection === "history";
 }
 
 function shouldReattachDetachedFromScroll({
@@ -561,10 +534,9 @@ function shouldReattachDetachedFromScroll({
   scrollDirection: TranscriptScrollDirection;
   tailScrollIntent: boolean;
 }) {
-  return (
-    transcriptScrollHasTailIntent({ pointerScrollIntent, scrollDirection, tailScrollIntent }) &&
-    transcriptAtStrictBottom(metrics)
-  );
+  const hasTailDirectedIntent =
+    tailScrollIntent || (pointerScrollIntent && scrollDirection === "tail");
+  return hasTailDirectedIntent && transcriptAtStrictBottom(metrics);
 }
 
 export function decideTranscriptScrollFollowAfterRangeChanged({

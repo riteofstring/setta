@@ -5,7 +5,6 @@ import { basename, join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -234,19 +233,21 @@ async function performOverviewColumnDrop(client) {
   await resetFrameMetrics(client);
 
   await dispatchMousePress(client, sourcePoint);
-  await waitForState(
-    client,
-    driverCallExpression("paneDragDropOverviewState", { sourcePaneId: sourceHost.paneId }),
-    (state) => state.sourceDragSource === true,
-    workflowTimeoutMs,
-  );
   await dispatchMouseMove(client, to, { buttons: 1 });
   // Overview now uses the shared drop model: dropping past the rightmost card
   // shows the preview-only landing box, not an edge highlight on that card.
   const ghost = await waitForState(
     client,
     paneSnapshotExpression(),
-    (snapshot) => overviewColumnDropPreviewVisible(snapshot, sourceHost.paneId, targetHost.paneId),
+    (snapshot) => {
+      const source = snapshot.visibleHosts.find((host) => host.paneId === sourceHost.paneId);
+      const target = snapshot.visibleHosts.find((host) => host.paneId === targetHost.paneId);
+      const hostPreview =
+        snapshot.overviewDragging === "true" &&
+        source?.dragSource === true &&
+        target?.dropPreview === true;
+      return snapshot.mode === "overview" && hostPreview;
+    },
     workflowTimeoutMs,
   );
   await dispatchMouseRelease(client, to);
@@ -325,29 +326,6 @@ async function dragPaneToPoint(
   const metrics = await readFrameMetrics(client);
   assertPaneDragPreviewMetrics(metrics, `${sourcePaneId} to ${targetPaneId}`);
   return { after, during, metrics };
-}
-
-function overviewColumnDropPreviewVisible(snapshot, sourcePaneId, targetPaneId) {
-  return (
-    snapshot.mode === "overview" &&
-    activeOverviewDrag(snapshot, sourcePaneId) &&
-    (overviewHostPreview(snapshot, targetPaneId) || overviewLandingGhost(snapshot, targetPaneId))
-  );
-}
-
-function activeOverviewDrag(snapshot, sourcePaneId) {
-  const source = snapshot.visibleHosts.find((host) => host.paneId === sourcePaneId);
-  return snapshot.overviewDragging === "true" && source?.dragSource === true;
-}
-
-function overviewHostPreview(snapshot, targetPaneId) {
-  return snapshot.visibleHosts.some(
-    (host) => host.paneId === targetPaneId && host.dropPreview === true,
-  );
-}
-
-function overviewLandingGhost(snapshot, targetPaneId) {
-  return snapshot.ghost?.paneId === targetPaneId && snapshot.ghost.placement === "right";
 }
 
 async function ensureWorkspaceOpen(client) {
@@ -430,7 +408,19 @@ async function dragHandleCenter(client, paneId) {
 }
 
 async function overviewPaneBodyPoint(client, paneId) {
-  const point = await client.driver("paneDragDropOverviewBodyPoint", { paneId });
+  const point = await client.evaluate(`(() => {
+    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"][data-visible="true"]'))
+      .find((candidate) => candidate instanceof HTMLElement && candidate.dataset.paneId === ${JSON.stringify(paneId)});
+    if (!(host instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-host" };
+    }
+    const rect = host.getBoundingClientRect();
+    return {
+      ok: true,
+      x: rect.left + rect.width / 2,
+      y: rect.top + Math.min(rect.height - 24, Math.max(40, rect.height * 0.45)),
+    };
+  })()`);
   if (!point.ok) {
     throw new Error(`overview pane body was not found for ${paneId}: ${JSON.stringify(point)}`);
   }
@@ -455,22 +445,14 @@ async function dispatchMousePress(client, point) {
   await delay(16);
 }
 
-async function dispatchMouseMove(client, to, { buttons, from = to, steps = 1 }) {
-  for (let step = 1; step <= steps; step += 1) {
-    const progress = step / steps;
-    const point = {
-      x: from.x + (to.x - from.x) * progress,
-      y: from.y + (to.y - from.y) * progress,
-    };
-    await client.call("Input.dispatchMouseEvent", {
-      button: "left",
-      buttons,
-      type: "mouseMoved",
-      x: point.x,
-      y: point.y,
-    });
-    await delay(16);
-  }
+async function dispatchMouseMove(client, to, { buttons }) {
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons,
+    type: "mouseMoved",
+    x: to.x,
+    y: to.y,
+  });
   await delay(80);
 }
 
