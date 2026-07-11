@@ -65,6 +65,7 @@ export interface WorkspacePane {
   subtitle: string;
   surfaceId: SurfaceId;
   surfaceKind: SurfaceKind;
+  easyButtonConfig?: EasyButtonPaneConfig;
   terminalConfig?: TerminalPaneConfig;
   title: string;
   tone: "cyan" | "green" | "orange" | "pink" | "slate";
