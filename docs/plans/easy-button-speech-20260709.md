@@ -2629,6 +2629,50 @@ behavior, broader deterministic production coverage, and secure-context/PWA
 and live speech acceptance. No deterministic implementation blocker was found
 for item 5.
 
+### 2026-07-10 — Phase 3 capture state machine audit complete
+
+Audited commit `8a22d0622` against this plan, `AGENTS.md`, its parent, the clean
+worktree, the checked-in web bundle, and the cumulative speech transport and
+permission boundaries. The slice stays within Phase 3 item 4: configured
+runtimes mount the exhaustive capture controller and truthful presentation,
+but an authoritative completion is staged in the preserved footer rather than
+submitted before item 5. The controller and mounted pane keep run state
+independent from capture, disable the microphone track before the explicit
+commit, accept only the current provider item's completed transcript, retain
+the typed draft through cancellation and failure, and close the media,
+Realtime, timer, and peer resources on every reviewed exit. The extracted rail
+component is behaviorally unchanged, no Go-owned or generated TypeScript
+contract input changed, and a clean web rebuild reproduced the committed PWA
+assets without drift. No practical implementation fix was required.
+
+Audit verification completed:
+
+- all 58 focused Realtime decoder, transport, and capture-controller tests
+  passed, including exact completion handoff, stale-event rejection, typed
+  errors, duration exhaustion, retry, cancellation, and late callback safety;
+- all 1,066 desktop Vitest tests, desktop and web typechecks, the Electron
+  build, the web build, and `./scripts/go.sh test ./internal/webapp` passed;
+- the configured production Electron capture workflow passed at
+  `.recordings/easy-button-speech-phase3-capture-audit-20260710-r1`, covering
+  permission wait, connection, listening, manual commit, exact delta/final
+  handling, draft preservation, Escape, disconnect recovery, teardown, and
+  speech-secret artifact redaction through the real
+  renderer/main/preload/HTTP path;
+- the full deterministic Easy Button regression workflow passed at
+  `.recordings/easy-button-speech-phase3-capture-audit-regression-20260710-r1`,
+  preserving typed start/steer, Current focus, narrator-only highlights,
+  artifacts, Stop and terminal behavior, persistence, compact layout, and
+  reduced motion;
+- ChatGPT authentication was available, and the live Easy Button workflow
+  passed at
+  `.recordings/easy-button-speech-phase3-capture-audit-live-20260710-r1` with
+  `OPENAI_API_KEY` explicitly removed.
+
+Phase 3 items 1-4 remain complete. Phase 3 item 5 is still the next coherent
+slice, with the same completion-submission, success clearing, ordinary failure
+draft restoration, and accepted-steering partial-outcome boundary described
+above. This audit did not start that work, and no blocker was found.
+
 ## Verification Plan
 
 ### Backend unit and HTTP tests
