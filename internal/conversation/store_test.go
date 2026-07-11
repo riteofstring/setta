@@ -193,6 +193,45 @@ func TestNewStoreRejectsUnsupportedIncompleteAndMalformedDatabases(t *testing.T)
 	}
 }
 
+func TestCorruptCommittedRecordIsRejectedAfterRestart(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, err := NewStore(appDataDir, WithReadPoolSize(1))
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	appendTestOutboxEvents(t, store, []CommittedEventDraft{
+		transactionTestEventDraft(
+			"event-before-corruption",
+			"conversation:corrupt",
+			map[string]string{"state": "valid"},
+		),
+	})
+	path := store.Path()
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	withRawDatabase(t, path, func(db *sql.DB) {
+		if _, err := db.Exec(`UPDATE committed_events SET payload_json = 'null'`); err != nil {
+			t.Fatalf("corrupt committed event: %v", err)
+		}
+	})
+
+	reopened, err := NewStore(appDataDir, WithReadPoolSize(1))
+	if err != nil {
+		t.Fatalf("reopen structurally valid store: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := reopened.Close(); err != nil {
+			t.Errorf("close reopened store: %v", err)
+		}
+	})
+	_, err = reopened.ReadCommittedEvents(context.Background(), CommittedEventCursor{}, 10)
+	if err == nil || !IsCorruptStateError(err) {
+		t.Fatalf("corrupt committed event read error = %T %v, want CorruptStateError", err, err)
+	}
+}
+
 func TestRoleProfileOverrideSchemaSupportsEveryResolutionScope(t *testing.T) {
 	store := newTestStore(t)
 	err := store.write(context.Background(), "insert role profile override scopes", func(ctx context.Context, tx *sql.Tx) error {

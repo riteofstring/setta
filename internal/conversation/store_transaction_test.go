@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -302,6 +304,109 @@ func TestTransactionComposesTrajectoryAndNarratorRecordsAtomically(t *testing.T)
 		t.Fatalf("stale narrator update error = %T %v, want StateConflictError", err, err)
 	}
 	assertNarratorCursorAndEventCount(t, store, seed.conversation.ID, 1, 1)
+}
+
+func TestNarratorCursorAndOutputRollBackWhenPublicationFails(t *testing.T) {
+	store := newTestStore(t)
+	seed := seedTransactionConversation(t, store)
+	appendTestOutboxEvents(t, store, []CommittedEventDraft{
+		transactionTestEventDraft(
+			"duplicate-publication",
+			"conversation:"+seed.conversation.ID,
+			map[string]string{"state": "seeded"},
+		),
+	})
+
+	projectedState := seed.narratorState
+	projectedState.ObservedThroughSequence = 1
+	projectedState.CurrentFocus = "This projection must roll back."
+	projectedState.CurrentFocusRevision = 1
+	projectedState.LastInvocationAt = stringPointer(testTimeEnded)
+	projectedState.UpdatedAt = testTimeEnded
+
+	_, err := store.Transact(context.Background(), "reject duplicate narrator publication", func(transaction *WriteTransaction) error {
+		if err := transaction.UpdateNarratorState(
+			NarratorStateExpectation{UpdatedAt: testTimeStarted},
+			projectedState,
+		); err != nil {
+			return err
+		}
+		if _, err := transaction.AppendNarrationEvent(transactionMilestoneEvent()); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(
+			transactionTestEventDraft(
+				"duplicate-publication",
+				"conversation:"+seed.conversation.ID,
+				projectedState,
+			),
+		)
+		return err
+	})
+	if err == nil || !IsPersistenceError(err) {
+		t.Fatalf("duplicate narrator publication error = %T %v, want PersistenceError", err, err)
+	}
+	assertNarratorCursorAndEventCount(t, store, seed.conversation.ID, 0, 0)
+}
+
+func TestConcurrentTransactionalActorsSerializeStateAndPublication(t *testing.T) {
+	const actorCount = 48
+	store, err := NewStore(
+		t.TempDir(),
+		WithWriteQueueCapacity(actorCount),
+		WithReadPoolSize(3),
+	)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	start := make(chan struct{})
+	errorsFound := make(chan error, actorCount)
+	var actors sync.WaitGroup
+	for actor := range actorCount {
+		actors.Add(1)
+		go func() {
+			defer actors.Done()
+			<-start
+			conversation := transactionTestConversation(fmt.Sprintf("conversation-actor-%03d", actor))
+			_, err := store.Transact(ctx, "commit concurrent conversation actor", func(transaction *WriteTransaction) error {
+				if err := transaction.InsertConversation(conversation); err != nil {
+					return err
+				}
+				_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+					"conversation-created-"+conversation.ID,
+					"conversation:"+conversation.ID,
+					conversation,
+				))
+				return err
+			})
+			errorsFound <- err
+		}()
+	}
+	close(start)
+	actors.Wait()
+	close(errorsFound)
+	for err := range errorsFound {
+		if err != nil {
+			t.Errorf("concurrent actor transaction: %v", err)
+		}
+	}
+	if t.Failed() {
+		t.FailNow()
+	}
+	if got := countRows(t, store, "conversations"); got != actorCount {
+		t.Fatalf("conversation count = %d, want %d", got, actorCount)
+	}
+	if got := countRows(t, store, "committed_events"); got != actorCount {
+		t.Fatalf("committed event count = %d, want %d", got, actorCount)
+	}
 }
 
 func TestTransactionComposesDurableForkAndBindingAtomically(t *testing.T) {

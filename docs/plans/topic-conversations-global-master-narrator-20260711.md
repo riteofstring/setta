@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phase 0 and Phase 1 items 1-4 are complete
+**Status:** In progress; Phase 0 and Phase 1 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1521,8 +1521,7 @@ Exit criteria:
 
 ### Phase 1: New persistence and core contracts
 
-**Progress:** Items 1-4 are complete. Item 5 remains: finish the focused store
-hardening matrix before Phase 2 begins.
+**Progress:** Complete.
 
 Implement:
 
@@ -2239,3 +2238,12 @@ Implementation is in progress under this plan.
   package or handlers, and the narrowed new-handler race run is clean. The next
   incomplete step is Phase 1 item 5's focused store hardening matrix; there is
   no blocker.
+- 2026-07-11: Completed Phase 1 item 5 and the phase exit review. The focused
+  matrix now proves that a failed publication rolls back both narrator cursor
+  and narration output, corrupt committed records are rejected with a typed
+  corruption error after restart, and concurrent aggregate transactions
+  serialize state plus publication without surfacing SQLite lock errors. The
+  existing matrix also covers schema corruption, state/event/cursor atomicity,
+  queue backpressure and cancellation, accepted-write draining, deterministic
+  shutdown, read-pool bounds, outbox wake/replay, and restart. Phase 2 is next;
+  there is no external blocker.
