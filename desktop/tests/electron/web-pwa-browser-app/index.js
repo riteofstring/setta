@@ -23,6 +23,12 @@ void app.whenReady().then(async () => {
   session.defaultSession.setCertificateVerifyProc((request, callback) => {
     callback(request.hostname === secureHostname ? 0 : -3);
   });
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    return permission === "media";
+  });
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === "media");
+  });
 
   const window = new BrowserWindow({
     height: 915,

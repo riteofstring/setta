@@ -96,6 +96,7 @@ try {
     throw new Error("plain HTTP fallback unexpectedly started speech capture");
   }
   await captureScreenshot(httpContext.client, join(artifactDir, "plain-http-unsupported.png"));
+  assertNoPageErrors(httpContext, "plain HTTP");
   await stopWebPWACdpContext(httpContext, join(artifactDir, "plain-http-browser-output.log"));
   httpContext = null;
 
@@ -120,6 +121,7 @@ try {
   assertSecureBoundary(secureBoundary, secureState);
   await completeSecureSpeechCapture(httpsContext.client, workspaceId);
   await captureScreenshot(httpsContext.client, join(artifactDir, "https-voice-completed.png"));
+  assertNoPageErrors(httpsContext, "HTTPS");
   await stopWebPWACdpContext(httpsContext, join(artifactDir, "https-browser-output.log"));
   httpsContext = null;
 
@@ -371,6 +373,12 @@ function assertProviderRequests(provider) {
     throw new Error(
       `PWA speech issued unexpected provider requests: ${JSON.stringify(provider.requests)}`,
     );
+  }
+}
+
+function assertNoPageErrors(context, label) {
+  if (context.pageErrors.length > 0) {
+    throw new Error(`${label} PWA recorded page errors: ${JSON.stringify(context.pageErrors)}`);
   }
 }
 

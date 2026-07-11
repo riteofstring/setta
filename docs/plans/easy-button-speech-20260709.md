@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phases 1-2, Phase 3 items 1-7, and the item-8 remote/PWA boundary complete
+**Status:** Implementation in progress — Phases 1-3 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -3038,12 +3038,61 @@ Verification completed for this slice:
   final source, workflow, regenerated PWA bundle, and plan update.
 
 No dependency, manifest, module, package-manager, toolchain, or Go-owned
-contract changed. Phase 3 item 8 remains partially incomplete: the next ordered
-slice is the narrow opt-in live OpenAI speech workflow using a short consented
-checked-in audio fixture, deterministic transcript word-error-rate scoring, and
-real TTS WAV/playback validation. `OPENAI_API_KEY` was absent from this process,
-so no live `gpt-realtime-whisper` or `gpt-4o-mini-tts` result is claimed, and the
-passing fake-provider workflow is not treated as provider proof.
+contract changed. Phase 3 item 8 is complete. `OPENAI_API_KEY` was absent from
+this process, so no live `gpt-realtime-whisper` or `gpt-4o-mini-tts` result is
+claimed, and the passing fake-provider workflow is not treated as provider
+proof. The narrow opt-in live OpenAI workflow remains Phase 5 item 8 as ordered
+in the implementation phases; the next implementation slice is Phase 4
+terminal-summary TTS.
+
+### 2026-07-10 — Phase 3 remote/PWA secure-context audit complete
+
+Audited the remote/PWA slice against the production web bundle, required
+workflow registry, retained screenshots, runtime/store state, and the focused
+secure-context availability contract. The insecure remote page gives the
+specific HTTPS-or-localhost explanation before runtime configuration, keeps
+typed input reachable, and performs no provider operation. The secure page is
+a real browser secure context with the production service worker and completes
+the exact final transcript through the existing Easy Run path.
+
+The audit found one practical workflow-integrity gap: the new browser harness
+did not fail on uncaught page exceptions or error-level console calls. A
+renderer failure could therefore coexist with the asserted PWA state and leave
+the required workflow green. The harness now records CDP runtime exceptions and
+`console.error`/failed-assert calls for each HTTP and HTTPS page, and the
+workflow rejects either page before accepting its screenshot.
+
+The first strengthened run exposed Electron Chromium's test-only notification
+default: it offered notification permission while its shell had no push
+service, producing unrelated push-subscription `AbortError` exceptions. The
+disposable browser fixture now grants only its fake media permission and denies
+unrelated permissions, including notifications. This keeps the speech boundary
+isolated and lets any remaining page exception fail the workflow rather than
+adding an exception allowlist.
+
+The audit also corrected the preceding progress entry's sequencing. Remote/PWA
+capability and secure-context coverage is all of Phase 3 item 8, so Phase 3 is
+complete. The live OpenAI speech workflow is explicitly Phase 5 item 8 and is
+not a remaining part of Phase 3. No Phase 4 implementation was started in this
+audit; terminal-summary TTS remains the next ordered slice.
+
+Audit verification completed:
+
+- all 1,075 desktop Vitest tests and the Electron/web TypeScript typecheck
+  passed; the production web build was idempotent and the embedded-webapp Go
+  test passed;
+- the strengthened PWA workflow passed with zero HTTP or HTTPS page errors at
+  `desktop/.recordings/easy-button-speech-phase3-pwa-secure-context-audit-final-20260710`;
+  both Android screenshots were inspected and show the intended contained
+  fallback and completed secure-capture states;
+- the configured Electron speech regression passed at
+  `desktop/.recordings/easy-button-speech-phase3-pwa-audit-electron-regression-20260710`,
+  and the complete deterministic Easy Button regression passed at
+  `desktop/.recordings/easy-button-speech-phase3-pwa-audit-regression-20260710`;
+- `./scripts/format.sh` and `./check_quality.sh --git-changes` passed after the
+  final test-harness and plan updates. Supply-chain verification was not
+  required because no dependency, manifest, module, package-manager, or
+  toolchain input changed.
 
 ## Verification Plan
 

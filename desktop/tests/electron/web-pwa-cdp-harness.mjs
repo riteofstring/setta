@@ -50,9 +50,10 @@ export async function launchWebPWACdpContext({ targetURL, visible = false }) {
       },
     );
   }
+  const pageErrors = capturePageErrors(client);
   await client.call("Runtime.enable");
   await client.call("Page.enable");
-  return { child, client, debugPort, userDataDir };
+  return { child, client, debugPort, pageErrors, userDataDir };
 }
 
 export async function stopWebPWACdpContext(context, outputPath) {
@@ -118,4 +119,30 @@ async function stopChild(child) {
 function electronBin() {
   const extension = process.platform === "win32" ? ".cmd" : "";
   return join(desktopRoot, "node_modules", ".bin", `electron${extension}`);
+}
+
+function capturePageErrors(client) {
+  const errors = [];
+  client.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
+    errors.push({
+      message:
+        exceptionDetails?.exception?.description ??
+        exceptionDetails?.exception?.value ??
+        exceptionDetails?.text ??
+        "unknown page exception",
+      type: "exception",
+    });
+  });
+  client.on("Runtime.consoleAPICalled", ({ args = [], type }) => {
+    if (type !== "error" && type !== "assert") {
+      return;
+    }
+    errors.push({
+      message: args
+        .map((argument) => argument.value ?? argument.description ?? argument.type ?? "unknown")
+        .join(" "),
+      type: `console.${type}`,
+    });
+  });
+  return errors;
 }
