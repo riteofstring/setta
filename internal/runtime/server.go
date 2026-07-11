@@ -30,6 +30,7 @@ import (
 	"setta/internal/runtimeauth"
 	"setta/internal/runtimeidentity"
 	"setta/internal/semanticgraph"
+	"setta/internal/speech"
 	"setta/internal/terminal"
 	"setta/internal/webapp"
 	"setta/internal/workspace"
@@ -52,6 +53,7 @@ type Config struct {
 	Stdout                                 io.Writer
 	Stderr                                 io.Writer
 	ShutdownTimeout                        time.Duration
+	Speech                                 speech.OpenAIClientConfig
 }
 
 type ChatHarnessMode string
@@ -174,6 +176,13 @@ func (config Config) Validate() error {
 	}
 	if config.ShutdownTimeout <= 0 {
 		return errors.New("shutdown timeout must be positive")
+	}
+	return validateSpeechConfig(config.Speech)
+}
+
+func validateSpeechConfig(config speech.OpenAIClientConfig) error {
+	if _, err := speech.NewOpenAIClient(config); err != nil {
+		return fmt.Errorf("speech configuration is invalid: %w", err)
 	}
 	return nil
 }
@@ -578,12 +587,17 @@ func newWorkspaceUIService(
 
 func newCodexManager() *codexapp.Manager {
 	return codexapp.NewManager(codexapp.ManagerConfig{
-		Process: codexapp.ProcessConfig{
-			Command: "codex",
-			Args:    []string{"app-server", "--listen", "stdio://"},
-		},
+		Process:          codexProcessConfig(),
 		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
 	})
+}
+
+func codexProcessConfig() codexapp.ProcessConfig {
+	return codexapp.ProcessConfig{
+		Command:     "codex",
+		Args:        []string{"app-server", "--listen", "stdio://"},
+		ExcludedEnv: []string{speech.APIKeyEnvironmentVariable},
+	}
 }
 
 func newChatService(

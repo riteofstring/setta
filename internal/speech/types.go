@@ -10,19 +10,20 @@ const (
 )
 
 const (
-	APIKeyEnvironmentVariable   = "SETTA_OPENAI_SPEECH_API_KEY"
-	TranscriptionModel          = "gpt-realtime-whisper"
-	TranscriptionDelay          = "medium"
-	SynthesisModel              = "gpt-4o-mini-tts"
-	SynthesisVoice              = "marin"
-	SynthesisFormat             = "wav"
-	SynthesisMediaType          = "audio/wav"
-	OpenAIWebRTCURL             = "https://api.openai.com/v1/realtime/calls"
-	MaximumRecordingSeconds     = 120
-	MaximumTranscriptCharacters = 8_000
-	MaximumSynthesisCharacters  = 4_096
-	MaximumSynthesisAudioBytes  = 8 * 1024 * 1024
-	AIVoiceDisclosure           = "This voice is AI-generated and not a human voice."
+	APIKeyEnvironmentVariable     = "SETTA_OPENAI_SPEECH_API_KEY"
+	E2EBaseURLEnvironmentVariable = "SETTA_E2E_OPENAI_SPEECH_BASE_URL"
+	TranscriptionModel            = "gpt-realtime-whisper"
+	TranscriptionDelay            = "medium"
+	SynthesisModel                = "gpt-4o-mini-tts"
+	SynthesisVoice                = "marin"
+	SynthesisFormat               = "wav"
+	SynthesisMediaType            = "audio/wav"
+	OpenAIWebRTCURL               = "https://api.openai.com/v1/realtime/calls"
+	MaximumRecordingSeconds       = 120
+	MaximumTranscriptCharacters   = 8_000
+	MaximumSynthesisCharacters    = 4_096
+	MaximumSynthesisAudioBytes    = 8 * 1024 * 1024
+	AIVoiceDisclosure             = "This voice is AI-generated and not a human voice."
 )
 
 var speechProviderStatusValues = []SpeechProviderStatus{

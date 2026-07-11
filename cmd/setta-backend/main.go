@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"setta/internal/runtime"
+	"setta/internal/speech"
 )
 
 func main() {
@@ -66,6 +67,11 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	if err != nil {
 		return config, err
 	}
+	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(getenv)
+	if err != nil {
+		return config, err
+	}
+	config.Speech = speechConfig
 
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
@@ -95,6 +101,10 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	if err := flagSet.Parse(args); err != nil {
 		return config, err
 	}
+	return validatedConfig(config)
+}
+
+func validatedConfig(config runtime.Config) (runtime.Config, error) {
 	if err := config.Validate(); err != nil {
 		return config, fmt.Errorf("invalid configuration: %w", err)
 	}

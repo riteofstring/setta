@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-09
 **Updated:** 2026-07-10
-**Status:** Implementation in progress — Phase 1 complete; Phase 2 item 1 complete
+**Status:** Implementation in progress — Phase 1 complete; Phase 2 items 1-2 complete
 **Extends:** `docs/plans/easy-button-pane-20260708.md`
 
 ## Outcome
@@ -1825,6 +1825,65 @@ The implementation plan is not complete. Phase 2 item 2 remains next: add the
 optional runtime speech configuration to both launch paths, read only
 `SETTA_OPENAI_SPEECH_API_KEY`, and enforce the environment-facing E2E-only base
 URL override before the service and endpoint wiring in items 3-4.
+
+### 2026-07-10 — Phase 2 optional runtime speech configuration complete
+
+Implemented Phase 2 item 2 as a launch/configuration slice. `internal/speech`
+now owns one validated environment loader that reads only
+`SETTA_OPENAI_SPEECH_API_KEY`; a generic `OPENAI_API_KEY` is ignored, and a
+missing speech key remains a valid text-only configuration. The test-provider
+override is explicitly named `SETTA_E2E_OPENAI_SPEECH_BASE_URL`, requires
+`SETTA_E2E=1` whenever it is present, and passes through the existing strict
+provider URL validation before startup.
+
+`runtime.Config` now carries the exact `speech.OpenAIClientConfig` that the
+later service wiring will consume and validates it before binding the runtime
+listener. Both the Electron-spawned `setta-backend` path and `setta serve` map
+the same Go-owned environment configuration into that runtime field. No flag,
+persisted credential, speech service, HTTP endpoint, generated contract, IPC,
+or renderer capability was added early.
+
+The configuration audit also closed the Codex subprocess boundary. The generic
+Codex process launcher can now exclude named inherited and override variables,
+and the production runtime excludes the Setta speech credential from every
+Codex app-server child. This keeps the permanent speech key in the speech
+client configuration even though the runtime process itself necessarily reads
+it from its launch environment.
+
+Verification completed for this slice:
+
+- the complete `internal/speech`, `internal/codexapp`, `cmd/setta-backend`, and
+  `cmd/setta` suites passed, along with the non-live `internal/runtime` suite;
+- focused tests prove missing-key startup, configured-key startup, rejection of
+  malformed keys and unguarded provider URLs, exact mapping through both launch
+  paths, deliberate disregard of `OPENAI_API_KEY`, and removal of the speech
+  credential from both inherited and override Codex environments;
+- the speech race suite, focused vet, static/complexity checks, and
+  `./scripts/format.sh` passed;
+- the deterministic production Easy Button Electron workflow passed at
+  `desktop/.recordings/easy-button-speech-phase2-runtime-config-20260710`,
+  covering local backend launch plus the existing start, stream, steering,
+  terminal, stop, reload/restart, compact/reduced-motion, and pixel-match paths;
+- ChatGPT authentication was available, so the live Electron chat, live Easy
+  Button, and all four backend Codex probes were attempted with
+  `OPENAI_API_KEY` removed. Every surface still failed before conversation
+  creation because `model/list` advertises reasoning effort `max`, which the
+  existing provider decoder rejects. This is not live-provider validation for
+  the subprocess change;
+- `./check_quality.sh --git-changes` reached the same four live runtime
+  failures. Its first pass also found two slice-owned complexity thresholds;
+  those functions were split at their owning validation boundaries and the
+  prescribed focused package, vet, and complexity checks passed before the
+  final gate rerun. Supply-chain verification was not required because no
+  dependency, module, manifest, package-manager, toolchain, or supply-chain
+  input changed.
+
+The implementation plan is not complete. Phase 2 item 3 is next: add the
+capability, transcription-session, summary-synthesis, and highlight-synthesis
+services, authenticated handlers, and endpoint-registry entries. Items 4-6 then
+wire those services into runtime/HTTP, regenerate the TypeScript and PWA
+surfaces, and finish the credential/log/persistence audit. The existing live
+Codex `max` drift blocks live proof but does not block that deterministic work.
 
 ## Verification Plan
 

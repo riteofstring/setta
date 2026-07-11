@@ -15,6 +15,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/httpapi"
 	"setta/internal/runtimeauth"
+	"setta/internal/speech"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
@@ -85,6 +86,8 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 		"non loopback host": withHost(t, "0.0.0.0"),
 		"negative port":     withPort(t, -1),
 		"large port":        withPort(t, 65536),
+		"bad speech key":    withSpeech(t, speech.OpenAIClientConfig{APIKey: "secret value"}),
+		"speech test URL":   withSpeech(t, speech.OpenAIClientConfig{BaseURL: "http://127.0.0.1:24891/v1"}),
 		"empty version":     withVersion(t, ""),
 	}
 
@@ -107,6 +110,24 @@ func TestAllowRemotePermitsNonLoopbackNumericHost(t *testing.T) {
 		t.Fatalf("start backend with allow remote: %v", err)
 	}
 	defer shutdownServer(t, server)
+}
+
+func TestStartAcceptsConfiguredSpeechClient(t *testing.T) {
+	config := testConfig(t)
+	config.Speech = speech.OpenAIClientConfig{APIKey: "sk-setta-speech-runtime-test"}
+
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend with configured speech client: %v", err)
+	}
+	defer shutdownServer(t, server)
+}
+
+func TestCodexProcessExcludesSpeechCredential(t *testing.T) {
+	config := codexProcessConfig()
+	if len(config.ExcludedEnv) != 1 || config.ExcludedEnv[0] != speech.APIKeyEnvironmentVariable {
+		t.Fatalf("Codex excluded environment = %q, want speech credential only", config.ExcludedEnv)
+	}
 }
 
 func TestStartCanSkipBootstrapDeviceSession(t *testing.T) {
@@ -379,5 +400,13 @@ func withBootstrapDisplayName(t *testing.T, displayName string) Config {
 
 	config := testConfig(t)
 	config.BootstrapDeviceDisplayName = displayName
+	return config
+}
+
+func withSpeech(t *testing.T, speechConfig speech.OpenAIClientConfig) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.Speech = speechConfig
 	return config
 }

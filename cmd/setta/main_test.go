@@ -17,6 +17,7 @@ import (
 
 	"setta/internal/httpapi"
 	"setta/internal/runtime"
+	"setta/internal/speech"
 )
 
 const testRuntimeID = "0123456789abcdef0123456789abcdef"
@@ -94,6 +95,59 @@ func TestServeOptionsDisplayNameFromEnvAndFlag(t *testing.T) {
 	}
 	if options.DisplayName != "setta-silver-beacon" {
 		t.Fatalf("display name = %q, want flag value", options.DisplayName)
+	}
+}
+
+func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
+	deps := testDeps()
+	deps.getenv = func(name string) string {
+		switch name {
+		case "OPENAI_API_KEY":
+			return "sk-generic-must-not-be-used"
+		case "SETTA_E2E":
+			return "1"
+		case speech.APIKeyEnvironmentVariable:
+			return "sk-setta-speech-serve"
+		case speech.E2EBaseURLEnvironmentVariable:
+			return "http://127.0.0.1:24892/v1"
+		default:
+			return ""
+		}
+	}
+
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", t.TempDir(),
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if options.Speech.APIKey != "sk-setta-speech-serve" {
+		t.Fatalf("speech API key = %q, want Setta-specific value", options.Speech.APIKey)
+	}
+	if options.Speech.BaseURL != "http://127.0.0.1:24892/v1" || !options.Speech.AllowTestBaseURL {
+		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech)
+	}
+
+	config := serveRuntimeConfig(options, deps, io.Discard)
+	if !reflect.DeepEqual(config.Speech, options.Speech) {
+		t.Fatalf("runtime speech config = %+v, want %+v", config.Speech, options.Speech)
+	}
+}
+
+func TestServeOptionsRejectsSpeechBaseURLWithoutE2E(t *testing.T) {
+	deps := testDeps()
+	deps.getenv = func(name string) string {
+		if name == speech.E2EBaseURLEnvironmentVariable {
+			return "http://127.0.0.1:24892/v1"
+		}
+		return ""
+	}
+
+	_, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", t.TempDir(),
+	}, deps)
+	if err == nil || !strings.Contains(err.Error(), "requires SETTA_E2E=1") {
+		t.Fatalf("error = %v, want SETTA_E2E guard error", err)
 	}
 }
 
