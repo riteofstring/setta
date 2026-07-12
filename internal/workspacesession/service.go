@@ -1,8 +1,6 @@
 package workspacesession
 
 import (
-	"errors"
-	"fmt"
 	"sync"
 
 	"setta/internal/appstate"
@@ -54,26 +52,6 @@ func (service *Service) ResolveWorkspace(id string) (workspace.WorkspaceSummary,
 	if err != nil {
 		return workspace.WorkspaceSummary{}, err
 	}
-	rootPath, err := workspace.ValidateLocalRootPath(summary.RootPath)
-	if err != nil {
-		return workspace.WorkspaceSummary{}, err
-	}
-	summary.RootPath = rootPath
-	return summary, nil
-}
-
-func (service *Service) ResolveActiveWorkspace(id string) (workspace.WorkspaceSummary, error) {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	if id == "" {
-		return workspace.WorkspaceSummary{}, errors.New("workspace id is required")
-	}
-	index := activeIndex(service.session.ActiveWorkspaces, id)
-	if index < 0 {
-		return workspace.WorkspaceSummary{}, fmt.Errorf("workspace is not active: %s", id)
-	}
-	summary := service.session.ActiveWorkspaces[index]
 	rootPath, err := workspace.ValidateLocalRootPath(summary.RootPath)
 	if err != nil {
 		return workspace.WorkspaceSummary{}, err

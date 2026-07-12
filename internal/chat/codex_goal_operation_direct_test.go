@@ -235,7 +235,7 @@ func startDirectGoalOperationThread(t *testing.T, manager *codexapp.Manager, wor
 
 	session := newDirectGoalOperationSession(t, manager)
 	paramHarness := NewCodexHarness(CodexHarnessConfig{})
-	params, err := paramHarness.codexThreadStartParams(workspaceRoot, Conversation{})
+	params, err := paramHarness.codexThreadStartParams(workspaceRoot)
 	if err != nil {
 		t.Fatalf("build direct thread/start params: %v", err)
 	}

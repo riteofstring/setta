@@ -22,12 +22,12 @@ type ScriptedWorkflowHarness struct {
 	phase4ReviewerBarriers   map[string]map[string]chan struct{}
 	reasoning                ReasoningEffort
 	steers                   map[string]chan SteerRequest
-	tools                    *AgentToolRegistry
 	turnErrors               map[string]string
 	turnStatuses             map[string]HarnessTurnRuntimeStatus
 }
 
 type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
+
 type scriptedWorkflowFixture struct {
 	Prompt string
 	Run    scriptedWorkflowRunner
@@ -72,6 +72,20 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "phase4 fix workflow", Run: scriptedPhase4FixTurn},
 	{Prompt: "pre-turn model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 	{Prompt: "model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
+}
+
+func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
+	defaultModel := fakeModelOptions()[0]
+	return &ScriptedWorkflowHarness{
+		approvals:                map[string]chan ApprovalResponse{},
+		model:                    defaultModel.Model,
+		phase4ConsolidatorCounts: map[string]int{},
+		phase4ReviewerBarriers:   map[string]map[string]chan struct{}{},
+		reasoning:                defaultModel.DefaultReasoningEffort,
+		steers:                   map[string]chan SteerRequest{},
+		turnErrors:               map[string]string{},
+		turnStatuses:             map[string]HarnessTurnRuntimeStatus{},
+	}
 }
 
 func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -326,6 +340,7 @@ func (harness *ScriptedWorkflowHarness) setGoalStatusLocked(status string, threa
 func scriptedQueuedReply(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	return scriptedReply(sink, request.Run.ID, "Queued response for "+chatInputText(request.Input)+".")
 }
+
 func scriptedCommandApprovalTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	return harness.decisionApprovalTurn(ctx, request, sink, scriptedCommandApproval(request.Run.ID))
 }

@@ -32,11 +32,6 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.microphonePermissionsVersion === "setta-microphone-permissions-driver-v1"',
-    path: join(driverScriptDir, "microphone-permissions-driver.js"),
-  },
-  {
-    installedExpression:
       'globalThis.__settaE2EDriver?.semanticGraphWorkflowVersion === "setta-semantic-graph-workflow-driver-v1"',
     path: join(driverScriptDir, "semantic-graph-workflow-driver.js"),
   },
@@ -69,11 +64,6 @@ const driverExtensionScripts = [
     installedExpression:
       'globalThis.__settaE2EDriver?.terminalPaneCloseVersion === "setta-terminal-pane-close-driver-v1"',
     path: join(driverScriptDir, "terminal-pane-close-driver.js"),
-  },
-  {
-    installedExpression:
-      'globalThis.__settaE2EDriver?.topicConversationPaneProjectionVersion === "setta-topic-conversation-pane-projection-driver-v12"',
-    path: join(driverScriptDir, "topic-conversation-pane-projection-driver.js"),
   },
 ];
 

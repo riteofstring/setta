@@ -26,7 +26,6 @@ import {
   scrollOffsetForColumn,
 } from "./layout-engine-helpers";
 import {
-  easyButtonConfigForRequest,
   normalizedPaneHeightPx,
   normalizedPaneWeight,
   normalizeTerminalPaneConfig,
@@ -128,7 +127,6 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     this.nextPaneSequence += 1;
     const pane: WorkspacePane = {
       columnId: targetColumn.columnId,
-      easyButtonConfig: easyButtonConfigForRequest(request),
       heat: (sequence * 37) % 100,
       paneId: `workspace_pane_${sequence}`,
       sequence,
@@ -178,7 +176,6 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     this.nextPaneSequence += 1;
     this.paneById.set(paneId, {
       ...pane,
-      easyButtonConfig: easyButtonConfigForRequest(request, pane),
       heat: (sequence * 37) % 100,
       subtitle: request.subtitle ?? pane.subtitle,
       surfaceId: `workspace_surface_${sequence}`,

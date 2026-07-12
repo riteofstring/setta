@@ -2,7 +2,6 @@ import { columnSlotIndex } from "./column-slots";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import { samePaneDropIntent } from "./pane-drop-intent-equality";
 import type { ColumnId, PaneDropIntent, PaneDropPlacement, WorkspaceScene } from "./types";
-import { eventTargetsPaneInteractiveControl } from "./workspace-interactions";
 
 const paneDragThresholdPx = 6;
 // The inner region of a pane -- this fraction in from every edge -- reads as a
@@ -239,7 +238,7 @@ function paneDragTargetFromPointer(event: PointerEvent): {
   if (!(event.target instanceof Element)) {
     return null;
   }
-  if (eventTargetsPaneDragExclusion(event, event.target)) {
+  if (event.target.closest("[data-workspace-pane-action]")) {
     return null;
   }
   const handle = event.target.closest<HTMLElement>('[data-workspace-pane-drag-handle="true"]');
@@ -247,13 +246,6 @@ function paneDragTargetFromPointer(event: PointerEvent): {
     handle?.dataset.paneId ??
     handle?.closest<HTMLElement>('[data-testid="workspace-pane-host"]')?.dataset.paneId;
   return handle && paneId ? { handle, paneId } : null;
-}
-
-function eventTargetsPaneDragExclusion(event: PointerEvent, target: Element): boolean {
-  return (
-    Boolean(target.closest("[data-workspace-pane-action]")) ||
-    eventTargetsPaneInteractiveControl(event)
-  );
 }
 
 function updatePaneDropTarget(

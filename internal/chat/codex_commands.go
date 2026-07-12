@@ -309,7 +309,7 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, ses
 	if err != nil {
 		return codexCommandThread{}, err
 	}
-	params, err := harness.codexThreadStartParams(workspaceSummary.RootPath, conversation)
+	params, err := harness.codexThreadStartParams(workspaceSummary.RootPath)
 	if err != nil {
 		return codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, "build codex thread start params: "+err.Error(), err)
 	}

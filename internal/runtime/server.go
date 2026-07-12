@@ -23,18 +23,14 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
-	"setta/internal/conversation"
-	"setta/internal/conversationindex"
 	"setta/internal/httpapi"
-	"setta/internal/master"
-	"setta/internal/narration"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
 	"setta/internal/runtimeidentity"
 	"setta/internal/semanticgraph"
-	"setta/internal/speech"
 	"setta/internal/terminal"
+	"setta/internal/webapp"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -55,7 +51,6 @@ type Config struct {
 	Stdout                                 io.Writer
 	Stderr                                 io.Writer
 	ShutdownTimeout                        time.Duration
-	Speech                                 speech.OpenAIClientConfig
 }
 
 type ChatHarnessMode string
@@ -87,7 +82,6 @@ type ReadyEvent struct {
 
 type Server struct {
 	closeCartographerEvents func(context.Context) error
-	closeConversationStore  func() error
 	closeSemanticStore      func() error
 	closeTerminal           func(context.Context) error
 	closeWorkspaceActivity  func()
@@ -97,8 +91,6 @@ type Server struct {
 	closeNotify             func() error
 	closeWorkflowEvents     func()
 	drainChatTurns          func(context.Context) error
-	drainConversationTurns  func(context.Context) error
-	drainNarration          func(context.Context) error
 	codexManager            *codexapp.Manager
 	server                  *http.Server
 	listener                net.Listener
@@ -112,16 +104,9 @@ type runtimeServices struct {
 	chatService              *chat.Service
 	codexAccountService      *codexaccount.Service
 	codexManager             *codexapp.Manager
-	conversationService      *conversation.Service
-	conversationInputService *conversation.InputService
-	conversationIndexService *conversationindex.Service
-	conversationStore        *conversation.Store
-	masterInputService       *master.Service
-	narratorService          *narration.Service
 	notifyService            *notify.Service
 	semanticGraphService     *semanticgraph.Service
 	semanticGraphStore       *semanticgraph.Store
-	speechService            *speech.Service
 	terminalService          *terminal.Manager
 	workspaceActivityService *workspaceactivity.Service
 	workspaceUIService       *workspaceui.Service
@@ -187,13 +172,6 @@ func (config Config) Validate() error {
 	if config.ShutdownTimeout <= 0 {
 		return errors.New("shutdown timeout must be positive")
 	}
-	return validateSpeechConfig(config.Speech)
-}
-
-func validateSpeechConfig(config speech.OpenAIClientConfig) error {
-	if _, err := speech.NewOpenAIClient(config); err != nil {
-		return fmt.Errorf("speech configuration is invalid: %w", err)
-	}
 	return nil
 }
 
@@ -254,7 +232,6 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 
 	server := &Server{
 		closeCartographerEvents: services.semanticGraphService.ShutdownCartographerEventObserver,
-		closeConversationStore:  services.conversationStore.Close,
 		closeSemanticStore:      services.semanticGraphStore.Close,
 		closeTerminal:           services.terminalService.Shutdown,
 		closeWorkspaceActivity:  services.workspaceActivityService.CloseEvents,
@@ -264,8 +241,6 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeNotify:             services.notifyService.Close,
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
 		drainChatTurns:          services.chatService.ShutdownActiveTurns,
-		drainConversationTurns:  services.conversationService.Shutdown,
-		drainNarration:          services.narratorService.Shutdown,
 		codexManager:            services.codexManager,
 		server:                  newHTTPServer(config, services),
 		listener:                listener,
@@ -298,40 +273,49 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 			_ = authBootstrap.store.Close()
 		}
 	}()
-	baseServices, err := newRuntimeBaseServices(config)
+	appearanceService, err := newAppearanceService(config.AppDataDir)
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	closeConversationStoreOnFailure := true
-	defer func() {
-		if closeConversationStoreOnFailure {
-			_ = baseServices.conversationStore.Close()
-		}
-	}()
-	semanticServices, err := newRuntimeSemanticServices(
-		config,
-		baseServices.workspaceService,
-		baseServices.workflowService,
-		baseServices.workflowStore,
-		baseServices.chatService,
+	workspaceService, err := newWorkspaceService(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, err
+	}
+	workspaceUIService, err := newWorkspaceUIService(config.AppDataDir, workspaceService)
+	if err != nil {
+		return runtimeServices{}, err
+	}
+	codexManager := newCodexManager()
+	chatService, err := newChatService(config.AppDataDir, workspaceService, codexManager, config.ChatHarness)
+	if err != nil {
+		return runtimeServices{}, err
+	}
+	workflowService, workflowStore, err := newWorkflowService(
+		config.AppDataDir,
+		workspaceService,
+		chatService,
 	)
+	if err != nil {
+		return runtimeServices{}, err
+	}
+	semanticServices, err := newRuntimeSemanticServices(config, workspaceService, workflowService, workflowStore, chatService)
 	if err != nil {
 		return runtimeServices{}, err
 	}
 	terminalService, codexAccountService, err := newRuntimeEdgeServices(
 		config,
-		baseServices.workspaceService,
-		baseServices.chatService,
-		baseServices.codexManager,
+		workspaceService,
+		chatService,
+		codexManager,
 		semanticServices.graphService,
 		semanticServices.graphStore,
 		semanticServices.activityService,
-		baseServices.workflowStore,
+		workflowStore,
 	)
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	notifyService, err := newNotifyService(config, authBootstrap.store, baseServices.chatService)
+	notifyService, err := newNotifyService(config, authBootstrap.store, chatService)
 	if err != nil {
 		closeRuntimeServicesBeforeNotifyFailure(
 			config,
@@ -339,38 +323,30 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 			semanticServices.graphService,
 			semanticServices.graphStore,
 			semanticServices.activityService,
-			baseServices.chatService,
-			baseServices.workflowService,
-			baseServices.workflowStore,
+			chatService,
+			workflowService,
+			workflowStore,
 		)
 		return runtimeServices{}, err
 	}
 
 	closeAuthOnFailure = false
-	closeConversationStoreOnFailure = false
 	return runtimeServices{
-		appearanceService:        baseServices.appearanceService,
+		appearanceService:        appearanceService,
 		authStore:                authBootstrap.store,
 		bootstrapToken:           authBootstrap.bootstrapToken,
-		chatService:              baseServices.chatService,
+		chatService:              chatService,
 		codexAccountService:      codexAccountService,
-		codexManager:             baseServices.codexManager,
-		conversationService:      baseServices.conversationService,
-		conversationInputService: baseServices.conversationInputService,
-		conversationIndexService: baseServices.conversationIndexService,
-		conversationStore:        baseServices.conversationStore,
-		masterInputService:       baseServices.masterInputService,
-		narratorService:          baseServices.narratorService,
+		codexManager:             codexManager,
 		notifyService:            notifyService,
 		semanticGraphService:     semanticServices.graphService,
 		semanticGraphStore:       semanticServices.graphStore,
-		speechService:            baseServices.speechService,
 		terminalService:          terminalService,
 		workspaceActivityService: semanticServices.activityService,
-		workspaceUIService:       baseServices.workspaceUIService,
-		workspaceService:         baseServices.workspaceService,
-		workflowService:          baseServices.workflowService,
-		workflowStore:            baseServices.workflowStore,
+		workspaceUIService:       workspaceUIService,
+		workspaceService:         workspaceService,
+		workflowService:          workflowService,
+		workflowStore:            workflowStore,
 		runtimeIdentityManager:   authBootstrap.identityManager,
 		infrastructureProvider:   authBootstrap.infrastructureProvider,
 	}, nil
@@ -558,8 +534,6 @@ func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
 	defer cancel()
 	_ = server.closeEventStreams(shutdownCtx)
 	_ = server.shutdownTerminal(shutdownCtx)
-	_ = server.shutdownNarration(shutdownCtx)
-	_ = server.shutdownConversationStore()
 	_ = server.shutdownRuntimeAuth()
 	_ = server.shutdownCodex(shutdownCtx)
 	_ = server.shutdownSemanticStore()
@@ -611,17 +585,12 @@ func newWorkspaceUIService(
 
 func newCodexManager() *codexapp.Manager {
 	return codexapp.NewManager(codexapp.ManagerConfig{
-		Process:          codexProcessConfig(),
+		Process: codexapp.ProcessConfig{
+			Command: "codex",
+			Args:    []string{"app-server", "--listen", "stdio://"},
+		},
 		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
 	})
-}
-
-func codexProcessConfig() codexapp.ProcessConfig {
-	return codexapp.ProcessConfig{
-		Command:     "codex",
-		Args:        []string{"app-server", "--listen", "stdio://"},
-		ExcludedEnv: []string{speech.APIKeyEnvironmentVariable},
-	}
 }
 
 func newChatService(
@@ -822,6 +791,40 @@ func newTerminalService(
 	return terminalService, nil
 }
 
+func newHTTPServer(config Config, services runtimeServices) *http.Server {
+	apiHandler := httpapi.NewHandler(httpapi.HandlerConfig{
+		Metadata: httpapi.BackendMetadata{
+			Name:    httpapi.BackendName,
+			Version: config.Version,
+		},
+		AppearanceService:      services.appearanceService,
+		ChatService:            services.chatService,
+		CodexAccountService:    services.codexAccountService,
+		NotifyService:          services.notifyService,
+		RuntimeAuthService:     services.authStore,
+		RuntimeIdentityService: services.runtimeIdentityManager,
+		RuntimeMetadata: httpapi.RuntimeMetadata{
+			InfrastructureProvider: services.infrastructureProvider,
+		},
+		SemanticGraphService:     services.semanticGraphService,
+		TerminalService:          services.terminalService,
+		WorkspaceActivityService: services.workspaceActivityService,
+		WorkspaceUIService:       services.workspaceUIService,
+		WorkspaceService:         services.workspaceService,
+		WorkflowService:          services.workflowService,
+	})
+	return &http.Server{
+		Handler:           webapp.NewHandler(apiHandler),
+		MaxHeaderBytes:    httpMaxHeaderBytes,
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		ReadTimeout:       httpReadTimeout,
+	}
+}
+
+func (server *Server) Addr() string {
+	return server.listener.Addr().String()
+}
+
 func (server *Server) Shutdown(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("shutdown context is required")
@@ -829,12 +832,9 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	var shutdownErr error
 	httpShutdown := server.startHTTPShutdown(ctx)
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownChatTurns(ctx))
-	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationTurns(ctx))
-	shutdownErr = firstShutdownError(shutdownErr, server.shutdownNarration(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.closeEventStreams(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))
-	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationStore())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownRuntimeAuth())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownSemanticStore())
@@ -857,6 +857,13 @@ func waitHTTPShutdown(ctx context.Context, done <-chan error) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (server *Server) shutdownChatTurns(ctx context.Context) error {
+	if server.drainChatTurns == nil {
+		return nil
+	}
+	return server.drainChatTurns(ctx)
 }
 
 func (server *Server) closeEventStreams(ctx context.Context) error {

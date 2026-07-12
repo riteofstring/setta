@@ -401,14 +401,6 @@ function handleModelList(message) {
             description: "Extra high reasoning depth for complex problems.",
             reasoningEffort: "xhigh",
           },
-          {
-            description: "Maximum reasoning depth for the hardest problems.",
-            reasoningEffort: "max",
-          },
-          {
-            description: "Ultra reasoning with proactive multi-agent behavior.",
-            reasoningEffort: "ultra",
-          },
         ],
       },
     ],
