@@ -10,7 +10,7 @@ import type {
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { App, sidebarWorkspaceBusy } from "./App";
+import { App, masterInputFocusHints, sidebarWorkspaceBusy } from "./App";
 import { activityDetails, queuedChatMessage } from "./App.test.fixtures";
 import { compactPaneWidth } from "./app-layout";
 import {
@@ -129,6 +129,25 @@ describe("workspace renderer states", () => {
     expect(compactPaneWidth(360, 560, 128, 0.28)).toBe(156);
     expect(compactPaneWidth(140, 560, 128, 0.28)).toBe(140);
     expect(compactPaneWidth(360, 900, 128, 0.28)).toBe(360);
+  });
+
+  test("maps the selected workspace's focused pane and conversation into master hints", () => {
+    const focused = {
+      focusedConversationId: "conversation_api",
+      focusedPaneId: "pane_api",
+      paneIdsByConversationId: new Map([["conversation_api", ["pane_api"]]]),
+    };
+
+    expect(masterInputFocusHints("workspace_api", focused)).toEqual({
+      focusedConversationId: "conversation_api",
+      focusedPaneId: "pane_api",
+      focusedWorkspaceId: "workspace_api",
+    });
+    expect(masterInputFocusHints(null, focused)).toEqual({
+      focusedConversationId: null,
+      focusedPaneId: null,
+      focusedWorkspaceId: null,
+    });
   });
 
   test("renders the empty workspace state", () => {

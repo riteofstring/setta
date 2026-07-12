@@ -18,6 +18,7 @@ import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
+import type { MasterInputFocusHints } from "./features/global-speech/global-speech-master-submission";
 import { cn } from "./lib/utils";
 import {
   WorkspaceLayoutArea,
@@ -27,6 +28,10 @@ import type { WorkspaceConversationFocusRequest } from "./workspace-layout/conve
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
+import {
+  type ConversationPaneWorkspaceState,
+  useConversationPaneStore,
+} from "./stores/conversation-pane-store";
 import { handleConversationProjectionEvent } from "./stores/conversation-projection-runtime";
 import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
@@ -46,6 +51,7 @@ export function App() {
 
 function SettaApp({ setta }: { setta: SettaAPI }) {
   const workspace = useWorkspaceViewState();
+  const masterInputFocusHints = useMasterInputFocusHints(workspace.selectedWorkspaceId);
   const platform = setta.app.platform;
   const viewport = useViewportSize();
   useAppearanceSettings();
@@ -149,17 +155,45 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   }
   return (
     <AppShellSpeechCaptureProvider
-      focusHints={{
-        focusedConversationId: null,
-        focusedPaneId: null,
-        focusedWorkspaceId: workspace.selectedWorkspace?.id ?? null,
-      }}
+      focusHints={masterInputFocusHints}
       runtimeId={runtime.connectedRuntimeId}
       setta={setta}
     >
       {shell}
     </AppShellSpeechCaptureProvider>
   );
+}
+
+function useMasterInputFocusHints(selectedWorkspaceId: string): MasterInputFocusHints {
+  const focusedWorkspacePanes = useConversationPaneStore((state) =>
+    state.workspaces.get(selectedWorkspaceId),
+  );
+  return masterInputFocusHints(optionalWorkspaceId(selectedWorkspaceId), focusedWorkspacePanes);
+}
+
+export function masterInputFocusHints(
+  focusedWorkspaceId: string | null,
+  focusedWorkspacePanes: ConversationPaneWorkspaceState | undefined,
+): MasterInputFocusHints {
+  if (!focusedWorkspaceId || !focusedWorkspacePanes) {
+    return {
+      focusedConversationId: null,
+      focusedPaneId: null,
+      focusedWorkspaceId,
+    };
+  }
+  return {
+    focusedConversationId: focusedWorkspacePanes.focusedConversationId,
+    focusedPaneId: focusedWorkspacePanes.focusedPaneId,
+    focusedWorkspaceId,
+  };
+}
+
+function optionalWorkspaceId(workspaceId: string): string | null {
+  if (workspaceId === "") {
+    return null;
+  }
+  return workspaceId;
 }
 
 function readSettaApi(): SettaAPI | null {

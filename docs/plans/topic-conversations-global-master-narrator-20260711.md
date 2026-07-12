@@ -3191,3 +3191,20 @@ Implementation is in progress under this plan.
   audit again reports the pre-existing `GO-2026-5856` in repository-pinned Go
   1.26.4, fixed in 1.26.5; this slice changes no dependency manifest or
   toolchain pin.
+- 2026-07-12: The Phase 5 item 2 review connected the finalized transcript's
+  focus snapshot to the production pane index. Master voice inputs now retain
+  the selected workspace's actual focused pane and, when that pane is an Easy
+  Button view, its bound topic conversation. Focus changes between duplicate
+  views of one conversation still update the pane hint, while a focused
+  non-conversation pane keeps its pane hint with no false conversation hint.
+  Phase 5 item 3 was not started.
+- 2026-07-12: Generated-contract reproduction was clean. The complete 1,135
+  desktop tests, typecheck, production build, focused race-enabled master HTTP
+  tests, and complete race-enabled master and conversation packages passed.
+  Deterministic production Electron workflows passed for global speech intake,
+  microphone permission, and topic-conversation pane projection at
+  `.recordings/global-speech-session/20260712T174407255Z/`,
+  `.recordings/microphone-permissions/20260712T174407236Z/`, and
+  `.recordings/topic-conversation-pane-projection/20260712T174407250Z/`.
+  The package-wide HTTP race run reached only the already documented retired
+  chat/workflow races outside this iteration's files.

@@ -4,6 +4,7 @@ import type { WorkspaceScene } from "../workspace-layout/types";
 
 export interface ConversationPaneWorkspaceState {
   focusedConversationId: string | null;
+  focusedPaneId: string;
   paneIdsByConversationId: ReadonlyMap<string, readonly string[]>;
 }
 
@@ -57,7 +58,7 @@ function conversationPaneWorkspaceState(
       focusedConversationId = conversationId;
     }
   }
-  return { focusedConversationId, paneIdsByConversationId };
+  return { focusedConversationId, focusedPaneId, paneIdsByConversationId };
 }
 
 function equalConversationPaneWorkspaceState(
@@ -67,6 +68,7 @@ function equalConversationPaneWorkspaceState(
   if (
     !current ||
     current.focusedConversationId !== next.focusedConversationId ||
+    current.focusedPaneId !== next.focusedPaneId ||
     current.paneIdsByConversationId.size !== next.paneIdsByConversationId.size
   ) {
     return false;

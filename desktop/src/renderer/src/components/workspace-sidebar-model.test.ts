@@ -22,6 +22,7 @@ describe("conversation navigator sidebar model", () => {
         web.id,
         {
           focusedConversationId: "conversation_web",
+          focusedPaneId: "pane_web_a",
           paneIdsByConversationId: new Map([["conversation_web", ["pane_web_a", "pane_web_b"]]]),
         },
       ],

@@ -28,7 +28,32 @@ describe("conversation pane binding store", () => {
 
     const workspace = useConversationPaneStore.getState().workspaces.get("workspace_api");
     expect(workspace?.focusedConversationId).toBe("conversation_shared");
+    expect(workspace?.focusedPaneId).toBe(first);
     expect(workspace?.paneIdsByConversationId.get("conversation_shared")).toEqual([first, second]);
+
+    store.focusPane(second);
+    useConversationPaneStore
+      .getState()
+      .syncWorkspace("workspace_api", store.toScene(), store.focusedPaneId());
+
+    expect(useConversationPaneStore.getState().workspaces.get("workspace_api")).toMatchObject({
+      focusedConversationId: "conversation_shared",
+      focusedPaneId: second,
+    });
+  });
+
+  test("retains the focused pane hint when the pane is not conversation-bound", () => {
+    const store = workspaceStore();
+    const settingsPaneId = store.openPane({ surfaceKind: "settings-dom" });
+
+    useConversationPaneStore
+      .getState()
+      .syncWorkspace("workspace_api", store.toScene(), store.focusedPaneId());
+
+    expect(useConversationPaneStore.getState().workspaces.get("workspace_api")).toMatchObject({
+      focusedConversationId: null,
+      focusedPaneId: settingsPaneId,
+    });
   });
 });
 
