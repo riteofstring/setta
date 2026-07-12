@@ -16,6 +16,7 @@
     audioAutoEnd: true,
     audioCreateCount: 0,
     audioEndCount: 0,
+    audioMaximumConcurrentCount: 0,
     audioPauseCount: 0,
     audioPlayCount: 0,
     channelOpen: false,
@@ -34,6 +35,10 @@
       this.url = url;
       activeAudio.add(this);
       state.audioCreateCount += 1;
+      state.audioMaximumConcurrentCount = Math.max(
+        state.audioMaximumConcurrentCount,
+        activeAudio.size,
+      );
     }
 
     addEventListener(type, listener) {
@@ -228,7 +233,7 @@
       state.audioAutoEnd = autoEnd;
     },
     snapshot() {
-      return { ...state };
+      return { ...state, audioActiveCount: activeAudio.size };
     },
     version: fixtureVersion,
   };

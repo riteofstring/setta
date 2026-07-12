@@ -30,6 +30,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "topic-conversation-speech-arbitration.test.mjs",
+    name: "topic-conversation-speech-arbitration",
+    tiers: ["required"],
+  },
+  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
     tiers: ["required"],
