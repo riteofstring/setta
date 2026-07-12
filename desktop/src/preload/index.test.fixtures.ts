@@ -1,4 +1,12 @@
-import type { ConversationEvent } from "@generated/backend";
+import type { CodexAccountChangeEvent, ConversationEvent } from "@generated/backend";
+
+export function codexAccountChangeEvent(): CodexAccountChangeEvent {
+  return {
+    reason: "login_completed",
+    sequence: 4,
+    streamId: "codex-account-stream-test",
+  };
+}
 
 export function conversationEvent(): ConversationEvent {
   return {

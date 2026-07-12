@@ -87,6 +87,7 @@ import {
   submitConversationInput,
   waitForRecordedTextConversationInput,
 } from "./topic-conversation-input-routing-assertions.mjs";
+import { exerciseCodexAccountNotificationWorkflow } from "./topic-conversation-codex-account-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
@@ -147,6 +148,11 @@ try {
   await context.client.installDriver();
   let backend = await backendProbe(firstLaunchDir);
   const workspaceId = await openWorkspace(context.client);
+  await exerciseCodexAccountNotificationWorkflow({
+    backend,
+    client: context.client,
+    timeoutMs: workflowTimeoutMs,
+  });
 
   const createInitialTopic = (title) =>
     createTopic(context.client, backend, workspaceId, title, workflowTimeoutMs);

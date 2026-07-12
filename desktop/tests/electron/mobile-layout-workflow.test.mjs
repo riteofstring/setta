@@ -183,14 +183,14 @@ async function waitForFullScreenFocusedPane(client) {
 
 async function exerciseFocusNavigation(client) {
   const initialPaneId = await focusedPaneId(client);
-  await clickTestId(client, "workspace-mobile-focus-right");
+  await clickTestId(client, "workspace-mobile-focus-left");
   const movedPaneId = await waitForState(
     client,
     focusedPaneIdExpression(),
     (paneId) => paneId !== "" && paneId !== initialPaneId,
     workflowTimeoutMs,
   );
-  await clickTestId(client, "workspace-mobile-focus-left");
+  await clickTestId(client, "workspace-mobile-focus-right");
   const restoredPaneId = await waitForState(
     client,
     focusedPaneIdExpression(),
@@ -240,6 +240,7 @@ async function exerciseOverviewToggle(client) {
 
 async function exerciseNewFrameButton(client) {
   const beforeCount = await paneCount(client);
+  const beforeFocusedPaneId = await focusedPaneId(client);
   await clickTestId(client, "workspace-mobile-new-frame");
   const afterCount = await waitForState(
     client,
@@ -247,7 +248,13 @@ async function exerciseNewFrameButton(client) {
     (count) => count === beforeCount + 1,
     workflowTimeoutMs,
   );
-  return { afterCount, beforeCount };
+  const afterFocusedPaneId = await waitForState(
+    client,
+    focusedPaneIdExpression(),
+    (paneId) => paneId !== "" && paneId !== beforeFocusedPaneId,
+    workflowTimeoutMs,
+  );
+  return { afterCount, afterFocusedPaneId, beforeCount };
 }
 
 async function clickTestId(client, testId) {

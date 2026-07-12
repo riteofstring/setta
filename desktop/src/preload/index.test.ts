@@ -3,6 +3,8 @@ import { ipcChannels, ipcEvents, ipcMessages } from "@shared/ipc";
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { codexAccountChangeEvent } from "./index.test.fixtures";
+
 async function exposePreloadAPI({
   invoke = vi.fn(),
   on = vi.fn(),
@@ -159,7 +161,7 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed appearance and account methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
     const appearance = { settings: {} } as unknown as UpdateAppearanceSettingsRequest;
     const refreshRequest = { refreshToken: true };
     const loginRequest = { apiKey: "", type: "chatgpt" as const };
@@ -174,6 +176,12 @@ describe("preload workspace API", () => {
     await api.codexAccount.startLogin(loginRequest);
     await api.codexAccount.cancelLogin(cancelRequest);
     await api.codexAccount.logout(logoutRequest);
+    const accountListener = vi.fn();
+    const unsubscribeAccount = api.codexAccount.onChanged(accountListener);
+    const accountHandler = eventHandler(on, ipcEvents.codexAccountChange);
+    const accountEvent = codexAccountChangeEvent();
+    accountHandler({}, accountEvent);
+    unsubscribeAccount();
 
     expectInvokeCalls(invoke, [
       [ipcChannels.appearancePresets],
@@ -185,6 +193,8 @@ describe("preload workspace API", () => {
       [ipcChannels.codexAccountCancelLogin, cancelRequest],
       [ipcChannels.codexAccountLogout, logoutRequest],
     ]);
+    expect(accountListener).toHaveBeenCalledWith(accountEvent);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.codexAccountChange, accountHandler);
   });
 });
 

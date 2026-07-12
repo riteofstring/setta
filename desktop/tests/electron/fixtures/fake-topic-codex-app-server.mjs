@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import readline from "node:readline";
-import { setImmediate } from "node:timers";
+import { setImmediate, setTimeout } from "node:timers";
 
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
 const persistedState = readPersistedState();
@@ -13,7 +13,11 @@ const turns = new Map(persistedState.turns.map((turn) => [turn.id, turn]));
 const heldTurns = new Map();
 const pendingApprovals = new Map();
 const failedNarratorObjectives = new Set();
+let account = null;
 const methodHandlers = new Map([
+  ["account/login/start", startAccountLogin],
+  ["account/logout", logoutAccount],
+  ["account/read", readAccount],
   ["config/read", readConfig],
   ["initialize", initialize],
   ["initialized", () => {}],
@@ -59,6 +63,37 @@ function initialize(message) {
     platformOs: "test",
     userAgent: "setta-topic-codex-fake",
   });
+}
+
+function readAccount(message) {
+  respond(message.id, { account, requiresOpenaiAuth: true });
+}
+
+function startAccountLogin(message) {
+  if (message.params?.type !== "chatgpt") {
+    respondError(message.id, -32602, "fake topic account login requires ChatGPT");
+    return;
+  }
+  respond(message.id, {
+    authUrl: "https://chatgpt.com/auth/fake-topic",
+    loginId: "login_topic_fake",
+    type: "chatgpt",
+  });
+  setTimeout(() => {
+    account = { email: "user@example.com", planType: "pro", type: "chatgpt" };
+    notify("account/login/completed", {
+      error: null,
+      loginId: "login_topic_fake",
+      success: true,
+    });
+    notify("account/updated", { authMode: "chatgpt", planType: "pro" });
+  }, 25);
+}
+
+function logoutAccount(message) {
+  account = null;
+  respond(message.id, {});
+  notify("account/updated", { authMode: null, planType: null });
 }
 
 function listModels(message) {

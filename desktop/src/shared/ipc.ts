@@ -77,6 +77,7 @@ export const ipcMessages = {
 export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
+  codexAccountChange: "codex-account:change",
   conversationEvent: "conversation:event",
   runtimeConnectionState: "runtimes:connection-state",
   workspaceBrowserViewKey: "workspace:browser-view-key",

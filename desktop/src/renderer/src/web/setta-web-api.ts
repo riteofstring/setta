@@ -2,6 +2,7 @@ import {
   backendEndpoints,
   backendProtocolVersion,
   createBackendClient,
+  decodeCodexAccountChangeEvent,
   decodeConversationEvent,
   type BackendClient,
   type RuntimeInfoResponse,
@@ -59,6 +60,10 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
   const connectionListeners = new Set<(snapshot: RuntimeRegistrySnapshot) => void>();
   const processStatusListeners = new Set<(status: BackendProcessStatus) => void>();
   const eventStreams = new Set<WebEventStreamRegistration>();
+  const codexAccountChangeListeners = new Set<
+    Parameters<SettaAPI["codexAccount"]["onChanged"]>[0]
+  >();
+  let stopCodexAccountEventStream: (() => void) | null = null;
   const conversationEventListeners = new Set<Parameters<SettaAPI["conversations"]["onEvent"]>[0]>();
   const conversationEventStreams = new Map<string, { keepAlive: boolean; stop: () => void }>();
 
@@ -110,6 +115,35 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     codexAccount: {
       cancelLogin: (request) => requireClient().cancelCodexLogin(request),
       logout: (request) => requireClient().logoutCodexAccount(request),
+      onChanged: (listener) => {
+        codexAccountChangeListeners.add(listener);
+        if (!stopCodexAccountEventStream) {
+          stopCodexAccountEventStream = subscribeWebBackendEventStream({
+            baseURL,
+            cursorForEvent: (event) => ({
+              sequence: event.sequence,
+              streamId: event.streamId,
+            }),
+            decode: decodeCodexAccountChangeEvent,
+            endpoint: backendEndpoints.CodexAccountEventStream,
+            fetchImpl: rawFetch,
+            isCursorResetEvent: (event) => event.reason === "snapshot_required",
+            sendEvent: (event) => {
+              for (const current of codexAccountChangeListeners) {
+                current(event);
+              }
+            },
+            streamName: "Codex account event stream",
+          });
+        }
+        return () => {
+          codexAccountChangeListeners.delete(listener);
+          if (codexAccountChangeListeners.size === 0) {
+            stopCodexAccountEventStream?.();
+            stopCodexAccountEventStream = null;
+          }
+        };
+      },
       read: () => requireClient().readCodexAccount(),
       refresh: (request) => requireClient().refreshCodexAccount(request),
       startLogin: (request) => requireClient().startCodexLogin(request),

@@ -64,6 +64,12 @@ function useCodexAccountState() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    return window.setta.codexAccount.onChanged(() => {
+      void load();
+    });
+  }, [load]);
+
   const mutate = async (action: () => Promise<CodexAccountState>) => {
     setBusy(true);
     setError("");

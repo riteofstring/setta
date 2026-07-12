@@ -86,6 +86,8 @@ describe("web SettaAPI unpaired runtime state", () => {
             return jsonResponse({ devices: [] });
           case "/conversations/events":
             return new Response("", { status: 200 });
+          case "/codex/account/events":
+            return new Response(codexAccountSSE(), { status: 200 });
           default:
             throw new Error(`unexpected request: ${input.pathname}`);
         }
@@ -93,6 +95,8 @@ describe("web SettaAPI unpaired runtime state", () => {
     });
 
     const unsubscribe = api.conversations.onEvent(() => {});
+    const accountListener = vi.fn();
+    const unsubscribeAccount = api.codexAccount.onChanged(accountListener);
     await api.conversations.subscribe({
       conversationId: "conversation_web",
       cursor: { sequence: 0, streamId: "conversation_stream_web" },
@@ -102,10 +106,19 @@ describe("web SettaAPI unpaired runtime state", () => {
 
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
     await waitFor(() => calls.some((call) => call.path === "/conversations/events"));
+    await waitFor(() => accountListener.mock.calls.length === 1);
 
     const eventStreamCall = calls.find((call) => call.path === "/conversations/events");
     expect(eventStreamCall?.authorization).toBe("Bearer token_web");
+    const accountEventStreamCall = calls.find((call) => call.path === "/codex/account/events");
+    expect(accountEventStreamCall?.authorization).toBe("Bearer token_web");
+    expect(accountListener).toHaveBeenCalledWith({
+      reason: "snapshot_required",
+      sequence: 0,
+      streamId: "codex-account-stream-web",
+    });
     unsubscribe();
+    unsubscribeAccount();
   });
 
   test("exposes authenticated generated speech operations", async () => {
@@ -178,6 +191,7 @@ function withWebGlobals() {
       location: { origin: "http://127.0.0.1:7345" },
       open: vi.fn(),
       prompt: vi.fn(),
+      clearTimeout,
       setTimeout,
     },
   });
@@ -209,6 +223,15 @@ function jsonResponse(payload: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
     status,
   });
+}
+
+function codexAccountSSE(): string {
+  const event = {
+    reason: "snapshot_required",
+    sequence: 0,
+    streamId: "codex-account-stream-web",
+  };
+  return `id: ${event.streamId}:${event.sequence}\nevent: codex.account.changed\ndata: ${JSON.stringify(event)}\n\n`;
 }
 
 function webSpeechResponse(path: string): Response | null {

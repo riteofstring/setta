@@ -6,6 +6,7 @@ import type {
   AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
+  CodexAccountChangeEvent,
   CodexAccountState,
   ConversationEvent,
   ConversationInputRoutingState,
@@ -356,6 +357,7 @@ export interface SettaAPI {
   codexAccount: {
     cancelLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
     logout: (request: LogoutCodexAccountRequest) => Promise<CodexAccountState>;
+    onChanged: (listener: (event: CodexAccountChangeEvent) => void) => () => void;
     read: () => Promise<CodexAccountState>;
     refresh: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
     startLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;

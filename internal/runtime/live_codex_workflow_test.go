@@ -623,7 +623,7 @@ func requireRuntimeLiveCodexChatGPTAuth(t *testing.T) {
 			t.Fatalf("shutdown live Codex account manager: %v", err)
 		}
 	}()
-	service, err := codexaccount.NewService(manager, nil)
+	service, err := codexaccount.NewService(manager)
 	if err != nil {
 		t.Fatalf("create Codex account service: %v", err)
 	}

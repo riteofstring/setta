@@ -250,7 +250,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 			_ = baseServices.conversationStore.Close()
 		}
 	}()
-	codexAccountService, err := codexaccount.NewService(baseServices.codexManager, nil)
+	codexAccountService, err := codexaccount.NewService(baseServices.codexManager)
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create Codex account service: %w", err)
 	}

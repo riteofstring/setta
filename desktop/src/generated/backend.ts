@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 43;
-export const backendContractSchemaHash = "sha256:30b97ffed2574d1ba5f7f4021b2f14f9bd5a5202f4be971cab3ad7e22435d027";
+export const backendProtocolVersion = 44;
+export const backendContractSchemaHash = "sha256:40bb9a38d9dd09d35707418453810d5218ed4ccc5b0a38f2a1a8ed7da6ff4f3d";
 
 export type DeviceScope = "full";
 
@@ -1377,6 +1377,26 @@ export function decodeCodexLoginType(value: unknown, label = "CodexLoginType"): 
     case "chatgpt":
       return decoded;
     case "chatgptDeviceCode":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CodexAccountChangeReason = "snapshot_required" | "login_completed" | "login_completed_malformed" | "account_updated";
+
+export const codexAccountChangeReasonValues = ["snapshot_required", "login_completed", "login_completed_malformed", "account_updated"] as const satisfies readonly CodexAccountChangeReason[];
+
+export function decodeCodexAccountChangeReason(value: unknown, label = "CodexAccountChangeReason"): CodexAccountChangeReason {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "snapshot_required":
+      return decoded;
+    case "login_completed":
+      return decoded;
+    case "login_completed_malformed":
+      return decoded;
+    case "account_updated":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3055,6 +3075,12 @@ export interface CancelCodexLoginRequest {
 export interface LogoutCodexAccountRequest {
 }
 
+export interface CodexAccountChangeEvent {
+  streamId: string;
+  sequence: number;
+  reason: CodexAccountChangeReason;
+}
+
 export interface APIError {
   code: string;
   message: string;
@@ -3307,6 +3333,10 @@ export const backendEndpoints = {
     method: "POST",
     path: "/codex/account/logout",
     requestBodyLimitBytes: 4194304,
+  },
+  CodexAccountEventStream: {
+    method: "GET",
+    path: "/codex/account/events",
   },
 } as const;
 
@@ -6006,6 +6036,16 @@ export function decodeLogoutCodexAccountRequest(value: unknown): LogoutCodexAcco
   const record = assertRecord(value, "LogoutCodexAccountRequest");
   assertKnownFields(record, "LogoutCodexAccountRequest", []);
   return {
+  };
+}
+
+export function decodeCodexAccountChangeEvent(value: unknown): CodexAccountChangeEvent {
+  const record = assertRecord(value, "CodexAccountChangeEvent");
+  assertKnownFields(record, "CodexAccountChangeEvent", ["streamId", "sequence", "reason"]);
+  return {
+    streamId: decodeString(requireField(record, "streamId", "CodexAccountChangeEvent"), "CodexAccountChangeEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "CodexAccountChangeEvent"), "CodexAccountChangeEvent.sequence"),
+    reason: decodeCodexAccountChangeReason(requireField(record, "reason", "CodexAccountChangeEvent"), "CodexAccountChangeEvent.reason"),
   };
 }
 

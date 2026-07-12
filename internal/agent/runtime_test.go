@@ -13,6 +13,27 @@ import (
 	"setta/internal/codexapp"
 )
 
+func TestInitializeParamsPreservesProductionCapabilities(t *testing.T) {
+	params := initializeParams("test-version")
+	if params.Capabilities == nil {
+		t.Fatal("initialize capabilities are nil")
+	}
+	capabilities := params.Capabilities
+	if capabilities.ExperimentalApi == nil || !*capabilities.ExperimentalApi {
+		t.Fatalf("experimental API capability = %v, want true", capabilities.ExperimentalApi)
+	}
+	if capabilities.RequestAttestation == nil || *capabilities.RequestAttestation {
+		t.Fatalf("request attestation capability = %v, want false", capabilities.RequestAttestation)
+	}
+	if capabilities.OptOutNotificationMethods == nil {
+		t.Fatal("opt-out notification methods are nil")
+	}
+	methods := *capabilities.OptOutNotificationMethods
+	if len(methods) != 1 || methods[0] != codexapp.CodexNotificationThreadStarted {
+		t.Fatalf("opt-out notification methods = %v, want [%s]", methods, codexapp.CodexNotificationThreadStarted)
+	}
+}
+
 func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
 	runtime := newFakeRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

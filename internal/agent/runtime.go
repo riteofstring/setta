@@ -83,10 +83,16 @@ func (runtime *Runtime) Manager() *codexapp.Manager {
 func initializeParams(version string) codexapp.InitializeParams {
 	title := "Setta"
 	experimental := true
+	requestAttestation := false
+	optOutNotificationMethods := []string{
+		codexapp.CodexNotificationThreadStarted,
+	}
 	return codexapp.InitializeParams{
 		ClientInfo: codexapp.ClientInfo{Name: "setta", Title: &title, Version: version},
 		Capabilities: &codexapp.InitializeCapabilities{
-			ExperimentalApi: &experimental,
+			ExperimentalApi:           &experimental,
+			OptOutNotificationMethods: &optOutNotificationMethods,
+			RequestAttestation:        &requestAttestation,
 		},
 	}
 }

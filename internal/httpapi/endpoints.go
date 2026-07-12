@@ -90,6 +90,7 @@ var apiEndpoints = []endpoint{
 	post[codexaccount.StartCodexLoginRequest, codexaccount.StartCodexLoginResponse]("StartCodexLogin", "/codex/account/login/start", handler.startCodexLogin),
 	post[codexaccount.CancelCodexLoginRequest, codexaccount.CodexAccountState]("CancelCodexLogin", "/codex/account/login/cancel", handler.cancelCodexLogin),
 	post[codexaccount.LogoutCodexAccountRequest, codexaccount.CodexAccountState]("LogoutCodexAccount", "/codex/account/logout", handler.logoutCodexAccount),
+	streamEvent[codexaccount.CodexAccountChangeEvent]("CodexAccountEventStream", "/codex/account/events", handler.codexAccountEventStream),
 }
 
 func Contracts() ContractSchema {
@@ -146,6 +147,19 @@ func get[Response any](name string, path string, handler routeHandler) endpoint 
 			Method:   http.MethodGet,
 			Path:     path,
 			Response: reflect.TypeFor[Response](),
+		},
+		Handler: handler,
+	}
+}
+
+func streamEvent[StreamEvent any](name string, path string, handler routeHandler) endpoint {
+	return endpoint{
+		ContractEndpoint: ContractEndpoint{
+			Name:        name,
+			Method:      http.MethodGet,
+			StreamEvent: reflect.TypeFor[StreamEvent](),
+			Path:        path,
+			Streaming:   true,
 		},
 		Handler: handler,
 	}

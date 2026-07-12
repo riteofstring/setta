@@ -104,6 +104,7 @@ type CodexAccountService interface {
 	Read(context.Context) (codexaccount.CodexAccountState, error)
 	Refresh(context.Context, codexaccount.RefreshCodexAccountRequest) (codexaccount.CodexAccountState, error)
 	StartLogin(context.Context, codexaccount.StartCodexLoginRequest) (codexaccount.StartCodexLoginResponse, error)
+	SubscribeChanges() codexaccount.CodexAccountChangeSubscription
 }
 
 type RuntimeAuthService interface {

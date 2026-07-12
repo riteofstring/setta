@@ -4,7 +4,11 @@ import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { createBackendClient, type BackendClient } from "@generated/backend";
+import {
+  createBackendClient,
+  type BackendClient,
+  type CodexAccountChangeEvent,
+} from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
@@ -15,6 +19,10 @@ import { attachBackendObservers } from "./backend-main-observers";
 import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
+import {
+  startCodexAccountEventStream,
+  type CodexAccountEventStream,
+} from "./codex-account-event-stream";
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
 import { KnownRuntimeStore } from "./known-runtime-store";
@@ -29,6 +37,7 @@ import { registerAppWindowDragIpcHandlers } from "./window-drag";
 import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
 
 let backend: BackendHandle | null = null;
+let codexAccountEventStream: CodexAccountEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
@@ -128,6 +137,7 @@ function handleRuntimeOnline(runtime: ActiveRuntime) {
     status: "online",
     url: runtime.baseUrl,
   });
+  startBackendEventStreams();
 }
 
 async function beforeRuntimeSwitch() {
@@ -136,7 +146,31 @@ async function beforeRuntimeSwitch() {
 }
 
 async function stopBackendEventStreams() {
-  await conversationEvents.stopAll();
+  const accountStream = codexAccountEventStream;
+  codexAccountEventStream = null;
+  await Promise.all([accountStream?.stop(), conversationEvents.stopAll()]);
+}
+
+function startBackendEventStreams() {
+  const runtime = activeRuntime();
+  if (!runtime) {
+    return;
+  }
+  void codexAccountEventStream?.stop();
+  codexAccountEventStream = startCodexAccountEventStream({
+    baseURL: runtime.baseUrl,
+    fetchImpl: backendFetch(),
+    sendEvent: forwardCodexAccountChange,
+  });
+}
+
+function forwardCodexAccountChange(event: CodexAccountChangeEvent) {
+  recorder?.recordAppEvent("codex_account_changed", event);
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.codexAccountChange, event);
+    }
+  }
 }
 
 function emitBackendProcessStatus(status: BackendProcessStatus) {

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
-import { decodeConversationEvent } from "@generated/backend";
+import { decodeCodexAccountChangeEvent, decodeConversationEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
@@ -136,6 +136,15 @@ const api: SettaAPI = {
   codexAccount: {
     cancelLogin: (request) => invoke("codexAccountCancelLogin", request),
     logout: (request) => invoke("codexAccountLogout", request),
+    onChanged: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeCodexAccountChangeEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.codexAccountChange, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.codexAccountChange, handler);
+      };
+    },
     read: () => invoke("codexAccountRead"),
     refresh: (request) => invoke("codexAccountRefresh", request),
     startLogin: (request) => invoke("codexAccountStartLogin", request),
