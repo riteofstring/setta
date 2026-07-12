@@ -97,9 +97,7 @@ func validWorkflowAgentReasoningEffort(effort chat.ReasoningEffort) bool {
 		chat.ReasoningEffortLow,
 		chat.ReasoningEffortMedium,
 		chat.ReasoningEffortHigh,
-		chat.ReasoningEffortXHigh,
-		chat.ReasoningEffortMax,
-		chat.ReasoningEffortUltra:
+		chat.ReasoningEffortXHigh:
 		return true
 	default:
 		return false

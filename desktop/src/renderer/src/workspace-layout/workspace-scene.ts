@@ -1,6 +1,5 @@
 import type {
   ColumnWidthSpec as PersistedColumnWidthSpec,
-  EasyButtonPaneConfig,
   PaneTone as PersistedPaneTone,
   SurfaceKind as PersistedSurfaceKind,
   TerminalPaneConfig as PersistedTerminalPaneConfig,
@@ -29,7 +28,6 @@ const realWorkspaceRenderOverscanColumns = 2;
 const realWorkspaceSurfaceKinds = productSurfaceKinds;
 export const defaultRealWorkspacePaneLimits = {
   "chat-dom": 10,
-  "easy-button": 10,
   "workflow-graph": 10,
   "settings-dom": 1,
   "semantic-node-details": 1,
@@ -208,7 +206,6 @@ function workspaceColumnFromPersisted(column: WorkspaceUIColumn): WorkspaceColum
 function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
   return {
     columnId: pane.columnId,
-    easyButtonConfig: easyButtonConfigFromPersisted(pane.easyButtonConfig),
     heat: pane.heat,
     paneId: pane.paneId,
     sequence: pane.sequence,
@@ -225,12 +222,6 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
       pane.workflowNodeDetailsConfig,
     ),
   };
-}
-
-function easyButtonConfigFromPersisted(
-  config: EasyButtonPaneConfig | null,
-): EasyButtonPaneConfig | undefined {
-  return config ?? undefined;
 }
 
 function workflowNodeDetailsConfigFromPersisted(
@@ -255,7 +246,6 @@ function terminalConfigFromPersisted(config: PersistedTerminalPaneConfig): Termi
 function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
   return {
     columnId: pane.columnId,
-    easyButtonConfig: pane.easyButtonConfig ?? null,
     heat: pane.heat,
     paneId: pane.paneId,
     sequence: pane.sequence,
