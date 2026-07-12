@@ -78,7 +78,7 @@ type terminalProjectionWireOutput struct {
 
 type statusReplyWireOutput struct {
 	Kind                  CallOutputKind `json:"kind"`
-	SourceThroughSequence int            `json:"sourceThroughSequence"`
+	SourceThroughSequence *int           `json:"sourceThroughSequence"`
 	StatusReply           string         `json:"statusReply"`
 }
 
@@ -142,10 +142,13 @@ func decodeStatusOutput(raw json.RawMessage, context StatusContextBundle) (Narra
 	if err := jsonio.DecodeSingle(bytes.NewReader(raw), &wire); err != nil {
 		return NarratorCallOutput{}, fmt.Errorf("decode narrator status reply: %w", err)
 	}
+	if wire.SourceThroughSequence == nil {
+		return NarratorCallOutput{}, fmt.Errorf("narrator status sourceThroughSequence is required")
+	}
 	output := NarratorCallOutput{
 		Kind: CallOutputStatusReply,
 		StatusReply: &StatusReplyOutput{
-			SourceThroughSequence: wire.SourceThroughSequence,
+			SourceThroughSequence: *wire.SourceThroughSequence,
 			StatusReply:           wire.StatusReply,
 		},
 	}

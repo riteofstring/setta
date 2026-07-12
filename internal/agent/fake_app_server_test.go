@@ -9,25 +9,29 @@ import (
 )
 
 type fakeAgentServerState struct {
-	threadCounter  int
-	turnCounter    int
-	requestCounter int
-	threads        []string
-	heldTurns      map[string]string
-	pending        map[string]fakePendingApproval
-	structured     map[string]bool
+	threadCounter        int
+	turnCounter          int
+	requestCounter       int
+	threads              []string
+	heldTurns            map[string]string
+	pending              map[string]fakePendingApproval
+	structured           map[string]bool
+	cleanupRequestOnTurn map[string]bool
 }
 
 type fakePendingApproval struct {
-	threadID string
-	turnID   string
+	threadID      string
+	turnID        string
+	allowError    bool
+	terminalState string
 }
 
 func runFakeAgentAppServer() {
 	state := fakeAgentServerState{
-		heldTurns:  map[string]string{},
-		pending:    map[string]fakePendingApproval{},
-		structured: map[string]bool{},
+		heldTurns:            map[string]string{},
+		pending:              map[string]fakePendingApproval{},
+		structured:           map[string]bool{},
+		cleanupRequestOnTurn: map[string]bool{},
 	}
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -246,6 +250,16 @@ func handleFakeFreshStructuredTurn(
 			"startedAtMs": 1,
 			"item":        command,
 		})
+	case `{"mode":"tool-cleanup-request"}`:
+		state.heldTurns[turnID] = threadID
+		state.cleanupRequestOnTurn[turnID] = true
+		command := fakeAgentCommandItem("command-"+turnID, "inProgress", nil)
+		writeFakeAgentNotification("item/started", map[string]any{
+			"threadId":    threadID,
+			"turnId":      turnID,
+			"startedAtMs": 1,
+			"item":        command,
+		})
 	case `{"mode":"double"}`:
 		writeFakeStructuredAgentMessage(threadID, turnID, "agent-a-"+turnID, `{"answer":"FIRST"}`)
 		writeFakeStructuredAgentMessage(threadID, turnID, "agent-b-"+turnID, `{"answer":"SECOND"}`)
@@ -307,6 +321,29 @@ func handleFakeAgentTurnInterrupt(state *fakeAgentServerState, message map[strin
 	}
 	delete(state.heldTurns, turnID)
 	writeFakeAgentResponse(message["id"], map[string]any{})
+	if state.cleanupRequestOnTurn[turnID] {
+		delete(state.cleanupRequestOnTurn, turnID)
+		state.requestCounter++
+		requestID := fmt.Sprintf("cleanup-request-%d", state.requestCounter)
+		state.pending[requestID] = fakePendingApproval{
+			threadID:      threadID,
+			turnID:        turnID,
+			allowError:    true,
+			terminalState: "interrupted",
+		}
+		writeFakeAgentRequest(requestID, "item/tool/requestUserInput", map[string]any{
+			"itemId":   "cleanup-item-" + turnID,
+			"threadId": threadID,
+			"turnId":   turnID,
+			"questions": []any{map[string]any{
+				"id":       "cleanup",
+				"header":   "Cleanup",
+				"question": "This request must be rejected during cleanup.",
+				"options":  []any{},
+			}},
+		})
+		return
+	}
 	writeFakeAgentTurnCompleted(threadID, turnID, "interrupted")
 }
 
@@ -318,9 +355,15 @@ func handleFakeAgentResponse(state *fakeAgentServerState, message map[string]any
 	}
 	delete(state.pending, requestID)
 	if _, ok := message["result"]; !ok {
-		panic("approval response has no result")
+		if _, hasError := message["error"]; !pending.allowError || !hasError {
+			panic("approval response has no permitted result or error")
+		}
 	}
-	writeFakeAgentTurnCompleted(pending.threadID, pending.turnID, "completed")
+	terminalState := pending.terminalState
+	if terminalState == "" {
+		terminalState = "completed"
+	}
+	writeFakeAgentTurnCompleted(pending.threadID, pending.turnID, terminalState)
 }
 
 func writeFakeAgentNormalTurn(threadID string, turnID string) {

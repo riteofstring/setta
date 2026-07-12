@@ -98,11 +98,41 @@ func TestRuntimeRejectsFreshStructuredProviderActivityAndMultipleOutputs(t *test
 	}
 }
 
+func TestFreshStructuredCleanupRejectsRequestsAndWaitsForTerminal(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := runtime.RunFreshStructuredCall(
+		ctx,
+		fakeFreshStructuredCallRequest(t, `{"mode":"tool-cleanup-request"}`),
+	)
+	if err == nil || !strings.Contains(err.Error(), "disallowed provider activity activity_started") {
+		t.Fatalf("RunFreshStructuredCall error = %v, want disallowed activity", err)
+	}
+	if strings.Contains(err.Error(), "interrupt unfinished fresh structured call") {
+		t.Fatalf("cleanup abandoned interrupted turn after rejecting provider request: %v", err)
+	}
+}
+
 func TestFreshStructuredCallRequiresStrictRestrictedContract(t *testing.T) {
 	request := fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
 	request.Invocation.PermissionMode = PermissionModeWorkspaceWrite
 	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "read-only") {
 		t.Fatalf("unsafe permission error = %v", err)
+	}
+
+	request = fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
+	request.Invocation.Model = ""
+	request.Invocation.ModelSelectionProviderDefault = true
+	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "catalog-resolved exact model") {
+		t.Fatalf("provider-default model error = %v", err)
+	}
+
+	request = fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
+	request.Invocation.ReasoningEffort = ""
+	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "reasoning effort must be exact") {
+		t.Fatalf("unresolved reasoning effort error = %v", err)
 	}
 
 	request = fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)

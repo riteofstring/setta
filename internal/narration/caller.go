@@ -73,20 +73,28 @@ func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult
 	if err != nil {
 		return CallResult{}, err
 	}
+	result := preparedCallResult(request, prepared)
 	resolution, err := caller.resolveModel(ctx, prepared)
+	result.Model = cloneModelResolution(resolution)
 	if err != nil {
-		return CallResult{}, err
+		return result, err
 	}
 	providerResult, err := caller.runProviderCall(ctx, request, prepared, resolution)
 	if err != nil {
-		return CallResult{}, err
+		return result, err
 	}
-	result, err := newCallResult(request, prepared, resolution, providerResult)
-	if err != nil {
-		return CallResult{}, err
+	result.ProviderThreadID = providerResult.ProviderThreadID
+	result.ProviderTurnID = providerResult.ProviderTurnID
+	result.OutputBytes = len(providerResult.Output)
+	result.StructuredOutput = append(json.RawMessage{}, providerResult.Output...)
+	if err := validateIdentifier("narrator provider thread id", result.ProviderThreadID); err != nil {
+		return result, err
 	}
-	if err := decodeCallOutput(&result, request, providerResult.Output); err != nil {
-		return CallResult{}, err
+	if err := validateIdentifier("narrator provider turn id", result.ProviderTurnID); err != nil {
+		return result, err
+	}
+	if err := decodeCallOutput(&result, prepared, providerResult.Output); err != nil {
+		return result, err
 	}
 	return result, nil
 }
@@ -110,7 +118,7 @@ func (caller *Caller) resolveModel(
 		return ModelResolution{}, err
 	}
 	if prepared.inputBytes > resolution.RequestedProfile.ContextBudget.MaxInputBytes {
-		return ModelResolution{}, fmt.Errorf(
+		return resolution, fmt.Errorf(
 			"narrator %s context has %d bytes, resolved role budget allows %d",
 			prepared.kind,
 			prepared.inputBytes,
@@ -126,16 +134,18 @@ func (caller *Caller) runProviderCall(
 	prepared preparedCallRequest,
 	resolution ModelResolution,
 ) (agent.FreshStructuredCallResult, error) {
-	invocation := resolution.Invocation
-	invocation.ServiceTier = cloneOptionalString(resolution.Invocation.ServiceTier)
-	result, err := caller.provider.RunFreshStructuredCall(ctx, agent.FreshStructuredCallRequest{
+	providerRequest := agent.FreshStructuredCallRequest{
 		ID:                    request.ID,
 		WorkspaceRoot:         request.WorkspaceRoot,
-		Invocation:            invocation,
+		Invocation:            resolvedProviderInvocation(resolution),
 		DeveloperInstructions: prepared.instructions,
 		Input:                 append(json.RawMessage{}, prepared.input...),
 		OutputSchema:          append(json.RawMessage{}, prepared.outputSchema...),
-	})
+	}
+	if err := providerRequest.Validate(); err != nil {
+		return agent.FreshStructuredCallResult{}, fmt.Errorf("validate narrator %s provider call: %w", prepared.kind, err)
+	}
+	result, err := caller.provider.RunFreshStructuredCall(ctx, providerRequest)
 	if err != nil {
 		return agent.FreshStructuredCallResult{}, fmt.Errorf(
 			"run narrator %s call for conversation %s: %w",
@@ -147,31 +157,45 @@ func (caller *Caller) runProviderCall(
 	return result, nil
 }
 
-func newCallResult(
+func preparedCallResult(
 	request CallRequest,
 	prepared preparedCallRequest,
-	resolution ModelResolution,
-	providerResult agent.FreshStructuredCallResult,
-) (CallResult, error) {
-	if err := validateIdentifier("narrator provider thread id", providerResult.ProviderThreadID); err != nil {
-		return CallResult{}, err
-	}
-	if err := validateIdentifier("narrator provider turn id", providerResult.ProviderTurnID); err != nil {
-		return CallResult{}, err
-	}
+) CallResult {
 	return CallResult{
-		RequestID:        request.ID,
-		Generation:       request.Generation,
-		Kind:             prepared.kind,
-		Trigger:          prepared.trigger,
-		ConversationID:   prepared.conversationID,
-		Model:            resolution,
-		ProviderThreadID: providerResult.ProviderThreadID,
-		ProviderTurnID:   providerResult.ProviderTurnID,
-		InputBytes:       prepared.inputBytes,
-		OutputBytes:      len(providerResult.Output),
-		StructuredOutput: append(json.RawMessage{}, providerResult.Output...),
-	}, nil
+		RequestID:      request.ID,
+		Generation:     request.Generation,
+		Kind:           prepared.kind,
+		Trigger:        prepared.trigger,
+		ConversationID: prepared.conversationID,
+		InputBytes:     prepared.inputBytes,
+	}
+}
+
+func resolvedProviderInvocation(resolution ModelResolution) agent.Invocation {
+	return agent.Invocation{
+		Model:           resolution.Settings.ModelID,
+		ReasoningEffort: string(resolution.Settings.ReasoningEffort),
+		ServiceTier:     cloneOptionalString(resolution.Settings.ServiceTier),
+		PermissionMode:  resolution.Invocation.PermissionMode,
+		ApprovalMode:    resolution.Invocation.ApprovalMode,
+	}
+}
+
+func cloneModelResolution(resolution ModelResolution) ModelResolution {
+	cloned := resolution
+	cloned.RequestedProfile.ModelSelection.ModelID = cloneOptionalString(resolution.RequestedProfile.ModelSelection.ModelID)
+	cloned.RequestedProfile.ServiceTier = cloneOptionalString(resolution.RequestedProfile.ServiceTier)
+	cloned.RequestedProfile.PermissionProfile.ToolAccess.AllowedTools = append(
+		[]string{},
+		resolution.RequestedProfile.PermissionProfile.ToolAccess.AllowedTools...,
+	)
+	cloned.Invocation.ServiceTier = cloneOptionalString(resolution.Invocation.ServiceTier)
+	cloned.Settings.ServiceTier = cloneOptionalString(resolution.Settings.ServiceTier)
+	cloned.Settings.PermissionProfile.ToolAccess.AllowedTools = append(
+		[]string{},
+		resolution.Settings.PermissionProfile.ToolAccess.AllowedTools...,
+	)
+	return cloned
 }
 
 type preparedCallRequest struct {
@@ -183,6 +207,9 @@ type preparedCallRequest struct {
 	inputBytes     int
 	outputSchema   json.RawMessage
 	instructions   string
+	projection     ProjectionContextBundle
+	status         StatusContextBundle
+	checkpoint     CheckpointContextBundle
 }
 
 func prepareCallRequest(request CallRequest) (preparedCallRequest, error) {
@@ -214,90 +241,96 @@ func prepareCallRequest(request CallRequest) (preparedCallRequest, error) {
 }
 
 func prepareProjectionCall(context ProjectionContextBundle) (preparedCallRequest, error) {
-	if context.Kind != ContextKindProjection || !isProjectionTrigger(context.Trigger) {
-		return preparedCallRequest{}, fmt.Errorf("narrator projection call has kind/trigger %q/%q", context.Kind, context.Trigger)
+	frozen, input, err := freezeCallContext(context, context.InputBytes, "projection")
+	if err != nil {
+		return preparedCallRequest{}, err
 	}
-	if context.RequestedChannel != projectionChannel(context.Trigger) {
+	frozen.InputBytes = context.InputBytes
+	if frozen.Kind != ContextKindProjection || !isProjectionTrigger(frozen.Trigger) {
+		return preparedCallRequest{}, fmt.Errorf("narrator projection call has kind/trigger %q/%q", frozen.Kind, frozen.Trigger)
+	}
+	if frozen.RequestedChannel != projectionChannel(frozen.Trigger) {
 		return preparedCallRequest{}, fmt.Errorf(
 			"narrator projection trigger %s does not match channel %s",
-			context.Trigger,
-			context.RequestedChannel,
+			frozen.Trigger,
+			frozen.RequestedChannel,
 		)
 	}
-	if err := context.ValidateObservedAdvance(context.EvaluationRange.End); err != nil {
+	if err := frozen.ValidateObservedAdvance(frozen.EvaluationRange.End); err != nil {
 		return preparedCallRequest{}, err
 	}
-	schema, err := projectionOutputSchema(context)
+	schema, err := projectionOutputSchema(frozen)
 	if err != nil {
 		return preparedCallRequest{}, err
 	}
-	input, err := encodeCallContext(context, context.InputBytes)
+	prepared, err := preparedContextIdentity(frozen.Authoritative, RequestKindProjection)
 	if err != nil {
 		return preparedCallRequest{}, err
 	}
-	prepared, err := preparedContextIdentity(context.Authoritative, RequestKindProjection)
-	if err != nil {
-		return preparedCallRequest{}, err
-	}
-	prepared.trigger = context.Trigger
+	prepared.trigger = frozen.Trigger
 	prepared.input = input
-	prepared.inputBytes = context.InputBytes
+	prepared.inputBytes = frozen.InputBytes
 	prepared.outputSchema = schema
-	prepared.instructions = projectionInstructions(context.RequestedChannel)
+	prepared.instructions = projectionInstructions(frozen.RequestedChannel)
+	prepared.projection = frozen
 	return prepared, nil
 }
 
 func prepareStatusCall(context StatusContextBundle) (preparedCallRequest, error) {
-	if context.Kind != ContextKindStatus || context.Trigger != conversation.NarrationTriggerExplicitStatusRequested {
-		return preparedCallRequest{}, fmt.Errorf("narrator status call has kind/trigger %q/%q", context.Kind, context.Trigger)
+	frozen, input, err := freezeCallContext(context, context.InputBytes, "status")
+	if err != nil {
+		return preparedCallRequest{}, err
 	}
-	if strings.TrimSpace(context.Question) == "" || strings.TrimSpace(context.Question) != context.Question {
+	frozen.InputBytes = context.InputBytes
+	if frozen.Kind != ContextKindStatus || frozen.Trigger != conversation.NarrationTriggerExplicitStatusRequested {
+		return preparedCallRequest{}, fmt.Errorf("narrator status call has kind/trigger %q/%q", frozen.Kind, frozen.Trigger)
+	}
+	if strings.TrimSpace(frozen.Question) == "" || strings.TrimSpace(frozen.Question) != frozen.Question {
 		return preparedCallRequest{}, errors.New("narrator status call question is required without surrounding whitespace")
 	}
-	if context.SourceThroughSequence < 0 {
+	if frozen.SourceThroughSequence < 0 {
 		return preparedCallRequest{}, errors.New("narrator status source sequence must be non-negative")
 	}
-	schema, err := statusOutputSchema(context)
+	schema, err := statusOutputSchema(frozen)
 	if err != nil {
 		return preparedCallRequest{}, err
 	}
-	input, err := encodeCallContext(context, context.InputBytes)
+	prepared, err := preparedContextIdentity(frozen.Authoritative, RequestKindStatus)
 	if err != nil {
 		return preparedCallRequest{}, err
 	}
-	prepared, err := preparedContextIdentity(context.Authoritative, RequestKindStatus)
-	if err != nil {
-		return preparedCallRequest{}, err
-	}
-	prepared.trigger = context.Trigger
+	prepared.trigger = frozen.Trigger
 	prepared.input = input
-	prepared.inputBytes = context.InputBytes
+	prepared.inputBytes = frozen.InputBytes
 	prepared.outputSchema = schema
 	prepared.instructions = statusInstructions()
+	prepared.status = frozen
 	return prepared, nil
 }
 
 func prepareCheckpointCall(context CheckpointContextBundle) (preparedCallRequest, error) {
-	if err := validateCheckpointBundle(context); err != nil {
-		return preparedCallRequest{}, err
-	}
-	schema, err := checkpointOutputSchema(context)
+	frozen, input, err := freezeCallContext(context, context.InputBytes, "checkpoint")
 	if err != nil {
 		return preparedCallRequest{}, err
 	}
-	input, err := encodeCallContext(context, context.InputBytes)
+	frozen.InputBytes = context.InputBytes
+	if err := validateCheckpointBundle(frozen); err != nil {
+		return preparedCallRequest{}, err
+	}
+	schema, err := checkpointOutputSchema(frozen)
 	if err != nil {
 		return preparedCallRequest{}, err
 	}
-	prepared, err := preparedContextIdentity(context.Authoritative, RequestKindCheckpoint)
+	prepared, err := preparedContextIdentity(frozen.Authoritative, RequestKindCheckpoint)
 	if err != nil {
 		return preparedCallRequest{}, err
 	}
-	prepared.trigger = context.Trigger
+	prepared.trigger = frozen.Trigger
 	prepared.input = input
-	prepared.inputBytes = context.InputBytes
+	prepared.inputBytes = frozen.InputBytes
 	prepared.outputSchema = schema
 	prepared.instructions = checkpointInstructions()
+	prepared.checkpoint = frozen
 	return prepared, nil
 }
 
@@ -338,22 +371,36 @@ func encodeCallContext(value any, recordedBytes int) (json.RawMessage, error) {
 	return json.RawMessage(encoded), nil
 }
 
-func decodeCallOutput(result *CallResult, request CallRequest, raw json.RawMessage) error {
+func freezeCallContext[T any](value T, recordedBytes int, label string) (T, json.RawMessage, error) {
+	input, err := encodeCallContext(value, recordedBytes)
+	if err != nil {
+		var zero T
+		return zero, nil, err
+	}
+	var frozen T
+	if err := json.Unmarshal(input, &frozen); err != nil {
+		var zero T
+		return zero, nil, fmt.Errorf("freeze narrator %s call context: %w", label, err)
+	}
+	return frozen, input, nil
+}
+
+func decodeCallOutput(result *CallResult, prepared preparedCallRequest, raw json.RawMessage) error {
 	switch result.Kind {
 	case RequestKindProjection:
-		output, err := decodeProjectionOutput(raw, *request.Projection)
+		output, err := decodeProjectionOutput(raw, prepared.projection)
 		if err != nil {
 			return fmt.Errorf("validate narrator projection output: %w", err)
 		}
 		result.NarratorOutput = &output
 	case RequestKindStatus:
-		output, err := decodeStatusOutput(raw, *request.Status)
+		output, err := decodeStatusOutput(raw, prepared.status)
 		if err != nil {
 			return fmt.Errorf("validate narrator status output: %w", err)
 		}
 		result.NarratorOutput = &output
 	case RequestKindCheckpoint:
-		output, err := decodeCheckpointOutput(raw, *request.Checkpoint)
+		output, err := decodeCheckpointOutput(raw, prepared.checkpoint)
 		if err != nil {
 			return fmt.Errorf("validate narrator checkpoint output: %w", err)
 		}

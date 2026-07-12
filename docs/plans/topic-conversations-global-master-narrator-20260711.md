@@ -2838,3 +2838,23 @@ Implementation is in progress under this plan.
   and then corrected a test-only active-parent signal-channel saturation bug.
   Generated inputs and outputs changed: none. Phase 4 item 5, narration output
   persistence and committed events, is next with no external blocker.
+- 2026-07-12: The Phase 4 item 4 review pinned provider-default selections and
+  default service tiers to the exact model-catalog resolution before starting
+  the fresh provider thread. The generic structured-call boundary now requires
+  that catalog-resolved exact model and effort, so its no-fallback check also
+  covers roles configured to select the provider default. Narrator output is
+  validated against a frozen copy of the exact serialized context rather than
+  caller-owned context that can change while the provider runs, and failed
+  output validation returns the generation, trigger, resolved model, provider
+  references, and input/output sizes needed by the later invocation audit.
+- 2026-07-12: The same review made a zero-valued status source sequence
+  explicitly required and kept interruption cleanup attached after rejecting
+  a provider request until the matching terminal notification arrives.
+  Focused tests and vet, joint race-enabled agent/conversation/narration tests,
+  50 repeated race-enabled structured-provider runs, and 100 repeated
+  race-enabled narrator-caller validations passed. The deterministic production
+  Electron topic workflow passed at
+  `.recordings/topic-conversation-pane-projection/20260712T112315304Z/`, and
+  ChatGPT-authenticated live structured-output and full thread/fork lifecycle
+  tests passed with `OPENAI_API_KEY` removed. Generated inputs and outputs
+  changed: none. Phase 4 item 5 remains next and was not started.

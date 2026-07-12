@@ -39,11 +39,8 @@ func (request FreshStructuredCallRequest) Validate() error {
 	if err := validateWorkspaceRoot(request.WorkspaceRoot); err != nil {
 		return err
 	}
-	if err := request.Invocation.Validate(); err != nil {
+	if err := validateFreshStructuredInvocation(request.Invocation); err != nil {
 		return err
-	}
-	if request.Invocation.PermissionMode != PermissionModeReadOnly || request.Invocation.ApprovalMode != ApprovalModeNever {
-		return errors.New("fresh structured call requires read-only permission and no approvals")
 	}
 	if strings.TrimSpace(request.DeveloperInstructions) == "" ||
 		strings.TrimSpace(request.DeveloperInstructions) != request.DeveloperInstructions {
@@ -53,6 +50,34 @@ func (request FreshStructuredCallRequest) Validate() error {
 		return err
 	}
 	return validateStrictOutputSchema(request.OutputSchema)
+}
+
+func validateFreshStructuredInvocation(invocation Invocation) error {
+	if err := invocation.Validate(); err != nil {
+		return err
+	}
+	if invocation.ModelSelectionProviderDefault {
+		return errors.New("fresh structured call requires a catalog-resolved exact model")
+	}
+	if err := validateFreshStructuredSelection("reasoning effort", invocation.ReasoningEffort); err != nil {
+		return err
+	}
+	if invocation.ServiceTier != nil {
+		if err := validateFreshStructuredSelection("service tier", *invocation.ServiceTier); err != nil {
+			return err
+		}
+	}
+	if invocation.PermissionMode != PermissionModeReadOnly || invocation.ApprovalMode != ApprovalModeNever {
+		return errors.New("fresh structured call requires read-only permission and no approvals")
+	}
+	return nil
+}
+
+func validateFreshStructuredSelection(label string, value string) error {
+	if strings.TrimSpace(value) == "" || strings.TrimSpace(value) != value {
+		return fmt.Errorf("fresh structured call %s must be exact and non-empty without surrounding whitespace", label)
+	}
+	return nil
 }
 
 // RunFreshStructuredCall starts a new in-memory provider thread for every
@@ -174,9 +199,7 @@ func (runtime *Runtime) startFreshStructuredThread(
 		SelectedCapabilityRoots:    &capabilityRoots,
 		ServiceTier:                cloneString(request.Invocation.ServiceTier),
 	}
-	if !request.Invocation.ModelSelectionProviderDefault {
-		params.Model = &request.Invocation.Model
-	}
+	params.Model = &request.Invocation.Model
 	raw, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
 	if err != nil {
 		return "", fmt.Errorf("start fresh structured call thread: %w", err)
@@ -191,7 +214,7 @@ func (runtime *Runtime) startFreshStructuredThread(
 	if !response.Thread.Ephemeral {
 		return "", errors.New("fresh structured call provider thread is not ephemeral")
 	}
-	if !request.Invocation.ModelSelectionProviderDefault && response.Model != request.Invocation.Model {
+	if response.Model != request.Invocation.Model {
 		return "", fmt.Errorf(
 			"fresh structured call model resolved as %s, want %s",
 			response.Model,
@@ -233,13 +256,9 @@ func (runtime *Runtime) startFreshStructuredTurn(
 		ServiceTier:         cloneString(request.Invocation.ServiceTier),
 		ThreadID:            threadID,
 	}
-	if !request.Invocation.ModelSelectionProviderDefault {
-		params.Model = &request.Invocation.Model
-	}
-	if request.Invocation.ReasoningEffort != "" {
-		effort := codexapp.ReasoningEffort(request.Invocation.ReasoningEffort)
-		params.Effort = &effort
-	}
+	params.Model = &request.Invocation.Model
+	effort := codexapp.ReasoningEffort(request.Invocation.ReasoningEffort)
+	params.Effort = &effort
 	raw, err := session.Call(ctx, codexapp.CodexMethodTurnStart, params)
 	if err != nil {
 		return "", fmt.Errorf("start fresh structured call turn: %w", err)
@@ -396,8 +415,13 @@ func freshStructuredTerminalNotification(
 	switch event.Kind {
 	case codexapp.EventRequest:
 		err := fmt.Errorf("interrupted fresh structured call received provider request %s", event.Message.Method)
-		_ = event.Message.RespondError(-32001, err.Error())
-		return false, err
+		if respondErr := event.Message.RespondError(-32001, err.Error()); respondErr != nil {
+			return false, errors.Join(err, fmt.Errorf("reject provider request during interruption: %w", respondErr))
+		}
+		// Rejecting a request is part of draining an interrupted turn. Keep the
+		// session attached until the provider confirms the matching terminal
+		// notification instead of abandoning the turn after the request.
+		return false, nil
 	case codexapp.EventLifecycle:
 		return false, errors.New("fresh structured call provider stopped during interruption")
 	case codexapp.EventLag:

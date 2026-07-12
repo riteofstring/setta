@@ -19,6 +19,43 @@ func TestCallerRunsFreshSchemaConstrainedCallsForEveryTypedTriggerKind(t *testin
 	t.Run("checkpoint", testCallerCheckpoint)
 }
 
+func TestCallerPinsProviderDefaultToCatalogResolution(t *testing.T) {
+	source := newFakeNarratorContextSource(3)
+	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
+	profile := conversation.DefaultNarratorRoleProfile()
+	profile.ModelSelection = conversation.ModelSelection{Mode: conversation.ModelSelectionProviderDefault}
+	profiles := &modelResolverProfileSource{profile: &profile}
+	catalog := &modelResolverCatalog{
+		resolvedModel:       "gpt-provider-default",
+		resolvedServiceTier: "standard",
+	}
+	models := newTestModelResolver(t, profiles, catalog)
+	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
+		"kind":"working_projection",
+		"observedThroughSequence":3,
+		"currentFocus":"Verifying the resolved provider default.",
+		"milestones":[],
+		"topicDescriptor":null
+	}`)}
+	caller, err := NewCaller(models, provider)
+	if err != nil {
+		t.Fatalf("NewCaller: %v", err)
+	}
+
+	result := callProjection(t, caller, bundle)
+	invocation := provider.requests[0].Invocation
+	if invocation.ModelSelectionProviderDefault || invocation.Model != "gpt-provider-default" {
+		t.Fatalf("provider invocation did not pin catalog model: %+v", invocation)
+	}
+	if invocation.ServiceTier == nil || *invocation.ServiceTier != "standard" {
+		t.Fatalf("provider invocation service tier = %v, want resolved standard", invocation.ServiceTier)
+	}
+	if result.Model.RequestedProfile.ModelSelection.Mode != conversation.ModelSelectionProviderDefault ||
+		result.Model.Settings.ModelID != "gpt-provider-default" {
+		t.Fatalf("provider-default audit resolution = %+v", result.Model)
+	}
+}
+
 func testCallerWorkingProjection(t *testing.T) {
 	source := newFakeNarratorContextSource(3)
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
@@ -237,6 +274,84 @@ func TestStatusOutputCannotClaimAnotherSourceSequence(t *testing.T) {
 	}
 }
 
+func TestStatusOutputRequiresZeroSourceSequenceField(t *testing.T) {
+	_, err := decodeStatusOutput(json.RawMessage(`{
+		"kind":"status_reply",
+		"statusReply":"No trajectory events have been recorded yet."
+	}`), StatusContextBundle{
+		Kind:                  ContextKindStatus,
+		Trigger:               conversation.NarrationTriggerExplicitStatusRequested,
+		SourceThroughSequence: 0,
+	})
+	if err == nil || !strings.Contains(err.Error(), "sourceThroughSequence is required") {
+		t.Fatalf("missing zero source sequence error = %v", err)
+	}
+}
+
+func TestCallerValidatesOutputAgainstFrozenSuppliedContext(t *testing.T) {
+	source := newFakeNarratorContextSource(3)
+	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
+	provider := &recordingFreshStructuredProvider{
+		output: json.RawMessage(`{
+			"kind":"working_projection",
+			"observedThroughSequence":4,
+			"currentFocus":"This cursor was not present in the supplied context.",
+			"milestones":[],
+			"topicDescriptor":null
+		}`),
+		beforeReturn: func() {
+			bundle.EvaluationRange.End = 4
+			bundle.RequestedThroughSequence = 4
+		},
+	}
+	caller := newTestCaller(t, provider)
+
+	_, err := caller.Call(context.Background(), CallRequest{
+		ID:            "narrator-frozen-context",
+		Generation:    1,
+		WorkspaceRoot: t.TempDir(),
+		Projection:    &bundle,
+	})
+	if err == nil || !strings.Contains(err.Error(), "outside supplied evaluation range") {
+		t.Fatalf("mutated post-dispatch context error = %v", err)
+	}
+}
+
+func TestCallerRetainsAttemptMetadataWhenOutputValidationFails(t *testing.T) {
+	source := newFakeNarratorContextSource(3)
+	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
+	providerOutput := json.RawMessage(`{
+		"kind":"working_projection",
+		"observedThroughSequence":3,
+		"currentFocus":"Validating output.",
+		"milestones":[],
+		"topicDescriptor":null,
+		"finalSummary":"Cross-channel output is invalid."
+	}`)
+	provider := &recordingFreshStructuredProvider{output: providerOutput}
+	caller := newTestCaller(t, provider)
+
+	result, err := caller.Call(context.Background(), CallRequest{
+		ID:            "narrator-invalid-output-audit",
+		Generation:    7,
+		WorkspaceRoot: t.TempDir(),
+		Projection:    &bundle,
+	})
+	if err == nil || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("invalid output error = %v", err)
+	}
+	if result.RequestID != "narrator-invalid-output-audit" || result.Generation != 7 ||
+		result.Kind != RequestKindProjection || result.Trigger != conversation.NarrationTriggerPlanChanged ||
+		result.ConversationID != source.conversation.ID || result.Model.Settings.ModelID != "gpt-5.4-mini" ||
+		result.ProviderThreadID == "" || result.ProviderTurnID == "" || result.InputBytes != bundle.InputBytes ||
+		result.OutputBytes != len(providerOutput) || !reflect.DeepEqual(result.StructuredOutput, providerOutput) {
+		t.Fatalf("failed-call audit metadata = %+v", result)
+	}
+	if result.NarratorOutput != nil || result.CheckpointOutput != nil {
+		t.Fatalf("failed output populated validated branches: %+v", result)
+	}
+}
+
 func TestCallerValidatesTypedContextBeforeModelOrProvider(t *testing.T) {
 	profiles := &modelResolverProfileSource{}
 	catalog := &modelResolverCatalog{}
@@ -268,9 +383,10 @@ func TestCallerValidatesTypedContextBeforeModelOrProvider(t *testing.T) {
 }
 
 type recordingFreshStructuredProvider struct {
-	requests []agent.FreshStructuredCallRequest
-	output   json.RawMessage
-	err      error
+	requests     []agent.FreshStructuredCallRequest
+	output       json.RawMessage
+	err          error
+	beforeReturn func()
 }
 
 func (provider *recordingFreshStructuredProvider) RunFreshStructuredCall(
@@ -280,6 +396,9 @@ func (provider *recordingFreshStructuredProvider) RunFreshStructuredCall(
 	request.Input = append(json.RawMessage{}, request.Input...)
 	request.OutputSchema = append(json.RawMessage{}, request.OutputSchema...)
 	provider.requests = append(provider.requests, request)
+	if provider.beforeReturn != nil {
+		provider.beforeReturn()
+	}
 	if provider.err != nil {
 		return agent.FreshStructuredCallResult{}, provider.err
 	}

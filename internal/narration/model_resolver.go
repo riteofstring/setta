@@ -28,8 +28,9 @@ var (
 )
 
 // ModelResolution is the catalog-validated narrator invocation configuration.
-// Invocation is passed to the provider call; RequestedProfile and Settings are
-// retained for the durable invocation audit.
+// Invocation retains the requested provider selection while Settings records
+// the exact catalog resolution. The caller pins Settings into the provider
+// invocation and retains both sides for the durable invocation audit.
 type ModelResolution struct {
 	RequestedProfile conversation.RoleProfile
 	Invocation       agent.Invocation
