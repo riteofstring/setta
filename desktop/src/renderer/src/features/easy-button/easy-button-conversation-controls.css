@@ -152,3 +152,75 @@
   height: 13px;
   width: 13px;
 }
+
+.easy-button-speech-activity {
+  align-items: center;
+  color: var(--easy-button-faint);
+  display: inline-flex;
+  flex: 0 1 auto;
+  font-family: var(--setta-font-mono);
+  font-size: 9.5px;
+  gap: 4px;
+  max-width: 154px;
+  min-width: 0;
+}
+
+.easy-button-speech-activity > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.easy-button-speech-activity > svg {
+  flex: 0 0 auto;
+  height: 11px;
+  width: 11px;
+}
+
+.easy-button-speech-activity[data-speech-activity="capture"],
+.easy-button-speech-activity[data-speech-activity="speaking"] {
+  color: var(--easy-button-primary);
+}
+
+.easy-button-speech-activity[data-speech-activity="failed"] {
+  color: var(--status-critical-muted);
+}
+
+.easy-button-speech-activity[data-speech-activity="capture"] > svg,
+.easy-button-speech-activity[data-speech-activity="speaking"] > svg {
+  animation: easy-button-speech-pulse 1.2s ease-in-out infinite;
+}
+
+.easy-button-speech-activity[data-speech-activity="synthesizing"] > svg,
+.easy-button-speech-activity[data-speech-activity="queued"] > svg {
+  animation: easy-button-speech-spin 900ms linear infinite;
+}
+
+@keyframes easy-button-speech-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes easy-button-speech-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 780px) {
+  .easy-button-speech-activity > span {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .easy-button-speech-activity > svg {
+    animation: none !important;
+  }
+}

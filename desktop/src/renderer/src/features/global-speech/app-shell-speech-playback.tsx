@@ -1,13 +1,35 @@
 import type { ConversationEvent, ConversationSnapshot, TurnStatus } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { useConversationStore } from "../../stores/conversation-store";
 import {
   AppShellSpeechPlaybackController,
   narrationSpeechPlaybackIntent,
   type SpeechPlaybackControllerDependencies,
+  type SpeechPlaybackSnapshot,
 } from "./app-shell-speech-playback-controller";
+
+export interface AppShellSpeechPlaybackContextValue {
+  controller: AppShellSpeechPlaybackController;
+  snapshot: SpeechPlaybackSnapshot;
+}
+
+const AppShellSpeechPlaybackContext = createContext<AppShellSpeechPlaybackContextValue | null>(
+  null,
+);
+
+export function useAppShellSpeechPlayback(): AppShellSpeechPlaybackContextValue | null {
+  return useContext(AppShellSpeechPlaybackContext);
+}
 
 export function AppShellSpeechPlaybackProvider({
   children,
@@ -22,6 +44,12 @@ export function AppShellSpeechPlaybackProvider({
     () => new AppShellSpeechPlaybackController(browserPlaybackDependencies(setta)),
   );
   const [effectLifetime] = useState(() => new AppShellSpeechPlaybackEffectLifetime());
+  const snapshot = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+    controller.getSnapshot,
+  );
+  const context = useMemo(() => ({ controller, snapshot }), [controller, snapshot]);
   const content = useMemo(
     () => (typeof children === "function" ? children(controller) : children),
     [children, controller],
@@ -35,7 +63,11 @@ export function AppShellSpeechPlaybackProvider({
     [controller, setta],
   );
 
-  return content;
+  return (
+    <AppShellSpeechPlaybackContext.Provider value={context}>
+      {content}
+    </AppShellSpeechPlaybackContext.Provider>
+  );
 }
 
 export function handlePlaybackConversationEvent(

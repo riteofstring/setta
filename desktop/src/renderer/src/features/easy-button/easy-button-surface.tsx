@@ -14,6 +14,11 @@ import {
 } from "@generated/backend";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
+import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
+import type {
+  GlobalSpeechPresentationSource,
+  PaneSpeechPresentation,
+} from "../global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../global-speech/speech-capture-destination";
 import { useConversationStore } from "../../stores/conversation-store";
 import { retainConversationProjection } from "../../stores/conversation-projection-runtime";
@@ -56,6 +61,7 @@ interface EasyButtonSurfaceProps {
   conversationId: string | null;
   paneId?: string | null;
   speechCapture?: SpeechCaptureRequester;
+  speechPresentation?: GlobalSpeechPresentationSource;
   workspaceId?: string | null;
 }
 
@@ -85,6 +91,7 @@ export function EasyButtonSurface({
   conversationId,
   paneId = null,
   speechCapture,
+  speechPresentation,
   workspaceId,
 }: EasyButtonSurfaceProps) {
   const projection = useConversationStore((state) =>
@@ -103,9 +110,10 @@ export function EasyButtonSurface({
     projection,
     speechCapture,
   );
+  const speech = usePaneSpeechPresentation(conversationId, paneId, speechPresentation);
   const projectedView = easyButtonProjectionView(conversationId, projection);
   const view = commands.error ? { ...projectedView, error: commands.error } : projectedView;
-  return <EasyButtonProjectionSurface commands={commands} view={view} />;
+  return <EasyButtonProjectionSurface commands={commands} speech={speech} view={view} />;
 }
 
 export function easyButtonConversationProjection(
@@ -129,9 +137,11 @@ function composerPlaceholder(
 
 export function EasyButtonProjectionSurface({
   commands,
+  speech,
   view,
 }: {
   commands?: EasyButtonConversationCommands;
+  speech?: PaneSpeechPresentation | null;
   view: EasyButtonProjectionView;
 }) {
   const rootRef = useRef<HTMLElement | null>(null);
@@ -144,6 +154,10 @@ export function EasyButtonProjectionSurface({
       data-conversation-id={view.conversationId ?? undefined}
       data-conversation-palette={view.paletteId ?? undefined}
       data-easy-button-focus={view.focusStatus}
+      data-easy-button-capture={speech?.captureState}
+      data-easy-button-capture-scope={speech?.captureScope}
+      data-easy-button-playback={speech?.playbackState}
+      data-easy-button-playback-scope={speech?.playbackScope}
       data-easy-button-projection={view.projectionStatus}
       data-easy-button-queue-count={view.queuedTurnCount}
       data-easy-button-state={view.viewState}
@@ -164,7 +178,7 @@ export function EasyButtonProjectionSurface({
         </div>
       </main>
       <ArtifactRail artifacts={view.artifacts} />
-      <ConversationComposer commands={commands} view={view} />
+      <ConversationComposer commands={commands} speech={speech} view={view} />
     </section>
   );
 }
@@ -225,9 +239,11 @@ function ConversationActionSlot({
 
 function ConversationComposer({
   commands,
+  speech,
   view,
 }: {
   commands: EasyButtonConversationCommands | undefined;
+  speech: PaneSpeechPresentation | null | undefined;
   view: EasyButtonProjectionView;
 }) {
   const available = Boolean(commands && commands.available && !commands.pending);
@@ -243,6 +259,7 @@ function ConversationComposer({
       onSubmit={commands ? commands.submit : undefined}
       onVoiceCapture={conversationVoiceCapture(commands)}
       placeholder={composerPlaceholder(view, commands)}
+      speech={speech}
       working={view.viewState === "working"}
     />
   );

@@ -2,6 +2,7 @@ import { isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
+import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import { registerWorkflowGraphRuntimeHandle } from "../features/workspace-graph/workflow-graph-runtime-registry";
 import { reactDomSurfaceHostChangedEvent } from "./react-dom-surface-events";
 import {
@@ -296,8 +297,10 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const speechCapture = { start: vi.fn(async () => {}) };
+    const speechPresentation = {} as GlobalSpeechPresentationSource;
     const adapter = createReactDomSurfaceAdapter(fakePane("easy-button"), rootFactory, {
       speechCapture,
+      speechPresentation,
       workspaceId: "workspace_test",
     });
 
@@ -309,6 +312,7 @@ describe("workspace React DOM surface adapter", () => {
         conversationId: string | null;
         paneId: string;
         speechCapture: typeof speechCapture;
+        speechPresentation: GlobalSpeechPresentationSource;
         workspaceId: string;
       }>(renderedNode)
     ) {
@@ -319,6 +323,7 @@ describe("workspace React DOM surface adapter", () => {
     expect(renderedNode.props.conversationId).toBe("conversation_test");
     expect(renderedNode.props.paneId).toBe("pane");
     expect(renderedNode.props.speechCapture).toBe(speechCapture);
+    expect(renderedNode.props.speechPresentation).toBe(speechPresentation);
     expect(renderedNode.props.workspaceId).toBe("workspace_test");
   });
 

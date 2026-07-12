@@ -2,6 +2,7 @@ import type { SettaAPI } from "@shared/types";
 import {
   createContext,
   type ReactNode,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -15,6 +16,8 @@ import {
   type AppShellSpeechCaptureSnapshot,
   browserSpeechCaptureSupport,
 } from "./app-shell-speech-capture-controller";
+import type { AppShellSpeechPlaybackController } from "./app-shell-speech-playback-controller";
+import type { GlobalSpeechPresentationSource } from "./global-speech-presentation";
 import {
   readGlobalMicrophonePreference,
   type GlobalMicrophonePreference,
@@ -22,27 +25,37 @@ import {
 } from "./global-microphone-preference";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
 import type { MasterInputFocusHints } from "./global-speech-master-submission";
-import type { SpeechCaptureRequester } from "./speech-capture-destination";
 
-interface AppShellSpeechCaptureContextValue {
+export interface AppShellSpeechCaptureContextValue {
   controller: AppShellSpeechCaptureController;
   snapshot: AppShellSpeechCaptureSnapshot;
 }
 
 const AppShellSpeechCaptureContext = createContext<AppShellSpeechCaptureContextValue | null>(null);
 
+export function useAppShellSpeechCapture(): AppShellSpeechCaptureContextValue | null {
+  return useContext(AppShellSpeechCaptureContext);
+}
+
 export function AppShellSpeechCaptureProvider({
   children,
   focusHints,
   onCaptureEnd,
   onCaptureStart,
+  playback,
   runtimeId,
   setta,
 }: {
-  children: ReactNode | ((requester: SpeechCaptureRequester) => ReactNode);
+  children:
+    | ReactNode
+    | ((
+        controller: AppShellSpeechCaptureController,
+        presentation: GlobalSpeechPresentationSource,
+      ) => ReactNode);
   focusHints: MasterInputFocusHints;
   onCaptureEnd?: () => void;
   onCaptureStart?: () => void;
+  playback: AppShellSpeechPlaybackController;
   runtimeId: string | null;
   setta: SettaAPI;
 }) {
@@ -66,9 +79,10 @@ export function AppShellSpeechCaptureProvider({
     controller.getSnapshot,
   );
   const context = useMemo(() => ({ controller, snapshot }), [controller, snapshot]);
+  const presentation = useMemo(() => ({ capture: controller, playback }), [controller, playback]);
   const content = useMemo(
-    () => (typeof children === "function" ? children(controller) : children),
-    [children, controller],
+    () => (typeof children === "function" ? children(controller, presentation) : children),
+    [children, controller, presentation],
   );
 
   useEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);

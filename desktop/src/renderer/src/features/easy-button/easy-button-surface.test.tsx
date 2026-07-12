@@ -168,6 +168,32 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain("The topic agent is still implementing the requested change.");
   });
 
+  test("renders source-attributed global speech state in the bound pane", () => {
+    const snapshot = workingSnapshot("conversation_speaking", "Speaking topic", "sky");
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const html = renderToString(
+      <EasyButtonProjectionSurface
+        speech={{
+          activityKind: "speaking",
+          activityLabel: "Narrator speaking",
+          captureScope: "none",
+          captureState: "idle",
+          playbackScope: "this_conversation",
+          playbackState: "speaking",
+          voiceControlDisabled: false,
+          voiceControlLabel: "Start a voice request for this conversation",
+        }}
+        view={view}
+      />,
+    );
+
+    expect(html).toContain('data-easy-button-capture="idle"');
+    expect(html).toContain('data-easy-button-playback="speaking"');
+    expect(html).toContain('data-easy-button-playback-scope="this_conversation"');
+    expect(html).toContain('data-speech-activity="speaking"');
+    expect(html).toContain("Narrator speaking");
+  });
+
   test("projects approval, degradation, and resynchronization explicitly", () => {
     const snapshot = workingSnapshot("conversation_approval", "Approval topic", "teal");
     snapshot.conversation.status = "waiting_for_approval";

@@ -1,5 +1,8 @@
-import { Mic } from "lucide-react";
+import { Mic, Square } from "lucide-react";
 import type { FormEventHandler } from "react";
+
+import { PaneSpeechActivityIndicator } from "../global-speech/app-shell-speech-status";
+import type { PaneSpeechPresentation } from "../global-speech/global-speech-presentation";
 
 export function EasyButtonConversationComposer({
   available,
@@ -11,6 +14,7 @@ export function EasyButtonConversationComposer({
   onSubmit,
   onVoiceCapture,
   placeholder,
+  speech,
   working,
 }: {
   available: boolean;
@@ -22,6 +26,7 @@ export function EasyButtonConversationComposer({
   onSubmit: FormEventHandler<HTMLFormElement> | undefined;
   onVoiceCapture: (() => void) | undefined;
   placeholder: string;
+  speech: PaneSpeechPresentation | null | undefined;
   working: boolean;
 }) {
   return (
@@ -39,7 +44,12 @@ export function EasyButtonConversationComposer({
         />
         <ConversationStatusButton canSubmit={canSubmit} onStatus={onStatus} />
         <ConversationSteerButton canSubmit={canSubmit} onSteer={onSteer} working={working} />
-        <ConversationVoiceButton available={available} onVoiceCapture={onVoiceCapture} />
+        <PaneSpeechActivityIndicator presentation={speech} />
+        <ConversationVoiceButton
+          available={available}
+          onVoiceCapture={onVoiceCapture}
+          speech={speech}
+        />
         <button
           className="easy-button-enter-chip"
           data-testid="easy-button-submit"
@@ -56,25 +66,53 @@ export function EasyButtonConversationComposer({
 function ConversationVoiceButton({
   available,
   onVoiceCapture,
+  speech,
 }: {
   available: boolean;
   onVoiceCapture: (() => void) | undefined;
+  speech: PaneSpeechPresentation | null | undefined;
 }) {
   if (!onVoiceCapture) {
     return null;
   }
+  const control = conversationVoiceControl(available, speech);
   return (
     <button
-      aria-label="Start a voice request for this conversation"
+      aria-label={control.label}
       className="easy-button-voice-chip"
+      data-speech-capture={speech?.captureState}
+      data-speech-capture-scope={speech?.captureScope}
       data-testid="easy-button-voice-capture"
-      disabled={!available}
+      disabled={control.disabled}
       onClick={onVoiceCapture}
+      title={control.label}
       type="button"
     >
-      <Mic aria-hidden="true" className="easy-button-voice-icon" />
+      {control.finishesCapture ? (
+        <Square aria-hidden="true" className="easy-button-voice-icon" />
+      ) : (
+        <Mic aria-hidden="true" className="easy-button-voice-icon" />
+      )}
     </button>
   );
+}
+
+function conversationVoiceControl(
+  available: boolean,
+  speech: PaneSpeechPresentation | null | undefined,
+) {
+  if (!speech) {
+    return {
+      disabled: !available,
+      finishesCapture: false,
+      label: "Start a voice request for this conversation",
+    };
+  }
+  return {
+    disabled: !available || speech.voiceControlDisabled,
+    finishesCapture: speech.captureState === "listening" && speech.captureScope === "this_pane",
+    label: speech.voiceControlLabel,
+  };
 }
 
 function ConversationStatusButton({

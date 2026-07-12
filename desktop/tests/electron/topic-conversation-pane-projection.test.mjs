@@ -25,6 +25,14 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
+import {
+  assertDistinctConversationPalettes,
+  exercisePaneFreeShellCapture,
+  safeTopicConversationSurfaceStates,
+  verifyConversationCapturePresentation,
+  verifyIdleGlobalSpeech,
+  verifyNarratorPlaybackPresentation,
+} from "./topic-conversation-speech-state-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
@@ -62,6 +70,7 @@ const fakeCodex = await installFakeTopicCodex(fixture);
 const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
 let noPaneTerminalSpeech;
+let shellMasterInput;
 let statusCapturePreemption;
 let statusSpeechPlayback;
 
@@ -164,7 +173,7 @@ try {
     );
   }
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
-  assertPaneVoiceCaptureRequests(initial.surfaces, alpha.id, beta.id);
+  await verifyIdleGlobalSpeech(context.client, workflowTimeoutMs);
   const alphaPaneId = requiredConversationSurface(initial.surfaces, alpha.id).paneId;
   assertDriverAction(
     await context.client.driver("topicConversationVoiceCapture", {
@@ -178,6 +187,14 @@ try {
     (state) => state.channelOpen && state.connectionCount === 1,
     workflowTimeoutMs,
   );
+  await verifyConversationCapturePresentation({
+    artifactPath: join(artifactDir, "global-capture-attribution.png"),
+    client: context.client,
+    conversationId: alpha.id,
+    conversationTitle: alpha.title,
+    sourcePaneId: alphaPaneId,
+    timeoutMs: workflowTimeoutMs,
+  });
   assertDriverAction(
     await context.client.driver("topicConversationVoiceCapture", {
       conversationId: alpha.id,
@@ -296,6 +313,13 @@ try {
     expectedNarratorStatusReply,
     alpha.narratorVoiceId,
   );
+  await verifyNarratorPlaybackPresentation({
+    artifactPath: join(artifactDir, "global-playback-attribution.png"),
+    client: context.client,
+    conversationId: alpha.id,
+    conversationTitle: alpha.title,
+    timeoutMs: workflowTimeoutMs,
+  });
   const statusEvent = alphaAfterStatus.narration.events.find(
     (event) => event.kind === "status_reply",
   );
@@ -329,6 +353,14 @@ try {
       state.audioPauseCount === playbackBeforeCapture.audioPauseCount + 1,
     workflowTimeoutMs,
   );
+  await verifyConversationCapturePresentation({
+    artifactPath: join(artifactDir, "global-capture-preemption.png"),
+    client: context.client,
+    conversationId: alpha.id,
+    conversationTitle: alpha.title,
+    sourcePaneId: alphaPaneId,
+    timeoutMs: workflowTimeoutMs,
+  });
   assertDriverAction(
     await context.client.driver("topicConversationVoiceCapture", {
       conversationId: alpha.id,
@@ -534,6 +566,37 @@ try {
       surface.summaryText === "Narrator completed narration backlog fail beta.",
   );
 
+  await closeConversationPane(context.client, alpha.id);
+  await closeConversationPane(context.client, beta.id);
+  await waitForConversationSurfaces(context.client, (surfaces) => surfaces.length === 0);
+  await installScriptedRealtimeBrowser(context.client);
+  shellMasterInput = await exercisePaneFreeShellCapture({
+    artifactDirectory: secondLaunchDir,
+    artifactPath: join(artifactDir, "shell-master-capture-without-panes.png"),
+    client: context.client,
+    timeoutMs: workflowTimeoutMs,
+    transcript: paneSpeechTranscript,
+    workspaceId,
+  });
+  assertDriverAction(
+    await context.client.driver("topicConversationPresentFromNavigator", {
+      conversationId: alpha.id,
+    }),
+    "clicked",
+  );
+  assertDriverAction(
+    await context.client.driver("topicConversationPresentFromNavigator", {
+      conversationId: beta.id,
+    }),
+    "clicked",
+  );
+  await waitForConversationSurfaces(
+    context.client,
+    (surfaces) =>
+      conversationSurfaces(surfaces, alpha.id).length === 1 &&
+      conversationSurfaces(surfaces, beta.id).length === 1,
+  );
+
   const alphaSnapshot = await waitForConversationSnapshot(
     backend,
     workspaceId,
@@ -607,6 +670,7 @@ try {
     reloaded,
     reopenedWorking,
     reloadedWorking,
+    shellMasterInput,
     status: "passed",
     statusCapturePreemption,
     statusSpeechPlayback,
@@ -619,7 +683,7 @@ try {
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
     await writeJson(join(artifactDir, "failure-snapshot.json"), {
-      surfaces: await safeSurfaceStates(context.client),
+      surfaces: await safeTopicConversationSurfaceStates(context.client),
     }).catch(() => {});
   }
   await writeJson(join(artifactDir, "summary.json"), {
@@ -1201,25 +1265,6 @@ function assertDriverAction(result, property) {
   }
 }
 
-function assertDistinctConversationPalettes(surfaces, alphaId, betaId) {
-  const alpha = conversationSurfaces(surfaces, alphaId)[0];
-  const beta = conversationSurfaces(surfaces, betaId)[0];
-  if (!alpha?.paletteId || !beta?.paletteId || alpha.paletteId === beta.paletteId) {
-    throw new Error(`topic palettes were not distinct: ${JSON.stringify({ alpha, beta })}`);
-  }
-}
-
-function assertPaneVoiceCaptureRequests(surfaces, ...conversationIds) {
-  for (const conversationId of conversationIds) {
-    const surface = requiredConversationSurface(surfaces, conversationId);
-    if (!surface.paneId || !surface.voiceCaptureAvailable) {
-      throw new Error(
-        `conversation pane has no typed voice capture request: ${JSON.stringify(surface)}`,
-      );
-    }
-  }
-}
-
 function assertDuplicateConversationPalette(surfaces, conversationId) {
   const duplicates = conversationSurfaces(surfaces, conversationId);
   const palettes = new Set(duplicates.map((surface) => surface.paletteId));
@@ -1444,12 +1489,4 @@ function requiredConversationSurface(surfaces, conversationId) {
     );
   }
   return surface;
-}
-
-async function safeSurfaceStates(client) {
-  try {
-    return await client.driver("topicConversationSurfaceStates", {});
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) };
-  }
 }

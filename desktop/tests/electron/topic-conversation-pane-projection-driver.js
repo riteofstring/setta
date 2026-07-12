@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v9";
+  const version = "setta-topic-conversation-pane-projection-driver-v10";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -17,6 +17,8 @@
       topicConversationNavigatorState,
       topicConversationOpenBoundPane,
       topicConversationRespondApproval,
+      topicConversationShellSpeechCapture,
+      topicConversationShellSpeechState,
       topicConversationPresentFromNavigator,
       topicConversationSteer,
       topicConversationStop,
@@ -85,12 +87,15 @@
             artifactCount: artifacts.length,
             artifactText: Array.from(artifacts).map(elementText).join("\n"),
             captureState: datasetValue(surface, "easyButtonCapture"),
+            captureScope: datasetValue(surface, "easyButtonCaptureScope"),
             conversationId: datasetValue(surface, "conversationId"),
             errorText: elementText(error),
             helperText: elementText(helper),
             inputDisabled: inputIsDisabled(input),
             paneId: datasetValue(host, "paneId"),
             paletteId: datasetValue(surface, "conversationPalette"),
+            playbackScope: datasetValue(surface, "easyButtonPlaybackScope"),
+            playbackState: datasetValue(surface, "easyButtonPlayback"),
             projectionStatus: datasetValue(surface, "easyButtonProjection"),
             queueCount: Number(datasetValue(surface, "easyButtonQueueCount") || "0"),
             speechState: datasetValue(surface, "easyButtonSpeech"),
@@ -99,7 +104,11 @@
             statusQuestion: elementText(statusQuestion),
             statusReplyText: elementText(statusReply),
             summaryText: elementText(summary),
+            speechActivityText: elementText(
+              surface.querySelector('[data-testid="easy-button-speech-activity"]'),
+            ),
             title: surface.getAttribute("aria-label") ?? "",
+            voiceCaptureLabel: voiceCapture?.getAttribute("aria-label") ?? "",
             voiceCaptureAvailable:
               voiceCapture instanceof HTMLButtonElement && !voiceCapture.disabled,
           };
@@ -140,6 +149,30 @@
     }
     button.click();
     return { conversationId, requested: true };
+  }
+
+  function topicConversationShellSpeechCapture() {
+    const button = document.querySelector('[data-testid="shell-speech-capture-control"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { clicked: false };
+    }
+    button.click();
+    return { clicked: true };
+  }
+
+  function topicConversationShellSpeechState() {
+    const status = document.querySelector('[data-testid="shell-speech-status"]');
+    const capture = status?.querySelector('[data-testid="shell-speech-capture-control"]');
+    const stop = status?.querySelector('[data-testid="shell-speech-stop"]');
+    return {
+      captureAvailable: capture instanceof HTMLButtonElement && !capture.disabled,
+      captureLabel: capture?.getAttribute("aria-label") ?? "",
+      captureState: datasetValue(status, "speechCapture"),
+      label: elementText(status?.querySelector('[data-testid="shell-speech-label"]')),
+      playbackState: datasetValue(status, "speechPlayback"),
+      sourceConversationId: datasetValue(status, "speechSourceConversation"),
+      stopAvailable: stop instanceof HTMLButtonElement && !stop.disabled,
+    };
   }
 
   function topicConversationAskStatus({ conversationId, question }) {

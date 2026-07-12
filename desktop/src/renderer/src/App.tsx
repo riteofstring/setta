@@ -18,15 +18,15 @@ import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
+import type { AppShellSpeechCaptureController } from "./features/global-speech/app-shell-speech-capture-controller";
 import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
+import { AppShellSpeechStatus } from "./features/global-speech/app-shell-speech-status";
 import type { MasterInputFocusHints } from "./features/global-speech/global-speech-master-submission";
-import type { SpeechCaptureRequester } from "./features/global-speech/speech-capture-destination";
+import type { GlobalSpeechPresentationSource } from "./features/global-speech/global-speech-presentation";
 import { cn } from "./lib/utils";
-import {
-  WorkspaceLayoutArea,
-  type WorkspaceSurfaceFocusRequest,
-} from "./workspace-layout/WorkspaceLayoutArea";
+import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
 import type { WorkspaceConversationFocusRequest } from "./workspace-layout/conversation-pane-runtime";
+import type { WorkspaceSurfaceFocusRequest } from "./workspace-layout/workspace-layout-area-runtime";
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import { runChatBackgroundAction } from "./stores/chat-background-actions";
@@ -117,9 +117,13 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   }, [setta]);
   useEffect(() => setta.conversations.onEvent(handleConversationProjectionEvent), [setta]);
 
-  const shell = (speechCapture?: SpeechCaptureRequester) => (
+  const shell = (
+    speechCapture?: AppShellSpeechCaptureController,
+    speechPresentation?: GlobalSpeechPresentationSource,
+  ) => (
     <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <AppChromeControls
+        globalSpeechAvailable={Boolean(speechCapture)}
         mobileViewport={mobileViewport}
         openSettingsPane={openSettingsPane}
         platform={platform}
@@ -149,6 +153,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           projectPaneOpen={projectPaneOpen}
           projectPaneWidth={mobileViewport || !projectPaneOpen ? 0 : effectiveProjectPaneWidth}
           speechCapture={speechCapture}
+          speechPresentation={speechPresentation}
         />
       </main>
     </div>
@@ -163,10 +168,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           focusHints={masterInputFocusHints}
           onCaptureEnd={playback.resumeAfterCapture}
           onCaptureStart={playback.preemptForCapture}
+          playback={playback}
           runtimeId={runtime.connectedRuntimeId}
           setta={setta}
         >
-          {(speechCapture) => shell(speechCapture)}
+          {(speechCapture, speechPresentation) => shell(speechCapture, speechPresentation)}
         </AppShellSpeechCaptureProvider>
       )}
     </AppShellSpeechPlaybackProvider>
@@ -403,12 +409,14 @@ export function sidebarWorkspaceBusy(
 }
 
 function AppChromeControls({
+  globalSpeechAvailable,
   mobileViewport,
   openSettingsPane,
   platform,
   projectPaneOpen,
   setProjectPaneOpen,
 }: {
+  globalSpeechAvailable: boolean;
   mobileViewport: boolean;
   openSettingsPane: () => void;
   platform: DesktopPlatform;
@@ -420,6 +428,7 @@ function AppChromeControls({
   }
   return (
     <DesktopShellTopBar
+      globalSpeechAvailable={globalSpeechAvailable}
       onOpenSettings={openSettingsPane}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
@@ -429,11 +438,13 @@ function AppChromeControls({
 }
 
 function DesktopShellTopBar({
+  globalSpeechAvailable,
   onOpenSettings,
   platform,
   projectPaneOpen,
   setProjectPaneOpen,
 }: {
+  globalSpeechAvailable: boolean;
   onOpenSettings: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
@@ -472,6 +483,7 @@ function DesktopShellTopBar({
           </div>
         </TooltipProvider>
       </div>
+      {globalSpeechAvailable ? <AppShellSpeechStatus /> : null}
       <div className="setta-shell-top-bar-right">
         <SettaLogoMark className="setta-shell-top-bar-logo" height={12} />
       </div>

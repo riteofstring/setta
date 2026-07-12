@@ -3,6 +3,7 @@ import type { WorkspaceUILayout } from "@generated/backend";
 import { Profiler, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isMobileViewportWidth } from "../app-layout";
+import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import { useAppearanceStore } from "../stores/appearance-store";
 import { useViewportSize } from "../use-viewport-size";
@@ -83,6 +84,7 @@ import {
   WorkspacePaneHost,
 } from "./workspace-layout-area-components";
 import {
+  type WorkspaceSurfaceFocusRequest,
   workspaceBenchmarkShouldRun,
   workspaceRuntimeIdentity,
   workspaceSceneMode,
@@ -97,11 +99,7 @@ import {
   workspaceLayoutAreaLabel,
   workspaceLayoutRecoveryMessage,
 } from "./workspace-ui-layout";
-import type { OpenPaneRequest, PaneDropIntent, Rect, SurfaceKind } from "./types";
-export interface WorkspaceSurfaceFocusRequest {
-  requestId: number;
-  surfaceKind: SurfaceKind;
-}
+import type { OpenPaneRequest, PaneDropIntent, Rect } from "./types";
 const overviewDragThresholdPx = 6;
 
 export function WorkspaceLayoutArea({
@@ -113,6 +111,7 @@ export function WorkspaceLayoutArea({
   projectPaneOpen,
   projectPaneWidth,
   speechCapture,
+  speechPresentation,
 }: {
   focusConversationRequest?: WorkspaceConversationFocusRequest | null;
   focusSurfaceRequest?: WorkspaceSurfaceFocusRequest | null;
@@ -122,6 +121,7 @@ export function WorkspaceLayoutArea({
   projectPaneOpen: boolean;
   projectPaneWidth: number;
   speechCapture?: SpeechCaptureRequester;
+  speechPresentation?: GlobalSpeechPresentationSource;
 }) {
   const workspaceTarget = useWorkspaceLayoutTarget();
   const workspace = workspaceTarget.workspace;
@@ -147,6 +147,7 @@ export function WorkspaceLayoutArea({
       projectPaneOpen={projectPaneOpen}
       projectPaneWidth={projectPaneWidth}
       speechCapture={speechCapture}
+      speechPresentation={speechPresentation}
       workspaceId={workspaceId}
       workspaceName={workspaceName}
     />
@@ -165,6 +166,7 @@ function WorkspaceLayoutRuntimeArea({
   projectPaneOpen,
   projectPaneWidth,
   speechCapture,
+  speechPresentation,
   workspaceId,
   workspaceName,
 }: {
@@ -179,6 +181,7 @@ function WorkspaceLayoutRuntimeArea({
   projectPaneOpen: boolean;
   projectPaneWidth: number;
   speechCapture: SpeechCaptureRequester | undefined;
+  speechPresentation: GlobalSpeechPresentationSource | undefined;
   workspaceId: string;
   workspaceName: string;
 }) {
@@ -226,6 +229,7 @@ function WorkspaceLayoutRuntimeArea({
         overviewCardMaxWidthPx,
         overviewCardMinWidthPx,
         speechCapture,
+        speechPresentation,
         storedLayout: initialLayout,
         workspaceId,
         workspaceName,
@@ -237,6 +241,7 @@ function WorkspaceLayoutRuntimeArea({
       overviewCardMaxWidthPx,
       overviewCardMinWidthPx,
       speechCapture,
+      speechPresentation,
       workspaceId,
       workspaceName,
     ],
@@ -407,7 +412,6 @@ function WorkspaceLayoutRuntimeArea({
         viewportProvider: stageViewport,
       });
     const handleWheel = (event: WheelEvent) => {
-      // A wheel mid-drag would corrupt the drag's frozen hit rects / pan session.
       if (
         paneDragSessionRef.current !== null ||
         overviewDragSessionRef.current !== null ||
