@@ -106,6 +106,14 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const presentConversation = useCallback(
     async (workspaceId: string, conversationId: string, title: string) => {
       setConversationPresentationError(null);
+      const currentWorkspaceId = useWorkspaceStore.getState().session?.selectedWorkspaceId ?? "";
+      if (currentWorkspaceId !== workspaceId) {
+        await useWorkspaceStore.getState().selectWorkspace(workspaceId);
+        const selected = useWorkspaceStore.getState();
+        if (selected.session?.selectedWorkspaceId !== workspaceId) {
+          throw new Error(selected.error ?? `Workspace ${workspaceId} could not be selected.`);
+        }
+      }
       setWorkspaceConversationFocusRequest((current) => ({
         conversationId,
         requestId: (current?.requestId ?? 0) + 1,
@@ -187,6 +195,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   return (
     <AppShellMasterProvider
       focusHints={masterInputFocusHints}
+      presentConversation={presentConversation}
       runtimeId={runtime.connectedRuntimeId}
       setta={setta}
     >

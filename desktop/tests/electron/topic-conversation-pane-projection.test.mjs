@@ -216,6 +216,25 @@ try {
     (surfaces) =>
       hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
   );
+  const initialAlphaPanes = conversationSurfaces(initial.surfaces, alpha.id).map(
+    (surface) => surface.paneId,
+  );
+  const initialBetaPane = conversationSurfaces(initial.surfaces, beta.id)[0]?.paneId;
+  if (initialAlphaPanes.length === 0 || !initialBetaPane) {
+    throw new Error(`initial master presentation panes are incomplete: ${JSON.stringify(initial)}`);
+  }
+  assertDriverAction(
+    await context.client.driver("topicConversationPresentFromNavigator", {
+      conversationId: beta.id,
+    }),
+    "clicked",
+  );
+  await waitForState(
+    context.client,
+    driverCallExpression("topicConversationNavigatorState", { conversationId: beta.id }),
+    (state) => state.focusedPaneId === initialBetaPane && state.openViewCount === 1,
+    workflowTimeoutMs,
+  );
   shellMasterOverlayInput = await exerciseMasterOverlayEntryPoints({
     artifactDirectory: secondLaunchDir,
     client: context.client,
@@ -233,6 +252,14 @@ try {
     expectedKind: "focus_conversation",
     expectedTargetId: alpha.id,
   });
+  await waitForState(
+    context.client,
+    driverCallExpression("topicConversationNavigatorState", { conversationId: alpha.id }),
+    (state) =>
+      initialAlphaPanes.includes(state.focusedPaneId) &&
+      state.openViewCount === initialAlphaPanes.length,
+    workflowTimeoutMs,
+  );
   sharedMasterSessionId = typedMasterRoute.decision.masterSessionId;
   const reloadedVoices = await listTopics(backend, workspaceId);
   assertPersistedNarratorVoice(reloadedVoices, alpha);

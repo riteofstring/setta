@@ -26,4 +26,10 @@ export function registerMasterIpcHandlers({
     async (_event, request) => requireBackendClient().submitMasterInput(request),
     ipcObserver,
   );
+  handleIpc(
+    ipcMain,
+    "masterWaitInputState",
+    async (_event, request) => requireBackendClient().waitMasterInputRoutingState(request),
+    ipcObserver,
+  );
 }

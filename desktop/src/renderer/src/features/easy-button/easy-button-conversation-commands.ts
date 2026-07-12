@@ -20,6 +20,7 @@ import { acceptedConversationInputMatches } from "../global-speech/global-speech
 import { canonicalSpeechInputTimestamp } from "../global-speech/speech-input-submission";
 import {
   requestConversationPanePresentation,
+  type ConversationPanePresentationRequest,
   type ConversationPanePresentationResult,
 } from "../../workspace-layout/conversation-pane-coordinator";
 import { openSideConversationForPane } from "./easy-button-side-projection";
@@ -170,6 +171,9 @@ export function useEasyButtonConversationCommands(
       if (routingError) {
         throw new Error(routingError);
       }
+      if (commandScopeIsCurrent()) {
+        presentConversationInputRoutingTarget(state, target.workspaceId, setScopedError);
+      }
       finishPendingSideCreationForInput(inputMode, workspaceId, conversationId, paneId);
       return true;
     } catch (commandError) {
@@ -213,6 +217,9 @@ export function useEasyButtonConversationCommands(
         : null;
       if (routingError) {
         throw new Error(routingError);
+      }
+      if (commandScopeIsCurrent()) {
+        presentConversationInputRoutingTarget(state, target.workspaceId, setScopedError);
       }
     } catch (retryError) {
       setScopedError(errorMessage(retryError));
@@ -659,6 +666,54 @@ function reportPresentationFailure(
   }
 }
 
+export function conversationInputPresentationRequest(
+  state: ConversationInputRoutingState,
+  workspaceId: string,
+): ConversationPanePresentationRequest | null {
+  if (state.input.status !== "dispatched") {
+    return null;
+  }
+  const decision = state.decisions.at(-1);
+  if (!decision) {
+    throw new Error("dispatched conversation input is missing its route decision");
+  }
+  switch (decision.resultingCommand.kind) {
+    case "fork_conversation": {
+      const command = decision.resultingCommand.forkConversation;
+      if (!command) {
+        throw new Error("fork route command is missing its durable child target");
+      }
+      return {
+        conversationId: command.childConversationId,
+        title: command.proposedTitle,
+        workspaceId,
+      };
+    }
+    case "answer_as_narrator":
+    case "clarify":
+    case "create_side_conversation":
+    case "escalate_to_master":
+    case "queue_parent_turn":
+    case "send_to_parent":
+    case "steer_parent_turn":
+      return null;
+    default:
+      return assertNeverConversationRouteCommand(decision.resultingCommand.kind);
+  }
+}
+
+function presentConversationInputRoutingTarget(
+  state: ConversationInputRoutingState,
+  workspaceId: string,
+  setError: (error: string | null) => void,
+): void {
+  const request = conversationInputPresentationRequest(state, workspaceId);
+  if (!request) {
+    return;
+  }
+  reportPresentationFailure(requestConversationPanePresentation(request), setError);
+}
+
 export async function requestEasyButtonPaneClose({
   confirm,
   conversationId,
@@ -729,4 +784,8 @@ function createVoiceCaptureCommand({
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Conversation command failed";
+}
+
+function assertNeverConversationRouteCommand(value: never): never {
+  throw new Error(`Unhandled conversation route command: ${String(value)}`);
 }

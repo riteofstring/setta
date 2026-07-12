@@ -40,8 +40,12 @@ describe("preload master API", () => {
 
     await api.master!.readRecentInputs();
     await api.master!.submitInput(request);
+    await api.master!.waitInputState({ inputId: request.input.id });
 
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterReadRecentInputs);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterSubmitInput, request);
+    expect(invoke).toHaveBeenCalledWith(ipcChannels.masterWaitInputState, {
+      inputId: request.input.id,
+    });
   });
 });

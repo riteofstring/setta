@@ -55,6 +55,18 @@ func (handler handler) submitMasterInput(response http.ResponseWriter, request *
 }
 
 func (handler handler) readMasterInputRoutingState(response http.ResponseWriter, request *http.Request) {
+	handler.masterInputRoutingState(response, request, false)
+}
+
+func (handler handler) waitMasterInputRoutingState(response http.ResponseWriter, request *http.Request) {
+	handler.masterInputRoutingState(response, request, true)
+}
+
+func (handler handler) masterInputRoutingState(
+	response http.ResponseWriter,
+	request *http.Request,
+	wait bool,
+) {
 	service := requireMasterInputService(response, handler.masterInputService)
 	if service == nil {
 		return
@@ -63,7 +75,13 @@ func (handler handler) readMasterInputRoutingState(response http.ResponseWriter,
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	state, err := service.ReadInputState(request.Context(), payload.InputID)
+	var state master.InputRoutingState
+	var err error
+	if wait {
+		state, err = service.WaitInputState(request.Context(), payload.InputID)
+	} else {
+		state, err = service.ReadInputState(request.Context(), payload.InputID)
+	}
 	if err != nil {
 		writeMasterInputStateError(response, err)
 		return

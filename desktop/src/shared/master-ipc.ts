@@ -1,5 +1,7 @@
 import type {
   AcceptedMasterInput,
+  InputRoutingState,
+  ReadMasterInputRoutingStateRequest,
   RecentMasterInputHistory,
   SubmitMasterInputRequest,
 } from "@generated/backend";
@@ -7,6 +9,7 @@ import type {
 export const masterIpcChannels = {
   masterReadRecentInputs: "master:read-recent-inputs",
   masterSubmitInput: "master:submit-input",
+  masterWaitInputState: "master:wait-input-state",
 } as const;
 
 export interface MasterIpcContract {
@@ -17,5 +20,9 @@ export interface MasterIpcContract {
   masterSubmitInput: {
     args: [request: SubmitMasterInputRequest];
     result: AcceptedMasterInput;
+  };
+  masterWaitInputState: {
+    args: [request: ReadMasterInputRoutingStateRequest];
+    result: InputRoutingState;
   };
 }

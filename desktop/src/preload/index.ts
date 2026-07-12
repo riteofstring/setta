@@ -143,6 +143,7 @@ const api: SettaAPI = {
   master: {
     readRecentInputs: () => invoke("masterReadRecentInputs"),
     submitInput: (request) => invoke("masterSubmitInput", request),
+    waitInputState: (request) => invoke("masterWaitInputState", request),
   },
   speech: {
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
