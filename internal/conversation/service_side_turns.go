@@ -102,7 +102,7 @@ func (service *Service) prepareSideTurnLocked(
 	if err != nil {
 		return sideTurnPreparation{}, err
 	}
-	side, err := findSideConversation(snapshot, sideConversationID)
+	side, err := service.readSideConversation(ctx, snapshot, sideConversationID)
 	if err != nil {
 		return sideTurnPreparation{}, err
 	}
@@ -296,7 +296,7 @@ func (service *Service) sideAgentEventState(
 	if err != nil {
 		return ConversationSnapshot{}, SideConversation{}, err
 	}
-	side, err := findSideConversation(snapshot, active.sideConversationID)
+	side, err := service.readSideConversation(ctx, snapshot, active.sideConversationID)
 	if err != nil {
 		return ConversationSnapshot{}, SideConversation{}, err
 	}
@@ -461,7 +461,7 @@ func (service *Service) finishSideRunTurn(active *activeSideConversationTurn, ru
 	lock.Lock()
 	snapshot, readErr := service.store.ReadSnapshot(context.Background(), active.workspaceID, active.parentConversationID)
 	if readErr == nil {
-		side, sideErr := findSideConversation(snapshot, active.sideConversationID)
+		side, sideErr := service.readSideConversation(context.Background(), snapshot, active.sideConversationID)
 		if sideErr == nil && side.ActiveTurnID != nil && *side.ActiveTurnID == active.turnID && side.DisposedAt == nil {
 			_ = service.persistUnexpectedSideTurnEnd(snapshot, side, active, runErr)
 		}
@@ -517,4 +517,17 @@ func findSideConversation(snapshot ConversationSnapshot, sideConversationID stri
 		}
 	}
 	return SideConversation{}, fmt.Errorf("side conversation %s is unavailable from the bounded parent snapshot", sideConversationID)
+}
+
+func (service *Service) readSideConversation(
+	ctx context.Context,
+	snapshot ConversationSnapshot,
+	sideConversationID string,
+) (SideConversation, error) {
+	return service.store.readSideConversation(
+		ctx,
+		snapshot.Conversation.ID,
+		sideConversationID,
+		snapshot.Conversation.Status,
+	)
 }

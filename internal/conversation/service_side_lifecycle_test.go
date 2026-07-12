@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"setta/internal/agent"
 )
 
 func TestSideConversationTurnEventsStayIsolatedWhileParentContinues(t *testing.T) {
@@ -20,6 +22,79 @@ func TestSideConversationTurnEventsStayIsolatedWhileParentContinues(t *testing.T
 	assertIsolatedSideAnswer(t, ctx, service, runtime, workspaceID, parentID, side, parentSequence, parentArtifacts)
 	assertSideDisposalPreservesParent(t, ctx, service, workspaceID, parentID, side)
 	assertParentContinuesAfterSide(t, ctx, service, runtime, workspaceID, parentID, side)
+}
+
+func TestSideConversationSnapshotRetainsOpenSideOverDisposedHistory(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	parent, err := service.CreateTopic(ctx, workspaceID, "Long-lived open side")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	created, err := service.CreateSideConversation(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+		"pane-long-lived",
+	)
+	if err != nil {
+		t.Fatalf("CreateSideConversation long-lived: %v", err)
+	}
+	longLived := requireOnlySideConversation(t, created)
+
+	for index := 0; index < MaxSnapshotSideConversations+3; index++ {
+		history, createErr := service.CreateSideConversation(
+			ctx,
+			workspaceID,
+			parent.Conversation.ID,
+			"pane-history",
+		)
+		if createErr != nil {
+			t.Fatalf("CreateSideConversation history %d: %v", index, createErr)
+		}
+		var current SideConversation
+		for _, candidate := range history.SideConversations {
+			if candidate.ParentPaneID == "pane-history" && candidate.DisposedAt == nil {
+				current = candidate
+			}
+		}
+		if current.ID == "" {
+			t.Fatalf("history side %d is unavailable: %+v", index, history.SideConversations)
+		}
+		if _, disposeErr := service.DisposeSideConversation(
+			ctx,
+			workspaceID,
+			parent.Conversation.ID,
+			"pane-history",
+			current.ID,
+		); disposeErr != nil {
+			t.Fatalf("DisposeSideConversation history %d: %v", index, disposeErr)
+		}
+	}
+
+	snapshot, err := service.ReadSnapshot(ctx, workspaceID, parent.Conversation.ID)
+	if err != nil {
+		t.Fatalf("ReadSnapshot: %v", err)
+	}
+	if len(snapshot.SideConversations) != MaxSnapshotSideConversations ||
+		!containsSideConversation(snapshot.SideConversations, longLived.ID) {
+		t.Fatalf("bounded side snapshot discarded its open side: %+v", snapshot.SideConversations)
+	}
+	if _, err := service.SendSideConversationTurn(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+		longLived.ID,
+		"still addressable",
+	); err != nil {
+		t.Fatalf("SendSideConversationTurn long-lived: %v", err)
+	}
+	runtime.waitForStart(t, "still addressable")
+	assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(current ConversationSnapshot) bool {
+		side, findErr := findSideConversation(current, longLived.ID)
+		return findErr == nil && side.ActiveTurnID == nil &&
+			containsSideEventKind(current.SideEvents.Events, longLived.ID, TrajectoryEventTurnCompleted)
+	})
 }
 
 func startWorkingParentWithSide(
@@ -304,6 +379,85 @@ func TestSideConversationDisposalInterruptsItsActiveTurn(t *testing.T) {
 	current, _ := findSideConversation(disposed, side.ID)
 	if current.ActiveTurnID != nil || current.ActiveProviderTurnID != nil {
 		t.Fatalf("disposed side retained active provider state: %+v", current)
+	}
+}
+
+func TestSideConversationDisposalTrustsDurableTerminalOverRacingInterruptRejection(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	service.agent = &terminalThenRejectSideInterruptRuntime{
+		serviceTestAgentRuntime: runtime,
+		err:                     errors.New("provider turn already terminated"),
+	}
+	ctx := context.Background()
+	parent, err := service.CreateTopic(ctx, workspaceID, "Terminal race side")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	created, err := service.CreateSideConversation(ctx, workspaceID, parent.Conversation.ID, "pane-terminal-race")
+	if err != nil {
+		t.Fatalf("CreateSideConversation: %v", err)
+	}
+	side := requireOnlySideConversation(t, created)
+	if _, err := service.SendSideConversationTurn(ctx, workspaceID, parent.Conversation.ID, side.ID, "hold"); err != nil {
+		t.Fatalf("SendSideConversationTurn: %v", err)
+	}
+	runtime.waitForStart(t, "hold")
+	assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		current, findErr := findSideConversation(snapshot, side.ID)
+		return findErr == nil && current.ActiveProviderTurnID != nil
+	})
+	setProviderInterruptError(runtime, errors.New("second provider interrupt rejected"))
+	if _, err := service.DisposeSideConversation(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+		"pane-terminal-race",
+		side.ID,
+	); err != nil {
+		t.Fatalf("DisposeSideConversation after durable terminal: %v", err)
+	}
+	disposed := assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		current, findErr := findSideConversation(snapshot, side.ID)
+		return findErr == nil && current.DisposedAt != nil
+	})
+	current, _ := findSideConversation(disposed, side.ID)
+	if current.Status != SideConversationStatusDisposing || current.Failure != nil ||
+		current.ActiveTurnID != nil || current.ActiveProviderTurnID != nil {
+		t.Fatalf("durably completed side disposal = %+v", current)
+	}
+}
+
+type terminalThenRejectSideInterruptRuntime struct {
+	*serviceTestAgentRuntime
+	err error
+}
+
+func (runtime *terminalThenRejectSideInterruptRuntime) InterruptTurn(
+	ctx context.Context,
+	request agent.TurnControlRequest,
+) error {
+	if err := runtime.serviceTestAgentRuntime.InterruptTurn(ctx, request); err != nil {
+		return err
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		runtime.mu.Lock()
+		thread := runtime.providerThreads[request.ProviderThreadID]
+		status := ""
+		for _, turn := range thread.Turns {
+			if turn.ID == request.ProviderTurnID {
+				status = turn.Status
+				break
+			}
+		}
+		runtime.mu.Unlock()
+		if status == "interrupted" {
+			return runtime.err
+		}
+		if time.Now().After(deadline) {
+			return errors.New("timed out waiting for durable provider terminal state")
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 

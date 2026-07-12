@@ -61,8 +61,21 @@ func (service *Service) disposePreparedSide(
 	}
 	hadLocalTurn, localErr := service.stopLocalSideTurn(ctx, side)
 	cleanupSide := side
-	if hadLocalTurn && localErr == nil {
-		cleanupSide.ActiveProviderTurnID = nil
+	if hadLocalTurn {
+		current, refreshErr := service.readSideAfterLocalTurn(workspaceID, side)
+		if refreshErr != nil {
+			cause := errors.Join(localErr, refreshErr)
+			return service.persistSideCleanupFailure(workspaceID, side, cause)
+		}
+		if current.DisposedAt != nil {
+			return nil
+		}
+		cleanupSide = current
+		if current.ActiveTurnID == nil && current.ActiveProviderTurnID == nil {
+			// A durable terminal event is stronger evidence than an interrupt
+			// rejection racing that terminal transition.
+			localErr = nil
+		}
 	}
 	cleanupErr := service.cleanupSideProviderThread(ctx, cleanupSide)
 	if cleanupErr != nil {
@@ -70,6 +83,28 @@ func (service *Service) disposePreparedSide(
 		return service.persistSideCleanupFailure(workspaceID, side, cause)
 	}
 	return service.finalizeSideDisposal(ctx, workspaceID, side, TurnInterruptionUserRequested)
+}
+
+func (service *Service) readSideAfterLocalTurn(
+	workspaceID string,
+	side SideConversation,
+) (SideConversation, error) {
+	lock := service.conversationLock(side.ParentConversationID)
+	lock.Lock()
+	defer lock.Unlock()
+	snapshot, err := service.store.ReadSnapshot(
+		context.Background(),
+		workspaceID,
+		side.ParentConversationID,
+	)
+	if err != nil {
+		return SideConversation{}, fmt.Errorf("read side conversation %s after local turn: %w", side.ID, err)
+	}
+	current, err := service.readSideConversation(context.Background(), snapshot, side.ID)
+	if err != nil {
+		return SideConversation{}, fmt.Errorf("read side conversation %s after local turn: %w", side.ID, err)
+	}
+	return current, nil
 }
 
 func (service *Service) persistSideCleanupFailure(
@@ -103,7 +138,7 @@ func (service *Service) prepareSideDisposal(
 	if err != nil {
 		return SideConversation{}, err
 	}
-	side, err := findSideConversation(snapshot, sideConversationID)
+	side, err := service.readSideConversation(ctx, snapshot, sideConversationID)
 	if err != nil {
 		return SideConversation{}, err
 	}
@@ -213,7 +248,7 @@ func (service *Service) finalizeSideDisposal(
 	if err != nil {
 		return err
 	}
-	side, err := findSideConversation(snapshot, known.ID)
+	side, err := service.readSideConversation(ctx, snapshot, known.ID)
 	if err != nil {
 		return err
 	}
@@ -272,7 +307,7 @@ func (service *Service) failSideDisposal(
 	if err != nil {
 		return err
 	}
-	side, err := findSideConversation(snapshot, sideConversationID)
+	side, err := service.readSideConversation(context.Background(), snapshot, sideConversationID)
 	if err != nil {
 		return err
 	}

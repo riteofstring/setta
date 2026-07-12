@@ -42,6 +42,7 @@ type preparedSideConversation struct {
 	resolved             agent.ResolvedInvocation
 	side                 SideConversation
 	injectedItems        []agent.InjectedTextItem
+	workspaceID          string
 	workspaceRoot        string
 	parentConversationID string
 }
@@ -373,6 +374,7 @@ func (service *Service) persistPreparingSideConversation(
 		parentThreadID:       snapshot.ThreadBinding.ThreadID,
 		resolved:             resolved,
 		side:                 side,
+		workspaceID:          workspaceID,
 		workspaceRoot:        workspaceRoot,
 		parentConversationID: parentConversationID,
 	}, nil
@@ -492,15 +494,20 @@ func (service *Service) activateSideConversation(
 	lock := service.conversationLock(prepared.parentConversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	active := prepared.side
+	snapshot, err := service.snapshotLocked(ctx, prepared.workspaceID, prepared.parentConversationID)
+	if err != nil {
+		return fmt.Errorf("read parent state before side activation: %w", err)
+	}
+	active, err := service.readSideConversation(ctx, snapshot, prepared.side.ID)
+	if err != nil {
+		return fmt.Errorf("read preparing side before activation: %w", err)
+	}
+	expected := SideConversationExpectation{Status: active.Status, UpdatedAt: active.UpdatedAt}
+	active.ParentStatus = snapshot.Conversation.Status
 	active.Status = SideConversationStatusActive
 	active.UpdatedAt = advanceTimestamp(active.UpdatedAt, service.timestamp())
 	active.ProviderThreadID = &thread.ID
 	active.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = &thread.ID
-	expected := SideConversationExpectation{
-		Status:    prepared.side.Status,
-		UpdatedAt: prepared.side.UpdatedAt,
-	}
 	return service.persistSideConversation(ctx, &expected, active)
 }
 
@@ -515,7 +522,23 @@ func (service *Service) failPreparingSideConversation(
 	if idErr != nil {
 		return errors.Join(cause, fmt.Errorf("create side diagnostic id: %w", idErr))
 	}
-	failed := prepared.side
+	lock := service.conversationLock(prepared.parentConversationID)
+	lock.Lock()
+	defer lock.Unlock()
+	snapshot, snapshotErr := service.store.ReadSnapshot(
+		context.Background(),
+		prepared.workspaceID,
+		prepared.parentConversationID,
+	)
+	if snapshotErr != nil {
+		return errors.Join(cause, fmt.Errorf("read parent state before failing side preparation: %w", snapshotErr))
+	}
+	failed, readErr := service.readSideConversation(context.Background(), snapshot, prepared.side.ID)
+	if readErr != nil {
+		return errors.Join(cause, fmt.Errorf("read preparing side before failure: %w", readErr))
+	}
+	expected := SideConversationExpectation{Status: failed.Status, UpdatedAt: failed.UpdatedAt}
+	failed.ParentStatus = snapshot.Conversation.Status
 	failed.Status = SideConversationStatusFailed
 	failed.UpdatedAt = advanceTimestamp(failed.UpdatedAt, service.timestamp())
 	failed.ProviderThreadID = cloneStringPointer(providerThreadID)
@@ -536,14 +559,7 @@ func (service *Service) failPreparingSideConversation(
 		failed.UpdatedAt,
 		&failure,
 	)
-	expected := SideConversationExpectation{
-		Status:    prepared.side.Status,
-		UpdatedAt: prepared.side.UpdatedAt,
-	}
-	lock := service.conversationLock(prepared.parentConversationID)
-	lock.Lock()
 	persistErr := service.persistSideConversation(context.Background(), &expected, failed)
-	lock.Unlock()
 	if persistErr != nil {
 		return errors.Join(cause, fmt.Errorf("persist failed side conversation: %w", persistErr))
 	}

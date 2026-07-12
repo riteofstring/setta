@@ -324,6 +324,11 @@ const payloadHandlers = {
       payload.sideConversation.parentConversationId,
       snapshot.conversation.id,
     );
+    if (payload.sideConversation.parentStatus !== snapshot.conversation.status) {
+      throw new Error(
+        `conversation.side_conversation.updated parent status ${payload.sideConversation.parentStatus} does not match ${snapshot.conversation.status}.`,
+      );
+    }
     return {
       ...snapshot,
       sideConversations: upsertOrdered(
@@ -339,13 +344,34 @@ const payloadHandlers = {
       payload.event.parentConversationId,
       snapshot.conversation.id,
     );
-    if (!snapshot.sideConversations.some((side) => side.id === payload.event.sideConversationId)) {
+    const side = snapshot.sideConversations.find(
+      (candidate) => candidate.id === payload.event.sideConversationId,
+    );
+    if (!side) {
       throw new Error("conversation.side_event.appended has no projected side conversation.");
     }
-    const events = snapshot.sideEvents.events
-      .filter((event) => event.event.id !== payload.event.event.id)
-      .concat(payload.event)
-      .sort((left, right) => left.streamSequence - right.streamSequence);
+    assertOwner(
+      "conversation.side_event.appended trajectory",
+      payload.event.event.conversationId,
+      side.id,
+    );
+    if (payload.event.event.sequence !== side.lastEventSequence) {
+      throw new Error(
+        `conversation.side_event.appended sequence ${payload.event.event.sequence} does not match side sequence ${side.lastEventSequence}.`,
+      );
+    }
+    const previousEvent = snapshot.sideEvents.events.at(-1);
+    if (previousEvent && payload.event.streamSequence <= previousEvent.streamSequence) {
+      throw new Error(
+        `conversation.side_event.appended stream sequence ${payload.event.streamSequence} does not follow ${previousEvent.streamSequence}.`,
+      );
+    }
+    if (snapshot.sideEvents.events.some((event) => event.event.id === payload.event.event.id)) {
+      throw new Error(
+        `conversation.side_event.appended duplicates event ${payload.event.event.id}.`,
+      );
+    }
+    const events = [...snapshot.sideEvents.events, payload.event];
     const overflow = Math.max(0, events.length - snapshot.sideEvents.limit);
     return {
       ...snapshot,

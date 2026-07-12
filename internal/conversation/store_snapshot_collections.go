@@ -192,7 +192,12 @@ FROM (
          failure_json
   FROM side_conversations
   WHERE parent_conversation_id = ?
-  ORDER BY CASE WHEN status = 'failed' THEN 1 ELSE 0 END ASC,
+  ORDER BY CASE
+             WHEN disposed_at IS NULL
+               AND (status <> 'failed' OR provider_thread_id IS NOT NULL) THEN 0
+             WHEN status = 'failed' THEN 2
+             ELSE 1
+           END ASC,
            created_at DESC, id DESC
   LIMIT ?
 )
@@ -224,7 +229,12 @@ WITH selected_sides AS (
   SELECT id
   FROM side_conversations
   WHERE parent_conversation_id = ?
-  ORDER BY CASE WHEN status = 'failed' THEN 1 ELSE 0 END ASC,
+  ORDER BY CASE
+             WHEN disposed_at IS NULL
+               AND (status <> 'failed' OR provider_thread_id IS NOT NULL) THEN 0
+             WHEN status = 'failed' THEN 2
+             ELSE 1
+           END ASC,
            created_at DESC, id DESC
   LIMIT ?
 )

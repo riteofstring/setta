@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/agent"
 )
@@ -199,6 +200,152 @@ func TestServicePersistsFailedSideWhenProviderRejectsFork(t *testing.T) {
 	}
 }
 
+func TestServiceRefreshesParentStatusWhenSidePreparationFinishes(t *testing.T) {
+	t.Run("activation", func(t *testing.T) {
+		_, service, runtime, workspaceID := newReviewServiceHarness(t)
+		ctx := context.Background()
+		prepared, working := prepareSideBeforeParentStartsWorking(
+			t,
+			ctx,
+			service,
+			runtime,
+			workspaceID,
+			"pane-activation-status",
+		)
+		subscription, err := service.SubscribeEvents(
+			working.EventCursor,
+			workspaceID,
+			prepared.parentConversationID,
+		)
+		if err != nil {
+			t.Fatalf("SubscribeEvents: %v", err)
+		}
+		defer subscription.Unsubscribe()
+		thread, err := runtime.ForkThread(ctx, agent.ForkThreadRequest{
+			ParentThreadID:        prepared.parentThreadID,
+			WorkspaceRoot:         prepared.workspaceRoot,
+			Invocation:            prepared.invocation,
+			Ephemeral:             true,
+			DeveloperInstructions: sideAgentDeveloperInstructions,
+		})
+		if err != nil {
+			t.Fatalf("ForkThread: %v", err)
+		}
+		if err := service.activateSideConversation(ctx, prepared, thread); err != nil {
+			t.Fatalf("activateSideConversation: %v", err)
+		}
+		assertSideUpdateParentStatus(t, readServiceEvent(t, subscription), ConversationStatusWorking)
+		if _, err := service.DisposeSideConversation(
+			ctx,
+			workspaceID,
+			prepared.parentConversationID,
+			prepared.side.ParentPaneID,
+			prepared.side.ID,
+		); err != nil {
+			t.Fatalf("DisposeSideConversation: %v", err)
+		}
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		_, service, runtime, workspaceID := newReviewServiceHarness(t)
+		ctx := context.Background()
+		prepared, working := prepareSideBeforeParentStartsWorking(
+			t,
+			ctx,
+			service,
+			runtime,
+			workspaceID,
+			"pane-failure-status",
+		)
+		subscription, err := service.SubscribeEvents(
+			working.EventCursor,
+			workspaceID,
+			prepared.parentConversationID,
+		)
+		if err != nil {
+			t.Fatalf("SubscribeEvents: %v", err)
+		}
+		defer subscription.Unsubscribe()
+		cause := errors.New("scripted delayed fork failure")
+		if err := service.failPreparingSideConversation(
+			prepared,
+			"side_thread_fork_failed",
+			nil,
+			false,
+			cause,
+		); !errors.Is(err, cause) {
+			t.Fatalf("failPreparingSideConversation = %v, want %v", err, cause)
+		}
+		assertSideUpdateParentStatus(t, readServiceEvent(t, subscription), ConversationStatusWorking)
+	})
+}
+
+func prepareSideBeforeParentStartsWorking(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	workspaceID string,
+	parentPaneID string,
+) (preparedSideConversation, ConversationSnapshot) {
+	t.Helper()
+	parent, err := service.CreateTopic(ctx, workspaceID, "Side preparation status")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
+	if err != nil {
+		t.Fatalf("ResolveActiveWorkspace: %v", err)
+	}
+	profile, resolved, invocation, err := service.resolveSideAgentInvocation(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("resolveSideAgentInvocation: %v", err)
+	}
+	prepared, err := service.persistPreparingSideConversation(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+		parentPaneID,
+		workspaceSummary.RootPath,
+		profile,
+		resolved,
+		invocation,
+	)
+	if err != nil {
+		t.Fatalf("persistPreparingSideConversation: %v", err)
+	}
+	if prepared.side.ParentStatus != ConversationStatusIdle {
+		t.Fatalf("preparing parent status = %s, want idle", prepared.side.ParentStatus)
+	}
+	if _, err := service.SendTurn(ctx, workspaceID, parent.Conversation.ID, "hold"); err != nil {
+		t.Fatalf("SendTurn: %v", err)
+	}
+	runtime.waitForStart(t, "hold")
+	working := assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.Conversation.Status == ConversationStatusWorking
+	})
+	return prepared, working
+}
+
+func assertSideUpdateParentStatus(
+	t *testing.T,
+	event ConversationEvent,
+	want ConversationStatus,
+) {
+	t.Helper()
+	payload, ok := event.Payload.(*ConversationSideConversationUpdatedEventPayload)
+	if !ok {
+		t.Fatalf("event payload = %T, want side update", event.Payload)
+	}
+	if payload.SideConversation.ParentStatus != want {
+		t.Fatalf("side update parent status = %s, want %s", payload.SideConversation.ParentStatus, want)
+	}
+}
+
 func TestServiceRejectsInvalidSideForkWithoutUnsubscribingParent(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
@@ -265,8 +412,8 @@ func TestServiceSideSnapshotRetainsOpenSideOverBoundedFailedHistory(t *testing.T
 	}
 }
 
-func TestServiceChecksOpenPaneAgainstAuthoritativeSideState(t *testing.T) {
-	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+func TestServiceUsesAuthoritativeOpenSideStateOutsideBoundedSnapshot(t *testing.T) {
+	store, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
 	parent, err := service.CreateTopic(ctx, workspaceID, "Authoritative side state")
 	if err != nil {
@@ -298,6 +445,57 @@ func TestServiceChecksOpenPaneAgainstAuthoritativeSideState(t *testing.T) {
 	}
 	if got := len(runtime.sideForkRequests()); got != providerCalls {
 		t.Fatalf("duplicate old pane reached provider: calls=%d want=%d", got, providerCalls)
+	}
+	if _, err := service.SendSideConversationTurn(
+		ctx,
+		workspaceID,
+		parentID,
+		firstSideID,
+		"old side remains addressable",
+	); err != nil {
+		t.Fatalf("SendSideConversationTurn omitted side: %v", err)
+	}
+	runtime.waitForStart(t, "old side remains addressable")
+	deadline := time.Now().Add(3 * time.Second)
+	var firstSide SideConversation
+	for {
+		firstSide, err = store.readSideConversation(
+			ctx,
+			parentID,
+			firstSideID,
+			latest.Conversation.Status,
+		)
+		if err != nil {
+			t.Fatalf("read omitted side after turn: %v", err)
+		}
+		if firstSide.ActiveTurnID == nil && firstSide.LastEventSequence > 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for omitted side turn: %+v", firstSide)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if _, err := service.DisposeSideConversation(
+		ctx,
+		workspaceID,
+		parentID,
+		"pane-open-00",
+		firstSideID,
+	); err != nil {
+		t.Fatalf("DisposeSideConversation omitted side: %v", err)
+	}
+	firstSide, err = store.readSideConversation(
+		ctx,
+		parentID,
+		firstSideID,
+		latest.Conversation.Status,
+	)
+	if err != nil {
+		t.Fatalf("read omitted side after disposal: %v", err)
+	}
+	if firstSide.DisposedAt == nil {
+		t.Fatalf("omitted side was not disposed: %+v", firstSide)
 	}
 }
 

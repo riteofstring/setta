@@ -131,7 +131,7 @@ describe("conversation store", () => {
     hydrate(conversationA);
     useConversationStore.getState().applyEvents([
       conversationEvent(conversationA, 1, {
-        sideConversation: sideConversation(conversationA),
+        sideConversation: { ...sideConversation(conversationA), parentStatus: "idle" },
         type: "conversation.side_conversation.updated",
       }),
       conversationEvent(conversationA, 2, {
@@ -143,6 +143,58 @@ describe("conversation store", () => {
       }),
     ]);
     expect(projection(conversationA).snapshot?.sideConversations[0]?.parentStatus).toBe("failed");
+  });
+
+  test("rejects a side update with stale parent status", () => {
+    hydrate(conversationA);
+    expect(() =>
+      useConversationStore.getState().applyEvent(
+        conversationEvent(conversationA, 1, {
+          sideConversation: { ...sideConversation(conversationA), parentStatus: "working" },
+          type: "conversation.side_conversation.updated",
+        }),
+      ),
+    ).toThrow(/parent status working does not match idle/);
+    expect(projection(conversationA).snapshot?.eventCursor.sequence).toBe(0);
+  });
+
+  test("rejects side events whose nested scope or sequence does not match the projected side", () => {
+    hydrate(conversationA);
+    useConversationStore.getState().applyEvent(
+      conversationEvent(conversationA, 1, {
+        sideConversation: { ...sideConversation(conversationA), parentStatus: "idle" },
+        type: "conversation.side_conversation.updated",
+      }),
+    );
+
+    expect(() =>
+      useConversationStore.getState().applyEvent(
+        conversationEvent(conversationA, 2, {
+          event: {
+            event: { ...trajectoryEvent(conversationB), id: "side_wrong_owner" },
+            parentConversationId: conversationA,
+            sideConversationId: "side_a",
+            streamSequence: 1,
+          },
+          type: "conversation.side_event.appended",
+        }),
+      ),
+    ).toThrow(/trajectory belongs to conversation_b/);
+
+    expect(() =>
+      useConversationStore.getState().applyEvent(
+        conversationEvent(conversationA, 2, {
+          event: {
+            event: { ...trajectoryEvent("side_a"), id: "side_wrong_sequence", sequence: 2 },
+            parentConversationId: conversationA,
+            sideConversationId: "side_a",
+            streamSequence: 1,
+          },
+          type: "conversation.side_event.appended",
+        }),
+      ),
+    ).toThrow(/sequence 2 does not match side sequence 1/);
+    expect(projection(conversationA).snapshot?.eventCursor.sequence).toBe(1);
   });
 
   test("ignores duplicate envelopes without notifying subscribers", () => {
