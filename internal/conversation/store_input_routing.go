@@ -427,14 +427,14 @@ func insertConversationRouteDecisionRecord(
 	if err != nil {
 		return ConversationRouteDecisionRecord{}, fmt.Errorf("encode conversation route command: %w", err)
 	}
-	routerContextJSON, err := encodeOptionalJSONColumn(
+	routerContextJSON, err := encodeJSONColumn(
 		"conversation route context audit",
 		commit.RouterContext,
 	)
 	if err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}
-	resolvedInvocationJSON, err := encodeOptionalJSONColumn(
+	resolvedInvocationJSON, err := encodeJSONColumn(
 		"conversation route resolved invocation",
 		commit.ResolvedInvocation,
 	)

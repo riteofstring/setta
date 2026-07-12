@@ -138,24 +138,18 @@ func cloneConversationRouteDecisionCommit(commit ConversationRouteDecisionCommit
 }
 
 func cloneConversationRouteContextAudit(
-	audit *ConversationRouteContextAudit,
-) *ConversationRouteContextAudit {
-	if audit == nil {
-		return nil
-	}
-	cloned := *audit
+	audit ConversationRouteContextAudit,
+) ConversationRouteContextAudit {
+	cloned := audit
 	cloned.ClarificationInputSequence = cloneIntPointer(audit.ClarificationInputSequence)
 	cloned.AvailableTrajectoryRange = cloneTrajectorySequenceRange(audit.AvailableTrajectoryRange)
 	cloned.IncludedTrajectoryRange = cloneTrajectorySequenceRange(audit.IncludedTrajectoryRange)
 	cloned.AllowedDecisionKinds = append([]ConversationRouteDecisionKind{}, audit.AllowedDecisionKinds...)
-	return &cloned
+	return cloned
 }
 
-func cloneConversationRouteResolvedInvocation(invocation *ResolvedInvocation) *ResolvedInvocation {
-	if invocation == nil {
-		return nil
-	}
-	cloned := *invocation
+func cloneConversationRouteResolvedInvocation(invocation ResolvedInvocation) ResolvedInvocation {
+	cloned := invocation
 	cloned.Requested.ModelSelection.ModelID = cloneStringPointer(invocation.Requested.ModelSelection.ModelID)
 	cloned.Requested.ServiceTier = cloneStringPointer(invocation.Requested.ServiceTier)
 	cloned.Requested.PermissionProfile.ToolAccess.AllowedTools = append(
@@ -177,7 +171,7 @@ func cloneConversationRouteResolvedInvocation(invocation *ResolvedInvocation) *R
 		failure := *invocation.Failure
 		cloned.Failure = &failure
 	}
-	return &cloned
+	return cloned
 }
 
 func cloneIntPointer(value *int) *int {

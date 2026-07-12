@@ -61,15 +61,14 @@ func assertFixtureConversationRoute(
 		t.Fatalf("second routed input state = %+v", state)
 	}
 	record := state.Decisions[0]
-	if record.Decision.Kind != conversation.ConversationRouteDecisionKindQueueParentTurn ||
-		record.RouterContext == nil || record.ResolvedInvocation == nil {
+	if record.Decision.Kind != conversation.ConversationRouteDecisionKindQueueParentTurn {
 		t.Fatalf("routed decision audit = %+v", record)
 	}
 	assertFixtureConversationRouteInvocation(t, record.ResolvedInvocation)
 	assertFixtureConversationRouteContext(t, record.RouterContext, before)
 }
 
-func assertFixtureConversationRouteInvocation(t *testing.T, invocation *conversation.ResolvedInvocation) {
+func assertFixtureConversationRouteInvocation(t *testing.T, invocation conversation.ResolvedInvocation) {
 	t.Helper()
 	if invocation.Role != conversation.RoleNarrator ||
 		invocation.Resolved.ModelID != "gpt-5.4-mini" ||
@@ -81,7 +80,7 @@ func assertFixtureConversationRouteInvocation(t *testing.T, invocation *conversa
 
 func assertFixtureConversationRouteContext(
 	t *testing.T,
-	audit *conversation.ConversationRouteContextAudit,
+	audit conversation.ConversationRouteContextAudit,
 	before conversation.ConversationSnapshot,
 ) {
 	t.Helper()
@@ -174,11 +173,11 @@ func assertFixtureResolvedConversationRouteClarification(
 
 func assertFixtureFinalConversationRouteClarificationAudit(
 	t *testing.T,
-	finalAudit *conversation.ConversationRouteContextAudit,
+	finalAudit conversation.ConversationRouteContextAudit,
 	reply conversation.AcceptedConversationInput,
 ) {
 	t.Helper()
-	if finalAudit == nil || finalAudit.ClarificationInputSequence == nil ||
+	if finalAudit.ClarificationInputSequence == nil ||
 		*finalAudit.ClarificationInputSequence != reply.Sequence ||
 		conversationRouteDecisionKindIncluded(
 			finalAudit.AllowedDecisionKinds,

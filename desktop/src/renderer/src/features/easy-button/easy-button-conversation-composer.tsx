@@ -50,7 +50,7 @@ export function EasyButtonConversationComposer({
             disabled={!canSubmit}
             type="submit"
           >
-            {clarificationQuestion ? "Reply" : "Send"}
+            Send
           </button>
         </form>
         <PaneSpeechActivityIndicator presentation={speech} />

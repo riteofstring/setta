@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 39;
-export const backendContractSchemaHash = "sha256:d767d4d9d419cf155ad280f7d22328c3f1f13b2f94aa7b7b73954e4799dc64bb";
+export const backendProtocolVersion = 40;
+export const backendContractSchemaHash = "sha256:60cca066d8850497c21c45472a0b3fc621dbf2ce73caadc6a45b85e07a938e16";
 
 export type DeviceScope = "full";
 
@@ -5217,8 +5217,8 @@ export interface ConversationRouteDecisionRecord {
   inputId: string;
   clarificationInputId: string | null;
   routingAttempt: number;
-  routerContext: ConversationRouteContextAudit | null;
-  resolvedInvocation: ResolvedInvocation | null;
+  routerContext: ConversationRouteContextAudit;
+  resolvedInvocation: ResolvedInvocation;
   decision: ConversationRouteDecision;
   resultingCommand: ConversationRouteCommand;
   decidedAt: string;
@@ -11970,8 +11970,8 @@ export function decodeConversationRouteDecisionRecord(value: unknown): Conversat
     inputId: decodeString(requireField(record, "inputId", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.inputId"),
     clarificationInputId: decodeNullable(requireField(record, "clarificationInputId", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.clarificationInputId", (item) => decodeString(item, "ConversationRouteDecisionRecord.clarificationInputId")),
     routingAttempt: decodeInteger(requireField(record, "routingAttempt", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.routingAttempt"),
-    routerContext: decodeNullable(requireField(record, "routerContext", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.routerContext", (item) => decodeConversationRouteContextAudit(item)),
-    resolvedInvocation: decodeNullable(requireField(record, "resolvedInvocation", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.resolvedInvocation", (item) => decodeResolvedInvocation(item)),
+    routerContext: decodeConversationRouteContextAudit(requireField(record, "routerContext", "ConversationRouteDecisionRecord")),
+    resolvedInvocation: decodeResolvedInvocation(requireField(record, "resolvedInvocation", "ConversationRouteDecisionRecord")),
     decision: decodeConversationRouteDecision(requireField(record, "decision", "ConversationRouteDecisionRecord")),
     resultingCommand: decodeConversationRouteCommand(requireField(record, "resultingCommand", "ConversationRouteDecisionRecord")),
     decidedAt: decodeString(requireField(record, "decidedAt", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.decidedAt"),

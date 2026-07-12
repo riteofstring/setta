@@ -8,8 +8,8 @@ import (
 func validateConversationRouteDecisionAudit(
 	clarificationInputID *string,
 	decisionKind ConversationRouteDecisionKind,
-	routerContext *ConversationRouteContextAudit,
-	resolvedInvocation *ResolvedInvocation,
+	routerContext ConversationRouteContextAudit,
+	resolvedInvocation ResolvedInvocation,
 ) error {
 	return validateRouterConversationRouteDecisionAudit(
 		clarificationInputID,
@@ -22,12 +22,9 @@ func validateConversationRouteDecisionAudit(
 func validateRouterConversationRouteDecisionAudit(
 	clarificationInputID *string,
 	decisionKind ConversationRouteDecisionKind,
-	routerContext *ConversationRouteContextAudit,
-	resolvedInvocation *ResolvedInvocation,
+	routerContext ConversationRouteContextAudit,
+	resolvedInvocation ResolvedInvocation,
 ) error {
-	if routerContext == nil || resolvedInvocation == nil {
-		return errors.New("conversation-router decision requires context and invocation audit")
-	}
 	if err := routerContext.Validate(); err != nil {
 		return err
 	}
@@ -43,7 +40,7 @@ func validateRouterConversationRouteDecisionAudit(
 	if resolvedInvocation.Role != RoleNarrator || resolvedInvocation.Outcome != InvocationOutcomeSucceeded {
 		return errors.New("conversation-router decision requires a successful narrator invocation")
 	}
-	return validateConversationRouterInvocationAudit(*resolvedInvocation)
+	return validateConversationRouterInvocationAudit(resolvedInvocation)
 }
 
 func validateConversationRouterInvocationAudit(invocation ResolvedInvocation) error {

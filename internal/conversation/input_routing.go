@@ -141,30 +141,30 @@ type ConversationRouteCommand struct {
 }
 
 type ConversationRouteDecisionCommit struct {
-	ID                   string                         `json:"id"`
-	ConversationID       string                         `json:"conversationId"`
-	InputID              string                         `json:"inputId"`
-	ClarificationInputID *string                        `json:"clarificationInputId"`
-	RoutingAttempt       int                            `json:"routingAttempt"`
-	RouterContext        *ConversationRouteContextAudit `json:"routerContext"`
-	ResolvedInvocation   *ResolvedInvocation            `json:"resolvedInvocation"`
-	Decision             ConversationRouteDecision      `json:"decision"`
-	ResultingCommand     ConversationRouteCommand       `json:"resultingCommand"`
-	DecidedAt            string                         `json:"decidedAt"`
+	ID                   string                        `json:"id"`
+	ConversationID       string                        `json:"conversationId"`
+	InputID              string                        `json:"inputId"`
+	ClarificationInputID *string                       `json:"clarificationInputId"`
+	RoutingAttempt       int                           `json:"routingAttempt"`
+	RouterContext        ConversationRouteContextAudit `json:"routerContext"`
+	ResolvedInvocation   ResolvedInvocation            `json:"resolvedInvocation"`
+	Decision             ConversationRouteDecision     `json:"decision"`
+	ResultingCommand     ConversationRouteCommand      `json:"resultingCommand"`
+	DecidedAt            string                        `json:"decidedAt"`
 }
 
 type ConversationRouteDecisionRecord struct {
-	StreamSequence       int                            `json:"streamSequence"`
-	ID                   string                         `json:"id"`
-	ConversationID       string                         `json:"conversationId"`
-	InputID              string                         `json:"inputId"`
-	ClarificationInputID *string                        `json:"clarificationInputId"`
-	RoutingAttempt       int                            `json:"routingAttempt"`
-	RouterContext        *ConversationRouteContextAudit `json:"routerContext"`
-	ResolvedInvocation   *ResolvedInvocation            `json:"resolvedInvocation"`
-	Decision             ConversationRouteDecision      `json:"decision"`
-	ResultingCommand     ConversationRouteCommand       `json:"resultingCommand"`
-	DecidedAt            string                         `json:"decidedAt"`
+	StreamSequence       int                           `json:"streamSequence"`
+	ID                   string                        `json:"id"`
+	ConversationID       string                        `json:"conversationId"`
+	InputID              string                        `json:"inputId"`
+	ClarificationInputID *string                       `json:"clarificationInputId"`
+	RoutingAttempt       int                           `json:"routingAttempt"`
+	RouterContext        ConversationRouteContextAudit `json:"routerContext"`
+	ResolvedInvocation   ResolvedInvocation            `json:"resolvedInvocation"`
+	Decision             ConversationRouteDecision     `json:"decision"`
+	ResultingCommand     ConversationRouteCommand      `json:"resultingCommand"`
+	DecidedAt            string                        `json:"decidedAt"`
 }
 
 // ConversationRouteContextAudit records the bounded authority supplied to a
@@ -534,8 +534,8 @@ func validateConversationRouteDecisionEnvelope(
 	inputID string,
 	clarificationInputID *string,
 	routingAttempt int,
-	routerContext *ConversationRouteContextAudit,
-	resolvedInvocation *ResolvedInvocation,
+	routerContext ConversationRouteContextAudit,
+	resolvedInvocation ResolvedInvocation,
 	decision ConversationRouteDecision,
 	command ConversationRouteCommand,
 	decidedAt string,

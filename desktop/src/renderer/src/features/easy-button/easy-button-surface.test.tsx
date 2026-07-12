@@ -505,7 +505,7 @@ describe("Easy Button topic conversation projection", () => {
 
     expect(html).toContain('data-testid="easy-button-clarification"');
     expect(html).toContain("Which exact pane request should I send?");
-    expect(html).toContain(">Reply</button>");
+    expect(html).toContain(">Send</button>");
     expect(html).not.toContain('data-testid="easy-button-voice-capture"');
   });
 

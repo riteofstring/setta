@@ -107,7 +107,7 @@ func TestConversationRouteDecisionRejectsUnsafeOrIncompleteRouterInvocationAudit
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			commit := validConversationRouteDecisionCommit("decision_audit", decision, command)
-			test.mutate(commit.ResolvedInvocation)
+			test.mutate(&commit.ResolvedInvocation)
 			assertValidationErrorContains(t, commit.Validate(), test.want)
 		})
 	}
@@ -300,11 +300,11 @@ func validConversationRouteDecisionCommit(
 		ConversationID: "conversation_alpha",
 		InputID:        "input_alpha",
 		RoutingAttempt: 1,
-		RouterContext: &ConversationRouteContextAudit{
+		RouterContext: ConversationRouteContextAudit{
 			InputSequence:        1,
 			AllowedDecisionKinds: []ConversationRouteDecisionKind{decision.Kind},
 		},
-		ResolvedInvocation: &invocation,
+		ResolvedInvocation: invocation,
 		Decision:           decision,
 		ResultingCommand:   command,
 		DecidedAt:          "2026-07-13T18:00:01Z",

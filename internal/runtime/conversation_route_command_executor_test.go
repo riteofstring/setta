@@ -102,11 +102,11 @@ func routedNarratorStatusDecisionRecord() conversation.ConversationRouteDecision
 		ConversationID: "conversation_test",
 		InputID:        "conversation_input_test",
 		RoutingAttempt: 1,
-		RouterContext: &conversation.ConversationRouteContextAudit{
+		RouterContext: conversation.ConversationRouteContextAudit{
 			InputSequence:        1,
 			AllowedDecisionKinds: []conversation.ConversationRouteDecisionKind{conversation.ConversationRouteDecisionKindAnswerAsNarrator},
 		},
-		ResolvedInvocation: &invocation,
+		ResolvedInvocation: invocation,
 		Decision: conversation.ConversationRouteDecision{
 			Kind: conversation.ConversationRouteDecisionKindAnswerAsNarrator,
 			AnswerAsNarrator: &conversation.AnswerAsNarratorConversationRouteDecision{

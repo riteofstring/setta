@@ -299,8 +299,7 @@ func assertRuntimeLiveConversationRouteDecision(
 	if record.Decision.Kind != conversation.ConversationRouteDecisionKindAnswerAsNarrator ||
 		record.Decision.AnswerAsNarrator == nil ||
 		strings.TrimSpace(record.Decision.AnswerAsNarrator.Question) == "" ||
-		record.ResultingCommand.AnswerAsNarrator == nil ||
-		record.RouterContext == nil || record.ResolvedInvocation == nil {
+		record.ResultingCommand.AnswerAsNarrator == nil {
 		t.Fatalf("live conversation route decision = %+v", record)
 	}
 }

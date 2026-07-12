@@ -488,8 +488,8 @@ func scanConversationRouteDecision(
 ) (ConversationRouteDecisionRecord, error) {
 	var record ConversationRouteDecisionRecord
 	var clarificationInputID sql.NullString
-	var routerContextJSON sql.NullString
-	var resolvedInvocationJSON sql.NullString
+	var routerContextJSON string
+	var resolvedInvocationJSON string
 	var decisionJSON string
 	var commandJSON string
 	var commandKey string
@@ -510,14 +510,14 @@ func scanConversationRouteDecision(
 		return ConversationRouteDecisionRecord{}, err
 	}
 	record.ClarificationInputID = optionalScannedString(clarificationInputID)
-	if err := decodeStrictOptionalConversationRouteJSON(
+	if err := decodeStrictConversationRouteJSON(
 		"conversation route context audit",
 		routerContextJSON,
 		&record.RouterContext,
 	); err != nil {
 		return ConversationRouteDecisionRecord{}, &CorruptStateError{Path: dbPath, Err: fmt.Errorf("decode conversation route context %s: %w", record.ID, err)}
 	}
-	if err := decodeStrictOptionalConversationRouteJSON(
+	if err := decodeStrictConversationRouteJSON(
 		"conversation route resolved invocation",
 		resolvedInvocationJSON,
 		&record.ResolvedInvocation,
@@ -549,15 +549,12 @@ func scanConversationRouteDecision(
 	return record, nil
 }
 
-func decodeStrictOptionalConversationRouteJSON(
+func decodeStrictConversationRouteJSON(
 	label string,
-	encoded sql.NullString,
+	encoded string,
 	target any,
 ) error {
-	if !encoded.Valid {
-		return nil
-	}
-	if err := jsonio.DecodeSingle(strings.NewReader(encoded.String), target); err != nil {
+	if err := jsonio.DecodeSingle(strings.NewReader(encoded), target); err != nil {
 		return fmt.Errorf("decode %s: %w", label, err)
 	}
 	return nil
