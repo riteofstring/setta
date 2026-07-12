@@ -39,10 +39,9 @@ func (store *Store) ResolveSpeechSource(
 }
 
 type narrationSpeechSourceRecord struct {
-	event                 NarrationEvent
-	found                 bool
-	narratorSpeechEnabled bool
-	resolvedVoiceID       speech.SpeechVoiceID
+	event   NarrationEvent
+	found   bool
+	profile ConversationPresentationProfile
 }
 
 func (store *Store) readNarrationSpeechSource(
@@ -64,20 +63,35 @@ func (store *Store) readNarrationSpeechSource(
 			return err
 		}
 		record.found = true
-		if err := reader.QueryRowContext(ctx, `
-SELECT narrator_speech_enabled, resolved_narrator_voice_id
-FROM conversation_presentation_profiles
-WHERE conversation_id = ?
-`, *source.ConversationID).Scan(&record.narratorSpeechEnabled, &record.resolvedVoiceID); err != nil {
+		record.profile, err = readSnapshotPresentation(ctx, reader, *source.ConversationID)
+		if errors.Is(err, sql.ErrNoRows) {
 			return &CorruptStateError{
 				Path: store.dbPath,
-				Err:  fmt.Errorf("read narration speech presentation profile: %w", err),
+				Err:  fmt.Errorf("narration speech presentation profile is missing for conversation %s", *source.ConversationID),
 			}
+		}
+		if err != nil {
+			return err
 		}
 		return reader.Commit()
 	})
 	if err != nil {
 		return narrationSpeechSourceRecord{}, err
+	}
+	if !record.found {
+		return record, nil
+	}
+	if err := record.event.Validate(); err != nil {
+		return narrationSpeechSourceRecord{}, &CorruptStateError{
+			Path: store.dbPath,
+			Err:  fmt.Errorf("validate narration speech event %s: %w", source.EventID, err),
+		}
+	}
+	if err := record.profile.Validate(); err != nil {
+		return narrationSpeechSourceRecord{}, &CorruptStateError{
+			Path: store.dbPath,
+			Err:  fmt.Errorf("validate narration speech presentation profile: %w", err),
+		}
 	}
 	return record, nil
 }
@@ -86,7 +100,7 @@ func (store *Store) resolveNarrationSpeechSource(
 	source speech.SpeechSource,
 	record narrationSpeechSourceRecord,
 ) (speech.ResolvedSpeechSource, error) {
-	if !record.narratorSpeechEnabled {
+	if !record.profile.NarratorSpeechEnabled {
 		return speech.ResolvedSpeechSource{}, speech.SourceUnavailable(
 			"Narrator speech is disabled for this conversation.",
 			nil,
@@ -99,7 +113,7 @@ func (store *Store) resolveNarrationSpeechSource(
 	resolved := speech.ResolvedSpeechSource{
 		Source:          source,
 		Text:            text,
-		ResolvedVoiceID: record.resolvedVoiceID,
+		ResolvedVoiceID: *record.profile.ResolvedNarratorVoiceID,
 	}
 	if err := resolved.Validate(); err != nil {
 		return speech.ResolvedSpeechSource{}, &CorruptStateError{Path: store.dbPath, Err: err}

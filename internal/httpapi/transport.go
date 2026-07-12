@@ -347,6 +347,18 @@ func writeMasterInputError(response http.ResponseWriter, err error) {
 }
 
 func writeSpeechError(response http.ResponseWriter, fallbackCode string, err error) {
+	if conversation.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_speech_source_state", err.Error())
+		return
+	}
+	if conversation.IsPersistenceError(err) {
+		writeError(response, http.StatusInternalServerError, "read_speech_source_failed", err.Error())
+		return
+	}
+	if errors.Is(err, conversation.ErrStoreClosed) {
+		writeError(response, http.StatusServiceUnavailable, "speech_source_store_unavailable", err.Error())
+		return
+	}
 	if speechError, ok := speech.AsError(err); ok {
 		writeError(response, speechErrorHTTPStatus(speechError.Code), string(speechError.Code), speechError.Error())
 		return

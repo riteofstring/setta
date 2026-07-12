@@ -210,6 +210,60 @@ func TestSpeechEndpointMapsUnclassifiedFailureWithoutChangingOperationState(t *t
 	}
 }
 
+func TestSpeechSynthesisEndpointMapsSourceStateFailures(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantCode   string
+		wantStatus int
+	}{
+		{
+			name:       "corrupt source",
+			err:        &conversation.CorruptStateError{Path: "state", Err: errors.New("corrupt")},
+			wantCode:   "corrupt_speech_source_state",
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "source read failed",
+			err:        &conversation.PersistenceError{Operation: "read", Path: "state", Err: errors.New("unavailable")},
+			wantCode:   "read_speech_source_failed",
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "source store closed",
+			err:        conversation.ErrStoreClosed,
+			wantCode:   "speech_source_store_unavailable",
+			wantStatus: http.StatusServiceUnavailable,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handler := newAuthenticatedTestHandler(t, HandlerConfig{
+				Metadata: BackendMetadata{Name: BackendName, Version: "test"},
+				SpeechService: &fakeHTTPSpeechService{
+					synthesisErr: test.err,
+				},
+			})
+			response := postJSON[ErrorResponse](
+				t,
+				handler,
+				"/speech/synthesis",
+				speech.SpeechSynthesisRequest{
+					Source: speech.SpeechSource{
+						Speaker: speech.SpeechSpeakerMaster,
+						EventID: "master-answer",
+					},
+					ResolvedVoiceID: speech.SpeechVoiceMarin,
+				},
+				test.wantStatus,
+			)
+			if response.Error.Code != test.wantCode || response.Error.OperationApplied {
+				t.Fatalf("error = %+v", response.Error)
+			}
+		})
+	}
+}
+
 func TestSpeechEndpointRejectsRemovedWorkspaceScope(t *testing.T) {
 	service := &fakeHTTPSpeechService{}
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{
