@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-2 and Phase 3 items 1-6 are complete
+**Status:** In progress; Phases 0-3 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1598,7 +1598,7 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Progress:** Items 1-6 are complete. Item 7 is next.
+**Progress:** Complete.
 
 Implement:
 
@@ -2578,3 +2578,39 @@ Implementation is in progress under this plan.
   reproduced pre-existing legacy chat/workflow response mutation races. The
   supply-chain audit still reports only the recorded Go 1.26.4
   `GO-2026-5856` finding. Phase 3 item 7 remains next and was not started.
+- 2026-07-12: Completed Phase 3 item 7 and the Phase 3 cutover. The obsolete
+  `internal/easyrun` store, service, narrator, event stream, artifact tool, and
+  persisted JSON shapes were deleted together with their HTTP handlers,
+  runtime wiring, desktop event forwarder, IPC/preload API, web API, renderer
+  store, pane-local submission/playback consumers, and retired production-path
+  fixtures. The old hidden-chat turn path, Easy Run conversation metadata,
+  harness surfaces, dynamic artifact tool registration, and special Codex
+  developer instructions were removed rather than retained as compatibility
+  contracts. Easy Run summary/highlight synthesis endpoints were necessarily
+  removed with their deleted persistence owner; the provider transcription and
+  synthesis primitives remain available for the Phase 5 global speech design.
+- 2026-07-12: Protocol version 19, the HTTP contract schema snapshot, generated
+  backend TypeScript, and the checked-in web build were regenerated from the Go
+  endpoint and domain owners. Production and generated-source audits find no
+  Easy Run endpoint, type, store, IPC channel, event stream, web client method,
+  or persistence writer. The sole retained old-path literal is a negative
+  `internal/conversation` store test fixture that proves malformed legacy
+  `workspaces/<id>/easy-runs` data is ignored; it is not a production read or
+  write path. The Codex source reference was not needed because this deletion
+  added no provider-protocol behavior.
+- 2026-07-12: Focused chat, speech, HTTP, runtime, generator, renderer, web,
+  main-process, and preload checks passed, as did all 1,122 desktop tests,
+  desktop typecheck/lint/dead-code/build, generated-contract reproducibility,
+  and the deterministic production Electron topic-conversation workflow.
+  Evidence is under
+  `.recordings/topic-conversation-pane-projection/20260712T081319550Z/`.
+  ChatGPT-authenticated live topic verification passed without
+  `OPENAI_API_KEY`. The broad gate cleared file/shell/tooling checks, every
+  changed-path static check, all desktop unit tests, build, and dead-code
+  analysis; its full Go pass reproduced a nondeterministic legacy chat harness
+  process-exit failure that passed immediately in isolation, and the Electron
+  manifest then reached the already retired chat workflow and failed at its
+  removed `New chat` control. The replacement topic workflow remained clean.
+  The supply-chain audit again reports the pre-existing `GO-2026-5856` in
+  repository-pinned Go 1.26.4, fixed in 1.26.5. Phase 4 item 1, the
+  priority-aware narrator actor/mailbox, is next.

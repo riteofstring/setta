@@ -10,7 +10,7 @@ import {
 } from "./easy-button-rails";
 
 describe("Easy Button conversation rails", () => {
-  test("renders persisted narrator milestones without speech or Easy Run identity", () => {
+  test("renders persisted narrator milestones without provider-thread identity", () => {
     const html = renderToString(
       <HighlightRail milestones={[milestone("milestone_first"), milestone("milestone_second")]} />,
     );
@@ -18,7 +18,7 @@ describe("Easy Button conversation rails", () => {
     expect(html).toContain('aria-label="Milestones"');
     expect(html).toContain('data-easy-button-highlight-id="milestone_first"');
     expect(html).toContain('data-easy-button-highlight-id="milestone_second"');
-    expect(html).not.toContain("easyRunId");
+    expect(html).not.toContain("providerThreadId");
     expect(html.match(/class="easy-button-highlight-dot"/g)).toHaveLength(2);
     expect(html).not.toContain("data-easy-button-highlight-speaking");
   });

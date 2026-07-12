@@ -49,7 +49,7 @@ export interface BackendRequestError extends Error {
   readonly operationApplied: boolean;
 }
 
-export function createBackendRequestError(
+function createBackendRequestError(
   code: string,
   message: string,
   operationApplied: boolean,

@@ -3,7 +3,6 @@ package chat
 import (
 	"fmt"
 	"sort"
-	"strings"
 )
 
 const (
@@ -41,7 +40,7 @@ func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string, conver
 		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceRoot,
-		"developerInstructions": codexDeveloperInstructionsForConversation(conversation),
+		"developerInstructions": codexDeveloperInstructions(),
 		"runtimeWorkspaceRoots": []string{workspaceRoot},
 	}
 	specs, err := codexDynamicToolSpecs(harness.agentToolRegistry())
@@ -52,20 +51,6 @@ func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string, conver
 		params["dynamicTools"] = specs
 	}
 	return params, nil
-}
-
-func codexDeveloperInstructionsForConversation(conversation Conversation) string {
-	instructions := codexDeveloperInstructions()
-	if conversation.EasyRun == nil {
-		return instructions
-	}
-	return instructions + "\n\n" + easyRunOrchestratorDeveloperInstructions()
-}
-
-func easyRunOrchestratorDeveloperInstructions() string {
-	return strings.TrimSpace(`You are running inside Setta's Easy Button pane as a hidden orchestrator.
-
-Do the user's requested work end to end. Do not ask the user questions; make reasonable assumptions and proceed. User-facing deliverables must be emitted through setta.emit_artifact when that tool is available. Final assistant prose is an internal audit trail and is not shown in the Easy Button pane.`)
 }
 
 func codexThreadResumeParams(workspaceRoot string, threadID string, conversation Conversation) (map[string]any, error) {

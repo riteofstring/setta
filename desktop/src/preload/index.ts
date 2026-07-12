@@ -3,7 +3,6 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import {
   decodeChatEvent,
   decodeConversationEvent,
-  decodeEasyRunEvent,
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
@@ -145,29 +144,9 @@ const api: SettaAPI = {
     submitApproval: (request) => invoke("conversationSubmitApproval", request),
     subscribe: (request) => invoke("conversationSubscribeEvents", request),
   },
-  easyRun: {
-    onEvent: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeEasyRunEvent(payload));
-      };
-      ipcRenderer.on(ipcEvents.easyRunEvent, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.easyRunEvent, handler);
-      };
-    },
-    snapshot: (workspaceId) => invoke("easyRunSnapshot", workspaceId),
-    start: (request) => invoke("easyRunStart", request),
-    steer: (request) => invoke("easyRunSteer", request),
-    stop: (request) => invoke("easyRunStop", request),
-  },
   speech: {
-    cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
     createTranscriptionSession: (request) => invoke("speechCreateTranscriptionSession", request),
     readCapabilities: () => invoke("speechReadCapabilities"),
-    synthesizeEasyRunHighlight: (request, operationId) =>
-      invoke("speechSynthesizeEasyRunHighlight", { operationId, request }),
-    synthesizeEasyRunSummary: (request, operationId) =>
-      invoke("speechSynthesizeEasyRunSummary", { operationId, request }),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),

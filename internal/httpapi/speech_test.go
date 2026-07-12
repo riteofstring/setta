@@ -30,18 +30,6 @@ func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *test
 			MaximumRecordingSeconds:     speech.MaximumRecordingSeconds,
 			MaximumTranscriptCharacters: speech.MaximumTranscriptCharacters,
 		},
-		summaryAudio: speech.SpeechAudio{
-			AudioBase64: "summary-audio",
-			MediaType:   speech.SynthesisMediaType,
-			Format:      speech.SynthesisFormat,
-			SourceID:    "easy_run_latest",
-		},
-		highlightAudio: speech.SpeechAudio{
-			AudioBase64: "highlight-audio",
-			MediaType:   speech.SynthesisMediaType,
-			Format:      speech.SynthesisFormat,
-			SourceID:    "highlight_latest",
-		},
 	}
 	handler := NewHandler(HandlerConfig{
 		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
@@ -58,30 +46,6 @@ func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *test
 	}, token, http.StatusOK)
 	if created != service.session || service.transcriptionWorkspaceID != "workspace_api" || service.transcriptionDeviceID != device.ID {
 		t.Fatalf("created=%+v workspace=%q device=%q", created, service.transcriptionWorkspaceID, service.transcriptionDeviceID)
-	}
-	summaryAudio := postJSONWithToken[speech.SpeechAudio](t, handler, "/speech/easy-runs/summary", SynthesizeEasyRunSummaryRequest{
-		WorkspaceID: "workspace_api",
-		EasyRunID:   "easy_run_latest",
-	}, token, http.StatusOK)
-	if summaryAudio != service.summaryAudio || service.summaryWorkspaceID != "workspace_api" || service.summaryEasyRunID != "easy_run_latest" {
-		t.Fatalf("summary audio=%+v workspace=%q run=%q", summaryAudio, service.summaryWorkspaceID, service.summaryEasyRunID)
-	}
-	highlightAudio := postJSONWithToken[speech.SpeechAudio](t, handler, "/speech/easy-runs/highlight", SynthesizeEasyRunHighlightRequest{
-		WorkspaceID: "workspace_api",
-		EasyRunID:   "easy_run_latest",
-		HighlightID: "highlight_latest",
-	}, token, http.StatusOK)
-	if highlightAudio != service.highlightAudio ||
-		service.highlightWorkspaceID != "workspace_api" ||
-		service.highlightEasyRunID != "easy_run_latest" ||
-		service.highlightID != "highlight_latest" {
-		t.Fatalf(
-			"highlight audio=%+v workspace=%q run=%q highlight=%q",
-			highlightAudio,
-			service.highlightWorkspaceID,
-			service.highlightEasyRunID,
-			service.highlightID,
-		)
 	}
 }
 
@@ -100,8 +64,6 @@ func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
 	}{
 		{method: http.MethodGet, path: "/speech/capabilities"},
 		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{}`},
-		{method: http.MethodPost, path: "/speech/easy-runs/summary", body: `{}`},
-		{method: http.MethodPost, path: "/speech/easy-runs/highlight", body: `{}`},
 	}
 	for _, test := range tests {
 		request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
@@ -140,15 +102,14 @@ func TestSpeechEndpointMapsTypedFailures(t *testing.T) {
 	for _, test := range tests {
 		t.Run(string(test.code), func(t *testing.T) {
 			service := &fakeHTTPSpeechService{
-				summaryErr: &speech.Error{Code: test.code, Message: "safe classified speech failure"},
+				transcriptionErr: &speech.Error{Code: test.code, Message: "safe classified speech failure"},
 			}
 			handler := newAuthenticatedTestHandler(t, HandlerConfig{
 				Metadata:      BackendMetadata{Name: BackendName, Version: "test"},
 				SpeechService: service,
 			})
-			response := postJSON[ErrorResponse](t, handler, "/speech/easy-runs/summary", SynthesizeEasyRunSummaryRequest{
+			response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{
 				WorkspaceID: "workspace_api",
-				EasyRunID:   "easy_run_latest",
 			}, test.wantStatus)
 			if response.Error.Code != string(test.code) || response.Error.Message != "safe classified speech failure" || response.Error.OperationApplied {
 				t.Fatalf("error = %+v", response.Error)
@@ -158,16 +119,15 @@ func TestSpeechEndpointMapsTypedFailures(t *testing.T) {
 }
 
 func TestSpeechEndpointMapsUnclassifiedFailureWithoutChangingOperationState(t *testing.T) {
-	service := &fakeHTTPSpeechService{summaryErr: errors.New("workspace is not open")}
+	service := &fakeHTTPSpeechService{transcriptionErr: errors.New("workspace is not open")}
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata:      BackendMetadata{Name: BackendName, Version: "test"},
 		SpeechService: service,
 	})
-	response := postJSON[ErrorResponse](t, handler, "/speech/easy-runs/summary", SynthesizeEasyRunSummaryRequest{
+	response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{
 		WorkspaceID: "workspace_missing",
-		EasyRunID:   "easy_run_latest",
 	}, http.StatusBadRequest)
-	if response.Error.Code != "synthesize_easy_run_summary_failed" || response.Error.OperationApplied {
+	if response.Error.Code != "create_speech_transcription_session_failed" || response.Error.OperationApplied {
 		t.Fatalf("error = %+v", response.Error)
 	}
 }
@@ -186,17 +146,8 @@ type fakeHTTPSpeechService struct {
 	capabilitiesErr          error
 	session                  speech.SpeechTranscriptionSession
 	transcriptionErr         error
-	summaryAudio             speech.SpeechAudio
-	summaryErr               error
-	highlightAudio           speech.SpeechAudio
-	highlightErr             error
 	transcriptionWorkspaceID string
 	transcriptionDeviceID    string
-	summaryWorkspaceID       string
-	summaryEasyRunID         string
-	highlightWorkspaceID     string
-	highlightEasyRunID       string
-	highlightID              string
 	calls                    int
 }
 
@@ -210,26 +161,6 @@ func (service *fakeHTTPSpeechService) CreateTranscriptionSession(_ context.Conte
 	service.transcriptionWorkspaceID = workspaceID
 	service.transcriptionDeviceID = deviceID
 	return service.session, service.transcriptionErr
-}
-
-func (service *fakeHTTPSpeechService) SynthesizeEasyRunSummary(_ context.Context, workspaceID string, easyRunID string) (speech.SpeechAudio, error) {
-	service.calls++
-	service.summaryWorkspaceID = workspaceID
-	service.summaryEasyRunID = easyRunID
-	return service.summaryAudio, service.summaryErr
-}
-
-func (service *fakeHTTPSpeechService) SynthesizeEasyRunHighlight(
-	_ context.Context,
-	workspaceID string,
-	easyRunID string,
-	highlightID string,
-) (speech.SpeechAudio, error) {
-	service.calls++
-	service.highlightWorkspaceID = workspaceID
-	service.highlightEasyRunID = easyRunID
-	service.highlightID = highlightID
-	return service.highlightAudio, service.highlightErr
 }
 
 func validHTTPSpeechCapabilities() speech.SpeechCapabilities {

@@ -4,7 +4,6 @@ import {
   createBackendClient,
   decodeChatEvent,
   decodeConversationEvent,
-  decodeEasyRunEvent,
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
@@ -32,7 +31,6 @@ import {
   startWebBackendEventStream,
   type WebEventStreamOptions,
 } from "./setta-web-event-stream";
-import { steerEasyRunForWeb } from "./easy-run-web-api";
 import { subscribeForWebPush } from "./setta-web-push";
 import { createSpeechWebAPI } from "./speech-web-api";
 
@@ -323,22 +321,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         });
         conversationEventStreams.set(key, stream);
       },
-    },
-    easyRun: {
-      onEvent: (listener) =>
-        subscribeWebBackendEventStream({
-          baseURL,
-          cursorForEvent: cursorFromStreamedEvent,
-          decode: decodeEasyRunEvent,
-          endpoint: backendEndpoints.EasyRunEventStream,
-          fetchImpl: rawFetch,
-          sendEvent: listener,
-          streamName: "easy-run event stream",
-        }),
-      snapshot: (workspaceId) => requireClient().readEasyRunSnapshot({ workspaceId }),
-      start: (request) => requireClient().startEasyRun(request),
-      steer: (request) => steerEasyRunForWeb(requireClient(), request),
-      stop: (request) => requireClient().stopEasyRun(request),
     },
     codexAccount: {
       cancelLogin: (request) => requireClient().cancelCodexLogin(request),

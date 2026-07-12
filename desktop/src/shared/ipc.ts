@@ -136,7 +136,6 @@ import type {
   WorkspaceSession,
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
-import { easyRunIpcChannels, type EasyRunIpcContract } from "./easy-run-ipc";
 import { speechIpcChannels, type SpeechIpcContract } from "./speech-ipc";
 import type {
   AppWindowDragPoint,
@@ -203,7 +202,6 @@ export const ipcChannels = {
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
   ...conversationIpcChannels,
-  ...easyRunIpcChannels,
   ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
@@ -303,7 +301,6 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
   conversationEvent: "conversation:event",
-  easyRunEvent: "easy-run:event",
   runtimeConnectionState: "runtimes:connection-state",
   semanticGraphEvent: "semantic-graph:event",
   workspaceActivityEvent: "workspace-activity:event",
@@ -313,7 +310,7 @@ export const ipcEvents = {
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract extends ConversationIpc, EasyRunIpcContract, SpeechIpcContract {
+interface IpcContract extends ConversationIpc, SpeechIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];

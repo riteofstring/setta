@@ -140,9 +140,6 @@ func validateConversationInternalOwner(conversation Conversation) error {
 	if conversation.Workflow != nil {
 		owners++
 	}
-	if conversation.EasyRun != nil {
-		owners++
-	}
 	if !conversation.Internal {
 		if owners > 0 {
 			return fmt.Errorf("public conversation %s must not have internal owner metadata", conversation.ID)
@@ -152,10 +149,7 @@ func validateConversationInternalOwner(conversation Conversation) error {
 	if owners != 1 {
 		return fmt.Errorf("internal conversation %s must have exactly one owner metadata record, found %d", conversation.ID, owners)
 	}
-	if conversation.Workflow != nil {
-		return validateConversationWorkflowMetadata(conversation)
-	}
-	return validateConversationEasyRunMetadata(conversation)
+	return validateConversationWorkflowMetadata(conversation)
 }
 
 func validateConversationWorkflowMetadata(conversation Conversation) error {
@@ -172,13 +166,6 @@ func validateConversationWorkflowMetadata(conversation Conversation) error {
 		return fmt.Errorf("conversation %s %w", conversation.ID, err)
 	}
 	if err := validateStorageID("workflow node execution id", conversation.Workflow.NodeExecutionID); err != nil {
-		return fmt.Errorf("conversation %s %w", conversation.ID, err)
-	}
-	return nil
-}
-
-func validateConversationEasyRunMetadata(conversation Conversation) error {
-	if err := validateStorageID("easy run id", conversation.EasyRun.EasyRunID); err != nil {
 		return fmt.Errorf("conversation %s %w", conversation.ID, err)
 	}
 	return nil

@@ -8,7 +8,7 @@ describe("preload speech API", () => {
     vi.doUnmock("electron");
   });
 
-  test("exposes every generated speech operation through typed IPC", async () => {
+  test("exposes speech capabilities and transcription through typed IPC", async () => {
     const invoke = vi.fn();
     const exposed: Record<string, unknown> = {};
     vi.doMock("electron", () => ({
@@ -22,39 +22,13 @@ describe("preload speech API", () => {
     await import("./index");
     const api = exposed.setta as SettaAPI;
     const sessionRequest = { workspaceId: "workspace_api" };
-    const summaryRequest = { easyRunId: "easy_run_api", workspaceId: "workspace_api" };
-    const highlightRequest = {
-      easyRunId: "easy_run_api",
-      highlightId: "highlight_api",
-      workspaceId: "workspace_api",
-    };
-    const summaryOperationId = "speech_summary_api";
-    const highlightOperationId = "speech_highlight_api";
 
     await api.speech.readCapabilities();
     await api.speech.createTranscriptionSession(sessionRequest);
-    await api.speech.synthesizeEasyRunSummary(summaryRequest, summaryOperationId);
-    await api.speech.synthesizeEasyRunHighlight(highlightRequest, highlightOperationId);
-    await api.speech.cancelSynthesis(summaryOperationId);
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
       [ipcChannels.speechCreateTranscriptionSession, sessionRequest],
-      [
-        ipcChannels.speechSynthesizeEasyRunSummary,
-        {
-          operationId: summaryOperationId,
-          request: summaryRequest,
-        },
-      ],
-      [
-        ipcChannels.speechSynthesizeEasyRunHighlight,
-        {
-          operationId: highlightOperationId,
-          request: highlightRequest,
-        },
-      ],
-      [ipcChannels.speechCancelSynthesis, summaryOperationId],
     ]);
   });
 });

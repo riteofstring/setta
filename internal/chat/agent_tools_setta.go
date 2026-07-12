@@ -9,7 +9,6 @@ import (
 
 const (
 	SettaAgentToolNamespace          = "setta"
-	SettaEmitArtifactAgentToolName   = "emit_artifact"
 	SettaWorkflowResultAgentToolName = "workflow_result"
 )
 

@@ -138,10 +138,6 @@ type ReadWorkspaceActivitySnapshotResponse struct {
 	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
 }
 
-type ReadEasyRunSnapshotRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-}
-
 type ReadConversationSnapshotRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
@@ -159,34 +155,8 @@ type SubscribeConversationEventsRequest struct {
 	ConversationID string `json:"conversationId"`
 }
 
-type StartEasyRunRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	RequestText string `json:"requestText"`
-}
-
-type SteerEasyRunRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	Text        string `json:"text"`
-}
-
-type StopEasyRunRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	EasyRunID   string `json:"easyRunId"`
-}
-
 type CreateSpeechTranscriptionSessionRequest struct {
 	WorkspaceID string `json:"workspaceId"`
-}
-
-type SynthesizeEasyRunSummaryRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	EasyRunID   string `json:"easyRunId"`
-}
-
-type SynthesizeEasyRunHighlightRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	EasyRunID   string `json:"easyRunId"`
-	HighlightID string `json:"highlightId"`
 }
 
 type ReadWorkflowExecutionActivityRequest struct {

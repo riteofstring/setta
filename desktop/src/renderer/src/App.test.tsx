@@ -66,7 +66,6 @@ describe("workspace renderer states", () => {
           },
           backend: { onEventStreamStatus: () => () => {}, onProcessStatus: () => () => {} },
           chat: { onEvent: () => () => {} },
-          easyRun: { onEvent: () => () => {} },
         },
       },
     });
@@ -113,7 +112,6 @@ describe("workspace renderer states", () => {
           },
           backend: { onEventStreamStatus: () => () => {}, onProcessStatus: () => () => {} },
           chat: { onEvent: () => () => {} },
-          easyRun: { onEvent: () => () => {} },
         },
       },
     });
@@ -1370,7 +1368,6 @@ function conversationListItem(
       title,
       updatedAt: "2026-05-29T20:00:00Z",
       workflow: null,
-      easyRun: null,
       workspaceId,
     },
     latestReadRelevantMarker: 0,

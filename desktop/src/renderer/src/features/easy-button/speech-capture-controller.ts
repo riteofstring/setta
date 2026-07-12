@@ -10,7 +10,7 @@ import {
 } from "./realtime-transcription-transport";
 import type { RealtimeTranscriptionUpdate } from "./realtime-transcription-session";
 
-export type SpeechCaptureIntent = "start" | "steer";
+type SpeechCaptureIntent = "start" | "steer";
 
 export interface SpeechCaptureContext {
   runtimeId: string;

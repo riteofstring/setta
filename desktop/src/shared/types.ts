@@ -43,9 +43,6 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
-  EasyRun,
-  EasyRunEvent,
-  EasyRunSnapshot,
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
@@ -116,24 +113,18 @@ import type {
   SendMessageResult,
   SendTopicConversationTurnRequest,
   SelectDefaultTerminalProfileRequest,
-  SpeechAudio,
   SpeechCapabilities,
   SpeechTranscriptionSession,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
-  StartEasyRunRequest,
   CreateSpeechTranscriptionSessionRequest,
-  SteerEasyRunRequest,
   SteerTopicConversationTurnRequest,
   SteerMessageResult,
   SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
-  StopEasyRunRequest,
   StopTopicConversationTurnRequest,
   SubmitTopicConversationApprovalRequest,
-  SynthesizeEasyRunHighlightRequest,
-  SynthesizeEasyRunSummaryRequest,
   StopWorkflowNodeRunRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
@@ -166,7 +157,6 @@ import type {
   ConversationEventReleaseRequest,
   ConversationEventSubscriptionRequest,
 } from "./conversation-ipc";
-import type { EasyRunSteerResult } from "./easy-run-ipc";
 
 export interface RuntimeVersions {
   app: string;
@@ -429,27 +419,11 @@ export interface SettaAPI {
     ) => Promise<ConversationSnapshot>;
     subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
   };
-  easyRun: {
-    onEvent: (listener: (event: EasyRunEvent) => void) => () => void;
-    snapshot: (workspaceId: string) => Promise<EasyRunSnapshot>;
-    start: (request: StartEasyRunRequest) => Promise<EasyRun>;
-    steer: (request: SteerEasyRunRequest) => Promise<EasyRunSteerResult>;
-    stop: (request: StopEasyRunRequest) => Promise<EasyRun>;
-  };
   speech: {
-    cancelSynthesis: (operationId: string) => Promise<void>;
     createTranscriptionSession: (
       request: CreateSpeechTranscriptionSessionRequest,
     ) => Promise<SpeechTranscriptionSession>;
     readCapabilities: () => Promise<SpeechCapabilities>;
-    synthesizeEasyRunHighlight: (
-      request: SynthesizeEasyRunHighlightRequest,
-      operationId: string,
-    ) => Promise<SpeechAudio>;
-    synthesizeEasyRunSummary: (
-      request: SynthesizeEasyRunSummaryRequest,
-      operationId: string,
-    ) => Promise<SpeechAudio>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

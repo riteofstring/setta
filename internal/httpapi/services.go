@@ -9,7 +9,6 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
-	"setta/internal/easyrun"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
@@ -49,14 +48,6 @@ type WorkspaceActivityService interface {
 	SubscribeEvents(cursor workspaceactivity.EventCursor, workspaceID string) (*workspaceactivity.EventSubscription, error)
 }
 
-type EasyRunService interface {
-	ReadSnapshot(workspaceID string) (easyrun.EasyRunSnapshot, error)
-	Start(workspaceID string, requestText string) (easyrun.EasyRun, error)
-	Steer(workspaceID string, text string) (easyrun.EasyRun, error)
-	Stop(workspaceID string, easyRunID string) (easyrun.EasyRun, error)
-	SubscribeEvents(cursor easyrun.EasyRunEventCursor) (*easyrun.EventSubscription, error)
-}
-
 type ConversationService interface {
 	CreateTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SendTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
@@ -90,8 +81,6 @@ type ConversationNavigatorService interface {
 type SpeechService interface {
 	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
 	CreateTranscriptionSession(context.Context, string, string) (speech.SpeechTranscriptionSession, error)
-	SynthesizeEasyRunSummary(context.Context, string, string) (speech.SpeechAudio, error)
-	SynthesizeEasyRunHighlight(context.Context, string, string, string) (speech.SpeechAudio, error)
 }
 
 type ChatService interface {
@@ -260,7 +249,6 @@ type HandlerConfig struct {
 	ConversationNavigatorService ConversationNavigatorService
 	ConversationService          ConversationService
 	CodexAccountService          CodexAccountService
-	EasyRunService               EasyRunService
 	NotifyService                NotifyService
 	PairingFailureLimiter        *PairingFailureLimiter
 	RevocationSweepInterval      time.Duration
@@ -283,7 +271,6 @@ type handler struct {
 	conversationNavigatorService ConversationNavigatorService
 	conversationService          ConversationService
 	codexAccountService          CodexAccountService
-	easyRunService               EasyRunService
 	notifyService                NotifyService
 	pairingFailureLimiter        *PairingFailureLimiter
 	revocationSweepInterval      time.Duration
@@ -315,7 +302,6 @@ func NewHandler(config HandlerConfig) http.Handler {
 		conversationNavigatorService: config.ConversationNavigatorService,
 		conversationService:          config.ConversationService,
 		codexAccountService:          config.CodexAccountService,
-		easyRunService:               config.EasyRunService,
 		notifyService:                config.NotifyService,
 		pairingFailureLimiter:        pairingFailureLimiter,
 		revocationSweepInterval:      revocationSweepInterval,

@@ -24,7 +24,6 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
-	"setta/internal/easyrun"
 	"setta/internal/httpapi"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
@@ -92,7 +91,6 @@ type Server struct {
 	closeWorkspaceActivity  func()
 	closeWorkflowStore      func() error
 	closeEvents             func()
-	closeEasyRunEvents      func()
 	closeRuntimeAuth        func() error
 	closeNotify             func() error
 	closeWorkflowEvents     func()
@@ -113,7 +111,6 @@ type runtimeServices struct {
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationStore        *conversation.Store
-	easyRunService           *easyrun.Service
 	notifyService            *notify.Service
 	semanticGraphService     *semanticgraph.Service
 	semanticGraphStore       *semanticgraph.Store
@@ -256,7 +253,6 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeWorkspaceActivity:  services.workspaceActivityService.CloseEvents,
 		closeWorkflowStore:      services.workflowStore.Close,
 		closeEvents:             services.chatService.CloseEvents,
-		closeEasyRunEvents:      services.easyRunService.CloseEvents,
 		closeRuntimeAuth:        services.authStore.Close,
 		closeNotify:             services.notifyService.Close,
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
@@ -312,7 +308,6 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		baseServices.chatService,
 	)
 	if err != nil {
-		baseServices.easyRunService.CloseEvents()
 		return runtimeServices{}, err
 	}
 	terminalService, codexAccountService, err := newRuntimeEdgeServices(
@@ -326,7 +321,6 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		baseServices.workflowStore,
 	)
 	if err != nil {
-		baseServices.easyRunService.CloseEvents()
 		return runtimeServices{}, err
 	}
 	notifyService, err := newNotifyService(config, authBootstrap.store, baseServices.chatService)
@@ -341,7 +335,6 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 			baseServices.workflowService,
 			baseServices.workflowStore,
 		)
-		baseServices.easyRunService.CloseEvents()
 		return runtimeServices{}, err
 	}
 
@@ -356,7 +349,6 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		codexManager:             baseServices.codexManager,
 		conversationService:      baseServices.conversationService,
 		conversationStore:        baseServices.conversationStore,
-		easyRunService:           baseServices.easyRunService,
 		notifyService:            notifyService,
 		semanticGraphService:     semanticServices.graphService,
 		semanticGraphStore:       semanticServices.graphStore,
@@ -828,7 +820,6 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		ConversationNavigatorService: services.conversationService,
 		ConversationService:          services.conversationService,
 		CodexAccountService:          services.codexAccountService,
-		EasyRunService:               services.easyRunService,
 		NotifyService:                services.notifyService,
 		RuntimeAuthService:           services.authStore,
 		RuntimeIdentityService:       services.runtimeIdentityManager,
@@ -900,9 +891,6 @@ func (server *Server) closeEventStreams(ctx context.Context) error {
 	}
 	if server.closeEvents != nil {
 		server.closeEvents()
-	}
-	if server.closeEasyRunEvents != nil {
-		server.closeEasyRunEvents()
 	}
 	if server.closeWorkflowEvents != nil {
 		server.closeWorkflowEvents()

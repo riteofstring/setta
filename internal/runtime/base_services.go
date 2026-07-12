@@ -8,7 +8,6 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
-	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/speech"
 	"setta/internal/workspacesession"
@@ -21,7 +20,6 @@ type runtimeBaseServices struct {
 	codexManager        *codexapp.Manager
 	conversationService *conversation.Service
 	conversationStore   *conversation.Store
-	easyRunService      *easyrun.Service
 	speechService       *speech.Service
 	workspaceService    *workspacesession.Service
 	workspaceUIService  *workspaceui.Service
@@ -52,20 +50,9 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
-	easyRunService, err := newEasyRunService(config.AppDataDir, chatService, foundation.workspaceService)
+	speechService, err := newSpeechService(config.Speech, foundation.workspaceService)
 	if err != nil {
-		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
-		return runtimeBaseServices{}, err
-	}
-	speechService, err := newSpeechService(config.Speech, easyRunService, foundation.workspaceService)
-	if err != nil {
-		easyRunService.CloseEvents()
-		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
-		return runtimeBaseServices{}, err
-	}
-	if err := configureSettaAgentTools(chatService, easyRunService); err != nil {
-		easyRunService.CloseEvents()
-		closeRuntimeServicesBeforeEasyRunFailure(chatService, workflowService, workflowStore)
+		closeRuntimeServicesBeforeSpeechFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err
 	}
 	closeConversationStoreOnFailure = false
@@ -75,13 +62,22 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		codexManager:        foundation.codexManager,
 		conversationService: foundation.conversationService,
 		conversationStore:   foundation.conversationStore,
-		easyRunService:      easyRunService,
 		speechService:       speechService,
 		workspaceService:    foundation.workspaceService,
 		workspaceUIService:  foundation.workspaceUIService,
 		workflowService:     workflowService,
 		workflowStore:       workflowStore,
 	}, nil
+}
+
+func closeRuntimeServicesBeforeSpeechFailure(
+	chatService *chat.Service,
+	workflowService *orchestrator.Service,
+	workflowStore *orchestrator.Store,
+) {
+	chatService.CloseEvents()
+	workflowService.CloseEvents()
+	_ = workflowStore.Close()
 }
 
 type runtimeFoundation struct {
@@ -125,12 +121,4 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		workspaceService:    workspaceService,
 		workspaceUIService:  workspaceUIService,
 	}, nil
-}
-
-func configureSettaAgentTools(chatService *chat.Service, easyRunService *easyrun.Service) error {
-	tools, err := chat.NewSettaAgentToolRegistry(easyrun.NewEmitArtifactAgentTool(easyRunService))
-	if err != nil {
-		return err
-	}
-	return chatService.SetAgentToolRegistry(tools)
 }

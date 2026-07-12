@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 18;
-export const backendContractSchemaHash = "sha256:6eb3ad13246e099bf03ce6d0ae48e11da9e6ba50dc3ebd2ba883f3a18f2fd526";
+export const backendProtocolVersion = 19;
+export const backendContractSchemaHash = "sha256:a794f3cd3573c4bcd34bd563ebe06e7d240507920b8e10e621ecc095101b120d";
 
 export type DeviceScope = "full";
 
@@ -661,100 +661,6 @@ export function decodeWorkspaceActivityDeltaKind(value: unknown, label = "Worksp
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "upsert":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyRunStatus = "working" | "completed" | "failed" | "stopped";
-
-export const easyRunStatusValues = ["working", "completed", "failed", "stopped"] as const satisfies readonly EasyRunStatus[];
-
-export function decodeEasyRunStatus(value: unknown, label = "EasyRunStatus"): EasyRunStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "working":
-      return decoded;
-    case "completed":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "stopped":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyRunFocusStatus = "current" | "updating" | "stale";
-
-export const easyRunFocusStatusValues = ["current", "updating", "stale"] as const satisfies readonly EasyRunFocusStatus[];
-
-export function decodeEasyRunFocusStatus(value: unknown, label = "EasyRunFocusStatus"): EasyRunFocusStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "current":
-      return decoded;
-    case "updating":
-      return decoded;
-    case "stale":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyRunNarratorStatus = "ok" | "degraded";
-
-export const easyRunNarratorStatusValues = ["ok", "degraded"] as const satisfies readonly EasyRunNarratorStatus[];
-
-export function decodeEasyRunNarratorStatus(value: unknown, label = "EasyRunNarratorStatus"): EasyRunNarratorStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "ok":
-      return decoded;
-    case "degraded":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyArtifactKind = "markdown" | "table" | "bar_chart" | "file";
-
-export const easyArtifactKindValues = ["markdown", "table", "bar_chart", "file"] as const satisfies readonly EasyArtifactKind[];
-
-export function decodeEasyArtifactKind(value: unknown, label = "EasyArtifactKind"): EasyArtifactKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "markdown":
-      return decoded;
-    case "table":
-      return decoded;
-    case "bar_chart":
-      return decoded;
-    case "file":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type EasyRunEventType = "easyrun.run.updated" | "easyrun.highlight.created" | "easyrun.artifact.created" | "easyrun.resync_required";
-
-export const easyRunEventTypeValues = ["easyrun.run.updated", "easyrun.highlight.created", "easyrun.artifact.created", "easyrun.resync_required"] as const satisfies readonly EasyRunEventType[];
-
-export function decodeEasyRunEventType(value: unknown, label = "EasyRunEventType"): EasyRunEventType {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "easyrun.run.updated":
-      return decoded;
-    case "easyrun.highlight.created":
-      return decoded;
-    case "easyrun.artifact.created":
-      return decoded;
-    case "easyrun.resync_required":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -4134,148 +4040,6 @@ export interface WorkspaceActivityEvent {
   resync: WorkspaceActivityResyncRequired | null;
 }
 
-export interface ReadEasyRunSnapshotRequest {
-  workspaceId: string;
-}
-
-export interface EasyCurrentFocus {
-  revision: number;
-  text: string;
-  updatedAt: string;
-  status: EasyRunFocusStatus;
-}
-
-export interface EasyRun {
-  id: string;
-  workspaceId: string;
-  status: EasyRunStatus;
-  requestText: string;
-  currentFocus: EasyCurrentFocus;
-  conversationId: string;
-  startedAt: string;
-  endedAt: string | null;
-  summary: string | null;
-  error: string | null;
-  narratorStatus: EasyRunNarratorStatus;
-  activeAgentCount: number;
-  artifactCount: number;
-  highlightCount: number;
-}
-
-export interface EasyHighlight {
-  id: string;
-  easyRunId: string;
-  ordinal: number;
-  text: string;
-  at: string;
-}
-
-export interface EasyMarkdownArtifactPayload {
-  markdown: string;
-}
-
-export interface EasyArtifactTableColumn {
-  key: string;
-  label: string;
-}
-
-export interface EasyTableArtifactPayload {
-  columns: EasyArtifactTableColumn[];
-  rows: string[][];
-}
-
-export interface EasyArtifactBarChartItem {
-  label: string;
-  value: number;
-  unit: string | null;
-}
-
-export interface EasyBarChartArtifactPayload {
-  items: EasyArtifactBarChartItem[];
-}
-
-export interface EasyFileArtifactPayload {
-  path: string;
-  description: string | null;
-}
-
-export interface EasyArtifact {
-  id: string;
-  easyRunId: string;
-  ordinal: number;
-  kind: EasyArtifactKind;
-  title: string;
-  kicker: string | null;
-  createdAt: string;
-  markdown: EasyMarkdownArtifactPayload | null;
-  table: EasyTableArtifactPayload | null;
-  barChart: EasyBarChartArtifactPayload | null;
-  file: EasyFileArtifactPayload | null;
-}
-
-export interface EasyRunEventCursor {
-  streamId: string;
-  sequence: number;
-}
-
-export interface EasyRunSnapshot {
-  latestRun: EasyRun | null;
-  highlights: EasyHighlight[];
-  artifacts: EasyArtifact[];
-  eventStreamCursor: EasyRunEventCursor;
-}
-
-export interface StartEasyRunRequest {
-  workspaceId: string;
-  requestText: string;
-}
-
-export interface SteerEasyRunRequest {
-  workspaceId: string;
-  text: string;
-}
-
-export interface StopEasyRunRequest {
-  workspaceId: string;
-  easyRunId: string;
-}
-
-export interface EasyRunUpdatedPayload {
-  run: EasyRun;
-}
-
-export interface EasyHighlightCreatedPayload {
-  highlight: EasyHighlight;
-}
-
-export interface EasyArtifactCreatedPayload {
-  artifact: EasyArtifact;
-}
-
-export interface EasyRunResyncRequired {
-  reason: string;
-  requestedStreamId: string;
-  requestedSequence: number;
-  currentStreamId: string;
-  currentSequence: number;
-  earliestSequence: number;
-}
-
-export interface EasyRunEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: EasyRunEventType;
-  emittedAt: string;
-  workspaceId: string;
-  easyRunId: string;
-  runUpdated: EasyRunUpdatedPayload | null;
-  highlightCreated: EasyHighlightCreatedPayload | null;
-  artifactCreated: EasyArtifactCreatedPayload | null;
-  resyncRequired: EasyRunResyncRequired | null;
-}
-
 export interface CreateTopicConversationRequest {
   workspaceId: string;
   title: string;
@@ -5016,24 +4780,6 @@ export interface SpeechTranscriptionSession {
   maximumTranscriptCharacters: number;
 }
 
-export interface SynthesizeEasyRunSummaryRequest {
-  workspaceId: string;
-  easyRunId: string;
-}
-
-export interface SpeechAudio {
-  audioBase64: string;
-  mediaType: string;
-  format: string;
-  sourceId: string;
-}
-
-export interface SynthesizeEasyRunHighlightRequest {
-  workspaceId: string;
-  easyRunId: string;
-  highlightId: string;
-}
-
 export interface ListConversationsRequest {
   workspaceId: string;
 }
@@ -5087,10 +4833,6 @@ export interface ConversationWorkflowMetadata {
   nodeExecutionId: string;
 }
 
-export interface ConversationEasyRunMetadata {
-  easyRunId: string;
-}
-
 export interface Conversation {
   schemaVersion: number;
   id: string;
@@ -5104,7 +4846,6 @@ export interface Conversation {
   codexEffectiveSettings: ChatCodexEffectiveSettings | null;
   harnessRefs: HarnessThreadRef[];
   workflow: ConversationWorkflowMetadata | null;
-  easyRun: ConversationEasyRunMetadata | null;
 }
 
 export interface RunActiveStatus {
@@ -8528,29 +8269,6 @@ export const backendEndpoints = {
     method: "GET",
     path: "/workspace-activity/events",
   },
-  ReadEasyRunSnapshot: {
-    method: "GET",
-    path: "/easy-runs/snapshot",
-  },
-  StartEasyRun: {
-    method: "POST",
-    path: "/easy-runs/start",
-    requestBodyLimitBytes: 4194304,
-  },
-  SteerEasyRun: {
-    method: "POST",
-    path: "/easy-runs/steer",
-    requestBodyLimitBytes: 4194304,
-  },
-  StopEasyRun: {
-    method: "POST",
-    path: "/easy-runs/stop",
-    requestBodyLimitBytes: 4194304,
-  },
-  EasyRunEventStream: {
-    method: "GET",
-    path: "/easy-runs/events",
-  },
   CreateTopicConversation: {
     method: "POST",
     path: "/conversations/create",
@@ -8602,16 +8320,6 @@ export const backendEndpoints = {
   CreateSpeechTranscriptionSession: {
     method: "POST",
     path: "/speech/transcription/sessions",
-    requestBodyLimitBytes: 16384,
-  },
-  SynthesizeEasyRunSummary: {
-    method: "POST",
-    path: "/speech/easy-runs/summary",
-    requestBodyLimitBytes: 16384,
-  },
-  SynthesizeEasyRunHighlight: {
-    method: "POST",
-    path: "/speech/easy-runs/highlight",
     requestBodyLimitBytes: 16384,
   },
   ListConversations: {
@@ -9983,246 +9691,6 @@ export function decodeWorkspaceActivityEvent(value: unknown): WorkspaceActivityE
   };
 }
 
-export function decodeReadEasyRunSnapshotRequest(value: unknown): ReadEasyRunSnapshotRequest {
-  const record = assertRecord(value, "ReadEasyRunSnapshotRequest");
-  assertKnownFields(record, "ReadEasyRunSnapshotRequest", ["workspaceId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadEasyRunSnapshotRequest"), "ReadEasyRunSnapshotRequest.workspaceId"),
-  };
-}
-
-export function decodeEasyCurrentFocus(value: unknown): EasyCurrentFocus {
-  const record = assertRecord(value, "EasyCurrentFocus");
-  assertKnownFields(record, "EasyCurrentFocus", ["revision", "text", "updatedAt", "status"]);
-  return {
-    revision: decodeInteger(requireField(record, "revision", "EasyCurrentFocus"), "EasyCurrentFocus.revision"),
-    text: decodeString(requireField(record, "text", "EasyCurrentFocus"), "EasyCurrentFocus.text"),
-    updatedAt: decodeString(requireField(record, "updatedAt", "EasyCurrentFocus"), "EasyCurrentFocus.updatedAt"),
-    status: decodeEasyRunFocusStatus(requireField(record, "status", "EasyCurrentFocus"), "EasyCurrentFocus.status"),
-  };
-}
-
-export function decodeEasyRun(value: unknown): EasyRun {
-  const record = assertRecord(value, "EasyRun");
-  assertKnownFields(record, "EasyRun", ["id", "workspaceId", "status", "requestText", "currentFocus", "conversationId", "startedAt", "endedAt", "summary", "error", "narratorStatus", "activeAgentCount", "artifactCount", "highlightCount"]);
-  return {
-    id: decodeString(requireField(record, "id", "EasyRun"), "EasyRun.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "EasyRun"), "EasyRun.workspaceId"),
-    status: decodeEasyRunStatus(requireField(record, "status", "EasyRun"), "EasyRun.status"),
-    requestText: decodeString(requireField(record, "requestText", "EasyRun"), "EasyRun.requestText"),
-    currentFocus: decodeEasyCurrentFocus(requireField(record, "currentFocus", "EasyRun")),
-    conversationId: decodeString(requireField(record, "conversationId", "EasyRun"), "EasyRun.conversationId"),
-    startedAt: decodeString(requireField(record, "startedAt", "EasyRun"), "EasyRun.startedAt"),
-    endedAt: decodeNullable(requireField(record, "endedAt", "EasyRun"), "EasyRun.endedAt", (item) => decodeString(item, "EasyRun.endedAt")),
-    summary: decodeNullable(requireField(record, "summary", "EasyRun"), "EasyRun.summary", (item) => decodeString(item, "EasyRun.summary")),
-    error: decodeNullable(requireField(record, "error", "EasyRun"), "EasyRun.error", (item) => decodeString(item, "EasyRun.error")),
-    narratorStatus: decodeEasyRunNarratorStatus(requireField(record, "narratorStatus", "EasyRun"), "EasyRun.narratorStatus"),
-    activeAgentCount: decodeInteger(requireField(record, "activeAgentCount", "EasyRun"), "EasyRun.activeAgentCount"),
-    artifactCount: decodeInteger(requireField(record, "artifactCount", "EasyRun"), "EasyRun.artifactCount"),
-    highlightCount: decodeInteger(requireField(record, "highlightCount", "EasyRun"), "EasyRun.highlightCount"),
-  };
-}
-
-export function decodeEasyHighlight(value: unknown): EasyHighlight {
-  const record = assertRecord(value, "EasyHighlight");
-  assertKnownFields(record, "EasyHighlight", ["id", "easyRunId", "ordinal", "text", "at"]);
-  return {
-    id: decodeString(requireField(record, "id", "EasyHighlight"), "EasyHighlight.id"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "EasyHighlight"), "EasyHighlight.easyRunId"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "EasyHighlight"), "EasyHighlight.ordinal"),
-    text: decodeString(requireField(record, "text", "EasyHighlight"), "EasyHighlight.text"),
-    at: decodeString(requireField(record, "at", "EasyHighlight"), "EasyHighlight.at"),
-  };
-}
-
-export function decodeEasyMarkdownArtifactPayload(value: unknown): EasyMarkdownArtifactPayload {
-  const record = assertRecord(value, "EasyMarkdownArtifactPayload");
-  assertKnownFields(record, "EasyMarkdownArtifactPayload", ["markdown"]);
-  return {
-    markdown: decodeString(requireField(record, "markdown", "EasyMarkdownArtifactPayload"), "EasyMarkdownArtifactPayload.markdown"),
-  };
-}
-
-export function decodeEasyArtifactTableColumn(value: unknown): EasyArtifactTableColumn {
-  const record = assertRecord(value, "EasyArtifactTableColumn");
-  assertKnownFields(record, "EasyArtifactTableColumn", ["key", "label"]);
-  return {
-    key: decodeString(requireField(record, "key", "EasyArtifactTableColumn"), "EasyArtifactTableColumn.key"),
-    label: decodeString(requireField(record, "label", "EasyArtifactTableColumn"), "EasyArtifactTableColumn.label"),
-  };
-}
-
-export function decodeEasyTableArtifactPayload(value: unknown): EasyTableArtifactPayload {
-  const record = assertRecord(value, "EasyTableArtifactPayload");
-  assertKnownFields(record, "EasyTableArtifactPayload", ["columns", "rows"]);
-  return {
-    columns: decodeArray(requireField(record, "columns", "EasyTableArtifactPayload"), "EasyTableArtifactPayload.columns", (item) => decodeEasyArtifactTableColumn(item)),
-    rows: decodeArray(requireField(record, "rows", "EasyTableArtifactPayload"), "EasyTableArtifactPayload.rows", (item) => decodeArray(item, "EasyTableArtifactPayload.rows item", (item) => decodeString(item, "EasyTableArtifactPayload.rows item item"))),
-  };
-}
-
-export function decodeEasyArtifactBarChartItem(value: unknown): EasyArtifactBarChartItem {
-  const record = assertRecord(value, "EasyArtifactBarChartItem");
-  assertKnownFields(record, "EasyArtifactBarChartItem", ["label", "value", "unit"]);
-  return {
-    label: decodeString(requireField(record, "label", "EasyArtifactBarChartItem"), "EasyArtifactBarChartItem.label"),
-    value: decodeNumber(requireField(record, "value", "EasyArtifactBarChartItem"), "EasyArtifactBarChartItem.value"),
-    unit: decodeNullable(requireField(record, "unit", "EasyArtifactBarChartItem"), "EasyArtifactBarChartItem.unit", (item) => decodeString(item, "EasyArtifactBarChartItem.unit")),
-  };
-}
-
-export function decodeEasyBarChartArtifactPayload(value: unknown): EasyBarChartArtifactPayload {
-  const record = assertRecord(value, "EasyBarChartArtifactPayload");
-  assertKnownFields(record, "EasyBarChartArtifactPayload", ["items"]);
-  return {
-    items: decodeArray(requireField(record, "items", "EasyBarChartArtifactPayload"), "EasyBarChartArtifactPayload.items", (item) => decodeEasyArtifactBarChartItem(item)),
-  };
-}
-
-export function decodeEasyFileArtifactPayload(value: unknown): EasyFileArtifactPayload {
-  const record = assertRecord(value, "EasyFileArtifactPayload");
-  assertKnownFields(record, "EasyFileArtifactPayload", ["path", "description"]);
-  return {
-    path: decodeString(requireField(record, "path", "EasyFileArtifactPayload"), "EasyFileArtifactPayload.path"),
-    description: decodeNullable(requireField(record, "description", "EasyFileArtifactPayload"), "EasyFileArtifactPayload.description", (item) => decodeString(item, "EasyFileArtifactPayload.description")),
-  };
-}
-
-export function decodeEasyArtifact(value: unknown): EasyArtifact {
-  const record = assertRecord(value, "EasyArtifact");
-  assertKnownFields(record, "EasyArtifact", ["id", "easyRunId", "ordinal", "kind", "title", "kicker", "createdAt", "markdown", "table", "barChart", "file"]);
-  const result: EasyArtifact = {
-    id: decodeString(requireField(record, "id", "EasyArtifact"), "EasyArtifact.id"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "EasyArtifact"), "EasyArtifact.easyRunId"),
-    ordinal: decodeInteger(requireField(record, "ordinal", "EasyArtifact"), "EasyArtifact.ordinal"),
-    kind: decodeEasyArtifactKind(requireField(record, "kind", "EasyArtifact"), "EasyArtifact.kind"),
-    title: decodeString(requireField(record, "title", "EasyArtifact"), "EasyArtifact.title"),
-    kicker: decodeNullable(requireField(record, "kicker", "EasyArtifact"), "EasyArtifact.kicker", (item) => decodeString(item, "EasyArtifact.kicker")),
-    createdAt: decodeString(requireField(record, "createdAt", "EasyArtifact"), "EasyArtifact.createdAt"),
-    markdown: decodeNullable(requireField(record, "markdown", "EasyArtifact"), "EasyArtifact.markdown", (item) => decodeEasyMarkdownArtifactPayload(item)),
-    table: decodeNullable(requireField(record, "table", "EasyArtifact"), "EasyArtifact.table", (item) => decodeEasyTableArtifactPayload(item)),
-    barChart: decodeNullable(requireField(record, "barChart", "EasyArtifact"), "EasyArtifact.barChart", (item) => decodeEasyBarChartArtifactPayload(item)),
-    file: decodeNullable(requireField(record, "file", "EasyArtifact"), "EasyArtifact.file", (item) => decodeEasyFileArtifactPayload(item)),
-  };
-  assertTaggedUnionBranch("EasyArtifact", result.kind, {
-    "markdown": result.markdown,
-    "table": result.table,
-    "bar_chart": result.barChart,
-    "file": result.file,
-  });
-  return result;
-}
-
-export function decodeEasyRunEventCursor(value: unknown): EasyRunEventCursor {
-  const record = assertRecord(value, "EasyRunEventCursor");
-  assertKnownFields(record, "EasyRunEventCursor", ["streamId", "sequence"]);
-  return {
-    streamId: decodeString(requireField(record, "streamId", "EasyRunEventCursor"), "EasyRunEventCursor.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "EasyRunEventCursor"), "EasyRunEventCursor.sequence"),
-  };
-}
-
-export function decodeEasyRunSnapshot(value: unknown): EasyRunSnapshot {
-  const record = assertRecord(value, "EasyRunSnapshot");
-  assertKnownFields(record, "EasyRunSnapshot", ["latestRun", "highlights", "artifacts", "eventStreamCursor"]);
-  return {
-    latestRun: decodeNullable(requireField(record, "latestRun", "EasyRunSnapshot"), "EasyRunSnapshot.latestRun", (item) => decodeEasyRun(item)),
-    highlights: decodeArray(requireField(record, "highlights", "EasyRunSnapshot"), "EasyRunSnapshot.highlights", (item) => decodeEasyHighlight(item)),
-    artifacts: decodeArray(requireField(record, "artifacts", "EasyRunSnapshot"), "EasyRunSnapshot.artifacts", (item) => decodeEasyArtifact(item)),
-    eventStreamCursor: decodeEasyRunEventCursor(requireField(record, "eventStreamCursor", "EasyRunSnapshot")),
-  };
-}
-
-export function decodeStartEasyRunRequest(value: unknown): StartEasyRunRequest {
-  const record = assertRecord(value, "StartEasyRunRequest");
-  assertKnownFields(record, "StartEasyRunRequest", ["workspaceId", "requestText"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "StartEasyRunRequest"), "StartEasyRunRequest.workspaceId"),
-    requestText: decodeString(requireField(record, "requestText", "StartEasyRunRequest"), "StartEasyRunRequest.requestText"),
-  };
-}
-
-export function decodeSteerEasyRunRequest(value: unknown): SteerEasyRunRequest {
-  const record = assertRecord(value, "SteerEasyRunRequest");
-  assertKnownFields(record, "SteerEasyRunRequest", ["workspaceId", "text"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SteerEasyRunRequest"), "SteerEasyRunRequest.workspaceId"),
-    text: decodeString(requireField(record, "text", "SteerEasyRunRequest"), "SteerEasyRunRequest.text"),
-  };
-}
-
-export function decodeStopEasyRunRequest(value: unknown): StopEasyRunRequest {
-  const record = assertRecord(value, "StopEasyRunRequest");
-  assertKnownFields(record, "StopEasyRunRequest", ["workspaceId", "easyRunId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "StopEasyRunRequest"), "StopEasyRunRequest.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "StopEasyRunRequest"), "StopEasyRunRequest.easyRunId"),
-  };
-}
-
-export function decodeEasyRunUpdatedPayload(value: unknown): EasyRunUpdatedPayload {
-  const record = assertRecord(value, "EasyRunUpdatedPayload");
-  assertKnownFields(record, "EasyRunUpdatedPayload", ["run"]);
-  return {
-    run: decodeEasyRun(requireField(record, "run", "EasyRunUpdatedPayload")),
-  };
-}
-
-export function decodeEasyHighlightCreatedPayload(value: unknown): EasyHighlightCreatedPayload {
-  const record = assertRecord(value, "EasyHighlightCreatedPayload");
-  assertKnownFields(record, "EasyHighlightCreatedPayload", ["highlight"]);
-  return {
-    highlight: decodeEasyHighlight(requireField(record, "highlight", "EasyHighlightCreatedPayload")),
-  };
-}
-
-export function decodeEasyArtifactCreatedPayload(value: unknown): EasyArtifactCreatedPayload {
-  const record = assertRecord(value, "EasyArtifactCreatedPayload");
-  assertKnownFields(record, "EasyArtifactCreatedPayload", ["artifact"]);
-  return {
-    artifact: decodeEasyArtifact(requireField(record, "artifact", "EasyArtifactCreatedPayload")),
-  };
-}
-
-export function decodeEasyRunResyncRequired(value: unknown): EasyRunResyncRequired {
-  const record = assertRecord(value, "EasyRunResyncRequired");
-  assertKnownFields(record, "EasyRunResyncRequired", ["reason", "requestedStreamId", "requestedSequence", "currentStreamId", "currentSequence", "earliestSequence"]);
-  return {
-    reason: decodeString(requireField(record, "reason", "EasyRunResyncRequired"), "EasyRunResyncRequired.reason"),
-    requestedStreamId: decodeString(requireField(record, "requestedStreamId", "EasyRunResyncRequired"), "EasyRunResyncRequired.requestedStreamId"),
-    requestedSequence: decodeInteger(requireField(record, "requestedSequence", "EasyRunResyncRequired"), "EasyRunResyncRequired.requestedSequence"),
-    currentStreamId: decodeString(requireField(record, "currentStreamId", "EasyRunResyncRequired"), "EasyRunResyncRequired.currentStreamId"),
-    currentSequence: decodeInteger(requireField(record, "currentSequence", "EasyRunResyncRequired"), "EasyRunResyncRequired.currentSequence"),
-    earliestSequence: decodeInteger(requireField(record, "earliestSequence", "EasyRunResyncRequired"), "EasyRunResyncRequired.earliestSequence"),
-  };
-}
-
-export function decodeEasyRunEvent(value: unknown): EasyRunEvent {
-  const record = assertRecord(value, "EasyRunEvent");
-  assertKnownFields(record, "EasyRunEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "easyRunId", "runUpdated", "highlightCreated", "artifactCreated", "resyncRequired"]);
-  const result: EasyRunEvent = {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "EasyRunEvent"), "EasyRunEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "EasyRunEvent"), "EasyRunEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "EasyRunEvent"), "EasyRunEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "EasyRunEvent"), "EasyRunEvent.eventId"),
-    type: decodeEasyRunEventType(requireField(record, "type", "EasyRunEvent"), "EasyRunEvent.type"),
-    emittedAt: decodeString(requireField(record, "emittedAt", "EasyRunEvent"), "EasyRunEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "EasyRunEvent"), "EasyRunEvent.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "EasyRunEvent"), "EasyRunEvent.easyRunId"),
-    runUpdated: decodeNullable(requireField(record, "runUpdated", "EasyRunEvent"), "EasyRunEvent.runUpdated", (item) => decodeEasyRunUpdatedPayload(item)),
-    highlightCreated: decodeNullable(requireField(record, "highlightCreated", "EasyRunEvent"), "EasyRunEvent.highlightCreated", (item) => decodeEasyHighlightCreatedPayload(item)),
-    artifactCreated: decodeNullable(requireField(record, "artifactCreated", "EasyRunEvent"), "EasyRunEvent.artifactCreated", (item) => decodeEasyArtifactCreatedPayload(item)),
-    resyncRequired: decodeNullable(requireField(record, "resyncRequired", "EasyRunEvent"), "EasyRunEvent.resyncRequired", (item) => decodeEasyRunResyncRequired(item)),
-  };
-  assertTaggedUnionBranch("EasyRunEvent", result.type, {
-    "easyrun.run.updated": result.runUpdated,
-    "easyrun.highlight.created": result.highlightCreated,
-    "easyrun.artifact.created": result.artifactCreated,
-    "easyrun.resync_required": result.resyncRequired,
-  });
-  return result;
-}
-
 export function decodeCreateTopicConversationRequest(value: unknown): CreateTopicConversationRequest {
   const record = assertRecord(value, "CreateTopicConversationRequest");
   assertKnownFields(record, "CreateTopicConversationRequest", ["workspaceId", "title"]);
@@ -11420,36 +10888,6 @@ export function decodeSpeechTranscriptionSession(value: unknown): SpeechTranscri
   };
 }
 
-export function decodeSynthesizeEasyRunSummaryRequest(value: unknown): SynthesizeEasyRunSummaryRequest {
-  const record = assertRecord(value, "SynthesizeEasyRunSummaryRequest");
-  assertKnownFields(record, "SynthesizeEasyRunSummaryRequest", ["workspaceId", "easyRunId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SynthesizeEasyRunSummaryRequest"), "SynthesizeEasyRunSummaryRequest.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "SynthesizeEasyRunSummaryRequest"), "SynthesizeEasyRunSummaryRequest.easyRunId"),
-  };
-}
-
-export function decodeSpeechAudio(value: unknown): SpeechAudio {
-  const record = assertRecord(value, "SpeechAudio");
-  assertKnownFields(record, "SpeechAudio", ["audioBase64", "mediaType", "format", "sourceId"]);
-  return {
-    audioBase64: decodeString(requireField(record, "audioBase64", "SpeechAudio"), "SpeechAudio.audioBase64"),
-    mediaType: decodeString(requireField(record, "mediaType", "SpeechAudio"), "SpeechAudio.mediaType"),
-    format: decodeString(requireField(record, "format", "SpeechAudio"), "SpeechAudio.format"),
-    sourceId: decodeString(requireField(record, "sourceId", "SpeechAudio"), "SpeechAudio.sourceId"),
-  };
-}
-
-export function decodeSynthesizeEasyRunHighlightRequest(value: unknown): SynthesizeEasyRunHighlightRequest {
-  const record = assertRecord(value, "SynthesizeEasyRunHighlightRequest");
-  assertKnownFields(record, "SynthesizeEasyRunHighlightRequest", ["workspaceId", "easyRunId", "highlightId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SynthesizeEasyRunHighlightRequest"), "SynthesizeEasyRunHighlightRequest.workspaceId"),
-    easyRunId: decodeString(requireField(record, "easyRunId", "SynthesizeEasyRunHighlightRequest"), "SynthesizeEasyRunHighlightRequest.easyRunId"),
-    highlightId: decodeString(requireField(record, "highlightId", "SynthesizeEasyRunHighlightRequest"), "SynthesizeEasyRunHighlightRequest.highlightId"),
-  };
-}
-
 export function decodeListConversationsRequest(value: unknown): ListConversationsRequest {
   const record = assertRecord(value, "ListConversationsRequest");
   assertKnownFields(record, "ListConversationsRequest", ["workspaceId"]);
@@ -11531,17 +10969,9 @@ export function decodeConversationWorkflowMetadata(value: unknown): Conversation
   };
 }
 
-export function decodeConversationEasyRunMetadata(value: unknown): ConversationEasyRunMetadata {
-  const record = assertRecord(value, "ConversationEasyRunMetadata");
-  assertKnownFields(record, "ConversationEasyRunMetadata", ["easyRunId"]);
-  return {
-    easyRunId: decodeString(requireField(record, "easyRunId", "ConversationEasyRunMetadata"), "ConversationEasyRunMetadata.easyRunId"),
-  };
-}
-
 export function decodeConversation(value: unknown): Conversation {
   const record = assertRecord(value, "Conversation");
-  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow", "easyRun"]);
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "codexEffectiveSettings", "harnessRefs", "workflow"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
     id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
@@ -11555,7 +10985,6 @@ export function decodeConversation(value: unknown): Conversation {
     codexEffectiveSettings: decodeNullable(requireField(record, "codexEffectiveSettings", "Conversation"), "Conversation.codexEffectiveSettings", (item) => decodeChatCodexEffectiveSettings(item)),
     harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
     workflow: decodeNullable(requireField(record, "workflow", "Conversation"), "Conversation.workflow", (item) => decodeConversationWorkflowMetadata(item)),
-    easyRun: decodeNullable(requireField(record, "easyRun", "Conversation"), "Conversation.easyRun", (item) => decodeConversationEasyRunMetadata(item)),
   };
 }
 
@@ -16290,10 +15719,6 @@ export interface BackendClient {
   saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayout>;
   readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest, options?: BackendRequestOptions) => Promise<ReadWorkspaceActivitySnapshotResponse>;
   readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest, options?: BackendRequestOptions) => Promise<ReadWorkflowExecutionActivityResponse>;
-  readEasyRunSnapshot: (request: ReadEasyRunSnapshotRequest, options?: BackendRequestOptions) => Promise<EasyRunSnapshot>;
-  startEasyRun: (request: StartEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
-  steerEasyRun: (request: SteerEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
-  stopEasyRun: (request: StopEasyRunRequest, options?: BackendRequestOptions) => Promise<EasyRun>;
   createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   listTopicConversations: (request: ListTopicConversationsRequest, options?: BackendRequestOptions) => Promise<NavigatorPage>;
@@ -16304,8 +15729,6 @@ export interface BackendClient {
   submitTopicConversationApproval: (request: SubmitTopicConversationApprovalRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
-  synthesizeEasyRunSummary: (request: SynthesizeEasyRunSummaryRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
-  synthesizeEasyRunHighlight: (request: SynthesizeEasyRunHighlightRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
   listConversations: (request: ListConversationsRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest, options?: BackendRequestOptions) => Promise<Conversation>;
   deleteConversation: (request: DeleteConversationRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
@@ -16634,42 +16057,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
       signal: options?.signal,
     }),
-    readEasyRunSnapshot: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRunSnapshot,
-      endpoint: backendEndpoints.ReadEasyRunSnapshot,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    startEasyRun: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRun,
-      endpoint: backendEndpoints.StartEasyRun,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    steerEasyRun: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRun,
-      endpoint: backendEndpoints.SteerEasyRun,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    stopEasyRun: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEasyRun,
-      endpoint: backendEndpoints.StopEasyRun,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
     createTopicConversation: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -16756,24 +16143,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechTranscriptionSession,
       endpoint: backendEndpoints.CreateSpeechTranscriptionSession,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    synthesizeEasyRunSummary: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechAudio,
-      endpoint: backendEndpoints.SynthesizeEasyRunSummary,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    synthesizeEasyRunHighlight: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechAudio,
-      endpoint: backendEndpoints.SynthesizeEasyRunHighlight,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

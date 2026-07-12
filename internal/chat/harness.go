@@ -98,8 +98,6 @@ type HarnessOutputContractKind string
 const (
 	HarnessSurfaceMasterChat           HarnessSurface = "master_chat"
 	HarnessSurfaceWorkflowAgent        HarnessSurface = "workflow_agent"
-	HarnessSurfaceEasyRun              HarnessSurface = "easy_run"
-	HarnessSurfaceEasyRunNarrator      HarnessSurface = "easy_run_narrator"
 	HarnessSurfaceSemanticCartographer HarnessSurface = "semantic_cartographer"
 
 	HarnessTurnInteractiveConversation HarnessTurnMode = "interactive_conversation"
@@ -110,12 +108,7 @@ const (
 )
 
 func isStructuredHarnessSurface(surface HarnessSurface) bool {
-	switch surface {
-	case HarnessSurfaceSemanticCartographer, HarnessSurfaceEasyRunNarrator:
-		return true
-	default:
-		return false
-	}
+	return surface == HarnessSurfaceSemanticCartographer
 }
 
 type HarnessTaskRequest struct {
@@ -213,7 +206,7 @@ func runConversationHarnessTask(
 		return HarnessTaskResult{}, fmt.Errorf("%w: output contract %s", ErrUnsupportedHarnessTask, request.OutputContract.Kind)
 	}
 	switch request.Surface {
-	case HarnessSurfaceMasterChat, HarnessSurfaceWorkflowAgent, HarnessSurfaceEasyRun:
+	case HarnessSurfaceMasterChat, HarnessSurfaceWorkflowAgent:
 	default:
 		return HarnessTaskResult{}, fmt.Errorf("%w: surface %s", ErrUnsupportedHarnessTask, request.Surface)
 	}

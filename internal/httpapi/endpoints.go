@@ -10,7 +10,6 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
-	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
 	"setta/internal/speech"
@@ -75,11 +74,6 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkspaceActivitySnapshotRequest, ReadWorkspaceActivitySnapshotResponse]("ReadWorkspaceActivitySnapshot", "/workspace-activity/snapshot", handler.readWorkspaceActivitySnapshot),
 	post[ReadWorkflowExecutionActivityRequest, ReadWorkflowExecutionActivityResponse]("ReadWorkflowExecutionActivity", "/workspace-activity/execution-snapshot", handler.readWorkflowExecutionActivity),
 	streamEvent[workspaceactivity.WorkspaceActivityEvent]("WorkspaceActivityEventStream", "/workspace-activity/events", handler.workspaceActivityEventStream),
-	getWithQuery[ReadEasyRunSnapshotRequest, easyrun.EasyRunSnapshot]("ReadEasyRunSnapshot", "/easy-runs/snapshot", handler.readEasyRunSnapshot),
-	post[StartEasyRunRequest, easyrun.EasyRun]("StartEasyRun", "/easy-runs/start", handler.startEasyRun),
-	post[SteerEasyRunRequest, easyrun.EasyRun]("SteerEasyRun", "/easy-runs/steer", handler.steerEasyRun),
-	post[StopEasyRunRequest, easyrun.EasyRun]("StopEasyRun", "/easy-runs/stop", handler.stopEasyRun),
-	streamEvent[easyrun.EasyRunEvent]("EasyRunEventStream", "/easy-runs/events", handler.easyRunEventStream),
 	post[CreateTopicConversationRequest, conversation.ConversationSnapshot]("CreateTopicConversation", "/conversations/create", handler.createTopicConversation),
 	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),
 	post[ListTopicConversationsRequest, conversation.NavigatorPage]("ListTopicConversations", "/conversations/navigator/list", handler.listTopicConversations),
@@ -91,8 +85,6 @@ var apiEndpoints = []endpoint{
 	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
 	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
 	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),
-	postWithRequestBodyLimit[SynthesizeEasyRunSummaryRequest, speech.SpeechAudio]("SynthesizeEasyRunSummary", "/speech/easy-runs/summary", speechRequestBodyLimitBytes, handler.synthesizeEasyRunSummary),
-	postWithRequestBodyLimit[SynthesizeEasyRunHighlightRequest, speech.SpeechAudio]("SynthesizeEasyRunHighlight", "/speech/easy-runs/highlight", speechRequestBodyLimitBytes, handler.synthesizeEasyRunHighlight),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),
@@ -260,19 +252,6 @@ func get[Response any](name string, path string, handler routeHandler) endpoint 
 			Name:     name,
 			Method:   http.MethodGet,
 			Path:     path,
-			Response: reflect.TypeFor[Response](),
-		},
-		Handler: handler,
-	}
-}
-
-func getWithQuery[Request any, Response any](name string, path string, handler routeHandler) endpoint {
-	return endpoint{
-		ContractEndpoint: ContractEndpoint{
-			Name:     name,
-			Method:   http.MethodGet,
-			Path:     path,
-			Request:  reflect.TypeFor[Request](),
 			Response: reflect.TypeFor[Response](),
 		},
 		Handler: handler,

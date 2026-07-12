@@ -349,7 +349,6 @@ type Conversation struct {
 	CodexEffectiveSettings *ChatCodexEffectiveSettings   `json:"codexEffectiveSettings"`
 	HarnessRefs            []HarnessThreadRef            `json:"harnessRefs"`
 	Workflow               *ConversationWorkflowMetadata `json:"workflow"`
-	EasyRun                *ConversationEasyRunMetadata  `json:"easyRun"`
 }
 
 type ChatCodexSettings struct {
@@ -373,10 +372,6 @@ type ConversationWorkflowMetadata struct {
 	ExecutionID         string `json:"executionId"`
 	NodeID              string `json:"nodeId"`
 	NodeExecutionID     string `json:"nodeExecutionId"`
-}
-
-type ConversationEasyRunMetadata struct {
-	EasyRunID string `json:"easyRunId"`
 }
 
 type ChatMessage struct {

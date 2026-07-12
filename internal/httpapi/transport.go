@@ -10,7 +10,6 @@ import (
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/conversation"
-	"setta/internal/easyrun"
 	"setta/internal/jsonio"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
@@ -55,14 +54,6 @@ func requireAppearanceService(response http.ResponseWriter, service AppearanceSe
 func requireChatService(response http.ResponseWriter, service ChatService) ChatService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "chat_service_unavailable", "chat service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireEasyRunService(response http.ResponseWriter, service EasyRunService) EasyRunService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "easy_run_service_unavailable", "easy-run service is not available")
 		return nil
 	}
 	return service
@@ -236,26 +227,6 @@ func writeChatError(response http.ResponseWriter, code string, err error) {
 	writeError(response, status, code, err.Error())
 }
 
-func writeEasyRunError(response http.ResponseWriter, code string, err error) {
-	if easyrun.IsAcceptedSteeringFocusUpdateError(err) {
-		writeAPIError(response, http.StatusInternalServerError, APIError{
-			Code:             code,
-			Message:          err.Error(),
-			OperationApplied: true,
-		})
-		return
-	}
-	status := http.StatusBadRequest
-	if easyrun.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_easy_run_state", err.Error())
-		return
-	}
-	if easyrun.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, code, err.Error())
-}
-
 func writeConversationError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
 	if conversation.IsConversationNotFound(err) {
@@ -280,15 +251,7 @@ func writeSpeechError(response http.ResponseWriter, fallbackCode string, err err
 		writeError(response, speechErrorHTTPStatus(speechError.Code), string(speechError.Code), speechError.Error())
 		return
 	}
-	if easyrun.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_easy_run_state", err.Error())
-		return
-	}
-	status := http.StatusBadRequest
-	if easyrun.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, fallbackCode, err.Error())
+	writeError(response, http.StatusBadRequest, fallbackCode, err.Error())
 }
 
 func speechErrorHTTPStatus(code speech.ErrorCode) int {

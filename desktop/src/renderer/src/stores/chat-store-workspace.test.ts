@@ -139,7 +139,6 @@ function conversation(id: string, workspaceId: string): Conversation {
     title: id,
     updatedAt: "2026-05-29T20:00:00Z",
     workflow: null,
-    easyRun: null,
     workspaceId,
   };
 }

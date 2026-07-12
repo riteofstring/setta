@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"setta/internal/easyrun"
 	"setta/internal/httpapi"
 	"setta/internal/speech"
 )
@@ -21,7 +19,6 @@ func TestRuntimeKeepsSpeechSecretsAndAudioOutOfOutputAndPersistence(t *testing.T
 
 	config := testConfig(t)
 	appDataDir := config.AppDataDir
-	config.ChatHarness = ChatHarnessScriptedWorkflow
 	config.Speech = speech.OpenAIClientConfig{
 		APIKey:           runtimeSpeechAPIKey,
 		BaseURL:          provider.URL + "/v1",
@@ -65,48 +62,19 @@ func TestRuntimeKeepsSpeechSecretsAndAudioOutOfOutputAndPersistence(t *testing.T
 	if session.ClientSecret != runtimeSpeechTranscriptionSecret {
 		t.Fatal("runtime returned an unexpected transcription client secret")
 	}
-	started := postRuntimeJSON[easyrun.EasyRun](t, client, baseURL, "/easy-runs/start", httpapi.StartEasyRunRequest{
-		WorkspaceID: opened.Workspace.ID,
-		RequestText: "easy run phase4 narrator workflow",
-	}, http.StatusOK)
-	waitForRuntimeSpeechSource(t, client, baseURL, opened.Workspace.ID, started.ID)
-	audio := postRuntimeJSON[speech.SpeechAudio](t, client, baseURL, "/speech/easy-runs/summary", httpapi.SynthesizeEasyRunSummaryRequest{
-		WorkspaceID: opened.Workspace.ID,
-		EasyRunID:   started.ID,
-	}, http.StatusOK)
-	assertRuntimeSpeechAudio(t, audio, started.ID)
-
-	provider.RejectSynthesis()
-	failure := postRuntimeJSON[httpapi.ErrorResponse](t, client, baseURL, "/speech/easy-runs/summary", httpapi.SynthesizeEasyRunSummaryRequest{
-		WorkspaceID: opened.Workspace.ID,
-		EasyRunID:   started.ID,
-	}, http.StatusServiceUnavailable)
-	if failure.Error.Code != string(speech.ErrorProviderUnavailable) || failure.Error.OperationApplied {
-		t.Fatalf("provider failure = %+v", failure.Error)
-	}
-	failureJSON, err := json.Marshal(failure)
-	if err != nil {
-		t.Fatalf("encode safe provider failure: %v", err)
-	}
-
 	shutdownServer(t, server)
 	serverStopped = true
 	markers := runtimeSpeechPrivateMarkers()
 	assertNoRuntimeSpeechMarkers(t, "runtime stdout", stdout.Bytes(), markers)
 	assertNoRuntimeSpeechMarkers(t, "runtime stderr", stderr.Bytes(), markers)
-	assertNoRuntimeSpeechMarkers(t, "speech failure response", failureJSON, markers)
 	assertNoRuntimeSpeechMarkersInDirectory(t, appDataDir, markers)
 	assertNoRuntimeSpeechMarkersInDirectory(t, workspaceRoot, markers)
 }
 
 func runtimeSpeechPrivateMarkers() map[string][]byte {
-	audio := runtimeSpeechWAV()
 	return map[string][]byte{
-		"permanent API key":   []byte(runtimeSpeechAPIKey),
-		"client secret":       []byte(runtimeSpeechTranscriptionSecret),
-		"provider body":       []byte(runtimeSpeechProviderFailureBody),
-		"raw generated audio": audio,
-		"base64 audio":        []byte(base64.StdEncoding.EncodeToString(audio)),
+		"permanent API key": []byte(runtimeSpeechAPIKey),
+		"client secret":     []byte(runtimeSpeechTranscriptionSecret),
 	}
 }
 
