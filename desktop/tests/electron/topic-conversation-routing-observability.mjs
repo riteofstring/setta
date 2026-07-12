@@ -34,6 +34,7 @@ export async function assertRecordedConversationRouteObservability({
       },
       conversationId: payload.conversationId,
       decisionKind: payload.decision.kind,
+      executionStatus: payload.executionStatus,
       inputId: payload.inputId,
       inputModality: payload.inputModality,
       inputTextBytes: payload.inputTextBytes,
@@ -52,7 +53,10 @@ export async function assertRecordedConversationRouteObservability({
     },
     {
       callKind: "input_route",
-      clarification: conversationClarificationSummary(routeState.clarificationReply),
+      clarification:
+        record.clarificationInputId === null
+          ? null
+          : conversationClarificationSummary(routeState.clarificationReply),
       context: {
         allowedDecisionKinds: record.routerContext.allowedDecisionKinds,
         inputSequence: record.routerContext.inputSequence,
@@ -60,6 +64,8 @@ export async function assertRecordedConversationRouteObservability({
       },
       conversationId: record.conversationId,
       decisionKind: record.decision.kind,
+      executionStatus:
+        record.resultingCommand.kind === "clarify" ? "awaiting_clarification" : "dispatched",
       inputId: record.inputId,
       inputModality: routeState.input.input.modality,
       inputTextBytes: Buffer.byteLength(inputText, "utf8"),
@@ -180,7 +186,9 @@ export async function assertRecordedMasterRouteObservability({
     },
     "master presentation recording observability",
   );
-  assertPrivateTextOmitted(event, [inputText, routeRecord.context.candidateQuery]);
+  const privateTexts = masterPrivateTexts(routeRecord, inputText);
+  assertPrivateTextOmitted(event, privateTexts);
+  assertPrivateTextOmitted(presentation, privateTexts);
   return { presentation, route: event };
 }
 
@@ -228,7 +236,79 @@ function conversationPrivateTexts(routeState, inputText) {
   if (routeState.clarificationReply !== null) {
     values.push(routeState.clarificationReply.input.text);
   }
+  for (const record of routeState.decisions) {
+    values.push(...conversationRouteTexts(record.decision));
+    values.push(...conversationRouteTexts(record.resultingCommand));
+  }
   return values;
+}
+
+const conversationRouteTextReaders = Object.freeze({
+  answer_as_narrator: (route) => [route.answerAsNarrator?.question],
+  clarify: (route) => [route.clarify?.question],
+  create_side_conversation: (route) => [route.createSideConversation?.input?.text],
+  escalate_to_master: (route) => [route.escalateToMaster?.input?.text],
+  fork_conversation: (route) => [
+    route.forkConversation?.input?.text,
+    route.forkConversation?.proposedTitle,
+  ],
+  queue_parent_turn: (route) => [route.queueParentTurn?.authoredInput?.text],
+  send_to_parent: (route) => [route.sendToParent?.authoredInput?.text],
+  steer_parent_turn: (route) => [route.steerParentTurn?.authoredInput?.text],
+});
+
+function conversationRouteTexts(route) {
+  const read = conversationRouteTextReaders[route.kind];
+  if (!read) {
+    throw new Error(`unsupported conversation route kind ${String(route.kind)}`);
+  }
+  return read(route);
+}
+
+function masterPrivateTexts(routeRecord, inputText) {
+  return [
+    inputText,
+    routeRecord.context.candidateQuery,
+    ...masterRouteTexts(routeRecord.decision),
+    ...masterRouteTexts(routeRecord.resultingCommand),
+  ];
+}
+
+const masterRouteTextReaders = Object.freeze({
+  answer_global: (route) => [route.answerGlobal?.text],
+  ask_narrator: (route) => [route.askNarrator?.question, route.askNarrator?.target?.title],
+  clarify: (route) => [route.clarify?.question],
+  create_conversation: (route) => [
+    route.createConversation?.initialInput,
+    route.createConversation?.proposedTitle,
+    route.createConversation?.target?.title,
+  ],
+  create_side_conversation: (route) => [
+    route.createSideConversation?.input,
+    route.createSideConversation?.target?.title,
+  ],
+  focus_conversation: (route) => [route.focusConversation?.target?.title],
+  fork_conversation: (route) => [
+    route.forkConversation?.input,
+    route.forkConversation?.target?.title,
+  ],
+  queue_agent_turn: (route) => [
+    route.queueAgentTurn?.authoredInput,
+    route.queueAgentTurn?.target?.title,
+  ],
+  send_to_agent: (route) => [route.sendToAgent?.authoredInput, route.sendToAgent?.target?.title],
+  steer_active_turn: (route) => [
+    route.steerActiveTurn?.authoredInput,
+    route.steerActiveTurn?.target?.title,
+  ],
+});
+
+function masterRouteTexts(route) {
+  const read = masterRouteTextReaders[route.kind];
+  if (!read) {
+    throw new Error(`unsupported master route kind ${String(route.kind)}`);
+  }
+  return read(route);
 }
 
 function routeOrigin(value) {

@@ -39,6 +39,7 @@ export function registerConversationIpcHandlers({
       observeConversationInputState(
         requireBackendClient().discardConversationInput(request),
         routingObservability,
+        request.inputId,
       ),
     ipcObserver,
   );
@@ -55,6 +56,7 @@ export function registerConversationIpcHandlers({
       observeConversationInputState(
         requireBackendClient().readConversationInputRoutingState(request),
         routingObservability,
+        request.inputId,
       ),
     ipcObserver,
   );
@@ -65,6 +67,7 @@ export function registerConversationIpcHandlers({
       observeConversationInputState(
         requireBackendClient().waitConversationInputRoutingState(request),
         routingObservability,
+        request.inputId,
       ),
     ipcObserver,
   );
@@ -81,6 +84,7 @@ export function registerConversationIpcHandlers({
       observeConversationInputState(
         requireBackendClient().retryConversationInput(request),
         routingObservability,
+        request.inputId,
       ),
     ipcObserver,
   );
@@ -138,8 +142,16 @@ export function registerConversationIpcHandlers({
 async function observeConversationInputState(
   pending: Promise<ConversationInputRoutingState>,
   routingObservability: RoutingObservationRecorder | undefined,
+  inputId: string,
 ): Promise<ConversationInputRoutingState> {
   const state = await pending;
-  routingObservability?.recordConversationInputRoutingState(state);
+  if (routingObservability === undefined) {
+    return state;
+  }
+  try {
+    routingObservability.recordConversationInputRoutingState(state);
+  } catch (error) {
+    routingObservability.recordRoutingObservationFailure("conversation", inputId, error);
+  }
   return state;
 }

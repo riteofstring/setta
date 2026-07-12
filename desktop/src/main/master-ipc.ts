@@ -3,6 +3,7 @@ import type { IpcMain } from "electron";
 import type {
   ActiveShellInteraction,
   BackendClient,
+  PresentationIntent,
   ShellInteractionState,
 } from "@generated/backend";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
@@ -75,7 +76,7 @@ export function registerMasterIpcHandlers({
         observedMasterInputIds,
         request.inputId,
       );
-      routingObservability?.recordMasterPresentationIntent(intent);
+      observeMasterPresentation(routingObservability, intent);
       return intent;
     },
     ipcObserver,
@@ -110,6 +111,20 @@ async function observeMasterInput(
     observedMasterInputIds.add(inputId);
   } catch (error) {
     routingObservability.recordRoutingObservationFailure("master", inputId, error);
+  }
+}
+
+function observeMasterPresentation(
+  routingObservability: RoutingObservationRecorder | undefined,
+  intent: PresentationIntent,
+): void {
+  if (routingObservability === undefined) {
+    return;
+  }
+  try {
+    routingObservability.recordMasterPresentationIntent(intent);
+  } catch (error) {
+    routingObservability.recordRoutingObservationFailure("master", intent.inputId, error);
   }
 }
 

@@ -176,6 +176,51 @@ describe("master IPC handlers", () => {
       auditError,
     );
   });
+
+  test("does not fail presentation delivery when semantic observation fails", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const ipcMain = {
+      handle: (channel, handler) => handlers.set(channel, handler),
+    } as Pick<IpcMain, "handle">;
+    const input = masterInputRequest().input;
+    const presentation = {
+      focusExistingConversationPane: null,
+      id: `master-presentation:${input.id}`,
+      inputId: input.id,
+      kind: "show_master_reply" as const,
+      openConversationPane: null,
+      openSideConversation: null,
+      originatingConversationId: null,
+      originatingConversationInputId: null,
+      originatingPaneId: null,
+      originatingWorkspaceId: null,
+      showMasterReply: { replyKind: "answer" as const, text: "Done." },
+      source: "shell" as const,
+    };
+    const backend = {
+      readMasterInputRoutingState: vi.fn(async () => ({ decision: null }) as never),
+      waitMasterPresentationIntent: vi.fn(async () => presentation),
+    } as unknown as BackendClient;
+    const observationError = new Error("invalid semantic presentation audit");
+    const routingObservability = routingObservabilitySpies();
+    vi.mocked(routingObservability.recordMasterPresentationIntent).mockImplementation(() => {
+      throw observationError;
+    });
+    registerMasterIpcHandlers({
+      ipcMain,
+      requireBackendClient: () => backend,
+      routingObservability,
+    });
+
+    await expect(
+      invoke(handlers, ipcChannels.masterWaitPresentation, { inputId: input.id }),
+    ).resolves.toEqual(presentation);
+    expect(routingObservability.recordRoutingObservationFailure).toHaveBeenCalledWith(
+      "master",
+      input.id,
+      observationError,
+    );
+  });
 });
 
 function masterInputRequest(): SubmitMasterInputRequest {

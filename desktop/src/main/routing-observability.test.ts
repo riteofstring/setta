@@ -114,6 +114,130 @@ describe("route observability", () => {
     expect(JSON.stringify(events)).not.toContain(replyText);
   });
 
+  test("attributes a clarification reply only to the decision that consumed it", () => {
+    const events: RecordedObservation[] = [];
+    const observability = new RouteObservability((type, payload) => {
+      events.push({ payload, type });
+    });
+    const state = conversationRoutingState();
+    const final = state.decisions[0];
+    if (final === undefined) {
+      throw new Error("conversation routing fixture has no decision");
+    }
+    const initial = structuredClone(final);
+    initial.id = "conversation_route_clarify";
+    initial.clarificationInputId = null;
+    initial.routerContext.clarificationInputSequence = null;
+    setClarifyDecision(initial, "Which request should I route?");
+    const replyText = "Route the private follow-up";
+    state.clarificationReply = {
+      acceptedAt: "2026-07-14T10:00:04Z",
+      failure: null,
+      input: {
+        conversationId: "conversation_alpha",
+        id: "conversation_input_clarification",
+        modality: "text",
+        replyToInputId: state.input.input.id,
+        sourcePaneId: "pane_alpha",
+        submittedAt: "2026-07-14T10:00:04Z",
+        text: replyText,
+      },
+      routingAttempt: 1,
+      routingStartedAt: null,
+      sequence: 4,
+      status: "dispatched",
+    };
+    final.clarificationInputId = state.clarificationReply.input.id;
+    final.routerContext.clarificationInputSequence = state.clarificationReply.sequence;
+    state.decisions = [initial, final];
+
+    observability.recordConversationInputRoutingState(state);
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      payload: {
+        clarification: null,
+        clarificationInputId: null,
+        decisionId: initial.id,
+        executionStatus: "awaiting_clarification",
+      },
+      type: "conversation_route_observed",
+    });
+    expect(events[1]).toMatchObject({
+      payload: {
+        clarification: {
+          inputId: state.clarificationReply.input.id,
+          parentInputId: state.input.input.id,
+        },
+        clarificationInputId: state.clarificationReply.input.id,
+        decisionId: final.id,
+        executionStatus: "dispatched",
+      },
+      type: "conversation_route_observed",
+    });
+    expect(JSON.stringify(events)).not.toContain(replyText);
+  });
+
+  test("records a failed clarification reply as the failed routing input", () => {
+    const events: RecordedObservation[] = [];
+    const observability = new RouteObservability((type, payload) => {
+      events.push({ payload, type });
+    });
+    const state = conversationRoutingState();
+    const initial = state.decisions[0];
+    if (initial === undefined) {
+      throw new Error("conversation routing fixture has no decision");
+    }
+    setClarifyDecision(initial, "Which request should I route?");
+    state.input.status = "awaiting_clarification";
+    const replyText = "Private clarification that failed";
+    state.clarificationReply = {
+      acceptedAt: "2026-07-14T10:00:04Z",
+      failure: {
+        code: "model_unavailable",
+        diagnosticReference: "diagnostic_clarification",
+        message: "Private provider failure detail",
+        retryable: true,
+      },
+      input: {
+        conversationId: "conversation_alpha",
+        id: "conversation_input_clarification",
+        modality: "voice",
+        replyToInputId: state.input.input.id,
+        sourcePaneId: "pane_alpha_duplicate",
+        submittedAt: "2026-07-14T10:00:04Z",
+        text: replyText,
+      },
+      routingAttempt: 2,
+      routingStartedAt: null,
+      sequence: 4,
+      status: "failed",
+    };
+
+    observability.recordConversationInputRoutingState(state);
+
+    expect(events).toHaveLength(2);
+    expect(events[1]).toMatchObject({
+      payload: {
+        clarification: {
+          inputId: "conversation_input_clarification",
+          parentInputId: "conversation_input_alpha",
+          status: "failed",
+        },
+        clarificationParentInputId: "conversation_input_alpha",
+        failure: { code: "model_unavailable", retryable: true },
+        inputId: "conversation_input_clarification",
+        inputModality: "voice",
+        inputTextBytes: Buffer.byteLength(replyText, "utf8"),
+        routingAttempt: 2,
+        sourcePaneId: "pane_alpha_duplicate",
+      },
+      type: "conversation_route_failed",
+    });
+    expect(JSON.stringify(events)).not.toContain(replyText);
+    expect(JSON.stringify(events)).not.toContain("Private provider failure detail");
+  });
+
   test("records redacted master route context, model resolution, and presentation intent", () => {
     const events: RecordedObservation[] = [];
     const observability = new RouteObservability((type, payload) => {
@@ -233,7 +357,10 @@ describe("route observability", () => {
       },
       {
         payload: {
-          error: { message: "audit read unavailable", name: "Error" },
+          error: {
+            messageBytes: Buffer.byteLength("audit read unavailable", "utf8"),
+            name: "Error",
+          },
           inputId: "master_input_alpha",
           schemaVersion: 1,
           scope: "master",
@@ -242,6 +369,7 @@ describe("route observability", () => {
       },
     ]);
     expect(JSON.stringify(events)).not.toContain("Private provider failure detail");
+    expect(JSON.stringify(events)).not.toContain("audit read unavailable");
   });
 });
 
@@ -311,6 +439,34 @@ function conversationRoutingState(): ConversationInputRoutingState {
       sequence: 3,
       status: "dispatched",
     },
+  };
+}
+
+function setClarifyDecision(
+  record: ConversationInputRoutingState["decisions"][number],
+  question: string,
+): void {
+  record.decision = {
+    answerAsNarrator: null,
+    clarify: { question },
+    createSideConversation: null,
+    escalateToMaster: null,
+    forkConversation: null,
+    kind: "clarify",
+    queueParentTurn: null,
+    sendToParent: null,
+    steerParentTurn: null,
+  };
+  record.resultingCommand = {
+    answerAsNarrator: null,
+    clarify: { question },
+    createSideConversation: null,
+    escalateToMaster: null,
+    forkConversation: null,
+    kind: "clarify",
+    queueParentTurn: null,
+    sendToParent: null,
+    steerParentTurn: null,
   };
 }
 

@@ -364,6 +364,12 @@ try {
     acceptedConversationInput.input,
     acceptedConversationInput.sequence,
   );
+  await assertRecordedConversationRouteObservability({
+    artifactDirectory: secondLaunchDir,
+    inputText: acceptedConversationInput.input.text,
+    routeState: routedConversationInput,
+    timeoutMs: workflowTimeoutMs,
+  });
   assertRoutedConversationInputReceipt(
     acceptedConversationInput,
     await submitConversationInput(context.client, conversationInputRequest),
@@ -888,6 +894,14 @@ try {
     expectedInputId: shellMasterInput.accepted.input.id,
     expectedKind: "answer_global",
     expectedSessionId: sharedMasterSessionId,
+  });
+  await assertRecordedMasterRouteObservability({
+    artifactDirectory: secondLaunchDir,
+    inputIdentity: shellMasterInput.accepted.input,
+    inputText: shellMasterInput.accepted.input.text,
+    presentationKind: "show_master_reply",
+    routeRecord: voiceMasterRoute.decision,
+    timeoutMs: workflowTimeoutMs,
   });
   await captureActiveMasterInteraction({
     artifactPath: join(artifactDir, "master-voice-immediate-result.png"),

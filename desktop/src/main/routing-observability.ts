@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 
 import type {
+  ConversationInputState,
   ConversationInputRoutingState,
   ConversationPresentationTarget,
   ConversationRouteCommand,
@@ -50,23 +51,21 @@ export class RouteObservability implements RoutingObservationRecorder {
   constructor(private readonly emit: EmitRoutingObservation) {}
 
   recordConversationInputRoutingState(state: ConversationInputRoutingState): void {
-    const clarification = summarizeConversationClarification(state);
     for (const record of state.decisions) {
       if (this.conversationDecisionIds.has(record.id)) {
         continue;
       }
-      this.conversationDecisionIds.add(record.id);
       const input = state.input.input;
       this.emit("conversation_route_observed", {
         callKind: "input_route",
-        clarification,
+        clarification: summarizeConversationClarification(state, record.clarificationInputId),
         clarificationInputId: record.clarificationInputId,
         context: record.routerContext,
         conversationId: record.conversationId,
         decidedAt: record.decidedAt,
         decision: summarizeConversationDecision(record.decision),
         decisionId: record.id,
-        executionStatus: state.input.status,
+        executionStatus: conversationDecisionExecutionStatus(record.resultingCommand),
         inputId: record.inputId,
         inputModality: input.modality,
         inputTextBytes: utf8Bytes(input.text),
@@ -79,35 +78,41 @@ export class RouteObservability implements RoutingObservationRecorder {
         submittedAt: input.submittedAt,
         validationResult: "committed",
       });
+      this.conversationDecisionIds.add(record.id);
     }
-    if (state.input.status !== "failed" || state.input.failure === null) {
+    const failedInput = failedConversationInput(state);
+    if (failedInput === null) {
       return;
     }
-    const failureKey = `${state.input.input.id}:${state.input.routingAttempt}:${state.input.failure.code}`;
+    const failure = requiredFailure(failedInput);
+    const failureKey = `${failedInput.input.id}:${failedInput.routingAttempt}:${failure.code}`;
     if (this.conversationFailureKeys.has(failureKey)) {
       return;
     }
-    this.conversationFailureKeys.add(failureKey);
     this.emit("conversation_route_failed", {
       callKind: "input_route",
-      clarification,
+      clarification: summarizeConversationClarification(
+        state,
+        failedInput.input.replyToInputId === null ? null : failedInput.input.id,
+      ),
+      clarificationParentInputId: failedInput.input.replyToInputId,
       contextAvailable: false,
-      conversationId: state.input.input.conversationId,
-      failure: summarizeFailure(state.input.failure),
-      inputId: state.input.input.id,
-      inputModality: state.input.input.modality,
-      inputTextBytes: utf8Bytes(state.input.input.text),
+      conversationId: failedInput.input.conversationId,
+      failure: summarizeFailure(failure),
+      inputId: failedInput.input.id,
+      inputModality: failedInput.input.modality,
+      inputTextBytes: utf8Bytes(failedInput.input.text),
       invocationAvailable: false,
-      routingAttempt: state.input.routingAttempt,
+      routingAttempt: failedInput.routingAttempt,
       schemaVersion: routingObservationSchemaVersion,
-      sourcePaneId: state.input.input.sourcePaneId,
-      submittedAt: state.input.input.submittedAt,
+      sourcePaneId: failedInput.input.sourcePaneId,
+      submittedAt: failedInput.input.submittedAt,
     });
+    this.conversationFailureKeys.add(failureKey);
   }
 
   recordMasterInputRoutingState(state: InputRoutingState): void {
     if (state.decision !== null && !this.masterDecisionIds.has(state.decision.id)) {
-      this.masterDecisionIds.add(state.decision.id);
       const input = state.input.input;
       const record = state.decision;
       this.emit("master_route_observed", {
@@ -139,6 +144,7 @@ export class RouteObservability implements RoutingObservationRecorder {
         submittedAt: input.submittedAt,
         validationResult: "committed",
       });
+      this.masterDecisionIds.add(state.decision.id);
     }
     if (state.status !== "failed" || state.failure === null) {
       return;
@@ -147,7 +153,6 @@ export class RouteObservability implements RoutingObservationRecorder {
     if (this.masterFailureKeys.has(failureKey)) {
       return;
     }
-    this.masterFailureKeys.add(failureKey);
     const input = state.input.input;
     this.emit("master_route_failed", {
       acceptedAt: state.input.acceptedAt,
@@ -171,13 +176,13 @@ export class RouteObservability implements RoutingObservationRecorder {
       schemaVersion: routingObservationSchemaVersion,
       submittedAt: input.submittedAt,
     });
+    this.masterFailureKeys.add(failureKey);
   }
 
   recordMasterPresentationIntent(intent: PresentationIntent): void {
     if (this.presentationIntentIds.has(intent.id)) {
       return;
     }
-    this.presentationIntentIds.add(intent.id);
     this.emit("master_presentation_observed", {
       inputId: intent.inputId,
       inputSource: intent.source,
@@ -189,6 +194,7 @@ export class RouteObservability implements RoutingObservationRecorder {
       originatingWorkspaceId: intent.originatingWorkspaceId,
       schemaVersion: routingObservationSchemaVersion,
     });
+    this.presentationIntentIds.add(intent.id);
   }
 
   recordRoutingObservationFailure(
@@ -200,20 +206,28 @@ export class RouteObservability implements RoutingObservationRecorder {
     if (this.observationFailureKeys.has(failureKey)) {
       return;
     }
-    this.observationFailureKeys.add(failureKey);
     this.emit("route_observation_failed", {
       error: errorSummary(error),
       inputId,
       schemaVersion: routingObservationSchemaVersion,
       scope,
     });
+    this.observationFailureKeys.add(failureKey);
   }
 }
 
-function summarizeConversationClarification(state: ConversationInputRoutingState) {
+function summarizeConversationClarification(
+  state: ConversationInputRoutingState,
+  clarificationInputId: string | null,
+) {
   const reply = state.clarificationReply;
-  if (reply === null) {
+  if (reply === null || clarificationInputId === null) {
     return null;
+  }
+  if (reply.input.id !== clarificationInputId) {
+    throw new Error(
+      `validated routing record references clarification ${clarificationInputId}, got ${reply.input.id}`,
+    );
   }
   return {
     acceptedAt: reply.acceptedAt,
@@ -226,6 +240,28 @@ function summarizeConversationClarification(state: ConversationInputRoutingState
     status: reply.status,
     submittedAt: reply.input.submittedAt,
   };
+}
+
+function failedConversationInput(
+  state: ConversationInputRoutingState,
+): ConversationInputState | null {
+  if (state.clarificationReply?.status === "failed") {
+    return state.clarificationReply;
+  }
+  return state.input.status === "failed" ? state.input : null;
+}
+
+function requiredFailure(state: ConversationInputState) {
+  if (state.failure === null) {
+    throw new Error(`failed conversation input ${state.input.id} is missing its failure`);
+  }
+  return state.failure;
+}
+
+function conversationDecisionExecutionStatus(
+  command: ConversationRouteCommand,
+): "awaiting_clarification" | "dispatched" {
+  return command.kind === "clarify" ? "awaiting_clarification" : "dispatched";
 }
 
 function summarizeConversationDecision(decision: ConversationRouteDecision) {
@@ -578,9 +614,9 @@ function summarizeFailure(failure: {
 
 function errorSummary(error: unknown) {
   if (error instanceof Error) {
-    return { message: error.message, name: error.name };
+    return { messageBytes: utf8Bytes(error.message), name: error.name };
   }
-  return { message: String(error), name: "NonError" };
+  return { messageBytes: utf8Bytes(String(error)), name: "NonError" };
 }
 
 function requiredBranch<T>(value: T | null, kind: string): T {
