@@ -71,7 +71,9 @@ try {
   );
   await captureScreenshot(context.client, join(artifactDir, "configured-global-agent.png"));
 
-  await selectRoleScope(context.client, "workspace");
+  await selectAgentModel(context.client, "gpt-5.6-luna");
+  await waitForRoleSettings(context.client, "gpt-5.6-luna", "medium", true, "global");
+  await assertScopeChangeCannotSaveStaleForm(context.client, "workspace");
   const workspaceInherited = await waitForRoleSettings(
     context.client,
     "gpt-5.6-terra",
@@ -307,6 +309,16 @@ async function selectRoleScope(client, scope) {
   const result = await client.driver("roleConfigurationSelectScope", { scope });
   if (!result.changed) {
     throw new Error(`Role configuration scope ${scope} was not selectable`);
+  }
+}
+
+async function assertScopeChangeCannotSaveStaleForm(client, scope) {
+  const result = await client.driver("roleConfigurationSelectScopeAndSave", { scope });
+  if (!result.changed) {
+    throw new Error(`Role configuration scope ${scope} was not selectable`);
+  }
+  if (result.saved) {
+    throw new Error("Role configuration saved a stale form after its scope changed");
   }
 }
 

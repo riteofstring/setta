@@ -7,6 +7,7 @@ import type {
   RoleProfileScopeKind,
   RoleProfileUpdate,
 } from "@generated/backend";
+import type { SettaAPI } from "@shared/types";
 import { BrainCircuit, Loader2, RotateCcw, Save } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -32,6 +33,8 @@ interface RoleConfigurationSelection {
   workspaceId: string;
 }
 
+type RoleConfigurationAPI = NonNullable<SettaAPI["roles"]>;
+
 export function RoleConfigurationSettings() {
   const [configuration, setConfiguration] = useState<RoleConfiguration | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +53,8 @@ export function RoleConfigurationSettings() {
     scope,
     workspaceId: selectedWorkspaceId,
   });
-  selectionRef.current = { scope, workspaceId: selectedWorkspaceId };
+  const selection = { scope, workspaceId: selectedWorkspaceId };
+  selectionRef.current = selection;
 
   useEffect(() => {
     const roles = window.setta.roles;
@@ -64,6 +68,7 @@ export function RoleConfigurationSettings() {
       return;
     }
     let active = true;
+    const requestedSelection = { scope, workspaceId: selectedWorkspaceId };
     setConfiguration(null);
     setError(null);
     const read =
@@ -72,10 +77,15 @@ export function RoleConfigurationSettings() {
         : roles.readWorkspace({ workspaceId: selectedWorkspaceId });
     void read.then(
       (next) => {
-        if (active) {
-          setConfiguration(next);
-          setError(null);
+        if (!active) {
+          return;
         }
+        if (!roleConfigurationMatchesSelection(next, requestedSelection)) {
+          setError("Role configuration read returned a different scope than requested.");
+          return;
+        }
+        setConfiguration(next);
+        setError(null);
       },
       (reason: unknown) => {
         if (active) {
@@ -91,7 +101,7 @@ export function RoleConfigurationSettings() {
   let content: ReactNode;
   if (error) {
     content = <RoleConfigurationMessage kind="error">{error}</RoleConfigurationMessage>;
-  } else if (!configuration) {
+  } else if (!configuration || !roleConfigurationMatchesSelection(configuration, selection)) {
     content = (
       <RoleConfigurationMessage kind="loading">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -107,10 +117,11 @@ export function RoleConfigurationSettings() {
           if (!roles) {
             throw new Error("Role configuration is unavailable in this client.");
           }
-          const next =
-            scope === "global"
-              ? await roles.updateGlobal({ updates })
-              : await roles.updateWorkspace({ workspaceId: selectedWorkspaceId, updates });
+          const requestedSelection = editableRoleConfigurationSelection(configuration);
+          const next = await updateRoleConfiguration(roles, requestedSelection, updates);
+          if (!roleConfigurationMatchesSelection(next, requestedSelection)) {
+            throw new Error("Role configuration update returned a different scope than requested.");
+          }
           if (roleConfigurationMatchesSelection(next, selectionRef.current)) {
             setConfiguration(next);
           }
@@ -153,10 +164,51 @@ function roleConfigurationMatchesSelection(
   configuration: RoleConfiguration,
   selection: RoleConfigurationSelection,
 ): boolean {
-  return (
-    configuration.scope.kind === selection.scope &&
-    (selection.scope === "global" || configuration.scope.workspaceId === selection.workspaceId)
-  );
+  switch (selection.scope) {
+    case "global":
+      return (
+        configuration.scope.kind === "global" &&
+        configuration.scope.workspaceId === null &&
+        configuration.scope.conversationId === null
+      );
+    case "workspace":
+      return (
+        configuration.scope.kind === "workspace" &&
+        configuration.scope.workspaceId === selection.workspaceId &&
+        configuration.scope.conversationId === null
+      );
+  }
+}
+
+function editableRoleConfigurationSelection(
+  configuration: RoleConfiguration,
+): RoleConfigurationSelection {
+  switch (configuration.scope.kind) {
+    case "global":
+      return { scope: "global", workspaceId: "" };
+    case "workspace": {
+      const workspaceId = configuration.scope.workspaceId;
+      if (workspaceId === null) {
+        throw new Error("Workspace role configuration is missing its workspace ID.");
+      }
+      return { scope: "workspace", workspaceId };
+    }
+    case "conversation":
+      throw new Error("Conversation role configuration cannot be edited from global settings.");
+  }
+}
+
+function updateRoleConfiguration(
+  roles: RoleConfigurationAPI,
+  selection: RoleConfigurationSelection,
+  updates: RoleProfileUpdate[],
+): Promise<RoleConfiguration> {
+  switch (selection.scope) {
+    case "global":
+      return roles.updateGlobal({ updates });
+    case "workspace":
+      return roles.updateWorkspace({ workspaceId: selection.workspaceId, updates });
+  }
 }
 
 export function RoleConfigurationForm({ configuration, onSave }: RoleConfigurationFormProps) {

@@ -1,7 +1,7 @@
 /* global Event, HTMLButtonElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-role-configuration-driver-v3";
+  const version = "setta-topic-conversation-role-configuration-driver-v4";
   const driver = globalThis.__settaE2EDriver;
   if (!driver) {
     throw new Error("base Setta E2E driver is not installed");
@@ -20,6 +20,7 @@
     roleConfigurationSave,
     roleConfigurationSelectAgentModel,
     roleConfigurationSelectScope,
+    roleConfigurationSelectScopeAndSave,
     roleConfigurationSettingsState,
     roleConfigurationSubmitInput,
     roleConfigurationTurnState,
@@ -136,6 +137,12 @@
     setter.call(select, scope);
     select.dispatchEvent(new Event("change", { bubbles: true }));
     return { changed: true };
+  }
+
+  function roleConfigurationSelectScopeAndSave({ scope }) {
+    const { changed } = roleConfigurationSelectScope({ scope });
+    const { saved } = clickRoleConfigurationButton("Save", "saved");
+    return { changed, saved };
   }
 
   function roleConfigurationSave() {
