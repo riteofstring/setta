@@ -1,10 +1,4 @@
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
-import type { SurfaceKind } from "./types";
-
-export interface WorkspaceSurfaceFocusRequest {
-  requestId: number;
-  surfaceKind: SurfaceKind;
-}
 
 export function workspaceBenchmarkShouldRun(mode: WorkspaceSceneMode): boolean {
   return mode === "benchmark" && workspaceAutoBenchmarkEnabled();
