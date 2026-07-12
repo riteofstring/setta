@@ -1,5 +1,5 @@
 import { Check, Sparkles, Square, X } from "lucide-react";
-import { type RefObject, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import {
   type Artifact,
@@ -14,6 +14,7 @@ import {
 } from "@generated/backend";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
+import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
 import type {
   GlobalSpeechPresentationSource,
@@ -22,14 +23,16 @@ import type {
 import type { SpeechCaptureRequester } from "../global-speech/speech-capture-destination";
 import { useConversationStore } from "../../stores/conversation-store";
 import { retainConversationProjection } from "../../stores/conversation-projection-runtime";
-import { setHostPaneChromeTitle } from "../../workspace-layout/pane-title-metadata";
 import { conversationPaletteStyle } from "./conversation-palette-style";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
 import {
   pendingConversationApproval,
   type PendingConversationApproval,
 } from "./easy-button-approval-projection";
-import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
+import {
+  EasyButtonConversationComposer,
+  type EasyButtonForkPoint,
+} from "./easy-button-conversation-composer";
 import {
   type EasyButtonConversationCommands,
   useEasyButtonConversationCommands,
@@ -41,7 +44,15 @@ import {
   narratorDegradationMessage,
   NarratorStatusReply,
 } from "./easy-button-narrator-status";
+import {
+  EasyButtonForkLineageBanner,
+  forkLineage,
+  type EasyButtonForkLineage,
+} from "./easy-button-lineage";
+import { useEasyButtonPaneTitle } from "./easy-button-pane-title";
 import { ArtifactRail, HighlightRail, type EasyButtonMilestone } from "./easy-button-rails";
+import { EasyButtonSideConversation } from "./easy-button-side-conversation";
+import { easyButtonSideView, type EasyButtonSideView } from "./easy-button-side-projection";
 import {
   EasyButtonTerminalSummary,
   type EasyButtonTerminalSummaryRecord,
@@ -73,7 +84,9 @@ export interface EasyButtonProjectionView {
   currentFocus: string;
   error: string | null;
   focusStatus: EasyButtonFocusStatus;
+  forkPoints: EasyButtonForkPoint[];
   helperCopy: string;
+  lineage: EasyButtonForkLineage | null;
   milestones: EasyButtonMilestone[];
   narratorDegradation: string | null;
   paletteId: ConversationPaletteID | null;
@@ -82,6 +95,7 @@ export interface EasyButtonProjectionView {
   queuedTurnCount: number;
   statusTone: EasyButtonStatusTone;
   statusReply: EasyButtonNarratorStatusReply | null;
+  side: EasyButtonSideView | null;
   terminalSummary: EasyButtonTerminalSummaryRecord | null;
   title: string;
   viewState: EasyButtonViewState;
@@ -111,7 +125,18 @@ export function EasyButtonSurface({
     speechCapture,
   );
   const speech = usePaneSpeechPresentation(conversationId, paneId, speechPresentation);
-  const projectedView = easyButtonProjectionView(conversationId, projection);
+  const parentTitle = useConversationNavigatorStore((state) => {
+    const parentConversationId = projection?.snapshot?.branch?.parentConversationId;
+    if (!workspaceId || !parentConversationId) {
+      return null;
+    }
+    return (
+      state.workspaces[workspaceId]?.items.find(
+        (item) => item.conversation.id === parentConversationId,
+      )?.conversation.title ?? null
+    );
+  });
+  const projectedView = easyButtonProjectionView(conversationId, projection, paneId, parentTitle);
   const view = commands.error ? { ...projectedView, error: commands.error } : projectedView;
   return <EasyButtonProjectionSurface commands={commands} speech={speech} view={view} />;
 }
@@ -160,15 +185,41 @@ export function EasyButtonProjectionSurface({
       data-easy-button-playback-scope={speech?.playbackScope}
       data-easy-button-projection={view.projectionStatus}
       data-easy-button-queue-count={view.queuedTurnCount}
+      data-easy-button-side-id={view.side?.id}
+      data-easy-button-side-status={view.side?.status}
       data-easy-button-state={view.viewState}
       data-easy-button-status={view.statusTone}
       data-testid="easy-button-surface"
       ref={rootRef}
       style={conversationPaletteStyle(view.paletteId)}
     >
+      <EasyButtonProjectionContent commands={commands} speech={speech} view={view} />
+    </section>
+  );
+}
+
+function EasyButtonProjectionContent({
+  commands,
+  speech,
+  view,
+}: {
+  commands: EasyButtonConversationCommands | undefined;
+  speech: PaneSpeechPresentation | null | undefined;
+  view: EasyButtonProjectionView;
+}) {
+  if (view.side) {
+    return (
+      <EasyButtonSideConversation commands={commands} parentTitle={view.title} side={view.side} />
+    );
+  }
+  return (
+    <>
       <HighlightRail milestones={view.milestones} />
       <main className="easy-button-stage">
         <div className="easy-button-center">
+          {view.lineage ? (
+            <EasyButtonForkLineageBanner commands={commands} lineage={view.lineage} />
+          ) : null}
           <div className="easy-button-agent-chip-slot">
             <AgentChip activeAgentCount={view.activeAgentCount} viewState={view.viewState} />
           </div>
@@ -179,7 +230,7 @@ export function EasyButtonProjectionSurface({
       </main>
       <ArtifactRail artifacts={view.artifacts} />
       <ConversationComposer commands={commands} speech={speech} view={view} />
-    </section>
+    </>
   );
 }
 
@@ -246,18 +297,21 @@ function ConversationComposer({
   speech: PaneSpeechPresentation | null | undefined;
   view: EasyButtonProjectionView;
 }) {
-  const available = Boolean(commands && commands.available && !commands.pending);
-  const input = commands ? commands.input : "";
+  const bindings = conversationComposerBindings(commands);
   return (
     <EasyButtonConversationComposer
-      available={available}
-      canSubmit={commands ? commands.canSubmit : false}
-      input={input}
-      onInput={commands ? commands.setInput : undefined}
-      onStatus={commands ? commands.askStatus : undefined}
-      onSteer={commands ? commands.steer : undefined}
-      onSubmit={commands ? commands.submit : undefined}
-      onVoiceCapture={conversationVoiceCapture(commands)}
+      available={bindings.available}
+      canSubmit={bindings.canSubmit}
+      defaultForkTitle={`${view.title} fork`}
+      forkPoints={view.forkPoints}
+      input={bindings.input}
+      onFork={bindings.onFork}
+      onInput={bindings.onInput}
+      onSide={bindings.onSide}
+      onStatus={bindings.onStatus}
+      onSteer={bindings.onSteer}
+      onSubmit={bindings.onSubmit}
+      onVoiceCapture={bindings.onVoiceCapture}
       placeholder={composerPlaceholder(view, commands)}
       speech={speech}
       working={view.viewState === "working"}
@@ -265,15 +319,55 @@ function ConversationComposer({
   );
 }
 
-function conversationVoiceCapture(
+interface ConversationComposerBindings {
+  available: boolean;
+  canSubmit: boolean;
+  input: string;
+  onFork: EasyButtonConversationCommands["fork"] | undefined;
+  onInput: EasyButtonConversationCommands["setInput"] | undefined;
+  onSide: EasyButtonConversationCommands["startSide"];
+  onStatus: EasyButtonConversationCommands["askStatus"] | undefined;
+  onSteer: EasyButtonConversationCommands["steer"] | undefined;
+  onSubmit: EasyButtonConversationCommands["submit"] | undefined;
+  onVoiceCapture: EasyButtonConversationCommands["requestVoiceCapture"];
+}
+
+function conversationComposerBindings(
   commands: EasyButtonConversationCommands | undefined,
-): (() => void) | undefined {
-  return commands ? commands.requestVoiceCapture : undefined;
+): ConversationComposerBindings {
+  if (!commands) {
+    return {
+      available: false,
+      canSubmit: false,
+      input: "",
+      onFork: undefined,
+      onInput: undefined,
+      onSide: undefined,
+      onStatus: undefined,
+      onSteer: undefined,
+      onSubmit: undefined,
+      onVoiceCapture: undefined,
+    };
+  }
+  return {
+    available: commands.available && !commands.pending,
+    canSubmit: commands.canSubmit,
+    input: commands.input,
+    onFork: commands.fork,
+    onInput: commands.setInput,
+    onSide: commands.startSide,
+    onStatus: commands.askStatus,
+    onSteer: commands.steer,
+    onSubmit: commands.submit,
+    onVoiceCapture: commands.requestVoiceCapture,
+  };
 }
 
 export function easyButtonProjectionView(
   conversationId: string | null,
   projection: ConversationProjection | undefined,
+  paneId: string | null = null,
+  parentTitle: string | null = null,
 ): EasyButtonProjectionView {
   if (!conversationId) {
     return unavailableView({
@@ -300,13 +394,21 @@ export function easyButtonProjectionView(
       projectionStatus,
     });
   }
-  return projectConversationSnapshot(projection.snapshot, projection, projectionStatus);
+  return projectConversationSnapshot(
+    projection.snapshot,
+    projection,
+    projectionStatus,
+    paneId,
+    parentTitle,
+  );
 }
 
 function projectConversationSnapshot(
   snapshot: ConversationSnapshot,
   projection: ConversationProjection,
   projectionStatus: EasyButtonProjectionStatus,
+  paneId: string | null,
+  parentTitle: string | null,
 ): EasyButtonProjectionView {
   const latestTurn = latestConversationTurn(snapshot.turns.turns);
   const runningTurnId = runningConversationTurnID(snapshot);
@@ -323,7 +425,9 @@ function projectConversationSnapshot(
     currentFocus: snapshot.narratorState.currentFocus,
     error: conversationProjectionError(projection, latestTurn),
     focusStatus: narratorFocusStatus(snapshot.narratorState),
+    forkPoints: completedForkPoints(snapshot.turns.turns),
     helperCopy: conversationHelperCopy(snapshot.conversation, latestTurn, projectionStatus),
+    lineage: forkLineage(snapshot.branch, parentTitle),
     milestones: milestoneViews(snapshot.narration.events, snapshot.turns.turns),
     narratorDegradation: narratorDegradationMessage(snapshot.narratorState),
     paletteId: snapshot.presentationProfile.resolvedPaletteId,
@@ -335,6 +439,7 @@ function projectConversationSnapshot(
     queuedTurnCount: snapshot.queue.length,
     statusTone,
     statusReply: latestNarratorStatusReply(snapshot.narration.events),
+    side: easyButtonSideView(snapshot, paneId),
     terminalSummary: terminalSummary(
       snapshot.narration.events,
       snapshot.trajectory.events,
@@ -393,7 +498,9 @@ function unavailableView(options: {
     currentFocus: "",
     error: options.error,
     focusStatus: "none",
+    forkPoints: [],
     helperCopy: options.helperCopy,
+    lineage: null,
     milestones: [],
     narratorDegradation: null,
     paletteId: null,
@@ -402,10 +509,29 @@ function unavailableView(options: {
     queuedTurnCount: 0,
     statusTone: "none",
     statusReply: null,
+    side: null,
     terminalSummary: null,
     title: "Easy Button",
     viewState: "idle",
   };
+}
+
+function completedForkPoints(turns: readonly ConversationTurn[]): EasyButtonForkPoint[] {
+  return turns
+    .filter((turn) => turn.status === "completed" && turn.providerTurnId !== null)
+    .toReversed()
+    .map((turn) => ({
+      label: forkPointLabel(turn),
+      turnId: turn.id,
+    }));
+}
+
+function forkPointLabel(turn: ConversationTurn): string {
+  const input = turn.authoredInput.text.trim();
+  if (input.length <= 72) {
+    return input;
+  }
+  return `${input.slice(0, 69)}…`;
 }
 
 function resolvedProjectionStatus(projection: ConversationProjection): EasyButtonProjectionStatus {
@@ -838,42 +964,6 @@ function conversationControlLabel(view: EasyButtonProjectionView): string {
       return "Conversation work cancelled";
     case "none":
       return view.helperCopy;
-  }
-}
-
-function useEasyButtonPaneTitle(
-  rootRef: RefObject<HTMLElement | null>,
-  view: EasyButtonProjectionView,
-) {
-  useEffect(() => {
-    const host = rootRef.current?.closest<HTMLElement>('[data-testid="workspace-pane-host"]');
-    if (!host) {
-      return;
-    }
-    const suffix = paneTitleSuffix(view);
-    const title = suffix ? `${view.title} · ${suffix}` : view.title;
-    setHostPaneChromeTitle(host, {
-      fullTitle: title,
-      title,
-      truncation: "end",
-    });
-  }, [rootRef, view]);
-}
-
-function paneTitleSuffix(view: EasyButtonProjectionView): string {
-  if (view.projectionStatus === "binding_required") {
-    return "conversation required";
-  }
-  if (view.projectionStatus === "loading" || view.projectionStatus === "resyncing") {
-    return "loading";
-  }
-  switch (view.viewState) {
-    case "working":
-      return "working";
-    case "complete":
-      return "complete";
-    case "idle":
-      return "";
   }
 }
 

@@ -691,13 +691,15 @@ try {
         (surface) =>
           surface.projectionStatus === "ready" &&
           surface.status === "completed" &&
-          surface.artifactCount === 1,
+          surface.sideId === alphaRestartSide.id &&
+          surface.sideStatus === "active" &&
+          surface.sideParentStatus === "idle",
       ) &&
       conversationSurfaces(surfaces, beta.id).some(
         (surface) => surface.projectionStatus === "ready" && surface.status === "failed",
       ),
   );
-  assertReloadedProjection(reloaded.surfaces, alpha, beta);
+  assertReloadedProjection(reloaded.surfaces, alpha, beta, alphaRestartSide);
   assertNavigator(await waitForNavigator(context.client, alpha.id, 1, workflowTimeoutMs), alpha, 1);
   assertNavigator(await waitForNavigator(context.client, beta.id, 1, workflowTimeoutMs), beta, 1);
   assertNavigator(
@@ -1469,19 +1471,18 @@ function assertAutomaticNarration(snapshot, label) {
   }
 }
 
-function assertReloadedProjection(surfaces, alpha, beta) {
+function assertReloadedProjection(surfaces, alpha, beta, restartSide) {
   const alphaSurface = requiredConversationSurface(surfaces, alpha.id);
   const betaSurface = requiredConversationSurface(surfaces, beta.id);
   if (
     alphaSurface.paletteId !== alpha.paletteId ||
-    alphaSurface.artifactCount !== 1 ||
-    alphaSurface.status !== "completed"
+    alphaSurface.status !== "completed" ||
+    alphaSurface.sideId !== restartSide.id ||
+    alphaSurface.sideStatus !== "active" ||
+    alphaSurface.sideParentStatus !== "idle" ||
+    betaSurface.paletteId !== beta.paletteId ||
+    betaSurface.status !== "failed"
   ) {
-    throw new Error(
-      `reloaded topic projections do not match durable state: ${JSON.stringify({ alphaSurface, betaSurface })}`,
-    );
-  }
-  if (betaSurface.paletteId !== beta.paletteId || betaSurface.status !== "failed") {
     throw new Error(
       `reloaded topic projections do not match durable state: ${JSON.stringify({ alphaSurface, betaSurface })}`,
     );

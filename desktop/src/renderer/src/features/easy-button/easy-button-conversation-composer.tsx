@@ -1,5 +1,5 @@
-import { Mic, Square } from "lucide-react";
-import type { FormEventHandler } from "react";
+import { GitFork, MessagesSquare, Mic, Square } from "lucide-react";
+import { type FormEventHandler, useEffect, useState } from "react";
 
 import { PaneSpeechActivityIndicator } from "../global-speech/app-shell-speech-status";
 import type { PaneSpeechPresentation } from "../global-speech/global-speech-presentation";
@@ -7,8 +7,12 @@ import type { PaneSpeechPresentation } from "../global-speech/global-speech-pres
 export function EasyButtonConversationComposer({
   available,
   canSubmit,
+  defaultForkTitle = "Topic fork",
+  forkPoints = [],
   input,
+  onFork,
   onInput,
+  onSide,
   onStatus,
   onSteer,
   onSubmit,
@@ -19,8 +23,12 @@ export function EasyButtonConversationComposer({
 }: {
   available: boolean;
   canSubmit: boolean;
+  defaultForkTitle?: string;
+  forkPoints?: readonly EasyButtonForkPoint[];
   input: string;
+  onFork?: (forkedAtTurnId: string, title: string) => Promise<boolean>;
   onInput: ((value: string) => void) | undefined;
+  onSide?: (() => void) | undefined;
   onStatus: (() => void) | undefined;
   onSteer: (() => void) | undefined;
   onSubmit: FormEventHandler<HTMLFormElement> | undefined;
@@ -29,9 +37,41 @@ export function EasyButtonConversationComposer({
   speech: PaneSpeechPresentation | null | undefined;
   working: boolean;
 }) {
+  const [forkOpen, setForkOpen] = useState(false);
+  const [forkTitle, setForkTitle] = useState(defaultForkTitle);
+  const [forkedAtTurnId, setForkedAtTurnId] = useState(forkPoints[0]?.turnId ?? "");
+  useEffect(() => {
+    if (forkPoints.some((point) => point.turnId === forkedAtTurnId)) {
+      return;
+    }
+    setForkedAtTurnId(forkPoints[0]?.turnId ?? "");
+  }, [forkPoints, forkedAtTurnId]);
+
+  async function createFork(): Promise<void> {
+    const title = forkTitle.trim();
+    if (!onFork || !forkedAtTurnId || !title) {
+      return;
+    }
+    if (await onFork(forkedAtTurnId, title)) {
+      setForkOpen(false);
+      setForkTitle(defaultForkTitle);
+    }
+  }
+
   return (
-    <form className="easy-button-footer" onSubmit={onSubmit}>
-      <div className="easy-button-input-wrap">
+    <div className="easy-button-footer">
+      {forkOpen ? (
+        <ForkConversationPanel
+          available={available}
+          createFork={createFork}
+          forkPoints={forkPoints}
+          forkTitle={forkTitle}
+          forkedAtTurnId={forkedAtTurnId}
+          setForkTitle={setForkTitle}
+          setForkedAtTurnId={setForkedAtTurnId}
+        />
+      ) : null}
+      <form className="easy-button-input-wrap" onSubmit={onSubmit}>
         <input
           aria-label="Easy Button request"
           className="easy-button-input"
@@ -44,6 +84,17 @@ export function EasyButtonConversationComposer({
         />
         <ConversationStatusButton canSubmit={canSubmit} onStatus={onStatus} />
         <ConversationSteerButton canSubmit={canSubmit} onSteer={onSteer} working={working} />
+        <ConversationSideButton canSubmit={canSubmit} onSide={onSide} />
+        <ConversationForkButton
+          available={available}
+          forkOpen={forkOpen}
+          hasForkPoint={forkPoints.length > 0}
+          onToggle={() => {
+            setForkTitle(defaultForkTitle);
+            setForkOpen((open) => !open);
+          }}
+          visible={Boolean(onFork)}
+        />
         <PaneSpeechActivityIndicator presentation={speech} />
         <ConversationVoiceButton
           available={available}
@@ -58,8 +109,75 @@ export function EasyButtonConversationComposer({
         >
           {working ? "Queue" : "Send"}
         </button>
-      </div>
-    </form>
+      </form>
+    </div>
+  );
+}
+
+export interface EasyButtonForkPoint {
+  label: string;
+  turnId: string;
+}
+
+function ForkConversationPanel({
+  available,
+  createFork,
+  forkPoints,
+  forkTitle,
+  forkedAtTurnId,
+  setForkTitle,
+  setForkedAtTurnId,
+}: {
+  available: boolean;
+  createFork: () => Promise<void>;
+  forkPoints: readonly EasyButtonForkPoint[];
+  forkTitle: string;
+  forkedAtTurnId: string;
+  setForkTitle: (title: string) => void;
+  setForkedAtTurnId: (turnId: string) => void;
+}) {
+  return (
+    <section
+      aria-label="Create durable fork"
+      className="easy-button-fork-panel"
+      data-testid="easy-button-fork-panel"
+      role="dialog"
+    >
+      <label>
+        Fork title
+        <input
+          aria-label="Fork title"
+          disabled={!available}
+          onChange={(event) => setForkTitle(event.target.value)}
+          type="text"
+          value={forkTitle}
+        />
+      </label>
+      <label>
+        History through
+        <select
+          aria-label="Fork source turn"
+          disabled={!available}
+          onChange={(event) => setForkedAtTurnId(event.target.value)}
+          value={forkedAtTurnId}
+        >
+          {forkPoints.map((point) => (
+            <option key={point.turnId} value={point.turnId}>
+              {point.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        data-testid="easy-button-fork-create"
+        disabled={!available || !forkedAtTurnId || !forkTitle.trim()}
+        onClick={() => void createFork()}
+        type="button"
+      >
+        <GitFork aria-hidden="true" />
+        Create fork
+      </button>
+    </section>
   );
 }
 
@@ -162,6 +280,63 @@ function ConversationSteerButton({
       type="button"
     >
       Steer
+    </button>
+  );
+}
+
+function ConversationSideButton({
+  canSubmit,
+  onSide,
+}: {
+  canSubmit: boolean;
+  onSide: (() => void) | undefined;
+}) {
+  if (!onSide) {
+    return null;
+  }
+  return (
+    <button
+      aria-label="Start a temporary side conversation with this request"
+      className="easy-button-side-chip"
+      data-testid="easy-button-side-start"
+      disabled={!canSubmit}
+      onClick={onSide}
+      type="button"
+    >
+      <MessagesSquare aria-hidden="true" />
+      Side
+    </button>
+  );
+}
+
+function ConversationForkButton({
+  available,
+  forkOpen,
+  hasForkPoint,
+  onToggle,
+  visible,
+}: {
+  available: boolean;
+  forkOpen: boolean;
+  hasForkPoint: boolean;
+  onToggle: () => void;
+  visible: boolean;
+}) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <button
+      aria-expanded={forkOpen}
+      aria-label={hasForkPoint ? "Create a durable fork" : "A completed turn is required to fork"}
+      className="easy-button-fork-chip"
+      data-testid="easy-button-fork-start"
+      disabled={!available || !hasForkPoint}
+      onClick={onToggle}
+      type="button"
+    >
+      <GitFork aria-hidden="true" />
+      Fork
     </button>
   );
 }

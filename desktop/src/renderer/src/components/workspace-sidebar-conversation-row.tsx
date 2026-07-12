@@ -8,12 +8,14 @@ export function ConversationNavigatorRow({
   busy,
   focused,
   item,
+  lineageParentTitle,
   openPaneCount,
   present,
 }: {
   busy: boolean;
   focused: boolean;
   item: NavigatorItem;
+  lineageParentTitle: string | null;
   openPaneCount: number;
   present: () => Promise<void>;
 }) {
@@ -21,12 +23,13 @@ export function ConversationNavigatorRow({
   return (
     <button
       aria-current={focused ? "page" : undefined}
-      aria-label={conversationRowLabel(item, openPaneCount)}
+      aria-label={conversationRowLabel(item, lineageParentTitle, openPaneCount)}
       className={cn(
         "conversation-presentation-identity group/conversation-row grid h-9 w-full min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left hover:bg-accent/70 hover:text-foreground",
         focused ? "bg-accent/55 text-foreground" : "text-muted-foreground",
       )}
       data-conversation-id={conversation.id}
+      data-parent-conversation-id={item.branch?.parentConversationId}
       data-testid="conversation-navigator-item"
       disabled={busy}
       onClick={() => void present()}
@@ -38,7 +41,7 @@ export function ConversationNavigatorRow({
       <span className="min-w-0">
         <span className="block truncate text-xs">{conversation.title}</span>
         <span className="block truncate text-[10px] text-muted-foreground">
-          {conversationSubtitle(item)}
+          {conversationSubtitle(item, lineageParentTitle)}
         </span>
       </span>
       <ConversationPaneCount count={openPaneCount} />
@@ -105,9 +108,9 @@ function ConversationPaneCount({ count }: { count: number }) {
   );
 }
 
-function conversationSubtitle(item: NavigatorItem) {
+function conversationSubtitle(item: NavigatorItem, lineageParentTitle: string | null) {
   if (item.branch) {
-    return "Forked conversation";
+    return lineageParentTitle ? `Fork of ${lineageParentTitle}` : "Durable fork";
   }
   if (item.conversation.topicDescriptor) {
     return item.conversation.topicDescriptor;
@@ -115,8 +118,16 @@ function conversationSubtitle(item: NavigatorItem) {
   return statusLabel(item.conversation.status);
 }
 
-function conversationRowLabel(item: NavigatorItem, openPaneCount: number) {
-  const lineage = item.branch ? ", durable fork" : "";
+function conversationRowLabel(
+  item: NavigatorItem,
+  lineageParentTitle: string | null,
+  openPaneCount: number,
+) {
+  const lineage = item.branch
+    ? lineageParentTitle
+      ? `, durable fork of ${lineageParentTitle}`
+      : ", durable fork"
+    : "";
   const views =
     openPaneCount === 0
       ? ", no open views"

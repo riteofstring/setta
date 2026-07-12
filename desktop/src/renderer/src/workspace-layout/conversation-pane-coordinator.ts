@@ -1,5 +1,8 @@
 import type { WorkspaceLayoutStore } from "./layout-store";
 
+export const conversationPanePresentationRequestEvent =
+  "setta:conversation-pane-presentation-request";
+
 export interface ConversationPanePresentationRequest {
   conversationId: string;
   title: string;
@@ -10,6 +13,32 @@ export type ConversationPanePresentationResult =
   | { kind: "focused"; paneId: string }
   | { kind: "opened"; paneId: string }
   | { kind: "blocked"; reason: string };
+
+export interface ConversationPanePresentationEventDetail {
+  request: ConversationPanePresentationRequest;
+  result: ConversationPanePresentationResult | null;
+}
+
+export function requestConversationPanePresentation(
+  request: ConversationPanePresentationRequest,
+): ConversationPanePresentationResult {
+  if (typeof window === "undefined") {
+    return { kind: "blocked", reason: "The workspace pane coordinator is unavailable." };
+  }
+  const detail: ConversationPanePresentationEventDetail = { request, result: null };
+  window.dispatchEvent(
+    new CustomEvent<ConversationPanePresentationEventDetail>(
+      conversationPanePresentationRequestEvent,
+      { detail },
+    ),
+  );
+  return (
+    detail.result ?? {
+      kind: "blocked",
+      reason: `Workspace ${request.workspaceId} is not mounted.`,
+    }
+  );
+}
 
 export function presentConversationPane(
   store: WorkspaceLayoutStore,

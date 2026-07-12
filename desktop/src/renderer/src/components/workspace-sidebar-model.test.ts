@@ -67,6 +67,31 @@ describe("conversation navigator sidebar model", () => {
     });
   });
 
+  test("resolves durable-fork lineage against the loaded parent row", () => {
+    const api = workspace("workspace_api", "api");
+    const parent = navigatorItem("conversation_parent", "Parent topic", api.id);
+    const child = navigatorItem("conversation_child", "Child topic", api.id);
+    child.branch = {
+      childConversationId: child.conversation.id,
+      createdAt: testTime,
+      decisionSource: "explicit",
+      forkedAtTurnId: "turn_parent",
+      kind: "fork",
+      parentConversationId: parent.conversation.id,
+      providerMetadata: {},
+      sourceTrajectorySequence: 4,
+    };
+    const input = navigationInput([api]);
+    input.conversationWorkspaces = { [api.id]: page([child, parent]) };
+
+    const items = selectSidebarNavigationItems(input);
+
+    expect(items[1]).toMatchObject({
+      kind: "conversation",
+      lineageParentTitle: "Parent topic",
+    });
+  });
+
   test("represents loading, empty search, error, and incremental paging explicitly", () => {
     const api = workspace("workspace_api", "api");
     const input = navigationInput([api]);

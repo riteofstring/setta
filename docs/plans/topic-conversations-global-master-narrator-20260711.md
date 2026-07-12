@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-5 and Phase 6 items 1-5 are complete.
-The remaining Phase 6 presentation and re-verification work, AI routing,
+**Status:** In progress. Phases 0-5 and Phase 6 items 1-6 are complete.
+The remaining Phase 6 re-verification work, AI routing,
 obsolete-surface deletion, and final acceptance remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
@@ -1968,7 +1968,7 @@ retained PWA.
 
 ### Phase 6: Side conversations and durable forks
 
-**Status:** In progress. Items 1-5 are complete.
+**Status:** In progress. Items 1-6 are complete.
 
 Implement:
 

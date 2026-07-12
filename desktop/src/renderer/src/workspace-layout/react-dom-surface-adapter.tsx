@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
 import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
+import { requestEasyButtonPaneClose } from "../features/easy-button/easy-button-conversation-commands";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import { WorkflowGraphSurface } from "../features/workspace-graph/workflow-graph-surface";
@@ -31,6 +32,8 @@ import type {
   SurfaceAdapter,
   SurfaceId,
   SurfaceKind,
+  SurfacePaneCloseRequest,
+  SurfacePaneCloseResult,
   ViewportChangeReason,
 } from "./types";
 
@@ -80,6 +83,9 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     private readonly pane: WorkspacePane,
     private readonly renderSurface: (state: ReactDomSurfaceState) => ReactNode,
     private readonly rootFactory: ReactSurfaceRootFactory = defaultRootFactory,
+    private readonly paneCloseRequest?: (
+      request: SurfacePaneCloseRequest,
+    ) => Promise<SurfacePaneCloseResult>,
   ) {
     this.kind = pane.surfaceKind;
   }
@@ -210,6 +216,10 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
       label: this.pane.title,
       surfaceId: this.surfaceId,
     });
+  }
+
+  requestPaneClose(request: SurfacePaneCloseRequest): Promise<SurfacePaneCloseResult> {
+    return this.paneCloseRequest?.(request) ?? Promise.resolve({ removePane: true });
   }
 
   getCanvasStats(): CanvasSurfaceStats {
@@ -396,9 +406,32 @@ export function createReactDomSurfaceAdapter(
 ): ReactDomSurfaceAdapter {
   const renderSurface = reactDomSurfaceRenderFactories[pane.surfaceKind]?.(pane, options);
   if (renderSurface) {
-    return new ReactDomSurfaceAdapter(pane, renderSurface, rootFactory);
+    return new ReactDomSurfaceAdapter(
+      pane,
+      renderSurface,
+      rootFactory,
+      easyButtonPaneCloseRequest(pane, options),
+    );
   }
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
+}
+
+function easyButtonPaneCloseRequest(
+  pane: WorkspacePane,
+  options: ReactDomSurfaceAdapterOptions,
+): ((request: SurfacePaneCloseRequest) => Promise<SurfacePaneCloseResult>) | undefined {
+  const conversationId = pane.easyButtonConfig?.conversationId;
+  const workspaceId = options.workspaceId;
+  if (pane.surfaceKind !== "easy-button" || !conversationId || !workspaceId) {
+    return undefined;
+  }
+  return (request) =>
+    requestEasyButtonPaneClose({
+      confirm: request.confirm,
+      conversationId,
+      paneId: pane.paneId,
+      workspaceId,
+    });
 }
 
 type ReactDomSurfaceRenderFactory = (

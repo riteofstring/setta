@@ -41,6 +41,7 @@ export type SidebarNavigationItem =
       item: NavigatorItem;
       kind: "conversation";
       label: string;
+      lineageParentTitle: string | null;
       openPaneCount: number;
     }
   | {
@@ -165,7 +166,12 @@ function conversationItems(
   if (workspace.error && workspace.items.length === 0) {
     return [conversationStatusItem(workspaceId, workspace.error)];
   }
-  const items = workspace.items.map((item) => conversationItem(workspaceId, panes, item));
+  const titlesByConversationId = new Map(
+    workspace.items.map((item) => [item.conversation.id, item.conversation.title] as const),
+  );
+  const items = workspace.items.map((item) =>
+    conversationItem(workspaceId, panes, item, titlesByConversationId),
+  );
   appendConversationNavigationTail(items, workspaceId, workspace, query);
   return items;
 }
@@ -174,6 +180,7 @@ function conversationItem(
   workspaceId: string,
   panes: ConversationPaneWorkspaceState | undefined,
   item: NavigatorItem,
+  titlesByConversationId: ReadonlyMap<string, string>,
 ): SidebarNavigationItem {
   const conversationId = item.conversation.id;
   return {
@@ -190,6 +197,9 @@ function conversationItem(
     item,
     kind: "conversation",
     label: item.conversation.title,
+    lineageParentTitle: item.branch
+      ? (titlesByConversationId.get(item.branch.parentConversationId) ?? null)
+      : null,
     openPaneCount: panes?.paneIdsByConversationId.get(conversationId)?.length ?? 0,
   };
 }

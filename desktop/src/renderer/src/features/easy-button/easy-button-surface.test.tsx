@@ -9,13 +9,15 @@ import type {
   ResolvedInvocation,
   Role,
   RoleProfile,
+  SideConversation,
+  SideConversationEvent,
   TopicConversation,
   TrajectoryApprovalRequest,
   TrajectoryEvent,
 } from "@generated/backend";
 import { conversationInputModeValues } from "@generated/backend";
 import { renderToString } from "react-dom/server";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { useConversationStore } from "../../stores/conversation-store";
@@ -27,7 +29,10 @@ import {
 } from "./easy-button-surface";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
-import { requestEasyButtonSpeechCapture } from "./easy-button-conversation-commands";
+import {
+  requestEasyButtonPaneClose,
+  requestEasyButtonSpeechCapture,
+} from "./easy-button-conversation-commands";
 
 const workspaceId = "workspace_topic";
 const timestamp = "2026-07-11T20:00:00Z";
@@ -35,6 +40,10 @@ const timestamp = "2026-07-11T20:00:00Z";
 describe("Easy Button topic conversation projection", () => {
   beforeEach(() => {
     useConversationStore.getState().reset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   test("selects only the conversation bound to the pane", () => {
@@ -169,6 +178,155 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain("The topic agent is still implementing the requested change.");
   });
 
+  test("presents an isolated pane-scoped side conversation while retaining parent status", () => {
+    const snapshot = workingSnapshot("conversation_side", "Parent topic", "sky");
+    const side = sideConversation(snapshot, "pane_side");
+    snapshot.sideConversations = [side];
+    snapshot.sideEvents.events = sideConversationEvents(side);
+
+    const boundView = easyButtonProjectionView(
+      snapshot.conversation.id,
+      readyProjection(snapshot),
+      "pane_side",
+    );
+    const duplicateView = easyButtonProjectionView(
+      snapshot.conversation.id,
+      readyProjection(snapshot),
+      "pane_duplicate",
+    );
+    const html = renderToString(<EasyButtonProjectionSurface view={boundView} />);
+
+    expect(boundView.side).toMatchObject({
+      id: side.id,
+      parentStatus: "working",
+      status: "active",
+    });
+    expect(boundView.side?.messages).toEqual([
+      {
+        id: "side_turn:user",
+        role: "user",
+        text: "Investigate the tangent",
+        turnId: "side_turn",
+      },
+      {
+        id: "side_turn:assistant",
+        role: "assistant",
+        text: "The tangent is isolated.",
+        turnId: "side_turn",
+      },
+    ]);
+    expect(duplicateView.side).toBeNull();
+    expect(html).toContain('data-testid="easy-button-side-conversation"');
+    expect(html).toContain('data-parent-conversation-status="working"');
+    expect(html).toContain("Parent:");
+    expect(html).toContain("Working");
+    expect(html).toContain("The tangent is isolated.");
+    expect(html).not.toContain("Parent topic milestone");
+  });
+
+  test("bounds a long side transcript while preserving its earlier-activity signal", () => {
+    const snapshot = workingSnapshot("conversation_long_side", "Long side", "sky");
+    const side = sideConversation(snapshot, "pane_long_side");
+    side.lastEventSequence = 201;
+    snapshot.sideConversations = [side];
+    snapshot.sideEvents.events = Array.from({ length: 201 }, (_, index) => {
+      const sequence = index + 1;
+      const event = userInputTrajectory(
+        side.id,
+        `side_turn_${sequence}`,
+        `side request ${sequence}`,
+      );
+      event.id = `side_trajectory_${sequence}`;
+      event.sequence = sequence;
+      return {
+        event,
+        parentConversationId: side.parentConversationId,
+        sideConversationId: side.id,
+        streamSequence: sequence,
+      };
+    });
+
+    const view = easyButtonProjectionView(
+      snapshot.conversation.id,
+      readyProjection(snapshot),
+      side.parentPaneId,
+    );
+
+    expect(view.side?.hasEarlierEvents).toBe(true);
+    expect(view.side?.messages).toHaveLength(200);
+    expect(view.side?.messages[0]?.text).toBe("Work on side request 2");
+  });
+
+  test("renders durable-fork lineage with a parent presentation control", () => {
+    const snapshot = completedSnapshot("conversation_child", "Child topic", "amber");
+    snapshot.branch = {
+      childConversationId: snapshot.conversation.id,
+      createdAt: timestamp,
+      decisionSource: "explicit",
+      forkedAtTurnId: "turn_parent",
+      kind: "fork",
+      parentConversationId: "conversation_parent",
+      providerMetadata: {},
+      sourceTrajectorySequence: 9,
+    };
+    const view = easyButtonProjectionView(
+      snapshot.conversation.id,
+      readyProjection(snapshot),
+      null,
+      "Parent topic",
+    );
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(view.lineage).toMatchObject({
+      parentConversationId: "conversation_parent",
+      parentTitle: "Parent topic",
+    });
+    expect(html).toContain('data-testid="easy-button-fork-lineage"');
+    expect(html).toContain('data-fork-parent-conversation-id="conversation_parent"');
+    expect(html).toContain("Durable fork of");
+    expect(html).toContain("Parent topic");
+  });
+
+  test("disposes the pane-bound side before allowing its pane to close", async () => {
+    const snapshot = workingSnapshot("conversation_close_side", "Close side", "teal");
+    const side = sideConversation(snapshot, "pane_close");
+    side.activeTurnId = "side_turn";
+    side.activeProviderTurnId = "provider_side_turn";
+    snapshot.sideConversations = [side];
+    useConversationStore
+      .getState()
+      .hydrateSnapshot(workspaceId, snapshot.conversation.id, snapshot);
+    const disposed = structuredClone(snapshot);
+    disposed.sideConversations[0]!.activeTurnId = null;
+    disposed.sideConversations[0]!.activeProviderTurnId = null;
+    disposed.sideConversations[0]!.disposedAt = timestamp;
+    disposed.sideConversations[0]!.status = "disposing";
+    const disposeSide = vi.fn(async () => disposed);
+    vi.stubGlobal("window", {
+      setta: {
+        conversations: { disposeSide },
+      },
+    });
+    const confirm = vi.fn(() => true);
+
+    await expect(
+      requestEasyButtonPaneClose({
+        confirm,
+        conversationId: snapshot.conversation.id,
+        paneId: "pane_close",
+        workspaceId,
+      }),
+    ).resolves.toEqual({ removePane: true });
+
+    expect(confirm).toHaveBeenCalledWith("End the active side conversation and close this pane?");
+    expect(disposeSide).toHaveBeenCalledWith({
+      parentConversationId: snapshot.conversation.id,
+      parentPaneId: "pane_close",
+      sideConversationId: side.id,
+      workspaceId,
+    });
+  });
+
   test("renders source-attributed global speech state in the bound pane", () => {
     const snapshot = workingSnapshot("conversation_speaking", "Speaking topic", "sky");
     const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
@@ -231,6 +389,32 @@ describe("Easy Button topic conversation projection", () => {
     expect(voiceButton).not.toContain("disabled");
     expect(html).toContain('data-testid="easy-button-speech-transcript"');
     expect(html).toContain("Keep listening");
+  });
+
+  test("renders explicit side and validated completed-turn fork controls", () => {
+    const html = renderToString(
+      <EasyButtonConversationComposer
+        available
+        canSubmit
+        defaultForkTitle="Parent topic fork"
+        forkPoints={[{ label: "Completed parent work", turnId: "turn_completed" }]}
+        input="Investigate a tangent"
+        onFork={async () => true}
+        onInput={() => {}}
+        onSide={() => {}}
+        onStatus={() => {}}
+        onSteer={() => {}}
+        onSubmit={undefined}
+        onVoiceCapture={undefined}
+        placeholder="Ask this topic agent…"
+        speech={null}
+        working={false}
+      />,
+    );
+
+    expect(html).toContain('data-testid="easy-button-side-start"');
+    expect(html).toContain('data-testid="easy-button-fork-start"');
+    expect(html).toContain('aria-label="Create a durable fork"');
   });
 
   test("projects approval, degradation, and resynchronization explicitly", () => {
@@ -460,6 +644,66 @@ function conversationTurn(
     startedAt: timestamp,
     status,
   };
+}
+
+function sideConversation(snapshot: ConversationSnapshot, parentPaneId: string): SideConversation {
+  const invocation = resolvedInvocation("side_agent", "running");
+  invocation.providerReferences.threadId = "provider_side_thread";
+  return {
+    activeProviderTurnId: null,
+    activeTurnId: null,
+    createdAt: timestamp,
+    decisionSource: "explicit",
+    disposedAt: null,
+    failure: null,
+    id: "side_conversation",
+    lastEventSequence: 3,
+    parentConversationId: snapshot.conversation.id,
+    parentPaneId,
+    parentStatus: snapshot.conversation.status,
+    providerThreadId: "provider_side_thread",
+    resolvedSideAgentInvocation: invocation,
+    sourceProviderThreadId: "provider_parent_thread",
+    sourceProviderTurnId: snapshot.turns.turns.at(-1)?.providerTurnId ?? null,
+    sourceTrajectorySequence: snapshot.conversation.lastTrajectorySequence,
+    status: "active",
+    updatedAt: timestamp,
+  };
+}
+
+function sideConversationEvents(side: SideConversation): SideConversationEvent[] {
+  const user = userInputTrajectory(side.id, "side_turn", "side");
+  user.userInputAccepted = {
+    delivery: "normal",
+    input: { text: "Investigate the tangent" },
+  };
+  const assistant = {
+    ...user,
+    actor: "agent" as const,
+    agentMessageCompleted: {
+      providerItemId: "provider_side_message",
+      text: "The tangent is isolated.",
+    },
+    id: "side_trajectory_assistant",
+    kind: "agent_message_completed" as const,
+    sequence: 2,
+    userInputAccepted: null,
+  };
+  const completed = {
+    ...user,
+    actor: "agent" as const,
+    id: "side_trajectory_terminal",
+    kind: "turn_completed" as const,
+    sequence: 3,
+    turnCompleted: { usage: { cachedInputTokens: 0, inputTokens: 0, outputTokens: 0 } },
+    userInputAccepted: null,
+  };
+  return [user, assistant, completed].map((event, index) => ({
+    event,
+    parentConversationId: side.parentConversationId,
+    sideConversationId: side.id,
+    streamSequence: index + 1,
+  }));
 }
 
 function artifact(conversationId: string, turnId: string, title: string): Artifact {
