@@ -3,6 +3,7 @@
 Date: 2026-07-15
 Status: Complete; accepted findings integrated into the AWS plan
 Baseline plan commit: `742396c9b`
+Integrated plan commit: `210ab095b`
 
 ## Review method
 

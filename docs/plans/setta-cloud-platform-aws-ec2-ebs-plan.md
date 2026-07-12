@@ -1169,8 +1169,30 @@ The independent review is preserved in
   rather than forcing EC2 through the Sprite-era interface unchanged.
 - Blocking findings: none in the plan itself. Live topology, isolation,
   cutoff, restore, pricing, and wake-latency gates remain intentionally open.
-- Integrated plan commit: recorded by the follow-up append-only entry after
-  this integration commit exists.
+- Integrated plan commit: `210ab095b`
+
+### Plan progress log (append only)
+
+#### 2026-07-15 — Independent baseline
+
+- Owner: Setta lead
+- Scope: UX-first AWS EC2 + EBS plan, architecture, phases, gates, tests,
+  collaboration/commit policy, final quality workflow, and log templates.
+- Evidence: existing plan/code analysis plus current AWS primary documentation.
+- Checks: staged diff inspection and `git diff --cached --check`.
+- Commit: `742396c9b`
+- Result: baseline fixed before Claude received the independent task.
+
+#### 2026-07-15 — Claude comparison and integration
+
+- Owner: Setta lead; Claude advisory review
+- Scope: independent `claude-fable-5` high-effort plan, explicit comparison,
+  and integration of stronger findings.
+- Evidence: `docs/reports/2026-07-15-aws-ec2-ebs-independent-plan-review.md`.
+- Checks: staged diff inspection and `git diff --cached --check`.
+- Commit: `210ab095b`
+- Result: review complete; no plan-level blocker; live AWS Phase 1 gates remain
+  deliberately blocking before adapter/product implementation.
 
 ## Stop conditions
 
