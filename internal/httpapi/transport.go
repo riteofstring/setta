@@ -8,14 +8,10 @@ import (
 
 	"setta/internal/appearance"
 	"setta/internal/appstate"
-	"setta/internal/chat"
 	"setta/internal/conversation"
 	"setta/internal/jsonio"
 	"setta/internal/master"
-	"setta/internal/orchestrator"
-	"setta/internal/semanticgraph"
 	"setta/internal/speech"
-	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspaceui"
 )
@@ -36,25 +32,9 @@ func requireWorkspaceUIService(response http.ResponseWriter, service WorkspaceUI
 	return service
 }
 
-func requireWorkspaceActivityService(response http.ResponseWriter, service WorkspaceActivityService) WorkspaceActivityService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "workspace_activity_service_unavailable", "workspace activity service is not available")
-		return nil
-	}
-	return service
-}
-
 func requireAppearanceService(response http.ResponseWriter, service AppearanceService) AppearanceService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "appearance_service_unavailable", "appearance service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireChatService(response http.ResponseWriter, service ChatService) ChatService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "chat_service_unavailable", "chat service is not available")
 		return nil
 	}
 	return service
@@ -117,41 +97,9 @@ func requireCodexAccountService(response http.ResponseWriter, service CodexAccou
 	return service
 }
 
-func requireWorkflowService(response http.ResponseWriter, service WorkflowService) WorkflowService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "workflow_service_unavailable", "workflow service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireSemanticGraphService(response http.ResponseWriter, service SemanticGraphService) SemanticGraphService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "semantic_graph_service_unavailable", "semantic graph service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireTerminalService(response http.ResponseWriter, service TerminalService) TerminalService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "terminal_service_unavailable", "terminal service is not available")
-		return nil
-	}
-	return service
-}
-
 func requireRuntimeAuthService(response http.ResponseWriter, service RuntimeAuthService) RuntimeAuthService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "runtime_auth_service_unavailable", "runtime auth service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireNotifyService(response http.ResponseWriter, service NotifyService) NotifyService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "notify_service_unavailable", "notify service is not available")
 		return nil
 	}
 	return service
@@ -225,26 +173,6 @@ func writeAppearanceError(response http.ResponseWriter, code string, err error) 
 		return
 	}
 	if appearance.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, code, err.Error())
-}
-
-func writeChatError(response http.ResponseWriter, code string, err error) {
-	status := http.StatusBadRequest
-	if commandErr, ok := chat.IsChatCommandError(err); ok {
-		writeError(response, status, string(commandErr.Code), commandErr.Error())
-		return
-	}
-	if operationErr, ok := chat.IsChatOperationError(err); ok {
-		writeError(response, http.StatusConflict, string(operationErr.Code), operationErr.Error())
-		return
-	}
-	if chat.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_chat_state", err.Error())
-		return
-	}
-	if chat.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())
@@ -420,61 +348,6 @@ func speechErrorHTTPStatus(code speech.ErrorCode) int {
 
 func writeCodexAccountError(response http.ResponseWriter, code string, err error) {
 	writeError(response, http.StatusBadRequest, code, err.Error())
-}
-
-func writeWorkflowError(response http.ResponseWriter, code string, err error) {
-	status := http.StatusBadRequest
-	var validationErr *orchestrator.ValidationError
-	if errors.As(err, &validationErr) {
-		writeError(response, status, "workflow_validation_failed", validationErr.Error())
-		return
-	}
-	if conflict, ok := orchestrator.IsWorkflowExecutionAlreadyRunning(err); ok {
-		activeExecution := conflict.ActiveExecution
-		writeAPIError(response, http.StatusConflict, APIError{
-			Code:            orchestrator.WorkflowExecutionAlreadyRunningCode,
-			Message:         conflict.Error(),
-			ActiveExecution: &activeExecution,
-		})
-		return
-	}
-	if orchestrator.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_workflow_state", err.Error())
-		return
-	}
-	if orchestrator.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, code, err.Error())
-}
-
-func writeSemanticGraphError(response http.ResponseWriter, code string, err error) {
-	status := http.StatusBadRequest
-	if semanticgraph.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_semantic_graph_state", err.Error())
-		return
-	}
-	if semanticgraph.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, code, err.Error())
-}
-
-func writeTerminalError(response http.ResponseWriter, code string, err error) {
-	status := http.StatusBadRequest
-	var unsupported terminal.UnsupportedPlatformError
-	if errors.As(err, &unsupported) {
-		writeError(response, http.StatusNotImplemented, "terminal_unsupported", unsupported.Error())
-		return
-	}
-	if terminal.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_terminal_state", err.Error())
-		return
-	}
-	if terminal.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, code, err.Error())
 }
 
 func writeError(response http.ResponseWriter, status int, code string, message string) {

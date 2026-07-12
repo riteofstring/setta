@@ -19,18 +19,6 @@ export interface BackendRequestOptions {
   signal?: AbortSignal;
 }
 
-export interface BackendEventBase<TType extends string> {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: TType;
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-}
-
 interface BackendRequest<ResponsePayload, ErrorPayload extends BackendErrorPayload> {
   baseURL: string;
   decodeErrorResponse: BackendPayloadDecoder<ErrorPayload>;
@@ -175,58 +163,9 @@ export function decodeStringRecord(value: unknown, label: string): Record<string
   return decoded;
 }
 
-export function decodeIntegerRecord(value: unknown, label: string): Record<string, number> {
-  const record = assertRecord(value, label);
-  const decoded: Record<string, number> = {};
-  for (const [key, item] of Object.entries(record)) {
-    decoded[key] = decodeInteger(item, `${label}.${key}`);
-  }
-  return decoded;
-}
-
 export function decodeUnknown(value: unknown, _label: string): unknown {
   void _label;
   return value;
-}
-
-export function decodeBackendEventBase<TType extends string>(
-  record: Record<string, unknown>,
-  label: string,
-  expectedType: TType,
-): BackendEventBase<TType> {
-  assertKnownFields(record, label, [
-    "schemaVersion",
-    "streamId",
-    "sequence",
-    "eventId",
-    "type",
-    "emittedAt",
-    "workspaceId",
-    "conversationId",
-    "runId",
-    "payload",
-  ]);
-  const type = decodeString(requireField(record, "type", label), label + ".type");
-  if (type !== expectedType) {
-    throw new Error(label + ".type must be " + expectedType + ", got " + type);
-  }
-  return {
-    schemaVersion: decodeInteger(
-      requireField(record, "schemaVersion", label),
-      label + ".schemaVersion",
-    ),
-    streamId: decodeString(requireField(record, "streamId", label), label + ".streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", label), label + ".sequence"),
-    eventId: decodeString(requireField(record, "eventId", label), label + ".eventId"),
-    type: expectedType,
-    emittedAt: decodeString(requireField(record, "emittedAt", label), label + ".emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", label), label + ".workspaceId"),
-    conversationId: decodeString(
-      requireField(record, "conversationId", label),
-      label + ".conversationId",
-    ),
-    runId: decodeString(requireField(record, "runId", label), label + ".runId"),
-  };
 }
 
 export async function requestBackend<ResponsePayload, ErrorPayload extends BackendErrorPayload>(

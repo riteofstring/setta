@@ -94,22 +94,6 @@ func configFromArgs(
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
 	flagSet.BoolVar(&config.SkipBootstrapDeviceSession, "skip-bootstrap-device-session", config.SkipBootstrapDeviceSession, "do not mint a bootstrap device token on startup")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
-	if harness := getenv("SETTA_E2E_CHAT_HARNESS"); harness != "" {
-		if getenv("SETTA_E2E") != "1" {
-			return config, fmt.Errorf("SETTA_E2E_CHAT_HARNESS requires SETTA_E2E=1")
-		}
-		config.ChatHarness = runtime.ChatHarnessMode(harness)
-	}
-	if disableAutomaticCartographer := getenv("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER"); disableAutomaticCartographer != "" {
-		if getenv("SETTA_E2E") != "1" {
-			return config, fmt.Errorf("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER requires SETTA_E2E=1")
-		}
-		if disableAutomaticCartographer != "1" {
-			return config, fmt.Errorf("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER must be 1")
-		}
-		config.DisableAutomaticCartographerProcessing = true
-	}
-
 	if err := flagSet.Parse(args); err != nil {
 		return config, err
 	}

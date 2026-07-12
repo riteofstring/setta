@@ -9,14 +9,7 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
-import {
-  focusTerminal,
-  openTerminalFromShortcut,
-  sendTerminalCommand,
-  terminalSnapshotsExpression,
-  waitForTerminalReady,
-  waitForTerminalText,
-} from "./terminal-workflow-helpers.mjs";
+import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -35,8 +28,6 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
 const workflowTimeoutMs = 45_000;
-const localTerminalOutput = "SETTA_RUNTIME_PICKER_LOCAL_TERMINAL";
-const remoteTerminalOutput = "SETTA_RUNTIME_PICKER_REMOTE_TERMINAL";
 const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = options.keepArtifacts
@@ -80,18 +71,10 @@ try {
 
   await openWorkspaceFromSidebar(context.client);
   const localWorkspace = await waitForSelectedWorkspaceLayout(context.client);
-  const localTerminal = await openTerminalFromShortcut(context.client, workflowTimeoutMs);
-  await focusTerminal(context.client, workflowTimeoutMs, { paneId: localTerminal.paneId });
-  await waitForTerminalReady(context.client, workflowTimeoutMs, { paneId: localTerminal.paneId });
-  await sendTerminalCommand(
+  const localPanes = await waitForSurvivorWorkspacePanes(
     context.client,
-    localTerminal.paneId,
-    `printf '${localTerminalOutput}:%s\\n' "$PWD"`,
-    workflowTimeoutMs,
+    localWorkspace.selectedWorkspaceId,
   );
-  await waitForTerminalText(context.client, localTerminalOutput, workflowTimeoutMs, {
-    paneId: localTerminal.paneId,
-  });
 
   await addRuntimeThroughPicker(context.client, remoteServe.pairingURL);
   const remoteConnected = await waitForRuntimeStatus(context.client, "connected", {
@@ -105,25 +88,17 @@ try {
   const remoteEmptySession = await probe.get("/workspace-session");
   assertRemoteSessionEmpty(remoteEmptySession);
   await waitForRendererEmptyWorkspace(context.client);
-  await waitForNoTerminalPane(context.client);
 
   await clickButtonByAria(context.client, "Open project folder");
   const canonicalWorkspaceRoot = await realpath(fixture.workspaceRoot);
   const remoteSession = await waitForRemoteWorkspace(probe, canonicalWorkspaceRoot);
   await waitForSelectedWorkspaceLayout(context.client, remoteSession.selectedWorkspaceId);
-  const remoteTerminal = await openTerminalFromShortcut(context.client, workflowTimeoutMs);
-  await focusTerminal(context.client, workflowTimeoutMs, { paneId: remoteTerminal.paneId });
-  await waitForTerminalReady(context.client, workflowTimeoutMs, { paneId: remoteTerminal.paneId });
-  await sendTerminalCommand(
+  const remotePanes = await waitForSurvivorWorkspacePanes(
     context.client,
-    remoteTerminal.paneId,
-    `printf '${remoteTerminalOutput}:%s\\n' "$PWD"`,
-    workflowTimeoutMs,
+    remoteSession.selectedWorkspaceId,
   );
-  await waitForTerminalText(context.client, remoteTerminalOutput, workflowTimeoutMs, {
-    paneId: remoteTerminal.paneId,
-  });
   await appendSummary("remote-workspace-opened", {
+    paneCount: remotePanes.paneIds.length,
     remoteRuntimeId: remote.runtimeId,
     selectedWorkspaceId: remoteSession.selectedWorkspaceId,
   });
@@ -136,13 +111,13 @@ try {
   await clickButtonByAria(context.client, `Switch to ${local.displayName}`);
   await waitForRuntimeStatus(context.client, "connected", { runtimeId: local.runtimeId });
   await waitForSelectedWorkspaceLayout(context.client, localWorkspace.selectedWorkspaceId);
-  await focusTerminal(context.client, workflowTimeoutMs, { paneId: localTerminal.paneId });
-  const returnedLocalTerminal = await waitForTerminalReady(context.client, workflowTimeoutMs, {
-    paneId: localTerminal.paneId,
-  });
-  if (returnedLocalTerminal.sessionId !== localTerminal.sessionId) {
+  const returnedLocalPanes = await waitForSurvivorWorkspacePanes(
+    context.client,
+    localWorkspace.selectedWorkspaceId,
+  );
+  if (JSON.stringify(returnedLocalPanes.paneIds) !== JSON.stringify(localPanes.paneIds)) {
     throw new Error(
-      `local terminal session after runtime switch = ${returnedLocalTerminal.sessionId}, want ${localTerminal.sessionId}`,
+      `local workspace panes changed after runtime switch: ${JSON.stringify({ after: returnedLocalPanes.paneIds, before: localPanes.paneIds })}`,
     );
   }
 
@@ -154,7 +129,9 @@ try {
 
   await captureScreenshot(context.client, join(recordingDir, "runtime-picker-final.png"));
   await appendSummary("passed", {
+    localPaneCount: localPanes.paneIds.length,
     localRuntimeId: local.runtimeId,
+    remotePaneCount: remotePanes.paneIds.length,
     remoteRuntimeId: remote.runtimeId,
   });
   console.log(`Electron runtime picker workflow passed: ${recordingDir}`);
@@ -319,11 +296,18 @@ async function waitForRendererEmptyWorkspace(client) {
   );
 }
 
-async function waitForNoTerminalPane(client) {
+async function waitForSurvivorWorkspacePanes(client, expectedWorkspaceId) {
   return waitForState(
     client,
-    terminalSnapshotsExpression(),
-    (snapshots) => Array.isArray(snapshots) && snapshots.length === 0,
+    driverCallExpression("runtimePickerWorkspacePaneSnapshot"),
+    (snapshot) =>
+      snapshot.workspaceId === expectedWorkspaceId &&
+      snapshot.paneCount > 0 &&
+      snapshot.paneIds.length === snapshot.paneCount &&
+      snapshot.paneIds.every((paneId) => paneId !== "") &&
+      snapshot.surfaceKinds.every((surfaceKind) =>
+        ["easy-button", "empty-frame", "settings-dom"].includes(surfaceKind),
+      ),
     workflowTimeoutMs,
   );
 }

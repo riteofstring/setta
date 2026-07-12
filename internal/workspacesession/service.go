@@ -39,13 +39,6 @@ func (service *Service) Session() WorkspaceSession {
 	return service.session.Clone()
 }
 
-func (service *Service) SelectedConversationIDs() map[string]string {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	return service.session.SelectedConversationIDs()
-}
-
 func (service *Service) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
@@ -114,21 +107,6 @@ func (service *Service) Select(id string) (WorkspaceSession, error) {
 	}
 	service.session = next
 	return service.session.Clone(), nil
-}
-
-func (service *Service) SetSelectedConversation(workspaceID string, conversationID string) (map[string]string, error) {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	next := service.session.Clone()
-	if err := next.SetSelectedConversation(workspaceID, conversationID); err != nil {
-		return nil, err
-	}
-	if err := service.store.Save(next.AppState()); err != nil {
-		return nil, err
-	}
-	service.session = next
-	return service.session.SelectedConversationIDs(), nil
 }
 
 func (service *Service) Close(id string) (WorkspaceSession, error) {

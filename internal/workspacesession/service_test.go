@@ -34,9 +34,6 @@ func TestServicePersistsWorkspaceSessionAcrossRestart(t *testing.T) {
 	if _, err := service.Select(apiSummary.ID); err != nil {
 		t.Fatalf("select api: %v", err)
 	}
-	if _, err := service.SetSelectedConversation(apiSummary.ID, "conversation_api"); err != nil {
-		t.Fatalf("set selected api conversation: %v", err)
-	}
 
 	restartedManager, err := workspace.NewManager(filepath.Dir(appStore.Path()))
 	if err != nil {
@@ -50,9 +47,6 @@ func TestServicePersistsWorkspaceSessionAcrossRestart(t *testing.T) {
 
 	if session.SelectedWorkspaceID != apiSummary.ID {
 		t.Fatalf("selected after restart = %q, want %s", session.SelectedWorkspaceID, apiSummary.ID)
-	}
-	if selected := restarted.SelectedConversationIDs(); selected[apiSummary.ID] != "conversation_api" {
-		t.Fatalf("selected conversation ids after restart = %#v", selected)
 	}
 	assertIDs(t, "active after restart", session.ActiveWorkspaces, []string{webSummary.ID, apiSummary.ID})
 	assertIDs(t, "recent after restart", session.RecentWorkspaces, []string{webSummary.ID, apiSummary.ID})

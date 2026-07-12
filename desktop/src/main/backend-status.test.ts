@@ -22,33 +22,16 @@ describe("backend status broadcaster", () => {
     expect(broadcaster.currentProcessStatus()).toEqual(status);
   });
 
-  test("emits event stream status and replays current statuses to a new window", () => {
+  test("replays the current process status to a new window", () => {
     const first = statusWindow();
     const next = statusWindow();
     const broadcaster = createBackendStatusBroadcaster(() => [first]);
     const processStatus = { message: "Backend failed", status: "failed" as const };
-    const eventStreamStatus = {
-      lastSequence: 4,
-      lastStreamId: "event_stream_api",
-      message: "Resyncing",
-      status: "resyncing" as const,
-    };
-
     broadcaster.emitProcessStatus(processStatus);
-    broadcaster.emitEventStreamStatus(eventStreamStatus);
     broadcaster.sendToWindow(next);
-
-    expect(first.webContents.send).toHaveBeenCalledWith(
-      ipcEvents.backendEventStreamStatus,
-      eventStreamStatus,
-    );
     expect(next.webContents.send).toHaveBeenCalledWith(
       ipcEvents.backendProcessStatus,
       processStatus,
-    );
-    expect(next.webContents.send).toHaveBeenCalledWith(
-      ipcEvents.backendEventStreamStatus,
-      eventStreamStatus,
     );
   });
 });

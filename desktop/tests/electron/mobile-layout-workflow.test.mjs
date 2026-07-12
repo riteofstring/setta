@@ -59,10 +59,10 @@ try {
   const fullScreenPane = await waitForFullScreenFocusedPane(context.client);
   await captureScreenshot(context.client, join(artifactDir, "mobile-layout.png"));
 
+  const newFrame = await exerciseNewFrameButton(context.client);
   const focusSteps = await exerciseFocusNavigation(context.client);
   const projectPane = await exerciseProjectPaneOverlay(context.client, artifactDir);
   const overview = await exerciseOverviewToggle(context.client);
-  const newFrame = await exerciseNewFrameButton(context.client);
 
   await context.client.call("Emulation.setDeviceMetricsOverride", desktopViewport);
   await waitForCompactLayout(context.client, false);

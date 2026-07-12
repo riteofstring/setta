@@ -1,36 +1,20 @@
-import { app, BrowserWindow, dialog, ipcMain, powerMonitor } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import {
-  createBackendClient,
-  type BackendClient,
-  type ChatEvent,
-  type RunLivenessReason,
-  type TerminalEvent,
-  type WorkflowEvent,
-} from "@generated/backend";
+import { createBackendClient, type BackendClient } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
-import type {
-  BackendEventStreamStatus,
-  BackendProcessStatus,
-  RuntimeRegistrySnapshot,
-} from "@shared/types";
+import type { BackendProcessStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { registerAppIpcHandlers } from "./app-ipc";
 import { authenticatedBackendFetch } from "./backend-auth-fetch";
-import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
 import { attachBackendObservers } from "./backend-main-observers";
 import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
-import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
-import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
-import { forwardChatEventToWindows } from "./chat-event-forwarding";
-import { registerChatIpcHandlers } from "./chat-ipc";
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
 import { KnownRuntimeStore } from "./known-runtime-store";
@@ -41,26 +25,10 @@ import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registr
 import { registerSpeechIpcHandlers } from "./speech-ipc";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
-import { startSemanticGraphEventForwarding } from "./semantic-graph-event-forwarding-stream";
-import { registerSemanticGraphIpcHandlers } from "./semantic-graph-ipc";
-import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
-import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
-import { registerTerminalIpcHandlers } from "./terminal-ipc";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
-import { startWorkspaceActivityEventForwarding } from "./workspace-activity-event-forwarding-stream";
-import { registerWorkspaceActivityIpcHandlers } from "./workspace-activity-ipc";
-import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
-import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
-import { registerWorkflowIpcHandlers } from "./workflow-ipc";
 import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
 
 let backend: BackendHandle | null = null;
-let backendEventStream: BackendEventStream | null = null;
-let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
-let terminalEventStream: TerminalEventStream | null = null;
-let workspaceActivityEventStream: ReturnType<typeof startWorkspaceActivityEventForwarding> | null =
-  null;
-let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
@@ -122,7 +90,6 @@ async function prepareBackend(appDataDir: string) {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
     emitBackendProcessStatus({ message: backendStartupError, status: "failed" });
-    emitBackendEventStreamStatus({ message: "Backend event stream stopped", status: "stopped" });
     recorder?.recordBackendStartupError(backendStartupError);
   }
 }
@@ -146,10 +113,6 @@ async function handleRuntimeFailed(state: RuntimeRegistrySnapshot["connection"])
   backendRequests.setStopping(true);
   await stopBackendEventStreams();
   emitBackendProcessStatus({ message: state.message, status: "failed" });
-  emitBackendEventStreamStatus({
-    message: "Backend event stream stopped",
-    status: "stopped",
-  });
 }
 
 function handleRuntimeOffline(state: RuntimeRegistrySnapshot["connection"]) {
@@ -165,7 +128,6 @@ function handleRuntimeOnline(runtime: ActiveRuntime) {
     status: "online",
     url: runtime.baseUrl,
   });
-  startBackendEventStreams();
 }
 
 async function beforeRuntimeSwitch() {
@@ -173,148 +135,12 @@ async function beforeRuntimeSwitch() {
   await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
 }
 
-function startChatEventStream() {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    return;
-  }
-  void stopChatEventStream();
-  backendEventStream = startBackendEventStream({
-    authToken: runtime.deviceToken,
-    baseURL: runtime.baseUrl,
-    fetchImpl: backendFetch(),
-    observer: {
-      forwarded: (event) => {
-        recorder?.recordAppEvent("chat_event_forwarded", {
-          eventId: event.eventId,
-          sequence: event.sequence,
-          streamId: event.streamId,
-          type: event.type,
-        });
-      },
-      lifecycle: (event) => {
-        emitBackendEventStreamStatus(event);
-        recorder?.recordAppEvent("chat_event_stream_" + event.status, event);
-        if (event.status === "reconnecting" || event.status === "resyncing") {
-          void reconcileChatRunsInBackground("stream_resync");
-        }
-      },
-    },
-    sendEvent: forwardChatEvent,
-  });
-}
-
-function startWorkflowEventStreamForwarding() {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    return;
-  }
-  void stopWorkflowEventStreamForwarding();
-  workflowEventStream = startWorkflowEventStream({
-    authToken: runtime.deviceToken,
-    baseURL: runtime.baseUrl,
-    fetchImpl: backendFetch(),
-    sendEvent: forwardWorkflowEvent,
-  });
-}
-
-function startSemanticGraphEventStreamForwarding() {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    return;
-  }
-  void stopSemanticGraphEventStreamForwarding();
-  semanticGraphEventStream = startSemanticGraphEventForwarding({
-    authToken: runtime.deviceToken,
-    baseURL: runtime.baseUrl,
-    fetchImpl: backendFetch(),
-    recorder,
-  });
-}
-
-function startTerminalEventStreamForwarding() {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    return;
-  }
-  void stopTerminalEventStreamForwarding();
-  terminalEventStream = startTerminalEventStream({
-    authToken: runtime.deviceToken,
-    baseURL: runtime.baseUrl,
-    fetchImpl: backendFetch(),
-    sendEvent: forwardTerminalEvent,
-  });
-}
-
-function startWorkspaceActivityEventStreamForwarding() {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    return;
-  }
-  void stopWorkspaceActivityEventStreamForwarding();
-  workspaceActivityEventStream = startWorkspaceActivityEventForwarding({
-    authToken: runtime.deviceToken,
-    baseURL: runtime.baseUrl,
-    fetchImpl: backendFetch(),
-    recorder,
-  });
-}
-
-async function stopChatEventStream() {
-  const stream = backendEventStream;
-  backendEventStream = null;
-  await stream?.stop();
-}
-
-async function stopWorkflowEventStreamForwarding() {
-  const stream = workflowEventStream;
-  workflowEventStream = null;
-  await stream?.stop();
-}
-
-async function stopSemanticGraphEventStreamForwarding() {
-  const stream = semanticGraphEventStream;
-  semanticGraphEventStream = null;
-  await stream?.stop();
-}
-
-async function stopTerminalEventStreamForwarding() {
-  const stream = terminalEventStream;
-  terminalEventStream = null;
-  await stream?.stop();
-}
-
-async function stopWorkspaceActivityEventStreamForwarding() {
-  const stream = workspaceActivityEventStream;
-  workspaceActivityEventStream = null;
-  await stream?.stop();
-}
-
 async function stopBackendEventStreams() {
-  await Promise.all([
-    stopChatEventStream(),
-    stopSemanticGraphEventStreamForwarding(),
-    stopTerminalEventStreamForwarding(),
-    stopWorkspaceActivityEventStreamForwarding(),
-    stopWorkflowEventStreamForwarding(),
-    conversationEvents.stopAll(),
-  ]);
-}
-
-function startBackendEventStreams() {
-  startChatEventStream();
-  startSemanticGraphEventStreamForwarding();
-  startTerminalEventStreamForwarding();
-  startWorkspaceActivityEventStreamForwarding();
-  startWorkflowEventStreamForwarding();
+  await conversationEvents.stopAll();
 }
 
 function emitBackendProcessStatus(status: BackendProcessStatus) {
   backendStatuses.emitProcessStatus(status);
-}
-
-function emitBackendEventStreamStatus(status: BackendEventStreamStatus) {
-  backendStatuses.emitEventStreamStatus(status);
 }
 
 function sendBackendStatuses(window: BrowserWindow) {
@@ -339,33 +165,6 @@ function sendRuntimeSnapshot(window: BrowserWindow) {
 function clientDisplayName() {
   const name = hostname().trim();
   return name === "" ? "Setta Desktop" : `Setta Desktop (${name})`;
-}
-
-function forwardChatEvent(event: ChatEvent) {
-  forwardChatEventToWindows(BrowserWindow.getAllWindows(), event);
-}
-
-function forwardWorkflowEvent(event: WorkflowEvent) {
-  recorder?.recordAppEvent("workflow_event_forwarded", {
-    eventId: event.id,
-    executionId: event.executionId,
-    ordinal: event.ordinal,
-    type: event.type,
-  });
-  forwardWorkflowEventToWindows(BrowserWindow.getAllWindows(), event);
-}
-
-function forwardTerminalEvent(event: TerminalEvent) {
-  recorder?.recordAppEvent("terminal_event_forwarded", {
-    eventId: event.eventId,
-    paneId: event.paneId,
-    sequence: event.sequence,
-    sessionId: event.sessionId,
-    streamId: event.streamId,
-    type: event.type,
-    workspaceId: event.workspaceId,
-  });
-  forwardTerminalEventToWindows(BrowserWindow.getAllWindows(), event);
 }
 
 function settaAppDataDir() {
@@ -620,25 +419,6 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "workspaceSelectedConversations",
-    async () => {
-      return requireBackendClient().workspaceSelectedConversations();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workspaceSetSelectedConversation",
-    async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().setWorkspaceSelectedConversation({
-        conversationId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "workspaceOpenPath",
     async (_event, rootPath) => {
       return requireBackendClient().openWorkspace({ rootPath });
@@ -670,7 +450,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerSpeechIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerMasterIpcHandlers({
     ipcMain,
@@ -685,9 +464,6 @@ function registerIpc() {
     requireBackendClient,
     routingObservability: recorder ?? undefined,
   });
-  registerChatIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
-  registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
-  registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "codexAccountRead",
@@ -728,7 +504,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerSemanticGraphIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "workspaceBrowserViewStats",
@@ -745,7 +520,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerTerminalIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
 }
 
 function requireBackendClient(): BackendClient {
@@ -796,43 +570,16 @@ function requestQuit() {
   app.quit();
 }
 
-function registerPowerMonitorHandlers() {
-  powerMonitor.on("resume", () => {
-    void reconcileChatRunsInBackground("wake_recheck");
-  });
-}
-
-async function reconcileChatRunsInBackground(reason: RunLivenessReason) {
-  if (!backend) {
-    return;
-  }
-  try {
-    await requireBackendClient().reconcileChatRuns({
-      conversationId: "",
-      reason,
-      workspaceId: "",
-    });
-    recorder?.recordAppEvent("chat_runs_reconciled", { reason });
-  } catch (error) {
-    recorder?.recordAppEvent("chat_runs_reconcile_failed", {
-      message: error instanceof Error ? error.message : String(error),
-      reason,
-    });
-  }
-}
-
 app.whenReady().then(async () => {
   if (isE2E() && !isVisibleE2E()) {
     app.dock?.hide();
   }
-  registerPowerMonitorHandlers();
   const appDataDir = settaAppDataDir();
   recorder = createSessionRecorder(process.env, {
     appDataDir,
     desktopRoot: desktopRoot(),
     repoRoot: repoRoot(),
   });
-  registerChatAttachmentProtocol(appDataDir);
   await prepareBackend(appDataDir);
   await createWindow();
 });

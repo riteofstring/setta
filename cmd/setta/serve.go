@@ -15,7 +15,6 @@ import (
 
 type serveOptions struct {
 	AppDataDir  string
-	ChatHarness runtime.ChatHarnessMode
 	DisplayName string
 	Host        string
 	Port        int
@@ -74,12 +73,6 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	}
 	if flagSet.NArg() != 0 {
 		return serveOptions{}, usageError{err: fmt.Errorf("setta serve does not accept positional arguments")}
-	}
-	if harness := deps.getenv("SETTA_E2E_CHAT_HARNESS"); harness != "" {
-		if deps.getenv("SETTA_E2E") != "1" {
-			return serveOptions{}, fmt.Errorf("SETTA_E2E_CHAT_HARNESS requires SETTA_E2E=1")
-		}
-		options.ChatHarness = runtime.ChatHarnessMode(harness)
 	}
 	if options.Tailnet {
 		host, err := resolveTailnetIPv4(ctx, deps.commandRunner)
@@ -152,9 +145,6 @@ func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Write
 	config.Stdout = readyWriter
 	config.Version = version
 	config.Speech = options.Speech
-	if options.ChatHarness != "" {
-		config.ChatHarness = options.ChatHarness
-	}
 	return config
 }
 

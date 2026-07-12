@@ -158,18 +158,3 @@ function emptyStreamCursor(): StreamCursor {
 export function cursorFromStreamedEvent(event: StreamCursor): StreamCursor {
   return { sequence: event.sequence, streamId: event.streamId };
 }
-
-export function cursorFromServerSentEvent(
-  message: ServerSentEvent,
-  streamName: string,
-): StreamCursor {
-  const separator = message.id.lastIndexOf(":");
-  if (separator <= 0 || separator === message.id.length - 1) {
-    throw new Error(`${streamName} id is invalid: ${message.id}`);
-  }
-  const sequence = Number.parseInt(message.id.slice(separator + 1), 10);
-  if (!Number.isInteger(sequence) || sequence < 0) {
-    throw new Error(`${streamName} id sequence is invalid: ${message.id}`);
-  }
-  return { sequence, streamId: message.id.slice(0, separator) };
-}

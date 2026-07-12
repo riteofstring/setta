@@ -12,10 +12,9 @@ usage() {
   cat <<'EOF'
 Usage: ./scripts/test_chat_workflows.sh [--skip-build] [--visible] [--deterministic-only] [--live-only] [--keep-artifacts]
 
-Build and run the chat workflow gate:
-  - hidden deterministic Electron chat workflow tests with temp app data
-  - live Electron Codex workflow tests when Codex ChatGPT auth is available
-  - backend-only live Codex workflow tests as supplemental lower-level coverage
+Build and run the topic-conversation workflow gate:
+  - hidden deterministic Electron topic-conversation workflow with temp app data
+  - live Codex topic-conversation workflow when Codex ChatGPT auth is available
 EOF
 }
 
@@ -87,10 +86,9 @@ if [[ "${keep_artifacts}" -eq 1 ]]; then
 fi
 
 if [[ "${run_deterministic}" -eq 1 ]]; then
-  echo "Deterministic Electron chat workflows..."
+  echo "Deterministic Electron topic-conversation workflow..."
   if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
-    --workflow chat \
-    --workflow corrupt-chat; then
+    --workflow topic-conversation-pane-projection; then
     passed_workflows+=("deterministic-electron")
   else
     status=1
@@ -99,29 +97,20 @@ fi
 
 if [[ "${run_live}" -eq 1 ]]; then
   if live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
-    echo "Live Codex Electron chat workflow..."
-    if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
-      --workflow live-codex-electron; then
-      passed_workflows+=("live-codex-electron")
-    else
-      status=1
-    fi
-
-    echo "Live Codex backend chat workflow..."
-    if "${repo_root}/scripts/go.sh" test ./internal/runtime -run 'TestBackend(AppWorkflowWithLiveCodex|LiveCodexRunLivenessReconcileDuringActiveTurn|LiveCodexSilentUpstreamLossReconciliation|LiveCodexStaleTurnInterruptRegression)' -count=1; then
-      passed_workflows+=("live-codex-backend")
+    echo "Live Codex topic-conversation workflow..."
+    if "${repo_root}/scripts/go.sh" test ./internal/runtime -run '^TestBackendTopicConversationWorkflowWithLiveCodex$' -count=1; then
+      passed_workflows+=("live-codex-topic-conversation")
     else
       status=1
     fi
   else
     live_skip_reason="${live_skip_reason:-Codex ChatGPT auth is unavailable}"
-    skipped_workflows+=("live-codex-electron (${live_skip_reason})")
-    skipped_workflows+=("live-codex-backend (${live_skip_reason})")
-    echo "Live Codex chat workflows skipped: ${live_skip_reason}"
+    skipped_workflows+=("live-codex-topic-conversation (${live_skip_reason})")
+    echo "Live Codex topic-conversation workflow skipped: ${live_skip_reason}"
   fi
 fi
 
-echo "Chat workflow summary:"
+echo "Topic-conversation workflow summary:"
 if [[ ${#passed_workflows[@]} -eq 0 ]]; then
   echo "  passed: none"
 else

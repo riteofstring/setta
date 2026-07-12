@@ -3,8 +3,6 @@ import type {
   EasyButtonPaneConfig,
   PaneTone as PersistedPaneTone,
   SurfaceKind as PersistedSurfaceKind,
-  TerminalPaneConfig as PersistedTerminalPaneConfig,
-  WorkflowNodeDetailsPaneConfig,
   WorkspaceUIColumn,
   WorkspaceUILayout,
   WorkspaceUIPane,
@@ -19,7 +17,6 @@ import type {
   PaneLimitPolicy,
   PaneId,
   ProductSurfaceKind,
-  TerminalPaneConfig,
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
@@ -28,14 +25,9 @@ const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
 const realWorkspaceSurfaceKinds = productSurfaceKinds;
 export const defaultRealWorkspacePaneLimits = {
-  "chat-dom": 10,
   "easy-button": 10,
-  "workflow-graph": 10,
+  "empty-frame": 10,
   "settings-dom": 1,
-  "semantic-node-details": 1,
-  terminal: 10,
-  "workflow-node-details": 1,
-  "workflow-settings": 1,
 } satisfies PaneLimitPolicy;
 
 export interface RealWorkspaceSceneOptions {
@@ -190,15 +182,9 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
     surfaceKind: pane.surfaceKind,
-    terminalConfig: pane.terminalConfig
-      ? terminalConfigFromPersisted(pane.terminalConfig)
-      : undefined,
     title: pane.title,
     tone: pane.tone,
     weight: pane.weight,
-    workflowNodeDetailsConfig: workflowNodeDetailsConfigFromPersisted(
-      pane.workflowNodeDetailsConfig,
-    ),
   };
 }
 
@@ -206,25 +192,6 @@ function easyButtonConfigFromPersisted(
   config: EasyButtonPaneConfig | null,
 ): EasyButtonPaneConfig | undefined {
   return config ?? undefined;
-}
-
-function workflowNodeDetailsConfigFromPersisted(
-  config: WorkflowNodeDetailsPaneConfig | null,
-): WorkflowNodeDetailsPaneConfig | undefined {
-  return config ?? undefined;
-}
-
-function terminalConfigFromPersisted(config: PersistedTerminalPaneConfig): TerminalPaneConfig {
-  const terminalConfig: TerminalPaneConfig = {
-    profileId: config.profileId,
-  };
-  if (config.cwdOverride !== "") {
-    terminalConfig.cwdOverride = config.cwdOverride;
-  }
-  if (config.titleOverride !== "") {
-    terminalConfig.titleOverride = config.titleOverride;
-  }
-  return terminalConfig;
 }
 
 function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
@@ -237,24 +204,9 @@ function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
     surfaceKind: persistedSurfaceKind(pane.surfaceKind),
-    terminalConfig: pane.terminalConfig ? terminalConfigToPersisted(pane.terminalConfig) : null,
     title: pane.title,
     tone: persistedPaneTone(pane.tone),
     weight: pane.weight,
-    workflowNodeDetailsConfig: pane.workflowNodeDetailsConfig ?? null,
-  };
-}
-
-function terminalConfigToPersisted(
-  config: WorkspacePane["terminalConfig"],
-): PersistedTerminalPaneConfig {
-  if (!config) {
-    throw new Error("terminal config is required");
-  }
-  return {
-    cwdOverride: config.cwdOverride ?? "",
-    profileId: config.profileId,
-    titleOverride: config.titleOverride ?? "",
   };
 }
 

@@ -3,9 +3,9 @@ import type { SurfaceKind } from "@generated/backend";
 import { createRealWorkspaceScene, type RealWorkspaceSceneOptions } from "./workspace-scene";
 
 const layoutTestSurfaces = [
-  { surfaceKind: "chat-dom", title: "Chat", tone: "cyan", weight: 1.6 },
-  { surfaceKind: "terminal", title: "Terminal", tone: "green", weight: 1 },
-  { surfaceKind: "workflow-graph", title: "Workflow Graph", tone: "cyan", weight: 1 },
+  { surfaceKind: "empty-frame", title: "Frame", tone: "cyan", weight: 1.6 },
+  { surfaceKind: "empty-frame", title: "Frame 2", tone: "green", weight: 1 },
+  { surfaceKind: "easy-button", title: "Topic", tone: "cyan", weight: 1 },
   { surfaceKind: "settings-dom", title: "Settings", tone: "slate", weight: 1 },
 ] as const satisfies readonly {
   surfaceKind: SurfaceKind;
@@ -38,11 +38,9 @@ export function createWorkspaceLayoutTestScene(options: RealWorkspaceSceneOption
         subtitle: "layout test surface",
         surfaceId: `workspace_surface_${index}`,
         surfaceKind: surface.surfaceKind,
-        terminalConfig: null,
         title: surface.title,
         tone: surface.tone,
         weight: surface.weight,
-        workflowNodeDetailsConfig: null,
       })),
       schemaVersion: 1,
       workspaceId: options.workspaceId,

@@ -9,28 +9,28 @@ describe("typed IPC adapters", () => {
     const renderer = { invoke };
     const typedInvoke = createRendererIpcInvoke(renderer);
 
-    await typedInvoke("chatMessagePage", "workspace_api", "conversation_api", 0, 40);
+    const request = { conversationId: "conversation_api", workspaceId: "workspace_api" };
+    await typedInvoke("conversationReadSnapshot", request);
 
-    expect(invoke).toHaveBeenCalledWith(
-      ipcChannels.chatMessagePage,
-      "workspace_api",
-      "conversation_api",
-      0,
-      40,
-    );
+    expect(invoke).toHaveBeenCalledWith(ipcChannels.conversationReadSnapshot, request);
   });
 
   test("renderer invoke removes Electron remote method wrapper from errors", async () => {
     const invoke = vi.fn(async () => {
       throw new Error(
-        "Error invoking remote method 'chat:list-conversations': Error: malformed chat state /tmp/run.json",
+        "Error invoking remote method 'conversation:list-topic-conversations': Error: malformed conversation state /tmp/run.json",
       );
     });
     const typedInvoke = createRendererIpcInvoke({ invoke });
 
-    await expect(typedInvoke("chatListConversations", "workspace_api")).rejects.toThrow(
-      "malformed chat state /tmp/run.json",
-    );
+    await expect(
+      typedInvoke("conversationListTopicConversations", {
+        cursor: null,
+        limit: 40,
+        query: "",
+        workspaceId: "workspace_api",
+      }),
+    ).rejects.toThrow("malformed conversation state /tmp/run.json");
   });
 
   test("main handler registration preserves argument order", async () => {

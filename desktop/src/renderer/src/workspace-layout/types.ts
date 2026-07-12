@@ -1,30 +1,26 @@
-import type { EasyButtonPaneConfig, WorkflowNodeDetailsPaneConfig } from "@generated/backend";
+import type { EasyButtonPaneConfig } from "@generated/backend";
 
 export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
 
-export const productSurfaceKinds = [
-  "chat-dom",
-  "easy-button",
-  "empty-frame",
-  "workflow-graph",
-  "settings-dom",
-  "terminal",
-  "semantic-node-details",
-  "workflow-node-details",
-  "workflow-settings",
-] as const;
+export const productSurfaceKinds = ["easy-button", "empty-frame", "settings-dom"] as const;
 
 export type ProductSurfaceKind = (typeof productSurfaceKinds)[number];
 type DiagnosticSurfaceKind =
   | "browser"
+  | "chat-dom"
   | "fake-dom"
   | "fake-heavy-dom"
   | "fake-long-chat"
   | "fake-terminal"
   | "git-graph"
-  | "snapshot";
+  | "semantic-node-details"
+  | "snapshot"
+  | "terminal"
+  | "workflow-graph"
+  | "workflow-node-details"
+  | "workflow-settings";
 export type SurfaceKind = ProductSurfaceKind | DiagnosticSurfaceKind;
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
@@ -78,6 +74,8 @@ export interface TerminalPaneConfig {
   profileId: string;
   titleOverride?: string;
 }
+
+type WorkflowNodeDetailsPaneConfig = Readonly<Record<string, unknown>>;
 
 export interface WorkspaceColumn {
   columnId: ColumnId;

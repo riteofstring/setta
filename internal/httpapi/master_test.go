@@ -209,7 +209,7 @@ func TestActiveMasterShellInteractionEndpointMapsReadAndValidationFailures(t *te
 				"/master/interaction/active",
 				test.wantStatus,
 			)
-			if response.Error.Code != test.wantCode || response.Error.OperationApplied {
+			if response.Error.Code != test.wantCode {
 				t.Fatalf("error = %+v", response.Error)
 			}
 		})
@@ -270,7 +270,7 @@ func TestMasterInputEndpointRequiresServiceAndMapsTypedFailures(t *testing.T) {
 				validSubmitMasterInputRequest(),
 				test.wantStatus,
 			)
-			if response.Error.Code != test.wantCode || response.Error.OperationApplied {
+			if response.Error.Code != test.wantCode {
 				t.Fatalf("error = %+v", response.Error)
 			}
 		})

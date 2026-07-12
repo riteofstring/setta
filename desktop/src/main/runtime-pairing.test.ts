@@ -45,7 +45,6 @@ describe("runtime pairing completion", () => {
         jsonResponse(
           {
             error: {
-              activeExecution: null,
               code: "invalid_pairing_token",
               message: "pairing token is invalid, expired, or already used",
               operationApplied: false,
@@ -148,7 +147,6 @@ describe("runtime connection verification", () => {
       return jsonResponse(
         {
           error: {
-            activeExecution: null,
             code: "unauthorized",
             message: "missing or invalid device token",
             operationApplied: false,
@@ -181,7 +179,6 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
     },
     protocolVersion,
     runtimeId,
-    vapidPublicKey: "test-vapid-public-key",
   };
 }
 
@@ -192,7 +189,6 @@ function legacyRuntimeInfo(runtimeId: string, protocolVersion: number) {
     displayName: "Remote",
     protocolVersion,
     runtimeId,
-    vapidPublicKey: "test-vapid-public-key",
   };
 }
 

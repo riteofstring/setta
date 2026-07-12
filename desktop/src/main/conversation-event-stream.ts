@@ -5,8 +5,7 @@ import {
   type ConversationEventCursor,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
-
-import { parseServerSentEvents } from "./backend-event-stream";
+import { parseServerSentEvents } from "@shared/server-sent-events";
 
 export interface ConversationEventStream {
   done: Promise<void>;

@@ -64,14 +64,6 @@ function useCodexAccountState() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    return window.setta.chat.onEvent((event) => {
-      if (event.type === "codex.account.changed") {
-        void load();
-      }
-    });
-  }, [load]);
-
   const mutate = async (action: () => Promise<CodexAccountState>) => {
     setBusy(true);
     setError("");

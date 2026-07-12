@@ -9,13 +9,11 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/appearance"
-	"setta/internal/chat"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
 	"setta/internal/conversationindex"
 	"setta/internal/master"
 	"setta/internal/narration"
-	"setta/internal/orchestrator"
 	"setta/internal/speech"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
@@ -25,7 +23,6 @@ const masterRuntimeDirectoryName = "master"
 
 type runtimeBaseServices struct {
 	appearanceService        *appearance.Service
-	chatService              *chat.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
@@ -38,8 +35,6 @@ type runtimeBaseServices struct {
 	speechService            *speech.Service
 	workspaceService         *workspacesession.Service
 	workspaceUIService       *workspaceui.Service
-	workflowService          *orchestrator.Service
-	workflowStore            *orchestrator.Store
 }
 
 func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
@@ -53,27 +48,13 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 			shutdownRuntimeFoundation(foundation, config.ShutdownTimeout)
 		}
 	}()
-	chatService, err := newChatService(config.AppDataDir, foundation.workspaceService, foundation.codexManager, config.ChatHarness)
-	if err != nil {
-		return runtimeBaseServices{}, err
-	}
-	workflowService, workflowStore, err := newWorkflowService(
-		config.AppDataDir,
-		foundation.workspaceService,
-		chatService,
-	)
-	if err != nil {
-		return runtimeBaseServices{}, err
-	}
 	speechService, err := newSpeechService(config.Speech, foundation.conversationStore)
 	if err != nil {
-		closeRuntimeServicesBeforeSpeechFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err
 	}
 	closeFoundationOnFailure = false
 	return runtimeBaseServices{
 		appearanceService:        foundation.appearanceService,
-		chatService:              chatService,
 		codexManager:             foundation.codexManager,
 		conversationService:      foundation.conversationService,
 		conversationInputService: foundation.conversationInputService,
@@ -86,8 +67,6 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		speechService:            speechService,
 		workspaceService:         foundation.workspaceService,
 		workspaceUIService:       foundation.workspaceUIService,
-		workflowService:          workflowService,
-		workflowStore:            workflowStore,
 	}, nil
 }
 
@@ -103,16 +82,6 @@ func shutdownRuntimeFoundation(foundation runtimeFoundation, timeout time.Durati
 	_ = foundation.codexManager.Shutdown(managerCtx)
 	cancelManager()
 	_ = foundation.conversationStore.Close()
-}
-
-func closeRuntimeServicesBeforeSpeechFailure(
-	chatService *chat.Service,
-	workflowService *orchestrator.Service,
-	workflowStore *orchestrator.Store,
-) {
-	chatService.CloseEvents()
-	workflowService.CloseEvents()
-	_ = workflowStore.Close()
 }
 
 type runtimeFoundation struct {
@@ -302,8 +271,11 @@ func newRuntimeAgentServices(
 	conversationStore *conversation.Store,
 	workspaceService *workspacesession.Service,
 ) (runtimeAgentServices, error) {
-	codexManager := newCodexManager()
-	agentRuntime := agent.NewRuntime(agent.Config{Manager: codexManager, Version: config.Version})
+	agentRuntime := agent.NewRuntime(agent.Config{
+		ExcludedEnv: []string{speech.APIKeyEnvironmentVariable},
+		Version:     config.Version,
+	})
+	codexManager := agentRuntime.Manager()
 	masterSessionService, err := newMasterSessionService(config.AppDataDir, conversationStore, agentRuntime)
 	if err != nil {
 		return runtimeAgentServices{}, err

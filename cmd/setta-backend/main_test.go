@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"setta/internal/runtime"
 	"setta/internal/speech"
 )
 
@@ -126,78 +125,6 @@ func TestConfigFromArgsRejectsUnclearedSpeechCredential(t *testing.T) {
 	)
 	if !errors.Is(err, clearErr) || !strings.Contains(err.Error(), speech.APIKeyEnvironmentVariable) {
 		t.Fatalf("error = %v, want wrapped speech credential clear failure", err)
-	}
-}
-
-func TestConfigFromArgsUsesScriptedWorkflowHarnessEnvWithE2EGuard(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E" {
-			return "1"
-		}
-		if name == "SETTA_E2E_CHAT_HARNESS" {
-			return string(runtime.ChatHarnessScriptedWorkflow)
-		}
-		return ""
-	}, ignoreUnsetenv)
-	if err != nil {
-		t.Fatalf("config from args: %v", err)
-	}
-	if config.ChatHarness != runtime.ChatHarnessScriptedWorkflow {
-		t.Fatalf("chat harness = %q, want %q", config.ChatHarness, runtime.ChatHarnessScriptedWorkflow)
-	}
-}
-
-func TestConfigFromArgsRejectsScriptedWorkflowHarnessWithoutE2EGuard(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E_CHAT_HARNESS" {
-			return string(runtime.ChatHarnessScriptedWorkflow)
-		}
-		return ""
-	}, ignoreUnsetenv)
-	if err == nil {
-		t.Fatal("config succeeded, want SETTA_E2E guard error")
-	}
-}
-
-func TestConfigFromArgsDisablesAutomaticCartographerWithE2EGuard(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E" {
-			return "1"
-		}
-		if name == "SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER" {
-			return "1"
-		}
-		return ""
-	}, ignoreUnsetenv)
-	if err != nil {
-		t.Fatalf("config from args: %v", err)
-	}
-	if !config.DisableAutomaticCartographerProcessing {
-		t.Fatal("automatic cartographer processing was not disabled")
-	}
-}
-
-func TestConfigFromArgsRejectsAutomaticCartographerDisableWithoutE2EGuard(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER" {
-			return "1"
-		}
-		return ""
-	}, ignoreUnsetenv)
-	if err == nil {
-		t.Fatal("config succeeded, want SETTA_E2E guard error")
 	}
 }
 

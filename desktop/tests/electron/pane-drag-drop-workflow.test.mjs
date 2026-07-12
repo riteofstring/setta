@@ -13,6 +13,7 @@ import {
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
+  reloadPage,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
@@ -57,7 +58,10 @@ try {
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await ensureWorkspaceOpen(context.client);
+  const workspaceId = await ensureWorkspaceOpen(context.client);
+  await persistFourColumnLayout(context.client, workspaceId);
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await waitForNormalPaneHosts(context.client, 4);
   await captureScreenshot(context.client, join(artifactDir, "normal-before.png"));
 
@@ -353,15 +357,54 @@ function overviewLandingGhost(snapshot, targetPaneId) {
 async function ensureWorkspaceOpen(client) {
   const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
-    return;
+    return currentWorkspaceId;
   }
   await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
-  await waitForState(
+  return waitForState(
     client,
     workspaceIdExpression(),
     (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     workflowTimeoutMs,
   );
+}
+
+async function persistFourColumnLayout(client, workspaceId) {
+  await client.evaluate(`(async () => {
+    await window.setta.workspace.saveUILayout(${JSON.stringify(fourColumnLayout(workspaceId))});
+    return true;
+  })()`);
+}
+
+function fourColumnLayout(workspaceId) {
+  const panes = Array.from({ length: 4 }, (_value, index) => ({
+    columnId: `workspace_column_${index}`,
+    easyButtonConfig: null,
+    heat: (index * 37) % 100,
+    paneId: `workspace_pane_${index}`,
+    sequence: index,
+    subtitle: "drag fixture",
+    surfaceId: `workspace_surface_${index}`,
+    surfaceKind: "empty-frame",
+    title: `Empty Frame ${index + 1}`,
+    tone: ["cyan", "green", "orange", "pink"][index],
+    weight: 1,
+  }));
+  return {
+    columns: panes.map((pane, index) => ({
+      columnId: pane.columnId,
+      idealWidthSpec: { unit: "px", value: 520 },
+      index,
+      paneIds: [pane.paneId],
+      planeIndex: 0,
+      previousProportionWidth: null,
+      slotIndex: index,
+      widthSpec: { unit: "px", value: 520 },
+    })),
+    focusedPaneId: panes[0].paneId,
+    panes,
+    schemaVersion: 1,
+    workspaceId,
+  };
 }
 
 async function waitForNormalPaneHosts(client, minimumCount) {

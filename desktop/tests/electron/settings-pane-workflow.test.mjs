@@ -197,10 +197,10 @@ function layoutWithoutSettings(workspaceId) {
         columnId: "workspace_column_0",
         paneId: "workspace_pane_0",
         sequence: 0,
-        subtitle: "workspace chat",
+        subtitle: "empty workspace pane",
         surfaceId: "workspace_surface_0",
-        surfaceKind: "chat-dom",
-        title: "Chat",
+        surfaceKind: "empty-frame",
+        title: "Empty Frame 1",
         tone: "cyan",
         weight: 1.6,
       }),
@@ -208,10 +208,10 @@ function layoutWithoutSettings(workspaceId) {
         columnId: "workspace_column_1",
         paneId: "workspace_pane_1",
         sequence: 1,
-        subtitle: "workspace command surface",
+        subtitle: "empty workspace pane",
         surfaceId: "workspace_surface_1",
-        surfaceKind: "terminal",
-        title: "Terminal",
+        surfaceKind: "empty-frame",
+        title: "Empty Frame 2",
         tone: "green",
         weight: 1,
       }),
@@ -237,8 +237,7 @@ function storedColumn(columnId, index, paneIds) {
 function storedPane(pane) {
   return {
     ...pane,
+    easyButtonConfig: null,
     heat: (pane.sequence * 37) % 100,
-    terminalConfig: null,
-    workflowNodeDetailsConfig: null,
   };
 }

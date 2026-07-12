@@ -3,7 +3,6 @@ import {
   assertRecord,
   assertTaggedUnionBranch,
   decodeArray,
-  decodeBackendEventBase,
   decodeBoolean,
   decodeInteger,
   decodeString,
@@ -61,37 +60,6 @@ describe("backend runtime decoders", () => {
     expect(() =>
       assertTaggedUnionBranch("Block", "other", { other: null, text: { value: 1 } }),
     ).toThrow("Block kind other does not match populated text branch");
-  });
-
-  test("decodes backend event base fields", () => {
-    const base = decodeBackendEventBase(
-      {
-        conversationId: "conversation_api",
-        emittedAt: "2026-06-05T20:00:00Z",
-        eventId: "event_stream:1",
-        payload: {},
-        runId: "run_api",
-        schemaVersion: 1,
-        sequence: 1,
-        streamId: "event_stream",
-        type: "chat.message.created",
-        workspaceId: "workspace_api",
-      },
-      "ChatMessageCreatedEvent",
-      "chat.message.created",
-    );
-
-    expect(base).toEqual({
-      conversationId: "conversation_api",
-      emittedAt: "2026-06-05T20:00:00Z",
-      eventId: "event_stream:1",
-      runId: "run_api",
-      schemaVersion: 1,
-      sequence: 1,
-      streamId: "event_stream",
-      type: "chat.message.created",
-      workspaceId: "workspace_api",
-    });
   });
 });
 

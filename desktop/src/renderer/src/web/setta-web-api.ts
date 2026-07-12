@@ -2,22 +2,12 @@ import {
   backendEndpoints,
   backendProtocolVersion,
   createBackendClient,
-  decodeChatEvent,
   decodeConversationEvent,
-  decodeSemanticGraphChangeEvent,
-  decodeTerminalEvent,
-  decodeWorkspaceActivityEvent,
-  decodeWorkflowEvent,
   type BackendClient,
   type RuntimeInfoResponse,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
-import type {
-  BackendEventStreamStatus,
-  BackendProcessStatus,
-  RuntimeRegistrySnapshot,
-  SettaAPI,
-} from "@shared/types";
+import type { BackendProcessStatus, RuntimeRegistrySnapshot, SettaAPI } from "@shared/types";
 import {
   detectWebPlatform,
   errorMessage,
@@ -26,12 +16,10 @@ import {
   webRuntimeVersions,
 } from "./setta-web-api-utils";
 import {
-  cursorFromServerSentEvent,
   cursorFromStreamedEvent,
   startWebBackendEventStream,
   type WebEventStreamOptions,
 } from "./setta-web-event-stream";
-import { subscribeForWebPush } from "./setta-web-push";
 import { createSpeechWebAPI } from "./speech-web-api";
 
 const webDeviceStorageKey = "setta.web.device-session.v1";
@@ -48,6 +36,7 @@ interface ParsedWebPairingURL {
   pairingToken: string;
   runtimeId: string;
 }
+
 interface WebEventStreamRegistration {
   start: () => void;
   stop: () => void;
@@ -60,7 +49,7 @@ export function installWebSettaAPIIfNeeded(): void {
     return;
   }
   target.setta = createWebSettaAPI();
-  installWebPWA(target.setta);
+  installWebPWA();
   void completePairingFromLocation(target.setta);
 }
 
@@ -69,7 +58,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
   const rawFetch = options.fetchImpl ?? fetch.bind(window);
   const connectionListeners = new Set<(snapshot: RuntimeRegistrySnapshot) => void>();
   const processStatusListeners = new Set<(status: BackendProcessStatus) => void>();
-  const eventStreamStatusListeners = new Set<(status: BackendEventStreamStatus) => void>();
   const eventStreams = new Set<WebEventStreamRegistration>();
   const conversationEventListeners = new Set<Parameters<SettaAPI["conversations"]["onEvent"]>[0]>();
   const conversationEventStreams = new Map<string, { keepAlive: boolean; stop: () => void }>();
@@ -83,10 +71,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         width: request.width,
       }),
       endWindowDrag: async () => {},
-      flags: {
-        workflowGraphDebug: false,
-        workflowGraphSyntheticGraph: null,
-      },
       installedEditors: async () => [],
       moveWindowDrag: async () => {},
       openExternalUrl: async (url) => {
@@ -110,12 +94,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     },
     backend: {
       health: () => publicClient().backendHealth(),
-      onEventStreamStatus: (listener) => {
-        eventStreamStatusListeners.add(listener);
-        return () => {
-          eventStreamStatusListeners.delete(listener);
-        };
-      },
       onProcessStatus: (listener) => {
         processStatusListeners.add(listener);
         listener({
@@ -129,127 +107,17 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         };
       },
     },
-    chat: {
-      activeRun: (workspaceId, conversationId) =>
-        requireClient().getActiveRun({ conversationId, workspaceId }),
-      cancelRun: (workspaceId, conversationId) =>
-        requireClient().cancelRun({ conversationId, workspaceId }),
-      reconcileRuns: (request) => requireClient().reconcileChatRuns(request),
-      createConversation: (workspaceId, title) =>
-        requireClient().createConversation({ title, workspaceId }),
-      deleteConversation: (workspaceId, conversationId) =>
-        requireClient().deleteConversation({ conversationId, workspaceId }),
-      editQueuedMessage: (workspaceId, conversationId, messageId, input) =>
-        requireClient().editQueuedChatMessage({ conversationId, input, messageId, workspaceId }),
-      createImageAttachmentFromBytes: (workspaceId, conversationId, fileName, dataBase64) =>
-        requireClient().createChatImageAttachmentFromBytes({
-          conversationId,
-          dataBase64,
-          fileName,
-          workspaceId,
-        }),
-      selectImageAttachments: async () => [],
-      executeCommand: (workspaceId, conversationId, raw, commandOptions) =>
-        requireClient().executeChatCommand({
-          confirmGoalReplacement: commandOptions?.confirmGoalReplacement ?? false,
-          conversationId,
-          raw,
-          workspaceId,
-        }),
-      readCodexDefaults: () => requireClient().readChatCodexDefaults(),
-      openCodexModelPicker: (workspaceId, conversationId) =>
-        requireClient().openChatCodexModelPicker({ conversationId, workspaceId }),
-      openCodexPermissionPicker: (workspaceId, conversationId) =>
-        requireClient().openChatCodexPermissionPicker({ conversationId, workspaceId }),
-      listCommands: (workspaceId, conversationId) =>
-        requireClient().listChatCommands({ conversationId, workspaceId }),
-      listConversations: (workspaceId) => requireClient().listConversations({ workspaceId }),
-      markConversationRead: (workspaceId, conversationId) =>
-        requireClient().markConversationRead({ conversationId, workspaceId }),
-      messagePage: (workspaceId, conversationId, beforeBlockOrdinal, limit) =>
-        requireClient().getMessagePage({ beforeBlockOrdinal, conversationId, limit, workspaceId }),
-      listComposerPromptHistory: (workspaceId, conversationId, beforeOrdinal, limit) =>
-        requireClient().listComposerPromptHistory({
-          beforeOrdinal,
-          conversationId,
-          limit,
-          workspaceId,
-        }),
-      onEvent: (listener) =>
-        subscribeWebBackendEventStream({
-          baseURL,
-          cursorForEvent: cursorFromStreamedEvent,
-          decode: decodeChatEvent,
-          endpoint: backendEndpoints.EventStream,
-          fetchImpl: rawFetch,
-          lifecycle: (status) => {
-            for (const statusListener of eventStreamStatusListeners) {
-              statusListener(status);
-            }
-          },
-          sendEvent: listener,
-          streamName: "backend event stream",
-        }),
-      queueMessage: (workspaceId, conversationId, input) =>
-        requireClient().queueChatMessage({ conversationId, input, workspaceId }),
-      removeQueuedMessage: (workspaceId, conversationId, messageId) =>
-        requireClient().removeQueuedChatMessage({ conversationId, messageId, workspaceId }),
-      runActivity: (workspaceId, runId, afterItemId, limit) =>
-        requireClient().getRunActivity({ afterItemId, limit, runId, workspaceId }),
-      runItemOutput: (workspaceId, runId, runItemId, afterOrdinal, limit) =>
-        requireClient().getRunItemOutputPage({
-          afterOrdinal,
-          limit,
-          runId,
-          runItemId,
-          workspaceId,
-        }),
-      listBackgroundTerminals: (workspaceId, conversationId) =>
-        requireClient().listBackgroundTerminals({ conversationId, workspaceId }),
-      getBackgroundTerminalOutput: (workspaceId, conversationId, processId, afterOrdinal, limit) =>
-        requireClient().getBackgroundTerminalOutput({
-          afterOrdinal,
-          conversationId,
-          limit,
-          processId,
-          workspaceId,
-        }),
-      killBackgroundTerminal: (workspaceId, conversationId, processId) =>
-        requireClient().killBackgroundTerminal({ conversationId, processId, workspaceId }),
-      killAllBackgroundTerminals: (workspaceId, conversationId) =>
-        requireClient().killAllBackgroundTerminals({ conversationId, workspaceId }),
-      sendMessage: (workspaceId, conversationId, input) =>
-        requireClient().sendChatMessage({ conversationId, input, workspaceId }),
-      sendSteeringImmediately: (workspaceId, conversationId, input) =>
-        requireClient().sendSteeringImmediately({
-          conversationId,
-          input: input ?? null,
-          workspaceId,
-        }),
-      setCodexModel: (workspaceId, conversationId, modelId) =>
-        requireClient().setChatCodexModel({ conversationId, modelId, workspaceId }),
-      setCodexPermissionPreset: (workspaceId, conversationId, preset, confirmed) =>
-        requireClient().setChatCodexPermissionPreset({
-          confirmed,
-          conversationId,
-          preset,
-          workspaceId,
-        }),
-      setCodexReasoningEffort: (workspaceId, conversationId, effort) =>
-        requireClient().setChatCodexReasoningEffort({
-          conversationId,
-          reasoningEffort: effort,
-          workspaceId,
-        }),
-      updateCodexDefaults: (request) => requireClient().updateChatCodexDefaults(request),
-      setConversationPinned: (workspaceId, conversationId, pinned) =>
-        requireClient().setConversationPinned({ conversationId, pinned, workspaceId }),
-      steerMessage: (workspaceId, conversationId, input) =>
-        requireClient().steerChatMessage({ conversationId, input, workspaceId }),
-      submitApproval: (input) => requireClient().submitApproval(input),
+    codexAccount: {
+      cancelLogin: (request) => requireClient().cancelCodexLogin(request),
+      logout: (request) => requireClient().logoutCodexAccount(request),
+      read: () => requireClient().readCodexAccount(),
+      refresh: (request) => requireClient().refreshCodexAccount(request),
+      startLogin: (request) => requireClient().startCodexLogin(request),
     },
     conversations: {
       create: (request) => requireClient().createTopicConversation(request),
+      discardInput: (request) => requireClient().discardConversationInput(request),
+      disposeSide: (request) => requireClient().disposeSideConversation(request),
       list: (request) => requireClient().listTopicConversations(request),
       onEvent: (listener) => {
         conversationEventListeners.add(listener);
@@ -258,6 +126,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         };
       },
       read: (request) => requireClient().readConversationSnapshot(request),
+      readInputState: (request) => requireClient().readConversationInputRoutingState(request),
       release: async (request) => {
         const key = conversationStreamKey(request.workspaceId, request.conversationId);
         const stream = conversationEventStreams.get(key);
@@ -270,8 +139,11 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           conversationEventStreams.delete(key);
         }
       },
+      retryInput: (request) => requireClient().retryConversationInput(request),
+      sendSide: (request) => requireClient().sendSideConversationTurn(request),
       stop: (request) => requireClient().stopTopicConversationTurn(request),
       submitApproval: (request) => requireClient().submitTopicConversationApproval(request),
+      submitInput: (request) => requireClient().submitConversationInput(request),
       subscribe: async (request) => {
         const key = conversationStreamKey(request.workspaceId, request.conversationId);
         const current = conversationEventStreams.get(key);
@@ -295,7 +167,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           decode: decodeConversationEvent,
           endpoint: {
             ...backendEndpoints.ConversationEventStream,
-            path: `${endpointURL.pathname}${endpointURL.search}`,
+            path: endpointURL.pathname + endpointURL.search,
           },
           fetchImpl: rawFetch,
           initialCursor: request.cursor,
@@ -318,13 +190,16 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         });
         conversationEventStreams.set(key, stream);
       },
+      updateNarratorVoice: (request) =>
+        requireClient().updateTopicConversationNarratorVoice(request),
+      waitInputState: (request) => requireClient().waitConversationInputRoutingState(request),
     },
-    codexAccount: {
-      cancelLogin: (request) => requireClient().cancelCodexLogin(request),
-      logout: (request) => requireClient().logoutCodexAccount(request),
-      read: () => requireClient().readCodexAccount(),
-      refresh: (request) => requireClient().refreshCodexAccount(request),
-      startLogin: (request) => requireClient().startCodexLogin(request),
+    master: {
+      readActiveInteraction: () => requireClient().readActiveMasterShellInteraction(),
+      resolvePresentation: (request) => requireClient().resolveMasterPresentationIntent(request),
+      submitInput: (request) => requireClient().submitMasterInput(request),
+      waitInteraction: (request) => requireClient().waitMasterShellInteraction(request),
+      waitPresentation: (request) => requireClient().waitMasterPresentationIntent(request),
     },
     runtimes: {
       addByPairingUrl: async (pairingUrl) => {
@@ -332,7 +207,10 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         const info = await publicClient().runtimeInfo();
         if (info.runtimeId !== parsed.runtimeId) {
           throw new Error(
-            `pairing URL runtime_id ${parsed.runtimeId} does not match this runtime ${info.runtimeId}`,
+            "pairing URL runtime_id " +
+              parsed.runtimeId +
+              " does not match this runtime " +
+              info.runtimeId,
           );
         }
         const paired = await publicClient().completePairing({
@@ -341,7 +219,10 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         });
         if (paired.runtimeId !== info.runtimeId) {
           throw new Error(
-            `pairing response runtime_id ${paired.runtimeId} does not match this runtime ${info.runtimeId}`,
+            "pairing response runtime_id " +
+              paired.runtimeId +
+              " does not match this runtime " +
+              info.runtimeId,
           );
         }
         saveStoredDeviceSession({
@@ -354,7 +235,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         const snapshot = await runtimeSnapshot("connected after pairing", info);
         startInactiveEventStreams();
         emitConnectionSnapshot(snapshot);
-        await subscribeForWebPush(info, requireClient(), true);
         return snapshot;
       },
       current: async () => {
@@ -385,149 +265,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       switch: async () => runtimeSnapshot("same-origin web runtime is already active"),
     },
     speech: createSpeechWebAPI(requireClient),
-    semanticGraph: {
-      acceptCartographerPatch: (request) => requireClient().acceptCartographerPatch(request),
-      attachChatMessage: (request) => requireClient().attachSemanticNodeToChatMessage(request),
-      attachChatRun: (request) => requireClient().attachSemanticNodeToChatRun(request),
-      attachFileRange: (request) => requireClient().attachSemanticNodeToFileRange(request),
-      attachRunItem: (request) => requireClient().attachSemanticNodeToRunItem(request),
-      attachWorkflowExecution: (request) =>
-        requireClient().attachSemanticNodeToWorkflowExecution(request),
-      attachWorkflowNode: (request) => requireClient().attachSemanticNodeToWorkflowNode(request),
-      buildCartographerWindow: (request) => requireClient().buildCartographerWindow(request),
-      createEdge: (request) => requireClient().createSemanticEdge(request),
-      createNode: (request) => requireClient().createSemanticNode(request),
-      createSteeringDirective: (request) =>
-        requireClient().createSemanticSteeringDirective(request),
-      dismissNode: (request) => requireClient().dismissSemanticNode(request),
-      endActivity: (request) => requireClient().endSemanticActivity(request),
-      listActivity: (request) => requireClient().listSemanticActivity(request),
-      listActivityPage: (request) => requireClient().listSemanticActivityPage(request),
-      listCartographerCursors: (request) => requireClient().listCartographerCursors(request),
-      listCartographerPatches: (request) => requireClient().listCartographerPatches(request),
-      listCartographerRuns: (request) => requireClient().listCartographerRuns(request),
-      listCartographerWindows: (request) => requireClient().listCartographerWindows(request),
-      listContextPacks: (request) => requireClient().listSemanticContextPacks(request),
-      listEvidence: (request) => requireClient().listSemanticEvidence(request),
-      mergeNodes: (request) => requireClient().mergeSemanticNodes(request),
-      onEvent: (listener) =>
-        subscribeWebBackendEventStream({
-          baseURL,
-          cursorForEvent: cursorFromStreamedEvent,
-          decode: decodeSemanticGraphChangeEvent,
-          endpoint: backendEndpoints.SemanticGraphChangeEventStream,
-          fetchImpl: rawFetch,
-          sendEvent: listener,
-          streamName: "semantic graph event stream",
-        }),
-      processCartographerWindow: (request) => requireClient().processCartographerWindow(request),
-      promoteNode: (request) => requireClient().promoteSemanticNode(request),
-      read: (request) => requireClient().readSemanticGraph(request),
-      readActivitySummary: (request) => requireClient().readSemanticActivitySummary(request),
-      readCartographerProcessingState: (request) =>
-        requireClient().readCartographerProcessingState(request),
-      readCartographerRun: (request) => requireClient().readCartographerRun(request),
-      readContextPack: (request) => requireClient().readSemanticContextPack(request),
-      readEventHistory: (request) => requireClient().readSemanticEventHistory(request),
-      readNodeDetail: (request) => requireClient().readSemanticNodeDetail(request),
-      readSteeringState: (request) => requireClient().readSemanticSteeringState(request),
-      rejectCartographerPatch: (request) => requireClient().rejectCartographerPatch(request),
-      removeEdge: (request) => requireClient().removeSemanticEdge(request),
-      renameNode: (request) => requireClient().renameSemanticNode(request),
-      splitNode: (request) => requireClient().splitSemanticNode(request),
-      updateEdge: (request) => requireClient().updateSemanticEdge(request),
-      updateLayoutPositions: (request) => requireClient().updateSemanticLayoutPositions(request),
-      updateNode: (request) => requireClient().updateSemanticNode(request),
-      updateSteeringDirective: (request) =>
-        requireClient().updateSemanticSteeringDirective(request),
-    },
-    terminal: {
-      attach: (workspaceId, paneId) => requireClient().attachTerminal({ paneId, workspaceId }),
-      close: (request) => requireClient().closeTerminal(request),
-      create: (workspaceId, paneId, options) =>
-        requireClient().createTerminal({
-          cols: options.cols,
-          cwd: options.cwd ?? "",
-          paneId,
-          profileId: options.profileId ?? "",
-          rows: options.rows,
-          workspaceId,
-        }),
-      createProfile: (request) => requireClient().createTerminalProfile(request),
-      deleteProfile: (request) => requireClient().deleteTerminalProfile(request),
-      input: (input) => requireClient().terminalInput(input),
-      listProfiles: () => requireClient().listTerminalProfiles(),
-      onEvent: (listener) =>
-        subscribeWebBackendEventStream({
-          baseURL,
-          cursorForEvent: cursorFromStreamedEvent,
-          decode: decodeTerminalEvent,
-          endpoint: backendEndpoints.TerminalEventStream,
-          fetchImpl: rawFetch,
-          sendEvent: listener,
-          streamName: "terminal event stream",
-        }),
-      resize: (request) => requireClient().resizeTerminal(request),
-      selectDefaultProfile: (request) => requireClient().selectDefaultTerminalProfile(request),
-      updateProfile: (request) => requireClient().updateTerminalProfile(request),
-    },
-    workflow: {
-      cancelExecution: (workspaceId, executionId) =>
-        requireClient().cancelWorkflowExecution({ executionId, workspaceId }),
-      createDefinition: (workspaceId, name, description, graph) =>
-        requireClient().createWorkflowDefinition({ description, graph, name, workspaceId }),
-      deleteDefinition: (workspaceId, definitionId) =>
-        requireClient().deleteWorkflowDefinition({ definitionId, workspaceId }),
-      executionEvents: (workspaceId, executionId, beforeOrdinal, limit) =>
-        requireClient().getWorkflowExecutionEvents({
-          beforeOrdinal,
-          executionId,
-          limit,
-          workspaceId,
-        }),
-      graphProjection: (workspaceId, definitionId = "", versionId = "", executionId = "") =>
-        requireClient().readWorkflowGraphProjection({
-          definitionId,
-          executionId,
-          versionId,
-          workspaceId,
-        }),
-      listDefinitions: (workspaceId) => requireClient().listWorkflowDefinitions({ workspaceId }),
-      listExecutions: (workspaceId, definitionId, limit) =>
-        requireClient().listWorkflowExecutions({ definitionId, limit, workspaceId }),
-      onEvent: (listener) =>
-        subscribeWebBackendEventStream({
-          baseURL,
-          cursorForEvent: (_event, message) =>
-            cursorFromServerSentEvent(message, "workflow event stream"),
-          decode: decodeWorkflowEvent,
-          endpoint: backendEndpoints.WorkflowEventStream,
-          fetchImpl: rawFetch,
-          sendEvent: listener,
-          streamName: "workflow event stream",
-        }),
-      readDefinition: (workspaceId, definitionId) =>
-        requireClient().readWorkflowDefinition({ definitionId, workspaceId }),
-      readExecution: (workspaceId, executionId) =>
-        requireClient().readWorkflowExecution({ executionId, workspaceId }),
-      readNodeTrajectory: (request) => requireClient().readWorkflowNodeTrajectory(request),
-      retryNodeRunLiveness: (request) => requireClient().retryWorkflowNodeRunLiveness(request),
-      startExecution: (workspaceId, definitionId, versionId = "") =>
-        requireClient().startWorkflowExecution({ definitionId, versionId, workspaceId }),
-      steerNodeRun: (request) => requireClient().steerWorkflowNodeRun(request),
-      stopNodeRun: (request) => requireClient().stopWorkflowNodeRun(request),
-      submitApproval: (request) => requireClient().submitWorkflowApproval(request),
-      updateDefinition: (workspaceId, definitionId, name, description, graph) =>
-        requireClient().updateWorkflowDefinition({
-          definitionId,
-          description,
-          graph,
-          name,
-          workspaceId,
-        }),
-      validateDefinition: (workspaceId, graph) =>
-        requireClient().validateWorkflowDefinition({ graph, workspaceId }),
-    },
     workspace: {
       close: (id) => requireClient().closeWorkspace({ id }),
       openLocalFolder: async () => {
@@ -543,37 +280,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       reorder: (ids) => requireClient().reorderWorkspace({ ids }),
       saveUILayout: (layout) => requireClient().saveWorkspaceUILayout({ layout }),
       select: (id) => requireClient().selectWorkspace({ id }),
-      selectedConversations: () => requireClient().workspaceSelectedConversations(),
       session: () => requireClient().workspaceSession(),
-      setSelectedConversation: (workspaceId, conversationId) =>
-        requireClient().setWorkspaceSelectedConversation({ conversationId, workspaceId }),
-    },
-    workspaceActivity: {
-      executionSnapshot: async (workspaceId, executionId, limit) => {
-        const response = await requireClient().readWorkflowExecutionActivity({
-          executionId,
-          limit,
-          workspaceId,
-        });
-        return response.snapshot;
-      },
-      onEvent: (listener) =>
-        subscribeWebBackendEventStream({
-          baseURL,
-          cursorForEvent: cursorFromStreamedEvent,
-          decode: decodeWorkspaceActivityEvent,
-          endpoint: backendEndpoints.WorkspaceActivityEventStream,
-          fetchImpl: rawFetch,
-          sendEvent: listener,
-          streamName: "workspace activity event stream",
-        }),
-      snapshot: async (workspaceId, limit) => {
-        const response = await requireClient().readWorkspaceActivitySnapshot({
-          limit,
-          workspaceId,
-        });
-        return response.snapshot;
-      },
     },
   };
 
@@ -638,7 +345,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       return runtimeSnapshotForInfo(
         info,
         "incompatible",
-        `runtime protocol ${info.protocolVersion} is not supported by this web client`,
+        "runtime protocol " + info.protocolVersion + " is not supported by this web client",
         now,
       );
     }
@@ -649,7 +356,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       stopActiveEventStreams();
       return runtimeSnapshotForInfo(info, "revoked", errorMessage(error), now);
     }
-    void subscribeForWebPush(info, requireClient(), false);
     return runtimeSnapshotForInfo(info, "connected", message, now);
   }
 
@@ -750,7 +456,7 @@ export function authenticatedWebFetch(
 ): BackendFetch {
   return async (input, init = {}) => {
     const headers = new Headers(init.headers);
-    headers.set("Authorization", `Bearer ${token()}`);
+    headers.set("Authorization", "Bearer " + token());
     const response = await fetchImpl(input, { ...init, headers });
     if (response.status === 401) {
       onUnauthorized();
@@ -760,7 +466,7 @@ export function authenticatedWebFetch(
 }
 
 function conversationStreamKey(workspaceId: string, conversationId: string): string {
-  return `${workspaceId}\u0000${conversationId}`;
+  return workspaceId + "\u0000" + conversationId;
 }
 
 function parseWebPairingURL(rawURL: string): ParsedWebPairingURL {
@@ -782,7 +488,7 @@ function parseWebPairingURL(rawURL: string): ParsedWebPairingURL {
 function requiredPairingParam(parsed: URL, name: string): string {
   const value = parsed.searchParams.get(name);
   if (value === null || value === "") {
-    throw new Error(`pairing URL is missing ${name}`);
+    throw new Error("pairing URL is missing " + name);
   }
   return value;
 }
@@ -829,7 +535,7 @@ function isStoredWebDeviceSession(value: unknown): value is StoredWebDeviceSessi
   );
 }
 
-function installWebPWA(api: SettaAPI) {
+function installWebPWA() {
   if ("serviceWorker" in navigator) {
     void navigator.serviceWorker.register("/sw.js");
   }
@@ -838,50 +544,15 @@ function installWebPWA(api: SettaAPI) {
     (window as Window & { __settaInstallPrompt?: Event }).__settaInstallPrompt = event;
     window.dispatchEvent(new CustomEvent("setta:pwa-install-available"));
   });
-  void api.runtimes.current().then(async (snapshot) => {
-    if (snapshot.connection.status === "connected") {
-      const info = await createBackendClient(sameOriginBaseURL(), fetch.bind(window)).runtimeInfo();
-      await subscribeForWebPush(
-        info,
-        createBackendClient(
-          sameOriginBaseURL(),
-          authenticatedWebFetch(
-            fetch.bind(window),
-            () => loadStoredDeviceSession()?.deviceToken ?? "",
-            () => {},
-          ),
-        ),
-        false,
-      );
-    }
-  });
 }
 
 async function completePairingFromLocation(api: SettaAPI) {
   const url = new URL(window.location.href);
   const pairingUrl = url.searchParams.get("pair");
   if (!pairingUrl) {
-    await applyNotificationNavigation(url, api);
     return;
   }
   await api.runtimes.addByPairingUrl(pairingUrl);
   url.searchParams.delete("pair");
   window.history.replaceState({}, "", url);
-}
-
-async function applyNotificationNavigation(url: URL, api: SettaAPI) {
-  const workspaceId = url.searchParams.get("workspaceId");
-  const conversationId = url.searchParams.get("conversationId");
-  if (!workspaceId || !conversationId) {
-    return;
-  }
-  try {
-    await api.workspace.setSelectedConversation(workspaceId, conversationId);
-  } finally {
-    url.searchParams.delete("workspaceId");
-    url.searchParams.delete("conversationId");
-    url.searchParams.delete("runId");
-    url.searchParams.delete("approvalId");
-    window.history.replaceState({}, "", url);
-  }
 }

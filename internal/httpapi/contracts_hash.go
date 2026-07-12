@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/chat"
 	"setta/internal/conversation"
 )
 
@@ -223,32 +222,13 @@ func unionContractTypeHashInput(
 	}, nil
 }
 
-func contractUnionForType(goType reflect.Type) (chat.ContractUnion, bool) {
-	for _, union := range chat.ContractUnions() {
+func contractUnionForType(goType reflect.Type) (conversation.ContractUnion, bool) {
+	for _, union := range conversation.ContractUnions() {
 		if union.Type == goType {
 			return union, true
 		}
 	}
-	for _, union := range conversation.ContractUnions() {
-		if union.Type != goType {
-			continue
-		}
-		variants := make([]chat.ContractUnionVariant, 0, len(union.Variants))
-		for _, variant := range union.Variants {
-			variants = append(variants, chat.ContractUnionVariant{
-				KindValue: variant.KindValue,
-				Name:      variant.Name,
-				Type:      variant.Type,
-			})
-		}
-		return chat.ContractUnion{
-			Discriminator: union.Discriminator,
-			Name:          union.Name,
-			Type:          union.Type,
-			Variants:      variants,
-		}, true
-	}
-	return chat.ContractUnion{}, false
+	return conversation.ContractUnion{}, false
 }
 
 func structContractTypeHashInput(

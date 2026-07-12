@@ -76,6 +76,10 @@ func NewRuntime(config Config) *Runtime {
 	}
 }
 
+func (runtime *Runtime) Manager() *codexapp.Manager {
+	return runtime.manager
+}
+
 func initializeParams(version string) codexapp.InitializeParams {
 	title := "Setta"
 	experimental := true

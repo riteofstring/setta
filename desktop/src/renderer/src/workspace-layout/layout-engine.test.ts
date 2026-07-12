@@ -720,8 +720,8 @@ describe("real workspace layout column sizing", () => {
     expect(movedColumn.idealWidthSpec).toEqual(targetColumn.idealWidthSpec);
     expect(movedPane).toMatchObject({
       columnId: movedColumn.columnId,
-      surfaceKind: "chat-dom",
-      title: "Chat",
+      surfaceKind: "empty-frame",
+      title: "Frame",
       tone: "cyan",
       weight: 1,
     });
@@ -950,7 +950,7 @@ describe("real workspace layout column sizing", () => {
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
     store.focusPaneBySurfaceKind("settings-dom");
     const firstLowerPaneId = store.splitFocusedPaneToPlane("down");
-    store.focusPaneBySurfaceKind("workflow-graph");
+    store.focusPaneBySurfaceKind("easy-button");
 
     const focusedPaneIdBeforeSplit = store.focusedPaneId();
     const secondLowerPaneId = store.splitFocusedPaneToPlane("down");

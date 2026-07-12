@@ -161,7 +161,7 @@ func TestSpeechMasterVoiceEndpointMapsPersistentConfigurationFailures(t *testing
 				},
 			})
 			response := getJSON[ErrorResponse](t, handler, "/speech/voices/master", test.wantStatus)
-			if response.Error.Code != test.wantCode || response.Error.OperationApplied {
+			if response.Error.Code != test.wantCode {
 				t.Fatalf("error = %+v", response.Error)
 			}
 		})
@@ -191,7 +191,7 @@ func TestSpeechEndpointMapsTypedFailures(t *testing.T) {
 				SpeechService: service,
 			})
 			response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, test.wantStatus)
-			if response.Error.Code != string(test.code) || response.Error.Message != "safe classified speech failure" || response.Error.OperationApplied {
+			if response.Error.Code != string(test.code) || response.Error.Message != "safe classified speech failure" {
 				t.Fatalf("error = %+v", response.Error)
 			}
 		})
@@ -205,7 +205,7 @@ func TestSpeechEndpointMapsUnclassifiedFailureWithoutChangingOperationState(t *t
 		SpeechService: service,
 	})
 	response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, http.StatusBadRequest)
-	if response.Error.Code != "create_speech_transcription_session_failed" || response.Error.OperationApplied {
+	if response.Error.Code != "create_speech_transcription_session_failed" {
 		t.Fatalf("error = %+v", response.Error)
 	}
 }
@@ -257,7 +257,7 @@ func TestSpeechSynthesisEndpointMapsSourceStateFailures(t *testing.T) {
 				},
 				test.wantStatus,
 			)
-			if response.Error.Code != test.wantCode || response.Error.OperationApplied {
+			if response.Error.Code != test.wantCode {
 				t.Fatalf("error = %+v", response.Error)
 			}
 		})

@@ -19,7 +19,6 @@ describe("generated backend client", () => {
       jsonResponse(
         {
           error: {
-            activeExecution: null,
             code: "select_workspace_failed",
             message: "workspace is not active: workspace_missing",
             operationApplied: false,
@@ -61,24 +60,6 @@ describe("generated backend client", () => {
     await expect(client.backendHealth()).rejects.toThrow(
       "BackendHealth contains unknown field extra",
     );
-  });
-
-  test("decodes inactive chat run responses", async () => {
-    const client = createBackendClient("http://127.0.0.1:41000", async () =>
-      jsonResponse({
-        hasActiveRun: false,
-        liveness: null,
-        run: null,
-      }),
-    );
-
-    const response = await client.getActiveRun({
-      conversationId: "conversation_api",
-      workspaceId: "workspace_api",
-    });
-
-    expect(response.hasActiveRun).toBe(false);
-    expect(response.run).toBeNull();
   });
 
   test("GET endpoints do not send JSON bodies", async () => {

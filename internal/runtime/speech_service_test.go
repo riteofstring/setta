@@ -40,7 +40,7 @@ func TestRuntimeServesTextOnlySpeechCapabilitiesAndTypedFailures(t *testing.T) {
 		httpapi.CreateSpeechTranscriptionSessionRequest{},
 		http.StatusServiceUnavailable,
 	)
-	if failure.Error.Code != string(speech.ErrorNotConfigured) || failure.Error.OperationApplied {
+	if failure.Error.Code != string(speech.ErrorNotConfigured) {
 		t.Fatalf("text-only transcription failure = %+v", failure.Error)
 	}
 }

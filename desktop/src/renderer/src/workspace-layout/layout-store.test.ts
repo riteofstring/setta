@@ -159,7 +159,7 @@ describe("workspace layout store", () => {
 
   test("enforces configured pane limits for explicit opens", () => {
     const store = createStore({
-      "chat-dom": 10,
+      "easy-button": 10,
       "settings-dom": 1,
     });
 
@@ -174,15 +174,15 @@ describe("workspace layout store", () => {
       "workspace pane limit reached for settings-dom",
     );
 
-    expect(store.canOpenPane({ surfaceKind: "chat-dom" })).toBe(true);
+    expect(store.canOpenPane({ surfaceKind: "easy-button" })).toBe(true);
     for (let index = 1; index < 10; index += 1) {
-      store.openPane({ surfaceKind: "chat-dom", title: `Chat ${index}` });
+      store.openPane({ surfaceKind: "easy-button", title: `Topic ${index}` });
     }
-    expect(store.paneLimitState({ surfaceKind: "chat-dom" })).toEqual({
+    expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
       allowed: false,
       count: 10,
       limit: 10,
-      surfaceKind: "chat-dom",
+      surfaceKind: "easy-button",
     });
   });
 
@@ -352,7 +352,7 @@ describe("workspace layout store", () => {
   });
 
   test("preserves an easy button binding only while the pane remains an easy button", () => {
-    const store = createStore({ "easy-button": 1 });
+    const store = createStore({ "easy-button": 2 });
     const easyButtonConfig = { conversationId: "conversation-1" };
     const paneId = store.openPane({
       easyButtonConfig,

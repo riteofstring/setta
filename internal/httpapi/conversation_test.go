@@ -359,6 +359,7 @@ const httpConversationTestTime = "2026-07-11T20:00:00Z"
 type httpTestConversationService struct {
 	snapshot                conversation.ConversationSnapshot
 	events                  []conversation.ConversationEvent
+	eventsChannel           <-chan conversation.ConversationEvent
 	readWorkspaceID         string
 	readConversationID      string
 	subscribeCursor         conversation.ConversationEventCursor
@@ -538,6 +539,9 @@ func (service *httpTestConversationService) SubscribeEvents(
 	service.subscribeCursor = cursor
 	service.subscribeWorkspaceID = workspaceID
 	service.subscribeConversationID = conversationID
+	if service.eventsChannel != nil {
+		return &httpTestConversationSubscription{events: service.eventsChannel}, nil
+	}
 	channel := make(chan conversation.ConversationEvent, len(service.events))
 	for _, event := range service.events {
 		channel <- event

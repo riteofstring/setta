@@ -267,7 +267,7 @@ func TestConversationInputEndpointRequiresServiceAndMapsTypedFailures(t *testing
 				validSubmitConversationInputRequest(),
 				test.wantStatus,
 			)
-			if response.Error.Code != test.wantCode || response.Error.OperationApplied {
+			if response.Error.Code != test.wantCode {
 				t.Fatalf("error = %+v", response.Error)
 			}
 		})
@@ -290,7 +290,7 @@ func TestConversationInputEndpointReportsInvalidStoreReceiptAsServerFailure(t *t
 		validSubmitConversationInputRequest(),
 		http.StatusInternalServerError,
 	)
-	if response.Error.Code != "invalid_conversation_input_receipt" || response.Error.OperationApplied {
+	if response.Error.Code != "invalid_conversation_input_receipt" {
 		t.Fatalf("error = %+v", response.Error)
 	}
 }

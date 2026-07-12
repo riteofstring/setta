@@ -57,6 +57,11 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.runtimePickerVersion === "setta-runtime-picker-driver-v1"',
+    path: join(driverScriptDir, "runtime-picker-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.workspaceUltrawideLivePanesVersion === "setta-workspace-ultrawide-live-panes-driver-v1"',
     path: join(driverScriptDir, "workspace-ultrawide-live-panes-driver.js"),
   },

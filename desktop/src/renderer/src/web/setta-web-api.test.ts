@@ -53,7 +53,7 @@ describe("web SettaAPI unpaired runtime state", () => {
       },
     });
 
-    const unsubscribe = api.chat.onEvent(() => {});
+    const unsubscribe = api.conversations.onEvent(() => {});
     const snapshot = await api.runtimes.current();
 
     expect(snapshot.connection.status).toBe("disconnected");
@@ -84,7 +84,7 @@ describe("web SettaAPI unpaired runtime state", () => {
             });
           case "/devices/list":
             return jsonResponse({ devices: [] });
-          case "/events":
+          case "/conversations/events":
             return new Response("", { status: 200 });
           default:
             throw new Error(`unexpected request: ${input.pathname}`);
@@ -92,13 +92,18 @@ describe("web SettaAPI unpaired runtime state", () => {
       },
     });
 
-    const unsubscribe = api.chat.onEvent(() => {});
+    const unsubscribe = api.conversations.onEvent(() => {});
+    await api.conversations.subscribe({
+      conversationId: "conversation_web",
+      cursor: { sequence: 0, streamId: "conversation_stream_web" },
+      workspaceId: "workspace_web",
+    });
     expect(calls.map((call) => call.path)).toEqual([]);
 
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
-    await waitFor(() => calls.some((call) => call.path === "/events"));
+    await waitFor(() => calls.some((call) => call.path === "/conversations/events"));
 
-    const eventStreamCall = calls.find((call) => call.path === "/events");
+    const eventStreamCall = calls.find((call) => call.path === "/conversations/events");
     expect(eventStreamCall?.authorization).toBe("Bearer token_web");
     unsubscribe();
   });
@@ -196,7 +201,6 @@ function runtimeInfo() {
     },
     protocolVersion: backendProtocolVersion,
     runtimeId: "runtime_web",
-    vapidPublicKey: "vapid_public",
   };
 }
 
