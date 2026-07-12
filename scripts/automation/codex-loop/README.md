@@ -12,9 +12,10 @@ Use `run-topic-conversations-plan-loop.sh` for the dedicated
 It runs a fresh implementer followed by a fresh reviewer for every slice,
 starts from a clean in-place worktree, and gives agents the full Codex source
 checkout as a reference. The reviewer can finish partial work left by the
-implementer, and external blockage remains distinct from full plan completion.
-It intentionally bypasses approvals and sandboxing because its agents edit and
-commit directly in the current checkout.
+implementer. It has no iteration cap: review findings, failing checks, and
+remaining plan work lead to another iteration, and only a separate whole-plan
+audit can end the loop successfully. It intentionally bypasses approvals and
+sandboxing because its agents edit and commit directly in the current checkout.
 
 Use `run-review-workflow-meta-plan-loop.sh` for the dedicated review findings
 and workflow trajectory meta-plan loop. It follows the older two-agent

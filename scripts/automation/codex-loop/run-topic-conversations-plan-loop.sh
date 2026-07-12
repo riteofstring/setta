@@ -6,13 +6,11 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 PLAN_PATH="docs/plans/topic-conversations-global-master-narrator-20260711.md"
 COMPLETION_SENTINEL="TOPIC_CONVERSATIONS_IMPLEMENTATION_COMPLETE"
-BLOCKED_SENTINEL="TOPIC_CONVERSATIONS_IMPLEMENTATION_BLOCKED"
 FINAL_AUDIT_SENTINEL="TOPIC_CONVERSATIONS_READY_FOR_FINAL_AUDIT"
 MODEL="gpt-5.6-sol"
 AGENT_ONE_REASONING_EFFORT="xhigh"
 AGENT_TWO_REASONING_EFFORT="max"
 OUTPUT_DIR=""
-MAX_ITERATIONS="0"
 INITIAL_RETRY_DELAY_SECONDS="15"
 MAX_RETRY_DELAY_SECONDS="300"
 PROGRESS_LOG_INTERVAL_SECONDS="120"
@@ -27,16 +25,16 @@ Runs two fresh Codex agents in a loop for:
   docs/plans/topic-conversations-global-master-narrator-20260711.md
 
 Agent 1 implements the next coherent plan slice. Agent 2 reviews only that
-slice, fixes it as needed, and then stops. When Agent 1 finds no remaining
-step, Agent 2 performs a separate whole-plan completion audit.
+slice and fixes it as needed. When Agent 1 finds no remaining step, Agent 2
+performs a separate whole-plan completion audit.
 
 The loop succeeds only when Agent 2's final message is exactly:
   TOPIC_CONVERSATIONS_IMPLEMENTATION_COMPLETE
 
-A genuine external blocker has a separate terminal result and exits non-zero:
-  TOPIC_CONVERSATIONS_IMPLEMENTATION_BLOCKED
-
-A blocker is never treated as completion.
+Review findings, failing checks, and incomplete plan work advance to another
+iteration. The loop has no iteration cap and does not stop before the separate
+whole-plan audit confirms completion. Operational script failures and manual
+termination still exit non-zero.
 
 This dedicated automation helper intentionally runs Codex in the current
 repository checkout with approvals and sandbox bypassed. That behavior is
@@ -51,8 +49,6 @@ Options:
   --output-dir PATH     Directory for per-iteration transcripts and last
                         messages. Must be outside the repository. Default:
                         mktemp directory under TMPDIR.
-  --iterations N        Maximum number of implement/review iterations. Default:
-                        0, which means no iteration cap.
   --model NAME          Codex model for both agents. Default: gpt-5.6-sol.
   --codex-reference-repo PATH
                         Full Codex source checkout used for protocol/source
@@ -283,11 +279,6 @@ while [[ $# -gt 0 ]]; do
       OUTPUT_DIR="$2"
       shift 2
       ;;
-    --iterations)
-      require_value "$1" "${2:-}"
-      MAX_ITERATIONS="$2"
-      shift 2
-      ;;
     --model)
       require_value "$1" "${2:-}"
       MODEL="$2"
@@ -327,11 +318,6 @@ done
 
 if [[ ! -f "${ROOT_DIR}/${PLAN_PATH}" ]]; then
   echo "Plan file not found: ${ROOT_DIR}/${PLAN_PATH}" >&2
-  exit 1
-fi
-
-if [[ ! "${MAX_ITERATIONS}" =~ ^[0-9]+$ ]]; then
-  echo "--iterations must be a non-negative integer" >&2
   exit 1
 fi
 
@@ -398,22 +384,12 @@ log_info "Agent attempts: unlimited"
 log_info "Retry delays: ${INITIAL_RETRY_DELAY_SECONDS}s initial, ${MAX_RETRY_DELAY_SECONDS}s maximum"
 log_info "Progress log interval: ${PROGRESS_LOG_INTERVAL_SECONDS}s"
 log_info "Approvals/sandbox bypass: enabled"
-if [[ "${MAX_ITERATIONS}" -eq 0 ]]; then
-  log_info "Iteration cap: none"
-else
-  log_info "Iteration cap: ${MAX_ITERATIONS}"
-fi
+log_info "Iteration cap: none"
 log_info "Completion sentinel: ${COMPLETION_SENTINEL}"
-log_info "Blocked sentinel: ${BLOCKED_SENTINEL}"
 log_info "Final audit request: ${FINAL_AUDIT_SENTINEL}"
 
 iteration=1
 while true; do
-  if [[ "${MAX_ITERATIONS}" -ne 0 ]] && [[ "${iteration}" -gt "${MAX_ITERATIONS}" ]]; then
-    log_info "Reached iteration cap (${MAX_ITERATIONS}) before completion."
-    exit 3
-  fi
-
   run_dir="$(printf '%s/iteration-%04d' "${OUTPUT_DIR}" "${iteration}")"
   implementer_last_message="${run_dir}/agent-1.last-message.txt"
   implementer_message=""
@@ -433,10 +409,10 @@ while true; do
     && [[ "${implementer_head}" == "${iteration_start_head}" ]] \
     && repo_is_clean; then
     final_audit="1"
-    reviewer_prompt="Audit the whole implementation against ${PLAN_PATH}. Do not implement remaining plan steps. Return exactly ${COMPLETION_SENTINEL} only if the whole plan is complete, or exactly ${BLOCKED_SENTINEL} if an external blocker prevents completion. Otherwise return a brief summary of the next missing work. Correct and commit a concise status field only if it is stale; never add a progress log."
+    reviewer_prompt="Review the entire implementation against ${PLAN_PATH}. If the entire plan is implemented and verified, return exactly ${COMPLETION_SENTINEL}. Otherwise identify the next incomplete work and keep the plan's concise status current. Do not implement the next step."
     log_info "Agent 1 requested the final whole-plan audit."
   else
-    reviewer_prompt="Review only Agent 1's work from this iteration (${iteration_start_head}..${implementer_head}, plus any uncommitted changes) against ${PLAN_PATH}. Fix, verify, and commit issues, then stop. Do not start the next plan step. Keep only concise plan status fields current when needed; never add a progress log. Return exactly ${BLOCKED_SENTINEL} if the review uncovers an external blocker. Otherwise return a brief review summary."
+    reviewer_prompt="Review Agent 1's work from this iteration (${iteration_start_head}..${implementer_head}, plus any uncommitted changes) against ${PLAN_PATH}. Fix, verify, and commit any issues. Do not implement the next plan step."
   fi
   run_agent "agent-2" "${reviewer_prompt}" "${run_dir}" "${AGENT_TWO_REASONING_EFFORT}" 1
   require_clean_repo "after agent-2 review"
@@ -446,12 +422,6 @@ while true; do
     require_clean_repo "at completion"
     log_info "Agent 2 returned ${COMPLETION_SENTINEL}; implementation is complete."
     exit 0
-  fi
-
-  if [[ "${reviewer_message}" == "${BLOCKED_SENTINEL}" ]]; then
-    require_clean_repo "at blocked stop"
-    log_info "Agent 2 returned ${BLOCKED_SENTINEL}; see ${reviewer_last_message}."
-    exit 2
   fi
 
   if [[ "${final_audit}" -eq 1 ]]; then
