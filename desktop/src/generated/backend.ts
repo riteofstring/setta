@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 38;
-export const backendContractSchemaHash = "sha256:097bd3c755caad7acd6ed633567f7ab43fb8622e44d851fbbe3b96d7c408080e";
+export const backendProtocolVersion = 37;
+export const backendContractSchemaHash = "sha256:e71b9aa2e41cc37115508b637e4ef0a0177a4668130ae82cfc58984ac6096e4d";
 
 export type DeviceScope = "full";
 
@@ -9179,11 +9179,6 @@ export const backendEndpoints = {
     path: "/master/inputs/state/read",
     requestBodyLimitBytes: 4194304,
   },
-  WaitMasterInputRoutingState: {
-    method: "POST",
-    path: "/master/inputs/state/wait",
-    requestBodyLimitBytes: 4194304,
-  },
   ReadSpeechCapabilities: {
     method: "GET",
     path: "/speech/capabilities",
@@ -17429,7 +17424,6 @@ export interface BackendClient {
   readRecentMasterInputs: (options?: BackendRequestOptions) => Promise<RecentMasterInputHistory>;
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   readMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
-  waitMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   readMasterVoiceSelection: (options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   updateMasterVoiceSelection: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
@@ -17957,15 +17951,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeInputRoutingState,
       endpoint: backendEndpoints.ReadMasterInputRoutingState,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    waitMasterInputRoutingState: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeInputRoutingState,
-      endpoint: backendEndpoints.WaitMasterInputRoutingState,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

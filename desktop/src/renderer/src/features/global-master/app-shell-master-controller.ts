@@ -1,9 +1,7 @@
 import type {
   AcceptedMasterInput,
-  InputRoutingState,
   MasterInput,
   MasterInputModality,
-  ReadMasterInputRoutingStateRequest,
   RecentMasterInputHistory,
   SubmitMasterInputRequest,
 } from "@generated/backend";
@@ -18,11 +16,6 @@ export interface MasterInputFocusHints {
   focusedConversationId: string | null;
   focusedPaneId: string | null;
   focusedWorkspaceId: string | null;
-}
-
-export interface MasterConversationPresentationTarget {
-  conversationId: string;
-  workspaceId: string;
 }
 
 export interface CompletedGlobalSpeechTranscript {
@@ -66,11 +59,9 @@ export interface AppShellMasterSnapshot {
 export interface AppShellMasterControllerDependencies {
   createInputId: () => string;
   now: () => Date;
-  presentConversation: (target: MasterConversationPresentationTarget) => Promise<void>;
   readRecentMasterInputs: (runtimeId: string) => Promise<RecentMasterInputHistory>;
   readFocusHints: () => MasterInputFocusHints;
   submitMasterInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
-  waitMasterInputState: (request: ReadMasterInputRoutingStateRequest) => Promise<InputRoutingState>;
 }
 
 // AppShellMasterController is the sole shell-owned intake controller. Text and
@@ -85,7 +76,6 @@ export class AppShellMasterController {
   private disposed = false;
   private generation = 0;
   private historyGeneration = 0;
-  private routingGeneration = 0;
   private recentInputsRuntimeId: string | null = null;
   private pending: PendingShellMasterInput | null = null;
   private snapshotValue: AppShellMasterSnapshot = {
@@ -116,7 +106,6 @@ export class AppShellMasterController {
     }
     this.invalidate();
     this.invalidateHistory();
-    this.invalidateRouting();
     this.pending = null;
     const recentInputs = this.synchronizeRecentInputs(runtimeId);
     this.updateSnapshot({
@@ -217,7 +206,6 @@ export class AppShellMasterController {
     this.disposed = true;
     this.invalidate();
     this.invalidateHistory();
-    this.invalidateRouting();
     this.pending = null;
     this.recentInputCapacityByRuntimeId.clear();
     this.recentInputsByRuntimeId.clear();
@@ -305,70 +293,6 @@ export class AppShellMasterController {
       recentInputs,
       submission: { accepted: durableAccepted, type: "accepted" },
     });
-    this.observeAcceptedInputRouting(durableAccepted, pending.runtimeId);
-  }
-
-  private observeAcceptedInputRouting(accepted: AcceptedMasterInput, runtimeId: string): void {
-    const generation = this.routingGeneration;
-    let pending: Promise<InputRoutingState>;
-    try {
-      pending = this.dependencies.waitMasterInputState({ inputId: accepted.input.id });
-    } catch {
-      this.reportRoutingPresentationFailure(accepted.input.id, "wait boundary failed");
-      return;
-    }
-    void pending.then(
-      (state) => this.handleSettledInputRouting(generation, runtimeId, accepted, state),
-      () => {
-        if (this.isCurrentRouting(generation, runtimeId)) {
-          this.reportRoutingPresentationFailure(accepted.input.id, "wait boundary failed");
-        }
-      },
-    );
-  }
-
-  private async handleSettledInputRouting(
-    generation: number,
-    runtimeId: string,
-    accepted: AcceptedMasterInput,
-    state: InputRoutingState,
-  ): Promise<void> {
-    if (!this.isCurrentRouting(generation, runtimeId)) {
-      return;
-    }
-    if (state.input.input.id !== accepted.input.id) {
-      this.reportRoutingPresentationFailure(accepted.input.id, "settled input id changed");
-      return;
-    }
-    let target: MasterConversationPresentationTarget | null;
-    try {
-      target = masterConversationPresentationTarget(state);
-    } catch {
-      this.reportRoutingPresentationFailure(accepted.input.id, "settled route was invalid");
-      return;
-    }
-    if (!target) {
-      return;
-    }
-    try {
-      await this.dependencies.presentConversation(target);
-    } catch {
-      if (this.isCurrentRouting(generation, runtimeId)) {
-        this.reportRoutingPresentationFailure(accepted.input.id, "pane presentation failed");
-      }
-    }
-  }
-
-  private isCurrentRouting(generation: number, runtimeId: string): boolean {
-    return (
-      !this.disposed &&
-      generation === this.routingGeneration &&
-      this.snapshotValue.runtimeId === runtimeId
-    );
-  }
-
-  private reportRoutingPresentationFailure(inputId: string, reason: string): void {
-    console.info(`Master route presentation failed: inputId=${inputId} reason=${reason}`);
   }
 
   private handleFailure(generation: number, pending: PendingShellMasterInput): void {
@@ -408,10 +332,6 @@ export class AppShellMasterController {
 
   private invalidateHistory(): void {
     this.historyGeneration += 1;
-  }
-
-  private invalidateRouting(): void {
-    this.routingGeneration += 1;
   }
 
   private loadRecentInputs(runtimeId: string): void {
@@ -499,56 +419,6 @@ export class AppShellMasterController {
     if (this.disposed) {
       throw new Error("app-shell master controller is disposed");
     }
-  }
-}
-
-export function masterConversationPresentationTarget(
-  state: InputRoutingState,
-): MasterConversationPresentationTarget | null {
-  switch (state.status) {
-    case "failed":
-      return null;
-    case "decided": {
-      const record = state.decision;
-      if (!record || record.inputId !== state.input.input.id) {
-        throw new Error("decided master input is missing its matching route decision");
-      }
-      switch (record.decision.kind) {
-        case "focus_conversation": {
-          const conversationId = record.decision.focusConversation?.conversationId;
-          if (!conversationId) {
-            throw new Error("focus-conversation route is missing its target");
-          }
-          const authorities = record.context.targetAuthorities.filter(
-            (authority) => authority.conversationId === conversationId,
-          );
-          if (
-            authorities.length !== 1 ||
-            !authorities[0]!.allowedDecisionKinds.includes("focus_conversation")
-          ) {
-            throw new Error("focus-conversation route target is not authorized");
-          }
-          return { conversationId, workspaceId: authorities[0]!.workspaceId };
-        }
-        case "answer_global":
-        case "ask_narrator":
-        case "clarify":
-        case "create_conversation":
-        case "create_side_conversation":
-        case "fork_conversation":
-        case "queue_agent_turn":
-        case "send_to_agent":
-        case "steer_active_turn":
-          return null;
-        default:
-          return assertNeverRouteDecision(record.decision.kind);
-      }
-    }
-    case "accepted":
-    case "routing":
-      throw new Error(`master input wait returned unsettled status ${state.status}`);
-    default:
-      return assertNeverRouteStatus(state.status);
   }
 }
 
@@ -704,12 +574,4 @@ function failureMessage(modality: MasterInputModality): string {
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled master input modality: ${String(value)}`);
-}
-
-function assertNeverRouteDecision(value: never): never {
-  throw new Error(`Unhandled master route decision: ${String(value)}`);
-}
-
-function assertNeverRouteStatus(value: never): never {
-  throw new Error(`Unhandled master route status: ${String(value)}`);
 }

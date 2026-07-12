@@ -66,7 +66,6 @@ function masterController(): AppShellMasterController {
   return new AppShellMasterController({
     createInputId: () => `master_input_${++inputOrdinal}`,
     now: () => new Date("2026-07-13T20:00:00Z"),
-    presentConversation: async () => {},
     readRecentMasterInputs: async () => ({ capacity: 40, inputs: [] }),
     readFocusHints: () => ({
       focusedConversationId: null,
@@ -74,7 +73,6 @@ function masterController(): AppShellMasterController {
       focusedWorkspaceId: "workspace_alpha",
     }),
     submitMasterInput: async (request) => acceptedInput(request, inputOrdinal),
-    waitMasterInputState: () => new Promise(() => {}),
   });
 }
 

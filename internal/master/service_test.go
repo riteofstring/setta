@@ -150,63 +150,13 @@ func TestServiceReadsAndClonesMasterInputRoutingState(t *testing.T) {
 	}
 }
 
-func TestServiceWaitsForAndClonesMasterInputRoutingState(t *testing.T) {
-	input := MasterInput{
-		ID:          "input_wait",
-		Text:        "Wait for this route state.",
-		Modality:    MasterInputModalityText,
-		Source:      MasterInputSourceShell,
-		SubmittedAt: "2026-07-12T18:00:00Z",
-	}
-	store := &recordingInputStore{state: InputRoutingState{
-		Input: AcceptedMasterInput{
-			Sequence:      1,
-			Input:         input,
-			ReplyDelivery: ReplyDeliveryForInput(input),
-			AcceptedAt:    "2026-07-12T18:00:01Z",
-		},
-		Status: InputRoutingStatusFailed,
-		Failure: &RouteFailure{
-			Code:                "master_route_model_failed",
-			Message:             "Routing failed.",
-			Retryable:           true,
-			DiagnosticReference: "master_route:input_wait:1",
-		},
-		RoutingAttempt: 1,
-	}}
-	service, err := newService(store, time.Now)
-	if err != nil {
-		t.Fatalf("newService: %v", err)
-	}
-	state, err := service.WaitInputState(context.Background(), input.ID)
-	if err != nil {
-		t.Fatalf("WaitInputState: %v", err)
-	}
-	if store.waitInputID != input.ID {
-		t.Fatalf("wait input id = %q", store.waitInputID)
-	}
-	state.Input.Input.Text = "mutated"
-	if store.state.Input.Input.Text != input.Text {
-		t.Fatal("waited routing state aliases store")
-	}
-}
-
 type recordingInputStore struct {
-	acceptedAt  string
-	err         error
-	history     RecentMasterInputHistory
-	input       MasterInput
-	invalid     bool
-	state       InputRoutingState
-	waitInputID string
-}
-
-func (store *recordingInputStore) WaitForMasterInputRoutingState(
-	_ context.Context,
-	inputID string,
-) (InputRoutingState, error) {
-	store.waitInputID = inputID
-	return CloneInputRoutingState(store.state), store.err
+	acceptedAt string
+	err        error
+	history    RecentMasterInputHistory
+	input      MasterInput
+	invalid    bool
+	state      InputRoutingState
 }
 
 func (store *recordingInputStore) ReadMasterInputRoutingState(

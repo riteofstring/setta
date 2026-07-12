@@ -57,7 +57,6 @@ import type {
   GetActiveRunResponse,
   ImmediateSteeringResult,
   ImageAttachment,
-  InputRoutingState as MasterInputRoutingState,
   ListCartographerCursorsRequest,
   ListCartographerPatchesRequest,
   ListCartographerRunsRequest,
@@ -86,7 +85,6 @@ import type {
   ReadCartographerRunRequest,
   ReadConversationInputRoutingStateRequest,
   ReadConversationSnapshotRequest,
-  ReadMasterInputRoutingStateRequest,
   ReadSemanticActivitySummaryRequest,
   ReadSemanticContextPackRequest,
   ReadSemanticEventHistoryRequest,
@@ -468,9 +466,6 @@ export interface SettaAPI {
   master?: {
     readRecentInputs: () => Promise<RecentMasterInputHistory>;
     submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
-    waitInputState: (
-      request: ReadMasterInputRoutingStateRequest,
-    ) => Promise<MasterInputRoutingState>;
   };
   speech: {
     cancelSynthesis?: (operationId: string) => Promise<void>;

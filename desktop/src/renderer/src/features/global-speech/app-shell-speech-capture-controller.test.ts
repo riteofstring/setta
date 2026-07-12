@@ -754,7 +754,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const masterController = new AppShellMasterController({
     createInputId: () => "unused_text_input",
     now: dependencies.now,
-    presentConversation: async () => {},
     readRecentMasterInputs: async () => ({ capacity: 40, inputs: [] }),
     readFocusHints: () => ({
       focusedConversationId: null,
@@ -779,7 +778,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
         sequence: 1,
       };
     },
-    waitMasterInputState: () => new Promise(() => {}),
   });
   const controller = new AppShellSpeechCaptureController(dependencies, masterController);
   return {

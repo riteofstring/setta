@@ -102,33 +102,6 @@ func TestMasterInputRoutingStateEndpointReadsValidatedState(t *testing.T) {
 	}
 }
 
-func TestMasterInputRoutingStateEndpointWaitsForValidatedState(t *testing.T) {
-	input := validSubmitMasterInputRequest().Input
-	service := &fakeHTTPMasterInputService{state: master.InputRoutingState{
-		Input: master.AcceptedMasterInput{
-			Sequence:      1,
-			Input:         input,
-			ReplyDelivery: master.ReplyDeliveryForInput(input),
-			AcceptedAt:    "2026-07-12T18:00:01Z",
-		},
-		Status: master.InputRoutingStatusAccepted,
-	}}
-	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		MasterInputService: service,
-		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
-	})
-	state := postJSON[master.InputRoutingState](
-		t,
-		handler,
-		"/master/inputs/state/wait",
-		ReadMasterInputRoutingStateRequest{InputID: input.ID},
-		http.StatusOK,
-	)
-	if service.waitInputID != input.ID || state.Input.Input.ID != input.ID {
-		t.Fatalf("waited routing state=%+v inputID=%q", state, service.waitInputID)
-	}
-}
-
 func TestMasterInputHistoryEndpointMapsReadAndValidationFailures(t *testing.T) {
 	tests := []struct {
 		err        error
@@ -277,15 +250,6 @@ type fakeHTTPMasterInputService struct {
 	listCalls    int
 	state        master.InputRoutingState
 	stateInputID string
-	waitInputID  string
-}
-
-func (service *fakeHTTPMasterInputService) WaitInputState(
-	_ context.Context,
-	inputID string,
-) (master.InputRoutingState, error) {
-	service.waitInputID = inputID
-	return master.CloneInputRoutingState(service.state), service.err
 }
 
 func (service *fakeHTTPMasterInputService) ReadInputState(

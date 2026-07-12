@@ -130,42 +130,6 @@ func TestStoreCommitsMasterRouteDecisionAtomicallyAndIdempotently(t *testing.T) 
 	assertCommittedMasterRouteEvents(t, store)
 }
 
-func TestStoreWaitsForMasterRouteSettlementAndHonorsCancellation(t *testing.T) {
-	store := newTestStore(t)
-	ready := seedMasterRouteState(t, store)
-	accepted := acceptMasterRouteTestInput(t, store, "master-input-wait", "2026-07-11T20:02:00Z")
-	type waitResult struct {
-		state master.InputRoutingState
-		err   error
-	}
-	result := make(chan waitResult, 1)
-	go func() {
-		state, err := store.WaitForMasterInputRoutingState(context.Background(), accepted.Input.ID)
-		result <- waitResult{state: state, err: err}
-	}()
-
-	work := claimMasterRouteCommitWork(t, store, accepted)
-	commit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
-		Kind: master.RouteDecisionKindFocusConversation,
-		FocusConversation: &master.MasterFocusConversationRouteDecision{
-			ConversationID: "conversation-master-route",
-		},
-	})
-	commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
-	waited := <-result
-	if waited.err != nil || waited.state.Status != master.InputRoutingStatusDecided ||
-		waited.state.Decision == nil || waited.state.Decision.InputID != accepted.Input.ID {
-		t.Fatalf("waited routing state = %+v err=%v", waited.state, waited.err)
-	}
-
-	pending := acceptMasterRouteTestInput(t, store, "master-input-cancel-wait", "2026-07-11T20:05:00Z")
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if _, err := store.WaitForMasterInputRoutingState(ctx, pending.Input.ID); err != context.Canceled {
-		t.Fatalf("cancelled wait error = %v, want context canceled", err)
-	}
-}
-
 func claimMasterRouteCommitWork(
 	t *testing.T,
 	store *Store,

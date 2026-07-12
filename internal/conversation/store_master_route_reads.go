@@ -163,45 +163,6 @@ func (store *Store) ReadMasterInputRoutingState(
 	return master.CloneInputRoutingState(state), nil
 }
 
-// WaitForMasterInputRoutingState blocks on the committed-event wake boundary
-// until routing produces a durable decision or failure. Capturing the wake
-// channel before each read prevents a lost notification without polling.
-func (store *Store) WaitForMasterInputRoutingState(
-	ctx context.Context,
-	inputID string,
-) (master.InputRoutingState, error) {
-	if store == nil {
-		return master.InputRoutingState{}, errors.New("conversation store is required")
-	}
-	if ctx == nil {
-		return master.InputRoutingState{}, errors.New("master input routing wait context is required")
-	}
-	for {
-		wake := store.committedEventWakeChannel()
-		state, err := store.ReadMasterInputRoutingState(ctx, inputID)
-		if err != nil {
-			return master.InputRoutingState{}, err
-		}
-		switch state.Status {
-		case master.InputRoutingStatusDecided, master.InputRoutingStatusFailed:
-			return state, nil
-		case master.InputRoutingStatusAccepted, master.InputRoutingStatusRouting:
-		default:
-			return master.InputRoutingState{}, &CorruptStateError{
-				Path: store.dbPath,
-				Err:  fmt.Errorf("master input %s has unsupported routing status %q", inputID, state.Status),
-			}
-		}
-		select {
-		case <-ctx.Done():
-			return master.InputRoutingState{}, ctx.Err()
-		case <-store.closing:
-			return master.InputRoutingState{}, ErrStoreClosed
-		case <-wake:
-		}
-	}
-}
-
 func validateMasterInputRoutingStateRequest(store *Store, ctx context.Context, inputID string) error {
 	if store == nil {
 		return errors.New("conversation store is required")

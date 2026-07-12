@@ -1,6 +1,5 @@
 import type {
   Artifact,
-  ConversationInputRoutingState,
   ConversationPresentationProfile,
   ConversationSnapshot,
   ConversationTurn,
@@ -31,7 +30,6 @@ import {
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
 import {
-  conversationInputPresentationRequest,
   createEasyButtonTextConversationInput,
   requestEasyButtonPaneClose,
   requestEasyButtonSpeechCapture,
@@ -183,16 +181,6 @@ describe("Easy Button topic conversation projection", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  test("turns a settled local fork decision into the shared pane presentation request", () => {
-    expect(conversationInputPresentationRequest(routedForkInputState(), "workspace_topic")).toEqual(
-      {
-        conversationId: "conversation_child",
-        title: "Durable child topic",
-        workspaceId: "workspace_topic",
-      },
-    );
   });
 
   test("keeps a working turn out of the terminal narration channel", () => {
@@ -1196,78 +1184,6 @@ function readyProjection(snapshot: ConversationSnapshot): ConversationProjection
     snapshot,
     status: "ready",
     workspaceId,
-  };
-}
-
-function routedForkInputState(): ConversationInputRoutingState {
-  const input = {
-    conversationId: "conversation_parent",
-    id: "input_fork",
-    modality: "text" as const,
-    replyToInputId: null,
-    requestedMode: "fork" as const,
-    sourcePaneId: "pane_parent",
-    submittedAt: timestamp,
-    text: "Start a durable child topic",
-  };
-  const authoredInput = { text: input.text };
-  return {
-    clarificationReply: null,
-    decisions: [
-      {
-        clarificationInputId: null,
-        conversationId: input.conversationId,
-        decidedAt: timestamp,
-        decision: {
-          answerAsNarrator: null,
-          clarify: null,
-          createSideConversation: null,
-          escalateToMaster: null,
-          forkConversation: {
-            forkedAtTurnId: "turn_parent",
-            input: authoredInput,
-            proposedTitle: "Durable child topic",
-          },
-          kind: "fork_conversation",
-          queueParentTurn: null,
-          sendToParent: null,
-          steerParentTurn: null,
-        },
-        id: "decision_fork",
-        inputId: input.id,
-        resolvedInvocation: null,
-        resultingCommand: {
-          answerAsNarrator: null,
-          clarify: null,
-          createSideConversation: null,
-          escalateToMaster: null,
-          forkConversation: {
-            childConversationId: "conversation_child",
-            forkedAtTurnId: "turn_parent",
-            input: authoredInput,
-            proposedTitle: "Durable child topic",
-            turnId: "turn_child",
-          },
-          kind: "fork_conversation",
-          queueParentTurn: null,
-          sendToParent: null,
-          steerParentTurn: null,
-        },
-        routerContext: null,
-        routingAttempt: 1,
-        source: "explicit",
-        streamSequence: 1,
-      },
-    ],
-    input: {
-      acceptedAt: timestamp,
-      failure: null,
-      input,
-      routingAttempt: 1,
-      routingStartedAt: null,
-      sequence: 1,
-      status: "dispatched",
-    },
   };
 }
 

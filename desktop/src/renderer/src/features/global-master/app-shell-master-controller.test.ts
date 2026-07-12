@@ -1,8 +1,4 @@
-import type {
-  AcceptedMasterInput,
-  InputRoutingState,
-  SubmitMasterInputRequest,
-} from "@generated/backend";
+import type { AcceptedMasterInput, SubmitMasterInputRequest } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -59,46 +55,6 @@ describe("app-shell master controller", () => {
       draft: "Bring back the speech routing topic",
       overlayOpen: true,
     });
-  });
-
-  test("presents an authorized focus decision through the shared conversation target", async () => {
-    const presentConversation = vi.fn(async () => {});
-    const waitMasterInputState = vi.fn(async () =>
-      focusedRoutingState(
-        acceptedFor({ input: shellInput("master_input_1", "text", "Focus Alpha topic.") }, 1),
-      ),
-    );
-    const harness = createHarness({ presentConversation, waitMasterInputState });
-    harness.controller.synchronizeRuntime("runtime_alpha");
-
-    harness.controller.submitText("Focus Alpha topic.");
-    await flushPromises();
-    await flushPromises();
-
-    expect(waitMasterInputState).toHaveBeenCalledWith({ inputId: "master_input_1" });
-    expect(presentConversation).toHaveBeenCalledWith({
-      conversationId: "conversation_alpha",
-      workspaceId: "workspace_alpha",
-    });
-  });
-
-  test("does not present a late focus decision from a stale runtime", async () => {
-    const route = deferred<InputRoutingState>();
-    const presentConversation = vi.fn(async () => {});
-    const harness = createHarness({
-      presentConversation,
-      waitMasterInputState: () => route.promise,
-    });
-    harness.controller.synchronizeRuntime("runtime_old");
-    harness.controller.submitText("Focus Alpha topic.");
-    await flushPromises();
-    const accepted = acceptedFor(harness.requests[0]!, 1);
-
-    harness.controller.synchronizeRuntime("runtime_new");
-    route.resolve(focusedRoutingState(accepted));
-    await flushPromises();
-
-    expect(presentConversation).not.toHaveBeenCalled();
   });
 
   test("retains a failed voice transcript and retries the exact idempotent input", async () => {
@@ -322,7 +278,6 @@ function createHarness(overrides: Partial<AppShellMasterControllerDependencies> 
       return `master_input_${inputOrdinal}`;
     },
     now: () => new Date("2026-07-12T18:00:00.120Z"),
-    presentConversation: async () => {},
     readRecentMasterInputs: async () => ({ capacity: 40, inputs: [] }),
     readFocusHints: () => ({
       focusedConversationId: "conversation_alpha",
@@ -333,13 +288,6 @@ function createHarness(overrides: Partial<AppShellMasterControllerDependencies> 
       requests.push(request);
       return submitMasterInput(request);
     },
-    waitMasterInputState: async ({ inputId }) => {
-      const request = requests.find((candidate) => candidate.input.id === inputId);
-      if (!request) {
-        throw new Error(`missing submitted master input ${inputId}`);
-      }
-      return failedRoutingState(acceptedFor(request, 1));
-    },
     ...overrides,
   };
   if (overrides.submitMasterInput) {
@@ -349,102 +297,6 @@ function createHarness(overrides: Partial<AppShellMasterControllerDependencies> 
     };
   }
   return { controller: new AppShellMasterController(dependencies), requests };
-}
-
-function failedRoutingState(input: AcceptedMasterInput): InputRoutingState {
-  return {
-    decision: null,
-    failure: {
-      code: "master_route_unavailable",
-      diagnosticReference: `master_route:${input.input.id}:1`,
-      message: "Routing is unavailable.",
-      retryable: true,
-    },
-    input,
-    routingAttempt: 1,
-    routingStartedAt: null,
-    status: "failed",
-  };
-}
-
-function focusedRoutingState(input: AcceptedMasterInput): InputRoutingState {
-  return {
-    decision: {
-      context: {
-        activeWorkspaceIds: ["workspace_alpha"],
-        candidateQuery: "alpha",
-        candidateQueryTruncated: false,
-        focusedConversationId: "conversation_alpha",
-        focusedWorkspaceId: "workspace_alpha",
-        includedCandidateIds: ["conversation_alpha"],
-        inputSequence: input.sequence,
-        originatingConversationId: null,
-        priorDecisionCount: 0,
-        retrievedCandidates: [
-          {
-            conversationId: "conversation_alpha",
-            lexicalRank: 1,
-            workspaceId: "workspace_alpha",
-          },
-        ],
-        targetAuthorities: [
-          {
-            allowedDecisionKinds: ["focus_conversation"],
-            completedForkTurnIds: [],
-            conversationId: "conversation_alpha",
-            workspaceId: "workspace_alpha",
-          },
-        ],
-      },
-      decidedAt: "2026-07-12T18:00:02Z",
-      decision: {
-        answerGlobal: null,
-        askNarrator: null,
-        clarify: null,
-        createConversation: null,
-        createSideConversation: null,
-        focusConversation: { conversationId: "conversation_alpha" },
-        forkConversation: null,
-        kind: "focus_conversation",
-        queueAgentTurn: null,
-        sendToAgent: null,
-        steerActiveTurn: null,
-      },
-      id: `route_${input.input.id}`,
-      inputId: input.input.id,
-      masterSessionId: "master_session_alpha",
-      resolvedInvocation: {
-        configuration: {
-          maxInputBytes: 4096,
-          requestedApprovalMode: "never",
-          requestedModel: "gpt-master",
-          requestedPermissionMode: "read_only",
-          requestedProfile: {},
-          requestedReasoningEffort: "medium",
-          requestedServiceTier: null,
-          resolvedApprovalMode: "never",
-          resolvedModel: "gpt-master",
-          resolvedPermissionMode: "read_only",
-          resolvedReasoningEffort: "medium",
-          resolvedServiceTier: null,
-        },
-        endedAt: "2026-07-12T18:00:02Z",
-        inputBytes: 256,
-        outputBytes: 64,
-        providerRequestId: "request_alpha",
-        providerThreadId: "thread_alpha",
-        providerTurnId: "turn_alpha",
-        startedAt: "2026-07-12T18:00:01Z",
-      },
-      routingAttempt: 1,
-      streamSequence: 1,
-    },
-    failure: null,
-    input,
-    routingAttempt: 1,
-    routingStartedAt: null,
-    status: "decided",
-  };
 }
 
 function shellInput(

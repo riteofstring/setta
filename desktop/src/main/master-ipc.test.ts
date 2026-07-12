@@ -1,9 +1,5 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
-import type {
-  BackendClient,
-  ReadMasterInputRoutingStateRequest,
-  SubmitMasterInputRequest,
-} from "@generated/backend";
+import type { BackendClient, SubmitMasterInputRequest } from "@generated/backend";
 import { ipcChannels, type IpcObserver } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
 
@@ -29,18 +25,9 @@ describe("master IPC handlers", () => {
       sequence: 7,
     };
     const history = { capacity: 40, inputs: [accepted] };
-    const routingState = {
-      decision: null,
-      failure: null,
-      input: accepted,
-      routingAttempt: 0,
-      routingStartedAt: null,
-      status: "accepted" as const,
-    };
     const backend = {
       readRecentMasterInputs: vi.fn(async () => history),
       submitMasterInput: vi.fn(async () => accepted),
-      waitMasterInputRoutingState: vi.fn(async () => routingState),
     } as unknown as BackendClient;
     const observer = observerSpies();
     registerMasterIpcHandlers({
@@ -51,18 +38,11 @@ describe("master IPC handlers", () => {
 
     const loaded = await invoke(handlers, ipcChannels.masterReadRecentInputs);
     const result = await invoke(handlers, ipcChannels.masterSubmitInput, request);
-    const waited = await invoke(handlers, ipcChannels.masterWaitInputState, {
-      inputId: request.input.id,
-    });
 
     expect(backend.readRecentMasterInputs).toHaveBeenCalledOnce();
     expect(loaded).toEqual(history);
     expect(backend.submitMasterInput).toHaveBeenCalledWith(request);
-    expect(backend.waitMasterInputRoutingState).toHaveBeenCalledWith({
-      inputId: request.input.id,
-    });
     expect(result).toEqual(accepted);
-    expect(waited).toEqual(routingState);
     expect(observer.finished).toHaveBeenCalledWith(expect.objectContaining({ result: accepted }));
   });
 });
