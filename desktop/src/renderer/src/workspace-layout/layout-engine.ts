@@ -145,6 +145,9 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     placement: PaneInsertionPlacement,
     request: OpenPaneRequest,
   ): PaneId {
+    // Validate before inserting a target column so a malformed request cannot
+    // leave an empty structural mutation behind when pane creation fails.
+    paneSurfaceForRequest(request);
     const source = this.locationForPane(paneId);
     if (!source) {
       return this.openPane(request);

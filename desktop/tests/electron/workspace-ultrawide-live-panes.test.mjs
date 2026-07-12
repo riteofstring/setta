@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* global console */
 
-import { basename, join } from "node:path";
+import { basename, delimiter, join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -25,6 +25,7 @@ import {
 } from "./electron-cdp-harness.mjs";
 import { backendProbe } from "./electron-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
+import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "workspace-ultrawide-live-panes";
@@ -70,11 +71,16 @@ if (!options.skipBuild) {
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
 await writeLatestRecordingPointer(workflowName, artifactDir);
 const fixture = await createElectronFixture(workflowName);
+const fakeCodex = await installFakeTopicCodex(fixture);
 let context = null;
 
 try {
   context = await launchElectronCdpContext({
     artifactDir,
+    extraEnv: {
+      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+      SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
+    },
     fixture,
     visible: options.visible,
   });

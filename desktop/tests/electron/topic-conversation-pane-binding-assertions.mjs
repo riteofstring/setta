@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 export async function assertEasyButtonBindingPersistence(
   backend,
   workspaceId,
@@ -14,6 +16,7 @@ export async function assertEasyButtonBindingPersistence(
     workspaceId,
     layout,
     invalidConversationId,
+    expectedConversationIds,
   );
 }
 
@@ -44,6 +47,7 @@ async function assertInvalidEasyButtonBindingSaveRejected(
   workspaceId,
   validLayout,
   conversationId,
+  expectedConversationIds,
 ) {
   let invalidated = false;
   const invalidLayout = {
@@ -76,5 +80,14 @@ async function assertInvalidEasyButtonBindingSaveRejected(
       `invalid Easy Button binding save did not fail explicitly: ${JSON.stringify({ payload, status: response.status })}`,
     );
   }
-  await assertPersistedEasyButtonBindings(backend, workspaceId, [conversationId]);
+  const persistedLayout = await assertPersistedEasyButtonBindings(
+    backend,
+    workspaceId,
+    expectedConversationIds,
+  );
+  if (!isDeepStrictEqual(persistedLayout, validLayout)) {
+    throw new Error(
+      `invalid Easy Button binding save replaced the valid layout: ${JSON.stringify({ persistedLayout, validLayout })}`,
+    );
+  }
 }

@@ -8,6 +8,7 @@ import {
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { WorkspaceLayoutStore } from "./layout-store";
 import type {
+  OpenPaneRequest,
   WorkspaceScene,
   PaneRenderItem,
   PaneRuntimeState,
@@ -385,6 +386,21 @@ describe("real workspace layout column sizing", () => {
 
     expect(paneId).toBe("workspace_pane_9");
     expect(engine.toScene().paneById.get(paneId)?.surfaceId).toBe("workspace_surface_9");
+  });
+
+  test("rejects an invalid near-pane binding before inserting its column", () => {
+    const engine = createRealEngine();
+    const before = engine.toScene();
+    const invalidRequest = {
+      surfaceKind: "easy-button",
+      title: "Missing binding",
+    } as unknown as OpenPaneRequest;
+
+    expect(() => engine.openPaneNearPane("workspace_pane_0", "right", invalidRequest)).toThrow(
+      "easy-button panes require an easyButtonConfig conversation binding",
+    );
+    expect(engine.toScene().columns).toEqual(before.columns);
+    expect(engine.toScene().panes).toEqual(before.panes);
   });
 
   test("overview renders the whole real workspace as scaled columns", () => {
