@@ -10,6 +10,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { queuedConversationProjectionEventsBefore } from "../../stores/conversation-projection-runtime";
 import { useConversationStore } from "../../stores/conversation-store";
 import {
   AppShellSpeechPlaybackController,
@@ -85,14 +86,40 @@ export function handlePlaybackConversationEvent(
       `live narration event ${event.payload.event.id} arrived without its conversation projection`,
     );
   }
+  const eventState = playbackEventState(snapshot, event);
   const intent = narrationSpeechPlaybackIntent(
     event.payload.event,
-    snapshot.presentationProfile,
-    narrationTurnStatus(event.payload.event.turnId, snapshot),
+    eventState.presentationProfile,
+    eventState.turnStatus,
   );
   if (intent) {
     controller.enqueueAutomatic(intent);
   }
+}
+
+function playbackEventState(
+  snapshot: ConversationSnapshot,
+  event: ConversationEvent,
+): {
+  presentationProfile: ConversationSnapshot["presentationProfile"];
+  turnStatus: TurnStatus | null;
+} {
+  const turnId =
+    event.payload.type === "conversation.narration.created" ? event.payload.event.turnId : null;
+  let presentationProfile = snapshot.presentationProfile;
+  let turnStatus = narrationTurnStatus(turnId, snapshot);
+  for (const queued of queuedConversationProjectionEventsBefore(event)) {
+    if (queued.sequence <= snapshot.eventCursor.sequence) {
+      continue;
+    }
+    if (queued.payload.type === "conversation.presentation_profile.updated") {
+      presentationProfile = queued.payload.profile;
+    }
+    if (queued.payload.type === "conversation.turn.updated" && queued.payload.turn.id === turnId) {
+      turnStatus = queued.payload.turn.status;
+    }
+  }
+  return { presentationProfile, turnStatus };
 }
 
 function narrationTurnStatus(

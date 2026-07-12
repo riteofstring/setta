@@ -38,3 +38,22 @@ Artifacts:
 - `topic-conversation-performance.test.mjs` now verifies bounded backend and renderer windows, four independently completed topics, canonical pane DOM budgets, frame budgets, absence of long tasks, and mutation callback coalescing.
 
 Result: pass.
+
+## Review verification
+
+The review follow-up preserved the frame-batched projection path while making existing speech playback and pane-release consumers account for events already queued for the next frame. The production workflow was rerun after that correction.
+
+| Metric | Review run |
+| --- | ---: |
+| Sampled conversation cursor delta | 2,683 |
+| Mutation observer callbacks | 439 |
+| Total mutation records | 15,729 |
+| p95 frame delta | 8.9 ms |
+| p99 frame delta | 9.8 ms |
+| Maximum frame delta | 49.8 ms |
+| Long tasks | 0 |
+| Measured throughput | 840.3 events/s |
+
+Artifact: `.recordings/topic-conversation-phase9-item2-review-20260714/summary.json`.
+
+Result: pass.

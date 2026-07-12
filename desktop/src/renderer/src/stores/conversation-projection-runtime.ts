@@ -1,6 +1,6 @@
 import type { ConversationEvent, ConversationSnapshot } from "@generated/backend";
 
-import type { ConversationProjection } from "./conversation-projection";
+import { applyConversationEvents, type ConversationProjection } from "./conversation-projection";
 import { useConversationNavigatorStore } from "./conversation-navigator-store";
 import { useConversationStore } from "./conversation-store";
 
@@ -51,6 +51,18 @@ export function handleConversationProjectionEvent(event: ConversationEvent): voi
 export function enqueueConversationProjectionEvent(event: ConversationEvent): void {
   pendingEvents.push(event);
   scheduleProjectionFlush();
+}
+
+export function queuedConversationProjectionEventsBefore(
+  event: ConversationEvent,
+): readonly ConversationEvent[] {
+  return pendingEvents.filter(
+    (candidate) =>
+      candidate.workspaceId === event.workspaceId &&
+      candidate.conversationId === event.conversationId &&
+      candidate.streamId === event.streamId &&
+      candidate.sequence < event.sequence,
+  );
 }
 
 function handleConversationProjectionEvents(events: readonly ConversationEvent[]): void {
@@ -168,7 +180,7 @@ function releaseConversationProjection(
     return;
   }
   retainedProjections.delete(key);
-  const snapshot = useConversationStore.getState().conversations.get(conversationId)?.snapshot;
+  const snapshot = conversationSnapshotIncludingQueuedEvents(workspaceId, conversationId);
   void window.setta.conversations
     .release({
       conversationId,
@@ -178,6 +190,20 @@ function releaseConversationProjection(
     .catch((error: unknown) => {
       console.error(`Failed to release conversation stream ${conversationId}`, error);
     });
+}
+
+function conversationSnapshotIncludingQueuedEvents(
+  workspaceId: string,
+  conversationId: string,
+): ConversationSnapshot | null | undefined {
+  const conversations = useConversationStore.getState().conversations;
+  const events = pendingEvents.filter(
+    (event) => event.workspaceId === workspaceId && event.conversationId === conversationId,
+  );
+  if (events.length === 0) {
+    return conversations.get(conversationId)?.snapshot;
+  }
+  return applyConversationEvents(conversations, events).get(conversationId)?.snapshot;
 }
 
 export function conversationProjectionNeedsKeepAlive(snapshot: ConversationSnapshot): boolean {

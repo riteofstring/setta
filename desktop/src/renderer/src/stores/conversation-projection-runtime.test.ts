@@ -10,6 +10,7 @@ import {
   conversationProjectionNeedsKeepAlive,
   enqueueConversationProjectionEvent,
   handleConversationProjectionEvent,
+  retainConversationProjection,
   resetConversationProjectionRuntime,
 } from "./conversation-projection-runtime";
 import { useConversationStore } from "./conversation-store";
@@ -119,6 +120,34 @@ describe("conversation projection runtime", () => {
     expect(projectionSnapshot()?.eventCursor.sequence).toBe(0);
   });
 
+  test("uses queued event state when releasing a projection before its frame flush", async () => {
+    const scheduler = manualFrameScheduler();
+    const release = vi.fn().mockResolvedValue(undefined);
+    const subscribe = vi.fn().mockResolvedValue(undefined);
+    installConversationAPI(
+      vi.fn().mockResolvedValue(conversationSnapshot(0)),
+      scheduler.windowOverrides,
+      { release, subscribe },
+    );
+    const releaseProjection = retainConversationProjection(workspaceId, conversationId);
+    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledOnce());
+    const working = conversationUpdatedEvent(1);
+    if (working.payload.type !== "conversation.updated") {
+      throw new Error("working fixture must update a conversation");
+    }
+    working.payload.conversation.status = "working";
+
+    enqueueConversationProjectionEvent(working);
+    releaseProjection();
+
+    expect(projectionSnapshot()?.conversation.status).toBe("idle");
+    expect(release).toHaveBeenCalledWith({
+      conversationId,
+      keepAlive: true,
+      workspaceId,
+    });
+  });
+
   test("retains terminal speech streams only while final narration can still arrive", () => {
     const working = conversationSnapshot(1);
     working.conversation.status = "working";
@@ -151,10 +180,14 @@ describe("conversation projection runtime", () => {
 function installConversationAPI(
   read: (request: unknown) => Promise<ConversationSnapshot>,
   windowOverrides: Record<string, unknown> = {},
+  conversationOverrides: Record<string, unknown> = {},
 ): void {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
-    value: { ...windowOverrides, setta: { conversations: { read } } },
+    value: {
+      ...windowOverrides,
+      setta: { conversations: { read, ...conversationOverrides } },
+    },
   });
 }
 

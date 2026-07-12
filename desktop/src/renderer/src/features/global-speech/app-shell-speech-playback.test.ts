@@ -3,8 +3,12 @@ import type {
   ConversationPresentationProfile,
   ConversationSnapshot,
 } from "@generated/backend";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import {
+  enqueueConversationProjectionEvent,
+  resetConversationProjectionRuntime,
+} from "../../stores/conversation-projection-runtime";
 import { useConversationStore } from "../../stores/conversation-store";
 import { AppShellSpeechPlaybackController } from "./app-shell-speech-playback-controller";
 import {
@@ -13,7 +17,15 @@ import {
 } from "./app-shell-speech-playback";
 
 describe("app-shell speech playback provider", () => {
-  beforeEach(() => useConversationStore.getState().reset());
+  beforeEach(() => {
+    resetConversationProjectionRuntime();
+    useConversationStore.getState().reset();
+  });
+
+  afterEach(() => {
+    resetConversationProjectionRuntime();
+    Reflect.deleteProperty(globalThis, "window");
+  });
 
   test("turns only a live narration event into one automatic playback intent", () => {
     const controller = playbackController();
@@ -27,6 +39,10 @@ describe("app-shell speech playback provider", () => {
             error: null,
             resync: null,
             snapshot: {
+              eventCursor: {
+                sequence: 0,
+                streamId: "conversation:conversation-playback",
+              },
               presentationProfile: profile(),
               turns: { hasEarlier: false, turns: [] },
             } as unknown as ConversationSnapshot,
@@ -54,6 +70,43 @@ describe("app-shell speech playback provider", () => {
         },
       }),
     );
+  });
+
+  test("uses queued turn state before a batched terminal narration event", () => {
+    installStalledFrameScheduler();
+    const controller = playbackController();
+    const enqueue = vi.spyOn(controller, "enqueueAutomatic");
+    useConversationStore.setState({
+      conversations: new Map([
+        [
+          "conversation-playback",
+          {
+            conversationId: "conversation-playback",
+            error: null,
+            resync: null,
+            snapshot: {
+              eventCursor: {
+                sequence: 0,
+                streamId: "conversation:conversation-playback",
+              },
+              presentationProfile: profile(),
+              turns: { hasEarlier: false, turns: [] },
+            } as unknown as ConversationSnapshot,
+            status: "ready",
+            workspaceId: "workspace-playback",
+          },
+        ],
+      ]),
+    });
+    enqueueConversationProjectionEvent(failedTurnEvent());
+
+    handlePlaybackConversationEvent(controller, finalNarrationEvent());
+
+    expect(
+      useConversationStore.getState().conversations.get("conversation-playback")?.snapshot?.turns
+        .turns,
+    ).toEqual([]);
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ kind: "error" }));
   });
 
   test("fails specifically when a live narration stream has no hydrated profile", () => {
@@ -124,6 +177,59 @@ function narrationCreatedEvent(): ConversationEvent {
     streamId: "conversation:conversation-playback",
     workspaceId: "workspace-playback",
   };
+}
+
+function failedTurnEvent(): ConversationEvent {
+  return {
+    conversationId: "conversation-playback",
+    emittedAt: "2026-07-12T18:00:00Z",
+    eventId: "conversation:conversation-playback:1",
+    payload: {
+      turn: {
+        conversationId: "conversation-playback",
+        id: "turn-playback",
+        status: "failed",
+      } as ConversationSnapshot["turns"]["turns"][number],
+      type: "conversation.turn.updated",
+    },
+    schemaVersion: 1,
+    sequence: 1,
+    streamId: "conversation:conversation-playback",
+    workspaceId: "workspace-playback",
+  };
+}
+
+function finalNarrationEvent(): ConversationEvent {
+  const event = narrationCreatedEvent();
+  if (event.payload.type !== "conversation.narration.created") {
+    throw new Error("narration fixture must contain a narration event");
+  }
+  return {
+    ...event,
+    eventId: "conversation:conversation-playback:2",
+    payload: {
+      event: {
+        ...event.payload.event,
+        finalSummary: { text: "The topic failed." },
+        kind: "final_summary",
+        statusReply: null,
+      },
+      type: "conversation.narration.created",
+    },
+    sequence: 2,
+  };
+}
+
+function installStalledFrameScheduler(): void {
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      cancelAnimationFrame: vi.fn(),
+      clearTimeout: vi.fn(),
+      requestAnimationFrame: vi.fn(() => 1),
+      setTimeout: vi.fn(() => 1),
+    },
+  });
 }
 
 function profile(): ConversationPresentationProfile {
