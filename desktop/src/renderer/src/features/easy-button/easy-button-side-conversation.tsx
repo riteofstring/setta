@@ -83,7 +83,7 @@ function SideTranscript({
           data-side-message-role={message.role}
           key={message.id}
         >
-          <span>{message.role === "user" ? "You" : "Side agent"}</span>
+          <span>{sideMessageRoleLabel(message.role)}</span>
           <p>{message.text}</p>
         </article>
       ))}
@@ -100,6 +100,19 @@ function SideTranscript({
       ) : null}
     </div>
   );
+}
+
+function sideMessageRoleLabel(role: EasyButtonSideView["messages"][number]["role"]): string {
+  switch (role) {
+    case "assistant":
+      return "Side agent";
+    case "status":
+      return "Turn status";
+    case "user":
+      return "You";
+    default:
+      return assertNever(role);
+  }
 }
 
 function SideFailure({ testId, text }: { testId: string; text: string }) {

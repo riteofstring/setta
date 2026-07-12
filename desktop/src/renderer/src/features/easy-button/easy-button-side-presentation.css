@@ -158,6 +158,12 @@
   text-align: right;
 }
 
+.easy-button-side-message[data-side-message-role="status"] {
+  align-self: center;
+  max-width: min(100%, 620px);
+  text-align: center;
+}
+
 .easy-button-side-message > span {
   color: var(--easy-button-faint);
   display: block;
@@ -182,6 +188,13 @@
 
 .easy-button-side-message[data-side-message-role="assistant"] > p {
   border-left-color: var(--easy-button-primary);
+}
+
+.easy-button-side-message[data-side-message-role="status"] > p {
+  background: transparent;
+  border-color: color-mix(in oklab, var(--destructive) 40%, var(--easy-button-border));
+  color: color-mix(in oklab, var(--destructive) 80%, var(--foreground));
+  font-size: 11px;
 }
 
 .easy-button-side-empty,

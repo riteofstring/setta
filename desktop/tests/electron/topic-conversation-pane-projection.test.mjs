@@ -42,6 +42,7 @@ import {
   exerciseSideAndDurableForkWorkflow,
   hasReadyConversation,
   listTopics,
+  verifyReloadedConversationProjections,
   waitForNavigator,
 } from "./topic-conversation-fork-workflow.mjs";
 import { verifySideConversationRestart } from "./topic-conversation-side-restart-workflow.mjs";
@@ -675,6 +676,17 @@ try {
     workspaceId,
   });
 
+  await waitForBackendState(
+    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    (result) =>
+      result.layout?.panes.some(
+        (pane) =>
+          pane.paneId === alphaRestartSide.parentPaneId &&
+          pane.easyButtonConfig?.conversationId === alpha.id,
+      ) === true &&
+      result.layout.panes.some((pane) => pane.easyButtonConfig?.conversationId === beta.id),
+    workflowTimeoutMs,
+  );
   await captureScreenshot(context.client, join(artifactDir, "commands-complete.png"));
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -684,22 +696,13 @@ try {
     await submitConversationInput(context.client, conversationInputRequest),
     conversationInputRequest.input,
   );
-  const reloaded = await waitForConversationSurfaces(
-    context.client,
-    (surfaces) =>
-      conversationSurfaces(surfaces, alpha.id).some(
-        (surface) =>
-          surface.projectionStatus === "ready" &&
-          surface.status === "completed" &&
-          surface.sideId === alphaRestartSide.id &&
-          surface.sideStatus === "active" &&
-          surface.sideParentStatus === "idle",
-      ) &&
-      conversationSurfaces(surfaces, beta.id).some(
-        (surface) => surface.projectionStatus === "ready" && surface.status === "failed",
-      ),
-  );
-  assertReloadedProjection(reloaded.surfaces, alpha, beta, alphaRestartSide);
+  const reloaded = await verifyReloadedConversationProjections({
+    alpha,
+    beta,
+    client: context.client,
+    restartSide: alphaRestartSide,
+    timeoutMs: workflowTimeoutMs,
+  });
   assertNavigator(await waitForNavigator(context.client, alpha.id, 1, workflowTimeoutMs), alpha, 1);
   assertNavigator(await waitForNavigator(context.client, beta.id, 1, workflowTimeoutMs), beta, 1);
   assertNavigator(
@@ -1468,24 +1471,6 @@ function assertAutomaticNarration(snapshot, label) {
     )
   ) {
     throw new Error(`${label} automatic narration is incomplete: ${JSON.stringify(snapshot)}`);
-  }
-}
-
-function assertReloadedProjection(surfaces, alpha, beta, restartSide) {
-  const alphaSurface = requiredConversationSurface(surfaces, alpha.id);
-  const betaSurface = requiredConversationSurface(surfaces, beta.id);
-  if (
-    alphaSurface.paletteId !== alpha.paletteId ||
-    alphaSurface.status !== "completed" ||
-    alphaSurface.sideId !== restartSide.id ||
-    alphaSurface.sideStatus !== "active" ||
-    alphaSurface.sideParentStatus !== "idle" ||
-    betaSurface.paletteId !== beta.paletteId ||
-    betaSurface.status !== "failed"
-  ) {
-    throw new Error(
-      `reloaded topic projections do not match durable state: ${JSON.stringify({ alphaSurface, betaSurface })}`,
-    );
   }
 }
 

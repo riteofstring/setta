@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v11";
+  const version = "setta-topic-conversation-pane-projection-driver-v12";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -26,6 +26,7 @@
       topicConversationPresentFromNavigator,
       topicConversationSteer,
       topicConversationStartSide,
+      topicConversationStartSideAndClose,
       topicConversationStop,
       topicConversationSubmit,
       topicConversationSendSide,
@@ -180,6 +181,20 @@
     }
     button.click();
     return { conversationId, started: true };
+  }
+
+  function topicConversationStartSideAndClose({ conversationId, text }) {
+    const started = topicConversationStartSide({ conversationId, text });
+    if (!started.started) {
+      return { closing: false, conversationId, started: false };
+    }
+    const closing = topicConversationCloseOneBoundPane({ conversationId });
+    return {
+      closing: closing.clicked,
+      conversationId,
+      paneId: closing.paneId,
+      started: true,
+    };
   }
 
   function topicConversationSendSide({ conversationId, text }) {
@@ -453,10 +468,12 @@
     }
     const originalConfirm = window.confirm;
     if (confirmSide) {
-      window.confirm = () => true;
+      window.confirm = () => {
+        window.confirm = originalConfirm;
+        return true;
+      };
     }
     button.click();
-    window.confirm = originalConfirm;
     return { clicked: true, conversationId, paneId };
   }
 

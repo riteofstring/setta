@@ -224,13 +224,42 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).not.toContain("Parent topic milestone");
   });
 
+  test("presents a typed side-turn failure without failing the parent conversation", () => {
+    const snapshot = workingSnapshot("conversation_side_failure", "Parent topic", "sky");
+    const side = sideConversation(snapshot, "pane_side_failure");
+    side.lastEventSequence = 2;
+    snapshot.sideConversations = [side];
+    snapshot.sideEvents.events = sideConversationFailureEvents(side);
+
+    const view = easyButtonProjectionView(
+      snapshot.conversation.id,
+      readyProjection(snapshot),
+      side.parentPaneId,
+    );
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(view.viewState).toBe("working");
+    expect(view.side).toMatchObject({ status: "active", turnActive: false });
+    expect(view.side?.messages.at(-1)).toEqual({
+      id: "side_turn:status",
+      role: "status",
+      text: "The side agent could not inspect that resource.",
+      turnId: "side_turn",
+    });
+    expect(html).toContain('data-side-message-role="status"');
+    expect(html).toContain("Turn status");
+    expect(html).toContain("The side agent could not inspect that resource.");
+  });
+
   test("bounds a long side transcript while preserving its earlier-activity signal", () => {
     const snapshot = workingSnapshot("conversation_long_side", "Long side", "sky");
     const side = sideConversation(snapshot, "pane_long_side");
-    side.lastEventSequence = 201;
+    const eventLimit = snapshot.sideEvents.limit;
+    side.lastEventSequence = eventLimit + 1;
     snapshot.sideConversations = [side];
-    snapshot.sideEvents.events = Array.from({ length: 201 }, (_, index) => {
-      const sequence = index + 1;
+    snapshot.sideEvents.hasEarlier = true;
+    snapshot.sideEvents.events = Array.from({ length: eventLimit }, (_, index) => {
+      const sequence = index + 2;
       const event = userInputTrajectory(
         side.id,
         `side_turn_${sequence}`,
@@ -253,7 +282,7 @@ describe("Easy Button topic conversation projection", () => {
     );
 
     expect(view.side?.hasEarlierEvents).toBe(true);
-    expect(view.side?.messages).toHaveLength(200);
+    expect(view.side?.messages).toHaveLength(eventLimit);
     expect(view.side?.messages[0]?.text).toBe("Work on side request 2");
   });
 
@@ -293,18 +322,21 @@ describe("Easy Button topic conversation projection", () => {
     side.activeTurnId = "side_turn";
     side.activeProviderTurnId = "provider_side_turn";
     snapshot.sideConversations = [side];
+    const staleSnapshot = structuredClone(snapshot);
+    staleSnapshot.sideConversations = [];
     useConversationStore
       .getState()
-      .hydrateSnapshot(workspaceId, snapshot.conversation.id, snapshot);
+      .hydrateSnapshot(workspaceId, snapshot.conversation.id, staleSnapshot);
     const disposed = structuredClone(snapshot);
     disposed.sideConversations[0]!.activeTurnId = null;
     disposed.sideConversations[0]!.activeProviderTurnId = null;
     disposed.sideConversations[0]!.disposedAt = timestamp;
     disposed.sideConversations[0]!.status = "disposing";
+    const read = vi.fn(async () => snapshot);
     const disposeSide = vi.fn(async () => disposed);
     vi.stubGlobal("window", {
       setta: {
-        conversations: { disposeSide },
+        conversations: { disposeSide, read },
       },
     });
     const confirm = vi.fn(() => true);
@@ -319,12 +351,43 @@ describe("Easy Button topic conversation projection", () => {
     ).resolves.toEqual({ removePane: true });
 
     expect(confirm).toHaveBeenCalledWith("End the active side conversation and close this pane?");
+    expect(read).toHaveBeenCalledWith({
+      conversationId: snapshot.conversation.id,
+      workspaceId,
+    });
     expect(disposeSide).toHaveBeenCalledWith({
       parentConversationId: snapshot.conversation.id,
       parentPaneId: "pane_close",
       sideConversationId: side.id,
       workspaceId,
     });
+  });
+
+  test("keeps the pane open when active-side disposal is not confirmed", async () => {
+    const snapshot = workingSnapshot("conversation_keep_side", "Keep side", "teal");
+    const side = sideConversation(snapshot, "pane_keep");
+    side.activeTurnId = "side_turn";
+    side.activeProviderTurnId = "provider_side_turn";
+    snapshot.sideConversations = [side];
+    const read = vi.fn(async () => snapshot);
+    const disposeSide = vi.fn();
+    vi.stubGlobal("window", {
+      setta: {
+        conversations: { disposeSide, read },
+      },
+    });
+
+    await expect(
+      requestEasyButtonPaneClose({
+        confirm: () => false,
+        conversationId: snapshot.conversation.id,
+        paneId: side.parentPaneId,
+        workspaceId,
+      }),
+    ).resolves.toEqual({ removePane: false });
+
+    expect(read).toHaveBeenCalledOnce();
+    expect(disposeSide).not.toHaveBeenCalled();
   });
 
   test("renders source-attributed global speech state in the bound pane", () => {
@@ -699,6 +762,36 @@ function sideConversationEvents(side: SideConversation): SideConversationEvent[]
     userInputAccepted: null,
   };
   return [user, assistant, completed].map((event, index) => ({
+    event,
+    parentConversationId: side.parentConversationId,
+    sideConversationId: side.id,
+    streamSequence: index + 1,
+  }));
+}
+
+function sideConversationFailureEvents(side: SideConversation): SideConversationEvent[] {
+  const user = userInputTrajectory(side.id, "side_turn", "side");
+  user.userInputAccepted = {
+    delivery: "normal",
+    input: { text: "Inspect the protected resource" },
+  };
+  const failed = {
+    ...user,
+    actor: "agent" as const,
+    id: "side_trajectory_failed",
+    kind: "turn_failed" as const,
+    sequence: 2,
+    turnFailed: {
+      failure: {
+        code: "side_turn_failed",
+        diagnosticReference: "side_diagnostic",
+        message: "The side agent could not inspect that resource.",
+        retryable: true,
+      },
+    },
+    userInputAccepted: null,
+  };
+  return [user, failed].map((event, index) => ({
     event,
     parentConversationId: side.parentConversationId,
     sideConversationId: side.id,

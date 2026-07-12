@@ -5,7 +5,7 @@ import type {
   TrajectoryEvent,
 } from "@generated/backend";
 
-type EasyButtonSideMessageRole = "assistant" | "user";
+type EasyButtonSideMessageRole = "assistant" | "status" | "user";
 type EasyButtonSideTurnStatus = "working" | "completed" | "cancelled" | "failed";
 
 interface EasyButtonSideMessage {
@@ -17,6 +17,7 @@ interface EasyButtonSideMessage {
 
 interface EasyButtonSideTurn {
   assistantText: string;
+  failure: string | null;
   id: string;
   status: EasyButtonSideTurnStatus;
   userText: string;
@@ -31,8 +32,6 @@ export interface EasyButtonSideView {
   status: SideConversation["status"];
   turnActive: boolean;
 }
-
-const maximumPresentedSideMessages = 200;
 
 export function openSideConversationForPane(
   snapshot: ConversationSnapshot,
@@ -66,14 +65,15 @@ export function easyButtonSideView(
     return null;
   }
   const events = snapshot.sideEvents.events.filter((event) => event.sideConversationId === side.id);
-  const messages = sideMessages(events);
+  const messages = sideMessages(sideTurns(events));
+  const messageLimit = snapshot.sideEvents.limit;
   return {
     failure: side.failure?.message ?? null,
     hasEarlierEvents:
-      messages.length > maximumPresentedSideMessages ||
+      messages.length > messageLimit ||
       (snapshot.sideEvents.hasEarlier && sideHasEarlierProjectedEvents(side, events)),
     id: side.id,
-    messages: messages.slice(-maximumPresentedSideMessages),
+    messages: messages.slice(-messageLimit),
     parentStatus: side.parentStatus,
     status: side.status,
     turnActive: side.activeTurnId !== null,
@@ -88,8 +88,7 @@ function sideHasEarlierProjectedEvents(
   return firstSequence === undefined ? side.lastEventSequence > 0 : firstSequence > 1;
 }
 
-function sideMessages(events: readonly SideConversationEvent[]): EasyButtonSideMessage[] {
-  const turns = sideTurns(events);
+function sideMessages(turns: readonly EasyButtonSideTurn[]): EasyButtonSideMessage[] {
   const messages: EasyButtonSideMessage[] = [];
   for (const turn of turns) {
     if (turn.userText) {
@@ -108,8 +107,29 @@ function sideMessages(events: readonly SideConversationEvent[]): EasyButtonSideM
         turnId: turn.id,
       });
     }
+    const status = sideTurnStatusMessage(turn);
+    if (status) {
+      messages.push({
+        id: `${turn.id}:status`,
+        role: "status",
+        text: status,
+        turnId: turn.id,
+      });
+    }
   }
   return messages;
+}
+
+function sideTurnStatusMessage(turn: EasyButtonSideTurn): string | null {
+  switch (turn.status) {
+    case "working":
+    case "completed":
+      return null;
+    case "cancelled":
+      return "The side-agent turn was interrupted.";
+    case "failed":
+      return turn.failure ?? "The side-agent turn failed.";
+  }
 }
 
 function sideTurns(events: readonly SideConversationEvent[]): EasyButtonSideTurn[] {
@@ -121,6 +141,7 @@ function sideTurns(events: readonly SideConversationEvent[]): EasyButtonSideTurn
     }
     const turn = turns.get(event.turnId) ?? {
       assistantText: "",
+      failure: null,
       id: event.turnId,
       status: "working" as const,
       userText: "",
@@ -160,8 +181,9 @@ const sideEventHandlers = {
   turn_completed(turn) {
     turn.status = "completed";
   },
-  turn_failed(turn) {
+  turn_failed(turn, event) {
     turn.status = "failed";
+    turn.failure = event.turnFailed?.failure.message ?? "The side-agent turn failed.";
   },
   turn_interrupted(turn) {
     turn.status = "cancelled";

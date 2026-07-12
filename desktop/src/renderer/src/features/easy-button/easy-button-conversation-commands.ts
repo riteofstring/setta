@@ -17,7 +17,6 @@ import {
   requestConversationPanePresentation,
   type ConversationPanePresentationResult,
 } from "../../workspace-layout/conversation-pane-coordinator";
-import { useConversationStore } from "../../stores/conversation-store";
 import { openSideConversationForPane } from "./easy-button-side-projection";
 
 export interface EasyButtonConversationCommands {
@@ -43,6 +42,19 @@ export interface EasyButtonConversationCommands {
     answers: ConversationApprovalAnswer[],
   ) => void;
 }
+
+interface PendingSideCreation {
+  closeRequested: boolean;
+  finished: Promise<void>;
+  resolveFinished: () => void;
+}
+
+interface PendingSideCreationControl {
+  closeRequested: () => boolean;
+  finish: () => void;
+}
+
+const pendingSideCreationByPane = new Map<string, PendingSideCreation>();
 
 export function useEasyButtonConversationCommands(
   workspaceId: string | null,
@@ -290,6 +302,7 @@ function createSideCommand({
     const text = input.trim();
     setPending(true);
     setError(null);
+    const sideCreation = beginPendingSideCreation(workspaceId, conversationId, paneId);
     void (async () => {
       try {
         const created = await requireConversationCommand("createSide")({
@@ -302,6 +315,11 @@ function createSideCommand({
         if (!side || side.status !== "active") {
           throw new Error("The side conversation did not become active.");
         }
+        if (sideCreation.closeRequested()) {
+          setInput("");
+          return;
+        }
+        sideCreation.finish();
         const sent = await requireConversationCommand("sendSide")({
           parentConversationId: conversationId,
           sideConversationId: side.id,
@@ -313,10 +331,62 @@ function createSideCommand({
       } catch (commandError) {
         setError(errorMessage(commandError));
       } finally {
+        sideCreation.finish();
         setPending(false);
       }
     })();
   };
+}
+
+function beginPendingSideCreation(
+  workspaceId: string,
+  conversationId: string,
+  paneId: string,
+): PendingSideCreationControl {
+  const key = sideCreationKey(workspaceId, conversationId, paneId);
+  let resolveFinished = () => {};
+  const pending: PendingSideCreation = {
+    closeRequested: false,
+    finished: new Promise<void>((resolve) => {
+      resolveFinished = resolve;
+    }),
+    resolveFinished: () => resolveFinished(),
+  };
+  pendingSideCreationByPane.set(key, pending);
+  let finished = false;
+  return {
+    closeRequested: () => pending.closeRequested,
+    finish: () => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      if (pendingSideCreationByPane.get(key) === pending) {
+        pendingSideCreationByPane.delete(key);
+      }
+      pending.resolveFinished();
+    },
+  };
+}
+
+async function waitForPendingSideCreation(
+  workspaceId: string,
+  conversationId: string,
+  paneId: string,
+): Promise<boolean> {
+  const pending = pendingSideCreationByPane.get(
+    sideCreationKey(workspaceId, conversationId, paneId),
+  );
+  if (!pending) {
+    return false;
+  }
+  pending.closeRequested = true;
+  await pending.finished;
+  return true;
+}
+
+function sideCreationKey(workspaceId: string, conversationId: string, paneId: string): string {
+  return JSON.stringify([workspaceId, conversationId, paneId]);
 }
 
 type OptionalConversationCommand = "createSide" | "disposeSide" | "sendSide";
@@ -372,16 +442,18 @@ export async function requestEasyButtonPaneClose({
   paneId: string;
   workspaceId: string;
 }): Promise<{ removePane: boolean }> {
-  let snapshot = useConversationStore.getState().conversations.get(conversationId)?.snapshot;
-  if (!snapshot) {
-    snapshot = await window.setta.conversations.read({ conversationId, workspaceId });
-    hydrateConversationProjectionSnapshot(snapshot);
-  }
+  const creationWasPending = await waitForPendingSideCreation(workspaceId, conversationId, paneId);
+  const snapshot = await window.setta.conversations.read({ conversationId, workspaceId });
+  hydrateConversationProjectionSnapshot(snapshot);
   const side = openSideConversationForPane(snapshot, paneId);
   if (!side) {
     return { removePane: true };
   }
-  if (side.activeTurnId && !confirm("End the active side conversation and close this pane?")) {
+  if (
+    side.activeTurnId &&
+    !creationWasPending &&
+    !confirm("End the active side conversation and close this pane?")
+  ) {
     return { removePane: false };
   }
   const disposed = await requireConversationCommand("disposeSide")({

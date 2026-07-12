@@ -56,9 +56,17 @@ export async function exerciseSideAndDurableForkWorkflow(args) {
     ...args,
     parentSnapshot: workingParent,
   });
-  const afterPaneCloseSide = await exercisePaneCloseSideDisposal({
+  const afterFailedSide = await exerciseSideTurnFailurePresentation({
     ...args,
     parentSnapshot: afterAnsweredSide,
+  });
+  const afterPendingSideClose = await exercisePendingSidePaneClose({
+    ...args,
+    parentSnapshot: afterFailedSide,
+  });
+  const afterPaneCloseSide = await exercisePaneCloseSideDisposal({
+    ...args,
+    parentSnapshot: afterPendingSideClose,
   });
   const parentSnapshot = await finishWorkingParent({
     ...args,
@@ -73,6 +81,54 @@ export async function exerciseSideAndDurableForkWorkflow(args) {
     parentSnapshot,
   });
   return { ...durableFork, restartSide, side };
+}
+
+export async function verifyReloadedConversationProjections({
+  alpha,
+  beta,
+  client,
+  restartSide,
+  timeoutMs,
+}) {
+  await waitForConversationNavigatorRow(client, alpha.id, timeoutMs);
+  assertDriverAction(
+    await client.driver("topicConversationPresentFromNavigator", { conversationId: alpha.id }),
+    "clicked",
+  );
+  const alphaSurface = await waitForConversationSurface(
+    client,
+    alpha.id,
+    (surface) =>
+      surface.projectionStatus === "ready" &&
+      surface.status === "completed" &&
+      surface.sideId === restartSide.id &&
+      surface.sideStatus === "active" &&
+      surface.sideParentStatus === "idle",
+    timeoutMs,
+  );
+  await waitForConversationNavigatorRow(client, beta.id, timeoutMs);
+  assertDriverAction(
+    await client.driver("topicConversationPresentFromNavigator", { conversationId: beta.id }),
+    "clicked",
+  );
+  const betaSurface = await waitForConversationSurface(
+    client,
+    beta.id,
+    (surface) => surface.projectionStatus === "ready" && surface.status === "failed",
+    timeoutMs,
+  );
+  assertCondition(
+    alphaSurface.paletteId === alpha.paletteId &&
+      alphaSurface.status === "completed" &&
+      alphaSurface.sideId === restartSide.id &&
+      alphaSurface.sideStatus === "active" &&
+      alphaSurface.sideParentStatus === "idle" &&
+      betaSurface.paletteId === beta.paletteId &&
+      betaSurface.status === "failed",
+    "reloaded topic projections do not match durable state",
+    { alphaSurface, betaSurface },
+  );
+  return { surfaces: [alphaSurface, betaSurface] };
 }
 
 export async function exerciseEphemeralSideForkFailure({
@@ -259,6 +315,91 @@ export async function exerciseEphemeralSideForkWorkflow({
   };
 }
 
+async function exerciseSideTurnFailurePresentation({
+  backend,
+  client,
+  parentSnapshot,
+  parentTopic,
+  timeoutMs,
+  workspaceId,
+}) {
+  const parentSurface = await waitForConversationSurface(
+    client,
+    parentTopic.id,
+    (surface) => surface.state === "working" && surface.sideId === "",
+    timeoutMs,
+  );
+  assertDriverAction(
+    await client.driver("topicConversationStartSide", {
+      conversationId: parentTopic.id,
+      text: "fail side presentation",
+    }),
+    "started",
+  );
+  const failedPresentation = await waitForConversationSurface(
+    client,
+    parentTopic.id,
+    (surface) =>
+      surface.sideId !== "" &&
+      surface.sideStatus === "active" &&
+      surface.sideParentStatus === "working" &&
+      surface.sideTranscriptText.includes("Scripted topic failure"),
+    timeoutMs,
+  );
+  const failed = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.sideConversations.some(
+        (candidate) =>
+          candidate.id === failedPresentation.sideId &&
+          candidate.status === "active" &&
+          candidate.activeTurnId === null &&
+          candidate.activeProviderTurnId === null,
+      ) &&
+      snapshot.sideEvents.events.some(
+        (event) =>
+          event.sideConversationId === failedPresentation.sideId &&
+          event.event.kind === "turn_failed" &&
+          event.event.turnFailed?.failure.message === "Scripted topic failure",
+      ),
+    timeoutMs,
+  );
+  assertEphemeralSideCreation(
+    failed,
+    parentSnapshot,
+    parentSurface.paneId,
+    failedPresentation.sideId,
+  );
+  assertSideDidNotContaminateParent(parentSnapshot, failed);
+  assertDriverAction(
+    await client.driver("topicConversationEndSide", { conversationId: parentTopic.id }),
+    "ended",
+  );
+  const disposed = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.sideConversations.some(
+        (candidate) =>
+          candidate.id === failedPresentation.sideId &&
+          candidate.status === "disposing" &&
+          candidate.disposedAt !== null,
+      ),
+    timeoutMs,
+  );
+  assertSideDidNotContaminateParent(failed, disposed);
+  await waitForConversationSurface(
+    client,
+    parentTopic.id,
+    (surface) => surface.state === "working" && surface.sideId === "",
+    timeoutMs,
+  );
+  return disposed;
+}
+
 async function startWorkingParent({
   backend,
   client,
@@ -296,6 +437,74 @@ async function startWorkingParent({
     { parentSnapshot, working },
   );
   return working;
+}
+
+async function exercisePendingSidePaneClose({
+  backend,
+  client,
+  parentSnapshot,
+  parentTopic,
+  timeoutMs,
+  workspaceId,
+}) {
+  const parentSurface = await waitForConversationSurface(
+    client,
+    parentTopic.id,
+    (surface) => surface.state === "working" && surface.sideId === "",
+    timeoutMs,
+  );
+  const knownSideIds = new Set(parentSnapshot.sideConversations.map((side) => side.id));
+  const action = await client.driver("topicConversationStartSideAndClose", {
+    conversationId: parentTopic.id,
+    text: "close while side creation is pending",
+  });
+  assertDriverAction(action, "started");
+  assertDriverAction(action, "closing");
+  const disposed = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.sideConversations.some(
+        (candidate) =>
+          !knownSideIds.has(candidate.id) &&
+          candidate.parentPaneId === parentSurface.paneId &&
+          candidate.status === "disposing" &&
+          candidate.disposedAt !== null &&
+          candidate.resolvedSideAgentInvocation.outcome === "cancelled",
+      ),
+    timeoutMs,
+  );
+  const disposedSide = disposed.sideConversations.find(
+    (candidate) =>
+      !knownSideIds.has(candidate.id) && candidate.parentPaneId === parentSurface.paneId,
+  );
+  assertCondition(
+    disposedSide &&
+      disposedSide.parentConversationId === parentTopic.id &&
+      disposedSide.decisionSource === "explicit",
+    "closing during side creation orphaned or rebound the pane-owned side",
+    { disposed, parentSnapshot, parentSurface },
+  );
+  assertSideDidNotContaminateParent(parentSnapshot, disposed);
+  await waitForConversationSurfaces(
+    client,
+    (surfaces) => conversationSurfaces(surfaces, parentTopic.id).length === 0,
+    timeoutMs,
+  );
+  assertDriverAction(
+    await client.driver("topicConversationPresentFromNavigator", {
+      conversationId: parentTopic.id,
+    }),
+    "clicked",
+  );
+  await waitForConversationSurface(
+    client,
+    parentTopic.id,
+    (surface) => surface.state === "working" && surface.sideId === "",
+    timeoutMs,
+  );
+  return disposed;
 }
 
 async function exercisePaneCloseSideDisposal({
@@ -849,6 +1058,15 @@ async function waitForConversationSurface(client, conversationId, ready, timeout
     timeoutMs,
   );
   return conversationSurfaces(state.surfaces, conversationId)[0];
+}
+
+function waitForConversationNavigatorRow(client, conversationId, timeoutMs) {
+  return waitForState(
+    client,
+    driverCallExpression("topicConversationNavigatorState", { conversationId }),
+    (state) => state.rowCount === 1,
+    timeoutMs,
+  );
 }
 
 function waitForConversationSnapshot(backend, workspaceId, conversationId, ready, timeoutMs) {
