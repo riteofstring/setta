@@ -330,6 +330,44 @@ func TestServicePersistsResolvedWorkspaceLayout(t *testing.T) {
 	}
 }
 
+func TestServiceObservesSavedAndReadWorkspaceLayouts(t *testing.T) {
+	appDataDir := t.TempDir()
+	observer := &recordingLayoutObserver{}
+	service, err := NewService(
+		newTestStore(t, appDataDir),
+		testResolver{"workspace_api": "/tmp/api"},
+		observer,
+	)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	layout := testLayout("workspace_api")
+
+	if _, err := service.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout: %v", err)
+	}
+	if _, err := service.ReadLayout(layout.WorkspaceID); err != nil {
+		t.Fatalf("read layout: %v", err)
+	}
+	if len(observer.layouts) != 2 {
+		t.Fatalf("observed layout count = %d, want 2", len(observer.layouts))
+	}
+	for index, observed := range observer.layouts {
+		if observed.WorkspaceID != layout.WorkspaceID || observed.FocusedPaneID != layout.FocusedPaneID {
+			t.Errorf("observed layout %d = %+v, want workspace %s focus %s", index, observed, layout.WorkspaceID, layout.FocusedPaneID)
+		}
+	}
+}
+
+type recordingLayoutObserver struct {
+	layouts []WorkspaceUILayout
+}
+
+func (observer *recordingLayoutObserver) ObserveWorkspaceUILayout(layout WorkspaceUILayout) error {
+	observer.layouts = append(observer.layouts, layout)
+	return nil
+}
+
 func newTestStore(t *testing.T, appDataDir string) *Store {
 	t.Helper()
 
@@ -343,11 +381,17 @@ func newTestStore(t *testing.T, appDataDir string) *Store {
 func newTestService(t *testing.T, appDataDir string, resolver testResolver) *Service {
 	t.Helper()
 
-	service, err := NewService(newTestStore(t, appDataDir), resolver)
+	service, err := NewService(newTestStore(t, appDataDir), resolver, discardingLayoutObserver{})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
 	return service
+}
+
+type discardingLayoutObserver struct{}
+
+func (discardingLayoutObserver) ObserveWorkspaceUILayout(WorkspaceUILayout) error {
+	return nil
 }
 
 type testResolver map[string]string

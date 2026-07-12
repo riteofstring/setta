@@ -1,4 +1,8 @@
+import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
+
 import { waitForBackendState } from "./chat-workflow-harness.mjs";
+import { readJsonLinesWhileAppending } from "./topic-conversation-master-overlay-assertions.mjs";
 
 export async function submitConversationInput(client, request) {
   return client.evaluate(`window.setta.conversations.submitInput(${JSON.stringify(request)})`);
@@ -8,6 +12,89 @@ export async function readConversationInputRoutingState(client, workspaceId, req
   return client.evaluate(
     `window.setta.conversations.readInputState(${JSON.stringify(inputStateRequest(workspaceId, request))})`,
   );
+}
+
+export async function waitForRecordedTextConversationInput(
+  artifactDirectory,
+  conversationId,
+  text,
+  inputMode,
+  timeoutMs,
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const events = await readJsonLinesWhileAppending(join(artifactDirectory, "ipc.jsonl"));
+    const start = events.find(
+      (event) =>
+        event.type === "ipc_start" &&
+        event.channel === "conversation:submit-input" &&
+        event.args?.[0]?.input?.conversationId === conversationId &&
+        event.args[0].input.modality === "text" &&
+        event.args[0].input.requestedMode === inputMode &&
+        event.args[0].input.text === text,
+    );
+    const finish = start
+      ? events.find(
+          (event) =>
+            event.type === "ipc_finish" &&
+            event.channel === "conversation:submit-input" &&
+            event.id === start.id,
+        )
+      : null;
+    if (start && finish) {
+      const request = start.args[0];
+      assertRecordedTextConversationInput(request.input, conversationId, text, inputMode);
+      return { accepted: finish.result, request };
+    }
+    await delay(20);
+  }
+  throw new Error(
+    `timed out waiting for ${inputMode} pane text input ${JSON.stringify({ conversationId, text })}`,
+  );
+}
+
+export async function assertRecordedExplicitTextInput({
+  artifactDirectory,
+  client,
+  conversationId,
+  expectedKind,
+  inputMode,
+  text,
+  timeoutMs,
+  workspaceId,
+}) {
+  const recorded = await waitForRecordedTextConversationInput(
+    artifactDirectory,
+    conversationId,
+    text,
+    inputMode,
+    timeoutMs,
+  );
+  const state = await waitForBackendState(
+    () => readConversationInputRoutingState(client, workspaceId, recorded.request),
+    (candidate) => candidate.input?.status === "dispatched",
+    timeoutMs,
+  );
+  assertExplicitConversationInputRoutingState(state, recorded.accepted.input, expectedKind);
+  return { ...recorded, state };
+}
+
+function assertRecordedTextConversationInput(input, conversationId, text, inputMode) {
+  assertEqualJSON(
+    conversationInputSummary(input),
+    {
+      ...conversationInputSummary(input),
+      conversationId,
+      modality: "text",
+      replyToInputId: null,
+      requestedMode: inputMode,
+      text,
+    },
+    "recorded pane text conversation input",
+  );
+  assertNonEmptyString(input?.id, "recorded pane text input id");
+  assertNonEmptyString(input?.sourcePaneId, "recorded pane text source pane id");
+  assertNonEmptyString(input?.submittedAt, "recorded pane text submitted timestamp");
 }
 
 export async function discardConversationInput(client, workspaceId, request) {
@@ -70,25 +157,98 @@ export function assertAcceptedConversationInputRoutingState(state, expectedInput
   );
 }
 
-export function assertDispatchedConversationInputRoutingState(state, expectedInput) {
+export function assertDispatchedConversationInputRoutingState(
+  state,
+  expectedInput,
+  expectedSequence = 1,
+) {
   assertRoutedConversationInputState(state, expectedInput, {
     branch: "sendToParent",
     kind: "send_to_parent",
-    sequence: 1,
+    sequence: expectedSequence,
   });
   assertIdleConversationRouterContextAudit(state.decisions[0].routerContext, state.input.sequence);
 }
 
-export function assertQueuedConversationInputRoutingState(state, expectedInput) {
+export function assertQueuedConversationInputRoutingState(
+  state,
+  expectedInput,
+  expectedSequence = 1,
+) {
   assertRoutedConversationInputState(state, expectedInput, {
     branch: "queueParentTurn",
     kind: "queue_parent_turn",
-    sequence: 2,
+    sequence: expectedSequence,
   });
   assertWorkingConversationRouterContextAudit(
     state.decisions[0].routerContext,
     state.input.sequence,
   );
+}
+
+export function assertExplicitConversationInputRoutingState(state, expectedInput, expectedKind) {
+  assertEqualJSON(
+    explicitConversationInputRoutingSummary(state),
+    {
+      commandKind: expectedKind,
+      commandText: expectedInput.text,
+      decisionKind: expectedKind,
+      decisionText: expectedInput.text,
+      decisions: 1,
+      input: conversationInputSummary(expectedInput),
+      resolvedInvocation: null,
+      routerContext: null,
+      source: "explicit",
+      status: "dispatched",
+    },
+    "explicit conversation input routing",
+  );
+}
+
+function explicitConversationInputRoutingSummary(state) {
+  const inputState = state.input ?? {};
+  const decisions = state.decisions ?? [];
+  const decision = explicitDecisionRecordSummary(decisions[0]);
+  return {
+    commandKind: decision.commandKind,
+    commandText: decision.commandText,
+    decisionKind: decision.decisionKind,
+    decisionText: decision.decisionText,
+    decisions: decisions.length,
+    input: conversationInputSummary(inputState.input),
+    resolvedInvocation: decision.resolvedInvocation,
+    routerContext: decision.routerContext,
+    source: decision.source,
+    status: inputState.status,
+  };
+}
+
+function explicitDecisionRecordSummary(record) {
+  const decisionRecord = record ?? {};
+  const command = decisionRecord.resultingCommand ?? {};
+  const decision = decisionRecord.decision ?? {};
+  return {
+    commandKind: command.kind,
+    commandText: explicitRouteText(command),
+    decisionKind: decision.kind,
+    decisionText: explicitRouteText(decision),
+    resolvedInvocation: decisionRecord.resolvedInvocation,
+    routerContext: decisionRecord.routerContext,
+    source: decisionRecord.source,
+  };
+}
+
+const explicitRouteTextReaders = Object.freeze({
+  answer_as_narrator: (route) => route.answerAsNarrator?.question,
+  create_side_conversation: (route) => route.createSideConversation?.input?.text,
+  fork_conversation: (route) => route.forkConversation?.input?.text,
+  queue_parent_turn: (route) => route.queueParentTurn?.authoredInput?.text,
+  send_to_parent: (route) => route.sendToParent?.authoredInput?.text,
+  steer_parent_turn: (route) => route.steerParentTurn?.authoredInput?.text,
+});
+
+function explicitRouteText(route) {
+  return explicitRouteTextReaders[route?.kind]?.(route);
 }
 
 export function assertEscalatedConversationInputRoutingState(
@@ -149,19 +309,19 @@ export async function escalateToMaster(client, topic, paneId, workspaceId) {
     (candidate) => candidate.input?.status === "dispatched",
     50_000,
   );
-  assertEscalatedConversationInputRoutingState(state, request.input);
+  assertEscalatedConversationInputRoutingState(state, accepted.input, accepted.sequence);
   assertRoutedConversationInputReceipt(
     accepted,
     await submitConversationInput(client, request),
-    request.input,
-    3,
+    accepted.input,
+    accepted.sequence,
   );
   await assertRoutedMasterInputExists(client, state);
   return {
     accepted,
     assertPersisted: async (nextClient) => {
       const persisted = await readConversationInputRoutingState(nextClient, workspaceId, request);
-      assertEscalatedConversationInputRoutingState(persisted, request.input);
+      assertEscalatedConversationInputRoutingState(persisted, accepted.input, accepted.sequence);
       await assertRoutedMasterInputExists(nextClient, persisted);
     },
     request,
@@ -246,6 +406,7 @@ function assertIdleConversationRouterContextAudit(audit, inputSequence) {
   const expectedAllowedKinds = [
     "send_to_parent",
     "answer_as_narrator",
+    "create_side_conversation",
     "escalate_to_master",
     "clarify",
   ];
@@ -281,6 +442,8 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
     "queue_parent_turn",
     "steer_parent_turn",
     "answer_as_narrator",
+    "create_side_conversation",
+    "fork_conversation",
     "escalate_to_master",
     "clarify",
   ];
@@ -305,10 +468,10 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
       clarificationInputSequence: null,
       includedTrajectoryEnd: audit.latestTrajectorySequence,
       inputSequence,
-      priorNarrationCount: 1,
-      priorRouteDecisionCount: 1,
+      priorNarrationCount: 3,
+      priorRouteDecisionCount: 3,
       requestedMode: "route",
-      validCompletedForkPointCount: 0,
+      validCompletedForkPointCount: 1,
     },
     "working conversation-router context audit",
   );

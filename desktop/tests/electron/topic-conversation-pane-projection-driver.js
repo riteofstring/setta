@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v12";
+  const version = "setta-topic-conversation-pane-projection-driver-v14";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -17,13 +17,14 @@
       topicConversationEndSide,
       topicConversationCreateFork,
       topicConversationNavigatorState,
-      topicConversationOpenFork,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
       topicConversationRespondApproval,
       topicConversationShellSpeechCapture,
       topicConversationShellSpeechState,
       topicConversationPresentFromNavigator,
+      topicConversationQueue,
+      topicConversationSend,
       topicConversationSteer,
       topicConversationStartSide,
       topicConversationStartSideAndClose,
@@ -164,6 +165,43 @@
     return { conversationId, submitted: true };
   }
 
+  function topicConversationQueue({ conversationId, text }) {
+    return topicConversationExplicitDelivery({
+      action: "queued",
+      buttonTestId: "easy-button-queue",
+      conversationId,
+      text,
+    });
+  }
+
+  function topicConversationSend({ conversationId, text }) {
+    return topicConversationExplicitDelivery({
+      action: "sent",
+      buttonTestId: "easy-button-send",
+      conversationId,
+      text,
+    });
+  }
+
+  function topicConversationExplicitDelivery({ action, buttonTestId, conversationId, text }) {
+    const surface = conversationSurface(conversationId);
+    const input = surface?.querySelector('[data-testid="easy-button-input"]');
+    const button = surface?.querySelector(`[data-testid="${buttonTestId}"]`);
+    if (
+      !(input instanceof HTMLInputElement) ||
+      input.disabled ||
+      !(button instanceof HTMLButtonElement)
+    ) {
+      return { [action]: false, conversationId };
+    }
+    setInputValue(input, text);
+    if (button.disabled) {
+      return { [action]: false, conversationId };
+    }
+    button.click();
+    return { [action]: true, conversationId };
+  }
+
   function topicConversationStartSide({ conversationId, text }) {
     const surface = conversationSurface(conversationId);
     const input = surface?.querySelector('[data-testid="easy-button-input"]');
@@ -227,43 +265,19 @@
     return { conversationId, ended: true };
   }
 
-  function topicConversationOpenFork({ conversationId }) {
-    const button = conversationSurface(conversationId)?.querySelector(
-      '[data-testid="easy-button-fork-start"]',
-    );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { conversationId, opened: false };
-    }
-    button.click();
-    return { conversationId, opened: true };
-  }
-
   function topicConversationCreateFork({ conversationId, forkedAtTurnId, title }) {
     const surface = conversationSurface(conversationId);
-    const panel = surface?.querySelector('[data-testid="easy-button-fork-panel"]');
-    const titleInput = panel?.querySelector('input[aria-label="Fork title"]');
-    const source = panel?.querySelector('select[aria-label="Fork source turn"]');
-    const button = panel?.querySelector('[data-testid="easy-button-fork-create"]');
-    if (!validForkControls(titleInput, source, button)) {
+    const input = surface?.querySelector('[data-testid="easy-button-input"]');
+    const button = surface?.querySelector('[data-testid="easy-button-fork-start"]');
+    if (!(input instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) {
       return { conversationId, created: false };
     }
-    setInputValue(titleInput, title);
-    if (forkedAtTurnId) {
-      setFormControlValue(source, forkedAtTurnId);
-    }
+    setInputValue(input, title);
     if (button.disabled) {
       return { conversationId, created: false };
     }
     button.click();
-    return { conversationId, created: true };
-  }
-
-  function validForkControls(titleInput, source, button) {
-    return (
-      titleInput instanceof HTMLInputElement &&
-      source instanceof HTMLSelectElement &&
-      button instanceof HTMLButtonElement
-    );
+    return { conversationId, created: true, forkedAtTurnId };
   }
 
   function topicConversationOpenParent({ conversationId }) {

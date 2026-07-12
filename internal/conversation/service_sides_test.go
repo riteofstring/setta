@@ -314,6 +314,7 @@ func prepareSideBeforeParentStartsWorking(
 		profile,
 		resolved,
 		invocation,
+		nil,
 		BranchDecisionSourceExplicit,
 	)
 	if err != nil {

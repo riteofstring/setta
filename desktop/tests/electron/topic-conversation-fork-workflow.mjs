@@ -456,7 +456,7 @@ async function exercisePendingSidePaneClose({
   const knownSideIds = new Set(parentSnapshot.sideConversations.map((side) => side.id));
   const action = await client.driver("topicConversationStartSideAndClose", {
     conversationId: parentTopic.id,
-    text: "close while side creation is pending",
+    text: "hold close while side creation is pending",
   });
   assertDriverAction(action, "started");
   assertDriverAction(action, "closing");
@@ -727,11 +727,6 @@ export async function exerciseDurableForkWorkflow({
     parentSnapshot,
   });
   assertDriverAction(
-    await client.driver("topicConversationOpenFork", { conversationId: parentTopic.id }),
-    "opened",
-  );
-  await waitForSelector(client, '[data-testid="easy-button-fork-panel"]');
-  assertDriverAction(
     await client.driver("topicConversationCreateFork", {
       conversationId: parentTopic.id,
       forkedAtTurnId: sourceTurn.id,
@@ -752,10 +747,20 @@ export async function exerciseDurableForkWorkflow({
     forkItem.conversation.id,
     (snapshot) =>
       snapshot.branch?.parentConversationId === parentTopic.id &&
-      snapshot.branch.forkedAtTurnId === sourceTurn.id,
+      snapshot.branch.forkedAtTurnId === sourceTurn.id &&
+      snapshot.turns.turns.length === 1 &&
+      snapshot.turns.turns[0]?.status === "completed" &&
+      narratorObservedThroughTerminalSequence(snapshot),
     timeoutMs,
   );
   const forkTopicSummary = assertDurableForkCreation(forkSnapshot, parentSnapshot, sourceTurn);
+
+  assertDriverAction(
+    await client.driver("topicConversationOpenBoundPane", {
+      conversationId: forkTopicSummary.id,
+    }),
+    "requested",
+  );
 
   const childPresentation = await waitForConversationSurface(
     client,
@@ -766,6 +771,7 @@ export async function exerciseDurableForkWorkflow({
       surface.forkParentTitle.includes(parentTopic.title),
     timeoutMs,
   );
+  await waitForConversationNavigatorRow(client, forkTopicSummary.id, timeoutMs);
   const parentSurfaces = await waitForConversationSurfaces(
     client,
     (surfaces) => conversationSurfaces(surfaces, parentTopic.id).length === 1,
@@ -858,7 +864,7 @@ export async function exerciseDurableForkWorkflow({
   await waitForConversationSurface(
     client,
     forkTopicSummary.id,
-    (surface) => surface.projectionStatus === "ready" && surface.state === "idle",
+    (surface) => surface.projectionStatus === "ready" && surface.state === "complete",
     timeoutMs,
   );
   assertDriverAction(
@@ -885,7 +891,9 @@ export async function exerciseDurableForkWorkflow({
     backend,
     workspaceId,
     parentTopic.id,
-    (snapshot) => snapshot.eventCursor.sequence === parentSnapshot.eventCursor.sequence,
+    (snapshot) =>
+      snapshot.conversation.lastTrajectorySequence ===
+      parentSnapshot.conversation.lastTrajectorySequence,
     timeoutMs,
   );
   assertForkDidNotContaminateParent(parentSnapshot, parentAfterForkWork);
@@ -965,7 +973,11 @@ function assertDurableForkCreation(forked, parent, sourceTurn) {
 
 function assertForkConversationFields(forked, parent, context) {
   assertForkField(forked.conversation.status === "idle", "child status", context);
-  assertForkField(forked.turns.turns.length === 0, "child turns", context);
+  assertForkField(
+    forked.turns.turns.length === 1 && forked.turns.turns[0]?.status === "completed",
+    "child turns",
+    context,
+  );
   assertForkField(Boolean(forked.threadBinding), "child thread binding", context);
   assertForkField(
     forked.threadBinding?.threadId !== parent.threadBinding?.threadId,
@@ -1017,11 +1029,6 @@ function assertForkField(matches, field, context) {
 
 function assertForkDidNotContaminateParent(before, after) {
   const context = { after, before };
-  assertForkField(
-    after.eventCursor.sequence === before.eventCursor.sequence,
-    "parent cursor",
-    context,
-  );
   assertForkField(
     after.conversation.lastTrajectorySequence === before.conversation.lastTrajectorySequence,
     "parent trajectory cursor",
@@ -1088,8 +1095,8 @@ function completedForkSurface(surface) {
 
 function completedForkSnapshot(snapshot) {
   return (
-    snapshot.turns.turns.length === 1 &&
-    snapshot.turns.turns[0]?.status === "completed" &&
+    snapshot.turns.turns.length === 2 &&
+    snapshot.turns.turns.every((turn) => turn.status === "completed") &&
     hasFinalNarrationForEveryTurn(snapshot) &&
     narratorObservedThroughTerminalSequence(snapshot)
   );

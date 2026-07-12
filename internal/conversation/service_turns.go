@@ -14,6 +14,16 @@ func (service *Service) SendTurn(
 	conversationID string,
 	text string,
 ) (ConversationSnapshot, error) {
+	return service.sendTurn(ctx, workspaceID, conversationID, text, "")
+}
+
+func (service *Service) sendTurn(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	text string,
+	turnID string,
+) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -39,7 +49,7 @@ func (service *Service) SendTurn(
 			Reason:         "send requires an idle conversation; queue or steer active work",
 		}
 	}
-	turn, err := service.acceptTurn(ctx, snapshot, text, TurnDeliveryNormal, 0)
+	turn, err := service.acceptTurn(ctx, snapshot, text, TurnDeliveryNormal, 0, turnID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -62,6 +72,16 @@ func (service *Service) QueueTurn(
 	workspaceID string,
 	conversationID string,
 	text string,
+) (ConversationSnapshot, error) {
+	return service.queueTurn(ctx, workspaceID, conversationID, text, "")
+}
+
+func (service *Service) queueTurn(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	text string,
+	turnID string,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -89,7 +109,7 @@ func (service *Service) QueueTurn(
 		}
 	}
 	ordinal := len(snapshot.Queue) + 1
-	if _, err := service.acceptTurn(ctx, snapshot, text, TurnDeliveryQueued, ordinal); err != nil {
+	if _, err := service.acceptTurn(ctx, snapshot, text, TurnDeliveryQueued, ordinal, turnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
@@ -101,8 +121,9 @@ func (service *Service) acceptTurn(
 	text string,
 	delivery TurnDelivery,
 	queueOrdinal int,
+	turnID string,
 ) (ConversationTurn, error) {
-	ids, err := service.newAcceptedTurnIDs(queueOrdinal > 0)
+	ids, err := service.newAcceptedTurnIDs(queueOrdinal > 0, turnID)
 	if err != nil {
 		return ConversationTurn{}, err
 	}
@@ -135,9 +156,15 @@ type acceptedTurnMutation struct {
 	turn         ConversationTurn
 }
 
-func (service *Service) newAcceptedTurnIDs(queued bool) (acceptedTurnIDs, error) {
-	turnID, err := service.newID("turn")
-	if err != nil {
+func (service *Service) newAcceptedTurnIDs(queued bool, requestedTurnID string) (acceptedTurnIDs, error) {
+	turnID := requestedTurnID
+	if turnID == "" {
+		generatedTurnID, err := service.newID("turn")
+		if err != nil {
+			return acceptedTurnIDs{}, err
+		}
+		turnID = generatedTurnID
+	} else if err := validateIdentifier("routed conversation turn id", turnID); err != nil {
 		return acceptedTurnIDs{}, err
 	}
 	acceptedID, err := service.newID("trajectory")
@@ -275,6 +302,17 @@ func (service *Service) SteerTurn(
 	conversationID string,
 	text string,
 ) (ConversationSnapshot, error) {
+	return service.steerTurn(ctx, workspaceID, conversationID, text, "", "")
+}
+
+func (service *Service) steerTurn(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	text string,
+	expectedTurnID string,
+	clientInputID string,
+) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -288,11 +326,22 @@ func (service *Service) SteerTurn(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
+	if expectedTurnID != "" && control.turn.ID != expectedTurnID {
+		return ConversationSnapshot{}, &CommandConflictError{
+			ConversationID: conversationID,
+			Reason:         fmt.Sprintf("steer target changed from %s to %s", expectedTurnID, control.turn.ID),
+		}
+	}
+	if clientInputID == "" {
+		clientInputID = control.active.turnID + "_steer"
+	} else if err := validateIdentifier("routed steer client input id", clientInputID); err != nil {
+		return ConversationSnapshot{}, err
+	}
 	request := agent.TurnControlRequest{
 		ConversationID:   conversationID,
 		ProviderThreadID: control.active.providerThreadID,
 		ProviderTurnID:   control.active.providerTurnID,
-		ClientInputID:    control.active.turnID + "_steer",
+		ClientInputID:    clientInputID,
 		Text:             text,
 	}
 	if err := service.agent.SteerTurn(ctx, request); err != nil {

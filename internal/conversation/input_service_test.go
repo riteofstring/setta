@@ -83,6 +83,38 @@ func TestInputServicePreservesTypedStoreConflict(t *testing.T) {
 	}
 }
 
+func TestRoutedInputServiceSchedulesEveryAcceptedInputMode(t *testing.T) {
+	modes := []ConversationInputMode{
+		ConversationInputModeRoute,
+		ConversationInputModeSend,
+		ConversationInputModeQueue,
+		ConversationInputModeSteer,
+		ConversationInputModeAskNarrator,
+		ConversationInputModeSide,
+		ConversationInputModeFork,
+	}
+	for _, mode := range modes {
+		t.Run(string(mode), func(t *testing.T) {
+			store := &recordingConversationInputStore{}
+			notifier := &recordingConversationInputNotifier{}
+			service, err := newInputService(store, time.Now, notifier)
+			if err != nil {
+				t.Fatalf("newInputService: %v", err)
+			}
+			input := validConversationInputServiceInput()
+			input.ID += "_" + string(mode)
+			input.RequestedMode = mode
+			if _, err := service.SubmitInput(context.Background(), input); err != nil {
+				t.Fatalf("SubmitInput: %v", err)
+			}
+			if len(notifier.conversationIDs) != 1 ||
+				notifier.conversationIDs[0] != input.ConversationID {
+				t.Fatalf("router notifications = %v", notifier.conversationIDs)
+			}
+		})
+	}
+}
+
 func TestInputServiceReadsRetriesAndDiscardsDurableRoutingState(t *testing.T) {
 	input := validConversationInputServiceInput()
 	store := &recordingConversationInputStore{
@@ -128,6 +160,17 @@ type recordingConversationInputStore struct {
 	invalid        bool
 	retriedAt      string
 	workspaceID    string
+}
+
+type recordingConversationInputNotifier struct {
+	conversationIDs []string
+}
+
+func (notifier *recordingConversationInputNotifier) NotifyConversationInput(
+	conversationID string,
+) error {
+	notifier.conversationIDs = append(notifier.conversationIDs, conversationID)
+	return nil
 }
 
 func (store *recordingConversationInputStore) AcceptConversationInput(

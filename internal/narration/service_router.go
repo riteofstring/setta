@@ -10,6 +10,31 @@ type conversationRouteQueue struct {
 	running  bool
 }
 
+// AttachConversationRouteCommandExecutor connects committed local decisions
+// to the production command services. Runtime wiring installs it before input
+// recovery or intake begins; focused router tests may omit it to inspect only
+// the durable decision boundary.
+func (service *Service) AttachConversationRouteCommandExecutor(
+	executor ConversationRouteCommandExecutor,
+) error {
+	if service == nil || service.inputRouter == nil {
+		return errors.New("conversation router service is required")
+	}
+	if executor == nil {
+		return errors.New("conversation route command executor is required")
+	}
+	service.lifecycleMu.Lock()
+	defer service.lifecycleMu.Unlock()
+	if service.closing {
+		return errors.New("conversation router service is shutting down")
+	}
+	if service.inputRouter.executor != nil {
+		return errors.New("conversation route command executor is already attached")
+	}
+	service.inputRouter.executor = executor
+	return nil
+}
+
 // NotifyConversationInput is the push boundary from durable intake. It only
 // schedules work; provider calls run on the narrator service lifecycle rather
 // than the HTTP or transcription request context.
@@ -82,7 +107,7 @@ func (service *Service) runConversationRouteQueue(
 	}
 }
 
-// RecoverConversationInputs re-admits only durable accepted route work after
+// RecoverConversationInputs re-admits durable accepted local input work after
 // in-flight claims have been reset. It is a bounded startup scan, never a poll.
 func (service *Service) RecoverConversationInputs(ctx context.Context) error {
 	if service == nil || service.store == nil || service.inputRouter == nil {

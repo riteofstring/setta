@@ -30,6 +30,7 @@ import {
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
 import {
+  createEasyButtonTextConversationInput,
   requestEasyButtonPaneClose,
   requestEasyButtonSpeechCapture,
 } from "./easy-button-conversation-commands";
@@ -137,6 +138,49 @@ describe("Easy Button topic conversation projection", () => {
       },
       sourcePaneId: "pane_voice",
     });
+  });
+
+  test.each(conversationInputModeValues)(
+    "creates a typed %s pane text input without changing the authored text",
+    (inputMode) => {
+      expect(
+        createEasyButtonTextConversationInput({
+          conversationId: "conversation_text",
+          id: `input_${inputMode}`,
+          inputMode,
+          paneId: "pane_text",
+          submittedAt: timestamp,
+          text: "Keep this request exact",
+        }),
+      ).toEqual({
+        conversationId: "conversation_text",
+        id: `input_${inputMode}`,
+        modality: "text",
+        replyToInputId: null,
+        requestedMode: inputMode,
+        sourcePaneId: "pane_text",
+        submittedAt: timestamp,
+        text: "Keep this request exact",
+      });
+    },
+  );
+
+  test("canonicalizes generated pane text timestamps for durable receipt comparison", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-07-12T18:00:00.120Z"));
+
+      expect(
+        createEasyButtonTextConversationInput({
+          conversationId: "conversation_text",
+          id: "input_timestamp",
+          paneId: "pane_text",
+          text: "Keep this request exact",
+        }).submittedAt,
+      ).toBe("2026-07-12T18:00:00.12Z");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("keeps a working turn out of the terminal narration channel", () => {
@@ -454,16 +498,16 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain("Keep listening");
   });
 
-  test("renders explicit side and validated completed-turn fork controls", () => {
+  test("renders route-default text with explicit send, side, and fork controls", () => {
     const html = renderToString(
       <EasyButtonConversationComposer
         available
         canSubmit
-        defaultForkTitle="Parent topic fork"
         forkPoints={[{ label: "Completed parent work", turnId: "turn_completed" }]}
         input="Investigate a tangent"
-        onFork={async () => true}
+        onFork={() => {}}
         onInput={() => {}}
+        onSend={() => {}}
         onSide={() => {}}
         onStatus={() => {}}
         onSteer={() => {}}
@@ -477,6 +521,9 @@ describe("Easy Button topic conversation projection", () => {
 
     expect(html).toContain('data-testid="easy-button-side-start"');
     expect(html).toContain('data-testid="easy-button-fork-start"');
+    expect(html).toContain('data-testid="easy-button-send"');
+    expect(html).toContain('data-testid="easy-button-submit"');
+    expect(html).toContain(">Route</button>");
     expect(html).toContain('aria-label="Create a durable fork"');
   });
 

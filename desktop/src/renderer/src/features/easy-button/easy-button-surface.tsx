@@ -302,11 +302,12 @@ function ConversationComposer({
     <EasyButtonConversationComposer
       available={bindings.available}
       canSubmit={bindings.canSubmit}
-      defaultForkTitle={`${view.title} fork`}
       forkPoints={view.forkPoints}
       input={bindings.input}
       onFork={bindings.onFork}
       onInput={bindings.onInput}
+      onQueue={bindings.onQueue}
+      onSend={bindings.onSend}
       onSide={bindings.onSide}
       onStatus={bindings.onStatus}
       onSteer={bindings.onSteer}
@@ -325,6 +326,8 @@ interface ConversationComposerBindings {
   input: string;
   onFork: EasyButtonConversationCommands["fork"] | undefined;
   onInput: EasyButtonConversationCommands["setInput"] | undefined;
+  onQueue: EasyButtonConversationCommands["queue"] | undefined;
+  onSend: EasyButtonConversationCommands["send"] | undefined;
   onSide: EasyButtonConversationCommands["startSide"];
   onStatus: EasyButtonConversationCommands["askStatus"] | undefined;
   onSteer: EasyButtonConversationCommands["steer"] | undefined;
@@ -342,6 +345,8 @@ function conversationComposerBindings(
       input: "",
       onFork: undefined,
       onInput: undefined,
+      onQueue: undefined,
+      onSend: undefined,
       onSide: undefined,
       onStatus: undefined,
       onSteer: undefined,
@@ -355,6 +360,8 @@ function conversationComposerBindings(
     input: commands.input,
     onFork: commands.fork,
     onInput: commands.setInput,
+    onQueue: commands.queue,
+    onSend: commands.send,
     onSide: commands.startSide,
     onStatus: commands.askStatus,
     onSteer: commands.steer,

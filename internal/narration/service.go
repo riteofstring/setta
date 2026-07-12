@@ -173,6 +173,38 @@ func (service *Service) AskStatus(
 	conversationID string,
 	question string,
 ) (conversation.ConversationSnapshot, error) {
+	if service == nil || service.newID == nil {
+		return conversation.ConversationSnapshot{}, errors.New("narrator service is required")
+	}
+	requestID, err := service.newID("narrator_status")
+	if err != nil {
+		return conversation.ConversationSnapshot{}, err
+	}
+	return service.askStatus(ctx, workspaceID, conversationID, requestID, question)
+}
+
+// AskRoutedStatus executes one already validated route command while
+// preserving the request id committed with its originating input decision.
+func (service *Service) AskRoutedStatus(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	requestID string,
+	question string,
+) (conversation.ConversationSnapshot, error) {
+	if err := validateIdentifier("routed narrator status request id", requestID); err != nil {
+		return conversation.ConversationSnapshot{}, err
+	}
+	return service.askStatus(ctx, workspaceID, conversationID, requestID, question)
+}
+
+func (service *Service) askStatus(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	requestID string,
+	question string,
+) (conversation.ConversationSnapshot, error) {
 	if service == nil || service.store == nil || service.registry == nil || service.newID == nil {
 		return conversation.ConversationSnapshot{}, errors.New("narrator service is required")
 	}
@@ -184,10 +216,6 @@ func (service *Service) AskStatus(
 		return conversation.ConversationSnapshot{}, err
 	}
 	if _, err := service.store.ReadSnapshot(ctx, workspaceID, conversationID); err != nil {
-		return conversation.ConversationSnapshot{}, err
-	}
-	requestID, err := service.newID("narrator_status")
-	if err != nil {
 		return conversation.ConversationSnapshot{}, err
 	}
 	receipt, err := service.registry.Submit(ctx, Request{

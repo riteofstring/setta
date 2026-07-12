@@ -48,6 +48,7 @@ func (service *Service) executeDurableForkDecision(
 	parentConversationID string,
 	forkedAtTurnID string,
 	title string,
+	requestedChildConversationID *string,
 	decisionSource BranchDecisionSource,
 ) (ConversationSnapshot, error) {
 	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
@@ -63,7 +64,11 @@ func (service *Service) executeDurableForkDecision(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	childConversationID, err := service.newID("conversation")
+	childConversationID, err := service.branchConversationID(
+		requestedChildConversationID,
+		"conversation",
+		"routed child conversation id",
+	)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}

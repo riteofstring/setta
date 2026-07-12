@@ -1,11 +1,13 @@
 import type {
+  AcceptedConversationInput,
   ConversationApprovalAnswer,
+  ConversationInput,
   ConversationInputMode,
   ConversationSnapshot,
   TrajectoryApprovalDecision,
   TrajectoryApprovalRequest,
 } from "@generated/backend";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { hydrateConversationProjectionSnapshot } from "../../stores/conversation-projection-runtime";
@@ -13,6 +15,7 @@ import {
   conversationSpeechCaptureRequest,
   type SpeechCaptureRequester,
 } from "../global-speech/speech-capture-destination";
+import { canonicalSpeechInputTimestamp } from "../global-speech/speech-input-submission";
 import {
   requestConversationPanePresentation,
   type ConversationPanePresentationResult,
@@ -25,11 +28,13 @@ export interface EasyButtonConversationCommands {
   canSubmit: boolean;
   disposeSide: (sideConversationId: string) => void;
   error: string | null;
-  fork: (forkedAtTurnId: string, title: string) => Promise<boolean>;
+  fork: () => void;
   input: string;
   pending: boolean;
   presentRelatedConversation: (conversationId: string, title: string | null) => void;
-  requestVoiceCapture: (() => void) | undefined;
+  queue: () => void;
+  requestVoiceCapture: ((inputMode?: ConversationInputMode) => void) | undefined;
+  send: () => void;
   sendSide: (sideConversationId: string, text: string) => Promise<boolean>;
   setInput: (input: string) => void;
   startSide: (() => void) | undefined;
@@ -44,17 +49,27 @@ export interface EasyButtonConversationCommands {
 }
 
 interface PendingSideCreation {
-  closeRequested: boolean;
   finished: Promise<void>;
   resolveFinished: () => void;
 }
 
-interface PendingSideCreationControl {
-  closeRequested: () => boolean;
-  finish: () => void;
-}
-
 const pendingSideCreationByPane = new Map<string, PendingSideCreation>();
+
+function usePendingSideCreationCompletion(
+  workspaceId: string | null,
+  conversationId: string | null,
+  paneId: string | null,
+  snapshot: ConversationSnapshot | null | undefined,
+): void {
+  useEffect(() => {
+    if (!workspaceId || !conversationId || !paneId || !snapshot) {
+      return;
+    }
+    if (openSideConversationForPane(snapshot, paneId)) {
+      finishPendingSideCreation(workspaceId, conversationId, paneId);
+    }
+  }, [conversationId, paneId, snapshot, workspaceId]);
+}
 
 export function useEasyButtonConversationCommands(
   workspaceId: string | null,
@@ -66,14 +81,9 @@ export function useEasyButtonConversationCommands(
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const available = Boolean(
-    workspaceId &&
-    conversationId &&
-    projection?.status === "ready" &&
-    projection.snapshot &&
-    !projection.resync,
-  );
-  const canSubmit = available && !pending && input.trim() !== "";
+  const available = conversationCommandsAvailable(workspaceId, conversationId, projection);
+  const canSubmit = conversationInputCanSubmit(available, pending, input);
+  usePendingSideCreationCompletion(workspaceId, conversationId, paneId, projection?.snapshot);
 
   async function run(
     command: () => Promise<ConversationSnapshot>,
@@ -96,6 +106,31 @@ export function useEasyButtonConversationCommands(
     }
   }
 
+  async function runInput(inputMode: ConversationInputMode): Promise<boolean> {
+    setPending(true);
+    setError(null);
+    try {
+      const target = requireTarget();
+      const submitted = createEasyButtonTextConversationInput({
+        conversationId: target.conversationId,
+        inputMode,
+        paneId,
+        text: input.trim(),
+      });
+      beginPendingSideCreationForInput(inputMode, target, paneId);
+      const accepted = await requireConversationInputSubmitter()({ input: submitted });
+      assertAcceptedConversationInput(accepted, submitted);
+      setInput("");
+      return true;
+    } catch (commandError) {
+      finishPendingSideCreationForInput(inputMode, workspaceId, conversationId, paneId);
+      setError(errorMessage(commandError));
+      return false;
+    } finally {
+      setPending(false);
+    }
+  }
+
   function requireTarget(): { conversationId: string; workspaceId: string } {
     if (!available || !conversationId || !workspaceId) {
       throw new Error("Conversation commands require a ready topic conversation.");
@@ -108,11 +143,7 @@ export function useEasyButtonConversationCommands(
       if (!canSubmit) {
         return;
       }
-      const target = requireTarget();
-      void run(
-        () => window.setta.conversations.askStatus({ ...target, question: input.trim() }),
-        true,
-      );
+      void runInput("ask_narrator");
     },
     available,
     canSubmit,
@@ -133,35 +164,9 @@ export function useEasyButtonConversationCommands(
       );
     },
     error,
-    fork: async (forkedAtTurnId, title) => {
-      if (!available || pending) {
-        return false;
-      }
-      const target = requireTarget();
-      setPending(true);
-      setError(null);
-      try {
-        const child = await window.setta.conversations.fork({
-          forkedAtTurnId,
-          parentConversationId: target.conversationId,
-          title,
-          workspaceId: target.workspaceId,
-        });
-        hydrateConversationProjectionSnapshot(child);
-        const presentation = requestConversationPanePresentation({
-          conversationId: child.conversation.id,
-          title: child.conversation.title,
-          workspaceId: child.conversation.workspaceId,
-        });
-        if (presentation.kind === "blocked") {
-          setError(`Fork created, but its pane could not be opened: ${presentation.reason}`);
-        }
-        return true;
-      } catch (commandError) {
-        setError(errorMessage(commandError));
-        return false;
-      } finally {
-        setPending(false);
+    fork: () => {
+      if (canSubmit) {
+        void runInput("fork");
       }
     },
     input,
@@ -179,6 +184,16 @@ export function useEasyButtonConversationCommands(
       setError,
       speechCapture,
     }),
+    queue: () => {
+      if (canSubmit) {
+        void runInput("queue");
+      }
+    },
+    send: () => {
+      if (canSubmit) {
+        void runInput("send");
+      }
+    },
     sendSide: async (sideConversationId, text) => {
       if (!available || pending) {
         return false;
@@ -196,24 +211,12 @@ export function useEasyButtonConversationCommands(
       );
     },
     setInput,
-    startSide: createSideCommand({
-      available,
-      canSubmit,
-      conversationId,
-      input,
-      paneId,
-      pending,
-      setError,
-      setInput,
-      setPending,
-      workspaceId,
-    }),
+    startSide: createSideInputCommand(available, paneId, canSubmit, runInput),
     steer: () => {
       if (!canSubmit) {
         return;
       }
-      const target = requireTarget();
-      void run(() => window.setta.conversations.steer({ ...target, text: input.trim() }), true);
+      void runInput("steer");
     },
     stop: () => {
       if (!available || pending) {
@@ -227,18 +230,7 @@ export function useEasyButtonConversationCommands(
       if (!canSubmit) {
         return;
       }
-      const target = requireTarget();
-      const text = input.trim();
-      const active =
-        projection?.snapshot?.conversation.status === "working" ||
-        projection?.snapshot?.conversation.status === "waiting_for_approval";
-      void run(
-        () =>
-          active
-            ? window.setta.conversations.queue({ ...target, text })
-            : window.setta.conversations.send({ ...target, text }),
-        true,
-      );
+      void runInput("route");
     },
     submitApproval: (approval, decision, answers) => {
       if (!available || pending) {
@@ -262,111 +254,89 @@ export function useEasyButtonConversationCommands(
   };
 }
 
-function createSideCommand({
-  available,
-  canSubmit,
-  conversationId,
-  input,
-  paneId,
-  pending,
-  setError,
-  setInput,
-  setPending,
-  workspaceId,
-}: {
-  available: boolean;
-  canSubmit: boolean;
-  conversationId: string | null;
-  input: string;
-  paneId: string | null;
-  pending: boolean;
-  setError: (error: string | null) => void;
-  setInput: (input: string) => void;
-  setPending: (pending: boolean) => void;
-  workspaceId: string | null;
-}): (() => void) | undefined {
-  if (
-    !available ||
-    !conversationId ||
-    !paneId ||
-    !workspaceId ||
-    !window.setta.conversations.createSide ||
-    !window.setta.conversations.sendSide
-  ) {
+function conversationCommandsAvailable(
+  workspaceId: string | null,
+  conversationId: string | null,
+  projection: ConversationProjection | undefined,
+): boolean {
+  if (!workspaceId || !conversationId || projection?.status !== "ready") {
+    return false;
+  }
+  return Boolean(projection.snapshot && !projection.resync);
+}
+
+function conversationInputCanSubmit(available: boolean, pending: boolean, input: string): boolean {
+  return available && !pending && input.trim() !== "";
+}
+
+function createSideInputCommand(
+  available: boolean,
+  paneId: string | null,
+  canSubmit: boolean,
+  runInput: (inputMode: ConversationInputMode) => Promise<boolean>,
+): (() => void) | undefined {
+  if (!available || !paneId) {
     return undefined;
   }
   return () => {
-    if (!canSubmit || pending) {
-      return;
+    if (canSubmit) {
+      void runInput("side");
     }
-    const text = input.trim();
-    setPending(true);
-    setError(null);
-    const sideCreation = beginPendingSideCreation(workspaceId, conversationId, paneId);
-    void (async () => {
-      try {
-        const created = await requireConversationCommand("createSide")({
-          parentConversationId: conversationId,
-          parentPaneId: paneId,
-          workspaceId,
-        });
-        hydrateConversationProjectionSnapshot(created);
-        const side = openSideConversationForPane(created, paneId);
-        if (!side || side.status !== "active") {
-          throw new Error("The side conversation did not become active.");
-        }
-        if (sideCreation.closeRequested()) {
-          setInput("");
-          return;
-        }
-        sideCreation.finish();
-        const sent = await requireConversationCommand("sendSide")({
-          parentConversationId: conversationId,
-          sideConversationId: side.id,
-          text,
-          workspaceId,
-        });
-        hydrateConversationProjectionSnapshot(sent);
-        setInput("");
-      } catch (commandError) {
-        setError(errorMessage(commandError));
-      } finally {
-        sideCreation.finish();
-        setPending(false);
-      }
-    })();
   };
+}
+
+function beginPendingSideCreationForInput(
+  inputMode: ConversationInputMode,
+  target: { conversationId: string; workspaceId: string },
+  paneId: string | null,
+): void {
+  if (inputMode === "side" && paneId) {
+    beginPendingSideCreation(target.workspaceId, target.conversationId, paneId);
+  }
+}
+
+function finishPendingSideCreationForInput(
+  inputMode: ConversationInputMode,
+  workspaceId: string | null,
+  conversationId: string | null,
+  paneId: string | null,
+): void {
+  if (inputMode === "side" && workspaceId && conversationId && paneId) {
+    finishPendingSideCreation(workspaceId, conversationId, paneId);
+  }
 }
 
 function beginPendingSideCreation(
   workspaceId: string,
   conversationId: string,
   paneId: string,
-): PendingSideCreationControl {
+): void {
   const key = sideCreationKey(workspaceId, conversationId, paneId);
+  if (pendingSideCreationByPane.has(key)) {
+    throw new Error("A side conversation is already being created for this pane.");
+  }
   let resolveFinished = () => {};
   const pending: PendingSideCreation = {
-    closeRequested: false,
     finished: new Promise<void>((resolve) => {
       resolveFinished = resolve;
     }),
     resolveFinished: () => resolveFinished(),
   };
   pendingSideCreationByPane.set(key, pending);
-  let finished = false;
-  return {
-    closeRequested: () => pending.closeRequested,
-    finish: () => {
-      if (finished) {
-        return;
-      }
-      finished = true;
-      if (pendingSideCreationByPane.get(key) === pending) {
-        pendingSideCreationByPane.delete(key);
-      }
-      pending.resolveFinished();
-    },
-  };
+}
+
+function finishPendingSideCreation(
+  workspaceId: string,
+  conversationId: string,
+  paneId: string,
+): void {
+  const key = sideCreationKey(workspaceId, conversationId, paneId);
+  const pending = pendingSideCreationByPane.get(key);
+  if (!pending) {
+    return;
+  }
+  pendingSideCreationByPane.delete(key);
+  pending.resolveFinished();
 }
 
 async function waitForPendingSideCreation(
@@ -380,7 +350,6 @@ async function waitForPendingSideCreation(
   if (!pending) {
     return false;
   }
-  pending.closeRequested = true;
   await pending.finished;
   return true;
 }
@@ -389,7 +358,76 @@ function sideCreationKey(workspaceId: string, conversationId: string, paneId: st
   return JSON.stringify([workspaceId, conversationId, paneId]);
 }
 
-type OptionalConversationCommand = "createSide" | "disposeSide" | "sendSide";
+export function createEasyButtonTextConversationInput({
+  conversationId,
+  id = globalThis.crypto.randomUUID(),
+  inputMode = "route",
+  paneId,
+  submittedAt = canonicalSpeechInputTimestamp(new Date()),
+  text,
+}: {
+  conversationId: string;
+  id?: string;
+  inputMode?: ConversationInputMode;
+  paneId: string | null;
+  submittedAt?: string;
+  text: string;
+}): ConversationInput {
+  return {
+    conversationId,
+    id,
+    modality: "text",
+    replyToInputId: null,
+    requestedMode: inputMode,
+    sourcePaneId: paneId,
+    submittedAt,
+    text,
+  };
+}
+
+function assertAcceptedConversationInput(
+  accepted: AcceptedConversationInput,
+  submitted: ConversationInput,
+): void {
+  if (!acceptedConversationInputMatches(accepted, submitted)) {
+    throw new Error("Conversation input intake returned an invalid receipt.");
+  }
+}
+
+function acceptedConversationInputMatches(
+  accepted: AcceptedConversationInput,
+  submitted: ConversationInput,
+): boolean {
+  if (!Number.isSafeInteger(accepted.sequence) || accepted.sequence <= 0) {
+    return false;
+  }
+  if (accepted.status !== "accepted" || accepted.acceptedAt === "") {
+    return false;
+  }
+  const fields = [
+    "id",
+    "conversationId",
+    "sourcePaneId",
+    "replyToInputId",
+    "text",
+    "modality",
+    "requestedMode",
+    "submittedAt",
+  ] as const satisfies readonly (keyof ConversationInput)[];
+  return fields.every((field) => accepted.input[field] === submitted[field]);
+}
+
+function requireConversationInputSubmitter(): NonNullable<
+  (typeof window.setta.conversations)["submitInput"]
+> {
+  const submit = window.setta.conversations.submitInput;
+  if (!submit) {
+    throw new Error("Conversation input intake is unavailable.");
+  }
+  return submit;
+}
+
+type OptionalConversationCommand = "disposeSide" | "sendSide";
 
 function requireConversationCommand<Command extends OptionalConversationCommand>(
   command: Command,
@@ -487,13 +525,13 @@ function createVoiceCaptureCommand({
   paneId: string | null;
   setError: (error: string | null) => void;
   speechCapture: SpeechCaptureRequester | undefined;
-}): (() => void) | undefined {
+}): ((inputMode?: ConversationInputMode) => void) | undefined {
   if (!available || !conversationId || !paneId || !speechCapture) {
     return undefined;
   }
-  return () => {
+  return (inputMode = "route") => {
     setError(null);
-    void requestEasyButtonSpeechCapture(speechCapture, conversationId, paneId).catch(
+    void requestEasyButtonSpeechCapture(speechCapture, conversationId, paneId, inputMode).catch(
       (captureError: unknown) => setError(errorMessage(captureError)),
     );
   };

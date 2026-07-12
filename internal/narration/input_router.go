@@ -15,8 +15,25 @@ type ConversationInputRouter struct {
 	workspaces   WorkspaceResolver
 	materializer *ConversationRouteContextMaterializer
 	caller       *ConversationRouteCaller
+	executor     ConversationRouteCommandExecutor
 	newID        func(string) (string, error)
 	now          func() time.Time
+}
+
+type ConversationRouteCommandExecutor interface {
+	ExecuteConversationRouteCommand(context.Context, conversation.ConversationRouteDecisionRecord) error
+}
+
+type committedConversationRouteCommandError struct {
+	cause error
+}
+
+func (err *committedConversationRouteCommandError) Error() string {
+	return fmt.Sprintf("execute committed conversation route command: %v", err.cause)
+}
+
+func (err *committedConversationRouteCommandError) Unwrap() error {
+	return err.cause
 }
 
 func NewConversationInputRouter(
@@ -50,9 +67,10 @@ func NewConversationInputRouter(
 	}, nil
 }
 
-// ProcessNext claims at most one AI-routed exchange. The store claim enforces
+// ProcessNext claims at most one local input. The store claim enforces
 // conversation submission order, while different router instances may run
-// concurrently for different conversations.
+// concurrently for different conversations. Route mode uses the local model;
+// explicit modes commit their exact command without classification.
 func (router *ConversationInputRouter) ProcessNext(
 	ctx context.Context,
 	conversationID string,
@@ -61,15 +79,21 @@ func (router *ConversationInputRouter) ProcessNext(
 		return false, err
 	}
 	startedAt := router.timestamp()
-	work, found, err := router.store.ClaimNextConversationRouteInput(ctx, conversationID, startedAt)
+	work, found, err := router.store.ClaimNextConversationInput(ctx, conversationID, startedAt)
 	if err != nil {
 		return false, err
 	}
 	if !found {
 		return false, nil
 	}
-	if err := router.routeClaimedInput(ctx, work); err != nil {
+	record, err := router.routeClaimedInput(ctx, work)
+	if err != nil {
 		return true, router.handleClaimedInputError(ctx, work, err)
+	}
+	if router.executor != nil {
+		if err := router.executor.ExecuteConversationRouteCommand(ctx, record); err != nil {
+			return true, &committedConversationRouteCommandError{cause: err}
+		}
 	}
 	return true, nil
 }
@@ -94,6 +118,10 @@ func (router *ConversationInputRouter) handleClaimedInputError(
 	if ctx.Err() != nil || errors.Is(cause, context.Canceled) {
 		return cause
 	}
+	var committed *committedConversationRouteCommandError
+	if errors.As(cause, &committed) {
+		return cause
+	}
 	if err := router.failClaimedInput(ctx, work, cause); err != nil {
 		return errors.Join(cause, err)
 	}
@@ -103,29 +131,32 @@ func (router *ConversationInputRouter) handleClaimedInputError(
 func (router *ConversationInputRouter) routeClaimedInput(
 	ctx context.Context,
 	work conversation.ConversationInputRoutingWork,
-) error {
+) (conversation.ConversationRouteDecisionRecord, error) {
+	if work.Input.Input.RequestedMode != conversation.ConversationInputModeRoute {
+		return router.routeClaimedExplicitInput(ctx, work)
+	}
 	workspaceID, limits, err := router.contextLimits(ctx, work.Input.Input.ConversationID)
 	if err != nil {
-		return err
+		return conversation.ConversationRouteDecisionRecord{}, err
 	}
 	bundle, audit, err := router.materializer.Materialize(ctx, ConversationRouteContextRequest{
 		Work:   work,
 		Limits: limits,
 	})
 	if err != nil {
-		return classifyConversationRouteContextError(err)
+		return conversation.ConversationRouteDecisionRecord{}, classifyConversationRouteContextError(err)
 	}
 	workspaceRoot, err := router.resolveWorkspaceRoot(workspaceID)
 	if err != nil {
-		return err
+		return conversation.ConversationRouteDecisionRecord{}, err
 	}
 	requestID, err := router.newID("conversation_route_call")
 	if err != nil {
-		return NewAttemptFailure(FailureKindInternal, err)
+		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
 	}
 	call, err := router.caller.Call(ctx, requestID, workspaceRoot, bundle)
 	if err != nil {
-		return err
+		return conversation.ConversationRouteDecisionRecord{}, err
 	}
 	return router.commitConversationRouteCall(ctx, work, bundle, audit, call)
 }
@@ -136,22 +167,22 @@ func (router *ConversationInputRouter) commitConversationRouteCall(
 	bundle ConversationRouteContextBundle,
 	audit conversation.ConversationRouteContextAudit,
 	call ConversationRouteCallResult,
-) error {
+) (conversation.ConversationRouteDecisionRecord, error) {
 	command, err := router.buildCommand(work, bundle, call.Decision)
 	if err != nil {
-		return err
+		return conversation.ConversationRouteDecisionRecord{}, err
 	}
 	decisionID, err := router.newID("conversation_route_decision")
 	if err != nil {
-		return NewAttemptFailure(FailureKindInternal, err)
+		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
 	}
 	invocation, err := router.successfulInvocation(call)
 	if err != nil {
-		return NewAttemptFailure(FailureKindInternal, err)
+		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
 	}
 	decidedAt, err := router.timestampAfter(call.EndedAt)
 	if err != nil {
-		return NewAttemptFailure(FailureKindInternal, err)
+		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
 	}
 	commit := conversation.ConversationRouteDecisionCommit{
 		ID:                   decisionID,
@@ -167,12 +198,13 @@ func (router *ConversationInputRouter) commitConversationRouteCall(
 		DecidedAt:            decidedAt,
 	}
 	if err := commit.Validate(); err != nil {
-		return NewAttemptFailure(FailureKindInternal, err)
+		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
 	}
-	if _, err := router.store.CommitConversationRouteDecision(ctx, commit); err != nil {
-		return NewAttemptFailure(FailureKindStateUnavailable, err)
+	record, err := router.store.CommitConversationRouteDecision(ctx, commit)
+	if err != nil {
+		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindStateUnavailable, err)
 	}
-	return nil
+	return record, nil
 }
 
 func (router *ConversationInputRouter) contextLimits(

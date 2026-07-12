@@ -260,7 +260,7 @@ func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Ti
 	if err != nil {
 		t.Fatalf("new workspace UI store: %v", err)
 	}
-	uiService, err := workspaceui.NewService(uiStore, service)
+	uiService, err := workspaceui.NewService(uiStore, service, discardingWorkspaceUILayoutObserver{})
 	if err != nil {
 		t.Fatalf("new workspace UI service: %v", err)
 	}
@@ -269,6 +269,12 @@ func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Ti
 		WorkspaceService:   service,
 		WorkspaceUIService: uiService,
 	}), filepath.Dir(store.Path())
+}
+
+type discardingWorkspaceUILayoutObserver struct{}
+
+func (discardingWorkspaceUILayoutObserver) ObserveWorkspaceUILayout(workspaceui.WorkspaceUILayout) error {
+	return nil
 }
 
 func postJSON[T any](t *testing.T, handler http.Handler, path string, payload any, wantStatus int) T {

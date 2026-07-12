@@ -273,6 +273,44 @@ func TestConversationInputRouterClassifiesCommandIDFailureAsInternal(t *testing.
 	}
 }
 
+func TestConversationInputRouterBypassesModelForExplicitQueueAndExecutesCommittedCommand(t *testing.T) {
+	fixture := newStatusServiceFixture(t, nil)
+	router := configuredFixtureInputRouter(fixture.service.inputRouter)
+	executor := &recordingConversationRouteCommandExecutor{}
+	router.executor = executor
+	inputService := fixtureInputService(t, fixture.store)
+	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
+		ID:             "input-explicit-queue",
+		ConversationID: fixture.conversationID,
+		Text:           "Keep this exact queue request.",
+		Modality:       conversation.ConversationInputModalityText,
+		RequestedMode:  conversation.ConversationInputModeQueue,
+		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatalf("SubmitInput: %v", err)
+	}
+	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
+		t.Fatalf("ProcessNext = %t, %v", processed, err)
+	}
+	state := readFixtureRoutingState(t, fixture, accepted.Input.ID)
+	if state.Input.Status != conversation.ConversationInputStatusDispatched ||
+		len(state.Decisions) != 1 {
+		t.Fatalf("explicit queue state = %+v", state)
+	}
+	record := state.Decisions[0]
+	if record.Source != conversation.ConversationRouteDecisionSourceExplicit ||
+		record.RouterContext != nil || record.ResolvedInvocation != nil ||
+		record.Decision.Kind != conversation.ConversationRouteDecisionKindQueueParentTurn ||
+		record.ResultingCommand.QueueParentTurn.AuthoredInput.Text != accepted.Input.Text {
+		t.Fatalf("explicit queue decision = %+v", record)
+	}
+	if len(executor.records) != 1 || executor.records[0].ID != record.ID {
+		t.Fatalf("executed records = %+v", executor.records)
+	}
+	assertFixtureRouterProviderRequests(t, fixture.provider, 0)
+}
+
 func TestConversationRouteOutputDecodesEveryAllowedStrictVariant(t *testing.T) {
 	kinds := []conversation.ConversationRouteDecisionKind{
 		conversation.ConversationRouteDecisionKindSendToParent,
@@ -438,6 +476,18 @@ func configuredFixtureInputRouter(router *ConversationInputRouter) *Conversation
 		return fmt.Sprintf("%s-%d", prefix, counters[prefix]), nil
 	}
 	return router
+}
+
+type recordingConversationRouteCommandExecutor struct {
+	records []conversation.ConversationRouteDecisionRecord
+}
+
+func (executor *recordingConversationRouteCommandExecutor) ExecuteConversationRouteCommand(
+	_ context.Context,
+	record conversation.ConversationRouteDecisionRecord,
+) error {
+	executor.records = append(executor.records, record)
+	return nil
 }
 
 func fixtureInputService(t *testing.T, store *conversation.Store) *conversation.InputService {

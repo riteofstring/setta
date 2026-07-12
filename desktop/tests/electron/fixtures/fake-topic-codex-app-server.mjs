@@ -591,7 +591,7 @@ function activeStructuredInputRouteKind(context, allowed) {
 function validStructuredRouteInput(input, routeKind) {
   return (
     typeof input?.text === "string" &&
-    input.modality === "voice" &&
+    ["text", "voice"].includes(input.modality) &&
     input.hasSourcePane === true &&
     routeKind !== null
   );
@@ -601,7 +601,7 @@ function validStructuredRouteHistory(context, routeKind) {
   if (routeKind !== "queue_parent_turn") {
     return true;
   }
-  return context.priorRouteDecisions?.length === 1 && context.trajectory?.length > 0;
+  return context.priorRouteDecisions?.length >= 1 && context.trajectory?.length > 0;
 }
 
 function structuredRouteContextIsRedacted(serialized) {

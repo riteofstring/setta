@@ -1,5 +1,7 @@
 import { GitFork, MessagesSquare, Mic, Square } from "lucide-react";
-import { type FormEventHandler, useEffect, useState } from "react";
+import { type FormEventHandler, useState } from "react";
+
+import { conversationInputModeValues, type ConversationInputMode } from "@generated/backend";
 
 import { PaneSpeechActivityIndicator } from "../global-speech/app-shell-speech-status";
 import type { PaneSpeechPresentation } from "../global-speech/global-speech-presentation";
@@ -7,11 +9,12 @@ import type { PaneSpeechPresentation } from "../global-speech/global-speech-pres
 export function EasyButtonConversationComposer({
   available,
   canSubmit,
-  defaultForkTitle = "Topic fork",
   forkPoints = [],
   input,
   onFork,
   onInput,
+  onQueue,
+  onSend,
   onSide,
   onStatus,
   onSteer,
@@ -23,54 +26,25 @@ export function EasyButtonConversationComposer({
 }: {
   available: boolean;
   canSubmit: boolean;
-  defaultForkTitle?: string;
   forkPoints?: readonly EasyButtonForkPoint[];
   input: string;
-  onFork?: (forkedAtTurnId: string, title: string) => Promise<boolean>;
+  onFork?: (() => void) | undefined;
   onInput: ((value: string) => void) | undefined;
+  onQueue?: (() => void) | undefined;
+  onSend?: (() => void) | undefined;
   onSide?: (() => void) | undefined;
   onStatus: (() => void) | undefined;
   onSteer: (() => void) | undefined;
   onSubmit: FormEventHandler<HTMLFormElement> | undefined;
-  onVoiceCapture: (() => void) | undefined;
+  onVoiceCapture: ((inputMode?: ConversationInputMode) => void) | undefined;
   placeholder: string;
   speech: PaneSpeechPresentation | null | undefined;
   working: boolean;
 }) {
-  const [forkOpen, setForkOpen] = useState(false);
-  const [forkTitle, setForkTitle] = useState(defaultForkTitle);
-  const [forkedAtTurnId, setForkedAtTurnId] = useState(forkPoints[0]?.turnId ?? "");
-  useEffect(() => {
-    if (forkPoints.some((point) => point.turnId === forkedAtTurnId)) {
-      return;
-    }
-    setForkedAtTurnId(forkPoints[0]?.turnId ?? "");
-  }, [forkPoints, forkedAtTurnId]);
-
-  async function createFork(): Promise<void> {
-    const title = forkTitle.trim();
-    if (!onFork || !forkedAtTurnId || !title) {
-      return;
-    }
-    if (await onFork(forkedAtTurnId, title)) {
-      setForkOpen(false);
-      setForkTitle(defaultForkTitle);
-    }
-  }
+  const [voiceInputMode, setVoiceInputMode] = useState<ConversationInputMode>("route");
 
   return (
     <div className="easy-button-footer">
-      {forkOpen ? (
-        <ForkConversationPanel
-          available={available}
-          createFork={createFork}
-          forkPoints={forkPoints}
-          forkTitle={forkTitle}
-          forkedAtTurnId={forkedAtTurnId}
-          setForkTitle={setForkTitle}
-          setForkedAtTurnId={setForkedAtTurnId}
-        />
-      ) : null}
       <form className="easy-button-input-wrap" onSubmit={onSubmit}>
         <input
           aria-label="Easy Button request"
@@ -86,20 +60,28 @@ export function EasyButtonConversationComposer({
         <ConversationSteerButton canSubmit={canSubmit} onSteer={onSteer} working={working} />
         <ConversationSideButton canSubmit={canSubmit} onSide={onSide} />
         <ConversationForkButton
-          available={available}
-          forkOpen={forkOpen}
+          canSubmit={canSubmit}
           hasForkPoint={forkPoints.length > 0}
-          onToggle={() => {
-            setForkTitle(defaultForkTitle);
-            setForkOpen((open) => !open);
-          }}
-          visible={Boolean(onFork)}
+          onFork={onFork}
+        />
+        <ConversationExplicitDeliveryButton
+          canSubmit={canSubmit}
+          onQueue={onQueue}
+          onSend={onSend}
+          working={working}
         />
         <PaneSpeechActivityIndicator presentation={speech} />
+        <ConversationVoiceModeSelect
+          available={available}
+          inputMode={voiceInputMode}
+          onInputMode={setVoiceInputMode}
+          visible={Boolean(onVoiceCapture)}
+        />
         <ConversationVoiceButton
           available={available}
           onVoiceCapture={onVoiceCapture}
           speech={speech}
+          voiceInputMode={voiceInputMode}
         />
         <button
           className="easy-button-enter-chip"
@@ -107,7 +89,7 @@ export function EasyButtonConversationComposer({
           disabled={!canSubmit}
           type="submit"
         >
-          {working ? "Queue" : "Send"}
+          Route
         </button>
       </form>
     </div>
@@ -119,76 +101,16 @@ export interface EasyButtonForkPoint {
   turnId: string;
 }
 
-function ForkConversationPanel({
-  available,
-  createFork,
-  forkPoints,
-  forkTitle,
-  forkedAtTurnId,
-  setForkTitle,
-  setForkedAtTurnId,
-}: {
-  available: boolean;
-  createFork: () => Promise<void>;
-  forkPoints: readonly EasyButtonForkPoint[];
-  forkTitle: string;
-  forkedAtTurnId: string;
-  setForkTitle: (title: string) => void;
-  setForkedAtTurnId: (turnId: string) => void;
-}) {
-  return (
-    <section
-      aria-label="Create durable fork"
-      className="easy-button-fork-panel"
-      data-testid="easy-button-fork-panel"
-      role="dialog"
-    >
-      <label>
-        Fork title
-        <input
-          aria-label="Fork title"
-          disabled={!available}
-          onChange={(event) => setForkTitle(event.target.value)}
-          type="text"
-          value={forkTitle}
-        />
-      </label>
-      <label>
-        History through
-        <select
-          aria-label="Fork source turn"
-          disabled={!available}
-          onChange={(event) => setForkedAtTurnId(event.target.value)}
-          value={forkedAtTurnId}
-        >
-          {forkPoints.map((point) => (
-            <option key={point.turnId} value={point.turnId}>
-              {point.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        data-testid="easy-button-fork-create"
-        disabled={!available || !forkedAtTurnId || !forkTitle.trim()}
-        onClick={() => void createFork()}
-        type="button"
-      >
-        <GitFork aria-hidden="true" />
-        Create fork
-      </button>
-    </section>
-  );
-}
-
 function ConversationVoiceButton({
   available,
   onVoiceCapture,
   speech,
+  voiceInputMode,
 }: {
   available: boolean;
-  onVoiceCapture: (() => void) | undefined;
+  onVoiceCapture: ((inputMode?: ConversationInputMode) => void) | undefined;
   speech: PaneSpeechPresentation | null | undefined;
+  voiceInputMode: ConversationInputMode;
 }) {
   if (!onVoiceCapture) {
     return null;
@@ -202,7 +124,7 @@ function ConversationVoiceButton({
       data-speech-capture-scope={speech?.captureScope}
       data-testid="easy-button-voice-capture"
       disabled={control.disabled}
-      onClick={onVoiceCapture}
+      onClick={() => onVoiceCapture(voiceInputMode)}
       title={control.label}
       type="button"
     >
@@ -213,6 +135,57 @@ function ConversationVoiceButton({
       )}
     </button>
   );
+}
+
+function ConversationVoiceModeSelect({
+  available,
+  inputMode,
+  onInputMode,
+  visible,
+}: {
+  available: boolean;
+  inputMode: ConversationInputMode;
+  onInputMode: (inputMode: ConversationInputMode) => void;
+  visible: boolean;
+}) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <select
+      aria-label="Voice input mode"
+      className="easy-button-voice-mode"
+      data-testid="easy-button-voice-mode"
+      disabled={!available}
+      onChange={(event) => onInputMode(event.target.value as ConversationInputMode)}
+      value={inputMode}
+    >
+      {conversationInputModeValues.map((mode) => (
+        <option key={mode} value={mode}>
+          {conversationInputModeLabel(mode)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function conversationInputModeLabel(mode: ConversationInputMode): string {
+  switch (mode) {
+    case "route":
+      return "Route voice";
+    case "send":
+      return "Send voice";
+    case "queue":
+      return "Queue voice";
+    case "steer":
+      return "Steer voice";
+    case "ask_narrator":
+      return "Status voice";
+    case "side":
+      return "Side voice";
+    case "fork":
+      return "Fork voice";
+  }
 }
 
 function conversationVoiceControl(
@@ -310,33 +283,56 @@ function ConversationSideButton({
 }
 
 function ConversationForkButton({
-  available,
-  forkOpen,
+  canSubmit,
   hasForkPoint,
-  onToggle,
-  visible,
+  onFork,
 }: {
-  available: boolean;
-  forkOpen: boolean;
+  canSubmit: boolean;
   hasForkPoint: boolean;
-  onToggle: () => void;
-  visible: boolean;
+  onFork: (() => void) | undefined;
 }) {
-  if (!visible) {
+  if (!onFork) {
     return null;
   }
   return (
     <button
-      aria-expanded={forkOpen}
       aria-label={hasForkPoint ? "Create a durable fork" : "A completed turn is required to fork"}
       className="easy-button-fork-chip"
       data-testid="easy-button-fork-start"
-      disabled={!available || !hasForkPoint}
-      onClick={onToggle}
+      disabled={!canSubmit || !hasForkPoint}
+      onClick={onFork}
       type="button"
     >
       <GitFork aria-hidden="true" />
       Fork
+    </button>
+  );
+}
+
+function ConversationExplicitDeliveryButton({
+  canSubmit,
+  onQueue,
+  onSend,
+  working,
+}: {
+  canSubmit: boolean;
+  onQueue: (() => void) | undefined;
+  onSend: (() => void) | undefined;
+  working: boolean;
+}) {
+  const action = working ? onQueue : onSend;
+  if (!action) {
+    return null;
+  }
+  return (
+    <button
+      className="easy-button-delivery-chip"
+      data-testid={working ? "easy-button-queue" : "easy-button-send"}
+      disabled={!canSubmit}
+      onClick={action}
+      type="button"
+    >
+      {working ? "Queue" : "Send"}
     </button>
   );
 }

@@ -604,12 +604,17 @@ func newWorkspaceService(appDataDir string) (*workspacesession.Service, error) {
 func newWorkspaceUIService(
 	appDataDir string,
 	workspaceService *workspacesession.Service,
+	conversationStore *conversation.Store,
 ) (*workspaceui.Service, error) {
 	store, err := workspaceui.NewStore(appDataDir)
 	if err != nil {
 		return nil, fmt.Errorf("create workspace UI store: %w", err)
 	}
-	service, err := workspaceui.NewService(store, workspaceService)
+	observer, err := newWorkspaceUILayoutPaneBindingObserver(conversationStore)
+	if err != nil {
+		return nil, fmt.Errorf("create workspace UI pane binding observer: %w", err)
+	}
+	service, err := workspaceui.NewService(store, workspaceService, observer)
 	if err != nil {
 		return nil, fmt.Errorf("create workspace UI service: %w", err)
 	}

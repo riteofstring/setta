@@ -166,8 +166,7 @@ func (service *InputService) RetryInput(
 }
 
 func (service *InputService) notifyRouter(accepted AcceptedConversationInput) error {
-	if service.router == nil || accepted.Status != ConversationInputStatusAccepted ||
-		accepted.Input.RequestedMode != ConversationInputModeRoute {
+	if service.router == nil || accepted.Status != ConversationInputStatusAccepted {
 		return nil
 	}
 	if err := service.router.NotifyConversationInput(accepted.Input.ConversationID); err != nil {

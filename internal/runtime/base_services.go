@@ -137,6 +137,11 @@ type runtimeAgentServices struct {
 	narratorService      *narration.Service
 }
 
+type runtimeConversationServices struct {
+	conversationService      *conversation.Service
+	conversationInputService *conversation.InputService
+}
+
 func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	appearanceService, err := newAppearanceService(config.AppDataDir)
 	if err != nil {
@@ -146,13 +151,18 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	if err != nil {
 		return runtimeFoundation{}, err
 	}
-	workspaceUIService, err := newWorkspaceUIService(config.AppDataDir, workspaceService)
-	if err != nil {
-		return runtimeFoundation{}, err
-	}
 	conversationStore, err := conversation.NewStore(config.AppDataDir)
 	if err != nil {
 		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
+	}
+	workspaceUIService, err := newWorkspaceUIService(
+		config.AppDataDir,
+		workspaceService,
+		conversationStore,
+	)
+	if err != nil {
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, err
 	}
 	conversationIndexService, err := conversationindex.NewService(conversationStore, workspaceService)
 	if err != nil {
@@ -170,38 +180,20 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		return runtimeFoundation{}, err
 	}
 	codexManager := agentServices.codexManager
-	agentRuntime := agentServices.agentRuntime
 	masterSessionService := agentServices.masterSessionService
 	narratorService := agentServices.narratorService
-	conversationInputService, err := newConversationInputService(conversationStore, narratorService)
-	if err != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
-		defer cancel()
-		_ = narratorService.Shutdown(shutdownCtx)
-		_ = conversationStore.Close()
-		return runtimeFoundation{}, err
-	}
-	conversationService, err := conversation.NewService(
+	conversationServices, err := newRuntimeConversationServices(
+		config,
 		conversationStore,
 		workspaceService,
-		agentRuntime,
-		conversation.WithNarrationTrajectoryObserver(narratorService),
+		agentServices.agentRuntime,
+		narratorService,
 	)
 	if err != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
-		defer cancel()
-		_ = narratorService.Shutdown(shutdownCtx)
-		_ = conversationStore.Close()
-		return runtimeFoundation{}, fmt.Errorf("create conversation service: %w", err)
-	}
-	if err := recoverRuntimeConversationServices(conversationService, narratorService); err != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
-		defer cancel()
-		_ = conversationService.Shutdown(shutdownCtx)
-		_ = narratorService.Shutdown(shutdownCtx)
-		_ = conversationStore.Close()
 		return runtimeFoundation{}, err
 	}
+	conversationService := conversationServices.conversationService
+	conversationInputService := conversationServices.conversationInputService
 	foundation := runtimeFoundation{
 		appearanceService:        appearanceService,
 		codexManager:             codexManager,
@@ -216,6 +208,61 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		workspaceUIService:       workspaceUIService,
 	}
 	return attachMasterRouteService(config, foundation)
+}
+
+func newRuntimeConversationServices(
+	config Config,
+	store *conversation.Store,
+	workspaces *workspacesession.Service,
+	agentRuntime *agent.Runtime,
+	narrator *narration.Service,
+) (runtimeConversationServices, error) {
+	service, err := conversation.NewService(
+		store,
+		workspaces,
+		agentRuntime,
+		conversation.WithNarrationTrajectoryObserver(narrator),
+	)
+	if err != nil {
+		shutdownRuntimeConversationServices(config, store, nil, narrator)
+		return runtimeConversationServices{}, fmt.Errorf("create conversation service: %w", err)
+	}
+	executor, err := newConversationRouteCommandExecutor(store, service, narrator)
+	if err == nil {
+		err = narrator.AttachConversationRouteCommandExecutor(executor)
+	}
+	if err != nil {
+		shutdownRuntimeConversationServices(config, store, service, narrator)
+		return runtimeConversationServices{}, fmt.Errorf("attach conversation route command executor: %w", err)
+	}
+	inputService, err := newConversationInputService(store, narrator)
+	if err != nil {
+		shutdownRuntimeConversationServices(config, store, service, narrator)
+		return runtimeConversationServices{}, err
+	}
+	if err := recoverRuntimeConversationServices(service, narrator); err != nil {
+		shutdownRuntimeConversationServices(config, store, service, narrator)
+		return runtimeConversationServices{}, err
+	}
+	return runtimeConversationServices{
+		conversationService:      service,
+		conversationInputService: inputService,
+	}, nil
+}
+
+func shutdownRuntimeConversationServices(
+	config Config,
+	store *conversation.Store,
+	service *conversation.Service,
+	narrator *narration.Service,
+) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+	defer cancel()
+	if service != nil {
+		_ = service.Shutdown(shutdownCtx)
+	}
+	_ = narrator.Shutdown(shutdownCtx)
+	_ = store.Close()
 }
 
 func attachMasterRouteService(

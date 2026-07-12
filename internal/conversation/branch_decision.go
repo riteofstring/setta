@@ -43,6 +43,8 @@ type BranchDecision struct {
 type BranchDecisionExecutionScope struct {
 	ParentConversationID string
 	ParentPaneID         *string
+	SideConversationID   *string
+	ChildConversationID  *string
 	Source               BranchDecisionSource
 }
 
@@ -78,18 +80,38 @@ func (scope BranchDecisionExecutionScope) Validate(decision BranchDecision) erro
 	}
 	switch decision.Kind {
 	case BranchDecisionKindCreateSideConversation:
-		if scope.ParentPaneID == nil {
-			return errors.New("create-side branch decision requires a resolved parent pane")
-		}
-		return validateIdentifier("branch decision parent pane id", *scope.ParentPaneID)
+		return scope.validateCreateSideConversation()
 	case BranchDecisionKindForkConversation:
-		if scope.ParentPaneID != nil {
-			return errors.New("fork branch decision must not contain a pane command")
-		}
-		return nil
+		return scope.validateForkConversation()
 	default:
 		return fmt.Errorf("unsupported branch decision kind %q", decision.Kind)
 	}
+}
+
+func (scope BranchDecisionExecutionScope) validateCreateSideConversation() error {
+	if scope.ParentPaneID == nil {
+		return errors.New("create-side branch decision requires a resolved parent pane")
+	}
+	if scope.ChildConversationID != nil {
+		return errors.New("create-side branch decision must not contain a child conversation id")
+	}
+	if err := validateIdentifier("branch decision parent pane id", *scope.ParentPaneID); err != nil {
+		return err
+	}
+	if scope.SideConversationID == nil {
+		return nil
+	}
+	return validateIdentifier("branch decision side conversation id", *scope.SideConversationID)
+}
+
+func (scope BranchDecisionExecutionScope) validateForkConversation() error {
+	if scope.ParentPaneID != nil || scope.SideConversationID != nil {
+		return errors.New("fork branch decision must not contain side-conversation scope")
+	}
+	if scope.ChildConversationID == nil {
+		return nil
+	}
+	return validateIdentifier("branch decision child conversation id", *scope.ChildConversationID)
 }
 
 func validBranchDecisionSource(source BranchDecisionSource) bool {

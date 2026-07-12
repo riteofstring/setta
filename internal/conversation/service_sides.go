@@ -76,6 +76,7 @@ func (service *Service) executeSideConversationDecision(
 	workspaceID string,
 	parentConversationID string,
 	parentPaneID string,
+	sideConversationID *string,
 	decisionSource BranchDecisionSource,
 ) (ConversationSnapshot, error) {
 	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
@@ -99,6 +100,7 @@ func (service *Service) executeSideConversationDecision(
 		profile,
 		resolved,
 		invocation,
+		sideConversationID,
 		decisionSource,
 	)
 	if err != nil {
@@ -316,6 +318,7 @@ func (service *Service) persistPreparingSideConversation(
 	profile RoleProfile,
 	resolved agent.ResolvedInvocation,
 	invocation agent.Invocation,
+	requestedSideConversationID *string,
 	decisionSource BranchDecisionSource,
 ) (preparedSideConversation, error) {
 	lock := service.conversationLock(parentConversationID)
@@ -350,7 +353,11 @@ func (service *Service) persistPreparingSideConversation(
 	if err != nil {
 		return preparedSideConversation{}, err
 	}
-	sideID, err := service.newID("side_conversation")
+	sideID, err := service.branchConversationID(
+		requestedSideConversationID,
+		"side_conversation",
+		"routed side conversation id",
+	)
 	if err != nil {
 		return preparedSideConversation{}, err
 	}

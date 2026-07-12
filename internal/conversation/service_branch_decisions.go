@@ -38,6 +38,7 @@ func (service *Service) ExecuteBranchDecision(
 			workspaceID,
 			scope.ParentConversationID,
 			*scope.ParentPaneID,
+			scope.SideConversationID,
 			scope.Source,
 		)
 	case BranchDecisionKindForkConversation:
@@ -47,9 +48,24 @@ func (service *Service) ExecuteBranchDecision(
 			scope.ParentConversationID,
 			decision.ForkConversation.ForkedAtTurnID,
 			decision.ForkConversation.ProposedTitle,
+			scope.ChildConversationID,
 			scope.Source,
 		)
 	default:
 		return ConversationSnapshot{}, errors.New("validated branch decision has unsupported kind")
 	}
+}
+
+func (service *Service) branchConversationID(
+	requested *string,
+	generatedPrefix string,
+	validationLabel string,
+) (string, error) {
+	if requested == nil {
+		return service.newID(generatedPrefix)
+	}
+	if err := validateIdentifier(validationLabel, *requested); err != nil {
+		return "", err
+	}
+	return *requested, nil
 }

@@ -28,7 +28,6 @@ func (store *Store) ListPendingConversationRouteInputs(
 SELECT DISTINCT root.conversation_id
 FROM conversation_inputs AS root
 WHERE root.reply_to_input_id IS NULL
-  AND root.requested_mode = ?
   AND (
     root.status = ?
     OR (
@@ -44,7 +43,6 @@ WHERE root.reply_to_input_id IS NULL
   )
 ORDER BY root.conversation_id
 `,
-			ConversationInputModeRoute,
 			ConversationInputStatusAccepted,
 			ConversationInputStatusAwaitingClarification,
 			ConversationInputStatusAccepted,
