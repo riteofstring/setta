@@ -150,8 +150,8 @@
     return { created: true, title };
   }
 
-  function topicConversationSubmit({ conversationId, text }) {
-    const surface = conversationSurface(conversationId);
+  function topicConversationSubmit({ conversationId, paneId = null, text }) {
+    const surface = conversationSurface(conversationId, paneId);
     const input = surface?.querySelector('[data-testid="easy-button-input"]');
     if (!(input instanceof HTMLInputElement) || input.disabled || !input.form) {
       return { conversationId, submitted: false };
@@ -389,9 +389,18 @@
     return element instanceof HTMLInputElement && element.disabled;
   }
 
-  function conversationSurface(conversationId) {
+  function conversationSurface(conversationId, paneId = null) {
     return Array.from(document.querySelectorAll('[data-testid="easy-button-surface"]')).find(
-      (surface) => datasetValue(surface, "conversationId") === conversationId,
+      (surface) => {
+        if (datasetValue(surface, "conversationId") !== conversationId) {
+          return false;
+        }
+        if (paneId === null) {
+          return true;
+        }
+        const host = surface.closest('[data-testid="workspace-pane-host"]');
+        return datasetValue(host, "paneId") === paneId;
+      },
     );
   }
 

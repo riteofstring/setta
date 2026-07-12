@@ -62,7 +62,6 @@ import {
   assertAlphaLifecycle,
   assertBetaLifecycle,
   assertDeniedApproval,
-  assertDuplicateConversationPalette,
   assertIndependentWorkingTopics,
   assertNarratorStatusIsolation,
   assertRunningTurn,
@@ -72,10 +71,10 @@ import {
   requiredConversationSurface,
 } from "./topic-conversation-projection-assertions.mjs";
 import { verifySideConversationRestart } from "./topic-conversation-side-restart-workflow.mjs";
+import { exerciseSharedPaneClarification } from "./topic-conversation-shared-routing-presentation.mjs";
 import {
   assertChangedConversationInputConflicts,
   assertDispatchedConversationInputRoutingState,
-  assertPaneClarificationExchange,
   assertRecordedRoutedTextInput,
   assertRoutedConversationInputDecision,
   assertRoutedConversationInputReceipt,
@@ -372,71 +371,17 @@ try {
   );
   speechProvider.assertHealthy();
 
-  assertDriverAction(
-    await context.client.driver("topicConversationSubmit", {
-      conversationId: alpha.id,
-      text: "clarify pane request",
-    }),
-    "submitted",
-  );
-  const clarificationRoot = await waitForRecordedTextConversationInput(
-    secondLaunchDir,
-    alpha.id,
-    "clarify pane request",
-    workflowTimeoutMs,
-  );
-  await waitForConversationSurface(
-    context.client,
-    alpha.id,
-    (surface) => surface.clarificationText === "Which exact pane request should I send?",
-  );
-  assertDriverAction(
-    await context.client.driver("topicConversationSubmit", {
-      conversationId: alpha.id,
-      text: "send the clarified pane request",
-    }),
-    "submitted",
-  );
-  const clarificationReply = await waitForRecordedTextConversationInput(
-    secondLaunchDir,
-    alpha.id,
-    "send the clarified pane request",
-    workflowTimeoutMs,
-    clarificationRoot.accepted.input.id,
-  );
-  const clarifiedState = await waitForBackendState(
-    () =>
-      readConversationInputRoutingState(context.client, workspaceId, clarificationReply.request),
-    (state) => state.input?.status === "dispatched",
-    workflowTimeoutMs,
-  );
-  assertPaneClarificationExchange(clarifiedState, clarificationRoot, clarificationReply);
-  await waitForConversationSnapshot(
+  const duplicated = await exerciseSharedPaneClarification({
+    artifactDir,
     backend,
+    client: context.client,
+    conversation: alpha,
+    originalPaneId: alphaPaneId,
+    otherConversationId: beta.id,
+    recordingDir: secondLaunchDir,
+    timeoutMs: workflowTimeoutMs,
     workspaceId,
-    alpha.id,
-    (snapshot) =>
-      snapshot.conversation.status === "idle" &&
-      snapshot.turns.turns.some(
-        (turn) =>
-          turn.authoredInput.text === "send the clarified pane request" &&
-          turn.status === "completed",
-      ),
-  );
-
-  await context.client.driver("topicConversationOpenBoundPane", { conversationId: alpha.id });
-  const duplicated = await waitForConversationSurfaces(
-    context.client,
-    (surfaces) =>
-      conversationSurfaces(surfaces, alpha.id).length === 2 &&
-      conversationSurfaces(surfaces, beta.id).length === 1 &&
-      conversationSurfaces(surfaces, alpha.id).every(
-        (surface) => surface.projectionStatus === "ready",
-      ),
-  );
-  assertDuplicateConversationPalette(duplicated.surfaces, alpha.id);
-  assertNavigator(await waitForNavigator(context.client, alpha.id, 2, workflowTimeoutMs), alpha, 2);
-  await captureScreenshot(context.client, join(artifactDir, "two-topics-and-duplicate.png"));
+  });
 
   assertDriverAction(
     await context.client.driver("topicConversationSubmit", {

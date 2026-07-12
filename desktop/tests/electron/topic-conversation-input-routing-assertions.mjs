@@ -250,6 +250,44 @@ export function assertPaneClarificationExchange(state, root, reply) {
   );
 }
 
+export function duplicateConversationPaneId(surfaces, conversationId, originalPaneId) {
+  const duplicate = conversationRoutingSurfaces(surfaces, conversationId).find(
+    (surface) => surface.paneId !== originalPaneId,
+  );
+  if (!duplicate?.paneId) {
+    throw new Error(
+      `duplicate conversation pane was unavailable: ${JSON.stringify({ conversationId, originalPaneId, surfaces })}`,
+    );
+  }
+  return duplicate.paneId;
+}
+
+export function sharedPaneClarificationIsReady(
+  surfaces,
+  conversationId,
+  unrelatedConversationId,
+  question,
+) {
+  const conversation = conversationRoutingSurfaces(surfaces, conversationId);
+  const unrelated = conversationRoutingSurfaces(surfaces, unrelatedConversationId);
+  return (
+    conversation.length === 2 &&
+    conversation.every((surface) => surface.clarificationText === question) &&
+    unrelated.every((surface) => surface.clarificationText === "")
+  );
+}
+
+export function sharedPaneClarificationIsCleared(surfaces, conversationId) {
+  const conversation = conversationRoutingSurfaces(surfaces, conversationId);
+  return (
+    conversation.length === 2 && conversation.every((surface) => surface.clarificationText === "")
+  );
+}
+
+function conversationRoutingSurfaces(surfaces, conversationId) {
+  return surfaces.filter((surface) => surface.conversationId === conversationId);
+}
+
 const routeTextReaders = Object.freeze({
   answer_as_narrator: (route) => route.answerAsNarrator?.question,
   create_side_conversation: (route) => route.createSideConversation?.input?.text,

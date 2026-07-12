@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import type { AppShellMasterController } from "../global-master/app-shell-master-controller";
-import { requestConversationRoutingPresentation } from "../easy-button/conversation-routing-presentation-request";
+import { applyConversationRoutingPresentation } from "../easy-button/conversation-routing-presentation";
 import {
   AppShellSpeechCaptureController,
   type AppShellSpeechCaptureControllerDependencies,
@@ -152,7 +152,7 @@ function browserControllerDependencies(
         inputId: accepted.input.id,
         workspaceId,
       });
-      await requestConversationRoutingPresentation(workspaceId, state);
+      await applyConversationRoutingPresentation(workspaceId, state);
     },
     setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
     support: browserSpeechCaptureSupport,
