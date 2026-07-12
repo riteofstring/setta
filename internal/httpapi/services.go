@@ -8,13 +8,10 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
-	"setta/internal/conversation"
-	"setta/internal/master"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
 	"setta/internal/semanticgraph"
-	"setta/internal/speech"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspaceactivity"
@@ -47,69 +44,6 @@ type WorkspaceActivityService interface {
 	ReadSnapshot(workspaceID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error)
 	ReadExecutionSnapshot(workspaceID string, executionID string, limit int) (workspaceactivity.WorkspaceActivitySnapshot, error)
 	SubscribeEvents(cursor workspaceactivity.EventCursor, workspaceID string) (*workspaceactivity.EventSubscription, error)
-}
-
-type ConversationService interface {
-	CreateTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	ForkTopic(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
-	CreateSideConversation(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
-	SendSideConversationTurn(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
-	DisposeSideConversation(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
-	SendTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
-	QueueTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
-	SteerTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
-	StopTurn(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	SubmitApproval(
-		context.Context,
-		string,
-		string,
-		conversation.ConversationApprovalResponse,
-	) (conversation.ConversationSnapshot, error)
-	UpdateNarratorVoiceSelection(
-		context.Context,
-		string,
-		string,
-		speech.VoiceSelectionRequest,
-	) (conversation.ConversationPresentationProfile, error)
-	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	SubscribeEvents(
-		conversation.ConversationEventCursor,
-		string,
-		string,
-	) (conversation.ConversationEventSubscription, error)
-}
-
-type ConversationNavigatorService interface {
-	ListNavigatorPage(
-		context.Context,
-		string,
-		string,
-		*conversation.NavigatorCursor,
-		int,
-	) (conversation.NavigatorPage, error)
-}
-
-type NarratorStatusService interface {
-	AskStatus(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
-}
-
-type ConversationInputService interface {
-	SubmitInput(context.Context, conversation.ConversationInput) (conversation.AcceptedConversationInput, error)
-}
-
-type MasterInputService interface {
-	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
-}
-
-type SpeechService interface {
-	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
-	ReadMasterVoiceSelection(context.Context) (speech.MasterVoiceSelection, error)
-	UpdateMasterVoiceSelection(
-		context.Context,
-		speech.VoiceSelectionRequest,
-	) (speech.MasterVoiceSelection, error)
-	CreateTranscriptionSession(context.Context, string) (speech.SpeechTranscriptionSession, error)
-	SynthesizeSpeech(context.Context, speech.SpeechSynthesisRequest) (speech.SpeechAudio, error)
 }
 
 type ChatService interface {
@@ -272,53 +206,41 @@ type NotifyService interface {
 }
 
 type HandlerConfig struct {
-	AppearanceService            AppearanceService
-	Metadata                     BackendMetadata
-	ChatService                  ChatService
-	ConversationInputService     ConversationInputService
-	ConversationNavigatorService ConversationNavigatorService
-	ConversationService          ConversationService
-	MasterInputService           MasterInputService
-	NarratorStatusService        NarratorStatusService
-	CodexAccountService          CodexAccountService
-	NotifyService                NotifyService
-	PairingFailureLimiter        *PairingFailureLimiter
-	RevocationSweepInterval      time.Duration
-	RuntimeAuthService           RuntimeAuthService
-	RuntimeIdentityService       RuntimeIdentityService
-	RuntimeMetadata              RuntimeMetadata
-	SemanticGraphService         SemanticGraphService
-	SpeechService                SpeechService
-	TerminalService              TerminalService
-	WorkspaceActivityService     WorkspaceActivityService
-	WorkspaceUIService           WorkspaceUIService
-	WorkspaceService             WorkspaceService
-	WorkflowService              WorkflowService
+	AppearanceService        AppearanceService
+	Metadata                 BackendMetadata
+	ChatService              ChatService
+	CodexAccountService      CodexAccountService
+	NotifyService            NotifyService
+	PairingFailureLimiter    *PairingFailureLimiter
+	RevocationSweepInterval  time.Duration
+	RuntimeAuthService       RuntimeAuthService
+	RuntimeIdentityService   RuntimeIdentityService
+	RuntimeMetadata          RuntimeMetadata
+	SemanticGraphService     SemanticGraphService
+	TerminalService          TerminalService
+	WorkspaceActivityService WorkspaceActivityService
+	WorkspaceUIService       WorkspaceUIService
+	WorkspaceService         WorkspaceService
+	WorkflowService          WorkflowService
 }
 
 type handler struct {
-	appearanceService            AppearanceService
-	metadata                     BackendMetadata
-	chatService                  ChatService
-	conversationInputService     ConversationInputService
-	conversationNavigatorService ConversationNavigatorService
-	conversationService          ConversationService
-	masterInputService           MasterInputService
-	narratorStatusService        NarratorStatusService
-	codexAccountService          CodexAccountService
-	notifyService                NotifyService
-	pairingFailureLimiter        *PairingFailureLimiter
-	revocationSweepInterval      time.Duration
-	runtimeAuthService           RuntimeAuthService
-	runtimeIdentityService       RuntimeIdentityService
-	runtimeMetadata              RuntimeMetadata
-	semanticGraphService         SemanticGraphService
-	speechService                SpeechService
-	terminalService              TerminalService
-	workspaceActivityService     WorkspaceActivityService
-	workspaceUIService           WorkspaceUIService
-	workspaceService             WorkspaceService
-	workflowService              WorkflowService
+	appearanceService        AppearanceService
+	metadata                 BackendMetadata
+	chatService              ChatService
+	codexAccountService      CodexAccountService
+	notifyService            NotifyService
+	pairingFailureLimiter    *PairingFailureLimiter
+	revocationSweepInterval  time.Duration
+	runtimeAuthService       RuntimeAuthService
+	runtimeIdentityService   RuntimeIdentityService
+	runtimeMetadata          RuntimeMetadata
+	semanticGraphService     SemanticGraphService
+	terminalService          TerminalService
+	workspaceActivityService WorkspaceActivityService
+	workspaceUIService       WorkspaceUIService
+	workspaceService         WorkspaceService
+	workflowService          WorkflowService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
@@ -331,28 +253,22 @@ func NewHandler(config HandlerConfig) http.Handler {
 		revocationSweepInterval = 30 * time.Second
 	}
 	apiHandler := handler{
-		appearanceService:            config.AppearanceService,
-		metadata:                     config.Metadata,
-		chatService:                  config.ChatService,
-		conversationInputService:     config.ConversationInputService,
-		conversationNavigatorService: config.ConversationNavigatorService,
-		conversationService:          config.ConversationService,
-		masterInputService:           config.MasterInputService,
-		narratorStatusService:        config.NarratorStatusService,
-		codexAccountService:          config.CodexAccountService,
-		notifyService:                config.NotifyService,
-		pairingFailureLimiter:        pairingFailureLimiter,
-		revocationSweepInterval:      revocationSweepInterval,
-		runtimeAuthService:           config.RuntimeAuthService,
-		runtimeIdentityService:       config.RuntimeIdentityService,
-		runtimeMetadata:              config.RuntimeMetadata,
-		semanticGraphService:         config.SemanticGraphService,
-		speechService:                config.SpeechService,
-		terminalService:              config.TerminalService,
-		workspaceActivityService:     config.WorkspaceActivityService,
-		workspaceUIService:           config.WorkspaceUIService,
-		workspaceService:             config.WorkspaceService,
-		workflowService:              config.WorkflowService,
+		appearanceService:        config.AppearanceService,
+		metadata:                 config.Metadata,
+		chatService:              config.ChatService,
+		codexAccountService:      config.CodexAccountService,
+		notifyService:            config.NotifyService,
+		pairingFailureLimiter:    pairingFailureLimiter,
+		revocationSweepInterval:  revocationSweepInterval,
+		runtimeAuthService:       config.RuntimeAuthService,
+		runtimeIdentityService:   config.RuntimeIdentityService,
+		runtimeMetadata:          config.RuntimeMetadata,
+		semanticGraphService:     config.SemanticGraphService,
+		terminalService:          config.TerminalService,
+		workspaceActivityService: config.WorkspaceActivityService,
+		workspaceUIService:       config.WorkspaceUIService,
+		workspaceService:         config.WorkspaceService,
+		workflowService:          config.WorkflowService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)

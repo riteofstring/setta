@@ -1,10 +1,6 @@
 import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
-import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
-import { requestEasyButtonPaneClose } from "../features/easy-button/easy-button-conversation-commands";
-import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
-import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import { WorkflowGraphSurface } from "../features/workspace-graph/workflow-graph-surface";
 import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { SemanticNodeDetailsSurface } from "../features/workspace-graph/semantic-node-details-surface";
@@ -21,7 +17,6 @@ import {
   cloneSnapshotNode,
   recordSnapshotScrollOffsets,
 } from "./surface-dom-content";
-import { notifyReactDomSurfaceHostChanged } from "./react-dom-surface-events";
 import type {
   CanvasSurfaceStats,
   FreezeReason,
@@ -32,8 +27,6 @@ import type {
   SurfaceAdapter,
   SurfaceId,
   SurfaceKind,
-  SurfacePaneCloseRequest,
-  SurfacePaneCloseResult,
   ViewportChangeReason,
 } from "./types";
 
@@ -53,9 +46,6 @@ export interface ReactDomSurfaceState {
 }
 
 export interface ReactDomSurfaceAdapterOptions {
-  speechCapture?: SpeechCaptureRequester;
-  speechPresentation?: GlobalSpeechPresentationSource;
-  workspaceId?: string;
   workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
 
@@ -83,9 +73,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     private readonly pane: WorkspacePane,
     private readonly renderSurface: (state: ReactDomSurfaceState) => ReactNode,
     private readonly rootFactory: ReactSurfaceRootFactory = defaultRootFactory,
-    private readonly paneCloseRequest?: (
-      request: SurfacePaneCloseRequest,
-    ) => Promise<SurfacePaneCloseResult>,
   ) {
     this.kind = pane.surfaceKind;
   }
@@ -119,7 +106,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
     host.replaceChildren(this.container);
-    notifyReactDomSurfaceHostChanged(this.container);
     this.restoreParkedScrollOffsets();
     if (!this.root) {
       this.root = this.rootFactory.createRoot(this.container);
@@ -135,9 +121,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     this.removeFrozenVisual();
     this.frozenCanvasStats = null;
     this.host?.replaceChildren();
-    if (this.container) {
-      notifyReactDomSurfaceHostChanged(this.container);
-    }
     this.host = null;
     this.visible = false;
   }
@@ -216,10 +199,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
       label: this.pane.title,
       surfaceId: this.surfaceId,
     });
-  }
-
-  requestPaneClose(request: SurfacePaneCloseRequest): Promise<SurfacePaneCloseResult> {
-    return this.paneCloseRequest?.(request) ?? Promise.resolve({ removePane: true });
   }
 
   getCanvasStats(): CanvasSurfaceStats {
@@ -404,70 +383,48 @@ export function createReactDomSurfaceAdapter(
   rootFactory?: ReactSurfaceRootFactory,
   options: ReactDomSurfaceAdapterOptions = {},
 ): ReactDomSurfaceAdapter {
-  const renderSurface = reactDomSurfaceRenderFactories[pane.surfaceKind]?.(pane, options);
-  if (renderSurface) {
+  if (pane.surfaceKind === "chat-dom") {
+    return new ReactDomSurfaceAdapter(pane, () => <WorkspaceChatSurface />, rootFactory);
+  }
+  if (pane.surfaceKind === "fake-long-chat") {
+    return new ReactDomSurfaceAdapter(pane, () => <FakeLongChatSurface pane={pane} />, rootFactory);
+  }
+  if (pane.surfaceKind === "workflow-graph") {
     return new ReactDomSurfaceAdapter(
       pane,
-      renderSurface,
+      ({ interactive }) => (
+        <WorkflowGraphSurface
+          debugEnabled={workflowGraphDebugEnabled()}
+          focused={interactive}
+          syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
+          surfaceId={pane.surfaceId}
+        />
+      ),
       rootFactory,
-      easyButtonPaneCloseRequest(pane, options),
     );
+  }
+  if (pane.surfaceKind === "settings-dom") {
+    return new ReactDomSurfaceAdapter(
+      pane,
+      ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
+      rootFactory,
+    );
+  }
+  if (pane.surfaceKind === "semantic-node-details") {
+    return new ReactDomSurfaceAdapter(pane, () => <SemanticNodeDetailsSurface />, rootFactory);
+  }
+  if (pane.surfaceKind === "workflow-node-details") {
+    return new ReactDomSurfaceAdapter(
+      pane,
+      () => <WorkflowNodeDetailsSurface pane={pane} />,
+      rootFactory,
+    );
+  }
+  if (pane.surfaceKind === "workflow-settings") {
+    return new ReactDomSurfaceAdapter(pane, () => <WorkflowSettingsSurface />, rootFactory);
   }
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }
-
-function easyButtonPaneCloseRequest(
-  pane: WorkspacePane,
-  options: ReactDomSurfaceAdapterOptions,
-): ((request: SurfacePaneCloseRequest) => Promise<SurfacePaneCloseResult>) | undefined {
-  const conversationId = pane.easyButtonConfig?.conversationId;
-  const workspaceId = options.workspaceId;
-  if (pane.surfaceKind !== "easy-button" || !conversationId || !workspaceId) {
-    return undefined;
-  }
-  return (request) =>
-    requestEasyButtonPaneClose({
-      confirm: request.confirm,
-      conversationId,
-      paneId: pane.paneId,
-      workspaceId,
-    });
-}
-
-type ReactDomSurfaceRenderFactory = (
-  pane: WorkspacePane,
-  options: ReactDomSurfaceAdapterOptions,
-) => (state: ReactDomSurfaceState) => ReactNode;
-
-const reactDomSurfaceRenderFactories: Partial<Record<SurfaceKind, ReactDomSurfaceRenderFactory>> = {
-  "chat-dom": () => () => <WorkspaceChatSurface />,
-  "easy-button": (pane, options) => () => (
-    <EasyButtonSurface
-      conversationId={pane.easyButtonConfig?.conversationId ?? null}
-      paneId={pane.paneId}
-      speechCapture={options.speechCapture}
-      speechPresentation={options.speechPresentation}
-      workspaceId={options.workspaceId ?? null}
-    />
-  ),
-  "fake-long-chat": (pane) => () => <FakeLongChatSurface pane={pane} />,
-  "workflow-graph":
-    (pane, options) =>
-    ({ interactive }) => (
-      <WorkflowGraphSurface
-        debugEnabled={workflowGraphDebugEnabled()}
-        focused={interactive}
-        syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
-        surfaceId={pane.surfaceId}
-      />
-    ),
-  "settings-dom":
-    () =>
-    ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
-  "semantic-node-details": () => () => <SemanticNodeDetailsSurface />,
-  "workflow-node-details": (pane) => () => <WorkflowNodeDetailsSurface pane={pane} />,
-  "workflow-settings": () => () => <WorkflowSettingsSurface />,
-};
 
 function workflowGraphDebugEnabled(): boolean {
   return typeof window !== "undefined" && Boolean(window.setta?.app.flags.workflowGraphDebug);

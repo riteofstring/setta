@@ -33,3 +33,7 @@ export function BrailleSpinner({
     </span>
   );
 }
+
+export function AsciiSpinner(props: { className?: string; label?: string }) {
+  return <BrailleSpinner {...props} />;
+}

@@ -9,11 +9,8 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
-	"setta/internal/conversation"
-	"setta/internal/master"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
-	"setta/internal/speech"
 	"setta/internal/terminal"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -75,28 +72,6 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkspaceActivitySnapshotRequest, ReadWorkspaceActivitySnapshotResponse]("ReadWorkspaceActivitySnapshot", "/workspace-activity/snapshot", handler.readWorkspaceActivitySnapshot),
 	post[ReadWorkflowExecutionActivityRequest, ReadWorkflowExecutionActivityResponse]("ReadWorkflowExecutionActivity", "/workspace-activity/execution-snapshot", handler.readWorkflowExecutionActivity),
 	streamEvent[workspaceactivity.WorkspaceActivityEvent]("WorkspaceActivityEventStream", "/workspace-activity/events", handler.workspaceActivityEventStream),
-	post[CreateTopicConversationRequest, conversation.ConversationSnapshot]("CreateTopicConversation", "/conversations/create", handler.createTopicConversation),
-	post[ForkTopicConversationRequest, conversation.ConversationSnapshot]("ForkTopicConversation", "/conversations/forks/create", handler.forkTopicConversation),
-	post[CreateSideConversationRequest, conversation.ConversationSnapshot]("CreateSideConversation", "/conversations/sides/create", handler.createSideConversation),
-	post[SendSideConversationTurnRequest, conversation.ConversationSnapshot]("SendSideConversationTurn", "/conversations/sides/turns/send", handler.sendSideConversationTurn),
-	post[DisposeSideConversationRequest, conversation.ConversationSnapshot]("DisposeSideConversation", "/conversations/sides/dispose", handler.disposeSideConversation),
-	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),
-	post[ListTopicConversationsRequest, conversation.NavigatorPage]("ListTopicConversations", "/conversations/navigator/list", handler.listTopicConversations),
-	post[SendTopicConversationTurnRequest, conversation.ConversationSnapshot]("SendTopicConversationTurn", "/conversations/turns/send", handler.sendTopicConversationTurn),
-	post[QueueTopicConversationTurnRequest, conversation.ConversationSnapshot]("QueueTopicConversationTurn", "/conversations/turns/queue", handler.queueTopicConversationTurn),
-	post[SteerTopicConversationTurnRequest, conversation.ConversationSnapshot]("SteerTopicConversationTurn", "/conversations/turns/steer", handler.steerTopicConversationTurn),
-	post[StopTopicConversationTurnRequest, conversation.ConversationSnapshot]("StopTopicConversationTurn", "/conversations/turns/stop", handler.stopTopicConversationTurn),
-	post[SubmitTopicConversationApprovalRequest, conversation.ConversationSnapshot]("SubmitTopicConversationApproval", "/conversations/approvals/submit", handler.submitTopicConversationApproval),
-	post[AskTopicConversationNarratorStatusRequest, conversation.ConversationSnapshot]("AskTopicConversationNarratorStatus", "/conversations/narrator/status", handler.askTopicConversationNarratorStatus),
-	post[UpdateTopicConversationNarratorVoiceRequest, conversation.ConversationPresentationProfile]("UpdateTopicConversationNarratorVoice", "/conversations/presentation/narrator-voice/update", handler.updateTopicConversationNarratorVoice),
-	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
-	postWithRequestBodyLimit[SubmitConversationInputRequest, conversation.AcceptedConversationInput]("SubmitConversationInput", "/conversations/inputs/submit", conversationInputRequestBodyLimitBytes, handler.submitConversationInput),
-	postWithRequestBodyLimit[SubmitMasterInputRequest, master.AcceptedMasterInput]("SubmitMasterInput", "/master/inputs/submit", masterInputRequestBodyLimitBytes, handler.submitMasterInput),
-	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
-	get[speech.MasterVoiceSelection]("ReadMasterVoiceSelection", "/speech/voices/master", handler.readMasterVoiceSelection),
-	post[speech.VoiceSelectionRequest, speech.MasterVoiceSelection]("UpdateMasterVoiceSelection", "/speech/voices/master/update", handler.updateMasterVoiceSelection),
-	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),
-	postWithRequestBodyLimit[speech.SpeechSynthesisRequest, speech.SpeechAudio]("SynthesizeSpeech", "/speech/synthesis", speechRequestBodyLimitBytes, handler.synthesizeSpeech),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),
@@ -288,20 +263,6 @@ func streamEvent[StreamEvent any](name string, path string, handler routeHandler
 			Name:        name,
 			Method:      http.MethodGet,
 			Path:        path,
-			StreamEvent: reflect.TypeFor[StreamEvent](),
-			Streaming:   true,
-		},
-		Handler: handler,
-	}
-}
-
-func streamEventWithQuery[Request any, StreamEvent any](name string, path string, handler routeHandler) endpoint {
-	return endpoint{
-		ContractEndpoint: ContractEndpoint{
-			Name:        name,
-			Method:      http.MethodGet,
-			Path:        path,
-			Request:     reflect.TypeFor[Request](),
 			StreamEvent: reflect.TypeFor[StreamEvent](),
 			Streaming:   true,
 		},

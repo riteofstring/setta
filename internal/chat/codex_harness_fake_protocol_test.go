@@ -1038,7 +1038,7 @@ func assertFakeStructuredTaskTurnStart(message map[string]any) {
 	text, ok := first["text"].(string)
 	if !ok ||
 		!strings.Contains(text, "Return only a strict JSON patch envelope.") ||
-		!strings.Contains(text, "Structured task input bundle JSON:") ||
+		!strings.Contains(text, "Cartographer input bundle JSON:") ||
 		!strings.Contains(text, `"workspaceId":"workspace_api"`) {
 		panic("structured task turn input text mismatch")
 	}
@@ -1264,24 +1264,12 @@ func assertFakeStructuredTaskThreadParams(message map[string]any) {
 	if params["ephemeral"] != true {
 		panic("structured task thread should be ephemeral")
 	}
-	assertFakeStructuredTaskThreadConfig(params)
 	if _, ok := params["dynamicTools"]; ok {
 		panic("structured task thread should not include dynamic tools")
 	}
 	instructions, ok := params["developerInstructions"].(string)
 	if !ok || !strings.Contains(instructions, "strict JSON patch envelope") {
 		panic("structured task thread missing production prompt")
-	}
-}
-
-func assertFakeStructuredTaskThreadConfig(params map[string]any) {
-	config, ok := params["config"].(map[string]any)
-	if !ok || config["web_search"] != "disabled" {
-		panic("structured task thread should disable web search in isolated config")
-	}
-	features, ok := config["features"].(map[string]any)
-	if !ok || features["image_generation"] != false {
-		panic("structured task thread should disable image generation in feature overrides")
 	}
 }
 

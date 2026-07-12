@@ -1,7 +1,4 @@
 import type {
-  AcceptedConversationInput,
-  AcceptedMasterInput,
-  AskTopicConversationNarratorStatusRequest,
   AppearancePresetList,
   AppearanceSettings,
   AttachSemanticNodeToChatMessageRequest,
@@ -34,15 +31,7 @@ import type {
   CodexAccountState,
   ComposerPromptHistoryPage,
   Conversation,
-  ConversationEvent,
-  ConversationPresentationProfile,
-  ConversationSnapshot,
   ConversationListItem,
-  CreateSideConversationRequest,
-  DisposeSideConversationRequest,
-  CreateTopicConversationRequest,
-  SendSideConversationTurnRequest,
-  ForkTopicConversationRequest,
   CreateSemanticEdgeRequest,
   CreateSemanticNodeRequest,
   CreateSemanticSteeringDirectiveRequest,
@@ -60,19 +49,15 @@ import type {
   ListCartographerRunsRequest,
   ListCartographerWindowsRequest,
   ListConversationsResponse,
-  ListTopicConversationsRequest,
   ListWorkflowExecutionsResponse,
   ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
   MergeSemanticNodesRequest,
-  MasterVoiceSelection,
   MessagePage,
   OpenWorkspaceResponse,
-  NavigatorPage,
   ProcessCartographerWindowRequest,
   QueueEditResult,
-  QueueTopicConversationTurnRequest,
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
@@ -80,7 +65,6 @@ import type {
   ReconcileChatRunsResponse,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
-  ReadConversationSnapshotRequest,
   ReadSemanticActivitySummaryRequest,
   ReadSemanticContextPackRequest,
   ReadSemanticEventHistoryRequest,
@@ -120,24 +104,14 @@ import type {
   SemanticNodeOperationRequest,
   SemanticSteeringState,
   SendMessageResult,
-  SendTopicConversationTurnRequest,
   SelectDefaultTerminalProfileRequest,
-  SpeechCapabilities,
-  SpeechAudio,
-  SpeechSynthesisRequest,
-  SpeechTranscriptionSession,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
-  SteerTopicConversationTurnRequest,
   SteerMessageResult,
   SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
-  StopTopicConversationTurnRequest,
-  SubmitConversationInputRequest,
-  SubmitTopicConversationApprovalRequest,
   StopWorkflowNodeRunRequest,
-  SubmitMasterInputRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
   TerminalInputRequest,
@@ -151,8 +125,6 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
-  UpdateTopicConversationNarratorVoiceRequest,
-  VoiceSelectionRequest,
   WorkflowAgentTrajectoryPage,
   WorkflowDefinition,
   WorkflowEvent,
@@ -167,10 +139,6 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
-import type {
-  ConversationEventReleaseRequest,
-  ConversationEventSubscriptionRequest,
-} from "./conversation-ipc";
 
 export interface RuntimeVersions {
   app: string;
@@ -417,43 +385,6 @@ export interface SettaAPI {
       executionId: string,
       limit: number,
     ) => Promise<WorkspaceActivitySnapshot>;
-  };
-  conversations: {
-    askStatus: (
-      request: AskTopicConversationNarratorStatusRequest,
-    ) => Promise<ConversationSnapshot>;
-    createSide?: (request: CreateSideConversationRequest) => Promise<ConversationSnapshot>;
-    disposeSide?: (request: DisposeSideConversationRequest) => Promise<ConversationSnapshot>;
-    create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
-    fork: (request: ForkTopicConversationRequest) => Promise<ConversationSnapshot>;
-    list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
-    onEvent: (listener: (event: ConversationEvent) => void) => () => void;
-    queue: (request: QueueTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
-    read: (request: ReadConversationSnapshotRequest) => Promise<ConversationSnapshot>;
-    release: (request: ConversationEventReleaseRequest) => Promise<void>;
-    send: (request: SendTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
-    sendSide?: (request: SendSideConversationTurnRequest) => Promise<ConversationSnapshot>;
-    steer: (request: SteerTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
-    stop: (request: StopTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
-    submitInput?: (request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>;
-    submitApproval: (
-      request: SubmitTopicConversationApprovalRequest,
-    ) => Promise<ConversationSnapshot>;
-    subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
-    updateNarratorVoice?: (
-      request: UpdateTopicConversationNarratorVoiceRequest,
-    ) => Promise<ConversationPresentationProfile>;
-  };
-  master?: {
-    submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
-  };
-  speech: {
-    cancelSynthesis?: (operationId: string) => Promise<void>;
-    createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
-    readCapabilities: () => Promise<SpeechCapabilities>;
-    readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
-    synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
-    updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

@@ -1,6 +1,4 @@
 import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
-import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
-import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { GitGraphSurfaceAdapter } from "./git-graph-surface-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
@@ -38,9 +36,6 @@ export interface SnapshotSurfaceAdapterOptions {
 }
 
 export interface DefaultSurfaceAdapterOptions {
-  speechCapture?: SpeechCaptureRequester;
-  speechPresentation?: GlobalSpeechPresentationSource;
-  workspaceId?: string;
   workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
 
@@ -521,12 +516,6 @@ export function createDefaultSurfaceAdapter(
 const defaultSurfaceAdapterFactories = {
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
   "chat-dom": (pane) => createReactDomSurfaceAdapter(pane),
-  "easy-button": (pane, options) =>
-    createReactDomSurfaceAdapter(pane, undefined, {
-      speechCapture: options.speechCapture,
-      speechPresentation: options.speechPresentation,
-      workspaceId: options.workspaceId,
-    }),
   "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
