@@ -100,12 +100,11 @@ func (service *Service) executeDurableForkDecision(
 	}
 
 	service.createMu.Lock()
-	var presentation conversationPresentationCreation
+	var presentation ConversationPresentationProfile
 	err = service.store.withPresentationConfigurationLock(func() error {
 		var presentationErr error
 		presentation, presentationErr = service.initialPresentationProfile(
 			ctx,
-			workspaceID,
 			childConversationID,
 			now,
 		)

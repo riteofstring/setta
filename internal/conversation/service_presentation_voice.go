@@ -105,16 +105,16 @@ func (service *Service) resolvePresentationSettings(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	updates, _, err = service.resolveRequestedNarratorSetting(
-		ctx,
+	updates, err = resolveRequestedNarratorSetting(
 		presentations,
 		current,
 		settings.NarratorVoiceSelection,
+		master,
 		updatedAt,
 		updates,
 	)
 	if err != nil {
-		return updates, &master, nil, err
+		return nil, &master, nil, err
 	}
 	updates, masterUpdate, err := service.refreshAutomaticMasterAfterNarratorUpdates(
 		master,
@@ -183,24 +183,20 @@ func resolveRequestedPaletteSetting(
 	return mergePresentationProfileUpdates(updates, paletteUpdates), nil
 }
 
-func (service *Service) resolveRequestedNarratorSetting(
-	ctx context.Context,
+func resolveRequestedNarratorSetting(
 	presentations []activeConversationPresentation,
 	current ConversationPresentationProfile,
 	request speech.VoiceSelectionRequest,
+	master speech.MasterVoiceSelection,
 	updatedAt string,
 	updates []ConversationPresentationProfile,
-) ([]ConversationPresentationProfile, *speech.MasterVoiceSelection, error) {
+) ([]ConversationPresentationProfile, error) {
 	current = profileAfterUpdates(current, updates)
 	if narratorVoiceSelectionMatchesRequest(current, request) {
-		return updates, nil, nil
-	}
-	master, err := service.store.ReadMasterVoiceSelection(ctx)
-	if err != nil {
-		return nil, nil, err
+		return updates, nil
 	}
 	if master.ResolvedVoiceID == nil {
-		return nil, nil, fmt.Errorf("master voice selection has no resolved voice")
+		return nil, fmt.Errorf("master voice selection has no resolved voice")
 	}
 	voiceUpdates, err := resolveNarratorVoiceUpdates(
 		applyPresentationProfileUpdates(presentations, updates),
@@ -210,9 +206,9 @@ func (service *Service) resolveRequestedNarratorSetting(
 		updatedAt,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return mergePresentationProfileUpdates(updates, voiceUpdates), &master, nil
+	return mergePresentationProfileUpdates(updates, voiceUpdates), nil
 }
 
 func (service *Service) commitResolvedPresentationSettings(

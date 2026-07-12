@@ -2280,7 +2280,7 @@ Completion verification on 2026-07-15 passed the focused live runtime test, the
 complete ChatGPT-authenticated live matrix with `OPENAI_API_KEY` removed, a
 fresh desktop production build plus all seven deterministic topic-conversation
 Electron workflows, formatting, and `./check_quality.sh --all` including 25 Go
-packages, 762 desktop tests, production builds, and all 17 required Electron
+packages, 764 desktop tests, production builds, and all 17 required Electron
 workflows. Supply-chain checks passed module and lockfile hygiene, release-age
 policies, exact-version validation, and Go vulnerability analysis. npm's
 retired audit endpoint still returns HTTP 410; the supported bulk-advisory
@@ -2529,6 +2529,16 @@ releases inactive capacity. Focused Go tests, a fresh run of all seven
 deterministic Electron topic-conversation workflows, and the complete live
 Codex agent-protocol, side-isolation, and production topic-conversation matrix
 pass. The plan is ready for a repeated whole-plan final audit.
+
+**Iteration-review follow-up (2026-07-15):** Resolved. Missing-conversation
+updates again preserve the typed state-conflict contract, presentation-activity
+reads now reject profiles whose required narrator state is absent, and dormant
+topic creation no longer retains unreachable identity-reallocation work.
+Presentation updates also resolve against one locked master-voice snapshot.
+Focused regression tests, all affected Go packages, all seven deterministic
+Electron workflows, the complete ChatGPT-authenticated live matrix with
+`OPENAI_API_KEY` unset, and `./check_quality.sh --all` pass. No subsequent plan
+step was started.
 
 ### Performance
 

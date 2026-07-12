@@ -75,8 +75,9 @@ SELECT conversations.workspace_id, conversations.created_at,
        conversations.status, conversations.archived_at,
        (SELECT COUNT(*) FROM pane_bindings
         WHERE pane_bindings.conversation_id = conversations.id),
-       narrator_state.status, conversations.last_trajectory_sequence,
-       narrator_state.observed_through_sequence,
+       narrator_state.conversation_id, COALESCE(narrator_state.status, ''),
+       conversations.last_trajectory_sequence,
+       COALESCE(narrator_state.observed_through_sequence, 0),
        profiles.conversation_id, profiles.palette_selection,
        profiles.requested_palette_id, profiles.resolved_palette_id,
        profiles.palette_reuse_json, profiles.narrator_voice_selection,
@@ -85,7 +86,7 @@ SELECT conversations.workspace_id, conversations.created_at,
        profiles.updated_at
 FROM conversation_presentation_profiles AS profiles
 JOIN conversations ON conversations.id = profiles.conversation_id
-JOIN narrator_state ON narrator_state.conversation_id = profiles.conversation_id
+LEFT JOIN narrator_state ON narrator_state.conversation_id = profiles.conversation_id
 ORDER BY conversations.created_at ASC, conversations.id ASC
 `)
 	if err != nil {
@@ -96,6 +97,7 @@ ORDER BY conversations.created_at ASC, conversations.id ASC
 	for rows.Next() {
 		var value activeConversationPresentation
 		var archivedAt sql.NullString
+		var narratorConversationID sql.NullString
 		var state presentationProfileScanState
 		targets := []any{
 			&value.WorkspaceID,
@@ -103,6 +105,7 @@ ORDER BY conversations.created_at ASC, conversations.id ASC
 			&value.ConversationStatus,
 			&archivedAt,
 			&value.OpenPaneCount,
+			&narratorConversationID,
 			&value.NarratorStatus,
 			&value.LatestTrajectorySequence,
 			&value.ObservedThroughSequence,
@@ -110,6 +113,15 @@ ORDER BY conversations.created_at ASC, conversations.id ASC
 		targets = append(targets, state.targets(&value.Profile)...)
 		if err := rows.Scan(targets...); err != nil {
 			return nil, err
+		}
+		if !narratorConversationID.Valid {
+			return nil, &CorruptStateError{
+				Path: dbPath,
+				Err: fmt.Errorf(
+					"presentation profile %s is missing narrator state",
+					value.Profile.ConversationID,
+				),
+			}
 		}
 		if err := state.finish(&value.Profile); err != nil {
 			return nil, err

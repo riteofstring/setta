@@ -29,6 +29,25 @@ func TestTransactionRejectsNonzeroInitialTrajectoryCursor(t *testing.T) {
 	}
 }
 
+func TestTransactionReportsMissingConversationUpdateAsStateConflict(t *testing.T) {
+	store := newTestStore(t)
+	missing := transactionTestConversation("conversation-missing")
+	missing.UpdatedAt = testTimeEnded
+
+	_, err := store.Transact(context.Background(), "update missing conversation", func(transaction *WriteTransaction) error {
+		return transaction.UpdateConversation(
+			ConversationExpectation{
+				UpdatedAt:              testTimeStarted,
+				LastTrajectorySequence: 0,
+			},
+			missing,
+		)
+	})
+	if !IsStateConflict(err) {
+		t.Fatalf("missing conversation update error = %T %v, want StateConflictError", err, err)
+	}
+}
+
 func TestTransactionRejectsTurnResurrectionAndQueueMutationAfterPromotion(t *testing.T) {
 	store := newTestStore(t)
 	seed := seedTransactionConversation(t, store)

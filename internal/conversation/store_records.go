@@ -3,6 +3,7 @@ package conversation
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 )
@@ -62,11 +63,19 @@ func (transaction *WriteTransaction) UpdateConversation(
 	}
 	var previousStatus ConversationStatus
 	var previousArchivedAt sql.NullString
-	if err := transaction.tx.QueryRowContext(transaction.ctx, `
+	err := transaction.tx.QueryRowContext(transaction.ctx, `
 SELECT status, archived_at
 FROM conversations
 WHERE id = ?
-`, conversation.ID).Scan(&previousStatus, &previousArchivedAt); err != nil {
+`, conversation.ID).Scan(&previousStatus, &previousArchivedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return stateConflict(
+			"conversation",
+			conversation.ID,
+			"projection expectation did not match",
+		)
+	}
+	if err != nil {
 		return fmt.Errorf("read conversation %s presentation activity: %w", conversation.ID, err)
 	}
 	activityChanged := previousStatus != conversation.Status ||

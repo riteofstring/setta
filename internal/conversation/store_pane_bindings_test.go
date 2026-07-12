@@ -97,6 +97,45 @@ func TestStoreRejectsWorkspacePaneBindingForAnotherWorkspace(t *testing.T) {
 	}
 }
 
+func TestStoreRejectsPaneBindingWhenPresentationNarratorStateIsMissing(t *testing.T) {
+	store := newTestStore(t)
+	conversation := transactionTestConversation("conversation-missing-narrator")
+	presentation := navigatorTestPresentation(conversation.ID, conversation.UpdatedAt)
+	_, err := store.Transact(context.Background(), "seed incomplete presentation activity", func(transaction *WriteTransaction) error {
+		if err := transaction.InsertConversation(conversation); err != nil {
+			return err
+		}
+		if err := transaction.UpsertConversationPresentationProfile(presentation); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"incomplete-presentation-activity",
+			"conversation:"+conversation.ID,
+			conversation,
+		))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed incomplete presentation activity: %v", err)
+	}
+
+	err = store.ReplaceWorkspacePaneBindings(
+		context.Background(),
+		conversation.WorkspaceID,
+		[]WorkspacePaneBinding{{
+			PaneID:         "pane-missing-narrator",
+			ConversationID: conversation.ID,
+		}},
+		"2026-07-13T18:00:00Z",
+	)
+	if !IsCorruptStateError(err) {
+		t.Fatalf("missing narrator state error = %T %v, want CorruptStateError", err, err)
+	}
+	if count := countWorkspacePaneBindings(t, store, "pane-missing-narrator"); count != 0 {
+		t.Fatalf("pane binding count after corrupt activity read = %d, want 0", count)
+	}
+}
+
 func TestStoreResetsPaneBindingHistoryWhenPaneIsRebound(t *testing.T) {
 	store := newTestStore(t)
 	seedConversationInputTargets(t, store, "conversation_alpha", "conversation_beta")
