@@ -1914,7 +1914,8 @@ Exit criteria:
 
 ### Phase 5: Global speech infrastructure
 
-**Status:** In progress. The next step is remaining item 1 below.
+**Status:** In progress. Item 1 is complete; the next step is remaining item 2
+below.
 
 Existing foundation:
 

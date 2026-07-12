@@ -13,6 +13,31 @@ CREATE TABLE conversations (
 CREATE INDEX conversations_workspace_updated_idx
   ON conversations(workspace_id, updated_at DESC, id);
 
+CREATE TABLE conversation_inputs (
+  sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  source_pane_id TEXT,
+  reply_to_input_id TEXT,
+  input_text TEXT NOT NULL,
+  input_modality TEXT NOT NULL CHECK (input_modality IN ('text', 'voice')),
+  requested_mode TEXT NOT NULL CHECK (requested_mode IN ('route', 'send', 'queue', 'steer', 'ask_narrator', 'side', 'fork')),
+  status TEXT NOT NULL CHECK (status IN ('accepted', 'routing', 'awaiting_clarification', 'dispatched', 'failed')),
+  submitted_at TEXT NOT NULL,
+  accepted_at TEXT NOT NULL,
+  UNIQUE(conversation_id, id),
+  FOREIGN KEY (conversation_id, reply_to_input_id)
+    REFERENCES conversation_inputs(conversation_id, id),
+  CHECK (reply_to_input_id IS NULL OR reply_to_input_id <> id)
+) STRICT;
+
+CREATE INDEX conversation_inputs_conversation_status_sequence_idx
+  ON conversation_inputs(conversation_id, status, sequence);
+
+CREATE INDEX conversation_inputs_reply_idx
+  ON conversation_inputs(conversation_id, reply_to_input_id)
+  WHERE reply_to_input_id IS NOT NULL;
+
 CREATE TABLE conversation_turns (
   id TEXT PRIMARY KEY,
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
