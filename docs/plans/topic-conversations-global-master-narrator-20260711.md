@@ -2479,6 +2479,14 @@ topic-conversation workflows and the complete ChatGPT-authenticated live Codex
 agent-protocol, side-isolation, and production topic-conversation matrix with
 `OPENAI_API_KEY` unset. The plan is ready for another whole-plan audit.
 
+**Iteration-review follow-up (2026-07-15):** The initial fix did not regenerate
+the checked-in embedded web application after changing its renderer and
+generated-contract inputs. The production web build now refreshes
+`internal/webapp/static`, and focused embedded-webapp, generator, workspace UI,
+HTTP contract, workspace scene, and main-process workspace contract tests pass.
+This closes the generated-output omission without starting the next whole-plan
+audit.
+
 ### Performance
 
 Baseline before frontend cutover and re-measure after:
