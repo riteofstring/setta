@@ -81,7 +81,6 @@ import {
 } from "./chat-store-stream-event-batcher";
 
 export { prependOlderMessages };
-export type { WorkspaceConversationListState } from "./chat-store-conversation-lists";
 export type { RunItemOutputPageState } from "./chat-store-normalization";
 export type { ChatPatch, ChatStore } from "./chat-store-types";
 

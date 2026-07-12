@@ -244,8 +244,9 @@ type EventHubOption func(*EventHub)
 type EventSubscription struct {
 	Events <-chan Event
 
-	hub     *EventHub
-	channel chan Event
+	hub          *EventHub
+	channel      chan Event
+	sourceClosed bool
 }
 
 func EventContracts() EventContractSchema {
@@ -596,7 +597,7 @@ func (hub *EventHub) Subscribe(cursor EventCursor) (*EventSubscription, error) {
 	if hub.closed {
 		channel := make(chan Event)
 		close(channel)
-		return &EventSubscription{Events: channel, hub: hub, channel: channel}, nil
+		return &EventSubscription{Events: channel, hub: hub, channel: channel, sourceClosed: true}, nil
 	}
 
 	replay := hub.replayAfterLocked(cursor)
@@ -615,6 +616,10 @@ func (hub *EventHub) Subscribe(cursor EventCursor) (*EventSubscription, error) {
 	}
 	hub.subscribers[channel] = struct{}{}
 	return &EventSubscription{Events: channel, hub: hub, channel: channel}, nil
+}
+
+func (subscription *EventSubscription) SourceClosed() bool {
+	return subscription != nil && subscription.sourceClosed
 }
 
 func (hub *EventHub) Cursor() EventCursor {
