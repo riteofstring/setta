@@ -348,6 +348,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       },
     },
     runtimes: {} as SettaAPI["runtimes"],
+    speech: {} as SettaAPI["speech"],
     chat: {
       activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
       cancelRun: async () => emptyRun(),
@@ -596,6 +597,9 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    conversations: {
+      list: async () => ({ items: [], nextCursor: null }),
+    } as unknown as SettaAPI["conversations"],
     workspaceActivity: unimplementedWorkspaceActivityAPI(),
     terminal: unimplementedTerminalAPI(),
     semanticGraph: unimplementedSemanticGraphAPI(),
