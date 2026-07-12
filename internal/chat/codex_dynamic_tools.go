@@ -35,7 +35,7 @@ type codexDynamicToolSpec struct {
 	DeferLoading bool           `json:"deferLoading,omitempty"`
 }
 
-func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string) (map[string]any, error) {
+func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string, conversation Conversation) (map[string]any, error) {
 	params := map[string]any{
 		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
@@ -43,7 +43,7 @@ func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string) (map[s
 		"developerInstructions": codexDeveloperInstructions(),
 		"runtimeWorkspaceRoots": []string{workspaceRoot},
 	}
-	specs, err := codexDynamicToolSpecs(harness.config.Tools)
+	specs, err := codexDynamicToolSpecs(harness.agentToolRegistry())
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +158,13 @@ func codexDynamicToolJSONSchema(schema AgentToolSchema) map[string]any {
 	}
 	if len(schema.Required) > 0 {
 		result["required"] = append([]string{}, schema.Required...)
+	}
+	if len(schema.OneOf) > 0 {
+		branches := make([]map[string]any, 0, len(schema.OneOf))
+		for _, branch := range schema.OneOf {
+			branches = append(branches, codexDynamicToolJSONSchema(branch))
+		}
+		result["oneOf"] = branches
 	}
 	if schema.Type == AgentToolSchemaObject {
 		additionalProperties := false

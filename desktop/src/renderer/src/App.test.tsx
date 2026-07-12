@@ -1,8 +1,7 @@
 import type {
   ChatMessage,
   ConversationListItem,
-  CorruptionSummary,
-  Diagnostic,
+  NavigatorItem,
   Run,
   RunLiveness,
   RunItemOutput,
@@ -11,7 +10,7 @@ import type {
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { App, sidebarWorkspaceBusy } from "./App";
+import { App, masterInputFocusHints, sidebarWorkspaceBusy } from "./App";
 import { activityDetails, queuedChatMessage } from "./App.test.fixtures";
 import { compactPaneWidth } from "./app-layout";
 import {
@@ -22,6 +21,8 @@ import {
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
+import { useConversationNavigatorStore } from "./stores/conversation-navigator-store";
+import { useConversationPaneStore } from "./stores/conversation-pane-store";
 import {
   activityBlock,
   assistantTextBlock,
@@ -33,6 +34,8 @@ import {
 beforeEach(() => {
   useAppearanceStore.setState(useAppearanceStore.getInitialState(), true);
   useChatStore.setState(useChatStore.getInitialState(), true);
+  useConversationNavigatorStore.setState(useConversationNavigatorStore.getInitialState(), true);
+  useConversationPaneStore.setState(useConversationPaneStore.getInitialState(), true);
 });
 
 describe("workspace renderer states", () => {
@@ -128,34 +131,45 @@ describe("workspace renderer states", () => {
     expect(compactPaneWidth(360, 900, 128, 0.28)).toBe(360);
   });
 
+  test("maps the selected workspace's focused pane and conversation into master hints", () => {
+    const focused = {
+      focusedConversationId: "conversation_api",
+      focusedPaneId: "pane_api",
+      paneIdsByConversationId: new Map([["conversation_api", ["pane_api"]]]),
+    };
+
+    expect(masterInputFocusHints("workspace_api", focused)).toEqual({
+      focusedConversationId: "conversation_api",
+      focusedPaneId: "pane_api",
+      focusedWorkspaceId: "workspace_api",
+    });
+    expect(masterInputFocusHints(null, focused)).toEqual({
+      focusedConversationId: null,
+      focusedPaneId: null,
+      focusedWorkspaceId: null,
+    });
+  });
+
   test("renders the empty workspace state", () => {
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={null}
-        activeRunLiveness={null}
         activeWorkspaces={[]}
         busy={false}
         closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
+        presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId=""
         selectedWorkspaceId=""
-        setConversationPinned={async () => {}}
       />,
     );
 
-    expect(html).toContain("Shortcuts");
-    expect(html).toContain("Projects");
-    expect(hasAriaLabel(html, "New chat")).toBe(true);
+    expect(html).toContain("Conversations");
+    expect(hasAriaLabel(html, "Search conversations")).toBe(true);
+    expect(hasAriaLabel(html, "New chat")).toBe(false);
     expect(hasAriaLabel(html, "Open project folder")).toBe(true);
   });
 
@@ -177,57 +191,41 @@ describe("workspace renderer states", () => {
     ]);
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={null}
-        activeRunLiveness={null}
         activeWorkspaces={[api, web]}
         busy={false}
         closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
+        presentConversation={async () => {}}
         recentWorkspaces={[web, api]}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId=""
         selectedWorkspaceId="workspace_web"
-        setConversationPinned={async () => {}}
       />,
     );
 
     expect(html).toContain("web");
-    expect(hasAriaLabel(html, "Projects")).toBe(true);
-    expect(hasAriaLabel(html, "New chat in web")).toBe(true);
+    expect(hasAriaLabel(html, "Conversations")).toBe(true);
+    expect(hasAriaLabel(html, "New chat in web")).toBe(false);
     expect(html).toContain("Build web UI");
   });
 
   test("renders workspace operation errors in the sidebar", () => {
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={null}
-        activeRunLiveness={null}
         activeWorkspaces={[]}
         busy={false}
         clearWorkspaceError={() => {}}
         closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
+        presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId=""
         selectedWorkspaceId=""
-        setConversationPinned={async () => {}}
         workspaceError="workspace path does not exist"
       />,
     );
@@ -237,7 +235,7 @@ describe("workspace renderer states", () => {
     expect(hasAriaLabel(html, "Dismiss workspace error")).toBe(true);
   });
 
-  test("does not render stale chat conversations while switching workspaces", () => {
+  test("does not render collapsed workspace conversations while switching workspaces", () => {
     const api = {
       displayName: "api",
       id: "workspace_api",
@@ -255,31 +253,23 @@ describe("workspace renderer states", () => {
     ]);
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={null}
-        activeRunLiveness={null}
         activeWorkspaces={[api, web]}
         busy={false}
         closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
+        presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId=""
         selectedWorkspaceId="workspace_web"
-        setConversationPinned={async () => {}}
       />,
     );
 
     expect(html).toContain("web");
     expect(html).not.toContain("Old API chat");
-    expect(html).not.toContain("Loading chats");
+    expect(html).toContain("Loading conversations");
   });
 
   test("keeps sidebar actions available while selecting a ready workspace", () => {
@@ -289,7 +279,7 @@ describe("workspace renderer states", () => {
     expect(sidebarWorkspaceBusy(null, "ready")).toBe(false);
   });
 
-  test("renders chat corruption status in the project and conversation list", () => {
+  test("renders failed durable conversation status without requiring an open pane", () => {
     const web = {
       displayName: "web",
       id: "workspace_web",
@@ -299,145 +289,90 @@ describe("workspace renderer states", () => {
     seedWorkspaceConversationList(
       "workspace_web",
       [conversationListItem("conversation_web", "Build web UI", "workspace_web")],
-      {
-        corruption: {
-          byKind: [{ count: 2, key: "run" }],
-          bySeverity: [{ count: 2, key: "critical" }],
-          hasCorruption: true,
-          total: 2,
-        },
-        diagnostics: [criticalDiagnostic("conversation_web")],
-      },
+      { topicStatus: "failed" },
     );
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={null}
-        activeRunLiveness={null}
         activeWorkspaces={[web]}
         busy={false}
         closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
+        presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId="conversation_web"
         selectedWorkspaceId="workspace_web"
-        setConversationPinned={async () => {}}
       />,
     );
 
-    expect(html).toContain('role="status"');
-    expect(hasAriaLabelContaining(html, "2 corrupt chat records detected")).toBe(true);
-    expect(hasAriaLabelContaining(html, "1 corrupt chat record detected")).toBe(true);
-    expect(html).toContain("Malformed chat data");
-    expect(html).toContain("2 corrupt chat records detected");
-    expect(html).toContain("1 corrupt chat record detected");
-    expect(html).toContain("assistant message message_missing was not found");
-    expect(html).toContain("Path: /tmp/run.json");
+    expect(hasAriaLabel(html, "Conversation failed")).toBe(true);
+    expect(hasAriaLabelContaining(html, "Build web UI, Failed, no open views")).toBe(true);
   });
 
-  test("uses active-run liveness for the sidebar conversation indicator", () => {
+  test("renders the durable working status in the navigator", () => {
     const web = {
       displayName: "web",
       id: "workspace_web",
       lastOpenedAt: "2026-05-29T20:05:00Z",
       rootPath: "/tmp/web",
     };
-    const activeRun = runFixture("run_web", "running");
-    activeRun.workspaceId = "workspace_web";
-    activeRun.conversationId = "conversation_web";
-    const liveness = runLivenessFixture(activeRun, "lost");
-    seedWorkspaceConversationList("workspace_web", [
-      {
-        ...conversationListItem("conversation_web", "Build web UI", "workspace_web"),
-        activeRunId: activeRun.id,
-        activeRunLiveness: liveness,
-      },
-    ]);
+    seedWorkspaceConversationList(
+      "workspace_web",
+      [conversationListItem("conversation_web", "Build web UI", "workspace_web")],
+      { topicStatus: "working" },
+    );
 
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={activeRun}
-        activeRunLiveness={liveness}
         activeWorkspaces={[web]}
         busy={false}
         closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
+        presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId="conversation_web"
         selectedWorkspaceId="workspace_web"
-        setConversationPinned={async () => {}}
       />,
     );
 
-    expect(hasAriaLabel(html, "Chat connection lost")).toBe(true);
-    expect(hasAriaLabel(html, "Chat response running")).toBe(false);
+    expect(hasAriaLabel(html, "Conversation working")).toBe(true);
   });
 
-  test("presents sidebar snapshot-load liveness as reconnecting", () => {
+  test("renders approval waiting as a distinct navigator status", () => {
     const web = {
       displayName: "web",
       id: "workspace_web",
       lastOpenedAt: "2026-05-29T20:05:00Z",
       rootPath: "/tmp/web",
     };
-    const activeRun = runFixture("run_web", "running");
-    activeRun.workspaceId = "workspace_web";
-    activeRun.conversationId = "conversation_web";
-    const liveness = runLivenessFixture(activeRun, "reconciling", {
-      reason: "snapshot_load",
-      retryable: true,
-    });
-    seedWorkspaceConversationList("workspace_web", [
-      {
-        ...conversationListItem("conversation_web", "Build web UI", "workspace_web"),
-        activeRunId: activeRun.id,
-        activeRunLiveness: liveness,
-      },
-    ]);
+    seedWorkspaceConversationList(
+      "workspace_web",
+      [conversationListItem("conversation_web", "Build web UI", "workspace_web")],
+      { topicStatus: "waiting_for_approval" },
+    );
 
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={activeRun}
-        activeRunLiveness={liveness}
         activeWorkspaces={[web]}
         busy={false}
         closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
+        presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId="conversation_web"
         selectedWorkspaceId="workspace_web"
-        setConversationPinned={async () => {}}
       />,
     );
 
-    expect(hasAriaLabel(html, "Chat response reconnecting")).toBe(true);
-    expect(hasAriaLabel(html, "Chat response running")).toBe(false);
+    expect(hasAriaLabel(html, "Conversation waiting for approval")).toBe(true);
   });
 
   test("bounds large workspace list row rendering", () => {
@@ -453,25 +388,17 @@ describe("workspace renderer states", () => {
 
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={null}
-        activeRunLiveness={null}
         activeWorkspaces={workspaces}
         busy={false}
         closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
+        presentConversation={async () => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId="conversation_workspace_0"
         selectedWorkspaceId="workspace_0"
-        setConversationPinned={async () => {}}
       />,
     );
 
@@ -1372,10 +1299,9 @@ function seedWorkspaceConversationList(
   workspaceId: string,
   conversations: ConversationListItem[],
   options: {
-    corruption?: CorruptionSummary;
-    diagnostics?: Diagnostic[];
     error?: string | null;
     loading?: boolean;
+    topicStatus?: NavigatorItem["conversation"]["status"];
   } = {},
 ) {
   useChatStore.setState((current) => ({
@@ -1383,13 +1309,61 @@ function seedWorkspaceConversationList(
       ...current.conversationListsByWorkspaceId,
       [workspaceId]: {
         conversations,
-        corruption: options.corruption ?? emptyCorruption(),
-        diagnostics: options.diagnostics ?? [],
+        corruption: emptyCorruption(),
+        diagnostics: [],
         error: options.error ?? null,
         loading: options.loading ?? false,
       },
     },
   }));
+  const navigatorItems = conversations.map((item) =>
+    topicNavigatorItemFromChat(item, options.topicStatus),
+  );
+  useConversationNavigatorStore.setState((current) => ({
+    workspaces: {
+      ...current.workspaces,
+      [workspaceId]: {
+        error: options.error ?? null,
+        items: navigatorItems,
+        loading: options.loading ?? false,
+        nextCursor: null,
+      },
+    },
+  }));
+}
+
+function topicNavigatorItemFromChat(
+  item: ConversationListItem,
+  topicStatus: NavigatorItem["conversation"]["status"] = "idle",
+): NavigatorItem {
+  const conversation = item.conversation;
+  return {
+    branch: null,
+    conversation: {
+      archivedAt: null,
+      createdAt: conversation.createdAt,
+      id: conversation.id,
+      lastTrajectorySequence: 0,
+      status: topicStatus,
+      title: conversation.title,
+      topicDescriptor: "",
+      updatedAt: conversation.updatedAt,
+      workspaceId: conversation.workspaceId,
+    },
+    presentationProfile: {
+      conversationId: conversation.id,
+      narratorSpeechEnabled: true,
+      narratorVoiceReuse: null,
+      narratorVoiceSelection: "auto_distinct",
+      paletteReuse: null,
+      paletteSelection: "auto_distinct",
+      requestedNarratorVoiceId: null,
+      requestedPaletteId: null,
+      resolvedNarratorVoiceId: "alloy",
+      resolvedPaletteId: "sky",
+      updatedAt: conversation.updatedAt,
+    },
+  };
 }
 
 function conversationListItem(
@@ -1421,27 +1395,11 @@ function conversationListItem(
   };
 }
 
-function emptyCorruption(): CorruptionSummary {
+function emptyCorruption() {
   return {
     byKind: [],
     bySeverity: [],
     hasCorruption: false,
     total: 0,
-  };
-}
-
-function criticalDiagnostic(conversationId: string): Diagnostic {
-  return {
-    code: "corrupt_chat_state",
-    context: { path: "/tmp/run.json" },
-    conversationId,
-    id: "diagnostic_api",
-    message: "run run_api assistant message message_missing was not found",
-    occurredAt: "2026-05-29T20:00:00Z",
-    runId: "run_api",
-    schemaVersion: 1,
-    severity: "critical",
-    source: "chat",
-    workspaceId: "workspace_web",
   };
 }

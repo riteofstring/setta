@@ -351,6 +351,25 @@ describe("workspace layout store", () => {
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
   });
 
+  test("preserves an easy button binding only while the pane remains an easy button", () => {
+    const store = createStore({ "easy-button": 1 });
+    const easyButtonConfig = { conversationId: "conversation-1" };
+    const paneId = store.openPane({
+      easyButtonConfig,
+      surfaceKind: "easy-button",
+      title: "Topic",
+    });
+
+    store.configurePane(paneId, { title: "Renamed topic" });
+    expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
+
+    store.configurePane(paneId, {
+      surfaceKind: "terminal",
+      title: "Terminal",
+    });
+    expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toBeUndefined();
+  });
+
   test("uses the current row count inside a stacked column", () => {
     const store = createStore();
     const paneId = store.splitFocusedPane("down");
