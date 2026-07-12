@@ -194,6 +194,31 @@ func (service *Service) CreateTopic(
 	workspaceID string,
 	title string,
 ) (ConversationSnapshot, error) {
+	conversationID, err := service.newID("conversation")
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return service.createTopic(ctx, workspaceID, title, conversationID)
+}
+
+func (service *Service) CreateRoutedTopic(
+	ctx context.Context,
+	workspaceID string,
+	title string,
+	conversationID string,
+) (ConversationSnapshot, error) {
+	if err := validateIdentifier("routed topic conversation id", conversationID); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return service.createTopic(ctx, workspaceID, title, conversationID)
+}
+
+func (service *Service) createTopic(
+	ctx context.Context,
+	workspaceID string,
+	title string,
+	conversationID string,
+) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -218,11 +243,6 @@ func (service *Service) CreateTopic(
 		DeveloperInstructions: "Act as the durable primary agent for this Setta topic conversation.",
 	})
 	if err != nil {
-		return ConversationSnapshot{}, err
-	}
-	conversationID, err := service.newID("conversation")
-	if err != nil {
-		_ = service.agent.UnsubscribeThread(context.Background(), thread.ID)
 		return ConversationSnapshot{}, err
 	}
 	now := service.timestamp()

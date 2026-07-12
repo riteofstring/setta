@@ -9,6 +9,7 @@ export function EasyButtonConversationComposer({
   canSubmit,
   clarificationQuestion = null,
   input,
+  masterReply = null,
   onInput,
   onSubmit,
   onVoiceCapture,
@@ -19,6 +20,7 @@ export function EasyButtonConversationComposer({
   canSubmit: boolean;
   clarificationQuestion?: string | null;
   input: string;
+  masterReply?: { kind: "answer" | "clarification"; text: string } | null;
   onInput: ((value: string) => void) | undefined;
   onSubmit: FormEventHandler<HTMLFormElement> | undefined;
   onVoiceCapture: (() => void) | undefined;
@@ -27,6 +29,16 @@ export function EasyButtonConversationComposer({
 }) {
   return (
     <div className="easy-button-footer">
+      {masterReply ? (
+        <p
+          className="easy-button-clarification"
+          data-master-reply-kind={masterReply.kind}
+          data-testid="easy-button-master-reply"
+          role="status"
+        >
+          {masterReply.text}
+        </p>
+      ) : null}
       {clarificationQuestion ? (
         <p className="easy-button-clarification" data-testid="easy-button-clarification">
           {clarificationQuestion}

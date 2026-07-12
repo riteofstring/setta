@@ -44,6 +44,7 @@ func EqualRouteDecisionCommit(record RouteDecisionRecord, commit RouteDecisionCo
 		Context:            record.Context,
 		ResolvedInvocation: record.ResolvedInvocation,
 		Decision:           record.Decision,
+		ResultingCommand:   record.ResultingCommand,
 		DecidedAt:          record.DecidedAt,
 	}
 	return reflect.DeepEqual(existing, commit)
@@ -53,7 +54,72 @@ func CloneRouteDecisionRecord(record RouteDecisionRecord) RouteDecisionRecord {
 	record.Context = cloneRouteContextAudit(record.Context)
 	record.ResolvedInvocation = cloneRouteInvocationAudit(record.ResolvedInvocation)
 	record.Decision = cloneRouteDecision(record.Decision)
+	record.ResultingCommand = cloneRouteCommand(record.ResultingCommand)
 	return record
+}
+
+func cloneRouteCommand(command RouteCommand) RouteCommand {
+	command.SendToAgent = cloneRoutePayload(command.SendToAgent)
+	command.QueueAgentTurn = cloneRoutePayload(command.QueueAgentTurn)
+	command.SteerActiveTurn = cloneRoutePayload(command.SteerActiveTurn)
+	command.AskNarrator = cloneRoutePayload(command.AskNarrator)
+	command.FocusConversation = cloneRoutePayload(command.FocusConversation)
+	command.CreateConversation = cloneRoutePayload(command.CreateConversation)
+	command.CreateSideConversation = cloneRoutePayload(command.CreateSideConversation)
+	command.ForkConversation = cloneRoutePayload(command.ForkConversation)
+	command.Clarify = cloneRoutePayload(command.Clarify)
+	command.AnswerGlobal = cloneRoutePayload(command.AnswerGlobal)
+	if command.SendToAgent != nil {
+		command.SendToAgent.Target = clonePresentationTarget(command.SendToAgent.Target)
+	}
+	if command.QueueAgentTurn != nil {
+		command.QueueAgentTurn.Target = clonePresentationTarget(command.QueueAgentTurn.Target)
+	}
+	if command.SteerActiveTurn != nil {
+		command.SteerActiveTurn.Target = clonePresentationTarget(command.SteerActiveTurn.Target)
+	}
+	if command.AskNarrator != nil {
+		command.AskNarrator.Target = clonePresentationTarget(command.AskNarrator.Target)
+	}
+	if command.FocusConversation != nil {
+		command.FocusConversation.Target = clonePresentationTarget(command.FocusConversation.Target)
+	}
+	if command.CreateConversation != nil {
+		command.CreateConversation.Target = clonePresentationTarget(command.CreateConversation.Target)
+	}
+	if command.CreateSideConversation != nil {
+		command.CreateSideConversation.Target = clonePresentationTarget(command.CreateSideConversation.Target)
+	}
+	if command.ForkConversation != nil {
+		command.ForkConversation.Target = clonePresentationTarget(command.ForkConversation.Target)
+	}
+	return command
+}
+
+func clonePresentationTarget(target ConversationPresentationTarget) ConversationPresentationTarget {
+	target.PreferredPaneID = cloneString(target.PreferredPaneID)
+	return target
+}
+
+func ClonePresentationIntent(intent PresentationIntent) PresentationIntent {
+	intent.OriginatingWorkspaceID = cloneString(intent.OriginatingWorkspaceID)
+	intent.OriginatingConversationID = cloneString(intent.OriginatingConversationID)
+	intent.OriginatingPaneID = cloneString(intent.OriginatingPaneID)
+	intent.OriginatingConversationInputID = cloneString(intent.OriginatingConversationInputID)
+	intent.FocusExistingConversationPane = cloneRoutePayload(intent.FocusExistingConversationPane)
+	intent.OpenConversationPane = cloneRoutePayload(intent.OpenConversationPane)
+	intent.OpenSideConversation = cloneRoutePayload(intent.OpenSideConversation)
+	intent.ShowMasterReply = cloneRoutePayload(intent.ShowMasterReply)
+	if intent.FocusExistingConversationPane != nil {
+		intent.FocusExistingConversationPane.Target = clonePresentationTarget(intent.FocusExistingConversationPane.Target)
+	}
+	if intent.OpenConversationPane != nil {
+		intent.OpenConversationPane.Target = clonePresentationTarget(intent.OpenConversationPane.Target)
+	}
+	if intent.OpenSideConversation != nil {
+		intent.OpenSideConversation.Target = clonePresentationTarget(intent.OpenSideConversation.Target)
+	}
+	return intent
 }
 
 func CloneInputRoutingState(state InputRoutingState) InputRoutingState {

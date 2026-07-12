@@ -110,6 +110,67 @@ func TestMasterInputRoutingStateEndpointReadsValidatedState(t *testing.T) {
 	}
 }
 
+func TestMasterPresentationIntentEndpointWaitsForValidatedIntent(t *testing.T) {
+	input := validSubmitMasterInputRequest().Input
+	intent, err := master.PresentationIntentForCommand(input, master.RouteCommand{
+		Kind: master.RouteDecisionKindAnswerGlobal,
+		AnswerGlobal: &master.MasterAnswerGlobalRouteCommand{
+			Text: "The global answer.",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build presentation intent: %v", err)
+	}
+	service := &fakeHTTPMasterInputService{intent: intent}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		MasterInputService: service,
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	waited := postJSON[master.PresentationIntent](
+		t,
+		handler,
+		"/master/presentation/wait",
+		ReadMasterInputRoutingStateRequest{InputID: input.ID},
+		http.StatusOK,
+	)
+	if service.waitInputID != input.ID || waited.ID != intent.ID ||
+		waited.ShowMasterReply == nil || waited.ShowMasterReply.Text != "The global answer." {
+		t.Fatalf("presentation intent=%+v inputID=%q", waited, service.waitInputID)
+	}
+}
+
+func TestMasterPresentationResolutionEndpointAppliesValidatedPane(t *testing.T) {
+	input := validSubmitMasterInputRequest().Input
+	request := master.PresentationResolutionRequest{
+		IntentID: master.PresentationIntentID(input.ID),
+		InputID:  input.ID,
+		PaneID:   "pane-alpha",
+	}
+	service := &fakeHTTPMasterInputService{resolution: master.PresentationResolution{
+		IntentID:   request.IntentID,
+		InputID:    request.InputID,
+		PaneID:     request.PaneID,
+		ResolvedAt: "2026-07-12T18:00:02Z",
+	}}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		MasterInputService: service,
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	resolved := postJSON[master.PresentationResolution](
+		t,
+		handler,
+		"/master/presentation/resolve",
+		request,
+		http.StatusOK,
+	)
+	if service.waitInputID != input.ID || resolved.PaneID != request.PaneID ||
+		resolved.IntentID != request.IntentID {
+		t.Fatalf("presentation resolution=%+v inputID=%q", resolved, service.waitInputID)
+	}
+}
+
 func TestActiveMasterShellInteractionEndpointMapsReadAndValidationFailures(t *testing.T) {
 	tests := []struct {
 		err         error
@@ -259,6 +320,27 @@ type fakeHTTPMasterInputService struct {
 	state            master.InputRoutingState
 	stateInputID     string
 	waitInputID      string
+	intent           master.PresentationIntent
+	resolution       master.PresentationResolution
+}
+
+func (service *fakeHTTPMasterInputService) ResolvePresentationIntent(
+	_ context.Context,
+	request master.PresentationResolutionRequest,
+) (master.PresentationResolution, error) {
+	service.waitInputID = request.InputID
+	if service.err != nil {
+		return master.PresentationResolution{}, service.err
+	}
+	return service.resolution, nil
+}
+
+func (service *fakeHTTPMasterInputService) WaitPresentationIntent(
+	_ context.Context,
+	inputID string,
+) (master.PresentationIntent, error) {
+	service.waitInputID = inputID
+	return master.ClonePresentationIntent(service.intent), service.err
 }
 
 func (service *fakeHTTPMasterInputService) ReadInputState(

@@ -35,6 +35,7 @@ import {
   verifyRestoredMasterInteraction,
   waitForMasterRouteDecision,
 } from "./topic-conversation-master-overlay-assertions.mjs";
+import { exerciseMasterPaneRouting } from "./topic-conversation-master-pane-routing.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDistinctConversationPalettes,
@@ -247,11 +248,13 @@ try {
     (surfaces) =>
       hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
   );
+  const alphaPaneId = requiredConversationSurface(initial.surfaces, alpha.id).paneId;
   shellMasterOverlayInput = await exerciseMasterOverlayEntryPoints({
     artifactDirectory: secondLaunchDir,
     client: context.client,
     text: typedMasterOverlayText,
     timeoutMs: workflowTimeoutMs,
+    waitForNavigation: true,
     workspaceId,
   });
   const typedMasterRoute = await waitForMasterRouteDecision(
@@ -265,6 +268,12 @@ try {
     expectedSessionId: sharedMasterSessionId,
     expectedTargetId: alpha.id,
   });
+  await waitForState(
+    context.client,
+    driverCallExpression("topicConversationNavigatorState", { conversationId: alpha.id }),
+    (state) => state.focusedPaneId === alphaPaneId,
+    workflowTimeoutMs,
+  );
   const reloadedVoices = await listTopics(backend, workspaceId);
   assertPersistedNarratorVoice(reloadedVoices, alpha);
   assertPersistedNarratorVoice(reloadedVoices, beta);
@@ -292,7 +301,6 @@ try {
   }
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
   await verifyIdleGlobalSpeech(context.client, workflowTimeoutMs);
-  const alphaPaneId = requiredConversationSurface(initial.surfaces, alpha.id).paneId;
   assertDriverAction(
     await context.client.driver("topicConversationVoiceCapture", {
       conversationId: alpha.id,
@@ -783,6 +791,16 @@ try {
       surface.summaryText === "Narrator completed command approval denial.",
   );
 
+  const masterPaneRoutes = await exerciseMasterPaneRouting({
+    artifactDirectory: secondLaunchDir,
+    backend,
+    client: context.client,
+    parentTopic: alpha,
+    sessionId: sharedMasterSessionId,
+    timeoutMs: workflowTimeoutMs,
+    workspaceId,
+  });
+
   const synthesisRequestCountBeforeNoPaneStop = speechProvider.requests.length;
   await closeConversationPane(context.client, beta.id);
   await waitForConversationSurfaces(
@@ -1100,6 +1118,7 @@ try {
     reloadedSideFailure,
     shellMasterInput,
     shellMasterOverlayInput,
+    masterPaneRoutes,
     sideFailure,
     sideFailureTopic,
     status: "passed",

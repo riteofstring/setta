@@ -5,6 +5,7 @@ type SpeechCaptureDestination =
   | Readonly<{
       conversationId: string;
       type: "conversation";
+      workspaceId: string;
     }>;
 
 export type SpeechCaptureRequest =
@@ -49,13 +50,15 @@ export function masterSpeechCaptureRequest(): MasterSpeechCaptureRequest {
 }
 
 export function conversationSpeechCaptureRequest(
+  workspaceId: string,
   conversationId: string,
   sourcePaneId: string,
 ): ConversationSpeechCaptureRequest {
+  assertCaptureIdentifier("workspace", workspaceId);
   assertCaptureIdentifier("conversation", conversationId);
   assertCaptureIdentifier("source pane", sourcePaneId);
   return Object.freeze({
-    destination: Object.freeze({ conversationId, type: "conversation" }),
+    destination: Object.freeze({ conversationId, type: "conversation", workspaceId }),
     sourcePaneId,
   });
 }
@@ -72,6 +75,7 @@ export function freezeSpeechCaptureRequest(request: SpeechCaptureRequest): Speec
         throw new Error("conversation speech capture requires a source pane");
       }
       return conversationSpeechCaptureRequest(
+        request.destination.workspaceId,
         request.destination.conversationId,
         request.sourcePaneId,
       );

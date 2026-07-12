@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { presentConversationPane } from "./conversation-pane-coordinator";
+import {
+  conversationPaneRequestForPresentationIntent,
+  presentConversationPane,
+} from "./conversation-pane-coordinator";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { WorkspaceLayoutStore } from "./layout-store";
 import { defaultRealWorkspacePaneLimits, createRealWorkspaceScene } from "./workspace-scene";
@@ -44,6 +47,54 @@ describe("conversation pane coordinator", () => {
     expect(pane).toMatchObject({
       surfaceKind: "easy-button",
       title: "Persistent topic",
+    });
+  });
+
+  test("honors a validated preferred pane before the most recently focused matching view", () => {
+    const store = workspaceStore();
+    const preferred = store.openPane(boundRequest("conversation_shared"));
+    const recent = store.openPane(boundRequest("conversation_shared"));
+    store.focusPane(preferred);
+    store.focusPane(recent);
+
+    const result = presentConversationPane(store, {
+      conversationId: "conversation_shared",
+      preferredPaneId: preferred,
+      title: "Shared topic",
+      workspaceId: "workspace_api",
+    });
+
+    expect(result).toEqual({ kind: "focused", paneId: preferred });
+  });
+
+  test("maps a backend presentation intent into the same coordinator request", () => {
+    expect(
+      conversationPaneRequestForPresentationIntent({
+        focusExistingConversationPane: {
+          target: {
+            conversationId: "conversation_shared",
+            preferredPaneId: "pane_shared",
+            title: "Shared topic",
+            workspaceId: "workspace_api",
+          },
+        },
+        id: "master-presentation:input_shared",
+        inputId: "input_shared",
+        kind: "focus_existing_conversation_pane",
+        openConversationPane: null,
+        openSideConversation: null,
+        originatingConversationId: null,
+        originatingConversationInputId: null,
+        originatingPaneId: null,
+        originatingWorkspaceId: null,
+        showMasterReply: null,
+        source: "shell",
+      }),
+    ).toEqual({
+      conversationId: "conversation_shared",
+      preferredPaneId: "pane_shared",
+      title: "Shared topic",
+      workspaceId: "workspace_api",
     });
   });
 

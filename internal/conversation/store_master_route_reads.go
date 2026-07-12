@@ -124,8 +124,26 @@ SELECT EXISTS(
   SELECT 1
   FROM master_inputs
   WHERE routing_status = ?
+
+  UNION ALL
+
+  SELECT 1
+  FROM master_route_decisions AS decision
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM master_route_command_completions AS completion
+    WHERE completion.decision_id = decision.id
+  )
+    AND (
+      json_extract(decision.resulting_command_json, '$.kind') <> ?
+      OR EXISTS (
+        SELECT 1
+        FROM master_presentation_resolutions AS resolution
+        WHERE resolution.decision_id = decision.id
+      )
+    )
 )
-`, master.InputRoutingStatusAccepted).Scan(&value); err != nil {
+`, master.InputRoutingStatusAccepted, master.RouteDecisionKindCreateSideConversation).Scan(&value); err != nil {
 				return err
 			}
 			pending = value == 1
@@ -216,39 +234,9 @@ func (store *Store) ReadActiveMasterShellInteraction(
 			return err
 		}
 		defer func() { _ = reader.Rollback() }()
-		var inputID string
-		err = reader.QueryRowContext(ctx, `
-SELECT id
-FROM master_inputs
-WHERE input_source = ?
-ORDER BY sequence DESC
-LIMIT 1
-`, master.MasterInputSourceShell).Scan(&inputID)
-		if errors.Is(err, sql.ErrNoRows) {
-			return reader.Commit()
-		}
+		interaction, err = readActiveMasterShellInteractionTransaction(ctx, reader, store.dbPath)
 		if err != nil {
 			return err
-		}
-		state, err := readMasterInputRoutingStateTransaction(ctx, reader, inputID, store.dbPath)
-		if err != nil {
-			return err
-		}
-		projected, err := master.ProjectShellInteractionState(state)
-		if err != nil {
-			return &CorruptStateError{
-				Path: store.dbPath,
-				Err:  fmt.Errorf("project active master shell interaction: %w", err),
-			}
-		}
-		if master.IsRestorableShellInteractionState(projected) {
-			interaction.State = &projected
-		}
-		if err := interaction.Validate(); err != nil {
-			return &CorruptStateError{
-				Path: store.dbPath,
-				Err:  fmt.Errorf("validate active master shell interaction: %w", err),
-			}
 		}
 		return reader.Commit()
 	})
@@ -256,6 +244,87 @@ LIMIT 1
 		return master.ActiveShellInteraction{}, err
 	}
 	return master.CloneActiveShellInteraction(interaction), nil
+}
+
+func readActiveMasterShellInteractionTransaction(
+	ctx context.Context,
+	reader *sql.Tx,
+	dbPath string,
+) (master.ActiveShellInteraction, error) {
+	inputID, found, err := readLatestMasterShellInputID(ctx, reader)
+	if err != nil || !found {
+		return master.ActiveShellInteraction{}, err
+	}
+	state, err := readMasterInputRoutingStateTransaction(ctx, reader, inputID, dbPath)
+	if err != nil {
+		return master.ActiveShellInteraction{}, err
+	}
+	projected, err := master.ProjectShellInteractionState(state)
+	if err != nil {
+		return master.ActiveShellInteraction{}, &CorruptStateError{
+			Path: dbPath,
+			Err:  fmt.Errorf("project active master shell interaction: %w", err),
+		}
+	}
+	restore, err := masterShellInteractionIsRestorable(ctx, reader, dbPath, state, projected)
+	if err != nil {
+		return master.ActiveShellInteraction{}, err
+	}
+	interaction := master.ActiveShellInteraction{}
+	if restore {
+		interaction.State = &projected
+	}
+	if err := interaction.Validate(); err != nil {
+		return master.ActiveShellInteraction{}, &CorruptStateError{
+			Path: dbPath,
+			Err:  fmt.Errorf("validate active master shell interaction: %w", err),
+		}
+	}
+	return interaction, nil
+}
+
+func readLatestMasterShellInputID(ctx context.Context, reader *sql.Tx) (string, bool, error) {
+	var inputID string
+	err := reader.QueryRowContext(ctx, `
+SELECT id
+FROM master_inputs
+WHERE input_source = ?
+ORDER BY sequence DESC
+LIMIT 1
+`, master.MasterInputSourceShell).Scan(&inputID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	return inputID, err == nil, err
+}
+
+func masterShellInteractionIsRestorable(
+	ctx context.Context,
+	reader *sql.Tx,
+	dbPath string,
+	state master.InputRoutingState,
+	projected master.ShellInteractionState,
+) (bool, error) {
+	if !master.IsRestorableShellInteractionState(projected) {
+		return false, nil
+	}
+	if !masterShellInteractionRequiresResolution(projected) {
+		return true, nil
+	}
+	_, resolved, err := readMasterPresentationResolution(
+		ctx,
+		reader,
+		dbPath,
+		state.Decision.ID,
+		state.Input.Input.ID,
+	)
+	return !resolved, err
+}
+
+func masterShellInteractionRequiresResolution(state master.ShellInteractionState) bool {
+	return state.Status == master.InputRoutingStatusDecided &&
+		state.Decision != nil &&
+		master.RouteDecisionRequiresNavigation(*state.Decision)
 }
 
 func validateMasterInputRoutingStateRequest(store *Store, ctx context.Context, inputID string) error {

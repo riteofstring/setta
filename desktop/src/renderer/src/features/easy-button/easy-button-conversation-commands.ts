@@ -3,11 +3,13 @@ import type {
   ConversationApprovalAnswer,
   ConversationInput,
   ConversationInputRoutingState,
+  ConversationRouteCommand,
   ConversationSnapshot,
+  PresentationIntent,
   TrajectoryApprovalDecision,
   TrajectoryApprovalRequest,
 } from "@generated/backend";
-import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { hydrateConversationProjectionSnapshot } from "../../stores/conversation-projection-runtime";
@@ -18,10 +20,14 @@ import {
 import { acceptedConversationInputMatches } from "../global-speech/global-speech-conversation-submission";
 import { canonicalSpeechInputTimestamp } from "../global-speech/speech-input-submission";
 import {
-  requestConversationPanePresentation,
-  type ConversationPanePresentationResult,
+  conversationPaneRequestForPresentationIntent,
+  requestConversationPaneNavigation,
 } from "../../workspace-layout/conversation-pane-coordinator";
 import { openSideConversationForPane } from "./easy-button-side-projection";
+import {
+  conversationRoutingPresentationRequestEvent,
+  type ConversationRoutingPresentationRequestDetail,
+} from "./conversation-routing-presentation-request";
 
 export interface EasyButtonConversationCommands {
   available: boolean;
@@ -30,6 +36,7 @@ export interface EasyButtonConversationCommands {
   disposeSide: (sideConversationId: string) => void;
   error: string | null;
   input: string;
+  masterReply?: { kind: "answer" | "clarification"; text: string } | null;
   pending: boolean;
   presentRelatedConversation: (conversationId: string, title: string | null) => void;
   discardFailedInput: () => void;
@@ -84,6 +91,10 @@ export function useEasyButtonConversationCommands(
     inputId: string;
     question: string;
   } | null>(null);
+  const [masterReply, setMasterReply] = useState<{
+    kind: "answer" | "clarification";
+    text: string;
+  } | null>(null);
   const [failedInput, setFailedInput] = useState<{
     inputId: string;
     message: string;
@@ -102,14 +113,62 @@ export function useEasyButtonConversationCommands(
   };
   const available = conversationCommandsAvailable(workspaceId, conversationId, projection);
   const canSubmit = conversationInputCanSubmit(available, pending, input) && !failedInput;
+  const applySettledRoutingState = useCallback(
+    async (state: ConversationInputRoutingState): Promise<void> => {
+      const target = requireConversationRoutingScope(state, {
+        activeCommandScope: activeCommandScope.current,
+        commandScope,
+        conversationId,
+        paneId,
+        workspaceId,
+      });
+      const routingError = applyConversationInputRoutingState(
+        state,
+        setClarification,
+        setFailedInput,
+      );
+      if (routingError) {
+        throw new Error(routingError);
+      }
+      await applyConversationRoutingPresentation({
+        paneId,
+        parentTitle: projection?.snapshot?.conversation.title ?? "Topic conversation",
+        setMasterReply,
+        state,
+        target,
+      });
+    },
+    [commandScope, conversationId, paneId, projection?.snapshot?.conversation.title, workspaceId],
+  );
   usePendingSideCreationCompletion(workspaceId, conversationId, paneId, projection?.snapshot);
   useEffect(() => {
     setPending(false);
     setInput("");
     setError(null);
     setClarification(null);
+    setMasterReply(null);
     setFailedInput(null);
   }, [conversationId, paneId, workspaceId]);
+  useEffect(() => {
+    if (!workspaceId || !conversationId || !paneId) {
+      return;
+    }
+    const present = (event: Event) => {
+      const detail = (event as CustomEvent<ConversationRoutingPresentationRequestDetail>).detail;
+      if (
+        !detail ||
+        detail.completion ||
+        detail.workspaceId !== workspaceId ||
+        detail.state.input.input.conversationId !== conversationId ||
+        detail.state.input.input.sourcePaneId !== paneId
+      ) {
+        return;
+      }
+      detail.completion = applySettledRoutingState(detail.state);
+    };
+    window.addEventListener(conversationRoutingPresentationRequestEvent, present);
+    return () => window.removeEventListener(conversationRoutingPresentationRequestEvent, present);
+  }, [applySettledRoutingState, conversationId, paneId, workspaceId]);
 
   async function run(
     command: () => Promise<ConversationSnapshot>,
@@ -137,6 +196,7 @@ export function useEasyButtonConversationCommands(
   async function runInput(): Promise<boolean> {
     setPending(true);
     setError(null);
+    setMasterReply(null);
     try {
       const target = requireTarget();
       const submitted = createEasyButtonTextConversationInput({
@@ -156,12 +216,7 @@ export function useEasyButtonConversationCommands(
         inputId: submitted.id,
         workspaceId: target.workspaceId,
       });
-      const routingError = commandScopeIsCurrent()
-        ? applyConversationInputRoutingState(state, setClarification, setFailedInput)
-        : null;
-      if (routingError) {
-        throw new Error(routingError);
-      }
+      await applySettledRoutingState(state);
       return true;
     } catch (commandError) {
       setScopedError(errorMessage(commandError));
@@ -187,6 +242,7 @@ export function useEasyButtonConversationCommands(
     }
     setPending(true);
     setError(null);
+    setMasterReply(null);
     try {
       const target = requireTarget();
       await requireConversationInputRetry()({
@@ -199,12 +255,7 @@ export function useEasyButtonConversationCommands(
         inputId: failedInput.inputId,
         workspaceId: target.workspaceId,
       });
-      const routingError = commandScopeIsCurrent()
-        ? applyConversationInputRoutingState(state, setClarification, setFailedInput)
-        : null;
-      if (routingError) {
-        throw new Error(routingError);
-      }
+      await applySettledRoutingState(state);
     } catch (retryError) {
       setScopedError(errorMessage(retryError));
     } finally {
@@ -230,6 +281,7 @@ export function useEasyButtonConversationCommands(
       if (commandScopeIsCurrent()) {
         setFailedInput(null);
         setClarification(null);
+        setMasterReply(null);
       }
     } catch (discardError) {
       setScopedError(errorMessage(discardError));
@@ -263,6 +315,7 @@ export function useEasyButtonConversationCommands(
     },
     error,
     input,
+    masterReply,
     pending,
     presentRelatedConversation: (targetConversationId, title) => {
       if (!workspaceId || pending) {
@@ -276,6 +329,7 @@ export function useEasyButtonConversationCommands(
       paneId,
       setError: setScopedError,
       speechCapture,
+      workspaceId,
     }),
     retryFailedInput: () => void retryFailedInput(),
     routingFailure: failedInput
@@ -545,6 +599,242 @@ function assertConversationInputSettled(state: ConversationInputRoutingState): v
   }
 }
 
+async function applyConversationRoutingPresentation({
+  paneId,
+  parentTitle,
+  setMasterReply,
+  state,
+  target,
+}: {
+  paneId: string | null;
+  parentTitle: string;
+  setMasterReply: (reply: { kind: "answer" | "clarification"; text: string } | null) => void;
+  state: ConversationInputRoutingState;
+  target: { conversationId: string; workspaceId: string };
+}): Promise<void> {
+  const command = latestConversationRouteCommand(state);
+  switch (command.kind) {
+    case "create_side_conversation":
+      return presentCreatedSideConversation(
+        command.createSideConversation,
+        parentTitle,
+        setMasterReply,
+        target,
+      );
+    case "fork_conversation":
+      return presentForkedConversation(command.forkConversation, setMasterReply, target);
+    case "escalate_to_master":
+      return presentMasterEscalation(
+        command.escalateToMaster,
+        paneId,
+        setMasterReply,
+        state,
+        target,
+      );
+    case "answer_as_narrator":
+    case "clarify":
+    case "queue_parent_turn":
+    case "send_to_parent":
+    case "steer_parent_turn":
+      setMasterReply(null);
+      return;
+    default:
+      return assertNeverConversationRouteKind(command.kind);
+  }
+}
+
+function requireConversationRoutingScope(
+  state: ConversationInputRoutingState,
+  scope: {
+    activeCommandScope: string;
+    commandScope: string;
+    conversationId: string | null;
+    paneId: string | null;
+    workspaceId: string | null;
+  },
+): { conversationId: string; workspaceId: string } {
+  const matches = [
+    scope.activeCommandScope === scope.commandScope,
+    Boolean(scope.workspaceId),
+    Boolean(scope.conversationId),
+    state.input.input.conversationId === scope.conversationId,
+    state.input.input.sourcePaneId === scope.paneId,
+  ].every(Boolean);
+  if (!matches) {
+    throw new Error("Conversation routing result belongs to another Easy Button pane.");
+  }
+  return requireConversationRoutingTarget(scope.conversationId, scope.workspaceId);
+}
+
+function requireConversationRoutingTarget(
+  conversationId: string | null,
+  workspaceId: string | null,
+): { conversationId: string; workspaceId: string } {
+  if (!conversationId) {
+    throw new Error("Conversation routing requires a conversation target.");
+  }
+  if (!workspaceId) {
+    throw new Error("Conversation routing requires a workspace target.");
+  }
+  return { conversationId, workspaceId };
+}
+
+function latestConversationRouteCommand(
+  state: ConversationInputRoutingState,
+): ConversationRouteCommand {
+  const command = state.decisions.at(-1)?.resultingCommand;
+  if (!command) {
+    throw new Error("Conversation routing settled without a command.");
+  }
+  return command;
+}
+
+async function presentCreatedSideConversation(
+  side: ConversationRouteCommand["createSideConversation"],
+  parentTitle: string,
+  setMasterReply: (reply: null) => void,
+  target: { conversationId: string; workspaceId: string },
+): Promise<void> {
+  if (!side) {
+    throw new Error("Conversation routing omitted its side-conversation command.");
+  }
+  setMasterReply(null);
+  await presentConversationPane({
+    conversationId: target.conversationId,
+    preferredPaneId: side.parentPaneId,
+    title: parentTitle,
+    workspaceId: target.workspaceId,
+  });
+}
+
+async function presentForkedConversation(
+  fork: ConversationRouteCommand["forkConversation"],
+  setMasterReply: (reply: null) => void,
+  target: { workspaceId: string },
+): Promise<void> {
+  if (!fork) {
+    throw new Error("Conversation routing omitted its fork command.");
+  }
+  setMasterReply(null);
+  await presentConversationPane({
+    conversationId: fork.childConversationId,
+    title: fork.proposedTitle,
+    workspaceId: target.workspaceId,
+  });
+}
+
+async function presentMasterEscalation(
+  escalation: ConversationRouteCommand["escalateToMaster"],
+  paneId: string | null,
+  setMasterReply: (reply: { kind: "answer" | "clarification"; text: string } | null) => void,
+  state: ConversationInputRoutingState,
+  target: { conversationId: string; workspaceId: string },
+): Promise<void> {
+  if (!escalation) {
+    throw new Error("Conversation routing omitted its master-escalation command.");
+  }
+  const intent = await requireMasterPresentationWaiter()({ inputId: escalation.masterInputId });
+  validateConversationMasterPresentation(intent, escalation.masterInputId, state, target, paneId);
+  if (intent.kind === "show_master_reply") {
+    presentMasterReply(intent, setMasterReply);
+    return;
+  }
+  await presentMasterConversationNavigation(intent, setMasterReply);
+}
+
+function presentMasterReply(
+  intent: PresentationIntent,
+  setMasterReply: (reply: { kind: "answer" | "clarification"; text: string }) => void,
+): void {
+  const reply = intent.showMasterReply;
+  if (!reply) {
+    throw new Error("Master presentation omitted its reply.");
+  }
+  setMasterReply({ kind: reply.replyKind, text: reply.text });
+}
+
+async function presentMasterConversationNavigation(
+  intent: PresentationIntent,
+  setMasterReply: (reply: null) => void,
+): Promise<void> {
+  const request = conversationPaneRequestForPresentationIntent(intent);
+  if (!request) {
+    throw new Error("Master presentation omitted its conversation target.");
+  }
+  setMasterReply(null);
+  const presented = await requestConversationPaneNavigation(request);
+  if (presented.kind === "blocked") {
+    throw new Error(presented.reason);
+  }
+  const resolution = await requireMasterPresentationResolver()({
+    inputId: intent.inputId,
+    intentId: intent.id,
+    paneId: presented.paneId,
+  });
+  const validResolution = [
+    resolution.inputId === intent.inputId,
+    resolution.intentId === intent.id,
+    resolution.paneId === presented.paneId,
+  ].every(Boolean);
+  if (!validResolution) {
+    throw new Error("Master presentation returned an invalid pane resolution.");
+  }
+}
+
+function validateConversationMasterPresentation(
+  intent: PresentationIntent,
+  masterInputId: string,
+  state: ConversationInputRoutingState,
+  target: { conversationId: string; workspaceId: string },
+  paneId: string | null,
+): void {
+  const inputId = state.input.input.id;
+  if (
+    intent.inputId !== masterInputId ||
+    intent.id !== `master-presentation:${masterInputId}` ||
+    intent.source !== "conversation_escalation" ||
+    intent.originatingWorkspaceId !== target.workspaceId ||
+    intent.originatingConversationId !== target.conversationId ||
+    intent.originatingConversationInputId !== inputId ||
+    intent.originatingPaneId !== paneId
+  ) {
+    throw new Error("Master presentation does not match the originating conversation input.");
+  }
+}
+
+async function presentConversationPane(
+  request: Parameters<typeof requestConversationPaneNavigation>[0],
+): Promise<void> {
+  const result = await requestConversationPaneNavigation(request);
+  if (result.kind === "blocked") {
+    throw new Error(result.reason);
+  }
+}
+
+function requireMasterPresentationWaiter(): NonNullable<
+  NonNullable<(typeof window.setta)["master"]>["waitPresentation"]
+> {
+  const wait = window.setta.master?.waitPresentation;
+  if (!wait) {
+    throw new Error("Master presentation delivery is unavailable.");
+  }
+  return wait;
+}
+
+function requireMasterPresentationResolver(): NonNullable<
+  NonNullable<(typeof window.setta)["master"]>["resolvePresentation"]
+> {
+  const resolve = window.setta.master?.resolvePresentation;
+  if (!resolve) {
+    throw new Error("Master presentation resolution is unavailable.");
+  }
+  return resolve;
+}
+
+function assertNeverConversationRouteKind(value: never): never {
+  throw new Error(`Unsupported conversation routing presentation: ${String(value)}`);
+}
+
 function conversationInputClarification(
   state: ConversationInputRoutingState,
 ): ConversationInputClarification | null {
@@ -585,19 +875,9 @@ async function presentRelatedConversation(
       hydrateConversationProjectionSnapshot(snapshot);
       title = snapshot.conversation.title;
     }
-    const result = requestConversationPanePresentation({ conversationId, title, workspaceId });
-    reportPresentationFailure(result, setError);
+    await presentConversationPane({ conversationId, title, workspaceId });
   } catch (error) {
     setError(errorMessage(error));
-  }
-}
-
-function reportPresentationFailure(
-  result: ConversationPanePresentationResult,
-  setError: (error: string | null) => void,
-): void {
-  if (result.kind === "blocked") {
-    setError(result.reason);
   }
 }
 
@@ -638,10 +918,11 @@ export async function requestEasyButtonPaneClose({
 
 export function requestEasyButtonSpeechCapture(
   speechCapture: SpeechCaptureRequester,
+  workspaceId: string,
   conversationId: string,
   paneId: string,
 ): Promise<void> {
-  return speechCapture.start(conversationSpeechCaptureRequest(conversationId, paneId));
+  return speechCapture.start(conversationSpeechCaptureRequest(workspaceId, conversationId, paneId));
 }
 
 function createVoiceCaptureCommand({
@@ -650,19 +931,21 @@ function createVoiceCaptureCommand({
   paneId,
   setError,
   speechCapture,
+  workspaceId,
 }: {
   available: boolean;
   conversationId: string | null;
   paneId: string | null;
   setError: (error: string | null) => void;
   speechCapture: SpeechCaptureRequester | undefined;
+  workspaceId: string | null;
 }): (() => void) | undefined {
-  if (!available || !conversationId || !paneId || !speechCapture) {
+  if (!available || !workspaceId || !conversationId || !paneId || !speechCapture) {
     return undefined;
   }
   return () => {
     setError(null);
-    void requestEasyButtonSpeechCapture(speechCapture, conversationId, paneId).catch(
+    void requestEasyButtonSpeechCapture(speechCapture, workspaceId, conversationId, paneId).catch(
       (captureError: unknown) => setError(errorMessage(captureError)),
     );
   };

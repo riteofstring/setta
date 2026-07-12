@@ -16,14 +16,20 @@ import (
 )
 
 type RouteStore interface {
+	ReadPendingMasterRouteCommand(context.Context) (RouteDecisionRecord, *string, bool, error)
 	ClaimNextMasterRouteInput(context.Context, string) (InputRoutingWork, bool, error)
 	ListMasterRouteContextConversationIDs(context.Context, int) ([]string, error)
 	ReadMasterRouteTargets(context.Context, []string, int) ([]RouteConversationTarget, error)
 	ListRecentMasterRouteDecisions(context.Context, int) ([]RouteDecisionRecord, error)
 	CommitMasterRouteDecision(context.Context, RouteDecisionCommit) (RouteDecisionRecord, error)
+	CompleteMasterRouteCommand(context.Context, string, string) error
 	FailMasterInputRouting(context.Context, InputRoutingFailure) error
 	RecoverMasterInputRouting(context.Context, string) error
 	WaitForPendingMasterRouteInputs(context.Context) error
+}
+
+type RouteCommandExecutor interface {
+	ExecuteMasterRouteCommand(context.Context, RouteDecisionRecord, *string) error
 }
 
 type CandidateRetriever interface {
@@ -45,6 +51,7 @@ type RouteService struct {
 	candidates CandidateRetriever
 	workspaces RouteWorkspaceSource
 	sessions   RouteSessionSource
+	executor   RouteCommandExecutor
 	caller     *RouteCaller
 	newID      func(string) (string, error)
 	now        func() time.Time
@@ -60,9 +67,10 @@ func NewRouteService(
 	candidates CandidateRetriever,
 	workspaces RouteWorkspaceSource,
 	sessions RouteSessionSource,
+	executor RouteCommandExecutor,
 ) (*RouteService, error) {
-	if store == nil || candidates == nil || workspaces == nil || sessions == nil {
-		return nil, errors.New("master route service requires store, candidates, workspaces, and session")
+	if store == nil || candidates == nil || workspaces == nil || sessions == nil || executor == nil {
+		return nil, errors.New("master route service requires store, candidates, workspaces, session, and command executor")
 	}
 	caller, err := NewRouteCaller(sessions)
 	if err != nil {
@@ -74,6 +82,7 @@ func NewRouteService(
 		candidates:      candidates,
 		workspaces:      workspaces,
 		sessions:        sessions,
+		executor:        executor,
 		caller:          caller,
 		newID:           randomRouteID,
 		now:             time.Now,
@@ -96,6 +105,23 @@ func (service *RouteService) ProcessNext(ctx context.Context) (bool, error) {
 	if err := validateRouteServiceRequest(service, ctx); err != nil {
 		return false, err
 	}
+	pending, resolvedPaneID, found, err := service.store.ReadPendingMasterRouteCommand(ctx)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		if err := service.executor.ExecuteMasterRouteCommand(ctx, pending, resolvedPaneID); err != nil {
+			return true, fmt.Errorf("execute committed master route command: %w", err)
+		}
+		completedAt, err := service.timestampAfter(pending.DecidedAt)
+		if err != nil {
+			return true, fmt.Errorf("complete committed master route command: %w", err)
+		}
+		if err := service.store.CompleteMasterRouteCommand(ctx, pending.ID, completedAt); err != nil {
+			return true, fmt.Errorf("complete committed master route command: %w", err)
+		}
+		return true, nil
+	}
 	work, found, err := service.store.ClaimNextMasterRouteInput(ctx, service.timestamp())
 	if err != nil || !found {
 		return false, err
@@ -109,7 +135,7 @@ func (service *RouteService) ProcessNext(ctx context.Context) (bool, error) {
 func validateRouteServiceRequest(service *RouteService, ctx context.Context) error {
 	if service == nil || service.store == nil || service.candidates == nil ||
 		service.workspaces == nil || service.sessions == nil || service.caller == nil ||
-		service.newID == nil || service.now == nil {
+		service.executor == nil || service.newID == nil || service.now == nil {
 		return errors.New("master route service is unavailable")
 	}
 	if ctx == nil {
@@ -221,6 +247,10 @@ func (service *RouteService) commitGeneratedRoute(
 	if err := service.validateDecisionWorkspace(call.Decision); err != nil {
 		return NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
+	command, err := service.buildRouteCommand(call.Decision, materialized.Bundle)
+	if err != nil {
+		return err
+	}
 	invocation, err := routeInvocationAudit(call)
 	if err != nil {
 		return NewRouteAttemptFailure(RouteFailureKindInternal, err)
@@ -241,6 +271,7 @@ func (service *RouteService) commitGeneratedRoute(
 		Context:            materialized.Audit,
 		ResolvedInvocation: invocation,
 		Decision:           call.Decision,
+		ResultingCommand:   command,
 		DecidedAt:          decidedAt,
 	}
 	if err := commit.Validate(); err != nil {
@@ -398,7 +429,19 @@ func (service *RouteService) run() {
 		}
 		for {
 			processed, err := service.ProcessNext(service.lifecycleCtx)
-			if err != nil || !processed {
+			if err != nil {
+				timer := time.NewTimer(time.Second)
+				select {
+				case <-service.lifecycleCtx.Done():
+					if !timer.Stop() {
+						<-timer.C
+					}
+					return
+				case <-timer.C:
+				}
+				break
+			}
+			if !processed {
 				break
 			}
 		}

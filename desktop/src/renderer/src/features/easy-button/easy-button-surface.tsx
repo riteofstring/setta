@@ -328,6 +328,7 @@ function ConversationComposer({
       canSubmit={bindings.canSubmit}
       clarificationQuestion={commands?.clarificationQuestion ?? null}
       input={bindings.input}
+      masterReply={commands?.masterReply ?? null}
       onInput={bindings.onInput}
       onSubmit={bindings.onSubmit}
       onVoiceCapture={bindings.onVoiceCapture}

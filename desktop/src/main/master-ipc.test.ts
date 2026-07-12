@@ -34,10 +34,32 @@ describe("master IPC handlers", () => {
       status: "accepted" as const,
     };
     const interaction = { state };
+    const presentation = {
+      focusExistingConversationPane: null,
+      id: `master-presentation:${request.input.id}`,
+      inputId: request.input.id,
+      kind: "show_master_reply" as const,
+      openConversationPane: null,
+      openSideConversation: null,
+      originatingConversationId: null,
+      originatingConversationInputId: null,
+      originatingPaneId: null,
+      originatingWorkspaceId: null,
+      showMasterReply: { replyKind: "answer" as const, text: "Done." },
+      source: "shell" as const,
+    };
+    const resolutionRequest = {
+      inputId: request.input.id,
+      intentId: presentation.id,
+      paneId: "pane_alpha",
+    };
+    const resolution = { ...resolutionRequest, resolvedAt: "2026-07-12T18:00:02Z" };
     const backend = {
       readActiveMasterShellInteraction: vi.fn(async () => interaction),
+      resolveMasterPresentationIntent: vi.fn(async () => resolution),
       submitMasterInput: vi.fn(async () => accepted),
       waitMasterShellInteraction: vi.fn(async () => state),
+      waitMasterPresentationIntent: vi.fn(async () => presentation),
     } as unknown as BackendClient;
     const observer = observerSpies();
     registerMasterIpcHandlers({
@@ -47,16 +69,26 @@ describe("master IPC handlers", () => {
     });
 
     const loaded = await invoke(handlers, ipcChannels.masterReadActiveInteraction);
+    const resolved = await invoke(
+      handlers,
+      ipcChannels.masterResolvePresentation,
+      resolutionRequest,
+    );
     const submitted = await invoke(handlers, ipcChannels.masterSubmitInput, request);
     const waitRequest = { inputId: request.input.id };
     const waited = await invoke(handlers, ipcChannels.masterWaitInteraction, waitRequest);
+    const presented = await invoke(handlers, ipcChannels.masterWaitPresentation, waitRequest);
 
     expect(backend.readActiveMasterShellInteraction).toHaveBeenCalledOnce();
     expect(loaded).toEqual(interaction);
+    expect(backend.resolveMasterPresentationIntent).toHaveBeenCalledWith(resolutionRequest);
+    expect(resolved).toEqual(resolution);
     expect(backend.submitMasterInput).toHaveBeenCalledWith(request);
     expect(submitted).toEqual(accepted);
     expect(backend.waitMasterShellInteraction).toHaveBeenCalledWith(waitRequest);
     expect(waited).toEqual(state);
+    expect(backend.waitMasterPresentationIntent).toHaveBeenCalledWith(waitRequest);
+    expect(presented).toEqual(presentation);
     expect(observer.finished).toHaveBeenCalledWith(expect.objectContaining({ result: accepted }));
   });
 });

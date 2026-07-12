@@ -173,6 +173,25 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	)
 	masterRoute := waitForRuntimeLiveMasterRoute(t, client, baseURL, acceptedMaster.Input.ID)
 	assertRuntimeLiveMasterRoute(t, masterRoute, opened.Workspace.ID, created.Conversation.ID)
+	presentation := postRuntimeJSON[master.PresentationIntent](
+		t,
+		client,
+		baseURL,
+		"/master/presentation/wait",
+		httpapi.ReadMasterInputRoutingStateRequest{InputID: acceptedMaster.Input.ID},
+		http.StatusOK,
+	)
+	if presentation.InputID != acceptedMaster.Input.ID ||
+		presentation.Kind != master.PresentationIntentKindShowMasterReply ||
+		presentation.ShowMasterReply == nil ||
+		presentation.ShowMasterReply.ReplyKind != master.MasterReplyKindAnswer ||
+		strings.TrimSpace(presentation.ShowMasterReply.Text) != "GLOBAL_ROUTE_OK" {
+		encoded, err := json.MarshalIndent(presentation, "", "  ")
+		if err != nil {
+			t.Fatalf("encode invalid live master presentation: %v", err)
+		}
+		t.Fatalf("live master presentation = %s", encoded)
+	}
 }
 
 func waitForRuntimeLiveMasterRoute(
@@ -213,27 +232,61 @@ func assertRuntimeLiveMasterRoute(
 ) {
 	t.Helper()
 	record := state.Decision
-	if record == nil || record.Decision.Kind != master.RouteDecisionKindAnswerGlobal ||
-		record.Decision.AnswerGlobal == nil ||
-		strings.TrimSpace(record.Decision.AnswerGlobal.Text) != "GLOBAL_ROUTE_OK" ||
-		record.Context.InputSequence != state.Input.Sequence ||
-		!slices.ContainsFunc(record.Context.TargetAuthorities, func(target master.RouteTargetAuthority) bool {
-			return target.ConversationID == conversationID && target.WorkspaceID == workspaceID
-		}) ||
-		!slices.Contains(record.Context.ActiveWorkspaceIDs, workspaceID) ||
-		record.ResolvedInvocation.Configuration.ResolvedModel != "gpt-5.6-terra" ||
-		record.ResolvedInvocation.Configuration.ResolvedPermissionMode != "read_only" ||
-		record.ResolvedInvocation.Configuration.ResolvedApprovalMode != "never" ||
-		record.ResolvedInvocation.ProviderRequestID == "" ||
-		record.ResolvedInvocation.ProviderThreadID == "" ||
-		record.ResolvedInvocation.ProviderTurnID == "" ||
-		record.ResolvedInvocation.InputBytes <= 0 || record.ResolvedInvocation.OutputBytes <= 0 {
+	if !validRuntimeLiveMasterRoute(record, state.Input.Sequence, workspaceID, conversationID) {
 		encoded, err := json.MarshalIndent(state, "", "  ")
 		if err != nil {
 			t.Fatalf("encode invalid live master route decision: %v", err)
 		}
 		t.Fatalf("live master route decision = %s", encoded)
 	}
+}
+
+func validRuntimeLiveMasterRoute(
+	record *master.RouteDecisionRecord,
+	inputSequence int,
+	workspaceID string,
+	conversationID string,
+) bool {
+	if record == nil {
+		return false
+	}
+	return validRuntimeLiveMasterAnswer(*record) &&
+		validRuntimeLiveMasterContext(*record, inputSequence, workspaceID, conversationID) &&
+		validRuntimeLiveMasterInvocation(record.ResolvedInvocation)
+}
+
+func validRuntimeLiveMasterAnswer(record master.RouteDecisionRecord) bool {
+	return record.Decision.Kind == master.RouteDecisionKindAnswerGlobal &&
+		record.Decision.AnswerGlobal != nil &&
+		strings.TrimSpace(record.Decision.AnswerGlobal.Text) == "GLOBAL_ROUTE_OK" &&
+		record.ResultingCommand.Kind == master.RouteDecisionKindAnswerGlobal &&
+		record.ResultingCommand.AnswerGlobal != nil &&
+		strings.TrimSpace(record.ResultingCommand.AnswerGlobal.Text) == "GLOBAL_ROUTE_OK"
+}
+
+func validRuntimeLiveMasterContext(
+	record master.RouteDecisionRecord,
+	inputSequence int,
+	workspaceID string,
+	conversationID string,
+) bool {
+	authorized := slices.ContainsFunc(record.Context.TargetAuthorities, func(target master.RouteTargetAuthority) bool {
+		return target.ConversationID == conversationID && target.WorkspaceID == workspaceID
+	})
+	return record.Context.InputSequence == inputSequence &&
+		authorized &&
+		slices.Contains(record.Context.ActiveWorkspaceIDs, workspaceID)
+}
+
+func validRuntimeLiveMasterInvocation(invocation master.RouteInvocationAudit) bool {
+	return invocation.Configuration.ResolvedModel == "gpt-5.6-terra" &&
+		invocation.Configuration.ResolvedPermissionMode == "read_only" &&
+		invocation.Configuration.ResolvedApprovalMode == "never" &&
+		invocation.ProviderRequestID != "" &&
+		invocation.ProviderThreadID != "" &&
+		invocation.ProviderTurnID != "" &&
+		invocation.InputBytes > 0 &&
+		invocation.OutputBytes > 0
 }
 
 func waitForRuntimeLiveConversationRoute(

@@ -155,13 +155,14 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
   const persistLayout = useCallback(() => {
     runtime.presentation.syncPanes(runtime.store.toScene().panes);
     if (runtime.mode !== "workspace") {
-      return;
+      return Promise.resolve(true);
     }
     const layout = workspaceUILayoutFromScene(
       workspaceId,
       runtime.store.toScene(),
       runtime.store.focusedPaneId(),
     );
+    let persisted = true;
     pendingLayoutSaveRef.current = pendingLayoutSaveRef.current
       .catch(() => {})
       .then(() => window.setta.workspace.saveUILayout(layout))
@@ -169,8 +170,10 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
         setLayoutPersistenceError(null);
       })
       .catch((error: unknown) => {
+        persisted = false;
         setLayoutPersistenceError(layoutOperationErrorMessage(error));
       });
+    return pendingLayoutSaveRef.current.then(() => persisted);
   }, [runtime, workspaceId]);
   const resetLayoutPersistenceError = useCallback(() => {
     setLayoutPersistenceError(null);

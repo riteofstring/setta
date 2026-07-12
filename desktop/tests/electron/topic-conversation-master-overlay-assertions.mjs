@@ -17,6 +17,7 @@ export async function exerciseMasterOverlayEntryPoints({
   text,
   timeoutMs,
   workspaceId,
+  waitForNavigation = false,
 }) {
   await assertFixedMasterLauncher(client, timeoutMs);
   await openFromSidebarAndRetainDraft(client, text, timeoutMs);
@@ -29,8 +30,12 @@ export async function exerciseMasterOverlayEntryPoints({
   const recorded = await waitForRecordedMasterOverlayInput(artifactDirectory, text, timeoutMs);
   assertRecordedTypedMasterInput(recorded, workspaceId);
 
-  await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
-  await waitForMasterOverlayClosed(client, timeoutMs);
+  if (waitForNavigation) {
+    await waitForMasterOverlayClosed(client, timeoutMs);
+  } else {
+    await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
+    await waitForMasterOverlayClosed(client, timeoutMs);
+  }
   await clickEnabledButtonByAria(client, "Show project sidebar", timeoutMs);
   await waitForSelector(client, '[data-testid="master-sidebar-launcher"]', timeoutMs);
   return recorded;
@@ -341,9 +346,27 @@ function masterRouteRecordMatches(record, expectedInputId, expectedKind, expecte
     record?.inputId === expectedInputId,
     record?.routingAttempt === 1,
     record?.decision?.kind === expectedKind,
+    validMasterRouteCommand(record?.resultingCommand, expectedKind),
     matchesOptionalValue(record?.masterSessionId, expectedSessionId),
     nonEmptyString(record?.masterSessionId),
   ].every(Boolean);
+}
+
+function validMasterRouteCommand(command, expectedKind) {
+  if (command?.kind !== expectedKind) return false;
+  const payloads = [
+    command.answerGlobal,
+    command.askNarrator,
+    command.clarify,
+    command.createConversation,
+    command.createSideConversation,
+    command.focusConversation,
+    command.forkConversation,
+    command.queueAgentTurn,
+    command.sendToAgent,
+    command.steerActiveTurn,
+  ];
+  return payloads.filter((payload) => payload !== null).length === 1;
 }
 
 function matchesOptionalValue(actual, expected) {
@@ -401,14 +424,30 @@ function masterRouteContextIsRedacted(context) {
 
 function masterRouteTargetIsAuthorized(record, expectedKind, expectedTargetId) {
   const branch = masterRouteTargetBranch(record?.decision);
+  const command = masterRouteTargetBranch(record?.resultingCommand);
   const authority = record?.context?.targetAuthorities?.find((target) =>
     masterRouteAuthorityMatches(target, expectedKind, expectedTargetId),
   );
   return [
-    branch?.conversationId === expectedTargetId,
+    masterRouteDecisionTargets(branch, expectedKind, expectedTargetId),
+    masterRouteCommandTargets(command, expectedKind, expectedTargetId),
     record?.context?.includedCandidateIds?.includes(expectedTargetId),
     authority !== undefined,
   ].every(Boolean);
+}
+
+function masterRouteDecisionTargets(branch, expectedKind, expectedTargetId) {
+  if (["create_side_conversation", "fork_conversation"].includes(expectedKind)) {
+    return branch?.parentConversationId === expectedTargetId;
+  }
+  return branch?.conversationId === expectedTargetId;
+}
+
+function masterRouteCommandTargets(command, expectedKind, expectedTargetId) {
+  if (expectedKind === "fork_conversation") {
+    return command?.parentConversationId === expectedTargetId;
+  }
+  return command?.target?.conversationId === expectedTargetId;
 }
 
 function masterRouteAuthorityMatches(target, expectedKind, expectedTargetId) {

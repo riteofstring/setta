@@ -1,12 +1,19 @@
+import type { PresentationIntent } from "@generated/backend";
+
 import type { WorkspaceLayoutStore } from "./layout-store";
 
-export const conversationPanePresentationRequestEvent =
-  "setta:conversation-pane-presentation-request";
+export const conversationPaneNavigationRequestEvent = "setta:conversation-pane-navigation-request";
 
 export interface ConversationPanePresentationRequest {
   conversationId: string;
+  preferredPaneId?: string | null;
   title: string;
   workspaceId: string;
+}
+
+export interface ConversationPaneNavigationEventDetail {
+  completion: Promise<ConversationPanePresentationResult> | null;
+  request: ConversationPanePresentationRequest;
 }
 
 export type ConversationPanePresentationResult =
@@ -14,29 +21,75 @@ export type ConversationPanePresentationResult =
   | { kind: "opened"; paneId: string }
   | { kind: "blocked"; reason: string };
 
-export interface ConversationPanePresentationEventDetail {
-  request: ConversationPanePresentationRequest;
-  result: ConversationPanePresentationResult | null;
+export type ConversationPanePresentationSuccess = Exclude<
+  ConversationPanePresentationResult,
+  { kind: "blocked" }
+>;
+
+export function conversationPaneRequestForPresentationIntent(
+  intent: PresentationIntent,
+): ConversationPanePresentationRequest | null {
+  switch (intent.kind) {
+    case "focus_existing_conversation_pane":
+      return presentationTargetRequest(
+        requiredPayload(intent.focusExistingConversationPane, intent),
+      );
+    case "open_conversation_pane":
+      return presentationTargetRequest(requiredPayload(intent.openConversationPane, intent));
+    case "open_side_conversation_in_parent_pane":
+      return presentationTargetRequest(requiredPayload(intent.openSideConversation, intent));
+    case "show_master_reply":
+      requiredPayload(intent.showMasterReply, intent);
+      return null;
+    default:
+      return assertNever(intent.kind);
+  }
 }
 
-export function requestConversationPanePresentation(
-  request: ConversationPanePresentationRequest,
-): ConversationPanePresentationResult {
-  if (typeof window === "undefined") {
-    return { kind: "blocked", reason: "The workspace pane coordinator is unavailable." };
+function presentationTargetRequest(payload: {
+  target: {
+    conversationId: string;
+    preferredPaneId: string | null;
+    title: string;
+    workspaceId: string;
+  };
+}): ConversationPanePresentationRequest {
+  return {
+    conversationId: payload.target.conversationId,
+    preferredPaneId: payload.target.preferredPaneId,
+    title: payload.target.title,
+    workspaceId: payload.target.workspaceId,
+  };
+}
+
+function requiredPayload<Payload>(payload: Payload | null, intent: PresentationIntent): Payload {
+  if (payload === null) {
+    throw new Error(
+      `Master presentation intent ${intent.id} is missing its ${intent.kind} payload.`,
+    );
   }
-  const detail: ConversationPanePresentationEventDetail = { request, result: null };
+  return payload;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported master presentation intent: ${String(value)}`);
+}
+
+export function requestConversationPaneNavigation(
+  request: ConversationPanePresentationRequest,
+): Promise<ConversationPanePresentationResult> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("The application pane coordinator is unavailable."));
+  }
+  const detail: ConversationPaneNavigationEventDetail = { completion: null, request };
   window.dispatchEvent(
-    new CustomEvent<ConversationPanePresentationEventDetail>(
-      conversationPanePresentationRequestEvent,
-      { detail },
-    ),
+    new CustomEvent<ConversationPaneNavigationEventDetail>(conversationPaneNavigationRequestEvent, {
+      detail,
+    }),
   );
   return (
-    detail.result ?? {
-      kind: "blocked",
-      reason: `Workspace ${request.workspaceId} is not mounted.`,
-    }
+    detail.completion ??
+    Promise.reject(new Error("The application pane coordinator is unavailable."))
   );
 }
 
@@ -58,7 +111,10 @@ export function presentConversationPane(
         pane.easyButtonConfig?.conversationId === request.conversationId,
     )
     .map((pane) => pane.paneId);
-  const existingPaneId = store.mostRecentlyFocusedPaneId(matchingPaneIds);
+  const existingPaneId =
+    request.preferredPaneId && matchingPaneIds.includes(request.preferredPaneId)
+      ? request.preferredPaneId
+      : store.mostRecentlyFocusedPaneId(matchingPaneIds);
   if (existingPaneId !== null) {
     clearMaximizedPane(store);
     store.focusPane(existingPaneId);

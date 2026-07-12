@@ -504,6 +504,7 @@ export class AppShellSpeechCaptureController {
         this.conversationSubmission.submitTranscript({
           captureSessionId,
           request: conversationSpeechCaptureRequest(
+            request.destination.workspaceId,
             request.destination.conversationId,
             requiredConversationSourcePane(request.sourcePaneId),
           ),
@@ -838,6 +839,7 @@ function speechCaptureRequestsEqual(
     case "conversation":
       return (
         right.destination.type === "conversation" &&
+        left.destination.workspaceId === right.destination.workspaceId &&
         left.destination.conversationId === right.destination.conversationId &&
         left.sourcePaneId === right.sourcePaneId
       );

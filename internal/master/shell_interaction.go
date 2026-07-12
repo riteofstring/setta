@@ -24,8 +24,9 @@ type ShellInteractionState struct {
 }
 
 // ActiveShellInteraction contains only shell state that may be restored into
-// the action overlay. Completed decisions remain durable for routing context
-// and audit but are deliberately absent from this projection.
+// the action overlay. Completed answers remain durable for routing context and
+// audit but are deliberately absent; navigation remains restorable until a
+// renderer durably resolves its destination pane.
 type ActiveShellInteraction struct {
 	State *ShellInteractionState `json:"state"`
 }
@@ -135,8 +136,27 @@ func IsRestorableShellInteractionState(state ShellInteractionState) bool {
 	case InputRoutingStatusAccepted, InputRoutingStatusRouting:
 		return true
 	case InputRoutingStatusDecided:
-		return state.Decision != nil && state.Decision.Kind == RouteDecisionKindClarify
+		return state.Decision != nil &&
+			(state.Decision.Kind == RouteDecisionKindClarify || RouteDecisionRequiresNavigation(*state.Decision))
 	case InputRoutingStatusFailed:
+		return false
+	default:
+		return false
+	}
+}
+
+func RouteDecisionRequiresNavigation(decision RouteDecision) bool {
+	switch decision.Kind {
+	case RouteDecisionKindSendToAgent,
+		RouteDecisionKindQueueAgentTurn,
+		RouteDecisionKindSteerActiveTurn,
+		RouteDecisionKindAskNarrator,
+		RouteDecisionKindFocusConversation,
+		RouteDecisionKindCreateConversation,
+		RouteDecisionKindCreateSideConversation,
+		RouteDecisionKindForkConversation:
+		return true
+	case RouteDecisionKindClarify, RouteDecisionKindAnswerGlobal:
 		return false
 	default:
 		return false

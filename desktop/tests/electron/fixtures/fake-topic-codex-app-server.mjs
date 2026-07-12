@@ -482,10 +482,18 @@ function validMasterEscalationInput(input) {
   ].every(Boolean);
 }
 
+const scriptedMasterRouteDecisionByText = new Map([
+  ["Focus Alpha topic.", scriptedMasterFocusDecision],
+  ["Create Gamma topic.", scriptedMasterCreateDecision],
+  ["Open an Alpha side.", scriptedMasterSideDecision],
+  ["Fork Alpha topic.", scriptedMasterForkDecision],
+]);
+
 function scriptedMasterRouteDecision(context, schema) {
   const input = context.input?.input;
-  if (input?.text === "Focus Alpha topic.") {
-    return scriptedMasterFocusDecision(context, schema, input);
+  const scriptedDecision = scriptedMasterRouteDecisionByText.get(input?.text);
+  if (scriptedDecision) {
+    return scriptedDecision(context, schema, input);
   }
   if (masterInputNeedsClarification(input)) {
     return scriptedMasterClarificationDecision(context, schema);
@@ -494,6 +502,61 @@ function scriptedMasterRouteDecision(context, schema) {
     return scriptedMasterVoiceDecision(context, schema);
   }
   return null;
+}
+
+function scriptedMasterCreateDecision(context, schema) {
+  const workspace = context.openWorkspaces?.[0];
+  const valid = [
+    context.allowedDecisionKinds.includes("create_conversation"),
+    nonEmptyString(workspace?.workspaceId),
+    schema.includes(`"${workspace?.workspaceId}"`),
+  ].every(Boolean);
+  return valid
+    ? {
+        initialInput: "Start the Gamma topic from the global master.",
+        kind: "create_conversation",
+        proposedTitle: "Gamma topic",
+        workspaceId: workspace.workspaceId,
+      }
+    : null;
+}
+
+function scriptedMasterSideDecision(context, schema) {
+  const target = masterTargetByTitle(context, "Alpha topic");
+  const valid = [
+    target?.allowedDecisionKinds?.includes("create_side_conversation"),
+    schema.includes(`"${target?.conversationId}"`),
+  ].every(Boolean);
+  return valid
+    ? {
+        input: "Answer this short Alpha tangent.",
+        kind: "create_side_conversation",
+        parentConversationId: target.conversationId,
+      }
+    : null;
+}
+
+function scriptedMasterForkDecision(context, schema) {
+  const target = masterTargetByTitle(context, "Alpha topic");
+  const forkPoint = target?.completedForkPoints?.at(-1);
+  const valid = [
+    target?.allowedDecisionKinds?.includes("fork_conversation"),
+    nonEmptyString(forkPoint?.turnId),
+    schema.includes(`"${target?.conversationId}"`),
+    schema.includes(`"${forkPoint?.turnId}"`),
+  ].every(Boolean);
+  return valid
+    ? {
+        forkedAtTurnId: forkPoint.turnId,
+        input: "Continue this Alpha work as a durable master fork.",
+        kind: "fork_conversation",
+        parentConversationId: target.conversationId,
+      }
+    : null;
+}
+
+function masterTargetByTitle(context, title) {
+  return context.conversationTargets?.find((target) => target.title === title);
 }
 
 function masterInputNeedsClarification(input) {

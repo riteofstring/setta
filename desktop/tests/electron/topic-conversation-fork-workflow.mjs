@@ -754,13 +754,6 @@ export async function exerciseDurableForkWorkflow({
   );
   const forkTopicSummary = assertDurableForkCreation(forkSnapshot, parentSnapshot, sourceTurn);
 
-  assertDriverAction(
-    await client.driver("topicConversationOpenBoundPane", {
-      conversationId: forkTopicSummary.id,
-    }),
-    "requested",
-  );
-
   const childPresentation = await waitForConversationSurface(
     client,
     forkTopicSummary.id,
@@ -771,6 +764,14 @@ export async function exerciseDurableForkWorkflow({
     timeoutMs,
   );
   await waitForConversationNavigatorRow(client, forkTopicSummary.id, timeoutMs);
+  await waitForState(
+    client,
+    driverCallExpression("topicConversationNavigatorState", {
+      conversationId: forkTopicSummary.id,
+    }),
+    (state) => state.focusedPaneId === childPresentation.paneId && state.openViewCount === 1,
+    timeoutMs,
+  );
   const parentSurfaces = await waitForConversationSurfaces(
     client,
     (surfaces) => conversationSurfaces(surfaces, parentTopic.id).length === 1,

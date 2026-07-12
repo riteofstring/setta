@@ -84,11 +84,16 @@ function masterController(restored: ShellInteractionState | null = null): AppShe
   return new AppShellMasterController({
     createInputId: () => `master_input_${++inputOrdinal}`,
     now: () => new Date("2026-07-13T20:00:00Z"),
+    presentPresentationIntent: async () => ({ paneId: "pane_alpha" }),
     readActiveInteraction: async () => ({ state: restored }),
     readFocusHints: () => ({
       focusedConversationId: null,
       focusedPaneId: null,
       focusedWorkspaceId: "workspace_alpha",
+    }),
+    resolvePresentationIntent: async (request) => ({
+      ...request,
+      resolvedAt: "2026-07-13T20:00:02Z",
     }),
     submitMasterInput: async (request) => acceptedInput(request, inputOrdinal),
     waitShellInteraction: async ({ inputId }) =>
@@ -100,6 +105,20 @@ function masterController(restored: ShellInteractionState | null = null): AppShe
           inputOrdinal,
         ),
       ),
+    waitPresentationIntent: async ({ inputId }) => ({
+      focusExistingConversationPane: null,
+      id: `master-presentation:${inputId}`,
+      inputId,
+      kind: "show_master_reply",
+      openConversationPane: null,
+      openSideConversation: null,
+      originatingConversationId: null,
+      originatingConversationInputId: null,
+      originatingPaneId: null,
+      originatingWorkspaceId: null,
+      showMasterReply: { replyKind: "answer", text: "The global router is ready." },
+      source: "shell",
+    }),
   });
 }
 

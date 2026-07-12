@@ -1,5 +1,6 @@
 import type {
   AcceptedMasterInput,
+  PresentationIntent,
   RouteDecision,
   RouteDecisionKind,
   ShellInteractionState,
@@ -163,6 +164,97 @@ describe("app-shell master controller", () => {
     expect(harness.controller.getSnapshot()).not.toHaveProperty("history");
   });
 
+  test("applies a completed navigation intent before dismissing the shell overlay", async () => {
+    const applied = deferred<{ paneId: string }>();
+    const resolved = deferred<{
+      inputId: string;
+      intentId: string;
+      paneId: string;
+      resolvedAt: string;
+    }>();
+    const present = vi.fn(() => applied.promise);
+    const resolve = vi.fn(() => resolved.promise);
+    const harness = createHarness({
+      presentPresentationIntent: present,
+      resolvePresentationIntent: resolve,
+      waitPresentationIntent: async ({ inputId }) => focusPresentation(inputId),
+      waitShellInteraction: async ({ inputId }) =>
+        decidedState(
+          acceptedFor({ input: shellInput(inputId, "text", "Focus alpha") }, 1),
+          "focus_conversation",
+        ),
+    });
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+
+    harness.controller.submitText("Focus alpha");
+    await waitForInteraction(harness.controller, "decided");
+    expect(present).toHaveBeenCalledWith(focusPresentation("master_input_1"));
+    expect(harness.controller.getSnapshot().overlayOpen).toBe(true);
+    expect(harness.controller.canSubmitInput()).toBe(false);
+    harness.controller.closeOverlay();
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      interaction: { type: "active" },
+      overlayOpen: false,
+    });
+
+    applied.resolve({ paneId: "pane_alpha" });
+    await flushPromises();
+    expect(resolve).toHaveBeenCalledWith({
+      inputId: "master_input_1",
+      intentId: "master-presentation:master_input_1",
+      paneId: "pane_alpha",
+    });
+    expect(harness.controller.getSnapshot().overlayOpen).toBe(false);
+
+    resolved.resolve({
+      inputId: "master_input_1",
+      intentId: "master-presentation:master_input_1",
+      paneId: "pane_alpha",
+      resolvedAt: "2026-07-12T18:00:01Z",
+    });
+    await flushPromises();
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      interaction: { type: "idle" },
+      overlayOpen: false,
+      submission: { type: "idle" },
+    });
+  });
+
+  test("resumes an unresolved navigation intent restored after restart", async () => {
+    const accepted = acceptedFor(
+      { input: shellInput("master_input_restored", "text", "Focus alpha") },
+      1,
+    );
+    const restored = decidedState(accepted, "focus_conversation");
+    const present = vi.fn(async () => ({ paneId: "pane_restored" }));
+    const resolve = vi.fn(async (request) => ({
+      ...request,
+      resolvedAt: "2026-07-12T18:00:02Z",
+    }));
+    const harness = createHarness({
+      presentPresentationIntent: present,
+      readActiveInteraction: async () => ({ state: restored }),
+      resolvePresentationIntent: resolve,
+      waitPresentationIntent: async ({ inputId }) => focusPresentation(inputId),
+    });
+
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    await flushPromises();
+
+    expect(present).toHaveBeenCalledWith(focusPresentation("master_input_restored"));
+    expect(resolve).toHaveBeenCalledWith({
+      inputId: "master_input_restored",
+      intentId: "master-presentation:master_input_restored",
+      paneId: "pane_restored",
+    });
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      interaction: { type: "idle" },
+      overlayOpen: false,
+    });
+  });
+
   test("reports active-interaction restore failure and retries explicitly", async () => {
     const readActiveInteraction = vi
       .fn<AppShellMasterControllerDependencies["readActiveInteraction"]>()
@@ -293,43 +385,122 @@ describe("app-shell master controller", () => {
 
 function createHarness(overrides: Partial<AppShellMasterControllerDependencies> = {}) {
   const requests: SubmitMasterInputRequest[] = [];
-  let inputOrdinal = 0;
-  const submitMasterInput =
-    overrides.submitMasterInput ??
-    (async (request: SubmitMasterInputRequest) => acceptedFor(request, requests.length));
-  const waitShellInteraction =
-    overrides.waitShellInteraction ??
-    (async ({ inputId }) => {
-      const request = requests.find((candidate) => candidate.input.id === inputId);
-      if (!request) throw new Error(`master input ${inputId} was not submitted`);
-      return decidedState(acceptedFor(request, requests.indexOf(request) + 1), "answer_global");
-    });
+  const settledStates = new Map<string, ShellInteractionState>();
+  const selected = {
+    ...defaultHarnessDependencies(requests, settledStates),
+    ...overrides,
+  };
   const dependencies: AppShellMasterControllerDependencies = {
+    ...selected,
+    submitMasterInput: async (request) => {
+      requests.push(request);
+      return selected.submitMasterInput(request);
+    },
+    waitShellInteraction: async (request) => {
+      const state = await selected.waitShellInteraction(request);
+      settledStates.set(request.inputId, state);
+      return state;
+    },
+  };
+  return { controller: new AppShellMasterController(dependencies), requests };
+}
+
+function defaultHarnessDependencies(
+  requests: SubmitMasterInputRequest[],
+  settledStates: Map<string, ShellInteractionState>,
+): AppShellMasterControllerDependencies {
+  let inputOrdinal = 0;
+  return {
     createInputId: () => {
       inputOrdinal += 1;
       return `master_input_${inputOrdinal}`;
     },
     now: () => new Date("2026-07-12T18:00:00.120Z"),
+    presentPresentationIntent: async () => ({ paneId: "pane_alpha" }),
     readActiveInteraction: async () => ({ state: null }),
     readFocusHints: () => ({
       focusedConversationId: "conversation_alpha",
       focusedPaneId: "pane_alpha",
       focusedWorkspaceId: "workspace_alpha",
     }),
-    submitMasterInput: async (request) => {
-      requests.push(request);
-      return submitMasterInput(request);
+    resolvePresentationIntent: async (request) => ({
+      ...request,
+      resolvedAt: "2026-07-12T18:00:01Z",
+    }),
+    submitMasterInput: async (request) => acceptedFor(request, requests.length),
+    waitShellInteraction: async ({ inputId }) => {
+      const request = requests.find((candidate) => candidate.input.id === inputId);
+      if (!request) throw new Error(`master input ${inputId} was not submitted`);
+      return decidedState(acceptedFor(request, requests.indexOf(request) + 1), "answer_global");
     },
-    waitShellInteraction,
-    ...overrides,
+    waitPresentationIntent: async ({ inputId }) => {
+      const state = settledStates.get(inputId);
+      if (!state) throw new Error(`master input ${inputId} has not settled`);
+      return presentationFor(state);
+    },
   };
-  if (overrides.submitMasterInput) {
-    dependencies.submitMasterInput = async (request) => {
-      requests.push(request);
-      return overrides.submitMasterInput!(request);
-    };
+}
+
+function presentationFor(state: ShellInteractionState): PresentationIntent {
+  const decision = state.decision;
+  if (decision === null) {
+    throw new Error("master reply presentation requires a decision");
   }
-  return { controller: new AppShellMasterController(dependencies), requests };
+  if (decision.kind === "clarify") {
+    return masterReplyPresentation(state.input.id, "clarification", decision.clarify?.question);
+  }
+  if (decision.kind === "answer_global") {
+    return masterReplyPresentation(state.input.id, "answer", decision.answerGlobal?.text);
+  }
+  throw new Error(`master reply presentation does not support ${decision.kind}`);
+}
+
+function masterReplyPresentation(
+  inputId: string,
+  replyKind: "answer" | "clarification",
+  text: string | undefined,
+): PresentationIntent {
+  if (!text) {
+    throw new Error(`master ${replyKind} presentation requires text`);
+  }
+  return {
+    focusExistingConversationPane: null,
+    id: `master-presentation:${inputId}`,
+    inputId,
+    kind: "show_master_reply",
+    openConversationPane: null,
+    openSideConversation: null,
+    originatingConversationId: null,
+    originatingConversationInputId: null,
+    originatingPaneId: null,
+    originatingWorkspaceId: null,
+    showMasterReply: { replyKind, text },
+    source: "shell",
+  };
+}
+
+function focusPresentation(inputId: string): PresentationIntent {
+  return {
+    focusExistingConversationPane: {
+      target: {
+        conversationId: "conversation_alpha",
+        preferredPaneId: "pane_alpha",
+        title: "Alpha topic",
+        workspaceId: "workspace_alpha",
+      },
+    },
+    id: `master-presentation:${inputId}`,
+    inputId,
+    kind: "focus_existing_conversation_pane",
+    openConversationPane: null,
+    openSideConversation: null,
+    originatingConversationId: null,
+    originatingConversationInputId: null,
+    originatingPaneId: null,
+    originatingWorkspaceId: null,
+    showMasterReply: null,
+    source: "shell",
+  };
 }
 
 function shellInput(

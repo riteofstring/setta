@@ -95,3 +95,45 @@ func (handler handler) waitMasterShellInteraction(response http.ResponseWriter, 
 	}
 	writeJSON(response, http.StatusOK, state)
 }
+
+func (handler handler) waitMasterPresentationIntent(response http.ResponseWriter, request *http.Request) {
+	service := requireMasterInputService(response, handler.masterInputService)
+	if service == nil {
+		return
+	}
+	var payload ReadMasterInputRoutingStateRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	intent, err := service.WaitPresentationIntent(request.Context(), payload.InputID)
+	if err != nil {
+		writeMasterInputStateError(response, err)
+		return
+	}
+	if err := intent.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_master_presentation_intent", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, intent)
+}
+
+func (handler handler) resolveMasterPresentationIntent(response http.ResponseWriter, request *http.Request) {
+	service := requireMasterInputService(response, handler.masterInputService)
+	if service == nil {
+		return
+	}
+	var payload master.PresentationResolutionRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	resolution, err := service.ResolvePresentationIntent(request.Context(), payload)
+	if err != nil {
+		writeMasterInputStateError(response, err)
+		return
+	}
+	if err := resolution.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_master_presentation_resolution", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, resolution)
+}

@@ -151,6 +151,7 @@ describe("app-shell speech capture controller", () => {
       destination: {
         conversationId: "conversation_original",
         type: "conversation" as const,
+        workspaceId: "workspace_original",
       },
       sourcePaneId: "pane_original",
     };
@@ -164,6 +165,7 @@ describe("app-shell speech capture controller", () => {
         destination: {
           conversationId: "conversation_original",
           type: "conversation",
+          workspaceId: "workspace_original",
         },
         sourcePaneId: "pane_original",
       },
@@ -195,6 +197,7 @@ describe("app-shell speech capture controller", () => {
         destination: {
           conversationId: "conversation_original",
           type: "conversation",
+          workspaceId: "workspace_original",
         },
         sourcePaneId: "pane_original",
       },
@@ -206,7 +209,7 @@ describe("app-shell speech capture controller", () => {
     ]);
 
     await harness.controller.start(
-      conversationSpeechCaptureRequest("conversation_second", "pane_second"),
+      conversationSpeechCaptureRequest("workspace_second", "conversation_second", "pane_second"),
     );
     expect(harness.currentCapture()).toMatchObject({
       code: "conversation_submission_pending",
@@ -316,7 +319,7 @@ describe("app-shell speech capture controller", () => {
     const harness = createHarness({ submitConversationInput: submit });
     await harness.connectAndEnable();
     const start = harness.controller.start(
-      conversationSpeechCaptureRequest("conversation_retry", "pane_retry"),
+      conversationSpeechCaptureRequest("workspace_retry", "conversation_retry", "pane_retry"),
     );
     await harness.waitForTransport();
     harness.transport.resolveReady();
@@ -335,12 +338,12 @@ describe("app-shell speech capture controller", () => {
       },
       conversationSubmission: {
         message:
-          "Setta could not accept the conversation voice request. Retry without recording it again.",
+          "Setta could not finish the conversation voice request. Retry without recording it again.",
         type: "failed",
       },
     });
     await harness.controller.start(
-      conversationSpeechCaptureRequest("conversation_other", "pane_other"),
+      conversationSpeechCaptureRequest("workspace_other", "conversation_other", "pane_other"),
     );
     expect(harness.currentCapture()).toMatchObject({
       code: "conversation_submission_failed",
@@ -358,7 +361,7 @@ describe("app-shell speech capture controller", () => {
       sequence: 1,
       status: "accepted",
     });
-    await flushPromises();
+    await harness.waitForConversationSubmission("accepted");
     expect(harness.controller.getSnapshot().conversationSubmission.type).toBe("accepted");
 
     const failedDiscard = createHarness({
@@ -368,7 +371,7 @@ describe("app-shell speech capture controller", () => {
     });
     await failedDiscard.connectAndEnable();
     const discardStart = failedDiscard.controller.start(
-      conversationSpeechCaptureRequest("conversation_discard", "pane_discard"),
+      conversationSpeechCaptureRequest("workspace_discard", "conversation_discard", "pane_discard"),
     );
     await failedDiscard.waitForTransport();
     failedDiscard.transport.resolveReady();
@@ -389,7 +392,7 @@ describe("app-shell speech capture controller", () => {
     const harness = createHarness({ submitConversationInput: () => pending.promise });
     await harness.connectAndEnable();
     const start = harness.controller.start(
-      conversationSpeechCaptureRequest("conversation_old", "pane_old"),
+      conversationSpeechCaptureRequest("workspace_old", "conversation_old", "pane_old"),
     );
     await harness.waitForTransport();
     harness.transport.resolveReady();
@@ -419,7 +422,11 @@ describe("app-shell speech capture controller", () => {
   test("a repeated pane capture request commits only its matching active capture", async () => {
     const harness = createHarness();
     await harness.connectAndEnable();
-    const request = conversationSpeechCaptureRequest("conversation_toggle", "pane_toggle");
+    const request = conversationSpeechCaptureRequest(
+      "workspace_toggle",
+      "conversation_toggle",
+      "pane_toggle",
+    );
     const start = harness.controller.start(request);
     await harness.waitForTransport();
     harness.transport.resolveReady();
@@ -427,7 +434,7 @@ describe("app-shell speech capture controller", () => {
 
     await expect(
       harness.controller.start(
-        conversationSpeechCaptureRequest("conversation_other", "pane_other"),
+        conversationSpeechCaptureRequest("workspace_other", "conversation_other", "pane_other"),
       ),
     ).rejects.toThrow("another global speech capture is already active");
     expect(harness.currentCapture()).toMatchObject({
@@ -671,6 +678,7 @@ interface HarnessOverrides {
   onCaptureStart?: () => void;
   readCapabilities?: () => Promise<SpeechCapabilities>;
   readPreference?: AppShellSpeechCaptureControllerDependencies["readPreference"];
+  settleConversationInput?: AppShellSpeechCaptureControllerDependencies["settleConversationInput"];
   submitConversationInput?: (
     request: SubmitConversationInputRequest,
   ) => Promise<AcceptedConversationInput>;
@@ -725,6 +733,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
       timerDelayMs = delayMs;
       return Symbol("timer");
     },
+    settleConversationInput: overrides.settleConversationInput ?? (async () => {}),
     support: overrides.support ?? (() => ({ supported: true })),
     submitConversationInput: async (request) => {
       conversationInputRequests.push(request);
@@ -748,11 +757,16 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const masterController = new AppShellMasterController({
     createInputId: () => "unused_text_input",
     now: dependencies.now,
+    presentPresentationIntent: async () => ({ paneId: "pane_capture" }),
     readActiveInteraction: async () => ({ state: null }),
     readFocusHints: () => ({
       focusedConversationId: null,
       focusedPaneId: null,
       focusedWorkspaceId: "workspace_capture",
+    }),
+    resolvePresentationIntent: async (request) => ({
+      ...request,
+      resolvedAt: "2026-07-12T18:00:02Z",
     }),
     submitMasterInput: async (request) => {
       masterInputRequests.push(request);
@@ -790,6 +804,9 @@ function createHarness(overrides: HarnessOverrides = {}) {
         input: accepted.input,
         status: "failed",
       };
+    },
+    waitPresentationIntent: async () => {
+      throw new Error("failed master inputs do not produce presentation intents");
     },
   });
   const controller = new AppShellSpeechCaptureController(dependencies, masterController);

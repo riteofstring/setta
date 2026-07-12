@@ -385,12 +385,24 @@ CREATE TABLE master_route_decisions (
   candidate_context_json TEXT NOT NULL CHECK (json_valid(candidate_context_json)),
   resolved_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_invocation_json)),
   route_decision_json TEXT NOT NULL CHECK (json_valid(route_decision_json)),
-  resulting_command_json TEXT CHECK (resulting_command_json IS NULL OR json_valid(resulting_command_json)),
+  resulting_command_json TEXT NOT NULL CHECK (json_valid(resulting_command_json)),
   decided_at TEXT NOT NULL
 ) STRICT;
 
 CREATE INDEX master_route_decisions_session_stream_idx
   ON master_route_decisions(master_session_id, stream_sequence);
+
+CREATE TABLE master_presentation_resolutions (
+  decision_id TEXT PRIMARY KEY REFERENCES master_route_decisions(id) ON DELETE CASCADE,
+  intent_id TEXT NOT NULL UNIQUE,
+  pane_id TEXT NOT NULL,
+  resolved_at TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE master_route_command_completions (
+  decision_id TEXT PRIMARY KEY REFERENCES master_route_decisions(id) ON DELETE CASCADE,
+  completed_at TEXT NOT NULL
+) STRICT;
 
 CREATE TABLE pane_bindings (
   pane_id TEXT PRIMARY KEY,

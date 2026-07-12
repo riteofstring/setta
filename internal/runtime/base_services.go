@@ -269,11 +269,20 @@ func attachMasterRouteService(
 	config Config,
 	foundation runtimeFoundation,
 ) (runtimeFoundation, error) {
+	executor, err := newMasterRouteCommandExecutor(
+		foundation.conversationStore,
+		foundation.conversationService,
+		foundation.narratorService,
+	)
+	if err != nil {
+		return runtimeFoundation{}, fmt.Errorf("create master route command executor: %w", err)
+	}
 	routeService, err := master.NewRouteService(
 		foundation.conversationStore,
 		foundation.conversationIndexService,
 		foundation.workspaceService,
 		foundation.masterSessionService,
+		executor,
 	)
 	if err != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)

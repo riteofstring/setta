@@ -133,6 +133,157 @@ func TestStoreCommitsMasterRouteDecisionAtomicallyAndIdempotently(t *testing.T) 
 	assertCommittedMasterRouteEvents(t, store)
 }
 
+func TestStoreCompletesMasterCommandBeforePublishingPresentationIntent(t *testing.T) {
+	store := newTestStore(t)
+	ready := seedMasterRouteState(t, store)
+	accepted := acceptMasterRouteTestInput(t, store, "master-input-presentation", "2026-07-11T20:02:00Z")
+	work := claimMasterRouteCommitWork(t, store, accepted)
+	commit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
+		Kind: master.RouteDecisionKindFocusConversation,
+		FocusConversation: &master.MasterFocusConversationRouteDecision{
+			ConversationID: "conversation-master-route",
+		},
+	})
+	record := commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
+	pending, resolvedPaneID, found, err := store.ReadPendingMasterRouteCommand(context.Background())
+	if err != nil || !found || pending.ID != record.ID {
+		t.Fatalf("ReadPendingMasterRouteCommand = %+v found=%t err=%v", pending, found, err)
+	}
+	if resolvedPaneID != nil {
+		t.Fatalf("focus command resolved pane = %q, want nil", *resolvedPaneID)
+	}
+	if err := store.CompleteMasterRouteCommand(
+		context.Background(),
+		record.ID,
+		"2026-07-11T20:04:04Z",
+	); err != nil {
+		t.Fatalf("CompleteMasterRouteCommand: %v", err)
+	}
+	if err := store.CompleteMasterRouteCommand(
+		context.Background(),
+		record.ID,
+		"2026-07-11T20:04:04Z",
+	); err != nil {
+		t.Fatalf("idempotent CompleteMasterRouteCommand: %v", err)
+	}
+	if pending, _, found, err := store.ReadPendingMasterRouteCommand(context.Background()); err != nil || found {
+		t.Fatalf("completed pending command = %+v found=%t err=%v", pending, found, err)
+	}
+	intent, err := store.WaitForMasterPresentationIntent(context.Background(), accepted.Input.ID)
+	if err != nil {
+		t.Fatalf("WaitForMasterPresentationIntent: %v", err)
+	}
+	if intent.Kind != master.PresentationIntentKindOpenConversationPane ||
+		intent.OpenConversationPane == nil ||
+		intent.OpenConversationPane.Target.ConversationID != "conversation-master-route" {
+		t.Fatalf("presentation intent = %+v", intent)
+	}
+}
+
+func TestStoreWaitsForRendererPaneResolutionBeforeExecutingMasterSideCommand(t *testing.T) {
+	store := newTestStore(t)
+	ready := seedMasterRouteState(t, store)
+	accepted := acceptMasterRouteTestInput(t, store, "master-input-side-presentation", "2026-07-11T20:02:00Z")
+	work := claimMasterRouteCommitWork(t, store, accepted)
+	commit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
+		Kind: master.RouteDecisionKindCreateSideConversation,
+		CreateSideConversation: &master.MasterCreateSideConversationRouteDecision{
+			ParentConversationID: "conversation-master-route",
+			Input:                "Investigate this tangent.",
+		},
+	})
+	commit.Context.TargetAuthorities[0].AllowedDecisionKinds = []master.RouteDecisionKind{
+		master.RouteDecisionKindCreateSideConversation,
+	}
+	record := commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
+	assertNoPendingMasterRouteCommand(t, store)
+	intent := waitForMasterSidePresentationIntent(t, store, accepted.Input.ID)
+	assertActiveMasterShellInput(t, store, accepted.Input.ID)
+	bindMasterRouteTestPane(t, store)
+	resolveMasterRouteTestPresentation(t, store, intent, accepted.Input.ID)
+	assertResolvedMasterRouteCommand(t, store, record.ID)
+	assertNoActiveMasterShellInteraction(t, store)
+}
+
+func assertNoPendingMasterRouteCommand(t *testing.T, store *Store) {
+	t.Helper()
+	pending, _, found, err := store.ReadPendingMasterRouteCommand(context.Background())
+	if err != nil || found {
+		t.Fatalf("unresolved side command = %+v found=%t err=%v", pending, found, err)
+	}
+}
+
+func waitForMasterSidePresentationIntent(t *testing.T, store *Store, inputID string) master.PresentationIntent {
+	t.Helper()
+	intent, err := store.WaitForMasterPresentationIntent(context.Background(), inputID)
+	if err != nil || intent.Kind != master.PresentationIntentKindOpenSideConversation ||
+		intent.OpenSideConversation == nil ||
+		intent.OpenSideConversation.Target.ConversationID != "conversation-master-route" {
+		t.Fatalf("side presentation intent = %+v err=%v", intent, err)
+	}
+	return intent
+}
+
+func assertActiveMasterShellInput(t *testing.T, store *Store, inputID string) {
+	t.Helper()
+	interaction, err := store.ReadActiveMasterShellInteraction(context.Background())
+	if err != nil || interaction.State == nil || interaction.State.Input.ID != inputID {
+		t.Fatalf("unresolved side active interaction = %+v err=%v", interaction, err)
+	}
+}
+
+func bindMasterRouteTestPane(t *testing.T, store *Store) {
+	t.Helper()
+	if err := store.ReplaceWorkspacePaneBindings(
+		context.Background(),
+		"workspace-1",
+		[]WorkspacePaneBinding{{
+			PaneID: "master-route-resolved-pane", ConversationID: "conversation-master-route", Focused: true,
+		}},
+		"2026-07-11T20:04:04Z",
+	); err != nil {
+		t.Fatalf("bind resolved master side pane: %v", err)
+	}
+}
+
+func resolveMasterRouteTestPresentation(
+	t *testing.T,
+	store *Store,
+	intent master.PresentationIntent,
+	inputID string,
+) {
+	t.Helper()
+	resolution, err := store.ResolveMasterPresentationIntent(
+		context.Background(),
+		master.PresentationResolutionRequest{
+			IntentID: intent.ID,
+			InputID:  inputID,
+			PaneID:   "master-route-resolved-pane",
+		},
+		"2026-07-11T20:04:05Z",
+	)
+	if err != nil || resolution.PaneID != "master-route-resolved-pane" {
+		t.Fatalf("ResolveMasterPresentationIntent = %+v err=%v", resolution, err)
+	}
+}
+
+func assertResolvedMasterRouteCommand(t *testing.T, store *Store, recordID string) {
+	t.Helper()
+	pending, resolvedPaneID, found, err := store.ReadPendingMasterRouteCommand(context.Background())
+	if err != nil || !found || pending.ID != recordID || resolvedPaneID == nil ||
+		*resolvedPaneID != "master-route-resolved-pane" {
+		t.Fatalf("resolved side command = %+v pane=%v found=%t err=%v", pending, resolvedPaneID, found, err)
+	}
+}
+
+func assertNoActiveMasterShellInteraction(t *testing.T, store *Store) {
+	t.Helper()
+	interaction, err := store.ReadActiveMasterShellInteraction(context.Background())
+	if err != nil || interaction.State != nil {
+		t.Fatalf("resolved side active interaction = %+v err=%v, want empty", interaction, err)
+	}
+}
+
 func TestStoreProjectsOnlyRestorableActiveShellInteraction(t *testing.T) {
 	store := newTestStore(t)
 	ready := seedMasterRouteState(t, store)
@@ -281,6 +432,7 @@ func assertChangedMasterRouteCommitRejected(
 		Kind:         master.RouteDecisionKindAnswerGlobal,
 		AnswerGlobal: &master.MasterAnswerGlobalRouteDecision{Text: "Changed answer."},
 	}
+	changed.ResultingCommand = masterRouteTestCommand(changed.Decision)
 	if _, err := store.CommitMasterRouteDecision(context.Background(), changed); !IsStateConflict(err) {
 		t.Fatalf("changed route commit error = %T %v, want state conflict", err, err)
 	}
@@ -517,7 +669,65 @@ func masterRouteTestCommit(
 			StartedAt:         "2026-07-11T20:04:01Z",
 			EndedAt:           "2026-07-11T20:04:02Z",
 		},
-		Decision:  decision,
-		DecidedAt: "2026-07-11T20:04:03Z",
+		Decision:         decision,
+		ResultingCommand: masterRouteTestCommand(decision),
+		DecidedAt:        "2026-07-11T20:04:03Z",
 	}
+}
+
+func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
+	target := master.ConversationPresentationTarget{
+		WorkspaceID:    "workspace-1",
+		ConversationID: "conversation-master-route",
+		Title:          "Master routing",
+	}
+	command := master.RouteCommand{Kind: decision.Kind}
+	switch decision.Kind {
+	case master.RouteDecisionKindSendToAgent:
+		command.SendToAgent = &master.MasterSendToAgentRouteCommand{
+			Target: target, TurnID: "master-route-turn", AuthoredInput: decision.SendToAgent.AuthoredInput,
+		}
+	case master.RouteDecisionKindQueueAgentTurn:
+		command.QueueAgentTurn = &master.MasterQueueAgentTurnRouteCommand{
+			Target: target, TurnID: "master-route-turn", AuthoredInput: decision.QueueAgentTurn.AuthoredInput,
+		}
+	case master.RouteDecisionKindSteerActiveTurn:
+		command.SteerActiveTurn = &master.MasterSteerActiveTurnRouteCommand{
+			Target: target, TargetTurnID: "master-route-active-turn", AuthoredInput: decision.SteerActiveTurn.AuthoredInput,
+		}
+	case master.RouteDecisionKindAskNarrator:
+		command.AskNarrator = &master.MasterAskNarratorRouteCommand{
+			Target: target, RequestID: "master-route-narrator", Question: decision.AskNarrator.Question,
+		}
+	case master.RouteDecisionKindFocusConversation:
+		command.FocusConversation = &master.MasterFocusConversationRouteCommand{Target: target}
+	case master.RouteDecisionKindCreateConversation:
+		command.CreateConversation = &master.MasterCreateConversationRouteCommand{
+			Target: master.ConversationPresentationTarget{
+				WorkspaceID:    decision.CreateConversation.WorkspaceID,
+				ConversationID: "master-route-created-conversation",
+				Title:          decision.CreateConversation.ProposedTitle,
+			},
+			TurnID: "master-route-turn", InitialInput: decision.CreateConversation.InitialInput,
+		}
+	case master.RouteDecisionKindCreateSideConversation:
+		command.CreateSideConversation = &master.MasterCreateSideConversationRouteCommand{
+			Target: target, SideConversationID: "master-route-side", TurnID: "master-route-side-turn", Input: decision.CreateSideConversation.Input,
+		}
+	case master.RouteDecisionKindForkConversation:
+		command.ForkConversation = &master.MasterForkConversationRouteCommand{
+			ParentConversationID: target.ConversationID,
+			Target: master.ConversationPresentationTarget{
+				WorkspaceID: target.WorkspaceID, ConversationID: "master-route-fork", Title: "Fork of Master routing",
+			},
+			ForkedAtTurnID: decision.ForkConversation.ForkedAtTurnID,
+			TurnID:         "master-route-fork-turn",
+			Input:          decision.ForkConversation.Input,
+		}
+	case master.RouteDecisionKindClarify:
+		command.Clarify = &master.MasterClarifyRouteCommand{Question: decision.Clarify.Question}
+	case master.RouteDecisionKindAnswerGlobal:
+		command.AnswerGlobal = &master.MasterAnswerGlobalRouteCommand{Text: decision.AnswerGlobal.Text}
+	}
+	return command
 }

@@ -7,6 +7,10 @@ import (
 	"fmt"
 )
 
+type routeCommandEffectReader interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
 // ConversationRouteCommandApplied reports whether the exact durable effect
 // carried by a committed route decision already exists. It is intentionally a
 // store read rather than executor memory: the result remains authoritative
@@ -47,7 +51,7 @@ func validateConversationRouteCommandEffectRead(
 
 func readConversationRouteCommandEffect(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader routeCommandEffectReader,
 	dbPath string,
 	record ConversationRouteDecisionRecord,
 ) (bool, error) {
@@ -93,7 +97,7 @@ func readConversationRouteCommandEffect(
 
 func readConversationRouteTurnEffect(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader routeCommandEffectReader,
 	conversationID string,
 	turnID string,
 	input AuthoredInput,
@@ -123,7 +127,7 @@ WHERE id = ?
 
 func readConversationRouteSteeringEffect(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader routeCommandEffectReader,
 	dbPath string,
 	record ConversationRouteDecisionRecord,
 ) (bool, error) {
@@ -217,7 +221,7 @@ func validateConversationRouteSteeringPayload(
 
 func readConversationRouteNarratorEffect(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader routeCommandEffectReader,
 	record ConversationRouteDecisionRecord,
 ) (bool, error) {
 	command := record.ResultingCommand.AnswerAsNarrator
@@ -249,7 +253,7 @@ LIMIT 1
 
 func readConversationRouteSideEffect(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader routeCommandEffectReader,
 	record ConversationRouteDecisionRecord,
 ) (bool, error) {
 	command := record.ResultingCommand.CreateSideConversation
@@ -286,7 +290,7 @@ type conversationRouteSideMetadata struct {
 
 func readConversationRouteSideMetadata(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader routeCommandEffectReader,
 	sideConversationID string,
 ) (conversationRouteSideMetadata, bool, error) {
 	var metadata conversationRouteSideMetadata
@@ -341,7 +345,7 @@ func validateConversationRouteSideTurnEffect(
 
 func scanSideConversationEventEffect(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader routeCommandEffectReader,
 	sideConversationID string,
 	turnID string,
 ) (TrajectoryEvent, error) {
@@ -369,7 +373,7 @@ LIMIT 1
 
 func readConversationRouteForkEffect(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader routeCommandEffectReader,
 	record ConversationRouteDecisionRecord,
 ) (bool, error) {
 	command := record.ResultingCommand.ForkConversation
@@ -404,7 +408,7 @@ WHERE child_conversation_id = ?
 
 func readConversationRouteMasterEffect(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader routeCommandEffectReader,
 	record ConversationRouteDecisionRecord,
 ) (bool, error) {
 	command := record.ResultingCommand.EscalateToMaster

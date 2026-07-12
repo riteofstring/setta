@@ -250,7 +250,6 @@ WHERE id = ? AND archived_at IS NULL
 		ctx,
 		reader,
 		conversation,
-		openPaneIDs,
 		activeTurnID,
 		forkPoints,
 	)
@@ -365,6 +364,9 @@ func commitMasterRouteDecisionTransaction(
 		return master.RouteDecisionRecord{}, err
 	}
 	if err := requireCurrentMasterRouteAuthority(transaction, commit.Decision); err != nil {
+		return master.RouteDecisionRecord{}, err
+	}
+	if err := requireCurrentMasterRouteCommandAuthority(transaction, commit.ResultingCommand); err != nil {
 		return master.RouteDecisionRecord{}, err
 	}
 	if err := requireMasterRouteCommitTiming(commit.DecidedAt, *startedAt); err != nil {
@@ -613,6 +615,10 @@ func insertMasterRouteDecision(
 	if err != nil {
 		return master.RouteDecisionRecord{}, err
 	}
+	commandJSON, err := encodeJSONColumn("master route command", commit.ResultingCommand)
+	if err != nil {
+		return master.RouteDecisionRecord{}, err
+	}
 	record := master.RouteDecisionRecord{
 		ID:                 commit.ID,
 		MasterSessionID:    commit.MasterSessionID,
@@ -621,6 +627,7 @@ func insertMasterRouteDecision(
 		Context:            commit.Context,
 		ResolvedInvocation: commit.ResolvedInvocation,
 		Decision:           commit.Decision,
+		ResultingCommand:   commit.ResultingCommand,
 		DecidedAt:          commit.DecidedAt,
 	}
 	if err := transaction.tx.QueryRowContext(transaction.ctx, `
@@ -628,7 +635,7 @@ INSERT INTO master_route_decisions (
   id, master_session_id, input_id, routing_attempt,
   candidate_context_json, resolved_invocation_json, route_decision_json,
   resulting_command_json, decided_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING stream_sequence
 `,
 		record.ID,
@@ -638,6 +645,7 @@ RETURNING stream_sequence
 		contextJSON,
 		invocationJSON,
 		decisionJSON,
+		commandJSON,
 		record.DecidedAt,
 	).Scan(&record.StreamSequence); err != nil {
 		return master.RouteDecisionRecord{}, fmt.Errorf("insert master route decision %s: %w", record.ID, err)
@@ -654,7 +662,7 @@ RETURNING stream_sequence
 const masterRouteDecisionSelect = `
 SELECT stream_sequence, id, master_session_id, input_id, routing_attempt,
        candidate_context_json, resolved_invocation_json, route_decision_json,
-       decided_at
+       resulting_command_json, decided_at
 FROM master_route_decisions
 `
 
@@ -667,7 +675,7 @@ func scanMasterRouteDecision(
 	dbPath string,
 ) (master.RouteDecisionRecord, error) {
 	var record master.RouteDecisionRecord
-	var contextJSON, invocationJSON, decisionJSON string
+	var contextJSON, invocationJSON, decisionJSON, commandJSON string
 	if err := scanner.Scan(
 		&record.StreamSequence,
 		&record.ID,
@@ -677,6 +685,7 @@ func scanMasterRouteDecision(
 		&contextJSON,
 		&invocationJSON,
 		&decisionJSON,
+		&commandJSON,
 		&record.DecidedAt,
 	); err != nil {
 		return master.RouteDecisionRecord{}, err
@@ -689,6 +698,7 @@ func scanMasterRouteDecision(
 		{label: "master route context audit", source: contextJSON, target: &record.Context},
 		{label: "master route resolved invocation", source: invocationJSON, target: &record.ResolvedInvocation},
 		{label: "master route decision", source: decisionJSON, target: &record.Decision},
+		{label: "master route command", source: commandJSON, target: &record.ResultingCommand},
 	} {
 		if err := jsonio.DecodeSingle(bytes.NewBufferString(value.source), value.target); err != nil {
 			return master.RouteDecisionRecord{}, &CorruptStateError{

@@ -104,12 +104,18 @@ describe("Easy Button topic conversation projection", () => {
   test("routes a pane voice request through the bound conversation and source pane", async () => {
     const start = vi.fn(async () => {});
 
-    await requestEasyButtonSpeechCapture({ start }, "conversation_voice", "pane_voice");
+    await requestEasyButtonSpeechCapture(
+      { start },
+      "workspace_voice",
+      "conversation_voice",
+      "pane_voice",
+    );
 
     expect(start).toHaveBeenCalledWith({
       destination: {
         conversationId: "conversation_voice",
         type: "conversation",
+        workspaceId: "workspace_voice",
       },
       sourcePaneId: "pane_voice",
     });

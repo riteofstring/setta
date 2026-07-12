@@ -26,7 +26,11 @@ describe("global speech presentation", () => {
     const snapshot = captureSnapshot({
       capture: {
         captureSessionId: "capture-alpha",
-        request: conversationSpeechCaptureRequest("conversation-alpha", "pane-alpha"),
+        request: conversationSpeechCaptureRequest(
+          "workspace-alpha",
+          "conversation-alpha",
+          "pane-alpha",
+        ),
         transcript: "partial words",
         type: "listening",
       },
@@ -133,7 +137,11 @@ describe("global speech presentation", () => {
         completedConversationTranscript: {
           captureSessionId: input.id,
           input,
-          request: conversationSpeechCaptureRequest(input.conversationId, input.sourcePaneId!),
+          request: conversationSpeechCaptureRequest(
+            "workspace-alpha",
+            input.conversationId,
+            input.sourcePaneId!,
+          ),
           runtimeId: "runtime-speech",
           transcript: input.text,
         },

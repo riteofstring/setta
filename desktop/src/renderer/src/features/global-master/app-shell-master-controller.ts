@@ -3,12 +3,19 @@ import type {
   ActiveShellInteraction,
   MasterInput,
   MasterInputModality,
+  PresentationIntent,
+  PresentationResolution,
+  PresentationResolutionRequest,
   ReadMasterInputRoutingStateRequest,
   ShellInteractionState,
   SubmitMasterInputRequest,
 } from "@generated/backend";
 
 import { canonicalSpeechInputTimestamp } from "../global-speech/speech-input-submission";
+import {
+  interactionRequiresNavigation,
+  validShellPresentationIntent,
+} from "./app-shell-master-presentation-validation";
 
 export interface MasterInputFocusHints {
   focusedConversationId: string | null;
@@ -58,12 +65,19 @@ export interface AppShellMasterSnapshot {
 export interface AppShellMasterControllerDependencies {
   createInputId: () => string;
   now: () => Date;
+  presentPresentationIntent: (intent: PresentationIntent) => Promise<{ paneId: string }>;
   readActiveInteraction: (runtimeId: string) => Promise<ActiveShellInteraction>;
   readFocusHints: () => MasterInputFocusHints;
+  resolvePresentationIntent: (
+    request: PresentationResolutionRequest,
+  ) => Promise<PresentationResolution>;
   submitMasterInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
   waitShellInteraction: (
     request: ReadMasterInputRoutingStateRequest,
   ) => Promise<ShellInteractionState>;
+  waitPresentationIntent: (
+    request: ReadMasterInputRoutingStateRequest,
+  ) => Promise<PresentationIntent>;
 }
 
 // AppShellMasterController owns exactly one transient shell interaction. The
@@ -383,6 +397,8 @@ export class AppShellMasterController {
     this.updateSnapshot({ interaction: { state, type: "active" } });
     if (!shellInteractionSettled(state)) {
       this.observeInteraction(runtimeId, state);
+    } else if (interactionRequiresNavigation(state)) {
+      this.observePresentationIntent(generation, runtimeId, state);
     }
   }
 
@@ -431,6 +447,102 @@ export class AppShellMasterController {
       return;
     }
     this.updateSnapshot({ interaction: { state: settled, type: "active" } });
+    if (settled.status === "decided") {
+      this.observePresentationIntent(generation, runtimeId, settled);
+    }
+  }
+
+  private observePresentationIntent(
+    generation: number,
+    runtimeId: string,
+    state: ShellInteractionState,
+  ): void {
+    const request = { inputId: state.input.id } satisfies ReadMasterInputRoutingStateRequest;
+    let pending: Promise<PresentationIntent>;
+    try {
+      pending = this.dependencies.waitPresentationIntent(request);
+    } catch {
+      this.handleObservationFailure(generation, runtimeId, state);
+      return;
+    }
+    void pending.then(
+      (intent) => this.handlePresentationIntent(generation, runtimeId, state, intent),
+      () => this.handleObservationFailure(generation, runtimeId, state),
+    );
+  }
+
+  private handlePresentationIntent(
+    generation: number,
+    runtimeId: string,
+    state: ShellInteractionState,
+    intent: PresentationIntent,
+  ): void {
+    if (!this.isCurrentInteraction(generation, runtimeId)) {
+      return;
+    }
+    if (!validShellPresentationIntent(intent, state)) {
+      this.handleObservationFailure(generation, runtimeId, state);
+      return;
+    }
+    if (intent.kind === "show_master_reply") {
+      return;
+    }
+    let pending: Promise<{ paneId: string }>;
+    try {
+      pending = this.dependencies.presentPresentationIntent(intent);
+    } catch {
+      this.handleObservationFailure(generation, runtimeId, state);
+      return;
+    }
+    void pending.then(
+      (presented) => {
+        if (!this.isCurrentInteraction(generation, runtimeId)) {
+          return;
+        }
+        this.resolvePresentationIntent(generation, runtimeId, state, intent, presented.paneId);
+      },
+      () => this.handleObservationFailure(generation, runtimeId, state),
+    );
+  }
+
+  private resolvePresentationIntent(
+    generation: number,
+    runtimeId: string,
+    state: ShellInteractionState,
+    intent: PresentationIntent,
+    paneId: string,
+  ): void {
+    const request = {
+      inputId: state.input.id,
+      intentId: intent.id,
+      paneId,
+    } satisfies PresentationResolutionRequest;
+    let pending: Promise<PresentationResolution>;
+    try {
+      pending = this.dependencies.resolvePresentationIntent(request);
+    } catch {
+      this.handleObservationFailure(generation, runtimeId, state);
+      return;
+    }
+    void pending.then(
+      (resolution) => {
+        if (!this.isCurrentInteraction(generation, runtimeId)) {
+          return;
+        }
+        if (!validPresentationResolution(resolution, request)) {
+          this.handleObservationFailure(generation, runtimeId, state);
+          return;
+        }
+        this.invalidateInteraction();
+        this.updateSnapshot({
+          completedTranscript: null,
+          interaction: { type: "idle" },
+          overlayOpen: false,
+          submission: { type: "idle" },
+        });
+      },
+      () => this.handleObservationFailure(generation, runtimeId, state),
+    );
   }
 
   private handleObservationFailure(
@@ -517,7 +629,20 @@ function validActiveShellInteraction(interaction: ActiveShellInteraction): boole
     interaction.state.input.source === "shell" &&
     (interaction.state.status === "accepted" ||
       interaction.state.status === "routing" ||
-      interactionIsClarification(interaction.state))
+      interactionIsClarification(interaction.state) ||
+      interactionRequiresNavigation(interaction.state))
+  );
+}
+
+function validPresentationResolution(
+  resolution: PresentationResolution,
+  request: PresentationResolutionRequest,
+): boolean {
+  return (
+    resolution.intentId === request.intentId &&
+    resolution.inputId === request.inputId &&
+    resolution.paneId === request.paneId &&
+    resolution.resolvedAt.trim() !== ""
   );
 }
 
@@ -645,7 +770,10 @@ function interactionBlocksNewInput(interaction: MasterInteractionState): boolean
     case "observation_failed":
       return true;
     case "active":
-      return !shellInteractionSettled(interaction.state);
+      return (
+        !shellInteractionSettled(interaction.state) ||
+        interactionRequiresNavigation(interaction.state)
+      );
     default:
       return assertNever(interaction);
   }
@@ -655,7 +783,9 @@ function interactionIsDismissible(interaction: MasterInteractionState): boolean 
   switch (interaction.type) {
     case "active":
       return (
-        shellInteractionSettled(interaction.state) && !interactionIsClarification(interaction.state)
+        shellInteractionSettled(interaction.state) &&
+        !interactionIsClarification(interaction.state) &&
+        !interactionRequiresNavigation(interaction.state)
       );
     case "disconnected":
     case "idle":

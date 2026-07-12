@@ -14,7 +14,11 @@ describe("global speech conversation submission", () => {
 
     harness.controller.submitTranscript({
       captureSessionId: "capture_alpha",
-      request: conversationSpeechCaptureRequest("conversation_alpha", "pane_alpha"),
+      request: conversationSpeechCaptureRequest(
+        "workspace_alpha",
+        "conversation_alpha",
+        "pane_alpha",
+      ),
       runtimeId: "runtime_alpha",
       transcript: "  Exact pane transcript.  ",
     });
@@ -43,7 +47,7 @@ describe("global speech conversation submission", () => {
     ]);
 
     pending.resolve(acceptedFor(harness.requests[0]!));
-    await flushPromises();
+    await waitForSubmission(harness.controller, "accepted");
 
     expect(harness.controller.getSnapshot()).toMatchObject({
       completedTranscript: null,
@@ -66,7 +70,11 @@ describe("global speech conversation submission", () => {
 
     harness.controller.submitTranscript({
       captureSessionId: "capture_retry",
-      request: conversationSpeechCaptureRequest("conversation_alpha", "pane_alpha"),
+      request: conversationSpeechCaptureRequest(
+        "workspace_alpha",
+        "conversation_alpha",
+        "pane_alpha",
+      ),
       runtimeId: "runtime_alpha",
       transcript: "Retry this pane request",
     });
@@ -77,7 +85,7 @@ describe("global speech conversation submission", () => {
     expect(failed.submission).toEqual({
       input: harness.requests[0]!.input,
       message:
-        "Setta could not accept the conversation voice request. Retry without recording it again.",
+        "Setta could not finish the conversation voice request. Retry without recording it again.",
       type: "failed",
     });
     expect(JSON.stringify(failed)).not.toContain("private backend");
@@ -86,7 +94,7 @@ describe("global speech conversation submission", () => {
     expect(harness.requests).toHaveLength(2);
     expect(harness.requests[1]!.input).toBe(harness.requests[0]!.input);
     retry.resolve({ ...acceptedFor(harness.requests[1]!), status: "routing" });
-    await flushPromises();
+    await waitForSubmission(harness.controller, "accepted");
 
     expect(harness.controller.getSnapshot().submission).toMatchObject({
       accepted: { status: "routing" },
@@ -98,12 +106,43 @@ describe("global speech conversation submission", () => {
     info.mockRestore();
   });
 
+  test("keeps voice delivery pending until the routed pane result is presented", async () => {
+    const settled = deferred<void>();
+    const settleConversationInput = vi.fn(() => settled.promise);
+    const harness = createHarness({ settleConversationInput });
+    harness.controller.submitTranscript({
+      captureSessionId: "capture_routed",
+      request: conversationSpeechCaptureRequest(
+        "workspace_routed",
+        "conversation_routed",
+        "pane_routed",
+      ),
+      runtimeId: "runtime_alpha",
+      transcript: "Fork this routed voice request",
+    });
+    await flushPromises();
+
+    expect(harness.controller.getSnapshot().submission.type).toBe("submitting");
+    expect(settleConversationInput).toHaveBeenCalledWith(
+      expect.objectContaining({ input: expect.objectContaining({ id: "capture_routed" }) }),
+      expect.objectContaining({
+        request: expect.objectContaining({
+          destination: expect.objectContaining({ workspaceId: "workspace_routed" }),
+        }),
+      }),
+    );
+
+    settled.resolve();
+    await waitForSubmission(harness.controller, "accepted");
+    expect(harness.controller.getSnapshot().completedTranscript).toBeNull();
+  });
+
   test("runtime reset invalidates a late submission result", async () => {
     const pending = deferred<AcceptedConversationInput>();
     const harness = createHarness({ submitConversationInput: () => pending.promise });
     harness.controller.submitTranscript({
       captureSessionId: "capture_old",
-      request: conversationSpeechCaptureRequest("conversation_old", "pane_old"),
+      request: conversationSpeechCaptureRequest("workspace_old", "conversation_old", "pane_old"),
       runtimeId: "runtime_old",
       transcript: "Old runtime request",
     });
@@ -125,7 +164,11 @@ describe("global speech conversation submission", () => {
     const harness = createHarness({ submitConversationInput: () => pending.promise });
     harness.controller.submitTranscript({
       captureSessionId: "capture_mismatch",
-      request: conversationSpeechCaptureRequest("conversation_alpha", "pane_alpha"),
+      request: conversationSpeechCaptureRequest(
+        "workspace_alpha",
+        "conversation_alpha",
+        "pane_alpha",
+      ),
       runtimeId: "runtime_alpha",
       transcript: "Original pane request",
     });
@@ -153,6 +196,7 @@ function createHarness(overrides: Partial<GlobalSpeechConversationSubmissionDepe
     (async (request: SubmitConversationInputRequest) => acceptedFor(request));
   const dependencies: GlobalSpeechConversationSubmissionDependencies = {
     now: () => new Date("2026-07-12T18:00:00.120Z"),
+    settleConversationInput: async () => {},
     submitConversationInput: async (request) => {
       requests.push(request);
       return submitConversationInput(request);

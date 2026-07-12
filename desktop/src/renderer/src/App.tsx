@@ -1,4 +1,4 @@
-import type { WorkspaceSession } from "@generated/backend";
+import type { PresentationIntent, WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import { PanelLeftClose, PanelLeftOpen, Settings, Sparkles } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
@@ -34,6 +34,14 @@ import type { GlobalSpeechPresentationSource } from "./features/global-speech/gl
 import { cn } from "./lib/utils";
 import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
 import type { WorkspaceConversationFocusRequest } from "./workspace-layout/conversation-pane-runtime";
+import {
+  conversationPaneNavigationRequestEvent,
+  conversationPaneRequestForPresentationIntent,
+  type ConversationPaneNavigationEventDetail,
+  type ConversationPanePresentationRequest,
+  type ConversationPanePresentationResult,
+  type ConversationPanePresentationSuccess,
+} from "./workspace-layout/conversation-pane-coordinator";
 import type { WorkspaceSurfaceFocusRequest } from "./workspace-layout/workspace-layout-area-runtime";
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
@@ -77,6 +85,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const [conversationPresentationError, setConversationPresentationError] = useState<string | null>(
     null,
   );
+  const conversationPresentationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
   const mobileViewport = isMobileViewportWidth(viewport.width);
   const toggleProjectPane = useCallback(() => {
@@ -103,21 +112,82 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const openSettingsPane = useCallback(() => {
     focusWorkspaceSurface("settings-dom");
   }, [focusWorkspaceSurface]);
-  const presentConversation = useCallback(
-    async (workspaceId: string, conversationId: string, title: string) => {
+  const applyConversationPresentationRequest = useCallback(
+    async (
+      request: ConversationPanePresentationRequest,
+    ): Promise<ConversationPanePresentationSuccess> => {
+      if (useWorkspaceStore.getState().session?.selectedWorkspaceId !== request.workspaceId) {
+        await workspace.selectWorkspace(request.workspaceId);
+        if (useWorkspaceStore.getState().session?.selectedWorkspaceId !== request.workspaceId) {
+          throw new Error(`Setta could not select workspace ${request.workspaceId}.`);
+        }
+      }
       setConversationPresentationError(null);
-      setWorkspaceConversationFocusRequest((current) => ({
-        conversationId,
-        requestId: (current?.requestId ?? 0) + 1,
-        title,
-        workspaceId,
-      }));
+      const result = await new Promise<ConversationPanePresentationResult>((resolve) => {
+        setWorkspaceConversationFocusRequest((current) => ({
+          ...request,
+          complete: resolve,
+          requestId: (current?.requestId ?? 0) + 1,
+        }));
+      });
       if (mobileViewport) {
         setProjectPaneOpen(false);
       }
+      if (result.kind === "blocked") {
+        throw new Error(result.reason);
+      }
+      return result;
     },
-    [mobileViewport],
+    [mobileViewport, workspace.selectWorkspace],
   );
+  const presentConversationRequest = useCallback(
+    (
+      request: ConversationPanePresentationRequest,
+    ): Promise<ConversationPanePresentationSuccess> => {
+      const pending = conversationPresentationQueueRef.current.then(() =>
+        applyConversationPresentationRequest(request),
+      );
+      conversationPresentationQueueRef.current = pending.then(
+        () => undefined,
+        () => undefined,
+      );
+      return pending;
+    },
+    [applyConversationPresentationRequest],
+  );
+  const presentConversation = useCallback(
+    async (workspaceId: string, conversationId: string, title: string): Promise<void> => {
+      try {
+        await presentConversationRequest({ conversationId, title, workspaceId });
+      } catch (error) {
+        setConversationPresentationError(
+          error instanceof Error ? error.message : "The conversation pane could not be opened.",
+        );
+      }
+    },
+    [presentConversationRequest],
+  );
+  const presentMasterIntent = useCallback(
+    async (intent: PresentationIntent) => {
+      const request = conversationPaneRequestForPresentationIntent(intent);
+      if (request) {
+        return presentConversationRequest(request);
+      }
+      throw new Error(`Master presentation intent ${intent.id} has no conversation target.`);
+    },
+    [presentConversationRequest],
+  );
+  useEffect(() => {
+    const navigate = (event: Event) => {
+      const detail = (event as CustomEvent<ConversationPaneNavigationEventDetail>).detail;
+      if (!detail?.request || detail.completion) {
+        return;
+      }
+      detail.completion = presentConversationRequest(detail.request);
+    };
+    window.addEventListener(conversationPaneNavigationRequestEvent, navigate);
+    return () => window.removeEventListener(conversationPaneNavigationRequestEvent, navigate);
+  }, [presentConversationRequest]);
   useEffect(() => {
     return setta.chat.onEvent((event) => {
       useChatStore.getState().handleEvent(event);
@@ -187,6 +257,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   return (
     <AppShellMasterProvider
       focusHints={masterInputFocusHints}
+      presentPresentationIntent={presentMasterIntent}
       runtimeId={runtime.connectedRuntimeId}
       setta={setta}
     >

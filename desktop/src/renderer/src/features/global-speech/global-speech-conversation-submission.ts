@@ -28,6 +28,10 @@ export interface GlobalSpeechConversationSubmissionSnapshot {
 
 export interface GlobalSpeechConversationSubmissionDependencies {
   now: () => Date;
+  settleConversationInput: (
+    accepted: AcceptedConversationInput,
+    completed: CompletedConversationSpeechTranscript,
+  ) => Promise<void>;
   submitConversationInput: (
     request: SubmitConversationInputRequest,
   ) => Promise<AcceptedConversationInput>;
@@ -141,10 +145,25 @@ export class GlobalSpeechConversationSubmissionController {
       return;
     }
     const durableAccepted = Object.freeze({ ...accepted, input: completed.input });
-    this.updateSnapshot({
-      completedTranscript: null,
-      submission: { accepted: durableAccepted, type: "accepted" },
-    });
+    let pending: Promise<void>;
+    try {
+      pending = this.dependencies.settleConversationInput(durableAccepted, completed);
+    } catch {
+      this.handleFailure(generation, completed);
+      return;
+    }
+    void pending.then(
+      () => {
+        if (!this.isCurrent(generation, completed)) {
+          return;
+        }
+        this.updateSnapshot({
+          completedTranscript: null,
+          submission: { accepted: durableAccepted, type: "accepted" },
+        });
+      },
+      () => this.handleFailure(generation, completed),
+    );
   }
 
   private handleFailure(
@@ -159,7 +178,7 @@ export class GlobalSpeechConversationSubmissionController {
       submission: {
         input: completed.input,
         message:
-          "Setta could not accept the conversation voice request. Retry without recording it again.",
+          "Setta could not finish the conversation voice request. Retry without recording it again.",
         type: "failed",
       },
     });

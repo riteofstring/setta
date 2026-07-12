@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import type { AppShellMasterController } from "../global-master/app-shell-master-controller";
+import { requestConversationRoutingPresentation } from "../easy-button/conversation-routing-presentation-request";
 import {
   AppShellSpeechCaptureController,
   type AppShellSpeechCaptureControllerDependencies,
@@ -141,6 +142,18 @@ function browserControllerDependencies(
     onCaptureStart: onCaptureStart ?? (() => {}),
     readCapabilities: () => setta.speech.readCapabilities(),
     readPreference: readBrowserGlobalMicrophonePreference,
+    settleConversationInput: async (accepted, completed) => {
+      if (!setta.conversations.waitInputState) {
+        throw new Error("the desktop conversation routing boundary is unavailable");
+      }
+      const workspaceId = completed.request.destination.workspaceId;
+      const state = await setta.conversations.waitInputState({
+        conversationId: accepted.input.conversationId,
+        inputId: accepted.input.id,
+        workspaceId,
+      });
+      await requestConversationRoutingPresentation(workspaceId, state);
+    },
     setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
     support: browserSpeechCaptureSupport,
     submitConversationInput: (request) => {

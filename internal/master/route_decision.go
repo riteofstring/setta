@@ -179,6 +179,7 @@ type RouteDecisionCommit struct {
 	Context            RouteContextAudit    `json:"context"`
 	ResolvedInvocation RouteInvocationAudit `json:"resolvedInvocation"`
 	Decision           RouteDecision        `json:"decision"`
+	ResultingCommand   RouteCommand         `json:"resultingCommand"`
 	DecidedAt          string               `json:"decidedAt"`
 }
 
@@ -191,6 +192,7 @@ type RouteDecisionRecord struct {
 	Context            RouteContextAudit    `json:"context"`
 	ResolvedInvocation RouteInvocationAudit `json:"resolvedInvocation"`
 	Decision           RouteDecision        `json:"decision"`
+	ResultingCommand   RouteCommand         `json:"resultingCommand"`
 	DecidedAt          string               `json:"decidedAt"`
 }
 
@@ -727,6 +729,9 @@ func validateRouteDecisionCommitContent(commit RouteDecisionCommit) error {
 	if err := commit.Context.ValidateDecision(commit.Decision); err != nil {
 		return err
 	}
+	if err := commit.ResultingCommand.ValidateDecision(commit.Decision); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -755,6 +760,7 @@ func (record RouteDecisionRecord) Validate() error {
 		Context:            record.Context,
 		ResolvedInvocation: record.ResolvedInvocation,
 		Decision:           record.Decision,
+		ResultingCommand:   record.ResultingCommand,
 		DecidedAt:          record.DecidedAt,
 	}).Validate()
 }

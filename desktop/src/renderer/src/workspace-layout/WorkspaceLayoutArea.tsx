@@ -256,7 +256,7 @@ function WorkspaceLayoutRuntimeArea({
   const runLayoutAction = useCallback(
     (action: () => void) => {
       action();
-      persistLayout();
+      return persistLayout();
     },
     [persistLayout],
   );

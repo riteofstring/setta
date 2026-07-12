@@ -145,7 +145,6 @@ func readMasterRouteAllowedKinds(
 	ctx context.Context,
 	reader masterRouteReader,
 	conversation TopicConversation,
-	openPaneIDs []string,
 	activeTurnID *string,
 	forkPoints []master.RouteForkPoint,
 ) ([]master.RouteDecisionKind, error) {
@@ -166,9 +165,7 @@ func readMasterRouteAllowedKinds(
 		return nil, err
 	}
 	allowed = append(allowed, workKinds...)
-	if len(openPaneIDs) > 0 {
-		allowed = append(allowed, master.RouteDecisionKindCreateSideConversation)
-	}
+	allowed = append(allowed, master.RouteDecisionKindCreateSideConversation)
 	if len(forkPoints) > 0 {
 		allowed = append(allowed, master.RouteDecisionKindForkConversation)
 	}

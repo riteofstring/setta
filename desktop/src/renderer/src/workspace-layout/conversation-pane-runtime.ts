@@ -2,9 +2,7 @@ import { useEffect, useRef } from "react";
 
 import { useConversationPaneStore } from "../stores/conversation-pane-store";
 import {
-  conversationPanePresentationRequestEvent,
   presentConversationPane,
-  type ConversationPanePresentationEventDetail,
   type ConversationPanePresentationRequest,
   type ConversationPanePresentationResult,
 } from "./conversation-pane-coordinator";
@@ -12,6 +10,7 @@ import type { PaneId, Rect } from "./types";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 
 export interface WorkspaceConversationFocusRequest extends ConversationPanePresentationRequest {
+  complete: (result: ConversationPanePresentationResult) => void;
   requestId: number;
 }
 
@@ -20,7 +19,7 @@ interface ConversationPaneRuntimeOptions {
   focusedPaneId: PaneId;
   layoutRevision: number;
   onPresentationError?: (message: string | null) => void;
-  runLayoutAction: (action: () => void) => void;
+  runLayoutAction: (action: () => void) => Promise<boolean> | void;
   runtime: WorkspaceRuntime;
   stageViewport: () => Rect;
   workspaceId: string;
@@ -29,7 +28,6 @@ interface ConversationPaneRuntimeOptions {
 export function useConversationPaneRuntime(options: ConversationPaneRuntimeOptions): void {
   useConversationPaneIndex(options);
   useConversationPanePresentation(options);
-  useConversationPanePresentationRequests(options);
 }
 
 function useConversationPaneIndex({
@@ -75,57 +73,39 @@ function useConversationPanePresentation({
       return;
     }
     lastFocusRequestIdRef.current = focusRequest.requestId;
-    const result = applyConversationPanePresentation(
+    void applyConversationPanePresentation(
       focusRequest,
       runLayoutAction,
       runtime,
       stageViewport,
+    ).then(
+      (result) => {
+        onPresentationError?.(result.kind === "blocked" ? result.reason : null);
+        focusRequest.complete(result);
+      },
+      () => {
+        const result = {
+          kind: "blocked",
+          reason: "The workspace could not apply the conversation pane request.",
+        } as const;
+        onPresentationError?.(result.reason);
+        focusRequest.complete(result);
+      },
     );
-    const blockedReason = result.kind === "blocked" ? result.reason : null;
-    onPresentationError?.(blockedReason);
   }, [focusRequest, onPresentationError, runLayoutAction, runtime, stageViewport, workspaceId]);
 }
 
-function useConversationPanePresentationRequests({
-  onPresentationError,
-  runLayoutAction,
-  runtime,
-  stageViewport,
-  workspaceId,
-}: ConversationPaneRuntimeOptions): void {
-  useEffect(() => {
-    if (runtime.mode !== "workspace") {
-      return;
-    }
-    const present = (event: Event) => {
-      const detail = (event as CustomEvent<ConversationPanePresentationEventDetail>).detail;
-      if (!detail?.request || detail.request.workspaceId !== workspaceId || detail.result) {
-        return;
-      }
-      detail.result = applyConversationPanePresentation(
-        detail.request,
-        runLayoutAction,
-        runtime,
-        stageViewport,
-      );
-      onPresentationError?.(detail.result.kind === "blocked" ? detail.result.reason : null);
-    };
-    window.addEventListener(conversationPanePresentationRequestEvent, present);
-    return () => window.removeEventListener(conversationPanePresentationRequestEvent, present);
-  }, [onPresentationError, runLayoutAction, runtime, stageViewport, workspaceId]);
-}
-
-function applyConversationPanePresentation(
+async function applyConversationPanePresentation(
   request: ConversationPanePresentationRequest,
-  runLayoutAction: (action: () => void) => void,
+  runLayoutAction: (action: () => void) => Promise<boolean> | void,
   runtime: WorkspaceRuntime,
   stageViewport: () => Rect,
-): ConversationPanePresentationResult {
+): Promise<ConversationPanePresentationResult> {
   let result: ConversationPanePresentationResult = {
     kind: "blocked",
     reason: `Workspace ${request.workspaceId} is not mounted.`,
   };
-  runLayoutAction(() => {
+  const persisted = await runLayoutAction(() => {
     result = presentConversationPane(runtime.store, request);
     if (result.kind === "blocked") {
       return;
@@ -133,5 +113,11 @@ function applyConversationPanePresentation(
     runtime.store.ensureFocusedColumnVisible(stageViewport());
     runtime.store.snapScrollToTarget();
   });
+  if (result.kind !== "blocked" && persisted === false) {
+    return {
+      kind: "blocked",
+      reason: "The workspace could not persist the conversation pane request.",
+    };
+  }
   return result;
 }

@@ -71,6 +71,9 @@ import type {
   OpenWorkspaceResponse,
   NavigatorPage,
   ProcessCartographerWindowRequest,
+  PresentationIntent,
+  PresentationResolution,
+  PresentationResolutionRequest,
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
@@ -453,10 +456,14 @@ export interface SettaAPI {
   };
   master?: {
     readActiveInteraction: () => Promise<ActiveShellInteraction>;
+    resolvePresentation: (
+      request: PresentationResolutionRequest,
+    ) => Promise<PresentationResolution>;
     submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
     waitInteraction: (
       request: ReadMasterInputRoutingStateRequest,
     ) => Promise<ShellInteractionState>;
+    waitPresentation: (request: ReadMasterInputRoutingStateRequest) => Promise<PresentationIntent>;
   };
   speech: {
     cancelSynthesis?: (operationId: string) => Promise<void>;

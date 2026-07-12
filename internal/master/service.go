@@ -12,6 +12,58 @@ type InputStore interface {
 	ReadActiveMasterShellInteraction(context.Context) (ActiveShellInteraction, error)
 	ReadMasterInputRoutingState(context.Context, string) (InputRoutingState, error)
 	WaitForMasterInputRoutingState(context.Context, string) (InputRoutingState, error)
+	WaitForMasterPresentationIntent(context.Context, string) (PresentationIntent, error)
+	ResolveMasterPresentationIntent(context.Context, PresentationResolutionRequest, string) (PresentationResolution, error)
+}
+
+func (service *Service) WaitPresentationIntent(
+	ctx context.Context,
+	inputID string,
+) (PresentationIntent, error) {
+	if service == nil || service.store == nil {
+		return PresentationIntent{}, errors.New("master input service is unavailable")
+	}
+	if ctx == nil {
+		return PresentationIntent{}, errors.New("master presentation wait context is required")
+	}
+	intent, err := service.store.WaitForMasterPresentationIntent(ctx, inputID)
+	if err != nil {
+		return PresentationIntent{}, err
+	}
+	if err := intent.Validate(); err != nil {
+		return PresentationIntent{}, fmt.Errorf("master input store returned invalid presentation intent: %w", err)
+	}
+	return ClonePresentationIntent(intent), nil
+}
+
+func (service *Service) ResolvePresentationIntent(
+	ctx context.Context,
+	request PresentationResolutionRequest,
+) (PresentationResolution, error) {
+	if service == nil || service.store == nil || service.now == nil {
+		return PresentationResolution{}, errors.New("master input service is unavailable")
+	}
+	if ctx == nil {
+		return PresentationResolution{}, errors.New("master presentation resolution context is required")
+	}
+	if err := request.Validate(); err != nil {
+		return PresentationResolution{}, err
+	}
+	resolution, err := service.store.ResolveMasterPresentationIntent(
+		ctx,
+		request,
+		service.now().UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return PresentationResolution{}, err
+	}
+	if err := resolution.Validate(); err != nil {
+		return PresentationResolution{}, fmt.Errorf("master input store returned invalid presentation resolution: %w", err)
+	}
+	if resolution.IntentID != request.IntentID || resolution.InputID != request.InputID || resolution.PaneID != request.PaneID {
+		return PresentationResolution{}, errors.New("master input store returned a different presentation resolution")
+	}
+	return resolution, nil
 }
 
 func (service *Service) ReadActiveShellInteraction(ctx context.Context) (ActiveShellInteraction, error) {

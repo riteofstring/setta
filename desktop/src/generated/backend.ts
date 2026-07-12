@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 40;
-export const backendContractSchemaHash = "sha256:60cca066d8850497c21c45472a0b3fc621dbf2ce73caadc6a45b85e07a938e16";
+export const backendProtocolVersion = 41;
+export const backendContractSchemaHash = "sha256:7429e0d04ffcaf2be1760e75fa7112b33a3f7f6b04e73eed19f59ef62739ffc6";
 
 export type DeviceScope = "full";
 
@@ -1647,6 +1647,42 @@ export function decodeRouteDecisionKind(value: unknown, label = "RouteDecisionKi
     case "clarify":
       return decoded;
     case "answer_global":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type PresentationIntentKind = "focus_existing_conversation_pane" | "open_conversation_pane" | "open_side_conversation_in_parent_pane" | "show_master_reply";
+
+export const presentationIntentKindValues = ["focus_existing_conversation_pane", "open_conversation_pane", "open_side_conversation_in_parent_pane", "show_master_reply"] as const satisfies readonly PresentationIntentKind[];
+
+export function decodePresentationIntentKind(value: unknown, label = "PresentationIntentKind"): PresentationIntentKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "focus_existing_conversation_pane":
+      return decoded;
+    case "open_conversation_pane":
+      return decoded;
+    case "open_side_conversation_in_parent_pane":
+      return decoded;
+    case "show_master_reply":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type MasterReplyKind = "clarification" | "answer";
+
+export const masterReplyKindValues = ["clarification", "answer"] as const satisfies readonly MasterReplyKind[];
+
+export function decodeMasterReplyKind(value: unknown, label = "MasterReplyKind"): MasterReplyKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "clarification":
+      return decoded;
+    case "answer":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -5412,6 +5448,84 @@ export interface RouteInvocationAudit {
   endedAt: string;
 }
 
+export interface ConversationPresentationTarget {
+  workspaceId: string;
+  conversationId: string;
+  title: string;
+  preferredPaneId: string | null;
+}
+
+export interface MasterSendToAgentRouteCommand {
+  target: ConversationPresentationTarget;
+  turnId: string;
+  authoredInput: string;
+}
+
+export interface MasterQueueAgentTurnRouteCommand {
+  target: ConversationPresentationTarget;
+  turnId: string;
+  authoredInput: string;
+}
+
+export interface MasterSteerActiveTurnRouteCommand {
+  target: ConversationPresentationTarget;
+  targetTurnId: string;
+  authoredInput: string;
+}
+
+export interface MasterAskNarratorRouteCommand {
+  target: ConversationPresentationTarget;
+  requestId: string;
+  question: string;
+}
+
+export interface MasterFocusConversationRouteCommand {
+  target: ConversationPresentationTarget;
+}
+
+export interface MasterCreateConversationRouteCommand {
+  target: ConversationPresentationTarget;
+  turnId: string;
+  initialInput: string;
+}
+
+export interface MasterCreateSideConversationRouteCommand {
+  target: ConversationPresentationTarget;
+  sideConversationId: string;
+  turnId: string;
+  input: string;
+}
+
+export interface MasterForkConversationRouteCommand {
+  parentConversationId: string;
+  target: ConversationPresentationTarget;
+  forkedAtTurnId: string;
+  turnId: string;
+  input: string;
+}
+
+export interface MasterClarifyRouteCommand {
+  question: string;
+}
+
+export interface MasterAnswerGlobalRouteCommand {
+  text: string;
+}
+
+export interface RouteCommand {
+  kind: RouteDecisionKind;
+  sendToAgent: MasterSendToAgentRouteCommand | null;
+  queueAgentTurn: MasterQueueAgentTurnRouteCommand | null;
+  steerActiveTurn: MasterSteerActiveTurnRouteCommand | null;
+  askNarrator: MasterAskNarratorRouteCommand | null;
+  focusConversation: MasterFocusConversationRouteCommand | null;
+  createConversation: MasterCreateConversationRouteCommand | null;
+  createSideConversation: MasterCreateSideConversationRouteCommand | null;
+  forkConversation: MasterForkConversationRouteCommand | null;
+  clarify: MasterClarifyRouteCommand | null;
+  answerGlobal: MasterAnswerGlobalRouteCommand | null;
+}
+
 export interface RouteDecisionRecord {
   streamSequence: number;
   id: string;
@@ -5421,6 +5535,7 @@ export interface RouteDecisionRecord {
   context: RouteContextAudit;
   resolvedInvocation: RouteInvocationAudit;
   decision: RouteDecision;
+  resultingCommand: RouteCommand;
   decidedAt: string;
 }
 
@@ -5438,6 +5553,51 @@ export interface InputRoutingState {
   routingStartedAt: string | null;
   decision: RouteDecisionRecord | null;
   failure: RouteFailure | null;
+}
+
+export interface FocusExistingConversationPaneIntent {
+  target: ConversationPresentationTarget;
+}
+
+export interface OpenConversationPaneIntent {
+  target: ConversationPresentationTarget;
+}
+
+export interface OpenSideConversationInParentPaneIntent {
+  target: ConversationPresentationTarget;
+}
+
+export interface ShowMasterReplyIntent {
+  replyKind: MasterReplyKind;
+  text: string;
+}
+
+export interface PresentationIntent {
+  id: string;
+  inputId: string;
+  source: MasterInputSource;
+  originatingWorkspaceId: string | null;
+  originatingConversationId: string | null;
+  originatingPaneId: string | null;
+  originatingConversationInputId: string | null;
+  kind: PresentationIntentKind;
+  focusExistingConversationPane: FocusExistingConversationPaneIntent | null;
+  openConversationPane: OpenConversationPaneIntent | null;
+  openSideConversation: OpenSideConversationInParentPaneIntent | null;
+  showMasterReply: ShowMasterReplyIntent | null;
+}
+
+export interface PresentationResolutionRequest {
+  intentId: string;
+  inputId: string;
+  paneId: string;
+}
+
+export interface PresentationResolution {
+  intentId: string;
+  inputId: string;
+  paneId: string;
+  resolvedAt: string;
 }
 
 export interface SpeechVoiceCatalog {
@@ -9081,6 +9241,16 @@ export const backendEndpoints = {
     path: "/master/interaction/wait",
     requestBodyLimitBytes: 4194304,
   },
+  WaitMasterPresentationIntent: {
+    method: "POST",
+    path: "/master/presentation/wait",
+    requestBodyLimitBytes: 4194304,
+  },
+  ResolveMasterPresentationIntent: {
+    method: "POST",
+    path: "/master/presentation/resolve",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadSpeechCapabilities: {
     method: "GET",
     path: "/speech/capabilities",
@@ -12287,9 +12457,148 @@ export function decodeRouteInvocationAudit(value: unknown): RouteInvocationAudit
   };
 }
 
+export function decodeConversationPresentationTarget(value: unknown): ConversationPresentationTarget {
+  const record = assertRecord(value, "ConversationPresentationTarget");
+  assertKnownFields(record, "ConversationPresentationTarget", ["workspaceId", "conversationId", "title", "preferredPaneId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ConversationPresentationTarget"), "ConversationPresentationTarget.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ConversationPresentationTarget"), "ConversationPresentationTarget.conversationId"),
+    title: decodeString(requireField(record, "title", "ConversationPresentationTarget"), "ConversationPresentationTarget.title"),
+    preferredPaneId: decodeNullable(requireField(record, "preferredPaneId", "ConversationPresentationTarget"), "ConversationPresentationTarget.preferredPaneId", (item) => decodeString(item, "ConversationPresentationTarget.preferredPaneId")),
+  };
+}
+
+export function decodeMasterSendToAgentRouteCommand(value: unknown): MasterSendToAgentRouteCommand {
+  const record = assertRecord(value, "MasterSendToAgentRouteCommand");
+  assertKnownFields(record, "MasterSendToAgentRouteCommand", ["target", "turnId", "authoredInput"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "MasterSendToAgentRouteCommand")),
+    turnId: decodeString(requireField(record, "turnId", "MasterSendToAgentRouteCommand"), "MasterSendToAgentRouteCommand.turnId"),
+    authoredInput: decodeString(requireField(record, "authoredInput", "MasterSendToAgentRouteCommand"), "MasterSendToAgentRouteCommand.authoredInput"),
+  };
+}
+
+export function decodeMasterQueueAgentTurnRouteCommand(value: unknown): MasterQueueAgentTurnRouteCommand {
+  const record = assertRecord(value, "MasterQueueAgentTurnRouteCommand");
+  assertKnownFields(record, "MasterQueueAgentTurnRouteCommand", ["target", "turnId", "authoredInput"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "MasterQueueAgentTurnRouteCommand")),
+    turnId: decodeString(requireField(record, "turnId", "MasterQueueAgentTurnRouteCommand"), "MasterQueueAgentTurnRouteCommand.turnId"),
+    authoredInput: decodeString(requireField(record, "authoredInput", "MasterQueueAgentTurnRouteCommand"), "MasterQueueAgentTurnRouteCommand.authoredInput"),
+  };
+}
+
+export function decodeMasterSteerActiveTurnRouteCommand(value: unknown): MasterSteerActiveTurnRouteCommand {
+  const record = assertRecord(value, "MasterSteerActiveTurnRouteCommand");
+  assertKnownFields(record, "MasterSteerActiveTurnRouteCommand", ["target", "targetTurnId", "authoredInput"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "MasterSteerActiveTurnRouteCommand")),
+    targetTurnId: decodeString(requireField(record, "targetTurnId", "MasterSteerActiveTurnRouteCommand"), "MasterSteerActiveTurnRouteCommand.targetTurnId"),
+    authoredInput: decodeString(requireField(record, "authoredInput", "MasterSteerActiveTurnRouteCommand"), "MasterSteerActiveTurnRouteCommand.authoredInput"),
+  };
+}
+
+export function decodeMasterAskNarratorRouteCommand(value: unknown): MasterAskNarratorRouteCommand {
+  const record = assertRecord(value, "MasterAskNarratorRouteCommand");
+  assertKnownFields(record, "MasterAskNarratorRouteCommand", ["target", "requestId", "question"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "MasterAskNarratorRouteCommand")),
+    requestId: decodeString(requireField(record, "requestId", "MasterAskNarratorRouteCommand"), "MasterAskNarratorRouteCommand.requestId"),
+    question: decodeString(requireField(record, "question", "MasterAskNarratorRouteCommand"), "MasterAskNarratorRouteCommand.question"),
+  };
+}
+
+export function decodeMasterFocusConversationRouteCommand(value: unknown): MasterFocusConversationRouteCommand {
+  const record = assertRecord(value, "MasterFocusConversationRouteCommand");
+  assertKnownFields(record, "MasterFocusConversationRouteCommand", ["target"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "MasterFocusConversationRouteCommand")),
+  };
+}
+
+export function decodeMasterCreateConversationRouteCommand(value: unknown): MasterCreateConversationRouteCommand {
+  const record = assertRecord(value, "MasterCreateConversationRouteCommand");
+  assertKnownFields(record, "MasterCreateConversationRouteCommand", ["target", "turnId", "initialInput"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "MasterCreateConversationRouteCommand")),
+    turnId: decodeString(requireField(record, "turnId", "MasterCreateConversationRouteCommand"), "MasterCreateConversationRouteCommand.turnId"),
+    initialInput: decodeString(requireField(record, "initialInput", "MasterCreateConversationRouteCommand"), "MasterCreateConversationRouteCommand.initialInput"),
+  };
+}
+
+export function decodeMasterCreateSideConversationRouteCommand(value: unknown): MasterCreateSideConversationRouteCommand {
+  const record = assertRecord(value, "MasterCreateSideConversationRouteCommand");
+  assertKnownFields(record, "MasterCreateSideConversationRouteCommand", ["target", "sideConversationId", "turnId", "input"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "MasterCreateSideConversationRouteCommand")),
+    sideConversationId: decodeString(requireField(record, "sideConversationId", "MasterCreateSideConversationRouteCommand"), "MasterCreateSideConversationRouteCommand.sideConversationId"),
+    turnId: decodeString(requireField(record, "turnId", "MasterCreateSideConversationRouteCommand"), "MasterCreateSideConversationRouteCommand.turnId"),
+    input: decodeString(requireField(record, "input", "MasterCreateSideConversationRouteCommand"), "MasterCreateSideConversationRouteCommand.input"),
+  };
+}
+
+export function decodeMasterForkConversationRouteCommand(value: unknown): MasterForkConversationRouteCommand {
+  const record = assertRecord(value, "MasterForkConversationRouteCommand");
+  assertKnownFields(record, "MasterForkConversationRouteCommand", ["parentConversationId", "target", "forkedAtTurnId", "turnId", "input"]);
+  return {
+    parentConversationId: decodeString(requireField(record, "parentConversationId", "MasterForkConversationRouteCommand"), "MasterForkConversationRouteCommand.parentConversationId"),
+    target: decodeConversationPresentationTarget(requireField(record, "target", "MasterForkConversationRouteCommand")),
+    forkedAtTurnId: decodeString(requireField(record, "forkedAtTurnId", "MasterForkConversationRouteCommand"), "MasterForkConversationRouteCommand.forkedAtTurnId"),
+    turnId: decodeString(requireField(record, "turnId", "MasterForkConversationRouteCommand"), "MasterForkConversationRouteCommand.turnId"),
+    input: decodeString(requireField(record, "input", "MasterForkConversationRouteCommand"), "MasterForkConversationRouteCommand.input"),
+  };
+}
+
+export function decodeMasterClarifyRouteCommand(value: unknown): MasterClarifyRouteCommand {
+  const record = assertRecord(value, "MasterClarifyRouteCommand");
+  assertKnownFields(record, "MasterClarifyRouteCommand", ["question"]);
+  return {
+    question: decodeString(requireField(record, "question", "MasterClarifyRouteCommand"), "MasterClarifyRouteCommand.question"),
+  };
+}
+
+export function decodeMasterAnswerGlobalRouteCommand(value: unknown): MasterAnswerGlobalRouteCommand {
+  const record = assertRecord(value, "MasterAnswerGlobalRouteCommand");
+  assertKnownFields(record, "MasterAnswerGlobalRouteCommand", ["text"]);
+  return {
+    text: decodeString(requireField(record, "text", "MasterAnswerGlobalRouteCommand"), "MasterAnswerGlobalRouteCommand.text"),
+  };
+}
+
+export function decodeRouteCommand(value: unknown): RouteCommand {
+  const record = assertRecord(value, "RouteCommand");
+  assertKnownFields(record, "RouteCommand", ["kind", "sendToAgent", "queueAgentTurn", "steerActiveTurn", "askNarrator", "focusConversation", "createConversation", "createSideConversation", "forkConversation", "clarify", "answerGlobal"]);
+  const result: RouteCommand = {
+    kind: decodeRouteDecisionKind(requireField(record, "kind", "RouteCommand"), "RouteCommand.kind"),
+    sendToAgent: decodeNullable(requireField(record, "sendToAgent", "RouteCommand"), "RouteCommand.sendToAgent", (item) => decodeMasterSendToAgentRouteCommand(item)),
+    queueAgentTurn: decodeNullable(requireField(record, "queueAgentTurn", "RouteCommand"), "RouteCommand.queueAgentTurn", (item) => decodeMasterQueueAgentTurnRouteCommand(item)),
+    steerActiveTurn: decodeNullable(requireField(record, "steerActiveTurn", "RouteCommand"), "RouteCommand.steerActiveTurn", (item) => decodeMasterSteerActiveTurnRouteCommand(item)),
+    askNarrator: decodeNullable(requireField(record, "askNarrator", "RouteCommand"), "RouteCommand.askNarrator", (item) => decodeMasterAskNarratorRouteCommand(item)),
+    focusConversation: decodeNullable(requireField(record, "focusConversation", "RouteCommand"), "RouteCommand.focusConversation", (item) => decodeMasterFocusConversationRouteCommand(item)),
+    createConversation: decodeNullable(requireField(record, "createConversation", "RouteCommand"), "RouteCommand.createConversation", (item) => decodeMasterCreateConversationRouteCommand(item)),
+    createSideConversation: decodeNullable(requireField(record, "createSideConversation", "RouteCommand"), "RouteCommand.createSideConversation", (item) => decodeMasterCreateSideConversationRouteCommand(item)),
+    forkConversation: decodeNullable(requireField(record, "forkConversation", "RouteCommand"), "RouteCommand.forkConversation", (item) => decodeMasterForkConversationRouteCommand(item)),
+    clarify: decodeNullable(requireField(record, "clarify", "RouteCommand"), "RouteCommand.clarify", (item) => decodeMasterClarifyRouteCommand(item)),
+    answerGlobal: decodeNullable(requireField(record, "answerGlobal", "RouteCommand"), "RouteCommand.answerGlobal", (item) => decodeMasterAnswerGlobalRouteCommand(item)),
+  };
+  assertTaggedUnionBranch("RouteCommand", result.kind, {
+    "send_to_agent": result.sendToAgent,
+    "queue_agent_turn": result.queueAgentTurn,
+    "steer_active_turn": result.steerActiveTurn,
+    "ask_narrator": result.askNarrator,
+    "focus_conversation": result.focusConversation,
+    "create_conversation": result.createConversation,
+    "create_side_conversation": result.createSideConversation,
+    "fork_conversation": result.forkConversation,
+    "clarify": result.clarify,
+    "answer_global": result.answerGlobal,
+  });
+  return result;
+}
+
 export function decodeRouteDecisionRecord(value: unknown): RouteDecisionRecord {
   const record = assertRecord(value, "RouteDecisionRecord");
-  assertKnownFields(record, "RouteDecisionRecord", ["streamSequence", "id", "masterSessionId", "inputId", "routingAttempt", "context", "resolvedInvocation", "decision", "decidedAt"]);
+  assertKnownFields(record, "RouteDecisionRecord", ["streamSequence", "id", "masterSessionId", "inputId", "routingAttempt", "context", "resolvedInvocation", "decision", "resultingCommand", "decidedAt"]);
   return {
     streamSequence: decodeInteger(requireField(record, "streamSequence", "RouteDecisionRecord"), "RouteDecisionRecord.streamSequence"),
     id: decodeString(requireField(record, "id", "RouteDecisionRecord"), "RouteDecisionRecord.id"),
@@ -12299,6 +12608,7 @@ export function decodeRouteDecisionRecord(value: unknown): RouteDecisionRecord {
     context: decodeRouteContextAudit(requireField(record, "context", "RouteDecisionRecord")),
     resolvedInvocation: decodeRouteInvocationAudit(requireField(record, "resolvedInvocation", "RouteDecisionRecord")),
     decision: decodeRouteDecision(requireField(record, "decision", "RouteDecisionRecord")),
+    resultingCommand: decodeRouteCommand(requireField(record, "resultingCommand", "RouteDecisionRecord")),
     decidedAt: decodeString(requireField(record, "decidedAt", "RouteDecisionRecord"), "RouteDecisionRecord.decidedAt"),
   };
 }
@@ -12324,6 +12634,86 @@ export function decodeInputRoutingState(value: unknown): InputRoutingState {
     routingStartedAt: decodeNullable(requireField(record, "routingStartedAt", "InputRoutingState"), "InputRoutingState.routingStartedAt", (item) => decodeString(item, "InputRoutingState.routingStartedAt")),
     decision: decodeNullable(requireField(record, "decision", "InputRoutingState"), "InputRoutingState.decision", (item) => decodeRouteDecisionRecord(item)),
     failure: decodeNullable(requireField(record, "failure", "InputRoutingState"), "InputRoutingState.failure", (item) => decodeRouteFailure(item)),
+  };
+}
+
+export function decodeFocusExistingConversationPaneIntent(value: unknown): FocusExistingConversationPaneIntent {
+  const record = assertRecord(value, "FocusExistingConversationPaneIntent");
+  assertKnownFields(record, "FocusExistingConversationPaneIntent", ["target"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "FocusExistingConversationPaneIntent")),
+  };
+}
+
+export function decodeOpenConversationPaneIntent(value: unknown): OpenConversationPaneIntent {
+  const record = assertRecord(value, "OpenConversationPaneIntent");
+  assertKnownFields(record, "OpenConversationPaneIntent", ["target"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "OpenConversationPaneIntent")),
+  };
+}
+
+export function decodeOpenSideConversationInParentPaneIntent(value: unknown): OpenSideConversationInParentPaneIntent {
+  const record = assertRecord(value, "OpenSideConversationInParentPaneIntent");
+  assertKnownFields(record, "OpenSideConversationInParentPaneIntent", ["target"]);
+  return {
+    target: decodeConversationPresentationTarget(requireField(record, "target", "OpenSideConversationInParentPaneIntent")),
+  };
+}
+
+export function decodeShowMasterReplyIntent(value: unknown): ShowMasterReplyIntent {
+  const record = assertRecord(value, "ShowMasterReplyIntent");
+  assertKnownFields(record, "ShowMasterReplyIntent", ["replyKind", "text"]);
+  return {
+    replyKind: decodeMasterReplyKind(requireField(record, "replyKind", "ShowMasterReplyIntent"), "ShowMasterReplyIntent.replyKind"),
+    text: decodeString(requireField(record, "text", "ShowMasterReplyIntent"), "ShowMasterReplyIntent.text"),
+  };
+}
+
+export function decodePresentationIntent(value: unknown): PresentationIntent {
+  const record = assertRecord(value, "PresentationIntent");
+  assertKnownFields(record, "PresentationIntent", ["id", "inputId", "source", "originatingWorkspaceId", "originatingConversationId", "originatingPaneId", "originatingConversationInputId", "kind", "focusExistingConversationPane", "openConversationPane", "openSideConversation", "showMasterReply"]);
+  const result: PresentationIntent = {
+    id: decodeString(requireField(record, "id", "PresentationIntent"), "PresentationIntent.id"),
+    inputId: decodeString(requireField(record, "inputId", "PresentationIntent"), "PresentationIntent.inputId"),
+    source: decodeMasterInputSource(requireField(record, "source", "PresentationIntent"), "PresentationIntent.source"),
+    originatingWorkspaceId: decodeNullable(requireField(record, "originatingWorkspaceId", "PresentationIntent"), "PresentationIntent.originatingWorkspaceId", (item) => decodeString(item, "PresentationIntent.originatingWorkspaceId")),
+    originatingConversationId: decodeNullable(requireField(record, "originatingConversationId", "PresentationIntent"), "PresentationIntent.originatingConversationId", (item) => decodeString(item, "PresentationIntent.originatingConversationId")),
+    originatingPaneId: decodeNullable(requireField(record, "originatingPaneId", "PresentationIntent"), "PresentationIntent.originatingPaneId", (item) => decodeString(item, "PresentationIntent.originatingPaneId")),
+    originatingConversationInputId: decodeNullable(requireField(record, "originatingConversationInputId", "PresentationIntent"), "PresentationIntent.originatingConversationInputId", (item) => decodeString(item, "PresentationIntent.originatingConversationInputId")),
+    kind: decodePresentationIntentKind(requireField(record, "kind", "PresentationIntent"), "PresentationIntent.kind"),
+    focusExistingConversationPane: decodeNullable(requireField(record, "focusExistingConversationPane", "PresentationIntent"), "PresentationIntent.focusExistingConversationPane", (item) => decodeFocusExistingConversationPaneIntent(item)),
+    openConversationPane: decodeNullable(requireField(record, "openConversationPane", "PresentationIntent"), "PresentationIntent.openConversationPane", (item) => decodeOpenConversationPaneIntent(item)),
+    openSideConversation: decodeNullable(requireField(record, "openSideConversation", "PresentationIntent"), "PresentationIntent.openSideConversation", (item) => decodeOpenSideConversationInParentPaneIntent(item)),
+    showMasterReply: decodeNullable(requireField(record, "showMasterReply", "PresentationIntent"), "PresentationIntent.showMasterReply", (item) => decodeShowMasterReplyIntent(item)),
+  };
+  assertTaggedUnionBranch("PresentationIntent", result.kind, {
+    "focus_existing_conversation_pane": result.focusExistingConversationPane,
+    "open_conversation_pane": result.openConversationPane,
+    "open_side_conversation_in_parent_pane": result.openSideConversation,
+    "show_master_reply": result.showMasterReply,
+  });
+  return result;
+}
+
+export function decodePresentationResolutionRequest(value: unknown): PresentationResolutionRequest {
+  const record = assertRecord(value, "PresentationResolutionRequest");
+  assertKnownFields(record, "PresentationResolutionRequest", ["intentId", "inputId", "paneId"]);
+  return {
+    intentId: decodeString(requireField(record, "intentId", "PresentationResolutionRequest"), "PresentationResolutionRequest.intentId"),
+    inputId: decodeString(requireField(record, "inputId", "PresentationResolutionRequest"), "PresentationResolutionRequest.inputId"),
+    paneId: decodeString(requireField(record, "paneId", "PresentationResolutionRequest"), "PresentationResolutionRequest.paneId"),
+  };
+}
+
+export function decodePresentationResolution(value: unknown): PresentationResolution {
+  const record = assertRecord(value, "PresentationResolution");
+  assertKnownFields(record, "PresentationResolution", ["intentId", "inputId", "paneId", "resolvedAt"]);
+  return {
+    intentId: decodeString(requireField(record, "intentId", "PresentationResolution"), "PresentationResolution.intentId"),
+    inputId: decodeString(requireField(record, "inputId", "PresentationResolution"), "PresentationResolution.inputId"),
+    paneId: decodeString(requireField(record, "paneId", "PresentationResolution"), "PresentationResolution.paneId"),
+    resolvedAt: decodeString(requireField(record, "resolvedAt", "PresentationResolution"), "PresentationResolution.resolvedAt"),
   };
 }
 
@@ -17276,6 +17666,8 @@ export interface BackendClient {
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   readMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
   waitMasterShellInteraction: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
+  waitMasterPresentationIntent: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<PresentationIntent>;
+  resolveMasterPresentationIntent: (request: PresentationResolutionRequest, options?: BackendRequestOptions) => Promise<PresentationResolution>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   readMasterVoiceSelection: (options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   updateMasterVoiceSelection: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
@@ -17758,6 +18150,24 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeShellInteractionState,
       endpoint: backendEndpoints.WaitMasterShellInteraction,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    waitMasterPresentationIntent: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodePresentationIntent,
+      endpoint: backendEndpoints.WaitMasterPresentationIntent,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    resolveMasterPresentationIntent: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodePresentationResolution,
+      endpoint: backendEndpoints.ResolveMasterPresentationIntent,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,
