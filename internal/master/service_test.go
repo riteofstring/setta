@@ -105,6 +105,45 @@ func TestServiceCancelsOneActiveInputThroughTheRoutedBoundary(t *testing.T) {
 	}
 }
 
+func TestServiceRejectsConversationEscalationCancellationBeforeMutation(t *testing.T) {
+	workspaceID := "workspace_alpha"
+	conversationID := "conversation_alpha"
+	conversationInputID := "conversation_input_alpha"
+	input := MasterInput{
+		ID:                             "input_escalation_cancel",
+		Text:                           "Route this elsewhere.",
+		Modality:                       MasterInputModalityText,
+		Source:                         MasterInputSourceConversationEscalation,
+		SubmittedAt:                    "2026-07-12T18:00:00Z",
+		OriginatingWorkspaceID:         &workspaceID,
+		OriginatingConversationID:      &conversationID,
+		OriginatingConversationInputID: &conversationInputID,
+	}
+	store := &recordingInputStore{state: InputRoutingState{
+		Input: AcceptedMasterInput{
+			Sequence:      1,
+			Input:         input,
+			ReplyDelivery: ReplyDeliveryForInput(input),
+			AcceptedAt:    "2026-07-12T18:00:01Z",
+		},
+		Status: InputRoutingStatusAccepted,
+	}}
+	service, err := newService(store, func() time.Time {
+		return time.Date(2026, 7, 12, 18, 0, 2, 0, time.UTC)
+	})
+	if err != nil {
+		t.Fatalf("newService: %v", err)
+	}
+	service.canceler = store
+
+	if _, err := service.CancelInput(context.Background(), input.ID); err == nil {
+		t.Fatal("CancelInput accepted a conversation escalation")
+	}
+	if store.cancelledInputID != "" || store.cancelledAt != "" {
+		t.Fatalf("conversation escalation reached cancellation mutation: %+v", store)
+	}
+}
+
 func TestServiceReadsAndClonesValidatedActiveShellInteraction(t *testing.T) {
 	input := MasterInput{
 		ID:          "input_active",

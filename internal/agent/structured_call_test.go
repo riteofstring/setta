@@ -153,6 +153,21 @@ func TestFreshStructuredCleanupRejectsRequestsAndWaitsForTerminal(t *testing.T) 
 	}
 }
 
+func TestFreshStructuredCleanupReturnsTypedInterruptionFailure(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := runtime.RunFreshStructuredCall(
+		ctx,
+		fakeFreshStructuredCallRequest(t, `{"mode":"tool-cleanup-fail"}`),
+	)
+	if err == nil || !IsStructuredTurnCleanupError(err) ||
+		!strings.Contains(err.Error(), "scripted structured cleanup failure") {
+		t.Fatalf("RunFreshStructuredCall cleanup error = %v", err)
+	}
+}
+
 func TestFreshStructuredCallRequiresStrictRestrictedContract(t *testing.T) {
 	request := fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
 	request.Invocation.PermissionMode = PermissionModeWorkspaceWrite

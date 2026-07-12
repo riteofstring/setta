@@ -68,6 +68,7 @@ export async function exerciseMasterCancellation({
   artifactDirectory,
   backend,
   client,
+  providerStatePath,
   text,
   timeoutMs,
   workspaceId,
@@ -83,6 +84,12 @@ export async function exerciseMasterCancellation({
   await waitForBackendState(
     async () => backend.post("/master/inputs/state/read", { inputId: recorded.accepted.input.id }),
     (state) => state.status === "routing",
+    timeoutMs,
+  );
+  const activeProvider = await waitForMasterProviderTurn(
+    providerStatePath,
+    "inProgress",
+    null,
     timeoutMs,
   );
   await clickEnabledButtonByAria(client, "Cancel active Setta request", timeoutMs);
@@ -122,7 +129,11 @@ export async function exerciseMasterCancellation({
     throw new Error(`cancelled master interaction did not clear: ${JSON.stringify(cleared)}`);
   }
   await closeMasterOverlay(client, timeoutMs);
-  return { cancelled, recorded };
+  return {
+    activeProviderTurnId: activeProvider.turn.id,
+    cancelled,
+    recorded,
+  };
 }
 
 export function assertCancelledMasterInputState(state, inputId) {
@@ -162,14 +173,18 @@ export function assertCancelledMasterInputState(state, inputId) {
   }
 }
 
-export async function assertMasterProviderTurnInterrupted(statePath, timeoutMs) {
+export async function assertMasterProviderTurnInterrupted(statePath, turnId, timeoutMs) {
+  return waitForMasterProviderTurn(statePath, "interrupted", turnId, timeoutMs);
+}
+
+async function waitForMasterProviderTurn(statePath, status, turnId, timeoutMs) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     const state = JSON.parse(await readFile(statePath, "utf8"));
-    const interrupted = state.turns
-      .filter((turn) => turn.status === "interrupted")
+    const matchingTurns = state.turns
+      .filter((turn) => turn.status === status && (turnId === null || turn.id === turnId))
       .sort((left, right) => topicTurnOrdinal(right.id) - topicTurnOrdinal(left.id));
-    const newest = interrupted[0];
+    const newest = matchingTurns[0];
     const restrictedOwner = state.threads.find(
       (thread) => thread.restricted === true && thread.turnIds?.includes(newest?.id),
     );
@@ -178,7 +193,7 @@ export async function assertMasterProviderTurnInterrupted(statePath, timeoutMs) 
     }
     await delay(20);
   }
-  throw new Error("fake Codex did not interrupt the cancelled master provider turn");
+  throw new Error(`fake Codex master provider turn did not reach ${status}`);
 }
 
 function topicTurnOrdinal(turnId) {

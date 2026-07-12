@@ -167,21 +167,7 @@ func (service *SessionService) RunStructuredTurn(
 	}
 	providerResult, err := service.threads.RunRestrictedStructuredTurn(ctx, providerRequest)
 	if err != nil {
-		finalizeCtx, cancel := context.WithTimeout(context.Background(), masterThreadCleanupTimeout)
-		defer cancel()
-		if ctx.Err() != nil || errors.Is(err, context.Canceled) {
-			return StructuredSessionTurnResult{}, service.finishCancelledStructuredTurn(
-				finalizeCtx,
-				running,
-				err,
-			)
-		}
-		return StructuredSessionTurnResult{}, service.degradeSession(
-			finalizeCtx,
-			running,
-			"master_route_turn_failed",
-			err,
-		)
+		return StructuredSessionTurnResult{}, service.finishFailedStructuredTurn(ctx, running, err)
 	}
 	finalizeCtx, cancel := context.WithTimeout(context.Background(), masterThreadCleanupTimeout)
 	defer cancel()
@@ -195,6 +181,27 @@ func (service *SessionService) RunStructuredTurn(
 		ProviderTurnID:   providerResult.ProviderTurnID,
 		Output:           append(json.RawMessage{}, providerResult.Output...),
 	}, nil
+}
+
+func (service *SessionService) finishFailedStructuredTurn(
+	ctx context.Context,
+	session Session,
+	cause error,
+) error {
+	finalizeCtx, cancel := context.WithTimeout(context.Background(), masterThreadCleanupTimeout)
+	defer cancel()
+	if agent.IsStructuredTurnCleanupError(cause) {
+		return service.degradeSession(
+			finalizeCtx,
+			session,
+			"master_route_turn_cleanup_failed",
+			cause,
+		)
+	}
+	if ctx.Err() != nil || errors.Is(cause, context.Canceled) {
+		return service.finishCancelledStructuredTurn(finalizeCtx, session, cause)
+	}
+	return service.degradeSession(finalizeCtx, session, "master_route_turn_failed", cause)
 }
 
 func (service *SessionService) finishCancelledStructuredTurn(

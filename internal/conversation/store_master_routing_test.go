@@ -377,6 +377,7 @@ func TestStoreWaitsForMasterInputTerminalStateWithoutPolling(t *testing.T) {
 
 func TestStoreCancelsAcceptedAndActiveMasterRoutingIdempotently(t *testing.T) {
 	store := newTestStore(t)
+	ready := seedMasterRouteState(t, store)
 	accepted := acceptMasterRouteTestInput(
 		t,
 		store,
@@ -436,6 +437,13 @@ func TestStoreCancelsAcceptedAndActiveMasterRoutingIdempotently(t *testing.T) {
 		t.Fatalf("cancel active master input: %v", err)
 	}
 	assertCancelledMasterRoutingState(t, activeState, active.Input.ID, work.RoutingAttempt)
+	lateCommit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
+		Kind:         master.RouteDecisionKindAnswerGlobal,
+		AnswerGlobal: &master.MasterAnswerGlobalRouteDecision{Text: "This late answer must not commit."},
+	})
+	if _, err := store.CommitMasterRouteDecision(context.Background(), lateCommit); !IsStateConflict(err) {
+		t.Fatalf("late route commit error = %T %v, want state conflict", err, err)
+	}
 	select {
 	case state := <-waited:
 		assertCancelledMasterRoutingState(t, state, active.Input.ID, work.RoutingAttempt)

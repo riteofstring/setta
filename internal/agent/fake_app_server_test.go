@@ -17,6 +17,7 @@ type fakeAgentServerState struct {
 	pending              map[string]fakePendingApproval
 	structured           map[string]bool
 	cleanupRequestOnTurn map[string]bool
+	cleanupFailureOnTurn map[string]bool
 	unsubscribed         map[string]bool
 }
 
@@ -33,6 +34,7 @@ func runFakeAgentAppServer() {
 		pending:              map[string]fakePendingApproval{},
 		structured:           map[string]bool{},
 		cleanupRequestOnTurn: map[string]bool{},
+		cleanupFailureOnTurn: map[string]bool{},
 		unsubscribed:         map[string]bool{},
 	}
 	scanner := bufio.NewScanner(os.Stdin)
@@ -396,6 +398,16 @@ func handleFakeFreshStructuredTurn(
 			"startedAtMs": 1,
 			"item":        command,
 		})
+	case `{"mode":"tool-cleanup-fail"}`:
+		state.heldTurns[turnID] = threadID
+		state.cleanupFailureOnTurn[turnID] = true
+		command := fakeAgentCommandItem("command-"+turnID, "inProgress", nil)
+		writeFakeAgentNotification("item/started", map[string]any{
+			"threadId":    threadID,
+			"turnId":      turnID,
+			"startedAtMs": 1,
+			"item":        command,
+		})
 	case `{"mode":"double"}`:
 		writeFakeStructuredAgentMessage(threadID, turnID, "agent-a-"+turnID, `{"answer":"FIRST"}`)
 		writeFakeStructuredAgentMessage(threadID, turnID, "agent-b-"+turnID, `{"answer":"SECOND"}`)
@@ -456,6 +468,11 @@ func handleFakeAgentTurnInterrupt(state *fakeAgentServerState, message map[strin
 		panic("turn/interrupt targeted a turn that is not held")
 	}
 	delete(state.heldTurns, turnID)
+	if state.cleanupFailureOnTurn[turnID] {
+		delete(state.cleanupFailureOnTurn, turnID)
+		writeFakeAgentError(message["id"], -32603, "scripted structured cleanup failure")
+		return
+	}
 	writeFakeAgentResponse(message["id"], map[string]any{})
 	if state.cleanupRequestOnTurn[turnID] {
 		delete(state.cleanupRequestOnTurn, turnID)

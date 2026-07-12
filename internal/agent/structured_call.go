@@ -32,6 +32,26 @@ type FreshStructuredCallResult struct {
 	Output           json.RawMessage `json:"output"`
 }
 
+// StructuredTurnCleanupError reports that a schema-constrained provider turn
+// could not be interrupted and drained after its caller stopped waiting.
+type StructuredTurnCleanupError struct {
+	RequestID string
+	Err       error
+}
+
+func (err *StructuredTurnCleanupError) Error() string {
+	return fmt.Sprintf("interrupt unfinished schema-constrained turn %s: %v", err.RequestID, err.Err)
+}
+
+func (err *StructuredTurnCleanupError) Unwrap() error {
+	return err.Err
+}
+
+func IsStructuredTurnCleanupError(err error) bool {
+	var cleanupErr *StructuredTurnCleanupError
+	return errors.As(err, &cleanupErr)
+}
+
 type schemaConstrainedTurnRequest struct {
 	ID            string
 	WorkspaceRoot string
@@ -173,7 +193,7 @@ func (cleanup structuredTurnCleanup) apply(returnErr *error) {
 	if cleanupErr == nil {
 		return
 	}
-	cleanupErr = fmt.Errorf("interrupt unfinished schema-constrained turn %s: %w", cleanup.requestID, cleanupErr)
+	cleanupErr = &StructuredTurnCleanupError{RequestID: cleanup.requestID, Err: cleanupErr}
 	if *returnErr == nil {
 		*returnErr = cleanupErr
 		return

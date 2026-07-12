@@ -18,11 +18,16 @@ export async function exerciseVerifiedMasterCancellation({
     artifactDirectory,
     backend,
     client,
+    providerStatePath,
     text,
     timeoutMs,
     workspaceId,
   });
-  await assertMasterProviderTurnInterrupted(providerStatePath, timeoutMs);
+  await assertMasterProviderTurnInterrupted(
+    providerStatePath,
+    result.activeProviderTurnId,
+    timeoutMs,
+  );
   await assertRecordedMasterRouteCancellation({
     artifactDirectory,
     inputIdentity: result.recorded.accepted.input,

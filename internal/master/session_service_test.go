@@ -205,6 +205,35 @@ func TestSessionServicePersistsStructuredTurnCancellationWithCleanupContext(t *t
 	}
 }
 
+func TestSessionServiceDegradesWhenCancelledStructuredTurnCleanupFails(t *testing.T) {
+	store := &recordingSessionStore{honorContext: true}
+	roles := &recordingMasterRoleResolver{configuration: validTestRoleConfiguration()}
+	ctx, cancel := context.WithCancel(context.Background())
+	cleanupErr := &agent.StructuredTurnCleanupError{
+		RequestID: "master-route-cleanup-failed",
+		Err:       errors.New("provider interruption failed"),
+	}
+	threads := &recordingRestrictedThreadRuntime{
+		structuredHook: cancel,
+		structuredErr:  errors.Join(context.Canceled, cleanupErr),
+	}
+	service := newTestSessionService(t, store, roles, threads)
+
+	_, err := service.RunStructuredTurn(ctx, StructuredSessionTurnRequest{
+		ID:           "master-route-cleanup-failed",
+		Input:        json.RawMessage(`{"kind":"master_route"}`),
+		OutputSchema: json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}`),
+	})
+	if !errors.Is(err, context.Canceled) || !agent.IsStructuredTurnCleanupError(err) {
+		t.Fatalf("structured cleanup failure = %v", err)
+	}
+	persisted, found, readErr := store.ReadMasterSession(context.Background())
+	if readErr != nil || !found || persisted.Status != SessionStatusDegraded ||
+		persisted.Degradation == nil || persisted.Degradation.Code != "master_route_turn_cleanup_failed" {
+		t.Fatalf("master session after cleanup failure = %+v found=%t err=%v", persisted, found, readErr)
+	}
+}
+
 func newTestSessionService(
 	t *testing.T,
 	store SessionStore,

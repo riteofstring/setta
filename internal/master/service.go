@@ -195,6 +195,9 @@ func (service *Service) CancelInput(
 	if err := validateInputCancellationRequest(service, ctx, inputID); err != nil {
 		return ShellInteractionState{}, err
 	}
+	if err := service.requireShellInputCancellation(ctx, inputID); err != nil {
+		return ShellInteractionState{}, err
+	}
 	state, err := service.canceler.CancelMasterInputRouting(
 		ctx,
 		inputID,
@@ -204,6 +207,20 @@ func (service *Service) CancelInput(
 		return ShellInteractionState{}, err
 	}
 	return projectCancelledShellInteraction(state, inputID)
+}
+
+func (service *Service) requireShellInputCancellation(ctx context.Context, inputID string) error {
+	state, err := service.store.ReadMasterInputRoutingState(ctx, inputID)
+	if err != nil {
+		return err
+	}
+	if err := state.Validate(); err != nil {
+		return fmt.Errorf("master input store returned invalid routing state: %w", err)
+	}
+	if state.Input.Input.Source != MasterInputSourceShell {
+		return errors.New("conversation-escalation master input cannot be cancelled through the shell boundary")
+	}
+	return nil
 }
 
 func validateInputCancellationRequest(service *Service, ctx context.Context, inputID string) error {
