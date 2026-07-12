@@ -191,6 +191,43 @@ step is to **apply** a Sprites egress policy through the management API and
 re-run this matrix to test for bypass; the default-open baseline is now
 established.
 
+## Composed launcher boundary — validated
+
+Prototyped and proven via `scripts/sprites/phase1a_launcher_boundary.sh`
+(delegated Codex, high effort), then independently re-run by the reviewer with
+identical results. The launcher runs an arbitrary workload inside a composed
+boundary; trusted code uses `sudo` only to set up the namespace/mounts, then
+drops all privilege before `exec`-ing the workload:
+
+1. `sudo -n unshare --mount --pid --fork --mount-proc` (new mount + PID namespace)
+2. make mounts private; mount empty tmpfs over `/.sprite` and `/.pilot`
+3. `cd` to the workload workdir
+4. `setpriv --reuid 65534 --regid 65534 --clear-groups --no-new-privs
+   --inh-caps=-all --ambient-caps=-all --bounding-set=-all`
+5. `env -i` with a normal PATH, then `exec` the workload
+
+**Containment — all passed** (verified live): inside the boundary
+`uid=65534(nobody)`, `CapEff/CapPrm/CapInh/CapBnd/CapAmb = 0`, `NoNewPrivs: 1`,
+`/.sprite/api.sock` is absent and the socket `curl` fails, `sudo` is blocked by
+no-new-privs, a root-owned setuid helper could not re-escalate
+(`euid=65534`), `/root` and `/etc` writes are denied, and the trusted state
+(`~/.sprites`, `.codex`, `.claude`, `.config`, real `/.sprite`) is unreadable.
+
+**Ergonomics — all passed**: workdir read/write, a Python script, a C
+compile+run, a GitHub clone over HTTPS, `pip download`, and an HTTPS GET all
+worked inside the boundary.
+
+**Service entrypoint — passed**: the same launcher ran as a `sprite-env` Service
+(uid 65534, zero caps, no-new-privs, masked socket), so Setta can launch
+untrusted workloads this way, not just interactively.
+
+So the isolation gap is closed by a reusable launcher built from stock
+primitives — no custom sandbox framework. Remaining hardening before
+productization (Phase 2+): a seccomp profile, cgroup CPU/memory/PID limits, a
+network namespace/policy mode, baking pip/tooling into the runtime image instead
+of per-run install, and regression tests for socket masking, caps, no-new-privs,
+setuid, and the Service entrypoint.
+
 ## Commercial-model evidence (supports deferring the Fly inquiry)
 
 Public evidence indicates the customer-per-Sprite model is supported in
@@ -324,11 +361,12 @@ reversible probes only. Both harnesses pass `bash -n` and
 
 ## Stop-condition assessment
 
-- **Isolation gap: NOT a stop-condition — a boundary-design task.** The default
+- **Isolation gap: NOT a stop-condition — boundary now validated.** The default
   account is capability-root and the management socket is unauthenticated from
   the guest (findings 2, A1), but a composed inner boundary (unprivileged uid +
   `no_new_privs` + empty caps + mount-namespace masking of `/.sprite`) contains
-  all of it while preserving dev ergonomics (A2).
+  all of it while preserving dev ergonomics, and works as a Service entrypoint —
+  built and verified as a reusable launcher (see Composed launcher boundary).
 - **Non-destructive hard-cost cutoff: EXISTS.** `POST .../suspend` stops active
   compute in ~1s without deletion (A3). Corresponding stop-condition does not
   hold, pending a `warm`-cost measurement.
@@ -351,8 +389,12 @@ concrete build tasks.
   over the socket: `/v1/sprites` and `/v1/policy` returned 404 over the socket
   (not guest-reachable there); a full external-vs-socket endpoint map is still
   worth completing in Phase 1b.
-- Two root models: characterized. Constrained-account model is viable only as a
-  constructed composed boundary (A2); podman rootless is broken on this image.
+- Two root models: characterized and resolved. The constrained-account model is
+  viable as a validated composed launcher (see Composed launcher boundary);
+  podman rootless is broken on this image.
+- Cost-assumptions table: built (retained-cold, attached-idle, active-agent) with
+  proposed max-cost-per-user (~$25/mo) and max cutoff lag (<=60s) pending
+  confirmation. See Cost assumptions table.
 - Non-destructive hard-cost cutoff under hostile keepalive: done — `suspend`
   works in ~1s (A3).
 - Network/privilege policy matrix: default-open baseline established (3, A4);
@@ -372,22 +414,21 @@ concrete build tasks.
   (`sprite-4c6f1c96-6f03-4430-a2e1-92b3e344d119`) destroyed with
   `sprite destroy --force`; `GET /v1/sprites` confirmed an empty list.
 - Disposable `setta-phase1a-20260713-char`
-  (`sprite-e7da3c35-d1ea-49ae-a4e2-92f5fa807317`) served both the
-  characterization and adversarial runs; both harnesses left no service,
-  checkpoint, or stray process behind, and destroyed after the adversarial run
-  (see final Cleanup verification in the progress log). The org has no remaining
-  Sprites.
+  (`sprite-e7da3c35-d1ea-49ae-a4e2-92f5fa807317`) served the characterization and
+  adversarial runs, then was destroyed and verified absent.
+- Disposable `setta-phase1a-20260713-bnd`
+  (`sprite-89c5596b-46e2-4449-84ce-69fd59ec7401`) served the launcher-boundary
+  prototype and its independent re-run; the harness self-cleaned (purged its
+  temporary `python3-pip`, deleted the test Service) and the Sprite was destroyed
+  and verified absent. The org has no remaining Sprites.
 
 ## Next steps
 
-1. Build the cost-assumptions table (retained-cold, attached-idle, active-agent)
-   against a chosen plan tier, using the measured `suspend` cutoff latency;
-   record max provider cost per beta user and max cutoff-enforcement lag. Confirm
-   whether `warm` bills resident memory.
-2. Prototype the composed launcher boundary (unprivileged uid + `no_new_privs` +
-   empty caps + mount-namespace masking of `/.sprite`) and confirm it both
-   contains untrusted code and preserves representative dev workflows.
-3. Apply a Sprites egress policy through the management API and re-run the
-   network matrix to test for bypass.
-4. Fold the confirmed `suspend` cutoff into the control-plane hard-budget design
-   (Phase 1c/2), and measure `warm` cost.
+1. Confirm the two proposed cost thresholds (max cost/user, max cutoff lag) and
+   whether `warm` bills resident memory; then finalize the plan tier for the beta.
+2. Apply a Sprites egress policy through the management API and re-run the
+   network matrix to test for bypass (the one remaining containment gate).
+3. Measure idle-pause timing and unauthenticated-URL wake behavior.
+4. Phase 1b: harden the validated launcher (seccomp, cgroup limits, network
+   namespace) and fold the `suspend` cutoff into the control-plane hard-budget
+   design.
