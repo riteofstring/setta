@@ -2,18 +2,20 @@
 
 **Plan:** [BYO Cloud One-Click Runtime Plan](./byo-cloud-one-click-runtime-plan.md)
 **Initialized:** 2026-07-06
-**Current phase:** Phase 1B: Seeded Pairing + Tailnet Watch
+**Current phase:** Live completion gates (all code items verified)
 **Overall status:** Phase 1A complete 2026-07-12: all six items verified,
 including the phone PWA over ts.net HTTPS after tailnet HTTPS enablement.
 The deliverable-gate caveat is that `setta-devbox` runs a hand-made user
 unit rather than the `install.sh` system unit (the install shape itself is
 covered by `install_verification_test.sh` on the same box), and doctor's
-source-control probes are red because the box has no GitHub SSH setup. A
-code audit on 2026-07-11 found Phases 1B-5 substantially implemented with
-tests (only Phase 4's guarded idle auto-stop is intentionally absent);
-their checklist items remain unchecked pending per-item verification passes
-and their live completion gates, several of which require real cloud
-provisioning runs.
+source-control probes are red because the box has no GitHub SSH setup.
+Phases 1B-5 checklist items were verified 2026-07-12 by fresh inspection
+and passing suites. What remains across the plan is the live gates, which
+need user-authorized runs: seeded-pairing on a fresh VM (1B), cloud-init on
+a Tier 2 provider (1C), an SSH-machine end-to-end (2), an interactive
+wizard resolution (3), a real provision-and-pair run (4), and a recorded
+`apply` for the kit (5). Phase 4's guarded idle auto-stop remains
+intentionally unshipped.
 
 ## Tracking Rules
 
@@ -35,11 +37,11 @@ provisioning runs.
 | --- | --- | --- |
 | Phase 1A: Mobile Runtime Foundation | Complete (2026-07-12) | Manually prepared Linux VM runs Setta as a service; doctor reports runtime/mobile readiness; phone PWA works through the `ts.net` URL after normal pairing. |
 | Phase 1B: Seeded Pairing + Tailnet Watch | Items verified 2026-07-12; live gate open | Hand-provisioned runtime with a seeded pairing hash pairs automatically after joining the tailnet. |
-| Phase 1C: Cloud-Init Bootstrap + Release Authenticity | Not started | Generated cloud-init works on one verified Tier 2 provider, pairs automatically, and preserves the phone PWA path. |
-| Phase 2: Existing Machine SSH Launch | Not started | User can point Setta at an SSH-reachable machine and end with a paired, Tailscale-connected, phone-reachable runtime. |
-| Phase 3: Tailscale OAuth Key Minting + Shapes/Wizard | Not started | "Cheap box for agents" resolves to an approval card with concrete instance type, region, and cost when available, with no Tailscale key paste. |
-| Phase 4: Local Execution Layer + AWS Quick-Create Fallback | Not started | CLI happy path provisions and pairs a runtime from one intent sentence plus one approval; no-CLI fallback remains declarative. |
-| Phase 5: OpenTofu/Terraform Kit | Not started | Technical users can provision repeatably without Setta-specific cloud code. |
+| Phase 1C: Cloud-Init Bootstrap + Release Authenticity | Items verified 2026-07-12; live gate open | Generated cloud-init works on one verified Tier 2 provider, pairs automatically, and preserves the phone PWA path. |
+| Phase 2: Existing Machine SSH Launch | Items verified 2026-07-12; live gate open | User can point Setta at an SSH-reachable machine and end with a paired, Tailscale-connected, phone-reachable runtime. |
+| Phase 3: Tailscale OAuth Key Minting + Shapes/Wizard | Items verified 2026-07-12; live gate open | "Cheap box for agents" resolves to an approval card with concrete instance type, region, and cost when available, with no Tailscale key paste. |
+| Phase 4: Local Execution Layer + AWS Quick-Create Fallback | Items verified 2026-07-12; live gate open | CLI happy path provisions and pairs a runtime from one intent sentence plus one approval; no-CLI fallback remains declarative. |
+| Phase 5: OpenTofu/Terraform Kit | Items verified 2026-07-12; live apply unrecorded | Technical users can provision repeatably without Setta-specific cloud code. |
 
 ## Phase 1A: Mobile Runtime Foundation
 
@@ -148,46 +150,115 @@ and remains open.
 
 ### Phase 1C: Cloud-Init Bootstrap + Release Authenticity
 
-- [ ] Add `setta provision render-cloudinit --json` and the cloud-init
+Completion-gate status: items verified; the live gate (generated cloud-init
+boots a verified Tier 2 provider, pairs automatically, preserves the phone
+PWA path) requires a real provisioning run and remains open.
+
+- [x] Add `setta provision render-cloudinit --json` and the cloud-init
   template.
-- [ ] Add minisign signing to the release pipeline and installer verification.
-- [ ] Add tests for cloud-init rendering, shell fragment escaping, secret
+  Verification 2026-07-12: `cmd/setta/provision_cloudinit.go` inspected;
+  `./scripts/go.sh test ./cmd/setta/...` passed (deterministic
+  payload/metadata, pinned release + installer digest requirement).
+- [x] Add minisign signing to the release pipeline and installer verification.
+  Verification 2026-07-12: `scripts/release/build-release.sh` signs
+  `SHA256SUMS` with minisign and `install.sh`
+  `verify_checksums_signature` enforces it;
+  `install_verification_test.sh` (which exercises the signature path
+  with a logged fake minisign) passed on the Linux devbox 2026-07-11.
+- [x] Add tests for cloud-init rendering, shell fragment escaping, secret
   redaction, and signed-release verification.
+  Verification 2026-07-12: `provision_cloudinit_test.go` covers
+  rendering, shell-quoted secret fragments, and redaction leak checks;
+  signed-release verification covered by
+  `install_verification_test.sh`; all passing.
 
 ### Phase 2: Existing Machine SSH Launch
 
-- [ ] Add `setta remote add ssh://user@host` for install-only SSH setup.
-- [ ] Add Desktop "Add runtime -> Existing machine over SSH."
-- [ ] Preserve a setup transcript for troubleshooting.
+Completion-gate status: items verified; the live gate (an SSH-reachable
+machine ends as a paired, Tailscale-connected, phone-reachable runtime)
+requires a real machine run and remains open.
+
+- [x] Add `setta remote add ssh://user@host` for install-only SSH setup.
+  Verification 2026-07-12: `cmd/setta/remote.go` inspected;
+  `./scripts/go.sh test ./cmd/setta/...` passed (SSH bootstrap, non-SSH
+  secret and dev-release rejection).
+- [x] Add Desktop "Add runtime -> Existing machine over SSH."
+  Verification 2026-07-12: `runtime-picker.tsx` "ssh" add mode wired to
+  `addExistingMachineOverSSH`; `runtime-picker.test.tsx` passed.
+- [x] Preserve a setup transcript for troubleshooting.
+  Verification 2026-07-12: redacted transcript path in
+  `cmd/setta/remote.go`; tests cover transcript writing on success and
+  on SSH failure.
 
 ### Phase 3: Tailscale OAuth Key Minting + Shapes/Wizard
 
-- [ ] Add guided one-time Tailscale OAuth client setup with tag validation,
+Completion-gate status: items verified; the live gate (intent sentence
+resolves to a concrete approval card with no Tailscale key paste) needs an
+interactive wizard run and remains open.
+
+- [x] Add guided one-time Tailscale OAuth client setup with tag validation,
   keychain storage, per-runtime auth-key minting, and manual-key fallback.
-- [ ] Ship the fallback shape catalog data file.
-- [ ] Add `setta provision detect --json` and
+  Verification 2026-07-12: `desktop/src/main/tailscale-oauth.ts`
+  inspected; `tailscale-oauth.test.ts` passed.
+- [x] Ship the fallback shape catalog data file.
+  Verification 2026-07-12: `cmd/setta/provision_catalog.json` embedded
+  via `provision_catalog.go` with schema validation;
+  `./scripts/go.sh test ./cmd/setta/...` passed.
+- [x] Add `setta provision detect --json` and
   `setta provision resolve --json`.
-- [ ] Add the desktop wizard with intent input, explicit pickers,
+  Verification 2026-07-12: `provision_detect.go` / `provision_resolve.go`
+  inspected; `provision_phase3_test.go` cases passed.
+- [x] Add the desktop wizard with intent input, explicit pickers,
   deterministic approval card, and Tier 2 fallback instructions.
+  Verification 2026-07-12: `runtime-cloud-wizard.tsx` inspected;
+  `runtime-cloud-wizard.test.tsx` passed.
 
 ### Phase 4: Local Execution Layer + AWS Quick-Create Fallback
 
-- [ ] Add approval-gated `setta provision up` and `down` through typed actions,
+Completion-gate status: items verified in code; the live gate (one intent
+sentence plus one approval provisions and pairs a runtime) requires a real
+cloud provisioning run and remains open.
+
+- [x] Add approval-gated `setta provision up` and `down` through typed actions,
   allowlist manifests, executor invariants, and stored teardown facts.
-- [ ] Wire the wizard approval card to `up` and Phase 1B watch status.
-- [ ] Require a separate destructive confirmation for `down`.
-- [ ] Publish the minimal AWS CloudFormation template and
+  Verification 2026-07-12: `provision_up.go`, `provision_down.go`,
+  `provision_execution.go` + `provision_execution_manifest.json`,
+  `provision_creation_records.go` inspected; `provision_phase4_test.go`
+  cases passed in `./scripts/go.sh test ./cmd/setta/...`.
+- [x] Wire the wizard approval card to `up` and Phase 1B watch status.
+  Verification 2026-07-12: `runtime-cloud-wizard.tsx` +
+  `provision-watch.ts` wiring inspected; wizard and watch suites passed.
+- [x] Require a separate destructive confirmation for `down`.
+  Verification 2026-07-12: `provision_down.go` confirmation flow
+  inspected; covered in `provision_phase4_test.go`.
+- [x] Publish the minimal AWS CloudFormation template and
   `setta provision render-link --provider aws`.
-- [ ] Add typed AWS VPC, subnet, and security group placement resolution.
-- [ ] Do not ship idle auto-stop unless all plan-required lifecycle,
+  Verification 2026-07-12: `provision_render_link.go` inspected; tests
+  passed.
+- [x] Add typed AWS VPC, subnet, and security group placement resolution.
+  Verification 2026-07-12: `provision_aws_placement.go` (commit
+  `b8d532109`) inspected; tests passed.
+- [x] Do not ship idle auto-stop unless all plan-required lifecycle,
   notification, billing-copy, restart, and Tailscale-key constraints are met.
+  Verification 2026-07-12: no auto-stop implementation exists in the
+  tree; the guard is honored by omission as the plan requires.
 
 ### Phase 5: OpenTofu/Terraform Kit
 
-- [ ] Create `infra/modules/setta-runtime-cloudinit`.
-- [ ] Add AWS, GCP, Hetzner, DigitalOcean, and generic cloud-init examples.
-- [ ] Document the boundary between the supported core module and best-effort
+Completion-gate status: items verified; a real `apply` on at least one
+provider has not been recorded.
+
+- [x] Create `infra/modules/setta-runtime-cloudinit`.
+  Verification 2026-07-12: module inspected (tag/label contract,
+  cloud-init hashing); `terraform validate` passed on the module.
+- [x] Add AWS, GCP, Hetzner, DigitalOcean, and generic cloud-init examples.
+  Verification 2026-07-12: all five examples present;
+  `terraform validate` passed on the generic-cloudinit example
+  (provider-specific examples not validated against live providers).
+- [x] Document the boundary between the supported core module and best-effort
   examples.
+  Verification 2026-07-12: `infra/README.md` and module README state the
+  core-vs-examples boundary.
 
 ## Automation Entry Point
 
