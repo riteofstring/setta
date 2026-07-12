@@ -21,7 +21,7 @@ const shutdownTimeoutMs = 10_000;
 
 let launchVisible = false;
 
-export function configureChatWorkflowHarness({ visible }) {
+export function configureElectronWorkflowHarness({ visible }) {
   launchVisible = Boolean(visible);
 }
 
@@ -203,7 +203,6 @@ export async function launchContext(fixture, recordingDir, options = {}) {
 }
 
 function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
-  const harness = launchOptions.harness ?? "scripted-workflow";
   const extraEnv = launchOptions.extraEnv ?? {};
   const unsetEnv = launchOptions.unsetEnv ?? [];
   const e2eEnv = {
@@ -212,7 +211,6 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
     SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
     SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
     ...(launchVisible ? { SETTA_E2E_VISIBLE: "1" } : {}),
-    ...(harness === "scripted-workflow" ? { SETTA_E2E_CHAT_HARNESS: "scripted-workflow" } : {}),
   };
   const env = {
     ...process.env,

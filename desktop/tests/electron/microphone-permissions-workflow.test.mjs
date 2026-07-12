@@ -40,9 +40,6 @@ try {
   context = await launchElectronCdpContext({
     artifactDir,
     electronArgs: ["--use-fake-device-for-media-stream"],
-    extraEnv: {
-      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
-    },
     fixture,
     visible: options.visible,
   });

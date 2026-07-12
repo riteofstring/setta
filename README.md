@@ -93,7 +93,7 @@ Run verification:
 pnpm -C desktop test
 pnpm -C desktop build
 pnpm -C desktop run test:electron:built
-./scripts/test_chat_workflows.sh
+./scripts/test_topic_conversation_workflows.sh
 ./check_quality.sh --all
 ./scripts/check_supply_chain.sh
 ```
@@ -103,14 +103,12 @@ manifest against temporary app data after the app has been built. Use
 `node desktop/tests/electron/run-workflows.mjs --list` to inspect the registered
 workflow names and tiers.
 
-`./scripts/test_chat_workflows.sh` is the chat-specific compatibility wrapper.
-It delegates Electron workflow selection to the manifest and runs the live
-backend Codex workflow automatically when the local Codex CLI is signed in with
-ChatGPT auth; the live-provider skip is printed explicitly when ChatGPT auth is
-unavailable. Use `--visible` to debug with windows shown, `--deterministic-only`
-or `--live-only` to narrow the gate, and `--keep-artifacts` to retain prior
-recordings. Scripted Electron harness modes are test-only and require
-`SETTA_E2E=1` with `SETTA_E2E_CHAT_HARNESS=scripted-workflow`.
+`./scripts/test_topic_conversation_workflows.sh` runs the deterministic
+topic-conversation workflow and the live backend Codex workflow when the local
+Codex CLI is signed in with ChatGPT auth; the live-provider skip is printed
+explicitly when ChatGPT auth is unavailable. Use `--visible` to debug with
+windows shown, `--deterministic-only` or `--live-only` to narrow the gate, and
+`--keep-artifacts` to retain prior recordings.
 `./check_quality.sh --all` runs the required Electron workflow manifest after
 the production desktop build.
 

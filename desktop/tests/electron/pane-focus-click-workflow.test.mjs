@@ -4,7 +4,7 @@
 import { basename, join } from "node:path";
 import process from "node:process";
 
-import { backendProbe } from "./chat-workflow-harness.mjs";
+import { backendProbe } from "./electron-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
@@ -49,9 +49,6 @@ let context = null;
 try {
   context = await launchElectronCdpContext({
     artifactDir,
-    extraEnv: {
-      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
-    },
     fixture,
     visible: options.visible,
   });

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { waitForBackendState } from "./chat-workflow-harness.mjs";
+import { waitForBackendState } from "./electron-workflow-harness.mjs";
 import { readJsonLinesWhileAppending } from "./topic-conversation-master-overlay-assertions.mjs";
 
 export async function submitConversationInput(client, request) {

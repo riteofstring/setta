@@ -1,7 +1,7 @@
 import { delimiter, join } from "node:path";
 import process from "node:process";
 
-import { backendProbe } from "./chat-workflow-harness.mjs";
+import { backendProbe } from "./electron-workflow-harness.mjs";
 import {
   captureScreenshot,
   launchElectronCdpContext,
@@ -123,7 +123,6 @@ function launchRestartedElectron({ artifactDir, fakeCodex, fixture, speechProvid
     extraEnv: {
       OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },

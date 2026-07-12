@@ -49,7 +49,6 @@ try {
     artifactDir: firstLaunchDir,
     extraEnv: {
       OPENAI_API_KEY: provider.apiKey,
-      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: provider.baseURL,
     },
     fixture,
@@ -94,7 +93,6 @@ try {
     artifactDir: secondLaunchDir,
     extraEnv: {
       OPENAI_API_KEY: provider.apiKey,
-      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: provider.baseURL,
     },
     fixture,

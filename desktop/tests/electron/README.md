@@ -20,7 +20,7 @@ node desktop/tests/electron/run-workflows.mjs --tier performance
 Run the deterministic topic-conversation workflow through the root script wrapper:
 
 ```sh
-./scripts/test_chat_workflows.sh --deterministic-only
+./scripts/test_topic_conversation_workflows.sh --deterministic-only
 ```
 
 The wrapper builds the desktop app unless `--skip-build` is provided, delegates

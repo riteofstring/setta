@@ -51,9 +51,6 @@ let context = null;
 try {
   context = await launchElectronCdpContext({
     artifactDir,
-    extraEnv: {
-      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
-    },
     fixture,
     visible: options.visible,
   });

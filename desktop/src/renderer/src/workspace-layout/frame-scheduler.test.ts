@@ -207,10 +207,10 @@ describe("workspace frame scheduler", () => {
     scheduler.teardown();
   });
 
-  test("converges scroll after opening a terminal pane during workspace boot", () => {
+  test("converges scroll after opening a conversation pane during workspace boot", () => {
     const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
-      workspaceId: "setta:workspace-frame-scheduler-open-terminal",
+      workspaceId: "setta:workspace-frame-scheduler-open-conversation",
       workspaceName: "Repo",
     });
     const engine = new WorkspaceLikeLayoutEngine(scene);
@@ -228,17 +228,17 @@ describe("workspace frame scheduler", () => {
 
     scheduler.start();
     raf.flush(16);
-    const terminalPaneId = store.openPane({
-      subtitle: "command surface",
+    const conversationPaneId = store.openPane({
+      subtitle: "topic conversation",
       surfaceKind: "fake-heavy-dom",
-      title: "Terminal",
+      title: "Conversation",
       tone: "green",
     });
     const openedSnapshot = store.getSnapshot();
 
-    expect(terminalPaneId).toBe("workspace_pane_4");
+    expect(conversationPaneId).toBe("workspace_pane_4");
     expect(openedSnapshot).toMatchObject({
-      focusedPaneId: terminalPaneId,
+      focusedPaneId: conversationPaneId,
       scrollColumn: 0,
       targetScrollColumn: 1,
     });
@@ -255,7 +255,7 @@ describe("workspace frame scheduler", () => {
       );
     }
     expect(store.getSnapshot()).toMatchObject({
-      focusedPaneId: terminalPaneId,
+      focusedPaneId: conversationPaneId,
       scrollColumn: 1,
       targetScrollColumn: 1,
     });

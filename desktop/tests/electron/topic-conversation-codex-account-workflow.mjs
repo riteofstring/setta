@@ -1,4 +1,4 @@
-import { clickButtonByAria, waitForText, waitForTexts } from "./chat-workflow-harness.mjs";
+import { clickButtonByAria, waitForText, waitForTexts } from "./electron-workflow-harness.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 import { clickEnabledButtonByAria } from "./electron-cdp-harness.mjs";
 

@@ -70,30 +70,24 @@ interface RendererUnhandledRejectionEvent extends RendererRecordedEventBase {
 }
 
 interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
-  activeRunStatus: string;
-  backgroundTerminalSurface: RendererBackgroundTerminalSurfaceSnapshot;
-  chatDetailPane: RendererRect | null;
-  composer: RendererRect | null;
-  jumpToLatestButton: RendererVisibleRect | null;
-  queueSize: number;
-  selectedConversationId: string;
-  transcript: RendererScrollRect | null;
-  transcriptScrollDebug: RendererTranscriptScrollDebugSnapshot | null;
+  panes: RendererPaneSnapshot[];
   trigger: string;
   type: "layout_snapshot";
   viewport: {
     height: number;
     width: number;
   };
-  visibleTurnIds: string[];
+  workspace: RendererWorkspaceSnapshot | null;
 }
 
-interface RendererBackgroundTerminalSurfaceSnapshot {
-  footerPhase: string;
-  footerVisible: boolean;
-  monitorOpen: boolean;
-  visibleTerminalIds: string[];
-  visibleTerminalStatuses: string[];
+interface RendererPaneSnapshot {
+  conversationId: string;
+  focused: boolean;
+  paneId: string;
+  rect: RendererRect;
+  runtimeState: string;
+  surfaceKind: string;
+  visible: boolean;
 }
 
 interface RendererRect {
@@ -105,40 +99,10 @@ interface RendererRect {
   width: number;
 }
 
-interface RendererScrollRect extends RendererRect {
-  clientHeight: number;
-  distanceFromBottom: number;
-  scrollTop: number;
-  scrollHeight: number;
+interface RendererWorkspaceSnapshot {
+  mode: string;
+  paneCount: number;
+  presentationMode: string;
+  rect: RendererRect;
+  workspaceId: string;
 }
-
-interface RendererVisibleRect extends RendererRect {
-  visible: boolean;
-}
-
-interface RendererTranscriptScrollDebugTraceEntry {
-  [key: string]: boolean | number | string | null;
-}
-
-type RendererTranscriptScrollDebugSnapshot =
-  | {
-      awayFromBottom: boolean;
-      atBottom: boolean;
-      clientHeight: number;
-      distanceFromBottom: number;
-      hasScrollableOverflow: boolean;
-      lastVisibleIndex: number;
-      mode: string;
-      pendingScrollCount: number;
-      programmaticScrollCount: number;
-      rowCount: number;
-      scrollHeight: number;
-      source: string;
-      scrollTop: number;
-      tailRevision: string;
-      trace: RendererTranscriptScrollDebugTraceEntry[];
-    }
-  | {
-      error: string;
-      source: string;
-    };

@@ -1,4 +1,4 @@
-import { waitForBackendState } from "./chat-workflow-harness.mjs";
+import { waitForBackendState } from "./electron-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import { reloadPage, waitForSelector, waitForState } from "./electron-cdp-harness.mjs";
 

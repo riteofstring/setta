@@ -14,7 +14,7 @@ import {
   assertBuildExists,
   captureScreenshot,
   clickButtonByAria,
-  configureChatWorkflowHarness,
+  configureElectronWorkflowHarness,
   createFixture,
   failureWithLogs,
   launchContext,
@@ -22,14 +22,14 @@ import {
   setInputValue,
   stopLaunchedContext,
   waitForState,
-} from "./chat-workflow-harness.mjs";
+} from "./electron-workflow-harness.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
 const workflowTimeoutMs = 45_000;
 const options = parseArgs(process.argv.slice(2));
-configureChatWorkflowHarness({ visible: options.visible });
+configureElectronWorkflowHarness({ visible: options.visible });
 const recordingRoot = options.keepArtifacts
   ? join(repoRoot, "test-results", "electron-integration", "runtime-picker", pathTimestamp())
   : join(repoRoot, "test-results", "electron-integration", "runtime-picker");
@@ -56,11 +56,7 @@ let remoteServe = null;
 
 try {
   remoteServe = await startRemoteRuntime(remoteAppDataDir);
-  context = await launchContext(fixture, recordingDir, {
-    extraEnv: {
-      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
-    },
-  });
+  context = await launchContext(fixture, recordingDir);
 
   await waitForRuntimeStatus(context.client, "connected");
   const initial = await runtimeSnapshot(context.client);
@@ -388,7 +384,6 @@ async function startRemoteRuntime(appDataDir) {
       env: {
         ...process.env,
         SETTA_E2E: "1",
-        SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
       },
       stdio: ["ignore", "pipe", "pipe"],
     },

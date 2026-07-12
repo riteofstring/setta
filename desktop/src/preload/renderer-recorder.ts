@@ -14,31 +14,6 @@ const interestingKeys = new Set([
   "Tab",
 ]);
 
-interface TranscriptScrollDebugApi {
-  getSnapshot: () => TranscriptScrollDebugSnapshot;
-}
-
-interface TranscriptScrollDebugSnapshot {
-  awayFromBottom?: boolean;
-  atBottom: boolean;
-  clientHeight: number;
-  distanceFromBottom: number;
-  hasScrollableOverflow?: boolean;
-  lastVisibleIndex: number;
-  mode: string;
-  pendingScrollCount: number;
-  programmaticScrollCount?: number;
-  rowCount: number;
-  scrollHeight: number;
-  scrollTop: number;
-  tailRevision: string;
-  trace?: TranscriptScrollDebugTraceEntry[];
-}
-
-interface TranscriptScrollDebugTraceEntry {
-  [key: string]: boolean | number | string | null;
-}
-
 export function installRendererRecorder(ipcRenderer: Pick<IpcRenderer, "send">) {
   if (!isRecordingEnabled()) {
     return;
@@ -227,23 +202,10 @@ function createLayoutRecorder(ipcRenderer: Pick<IpcRenderer, "send">) {
 }
 
 function layoutSnapshot(trigger: string): RendererRecordedEvent {
-  const pane = document.querySelector('[data-testid="chat-detail-pane"]');
-  const transcript = document.querySelector('[data-testid="chat-transcript-region"]');
-  const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-  const scrollFollowDebug = document.querySelector('[data-testid="chat-transcript-scroll-follow"]');
-  const composer = document.querySelector('[data-testid="chat-composer"]');
-  const jumpToLatestButton = document.querySelector('[aria-label="Jump to latest"]');
+  const workspace = document.querySelector<HTMLElement>('[data-testid="workspace-layout-area"]');
   return {
-    activeRunStatus: pane?.getAttribute("data-run-status") ?? "",
     at: timestamp(),
-    backgroundTerminalSurface: backgroundTerminalSurfaceSnapshot(),
-    chatDetailPane: elementRect(pane),
-    composer: elementRect(composer),
-    jumpToLatestButton: visibleElementRect(jumpToLatestButton),
-    queueSize: document.querySelectorAll('[data-testid="chat-queued-turn-row"]').length,
-    selectedConversationId: pane?.getAttribute("data-conversation-id") ?? "",
-    transcript: scrollRect(transcript, scroller),
-    transcriptScrollDebug: transcriptScrollDebugSnapshot(scrollFollowDebug),
+    panes: workspacePaneSnapshots(),
     trigger,
     type: "layout_snapshot",
     url: window.location.href,
@@ -251,37 +213,47 @@ function layoutSnapshot(trigger: string): RendererRecordedEvent {
       height: window.innerHeight,
       width: window.innerWidth,
     },
-    visibleTurnIds: Array.from(document.querySelectorAll('[data-testid="chat-transcript-turn"]'))
-      .map((turn) => turn.getAttribute("data-run-id") ?? "")
-      .filter((id) => id !== ""),
+    workspace: workspaceSnapshot(workspace),
   };
 }
 
-function backgroundTerminalSurfaceSnapshot() {
-  const footer = document.querySelector('[data-testid="background-terminals-footer"]');
-  const monitor = document.querySelector('[data-testid="background-terminal-monitor"]');
-  const rows = Array.from(
-    document.querySelectorAll('[data-testid="background-terminal-monitor-process"]'),
-  );
-  const footerIds = footer?.getAttribute("data-terminal-ids") ?? "";
-  return {
-    footerPhase: footer?.getAttribute("data-terminal-surface-state") ?? "",
-    footerVisible: visibleElementRect(footer)?.visible ?? false,
-    monitorOpen: Boolean(monitor),
-    visibleTerminalIds:
-      rows.length > 0
-        ? rows.map((row) => row.getAttribute("data-process-id") ?? "").filter((id) => id !== "")
-        : footerIds.split("\n").filter((id) => id !== ""),
-    visibleTerminalStatuses: rows
-      .map((row) => row.getAttribute("data-status") ?? "")
-      .filter((status) => status !== ""),
-  };
-}
-
-function elementRect(element: Element | null) {
-  if (!element) {
+function workspaceSnapshot(workspace: HTMLElement | null) {
+  if (!workspace) {
     return null;
   }
+  return {
+    mode: truncate(workspace.dataset.workspaceMode ?? ""),
+    paneCount: nonNegativeInteger(workspace.dataset.paneCount),
+    presentationMode: truncate(workspace.dataset.presentationMode ?? ""),
+    rect: elementRect(workspace),
+    workspaceId: truncate(workspace.dataset.workspaceId ?? ""),
+  };
+}
+
+function workspacePaneSnapshots() {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-host"]'),
+  ).flatMap((host) => {
+    const paneId = host.dataset.paneId ?? "";
+    if (paneId === "") {
+      return [];
+    }
+    const conversation = host.querySelector<HTMLElement>('[data-testid="easy-button-surface"]');
+    return [
+      {
+        conversationId: truncate(conversation?.dataset.conversationId ?? ""),
+        focused: host.dataset.focused === "true",
+        paneId: truncate(paneId),
+        rect: elementRect(host),
+        runtimeState: truncate(host.dataset.runtimeState ?? ""),
+        surfaceKind: truncate(host.dataset.surfaceKind ?? ""),
+        visible: host.dataset.visible === "true",
+      },
+    ];
+  });
+}
+
+function elementRect(element: Element) {
   const rect = element.getBoundingClientRect();
   return {
     bottom: round(rect.bottom),
@@ -293,149 +265,9 @@ function elementRect(element: Element | null) {
   };
 }
 
-function scrollRect(region: Element | null, scroller: Element | null) {
-  const rect = elementRect(region);
-  if (!rect || !region) {
-    return null;
-  }
-  const scrollElement = scroller ?? region;
-  const clientHeight = scrollElement.clientHeight;
-  const scrollHeight = scrollElement.scrollHeight;
-  const scrollTop = scrollElement.scrollTop;
-  const maxScrollTop = Math.max(0, scrollHeight - clientHeight);
-  return {
-    ...rect,
-    clientHeight,
-    distanceFromBottom: round(Math.max(0, maxScrollTop - scrollTop)),
-    scrollHeight,
-    scrollTop: round(scrollTop),
-  };
-}
-
-function visibleElementRect(element: Element | null) {
-  const rect = elementRect(element);
-  if (!rect || !element) {
-    return null;
-  }
-  const style = window.getComputedStyle(element);
-  return {
-    ...rect,
-    visible:
-      rect.height > 0 &&
-      rect.width > 0 &&
-      style.display !== "none" &&
-      style.visibility !== "hidden" &&
-      style.opacity !== "0",
-  };
-}
-
-function transcriptScrollDebugSnapshot(debugElement: Element | null) {
-  const debug = (
-    window as Window & {
-      __settaChatTranscriptScrollDebug?: TranscriptScrollDebugApi;
-    }
-  ).__settaChatTranscriptScrollDebug;
-  if (debug) {
-    try {
-      return recordedTranscriptScrollDebugSnapshot(debug.getSnapshot(), "window");
-    } catch (error) {
-      return {
-        error: truncate(error instanceof Error ? error.message : String(error)),
-        source: "window",
-      };
-    }
-  }
-  return transcriptScrollDebugSnapshotFromElement(debugElement);
-}
-
-function recordedTranscriptScrollDebugSnapshot(
-  snapshot: TranscriptScrollDebugSnapshot,
-  source: string,
-) {
-  return {
-    ...snapshot,
-    awayFromBottom: snapshot.awayFromBottom ?? !snapshot.atBottom,
-    hasScrollableOverflow:
-      snapshot.hasScrollableOverflow ?? snapshot.scrollHeight > snapshot.clientHeight,
-    programmaticScrollCount: snapshot.programmaticScrollCount ?? 0,
-    source,
-    tailRevision: truncate(snapshot.tailRevision),
-    trace: sanitizeScrollDebugTrace(snapshot.trace ?? []),
-  };
-}
-
-function transcriptScrollDebugSnapshotFromElement(element: Element | null) {
-  if (!element) {
-    return null;
-  }
-  const mode = element.getAttribute("data-scroll-follow-mode");
-  if (!mode) {
-    return null;
-  }
-  return {
-    awayFromBottom: booleanAttribute(element, "data-scroll-follow-away-from-bottom"),
-    atBottom: booleanAttribute(element, "data-scroll-follow-at-bottom"),
-    clientHeight: numberAttribute(element, "data-scroll-follow-client-height"),
-    distanceFromBottom: numberAttribute(element, "data-scroll-follow-distance-from-bottom"),
-    hasScrollableOverflow: booleanAttribute(element, "data-scroll-follow-has-scrollable-overflow"),
-    lastVisibleIndex: numberAttribute(element, "data-scroll-follow-last-visible-index"),
-    mode: truncate(mode),
-    pendingScrollCount: numberAttribute(element, "data-scroll-follow-pending-scroll-count"),
-    programmaticScrollCount: numberAttribute(
-      element,
-      "data-scroll-follow-programmatic-scroll-count",
-    ),
-    rowCount: numberAttribute(element, "data-scroll-follow-row-count"),
-    scrollHeight: numberAttribute(element, "data-scroll-follow-scroll-height"),
-    scrollTop: numberAttribute(element, "data-scroll-follow-scroll-top"),
-    source: "dom",
-    tailRevision: truncate(element.getAttribute("data-scroll-follow-tail-revision") ?? ""),
-    trace: parseScrollDebugTrace(element.getAttribute("data-scroll-follow-trace")),
-  };
-}
-
-function booleanAttribute(element: Element, name: string) {
-  return element.getAttribute(name) === "true";
-}
-
-function numberAttribute(element: Element, name: string) {
-  const value = Number(element.getAttribute(name) ?? 0);
-  return Number.isFinite(value) ? value : 0;
-}
-
-function parseScrollDebugTrace(value: string | null) {
-  if (!value) {
-    return [];
-  }
-  try {
-    return sanitizeScrollDebugTrace(JSON.parse(value));
-  } catch {
-    return [{ error: "invalid_trace_json" }];
-  }
-}
-
-function sanitizeScrollDebugTrace(value: unknown): TranscriptScrollDebugTraceEntry[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.slice(-30).flatMap((entry) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      return [];
-    }
-    const sanitized: TranscriptScrollDebugTraceEntry = {};
-    for (const [key, entryValue] of Object.entries(entry)) {
-      if (
-        typeof entryValue === "boolean" ||
-        typeof entryValue === "number" ||
-        entryValue === null
-      ) {
-        sanitized[key] = entryValue;
-      } else if (typeof entryValue === "string") {
-        sanitized[key] = truncate(entryValue);
-      }
-    }
-    return [sanitized];
-  });
+function nonNegativeInteger(value: string | undefined): number {
+  const parsed = Number(value ?? 0);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 function summarizeTarget(target: EventTarget | null) {

@@ -10,7 +10,7 @@ keep_artifacts=0
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/test_chat_workflows.sh [--skip-build] [--visible] [--deterministic-only] [--live-only] [--keep-artifacts]
+Usage: ./scripts/test_topic_conversation_workflows.sh [--skip-build] [--visible] [--deterministic-only] [--live-only] [--keep-artifacts]
 
 Build and run the topic-conversation workflow gate:
   - hidden deterministic Electron topic-conversation workflow with temp app data
@@ -55,7 +55,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 codex_chatgpt_auth_present() {
-  node "${repo_root}/desktop/tests/electron/chat-live-auth.mjs"
+  node "${repo_root}/desktop/tests/electron/codex-chatgpt-auth.mjs"
 }
 
 run_electron_node() {
