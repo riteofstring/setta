@@ -2,16 +2,16 @@
 
 **Date:** 2026-07-11
 
-**Status:** Implemented; ready for a repeated whole-plan final audit. The
-2026-07-15 invocation-audit follow-up added a Go-owned terminal attempt record
-for conversation-local routing and every narrator call kind, a separate
-Go-owned master-route attempt record, atomic successful checkpoint audit
-commits, and durable failed, cancelled, superseded, and stale outcomes. The
-desktop recorder now emits bounded secret-safe agent, narrator, checkpoint,
-thread-binding, trajectory, and routing projections. Focused tests, all 25 Go
-packages, 766 desktop tests, production desktop and embedded-web builds, all 17
-required Electron workflows, and the complete ChatGPT-authenticated live Codex
-matrix pass.
+**Status:** Incomplete. The 2026-07-15 repeated whole-plan final audit found
+that effective invocation usage auditing still records byte counts without the
+required token estimates. Production agent, side-agent, narrator, and local
+router invocation builders leave `EstimatedInputTokens` and
+`EstimatedOutputTokens` at zero, while the master route audit contracts cannot
+represent token estimates at all. Add real provider-usage or tokenizer-backed
+input/output token accounting at the Go-owned invocation boundaries, persist
+and project it through the secret-safe desktop recorder, cover success and
+terminal failure/cancellation paths, rerun the required gates, and then repeat
+the whole-plan audit.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2607,6 +2607,25 @@ vulnerability checks passed. npm's retired legacy audit endpoint returned HTTP
 410; the supported bulk-advisory endpoint reported two low-severity advisories
 and none at or above the repository's moderate failure threshold. The plan is
 ready for a repeated whole-plan final audit.
+
+**Repeated whole-plan final-audit result (2026-07-15):** Incomplete. The
+effective invocation audit requires input/context byte and token estimates for
+every master, agent, narrator, and side call, and the recording requirements
+likewise require an input-size/token estimate. `InvocationContextUsage` owns
+input/output token-estimate fields, but no production builder assigns either
+field: primary-agent and side-agent invocations set only input bytes, while
+narrator projection/status/checkpoint and conversation-local routing attempts
+set only input/output bytes. The master `RouteInvocationAudit` and
+`RouteInvocationAttempt` shapes contain byte counts but have no token-estimate
+fields. Consequently persisted records and secret-safe desktop recordings
+report zero or cannot report the required estimates even for successful calls
+with non-empty materialized context. Next, add Go-owned provider-usage or real
+tokenizer-backed accounting rather than byte-ratio placeholders; carry bounded
+input and output token counts through successful, failed, and cancelled
+agent/side/narrator/local-route/master attempts; generate the affected desktop
+contracts; project the counts into recordings; add focused persistence,
+lifecycle, and recorder tests plus a deterministic production Electron
+recording assertion; then rerun the required gates and whole-plan audit.
 
 ### Performance
 
