@@ -1256,3 +1256,22 @@ Stop and reassess rather than hiding the problem if any of these occur:
   authorization from the guest, network-policy bypass, hard-cost cutoff under
   hostile load) remain held for explicit go-ahead. Evidence and harness in
   `docs/reports/2026-07-13-sprites-phase1a-probes.md`.
+- 2026-07-13: Ran the authorized adversarial + constructive-boundary battery
+  (`scripts/sprites/phase1a_adversarial.sh`, delegated Codex, high effort) and
+  then destroyed the disposable Sprite (org now empty, verified). No Phase 1a
+  stop-condition fired. Results: (1) `/.sprite/api.sock` is unauthenticated and
+  actionable from the guest — a local process created a checkpoint with no
+  credential — but exposes only services/checkpoints, not `/v1/sprites` or
+  `/v1/policy`, and does not leak the org token; (2) a composed inner boundary
+  (unprivileged uid + `no_new_privs` + empty caps + mount-namespace masking of
+  `/.sprite`) removes capability-root, sudo escalation, DAC override, and socket
+  reachability while preserving dev ergonomics, so the isolation gap is a
+  boundary-design task rather than a stop-condition (podman rootless is broken on
+  this image); (3) `POST /v1/sprites/<name>/suspend` is a non-destructive cutoff
+  that moved `running`→`warm` in ~1s, defusing the "cannot stop compute without
+  deleting data" stop-condition (confirm `warm` cost in Phase 1c); (4) default
+  egress is wide open (raw IP, DoH, SMTP:25, ICMP all succeeded; only RFC1918
+  blocked), correcting the earlier raw-IP-blocked note — Setta must apply an
+  egress policy and re-test for bypass. Remaining Phase 1a work: cost-assumptions
+  table, idle-pause/attached-idle timing, applied-policy bypass, unauthenticated
+  URL wake, and `warm` cost.
