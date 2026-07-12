@@ -40,6 +40,8 @@ export async function assertRecordedConversationRouteObservability({
       inputTextBytes: payload.inputTextBytes,
       invocation: {
         contextInputBytes: payload.invocation.contextUsage.inputBytes,
+        contextInputTokens: payload.invocation.contextUsage.estimatedInputTokens,
+        contextOutputTokens: payload.invocation.contextUsage.estimatedOutputTokens,
         providerRequestId: payload.invocation.providerReferences.requestId,
         requestedRole: payload.invocation.requested.role,
         resolvedModelId: payload.invocation.resolved.modelId,
@@ -71,6 +73,8 @@ export async function assertRecordedConversationRouteObservability({
       inputTextBytes: Buffer.byteLength(inputText, "utf8"),
       invocation: {
         contextInputBytes: record.resolvedInvocation.contextUsage.inputBytes,
+        contextInputTokens: record.resolvedInvocation.contextUsage.estimatedInputTokens,
+        contextOutputTokens: record.resolvedInvocation.contextUsage.estimatedOutputTokens,
         providerRequestId: record.resolvedInvocation.providerReferences.requestId,
         requestedRole: "narrator",
         resolvedModelId: record.resolvedInvocation.resolved.modelId,
@@ -78,7 +82,7 @@ export async function assertRecordedConversationRouteObservability({
       },
       resultingEffectKind: record.resultingCommand.kind,
       routingAttempt: record.routingAttempt,
-      schemaVersion: 2,
+      schemaVersion: 3,
       sourcePaneId: routeState.input.input.sourcePaneId,
       validationResult: "committed",
     },
@@ -104,7 +108,9 @@ export async function assertRecordedConversationRouteObservability({
       commitDecision: invocation.payload.attempt.commitDecision,
       contextInputId: invocation.payload.attempt.context.inputId,
       generation: invocation.payload.attempt.generation,
+      inputTokens: invocation.payload.attempt.contextUsage.estimatedInputTokens,
       outcome: invocation.payload.attempt.outcome,
+      outputTokens: invocation.payload.attempt.contextUsage.estimatedOutputTokens,
       providerRequestId: invocation.payload.attempt.providerReferences.requestId,
       requestedRole: invocation.payload.attempt.requested.role,
       resolvedModelId: invocation.payload.attempt.resolved.modelId,
@@ -117,7 +123,9 @@ export async function assertRecordedConversationRouteObservability({
       commitDecision: "output_committed",
       contextInputId: record.inputId,
       generation: record.routingAttempt,
+      inputTokens: record.resolvedInvocation.contextUsage.estimatedInputTokens,
       outcome: "completed",
+      outputTokens: record.resolvedInvocation.contextUsage.estimatedOutputTokens,
       providerRequestId: record.resolvedInvocation.providerReferences.requestId,
       requestedRole: "narrator",
       resolvedModelId: record.resolvedInvocation.resolved.modelId,
@@ -162,6 +170,8 @@ export async function assertRecordedMasterRouteObservability({
       inputSource: payload.inputSource,
       inputTextBytes: payload.inputTextBytes,
       invocation: {
+        estimatedInputTokens: payload.invocation.estimatedInputTokens,
+        estimatedOutputTokens: payload.invocation.estimatedOutputTokens,
         inputBytes: payload.invocation.inputBytes,
         providerRequestId: payload.invocation.providerRequestId,
         resolvedModel: payload.invocation.configuration.resolvedModel,
@@ -170,6 +180,8 @@ export async function assertRecordedMasterRouteObservability({
       invocationAttempt: {
         commitDecision: payload.invocationAttempt.commitDecision,
         decisionKind: payload.invocationAttempt.decisionKind,
+        estimatedInputTokens: payload.invocationAttempt.estimatedInputTokens,
+        estimatedOutputTokens: payload.invocationAttempt.estimatedOutputTokens,
         outcome: payload.invocationAttempt.outcome,
         validationResult: payload.invocationAttempt.validationResult,
       },
@@ -195,6 +207,8 @@ export async function assertRecordedMasterRouteObservability({
       inputSource: inputIdentity.source,
       inputTextBytes: Buffer.byteLength(inputText, "utf8"),
       invocation: {
+        estimatedInputTokens: routeRecord.resolvedInvocation.estimatedInputTokens,
+        estimatedOutputTokens: routeRecord.resolvedInvocation.estimatedOutputTokens,
         inputBytes: routeRecord.resolvedInvocation.inputBytes,
         providerRequestId: routeRecord.resolvedInvocation.providerRequestId,
         resolvedModel: routeRecord.resolvedInvocation.configuration.resolvedModel,
@@ -204,6 +218,8 @@ export async function assertRecordedMasterRouteObservability({
       invocationAttempt: {
         commitDecision: routeRecord.invocationAttempt.commitDecision,
         decisionKind: routeRecord.invocationAttempt.decisionKind,
+        estimatedInputTokens: routeRecord.invocationAttempt.estimatedInputTokens,
+        estimatedOutputTokens: routeRecord.invocationAttempt.estimatedOutputTokens,
         outcome: routeRecord.invocationAttempt.outcome,
         validationResult: routeRecord.invocationAttempt.validationResult,
       },
@@ -211,7 +227,7 @@ export async function assertRecordedMasterRouteObservability({
       origin: routeOrigin(inputIdentity),
       resultingEffectKind: routeRecord.resultingCommand.kind,
       routingAttempt: routeRecord.routingAttempt,
-      schemaVersion: 2,
+      schemaVersion: 3,
       validationResult: "passed",
     },
     "master route recording observability",
@@ -237,7 +253,7 @@ export async function assertRecordedMasterRouteObservability({
       inputSource: inputIdentity.source,
       intentKind: presentationKind,
       origin: routeOrigin(inputIdentity),
-      schemaVersion: 2,
+      schemaVersion: 3,
     },
     "master presentation recording observability",
   );
@@ -254,17 +270,23 @@ export async function assertRecordedMasterRouteCancellation({
   state,
   timeoutMs,
 }) {
-  if (state.cancellation === null || state.cancellation.invocationAttempt === null) {
+  const cancellation = state.cancellation;
+  if (cancellation === null || cancellation.invocationAttempt === null) {
     throw new Error(
       `master cancellation is missing its invocation audit: ${JSON.stringify(state)}`,
     );
   }
+  const attempt = cancellation.invocationAttempt;
   const event = await waitForSemanticEvent(
     artifactDirectory,
     "master_route_cancelled",
     (candidate) => candidate.payload.inputId === inputIdentity.id,
     timeoutMs,
   );
+  const recordedInvocation = event.payload.invocation;
+  if (recordedInvocation === null) {
+    throw new Error(`master cancellation recording omitted invocation: ${JSON.stringify(event)}`);
+  }
   assertEqualJSON(
     {
       cancelledAt: event.payload.cancelledAt,
@@ -274,7 +296,9 @@ export async function assertRecordedMasterRouteCancellation({
       inputTextBytes: event.payload.inputTextBytes,
       invocation: {
         commitDecision: event.payload.commitDecision,
-        inputId: event.payload.invocation?.inputId ?? null,
+        estimatedInputTokens: recordedInvocation.estimatedInputTokens,
+        estimatedOutputTokens: recordedInvocation.estimatedOutputTokens,
+        inputId: recordedInvocation.inputId,
         outcome: event.payload.outcome,
         validationResult: event.payload.validationResult,
       },
@@ -283,24 +307,29 @@ export async function assertRecordedMasterRouteCancellation({
       schemaVersion: event.payload.schemaVersion,
     },
     {
-      cancelledAt: state.cancellation.cancelledAt,
+      cancelledAt: cancellation.cancelledAt,
       inputId: inputIdentity.id,
       inputModality: inputIdentity.modality,
       inputSource: inputIdentity.source,
       inputTextBytes: Buffer.byteLength(inputText, "utf8"),
       invocation: {
-        commitDecision: state.cancellation.invocationAttempt.commitDecision,
-        inputId: state.cancellation.invocationAttempt.inputId,
-        outcome: state.cancellation.invocationAttempt.outcome,
-        validationResult: state.cancellation.invocationAttempt.validationResult,
+        commitDecision: attempt.commitDecision,
+        estimatedInputTokens: attempt.estimatedInputTokens,
+        estimatedOutputTokens: attempt.estimatedOutputTokens,
+        inputId: attempt.inputId,
+        outcome: attempt.outcome,
+        validationResult: attempt.validationResult,
       },
       invocationAvailable: true,
       routingAttempt: state.routingAttempt,
-      schemaVersion: 2,
+      schemaVersion: 3,
     },
     "master route cancellation recording observability",
   );
   assertPrivateTextOmitted(event, [inputText]);
+  if (attempt.estimatedInputTokens <= 0) {
+    throw new Error(`master cancellation omitted input tokens: ${JSON.stringify(event)}`);
+  }
   return event;
 }
 
@@ -316,6 +345,7 @@ export async function assertRecordedConversationInvocationObservability({
   const agent = await waitForRecordedAgent(artifactDirectory, targets, timeoutMs);
   assertRecordedAgent(agent, targets.terminalTurn);
   const trajectory = await waitForRecordedTerminalTrajectory(artifactDirectory, targets, timeoutMs);
+  assertRecordedTerminalTrajectory(trajectory);
   const thread = await waitForSemanticEvent(
     artifactDirectory,
     "agent_thread_binding_observed",
@@ -401,14 +431,28 @@ function assertRecordedCheckpointOutput(checkpoint, attempt) {
   if (
     !checkpointHasNarratorModel(attempt) ||
     attempt.providerReferences.requestId === null ||
-    attempt.contextUsage.inputBytes <= 0 ||
-    attempt.output.structuredKind !== "checkpoint" ||
-    attempt.output.checkpointSummaryBytes <= 0 ||
-    attempt.validationResult !== "passed" ||
-    attempt.commitDecision !== "output_committed"
+    !checkpointHasUsage(attempt) ||
+    !checkpointHasCommittedOutput(attempt)
   ) {
     throw new Error(`checkpoint invocation recording drifted: ${JSON.stringify(checkpoint)}`);
   }
+}
+
+function checkpointHasUsage(attempt) {
+  return (
+    attempt.contextUsage.inputBytes > 0 &&
+    attempt.contextUsage.estimatedInputTokens > 0 &&
+    attempt.contextUsage.estimatedOutputTokens > 0
+  );
+}
+
+function checkpointHasCommittedOutput(attempt) {
+  return (
+    attempt.output.structuredKind === "checkpoint" &&
+    attempt.output.checkpointSummaryBytes > 0 &&
+    attempt.validationResult === "passed" &&
+    attempt.commitDecision === "output_committed"
+  );
 }
 
 function checkpointHasNarratorModel(attempt) {
@@ -439,6 +483,8 @@ function assertRecordedAgent(agent, terminalTurn) {
     agentInvocation.providerReferences.turnId === null ||
     agentInvocation.startedAt === "" ||
     agentInvocation.endedAt === null ||
+    agentInvocation.contextUsage.estimatedInputTokens <= 0 ||
+    agentInvocation.contextUsage.estimatedOutputTokens <= 0 ||
     agentInvocation.outcome !== terminalTurn.resolvedInvocation.outcome
   ) {
     throw new Error(`agent invocation recording drifted: ${JSON.stringify(agent)}`);
@@ -455,6 +501,16 @@ function waitForRecordedTerminalTrajectory(artifactDirectory, targets, timeoutMs
       ["turn_completed", "turn_failed", "turn_interrupted"].includes(candidate.payload.eventKind),
     timeoutMs,
   );
+}
+
+function assertRecordedTerminalTrajectory(trajectory) {
+  if (
+    trajectory.payload.turnUsage === null ||
+    trajectory.payload.turnUsage.inputTokens <= 0 ||
+    trajectory.payload.turnUsage.outputTokens <= 0
+  ) {
+    throw new Error(`terminal trajectory token usage drifted: ${JSON.stringify(trajectory)}`);
+  }
 }
 
 function waitForRecordedNarrator(artifactDirectory, targets, timeoutMs) {
@@ -474,6 +530,8 @@ function assertRecordedNarrator(narrator, finalNarration) {
     narrator.payload.output.finalSummaryBytes !==
       Buffer.byteLength(finalNarration.finalSummary.text, "utf8") ||
     narrator.payload.resolvedInvocation.role !== "narrator" ||
+    narrator.payload.resolvedInvocation.contextUsage.estimatedInputTokens <= 0 ||
+    narrator.payload.resolvedInvocation.contextUsage.estimatedOutputTokens <= 0 ||
     narrator.payload.resolvedInvocation.providerReferences.requestId === null
   ) {
     throw new Error(`narrator output recording drifted: ${JSON.stringify(narrator)}`);
@@ -497,6 +555,14 @@ async function appendRequiredFailedInvocation(
         candidate.payload.attempt.commitDecision === "failure_committed",
       timeoutMs,
     );
+    if (
+      failure.payload.attempt.context.materialized &&
+      failure.payload.attempt.contextUsage.estimatedInputTokens <= 0
+    ) {
+      throw new Error(
+        `failed narrator invocation omitted input tokens: ${JSON.stringify(failure)}`,
+      );
+    }
     events.push(failure);
   }
 }

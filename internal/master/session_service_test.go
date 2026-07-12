@@ -172,6 +172,7 @@ func TestSessionServiceRunsStructuredTurnsOnTheDurableRestrictedThread(t *testin
 		threads.lastStructuredRequest.ProviderThreadID != "master-provider-thread" ||
 		result.ProviderThreadID != "master-provider-thread" ||
 		result.ProviderTurnID != "master-provider-turn" ||
+		result.Usage != (agent.TokenUsage{InputTokens: 101, CachedInputTokens: 11, OutputTokens: 29}) ||
 		result.Session.Status != SessionStatusReady {
 		t.Fatalf("structured result=%+v request=%+v calls=%d", result, threads.lastStructuredRequest, threads.structuredCalls)
 	}
@@ -342,14 +343,20 @@ func (runtime *recordingRestrictedThreadRuntime) RunRestrictedStructuredTurn(
 	if runtime.structuredHook != nil {
 		runtime.structuredHook()
 	}
-	if runtime.structuredErr != nil {
-		return agent.RestrictedStructuredTurnResult{}, runtime.structuredErr
-	}
-	return agent.RestrictedStructuredTurnResult{
+	result := agent.RestrictedStructuredTurnResult{
 		ProviderThreadID: request.ProviderThreadID,
 		ProviderTurnID:   "master-provider-turn",
-		Output:           json.RawMessage(`{"answer":"ok"}`),
-	}, nil
+		Usage: agent.TokenUsage{
+			InputTokens:       101,
+			CachedInputTokens: 11,
+			OutputTokens:      29,
+		},
+	}
+	if runtime.structuredErr != nil {
+		return result, runtime.structuredErr
+	}
+	result.Output = json.RawMessage(`{"answer":"ok"}`)
+	return result, nil
 }
 
 func (runtime *recordingRestrictedThreadRuntime) StartRestrictedThread(

@@ -240,7 +240,7 @@ func (worker *serviceAttemptWorker) callAndPrepare(
 	request.ID = invocation.Request.ID
 	request.Generation = invocation.Generation
 	request.WorkspaceRoot = workspaceRoot
-	result, err := worker.caller.Call(ctx, request)
+	result, err := worker.caller.CallObserved(ctx, request, invocation.observeCall)
 	if err != nil {
 		return nil, &narratorCallAttemptError{request: request, result: result, cause: err}
 	}

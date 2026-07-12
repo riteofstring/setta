@@ -316,6 +316,20 @@ func TestRegistryShutdownCancelsActiveAndRejectsPendingWork(t *testing.T) {
 		if invocation.Request.ID != "active" {
 			return PreparedWork{}, fmt.Errorf("unexpected preparation for %s", invocation.Request.ID)
 		}
+		if invocation.observeCall == nil {
+			return PreparedWork{}, errors.New("missing narrator call observer")
+		}
+		invocation.observeCall(
+			CallRequest{ID: invocation.Request.ID, Generation: invocation.Generation},
+			CallResult{
+				RequestID:      invocation.Request.ID,
+				Generation:     invocation.Generation,
+				ConversationID: invocation.Request.ConversationID,
+				InputBytes:     64,
+				InputTokens:    17,
+				StartedAt:      invocation.StartedAt,
+			},
+		)
 		close(activeStarted)
 		<-ctx.Done()
 		close(cancellationObserved)
@@ -350,6 +364,10 @@ func TestRegistryShutdownCancelsActiveAndRejectsPendingWork(t *testing.T) {
 	})
 	if cancelled.Generation != 1 || cancelled.Stale || cancelled.StartedAt == "" || cancelled.EndedAt == "" {
 		t.Fatalf("cancelled active completion = %+v", cancelled)
+	}
+	if cancelled.ProviderRequest == nil || cancelled.ProviderResult == nil ||
+		cancelled.ProviderResult.InputTokens != 17 {
+		t.Fatalf("cancelled active provider observation = %+v", cancelled)
 	}
 	_, err = registry.Submit(context.Background(), statusRequest("after-close", "conversation-shutdown"))
 	if !errors.Is(err, ErrMailboxClosed) {

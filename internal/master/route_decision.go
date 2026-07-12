@@ -121,14 +121,16 @@ type RouteDecision struct {
 }
 
 type RouteInvocationAudit struct {
-	Configuration     RouteModelConfigurationAudit `json:"configuration"`
-	ProviderRequestID string                       `json:"providerRequestId"`
-	ProviderThreadID  string                       `json:"providerThreadId"`
-	ProviderTurnID    string                       `json:"providerTurnId"`
-	InputBytes        int                          `json:"inputBytes"`
-	OutputBytes       int                          `json:"outputBytes"`
-	StartedAt         string                       `json:"startedAt"`
-	EndedAt           string                       `json:"endedAt"`
+	Configuration         RouteModelConfigurationAudit `json:"configuration"`
+	ProviderRequestID     string                       `json:"providerRequestId"`
+	ProviderThreadID      string                       `json:"providerThreadId"`
+	ProviderTurnID        string                       `json:"providerTurnId"`
+	InputBytes            int                          `json:"inputBytes"`
+	EstimatedInputTokens  int                          `json:"estimatedInputTokens"`
+	OutputBytes           int                          `json:"outputBytes"`
+	EstimatedOutputTokens int                          `json:"estimatedOutputTokens"`
+	StartedAt             string                       `json:"startedAt"`
+	EndedAt               string                       `json:"endedAt"`
 }
 
 type RouteModelConfigurationAudit struct {
@@ -404,8 +406,9 @@ func (audit RouteInvocationAudit) Validate() error {
 	if err := validateRouteInvocationReferences(audit); err != nil {
 		return err
 	}
-	if audit.InputBytes <= 0 || audit.OutputBytes <= 0 {
-		return errors.New("master route invocation must record positive input and output bytes")
+	if audit.InputBytes <= 0 || audit.OutputBytes <= 0 ||
+		audit.EstimatedInputTokens <= 0 || audit.EstimatedOutputTokens <= 0 {
+		return errors.New("master route invocation must record positive input/output bytes and tokens")
 	}
 	if audit.InputBytes > audit.Configuration.MaxInputBytes {
 		return errors.New("master route invocation input exceeds its configured byte budget")

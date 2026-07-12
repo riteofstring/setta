@@ -30,6 +30,7 @@ type FreshStructuredCallResult struct {
 	ProviderThreadID string          `json:"providerThreadId"`
 	ProviderTurnID   string          `json:"providerTurnId"`
 	Output           json.RawMessage `json:"output"`
+	Usage            TokenUsage      `json:"usage"`
 }
 
 // StructuredTurnCleanupError reports that a schema-constrained provider turn
@@ -119,6 +120,10 @@ func (runtime *Runtime) RunFreshStructuredCall(
 	if err := validateFreshStructuredRuntime(runtime, ctx, request); err != nil {
 		return FreshStructuredCallResult{}, err
 	}
+	usage, err := newTurnTokenUsage(string(request.Input))
+	if err != nil {
+		return FreshStructuredCallResult{}, err
+	}
 	session, err := runtime.manager.NewSession(ctx)
 	if err != nil {
 		return FreshStructuredCallResult{}, fmt.Errorf("create fresh structured call session: %w", err)
@@ -139,6 +144,8 @@ func (runtime *Runtime) RunFreshStructuredCall(
 	if err != nil {
 		return FreshStructuredCallResult{}, err
 	}
+	result.ProviderThreadID = threadID
+	result.ProviderTurnID = turnID
 	terminalReceived := false
 	cleanup := structuredTurnCleanup{
 		session:          session,
@@ -146,18 +153,27 @@ func (runtime *Runtime) RunFreshStructuredCall(
 		turnID:           turnID,
 		requestID:        request.ID,
 		terminalReceived: &terminalReceived,
+		usage:            usage,
 	}
+	defer func() {
+		result.Usage = usage.snapshot()
+	}()
 	defer cleanup.apply(&returnErr)
 
-	output, err := runtime.waitForStructuredTurn(ctx, session, request.ID, threadID, turnID, &terminalReceived)
+	output, err := runtime.waitForStructuredTurn(
+		ctx,
+		session,
+		request.ID,
+		threadID,
+		turnID,
+		&terminalReceived,
+		usage,
+	)
 	if err != nil {
-		return FreshStructuredCallResult{}, err
+		return result, err
 	}
-	return FreshStructuredCallResult{
-		ProviderThreadID: threadID,
-		ProviderTurnID:   turnID,
-		Output:           output,
-	}, nil
+	result.Output = output
+	return result, nil
 }
 
 func validateFreshStructuredRuntime(
@@ -183,13 +199,19 @@ type structuredTurnCleanup struct {
 	turnID           string
 	requestID        string
 	terminalReceived *bool
+	usage            *turnTokenUsage
 }
 
 func (cleanup structuredTurnCleanup) apply(returnErr *error) {
 	if *cleanup.terminalReceived {
 		return
 	}
-	cleanupErr := interruptStructuredTurn(cleanup.session, cleanup.threadID, cleanup.turnID)
+	cleanupErr := interruptStructuredTurn(
+		cleanup.session,
+		cleanup.threadID,
+		cleanup.turnID,
+		cleanup.usage,
+	)
 	if cleanupErr == nil {
 		return
 	}
@@ -341,6 +363,7 @@ func (runtime *Runtime) waitForStructuredTurn(
 	threadID string,
 	turnID string,
 	terminalReceived *bool,
+	usage *turnTokenUsage,
 ) (json.RawMessage, error) {
 	base := Event{
 		ConversationID:   "fresh-structured-" + requestID,
@@ -357,7 +380,12 @@ func (runtime *Runtime) waitForStructuredTurn(
 			if !ok {
 				return nil, errors.New("fresh structured call provider session closed before completion")
 			}
-			terminal, err := handleFreshStructuredProviderEvent(providerEvent, base, &completedMessages)
+			terminal, err := handleFreshStructuredProviderEvent(
+				providerEvent,
+				base,
+				&completedMessages,
+				usage,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -387,6 +415,7 @@ func handleFreshStructuredProviderEvent(
 	providerEvent codexapp.Event,
 	base Event,
 	completedMessages *[]string,
+	usage *turnTokenUsage,
 ) (*TerminalEvent, error) {
 	switch providerEvent.Kind {
 	case codexapp.EventRequest:
@@ -402,29 +431,54 @@ func handleFreshStructuredProviderEvent(
 	case codexapp.EventLag:
 		return nil, errors.New("fresh structured call provider event stream lagged")
 	case codexapp.EventNotification:
-		events, terminal, err := normalizedProviderNotification(providerEvent.Message, base)
-		if err != nil {
-			return nil, err
-		}
-		for _, event := range events {
-			switch event.Kind {
-			case EventKindAgentTextDelta, EventKindReasoningSummary, EventKindTurnStarted, EventKindTurnTerminal:
-			case EventKindAgentTextCompleted:
-				if event.Text == nil {
-					return nil, errors.New("fresh structured call completed assistant message has no text")
-				}
-				*completedMessages = append(*completedMessages, event.Text.Text)
-			default:
-				return nil, fmt.Errorf("fresh structured call attempted disallowed provider activity %s", event.Kind)
-			}
-		}
-		return terminal, nil
+		return handleFreshStructuredNotification(
+			providerEvent.Message,
+			base,
+			completedMessages,
+			usage,
+		)
 	default:
 		return nil, fmt.Errorf("unsupported fresh structured call provider event %q", providerEvent.Kind)
 	}
 }
 
-func interruptStructuredTurn(session *codexapp.Session, threadID string, turnID string) error {
+func handleFreshStructuredNotification(
+	message codexapp.Message,
+	base Event,
+	completedMessages *[]string,
+	usage *turnTokenUsage,
+) (*TerminalEvent, error) {
+	if message.Method == codexapp.CodexNotificationThreadTokenUsageUpdated {
+		return nil, observeProviderTokenUsage(message.Params, base, usage)
+	}
+	events, terminal, err := normalizedProviderNotification(message, base)
+	if err != nil {
+		return nil, err
+	}
+	for _, event := range events {
+		switch event.Kind {
+		case EventKindAgentTextDelta, EventKindReasoningSummary, EventKindTurnStarted, EventKindTurnTerminal:
+		case EventKindAgentTextCompleted:
+			if event.Text == nil {
+				return nil, errors.New("fresh structured call completed assistant message has no text")
+			}
+			if err := usage.addOutput(event.Text.Text); err != nil {
+				return nil, err
+			}
+			*completedMessages = append(*completedMessages, event.Text.Text)
+		default:
+			return nil, fmt.Errorf("fresh structured call attempted disallowed provider activity %s", event.Kind)
+		}
+	}
+	return terminal, nil
+}
+
+func interruptStructuredTurn(
+	session *codexapp.Session,
+	threadID string,
+	turnID string,
+	usage *turnTokenUsage,
+) error {
 	ctx, cancel := context.WithTimeout(context.Background(), structuredTurnCleanupTimeout)
 	defer cancel()
 	raw, err := session.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
@@ -437,7 +491,7 @@ func interruptStructuredTurn(session *codexapp.Session, threadID string, turnID 
 	if _, err := codexapp.DecodeTurnInterruptResponse(raw); err != nil {
 		return err
 	}
-	return waitForFreshStructuredTerminal(ctx, session, threadID, turnID)
+	return waitForFreshStructuredTerminal(ctx, session, threadID, turnID, usage)
 }
 
 func waitForFreshStructuredTerminal(
@@ -445,6 +499,7 @@ func waitForFreshStructuredTerminal(
 	session *codexapp.Session,
 	threadID string,
 	turnID string,
+	usage *turnTokenUsage,
 ) error {
 	for {
 		select {
@@ -454,7 +509,7 @@ func waitForFreshStructuredTerminal(
 			if !ok {
 				return errors.New("fresh structured call session closed before interrupted turn became terminal")
 			}
-			matched, err := freshStructuredTerminalNotification(event, threadID, turnID)
+			matched, err := freshStructuredTerminalNotification(event, threadID, turnID, usage)
 			if err != nil {
 				return err
 			}
@@ -469,6 +524,7 @@ func freshStructuredTerminalNotification(
 	event codexapp.Event,
 	threadID string,
 	turnID string,
+	usage *turnTokenUsage,
 ) (bool, error) {
 	switch event.Kind {
 	case codexapp.EventRequest:
@@ -485,6 +541,10 @@ func freshStructuredTerminalNotification(
 	case codexapp.EventLag:
 		return false, errors.New("fresh structured call provider event stream lagged during interruption")
 	case codexapp.EventNotification:
+		if event.Message.Method == codexapp.CodexNotificationThreadTokenUsageUpdated {
+			base := Event{ProviderThreadID: threadID, ProviderTurnID: turnID}
+			return false, observeProviderTokenUsage(event.Message.Params, base, usage)
+		}
 		if event.Message.Method != codexapp.CodexNotificationTurnCompleted {
 			return false, nil
 		}

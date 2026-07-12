@@ -55,6 +55,7 @@ type StructuredSessionTurnResult struct {
 	ProviderThreadID string
 	ProviderTurnID   string
 	Output           json.RawMessage
+	Usage            agent.TokenUsage
 }
 
 type SessionService struct {
@@ -167,7 +168,13 @@ func (service *SessionService) RunStructuredTurn(
 	}
 	providerResult, err := service.threads.RunRestrictedStructuredTurn(ctx, providerRequest)
 	if err != nil {
-		return StructuredSessionTurnResult{}, service.finishFailedStructuredTurn(ctx, running, err)
+		return StructuredSessionTurnResult{
+			Session:          running,
+			ProviderThreadID: providerResult.ProviderThreadID,
+			ProviderTurnID:   providerResult.ProviderTurnID,
+			Output:           append(json.RawMessage{}, providerResult.Output...),
+			Usage:            providerResult.Usage,
+		}, service.finishFailedStructuredTurn(ctx, running, err)
 	}
 	finalizeCtx, cancel := context.WithTimeout(context.Background(), masterThreadCleanupTimeout)
 	defer cancel()
@@ -180,6 +187,7 @@ func (service *SessionService) RunStructuredTurn(
 		ProviderThreadID: providerResult.ProviderThreadID,
 		ProviderTurnID:   providerResult.ProviderTurnID,
 		Output:           append(json.RawMessage{}, providerResult.Output...),
+		Usage:            providerResult.Usage,
 	}, nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"setta/internal/conversationindex"
+	"setta/internal/tokenestimate"
 	"setta/internal/workspacesession"
 )
 
@@ -109,9 +110,10 @@ type RouteContextBundle struct {
 }
 
 type RouteContextMaterialization struct {
-	Bundle RouteContextBundle
-	Audit  RouteContextAudit
-	Input  json.RawMessage
+	Bundle               RouteContextBundle
+	Audit                RouteContextAudit
+	Input                json.RawMessage
+	EstimatedInputTokens int
 }
 
 func (materialized RouteContextMaterialization) Validate() error {
@@ -124,6 +126,13 @@ func (materialized RouteContextMaterialization) Validate() error {
 	}
 	if !bytes.Equal(frozen, materialized.Input) {
 		return errors.New("master route provider input differs from its authoritative context")
+	}
+	estimatedTokens, err := tokenestimate.CountBytes(materialized.Input)
+	if err != nil {
+		return err
+	}
+	if materialized.EstimatedInputTokens != estimatedTokens {
+		return errors.New("master route token estimate differs from its provider input")
 	}
 	expectedAudit := routeContextAuditForBundle(materialized.Bundle)
 	if err := expectedAudit.Validate(); err != nil {
@@ -278,10 +287,15 @@ func freezeRouteContext(
 			RequiredBytes: len(input),
 		}
 	}
+	estimatedInputTokens, err := tokenestimate.CountBytes(input)
+	if err != nil {
+		return RouteContextMaterialization{}, err
+	}
 	materialized := RouteContextMaterialization{
-		Bundle: bundle,
-		Audit:  routeContextAuditForBundle(bundle),
-		Input:  append(json.RawMessage{}, input...),
+		Bundle:               bundle,
+		Audit:                routeContextAuditForBundle(bundle),
+		Input:                append(json.RawMessage{}, input...),
+		EstimatedInputTokens: estimatedInputTokens,
 	}
 	if err := materialized.Validate(); err != nil {
 		return RouteContextMaterialization{}, err

@@ -157,6 +157,11 @@ func assertIsolatedSideAnswer(
 	if current.Status != SideConversationStatusActive || current.ParentStatus != ConversationStatusWorking {
 		t.Fatalf("answered side = %+v", current)
 	}
+	if current.ResolvedSideAgentInvocation.ContextUsage.EstimatedInputTokens <= 101 ||
+		current.ResolvedSideAgentInvocation.ContextUsage.EstimatedOutputTokens != 29 {
+		t.Fatalf("answered side invocation usage = %+v", current.ResolvedSideAgentInvocation.ContextUsage)
+	}
+	assertSideTerminalTokenUsage(t, answered.SideEvents.Events, side.ID, TrajectoryEventTurnCompleted)
 	if answered.Conversation.LastTrajectorySequence != parentSequence ||
 		len(answered.Artifacts.Artifacts) != parentArtifacts {
 		t.Fatalf("side output contaminated parent execution: before sequence/artifacts=%d/%d after=%d/%d",
@@ -174,6 +179,45 @@ func assertIsolatedSideAnswer(
 	if !containsSideEventKind(answered.SideEvents.Events, side.ID, TrajectoryEventAgentMessageCompleted) {
 		t.Fatalf("side answer event missing: %+v", answered.SideEvents.Events)
 	}
+}
+
+func assertSideTerminalTokenUsage(
+	t *testing.T,
+	events []SideConversationEvent,
+	sideConversationID string,
+	kind TrajectoryEventKind,
+) {
+	t.Helper()
+	for index := len(events) - 1; index >= 0; index-- {
+		event := events[index]
+		if event.SideConversationID != sideConversationID || event.Event.Kind != kind {
+			continue
+		}
+		usage := TokenUsage{}
+		switch kind {
+		case TrajectoryEventTurnCompleted:
+			if event.Event.TurnCompleted == nil {
+				t.Fatalf("side completed terminal payload = %+v", event.Event)
+			}
+			usage = event.Event.TurnCompleted.Usage
+		case TrajectoryEventTurnInterrupted:
+			if event.Event.TurnInterrupted == nil {
+				t.Fatalf("side interrupted terminal payload = %+v", event.Event)
+			}
+			usage = event.Event.TurnInterrupted.Usage
+		default:
+			t.Fatalf("unsupported side terminal usage kind %s", kind)
+		}
+		if usage != (TokenUsage{
+			InputTokens:       101,
+			CachedInputTokens: 11,
+			OutputTokens:      29,
+		}) {
+			t.Fatalf("side terminal token usage = %+v", event.Event)
+		}
+		return
+	}
+	t.Fatalf("side terminal event %s was not found", kind)
 }
 
 func assertSideDisposalPreservesParent(
@@ -380,6 +424,7 @@ func TestSideConversationDisposalInterruptsItsActiveTurn(t *testing.T) {
 	if current.ActiveTurnID != nil || current.ActiveProviderTurnID != nil {
 		t.Fatalf("disposed side retained active provider state: %+v", current)
 	}
+	assertSideTerminalTokenUsage(t, disposed.SideEvents.Events, side.ID, TrajectoryEventTurnInterrupted)
 }
 
 func TestSideConversationDisposalTrustsDurableTerminalOverRacingInterruptRejection(t *testing.T) {

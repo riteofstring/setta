@@ -32,25 +32,27 @@ const (
 // route generation. Context and model configuration remain optional because a
 // failure or cancellation can happen before either boundary is reached.
 type RouteInvocationAttempt struct {
-	ID                string                          `json:"id"`
-	CallKind          RouteInvocationCallKind         `json:"callKind"`
-	MasterSessionID   *string                         `json:"masterSessionId"`
-	InputID           string                          `json:"inputId"`
-	RoutingAttempt    int                             `json:"routingAttempt"`
-	Context           *RouteContextAudit              `json:"context"`
-	Configuration     *RouteModelConfigurationAudit   `json:"configuration"`
-	ProviderRequestID *string                         `json:"providerRequestId"`
-	ProviderThreadID  *string                         `json:"providerThreadId"`
-	ProviderTurnID    *string                         `json:"providerTurnId"`
-	InputBytes        int                             `json:"inputBytes"`
-	OutputBytes       int                             `json:"outputBytes"`
-	StartedAt         string                          `json:"startedAt"`
-	EndedAt           string                          `json:"endedAt"`
-	DecisionKind      *RouteDecisionKind              `json:"decisionKind"`
-	ValidationResult  RouteInvocationValidationResult `json:"validationResult"`
-	CommitDecision    RouteInvocationCommitDecision   `json:"commitDecision"`
-	Outcome           RouteInvocationAttemptOutcome   `json:"outcome"`
-	Failure           *RouteFailure                   `json:"failure"`
+	ID                    string                          `json:"id"`
+	CallKind              RouteInvocationCallKind         `json:"callKind"`
+	MasterSessionID       *string                         `json:"masterSessionId"`
+	InputID               string                          `json:"inputId"`
+	RoutingAttempt        int                             `json:"routingAttempt"`
+	Context               *RouteContextAudit              `json:"context"`
+	Configuration         *RouteModelConfigurationAudit   `json:"configuration"`
+	ProviderRequestID     *string                         `json:"providerRequestId"`
+	ProviderThreadID      *string                         `json:"providerThreadId"`
+	ProviderTurnID        *string                         `json:"providerTurnId"`
+	InputBytes            int                             `json:"inputBytes"`
+	EstimatedInputTokens  int                             `json:"estimatedInputTokens"`
+	OutputBytes           int                             `json:"outputBytes"`
+	EstimatedOutputTokens int                             `json:"estimatedOutputTokens"`
+	StartedAt             string                          `json:"startedAt"`
+	EndedAt               string                          `json:"endedAt"`
+	DecisionKind          *RouteDecisionKind              `json:"decisionKind"`
+	ValidationResult      RouteInvocationValidationResult `json:"validationResult"`
+	CommitDecision        RouteInvocationCommitDecision   `json:"commitDecision"`
+	Outcome               RouteInvocationAttemptOutcome   `json:"outcome"`
+	Failure               *RouteFailure                   `json:"failure"`
 }
 
 func (attempt RouteInvocationAttempt) Validate() error {
@@ -115,8 +117,9 @@ func validateRouteInvocationInputs(attempt RouteInvocationAttempt) error {
 			return fmt.Errorf("master route invocation configuration: %w", err)
 		}
 	}
-	if attempt.InputBytes < 0 || attempt.OutputBytes < 0 {
-		return errors.New("master route invocation byte counts must be non-negative")
+	if attempt.InputBytes < 0 || attempt.OutputBytes < 0 ||
+		attempt.EstimatedInputTokens < 0 || attempt.EstimatedOutputTokens < 0 {
+		return errors.New("master route invocation byte and token counts must be non-negative")
 	}
 	if attempt.Configuration != nil && attempt.InputBytes > attempt.Configuration.MaxInputBytes {
 		return errors.New("master route invocation input exceeds its configured byte budget")
@@ -174,7 +177,9 @@ func validateRouteInvocationTerminalState(attempt RouteInvocationAttempt) error 
 			attempt.ProviderThreadID != nil,
 			attempt.ProviderTurnID != nil,
 			attempt.InputBytes > 0,
+			attempt.EstimatedInputTokens > 0,
 			attempt.OutputBytes > 0,
+			attempt.EstimatedOutputTokens > 0,
 			attempt.DecisionKind != nil,
 			attempt.Failure == nil,
 			attempt.ValidationResult == RouteInvocationValidationPassed,
@@ -219,7 +224,9 @@ func validateCompletedRouteInvocationAttempt(commit RouteDecisionCommit) error {
 		routeInvocationStringEquals(attempt.ProviderThreadID, invocation.ProviderThreadID),
 		routeInvocationStringEquals(attempt.ProviderTurnID, invocation.ProviderTurnID),
 		attempt.InputBytes == invocation.InputBytes,
+		attempt.EstimatedInputTokens == invocation.EstimatedInputTokens,
 		attempt.OutputBytes == invocation.OutputBytes,
+		attempt.EstimatedOutputTokens == invocation.EstimatedOutputTokens,
 		attempt.StartedAt == invocation.StartedAt,
 		attempt.EndedAt == invocation.EndedAt,
 		routeInvocationDecisionEquals(attempt.DecisionKind, commit.Decision.Kind),

@@ -48,8 +48,10 @@ func conversationRouteSuccessfulAttempt(
 		Requested:      &requested,
 		Resolved:       &resolved,
 		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:  call.InputBytes,
-			OutputBytes: call.OutputBytes,
+			InputBytes:            call.InputBytes,
+			EstimatedInputTokens:  call.InputTokens,
+			OutputBytes:           call.OutputBytes,
+			EstimatedOutputTokens: call.OutputTokens,
 		},
 		ProviderReferences: conversation.InvocationProviderReferences{
 			ThreadID:  &threadID,
@@ -87,8 +89,10 @@ func conversationRouteFailedAttempt(
 		Generation:     work.RoutingAttempt,
 		Context:        emptyAttemptContext(),
 		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:  call.InputBytes,
-			OutputBytes: call.OutputBytes,
+			InputBytes:            call.InputBytes,
+			EstimatedInputTokens:  call.InputTokens,
+			OutputBytes:           call.OutputBytes,
+			EstimatedOutputTokens: call.OutputTokens,
 		},
 		StartedAt:        startedAt,
 		EndedAt:          endedAt,

@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 51;
-export const backendContractSchemaHash = "sha256:7600f549a5d2e7705dbdaa7e97ea2c68179000b9705163cde4eb5c5166fe1f72";
+export const backendProtocolVersion = 53;
+export const backendContractSchemaHash = "sha256:c9a4625e842d0b30a85f6ecc210011f6f5fe2a3d4f93c765816163f0dff4d6d5";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -2074,14 +2074,15 @@ export interface TrajectoryTurnSteered {
   input: AuthoredInput;
 }
 
-export interface TrajectoryTurnInterrupted {
-  reason: TurnInterruptionReason;
-}
-
 export interface TokenUsage {
   inputTokens: number;
   cachedInputTokens: number;
   outputTokens: number;
+}
+
+export interface TrajectoryTurnInterrupted {
+  reason: TurnInterruptionReason;
+  usage: TokenUsage;
 }
 
 export interface TrajectoryTurnCompleted {
@@ -2090,6 +2091,7 @@ export interface TrajectoryTurnCompleted {
 
 export interface TrajectoryTurnFailed {
   failure: Failure;
+  usage: TokenUsage;
 }
 
 export interface TrajectoryAgentPublicTextDelta {
@@ -3184,7 +3186,9 @@ export interface RouteInvocationAudit {
   providerThreadId: string;
   providerTurnId: string;
   inputBytes: number;
+  estimatedInputTokens: number;
   outputBytes: number;
+  estimatedOutputTokens: number;
   startedAt: string;
   endedAt: string;
 }
@@ -3208,7 +3212,9 @@ export interface RouteInvocationAttempt {
   providerThreadId: string | null;
   providerTurnId: string | null;
   inputBytes: number;
+  estimatedInputTokens: number;
   outputBytes: number;
+  estimatedOutputTokens: number;
   startedAt: string;
   endedAt: string;
   decisionKind: RouteDecisionKind | null;
@@ -4544,14 +4550,6 @@ export function decodeTrajectoryTurnSteered(value: unknown): TrajectoryTurnSteer
   };
 }
 
-export function decodeTrajectoryTurnInterrupted(value: unknown): TrajectoryTurnInterrupted {
-  const record = assertRecord(value, "TrajectoryTurnInterrupted");
-  assertKnownFields(record, "TrajectoryTurnInterrupted", ["reason"]);
-  return {
-    reason: decodeTurnInterruptionReason(requireField(record, "reason", "TrajectoryTurnInterrupted"), "TrajectoryTurnInterrupted.reason"),
-  };
-}
-
 export function decodeTokenUsage(value: unknown): TokenUsage {
   const record = assertRecord(value, "TokenUsage");
   assertKnownFields(record, "TokenUsage", ["inputTokens", "cachedInputTokens", "outputTokens"]);
@@ -4559,6 +4557,15 @@ export function decodeTokenUsage(value: unknown): TokenUsage {
     inputTokens: decodeInteger(requireField(record, "inputTokens", "TokenUsage"), "TokenUsage.inputTokens"),
     cachedInputTokens: decodeInteger(requireField(record, "cachedInputTokens", "TokenUsage"), "TokenUsage.cachedInputTokens"),
     outputTokens: decodeInteger(requireField(record, "outputTokens", "TokenUsage"), "TokenUsage.outputTokens"),
+  };
+}
+
+export function decodeTrajectoryTurnInterrupted(value: unknown): TrajectoryTurnInterrupted {
+  const record = assertRecord(value, "TrajectoryTurnInterrupted");
+  assertKnownFields(record, "TrajectoryTurnInterrupted", ["reason", "usage"]);
+  return {
+    reason: decodeTurnInterruptionReason(requireField(record, "reason", "TrajectoryTurnInterrupted"), "TrajectoryTurnInterrupted.reason"),
+    usage: decodeTokenUsage(requireField(record, "usage", "TrajectoryTurnInterrupted")),
   };
 }
 
@@ -4572,9 +4579,10 @@ export function decodeTrajectoryTurnCompleted(value: unknown): TrajectoryTurnCom
 
 export function decodeTrajectoryTurnFailed(value: unknown): TrajectoryTurnFailed {
   const record = assertRecord(value, "TrajectoryTurnFailed");
-  assertKnownFields(record, "TrajectoryTurnFailed", ["failure"]);
+  assertKnownFields(record, "TrajectoryTurnFailed", ["failure", "usage"]);
   return {
     failure: decodeFailure(requireField(record, "failure", "TrajectoryTurnFailed")),
+    usage: decodeTokenUsage(requireField(record, "usage", "TrajectoryTurnFailed")),
   };
 }
 
@@ -6354,14 +6362,16 @@ export function decodeRouteModelConfigurationAudit(value: unknown): RouteModelCo
 
 export function decodeRouteInvocationAudit(value: unknown): RouteInvocationAudit {
   const record = assertRecord(value, "RouteInvocationAudit");
-  assertKnownFields(record, "RouteInvocationAudit", ["configuration", "providerRequestId", "providerThreadId", "providerTurnId", "inputBytes", "outputBytes", "startedAt", "endedAt"]);
+  assertKnownFields(record, "RouteInvocationAudit", ["configuration", "providerRequestId", "providerThreadId", "providerTurnId", "inputBytes", "estimatedInputTokens", "outputBytes", "estimatedOutputTokens", "startedAt", "endedAt"]);
   return {
     configuration: decodeRouteModelConfigurationAudit(requireField(record, "configuration", "RouteInvocationAudit")),
     providerRequestId: decodeString(requireField(record, "providerRequestId", "RouteInvocationAudit"), "RouteInvocationAudit.providerRequestId"),
     providerThreadId: decodeString(requireField(record, "providerThreadId", "RouteInvocationAudit"), "RouteInvocationAudit.providerThreadId"),
     providerTurnId: decodeString(requireField(record, "providerTurnId", "RouteInvocationAudit"), "RouteInvocationAudit.providerTurnId"),
     inputBytes: decodeInteger(requireField(record, "inputBytes", "RouteInvocationAudit"), "RouteInvocationAudit.inputBytes"),
+    estimatedInputTokens: decodeInteger(requireField(record, "estimatedInputTokens", "RouteInvocationAudit"), "RouteInvocationAudit.estimatedInputTokens"),
     outputBytes: decodeInteger(requireField(record, "outputBytes", "RouteInvocationAudit"), "RouteInvocationAudit.outputBytes"),
+    estimatedOutputTokens: decodeInteger(requireField(record, "estimatedOutputTokens", "RouteInvocationAudit"), "RouteInvocationAudit.estimatedOutputTokens"),
     startedAt: decodeString(requireField(record, "startedAt", "RouteInvocationAudit"), "RouteInvocationAudit.startedAt"),
     endedAt: decodeString(requireField(record, "endedAt", "RouteInvocationAudit"), "RouteInvocationAudit.endedAt"),
   };
@@ -6380,7 +6390,7 @@ export function decodeRouteFailure(value: unknown): RouteFailure {
 
 export function decodeRouteInvocationAttempt(value: unknown): RouteInvocationAttempt {
   const record = assertRecord(value, "RouteInvocationAttempt");
-  assertKnownFields(record, "RouteInvocationAttempt", ["id", "callKind", "masterSessionId", "inputId", "routingAttempt", "context", "configuration", "providerRequestId", "providerThreadId", "providerTurnId", "inputBytes", "outputBytes", "startedAt", "endedAt", "decisionKind", "validationResult", "commitDecision", "outcome", "failure"]);
+  assertKnownFields(record, "RouteInvocationAttempt", ["id", "callKind", "masterSessionId", "inputId", "routingAttempt", "context", "configuration", "providerRequestId", "providerThreadId", "providerTurnId", "inputBytes", "estimatedInputTokens", "outputBytes", "estimatedOutputTokens", "startedAt", "endedAt", "decisionKind", "validationResult", "commitDecision", "outcome", "failure"]);
   return {
     id: decodeString(requireField(record, "id", "RouteInvocationAttempt"), "RouteInvocationAttempt.id"),
     callKind: decodeRouteInvocationCallKind(requireField(record, "callKind", "RouteInvocationAttempt"), "RouteInvocationAttempt.callKind"),
@@ -6393,7 +6403,9 @@ export function decodeRouteInvocationAttempt(value: unknown): RouteInvocationAtt
     providerThreadId: decodeNullable(requireField(record, "providerThreadId", "RouteInvocationAttempt"), "RouteInvocationAttempt.providerThreadId", (item) => decodeString(item, "RouteInvocationAttempt.providerThreadId")),
     providerTurnId: decodeNullable(requireField(record, "providerTurnId", "RouteInvocationAttempt"), "RouteInvocationAttempt.providerTurnId", (item) => decodeString(item, "RouteInvocationAttempt.providerTurnId")),
     inputBytes: decodeInteger(requireField(record, "inputBytes", "RouteInvocationAttempt"), "RouteInvocationAttempt.inputBytes"),
+    estimatedInputTokens: decodeInteger(requireField(record, "estimatedInputTokens", "RouteInvocationAttempt"), "RouteInvocationAttempt.estimatedInputTokens"),
     outputBytes: decodeInteger(requireField(record, "outputBytes", "RouteInvocationAttempt"), "RouteInvocationAttempt.outputBytes"),
+    estimatedOutputTokens: decodeInteger(requireField(record, "estimatedOutputTokens", "RouteInvocationAttempt"), "RouteInvocationAttempt.estimatedOutputTokens"),
     startedAt: decodeString(requireField(record, "startedAt", "RouteInvocationAttempt"), "RouteInvocationAttempt.startedAt"),
     endedAt: decodeString(requireField(record, "endedAt", "RouteInvocationAttempt"), "RouteInvocationAttempt.endedAt"),
     decisionKind: decodeNullable(requireField(record, "decisionKind", "RouteInvocationAttempt"), "RouteInvocationAttempt.decisionKind", (item) => decodeRouteDecisionKind(item, "RouteInvocationAttempt.decisionKind")),

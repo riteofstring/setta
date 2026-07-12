@@ -49,9 +49,10 @@ type Worker interface {
 }
 
 type Invocation struct {
-	Request    Request
-	Generation uint64
-	StartedAt  string
+	Request     Request
+	Generation  uint64
+	StartedAt   string
+	observeCall func(CallRequest, CallResult)
 }
 
 type Receipt struct {
@@ -110,19 +111,75 @@ type submission struct {
 }
 
 type invocationResult struct {
-	generation uint64
-	request    Request
-	startedAt  string
-	endedAt    string
-	work       PreparedWork
-	err        error
+	generation  uint64
+	request     Request
+	startedAt   string
+	endedAt     string
+	observation *callObservation
+	work        PreparedWork
+	err         error
 }
 
 type activeInvocation struct {
-	queued     queuedRequest
-	generation uint64
-	cancel     context.CancelFunc
-	startedAt  string
+	queued      queuedRequest
+	generation  uint64
+	cancel      context.CancelFunc
+	startedAt   string
+	observation *callObservation
+}
+
+type callObservation struct {
+	mu      sync.Mutex
+	request *CallRequest
+	result  *CallResult
+}
+
+func (observation *callObservation) update(request CallRequest, result CallResult) {
+	observation.mu.Lock()
+	defer observation.mu.Unlock()
+	requestCopy := cloneObservedCallRequest(request)
+	resultCopy := cloneObservedCallResult(result)
+	observation.request = &requestCopy
+	observation.result = &resultCopy
+}
+
+func (observation *callObservation) snapshot() (*CallRequest, *CallResult) {
+	if observation == nil {
+		return nil, nil
+	}
+	observation.mu.Lock()
+	defer observation.mu.Unlock()
+	if observation.request == nil || observation.result == nil {
+		return nil, nil
+	}
+	request := cloneObservedCallRequest(*observation.request)
+	result := cloneObservedCallResult(*observation.result)
+	return &request, &result
+}
+
+func cloneObservedCallRequest(value CallRequest) CallRequest {
+	cloned := value
+	if value.Projection != nil {
+		bundle := *value.Projection
+		cloned.Projection = &bundle
+	}
+	if value.Status != nil {
+		bundle := *value.Status
+		cloned.Status = &bundle
+	}
+	if value.Checkpoint != nil {
+		bundle := *value.Checkpoint
+		cloned.Checkpoint = &bundle
+	}
+	return cloned
+}
+
+func cloneObservedCallResult(value CallResult) CallResult {
+	cloned := value
+	cloned.Model = cloneModelResolution(value.Model)
+	cloned.StructuredOutput = append([]byte{}, value.StructuredOutput...)
+	cloned.witness = nil
+	return cloned
 }
 
 type conversationActor struct {
@@ -349,6 +406,7 @@ func (state *actorState) supersedeCheckpoint(actor *conversationActor) {
 		active.generation,
 		active.startedAt,
 		time.Now().UTC().Format(time.RFC3339Nano),
+		active.observation,
 	)
 	state.active = nil
 }
@@ -365,28 +423,32 @@ func (state *actorState) startNext(actor *conversationActor) {
 	generation := state.nextGeneration
 	startedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	invocationCtx, cancel := context.WithCancel(actor.rootCtx)
+	observation := &callObservation{}
 	state.active = &activeInvocation{
-		queued:     queued,
-		generation: generation,
-		cancel:     cancel,
-		startedAt:  startedAt,
+		queued:      queued,
+		generation:  generation,
+		cancel:      cancel,
+		startedAt:   startedAt,
+		observation: observation,
 	}
 	actor.workers.Add(1)
 	go func() {
 		defer actor.workers.Done()
 		work, err := actor.worker.Prepare(invocationCtx, Invocation{
-			Request:    queued.request,
-			Generation: generation,
-			StartedAt:  startedAt,
+			Request:     queued.request,
+			Generation:  generation,
+			StartedAt:   startedAt,
+			observeCall: observation.update,
 		})
 		endedAt := time.Now().UTC().Format(time.RFC3339Nano)
 		result := invocationResult{
-			generation: generation,
-			request:    cloneRequest(queued.request),
-			startedAt:  startedAt,
-			endedAt:    endedAt,
-			work:       work,
-			err:        err,
+			generation:  generation,
+			request:     cloneRequest(queued.request),
+			startedAt:   startedAt,
+			endedAt:     endedAt,
+			observation: observation,
+			work:        work,
+			err:         err,
 		}
 		select {
 		case actor.results <- result:
@@ -411,13 +473,16 @@ func (state *actorState) popNext() (queuedRequest, bool) {
 func (state *actorState) finish(actor *conversationActor, result invocationResult) {
 	active := state.active
 	if active == nil || active.generation != result.generation {
+		providerRequest, providerResult := result.observation.snapshot()
 		actor.observe(Completion{
-			Request:    cloneRequest(result.request),
-			Err:        result.err,
-			Generation: result.generation,
-			StartedAt:  result.startedAt,
-			EndedAt:    result.endedAt,
-			Stale:      true,
+			Request:         cloneRequest(result.request),
+			ProviderRequest: providerRequest,
+			ProviderResult:  providerResult,
+			Err:             result.err,
+			Generation:      result.generation,
+			StartedAt:       result.startedAt,
+			EndedAt:         result.endedAt,
+			Stale:           true,
 		})
 		return
 	}
@@ -428,7 +493,7 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 			"prepare narrator request %s: %w",
 			active.queued.request.ID,
 			result.err,
-		), false, active.generation, active.startedAt, result.endedAt)
+		), false, active.generation, active.startedAt, result.endedAt, active.observation)
 		return
 	}
 	if err := validatePreparedWork(active.queued.request, result.work); err != nil {
@@ -436,7 +501,7 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 			"prepare narrator request %s: %w",
 			active.queued.request.ID,
 			err,
-		), false, active.generation, active.startedAt, result.endedAt)
+		), false, active.generation, active.startedAt, result.endedAt, active.observation)
 		return
 	}
 	if err := result.work.Commit(actor.rootCtx); err != nil {
@@ -444,7 +509,7 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 			"commit narrator request %s: %w",
 			active.queued.request.ID,
 			err,
-		), false, active.generation, active.startedAt, time.Now().UTC().Format(time.RFC3339Nano))
+		), false, active.generation, active.startedAt, time.Now().UTC().Format(time.RFC3339Nano), active.observation)
 		return
 	}
 	if result.work.Retry != nil {
@@ -457,6 +522,7 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 		active.generation,
 		active.startedAt,
 		time.Now().UTC().Format(time.RFC3339Nano),
+		active.observation,
 	)
 }
 
@@ -467,15 +533,19 @@ func (actor *conversationActor) complete(
 	generation uint64,
 	startedAt string,
 	endedAt string,
+	observation *callObservation,
 ) {
 	queued.receipt.complete(err)
+	providerRequest, providerResult := observation.snapshot()
 	actor.observe(Completion{
-		Request:        cloneRequest(queued.request),
-		Err:            err,
-		RetryScheduled: retryScheduled,
-		Generation:     generation,
-		StartedAt:      startedAt,
-		EndedAt:        endedAt,
+		Request:         cloneRequest(queued.request),
+		ProviderRequest: providerRequest,
+		ProviderResult:  providerResult,
+		Err:             err,
+		RetryScheduled:  retryScheduled,
+		Generation:      generation,
+		StartedAt:       startedAt,
+		EndedAt:         endedAt,
 	})
 }
 
@@ -605,7 +675,7 @@ func (state *actorState) stop(actor *conversationActor) {
 			"narrator request %s: %w",
 			state.active.queued.request.ID,
 			ErrMailboxClosed,
-		), false, state.active.generation, state.active.startedAt, time.Now().UTC().Format(time.RFC3339Nano))
+		), false, state.active.generation, state.active.startedAt, time.Now().UTC().Format(time.RFC3339Nano), state.active.observation)
 		state.active = nil
 	}
 	for priority := mailboxPriority(0); priority < mailboxPriorityCount; priority++ {

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"setta/internal/tokenestimate"
 )
 
 type RouteFailureKind string
@@ -58,7 +60,9 @@ type RouteCallResult struct {
 	ProviderThreadID string
 	ProviderTurnID   string
 	InputBytes       int
+	InputTokens      int
 	OutputBytes      int
+	OutputTokens     int
 	StructuredOutput json.RawMessage
 	Decision         RouteDecision
 	StartedAt        string
@@ -108,9 +112,10 @@ func (caller *RouteCaller) call(
 		return RouteCallResult{}, NewRouteAttemptFailure(RouteFailureKindInternal, err)
 	}
 	result := RouteCallResult{
-		RequestID:  requestID,
-		InputBytes: len(materialized.Input),
-		StartedAt:  caller.timestamp(),
+		RequestID:   requestID,
+		InputBytes:  len(materialized.Input),
+		InputTokens: materialized.EstimatedInputTokens,
+		StartedAt:   caller.timestamp(),
 	}
 	if started != nil {
 		started(result)
@@ -123,10 +128,37 @@ func (caller *RouteCaller) call(
 		Input:        materialized.Input,
 		OutputSchema: schema,
 	})
+	result, usageErr := applyStructuredSessionResult(result, provider)
+	if usageErr != nil {
+		return result, NewRouteAttemptFailure(RouteFailureKindProviderOutputInvalid, usageErr)
+	}
 	if err != nil {
 		return result, routeProviderCallFailure(ctx, err)
 	}
-	return caller.completeRouteCall(result, provider, materialized)
+	return caller.completeRouteCall(result, materialized)
+}
+
+func applyStructuredSessionResult(
+	result RouteCallResult,
+	provider StructuredSessionTurnResult,
+) (RouteCallResult, error) {
+	result.Session = CloneSession(provider.Session)
+	result.ProviderThreadID = provider.ProviderThreadID
+	result.ProviderTurnID = provider.ProviderTurnID
+	if provider.Usage.InputTokens > 0 {
+		result.InputTokens = provider.Usage.InputTokens
+	}
+	result.OutputBytes = len(provider.Output)
+	result.OutputTokens = provider.Usage.OutputTokens
+	result.StructuredOutput = append(json.RawMessage{}, provider.Output...)
+	if result.OutputBytes > 0 && result.OutputTokens == 0 {
+		outputTokens, err := tokenestimate.CountBytes(provider.Output)
+		if err != nil {
+			return result, err
+		}
+		result.OutputTokens = outputTokens
+	}
+	return result, nil
 }
 
 func validateRouteCallRequest(
@@ -162,14 +194,8 @@ func routeProviderCallFailure(ctx context.Context, err error) error {
 
 func (caller *RouteCaller) completeRouteCall(
 	result RouteCallResult,
-	provider StructuredSessionTurnResult,
 	materialized RouteContextMaterialization,
 ) (RouteCallResult, error) {
-	result.Session = CloneSession(provider.Session)
-	result.ProviderThreadID = provider.ProviderThreadID
-	result.ProviderTurnID = provider.ProviderTurnID
-	result.OutputBytes = len(provider.Output)
-	result.StructuredOutput = append(json.RawMessage{}, provider.Output...)
 	endedAt, err := caller.timestampAfter(result.StartedAt)
 	if err != nil {
 		return result, NewRouteAttemptFailure(RouteFailureKindInternal, err)
@@ -188,7 +214,7 @@ func (caller *RouteCaller) completeRouteCall(
 	if err := validateRouteReference("master route provider turn id", result.ProviderTurnID); err != nil {
 		return result, NewRouteAttemptFailure(RouteFailureKindProviderOutputInvalid, err)
 	}
-	decision, err := decodeRouteOutput(provider.Output, materialized.Bundle)
+	decision, err := decodeRouteOutput(result.StructuredOutput, materialized.Bundle)
 	if err != nil {
 		return result, NewRouteAttemptFailure(RouteFailureKindProviderOutputInvalid, err)
 	}
@@ -218,14 +244,16 @@ func routeInvocationAudit(call RouteCallResult) (RouteInvocationAudit, error) {
 		return RouteInvocationAudit{}, err
 	}
 	audit := RouteInvocationAudit{
-		Configuration:     configuration,
-		ProviderRequestID: call.RequestID,
-		ProviderThreadID:  call.ProviderThreadID,
-		ProviderTurnID:    call.ProviderTurnID,
-		InputBytes:        call.InputBytes,
-		OutputBytes:       call.OutputBytes,
-		StartedAt:         call.StartedAt,
-		EndedAt:           call.EndedAt,
+		Configuration:         configuration,
+		ProviderRequestID:     call.RequestID,
+		ProviderThreadID:      call.ProviderThreadID,
+		ProviderTurnID:        call.ProviderTurnID,
+		InputBytes:            call.InputBytes,
+		EstimatedInputTokens:  call.InputTokens,
+		OutputBytes:           call.OutputBytes,
+		EstimatedOutputTokens: call.OutputTokens,
+		StartedAt:             call.StartedAt,
+		EndedAt:               call.EndedAt,
 	}
 	if err := audit.Validate(); err != nil {
 		return RouteInvocationAudit{}, err

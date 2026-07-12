@@ -2,16 +2,14 @@
 
 **Date:** 2026-07-11
 
-**Status:** Incomplete. The 2026-07-15 repeated whole-plan final audit found
-that effective invocation usage auditing still records byte counts without the
-required token estimates. Production agent, side-agent, narrator, and local
-router invocation builders leave `EstimatedInputTokens` and
-`EstimatedOutputTokens` at zero, while the master route audit contracts cannot
-represent token estimates at all. Add real provider-usage or tokenizer-backed
-input/output token accounting at the Go-owned invocation boundaries, persist
-and project it through the secret-safe desktop recorder, cover success and
-terminal failure/cancellation paths, rerun the required gates, and then repeat
-the whole-plan audit.
+**Status:** Complete; ready for final audit. The 2026-07-15 token-accounting
+follow-up resolved the last repeated whole-plan audit blocker. Every agent,
+side-agent, narrator, local-router, and master invocation now retains exact
+provider usage when Codex reports it and a real tokenizer-backed estimate at
+materialization otherwise, including observed failure and cancellation paths.
+The counts persist through the Go-owned contracts and secret-safe desktop
+recordings, and the repeated acceptance review found no incomplete phase or
+remaining implementation blocker.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2626,6 +2624,38 @@ agent/side/narrator/local-route/master attempts; generate the affected desktop
 contracts; project the counts into recordings; add focused persistence,
 lifecycle, and recorder tests plus a deterministic production Electron
 recording assertion; then rerun the required gates and whole-plan audit.
+
+**Token-accounting follow-up and repeated whole-plan audit (2026-07-15):**
+Resolved. Setta now uses Codex's typed per-turn `thread/tokenUsage/updated`
+notification for exact input, cached-input, and output counts, with an exact
+pinned `o200k_base` tokenizer estimate at each frozen input/output boundary
+when provider usage is not yet available. Primary-agent and side-agent
+lifecycle records, narrator projection/status/checkpoint attempts,
+conversation-local routing, and global-master routing carry the bounded counts
+through completed, failed, interrupted, cancelled, superseded, and stale paths
+whenever their call context was materialized. Protocol 53 and the regenerated
+desktop contracts expose terminal trajectory usage and master token fields;
+routing-observation schema 3 and the semantic session recorder preserve those
+fields without authored input, model output, provider lifecycle messages, or
+failure text.
+
+Focused agent, narration, conversation, master, HTTP, runtime, tokenizer, and
+contract-generator Go tests passed, as did all 766 desktop tests and focused
+recorder/renderer coverage. Production desktop and embedded-web builds passed.
+`./check_quality.sh --all` passed all 26 Go packages, lint, complexity,
+typechecking, dead-code analysis, the production build, and all 17 required
+Electron workflows. The token-accounting production recording is
+`.recordings/topic-conversation-pane-projection/20260715T184457090Z`. The
+standard live gate passed the ChatGPT-authenticated Codex agent-protocol,
+side-isolation, and production topic-conversation suites with
+`OPENAI_API_KEY` unset. Module tidiness, exact dependency versions, lockfile
+sync, release-age policy, and Go vulnerability analysis passed. npm's retired
+legacy audit endpoint returned HTTP 410; the supported bulk-advisory endpoint
+reported two low-severity advisories and none at or above the repository's
+moderate failure threshold. A repeated review of every phase, acceptance
+criterion, generated-contract boundary, recording requirement, and deletion
+constraint found no remaining implementation blocker. The plan is complete
+and ready for final audit.
 
 ### Performance
 

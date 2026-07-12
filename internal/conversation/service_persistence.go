@@ -109,6 +109,7 @@ func resolvedConversationInvocation(
 	threadID string,
 	providerTurnID string,
 	inputBytes int,
+	inputTokens int,
 	startedAt string,
 ) ResolvedInvocation {
 	return ResolvedInvocation{
@@ -122,7 +123,10 @@ func resolvedConversationInvocation(
 			ServiceTier:       cloneStringPointer(resolved.ServiceTier),
 			PermissionProfile: profile.PermissionProfile,
 		},
-		ContextUsage: InvocationContextUsage{InputBytes: inputBytes},
+		ContextUsage: InvocationContextUsage{
+			InputBytes:           inputBytes,
+			EstimatedInputTokens: inputTokens,
+		},
 		ProviderReferences: InvocationProviderReferences{
 			ThreadID: &threadID,
 			TurnID:   &providerTurnID,

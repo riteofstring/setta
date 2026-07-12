@@ -374,6 +374,12 @@ func applySideAgentEvent(
 		)
 	}
 	if event.Kind == agent.EventKindTurnTerminal {
+		if event.Terminal != nil && event.Terminal.Usage != nil {
+			side.ResolvedSideAgentInvocation.ContextUsage.EstimatedInputTokens +=
+				event.Terminal.Usage.InputTokens
+			side.ResolvedSideAgentInvocation.ContextUsage.EstimatedOutputTokens +=
+				event.Terminal.Usage.OutputTokens
+		}
 		side.ActiveTurnID = nil
 		side.ActiveProviderTurnID = nil
 	}
@@ -453,10 +459,13 @@ func (service *Service) sideTerminalTrajectory(
 	switch event.Terminal.Outcome {
 	case agent.TurnOutcomeCompleted:
 		trajectory.Kind = TrajectoryEventTurnCompleted
-		trajectory.TurnCompleted = &TrajectoryTurnCompleted{Usage: TokenUsage{}}
+		trajectory.TurnCompleted = &TrajectoryTurnCompleted{Usage: conversationTokenUsage(event.Terminal.Usage)}
 	case agent.TurnOutcomeInterrupted:
 		trajectory.Kind = TrajectoryEventTurnInterrupted
-		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionProviderInterrupted}
+		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{
+			Reason: TurnInterruptionProviderInterrupted,
+			Usage:  conversationTokenUsage(event.Terminal.Usage),
+		}
 	case agent.TurnOutcomeFailed:
 		message := "side agent turn failed"
 		if event.Terminal.Error != nil && *event.Terminal.Error != "" {
@@ -467,12 +476,15 @@ func (service *Service) sideTerminalTrajectory(
 			return TrajectoryEvent{}, err
 		}
 		trajectory.Kind = TrajectoryEventTurnFailed
-		trajectory.TurnFailed = &TrajectoryTurnFailed{Failure: Failure{
-			Code:                "side_turn_failed",
-			Message:             message,
-			Retryable:           true,
-			DiagnosticReference: diagnosticID,
-		}}
+		trajectory.TurnFailed = &TrajectoryTurnFailed{
+			Failure: Failure{
+				Code:                "side_turn_failed",
+				Message:             message,
+				Retryable:           true,
+				DiagnosticReference: diagnosticID,
+			},
+			Usage: conversationTokenUsage(event.Terminal.Usage),
+		}
 	default:
 		return TrajectoryEvent{}, fmt.Errorf("unsupported side terminal outcome %q", event.Terminal.Outcome)
 	}

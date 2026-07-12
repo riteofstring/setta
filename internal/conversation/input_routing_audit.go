@@ -188,8 +188,10 @@ func validateConversationRouterInvocationAudit(invocation ResolvedInvocation) er
 		!equalConversationRouterPermission(invocation.Resolved.PermissionProfile, expectedPermission) {
 		return errors.New("conversation-router invocation must use the restricted narrator permission profile")
 	}
-	if invocation.ContextUsage.InputBytes <= 0 || invocation.ContextUsage.OutputBytes <= 0 {
-		return errors.New("conversation-router invocation must record positive input and output byte usage")
+	if invocation.ContextUsage.InputBytes <= 0 || invocation.ContextUsage.OutputBytes <= 0 ||
+		invocation.ContextUsage.EstimatedInputTokens <= 0 ||
+		invocation.ContextUsage.EstimatedOutputTokens <= 0 {
+		return errors.New("conversation-router invocation must record positive input/output byte and token usage")
 	}
 	if invocation.ProviderReferences.ThreadID == nil ||
 		invocation.ProviderReferences.TurnID == nil ||

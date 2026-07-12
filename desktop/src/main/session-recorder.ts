@@ -717,10 +717,16 @@ function summarizeTurnInvocation(event: TrajectoryEvent) {
 }
 
 function summarizeTurnUsage(event: TrajectoryEvent) {
-  if (event.turnCompleted === null) {
-    return null;
+  if (event.turnCompleted !== null) {
+    return event.turnCompleted.usage;
   }
-  return event.turnCompleted.usage;
+  if (event.turnInterrupted !== null) {
+    return event.turnInterrupted.usage;
+  }
+  if (event.turnFailed !== null) {
+    return event.turnFailed.usage;
+  }
+  return null;
 }
 
 function trajectoryTextBytes(event: TrajectoryEvent): number {

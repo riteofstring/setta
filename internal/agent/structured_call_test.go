@@ -24,6 +24,7 @@ func TestRuntimeRunsFreshRestrictedStructuredCall(t *testing.T) {
 	if string(result.Output) != `{"answer":"STRUCTURED_OK"}` {
 		t.Fatalf("fresh structured output = %s", result.Output)
 	}
+	assertFakeProviderTokenUsage(t, &result.Usage)
 	listed, err := runtime.ListThreads(ctx, ListThreadsRequest{Limit: 20})
 	if err != nil {
 		t.Fatalf("ListThreads: %v", err)
@@ -69,6 +70,8 @@ func TestRuntimeRunsStructuredTurnsOnOneDurableRestrictedThread(t *testing.T) {
 		string(second.Output) != `{"answer":"STRUCTURED_OK"}` {
 		t.Fatalf("durable structured results first=%+v second=%+v", first, second)
 	}
+	assertFakeProviderTokenUsage(t, &first.Usage)
+	assertFakeProviderTokenUsage(t, &second.Usage)
 }
 
 func TestFreshStructuredCallRunsWhilePrimaryConversationTurnIsActive(t *testing.T) {
@@ -128,10 +131,11 @@ func TestRuntimeRejectsFreshStructuredProviderActivityAndMultipleOutputs(t *test
 			runtime := newFakeRuntime(t)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			_, err := runtime.RunFreshStructuredCall(ctx, fakeFreshStructuredCallRequest(t, test.input))
+			result, err := runtime.RunFreshStructuredCall(ctx, fakeFreshStructuredCallRequest(t, test.input))
 			if err == nil || !strings.Contains(err.Error(), test.message) {
 				t.Fatalf("RunFreshStructuredCall error = %v, want %q", err, test.message)
 			}
+			assertFakeProviderTokenUsage(t, &result.Usage)
 		})
 	}
 }

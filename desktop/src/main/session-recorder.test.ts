@@ -186,6 +186,7 @@ describe("session recording privacy", () => {
         payload: {
           authoredInputBytes: 26,
           resolvedInvocation: {
+            contextUsage: { estimatedInputTokens: 100, estimatedOutputTokens: 20 },
             failure: { messageBytes: 31 },
             modelReroutes: [{ reasonBytes: 31 }],
             providerReferences: { threadId: "provider-thread-recording" },
@@ -197,6 +198,7 @@ describe("session recording privacy", () => {
         payload: {
           output: { finalSummaryBytes: 30 },
           resolvedInvocation: {
+            contextUsage: { estimatedInputTokens: 100, estimatedOutputTokens: 20 },
             failure: { messageBytes: 31 },
             modelReroutes: [{ reasonBytes: 31 }],
           },
@@ -230,12 +232,27 @@ describe("session recording privacy", () => {
       },
       kind: "agent_liveness_changed",
     });
+    const failedTerminal = trajectoryEvent({
+      kind: "turn_failed",
+      turnFailed: {
+        failure: {
+          code: "provider_turn_failed",
+          diagnosticReference: "diagnostic-recording",
+          message: failureMessage,
+          retryable: true,
+        },
+        usage: { cachedInputTokens: 11, inputTokens: 101, outputTokens: 29 },
+      },
+    });
     const recorded = [
       ...conversationRecordingEvents(
         conversationEvent({ attempt, type: "conversation.invocation_attempted" }),
       ),
       ...conversationRecordingEvents(
         conversationEvent({ event: lifecycle, type: "conversation.trajectory.appended" }, 2),
+      ),
+      ...conversationRecordingEvents(
+        conversationEvent({ event: failedTerminal, type: "conversation.trajectory.appended" }, 3),
       ),
       ...conversationRecordingEvents(
         conversationEvent(
@@ -252,7 +269,7 @@ describe("session recording privacy", () => {
             },
             type: "conversation.thread_binding.updated",
           },
-          3,
+          4,
         ),
       ),
     ];
@@ -268,6 +285,7 @@ describe("session recording privacy", () => {
               preCursor: { checkpointThroughSequence: 3, observedThroughSequence: 8 },
             },
             failure: { messageBytes: 26 },
+            contextUsage: { estimatedInputTokens: 100, estimatedOutputTokens: 0 },
             outcome: "failed",
           },
         },
@@ -277,6 +295,14 @@ describe("session recording privacy", () => {
         payload: {
           agentLiveness: { messageBytes: 26, reason: "provider_turn_linked" },
           eventKind: "agent_liveness_changed",
+        },
+        type: "agent_trajectory_observed",
+      },
+      {
+        payload: {
+          eventKind: "turn_failed",
+          failure: { messageBytes: 26 },
+          turnUsage: { cachedInputTokens: 11, inputTokens: 101, outputTokens: 29 },
         },
         type: "agent_trajectory_observed",
       },

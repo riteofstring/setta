@@ -1,6 +1,7 @@
 package conversation
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -149,7 +150,7 @@ func validateTurnTrajectoryPayload(payload any) (error, bool) {
 	case *TrajectoryTurnCompleted:
 		return value.Usage.Validate(), true
 	case *TrajectoryTurnFailed:
-		return value.Failure.Validate(), true
+		return errors.Join(value.Failure.Validate(), value.Usage.Validate()), true
 	default:
 		return nil, false
 	}
@@ -260,7 +261,7 @@ func validateTrajectoryTurnInterrupted(payload *TrajectoryTurnInterrupted) error
 	if !validTurnInterruptionReason(payload.Reason) {
 		return fmt.Errorf("unsupported interruption reason %q", payload.Reason)
 	}
-	return nil
+	return payload.Usage.Validate()
 }
 
 func validateAgentTextDelta(payload *TrajectoryAgentPublicTextDelta) error {

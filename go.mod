@@ -4,11 +4,13 @@ go 1.26.5
 
 require (
 	github.com/mdp/qrterminal/v3 v3.2.1
+	github.com/tiktoken-go/tokenizer v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.51.0
 )
 
 require (
+	github.com/dlclark/regexp2/v2 v2.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

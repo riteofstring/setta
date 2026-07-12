@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"setta/internal/agent"
+	"setta/internal/tokenestimate"
 )
 
 const sideAgentDeveloperInstructions = `You are in an ephemeral side conversation, not the parent topic conversation.
@@ -329,6 +330,10 @@ func (service *Service) persistPreparingSideConversation(
 	if err != nil {
 		return preparedSideConversation{}, err
 	}
+	contextInputTokens, err := sideConversationInputTokens(injectedItems)
+	if err != nil {
+		return preparedSideConversation{}, err
+	}
 	sideID, err := service.branchConversationID(
 		requestedSideConversationID,
 		"side_conversation",
@@ -357,6 +362,7 @@ func (service *Service) persistPreparingSideConversation(
 			profile,
 			resolved,
 			contextInputBytes,
+			contextInputTokens,
 			now,
 		),
 		CreatedAt: now,
@@ -448,6 +454,21 @@ func sideConversationInjectedItems(
 	return items, inputBytes, nil
 }
 
+func sideConversationInputTokens(items []agent.InjectedTextItem) (int, error) {
+	inputTokens, err := tokenestimate.Count(sideAgentDeveloperInstructions)
+	if err != nil {
+		return 0, fmt.Errorf("estimate side developer-instruction tokens: %w", err)
+	}
+	for _, item := range items {
+		itemTokens, err := tokenestimate.Count(item.Text)
+		if err != nil {
+			return 0, fmt.Errorf("estimate side injected-item tokens: %w", err)
+		}
+		inputTokens += itemTokens
+	}
+	return inputTokens, nil
+}
+
 func latestProviderTurnID(turns []ConversationTurn) *string {
 	for index := len(turns) - 1; index >= 0; index-- {
 		if turns[index].ProviderTurnID != nil {
@@ -462,6 +483,7 @@ func newSideAgentInvocation(
 	profile RoleProfile,
 	resolved agent.ResolvedInvocation,
 	inputBytes int,
+	inputTokens int,
 	startedAt string,
 ) ResolvedInvocation {
 	return ResolvedInvocation{
@@ -475,7 +497,10 @@ func newSideAgentInvocation(
 			ServiceTier:       cloneStringPointer(resolved.ServiceTier),
 			PermissionProfile: profile.PermissionProfile,
 		},
-		ContextUsage:       InvocationContextUsage{InputBytes: inputBytes},
+		ContextUsage: InvocationContextUsage{
+			InputBytes:           inputBytes,
+			EstimatedInputTokens: inputTokens,
+		},
 		ProviderReferences: InvocationProviderReferences{},
 		ModelReroutes:      []InvocationModelReroute{},
 		StartedAt:          startedAt,

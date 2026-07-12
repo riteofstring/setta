@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"setta/internal/agent"
+	"setta/internal/tokenestimate"
 )
 
 type conversationAgentEventSink struct {
@@ -240,6 +241,10 @@ func (service *Service) prepareTurnStart(
 		return turnStartMutation{}, &CommandConflictError{ConversationID: active.conversationID, Reason: "provider started a non-queued turn"}
 	}
 	now := advanceTimestamp(turn.AcceptedAt, service.timestamp())
+	inputTokens, err := tokenestimate.Count(turn.AuthoredInput.Text)
+	if err != nil {
+		return turnStartMutation{}, fmt.Errorf("estimate agent turn input tokens: %w", err)
+	}
 	invocation := resolvedConversationInvocation(
 		invocationID,
 		active.roleProfile,
@@ -247,6 +252,7 @@ func (service *Service) prepareTurnStart(
 		event.ProviderThreadID,
 		event.ProviderTurnID,
 		len(turn.AuthoredInput.Text),
+		inputTokens,
 		now,
 	)
 	turn.Status = TurnStatusRunning
@@ -524,26 +530,54 @@ func applyProviderTerminalOutcome(
 	switch event.Terminal.Outcome {
 	case agent.TurnOutcomeCompleted:
 		turn.Status = TurnStatusCompleted
+		applyAgentInvocationTokenUsage(turn.ResolvedInvocation, event.Terminal.Usage)
 		turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeSucceeded, now, nil))
 		trajectory.Kind = TrajectoryEventTurnCompleted
-		trajectory.TurnCompleted = &TrajectoryTurnCompleted{Usage: TokenUsage{}}
+		trajectory.TurnCompleted = &TrajectoryTurnCompleted{Usage: conversationTokenUsage(event.Terminal.Usage)}
 	case agent.TurnOutcomeInterrupted:
 		turn.Status = TurnStatusCancelled
+		applyAgentInvocationTokenUsage(turn.ResolvedInvocation, event.Terminal.Usage)
 		turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeCancelled, now, nil))
 		trajectory.Kind = TrajectoryEventTurnInterrupted
-		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: interruptionReason}
+		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{
+			Reason: interruptionReason,
+			Usage:  conversationTokenUsage(event.Terminal.Usage),
+		}
 	case agent.TurnOutcomeFailed:
 		failure := providerFailure("provider_turn_failed", event.Terminal.Error)
 		turn.Status = TurnStatusFailed
 		turn.Error = &failure
+		applyAgentInvocationTokenUsage(turn.ResolvedInvocation, event.Terminal.Usage)
 		turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeFailed, now, &failure))
 		trajectory.Kind = TrajectoryEventTurnFailed
-		trajectory.TurnFailed = &TrajectoryTurnFailed{Failure: failure}
+		trajectory.TurnFailed = &TrajectoryTurnFailed{
+			Failure: failure,
+			Usage:   conversationTokenUsage(event.Terminal.Usage),
+		}
 		return ConversationStatusFailed, nil
 	default:
 		return "", fmt.Errorf("unsupported provider terminal outcome %q", event.Terminal.Outcome)
 	}
 	return conversationStatus, nil
+}
+
+func applyAgentInvocationTokenUsage(invocation *ResolvedInvocation, usage *agent.TokenUsage) {
+	if invocation == nil || usage == nil {
+		return
+	}
+	invocation.ContextUsage.EstimatedInputTokens = usage.InputTokens
+	invocation.ContextUsage.EstimatedOutputTokens = usage.OutputTokens
+}
+
+func conversationTokenUsage(usage *agent.TokenUsage) TokenUsage {
+	if usage == nil {
+		return TokenUsage{}
+	}
+	return TokenUsage{
+		InputTokens:       usage.InputTokens,
+		CachedInputTokens: usage.CachedInputTokens,
+		OutputTokens:      usage.OutputTokens,
+	}
 }
 
 func turnTerminalPayloads(mutation turnTerminalMutation) []ConversationEventPayload {

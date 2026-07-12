@@ -840,7 +840,7 @@ function sideConversationEvents(side: SideConversation): SideConversationEvent[]
     id: "side_trajectory_terminal",
     kind: "turn_completed" as const,
     sequence: 3,
-    turnCompleted: { usage: { cachedInputTokens: 0, inputTokens: 0, outputTokens: 0 } },
+    turnCompleted: { usage: { cachedInputTokens: 3, inputTokens: 21, outputTokens: 8 } },
     userInputAccepted: null,
   };
   return [user, assistant, completed].map((event, index) => ({
@@ -870,6 +870,7 @@ function sideConversationFailureEvents(side: SideConversation): SideConversation
         message: "The side agent could not inspect that resource.",
         retryable: true,
       },
+      usage: { cachedInputTokens: 11, inputTokens: 101, outputTokens: 29 },
     },
     userInputAccepted: null,
   };

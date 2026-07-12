@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
+	"setta/internal/tokenestimate"
 )
 
 type ConversationRouteCallResult struct {
@@ -20,7 +21,9 @@ type ConversationRouteCallResult struct {
 	ProviderThreadID string
 	ProviderTurnID   string
 	InputBytes       int
+	InputTokens      int
 	OutputBytes      int
+	OutputTokens     int
 	StructuredOutput json.RawMessage
 	Decision         conversation.ConversationRouteDecision
 	StartedAt        string
@@ -65,6 +68,10 @@ func (caller *ConversationRouteCaller) Call(
 		InputBytes:     len(input),
 		StartedAt:      caller.timestamp(),
 	}
+	result.InputTokens, err = tokenestimate.CountBytes(input)
+	if err != nil {
+		return result, NewAttemptFailure(FailureKindInternal, err)
+	}
 	resolution, err := caller.models.Resolve(
 		ctx,
 		contextBundle.Authoritative.Conversation.WorkspaceID,
@@ -101,6 +108,18 @@ func (caller *ConversationRouteCaller) Call(
 		)
 	}
 	providerResult, err := caller.provider.RunFreshStructuredCall(ctx, providerRequest)
+	result.ProviderThreadID = providerResult.ProviderThreadID
+	result.ProviderTurnID = providerResult.ProviderTurnID
+	result.OutputBytes = len(providerResult.Output)
+	result.StructuredOutput = append(json.RawMessage{}, providerResult.Output...)
+	var tokenErr error
+	result.InputTokens, result.OutputTokens, tokenErr = structuredCallTokenCounts(
+		result.InputTokens,
+		providerResult,
+	)
+	if tokenErr != nil {
+		return result, NewAttemptFailure(FailureKindProviderOutputInvalid, tokenErr)
+	}
 	if err != nil {
 		return result, narratorCallFailure(
 			ctx,
@@ -140,10 +159,6 @@ func (caller *ConversationRouteCaller) completeConversationRouteCall(
 	providerResult agent.FreshStructuredCallResult,
 	contextBundle ConversationRouteContextBundle,
 ) (ConversationRouteCallResult, error) {
-	result.ProviderThreadID = providerResult.ProviderThreadID
-	result.ProviderTurnID = providerResult.ProviderTurnID
-	result.OutputBytes = len(providerResult.Output)
-	result.StructuredOutput = append(json.RawMessage{}, providerResult.Output...)
 	endedAt, err := caller.timestampAfter(result.StartedAt)
 	if err != nil {
 		return result, NewAttemptFailure(FailureKindInternal, err)

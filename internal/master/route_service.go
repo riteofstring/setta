@@ -276,7 +276,11 @@ func (service *RouteService) routeClaimedInput(
 	if err != nil {
 		return NewRouteAttemptFailure(RouteFailureKindInternal, err)
 	}
-	active.setAttemptCall(RouteCallResult{RequestID: requestID, InputBytes: len(materialized.Input)})
+	active.setAttemptCall(RouteCallResult{
+		RequestID:   requestID,
+		InputBytes:  len(materialized.Input),
+		InputTokens: materialized.EstimatedInputTokens,
+	})
 	call, err := service.caller.CallObserved(ctx, requestID, materialized, func(started RouteCallResult) {
 		service.observeActiveRouteCall(active, started)
 	})

@@ -279,6 +279,7 @@ type TrajectoryTurnSteered struct {
 
 type TrajectoryTurnInterrupted struct {
 	Reason TurnInterruptionReason `json:"reason"`
+	Usage  TokenUsage             `json:"usage"`
 }
 
 type TrajectoryTurnCompleted struct {
@@ -286,7 +287,8 @@ type TrajectoryTurnCompleted struct {
 }
 
 type TrajectoryTurnFailed struct {
-	Failure Failure `json:"failure"`
+	Failure Failure    `json:"failure"`
+	Usage   TokenUsage `json:"usage"`
 }
 
 type TrajectoryAgentPublicTextDelta struct {

@@ -54,3 +54,30 @@ func TestTerminalMasterRouteAttemptIDIsBoundedForMaximumInputID(t *testing.T) {
 		t.Fatalf("synthetic attempt id has %d bytes, want at most %d", len(attempt.ID), MaxRouteReferenceBytes)
 	}
 }
+
+func TestCancelledMasterRouteAttemptRetainsObservedTokenUsage(t *testing.T) {
+	work := InputRoutingWork{
+		Input:            AcceptedMasterInput{Input: MasterInput{ID: "master-input-cancel-usage"}},
+		RoutingAttempt:   1,
+		RoutingStartedAt: "2026-07-15T10:00:00Z",
+	}
+	call := RouteCallResult{
+		RequestID:    "master-route-cancel-usage",
+		InputBytes:   400,
+		InputTokens:  101,
+		OutputBytes:  80,
+		OutputTokens: 29,
+		StartedAt:    "2026-07-15T10:00:00Z",
+	}
+	attempt, err := cancelledMasterRouteAttempt(
+		work,
+		masterRouteAttemptState{call: &call},
+		"2026-07-15T10:00:01Z",
+	)
+	if err != nil {
+		t.Fatalf("cancelledMasterRouteAttempt: %v", err)
+	}
+	if attempt.EstimatedInputTokens != 101 || attempt.EstimatedOutputTokens != 29 {
+		t.Fatalf("cancelled master route token usage = %+v", attempt)
+	}
+}

@@ -348,6 +348,8 @@ func handleFakeAgentTurnStart(state *fakeAgentServerState, message map[string]an
 	switch text {
 	case "hold", "interrupt":
 		state.heldTurns[turnID] = threadID
+	case "failed":
+		writeFakeAgentTurnCompleted(threadID, turnID, "failed")
 	case "approval":
 		state.requestCounter++
 		requestID := fmt.Sprintf("approval-%d", state.requestCounter)
@@ -545,6 +547,27 @@ func writeFakeAgentNormalTurn(threadID string, turnID string) {
 }
 
 func writeFakeAgentTurnCompleted(threadID string, turnID string, status string) {
+	writeFakeAgentNotification("thread/tokenUsage/updated", map[string]any{
+		"threadId": threadID,
+		"turnId":   turnID,
+		"tokenUsage": map[string]any{
+			"last": map[string]any{
+				"cachedInputTokens":     11,
+				"inputTokens":           101,
+				"outputTokens":          29,
+				"reasoningOutputTokens": 7,
+				"totalTokens":           137,
+			},
+			"modelContextWindow": 200000,
+			"total": map[string]any{
+				"cachedInputTokens":     11,
+				"inputTokens":           101,
+				"outputTokens":          29,
+				"reasoningOutputTokens": 7,
+				"totalTokens":           137,
+			},
+		},
+	})
 	writeFakeAgentNotification("turn/completed", map[string]any{
 		"threadId": threadID,
 		"turn":     fakeAgentTurn(turnID, status),

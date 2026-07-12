@@ -224,8 +224,10 @@ func (committer *OutputCommitter) successfulInvocation(
 		Requested: result.Model.RequestedProfile,
 		Resolved:  result.Model.Settings,
 		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:  result.InputBytes,
-			OutputBytes: result.OutputBytes,
+			InputBytes:            result.InputBytes,
+			EstimatedInputTokens:  result.InputTokens,
+			OutputBytes:           result.OutputBytes,
+			EstimatedOutputTokens: result.OutputTokens,
 		},
 		ProviderReferences: conversation.InvocationProviderReferences{
 			ThreadID:  &threadID,
