@@ -182,6 +182,35 @@ func TestSessionServiceRunsStructuredTurnsOnTheDurableRestrictedThread(t *testin
 	}
 }
 
+func TestSessionServiceRetainsProviderResultWhenReadyTransitionFails(t *testing.T) {
+	store := &recordingSessionStore{}
+	roles := &recordingMasterRoleResolver{configuration: validTestRoleConfiguration()}
+	readyErr := errors.New("persist ready session")
+	threads := &recordingRestrictedThreadRuntime{
+		structuredHook: func() {
+			store.setUpdateError(readyErr)
+		},
+	}
+	service := newTestSessionService(t, store, roles, threads)
+
+	result, err := service.RunStructuredTurn(context.Background(), StructuredSessionTurnRequest{
+		ID:           "master-route-ready-failure",
+		Input:        json.RawMessage(`{"kind":"master_route"}`),
+		OutputSchema: json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}`),
+	})
+	if !errors.Is(err, readyErr) {
+		t.Fatalf("RunStructuredTurn error = %v, want %v", err, readyErr)
+	}
+	wantUsage := agent.TokenUsage{InputTokens: 101, CachedInputTokens: 11, OutputTokens: 29}
+	if result.Session.Status != SessionStatusRunning ||
+		result.ProviderThreadID != "master-provider-thread" ||
+		result.ProviderTurnID != "master-provider-turn" ||
+		string(result.Output) != `{"answer":"ok"}` ||
+		result.Usage != wantUsage {
+		t.Fatalf("structured result after ready failure = %+v", result)
+	}
+}
+
 func TestSessionServicePersistsStructuredTurnCancellationWithCleanupContext(t *testing.T) {
 	store := &recordingSessionStore{honorContext: true}
 	roles := &recordingMasterRoleResolver{configuration: validTestRoleConfiguration()}
@@ -265,6 +294,7 @@ type recordingSessionStore struct {
 	session      Session
 	found        bool
 	honorContext bool
+	updateErr    error
 }
 
 func (store *recordingSessionStore) ReadMasterSession(context.Context) (Session, bool, error) {
@@ -297,11 +327,20 @@ func (store *recordingSessionStore) UpdateMasterSession(
 	if store.honorContext && ctx.Err() != nil {
 		return ctx.Err()
 	}
+	if store.updateErr != nil {
+		return store.updateErr
+	}
 	if !store.found || store.session.ID != next.ID || store.session.UpdatedAt != expectedUpdatedAt {
 		return &SessionConflictError{SessionID: next.ID, Reason: "test version mismatch"}
 	}
 	store.session = CloneSession(next)
 	return nil
+}
+
+func (store *recordingSessionStore) setUpdateError(err error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.updateErr = err
 }
 
 type recordingMasterRoleResolver struct {

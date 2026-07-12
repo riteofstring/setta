@@ -64,19 +64,22 @@ func (runtime *Runtime) handleProviderNotification(
 	if err != nil {
 		return TurnResult{}, false, err
 	}
-	if err := emitNormalizedProviderEvents(events, sink, usage); err != nil {
+	terminalUsage, err := emitNormalizedProviderEvents(events, sink, usage)
+	if err != nil {
 		return TurnResult{}, false, err
 	}
 	if terminal == nil {
 		return TurnResult{}, false, nil
 	}
-	terminal.Usage = tokenUsagePointer(usage.snapshot())
+	if terminalUsage == nil {
+		return TurnResult{}, false, errors.New("provider terminal notification emitted no terminal usage")
+	}
 	return TurnResult{
 		ProviderThreadID: base.ProviderThreadID,
 		ProviderTurnID:   base.ProviderTurnID,
 		Outcome:          terminal.Outcome,
 		Error:            terminal.Error,
-		Usage:            tokenUsagePointer(usage.snapshot()),
+		Usage:            tokenUsagePointer(*terminalUsage),
 	}, true, nil
 }
 
@@ -84,21 +87,24 @@ func emitNormalizedProviderEvents(
 	events []Event,
 	sink EventSink,
 	usage *turnTokenUsage,
-) error {
+) (*TokenUsage, error) {
+	var terminalUsage *TokenUsage
 	for _, event := range events {
 		if event.Kind == EventKindAgentTextCompleted && event.Text != nil {
 			if err := usage.addOutput(event.Text.Text); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		if event.Kind == EventKindTurnTerminal && event.Terminal != nil {
-			event.Terminal.Usage = tokenUsagePointer(usage.snapshot())
+			value := usage.snapshot()
+			event.Terminal.Usage = tokenUsagePointer(value)
+			terminalUsage = tokenUsagePointer(value)
 		}
 		if err := emitAgentEvent(sink, event); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return terminalUsage, nil
 }
 
 func observeProviderTokenUsage(

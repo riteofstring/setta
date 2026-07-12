@@ -9,8 +9,9 @@ import (
 )
 
 // turnTokenUsage keeps a tokenizer-backed estimate available from admission
-// onward, then replaces it with Codex's exact per-turn usage when the provider
-// publishes thread/tokenUsage/updated.
+// onward, then prefers each non-zero exact per-turn count that Codex publishes
+// through thread/tokenUsage/updated. Estimates remain available for dimensions
+// that an interrupted or failed provider turn has not reported.
 type turnTokenUsage struct {
 	mu        sync.Mutex
 	estimated TokenUsage
@@ -70,10 +71,18 @@ func (usage *turnTokenUsage) observeProvider(
 func (usage *turnTokenUsage) snapshot() TokenUsage {
 	usage.mu.Lock()
 	defer usage.mu.Unlock()
-	if usage.provider != nil {
-		return *usage.provider
+	result := usage.estimated
+	if usage.provider == nil {
+		return result
 	}
-	return usage.estimated
+	if usage.provider.InputTokens > 0 {
+		result.InputTokens = usage.provider.InputTokens
+	}
+	result.CachedInputTokens = usage.provider.CachedInputTokens
+	if usage.provider.OutputTokens > 0 {
+		result.OutputTokens = usage.provider.OutputTokens
+	}
+	return result
 }
 
 func tokenUsagePointer(value TokenUsage) *TokenUsage {

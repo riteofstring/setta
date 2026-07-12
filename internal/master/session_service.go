@@ -167,28 +167,31 @@ func (service *SessionService) RunStructuredTurn(
 		return StructuredSessionTurnResult{}, err
 	}
 	providerResult, err := service.threads.RunRestrictedStructuredTurn(ctx, providerRequest)
+	result := structuredSessionTurnResult(running, providerResult)
 	if err != nil {
-		return StructuredSessionTurnResult{
-			Session:          running,
-			ProviderThreadID: providerResult.ProviderThreadID,
-			ProviderTurnID:   providerResult.ProviderTurnID,
-			Output:           append(json.RawMessage{}, providerResult.Output...),
-			Usage:            providerResult.Usage,
-		}, service.finishFailedStructuredTurn(ctx, running, err)
+		return result, service.finishFailedStructuredTurn(ctx, running, err)
 	}
 	finalizeCtx, cancel := context.WithTimeout(context.Background(), masterThreadCleanupTimeout)
 	defer cancel()
 	ready, err := service.transitionSessionStatus(finalizeCtx, running, SessionStatusReady)
 	if err != nil {
-		return StructuredSessionTurnResult{}, err
+		return result, err
 	}
+	result.Session = ready
+	return result, nil
+}
+
+func structuredSessionTurnResult(
+	session Session,
+	provider agent.RestrictedStructuredTurnResult,
+) StructuredSessionTurnResult {
 	return StructuredSessionTurnResult{
-		Session:          ready,
-		ProviderThreadID: providerResult.ProviderThreadID,
-		ProviderTurnID:   providerResult.ProviderTurnID,
-		Output:           append(json.RawMessage{}, providerResult.Output...),
-		Usage:            providerResult.Usage,
-	}, nil
+		Session:          session,
+		ProviderThreadID: provider.ProviderThreadID,
+		ProviderTurnID:   provider.ProviderTurnID,
+		Output:           append(json.RawMessage{}, provider.Output...),
+		Usage:            provider.Usage,
+	}
 }
 
 func (service *SessionService) finishFailedStructuredTurn(

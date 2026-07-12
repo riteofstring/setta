@@ -237,7 +237,9 @@ func applyMasterRouteAttemptMaterialization(
 	contextAudit := cloneRouteContextAudit(materialized.Audit)
 	attempt.Context = &contextAudit
 	attempt.InputBytes = len(materialized.Input)
-	attempt.EstimatedInputTokens = materialized.EstimatedInputTokens
+	if attempt.EstimatedInputTokens == 0 {
+		attempt.EstimatedInputTokens = materialized.EstimatedInputTokens
+	}
 	sessionID := materialized.Bundle.SessionID
 	attempt.MasterSessionID = &sessionID
 }
