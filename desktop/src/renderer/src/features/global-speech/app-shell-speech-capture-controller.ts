@@ -11,15 +11,15 @@ import type {
   RealtimeTranscriptionTransport,
 } from "./realtime-transcription-transport";
 import {
+  type CompletedGlobalSpeechTranscript,
+  GlobalSpeechMasterSubmissionController,
+  type GlobalSpeechMasterSubmissionDependencies,
+  type MasterInputSubmissionState,
+} from "./global-speech-master-submission";
+import {
   speechAvailabilityForCapabilities,
   type SpeechCaptureAvailability,
 } from "./speech-capture-availability";
-
-export interface CompletedGlobalSpeechTranscript {
-  captureSessionId: string;
-  runtimeId: string;
-  transcript: string;
-}
 
 export type SpeechCaptureFailureCode =
   | "capabilities_unavailable"
@@ -30,6 +30,8 @@ export type SpeechCaptureFailureCode =
   | "invalid_media"
   | "invalid_session"
   | "malformed_event"
+  | "master_submission_failed"
+  | "master_submission_pending"
   | "microphone_disabled"
   | "microphone_permission_denied"
   | "microphone_unavailable"
@@ -76,11 +78,12 @@ export interface AppShellSpeechCaptureSnapshot {
   availability: SpeechCaptureAvailability;
   capture: SpeechCaptureState;
   completedTranscript: CompletedGlobalSpeechTranscript | null;
+  masterSubmission: MasterInputSubmissionState;
   preference: GlobalMicrophonePreference;
   runtimeId: string | null;
 }
 
-export interface AppShellSpeechCaptureControllerDependencies {
+export interface AppShellSpeechCaptureControllerDependencies extends GlobalSpeechMasterSubmissionDependencies {
   clearTimeout: (handle: unknown) => void;
   createCaptureSessionId: () => string;
   createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
@@ -102,19 +105,29 @@ export class AppShellSpeechCaptureController {
   private disposed = false;
   private durationTimer: unknown = null;
   private lifecycleSequence = 0;
+  private readonly masterSubmission: GlobalSpeechMasterSubmissionController;
   private snapshotValue: AppShellSpeechCaptureSnapshot;
   private stream: MediaStream | null = null;
   private transport: RealtimeTranscriptionTransport | null = null;
 
   constructor(dependencies: AppShellSpeechCaptureControllerDependencies) {
     this.dependencies = dependencies;
+    this.masterSubmission = new GlobalSpeechMasterSubmissionController(dependencies);
     this.snapshotValue = {
       availability: { type: "disconnected" },
       capture: { type: "idle" },
       completedTranscript: null,
+      masterSubmission: { type: "idle" },
       preference: dependencies.readPreference(),
       runtimeId: null,
     };
+    this.masterSubmission.subscribe(() => {
+      const snapshot = this.masterSubmission.getSnapshot();
+      this.updateSnapshot({
+        completedTranscript: snapshot.completedTranscript,
+        masterSubmission: snapshot.submission,
+      });
+    });
   }
 
   getSnapshot = (): AppShellSpeechCaptureSnapshot => this.snapshotValue;
@@ -132,6 +145,7 @@ export class AppShellSpeechCaptureController {
     this.capabilityGeneration += 1;
     const generation = this.capabilityGeneration;
     this.resetCapture();
+    this.masterSubmission.reset();
     this.updateSnapshot({
       availability: runtimeId ? { type: "loading" } : { type: "disconnected" },
       capture: { type: "idle" },
@@ -163,7 +177,6 @@ export class AppShellSpeechCaptureController {
       this.resetCapture();
       this.updateSnapshot({
         capture: { type: "idle" },
-        completedTranscript: null,
         preference,
       });
       return preference;
@@ -174,8 +187,17 @@ export class AppShellSpeechCaptureController {
 
   start = async (): Promise<void> => {
     this.assertUsable();
+    const submissionFailure = masterSubmissionCaptureFailure(
+      this.snapshotValue.completedTranscript,
+      this.snapshotValue.masterSubmission,
+    );
+    if (submissionFailure) {
+      this.updateSnapshot({ capture: { ...submissionFailure, type: "failed" } });
+      return;
+    }
+    this.masterSubmission.clearAccepted();
     this.resetCapture();
-    this.updateSnapshot({ capture: { type: "idle" }, completedTranscript: null });
+    this.updateSnapshot({ capture: { type: "idle" } });
     const startFailure = this.captureStartFailure();
     if (startFailure) {
       this.updateSnapshot({ capture: { ...startFailure, type: "failed" } });
@@ -254,16 +276,16 @@ export class AppShellSpeechCaptureController {
     }
   };
 
-  consumeCompletedTranscript = (
-    captureSessionId: string,
-  ): CompletedGlobalSpeechTranscript | null => {
+  retryMasterSubmission = (): void => {
     this.assertUsable();
-    const completed = this.snapshotValue.completedTranscript;
-    if (!completed || completed.captureSessionId !== captureSessionId) {
-      return null;
-    }
-    this.updateSnapshot({ completedTranscript: null });
-    return completed;
+    this.updateSnapshot({ capture: { type: "idle" } });
+    this.masterSubmission.retry();
+  };
+
+  discardCompletedTranscript = (): void => {
+    this.assertUsable();
+    this.masterSubmission.discard();
+    this.updateSnapshot({ capture: { type: "idle" } });
   };
 
   dispose = (): void => {
@@ -273,6 +295,7 @@ export class AppShellSpeechCaptureController {
     this.disposed = true;
     this.capabilityGeneration += 1;
     this.resetCapture();
+    this.masterSubmission.dispose();
     this.listeners.clear();
   };
 
@@ -379,10 +402,8 @@ export class AppShellSpeechCaptureController {
     }
     const captureSessionId = this.snapshotValue.capture.captureSessionId;
     this.resetCapture();
-    this.updateSnapshot({
-      capture: { type: "idle" },
-      completedTranscript: { captureSessionId, runtimeId, transcript },
-    });
+    this.updateSnapshot({ capture: { type: "idle" } });
+    this.masterSubmission.submitTranscript(captureSessionId, runtimeId, transcript);
   }
 
   private handleTransportError(
@@ -472,6 +493,32 @@ export class AppShellSpeechCaptureController {
     if (this.disposed) {
       throw new Error("app-shell speech capture controller is disposed");
     }
+  }
+}
+
+function masterSubmissionCaptureFailure(
+  completedTranscript: CompletedGlobalSpeechTranscript | null,
+  submission: MasterInputSubmissionState,
+): { code: SpeechCaptureFailureCode; message: string } | null {
+  if (!completedTranscript) {
+    if (submission.type === "submitting" || submission.type === "failed") {
+      throw new Error("global master submission state is missing its completed transcript");
+    }
+    return null;
+  }
+  switch (submission.type) {
+    case "submitting":
+      return {
+        code: "master_submission_pending",
+        message: "The previous voice request is still being submitted to Setta.",
+      };
+    case "failed":
+      return { code: "master_submission_failed", message: submission.message };
+    case "accepted":
+    case "idle":
+      throw new Error("completed transcript has an invalid global master submission state");
+    default:
+      return assertNever(submission);
   }
 }
 

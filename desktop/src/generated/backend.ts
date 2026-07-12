@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 21;
-export const backendContractSchemaHash = "sha256:0319a9efc5ea626d6cbad63c615d091444deadbf3be80192288e84b5c15e1194";
+export const backendProtocolVersion = 22;
+export const backendContractSchemaHash = "sha256:f059c291bfcc72323e6bb18a87d11cb43c75b06fbd8d320ee0c95c1c94c6f4f6";
 
 export type DeviceScope = "full";
 
@@ -1425,6 +1425,22 @@ export function decodeConversationEventType(value: unknown, label = "Conversatio
     case "conversation.side_conversation.updated":
       return decoded;
     case "conversation.resync_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type MasterInputModality = "text" | "voice";
+
+export const masterInputModalityValues = ["text", "voice"] as const satisfies readonly MasterInputModality[];
+
+export function decodeMasterInputModality(value: unknown, label = "MasterInputModality"): MasterInputModality {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "text":
+      return decoded;
+    case "voice":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -4759,6 +4775,26 @@ export interface ConversationEvent {
   workspaceId: string;
   conversationId: string;
   payload: ConversationEventPayload;
+}
+
+export interface MasterInput {
+  id: string;
+  text: string;
+  modality: MasterInputModality;
+  submittedAt: string;
+  focusedWorkspaceId: string | null;
+  focusedConversationId: string | null;
+  focusedPaneId: string | null;
+}
+
+export interface SubmitMasterInputRequest {
+  input: MasterInput;
+}
+
+export interface AcceptedMasterInput {
+  sequence: number;
+  input: MasterInput;
+  acceptedAt: string;
 }
 
 export interface SpeechCapabilities {
@@ -8323,6 +8359,11 @@ export const backendEndpoints = {
     method: "GET",
     path: "/conversations/events",
   },
+  SubmitMasterInput: {
+    method: "POST",
+    path: "/master/inputs/submit",
+    requestBodyLimitBytes: 1638400,
+  },
   ReadSpeechCapabilities: {
     method: "GET",
     path: "/speech/capabilities",
@@ -10868,6 +10909,38 @@ export function decodeConversationEvent(value: unknown): ConversationEvent {
     workspaceId: decodeString(requireField(record, "workspaceId", "ConversationEvent"), "ConversationEvent.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationEvent"), "ConversationEvent.conversationId"),
     payload: decodeConversationEventPayload(requireField(record, "payload", "ConversationEvent")),
+  };
+}
+
+export function decodeMasterInput(value: unknown): MasterInput {
+  const record = assertRecord(value, "MasterInput");
+  assertKnownFields(record, "MasterInput", ["id", "text", "modality", "submittedAt", "focusedWorkspaceId", "focusedConversationId", "focusedPaneId"]);
+  return {
+    id: decodeString(requireField(record, "id", "MasterInput"), "MasterInput.id"),
+    text: decodeString(requireField(record, "text", "MasterInput"), "MasterInput.text"),
+    modality: decodeMasterInputModality(requireField(record, "modality", "MasterInput"), "MasterInput.modality"),
+    submittedAt: decodeString(requireField(record, "submittedAt", "MasterInput"), "MasterInput.submittedAt"),
+    focusedWorkspaceId: decodeNullable(requireField(record, "focusedWorkspaceId", "MasterInput"), "MasterInput.focusedWorkspaceId", (item) => decodeString(item, "MasterInput.focusedWorkspaceId")),
+    focusedConversationId: decodeNullable(requireField(record, "focusedConversationId", "MasterInput"), "MasterInput.focusedConversationId", (item) => decodeString(item, "MasterInput.focusedConversationId")),
+    focusedPaneId: decodeNullable(requireField(record, "focusedPaneId", "MasterInput"), "MasterInput.focusedPaneId", (item) => decodeString(item, "MasterInput.focusedPaneId")),
+  };
+}
+
+export function decodeSubmitMasterInputRequest(value: unknown): SubmitMasterInputRequest {
+  const record = assertRecord(value, "SubmitMasterInputRequest");
+  assertKnownFields(record, "SubmitMasterInputRequest", ["input"]);
+  return {
+    input: decodeMasterInput(requireField(record, "input", "SubmitMasterInputRequest")),
+  };
+}
+
+export function decodeAcceptedMasterInput(value: unknown): AcceptedMasterInput {
+  const record = assertRecord(value, "AcceptedMasterInput");
+  assertKnownFields(record, "AcceptedMasterInput", ["sequence", "input", "acceptedAt"]);
+  return {
+    sequence: decodeInteger(requireField(record, "sequence", "AcceptedMasterInput"), "AcceptedMasterInput.sequence"),
+    input: decodeMasterInput(requireField(record, "input", "AcceptedMasterInput")),
+    acceptedAt: decodeString(requireField(record, "acceptedAt", "AcceptedMasterInput"), "AcceptedMasterInput.acceptedAt"),
   };
 }
 
@@ -15747,6 +15820,7 @@ export interface BackendClient {
   stopTopicConversationTurn: (request: StopTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   submitTopicConversationApproval: (request: SubmitTopicConversationApprovalRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   askTopicConversationNarratorStatus: (request: AskTopicConversationNarratorStatusRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
   listConversations: (request: ListConversationsRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
@@ -16154,6 +16228,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.AskTopicConversationNarratorStatus,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    submitMasterInput: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeAcceptedMasterInput,
+      endpoint: backendEndpoints.SubmitMasterInput,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

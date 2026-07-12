@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -20,6 +21,7 @@ import {
   writeGlobalMicrophonePreference,
 } from "./global-microphone-preference";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
+import type { MasterInputFocusHints } from "./global-speech-master-submission";
 
 interface AppShellSpeechCaptureContextValue {
   controller: AppShellSpeechCaptureController;
@@ -30,15 +32,22 @@ const AppShellSpeechCaptureContext = createContext<AppShellSpeechCaptureContextV
 
 export function AppShellSpeechCaptureProvider({
   children,
+  focusHints,
   runtimeId,
   setta,
 }: {
   children: ReactNode;
+  focusHints: MasterInputFocusHints;
   runtimeId: string | null;
   setta: SettaAPI;
 }) {
+  const focusHintsRef = useRef(focusHints);
+  focusHintsRef.current = focusHints;
   const [controller] = useState(
-    () => new AppShellSpeechCaptureController(browserControllerDependencies(setta)),
+    () =>
+      new AppShellSpeechCaptureController(
+        browserControllerDependencies(setta, () => focusHintsRef.current),
+      ),
   );
   const [effectLifetime] = useState(() => new AppShellSpeechCaptureEffectLifetime());
   const snapshot = useSyncExternalStore(
@@ -97,6 +106,7 @@ export class AppShellSpeechCaptureEffectLifetime {
 
 function browserControllerDependencies(
   setta: SettaAPI,
+  readFocusHints: () => MasterInputFocusHints,
 ): AppShellSpeechCaptureControllerDependencies {
   return {
     clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
@@ -104,10 +114,18 @@ function browserControllerDependencies(
     createTranscriptionSession: () => setta.speech.createTranscriptionSession(),
     createTransport: createRealtimeTranscriptionTransport,
     getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+    now: () => new Date(),
     readCapabilities: () => setta.speech.readCapabilities(),
+    readFocusHints,
     readPreference: readBrowserGlobalMicrophonePreference,
     setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
     support: browserSpeechCaptureSupport,
+    submitMasterInput: (request) => {
+      if (!setta.master) {
+        return Promise.reject(new Error("the desktop master input boundary is unavailable"));
+      }
+      return setta.master.submitInput(request);
+    },
     writePreference: writeBrowserGlobalMicrophonePreference,
   };
 }

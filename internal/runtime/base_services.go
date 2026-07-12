@@ -10,6 +10,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
+	"setta/internal/master"
 	"setta/internal/narration"
 	"setta/internal/orchestrator"
 	"setta/internal/speech"
@@ -23,6 +24,7 @@ type runtimeBaseServices struct {
 	codexManager        *codexapp.Manager
 	conversationService *conversation.Service
 	conversationStore   *conversation.Store
+	masterInputService  *master.Service
 	narratorService     *narration.Service
 	speechService       *speech.Service
 	workspaceService    *workspacesession.Service
@@ -66,6 +68,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		codexManager:        foundation.codexManager,
 		conversationService: foundation.conversationService,
 		conversationStore:   foundation.conversationStore,
+		masterInputService:  foundation.masterInputService,
 		narratorService:     foundation.narratorService,
 		speechService:       speechService,
 		workspaceService:    foundation.workspaceService,
@@ -101,6 +104,7 @@ type runtimeFoundation struct {
 	codexManager        *codexapp.Manager
 	conversationService *conversation.Service
 	conversationStore   *conversation.Store
+	masterInputService  *master.Service
 	narratorService     *narration.Service
 	workspaceService    *workspacesession.Service
 	workspaceUIService  *workspaceui.Service
@@ -122,6 +126,11 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	conversationStore, err := conversation.NewStore(config.AppDataDir)
 	if err != nil {
 		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
+	}
+	masterInputService, err := master.NewService(conversationStore)
+	if err != nil {
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("create master input service: %w", err)
 	}
 	codexManager := newCodexManager()
 	agentRuntime := agent.NewRuntime(agent.Config{Manager: codexManager, Version: config.Version})
@@ -156,6 +165,7 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		codexManager:        codexManager,
 		conversationService: conversationService,
 		conversationStore:   conversationStore,
+		masterInputService:  masterInputService,
 		narratorService:     narratorService,
 		workspaceService:    workspaceService,
 		workspaceUIService:  workspaceUIService,

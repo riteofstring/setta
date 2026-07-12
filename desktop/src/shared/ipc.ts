@@ -136,6 +136,7 @@ import type {
   WorkspaceSession,
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
+import { masterIpcChannels, type MasterIpcContract } from "./master-ipc";
 import { speechIpcChannels, type SpeechIpcContract } from "./speech-ipc";
 import type {
   AppWindowDragPoint,
@@ -202,6 +203,7 @@ export const ipcChannels = {
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
   ...conversationIpcChannels,
+  ...masterIpcChannels,
   ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
@@ -310,7 +312,7 @@ export const ipcEvents = {
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract extends ConversationIpc, SpeechIpcContract {
+interface IpcContract extends ConversationIpc, MasterIpcContract, SpeechIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];

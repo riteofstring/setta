@@ -9,6 +9,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
+	"setta/internal/master"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
@@ -80,6 +81,10 @@ type ConversationNavigatorService interface {
 
 type NarratorStatusService interface {
 	AskStatus(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
+}
+
+type MasterInputService interface {
+	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
 }
 
 type SpeechService interface {
@@ -252,6 +257,7 @@ type HandlerConfig struct {
 	ChatService                  ChatService
 	ConversationNavigatorService ConversationNavigatorService
 	ConversationService          ConversationService
+	MasterInputService           MasterInputService
 	NarratorStatusService        NarratorStatusService
 	CodexAccountService          CodexAccountService
 	NotifyService                NotifyService
@@ -275,6 +281,7 @@ type handler struct {
 	chatService                  ChatService
 	conversationNavigatorService ConversationNavigatorService
 	conversationService          ConversationService
+	masterInputService           MasterInputService
 	narratorStatusService        NarratorStatusService
 	codexAccountService          CodexAccountService
 	notifyService                NotifyService
@@ -307,6 +314,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		chatService:                  config.ChatService,
 		conversationNavigatorService: config.ConversationNavigatorService,
 		conversationService:          config.ConversationService,
+		masterInputService:           config.MasterInputService,
 		narratorStatusService:        config.NarratorStatusService,
 		codexAccountService:          config.CodexAccountService,
 		notifyService:                config.NotifyService,

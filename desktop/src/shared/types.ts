@@ -1,4 +1,5 @@
 import type {
+  AcceptedMasterInput,
   AskTopicConversationNarratorStatusRequest,
   AppearancePresetList,
   AppearanceSettings,
@@ -126,6 +127,7 @@ import type {
   StopTopicConversationTurnRequest,
   SubmitTopicConversationApprovalRequest,
   StopWorkflowNodeRunRequest,
+  SubmitMasterInputRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
   TerminalInputRequest,
@@ -421,6 +423,9 @@ export interface SettaAPI {
       request: SubmitTopicConversationApprovalRequest,
     ) => Promise<ConversationSnapshot>;
     subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
+  };
+  master?: {
+    submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
   };
   speech: {
     createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;

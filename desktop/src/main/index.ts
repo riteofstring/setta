@@ -34,6 +34,7 @@ import { registerChatIpcHandlers } from "./chat-ipc";
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
 import { KnownRuntimeStore } from "./known-runtime-store";
+import { registerMasterIpcHandlers } from "./master-ipc";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
@@ -671,6 +672,7 @@ function registerIpc() {
   );
   registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerSpeechIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerMasterIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerConversationIpcHandlers({
     conversationEvents,
     ipcMain,

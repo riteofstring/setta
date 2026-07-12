@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-4 and Phase 5 item 1 are complete; Phase 5
-item 2 is next
+**Status:** In progress; Phases 0-4 and Phase 5 items 1-2 are complete; Phase 5
+item 3 is next
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -781,7 +781,7 @@ The initial schema includes logical tables for:
 - topic index documents
 - role profile overrides
 - conversation presentation profiles and the global master voice selection
-- master session and route decisions
+- master input intake, master session, and route decisions
 - persisted pane bindings/layout references
 
 Use an append-only trajectory plus transactional current-state projections; do
@@ -1689,7 +1689,7 @@ Exit criteria:
 
 ### Phase 5: Global speech cutover
 
-**Progress:** Item 1 complete.
+**Progress:** Items 1-2 complete.
 
 Implement:
 
@@ -1845,6 +1845,8 @@ Cover:
 - status-only context/reply persistence without projection-cursor advancement
   or later milestone suppression
 - current constraints and steering overriding historical checkpoint text
+- normalized master input validation, idempotent durable acceptance, changed-key
+  conflicts, committed intake events, concurrent retries, and restart reads
 - route decision validation and missing targets
 - topic index retrieval and archive filtering
 - side/fork parent relationships and isolation
@@ -1872,6 +1874,8 @@ Cover:
 - explicit scope separation between the global master composer and an Easy
   Button conversation composer
 - global capture state independent of pane mounts
+- finalized global transcripts submitted exactly once to the master boundary,
+  with exact-input retry, failure retention, and stale-runtime result rejection
 - global playback priority, preemption, and attribution
 - exhaustive generated event unions
 - large-event-list rendering and batching
@@ -3139,3 +3143,51 @@ Implementation is in progress under this plan.
   unmount still disposes the controller and its media resources. Focused
   regression coverage exercises both replay and controller replacement, and
   the retained PWA build was regenerated. Phase 5 item 2 was not started.
+- 2026-07-12: Completed Phase 5 item 2. The new Go-owned `internal/master`
+  boundary normalizes text and voice submissions into one typed `MasterInput`
+  containing an idempotency id, exact input text, modality, canonical UTC
+  submission time, and optional focused workspace/conversation/pane hints.
+  The conversation database now accepts each normalized input through its
+  serialized writer, returns the original receipt for an exact duplicate,
+  rejects changed content under the same id, and atomically appends one
+  `master.input.accepted` committed event. This is deliberately a durable
+  pending intake only: Phase 6 still owns the master session, candidate
+  retrieval, model call, route decision, and resulting command.
+- 2026-07-12: Protocol version 22 adds the authenticated
+  `SubmitMasterInput` endpoint and generated request, input, modality, and
+  receipt types. The endpoint is wired through the active-runtime Electron
+  main/preload boundary. Finalized shell transcripts use their capture-session
+  id as the durable input id, freeze the exact transcript and focus hints at
+  finalization, and submit automatically. A failed submission retains that
+  exact frozen input for retry, prevents a second recording from overtaking it,
+  and exposes an explicit discard; retry reuses the same id, timestamp, text,
+  modality, and hints. Runtime changes invalidate stale responses rather than
+  applying a receipt from the previous runtime. The retained PWA does not gain
+  this desktop-only speech wiring.
+- 2026-07-12: Focused Go, HTTP, runtime compile, TypeScript, and race-enabled
+  tests passed, including 50 repetitions of 24 concurrent duplicate intake
+  submissions. All 1,133 desktop tests, typecheck, desktop and retained-web
+  production builds, and generated-contract reproduction passed. The final
+  deterministic two-launch Electron workflow accepted an input with zero Easy
+  Button panes, proved exact duplicate idempotency and changed-content
+  conflict behavior, then proved the original receipt survived restart at
+  `.recordings/global-speech-session/20260712T172137764Z/`. The production
+  microphone-permission and topic-conversation workflows also passed at
+  `.recordings/microphone-permissions/20260712T172154214Z/` and
+  `.recordings/topic-conversation-pane-projection/20260712T172205307Z/`.
+  The Codex source reference was not needed because this intake slice changes
+  no Codex provider protocol or behavior. Phase 5 item 3, typed voice catalog
+  and stable master/narrator selections, is next.
+- 2026-07-12: Final formatting and changed-file quality verification passed.
+  The required broad gate cleared all 34 Go packages, file and complexity
+  limits, formatting, static analysis, all desktop tests, typecheck, dead-code
+  analysis, and the production build. Its Electron manifest then stopped in
+  the previously recorded retired chat workflow at the removed `New chat`
+  control and logged the existing temporary-workspace terminal attach failure;
+  the relevant focused production workflows passed independently. The
+  package-wide HTTP race run likewise reaches only the already documented
+  retired chat/workflow races, while the master HTTP tests and complete master
+  and conversation packages pass with the race detector. The supply-chain
+  audit again reports the pre-existing `GO-2026-5856` in repository-pinned Go
+  1.26.4, fixed in 1.26.5; this slice changes no dependency manifest or
+  toolchain pin.

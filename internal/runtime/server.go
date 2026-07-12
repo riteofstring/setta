@@ -25,6 +25,7 @@ import (
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
+	"setta/internal/master"
 	"setta/internal/narration"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
@@ -113,6 +114,7 @@ type runtimeServices struct {
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationStore        *conversation.Store
+	masterInputService       *master.Service
 	narratorService          *narration.Service
 	notifyService            *notify.Service
 	semanticGraphService     *semanticgraph.Service
@@ -353,6 +355,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		codexManager:             baseServices.codexManager,
 		conversationService:      baseServices.conversationService,
 		conversationStore:        baseServices.conversationStore,
+		masterInputService:       baseServices.masterInputService,
 		narratorService:          baseServices.narratorService,
 		notifyService:            notifyService,
 		semanticGraphService:     semanticServices.graphService,
@@ -825,6 +828,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		ChatService:                  services.chatService,
 		ConversationNavigatorService: services.conversationService,
 		ConversationService:          services.conversationService,
+		MasterInputService:           services.masterInputService,
 		NarratorStatusService:        services.narratorService,
 		CodexAccountService:          services.codexAccountService,
 		NotifyService:                services.notifyService,

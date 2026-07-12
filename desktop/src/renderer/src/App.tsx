@@ -148,7 +148,15 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     return shell;
   }
   return (
-    <AppShellSpeechCaptureProvider runtimeId={runtime.connectedRuntimeId} setta={setta}>
+    <AppShellSpeechCaptureProvider
+      focusHints={{
+        focusedConversationId: null,
+        focusedPaneId: null,
+        focusedWorkspaceId: workspace.selectedWorkspace?.id ?? null,
+      }}
+      runtimeId={runtime.connectedRuntimeId}
+      setta={setta}
+    >
       {shell}
     </AppShellSpeechCaptureProvider>
   );

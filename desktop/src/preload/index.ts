@@ -145,6 +145,9 @@ const api: SettaAPI = {
     submitApproval: (request) => invoke("conversationSubmitApproval", request),
     subscribe: (request) => invoke("conversationSubscribeEvents", request),
   },
+  master: {
+    submitInput: (request) => invoke("masterSubmitInput", request),
+  },
   speech: {
     createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
     readCapabilities: () => invoke("speechReadCapabilities"),

@@ -1,4 +1,9 @@
-import type { SpeechCapabilities, SpeechTranscriptionSession } from "@generated/backend";
+import type {
+  AcceptedMasterInput,
+  SpeechCapabilities,
+  SpeechTranscriptionSession,
+  SubmitMasterInputRequest,
+} from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -65,21 +70,87 @@ describe("app-shell speech capture controller", () => {
       type: "committing",
     });
     harness.transport.complete("  Provider final, unchanged.  ");
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      capture: { type: "idle" },
+      completedTranscript: {
+        captureSessionId: "capture_1",
+        runtimeId: "runtime_capture",
+        transcript: "  Provider final, unchanged.  ",
+      },
+      masterSubmission: { type: "submitting" },
+    });
+    await flushPromises();
 
     expect(harness.currentCapture()).toEqual({ type: "idle" });
-    expect(harness.controller.getSnapshot().completedTranscript).toEqual({
-      captureSessionId: "capture_1",
-      runtimeId: "runtime_capture",
-      transcript: "  Provider final, unchanged.  ",
-    });
-    expect(harness.controller.consumeCompletedTranscript("capture_other")).toBeNull();
-    expect(harness.controller.consumeCompletedTranscript("capture_1")).toMatchObject({
-      transcript: "  Provider final, unchanged.  ",
-    });
     expect(harness.controller.getSnapshot().completedTranscript).toBeNull();
+    expect(harness.controller.getSnapshot().masterSubmission).toMatchObject({
+      accepted: { sequence: 1 },
+      type: "accepted",
+    });
+    expect(harness.masterInputRequests).toEqual([
+      {
+        input: {
+          focusedConversationId: null,
+          focusedPaneId: null,
+          focusedWorkspaceId: "workspace_capture",
+          id: "capture_1",
+          modality: "voice",
+          submittedAt: "2026-07-12T18:00:00Z",
+          text: "  Provider final, unchanged.  ",
+        },
+      },
+    ]);
     expect(harness.transport.close).toHaveBeenCalledOnce();
     expect(harness.track.stop).toHaveBeenCalledOnce();
     expect(harness.clearTimer).toHaveBeenCalledOnce();
+  });
+
+  test("retains failed master submission for exact retry before another capture", async () => {
+    const acceptedRetry = deferred<AcceptedMasterInput>();
+    const submit = vi
+      .fn<(request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>>()
+      .mockRejectedValueOnce(new Error("private runtime failure"))
+      .mockImplementationOnce(() => acceptedRetry.promise);
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const harness = createHarness({ submitMasterInput: submit });
+    await harness.connectAndEnable();
+    const start = harness.controller.start();
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await start;
+    harness.controller.commit();
+    harness.transport.complete("Retry this finalized request");
+    await harness.waitForMasterSubmission("failed");
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      completedTranscript: { transcript: "Retry this finalized request" },
+      masterSubmission: {
+        message: "Setta could not accept the voice request. Retry without recording it again.",
+        type: "failed",
+      },
+    });
+    await harness.controller.start();
+    expect(harness.currentCapture()).toMatchObject({
+      code: "master_submission_failed",
+      type: "failed",
+    });
+    expect(harness.mediaConstraints).toHaveLength(1);
+
+    harness.controller.retryMasterSubmission();
+    expect(harness.masterInputRequests).toHaveLength(2);
+    expect(harness.masterInputRequests[1]!.input).toBe(harness.masterInputRequests[0]!.input);
+    acceptedRetry.resolve({
+      acceptedAt: "2026-07-12T18:00:02Z",
+      input: harness.masterInputRequests[1]!.input,
+      sequence: 1,
+    });
+    await flushPromises();
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      completedTranscript: null,
+      masterSubmission: { type: "accepted" },
+    });
+    info.mockRestore();
   });
 
   test("runtime disconnect cancels permission and rejects its late stream", async () => {
@@ -311,6 +382,7 @@ interface HarnessOverrides {
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   readCapabilities?: () => Promise<SpeechCapabilities>;
   readPreference?: AppShellSpeechCaptureControllerDependencies["readPreference"];
+  submitMasterInput?: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
   support?: AppShellSpeechCaptureControllerDependencies["support"];
   writePreference?: AppShellSpeechCaptureControllerDependencies["writePreference"];
 }
@@ -325,6 +397,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
   let timerDelayMs = 0;
   let captureOrdinal = 0;
   let transcriptionSessionCalls = 0;
+  const masterInputRequests: SubmitMasterInputRequest[] = [];
   const clearTimer = vi.fn();
   const dependencies: AppShellSpeechCaptureControllerDependencies = {
     clearTimeout: clearTimer,
@@ -347,7 +420,13 @@ function createHarness(overrides: HarnessOverrides = {}) {
       mediaConstraints.push(constraints);
       return overrides.getUserMedia ? overrides.getUserMedia(constraints) : stream;
     },
+    now: () => new Date("2026-07-12T18:00:00Z"),
     readCapabilities: overrides.readCapabilities ?? (async () => capabilities()),
+    readFocusHints: () => ({
+      focusedConversationId: null,
+      focusedPaneId: null,
+      focusedWorkspaceId: "workspace_capture",
+    }),
     readPreference:
       overrides.readPreference ?? (() => ({ enabled: false, type: "ready" as const })),
     setTimeout: (handler, delayMs) => {
@@ -356,6 +435,17 @@ function createHarness(overrides: HarnessOverrides = {}) {
       return Symbol("timer");
     },
     support: overrides.support ?? (() => ({ supported: true })),
+    submitMasterInput: async (request) => {
+      masterInputRequests.push(request);
+      if (overrides.submitMasterInput) {
+        return overrides.submitMasterInput(request);
+      }
+      return {
+        acceptedAt: "2026-07-12T18:00:01Z",
+        input: request.input,
+        sequence: 1,
+      };
+    },
     writePreference:
       overrides.writePreference ??
       ((enabled) => {
@@ -379,6 +469,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
       timerHandler();
     },
     mediaConstraints,
+    masterInputRequests,
     preferenceWrites,
     stream,
     get timerDelayMs() {
@@ -404,6 +495,17 @@ function createHarness(overrides: HarnessOverrides = {}) {
         await flushPromises();
       }
       throw new Error(`speech capture did not reach ${type}`);
+    },
+    waitForMasterSubmission: async (
+      type: ReturnType<typeof controller.getSnapshot>["masterSubmission"]["type"],
+    ) => {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        if (controller.getSnapshot().masterSubmission.type === type) {
+          return;
+        }
+        await flushPromises();
+      }
+      throw new Error(`master submission did not reach ${type}`);
     },
     waitForTransport: async () => {
       for (let attempt = 0; attempt < 20; attempt += 1) {

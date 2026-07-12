@@ -231,6 +231,21 @@ CREATE TABLE master_sessions (
   degradation_json TEXT CHECK (degradation_json IS NULL OR json_valid(degradation_json))
 ) STRICT;
 
+CREATE TABLE master_inputs (
+  sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  input_text TEXT NOT NULL,
+  input_modality TEXT NOT NULL CHECK (input_modality IN ('voice', 'text')),
+  submitted_at TEXT NOT NULL,
+  accepted_at TEXT NOT NULL,
+  focused_workspace_id TEXT,
+  focused_conversation_id TEXT,
+  focused_pane_id TEXT
+) STRICT;
+
+CREATE INDEX master_inputs_accepted_idx
+  ON master_inputs(accepted_at, sequence);
+
 CREATE TABLE master_route_decisions (
   stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,

@@ -33,14 +33,18 @@ if (!options.skipBuild) {
 }
 
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
+const firstLaunchDir = join(artifactDir, "first-launch");
+const secondLaunchDir = join(artifactDir, "second-launch");
 await writeLatestRecordingPointer(workflowName, artifactDir);
 const fixture = await createElectronFixture(workflowName);
 const provider = await startSpeechTranscriptionProviderFixture();
 let context = null;
+let firstAcceptedInput;
+let secondAcceptedInput;
 
 try {
   context = await launchElectronCdpContext({
-    artifactDir,
+    artifactDir: firstLaunchDir,
     extraEnv: {
       OPENAI_API_KEY: provider.apiKey,
       SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
@@ -63,6 +67,11 @@ try {
       `global transcription session required ${easyButtonPaneCount} Easy Button panes`,
     );
   }
+  const masterInputRequest = voiceMasterInputRequest();
+  firstAcceptedInput = await submitMasterInput(context.client, masterInputRequest);
+  const duplicate = await submitMasterInput(context.client, masterInputRequest);
+  assertIdempotentMasterInput(firstAcceptedInput, duplicate, masterInputRequest.input);
+  await assertChangedMasterInputConflicts(context.client, masterInputRequest);
   provider.assertHealthy();
   if (
     provider.requests.length !== 1 ||
@@ -71,14 +80,35 @@ try {
     throw new Error(`unexpected provider operations: ${JSON.stringify(provider.requests)}`);
   }
 
-  await captureScreenshot(context.client, join(artifactDir, "global-speech-session.png"));
+  await captureScreenshot(context.client, join(firstLaunchDir, "global-speech-session.png"));
   await stopElectronCdpContext(context);
   context = null;
+
+  context = await launchElectronCdpContext({
+    artifactDir: secondLaunchDir,
+    extraEnv: {
+      OPENAI_API_KEY: provider.apiKey,
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+      SETTA_E2E_OPENAI_SPEECH_BASE_URL: provider.baseURL,
+    },
+    fixture,
+    visible: options.visible,
+  });
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  secondAcceptedInput = await submitMasterInput(context.client, masterInputRequest);
+  assertIdempotentMasterInput(firstAcceptedInput, secondAcceptedInput, masterInputRequest.input);
+  await captureScreenshot(context.client, join(secondLaunchDir, "master-input-restored.png"));
+  await stopElectronCdpContext(context);
+  context = null;
+
   await assertNoSensitiveSpeechArtifacts(artifactDir, [provider.apiKey, provider.clientSecret]);
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     easyButtonPaneCount,
+    masterInputAcceptedAt: firstAcceptedInput.acceptedAt,
+    masterInputSequence: firstAcceptedInput.sequence,
     providerOperationCount: provider.requests.length,
+    restartPreservedMasterInput: firstAcceptedInput.acceptedAt === secondAcceptedInput.acceptedAt,
     status: "passed",
   });
   console.log(`Electron global speech session workflow passed: ${artifactDir}`);
@@ -119,6 +149,67 @@ function assertTranscriptionSession(session, expectedSecret) {
     session.webRTCURL !== "https://api.openai.com/v1/realtime/calls"
   ) {
     throw new Error("global speech workflow received an invalid transcription session");
+  }
+}
+
+function voiceMasterInputRequest() {
+  return {
+    input: {
+      focusedConversationId: null,
+      focusedPaneId: null,
+      focusedWorkspaceId: null,
+      id: "master_input_global_speech_e2e",
+      modality: "voice",
+      submittedAt: "2026-07-12T18:00:00Z",
+      text: "  Reopen the exact conversation about global speech.  ",
+    },
+  };
+}
+
+async function submitMasterInput(client, request) {
+  return client.evaluate(`window.setta.master.submitInput(${JSON.stringify(request)})`);
+}
+
+function assertIdempotentMasterInput(first, duplicate, expectedInput) {
+  if (
+    first?.sequence !== 1 ||
+    duplicate?.sequence !== first.sequence ||
+    duplicate.acceptedAt !== first.acceptedAt ||
+    !masterInputsEqual(first.input, expectedInput) ||
+    !masterInputsEqual(duplicate.input, expectedInput)
+  ) {
+    throw new Error(
+      `master input was not accepted idempotently: ${JSON.stringify({ duplicate, first })}`,
+    );
+  }
+}
+
+function masterInputsEqual(left, right) {
+  return (
+    left?.id === right.id &&
+    left.text === right.text &&
+    left.modality === right.modality &&
+    left.submittedAt === right.submittedAt &&
+    left.focusedWorkspaceId === right.focusedWorkspaceId &&
+    left.focusedConversationId === right.focusedConversationId &&
+    left.focusedPaneId === right.focusedPaneId
+  );
+}
+
+async function assertChangedMasterInputConflicts(client, request) {
+  const changed = {
+    input: { ...request.input, text: "Changed content for the same input id" },
+  };
+  const result = await client.evaluate(`(async () => {
+    try {
+      await window.setta.master.submitInput(${JSON.stringify(changed)});
+      return { accepted: true, message: "" };
+    } catch (error) {
+      return { accepted: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  })()`);
+  if (result?.accepted || !result?.message.includes("already accepted with different content")) {
+    throw new Error(`changed master input id did not conflict: ${JSON.stringify(result)}`);
   }
 }
 

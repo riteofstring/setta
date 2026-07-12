@@ -10,6 +10,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
+	"setta/internal/master"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
 	"setta/internal/speech"
@@ -84,6 +85,7 @@ var apiEndpoints = []endpoint{
 	post[SubmitTopicConversationApprovalRequest, conversation.ConversationSnapshot]("SubmitTopicConversationApproval", "/conversations/approvals/submit", handler.submitTopicConversationApproval),
 	post[AskTopicConversationNarratorStatusRequest, conversation.ConversationSnapshot]("AskTopicConversationNarratorStatus", "/conversations/narrator/status", handler.askTopicConversationNarratorStatus),
 	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
+	postWithRequestBodyLimit[SubmitMasterInputRequest, master.AcceptedMasterInput]("SubmitMasterInput", "/master/inputs/submit", masterInputRequestBodyLimitBytes, handler.submitMasterInput),
 	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
 	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),

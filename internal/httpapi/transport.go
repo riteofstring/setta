@@ -11,6 +11,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/conversation"
 	"setta/internal/jsonio"
+	"setta/internal/master"
 	"setta/internal/narration"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
@@ -85,6 +86,17 @@ func requireNarratorStatusService(
 ) NarratorStatusService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "narrator_status_service_unavailable", "narrator status service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireMasterInputService(
+	response http.ResponseWriter,
+	service MasterInputService,
+) MasterInputService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "master_input_service_unavailable", "master input service is not available")
 		return nil
 	}
 	return service
@@ -265,6 +277,22 @@ func writeNarratorStatusError(response http.ResponseWriter, err error) {
 		return
 	}
 	writeConversationError(response, "ask_topic_conversation_narrator_status_failed", err)
+}
+
+func writeMasterInputError(response http.ResponseWriter, err error) {
+	if master.IsInputConflict(err) {
+		writeError(response, http.StatusConflict, "master_input_conflict", err.Error())
+		return
+	}
+	if conversation.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
+		return
+	}
+	if conversation.IsPersistenceError(err) {
+		writeError(response, http.StatusInternalServerError, "persist_master_input_failed", err.Error())
+		return
+	}
+	writeError(response, http.StatusBadRequest, "invalid_master_input", err.Error())
 }
 
 func writeSpeechError(response http.ResponseWriter, fallbackCode string, err error) {
