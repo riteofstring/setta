@@ -173,8 +173,8 @@ describe("preload workspace API", () => {
       {},
       {
         altKey: false,
-        ctrlKey: false,
-        key: "ArrowRight",
+        ctrlKey: true,
+        key: "k",
         metaKey: false,
         shiftKey: false,
         surfaceId: "surface_browser",
@@ -220,10 +220,10 @@ describe("preload workspace API", () => {
     );
     expect(on).toHaveBeenCalledWith("workspace:browser-view-key", expect.any(Function));
     expect(on).toHaveBeenCalledWith("workspace:browser-view-snapshot", expect.any(Function));
-    expect(keyListener).toHaveBeenCalledWith({
+    expect(keyListener).toHaveBeenNthCalledWith(1, {
       altKey: false,
-      ctrlKey: false,
-      key: "ArrowRight",
+      ctrlKey: true,
+      key: "k",
       metaKey: false,
       shiftKey: false,
       surfaceId: "surface_browser",

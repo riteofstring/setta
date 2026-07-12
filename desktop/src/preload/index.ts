@@ -9,6 +9,7 @@ import {
   decodeWorkflowEvent,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
+import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
   BackendEventStreamStatus,
   BackendProcessStatus,
@@ -29,23 +30,7 @@ const appFlags = {
     process.env.SETTA_E2E === "1" || process.env.SETTA_WORKFLOW_GRAPH_DEBUG === "1",
   workflowGraphSyntheticGraph: parseWorkflowGraphSyntheticGraph(process.env),
 };
-const workspaceBrowserViewKeys = new Set<string>([
-  "ArrowDown",
-  "ArrowLeft",
-  "ArrowRight",
-  "ArrowUp",
-  "Backspace",
-  "Delete",
-  "Enter",
-  "b",
-  "c",
-  "g",
-  "n",
-  "o",
-  "s",
-  "t",
-  "v",
-] satisfies WorkspaceBrowserViewKeyEvent["key"][]);
+const workspaceBrowserViewKeys = new Set<string>(workspaceBrowserViewKeyValues);
 
 const api: SettaAPI = {
   app: {

@@ -243,6 +243,27 @@ describe("app-shell master controller", () => {
     expect(recentInputs.at(-1)?.input.text).toBe("Request 44");
     expect(Object.isFrozen(recentInputs)).toBe(true);
   });
+
+  test("bounds local receipts while durable history is unavailable", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const harness = createHarness({
+      readRecentMasterInputs: async () => Promise.reject(new Error("history unavailable")),
+    });
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+
+    for (let index = 0; index < 5; index += 1) {
+      harness.controller.submitText(`Unhydrated request ${index}`);
+      await flushPromises();
+      harness.controller.clearAccepted();
+    }
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      history: { type: "failed" },
+      recentInputs: [{ input: { text: "Unhydrated request 4" } }],
+    });
+    info.mockRestore();
+  });
 });
 
 function createHarness(overrides: Partial<AppShellMasterControllerDependencies> = {}) {

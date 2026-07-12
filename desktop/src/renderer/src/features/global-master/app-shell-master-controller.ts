@@ -8,6 +8,10 @@ import type {
 
 import { canonicalSpeechInputTimestamp } from "../global-speech/speech-input-submission";
 
+// Until the backend supplies its owned history capacity, retain only the newest
+// local receipt so a failed or stalled hydration cannot create an unbounded DOM.
+const unhydratedRecentInputCapacity = 1;
+
 export interface MasterInputFocusHints {
   focusedConversationId: string | null;
   focusedPaneId: string | null;
@@ -279,7 +283,7 @@ export class AppShellMasterController {
     const recentInputs = appendRecentMasterInput(
       this.snapshotValue.recentInputs,
       durableAccepted,
-      this.recentInputCapacityByRuntimeId.get(pending.runtimeId) ?? null,
+      this.recentInputCapacityByRuntimeId.get(pending.runtimeId) ?? unhydratedRecentInputCapacity,
     );
     this.recentInputsByRuntimeId.set(pending.runtimeId, recentInputs);
     this.recentInputsRuntimeId = pending.runtimeId;
@@ -421,13 +425,13 @@ export class AppShellMasterController {
 function appendRecentMasterInput(
   recentInputs: readonly AcceptedMasterInput[],
   accepted: AcceptedMasterInput,
-  capacity: number | null,
+  capacity: number,
 ): readonly AcceptedMasterInput[] {
   const next = [
     ...recentInputs.filter((candidate) => candidate.input.id !== accepted.input.id),
     accepted,
   ];
-  return Object.freeze(capacity === null ? next : next.slice(-capacity));
+  return Object.freeze(next.slice(-capacity));
 }
 
 function mergeRecentMasterInputs(

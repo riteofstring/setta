@@ -261,23 +261,26 @@ export interface WorkspaceBrowserViewBatch {
   workspaceId: string;
 }
 
-export type WorkspaceBrowserViewKey =
-  | "ArrowDown"
-  | "ArrowLeft"
-  | "ArrowRight"
-  | "ArrowUp"
-  | "Backspace"
-  | "Delete"
-  | "Enter"
-  | "b"
-  | "c"
-  | "g"
-  | "k"
-  | "n"
-  | "o"
-  | "s"
-  | "t"
-  | "v";
+export const workspaceBrowserViewKeyValues = [
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "Backspace",
+  "Delete",
+  "Enter",
+  "b",
+  "c",
+  "g",
+  "k",
+  "n",
+  "o",
+  "s",
+  "t",
+  "v",
+] as const;
+
+export type WorkspaceBrowserViewKey = (typeof workspaceBrowserViewKeyValues)[number];
 
 export interface WorkspaceBrowserViewKeyEvent {
   altKey: boolean;
