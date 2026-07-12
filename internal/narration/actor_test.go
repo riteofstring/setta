@@ -447,6 +447,37 @@ func TestPreparedWorkRejectsMalformedRetryDirective(t *testing.T) {
 	}
 }
 
+func TestPreparedRetryPreservesExactStatusOperation(t *testing.T) {
+	request := statusRequest("status", "conversation")
+	retry := cloneRequest(request)
+	retry.ID = "status-retry"
+	retry.RecoverableRetry = true
+	retry.RetryAttempt = 1
+
+	if err := validatePreparedRetry(
+		request,
+		errors.New("degraded"),
+		RetryDirective{Request: retry, After: time.Second},
+	); err != nil {
+		t.Fatalf("validate exact status retry: %v", err)
+	}
+
+	for _, mutate := range []func(*StatusOperation){
+		func(operation *StatusOperation) { operation.WorkspaceID = "workspace-changed" },
+		func(operation *StatusOperation) { operation.Question = "What changed?" },
+	} {
+		changed := cloneRequest(retry)
+		mutate(changed.Status)
+		if err := validatePreparedRetry(
+			request,
+			errors.New("degraded"),
+			RetryDirective{Request: changed, After: time.Second},
+		); err == nil {
+			t.Fatal("validatePreparedRetry accepted a changed status operation")
+		}
+	}
+}
+
 func TestRequestValidationRejectsMismatchedKindsAndTriggers(t *testing.T) {
 	tests := []struct {
 		name    string

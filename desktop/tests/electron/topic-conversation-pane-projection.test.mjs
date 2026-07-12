@@ -27,6 +27,8 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
 const workflowTimeoutMs = 35_000;
+const expectedNarratorStatusReply =
+  "The primary topic agent is still working and has not been steered or interrupted.";
 const fakeTopicCodexFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
@@ -141,8 +143,7 @@ try {
         (surface) =>
           surface.state === "working" &&
           surface.statusQuestion === statusQuestion &&
-          surface.statusReplyText ===
-            "The primary topic agent is still working and has not been steered or interrupted.",
+          surface.statusReplyText === expectedNarratorStatusReply,
       ) &&
       betaSurfaces.every((surface) => surface.statusReplyText === "")
     );
@@ -198,7 +199,9 @@ try {
       surface.projectionStatus === "ready" &&
       surface.state === "working" &&
       surface.queueCount === 2 &&
-      surface.paletteId === alpha.paletteId,
+      surface.paletteId === alpha.paletteId &&
+      surface.statusQuestion === statusQuestion &&
+      surface.statusReplyText === expectedNarratorStatusReply,
   );
   await waitForConversationSurface(
     context.client,
@@ -615,8 +618,7 @@ function assertStatusProjectionCursors(before, after) {
 function assertStatusReply(reply, question, snapshots) {
   if (
     reply?.statusReply?.question !== question ||
-    reply.statusReply.text !==
-      "The primary topic agent is still working and has not been steered or interrupted."
+    reply.statusReply.text !== expectedNarratorStatusReply
   ) {
     throw new Error(`narrator status reply mismatch: ${JSON.stringify({ reply, ...snapshots })}`);
   }

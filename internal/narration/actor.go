@@ -454,7 +454,17 @@ func validateRetryOperation(request Request, retry Request) error {
 		retry.Kind != request.Kind || retry.Trigger != request.Trigger {
 		return errors.New("worker retry changed the conversation operation")
 	}
+	if !sameStatusOperation(request.Status, retry.Status) {
+		return errors.New("worker retry changed the narrator status operation")
+	}
 	return nil
+}
+
+func sameStatusOperation(left *StatusOperation, right *StatusOperation) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func validateRetryIdentity(request Request, retry Request) error {

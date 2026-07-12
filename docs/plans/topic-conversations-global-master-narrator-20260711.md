@@ -2,7 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-4 are complete
+**Status:** In progress; Phases 0-3 are complete; Phase 4 items 1-7 are
+implemented, but production projector composition remains
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1655,7 +1656,9 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Progress:** Complete.
+**Progress:** Items 1-7 are implemented. The phase exit remains incomplete
+because automatic working/terminal projection and checkpoint scheduling are not
+composed into the production conversation lifecycle.
 
 Implement:
 
@@ -2961,7 +2964,7 @@ Implementation is in progress under this plan.
   ChatGPT-authenticated live structured output and the live backend topic
   workflow passed with `OPENAI_API_KEY` removed. Generated inputs and outputs
   changed: none. Phase 4 item 7 remains next and was not started.
-- 2026-07-12: Completed Phase 4 item 7 and the narrator-projector phase. The
+- 2026-07-12: Completed Phase 4 item 7. The
   production runtime now composes the durable narrator materializer,
   independent role/model resolver, fresh structured caller, typed output
   committer, degradation handler, and per-conversation priority mailbox behind
@@ -3001,6 +3004,27 @@ Implementation is in progress under this plan.
   `GO-2026-5856` finding, fixed in Go 1.26.5. The broad quality gate passed
   every Go package and all non-Electron desktop checks, then stopped only in
   the previously recorded legacy chat workflow at its removed `New chat`
-  control; the replacement topic workflow passed independently. Phase 5 item
-  1, the app-shell microphone controller and global preference, is next with no
-  implementation blocker.
+  control; the replacement topic workflow passed independently. The Phase 4
+  exit review remains before Phase 5 begins.
+- 2026-07-12: The Phase 4 item 7 review now binds any actor retry directive to
+  the exact typed status workspace and question, closing the new pointer-bearing
+  operation's retry-validation gap. The deterministic production Electron
+  workflow also requires the durable status question/reply to survive its
+  active-work reload; it passed at
+  `.recordings/topic-conversation-pane-projection/20260712T141005228Z/`.
+- 2026-07-12: The same review corrected the premature Phase 4 completion
+  marker. The production narrator service currently submits only explicit
+  status work; no conversation-lifecycle owner schedules working or terminal
+  projection, ordered catch-up, or checkpoint maintenance. The recorded
+  terminal paths therefore contain only the explicit `status_reply` and still
+  use the agent-text fallback for summaries. Completing that production
+  composition and its deterministic backlog/milestone coverage remains the
+  Phase 4 exit work; Phase 5 was not started.
+- 2026-07-12: Focused narration and narrator-status HTTP tests passed with the
+  race detector, as did the IPC/preload/renderer tests, desktop typecheck and
+  production build. ChatGPT-authenticated live topic/narrator verification
+  passed with `OPENAI_API_KEY` removed. A whole-package HTTP race run reached
+  pre-existing retired chat/workflow tests and reported their response/harness
+  races; the narrowed changed-path status handlers passed independently, and
+  this review did not modify those unrelated legacy paths. Generated inputs
+  and outputs changed: none.
