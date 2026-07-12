@@ -132,16 +132,22 @@ func requireConversationInputTarget(
 	tx *sql.Tx,
 	conversationID string,
 ) error {
-	var found int
+	var archivedAt sql.NullString
 	err := tx.QueryRowContext(ctx, `
-SELECT 1
+SELECT archived_at
 FROM conversations
 WHERE id = ?
-`, conversationID).Scan(&found)
+`, conversationID).Scan(&archivedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("%w: %s", ErrConversationNotFound, conversationID)
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	if archivedAt.Valid {
+		return stateConflict("conversation", conversationID, "archived conversations do not accept inputs")
+	}
+	return nil
 }
 
 func requireConversationInputReplyTarget(

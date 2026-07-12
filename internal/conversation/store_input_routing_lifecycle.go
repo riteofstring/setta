@@ -199,6 +199,13 @@ func retryConversationInputRoutingTransaction(
 	); err != nil {
 		return AcceptedConversationInput{}, err
 	}
+	if err := requireConversationInputTarget(
+		transaction.ctx,
+		transaction.tx,
+		conversationID,
+	); err != nil {
+		return AcceptedConversationInput{}, err
+	}
 	record, err := readRetryableConversationInput(
 		transaction,
 		dbPath,

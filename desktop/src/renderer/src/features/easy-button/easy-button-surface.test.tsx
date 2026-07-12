@@ -32,6 +32,7 @@ import {
   createEasyButtonTextConversationInput,
   requestEasyButtonPaneClose,
   requestEasyButtonSpeechCapture,
+  type EasyButtonConversationCommands,
 } from "./easy-button-conversation-commands";
 
 const workspaceId = "workspace_topic";
@@ -116,13 +117,16 @@ describe("Easy Button topic conversation projection", () => {
         snapshot.conversation.id,
       ),
     );
-    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+    const commands = archivedConversationCommands();
+    const html = renderToString(<EasyButtonProjectionSurface commands={commands} view={view} />);
 
     expect(view.archived).toBe(true);
     expect(view.helperCopy).toBe("Conversation archived");
     expect(html).toContain('data-easy-button-archived="true"');
     expect(html).toContain("Conversation archived");
     expect(html).toContain("disabled");
+    expect(html).not.toContain("Retry routing");
+    expect(html).not.toContain("Discard request");
   });
 
   test("routes a pane voice request through the bound conversation and source pane", async () => {
@@ -667,6 +671,28 @@ describe("Easy Button topic conversation projection", () => {
     expect(view.activeAgentCount).toBe(1);
   });
 });
+
+function archivedConversationCommands(): EasyButtonConversationCommands {
+  return {
+    available: false,
+    canSubmit: false,
+    clarificationQuestion: null,
+    discardFailedInput: vi.fn(),
+    disposeSide: vi.fn(),
+    error: null,
+    input: "",
+    pending: false,
+    presentRelatedConversation: vi.fn(),
+    requestVoiceCapture: undefined,
+    retryFailedInput: vi.fn(),
+    routingFailure: { message: "Routing failed before archive", retryable: true },
+    sendSide: vi.fn(async () => false),
+    setInput: vi.fn(),
+    stop: vi.fn(),
+    submit: vi.fn(),
+    submitApproval: vi.fn(),
+  };
+}
 
 function workingSnapshot(
   conversationId: string,

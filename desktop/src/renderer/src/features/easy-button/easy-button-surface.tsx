@@ -277,7 +277,7 @@ function ConversationActionSlot({
   commands: EasyButtonConversationCommands | undefined;
   view: EasyButtonProjectionView;
 }) {
-  if (commands?.routingFailure) {
+  if (!view.archived && commands?.routingFailure) {
     return (
       <div className="easy-button-action-slot easy-button-routing-recovery">
         {commands.routingFailure.retryable ? (

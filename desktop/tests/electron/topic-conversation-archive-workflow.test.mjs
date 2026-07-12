@@ -91,6 +91,8 @@ try {
     workspaceId,
     archivedTopic.id,
   );
+  await verifyRepeatedArchiveUnchanged(backend, workspaceId, archivedSnapshot);
+  await verifyArchivedInputRejected(backend, archivedSnapshot);
   await verifyArchivedRendererState(context.client, archivedTopic.id, retainedTopic.id);
   await captureScreenshot(context.client, join(artifactDir, "archived-read-only-pane.png"));
 
@@ -187,6 +189,44 @@ async function waitForArchivedBackendState(backend, workspaceId, conversationId)
     throw new Error(`archived conversation remained in navigator results: ${JSON.stringify(page)}`);
   }
   return snapshot;
+}
+
+async function verifyRepeatedArchiveUnchanged(backend, workspaceId, archivedSnapshot) {
+  const repeated = await backend.post("/conversations/archive", {
+    conversationId: archivedSnapshot.conversation.id,
+    workspaceId,
+  });
+  assertEqual(
+    repeated.conversation.archivedAt,
+    archivedSnapshot.conversation.archivedAt,
+    "repeated archive timestamp",
+  );
+  assertEqual(
+    repeated.eventCursor.sequence,
+    archivedSnapshot.eventCursor.sequence,
+    "repeated archive event cursor",
+  );
+}
+
+async function verifyArchivedInputRejected(backend, archivedSnapshot) {
+  const response = await backend.request("POST", "/conversations/inputs/submit", {
+    input: {
+      conversationId: archivedSnapshot.conversation.id,
+      id: "input-after-archive",
+      modality: "text",
+      replyToInputId: null,
+      sourcePaneId: null,
+      submittedAt: archivedSnapshot.conversation.archivedAt,
+      text: "Archived conversations must reject new work",
+    },
+  });
+  const payload = await response.json();
+  assertEqual(response.status, 409, "archived input response status");
+  assertEqual(
+    payload?.error?.code,
+    "conversation_input_state_conflict",
+    "archived input error code",
+  );
 }
 
 async function verifyArchivedRendererState(client, archivedConversationId, retainedConversationId) {
