@@ -1417,11 +1417,13 @@ For an ephemeral side conversation, reproduce the checked Codex TUI lifecycle:
 
 The Phase 2 live characterization established a real public-context gap in the
 pinned provider behavior: an active-turn fork contains the current user input
-and public assistant commentary, marks the cloned in-flight turn interrupted,
-and omits the active command item. Later parent output does not enter the child
-snapshot and the parent continues without interruption. Because the gap is now
-proven, the side lifecycle injects a typed `SideInFlightContextFrame` together
-with the boundary before accepting the side user's turn. The frame is built
+and public assistant commentary and omits the active command item. The durable
+child core marks the cloned in-flight turn `interrupted`, while the pathless
+ephemeral `thread/fork` response projects the source turn as `inProgress`.
+Later parent output does not enter the child snapshot and the parent continues
+without interruption. Because the gap is now proven, the side lifecycle
+injects a typed `SideInFlightContextFrame` together with the boundary before
+accepting the side user's turn. The frame is built
 from the authoritative normalized trajectory and contains the source sequence,
 current objective and steering, current plan, active activity metadata,
 approval state, and artifact metadata. It never includes private reasoning,

@@ -61,10 +61,11 @@ The full lifecycle reproduced the response distinction above. The typed frame
 carried the running objective and the `sleep 20` activity omitted by the raw
 fork history, allowing the side agent to return
 `SETTA_LIVE_SIDE_CONTEXT_OK`. After the parent completed, the side agent
-returned `NO` when asked whether inherited assistant history contained the
-later parent marker. The parent provider thread and Setta parent trajectory
-contained neither side request, and disposal returned `unsubscribed` for the
-ephemeral provider thread.
+returned `SETTA_LIVE_SIDE_HISTORY_ISOLATED` when asked whether inherited
+assistant history contained the verified later parent marker. The parent
+provider thread and current Setta parent trajectory contained neither side
+request, injected boundary/context, nor side reply, and disposal returned
+`unsubscribed` for the ephemeral provider thread.
 
 ## Verification
 

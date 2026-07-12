@@ -453,14 +453,19 @@ func assertLiveForkDidNotWait(t *testing.T, done <-chan struct{}, description st
 
 func assertLiveDurableAuditSnapshot(t *testing.T, snapshot []ThreadTurn) {
 	t.Helper()
-	if !threadHistoryContains(Thread{Turns: snapshot}, "ACTIVE_PARENT_FINISHED") {
+	thread := Thread{Turns: snapshot}
+	if !threadHistoryContains(thread, "ACTIVE_PARENT_FINISHED") {
 		t.Fatalf("unbounded active-turn snapshot omitted current user input: %+v", snapshot)
+	}
+	if !threadHistoryAgentMessageContains(thread, "ACTIVE_PARENT_STARTING") {
+		t.Fatalf("unbounded active-turn snapshot omitted public commentary: %+v", snapshot)
 	}
 	if threadHistoryHasType(snapshot, "commandExecution") {
 		t.Fatalf("active-turn snapshot unexpectedly contains the in-flight command; update the recorded provider characterization: %+v", snapshot)
 	}
-	if !threadHistoryHasTurnStatus(snapshot, "interrupted") {
-		t.Fatalf("active-turn snapshot did not mark its cloned in-flight turn interrupted: %+v", snapshot)
+	status, found := threadHistoryTurnStatusContainingItem(snapshot, "userMessage", "ACTIVE_PARENT_FINISHED")
+	if !found || status != "interrupted" {
+		t.Fatalf("active-turn snapshot source turn status = %q/%t, want interrupted: %+v", status, found, snapshot)
 	}
 }
 
@@ -476,8 +481,9 @@ func assertLiveEphemeralForkResponseSnapshot(t *testing.T, snapshot []ThreadTurn
 	if threadHistoryHasType(snapshot, "commandExecution") {
 		t.Fatalf("ephemeral active-turn response unexpectedly contains the in-flight command: %+v", snapshot)
 	}
-	if !threadHistoryHasTurnStatus(snapshot, "inProgress") {
-		t.Fatalf("ephemeral active-turn response did not project the source turn in progress: %+v", snapshot)
+	status, found := threadHistoryTurnStatusContainingItem(snapshot, "userMessage", "ACTIVE_PARENT_FINISHED")
+	if !found || status != "inProgress" {
+		t.Fatalf("ephemeral active-turn response source turn status = %q/%t, want inProgress: %+v", status, found, snapshot)
 	}
 }
 
@@ -488,6 +494,9 @@ func awaitLiveActiveParent(t *testing.T, parent liveActiveParent) {
 	}
 	if result := <-parent.result; result.Outcome != TurnOutcomeCompleted {
 		t.Fatalf("active parent outcome = %+v", result)
+	}
+	if got := latestCompletedText(parent.sink.snapshot()); !strings.Contains(got, "ACTIVE_PARENT_FINISHED") {
+		t.Fatalf("active parent final reply = %q, want the ACTIVE_PARENT_FINISHED marker", got)
 	}
 }
 
@@ -632,13 +641,19 @@ func threadHistoryHasType(turns []ThreadTurn, itemType string) bool {
 	return false
 }
 
-func threadHistoryHasTurnStatus(turns []ThreadTurn, status string) bool {
+func threadHistoryTurnStatusContainingItem(
+	turns []ThreadTurn,
+	itemType string,
+	text string,
+) (string, bool) {
 	for _, turn := range turns {
-		if turn.Status == status {
-			return true
+		for _, item := range turn.Items {
+			if item.Type == itemType && strings.Contains(item.Text, text) {
+				return turn.Status, true
+			}
 		}
 	}
-	return false
+	return "", false
 }
 
 func threadItemCount(turns []ThreadTurn) int {

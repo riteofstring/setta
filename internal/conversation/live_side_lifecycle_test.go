@@ -17,10 +17,13 @@ import (
 )
 
 const (
-	liveSideParentStarting = "SETTA_LIVE_SIDE_PARENT_STARTING"
-	liveSideParentFinished = "SETTA_LIVE_SIDE_PARENT_FINISHED"
-	liveSideContextOK      = "SETTA_LIVE_SIDE_CONTEXT_OK"
-	liveSideContextFailed  = "SETTA_LIVE_SIDE_CONTEXT_MISMATCH"
+	liveSideParentStarting  = "SETTA_LIVE_SIDE_PARENT_STARTING"
+	liveSideParentFinished  = "SETTA_LIVE_SIDE_PARENT_FINISHED"
+	liveSideContextOK       = "SETTA_LIVE_SIDE_CONTEXT_OK"
+	liveSideContextFailed   = "SETTA_LIVE_SIDE_CONTEXT_MISMATCH"
+	liveSideIsolationOK     = "SETTA_LIVE_SIDE_HISTORY_ISOLATED"
+	liveSideIsolationFailed = "SETTA_LIVE_SIDE_HISTORY_LEAKED"
+	liveSideParentPaneID    = "pane-live-side"
 )
 
 func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
@@ -75,15 +78,15 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 		t.Fatalf("active parent turn has no provider identity: %+v", activeTurn)
 	}
 
-	created, err := service.CreateSideConversation(ctx, workspaceID, parentID, "pane-live-side")
+	created, err := service.CreateSideConversation(ctx, workspaceID, parentID, liveSideParentPaneID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
 	side := requireOnlySideConversation(t, created)
 	assertLiveSideCreatedDuringParentTurn(t, created, side, working, activeTurn)
-	forkRequest, forkedThread, injectedItems := runtime.sidePreparation(t)
+	forkRequest, forkedThread, injection := runtime.sidePreparation(t)
 	assertLiveSideForkSnapshot(t, forkRequest, forkedThread, working, activeRequest)
-	frame := assertLiveSideContextFrame(t, injectedItems, side, activeRequest)
+	frame := assertLiveSideContextFrame(t, injection, side, activeRequest)
 	if !liveFrameHasCommand(frame, "sleep 20") {
 		t.Fatalf("live side context omitted active command: %+v", frame.ActiveActivities)
 	}
@@ -135,10 +138,15 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 	if currentSide.ParentStatus != ConversationStatusIdle {
 		t.Fatalf("side parent status = %s after parent completion, want idle", currentSide.ParentStatus)
 	}
+	if got := liveConversationTurnFinalText(parentCompleted, activeTurn.ID); !strings.Contains(got, liveSideParentFinished) {
+		t.Fatalf("live parent final reply = %q, want the %q marker", got, liveSideParentFinished)
+	}
 
 	isolationPrompt := fmt.Sprintf(
-		"Inspect only inherited assistant messages from before the side-conversation boundary. If any contains the exact literal %s, reply exactly YES. Otherwise reply exactly NO.",
+		"Inspect only inherited assistant messages from before the side-conversation boundary. If any contains the exact literal %s, reply exactly %s. Otherwise reply exactly %s.",
 		liveSideParentFinished,
+		liveSideIsolationFailed,
+		liveSideIsolationOK,
 	)
 	isolationStarted, err := service.SendSideConversationTurn(ctx, workspaceID, parentID, side.ID, isolationPrompt)
 	if err != nil {
@@ -157,14 +165,25 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 			return liveSideTurnCompleted(snapshot, side.ID, isolationTurnID)
 		},
 	)
-	if got := strings.TrimSpace(liveSideTurnFinalText(isolationAnswered, side.ID, isolationTurnID)); got != "NO" {
-		t.Fatalf("live side inherited-history probe reply = %q, want NO", got)
+	if got := strings.TrimSpace(liveSideTurnFinalText(isolationAnswered, side.ID, isolationTurnID)); got != liveSideIsolationOK {
+		t.Fatalf("live side inherited-history probe reply = %q, want %q", got, liveSideIsolationOK)
 	}
 	if _, err := runtime.ReadThread(ctx, *side.ProviderThreadID, true); err == nil ||
 		!strings.Contains(err.Error(), "ephemeral threads do not support includeTurns") {
 		t.Fatalf("ephemeral side thread read error = %v, want includeTurns constraint", err)
 	}
-	assertLiveParentExcludesSideWork(t, ctx, runtime.Runtime, parentCompleted, contextPrompt, isolationPrompt)
+	assertLiveParentExcludesSideWork(
+		t,
+		ctx,
+		runtime.Runtime,
+		isolationAnswered,
+		sideConversationBoundary,
+		sideInFlightContextFrameHeader,
+		contextPrompt,
+		liveSideContextOK,
+		isolationPrompt,
+		liveSideIsolationOK,
+	)
 	disposeLiveSideConversation(t, ctx, runtime, service, workspaceID, parentID, side)
 	t.Logf(
 		"full side lifecycle re-verification: ephemeral fork response turns=%d items=%d projected the active source turn in progress; the typed frame carried %d active activities; two isolated side turns completed; the parent completed without side history; disposal unsubscribed the ephemeral provider thread",
@@ -188,7 +207,7 @@ func disposeLiveSideConversation(
 		ctx,
 		workspaceID,
 		parentID,
-		"pane-live-side",
+		liveSideParentPaneID,
 		side.ID,
 	)
 	if err != nil {
@@ -215,8 +234,13 @@ type observedLiveSideRuntime struct {
 	mu              sync.Mutex
 	forkRequests    []agent.ForkThreadRequest
 	forkedThreads   []agent.Thread
-	injectedItems   [][]agent.InjectedTextItem
+	injections      []observedLiveInjection
 	unsubscriptions []observedLiveUnsubscription
+}
+
+type observedLiveInjection struct {
+	threadID string
+	items    []agent.InjectedTextItem
 }
 
 type observedLiveUnsubscription struct {
@@ -258,7 +282,10 @@ func (runtime *observedLiveSideRuntime) InjectItems(
 	}
 	copyItems := append([]agent.InjectedTextItem{}, items...)
 	runtime.mu.Lock()
-	runtime.injectedItems = append(runtime.injectedItems, copyItems)
+	runtime.injections = append(runtime.injections, observedLiveInjection{
+		threadID: threadID,
+		items:    copyItems,
+	})
 	runtime.mu.Unlock()
 	return nil
 }
@@ -282,22 +309,21 @@ func (runtime *observedLiveSideRuntime) UnsubscribeThreadWithStatus(
 
 func (runtime *observedLiveSideRuntime) sidePreparation(
 	t *testing.T,
-) (agent.ForkThreadRequest, agent.Thread, []agent.InjectedTextItem) {
+) (agent.ForkThreadRequest, agent.Thread, observedLiveInjection) {
 	t.Helper()
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
-	if len(runtime.forkRequests) != 1 || len(runtime.forkedThreads) != 1 || len(runtime.injectedItems) != 1 {
+	if len(runtime.forkRequests) != 1 || len(runtime.forkedThreads) != 1 || len(runtime.injections) != 1 {
 		t.Fatalf(
 			"live side preparation calls = forks %d/%d injections %d",
 			len(runtime.forkRequests),
 			len(runtime.forkedThreads),
-			len(runtime.injectedItems),
+			len(runtime.injections),
 		)
 	}
-	return runtime.forkRequests[0], runtime.forkedThreads[0], append(
-		[]agent.InjectedTextItem{},
-		runtime.injectedItems[0]...,
-	)
+	injection := runtime.injections[0]
+	injection.items = append([]agent.InjectedTextItem{}, injection.items...)
+	return runtime.forkRequests[0], runtime.forkedThreads[0], injection
 }
 
 func (runtime *observedLiveSideRuntime) assertSideUnsubscribed(t *testing.T, threadID string) {
@@ -489,9 +515,14 @@ func assertLiveSideCreatedDuringParentTurn(
 	if created.Conversation.Status != ConversationStatusWorking ||
 		latestSnapshotTurn(created).ID != activeTurn.ID ||
 		latestSnapshotTurn(created).Status != TurnStatusRunning ||
+		side.ParentConversationID != created.Conversation.ID ||
+		side.ParentPaneID != liveSideParentPaneID ||
+		side.DecisionSource != BranchDecisionSourceExplicit ||
 		side.Status != SideConversationStatusActive ||
 		side.ParentStatus != ConversationStatusWorking ||
 		side.SourceProviderThreadID != working.ThreadBinding.ThreadID ||
+		side.SourceTrajectorySequence < working.Conversation.LastTrajectorySequence ||
+		side.SourceTrajectorySequence > created.Conversation.LastTrajectorySequence ||
 		side.SourceProviderTurnID == nil ||
 		activeTurn.ProviderTurnID == nil ||
 		*side.SourceProviderTurnID != *activeTurn.ProviderTurnID ||
@@ -512,9 +543,14 @@ func assertLiveSideForkSnapshot(
 		t.Fatalf("live side fork request = %+v", request)
 	}
 	if request.Invocation.Model != "gpt-5.6-luna" ||
+		request.Invocation.ModelSelectionProviderDefault ||
 		request.Invocation.ReasoningEffort != "medium" ||
-		request.Invocation.PermissionMode != agent.PermissionModeReadOnly {
+		request.Invocation.PermissionMode != agent.PermissionModeReadOnly ||
+		request.Invocation.ApprovalMode != agent.ApprovalModeOnRequest {
 		t.Fatalf("live side invocation = %+v", request.Invocation)
+	}
+	if request.DeveloperInstructions != sideAgentDeveloperInstructions {
+		t.Fatalf("live side developer instructions = %q", request.DeveloperInstructions)
 	}
 	if !thread.Ephemeral || thread.ForkedFromID == nil || *thread.ForkedFromID != request.ParentThreadID {
 		t.Fatalf("live side fork response = %+v", thread)
@@ -542,11 +578,15 @@ func assertLiveSideForkSnapshot(
 
 func assertLiveSideContextFrame(
 	t *testing.T,
-	items []agent.InjectedTextItem,
+	injection observedLiveInjection,
 	side SideConversation,
 	activeRequest string,
 ) SideInFlightContextFrame {
 	t.Helper()
+	if side.ProviderThreadID == nil || injection.threadID != *side.ProviderThreadID {
+		t.Fatalf("live side context injection thread = %q, side=%+v", injection.threadID, side)
+	}
+	items := injection.items
 	if len(items) != 2 || items[0].Role != "user" || items[0].Text != sideConversationBoundary ||
 		items[1].Role != "developer" {
 		t.Fatalf("live side injected items = %+v", items)
@@ -657,6 +697,18 @@ func liveSideTurnFinalText(snapshot ConversationSnapshot, sideID string, turnID 
 			*event.Event.TurnID == turnID &&
 			event.Event.AgentMessageCompleted != nil {
 			text = event.Event.AgentMessageCompleted.Text
+		}
+	}
+	return text
+}
+
+func liveConversationTurnFinalText(snapshot ConversationSnapshot, turnID string) string {
+	text := ""
+	for _, event := range snapshot.Trajectory.Events {
+		if event.TurnID != nil &&
+			*event.TurnID == turnID &&
+			event.AgentMessageCompleted != nil {
+			text = event.AgentMessageCompleted.Text
 		}
 	}
 	return text
