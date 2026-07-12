@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"setta/internal/conversation"
+	"setta/internal/workspaceactivity"
 )
 
 func TestAuthMiddlewareRejectsMissingBadAndRevokedToken(t *testing.T) {
@@ -118,18 +118,20 @@ func TestPairingCompleteUsesGlobalFailureRateLimit(t *testing.T) {
 
 func TestAuthenticatedSSEStreamsAndRejectsQueryStringToken(t *testing.T) {
 	store, token := newTestRuntimeAuthStore(t)
-	service := newHTTPTestConversationService(t)
-	service.events = []conversation.ConversationEvent{conversationAuthTestEvent(t, service)}
+	event := workspaceActivityTestEvent()
+	events := make(chan workspaceactivity.WorkspaceActivityEvent, 1)
+	events <- event
+	close(events)
 	handler := NewHandler(HandlerConfig{
-		ConversationService: service,
-		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
-		RuntimeAuthService:  store,
-		RuntimeMetadata:     RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
+		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
+		RuntimeAuthService:       store,
+		RuntimeMetadata:          RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
+		WorkspaceActivityService: &fakeWorkspaceActivityService{events: events},
 	})
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	queryRequest, err := http.NewRequest(http.MethodGet, server.URL+"/conversations/events?workspaceId=workspace-api&conversationId=conversation-api&token="+token, nil)
+	queryRequest, err := http.NewRequest(http.MethodGet, server.URL+"/workspace-activity/events?token="+token, nil)
 	if err != nil {
 		t.Fatalf("create query token stream request: %v", err)
 	}
@@ -142,7 +144,7 @@ func TestAuthenticatedSSEStreamsAndRejectsQueryStringToken(t *testing.T) {
 		t.Fatalf("query token stream status = %d, want 401", queryResponse.StatusCode)
 	}
 
-	request, err := http.NewRequest(http.MethodGet, server.URL+"/conversations/events?workspaceId=workspace-api&conversationId=conversation-api", nil)
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/workspace-activity/events", nil)
 	if err != nil {
 		t.Fatalf("create stream request: %v", err)
 	}
@@ -159,29 +161,27 @@ func TestAuthenticatedSSEStreamsAndRejectsQueryStringToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read stream body: %v", err)
 	}
-	if !bytes.Contains(body, []byte("event: conversation.updated")) {
+	if !bytes.Contains(body, []byte("event: workspace_activity.resync_required")) {
 		t.Fatalf("stream body = %s", body)
 	}
 }
 
 func TestRevocationSweepClosesLiveSSEStream(t *testing.T) {
 	store, token := newTestRuntimeAuthStore(t)
-	events := make(chan conversation.ConversationEvent)
-	service := newHTTPTestConversationService(t)
-	service.eventsChannel = events
+	events := make(chan workspaceactivity.WorkspaceActivityEvent)
 	handler := NewHandler(HandlerConfig{
-		ConversationService:     service,
-		Metadata:                BackendMetadata{Name: BackendName, Version: "test"},
-		RevocationSweepInterval: 10 * time.Millisecond,
-		RuntimeAuthService:      store,
-		RuntimeMetadata:         RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
+		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
+		RevocationSweepInterval:  10 * time.Millisecond,
+		RuntimeAuthService:       store,
+		RuntimeMetadata:          RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
+		WorkspaceActivityService: &fakeWorkspaceActivityService{events: events},
 	})
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/conversations/events?workspaceId=workspace-api&conversationId=conversation-api", nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/workspace-activity/events", nil)
 	if err != nil {
 		t.Fatalf("create stream request: %v", err)
 	}
@@ -271,27 +271,24 @@ func (service *fakeRuntimeIdentityService) UpdateRuntimeDisplayName(_ context.Co
 	return service.identity, nil
 }
 
-func conversationAuthTestEvent(t *testing.T, service *httpTestConversationService) conversation.ConversationEvent {
-	t.Helper()
-	streamID, err := conversation.ConversationStreamID("conversation-api")
-	if err != nil {
-		t.Fatalf("conversation stream id: %v", err)
-	}
-	eventID, err := conversation.ConversationEventID(streamID, 1)
-	if err != nil {
-		t.Fatalf("conversation event id: %v", err)
-	}
-	return conversation.ConversationEvent{
-		SchemaVersion:  conversation.ConversationContractSchemaVersion,
-		StreamID:       streamID,
-		Sequence:       1,
-		EventID:        eventID,
-		EmittedAt:      httpConversationTestTime,
-		WorkspaceID:    "workspace-api",
-		ConversationID: "conversation-api",
-		Payload: conversation.ConversationUpdatedEventPayload{
-			Type:         conversation.ConversationEventTypeConversationUpdated,
-			Conversation: service.snapshot.Conversation,
+func workspaceActivityTestEvent() workspaceactivity.WorkspaceActivityEvent {
+	return workspaceactivity.WorkspaceActivityEvent{
+		EmittedAt:     "2026-06-21T12:00:00Z",
+		EventID:       "workspace_activity_stream:1",
+		Revision:      1,
+		SchemaVersion: workspaceactivity.SchemaVersion,
+		Sequence:      1,
+		StreamID:      "workspace_activity_stream",
+		Type:          workspaceactivity.EventTypeResyncRequired,
+		WorkspaceID:   "workspace_activity",
+		Resync: &workspaceactivity.WorkspaceActivityResyncRequired{
+			CurrentRevision:   1,
+			CurrentSequence:   1,
+			CurrentStreamID:   "workspace_activity_stream",
+			EarliestSequence:  1,
+			Reason:            "test resync",
+			RequestedSequence: 0,
+			RequestedStreamID: "",
 		},
 	}
 }

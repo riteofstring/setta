@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -109,59 +109,10 @@ export async function createElectronFixture(name) {
   return { appDataDir, tempRoot, workspaceRoot };
 }
 
-export async function readLocalRuntimeAccess(appDataDir) {
-  const path = join(appDataDir, "electron-user-data", "known-runtimes.json");
-  const registry = JSON.parse(await readFile(path, "utf8"));
-  const localRuntime = registry?.runtimes?.find((runtime) => runtime?.is_local === true);
-  if (
-    typeof localRuntime?.base_url !== "string" ||
-    localRuntime.base_url === "" ||
-    typeof localRuntime.device_token !== "string" ||
-    localRuntime.device_token === ""
-  ) {
-    throw new Error("protected runtime registry did not contain local backend access");
-  }
-  return { baseURL: localRuntime.base_url, deviceToken: localRuntime.device_token };
-}
-
-export async function assertArtifactsExcludeMarkers(root, markers, description) {
-  if (
-    !Array.isArray(markers) ||
-    markers.length === 0 ||
-    markers.some((marker) => typeof marker !== "string" || marker === "")
-  ) {
-    throw new Error("artifact privacy assertion requires non-empty string markers");
-  }
-  for (const path of await artifactFilePaths(root)) {
-    const content = await readFile(path);
-    for (const marker of markers) {
-      if (content.includes(Buffer.from(marker))) {
-        throw new Error(`${description} leaked into ${path}`);
-      }
-    }
-  }
-}
-
-async function artifactFilePaths(root) {
-  const paths = [];
-  for (const entry of await readdir(root, { withFileTypes: true })) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) {
-      paths.push(...(await artifactFilePaths(path)));
-    } else if (entry.isFile()) {
-      paths.push(path);
-    }
-  }
-  return paths;
-}
-
 export async function launchElectronCdpContext({
   artifactDir,
-  electronArgs = [],
   extraEnv = {},
   fixture,
-  isolatedProcessGroup = false,
-  unsetEnv = [],
   visible = false,
 }) {
   await rm(artifactDir, { force: true, recursive: true });
@@ -171,11 +122,8 @@ export async function launchElectronCdpContext({
   const electron = launchElectron({
     artifactDir,
     debugPort,
-    electronArgs,
     extraEnv,
     fixture,
-    isolatedProcessGroup,
-    unsetEnv,
     visible,
   });
   const client = await connectToSettaPage(debugPort);
@@ -191,15 +139,6 @@ export async function stopElectronCdpContext(context) {
   context.client?.close();
   await writeElectronOutput(context);
   await stopElectron(context.electron);
-}
-
-export async function crashElectronCdpContext(context) {
-  if (!context) {
-    return;
-  }
-  context.client?.close();
-  await crashElectron(context.electron);
-  await writeElectronOutput(context);
 }
 
 export function assertBuildExists() {
@@ -522,195 +461,30 @@ async function openPort() {
   return address.port;
 }
 
-function launchElectron({
-  artifactDir,
-  debugPort,
-  electronArgs,
-  extraEnv,
-  fixture,
-  isolatedProcessGroup,
-  unsetEnv,
-  visible,
-}) {
-  const env = {
-    ...process.env,
-    ...extraEnv,
-    ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
-    SETTA_APP_DATA_DIR: fixture.appDataDir,
-    SETTA_BACKEND_READY_TIMEOUT_MS: "30000",
-    SETTA_E2E: "1",
-    SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
-    SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
-    SETTA_RECORD_INCLUDE_PAYLOADS: "1",
-    SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
-    SETTA_RECORDING: "1",
-    SETTA_RECORDING_DIR: artifactDir,
-    ...(visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
-  };
-  for (const name of unsetEnv) {
-    delete env[name];
-  }
-  const electron = spawn(
-    electronBin(),
-    [`--remote-debugging-port=${debugPort}`, ...electronArgs, "."],
-    {
-      cwd: desktopRoot,
-      detached: isolatedProcessGroup && process.platform !== "win32",
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
+function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) {
+  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
+    cwd: desktopRoot,
+    env: {
+      ...process.env,
+      ...extraEnv,
+      ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
+      SETTA_APP_DATA_DIR: fixture.appDataDir,
+      SETTA_BACKEND_READY_TIMEOUT_MS: "30000",
+      SETTA_E2E: "1",
+      SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
+      SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
+      SETTA_RECORD_INCLUDE_PAYLOADS: "1",
+      SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
+      SETTA_RECORDING: "1",
+      SETTA_RECORDING_DIR: artifactDir,
+      ...(visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
     },
-  );
-  electron.isolatedProcessGroup = isolatedProcessGroup && process.platform !== "win32";
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   electron.logs = [];
   electron.stdout.on("data", (data) => appendLog(electron.logs, data));
   electron.stderr.on("data", (data) => appendLog(electron.logs, data));
   return electron;
-}
-
-async function crashElectron(child) {
-  if (child.exitCode !== null) {
-    return;
-  }
-  const exitPromise = new Promise((resolvePromise) => {
-    child.once("exit", resolvePromise);
-  });
-  if (process.platform === "win32") {
-    await killWindowsProcessTree(child.pid);
-  } else if (child.isolatedProcessGroup && child.pid !== undefined) {
-    await killPosixProcessTree(child.pid);
-  } else {
-    child.kill("SIGKILL");
-  }
-  const exited = await Promise.race([
-    exitPromise.then(() => true),
-    delay(shutdownTimeoutMs).then(() => false),
-  ]);
-  if (!exited) {
-    throw new Error(`Electron process ${child.pid ?? "unknown"} did not exit after SIGKILL`);
-  }
-}
-
-async function killPosixProcessTree(rootPid) {
-  const rows = await readPosixProcessTable();
-  const processIds = descendantProcessIds(rows, rootPid);
-  const controller = rows.find((row) => row.pid === process.pid);
-  if (!controller) {
-    throw new Error("test controller was absent from the POSIX process table");
-  }
-  const processGroups = orderedProcessGroups(rows, processIds, rootPid);
-  if (processGroups.includes(controller.pgid)) {
-    throw new Error("refusing to crash a process group containing the test controller");
-  }
-  for (const processGroup of processGroups) {
-    signalPosixProcessGroup(processGroup);
-  }
-  await waitForPosixProcessTreeExit(processIds);
-}
-
-async function readPosixProcessTable() {
-  const ps = spawn("ps", ["-axo", "pid=,ppid=,pgid="], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let stdout = "";
-  let stderr = "";
-  ps.stdout.on("data", (data) => {
-    stdout += data.toString();
-  });
-  ps.stderr.on("data", (data) => {
-    stderr += data.toString();
-  });
-  const code = await new Promise((resolvePromise) => ps.once("exit", resolvePromise));
-  if (code !== 0) {
-    throw new Error(`ps failed while discovering the crash process tree: ${stderr.trim()}`);
-  }
-  return stdout.split("\n").map(parsePosixProcessRow).filter(Boolean);
-}
-
-function parsePosixProcessRow(line) {
-  const [pid, ppid, pgid] = line.trim().split(/\s+/).map(Number);
-  if (![pid, ppid, pgid].every(Number.isSafeInteger)) {
-    return null;
-  }
-  return { pgid, pid, ppid };
-}
-
-function descendantProcessIds(rows, rootPid) {
-  const processIds = new Set([rootPid]);
-  let previousSize = 0;
-  while (processIds.size !== previousSize) {
-    previousSize = processIds.size;
-    for (const row of rows) {
-      if (processIds.has(row.ppid)) {
-        processIds.add(row.pid);
-      }
-    }
-  }
-  return processIds;
-}
-
-function orderedProcessGroups(rows, processIds, rootPid) {
-  const rootProcessGroup = rows.find((row) => row.pid === rootPid)?.pgid;
-  if (!Number.isSafeInteger(rootProcessGroup)) {
-    throw new Error(`Electron process ${rootPid} was absent from the POSIX process table`);
-  }
-  const processGroups = new Set(
-    rows.filter((row) => processIds.has(row.pid)).map((row) => row.pgid),
-  );
-  processGroups.delete(rootProcessGroup);
-  return [...processGroups, rootProcessGroup];
-}
-
-function signalPosixProcessGroup(processGroup) {
-  try {
-    process.kill(-processGroup, "SIGKILL");
-  } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) {
-      throw error;
-    }
-  }
-}
-
-async function waitForPosixProcessTreeExit(processIds) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < shutdownTimeoutMs) {
-    if (![...processIds].some(posixProcessExists)) {
-      return;
-    }
-    await delay(25);
-  }
-  throw new Error(`crashed POSIX process tree did not exit: ${[...processIds].join(", ")}`);
-}
-
-function posixProcessExists(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ESRCH") {
-      return false;
-    }
-    throw error;
-  }
-}
-
-async function killWindowsProcessTree(pid) {
-  if (pid === undefined) {
-    throw new Error("Electron process id is unavailable for crash simulation");
-  }
-  const killer = spawn("taskkill", ["/PID", String(pid), "/T", "/F"], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let output = "";
-  killer.stdout.on("data", (data) => {
-    output += data.toString();
-  });
-  killer.stderr.on("data", (data) => {
-    output += data.toString();
-  });
-  const code = await new Promise((resolvePromise) => killer.once("exit", resolvePromise));
-  if (code !== 0) {
-    throw new Error(`taskkill failed for Electron process ${pid}: ${output.trim()}`);
-  }
 }
 
 function isPageNavigationTransient(error) {

@@ -1,12 +1,8 @@
-import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
-import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
-import {
-  claimConversationPaletteIdentity,
-  readConversationPanePaletteIdentity,
-  type ConversationPaletteIdentity,
-} from "../features/easy-button/conversation-palette-identity";
+import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
+import { GitGraphSurfaceAdapter } from "./git-graph-surface-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
+import { SyntheticTerminalSurfaceAdapter } from "./synthetic-terminal-surface-adapter";
 import {
   applySnapshotScrollOffsets,
   cloneSnapshotNode,
@@ -15,6 +11,7 @@ import {
   renderFakePaneContent,
   renderSnapshotContent,
 } from "./surface-dom-content";
+import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
 import type {
   FreezeReason,
   WorkspacePane,
@@ -39,9 +36,7 @@ export interface SnapshotSurfaceAdapterOptions {
 }
 
 export interface DefaultSurfaceAdapterOptions {
-  speechCapture?: SpeechCaptureRequester;
-  speechPresentation?: GlobalSpeechPresentationSource;
-  workspaceId?: string;
+  workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
 
 export type EmptyFrameOptionsProvider = () => readonly EmptyFrameOption[];
@@ -197,8 +192,6 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   private bitmapTexture: HTMLElement | null = null;
   private focused = false;
   private host: HTMLElement | null = null;
-  private presentationIdentity: ConversationPaletteIdentity | null = null;
-  private releasePresentationIdentity: (() => void) | null = null;
   private texture: HTMLElement | null = null;
   private textureCaptureKey: string | null = null;
   private visible = false;
@@ -213,7 +206,6 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   }
 
   captureBitmap(sourceHost: HTMLElement): boolean {
-    this.capturePresentationIdentity(sourceHost);
     const request = bitmapCaptureRequestForHost(sourceHost);
     if (!request || this.bitmapCaptureRequested(request.captureKey)) {
       return false;
@@ -234,7 +226,6 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   }
 
   captureTexture(sourceHost: HTMLElement): SurfaceSnapshotFreshness {
-    this.capturePresentationIdentity(sourceHost);
     if (sourceHost.dataset.presentationMode === "overview" && this.hasCapturedTexture()) {
       return this.textureFreshnessForHost(sourceHost);
     }
@@ -271,13 +262,10 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     host.dataset.surfaceKind = this.kind;
     this.rerenderMountedSnapshot();
     applySnapshotScrollOffsets(host);
-    this.syncPresentationIdentity();
     this.syncHostState();
   }
 
   unmount(): void {
-    this.releasePresentationIdentity?.();
-    this.releasePresentationIdentity = null;
     this.host?.replaceChildren();
     this.host = null;
     this.visible = false;
@@ -316,30 +304,6 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     this.host.dataset.surfaceVisible = String(this.visible);
     this.host.dataset.surfaceFocused = String(this.focused);
     this.host.style.visibility = this.visible ? "visible" : "hidden";
-  }
-
-  private capturePresentationIdentity(sourceHost: HTMLElement): void {
-    if (!conversationPaletteIdentitySourceMatchesPane(this.pane, sourceHost)) {
-      return;
-    }
-    const identity = readConversationPanePaletteIdentity(sourceHost);
-    ensureConversationPaletteIdentityMatchesPane(this.pane, identity);
-    if (sameConversationPaletteIdentity(identity, this.presentationIdentity)) {
-      return;
-    }
-    this.presentationIdentity = identity;
-    this.syncPresentationIdentity();
-  }
-
-  private syncPresentationIdentity(): void {
-    if (!this.host) {
-      return;
-    }
-    this.releasePresentationIdentity?.();
-    this.releasePresentationIdentity = claimConversationPaletteIdentity(
-      this.host,
-      this.presentationIdentity,
-    );
   }
 
   private hasCapturedTexture(): boolean {
@@ -403,36 +367,6 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
       error instanceof Error ? error.message : error,
     );
   }
-}
-
-function conversationPaletteIdentitySourceMatchesPane(
-  pane: WorkspacePane,
-  sourceHost: HTMLElement,
-): pane is Extract<WorkspacePane, { surfaceKind: "easy-button" }> {
-  return pane.surfaceKind === "easy-button" && sourceHost.dataset.surfaceId === pane.surfaceId;
-}
-
-function ensureConversationPaletteIdentityMatchesPane(
-  pane: Extract<WorkspacePane, { surfaceKind: "easy-button" }>,
-  identity: ConversationPaletteIdentity | null,
-): void {
-  const expectedConversationId = pane.easyButtonConfig.conversationId;
-  if (!identity || identity.conversationId === expectedConversationId) {
-    return;
-  }
-  throw new Error(
-    `snapshot source ${pane.surfaceId} exposes conversation ${identity.conversationId}; expected ${expectedConversationId}`,
-  );
-}
-
-function sameConversationPaletteIdentity(
-  left: ConversationPaletteIdentity | null,
-  right: ConversationPaletteIdentity | null,
-): boolean {
-  if (!left || !right) {
-    return left === right;
-  }
-  return left.conversationId === right.conversationId && left.paletteId === right.paletteId;
 }
 
 function bitmapCaptureRequestForHost(sourceHost: HTMLElement): BitmapCaptureRequest | null {
@@ -530,7 +464,13 @@ function snapshotScrollKey(root: Element): string {
   }
   return Array.from(
     root.querySelectorAll<HTMLElement>(
-      ["[data-snapshot-scroller='true']", ".overflow-auto", ".overflow-y-auto"].join(","),
+      [
+        "[data-snapshot-scroller='true']",
+        "[data-testid='chat-transcript-scroller']",
+        ".overflow-auto",
+        ".overflow-y-auto",
+        ".workspace-fake-long-chat-scroll",
+      ].join(","),
     ),
   )
     .map((element) => `${Math.round(element.scrollTop)},${Math.round(element.scrollLeft)}`)
@@ -570,32 +510,32 @@ export function createDefaultSurfaceAdapter(
   pane: WorkspacePane,
   options: DefaultSurfaceAdapterOptions = {},
 ): SurfaceAdapter {
-  const factory = defaultSurfaceAdapterFactories[pane.surfaceKind];
-  if (!factory) {
-    throw new Error(`unsupported workspace surface kind: ${pane.surfaceKind}`);
-  }
-  return factory(pane, options);
+  return defaultSurfaceAdapterFactories[pane.surfaceKind](pane, options);
 }
 
-type DefaultSurfaceAdapterFactory = (
-  pane: WorkspacePane,
-  options: DefaultSurfaceAdapterOptions,
-) => SurfaceAdapter;
-
-const defaultSurfaceAdapterFactories: Partial<Record<SurfaceKind, DefaultSurfaceAdapterFactory>> = {
+const defaultSurfaceAdapterFactories = {
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
-  "easy-button": (pane, options) =>
-    createReactDomSurfaceAdapter(pane, undefined, {
-      speechCapture: options.speechCapture,
-      speechPresentation: options.speechPresentation,
-      workspaceId: options.workspaceId,
-    }),
+  "chat-dom": (pane) => createReactDomSurfaceAdapter(pane),
   "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
+  "fake-long-chat": (pane) => createReactDomSurfaceAdapter(pane),
+  "fake-terminal": (pane) => new SyntheticTerminalSurfaceAdapter(pane),
+  "git-graph": (pane) => new GitGraphSurfaceAdapter(pane),
+  "workflow-graph": (pane, options) =>
+    createReactDomSurfaceAdapter(pane, undefined, {
+      workflowGraphSyntheticGraphFallback: options.workflowGraphSyntheticGraphFallback,
+    }),
   "settings-dom": (pane) => createReactDomSurfaceAdapter(pane),
+  "semantic-node-details": (pane) => createReactDomSurfaceAdapter(pane),
   snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
-};
+  terminal: (pane) => new TerminalSurfaceAdapter(pane),
+  "workflow-node-details": (pane) => createReactDomSurfaceAdapter(pane),
+  "workflow-settings": (pane) => createReactDomSurfaceAdapter(pane),
+} satisfies Record<
+  SurfaceKind,
+  (pane: WorkspacePane, options: DefaultSurfaceAdapterOptions) => SurfaceAdapter
+>;
 
 function performanceNow(): number {
   if (typeof performance === "undefined") {

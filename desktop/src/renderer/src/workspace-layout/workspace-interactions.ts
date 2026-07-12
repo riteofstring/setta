@@ -10,12 +10,14 @@ import {
   wheelDeltaModePixelFactor,
 } from "./overview-wheel-gesture";
 import { paneFocusTargetFromClick } from "./pane-focus-click";
+import { eventTargetsTerminalSurface } from "./terminal-surface-utils";
 import {
   interpretWorkspaceTrackpadWheel,
   workspaceWheelNavigationTargetFromEventTarget,
 } from "./trackpad-navigation";
 import type { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
 import {
+  isTerminalSafeWorkspaceArrowNavigationShortcut,
   isWorkspaceArrowNavigationShortcut,
   workspaceShortcutModifierMatches,
   workspaceArrowDirection,
@@ -38,9 +40,6 @@ export function handleWorkspaceClick({
   viewportProvider: () => Rect;
 }): void {
   if (runtime.mode !== "workspace" || !(event.target instanceof Element)) {
-    return;
-  }
-  if (eventTargetsPaneInteractiveControl(event)) {
     return;
   }
   if (
@@ -79,8 +78,7 @@ export function handleWorkspacePaneFocusPointerDown({
   if (
     event.button !== 0 ||
     runtime.mode !== "workspace" ||
-    runtime.store.getSnapshot().presentationMode === "overview" ||
-    eventTargetsPaneInteractiveControl(event)
+    runtime.store.getSnapshot().presentationMode === "overview"
   ) {
     return;
   }
@@ -91,19 +89,6 @@ export function eventTargetsPaneChromeAction(event: PointerEvent): boolean {
   return (
     event.target instanceof Element &&
     event.target.closest("[data-workspace-pane-action]") instanceof HTMLButtonElement
-  );
-}
-
-export function eventTargetsPaneInteractiveControl(event: MouseEvent | PointerEvent): boolean {
-  if (!(event.target instanceof Element)) {
-    return false;
-  }
-  const selector = '[data-workspace-pane-interactive-control="true"]';
-  if (event.target.closest(selector)) {
-    return true;
-  }
-  return Boolean(
-    event.target.ownerDocument.elementFromPoint(event.clientX, event.clientY)?.closest(selector),
   );
 }
 
@@ -302,6 +287,12 @@ export function handleWorkspaceKeyDown({
   shortcuts?: AppearanceShortcutsSettings;
   viewportProvider: () => Rect;
 }): void {
+  if (
+    eventTargetsTerminalSurface(event) &&
+    !isTerminalSafeWorkspaceArrowNavigationShortcut(event, shortcuts)
+  ) {
+    return;
+  }
   handleWorkspaceKeyAction({
     event,
     persistLayout,

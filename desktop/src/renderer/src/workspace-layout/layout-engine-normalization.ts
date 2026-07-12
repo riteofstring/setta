@@ -1,53 +1,35 @@
-import type { EasyButtonPaneConfig } from "@generated/backend";
+import type { WorkspacePane, OpenPaneRequest, TerminalPaneConfig } from "./types";
 
-import type { NonEasyButtonSurfaceKind, WorkspacePane, OpenPaneRequest } from "./types";
-
-type WorkspacePaneSurface =
-  | { easyButtonConfig: EasyButtonPaneConfig; surfaceKind: "easy-button" }
-  | { surfaceKind: NonEasyButtonSurfaceKind };
-
-export function paneSurfaceForRequest(
+export function terminalConfigForRequest(
   request: OpenPaneRequest,
   existing?: WorkspacePane,
-): WorkspacePaneSurface {
+): TerminalPaneConfig | undefined {
   const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
-  const requestConfig = request.easyButtonConfig as EasyButtonPaneConfig | undefined;
-  if (request.surfaceKind !== "easy-button" && requestConfig) {
-    throw new Error("easyButtonConfig requires an explicit easy-button surfaceKind");
+  if (surfaceKind !== "terminal") {
+    return undefined;
   }
-  if (surfaceKind === "easy-button") {
-    const config = resolvedEasyButtonConfig(request, existing);
-    validateEasyButtonConfig(config);
-    return { easyButtonConfig: config, surfaceKind };
-  }
-  return { surfaceKind: surfaceKind ?? "empty-frame" };
+  return normalizeTerminalPaneConfig(request.terminalConfig ?? existing?.terminalConfig);
 }
 
-function resolvedEasyButtonConfig(
+export function workflowNodeDetailsConfigForRequest(
   request: OpenPaneRequest,
-  existing: WorkspacePane | undefined,
-): EasyButtonPaneConfig | undefined {
-  if (request.surfaceKind === "easy-button") {
-    return request.easyButtonConfig;
+  existing?: WorkspacePane,
+): WorkspacePane["workflowNodeDetailsConfig"] {
+  const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
+  if (surfaceKind !== "workflow-node-details") {
+    return undefined;
   }
-  if (existing?.surfaceKind === "easy-button") {
-    return existing.easyButtonConfig;
-  }
-  return undefined;
+  return request.workflowNodeDetailsConfig ?? existing?.workflowNodeDetailsConfig;
 }
 
-function validateEasyButtonConfig(
-  config: EasyButtonPaneConfig | undefined,
-): asserts config is EasyButtonPaneConfig {
-  if (!config) {
-    throw new Error("easy-button panes require an easyButtonConfig conversation binding");
-  }
-  if (config.conversationId.length === 0) {
-    throw new Error("easyButtonConfig.conversationId is required");
-  }
-  if (config.conversationId.trim() !== config.conversationId) {
-    throw new Error("easyButtonConfig.conversationId must not have surrounding whitespace");
-  }
+export function normalizeTerminalPaneConfig(
+  config: TerminalPaneConfig | undefined,
+): TerminalPaneConfig {
+  return {
+    cwdOverride: normalizedOptionalString(config?.cwdOverride),
+    profileId: normalizedOptionalString(config?.profileId) ?? "",
+    titleOverride: normalizedOptionalString(config?.titleOverride),
+  };
 }
 
 export function normalizedPaneWeight(value: number): number {
@@ -59,4 +41,12 @@ export function normalizedPaneHeightPx(value: number | null | undefined): number
     return null;
   }
   return Number.isFinite(value) ? Math.max(96, Math.round(value)) : null;
+}
+
+function normalizedOptionalString(value: string | undefined): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
 }

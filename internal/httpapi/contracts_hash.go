@@ -8,8 +8,7 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/conversation"
-	"setta/internal/workspaceui"
+	"setta/internal/chat"
 )
 
 type contractSchemaHashInput struct {
@@ -28,25 +27,14 @@ type contractEndpointHashInput struct {
 }
 
 type contractTypeHashInput struct {
-	Discriminator         string                                        `json:"discriminator,omitempty"`
-	DiscriminatedVariants []contractDiscriminatedStructVariantHashInput `json:"discriminatedVariants,omitempty"`
-	Elem                  *contractTypeHashInput                        `json:"elem,omitempty"`
-	Fields                []contractFieldHashInput                      `json:"fields,omitempty"`
-	Key                   *contractTypeHashInput                        `json:"key,omitempty"`
-	Kind                  string                                        `json:"kind"`
-	Name                  string                                        `json:"name,omitempty"`
-	PkgPath               string                                        `json:"pkgPath,omitempty"`
-	Variants              []contractUnionVariantHashInput               `json:"variants,omitempty"`
-}
-
-type contractDiscriminatedStructVariantHashInput struct {
-	DiscriminatorValue string                                      `json:"discriminatorValue"`
-	Fields             []contractDiscriminatedStructFieldHashInput `json:"fields"`
-}
-
-type contractDiscriminatedStructFieldHashInput struct {
-	Name    string `json:"name"`
-	NonNull bool   `json:"nonNull"`
+	Discriminator string                          `json:"discriminator,omitempty"`
+	Elem          *contractTypeHashInput          `json:"elem,omitempty"`
+	Fields        []contractFieldHashInput        `json:"fields,omitempty"`
+	Key           *contractTypeHashInput          `json:"key,omitempty"`
+	Kind          string                          `json:"kind"`
+	Name          string                          `json:"name,omitempty"`
+	PkgPath       string                          `json:"pkgPath,omitempty"`
+	Variants      []contractUnionVariantHashInput `json:"variants,omitempty"`
 }
 
 type contractUnionVariantHashInput struct {
@@ -234,13 +222,13 @@ func unionContractTypeHashInput(
 	}, nil
 }
 
-func contractUnionForType(goType reflect.Type) (conversation.ContractUnion, bool) {
-	for _, union := range conversation.ContractUnions() {
+func contractUnionForType(goType reflect.Type) (chat.ContractUnion, bool) {
+	for _, union := range chat.ContractUnions() {
 		if union.Type == goType {
 			return union, true
 		}
 	}
-	return conversation.ContractUnion{}, false
+	return chat.ContractUnion{}, false
 }
 
 func structContractTypeHashInput(
@@ -256,50 +244,12 @@ func structContractTypeHashInput(
 	if err != nil {
 		return contractTypeHashInput{}, err
 	}
-	discriminator, discriminatedVariants := discriminatedStructHashInput(goType)
 	return contractTypeHashInput{
-		Discriminator:         discriminator,
-		DiscriminatedVariants: discriminatedVariants,
-		Kind:                  goType.Kind().String(),
-		Name:                  goType.Name(),
-		PkgPath:               goType.PkgPath(),
-		Fields:                fields,
+		Kind:    goType.Kind().String(),
+		Name:    goType.Name(),
+		PkgPath: goType.PkgPath(),
+		Fields:  fields,
 	}, nil
-}
-
-func discriminatedStructHashInput(
-	goType reflect.Type,
-) (string, []contractDiscriminatedStructVariantHashInput) {
-	contract, ok := contractDiscriminatedStructForType(goType)
-	if !ok {
-		return "", nil
-	}
-	variants := make([]contractDiscriminatedStructVariantHashInput, 0, len(contract.Variants))
-	for _, variant := range contract.Variants {
-		fields := make([]contractDiscriminatedStructFieldHashInput, 0, len(variant.Fields))
-		for _, field := range variant.Fields {
-			fields = append(fields, contractDiscriminatedStructFieldHashInput{
-				Name:    field.Name,
-				NonNull: field.NonNull,
-			})
-		}
-		variants = append(variants, contractDiscriminatedStructVariantHashInput{
-			DiscriminatorValue: variant.DiscriminatorValue,
-			Fields:             fields,
-		})
-	}
-	return contract.Discriminator, variants
-}
-
-func contractDiscriminatedStructForType(
-	goType reflect.Type,
-) (workspaceui.ContractDiscriminatedStruct, bool) {
-	for _, contract := range workspaceui.ContractDiscriminatedStructs() {
-		if contract.Type == goType {
-			return contract, true
-		}
-	}
-	return workspaceui.ContractDiscriminatedStruct{}, false
 }
 
 func contractFieldHashInputs(
