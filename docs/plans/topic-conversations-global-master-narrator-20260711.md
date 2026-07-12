@@ -2,9 +2,16 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete. Phases 1-9 and the final Phase 7 active-master
-cancellation gap are implemented and verified. The plan is ready for the
-separate whole-plan final audit.
+**Status:** In progress. The 2026-07-15 whole-plan final audit reopened Phase 9
+item 5. The standard ChatGPT-authenticated gate covers one durable topic across
+two sequential turns, narrator routing/status, and a global master answer, but
+it does not cover two production topic conversations concurrently, topic
+steering and cancellation, or restart/reload reconciliation. Existing opt-in
+agent-runtime and side-conversation live tests cover lower-level concurrency,
+thread discovery/fork/injection, and active-side isolation, but the standard
+live gate does not run them and they do not close the missing production
+workflow cases. The next step is to complete the live production-path matrix
+and include it in the standard gate before repeating the whole-plan audit.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2225,7 +2232,12 @@ Exit criteria:
 
 ### Phase 9: Hardening and acceptance
 
-**Status:** Complete.
+**Status:** In progress. Items 1-4 and 6-9 are complete. The 2026-07-15
+whole-plan final audit reopened item 5 because the checked-in live gate does not
+exercise concurrent production topic conversations, topic steering and
+cancellation, or restart/reload reconciliation. The next slice is the missing
+live production-path coverage and gate integration; it must keep
+`OPENAI_API_KEY` unset and use ChatGPT auth.
 
 1. Exercise crashes and restarts during agent, narrator, master, speech, and
    branch operations.
@@ -2406,6 +2418,18 @@ When the local Codex CLI is signed in with ChatGPT auth, run live tests without
 
 If ChatGPT auth is unavailable, report the live-provider tests as skipped. A
 skip is not evidence of provider integration.
+
+**Final-audit result (2026-07-15):** Incomplete. The standard live gate runs
+only `TestBackendTopicConversationWorkflowWithLiveCodex`, which proves one
+topic across two sequential turns, a narrator status route, and one global
+master answer. It does not prove the required concurrent topic-conversation,
+steering, cancellation, or restart/reload cases. The separately gated agent
+and side-conversation live tests prove thread discovery/fork/injection,
+lower-level concurrent turns, and active-side isolation, but are not invoked by
+the standard workflow gate and do not cover the missing production conversation
+service/runtime paths. Add those cases to the ChatGPT-authenticated
+production-path suite, make the standard gate run the complete live matrix,
+and then rerun this audit.
 
 ### Performance
 
