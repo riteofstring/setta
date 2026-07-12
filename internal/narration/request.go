@@ -31,16 +31,78 @@ func (operation StatusOperation) Validate() error {
 	return ValidateStatusQuestion(operation.Question)
 }
 
-// Request is the scheduling envelope for one narrator actor operation. Later
-// projector phases attach their typed context to the durable identifiers in
-// this envelope; mailbox ordering depends only on kind, trigger, and whether
-// the operation is a recoverable retry.
+// ProjectionOperation freezes the durable trajectory cutoff and target turn
+// selected by the conversation lifecycle. Provider work may evaluate that
+// cutoff in multiple contiguous windows, but it may never silently move the
+// target to newer trajectory.
+type ProjectionOperation struct {
+	WorkspaceID     string
+	TurnID          string
+	ThroughSequence int
+}
+
+func (operation ProjectionOperation) Validate() error {
+	if err := validateIdentifier("narrator projection workspace id", operation.WorkspaceID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("narrator projection turn id", operation.TurnID); err != nil {
+		return err
+	}
+	if operation.ThroughSequence <= 0 {
+		return fmt.Errorf("narrator projection through sequence must be positive")
+	}
+	return nil
+}
+
+// CheckpointOperation carries the workspace and optional turn whose current
+// authoritative state accompanies historical compaction. ResumeProjection is
+// scheduler metadata: after the checkpoint commits, the exact frozen
+// projection target is eligible to continue through a new mailbox request.
+type CheckpointOperation struct {
+	WorkspaceID      string
+	TurnID           *string
+	ResumeProjection *ProjectionOperation
+	ResumeTrigger    conversation.NarrationTrigger
+}
+
+func (operation CheckpointOperation) Validate() error {
+	if err := validateIdentifier("narrator checkpoint workspace id", operation.WorkspaceID); err != nil {
+		return err
+	}
+	if operation.TurnID != nil {
+		if err := validateIdentifier("narrator checkpoint turn id", *operation.TurnID); err != nil {
+			return err
+		}
+	}
+	if operation.ResumeProjection == nil {
+		if operation.ResumeTrigger != "" {
+			return fmt.Errorf("narrator checkpoint resume trigger requires a projection")
+		}
+		return nil
+	}
+	if err := operation.ResumeProjection.Validate(); err != nil {
+		return fmt.Errorf("narrator checkpoint resume projection: %w", err)
+	}
+	if operation.ResumeProjection.WorkspaceID != operation.WorkspaceID {
+		return fmt.Errorf("narrator checkpoint resume projection changed workspace")
+	}
+	if !isProjectionTrigger(operation.ResumeTrigger) {
+		return fmt.Errorf("narrator checkpoint has unsupported resume trigger %q", operation.ResumeTrigger)
+	}
+	return nil
+}
+
+// Request is the scheduling envelope for one narrator actor operation. The
+// exact typed operation survives admission, priority ordering, degradation,
+// and retry without being replaced by a looser context lookup.
 type Request struct {
 	ID             string
 	ConversationID string
 	Kind           RequestKind
 	Trigger        conversation.NarrationTrigger
+	Projection     *ProjectionOperation
 	Status         *StatusOperation
+	Checkpoint     *CheckpointOperation
 	// RecoverableRetry changes scheduling priority without erasing the
 	// projection, status, or checkpoint operation that must be prepared.
 	RecoverableRetry bool
@@ -86,8 +148,14 @@ func (request Request) validateEnvelope() error {
 }
 
 func (request Request) validateProjection() error {
-	if request.Status != nil {
-		return fmt.Errorf("narrator projection request %s cannot include a status operation", request.ID)
+	if request.Projection == nil {
+		return fmt.Errorf("narrator projection request %s requires a projection operation", request.ID)
+	}
+	if request.Status != nil || request.Checkpoint != nil {
+		return fmt.Errorf("narrator projection request %s contains a cross-kind operation", request.ID)
+	}
+	if err := request.Projection.Validate(); err != nil {
+		return fmt.Errorf("narrator projection request %s: %w", request.ID, err)
 	}
 	if !isProjectionTrigger(request.Trigger) {
 		return fmt.Errorf(
@@ -103,6 +171,9 @@ func (request Request) validateStatus() error {
 	if request.Status == nil {
 		return fmt.Errorf("narrator status request %s requires a status operation", request.ID)
 	}
+	if request.Projection != nil || request.Checkpoint != nil {
+		return fmt.Errorf("narrator status request %s contains a cross-kind operation", request.ID)
+	}
 	if err := request.Status.Validate(); err != nil {
 		return fmt.Errorf("narrator status request %s: %w", request.ID, err)
 	}
@@ -117,8 +188,14 @@ func (request Request) validateStatus() error {
 }
 
 func (request Request) validateCheckpoint() error {
-	if request.Status != nil {
-		return fmt.Errorf("narrator checkpoint request %s cannot include a status operation", request.ID)
+	if request.Checkpoint == nil {
+		return fmt.Errorf("narrator checkpoint request %s requires a checkpoint operation", request.ID)
+	}
+	if request.Projection != nil || request.Status != nil {
+		return fmt.Errorf("narrator checkpoint request %s contains a cross-kind operation", request.ID)
+	}
+	if err := request.Checkpoint.Validate(); err != nil {
+		return fmt.Errorf("narrator checkpoint request %s: %w", request.ID, err)
 	}
 	if request.Trigger != conversation.NarrationTriggerCheckpointWindowExceeded {
 		return fmt.Errorf(
@@ -132,9 +209,25 @@ func (request Request) validateCheckpoint() error {
 
 func cloneRequest(request Request) Request {
 	cloned := request
+	if request.Projection != nil {
+		projection := *request.Projection
+		cloned.Projection = &projection
+	}
 	if request.Status != nil {
 		status := *request.Status
 		cloned.Status = &status
+	}
+	if request.Checkpoint != nil {
+		checkpoint := *request.Checkpoint
+		if request.Checkpoint.TurnID != nil {
+			turnID := *request.Checkpoint.TurnID
+			checkpoint.TurnID = &turnID
+		}
+		if request.Checkpoint.ResumeProjection != nil {
+			projection := *request.Checkpoint.ResumeProjection
+			checkpoint.ResumeProjection = &projection
+		}
+		cloned.Checkpoint = &checkpoint
 	}
 	return cloned
 }

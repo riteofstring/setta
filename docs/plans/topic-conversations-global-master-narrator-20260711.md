@@ -2,8 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-3 are complete; Phase 4 items 1-7 are
-implemented, but production projector composition remains
+**Status:** In progress; Phases 0-4 are complete; Phase 5 is next
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1656,9 +1655,7 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Progress:** Items 1-7 are implemented. The phase exit remains incomplete
-because automatic working/terminal projection and checkpoint scheduling are not
-composed into the production conversation lifecycle.
+**Progress:** Complete.
 
 Implement:
 
@@ -3028,3 +3025,44 @@ Implementation is in progress under this plan.
   races; the narrowed changed-path status handlers passed independently, and
   this review did not modify those unrelated legacy paths. Generated inputs
   and outputs changed: none.
+- 2026-07-12: Completed the Phase 4 exit by composing the narrator projector
+  into the production conversation lifecycle. Conversation mutations now emit
+  typed trajectory observations only after their durable transaction commits.
+  The narrator maps those observations to exact working and terminal triggers,
+  coalesces cancellable progress windows without polling, serializes terminal
+  targets, defers later working projection behind pending terminal work, and
+  catches each frozen source boundary up in contiguous context-sized windows.
+  Completion feedback schedules proactive or required checkpoint compaction,
+  resumes the exact projection after a checkpoint, preserves actor retry and
+  supersession ordering, and clears all timers and tasks during shutdown.
+- 2026-07-12: Runtime startup now performs a one-shot durable recovery scan for
+  running tails and provider/system terminal events beyond each narrator
+  cursor, so a process failure between the trajectory commit and observer
+  delivery is recovered from Setta state without polling. Production-path tests
+  cover post-commit observation, delayed progress projection, a recoverable
+  provider outage, oversized ordered backlog catch-up, checkpoint/resume, two
+  terminal turns arriving during active projection, final-summary ordering,
+  restart recovery, and clean shutdown. The focused conversation/narration
+  suites passed, as did 50 repeated race-enabled projector and recovery runs.
+- 2026-07-12: The deterministic production Electron topic workflow exercised
+  automatic milestones and final summaries across approval, denial,
+  cancellation, failure, queue promotion, steering, reload, a scripted first
+  narrator outage, and an oversized backlog. Every terminal turn received its
+  narrator final, both observed cursors reached the durable trajectory tail,
+  Beta compacted through sequence 22 before completing through sequence 27,
+  and its transient degradation cleared. Evidence is under
+  `.recordings/topic-conversation-pane-projection/20260712T145857141Z/`.
+  ChatGPT-authenticated live topic verification passed with `OPENAI_API_KEY`
+  removed and required automatic final summaries from the exact configured
+  `gpt-5.4-mini` narrator.
+- 2026-07-12: `./scripts/format.sh` and the final changed-files quality gate
+  passed, including vet, the live runtime suite, all 1,123 desktop tests,
+  typecheck, production builds, and dead-code checks. The broad gate passed all
+  33 Go packages and every non-Electron desktop check, then stopped in the
+  previously recorded legacy chat workflow before this feature ran: terminal
+  attach failed for its temporary workspace and the removed `New chat` control
+  was absent. The supply-chain gate reached only the repository-pinned Go
+  1.26.4 `GO-2026-5856` finding, fixed in Go 1.26.5; no dependency or generated
+  input/output changed. The Codex source reference was not needed because this
+  work composes the existing source-verified structured-call protocol rather
+  than changing provider behavior. Phase 5 is next.

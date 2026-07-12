@@ -347,6 +347,14 @@ func (service *Service) commitTurnStart(
 		}
 		return appendPublications(transaction, publications)
 	})
+	if err == nil {
+		service.observeCommittedTrajectory(
+			mutation.snapshot.Conversation,
+			mutation.turn.ID,
+			mutation.events,
+			false,
+		)
+	}
 	return err
 }
 
@@ -541,6 +549,14 @@ func (service *Service) commitTurnTerminal(
 		}
 		return appendPublications(transaction, publications)
 	})
+	if err == nil {
+		service.observeCommittedTrajectory(
+			mutation.conversation,
+			mutation.turn.ID,
+			[]TrajectoryEvent{mutation.trajectory},
+			true,
+		)
+	}
 	return err
 }
 

@@ -192,6 +192,14 @@ func (service *Service) persistControlTrajectoryFromSnapshot(
 		}
 		return appendPublications(transaction, publications)
 	})
+	if err == nil {
+		service.observeCommittedTrajectory(
+			conversation,
+			turn.ID,
+			events,
+			false,
+		)
+	}
 	return err
 }
 

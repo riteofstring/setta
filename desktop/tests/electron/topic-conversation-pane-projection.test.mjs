@@ -26,7 +26,7 @@ import {
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
-const workflowTimeoutMs = 35_000;
+const workflowTimeoutMs = 50_000;
 const expectedNarratorStatusReply =
   "The primary topic agent is still working and has not been steered or interrupted.";
 const fakeTopicCodexFixture = join(
@@ -238,7 +238,7 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "completed" &&
-      surface.summaryText.includes("Approval answered and work completed"),
+      surface.summaryText === "Narrator completed approval alpha.",
   );
   if (alphaComplete.artifactCount !== 1) {
     throw new Error(`Alpha artifact was not retained: ${JSON.stringify(alphaComplete)}`);
@@ -269,7 +269,7 @@ try {
       surface.state === "complete" &&
       surface.status === "completed" &&
       surface.approvalId === "" &&
-      surface.summaryText.includes("Command approval denied and work completed"),
+      surface.summaryText === "Narrator completed command approval denial.",
   );
 
   assertDriverAction(
@@ -282,12 +282,12 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "stopped" &&
-      surface.summaryText === "Work cancelled.",
+      surface.summaryText === "Narrator completed hold beta.",
   );
   assertDriverAction(
     await context.client.driver("topicConversationSubmit", {
       conversationId: beta.id,
-      text: "fail beta",
+      text: "narration backlog fail beta",
     }),
     "submitted",
   );
@@ -297,7 +297,7 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "failed" &&
-      surface.summaryText === "Scripted topic failure",
+      surface.summaryText === "Narrator completed narration backlog fail beta.",
   );
 
   const alphaSnapshot = await waitForConversationSnapshot(
@@ -306,7 +306,9 @@ try {
     alpha.id,
     (snapshot) =>
       snapshot.turns.turns.length === 4 &&
-      snapshot.turns.turns.every((turn) => turn.status === "completed"),
+      snapshot.turns.turns.every((turn) => turn.status === "completed") &&
+      hasFinalNarrationForEveryTurn(snapshot) &&
+      narratorCaughtUp(snapshot),
   );
   const betaSnapshot = await waitForConversationSnapshot(
     backend,
@@ -315,7 +317,11 @@ try {
     (snapshot) =>
       snapshot.turns.turns.length === 2 &&
       snapshot.turns.turns[0]?.status === "cancelled" &&
-      snapshot.turns.turns[1]?.status === "failed",
+      snapshot.turns.turns[1]?.status === "failed" &&
+      hasFinalNarrationForEveryTurn(snapshot) &&
+      narratorCaughtUp(snapshot) &&
+      snapshot.narratorState.checkpointThroughSequence > 0 &&
+      snapshot.narratorState.degradation === null,
   );
   assertAlphaLifecycle(alphaSnapshot, awaitingApproval.approvalId);
   assertDeniedApproval(alphaSnapshot, awaitingDenial.approvalId);
@@ -629,6 +635,7 @@ function assertAlphaLifecycle(snapshot, approvalId) {
   assertAlphaQueueAndArtifact(snapshot);
   assertAlphaTrajectoryKinds(kinds, snapshot);
   assertAlphaApproval(snapshot, approvalId);
+  assertAutomaticNarration(snapshot, "Alpha");
 }
 
 function assertAlphaQueueAndArtifact(snapshot) {
@@ -685,6 +692,46 @@ function assertBetaLifecycle(snapshot) {
   const kinds = snapshot.trajectory.events.map((event) => event.kind);
   if (!kinds.includes("turn_interrupted") || !kinds.includes("turn_failed")) {
     throw new Error(`Beta terminal lifecycle is incomplete: ${JSON.stringify(snapshot)}`);
+  }
+  if (
+    snapshot.narratorState.checkpointThroughSequence <= 0 ||
+    snapshot.narratorState.checkpointThroughSequence >
+      snapshot.narratorState.observedThroughSequence
+  ) {
+    throw new Error(`Beta narrator checkpoint is incomplete: ${JSON.stringify(snapshot)}`);
+  }
+  assertAutomaticNarration(snapshot, "Beta");
+}
+
+function hasFinalNarrationForEveryTurn(snapshot) {
+  const summarizedTurnIds = new Set(
+    snapshot.narration.events
+      .filter((event) => event.kind === "final_summary" && event.turnId)
+      .map((event) => event.turnId),
+  );
+  return snapshot.turns.turns.every((turn) => summarizedTurnIds.has(turn.id));
+}
+
+function narratorCaughtUp(snapshot) {
+  return (
+    snapshot.narratorState.observedThroughSequence === snapshot.conversation.lastTrajectorySequence
+  );
+}
+
+function assertAutomaticNarration(snapshot, label) {
+  const milestones = snapshot.narration.events.filter((event) => event.kind === "milestone");
+  const finals = snapshot.narration.events.filter((event) => event.kind === "final_summary");
+  if (
+    milestones.length === 0 ||
+    finals.length !== snapshot.turns.turns.length ||
+    finals.some(
+      (event) =>
+        event.trigger !== "turn_terminal" ||
+        !event.finalSummary?.text.startsWith("Narrator completed ") ||
+        event.resolvedInvocation?.resolved?.modelId !== "gpt-5.4-mini",
+    )
+  ) {
+    throw new Error(`${label} automatic narration is incomplete: ${JSON.stringify(snapshot)}`);
   }
 }
 

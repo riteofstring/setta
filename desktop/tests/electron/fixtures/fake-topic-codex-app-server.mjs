@@ -9,6 +9,7 @@ const threads = new Map();
 const turns = new Map();
 const heldTurns = new Map();
 const pendingApprovals = new Map();
+const failedNarratorObjectives = new Set();
 const methodHandlers = new Map([
   ["initialize", initialize],
   ["initialized", () => {}],
@@ -134,25 +135,69 @@ function startTurn(message) {
 
 function emitStructuredTurn(threadId, turnId, text) {
   const context = JSON.parse(text);
-  if (context.kind !== "status" || context.trigger !== "explicit_status_requested") {
-    completeTurn(threadId, turnId, "failed", `unsupported structured context ${context.kind}`);
+  if (context.kind === "status" && context.trigger === "explicit_status_requested") {
+    emitAgentMessage(
+      threadId,
+      turnId,
+      JSON.stringify({
+        kind: "status_reply",
+        sourceThroughSequence: context.sourceThroughSequence,
+        statusReply:
+          "The primary topic agent is still working and has not been steered or interrupted.",
+      }),
+    );
+    completeTurn(threadId, turnId, "completed");
     return;
   }
-  emitAgentMessage(
-    threadId,
-    turnId,
-    JSON.stringify({
-      kind: "status_reply",
-      sourceThroughSequence: context.sourceThroughSequence,
-      statusReply:
-        "The primary topic agent is still working and has not been steered or interrupted.",
-    }),
-  );
+  if (context.kind === "projection") {
+    emitStructuredProjection(threadId, turnId, context);
+    return;
+  }
+  if (context.kind === "checkpoint" && context.trigger === "checkpoint_window_exceeded") {
+    emitAgentMessage(
+      threadId,
+      turnId,
+      JSON.stringify({
+        coveredThroughSequence: context.requestedRange.end,
+        historicalSummary: `Observed topic history through sequence ${context.requestedRange.end}.`,
+      }),
+    );
+    completeTurn(threadId, turnId, "completed");
+    return;
+  }
+  completeTurn(threadId, turnId, "failed", `unsupported structured context ${context.kind}`);
+}
+
+function emitStructuredProjection(threadId, turnId, context) {
+  const objective = context.authoritative?.currentInstructions?.objective?.text ?? "topic work";
+  if (objective.includes("narration backlog") && !failedNarratorObjectives.has(objective)) {
+    failedNarratorObjectives.add(objective);
+    completeTurn(threadId, turnId, "failed", "Scripted narrator outage");
+    return;
+  }
+  const observedThroughSequence = context.evaluationRange.end;
+  const output = {
+    currentFocus: `Evaluated ${objective} through sequence ${observedThroughSequence}.`,
+    kind: "working_projection",
+    milestones: [`Narrator evaluated ${objective} through sequence ${observedThroughSequence}.`],
+    observedThroughSequence,
+    topicDescriptor: null,
+  };
+  if (context.requestedChannel === "terminal_projection") {
+    output.kind = "terminal_projection";
+    output.finalSummary = `Narrator completed ${objective}.`;
+  }
+  emitAgentMessage(threadId, turnId, JSON.stringify(output));
   completeTurn(threadId, turnId, "completed");
 }
 
 function emitTurnScenario(threadId, turnId, text) {
   emitTextDelta(threadId, turnId, `Streaming ${text}. `);
+  if (text.includes("narration backlog")) {
+    for (let index = 1; index <= 18; index += 1) {
+      emitTextDelta(threadId, turnId, `backlog-${index.toString().padStart(2, "0")} `.repeat(600));
+    }
+  }
   if (text.includes("hold")) {
     heldTurns.set(turnId, { threadId, text });
     return;

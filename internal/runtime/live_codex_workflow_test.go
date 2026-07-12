@@ -72,6 +72,9 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		if !runtimeTopicTrajectoryHasCompletedText(snapshot, latestTurn.ID) {
 			t.Fatalf("live topic turn %s has no completed public agent text", latestTurn.ID)
 		}
+		if !runtimeTopicHasFinalNarration(snapshot, latestTurn.ID) {
+			t.Fatalf("live topic turn %s has no automatic narrator final summary", latestTurn.ID)
+		}
 		if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID != created.ThreadBinding.ThreadID {
 			t.Fatalf("live topic provider thread changed across turns: before=%+v after=%+v", created.ThreadBinding, snapshot.ThreadBinding)
 		}
@@ -139,8 +142,12 @@ func waitForRuntimeLiveTopicTurns(
 			ConversationID: conversationID,
 		}, http.StatusOK)
 		if len(last.Turns.Turns) == wantTurns {
-			status := last.Turns.Turns[len(last.Turns.Turns)-1].Status
-			if status == conversation.TurnStatusCompleted || status == conversation.TurnStatusFailed || status == conversation.TurnStatusCancelled {
+			latest := last.Turns.Turns[len(last.Turns.Turns)-1]
+			terminal := latest.Status == conversation.TurnStatusCompleted ||
+				latest.Status == conversation.TurnStatusFailed ||
+				latest.Status == conversation.TurnStatusCancelled
+			if terminal && runtimeTopicHasFinalNarration(last, latest.ID) &&
+				last.NarratorState.ObservedThroughSequence == last.Conversation.LastTrajectorySequence {
 				return last
 			}
 		}
@@ -158,6 +165,19 @@ func runtimeTopicTrajectoryHasCompletedText(snapshot conversation.ConversationSn
 		if strings.TrimSpace(event.AgentMessageCompleted.Text) != "" {
 			return true
 		}
+	}
+	return false
+}
+
+func runtimeTopicHasFinalNarration(snapshot conversation.ConversationSnapshot, turnID string) bool {
+	for _, event := range snapshot.Narration.Events {
+		if event.Kind != conversation.NarrationEventKindFinalSummary || event.TurnID == nil ||
+			*event.TurnID != turnID || event.FinalSummary == nil {
+			continue
+		}
+		return strings.TrimSpace(event.FinalSummary.Text) != "" &&
+			event.ResolvedInvocation.Role == conversation.RoleNarrator &&
+			event.ResolvedInvocation.Resolved.ModelID == "gpt-5.4-mini"
 	}
 	return false
 }

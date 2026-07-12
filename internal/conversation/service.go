@@ -31,8 +31,9 @@ type WorkspaceResolver interface {
 type ServiceOption func(*serviceConfig) error
 
 type serviceConfig struct {
-	newID func(string) (string, error)
-	now   func() time.Time
+	newID             func(string) (string, error)
+	narrationObserver NarrationTrajectoryObserver
+	now               func() time.Time
 }
 
 type Service struct {
@@ -41,6 +42,7 @@ type Service struct {
 	workspaces WorkspaceResolver
 	newID      func(string) (string, error)
 	now        func() time.Time
+	narration  NarrationTrajectoryObserver
 
 	createMu sync.Mutex
 	locksMu  sync.Mutex
@@ -100,6 +102,16 @@ func WithServiceClock(now func() time.Time) ServiceOption {
 	}
 }
 
+func WithNarrationTrajectoryObserver(observer NarrationTrajectoryObserver) ServiceOption {
+	return func(config *serviceConfig) error {
+		if observer == nil {
+			return errors.New("conversation narration trajectory observer is required")
+		}
+		config.narrationObserver = observer
+		return nil
+	}
+}
+
 func NewService(
 	store *Store,
 	workspaces WorkspaceResolver,
@@ -125,6 +137,7 @@ func NewService(
 		workspaces:      workspaces,
 		newID:           config.newID,
 		now:             config.now,
+		narration:       config.narrationObserver,
 		locks:           map[string]*sync.Mutex{},
 		active:          map[string]*activeConversationTurn{},
 		lifecycleCtx:    lifecycleCtx,

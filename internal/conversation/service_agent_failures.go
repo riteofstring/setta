@@ -214,6 +214,14 @@ func (service *Service) commitUnexpectedTurnEnd(
 		}
 		return appendPublications(transaction, publications)
 	})
+	if err == nil {
+		service.observeCommittedTrajectory(
+			mutation.conversation,
+			mutation.turn.ID,
+			[]TrajectoryEvent{mutation.trajectory},
+			true,
+		)
+	}
 	return err
 }
 

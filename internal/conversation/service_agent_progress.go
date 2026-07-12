@@ -181,6 +181,14 @@ func (service *Service) commitAgentProgress(
 		}
 		return appendPublications(transaction, publications)
 	})
+	if err == nil {
+		service.observeCommittedTrajectory(
+			mutation.snapshot.Conversation,
+			mutation.turn.ID,
+			mutation.trajectories,
+			false,
+		)
+	}
 	return err
 }
 

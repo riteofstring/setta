@@ -125,6 +125,7 @@ type conversationActor struct {
 	conversationID string
 	worker         Worker
 	retryWait      RetryWait
+	observer       CompletionObserver
 	rootCtx        context.Context
 	rootCancel     context.CancelFunc
 	submissions    chan submission
@@ -136,12 +137,18 @@ type conversationActor struct {
 	workers        sync.WaitGroup
 }
 
-func newConversationActor(conversationID string, worker Worker, retryWait RetryWait) *conversationActor {
+func newConversationActor(
+	conversationID string,
+	worker Worker,
+	retryWait RetryWait,
+	observer CompletionObserver,
+) *conversationActor {
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	actor := &conversationActor{
 		conversationID: conversationID,
 		worker:         worker,
 		retryWait:      retryWait,
+		observer:       observer,
 		rootCtx:        rootCtx,
 		rootCancel:     rootCancel,
 		submissions:    make(chan submission),
@@ -269,23 +276,23 @@ type actorState struct {
 }
 
 func (state *actorState) accept(actor *conversationActor, command submission) {
-	state.enqueue(command.queued)
+	state.enqueue(actor, command.queued)
 	close(command.ack)
 	state.drainReadyWork(actor)
 }
 
 func (state *actorState) acceptQueued(actor *conversationActor, queued queuedRequest) {
-	state.enqueue(queued)
+	state.enqueue(actor, queued)
 	state.drainReadyWork(actor)
 }
 
-func (state *actorState) enqueue(queued queuedRequest) {
+func (state *actorState) enqueue(actor *conversationActor, queued queuedRequest) {
 	priority := requestPriority(queued.request)
 	state.queues[priority] = append(state.queues[priority], queued)
 	if state.active != nil &&
 		state.active.queued.request.Kind == RequestKindCheckpoint &&
 		priority < priorityCheckpoint {
-		state.supersedeCheckpoint()
+		state.supersedeCheckpoint(actor)
 	}
 }
 
@@ -302,10 +309,10 @@ func (state *actorState) drainReadyWork(actor *conversationActor) {
 		case <-actor.stop:
 			return
 		case command := <-actor.submissions:
-			state.enqueue(command.queued)
+			state.enqueue(actor, command.queued)
 			close(command.ack)
 		case retry := <-actor.retries:
-			state.enqueue(retry)
+			state.enqueue(actor, retry)
 		default:
 			state.startNext(actor)
 			return
@@ -322,14 +329,15 @@ func rejectSubmission(command submission, reason error) {
 	))
 }
 
-func (state *actorState) supersedeCheckpoint() {
+func (state *actorState) supersedeCheckpoint(actor *conversationActor) {
 	active := state.active
 	active.cancel()
-	active.queued.receipt.complete(fmt.Errorf(
+	err := fmt.Errorf(
 		"narrator request %s: %w",
 		active.queued.request.ID,
 		ErrCheckpointSuperseded,
-	))
+	)
+	actor.complete(active.queued, err, false)
 	state.active = nil
 }
 
@@ -390,33 +398,48 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 	active.cancel()
 	state.active = nil
 	if result.err != nil {
-		active.queued.receipt.complete(fmt.Errorf(
+		actor.complete(active.queued, fmt.Errorf(
 			"prepare narrator request %s: %w",
 			active.queued.request.ID,
 			result.err,
-		))
+		), false)
 		return
 	}
 	if err := validatePreparedWork(active.queued.request, result.work); err != nil {
-		active.queued.receipt.complete(fmt.Errorf(
+		actor.complete(active.queued, fmt.Errorf(
 			"prepare narrator request %s: %w",
 			active.queued.request.ID,
 			err,
-		))
+		), false)
 		return
 	}
 	if err := result.work.Commit(actor.rootCtx); err != nil {
-		active.queued.receipt.complete(fmt.Errorf(
+		actor.complete(active.queued, fmt.Errorf(
 			"commit narrator request %s: %w",
 			active.queued.request.ID,
 			err,
-		))
+		), false)
 		return
 	}
 	if result.work.Retry != nil {
 		actor.scheduleRetry(*result.work.Retry)
 	}
-	active.queued.receipt.complete(result.work.CompletionError)
+	actor.complete(active.queued, result.work.CompletionError, result.work.Retry != nil)
+}
+
+func (actor *conversationActor) complete(
+	queued queuedRequest,
+	err error,
+	retryScheduled bool,
+) {
+	queued.receipt.complete(err)
+	if actor.observer != nil {
+		actor.observer(Completion{
+			Request:        cloneRequest(queued.request),
+			Err:            err,
+			RetryScheduled: retryScheduled,
+		})
+	}
 }
 
 func validatePreparedWork(request Request, work PreparedWork) error {
@@ -454,13 +477,44 @@ func validateRetryOperation(request Request, retry Request) error {
 		retry.Kind != request.Kind || retry.Trigger != request.Trigger {
 		return errors.New("worker retry changed the conversation operation")
 	}
+	if !sameProjectionOperation(request.Projection, retry.Projection) {
+		return errors.New("worker retry changed the narrator projection operation")
+	}
 	if !sameStatusOperation(request.Status, retry.Status) {
 		return errors.New("worker retry changed the narrator status operation")
+	}
+	if !sameCheckpointOperation(request.Checkpoint, retry.Checkpoint) {
+		return errors.New("worker retry changed the narrator checkpoint operation")
 	}
 	return nil
 }
 
+func sameProjectionOperation(left *ProjectionOperation, right *ProjectionOperation) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
 func sameStatusOperation(left *StatusOperation, right *StatusOperation) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func sameCheckpointOperation(left *CheckpointOperation, right *CheckpointOperation) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	if left.WorkspaceID != right.WorkspaceID || left.ResumeTrigger != right.ResumeTrigger ||
+		!sameOptionalOperationString(left.TurnID, right.TurnID) {
+		return false
+	}
+	return sameProjectionOperation(left.ResumeProjection, right.ResumeProjection)
+}
+
+func sameOptionalOperationString(left *string, right *string) bool {
 	if left == nil || right == nil {
 		return left == nil && right == nil
 	}

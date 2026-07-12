@@ -177,6 +177,7 @@ func assertReloadedServiceState(
 func newConversationServiceTestHarness(
 	t *testing.T,
 	appDataDir string,
+	additionalOptions ...ServiceOption,
 ) (*Store, *Service, *serviceTestAgentRuntime, string) {
 	t.Helper()
 	store, err := NewStore(appDataDir)
@@ -190,13 +191,7 @@ func newConversationServiceTestHarness(
 	idCounts := map[string]int{}
 	var clockMu sync.Mutex
 	now := time.Date(2026, 7, 11, 20, 0, 0, 0, time.UTC)
-	service, err := NewService(
-		store,
-		serviceTestWorkspaceResolver{summary: workspace.WorkspaceSummary{
-			ID:       workspaceID,
-			RootPath: filepath.Clean(workspaceRoot),
-		}},
-		runtime,
+	options := []ServiceOption{
 		WithServiceIDGenerator(func(prefix string) (string, error) {
 			idMu.Lock()
 			defer idMu.Unlock()
@@ -209,6 +204,16 @@ func newConversationServiceTestHarness(
 			now = now.Add(time.Second)
 			return now
 		}),
+	}
+	options = append(options, additionalOptions...)
+	service, err := NewService(
+		store,
+		serviceTestWorkspaceResolver{summary: workspace.WorkspaceSummary{
+			ID:       workspaceID,
+			RootPath: filepath.Clean(workspaceRoot),
+		}},
+		runtime,
+		options...,
 	)
 	if err != nil {
 		t.Fatalf("NewService: %v", err)

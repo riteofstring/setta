@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 
 	"setta/internal/agent"
@@ -112,15 +113,31 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	}
 	codexManager := newCodexManager()
 	agentRuntime := agent.NewRuntime(agent.Config{Manager: codexManager, Version: config.Version})
-	conversationService, err := conversation.NewService(conversationStore, workspaceService, agentRuntime)
-	if err != nil {
-		_ = conversationStore.Close()
-		return runtimeFoundation{}, fmt.Errorf("create conversation service: %w", err)
-	}
 	narratorService, err := narration.NewService(conversationStore, workspaceService, agentRuntime)
 	if err != nil {
 		_ = conversationStore.Close()
 		return runtimeFoundation{}, fmt.Errorf("create narrator service: %w", err)
+	}
+	conversationService, err := conversation.NewService(
+		conversationStore,
+		workspaceService,
+		agentRuntime,
+		conversation.WithNarrationTrajectoryObserver(narratorService),
+	)
+	if err != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+		_ = narratorService.Shutdown(shutdownCtx)
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("create conversation service: %w", err)
+	}
+	if err := narratorService.RecoverCommittedTrajectory(context.Background()); err != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+		_ = conversationService.Shutdown(shutdownCtx)
+		_ = narratorService.Shutdown(shutdownCtx)
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("recover narrator trajectory: %w", err)
 	}
 	return runtimeFoundation{
 		appearanceService:   appearanceService,

@@ -15,8 +15,22 @@ type RetryWait func(context.Context, time.Duration) error
 type RegistryOption func(*registryConfig) error
 
 type registryConfig struct {
-	retryWait RetryWait
+	completionObserver CompletionObserver
+	retryWait          RetryWait
 }
+
+// Completion reports the durable outcome of one mailbox attempt. Retries are
+// reported independently, allowing the production projector to continue a
+// multi-window catch-up only after the exact retry eventually succeeds.
+type Completion struct {
+	Request        Request
+	Err            error
+	RetryScheduled bool
+}
+
+// CompletionObserver must return promptly. The production observer only
+// admits bounded follow-up work onto its own lifecycle goroutines.
+type CompletionObserver func(Completion)
 
 func WithRetryWait(wait RetryWait) RegistryOption {
 	return func(config *registryConfig) error {
@@ -28,12 +42,23 @@ func WithRetryWait(wait RetryWait) RegistryOption {
 	}
 }
 
+func WithCompletionObserver(observer CompletionObserver) RegistryOption {
+	return func(config *registryConfig) error {
+		if observer == nil {
+			return errors.New("narrator completion observer is required")
+		}
+		config.completionObserver = observer
+		return nil
+	}
+}
+
 // Registry lazily creates exactly one mailbox actor for each conversation.
 // Worker.Prepare may run concurrently for different conversations, while each
 // conversation's prepared commits remain serialized by its actor.
 type Registry struct {
 	worker    Worker
 	retryWait RetryWait
+	observer  CompletionObserver
 	mu        sync.Mutex
 	actors    map[string]*conversationActor
 	closed    bool
@@ -55,6 +80,7 @@ func NewRegistry(worker Worker, options ...RegistryOption) (*Registry, error) {
 	return &Registry{
 		worker:    worker,
 		retryWait: config.retryWait,
+		observer:  config.completionObserver,
 		actors:    map[string]*conversationActor{},
 	}, nil
 }
@@ -74,7 +100,12 @@ func (registry *Registry) Submit(ctx context.Context, request Request) (*Receipt
 	}
 	actor := registry.actors[request.ConversationID]
 	if actor == nil {
-		actor = newConversationActor(request.ConversationID, registry.worker, registry.retryWait)
+		actor = newConversationActor(
+			request.ConversationID,
+			registry.worker,
+			registry.retryWait,
+			registry.observer,
+		)
 		registry.actors[request.ConversationID] = actor
 	}
 	registry.mu.Unlock()

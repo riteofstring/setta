@@ -678,7 +678,17 @@ func projectionRequest(
 	conversationID string,
 	trigger conversation.NarrationTrigger,
 ) Request {
-	return Request{ID: id, ConversationID: conversationID, Kind: RequestKindProjection, Trigger: trigger}
+	return Request{
+		ID:             id,
+		ConversationID: conversationID,
+		Kind:           RequestKindProjection,
+		Trigger:        trigger,
+		Projection: &ProjectionOperation{
+			WorkspaceID:     "workspace-projection",
+			TurnID:          "turn-projection",
+			ThroughSequence: 1,
+		},
+	}
 }
 
 func statusRequest(id string, conversationID string) Request {
@@ -696,10 +706,15 @@ func statusRequest(id string, conversationID string) Request {
 
 func retryRequest(id string, conversationID string) Request {
 	return Request{
-		ID:               id,
-		ConversationID:   conversationID,
-		Kind:             RequestKindProjection,
-		Trigger:          conversation.NarrationTriggerPhaseActivityCompleted,
+		ID:             id,
+		ConversationID: conversationID,
+		Kind:           RequestKindProjection,
+		Trigger:        conversation.NarrationTriggerPhaseActivityCompleted,
+		Projection: &ProjectionOperation{
+			WorkspaceID:     "workspace-projection",
+			TurnID:          "turn-projection",
+			ThroughSequence: 1,
+		},
 		RecoverableRetry: true,
 		RetryAttempt:     1,
 	}
@@ -711,6 +726,9 @@ func checkpointRequest(id string, conversationID string) Request {
 		ConversationID: conversationID,
 		Kind:           RequestKindCheckpoint,
 		Trigger:        conversation.NarrationTriggerCheckpointWindowExceeded,
+		Checkpoint: &CheckpointOperation{
+			WorkspaceID: "workspace-checkpoint",
+		},
 	}
 }
 
