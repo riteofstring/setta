@@ -400,7 +400,7 @@ func (store *Store) readRecoverableSideConversations(ctx context.Context) ([]rec
 		rows, err := connection.QueryContext(ctx, `
 SELECT parent.workspace_id, parent.status,
        side.id, side.parent_conversation_id, side.parent_pane_id,
-       side.provider_thread_id, side.source_provider_thread_id,
+       side.decision_source, side.provider_thread_id, side.source_provider_thread_id,
        side.source_provider_turn_id, side.source_trajectory_sequence,
        side.last_event_sequence, side.active_turn_id, side.active_provider_turn_id,
        side.status, side.resolved_side_agent_invocation_json,
@@ -429,6 +429,7 @@ ORDER BY side.created_at, side.id
 				&record.Side.ID,
 				&record.Side.ParentConversationID,
 				&record.Side.ParentPaneID,
+				&record.Side.DecisionSource,
 				&providerThreadID,
 				&record.Side.SourceProviderThreadID,
 				&sourceProviderTurnID,

@@ -10,11 +10,9 @@ import (
 )
 
 const (
-	branchMetadataDecisionSource         = "decisionSource"
 	branchMetadataProviderForkThreadID   = "providerForkThreadId"
 	branchMetadataSourceProviderThreadID = "sourceProviderThreadId"
 	branchMetadataSourceProviderTurnID   = "sourceProviderTurnId"
-	branchDecisionSourceExplicit         = "explicit"
 )
 
 // ForkTopic creates an independent durable conversation from parent history
@@ -27,12 +25,31 @@ func (service *Service) ForkTopic(
 	forkedAtTurnID string,
 	title string,
 ) (ConversationSnapshot, error) {
-	if err := service.requireOpen(); err != nil {
-		return ConversationSnapshot{}, err
-	}
-	if err := validateDurableForkInput(parentConversationID, forkedAtTurnID, title); err != nil {
-		return ConversationSnapshot{}, err
-	}
+	return service.ExecuteBranchDecision(
+		ctx,
+		workspaceID,
+		BranchDecisionExecutionScope{
+			ParentConversationID: parentConversationID,
+			Source:               BranchDecisionSourceExplicit,
+		},
+		BranchDecision{
+			Kind: BranchDecisionKindForkConversation,
+			ForkConversation: &ForkConversationBranchDecision{
+				ForkedAtTurnID: forkedAtTurnID,
+				ProposedTitle:  title,
+			},
+		},
+	)
+}
+
+func (service *Service) executeDurableForkDecision(
+	ctx context.Context,
+	workspaceID string,
+	parentConversationID string,
+	forkedAtTurnID string,
+	title string,
+	decisionSource BranchDecisionSource,
+) (ConversationSnapshot, error) {
 	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
 	if err != nil {
 		return ConversationSnapshot{}, err
@@ -93,10 +110,10 @@ func (service *Service) ForkTopic(
 		ChildConversationID:      childConversationID,
 		ParentConversationID:     parentConversationID,
 		Kind:                     BranchKindFork,
+		DecisionSource:           decisionSource,
 		ForkedAtTurnID:           forkedAtTurnID,
 		SourceTrajectorySequence: source.trajectorySequence,
 		ProviderMetadata: map[string]string{
-			branchMetadataDecisionSource:         branchDecisionSourceExplicit,
 			branchMetadataProviderForkThreadID:   thread.ID,
 			branchMetadataSourceProviderThreadID: source.providerThreadID,
 			branchMetadataSourceProviderTurnID:   source.providerTurnID,
@@ -150,16 +167,6 @@ func (service *Service) resolveDurableForkInvocation(ctx context.Context) (agent
 		return agent.Invocation{}, fmt.Errorf("resolve durable fork agent profile: %w", err)
 	}
 	return invocation, nil
-}
-
-func validateDurableForkInput(parentConversationID string, forkedAtTurnID string, title string) error {
-	if err := validateIdentifier("fork parent conversation id", parentConversationID); err != nil {
-		return err
-	}
-	if err := validateIdentifier("fork source turn id", forkedAtTurnID); err != nil {
-		return err
-	}
-	return validateTopicTitle(title)
 }
 
 type durableForkSource struct {

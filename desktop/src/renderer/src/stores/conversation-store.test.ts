@@ -789,6 +789,7 @@ function branch(conversationId: string): ConversationBranch {
   return {
     childConversationId: conversationId,
     createdAt: timestamp,
+    decisionSource: "explicit",
     forkedAtTurnId: "turn_parent",
     kind: "fork",
     parentConversationId: "conversation_parent",
@@ -802,6 +803,7 @@ function sideConversation(conversationId: string): SideConversation {
     activeProviderTurnId: null,
     activeTurnId: null,
     createdAt: timestamp,
+    decisionSource: "conversation_router",
     disposedAt: null,
     failure: null,
     id: "side_a",

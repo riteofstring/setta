@@ -15,13 +15,14 @@ const (
 )
 
 type ConversationBranch struct {
-	ChildConversationID      string            `json:"childConversationId"`
-	ParentConversationID     string            `json:"parentConversationId"`
-	Kind                     BranchKind        `json:"kind"`
-	ForkedAtTurnID           string            `json:"forkedAtTurnId"`
-	SourceTrajectorySequence int               `json:"sourceTrajectorySequence"`
-	ProviderMetadata         map[string]string `json:"providerMetadata"`
-	CreatedAt                string            `json:"createdAt"`
+	ChildConversationID      string               `json:"childConversationId"`
+	ParentConversationID     string               `json:"parentConversationId"`
+	Kind                     BranchKind           `json:"kind"`
+	DecisionSource           BranchDecisionSource `json:"decisionSource"`
+	ForkedAtTurnID           string               `json:"forkedAtTurnId"`
+	SourceTrajectorySequence int                  `json:"sourceTrajectorySequence"`
+	ProviderMetadata         map[string]string    `json:"providerMetadata"`
+	CreatedAt                string               `json:"createdAt"`
 }
 
 type SideConversation struct {
@@ -29,6 +30,7 @@ type SideConversation struct {
 	ParentConversationID        string                 `json:"parentConversationId"`
 	ParentPaneID                string                 `json:"parentPaneId"`
 	ParentStatus                ConversationStatus     `json:"parentStatus"`
+	DecisionSource              BranchDecisionSource   `json:"decisionSource"`
 	ProviderThreadID            *string                `json:"providerThreadId"`
 	SourceProviderThreadID      string                 `json:"sourceProviderThreadId"`
 	SourceProviderTurnID        *string                `json:"sourceProviderTurnId"`
@@ -56,6 +58,9 @@ func (branch ConversationBranch) Validate() error {
 	}
 	if branch.Kind != BranchKindFork {
 		return fmt.Errorf("branch %s has unsupported kind %q", branch.ChildConversationID, branch.Kind)
+	}
+	if !validBranchDecisionSource(branch.DecisionSource) {
+		return fmt.Errorf("branch %s has unsupported decision source %q", branch.ChildConversationID, branch.DecisionSource)
 	}
 	if err := validateIdentifier("branch forked-at turn id", branch.ForkedAtTurnID); err != nil {
 		return err
@@ -98,6 +103,9 @@ func validateSideConversationIdentity(side SideConversation) error {
 	}
 	if !validSideConversationStatus(side.Status) {
 		return fmt.Errorf("side conversation %s has unsupported status %q", side.ID, side.Status)
+	}
+	if !validBranchDecisionSource(side.DecisionSource) {
+		return fmt.Errorf("side conversation %s has unsupported decision source %q", side.ID, side.DecisionSource)
 	}
 	return validateSideConversationSequenceState(side)
 }

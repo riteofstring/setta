@@ -251,7 +251,7 @@ func assertDurableForkSnapshot(
 		branch.ParentConversationID != parent.Conversation.ID ||
 		branch.ForkedAtTurnID != sourceTurn.ID ||
 		branch.SourceTrajectorySequence != turnTrajectoryBoundary(parent, sourceTurn.ID) ||
-		branch.ProviderMetadata[branchMetadataDecisionSource] != branchDecisionSourceExplicit ||
+		branch.DecisionSource != BranchDecisionSourceExplicit ||
 		branch.ProviderMetadata[branchMetadataProviderForkThreadID] != child.ThreadBinding.ThreadID {
 		t.Fatalf("durable fork lineage = %+v", branch)
 	}

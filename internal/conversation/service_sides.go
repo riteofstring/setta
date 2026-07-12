@@ -56,12 +56,28 @@ func (service *Service) CreateSideConversation(
 	parentConversationID string,
 	parentPaneID string,
 ) (ConversationSnapshot, error) {
-	if err := service.requireOpen(); err != nil {
-		return ConversationSnapshot{}, err
-	}
-	if err := validateSideConversationRequest(parentConversationID, parentPaneID); err != nil {
-		return ConversationSnapshot{}, err
-	}
+	return service.ExecuteBranchDecision(
+		ctx,
+		workspaceID,
+		BranchDecisionExecutionScope{
+			ParentConversationID: parentConversationID,
+			ParentPaneID:         &parentPaneID,
+			Source:               BranchDecisionSourceExplicit,
+		},
+		BranchDecision{
+			Kind:                   BranchDecisionKindCreateSideConversation,
+			CreateSideConversation: &CreateSideConversationBranchDecision{},
+		},
+	)
+}
+
+func (service *Service) executeSideConversationDecision(
+	ctx context.Context,
+	workspaceID string,
+	parentConversationID string,
+	parentPaneID string,
+	decisionSource BranchDecisionSource,
+) (ConversationSnapshot, error) {
 	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
 	if err != nil {
 		return ConversationSnapshot{}, err
@@ -83,6 +99,7 @@ func (service *Service) CreateSideConversation(
 		profile,
 		resolved,
 		invocation,
+		decisionSource,
 	)
 	if err != nil {
 		return ConversationSnapshot{}, err
@@ -304,6 +321,7 @@ func (service *Service) persistPreparingSideConversation(
 	profile RoleProfile,
 	resolved agent.ResolvedInvocation,
 	invocation agent.Invocation,
+	decisionSource BranchDecisionSource,
 ) (preparedSideConversation, error) {
 	lock := service.conversationLock(parentConversationID)
 	lock.Lock()
@@ -351,6 +369,7 @@ func (service *Service) persistPreparingSideConversation(
 		ParentConversationID:     parentConversationID,
 		ParentPaneID:             parentPaneID,
 		ParentStatus:             snapshot.Conversation.Status,
+		DecisionSource:           decisionSource,
 		SourceProviderThreadID:   snapshot.ThreadBinding.ThreadID,
 		SourceProviderTurnID:     latestProviderTurnID(snapshot.Turns.Turns),
 		SourceTrajectorySequence: snapshot.Conversation.LastTrajectorySequence,

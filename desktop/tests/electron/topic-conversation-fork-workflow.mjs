@@ -447,11 +447,7 @@ function assertForkBranchFields(branch, forked, parent, sourceTurn, context) {
 }
 
 function assertForkProviderFields(branch, forked, context) {
-  assertForkField(
-    branch?.providerMetadata?.decisionSource === "explicit",
-    "decision source",
-    context,
-  );
+  assertForkField(branch?.decisionSource === "explicit", "decision source", context);
   assertForkField(
     branch?.providerMetadata?.providerForkThreadId === forked.threadBinding?.threadId,
     "provider fork thread",
@@ -600,6 +596,7 @@ function assertEphemeralSideCreation(created, parent, paneId) {
     "side parent drifted",
     context,
   );
+  assertCondition(side.decisionSource === "explicit", "side decision source drifted", context);
   assertCondition(
     side.parentStatus === parent.conversation.status &&
       side.sourceProviderThreadId === parent.threadBinding?.threadId,

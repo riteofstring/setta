@@ -33,7 +33,8 @@ export async function verifySideConversationRestart({
     (snapshot) =>
       snapshot.eventCursor.sequence === alphaForkTerminalSnapshot.eventCursor.sequence &&
       snapshot.turns.turns[0]?.status === "completed" &&
-      snapshot.branch?.parentConversationId === alpha.id,
+      snapshot.branch?.parentConversationId === alpha.id &&
+      snapshot.branch?.decisionSource === "explicit",
   );
   const alphaSideReloadedSnapshot = await waitForConversationSnapshot(
     backend,
@@ -44,6 +45,7 @@ export async function verifySideConversationRestart({
         (side) =>
           side.id === alphaSide.id &&
           side.status === "disposing" &&
+          side.decisionSource === "explicit" &&
           side.disposedAt !== null &&
           side.providerThreadId === alphaSide.providerThreadId,
       ),
@@ -57,6 +59,7 @@ export async function verifySideConversationRestart({
         (side) =>
           side.id === alphaRestartSide.id &&
           side.status === "active" &&
+          side.decisionSource === "explicit" &&
           side.disposedAt === null &&
           side.activeTurnId !== null &&
           side.activeProviderTurnId !== null,
@@ -91,6 +94,7 @@ export async function verifySideConversationRestart({
           (side) =>
             side.id === alphaRestartSide.id &&
             side.status === "disposing" &&
+            side.decisionSource === "explicit" &&
             side.disposedAt !== null &&
             side.resolvedSideAgentInvocation.outcome === "cancelled",
         ) &&

@@ -856,17 +856,6 @@ type ContractUnionVariant struct {
 	Type      reflect.Type
 }
 
-type ContractTaggedUnion struct {
-	Discriminator string
-	Type          reflect.Type
-	Branches      []ContractTaggedUnionBranch
-}
-
-type ContractTaggedUnionBranch struct {
-	Field     string
-	KindValue string
-}
-
 func ContractUnions() []ContractUnion {
 	return []ContractUnion{{
 		Discriminator: "type",
@@ -941,6 +930,14 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 				{Field: "topicDescriptor", KindValue: string(NarrationEventKindTopicDescriptor)},
 			},
 		},
+		{
+			Discriminator: "kind",
+			Type:          reflect.TypeFor[BranchDecision](),
+			Branches: []ContractTaggedUnionBranch{
+				{Field: "createSideConversation", KindValue: string(BranchDecisionKindCreateSideConversation)},
+				{Field: "forkConversation", KindValue: string(BranchDecisionKindForkConversation)},
+			},
+		},
 	}
 }
 
@@ -962,6 +959,8 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("ToolAccessMode", ToolAccessAll, ToolAccessAllowlist, ToolAccessNone),
 		contractValueSet("InvocationOutcome", InvocationOutcomeRunning, InvocationOutcomeSucceeded, InvocationOutcomeFailed, InvocationOutcomeCancelled),
 		contractValueSet("BranchKind", BranchKindFork),
+		contractValueSet("BranchDecisionKind", BranchDecisionKindCreateSideConversation, BranchDecisionKindForkConversation),
+		contractValueSet("BranchDecisionSource", BranchDecisionSourceExplicit, BranchDecisionSourceConversationRouter, BranchDecisionSourceMaster),
 		contractValueSet("SideConversationStatus", SideConversationStatusPreparing, SideConversationStatusActive, SideConversationStatusDisposing, SideConversationStatusFailed),
 		contractValueSet("NarratorStatus", NarratorStatusReady, NarratorStatusRunning, NarratorStatusDegraded),
 		contractValueSet("NarrationEventKind", NarrationEventKindMilestone, NarrationEventKindStatusReply, NarrationEventKindFinalSummary, NarrationEventKindTopicDescriptor),

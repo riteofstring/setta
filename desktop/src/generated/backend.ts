@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 30;
-export const backendContractSchemaHash = "sha256:6f960c3819a7530cdd85fb97a92e94e4d0d633666be8aca94b7432bd58e7b66d";
+export const backendProtocolVersion = 31;
+export const backendContractSchemaHash = "sha256:43c36ba0245442297d1998ba2107d4eb32a18274ea91e18dbcf672d711f1a4f8";
 
 export type DeviceScope = "full";
 
@@ -1421,6 +1421,24 @@ export function decodeBranchKind(value: unknown, label = "BranchKind"): BranchKi
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "fork":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type BranchDecisionSource = "explicit" | "conversation_router" | "master";
+
+export const branchDecisionSourceValues = ["explicit", "conversation_router", "master"] as const satisfies readonly BranchDecisionSource[];
+
+export function decodeBranchDecisionSource(value: unknown, label = "BranchDecisionSource"): BranchDecisionSource {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "explicit":
+      return decoded;
+    case "conversation_router":
+      return decoded;
+    case "master":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -4743,6 +4761,7 @@ export interface ConversationBranch {
   childConversationId: string;
   parentConversationId: string;
   kind: BranchKind;
+  decisionSource: BranchDecisionSource;
   forkedAtTurnId: string;
   sourceTrajectorySequence: number;
   providerMetadata: Record<string, string>;
@@ -4754,6 +4773,7 @@ export interface SideConversation {
   parentConversationId: string;
   parentPaneId: string;
   parentStatus: ConversationStatus;
+  decisionSource: BranchDecisionSource;
   providerThreadId: string | null;
   sourceProviderThreadId: string;
   sourceProviderTurnId: string | null;
@@ -10920,11 +10940,12 @@ export function decodeConversationPresentationProfile(value: unknown): Conversat
 
 export function decodeConversationBranch(value: unknown): ConversationBranch {
   const record = assertRecord(value, "ConversationBranch");
-  assertKnownFields(record, "ConversationBranch", ["childConversationId", "parentConversationId", "kind", "forkedAtTurnId", "sourceTrajectorySequence", "providerMetadata", "createdAt"]);
+  assertKnownFields(record, "ConversationBranch", ["childConversationId", "parentConversationId", "kind", "decisionSource", "forkedAtTurnId", "sourceTrajectorySequence", "providerMetadata", "createdAt"]);
   return {
     childConversationId: decodeString(requireField(record, "childConversationId", "ConversationBranch"), "ConversationBranch.childConversationId"),
     parentConversationId: decodeString(requireField(record, "parentConversationId", "ConversationBranch"), "ConversationBranch.parentConversationId"),
     kind: decodeBranchKind(requireField(record, "kind", "ConversationBranch"), "ConversationBranch.kind"),
+    decisionSource: decodeBranchDecisionSource(requireField(record, "decisionSource", "ConversationBranch"), "ConversationBranch.decisionSource"),
     forkedAtTurnId: decodeString(requireField(record, "forkedAtTurnId", "ConversationBranch"), "ConversationBranch.forkedAtTurnId"),
     sourceTrajectorySequence: decodeInteger(requireField(record, "sourceTrajectorySequence", "ConversationBranch"), "ConversationBranch.sourceTrajectorySequence"),
     providerMetadata: decodeStringRecord(requireField(record, "providerMetadata", "ConversationBranch"), "ConversationBranch.providerMetadata"),
@@ -10934,12 +10955,13 @@ export function decodeConversationBranch(value: unknown): ConversationBranch {
 
 export function decodeSideConversation(value: unknown): SideConversation {
   const record = assertRecord(value, "SideConversation");
-  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentPaneId", "parentStatus", "providerThreadId", "sourceProviderThreadId", "sourceProviderTurnId", "sourceTrajectorySequence", "lastEventSequence", "activeTurnId", "activeProviderTurnId", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
+  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentPaneId", "parentStatus", "decisionSource", "providerThreadId", "sourceProviderThreadId", "sourceProviderTurnId", "sourceTrajectorySequence", "lastEventSequence", "activeTurnId", "activeProviderTurnId", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
   return {
     id: decodeString(requireField(record, "id", "SideConversation"), "SideConversation.id"),
     parentConversationId: decodeString(requireField(record, "parentConversationId", "SideConversation"), "SideConversation.parentConversationId"),
     parentPaneId: decodeString(requireField(record, "parentPaneId", "SideConversation"), "SideConversation.parentPaneId"),
     parentStatus: decodeConversationStatus(requireField(record, "parentStatus", "SideConversation"), "SideConversation.parentStatus"),
+    decisionSource: decodeBranchDecisionSource(requireField(record, "decisionSource", "SideConversation"), "SideConversation.decisionSource"),
     providerThreadId: decodeNullable(requireField(record, "providerThreadId", "SideConversation"), "SideConversation.providerThreadId", (item) => decodeString(item, "SideConversation.providerThreadId")),
     sourceProviderThreadId: decodeString(requireField(record, "sourceProviderThreadId", "SideConversation"), "SideConversation.sourceProviderThreadId"),
     sourceProviderTurnId: decodeNullable(requireField(record, "sourceProviderTurnId", "SideConversation"), "SideConversation.sourceProviderTurnId", (item) => decodeString(item, "SideConversation.sourceProviderTurnId")),

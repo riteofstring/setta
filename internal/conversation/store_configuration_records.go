@@ -46,13 +46,14 @@ func (transaction *WriteTransaction) InsertConversationBranch(branch Conversatio
 	_, err = transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO conversation_branches (
   child_conversation_id, parent_conversation_id, branch_kind,
-  forked_at_turn_id, source_trajectory_sequence, provider_metadata_json,
-  created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?)
+  decision_source, forked_at_turn_id, source_trajectory_sequence,
+  provider_metadata_json, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		branch.ChildConversationID,
 		branch.ParentConversationID,
 		branch.Kind,
+		branch.DecisionSource,
 		branch.ForkedAtTurnID,
 		branch.SourceTrajectorySequence,
 		providerMetadataJSON,
@@ -89,16 +90,17 @@ func (transaction *WriteTransaction) InsertSideConversation(side SideConversatio
 	}
 	_, err = transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO side_conversations (
-  id, parent_conversation_id, parent_pane_id, provider_thread_id,
+  id, parent_conversation_id, parent_pane_id, decision_source, provider_thread_id,
   source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
   last_event_sequence, active_turn_id, active_provider_turn_id, status,
   resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
   failure_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		side.ID,
 		side.ParentConversationID,
 		side.ParentPaneID,
+		side.DecisionSource,
 		nullableString(side.ProviderThreadID),
 		side.SourceProviderThreadID,
 		nullableString(side.SourceProviderTurnID),
@@ -146,6 +148,7 @@ SET provider_thread_id = ?, source_provider_turn_id = ?, last_event_sequence = ?
 WHERE id = ?
   AND parent_conversation_id = ?
   AND parent_pane_id = ?
+  AND decision_source = ?
   AND source_provider_thread_id = ?
   AND source_trajectory_sequence = ?
   AND created_at = ?
@@ -165,6 +168,7 @@ WHERE id = ?
 		side.ID,
 		side.ParentConversationID,
 		side.ParentPaneID,
+		side.DecisionSource,
 		side.SourceProviderThreadID,
 		side.SourceTrajectorySequence,
 		side.CreatedAt,

@@ -159,6 +159,7 @@ SELECT
   branch.child_conversation_id,
   branch.parent_conversation_id,
   branch.branch_kind,
+  branch.decision_source,
   branch.forked_at_turn_id,
   branch.source_trajectory_sequence,
   branch.provider_metadata_json,
@@ -226,6 +227,7 @@ type navigatorRow struct {
 	branchChildConversationID      sql.NullString
 	branchParentConversationID     sql.NullString
 	branchKind                     sql.NullString
+	branchDecisionSource           sql.NullString
 	branchForkedAtTurnID           sql.NullString
 	branchSourceTrajectorySequence sql.NullInt64
 	branchProviderMetadataJSON     sql.NullString
@@ -261,6 +263,7 @@ func scanNavigatorItems(rows *sql.Rows, dbPath string) ([]NavigatorItem, error) 
 			&row.branchChildConversationID,
 			&row.branchParentConversationID,
 			&row.branchKind,
+			&row.branchDecisionSource,
 			&row.branchForkedAtTurnID,
 			&row.branchSourceTrajectorySequence,
 			&row.branchProviderMetadataJSON,
@@ -342,6 +345,7 @@ func navigatorBranch(row navigatorRow) (*ConversationBranch, error) {
 		return nil, nil
 	}
 	if !row.branchParentConversationID.Valid || !row.branchKind.Valid ||
+		!row.branchDecisionSource.Valid ||
 		!row.branchForkedAtTurnID.Valid || !row.branchSourceTrajectorySequence.Valid ||
 		!row.branchProviderMetadataJSON.Valid || !row.branchCreatedAt.Valid {
 		return nil, errors.New("branch contains null required fields")
@@ -354,6 +358,7 @@ func navigatorBranch(row navigatorRow) (*ConversationBranch, error) {
 		ChildConversationID:      row.branchChildConversationID.String,
 		ParentConversationID:     row.branchParentConversationID.String,
 		Kind:                     BranchKind(row.branchKind.String),
+		DecisionSource:           BranchDecisionSource(row.branchDecisionSource.String),
 		ForkedAtTurnID:           row.branchForkedAtTurnID.String,
 		SourceTrajectorySequence: int(row.branchSourceTrajectorySequence.Int64),
 		ProviderMetadata:         metadata,

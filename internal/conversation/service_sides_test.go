@@ -314,6 +314,7 @@ func prepareSideBeforeParentStartsWorking(
 		profile,
 		resolved,
 		invocation,
+		BranchDecisionSourceExplicit,
 	)
 	if err != nil {
 		t.Fatalf("persistPreparingSideConversation: %v", err)
@@ -568,6 +569,7 @@ func assertActiveSideLinkage(t *testing.T, side SideConversation, parent Convers
 	parentTurn := latestSnapshotTurn(parent)
 	if side.ParentConversationID != parent.Conversation.ID ||
 		side.ParentPaneID != "pane-side" ||
+		side.DecisionSource != BranchDecisionSourceExplicit ||
 		side.SourceTrajectorySequence != parent.Conversation.LastTrajectorySequence ||
 		side.SourceProviderTurnID == nil ||
 		parentTurn.ProviderTurnID == nil ||

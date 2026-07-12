@@ -575,9 +575,10 @@ func (service *httpTestConversationService) ForkTopic(
 		ChildConversationID:      forked.Conversation.ID,
 		ParentConversationID:     parentConversationID,
 		Kind:                     conversation.BranchKindFork,
+		DecisionSource:           conversation.BranchDecisionSourceExplicit,
 		ForkedAtTurnID:           forkedAtTurnID,
 		SourceTrajectorySequence: 0,
-		ProviderMetadata:         map[string]string{"decisionSource": "explicit"},
+		ProviderMetadata:         map[string]string{},
 		CreatedAt:                httpConversationTestTime,
 	}
 	forked.EventCursor.StreamID = "conversation:" + forked.Conversation.ID
