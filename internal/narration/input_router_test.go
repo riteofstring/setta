@@ -3,6 +3,7 @@ package narration
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -245,6 +246,30 @@ func TestConversationInputRouterPersistsInvalidOutputFailureAndRetriesExplicitly
 	if recovered.Input.Status != conversation.ConversationInputStatusDispatched ||
 		recovered.Input.RoutingAttempt != 2 || len(recovered.Decisions) != 1 {
 		t.Fatalf("recovered router state = %+v", recovered)
+	}
+}
+
+func TestConversationInputRouterClassifiesCommandIDFailureAsInternal(t *testing.T) {
+	fixture := newStatusServiceFixture(t, nil)
+	router := configuredFixtureInputRouter(fixture.service.inputRouter)
+	generatedID := router.newID
+	router.newID = func(prefix string) (string, error) {
+		if prefix == "conversation_turn" {
+			return "", errors.New("id source unavailable")
+		}
+		return generatedID(prefix)
+	}
+	inputService := fixtureInputService(t, fixture.store)
+	accepted := submitFixtureRouteInput(t, inputService, fixture.conversationID, "input-route-id-failure", nil)
+
+	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
+		t.Fatalf("ProcessNext = %t, %v", processed, err)
+	}
+	failed := readFixtureRoutingState(t, fixture, accepted.Input.ID)
+	if failed.Input.Status != conversation.ConversationInputStatusFailed || failed.Input.Failure == nil ||
+		failed.Input.Failure.Code != "conversation_router_internal_error" ||
+		!failed.Input.Failure.Retryable || len(failed.Decisions) != 0 {
+		t.Fatalf("command id failure state = %+v", failed)
 	}
 }
 

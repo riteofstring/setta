@@ -70,6 +70,49 @@ func TestConversationRouteDecisionRejectsCrossKindAndRewrittenCommands(t *testin
 	assertValidationErrorContains(t, oversized.Validate(), "exceeds")
 }
 
+func TestConversationRouteDecisionRejectsUnsafeOrIncompleteRouterInvocationAudit(t *testing.T) {
+	decision, command := validConversationRouteDecisionAndCommand(
+		ConversationRouteDecisionKindSendToParent,
+		"Route this request safely.",
+	)
+	tests := []struct {
+		name   string
+		want   string
+		mutate func(*ResolvedInvocation)
+	}{
+		{
+			name: "unrestricted permissions",
+			want: "restricted narrator permission profile",
+			mutate: func(invocation *ResolvedInvocation) {
+				permission := validRoleProfile(RoleAgent).PermissionProfile
+				invocation.Requested.PermissionProfile = permission
+				invocation.Resolved.PermissionProfile = permission
+			},
+		},
+		{
+			name: "missing input usage",
+			want: "positive input and output byte usage",
+			mutate: func(invocation *ResolvedInvocation) {
+				invocation.ContextUsage.InputBytes = 0
+			},
+		},
+		{
+			name: "missing provider request",
+			want: "provider thread, turn, and request references",
+			mutate: func(invocation *ResolvedInvocation) {
+				invocation.ProviderReferences.RequestID = nil
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			commit := validConversationRouteDecisionCommit("decision_audit", decision, command)
+			test.mutate(commit.ResolvedInvocation)
+			assertValidationErrorContains(t, commit.Validate(), test.want)
+		})
+	}
+}
+
 func TestConversationRouteDecisionJSONContainsNoProviderPaneOrGlobalAuthority(t *testing.T) {
 	decision, _ := validConversationRouteDecisionAndCommand(
 		ConversationRouteDecisionKindForkConversation,

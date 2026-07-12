@@ -61,7 +61,33 @@ func validateRouterConversationRouteDecisionAudit(
 	if resolvedInvocation.Role != RoleNarrator || resolvedInvocation.Outcome != InvocationOutcomeSucceeded {
 		return errors.New("conversation-router decision requires a successful narrator invocation")
 	}
+	return validateConversationRouterInvocationAudit(*resolvedInvocation)
+}
+
+func validateConversationRouterInvocationAudit(invocation ResolvedInvocation) error {
+	expectedPermission := DefaultNarratorRoleProfile().PermissionProfile
+	if !equalConversationRouterPermission(invocation.Requested.PermissionProfile, expectedPermission) ||
+		!equalConversationRouterPermission(invocation.Resolved.PermissionProfile, expectedPermission) {
+		return errors.New("conversation-router invocation must use the restricted narrator permission profile")
+	}
+	if invocation.ContextUsage.InputBytes <= 0 || invocation.ContextUsage.OutputBytes <= 0 {
+		return errors.New("conversation-router invocation must record positive input and output byte usage")
+	}
+	if invocation.ProviderReferences.ThreadID == nil ||
+		invocation.ProviderReferences.TurnID == nil ||
+		invocation.ProviderReferences.RequestID == nil {
+		return errors.New("conversation-router invocation must record provider thread, turn, and request references")
+	}
 	return nil
+}
+
+func equalConversationRouterPermission(left PermissionProfile, right PermissionProfile) bool {
+	return left.ApprovalPolicy == right.ApprovalPolicy &&
+		left.ProviderPermissionProfile == right.ProviderPermissionProfile &&
+		left.ToolAccess.Mode == right.ToolAccess.Mode &&
+		len(left.ToolAccess.AllowedTools) == 0 && len(right.ToolAccess.AllowedTools) == 0 &&
+		left.WorkspaceMutation == right.WorkspaceMutation &&
+		left.Approvals == right.Approvals
 }
 
 func (audit ConversationRouteContextAudit) Validate() error {

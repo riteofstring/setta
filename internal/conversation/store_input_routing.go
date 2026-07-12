@@ -395,6 +395,9 @@ func prepareConversationRouteDecisionCommit(
 	if err := validateConversationRouteMode(root.Accepted.Input, commit); err != nil {
 		return conversationInputRecord{}, conversationInputRecord{}, err
 	}
+	if err := validateConversationRouteAuditInputSequences(root, active, commit); err != nil {
+		return conversationInputRecord{}, conversationInputRecord{}, err
+	}
 	if priorClarification != nil && commit.Decision.Kind == ConversationRouteDecisionKindClarify {
 		return conversationInputRecord{}, conversationInputRecord{}, stateConflict(
 			"conversation input",
@@ -413,6 +416,35 @@ func prepareConversationRouteDecisionCommit(
 		return conversationInputRecord{}, conversationInputRecord{}, err
 	}
 	return root, active, nil
+}
+
+func validateConversationRouteAuditInputSequences(
+	root conversationInputRecord,
+	active conversationInputRecord,
+	commit ConversationRouteDecisionCommit,
+) error {
+	if commit.Source != ConversationRouteDecisionSourceRouter {
+		return nil
+	}
+	if commit.RouterContext.InputSequence != root.Accepted.Sequence {
+		return stateConflict(
+			"conversation route decision",
+			commit.ID,
+			"router context input sequence does not match the durable routed input",
+		)
+	}
+	if commit.ClarificationInputID == nil {
+		return nil
+	}
+	if commit.RouterContext.ClarificationInputSequence == nil ||
+		*commit.RouterContext.ClarificationInputSequence != active.Accepted.Sequence {
+		return stateConflict(
+			"conversation route decision",
+			commit.ID,
+			"router context clarification sequence does not match the durable reply",
+		)
+	}
+	return nil
 }
 
 func validateConversationRouteDecisionTime(

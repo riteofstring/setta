@@ -3,7 +3,7 @@
 **Date:** 2026-07-11
 
 **Status:** In progress. Phases 0-6 and Phase 7 items 1-2 are complete.
-Conversation-local AI routing, global master cutover, obsolete-surface deletion,
+Conversation-local pane-input cutover, global master cutover, obsolete-surface deletion,
 and final acceptance remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,

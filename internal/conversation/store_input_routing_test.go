@@ -596,6 +596,7 @@ func TestStoreReservesConversationRouteCommandIdentifiers(t *testing.T) {
 		)
 		commit.ConversationID = conversationID
 		commit.InputID = input.ID
+		commit.RouterContext.InputSequence = work.Input.Sequence
 		commit.RoutingAttempt = work.RoutingAttempt
 		commit.DecidedAt = fmt.Sprintf("2026-07-12T18:00:0%dZ", index*2+4)
 		_, err := store.CommitConversationRouteDecision(context.Background(), commit)
@@ -609,6 +610,43 @@ func TestStoreReservesConversationRouteCommandIdentifiers(t *testing.T) {
 			t.Fatalf("duplicate command reservation error = %T %v, want state conflict", err, err)
 		}
 		assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
+	}
+}
+
+func TestStoreRejectsConversationRouterAuditForAnotherDurableInput(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_alpha", "conversation_beta")
+
+	alpha := validConversationInput("input_audit_sequence_alpha")
+	alpha.ConversationID = "conversation_alpha"
+	acceptConversationRoutingInput(t, store, alpha, "2026-07-12T18:00:01Z")
+
+	beta := validConversationInput("input_audit_sequence_beta")
+	beta.ConversationID = "conversation_beta"
+	beta.SubmittedAt = "2026-07-12T18:00:01.000000001Z"
+	acceptConversationRoutingInput(t, store, beta, "2026-07-12T18:00:01.000000001Z")
+	work := claimConversationRoutingInput(t, store, beta.ConversationID, "2026-07-12T18:00:02Z")
+	if work.Input.Sequence == 1 {
+		t.Fatalf("beta input sequence = %d, want a later global sequence", work.Input.Sequence)
+	}
+
+	decision, command := validConversationRouteDecisionAndCommand(
+		ConversationRouteDecisionKindSendToParent,
+		beta.Text,
+	)
+	commit := validConversationRouteDecisionCommit("decision_audit_sequence", decision, command)
+	commit.ConversationID = beta.ConversationID
+	commit.InputID = beta.ID
+	commit.RoutingAttempt = work.RoutingAttempt
+	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); !IsStateConflict(err) {
+		t.Fatalf("mismatched router input sequence error = %T %v, want state conflict", err, err)
+	}
+	assertConversationInputStatus(t, store, beta.ID, ConversationInputStatusRouting)
+
+	commit.RouterContext.InputSequence = work.Input.Sequence
+	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
+		t.Fatalf("commit corrected router input sequence: %v", err)
 	}
 }
 
@@ -716,6 +754,65 @@ WHERE id = ?
 	}
 	if _, err := store.ReadConversationRouteDecisions(context.Background(), input.ID); !IsCorruptStateError(err) {
 		t.Fatalf("malformed route decision read error = %T %v, want CorruptStateError", err, err)
+	}
+}
+
+func TestStoreRejectsUnknownPersistedConversationRouterAuditFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		corrupt func(context.Context, *sql.Tx, string) error
+	}{
+		{
+			name: "context",
+			corrupt: func(ctx context.Context, tx *sql.Tx, decisionID string) error {
+				_, err := tx.ExecContext(ctx, `
+UPDATE conversation_route_decisions
+SET router_context_json = json_set(router_context_json, '$.unexpected', 1)
+WHERE id = ?
+`, decisionID)
+				return err
+			},
+		},
+		{
+			name: "invocation",
+			corrupt: func(ctx context.Context, tx *sql.Tx, decisionID string) error {
+				_, err := tx.ExecContext(ctx, `
+UPDATE conversation_route_decisions
+SET resolved_invocation_json = json_set(resolved_invocation_json, '$.unexpected', 1)
+WHERE id = ?
+`, decisionID)
+				return err
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store := newTestStore(t)
+			seedConversationInputTargets(t, store, "conversation_alpha")
+			input := validConversationInput("input_strict_router_audit_" + test.name)
+			acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+			work := claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
+			decision, command := validConversationRouteDecisionAndCommand(
+				ConversationRouteDecisionKindSendToParent,
+				input.Text,
+			)
+			commit := validConversationRouteDecisionCommit("decision_strict_router_audit_"+test.name, decision, command)
+			commit.InputID = input.ID
+			commit.RouterContext.InputSequence = work.Input.Sequence
+			commit.RoutingAttempt = work.RoutingAttempt
+			commit.DecidedAt = "2026-07-12T18:00:03Z"
+			if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
+				t.Fatalf("commit route decision: %v", err)
+			}
+			if err := store.write(context.Background(), "corrupt router audit", func(ctx context.Context, tx *sql.Tx) error {
+				return test.corrupt(ctx, tx, commit.ID)
+			}); err != nil {
+				t.Fatalf("corrupt router audit: %v", err)
+			}
+			if _, err := store.ReadConversationRouteDecisions(context.Background(), input.ID); !IsCorruptStateError(err) {
+				t.Fatalf("unknown router audit read error = %T %v, want CorruptStateError", err, err)
+			}
+		})
 	}
 }
 

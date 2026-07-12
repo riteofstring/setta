@@ -31,11 +31,16 @@ export function assertIdempotentConversationInput(first, duplicate, expectedInpu
   }
 }
 
-export function assertRoutedConversationInputReceipt(first, duplicate, expectedInput) {
+export function assertRoutedConversationInputReceipt(
+  first,
+  duplicate,
+  expectedInput,
+  expectedSequence = 1,
+) {
   const expectedFirst = receiptSummary({
     ...first,
     input: expectedInput,
-    sequence: 1,
+    sequence: expectedSequence,
     status: "accepted",
   });
   const expectedDuplicate = { ...expectedFirst, status: "dispatched" };
@@ -64,6 +69,27 @@ export function assertAcceptedConversationInputRoutingState(state, expectedInput
 }
 
 export function assertDispatchedConversationInputRoutingState(state, expectedInput) {
+  assertRoutedConversationInputState(state, expectedInput, {
+    branch: "sendToParent",
+    kind: "send_to_parent",
+    sequence: 1,
+  });
+  assertIdleConversationRouterContextAudit(state.decisions[0].routerContext, state.input.sequence);
+}
+
+export function assertQueuedConversationInputRoutingState(state, expectedInput) {
+  assertRoutedConversationInputState(state, expectedInput, {
+    branch: "queueParentTurn",
+    kind: "queue_parent_turn",
+    sequence: 2,
+  });
+  assertWorkingConversationRouterContextAudit(
+    state.decisions[0].routerContext,
+    state.input.sequence,
+  );
+}
+
+function assertRoutedConversationInputState(state, expectedInput, expectedRoute) {
   assertRoutingState(
     state,
     expectedInput,
@@ -75,36 +101,35 @@ export function assertDispatchedConversationInputRoutingState(state, expectedInp
     },
     "dispatched",
     1,
+    expectedRoute.sequence,
   );
   const decision = state.decisions[0];
-  assertConversationRouterDecision(decision, expectedInput);
-  assertConversationRouterContextAudit(decision.routerContext, state.input.sequence);
+  assertConversationRouterDecision(decision, expectedInput, expectedRoute);
   assertConversationRouterInvocation(decision.resolvedInvocation);
 }
 
-function assertConversationRouterDecision(decision, expectedInput) {
+function assertConversationRouterDecision(decision, expectedInput, expectedRoute) {
+  const command = decision.resultingCommand[expectedRoute.branch];
+  const routed = decision.decision[expectedRoute.branch];
   const actual = {
     commandKind: decision.resultingCommand.kind,
-    commandText: decision.resultingCommand.sendToParent.authoredInput.text,
+    commandText: command?.authoredInput?.text,
     decisionKind: decision.decision.kind,
-    decisionText: decision.decision.sendToParent.authoredInput.text,
+    decisionText: routed?.authoredInput?.text,
     source: decision.source,
   };
   const expected = {
-    commandKind: "send_to_parent",
+    commandKind: expectedRoute.kind,
     commandText: expectedInput.text,
-    decisionKind: "send_to_parent",
+    decisionKind: expectedRoute.kind,
     decisionText: expectedInput.text,
     source: "conversation_router",
   };
   assertEqualJSON(actual, expected, "conversation-router decision");
-  assertNonEmptyString(
-    decision.resultingCommand.sendToParent.turnId,
-    "conversation-router parent turn id",
-  );
+  assertNonEmptyString(command?.turnId, "conversation-router parent turn id");
 }
 
-function assertConversationRouterContextAudit(audit, inputSequence) {
+function assertIdleConversationRouterContextAudit(audit, inputSequence) {
   const expectedAllowedKinds = [
     "send_to_parent",
     "answer_as_narrator",
@@ -136,6 +161,44 @@ function assertConversationRouterContextAudit(audit, inputSequence) {
     validCompletedForkPointCount: 0,
   };
   assertEqualJSON(actual, expected, "conversation-router context audit");
+}
+
+function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
+  const expectedAllowedKinds = [
+    "queue_parent_turn",
+    "steer_parent_turn",
+    "answer_as_narrator",
+    "escalate_to_master",
+    "clarify",
+  ];
+  if (audit.latestTrajectorySequence <= 0) {
+    throw new Error("working conversation-router audit has no trajectory");
+  }
+  assertEqualJSON(
+    {
+      allowedDecisionKinds: audit.allowedDecisionKinds,
+      availableTrajectoryEnd: audit.availableTrajectoryRange?.end,
+      clarificationInputSequence: audit.clarificationInputSequence,
+      includedTrajectoryEnd: audit.includedTrajectoryRange?.end,
+      inputSequence: audit.inputSequence,
+      priorNarrationCount: audit.priorNarrationCount,
+      priorRouteDecisionCount: audit.priorRouteDecisionCount,
+      requestedMode: audit.requestedMode,
+      validCompletedForkPointCount: audit.validCompletedForkPointCount,
+    },
+    {
+      allowedDecisionKinds: expectedAllowedKinds,
+      availableTrajectoryEnd: audit.latestTrajectorySequence,
+      clarificationInputSequence: null,
+      includedTrajectoryEnd: audit.latestTrajectorySequence,
+      inputSequence,
+      priorNarrationCount: 1,
+      priorRouteDecisionCount: 1,
+      requestedMode: "route",
+      validCompletedForkPointCount: 0,
+    },
+    "working conversation-router context audit",
+  );
 }
 
 function assertConversationRouterInvocation(invocation) {
@@ -228,7 +291,14 @@ function inputStateRequest(workspaceId, request) {
   };
 }
 
-function assertRoutingState(state, expectedInput, expectedLifecycle, label, decisions = 0) {
+function assertRoutingState(
+  state,
+  expectedInput,
+  expectedLifecycle,
+  label,
+  decisions = 0,
+  sequence = 1,
+) {
   const actual = routingStateSummary(state);
   const expected = {
     clarificationReply: null,
@@ -238,7 +308,7 @@ function assertRoutingState(state, expectedInput, expectedLifecycle, label, deci
     input: conversationInputSummary(expectedInput),
     routingAttempt: expectedLifecycle.routingAttempt,
     routingStartedAt: null,
-    sequence: 1,
+    sequence,
     status: expectedLifecycle.status,
   };
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {

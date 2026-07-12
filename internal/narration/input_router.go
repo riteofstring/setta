@@ -139,7 +139,7 @@ func (router *ConversationInputRouter) commitConversationRouteCall(
 ) error {
 	command, err := router.buildCommand(work, bundle, call.Decision)
 	if err != nil {
-		return NewAttemptFailure(FailureKindStateUnavailable, err)
+		return err
 	}
 	decisionID, err := router.newID("conversation_route_decision")
 	if err != nil {
@@ -224,7 +224,7 @@ func (router *ConversationInputRouter) buildCommand(
 	newID := router.newID
 	switch decision.Kind {
 	case conversation.ConversationRouteDecisionKindSendToParent:
-		turnID, err := newID("conversation_turn")
+		turnID, err := conversationRouteCommandID(newID, "conversation_turn")
 		return conversation.ConversationRouteCommand{
 			Kind: decision.Kind,
 			SendToParent: &conversation.SendToParentConversationRouteCommand{
@@ -232,7 +232,7 @@ func (router *ConversationInputRouter) buildCommand(
 			},
 		}, err
 	case conversation.ConversationRouteDecisionKindQueueParentTurn:
-		turnID, err := newID("conversation_turn")
+		turnID, err := conversationRouteCommandID(newID, "conversation_turn")
 		return conversation.ConversationRouteCommand{
 			Kind: decision.Kind,
 			QueueParentTurn: &conversation.QueueParentTurnConversationRouteCommand{
@@ -242,7 +242,7 @@ func (router *ConversationInputRouter) buildCommand(
 	case conversation.ConversationRouteDecisionKindSteerParentTurn:
 		return conversationRouteSteerCommand(bundle, decision)
 	case conversation.ConversationRouteDecisionKindAnswerAsNarrator:
-		requestID, err := newID("narrator_status")
+		requestID, err := conversationRouteCommandID(newID, "narrator_status")
 		return conversation.ConversationRouteCommand{
 			Kind: decision.Kind,
 			AnswerAsNarrator: &conversation.AnswerAsNarratorConversationRouteCommand{
@@ -252,7 +252,7 @@ func (router *ConversationInputRouter) buildCommand(
 	case conversation.ConversationRouteDecisionKindCreateSideConversation:
 		return conversationRouteSideCommand(newID, work, decision)
 	case conversation.ConversationRouteDecisionKindForkConversation:
-		childID, err := newID("conversation")
+		childID, err := conversationRouteCommandID(newID, "conversation")
 		return conversation.ConversationRouteCommand{
 			Kind: decision.Kind,
 			ForkConversation: &conversation.ForkConversationRouteCommand{
@@ -263,7 +263,7 @@ func (router *ConversationInputRouter) buildCommand(
 			},
 		}, err
 	case conversation.ConversationRouteDecisionKindEscalateToMaster:
-		masterInputID, err := newID("master_input")
+		masterInputID, err := conversationRouteCommandID(newID, "master_input")
 		return conversation.ConversationRouteCommand{
 			Kind: decision.Kind,
 			EscalateToMaster: &conversation.EscalateToMasterConversationRouteCommand{
@@ -277,8 +277,25 @@ func (router *ConversationInputRouter) buildCommand(
 			Clarify: &conversation.ClarifyConversationRouteCommand{Question: decision.Clarify.Question},
 		}, nil
 	default:
-		return conversation.ConversationRouteCommand{}, fmt.Errorf("unsupported conversation router decision %q", decision.Kind)
+		return conversation.ConversationRouteCommand{}, NewAttemptFailure(
+			FailureKindInternal,
+			fmt.Errorf("unsupported conversation router decision %q", decision.Kind),
+		)
 	}
+}
+
+func conversationRouteCommandID(
+	newID func(string) (string, error),
+	prefix string,
+) (string, error) {
+	id, err := newID(prefix)
+	if err != nil {
+		return "", NewAttemptFailure(
+			FailureKindInternal,
+			fmt.Errorf("generate conversation route command %s id: %w", prefix, err),
+		)
+	}
+	return id, nil
 }
 
 func conversationRouteSteerCommand(
@@ -287,7 +304,10 @@ func conversationRouteSteerCommand(
 ) (conversation.ConversationRouteCommand, error) {
 	current := bundle.Authoritative.CurrentInstructions
 	if current == nil || current.TurnStatus != conversation.TurnStatusRunning {
-		return conversation.ConversationRouteCommand{}, errors.New("conversation router steering has no active turn")
+		return conversation.ConversationRouteCommand{}, NewAttemptFailure(
+			FailureKindStateUnavailable,
+			errors.New("conversation router steering has no active turn"),
+		)
 	}
 	return conversation.ConversationRouteCommand{
 		Kind: decision.Kind,
@@ -303,9 +323,12 @@ func conversationRouteSideCommand(
 	decision conversation.ConversationRouteDecision,
 ) (conversation.ConversationRouteCommand, error) {
 	if work.Input.Input.SourcePaneID == nil {
-		return conversation.ConversationRouteCommand{}, errors.New("conversation router side decision has no source pane")
+		return conversation.ConversationRouteCommand{}, NewAttemptFailure(
+			FailureKindStateUnavailable,
+			errors.New("conversation router side decision has no source pane"),
+		)
 	}
-	sideID, err := newID("side_conversation")
+	sideID, err := conversationRouteCommandID(newID, "side_conversation")
 	return conversation.ConversationRouteCommand{
 		Kind: decision.Kind,
 		CreateSideConversation: &conversation.CreateSideConversationRouteCommand{

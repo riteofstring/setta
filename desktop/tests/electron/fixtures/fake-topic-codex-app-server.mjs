@@ -359,16 +359,13 @@ function emitStructuredTurn(threadId, turnId, text) {
 function emitStructuredInputRoute(threadId, turnId, context) {
   const input = context.input?.input;
   const serialized = JSON.stringify(context);
+  const allowed = context.allowedDecisionKinds;
+  const routeKind = structuredInputRouteKind(context, allowed);
   const valid = [
-    typeof input?.text === "string",
-    input?.modality === "voice",
-    input?.hasSourcePane === true,
-    context.authoritative?.conversation?.status === "idle",
-    Array.isArray(context.allowedDecisionKinds),
-    context.allowedDecisionKinds.includes("send_to_parent"),
-    !serialized.includes("topic-thread-"),
-    !serialized.includes('"providerItemId":"provider-'),
-    !serialized.includes('"processId":"'),
+    Array.isArray(allowed),
+    validStructuredRouteInput(input, routeKind),
+    validStructuredRouteHistory(context, routeKind),
+    structuredRouteContextIsRedacted(serialized),
   ].every(Boolean);
   if (!valid) {
     completeTurn(threadId, turnId, "failed", "input router context drifted");
@@ -379,12 +376,57 @@ function emitStructuredInputRoute(threadId, turnId, context) {
     turnId,
     JSON.stringify({
       decision: {
-        kind: "send_to_parent",
+        kind: routeKind,
         authoredInput: input.text,
       },
     }),
   );
   completeTurn(threadId, turnId, "completed");
+}
+
+function structuredInputRouteKind(context, allowed) {
+  if (!Array.isArray(allowed)) {
+    return null;
+  }
+  const status = context.authoritative?.conversation?.status;
+  if (status === "idle") {
+    return allowed.includes("send_to_parent") ? "send_to_parent" : null;
+  }
+  if (!["working", "waiting_for_approval"].includes(status)) {
+    return null;
+  }
+  return activeStructuredInputRouteKind(context, allowed);
+}
+
+function activeStructuredInputRouteKind(context, allowed) {
+  if (context.authoritative?.currentInstructions?.turnStatus !== "running") {
+    return null;
+  }
+  return allowed.includes("queue_parent_turn") ? "queue_parent_turn" : null;
+}
+
+function validStructuredRouteInput(input, routeKind) {
+  return (
+    typeof input?.text === "string" &&
+    input.modality === "voice" &&
+    input.hasSourcePane === true &&
+    routeKind !== null
+  );
+}
+
+function validStructuredRouteHistory(context, routeKind) {
+  if (routeKind !== "queue_parent_turn") {
+    return true;
+  }
+  return context.priorRouteDecisions?.length === 1 && context.trajectory?.length > 0;
+}
+
+function structuredRouteContextIsRedacted(serialized) {
+  return (
+    !serialized.includes("topic-thread-") &&
+    !serialized.includes('"providerItemId":"provider-') &&
+    !serialized.includes('"processId":"')
+  );
 }
 
 function emitStructuredProjection(threadId, turnId, context) {
