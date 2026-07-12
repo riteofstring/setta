@@ -8,6 +8,9 @@ creation and plan authoring are complete.
 **Branch:** `setta-3-cloud-platform`, created from `setta-3` at
 `de4bae2e4`.
 
+**Worktree:** `/Users/jeff/Documents/_projects/setta.setta-3-cloud-platform`,
+created with the repository's `worktree.sh` script.
+
 **Source branch:** `setta-3-cloud-runs-2` remains a read-only source of proven
 remote-runtime and terminal work. Do not merge it wholesale.
 
@@ -156,14 +159,29 @@ evidence is recorded in this plan.
 
 ## Branch and Commit Protocol
 
-### Phase 0 branch creation
+### Phase 0 branch and worktree creation
 
-The branch was created with:
+New platform branches must use the repository's worktree helper rather than
+reusing an existing feature worktree. From a clean worktree checked out at the
+intended `setta-3` base, the normal creation command is:
 
 ```sh
-git switch setta-3
-git switch -c setta-3-cloud-platform
+./worktree.sh --stay setta-3-cloud-platform
 ```
+
+In this case, the branch and plan commit already existed when the worktree
+mistake was identified. The original cloud-runs worktree was first restored to
+its own branch, then the existing platform branch was attached through the
+supported helper:
+
+```sh
+git switch setta-3-cloud-runs-2
+./worktree.sh --stay --existing setta-3-cloud-platform
+```
+
+All platform implementation must run from
+`/Users/jeff/Documents/_projects/setta.setta-3-cloud-platform`. Do not switch
+the cloud-runs, Easy Button, or other feature worktrees onto this branch.
 
 The recorded base is `de4bae2e4`. Do not silently recreate the branch from a
 newer base. If the base must change, record the old base, new base, reason, and
@@ -446,7 +464,8 @@ acceptable, but broad outbound access must be an explicit higher-risk mode.
 ### Phase 0: establish the branch and plan
 
 - [x] Confirm no Sprites-first plan exists.
-- [x] Create `setta-3-cloud-platform` from `setta-3` at `de4bae2e4`.
+- [x] Create `setta-3-cloud-platform` from `setta-3` at `de4bae2e4` and attach
+  it to a dedicated worktree through `worktree.sh`.
 - [x] Write and commit this plan before implementation.
 - [ ] Back up `setta-3-cloud-runs-2` at `39bc2e719` or its documented
   descendant.
@@ -648,6 +667,11 @@ Stop and reassess rather than hiding the problem if any of these occur:
   `de4bae2e4`. Chose this stable common base instead of the actively developed
   Easy Button branch. Recorded `setta-3-cloud-runs-2` as a selective source,
   not a merge target.
+- 2026-07-13: Corrected the initial worktree setup before implementation. The
+  original `setta-3-cloud-runs-2` directory was restored to its own branch,
+  and `setta-3-cloud-platform` was attached to the dedicated
+  `/Users/jeff/Documents/_projects/setta.setta-3-cloud-platform` worktree with
+  `./worktree.sh --stay --existing setta-3-cloud-platform`.
 - 2026-07-13: Revalidated current Sprites documentation. Sprites provides
   persistent environments, idle wake, private/public URLs, services,
   checkpoints, policies, and programmatic APIs. The documented URL auth modes
