@@ -15,6 +15,7 @@ type SurfaceKind string
 
 const (
 	SurfaceKindChatDOM             SurfaceKind = "chat-dom"
+	SurfaceKindEasyButton          SurfaceKind = "easy-button"
 	SurfaceKindEmptyFrame          SurfaceKind = "empty-frame"
 	SurfaceKindWorkflowGraph       SurfaceKind = "workflow-graph"
 	SurfaceKindSettingsDOM         SurfaceKind = "settings-dom"
@@ -45,6 +46,10 @@ type TerminalPaneConfig struct {
 	TitleOverride string `json:"titleOverride"`
 }
 
+type EasyButtonPaneConfig struct {
+	ConversationID string `json:"conversationId"`
+}
+
 type WorkflowNodeDetailsPaneConfig struct {
 	DefinitionID            string                               `json:"definitionId"`
 	DefinitionName          string                               `json:"definitionName"`
@@ -65,6 +70,7 @@ type WorkflowNodeDetailsPaneConfig struct {
 
 type WorkspaceUIPane struct {
 	ColumnID                  string                         `json:"columnId"`
+	EasyButtonConfig          *EasyButtonPaneConfig          `json:"easyButtonConfig"`
 	Heat                      int                            `json:"heat"`
 	PaneID                    string                         `json:"paneId"`
 	Sequence                  int                            `json:"sequence"`
@@ -120,6 +126,7 @@ func ContractValueSets() []ContractValueSet {
 			Name: "SurfaceKind",
 			Values: []string{
 				string(SurfaceKindChatDOM),
+				string(SurfaceKindEasyButton),
 				string(SurfaceKindEmptyFrame),
 				string(SurfaceKindWorkflowGraph),
 				string(SurfaceKindSettingsDOM),

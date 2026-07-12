@@ -1,0 +1,117 @@
+{
+  "operations": [
+    {
+      "name": "createSpeech",
+      "method": "post",
+      "operationId": "createSpeech",
+      "path": "/audio/speech",
+      "requestMediaType": "application/json",
+      "requestSchema": "CreateSpeechRequest",
+      "responseMediaType": "application/octet-stream",
+      "successStatus": "200",
+      "wireResponseMediaTypes": ["application/octet-stream", "audio/pcm"]
+    },
+    {
+      "name": "createRealtimeCall",
+      "method": "post",
+      "operationId": "create-realtime-call",
+      "path": "/realtime/calls",
+      "requestMediaType": "application/sdp",
+      "responseMediaType": "application/sdp",
+      "successStatus": "201",
+      "wireResponseMediaTypes": ["application/sdp", "text/plain"]
+    },
+    {
+      "name": "createRealtimeClientSecret",
+      "method": "post",
+      "operationId": "create-realtime-client-secret",
+      "path": "/realtime/client_secrets",
+      "requestMediaType": "application/json",
+      "requestSchema": "RealtimeCreateClientSecretRequest",
+      "responseMediaType": "application/json",
+      "successStatus": "200",
+      "wireResponseMediaTypes": ["application/json"]
+    }
+  ],
+  "realtimeClientEvents": [
+    {
+      "name": "inputAudioBufferCommit",
+      "schema": "RealtimeClientEventInputAudioBufferCommit",
+      "type": "input_audio_buffer.commit"
+    }
+  ],
+  "realtimeServerEvents": [
+    {
+      "name": "sessionCreated",
+      "schema": "RealtimeServerEventSessionCreated",
+      "type": "session.created"
+    },
+    {
+      "name": "inputAudioBufferCommitted",
+      "schema": "RealtimeServerEventInputAudioBufferCommitted",
+      "type": "input_audio_buffer.committed"
+    },
+    {
+      "name": "conversationItemAdded",
+      "schema": "RealtimeServerEventConversationItemAdded",
+      "type": "conversation.item.added"
+    },
+    {
+      "name": "conversationItemDone",
+      "schema": "RealtimeServerEventConversationItemDone",
+      "type": "conversation.item.done"
+    },
+    {
+      "name": "transcriptionDelta",
+      "schema": "RealtimeServerEventConversationItemInputAudioTranscriptionDelta",
+      "type": "conversation.item.input_audio_transcription.delta"
+    },
+    {
+      "name": "transcriptionCompleted",
+      "schema": "RealtimeServerEventConversationItemInputAudioTranscriptionCompleted",
+      "type": "conversation.item.input_audio_transcription.completed"
+    },
+    {
+      "name": "transcriptionFailed",
+      "schema": "RealtimeServerEventConversationItemInputAudioTranscriptionFailed",
+      "type": "conversation.item.input_audio_transcription.failed"
+    },
+    {
+      "name": "error",
+      "schema": "RealtimeServerEventError",
+      "type": "error"
+    },
+    {
+      "name": "rateLimitsUpdated",
+      "schema": "RealtimeServerEventRateLimitsUpdated",
+      "type": "rate_limits.updated"
+    }
+  ],
+  "speech": {
+    "model": "gpt-4o-mini-tts",
+    "responseFormat": "pcm",
+    "voice": "marin",
+    "voiceCatalog": [
+      "alloy",
+      "ash",
+      "ballad",
+      "coral",
+      "echo",
+      "fable",
+      "onyx",
+      "nova",
+      "sage",
+      "shimmer",
+      "verse",
+      "marin",
+      "cedar"
+    ]
+  },
+  "transcription": {
+    "clientSecretTTLSeconds": 600,
+    "delay": "medium",
+    "model": "gpt-realtime-whisper",
+    "sessionSchema": "RealtimeTranscriptionSessionCreateRequestGA",
+    "webRTCOperation": "createRealtimeCall"
+  }
+}
