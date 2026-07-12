@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+const conversationRouteTurnCommandKeyPrefix = "conversation_turn:"
+
 func (failure ConversationInputRoutingFailure) Validate() error {
 	if err := validateConversationInputReference("conversation input routing failure conversation id", failure.ConversationID); err != nil {
 		return err
@@ -67,9 +69,9 @@ func validConversationRouteDecisionSource(source ConversationRouteDecisionSource
 func conversationRouteCommandKey(commit ConversationRouteDecisionCommit) (string, error) {
 	switch commit.ResultingCommand.Kind {
 	case ConversationRouteDecisionKindSendToParent:
-		return "conversation_turn:" + commit.ResultingCommand.SendToParent.TurnID, nil
+		return conversationRouteTurnCommandKeyPrefix + commit.ResultingCommand.SendToParent.TurnID, nil
 	case ConversationRouteDecisionKindQueueParentTurn:
-		return "conversation_turn:" + commit.ResultingCommand.QueueParentTurn.TurnID, nil
+		return conversationRouteTurnCommandKeyPrefix + commit.ResultingCommand.QueueParentTurn.TurnID, nil
 	case ConversationRouteDecisionKindSteerParentTurn:
 		return "conversation_steering:" + commit.ID, nil
 	case ConversationRouteDecisionKindAnswerAsNarrator:

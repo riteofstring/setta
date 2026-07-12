@@ -78,6 +78,139 @@ func TestTopicIndexSearchesAuthoritativeConversationInputsAndNarration(t *testin
 	}
 }
 
+func TestTopicIndexUsesRoutedTurnIdentityAndPreservesRepeatedRequests(t *testing.T) {
+	store := newTestStore(t)
+	conversation := seedTopicIndexConversation(
+		t,
+		store,
+		"conversation-index-request-identity",
+		"workspace-a",
+		"Request identity",
+		"explicit routed turn correlation",
+		"2026-07-13T18:00:00Z",
+	)
+	input := validConversationInput("input-topic-index-identity")
+	input.ConversationID = conversation.ID
+	input.Text = "Investigate the original comet request."
+	input.SubmittedAt = "2026-07-13T18:00:01Z"
+	accepted, err := store.AcceptConversationInput(context.Background(), input, "2026-07-13T18:00:02Z")
+	if err != nil {
+		t.Fatalf("AcceptConversationInput: %v", err)
+	}
+	work, found, err := store.ClaimNextConversationInput(
+		context.Background(),
+		conversation.ID,
+		"2026-07-13T18:00:03Z",
+	)
+	if err != nil || !found {
+		t.Fatalf("ClaimNextConversationInput: found=%v err=%v", found, err)
+	}
+	decision, command := validConversationRouteDecisionAndCommand(
+		ConversationRouteDecisionKindSendToParent,
+		"Agent-normalized nebula objective.",
+	)
+	commit := validConversationRouteDecisionCommit("decision-topic-index-identity", decision, command)
+	commit.ConversationID = conversation.ID
+	commit.InputID = input.ID
+	commit.RouterContext.InputSequence = accepted.Sequence
+	commit.RoutingAttempt = work.RoutingAttempt
+	commit.DecidedAt = "2026-07-13T18:00:04Z"
+	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
+		t.Fatalf("CommitConversationRouteDecision: %v", err)
+	}
+
+	appendTopicIndexTurns(t, store, conversation.ID, []ConversationTurn{
+		topicIndexQueuedTurn(
+			command.SendToParent.TurnID,
+			conversation.ID,
+			command.SendToParent.AuthoredInput.Text,
+			"2026-07-13T18:00:05Z",
+		),
+		topicIndexQueuedTurn(
+			"turn-topic-index-repeat-a",
+			conversation.ID,
+			"Repeat this exact solar request.",
+			"2026-07-13T18:00:06Z",
+		),
+		topicIndexQueuedTurn(
+			"turn-topic-index-repeat-b",
+			conversation.ID,
+			"Repeat this exact solar request.",
+			"2026-07-13T18:00:07Z",
+		),
+	})
+
+	rewrittenMatches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
+		Query:        "nebula",
+		WorkspaceIDs: []string{},
+		Limit:        5,
+	})
+	if len(rewrittenMatches) != 0 {
+		t.Fatalf("routed agent rewrite leaked into recent user requests: %+v", rewrittenMatches)
+	}
+	recent := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
+		WorkspaceIDs: []string{},
+		Limit:        5,
+	})
+	if len(recent) != 1 {
+		t.Fatalf("recent candidates = %+v, want one", recent)
+	}
+	requests := recent[0].Card.RecentUserRequests
+	if len(requests) != 3 ||
+		requests[0].Text != "Repeat this exact solar request." ||
+		requests[1].Text != "Repeat this exact solar request." ||
+		requests[2].Text != input.Text {
+		t.Fatalf("recent user requests = %+v", requests)
+	}
+}
+
+func TestTopicIndexOrdersOpenPanesByCanonicalFocusTime(t *testing.T) {
+	store := newTestStore(t)
+	conversation := seedTopicIndexConversation(
+		t,
+		store,
+		"conversation-index-pane-order",
+		"workspace-a",
+		"Pane order",
+		"fractional timestamp ordering",
+		"2026-07-13T18:00:00Z",
+	)
+	if err := store.write(context.Background(), "seed focused topic index panes", func(ctx context.Context, tx *sql.Tx) error {
+		for _, pane := range []struct {
+			id        string
+			focusedAt string
+		}{
+			{id: "pane-whole-second", focusedAt: "2026-07-13T18:01:00Z"},
+			{id: "pane-fractional-second", focusedAt: "2026-07-13T18:01:00.1Z"},
+		} {
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO pane_bindings (
+  pane_id, workspace_id, conversation_id, created_at, updated_at, last_focused_at
+) VALUES (?, ?, ?, ?, ?, ?)
+`, pane.id, conversation.WorkspaceID, conversation.ID, testTimeStarted, pane.focusedAt, pane.focusedAt); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("seed focused topic index panes: %v", err)
+	}
+
+	candidates := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
+		WorkspaceIDs: []string{},
+		Limit:        5,
+	})
+	if len(candidates) != 1 {
+		t.Fatalf("pane candidates = %+v, want one", candidates)
+	}
+	card := candidates[0].Card
+	if card.OpenPaneCount != 2 || len(card.OpenPaneIDs) != 2 ||
+		card.OpenPaneIDs[0] != "pane-fractional-second" ||
+		card.OpenPaneIDs[1] != "pane-whole-second" {
+		t.Fatalf("ordered pane projection = ids=%+v count=%d", card.OpenPaneIDs, card.OpenPaneCount)
+	}
+}
+
 func TestTopicIndexBoundsGlobalRetrievalWithWorkspaceAndRecencyFilters(t *testing.T) {
 	store := newTestStore(t)
 	older := seedTopicIndexConversation(
@@ -183,6 +316,32 @@ func TestTopicIndexReconciliationRestoresDerivedProjection(t *testing.T) {
 	}
 }
 
+func TestTopicIndexRetrievalReportsMalformedProjection(t *testing.T) {
+	store := newTestStore(t)
+	conversation := seedTopicIndexConversation(
+		t,
+		store,
+		"conversation-index-corrupt",
+		"workspace-a",
+		"Corrupt projection",
+		"typed corruption reporting",
+		"2026-07-13T18:00:00Z",
+	)
+	if err := store.write(context.Background(), "corrupt topic index card", func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE topic_index_documents SET title = '' WHERE conversation_id = ?`, conversation.ID)
+		return err
+	}); err != nil {
+		t.Fatalf("corrupt topic index card: %v", err)
+	}
+	_, err := store.RetrieveTopicCandidates(context.Background(), conversationindex.CandidateRequest{
+		WorkspaceIDs: []string{},
+		Limit:        5,
+	})
+	if !IsCorruptStateError(err) {
+		t.Fatalf("malformed topic index error = %T %v, want CorruptStateError", err, err)
+	}
+}
+
 func seedTopicIndexConversation(
 	t *testing.T,
 	store *Store,
@@ -253,6 +412,47 @@ func updateTopicIndexConversation(
 	if err != nil {
 		t.Fatalf("update indexed topic: %v", err)
 	}
+}
+
+func appendTopicIndexTurns(
+	t *testing.T,
+	store *Store,
+	conversationID string,
+	turns []ConversationTurn,
+) {
+	t.Helper()
+	_, err := store.Transact(context.Background(), "append indexed turns", func(transaction *WriteTransaction) error {
+		for _, turn := range turns {
+			if err := transaction.InsertTurn(turn); err != nil {
+				return err
+			}
+		}
+		_, err := transaction.AppendCommittedEvent(CommittedEventDraft{
+			ID:          "indexed-turns-created:" + conversationID,
+			StreamID:    "conversation:" + conversationID,
+			Kind:        "conversation.turns_created",
+			Payload:     turns,
+			CommittedAt: "2026-07-13T18:00:08Z",
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("append indexed turns: %v", err)
+	}
+}
+
+func topicIndexQueuedTurn(
+	turnID string,
+	conversationID string,
+	text string,
+	acceptedAt string,
+) ConversationTurn {
+	turn := validConversationTurn(TurnStatusQueued)
+	turn.ID = turnID
+	turn.ConversationID = conversationID
+	turn.AuthoredInput.Text = text
+	turn.AcceptedAt = acceptedAt
+	return turn
 }
 
 func appendTopicIndexFinalSummary(

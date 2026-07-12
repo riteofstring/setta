@@ -13,6 +13,8 @@ import (
 
 const topicIndexTimestampSortLayout = "2006-01-02T15:04:05.000000000"
 
+var _ conversationindex.CandidateStore = (*Store)(nil)
+
 type topicIndexDocument struct {
 	conversation         TopicConversation
 	recentUserRequests   []string
@@ -184,20 +186,20 @@ func readTopicIndexRecentUserRequests(
 	rows, err := tx.QueryContext(ctx, `
 WITH user_requests AS (
   SELECT input_text AS request_text, accepted_at AS occurred_at,
-         0 AS source_rank, sequence AS source_sequence
+         0 AS source_rank, sequence AS source_sequence, id AS source_id
   FROM conversation_inputs
   WHERE conversation_id = ?
   UNION ALL
   SELECT json_extract(turn.authored_input_json, '$.text') AS request_text,
          turn.accepted_at AS occurred_at,
-         1 AS source_rank, turn.rowid AS source_sequence
+         1 AS source_rank, 0 AS source_sequence, turn.id AS source_id
   FROM conversation_turns AS turn
   WHERE turn.conversation_id = ?
     AND NOT EXISTS (
       SELECT 1
-      FROM conversation_inputs AS input
-      WHERE input.conversation_id = turn.conversation_id
-        AND input.input_text = json_extract(turn.authored_input_json, '$.text')
+      FROM conversation_route_decisions AS decision
+      WHERE decision.conversation_id = turn.conversation_id
+        AND decision.resulting_command_key = ? || turn.id
     )
 ), normalized_requests AS (
   SELECT
@@ -213,26 +215,15 @@ WITH user_requests AS (
         9
       ) AS occurred_sort_key,
     source_rank,
-    source_sequence
-  FROM user_requests
-), ranked_requests AS (
-  SELECT
-    request_text,
-    occurred_sort_key,
-    source_rank,
     source_sequence,
-    row_number() OVER (
-      PARTITION BY request_text
-      ORDER BY occurred_sort_key DESC, source_rank ASC, source_sequence DESC
-    ) AS duplicate_rank
-  FROM normalized_requests
+    source_id
+  FROM user_requests
 )
 SELECT request_text
-FROM ranked_requests
-WHERE duplicate_rank = 1
-ORDER BY occurred_sort_key DESC, source_rank ASC, source_sequence DESC, request_text ASC
+FROM normalized_requests
+ORDER BY occurred_sort_key DESC, source_rank ASC, source_sequence DESC, source_id ASC
 LIMIT ?
-`, conversationID, conversationID, conversationindex.MaxRecentUserRequests)
+`, conversationID, conversationID, conversationRouteTurnCommandKeyPrefix, conversationindex.MaxRecentUserRequests)
 	if err != nil {
 		return nil, fmt.Errorf("read recent user requests for topic card %s: %w", conversationID, err)
 	}
@@ -376,27 +367,56 @@ func (store *Store) RetrieveTopicCandidates(
 		return []conversationindex.StoredCandidate{}, nil
 	}
 	var candidates []conversationindex.StoredCandidate
-	err = store.read(ctx, "retrieve conversation index candidates", func(ctx context.Context, reader *sql.Conn) error {
-		query, arguments := topicIndexCandidateQuery(normalized, terms)
-		rows, err := reader.QueryContext(ctx, query, arguments...)
-		if err != nil {
-			return err
-		}
-		candidates, err = scanTopicIndexCandidates(rows, store.dbPath)
-		if err != nil {
-			return err
-		}
-		for index := range candidates {
-			if err := readTopicIndexOpenPanes(ctx, reader, &candidates[index].Card); err != nil {
-				return err
-			}
-		}
-		return conversationindex.ValidateStoredCandidates(candidates, normalized)
+	err = store.read(ctx, "retrieve conversation index candidates", func(ctx context.Context, connection *sql.Conn) error {
+		var readErr error
+		candidates, readErr = readTopicIndexCandidateSnapshot(
+			ctx,
+			connection,
+			store.dbPath,
+			normalized,
+			terms,
+		)
+		return readErr
 	})
 	if err != nil {
 		return nil, err
 	}
 	return cloneTopicIndexCandidates(candidates), nil
+}
+
+func readTopicIndexCandidateSnapshot(
+	ctx context.Context,
+	connection *sql.Conn,
+	dbPath string,
+	request conversationindex.CandidateRequest,
+	terms []string,
+) ([]conversationindex.StoredCandidate, error) {
+	reader, err := connection.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = reader.Rollback() }()
+	query, arguments := topicIndexCandidateQuery(request, terms)
+	rows, err := reader.QueryContext(ctx, query, arguments...)
+	if err != nil {
+		return nil, err
+	}
+	candidates, err := scanTopicIndexCandidates(rows, dbPath)
+	if err != nil {
+		return nil, err
+	}
+	for index := range candidates {
+		if err := readTopicIndexOpenPanes(ctx, reader, &candidates[index].Card); err != nil {
+			return nil, err
+		}
+	}
+	if err := conversationindex.ValidateStoredCandidates(candidates, request); err != nil {
+		return nil, &CorruptStateError{Path: dbPath, Err: err}
+	}
+	if err := reader.Commit(); err != nil {
+		return nil, err
+	}
+	return candidates, nil
 }
 
 func topicIndexCandidateQuery(
@@ -532,7 +552,7 @@ func decodeTopicIndexExcerpts(raw string, target *[]conversationindex.TextExcerp
 
 func readTopicIndexOpenPanes(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader *sql.Tx,
 	card *conversationindex.StoredTopicCard,
 ) error {
 	if err := reader.QueryRowContext(ctx, `
@@ -543,10 +563,28 @@ WHERE conversation_id = ?
 		return fmt.Errorf("count topic card pane bindings for %s: %w", card.ConversationID, err)
 	}
 	rows, err := reader.QueryContext(ctx, `
+WITH pane_activity AS (
+  SELECT pane_id, COALESCE(last_focused_at, updated_at) AS focused_at
+  FROM pane_bindings
+  WHERE conversation_id = ?
+), normalized_pane_activity AS (
+  SELECT
+    pane_id,
+    substr(focused_at, 1, 19) || '.' ||
+      substr(
+        CASE
+          WHEN instr(focused_at, '.') = 20
+            THEN substr(focused_at, 21, length(focused_at) - 21)
+          ELSE ''
+        END || '000000000',
+        1,
+        9
+      ) AS focused_sort_key
+  FROM pane_activity
+)
 SELECT pane_id
-FROM pane_bindings
-WHERE conversation_id = ?
-ORDER BY COALESCE(last_focused_at, updated_at) DESC, pane_id ASC
+FROM normalized_pane_activity
+ORDER BY focused_sort_key DESC, pane_id ASC
 LIMIT ?
 `, card.ConversationID, conversationindex.MaxOpenPaneIDs)
 	if err != nil {
