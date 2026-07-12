@@ -149,6 +149,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       startLogin: (request) => requireClient().startCodexLogin(request),
     },
     conversations: {
+      archive: (request) => requireClient().archiveTopicConversation(request),
       create: (request) => requireClient().createTopicConversation(request),
       discardInput: (request) => requireClient().discardConversationInput(request),
       disposeSide: (request) => requireClient().disposeSideConversation(request),

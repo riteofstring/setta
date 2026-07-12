@@ -401,6 +401,7 @@ function ConversationNavigationList({
   onCommandError: (message: string | null) => void;
   setExpandedWorkspaceIds: (update: (current: ReadonlySet<string>) => ReadonlySet<string>) => void;
 }) {
+  const [commandPending, setCommandPending] = useState(false);
   const items = useMemo(
     () =>
       selectSidebarNavigationItems({
@@ -424,6 +425,10 @@ function ConversationNavigationList({
   );
 
   async function runCommand(command: SidebarNavigationCommand) {
+    if (commandPending) {
+      return;
+    }
+    setCommandPending(true);
     onCommandError(null);
     try {
       await executeSidebarNavigationCommand(command, {
@@ -438,6 +443,8 @@ function ConversationNavigationList({
       });
     } catch (error) {
       onCommandError(errorMessage(error));
+    } finally {
+      setCommandPending(false);
     }
   }
 
@@ -451,7 +458,7 @@ function ConversationNavigationList({
       <VirtualWorkspaceList
         items={items}
         renderItem={(item) => (
-          <SidebarNavigationRow busy={busy} item={item} runCommand={runCommand} />
+          <SidebarNavigationRow busy={busy || commandPending} item={item} runCommand={runCommand} />
         )}
       />
     </div>
@@ -474,14 +481,11 @@ async function executeSidebarNavigationCommand(
   actions: SidebarCommandActions,
 ): Promise<void> {
   switch (command.type) {
+    case "archiveConversation":
+      await archiveConversation(command);
+      return;
     case "activateWorkspace":
-      actions.setExpandedWorkspaceIds((current) => {
-        const next = new Set(current);
-        if (command.nextExpanded) next.add(command.workspaceId);
-        else next.delete(command.workspaceId);
-        return next;
-      });
-      if (command.selectWorkspace) await actions.selectWorkspace(command.workspaceId);
+      await activateWorkspace(command, actions);
       return;
     case "closeWorkspace":
       await actions.closeWorkspace(command.workspaceId);
@@ -504,6 +508,36 @@ async function executeSidebarNavigationCommand(
     default:
       assertNever(command);
   }
+}
+
+async function archiveConversation(
+  command: Extract<SidebarNavigationCommand, { type: "archiveConversation" }>,
+): Promise<void> {
+  if (
+    !window.confirm(
+      `Archive "${command.title}"? It will leave the navigator and stop accepting new work.`,
+    )
+  ) {
+    return;
+  }
+  const snapshot = await window.setta.conversations.archive({
+    conversationId: command.conversationId,
+    workspaceId: command.workspaceId,
+  });
+  hydrateConversationProjectionSnapshot(snapshot);
+}
+
+async function activateWorkspace(
+  command: Extract<SidebarNavigationCommand, { type: "activateWorkspace" }>,
+  actions: SidebarCommandActions,
+): Promise<void> {
+  actions.setExpandedWorkspaceIds((current) => {
+    const next = new Set(current);
+    if (command.nextExpanded) next.add(command.workspaceId);
+    else next.delete(command.workspaceId);
+    return next;
+  });
+  if (command.selectWorkspace) await actions.selectWorkspace(command.workspaceId);
 }
 
 function VirtualWorkspaceList({

@@ -61,6 +61,7 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayoutReadResult]("ReadWorkspaceUILayout", "/workspaces/ui/layout/read", handler.readWorkspaceUILayout),
 	post[SaveWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayout]("SaveWorkspaceUILayout", "/workspaces/ui/layout/save", handler.saveWorkspaceUILayout),
 	post[CreateTopicConversationRequest, conversation.ConversationSnapshot]("CreateTopicConversation", "/conversations/create", handler.createTopicConversation),
+	post[ArchiveTopicConversationRequest, conversation.ConversationSnapshot]("ArchiveTopicConversation", "/conversations/archive", handler.archiveTopicConversation),
 	post[SendSideConversationTurnRequest, conversation.ConversationSnapshot]("SendSideConversationTurn", "/conversations/sides/turns/send", handler.sendSideConversationTurn),
 	post[DisposeSideConversationRequest, conversation.ConversationSnapshot]("DisposeSideConversation", "/conversations/sides/dispose", handler.disposeSideConversation),
 	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),

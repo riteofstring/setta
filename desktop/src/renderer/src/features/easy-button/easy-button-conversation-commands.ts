@@ -402,7 +402,11 @@ function conversationCommandsAvailable(
   if (!workspaceId || !conversationId || projection?.status !== "ready") {
     return false;
   }
-  return Boolean(projection.snapshot && !projection.resync);
+  return Boolean(
+    projection.snapshot &&
+    projection.snapshot.conversation.archivedAt === null &&
+    !projection.resync,
+  );
 }
 
 function conversationInputCanSubmit(available: boolean, pending: boolean, input: string): boolean {

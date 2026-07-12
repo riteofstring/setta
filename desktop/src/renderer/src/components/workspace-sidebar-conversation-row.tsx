@@ -1,10 +1,11 @@
 import type { NavigatorItem } from "@generated/backend";
-import { AlertTriangle, Check, Copy, LoaderCircle } from "lucide-react";
+import { AlertTriangle, Archive, Check, Copy, LoaderCircle } from "lucide-react";
 
 import { conversationPaletteStyle } from "../features/easy-button/conversation-palette-style";
 import { cn } from "../lib/utils";
 
 export function ConversationNavigatorRow({
+  archive,
   busy,
   focused,
   item,
@@ -12,6 +13,7 @@ export function ConversationNavigatorRow({
   openPaneCount,
   present,
 }: {
+  archive: () => Promise<void>;
   busy: boolean;
   focused: boolean;
   item: NavigatorItem;
@@ -20,33 +22,50 @@ export function ConversationNavigatorRow({
   present: () => Promise<void>;
 }) {
   const { conversation, presentationProfile } = item;
+  const archiveAllowed = conversation.status === "idle" || conversation.status === "failed";
   return (
-    <button
-      aria-current={focused ? "page" : undefined}
-      aria-label={conversationRowLabel(item, lineageParentTitle, openPaneCount)}
-      className={cn(
-        "conversation-navigator-row conversation-presentation-identity group/conversation-row grid h-9 w-full min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left hover:text-foreground",
-        focused ? "text-foreground" : "text-muted-foreground",
-      )}
-      data-conversation-id={conversation.id}
-      data-conversation-palette={presentationProfile.resolvedPaletteId}
-      data-parent-conversation-id={item.branch?.parentConversationId}
-      data-testid="conversation-navigator-item"
-      disabled={busy}
-      onClick={() => void present()}
-      style={conversationPaletteStyle(presentationProfile.resolvedPaletteId)}
-      title={conversation.title}
-      type="button"
-    >
-      <ConversationStatus status={conversation.status} />
-      <span className="min-w-0">
-        <span className="block truncate text-xs">{conversation.title}</span>
-        <span className="block truncate text-[10px] text-muted-foreground">
-          {conversationSubtitle(item, lineageParentTitle)}
+    <div className="group/conversation-row relative h-9 min-w-0">
+      <button
+        aria-current={focused ? "page" : undefined}
+        aria-label={conversationRowLabel(item, lineageParentTitle, openPaneCount)}
+        className={cn(
+          "conversation-navigator-row conversation-presentation-identity group/conversation-row grid h-9 w-full min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left hover:text-foreground",
+          focused ? "text-foreground" : "text-muted-foreground",
+        )}
+        data-conversation-id={conversation.id}
+        data-conversation-palette={presentationProfile.resolvedPaletteId}
+        data-parent-conversation-id={item.branch?.parentConversationId}
+        data-testid="conversation-navigator-item"
+        disabled={busy}
+        onClick={() => void present()}
+        style={conversationPaletteStyle(presentationProfile.resolvedPaletteId)}
+        title={conversation.title}
+        type="button"
+      >
+        <ConversationStatus status={conversation.status} />
+        <span className="min-w-0">
+          <span className="block truncate text-xs">{conversation.title}</span>
+          <span className="block truncate text-[10px] text-muted-foreground">
+            {conversationSubtitle(item, lineageParentTitle)}
+          </span>
         </span>
-      </span>
-      <ConversationPaneCount count={openPaneCount} />
-    </button>
+        <ConversationPaneCount count={openPaneCount} />
+      </button>
+      <button
+        aria-label={`Archive ${conversation.title}`}
+        className="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-sm bg-background/95 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-focus-within/conversation-row:opacity-100 group-hover/conversation-row:opacity-100"
+        data-conversation-id={conversation.id}
+        data-testid="conversation-archive"
+        disabled={busy || !archiveAllowed}
+        onClick={() => void archive()}
+        title={
+          archiveAllowed ? `Archive ${conversation.title}` : "Finish active work before archiving"
+        }
+        type="button"
+      >
+        <Archive className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
 

@@ -2,10 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phase 3 conversation lifecycle is next: add the
-missing durable topic-conversation archive command through the production
-service, HTTP registry, generated desktop IPC, renderer, and deterministic
-Electron workflow paths.
+**Status:** Complete. All phases are implemented and ready for final audit.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1927,10 +1924,7 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Status:** In progress. The core conversation-keyed cutover is complete, but
-the final audit found no production command that can archive a durable topic
-conversation even though the domain, persistence schema, navigator filtering,
-and required HTTP surface define archive behavior.
+**Status:** Complete.
 
 Implement:
 
@@ -1946,6 +1940,9 @@ Implement:
    result, close pane, reopen pane, and reload through production paths.
 7. Delete the old Easy Run store, service, endpoints, IPC, renderer store, and
    persisted shapes.
+8. Archive settled durable topic conversations through the production service,
+   HTTP registry, generated desktop IPC, and renderer navigator while retaining
+   any open pane as a read-only projection.
 
 Exit criteria:
 
@@ -1954,6 +1951,8 @@ Exit criteria:
 - reopening/focusing a conversation restores its projection
 - one navigator row represents the conversation even when multiple panes show
   it, and a conversation with no pane remains navigable
+- archiving a settled conversation removes it from the navigator and topic
+  index, preserves an already-open read-only pane, and survives reload/restart
 - no Easy Run endpoint, type, store, or persisted directory remains
 
 ### Phase 4: Narrator projector
@@ -2326,6 +2325,9 @@ temporary app data and a scripted Codex app-server, cover:
 14. Verify side and durable-fork isolation, disposal/restart behavior, lineage,
     navigator visibility, and parent continuation.
 15. Verify old chat/terminal/workflow/git panes and endpoints do not exist.
+16. Archive a settled durable topic through the navigator; verify its atomic
+    event and persisted timestamp, navigator/index removal, read-only open pane,
+    idempotency, reload behavior, and full Electron restart behavior.
 
 The scripted provider must exercise production code paths rather than mocks or
 test-only bypasses. Treat it as a first-class, separately budgeted

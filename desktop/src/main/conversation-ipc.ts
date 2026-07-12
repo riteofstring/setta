@@ -22,6 +22,12 @@ export function registerConversationIpcHandlers({
 }: ConversationIpcRegistration): void {
   handleIpc(
     ipcMain,
+    "conversationArchiveTopic",
+    async (_event, request) => requireBackendClient().archiveTopicConversation(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationDisposeSide",
     async (_event, request) => requireBackendClient().disposeSideConversation(request),
     ipcObserver,

@@ -2,6 +2,7 @@ import type {
   AcceptedConversationInput,
   AcceptedMasterInput,
   ActiveShellInteraction,
+  ArchiveTopicConversationRequest,
   AppearancePresetList,
   AppearanceSettings,
   BackendHealth,
@@ -288,6 +289,7 @@ export interface SettaAPI {
     switch: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
   };
   conversations: {
+    archive: (request: ArchiveTopicConversationRequest) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
     discardInput?: (
       request: DiscardConversationInputRequest,

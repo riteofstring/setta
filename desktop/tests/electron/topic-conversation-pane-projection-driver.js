@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v20";
+  const version = "setta-topic-conversation-pane-projection-driver-v21";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -10,6 +10,7 @@
     }
     Object.assign(driver, {
       topicConversationPaneProjectionVersion: version,
+      topicConversationArchiveFromNavigator,
       topicConversationCloseOneBoundPane,
       topicConversationCreate,
       topicConversationDenyApproval,
@@ -95,6 +96,7 @@
           const clarification = surface.querySelector('[data-testid="easy-button-clarification"]');
           return {
             agentText: elementText(agentText),
+            archived: datasetValue(surface, "easyButtonArchived") === "true",
             approvalId: datasetValue(approval, "approvalId"),
             artifactCount: artifacts.length,
             artifactText: Array.from(artifacts).map(elementText).join("\n"),
@@ -379,6 +381,23 @@
     }
     row.click();
     return { clicked: true, conversationId };
+  }
+
+  function topicConversationArchiveFromNavigator({ confirm = true, conversationId }) {
+    const button = Array.from(
+      document.querySelectorAll('[data-testid="conversation-archive"]'),
+    ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { archived: false, conversationId };
+    }
+    const originalConfirm = window.confirm;
+    window.confirm = () => confirm;
+    try {
+      button.click();
+    } finally {
+      window.confirm = originalConfirm;
+    }
+    return { archived: confirm, conversationId };
   }
 
   function topicConversationTogglePaneMaximized({ paneId }) {

@@ -101,6 +101,30 @@ describe("Easy Button topic conversation projection", () => {
     expect(unloaded).toContain("Conversation projection is not loaded");
   });
 
+  test("keeps an archived conversation projection visible but read-only", () => {
+    const snapshot = completedSnapshot("conversation_archived", "Archived topic", "sky");
+    snapshot.conversation.archivedAt = "2026-07-11T20:01:00Z";
+    snapshot.conversation.updatedAt = snapshot.conversation.archivedAt;
+    useConversationStore
+      .getState()
+      .hydrateSnapshot(workspaceId, snapshot.conversation.id, snapshot);
+
+    const view = easyButtonProjectionView(
+      snapshot.conversation.id,
+      easyButtonConversationProjection(
+        useConversationStore.getState().conversations,
+        snapshot.conversation.id,
+      ),
+    );
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(view.archived).toBe(true);
+    expect(view.helperCopy).toBe("Conversation archived");
+    expect(html).toContain('data-easy-button-archived="true"');
+    expect(html).toContain("Conversation archived");
+    expect(html).toContain("disabled");
+  });
+
   test("routes a pane voice request through the bound conversation and source pane", async () => {
     const start = vi.fn(async () => {});
 

@@ -1,5 +1,6 @@
 import type {
   AcceptedConversationInput,
+  ArchiveTopicConversationRequest,
   ConversationEventCursor,
   ConversationSnapshot,
   DiscardConversationInputRequest,
@@ -19,6 +20,7 @@ import type {
 } from "@generated/backend";
 
 export const conversationIpcChannels = {
+  conversationArchiveTopic: "conversation:archive-topic",
   conversationDiscardInput: "conversation:discard-input",
   conversationDisposeSide: "conversation:dispose-side",
   conversationCreateTopic: "conversation:create-topic",
@@ -49,6 +51,10 @@ export interface ConversationEventReleaseRequest {
 }
 
 export interface ConversationIpc {
+  conversationArchiveTopic: {
+    args: [request: ArchiveTopicConversationRequest];
+    result: ConversationSnapshot;
+  };
   conversationDisposeSide: {
     args: [request: DisposeSideConversationRequest];
     result: ConversationSnapshot;

@@ -62,6 +62,7 @@ const api: SettaAPI = {
     switch: (runtimeId) => invoke("runtimeSwitch", runtimeId),
   },
   conversations: {
+    archive: (request) => invoke("conversationArchiveTopic", request),
     disposeSide: (request) => invoke("conversationDisposeSide", request),
     discardInput: (request) => invoke("conversationDiscardInput", request),
     create: (request) => invoke("conversationCreateTopic", request),

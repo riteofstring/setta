@@ -1,4 +1,5 @@
 import type {
+  ConversationEvent,
   ConversationSnapshot,
   ListTopicConversationsRequest,
   NavigatorItem,
@@ -150,6 +151,51 @@ describe("conversation navigator store", () => {
 
     expect(useConversationNavigatorStore.getState().workspaces.workspace_api?.items).toEqual([]);
   });
+
+  test("removes archived conversations from snapshots and live projection events", async () => {
+    installConversationAPI(
+      vi.fn(async () => ({
+        items: [
+          navigatorItem("conversation_snapshot", "workspace_api"),
+          navigatorItem("conversation_event", "workspace_api"),
+        ],
+        nextCursor: null,
+      })),
+    );
+    await useConversationNavigatorStore.getState().syncWorkspaces(["workspace_api"]);
+
+    const archivedSnapshot = navigatorSnapshot("conversation_snapshot", "workspace_api");
+    archivedSnapshot.conversation.archivedAt = "2026-07-11T20:01:00Z";
+    archivedSnapshot.conversation.updatedAt = archivedSnapshot.conversation.archivedAt;
+    useConversationNavigatorStore.getState().upsertSnapshot(archivedSnapshot);
+
+    const archivedEventConversation = navigatorItem(
+      "conversation_event",
+      "workspace_api",
+    ).conversation;
+    archivedEventConversation.archivedAt = "2026-07-11T20:02:00Z";
+    archivedEventConversation.updatedAt = archivedEventConversation.archivedAt;
+    useConversationNavigatorStore
+      .getState()
+      .applyEvent(conversationUpdatedEvent(archivedEventConversation));
+
+    expect(useConversationNavigatorStore.getState().workspaces.workspace_api?.items).toEqual([]);
+  });
+
+  test("rejects an archived conversation returned by the navigator endpoint", async () => {
+    const archived = navigatorItem("conversation_archived", "workspace_api");
+    archived.conversation.archivedAt = "2026-07-11T20:01:00Z";
+    archived.conversation.updatedAt = archived.conversation.archivedAt;
+    installConversationAPI(vi.fn(async () => ({ items: [archived], nextCursor: null })));
+
+    await useConversationNavigatorStore.getState().syncWorkspaces(["workspace_api"]);
+
+    expect(useConversationNavigatorStore.getState().workspaces.workspace_api).toMatchObject({
+      error: expect.stringContaining("is archived"),
+      items: [],
+      loading: false,
+    });
+  });
 });
 
 const testTime = "2026-07-11T20:00:00Z";
@@ -223,5 +269,18 @@ function navigatorSnapshot(id: string, workspaceId: string): ConversationSnapsho
     threadBinding: null,
     trajectory: { events: [], hasEarlier: false },
     turns: { hasEarlier: false, turns: [] },
+  };
+}
+
+function conversationUpdatedEvent(conversation: NavigatorItem["conversation"]): ConversationEvent {
+  return {
+    conversationId: conversation.id,
+    emittedAt: conversation.updatedAt,
+    eventId: `conversation:${conversation.id}:1`,
+    payload: { conversation, type: "conversation.updated" },
+    schemaVersion: 1,
+    sequence: 1,
+    streamId: `conversation:${conversation.id}`,
+    workspaceId: conversation.workspaceId,
   };
 }

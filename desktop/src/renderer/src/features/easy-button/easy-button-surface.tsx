@@ -77,6 +77,7 @@ interface EasyButtonSurfaceProps {
 export interface EasyButtonProjectionView {
   activeAgentCount: number;
   agentText: string;
+  archived: boolean;
   artifacts: Artifact[];
   conversationId: string | null;
   currentFocus: string;
@@ -153,6 +154,9 @@ function composerPlaceholder(
   commands: EasyButtonConversationCommands | undefined,
 ): string {
   if (!commands?.available) {
+    if (view.archived) {
+      return "Conversation archived";
+    }
     return view.projectionStatus === "loading" || view.projectionStatus === "resyncing"
       ? "Loading conversation…"
       : "Conversation commands are unavailable";
@@ -181,6 +185,7 @@ export function EasyButtonProjectionSurface({
       className="conversation-presentation-identity easy-button-surface"
       data-conversation-id={view.conversationId ?? undefined}
       data-conversation-palette={view.paletteId ?? undefined}
+      data-easy-button-archived={view.archived}
       data-easy-button-focus={view.focusStatus}
       data-easy-button-event-cursor={view.eventCursorSequence}
       data-easy-button-capture={speech?.captureState}
@@ -401,6 +406,7 @@ function projectConversationSnapshot(
       snapshot.trajectory.events,
       activeConversationTurnID(snapshot, latestTurn),
     ),
+    archived: snapshot.conversation.archivedAt !== null,
     artifacts: snapshot.artifacts.artifacts,
     conversationId: snapshot.conversation.id,
     currentFocus: snapshot.narratorState.currentFocus,
@@ -476,6 +482,7 @@ function unavailableView(options: {
   return {
     activeAgentCount: 0,
     agentText: "",
+    archived: false,
     artifacts: [],
     conversationId: options.conversationId,
     currentFocus: "",
@@ -598,6 +605,9 @@ function conversationHelperCopy(
 ): string {
   if (projectionStatus !== "ready") {
     return projectionHelperCopy(projectionStatus);
+  }
+  if (conversation.archivedAt !== null) {
+    return "Conversation archived";
   }
   switch (conversation.status) {
     case "working":

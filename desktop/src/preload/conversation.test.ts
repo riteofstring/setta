@@ -13,6 +13,7 @@ describe("preload topic conversation API", () => {
   test("exposes typed commands and events through IPC", async () => {
     const { api, invoke, on, removeListener } = await exposeConversationAPI();
     expect(Object.keys(api.conversations).sort()).toEqual([
+      "archive",
       "create",
       "discardInput",
       "disposeSide",
@@ -105,6 +106,7 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationSendSideTurn, sideTurnRequest],
       [ipcChannels.conversationDisposeSide, sideDisposeRequest],
       [ipcChannels.conversationCreateTopic, { title: "API topic", workspaceId: "workspace_api" }],
+      [ipcChannels.conversationArchiveTopic, target],
       [ipcChannels.conversationListTopicConversations, listRequest],
       [ipcChannels.conversationReadSnapshot, target],
       [ipcChannels.conversationStopTurn, target],
@@ -171,6 +173,7 @@ async function invokeConversationCommands(
   await sendSide(requests.sideTurnRequest);
   await disposeSide(requests.sideDisposeRequest);
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
+  await api.conversations.archive(requests.target);
   await api.conversations.list(requests.listRequest);
   await api.conversations.read(requests.target);
   await api.conversations.stop(requests.target);

@@ -21,6 +21,7 @@ export function SidebarNavigationRow({
       return (
         <div className="pl-4">
           <ConversationNavigatorRow
+            archive={() => runCommand(item.commands.archive)}
             busy={busy}
             focused={item.focused}
             item={item.item}

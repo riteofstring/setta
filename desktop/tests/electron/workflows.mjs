@@ -15,6 +15,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "topic-conversation-archive-workflow.test.mjs",
+    name: "topic-conversation-archive",
+    tiers: ["required"],
+  },
+  {
     file: "topic-conversation-role-configuration.test.mjs",
     name: "topic-conversation-role-configuration",
     tiers: ["required"],

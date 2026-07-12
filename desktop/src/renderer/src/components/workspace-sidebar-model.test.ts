@@ -38,6 +38,12 @@ describe("conversation navigator sidebar model", () => {
     ]);
     expect(items[3]).toMatchObject({
       commands: {
+        archive: {
+          conversationId: "conversation_web",
+          title: "Build web",
+          type: "archiveConversation",
+          workspaceId: web.id,
+        },
         primary: {
           conversationId: "conversation_web",
           title: "Build web",

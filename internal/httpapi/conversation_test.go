@@ -53,6 +53,20 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t.Fatalf("create command = %q snapshot = %+v", service.command, created.Conversation)
 	}
 
+	archived := postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/archive",
+		ArchiveTopicConversationRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+		},
+		http.StatusOK,
+	)
+	if service.command != "archive" || archived.Conversation.ArchivedAt == nil {
+		t.Fatalf("archive command = %q snapshot = %+v", service.command, archived.Conversation)
+	}
+
 	assertSideConversationCommands(t, handler, service)
 
 	postJSON[conversation.ConversationSnapshot](
@@ -174,6 +188,32 @@ func TestTopicConversationNarratorVoiceMapsUnavailableExactSelection(t *testing.
 	)
 	if response.Error.Code != string(speech.ErrorVoiceUnavailable) {
 		t.Fatalf("narrator voice error = %+v", response.Error)
+	}
+}
+
+func TestArchiveTopicConversationMapsActiveWorkToConflict(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	service.archiveErr = &conversation.CommandConflictError{
+		ConversationID: "conversation-api",
+		Reason:         "active conversation work must finish or be stopped before archiving",
+	}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationService: service,
+		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	response := postJSON[ErrorResponse](
+		t,
+		handler,
+		"/conversations/archive",
+		ArchiveTopicConversationRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+		},
+		http.StatusConflict,
+	)
+	if response.Error.Code != "archive_topic_conversation_failed" {
+		t.Fatalf("archive error = %+v", response.Error)
 	}
 }
 
@@ -358,6 +398,7 @@ const httpConversationTestTime = "2026-07-11T20:00:00Z"
 
 type httpTestConversationService struct {
 	snapshot                conversation.ConversationSnapshot
+	archiveErr              error
 	events                  []conversation.ConversationEvent
 	eventsChannel           <-chan conversation.ConversationEvent
 	readWorkspaceID         string
@@ -392,6 +433,21 @@ func (service *httpTestConversationService) CreateTopic(
 	service.snapshot.Conversation.WorkspaceID = workspaceID
 	service.snapshot.Conversation.Title = title
 	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) ArchiveTopic(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("archive", workspaceID, conversationID, "")
+	if service.archiveErr != nil {
+		return conversation.ConversationSnapshot{}, service.archiveErr
+	}
+	snapshot := service.snapshot
+	archivedAt := httpConversationTestTime
+	snapshot.Conversation.ArchivedAt = &archivedAt
+	return snapshot, nil
 }
 
 func (service *httpTestConversationService) SendSideConversationTurn(

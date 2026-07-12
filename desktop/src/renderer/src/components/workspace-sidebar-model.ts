@@ -5,6 +5,12 @@ import type { ConversationPaneWorkspaceState } from "../stores/conversation-pane
 
 export type SidebarNavigationCommand =
   | {
+      conversationId: string;
+      title: string;
+      type: "archiveConversation";
+      workspaceId: string;
+    }
+  | {
       nextExpanded: boolean;
       selectWorkspace: boolean;
       type: "activateWorkspace";
@@ -35,7 +41,7 @@ export type SidebarNavigationItem =
       workspace: WorkspaceSummary;
     }
   | {
-      commands: { primary: SidebarNavigationCommand };
+      commands: { archive: SidebarNavigationCommand; primary: SidebarNavigationCommand };
       focused: boolean;
       id: string;
       item: NavigatorItem;
@@ -185,6 +191,12 @@ function conversationItem(
   const conversationId = item.conversation.id;
   return {
     commands: {
+      archive: {
+        conversationId,
+        title: item.conversation.title,
+        type: "archiveConversation",
+        workspaceId,
+      },
       primary: {
         conversationId,
         title: item.conversation.title,

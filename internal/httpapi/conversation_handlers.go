@@ -31,6 +31,31 @@ func (handler handler) createTopicConversation(response http.ResponseWriter, req
 	writeConversationSnapshot(response, snapshot)
 }
 
+func (handler handler) archiveTopicConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload ArchiveTopicConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_archive_request", err.Error())
+		return
+	}
+	snapshot, err := service.ArchiveTopic(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ConversationID,
+	)
+	if err != nil {
+		writeConversationError(response, "archive_topic_conversation_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
 func (handler handler) sendSideConversationTurn(response http.ResponseWriter, request *http.Request) {
 	service := requireConversationService(response, handler.conversationService)
 	if service == nil {

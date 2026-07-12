@@ -147,6 +147,10 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
     },
     upsertSnapshot: (snapshot) => {
       const workspaceId = snapshot.conversation.workspaceId;
+      if (snapshot.conversation.archivedAt !== null) {
+        set((state) => removeNavigatorConversation(state, workspaceId, snapshot.conversation.id));
+        return;
+      }
       // A bounded snapshot is not evidence that the conversation matches the
       // backend-owned navigator query. Keep filtered pages authoritative
       // instead of guessing at full-text search semantics in the renderer.
@@ -229,6 +233,9 @@ function applyNavigatorEvent(
   switch (event.payload.type) {
     case "conversation.updated": {
       const payload = event.payload;
+      if (payload.conversation.archivedAt !== null) {
+        return current.filter((item) => item.conversation.id !== event.conversationId);
+      }
       return updateNavigatorItem(current, event.conversationId, (item) => ({
         ...item,
         conversation: payload.conversation,
@@ -254,6 +261,26 @@ function applyNavigatorEvent(
       return current;
     }
   }
+}
+
+function removeNavigatorConversation(
+  state: ConversationNavigatorStore,
+  workspaceId: string,
+  conversationId: string,
+): ConversationNavigatorStore | Pick<ConversationNavigatorStore, "workspaces"> {
+  const workspace = state.workspaces[workspaceId];
+  if (!workspace || !workspace.items.some((item) => item.conversation.id === conversationId)) {
+    return state;
+  }
+  return {
+    workspaces: {
+      ...state.workspaces,
+      [workspaceId]: {
+        ...workspace,
+        items: workspace.items.filter((item) => item.conversation.id !== conversationId),
+      },
+    },
+  };
 }
 
 function updateNavigatorItem(
@@ -284,6 +311,9 @@ function assertNavigatorPageOwnership(page: NavigatorPage, workspaceId: string) 
       throw new Error(
         `Conversation ${item.conversation.id} belongs to workspace ${item.conversation.workspaceId}, not ${workspaceId}.`,
       );
+    }
+    if (item.conversation.archivedAt !== null) {
+      throw new Error(`Conversation ${item.conversation.id} is archived.`);
     }
     if (item.presentationProfile.conversationId !== item.conversation.id) {
       throw new Error(

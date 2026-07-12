@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 45;
-export const backendContractSchemaHash = "sha256:f5b1ac6929b1273f82c950ae40df34a835eb3144dad963d1a73aedb26abe3962";
+export const backendProtocolVersion = 46;
+export const backendContractSchemaHash = "sha256:c2903a0c29b0b2bb1b48f8da094fc8c46bc32bc84c356fe5b08180e7317e708f";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -2329,6 +2329,11 @@ export interface ConversationSnapshot {
   eventCursor: ConversationEventCursor;
 }
 
+export interface ArchiveTopicConversationRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
 export interface SendSideConversationTurnRequest {
   workspaceId: string;
   parentConversationId: string;
@@ -3297,6 +3302,11 @@ export const backendEndpoints = {
   CreateTopicConversation: {
     method: "POST",
     path: "/conversations/create",
+    requestBodyLimitBytes: 4194304,
+  },
+  ArchiveTopicConversation: {
+    method: "POST",
+    path: "/conversations/archive",
     requestBodyLimitBytes: 4194304,
   },
   SendSideConversationTurn: {
@@ -4853,6 +4863,15 @@ export function decodeConversationSnapshot(value: unknown): ConversationSnapshot
   };
 }
 
+export function decodeArchiveTopicConversationRequest(value: unknown): ArchiveTopicConversationRequest {
+  const record = assertRecord(value, "ArchiveTopicConversationRequest");
+  assertKnownFields(record, "ArchiveTopicConversationRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ArchiveTopicConversationRequest"), "ArchiveTopicConversationRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ArchiveTopicConversationRequest"), "ArchiveTopicConversationRequest.conversationId"),
+  };
+}
+
 export function decodeSendSideConversationTurnRequest(value: unknown): SendSideConversationTurnRequest {
   const record = assertRecord(value, "SendSideConversationTurnRequest");
   assertKnownFields(record, "SendSideConversationTurnRequest", ["workspaceId", "parentConversationId", "sideConversationId", "text"]);
@@ -6368,6 +6387,7 @@ export interface BackendClient {
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayoutReadResult>;
   saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayout>;
   createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  archiveTopicConversation: (request: ArchiveTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   sendSideConversationTurn: (request: SendSideConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   disposeSideConversation: (request: DisposeSideConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
@@ -6563,6 +6583,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.CreateTopicConversation,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    archiveTopicConversation: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.ArchiveTopicConversation,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,
