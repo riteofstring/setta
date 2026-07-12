@@ -3,6 +3,7 @@ package httpapi
 import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
+	"setta/internal/conversation"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
@@ -136,6 +137,25 @@ type ReadWorkspaceActivitySnapshotRequest struct {
 type ReadWorkspaceActivitySnapshotResponse struct {
 	Snapshot workspaceactivity.WorkspaceActivitySnapshot `json:"snapshot"`
 }
+
+type ReadConversationSnapshotRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type ListTopicConversationsRequest struct {
+	WorkspaceID string                        `json:"workspaceId"`
+	Query       string                        `json:"query"`
+	Cursor      *conversation.NavigatorCursor `json:"cursor"`
+	Limit       int                           `json:"limit"`
+}
+
+type SubscribeConversationEventsRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type CreateSpeechTranscriptionSessionRequest struct{}
 
 type ReadWorkflowExecutionActivityRequest struct {
 	WorkspaceID string `json:"workspaceId"`
@@ -905,9 +925,10 @@ type SelectDefaultTerminalProfileRequest struct {
 }
 
 type APIError struct {
-	Code            string                                 `json:"code"`
-	Message         string                                 `json:"message"`
-	ActiveExecution *orchestrator.WorkflowExecutionSummary `json:"activeExecution"`
+	Code             string                                 `json:"code"`
+	Message          string                                 `json:"message"`
+	OperationApplied bool                                   `json:"operationApplied"`
+	ActiveExecution  *orchestrator.WorkflowExecutionSummary `json:"activeExecution"`
 }
 
 type ErrorResponse struct {

@@ -29,7 +29,7 @@ func validateConversation(conversation Conversation) error {
 			return err
 		}
 	}
-	if err := validateConversationWorkflowMetadata(conversation); err != nil {
+	if err := validateConversationInternalOwner(conversation); err != nil {
 		return err
 	}
 	return nil
@@ -135,13 +135,24 @@ func validateConversationPinState(state conversationPinState) error {
 	return nil
 }
 
-func validateConversationWorkflowMetadata(conversation Conversation) error {
-	if !conversation.Internal && conversation.Workflow == nil {
+func validateConversationInternalOwner(conversation Conversation) error {
+	owners := 0
+	if conversation.Workflow != nil {
+		owners++
+	}
+	if !conversation.Internal {
+		if owners > 0 {
+			return fmt.Errorf("public conversation %s must not have internal owner metadata", conversation.ID)
+		}
 		return nil
 	}
-	if conversation.Workflow == nil {
-		return fmt.Errorf("internal conversation %s workflow metadata is required", conversation.ID)
+	if owners != 1 {
+		return fmt.Errorf("internal conversation %s must have exactly one owner metadata record, found %d", conversation.ID, owners)
 	}
+	return validateConversationWorkflowMetadata(conversation)
+}
+
+func validateConversationWorkflowMetadata(conversation Conversation) error {
 	if err := validateStorageID("workflow definition id", conversation.Workflow.DefinitionID); err != nil {
 		return fmt.Errorf("conversation %s %w", conversation.ID, err)
 	}
