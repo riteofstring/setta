@@ -240,6 +240,7 @@ type liveForkSnapshots struct {
 
 func characterizeLiveActiveFork(t *testing.T, fixture liveFixture, _ Thread) {
 	t.Helper()
+	fixture = newLiveActiveFixture(t, fixture)
 	parent := startLiveActiveParent(fixture)
 	parent.sink.waitForKind(t, EventKindActivityStarted)
 	drainLiveParentSignals(parent)
@@ -250,6 +251,33 @@ func characterizeLiveActiveFork(t *testing.T, fixture liveFixture, _ Thread) {
 	assertLiveForkIsolation(t, fixture, forks, sideInvocation)
 	logLiveForkCharacterization(t, forks)
 	unsubscribeLiveForks(t, fixture, forks)
+}
+
+func newLiveActiveFixture(t *testing.T, fixture liveFixture) liveFixture {
+	t.Helper()
+	invocation := livePrimaryAgentInvocation()
+	thread, err := fixture.runtime.StartThread(fixture.ctx, StartThreadRequest{
+		WorkspaceRoot: fixture.workspace,
+		Invocation:    invocation,
+	})
+	if err != nil {
+		t.Fatalf("StartThread active-fork characterization: %v", err)
+	}
+	baseline := runLiveTurn(t, fixture.runtime, fixture.ctx, liveTurnRequest(
+		"live-conversation-active",
+		"live-turn-active-baseline",
+		thread.ID,
+		fixture.workspace,
+		invocation,
+		"Reply with exactly ACTIVE_BASELINE_OK.",
+	))
+	if baseline.Outcome != TurnOutcomeCompleted {
+		t.Fatalf("active-fork baseline RunTurn = %+v", baseline)
+	}
+	fixture.invocation = invocation
+	fixture.thread = thread
+	fixture.second = baseline
+	return fixture
 }
 
 func drainLiveParentSignals(parent liveActiveParent) {
@@ -277,12 +305,21 @@ func startLiveActiveParent(fixture liveFixture) liveActiveParent {
 			fixture.thread.ID,
 			fixture.workspace,
 			fixture.invocation,
-			"Run the shell command `sleep 12` now. After it finishes, reply with exactly ACTIVE_PARENT_FINISHED.",
+			"Before using a tool, send the public commentary marker ACTIVE_PARENT_STARTING. Then use the shell command tool to run `sleep 12`. Do not answer without running it. After it finishes, reply with exactly ACTIVE_PARENT_FINISHED.",
 		), sink)
 		result <- turnResult
 		errors <- err
 	}()
 	return liveActiveParent{sink: sink, result: result, err: errors, done: done}
+}
+
+func livePrimaryAgentInvocation() Invocation {
+	return Invocation{
+		Model:           "gpt-5.6-sol",
+		ReasoningEffort: "high",
+		PermissionMode:  PermissionModeWorkspaceWrite,
+		ApprovalMode:    ApprovalModeOnRequest,
+	}
 }
 
 func liveSideInvocation() Invocation {
@@ -321,17 +358,54 @@ func createLiveActiveForks(t *testing.T, fixture liveFixture, parent liveActiveP
 	})
 	activeAtFork := append([]ThreadTurn{}, active.Turns...)
 	assertLiveForkDidNotWait(t, parent.done, "ephemeral active-turn fork")
+	contextFrame := liveSideContextFrame(t, fixture.workspace)
 	if err := fixture.runtime.InjectItems(fixture.ctx, active.ID, []InjectedTextItem{
 		{Role: "user", Text: "Active side boundary marker."},
 		{
 			Role: "developer",
-			Text: `Setta authoritative side context reference.
-{"type":"side_in_flight_context_frame","sourceTrajectorySequence":1,"currentObjective":{"input":{"text":"Run the active parent command."},"delivery":"normal","status":"running"},"acceptedSteering":[],"currentPlan":null,"activeActivities":[{"kind":"command","title":"sleep 12"}],"pendingApprovals":[],"artifacts":[]}`,
+			Text: "Setta authoritative side context reference.\n" + contextFrame,
 		},
 	}); err != nil {
 		t.Fatalf("active-fork InjectItems: %v", err)
 	}
 	return liveForkSnapshots{completedBoundary: completedBoundary, audit: audit, auditAtFork: auditAtFork, active: active, activeAtFork: activeAtFork}
+}
+
+func liveSideContextFrame(t *testing.T, workspace string) string {
+	t.Helper()
+	frame := map[string]any{
+		"type":                     "side_in_flight_context_frame",
+		"sourceTrajectorySequence": 1,
+		"currentObjective": map[string]any{
+			"input":    map[string]string{"text": "Run the active parent command."},
+			"delivery": "normal",
+			"status":   "running",
+		},
+		"acceptedSteering": []any{},
+		"currentPlan":      nil,
+		"activeActivities": []any{
+			map[string]any{
+				"startedAtSequence":     1,
+				"lastUpdatedAtSequence": 1,
+				"kind":                  "command",
+				"title":                 "sleep 12",
+				"command":               "sleep 12",
+				"cwd":                   workspace,
+				"server":                nil,
+				"tool":                  nil,
+				"namespace":             nil,
+				"latestProgress":        "Command is running.",
+				"latestOutput":          nil,
+			},
+		},
+		"pendingApprovals": []any{},
+		"artifacts":        []any{},
+	}
+	encoded, err := json.Marshal(frame)
+	if err != nil {
+		t.Fatalf("encode live side context frame: %v", err)
+	}
+	return string(encoded)
 }
 
 func forkLiveThread(t *testing.T, fixture liveFixture, request ForkThreadRequest) Thread {
