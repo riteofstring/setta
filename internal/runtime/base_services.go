@@ -130,10 +130,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	if err != nil {
 		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
 	}
-	conversationInputService, err := newConversationInputService(conversationStore)
-	if err != nil {
-		return runtimeFoundation{}, err
-	}
 	masterInputService, err := master.NewService(conversationStore)
 	if err != nil {
 		_ = conversationStore.Close()
@@ -145,6 +141,14 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	if err != nil {
 		_ = conversationStore.Close()
 		return runtimeFoundation{}, fmt.Errorf("create narrator service: %w", err)
+	}
+	conversationInputService, err := newConversationInputService(conversationStore, narratorService)
+	if err != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+		_ = narratorService.Shutdown(shutdownCtx)
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, err
 	}
 	conversationService, err := conversation.NewService(
 		conversationStore,
@@ -159,21 +163,13 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		_ = conversationStore.Close()
 		return runtimeFoundation{}, fmt.Errorf("create conversation service: %w", err)
 	}
-	if err := conversationService.RecoverSideConversations(context.Background()); err != nil {
+	if err := recoverRuntimeConversationServices(conversationService, narratorService); err != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
 		defer cancel()
 		_ = conversationService.Shutdown(shutdownCtx)
 		_ = narratorService.Shutdown(shutdownCtx)
 		_ = conversationStore.Close()
-		return runtimeFoundation{}, fmt.Errorf("recover side conversations: %w", err)
-	}
-	if err := narratorService.RecoverCommittedTrajectory(context.Background()); err != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
-		defer cancel()
-		_ = conversationService.Shutdown(shutdownCtx)
-		_ = narratorService.Shutdown(shutdownCtx)
-		_ = conversationStore.Close()
-		return runtimeFoundation{}, fmt.Errorf("recover narrator trajectory: %w", err)
+		return runtimeFoundation{}, err
 	}
 	return runtimeFoundation{
 		appearanceService:        appearanceService,
@@ -188,8 +184,27 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	}, nil
 }
 
-func newConversationInputService(store *conversation.Store) (*conversation.InputService, error) {
-	service, err := conversation.NewInputService(store)
+func recoverRuntimeConversationServices(
+	conversationService *conversation.Service,
+	narratorService *narration.Service,
+) error {
+	if err := conversationService.RecoverSideConversations(context.Background()); err != nil {
+		return fmt.Errorf("recover side conversations: %w", err)
+	}
+	if err := narratorService.RecoverCommittedTrajectory(context.Background()); err != nil {
+		return fmt.Errorf("recover narrator trajectory: %w", err)
+	}
+	if err := narratorService.RecoverConversationInputs(context.Background()); err != nil {
+		return fmt.Errorf("recover conversation input routing: %w", err)
+	}
+	return nil
+}
+
+func newConversationInputService(
+	store *conversation.Store,
+	router conversation.ConversationInputRoutingNotifier,
+) (*conversation.InputService, error) {
+	service, err := conversation.NewRoutedInputService(store, router)
 	if err != nil {
 		_ = store.Close()
 		return nil, fmt.Errorf("create conversation input service: %w", err)

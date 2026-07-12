@@ -149,6 +149,8 @@ type ConversationRouteDecisionCommit struct {
 	ClarificationInputID *string                         `json:"clarificationInputId"`
 	RoutingAttempt       int                             `json:"routingAttempt"`
 	Source               ConversationRouteDecisionSource `json:"source"`
+	RouterContext        *ConversationRouteContextAudit  `json:"routerContext"`
+	ResolvedInvocation   *ResolvedInvocation             `json:"resolvedInvocation"`
 	Decision             ConversationRouteDecision       `json:"decision"`
 	ResultingCommand     ConversationRouteCommand        `json:"resultingCommand"`
 	DecidedAt            string                          `json:"decidedAt"`
@@ -162,9 +164,28 @@ type ConversationRouteDecisionRecord struct {
 	ClarificationInputID *string                         `json:"clarificationInputId"`
 	RoutingAttempt       int                             `json:"routingAttempt"`
 	Source               ConversationRouteDecisionSource `json:"source"`
+	RouterContext        *ConversationRouteContextAudit  `json:"routerContext"`
+	ResolvedInvocation   *ResolvedInvocation             `json:"resolvedInvocation"`
 	Decision             ConversationRouteDecision       `json:"decision"`
 	ResultingCommand     ConversationRouteCommand        `json:"resultingCommand"`
 	DecidedAt            string                          `json:"decidedAt"`
+}
+
+// ConversationRouteContextAudit records the bounded authority supplied to a
+// local AI routing call without retaining a second copy of the model input.
+// The decision and resolved invocation remain independently inspectable while
+// trajectory ranges and allowed variants prove the call's exact scope.
+type ConversationRouteContextAudit struct {
+	InputSequence                int                             `json:"inputSequence"`
+	ClarificationInputSequence   *int                            `json:"clarificationInputSequence"`
+	RequestedMode                ConversationInputMode           `json:"requestedMode"`
+	LatestTrajectorySequence     int                             `json:"latestTrajectorySequence"`
+	AvailableTrajectoryRange     *TrajectorySequenceRange        `json:"availableTrajectoryRange"`
+	IncludedTrajectoryRange      *TrajectorySequenceRange        `json:"includedTrajectoryRange"`
+	PriorNarrationCount          int                             `json:"priorNarrationCount"`
+	PriorRouteDecisionCount      int                             `json:"priorRouteDecisionCount"`
+	ValidCompletedForkPointCount int                             `json:"validCompletedForkPointCount"`
+	AllowedDecisionKinds         []ConversationRouteDecisionKind `json:"allowedDecisionKinds"`
 }
 
 // ConversationInputRoutingWork is the one store-claimed input exchange a
@@ -481,6 +502,8 @@ func (commit ConversationRouteDecisionCommit) Validate() error {
 		commit.ClarificationInputID,
 		commit.RoutingAttempt,
 		commit.Source,
+		commit.RouterContext,
+		commit.ResolvedInvocation,
 		commit.Decision,
 		commit.ResultingCommand,
 		commit.DecidedAt,
@@ -498,6 +521,8 @@ func (record ConversationRouteDecisionRecord) Validate() error {
 		record.ClarificationInputID,
 		record.RoutingAttempt,
 		record.Source,
+		record.RouterContext,
+		record.ResolvedInvocation,
 		record.Decision,
 		record.ResultingCommand,
 		record.DecidedAt,
@@ -511,6 +536,8 @@ func validateConversationRouteDecisionEnvelope(
 	clarificationInputID *string,
 	routingAttempt int,
 	source ConversationRouteDecisionSource,
+	routerContext *ConversationRouteContextAudit,
+	resolvedInvocation *ResolvedInvocation,
 	decision ConversationRouteDecision,
 	command ConversationRouteCommand,
 	decidedAt string,
@@ -523,6 +550,15 @@ func validateConversationRouteDecisionEnvelope(
 	}
 	if !validConversationRouteDecisionSource(source) {
 		return fmt.Errorf("unsupported conversation route decision source %q", source)
+	}
+	if err := validateConversationRouteDecisionAudit(
+		source,
+		clarificationInputID,
+		decision.Kind,
+		routerContext,
+		resolvedInvocation,
+	); err != nil {
+		return err
 	}
 	if err := decision.Validate(); err != nil {
 		return err

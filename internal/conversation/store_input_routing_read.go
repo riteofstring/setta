@@ -13,6 +13,58 @@ import (
 	"setta/internal/jsonio"
 )
 
+func (store *Store) ListPendingConversationRouteInputs(
+	ctx context.Context,
+) ([]string, error) {
+	if store == nil {
+		return nil, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return nil, errors.New("conversation router recovery context is required")
+	}
+	conversationIDs := []string{}
+	err := store.read(ctx, "list pending conversation router inputs", func(ctx context.Context, reader *sql.Conn) error {
+		rows, err := reader.QueryContext(ctx, `
+SELECT DISTINCT root.conversation_id
+FROM conversation_inputs AS root
+WHERE root.reply_to_input_id IS NULL
+  AND root.requested_mode = ?
+  AND (
+    root.status = ?
+    OR (
+      root.status = ?
+      AND EXISTS (
+        SELECT 1
+        FROM conversation_inputs AS reply
+        WHERE reply.conversation_id = root.conversation_id
+          AND reply.reply_to_input_id = root.id
+          AND reply.status = ?
+      )
+    )
+  )
+ORDER BY root.conversation_id
+`,
+			ConversationInputModeRoute,
+			ConversationInputStatusAccepted,
+			ConversationInputStatusAwaitingClarification,
+			ConversationInputStatusAccepted,
+		)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var conversationID string
+			if err := rows.Scan(&conversationID); err != nil {
+				return err
+			}
+			conversationIDs = append(conversationIDs, conversationID)
+		}
+		return rows.Err()
+	})
+	return conversationIDs, err
+}
+
 func (store *Store) ReadConversationRouteDecisions(
 	ctx context.Context,
 	inputID string,
@@ -186,8 +238,8 @@ func readConversationRouteDecisionRows(
 ) ([]ConversationRouteDecisionRecord, error) {
 	rows, err := query.QueryContext(ctx, `
 SELECT stream_sequence, id, conversation_id, input_id, clarification_input_id,
-       routing_attempt, source, route_decision_json, resulting_command_json,
-       resulting_command_key, decided_at
+       routing_attempt, source, router_context_json, resolved_invocation_json,
+       route_decision_json, resulting_command_json, resulting_command_key, decided_at
 FROM conversation_route_decisions
 WHERE input_id = ?
 ORDER BY stream_sequence
@@ -224,8 +276,8 @@ func readConversationRouteDecisionOrdinal(
 ) (ConversationRouteDecisionRecord, bool, error) {
 	row := query.QueryRowContext(ctx, `
 SELECT stream_sequence, id, conversation_id, input_id, clarification_input_id,
-       routing_attempt, source, route_decision_json, resulting_command_json,
-       resulting_command_key, decided_at
+       routing_attempt, source, router_context_json, resolved_invocation_json,
+       route_decision_json, resulting_command_json, resulting_command_key, decided_at
 FROM conversation_route_decisions
 WHERE conversation_id = ? AND input_id = ? AND decision_ordinal = ?
 `, conversationID, inputID, ordinal)
@@ -244,8 +296,8 @@ func readConversationRouteDecisionID(
 ) (ConversationRouteDecisionRecord, bool, error) {
 	row := query.QueryRowContext(ctx, `
 SELECT stream_sequence, id, conversation_id, input_id, clarification_input_id,
-       routing_attempt, source, route_decision_json, resulting_command_json,
-       resulting_command_key, decided_at
+       routing_attempt, source, router_context_json, resolved_invocation_json,
+       route_decision_json, resulting_command_json, resulting_command_key, decided_at
 FROM conversation_route_decisions
 WHERE id = ?
 `, decisionID)
@@ -266,6 +318,8 @@ func equalConversationRouteDecisionCommit(
 		equalOptionalString(record.ClarificationInputID, commit.ClarificationInputID) &&
 		record.RoutingAttempt == commit.RoutingAttempt &&
 		record.Source == commit.Source &&
+		reflect.DeepEqual(record.RouterContext, commit.RouterContext) &&
+		reflect.DeepEqual(record.ResolvedInvocation, commit.ResolvedInvocation) &&
 		reflect.DeepEqual(record.Decision, commit.Decision) &&
 		reflect.DeepEqual(record.ResultingCommand, commit.ResultingCommand) &&
 		record.DecidedAt == commit.DecidedAt
@@ -277,6 +331,8 @@ func scanConversationRouteDecision(
 ) (ConversationRouteDecisionRecord, error) {
 	var record ConversationRouteDecisionRecord
 	var clarificationInputID sql.NullString
+	var routerContextJSON sql.NullString
+	var resolvedInvocationJSON sql.NullString
 	var decisionJSON string
 	var commandJSON string
 	var commandKey string
@@ -288,6 +344,8 @@ func scanConversationRouteDecision(
 		&clarificationInputID,
 		&record.RoutingAttempt,
 		&record.Source,
+		&routerContextJSON,
+		&resolvedInvocationJSON,
 		&decisionJSON,
 		&commandJSON,
 		&commandKey,
@@ -296,6 +354,12 @@ func scanConversationRouteDecision(
 		return ConversationRouteDecisionRecord{}, err
 	}
 	record.ClarificationInputID = optionalScannedString(clarificationInputID)
+	if err := decodeOptionalJSON("conversation route context audit", routerContextJSON, &record.RouterContext); err != nil {
+		return ConversationRouteDecisionRecord{}, &CorruptStateError{Path: dbPath, Err: fmt.Errorf("decode conversation route context %s: %w", record.ID, err)}
+	}
+	if err := decodeOptionalJSON("conversation route resolved invocation", resolvedInvocationJSON, &record.ResolvedInvocation); err != nil {
+		return ConversationRouteDecisionRecord{}, &CorruptStateError{Path: dbPath, Err: fmt.Errorf("decode conversation route invocation %s: %w", record.ID, err)}
+	}
 	if err := decodeConversationRouteJSON(decisionJSON, &record.Decision); err != nil {
 		return ConversationRouteDecisionRecord{}, &CorruptStateError{Path: dbPath, Err: fmt.Errorf("decode conversation route decision %s: %w", record.ID, err)}
 	}

@@ -31,6 +31,24 @@ export function assertIdempotentConversationInput(first, duplicate, expectedInpu
   }
 }
 
+export function assertRoutedConversationInputReceipt(first, duplicate, expectedInput) {
+  const expectedFirst = receiptSummary({
+    ...first,
+    input: expectedInput,
+    sequence: 1,
+    status: "accepted",
+  });
+  const expectedDuplicate = { ...expectedFirst, status: "dispatched" };
+  if (
+    JSON.stringify(receiptSummary(first)) !== JSON.stringify(expectedFirst) ||
+    JSON.stringify(receiptSummary(duplicate)) !== JSON.stringify(expectedDuplicate)
+  ) {
+    throw new Error(
+      `conversation input did not preserve its receipt across routing: ${JSON.stringify({ duplicate, first })}`,
+    );
+  }
+}
+
 export function assertAcceptedConversationInputRoutingState(state, expectedInput) {
   assertRoutingState(
     state,
@@ -43,6 +61,132 @@ export function assertAcceptedConversationInputRoutingState(state, expectedInput
     },
     "accepted",
   );
+}
+
+export function assertDispatchedConversationInputRoutingState(state, expectedInput) {
+  assertRoutingState(
+    state,
+    expectedInput,
+    {
+      failureCode: null,
+      failureRetryable: null,
+      routingAttempt: 1,
+      status: "dispatched",
+    },
+    "dispatched",
+    1,
+  );
+  const decision = state.decisions[0];
+  assertConversationRouterDecision(decision, expectedInput);
+  assertConversationRouterContextAudit(decision.routerContext, state.input.sequence);
+  assertConversationRouterInvocation(decision.resolvedInvocation);
+}
+
+function assertConversationRouterDecision(decision, expectedInput) {
+  const actual = {
+    commandKind: decision.resultingCommand.kind,
+    commandText: decision.resultingCommand.sendToParent.authoredInput.text,
+    decisionKind: decision.decision.kind,
+    decisionText: decision.decision.sendToParent.authoredInput.text,
+    source: decision.source,
+  };
+  const expected = {
+    commandKind: "send_to_parent",
+    commandText: expectedInput.text,
+    decisionKind: "send_to_parent",
+    decisionText: expectedInput.text,
+    source: "conversation_router",
+  };
+  assertEqualJSON(actual, expected, "conversation-router decision");
+  assertNonEmptyString(
+    decision.resultingCommand.sendToParent.turnId,
+    "conversation-router parent turn id",
+  );
+}
+
+function assertConversationRouterContextAudit(audit, inputSequence) {
+  const expectedAllowedKinds = [
+    "send_to_parent",
+    "answer_as_narrator",
+    "escalate_to_master",
+    "clarify",
+  ];
+  const actual = {
+    allowedDecisionKinds: audit.allowedDecisionKinds,
+    availableTrajectoryRange: audit.availableTrajectoryRange,
+    clarificationInputSequence: audit.clarificationInputSequence,
+    includedTrajectoryRange: audit.includedTrajectoryRange,
+    inputSequence: audit.inputSequence,
+    latestTrajectorySequence: audit.latestTrajectorySequence,
+    priorNarrationCount: audit.priorNarrationCount,
+    priorRouteDecisionCount: audit.priorRouteDecisionCount,
+    requestedMode: audit.requestedMode,
+    validCompletedForkPointCount: audit.validCompletedForkPointCount,
+  };
+  const expected = {
+    allowedDecisionKinds: expectedAllowedKinds,
+    availableTrajectoryRange: null,
+    clarificationInputSequence: null,
+    includedTrajectoryRange: null,
+    inputSequence,
+    latestTrajectorySequence: 0,
+    priorNarrationCount: 0,
+    priorRouteDecisionCount: 0,
+    requestedMode: "route",
+    validCompletedForkPointCount: 0,
+  };
+  assertEqualJSON(actual, expected, "conversation-router context audit");
+}
+
+function assertConversationRouterInvocation(invocation) {
+  const actual = {
+    approvals: invocation.resolved.permissionProfile.approvals,
+    modelMode: invocation.requested.modelSelection.mode,
+    outcome: invocation.outcome,
+    provider: invocation.provider,
+    providerPermissionProfile: invocation.resolved.permissionProfile.providerPermissionProfile,
+    requestedModelId: invocation.requested.modelSelection.modelId,
+    resolvedModelId: invocation.resolved.modelId,
+    role: invocation.role,
+    toolAccessMode: invocation.resolved.permissionProfile.toolAccess.mode,
+    workspaceMutation: invocation.resolved.permissionProfile.workspaceMutation,
+  };
+  const expected = {
+    approvals: false,
+    modelMode: "exact",
+    outcome: "succeeded",
+    provider: "codex",
+    providerPermissionProfile: ":read-only",
+    requestedModelId: "gpt-5.4-mini",
+    resolvedModelId: "gpt-5.4-mini",
+    role: "narrator",
+    toolAccessMode: "none",
+    workspaceMutation: false,
+  };
+  assertEqualJSON(actual, expected, "conversation-router invocation");
+  assertPositiveNumber(invocation.contextUsage.inputBytes, "conversation-router input bytes");
+  assertPositiveNumber(invocation.contextUsage.outputBytes, "conversation-router output bytes");
+  assertNonEmptyString(invocation.providerReferences.threadId, "conversation-router thread id");
+  assertNonEmptyString(invocation.providerReferences.turnId, "conversation-router turn id");
+  assertNonEmptyString(invocation.providerReferences.requestId, "conversation-router request id");
+}
+
+function assertEqualJSON(actual, expected, label) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`invalid ${label}: ${JSON.stringify(actual)}`);
+  }
+}
+
+function assertNonEmptyString(value, label) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`invalid ${label}: ${JSON.stringify(value)}`);
+  }
+}
+
+function assertPositiveNumber(value, label) {
+  if (typeof value !== "number" || value <= 0) {
+    throw new Error(`invalid ${label}: ${JSON.stringify(value)}`);
+  }
 }
 
 export function assertDiscardedConversationInputRoutingState(state, expectedInput) {
@@ -84,11 +228,11 @@ function inputStateRequest(workspaceId, request) {
   };
 }
 
-function assertRoutingState(state, expectedInput, expectedLifecycle, label) {
+function assertRoutingState(state, expectedInput, expectedLifecycle, label, decisions = 0) {
   const actual = routingStateSummary(state);
   const expected = {
     clarificationReply: null,
-    decisions: 0,
+    decisions,
     failureCode: expectedLifecycle.failureCode,
     failureRetryable: expectedLifecycle.failureRetryable,
     input: conversationInputSummary(expectedInput),

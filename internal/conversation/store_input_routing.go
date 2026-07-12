@@ -35,7 +35,54 @@ func (store *Store) ClaimNextConversationInput(
 	var work ConversationInputRoutingWork
 	_, err := store.Transact(ctx, "claim conversation input routing work", func(transaction *WriteTransaction) error {
 		var claimErr error
-		work, claimErr = claimNextConversationInputTransaction(transaction, store.dbPath, conversationID, startedAt)
+		work, claimErr = claimNextConversationInputTransaction(
+			transaction,
+			store.dbPath,
+			conversationID,
+			startedAt,
+			false,
+		)
+		return claimErr
+	})
+	if errors.Is(err, errNoConversationInputRoutingWork) {
+		return ConversationInputRoutingWork{}, false, nil
+	}
+	if err != nil {
+		return ConversationInputRoutingWork{}, false, err
+	}
+	return cloneConversationInputRoutingWork(work), true, nil
+}
+
+// ClaimNextConversationRouteInput claims only AI-routed work. An earlier
+// explicit override remains an ordering barrier for its later executor; the
+// local model must never reinterpret or skip that user-authored mode.
+func (store *Store) ClaimNextConversationRouteInput(
+	ctx context.Context,
+	conversationID string,
+	startedAt string,
+) (ConversationInputRoutingWork, bool, error) {
+	if store == nil {
+		return ConversationInputRoutingWork{}, false, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return ConversationInputRoutingWork{}, false, errors.New("conversation input routing context is required")
+	}
+	if err := validateConversationInputReference("conversation input routing conversation id", conversationID); err != nil {
+		return ConversationInputRoutingWork{}, false, err
+	}
+	if _, err := validateTimestamp("conversation input routing startedAt", startedAt); err != nil {
+		return ConversationInputRoutingWork{}, false, err
+	}
+	var work ConversationInputRoutingWork
+	_, err := store.Transact(ctx, "claim conversation router input", func(transaction *WriteTransaction) error {
+		var claimErr error
+		work, claimErr = claimNextConversationInputTransaction(
+			transaction,
+			store.dbPath,
+			conversationID,
+			startedAt,
+			true,
+		)
 		return claimErr
 	})
 	if errors.Is(err, errNoConversationInputRoutingWork) {
@@ -52,12 +99,16 @@ func claimNextConversationInputTransaction(
 	dbPath string,
 	conversationID string,
 	startedAt string,
+	routeOnly bool,
 ) (ConversationInputRoutingWork, error) {
 	root, found, err := readOldestPendingConversationInput(transaction.ctx, transaction.tx, conversationID, dbPath)
 	if err != nil {
 		return ConversationInputRoutingWork{}, err
 	}
 	if !found {
+		return ConversationInputRoutingWork{}, errNoConversationInputRoutingWork
+	}
+	if routeOnly && root.Accepted.Input.RequestedMode != ConversationInputModeRoute {
 		return ConversationInputRoutingWork{}, errNoConversationInputRoutingWork
 	}
 
@@ -394,6 +445,20 @@ func insertConversationRouteDecisionRecord(
 	if err != nil {
 		return ConversationRouteDecisionRecord{}, fmt.Errorf("encode conversation route command: %w", err)
 	}
+	routerContextJSON, err := encodeOptionalJSONColumn(
+		"conversation route context audit",
+		commit.RouterContext,
+	)
+	if err != nil {
+		return ConversationRouteDecisionRecord{}, err
+	}
+	resolvedInvocationJSON, err := encodeOptionalJSONColumn(
+		"conversation route resolved invocation",
+		commit.ResolvedInvocation,
+	)
+	if err != nil {
+		return ConversationRouteDecisionRecord{}, err
+	}
 	record := conversationRouteDecisionRecordFromCommit(commit)
 	commandKey, err := conversationRouteCommandKey(commit)
 	if err != nil {
@@ -402,9 +467,9 @@ func insertConversationRouteDecisionRecord(
 	if err := transaction.tx.QueryRowContext(transaction.ctx, `
 INSERT INTO conversation_route_decisions (
   id, conversation_id, input_id, clarification_input_id, decision_ordinal,
-  routing_attempt, source, route_decision_json, resulting_command_json,
-  resulting_command_key, decided_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  routing_attempt, source, router_context_json, resolved_invocation_json,
+  route_decision_json, resulting_command_json, resulting_command_key, decided_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING stream_sequence
 `,
 		record.ID,
@@ -414,6 +479,8 @@ RETURNING stream_sequence
 		conversationRouteDecisionOrdinal(commit),
 		record.RoutingAttempt,
 		record.Source,
+		routerContextJSON,
+		resolvedInvocationJSON,
 		string(decisionJSON),
 		string(commandJSON),
 		commandKey,
@@ -438,6 +505,8 @@ func conversationRouteDecisionRecordFromCommit(commit ConversationRouteDecisionC
 		ClarificationInputID: cloneStringPointer(commit.ClarificationInputID),
 		RoutingAttempt:       commit.RoutingAttempt,
 		Source:               commit.Source,
+		RouterContext:        cloneConversationRouteContextAudit(commit.RouterContext),
+		ResolvedInvocation:   cloneConversationRouteResolvedInvocation(commit.ResolvedInvocation),
 		Decision:             cloneConversationRouteDecision(commit.Decision),
 		ResultingCommand:     cloneConversationRouteCommand(commit.ResultingCommand),
 		DecidedAt:            commit.DecidedAt,

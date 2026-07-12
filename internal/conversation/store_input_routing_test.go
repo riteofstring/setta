@@ -150,6 +150,13 @@ func TestStoreExplicitConversationInputModesConstrainDecisionWithoutRewriting(t 
 			name: "router source",
 			mutate: func(commit *ConversationRouteDecisionCommit) {
 				commit.Source = ConversationRouteDecisionSourceRouter
+				routerCommit := validConversationRouteDecisionCommit(
+					commit.ID,
+					commit.Decision,
+					commit.ResultingCommand,
+				)
+				commit.RouterContext = routerCommit.RouterContext
+				commit.ResolvedInvocation = routerCommit.ResolvedInvocation
 			},
 		},
 		{
@@ -159,6 +166,8 @@ func TestStoreExplicitConversationInputModesConstrainDecisionWithoutRewriting(t 
 					ConversationRouteDecisionKindAnswerAsNarrator,
 					"Route this request",
 				)
+				commit.RouterContext = nil
+				commit.ResolvedInvocation = nil
 			},
 		},
 		{
@@ -186,6 +195,8 @@ func TestStoreExplicitConversationInputModesConstrainDecisionWithoutRewriting(t 
 			commit := validConversationRouteDecisionCommit("decision_explicit", decision, command)
 			commit.InputID = input.ID
 			commit.Source = ConversationRouteDecisionSourceExplicit
+			commit.RouterContext = nil
+			commit.ResolvedInvocation = nil
 			commit.RoutingAttempt = work.RoutingAttempt
 			commit.DecidedAt = "2026-07-12T18:00:03Z"
 			test.mutate(&commit)
@@ -209,6 +220,8 @@ func TestStoreExplicitConversationInputModesConstrainDecisionWithoutRewriting(t 
 	commit := validConversationRouteDecisionCommit("decision_explicit_success", decision, command)
 	commit.InputID = input.ID
 	commit.Source = ConversationRouteDecisionSourceExplicit
+	commit.RouterContext = nil
+	commit.ResolvedInvocation = nil
 	commit.RoutingAttempt = work.RoutingAttempt
 	commit.DecidedAt = "2026-07-12T18:00:03Z"
 	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
@@ -274,6 +287,8 @@ func TestStoreKeepsClarificationLinkedAndBlocksLaterInputsUntilResolution(t *tes
 	final.ConversationID = root.ConversationID
 	final.InputID = root.ID
 	final.ClarificationInputID = &reply.ID
+	clarificationSequence := combined.ClarificationReply.Sequence
+	final.RouterContext.ClarificationInputSequence = &clarificationSequence
 	final.RoutingAttempt = combined.RoutingAttempt
 	final.DecidedAt = "2026-07-12T18:00:11Z"
 	if _, err := store.CommitConversationRouteDecision(context.Background(), final); err != nil {
@@ -600,14 +615,34 @@ func TestStoreReservesConversationRouteCommandIdentifiers(t *testing.T) {
 func TestStoreRejectsConversationRouteCommandsThatCannotExecute(t *testing.T) {
 	t.Run("full queue", func(t *testing.T) {
 		store := newTestStore(t)
-		conversationID := "conversation_full_route_queue"
-		seedConversationInputTargets(t, store, conversationID)
-		seedConversationRouteRunningTurn(t, store, conversationID)
+		conversationID := seedNarratorContext(t, store).conversationID
 		seedFullConversationRouteQueue(t, store, conversationID)
 		input := validConversationInput("input_full_route_queue")
 		input.ConversationID = conversationID
 		acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
 		work := claimConversationRoutingInput(t, store, conversationID, "2026-07-12T18:00:02Z")
+		source, err := store.ReadConversationRouterContextSource(
+			context.Background(),
+			ConversationRouterContextReadRequest{
+				Work:                work,
+				MaxTrajectoryEvents: 16,
+				MaxPriorNarration:   8,
+				MaxPriorDecisions:   8,
+				MaxForkPoints:       8,
+			},
+		)
+		if err != nil {
+			t.Fatalf("ReadConversationRouterContextSource: %v", err)
+		}
+		if conversationRouteDecisionKindIncluded(
+			source.AllowedDecisionKinds,
+			ConversationRouteDecisionKindQueueParentTurn,
+		) || !conversationRouteDecisionKindIncluded(
+			source.AllowedDecisionKinds,
+			ConversationRouteDecisionKindSteerParentTurn,
+		) {
+			t.Fatalf("full queue router variants = %v", source.AllowedDecisionKinds)
+		}
 		decision, command := validConversationRouteDecisionAndCommand(
 			ConversationRouteDecisionKindQueueParentTurn,
 			input.Text,

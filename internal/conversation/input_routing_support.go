@@ -89,6 +89,8 @@ func conversationRouteCommandKey(commit ConversationRouteDecisionCommit) (string
 
 func cloneConversationRouteDecisionRecord(record ConversationRouteDecisionRecord) ConversationRouteDecisionRecord {
 	record.ClarificationInputID = cloneStringPointer(record.ClarificationInputID)
+	record.RouterContext = cloneConversationRouteContextAudit(record.RouterContext)
+	record.ResolvedInvocation = cloneConversationRouteResolvedInvocation(record.ResolvedInvocation)
 	record.Decision = cloneConversationRouteDecision(record.Decision)
 	record.ResultingCommand = cloneConversationRouteCommand(record.ResultingCommand)
 	return record
@@ -128,9 +130,70 @@ func cloneConversationRoutePayload[Payload any](payload *Payload) *Payload {
 
 func cloneConversationRouteDecisionCommit(commit ConversationRouteDecisionCommit) ConversationRouteDecisionCommit {
 	commit.ClarificationInputID = cloneStringPointer(commit.ClarificationInputID)
+	commit.RouterContext = cloneConversationRouteContextAudit(commit.RouterContext)
+	commit.ResolvedInvocation = cloneConversationRouteResolvedInvocation(commit.ResolvedInvocation)
 	commit.Decision = cloneConversationRouteDecision(commit.Decision)
 	commit.ResultingCommand = cloneConversationRouteCommand(commit.ResultingCommand)
 	return commit
+}
+
+func cloneConversationRouteContextAudit(
+	audit *ConversationRouteContextAudit,
+) *ConversationRouteContextAudit {
+	if audit == nil {
+		return nil
+	}
+	cloned := *audit
+	cloned.ClarificationInputSequence = cloneIntPointer(audit.ClarificationInputSequence)
+	cloned.AvailableTrajectoryRange = cloneTrajectorySequenceRange(audit.AvailableTrajectoryRange)
+	cloned.IncludedTrajectoryRange = cloneTrajectorySequenceRange(audit.IncludedTrajectoryRange)
+	cloned.AllowedDecisionKinds = append([]ConversationRouteDecisionKind{}, audit.AllowedDecisionKinds...)
+	return &cloned
+}
+
+func cloneConversationRouteResolvedInvocation(invocation *ResolvedInvocation) *ResolvedInvocation {
+	if invocation == nil {
+		return nil
+	}
+	cloned := *invocation
+	cloned.Requested.ModelSelection.ModelID = cloneStringPointer(invocation.Requested.ModelSelection.ModelID)
+	cloned.Requested.ServiceTier = cloneStringPointer(invocation.Requested.ServiceTier)
+	cloned.Requested.PermissionProfile.ToolAccess.AllowedTools = append(
+		[]string{},
+		invocation.Requested.PermissionProfile.ToolAccess.AllowedTools...,
+	)
+	cloned.Resolved.ServiceTier = cloneStringPointer(invocation.Resolved.ServiceTier)
+	cloned.Resolved.PermissionProfile.ToolAccess.AllowedTools = append(
+		[]string{},
+		invocation.Resolved.PermissionProfile.ToolAccess.AllowedTools...,
+	)
+	cloned.ProviderReferences.ThreadID = cloneStringPointer(invocation.ProviderReferences.ThreadID)
+	cloned.ProviderReferences.TurnID = cloneStringPointer(invocation.ProviderReferences.TurnID)
+	cloned.ProviderReferences.RequestID = cloneStringPointer(invocation.ProviderReferences.RequestID)
+	cloned.ProviderReferences.ResponseID = cloneStringPointer(invocation.ProviderReferences.ResponseID)
+	cloned.ModelReroutes = append([]InvocationModelReroute{}, invocation.ModelReroutes...)
+	cloned.EndedAt = cloneStringPointer(invocation.EndedAt)
+	if invocation.Failure != nil {
+		failure := *invocation.Failure
+		cloned.Failure = &failure
+	}
+	return &cloned
+}
+
+func cloneIntPointer(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func cloneTrajectorySequenceRange(value *TrajectorySequenceRange) *TrajectorySequenceRange {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func cloneConversationInputRoutingWork(work ConversationInputRoutingWork) ConversationInputRoutingWork {

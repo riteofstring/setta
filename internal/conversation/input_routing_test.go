@@ -249,14 +249,22 @@ func validConversationRouteDecisionCommit(
 	decision ConversationRouteDecision,
 	command ConversationRouteCommand,
 ) ConversationRouteDecisionCommit {
+	invocation := validInvocation(RoleNarrator, InvocationOutcomeSucceeded)
+	invocation.ID = "invocation_" + id
 	return ConversationRouteDecisionCommit{
-		ID:               id,
-		ConversationID:   "conversation_alpha",
-		InputID:          "input_alpha",
-		RoutingAttempt:   1,
-		Source:           ConversationRouteDecisionSourceRouter,
-		Decision:         decision,
-		ResultingCommand: command,
-		DecidedAt:        "2026-07-13T18:00:01Z",
+		ID:             id,
+		ConversationID: "conversation_alpha",
+		InputID:        "input_alpha",
+		RoutingAttempt: 1,
+		Source:         ConversationRouteDecisionSourceRouter,
+		RouterContext: &ConversationRouteContextAudit{
+			InputSequence:        1,
+			RequestedMode:        ConversationInputModeRoute,
+			AllowedDecisionKinds: []ConversationRouteDecisionKind{decision.Kind},
+		},
+		ResolvedInvocation: &invocation,
+		Decision:           decision,
+		ResultingCommand:   command,
+		DecidedAt:          "2026-07-13T18:00:01Z",
 	}
 }

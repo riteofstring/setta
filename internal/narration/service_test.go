@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -378,8 +379,12 @@ func (resolver statusServiceWorkspaceResolver) ResolveActiveWorkspace(
 }
 
 type statusServiceAgentRuntime struct {
-	lastRequest agent.FreshStructuredCallRequest
-	providerErr error
+	mu                 sync.Mutex
+	lastRequest        agent.FreshStructuredCallRequest
+	providerErr        error
+	routeKinds         []conversation.ConversationRouteDecisionKind
+	routeRequests      []agent.FreshStructuredCallRequest
+	invalidRouteOutput bool
 }
 
 func (*statusServiceAgentRuntime) ResolveInvocation(
@@ -400,9 +405,20 @@ func (runtime *statusServiceAgentRuntime) RunFreshStructuredCall(
 	_ context.Context,
 	request agent.FreshStructuredCallRequest,
 ) (agent.FreshStructuredCallResult, error) {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
 	runtime.lastRequest = request
 	if runtime.providerErr != nil {
 		return agent.FreshStructuredCallResult{}, runtime.providerErr
+	}
+	var envelope struct {
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(request.Input, &envelope); err != nil {
+		return agent.FreshStructuredCallResult{}, err
+	}
+	if envelope.Kind == ConversationRouteContextKind {
+		return runtime.runConversationRouteCall(request)
 	}
 	var contextBundle StatusContextBundle
 	if err := json.Unmarshal(request.Input, &contextBundle); err != nil {
@@ -420,5 +436,53 @@ func (runtime *statusServiceAgentRuntime) RunFreshStructuredCall(
 		ProviderThreadID: "provider-narrator-thread",
 		ProviderTurnID:   "provider-narrator-turn",
 		Output:           output,
+	}, nil
+}
+
+func (runtime *statusServiceAgentRuntime) runConversationRouteCall(
+	request agent.FreshStructuredCallRequest,
+) (agent.FreshStructuredCallResult, error) {
+	runtime.routeRequests = append(runtime.routeRequests, request)
+	if runtime.invalidRouteOutput {
+		return agent.FreshStructuredCallResult{
+			ProviderThreadID: "provider-router-thread",
+			ProviderTurnID:   "provider-router-turn",
+			Output:           json.RawMessage(`{"decision":{"kind":"unsupported"}}`),
+		}, nil
+	}
+	var contextBundle ConversationRouteContextBundle
+	if err := json.Unmarshal(request.Input, &contextBundle); err != nil {
+		return agent.FreshStructuredCallResult{}, err
+	}
+	kind := conversation.ConversationRouteDecisionKindQueueParentTurn
+	if len(runtime.routeKinds) > 0 {
+		kind = runtime.routeKinds[0]
+		runtime.routeKinds = runtime.routeKinds[1:]
+	}
+	text := contextBundle.Input.Input.Text
+	if contextBundle.Input.ClarificationReply != nil {
+		text = contextBundle.Input.ClarificationReply.Text
+	}
+	decision := map[string]any{"kind": string(kind)}
+	switch kind {
+	case conversation.ConversationRouteDecisionKindAnswerAsNarrator:
+		decision["question"] = text
+	case conversation.ConversationRouteDecisionKindClarify:
+		decision["question"] = "Should this update steer the active turn or wait in the queue?"
+	case conversation.ConversationRouteDecisionKindForkConversation:
+		decision["authoredInput"] = text
+		decision["forkedAtTurnId"] = contextBundle.ValidCompletedForkPoints[0].TurnID
+		decision["proposedTitle"] = "Routed durable fork"
+	default:
+		decision["authoredInput"] = text
+	}
+	encoded, err := json.Marshal(map[string]any{"decision": decision})
+	if err != nil {
+		return agent.FreshStructuredCallResult{}, err
+	}
+	return agent.FreshStructuredCallResult{
+		ProviderThreadID: "provider-router-thread",
+		ProviderTurnID:   "provider-router-turn",
+		Output:           encoded,
 	}, nil
 }

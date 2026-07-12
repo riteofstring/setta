@@ -14,9 +14,14 @@ type ConversationInputStore interface {
 	RetryConversationInputRouting(context.Context, string, string, string, string) (AcceptedConversationInput, error)
 }
 
+type ConversationInputRoutingNotifier interface {
+	NotifyConversationInput(string) error
+}
+
 type InputService struct {
-	store ConversationInputStore
-	now   func() time.Time
+	store  ConversationInputStore
+	router ConversationInputRoutingNotifier
+	now    func() time.Time
 }
 
 type invalidConversationInputReceiptError struct {
@@ -40,14 +45,35 @@ func NewInputService(store ConversationInputStore) (*InputService, error) {
 	return newInputService(store, time.Now)
 }
 
-func newInputService(store ConversationInputStore, now func() time.Time) (*InputService, error) {
+func NewRoutedInputService(
+	store ConversationInputStore,
+	router ConversationInputRoutingNotifier,
+) (*InputService, error) {
+	if router == nil {
+		return nil, errors.New("conversation input router notifier is required")
+	}
+	return newInputService(store, time.Now, router)
+}
+
+func newInputService(
+	store ConversationInputStore,
+	now func() time.Time,
+	routers ...ConversationInputRoutingNotifier,
+) (*InputService, error) {
 	if store == nil {
 		return nil, errors.New("conversation input store is required")
 	}
 	if now == nil {
 		return nil, errors.New("conversation input clock is required")
 	}
-	return &InputService{store: store, now: now}, nil
+	if len(routers) > 1 || (len(routers) == 1 && routers[0] == nil) {
+		return nil, errors.New("conversation input service accepts at most one router notifier")
+	}
+	service := &InputService{store: store, now: now}
+	if len(routers) == 1 {
+		service.router = routers[0]
+	}
+	return service, nil
 }
 
 func (service *InputService) SubmitInput(
@@ -76,6 +102,9 @@ func (service *InputService) SubmitInput(
 		return AcceptedConversationInput{}, &invalidConversationInputReceiptError{
 			cause: errors.New("receipt input differs from the submitted input"),
 		}
+	}
+	if err := service.notifyRouter(accepted); err != nil {
+		return AcceptedConversationInput{}, err
 	}
 	return CloneAcceptedConversationInput(accepted), nil
 }
@@ -120,16 +149,35 @@ func (service *InputService) RetryInput(
 		return ConversationInputRoutingState{}, errors.New("conversation input retry context is required")
 	}
 	retriedAt := service.now().UTC().Format(time.RFC3339Nano)
-	if _, err := service.store.RetryConversationInputRouting(
+	retried, err := service.store.RetryConversationInputRouting(
 		ctx,
 		workspaceID,
 		conversationID,
 		inputID,
 		retriedAt,
-	); err != nil {
+	)
+	if err != nil {
+		return ConversationInputRoutingState{}, err
+	}
+	if err := service.notifyRouter(retried); err != nil {
 		return ConversationInputRoutingState{}, err
 	}
 	return service.ReadInputState(ctx, workspaceID, conversationID, inputID)
+}
+
+func (service *InputService) notifyRouter(accepted AcceptedConversationInput) error {
+	if service.router == nil || accepted.Status != ConversationInputStatusAccepted ||
+		accepted.Input.RequestedMode != ConversationInputModeRoute {
+		return nil
+	}
+	if err := service.router.NotifyConversationInput(accepted.Input.ConversationID); err != nil {
+		return fmt.Errorf(
+			"conversation input %s was accepted but local routing could not be scheduled: %w",
+			accepted.Input.ID,
+			err,
+		)
+	}
+	return nil
 }
 
 func (service *InputService) DiscardInput(

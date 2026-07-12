@@ -94,6 +94,155 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		http.StatusOK,
 	)
 	assertRuntimeLiveNarratorStatus(t, latestSnapshot, status)
+
+	routerInput := conversation.ConversationInput{
+		ID:             "live-topic-conversation-route",
+		ConversationID: created.Conversation.ID,
+		Text: "Answer as this conversation's narrator: did both completed topic turns succeed? " +
+			"Do not send new work to the parent agent.",
+		Modality:      conversation.ConversationInputModalityText,
+		RequestedMode: conversation.ConversationInputModeRoute,
+		SubmittedAt:   time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	accepted := postRuntimeJSON[conversation.AcceptedConversationInput](
+		t,
+		client,
+		baseURL,
+		"/conversations/inputs/submit",
+		httpapi.SubmitConversationInputRequest{Input: routerInput},
+		http.StatusAccepted,
+	)
+	routed := waitForRuntimeLiveConversationRoute(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		accepted,
+	)
+	assertRuntimeLiveConversationRoute(t, status, routed)
+	afterRoute := postRuntimeJSON[conversation.ConversationSnapshot](
+		t,
+		client,
+		baseURL,
+		"/conversations/snapshot/read",
+		httpapi.ReadConversationSnapshotRequest{
+			WorkspaceID:    opened.Workspace.ID,
+			ConversationID: created.Conversation.ID,
+		},
+		http.StatusOK,
+	)
+	assertRuntimeLiveConversationRouteIsolation(t, status, afterRoute)
+}
+
+func waitForRuntimeLiveConversationRoute(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	workspaceID string,
+	conversationID string,
+	accepted conversation.AcceptedConversationInput,
+) conversation.ConversationInputRoutingState {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Minute)
+	var last conversation.ConversationInputRoutingState
+	for time.Now().Before(deadline) {
+		last = postRuntimeJSON[conversation.ConversationInputRoutingState](
+			t,
+			client,
+			baseURL,
+			"/conversations/inputs/state/read",
+			httpapi.ReadConversationInputRoutingStateRequest{
+				WorkspaceID:    workspaceID,
+				ConversationID: conversationID,
+				InputID:        accepted.Input.ID,
+			},
+			http.StatusOK,
+		)
+		switch last.Input.Status {
+		case conversation.ConversationInputStatusDispatched:
+			return last
+		case conversation.ConversationInputStatusFailed,
+			conversation.ConversationInputStatusAwaitingClarification:
+			t.Fatalf(
+				"live conversation router did not resolve the explicit narrator question: failure=%+v state=%+v",
+				last.Input.Failure,
+				last,
+			)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for live conversation route; last state = %+v", last)
+	return conversation.ConversationInputRoutingState{}
+}
+
+func assertRuntimeLiveConversationRoute(
+	t *testing.T,
+	before conversation.ConversationSnapshot,
+	state conversation.ConversationInputRoutingState,
+) {
+	t.Helper()
+	if len(state.Decisions) != 1 {
+		t.Fatalf("live conversation route decisions = %+v", state.Decisions)
+	}
+	record := state.Decisions[0]
+	assertRuntimeLiveConversationRouteDecision(t, record)
+	assertRuntimeLiveConversationRouteAudit(t, before, state, record)
+}
+
+func assertRuntimeLiveConversationRouteDecision(
+	t *testing.T,
+	record conversation.ConversationRouteDecisionRecord,
+) {
+	t.Helper()
+	if record.Source != conversation.ConversationRouteDecisionSourceRouter ||
+		record.Decision.Kind != conversation.ConversationRouteDecisionKindAnswerAsNarrator ||
+		record.Decision.AnswerAsNarrator == nil ||
+		strings.TrimSpace(record.Decision.AnswerAsNarrator.Question) == "" ||
+		record.ResultingCommand.AnswerAsNarrator == nil ||
+		record.RouterContext == nil || record.ResolvedInvocation == nil {
+		t.Fatalf("live conversation route decision = %+v", record)
+	}
+}
+
+func assertRuntimeLiveConversationRouteAudit(
+	t *testing.T,
+	before conversation.ConversationSnapshot,
+	state conversation.ConversationInputRoutingState,
+	record conversation.ConversationRouteDecisionRecord,
+) {
+	t.Helper()
+	audit := record.RouterContext
+	allowed := false
+	for _, kind := range audit.AllowedDecisionKinds {
+		allowed = allowed || kind == conversation.ConversationRouteDecisionKindAnswerAsNarrator
+	}
+	invocation := record.ResolvedInvocation
+	if !allowed || audit.InputSequence != state.Input.Sequence ||
+		audit.LatestTrajectorySequence != before.Conversation.LastTrajectorySequence ||
+		invocation.Role != conversation.RoleNarrator ||
+		invocation.Resolved.ModelID != "gpt-5.4-mini" ||
+		invocation.Resolved.PermissionProfile.ToolAccess.Mode != conversation.ToolAccessNone ||
+		invocation.ContextUsage.InputBytes <= 0 || invocation.ContextUsage.OutputBytes <= 0 ||
+		invocation.Outcome != conversation.InvocationOutcomeSucceeded {
+		t.Fatalf("live conversation router audit = context=%+v invocation=%+v", audit, invocation)
+	}
+}
+
+func assertRuntimeLiveConversationRouteIsolation(
+	t *testing.T,
+	before conversation.ConversationSnapshot,
+	after conversation.ConversationSnapshot,
+) {
+	t.Helper()
+	if after.Conversation.LastTrajectorySequence != before.Conversation.LastTrajectorySequence ||
+		after.NarratorState.ObservedThroughSequence != before.NarratorState.ObservedThroughSequence ||
+		after.NarratorState.CheckpointThroughSequence != before.NarratorState.CheckpointThroughSequence ||
+		len(after.Turns.Turns) != len(before.Turns.Turns) ||
+		after.ThreadBinding == nil || before.ThreadBinding == nil ||
+		after.ThreadBinding.ThreadID != before.ThreadBinding.ThreadID {
+		t.Fatalf("live conversation router mutated topic work: before=%+v after=%+v", before, after)
+	}
 }
 
 func assertRuntimeLiveNarratorStatus(

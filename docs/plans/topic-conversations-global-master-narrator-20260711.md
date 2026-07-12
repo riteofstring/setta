@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-6 and Phase 7 item 1 are complete.
+**Status:** In progress. Phases 0-6 and Phase 7 items 1-2 are complete.
 Conversation-local AI routing, global master cutover, obsolete-surface deletion,
 and final acceptance remain.
 
@@ -2000,7 +2000,7 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** In progress. Item 1 is complete.
+**Status:** In progress. Items 1-2 are complete.
 
 Implement:
 

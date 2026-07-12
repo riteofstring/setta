@@ -319,6 +319,10 @@ function startTurn(message) {
 
 function emitStructuredTurn(threadId, turnId, text) {
   const context = JSON.parse(text);
+  if (context.kind === "input_route") {
+    emitStructuredInputRoute(threadId, turnId, context);
+    return;
+  }
   if (context.kind === "status" && context.trigger === "explicit_status_requested") {
     emitAgentMessage(
       threadId,
@@ -350,6 +354,37 @@ function emitStructuredTurn(threadId, turnId, text) {
     return;
   }
   completeTurn(threadId, turnId, "failed", `unsupported structured context ${context.kind}`);
+}
+
+function emitStructuredInputRoute(threadId, turnId, context) {
+  const input = context.input?.input;
+  const serialized = JSON.stringify(context);
+  const valid = [
+    typeof input?.text === "string",
+    input?.modality === "voice",
+    input?.hasSourcePane === true,
+    context.authoritative?.conversation?.status === "idle",
+    Array.isArray(context.allowedDecisionKinds),
+    context.allowedDecisionKinds.includes("send_to_parent"),
+    !serialized.includes("topic-thread-"),
+    !serialized.includes('"providerItemId":"provider-'),
+    !serialized.includes('"processId":"'),
+  ].every(Boolean);
+  if (!valid) {
+    completeTurn(threadId, turnId, "failed", "input router context drifted");
+    return;
+  }
+  emitAgentMessage(
+    threadId,
+    turnId,
+    JSON.stringify({
+      decision: {
+        kind: "send_to_parent",
+        authoredInput: input.text,
+      },
+    }),
+  );
+  completeTurn(threadId, turnId, "completed");
 }
 
 function emitStructuredProjection(threadId, turnId, context) {

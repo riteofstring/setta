@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 32;
-export const backendContractSchemaHash = "sha256:5ca04c20becf38f8bc464c6fb5c97b2203a9cbc8eb7ffbe71ed3822698dd6e14";
+export const backendProtocolVersion = 33;
+export const backendContractSchemaHash = "sha256:a5fb2a6452b3f78441aa7b04fb1723a54449bbd8761818e85cf95fc8ffa8a151";
 
 export type DeviceScope = "full";
 
@@ -5105,6 +5105,24 @@ export interface ConversationInputState {
   failure: Failure | null;
 }
 
+export interface TrajectorySequenceRange {
+  start: number;
+  end: number;
+}
+
+export interface ConversationRouteContextAudit {
+  inputSequence: number;
+  clarificationInputSequence: number | null;
+  requestedMode: ConversationInputMode;
+  latestTrajectorySequence: number;
+  availableTrajectoryRange: TrajectorySequenceRange | null;
+  includedTrajectoryRange: TrajectorySequenceRange | null;
+  priorNarrationCount: number;
+  priorRouteDecisionCount: number;
+  validCompletedForkPointCount: number;
+  allowedDecisionKinds: ConversationRouteDecisionKind[];
+}
+
 export interface SendToParentConversationRouteDecision {
   authoredInput: AuthoredInput;
 }
@@ -5213,6 +5231,8 @@ export interface ConversationRouteDecisionRecord {
   clarificationInputId: string | null;
   routingAttempt: number;
   source: ConversationRouteDecisionSource;
+  routerContext: ConversationRouteContextAudit | null;
+  resolvedInvocation: ResolvedInvocation | null;
   decision: ConversationRouteDecision;
   resultingCommand: ConversationRouteCommand;
   decidedAt: string;
@@ -11628,6 +11648,32 @@ export function decodeConversationInputState(value: unknown): ConversationInputS
   };
 }
 
+export function decodeTrajectorySequenceRange(value: unknown): TrajectorySequenceRange {
+  const record = assertRecord(value, "TrajectorySequenceRange");
+  assertKnownFields(record, "TrajectorySequenceRange", ["start", "end"]);
+  return {
+    start: decodeInteger(requireField(record, "start", "TrajectorySequenceRange"), "TrajectorySequenceRange.start"),
+    end: decodeInteger(requireField(record, "end", "TrajectorySequenceRange"), "TrajectorySequenceRange.end"),
+  };
+}
+
+export function decodeConversationRouteContextAudit(value: unknown): ConversationRouteContextAudit {
+  const record = assertRecord(value, "ConversationRouteContextAudit");
+  assertKnownFields(record, "ConversationRouteContextAudit", ["inputSequence", "clarificationInputSequence", "requestedMode", "latestTrajectorySequence", "availableTrajectoryRange", "includedTrajectoryRange", "priorNarrationCount", "priorRouteDecisionCount", "validCompletedForkPointCount", "allowedDecisionKinds"]);
+  return {
+    inputSequence: decodeInteger(requireField(record, "inputSequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.inputSequence"),
+    clarificationInputSequence: decodeNullable(requireField(record, "clarificationInputSequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.clarificationInputSequence", (item) => decodeInteger(item, "ConversationRouteContextAudit.clarificationInputSequence")),
+    requestedMode: decodeConversationInputMode(requireField(record, "requestedMode", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.requestedMode"),
+    latestTrajectorySequence: decodeInteger(requireField(record, "latestTrajectorySequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.latestTrajectorySequence"),
+    availableTrajectoryRange: decodeNullable(requireField(record, "availableTrajectoryRange", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.availableTrajectoryRange", (item) => decodeTrajectorySequenceRange(item)),
+    includedTrajectoryRange: decodeNullable(requireField(record, "includedTrajectoryRange", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.includedTrajectoryRange", (item) => decodeTrajectorySequenceRange(item)),
+    priorNarrationCount: decodeInteger(requireField(record, "priorNarrationCount", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.priorNarrationCount"),
+    priorRouteDecisionCount: decodeInteger(requireField(record, "priorRouteDecisionCount", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.priorRouteDecisionCount"),
+    validCompletedForkPointCount: decodeInteger(requireField(record, "validCompletedForkPointCount", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.validCompletedForkPointCount"),
+    allowedDecisionKinds: decodeArray(requireField(record, "allowedDecisionKinds", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.allowedDecisionKinds", (item) => decodeConversationRouteDecisionKind(item, "ConversationRouteContextAudit.allowedDecisionKinds item")),
+  };
+}
+
 export function decodeSendToParentConversationRouteDecision(value: unknown): SendToParentConversationRouteDecision {
   const record = assertRecord(value, "SendToParentConversationRouteDecision");
   assertKnownFields(record, "SendToParentConversationRouteDecision", ["authoredInput"]);
@@ -11824,7 +11870,7 @@ export function decodeConversationRouteCommand(value: unknown): ConversationRout
 
 export function decodeConversationRouteDecisionRecord(value: unknown): ConversationRouteDecisionRecord {
   const record = assertRecord(value, "ConversationRouteDecisionRecord");
-  assertKnownFields(record, "ConversationRouteDecisionRecord", ["streamSequence", "id", "conversationId", "inputId", "clarificationInputId", "routingAttempt", "source", "decision", "resultingCommand", "decidedAt"]);
+  assertKnownFields(record, "ConversationRouteDecisionRecord", ["streamSequence", "id", "conversationId", "inputId", "clarificationInputId", "routingAttempt", "source", "routerContext", "resolvedInvocation", "decision", "resultingCommand", "decidedAt"]);
   return {
     streamSequence: decodeInteger(requireField(record, "streamSequence", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.streamSequence"),
     id: decodeString(requireField(record, "id", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.id"),
@@ -11833,6 +11879,8 @@ export function decodeConversationRouteDecisionRecord(value: unknown): Conversat
     clarificationInputId: decodeNullable(requireField(record, "clarificationInputId", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.clarificationInputId", (item) => decodeString(item, "ConversationRouteDecisionRecord.clarificationInputId")),
     routingAttempt: decodeInteger(requireField(record, "routingAttempt", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.routingAttempt"),
     source: decodeConversationRouteDecisionSource(requireField(record, "source", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.source"),
+    routerContext: decodeNullable(requireField(record, "routerContext", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.routerContext", (item) => decodeConversationRouteContextAudit(item)),
+    resolvedInvocation: decodeNullable(requireField(record, "resolvedInvocation", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.resolvedInvocation", (item) => decodeResolvedInvocation(item)),
     decision: decodeConversationRouteDecision(requireField(record, "decision", "ConversationRouteDecisionRecord")),
     resultingCommand: decodeConversationRouteCommand(requireField(record, "resultingCommand", "ConversationRouteDecisionRecord")),
     decidedAt: decodeString(requireField(record, "decidedAt", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.decidedAt"),

@@ -47,11 +47,9 @@ import {
 } from "./topic-conversation-fork-workflow.mjs";
 import { verifySideConversationRestart } from "./topic-conversation-side-restart-workflow.mjs";
 import {
-  assertAcceptedConversationInputRoutingState,
   assertChangedConversationInputConflicts,
-  assertDiscardedConversationInputRoutingState,
-  assertIdempotentConversationInput,
-  discardConversationInput,
+  assertDispatchedConversationInputRoutingState,
+  assertRoutedConversationInputReceipt,
   readConversationInputRoutingState,
   submitConversationInput,
 } from "./topic-conversation-input-routing-assertions.mjs";
@@ -257,13 +255,18 @@ try {
   );
   const conversationInputRequest = recordedConversationInput.request;
   const acceptedConversationInput = recordedConversationInput.accepted;
-  assertIdempotentConversationInput(
-    acceptedConversationInput,
-    await submitConversationInput(context.client, conversationInputRequest),
+  const routedConversationInput = await waitForBackendState(
+    () => readConversationInputRoutingState(context.client, workspaceId, conversationInputRequest),
+    (state) => state.input?.status === "dispatched",
+    workflowTimeoutMs,
+  );
+  assertDispatchedConversationInputRoutingState(
+    routedConversationInput,
     conversationInputRequest.input,
   );
-  assertAcceptedConversationInputRoutingState(
-    await readConversationInputRoutingState(context.client, workspaceId, conversationInputRequest),
+  assertRoutedConversationInputReceipt(
+    acceptedConversationInput,
+    await submitConversationInput(context.client, conversationInputRequest),
     conversationInputRequest.input,
   );
   await assertChangedConversationInputConflicts(context.client, conversationInputRequest);
@@ -704,21 +707,13 @@ try {
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  assertIdempotentConversationInput(
+  assertRoutedConversationInputReceipt(
     acceptedConversationInput,
     await submitConversationInput(context.client, conversationInputRequest),
     conversationInputRequest.input,
   );
-  assertAcceptedConversationInputRoutingState(
+  assertDispatchedConversationInputRoutingState(
     await readConversationInputRoutingState(context.client, workspaceId, conversationInputRequest),
-    conversationInputRequest.input,
-  );
-  assertDiscardedConversationInputRoutingState(
-    await discardConversationInput(context.client, workspaceId, conversationInputRequest),
-    conversationInputRequest.input,
-  );
-  assertDiscardedConversationInputRoutingState(
-    await discardConversationInput(context.client, workspaceId, conversationInputRequest),
     conversationInputRequest.input,
   );
   const reloaded = await verifyReloadedConversationProjections({
@@ -759,7 +754,7 @@ try {
     alphaRestartSideReloadedSnapshot,
     alphaSideReloadedSnapshot,
   } = sideRestart;
-  assertDiscardedConversationInputRoutingState(
+  assertDispatchedConversationInputRoutingState(
     await readConversationInputRoutingState(context.client, workspaceId, conversationInputRequest),
     conversationInputRequest.input,
   );

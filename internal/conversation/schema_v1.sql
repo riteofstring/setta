@@ -58,6 +58,8 @@ CREATE TABLE conversation_route_decisions (
   decision_ordinal INTEGER NOT NULL CHECK (decision_ordinal IN (1, 2)),
   routing_attempt INTEGER NOT NULL CHECK (routing_attempt > 0),
   source TEXT NOT NULL CHECK (source IN ('conversation_router', 'explicit')),
+  router_context_json TEXT CHECK (router_context_json IS NULL OR json_valid(router_context_json)),
+  resolved_invocation_json TEXT CHECK (resolved_invocation_json IS NULL OR json_valid(resolved_invocation_json)),
   route_decision_json TEXT NOT NULL CHECK (json_valid(route_decision_json)),
   resulting_command_json TEXT NOT NULL CHECK (json_valid(resulting_command_json)),
   resulting_command_key TEXT NOT NULL UNIQUE,
@@ -71,6 +73,10 @@ CREATE TABLE conversation_route_decisions (
   CHECK (
     (decision_ordinal = 1 AND clarification_input_id IS NULL)
     OR (decision_ordinal = 2 AND clarification_input_id IS NOT NULL)
+  ),
+  CHECK (
+    (source = 'conversation_router' AND router_context_json IS NOT NULL AND resolved_invocation_json IS NOT NULL)
+    OR (source = 'explicit' AND router_context_json IS NULL AND resolved_invocation_json IS NULL)
   ),
   CHECK (clarification_input_id IS NULL OR clarification_input_id <> input_id)
 ) STRICT;
