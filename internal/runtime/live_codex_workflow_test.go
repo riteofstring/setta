@@ -29,7 +29,7 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 
-	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 45*time.Second)
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 3*time.Minute)
 	baseURL := "http://" + server.Addr()
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
 		RootPath: t.TempDir(),
@@ -194,26 +194,34 @@ func waitForRuntimeLiveMasterRoute(
 	inputID string,
 ) master.InputRoutingState {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Minute)
-	var last master.InputRoutingState
-	for time.Now().Before(deadline) {
-		last = postRuntimeJSON[master.InputRoutingState](
-			t,
-			client,
-			baseURL,
-			"/master/inputs/state/read",
-			httpapi.ReadMasterInputRoutingStateRequest{InputID: inputID},
-			http.StatusOK,
-		)
-		switch last.Status {
-		case master.InputRoutingStatusDecided:
-			return last
-		case master.InputRoutingStatusFailed:
-			t.Fatalf("live master route failed: %+v", last)
-		}
-		time.Sleep(100 * time.Millisecond)
+	request := httpapi.ReadMasterInputRoutingStateRequest{InputID: inputID}
+	interaction := postRuntimeJSON[master.ShellInteractionState](
+		t,
+		client,
+		baseURL,
+		"/master/interaction/wait",
+		request,
+		http.StatusOK,
+	)
+	state := postRuntimeJSON[master.InputRoutingState](
+		t,
+		client,
+		baseURL,
+		"/master/inputs/state/read",
+		request,
+		http.StatusOK,
+	)
+	if interaction.Status != state.Status {
+		t.Fatalf("live master shell status = %s, routing status = %s", interaction.Status, state.Status)
 	}
-	t.Fatalf("timed out waiting for live master route; last state = %+v", last)
+	switch state.Status {
+	case master.InputRoutingStatusDecided:
+		return state
+	case master.InputRoutingStatusCancelled, master.InputRoutingStatusFailed:
+		t.Fatalf("live master route did not complete: %+v", state)
+	default:
+		t.Fatalf("live master route wait returned unsettled state: %+v", state)
+	}
 	return master.InputRoutingState{}
 }
 
@@ -291,35 +299,31 @@ func waitForRuntimeLiveConversationRoute(
 	accepted conversation.AcceptedConversationInput,
 ) conversation.ConversationInputRoutingState {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Minute)
-	var last conversation.ConversationInputRoutingState
-	for time.Now().Before(deadline) {
-		last = postRuntimeJSON[conversation.ConversationInputRoutingState](
-			t,
-			client,
-			baseURL,
-			"/conversations/inputs/state/read",
-			httpapi.ReadConversationInputRoutingStateRequest{
-				WorkspaceID:    workspaceID,
-				ConversationID: conversationID,
-				InputID:        accepted.Input.ID,
-			},
-			http.StatusOK,
+	state := postRuntimeJSON[conversation.ConversationInputRoutingState](
+		t,
+		client,
+		baseURL,
+		"/conversations/inputs/state/wait",
+		httpapi.ReadConversationInputRoutingStateRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+			InputID:        accepted.Input.ID,
+		},
+		http.StatusOK,
+	)
+	switch state.Input.Status {
+	case conversation.ConversationInputStatusDispatched:
+		return state
+	case conversation.ConversationInputStatusFailed,
+		conversation.ConversationInputStatusAwaitingClarification:
+		t.Fatalf(
+			"live conversation router did not resolve the input: failure=%+v state=%+v",
+			state.Input.Failure,
+			state,
 		)
-		switch last.Input.Status {
-		case conversation.ConversationInputStatusDispatched:
-			return last
-		case conversation.ConversationInputStatusFailed,
-			conversation.ConversationInputStatusAwaitingClarification:
-			t.Fatalf(
-				"live conversation router did not resolve the input: failure=%+v state=%+v",
-				last.Input.Failure,
-				last,
-			)
-		}
-		time.Sleep(100 * time.Millisecond)
+	default:
+		t.Fatalf("live conversation route wait returned unsettled state: %+v", state)
 	}
-	t.Fatalf("timed out waiting for live conversation route; last state = %+v", last)
 	return conversation.ConversationInputRoutingState{}
 }
 
@@ -449,30 +453,20 @@ func waitForRuntimeLiveNarratorStatus(
 	question string,
 ) conversation.ConversationSnapshot {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Minute)
-	var last conversation.ConversationSnapshot
-	for time.Now().Before(deadline) {
-		last = postRuntimeJSON[conversation.ConversationSnapshot](
-			t,
-			client,
-			baseURL,
-			"/conversations/snapshot/read",
-			httpapi.ReadConversationSnapshotRequest{
-				WorkspaceID:    workspaceID,
-				ConversationID: conversationID,
-			},
-			http.StatusOK,
-		)
-		if runtimeLiveHasNewNarratorStatusReply(before, last, question) {
-			return last
-		}
-		if last.NarratorState.Degradation != nil {
-			t.Fatalf("live routed narrator status degraded: %+v", *last.NarratorState.Degradation)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	t.Fatalf("timed out waiting for live routed narrator status; last state = %+v", last.NarratorState)
-	return conversation.ConversationSnapshot{}
+	return waitForRuntimeLiveConversationSnapshot(
+		t,
+		client,
+		baseURL,
+		workspaceID,
+		conversationID,
+		"routed narrator status",
+		func(snapshot conversation.ConversationSnapshot) bool {
+			if snapshot.NarratorState.Degradation != nil {
+				t.Fatalf("live routed narrator status degraded: %+v", *snapshot.NarratorState.Degradation)
+			}
+			return runtimeLiveHasNewNarratorStatusReply(before, snapshot, question)
+		},
+	)
 }
 
 func runtimeLiveHasNewNarratorStatusReply(
@@ -503,27 +497,25 @@ func waitForRuntimeLiveTopicTurns(
 	wantTurns int,
 ) conversation.ConversationSnapshot {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Minute)
-	var last conversation.ConversationSnapshot
-	for time.Now().Before(deadline) {
-		last = postRuntimeJSON[conversation.ConversationSnapshot](t, client, baseURL, "/conversations/snapshot/read", httpapi.ReadConversationSnapshotRequest{
-			WorkspaceID:    workspaceID,
-			ConversationID: conversationID,
-		}, http.StatusOK)
-		if len(last.Turns.Turns) == wantTurns {
-			latest := last.Turns.Turns[len(last.Turns.Turns)-1]
+	return waitForRuntimeLiveConversationSnapshot(
+		t,
+		client,
+		baseURL,
+		workspaceID,
+		conversationID,
+		fmt.Sprintf("%d terminal topic turns with final narration", wantTurns),
+		func(snapshot conversation.ConversationSnapshot) bool {
+			if len(snapshot.Turns.Turns) != wantTurns {
+				return false
+			}
+			latest := snapshot.Turns.Turns[len(snapshot.Turns.Turns)-1]
 			terminal := latest.Status == conversation.TurnStatusCompleted ||
 				latest.Status == conversation.TurnStatusFailed ||
 				latest.Status == conversation.TurnStatusCancelled
-			if terminal && runtimeTopicHasFinalNarration(last, latest.ID) &&
-				last.NarratorState.ObservedThroughSequence == last.Conversation.LastTrajectorySequence {
-				return last
-			}
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	t.Fatalf("timed out waiting for %d live topic turns; last snapshot = %+v", wantTurns, last)
-	return conversation.ConversationSnapshot{}
+			return terminal && runtimeTopicHasFinalNarration(snapshot, latest.ID) &&
+				snapshot.NarratorState.ObservedThroughSequence == snapshot.Conversation.LastTrajectorySequence
+		},
+	)
 }
 
 func runtimeTopicTrajectoryHasCompletedText(

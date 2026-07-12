@@ -14,7 +14,8 @@ Usage: ./scripts/test_topic_conversation_workflows.sh [--skip-build] [--visible]
 
 Build and run the topic-conversation workflow gate:
   - hidden deterministic Electron topic-conversation workflow with temp app data
-  - live Codex topic-conversation workflow when Codex ChatGPT auth is available
+  - complete live Codex agent, side/fork, and production topic-conversation matrix
+    when Codex ChatGPT auth is available
 EOF
 }
 
@@ -68,6 +69,20 @@ run_electron_node() {
   fi
 }
 
+run_live_go_test() {
+  local workflow_name="$1"
+  local package="$2"
+  local test_pattern="$3"
+
+  echo "Live Codex ${workflow_name}..."
+  if (cd "${repo_root}" && env -u OPENAI_API_KEY SETTA_LIVE_CODEX=1 \
+    "${repo_root}/scripts/go.sh" test "${package}" -run "${test_pattern}" -count=1); then
+    passed_workflows+=("live-codex-${workflow_name}")
+  else
+    status=1
+  fi
+}
+
 status=0
 declare -a passed_workflows=()
 declare -a skipped_workflows=()
@@ -103,16 +118,22 @@ fi
 
 if [[ "${run_live}" -eq 1 ]]; then
   if live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
-    echo "Live Codex topic-conversation workflow..."
-    if "${repo_root}/scripts/go.sh" test ./internal/runtime -run '^TestBackendTopicConversationWorkflowWithLiveCodex$' -count=1; then
-      passed_workflows+=("live-codex-topic-conversation")
-    else
-      status=1
-    fi
+    run_live_go_test \
+      "agent-protocol" \
+      "./internal/agent" \
+      '^TestLiveCodexRuntimeThreadLifecycleAndActiveForkSnapshot$'
+    run_live_go_test \
+      "side-isolation" \
+      "./internal/conversation" \
+      '^TestLiveConversationServiceActiveSideLifecycle$'
+    run_live_go_test \
+      "topic-conversation" \
+      "./internal/runtime" \
+      '^TestBackendTopicConversation(Workflow|ControlsAndRestart)WithLiveCodex$'
   else
     live_skip_reason="${live_skip_reason:-Codex ChatGPT auth is unavailable}"
-    skipped_workflows+=("live-codex-topic-conversation (${live_skip_reason})")
-    echo "Live Codex topic-conversation workflow skipped: ${live_skip_reason}"
+    skipped_workflows+=("live-codex-matrix (${live_skip_reason})")
+    echo "Live Codex topic-conversation matrix skipped: ${live_skip_reason}"
   fi
 fi
 

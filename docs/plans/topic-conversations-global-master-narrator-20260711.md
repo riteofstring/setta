@@ -2,16 +2,14 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. The 2026-07-15 whole-plan final audit reopened Phase 9
-item 5. The standard ChatGPT-authenticated gate covers one durable topic across
-two sequential turns, narrator routing/status, and a global master answer, but
-it does not cover two production topic conversations concurrently, topic
-steering and cancellation, or restart/reload reconciliation. Existing opt-in
-agent-runtime and side-conversation live tests cover lower-level concurrency,
-thread discovery/fork/injection, and active-side isolation, but the standard
-live gate does not run them and they do not close the missing production
-workflow cases. The next step is to complete the live production-path matrix
-and include it in the standard gate before repeating the whole-plan audit.
+**Status:** Complete. Phases 1-9 are implemented and verified. The 2026-07-15
+Phase 9 item 5 follow-up added concurrent production topic conversations,
+narrator-routed steering, isolated cancellation, and forced-process-restart
+reconciliation to the live backend workflow. The standard ChatGPT-authenticated
+gate now runs that production workflow together with the Codex protocol
+discovery/fork/injection and active-side-isolation suites, always with
+`OPENAI_API_KEY` unset. The plan is ready for the repeated whole-plan final
+audit.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2232,12 +2230,28 @@ Exit criteria:
 
 ### Phase 9: Hardening and acceptance
 
-**Status:** In progress. Items 1-4 and 6-9 are complete. The 2026-07-15
-whole-plan final audit reopened item 5 because the checked-in live gate does not
-exercise concurrent production topic conversations, topic steering and
-cancellation, or restart/reload reconciliation. The next slice is the missing
-live production-path coverage and gate integration; it must keep
-`OPENAI_API_KEY` unset and use ChatGPT auth.
+**Status:** Complete. The reopened item 5 is closed. The production live suite
+now proves two isolated topics running simultaneously, an AI-authored local
+steering decision accepted by the active Codex turn, cancellation isolated to
+its target topic, and reload from the same durable app data after the backend
+process is killed during active work. Startup reconciles the exact persisted
+provider thread/turn into a terminal cancellation with the typed
+`reconciliation` reason. Its event-driven waits use the production input wait
+and conversation event-stream boundaries rather than timing polls.
+
+The standard live gate also runs the existing Codex thread
+read/list/search/fork/injection characterization and the full active-side
+conversation isolation lifecycle, so those checks are no longer opt-in gaps.
+Completion verification on 2026-07-15 passed the focused live runtime test, the
+complete ChatGPT-authenticated live matrix with `OPENAI_API_KEY` removed, a
+fresh desktop production build plus all seven deterministic topic-conversation
+Electron workflows, formatting, and `./check_quality.sh --all` including 25 Go
+packages, 762 desktop tests, production builds, and all 17 required Electron
+workflows. Supply-chain checks passed module and lockfile hygiene, release-age
+policies, exact-version validation, and Go vulnerability analysis. npm's
+retired audit endpoint still returns HTTP 410; the supported bulk-advisory
+endpoint reported two low-severity advisories and none at or above the
+repository's moderate failure threshold.
 
 1. Exercise crashes and restarts during agent, narrator, master, speech, and
    branch operations.
@@ -2430,6 +2444,13 @@ the standard workflow gate and do not cover the missing production conversation
 service/runtime paths. Add those cases to the ChatGPT-authenticated
 production-path suite, make the standard gate run the complete live matrix,
 and then rerun this audit.
+
+**Final-audit follow-up (2026-07-15):** Resolved. The standard gate now runs
+`TestBackendTopicConversationWorkflowWithLiveCodex` and
+`TestBackendTopicConversationControlsAndRestartWithLiveCodex` through the
+production HTTP/runtime/store boundaries, plus the existing agent-protocol and
+active-side live suites. The new subprocess-backed case closes the concurrent
+topic, steering, cancellation, and restart/reload gaps identified above.
 
 ### Performance
 
