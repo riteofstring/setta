@@ -20,11 +20,18 @@ import {
   speechAvailabilityForCapabilities,
   type SpeechCaptureAvailability,
 } from "./speech-capture-availability";
+import {
+  type CompletedConversationSpeechTranscript,
+  conversationSpeechCaptureRequest,
+  freezeSpeechCaptureRequest,
+  type SpeechCaptureRequest,
+} from "./speech-capture-destination";
 
 export type SpeechCaptureFailureCode =
   | "capabilities_unavailable"
   | "connection_failed"
   | "connection_lost"
+  | "conversation_submission_pending"
   | "duration_limit"
   | "insecure_context"
   | "invalid_media"
@@ -51,6 +58,7 @@ export type SpeechCaptureFailureCode =
 
 interface SpeechCaptureActiveState {
   captureSessionId: string;
+  request: SpeechCaptureRequest;
   transcript: string;
 }
 
@@ -77,6 +85,7 @@ export type SpeechCaptureSupport =
 export interface AppShellSpeechCaptureSnapshot {
   availability: SpeechCaptureAvailability;
   capture: SpeechCaptureState;
+  completedConversationTranscript: CompletedConversationSpeechTranscript | null;
   completedTranscript: CompletedGlobalSpeechTranscript | null;
   masterSubmission: MasterInputSubmissionState;
   preference: GlobalMicrophonePreference;
@@ -116,6 +125,7 @@ export class AppShellSpeechCaptureController {
     this.snapshotValue = {
       availability: { type: "disconnected" },
       capture: { type: "idle" },
+      completedConversationTranscript: null,
       completedTranscript: null,
       masterSubmission: { type: "idle" },
       preference: dependencies.readPreference(),
@@ -185,9 +195,11 @@ export class AppShellSpeechCaptureController {
     return preference;
   };
 
-  start = async (): Promise<void> => {
+  start = async (requestedCapture: SpeechCaptureRequest): Promise<void> => {
     this.assertUsable();
-    const submissionFailure = masterSubmissionCaptureFailure(
+    const request = freezeSpeechCaptureRequest(requestedCapture);
+    const submissionFailure = submissionCaptureFailure(
+      this.snapshotValue.completedConversationTranscript,
       this.snapshotValue.completedTranscript,
       this.snapshotValue.masterSubmission,
     );
@@ -211,6 +223,7 @@ export class AppShellSpeechCaptureController {
     const lifecycle = this.beginLifecycle();
     const activeState = {
       captureSessionId: this.dependencies.createCaptureSessionId(),
+      request,
       transcript: "",
     } satisfies SpeechCaptureActiveState;
     this.transitionCapture({ ...activeState, type: "requesting_permission" });
@@ -401,9 +414,30 @@ export class AppShellSpeechCaptureController {
       return;
     }
     const captureSessionId = this.snapshotValue.capture.captureSessionId;
+    const request = this.snapshotValue.capture.request;
     this.resetCapture();
     this.updateSnapshot({ capture: { type: "idle" } });
-    this.masterSubmission.submitTranscript(captureSessionId, runtimeId, transcript);
+    switch (request.destination.type) {
+      case "master":
+        this.masterSubmission.submitTranscript(captureSessionId, runtimeId, transcript);
+        return;
+      case "conversation":
+        this.updateSnapshot({
+          completedConversationTranscript: Object.freeze({
+            captureSessionId,
+            request: conversationSpeechCaptureRequest(
+              request.destination.conversationId,
+              requiredConversationSourcePane(request.sourcePaneId),
+              request.destination.inputMode,
+            ),
+            runtimeId,
+            transcript,
+          }),
+        });
+        return;
+      default:
+        assertNever(request.destination);
+    }
   }
 
   private handleTransportError(
@@ -494,6 +528,27 @@ export class AppShellSpeechCaptureController {
       throw new Error("app-shell speech capture controller is disposed");
     }
   }
+}
+
+function requiredConversationSourcePane(sourcePaneId: string | null): string {
+  if (sourcePaneId === null) {
+    throw new Error("conversation speech capture lost its frozen source pane");
+  }
+  return sourcePaneId;
+}
+
+function submissionCaptureFailure(
+  completedConversationTranscript: CompletedConversationSpeechTranscript | null,
+  completedMasterTranscript: CompletedGlobalSpeechTranscript | null,
+  masterSubmission: MasterInputSubmissionState,
+): { code: SpeechCaptureFailureCode; message: string } | null {
+  if (completedConversationTranscript) {
+    return {
+      code: "conversation_submission_pending",
+      message: "The previous conversation voice request is awaiting durable delivery.",
+    };
+  }
+  return masterSubmissionCaptureFailure(completedMasterTranscript, masterSubmission);
 }
 
 function masterSubmissionCaptureFailure(

@@ -13,8 +13,9 @@ import type {
   TrajectoryApprovalRequest,
   TrajectoryEvent,
 } from "@generated/backend";
+import { conversationInputModeValues } from "@generated/backend";
 import { renderToString } from "react-dom/server";
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { useConversationStore } from "../../stores/conversation-store";
@@ -25,6 +26,7 @@ import {
   easyButtonProjectionView,
 } from "./easy-button-surface";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
+import { requestEasyButtonSpeechCapture } from "./easy-button-conversation-commands";
 
 const workspaceId = "workspace_topic";
 const timestamp = "2026-07-11T20:00:00Z";
@@ -87,6 +89,44 @@ describe("Easy Button topic conversation projection", () => {
     expect(unloaded).toContain('data-conversation-id="conversation_unloaded"');
     expect(unloaded).toContain('data-easy-button-projection="unloaded"');
     expect(unloaded).toContain("Conversation projection is not loaded");
+  });
+
+  test.each(conversationInputModeValues)(
+    "requests %s voice capture for the bound conversation and source pane",
+    async (inputMode) => {
+      const start = vi.fn(async () => {});
+
+      await requestEasyButtonSpeechCapture(
+        { start },
+        "conversation_voice",
+        "pane_voice",
+        inputMode,
+      );
+
+      expect(start).toHaveBeenCalledWith({
+        destination: {
+          conversationId: "conversation_voice",
+          inputMode,
+          type: "conversation",
+        },
+        sourcePaneId: "pane_voice",
+      });
+    },
+  );
+
+  test("defaults an ordinary pane voice request to AI routing", async () => {
+    const start = vi.fn(async () => {});
+
+    await requestEasyButtonSpeechCapture({ start }, "conversation_voice", "pane_voice");
+
+    expect(start).toHaveBeenCalledWith({
+      destination: {
+        conversationId: "conversation_voice",
+        inputMode: "route",
+        type: "conversation",
+      },
+      sourcePaneId: "pane_voice",
+    });
   });
 
   test("keeps a working turn out of the terminal narration channel", () => {

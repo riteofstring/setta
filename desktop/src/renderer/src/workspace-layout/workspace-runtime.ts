@@ -1,4 +1,5 @@
 import type { WorkspaceUILayout } from "@generated/backend";
+import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
@@ -33,6 +34,7 @@ export function createWorkspaceRuntime({
   mode,
   overviewCardMaxWidthPx,
   overviewCardMinWidthPx,
+  speechCapture,
   storedLayout,
   workspaceId,
   workspaceName,
@@ -41,6 +43,7 @@ export function createWorkspaceRuntime({
   mode: WorkspaceSceneMode;
   overviewCardMaxWidthPx?: number;
   overviewCardMinWidthPx?: number;
+  speechCapture?: SpeechCaptureRequester;
   storedLayout: WorkspaceUILayout | null;
   workspaceId: string;
   workspaceName: string;
@@ -70,6 +73,7 @@ export function createWorkspaceRuntime({
     store,
     nativeViewBoundsBatcher,
     mode,
+    speechCapture,
     workspaceId,
   );
   const surfaceRegistry = new SurfaceRegistry(scene.panes, createSurfaceAdapter, {
@@ -109,6 +113,7 @@ function createSurfaceAdapterFactory(
   store: WorkspaceLayoutStore,
   nativeViewBoundsBatcher: NativeViewBoundsBatcher,
   mode: WorkspaceSceneMode,
+  speechCapture: SpeechCaptureRequester | undefined,
   workspaceId: string,
 ) {
   const workflowGraphSyntheticGraphFallback = workflowGraphSyntheticGraphFallbackForRuntime(mode);
@@ -123,6 +128,7 @@ function createSurfaceAdapterFactory(
       return new TerminalSurfaceAdapter(pane, workspaceId);
     }
     return createDefaultSurfaceAdapter(pane, {
+      speechCapture,
       workflowGraphSyntheticGraphFallback,
       workspaceId,
     });

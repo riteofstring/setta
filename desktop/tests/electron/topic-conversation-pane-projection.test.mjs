@@ -74,6 +74,7 @@ try {
       hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
   );
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
+  assertPaneVoiceCaptureRequests(initial.surfaces, alpha.id, beta.id);
   const conversationInputRequest = paneConversationInputRequest(
     alpha.id,
     requiredConversationSurface(initial.surfaces, alpha.id).paneId,
@@ -640,6 +641,17 @@ function assertDistinctConversationPalettes(surfaces, alphaId, betaId) {
   const beta = conversationSurfaces(surfaces, betaId)[0];
   if (!alpha?.paletteId || !beta?.paletteId || alpha.paletteId === beta.paletteId) {
     throw new Error(`topic palettes were not distinct: ${JSON.stringify({ alpha, beta })}`);
+  }
+}
+
+function assertPaneVoiceCaptureRequests(surfaces, ...conversationIds) {
+  for (const conversationId of conversationIds) {
+    const surface = requiredConversationSurface(surfaces, conversationId);
+    if (!surface.paneId || !surface.voiceCaptureAvailable) {
+      throw new Error(
+        `conversation pane has no typed voice capture request: ${JSON.stringify(surface)}`,
+      );
+    }
   }
 }
 

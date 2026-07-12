@@ -1,27 +1,22 @@
 import { Check, Sparkles, Square, X } from "lucide-react";
-import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 
 import {
   type Artifact,
   type ConversationPaletteID,
-  type ConversationApprovalAnswer,
   type ConversationSnapshot,
   type ConversationTurn,
   type NarrationEvent,
   type NarratorState,
   type Subagent,
   type TopicConversation,
-  type TrajectoryApprovalDecision,
-  type TrajectoryApprovalRequest,
   type TrajectoryEvent,
 } from "@generated/backend";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
+import type { SpeechCaptureRequester } from "../global-speech/speech-capture-destination";
 import { useConversationStore } from "../../stores/conversation-store";
-import {
-  hydrateConversationProjectionSnapshot,
-  retainConversationProjection,
-} from "../../stores/conversation-projection-runtime";
+import { retainConversationProjection } from "../../stores/conversation-projection-runtime";
 import { setHostPaneChromeTitle } from "../../workspace-layout/pane-title-metadata";
 import { conversationPaletteStyle } from "./conversation-palette-style";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
@@ -30,6 +25,10 @@ import {
   type PendingConversationApproval,
 } from "./easy-button-approval-projection";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
+import {
+  type EasyButtonConversationCommands,
+  useEasyButtonConversationCommands,
+} from "./easy-button-conversation-commands";
 import {
   type EasyButtonNarratorStatusReply,
   latestNarratorStatusReply,
@@ -55,6 +54,8 @@ type EasyButtonProjectionStatus =
   | "resyncing";
 interface EasyButtonSurfaceProps {
   conversationId: string | null;
+  paneId?: string | null;
+  speechCapture?: SpeechCaptureRequester;
   workspaceId?: string | null;
 }
 
@@ -80,7 +81,12 @@ export interface EasyButtonProjectionView {
   viewState: EasyButtonViewState;
 }
 
-export function EasyButtonSurface({ conversationId, workspaceId }: EasyButtonSurfaceProps) {
+export function EasyButtonSurface({
+  conversationId,
+  paneId = null,
+  speechCapture,
+  workspaceId,
+}: EasyButtonSurfaceProps) {
   const projection = useConversationStore((state) =>
     easyButtonConversationProjection(state.conversations, conversationId),
   );
@@ -93,7 +99,9 @@ export function EasyButtonSurface({ conversationId, workspaceId }: EasyButtonSur
   const commands = useEasyButtonConversationCommands(
     workspaceId ?? null,
     conversationId,
+    paneId,
     projection,
+    speechCapture,
   );
   const projectedView = easyButtonProjectionView(conversationId, projection);
   const view = commands.error ? { ...projectedView, error: commands.error } : projectedView;
@@ -105,138 +113,6 @@ export function easyButtonConversationProjection(
   conversationId: string | null,
 ): ConversationProjection | undefined {
   return conversationId ? conversations.get(conversationId) : undefined;
-}
-
-interface EasyButtonConversationCommands {
-  askStatus: () => void;
-  available: boolean;
-  canSubmit: boolean;
-  error: string | null;
-  input: string;
-  pending: boolean;
-  setInput: (input: string) => void;
-  steer: () => void;
-  stop: () => void;
-  submit: (event: FormEvent<HTMLFormElement>) => void;
-  submitApproval: (
-    approval: TrajectoryApprovalRequest,
-    decision: TrajectoryApprovalDecision,
-    answers: ConversationApprovalAnswer[],
-  ) => void;
-}
-
-function useEasyButtonConversationCommands(
-  workspaceId: string | null,
-  conversationId: string | null,
-  projection: ConversationProjection | undefined,
-): EasyButtonConversationCommands {
-  const [input, setInput] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const available = Boolean(
-    workspaceId &&
-    conversationId &&
-    projection?.status === "ready" &&
-    projection.snapshot &&
-    !projection.resync,
-  );
-  const canSubmit = available && !pending && input.trim() !== "";
-
-  async function run(
-    command: () => Promise<ConversationSnapshot>,
-    clearInput: boolean,
-  ): Promise<void> {
-    setPending(true);
-    setError(null);
-    try {
-      const snapshot = await command();
-      hydrateConversationProjectionSnapshot(snapshot);
-      if (clearInput) {
-        setInput("");
-      }
-    } catch (commandError) {
-      setError(errorMessage(commandError));
-    } finally {
-      setPending(false);
-    }
-  }
-
-  function requireTarget(): { conversationId: string; workspaceId: string } {
-    if (!available || !conversationId || !workspaceId) {
-      throw new Error("Conversation commands require a ready topic conversation.");
-    }
-    return { conversationId, workspaceId };
-  }
-
-  return {
-    askStatus: () => {
-      if (!canSubmit) {
-        return;
-      }
-      const target = requireTarget();
-      void run(
-        () => window.setta.conversations.askStatus({ ...target, question: input.trim() }),
-        true,
-      );
-    },
-    available,
-    canSubmit,
-    error,
-    input,
-    pending,
-    setInput,
-    steer: () => {
-      if (!canSubmit) {
-        return;
-      }
-      const target = requireTarget();
-      void run(() => window.setta.conversations.steer({ ...target, text: input.trim() }), true);
-    },
-    stop: () => {
-      if (!available || pending) {
-        return;
-      }
-      const target = requireTarget();
-      void run(() => window.setta.conversations.stop(target), false);
-    },
-    submit: (event) => {
-      event.preventDefault();
-      if (!canSubmit) {
-        return;
-      }
-      const target = requireTarget();
-      const text = input.trim();
-      const active =
-        projection?.snapshot?.conversation.status === "working" ||
-        projection?.snapshot?.conversation.status === "waiting_for_approval";
-      void run(
-        () =>
-          active
-            ? window.setta.conversations.queue({ ...target, text })
-            : window.setta.conversations.send({ ...target, text }),
-        true,
-      );
-    },
-    submitApproval: (approval, decision, answers) => {
-      if (!available || pending) {
-        return;
-      }
-      const target = requireTarget();
-      void run(
-        () =>
-          window.setta.conversations.submitApproval({
-            ...target,
-            response: {
-              answers,
-              approvalId: approval.id,
-              decision,
-              response: "",
-            },
-          }),
-        false,
-      );
-    },
-  };
 }
 
 function composerPlaceholder(
@@ -365,10 +241,17 @@ function ConversationComposer({
       onStatus={commands ? commands.askStatus : undefined}
       onSteer={commands ? commands.steer : undefined}
       onSubmit={commands ? commands.submit : undefined}
+      onVoiceCapture={conversationVoiceCapture(commands)}
       placeholder={composerPlaceholder(view, commands)}
       working={view.viewState === "working"}
     />
   );
+}
+
+function conversationVoiceCapture(
+  commands: EasyButtonConversationCommands | undefined,
+): (() => void) | undefined {
+  return commands ? commands.requestVoiceCapture : undefined;
 }
 
 export function easyButtonProjectionView(
@@ -979,8 +862,4 @@ function paneTitleSuffix(view: EasyButtonProjectionView): string {
 
 function agentLabel(activeAgentCount: number): string {
   return activeAgentCount === 1 ? "1 agent" : `${activeAgentCount} agents`;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Conversation command failed";
 }

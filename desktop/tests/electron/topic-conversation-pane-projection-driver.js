@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v7";
+  const version = "setta-topic-conversation-pane-projection-driver-v8";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -77,6 +77,7 @@
           const summary = surface.querySelector('[data-testid="easy-button-summary-text"]');
           const statusQuestion = surface.querySelector(".easy-button-status-question");
           const statusReply = surface.querySelector(".easy-button-status-reply-text");
+          const voiceCapture = surface.querySelector('[data-testid="easy-button-voice-capture"]');
           return {
             agentText: elementText(agentText),
             approvalId: datasetValue(approval, "approvalId"),
@@ -98,6 +99,8 @@
             statusReplyText: elementText(statusReply),
             summaryText: elementText(summary),
             title: surface.getAttribute("aria-label") ?? "",
+            voiceCaptureAvailable:
+              voiceCapture instanceof HTMLButtonElement && !voiceCapture.disabled,
           };
         },
       ),

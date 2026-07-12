@@ -1,3 +1,4 @@
+import { Mic } from "lucide-react";
 import type { FormEventHandler } from "react";
 
 export function EasyButtonConversationComposer({
@@ -8,6 +9,7 @@ export function EasyButtonConversationComposer({
   onStatus,
   onSteer,
   onSubmit,
+  onVoiceCapture,
   placeholder,
   working,
 }: {
@@ -18,6 +20,7 @@ export function EasyButtonConversationComposer({
   onStatus: (() => void) | undefined;
   onSteer: (() => void) | undefined;
   onSubmit: FormEventHandler<HTMLFormElement> | undefined;
+  onVoiceCapture: (() => void) | undefined;
   placeholder: string;
   working: boolean;
 }) {
@@ -36,6 +39,7 @@ export function EasyButtonConversationComposer({
         />
         <ConversationStatusButton canSubmit={canSubmit} onStatus={onStatus} />
         <ConversationSteerButton canSubmit={canSubmit} onSteer={onSteer} working={working} />
+        <ConversationVoiceButton available={available} onVoiceCapture={onVoiceCapture} />
         <button
           className="easy-button-enter-chip"
           data-testid="easy-button-submit"
@@ -46,6 +50,30 @@ export function EasyButtonConversationComposer({
         </button>
       </div>
     </form>
+  );
+}
+
+function ConversationVoiceButton({
+  available,
+  onVoiceCapture,
+}: {
+  available: boolean;
+  onVoiceCapture: (() => void) | undefined;
+}) {
+  if (!onVoiceCapture) {
+    return null;
+  }
+  return (
+    <button
+      aria-label="Start a voice request for this conversation"
+      className="easy-button-voice-chip"
+      data-testid="easy-button-voice-capture"
+      disabled={!available}
+      onClick={onVoiceCapture}
+      type="button"
+    >
+      <Mic aria-hidden="true" className="easy-button-voice-icon" />
+    </button>
   );
 }
 

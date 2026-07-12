@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
 import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
+import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import { WorkflowGraphSurface } from "../features/workspace-graph/workflow-graph-surface";
 import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { SemanticNodeDetailsSurface } from "../features/workspace-graph/semantic-node-details-surface";
@@ -48,6 +49,7 @@ export interface ReactDomSurfaceState {
 }
 
 export interface ReactDomSurfaceAdapterOptions {
+  speechCapture?: SpeechCaptureRequester;
   workspaceId?: string;
   workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
@@ -407,6 +409,8 @@ const reactDomSurfaceRenderFactories: Partial<Record<SurfaceKind, ReactDomSurfac
   "easy-button": (pane, options) => () => (
     <EasyButtonSurface
       conversationId={pane.easyButtonConfig?.conversationId ?? null}
+      paneId={pane.paneId}
+      speechCapture={options.speechCapture}
       workspaceId={options.workspaceId ?? null}
     />
   ),

@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./comp
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
 import type { MasterInputFocusHints } from "./features/global-speech/global-speech-master-submission";
+import type { SpeechCaptureRequester } from "./features/global-speech/speech-capture-destination";
 import { cn } from "./lib/utils";
 import {
   WorkspaceLayoutArea,
@@ -115,7 +116,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   }, [setta]);
   useEffect(() => setta.conversations.onEvent(handleConversationProjectionEvent), [setta]);
 
-  const shell = (
+  const shell = (speechCapture?: SpeechCaptureRequester) => (
     <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <AppChromeControls
         mobileViewport={mobileViewport}
@@ -146,12 +147,13 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           platform={platform}
           projectPaneOpen={projectPaneOpen}
           projectPaneWidth={mobileViewport || !projectPaneOpen ? 0 : effectiveProjectPaneWidth}
+          speechCapture={speechCapture}
         />
       </main>
     </div>
   );
   if (!setta.workspaceNativeViews) {
-    return shell;
+    return shell();
   }
   return (
     <AppShellSpeechCaptureProvider
@@ -159,7 +161,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       runtimeId={runtime.connectedRuntimeId}
       setta={setta}
     >
-      {shell}
+      {(speechCapture) => shell(speechCapture)}
     </AppShellSpeechCaptureProvider>
   );
 }

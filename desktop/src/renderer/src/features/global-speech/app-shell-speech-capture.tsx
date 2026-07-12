@@ -22,6 +22,7 @@ import {
 } from "./global-microphone-preference";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
 import type { MasterInputFocusHints } from "./global-speech-master-submission";
+import type { SpeechCaptureRequester } from "./speech-capture-destination";
 
 interface AppShellSpeechCaptureContextValue {
   controller: AppShellSpeechCaptureController;
@@ -36,7 +37,7 @@ export function AppShellSpeechCaptureProvider({
   runtimeId,
   setta,
 }: {
-  children: ReactNode;
+  children: ReactNode | ((requester: SpeechCaptureRequester) => ReactNode);
   focusHints: MasterInputFocusHints;
   runtimeId: string | null;
   setta: SettaAPI;
@@ -56,6 +57,10 @@ export function AppShellSpeechCaptureProvider({
     controller.getSnapshot,
   );
   const context = useMemo(() => ({ controller, snapshot }), [controller, snapshot]);
+  const content = useMemo(
+    () => (typeof children === "function" ? children(controller) : children),
+    [children, controller],
+  );
 
   useEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
   useEffect(() => {
@@ -64,7 +69,7 @@ export function AppShellSpeechCaptureProvider({
 
   return (
     <AppShellSpeechCaptureContext.Provider value={context}>
-      {children}
+      {content}
     </AppShellSpeechCaptureContext.Provider>
   );
 }

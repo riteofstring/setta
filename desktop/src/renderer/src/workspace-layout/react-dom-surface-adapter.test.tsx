@@ -295,17 +295,31 @@ describe("workspace React DOM surface adapter", () => {
       },
     };
     const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(fakePane("easy-button"), rootFactory);
+    const speechCapture = { start: vi.fn(async () => {}) };
+    const adapter = createReactDomSurfaceAdapter(fakePane("easy-button"), rootFactory, {
+      speechCapture,
+      workspaceId: "workspace_test",
+    });
 
     adapter.mount(host);
 
     const renderedNode = root.renderedNodes.at(-1);
-    if (!isValidElement<{ conversationId: string | null }>(renderedNode)) {
+    if (
+      !isValidElement<{
+        conversationId: string | null;
+        paneId: string;
+        speechCapture: typeof speechCapture;
+        workspaceId: string;
+      }>(renderedNode)
+    ) {
       throw new Error("easy button surface did not render a React element");
     }
     expect(host.dataset.surfaceKind).toBe("easy-button");
     expect(renderedNode.type).toBe(EasyButtonSurface);
     expect(renderedNode.props.conversationId).toBe("conversation_test");
+    expect(renderedNode.props.paneId).toBe("pane");
+    expect(renderedNode.props.speechCapture).toBe(speechCapture);
+    expect(renderedNode.props.workspaceId).toBe("workspace_test");
   });
 
   test("forwards workflow graph visible live state to the renderer runtime handle", () => {

@@ -3,6 +3,7 @@ import type { WorkspaceUILayout } from "@generated/backend";
 import { Profiler, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isMobileViewportWidth } from "../app-layout";
+import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import { useAppearanceStore } from "../stores/appearance-store";
 import { useViewportSize } from "../use-viewport-size";
 import { FrameScheduler } from "./frame-scheduler";
@@ -111,6 +112,7 @@ export function WorkspaceLayoutArea({
   platform,
   projectPaneOpen,
   projectPaneWidth,
+  speechCapture,
 }: {
   focusConversationRequest?: WorkspaceConversationFocusRequest | null;
   focusSurfaceRequest?: WorkspaceSurfaceFocusRequest | null;
@@ -119,6 +121,7 @@ export function WorkspaceLayoutArea({
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
   projectPaneWidth: number;
+  speechCapture?: SpeechCaptureRequester;
 }) {
   const workspaceTarget = useWorkspaceLayoutTarget();
   const workspace = workspaceTarget.workspace;
@@ -143,6 +146,7 @@ export function WorkspaceLayoutArea({
       platform={platform}
       projectPaneOpen={projectPaneOpen}
       projectPaneWidth={projectPaneWidth}
+      speechCapture={speechCapture}
       workspaceId={workspaceId}
       workspaceName={workspaceName}
     />
@@ -160,6 +164,7 @@ function WorkspaceLayoutRuntimeArea({
   platform,
   projectPaneOpen,
   projectPaneWidth,
+  speechCapture,
   workspaceId,
   workspaceName,
 }: {
@@ -173,6 +178,7 @@ function WorkspaceLayoutRuntimeArea({
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
   projectPaneWidth: number;
+  speechCapture: SpeechCaptureRequester | undefined;
   workspaceId: string;
   workspaceName: string;
 }) {
@@ -219,6 +225,7 @@ function WorkspaceLayoutRuntimeArea({
         mode,
         overviewCardMaxWidthPx,
         overviewCardMinWidthPx,
+        speechCapture,
         storedLayout: initialLayout,
         workspaceId,
         workspaceName,
@@ -229,6 +236,7 @@ function WorkspaceLayoutRuntimeArea({
       mode,
       overviewCardMaxWidthPx,
       overviewCardMinWidthPx,
+      speechCapture,
       workspaceId,
       workspaceName,
     ],
