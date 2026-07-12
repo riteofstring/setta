@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import {
   decodeChatEvent,
-  decodeConversationEvent,
   decodeSemanticGraphChangeEvent,
   decodeTerminalEvent,
   decodeWorkspaceActivityEvent,
@@ -122,42 +121,6 @@ const api: SettaAPI = {
       );
       return response.snapshot;
     },
-  },
-  conversations: {
-    askStatus: (request) => invoke("conversationAskNarratorStatus", request),
-    create: (request) => invoke("conversationCreateTopic", request),
-    fork: (request) => invoke("conversationForkTopic", request),
-    list: (request) => invoke("conversationListTopicConversations", request),
-    onEvent: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeConversationEvent(payload));
-      };
-      ipcRenderer.on(ipcEvents.conversationEvent, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.conversationEvent, handler);
-      };
-    },
-    queue: (request) => invoke("conversationQueueTurn", request),
-    read: (request) => invoke("conversationReadSnapshot", request),
-    release: (request) => invoke("conversationReleaseEvents", request),
-    send: (request) => invoke("conversationSendTurn", request),
-    steer: (request) => invoke("conversationSteerTurn", request),
-    stop: (request) => invoke("conversationStopTurn", request),
-    submitInput: (request) => invoke("conversationSubmitInput", request),
-    submitApproval: (request) => invoke("conversationSubmitApproval", request),
-    subscribe: (request) => invoke("conversationSubscribeEvents", request),
-    updateNarratorVoice: (request) => invoke("conversationUpdateNarratorVoice", request),
-  },
-  master: {
-    submitInput: (request) => invoke("masterSubmitInput", request),
-  },
-  speech: {
-    cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
-    createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
-    readCapabilities: () => invoke("speechReadCapabilities"),
-    readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
-    synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
-    updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),

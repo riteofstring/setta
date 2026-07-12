@@ -45,7 +45,7 @@ export async function stopLaunchedContext(context) {
 }
 
 export async function openWorkspace(client, workspaceRoot, backend) {
-  await waitForTexts(client, ["Runtime", "Conversations"]);
+  await waitForTexts(client, ["Shortcuts", "Projects"]);
   await clickButtonByAria(client, "Open project folder");
   await waitForTexts(client, ["workspace-root", "Start a conversation for this workspace."]);
   const session = await waitForBackendState(

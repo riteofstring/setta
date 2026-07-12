@@ -130,22 +130,6 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 	return harness
 }
 
-func (harness *CodexHarness) SetAgentToolRegistry(registry *AgentToolRegistry) error {
-	if registry == nil {
-		return fmt.Errorf("agent tool registry is required")
-	}
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-	harness.config.Tools = registry
-	return nil
-}
-
-func (harness *CodexHarness) agentToolRegistry() *AgentToolRegistry {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-	return harness.config.Tools
-}
-
 func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	if err := ctx.Err(); err != nil {
 		return TurnCompletion{}, err
@@ -587,7 +571,7 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 	if err != nil {
 		return codexCommandThread{}, err
 	}
-	params, err := harness.codexThreadStartParams(request.Workspace.RootPath, request.Conversation)
+	params, err := harness.codexThreadStartParams(request.Workspace.RootPath)
 	if err != nil {
 		return codexCommandThread{}, err
 	}

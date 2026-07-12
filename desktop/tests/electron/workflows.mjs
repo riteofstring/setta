@@ -31,21 +31,6 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "topic-conversation-pane-projection.test.mjs",
-    name: "topic-conversation-pane-projection",
-    tiers: ["required"],
-  },
-  {
-    file: "microphone-permissions-workflow.test.mjs",
-    name: "microphone-permissions",
-    tiers: ["required"],
-  },
-  {
-    file: "global-speech-session-workflow.test.mjs",
-    name: "global-speech-session",
-    tiers: ["required"],
-  },
-  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
     tiers: ["required"],

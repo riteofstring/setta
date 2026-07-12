@@ -113,9 +113,6 @@ func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
 	if read.Layout.FocusedPaneID != layout.FocusedPaneID {
 		t.Fatalf("focusedPaneID = %q, want %q", read.Layout.FocusedPaneID, layout.FocusedPaneID)
 	}
-	if read.Layout.Panes[0].EasyButtonConfig == nil || read.Layout.Panes[0].EasyButtonConfig.ConversationID != "conversation_api" {
-		t.Fatalf("easy button config = %+v, want conversation_api binding", read.Layout.Panes[0].EasyButtonConfig)
-	}
 	if _, err := os.Stat(workspaceui.StateFilePath(appDataDir, opened.Workspace.ID)); err != nil {
 		t.Fatalf("stat workspace UI state: %v", err)
 	}
@@ -351,17 +348,16 @@ func workspaceUILayout(workspaceID string) workspaceui.WorkspaceUILayout {
 		},
 		Panes: []workspaceui.WorkspaceUIPane{
 			{
-				ColumnID:         "workspace_column_0",
-				EasyButtonConfig: &workspaceui.EasyButtonPaneConfig{ConversationID: "conversation_api"},
-				Heat:             0,
-				PaneID:           "workspace_pane_0",
-				Sequence:         0,
-				Subtitle:         "topic conversation",
-				SurfaceID:        "workspace_surface_0",
-				SurfaceKind:      workspaceui.SurfaceKindEasyButton,
-				Title:            "Topic",
-				Tone:             workspaceui.PaneToneCyan,
-				Weight:           1.6,
+				ColumnID:    "workspace_column_0",
+				Heat:        0,
+				PaneID:      "workspace_pane_0",
+				Sequence:    0,
+				Subtitle:    "workspace chat",
+				SurfaceID:   "workspace_surface_0",
+				SurfaceKind: workspaceui.SurfaceKindChatDOM,
+				Title:       "Chat",
+				Tone:        workspaceui.PaneToneCyan,
+				Weight:      1.6,
 			},
 			{
 				ColumnID:    "workspace_column_1",
