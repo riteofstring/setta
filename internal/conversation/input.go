@@ -191,7 +191,7 @@ func ConversationInputStreamID(conversationID string) (string, error) {
 	if err := validateConversationInputReference("conversation input stream conversation id", conversationID); err != nil {
 		return "", err
 	}
-	return "conversation:" + conversationID + ":inputs", nil
+	return "conversation-inputs:" + conversationID, nil
 }
 
 func ConversationInputAcceptedEventID(inputID string) (string, error) {

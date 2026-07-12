@@ -139,8 +139,15 @@ func TestConversationInputEventIdentityIsScopedAndValidated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConversationInputStreamID: %v", err)
 	}
-	if streamID != "conversation:conversation_alpha:inputs" {
+	if streamID != "conversation-inputs:conversation_alpha" {
 		t.Fatalf("stream id = %q", streamID)
+	}
+	conversationStreamID, err := ConversationStreamID("conversation_alpha:inputs")
+	if err != nil {
+		t.Fatalf("ConversationStreamID: %v", err)
+	}
+	if streamID == conversationStreamID {
+		t.Fatalf("input stream %q collides with conversation stream", streamID)
 	}
 	eventID, err := ConversationInputAcceptedEventID("input_alpha")
 	if err != nil {
