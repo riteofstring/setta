@@ -1,0 +1,352 @@
+package conversation
+
+import (
+	"context"
+	"testing"
+
+	"setta/internal/master"
+)
+
+func TestStoreClaimsMasterRoutingInDurableInputSequence(t *testing.T) {
+	store := newTestStore(t)
+	first := master.MasterInput{
+		ID:          "master-input-sequence-first",
+		Text:        "First accepted input.",
+		Modality:    master.MasterInputModalityText,
+		Source:      master.MasterInputSourceShell,
+		SubmittedAt: "2026-07-11T20:01:00Z",
+	}
+	second := master.MasterInput{
+		ID:          "master-input-sequence-second",
+		Text:        "Second accepted input.",
+		Modality:    master.MasterInputModalityText,
+		Source:      master.MasterInputSourceShell,
+		SubmittedAt: "2026-07-11T20:02:00Z",
+	}
+	if _, err := store.AcceptMasterInput(context.Background(), first, "2026-07-11T20:10:00Z"); err != nil {
+		t.Fatalf("accept first master input: %v", err)
+	}
+	if _, err := store.AcceptMasterInput(context.Background(), second, "2026-07-11T20:03:00Z"); err != nil {
+		t.Fatalf("accept second master input: %v", err)
+	}
+	work, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:11:00Z")
+	if err != nil || !found || work.Input.Input.ID != first.ID {
+		t.Fatalf("sequence claim = %+v found=%t err=%v, want %s", work, found, err, first.ID)
+	}
+}
+
+func TestStoreCommitsMasterRouteDecisionAtomicallyAndIdempotently(t *testing.T) {
+	store := newTestStore(t)
+	ready := seedMasterRouteState(t, store)
+	accepted := acceptMasterRouteTestInput(t, store, "master-input-commit", "2026-07-11T20:02:00Z")
+	work := claimMasterRouteCommitWork(t, store, accepted)
+	commit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
+		Kind: master.RouteDecisionKindFocusConversation,
+		FocusConversation: &master.MasterFocusConversationRouteDecision{
+			ConversationID: "conversation-master-route",
+		},
+	})
+	record := commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
+	assertIdempotentMasterRouteCommit(t, store, commit, record)
+	assertChangedMasterRouteCommitRejected(t, store, commit)
+	assertCommittedMasterRouteState(t, store, accepted.Input.ID)
+	assertCommittedMasterRouteEvents(t, store)
+}
+
+func claimMasterRouteCommitWork(
+	t *testing.T,
+	store *Store,
+	accepted master.AcceptedMasterInput,
+) master.InputRoutingWork {
+	t.Helper()
+	work, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:04:00Z")
+	if err != nil || !found || work.Input.Sequence != accepted.Sequence || work.RoutingAttempt != 1 {
+		t.Fatalf("ClaimNextMasterRouteInput = %+v found=%t err=%v", work, found, err)
+	}
+	if _, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:04:01Z"); err != nil || found {
+		t.Fatalf("second claim found=%t err=%v", found, err)
+	}
+	return work
+}
+
+func commitMasterRouteTestDecision(
+	t *testing.T,
+	store *Store,
+	commit master.RouteDecisionCommit,
+	inputID string,
+) master.RouteDecisionRecord {
+	t.Helper()
+	record, err := store.CommitMasterRouteDecision(context.Background(), commit)
+	if err != nil {
+		t.Fatalf("CommitMasterRouteDecision: %v", err)
+	}
+	if record.StreamSequence != 1 || record.InputID != inputID {
+		t.Fatalf("route record = %+v", record)
+	}
+	return record
+}
+
+func assertIdempotentMasterRouteCommit(
+	t *testing.T,
+	store *Store,
+	commit master.RouteDecisionCommit,
+	record master.RouteDecisionRecord,
+) {
+	t.Helper()
+	duplicate, err := store.CommitMasterRouteDecision(context.Background(), commit)
+	if err != nil || duplicate.StreamSequence != record.StreamSequence {
+		t.Fatalf("idempotent route commit = %+v err=%v", duplicate, err)
+	}
+}
+
+func assertChangedMasterRouteCommitRejected(
+	t *testing.T,
+	store *Store,
+	commit master.RouteDecisionCommit,
+) {
+	t.Helper()
+	changed := commit
+	changed.Decision = master.RouteDecision{
+		Kind:         master.RouteDecisionKindAnswerGlobal,
+		AnswerGlobal: &master.MasterAnswerGlobalRouteDecision{Text: "Changed answer."},
+	}
+	if _, err := store.CommitMasterRouteDecision(context.Background(), changed); !IsStateConflict(err) {
+		t.Fatalf("changed route commit error = %T %v, want state conflict", err, err)
+	}
+}
+
+func assertCommittedMasterRouteState(t *testing.T, store *Store, inputID string) {
+	t.Helper()
+	state, err := store.ReadMasterInputRoutingState(context.Background(), inputID)
+	if err != nil {
+		t.Fatalf("ReadMasterInputRoutingState: %v", err)
+	}
+	if state.Status != master.InputRoutingStatusDecided || state.Decision == nil ||
+		state.Decision.Decision.Kind != master.RouteDecisionKindFocusConversation || state.RoutingStartedAt != nil {
+		t.Fatalf("routing state = %+v", state)
+	}
+}
+
+func assertCommittedMasterRouteEvents(t *testing.T, store *Store) {
+	t.Helper()
+	events, err := store.ReadCommittedStreamEvents(
+		context.Background(),
+		master.RouteDecisionCommittedStream,
+		0,
+		10,
+	)
+	if err != nil {
+		t.Fatalf("ReadCommittedStreamEvents: %v", err)
+	}
+	if len(events) != 2 || events[0].Kind != master.RouteInputRoutingStartedKind ||
+		events[1].Kind != master.RouteDecisionCommittedKind {
+		t.Fatalf("master route events = %+v", events)
+	}
+}
+
+func TestStoreRecoversAndFailsMasterRoutingWithoutLosingAttemptHistory(t *testing.T) {
+	store := newTestStore(t)
+	seedMasterRouteState(t, store)
+	accepted := acceptMasterRouteTestInput(t, store, "master-input-recovery", "2026-07-11T20:02:00Z")
+	first, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:03:00Z")
+	if err != nil || !found {
+		t.Fatalf("first claim found=%t err=%v", found, err)
+	}
+	if err := store.RecoverMasterInputRouting(context.Background(), "2026-07-11T20:04:00Z"); err != nil {
+		t.Fatalf("RecoverMasterInputRouting: %v", err)
+	}
+	recovered, err := store.ReadMasterInputRoutingState(context.Background(), accepted.Input.ID)
+	if err != nil || recovered.Status != master.InputRoutingStatusAccepted || recovered.RoutingAttempt != first.RoutingAttempt {
+		t.Fatalf("recovered state = %+v err=%v", recovered, err)
+	}
+	second, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:05:00Z")
+	if err != nil || !found || second.RoutingAttempt != first.RoutingAttempt+1 {
+		t.Fatalf("second claim = %+v found=%t err=%v", second, found, err)
+	}
+	failure := master.InputRoutingFailure{
+		InputID:        accepted.Input.ID,
+		RoutingAttempt: second.RoutingAttempt,
+		Failure: master.RouteFailure{
+			Code:                "master_route_provider_unavailable",
+			Message:             "Global routing is temporarily unavailable.",
+			Retryable:           true,
+			DiagnosticReference: "master_route:recovery:2",
+		},
+		FailedAt: "2026-07-11T20:06:00Z",
+	}
+	if err := store.FailMasterInputRouting(context.Background(), failure); err != nil {
+		t.Fatalf("FailMasterInputRouting: %v", err)
+	}
+	failed, err := store.ReadMasterInputRoutingState(context.Background(), accepted.Input.ID)
+	if err != nil || failed.Status != master.InputRoutingStatusFailed || failed.Failure == nil ||
+		failed.Failure.DiagnosticReference != failure.Failure.DiagnosticReference {
+		t.Fatalf("failed state = %+v err=%v", failed, err)
+	}
+}
+
+func TestStoreRejectsMasterDecisionWhenCurrentTargetAuthorityChanged(t *testing.T) {
+	store := newTestStore(t)
+	ready := seedMasterRouteState(t, store)
+	acceptMasterRouteTestInput(t, store, "master-input-stale-target", "2026-07-11T20:02:00Z")
+	work, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:03:00Z")
+	if err != nil || !found {
+		t.Fatalf("claim found=%t err=%v", found, err)
+	}
+	commit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
+		Kind: master.RouteDecisionKindSendToAgent,
+		SendToAgent: &master.MasterSendToAgentRouteDecision{
+			ConversationID: "conversation-master-route",
+			AuthoredInput:  "Continue the work.",
+		},
+	})
+	commit.Context.TargetAuthorities[0].AllowedDecisionKinds = append(
+		commit.Context.TargetAuthorities[0].AllowedDecisionKinds,
+		master.RouteDecisionKindSendToAgent,
+	)
+	if _, err := store.writer.ExecContext(context.Background(), `
+UPDATE agent_thread_bindings
+SET status = ?
+WHERE conversation_id = ?
+`, ThreadBindingStatusMissing, "conversation-master-route"); err != nil {
+		t.Fatalf("change target authority: %v", err)
+	}
+	if _, err := store.CommitMasterRouteDecision(context.Background(), commit); !IsStateConflict(err) {
+		t.Fatalf("stale authority error = %T %v, want state conflict", err, err)
+	}
+	state, err := store.ReadMasterInputRoutingState(context.Background(), work.Input.Input.ID)
+	if err != nil || state.Status != master.InputRoutingStatusRouting || state.Decision != nil {
+		t.Fatalf("state after rejected commit = %+v err=%v", state, err)
+	}
+}
+
+func seedMasterRouteState(t *testing.T, store *Store) master.Session {
+	t.Helper()
+	conversation := TopicConversation{
+		ID:              "conversation-master-route",
+		WorkspaceID:     "workspace-1",
+		Title:           "Master routing",
+		TopicDescriptor: "Strict global routing",
+		Status:          ConversationStatusIdle,
+		CreatedAt:       testTimeStarted,
+		UpdatedAt:       testTimeStarted,
+	}
+	binding := AgentThreadBinding{
+		ConversationID:   conversation.ID,
+		Provider:         ProviderCodex,
+		ThreadID:         "provider-conversation-thread",
+		Status:           ThreadBindingStatusLinked,
+		CreatedAt:        testTimeStarted,
+		ProviderMetadata: map[string]string{"model": "gpt-agent-test"},
+	}
+	narrator := NarratorState{
+		ConversationID:  conversation.ID,
+		TopicDescriptor: conversation.TopicDescriptor,
+		Status:          NarratorStatusReady,
+		UpdatedAt:       testTimeStarted,
+	}
+	_, err := store.Transact(context.Background(), "seed master route target", func(transaction *WriteTransaction) error {
+		if err := transaction.InsertConversation(conversation); err != nil {
+			return err
+		}
+		if err := transaction.UpsertAgentThreadBinding(binding); err != nil {
+			return err
+		}
+		if err := transaction.InsertNarratorState(narrator); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"seed-master-route-target",
+			"conversation:"+conversation.ID,
+			conversation,
+		))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed route target: %v", err)
+	}
+	candidate := persistentMasterSession(t)
+	created, _, err := store.CreateMasterSession(context.Background(), candidate)
+	if err != nil {
+		t.Fatalf("CreateMasterSession: %v", err)
+	}
+	threadID := "provider-master-thread"
+	ready := master.CloneSession(created)
+	ready.ProviderThreadID = &threadID
+	ready.Status = master.SessionStatusReady
+	ready.UpdatedAt = testTimeEnded
+	if err := store.UpdateMasterSession(context.Background(), created.UpdatedAt, ready); err != nil {
+		t.Fatalf("UpdateMasterSession: %v", err)
+	}
+	return ready
+}
+
+func acceptMasterRouteTestInput(
+	t *testing.T,
+	store *Store,
+	inputID string,
+	submittedAt string,
+) master.AcceptedMasterInput {
+	t.Helper()
+	conversationID := "conversation-master-route"
+	workspaceID := "workspace-1"
+	input := master.MasterInput{
+		ID:                    inputID,
+		Text:                  "Focus the master routing topic.",
+		Modality:              master.MasterInputModalityText,
+		Source:                master.MasterInputSourceShell,
+		SubmittedAt:           submittedAt,
+		FocusedWorkspaceID:    &workspaceID,
+		FocusedConversationID: &conversationID,
+	}
+	accepted, err := store.AcceptMasterInput(context.Background(), input, "2026-07-11T20:02:30Z")
+	if err != nil {
+		t.Fatalf("AcceptMasterInput: %v", err)
+	}
+	return accepted
+}
+
+func masterRouteTestCommit(
+	t *testing.T,
+	work master.InputRoutingWork,
+	session master.Session,
+	decision master.RouteDecision,
+) master.RouteDecisionCommit {
+	t.Helper()
+	configuration, err := master.NewRouteModelConfigurationAudit(session.Configuration)
+	if err != nil {
+		t.Fatalf("NewRouteModelConfigurationAudit: %v", err)
+	}
+	return master.RouteDecisionCommit{
+		ID:              "master-route-decision-" + work.Input.Input.ID,
+		MasterSessionID: session.ID,
+		InputID:         work.Input.Input.ID,
+		RoutingAttempt:  work.RoutingAttempt,
+		Context: master.RouteContextAudit{
+			InputSequence:         work.Input.Sequence,
+			CandidateQuery:        "focus master routing topic",
+			RetrievedCandidates:   []master.RouteCandidateAudit{},
+			IncludedCandidateIDs:  []string{},
+			ActiveWorkspaceIDs:    []string{"workspace-1"},
+			FocusedWorkspaceID:    cloneStringPointer(work.Input.Input.FocusedWorkspaceID),
+			FocusedConversationID: cloneStringPointer(work.Input.Input.FocusedConversationID),
+			TargetAuthorities: []master.RouteTargetAuthority{{
+				ConversationID:       "conversation-master-route",
+				WorkspaceID:          "workspace-1",
+				AllowedDecisionKinds: []master.RouteDecisionKind{master.RouteDecisionKindFocusConversation},
+				CompletedForkTurnIDs: []string{},
+			}},
+		},
+		ResolvedInvocation: master.RouteInvocationAudit{
+			Configuration:     configuration,
+			ProviderRequestID: "master-route-call",
+			ProviderThreadID:  *session.ProviderThreadID,
+			ProviderTurnID:    "master-route-provider-turn",
+			InputBytes:        128,
+			OutputBytes:       64,
+			StartedAt:         "2026-07-11T20:04:01Z",
+			EndedAt:           "2026-07-11T20:04:02Z",
+		},
+		Decision:  decision,
+		DecidedAt: "2026-07-11T20:04:03Z",
+	}
+}

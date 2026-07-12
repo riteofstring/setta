@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -22,6 +23,7 @@ import (
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
+	"setta/internal/master"
 	"setta/internal/workspacesession"
 )
 
@@ -133,6 +135,87 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		http.StatusOK,
 	)
 	assertRuntimeLiveConversationRouteIsolation(t, status, afterRoute)
+
+	masterInput := master.MasterInput{
+		ID:                    "live-master-route-answer",
+		Text:                  "Answer this app-global request with exactly GLOBAL_ROUTE_OK. Do not open, focus, create, modify, or send work to any topic conversation.",
+		Modality:              master.MasterInputModalityText,
+		Source:                master.MasterInputSourceShell,
+		SubmittedAt:           time.Now().UTC().Format(time.RFC3339Nano),
+		FocusedWorkspaceID:    &opened.Workspace.ID,
+		FocusedConversationID: &created.Conversation.ID,
+	}
+	acceptedMaster := postRuntimeJSON[master.AcceptedMasterInput](
+		t,
+		client,
+		baseURL,
+		"/master/inputs/submit",
+		httpapi.SubmitMasterInputRequest{Input: masterInput},
+		http.StatusAccepted,
+	)
+	masterRoute := waitForRuntimeLiveMasterRoute(t, client, baseURL, acceptedMaster.Input.ID)
+	assertRuntimeLiveMasterRoute(t, masterRoute, opened.Workspace.ID, created.Conversation.ID)
+}
+
+func waitForRuntimeLiveMasterRoute(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	inputID string,
+) master.InputRoutingState {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Minute)
+	var last master.InputRoutingState
+	for time.Now().Before(deadline) {
+		last = postRuntimeJSON[master.InputRoutingState](
+			t,
+			client,
+			baseURL,
+			"/master/inputs/state/read",
+			httpapi.ReadMasterInputRoutingStateRequest{InputID: inputID},
+			http.StatusOK,
+		)
+		switch last.Status {
+		case master.InputRoutingStatusDecided:
+			return last
+		case master.InputRoutingStatusFailed:
+			t.Fatalf("live master route failed: %+v", last)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for live master route; last state = %+v", last)
+	return master.InputRoutingState{}
+}
+
+func assertRuntimeLiveMasterRoute(
+	t *testing.T,
+	state master.InputRoutingState,
+	workspaceID string,
+	conversationID string,
+) {
+	t.Helper()
+	record := state.Decision
+	if record == nil || record.Decision.Kind != master.RouteDecisionKindAnswerGlobal ||
+		record.Decision.AnswerGlobal == nil ||
+		strings.TrimSpace(record.Decision.AnswerGlobal.Text) != "GLOBAL_ROUTE_OK" ||
+		record.Context.InputSequence != state.Input.Sequence ||
+		!slices.ContainsFunc(record.Context.TargetAuthorities, func(target master.RouteTargetAuthority) bool {
+			return target.ConversationID == conversationID && target.WorkspaceID == workspaceID
+		}) ||
+		!slices.Contains(record.Context.ActiveWorkspaceIDs, workspaceID) ||
+		record.ResolvedInvocation.Configuration.ResolvedModel != "gpt-5.6-luna" ||
+		record.ResolvedInvocation.Configuration.ResolvedPermissionMode != "read_only" ||
+		record.ResolvedInvocation.Configuration.ResolvedApprovalMode != "never" ||
+		record.ResolvedInvocation.ProviderRequestID == "" ||
+		record.ResolvedInvocation.ProviderThreadID == "" ||
+		record.ResolvedInvocation.ProviderTurnID == "" ||
+		record.ResolvedInvocation.InputBytes <= 0 || record.ResolvedInvocation.OutputBytes <= 0 {
+		encoded, err := json.MarshalIndent(state, "", "  ")
+		if err != nil {
+			t.Fatalf("encode invalid live master route decision: %v", err)
+		}
+		t.Fatalf("live master route decision = %s", encoded)
+	}
 }
 
 func waitForRuntimeLiveConversationRoute(

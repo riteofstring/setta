@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -13,11 +14,13 @@ import (
 	"setta/internal/agent"
 )
 
-const masterDeveloperInstructions = `You are Setta's app-global master router.
+const masterDeveloperInstructionsBase = `You are Setta's app-global master router.
 
-Use only application state and strict Setta capabilities supplied by the caller. Never inspect the filesystem, run shell commands, mutate a workspace, request approval, use unrelated endpoints, or manipulate renderer state directly.
+Use only application state and strict Setta capabilities supplied by the caller. Never inspect the filesystem, run shell commands, mutate a workspace, request approval, or use unrelated endpoints. You cannot execute effects directly; you only classify user intent into typed decision data for Setta.
 
-Conversation commands and presentation requests are proposals only. Return only the constrained response requested for the current turn; Setta validates and executes every decision.`
+The typed decision describes requested intent and does not itself perform or propose an application action. Return only the constrained response requested for the current turn; Setta separately validates the data and controls every effect.`
+
+var masterDeveloperInstructions = masterDeveloperInstructionsBase + "\n\n" + routeInstructions()
 
 const masterThreadCleanupTimeout = 5 * time.Second
 
@@ -34,7 +37,24 @@ type RoleConfigurationResolver interface {
 type RestrictedThreadRuntime interface {
 	StartRestrictedThread(context.Context, agent.RestrictedThreadRequest) (agent.Thread, error)
 	ResumeRestrictedThread(context.Context, string, agent.RestrictedThreadRequest) (agent.Thread, error)
+	RunRestrictedStructuredTurn(
+		context.Context,
+		agent.RestrictedStructuredTurnRequest,
+	) (agent.RestrictedStructuredTurnResult, error)
 	UnsubscribeThread(context.Context, string) error
+}
+
+type StructuredSessionTurnRequest struct {
+	ID           string
+	Input        json.RawMessage
+	OutputSchema json.RawMessage
+}
+
+type StructuredSessionTurnResult struct {
+	Session          Session
+	ProviderThreadID string
+	ProviderTurnID   string
+	Output           json.RawMessage
 }
 
 type SessionService struct {
@@ -90,7 +110,10 @@ func (service *SessionService) EnsureSession(ctx context.Context) (Session, erro
 	}
 	service.mu.Lock()
 	defer service.mu.Unlock()
+	return service.ensureSessionLocked(ctx)
+}
 
+func (service *SessionService) ensureSessionLocked(ctx context.Context) (Session, error) {
 	existing, found, err := service.store.ReadMasterSession(ctx)
 	if err != nil {
 		return Session{}, fmt.Errorf("read durable master session: %w", err)
@@ -105,6 +128,81 @@ func (service *SessionService) EnsureSession(ctx context.Context) (Session, erro
 		return CloneSession(existing), nil
 	}
 	return service.resumeSession(ctx, existing)
+}
+
+func (service *SessionService) RunStructuredTurn(
+	ctx context.Context,
+	request StructuredSessionTurnRequest,
+) (StructuredSessionTurnResult, error) {
+	if err := validateSessionServiceRequest(service, ctx); err != nil {
+		return StructuredSessionTurnResult{}, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	session, err := service.ensureSessionLocked(ctx)
+	if err != nil {
+		return StructuredSessionTurnResult{}, err
+	}
+	if session.ProviderThreadID == nil {
+		return StructuredSessionTurnResult{}, errors.New("master structured turn requires a provider thread")
+	}
+	invocation, err := session.Configuration.PinnedInvocation()
+	if err != nil {
+		return StructuredSessionTurnResult{}, err
+	}
+	providerRequest := agent.RestrictedStructuredTurnRequest{
+		ID:               request.ID,
+		ProviderThreadID: *session.ProviderThreadID,
+		WorkspaceRoot:    service.workspaceRoot,
+		Invocation:       invocation,
+		Input:            append(json.RawMessage{}, request.Input...),
+		OutputSchema:     append(json.RawMessage{}, request.OutputSchema...),
+	}
+	if err := providerRequest.Validate(); err != nil {
+		return StructuredSessionTurnResult{}, fmt.Errorf("validate master structured turn: %w", err)
+	}
+	running, err := service.transitionSessionStatus(ctx, session, SessionStatusRunning)
+	if err != nil {
+		return StructuredSessionTurnResult{}, err
+	}
+	providerResult, err := service.threads.RunRestrictedStructuredTurn(ctx, providerRequest)
+	if err != nil {
+		finalizeCtx, cancel := context.WithTimeout(context.Background(), masterThreadCleanupTimeout)
+		defer cancel()
+		return StructuredSessionTurnResult{}, service.degradeSession(
+			finalizeCtx,
+			running,
+			"master_route_turn_failed",
+			err,
+		)
+	}
+	finalizeCtx, cancel := context.WithTimeout(context.Background(), masterThreadCleanupTimeout)
+	defer cancel()
+	ready, err := service.transitionSessionStatus(finalizeCtx, running, SessionStatusReady)
+	if err != nil {
+		return StructuredSessionTurnResult{}, err
+	}
+	return StructuredSessionTurnResult{
+		Session:          ready,
+		ProviderThreadID: providerResult.ProviderThreadID,
+		ProviderTurnID:   providerResult.ProviderTurnID,
+		Output:           append(json.RawMessage{}, providerResult.Output...),
+	}, nil
+}
+
+func (service *SessionService) transitionSessionStatus(
+	ctx context.Context,
+	session Session,
+	status SessionStatus,
+) (Session, error) {
+	previousUpdatedAt := session.UpdatedAt
+	session.Status = status
+	session.Degradation = nil
+	session.UpdatedAt = service.timestampAfter(previousUpdatedAt)
+	if err := service.store.UpdateMasterSession(ctx, previousUpdatedAt, session); err != nil {
+		return Session{}, fmt.Errorf("set master session %s: %w", status, err)
+	}
+	return CloneSession(session), nil
 }
 
 func validateSessionServiceRequest(service *SessionService, ctx context.Context) error {

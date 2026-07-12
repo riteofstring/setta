@@ -172,6 +172,7 @@ func persistentMasterSession(t *testing.T) master.Session {
 	}
 	configuration := master.RoleConfiguration{
 		RequestedProfile: profileJSON,
+		MaxInputBytes:    profile.ContextBudget.MaxInputBytes,
 		ResolvedInvocation: agent.ResolvedInvocation{
 			Requested:       requested,
 			Model:           requested.Model,

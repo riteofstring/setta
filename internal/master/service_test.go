@@ -115,12 +115,55 @@ func TestServicePreservesTypedStoreConflict(t *testing.T) {
 	}
 }
 
+func TestServiceReadsAndClonesMasterInputRoutingState(t *testing.T) {
+	input := MasterInput{
+		ID:          "input_state",
+		Text:        "Read this route state.",
+		Modality:    MasterInputModalityText,
+		Source:      MasterInputSourceShell,
+		SubmittedAt: "2026-07-12T18:00:00Z",
+	}
+	store := &recordingInputStore{state: InputRoutingState{
+		Input: AcceptedMasterInput{
+			Sequence:      1,
+			Input:         input,
+			ReplyDelivery: ReplyDeliveryForInput(input),
+			AcceptedAt:    "2026-07-12T18:00:01Z",
+		},
+		Status: InputRoutingStatusAccepted,
+	}}
+	service, err := newService(store, time.Now)
+	if err != nil {
+		t.Fatalf("newService: %v", err)
+	}
+	state, err := service.ReadInputState(context.Background(), input.ID)
+	if err != nil {
+		t.Fatalf("ReadInputState: %v", err)
+	}
+	state.Input.Input.Text = "mutated"
+	if store.state.Input.Input.Text != input.Text {
+		t.Fatal("routing state aliases store")
+	}
+	store.state.Status = "unsupported"
+	if _, err := service.ReadInputState(context.Background(), input.ID); err == nil {
+		t.Fatal("ReadInputState accepted invalid store state")
+	}
+}
+
 type recordingInputStore struct {
 	acceptedAt string
 	err        error
 	history    RecentMasterInputHistory
 	input      MasterInput
 	invalid    bool
+	state      InputRoutingState
+}
+
+func (store *recordingInputStore) ReadMasterInputRoutingState(
+	_ context.Context,
+	_ string,
+) (InputRoutingState, error) {
+	return CloneInputRoutingState(store.state), store.err
 }
 
 func (store *recordingInputStore) ListRecentMasterInputs(

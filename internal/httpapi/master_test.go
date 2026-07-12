@@ -74,6 +74,34 @@ func TestMasterInputHistoryEndpointReadsValidatedRecentInputs(t *testing.T) {
 	}
 }
 
+func TestMasterInputRoutingStateEndpointReadsValidatedState(t *testing.T) {
+	input := validSubmitMasterInputRequest().Input
+	service := &fakeHTTPMasterInputService{state: master.InputRoutingState{
+		Input: master.AcceptedMasterInput{
+			Sequence:      1,
+			Input:         input,
+			ReplyDelivery: master.ReplyDeliveryForInput(input),
+			AcceptedAt:    "2026-07-12T18:00:01Z",
+		},
+		Status: master.InputRoutingStatusAccepted,
+	}}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		MasterInputService: service,
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+	})
+	state := postJSON[master.InputRoutingState](
+		t,
+		handler,
+		"/master/inputs/state/read",
+		ReadMasterInputRoutingStateRequest{InputID: input.ID},
+		http.StatusOK,
+	)
+	if service.stateInputID != input.ID || state.Status != master.InputRoutingStatusAccepted ||
+		state.Input.Input.ID != input.ID {
+		t.Fatalf("routing state=%+v inputID=%q", state, service.stateInputID)
+	}
+}
+
 func TestMasterInputHistoryEndpointMapsReadAndValidationFailures(t *testing.T) {
 	tests := []struct {
 		err        error
@@ -215,11 +243,21 @@ func TestMasterInputEndpointRejectsUnknownAndOversizedPayloads(t *testing.T) {
 }
 
 type fakeHTTPMasterInputService struct {
-	calls     int
-	err       error
-	history   master.RecentMasterInputHistory
-	input     master.MasterInput
-	listCalls int
+	calls        int
+	err          error
+	history      master.RecentMasterInputHistory
+	input        master.MasterInput
+	listCalls    int
+	state        master.InputRoutingState
+	stateInputID string
+}
+
+func (service *fakeHTTPMasterInputService) ReadInputState(
+	_ context.Context,
+	inputID string,
+) (master.InputRoutingState, error) {
+	service.stateInputID = inputID
+	return master.CloneInputRoutingState(service.state), service.err
 }
 
 func (service *fakeHTTPMasterInputService) ListRecentInputs(

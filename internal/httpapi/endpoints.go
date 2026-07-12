@@ -96,6 +96,7 @@ var apiEndpoints = []endpoint{
 	post[DiscardConversationInputRequest, conversation.ConversationInputRoutingState]("DiscardConversationInput", "/conversations/inputs/discard", handler.discardConversationInput),
 	get[master.RecentMasterInputHistory]("ReadRecentMasterInputs", "/master/inputs/recent", handler.readRecentMasterInputs),
 	postWithRequestBodyLimit[SubmitMasterInputRequest, master.AcceptedMasterInput]("SubmitMasterInput", "/master/inputs/submit", masterInputRequestBodyLimitBytes, handler.submitMasterInput),
+	post[ReadMasterInputRoutingStateRequest, master.InputRoutingState]("ReadMasterInputRoutingState", "/master/inputs/state/read", handler.readMasterInputRoutingState),
 	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
 	get[speech.MasterVoiceSelection]("ReadMasterVoiceSelection", "/speech/voices/master", handler.readMasterVoiceSelection),
 	post[speech.VoiceSelectionRequest, speech.MasterVoiceSelection]("UpdateMasterVoiceSelection", "/speech/voices/master/update", handler.updateMasterVoiceSelection),

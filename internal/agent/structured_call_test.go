@@ -33,6 +33,44 @@ func TestRuntimeRunsFreshRestrictedStructuredCall(t *testing.T) {
 	}
 }
 
+func TestRuntimeRunsStructuredTurnsOnOneDurableRestrictedThread(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	fresh := fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
+	thread, err := runtime.StartRestrictedThread(ctx, RestrictedThreadRequest{
+		WorkspaceRoot:         fresh.WorkspaceRoot,
+		Invocation:            fresh.Invocation,
+		DeveloperInstructions: "You are Setta's restricted global master.",
+	})
+	if err != nil {
+		t.Fatalf("StartRestrictedThread: %v", err)
+	}
+	request := RestrictedStructuredTurnRequest{
+		ID:               "restricted-structured-first",
+		ProviderThreadID: thread.ID,
+		WorkspaceRoot:    fresh.WorkspaceRoot,
+		Invocation:       fresh.Invocation,
+		Input:            fresh.Input,
+		OutputSchema:     fresh.OutputSchema,
+	}
+	first, err := runtime.RunRestrictedStructuredTurn(ctx, request)
+	if err != nil {
+		t.Fatalf("RunRestrictedStructuredTurn: %v", err)
+	}
+	request.ID = "restricted-structured-second"
+	second, err := runtime.RunRestrictedStructuredTurn(ctx, request)
+	if err != nil {
+		t.Fatalf("second RunRestrictedStructuredTurn: %v", err)
+	}
+	if first.ProviderThreadID != thread.ID || second.ProviderThreadID != thread.ID ||
+		first.ProviderTurnID == second.ProviderTurnID ||
+		string(first.Output) != `{"answer":"STRUCTURED_OK"}` ||
+		string(second.Output) != `{"answer":"STRUCTURED_OK"}` {
+		t.Fatalf("durable structured results first=%+v second=%+v", first, second)
+	}
+}
+
 func TestFreshStructuredCallRunsWhilePrimaryConversationTurnIsActive(t *testing.T) {
 	runtime := newFakeRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

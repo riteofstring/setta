@@ -10,6 +10,7 @@ import (
 type InputStore interface {
 	AcceptMasterInput(context.Context, MasterInput, string) (AcceptedMasterInput, error)
 	ListRecentMasterInputs(context.Context) (RecentMasterInputHistory, error)
+	ReadMasterInputRoutingState(context.Context, string) (InputRoutingState, error)
 }
 
 func (service *Service) ListRecentInputs(ctx context.Context) (RecentMasterInputHistory, error) {
@@ -27,6 +28,23 @@ func (service *Service) ListRecentInputs(ctx context.Context) (RecentMasterInput
 		return RecentMasterInputHistory{}, fmt.Errorf("master input store returned invalid history: %w", err)
 	}
 	return CloneRecentInputHistory(history), nil
+}
+
+func (service *Service) ReadInputState(ctx context.Context, inputID string) (InputRoutingState, error) {
+	if service == nil || service.store == nil {
+		return InputRoutingState{}, errors.New("master input service is unavailable")
+	}
+	if ctx == nil {
+		return InputRoutingState{}, errors.New("master input context is required")
+	}
+	state, err := service.store.ReadMasterInputRoutingState(ctx, inputID)
+	if err != nil {
+		return InputRoutingState{}, err
+	}
+	if err := state.Validate(); err != nil {
+		return InputRoutingState{}, fmt.Errorf("master input store returned invalid routing state: %w", err)
+	}
+	return CloneInputRoutingState(state), nil
 }
 
 type Service struct {

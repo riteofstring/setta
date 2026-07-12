@@ -38,6 +38,7 @@ const (
 type RoleConfiguration struct {
 	RequestedProfile   json.RawMessage          `json:"requestedProfile"`
 	ResolvedInvocation agent.ResolvedInvocation `json:"resolvedInvocation"`
+	MaxInputBytes      int                      `json:"maxInputBytes"`
 }
 
 type SessionDegradation struct {
@@ -79,6 +80,9 @@ func (configuration RoleConfiguration) Validate() error {
 	}
 	if !bytes.Equal(profile, configuration.RequestedProfile) {
 		return errors.New("master requested role profile must be canonical JSON")
+	}
+	if configuration.MaxInputBytes <= 0 {
+		return errors.New("master role configuration max input bytes must be positive")
 	}
 	return validateResolvedRoleConfiguration(configuration.ResolvedInvocation)
 }

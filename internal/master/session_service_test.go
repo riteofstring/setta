@@ -2,6 +2,7 @@ package master
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -154,6 +155,56 @@ func TestSessionServiceSerializesConcurrentEnsureCalls(t *testing.T) {
 	}
 }
 
+func TestSessionServiceRunsStructuredTurnsOnTheDurableRestrictedThread(t *testing.T) {
+	store := &recordingSessionStore{}
+	roles := &recordingMasterRoleResolver{configuration: validTestRoleConfiguration()}
+	threads := &recordingRestrictedThreadRuntime{}
+	service := newTestSessionService(t, store, roles, threads)
+	result, err := service.RunStructuredTurn(context.Background(), StructuredSessionTurnRequest{
+		ID:           "master-route-request",
+		Input:        json.RawMessage(`{"kind":"master_route"}`),
+		OutputSchema: json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}`),
+	})
+	if err != nil {
+		t.Fatalf("RunStructuredTurn: %v", err)
+	}
+	if threads.structuredCalls != 1 ||
+		threads.lastStructuredRequest.ProviderThreadID != "master-provider-thread" ||
+		result.ProviderThreadID != "master-provider-thread" ||
+		result.ProviderTurnID != "master-provider-turn" ||
+		result.Session.Status != SessionStatusReady {
+		t.Fatalf("structured result=%+v request=%+v calls=%d", result, threads.lastStructuredRequest, threads.structuredCalls)
+	}
+	persisted, found, err := store.ReadMasterSession(context.Background())
+	if err != nil || !found || persisted.Status != SessionStatusReady {
+		t.Fatalf("persisted session=%+v found=%t err=%v", persisted, found, err)
+	}
+}
+
+func TestSessionServicePersistsStructuredTurnCancellationWithCleanupContext(t *testing.T) {
+	store := &recordingSessionStore{honorContext: true}
+	roles := &recordingMasterRoleResolver{configuration: validTestRoleConfiguration()}
+	ctx, cancel := context.WithCancel(context.Background())
+	threads := &recordingRestrictedThreadRuntime{
+		structuredHook: cancel,
+		structuredErr:  context.Canceled,
+	}
+	service := newTestSessionService(t, store, roles, threads)
+	_, err := service.RunStructuredTurn(ctx, StructuredSessionTurnRequest{
+		ID:           "master-route-cancelled",
+		Input:        json.RawMessage(`{"kind":"master_route"}`),
+		OutputSchema: json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}`),
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("structured cancellation = %v, want context cancellation", err)
+	}
+	persisted, found, readErr := store.ReadMasterSession(context.Background())
+	if readErr != nil || !found || persisted.Status != SessionStatusDegraded ||
+		persisted.Degradation == nil || persisted.Degradation.Code != "master_route_turn_failed" {
+		t.Fatalf("cancelled structured session = %+v found=%t err=%v", persisted, found, readErr)
+	}
+}
+
 func newTestSessionService(
 	t *testing.T,
 	store SessionStore,
@@ -180,9 +231,10 @@ func newTestSessionService(
 }
 
 type recordingSessionStore struct {
-	mu      sync.Mutex
-	session Session
-	found   bool
+	mu           sync.Mutex
+	session      Session
+	found        bool
+	honorContext bool
 }
 
 func (store *recordingSessionStore) ReadMasterSession(context.Context) (Session, bool, error) {
@@ -206,12 +258,15 @@ func (store *recordingSessionStore) CreateMasterSession(
 }
 
 func (store *recordingSessionStore) UpdateMasterSession(
-	_ context.Context,
+	ctx context.Context,
 	expectedUpdatedAt string,
 	next Session,
 ) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	if store.honorContext && ctx.Err() != nil {
+		return ctx.Err()
+	}
 	if !store.found || store.session.ID != next.ID || store.session.UpdatedAt != expectedUpdatedAt {
 		return &SessionConflictError{SessionID: next.ID, Reason: "test version mismatch"}
 	}
@@ -238,11 +293,34 @@ func (resolver *recordingMasterRoleResolver) ResolveMasterRoleConfiguration(
 }
 
 type recordingRestrictedThreadRuntime struct {
-	startErr    error
-	resumeErr   error
-	startCalls  int
-	resumeCalls int
-	lastRequest agent.RestrictedThreadRequest
+	startErr              error
+	resumeErr             error
+	startCalls            int
+	resumeCalls           int
+	structuredCalls       int
+	lastRequest           agent.RestrictedThreadRequest
+	lastStructuredRequest agent.RestrictedStructuredTurnRequest
+	structuredHook        func()
+	structuredErr         error
+}
+
+func (runtime *recordingRestrictedThreadRuntime) RunRestrictedStructuredTurn(
+	_ context.Context,
+	request agent.RestrictedStructuredTurnRequest,
+) (agent.RestrictedStructuredTurnResult, error) {
+	runtime.structuredCalls++
+	runtime.lastStructuredRequest = request
+	if runtime.structuredHook != nil {
+		runtime.structuredHook()
+	}
+	if runtime.structuredErr != nil {
+		return agent.RestrictedStructuredTurnResult{}, runtime.structuredErr
+	}
+	return agent.RestrictedStructuredTurnResult{
+		ProviderThreadID: request.ProviderThreadID,
+		ProviderTurnID:   "master-provider-turn",
+		Output:           json.RawMessage(`{"answer":"ok"}`),
+	}, nil
 }
 
 func (runtime *recordingRestrictedThreadRuntime) StartRestrictedThread(

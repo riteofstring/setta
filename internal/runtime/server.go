@@ -98,6 +98,7 @@ type Server struct {
 	closeWorkflowEvents     func()
 	drainChatTurns          func(context.Context) error
 	drainConversationTurns  func(context.Context) error
+	drainMasterRouting      func(context.Context) error
 	drainNarration          func(context.Context) error
 	codexManager            *codexapp.Manager
 	server                  *http.Server
@@ -117,6 +118,7 @@ type runtimeServices struct {
 	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	masterInputService       *master.Service
+	masterRouteService       *master.RouteService
 	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
 	notifyService            *notify.Service
@@ -266,6 +268,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
 		drainChatTurns:          services.chatService.ShutdownActiveTurns,
 		drainConversationTurns:  services.conversationService.Shutdown,
+		drainMasterRouting:      services.masterRouteService.Shutdown,
 		drainNarration:          services.narratorService.Shutdown,
 		codexManager:            services.codexManager,
 		server:                  newHTTPServer(config, services),
@@ -361,6 +364,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		conversationIndexService: baseServices.conversationIndexService,
 		conversationStore:        baseServices.conversationStore,
 		masterInputService:       baseServices.masterInputService,
+		masterRouteService:       baseServices.masterRouteService,
 		masterSessionService:     baseServices.masterSessionService,
 		narratorService:          baseServices.narratorService,
 		notifyService:            notifyService,
@@ -561,6 +565,7 @@ func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
 	_ = server.closeEventStreams(shutdownCtx)
 	_ = server.shutdownTerminal(shutdownCtx)
 	_ = server.shutdownNarration(shutdownCtx)
+	_ = server.shutdownMasterRouting(shutdownCtx)
 	_ = server.shutdownConversationStore()
 	_ = server.shutdownRuntimeAuth()
 	_ = server.shutdownCodex(shutdownCtx)
@@ -833,6 +838,7 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownChatTurns(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationTurns(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownNarration(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownMasterRouting(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.closeEventStreams(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))

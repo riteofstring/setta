@@ -32,6 +32,7 @@ type runtimeBaseServices struct {
 	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	masterInputService       *master.Service
+	masterRouteService       *master.RouteService
 	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
 	speechService            *speech.Service
@@ -79,6 +80,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		conversationIndexService: foundation.conversationIndexService,
 		conversationStore:        foundation.conversationStore,
 		masterInputService:       foundation.masterInputService,
+		masterRouteService:       foundation.masterRouteService,
 		masterSessionService:     foundation.masterSessionService,
 		narratorService:          foundation.narratorService,
 		speechService:            speechService,
@@ -91,6 +93,9 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 
 func shutdownRuntimeFoundation(foundation runtimeFoundation, timeout time.Duration) {
 	serviceCtx, cancelServices := context.WithTimeout(context.Background(), timeout)
+	if foundation.masterRouteService != nil {
+		_ = foundation.masterRouteService.Shutdown(serviceCtx)
+	}
 	_ = foundation.conversationService.Shutdown(serviceCtx)
 	_ = foundation.narratorService.Shutdown(serviceCtx)
 	cancelServices()
@@ -118,6 +123,7 @@ type runtimeFoundation struct {
 	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	masterInputService       *master.Service
+	masterRouteService       *master.RouteService
 	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
 	workspaceService         *workspacesession.Service
@@ -196,7 +202,7 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		_ = conversationStore.Close()
 		return runtimeFoundation{}, err
 	}
-	return runtimeFoundation{
+	foundation := runtimeFoundation{
 		appearanceService:        appearanceService,
 		codexManager:             codexManager,
 		conversationService:      conversationService,
@@ -208,7 +214,31 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		narratorService:          narratorService,
 		workspaceService:         workspaceService,
 		workspaceUIService:       workspaceUIService,
-	}, nil
+	}
+	return attachMasterRouteService(config, foundation)
+}
+
+func attachMasterRouteService(
+	config Config,
+	foundation runtimeFoundation,
+) (runtimeFoundation, error) {
+	routeService, err := master.NewRouteService(
+		foundation.conversationStore,
+		foundation.conversationIndexService,
+		foundation.workspaceService,
+		foundation.masterSessionService,
+	)
+	if err != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+		_ = foundation.conversationService.Shutdown(shutdownCtx)
+		_ = foundation.narratorService.Shutdown(shutdownCtx)
+		_ = foundation.codexManager.Shutdown(shutdownCtx)
+		_ = foundation.conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("create master route service: %w", err)
+	}
+	foundation.masterRouteService = routeService
+	return foundation, nil
 }
 
 func newRuntimeAgentServices(

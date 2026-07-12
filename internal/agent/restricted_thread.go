@@ -16,7 +16,7 @@ const (
 	// Codex maps an explicit null thread override to this standard-routing
 	// sentinel and reports it as the effective tier in thread responses.
 	codexDefaultServiceTier        = "default"
-	restrictedThreadInitialization = "Setta initialized this restricted durable thread. Await a Setta-supplied constrained request; do not infer or execute work from this initialization record."
+	restrictedThreadInitialization = "Setta initialized this restricted durable thread. This is an inert history marker, not a request. Respond only to a later user turn under the thread's developer contract."
 )
 
 // RestrictedThreadRequest creates or resumes one durable model thread without
@@ -110,7 +110,7 @@ func (runtime *Runtime) StartRestrictedThread(
 		return Thread{}, runtime.rejectRestrictedThread(thread.ID, err)
 	}
 	if err := runtime.InjectItems(ctx, thread.ID, []InjectedTextItem{{
-		Role: "developer",
+		Role: "user",
 		Text: restrictedThreadInitialization,
 	}}); err != nil {
 		return Thread{}, runtime.rejectRestrictedThread(

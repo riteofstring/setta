@@ -338,7 +338,7 @@ func handleFakeAgentTurnStart(state *fakeAgentServerState, message map[string]an
 	state.turnCounter++
 	turnID := fmt.Sprintf("provider-turn-%d", state.turnCounter)
 	writeFakeAgentResponse(message["id"], map[string]any{"turn": fakeAgentTurn(turnID, "inProgress")})
-	if state.structured[threadID] {
+	if _, structured := params["outputSchema"]; structured {
 		handleFakeFreshStructuredTurn(state, params, threadID, turnID)
 		return
 	}

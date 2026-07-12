@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 35;
-export const backendContractSchemaHash = "sha256:7504b5736918c39d086ba533bdac59af297a236edb1d4f19d34c3aec4994d1a7";
+export const backendProtocolVersion = 36;
+export const backendContractSchemaHash = "sha256:495b4e7703fdb5f6d7ba6cef40b8db9f53ce949f386955a530cfc9cab694c765";
 
 export type DeviceScope = "full";
 
@@ -1639,6 +1639,58 @@ export function decodeMasterInputSource(value: unknown, label = "MasterInputSour
     case "shell":
       return decoded;
     case "conversation_escalation":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type InputRoutingStatus = "accepted" | "routing" | "decided" | "failed";
+
+export const inputRoutingStatusValues = ["accepted", "routing", "decided", "failed"] as const satisfies readonly InputRoutingStatus[];
+
+export function decodeInputRoutingStatus(value: unknown, label = "InputRoutingStatus"): InputRoutingStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "accepted":
+      return decoded;
+    case "routing":
+      return decoded;
+    case "decided":
+      return decoded;
+    case "failed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RouteDecisionKind = "send_to_agent" | "queue_agent_turn" | "steer_active_turn" | "ask_narrator" | "focus_conversation" | "create_conversation" | "create_side_conversation" | "fork_conversation" | "clarify" | "answer_global";
+
+export const routeDecisionKindValues = ["send_to_agent", "queue_agent_turn", "steer_active_turn", "ask_narrator", "focus_conversation", "create_conversation", "create_side_conversation", "fork_conversation", "clarify", "answer_global"] as const satisfies readonly RouteDecisionKind[];
+
+export function decodeRouteDecisionKind(value: unknown, label = "RouteDecisionKind"): RouteDecisionKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "send_to_agent":
+      return decoded;
+    case "queue_agent_turn":
+      return decoded;
+    case "steer_active_turn":
+      return decoded;
+    case "ask_narrator":
+      return decoded;
+    case "focus_conversation":
+      return decoded;
+    case "create_conversation":
+      return decoded;
+    case "create_side_conversation":
+      return decoded;
+    case "fork_conversation":
+      return decoded;
+    case "clarify":
+      return decoded;
+    case "answer_global":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -5311,6 +5363,154 @@ export interface SubmitMasterInputRequest {
   input: MasterInput;
 }
 
+export interface ReadMasterInputRoutingStateRequest {
+  inputId: string;
+}
+
+export interface RouteCandidateAudit {
+  conversationId: string;
+  workspaceId: string;
+  lexicalRank: number | null;
+}
+
+export interface RouteTargetAuthority {
+  conversationId: string;
+  workspaceId: string;
+  allowedDecisionKinds: RouteDecisionKind[];
+  completedForkTurnIds: string[];
+}
+
+export interface RouteContextAudit {
+  inputSequence: number;
+  candidateQuery: string;
+  candidateQueryTruncated: boolean;
+  retrievedCandidates: RouteCandidateAudit[];
+  includedCandidateIds: string[];
+  activeWorkspaceIds: string[];
+  focusedWorkspaceId: string | null;
+  focusedConversationId: string | null;
+  originatingConversationId: string | null;
+  targetAuthorities: RouteTargetAuthority[];
+  priorDecisionCount: number;
+}
+
+export interface RouteModelConfigurationAudit {
+  requestedProfile: unknown;
+  requestedModel: string;
+  resolvedModel: string;
+  requestedReasoningEffort: string;
+  resolvedReasoningEffort: string;
+  requestedServiceTier: string | null;
+  resolvedServiceTier: string | null;
+  requestedPermissionMode: string;
+  resolvedPermissionMode: string;
+  requestedApprovalMode: string;
+  resolvedApprovalMode: string;
+  maxInputBytes: number;
+}
+
+export interface RouteInvocationAudit {
+  configuration: RouteModelConfigurationAudit;
+  providerRequestId: string;
+  providerThreadId: string;
+  providerTurnId: string;
+  inputBytes: number;
+  outputBytes: number;
+  startedAt: string;
+  endedAt: string;
+}
+
+export interface MasterSendToAgentRouteDecision {
+  conversationId: string;
+  authoredInput: string;
+}
+
+export interface MasterQueueAgentTurnRouteDecision {
+  conversationId: string;
+  authoredInput: string;
+}
+
+export interface MasterSteerActiveTurnRouteDecision {
+  conversationId: string;
+  authoredInput: string;
+}
+
+export interface MasterAskNarratorRouteDecision {
+  conversationId: string;
+  question: string;
+}
+
+export interface MasterFocusConversationRouteDecision {
+  conversationId: string;
+}
+
+export interface MasterCreateConversationRouteDecision {
+  workspaceId: string;
+  initialInput: string;
+  proposedTitle: string;
+}
+
+export interface MasterCreateSideConversationRouteDecision {
+  parentConversationId: string;
+  input: string;
+}
+
+export interface MasterForkConversationRouteDecision {
+  parentConversationId: string;
+  forkedAtTurnId: string;
+  input: string;
+}
+
+export interface MasterClarifyRouteDecision {
+  question: string;
+}
+
+export interface MasterAnswerGlobalRouteDecision {
+  text: string;
+}
+
+export interface RouteDecision {
+  kind: RouteDecisionKind;
+  sendToAgent: MasterSendToAgentRouteDecision | null;
+  queueAgentTurn: MasterQueueAgentTurnRouteDecision | null;
+  steerActiveTurn: MasterSteerActiveTurnRouteDecision | null;
+  askNarrator: MasterAskNarratorRouteDecision | null;
+  focusConversation: MasterFocusConversationRouteDecision | null;
+  createConversation: MasterCreateConversationRouteDecision | null;
+  createSideConversation: MasterCreateSideConversationRouteDecision | null;
+  forkConversation: MasterForkConversationRouteDecision | null;
+  clarify: MasterClarifyRouteDecision | null;
+  answerGlobal: MasterAnswerGlobalRouteDecision | null;
+}
+
+export interface RouteDecisionRecord {
+  streamSequence: number;
+  id: string;
+  masterSessionId: string;
+  inputId: string;
+  routingAttempt: number;
+  context: RouteContextAudit;
+  resolvedInvocation: RouteInvocationAudit;
+  decision: RouteDecision;
+  decidedAt: string;
+}
+
+export interface RouteFailure {
+  code: string;
+  message: string;
+  retryable: boolean;
+  diagnosticReference: string;
+}
+
+export interface InputRoutingState {
+  input: AcceptedMasterInput;
+  status: InputRoutingStatus;
+  routingAttempt: number;
+  routingStartedAt: string | null;
+  decision: RouteDecisionRecord | null;
+  failure: RouteFailure | null;
+}
+
 export interface SpeechVoiceCatalog {
   provider: SpeechProvider;
   version: string;
@@ -8967,6 +9167,11 @@ export const backendEndpoints = {
     path: "/master/inputs/submit",
     requestBodyLimitBytes: 1638400,
   },
+  ReadMasterInputRoutingState: {
+    method: "POST",
+    path: "/master/inputs/state/read",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadSpeechCapabilities: {
     method: "GET",
     path: "/speech/capabilities",
@@ -12012,6 +12217,247 @@ export function decodeSubmitMasterInputRequest(value: unknown): SubmitMasterInpu
   assertKnownFields(record, "SubmitMasterInputRequest", ["input"]);
   return {
     input: decodeMasterInput(requireField(record, "input", "SubmitMasterInputRequest")),
+  };
+}
+
+export function decodeReadMasterInputRoutingStateRequest(value: unknown): ReadMasterInputRoutingStateRequest {
+  const record = assertRecord(value, "ReadMasterInputRoutingStateRequest");
+  assertKnownFields(record, "ReadMasterInputRoutingStateRequest", ["inputId"]);
+  return {
+    inputId: decodeString(requireField(record, "inputId", "ReadMasterInputRoutingStateRequest"), "ReadMasterInputRoutingStateRequest.inputId"),
+  };
+}
+
+export function decodeRouteCandidateAudit(value: unknown): RouteCandidateAudit {
+  const record = assertRecord(value, "RouteCandidateAudit");
+  assertKnownFields(record, "RouteCandidateAudit", ["conversationId", "workspaceId", "lexicalRank"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "RouteCandidateAudit"), "RouteCandidateAudit.conversationId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "RouteCandidateAudit"), "RouteCandidateAudit.workspaceId"),
+    lexicalRank: decodeNullable(requireField(record, "lexicalRank", "RouteCandidateAudit"), "RouteCandidateAudit.lexicalRank", (item) => decodeNumber(item, "RouteCandidateAudit.lexicalRank")),
+  };
+}
+
+export function decodeRouteTargetAuthority(value: unknown): RouteTargetAuthority {
+  const record = assertRecord(value, "RouteTargetAuthority");
+  assertKnownFields(record, "RouteTargetAuthority", ["conversationId", "workspaceId", "allowedDecisionKinds", "completedForkTurnIds"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "RouteTargetAuthority"), "RouteTargetAuthority.conversationId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "RouteTargetAuthority"), "RouteTargetAuthority.workspaceId"),
+    allowedDecisionKinds: decodeArray(requireField(record, "allowedDecisionKinds", "RouteTargetAuthority"), "RouteTargetAuthority.allowedDecisionKinds", (item) => decodeRouteDecisionKind(item, "RouteTargetAuthority.allowedDecisionKinds item")),
+    completedForkTurnIds: decodeArray(requireField(record, "completedForkTurnIds", "RouteTargetAuthority"), "RouteTargetAuthority.completedForkTurnIds", (item) => decodeString(item, "RouteTargetAuthority.completedForkTurnIds item")),
+  };
+}
+
+export function decodeRouteContextAudit(value: unknown): RouteContextAudit {
+  const record = assertRecord(value, "RouteContextAudit");
+  assertKnownFields(record, "RouteContextAudit", ["inputSequence", "candidateQuery", "candidateQueryTruncated", "retrievedCandidates", "includedCandidateIds", "activeWorkspaceIds", "focusedWorkspaceId", "focusedConversationId", "originatingConversationId", "targetAuthorities", "priorDecisionCount"]);
+  return {
+    inputSequence: decodeInteger(requireField(record, "inputSequence", "RouteContextAudit"), "RouteContextAudit.inputSequence"),
+    candidateQuery: decodeString(requireField(record, "candidateQuery", "RouteContextAudit"), "RouteContextAudit.candidateQuery"),
+    candidateQueryTruncated: decodeBoolean(requireField(record, "candidateQueryTruncated", "RouteContextAudit"), "RouteContextAudit.candidateQueryTruncated"),
+    retrievedCandidates: decodeArray(requireField(record, "retrievedCandidates", "RouteContextAudit"), "RouteContextAudit.retrievedCandidates", (item) => decodeRouteCandidateAudit(item)),
+    includedCandidateIds: decodeArray(requireField(record, "includedCandidateIds", "RouteContextAudit"), "RouteContextAudit.includedCandidateIds", (item) => decodeString(item, "RouteContextAudit.includedCandidateIds item")),
+    activeWorkspaceIds: decodeArray(requireField(record, "activeWorkspaceIds", "RouteContextAudit"), "RouteContextAudit.activeWorkspaceIds", (item) => decodeString(item, "RouteContextAudit.activeWorkspaceIds item")),
+    focusedWorkspaceId: decodeNullable(requireField(record, "focusedWorkspaceId", "RouteContextAudit"), "RouteContextAudit.focusedWorkspaceId", (item) => decodeString(item, "RouteContextAudit.focusedWorkspaceId")),
+    focusedConversationId: decodeNullable(requireField(record, "focusedConversationId", "RouteContextAudit"), "RouteContextAudit.focusedConversationId", (item) => decodeString(item, "RouteContextAudit.focusedConversationId")),
+    originatingConversationId: decodeNullable(requireField(record, "originatingConversationId", "RouteContextAudit"), "RouteContextAudit.originatingConversationId", (item) => decodeString(item, "RouteContextAudit.originatingConversationId")),
+    targetAuthorities: decodeArray(requireField(record, "targetAuthorities", "RouteContextAudit"), "RouteContextAudit.targetAuthorities", (item) => decodeRouteTargetAuthority(item)),
+    priorDecisionCount: decodeInteger(requireField(record, "priorDecisionCount", "RouteContextAudit"), "RouteContextAudit.priorDecisionCount"),
+  };
+}
+
+export function decodeRouteModelConfigurationAudit(value: unknown): RouteModelConfigurationAudit {
+  const record = assertRecord(value, "RouteModelConfigurationAudit");
+  assertKnownFields(record, "RouteModelConfigurationAudit", ["requestedProfile", "requestedModel", "resolvedModel", "requestedReasoningEffort", "resolvedReasoningEffort", "requestedServiceTier", "resolvedServiceTier", "requestedPermissionMode", "resolvedPermissionMode", "requestedApprovalMode", "resolvedApprovalMode", "maxInputBytes"]);
+  return {
+    requestedProfile: decodeUnknown(requireField(record, "requestedProfile", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.requestedProfile"),
+    requestedModel: decodeString(requireField(record, "requestedModel", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.requestedModel"),
+    resolvedModel: decodeString(requireField(record, "resolvedModel", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.resolvedModel"),
+    requestedReasoningEffort: decodeString(requireField(record, "requestedReasoningEffort", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.requestedReasoningEffort"),
+    resolvedReasoningEffort: decodeString(requireField(record, "resolvedReasoningEffort", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.resolvedReasoningEffort"),
+    requestedServiceTier: decodeNullable(requireField(record, "requestedServiceTier", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.requestedServiceTier", (item) => decodeString(item, "RouteModelConfigurationAudit.requestedServiceTier")),
+    resolvedServiceTier: decodeNullable(requireField(record, "resolvedServiceTier", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.resolvedServiceTier", (item) => decodeString(item, "RouteModelConfigurationAudit.resolvedServiceTier")),
+    requestedPermissionMode: decodeString(requireField(record, "requestedPermissionMode", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.requestedPermissionMode"),
+    resolvedPermissionMode: decodeString(requireField(record, "resolvedPermissionMode", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.resolvedPermissionMode"),
+    requestedApprovalMode: decodeString(requireField(record, "requestedApprovalMode", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.requestedApprovalMode"),
+    resolvedApprovalMode: decodeString(requireField(record, "resolvedApprovalMode", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.resolvedApprovalMode"),
+    maxInputBytes: decodeInteger(requireField(record, "maxInputBytes", "RouteModelConfigurationAudit"), "RouteModelConfigurationAudit.maxInputBytes"),
+  };
+}
+
+export function decodeRouteInvocationAudit(value: unknown): RouteInvocationAudit {
+  const record = assertRecord(value, "RouteInvocationAudit");
+  assertKnownFields(record, "RouteInvocationAudit", ["configuration", "providerRequestId", "providerThreadId", "providerTurnId", "inputBytes", "outputBytes", "startedAt", "endedAt"]);
+  return {
+    configuration: decodeRouteModelConfigurationAudit(requireField(record, "configuration", "RouteInvocationAudit")),
+    providerRequestId: decodeString(requireField(record, "providerRequestId", "RouteInvocationAudit"), "RouteInvocationAudit.providerRequestId"),
+    providerThreadId: decodeString(requireField(record, "providerThreadId", "RouteInvocationAudit"), "RouteInvocationAudit.providerThreadId"),
+    providerTurnId: decodeString(requireField(record, "providerTurnId", "RouteInvocationAudit"), "RouteInvocationAudit.providerTurnId"),
+    inputBytes: decodeInteger(requireField(record, "inputBytes", "RouteInvocationAudit"), "RouteInvocationAudit.inputBytes"),
+    outputBytes: decodeInteger(requireField(record, "outputBytes", "RouteInvocationAudit"), "RouteInvocationAudit.outputBytes"),
+    startedAt: decodeString(requireField(record, "startedAt", "RouteInvocationAudit"), "RouteInvocationAudit.startedAt"),
+    endedAt: decodeString(requireField(record, "endedAt", "RouteInvocationAudit"), "RouteInvocationAudit.endedAt"),
+  };
+}
+
+export function decodeMasterSendToAgentRouteDecision(value: unknown): MasterSendToAgentRouteDecision {
+  const record = assertRecord(value, "MasterSendToAgentRouteDecision");
+  assertKnownFields(record, "MasterSendToAgentRouteDecision", ["conversationId", "authoredInput"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "MasterSendToAgentRouteDecision"), "MasterSendToAgentRouteDecision.conversationId"),
+    authoredInput: decodeString(requireField(record, "authoredInput", "MasterSendToAgentRouteDecision"), "MasterSendToAgentRouteDecision.authoredInput"),
+  };
+}
+
+export function decodeMasterQueueAgentTurnRouteDecision(value: unknown): MasterQueueAgentTurnRouteDecision {
+  const record = assertRecord(value, "MasterQueueAgentTurnRouteDecision");
+  assertKnownFields(record, "MasterQueueAgentTurnRouteDecision", ["conversationId", "authoredInput"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "MasterQueueAgentTurnRouteDecision"), "MasterQueueAgentTurnRouteDecision.conversationId"),
+    authoredInput: decodeString(requireField(record, "authoredInput", "MasterQueueAgentTurnRouteDecision"), "MasterQueueAgentTurnRouteDecision.authoredInput"),
+  };
+}
+
+export function decodeMasterSteerActiveTurnRouteDecision(value: unknown): MasterSteerActiveTurnRouteDecision {
+  const record = assertRecord(value, "MasterSteerActiveTurnRouteDecision");
+  assertKnownFields(record, "MasterSteerActiveTurnRouteDecision", ["conversationId", "authoredInput"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "MasterSteerActiveTurnRouteDecision"), "MasterSteerActiveTurnRouteDecision.conversationId"),
+    authoredInput: decodeString(requireField(record, "authoredInput", "MasterSteerActiveTurnRouteDecision"), "MasterSteerActiveTurnRouteDecision.authoredInput"),
+  };
+}
+
+export function decodeMasterAskNarratorRouteDecision(value: unknown): MasterAskNarratorRouteDecision {
+  const record = assertRecord(value, "MasterAskNarratorRouteDecision");
+  assertKnownFields(record, "MasterAskNarratorRouteDecision", ["conversationId", "question"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "MasterAskNarratorRouteDecision"), "MasterAskNarratorRouteDecision.conversationId"),
+    question: decodeString(requireField(record, "question", "MasterAskNarratorRouteDecision"), "MasterAskNarratorRouteDecision.question"),
+  };
+}
+
+export function decodeMasterFocusConversationRouteDecision(value: unknown): MasterFocusConversationRouteDecision {
+  const record = assertRecord(value, "MasterFocusConversationRouteDecision");
+  assertKnownFields(record, "MasterFocusConversationRouteDecision", ["conversationId"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "MasterFocusConversationRouteDecision"), "MasterFocusConversationRouteDecision.conversationId"),
+  };
+}
+
+export function decodeMasterCreateConversationRouteDecision(value: unknown): MasterCreateConversationRouteDecision {
+  const record = assertRecord(value, "MasterCreateConversationRouteDecision");
+  assertKnownFields(record, "MasterCreateConversationRouteDecision", ["workspaceId", "initialInput", "proposedTitle"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "MasterCreateConversationRouteDecision"), "MasterCreateConversationRouteDecision.workspaceId"),
+    initialInput: decodeString(requireField(record, "initialInput", "MasterCreateConversationRouteDecision"), "MasterCreateConversationRouteDecision.initialInput"),
+    proposedTitle: decodeString(requireField(record, "proposedTitle", "MasterCreateConversationRouteDecision"), "MasterCreateConversationRouteDecision.proposedTitle"),
+  };
+}
+
+export function decodeMasterCreateSideConversationRouteDecision(value: unknown): MasterCreateSideConversationRouteDecision {
+  const record = assertRecord(value, "MasterCreateSideConversationRouteDecision");
+  assertKnownFields(record, "MasterCreateSideConversationRouteDecision", ["parentConversationId", "input"]);
+  return {
+    parentConversationId: decodeString(requireField(record, "parentConversationId", "MasterCreateSideConversationRouteDecision"), "MasterCreateSideConversationRouteDecision.parentConversationId"),
+    input: decodeString(requireField(record, "input", "MasterCreateSideConversationRouteDecision"), "MasterCreateSideConversationRouteDecision.input"),
+  };
+}
+
+export function decodeMasterForkConversationRouteDecision(value: unknown): MasterForkConversationRouteDecision {
+  const record = assertRecord(value, "MasterForkConversationRouteDecision");
+  assertKnownFields(record, "MasterForkConversationRouteDecision", ["parentConversationId", "forkedAtTurnId", "input"]);
+  return {
+    parentConversationId: decodeString(requireField(record, "parentConversationId", "MasterForkConversationRouteDecision"), "MasterForkConversationRouteDecision.parentConversationId"),
+    forkedAtTurnId: decodeString(requireField(record, "forkedAtTurnId", "MasterForkConversationRouteDecision"), "MasterForkConversationRouteDecision.forkedAtTurnId"),
+    input: decodeString(requireField(record, "input", "MasterForkConversationRouteDecision"), "MasterForkConversationRouteDecision.input"),
+  };
+}
+
+export function decodeMasterClarifyRouteDecision(value: unknown): MasterClarifyRouteDecision {
+  const record = assertRecord(value, "MasterClarifyRouteDecision");
+  assertKnownFields(record, "MasterClarifyRouteDecision", ["question"]);
+  return {
+    question: decodeString(requireField(record, "question", "MasterClarifyRouteDecision"), "MasterClarifyRouteDecision.question"),
+  };
+}
+
+export function decodeMasterAnswerGlobalRouteDecision(value: unknown): MasterAnswerGlobalRouteDecision {
+  const record = assertRecord(value, "MasterAnswerGlobalRouteDecision");
+  assertKnownFields(record, "MasterAnswerGlobalRouteDecision", ["text"]);
+  return {
+    text: decodeString(requireField(record, "text", "MasterAnswerGlobalRouteDecision"), "MasterAnswerGlobalRouteDecision.text"),
+  };
+}
+
+export function decodeRouteDecision(value: unknown): RouteDecision {
+  const record = assertRecord(value, "RouteDecision");
+  assertKnownFields(record, "RouteDecision", ["kind", "sendToAgent", "queueAgentTurn", "steerActiveTurn", "askNarrator", "focusConversation", "createConversation", "createSideConversation", "forkConversation", "clarify", "answerGlobal"]);
+  const result: RouteDecision = {
+    kind: decodeRouteDecisionKind(requireField(record, "kind", "RouteDecision"), "RouteDecision.kind"),
+    sendToAgent: decodeNullable(requireField(record, "sendToAgent", "RouteDecision"), "RouteDecision.sendToAgent", (item) => decodeMasterSendToAgentRouteDecision(item)),
+    queueAgentTurn: decodeNullable(requireField(record, "queueAgentTurn", "RouteDecision"), "RouteDecision.queueAgentTurn", (item) => decodeMasterQueueAgentTurnRouteDecision(item)),
+    steerActiveTurn: decodeNullable(requireField(record, "steerActiveTurn", "RouteDecision"), "RouteDecision.steerActiveTurn", (item) => decodeMasterSteerActiveTurnRouteDecision(item)),
+    askNarrator: decodeNullable(requireField(record, "askNarrator", "RouteDecision"), "RouteDecision.askNarrator", (item) => decodeMasterAskNarratorRouteDecision(item)),
+    focusConversation: decodeNullable(requireField(record, "focusConversation", "RouteDecision"), "RouteDecision.focusConversation", (item) => decodeMasterFocusConversationRouteDecision(item)),
+    createConversation: decodeNullable(requireField(record, "createConversation", "RouteDecision"), "RouteDecision.createConversation", (item) => decodeMasterCreateConversationRouteDecision(item)),
+    createSideConversation: decodeNullable(requireField(record, "createSideConversation", "RouteDecision"), "RouteDecision.createSideConversation", (item) => decodeMasterCreateSideConversationRouteDecision(item)),
+    forkConversation: decodeNullable(requireField(record, "forkConversation", "RouteDecision"), "RouteDecision.forkConversation", (item) => decodeMasterForkConversationRouteDecision(item)),
+    clarify: decodeNullable(requireField(record, "clarify", "RouteDecision"), "RouteDecision.clarify", (item) => decodeMasterClarifyRouteDecision(item)),
+    answerGlobal: decodeNullable(requireField(record, "answerGlobal", "RouteDecision"), "RouteDecision.answerGlobal", (item) => decodeMasterAnswerGlobalRouteDecision(item)),
+  };
+  assertTaggedUnionBranch("RouteDecision", result.kind, {
+    "send_to_agent": result.sendToAgent,
+    "queue_agent_turn": result.queueAgentTurn,
+    "steer_active_turn": result.steerActiveTurn,
+    "ask_narrator": result.askNarrator,
+    "focus_conversation": result.focusConversation,
+    "create_conversation": result.createConversation,
+    "create_side_conversation": result.createSideConversation,
+    "fork_conversation": result.forkConversation,
+    "clarify": result.clarify,
+    "answer_global": result.answerGlobal,
+  });
+  return result;
+}
+
+export function decodeRouteDecisionRecord(value: unknown): RouteDecisionRecord {
+  const record = assertRecord(value, "RouteDecisionRecord");
+  assertKnownFields(record, "RouteDecisionRecord", ["streamSequence", "id", "masterSessionId", "inputId", "routingAttempt", "context", "resolvedInvocation", "decision", "decidedAt"]);
+  return {
+    streamSequence: decodeInteger(requireField(record, "streamSequence", "RouteDecisionRecord"), "RouteDecisionRecord.streamSequence"),
+    id: decodeString(requireField(record, "id", "RouteDecisionRecord"), "RouteDecisionRecord.id"),
+    masterSessionId: decodeString(requireField(record, "masterSessionId", "RouteDecisionRecord"), "RouteDecisionRecord.masterSessionId"),
+    inputId: decodeString(requireField(record, "inputId", "RouteDecisionRecord"), "RouteDecisionRecord.inputId"),
+    routingAttempt: decodeInteger(requireField(record, "routingAttempt", "RouteDecisionRecord"), "RouteDecisionRecord.routingAttempt"),
+    context: decodeRouteContextAudit(requireField(record, "context", "RouteDecisionRecord")),
+    resolvedInvocation: decodeRouteInvocationAudit(requireField(record, "resolvedInvocation", "RouteDecisionRecord")),
+    decision: decodeRouteDecision(requireField(record, "decision", "RouteDecisionRecord")),
+    decidedAt: decodeString(requireField(record, "decidedAt", "RouteDecisionRecord"), "RouteDecisionRecord.decidedAt"),
+  };
+}
+
+export function decodeRouteFailure(value: unknown): RouteFailure {
+  const record = assertRecord(value, "RouteFailure");
+  assertKnownFields(record, "RouteFailure", ["code", "message", "retryable", "diagnosticReference"]);
+  return {
+    code: decodeString(requireField(record, "code", "RouteFailure"), "RouteFailure.code"),
+    message: decodeString(requireField(record, "message", "RouteFailure"), "RouteFailure.message"),
+    retryable: decodeBoolean(requireField(record, "retryable", "RouteFailure"), "RouteFailure.retryable"),
+    diagnosticReference: decodeString(requireField(record, "diagnosticReference", "RouteFailure"), "RouteFailure.diagnosticReference"),
+  };
+}
+
+export function decodeInputRoutingState(value: unknown): InputRoutingState {
+  const record = assertRecord(value, "InputRoutingState");
+  assertKnownFields(record, "InputRoutingState", ["input", "status", "routingAttempt", "routingStartedAt", "decision", "failure"]);
+  return {
+    input: decodeAcceptedMasterInput(requireField(record, "input", "InputRoutingState")),
+    status: decodeInputRoutingStatus(requireField(record, "status", "InputRoutingState"), "InputRoutingState.status"),
+    routingAttempt: decodeInteger(requireField(record, "routingAttempt", "InputRoutingState"), "InputRoutingState.routingAttempt"),
+    routingStartedAt: decodeNullable(requireField(record, "routingStartedAt", "InputRoutingState"), "InputRoutingState.routingStartedAt", (item) => decodeString(item, "InputRoutingState.routingStartedAt")),
+    decision: decodeNullable(requireField(record, "decision", "InputRoutingState"), "InputRoutingState.decision", (item) => decodeRouteDecisionRecord(item)),
+    failure: decodeNullable(requireField(record, "failure", "InputRoutingState"), "InputRoutingState.failure", (item) => decodeRouteFailure(item)),
   };
 }
 
@@ -16967,6 +17413,7 @@ export interface BackendClient {
   discardConversationInput: (request: DiscardConversationInputRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
   readRecentMasterInputs: (options?: BackendRequestOptions) => Promise<RecentMasterInputHistory>;
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
+  readMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   readMasterVoiceSelection: (options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   updateMasterVoiceSelection: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
@@ -17476,6 +17923,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeAcceptedMasterInput,
       endpoint: backendEndpoints.SubmitMasterInput,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readMasterInputRoutingState: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeInputRoutingState,
+      endpoint: backendEndpoints.ReadMasterInputRoutingState,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

@@ -11,7 +11,7 @@ import (
 	"setta/internal/codexapp"
 )
 
-const restrictedThreadBaseInstructions = `You are a restricted Setta reasoning component. Follow the supplied developer instructions exactly and return only the requested response. You have no shell, filesystem, browser, application, plugin, MCP, or delegation capabilities.`
+const restrictedThreadBaseInstructions = `You are a restricted Setta reasoning component. Follow the supplied developer instructions exactly and return only the requested response. You have no direct shell, filesystem, browser, application, plugin, MCP, or delegation capabilities. Returning schema-constrained classification labels or typed decision data named by the developer instructions does not exercise those capabilities and is allowed.`
 
 type restrictedConfigCaller interface {
 	Call(context.Context, string, any) (json.RawMessage, error)

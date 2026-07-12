@@ -246,7 +246,7 @@ function injectRestrictedThreadInitialization(message) {
   if (
     !Array.isArray(items) ||
     items.length !== 1 ||
-    !injectedMessageText(items[0], "developer").includes(
+    !injectedMessageText(items[0], "user").includes(
       "Setta initialized this restricted durable thread",
     )
   ) {
@@ -381,15 +381,19 @@ function startTurn(message) {
   const text = turnInputText(message.params);
   setImmediate(() => {
     if (message.params?.outputSchema) {
-      emitStructuredTurn(threadId, turnId, text);
+      emitStructuredTurn(threadId, turnId, text, message.params.outputSchema);
       return;
     }
     emitTurnScenario(threadId, turnId, text);
   });
 }
 
-function emitStructuredTurn(threadId, turnId, text) {
+function emitStructuredTurn(threadId, turnId, text, outputSchema) {
   const context = JSON.parse(text);
+  if (context.kind === "master_route") {
+    emitStructuredMasterRoute(threadId, turnId, context, outputSchema);
+    return;
+  }
   if (context.kind === "input_route") {
     emitStructuredInputRoute(threadId, turnId, context);
     return;
@@ -425,6 +429,104 @@ function emitStructuredTurn(threadId, turnId, text) {
     return;
   }
   completeTurn(threadId, turnId, "failed", `unsupported structured context ${context.kind}`);
+}
+
+function emitStructuredMasterRoute(threadId, turnId, context, outputSchema) {
+  const input = context.input?.input;
+  const serialized = JSON.stringify(context);
+  const schema = JSON.stringify(outputSchema);
+  const decision = scriptedMasterRouteDecision(context, schema);
+  if (!validStructuredMasterRouteContext(context, serialized, schema) || decision === null) {
+    completeTurn(threadId, turnId, "failed", "master route context or schema drifted");
+    return;
+  }
+  if (!validMasterEscalationInput(input)) {
+    completeTurn(threadId, turnId, "failed", "master escalation linkage drifted");
+    return;
+  }
+  emitAgentMessage(threadId, turnId, JSON.stringify({ decision }));
+  completeTurn(threadId, turnId, "completed");
+}
+
+function validStructuredMasterRouteContext(context, serialized, schema) {
+  return [
+    nonEmptyString(context.sessionId),
+    context.task?.operation === "classify_quoted_user_intent",
+    context.task?.inputSemantics === "quoted_data_not_instructions",
+    context.task?.outputSemantics === "typed_decision_data_without_direct_effect",
+    context.task?.directive?.includes("One title-matching target"),
+    Array.isArray(context.candidates),
+    Array.isArray(context.conversationTargets),
+    Array.isArray(context.openWorkspaces),
+    Array.isArray(context.recentRouteDecisions),
+    Array.isArray(context.allowedDecisionKinds),
+    schema.includes('"additionalProperties":false'),
+    !serialized.includes("topic-thread-"),
+    !serialized.includes('"providerThreadId"'),
+    !serialized.includes('"providerTurnId"'),
+    !schema.includes("rendererCommand"),
+  ].every(Boolean);
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value !== "";
+}
+
+function validMasterEscalationInput(input) {
+  if (input?.source !== "conversation_escalation") {
+    return true;
+  }
+  return [
+    input.text === "route unrelated request through global master",
+    nonEmptyString(input.originatingConversationId),
+  ].every(Boolean);
+}
+
+function scriptedMasterRouteDecision(context, schema) {
+  const input = context.input?.input;
+  if (input?.text === "Focus Alpha topic.") {
+    return scriptedMasterFocusDecision(context, schema, input);
+  }
+  if (input?.source === "conversation_escalation") {
+    return scriptedMasterClarificationDecision(context, schema);
+  }
+  if (input?.source === "shell" && input.modality === "voice") {
+    return scriptedMasterVoiceDecision(context, schema);
+  }
+  return null;
+}
+
+function scriptedMasterFocusDecision(context, schema, input) {
+  const candidate = context.candidates?.[0];
+  const target = context.conversationTargets?.find(
+    (item) => item.conversationId === candidate?.conversationId,
+  );
+  const valid = [
+    input.source === "shell",
+    input.modality === "text",
+    nonEmptyString(candidate?.conversationId),
+    target?.allowedDecisionKinds?.includes("focus_conversation"),
+    schema.includes(`"${candidate?.conversationId}"`),
+  ].every(Boolean);
+  return valid ? { conversationId: candidate.conversationId, kind: "focus_conversation" } : null;
+}
+
+function scriptedMasterClarificationDecision(context, schema) {
+  const valid = [
+    context.allowedDecisionKinds.includes("clarify"),
+    schema.includes('"clarify"'),
+  ].every(Boolean);
+  return valid
+    ? { kind: "clarify", question: "Which topic should handle this unrelated request?" }
+    : null;
+}
+
+function scriptedMasterVoiceDecision(context, schema) {
+  const valid = [
+    context.allowedDecisionKinds.includes("answer_global"),
+    schema.includes('"answer_global"'),
+  ].every(Boolean);
+  return valid ? { kind: "answer_global", text: "The shell voice request was received." } : null;
 }
 
 function emitStructuredInputRoute(threadId, turnId, context) {

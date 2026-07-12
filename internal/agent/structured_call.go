@@ -12,7 +12,7 @@ import (
 	"setta/internal/codexapp"
 )
 
-const freshStructuredCleanupTimeout = 5 * time.Second
+const structuredTurnCleanupTimeout = 5 * time.Second
 
 // FreshStructuredCallRequest describes one isolated, schema-constrained model
 // call. Each request receives a new ephemeral provider thread and may not use
@@ -30,6 +30,14 @@ type FreshStructuredCallResult struct {
 	ProviderThreadID string          `json:"providerThreadId"`
 	ProviderTurnID   string          `json:"providerTurnId"`
 	Output           json.RawMessage `json:"output"`
+}
+
+type schemaConstrainedTurnRequest struct {
+	ID            string
+	WorkspaceRoot string
+	Invocation    Invocation
+	Input         json.RawMessage
+	OutputSchema  json.RawMessage
 }
 
 func (request FreshStructuredCallRequest) Validate() error {
@@ -101,12 +109,18 @@ func (runtime *Runtime) RunFreshStructuredCall(
 	if err != nil {
 		return FreshStructuredCallResult{}, err
 	}
-	turnID, err := runtime.startFreshStructuredTurn(ctx, session, threadID, request)
+	turnID, err := runtime.startSchemaConstrainedTurn(ctx, session, threadID, schemaConstrainedTurnRequest{
+		ID:            request.ID,
+		WorkspaceRoot: request.WorkspaceRoot,
+		Invocation:    request.Invocation,
+		Input:         request.Input,
+		OutputSchema:  request.OutputSchema,
+	})
 	if err != nil {
 		return FreshStructuredCallResult{}, err
 	}
 	terminalReceived := false
-	cleanup := freshStructuredCleanup{
+	cleanup := structuredTurnCleanup{
 		session:          session,
 		threadID:         threadID,
 		turnID:           turnID,
@@ -115,7 +129,7 @@ func (runtime *Runtime) RunFreshStructuredCall(
 	}
 	defer cleanup.apply(&returnErr)
 
-	output, err := runtime.waitForFreshStructuredTurn(ctx, session, request.ID, threadID, turnID, &terminalReceived)
+	output, err := runtime.waitForStructuredTurn(ctx, session, request.ID, threadID, turnID, &terminalReceived)
 	if err != nil {
 		return FreshStructuredCallResult{}, err
 	}
@@ -143,7 +157,7 @@ func validateFreshStructuredRuntime(
 	return ctx.Err()
 }
 
-type freshStructuredCleanup struct {
+type structuredTurnCleanup struct {
 	session          *codexapp.Session
 	threadID         string
 	turnID           string
@@ -151,15 +165,15 @@ type freshStructuredCleanup struct {
 	terminalReceived *bool
 }
 
-func (cleanup freshStructuredCleanup) apply(returnErr *error) {
+func (cleanup structuredTurnCleanup) apply(returnErr *error) {
 	if *cleanup.terminalReceived {
 		return
 	}
-	cleanupErr := interruptFreshStructuredTurn(cleanup.session, cleanup.threadID, cleanup.turnID)
+	cleanupErr := interruptStructuredTurn(cleanup.session, cleanup.threadID, cleanup.turnID)
 	if cleanupErr == nil {
 		return
 	}
-	cleanupErr = fmt.Errorf("interrupt unfinished fresh structured call %s: %w", cleanup.requestID, cleanupErr)
+	cleanupErr = fmt.Errorf("interrupt unfinished schema-constrained turn %s: %w", cleanup.requestID, cleanupErr)
 	if *returnErr == nil {
 		*returnErr = cleanupErr
 		return
@@ -251,11 +265,11 @@ func (runtime *Runtime) startFreshStructuredThread(
 	return thread.ID, nil
 }
 
-func (runtime *Runtime) startFreshStructuredTurn(
+func (runtime *Runtime) startSchemaConstrainedTurn(
 	ctx context.Context,
 	session *codexapp.Session,
 	threadID string,
-	request FreshStructuredCallRequest,
+	request schemaConstrainedTurnRequest,
 ) (string, error) {
 	input, err := textUserInput(string(request.Input))
 	if err != nil {
@@ -300,7 +314,7 @@ func (runtime *Runtime) startFreshStructuredTurn(
 	return response.Turn.ID, nil
 }
 
-func (runtime *Runtime) waitForFreshStructuredTurn(
+func (runtime *Runtime) waitForStructuredTurn(
 	ctx context.Context,
 	session *codexapp.Session,
 	requestID string,
@@ -390,8 +404,8 @@ func handleFreshStructuredProviderEvent(
 	}
 }
 
-func interruptFreshStructuredTurn(session *codexapp.Session, threadID string, turnID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), freshStructuredCleanupTimeout)
+func interruptStructuredTurn(session *codexapp.Session, threadID string, turnID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), structuredTurnCleanupTimeout)
 	defer cancel()
 	raw, err := session.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
 		ThreadID: threadID,

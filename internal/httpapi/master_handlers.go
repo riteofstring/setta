@@ -12,6 +12,10 @@ type SubmitMasterInputRequest struct {
 	Input master.MasterInput `json:"input"`
 }
 
+type ReadMasterInputRoutingStateRequest struct {
+	InputID string `json:"inputId"`
+}
+
 func (handler handler) readRecentMasterInputs(response http.ResponseWriter, request *http.Request) {
 	service := requireMasterInputService(response, handler.masterInputService)
 	if service == nil {
@@ -48,4 +52,25 @@ func (handler handler) submitMasterInput(response http.ResponseWriter, request *
 		return
 	}
 	writeJSON(response, http.StatusAccepted, accepted)
+}
+
+func (handler handler) readMasterInputRoutingState(response http.ResponseWriter, request *http.Request) {
+	service := requireMasterInputService(response, handler.masterInputService)
+	if service == nil {
+		return
+	}
+	var payload ReadMasterInputRoutingStateRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	state, err := service.ReadInputState(request.Context(), payload.InputID)
+	if err != nil {
+		writeMasterInputStateError(response, err)
+		return
+	}
+	if err := state.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_master_input_routing_state", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, state)
 }

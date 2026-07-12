@@ -92,6 +92,7 @@ func masterRoleConfiguration(
 	configuration := master.RoleConfiguration{
 		RequestedProfile:   profileJSON,
 		ResolvedInvocation: cloneAgentResolvedInvocation(resolved),
+		MaxInputBytes:      profile.ContextBudget.MaxInputBytes,
 	}
 	if err := configuration.Validate(); err != nil {
 		return master.RoleConfiguration{}, fmt.Errorf("validate resolved global master configuration: %w", err)
@@ -180,6 +181,9 @@ func validatePersistedMasterRoleConfiguration(configuration master.RoleConfigura
 	}
 	if !equalAgentInvocation(requested, configuration.ResolvedInvocation.Requested) {
 		return errors.New("persisted master requested profile does not match provider invocation")
+	}
+	if configuration.MaxInputBytes != profile.ContextBudget.MaxInputBytes {
+		return errors.New("persisted master input budget does not match requested profile")
 	}
 	return validateMasterModelResolution(requested, configuration.ResolvedInvocation)
 }

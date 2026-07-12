@@ -70,6 +70,7 @@ func validTestRoleConfiguration() RoleConfiguration {
 	}
 	return RoleConfiguration{
 		RequestedProfile: json.RawMessage(`{"role":"master"}`),
+		MaxInputBytes:    128 * 1024,
 		ResolvedInvocation: agent.ResolvedInvocation{
 			Requested:       requested,
 			Model:           requested.Model,

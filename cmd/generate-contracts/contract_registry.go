@@ -110,6 +110,13 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 		}
 		result[union.Type] = taggedUnionSpec{Discriminator: union.Discriminator, Branches: branches}
 	}
+	for _, union := range master.ContractTaggedUnions() {
+		branches := make([]taggedUnionBranch, 0, len(union.Branches))
+		for _, branch := range union.Branches {
+			branches = append(branches, taggedUnionBranch{Field: branch.Field, KindValue: branch.KindValue})
+		}
+		result[union.Type] = taggedUnionSpec{Discriminator: union.Discriminator, Branches: branches}
+	}
 	return result
 }
 

@@ -339,6 +339,10 @@ CREATE TABLE master_inputs (
   input_source TEXT NOT NULL CHECK (input_source IN ('shell', 'conversation_escalation')),
   submitted_at TEXT NOT NULL,
   accepted_at TEXT NOT NULL,
+  routing_status TEXT NOT NULL DEFAULT 'accepted' CHECK (routing_status IN ('accepted', 'routing', 'decided', 'failed')),
+  routing_attempt INTEGER NOT NULL DEFAULT 0 CHECK (routing_attempt >= 0),
+  routing_started_at TEXT,
+  routing_failure_json TEXT CHECK (routing_failure_json IS NULL OR json_valid(routing_failure_json)),
   focused_workspace_id TEXT,
   focused_conversation_id TEXT,
   focused_pane_id TEXT,
@@ -359,24 +363,31 @@ CREATE TABLE master_inputs (
       AND originating_workspace_id IS NOT NULL
       AND originating_conversation_id IS NOT NULL
       AND originating_conversation_input_id IS NOT NULL)
+  ),
+  CHECK (
+    (routing_status = 'routing' AND routing_started_at IS NOT NULL)
+    OR (routing_status <> 'routing' AND routing_started_at IS NULL)
+  ),
+  CHECK (
+    (routing_status = 'failed' AND routing_failure_json IS NOT NULL)
+    OR (routing_status <> 'failed' AND routing_failure_json IS NULL)
   )
 ) STRICT;
 
-CREATE INDEX master_inputs_accepted_idx
-  ON master_inputs(accepted_at, sequence);
+CREATE INDEX master_inputs_routing_status_accepted_idx
+  ON master_inputs(routing_status, sequence);
 
 CREATE TABLE master_route_decisions (
   stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
   master_session_id TEXT NOT NULL REFERENCES master_sessions(id) ON DELETE CASCADE,
-  input_modality TEXT NOT NULL CHECK (input_modality IN ('voice', 'text')),
-  input_text TEXT NOT NULL,
-  focused_workspace_id TEXT,
-  focused_conversation_id TEXT REFERENCES conversations(id),
+  input_id TEXT NOT NULL UNIQUE REFERENCES master_inputs(id) ON DELETE CASCADE,
+  routing_attempt INTEGER NOT NULL CHECK (routing_attempt > 0),
   candidate_context_json TEXT NOT NULL CHECK (json_valid(candidate_context_json)),
+  resolved_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_invocation_json)),
   route_decision_json TEXT NOT NULL CHECK (json_valid(route_decision_json)),
   resulting_command_json TEXT CHECK (resulting_command_json IS NULL OR json_valid(resulting_command_json)),
-  created_at TEXT NOT NULL
+  decided_at TEXT NOT NULL
 ) STRICT;
 
 CREATE INDEX master_route_decisions_session_stream_idx
