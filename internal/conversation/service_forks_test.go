@@ -158,6 +158,46 @@ func TestServiceRejectsMismatchedProviderForkLineageWithoutPersistingChild(t *te
 	}
 }
 
+func TestServiceDoesNotUnsubscribeParentWhenProviderReusesParentThread(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	parent, err := service.CreateTopic(ctx, workspaceID, "Provider reused parent")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	if _, err := service.SendTurn(ctx, workspaceID, parent.Conversation.ID, "foundation"); err != nil {
+		t.Fatalf("SendTurn: %v", err)
+	}
+	runtime.waitForStart(t, "foundation")
+	completed := assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+	parentThreadID := completed.ThreadBinding.ThreadID
+	providerFork := agentThreadForForkTest(parentThreadID, parentThreadID)
+	runtime.forkResponse = &providerFork
+
+	_, err = service.ForkTopic(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+		latestSnapshotTurn(completed).ID,
+		"Rejected reused parent",
+	)
+	if err == nil {
+		t.Fatal("ForkTopic accepted a reused parent provider thread")
+	}
+	if unsubscribed := runtime.unsubscribedThreads(); len(unsubscribed) != 0 {
+		t.Fatalf("rejected fork unsubscribed parent provider thread: %v", unsubscribed)
+	}
+	page, listErr := service.ListNavigatorPage(ctx, workspaceID, "", nil, 10)
+	if listErr != nil {
+		t.Fatalf("ListNavigatorPage: %v", listErr)
+	}
+	if len(page.Items) != 1 || page.Items[0].Conversation.ID != parent.Conversation.ID {
+		t.Fatalf("reused parent provider fork persisted a child: %+v", page.Items)
+	}
+}
+
 func TestServiceDoesNotPersistChildWhenProviderForkFails(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()

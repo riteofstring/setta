@@ -61,7 +61,7 @@ func (service *Service) ForkTopic(
 		return ConversationSnapshot{}, err
 	}
 	if err := validateDurableForkThread(thread, source.providerThreadID); err != nil {
-		_ = service.agent.UnsubscribeThread(context.Background(), thread.ID)
+		service.unsubscribeRejectedDurableFork(thread.ID, source.providerThreadID)
 		return ConversationSnapshot{}, err
 	}
 
@@ -132,6 +132,13 @@ func (service *Service) ForkTopic(
 		return ConversationSnapshot{}, err
 	}
 	return service.store.ReadSnapshot(ctx, workspaceID, childConversationID)
+}
+
+func (service *Service) unsubscribeRejectedDurableFork(threadID string, parentThreadID string) {
+	if threadID == "" || threadID == parentThreadID {
+		return
+	}
+	_ = service.agent.UnsubscribeThread(context.Background(), threadID)
 }
 
 func (service *Service) resolveDurableForkInvocation(ctx context.Context) (agent.Invocation, error) {
