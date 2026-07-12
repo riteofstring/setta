@@ -10,6 +10,15 @@ export type ConversationPaletteStyle = CSSProperties & {
   "--conversation-focus-ring-light": string;
 };
 
+const conversationPaletteStyleProperties = [
+  "--conversation-accent-dark",
+  "--conversation-accent-foreground-dark",
+  "--conversation-accent-foreground-light",
+  "--conversation-accent-light",
+  "--conversation-focus-ring-dark",
+  "--conversation-focus-ring-light",
+] as const;
+
 export function conversationPaletteStyle(
   paletteId: ConversationPaletteID | null,
 ): ConversationPaletteStyle | undefined {
@@ -39,8 +48,12 @@ export function applyConversationPaletteStyle(
     element.style.setProperty(name, value);
   }
   return () => {
-    for (const name of Object.keys(style)) {
-      element.style.removeProperty(name);
-    }
+    clearConversationPaletteStyle(element);
   };
+}
+
+export function clearConversationPaletteStyle(element: HTMLElement): void {
+  for (const name of conversationPaletteStyleProperties) {
+    element.style.removeProperty(name);
+  }
 }

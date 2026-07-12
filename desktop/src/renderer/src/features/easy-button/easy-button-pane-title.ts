@@ -1,40 +1,30 @@
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useLayoutEffect } from "react";
 
 import { setHostPaneChromeTitle } from "../../workspace-layout/pane-title-metadata";
-import { applyConversationPaletteStyle } from "./conversation-palette-style";
+import { reactDomSurfaceHostChangedEvent } from "../../workspace-layout/react-dom-surface-events";
+import {
+  applyConversationPaletteStyle,
+  clearConversationPaletteStyle,
+} from "./conversation-palette-style";
 import type { EasyButtonProjectionView } from "./easy-button-surface";
+
+type EasyButtonPanePresentation = Pick<
+  EasyButtonProjectionView,
+  "conversationId" | "paletteId" | "projectionStatus" | "title" | "viewState"
+>;
+
+const panePresentationOwners = new WeakMap<HTMLElement, symbol>();
 
 export function useEasyButtonPaneTitle(
   rootRef: RefObject<HTMLElement | null>,
   view: EasyButtonProjectionView,
 ) {
-  useEffect(() => {
-    const host = rootRef.current?.closest<HTMLElement>('[data-testid="workspace-pane-host"]');
-    if (!host) {
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
       return;
     }
-    const suffix = paneTitleSuffix(view);
-    const title = suffix ? `${view.title} · ${suffix}` : view.title;
-    setHostPaneChromeTitle(host, {
-      fullTitle: title,
-      title,
-      truncation: "end",
-    });
-    if (!view.conversationId || !view.paletteId) {
-      return;
-    }
-    host.dataset.conversationId = view.conversationId;
-    host.dataset.conversationPalette = view.paletteId;
-    host.classList.add("conversation-presentation-identity");
-    const removePaletteStyle = applyConversationPaletteStyle(host, view.paletteId);
-    return () => {
-      removePaletteStyle();
-      if (host.dataset.conversationId === view.conversationId) {
-        delete host.dataset.conversationId;
-        delete host.dataset.conversationPalette;
-        host.classList.remove("conversation-presentation-identity");
-      }
-    };
+    return bindEasyButtonPanePresentation(root, view);
   }, [
     rootRef,
     view.conversationId,
@@ -45,7 +35,78 @@ export function useEasyButtonPaneTitle(
   ]);
 }
 
-function paneTitleSuffix(view: EasyButtonProjectionView): string {
+export function bindEasyButtonPanePresentation(
+  root: HTMLElement,
+  view: EasyButtonPanePresentation,
+): () => void {
+  const surfaceContainer = root.closest<HTMLElement>(".workspace-react-dom-surface");
+  let currentHost: HTMLElement | null = null;
+  let releaseCurrentHost: (() => void) | null = null;
+  const syncHost = () => {
+    const nextHost = root.closest<HTMLElement>('[data-testid="workspace-pane-host"]');
+    if (nextHost !== currentHost) {
+      releaseCurrentHost?.();
+      currentHost = nextHost;
+      releaseCurrentHost = nextHost ? claimPanePresentationHost(nextHost, view) : null;
+    }
+    if (nextHost) {
+      syncPaneChromeTitle(nextHost, view);
+    }
+  };
+  syncHost();
+  surfaceContainer?.addEventListener(reactDomSurfaceHostChangedEvent, syncHost);
+  return () => {
+    surfaceContainer?.removeEventListener(reactDomSurfaceHostChangedEvent, syncHost);
+    releaseCurrentHost?.();
+  };
+}
+
+function claimPanePresentationHost(
+  host: HTMLElement,
+  view: EasyButtonPanePresentation,
+): () => void {
+  const owner = Symbol("easy-button-pane-presentation");
+  panePresentationOwners.set(host, owner);
+  clearPanePresentationIdentity(host);
+  let removePaletteStyle: (() => void) | null = null;
+  if (view.conversationId && view.paletteId) {
+    host.dataset.conversationId = view.conversationId;
+    host.dataset.conversationPalette = view.paletteId;
+    host.classList.add("conversation-presentation-identity");
+    removePaletteStyle = applyConversationPaletteStyle(host, view.paletteId);
+  }
+  return () => {
+    if (panePresentationOwners.get(host) !== owner) {
+      return;
+    }
+    panePresentationOwners.delete(host);
+    removePaletteStyle?.();
+    clearPanePresentationMetadata(host);
+  };
+}
+
+function clearPanePresentationIdentity(host: HTMLElement): void {
+  clearConversationPaletteStyle(host);
+  clearPanePresentationMetadata(host);
+}
+
+function clearPanePresentationMetadata(host: HTMLElement): void {
+  delete host.dataset.conversationId;
+  delete host.dataset.conversationPalette;
+  host.classList.remove("conversation-presentation-identity");
+}
+
+function syncPaneChromeTitle(host: HTMLElement, view: EasyButtonPanePresentation): void {
+  const suffix = paneTitleSuffix(view);
+  const title = suffix ? `${view.title} · ${suffix}` : view.title;
+  setHostPaneChromeTitle(host, {
+    fullTitle: title,
+    title,
+    truncation: "end",
+  });
+}
+
+function paneTitleSuffix(view: EasyButtonPanePresentation): string {
   if (view.projectionStatus === "binding_required") {
     return "conversation required";
   }
