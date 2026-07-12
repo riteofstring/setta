@@ -45,6 +45,9 @@ func TestServiceRejectsInvalidDependenciesAndStoreResults(t *testing.T) {
 	if _, err := NewService(nil); err == nil {
 		t.Fatal("NewService(nil) succeeded")
 	}
+	if _, err := NewRoutedService(&recordingInputStore{}, nil); err == nil {
+		t.Fatal("NewRoutedService accepted a nil cancellation boundary")
+	}
 	service, err := newService(&recordingInputStore{invalid: true}, time.Now)
 	if err != nil {
 		t.Fatalf("newService: %v", err)
@@ -58,6 +61,47 @@ func TestServiceRejectsInvalidDependenciesAndStoreResults(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("SubmitInput accepted invalid store result")
+	}
+}
+
+func TestServiceCancelsOneActiveInputThroughTheRoutedBoundary(t *testing.T) {
+	input := MasterInput{
+		ID:          "input_cancel",
+		Text:        "Cancel this route.",
+		Modality:    MasterInputModalityText,
+		Source:      MasterInputSourceShell,
+		SubmittedAt: "2026-07-12T18:00:00Z",
+	}
+	store := &recordingInputStore{state: InputRoutingState{
+		Input: AcceptedMasterInput{
+			Sequence:      1,
+			Input:         input,
+			ReplyDelivery: ReplyDeliveryForInput(input),
+			AcceptedAt:    "2026-07-12T18:00:01Z",
+		},
+		Status:         InputRoutingStatusCancelled,
+		RoutingAttempt: 1,
+		Cancellation: &InputRoutingCancellation{
+			InputID:        input.ID,
+			RoutingAttempt: 1,
+			CancelledAt:    "2026-07-12T18:00:02Z",
+		},
+	}}
+	service, err := newService(store, func() time.Time {
+		return time.Date(2026, 7, 12, 18, 0, 2, 0, time.UTC)
+	})
+	if err != nil {
+		t.Fatalf("newService: %v", err)
+	}
+	service.canceler = store
+
+	state, err := service.CancelInput(context.Background(), input.ID)
+	if err != nil {
+		t.Fatalf("CancelInput: %v", err)
+	}
+	if store.cancelledInputID != input.ID || store.cancelledAt != "2026-07-12T18:00:02Z" ||
+		state.Status != InputRoutingStatusCancelled || state.Input.ID != input.ID {
+		t.Fatalf("cancelled state=%+v store=%+v", state, store)
 	}
 }
 
@@ -180,14 +224,26 @@ func TestServiceReadsAndClonesMasterInputRoutingState(t *testing.T) {
 }
 
 type recordingInputStore struct {
-	acceptedAt  string
-	err         error
-	interaction ActiveShellInteraction
-	input       MasterInput
-	intent      PresentationIntent
-	resolution  PresentationResolution
-	invalid     bool
-	state       InputRoutingState
+	acceptedAt       string
+	err              error
+	interaction      ActiveShellInteraction
+	input            MasterInput
+	intent           PresentationIntent
+	resolution       PresentationResolution
+	invalid          bool
+	state            InputRoutingState
+	cancelledAt      string
+	cancelledInputID string
+}
+
+func (store *recordingInputStore) CancelMasterInputRouting(
+	_ context.Context,
+	inputID string,
+	cancelledAt string,
+) (InputRoutingState, error) {
+	store.cancelledInputID = inputID
+	store.cancelledAt = cancelledAt
+	return CloneInputRoutingState(store.state), store.err
 }
 
 func (store *recordingInputStore) ResolveMasterPresentationIntent(

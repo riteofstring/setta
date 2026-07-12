@@ -38,18 +38,21 @@ describe("preload master API", () => {
       },
     };
     const waitRequest = { inputId: request.input.id };
+    const cancelRequest = { inputId: request.input.id };
     const resolutionRequest = {
       inputId: request.input.id,
       intentId: `master-presentation:${request.input.id}`,
       paneId: "pane_alpha",
     };
 
+    await api.master!.cancelInput(cancelRequest);
     await api.master!.readActiveInteraction();
     await api.master!.resolvePresentation(resolutionRequest);
     await api.master!.submitInput(request);
     await api.master!.waitInteraction(waitRequest);
     await api.master!.waitPresentation(waitRequest);
 
+    expect(invoke).toHaveBeenCalledWith(ipcChannels.masterCancelInput, cancelRequest);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterReadActiveInteraction);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterResolvePresentation, resolutionRequest);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterSubmitInput, request);

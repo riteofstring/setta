@@ -62,11 +62,20 @@ func validateShellInteractionResult(state ShellInteractionState) error {
 		return validateUnsettledShellInteraction(state)
 	case InputRoutingStatusDecided:
 		return validateDecidedShellInteraction(state)
+	case InputRoutingStatusCancelled:
+		return validateCancelledShellInteraction(state)
 	case InputRoutingStatusFailed:
 		return validateFailedShellInteraction(state)
 	default:
 		return fmt.Errorf("unsupported master shell interaction status %q", state.Status)
 	}
+}
+
+func validateCancelledShellInteraction(state ShellInteractionState) error {
+	if state.Decision != nil || state.Failure != nil {
+		return errors.New("cancelled master shell interaction cannot contain a result")
+	}
+	return nil
 }
 
 func validateUnsettledShellInteraction(state ShellInteractionState) error {
@@ -138,6 +147,8 @@ func IsRestorableShellInteractionState(state ShellInteractionState) bool {
 	case InputRoutingStatusDecided:
 		return state.Decision != nil &&
 			(state.Decision.Kind == RouteDecisionKindClarify || RouteDecisionRequiresNavigation(*state.Decision))
+	case InputRoutingStatusCancelled:
+		return false
 	case InputRoutingStatusFailed:
 		return false
 	default:

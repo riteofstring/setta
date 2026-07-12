@@ -27,6 +27,7 @@ const (
 	RouteInputRoutingStartedKind   = "master.route_started"
 	RouteInputRoutingFailedKind    = "master.route_failed"
 	RouteInputRoutingRecoveredKind = "master.route_recovered"
+	RouteInputRoutingCancelledKind = "master.route_cancelled"
 	RouteDecisionCommittedKind     = "master.route_decided"
 	RouteDecisionCommittedStream   = "master:routes"
 )
@@ -46,10 +47,11 @@ const (
 	RouteDecisionKindClarify                RouteDecisionKind = "clarify"
 	RouteDecisionKindAnswerGlobal           RouteDecisionKind = "answer_global"
 
-	InputRoutingStatusAccepted InputRoutingStatus = "accepted"
-	InputRoutingStatusRouting  InputRoutingStatus = "routing"
-	InputRoutingStatusDecided  InputRoutingStatus = "decided"
-	InputRoutingStatusFailed   InputRoutingStatus = "failed"
+	InputRoutingStatusAccepted  InputRoutingStatus = "accepted"
+	InputRoutingStatusRouting   InputRoutingStatus = "routing"
+	InputRoutingStatusDecided   InputRoutingStatus = "decided"
+	InputRoutingStatusCancelled InputRoutingStatus = "cancelled"
+	InputRoutingStatusFailed    InputRoutingStatus = "failed"
 )
 
 type MasterSendToAgentRouteDecision struct {
@@ -223,12 +225,13 @@ type InputRoutingWork struct {
 }
 
 type InputRoutingState struct {
-	Input            AcceptedMasterInput  `json:"input"`
-	Status           InputRoutingStatus   `json:"status"`
-	RoutingAttempt   int                  `json:"routingAttempt"`
-	RoutingStartedAt *string              `json:"routingStartedAt"`
-	Decision         *RouteDecisionRecord `json:"decision"`
-	Failure          *RouteFailure        `json:"failure"`
+	Input            AcceptedMasterInput       `json:"input"`
+	Status           InputRoutingStatus        `json:"status"`
+	RoutingAttempt   int                       `json:"routingAttempt"`
+	RoutingStartedAt *string                   `json:"routingStartedAt"`
+	Decision         *RouteDecisionRecord      `json:"decision"`
+	Cancellation     *InputRoutingCancellation `json:"cancellation"`
+	Failure          *RouteFailure             `json:"failure"`
 }
 
 func (decision RouteDecision) Validate() error {
@@ -843,6 +846,8 @@ func (state InputRoutingState) Validate() error {
 		return validateActiveInputRoutingState(state)
 	case InputRoutingStatusDecided:
 		return validateDecidedInputRoutingState(state)
+	case InputRoutingStatusCancelled:
+		return validateCancelledInputRoutingState(state)
 	case InputRoutingStatusFailed:
 		return validateFailedInputRoutingState(state)
 	default:
@@ -851,14 +856,15 @@ func (state InputRoutingState) Validate() error {
 }
 
 func validateAcceptedInputRoutingState(state InputRoutingState) error {
-	if state.RoutingStartedAt != nil || state.Decision != nil || state.Failure != nil {
+	if state.RoutingStartedAt != nil || state.Decision != nil || state.Cancellation != nil || state.Failure != nil {
 		return errors.New("accepted master input routing state contains terminal or active state")
 	}
 	return nil
 }
 
 func validateActiveInputRoutingState(state InputRoutingState) error {
-	if state.RoutingAttempt <= 0 || state.RoutingStartedAt == nil || state.Decision != nil || state.Failure != nil {
+	if state.RoutingAttempt <= 0 || state.RoutingStartedAt == nil || state.Decision != nil ||
+		state.Cancellation != nil || state.Failure != nil {
 		return errors.New("routing master input state is incomplete")
 	}
 	_, err := normalizeTimestamp("master input routing startedAt", *state.RoutingStartedAt)
@@ -866,7 +872,7 @@ func validateActiveInputRoutingState(state InputRoutingState) error {
 }
 
 func validateDecidedInputRoutingState(state InputRoutingState) error {
-	if state.RoutingStartedAt != nil || state.Decision == nil || state.Failure != nil {
+	if state.RoutingStartedAt != nil || state.Decision == nil || state.Cancellation != nil || state.Failure != nil {
 		return errors.New("decided master input routing state is incomplete")
 	}
 	if err := state.Decision.Validate(); err != nil {
@@ -880,7 +886,8 @@ func validateDecidedInputRoutingState(state InputRoutingState) error {
 }
 
 func validateFailedInputRoutingState(state InputRoutingState) error {
-	if state.RoutingAttempt <= 0 || state.RoutingStartedAt != nil || state.Decision != nil || state.Failure == nil {
+	if state.RoutingAttempt <= 0 || state.RoutingStartedAt != nil || state.Decision != nil ||
+		state.Cancellation != nil || state.Failure == nil {
 		return errors.New("failed master input routing state is incomplete")
 	}
 	return state.Failure.Validate()

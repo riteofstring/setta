@@ -129,6 +129,10 @@ func CloneInputRoutingState(state InputRoutingState) InputRoutingState {
 		cloned := CloneRouteDecisionRecord(*state.Decision)
 		state.Decision = &cloned
 	}
+	if state.Cancellation != nil {
+		cloned := *state.Cancellation
+		state.Cancellation = &cloned
+	}
 	if state.Failure != nil {
 		cloned := *state.Failure
 		state.Failure = &cloned

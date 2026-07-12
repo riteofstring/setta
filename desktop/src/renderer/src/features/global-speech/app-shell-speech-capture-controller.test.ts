@@ -755,6 +755,9 @@ function createHarness(overrides: HarnessOverrides = {}) {
       }),
   };
   const masterController = new AppShellMasterController({
+    cancelMasterInput: async () => {
+      throw new Error("the test master route is not cancellable");
+    },
     createInputId: () => "unused_text_input",
     now: dependencies.now,
     presentPresentationIntent: async () => ({ paneId: "pane_capture" }),

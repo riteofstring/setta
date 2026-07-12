@@ -96,6 +96,7 @@ type RoleConfigurationService interface {
 }
 
 type MasterInputService interface {
+	CancelInput(context.Context, string) (master.ShellInteractionState, error)
 	ReadActiveShellInteraction(context.Context) (master.ActiveShellInteraction, error)
 	ReadInputState(context.Context, string) (master.InputRoutingState, error)
 	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)

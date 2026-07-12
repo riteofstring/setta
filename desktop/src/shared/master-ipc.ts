@@ -1,6 +1,7 @@
 import type {
   AcceptedMasterInput,
   ActiveShellInteraction,
+  CancelMasterInputRequest,
   PresentationIntent,
   PresentationResolution,
   PresentationResolutionRequest,
@@ -10,6 +11,7 @@ import type {
 } from "@generated/backend";
 
 export const masterIpcChannels = {
+  masterCancelInput: "master:cancel-input",
   masterReadActiveInteraction: "master:read-active-interaction",
   masterResolvePresentation: "master:resolve-presentation",
   masterSubmitInput: "master:submit-input",
@@ -18,6 +20,10 @@ export const masterIpcChannels = {
 } as const;
 
 export interface MasterIpcContract {
+  masterCancelInput: {
+    args: [request: CancelMasterInputRequest];
+    result: ShellInteractionState;
+  };
   masterReadActiveInteraction: {
     args: [];
     result: ActiveShellInteraction;

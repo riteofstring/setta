@@ -64,6 +64,128 @@ export async function createPersistentMasterClarification({
   return route;
 }
 
+export async function exerciseMasterCancellation({
+  artifactDirectory,
+  backend,
+  client,
+  text,
+  timeoutMs,
+  workspaceId,
+}) {
+  await assertFixedMasterLauncher(client, timeoutMs);
+  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
+  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
+  await setMasterOverlayDraft(client, text, timeoutMs);
+  await clickEnabledButtonByAria(client, "Send to Setta", timeoutMs);
+  await assertActiveMasterInteraction(client, { expectedText: text }, timeoutMs);
+  const recorded = await waitForRecordedMasterOverlayInput(artifactDirectory, text, timeoutMs);
+  assertRecordedTypedMasterInput(recorded, workspaceId);
+  await waitForBackendState(
+    async () => backend.post("/master/inputs/state/read", { inputId: recorded.accepted.input.id }),
+    (state) => state.status === "routing",
+    timeoutMs,
+  );
+  await clickEnabledButtonByAria(client, "Cancel active Setta request", timeoutMs);
+  const cancelled = await waitForBackendState(
+    async () => backend.post("/master/inputs/state/read", { inputId: recorded.accepted.input.id }),
+    (state) => state.status === "cancelled",
+    timeoutMs,
+  );
+  assertCancelledMasterInputState(cancelled, recorded.accepted.input.id);
+  await waitForState(
+    client,
+    `(() => ({
+      cancelActionPresent: Boolean(document.querySelector('[aria-label="Cancel active Setta request"]')),
+      resultText: document.querySelector('.setta-master-overlay-result.is-cancelled')?.textContent ?? null,
+      routingStatus: document.querySelector('[data-master-routing-status]')?.getAttribute('data-master-routing-status') ?? null,
+    }))()`,
+    (state) =>
+      !state.cancelActionPresent &&
+      state.routingStatus === "cancelled" &&
+      state.resultText?.includes("Request cancelled"),
+    timeoutMs,
+  );
+  await captureScreenshot(client, join(artifactDirectory, "master-route-cancelled.png"));
+  await closeMasterOverlay(client, timeoutMs);
+  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
+  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
+  const cleared = await waitForState(
+    client,
+    `(() => ({
+      requestPresent: Boolean(document.querySelector('[data-testid="master-active-request"]')),
+      emptyPresent: Boolean(document.querySelector('.setta-master-overlay-empty')),
+    }))()`,
+    (state) => !state.requestPresent && state.emptyPresent,
+    timeoutMs,
+  );
+  if (!cleared.emptyPresent) {
+    throw new Error(`cancelled master interaction did not clear: ${JSON.stringify(cleared)}`);
+  }
+  await closeMasterOverlay(client, timeoutMs);
+  return { cancelled, recorded };
+}
+
+export function assertCancelledMasterInputState(state, inputId) {
+  const {
+    cancellation = {},
+    decision,
+    failure,
+    input: { input: routedInput = {} } = {},
+    routingAttempt,
+    routingStartedAt,
+    status,
+  } = state ?? {};
+  const summary = {
+    cancelledAtPresent: nonEmptyString(cancellation.cancelledAt),
+    cancellationInputId: cancellation.inputId,
+    cancellationRoutingAttempt: cancellation.routingAttempt,
+    decision,
+    failure,
+    inputId: routedInput.id,
+    routingAttempt,
+    routingStartedAt,
+    status,
+  };
+  const expected = {
+    cancelledAtPresent: true,
+    cancellationInputId: inputId,
+    cancellationRoutingAttempt: 1,
+    decision: null,
+    failure: null,
+    inputId,
+    routingAttempt: 1,
+    routingStartedAt: null,
+    status: "cancelled",
+  };
+  if (JSON.stringify(summary) !== JSON.stringify(expected)) {
+    throw new Error(`invalid durable master cancellation: ${JSON.stringify(state)}`);
+  }
+}
+
+export async function assertMasterProviderTurnInterrupted(statePath, timeoutMs) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const state = JSON.parse(await readFile(statePath, "utf8"));
+    const interrupted = state.turns
+      .filter((turn) => turn.status === "interrupted")
+      .sort((left, right) => topicTurnOrdinal(right.id) - topicTurnOrdinal(left.id));
+    const newest = interrupted[0];
+    const restrictedOwner = state.threads.find(
+      (thread) => thread.restricted === true && thread.turnIds?.includes(newest?.id),
+    );
+    if (state.heldStructuredKeys?.includes("master:cancel-route") && newest && restrictedOwner) {
+      return { thread: restrictedOwner, turn: newest };
+    }
+    await delay(20);
+  }
+  throw new Error("fake Codex did not interrupt the cancelled master provider turn");
+}
+
+function topicTurnOrdinal(turnId) {
+  const match = /^topic-turn-(\d+)$/.exec(turnId ?? "");
+  return match ? Number(match[1]) : -1;
+}
+
 async function assertFixedMasterLauncher(client, timeoutMs) {
   const state = await waitForState(
     client,

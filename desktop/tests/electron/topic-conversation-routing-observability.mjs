@@ -192,6 +192,44 @@ export async function assertRecordedMasterRouteObservability({
   return { presentation, route: event };
 }
 
+export async function assertRecordedMasterRouteCancellation({
+  artifactDirectory,
+  inputIdentity,
+  inputText,
+  state,
+  timeoutMs,
+}) {
+  const event = await waitForSemanticEvent(
+    artifactDirectory,
+    "master_route_cancelled",
+    (candidate) => candidate.payload.inputId === inputIdentity.id,
+    timeoutMs,
+  );
+  assertEqualJSON(
+    {
+      cancelledAt: event.payload.cancelledAt,
+      inputId: event.payload.inputId,
+      inputModality: event.payload.inputModality,
+      inputSource: event.payload.inputSource,
+      inputTextBytes: event.payload.inputTextBytes,
+      routingAttempt: event.payload.routingAttempt,
+      schemaVersion: event.payload.schemaVersion,
+    },
+    {
+      cancelledAt: state.cancellation.cancelledAt,
+      inputId: inputIdentity.id,
+      inputModality: inputIdentity.modality,
+      inputSource: inputIdentity.source,
+      inputTextBytes: Buffer.byteLength(inputText, "utf8"),
+      routingAttempt: state.routingAttempt,
+      schemaVersion: 1,
+    },
+    "master route cancellation recording observability",
+  );
+  assertPrivateTextOmitted(event, [inputText]);
+  return event;
+}
+
 async function waitForSemanticEvent(artifactDirectory, type, predicate, timeoutMs) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {

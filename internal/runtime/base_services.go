@@ -141,11 +141,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		_ = conversationStore.Close()
 		return runtimeFoundation{}, fmt.Errorf("create conversation index service: %w", err)
 	}
-	masterInputService, err := master.NewService(conversationStore)
-	if err != nil {
-		_ = conversationStore.Close()
-		return runtimeFoundation{}, fmt.Errorf("create master input service: %w", err)
-	}
 	agentServices, err := newRuntimeAgentServices(config, conversationStore, workspaceService)
 	if err != nil {
 		_ = conversationStore.Close()
@@ -181,7 +176,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		conversationInputService: conversationInputService,
 		conversationIndexService: conversationIndexService,
 		conversationStore:        conversationStore,
-		masterInputService:       masterInputService,
 		masterSessionService:     masterSessionService,
 		narratorService:          narratorService,
 		roleConfigurationService: roleConfigurationService,
@@ -274,6 +268,18 @@ func attachMasterRouteService(
 		_ = foundation.conversationStore.Close()
 		return runtimeFoundation{}, fmt.Errorf("create master route service: %w", err)
 	}
+	inputService, err := master.NewRoutedService(foundation.conversationStore, routeService)
+	if err != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+		_ = routeService.Shutdown(shutdownCtx)
+		_ = foundation.conversationService.Shutdown(shutdownCtx)
+		_ = foundation.narratorService.Shutdown(shutdownCtx)
+		_ = foundation.codexManager.Shutdown(shutdownCtx)
+		_ = foundation.conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("create routed master input service: %w", err)
+	}
+	foundation.masterInputService = inputService
 	foundation.masterRouteService = routeService
 	return foundation, nil
 }

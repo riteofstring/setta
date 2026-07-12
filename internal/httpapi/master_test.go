@@ -110,6 +110,41 @@ func TestMasterInputRoutingStateEndpointReadsValidatedState(t *testing.T) {
 	}
 }
 
+func TestMasterInputCancellationEndpointCancelsOneDurableShellInteraction(t *testing.T) {
+	input := validSubmitMasterInputRequest().Input
+	service := &fakeHTTPMasterInputService{state: master.InputRoutingState{
+		Input: master.AcceptedMasterInput{
+			Sequence:      1,
+			Input:         input,
+			ReplyDelivery: master.ReplyDeliveryForInput(input),
+			AcceptedAt:    "2026-07-12T18:00:01Z",
+		},
+		Status:         master.InputRoutingStatusCancelled,
+		RoutingAttempt: 1,
+		Cancellation: &master.InputRoutingCancellation{
+			InputID:        input.ID,
+			RoutingAttempt: 1,
+			CancelledAt:    "2026-07-12T18:00:02Z",
+		},
+	}}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		MasterInputService: service,
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	state := postJSON[master.ShellInteractionState](
+		t,
+		handler,
+		"/master/inputs/cancel",
+		CancelMasterInputRequest{InputID: input.ID},
+		http.StatusOK,
+	)
+	if service.cancelInputID != input.ID || state.Status != master.InputRoutingStatusCancelled ||
+		state.Input.ID != input.ID {
+		t.Fatalf("cancelled state=%+v inputID=%q", state, service.cancelInputID)
+	}
+}
+
 func TestMasterPresentationIntentEndpointWaitsForValidatedIntent(t *testing.T) {
 	input := validSubmitMasterInputRequest().Input
 	intent, err := master.PresentationIntentForCommand(input, master.RouteCommand{
@@ -322,6 +357,18 @@ type fakeHTTPMasterInputService struct {
 	waitInputID      string
 	intent           master.PresentationIntent
 	resolution       master.PresentationResolution
+	cancelInputID    string
+}
+
+func (service *fakeHTTPMasterInputService) CancelInput(
+	_ context.Context,
+	inputID string,
+) (master.ShellInteractionState, error) {
+	service.cancelInputID = inputID
+	if service.err != nil {
+		return master.ShellInteractionState{}, service.err
+	}
+	return master.ProjectShellInteractionState(service.state)
 }
 
 func (service *fakeHTTPMasterInputService) ResolvePresentationIntent(

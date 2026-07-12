@@ -1,6 +1,7 @@
 import type {
   AcceptedMasterInput,
   ActiveShellInteraction,
+  CancelMasterInputRequest,
   MasterInput,
   MasterInputModality,
   PresentationIntent,
@@ -16,6 +17,7 @@ import {
   interactionRequiresNavigation,
   validShellPresentationIntent,
 } from "./app-shell-master-presentation-validation";
+import { acceptedMasterInputMatches, masterInputsEqual } from "./app-shell-master-input-validation";
 
 export interface MasterInputFocusHints {
   focusedConversationId: string | null;
@@ -53,7 +55,13 @@ export type MasterInteractionState =
   | { message: string; type: "load_failed" }
   | { message: string; state: ShellInteractionState; type: "observation_failed" };
 
+type MasterInputCancellationState =
+  | { type: "idle" }
+  | { inputId: string; type: "cancelling" }
+  | { inputId: string; message: string; type: "failed" };
+
 export interface AppShellMasterSnapshot {
+  cancellation: MasterInputCancellationState;
   completedTranscript: CompletedGlobalSpeechTranscript | null;
   draft: string;
   interaction: MasterInteractionState;
@@ -63,6 +71,7 @@ export interface AppShellMasterSnapshot {
 }
 
 export interface AppShellMasterControllerDependencies {
+  cancelMasterInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;
   createInputId: () => string;
   now: () => Date;
   presentPresentationIntent: (intent: PresentationIntent) => Promise<{ paneId: string }>;
@@ -89,10 +98,12 @@ export class AppShellMasterController {
   private readonly listeners = new Set<() => void>();
 
   private disposed = false;
+  private cancellationGeneration = 0;
   private interactionGeneration = 0;
   private pending: PendingShellMasterInput | null = null;
   private submissionGeneration = 0;
   private snapshotValue: AppShellMasterSnapshot = {
+    cancellation: { type: "idle" },
     completedTranscript: null,
     draft: "",
     interaction: { type: "disconnected" },
@@ -119,9 +130,11 @@ export class AppShellMasterController {
     }
     this.invalidateSubmission();
     this.invalidateInteraction();
+    this.invalidateCancellation();
     this.pending = null;
     this.updateSnapshot({
       completedTranscript: null,
+      cancellation: { type: "idle" },
       interaction: runtimeId ? { type: "loading" } : { type: "disconnected" },
       runtimeId,
       submission: { type: "idle" },
@@ -172,6 +185,41 @@ export class AppShellMasterController {
     );
   }
 
+  canCancelActiveInput(): boolean {
+    return (
+      !this.disposed &&
+      this.snapshotValue.runtimeId !== null &&
+      this.snapshotValue.cancellation.type !== "cancelling" &&
+      cancellableInteractionState(this.snapshotValue.interaction) !== null
+    );
+  }
+
+  cancelActiveInput = (): void => {
+    this.assertUsable();
+    const state = cancellableInteractionState(this.snapshotValue.interaction);
+    if (state === null || !this.canCancelActiveInput()) {
+      return;
+    }
+    const runtimeId = this.requiredRuntimeID();
+    this.invalidateInteraction();
+    this.cancellationGeneration += 1;
+    const generation = this.cancellationGeneration;
+    this.updateSnapshot({
+      cancellation: { inputId: state.input.id, type: "cancelling" },
+    });
+    let pending: Promise<ShellInteractionState>;
+    try {
+      pending = this.dependencies.cancelMasterInput({ inputId: state.input.id });
+    } catch {
+      this.handleCancellationFailure(generation, runtimeId, state);
+      return;
+    }
+    void pending.then(
+      (cancelled) => this.handleCancellationSuccess(generation, runtimeId, state, cancelled),
+      () => this.handleCancellationFailure(generation, runtimeId, state),
+    );
+  };
+
   submitText(text: string): string {
     this.assertUsable();
     if (text.trim() === "") {
@@ -210,10 +258,12 @@ export class AppShellMasterController {
     }
     this.invalidateSubmission();
     this.invalidateInteraction();
+    this.invalidateCancellation();
     this.pending = null;
     const runtimeId = this.snapshotValue.runtimeId;
     this.updateSnapshot({
       completedTranscript: null,
+      cancellation: { type: "idle" },
       interaction: runtimeId ? { type: "loading" } : { type: "disconnected" },
       submission: { type: "idle" },
     });
@@ -263,6 +313,7 @@ export class AppShellMasterController {
     this.disposed = true;
     this.invalidateSubmission();
     this.invalidateInteraction();
+    this.invalidateCancellation();
     this.pending = null;
     this.listeners.clear();
   }
@@ -298,9 +349,11 @@ export class AppShellMasterController {
     const completedTranscript = voice ? { ...voice, input } : null;
     const pending = { input, runtimeId };
     this.invalidateInteraction();
+    this.invalidateCancellation();
     this.pending = pending;
     this.updateSnapshot({
       completedTranscript,
+      cancellation: { type: "idle" },
       interaction: { type: "idle" },
       overlayOpen: true,
       submission: { input, type: "submitting" },
@@ -359,6 +412,50 @@ export class AppShellMasterController {
         type: "failed",
       },
     });
+  }
+
+  private handleCancellationSuccess(
+    generation: number,
+    runtimeId: string,
+    observed: ShellInteractionState,
+    cancelled: ShellInteractionState,
+  ): void {
+    if (!this.isCurrentCancellation(generation, runtimeId, observed.input.id)) {
+      return;
+    }
+    if (
+      !validShellInteractionState(cancelled) ||
+      cancelled.status !== "cancelled" ||
+      !masterInputsEqual(cancelled.input, observed.input)
+    ) {
+      this.handleCancellationFailure(generation, runtimeId, observed);
+      return;
+    }
+    this.updateSnapshot({
+      cancellation: { type: "idle" },
+      completedTranscript: null,
+      interaction: { state: cancelled, type: "active" },
+      submission: { type: "idle" },
+    });
+  }
+
+  private handleCancellationFailure(
+    generation: number,
+    runtimeId: string,
+    observed: ShellInteractionState,
+  ): void {
+    if (!this.isCurrentCancellation(generation, runtimeId, observed.input.id)) {
+      return;
+    }
+    console.info(`Active master routing cancellation failed: inputId=${observed.input.id}`);
+    this.updateSnapshot({
+      cancellation: {
+        inputId: observed.input.id,
+        message: "Setta could not confirm cancellation. Retry while this request is still active.",
+        type: "failed",
+      },
+    });
+    this.observeInteraction(runtimeId, observed);
   }
 
   private loadActiveInteraction(runtimeId: string): void {
@@ -446,7 +543,10 @@ export class AppShellMasterController {
       this.handleObservationFailure(generation, runtimeId, observed);
       return;
     }
-    this.updateSnapshot({ interaction: { state: settled, type: "active" } });
+    this.updateSnapshot({
+      cancellation: { type: "idle" },
+      interaction: { state: settled, type: "active" },
+    });
     if (settled.status === "decided") {
       this.observePresentationIntent(generation, runtimeId, settled);
     }
@@ -581,6 +681,16 @@ export class AppShellMasterController {
     );
   }
 
+  private isCurrentCancellation(generation: number, runtimeId: string, inputId: string): boolean {
+    return (
+      !this.disposed &&
+      generation === this.cancellationGeneration &&
+      runtimeId === this.snapshotValue.runtimeId &&
+      this.snapshotValue.cancellation.type !== "idle" &&
+      this.snapshotValue.cancellation.inputId === inputId
+    );
+  }
+
   private requiredRuntimeID(): string {
     const runtimeId = this.snapshotValue.runtimeId;
     if (!runtimeId) {
@@ -595,6 +705,10 @@ export class AppShellMasterController {
 
   private invalidateInteraction(): void {
     this.interactionGeneration += 1;
+  }
+
+  private invalidateCancellation(): void {
+    this.cancellationGeneration += 1;
   }
 
   private updateSnapshot(update: Partial<AppShellMasterSnapshot>): void {
@@ -668,11 +782,17 @@ function validShellInteractionState(state: ShellInteractionState): boolean {
       return validWorkingRoutingState(state);
     case "decided":
       return validDecidedRoutingState(state);
+    case "cancelled":
+      return validCancelledRoutingState(state);
     case "failed":
       return validFailedRoutingState(state);
     default:
       return assertNever(state.status);
   }
+}
+
+function validCancelledRoutingState(state: ShellInteractionState): boolean {
+  return [state.decision === null, state.failure === null].every(Boolean);
 }
 
 function validShellInput(input: MasterInput): boolean {
@@ -749,6 +869,7 @@ function validShellRouteDecision(
 function shellInteractionSettled(state: ShellInteractionState): boolean {
   switch (state.status) {
     case "decided":
+    case "cancelled":
     case "failed":
       return true;
     case "accepted":
@@ -756,6 +877,25 @@ function shellInteractionSettled(state: ShellInteractionState): boolean {
       return false;
     default:
       return assertNever(state.status);
+  }
+}
+
+function cancellableInteractionState(
+  interaction: MasterInteractionState,
+): ShellInteractionState | null {
+  switch (interaction.type) {
+    case "active":
+    case "observation_failed":
+      return interaction.state.status === "accepted" || interaction.state.status === "routing"
+        ? interaction.state
+        : null;
+    case "disconnected":
+    case "idle":
+    case "load_failed":
+    case "loading":
+      return null;
+    default:
+      return assertNever(interaction);
   }
 }
 
@@ -800,94 +940,6 @@ function interactionIsDismissible(interaction: MasterInteractionState): boolean 
 
 function interactionIsClarification(state: ShellInteractionState): boolean {
   return state.status === "decided" && state.decision?.kind === "clarify";
-}
-
-function acceptedMasterInputMatches(accepted: AcceptedMasterInput, input: MasterInput): boolean {
-  return validAcceptedMasterInput(accepted) && masterInputsEqual(accepted.input, input);
-}
-
-function validAcceptedMasterInput(accepted: AcceptedMasterInput): boolean {
-  return (
-    Number.isSafeInteger(accepted.sequence) &&
-    accepted.sequence > 0 &&
-    accepted.acceptedAt !== "" &&
-    validReplyDelivery(accepted)
-  );
-}
-
-function validReplyDelivery(accepted: AcceptedMasterInput): boolean {
-  switch (accepted.input.source) {
-    case "conversation_escalation":
-      return conversationEscalationDeliveryMatches(accepted);
-    case "shell":
-      return shellDeliveryMatches(accepted);
-    default:
-      return assertNever(accepted.input.source);
-  }
-}
-
-function conversationEscalationDeliveryMatches(accepted: AcceptedMasterInput): boolean {
-  const input = accepted.input;
-  const delivery = accepted.replyDelivery;
-  return (
-    input.originatingWorkspaceId !== null &&
-    input.originatingConversationId !== null &&
-    input.originatingConversationInputId !== null &&
-    delivery.originatingWorkspaceId === input.originatingWorkspaceId &&
-    delivery.originatingConversationId === input.originatingConversationId &&
-    delivery.originatingPaneId === input.originatingPaneId &&
-    delivery.originatingConversationInputId === input.originatingConversationInputId
-  );
-}
-
-function shellDeliveryMatches(accepted: AcceptedMasterInput): boolean {
-  const input = accepted.input;
-  const delivery = accepted.replyDelivery;
-  return (
-    input.originatingWorkspaceId === null &&
-    input.originatingConversationId === null &&
-    input.originatingPaneId === null &&
-    input.originatingConversationInputId === null &&
-    delivery.originatingWorkspaceId === null &&
-    delivery.originatingConversationId === null &&
-    delivery.originatingPaneId === null &&
-    delivery.originatingConversationInputId === null
-  );
-}
-
-function masterInputsEqual(left: MasterInput, right: MasterInput): boolean {
-  return (
-    masterInputCoreEqual(left, right) &&
-    masterInputFocusEqual(left, right) &&
-    masterInputOriginEqual(left, right)
-  );
-}
-
-function masterInputCoreEqual(left: MasterInput, right: MasterInput): boolean {
-  return (
-    left.id === right.id &&
-    left.text === right.text &&
-    left.modality === right.modality &&
-    left.source === right.source &&
-    left.submittedAt === right.submittedAt
-  );
-}
-
-function masterInputFocusEqual(left: MasterInput, right: MasterInput): boolean {
-  return (
-    left.focusedWorkspaceId === right.focusedWorkspaceId &&
-    left.focusedConversationId === right.focusedConversationId &&
-    left.focusedPaneId === right.focusedPaneId
-  );
-}
-
-function masterInputOriginEqual(left: MasterInput, right: MasterInput): boolean {
-  return (
-    left.originatingWorkspaceId === right.originatingWorkspaceId &&
-    left.originatingConversationId === right.originatingConversationId &&
-    left.originatingPaneId === right.originatingPaneId &&
-    left.originatingConversationInputId === right.originatingConversationInputId
-  );
 }
 
 function submissionFailureMessage(modality: MasterInputModality): string {

@@ -229,6 +229,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       waitInputState: (request) => requireClient().waitConversationInputRoutingState(request),
     },
     master: {
+      cancelInput: (request) => requireClient().cancelMasterInput(request),
       readActiveInteraction: () => requireClient().readActiveMasterShellInteraction(),
       resolvePresentation: (request) => requireClient().resolveMasterPresentationIntent(request),
       submitInput: (request) => requireClient().submitMasterInput(request),

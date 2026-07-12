@@ -17,6 +17,7 @@ export type RoutingObservationEventType =
   | "conversation_route_failed"
   | "conversation_route_observed"
   | "master_presentation_observed"
+  | "master_route_cancelled"
   | "master_route_failed"
   | "master_route_observed"
   | "route_observation_failed";
@@ -44,6 +45,7 @@ export class RouteObservability implements RoutingObservationRecorder {
   private readonly conversationDecisionIds = new Set<string>();
   private readonly conversationFailureKeys = new Set<string>();
   private readonly masterDecisionIds = new Set<string>();
+  private readonly masterCancellationKeys = new Set<string>();
   private readonly masterFailureKeys = new Set<string>();
   private readonly observationFailureKeys = new Set<string>();
   private readonly presentationIntentIds = new Set<string>();
@@ -145,6 +147,35 @@ export class RouteObservability implements RoutingObservationRecorder {
         validationResult: "committed",
       });
       this.masterDecisionIds.add(state.decision.id);
+    }
+    if (state.status === "cancelled" && state.cancellation !== null) {
+      const cancellationKey = `${state.cancellation.inputId}:${state.cancellation.routingAttempt}`;
+      if (this.masterCancellationKeys.has(cancellationKey)) {
+        return;
+      }
+      const input = state.input.input;
+      this.emit("master_route_cancelled", {
+        acceptedAt: state.input.acceptedAt,
+        callKind: "route",
+        cancelledAt: state.cancellation.cancelledAt,
+        focusedConversationId: input.focusedConversationId,
+        focusedPaneId: input.focusedPaneId,
+        focusedWorkspaceId: input.focusedWorkspaceId,
+        inputId: input.id,
+        inputModality: input.modality,
+        inputSequence: state.input.sequence,
+        inputSource: input.source,
+        inputTextBytes: utf8Bytes(input.text),
+        originatingConversationId: state.input.replyDelivery.originatingConversationId,
+        originatingConversationInputId: state.input.replyDelivery.originatingConversationInputId,
+        originatingPaneId: state.input.replyDelivery.originatingPaneId,
+        originatingWorkspaceId: state.input.replyDelivery.originatingWorkspaceId,
+        routingAttempt: state.cancellation.routingAttempt,
+        schemaVersion: routingObservationSchemaVersion,
+        submittedAt: input.submittedAt,
+      });
+      this.masterCancellationKeys.add(cancellationKey);
+      return;
     }
     if (state.status !== "failed" || state.failure === null) {
       return;

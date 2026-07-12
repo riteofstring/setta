@@ -199,8 +199,8 @@ func TestSessionServicePersistsStructuredTurnCancellationWithCleanupContext(t *t
 		t.Fatalf("structured cancellation = %v, want context cancellation", err)
 	}
 	persisted, found, readErr := store.ReadMasterSession(context.Background())
-	if readErr != nil || !found || persisted.Status != SessionStatusDegraded ||
-		persisted.Degradation == nil || persisted.Degradation.Code != "master_route_turn_failed" {
+	if readErr != nil || !found || persisted.Status != SessionStatusReady ||
+		persisted.Degradation != nil {
 		t.Fatalf("cancelled structured session = %+v found=%t err=%v", persisted, found, readErr)
 	}
 }

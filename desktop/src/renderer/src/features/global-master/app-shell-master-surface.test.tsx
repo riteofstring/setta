@@ -52,6 +52,24 @@ describe("app-shell master surface", () => {
     expect(html).toContain("Answer Setta’s clarification…");
   });
 
+  test("renders an explicit cancellation action and its immediate terminal result", async () => {
+    const pending = new Promise<ShellInteractionState>(() => {});
+    const controller = masterController(null, pending);
+    controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    controller.submitText("Cancel this global route");
+    await flushPromises();
+    controller.openOverlay();
+
+    let html = renderSurface(controller);
+    expect(html).toContain('aria-label="Cancel active Setta request"');
+    controller.cancelActiveInput();
+    await flushPromises();
+    html = renderSurface(controller);
+    expect(html).toContain("Request cancelled");
+    expect(html).toContain('data-master-routing-status="cancelled"');
+  });
+
   test("renders the compact sidebar launcher as a distinct entry point", () => {
     const html = renderToString(<MasterSidebarLauncher disabled={false} onOpen={() => {}} />);
 
@@ -79,9 +97,18 @@ function renderSurface(controller: AppShellMasterController): string {
   );
 }
 
-function masterController(restored: ShellInteractionState | null = null): AppShellMasterController {
+function masterController(
+  restored: ShellInteractionState | null = null,
+  waitedState?: Promise<ShellInteractionState>,
+): AppShellMasterController {
   let inputOrdinal = 0;
   return new AppShellMasterController({
+    cancelMasterInput: async ({ inputId }) => ({
+      decision: null,
+      failure: null,
+      input: masterInput(inputId, "Cancel this global route"),
+      status: "cancelled",
+    }),
     createInputId: () => `master_input_${++inputOrdinal}`,
     now: () => new Date("2026-07-13T20:00:00Z"),
     presentPresentationIntent: async () => ({ paneId: "pane_alpha" }),
@@ -97,6 +124,7 @@ function masterController(restored: ShellInteractionState | null = null): AppShe
     }),
     submitMasterInput: async (request) => acceptedInput(request, inputOrdinal),
     waitShellInteraction: async ({ inputId }) =>
+      waitedState ??
       answerState(
         acceptedInput(
           {

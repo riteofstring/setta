@@ -25,6 +25,22 @@ export function registerMasterIpcHandlers({
   const observedMasterInputIds = new Set<string>();
   handleIpc(
     ipcMain,
+    "masterCancelInput",
+    async (_event, request) => {
+      const backend = requireBackendClient();
+      const state = await backend.cancelMasterInput(request);
+      await observeMasterInput(
+        backend,
+        routingObservability,
+        observedMasterInputIds,
+        request.inputId,
+      );
+      return state;
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "masterReadActiveInteraction",
     async () => {
       const backend = requireBackendClient();
@@ -134,6 +150,7 @@ function settledMasterInteraction(state: ShellInteractionState): boolean {
     case "routing":
       return false;
     case "decided":
+    case "cancelled":
     case "failed":
       return true;
     default:

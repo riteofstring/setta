@@ -182,7 +182,7 @@ func (store *Store) ReadMasterInputRoutingState(
 }
 
 // WaitForMasterInputRoutingState blocks on committed-store notifications until
-// the requested input reaches a terminal routing decision or failure. Capturing
+// the requested input reaches a terminal routing decision, cancellation, or failure. Capturing
 // the wake channel before each read prevents lost notifications without
 // polling.
 func (store *Store) WaitForMasterInputRoutingState(
@@ -199,7 +199,9 @@ func (store *Store) WaitForMasterInputRoutingState(
 			return master.InputRoutingState{}, err
 		}
 		switch state.Status {
-		case master.InputRoutingStatusDecided, master.InputRoutingStatusFailed:
+		case master.InputRoutingStatusDecided,
+			master.InputRoutingStatusCancelled,
+			master.InputRoutingStatusFailed:
 			return state, nil
 		case master.InputRoutingStatusAccepted, master.InputRoutingStatusRouting:
 		default:
@@ -409,7 +411,44 @@ func populateMasterInputRoutingTerminalState(
 		}
 		state.Failure = &failure
 	}
+	if state.Status == master.InputRoutingStatusCancelled {
+		cancellation, err := readMasterInputRoutingCancellation(ctx, reader, inputID, dbPath)
+		if err != nil {
+			return err
+		}
+		state.Cancellation = &cancellation
+	}
 	return nil
+}
+
+func readMasterInputRoutingCancellation(
+	ctx context.Context,
+	reader masterInputQuery,
+	inputID string,
+	dbPath string,
+) (master.InputRoutingCancellation, error) {
+	var cancellation master.InputRoutingCancellation
+	if err := reader.QueryRowContext(ctx, `
+SELECT input_id, routing_attempt, cancelled_at
+FROM master_input_cancellations
+WHERE input_id = ?
+`, inputID).Scan(
+		&cancellation.InputID,
+		&cancellation.RoutingAttempt,
+		&cancellation.CancelledAt,
+	); err != nil {
+		return master.InputRoutingCancellation{}, &CorruptStateError{
+			Path: dbPath,
+			Err:  fmt.Errorf("read master input routing cancellation %s: %w", inputID, err),
+		}
+	}
+	if err := cancellation.Validate(); err != nil {
+		return master.InputRoutingCancellation{}, &CorruptStateError{
+			Path: dbPath,
+			Err:  fmt.Errorf("validate master input routing cancellation %s: %w", inputID, err),
+		}
+	}
+	return cancellation, nil
 }
 
 func readMasterInputRoutingFailure(

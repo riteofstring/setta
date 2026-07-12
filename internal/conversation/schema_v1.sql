@@ -349,7 +349,7 @@ CREATE TABLE master_inputs (
   input_source TEXT NOT NULL CHECK (input_source IN ('shell', 'conversation_escalation')),
   submitted_at TEXT NOT NULL,
   accepted_at TEXT NOT NULL,
-  routing_status TEXT NOT NULL DEFAULT 'accepted' CHECK (routing_status IN ('accepted', 'routing', 'decided', 'failed')),
+  routing_status TEXT NOT NULL DEFAULT 'accepted' CHECK (routing_status IN ('accepted', 'routing', 'decided', 'cancelled', 'failed')),
   routing_attempt INTEGER NOT NULL DEFAULT 0 CHECK (routing_attempt >= 0),
   routing_started_at TEXT,
   routing_failure_json TEXT CHECK (routing_failure_json IS NULL OR json_valid(routing_failure_json)),
@@ -386,6 +386,12 @@ CREATE TABLE master_inputs (
 
 CREATE INDEX master_inputs_routing_status_accepted_idx
   ON master_inputs(routing_status, sequence);
+
+CREATE TABLE master_input_cancellations (
+  input_id TEXT PRIMARY KEY REFERENCES master_inputs(id) ON DELETE CASCADE,
+  routing_attempt INTEGER NOT NULL CHECK (routing_attempt >= 0),
+  cancelled_at TEXT NOT NULL
+) STRICT;
 
 CREATE TABLE master_route_decisions (
   stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,

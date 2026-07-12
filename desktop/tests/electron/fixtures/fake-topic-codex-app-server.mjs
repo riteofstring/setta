@@ -538,12 +538,23 @@ function validMasterEscalationInput(input) {
 }
 
 const scriptedMasterRouteDecisionByText = new Map([
+  ["Cancel active master route.", scriptedMasterCancellationDecision],
   ["Crash master route.", scriptedMasterCrashDecision],
   ["Focus Alpha topic.", scriptedMasterFocusDecision],
   ["Create Gamma topic.", scriptedMasterCreateDecision],
   ["Open an Alpha side.", scriptedMasterSideDecision],
   ["Fork Alpha topic.", scriptedMasterForkDecision],
 ]);
+
+function scriptedMasterCancellationDecision(context, schema) {
+  const valid = [
+    context.allowedDecisionKinds.includes("answer_global"),
+    schema.includes('"answer_global"'),
+  ].every(Boolean);
+  return valid
+    ? { kind: "answer_global", text: "A cancelled master route must never commit this answer." }
+    : null;
+}
 
 function scriptedMasterCrashDecision(context, schema) {
   const valid = [
@@ -878,6 +889,9 @@ function holdStructuredTurnOnce(context) {
 }
 
 function structuredHoldKey(context) {
+  if (isCancelledMasterRoute(context)) {
+    return "master:cancel-route";
+  }
   if (isCrashMasterRoute(context)) {
     return "master:crash-route";
   }
@@ -885,6 +899,12 @@ function structuredHoldKey(context) {
     return "narrator:crash-projection";
   }
   return null;
+}
+
+function isCancelledMasterRoute(context) {
+  return (
+    context.kind === "master_route" && context.input?.input?.text === "Cancel active master route."
+  );
 }
 
 function isCrashMasterRoute(context) {

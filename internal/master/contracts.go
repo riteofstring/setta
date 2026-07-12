@@ -88,6 +88,7 @@ func ContractValueSets() []ContractValueSet {
 				string(InputRoutingStatusAccepted),
 				string(InputRoutingStatusRouting),
 				string(InputRoutingStatusDecided),
+				string(InputRoutingStatusCancelled),
 				string(InputRoutingStatusFailed),
 			},
 		},

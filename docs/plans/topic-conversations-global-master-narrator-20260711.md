@@ -2,10 +2,9 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phase 7 active-master cancellation is next: add the
-explicit per-input cancellation command promised by the replacement surface
-across the route service, HTTP and generated IPC contracts, shell controller,
-overlay, persistence semantics, and deterministic production workflow.
+**Status:** Complete. Phases 1-9 and the final Phase 7 active-master
+cancellation gap are implemented and verified. The plan is ready for the
+separate whole-plan final audit.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2109,13 +2108,21 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** In progress. Item 4 includes primary-agent precedence plus the
-model-catalog-validated HTTP, generated IPC, settings, persistence, and
-production Electron workflow surfaces for independent role configuration.
-The final audit found no explicit command to cancel an active master operation:
-the route service has only whole-service shutdown cancellation, and the HTTP,
-generated IPC, shell controller, and overlay expose no per-input cancellation
-boundary even though the replacement master surface requires one.
+**Status:** Complete. Items 1-11 are implemented. Item 4 includes primary-agent
+precedence plus the model-catalog-validated HTTP, generated IPC, settings,
+persistence, and production Electron workflow surfaces for independent role
+configuration.
+
+Completion verification on 2026-07-15 passed focused backend and renderer
+tests, generated-contract validation, the production desktop and web builds,
+the deterministic topic-conversation production workflow, and
+`./check_quality.sh --all`, including all 17 required Electron workflows. The
+live ChatGPT-authenticated Codex workflow also passed with `OPENAI_API_KEY`
+removed. Supply-chain checks passed module hygiene, exact-version and lockfile
+validation, release-age policy, and Go vulnerability analysis. The unchanged
+pnpm dependency graph could not be rescanned by `pnpm audit` because npm has
+retired that endpoint with HTTP 410; this slice changes no dependency manifest
+or lockfile.
 
 Implement:
 
@@ -2152,6 +2159,10 @@ Implement:
 9. Pane focus/open behavior shared by validated master/local decisions and
    direct navigator selection.
 10. Route/model/context observability in desktop recordings.
+11. Explicit per-input cancellation for an accepted or active master request,
+    with an atomic terminal persistence boundary, exact provider-turn
+    interruption, renderer-safe state, redacted observability, retryable shell
+    controls, and restart verification.
 
 Exit criteria:
 
@@ -2179,6 +2190,9 @@ Exit criteria:
   path remains
 - neither routing AI can invoke unrestricted filesystem, shell, endpoint, or
   renderer operations
+- an accepted or active shell master request can be cancelled explicitly; its
+  durable terminal state survives restart and late provider output cannot be
+  committed or presented
 
 ### Phase 8: Obsolete surface and backend eradication
 

@@ -197,6 +197,40 @@
   color: color-mix(in oklch, var(--status-critical) 74%, var(--setta-100));
 }
 
+.setta-master-overlay-active-routing {
+  display: grid;
+  gap: 7px;
+  justify-items: center;
+}
+
+.setta-master-overlay-cancel {
+  align-items: center;
+  background: color-mix(in oklch, var(--setta-850) 76%, transparent);
+  border: 1px solid color-mix(in oklch, var(--setta-600) 50%, transparent);
+  border-radius: 6px;
+  color: var(--setta-200);
+  display: inline-flex;
+  font-size: 9.5px;
+  gap: 5px;
+  height: 27px;
+  padding: 0 9px;
+}
+
+.setta-master-overlay-cancel:hover:not(:disabled),
+.setta-master-overlay-cancel:focus-visible {
+  border-color: color-mix(in oklch, var(--status-critical) 46%, var(--setta-600));
+  color: var(--setta-50);
+}
+
+.setta-master-overlay-cancel:disabled {
+  opacity: 0.68;
+}
+
+.setta-master-overlay-cancel svg {
+  height: 10px;
+  width: 10px;
+}
+
 .setta-master-overlay-restore-failure {
   justify-content: space-between;
 }
@@ -313,6 +347,11 @@
   background: color-mix(in oklch, var(--status-critical) 8%, var(--setta-875));
   border-color: color-mix(in oklch, var(--status-critical) 30%, var(--setta-700));
   color: color-mix(in oklch, var(--status-critical) 78%, var(--setta-100));
+}
+
+.setta-master-overlay-result.is-cancelled {
+  background: color-mix(in oklch, var(--setta-700) 16%, var(--setta-875));
+  border-color: color-mix(in oklch, var(--setta-500) 32%, var(--setta-700));
 }
 
 .setta-master-overlay-result > svg {

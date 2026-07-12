@@ -27,6 +27,14 @@ export function AppShellMasterProvider({
   const [controller] = useState(
     () =>
       new AppShellMasterController({
+        cancelMasterInput: (request) => {
+          if (!setta.master) {
+            return Promise.reject(
+              new Error("the desktop master cancellation boundary is unavailable"),
+            );
+          }
+          return setta.master.cancelInput(request);
+        },
         createInputId: () => globalThis.crypto.randomUUID(),
         now: () => new Date(),
         readActiveInteraction: () => {

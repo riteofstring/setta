@@ -16,6 +16,10 @@ type InputStore interface {
 	ResolveMasterPresentationIntent(context.Context, PresentationResolutionRequest, string) (PresentationResolution, error)
 }
 
+type InputRoutingCanceler interface {
+	CancelMasterInputRouting(context.Context, string, string) (InputRoutingState, error)
+}
+
 func (service *Service) WaitPresentationIntent(
 	ctx context.Context,
 	inputID string,
@@ -125,12 +129,25 @@ func (service *Service) WaitShellInteraction(
 }
 
 type Service struct {
-	store InputStore
-	now   func() time.Time
+	store    InputStore
+	canceler InputRoutingCanceler
+	now      func() time.Time
 }
 
 func NewService(store InputStore) (*Service, error) {
 	return newService(store, time.Now)
+}
+
+func NewRoutedService(store InputStore, canceler InputRoutingCanceler) (*Service, error) {
+	if canceler == nil {
+		return nil, errors.New("master input routing canceler is required")
+	}
+	service, err := newService(store, time.Now)
+	if err != nil {
+		return nil, err
+	}
+	service.canceler = canceler
+	return service, nil
 }
 
 func newService(store InputStore, now func() time.Time) (*Service, error) {
@@ -169,4 +186,49 @@ func (service *Service) SubmitInput(ctx context.Context, input MasterInput) (Acc
 		return AcceptedMasterInput{}, errors.New("master input store returned a different input")
 	}
 	return CloneAcceptedInput(accepted), nil
+}
+
+func (service *Service) CancelInput(
+	ctx context.Context,
+	inputID string,
+) (ShellInteractionState, error) {
+	if err := validateInputCancellationRequest(service, ctx, inputID); err != nil {
+		return ShellInteractionState{}, err
+	}
+	state, err := service.canceler.CancelMasterInputRouting(
+		ctx,
+		inputID,
+		service.now().UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return ShellInteractionState{}, err
+	}
+	return projectCancelledShellInteraction(state, inputID)
+}
+
+func validateInputCancellationRequest(service *Service, ctx context.Context, inputID string) error {
+	if service == nil || service.store == nil || service.canceler == nil || service.now == nil {
+		return errors.New("master input cancellation is unavailable")
+	}
+	if ctx == nil {
+		return errors.New("master input cancellation context is required")
+	}
+	return ValidateInputID(inputID)
+}
+
+func projectCancelledShellInteraction(
+	state InputRoutingState,
+	inputID string,
+) (ShellInteractionState, error) {
+	if err := state.Validate(); err != nil {
+		return ShellInteractionState{}, fmt.Errorf("master input canceler returned invalid routing state: %w", err)
+	}
+	if state.Status != InputRoutingStatusCancelled || state.Input.Input.ID != inputID {
+		return ShellInteractionState{}, errors.New("master input canceler returned a different cancellation state")
+	}
+	interaction, err := ProjectShellInteractionState(state)
+	if err != nil {
+		return ShellInteractionState{}, fmt.Errorf("project master input cancellation: %w", err)
+	}
+	return CloneShellInteractionState(interaction), nil
 }

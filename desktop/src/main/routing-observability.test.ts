@@ -312,6 +312,40 @@ describe("route observability", () => {
     expect(JSON.stringify(events)).not.toContain("Private Alpha title");
   });
 
+  test("records one redacted durable master cancellation", () => {
+    const events: RecordedObservation[] = [];
+    const observability = new RouteObservability((type, payload) => {
+      events.push({ payload, type });
+    });
+    const decided = masterRoutingState();
+    const state: InputRoutingState = {
+      ...decided,
+      cancellation: {
+        cancelledAt: "2026-07-14T11:00:02Z",
+        inputId: decided.input.input.id,
+        routingAttempt: 1,
+      },
+      decision: null,
+      status: "cancelled",
+    };
+
+    observability.recordMasterInputRoutingState(state);
+    observability.recordMasterInputRoutingState(state);
+
+    expect(events).toEqual([
+      {
+        payload: expect.objectContaining({
+          cancelledAt: "2026-07-14T11:00:02Z",
+          inputId: "master_input_alpha",
+          inputTextBytes: Buffer.byteLength("Open private Alpha topic", "utf8"),
+          routingAttempt: 1,
+        }),
+        type: "master_route_cancelled",
+      },
+    ]);
+    expect(JSON.stringify(events)).not.toContain("Open private Alpha topic");
+  });
+
   test("records bounded route and observation failures once per attempt", () => {
     const events: RecordedObservation[] = [];
     const observability = new RouteObservability((type, payload) => {
@@ -634,6 +668,7 @@ function masterRoutingState(): InputRoutingState {
       routingAttempt: 1,
       streamSequence: 5,
     },
+    cancellation: null,
     failure: null,
     input: {
       acceptedAt: "2026-07-14T11:00:01Z",

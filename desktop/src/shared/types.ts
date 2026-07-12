@@ -6,6 +6,7 @@ import type {
   AppearancePresetList,
   AppearanceSettings,
   BackendHealth,
+  CancelMasterInputRequest,
   CancelCodexLoginRequest,
   CodexAccountChangeEvent,
   CodexAccountState,
@@ -319,6 +320,7 @@ export interface SettaAPI {
     ) => Promise<ConversationInputRoutingState>;
   };
   master?: {
+    cancelInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;
     readActiveInteraction: () => Promise<ActiveShellInteraction>;
     resolvePresentation: (
       request: PresentationResolutionRequest,

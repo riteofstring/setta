@@ -82,6 +82,7 @@ var apiEndpoints = []endpoint{
 	post[UpdateConversationRoleProfilesRequest, conversation.RoleConfiguration]("UpdateConversationRoleProfiles", "/conversations/roles/update", handler.updateConversationRoleProfiles),
 	get[master.ActiveShellInteraction]("ReadActiveMasterShellInteraction", "/master/interaction/active", handler.readActiveMasterShellInteraction),
 	postWithRequestBodyLimit[SubmitMasterInputRequest, master.AcceptedMasterInput]("SubmitMasterInput", "/master/inputs/submit", masterInputRequestBodyLimitBytes, handler.submitMasterInput),
+	post[CancelMasterInputRequest, master.ShellInteractionState]("CancelMasterInput", "/master/inputs/cancel", handler.cancelMasterInput),
 	post[ReadMasterInputRoutingStateRequest, master.InputRoutingState]("ReadMasterInputRoutingState", "/master/inputs/state/read", handler.readMasterInputRoutingState),
 	post[ReadMasterInputRoutingStateRequest, master.ShellInteractionState]("WaitMasterShellInteraction", "/master/interaction/wait", handler.waitMasterShellInteraction),
 	post[ReadMasterInputRoutingStateRequest, master.PresentationIntent]("WaitMasterPresentationIntent", "/master/presentation/wait", handler.waitMasterPresentationIntent),

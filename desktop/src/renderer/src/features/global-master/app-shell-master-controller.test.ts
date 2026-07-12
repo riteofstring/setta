@@ -106,6 +106,7 @@ describe("app-shell master controller", () => {
     await flushPromises();
 
     expect(harness.controller.getSnapshot()).toEqual({
+      cancellation: { type: "idle" },
       completedTranscript: null,
       draft: "",
       interaction: { type: "idle" },
@@ -359,6 +360,43 @@ describe("app-shell master controller", () => {
     expect(harness.controller.canSubmitInput()).toBe(true);
   });
 
+  test("cancels the exact active durable input and ignores its late route result", async () => {
+    const route = deferred<ShellInteractionState>();
+    const cancellation = deferred<ShellInteractionState>();
+    const cancelMasterInput = vi.fn(() => cancellation.promise);
+    const harness = createHarness({
+      cancelMasterInput,
+      waitShellInteraction: () => route.promise,
+    });
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    harness.controller.submitText("Cancel this global route");
+    await waitForSubmission(harness.controller, "accepted");
+
+    expect(harness.controller.canCancelActiveInput()).toBe(true);
+    harness.controller.cancelActiveInput();
+    expect(cancelMasterInput).toHaveBeenCalledWith({ inputId: "master_input_1" });
+    expect(harness.controller.getSnapshot().cancellation).toEqual({
+      inputId: "master_input_1",
+      type: "cancelling",
+    });
+    cancellation.resolve(cancelledState(harness.requests[0]!));
+    await waitForInteraction(harness.controller, "cancelled");
+
+    route.resolve(decidedState(acceptedFor(harness.requests[0]!, 1), "answer_global"));
+    await flushPromises();
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      cancellation: { type: "idle" },
+      interaction: {
+        state: { input: { id: "master_input_1" }, status: "cancelled" },
+        type: "active",
+      },
+      submission: { type: "idle" },
+    });
+    expect(harness.controller.canCancelActiveInput()).toBe(false);
+    expect(harness.controller.canSubmitInput()).toBe(true);
+  });
+
   test("rejects a mismatched durable receipt and requires explicit discard", async () => {
     const pending = deferred<AcceptedMasterInput>();
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
@@ -411,6 +449,11 @@ function defaultHarnessDependencies(
 ): AppShellMasterControllerDependencies {
   let inputOrdinal = 0;
   return {
+    cancelMasterInput: async ({ inputId }) => {
+      const request = requests.find((candidate) => candidate.input.id === inputId);
+      if (!request) throw new Error(`master input ${inputId} was not submitted`);
+      return cancelledState(request);
+    },
     createInputId: () => {
       inputOrdinal += 1;
       return `master_input_${inputOrdinal}`;
@@ -438,6 +481,15 @@ function defaultHarnessDependencies(
       if (!state) throw new Error(`master input ${inputId} has not settled`);
       return presentationFor(state);
     },
+  };
+}
+
+function cancelledState(request: SubmitMasterInputRequest): ShellInteractionState {
+  return {
+    decision: null,
+    failure: null,
+    input: request.input,
+    status: "cancelled",
   };
 }
 

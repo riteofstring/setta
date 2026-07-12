@@ -169,6 +169,13 @@ func (service *SessionService) RunStructuredTurn(
 	if err != nil {
 		finalizeCtx, cancel := context.WithTimeout(context.Background(), masterThreadCleanupTimeout)
 		defer cancel()
+		if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+			return StructuredSessionTurnResult{}, service.finishCancelledStructuredTurn(
+				finalizeCtx,
+				running,
+				err,
+			)
+		}
 		return StructuredSessionTurnResult{}, service.degradeSession(
 			finalizeCtx,
 			running,
@@ -188,6 +195,17 @@ func (service *SessionService) RunStructuredTurn(
 		ProviderTurnID:   providerResult.ProviderTurnID,
 		Output:           append(json.RawMessage{}, providerResult.Output...),
 	}, nil
+}
+
+func (service *SessionService) finishCancelledStructuredTurn(
+	ctx context.Context,
+	session Session,
+	cause error,
+) error {
+	if _, err := service.transitionSessionStatus(ctx, session, SessionStatusReady); err != nil {
+		return errors.Join(cause, fmt.Errorf("restore cancelled master session: %w", err))
+	}
+	return cause
 }
 
 func (service *SessionService) transitionSessionStatus(

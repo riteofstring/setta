@@ -442,6 +442,9 @@ func (store *Store) readMasterPresentationIntent(
 		if state.Status == master.InputRoutingStatusFailed {
 			return fmt.Errorf("master input %s failed before producing a presentation intent", inputID)
 		}
+		if state.Status == master.InputRoutingStatusCancelled {
+			return fmt.Errorf("master input %s was cancelled before producing a presentation intent", inputID)
+		}
 		if state.Decision == nil {
 			return nil
 		}

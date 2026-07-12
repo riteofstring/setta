@@ -375,6 +375,109 @@ func TestStoreWaitsForMasterInputTerminalStateWithoutPolling(t *testing.T) {
 	}
 }
 
+func TestStoreCancelsAcceptedAndActiveMasterRoutingIdempotently(t *testing.T) {
+	store := newTestStore(t)
+	accepted := acceptMasterRouteTestInput(
+		t,
+		store,
+		"master-input-cancel-accepted",
+		"2026-07-11T20:01:00Z",
+	)
+	acceptedState, err := store.CancelMasterInputRouting(
+		context.Background(),
+		accepted.Input.ID,
+		"2026-07-11T20:03:00Z",
+	)
+	if err != nil {
+		t.Fatalf("cancel accepted master input: %v", err)
+	}
+	assertCancelledMasterRoutingState(t, acceptedState, accepted.Input.ID, 0)
+	idempotent, err := store.CancelMasterInputRouting(
+		context.Background(),
+		accepted.Input.ID,
+		"2026-07-11T20:04:00Z",
+	)
+	if err != nil {
+		t.Fatalf("idempotent accepted cancellation: %v", err)
+	}
+	assertCancelledMasterRoutingState(t, idempotent, accepted.Input.ID, 0)
+	if idempotent.Cancellation.CancelledAt != "2026-07-11T20:03:00Z" {
+		t.Fatalf("idempotent cancellation changed durable time: %+v", idempotent.Cancellation)
+	}
+
+	active := acceptMasterRouteTestInput(
+		t,
+		store,
+		"master-input-cancel-active",
+		"2026-07-11T20:02:00Z",
+	)
+	work, found, err := store.ClaimNextMasterRouteInput(
+		context.Background(),
+		"2026-07-11T20:05:00Z",
+	)
+	if err != nil || !found || work.Input.Input.ID != active.Input.ID {
+		t.Fatalf("active cancellation claim=%+v found=%t err=%v", work, found, err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	waited := make(chan master.InputRoutingState, 1)
+	go func() {
+		state, waitErr := store.WaitForMasterInputRoutingState(ctx, active.Input.ID)
+		if waitErr == nil {
+			waited <- state
+		}
+	}()
+	activeState, err := store.CancelMasterInputRouting(
+		context.Background(),
+		active.Input.ID,
+		"2026-07-11T20:06:00Z",
+	)
+	if err != nil {
+		t.Fatalf("cancel active master input: %v", err)
+	}
+	assertCancelledMasterRoutingState(t, activeState, active.Input.ID, work.RoutingAttempt)
+	select {
+	case state := <-waited:
+		assertCancelledMasterRoutingState(t, state, active.Input.ID, work.RoutingAttempt)
+	case <-ctx.Done():
+		t.Fatal("terminal master input wait did not observe cancellation")
+	}
+	interaction, err := store.ReadActiveMasterShellInteraction(context.Background())
+	if err != nil || interaction.State != nil {
+		t.Fatalf("cancelled shell interaction=%+v err=%v, want empty", interaction, err)
+	}
+	events, err := store.ReadCommittedStreamEvents(
+		context.Background(),
+		master.RouteDecisionCommittedStream,
+		0,
+		10,
+	)
+	if err != nil {
+		t.Fatalf("read master cancellation events: %v", err)
+	}
+	if len(events) != 3 || events[0].Kind != master.RouteInputRoutingCancelledKind ||
+		events[1].Kind != master.RouteInputRoutingStartedKind ||
+		events[2].Kind != master.RouteInputRoutingCancelledKind {
+		t.Fatalf("master cancellation events=%+v", events)
+	}
+}
+
+func assertCancelledMasterRoutingState(
+	t *testing.T,
+	state master.InputRoutingState,
+	inputID string,
+	routingAttempt int,
+) {
+	t.Helper()
+	if state.Status != master.InputRoutingStatusCancelled || state.Cancellation == nil ||
+		state.Cancellation.InputID != inputID ||
+		state.Cancellation.RoutingAttempt != routingAttempt ||
+		state.RoutingAttempt != routingAttempt || state.RoutingStartedAt != nil ||
+		state.Decision != nil || state.Failure != nil {
+		t.Fatalf("cancelled routing state=%+v", state)
+	}
+}
+
 func claimMasterRouteCommitWork(
 	t *testing.T,
 	store *Store,

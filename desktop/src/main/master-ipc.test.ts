@@ -35,6 +35,7 @@ describe("master IPC handlers", () => {
       status: "accepted" as const,
     };
     const interaction = { state };
+    const cancelled = { ...state, status: "cancelled" as const };
     const presentation = {
       focusExistingConversationPane: null,
       id: `master-presentation:${request.input.id}`,
@@ -57,6 +58,7 @@ describe("master IPC handlers", () => {
     const resolution = { ...resolutionRequest, resolvedAt: "2026-07-12T18:00:02Z" };
     const durableState = { decision: { id: "master_route_alpha" } } as never;
     const backend = {
+      cancelMasterInput: vi.fn(async () => cancelled),
       readActiveMasterShellInteraction: vi.fn(async () => interaction),
       readMasterInputRoutingState: vi.fn(async () => durableState),
       resolveMasterPresentationIntent: vi.fn(async () => resolution),
@@ -83,6 +85,7 @@ describe("master IPC handlers", () => {
     const waitRequest = { inputId: request.input.id };
     const waited = await invoke(handlers, ipcChannels.masterWaitInteraction, waitRequest);
     const presented = await invoke(handlers, ipcChannels.masterWaitPresentation, waitRequest);
+    const cancellation = await invoke(handlers, ipcChannels.masterCancelInput, waitRequest);
 
     expect(backend.readActiveMasterShellInteraction).toHaveBeenCalledOnce();
     expect(loaded).toEqual(interaction);
@@ -94,6 +97,8 @@ describe("master IPC handlers", () => {
     expect(waited).toEqual(state);
     expect(backend.waitMasterPresentationIntent).toHaveBeenCalledWith(waitRequest);
     expect(presented).toEqual(presentation);
+    expect(backend.cancelMasterInput).toHaveBeenCalledWith(waitRequest);
+    expect(cancellation).toEqual(cancelled);
     expect(routingObservability.recordMasterPresentationIntent).toHaveBeenCalledWith(presentation);
     expect(routingObservability.recordMasterInputRoutingState).toHaveBeenCalledWith(durableState);
     expect(observer.finished).toHaveBeenCalledWith(expect.objectContaining({ result: accepted }));

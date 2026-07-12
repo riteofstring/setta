@@ -18,6 +18,7 @@ import (
 type RouteStore interface {
 	ReadPendingMasterRouteCommand(context.Context) (RouteDecisionRecord, *string, bool, error)
 	ClaimNextMasterRouteInput(context.Context, string) (InputRoutingWork, bool, error)
+	CancelMasterInputRouting(context.Context, string, string) (InputRoutingState, error)
 	ListMasterRouteContextConversationIDs(context.Context, int) ([]string, error)
 	ReadMasterRouteTargets(context.Context, []string, int) ([]RouteConversationTarget, error)
 	ListRecentMasterRouteDecisions(context.Context, int) ([]RouteDecisionRecord, error)
@@ -60,6 +61,14 @@ type RouteService struct {
 	lifecycleCancel context.CancelFunc
 	tasks           sync.WaitGroup
 	shutdownOnce    sync.Once
+	processMu       sync.Mutex
+	activeMu        sync.Mutex
+	active          *activeRouteInput
+}
+
+type activeRouteInput struct {
+	inputID string
+	cancel  context.CancelFunc
 }
 
 func NewRouteService(
@@ -105,31 +114,103 @@ func (service *RouteService) ProcessNext(ctx context.Context) (bool, error) {
 	if err := validateRouteServiceRequest(service, ctx); err != nil {
 		return false, err
 	}
+	service.processMu.Lock()
+	defer service.processMu.Unlock()
+	processed, err := service.executePendingRouteCommand(ctx)
+	if err != nil || processed {
+		return processed, err
+	}
+	return service.processNextRouteInput(ctx)
+}
+
+func (service *RouteService) executePendingRouteCommand(ctx context.Context) (bool, error) {
 	pending, resolvedPaneID, found, err := service.store.ReadPendingMasterRouteCommand(ctx)
 	if err != nil {
 		return false, err
 	}
-	if found {
-		if err := service.executor.ExecuteMasterRouteCommand(ctx, pending, resolvedPaneID); err != nil {
-			return true, fmt.Errorf("execute committed master route command: %w", err)
-		}
-		completedAt, err := service.timestampAfter(pending.DecidedAt)
-		if err != nil {
-			return true, fmt.Errorf("complete committed master route command: %w", err)
-		}
-		if err := service.store.CompleteMasterRouteCommand(ctx, pending.ID, completedAt); err != nil {
-			return true, fmt.Errorf("complete committed master route command: %w", err)
-		}
-		return true, nil
+	if !found {
+		return false, nil
 	}
-	work, found, err := service.store.ClaimNextMasterRouteInput(ctx, service.timestamp())
+	if err := service.executor.ExecuteMasterRouteCommand(ctx, pending, resolvedPaneID); err != nil {
+		return true, fmt.Errorf("execute committed master route command: %w", err)
+	}
+	completedAt, err := service.timestampAfter(pending.DecidedAt)
+	if err != nil {
+		return true, fmt.Errorf("complete committed master route command: %w", err)
+	}
+	if err := service.store.CompleteMasterRouteCommand(ctx, pending.ID, completedAt); err != nil {
+		return true, fmt.Errorf("complete committed master route command: %w", err)
+	}
+	return true, nil
+}
+
+func (service *RouteService) processNextRouteInput(ctx context.Context) (bool, error) {
+	work, routeCtx, active, found, err := service.claimNextInput(ctx)
 	if err != nil || !found {
 		return false, err
 	}
-	if err := service.routeOrFailClaimedInput(ctx, work); err != nil {
+	defer service.clearActiveInput(active)
+	if err := service.routeOrFailClaimedInput(routeCtx, work); err != nil {
+		if errors.Is(err, context.Canceled) && ctx.Err() == nil {
+			return true, nil
+		}
 		return true, err
 	}
 	return true, nil
+}
+
+func (service *RouteService) claimNextInput(
+	ctx context.Context,
+) (InputRoutingWork, context.Context, *activeRouteInput, bool, error) {
+	service.activeMu.Lock()
+	defer service.activeMu.Unlock()
+	work, found, err := service.store.ClaimNextMasterRouteInput(ctx, service.timestamp())
+	if err != nil || !found {
+		return InputRoutingWork{}, nil, nil, false, err
+	}
+	routeCtx, cancel := context.WithCancel(ctx)
+	active := &activeRouteInput{inputID: work.Input.Input.ID, cancel: cancel}
+	service.active = active
+	return work, routeCtx, active, true, nil
+}
+
+func (service *RouteService) clearActiveInput(active *activeRouteInput) {
+	service.activeMu.Lock()
+	defer service.activeMu.Unlock()
+	if service.active == active {
+		service.active = nil
+	}
+	active.cancel()
+}
+
+// CancelMasterInputRouting atomically commits cancellation before interrupting
+// a matching provider call. Sharing activeMu with claim registration closes the
+// gap where an input could be claimed after cancellation but before its route
+// context became interruptible.
+func (service *RouteService) CancelMasterInputRouting(
+	ctx context.Context,
+	inputID string,
+	cancelledAt string,
+) (InputRoutingState, error) {
+	if err := validateRouteServiceRequest(service, ctx); err != nil {
+		return InputRoutingState{}, err
+	}
+	service.activeMu.Lock()
+	defer service.activeMu.Unlock()
+	state, err := service.store.CancelMasterInputRouting(ctx, inputID, cancelledAt)
+	if err != nil {
+		return InputRoutingState{}, err
+	}
+	if err := state.Validate(); err != nil {
+		return InputRoutingState{}, fmt.Errorf("master route store returned invalid cancellation state: %w", err)
+	}
+	if state.Status != InputRoutingStatusCancelled || state.Input.Input.ID != inputID {
+		return InputRoutingState{}, errors.New("master route store returned a different cancellation state")
+	}
+	if service.active != nil && service.active.inputID == inputID {
+		service.active.cancel()
+	}
+	return CloneInputRoutingState(state), nil
 }
 
 func validateRouteServiceRequest(service *RouteService, ctx context.Context) error {

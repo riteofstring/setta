@@ -16,6 +16,10 @@ type ReadMasterInputRoutingStateRequest struct {
 	InputID string `json:"inputId"`
 }
 
+type CancelMasterInputRequest struct {
+	InputID string `json:"inputId"`
+}
+
 func (handler handler) readActiveMasterShellInteraction(response http.ResponseWriter, request *http.Request) {
 	service := requireMasterInputService(response, handler.masterInputService)
 	if service == nil {
@@ -52,6 +56,27 @@ func (handler handler) submitMasterInput(response http.ResponseWriter, request *
 		return
 	}
 	writeJSON(response, http.StatusAccepted, accepted)
+}
+
+func (handler handler) cancelMasterInput(response http.ResponseWriter, request *http.Request) {
+	service := requireMasterInputService(response, handler.masterInputService)
+	if service == nil {
+		return
+	}
+	var payload CancelMasterInputRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	state, err := service.CancelInput(request.Context(), payload.InputID)
+	if err != nil {
+		writeMasterInputStateError(response, err)
+		return
+	}
+	if err := state.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_master_input_cancellation", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, state)
 }
 
 func (handler handler) readMasterInputRoutingState(response http.ResponseWriter, request *http.Request) {

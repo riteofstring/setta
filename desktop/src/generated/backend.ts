@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 48;
-export const backendContractSchemaHash = "sha256:c83a9676c26115686efd595547b987afaa3d238077ec539b957fe7cf0c4f7764";
+export const backendProtocolVersion = 49;
+export const backendContractSchemaHash = "sha256:f267053d0a21b95d4d9ac9eab72176c87ec89138b413d372ac8f20cf706773bb";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -1156,9 +1156,9 @@ export function decodeMasterInputSource(value: unknown, label = "MasterInputSour
   }
 }
 
-export type InputRoutingStatus = "accepted" | "routing" | "decided" | "failed";
+export type InputRoutingStatus = "accepted" | "routing" | "decided" | "cancelled" | "failed";
 
-export const inputRoutingStatusValues = ["accepted", "routing", "decided", "failed"] as const satisfies readonly InputRoutingStatus[];
+export const inputRoutingStatusValues = ["accepted", "routing", "decided", "cancelled", "failed"] as const satisfies readonly InputRoutingStatus[];
 
 export function decodeInputRoutingStatus(value: unknown, label = "InputRoutingStatus"): InputRoutingStatus {
   const decoded = decodeString(value, label);
@@ -1168,6 +1168,8 @@ export function decodeInputRoutingStatus(value: unknown, label = "InputRoutingSt
     case "routing":
       return decoded;
     case "decided":
+      return decoded;
+    case "cancelled":
       return decoded;
     case "failed":
       return decoded;
@@ -2889,6 +2891,10 @@ export interface AcceptedMasterInput {
   acceptedAt: string;
 }
 
+export interface CancelMasterInputRequest {
+  inputId: string;
+}
+
 export interface ReadMasterInputRoutingStateRequest {
   inputId: string;
 }
@@ -3037,6 +3043,12 @@ export interface RouteDecisionRecord {
   decidedAt: string;
 }
 
+export interface InputRoutingCancellation {
+  inputId: string;
+  routingAttempt: number;
+  cancelledAt: string;
+}
+
 export interface RouteFailure {
   code: string;
   message: string;
@@ -3050,6 +3062,7 @@ export interface InputRoutingState {
   routingAttempt: number;
   routingStartedAt: string | null;
   decision: RouteDecisionRecord | null;
+  cancellation: InputRoutingCancellation | null;
   failure: RouteFailure | null;
 }
 
@@ -3432,6 +3445,11 @@ export const backendEndpoints = {
     method: "POST",
     path: "/master/inputs/submit",
     requestBodyLimitBytes: 1638400,
+  },
+  CancelMasterInput: {
+    method: "POST",
+    path: "/master/inputs/cancel",
+    requestBodyLimitBytes: 4194304,
   },
   ReadMasterInputRoutingState: {
     method: "POST",
@@ -5874,6 +5892,14 @@ export function decodeAcceptedMasterInput(value: unknown): AcceptedMasterInput {
   };
 }
 
+export function decodeCancelMasterInputRequest(value: unknown): CancelMasterInputRequest {
+  const record = assertRecord(value, "CancelMasterInputRequest");
+  assertKnownFields(record, "CancelMasterInputRequest", ["inputId"]);
+  return {
+    inputId: decodeString(requireField(record, "inputId", "CancelMasterInputRequest"), "CancelMasterInputRequest.inputId"),
+  };
+}
+
 export function decodeReadMasterInputRoutingStateRequest(value: unknown): ReadMasterInputRoutingStateRequest {
   const record = assertRecord(value, "ReadMasterInputRoutingStateRequest");
   assertKnownFields(record, "ReadMasterInputRoutingStateRequest", ["inputId"]);
@@ -6111,6 +6137,16 @@ export function decodeRouteDecisionRecord(value: unknown): RouteDecisionRecord {
   };
 }
 
+export function decodeInputRoutingCancellation(value: unknown): InputRoutingCancellation {
+  const record = assertRecord(value, "InputRoutingCancellation");
+  assertKnownFields(record, "InputRoutingCancellation", ["inputId", "routingAttempt", "cancelledAt"]);
+  return {
+    inputId: decodeString(requireField(record, "inputId", "InputRoutingCancellation"), "InputRoutingCancellation.inputId"),
+    routingAttempt: decodeInteger(requireField(record, "routingAttempt", "InputRoutingCancellation"), "InputRoutingCancellation.routingAttempt"),
+    cancelledAt: decodeString(requireField(record, "cancelledAt", "InputRoutingCancellation"), "InputRoutingCancellation.cancelledAt"),
+  };
+}
+
 export function decodeRouteFailure(value: unknown): RouteFailure {
   const record = assertRecord(value, "RouteFailure");
   assertKnownFields(record, "RouteFailure", ["code", "message", "retryable", "diagnosticReference"]);
@@ -6124,13 +6160,14 @@ export function decodeRouteFailure(value: unknown): RouteFailure {
 
 export function decodeInputRoutingState(value: unknown): InputRoutingState {
   const record = assertRecord(value, "InputRoutingState");
-  assertKnownFields(record, "InputRoutingState", ["input", "status", "routingAttempt", "routingStartedAt", "decision", "failure"]);
+  assertKnownFields(record, "InputRoutingState", ["input", "status", "routingAttempt", "routingStartedAt", "decision", "cancellation", "failure"]);
   return {
     input: decodeAcceptedMasterInput(requireField(record, "input", "InputRoutingState")),
     status: decodeInputRoutingStatus(requireField(record, "status", "InputRoutingState"), "InputRoutingState.status"),
     routingAttempt: decodeInteger(requireField(record, "routingAttempt", "InputRoutingState"), "InputRoutingState.routingAttempt"),
     routingStartedAt: decodeNullable(requireField(record, "routingStartedAt", "InputRoutingState"), "InputRoutingState.routingStartedAt", (item) => decodeString(item, "InputRoutingState.routingStartedAt")),
     decision: decodeNullable(requireField(record, "decision", "InputRoutingState"), "InputRoutingState.decision", (item) => decodeRouteDecisionRecord(item)),
+    cancellation: decodeNullable(requireField(record, "cancellation", "InputRoutingState"), "InputRoutingState.cancellation", (item) => decodeInputRoutingCancellation(item)),
     failure: decodeNullable(requireField(record, "failure", "InputRoutingState"), "InputRoutingState.failure", (item) => decodeRouteFailure(item)),
   };
 }
@@ -6507,6 +6544,7 @@ export interface BackendClient {
   updateConversationRoleProfiles: (request: UpdateConversationRoleProfilesRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
   readActiveMasterShellInteraction: (options?: BackendRequestOptions) => Promise<ActiveShellInteraction>;
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
+  cancelMasterInput: (request: CancelMasterInputRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
   readMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
   waitMasterShellInteraction: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
   waitMasterPresentationIntent: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<PresentationIntent>;
@@ -6865,6 +6903,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeAcceptedMasterInput,
       endpoint: backendEndpoints.SubmitMasterInput,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    cancelMasterInput: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeShellInteractionState,
+      endpoint: backendEndpoints.CancelMasterInput,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

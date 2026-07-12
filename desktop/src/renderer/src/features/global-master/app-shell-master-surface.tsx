@@ -14,6 +14,7 @@ import {
   MessageCircleMore,
   RotateCcw,
   Sparkles,
+  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -211,6 +212,9 @@ function MasterOverlay({
           {snapshot.submission.type === "failed" ? (
             <MasterSubmissionFailureActions controller={controller} snapshot={snapshot} />
           ) : null}
+          {snapshot.cancellation.type === "failed" ? (
+            <MasterCancellationFailure controller={controller} snapshot={snapshot} />
+          ) : null}
           {synchronousError ? (
             <div className="setta-master-overlay-error" role="alert">
               {synchronousError}
@@ -279,10 +283,17 @@ function MasterInteraction({
         <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
           <MasterRequest input={snapshot.interaction.state.input} />
           <InteractionFailure controller={controller} message={snapshot.interaction.message} />
+          <MasterCancellationAction controller={controller} snapshot={snapshot} />
         </div>
       );
     case "active":
-      return <ActiveMasterInteraction state={snapshot.interaction.state} />;
+      return (
+        <ActiveMasterInteraction
+          controller={controller}
+          snapshot={snapshot}
+          state={snapshot.interaction.state}
+        />
+      );
     default:
       return assertNever(snapshot.interaction);
   }
@@ -302,7 +313,15 @@ function EmptyMasterInteraction() {
   );
 }
 
-function ActiveMasterInteraction({ state }: { state: ShellInteractionState }) {
+function ActiveMasterInteraction({
+  controller,
+  snapshot,
+  state,
+}: {
+  controller: AppShellMasterController;
+  snapshot: AppShellMasterSnapshot;
+  state: ShellInteractionState;
+}) {
   return (
     <div
       className="setta-master-overlay-interaction"
@@ -311,7 +330,7 @@ function ActiveMasterInteraction({ state }: { state: ShellInteractionState }) {
       data-testid="master-active-interaction"
     >
       <MasterRequest input={state.input} />
-      <MasterRoutingResult state={state} />
+      <MasterRoutingResult controller={controller} snapshot={snapshot} state={state} />
     </div>
   );
 }
@@ -328,12 +347,34 @@ function MasterRequest({ input }: { input: MasterInput }) {
   );
 }
 
-function MasterRoutingResult({ state }: { state: ShellInteractionState }) {
+function MasterRoutingResult({
+  controller,
+  snapshot,
+  state,
+}: {
+  controller: AppShellMasterController;
+  snapshot: AppShellMasterSnapshot;
+  state: ShellInteractionState;
+}) {
   switch (state.status) {
     case "accepted":
-      return <MasterProgress state="accepted" />;
+      return (
+        <MasterActiveRoutingControls controller={controller} snapshot={snapshot} state="accepted" />
+      );
     case "routing":
-      return <MasterProgress state="routing" />;
+      return (
+        <MasterActiveRoutingControls controller={controller} snapshot={snapshot} state="routing" />
+      );
+    case "cancelled":
+      return (
+        <div className="setta-master-overlay-result is-cancelled" role="status">
+          <Square aria-hidden="true" />
+          <div>
+            <strong>Request cancelled</strong>
+            <p>Setta stopped this routing request before it produced an action.</p>
+          </div>
+        </div>
+      );
     case "failed":
       return (
         <div className="setta-master-overlay-result is-failed" role="alert">
@@ -363,6 +404,59 @@ function MasterRoutingResult({ state }: { state: ShellInteractionState }) {
     default:
       return assertNever(state.status);
   }
+}
+
+function MasterActiveRoutingControls({
+  controller,
+  snapshot,
+  state,
+}: {
+  controller: AppShellMasterController;
+  snapshot: AppShellMasterSnapshot;
+  state: "accepted" | "routing";
+}) {
+  return (
+    <div className="setta-master-overlay-active-routing">
+      <MasterProgress state={state} />
+      <MasterCancellationAction controller={controller} snapshot={snapshot} />
+    </div>
+  );
+}
+
+function MasterCancellationAction({
+  controller,
+  snapshot,
+}: {
+  controller: AppShellMasterController;
+  snapshot: AppShellMasterSnapshot;
+}) {
+  if (snapshot.cancellation.type === "failed") {
+    return null;
+  }
+  if (!controller.canCancelActiveInput()) {
+    return snapshot.cancellation.type === "cancelling" ? (
+      <button
+        aria-label="Cancelling active Setta request"
+        className="setta-master-overlay-cancel"
+        disabled
+        type="button"
+      >
+        <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
+        Cancelling…
+      </button>
+    ) : null;
+  }
+  return (
+    <button
+      aria-label="Cancel active Setta request"
+      className="setta-master-overlay-cancel"
+      onClick={controller.cancelActiveInput}
+      type="button"
+    >
+      <Square aria-hidden="true" />
+      Cancel request
+    </button>
+  );
 }
 
 function MasterProgress({ state }: { state: "accepted" | "routing" | "submitting" | "failed" }) {
@@ -428,6 +522,29 @@ function MasterSubmissionFailureActions({
         <button onClick={() => controller.discard()} type="button">
           <Trash2 aria-hidden="true" />
           Discard
+        </button>
+      </span>
+    </div>
+  );
+}
+
+function MasterCancellationFailure({
+  controller,
+  snapshot,
+}: {
+  controller: AppShellMasterController;
+  snapshot: AppShellMasterSnapshot;
+}) {
+  if (snapshot.cancellation.type !== "failed") {
+    return null;
+  }
+  return (
+    <div className="setta-master-overlay-failure" role="alert">
+      <span>{snapshot.cancellation.message}</span>
+      <span className="setta-master-overlay-failure-actions">
+        <button onClick={controller.cancelActiveInput} type="button">
+          <RotateCcw aria-hidden="true" />
+          Retry cancellation
         </button>
       </span>
     </div>
@@ -582,12 +699,20 @@ function masterComposerPlaceholder(snapshot: AppShellMasterSnapshot): string {
 }
 
 function activeInteractionComposerPlaceholder(state: ShellInteractionState): string {
-  if (state.status !== "decided") {
-    return "Setta is routing the active request…";
+  switch (state.status) {
+    case "accepted":
+    case "routing":
+      return "Setta is routing the active request…";
+    case "cancelled":
+    case "failed":
+      return "Find, open, or start a topic conversation…";
+    case "decided":
+      return state.decision?.kind === "clarify"
+        ? "Answer Setta’s clarification…"
+        : "Find, open, or start a topic conversation…";
+    default:
+      return assertNever(state.status);
   }
-  return state.decision?.kind === "clarify"
-    ? "Answer Setta’s clarification…"
-    : "Find, open, or start a topic conversation…";
 }
 
 function masterConnectionLabel(snapshot: AppShellMasterSnapshot): string {
@@ -632,6 +757,8 @@ function interactionStateLabel(state: ShellInteractionState): string {
       return "Routing";
     case "decided":
       return state.decision?.kind === "clarify" ? "Reply needed" : "Result ready";
+    case "cancelled":
+      return "Request cancelled";
     case "failed":
       return "Routing failed";
     default:
