@@ -1,7 +1,7 @@
 # Setta Cloud Platform — AWS EC2 + EBS Plan
 
 Date: 2026-07-15
-Status: Proposed plan of record for the AWS pivot; implementation not started
+Status: Plan of record for the AWS pivot; independently reviewed; implementation not started
 Owner: Setta cloud-platform workstream
 
 ## Purpose and authority
@@ -173,19 +173,24 @@ proof. Neither action is mixed into everyday lifecycle controls.
 ### User-visible state contract
 
 The renderer consumes typed Setta lifecycle events. It must not translate raw
-AWS strings or infer state from error text.
+AWS strings or infer state from error text. Keep runtime lifecycle vocabulary
+to the same six high-level states frozen by the managed-cloud plan:
 
 | User state | Meaning | Allowed user behavior |
 | --- | --- | --- |
 | `Preparing` | The first runtime generation is being created and verified | Browse cached state, type, queue, cancel queued work |
 | `Waking` | A retained workspace is being attached to healthy compute | Same as preparing; no second submit |
 | `Ready` | The authenticated active generation can accept work | Full workspace behavior |
-| `Working in background` | A bounded workload lease remains active without a client | Observe, steer, cancel, approve, reconnect |
-| `Paused` | Compute is intentionally stopped; files remain retained | Opening or submitting wakes automatically if entitled |
 | `Needs attention` | Setta cannot safely proceed automatically | Preserve state; show one useful action plus support ID |
 | `Suspended` | Access/new work is administratively or budget blocked | Read allowed cached/control-plane state; resolve entitlement/support |
 | `Exporting` | A verified export is being prepared | Existing active behavior follows the declared quiescence policy |
-| `Deleting` | Runtime is fenced and retention/deletion is underway | No new work; show policy and completion state |
+
+Background work, an idle retained workspace, and deletion still need honest
+feedback, but they are task/project/account conditions rather than additional
+runtime lifecycle states. Show active background work in the existing run UI;
+show deletion inside its explicit destructive flow. A retained idle workspace
+needs no persistent `Paused` badge: opening or submitting moves directly to
+`Waking`.
 
 `pending`, `running`, `stopping`, `stopped`, `shutting-down`, `terminated`,
 volume states, status checks, placement, and capacity failures are adapter or
@@ -315,17 +320,31 @@ accounting. AWS observations never become authority by themselves.
   streams multiplex over authenticated logical channels with backpressure and
   per-channel limits.
 - The beta probe should compare: (A) an ephemeral public IPv4 with zero inbound
-  rules and direct outbound egress, and (B) IPv6-first egress with an explicitly
-  costed shared fallback for IPv4-only development dependencies. Do not pay for
-  one Elastic IP, NAT gateway, or load balancer per user.
+  rules and direct outbound egress; (B) IPv6-first egress with an explicitly
+  costed shared fallback for IPv4-only development dependencies; and (C) a
+  private subnet with no public address and a shared, highly available managed
+  NAT or Setta-controlled egress-proxy fleet. Do not pay for one Elastic IP,
+  NAT gateway, load balancer, or custom proxy per user.
 - Egress policy must be enforceable below untrusted user control. Required
   development traffic is allowlisted through the selected boundary; private
   networks, metadata, provider APIs, SMTP, alternate DNS, raw-IP bypasses, and
   pre-existing forbidden connections are tested.
 
-The public address may change on stop/start. No Setta client or database
-contract depends on it; the Box Agent reconnects outbound and authenticates the
-active generation.
+No Setta client or database contract depends on an instance address; the Box
+Agent reconnects outbound and authenticates the active generation. If the
+public-address option wins, its address may change on stop/start. If the
+private-subnet option wins, the primary private address normally remains with
+the network interface while stopped, but Setta identity still must not depend
+on that behavior.
+
+A shared egress proxy can provide an out-of-instance FQDN/SNI backstop even
+after a hypothetical host escape, but it adds a shared trust point, throughput
+ceiling, image-patching duty, and availability burden. A managed NAT is more
+mature but cannot enforce domains by itself. On-host DNS/IP-set policy has
+DNS-to-IP timing and shared-CDN ambiguity; any allowlisted HTTPS destination
+can still carry payload exfiltration unless Setta performs compatibility-
+breaking TLS interception. Phase 1 must measure and explicitly accept or close
+these residuals instead of claiming that a security group is an egress policy.
 
 ### Instance, image, and storage layout
 
@@ -394,12 +413,21 @@ No IAM instance profile is attached in the beta unless a written threat model
 and adversarial test proves every permission safe to expose to hostile code.
 EBS, snapshots, EC2 lifecycle, and monitoring operations are performed by the
 control plane. If operational access is required, design a separate narrowly
-scoped break-glass path; do not silently add SSH or broad SSM permissions.
+scoped break-glass path; do not silently add SSH or broad SSM permissions. No
+instance role also means ordinary SSM access is unavailable. Treat that as a
+deliberate security/operability tradeoff: prove boot-failure diagnosis through
+content-safe console output, serial-console break glass where supported, and
+the Box Agent diagnostic channel after network initialization.
 
 ### Runtime access and previews
 
 - Every client request is authenticated by Setta and authorized against the
   active runtime generation, device, grant, entitlement, and credential epoch.
+- Separate transport identity from user authorization: the Box Agent uses
+  short-lived per-generation mTLS (or an equivalently strong mutually
+  authenticated transport), while the user/device grant remains an inner,
+  independently revocable application-layer authorization. Do not overload one
+  bearer/header for both trust decisions.
 - The gateway never trusts runtime-supplied user identity headers.
 - Runtime tickets are short-lived, audience-bound, generation-bound,
   single-purpose, and replay resistant.
@@ -407,6 +435,8 @@ scoped break-glass path; do not silently add SSH or broad SSM permissions.
   for EC2 to stop.
 - Previews use authenticated per-workspace origins and origin isolation;
   arbitrary ports are never directly exposed from EC2.
+- Reject unauthenticated preview traffic before any ensure/wake operation. A
+  public scan or expired share must never create paid compute.
 - HTTP, HTTPS, WebSocket, SSE, streaming bodies, HMR, large output, slow
   consumers, disconnect/reconnect, and mobile network changes have explicit
   limits and tests.
@@ -636,8 +666,15 @@ host-control or credential escape is a stop condition.
 - [ ] Exercise HTTP/HTTPS/WebSocket/SSE/HMR, large/slow streams, reconnect,
   suspension, ticket replay, header spoofing, origin isolation, and mobile
   network changes.
-- [ ] Compare ephemeral IPv4 and IPv6-first egress for compatibility, cost,
-  cold start, and operational burden; select one explicit beta topology.
+- [ ] Compare ephemeral IPv4, IPv6-first/shared-IPv4 fallback, and private
+  subnet/shared-NAT-or-egress-proxy designs for compatibility, cost, bypass
+  resistance, cold start, availability, and operational burden; select one
+  explicit beta topology.
+- [ ] Test SNI/domain fronting, DNS/IP-set timing, shared-CDN addresses,
+  allowlisted-destination exfiltration, and egress-proxy failure/overload;
+  document residuals the beta explicitly accepts.
+- [ ] Prove unauthenticated or revoked preview traffic cannot invoke ensure,
+  start, or any other paid mutation.
 - [ ] Confirm gateway loss cannot extend an expired workload lease or prevent
   the control plane from cutting off EC2.
 
@@ -1111,15 +1148,29 @@ summary; do not rely on a prose estimate alone.
 
 ### Plan review comparison
 
-Append the independent Claude plan comparison here after it runs:
+The independent review is preserved in
+`docs/reports/2026-07-15-aws-ec2-ebs-independent-plan-review.md`.
 
-- Baseline Setta plan commit: pending
-- Claude command/model verification: pending
-- Claude independent output: pending
-- Stronger Claude elements accepted: pending
-- Setta elements retained over Claude, with reason: pending
-- Blocking/deferred findings: pending
-- Integrated plan commit: pending
+- Baseline Setta plan commit: `742396c9b`
+- Claude command/model verification: Claude Code 2.1.208 accepted
+  `--model claude-fable-5 --effort high --permission-mode plan`; the structured
+  session metadata identified `claude-fable-5` and internal supporting models.
+- Claude independent output: completed on the same read-only session after one
+  bounded recovery request; it stated that it did not read this baseline.
+- Stronger Claude elements accepted: exactly six lifecycle states; layered mTLS
+  runtime identity and user authorization; unauthenticated preview cannot wake;
+  private-subnet/shared-egress candidate; explicit egress residuals; and the
+  no-SSM diagnostic tradeoff.
+- Setta elements retained over Claude: hidden x86 2-vCPU/4-GiB starting policy
+  rather than ARM 2-GiB; measured rather than unverified cost figures; outbound
+  agent rather than requiring direct gateway reachability; three topology
+  candidates rather than prematurely selecting a custom egress fleet; separate
+  system/workspace EBS volumes; and capability-oriented provider refactoring
+  rather than forcing EC2 through the Sprite-era interface unchanged.
+- Blocking findings: none in the plan itself. Live topology, isolation,
+  cutoff, restore, pricing, and wake-latency gates remain intentionally open.
+- Integrated plan commit: recorded by the follow-up append-only entry after
+  this integration commit exists.
 
 ## Stop conditions
 
