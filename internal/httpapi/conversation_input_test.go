@@ -214,6 +214,11 @@ func TestConversationInputEndpointRequiresServiceAndMapsTypedFailures(t *testing
 			wantStatus: http.StatusServiceUnavailable,
 		},
 		{
+			err:        conversation.ErrStoreClosed,
+			wantCode:   "conversation_input_store_unavailable",
+			wantStatus: http.StatusServiceUnavailable,
+		},
+		{
 			err:        errors.New("invalid input"),
 			wantCode:   "invalid_conversation_input",
 			wantStatus: http.StatusBadRequest,
@@ -357,6 +362,8 @@ func (invalidHTTPConversationInputStore) ReadConversationInputRoutingState(
 
 func (invalidHTTPConversationInputStore) RetryConversationInputRouting(
 	context.Context,
+	string,
+	string,
 	string,
 	string,
 ) (conversation.AcceptedConversationInput, error) {

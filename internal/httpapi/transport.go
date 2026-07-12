@@ -298,6 +298,10 @@ func writeConversationInputError(response http.ResponseWriter, err error) {
 		writeError(response, http.StatusServiceUnavailable, "conversation_input_store_unavailable", err.Error())
 		return
 	}
+	if errors.Is(err, conversation.ErrStoreClosed) {
+		writeError(response, http.StatusServiceUnavailable, "conversation_input_store_unavailable", err.Error())
+		return
+	}
 	if conversation.IsConversationInputConflict(err) {
 		writeError(response, http.StatusConflict, "conversation_input_conflict", err.Error())
 		return

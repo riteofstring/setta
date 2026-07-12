@@ -3,6 +3,7 @@ package conversation
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 )
 
@@ -335,6 +336,8 @@ func TestStoreFailsRetriesAndRecoversConversationInputRouting(t *testing.T) {
 	}
 	if _, err := store.RetryConversationInputRouting(
 		context.Background(),
+		"workspace",
+		input.ConversationID,
 		input.ID,
 		"2026-07-12T18:00:05Z",
 	); err != nil {
@@ -423,6 +426,8 @@ func assertNonRetryableRoutingDiscardUnblocksNext(
 	}
 	if _, err := store.RetryConversationInputRouting(
 		context.Background(),
+		"workspace",
+		input.ConversationID,
 		input.ID,
 		"2026-07-12T18:00:13Z",
 	); !IsStateConflict(err) {
@@ -548,6 +553,268 @@ func TestStoreRecoversInFlightConversationInputAfterRestart(t *testing.T) {
 	work := claimConversationRoutingInput(t, reopened, input.ConversationID, "2026-07-12T18:01:01Z")
 	if work.RoutingAttempt != 2 || work.Input.Input.ID != input.ID {
 		t.Fatalf("restarted routing work = %+v", work)
+	}
+}
+
+func TestStoreReservesConversationRouteCommandIdentifiers(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_alpha", "conversation_beta")
+	for index, conversationID := range []string{"conversation_alpha", "conversation_beta"} {
+		input := validConversationInput("input_command_reservation_" + conversationID)
+		input.ConversationID = conversationID
+		input.SubmittedAt = fmt.Sprintf("2026-07-12T18:00:0%dZ", index+1)
+		acceptConversationRoutingInput(t, store, input, input.SubmittedAt)
+		work := claimConversationRoutingInput(
+			t,
+			store,
+			conversationID,
+			fmt.Sprintf("2026-07-12T18:00:0%dZ", index*2+3),
+		)
+		decision, command := validConversationRouteDecisionAndCommand(
+			ConversationRouteDecisionKindSendToParent,
+			input.Text,
+		)
+		commit := validConversationRouteDecisionCommit(
+			"decision_command_reservation_"+conversationID,
+			decision,
+			command,
+		)
+		commit.ConversationID = conversationID
+		commit.InputID = input.ID
+		commit.RoutingAttempt = work.RoutingAttempt
+		commit.DecidedAt = fmt.Sprintf("2026-07-12T18:00:0%dZ", index*2+4)
+		_, err := store.CommitConversationRouteDecision(context.Background(), commit)
+		if index == 0 {
+			if err != nil {
+				t.Fatalf("reserve first command: %v", err)
+			}
+			continue
+		}
+		if !IsStateConflict(err) {
+			t.Fatalf("duplicate command reservation error = %T %v, want state conflict", err, err)
+		}
+		assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
+	}
+}
+
+func TestStoreRejectsConversationRouteCommandsThatCannotExecute(t *testing.T) {
+	t.Run("full queue", func(t *testing.T) {
+		store := newTestStore(t)
+		conversationID := "conversation_full_route_queue"
+		seedConversationInputTargets(t, store, conversationID)
+		seedConversationRouteRunningTurn(t, store, conversationID)
+		seedFullConversationRouteQueue(t, store, conversationID)
+		input := validConversationInput("input_full_route_queue")
+		input.ConversationID = conversationID
+		acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+		work := claimConversationRoutingInput(t, store, conversationID, "2026-07-12T18:00:02Z")
+		decision, command := validConversationRouteDecisionAndCommand(
+			ConversationRouteDecisionKindQueueParentTurn,
+			input.Text,
+		)
+		commit := validConversationRouteDecisionCommit("decision_full_route_queue", decision, command)
+		commit.ConversationID = conversationID
+		commit.InputID = input.ID
+		commit.RoutingAttempt = work.RoutingAttempt
+		commit.DecidedAt = "2026-07-12T18:00:03Z"
+		if _, err := store.CommitConversationRouteDecision(context.Background(), commit); !IsStateConflict(err) {
+			t.Fatalf("full queue decision error = %T %v, want state conflict", err, err)
+		}
+		assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
+	})
+
+	t.Run("occupied side pane", func(t *testing.T) {
+		store := newTestStore(t)
+		conversationID := "conversation_occupied_side_pane"
+		paneID := "pane_occupied_side"
+		seedConversationInputTargets(t, store, conversationID)
+		seedConversationRoutePaneBinding(t, store, conversationID, paneID)
+		seedOpenConversationRouteSide(t, store, conversationID, paneID)
+		input := validConversationInput("input_occupied_side_pane")
+		input.ConversationID = conversationID
+		input.SourcePaneID = &paneID
+		acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+		work := claimConversationRoutingInput(t, store, conversationID, "2026-07-12T18:00:02Z")
+		decision, command := validConversationRouteDecisionAndCommand(
+			ConversationRouteDecisionKindCreateSideConversation,
+			input.Text,
+		)
+		command.CreateSideConversation.ParentPaneID = paneID
+		commit := validConversationRouteDecisionCommit("decision_occupied_side_pane", decision, command)
+		commit.ConversationID = conversationID
+		commit.InputID = input.ID
+		commit.RoutingAttempt = work.RoutingAttempt
+		commit.DecidedAt = "2026-07-12T18:00:03Z"
+		if _, err := store.CommitConversationRouteDecision(context.Background(), commit); !IsStateConflict(err) {
+			t.Fatalf("occupied side pane decision error = %T %v, want state conflict", err, err)
+		}
+		assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
+	})
+}
+
+func TestStoreRejectsMalformedPersistedConversationRouteDecision(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_alpha")
+	input := validConversationInput("input_strict_route_json")
+	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+	work := claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
+	decision, command := validConversationRouteDecisionAndCommand(
+		ConversationRouteDecisionKindSendToParent,
+		input.Text,
+	)
+	commit := validConversationRouteDecisionCommit("decision_strict_route_json", decision, command)
+	commit.InputID = input.ID
+	commit.RoutingAttempt = work.RoutingAttempt
+	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
+		t.Fatalf("commit route decision: %v", err)
+	}
+	if err := store.write(context.Background(), "corrupt route decision", func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE conversation_route_decisions
+SET route_decision_json = json_set(route_decision_json, '$.unexpected', 1)
+WHERE id = ?
+`, commit.ID)
+		return err
+	}); err != nil {
+		t.Fatalf("corrupt route decision: %v", err)
+	}
+	if _, err := store.ReadConversationRouteDecisions(context.Background(), input.ID); !IsCorruptStateError(err) {
+		t.Fatalf("malformed route decision read error = %T %v, want CorruptStateError", err, err)
+	}
+}
+
+func TestStoreRejectsMalformedPersistedConversationInputFailure(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_alpha")
+	input := validConversationInput("input_strict_failure_json")
+	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+	if err := store.write(context.Background(), "corrupt conversation input failure", func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE conversation_inputs
+SET status = 'failed', routing_attempt = 1,
+    failure_json = '{"code":"conversation_input_discarded","message":"discarded","diagnosticReference":""}'
+WHERE id = ?
+`, input.ID)
+		return err
+	}); err != nil {
+		t.Fatalf("corrupt conversation input failure: %v", err)
+	}
+	if _, _, err := store.ReadConversationInput(context.Background(), input.ID); !IsCorruptStateError(err) {
+		t.Fatalf("malformed input failure read error = %T %v, want CorruptStateError", err, err)
+	}
+}
+
+func TestStoreScopesConversationInputRetryInsideMutation(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_alpha")
+	input := validConversationInput("input_scoped_retry")
+	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+	work := claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
+	if err := store.FailConversationInputRouting(context.Background(), ConversationInputRoutingFailure{
+		ConversationID: input.ConversationID,
+		InputID:        input.ID,
+		RoutingAttempt: work.RoutingAttempt,
+		Failure: Failure{
+			Code:      "router_unavailable",
+			Message:   "The router is temporarily unavailable.",
+			Retryable: true,
+		},
+		FailedAt: "2026-07-12T18:00:03Z",
+	}); err != nil {
+		t.Fatalf("fail routing: %v", err)
+	}
+	if _, err := store.RetryConversationInputRouting(
+		context.Background(),
+		"workspace_other",
+		input.ConversationID,
+		input.ID,
+		"2026-07-12T18:00:04Z",
+	); !IsConversationNotFound(err) {
+		t.Fatalf("cross-workspace retry error = %T %v, want conversation not found", err, err)
+	}
+	assertConversationInputStatus(t, store, input.ID, ConversationInputStatusFailed)
+	if _, err := store.RetryConversationInputRouting(
+		context.Background(),
+		"workspace",
+		input.ConversationID,
+		input.ID,
+		"2026-07-12T18:00:02.5Z",
+	); err == nil {
+		t.Fatal("backdated routing retry succeeded")
+	}
+	assertConversationInputStatus(t, store, input.ID, ConversationInputStatusFailed)
+}
+
+func TestStoreRejectsConversationInputRecoveryBeforeRoutingStarted(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_alpha")
+	input := validConversationInput("input_backdated_recovery")
+	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+	claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:03Z")
+	if _, err := store.RecoverConversationInputRouting(
+		context.Background(),
+		"2026-07-12T18:00:02Z",
+	); err == nil {
+		t.Fatal("backdated routing recovery succeeded")
+	}
+	assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
+}
+
+func TestStoreRecoversConversationInputsAcrossBoundedBatches(t *testing.T) {
+	store := newTestStore(t)
+	conversationID := "conversation_batched_recovery"
+	seedConversationInputTargets(t, store, conversationID)
+	inputCount := maxConversationInputRoutingRecoveryBatch + 1
+	if err := store.write(context.Background(), "seed batched conversation input recovery", func(ctx context.Context, tx *sql.Tx) error {
+		for index := 0; index < inputCount; index++ {
+			_, err := tx.ExecContext(ctx, `
+INSERT INTO conversation_inputs (
+  id, conversation_id, input_text, input_modality, requested_mode, status,
+  routing_attempt, routing_started_at, submitted_at, accepted_at
+) VALUES (?, ?, 'recover me', 'text', 'route', 'routing', 1,
+          '2026-07-12T18:00:01Z', '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z')
+`, fmt.Sprintf("input_batched_recovery_%d", index), conversationID)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("seed batched recovery: %v", err)
+	}
+	recovered, err := store.RecoverConversationInputRouting(
+		context.Background(),
+		"2026-07-12T18:00:02Z",
+	)
+	if err != nil || recovered != inputCount {
+		t.Fatalf("batched recovery = %d, %v, want %d", recovered, err, inputCount)
+	}
+	var routing int
+	if err := store.read(context.Background(), "count routing inputs after recovery", func(ctx context.Context, connection *sql.Conn) error {
+		return connection.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM conversation_inputs
+WHERE conversation_id = ? AND status = 'routing'
+`, conversationID).Scan(&routing)
+	}); err != nil {
+		t.Fatalf("count routing inputs: %v", err)
+	}
+	if routing != 0 {
+		t.Fatalf("routing inputs after batched recovery = %d, want 0", routing)
+	}
+	streamID, err := ConversationInputStreamID(conversationID)
+	if err != nil {
+		t.Fatalf("ConversationInputStreamID: %v", err)
+	}
+	events, err := store.ReadCommittedStreamEvents(
+		context.Background(),
+		streamID,
+		0,
+		MaxCommittedEventReadLimit,
+	)
+	if err != nil || len(events) != inputCount {
+		t.Fatalf("batched recovery events = %d, %v, want %d", len(events), err, inputCount)
 	}
 }
 
@@ -753,6 +1020,53 @@ VALUES (?, 'workspace', ?, '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z')
 	})
 	if err != nil {
 		t.Fatalf("seed pane binding: %v", err)
+	}
+}
+
+func seedFullConversationRouteQueue(t *testing.T, store *Store, conversationID string) {
+	t.Helper()
+	err := store.write(context.Background(), "seed full conversation route queue", func(ctx context.Context, tx *sql.Tx) error {
+		for index := 1; index <= MaxSnapshotQueuedTurns; index++ {
+			turnID := fmt.Sprintf("turn_route_queue_%d", index)
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO conversation_turns (
+  id, conversation_id, authored_input_json, delivery, status, accepted_at,
+  requested_role_profile_json
+) VALUES (?, ?, '{"text":"queued"}', ?, ?, '2026-07-12T18:00:00Z', '{}')
+`, turnID, conversationID, TurnDeliveryQueued, TurnStatusQueued); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO conversation_queue(turn_id, conversation_id, ordinal, queued_at)
+VALUES (?, ?, ?, '2026-07-12T18:00:00Z')
+`, turnID, conversationID, index); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("seed full route queue: %v", err)
+	}
+}
+
+func seedOpenConversationRouteSide(t *testing.T, store *Store, conversationID string, paneID string) {
+	t.Helper()
+	err := store.write(context.Background(), "seed open conversation route side", func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO side_conversations (
+  id, parent_conversation_id, parent_pane_id, decision_source,
+  source_provider_thread_id, source_trajectory_sequence, status,
+  resolved_side_agent_invocation_json, created_at, updated_at
+) VALUES (
+  'side_existing', ?, ?, 'explicit', 'provider_parent', 0, 'preparing',
+  '{}', '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z'
+)
+`, conversationID, paneID)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed open route side: %v", err)
 	}
 }
 

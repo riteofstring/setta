@@ -246,6 +246,7 @@ func (store *Store) CommitConversationRouteDecision(
 	if err := commit.Validate(); err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}
+	commit = cloneConversationRouteDecisionCommit(commit)
 
 	var record ConversationRouteDecisionRecord
 	_, err := store.Transact(ctx, "commit conversation route decision", func(transaction *WriteTransaction) error {
@@ -350,6 +351,13 @@ func prepareConversationRouteDecisionCommit(
 			"a clarification reply must resolve one final decision",
 		)
 	}
+	commandKey, err := conversationRouteCommandKey(commit)
+	if err != nil {
+		return conversationInputRecord{}, conversationInputRecord{}, err
+	}
+	if err := requireConversationRouteCommandKeyAbsent(transaction.ctx, transaction.tx, commandKey); err != nil {
+		return conversationInputRecord{}, conversationInputRecord{}, err
+	}
 	if err := validateConversationRouteCommandState(transaction.ctx, transaction.tx, root, commit); err != nil {
 		return conversationInputRecord{}, conversationInputRecord{}, err
 	}
@@ -387,11 +395,16 @@ func insertConversationRouteDecisionRecord(
 		return ConversationRouteDecisionRecord{}, fmt.Errorf("encode conversation route command: %w", err)
 	}
 	record := conversationRouteDecisionRecordFromCommit(commit)
+	commandKey, err := conversationRouteCommandKey(commit)
+	if err != nil {
+		return ConversationRouteDecisionRecord{}, err
+	}
 	if err := transaction.tx.QueryRowContext(transaction.ctx, `
 INSERT INTO conversation_route_decisions (
   id, conversation_id, input_id, clarification_input_id, decision_ordinal,
-  routing_attempt, source, route_decision_json, resulting_command_json, decided_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  routing_attempt, source, route_decision_json, resulting_command_json,
+  resulting_command_key, decided_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING stream_sequence
 `,
 		record.ID,
@@ -403,6 +416,7 @@ RETURNING stream_sequence
 		record.Source,
 		string(decisionJSON),
 		string(commandJSON),
+		commandKey,
 		record.DecidedAt,
 	).Scan(&record.StreamSequence); err != nil {
 		return ConversationRouteDecisionRecord{}, fmt.Errorf("insert conversation route decision %s: %w", record.ID, err)
@@ -424,8 +438,8 @@ func conversationRouteDecisionRecordFromCommit(commit ConversationRouteDecisionC
 		ClarificationInputID: cloneStringPointer(commit.ClarificationInputID),
 		RoutingAttempt:       commit.RoutingAttempt,
 		Source:               commit.Source,
-		Decision:             commit.Decision,
-		ResultingCommand:     commit.ResultingCommand,
+		Decision:             cloneConversationRouteDecision(commit.Decision),
+		ResultingCommand:     cloneConversationRouteCommand(commit.ResultingCommand),
 		DecidedAt:            commit.DecidedAt,
 	}
 }
@@ -706,6 +720,9 @@ func validateQueueParentRouteCommandState(
 	if _, err := readConversationRouteRunningTurnID(ctx, tx, commit.ConversationID); err != nil {
 		return err
 	}
+	if err := requireConversationRouteQueueCapacity(ctx, tx, commit.ConversationID); err != nil {
+		return err
+	}
 	return requireConversationRouteIdentifierAbsent(ctx, tx, "conversation_turns", commit.ResultingCommand.QueueParentTurn.TurnID)
 }
 
@@ -742,6 +759,9 @@ func validateCreateSideConversationRouteCommandState(
 		return stateConflict("conversation input", root.Accepted.Input.ID, "side routing changed the originating pane")
 	}
 	if err := requireConversationRoutePaneBinding(ctx, tx, commit.ConversationID, command.ParentPaneID); err != nil {
+		return err
+	}
+	if err := requireConversationRouteSidePaneAvailable(ctx, tx, commit.ConversationID, command.ParentPaneID); err != nil {
 		return err
 	}
 	return requireConversationRouteIdentifierAbsent(ctx, tx, "side_conversations", command.SideConversationID)

@@ -759,6 +759,10 @@ try {
     alphaRestartSideReloadedSnapshot,
     alphaSideReloadedSnapshot,
   } = sideRestart;
+  assertDiscardedConversationInputRoutingState(
+    await readConversationInputRoutingState(context.client, workspaceId, conversationInputRequest),
+    conversationInputRequest.input,
+  );
 
   await writeJson(join(artifactDir, "summary.json"), {
     alpha,

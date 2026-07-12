@@ -15,6 +15,8 @@ const (
 	ConversationInputRoutingRetriedEventKind   = "conversation.input.routing_retried"
 	ConversationInputRoutingRecoveredEventKind = "conversation.input.routing_recovered"
 	ConversationInputDiscardedEventKind        = "conversation.input.discarded"
+
+	ConversationInputDiscardedFailureCode = "conversation_input_discarded"
 )
 
 type ConversationRouteDecisionKind string
@@ -749,8 +751,18 @@ func validateRoutingConversationInputState(state ConversationInputState) error {
 	if state.Failure != nil {
 		return errors.New("routing conversation input contains a failure")
 	}
-	_, err := validateTimestamp("conversation input routing startedAt", *state.RoutingStartedAt)
-	return err
+	startedAt, err := validateTimestamp("conversation input routing startedAt", *state.RoutingStartedAt)
+	if err != nil {
+		return err
+	}
+	acceptedAt, err := validateTimestamp("conversation input acceptedAt", state.AcceptedAt)
+	if err != nil {
+		return err
+	}
+	if startedAt.Before(acceptedAt) {
+		return errors.New("conversation input routing cannot start before input acceptance")
+	}
+	return nil
 }
 
 func validateRoutedConversationInputState(state ConversationInputState) error {
@@ -775,6 +787,9 @@ func validateFailedConversationInputState(state ConversationInputState) error {
 	}
 	if state.Failure.Retryable && state.RoutingAttempt <= 0 {
 		return errors.New("retryable failed conversation input has no attempt")
+	}
+	if !state.Failure.Retryable && state.Failure.Code != ConversationInputDiscardedFailureCode {
+		return errors.New("non-retryable conversation input failure must be an explicit discard")
 	}
 	return state.Failure.Validate()
 }
@@ -853,6 +868,9 @@ func validateConversationInputRoutingStateDecisionOrdinal(
 	decision ConversationRouteDecisionRecord,
 	index int,
 ) error {
+	if index > 0 && decision.StreamSequence <= state.Decisions[index-1].StreamSequence {
+		return errors.New("conversation input routing decisions are not in stream order")
+	}
 	if index == 0 {
 		return validateInitialConversationInputRoutingStateDecision(state, decision)
 	}
@@ -865,6 +883,9 @@ func validateInitialConversationInputRoutingStateDecision(
 ) error {
 	if decision.ClarificationInputID != nil {
 		return errors.New("conversation input routing state initial decision names a clarification reply")
+	}
+	if decision.RoutingAttempt != state.Input.RoutingAttempt {
+		return errors.New("conversation input routing state initial decision has the wrong routing attempt")
 	}
 	if len(state.Decisions) == 2 && decision.Decision.Kind != ConversationRouteDecisionKindClarify {
 		return errors.New("conversation input routing state final decision has no prior clarification")
@@ -885,94 +906,11 @@ func validateFinalConversationInputRoutingStateDecision(
 	if *decision.ClarificationInputID != state.ClarificationReply.Input.ID {
 		return errors.New("conversation input routing state final decision names another reply")
 	}
+	if decision.RoutingAttempt != state.ClarificationReply.RoutingAttempt {
+		return errors.New("conversation input routing state final decision has the wrong routing attempt")
+	}
 	if decision.Decision.Kind == ConversationRouteDecisionKindClarify {
 		return errors.New("conversation input routing state final decision asks another clarification")
-	}
-	return nil
-}
-
-func validateConversationInputRoutingStateLifecycle(state ConversationInputRoutingState) error {
-	switch state.Input.Status {
-	case ConversationInputStatusAccepted, ConversationInputStatusRouting:
-		return validatePendingConversationInputRoutingState(state)
-	case ConversationInputStatusFailed:
-		return validateFailedConversationInputRoutingState(state)
-	case ConversationInputStatusAwaitingClarification:
-		return validateAwaitingConversationInputRoutingState(state)
-	case ConversationInputStatusDispatched:
-		return validateDispatchedConversationInputRoutingState(state)
-	}
-	return nil
-}
-
-func validatePendingConversationInputRoutingState(state ConversationInputRoutingState) error {
-	if len(state.Decisions) != 0 {
-		return errors.New("pending conversation input contains a committed route decision")
-	}
-	if state.ClarificationReply != nil {
-		return errors.New("pending conversation input contains a clarification reply")
-	}
-	return nil
-}
-
-func validateFailedConversationInputRoutingState(state ConversationInputRoutingState) error {
-	if state.Input.Failure == nil {
-		return errors.New("failed conversation input routing state requires a failure")
-	}
-	if state.Input.Failure.Retryable {
-		return validatePendingConversationInputRoutingState(state)
-	}
-	if err := validateDiscardedConversationInputRoutingDecisions(state); err != nil {
-		return err
-	}
-	return validateDiscardedConversationInputRoutingReply(state.ClarificationReply)
-}
-
-func validateDiscardedConversationInputRoutingDecisions(state ConversationInputRoutingState) error {
-	if len(state.Decisions) > 1 {
-		return errors.New("discarded conversation input contains multiple route decisions")
-	}
-	if len(state.Decisions) == 1 && state.Decisions[0].Decision.Kind != ConversationRouteDecisionKindClarify {
-		return errors.New("discarded conversation input contains a final route decision")
-	}
-	return nil
-}
-
-func validateDiscardedConversationInputRoutingReply(reply *ConversationInputState) error {
-	if reply == nil {
-		return nil
-	}
-	if reply.Status != ConversationInputStatusFailed {
-		return errors.New("discarded clarification exchange contains a pending reply")
-	}
-	if reply.Failure == nil {
-		return errors.New("discarded clarification reply has no failure")
-	}
-	if reply.Failure.Retryable {
-		return errors.New("discarded clarification reply is retryable")
-	}
-	return nil
-}
-
-func validateAwaitingConversationInputRoutingState(state ConversationInputRoutingState) error {
-	if len(state.Decisions) != 1 {
-		return errors.New("conversation input awaiting clarification requires one decision")
-	}
-	if state.Decisions[0].Decision.Kind != ConversationRouteDecisionKindClarify {
-		return errors.New("conversation input awaiting clarification requires a clarification decision")
-	}
-	return nil
-}
-
-func validateDispatchedConversationInputRoutingState(state ConversationInputRoutingState) error {
-	if len(state.Decisions) == 0 {
-		return errors.New("dispatched conversation input requires a route decision")
-	}
-	if state.Decisions[len(state.Decisions)-1].Decision.Kind == ConversationRouteDecisionKindClarify {
-		return errors.New("dispatched conversation input requires a final route decision")
-	}
-	if state.ClarificationReply != nil && state.ClarificationReply.Status != ConversationInputStatusDispatched {
-		return errors.New("dispatched clarification exchange contains a pending reply")
 	}
 	return nil
 }

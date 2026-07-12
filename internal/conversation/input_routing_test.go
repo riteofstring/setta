@@ -87,6 +87,66 @@ func TestConversationRouteDecisionJSONContainsNoProviderPaneOrGlobalAuthority(t 
 	}
 }
 
+func TestConversationInputRoutingStateRejectsImpossibleLifecycleCombinations(t *testing.T) {
+	input := ConversationInput{
+		ID:             "input_lifecycle",
+		ConversationID: "conversation_alpha",
+		Text:           "Route this request.",
+		Modality:       ConversationInputModalityText,
+		RequestedMode:  ConversationInputModeRoute,
+		SubmittedAt:    "2026-07-13T18:00:00Z",
+	}
+	decision, command := validConversationRouteDecisionAndCommand(
+		ConversationRouteDecisionKindSendToParent,
+		input.Text,
+	)
+	commit := validConversationRouteDecisionCommit("decision_lifecycle", decision, command)
+	commit.InputID = input.ID
+	record := conversationRouteDecisionRecordFromCommit(commit)
+	record.StreamSequence = 1
+
+	wrongAttempt := ConversationInputRoutingState{
+		Input: ConversationInputState{
+			Sequence:       1,
+			Input:          input,
+			Status:         ConversationInputStatusDispatched,
+			AcceptedAt:     "2026-07-13T18:00:01Z",
+			RoutingAttempt: 2,
+		},
+		Decisions: []ConversationRouteDecisionRecord{record},
+	}
+	assertValidationErrorContains(t, wrongAttempt.Validate(), "wrong routing attempt")
+
+	backdatedRouting := ConversationInputState{
+		Sequence:         1,
+		Input:            input,
+		Status:           ConversationInputStatusRouting,
+		AcceptedAt:       "2026-07-13T18:00:02Z",
+		RoutingAttempt:   1,
+		RoutingStartedAt: stringPointer("2026-07-13T18:00:01Z"),
+	}
+	assertValidationErrorContains(t, backdatedRouting.Validate(), "before input acceptance")
+
+	record.RoutingAttempt = 2
+	replyInput := input
+	replyInput.ID = "input_lifecycle_reply"
+	replyInput.ReplyToInputID = &input.ID
+	resolvedReplyWithoutClarification := wrongAttempt
+	resolvedReplyWithoutClarification.Decisions = []ConversationRouteDecisionRecord{record}
+	resolvedReplyWithoutClarification.ClarificationReply = &ConversationInputState{
+		Sequence:       2,
+		Input:          replyInput,
+		Status:         ConversationInputStatusDispatched,
+		AcceptedAt:     "2026-07-13T18:00:03Z",
+		RoutingAttempt: 1,
+	}
+	assertValidationErrorContains(
+		t,
+		resolvedReplyWithoutClarification.Validate(),
+		"requires two decisions",
+	)
+}
+
 func validConversationRouteDecisionAndCommand(
 	kind ConversationRouteDecisionKind,
 	text string,

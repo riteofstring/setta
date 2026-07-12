@@ -1,11 +1,15 @@
 package conversation
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
+	"setta/internal/jsonio"
 )
 
 func (store *Store) AcceptConversationInput(
@@ -304,8 +308,8 @@ WHERE id = ?
 	record.Accepted.Input.ReplyToInputID = optionalScannedString(replyToInputID)
 	record.RoutingStartedAt = optionalScannedString(routingStartedAt)
 	if failureJSON.Valid {
-		var failure Failure
-		if err := json.Unmarshal([]byte(failureJSON.String), &failure); err != nil {
+		failure, err := decodeConversationInputFailure(failureJSON.String)
+		if err != nil {
 			return conversationInputRecord{}, false, &CorruptStateError{
 				Path: dbPath,
 				Err:  fmt.Errorf("decode conversation input %s failure: %w", inputID, err),
@@ -320,6 +324,30 @@ WHERE id = ?
 		}
 	}
 	return record, true, nil
+}
+
+func decodeConversationInputFailure(encoded string) (Failure, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(encoded), &fields); err != nil {
+		return Failure{}, err
+	}
+	if fields == nil {
+		return Failure{}, errors.New("conversation input failure must be an object")
+	}
+	for _, field := range []string{"code", "message", "retryable", "diagnosticReference"} {
+		value, found := fields[field]
+		if !found {
+			return Failure{}, fmt.Errorf("conversation input failure is missing field %s", field)
+		}
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return Failure{}, fmt.Errorf("conversation input failure field %s must not be null", field)
+		}
+	}
+	var failure Failure
+	if err := jsonio.DecodeSingle(strings.NewReader(encoded), &failure); err != nil {
+		return Failure{}, err
+	}
+	return failure, nil
 }
 
 func validateConversationInputRecord(record conversationInputRecord) error {

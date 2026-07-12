@@ -60,6 +60,7 @@ CREATE TABLE conversation_route_decisions (
   source TEXT NOT NULL CHECK (source IN ('conversation_router', 'explicit')),
   route_decision_json TEXT NOT NULL CHECK (json_valid(route_decision_json)),
   resulting_command_json TEXT NOT NULL CHECK (json_valid(resulting_command_json)),
+  resulting_command_key TEXT NOT NULL UNIQUE,
   decided_at TEXT NOT NULL,
   UNIQUE(conversation_id, input_id, decision_ordinal),
   UNIQUE(conversation_id, clarification_input_id),

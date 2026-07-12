@@ -200,9 +200,13 @@ func (store *recordingConversationInputStore) ReadConversationInputRoutingState(
 
 func (store *recordingConversationInputStore) RetryConversationInputRouting(
 	_ context.Context,
+	workspaceID string,
+	conversationID string,
 	inputID string,
 	retriedAt string,
 ) (AcceptedConversationInput, error) {
+	store.workspaceID = workspaceID
+	store.conversationID = conversationID
 	store.inputID = inputID
 	store.retriedAt = retriedAt
 	if store.err != nil {

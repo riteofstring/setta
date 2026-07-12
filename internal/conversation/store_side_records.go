@@ -7,6 +7,33 @@ import (
 	"fmt"
 )
 
+type sideConversationQuery interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func readOpenSideConversationForPane(
+	ctx context.Context,
+	query sideConversationQuery,
+	parentConversationID string,
+	parentPaneID string,
+) (bool, error) {
+	var exists bool
+	err := query.QueryRowContext(ctx, `
+SELECT EXISTS(
+  SELECT 1
+  FROM side_conversations
+  WHERE parent_conversation_id = ?
+    AND parent_pane_id = ?
+    AND disposed_at IS NULL
+    AND (
+      status IN ('preparing', 'active', 'disposing')
+      OR (status = 'failed' AND provider_thread_id IS NOT NULL)
+    )
+)
+`, parentConversationID, parentPaneID).Scan(&exists)
+	return exists, err
+}
+
 func (store *Store) readSideConversation(
 	ctx context.Context,
 	parentConversationID string,

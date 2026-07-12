@@ -11,7 +11,7 @@ type ConversationInputStore interface {
 	AcceptConversationInput(context.Context, ConversationInput, string) (AcceptedConversationInput, error)
 	DiscardConversationInputRouting(context.Context, string, string, string, string) error
 	ReadConversationInputRoutingState(context.Context, string, string, string) (ConversationInputRoutingState, error)
-	RetryConversationInputRouting(context.Context, string, string) (AcceptedConversationInput, error)
+	RetryConversationInputRouting(context.Context, string, string, string, string) (AcceptedConversationInput, error)
 }
 
 type InputService struct {
@@ -119,11 +119,14 @@ func (service *InputService) RetryInput(
 	if ctx == nil {
 		return ConversationInputRoutingState{}, errors.New("conversation input retry context is required")
 	}
-	if _, err := service.store.ReadConversationInputRoutingState(ctx, workspaceID, conversationID, inputID); err != nil {
-		return ConversationInputRoutingState{}, err
-	}
 	retriedAt := service.now().UTC().Format(time.RFC3339Nano)
-	if _, err := service.store.RetryConversationInputRouting(ctx, inputID, retriedAt); err != nil {
+	if _, err := service.store.RetryConversationInputRouting(
+		ctx,
+		workspaceID,
+		conversationID,
+		inputID,
+		retriedAt,
+	); err != nil {
 		return ConversationInputRoutingState{}, err
 	}
 	return service.ReadInputState(ctx, workspaceID, conversationID, inputID)

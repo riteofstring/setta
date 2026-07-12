@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
+
+	"setta/internal/jsonio"
 )
 
 func (store *Store) ReadConversationRouteDecisions(
@@ -58,7 +61,12 @@ func (store *Store) ReadConversationInputRoutingState(
 	}
 
 	var state ConversationInputRoutingState
-	err := store.read(ctx, "read conversation input routing state", func(ctx context.Context, reader *sql.Conn) error {
+	err := store.read(ctx, "read conversation input routing state", func(ctx context.Context, connection *sql.Conn) error {
+		reader, err := connection.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+		if err != nil {
+			return err
+		}
+		defer func() { _ = reader.Rollback() }()
 		var readErr error
 		state, readErr = readConversationInputRoutingState(
 			ctx,
@@ -68,7 +76,10 @@ func (store *Store) ReadConversationInputRoutingState(
 			conversationID,
 			inputID,
 		)
-		return readErr
+		if readErr != nil {
+			return readErr
+		}
+		return reader.Commit()
 	})
 	if err != nil {
 		return ConversationInputRoutingState{}, err
@@ -78,7 +89,7 @@ func (store *Store) ReadConversationInputRoutingState(
 
 func readConversationInputRoutingState(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader snapshotReader,
 	dbPath string,
 	workspaceID string,
 	conversationID string,
@@ -106,7 +117,7 @@ func readConversationInputRoutingState(
 
 func readConversationInputRoutingStateRoot(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader snapshotReader,
 	dbPath string,
 	conversationID string,
 	inputID string,
@@ -133,7 +144,7 @@ func readConversationInputRoutingStateRoot(
 
 func composeConversationInputRoutingState(
 	ctx context.Context,
-	reader *sql.Conn,
+	reader snapshotReader,
 	dbPath string,
 	conversationID string,
 	root conversationInputRecord,
@@ -175,7 +186,8 @@ func readConversationRouteDecisionRows(
 ) ([]ConversationRouteDecisionRecord, error) {
 	rows, err := query.QueryContext(ctx, `
 SELECT stream_sequence, id, conversation_id, input_id, clarification_input_id,
-       routing_attempt, source, route_decision_json, resulting_command_json, decided_at
+       routing_attempt, source, route_decision_json, resulting_command_json,
+       resulting_command_key, decided_at
 FROM conversation_route_decisions
 WHERE input_id = ?
 ORDER BY stream_sequence
@@ -212,7 +224,8 @@ func readConversationRouteDecisionOrdinal(
 ) (ConversationRouteDecisionRecord, bool, error) {
 	row := query.QueryRowContext(ctx, `
 SELECT stream_sequence, id, conversation_id, input_id, clarification_input_id,
-       routing_attempt, source, route_decision_json, resulting_command_json, decided_at
+       routing_attempt, source, route_decision_json, resulting_command_json,
+       resulting_command_key, decided_at
 FROM conversation_route_decisions
 WHERE conversation_id = ? AND input_id = ? AND decision_ordinal = ?
 `, conversationID, inputID, ordinal)
@@ -231,7 +244,8 @@ func readConversationRouteDecisionID(
 ) (ConversationRouteDecisionRecord, bool, error) {
 	row := query.QueryRowContext(ctx, `
 SELECT stream_sequence, id, conversation_id, input_id, clarification_input_id,
-       routing_attempt, source, route_decision_json, resulting_command_json, decided_at
+       routing_attempt, source, route_decision_json, resulting_command_json,
+       resulting_command_key, decided_at
 FROM conversation_route_decisions
 WHERE id = ?
 `, decisionID)
@@ -265,6 +279,7 @@ func scanConversationRouteDecision(
 	var clarificationInputID sql.NullString
 	var decisionJSON string
 	var commandJSON string
+	var commandKey string
 	if err := scanner.Scan(
 		&record.StreamSequence,
 		&record.ID,
@@ -275,21 +290,61 @@ func scanConversationRouteDecision(
 		&record.Source,
 		&decisionJSON,
 		&commandJSON,
+		&commandKey,
 		&record.DecidedAt,
 	); err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}
 	record.ClarificationInputID = optionalScannedString(clarificationInputID)
-	if err := json.Unmarshal([]byte(decisionJSON), &record.Decision); err != nil {
+	if err := decodeConversationRouteJSON(decisionJSON, &record.Decision); err != nil {
 		return ConversationRouteDecisionRecord{}, &CorruptStateError{Path: dbPath, Err: fmt.Errorf("decode conversation route decision %s: %w", record.ID, err)}
 	}
-	if err := json.Unmarshal([]byte(commandJSON), &record.ResultingCommand); err != nil {
+	if err := decodeConversationRouteJSON(commandJSON, &record.ResultingCommand); err != nil {
 		return ConversationRouteDecisionRecord{}, &CorruptStateError{Path: dbPath, Err: fmt.Errorf("decode conversation route command %s: %w", record.ID, err)}
 	}
 	if err := record.Validate(); err != nil {
 		return ConversationRouteDecisionRecord{}, &CorruptStateError{Path: dbPath, Err: fmt.Errorf("validate conversation route decision %s: %w", record.ID, err)}
 	}
+	expectedCommandKey, err := conversationRouteCommandKey(ConversationRouteDecisionCommit{
+		ID:               record.ID,
+		ResultingCommand: record.ResultingCommand,
+	})
+	if err != nil {
+		return ConversationRouteDecisionRecord{}, &CorruptStateError{Path: dbPath, Err: fmt.Errorf("validate conversation route command key %s: %w", record.ID, err)}
+	}
+	if commandKey != expectedCommandKey {
+		return ConversationRouteDecisionRecord{}, &CorruptStateError{
+			Path: dbPath,
+			Err:  fmt.Errorf("conversation route decision %s command key does not match its command", record.ID),
+		}
+	}
 	return record, nil
+}
+
+func decodeConversationRouteJSON(encoded string, target any) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(encoded), &fields); err != nil {
+		return err
+	}
+	if fields == nil {
+		return errors.New("conversation route JSON must be an object")
+	}
+	for _, field := range []string{
+		"kind",
+		"sendToParent",
+		"queueParentTurn",
+		"steerParentTurn",
+		"answerAsNarrator",
+		"createSideConversation",
+		"forkConversation",
+		"escalateToMaster",
+		"clarify",
+	} {
+		if _, found := fields[field]; !found {
+			return fmt.Errorf("conversation route JSON is missing field %s", field)
+		}
+	}
+	return jsonio.DecodeSingle(strings.NewReader(encoded), target)
 }
 
 func readOldestPendingConversationInput(
@@ -307,11 +362,17 @@ WHERE conversation_id = ?
   AND status <> ?
   AND NOT (
     status = ?
-    AND json_extract(failure_json, '$.retryable') = 0
+    AND COALESCE(json_extract(failure_json, '$.retryable'), 1) = 0
+    AND COALESCE(json_extract(failure_json, '$.code'), '') = ?
   )
 ORDER BY sequence
 LIMIT 1
-`, conversationID, ConversationInputStatusDispatched, ConversationInputStatusFailed).Scan(&inputID)
+`,
+		conversationID,
+		ConversationInputStatusDispatched,
+		ConversationInputStatusFailed,
+		ConversationInputDiscardedFailureCode,
+	).Scan(&inputID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return conversationInputRecord{}, false, nil
 	}
@@ -390,6 +451,25 @@ WHERE conversation_id = ? AND status = ?
 	return turnID, nil
 }
 
+func requireConversationRouteQueueCapacity(ctx context.Context, tx *sql.Tx, conversationID string) error {
+	var queued int
+	if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM conversation_queue
+WHERE conversation_id = ?
+`, conversationID).Scan(&queued); err != nil {
+		return fmt.Errorf("read conversation route queue capacity: %w", err)
+	}
+	if queued >= MaxSnapshotQueuedTurns {
+		return stateConflict(
+			"conversation",
+			conversationID,
+			fmt.Sprintf("queue is limited to %d turns", MaxSnapshotQueuedTurns),
+		)
+	}
+	return nil
+}
+
 func requireConversationRouteCompletedTurn(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -438,6 +518,22 @@ WHERE pane_id = ?
 	return nil
 }
 
+func requireConversationRouteSidePaneAvailable(
+	ctx context.Context,
+	tx *sql.Tx,
+	conversationID string,
+	paneID string,
+) error {
+	exists, err := readOpenSideConversationForPane(ctx, tx, conversationID, paneID)
+	if err != nil {
+		return fmt.Errorf("read conversation route side pane state: %w", err)
+	}
+	if exists {
+		return stateConflict("conversation pane", paneID, "originating pane already has an open side conversation")
+	}
+	return nil
+}
+
 func requireConversationRouteIdentifierAbsent(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -462,6 +558,26 @@ func requireConversationRouteIdentifierAbsent(
 		return fmt.Errorf("inspect conversation route command id %s: %w", id, err)
 	}
 	return stateConflict("conversation route command", id, "command id already exists")
+}
+
+func requireConversationRouteCommandKeyAbsent(
+	ctx context.Context,
+	tx *sql.Tx,
+	commandKey string,
+) error {
+	var decisionID string
+	err := tx.QueryRowContext(ctx, `
+SELECT id
+FROM conversation_route_decisions
+WHERE resulting_command_key = ?
+`, commandKey).Scan(&decisionID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect conversation route command key %s: %w", commandKey, err)
+	}
+	return stateConflict("conversation route command", commandKey, "command was already reserved by decision "+decisionID)
 }
 
 func requireConversationInputRoutingOwner(

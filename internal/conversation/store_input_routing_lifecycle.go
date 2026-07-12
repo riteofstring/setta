@@ -2,10 +2,13 @@ package conversation
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 )
+
+const maxConversationInputRoutingRecoveryBatch = 128
 
 func (store *Store) FailConversationInputRouting(
 	ctx context.Context,
@@ -138,6 +141,8 @@ WHERE id = ? AND conversation_id = ? AND status = ? AND routing_attempt = ?
 
 func (store *Store) RetryConversationInputRouting(
 	ctx context.Context,
+	workspaceID string,
+	conversationID string,
 	inputID string,
 	retriedAt string,
 ) (AcceptedConversationInput, error) {
@@ -146,6 +151,12 @@ func (store *Store) RetryConversationInputRouting(
 	}
 	if ctx == nil {
 		return AcceptedConversationInput{}, errors.New("conversation input routing retry context is required")
+	}
+	if err := validateConversationInputReference("conversation input retry workspace id", workspaceID); err != nil {
+		return AcceptedConversationInput{}, err
+	}
+	if err := validateConversationInputReference("conversation input retry conversation id", conversationID); err != nil {
+		return AcceptedConversationInput{}, err
 	}
 	if err := ValidateConversationInputID(inputID); err != nil {
 		return AcceptedConversationInput{}, err
@@ -156,7 +167,14 @@ func (store *Store) RetryConversationInputRouting(
 	var accepted AcceptedConversationInput
 	_, err := store.Transact(ctx, "retry conversation input routing", func(transaction *WriteTransaction) error {
 		var retryErr error
-		accepted, retryErr = retryConversationInputRoutingTransaction(transaction, store.dbPath, inputID, retriedAt)
+		accepted, retryErr = retryConversationInputRoutingTransaction(
+			transaction,
+			store.dbPath,
+			workspaceID,
+			conversationID,
+			inputID,
+			retriedAt,
+		)
 		return retryErr
 	})
 	if err != nil {
@@ -168,29 +186,39 @@ func (store *Store) RetryConversationInputRouting(
 func retryConversationInputRoutingTransaction(
 	transaction *WriteTransaction,
 	dbPath string,
+	workspaceID string,
+	conversationID string,
 	inputID string,
 	retriedAt string,
 ) (AcceptedConversationInput, error) {
-	record, found, err := readConversationInputRecord(transaction.ctx, transaction.tx, inputID, dbPath)
+	if err := requireConversationInputRoutingOwner(
+		transaction.ctx,
+		transaction.tx,
+		workspaceID,
+		conversationID,
+	); err != nil {
+		return AcceptedConversationInput{}, err
+	}
+	record, err := readRetryableConversationInput(
+		transaction,
+		dbPath,
+		conversationID,
+		inputID,
+	)
 	if err != nil {
 		return AcceptedConversationInput{}, err
 	}
-	if !found {
-		return AcceptedConversationInput{}, stateConflict("conversation input", inputID, "failed input was not found")
-	}
-	if record.Accepted.Status != ConversationInputStatusFailed || record.Failure == nil {
-		return AcceptedConversationInput{}, stateConflict("conversation input", inputID, "input is not failed")
-	}
-	if !record.Failure.Retryable {
-		return AcceptedConversationInput{}, stateConflict("conversation input", inputID, "failure is not retryable")
+	if err := validateConversationInputRoutingRetryTime(transaction, dbPath, record, retriedAt); err != nil {
+		return AcceptedConversationInput{}, err
 	}
 	result, err := transaction.tx.ExecContext(transaction.ctx, `
 UPDATE conversation_inputs
 SET status = ?, routing_started_at = NULL, failure_json = NULL
-WHERE id = ? AND status = ? AND routing_attempt = ?
+WHERE id = ? AND conversation_id = ? AND status = ? AND routing_attempt = ?
 `,
 		ConversationInputStatusAccepted,
 		inputID,
+		conversationID,
 		ConversationInputStatusFailed,
 		record.RoutingAttempt,
 	)
@@ -222,6 +250,68 @@ WHERE id = ? AND status = ? AND routing_attempt = ?
 		return AcceptedConversationInput{}, err
 	}
 	return retried, nil
+}
+
+func readRetryableConversationInput(
+	transaction *WriteTransaction,
+	dbPath string,
+	conversationID string,
+	inputID string,
+) (conversationInputRecord, error) {
+	record, found, err := readConversationInputRecord(transaction.ctx, transaction.tx, inputID, dbPath)
+	if err != nil {
+		return conversationInputRecord{}, err
+	}
+	if !found || record.Accepted.Input.ConversationID != conversationID {
+		return conversationInputRecord{}, stateConflict("conversation input", inputID, "failed input was not found in the requested conversation")
+	}
+	if record.Accepted.Status != ConversationInputStatusFailed || record.Failure == nil {
+		return conversationInputRecord{}, stateConflict("conversation input", inputID, "input is not failed")
+	}
+	if !record.Failure.Retryable {
+		return conversationInputRecord{}, stateConflict("conversation input", inputID, "failure is not retryable")
+	}
+	return record, nil
+}
+
+func validateConversationInputRoutingRetryTime(
+	transaction *WriteTransaction,
+	dbPath string,
+	record conversationInputRecord,
+	retriedAt string,
+) error {
+	var failedAt string
+	eventID := conversationInputRoutingEventID(
+		"failed",
+		record.Accepted.Input.ID,
+		record.RoutingAttempt,
+	)
+	err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT committed_at
+FROM committed_events
+WHERE id = ?
+`, eventID).Scan(&failedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return &CorruptStateError{
+			Path: dbPath,
+			Err:  fmt.Errorf("conversation input %s failure event is missing", record.Accepted.Input.ID),
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("read conversation input routing failure time: %w", err)
+	}
+	retried, err := validateTimestamp("conversation input routing retriedAt", retriedAt)
+	if err != nil {
+		return err
+	}
+	failed, err := validateTimestamp("conversation input routing failedAt", failedAt)
+	if err != nil {
+		return &CorruptStateError{Path: dbPath, Err: err}
+	}
+	if retried.Before(failed) {
+		return errors.New("conversation input routing retry cannot precede its failure")
+	}
+	return nil
 }
 
 func (store *Store) DiscardConversationInputRouting(
@@ -362,7 +452,7 @@ func resolveConversationInputDiscardRoot(
 
 func conversationInputRoutingWasDiscarded(record conversationInputRecord) bool {
 	return record.Accepted.Status == ConversationInputStatusFailed && record.Failure != nil &&
-		!record.Failure.Retryable && record.Failure.Code == "conversation_input_discarded"
+		!record.Failure.Retryable && record.Failure.Code == ConversationInputDiscardedFailureCode
 }
 
 func validateConversationInputDiscardStatus(record conversationInputRecord) error {
@@ -378,7 +468,7 @@ func validateConversationInputDiscardStatus(record conversationInputRecord) erro
 
 func conversationInputDiscardFailureJSON() (string, error) {
 	payload, err := json.Marshal(Failure{
-		Code:      "conversation_input_discarded",
+		Code:      ConversationInputDiscardedFailureCode,
 		Message:   "The conversation input was discarded.",
 		Retryable: false,
 	})
@@ -445,16 +535,25 @@ func (store *Store) RecoverConversationInputRouting(
 	if _, err := validateTimestamp("conversation input routing recoveredAt", recoveredAt); err != nil {
 		return 0, err
 	}
-	var recovered int
-	_, err := store.Transact(ctx, "recover conversation input routing", func(transaction *WriteTransaction) error {
-		var recoveryErr error
-		recovered, recoveryErr = recoverConversationInputRoutingTransaction(transaction, store.dbPath, recoveredAt)
-		return recoveryErr
-	})
-	if errors.Is(err, errNoConversationInputRoutingWork) {
-		return 0, nil
+	totalRecovered := 0
+	for {
+		recovered := 0
+		_, err := store.Transact(ctx, "recover conversation input routing", func(transaction *WriteTransaction) error {
+			var recoveryErr error
+			recovered, recoveryErr = recoverConversationInputRoutingTransaction(transaction, store.dbPath, recoveredAt)
+			return recoveryErr
+		})
+		if errors.Is(err, errNoConversationInputRoutingWork) {
+			return totalRecovered, nil
+		}
+		if err != nil {
+			return totalRecovered, err
+		}
+		totalRecovered += recovered
+		if recovered < maxConversationInputRoutingRecoveryBatch {
+			return totalRecovered, nil
+		}
 	}
-	return recovered, err
 }
 
 func recoverConversationInputRoutingTransaction(
@@ -483,7 +582,8 @@ SELECT id
 FROM conversation_inputs
 WHERE status = ?
 ORDER BY sequence
-`, ConversationInputStatusRouting)
+LIMIT ?
+`, ConversationInputStatusRouting, maxConversationInputRoutingRecoveryBatch)
 	if err != nil {
 		return nil, fmt.Errorf("list conversation input routing recovery: %w", err)
 	}
@@ -517,6 +617,17 @@ func recoverOneConversationInputRouting(
 	}
 	if !found || record.Accepted.Status != ConversationInputStatusRouting {
 		return stateConflict("conversation input", inputID, "routing recovery target changed")
+	}
+	recovered, err := validateTimestamp("conversation input routing recoveredAt", recoveredAt)
+	if err != nil {
+		return err
+	}
+	started, err := validateTimestamp("conversation input routing startedAt", *record.RoutingStartedAt)
+	if err != nil {
+		return err
+	}
+	if recovered.Before(started) {
+		return errors.New("conversation input routing recovery cannot precede its attempt")
 	}
 	result, err := transaction.tx.ExecContext(transaction.ctx, `
 UPDATE conversation_inputs

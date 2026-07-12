@@ -192,19 +192,14 @@ func (store *Store) hasOpenSideConversationForPane(
 ) (bool, error) {
 	var exists bool
 	err := store.read(ctx, "read open side conversation for pane", func(ctx context.Context, connection *sql.Conn) error {
-		return connection.QueryRowContext(ctx, `
-SELECT EXISTS(
-  SELECT 1
-  FROM side_conversations
-  WHERE parent_conversation_id = ?
-    AND parent_pane_id = ?
-    AND disposed_at IS NULL
-    AND (
-      status IN ('preparing', 'active', 'disposing')
-      OR (status = 'failed' AND provider_thread_id IS NOT NULL)
-    )
-)
-`, parentConversationID, parentPaneID).Scan(&exists)
+		var readErr error
+		exists, readErr = readOpenSideConversationForPane(
+			ctx,
+			connection,
+			parentConversationID,
+			parentPaneID,
+		)
+		return readErr
 	})
 	return exists, err
 }

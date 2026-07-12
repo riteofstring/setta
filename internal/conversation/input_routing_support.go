@@ -64,9 +64,73 @@ func validConversationRouteDecisionSource(source ConversationRouteDecisionSource
 	}
 }
 
+func conversationRouteCommandKey(commit ConversationRouteDecisionCommit) (string, error) {
+	switch commit.ResultingCommand.Kind {
+	case ConversationRouteDecisionKindSendToParent:
+		return "conversation_turn:" + commit.ResultingCommand.SendToParent.TurnID, nil
+	case ConversationRouteDecisionKindQueueParentTurn:
+		return "conversation_turn:" + commit.ResultingCommand.QueueParentTurn.TurnID, nil
+	case ConversationRouteDecisionKindSteerParentTurn:
+		return "conversation_steering:" + commit.ID, nil
+	case ConversationRouteDecisionKindAnswerAsNarrator:
+		return "narrator_request:" + commit.ResultingCommand.AnswerAsNarrator.RequestID, nil
+	case ConversationRouteDecisionKindCreateSideConversation:
+		return "side_conversation:" + commit.ResultingCommand.CreateSideConversation.SideConversationID, nil
+	case ConversationRouteDecisionKindForkConversation:
+		return "topic_conversation:" + commit.ResultingCommand.ForkConversation.ChildConversationID, nil
+	case ConversationRouteDecisionKindEscalateToMaster:
+		return "master_input:" + commit.ResultingCommand.EscalateToMaster.MasterInputID, nil
+	case ConversationRouteDecisionKindClarify:
+		return "conversation_clarification:" + commit.ID, nil
+	default:
+		return "", fmt.Errorf("unsupported conversation route command kind %q", commit.ResultingCommand.Kind)
+	}
+}
+
 func cloneConversationRouteDecisionRecord(record ConversationRouteDecisionRecord) ConversationRouteDecisionRecord {
 	record.ClarificationInputID = cloneStringPointer(record.ClarificationInputID)
+	record.Decision = cloneConversationRouteDecision(record.Decision)
+	record.ResultingCommand = cloneConversationRouteCommand(record.ResultingCommand)
 	return record
+}
+
+func cloneConversationRouteDecision(decision ConversationRouteDecision) ConversationRouteDecision {
+	decision.SendToParent = cloneConversationRoutePayload(decision.SendToParent)
+	decision.QueueParentTurn = cloneConversationRoutePayload(decision.QueueParentTurn)
+	decision.SteerParentTurn = cloneConversationRoutePayload(decision.SteerParentTurn)
+	decision.AnswerAsNarrator = cloneConversationRoutePayload(decision.AnswerAsNarrator)
+	decision.CreateSideConversation = cloneConversationRoutePayload(decision.CreateSideConversation)
+	decision.ForkConversation = cloneConversationRoutePayload(decision.ForkConversation)
+	decision.EscalateToMaster = cloneConversationRoutePayload(decision.EscalateToMaster)
+	decision.Clarify = cloneConversationRoutePayload(decision.Clarify)
+	return decision
+}
+
+func cloneConversationRouteCommand(command ConversationRouteCommand) ConversationRouteCommand {
+	command.SendToParent = cloneConversationRoutePayload(command.SendToParent)
+	command.QueueParentTurn = cloneConversationRoutePayload(command.QueueParentTurn)
+	command.SteerParentTurn = cloneConversationRoutePayload(command.SteerParentTurn)
+	command.AnswerAsNarrator = cloneConversationRoutePayload(command.AnswerAsNarrator)
+	command.CreateSideConversation = cloneConversationRoutePayload(command.CreateSideConversation)
+	command.ForkConversation = cloneConversationRoutePayload(command.ForkConversation)
+	command.EscalateToMaster = cloneConversationRoutePayload(command.EscalateToMaster)
+	command.Clarify = cloneConversationRoutePayload(command.Clarify)
+	return command
+}
+
+func cloneConversationRoutePayload[Payload any](payload *Payload) *Payload {
+	if payload == nil {
+		return nil
+	}
+	cloned := *payload
+	return &cloned
+}
+
+func cloneConversationRouteDecisionCommit(commit ConversationRouteDecisionCommit) ConversationRouteDecisionCommit {
+	commit.ClarificationInputID = cloneStringPointer(commit.ClarificationInputID)
+	commit.Decision = cloneConversationRouteDecision(commit.Decision)
+	commit.ResultingCommand = cloneConversationRouteCommand(commit.ResultingCommand)
+	return commit
 }
 
 func cloneConversationInputRoutingWork(work ConversationInputRoutingWork) ConversationInputRoutingWork {
