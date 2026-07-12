@@ -21,14 +21,21 @@ type speechSynthesisRequest struct {
 	ResponseFormat string        `json:"response_format"`
 }
 
-func (client *OpenAIClient) SynthesizeSpeech(ctx context.Context, text string) (SynthesizedAudio, error) {
+func (client *OpenAIClient) SynthesizeSpeech(
+	ctx context.Context,
+	text string,
+	voiceID SpeechVoiceID,
+) (SynthesizedAudio, error) {
 	if err := validateSynthesisText(text); err != nil {
 		return SynthesizedAudio{}, err
+	}
+	if !LookupVoice(voiceID) {
+		return SynthesizedAudio{}, unavailableVoiceError(voiceID)
 	}
 	payload := speechSynthesisRequest{
 		Model:          SynthesisModel,
 		Input:          text,
-		Voice:          SynthesisVoice,
+		Voice:          voiceID,
 		ResponseFormat: OpenAISynthesisResponseFormat,
 	}
 	response, err := client.postJSON(

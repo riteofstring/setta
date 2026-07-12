@@ -72,3 +72,20 @@ func (handler handler) createSpeechTranscriptionSession(response http.ResponseWr
 	}
 	writeJSON(response, http.StatusOK, session)
 }
+
+func (handler handler) synthesizeSpeech(response http.ResponseWriter, request *http.Request) {
+	service := requireSpeechService(response, handler.speechService)
+	if service == nil {
+		return
+	}
+	var payload speech.SpeechSynthesisRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	audio, err := service.SynthesizeSpeech(request.Context(), payload)
+	if err != nil {
+		writeSpeechError(response, "synthesize_speech_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, audio)
+}

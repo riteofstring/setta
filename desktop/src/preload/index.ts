@@ -154,6 +154,7 @@ const api: SettaAPI = {
     createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
     readCapabilities: () => invoke("speechReadCapabilities"),
     readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
+    synthesize: (request) => invoke("speechSynthesize", request),
     updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
   },
   appearance: {

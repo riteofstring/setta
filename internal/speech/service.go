@@ -15,6 +15,20 @@ const safetyIdentifierPrefix = "setta-device-"
 type Provider interface {
 	Configured() bool
 	CreateTranscriptionClientSecret(context.Context, string) (SpeechTranscriptionClientSecret, error)
+	SynthesizeSpeech(context.Context, string, SpeechVoiceID) (SynthesizedAudio, error)
+}
+
+type SourceResolver interface {
+	ResolveSpeechSource(context.Context, SpeechSource) (ResolvedSpeechSource, error)
+}
+
+type SourceResolverFunc func(context.Context, SpeechSource) (ResolvedSpeechSource, error)
+
+func (resolve SourceResolverFunc) ResolveSpeechSource(
+	ctx context.Context,
+	source SpeechSource,
+) (ResolvedSpeechSource, error) {
+	return resolve(ctx, source)
 }
 
 type VoiceConfigurationStore interface {
@@ -29,12 +43,14 @@ type VoiceConfigurationStore interface {
 
 type ServiceConfig struct {
 	Provider                Provider
+	SourceResolver          SourceResolver
 	VoiceConfigurationStore VoiceConfigurationStore
 	Now                     func() time.Time
 }
 
 type Service struct {
 	provider                Provider
+	sourceResolver          SourceResolver
 	voiceConfigurationStore VoiceConfigurationStore
 	now                     func() time.Time
 }
@@ -46,6 +62,9 @@ func NewService(ctx context.Context, config ServiceConfig) (*Service, error) {
 	if config.Provider == nil {
 		return nil, errors.New("speech provider is required")
 	}
+	if config.SourceResolver == nil {
+		return nil, errors.New("speech source resolver is required")
+	}
 	if config.VoiceConfigurationStore == nil {
 		return nil, errors.New("speech voice configuration store is required")
 	}
@@ -55,6 +74,7 @@ func NewService(ctx context.Context, config ServiceConfig) (*Service, error) {
 	}
 	service := &Service{
 		provider:                config.Provider,
+		sourceResolver:          config.SourceResolver,
 		voiceConfigurationStore: config.VoiceConfigurationStore,
 		now:                     now,
 	}
@@ -67,6 +87,60 @@ func NewService(ctx context.Context, config ServiceConfig) (*Service, error) {
 		return nil, fmt.Errorf("validate initialized master voice selection: %w", err)
 	}
 	return service, nil
+}
+
+func (service *Service) SynthesizeSpeech(
+	ctx context.Context,
+	request SpeechSynthesisRequest,
+) (SpeechAudio, error) {
+	if err := request.Validate(); err != nil {
+		return SpeechAudio{}, err
+	}
+	if err := service.requireConfigured(); err != nil {
+		return SpeechAudio{}, err
+	}
+	if service.sourceResolver == nil {
+		return SpeechAudio{}, errors.New("speech source resolver is required")
+	}
+	resolved, err := service.sourceResolver.ResolveSpeechSource(ctx, request.Source)
+	if err != nil {
+		return SpeechAudio{}, err
+	}
+	if err := resolved.Validate(); err != nil {
+		return SpeechAudio{}, fmt.Errorf("validate resolved speech source: %w", err)
+	}
+	if !equalSpeechSources(resolved.Source, request.Source) {
+		return SpeechAudio{}, SourceUnavailable("The requested speech source no longer matches the persisted event.", nil)
+	}
+	if resolved.ResolvedVoiceID != request.ResolvedVoiceID {
+		return SpeechAudio{}, SourceUnavailable(
+			fmt.Sprintf(
+				"The requested speech source now resolves to voice %q instead of %q.",
+				resolved.ResolvedVoiceID,
+				request.ResolvedVoiceID,
+			),
+			nil,
+		)
+	}
+	generated, err := service.provider.SynthesizeSpeech(ctx, resolved.Text, resolved.ResolvedVoiceID)
+	if err != nil {
+		return SpeechAudio{}, err
+	}
+	audio := SpeechAudio{
+		AudioBase64:     base64.StdEncoding.EncodeToString(generated.Bytes),
+		MediaType:       generated.MediaType,
+		Format:          generated.Format,
+		Source:          cloneSpeechSource(resolved.Source),
+		ResolvedVoiceID: resolved.ResolvedVoiceID,
+	}
+	if err := ValidateSpeechAudio(audio); err != nil {
+		return SpeechAudio{}, classifiedError(
+			ErrorProviderResponseMalformed,
+			"OpenAI speech returned invalid generated audio.",
+			err,
+		)
+	}
+	return audio, nil
 }
 
 func (service *Service) ReadCapabilities(context.Context) (SpeechCapabilities, error) {
@@ -184,4 +258,25 @@ func validateSourceID(label string, value string) error {
 		return fmt.Errorf("%s must not contain path separators", label)
 	}
 	return nil
+}
+
+func equalSpeechSources(left SpeechSource, right SpeechSource) bool {
+	return left.Speaker == right.Speaker &&
+		left.EventID == right.EventID &&
+		equalOptionalString(left.ConversationID, right.ConversationID)
+}
+
+func equalOptionalString(left *string, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func cloneSpeechSource(source SpeechSource) SpeechSource {
+	if source.ConversationID != nil {
+		conversationID := *source.ConversationID
+		source.ConversationID = &conversationID
+	}
+	return source
 }

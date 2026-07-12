@@ -42,18 +42,25 @@ export async function startSpeechTranscriptionProviderFixture() {
 }
 
 async function handleProviderRequest(request, response, requests) {
-  assertProviderRoute(request);
   assertProviderAuthorization(request);
-  const safetyIdentifier = requireSafetyIdentifier(request);
-  assertTranscriptionRequest(await readJSONBody(request));
-  requests.push({ path: request.url, safetyIdentifier });
-  writeTranscriptionSession(response);
-}
-
-function assertProviderRoute(request) {
-  if (request.method !== "POST" || request.url !== "/v1/realtime/client_secrets") {
-    throw new Error(`unexpected provider request: ${request.method} ${request.url}`);
+  if (request.method === "POST" && request.url === "/v1/realtime/client_secrets") {
+    const safetyIdentifier = requireSafetyIdentifier(request);
+    assertTranscriptionRequest(await readJSONBody(request));
+    requests.push({ path: request.url, safetyIdentifier });
+    writeTranscriptionSession(response);
+    return;
   }
+  if (request.method === "POST" && request.url === "/v1/audio/speech") {
+    if (request.headers["openai-safety-identifier"] !== undefined) {
+      throw new Error("speech synthesis fixture received an unexpected safety identifier");
+    }
+    const synthesis = assertSynthesisRequest(await readJSONBody(request));
+    requests.push({ path: request.url, ...synthesis });
+    response.writeHead(200, { "Content-Type": "application/octet-stream" });
+    response.end(Buffer.from([0, 0]));
+    return;
+  }
+  throw new Error(`unexpected provider request: ${request.method} ${request.url}`);
 }
 
 function assertProviderAuthorization(request) {
@@ -91,6 +98,21 @@ function assertTranscriptionRequest(payload) {
   ) {
     throw new Error("speech transcription fixture received an invalid session request");
   }
+}
+
+function assertSynthesisRequest(payload) {
+  if (
+    !isRecord(payload) ||
+    payload.model !== "gpt-4o-mini-tts" ||
+    typeof payload.input !== "string" ||
+    payload.input.length === 0 ||
+    typeof payload.voice !== "string" ||
+    payload.voice.length === 0 ||
+    payload.response_format !== "pcm"
+  ) {
+    throw new Error("speech synthesis fixture received an invalid request");
+  }
+  return { input: payload.input, voice: payload.voice };
 }
 
 function requiredRecord(parent, field) {

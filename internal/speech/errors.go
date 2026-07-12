@@ -57,3 +57,7 @@ func unavailableVoiceError(voiceID SpeechVoiceID) error {
 		nil,
 	)
 }
+
+func SourceUnavailable(message string, err error) error {
+	return classifiedError(ErrorSourceUnavailable, message, err)
+}

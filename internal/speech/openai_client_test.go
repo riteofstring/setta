@@ -147,7 +147,7 @@ func TestOpenAIClientWithoutAPIKeyFailsWithoutProviderRequest(t *testing.T) {
 
 	_, err := client.CreateTranscriptionClientSecret(context.Background(), "setta-device-hash")
 	requireSpeechErrorCode(t, err, ErrorNotConfigured)
-	_, err = client.SynthesizeSpeech(context.Background(), "Visible persisted summary.")
+	_, err = client.SynthesizeSpeech(context.Background(), "Visible persisted summary.", SynthesisVoice)
 	requireSpeechErrorCode(t, err, ErrorNotConfigured)
 	if calls.Load() != 0 {
 		t.Fatalf("provider calls = %d, want 0", calls.Load())
@@ -174,7 +174,7 @@ func TestOpenAIClientClassifiesProviderStatusesWithoutLeakingBodies(t *testing.T
 				calls.Add(1)
 				return fakeResponse(test.status, "application/json", []byte(`{"error":"provider-body-secret"}`)), nil
 			}))
-			_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.")
+			_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
 			requireSpeechErrorCode(t, err, test.code)
 			if calls.Load() != 1 {
 				t.Fatalf("provider calls = %d, want 1", calls.Load())
@@ -194,7 +194,7 @@ func TestOpenAIClientDoesNotFollowProviderRedirects(t *testing.T) {
 		response.Header.Set("Location", "https://example.test/credential-sink")
 		return response, nil
 	}))
-	_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.")
+	_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
 	requireSpeechErrorCode(t, err, ErrorProviderResponseMalformed)
 	if calls.Load() != 1 {
 		t.Fatalf("provider calls = %d, want 1", calls.Load())
@@ -219,7 +219,7 @@ func TestOpenAIClientClosesProviderResponseBodies(t *testing.T) {
 				response.ContentLength = int64(len(test.body))
 				return response, nil
 			}))
-			_, _ = client.SynthesizeSpeech(context.Background(), "Persisted summary.")
+			_, _ = client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
 			if !closed.Load() {
 				t.Fatal("provider response body was not closed")
 			}
@@ -235,7 +235,7 @@ func TestOpenAIClientPropagatesCancellationAndDeadlineClassification(t *testing.
 		}))
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err := client.SynthesizeSpeech(ctx, "Persisted summary.")
+		_, err := client.SynthesizeSpeech(ctx, "Persisted summary.", SynthesisVoice)
 		requireSpeechErrorCode(t, err, ErrorProviderUnavailable)
 		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("error does not wrap context cancellation: %v", err)
@@ -248,7 +248,7 @@ func TestOpenAIClientPropagatesCancellationAndDeadlineClassification(t *testing.
 			return nil, request.Context().Err()
 		}))
 		client.requestTimeout = time.Millisecond
-		_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.")
+		_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
 		requireSpeechErrorCode(t, err, ErrorProviderUnavailable)
 		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("error does not wrap deadline: %v", err)
@@ -260,7 +260,7 @@ func TestOpenAIClientPropagatesCancellationAndDeadlineClassification(t *testing.
 		client := newFakeOpenAIClient(t, fakeRoundTripper(func(*http.Request) (*http.Response, error) {
 			return nil, transportError
 		}))
-		_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.")
+		_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
 		requireSpeechErrorCode(t, err, ErrorProviderUnavailable)
 		if !errors.Is(err, transportError) {
 			t.Fatalf("error does not wrap transport failure: %v", err)

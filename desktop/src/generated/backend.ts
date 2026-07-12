@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 26;
-export const backendContractSchemaHash = "sha256:960e5c4f814f28eb1181dde650be88a5f29f6f3b3c888b8c48b8e96c9ce8a06f";
+export const backendProtocolVersion = 27;
+export const backendContractSchemaHash = "sha256:19f5ad29952bb764273a21773dd1be164ff5ed3b481362171900c87e1ed2ad93";
 
 export type DeviceScope = "full";
 
@@ -1603,6 +1603,22 @@ export function decodeVoiceReuseReason(value: unknown, label = "VoiceReuseReason
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "catalog_exhausted":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SpeechSpeaker = "master" | "narrator";
+
+export const speechSpeakerValues = ["master", "narrator"] as const satisfies readonly SpeechSpeaker[];
+
+export function decodeSpeechSpeaker(value: unknown, label = "SpeechSpeaker"): SpeechSpeaker {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "master":
+      return decoded;
+    case "narrator":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -5018,6 +5034,25 @@ export interface SpeechTranscriptionSession {
   transcriptionDelay: string;
   maximumRecordingSeconds: number;
   maximumTranscriptCharacters: number;
+}
+
+export interface SpeechSource {
+  speaker: SpeechSpeaker;
+  eventId: string;
+  conversationId: string | null;
+}
+
+export interface SpeechSynthesisRequest {
+  source: SpeechSource;
+  resolvedVoiceId: SpeechVoiceID;
+}
+
+export interface SpeechAudio {
+  audioBase64: string;
+  mediaType: string;
+  format: string;
+  source: SpeechSource;
+  resolvedVoiceId: SpeechVoiceID;
 }
 
 export interface ListConversationsRequest {
@@ -8591,6 +8626,11 @@ export const backendEndpoints = {
     path: "/speech/transcription/sessions",
     requestBodyLimitBytes: 16384,
   },
+  SynthesizeSpeech: {
+    method: "POST",
+    path: "/speech/synthesis",
+    requestBodyLimitBytes: 16384,
+  },
   ListConversations: {
     method: "POST",
     path: "/chat/conversations/list",
@@ -11280,6 +11320,37 @@ export function decodeSpeechTranscriptionSession(value: unknown): SpeechTranscri
     transcriptionDelay: decodeString(requireField(record, "transcriptionDelay", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.transcriptionDelay"),
     maximumRecordingSeconds: decodeInteger(requireField(record, "maximumRecordingSeconds", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.maximumRecordingSeconds"),
     maximumTranscriptCharacters: decodeInteger(requireField(record, "maximumTranscriptCharacters", "SpeechTranscriptionSession"), "SpeechTranscriptionSession.maximumTranscriptCharacters"),
+  };
+}
+
+export function decodeSpeechSource(value: unknown): SpeechSource {
+  const record = assertRecord(value, "SpeechSource");
+  assertKnownFields(record, "SpeechSource", ["speaker", "eventId", "conversationId"]);
+  return {
+    speaker: decodeSpeechSpeaker(requireField(record, "speaker", "SpeechSource"), "SpeechSource.speaker"),
+    eventId: decodeString(requireField(record, "eventId", "SpeechSource"), "SpeechSource.eventId"),
+    conversationId: decodeNullable(requireField(record, "conversationId", "SpeechSource"), "SpeechSource.conversationId", (item) => decodeString(item, "SpeechSource.conversationId")),
+  };
+}
+
+export function decodeSpeechSynthesisRequest(value: unknown): SpeechSynthesisRequest {
+  const record = assertRecord(value, "SpeechSynthesisRequest");
+  assertKnownFields(record, "SpeechSynthesisRequest", ["source", "resolvedVoiceId"]);
+  return {
+    source: decodeSpeechSource(requireField(record, "source", "SpeechSynthesisRequest")),
+    resolvedVoiceId: decodeSpeechVoiceID(requireField(record, "resolvedVoiceId", "SpeechSynthesisRequest"), "SpeechSynthesisRequest.resolvedVoiceId"),
+  };
+}
+
+export function decodeSpeechAudio(value: unknown): SpeechAudio {
+  const record = assertRecord(value, "SpeechAudio");
+  assertKnownFields(record, "SpeechAudio", ["audioBase64", "mediaType", "format", "source", "resolvedVoiceId"]);
+  return {
+    audioBase64: decodeString(requireField(record, "audioBase64", "SpeechAudio"), "SpeechAudio.audioBase64"),
+    mediaType: decodeString(requireField(record, "mediaType", "SpeechAudio"), "SpeechAudio.mediaType"),
+    format: decodeString(requireField(record, "format", "SpeechAudio"), "SpeechAudio.format"),
+    source: decodeSpeechSource(requireField(record, "source", "SpeechAudio")),
+    resolvedVoiceId: decodeSpeechVoiceID(requireField(record, "resolvedVoiceId", "SpeechAudio"), "SpeechAudio.resolvedVoiceId"),
   };
 }
 
@@ -16130,6 +16201,7 @@ export interface BackendClient {
   readMasterVoiceSelection: (options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   updateMasterVoiceSelection: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
+  synthesizeSpeech: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
   listConversations: (request: ListConversationsRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest, options?: BackendRequestOptions) => Promise<Conversation>;
   deleteConversation: (request: DeleteConversationRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
@@ -16598,6 +16670,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechTranscriptionSession,
       endpoint: backendEndpoints.CreateSpeechTranscriptionSession,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    synthesizeSpeech: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSpeechAudio,
+      endpoint: backendEndpoints.SynthesizeSpeech,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

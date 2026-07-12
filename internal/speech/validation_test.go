@@ -97,11 +97,17 @@ func TestValidateSpeechTranscriptionSession(t *testing.T) {
 }
 
 func TestValidateSpeechAudio(t *testing.T) {
+	conversationID := "conversation-1"
 	valid := SpeechAudio{
 		AudioBase64: base64.StdEncoding.EncodeToString(validTestWAV()),
 		MediaType:   SynthesisMediaType,
 		Format:      SynthesisFormat,
-		SourceID:    "highlight-1",
+		Source: SpeechSource{
+			Speaker:        SpeechSpeakerNarrator,
+			EventID:        "milestone-1",
+			ConversationID: &conversationID,
+		},
+		ResolvedVoiceID: SpeechVoiceAlloy,
 	}
 	if err := ValidateSpeechAudio(valid); err != nil {
 		t.Fatalf("validate speech audio: %v", err)
@@ -111,7 +117,8 @@ func TestValidateSpeechAudio(t *testing.T) {
 		name   string
 		mutate func(*SpeechAudio)
 	}{
-		{name: "source", mutate: func(value *SpeechAudio) { value.SourceID = "" }},
+		{name: "source", mutate: func(value *SpeechAudio) { value.Source.EventID = "" }},
+		{name: "voice", mutate: func(value *SpeechAudio) { value.ResolvedVoiceID = "retired" }},
 		{name: "media type", mutate: func(value *SpeechAudio) { value.MediaType = "audio/mpeg" }},
 		{name: "format", mutate: func(value *SpeechAudio) { value.Format = "mp3" }},
 		{name: "base64 required", mutate: func(value *SpeechAudio) { value.AudioBase64 = "" }},
@@ -135,13 +142,49 @@ func TestValidateSpeechAudio(t *testing.T) {
 func TestValidateSpeechAudioAcceptsExactMaximumSize(t *testing.T) {
 	audio := validTestWAVWithDataLength(MaximumSynthesisAudioBytes - 44)
 	value := SpeechAudio{
-		AudioBase64: base64.StdEncoding.EncodeToString(audio),
-		MediaType:   SynthesisMediaType,
-		Format:      SynthesisFormat,
-		SourceID:    "summary",
+		AudioBase64:     base64.StdEncoding.EncodeToString(audio),
+		MediaType:       SynthesisMediaType,
+		Format:          SynthesisFormat,
+		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-summary"},
+		ResolvedVoiceID: SpeechVoiceMarin,
 	}
 	if err := ValidateSpeechAudio(value); err != nil {
 		t.Fatalf("validate exact-limit speech audio: %v", err)
+	}
+}
+
+func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *testing.T) {
+	conversationID := "conversation-1"
+	requests := []SpeechSynthesisRequest{
+		{
+			Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
+			ResolvedVoiceID: SpeechVoiceMarin,
+		},
+		{
+			Source: SpeechSource{
+				Speaker:        SpeechSpeakerNarrator,
+				EventID:        "status-reply-1",
+				ConversationID: &conversationID,
+			},
+			ResolvedVoiceID: SpeechVoiceCedar,
+		},
+	}
+	for _, request := range requests {
+		if err := request.Validate(); err != nil {
+			t.Fatalf("validate speech synthesis request %+v: %v", request, err)
+		}
+	}
+
+	invalid := []SpeechSynthesisRequest{
+		{Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Source: SpeechSource{Speaker: SpeechSpeakerNarrator, EventID: "status"}, ResolvedVoiceID: SpeechVoiceCedar},
+		{Source: SpeechSource{Speaker: "unknown", EventID: "event"}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer"}, ResolvedVoiceID: "retired"},
+	}
+	for _, request := range invalid {
+		if err := request.Validate(); err == nil {
+			t.Fatalf("invalid speech synthesis request passed: %+v", request)
+		}
 	}
 }
 
@@ -160,19 +203,23 @@ func TestValidateWAVRequiresOddChunkPadding(t *testing.T) {
 
 func TestSpeechContractValueSetsOwnProviderAndVoiceValues(t *testing.T) {
 	sets := ContractValueSets()
-	if len(sets) != 5 || sets[0].Name != "SpeechProviderStatus" ||
-		sets[1].Name != "SpeechProvider" || sets[2].Name != "VoiceSelectionMode" ||
-		sets[3].Name != "VoiceReuseReason" || sets[4].Name != "SpeechVoiceID" {
+	if len(sets) != 6 || sets[0].Name != "SpeechProviderStatus" ||
+		sets[1].Name != "SpeechProvider" || sets[2].Name != "SpeechSpeaker" ||
+		sets[3].Name != "VoiceSelectionMode" || sets[4].Name != "VoiceReuseReason" ||
+		sets[5].Name != "SpeechVoiceID" {
 		t.Fatalf("value sets = %+v", sets)
 	}
 	want := []string{string(SpeechProviderStatusConfigured), string(SpeechProviderStatusNotConfigured)}
 	if strings.Join(sets[0].Values, ",") != strings.Join(want, ",") {
 		t.Fatalf("provider statuses = %v, want %v", sets[0].Values, want)
 	}
-	if strings.Join(sets[3].Values, ",") != string(VoiceReuseCatalogExhausted) {
-		t.Fatalf("voice reuse reasons = %v", sets[3].Values)
+	if strings.Join(sets[2].Values, ",") != "master,narrator" {
+		t.Fatalf("speech speakers = %v", sets[2].Values)
 	}
-	if strings.Join(sets[4].Values, ",") != strings.Join(stringValues(openAISpeechVoiceIDs[:]), ",") {
-		t.Fatalf("voice ids = %v, want %v", sets[4].Values, openAISpeechVoiceIDs)
+	if strings.Join(sets[4].Values, ",") != string(VoiceReuseCatalogExhausted) {
+		t.Fatalf("voice reuse reasons = %v", sets[4].Values)
+	}
+	if strings.Join(sets[5].Values, ",") != strings.Join(stringValues(openAISpeechVoiceIDs[:]), ",") {
+		t.Fatalf("voice ids = %v, want %v", sets[5].Values, openAISpeechVoiceIDs)
 	}
 }

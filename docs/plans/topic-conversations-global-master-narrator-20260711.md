@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-4 and Phase 5 items 1-5 are complete. AI
+**Status:** In progress. Phases 0-4 and Phase 5 items 1-6 are complete. AI
 routing, side/fork execution, the remaining speech work, obsolete-surface
 deletion, and final acceptance remain.
 
@@ -1914,7 +1914,7 @@ Exit criteria:
 
 ### Phase 5: Global speech infrastructure
 
-**Status:** In progress. Items 1-5 are complete; the next step is item 6 below.
+**Status:** In progress. Items 1-6 are complete; the next step is item 7 below.
 
 Existing foundation:
 

@@ -18,6 +18,7 @@ func newSpeechService(
 	}
 	service, err := speech.NewService(context.Background(), speech.ServiceConfig{
 		Provider:                provider,
+		SourceResolver:          speech.SourceResolverFunc(store.ResolveSpeechSource),
 		VoiceConfigurationStore: store,
 	})
 	if err != nil {

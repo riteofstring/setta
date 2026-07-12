@@ -34,6 +34,18 @@ func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *test
 			MaximumTranscriptCharacters: speech.MaximumTranscriptCharacters,
 		},
 	}
+	conversationID := "conversation-speech"
+	service.synthesisAudio = speech.SpeechAudio{
+		AudioBase64: "UklGRiQAAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YQAAAAA=",
+		MediaType:   speech.SynthesisMediaType,
+		Format:      speech.SynthesisFormat,
+		Source: speech.SpeechSource{
+			Speaker:        speech.SpeechSpeakerNarrator,
+			EventID:        "status-reply-speech",
+			ConversationID: &conversationID,
+		},
+		ResolvedVoiceID: speech.SpeechVoiceCedar,
+	}
 	handler := NewHandler(HandlerConfig{
 		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
 		RuntimeAuthService: authStore,
@@ -65,6 +77,22 @@ func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *test
 	if created != service.session || service.transcriptionDeviceID != device.ID {
 		t.Fatalf("created=%+v device=%q", created, service.transcriptionDeviceID)
 	}
+	synthesized := postJSONWithToken[speech.SpeechAudio](
+		t,
+		handler,
+		"/speech/synthesis",
+		speech.SpeechSynthesisRequest{
+			Source:          service.synthesisAudio.Source,
+			ResolvedVoiceID: service.synthesisAudio.ResolvedVoiceID,
+		},
+		token,
+		http.StatusOK,
+	)
+	if !reflect.DeepEqual(synthesized, service.synthesisAudio) ||
+		!reflect.DeepEqual(service.synthesisRequest.Source, service.synthesisAudio.Source) ||
+		service.synthesisRequest.ResolvedVoiceID != service.synthesisAudio.ResolvedVoiceID {
+		t.Fatalf("synthesized=%+v request=%+v", synthesized, service.synthesisRequest)
+	}
 }
 
 func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
@@ -84,6 +112,7 @@ func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
 		{method: http.MethodGet, path: "/speech/voices/master"},
 		{method: http.MethodPost, path: "/speech/voices/master/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
 		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{}`},
+		{method: http.MethodPost, path: "/speech/synthesis", body: `{"source":{"speaker":"master","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
 	}
 	for _, test := range tests {
 		request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
@@ -209,6 +238,9 @@ type fakeHTTPSpeechService struct {
 	masterVoiceSelectionErr error
 	masterVoiceUpdate       speech.VoiceSelectionRequest
 	masterVoiceUpdateErr    error
+	synthesisAudio          speech.SpeechAudio
+	synthesisErr            error
+	synthesisRequest        speech.SpeechSynthesisRequest
 	session                 speech.SpeechTranscriptionSession
 	transcriptionErr        error
 	transcriptionDeviceID   string
@@ -245,6 +277,15 @@ func (service *fakeHTTPSpeechService) CreateTranscriptionSession(_ context.Conte
 	service.calls++
 	service.transcriptionDeviceID = deviceID
 	return service.session, service.transcriptionErr
+}
+
+func (service *fakeHTTPSpeechService) SynthesizeSpeech(
+	_ context.Context,
+	request speech.SpeechSynthesisRequest,
+) (speech.SpeechAudio, error) {
+	service.calls++
+	service.synthesisRequest = request
+	return service.synthesisAudio, service.synthesisErr
 }
 
 func validHTTPSpeechCapabilities() speech.SpeechCapabilities {

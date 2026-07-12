@@ -95,9 +95,19 @@ func validateSpeechTranscriptionSessionAt(session SpeechTranscriptionSession, no
 }
 
 func ValidateSpeechAudio(audio SpeechAudio) error {
-	if err := validateRequiredTrimmedText("speech audio source id", audio.SourceID); err != nil {
+	if err := audio.Source.Validate(); err != nil {
 		return err
 	}
+	if !LookupVoice(audio.ResolvedVoiceID) {
+		return unavailableVoiceError(audio.ResolvedVoiceID)
+	}
+	if err := validateSpeechAudioEncoding(audio); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateSpeechAudioEncoding(audio SpeechAudio) error {
 	if audio.MediaType != SynthesisMediaType {
 		return fmt.Errorf("speech audio media type = %q, want %q", audio.MediaType, SynthesisMediaType)
 	}
@@ -118,6 +128,54 @@ func ValidateSpeechAudio(audio SpeechAudio) error {
 		return fmt.Errorf("speech audio exceeds %d bytes", MaximumSynthesisAudioBytes)
 	}
 	return validateWAV(decoded)
+}
+
+func (source SpeechSource) Validate() error {
+	if !validValue(source.Speaker, speechSpeakerValues) {
+		return fmt.Errorf("unsupported speech speaker %q", source.Speaker)
+	}
+	if err := validateSourceID("speech source event id", source.EventID); err != nil {
+		return err
+	}
+	switch source.Speaker {
+	case SpeechSpeakerMaster:
+		if source.ConversationID != nil {
+			return errors.New("master speech source must not include a conversation id")
+		}
+	case SpeechSpeakerNarrator:
+		if source.ConversationID == nil {
+			return errors.New("narrator speech source requires a conversation id")
+		}
+		if err := validateSourceID("narrator speech source conversation id", *source.ConversationID); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported speech speaker %q", source.Speaker)
+	}
+	return nil
+}
+
+func (request SpeechSynthesisRequest) Validate() error {
+	if err := request.Source.Validate(); err != nil {
+		return err
+	}
+	if !LookupVoice(request.ResolvedVoiceID) {
+		return unavailableVoiceError(request.ResolvedVoiceID)
+	}
+	return nil
+}
+
+func (source ResolvedSpeechSource) Validate() error {
+	if err := source.Source.Validate(); err != nil {
+		return err
+	}
+	if err := validateSynthesisText(source.Text); err != nil {
+		return err
+	}
+	if !LookupVoice(source.ResolvedVoiceID) {
+		return unavailableVoiceError(source.ResolvedVoiceID)
+	}
+	return nil
 }
 
 func validateSynthesisText(text string) error {

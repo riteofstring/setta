@@ -105,6 +105,7 @@ type SpeechService interface {
 		speech.VoiceSelectionRequest,
 	) (speech.MasterVoiceSelection, error)
 	CreateTranscriptionSession(context.Context, string) (speech.SpeechTranscriptionSession, error)
+	SynthesizeSpeech(context.Context, speech.SpeechSynthesisRequest) (speech.SpeechAudio, error)
 }
 
 type ChatService interface {

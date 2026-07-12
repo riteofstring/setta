@@ -14,6 +14,7 @@ func TestNewSpeechServiceRequiresDependencies(t *testing.T) {
 	}
 	if _, err := NewService(nil, ServiceConfig{
 		Provider:                &serviceTestProvider{},
+		SourceResolver:          &serviceTestSourceResolver{},
 		VoiceConfigurationStore: &serviceTestVoiceConfigurationStore{},
 	}); err == nil {
 		t.Fatal("NewService unexpectedly accepted a nil context")
@@ -108,6 +109,7 @@ func TestSpeechServiceInitializesAndReadsStableMasterVoiceSelection(t *testing.T
 	now := time.Date(2026, 7, 12, 18, 0, 0, 0, time.UTC)
 	service, err := NewService(context.Background(), ServiceConfig{
 		Provider:                &serviceTestProvider{},
+		SourceResolver:          &serviceTestSourceResolver{},
 		VoiceConfigurationStore: store,
 		Now:                     func() time.Time { return now },
 	})
@@ -144,12 +146,83 @@ func TestSpeechServicePreservesTranscriptionProviderFailure(t *testing.T) {
 	}
 }
 
+func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *testing.T) {
+	conversationID := "conversation-1"
+	source := SpeechSource{
+		Speaker:        SpeechSpeakerNarrator,
+		EventID:        "status-reply-1",
+		ConversationID: &conversationID,
+	}
+	provider := &serviceTestProvider{
+		configured: true,
+		synthesized: SynthesizedAudio{
+			Bytes:     validTestWAV(),
+			MediaType: SynthesisMediaType,
+			Format:    SynthesisFormat,
+		},
+	}
+	resolver := &serviceTestSourceResolver{resolved: ResolvedSpeechSource{
+		Source:          source,
+		Text:            "The topic agent is still working.",
+		ResolvedVoiceID: SpeechVoiceCedar,
+	}}
+	service := newServiceTestServiceWithResolver(t, provider, resolver)
+	audio, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
+		Source:          source,
+		ResolvedVoiceID: SpeechVoiceCedar,
+	})
+	if err != nil {
+		t.Fatalf("synthesize authoritative source: %v", err)
+	}
+	if resolver.calls != 1 || provider.synthesisCalls != 1 ||
+		provider.synthesisText != resolver.resolved.Text ||
+		provider.synthesisVoiceID != SpeechVoiceCedar ||
+		!equalSpeechSources(audio.Source, source) ||
+		audio.ResolvedVoiceID != SpeechVoiceCedar {
+		t.Fatalf("resolver=%+v provider=%+v audio=%+v", resolver, provider, audio)
+	}
+
+	_, err = service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
+		Source:          source,
+		ResolvedVoiceID: SpeechVoiceAlloy,
+	})
+	assertSpeechServiceErrorCode(t, err, ErrorSourceUnavailable)
+	if provider.synthesisCalls != 1 {
+		t.Fatalf("provider calls after stale voice = %d, want 1", provider.synthesisCalls)
+	}
+}
+
+func TestSpeechServiceRejectsUnavailableSynthesisBeforeProviderCall(t *testing.T) {
+	provider := &serviceTestProvider{configured: true}
+	resolver := &serviceTestSourceResolver{err: SourceUnavailable("source missing", nil)}
+	service := newServiceTestServiceWithResolver(t, provider, resolver)
+	_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
+		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
+		ResolvedVoiceID: SpeechVoiceMarin,
+	})
+	assertSpeechServiceErrorCode(t, err, ErrorSourceUnavailable)
+	if provider.synthesisCalls != 0 {
+		t.Fatalf("provider synthesis calls = %d, want 0", provider.synthesisCalls)
+	}
+}
+
 type serviceTestProvider struct {
 	configured         bool
 	clientSecret       SpeechTranscriptionClientSecret
 	transcriptionErr   error
 	safetyIdentifier   string
 	transcriptionCalls int
+	synthesized        SynthesizedAudio
+	synthesisErr       error
+	synthesisText      string
+	synthesisVoiceID   SpeechVoiceID
+	synthesisCalls     int
+}
+
+type serviceTestSourceResolver struct {
+	resolved ResolvedSpeechSource
+	err      error
+	calls    int
 }
 
 type serviceTestVoiceConfigurationStore struct {
@@ -200,10 +273,39 @@ func (provider *serviceTestProvider) CreateTranscriptionClientSecret(_ context.C
 	return provider.clientSecret, provider.transcriptionErr
 }
 
+func (provider *serviceTestProvider) SynthesizeSpeech(
+	_ context.Context,
+	text string,
+	voiceID SpeechVoiceID,
+) (SynthesizedAudio, error) {
+	provider.synthesisCalls++
+	provider.synthesisText = text
+	provider.synthesisVoiceID = voiceID
+	return provider.synthesized, provider.synthesisErr
+}
+
+func (resolver *serviceTestSourceResolver) ResolveSpeechSource(
+	context.Context,
+	SpeechSource,
+) (ResolvedSpeechSource, error) {
+	resolver.calls++
+	return resolver.resolved, resolver.err
+}
+
 func newServiceTestService(t *testing.T, provider Provider) *Service {
+	t.Helper()
+	return newServiceTestServiceWithResolver(t, provider, &serviceTestSourceResolver{})
+}
+
+func newServiceTestServiceWithResolver(
+	t *testing.T,
+	provider Provider,
+	resolver SourceResolver,
+) *Service {
 	t.Helper()
 	service, err := NewService(context.Background(), ServiceConfig{
 		Provider:                provider,
+		SourceResolver:          resolver,
 		VoiceConfigurationStore: &serviceTestVoiceConfigurationStore{},
 		Now: func() time.Time {
 			return time.Date(2026, 7, 12, 18, 0, 0, 0, time.UTC)

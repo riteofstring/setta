@@ -92,6 +92,7 @@ var apiEndpoints = []endpoint{
 	get[speech.MasterVoiceSelection]("ReadMasterVoiceSelection", "/speech/voices/master", handler.readMasterVoiceSelection),
 	post[speech.VoiceSelectionRequest, speech.MasterVoiceSelection]("UpdateMasterVoiceSelection", "/speech/voices/master/update", handler.updateMasterVoiceSelection),
 	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),
+	postWithRequestBodyLimit[speech.SpeechSynthesisRequest, speech.SpeechAudio]("SynthesizeSpeech", "/speech/synthesis", speechRequestBodyLimitBytes, handler.synthesizeSpeech),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),

@@ -19,11 +19,11 @@ func TestOpenAIClientSynthesizesExactPersistedTextAsBoundedWAV(t *testing.T) {
 	var calls atomic.Int32
 	client := newFakeOpenAIClient(t, fakeRoundTripper(func(request *http.Request) (*http.Response, error) {
 		calls.Add(1)
-		assertSynthesisRequest(t, request, text)
+		assertSynthesisRequest(t, request, text, SpeechVoiceCedar)
 		return fakeResponse(http.StatusOK, "application/octet-stream", pcm), nil
 	}))
 
-	audio, err := client.SynthesizeSpeech(context.Background(), text)
+	audio, err := client.SynthesizeSpeech(context.Background(), text, SpeechVoiceCedar)
 	if err != nil {
 		t.Fatalf("synthesize speech: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestOpenAIClientSynthesizesExactPersistedTextAsBoundedWAV(t *testing.T) {
 	}
 }
 
-func assertSynthesisRequest(t *testing.T, request *http.Request, text string) {
+func assertSynthesisRequest(t *testing.T, request *http.Request, text string, voiceID SpeechVoiceID) {
 	t.Helper()
 	if request.Method != http.MethodPost || request.URL.String() != openAIBaseURL+"/audio/speech" {
 		t.Fatalf("request = %s %s", request.Method, request.URL)
@@ -60,7 +60,7 @@ func assertSynthesisRequest(t *testing.T, request *http.Request, text string) {
 	want := speechSynthesisRequest{
 		Model:          SynthesisModel,
 		Input:          text,
-		Voice:          SynthesisVoice,
+		Voice:          voiceID,
 		ResponseFormat: OpenAISynthesisResponseFormat,
 	}
 	if payload != want {
@@ -74,7 +74,7 @@ func TestOpenAIClientAcceptsDocumentedPCMContentType(t *testing.T) {
 			client := newFakeOpenAIClient(t, fakeRoundTripper(func(*http.Request) (*http.Response, error) {
 				return fakeResponse(http.StatusOK, contentType, []byte{0, 0}), nil
 			}))
-			if _, err := client.SynthesizeSpeech(context.Background(), "Persisted summary."); err != nil {
+			if _, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice); err != nil {
 				t.Fatalf("synthesize speech: %v", err)
 			}
 		})
@@ -89,7 +89,7 @@ func TestOpenAIClientRejectsInvalidSynthesisTextBeforeRequest(t *testing.T) {
 	}))
 	texts := []string{"", "  ", " leading", "trailing ", strings.Repeat("界", MaximumSynthesisCharacters+1)}
 	for _, text := range texts {
-		if _, err := client.SynthesizeSpeech(context.Background(), text); err == nil {
+		if _, err := client.SynthesizeSpeech(context.Background(), text, SynthesisVoice); err == nil {
 			t.Fatalf("text with %d runes unexpectedly passed validation", len([]rune(text)))
 		}
 	}
@@ -132,7 +132,7 @@ func TestOpenAIClientRejectsMalformedOrOversizedSynthesisAudio(t *testing.T) {
 			client := newFakeOpenAIClient(t, fakeRoundTripper(func(*http.Request) (*http.Response, error) {
 				return test.response(), nil
 			}))
-			_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.")
+			_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
 			requireSpeechErrorCode(t, err, test.code)
 			if !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want containing %q", err, test.want)
@@ -170,7 +170,7 @@ func TestOpenAIClientClassifiesTruncatedAndFailedAudioReads(t *testing.T) {
 				response.ContentLength = -1
 				return response, nil
 			}))
-			_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.")
+			_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
 			requireSpeechErrorCode(t, err, test.code)
 		})
 	}

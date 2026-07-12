@@ -61,6 +61,7 @@ const fixture = await createElectronFixture(workflowName);
 const fakeCodex = await installFakeTopicCodex(fixture);
 const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
+let statusSpeechAudio;
 
 try {
   context = await launchElectronCdpContext({
@@ -282,6 +283,12 @@ try {
     (snapshot) => snapshot.narration.events.some((event) => event.kind === "status_reply"),
   );
   assertNarratorStatusIsolation(alphaBeforeStatus, alphaAfterStatus, statusQuestion);
+  statusSpeechAudio = await synthesizeNarrationStatus(
+    context.client,
+    speechProvider,
+    alphaAfterStatus,
+    alpha.narratorVoiceId,
+  );
 
   await submitAndWaitForQueue(context.client, alpha.id, "artifact alpha", 1);
   await submitAndWaitForQueue(context.client, alpha.id, "approval alpha", 2);
@@ -500,6 +507,12 @@ try {
     reopenedWorking,
     reloadedWorking,
     status: "passed",
+    statusSpeechAudio: {
+      format: statusSpeechAudio.format,
+      mediaType: statusSpeechAudio.mediaType,
+      resolvedVoiceId: statusSpeechAudio.resolvedVoiceId,
+      source: statusSpeechAudio.source,
+    },
     statusWhileWorking,
     workspaceId,
     workspaceName: basename(fixture.workspaceRoot),
@@ -739,6 +752,65 @@ async function updateNarratorVoice(client, request) {
   return client.evaluate(
     `window.setta.conversations.updateNarratorVoice(${JSON.stringify(request)})`,
   );
+}
+
+async function synthesizeNarrationStatus(client, provider, snapshot, resolvedVoiceId) {
+  const event = snapshot.narration.events.find((candidate) => candidate.kind === "status_reply");
+  if (!event) {
+    throw new Error("status narration event was unavailable for speech synthesis");
+  }
+  const request = {
+    resolvedVoiceId,
+    source: {
+      conversationId: snapshot.conversation.id,
+      eventId: event.id,
+      speaker: "narrator",
+    },
+  };
+  const audio = await client.evaluate(`window.setta.speech.synthesize(${JSON.stringify(request)})`);
+  assertSynthesizedNarrationAudio(audio, request);
+  provider.assertHealthy();
+  assertNarrationSynthesisProviderRequest(
+    provider.requests.at(-1),
+    event.statusReply.text,
+    resolvedVoiceId,
+  );
+  return audio;
+}
+
+function assertSynthesizedNarrationAudio(audio, request) {
+  if (
+    audio?.mediaType !== "audio/wav" ||
+    audio.format !== "wav" ||
+    typeof audio.audioBase64 !== "string" ||
+    !audio.audioBase64.startsWith("UklGR") ||
+    audio.resolvedVoiceId !== request.resolvedVoiceId
+  ) {
+    throw new Error(`invalid synthesized narration audio: ${JSON.stringify(audio)}`);
+  }
+  assertSpeechSourceMatches(audio.source, request.source);
+}
+
+function assertSpeechSourceMatches(actual, expected) {
+  if (
+    actual?.speaker !== expected.speaker ||
+    actual.eventId !== expected.eventId ||
+    actual.conversationId !== expected.conversationId
+  ) {
+    throw new Error(`synthesized narration source changed: ${JSON.stringify(actual)}`);
+  }
+}
+
+function assertNarrationSynthesisProviderRequest(providerRequest, text, resolvedVoiceId) {
+  if (
+    providerRequest?.path !== "/v1/audio/speech" ||
+    providerRequest.input !== text ||
+    providerRequest.voice !== resolvedVoiceId
+  ) {
+    throw new Error(
+      `speech synthesis did not use authoritative status text and voice: ${JSON.stringify(providerRequest)}`,
+    );
+  }
 }
 
 async function enableGlobalMicrophone(client) {

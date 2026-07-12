@@ -4,6 +4,7 @@ import "time"
 
 type SpeechProviderStatus string
 type SpeechProvider string
+type SpeechSpeaker string
 type VoiceSelectionMode string
 type VoiceReuseReason string
 
@@ -12,6 +13,9 @@ const (
 	SpeechProviderStatusNotConfigured SpeechProviderStatus = "not_configured"
 
 	SpeechProviderOpenAI SpeechProvider = "openai"
+
+	SpeechSpeakerMaster   SpeechSpeaker = "master"
+	SpeechSpeakerNarrator SpeechSpeaker = "narrator"
 
 	VoiceSelectionAutoDistinct VoiceSelectionMode = "auto_distinct"
 	VoiceSelectionExact        VoiceSelectionMode = "exact"
@@ -36,6 +40,11 @@ var speechProviderStatusValues = []SpeechProviderStatus{
 }
 
 var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI}
+
+var speechSpeakerValues = []SpeechSpeaker{
+	SpeechSpeakerMaster,
+	SpeechSpeakerNarrator,
+}
 
 var voiceSelectionModeValues = []VoiceSelectionMode{
 	VoiceSelectionAutoDistinct,
@@ -119,11 +128,23 @@ type SpeechTranscriptionSession struct {
 	MaximumTranscriptCharacters int    `json:"maximumTranscriptCharacters"`
 }
 
+type SpeechSource struct {
+	Speaker        SpeechSpeaker `json:"speaker"`
+	EventID        string        `json:"eventId"`
+	ConversationID *string       `json:"conversationId"`
+}
+
+type SpeechSynthesisRequest struct {
+	Source          SpeechSource  `json:"source"`
+	ResolvedVoiceID SpeechVoiceID `json:"resolvedVoiceId"`
+}
+
 type SpeechAudio struct {
-	AudioBase64 string `json:"audioBase64"`
-	MediaType   string `json:"mediaType"`
-	Format      string `json:"format"`
-	SourceID    string `json:"sourceId"`
+	AudioBase64     string        `json:"audioBase64"`
+	MediaType       string        `json:"mediaType"`
+	Format          string        `json:"format"`
+	Source          SpeechSource  `json:"source"`
+	ResolvedVoiceID SpeechVoiceID `json:"resolvedVoiceId"`
 }
 
 type SpeechTranscriptionClientSecret struct {
@@ -137,6 +158,12 @@ type SynthesizedAudio struct {
 	Format    string
 }
 
+type ResolvedSpeechSource struct {
+	Source          SpeechSource
+	Text            string
+	ResolvedVoiceID SpeechVoiceID
+}
+
 type ContractValueSet struct {
 	Name   string
 	Values []string
@@ -146,6 +173,7 @@ func ContractValueSets() []ContractValueSet {
 	return []ContractValueSet{
 		{Name: "SpeechProviderStatus", Values: stringValues(speechProviderStatusValues)},
 		{Name: "SpeechProvider", Values: stringValues(speechProviderValues)},
+		{Name: "SpeechSpeaker", Values: stringValues(speechSpeakerValues)},
 		{Name: "VoiceSelectionMode", Values: stringValues(voiceSelectionModeValues)},
 		{Name: "VoiceReuseReason", Values: stringValues(voiceReuseReasonValues)},
 		{Name: "SpeechVoiceID", Values: stringValues(openAISpeechVoiceIDs[:])},

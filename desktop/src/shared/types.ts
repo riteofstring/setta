@@ -119,6 +119,8 @@ import type {
   SendTopicConversationTurnRequest,
   SelectDefaultTerminalProfileRequest,
   SpeechCapabilities,
+  SpeechAudio,
+  SpeechSynthesisRequest,
   SpeechTranscriptionSession,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
@@ -441,6 +443,7 @@ export interface SettaAPI {
     createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
     readCapabilities: () => Promise<SpeechCapabilities>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
+    synthesize?: (request: SpeechSynthesisRequest) => Promise<SpeechAudio>;
     updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
   };
   appearance: {
