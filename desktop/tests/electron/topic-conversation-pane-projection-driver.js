@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v23";
+  const version = "setta-topic-conversation-pane-projection-driver-v24";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -24,6 +24,7 @@
       topicConversationShellSpeechState,
       topicConversationPresentFromNavigator,
       topicConversationRequestPresentation,
+      topicConversationRenderedScrollOwners,
       topicConversationStartupState,
       topicConversationSubmitAndClose,
       topicConversationStop,
@@ -144,6 +145,35 @@
       ),
       workspaceId: datasetValue(area, "workspaceId"),
     };
+  }
+
+  function topicConversationRenderedScrollOwners({ conversationId }) {
+    const surface = conversationSurface(conversationId);
+    if (!(surface instanceof HTMLElement)) {
+      return [];
+    }
+    return Array.from(surface.querySelectorAll("*")).flatMap((element) => {
+      if (!(element instanceof HTMLElement)) {
+        return [];
+      }
+      const style = window.getComputedStyle(element);
+      const overflowY = style.overflowY;
+      const scrollOwner = overflowY === "auto" || overflowY === "scroll";
+      const scrollable = element.scrollHeight > element.clientHeight + 1;
+      if (!scrollOwner && !scrollable) {
+        return [];
+      }
+      return [
+        {
+          className: element.className,
+          clientHeight: Math.round(element.clientHeight),
+          dataTestId: element.getAttribute("data-testid") ?? "",
+          overflowY,
+          scrollHeight: Math.round(element.scrollHeight),
+          tagName: element.tagName.toLowerCase(),
+        },
+      ];
+    });
   }
 
   function topicConversationSurfaceSnapshot(surface) {

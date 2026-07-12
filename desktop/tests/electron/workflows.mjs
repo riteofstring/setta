@@ -60,6 +60,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "easy-button-presentation-recovery-phase0.test.mjs",
+    name: "easy-button-presentation-recovery-phase0",
+    tiers: ["recovery"],
+  },
+  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
     tiers: ["required"],

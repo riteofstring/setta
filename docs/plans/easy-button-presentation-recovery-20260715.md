@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 
-**Status:** Proposed; implementation has not started
+**Status:** Phase 0 implemented and verified; Phases 1-5 pending
 
 **Scope:** Easy Button presentation, typed artifacts, narrator projection and playback,
 global-master voice input, keyboard shortcuts, and production-path verification
@@ -365,13 +365,22 @@ presented as a second status/result region.
 
 ### Phase 0 — Lock the regressions into executable acceptance
 
+**Status:** Implemented and verified
+
 - Add a fast deterministic production-path Electron scenario using a small supplied dataset; do
   not scan or count the repository.
 - Record narrator event count, speech latency, focus revisions, rendered scroll owners, and
   artifact output before implementation.
 - Preserve the recording as evidence; do not turn the session logs into brittle golden fixtures.
 
+Verification:
+
+- Workflow: `easy-button-presentation-recovery-phase0`
+- Report: `docs/reports/performance/easy-button-presentation-recovery-phase0-20260716.md`
+
 ### Phase 1 — Restore typed artifacts
+
+**Status:** Pending
 
 - Add the generic dynamic-tool bridge in `internal/agent`.
 - Add the conversation-owned artifact tool, typed content repository, validation, and endpoint.
@@ -381,6 +390,8 @@ presented as a second status/result region.
 
 ### Phase 2 — Correct narrator semantics
 
+**Status:** Pending
+
 - Split focus updates from milestone/terminal projection output.
 - Remove activity-completion milestone triggers and enforce cadence/source-range budgets.
 - Add durable idempotency tests for duplicate or overlapping projection requests.
@@ -388,11 +399,15 @@ presented as a second status/result region.
 
 ### Phase 3 — Correct playback arbitration
 
+**Status:** Pending
+
 - Replace FIFO milestone accumulation with per-source coalescing and expiry.
 - Add terminal/master/capture preemption and playback-start-driven visual state.
 - Add timing and replacement/drop observability to desktop recordings.
 
 ### Phase 4 — Finish global-master voice UX
+
+**Status:** Pending
 
 - Add the configurable shortcut and native-view forwarding.
 - Add the Ask Setta composer mic.
@@ -400,6 +415,8 @@ presented as a second status/result region.
 - Verify capture preemption, cancellation, modality, routing, and reload behavior.
 
 ### Phase 5 — Recover the Easy Button layout
+
+**Status:** Pending
 
 - Implement the central intent-slot states for initial and follow-up transcription, pending input,
   stable focus, cancellation, and routing outcomes.
