@@ -4,6 +4,7 @@ import { ipcChannels } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
 
 import { registerConversationIpcHandlers } from "./conversation-ipc";
+import type { RoutingObservationRecorder } from "./routing-observability";
 
 describe("conversation IPC handlers", () => {
   test("forwards generated topic commands and owns scoped event subscriptions", async () => {
@@ -104,10 +105,12 @@ describe("conversation IPC handlers", () => {
       release: vi.fn(async () => {}),
       subscribe: vi.fn(),
     };
+    const routingObservability = routingObservabilitySpies();
     registerConversationIpcHandlers({
       conversationEvents: conversationEvents as never,
       ipcMain,
       requireBackendClient: () => backend,
+      routingObservability,
     });
     const request = { cursor: null, limit: 80, query: "", workspaceId: "workspace_api" };
 
@@ -186,6 +189,7 @@ describe("conversation IPC handlers", () => {
     );
     expect(backendMethods.retryConversationInput).toHaveBeenCalledWith(inputStateRequest);
     expect(backendMethods.discardConversationInput).toHaveBeenCalledWith(inputStateRequest);
+    expect(routingObservability.recordConversationInputRoutingState).toHaveBeenCalledTimes(4);
     expect(backendMethods.updateTopicConversationNarratorVoice).toHaveBeenCalledWith(voiceRequest);
     expect(conversationEvents.subscribe).toHaveBeenCalledWith(
       sender,
@@ -229,4 +233,13 @@ async function invokeHandler(
   request: unknown,
 ): Promise<unknown> {
   return requiredHandler(handlers, channel)({} as IpcMainInvokeEvent, request);
+}
+
+function routingObservabilitySpies(): RoutingObservationRecorder {
+  return {
+    recordConversationInputRoutingState: vi.fn(),
+    recordMasterInputRoutingState: vi.fn(),
+    recordMasterPresentationIntent: vi.fn(),
+    recordRoutingObservationFailure: vi.fn(),
+  };
 }

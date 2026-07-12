@@ -672,12 +672,18 @@ function registerIpc() {
   );
   registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerSpeechIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
-  registerMasterIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerMasterIpcHandlers({
+    ipcMain,
+    ipcObserver,
+    requireBackendClient,
+    routingObservability: recorder ?? undefined,
+  });
   registerConversationIpcHandlers({
     conversationEvents,
     ipcMain,
     ipcObserver,
     requireBackendClient,
+    routingObservability: recorder ?? undefined,
   });
   registerChatIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });

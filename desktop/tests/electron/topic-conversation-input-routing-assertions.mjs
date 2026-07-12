@@ -338,23 +338,35 @@ export function assertEscalatedConversationInputRoutingState(
   assertNonEmptyString(actual.masterInputId, "routed master input id");
 }
 
-export async function escalateToMaster(client, topic, paneId, workspaceId) {
-  const request = {
-    input: {
-      conversationId: topic.id,
-      id: "conversation_input_master_escalation",
-      modality: "voice",
-      replyToInputId: null,
-      sourcePaneId: paneId,
-      submittedAt: "2026-07-13T20:00:00Z",
-      text: "route unrelated request through global master",
-    },
-  };
-  const accepted = await submitConversationInput(client, request);
+export async function escalateToMaster({
+  artifactDirectory,
+  client,
+  paneId,
+  timeoutMs,
+  topic,
+  workspaceId,
+}) {
+  const text = "route unrelated request through global master";
+  const submitted = await client.driver("topicConversationSubmit", {
+    conversationId: topic.id,
+    paneId,
+    text,
+  });
+  if (!submitted?.submitted) {
+    throw new Error(
+      `conversation master escalation was not submitted: ${JSON.stringify(submitted)}`,
+    );
+  }
+  const { accepted, request } = await waitForRecordedTextConversationInput(
+    artifactDirectory,
+    topic.id,
+    text,
+    timeoutMs,
+  );
   const state = await waitForBackendState(
     () => readConversationInputRoutingState(client, workspaceId, request),
     (candidate) => candidate.input?.status === "dispatched",
-    50_000,
+    timeoutMs,
   );
   assertEscalatedConversationInputRoutingState(state, accepted.input, accepted.sequence);
   assertRoutedConversationInputReceipt(

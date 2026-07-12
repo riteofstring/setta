@@ -36,6 +36,10 @@ import {
   waitForMasterRouteDecision,
 } from "./topic-conversation-master-overlay-assertions.mjs";
 import { exerciseMasterPaneRouting } from "./topic-conversation-master-pane-routing.mjs";
+import {
+  assertRecordedConversationRouteObservability,
+  assertRecordedMasterRouteObservability,
+} from "./topic-conversation-routing-observability.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDistinctConversationPalettes,
@@ -267,6 +271,14 @@ try {
     expectedSessionId: sharedMasterSessionId,
     expectedTargetId: alpha.id,
   });
+  await assertRecordedMasterRouteObservability({
+    artifactDirectory: secondLaunchDir,
+    inputIdentity: shellMasterOverlayInput.accepted.input,
+    inputText: typedMasterOverlayText,
+    presentationKind: "focus_existing_conversation_pane",
+    routeRecord: typedMasterRoute.decision,
+    timeoutMs: workflowTimeoutMs,
+  });
   await waitForState(
     context.client,
     driverCallExpression("topicConversationNavigatorState", { conversationId: alpha.id }),
@@ -410,6 +422,12 @@ try {
       `pane text did not use local route by default: ${JSON.stringify(routedTextState)}`,
     );
   }
+  await assertRecordedConversationRouteObservability({
+    artifactDirectory: secondLaunchDir,
+    inputText: "hold alpha",
+    routeState: routedTextState,
+    timeoutMs: workflowTimeoutMs,
+  });
   await waitForConversationSurface(
     context.client,
     alpha.id,
@@ -584,7 +602,14 @@ try {
     acceptedWorkingConversationInput.input,
     acceptedWorkingConversationInput.sequence,
   );
-  const masterEscalation = await escalateToMaster(context.client, alpha, alphaPaneId, workspaceId);
+  const masterEscalation = await escalateToMaster({
+    artifactDirectory: secondLaunchDir,
+    client: context.client,
+    paneId: alphaPaneId,
+    timeoutMs: workflowTimeoutMs,
+    topic: alpha,
+    workspaceId,
+  });
   const escalationMasterInputId =
     masterEscalation.state.decisions[0]?.resultingCommand?.escalateToMaster?.masterInputId;
   const escalationMasterRoute = await waitForMasterRouteDecision(
@@ -600,6 +625,20 @@ try {
   assertMasterRouteContextAuthority(escalationMasterRoute, {
     expectedConversationId: beta.id,
     expectedKinds: ["queue_agent_turn", "steer_active_turn"],
+  });
+  await assertRecordedMasterRouteObservability({
+    artifactDirectory: secondLaunchDir,
+    inputIdentity: {
+      originatingConversationId: alpha.id,
+      originatingConversationInputId: masterEscalation.request.input.id,
+      originatingPaneId: masterEscalation.request.input.sourcePaneId,
+      originatingWorkspaceId: workspaceId,
+      source: "conversation_escalation",
+    },
+    inputText: masterEscalation.request.input.text,
+    presentationKind: "show_master_reply",
+    routeRecord: escalationMasterRoute.decision,
+    timeoutMs: workflowTimeoutMs,
   });
 
   await submitAndWaitForQueue(context.client, alpha.id, "artifact alpha", 2);
