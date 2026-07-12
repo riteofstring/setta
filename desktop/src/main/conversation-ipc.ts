@@ -19,6 +19,12 @@ export function registerConversationIpcHandlers({
 }: ConversationIpcRegistration): void {
   handleIpc(
     ipcMain,
+    "conversationAskNarratorStatus",
+    async (_event, request) => requireBackendClient().askTopicConversationNarratorStatus(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationCreateTopic",
     async (_event, request) => requireBackendClient().createTopicConversation(request),
     ipcObserver,

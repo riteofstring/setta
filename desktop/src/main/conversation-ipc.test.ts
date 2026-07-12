@@ -15,6 +15,7 @@ describe("conversation IPC handlers", () => {
     const listTopicConversations = vi.fn(async () => page);
     const snapshot = { conversation: { id: "conversation_api" } };
     const backendMethods = {
+      askTopicConversationNarratorStatus: vi.fn(async () => snapshot),
       createTopicConversation: vi.fn(async () => snapshot),
       listTopicConversations,
       queueTopicConversationTurn: vi.fn(async () => snapshot),
@@ -43,6 +44,10 @@ describe("conversation IPC handlers", () => {
     const target = { conversationId: "conversation_api", workspaceId: "workspace_api" };
     const turn = { ...target, text: "work" };
     const sender = { id: 7 };
+    await invokeHandler(handlers, ipcChannels.conversationAskNarratorStatus, {
+      ...target,
+      question: "What is happening?",
+    });
     await requiredHandler(handlers, ipcChannels.conversationCreateTopic)({} as IpcMainInvokeEvent, {
       title: "Topic",
       workspaceId: "workspace_api",
@@ -69,6 +74,10 @@ describe("conversation IPC handlers", () => {
       { ...target, keepAlive: true },
     );
 
+    expect(backendMethods.askTopicConversationNarratorStatus).toHaveBeenCalledWith({
+      ...target,
+      question: "What is happening?",
+    });
     expect(backendMethods.createTopicConversation).toHaveBeenCalledWith({
       title: "Topic",
       workspaceId: "workspace_api",

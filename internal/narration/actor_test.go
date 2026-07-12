@@ -469,6 +469,10 @@ func TestRequestValidationRejectsMismatchedKindsAndTriggers(t *testing.T) {
 				ConversationID: "conversation",
 				Kind:           RequestKindStatus,
 				Trigger:        conversation.NarrationTriggerPlanChanged,
+				Status: &StatusOperation{
+					WorkspaceID: "workspace",
+					Question:    "What is happening?",
+				},
 			},
 		},
 		{
@@ -537,6 +541,33 @@ func TestRequestValidationRejectsMismatchedKindsAndTriggers(t *testing.T) {
 		if err := request.Validate(); err != nil {
 			t.Errorf("Validate(%s): %v", request.ID, err)
 		}
+	}
+}
+
+func TestRegistryFreezesStatusOperationAtAdmission(t *testing.T) {
+	release := make(chan struct{})
+	observed := make(chan StatusOperation, 1)
+	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedWork, error) {
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return PreparedWork{}, ctx.Err()
+		}
+		observed <- *invocation.Request.Status
+		return successfulPreparedWork(func(context.Context) error { return nil }), nil
+	})
+	registry := newTestRegistry(t, worker)
+	request := statusRequest("status-frozen", "conversation-frozen")
+	receipt := submitTestRequest(t, registry, request)
+	request.Status.WorkspaceID = "workspace-mutated"
+	request.Status.Question = "Mutated question"
+	close(release)
+	waitReceipt(t, receipt)
+	shutdownTestRegistry(t, registry)
+
+	operation := <-observed
+	if operation.WorkspaceID != "workspace-status" || operation.Question != "What is happening?" {
+		t.Fatalf("admitted status operation changed through caller mutation: %+v", operation)
 	}
 }
 
@@ -625,6 +656,10 @@ func statusRequest(id string, conversationID string) Request {
 		ConversationID: conversationID,
 		Kind:           RequestKindStatus,
 		Trigger:        conversation.NarrationTriggerExplicitStatusRequested,
+		Status: &StatusOperation{
+			WorkspaceID: "workspace-status",
+			Question:    "What is happening?",
+		},
 	}
 }
 

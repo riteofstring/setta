@@ -66,6 +66,7 @@ func (registry *Registry) Submit(ctx context.Context, request Request) (*Receipt
 	if err := request.Validate(); err != nil {
 		return nil, err
 	}
+	request = cloneRequest(request)
 	registry.mu.Lock()
 	if registry.closed {
 		registry.mu.Unlock()

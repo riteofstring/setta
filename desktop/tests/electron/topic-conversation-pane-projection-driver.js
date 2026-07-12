@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v6";
+  const version = "setta-topic-conversation-pane-projection-driver-v7";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -10,6 +10,7 @@
     }
     Object.assign(driver, {
       topicConversationPaneProjectionVersion: version,
+      topicConversationAskStatus,
       topicConversationCloseOneBoundPane,
       topicConversationCreate,
       topicConversationDenyApproval,
@@ -74,6 +75,8 @@
             '[data-testid="easy-button-artifacts"] [data-artifact-id]',
           );
           const summary = surface.querySelector('[data-testid="easy-button-summary-text"]');
+          const statusQuestion = surface.querySelector(".easy-button-status-question");
+          const statusReply = surface.querySelector(".easy-button-status-reply-text");
           return {
             agentText: elementText(agentText),
             approvalId: datasetValue(approval, "approvalId"),
@@ -91,6 +94,8 @@
             speechState: datasetValue(surface, "easyButtonSpeech"),
             state: datasetValue(surface, "easyButtonState"),
             status: datasetValue(surface, "easyButtonStatus"),
+            statusQuestion: elementText(statusQuestion),
+            statusReplyText: elementText(statusReply),
             summaryText: elementText(summary),
             title: surface.getAttribute("aria-label") ?? "",
           };
@@ -120,6 +125,25 @@
     setInputValue(input, text);
     input.form.requestSubmit();
     return { conversationId, submitted: true };
+  }
+
+  function topicConversationAskStatus({ conversationId, question }) {
+    const surface = conversationSurface(conversationId);
+    const input = surface?.querySelector('[data-testid="easy-button-input"]');
+    const button = surface?.querySelector('[data-testid="easy-button-status-request"]');
+    if (
+      !(input instanceof HTMLInputElement) ||
+      input.disabled ||
+      !(button instanceof HTMLButtonElement)
+    ) {
+      return { asked: false, conversationId };
+    }
+    setInputValue(input, question);
+    if (button.disabled) {
+      return { asked: false, conversationId };
+    }
+    button.click();
+    return { asked: true, conversationId };
   }
 
   function topicConversationSteer({ conversationId, text }) {

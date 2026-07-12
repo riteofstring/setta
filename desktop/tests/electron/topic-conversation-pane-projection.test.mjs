@@ -117,6 +117,44 @@ try {
   );
   assertIndependentWorkingTopics(concurrent.surfaces, alpha.id, beta.id);
 
+  const alphaBeforeStatus = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    alpha.id,
+    (snapshot) => snapshot.conversation.status === "working",
+  );
+  const statusQuestion = "What is the primary agent doing?";
+  assertDriverAction(
+    await context.client.driver("topicConversationAskStatus", {
+      conversationId: alpha.id,
+      question: statusQuestion,
+    }),
+    "asked",
+  );
+  const statusWhileWorking = await waitForConversationSurfaces(context.client, (surfaces) => {
+    const alphaSurfaces = conversationSurfaces(surfaces, alpha.id);
+    const betaSurfaces = conversationSurfaces(surfaces, beta.id);
+    return (
+      alphaSurfaces.length === 2 &&
+      betaSurfaces.length === 1 &&
+      alphaSurfaces.every(
+        (surface) =>
+          surface.state === "working" &&
+          surface.statusQuestion === statusQuestion &&
+          surface.statusReplyText ===
+            "The primary topic agent is still working and has not been steered or interrupted.",
+      ) &&
+      betaSurfaces.every((surface) => surface.statusReplyText === "")
+    );
+  });
+  const alphaAfterStatus = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    alpha.id,
+    (snapshot) => snapshot.narration.events.some((event) => event.kind === "status_reply"),
+  );
+  assertNarratorStatusIsolation(alphaBeforeStatus, alphaAfterStatus, statusQuestion);
+
   await submitAndWaitForQueue(context.client, alpha.id, "artifact alpha", 1);
   await submitAndWaitForQueue(context.client, alpha.id, "approval alpha", 2);
 
@@ -304,6 +342,8 @@ try {
 
   await writeJson(join(artifactDir, "summary.json"), {
     alpha,
+    alphaAfterStatus,
+    alphaBeforeStatus,
     alphaComplete,
     alphaSnapshot,
     artifactDir,
@@ -317,6 +357,7 @@ try {
     reopenedWorking,
     reloadedWorking,
     status: "passed",
+    statusWhileWorking,
     workspaceId,
     workspaceName: basename(fixture.workspaceRoot),
   });
@@ -527,6 +568,57 @@ function assertRunningTurn(snapshot, label) {
   const running = snapshot.turns.turns.find((turn) => turn.status === "running");
   if (!running?.providerTurnId) {
     throw new Error(`${label} lost its running turn: ${JSON.stringify(snapshot.turns)}`);
+  }
+}
+
+function assertNarratorStatusIsolation(before, after, question) {
+  const beforeRunning = before.turns.turns.find((turn) => turn.status === "running");
+  const afterRunning = after.turns.turns.find((turn) => turn.status === "running");
+  const reply = after.narration.events.findLast((event) => event.kind === "status_reply");
+
+  assertStatusPrimaryTurn(before, after, beforeRunning, afterRunning);
+  assertStatusProjectionCursors(before, after);
+  assertStatusReply(reply, question, { after, before });
+}
+
+function assertStatusPrimaryTurn(before, after, beforeRunning, afterRunning) {
+  if (
+    !beforeRunning ||
+    !afterRunning ||
+    beforeRunning.id !== afterRunning.id ||
+    beforeRunning.providerTurnId !== afterRunning.providerTurnId ||
+    after.conversation.status !== "working"
+  ) {
+    throw new Error(`narrator status changed primary turn: ${JSON.stringify({ after, before })}`);
+  }
+  if (
+    after.conversation.lastTrajectorySequence !== before.conversation.lastTrajectorySequence ||
+    after.trajectory.events.length !== before.trajectory.events.length
+  ) {
+    throw new Error(
+      `narrator status changed primary trajectory: ${JSON.stringify({ after, before })}`,
+    );
+  }
+}
+
+function assertStatusProjectionCursors(before, after) {
+  if (
+    after.narratorState.observedThroughSequence !== before.narratorState.observedThroughSequence ||
+    after.narratorState.checkpointThroughSequence !== before.narratorState.checkpointThroughSequence
+  ) {
+    throw new Error(
+      `narrator status changed projection cursors: ${JSON.stringify({ after, before })}`,
+    );
+  }
+}
+
+function assertStatusReply(reply, question, snapshots) {
+  if (
+    reply?.statusReply?.question !== question ||
+    reply.statusReply.text !==
+      "The primary topic agent is still working and has not been steered or interrupted."
+  ) {
+    throw new Error(`narrator status reply mismatch: ${JSON.stringify({ reply, ...snapshots })}`);
   }
 }
 

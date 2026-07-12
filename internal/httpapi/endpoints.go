@@ -82,6 +82,7 @@ var apiEndpoints = []endpoint{
 	post[SteerTopicConversationTurnRequest, conversation.ConversationSnapshot]("SteerTopicConversationTurn", "/conversations/turns/steer", handler.steerTopicConversationTurn),
 	post[StopTopicConversationTurnRequest, conversation.ConversationSnapshot]("StopTopicConversationTurn", "/conversations/turns/stop", handler.stopTopicConversationTurn),
 	post[SubmitTopicConversationApprovalRequest, conversation.ConversationSnapshot]("SubmitTopicConversationApproval", "/conversations/approvals/submit", handler.submitTopicConversationApproval),
+	post[AskTopicConversationNarratorStatusRequest, conversation.ConversationSnapshot]("AskTopicConversationNarratorStatus", "/conversations/narrator/status", handler.askTopicConversationNarratorStatus),
 	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
 	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
 	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),

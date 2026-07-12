@@ -124,6 +124,7 @@ const api: SettaAPI = {
     },
   },
   conversations: {
+    askStatus: (request) => invoke("conversationAskNarratorStatus", request),
     create: (request) => invoke("conversationCreateTopic", request),
     list: (request) => invoke("conversationListTopicConversations", request),
     onEvent: (listener) => {

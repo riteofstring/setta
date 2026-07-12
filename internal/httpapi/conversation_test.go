@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"setta/internal/conversation"
+	"setta/internal/narration"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -37,8 +38,9 @@ func TestReadConversationSnapshotUsesTypedServiceBoundary(t *testing.T) {
 func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 	service := newHTTPTestConversationService(t)
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		ConversationService: service,
-		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
+		ConversationService:   service,
+		NarratorStatusService: service,
+		Metadata:              BackendMetadata{Name: BackendName, Version: "test"},
 	})
 
 	created := postJSON[conversation.ConversationSnapshot](
@@ -108,6 +110,82 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 	}
 	if service.commandWorkspaceID != "workspace-api" || service.commandConversationID != "conversation-api" {
 		t.Fatalf("last command scope = %q/%q", service.commandWorkspaceID, service.commandConversationID)
+	}
+
+	postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/narrator/status",
+		AskTopicConversationNarratorStatusRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+			Question:       "What is happening now?",
+		},
+		http.StatusOK,
+	)
+	if service.command != "status" || service.commandText != "What is happening now?" {
+		t.Fatalf("status service command = %q question = %q", service.command, service.commandText)
+	}
+}
+
+func TestAskNarratorStatusRejectsInvalidQuestionBeforeService(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		NarratorStatusService: service,
+		Metadata:              BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	response := postJSON[ErrorResponse](
+		t,
+		handler,
+		"/conversations/narrator/status",
+		AskTopicConversationNarratorStatusRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+			Question:       " status with whitespace ",
+		},
+		http.StatusBadRequest,
+	)
+	if response.Error.Code != "invalid_topic_conversation_narrator_status_request" {
+		t.Fatalf("narrator status error code = %q", response.Error.Code)
+	}
+	if service.statusCalled {
+		t.Fatal("invalid narrator status request reached service")
+	}
+}
+
+func TestAskNarratorStatusReturnsTypedDegradation(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	service.statusErr = &narration.DegradedError{
+		RequestID:  "narrator-status-request",
+		Generation: 1,
+		Degradation: conversation.NarratorDegradation{
+			Code:                "provider_unavailable",
+			Message:             "Narration is temporarily unavailable.",
+			Retryable:           true,
+			DiagnosticReference: "narrator-diagnostic",
+			DegradedAt:          httpConversationTestTime,
+		},
+	}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		NarratorStatusService: service,
+		Metadata:              BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	response := postJSON[ErrorResponse](
+		t,
+		handler,
+		"/conversations/narrator/status",
+		AskTopicConversationNarratorStatusRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+			Question:       "What is happening?",
+		},
+		http.StatusServiceUnavailable,
+	)
+	if response.Error.Code != "narrator_status_unavailable" ||
+		!strings.Contains(response.Error.Message, "narrator-diagnostic") {
+		t.Fatalf("narrator degradation response = %+v", response.Error)
 	}
 }
 
@@ -310,6 +388,19 @@ type httpTestConversationService struct {
 	commandConversationID   string
 	commandText             string
 	approval                conversation.ConversationApprovalResponse
+	statusCalled            bool
+	statusErr               error
+}
+
+func (service *httpTestConversationService) AskStatus(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	question string,
+) (conversation.ConversationSnapshot, error) {
+	service.statusCalled = true
+	service.recordCommand("status", workspaceID, conversationID, question)
+	return service.snapshot, service.statusErr
 }
 
 func (service *httpTestConversationService) CreateTopic(

@@ -35,3 +35,9 @@ type SubmitTopicConversationApprovalRequest struct {
 	ConversationID string                                    `json:"conversationId"`
 	Response       conversation.ConversationApprovalResponse `json:"response"`
 }
+
+type AskTopicConversationNarratorStatusRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	Question       string `json:"question"`
+}

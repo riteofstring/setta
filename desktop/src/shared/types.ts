@@ -1,4 +1,5 @@
 import type {
+  AskTopicConversationNarratorStatusRequest,
   AppearancePresetList,
   AppearanceSettings,
   AttachSemanticNodeToChatMessageRequest,
@@ -405,6 +406,9 @@ export interface SettaAPI {
     ) => Promise<WorkspaceActivitySnapshot>;
   };
   conversations: {
+    askStatus: (
+      request: AskTopicConversationNarratorStatusRequest,
+    ) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
     list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
     onEvent: (listener: (event: ConversationEvent) => void) => () => void;

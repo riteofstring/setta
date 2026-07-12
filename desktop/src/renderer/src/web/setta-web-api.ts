@@ -249,6 +249,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       submitApproval: (input) => requireClient().submitApproval(input),
     },
     conversations: {
+      askStatus: (request) => requireClient().askTopicConversationNarratorStatus(request),
       create: (request) => requireClient().createTopicConversation(request),
       list: (request) => requireClient().listTopicConversations(request),
       onEvent: (listener) => {

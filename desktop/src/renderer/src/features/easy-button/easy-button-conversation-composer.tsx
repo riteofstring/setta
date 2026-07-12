@@ -5,6 +5,7 @@ export function EasyButtonConversationComposer({
   canSubmit,
   input,
   onInput,
+  onStatus,
   onSteer,
   onSubmit,
   placeholder,
@@ -14,6 +15,7 @@ export function EasyButtonConversationComposer({
   canSubmit: boolean;
   input: string;
   onInput: ((value: string) => void) | undefined;
+  onStatus: (() => void) | undefined;
   onSteer: (() => void) | undefined;
   onSubmit: FormEventHandler<HTMLFormElement> | undefined;
   placeholder: string;
@@ -32,6 +34,7 @@ export function EasyButtonConversationComposer({
           type="text"
           value={input}
         />
+        <ConversationStatusButton canSubmit={canSubmit} onStatus={onStatus} />
         <ConversationSteerButton canSubmit={canSubmit} onSteer={onSteer} working={working} />
         <button
           className="easy-button-enter-chip"
@@ -43,6 +46,30 @@ export function EasyButtonConversationComposer({
         </button>
       </div>
     </form>
+  );
+}
+
+function ConversationStatusButton({
+  canSubmit,
+  onStatus,
+}: {
+  canSubmit: boolean;
+  onStatus: (() => void) | undefined;
+}) {
+  if (!onStatus) {
+    return null;
+  }
+  return (
+    <button
+      aria-label="Ask the narrator for status"
+      className="easy-button-status-chip"
+      data-testid="easy-button-status-request"
+      disabled={!canSubmit}
+      onClick={onStatus}
+      type="button"
+    >
+      Ask status
+    </button>
   );
 }
 

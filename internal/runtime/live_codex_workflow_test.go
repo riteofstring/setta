@@ -47,6 +47,7 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		t.Fatalf("created live topic has no provider thread binding: %+v", created.ThreadBinding)
 	}
 
+	var latestSnapshot conversation.ConversationSnapshot
 	for index, prompt := range []string{
 		"Reply with exactly TOPIC_ONE_OK.",
 		"Reply with exactly TOPIC_TWO_OK.",
@@ -64,16 +65,60 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 			created.Conversation.ID,
 			index+1,
 		)
-		latest := snapshot.Turns.Turns[len(snapshot.Turns.Turns)-1]
-		if latest.Status != conversation.TurnStatusCompleted {
-			t.Fatalf("live topic turn %d status = %s, want completed", index+1, latest.Status)
+		latestTurn := snapshot.Turns.Turns[len(snapshot.Turns.Turns)-1]
+		if latestTurn.Status != conversation.TurnStatusCompleted {
+			t.Fatalf("live topic turn %d status = %s, want completed", index+1, latestTurn.Status)
 		}
-		if !runtimeTopicTrajectoryHasCompletedText(snapshot, latest.ID) {
-			t.Fatalf("live topic turn %s has no completed public agent text", latest.ID)
+		if !runtimeTopicTrajectoryHasCompletedText(snapshot, latestTurn.ID) {
+			t.Fatalf("live topic turn %s has no completed public agent text", latestTurn.ID)
 		}
 		if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID != created.ThreadBinding.ThreadID {
 			t.Fatalf("live topic provider thread changed across turns: before=%+v after=%+v", created.ThreadBinding, snapshot.ThreadBinding)
 		}
+		latestSnapshot = snapshot
+	}
+
+	status := postRuntimeJSON[conversation.ConversationSnapshot](
+		t,
+		client,
+		baseURL,
+		"/conversations/narrator/status",
+		httpapi.AskTopicConversationNarratorStatusRequest{
+			WorkspaceID:    opened.Workspace.ID,
+			ConversationID: created.Conversation.ID,
+			Question:       "Has the latest topic turn completed, and what did it produce?",
+		},
+		http.StatusOK,
+	)
+	assertRuntimeLiveNarratorStatus(t, latestSnapshot, status)
+}
+
+func assertRuntimeLiveNarratorStatus(
+	t *testing.T,
+	before conversation.ConversationSnapshot,
+	after conversation.ConversationSnapshot,
+) {
+	t.Helper()
+	if len(after.Narration.Events) != len(before.Narration.Events)+1 {
+		t.Fatalf("live narrator status events = %+v, before = %+v", after.Narration, before.Narration)
+	}
+	reply := after.Narration.Events[len(after.Narration.Events)-1]
+	if reply.Kind != conversation.NarrationEventKindStatusReply || reply.StatusReply == nil ||
+		reply.StatusReply.Question != "Has the latest topic turn completed, and what did it produce?" ||
+		strings.TrimSpace(reply.StatusReply.Text) == "" {
+		t.Fatalf("live narrator status reply = %+v", reply)
+	}
+	if reply.ResolvedInvocation.Role != conversation.RoleNarrator ||
+		reply.ResolvedInvocation.Resolved.ModelID != "gpt-5.4-mini" {
+		t.Fatalf("live narrator invocation = %+v", reply.ResolvedInvocation)
+	}
+	if after.Conversation.LastTrajectorySequence != before.Conversation.LastTrajectorySequence ||
+		after.NarratorState.ObservedThroughSequence != before.NarratorState.ObservedThroughSequence ||
+		after.NarratorState.CheckpointThroughSequence != before.NarratorState.CheckpointThroughSequence ||
+		len(after.Turns.Turns) != len(before.Turns.Turns) ||
+		after.ThreadBinding == nil || before.ThreadBinding == nil ||
+		after.ThreadBinding.ThreadID != before.ThreadBinding.ThreadID {
+		t.Fatalf("live narrator status mutated topic work: before=%+v after=%+v", before, after)
 	}
 }
 

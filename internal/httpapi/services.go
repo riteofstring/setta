@@ -78,6 +78,10 @@ type ConversationNavigatorService interface {
 	) (conversation.NavigatorPage, error)
 }
 
+type NarratorStatusService interface {
+	AskStatus(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
+}
+
 type SpeechService interface {
 	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
 	CreateTranscriptionSession(context.Context, string, string) (speech.SpeechTranscriptionSession, error)
@@ -248,6 +252,7 @@ type HandlerConfig struct {
 	ChatService                  ChatService
 	ConversationNavigatorService ConversationNavigatorService
 	ConversationService          ConversationService
+	NarratorStatusService        NarratorStatusService
 	CodexAccountService          CodexAccountService
 	NotifyService                NotifyService
 	PairingFailureLimiter        *PairingFailureLimiter
@@ -270,6 +275,7 @@ type handler struct {
 	chatService                  ChatService
 	conversationNavigatorService ConversationNavigatorService
 	conversationService          ConversationService
+	narratorStatusService        NarratorStatusService
 	codexAccountService          CodexAccountService
 	notifyService                NotifyService
 	pairingFailureLimiter        *PairingFailureLimiter
@@ -301,6 +307,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		chatService:                  config.ChatService,
 		conversationNavigatorService: config.ConversationNavigatorService,
 		conversationService:          config.ConversationService,
+		narratorStatusService:        config.NarratorStatusService,
 		codexAccountService:          config.CodexAccountService,
 		notifyService:                config.NotifyService,
 		pairingFailureLimiter:        pairingFailureLimiter,

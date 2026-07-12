@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 19;
-export const backendContractSchemaHash = "sha256:a794f3cd3573c4bcd34bd563ebe06e7d240507920b8e10e621ecc095101b120d";
+export const backendProtocolVersion = 20;
+export const backendContractSchemaHash = "sha256:ce4baee8df18009547feec2251419398a51e084b4bf3a23222ba65aa32b2ba6e";
 
 export type DeviceScope = "full";
 
@@ -4670,6 +4670,12 @@ export interface SubmitTopicConversationApprovalRequest {
   response: ConversationApprovalResponse;
 }
 
+export interface AskTopicConversationNarratorStatusRequest {
+  workspaceId: string;
+  conversationId: string;
+  question: string;
+}
+
 export interface SubscribeConversationEventsRequest {
   workspaceId: string;
   conversationId: string;
@@ -8309,6 +8315,11 @@ export const backendEndpoints = {
     path: "/conversations/approvals/submit",
     requestBodyLimitBytes: 4194304,
   },
+  AskTopicConversationNarratorStatus: {
+    method: "POST",
+    path: "/conversations/narrator/status",
+    requestBodyLimitBytes: 4194304,
+  },
   ConversationEventStream: {
     method: "GET",
     path: "/conversations/events",
@@ -10703,6 +10714,16 @@ export function decodeSubmitTopicConversationApprovalRequest(value: unknown): Su
     workspaceId: decodeString(requireField(record, "workspaceId", "SubmitTopicConversationApprovalRequest"), "SubmitTopicConversationApprovalRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SubmitTopicConversationApprovalRequest"), "SubmitTopicConversationApprovalRequest.conversationId"),
     response: decodeConversationApprovalResponse(requireField(record, "response", "SubmitTopicConversationApprovalRequest")),
+  };
+}
+
+export function decodeAskTopicConversationNarratorStatusRequest(value: unknown): AskTopicConversationNarratorStatusRequest {
+  const record = assertRecord(value, "AskTopicConversationNarratorStatusRequest");
+  assertKnownFields(record, "AskTopicConversationNarratorStatusRequest", ["workspaceId", "conversationId", "question"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AskTopicConversationNarratorStatusRequest"), "AskTopicConversationNarratorStatusRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "AskTopicConversationNarratorStatusRequest"), "AskTopicConversationNarratorStatusRequest.conversationId"),
+    question: decodeString(requireField(record, "question", "AskTopicConversationNarratorStatusRequest"), "AskTopicConversationNarratorStatusRequest.question"),
   };
 }
 
@@ -15727,6 +15748,7 @@ export interface BackendClient {
   steerTopicConversationTurn: (request: SteerTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   stopTopicConversationTurn: (request: StopTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   submitTopicConversationApproval: (request: SubmitTopicConversationApprovalRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  askTopicConversationNarratorStatus: (request: AskTopicConversationNarratorStatusRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
   listConversations: (request: ListConversationsRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
@@ -16125,6 +16147,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.SubmitTopicConversationApproval,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    askTopicConversationNarratorStatus: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.AskTopicConversationNarratorStatus,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

@@ -8,6 +8,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
+	"setta/internal/narration"
 	"setta/internal/orchestrator"
 	"setta/internal/speech"
 	"setta/internal/workspacesession"
@@ -20,6 +21,7 @@ type runtimeBaseServices struct {
 	codexManager        *codexapp.Manager
 	conversationService *conversation.Service
 	conversationStore   *conversation.Store
+	narratorService     *narration.Service
 	speechService       *speech.Service
 	workspaceService    *workspacesession.Service
 	workspaceUIService  *workspaceui.Service
@@ -62,6 +64,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		codexManager:        foundation.codexManager,
 		conversationService: foundation.conversationService,
 		conversationStore:   foundation.conversationStore,
+		narratorService:     foundation.narratorService,
 		speechService:       speechService,
 		workspaceService:    foundation.workspaceService,
 		workspaceUIService:  foundation.workspaceUIService,
@@ -85,6 +88,7 @@ type runtimeFoundation struct {
 	codexManager        *codexapp.Manager
 	conversationService *conversation.Service
 	conversationStore   *conversation.Store
+	narratorService     *narration.Service
 	workspaceService    *workspacesession.Service
 	workspaceUIService  *workspaceui.Service
 }
@@ -113,11 +117,17 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		_ = conversationStore.Close()
 		return runtimeFoundation{}, fmt.Errorf("create conversation service: %w", err)
 	}
+	narratorService, err := narration.NewService(conversationStore, workspaceService, agentRuntime)
+	if err != nil {
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("create narrator service: %w", err)
+	}
 	return runtimeFoundation{
 		appearanceService:   appearanceService,
 		codexManager:        codexManager,
 		conversationService: conversationService,
 		conversationStore:   conversationStore,
+		narratorService:     narratorService,
 		workspaceService:    workspaceService,
 		workspaceUIService:  workspaceUIService,
 	}, nil

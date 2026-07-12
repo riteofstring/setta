@@ -13,6 +13,7 @@ describe("preload topic conversation API", () => {
   test("exposes typed commands and events through IPC", async () => {
     const { api, invoke, on, removeListener } = await exposeConversationAPI();
     expect(Object.keys(api.conversations).sort()).toEqual([
+      "askStatus",
       "create",
       "list",
       "onEvent",
@@ -63,6 +64,7 @@ describe("preload topic conversation API", () => {
     unsubscribe();
 
     expectInvokeCalls(invoke, [
+      [ipcChannels.conversationAskNarratorStatus, { ...target, question: "What is happening?" }],
       [ipcChannels.conversationCreateTopic, { title: "API topic", workspaceId: "workspace_api" }],
       [ipcChannels.conversationListTopicConversations, listRequest],
       [ipcChannels.conversationReadSnapshot, target],
@@ -115,6 +117,7 @@ async function invokeConversationCommands(
     turn: Parameters<SettaAPI["conversations"]["send"]>[0];
   },
 ) {
+  await api.conversations.askStatus({ ...requests.target, question: "What is happening?" });
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
   await api.conversations.list(requests.listRequest);
   await api.conversations.read(requests.target);

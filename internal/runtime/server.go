@@ -25,6 +25,7 @@ import (
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
+	"setta/internal/narration"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
@@ -96,6 +97,7 @@ type Server struct {
 	closeWorkflowEvents     func()
 	drainChatTurns          func(context.Context) error
 	drainConversationTurns  func(context.Context) error
+	drainNarration          func(context.Context) error
 	codexManager            *codexapp.Manager
 	server                  *http.Server
 	listener                net.Listener
@@ -111,6 +113,7 @@ type runtimeServices struct {
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationStore        *conversation.Store
+	narratorService          *narration.Service
 	notifyService            *notify.Service
 	semanticGraphService     *semanticgraph.Service
 	semanticGraphStore       *semanticgraph.Store
@@ -258,6 +261,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
 		drainChatTurns:          services.chatService.ShutdownActiveTurns,
 		drainConversationTurns:  services.conversationService.Shutdown,
+		drainNarration:          services.narratorService.Shutdown,
 		codexManager:            services.codexManager,
 		server:                  newHTTPServer(config, services),
 		listener:                listener,
@@ -349,6 +353,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		codexManager:             baseServices.codexManager,
 		conversationService:      baseServices.conversationService,
 		conversationStore:        baseServices.conversationStore,
+		narratorService:          baseServices.narratorService,
 		notifyService:            notifyService,
 		semanticGraphService:     semanticServices.graphService,
 		semanticGraphStore:       semanticServices.graphStore,
@@ -546,6 +551,7 @@ func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
 	defer cancel()
 	_ = server.closeEventStreams(shutdownCtx)
 	_ = server.shutdownTerminal(shutdownCtx)
+	_ = server.shutdownNarration(shutdownCtx)
 	_ = server.shutdownConversationStore()
 	_ = server.shutdownRuntimeAuth()
 	_ = server.shutdownCodex(shutdownCtx)
@@ -819,6 +825,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		ChatService:                  services.chatService,
 		ConversationNavigatorService: services.conversationService,
 		ConversationService:          services.conversationService,
+		NarratorStatusService:        services.narratorService,
 		CodexAccountService:          services.codexAccountService,
 		NotifyService:                services.notifyService,
 		RuntimeAuthService:           services.authStore,
@@ -850,6 +857,7 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	httpShutdown := server.startHTTPShutdown(ctx)
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownChatTurns(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationTurns(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownNarration(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.closeEventStreams(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))

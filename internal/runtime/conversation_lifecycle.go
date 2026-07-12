@@ -9,6 +9,13 @@ func (server *Server) shutdownConversationTurns(ctx context.Context) error {
 	return server.drainConversationTurns(ctx)
 }
 
+func (server *Server) shutdownNarration(ctx context.Context) error {
+	if server.drainNarration == nil {
+		return nil
+	}
+	return server.drainNarration(ctx)
+}
+
 func (server *Server) shutdownConversationStore() error {
 	if server.closeConversationStore != nil {
 		return server.closeConversationStore()

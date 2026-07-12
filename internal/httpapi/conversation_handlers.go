@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"setta/internal/conversation"
+	"setta/internal/narration"
 )
 
 func (handler handler) createTopicConversation(response http.ResponseWriter, request *http.Request) {
@@ -144,6 +145,39 @@ func (handler handler) submitTopicConversationApproval(response http.ResponseWri
 	)
 	if err != nil {
 		writeConversationError(response, "submit_topic_conversation_approval_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
+func (handler handler) askTopicConversationNarratorStatus(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	service := requireNarratorStatusService(response, handler.narratorStatusService)
+	if service == nil {
+		return
+	}
+	var payload AskTopicConversationNarratorStatusRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_narrator_status_request", err.Error())
+		return
+	}
+	if err := narration.ValidateStatusQuestion(payload.Question); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_narrator_status_request", err.Error())
+		return
+	}
+	snapshot, err := service.AskStatus(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ConversationID,
+		payload.Question,
+	)
+	if err != nil {
+		writeNarratorStatusError(response, err)
 		return
 	}
 	writeConversationSnapshot(response, snapshot)

@@ -1,4 +1,5 @@
 import type {
+  AskTopicConversationNarratorStatusRequest,
   ConversationEventCursor,
   ConversationSnapshot,
   CreateTopicConversationRequest,
@@ -13,6 +14,7 @@ import type {
 } from "@generated/backend";
 
 export const conversationIpcChannels = {
+  conversationAskNarratorStatus: "conversation:ask-narrator-status",
   conversationCreateTopic: "conversation:create-topic",
   conversationListTopicConversations: "conversation:list-topic-conversations",
   conversationQueueTurn: "conversation:queue-turn",
@@ -38,6 +40,10 @@ export interface ConversationEventReleaseRequest {
 }
 
 export interface ConversationIpc {
+  conversationAskNarratorStatus: {
+    args: [request: AskTopicConversationNarratorStatusRequest];
+    result: ConversationSnapshot;
+  };
   conversationCreateTopic: {
     args: [request: CreateTopicConversationRequest];
     result: ConversationSnapshot;

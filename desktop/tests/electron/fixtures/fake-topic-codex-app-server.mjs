@@ -56,7 +56,7 @@ function initialize(message) {
 
 function listModels(message) {
   respond(message.id, {
-    data: [fakeModel("gpt-5.6-sol", "high", true)],
+    data: [fakeModel("gpt-5.6-sol", "high", true), fakeModel("gpt-5.4-mini", "low", false)],
     nextCursor: null,
   });
 }
@@ -72,14 +72,26 @@ function terminateBackgroundTerminals(message) {
 function startThread(message) {
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
-  threads.set(threadId, { id: threadId, turnIds: [] });
-  respond(message.id, threadOperationResponse(fakeThread(threadId)));
+  const state = {
+    ephemeral: message.params?.ephemeral === true,
+    id: threadId,
+    model: requiredString(message.params, "model"),
+    turnIds: [],
+  };
+  threads.set(threadId, state);
+  respond(message.id, threadOperationResponse(fakeThread(threadId), state));
 }
 
 function resumeThread(message) {
   const threadId = requiredString(message.params, "threadId");
-  threads.set(threadId, threads.get(threadId) ?? { id: threadId, turnIds: [] });
-  respond(message.id, threadOperationResponse(fakeThread(threadId)));
+  const state = threads.get(threadId) ?? {
+    ephemeral: false,
+    id: threadId,
+    model: "gpt-5.6-sol",
+    turnIds: [],
+  };
+  threads.set(threadId, state);
+  respond(message.id, threadOperationResponse(fakeThread(threadId), state));
 }
 
 function readThread(message) {
@@ -111,7 +123,32 @@ function startTurn(message) {
   thread.turnIds.push(turnId);
   respond(message.id, { turn });
   const text = turnInputText(message.params);
-  setImmediate(() => emitTurnScenario(threadId, turnId, text));
+  setImmediate(() => {
+    if (message.params?.outputSchema) {
+      emitStructuredTurn(threadId, turnId, text);
+      return;
+    }
+    emitTurnScenario(threadId, turnId, text);
+  });
+}
+
+function emitStructuredTurn(threadId, turnId, text) {
+  const context = JSON.parse(text);
+  if (context.kind !== "status" || context.trigger !== "explicit_status_requested") {
+    completeTurn(threadId, turnId, "failed", `unsupported structured context ${context.kind}`);
+    return;
+  }
+  emitAgentMessage(
+    threadId,
+    turnId,
+    JSON.stringify({
+      kind: "status_reply",
+      sourceThroughSequence: context.sourceThroughSequence,
+      statusReply:
+        "The primary topic agent is still working and has not been steered or interrupted.",
+    }),
+  );
+  completeTurn(threadId, turnId, "completed");
 }
 
 function emitTurnScenario(threadId, turnId, text) {
@@ -284,14 +321,15 @@ function fakeModel(id, effort, isDefault) {
 }
 
 function fakeThread(threadId) {
+  const state = threads.get(threadId);
   return {
     cliVersion: "fake",
     createdAt: 1,
     cwd: "/tmp/setta-topic-codex",
-    ephemeral: false,
+    ephemeral: state?.ephemeral === true,
     id: threadId,
     modelProvider: "fake",
-    path: `/tmp/setta-topic-codex/${threadId}.jsonl`,
+    path: state?.ephemeral === true ? null : `/tmp/setta-topic-codex/${threadId}.jsonl`,
     preview: "",
     sessionId: `session-${threadId}`,
     source: "user",
@@ -301,15 +339,15 @@ function fakeThread(threadId) {
   };
 }
 
-function threadOperationResponse(thread) {
+function threadOperationResponse(thread, state) {
   return {
-    approvalPolicy: "on-request",
+    approvalPolicy: state.ephemeral ? "never" : "on-request",
     approvalsReviewer: "user",
     cwd: "/tmp/setta-topic-codex",
-    model: "gpt-5.6-sol",
+    model: state.model,
     modelProvider: "fake",
-    reasoningEffort: "high",
-    sandbox: "workspace-write",
+    reasoningEffort: state.model === "gpt-5.4-mini" ? "low" : "high",
+    sandbox: state.ephemeral ? "read-only" : "workspace-write",
     thread,
   };
 }

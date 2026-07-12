@@ -102,6 +102,32 @@ describe("Easy Button topic conversation projection", () => {
     expect(view.currentFocus).toBe("Implement Working topic");
   });
 
+  test("renders the latest explicit narrator status reply without changing working state", () => {
+    const snapshot = workingSnapshot("conversation_status", "Status topic", "sky");
+    snapshot.narration.events.push(
+      statusReplyEvent(
+        snapshot.conversation.id,
+        snapshot.turns.turns[0]!.id,
+        "What is happening?",
+        "The topic agent is still implementing the requested change.",
+        2,
+      ),
+    );
+
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(view.viewState).toBe("working");
+    expect(view.statusReply).toEqual({
+      id: "status_conversation_status_2",
+      question: "What is happening?",
+      text: "The topic agent is still implementing the requested change.",
+    });
+    expect(html).toContain('data-testid="easy-button-status-reply"');
+    expect(html).toContain("What is happening?");
+    expect(html).toContain("The topic agent is still implementing the requested change.");
+  });
+
   test("projects approval, degradation, and resynchronization explicitly", () => {
     const snapshot = workingSnapshot("conversation_approval", "Approval topic", "teal");
     snapshot.conversation.status = "waiting_for_approval";
@@ -409,6 +435,31 @@ function finalSummaryEvent(
     streamSequence,
     topicDescriptor: null,
     trigger: "turn_terminal",
+    turnId,
+  };
+}
+
+function statusReplyEvent(
+  conversationId: string,
+  turnId: string,
+  question: string,
+  text: string,
+  streamSequence: number,
+): NarrationEvent {
+  return {
+    conversationId,
+    createdAt: "2026-07-11T20:00:08Z",
+    finalSummary: null,
+    id: `status_${conversationId}_${streamSequence}`,
+    kind: "status_reply",
+    milestone: null,
+    resolvedInvocation: resolvedInvocation("narrator", "succeeded"),
+    sourceSequenceEnd: 1,
+    sourceSequenceStart: 1,
+    statusReply: { question, text },
+    streamSequence,
+    topicDescriptor: null,
+    trigger: "explicit_status_requested",
     turnId,
   };
 }

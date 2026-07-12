@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-3 and Phase 4 items 1-6 are complete
+**Status:** In progress; Phases 0-4 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1655,7 +1655,7 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Progress:** Items 1-6 complete.
+**Progress:** Complete.
 
 Implement:
 
@@ -2961,3 +2961,46 @@ Implementation is in progress under this plan.
   ChatGPT-authenticated live structured output and the live backend topic
   workflow passed with `OPENAI_API_KEY` removed. Generated inputs and outputs
   changed: none. Phase 4 item 7 remains next and was not started.
+- 2026-07-12: Completed Phase 4 item 7 and the narrator-projector phase. The
+  production runtime now composes the durable narrator materializer,
+  independent role/model resolver, fresh structured caller, typed output
+  committer, degradation handler, and per-conversation priority mailbox behind
+  an explicit `AskTopicConversationNarratorStatus` command. Its typed status
+  operation carries the exact workspace and question, resolves only the
+  narrator profile, selects the authoritative current turn without creating an
+  agent turn, and exposes no send, queue, steer, interrupt, or approval method.
+  Successful calls atomically persist the immutable `status_reply` and
+  invocation audit, return a refreshed conversation snapshot, preserve both
+  narrator projection cursors, and publish through the existing conversation
+  stream. Typed degradation returns a safe diagnostic-bearing service error
+  after the degradation state commits; explicit status calls do not schedule
+  unsolicited retries.
+- 2026-07-12: The Easy Button composer now has a separate `Ask status` action
+  for the exact entered question and renders the latest question/reply channel
+  independently from agent text, milestones, and terminal summaries. Protocol
+  version 20, the HTTP contract schema snapshot, and generated backend
+  TypeScript were regenerated from the endpoint registry. Focused HTTP,
+  narrator, conversation, IPC/preload, renderer, typecheck, build, and
+  race-enabled tests passed. The deterministic production Electron workflow
+  asked Alpha's narrator while Alpha and Beta primary turns were both held;
+  both Alpha panes received the reply, Beta received none, and before/after
+  SQLite snapshots retained the same running turn id, provider turn id,
+  working state, trajectory sequence/window, and narrator projection cursors.
+  Evidence is under
+  `.recordings/topic-conversation-pane-projection/20260712T135316778Z/`.
+- 2026-07-12: ChatGPT-authenticated live verification passed with
+  `OPENAI_API_KEY` removed. The production runtime completed two durable topic
+  turns, invoked the configured exact `gpt-5.4-mini` narrator through the new
+  status endpoint, persisted a nonempty schema-constrained reply and narrator
+  invocation audit, and preserved the topic's provider thread, turns,
+  trajectory boundary, and projection/checkpoint cursors. The Codex source
+  reference was not needed because this slice composes the already established
+  and source-verified fresh structured-call primitive without changing provider
+  protocol behavior. The final changed-files quality gate passed; the
+  supply-chain gate reached only the repository-pinned Go 1.26.4
+  `GO-2026-5856` finding, fixed in Go 1.26.5. The broad quality gate passed
+  every Go package and all non-Electron desktop checks, then stopped only in
+  the previously recorded legacy chat workflow at its removed `New chat`
+  control; the replacement topic workflow passed independently. Phase 5 item
+  1, the app-shell microphone controller and global preference, is next with no
+  implementation blocker.

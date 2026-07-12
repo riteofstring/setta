@@ -30,6 +30,13 @@ import {
   type PendingConversationApproval,
 } from "./easy-button-approval-projection";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
+import {
+  type EasyButtonNarratorStatusReply,
+  latestNarratorStatusReply,
+  NarratorDegradationStatus,
+  narratorDegradationMessage,
+  NarratorStatusReply,
+} from "./easy-button-narrator-status";
 import { ArtifactRail, HighlightRail, type EasyButtonMilestone } from "./easy-button-rails";
 import {
   EasyButtonTerminalSummary,
@@ -67,6 +74,7 @@ export interface EasyButtonProjectionView {
   projectionStatus: EasyButtonProjectionStatus;
   queuedTurnCount: number;
   statusTone: EasyButtonStatusTone;
+  statusReply: EasyButtonNarratorStatusReply | null;
   terminalSummary: EasyButtonTerminalSummaryRecord | null;
   title: string;
   viewState: EasyButtonViewState;
@@ -100,6 +108,7 @@ export function easyButtonConversationProjection(
 }
 
 interface EasyButtonConversationCommands {
+  askStatus: () => void;
   available: boolean;
   canSubmit: boolean;
   error: string | null;
@@ -160,6 +169,16 @@ function useEasyButtonConversationCommands(
   }
 
   return {
+    askStatus: () => {
+      if (!canSubmit) {
+        return;
+      }
+      const target = requireTarget();
+      void run(
+        () => window.setta.conversations.askStatus({ ...target, question: input.trim() }),
+        true,
+      );
+    },
     available,
     canSubmit,
     error,
@@ -343,6 +362,7 @@ function ConversationComposer({
       canSubmit={commands ? commands.canSubmit : false}
       input={input}
       onInput={commands ? commands.setInput : undefined}
+      onStatus={commands ? commands.askStatus : undefined}
       onSteer={commands ? commands.steer : undefined}
       onSubmit={commands ? commands.submit : undefined}
       placeholder={composerPlaceholder(view, commands)}
@@ -414,6 +434,7 @@ function projectConversationSnapshot(
     projectionStatus,
     queuedTurnCount: snapshot.queue.length,
     statusTone,
+    statusReply: latestNarratorStatusReply(snapshot.narration.events),
     terminalSummary: terminalSummary(
       snapshot.narration.events,
       snapshot.trajectory.events,
@@ -458,10 +479,6 @@ function conversationProjectionError(
   return null;
 }
 
-function narratorDegradationMessage(state: NarratorState): string | null {
-  return state.degradation ? state.degradation.message : null;
-}
-
 function unavailableView(options: {
   conversationId: string | null;
   error: string | null;
@@ -484,6 +501,7 @@ function unavailableView(options: {
     projectionStatus: options.projectionStatus,
     queuedTurnCount: 0,
     statusTone: "none",
+    statusReply: null,
     terminalSummary: null,
     title: "Easy Button",
     viewState: "idle",
@@ -804,8 +822,9 @@ function CaptionSlot({ view }: { view: EasyButtonProjectionView }) {
           {view.agentText}
         </p>
       ) : null}
+      <NarratorStatusReply reply={view.statusReply} />
       <EasyButtonTerminalSummary summary={view.terminalSummary} />
-      <NarratorStatus message={view.narratorDegradation} />
+      <NarratorDegradationStatus message={view.narratorDegradation} />
       <ErrorText error={view.error} />
     </div>
   );
@@ -848,22 +867,6 @@ function ErrorText({ error }: Pick<EasyButtonProjectionView, "error">) {
   return (
     <p className="easy-button-error" data-testid="easy-button-error">
       {error}
-    </p>
-  );
-}
-
-function NarratorStatus({ message }: { message: string | null }) {
-  if (!message) {
-    return null;
-  }
-  return (
-    <p
-      aria-live="polite"
-      className="easy-button-narrator-status"
-      data-testid="easy-button-narrator-status"
-      role="status"
-    >
-      {message}
     </p>
   );
 }

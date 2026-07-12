@@ -415,6 +415,7 @@ func (handler *FailureHandler) retryDirective(
 		return nil, err
 	}
 	retry := request
+	retry = cloneRequest(retry)
 	retry.ID = retryID
 	retry.RecoverableRetry = true
 	retry.RetryAttempt++
