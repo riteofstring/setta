@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-3 and Phase 4 items 1-2 are complete
+**Status:** In progress; Phases 0-3 and Phase 4 items 1-3 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1655,7 +1655,7 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Progress:** Items 1-2 complete.
+**Progress:** Items 1-3 complete.
 
 Implement:
 
@@ -2753,3 +2753,32 @@ Implementation is in progress under this plan.
   tests, 50 repeated race-enabled materializer runs, and 30 repeated
   race-enabled persistence runs passed. Generated inputs and outputs changed:
   none. Phase 4 item 3 remains next and was not started.
+- 2026-07-12: Completed Phase 4 item 3. The backend role-profile owner now
+  keeps the primary-agent and narrator defaults together while preserving
+  independent exact selections. The narrator release default is the approved
+  `gpt-5.4-mini` model at `low` effort, with a 64 KiB byte budget, 16,384
+  estimated input tokens, 2,048 reserved output tokens, read-only provider
+  permissions, no tools, no workspace mutation, and no approvals. It never
+  reads the primary agent's `gpt-5.6-sol`/`high` profile.
+- 2026-07-12: The conversation store resolves complete role profiles in one
+  read transaction using the declared built-in, global, workspace, then
+  conversation precedence. It verifies conversation/workspace ownership,
+  validates every stored profile, and reports malformed or role/provider-
+  inconsistent configuration as corrupt state. `internal/narration` now owns
+  a model resolver that reads only the narrator hierarchy and calls the real
+  `internal/agent` catalog boundary before every future narrator invocation.
+  Missing models and unsupported efforts or tiers preserve the actionable
+  catalog failure; exact model or effort changes are rejected instead of being
+  treated as a silent fallback. Unsafe narrator overrides are rejected before
+  catalog lookup unless they remain read-only, tool-free, mutation-free, and
+  approval-free.
+- 2026-07-12: Focused conversation/narration tests and vet, the changed-file
+  quality gate, the joint race-enabled agent/conversation/narration suites, 50
+  repeated race-enabled role-profile persistence runs, and 100 repeated race-
+  enabled narrator resolver runs passed. Generated inputs and outputs changed:
+  none. Deterministic Electron and live Codex workflows were not run because
+  item 3 introduces a store/catalog resolution boundary but does not yet
+  compose a provider call, HTTP path, or renderer behavior; the Codex source
+  reference was not needed. Phase 4 item 4, typed triggers and schema-
+  constrained fresh narrator/checkpoint calls, is next with no external
+  blocker.

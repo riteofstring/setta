@@ -106,25 +106,3 @@ func validateConversationApprovalDecisionPayload(response ConversationApprovalRe
 	}
 	return nil
 }
-
-func DefaultAgentRoleProfile() RoleProfile {
-	modelID := "gpt-5.6-sol"
-	return RoleProfile{
-		Role:            RoleAgent,
-		Provider:        ProviderCodex,
-		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
-		ReasoningEffort: ReasoningEffortHigh,
-		PermissionProfile: PermissionProfile{
-			ApprovalPolicy:            ApprovalPolicyOnRequest,
-			ProviderPermissionProfile: ":workspace",
-			ToolAccess:                ToolAccessPolicy{Mode: ToolAccessAll, AllowedTools: []string{}},
-			WorkspaceMutation:         true,
-			Approvals:                 true,
-		},
-		ContextBudget: ContextBudget{
-			MaxInputBytes:        256 * 1024,
-			MaxInputTokens:       64 * 1024,
-			ReservedOutputTokens: 8 * 1024,
-		},
-	}
-}
