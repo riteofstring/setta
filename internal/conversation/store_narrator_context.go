@@ -52,6 +52,15 @@ func readNarratorContextSource(
 	if err != nil {
 		return NarratorContextSource{}, err
 	}
+	if request.Kind == NarratorContextReadProjection &&
+		request.ProjectionThroughSequence > conversation.LastTrajectorySequence {
+		return NarratorContextSource{}, fmt.Errorf(
+			"narrator projection through sequence %d exceeds conversation %s latest trajectory %d",
+			request.ProjectionThroughSequence,
+			request.ConversationID,
+			conversation.LastTrajectorySequence,
+		)
+	}
 	narratorState, err := readSnapshotNarrator(ctx, reader, request.ConversationID)
 	if err != nil {
 		return NarratorContextSource{}, err

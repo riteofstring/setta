@@ -18,6 +18,14 @@ func (source NarratorContextSource) validate(request NarratorContextReadRequest)
 	if source.NarratorState.ObservedThroughSequence > source.Conversation.LastTrajectorySequence {
 		return fmt.Errorf("narrator observed cursor exceeds latest trajectory")
 	}
+	if request.Kind == NarratorContextReadProjection &&
+		request.ProjectionThroughSequence > source.Conversation.LastTrajectorySequence {
+		return fmt.Errorf(
+			"narrator projection through sequence %d exceeds latest trajectory %d",
+			request.ProjectionThroughSequence,
+			source.Conversation.LastTrajectorySequence,
+		)
+	}
 	if err := source.CurrentTurn.validate(request); err != nil {
 		return err
 	}
@@ -170,7 +178,7 @@ func (window NarratorTrajectoryWindow) validate(
 	if window.Events == nil {
 		return fmt.Errorf("narrator trajectory events must be an array")
 	}
-	wantStart, wantEnd := narratorTrajectoryBounds(source.Conversation, source.NarratorState, request.Kind)
+	wantStart, wantEnd := narratorTrajectoryBounds(source.Conversation, source.NarratorState, request)
 	if wantStart > wantEnd {
 		return window.validateEmpty()
 	}

@@ -41,7 +41,7 @@ func readNarratorTrajectoryWindow(
 	state NarratorState,
 	request NarratorContextReadRequest,
 ) (NarratorTrajectoryWindow, error) {
-	start, end := narratorTrajectoryBounds(conversation, state, request.Kind)
+	start, end := narratorTrajectoryBounds(conversation, state, request)
 	if start > end {
 		return NarratorTrajectoryWindow{Events: []TrajectoryEvent{}}, nil
 	}
@@ -55,16 +55,18 @@ func readNarratorTrajectoryWindow(
 func narratorTrajectoryBounds(
 	conversation TopicConversation,
 	state NarratorState,
-	kind NarratorContextReadKind,
+	request NarratorContextReadRequest,
 ) (int, int) {
 	start := state.CheckpointThroughSequence + 1
-	switch kind {
+	switch request.Kind {
 	case NarratorContextReadCheckpoint:
 		return start, state.ObservedThroughSequence
-	case NarratorContextReadProjection, NarratorContextReadStatus:
+	case NarratorContextReadProjection:
+		return start, request.ProjectionThroughSequence
+	case NarratorContextReadStatus:
 		return start, conversation.LastTrajectorySequence
 	default:
-		panic(fmt.Sprintf("validated narrator context kind is unsupported: %q", kind))
+		panic(fmt.Sprintf("validated narrator context kind is unsupported: %q", request.Kind))
 	}
 }
 

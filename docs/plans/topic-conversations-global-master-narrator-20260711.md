@@ -2740,3 +2740,16 @@ Implementation is in progress under this plan.
   renderer, or provider call path; the Codex source reference was not needed.
   Phase 4 item 3, independent lightweight narrator-model resolution, is next
   with no external blocker.
+- 2026-07-12: The Phase 4 item 2 review froze every projection read and bundle
+  to the trajectory sequence accumulated for that request. A delayed working
+  or earlier-turn projection therefore cannot consume a later terminal event
+  or later turn and advance the durable cursor past work that still requires
+  its own evaluation. Status materialization now also requires the newest
+  complete trajectory event whenever post-checkpoint trajectory exists; if
+  that event and the authoritative current state do not fit together, it
+  returns the typed context-budget error instead of silently omitting current
+  evidence while claiming the latest source cursor. Store-backed cutoff tests,
+  materializer regressions, focused vet and package tests, joint race-enabled
+  tests, 50 repeated race-enabled materializer runs, and 30 repeated
+  race-enabled persistence runs passed. Generated inputs and outputs changed:
+  none. Phase 4 item 3 remains next and was not started.

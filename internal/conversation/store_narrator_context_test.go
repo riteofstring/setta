@@ -15,11 +15,12 @@ func TestReadNarratorContextSourceBuildsConsistentTypedWindows(t *testing.T) {
 	seed := seedNarratorContext(t, store)
 
 	projection, err := store.ReadNarratorContextSource(context.Background(), NarratorContextReadRequest{
-		ConversationID:      seed.conversationID,
-		TurnID:              &seed.turnID,
-		Kind:                NarratorContextReadProjection,
-		MaxTrajectoryEvents: 4,
-		MaxFinalSummaries:   2,
+		ConversationID:            seed.conversationID,
+		TurnID:                    &seed.turnID,
+		Kind:                      NarratorContextReadProjection,
+		ProjectionThroughSequence: 10,
+		MaxTrajectoryEvents:       4,
+		MaxFinalSummaries:         2,
 	})
 	if err != nil {
 		t.Fatalf("read projection narrator context: %v", err)
@@ -49,11 +50,12 @@ func TestReadNarratorContextSourceBuildsConsistentTypedWindows(t *testing.T) {
 	assertCheckpointNarratorSource(t, checkpoint)
 
 	repeated, err := store.ReadNarratorContextSource(context.Background(), NarratorContextReadRequest{
-		ConversationID:      seed.conversationID,
-		TurnID:              &seed.turnID,
-		Kind:                NarratorContextReadProjection,
-		MaxTrajectoryEvents: 4,
-		MaxFinalSummaries:   2,
+		ConversationID:            seed.conversationID,
+		TurnID:                    &seed.turnID,
+		Kind:                      NarratorContextReadProjection,
+		ProjectionThroughSequence: 10,
+		MaxTrajectoryEvents:       4,
+		MaxFinalSummaries:         2,
 	})
 	if err != nil {
 		t.Fatalf("repeat projection narrator context: %v", err)
@@ -61,6 +63,27 @@ func TestReadNarratorContextSourceBuildsConsistentTypedWindows(t *testing.T) {
 	if !reflect.DeepEqual(projection, repeated) {
 		t.Fatalf("repeated narrator context changed:\nfirst = %#v\nsecond = %#v", projection, repeated)
 	}
+
+	cutoff, err := store.ReadNarratorContextSource(context.Background(), NarratorContextReadRequest{
+		ConversationID:            seed.conversationID,
+		TurnID:                    &seed.turnID,
+		Kind:                      NarratorContextReadProjection,
+		ProjectionThroughSequence: 8,
+		MaxTrajectoryEvents:       10,
+		MaxFinalSummaries:         2,
+	})
+	if err != nil {
+		t.Fatalf("read cutoff projection narrator context: %v", err)
+	}
+	assertNarratorSourceRange(
+		t,
+		cutoff.Trajectory,
+		TrajectorySequenceRange{Start: 3, End: 8},
+		3,
+		8,
+		false,
+		false,
+	)
 }
 
 func assertProjectionNarratorSource(t *testing.T, source NarratorContextSource) {

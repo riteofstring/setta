@@ -21,11 +21,12 @@ type TrajectorySequenceRange struct {
 }
 
 type NarratorContextReadRequest struct {
-	ConversationID      string
-	TurnID              *string
-	Kind                NarratorContextReadKind
-	MaxTrajectoryEvents int
-	MaxFinalSummaries   int
+	ConversationID            string
+	TurnID                    *string
+	Kind                      NarratorContextReadKind
+	ProjectionThroughSequence int
+	MaxTrajectoryEvents       int
+	MaxFinalSummaries         int
 }
 
 type NarratorAcceptedSteering struct {
@@ -101,14 +102,8 @@ func (request NarratorContextReadRequest) Validate() error {
 	if err := validateOptionalIdentifier("narrator context turn id", request.TurnID); err != nil {
 		return err
 	}
-	switch request.Kind {
-	case NarratorContextReadProjection:
-		if request.TurnID == nil {
-			return fmt.Errorf("narrator projection context requires turn id")
-		}
-	case NarratorContextReadStatus, NarratorContextReadCheckpoint:
-	default:
-		return fmt.Errorf("unsupported narrator context read kind %q", request.Kind)
+	if err := request.validateTarget(); err != nil {
+		return err
 	}
 	if request.MaxTrajectoryEvents <= 0 || request.MaxTrajectoryEvents > MaxNarratorContextTrajectoryEvents {
 		return fmt.Errorf(
@@ -123,6 +118,28 @@ func (request NarratorContextReadRequest) Validate() error {
 			MaxNarratorContextFinalSummaries,
 			request.MaxFinalSummaries,
 		)
+	}
+	return nil
+}
+
+func (request NarratorContextReadRequest) validateTarget() error {
+	switch request.Kind {
+	case NarratorContextReadProjection:
+		if request.TurnID == nil {
+			return fmt.Errorf("narrator projection context requires turn id")
+		}
+		if request.ProjectionThroughSequence <= 0 {
+			return fmt.Errorf("narrator projection context requires a positive through sequence")
+		}
+	case NarratorContextReadStatus, NarratorContextReadCheckpoint:
+		if request.ProjectionThroughSequence != 0 {
+			return fmt.Errorf(
+				"narrator %s context must not include a projection through sequence",
+				request.Kind,
+			)
+		}
+	default:
+		return fmt.Errorf("unsupported narrator context read kind %q", request.Kind)
 	}
 	return nil
 }

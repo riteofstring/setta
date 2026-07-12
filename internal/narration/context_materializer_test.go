@@ -32,10 +32,11 @@ func TestContextMaterializerBuildsDeterministicAuthoritativeProjection(t *testin
 	}
 	materializer := newFakeContextMaterializer(t, source)
 	request := ProjectionContextRequest{
-		ConversationID: source.conversation.ID,
-		TurnID:         source.turn.ID,
-		Trigger:        conversation.NarrationTriggerPlanChanged,
-		Limits:         testContextLimits(3),
+		ConversationID:  source.conversation.ID,
+		TurnID:          source.turn.ID,
+		Trigger:         conversation.NarrationTriggerPlanChanged,
+		ThroughSequence: 8,
+		Limits:          testContextLimits(3),
 	}
 
 	bundle, err := materializer.Projection(context.Background(), request)
@@ -170,10 +171,11 @@ func TestContextMaterializerReadsOneAuthoritativeStoreSnapshot(t *testing.T) {
 		t.Fatalf("new store context materializer: %v", err)
 	}
 	bundle, err := materializer.Projection(context.Background(), ProjectionContextRequest{
-		ConversationID: conversationID,
-		TurnID:         turnID,
-		Trigger:        conversation.NarrationTriggerPlanChanged,
-		Limits:         testContextLimits(3),
+		ConversationID:  conversationID,
+		TurnID:          turnID,
+		Trigger:         conversation.NarrationTriggerPlanChanged,
+		ThroughSequence: 3,
+		Limits:          testContextLimits(3),
 	})
 	if err != nil {
 		t.Fatalf("materialize store-backed projection: %v", err)
@@ -187,16 +189,50 @@ func TestContextMaterializerReadsOneAuthoritativeStoreSnapshot(t *testing.T) {
 	}
 }
 
+func TestProjectionContextDoesNotConsumeLaterTurnBeyondRequestedCutoff(t *testing.T) {
+	source := newFakeNarratorContextSource(8)
+	laterTurnID := "turn-later"
+	for index := 5; index < len(source.events); index++ {
+		source.events[index].TurnID = &laterTurnID
+	}
+	source.state.ObservedThroughSequence = 2
+	source.state.CheckpointThroughSequence = 2
+	source.state.CheckpointText = "Events one and two are historical."
+	materializer := newFakeContextMaterializer(t, source)
+
+	bundle, err := materializer.Projection(context.Background(), ProjectionContextRequest{
+		ConversationID:  source.conversation.ID,
+		TurnID:          source.turn.ID,
+		Trigger:         conversation.NarrationTriggerPlanChanged,
+		ThroughSequence: 5,
+		Limits:          testContextLimits(8),
+	})
+	if err != nil {
+		t.Fatalf("materialize cutoff projection: %v", err)
+	}
+	if bundle.RequestedThroughSequence != 5 ||
+		bundle.Authoritative.Conversation.LatestTrajectorySequence != 8 {
+		t.Fatalf("projection cutoff/latest = %d/%d", bundle.RequestedThroughSequence, bundle.Authoritative.Conversation.LatestTrajectorySequence)
+	}
+	assertSequenceRange(t, bundle.IncludedRange, 3, 5)
+	assertSequenceRange(t, bundle.EvaluationRange, 3, 5)
+	assertOptionalSequenceRange(t, bundle.RemainingUnobservedRange, 6, 8)
+	if err := bundle.ValidateObservedAdvance(6); err == nil {
+		t.Fatal("observed advance beyond requested cutoff error = nil")
+	}
+}
+
 func TestContextMaterializerRequiresCheckpointBeforeSkippingObservedBacklog(t *testing.T) {
 	source := newFakeNarratorContextSource(9)
 	source.state.ObservedThroughSequence = 3
 	source.state.CheckpointThroughSequence = 0
 	materializer := newFakeContextMaterializer(t, source)
 	projectionRequest := ProjectionContextRequest{
-		ConversationID: source.conversation.ID,
-		TurnID:         source.turn.ID,
-		Trigger:        conversation.NarrationTriggerPhaseActivityCompleted,
-		Limits:         testContextLimits(2),
+		ConversationID:  source.conversation.ID,
+		TurnID:          source.turn.ID,
+		Trigger:         conversation.NarrationTriggerPhaseActivityCompleted,
+		ThroughSequence: 9,
+		Limits:          testContextLimits(2),
 	}
 
 	_, err := materializer.Projection(context.Background(), projectionRequest)
@@ -240,10 +276,11 @@ func TestProjectionContextConstrainsObservedCursorToSuppliedWindow(t *testing.T)
 	source.state.CheckpointText = "Events one and two are historical."
 	materializer := newFakeContextMaterializer(t, source)
 	bundle, err := materializer.Projection(context.Background(), ProjectionContextRequest{
-		ConversationID: source.conversation.ID,
-		TurnID:         source.turn.ID,
-		Trigger:        conversation.NarrationTriggerPlanChanged,
-		Limits:         testContextLimits(3),
+		ConversationID:  source.conversation.ID,
+		TurnID:          source.turn.ID,
+		Trigger:         conversation.NarrationTriggerPlanChanged,
+		ThroughSequence: 6,
+		Limits:          testContextLimits(3),
 	})
 	if err != nil {
 		t.Fatalf("materialize projection cursor window: %v", err)
@@ -262,10 +299,11 @@ func TestContextMaterializerUsesContiguousByteBoundedProjectionPrefix(t *testing
 	source := newFakeNarratorContextSource(7)
 	materializer := newFakeContextMaterializer(t, source)
 	twoEventRequest := ProjectionContextRequest{
-		ConversationID: source.conversation.ID,
-		TurnID:         source.turn.ID,
-		Trigger:        conversation.NarrationTriggerPlanChanged,
-		Limits:         testContextLimits(2),
+		ConversationID:  source.conversation.ID,
+		TurnID:          source.turn.ID,
+		Trigger:         conversation.NarrationTriggerPlanChanged,
+		ThroughSequence: 7,
+		Limits:          testContextLimits(2),
 	}
 	twoEvents, err := materializer.Projection(context.Background(), twoEventRequest)
 	if err != nil {
@@ -326,6 +364,39 @@ func TestStatusContextUsesLatestSuffixAndReportsOmittedUnobservedRange(t *testin
 		t.Fatalf("status materialization mutated observed cursor to %d", source.state.ObservedThroughSequence)
 	}
 	assertEncodedContextBytes(t, bundle.InputBytes, bundle)
+}
+
+func TestStatusContextFailsWhenLatestCompleteEventDoesNotFit(t *testing.T) {
+	source := newFakeNarratorContextSource(1)
+	materializer := newFakeContextMaterializer(t, source)
+	request := StatusContextRequest{
+		ConversationID: source.conversation.ID,
+		Question:       "What is happening now?",
+		Limits:         testContextLimits(1),
+	}
+
+	full, err := materializer.Status(context.Background(), request)
+	if err != nil {
+		t.Fatalf("materialize full status: %v", err)
+	}
+	withoutLatest := full
+	withoutLatest.LatestEvents = []conversation.TrajectoryEvent{}
+	available := conversation.TrajectorySequenceRange{Start: 1, End: 1}
+	setStatusRanges(&withoutLatest, &available, source.state.ObservedThroughSequence)
+	baseBytes, err := contextBytes(withoutLatest)
+	if err != nil {
+		t.Fatalf("measure status required fields: %v", err)
+	}
+	request.Limits.MaxInputBytes = baseBytes
+
+	_, err = materializer.Status(context.Background(), request)
+	var budgetErr *ContextBudgetError
+	if !errors.Is(err, ErrContextBudgetExceeded) || !errors.As(err, &budgetErr) {
+		t.Fatalf("latest status event error = %T %v, want ContextBudgetError", err, err)
+	}
+	if budgetErr.RequiredBytes <= budgetErr.MaxInputBytes {
+		t.Fatalf("latest status event budget error = %+v", budgetErr)
+	}
 }
 
 func TestCheckpointOutputPreparesExactAtomicStoreCommit(t *testing.T) {
@@ -442,7 +513,10 @@ func (source *fakeNarratorContextSource) ReadNarratorContextSource(
 	source.requests = append(source.requests, request)
 	start := source.state.CheckpointThroughSequence + 1
 	end := source.conversation.LastTrajectorySequence
-	if request.Kind == conversation.NarratorContextReadCheckpoint {
+	switch request.Kind {
+	case conversation.NarratorContextReadProjection:
+		end = request.ProjectionThroughSequence
+	case conversation.NarratorContextReadCheckpoint:
 		end = source.state.ObservedThroughSequence
 	}
 	window := conversation.NarratorTrajectoryWindow{Events: []conversation.TrajectoryEvent{}}

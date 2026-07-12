@@ -115,6 +115,7 @@ type ProjectionContextBundle struct {
 	Kind                     ContextKind                           `json:"kind"`
 	Trigger                  conversation.NarrationTrigger         `json:"trigger"`
 	RequestedChannel         ProjectionChannel                     `json:"requestedChannel"`
+	RequestedThroughSequence int                                   `json:"requestedThroughSequence"`
 	Authoritative            AuthoritativeContext                  `json:"authoritative"`
 	HistoricalCheckpoint     *HistoricalCheckpoint                 `json:"historicalCheckpoint"`
 	PreCallCursor            NarratorCursor                        `json:"preCallCursor"`
@@ -154,10 +155,11 @@ type CheckpointContextBundle struct {
 }
 
 type ProjectionContextRequest struct {
-	ConversationID string
-	TurnID         string
-	Trigger        conversation.NarrationTrigger
-	Limits         ContextLimits
+	ConversationID  string
+	TurnID          string
+	Trigger         conversation.NarrationTrigger
+	ThroughSequence int
+	Limits          ContextLimits
 }
 
 type StatusContextRequest struct {
@@ -239,6 +241,9 @@ func (bundle ProjectionContextBundle) ValidateObservedAdvance(observedThroughSeq
 	if bundle.EvaluationRange.Start != bundle.PreCallCursor.ObservedThroughSequence+1 {
 		return fmt.Errorf("projection evaluation range does not begin after the durable observed cursor")
 	}
+	if bundle.RequestedThroughSequence <= 0 || bundle.EvaluationRange.End > bundle.RequestedThroughSequence {
+		return fmt.Errorf("projection evaluation range exceeds its requested trajectory cutoff")
+	}
 	if observedThroughSequence < bundle.EvaluationRange.Start || observedThroughSequence > bundle.EvaluationRange.End {
 		return fmt.Errorf(
 			"projection observed cursor %d is outside supplied evaluation range %d..%d",
@@ -259,6 +264,9 @@ func validateProjectionContextRequest(request ProjectionContextRequest) error {
 	}
 	if !isProjectionTrigger(request.Trigger) {
 		return fmt.Errorf("unsupported narrator projection trigger %q", request.Trigger)
+	}
+	if request.ThroughSequence <= 0 {
+		return fmt.Errorf("narrator projection through sequence must be positive")
 	}
 	return request.Limits.Validate()
 }
