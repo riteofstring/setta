@@ -370,12 +370,41 @@ reversible probes only. Both harnesses pass `bash -n` and
 - **Non-destructive hard-cost cutoff: EXISTS.** `POST .../suspend` stops active
   compute in ~1s without deletion (A3). Corresponding stop-condition does not
   hold, pending a `warm`-cost measurement.
-- **Network containment: an operability requirement, not proven impossible.**
-  Default egress is open (findings 3, A4); Setta must apply and then re-test an
-  egress policy. Not yet shown bypassable once applied.
+- **Network containment: validated.** Default egress is open (findings 3, A4),
+  but an applied host-enforced domain egress policy contains every abuse vector,
+  preserves dev egress, and cannot be bypassed or removed by capability-root
+  guest code (see Egress policy — validated). One operational rule: apply the
+  policy before untrusted code runs (pre-existing connections survive a later
+  tightening).
 
 No Phase 1a stop-condition fired. The core architectural risk resolves into
 concrete build tasks.
+
+## Egress policy — validated
+
+Tested via `scripts/sprites/phase1a_egress_policy.sh` (delegated Codex, high
+effort) and independently re-verified by the reviewer. Sprites enforces a
+DNS-domain egress allow/deny policy through the management API
+(`GET/POST /v1/sprites/{name}/policy/network`, body
+`{"rules":[{"action":"allow|deny","domain":"..."}]}`; default is `{"rules":[]}`
+= allow-all). Applying an allowlist + `{"action":"deny","domain":"*"}`:
+
+- **Contains abuse:** raw public IP (`1.1.1.1`), RFC1918 (`10.0.0.1`),
+  DoH-by-IP (`8.8.8.8`), SMTP TCP:25, and ICMP were all blocked.
+- **Preserves dev egress:** `git clone`, `pip download`, and HTTPS to allowed
+  hosts (github, pypi) still worked.
+- **Unbypassable from the guest:** the capability-root default account could not
+  modify or remove the policy — `/.sprite/policy` is a read-only filesystem, the
+  local socket policy routes 404, and even `sudo` + `cap_net_raw` could not ping
+  a denied IP. Enforcement is provider/host-side, not mutable Sprite-local state.
+- **Caveat:** a TCP flow opened *before* the policy is applied survives the
+  tightening. So Setta must apply the policy at provisioning, before any user or
+  agent code runs, and use suspend/restart to cut active hostile sessions.
+
+Reviewer re-verification (independent): under a deny-most policy, `1.1.1.1`
+returned "Could not connect", `github.com` returned 200, a guest write to
+`/.sprite/policy` returned "Read-only file system", and the policy reverted
+cleanly to `{"rules":[]}`.
 
 ## Phase 1a checklist status
 
@@ -397,8 +426,10 @@ concrete build tasks.
   confirmation. See Cost assumptions table.
 - Non-destructive hard-cost cutoff under hostile keepalive: done — `suspend`
   works in ~1s (A3).
-- Network/privilege policy matrix: default-open baseline established (3, A4);
-  applying a policy and testing bypass remains.
+- Network/privilege policy matrix: done. Default-open baseline established
+  (3, A4); an applied host-enforced domain egress policy contains abuse,
+  preserves dev egress, and is unbypassable by capability-root guest code (see
+  Egress policy — validated). Caveat: apply before untrusted code runs.
 - Unauthenticated URL wake behavior; Proxy API as gateway without exposing org
   token: not run.
 - Attached-idle behavior (event stream, idle TTY, preview): not run; idle-pause
