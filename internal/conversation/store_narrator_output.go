@@ -218,20 +218,29 @@ WHERE turn.id = ? AND turn.conversation_id = ?
 	if err != nil {
 		return fmt.Errorf("read narrator terminal source for %s: %w", request.ConversationID, err)
 	}
-	if !terminalTurnStatus(turnStatus) || !terminalTrajectoryKind(eventKind) {
+	if !terminalTurnMatchesTrajectory(turnStatus, eventKind) {
 		return stateConflict(
 			"narrator projection",
 			request.ConversationID,
-			fmt.Sprintf("turn %s and source event are not terminal", request.TurnID),
+			fmt.Sprintf(
+				"turn %s status %s does not match terminal source event %s",
+				request.TurnID,
+				turnStatus,
+				eventKind,
+			),
 		)
 	}
 	return nil
 }
 
-func terminalTrajectoryKind(kind TrajectoryEventKind) bool {
-	switch kind {
-	case TrajectoryEventTurnCompleted, TrajectoryEventTurnInterrupted, TrajectoryEventTurnFailed:
-		return true
+func terminalTurnMatchesTrajectory(status TurnStatus, kind TrajectoryEventKind) bool {
+	switch status {
+	case TurnStatusCompleted:
+		return kind == TrajectoryEventTurnCompleted
+	case TurnStatusCancelled:
+		return kind == TrajectoryEventTurnInterrupted
+	case TurnStatusFailed:
+		return kind == TrajectoryEventTurnFailed
 	default:
 		return false
 	}

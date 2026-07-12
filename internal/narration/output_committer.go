@@ -75,7 +75,7 @@ func (committer *OutputCommitter) Prepare(
 	if committer == nil || committer.store == nil || committer.newID == nil {
 		return nil, errors.New("narrator output committer is required")
 	}
-	prepared, err := prepareCallRequest(request)
+	prepared, err := prepareWitnessedCallRequest(request, result)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +101,20 @@ func (committer *OutputCommitter) Prepare(
 	default:
 		return nil, fmt.Errorf("prepare narrator output for unsupported kind %q", prepared.kind)
 	}
+}
+
+func prepareWitnessedCallRequest(
+	request CallRequest,
+	result CallResult,
+) (preparedCallRequest, error) {
+	prepared, err := prepareCallRequest(request)
+	if err != nil {
+		return preparedCallRequest{}, err
+	}
+	if err := validateSuccessfulCallWitness(request, prepared, result); err != nil {
+		return preparedCallRequest{}, err
+	}
+	return prepared, nil
 }
 
 func freezeSuccessfulCallResult(
@@ -165,6 +179,7 @@ func freezeCallResultValue(result CallResult) CallResult {
 	frozen.StructuredOutput = append([]byte{}, result.StructuredOutput...)
 	frozen.NarratorOutput = nil
 	frozen.CheckpointOutput = nil
+	frozen.witness = nil
 	return frozen
 }
 

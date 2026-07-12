@@ -221,6 +221,13 @@ func validateTerminalProjectionOutput(
 	if err := context.ValidateObservedAdvance(projection.ObservedThroughSequence); err != nil {
 		return err
 	}
+	if projection.ObservedThroughSequence != context.EvaluationRange.End {
+		return fmt.Errorf(
+			"terminal narrator projection must observe terminal boundary %d, got %d",
+			context.EvaluationRange.End,
+			projection.ObservedThroughSequence,
+		)
+	}
 	if err := validateProjectionText(
 		projection.CurrentFocus,
 		projection.Milestones,

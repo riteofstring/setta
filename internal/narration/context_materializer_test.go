@@ -399,7 +399,7 @@ func TestStatusContextFailsWhenLatestCompleteEventDoesNotFit(t *testing.T) {
 	}
 }
 
-func TestCheckpointOutputPreparesExactAtomicStoreCommit(t *testing.T) {
+func TestCheckpointOutputRequiresExactMaterializedCoverage(t *testing.T) {
 	source := newFakeNarratorContextSource(8)
 	source.state.ObservedThroughSequence = 5
 	source.state.CheckpointThroughSequence = 2
@@ -423,27 +423,8 @@ func TestCheckpointOutputPreparesExactAtomicStoreCommit(t *testing.T) {
 		CoveredThroughSequence: 4,
 		HistoricalSummary:      "Events three and four preserve only evaluated historical facts.",
 	}
-	store := &recordingCheckpointStore{}
-	commit, err := PrepareCheckpointCommit(
-		store,
-		bundle,
-		output,
-		"checkpoint-committed-event",
-		"2026-07-12T12:01:00Z",
-	)
-	if err != nil {
-		t.Fatalf("prepare checkpoint commit: %v", err)
-	}
-	if err := commit(context.Background()); err != nil {
-		t.Fatalf("run checkpoint commit: %v", err)
-	}
-	if len(store.requests) != 1 {
-		t.Fatalf("checkpoint store request count = %d", len(store.requests))
-	}
-	request := store.requests[0]
-	if request.CoveredThroughSequence != 4 || request.Expected.ObservedThroughSequence != 5 ||
-		request.Expected.CheckpointThroughSequence != 2 || request.HistoricalSummary != output.HistoricalSummary {
-		t.Fatalf("checkpoint commit request = %+v", request)
+	if err := output.Validate(bundle); err != nil {
+		t.Fatalf("validate exact checkpoint output: %v", err)
 	}
 
 	invalid := output
@@ -559,18 +540,6 @@ func (source *fakeNarratorContextSource) ReadNarratorContextSource(
 		PriorMilestones:      append([]conversation.NarrationEvent{}, source.milestones...),
 		RecentFinalSummaries: append([]conversation.NarrationEvent{}, finalSummaries...),
 	}, nil
-}
-
-type recordingCheckpointStore struct {
-	requests []conversation.NarratorCheckpointCommit
-}
-
-func (store *recordingCheckpointStore) CommitNarratorCheckpoint(
-	_ context.Context,
-	request conversation.NarratorCheckpointCommit,
-) (conversation.NarratorState, error) {
-	store.requests = append(store.requests, request)
-	return conversation.NarratorState{}, nil
 }
 
 func newFakeContextMaterializer(t *testing.T, source ContextSource) *ContextMaterializer {

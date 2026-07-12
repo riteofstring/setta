@@ -138,6 +138,22 @@ func TestTerminalNarratorProjectionRequiresTerminalTurnAndSourceEvent(t *testing
 	assertNarratorCursorAndEventCount(t, store, seed.conversationID, 6, 2)
 }
 
+func TestTerminalNarratorProjectionRequiresSourceEventMatchingTurnOutcome(t *testing.T) {
+	store := newTestStore(t)
+	seed := seedNarratorContext(t, store)
+	appendMismatchedTerminalNarratorSource(t, store, seed)
+
+	state := readTestNarratorState(t, store, seed.conversationID)
+	_, err := store.CommitNarratorProjection(
+		context.Background(),
+		narratorTerminalCommit(seed, state),
+	)
+	if !IsStateConflict(err) {
+		t.Fatalf("mismatched terminal projection error = %T %v, want StateConflictError", err, err)
+	}
+	assertNarratorCursorAndEventCount(t, store, seed.conversationID, 6, 2)
+}
+
 func narratorWorkingCommit(seed narratorContextSeed) NarratorProjectionCommit {
 	conversationCommittedID := "projection-conversation-publication"
 	return NarratorProjectionCommit{
@@ -258,6 +274,37 @@ func appendTerminalNarratorSource(t *testing.T, store *Store, seed narratorConte
 	})
 	if err != nil {
 		t.Fatalf("append terminal narrator source: %v", err)
+	}
+}
+
+func appendMismatchedTerminalNarratorSource(t *testing.T, store *Store, seed narratorContextSeed) {
+	t.Helper()
+	turn := readNarratorOutputTurn(t, store, seed.turnID)
+	turn.Status = TurnStatusCompleted
+	turn.EndedAt = stringPointer(narratorStatusTime)
+	turn.ResolvedInvocation = invocationPointer(
+		terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeSucceeded, narratorStatusTime, nil),
+	)
+	terminal := contextTrajectoryEvent(seed.conversationID, seed.turnID, 11, TrajectoryEventTurnInterrupted)
+	terminal.EmittedAt = narratorStatusTime
+	terminal.Actor = TrajectoryActorProvider
+	terminal.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionProviderInterrupted}
+	_, err := store.Transact(context.Background(), "append mismatched terminal narrator source", func(transaction *WriteTransaction) error {
+		if err := transaction.UpdateTurn(TurnStatusRunning, turn); err != nil {
+			return err
+		}
+		if err := transaction.AppendTrajectoryEvent(terminal); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"mismatched-terminal-source-publication",
+			"conversation:"+seed.conversationID,
+			terminal,
+		))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("append mismatched terminal narrator source: %v", err)
 	}
 }
 

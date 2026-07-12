@@ -99,6 +99,31 @@ func testCallerTerminalProjection(t *testing.T) {
 	assertSchemaProperties(t, provider.requests[0].OutputSchema,
 		[]string{"currentFocus", "finalSummary", "kind", "milestones", "observedThroughSequence", "topicDescriptor"},
 	)
+	assertSchemaIntegerBounds(t, provider.requests[0].OutputSchema, "observedThroughSequence", 3, 3)
+}
+
+func TestCallerRejectsTerminalProjectionBeforeTerminalBoundary(t *testing.T) {
+	source := newFakeNarratorContextSource(3)
+	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerTurnTerminal)
+	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
+		"kind":"terminal_projection",
+		"observedThroughSequence":2,
+		"currentFocus":"Stopping before the terminal event.",
+		"milestones":[],
+		"finalSummary":"This summary cannot cover a terminal event the narrator did not observe.",
+		"topicDescriptor":null
+	}`)}
+	caller := newTestCaller(t, provider)
+
+	_, err := caller.Call(context.Background(), CallRequest{
+		ID:            "narrator-early-terminal-call",
+		Generation:    1,
+		WorkspaceRoot: t.TempDir(),
+		Projection:    &bundle,
+	})
+	if err == nil || !strings.Contains(err.Error(), "must observe terminal boundary 3") {
+		t.Fatalf("early terminal projection error = %v", err)
+	}
 }
 
 func testCallerStatusReply(t *testing.T) {
@@ -516,5 +541,31 @@ func assertSchemaProperties(t *testing.T, raw json.RawMessage, want []string) {
 	required := schema["required"].([]any)
 	if len(required) != len(properties) {
 		t.Fatalf("output schema required = %v, properties = %v", required, got)
+	}
+}
+
+func assertSchemaIntegerBounds(
+	t *testing.T,
+	raw json.RawMessage,
+	property string,
+	wantMinimum int,
+	wantMaximum int,
+) {
+	t.Helper()
+	var schema map[string]any
+	if err := json.Unmarshal(raw, &schema); err != nil {
+		t.Fatalf("decode output schema: %v", err)
+	}
+	properties := schema["properties"].(map[string]any)
+	value := properties[property].(map[string]any)
+	if value["minimum"] != float64(wantMinimum) || value["maximum"] != float64(wantMaximum) {
+		t.Fatalf(
+			"output schema %s bounds = %v..%v, want %d..%d",
+			property,
+			value["minimum"],
+			value["maximum"],
+			wantMinimum,
+			wantMaximum,
+		)
 	}
 }

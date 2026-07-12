@@ -24,6 +24,10 @@ func projectionOutputSchema(context ProjectionContextBundle) (json.RawMessage, e
 		properties["kind"] = enumStringSchema(string(CallOutputWorkingProjection))
 	case ProjectionChannelTerminal:
 		properties["kind"] = enumStringSchema(string(CallOutputTerminalProjection))
+		properties["observedThroughSequence"] = boundedIntegerSchema(
+			context.EvaluationRange.End,
+			context.EvaluationRange.End,
+		)
 		properties["finalSummary"] = boundedStringSchema(MaxNarratorFinalSummaryCharacters)
 	default:
 		return nil, fmt.Errorf("narrator projection schema received channel %q", context.RequestedChannel)

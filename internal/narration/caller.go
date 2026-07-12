@@ -51,6 +51,7 @@ type CallResult struct {
 	CheckpointOutput *CheckpointOutput
 	StartedAt        string
 	EndedAt          string
+	witness          *successfulCallWitness
 }
 
 type Caller struct {
@@ -130,6 +131,7 @@ func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult
 	if err := decodeCallOutput(&result, prepared, providerResult.Output); err != nil {
 		return result, err
 	}
+	result.witness = newSuccessfulCallWitness(request.WorkspaceRoot, prepared.input, result)
 	return result, nil
 }
 

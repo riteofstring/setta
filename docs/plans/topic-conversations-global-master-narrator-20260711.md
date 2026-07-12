@@ -2893,3 +2893,21 @@ Implementation is in progress under this plan.
   none; the Codex source reference was not needed because no provider protocol
   behavior changed. Phase 4 item 6, typed degradation and retry behavior, is
   next with no implementation blocker.
+- 2026-07-12: The Phase 4 item 5 review bound every prepared output commit to
+  the exact serialized context, workspace root, resolved model audit, provider
+  references, structured result, and call timeline validated by the caller. A
+  same-sized context mutation or altered result metadata can no longer rebind
+  a successful provider response before the actor commits it. The obsolete
+  exported checkpoint-preparation helper was removed, leaving projection,
+  status, and checkpoint output on the one caller-witnessed adapter path.
+- 2026-07-12: Terminal output schemas and local validation now require the
+  observed cursor to reach the supplied terminal boundary, and persistence
+  requires completed/interrupted/failed trajectory events to match the durable
+  completed/cancelled/failed turn outcome. Focused file/complexity, vet, test,
+  dead-code, race, and repeated output/persistence checks passed. Desktop
+  typecheck/build and the deterministic production Electron topic workflow
+  passed at
+  `.recordings/topic-conversation-pane-projection/20260712T121756057Z/`.
+  ChatGPT-authenticated live structured output passed with `OPENAI_API_KEY`
+  removed. Generated inputs and outputs changed: none. Phase 4 item 6 remains
+  next and was not started.

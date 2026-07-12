@@ -1,8 +1,6 @@
 package narration
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -12,13 +10,6 @@ import (
 type CheckpointOutput struct {
 	CoveredThroughSequence int    `json:"coveredThroughSequence"`
 	HistoricalSummary      string `json:"historicalSummary"`
-}
-
-type CheckpointStore interface {
-	CommitNarratorCheckpoint(
-		context.Context,
-		conversation.NarratorCheckpointCommit,
-	) (conversation.NarratorState, error)
 }
 
 func (output CheckpointOutput) Validate(context CheckpointContextBundle) error {
@@ -42,50 +33,6 @@ func (output CheckpointOutput) Validate(context CheckpointContextBundle) error {
 		)
 	}
 	return nil
-}
-
-func PrepareCheckpointCommit(
-	store CheckpointStore,
-	checkpointContext CheckpointContextBundle,
-	output CheckpointOutput,
-	committedEventID string,
-	committedAt string,
-) (PreparedCommit, error) {
-	if store == nil {
-		return nil, errors.New("narrator checkpoint store is required")
-	}
-	if err := output.Validate(checkpointContext); err != nil {
-		return nil, err
-	}
-	if err := validateIdentifier("narrator checkpoint committed event id", committedEventID); err != nil {
-		return nil, err
-	}
-	if committedAt == "" {
-		return nil, errors.New("narrator checkpoint commit timestamp is required")
-	}
-	request := conversation.NarratorCheckpointCommit{
-		ConversationID: checkpointContext.Authoritative.Conversation.ConversationID,
-		Expected: conversation.NarratorStateExpectation{
-			ObservedThroughSequence:   checkpointContext.PreCallCursor.ObservedThroughSequence,
-			CheckpointThroughSequence: checkpointContext.PreCallCursor.CheckpointThroughSequence,
-			CurrentFocusRevision:      checkpointContext.PreCallCursor.CurrentFocusRevision,
-			UpdatedAt:                 checkpointContext.PreCallCursor.UpdatedAt,
-		},
-		CoveredThroughSequence: output.CoveredThroughSequence,
-		HistoricalSummary:      output.HistoricalSummary,
-		CommittedEventID:       committedEventID,
-		CommittedAt:            committedAt,
-	}
-	if err := request.Validate(); err != nil {
-		return nil, err
-	}
-	return func(ctx context.Context) error {
-		if ctx == nil {
-			return errors.New("narrator checkpoint prepared commit context is required")
-		}
-		_, err := store.CommitNarratorCheckpoint(ctx, request)
-		return err
-	}, nil
 }
 
 func validateCheckpointBundle(bundle CheckpointContextBundle) error {

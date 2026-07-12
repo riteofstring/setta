@@ -141,6 +141,13 @@ func testPrepareStatusOutputCommit(t *testing.T) {
 	result := runNarratorCall(t, caller, callRequest)
 	store := &recordingNarratorOutputStore{}
 	committer := newRecordingOutputCommitter(t, store)
+	mutatedBundle := bundle
+	mutatedBundle.Question = "When is happening now?"
+	mutatedRequest := callRequest
+	mutatedRequest.Status = &mutatedBundle
+	if _, err := committer.Prepare(mutatedRequest, result); err == nil {
+		t.Fatal("status output commit accepted a same-sized context mutation")
+	}
 	commit, err := committer.Prepare(callRequest, result)
 	if err != nil {
 		t.Fatalf("prepare status output commit: %v", err)
@@ -237,6 +244,12 @@ func TestOutputCommitterRejectsMismatchedMutatedOrInvalidSuccessfulResults(t *te
 		{name: "output bytes", mutate: func(value *CallResult) { value.OutputBytes++ }},
 		{name: "decoded output", mutate: func(value *CallResult) {
 			value.NarratorOutput.WorkingProjection.CurrentFocus = "changed without changing structured output"
+		}},
+		{name: "model audit", mutate: func(value *CallResult) {
+			value.Model.Settings.ModelID = "mutated-model"
+		}},
+		{name: "provider thread", mutate: func(value *CallResult) {
+			value.ProviderThreadID = "mutated-provider-thread"
 		}},
 		{name: "missing end time", mutate: func(value *CallResult) { value.EndedAt = "" }},
 	}
