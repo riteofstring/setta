@@ -2,9 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete; ready for final audit. The implementation and its
-production-path verification satisfy the plan without product-owned diagnostic
-token accounting.
+**Status:** Implementation plan. Completion is determined from the acceptance
+criteria and current source/tests, not progress notes in this document.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -38,8 +37,7 @@ than hidden, deprecated, or retained for compatibility:
    renderer-facing recent-master-input read path. Remove that history UI and
    every endpoint, IPC contract, controller field, fixture, and test whose only
    purpose is to hydrate it. The master overlay is one transient active
-   interaction; durable master state remains hidden for routing, recovery, and
-   audit.
+   interaction; durable master state remains hidden for routing and recovery.
 2. The Easy Button composer was implemented with separate Send, Queue, Steer,
    Status, Side, and Fork actions plus a pane-voice mode selector, backed by
    `ConversationInputMode`, `requestedMode`, and an explicit-mode router.
@@ -70,8 +68,8 @@ environment:
   right topic conversation, routes work, and asks the renderer to focus or open
   panes.
 - The master is presented as one active routing interaction, not as a separate
-  chat or completed-request transcript. Its durable session and audit state
-  remain hidden.
+  chat or completed-request transcript. Its durable execution state remains
+  hidden.
 - Input started inside an Easy Button goes to that conversation's lightweight
   **narrator/router**. It decides whether to continue, queue, or steer the
   parent agent; answer as narrator; create a side conversation or durable fork;
@@ -185,7 +183,7 @@ Runtime/account/settings          fixed shell controls
 
 The topic conversation durably owns accepted inputs, turns, steering, queueing,
 agent trajectory, narrator state, artifacts, and provider references. That
-underlying history exists for execution, model context, recovery, and audit;
+underlying history exists for execution, model context, and recovery;
 it is not rendered as user-message scrollback.
 
 An Easy Button restores one evolving projection of the topic:
@@ -203,7 +201,7 @@ updated focus and projection. Do not expose separate narrator, primary-agent,
 master, provider, or side-thread transcripts as parallel chat histories.
 
 The master remains durable internally because routing, clarification,
-idempotency, recovery, and audit require it. That persistence does not imply a
+idempotency, and recovery require it. That persistence does not imply a
 visible scrollback. The shell master surface presents only one active root
 request, its current processing state, its unresolved clarification chain, and
 its immediate result. Completed master interactions are not hydrated or
@@ -301,7 +299,7 @@ milestone semantics.
 
 A conversation routing decision is a control output, not a fifth narration
 presentation channel. It has its own durable input, schema, validation, and
-audit record.
+execution result.
 
 ### Voice is global
 
@@ -365,7 +363,7 @@ gates. Preserve existing visual language where practical and add only the UI
 needed to make new behavior, state, errors, and controls understandable.
 
 The implementation order is lifecycle correctness, persistence, concurrency,
-recovery, observability, and production-path verification before nonessential
+recovery, diagnosability, and production-path verification before nonessential
 visual polish. Accessibility, legibility, and large-DOM performance remain
 requirements because they affect functional use. The basic conversation color
 identity is implemented with semantic tokens; refining those palettes later
@@ -692,7 +690,7 @@ SideConversation
 
 This is a lifecycle child of a parent conversation/pane association, not a
 durable topic aggregate. Persist enough state to recover or clean up an
-interrupted disposal and retain an audit record, but do not surface it through
+interrupted disposal, but do not surface that operational state through
 normal conversation list/search contracts. A later explicit promotion feature
 would create a new durable fork; it would not mutate this record into a topic
 conversation.
@@ -817,8 +815,8 @@ Large tool output is stored separately and referenced by typed metadata. The
 narrator context builder receives bounded, complete representations rather
 than arbitrary byte chunks.
 
-Raw provider payloads may be retained in diagnostic recordings when safe, but
-renderer and narrator contracts consume only normalized events.
+Do not persist raw provider payloads solely for diagnosis. Renderer, narrator,
+and recording projections consume normalized events.
 
 ### NarratorState
 
@@ -937,7 +935,7 @@ The initial schema includes logical tables for:
 - conversations
 - conversation input intake and local route decisions
 - conversation branches
-- ephemeral side-conversation lifecycle/audit records
+- ephemeral side-conversation lifecycle records
 - thread bindings
 - turns and queued inputs
 - trajectory events
@@ -1272,8 +1270,8 @@ The compact left-pane control is always above the scrollable conversation
 list. It may accept a short one-line submission directly, but focus or a
 multi-line request expands the overlay. The overlay owns one active shell
 interaction: its root request, processing state, unresolved clarification, and
-immediate result. It must not list completed inputs or expose master audit
-records. Collapsing or reopening it does not create or resume a different
+immediate result. It must not list completed inputs or expose internal master
+diagnostics. Collapsing or reopening it does not create or resume a different
 provider thread, but only an unresolved active interaction is restored to the
 surface.
 
@@ -1289,9 +1287,9 @@ Easy Button input first enters its local narrator/router; only an explicit
 `escalate_to_master` decision creates a linked master input.
 
 The master surface is not a topic conversation and does not appear as a row in
-the conversation navigator. It has no recent-transcript or audit UI. Logs and
-desktop recordings expose structured audit data for diagnosis without turning
-that data into product scrollback.
+the conversation navigator. It has no recent-transcript or diagnostic-history
+UI. Desktop recordings may project existing domain events for diagnosis
+without turning those events into product scrollback.
 
 The active shell request, clarification, and immediate result use the shared
 master overlay. A route result or clarification caused by pane escalation is
@@ -1368,7 +1366,7 @@ presentation command after a route decision.
 
 ### Route decision
 
-Master output is strict, typed, and auditable:
+Master output is strict, typed, and validated:
 
 ```text
 RouteDecision =
@@ -1637,24 +1635,24 @@ The backend role-configuration boundary owns defaults and exposes generated
 views. Validate defaults against `model/list` at configuration read/update and
 before starting a new provider thread.
 
-### Effective invocation audit
+### Runtime state and diagnostics
 
-Every master, agent, narrator, and side call records:
+Persist only state needed to execute work, recover safely, validate decisions,
+or render the user-facing projection. That includes effective role settings,
+provider references needed to resume or interrupt work, lifecycle state, typed
+failures, and timestamps where ordering or recovery depends on them.
 
-- role
-- requested model, effort, service tier, and permission profile
-- resolved model, effort, service tier, and permission profile
-- provider model reroute notification, if any
-- input and output byte sizes
-- provider thread/turn/request/response ids
-- start/end timestamps and outcome
+Do not create a parallel invocation-attempt domain, audit event stream, routing
+observation schema, or extra backend read path solely for diagnostics. Desktop
+recordings may project existing conversation, master, narration, speech, and
+presentation events, but recording must not affect product execution or
+reconstruct a duplicate semantic lifecycle.
 
-This metadata is available in logs and recording artifacts without exposing
-chain-of-thought.
-
-Setta intentionally does not estimate, persist, or project token counts for
-diagnostics. Provider-native token usage remains provider-owned, while role
-context limits remain functional configuration rather than a telemetry system.
+Setta does not estimate, persist, or project token counts, input/output byte
+counts, or output-size summaries for diagnostics. Provider-native usage remains
+provider-owned. Byte/token limits used to bound model context, provider
+responses, IPC payloads, or audio buffers remain functional safety
+configuration and are not telemetry.
 
 ### Voice and palette configuration
 
@@ -1704,8 +1702,8 @@ The replacement surface needs endpoints or streams for these operations:
 
 Do not expose a recent-master-input or master-transcript read boundary solely
 for renderer scrollback. Durable master inputs and route decisions remain
-backend-owned for idempotency, recovery, semantic context, and structured
-audit.
+backend-owned for idempotency, recovery, semantic context, and validated
+execution.
 
 ### Role configuration
 
@@ -1858,10 +1856,6 @@ Exit criteria:
 
 ### Phase 1: New persistence and core contracts
 
-**Status:** Complete. The generated TypeScript contract exports the Go-owned
-`workspaceui.SchemaVersion`, and workspace layout serialization consumes that
-generated value without a handwritten cross-language mirror.
-
 Implement:
 
 1. SQLite store bootstrap and schema version 1 in WAL mode with a dedicated
@@ -1890,9 +1884,6 @@ Exit criteria:
   cannot silently discard an accepted write
 
 ### Phase 2: Codex agent runtime extraction
-
-**Status:** Complete. The characterized live snapshot requires the typed Phase
-6 in-flight context frame specified above.
 
 Implement:
 
@@ -1932,14 +1923,6 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Status:** Complete. Every Easy Button pane now requires its Go-owned typed
-conversation binding. Layout save and reload reject null or invalid bindings;
-the generated desktop contract and decoder expose a discriminated pane union;
-renderer pane, request, creation, configuration, and surface paths cannot
-produce or render an unbound Easy Button; and deterministic Electron coverage
-proves the binding survives restart/reload while invalid persistence fails
-without replacing the valid layout.
-
 Implement:
 
 1. Add `EasyButtonPaneConfig{conversationId}` to Go-owned workspace UI
@@ -1971,16 +1954,6 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Status:** Complete. Every narrator call kind now produces a Go-owned bounded
-invocation-attempt audit with trigger, context ranges and cursors, prior-output
-counts, requested and resolved configuration, provider references, byte usage,
-timing, validation, commit decision, and terminal outcome. Successful
-projection, status, terminal, and checkpoint output commits publish the attempt
-atomically with their state; failure commits retain partial call context, and
-cancelled, superseded, and stale actor work publishes its typed terminal audit.
-Secret-safe desktop recording projections and focused store, actor, service,
-committer, and production Electron coverage verify the lifecycle.
-
 Implement:
 
 1. Priority-aware narrator actor/mailbox per conversation with stale-generation
@@ -1996,8 +1969,8 @@ Implement:
 
 Exit criteria:
 
-- every call logs its trigger, model, context range, prior-output counts, and
-  result
+- committed narrator output and failures retain the trigger, effective model,
+  authoritative source range, and outcome needed for recovery
 - previous milestones are always in narrator context
 - terminal projection cannot race a working projection
 - checkpoint compaction never crosses `observedThroughSequence`, cannot hide an
@@ -2012,42 +1985,7 @@ Exit criteria:
 
 ### Phase 5: Global speech infrastructure
 
-**Status:** Complete. Global capture, playback, stable voice assignment, and
-the presentation-configuration surface are implemented. The production
-boundary persists the global default narrator voice mode, updates a
-conversation's palette, narrator voice, and narrator-speech setting atomically,
-exposes generated desktop contracts, and provides global and per-conversation
-settings UI with deterministic Electron restart coverage.
-
-Completion verification on 2026-07-14 passed focused backend and renderer
-tests, generated-contract validation, the production desktop build,
-`./check_quality.sh --all` including all 17 required Electron workflows, and
-the live ChatGPT-authenticated Codex workflow with `OPENAI_API_KEY` removed.
-The supply-chain gate passed release-age, lockfile, exact-version, and Go
-vulnerability checks. npm retired the endpoint used by `pnpm audit` with HTTP
-410; its supported bulk-advisory endpoint reported two low-severity advisories
-and no advisories at or above the repository's moderate failure threshold for
-the installed lock-resolved dependency graph.
-
-The completed slice included the now-rejected pane input-mode plumbing. Phase 7
-item 8 removes that plumbing while retaining the app-global capture, delivery,
-voice, and playback infrastructure.
-
-Completed implementation:
-
-- app-shell microphone controller and global preference
-- finalized shell transcript delivery to durable master intake
-- typed provider voice catalog plus global master and per-conversation narrator
-  voice-selection foundations
-- persisted exact or `auto_distinct` global narrator default applied to new
-  topic conversations
-- atomic per-conversation exact or automatic palette and narrator-voice
-  overrides plus the visual-only narration toggle
-- generated HTTP, Electron main/preload, renderer, and backend contract surfaces
-- desktop settings controls and deterministic production-path restart,
-  collision-reassignment, and persistence coverage
-
-Completed sequence:
+Implement:
 
 1. Add Go-owned `ConversationInput` validation, schema, idempotent persistence,
    committed intake event, and focused store tests. Do not add HTTP, generated,
@@ -2092,8 +2030,6 @@ retained PWA.
 
 ### Phase 6: Side conversations and durable forks
 
-**Status:** Complete.
-
 Implement:
 
 1. Durable fork through `thread/fork` at a validated completed turn.
@@ -2116,44 +2052,11 @@ Exit criteria:
   narrator, navigator row, and panes
 - side conversations remain associated with the parent pane and are absent
   from global topic search
-- branch source turn/trajectory sequence and decision source are auditable
+- branch source turn/trajectory sequence and decision source are retained
 - the active side lifecycle uses the proven typed context correction and no
   synthetic or heuristic fallback
 
 ### Phase 7: Master, conversation index, and AI routing cutover
-
-**Status:** Complete. Items 1-11 routing behavior is implemented, and the
-reopened item 4 includes
-eligible workspace-scoped role overrides through production scope validation,
-service, HTTP, generated IPC, and selected-workspace settings paths. Workspace
-updates and removals emit durable scope-qualified audit events, master remains
-global-only, and effective resolution follows built-in to global to workspace
-to conversation precedence. Successful and unsuccessful local and master
-routing calls now retain independent typed invocation attempts, including
-partial context/configuration on failure and an explicit terminal outcome for
-master cancellation. Their durable state transitions publish matching audit
-events atomically, and schema-version-2 desktop observations retain the bounded
-attempt metadata without authored or model-produced private text.
-
-Workspace-scope completion verification on 2026-07-15 passed focused backend,
-HTTP, generated-contract, main/preload IPC, renderer, typecheck, production
-desktop, and embedded-web checks. The expanded production Electron workflow
-proved workspace override creation, restart persistence, fork inheritance,
-conversation precedence, and workspace/global reset behavior. All seven
-deterministic topic-conversation workflows and the complete
-ChatGPT-authenticated live Codex agent-protocol, side-isolation, and production
-topic-conversation matrix passed with `OPENAI_API_KEY` removed.
-
-Completion verification on 2026-07-15 passed focused backend and renderer
-tests, generated-contract validation, the production desktop and web builds,
-the deterministic topic-conversation production workflow, and
-`./check_quality.sh --all`, including all 17 required Electron workflows. The
-live ChatGPT-authenticated Codex workflow also passed with `OPENAI_API_KEY`
-removed. Supply-chain checks passed module hygiene, exact-version and lockfile
-validation, release-age policy, and Go vulnerability analysis. The unchanged
-pnpm dependency graph could not be rescanned by `pnpm audit` because npm has
-retired that endpoint with HTTP 410; this slice changes no dependency manifest
-or lockfile.
 
 Implement:
 
@@ -2161,12 +2064,12 @@ Implement:
    `ConversationRouteDecision` contracts, ordered processing, and atomic
    validated execution.
 2. Conversation-local input router using the lightweight narrator role,
-   authoritative context, strict output, and independent invocation audit.
+   authoritative context, strict output, and typed failure handling.
 3. Topic-card index and bounded global candidate retrieval.
 4. Durable restricted master thread and independent role configuration,
    including production read/update support for eligible workspace-scoped role
    overrides, effective-precedence validation, generated IPC and settings
-   surfaces, durable audit, and deterministic Electron coverage.
+   surfaces, durable recovery, and deterministic Electron coverage.
 5. One shell-owned master controller shared by shell text and voice, including
    linked pane escalations and source-aware clarification delivery.
 6. Compact left-pane launcher plus an action-oriented master overlay reachable
@@ -2174,7 +2077,7 @@ Implement:
    is collapsed. Undo the recently implemented completed-request history
    renderer and remove any recent-master-input read endpoint, IPC surface, or
    controller state whose only consumer was that renderer. Retain durable
-   master inputs, route decisions, provider session state, and recording audit.
+   master inputs, route decisions, and provider session state for recovery.
    Present only the active shell request, unresolved clarification, processing
    state, and immediate result; successful navigation clears or dismisses the
    overlay.
@@ -2192,10 +2095,12 @@ Implement:
    navigation. Do not hide or preserve explicit modes as compatibility code.
 9. Pane focus/open behavior shared by validated master/local decisions and
    direct navigator selection.
-10. Route/model/context observability in desktop recordings.
+10. Project existing domain events into privacy-safe desktop recordings without
+    a parallel routing schema, extra backend reads, invocation-attempt records,
+    or diagnostic usage counters.
 11. Explicit per-input cancellation for an accepted or active master request,
     with an atomic terminal persistence boundary, exact provider-turn
-    interruption, renderer-safe state, redacted observability, retryable shell
+    interruption, renderer-safe state, privacy-safe recording, retryable shell
     controls, and restart verification.
 
 Exit criteria:
@@ -2230,8 +2135,6 @@ Exit criteria:
 
 ### Phase 8: Obsolete surface and backend eradication
 
-**Status:** Complete.
-
 Complete the deletion inventory and remove all remaining dead code:
 
 1. Chat, terminal, workflow, git, semantic graph, and workspace activity
@@ -2259,49 +2162,7 @@ Exit criteria:
 
 ### Phase 9: Hardening and acceptance
 
-**Status:** Complete. Functional, live-provider, performance, speech,
-presentation-identity, permission/secret-handling, and recording observability
-acceptance are complete. The desktop recording path exposes bounded
-agent/narrator invocation lifecycle, checkpoint context and commit decision,
-thread binding, terminal trajectory, and unsuccessful local/master routing
-attempt metadata while omitting authored inputs, narrator output text, failure
-messages, model-reroute reasons, and provider lifecycle messages. Items 6-7
-allocate palette capacity from durable open pane bindings and narrator-voice
-capacity from speech-enabled active narrator state. Narrators remain active
-while visible, working, waiting for approval, running, or catching up
-unobserved trajectory, so pane-free work retains a stable voice without
-allowing dormant idle topics to consume the finite catalog. Duplicate panes
-count as one conversation identity. Automatic
-reuse metadata is explicit at exhaustion and clears when capacity returns;
-exact inactive overrides do not displace active assignments, and exact
-activation preserves non-conflicting automatic identities before resolving real
-conflicts in deterministic creation/id order. Focused store/service tests cover
-dormant pressure, active pane-free work, exact activation, exhaustion relief,
-duplicates, and restart. Production Electron coverage exercises the same
-allocation through main/preload/renderer/HTTP/store paths and verifies durable
-profile and pane identity across reload.
-
-The production live suite proves two isolated topics running simultaneously,
-an AI-authored local steering decision accepted by the active Codex turn,
-cancellation isolated to its target topic, and reload from the same durable app
-data after the backend process is killed during active work. Startup reconciles
-the exact persisted provider thread/turn into a terminal cancellation with the
-typed `reconciliation` reason. Its event-driven waits use the production input
-wait and conversation event-stream boundaries rather than timing polls.
-
-The standard live gate also runs the existing Codex thread
-read/list/search/fork/injection characterization and the full active-side
-conversation isolation lifecycle, so those checks are no longer opt-in gaps.
-Completion verification on 2026-07-15 passed the focused live runtime test, the
-complete ChatGPT-authenticated live matrix with `OPENAI_API_KEY` removed, a
-fresh desktop production build plus all seven deterministic topic-conversation
-Electron workflows, formatting, and `./check_quality.sh --all` including 25 Go
-packages, 764 desktop tests, production builds, and all 17 required Electron
-workflows. Supply-chain checks passed module and lockfile hygiene, release-age
-policies, exact-version validation, and Go vulnerability analysis. npm's
-retired audit endpoint still returns HTTP 410; the supported bulk-advisory
-endpoint reported two low-severity advisories and none at or above the
-repository's moderate failure threshold.
+Implement:
 
 1. Exercise crashes and restarts during agent, narrator, master, speech, and
    branch operations.
@@ -2515,66 +2376,20 @@ gates required by `AGENTS.md` before the final source commit.
 
 ## Recording And Observability Requirements
 
-Desktop recordings must make future narrator/routing/speech diagnoses possible
-without adding emergency logging. Record structured events for:
+The optional desktop recorder is a thin, privacy-safe observer of events that
+the product already emits. It may record identifiers, lifecycle states, typed
+failure codes, effective model settings, provider references, presentation
+identity, and speech queue/capture transitions when those fields already exist
+on the event being observed.
 
-### Agent invocation
+The recorder must not trigger extra backend reads, persist a second semantic
+routing history, define its own invocation lifecycle, or calculate token/byte
+usage and output-size summaries. A recorder failure must never change routing,
+narration, recovery, presentation, or speech behavior.
 
-- Setta conversation/turn ids
-- provider thread/turn ids
-- requested and resolved role profile
-- model/effort/service tier/permission profile
-- lifecycle and liveness changes
-
-### Narrator invocation and local routing
-
-- conversation id and turn id when applicable
-- call kind (`input_route`, `projection`, `status`, `terminal`, or `checkpoint`)
-  and typed trigger/maintenance reason
-- event counts by kind and input size in bytes
-- requested and resolved model/effort
-- completed, cancelled, superseded, stale, committed, or failed outcome
-- for routing: conversation input and clarification-parent ids, authoritative
-  context sequence/range, allowed decision variants, structured
-  decision, validation result, and executed effect
-- for projection/status/checkpoint: context kind, checkpoint, included sequence
-  range(s), intentionally omitted status-only backlog range, pre/post cursors,
-  proposed cursor advance, prior milestone/final-summary counts, structured
-  output, validation result, and commit decision
-
-### Master routing
-
-- shell or conversation-escalation source, originating input id, and
-  focused/originating conversation hint
-- candidate conversation ids and retrieval metadata
-- route decision and validation result
-- presentation intent
-- requested/resolved model metadata
-- shared master interaction/session id across shell text and shell voice entry
-  surfaces
-
-### Presentation identity
-
-- conversation id
-- requested palette selection, resolved palette id, catalog version, and
-  allocation/reuse reason
-- open pane ids sharing the presentation identity
-- contrast/accessibility validation failure
-
-### Speech
-
-- capture lifecycle and transcription operation id
-- capture origin plus the frozen master or conversation destination
-- finalized transcript delivery command id, target, result, and failure
-- narration/master source event id
-- requested selection mode, requested exact voice if any, resolved voice id,
-  catalog version, and allocation/reuse reason
-- synthesis request/result
-- queue position and priority
-- play, stop, preempt, supersede, or drop reason
-
-Do not record private chain-of-thought, secrets, unredacted approval secrets, or
-raw microphone audio by default.
+Do not record authored input, model output text, private chain-of-thought,
+failure-message text, model-reroute reasons, provider lifecycle messages,
+secrets, unredacted approval answers, or raw microphone audio by default.
 
 ## Acceptance Criteria
 

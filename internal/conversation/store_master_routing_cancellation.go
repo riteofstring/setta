@@ -15,7 +15,6 @@ func (store *Store) CancelMasterInputRouting(
 	ctx context.Context,
 	inputID string,
 	cancelledAt string,
-	invocationAttempt *master.RouteInvocationAttempt,
 ) (master.InputRoutingState, error) {
 	if err := validateMasterInputRoutingCancellationRequest(store, ctx, inputID, cancelledAt); err != nil {
 		return master.InputRoutingState{}, err
@@ -28,7 +27,6 @@ func (store *Store) CancelMasterInputRouting(
 			store.dbPath,
 			inputID,
 			cancelledAt,
-			invocationAttempt,
 		)
 		return cancelErr
 	})
@@ -65,7 +63,6 @@ func cancelMasterInputRoutingTransaction(
 	dbPath string,
 	inputID string,
 	cancelledAt string,
-	invocationAttempt *master.RouteInvocationAttempt,
 ) (master.InputRoutingState, error) {
 	accepted, status, attempt, err := readCancellableMasterInput(
 		transaction, dbPath, inputID, cancelledAt,
@@ -74,10 +71,9 @@ func cancelMasterInputRoutingTransaction(
 		return master.InputRoutingState{}, err
 	}
 	cancellation := master.InputRoutingCancellation{
-		InputID:           inputID,
-		RoutingAttempt:    attempt,
-		InvocationAttempt: cloneMasterRouteInvocationAttemptPointer(invocationAttempt),
-		CancelledAt:       cancelledAt,
+		InputID:        inputID,
+		RoutingAttempt: attempt,
+		CancelledAt:    cancelledAt,
 	}
 	if err := cancellation.Validate(); err != nil {
 		return master.InputRoutingState{}, err
@@ -155,21 +151,10 @@ WHERE id = ? AND routing_status = ? AND routing_attempt = ?
 	if err := requireOneRow(result, "master input", inputID, "routing state changed before cancellation"); err != nil {
 		return err
 	}
-	var invocationAttemptJSON any
-	if cancellation.InvocationAttempt != nil {
-		encoded, err := encodeJSONColumn(
-			"master input routing cancellation invocation attempt",
-			cancellation.InvocationAttempt,
-		)
-		if err != nil {
-			return err
-		}
-		invocationAttemptJSON = encoded
-	}
 	if _, err := transaction.tx.ExecContext(transaction.ctx, `
-INSERT INTO master_input_cancellations(input_id, routing_attempt, invocation_attempt_json, cancelled_at)
-VALUES (?, ?, ?, ?)
-`, inputID, attempt, invocationAttemptJSON, cancellation.CancelledAt); err != nil {
+INSERT INTO master_input_cancellations(input_id, routing_attempt, cancelled_at)
+VALUES (?, ?, ?)
+`, inputID, attempt, cancellation.CancelledAt); err != nil {
 		return fmt.Errorf("record master input routing cancellation %s: %w", inputID, err)
 	}
 	if err := transaction.recordStateMutation(); err != nil {
@@ -184,24 +169,7 @@ VALUES (?, ?, ?, ?)
 	}); err != nil {
 		return err
 	}
-	if cancellation.InvocationAttempt != nil {
-		return appendMasterRouteInvocationAttemptEvent(
-			transaction,
-			*cancellation.InvocationAttempt,
-			cancellation.CancelledAt,
-		)
-	}
 	return nil
-}
-
-func cloneMasterRouteInvocationAttemptPointer(
-	attempt *master.RouteInvocationAttempt,
-) *master.RouteInvocationAttempt {
-	if attempt == nil {
-		return nil
-	}
-	cloned := master.CloneRouteInvocationAttempt(*attempt)
-	return &cloned
 }
 
 func validateMasterInputCancellationTiming(

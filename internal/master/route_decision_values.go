@@ -32,10 +32,6 @@ func RouteRoutingEventID(stage string, inputID string, attempt int) string {
 	return fmt.Sprintf("master-route-%s:%s:%d", stage, inputID, attempt)
 }
 
-func RouteInvocationAttemptEventID(inputID string, attempt int) string {
-	return fmt.Sprintf("master-route-invocation-attempted:%s:%d", inputID, attempt)
-}
-
 func EqualRouteDecisionCommit(record RouteDecisionRecord, commit RouteDecisionCommit) bool {
 	if record.StreamSequence <= 0 {
 		return false
@@ -47,7 +43,6 @@ func EqualRouteDecisionCommit(record RouteDecisionRecord, commit RouteDecisionCo
 		RoutingAttempt:     record.RoutingAttempt,
 		Context:            record.Context,
 		ResolvedInvocation: record.ResolvedInvocation,
-		InvocationAttempt:  record.InvocationAttempt,
 		Decision:           record.Decision,
 		ResultingCommand:   record.ResultingCommand,
 		DecidedAt:          record.DecidedAt,
@@ -58,7 +53,6 @@ func EqualRouteDecisionCommit(record RouteDecisionRecord, commit RouteDecisionCo
 func CloneRouteDecisionRecord(record RouteDecisionRecord) RouteDecisionRecord {
 	record.Context = cloneRouteContextAudit(record.Context)
 	record.ResolvedInvocation = cloneRouteInvocationAudit(record.ResolvedInvocation)
-	record.InvocationAttempt = CloneRouteInvocationAttempt(record.InvocationAttempt)
 	record.Decision = cloneRouteDecision(record.Decision)
 	record.ResultingCommand = cloneRouteCommand(record.ResultingCommand)
 	return record
@@ -137,57 +131,13 @@ func CloneInputRoutingState(state InputRoutingState) InputRoutingState {
 	}
 	if state.Cancellation != nil {
 		cloned := *state.Cancellation
-		if state.Cancellation.InvocationAttempt != nil {
-			attempt := CloneRouteInvocationAttempt(*state.Cancellation.InvocationAttempt)
-			cloned.InvocationAttempt = &attempt
-		}
 		state.Cancellation = &cloned
 	}
 	if state.Failure != nil {
 		cloned := *state.Failure
 		state.Failure = &cloned
 	}
-	if state.InvocationAttempt != nil {
-		attempt := CloneRouteInvocationAttempt(*state.InvocationAttempt)
-		state.InvocationAttempt = &attempt
-	}
 	return state
-}
-
-func CloneRouteInvocationAttempt(attempt RouteInvocationAttempt) RouteInvocationAttempt {
-	attempt.MasterSessionID = cloneString(attempt.MasterSessionID)
-	attempt.Context = cloneRouteContextAuditPointer(attempt.Context)
-	if attempt.Configuration != nil {
-		configuration := cloneRouteModelConfigurationAudit(*attempt.Configuration)
-		attempt.Configuration = &configuration
-	}
-	attempt.ProviderRequestID = cloneString(attempt.ProviderRequestID)
-	attempt.ProviderThreadID = cloneString(attempt.ProviderThreadID)
-	attempt.ProviderTurnID = cloneString(attempt.ProviderTurnID)
-	if attempt.DecisionKind != nil {
-		kind := *attempt.DecisionKind
-		attempt.DecisionKind = &kind
-	}
-	if attempt.Failure != nil {
-		failure := *attempt.Failure
-		attempt.Failure = &failure
-	}
-	return attempt
-}
-
-func cloneRouteContextAuditPointer(value *RouteContextAudit) *RouteContextAudit {
-	if value == nil {
-		return nil
-	}
-	cloned := cloneRouteContextAudit(*value)
-	return &cloned
-}
-
-func cloneRouteModelConfigurationAudit(audit RouteModelConfigurationAudit) RouteModelConfigurationAudit {
-	audit.RequestedProfile = append(json.RawMessage{}, audit.RequestedProfile...)
-	audit.RequestedServiceTier = cloneString(audit.RequestedServiceTier)
-	audit.ResolvedServiceTier = cloneString(audit.ResolvedServiceTier)
-	return audit
 }
 
 func cloneRouteDecision(decision RouteDecision) RouteDecision {

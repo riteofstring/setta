@@ -390,7 +390,6 @@ CREATE INDEX master_inputs_routing_status_accepted_idx
 CREATE TABLE master_input_cancellations (
   input_id TEXT PRIMARY KEY REFERENCES master_inputs(id) ON DELETE CASCADE,
   routing_attempt INTEGER NOT NULL CHECK (routing_attempt >= 0),
-  invocation_attempt_json TEXT CHECK (invocation_attempt_json IS NULL OR json_valid(invocation_attempt_json)),
   cancelled_at TEXT NOT NULL
 ) STRICT;
 
@@ -402,7 +401,6 @@ CREATE TABLE master_route_decisions (
   routing_attempt INTEGER NOT NULL CHECK (routing_attempt > 0),
   candidate_context_json TEXT NOT NULL CHECK (json_valid(candidate_context_json)),
   resolved_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_invocation_json)),
-  invocation_attempt_json TEXT NOT NULL CHECK (json_valid(invocation_attempt_json)),
   route_decision_json TEXT NOT NULL CHECK (json_valid(route_decision_json)),
   resulting_command_json TEXT NOT NULL CHECK (json_valid(resulting_command_json)),
   decided_at TEXT NOT NULL

@@ -419,8 +419,6 @@ func assertCommittedNarratorInvocation(
 	if invocation.Role != conversation.RoleNarrator ||
 		invocation.Outcome != conversation.InvocationOutcomeSucceeded ||
 		invocation.Resolved.ModelID != "gpt-5.4-mini" ||
-		invocation.ContextUsage.InputBytes != result.InputBytes ||
-		invocation.ContextUsage.OutputBytes != result.OutputBytes ||
 		invocation.StartedAt != narratorCallStarted || invocation.EndedAt == nil ||
 		*invocation.EndedAt != narratorCallEnded {
 		t.Fatalf("committed narrator invocation = %+v", invocation)

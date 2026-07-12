@@ -962,10 +962,6 @@ function sideConversation(conversationId: string): SideConversation {
 function resolvedInvocation(role: Role): ResolvedInvocation {
   const requested = roleProfile(role);
   return {
-    contextUsage: {
-      inputBytes: 40,
-      outputBytes: 20,
-    },
     endedAt: timestamp,
     failure: null,
     id: `invocation_${role}`,

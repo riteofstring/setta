@@ -124,18 +124,7 @@ func TestMasterInputCancellationEndpointCancelsOneDurableShellInteraction(t *tes
 		Cancellation: &master.InputRoutingCancellation{
 			InputID:        input.ID,
 			RoutingAttempt: 1,
-			InvocationAttempt: &master.RouteInvocationAttempt{
-				ID:               "master-input-cancel-attempt",
-				CallKind:         master.RouteInvocationCallRoute,
-				InputID:          input.ID,
-				RoutingAttempt:   1,
-				StartedAt:        "2026-07-12T18:00:01Z",
-				EndedAt:          "2026-07-12T18:00:02Z",
-				ValidationResult: master.RouteInvocationValidationNotRun,
-				CommitDecision:   master.RouteInvocationCommitCancel,
-				Outcome:          master.RouteInvocationOutcomeCancelled,
-			},
-			CancelledAt: "2026-07-12T18:00:02Z",
+			CancelledAt:    "2026-07-12T18:00:02Z",
 		},
 	}}
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{

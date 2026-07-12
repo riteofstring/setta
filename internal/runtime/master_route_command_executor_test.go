@@ -70,7 +70,7 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 			Question:       "What is the current status?",
 		},
 	}
-	record := master.RouteDecisionRecord{
+	return master.RouteDecisionRecord{
 		StreamSequence:  1,
 		ID:              "master_route_decision_test",
 		MasterSessionID: "master_session_test",
@@ -104,8 +104,6 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 			ProviderRequestID: "master_route_request_test",
 			ProviderThreadID:  "master_route_thread_test",
 			ProviderTurnID:    "master_route_turn_test",
-			InputBytes:        100,
-			OutputBytes:       40,
 			StartedAt:         "2026-07-14T19:59:59Z",
 			EndedAt:           "2026-07-14T20:00:00Z",
 		},
@@ -124,34 +122,6 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 		},
 		DecidedAt: "2026-07-14T20:00:00Z",
 	}
-	sessionID := record.MasterSessionID
-	contextAudit := record.Context
-	configuration := record.ResolvedInvocation.Configuration
-	requestID := record.ResolvedInvocation.ProviderRequestID
-	threadID := record.ResolvedInvocation.ProviderThreadID
-	turnID := record.ResolvedInvocation.ProviderTurnID
-	decisionKind := record.Decision.Kind
-	record.InvocationAttempt = master.RouteInvocationAttempt{
-		ID:                requestID,
-		CallKind:          master.RouteInvocationCallRoute,
-		MasterSessionID:   &sessionID,
-		InputID:           record.InputID,
-		RoutingAttempt:    record.RoutingAttempt,
-		Context:           &contextAudit,
-		Configuration:     &configuration,
-		ProviderRequestID: &requestID,
-		ProviderThreadID:  &threadID,
-		ProviderTurnID:    &turnID,
-		InputBytes:        record.ResolvedInvocation.InputBytes,
-		OutputBytes:       record.ResolvedInvocation.OutputBytes,
-		StartedAt:         record.ResolvedInvocation.StartedAt,
-		EndedAt:           record.ResolvedInvocation.EndedAt,
-		DecisionKind:      &decisionKind,
-		ValidationResult:  master.RouteInvocationValidationPassed,
-		CommitDecision:    master.RouteInvocationCommitOutput,
-		Outcome:           master.RouteInvocationOutcomeCompleted,
-	}
-	return record
 }
 
 type masterRouteCommandExecutorStore struct {

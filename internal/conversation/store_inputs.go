@@ -264,11 +264,10 @@ func readConversationInputRow(
 }
 
 type conversationInputRecord struct {
-	Accepted          AcceptedConversationInput
-	RoutingAttempt    int
-	RoutingStartedAt  *string
-	Failure           *Failure
-	InvocationAttempt *InvocationAttempt
+	Accepted         AcceptedConversationInput
+	RoutingAttempt   int
+	RoutingStartedAt *string
+	Failure          *Failure
 }
 
 func readConversationInputRecord(
@@ -313,7 +312,7 @@ WHERE id = ?
 	record.Accepted.Input.ReplyToInputID = optionalScannedString(replyToInputID)
 	record.RoutingStartedAt = optionalScannedString(routingStartedAt)
 	if failureJSON.Valid {
-		failure, attempt, err := decodeConversationInputFailure(failureJSON.String)
+		failure, err := decodeConversationInputFailure(failureJSON.String)
 		if err != nil {
 			return conversationInputRecord{}, false, &CorruptStateError{
 				Path: dbPath,
@@ -321,7 +320,6 @@ WHERE id = ?
 			}
 		}
 		record.Failure = &failure
-		record.InvocationAttempt = attempt
 	}
 	if err := validateConversationInputRecord(record); err != nil {
 		return conversationInputRecord{}, false, &CorruptStateError{
@@ -332,56 +330,28 @@ WHERE id = ?
 	return record, true, nil
 }
 
-type storedConversationInputFailure struct {
-	Code                string             `json:"code"`
-	Message             string             `json:"message"`
-	Retryable           bool               `json:"retryable"`
-	DiagnosticReference string             `json:"diagnosticReference"`
-	InvocationAttempt   *InvocationAttempt `json:"invocationAttempt"`
-}
-
-func encodeConversationInputFailure(failure Failure, attempt *InvocationAttempt) (string, error) {
-	payload, err := json.Marshal(storedConversationInputFailure{
-		Code:                failure.Code,
-		Message:             failure.Message,
-		Retryable:           failure.Retryable,
-		DiagnosticReference: failure.DiagnosticReference,
-		InvocationAttempt:   attempt,
-	})
-	if err != nil {
-		return "", err
-	}
-	return string(payload), nil
-}
-
-func decodeConversationInputFailure(encoded string) (Failure, *InvocationAttempt, error) {
+func decodeConversationInputFailure(encoded string) (Failure, error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(encoded), &fields); err != nil {
-		return Failure{}, nil, err
+		return Failure{}, err
 	}
 	if fields == nil {
-		return Failure{}, nil, errors.New("conversation input failure must be an object")
+		return Failure{}, errors.New("conversation input failure must be an object")
 	}
-	for _, field := range []string{"code", "message", "retryable", "diagnosticReference", "invocationAttempt"} {
+	for _, field := range []string{"code", "message", "retryable", "diagnosticReference"} {
 		value, found := fields[field]
 		if !found {
-			return Failure{}, nil, fmt.Errorf("conversation input failure is missing field %s", field)
+			return Failure{}, fmt.Errorf("conversation input failure is missing field %s", field)
 		}
-		if field != "invocationAttempt" && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
-			return Failure{}, nil, fmt.Errorf("conversation input failure field %s must not be null", field)
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return Failure{}, fmt.Errorf("conversation input failure field %s must not be null", field)
 		}
 	}
-	var stored storedConversationInputFailure
-	if err := jsonio.DecodeSingle(strings.NewReader(encoded), &stored); err != nil {
-		return Failure{}, nil, err
+	var failure Failure
+	if err := jsonio.DecodeSingle(strings.NewReader(encoded), &failure); err != nil {
+		return Failure{}, err
 	}
-	failure := Failure{
-		Code:                stored.Code,
-		Message:             stored.Message,
-		Retryable:           stored.Retryable,
-		DiagnosticReference: stored.DiagnosticReference,
-	}
-	return failure, stored.InvocationAttempt, nil
+	return failure, nil
 }
 
 func validateConversationInputRecord(record conversationInputRecord) error {
@@ -390,23 +360,14 @@ func validateConversationInputRecord(record conversationInputRecord) error {
 
 func (record conversationInputRecord) state() ConversationInputState {
 	return ConversationInputState{
-		Sequence:          record.Accepted.Sequence,
-		Input:             cloneConversationInput(record.Accepted.Input),
-		Status:            record.Accepted.Status,
-		AcceptedAt:        record.Accepted.AcceptedAt,
-		RoutingAttempt:    record.RoutingAttempt,
-		RoutingStartedAt:  cloneStringPointer(record.RoutingStartedAt),
-		Failure:           cloneFailurePointer(record.Failure),
-		InvocationAttempt: cloneInvocationAttemptPointer(record.InvocationAttempt),
+		Sequence:         record.Accepted.Sequence,
+		Input:            cloneConversationInput(record.Accepted.Input),
+		Status:           record.Accepted.Status,
+		AcceptedAt:       record.Accepted.AcceptedAt,
+		RoutingAttempt:   record.RoutingAttempt,
+		RoutingStartedAt: cloneStringPointer(record.RoutingStartedAt),
+		Failure:          cloneFailurePointer(record.Failure),
 	}
-}
-
-func cloneInvocationAttemptPointer(attempt *InvocationAttempt) *InvocationAttempt {
-	if attempt == nil {
-		return nil
-	}
-	cloned := cloneInvocationAttempt(*attempt)
-	return &cloned
 }
 
 func cloneFailurePointer(failure *Failure) *Failure {

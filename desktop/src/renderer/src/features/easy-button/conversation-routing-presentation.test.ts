@@ -121,7 +121,6 @@ function conversationInputState({
     routingStartedAt: "2026-07-14T12:00:01Z",
     sequence,
     status,
-    invocationAttempt: null,
   };
 }
 

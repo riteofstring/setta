@@ -1,16 +1,14 @@
 import type { IpcMain } from "electron";
 
-import type { BackendClient, ConversationInputRoutingState } from "@generated/backend";
+import type { BackendClient } from "@generated/backend";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 import type { ConversationEventRegistry } from "./conversation-event-registry";
-import type { RoutingObservationRecorder } from "./routing-observability";
 
 interface ConversationIpcRegistration {
   conversationEvents: ConversationEventRegistry;
   ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
   requireBackendClient: () => BackendClient;
-  routingObservability?: RoutingObservationRecorder;
 }
 
 export function registerConversationIpcHandlers({
@@ -18,7 +16,6 @@ export function registerConversationIpcHandlers({
   ipcMain,
   ipcObserver,
   requireBackendClient,
-  routingObservability,
 }: ConversationIpcRegistration): void {
   handleIpc(
     ipcMain,
@@ -41,12 +38,7 @@ export function registerConversationIpcHandlers({
   handleIpc(
     ipcMain,
     "conversationDiscardInput",
-    async (_event, request) =>
-      observeConversationInputState(
-        requireBackendClient().discardConversationInput(request),
-        routingObservability,
-        request.inputId,
-      ),
+    async (_event, request) => requireBackendClient().discardConversationInput(request),
     ipcObserver,
   );
   handleIpc(
@@ -58,23 +50,13 @@ export function registerConversationIpcHandlers({
   handleIpc(
     ipcMain,
     "conversationReadInputState",
-    async (_event, request) =>
-      observeConversationInputState(
-        requireBackendClient().readConversationInputRoutingState(request),
-        routingObservability,
-        request.inputId,
-      ),
+    async (_event, request) => requireBackendClient().readConversationInputRoutingState(request),
     ipcObserver,
   );
   handleIpc(
     ipcMain,
     "conversationWaitInputState",
-    async (_event, request) =>
-      observeConversationInputState(
-        requireBackendClient().waitConversationInputRoutingState(request),
-        routingObservability,
-        request.inputId,
-      ),
+    async (_event, request) => requireBackendClient().waitConversationInputRoutingState(request),
     ipcObserver,
   );
   handleIpc(
@@ -86,12 +68,7 @@ export function registerConversationIpcHandlers({
   handleIpc(
     ipcMain,
     "conversationRetryInput",
-    async (_event, request) =>
-      observeConversationInputState(
-        requireBackendClient().retryConversationInput(request),
-        routingObservability,
-        request.inputId,
-      ),
+    async (_event, request) => requireBackendClient().retryConversationInput(request),
     ipcObserver,
   );
   handleIpc(
@@ -143,21 +120,4 @@ export function registerConversationIpcHandlers({
       ),
     ipcObserver,
   );
-}
-
-async function observeConversationInputState(
-  pending: Promise<ConversationInputRoutingState>,
-  routingObservability: RoutingObservationRecorder | undefined,
-  inputId: string,
-): Promise<ConversationInputRoutingState> {
-  const state = await pending;
-  if (routingObservability === undefined) {
-    return state;
-  }
-  try {
-    routingObservability.recordConversationInputRoutingState(state);
-  } catch (error) {
-    routingObservability.recordRoutingObservationFailure("conversation", inputId, error);
-  }
-  return state;
 }

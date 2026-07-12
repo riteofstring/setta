@@ -482,7 +482,7 @@ function masterRouteDecisionIsValid(
       expectedRoutingAttempt,
       expectedSessionId,
     ),
-    masterRouteInvocationIsAudited(invocation),
+    masterRouteInvocationIsResolved(invocation),
     masterRouteConfigurationIsRestricted(configuration),
     masterRouteContextIsRedacted(record?.context),
   ].every(Boolean);
@@ -540,13 +540,11 @@ function nonEmptyString(value) {
   return typeof value === "string" && value !== "";
 }
 
-function masterRouteInvocationIsAudited(invocation) {
+function masterRouteInvocationIsResolved(invocation) {
   return [
     nonEmptyString(invocation?.providerRequestId),
     nonEmptyString(invocation?.providerThreadId),
     nonEmptyString(invocation?.providerTurnId),
-    invocation?.inputBytes > 0,
-    invocation?.outputBytes > 0,
   ].every(Boolean);
 }
 

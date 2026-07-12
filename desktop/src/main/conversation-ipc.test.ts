@@ -4,7 +4,6 @@ import { ipcChannels } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
 
 import { registerConversationIpcHandlers } from "./conversation-ipc";
-import type { RoutingObservationRecorder } from "./routing-observability";
 
 describe("conversation IPC handlers", () => {
   test("forwards generated topic commands and owns scoped event subscriptions", async () => {
@@ -106,12 +105,10 @@ describe("conversation IPC handlers", () => {
       release: vi.fn(async () => {}),
       subscribe: vi.fn(),
     };
-    const routingObservability = routingObservabilitySpies();
     registerConversationIpcHandlers({
       conversationEvents: conversationEvents as never,
       ipcMain,
       requireBackendClient: () => backend,
-      routingObservability,
     });
     const request = { cursor: null, limit: 80, query: "", workspaceId: "workspace_api" };
 
@@ -199,7 +196,6 @@ describe("conversation IPC handlers", () => {
     );
     expect(backendMethods.retryConversationInput).toHaveBeenCalledWith(inputStateRequest);
     expect(backendMethods.discardConversationInput).toHaveBeenCalledWith(inputStateRequest);
-    expect(routingObservability.recordConversationInputRoutingState).toHaveBeenCalledTimes(4);
     expect(backendMethods.updateTopicConversationPresentation).toHaveBeenCalledWith(
       presentationRequest,
     );
@@ -209,54 +205,6 @@ describe("conversation IPC handlers", () => {
       subscription.cursor,
     );
     expect(conversationEvents.release).toHaveBeenCalledWith(sender, target, true);
-  });
-
-  test("does not fail a successful IPC read when semantic observation fails", async () => {
-    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
-    const ipcMain = {
-      handle: (channel, handler) => handlers.set(channel, handler),
-    } as Pick<IpcMain, "handle">;
-    const state = {
-      clarificationReply: null,
-      decisions: [],
-      input: {
-        acceptedAt: "2026-07-12T18:00:01Z",
-        failure: null,
-        input: conversationInputRequest().input,
-        routingAttempt: 0,
-        routingStartedAt: null,
-        sequence: 1,
-        status: "accepted" as const,
-      },
-    };
-    const backend = {
-      readConversationInputRoutingState: vi.fn(async () => state),
-    } as unknown as BackendClient;
-    const observationError = new Error("invalid semantic routing audit");
-    const routingObservability = routingObservabilitySpies();
-    vi.mocked(routingObservability.recordConversationInputRoutingState).mockImplementation(() => {
-      throw observationError;
-    });
-    registerConversationIpcHandlers({
-      conversationEvents: {} as never,
-      ipcMain,
-      requireBackendClient: () => backend,
-      routingObservability,
-    });
-    const request = {
-      conversationId: "conversation_api",
-      inputId: state.input.input.id,
-      workspaceId: "workspace_api",
-    };
-
-    await expect(
-      invokeHandler(handlers, ipcChannels.conversationReadInputState, request),
-    ).resolves.toEqual(state);
-    expect(routingObservability.recordRoutingObservationFailure).toHaveBeenCalledWith(
-      "conversation",
-      request.inputId,
-      observationError,
-    );
   });
 });
 
@@ -293,13 +241,4 @@ async function invokeHandler(
   request: unknown,
 ): Promise<unknown> {
   return requiredHandler(handlers, channel)({} as IpcMainInvokeEvent, request);
-}
-
-function routingObservabilitySpies(): RoutingObservationRecorder {
-  return {
-    recordConversationInputRoutingState: vi.fn(),
-    recordMasterInputRoutingState: vi.fn(),
-    recordMasterPresentationIntent: vi.fn(),
-    recordRoutingObservationFailure: vi.fn(),
-  };
 }

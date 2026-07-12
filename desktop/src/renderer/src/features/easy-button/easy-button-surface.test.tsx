@@ -1127,10 +1127,6 @@ function resolvedInvocation(
 ): ResolvedInvocation {
   const requested = roleProfile(role);
   return {
-    contextUsage: {
-      inputBytes: 40,
-      outputBytes: 20,
-    },
     endedAt: outcome === "running" ? null : timestamp,
     failure: null,
     id: `invocation_${role}_${outcome}`,

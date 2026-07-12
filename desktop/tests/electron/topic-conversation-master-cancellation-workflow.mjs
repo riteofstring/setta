@@ -3,7 +3,6 @@ import {
   assertMasterProviderTurnInterrupted,
   exerciseMasterCancellation,
 } from "./topic-conversation-master-overlay-assertions.mjs";
-import { assertRecordedMasterRouteCancellation } from "./topic-conversation-routing-observability.mjs";
 
 export async function exerciseVerifiedMasterCancellation({
   artifactDirectory,
@@ -28,13 +27,6 @@ export async function exerciseVerifiedMasterCancellation({
     result.activeProviderTurnId,
     timeoutMs,
   );
-  await assertRecordedMasterRouteCancellation({
-    artifactDirectory,
-    inputIdentity: result.recorded.accepted.input,
-    inputText: text,
-    state: result.cancelled,
-    timeoutMs,
-  });
   return result;
 }
 

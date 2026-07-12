@@ -104,14 +104,6 @@ func commitNarratorProjection(
 	if err := publishNarratorProjection(transaction, request, result); err != nil {
 		return NarratorProjectionCommitResult{}, err
 	}
-	if err := appendInvocationAttemptEvent(
-		transaction,
-		request.InvocationAttemptCommittedID,
-		request.InvocationAttempt,
-		request.CommittedAt,
-	); err != nil {
-		return NarratorProjectionCommitResult{}, err
-	}
 	return result, nil
 }
 
@@ -171,14 +163,6 @@ func commitNarratorStatus(
 			Type:  ConversationEventTypeNarrationCreated,
 			Event: event,
 		},
-		request.CommittedAt,
-	); err != nil {
-		return NarratorStatusCommitResult{}, err
-	}
-	if err := appendInvocationAttemptEvent(
-		transaction,
-		request.InvocationAttemptCommittedID,
-		request.InvocationAttempt,
 		request.CommittedAt,
 	); err != nil {
 		return NarratorStatusCommitResult{}, err

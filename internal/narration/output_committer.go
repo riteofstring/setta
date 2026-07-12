@@ -72,8 +72,8 @@ func (committer *OutputCommitter) Prepare(
 	request CallRequest,
 	result CallResult,
 ) (PreparedCommit, error) {
-	if err := committer.validate(); err != nil {
-		return nil, err
+	if committer == nil || committer.store == nil || committer.newID == nil {
+		return nil, errors.New("narrator output committer is required")
 	}
 	prepared, err := prepareWitnessedCallRequest(request, result)
 	if err != nil {
@@ -83,27 +83,24 @@ func (committer *OutputCommitter) Prepare(
 	if err != nil {
 		return nil, err
 	}
-	invocation, err := committer.successfulInvocation(frozen)
-	if err != nil {
-		return nil, err
-	}
 	switch prepared.kind {
 	case RequestKindProjection:
+		invocation, err := committer.successfulInvocation(frozen)
+		if err != nil {
+			return nil, err
+		}
 		return committer.prepareProjection(prepared.projection, frozen, invocation)
 	case RequestKindStatus:
+		invocation, err := committer.successfulInvocation(frozen)
+		if err != nil {
+			return nil, err
+		}
 		return committer.prepareStatus(prepared.status, frozen, invocation)
 	case RequestKindCheckpoint:
-		return committer.prepareCheckpoint(prepared.checkpoint, frozen, invocation)
+		return committer.prepareCheckpoint(prepared.checkpoint, frozen)
 	default:
 		return nil, fmt.Errorf("prepare narrator output for unsupported kind %q", prepared.kind)
 	}
-}
-
-func (committer *OutputCommitter) validate() error {
-	if committer == nil || committer.store == nil || committer.newID == nil {
-		return errors.New("narrator output committer is required")
-	}
-	return nil
 }
 
 func prepareWitnessedCallRequest(
@@ -223,10 +220,6 @@ func (committer *OutputCommitter) successfulInvocation(
 		Provider:  conversation.ProviderCodex,
 		Requested: result.Model.RequestedProfile,
 		Resolved:  result.Model.Settings,
-		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:  result.InputBytes,
-			OutputBytes: result.OutputBytes,
-		},
 		ProviderReferences: conversation.InvocationProviderReferences{
 			ThreadID:  &threadID,
 			TurnID:    &turnID,
@@ -257,15 +250,6 @@ func (committer *OutputCommitter) prepareProjection(
 		return nil, err
 	}
 	if err := committer.addProjectionTextCommits(&request, output); err != nil {
-		return nil, err
-	}
-	if err := committer.addSuccessfulAttempt(
-		&request.InvocationAttempt,
-		&request.InvocationAttemptCommittedID,
-		CallRequest{Projection: &bundle},
-		result,
-		request.CommittedAt,
-	); err != nil {
 		return nil, err
 	}
 	if err := request.Validate(); err != nil {
@@ -413,15 +397,6 @@ func (committer *OutputCommitter) prepareStatus(
 		NarratorStateCommittedID: stateCommittedID,
 		CommittedAt:              committedAt,
 	}
-	if err := committer.addSuccessfulAttempt(
-		&request.InvocationAttempt,
-		&request.InvocationAttemptCommittedID,
-		CallRequest{Status: &bundle},
-		result,
-		request.CommittedAt,
-	); err != nil {
-		return nil, err
-	}
 	if err := request.Validate(); err != nil {
 		return nil, err
 	}
@@ -435,7 +410,6 @@ func (committer *OutputCommitter) prepareStatus(
 func (committer *OutputCommitter) prepareCheckpoint(
 	bundle CheckpointContextBundle,
 	result CallResult,
-	invocation conversation.ResolvedInvocation,
 ) (PreparedCommit, error) {
 	committedAt, err := outputCommitTimestamp(bundle.PreCallCursor.UpdatedAt, result.EndedAt)
 	if err != nil {
@@ -451,17 +425,7 @@ func (committer *OutputCommitter) prepareCheckpoint(
 		CoveredThroughSequence: result.CheckpointOutput.CoveredThroughSequence,
 		HistoricalSummary:      result.CheckpointOutput.HistoricalSummary,
 		CommittedEventID:       committedEventID,
-		ResolvedInvocation:     invocation,
 		CommittedAt:            committedAt,
-	}
-	if err := committer.addSuccessfulAttempt(
-		&request.InvocationAttempt,
-		&request.InvocationAttemptCommittedID,
-		CallRequest{Checkpoint: &bundle},
-		result,
-		request.CommittedAt,
-	); err != nil {
-		return nil, err
 	}
 	if err := request.Validate(); err != nil {
 		return nil, err
@@ -470,26 +434,6 @@ func (committer *OutputCommitter) prepareCheckpoint(
 		_, err := committer.store.CommitNarratorCheckpoint(ctx, request)
 		return err
 	}, nil
-}
-
-func (committer *OutputCommitter) addSuccessfulAttempt(
-	target *conversation.InvocationAttempt,
-	committedEventID *string,
-	request CallRequest,
-	result CallResult,
-	committedAt string,
-) error {
-	attempt, err := successfulNarratorAttempt(request, result, committedAt)
-	if err != nil {
-		return err
-	}
-	eventID, err := committer.newID("conversation_event")
-	if err != nil {
-		return err
-	}
-	*target = attempt
-	*committedEventID = eventID
-	return nil
 }
 
 func projectionOutputFields(
@@ -582,7 +526,6 @@ func cloneProjectionCommit(
 	cloned.TopicDescriptor = cloneTextCommit(request.TopicDescriptor)
 	cloned.ConversationCommittedID = cloneOptionalString(request.ConversationCommittedID)
 	cloned.ResolvedInvocation = cloneResolvedInvocation(request.ResolvedInvocation)
-	cloned.InvocationAttempt = cloneNarratorInvocationAttempt(request.InvocationAttempt)
 	return cloned
 }
 
@@ -590,79 +533,7 @@ func cloneStatusCommit(request conversation.NarratorStatusCommit) conversation.N
 	cloned := request
 	cloned.TurnID = cloneOptionalString(request.TurnID)
 	cloned.ResolvedInvocation = cloneResolvedInvocation(request.ResolvedInvocation)
-	cloned.InvocationAttempt = cloneNarratorInvocationAttempt(request.InvocationAttempt)
 	return cloned
-}
-
-func cloneNarratorInvocationAttempt(value conversation.InvocationAttempt) conversation.InvocationAttempt {
-	cloned := value
-	cloned.TurnID = cloneOptionalString(value.TurnID)
-	if value.Trigger != nil {
-		trigger := *value.Trigger
-		cloned.Trigger = &trigger
-	}
-	cloned.Context.InputID = cloneOptionalString(value.Context.InputID)
-	cloned.Context.ClarificationInputID = cloneOptionalString(value.Context.ClarificationInputID)
-	if value.Context.RequestedThroughSequence != nil {
-		sequence := *value.Context.RequestedThroughSequence
-		cloned.Context.RequestedThroughSequence = &sequence
-	}
-	cloned.Context.AvailableRange = cloneAttemptRange(value.Context.AvailableRange)
-	cloned.Context.IncludedRanges = append([]conversation.TrajectorySequenceRange{}, value.Context.IncludedRanges...)
-	cloned.Context.EvaluationRange = cloneAttemptRange(value.Context.EvaluationRange)
-	cloned.Context.RemainingRange = cloneAttemptRange(value.Context.RemainingRange)
-	cloned.Context.OmittedStatusOnlyRange = cloneAttemptRange(value.Context.OmittedStatusOnlyRange)
-	cloned.Context.OmittedUnobservedRange = cloneAttemptRange(value.Context.OmittedUnobservedRange)
-	cloned.Context.PreCursor = cloneAttemptCursor(value.Context.PreCursor)
-	cloned.Context.PostCursor = cloneAttemptCursor(value.Context.PostCursor)
-	cloned.Context.ProposedObservedThrough = cloneAttemptInt(value.Context.ProposedObservedThrough)
-	cloned.Context.ProposedCheckpointThrough = cloneAttemptInt(value.Context.ProposedCheckpointThrough)
-	cloned.Context.EventCounts = append([]conversation.InvocationAttemptEventCount{}, value.Context.EventCounts...)
-	cloned.Context.AllowedDecisionKinds = append(
-		[]conversation.ConversationRouteDecisionKind{}, value.Context.AllowedDecisionKinds...,
-	)
-	if value.Requested != nil {
-		requested := cloneAttemptRoleProfile(*value.Requested)
-		cloned.Requested = &requested
-	}
-	if value.Resolved != nil {
-		resolved := cloneAttemptResolvedSettings(*value.Resolved)
-		cloned.Resolved = &resolved
-	}
-	cloned.ProviderReferences.ThreadID = cloneOptionalString(value.ProviderReferences.ThreadID)
-	cloned.ProviderReferences.TurnID = cloneOptionalString(value.ProviderReferences.TurnID)
-	cloned.ProviderReferences.RequestID = cloneOptionalString(value.ProviderReferences.RequestID)
-	cloned.ProviderReferences.ResponseID = cloneOptionalString(value.ProviderReferences.ResponseID)
-	cloned.Output.StructuredKind = cloneOptionalString(value.Output.StructuredKind)
-	if value.Failure != nil {
-		failure := *value.Failure
-		cloned.Failure = &failure
-	}
-	return cloned
-}
-
-func cloneAttemptRange(value *conversation.TrajectorySequenceRange) *conversation.TrajectorySequenceRange {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
-}
-
-func cloneAttemptCursor(value *conversation.InvocationAttemptCursorAudit) *conversation.InvocationAttemptCursorAudit {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
-}
-
-func cloneAttemptInt(value *int) *int {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
 }
 
 func cloneTextCommit(value *conversation.NarrationTextCommit) *conversation.NarrationTextCommit {

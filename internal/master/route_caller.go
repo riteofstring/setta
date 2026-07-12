@@ -57,8 +57,6 @@ type RouteCallResult struct {
 	Session          Session
 	ProviderThreadID string
 	ProviderTurnID   string
-	InputBytes       int
-	OutputBytes      int
 	StructuredOutput json.RawMessage
 	Decision         RouteDecision
 	StartedAt        string
@@ -82,24 +80,6 @@ func (caller *RouteCaller) Call(
 	requestID string,
 	materialized RouteContextMaterialization,
 ) (RouteCallResult, error) {
-	return caller.call(ctx, requestID, materialized, nil)
-}
-
-func (caller *RouteCaller) CallObserved(
-	ctx context.Context,
-	requestID string,
-	materialized RouteContextMaterialization,
-	started func(RouteCallResult),
-) (RouteCallResult, error) {
-	return caller.call(ctx, requestID, materialized, started)
-}
-
-func (caller *RouteCaller) call(
-	ctx context.Context,
-	requestID string,
-	materialized RouteContextMaterialization,
-	started func(RouteCallResult),
-) (RouteCallResult, error) {
 	if err := validateRouteCallRequest(caller, ctx, requestID, materialized); err != nil {
 		return RouteCallResult{}, err
 	}
@@ -108,15 +88,8 @@ func (caller *RouteCaller) call(
 		return RouteCallResult{}, NewRouteAttemptFailure(RouteFailureKindInternal, err)
 	}
 	result := RouteCallResult{
-		RequestID:  requestID,
-		InputBytes: len(materialized.Input),
-		StartedAt:  caller.timestamp(),
-	}
-	if started != nil {
-		started(result)
-	}
-	if err := ctx.Err(); err != nil {
-		return result, err
+		RequestID: requestID,
+		StartedAt: caller.timestamp(),
 	}
 	provider, err := caller.sessions.RunStructuredTurn(ctx, StructuredSessionTurnRequest{
 		ID:           requestID,
@@ -168,7 +141,6 @@ func (caller *RouteCaller) completeRouteCall(
 	result.Session = CloneSession(provider.Session)
 	result.ProviderThreadID = provider.ProviderThreadID
 	result.ProviderTurnID = provider.ProviderTurnID
-	result.OutputBytes = len(provider.Output)
 	result.StructuredOutput = append(json.RawMessage{}, provider.Output...)
 	endedAt, err := caller.timestampAfter(result.StartedAt)
 	if err != nil {
@@ -222,8 +194,6 @@ func routeInvocationAudit(call RouteCallResult) (RouteInvocationAudit, error) {
 		ProviderRequestID: call.RequestID,
 		ProviderThreadID:  call.ProviderThreadID,
 		ProviderTurnID:    call.ProviderTurnID,
-		InputBytes:        call.InputBytes,
-		OutputBytes:       call.OutputBytes,
 		StartedAt:         call.StartedAt,
 		EndedAt:           call.EndedAt,
 	}

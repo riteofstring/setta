@@ -320,7 +320,7 @@ func (service *Service) persistPreparingSideConversation(
 			Reason:         "originating pane already has an open side conversation",
 		}
 	}
-	injectedItems, contextInputBytes, err := service.materializeSideContext(
+	injectedItems, err := service.materializeSideContext(
 		ctx,
 		parentConversationID,
 		snapshot,
@@ -356,7 +356,6 @@ func (service *Service) persistPreparingSideConversation(
 			invocationID,
 			profile,
 			resolved,
-			contextInputBytes,
 			now,
 		),
 		CreatedAt: now,
@@ -382,7 +381,7 @@ func (service *Service) materializeSideContext(
 	conversationID string,
 	snapshot ConversationSnapshot,
 	maxInputBytes int,
-) ([]agent.InjectedTextItem, int, error) {
+) ([]agent.InjectedTextItem, error) {
 	frame, err := service.store.readSideInFlightContextFrame(
 		ctx,
 		conversationID,
@@ -390,20 +389,20 @@ func (service *Service) materializeSideContext(
 		snapshot.Conversation.LastTrajectorySequence,
 	)
 	if err != nil {
-		return nil, 0, fmt.Errorf("materialize side in-flight context: %w", err)
+		return nil, fmt.Errorf("materialize side in-flight context: %w", err)
 	}
 	injectedItems, inputBytes, err := sideConversationInjectedItems(frame)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if inputBytes > maxInputBytes {
-		return nil, 0, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"side conversation supplied context requires %d bytes, exceeding side_agent limit %d",
 			inputBytes,
 			maxInputBytes,
 		)
 	}
-	return injectedItems, inputBytes, nil
+	return injectedItems, nil
 }
 
 func sideContextTurn(turns []ConversationTurn) *ConversationTurn {
@@ -461,7 +460,6 @@ func newSideAgentInvocation(
 	id string,
 	profile RoleProfile,
 	resolved agent.ResolvedInvocation,
-	inputBytes int,
 	startedAt string,
 ) ResolvedInvocation {
 	return ResolvedInvocation{
@@ -475,7 +473,6 @@ func newSideAgentInvocation(
 			ServiceTier:       cloneStringPointer(resolved.ServiceTier),
 			PermissionProfile: profile.PermissionProfile,
 		},
-		ContextUsage:       InvocationContextUsage{InputBytes: inputBytes},
 		ProviderReferences: InvocationProviderReferences{},
 		ModelReroutes:      []InvocationModelReroute{},
 		StartedAt:          startedAt,

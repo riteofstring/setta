@@ -141,10 +141,6 @@ func routedNarratorInvocation() conversation.ResolvedInvocation {
 			ReasoningEffort:   profile.ReasoningEffort,
 			PermissionProfile: profile.PermissionProfile,
 		},
-		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:  100,
-			OutputBytes: 40,
-		},
 		ProviderReferences: conversation.InvocationProviderReferences{
 			ThreadID:   &threadID,
 			TurnID:     &turnID,

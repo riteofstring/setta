@@ -246,7 +246,6 @@ func (service *Service) prepareTurnStart(
 		resolved,
 		event.ProviderThreadID,
 		event.ProviderTurnID,
-		len(turn.AuthoredInput.Text),
 		now,
 	)
 	turn.Status = TurnStatusRunning

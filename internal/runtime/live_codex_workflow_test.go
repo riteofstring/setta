@@ -285,9 +285,7 @@ func validRuntimeLiveMasterInvocation(invocation master.RouteInvocationAudit) bo
 		invocation.Configuration.ResolvedApprovalMode == "never" &&
 		invocation.ProviderRequestID != "" &&
 		invocation.ProviderThreadID != "" &&
-		invocation.ProviderTurnID != "" &&
-		invocation.InputBytes > 0 &&
-		invocation.OutputBytes > 0
+		invocation.ProviderTurnID != ""
 }
 
 func waitForRuntimeLiveConversationRoute(
@@ -372,7 +370,6 @@ func assertRuntimeLiveConversationRouteAudit(
 		invocation.Role != conversation.RoleNarrator ||
 		invocation.Resolved.ModelID != "gpt-5.4-mini" ||
 		invocation.Resolved.PermissionProfile.ToolAccess.Mode != conversation.ToolAccessNone ||
-		invocation.ContextUsage.InputBytes <= 0 || invocation.ContextUsage.OutputBytes <= 0 ||
 		invocation.Outcome != conversation.InvocationOutcomeSucceeded {
 		t.Fatalf("live conversation router audit = context=%+v invocation=%+v", audit, invocation)
 	}

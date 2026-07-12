@@ -11,29 +11,14 @@ import (
 // changing the authoritative projection, checkpoint, or topic metadata that
 // was last committed successfully.
 type NarratorDegradationCommit struct {
-	ConversationID               string
-	Expected                     NarratorStateExpectation
-	Degradation                  NarratorDegradation
-	CommittedEventID             string
-	InvocationAttempt            InvocationAttempt
-	InvocationAttemptCommittedID string
-	CommittedAt                  string
+	ConversationID   string
+	Expected         NarratorStateExpectation
+	Degradation      NarratorDegradation
+	CommittedEventID string
+	CommittedAt      string
 }
 
 func (request NarratorDegradationCommit) Validate() error {
-	if err := validateNarratorDegradationIdentity(request); err != nil {
-		return err
-	}
-	if err := validateNarratorDegradationAttempt(request); err != nil {
-		return err
-	}
-	if err := validateInvocationAttemptCommitTime(request.InvocationAttempt, request.CommittedAt); err != nil {
-		return err
-	}
-	return validateNarratorDegradationTimeline(request)
-}
-
-func validateNarratorDegradationIdentity(request NarratorDegradationCommit) error {
 	if err := validateIdentifier("narrator degradation conversation id", request.ConversationID); err != nil {
 		return err
 	}
@@ -46,44 +31,6 @@ func validateNarratorDegradationIdentity(request NarratorDegradationCommit) erro
 	if err := validateIdentifier("narrator degradation committed event id", request.CommittedEventID); err != nil {
 		return err
 	}
-	if err := validateIdentifier("narrator degradation invocation attempt committed event id", request.InvocationAttemptCommittedID); err != nil {
-		return err
-	}
-	if request.CommittedEventID == request.InvocationAttemptCommittedID {
-		return errors.New("narrator degradation committed event ids must be distinct")
-	}
-	return nil
-}
-
-func validateNarratorDegradationAttempt(request NarratorDegradationCommit) error {
-	if err := request.InvocationAttempt.Validate(); err != nil {
-		return err
-	}
-	if !narratorDegradationAttemptMatches(request.InvocationAttempt, request) {
-		return errors.New("narrator degradation requires a matching failed invocation attempt")
-	}
-	return nil
-}
-
-func narratorDegradationAttemptMatches(
-	attempt InvocationAttempt,
-	request NarratorDegradationCommit,
-) bool {
-	if attempt.Failure == nil {
-		return false
-	}
-	return invocationAttemptChecksPass(
-		attempt.ConversationID == request.ConversationID,
-		attempt.Outcome == InvocationAttemptOutcomeFailed,
-		attempt.CommitDecision == InvocationCommitFailureCommitted,
-		attempt.Failure.Code == request.Degradation.Code,
-		attempt.Failure.Message == request.Degradation.Message,
-		attempt.Failure.Retryable == request.Degradation.Retryable,
-		attempt.Failure.DiagnosticReference == request.Degradation.DiagnosticReference,
-	)
-}
-
-func validateNarratorDegradationTimeline(request NarratorDegradationCommit) error {
 	expectedAt, err := validateTimestamp("narrator degradation expected updatedAt", request.Expected.UpdatedAt)
 	if err != nil {
 		return err
@@ -178,14 +125,6 @@ func (store *Store) CommitNarratorDegradation(
 				Type:  ConversationEventTypeNarratorStateUpdated,
 				State: state,
 			},
-			request.CommittedAt,
-		); err != nil {
-			return err
-		}
-		if err := appendInvocationAttemptEvent(
-			transaction,
-			request.InvocationAttemptCommittedID,
-			request.InvocationAttempt,
 			request.CommittedAt,
 		); err != nil {
 			return err

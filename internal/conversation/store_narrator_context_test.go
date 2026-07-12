@@ -147,39 +147,20 @@ func assertCheckpointNarratorSource(t *testing.T, source NarratorContextSource) 
 func TestCommitNarratorCheckpointIsAtomicOptimisticAndObservedBounded(t *testing.T) {
 	store := newTestStore(t)
 	seed := seedNarratorContext(t, store)
-	result := commitAndAssertNarratorCheckpoint(t, store, seed)
-	assertNarratorCheckpointPublicationRollback(t, store, seed, result)
-	assertNarratorCheckpointRejections(t, store, seed, result)
-}
-
-type narratorCheckpointTestResult struct {
-	expected   NarratorStateExpectation
-	committed  NarratorState
-	streamID   string
-	eventCount int
-}
-
-func commitAndAssertNarratorCheckpoint(
-	t *testing.T,
-	store *Store,
-	seed narratorContextSeed,
-) narratorCheckpointTestResult {
-	t.Helper()
 	expected := NarratorStateExpectation{
 		ObservedThroughSequence:   6,
 		CheckpointThroughSequence: 2,
 		CurrentFocusRevision:      1,
 		UpdatedAt:                 testTimeStarted,
 	}
-	checkpointRequest := withTestNarratorCheckpointAttempt(NarratorCheckpointCommit{
+	committed, err := store.CommitNarratorCheckpoint(context.Background(), NarratorCheckpointCommit{
 		ConversationID:         seed.conversationID,
 		Expected:               expected,
 		CoveredThroughSequence: 4,
 		HistoricalSummary:      "Events three and four preserve the evaluated history.",
 		CommittedEventID:       "checkpoint-event-1",
 		CommittedAt:            testTimeLater,
-	}, 1)
-	committed, err := store.CommitNarratorCheckpoint(context.Background(), checkpointRequest)
+	})
 	if err != nil {
 		t.Fatalf("commit narrator checkpoint: %v", err)
 	}
@@ -207,103 +188,52 @@ func commitAndAssertNarratorCheckpoint(
 	if err != nil {
 		t.Fatalf("read committed checkpoint event: %v", err)
 	}
-	if len(events) < 2 ||
-		events[len(events)-2].Kind != string(ConversationEventTypeNarratorStateUpdated) ||
-		events[len(events)-1].Kind != string(ConversationEventTypeInvocationAttempted) {
-		t.Fatalf("checkpoint committed events = %+v", events)
+	if got := events[len(events)-1].Kind; got != string(ConversationEventTypeNarratorStateUpdated) {
+		t.Fatalf("checkpoint committed event kind = %s", got)
 	}
-	decodedAttempt, err := conversationEventFromCommitted(
-		events[len(events)-1],
-		"workspace-1",
-		seed.conversationID,
-	)
-	if err != nil {
-		t.Fatalf("decode checkpoint invocation attempt: %v", err)
-	}
-	attemptPayload, ok := decodedAttempt.Payload.(*ConversationInvocationAttemptedEventPayload)
-	if !ok || attemptPayload == nil || !reflect.DeepEqual(attemptPayload.Attempt, checkpointRequest.InvocationAttempt) {
-		t.Fatalf("checkpoint invocation payload = %T %+v", decodedAttempt.Payload, decodedAttempt.Payload)
-	}
-	return narratorCheckpointTestResult{
-		expected:   expected,
-		committed:  committed,
-		streamID:   streamID,
-		eventCount: len(events),
-	}
-}
 
-func assertNarratorCheckpointPublicationRollback(
-	t *testing.T,
-	store *Store,
-	seed narratorContextSeed,
-	committed narratorCheckpointTestResult,
-) {
-	t.Helper()
 	rollbackExpected := NarratorStateExpectation{
 		ObservedThroughSequence:   6,
 		CheckpointThroughSequence: 4,
 		CurrentFocusRevision:      1,
 		UpdatedAt:                 testTimeLater,
 	}
-	_, err := store.CommitNarratorCheckpoint(context.Background(), withTestNarratorCheckpointAttempt(NarratorCheckpointCommit{
+	_, err = store.CommitNarratorCheckpoint(context.Background(), NarratorCheckpointCommit{
 		ConversationID:         seed.conversationID,
 		Expected:               rollbackExpected,
 		CoveredThroughSequence: 5,
 		HistoricalSummary:      "This state mutation must roll back when publication fails.",
 		CommittedEventID:       "checkpoint-event-1",
 		CommittedAt:            narratorContextCommitTime,
-	}, 2))
+	})
 	if err == nil {
 		t.Fatal("duplicate checkpoint publication error = nil")
 	}
 	state := readTestNarratorState(t, store, seed.conversationID)
-	if state.CheckpointThroughSequence != 4 || state.CheckpointText != committed.committed.CheckpointText || state.UpdatedAt != testTimeLater {
+	if state.CheckpointThroughSequence != 4 || state.CheckpointText != committed.CheckpointText || state.UpdatedAt != testTimeLater {
 		t.Fatalf("checkpoint after publication rollback = %+v", state)
 	}
-	events, err := store.ReadCommittedStreamEvents(
-		context.Background(),
-		committed.streamID,
-		0,
-		MaxCommittedEventReadLimit,
-	)
-	if err != nil || len(events) != committed.eventCount {
-		t.Fatalf("checkpoint rollback events = %d, %v, want %d", len(events), err, committed.eventCount)
-	}
-}
 
-func assertNarratorCheckpointRejections(
-	t *testing.T,
-	store *Store,
-	seed narratorContextSeed,
-	committed narratorCheckpointTestResult,
-) {
-	t.Helper()
-	_, err := store.CommitNarratorCheckpoint(context.Background(), withTestNarratorCheckpointAttempt(NarratorCheckpointCommit{
+	_, err = store.CommitNarratorCheckpoint(context.Background(), NarratorCheckpointCommit{
 		ConversationID:         seed.conversationID,
-		Expected:               committed.expected,
+		Expected:               expected,
 		CoveredThroughSequence: 5,
 		HistoricalSummary:      "A stale response cannot overwrite the committed checkpoint.",
 		CommittedEventID:       "checkpoint-event-stale",
 		CommittedAt:            narratorContextCommitTime,
-	}, 3))
+	})
 	if !IsStateConflict(err) {
 		t.Fatalf("stale checkpoint error = %T %v, want StateConflictError", err, err)
 	}
 
-	rollbackExpected := NarratorStateExpectation{
-		ObservedThroughSequence:   6,
-		CheckpointThroughSequence: 4,
-		CurrentFocusRevision:      1,
-		UpdatedAt:                 testTimeLater,
-	}
-	invalid := withTestNarratorCheckpointAttempt(NarratorCheckpointCommit{
+	invalid := NarratorCheckpointCommit{
 		ConversationID:         seed.conversationID,
 		Expected:               rollbackExpected,
 		CoveredThroughSequence: 7,
 		HistoricalSummary:      "Must not cross the observed cursor.",
 		CommittedEventID:       "checkpoint-event-invalid",
 		CommittedAt:            narratorContextCommitTime,
-	}, 4)
+	}
 	if err := invalid.Validate(); err == nil {
 		t.Fatal("checkpoint beyond observed cursor validation error = nil")
 	}
@@ -320,7 +250,7 @@ func TestCommitNarratorCheckpointRejectsMissingTrajectoryInRequestedPrefix(t *te
 		t.Fatalf("delete narrator trajectory event: %v", err)
 	}
 
-	_, err = store.CommitNarratorCheckpoint(context.Background(), withTestNarratorCheckpointAttempt(NarratorCheckpointCommit{
+	_, err = store.CommitNarratorCheckpoint(context.Background(), NarratorCheckpointCommit{
 		ConversationID: seed.conversationID,
 		Expected: NarratorStateExpectation{
 			ObservedThroughSequence:   6,
@@ -332,7 +262,7 @@ func TestCommitNarratorCheckpointRejectsMissingTrajectoryInRequestedPrefix(t *te
 		HistoricalSummary:      "A missing event makes this prefix invalid.",
 		CommittedEventID:       "checkpoint-event-gap",
 		CommittedAt:            testTimeLater,
-	}, 5))
+	})
 	if !IsStateConflict(err) {
 		t.Fatalf("gapped checkpoint error = %T %v, want StateConflictError", err, err)
 	}

@@ -52,11 +52,6 @@ import {
   updateMasterVoice,
 } from "./topic-conversation-narrator-voice-workflow.mjs";
 import { assertRecordedPaneLayouts } from "./topic-conversation-layout-recording.mjs";
-import {
-  assertRecordedConversationInvocationObservability,
-  assertRecordedConversationRouteObservability,
-  assertRecordedMasterRouteObservability,
-} from "./topic-conversation-routing-observability.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDistinctConversationPalettes,
@@ -314,14 +309,6 @@ try {
     expectedSessionId: sharedMasterSessionId,
     expectedTargetId: alpha.id,
   });
-  await assertRecordedMasterRouteObservability({
-    artifactDirectory: secondLaunchDir,
-    inputIdentity: shellMasterOverlayInput.accepted.input,
-    inputText: typedMasterOverlayText,
-    presentationKind: "focus_existing_conversation_pane",
-    routeRecord: typedMasterRoute.decision,
-    timeoutMs: workflowTimeoutMs,
-  });
   await waitForState(
     context.client,
     driverCallExpression("topicConversationNavigatorState", { conversationId: alpha.id }),
@@ -411,12 +398,6 @@ try {
     acceptedConversationInput.input,
     acceptedConversationInput.sequence,
   );
-  await assertRecordedConversationRouteObservability({
-    artifactDirectory: secondLaunchDir,
-    inputText: acceptedConversationInput.input.text,
-    routeState: routedConversationInput,
-    timeoutMs: workflowTimeoutMs,
-  });
   assertRoutedConversationInputReceipt(
     acceptedConversationInput,
     await submitConversationInput(context.client, conversationInputRequest),
@@ -475,12 +456,6 @@ try {
       `pane text did not use local route by default: ${JSON.stringify(routedTextState)}`,
     );
   }
-  await assertRecordedConversationRouteObservability({
-    artifactDirectory: secondLaunchDir,
-    inputText: "hold alpha",
-    routeState: routedTextState,
-    timeoutMs: workflowTimeoutMs,
-  });
   await waitForConversationSurface(
     context.client,
     alpha.id,
@@ -678,20 +653,6 @@ try {
   assertMasterRouteContextAuthority(escalationMasterRoute, {
     expectedConversationId: beta.id,
     expectedKinds: ["queue_agent_turn", "steer_active_turn"],
-  });
-  await assertRecordedMasterRouteObservability({
-    artifactDirectory: secondLaunchDir,
-    inputIdentity: {
-      originatingConversationId: alpha.id,
-      originatingConversationInputId: masterEscalation.request.input.id,
-      originatingPaneId: masterEscalation.request.input.sourcePaneId,
-      originatingWorkspaceId: workspaceId,
-      source: "conversation_escalation",
-    },
-    inputText: masterEscalation.request.input.text,
-    presentationKind: "show_master_reply",
-    routeRecord: escalationMasterRoute.decision,
-    timeoutMs: workflowTimeoutMs,
   });
 
   await submitAndWaitForQueue(context.client, alpha.id, "artifact alpha", 2);
@@ -942,14 +903,6 @@ try {
     expectedKind: "answer_global",
     expectedSessionId: sharedMasterSessionId,
   });
-  await assertRecordedMasterRouteObservability({
-    artifactDirectory: secondLaunchDir,
-    inputIdentity: shellMasterInput.accepted.input,
-    inputText: shellMasterInput.accepted.input.text,
-    presentationKind: "show_master_reply",
-    routeRecord: voiceMasterRoute.decision,
-    timeoutMs: workflowTimeoutMs,
-  });
   await captureActiveMasterInteraction({
     artifactPath: join(artifactDir, "master-voice-immediate-result.png"),
     client: context.client,
@@ -1004,12 +957,6 @@ try {
   assertAlphaLifecycle(alphaSnapshot, awaitingApproval.approvalId);
   assertDeniedApproval(alphaSnapshot, awaitingDenial.approvalId);
   assertBetaLifecycle(betaSnapshot);
-  await assertRecordedConversationInvocationObservability({
-    artifactDirectory: secondLaunchDir,
-    requireFailedAttempt: true,
-    snapshot: betaSnapshot,
-    timeoutMs: workflowTimeoutMs,
-  });
 
   const {
     forkComplete: alphaForkComplete,

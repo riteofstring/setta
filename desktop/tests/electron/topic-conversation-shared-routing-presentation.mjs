@@ -18,7 +18,6 @@ import {
   waitForRecordedTextConversationInput,
 } from "./topic-conversation-input-routing-assertions.mjs";
 import { assertDuplicateConversationPalette } from "./topic-conversation-projection-assertions.mjs";
-import { assertRecordedConversationRouteObservability } from "./topic-conversation-routing-observability.mjs";
 
 export async function exerciseSharedPaneClarification({
   artifactDir,
@@ -97,12 +96,6 @@ export async function exerciseSharedPaneClarification({
     timeoutMs,
   );
   assertPaneClarificationExchange(clarifiedState, root, reply);
-  await assertRecordedConversationRouteObservability({
-    artifactDirectory: recordingDir,
-    inputText: root.request.input.text,
-    routeState: clarifiedState,
-    timeoutMs,
-  });
   await waitForConversationSnapshot(
     backend,
     workspaceId,

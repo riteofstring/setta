@@ -106,11 +106,6 @@ type ResolvedInvocationSettings struct {
 	PermissionProfile PermissionProfile `json:"permissionProfile"`
 }
 
-type InvocationContextUsage struct {
-	InputBytes  int `json:"inputBytes"`
-	OutputBytes int `json:"outputBytes"`
-}
-
 type InvocationProviderReferences struct {
 	ThreadID   *string `json:"threadId"`
 	TurnID     *string `json:"turnId"`
@@ -130,7 +125,6 @@ type ResolvedInvocation struct {
 	Provider           Provider                     `json:"provider"`
 	Requested          RoleProfile                  `json:"requested"`
 	Resolved           ResolvedInvocationSettings   `json:"resolved"`
-	ContextUsage       InvocationContextUsage       `json:"contextUsage"`
 	ProviderReferences InvocationProviderReferences `json:"providerReferences"`
 	ModelReroutes      []InvocationModelReroute     `json:"modelReroutes"`
 	StartedAt          string                       `json:"startedAt"`
@@ -288,13 +282,6 @@ func (settings ResolvedInvocationSettings) Validate() error {
 	return settings.PermissionProfile.Validate()
 }
 
-func (usage InvocationContextUsage) Validate() error {
-	if usage.InputBytes < 0 || usage.OutputBytes < 0 {
-		return fmt.Errorf("invocation context usage values must be non-negative")
-	}
-	return nil
-}
-
 func (references InvocationProviderReferences) Validate() error {
 	for _, field := range []struct {
 		label string
@@ -362,9 +349,6 @@ func validateInvocationIdentityAndSettings(invocation ResolvedInvocation) error 
 	}
 	if err := invocation.Resolved.Validate(); err != nil {
 		return fmt.Errorf("invocation %s resolved settings: %w", invocation.ID, err)
-	}
-	if err := invocation.ContextUsage.Validate(); err != nil {
-		return fmt.Errorf("invocation %s: %w", invocation.ID, err)
 	}
 	if err := invocation.ProviderReferences.Validate(); err != nil {
 		return fmt.Errorf("invocation %s: %w", invocation.ID, err)

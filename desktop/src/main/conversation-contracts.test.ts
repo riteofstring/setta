@@ -60,7 +60,6 @@ const eventDispositionByType = {
   "conversation.artifact.created": (payload) => payload.artifact.kind,
   "conversation.narrator_state.updated": (payload) => payload.state.status,
   "conversation.narration.created": (payload) => payload.event.kind,
-  "conversation.invocation_attempted": (payload) => payload.attempt.outcome,
   "conversation.role_profile_override.removed": (payload) => payload.role,
   "conversation.role_profile_override.updated": (payload) => payload.override.profile.role,
   "conversation.presentation_profile.updated": (payload) => payload.profile.resolvedPaletteId,

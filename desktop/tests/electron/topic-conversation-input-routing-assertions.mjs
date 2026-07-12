@@ -556,8 +556,6 @@ function assertConversationRouterInvocation(invocation) {
     workspaceMutation: false,
   };
   assertEqualJSON(actual, expected, "conversation-router invocation");
-  assertPositiveNumber(invocation.contextUsage.inputBytes, "conversation-router input bytes");
-  assertPositiveNumber(invocation.contextUsage.outputBytes, "conversation-router output bytes");
   assertNonEmptyString(invocation.providerReferences.threadId, "conversation-router thread id");
   assertNonEmptyString(invocation.providerReferences.turnId, "conversation-router turn id");
   assertNonEmptyString(invocation.providerReferences.requestId, "conversation-router request id");
@@ -571,12 +569,6 @@ function assertEqualJSON(actual, expected, label) {
 
 function assertNonEmptyString(value, label) {
   if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`invalid ${label}: ${JSON.stringify(value)}`);
-  }
-}
-
-function assertPositiveNumber(value, label) {
-  if (typeof value !== "number" || value <= 0) {
     throw new Error(`invalid ${label}: ${JSON.stringify(value)}`);
   }
 }

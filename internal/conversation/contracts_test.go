@@ -136,17 +136,6 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		Event:                sideEventTrajectory,
 	}
 	override := snapshot.RoleProfileOverrides[0]
-	invocation := validInvocation(RoleNarrator, InvocationOutcomeSucceeded)
-	trigger := NarrationTriggerPlanChanged
-	attempt := testSuccessfulInvocationAttempt(
-		"contract-invocation-attempt",
-		conversationID,
-		nil,
-		InvocationAttemptCallProjection,
-		&trigger,
-		1,
-		invocation,
-	)
 	payloads := []ConversationEventPayload{
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: snapshot.Conversation},
 		ConversationTurnUpdatedEventPayload{Type: ConversationEventTypeTurnUpdated, Turn: snapshot.Turns.Turns[0]},
@@ -156,7 +145,6 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		ConversationArtifactCreatedEventPayload{Type: ConversationEventTypeArtifactCreated, Artifact: artifact},
 		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: snapshot.NarratorState},
 		ConversationNarrationCreatedEventPayload{Type: ConversationEventTypeNarrationCreated, Event: narration},
-		ConversationInvocationAttemptedEventPayload{Type: ConversationEventTypeInvocationAttempted, Attempt: attempt},
 		ConversationRoleProfileOverrideUpdatedEventPayload{Type: ConversationEventTypeRoleProfileOverrideUpdated, Override: override},
 		ConversationRoleProfileOverrideRemovedEventPayload{Type: ConversationEventTypeRoleProfileOverrideRemoved, Role: RoleAgent},
 		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: snapshot.PresentationProfile},

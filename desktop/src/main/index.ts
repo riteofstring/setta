@@ -483,14 +483,12 @@ function registerIpc() {
     ipcMain,
     ipcObserver,
     requireBackendClient,
-    routingObservability: recorder ?? undefined,
   });
   registerConversationIpcHandlers({
     conversationEvents,
     ipcMain,
     ipcObserver,
     requireBackendClient,
-    routingObservability: recorder ?? undefined,
   });
   registerRoleConfigurationIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(

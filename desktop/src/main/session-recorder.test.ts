@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 
 import type {
   ConversationEvent,
-  InvocationAttempt,
   ResolvedInvocation,
   Role,
   RoleProfile,
@@ -184,10 +183,9 @@ describe("session recording privacy", () => {
     expect(recorded).toMatchObject([
       {
         payload: {
-          authoredInputBytes: 26,
           resolvedInvocation: {
-            failure: { messageBytes: 31 },
-            modelReroutes: [{ reasonBytes: 31 }],
+            failure: { code: "provider_unavailable" },
+            modelReroutes: [{ fromModelId: "requested-model", toModelId: "resolved-model" }],
             providerReferences: { threadId: "provider-thread-recording" },
           },
         },
@@ -195,10 +193,9 @@ describe("session recording privacy", () => {
       },
       {
         payload: {
-          output: { finalSummaryBytes: 30 },
           resolvedInvocation: {
-            failure: { messageBytes: 31 },
-            modelReroutes: [{ reasonBytes: 31 }],
+            failure: { code: "provider_unavailable" },
+            modelReroutes: [{ fromModelId: "requested-model", toModelId: "resolved-model" }],
           },
         },
         type: "narrator_output_observed",
@@ -210,11 +207,9 @@ describe("session recording privacy", () => {
     }
   });
 
-  test("projects typed invocation attempts and agent lifecycle without context text", () => {
-    const failureMessage = "private checkpoint failure";
+  test("projects agent lifecycle and thread metadata without context text", () => {
     const livenessMessage = "private liveness diagnosis";
     const metadataSecret = "private thread metadata";
-    const attempt = invocationAttempt(failureMessage);
     const lifecycle = trajectoryEvent({
       agentLivenessChanged: {
         liveness: {
@@ -231,9 +226,6 @@ describe("session recording privacy", () => {
       kind: "agent_liveness_changed",
     });
     const recorded = [
-      ...conversationRecordingEvents(
-        conversationEvent({ attempt, type: "conversation.invocation_attempted" }),
-      ),
       ...conversationRecordingEvents(
         conversationEvent({ event: lifecycle, type: "conversation.trajectory.appended" }, 2),
       ),
@@ -260,22 +252,7 @@ describe("session recording privacy", () => {
     expect(recorded).toMatchObject([
       {
         payload: {
-          attempt: {
-            callKind: "checkpoint",
-            commitDecision: "failure_committed",
-            context: {
-              includedRanges: [{ end: 8, start: 4 }],
-              preCursor: { checkpointThroughSequence: 3, observedThroughSequence: 8 },
-            },
-            failure: { messageBytes: 26 },
-            outcome: "failed",
-          },
-        },
-        type: "conversation_invocation_attempted",
-      },
-      {
-        payload: {
-          agentLiveness: { messageBytes: 26, reason: "provider_turn_linked" },
+          agentLiveness: { reason: "provider_turn_linked" },
           eventKind: "agent_liveness_changed",
         },
         type: "agent_trajectory_observed",
@@ -289,7 +266,7 @@ describe("session recording privacy", () => {
       },
     ]);
     const serialized = JSON.stringify(recorded);
-    for (const secret of [failureMessage, livenessMessage, metadataSecret]) {
+    for (const secret of [livenessMessage, metadataSecret]) {
       expect(serialized).not.toContain(secret);
     }
   });
@@ -315,10 +292,6 @@ function resolvedInvocation(
 ): ResolvedInvocation {
   const requested = roleProfile(role);
   return {
-    contextUsage: {
-      inputBytes: 400,
-      outputBytes: 80,
-    },
     endedAt: "2026-07-15T10:00:02Z",
     failure: {
       code: "provider_unavailable",
@@ -369,82 +342,6 @@ function roleProfile(role: Role): RoleProfile {
     reasoningEffort: "low",
     role,
     serviceTier: "priority",
-  };
-}
-
-function invocationAttempt(failureMessage: string): InvocationAttempt {
-  const requested = roleProfile("narrator");
-  return {
-    callKind: "checkpoint",
-    commitDecision: "failure_committed",
-    context: {
-      allowedDecisionKinds: [],
-      availableRange: { end: 8, start: 1 },
-      clarificationInputId: null,
-      evaluationRange: null,
-      eventCounts: [{ count: 2, kind: "plan_changed" }],
-      includedRanges: [{ end: 8, start: 4 }],
-      inputId: null,
-      materialized: true,
-      omittedStatusOnlyRange: null,
-      omittedUnobservedRange: null,
-      postCursor: null,
-      preCursor: {
-        checkpointThroughSequence: 3,
-        currentFocusRevision: 2,
-        observedThroughSequence: 8,
-        updatedAt: "2026-07-15T10:00:00Z",
-      },
-      priorFinalSummaryCount: 1,
-      priorMilestoneCount: 3,
-      priorRouteDecisionCount: 0,
-      proposedCheckpointThrough: null,
-      proposedObservedThrough: null,
-      remainingRange: null,
-      requestedThroughSequence: null,
-      sourceThroughSequence: 8,
-      validCompletedForkPointCount: 0,
-    },
-    contextUsage: {
-      inputBytes: 400,
-      outputBytes: 0,
-    },
-    endedAt: "2026-07-15T10:00:02Z",
-    failure: {
-      code: "provider_unavailable",
-      diagnosticReference: "diagnostic-recording",
-      message: failureMessage,
-      retryable: true,
-    },
-    generation: 2,
-    id: "checkpoint-attempt-recording",
-    outcome: "failed",
-    output: {
-      checkpointSummaryBytes: 0,
-      finalSummaryBytes: 0,
-      milestoneCount: 0,
-      statusReplyBytes: 0,
-      structuredKind: null,
-      topicDescriptorBytes: 0,
-    },
-    providerReferences: {
-      requestId: "provider-request-recording",
-      responseId: null,
-      threadId: "provider-thread-recording",
-      turnId: "provider-turn-recording",
-    },
-    requested,
-    resolved: {
-      modelId: "resolved-model",
-      permissionProfile: requested.permissionProfile,
-      reasoningEffort: "low",
-      serviceTier: "priority",
-    },
-    startedAt: "2026-07-15T10:00:01Z",
-    trigger: "checkpoint_window_exceeded",
-    turnId: "turn-recording",
-    validationResult: "not_run",
-    conversationId: "conversation-recording",
   };
 }
 

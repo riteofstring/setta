@@ -27,7 +27,7 @@ not reappear as scrollback when the overlay is reopened.
 
 Closing the overlay does not cancel routing. An unresolved clarification
 survives close, reload, and restart and calls attention back to the overlay.
-The hidden master session, inputs, route decisions, and audit records remain
+The hidden master session, inputs, route decisions, and recovery state remain
 durable without becoming user-facing transcript history.
 
 ### Working inside an Easy Button

@@ -167,7 +167,6 @@ func TestCheckpointRetryIsCancelledAndItsLateResponseCannotCommit(t *testing.T) 
 	var mu sync.Mutex
 	var committed []string
 	var invocations []Invocation
-	completions := make(chan Completion, 4)
 	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedWork, error) {
 		mu.Lock()
 		invocations = append(invocations, invocation)
@@ -186,12 +185,7 @@ func TestCheckpointRetryIsCancelledAndItsLateResponseCannotCommit(t *testing.T) 
 			return nil
 		}), nil
 	})
-	registry, err := NewRegistry(worker, WithCompletionObserver(func(completion Completion) {
-		completions <- completion
-	}))
-	if err != nil {
-		t.Fatalf("NewRegistry: %v", err)
-	}
+	registry := newTestRegistry(t, worker)
 	checkpoint := submitTestRequest(t, registry, checkpointRetryRequest("checkpoint", "conversation-stale"))
 	waitSignal(t, checkpointStarted, "checkpoint start")
 	status := submitTestRequest(t, registry, statusRequest("status", "conversation-stale"))
@@ -199,13 +193,6 @@ func TestCheckpointRetryIsCancelledAndItsLateResponseCannotCommit(t *testing.T) 
 	waitReceipt(t, status)
 	if err := waitReceiptError(t, checkpoint); !errors.Is(err, ErrCheckpointSuperseded) {
 		t.Fatalf("checkpoint receipt error = %v, want ErrCheckpointSuperseded", err)
-	}
-	superseded := waitCompletionMatching(t, completions, "superseded checkpoint", func(completion Completion) bool {
-		return completion.Request.ID == checkpointRequest("checkpoint", "conversation-stale").ID &&
-			errors.Is(completion.Err, ErrCheckpointSuperseded) && !completion.Stale
-	})
-	if superseded.Generation != 1 || superseded.StartedAt == "" || superseded.EndedAt == "" {
-		t.Fatalf("superseded checkpoint completion = %+v", superseded)
 	}
 
 	mu.Lock()
@@ -218,12 +205,6 @@ func TestCheckpointRetryIsCancelledAndItsLateResponseCannotCommit(t *testing.T) 
 	mu.Unlock()
 	close(releaseLateResponse)
 	waitSignal(t, checkpointReturned, "late checkpoint response")
-	stale := waitCompletionMatching(t, completions, "stale checkpoint response", func(completion Completion) bool {
-		return completion.Request.ID == "checkpoint" && completion.Stale
-	})
-	if stale.Generation != 1 || stale.StartedAt == "" || stale.EndedAt == "" {
-		t.Fatalf("stale checkpoint completion = %+v", stale)
-	}
 	shutdownTestRegistry(t, registry)
 	mu.Lock()
 	defer mu.Unlock()
@@ -251,7 +232,6 @@ func TestReadyRetrySupersedesCompletedCheckpointBeforeCommit(t *testing.T) {
 		rootCtx:        rootCtx,
 		submissions:    make(chan submission, 1),
 		retries:        make(chan queuedRequest, 1),
-		results:        make(chan invocationResult, 1),
 		stop:           make(chan struct{}),
 	}
 	checkpointReceipt := newReceipt()
@@ -296,7 +276,7 @@ func TestReadyRetrySupersedesCompletedCheckpointBeforeCommit(t *testing.T) {
 			return nil
 		}),
 	})
-	retryResult := <-actor.results
+	retryResult := <-state.active.result
 	state.finish(actor, retryResult)
 	actor.workers.Wait()
 	waitReceipt(t, retryReceipt)
@@ -311,7 +291,6 @@ func TestReadyRetrySupersedesCompletedCheckpointBeforeCommit(t *testing.T) {
 func TestRegistryShutdownCancelsActiveAndRejectsPendingWork(t *testing.T) {
 	activeStarted := make(chan struct{})
 	cancellationObserved := make(chan struct{})
-	completions := make(chan Completion, 1)
 	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedWork, error) {
 		if invocation.Request.ID != "active" {
 			return PreparedWork{}, fmt.Errorf("unexpected preparation for %s", invocation.Request.ID)
@@ -321,12 +300,7 @@ func TestRegistryShutdownCancelsActiveAndRejectsPendingWork(t *testing.T) {
 		close(cancellationObserved)
 		return PreparedWork{}, ctx.Err()
 	})
-	registry, err := NewRegistry(worker, WithCompletionObserver(func(completion Completion) {
-		completions <- completion
-	}))
-	if err != nil {
-		t.Fatalf("NewRegistry: %v", err)
-	}
+	registry := newTestRegistry(t, worker)
 	active := submitTestRequest(t, registry, projectionRequest(
 		"active",
 		"conversation-shutdown",
@@ -345,13 +319,7 @@ func TestRegistryShutdownCancelsActiveAndRejectsPendingWork(t *testing.T) {
 			t.Fatalf("%s receipt error = %v, want ErrMailboxClosed", label, err)
 		}
 	}
-	cancelled := waitCompletionMatching(t, completions, "cancelled active request", func(completion Completion) bool {
-		return completion.Request.ID == "active" && errors.Is(completion.Err, ErrMailboxClosed)
-	})
-	if cancelled.Generation != 1 || cancelled.Stale || cancelled.StartedAt == "" || cancelled.EndedAt == "" {
-		t.Fatalf("cancelled active completion = %+v", cancelled)
-	}
-	_, err = registry.Submit(context.Background(), statusRequest("after-close", "conversation-shutdown"))
+	_, err := registry.Submit(context.Background(), statusRequest("after-close", "conversation-shutdown"))
 	if !errors.Is(err, ErrMailboxClosed) {
 		t.Fatalf("submit after shutdown error = %v, want ErrMailboxClosed", err)
 	}
@@ -724,28 +692,6 @@ func waitValue(t *testing.T, values <-chan string, label string) string {
 	case <-ctx.Done():
 		t.Fatalf("wait for %s: %v", label, ctx.Err())
 		return ""
-	}
-}
-
-func waitCompletionMatching(
-	t *testing.T,
-	completions <-chan Completion,
-	label string,
-	matches func(Completion) bool,
-) Completion {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), narratorActorTestTimeout)
-	defer cancel()
-	for {
-		select {
-		case completion := <-completions:
-			if matches(completion) {
-				return completion
-			}
-		case <-ctx.Done():
-			t.Fatalf("wait for %s: %v", label, ctx.Err())
-			return Completion{}
-		}
 	}
 }
 

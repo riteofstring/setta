@@ -1,18 +1,9 @@
 import type { BrowserWindow } from "electron";
-import { Buffer } from "node:buffer";
 import { createWriteStream, mkdirSync, writeFileSync, type WriteStream } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
-import type {
-  ConversationEvent,
-  ConversationInputRoutingState,
-  InvocationAttempt,
-  InputRoutingState,
-  PresentationIntent,
-  ResolvedInvocation,
-  TrajectoryEvent,
-} from "@generated/backend";
+import type { ConversationEvent, ResolvedInvocation, TrajectoryEvent } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import {
   ipcChannels,
@@ -22,8 +13,6 @@ import {
   type IpcObserver,
 } from "@shared/ipc";
 import type { RendererRecordedEvent } from "@shared/recording";
-
-import { RouteObservability, type RoutingObservationRecorder } from "./routing-observability";
 
 interface SessionRecorderMetadata {
   appDataDir: string;
@@ -98,7 +87,7 @@ const sensitiveRecordingEventTypes = new Map<string, string>([
   ["external_url_open_blocked", "external_url"],
 ]);
 
-export class SessionRecorder implements RoutingObservationRecorder {
+export class SessionRecorder {
   readonly dir: string;
 
   private readonly backendHTTPStream: WriteStream;
@@ -108,7 +97,6 @@ export class SessionRecorder implements RoutingObservationRecorder {
   private readonly ipcStream: WriteStream;
   private readonly rendererConsoleStream: WriteStream;
   private readonly rendererEventsStream: WriteStream;
-  private readonly routeObservability: RouteObservability;
   private readonly screenshotDir: string;
   private readonly screenshotIntervalMs: number;
 
@@ -122,10 +110,6 @@ export class SessionRecorder implements RoutingObservationRecorder {
     this.includePayloads = options.includePayloads;
     this.screenshotIntervalMs = options.screenshotIntervalMs;
     this.screenshotDir = join(this.dir, "screenshots");
-    this.routeObservability = new RouteObservability((type, payload) => {
-      this.recordEvent(type, payload);
-    });
-
     mkdirSync(this.screenshotDir, { recursive: true });
     this.eventsStream = createWriteStream(join(this.dir, "events.jsonl"), { flags: "a" });
     this.backendLogStream = createWriteStream(join(this.dir, "backend.log"), { flags: "a" });
@@ -274,10 +258,6 @@ export class SessionRecorder implements RoutingObservationRecorder {
     this.recordEvent(type, payload);
   }
 
-  recordConversationInputRoutingState(state: ConversationInputRoutingState): void {
-    this.routeObservability.recordConversationInputRoutingState(state);
-  }
-
   recordConversationEvent(event: ConversationEvent): void {
     const key = `${event.conversationId}:${event.eventId}`;
     if (this.conversationEventIDs.has(key)) {
@@ -287,22 +267,6 @@ export class SessionRecorder implements RoutingObservationRecorder {
       this.recordEvent(projected.type, projected.payload);
     }
     this.conversationEventIDs.add(key);
-  }
-
-  recordMasterInputRoutingState(state: InputRoutingState): void {
-    this.routeObservability.recordMasterInputRoutingState(state);
-  }
-
-  recordMasterPresentationIntent(intent: PresentationIntent): void {
-    this.routeObservability.recordMasterPresentationIntent(intent);
-  }
-
-  recordRoutingObservationFailure(
-    scope: "conversation" | "master",
-    inputId: string,
-    error: unknown,
-  ): void {
-    this.routeObservability.recordRoutingObservationFailure(scope, inputId, error);
   }
 
   recordRendererEvent(event: RendererRecordedEvent) {
@@ -446,8 +410,6 @@ export function conversationRecordingEvents(
     workspaceId: event.workspaceId,
   };
   switch (event.payload.type) {
-    case "conversation.invocation_attempted":
-      return recordedInvocationAttempt(event.payload.attempt, envelope);
     case "conversation.turn.updated":
       return recordedAgentInvocation(event.payload.turn, envelope);
     case "conversation.narration.created":
@@ -471,18 +433,6 @@ type ConversationRecordingEnvelope = Pick<
   "conversationId" | "eventId" | "sequence" | "workspaceId"
 >;
 
-function recordedInvocationAttempt(
-  attempt: InvocationAttempt,
-  envelope: ConversationRecordingEnvelope,
-): ConversationRecordingEvent[] {
-  return [
-    {
-      type: "conversation_invocation_attempted",
-      payload: { ...envelope, attempt: summarizeConversationInvocationAttempt(attempt) },
-    },
-  ];
-}
-
 function recordedAgentInvocation(
   turn: Extract<ConversationEvent["payload"], { type: "conversation.turn.updated" }>["turn"],
   envelope: ConversationRecordingEnvelope,
@@ -493,7 +443,6 @@ function recordedAgentInvocation(
       payload: {
         ...envelope,
         acceptedAt: turn.acceptedAt,
-        authoredInputBytes: utf8RecordingBytes(turn.authoredInput.text),
         delivery: turn.delivery,
         endedAt: turn.endedAt,
         error: summarizeRecordedFailure(turn.error),
@@ -523,7 +472,6 @@ function recordedNarratorOutput(
         createdAt: narration.createdAt,
         kind: narration.kind,
         narrationId: narration.id,
-        output: recordedNarrationOutputBytes(narration),
         resolvedInvocation: summarizeResolvedInvocation(narration.resolvedInvocation),
         sourceSequenceEnd: narration.sourceSequenceEnd,
         sourceSequenceStart: narration.sourceSequenceStart,
@@ -533,35 +481,6 @@ function recordedNarratorOutput(
       },
     },
   ];
-}
-
-function recordedNarrationOutputBytes(
-  narration: Extract<
-    ConversationEvent["payload"],
-    { type: "conversation.narration.created" }
-  >["event"],
-) {
-  return {
-    finalSummaryBytes: recordedNarrationTextBytes(narration.finalSummary),
-    milestoneBytes: recordedNarrationTextBytes(narration.milestone),
-    statusQuestionBytes: recordedStatusQuestionBytes(narration.statusReply),
-    statusReplyBytes: recordedNarrationTextBytes(narration.statusReply),
-    topicDescriptorBytes: recordedNarrationTextBytes(narration.topicDescriptor),
-  };
-}
-
-function recordedNarrationTextBytes(value: { text: string } | null): number {
-  if (value === null) {
-    return 0;
-  }
-  return utf8RecordingBytes(value.text);
-}
-
-function recordedStatusQuestionBytes(value: { question: string } | null): number {
-  if (value === null) {
-    return 0;
-  }
-  return utf8RecordingBytes(value.question);
 }
 
 function recordedThreadBinding(
@@ -600,25 +519,16 @@ function recordedAgentTrajectory(
   ];
 }
 
-function summarizeConversationInvocationAttempt(attempt: InvocationAttempt) {
-  return {
-    ...attempt,
-    failure: summarizeRecordedFailure(attempt.failure),
-  };
-}
-
 function summarizeResolvedInvocation(invocation: ResolvedInvocation | null) {
   if (invocation === null) {
     return null;
   }
   return {
-    contextUsage: invocation.contextUsage,
     endedAt: invocation.endedAt,
     failure: summarizeRecordedFailure(invocation.failure),
     id: invocation.id,
     modelReroutes: invocation.modelReroutes.map((reroute) => ({
       fromModelId: reroute.fromModelId,
-      reasonBytes: utf8RecordingBytes(reroute.reason),
       toModelId: reroute.toModelId,
     })),
     outcome: invocation.outcome,
@@ -643,7 +553,6 @@ function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
     providerLifecycle: summarizeProviderLifecycle(event),
     providerThreadId: event.providerThreadId,
     providerTurnId: event.providerTurnId,
-    textBytes: trajectoryTextBytes(event),
     trajectoryEventId: event.id,
     trajectorySequence: event.sequence,
     turnId: event.turnId,
@@ -661,7 +570,6 @@ function summarizeAgentLiveness(event: TrajectoryEvent) {
     cancellable: changed.liveness.cancellable,
     lastProviderEventAt: changed.liveness.lastProviderEventAt,
     lastReconciledAt: changed.liveness.lastReconciledAt,
-    messageBytes: utf8RecordingBytes(changed.liveness.message),
     reason: changed.liveness.reason,
     retryable: changed.liveness.retryable,
     status: changed.liveness.status,
@@ -685,7 +593,6 @@ function summarizeTrajectoryModelReroute(event: TrajectoryEvent) {
   }
   return {
     fromModelId: event.modelRerouted.reroute.fromModelId,
-    reasonBytes: utf8RecordingBytes(event.modelRerouted.reroute.reason),
     toModelId: event.modelRerouted.reroute.toModelId,
   };
 }
@@ -695,7 +602,6 @@ function summarizeProviderLifecycle(event: TrajectoryEvent) {
     return null;
   }
   return {
-    messageBytes: utf8RecordingBytes(event.providerLifecycleChanged.lifecycle.message),
     provider: event.providerLifecycleChanged.lifecycle.provider,
     status: event.providerLifecycleChanged.lifecycle.status,
   };
@@ -715,28 +621,6 @@ function summarizeTurnInvocation(event: TrajectoryEvent) {
   return summarizeResolvedInvocation(event.turnStarted.invocation);
 }
 
-function trajectoryTextBytes(event: TrajectoryEvent): number {
-  if (event.userInputAccepted !== null) {
-    return utf8RecordingBytes(event.userInputAccepted.input.text);
-  }
-  if (event.turnSteered !== null) {
-    return utf8RecordingBytes(event.turnSteered.input.text);
-  }
-  if (event.agentPublicTextDelta !== null) {
-    return utf8RecordingBytes(event.agentPublicTextDelta.delta);
-  }
-  if (event.agentMessageCompleted !== null) {
-    return utf8RecordingBytes(event.agentMessageCompleted.text);
-  }
-  if (event.publicReasoningSummaryUpdated !== null) {
-    return event.publicReasoningSummaryUpdated.summary.reduce(
-      (total, value) => total + utf8RecordingBytes(value),
-      0,
-    );
-  }
-  return 0;
-}
-
 function summarizeRecordedFailure(
   failure: {
     code: string;
@@ -751,13 +635,8 @@ function summarizeRecordedFailure(
   return {
     code: failure.code,
     diagnosticReference: failure.diagnosticReference,
-    messageBytes: utf8RecordingBytes(failure.message),
     retryable: failure.retryable,
   };
-}
-
-function utf8RecordingBytes(value: string): number {
-  return Buffer.byteLength(value, "utf8");
 }
 
 export function createSessionRecorder(

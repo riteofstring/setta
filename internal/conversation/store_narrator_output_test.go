@@ -131,7 +131,6 @@ func TestTerminalNarratorProjectionRequiresTerminalTurnAndSourceEvent(t *testing
 		CommittedEventID: "premature-final-publication",
 		Text:             "This final summary must not commit before the primary turn is terminal.",
 	}
-	request = withTestNarratorProjectionAttempt(request, request.InvocationAttempt.Generation)
 	_, err := store.CommitNarratorProjection(context.Background(), request)
 	if !IsStateConflict(err) {
 		t.Fatalf("premature terminal projection error = %T %v, want StateConflictError", err, err)
@@ -157,7 +156,7 @@ func TestTerminalNarratorProjectionRequiresSourceEventMatchingTurnOutcome(t *tes
 
 func narratorWorkingCommit(seed narratorContextSeed) NarratorProjectionCommit {
 	conversationCommittedID := "projection-conversation-publication"
-	return withTestNarratorProjectionAttempt(NarratorProjectionCommit{
+	return NarratorProjectionCommit{
 		ConversationID: seed.conversationID,
 		TurnID:         seed.turnID,
 		Expected: NarratorStateExpectation{
@@ -190,11 +189,11 @@ func narratorWorkingCommit(seed narratorContextSeed) NarratorProjectionCommit {
 		NarratorStateCommittedID: "projection-state-publication",
 		ConversationCommittedID:  &conversationCommittedID,
 		CommittedAt:              narratorProjectionTime,
-	}, 1)
+	}
 }
 
 func narratorStatusCommit(seed narratorContextSeed, state NarratorState) NarratorStatusCommit {
-	return withTestNarratorStatusAttempt(NarratorStatusCommit{
+	return NarratorStatusCommit{
 		ConversationID:        seed.conversationID,
 		TurnID:                stringPointer(seed.turnID),
 		Expected:              narratorExpectation(state),
@@ -209,11 +208,11 @@ func narratorStatusCommit(seed narratorContextSeed, state NarratorState) Narrato
 		ResolvedInvocation:       validInvocation(RoleNarrator, InvocationOutcomeSucceeded),
 		NarratorStateCommittedID: "status-state-publication",
 		CommittedAt:              narratorStatusTime,
-	}, 2)
+	}
 }
 
 func narratorTerminalCommit(seed narratorContextSeed, state NarratorState) NarratorProjectionCommit {
-	return withTestNarratorProjectionAttempt(NarratorProjectionCommit{
+	return NarratorProjectionCommit{
 		ConversationID:          seed.conversationID,
 		TurnID:                  seed.turnID,
 		Expected:                narratorExpectation(state),
@@ -235,7 +234,7 @@ func narratorTerminalCommit(seed narratorContextSeed, state NarratorState) Narra
 		ResolvedInvocation:       validInvocation(RoleNarrator, InvocationOutcomeSucceeded),
 		NarratorStateCommittedID: "terminal-state-publication",
 		CommittedAt:              narratorTerminalTime,
-	}, 3)
+	}
 }
 
 func narratorExpectation(state NarratorState) NarratorStateExpectation {
@@ -419,14 +418,11 @@ func assertNarratorOutputPublications(t *testing.T, store *Store, seed narratorC
 		ConversationEventTypeNarrationCreated,
 		ConversationEventTypeNarrationCreated,
 		ConversationEventTypeNarrationCreated,
-		ConversationEventTypeInvocationAttempted,
 		ConversationEventTypeNarratorStateUpdated,
 		ConversationEventTypeNarrationCreated,
-		ConversationEventTypeInvocationAttempted,
 		ConversationEventTypeNarratorStateUpdated,
 		ConversationEventTypeNarrationCreated,
 		ConversationEventTypeNarrationCreated,
-		ConversationEventTypeInvocationAttempted,
 	}
 	// The terminal trajectory fixture adds one non-conversation-contract test
 	// publication between status and terminal output. Ignore it explicitly.

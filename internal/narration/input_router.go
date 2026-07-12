@@ -155,13 +155,7 @@ func (router *ConversationInputRouter) handleClaimedInputError(
 func (router *ConversationInputRouter) routeClaimedInput(
 	ctx context.Context,
 	work conversation.ConversationInputRoutingWork,
-) (record conversation.ConversationRouteDecisionRecord, err error) {
-	attemptState := conversationRouteAttemptState{}
-	defer func() {
-		if err != nil {
-			err = &conversationRouteAttemptError{state: attemptState, cause: err}
-		}
-	}()
+) (conversation.ConversationRouteDecisionRecord, error) {
 	workspaceID, limits, err := router.contextLimits(ctx, work.Input.Input.ConversationID)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
@@ -173,8 +167,6 @@ func (router *ConversationInputRouter) routeClaimedInput(
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, classifyConversationRouteContextError(err)
 	}
-	attemptState.bundle = &bundle
-	attemptState.audit = &audit
 	workspaceRoot, err := router.resolveWorkspaceRoot(workspaceID)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
@@ -184,7 +176,6 @@ func (router *ConversationInputRouter) routeClaimedInput(
 		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
 	}
 	call, err := router.caller.Call(ctx, requestID, workspaceRoot, bundle)
-	attemptState.call = &call
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
 	}
@@ -215,18 +206,16 @@ func (router *ConversationInputRouter) commitConversationRouteCall(
 		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
 	}
 	commit := conversation.ConversationRouteDecisionCommit{
-		ID:                           decisionID,
-		ConversationID:               work.Input.Input.ConversationID,
-		InputID:                      work.Input.Input.ID,
-		ClarificationInputID:         conversationRouteClarificationInputID(work),
-		RoutingAttempt:               work.RoutingAttempt,
-		RouterContext:                audit,
-		ResolvedInvocation:           invocation,
-		InvocationAttempt:            conversationRouteSuccessfulAttempt(work, bundle, audit, call),
-		InvocationAttemptCommittedID: conversationRouteAttemptEventID(work),
-		Decision:                     call.Decision,
-		ResultingCommand:             command,
-		DecidedAt:                    decidedAt,
+		ID:                   decisionID,
+		ConversationID:       work.Input.Input.ConversationID,
+		InputID:              work.Input.Input.ID,
+		ClarificationInputID: conversationRouteClarificationInputID(work),
+		RoutingAttempt:       work.RoutingAttempt,
+		RouterContext:        audit,
+		ResolvedInvocation:   invocation,
+		Decision:             call.Decision,
+		ResultingCommand:     command,
+		DecidedAt:            decidedAt,
 	}
 	if err := commit.Validate(); err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
@@ -429,10 +418,6 @@ func (router *ConversationInputRouter) successfulInvocation(
 		Provider:  conversation.ProviderCodex,
 		Requested: call.Model.RequestedProfile,
 		Resolved:  call.Model.Settings,
-		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:  call.InputBytes,
-			OutputBytes: call.OutputBytes,
-		},
 		ProviderReferences: conversation.InvocationProviderReferences{
 			ThreadID:  &threadID,
 			TurnID:    &turnID,
@@ -483,12 +468,6 @@ func (router *ConversationInputRouter) failClaimedInput(
 		},
 		FailedAt: failedAt,
 	}
-	attempt, err := conversationRouteFailedAttempt(work, cause, failure.Failure, failedAt)
-	if err != nil {
-		return err
-	}
-	failure.InvocationAttempt = attempt
-	failure.InvocationAttemptCommittedID = conversationRouteAttemptEventID(work)
 	return router.store.FailConversationInputRouting(ctx, failure)
 }
 

@@ -26,10 +26,6 @@ type Completion struct {
 	Request        Request
 	Err            error
 	RetryScheduled bool
-	Generation     uint64
-	StartedAt      string
-	EndedAt        string
-	Stale          bool
 }
 
 // CompletionObserver must return promptly. The production observer only

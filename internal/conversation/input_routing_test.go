@@ -90,13 +90,6 @@ func TestConversationRouteDecisionRejectsUnsafeOrIncompleteRouterInvocationAudit
 			},
 		},
 		{
-			name: "missing input usage",
-			want: "positive input and output byte usage",
-			mutate: func(invocation *ResolvedInvocation) {
-				invocation.ContextUsage.InputBytes = 0
-			},
-		},
-		{
 			name: "missing provider request",
 			want: "provider thread, turn, and request references",
 			mutate: func(invocation *ResolvedInvocation) {
@@ -295,9 +288,7 @@ func validConversationRouteDecisionCommit(
 ) ConversationRouteDecisionCommit {
 	invocation := validInvocation(RoleNarrator, InvocationOutcomeSucceeded)
 	invocation.ID = "invocation_" + id
-	invocation.StartedAt = "2026-07-11T19:59:58Z"
-	invocation.EndedAt = stringPointer("2026-07-11T19:59:59Z")
-	return withTestConversationRouteAttempt(ConversationRouteDecisionCommit{
+	return ConversationRouteDecisionCommit{
 		ID:             id,
 		ConversationID: "conversation_alpha",
 		InputID:        "input_alpha",
@@ -310,5 +301,5 @@ func validConversationRouteDecisionCommit(
 		Decision:           decision,
 		ResultingCommand:   command,
 		DecidedAt:          "2026-07-13T18:00:01Z",
-	})
+	}
 }

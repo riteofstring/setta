@@ -72,8 +72,7 @@ func assertFixtureConversationRouteInvocation(t *testing.T, invocation conversat
 	t.Helper()
 	if invocation.Role != conversation.RoleNarrator ||
 		invocation.Resolved.ModelID != "gpt-5.4-mini" ||
-		invocation.Resolved.PermissionProfile.ToolAccess.Mode != conversation.ToolAccessNone ||
-		invocation.ContextUsage.InputBytes <= 0 || invocation.ContextUsage.OutputBytes <= 0 {
+		invocation.Resolved.PermissionProfile.ToolAccess.Mode != conversation.ToolAccessNone {
 		t.Fatalf("router invocation audit = %+v", invocation)
 	}
 }

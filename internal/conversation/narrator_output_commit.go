@@ -1,9 +1,6 @@
 package conversation
 
-import (
-	"fmt"
-	"reflect"
-)
+import "fmt"
 
 // NarrationTextCommit identifies one immutable narration record and its
 // independently sequenced conversation-stream publication.
@@ -14,21 +11,19 @@ type NarrationTextCommit struct {
 }
 
 type NarratorProjectionCommit struct {
-	ConversationID               string
-	TurnID                       string
-	Expected                     NarratorStateExpectation
-	ObservedThroughSequence      int
-	CurrentFocus                 string
-	Milestones                   []NarrationTextCommit
-	FinalSummary                 *NarrationTextCommit
-	TopicDescriptor              *NarrationTextCommit
-	Trigger                      NarrationTrigger
-	ResolvedInvocation           ResolvedInvocation
-	InvocationAttempt            InvocationAttempt
-	InvocationAttemptCommittedID string
-	NarratorStateCommittedID     string
-	ConversationCommittedID      *string
-	CommittedAt                  string
+	ConversationID           string
+	TurnID                   string
+	Expected                 NarratorStateExpectation
+	ObservedThroughSequence  int
+	CurrentFocus             string
+	Milestones               []NarrationTextCommit
+	FinalSummary             *NarrationTextCommit
+	TopicDescriptor          *NarrationTextCommit
+	Trigger                  NarrationTrigger
+	ResolvedInvocation       ResolvedInvocation
+	NarratorStateCommittedID string
+	ConversationCommittedID  *string
+	CommittedAt              string
 }
 
 type NarratorProjectionCommitResult struct {
@@ -38,18 +33,16 @@ type NarratorProjectionCommitResult struct {
 }
 
 type NarratorStatusCommit struct {
-	ConversationID               string
-	TurnID                       *string
-	Expected                     NarratorStateExpectation
-	SourceSequenceStart          int
-	SourceThroughSequence        int
-	Question                     string
-	Reply                        NarrationTextCommit
-	ResolvedInvocation           ResolvedInvocation
-	InvocationAttempt            InvocationAttempt
-	InvocationAttemptCommittedID string
-	NarratorStateCommittedID     string
-	CommittedAt                  string
+	ConversationID           string
+	TurnID                   *string
+	Expected                 NarratorStateExpectation
+	SourceSequenceStart      int
+	SourceThroughSequence    int
+	Question                 string
+	Reply                    NarrationTextCommit
+	ResolvedInvocation       ResolvedInvocation
+	NarratorStateCommittedID string
+	CommittedAt              string
 }
 
 type NarratorStatusCommitResult struct {
@@ -72,12 +65,6 @@ func (request NarratorProjectionCommit) Validate() error {
 		request.ResolvedInvocation,
 		request.CommittedAt,
 	); err != nil {
-		return err
-	}
-	if err := validateSuccessfulNarratorAttempt(request.InvocationAttempt, request.ResolvedInvocation, request.CommittedAt); err != nil {
-		return err
-	}
-	if err := validateProjectionInvocationAttempt(request); err != nil {
 		return err
 	}
 	return validateProjectionOutputIdentities(request)
@@ -154,72 +141,7 @@ func (request NarratorStatusCommit) Validate() error {
 	); err != nil {
 		return err
 	}
-	if err := validateSuccessfulNarratorAttempt(request.InvocationAttempt, request.ResolvedInvocation, request.CommittedAt); err != nil {
-		return err
-	}
-	if err := validateStatusInvocationAttempt(request); err != nil {
-		return err
-	}
 	return validateNarratorStatusIdentities(request)
-}
-
-func validateProjectionInvocationAttempt(request NarratorProjectionCommit) error {
-	attempt := request.InvocationAttempt
-	wantCallKind := InvocationAttemptCallProjection
-	if request.Trigger == NarrationTriggerTurnTerminal {
-		wantCallKind = InvocationAttemptCallTerminal
-	}
-	if !invocationAttemptChecksPass(
-		attempt.ConversationID == request.ConversationID,
-		invocationAttemptStringEquals(attempt.TurnID, request.TurnID),
-		attempt.CallKind == wantCallKind,
-		invocationAttemptTriggerEquals(attempt.Trigger, request.Trigger),
-		attempt.Context.Materialized,
-		invocationAttemptIntEquals(attempt.Context.ProposedObservedThrough, request.ObservedThroughSequence),
-	) {
-		return fmt.Errorf("narrator projection invocation attempt does not match its output envelope")
-	}
-	wantFinalSummaryBytes := narrationTextCommitBytes(request.FinalSummary)
-	wantTopicDescriptorBytes := narrationTextCommitBytes(request.TopicDescriptor)
-	if !invocationAttemptChecksPass(
-		attempt.Output.StructuredKind != nil,
-		attempt.Output.MilestoneCount == len(request.Milestones),
-		attempt.Output.StatusReplyBytes == 0,
-		attempt.Output.FinalSummaryBytes == wantFinalSummaryBytes,
-		attempt.Output.TopicDescriptorBytes == wantTopicDescriptorBytes,
-		attempt.Output.CheckpointSummaryBytes == 0,
-	) {
-		return fmt.Errorf("narrator projection invocation attempt output does not match committed narration")
-	}
-	return nil
-}
-
-func validateStatusInvocationAttempt(request NarratorStatusCommit) error {
-	attempt := request.InvocationAttempt
-	if !invocationAttemptChecksPass(
-		attempt.ConversationID == request.ConversationID,
-		equalOptionalString(attempt.TurnID, request.TurnID),
-		attempt.CallKind == InvocationAttemptCallStatus,
-		invocationAttemptTriggerEquals(attempt.Trigger, NarrationTriggerExplicitStatusRequested),
-		attempt.Context.Materialized,
-		attempt.Context.SourceThroughSequence == request.SourceThroughSequence,
-		attempt.Output.StructuredKind != nil,
-		attempt.Output.MilestoneCount == 0,
-		attempt.Output.StatusReplyBytes == len(request.Reply.Text),
-		attempt.Output.FinalSummaryBytes == 0,
-		attempt.Output.TopicDescriptorBytes == 0,
-		attempt.Output.CheckpointSummaryBytes == 0,
-	) {
-		return fmt.Errorf("narrator status invocation attempt does not match committed reply")
-	}
-	return nil
-}
-
-func narrationTextCommitBytes(value *NarrationTextCommit) int {
-	if value == nil {
-		return 0
-	}
-	return len(value.Text)
 }
 
 func validateNarratorStatusTarget(request NarratorStatusCommit) error {
@@ -266,7 +188,6 @@ func addNarratorProjectionEnvelopeIDs(
 ) error {
 	ids := []narratorCommitID{
 		{label: "narrator invocation id", value: request.ResolvedInvocation.ID},
-		{label: "narrator invocation attempt committed event id", value: request.InvocationAttemptCommittedID},
 		{label: "narrator state committed event id", value: request.NarratorStateCommittedID},
 	}
 	if request.ConversationCommittedID != nil {
@@ -314,48 +235,10 @@ func validateOptionalNarratorOutputIdentities(
 func validateNarratorStatusIdentities(request NarratorStatusCommit) error {
 	return addNarratorCommitIDs(map[string]bool{}, []narratorCommitID{
 		{label: "narrator invocation id", value: request.ResolvedInvocation.ID},
-		{label: "narrator invocation attempt committed event id", value: request.InvocationAttemptCommittedID},
 		{label: "narrator state committed event id", value: request.NarratorStateCommittedID},
 		{label: "narrator status narration event id", value: request.Reply.NarrationEventID},
 		{label: "narrator status committed event id", value: request.Reply.CommittedEventID},
 	})
-}
-
-func validateSuccessfulNarratorAttempt(
-	attempt InvocationAttempt,
-	invocation ResolvedInvocation,
-	committedAt string,
-) error {
-	if err := attempt.Validate(); err != nil {
-		return fmt.Errorf("narrator invocation attempt: %w", err)
-	}
-	if !invocationAttemptChecksPass(
-		attempt.Outcome == InvocationAttemptOutcomeCompleted,
-		attempt.CommitDecision == InvocationCommitOutputCommitted,
-		attempt.Requested != nil,
-		attempt.Resolved != nil,
-		resolvedInvocationEndedAtMatches(attempt, invocation),
-	) {
-		return fmt.Errorf("narrator output requires a completed invocation attempt")
-	}
-	if !invocationAttemptChecksPass(
-		reflect.DeepEqual(*attempt.Requested, invocation.Requested),
-		reflect.DeepEqual(*attempt.Resolved, invocation.Resolved),
-		attempt.ContextUsage == invocation.ContextUsage,
-		reflect.DeepEqual(attempt.ProviderReferences, invocation.ProviderReferences),
-		attempt.StartedAt == invocation.StartedAt,
-	) {
-		return fmt.Errorf("narrator invocation attempt does not match resolved invocation")
-	}
-	return validateInvocationAttemptCommitTime(attempt, committedAt)
-}
-
-func invocationAttemptTriggerEquals(actual *NarrationTrigger, want NarrationTrigger) bool {
-	return actual != nil && *actual == want
-}
-
-func invocationAttemptIntEquals(actual *int, want int) bool {
-	return actual != nil && *actual == want
 }
 
 type narratorCommitID struct {

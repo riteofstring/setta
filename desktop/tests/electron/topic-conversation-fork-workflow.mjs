@@ -231,8 +231,8 @@ export async function exerciseEphemeralSideForkFailure({
     context,
   );
   assertCondition(
-    failedSnapshot.eventCursor.sequence === before.eventCursor.sequence + 3,
-    "failed side lifecycle did not publish its route-attempt, preparing, and failed commits",
+    failedSnapshot.eventCursor.sequence === before.eventCursor.sequence + 2,
+    "failed side lifecycle did not publish preparing and failed commits",
     context,
   );
   assertSideDidNotContaminateParent(before, failedSnapshot);
@@ -1193,8 +1193,8 @@ function assertEphemeralSideCreation(snapshot, parent, paneId, sideId) {
   );
   assertSideInvocation(side, context);
   assertCondition(
-    snapshot.eventCursor.sequence >= parent.eventCursor.sequence + 3,
-    "side lifecycle did not publish its route-attempt, preparing, and active commits",
+    snapshot.eventCursor.sequence >= parent.eventCursor.sequence + 2,
+    "side lifecycle did not publish its preparing and active commits",
     context,
   );
   return side;
@@ -1218,8 +1218,7 @@ function assertSideInvocation(side, context) {
   );
   assertCondition(
     invocation.outcome === "running" &&
-      invocation.providerReferences.threadId === side.providerThreadId &&
-      invocation.contextUsage.inputBytes > 0,
+      invocation.providerReferences.threadId === side.providerThreadId,
     "side invocation lifecycle drifted",
     context,
   );

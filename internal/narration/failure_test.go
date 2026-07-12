@@ -99,7 +99,7 @@ func TestResilientWorkerCommitsDegradationThenRetriesBelowNewWork(t *testing.T) 
 
 	mu.Lock()
 	defer mu.Unlock()
-	wantOrder := []string{"initial", "blocker", "newer", "narrator_retry-4"}
+	wantOrder := []string{"initial", "blocker", "newer", "narrator_retry-3"}
 	if !reflect.DeepEqual(attempted, wantOrder) {
 		t.Fatalf("attempt order = %v, want %v", attempted, wantOrder)
 	}
@@ -145,7 +145,6 @@ func TestFailureHandlerDoesNotRetryStatusOrNonrecoverableFailures(t *testing.T) 
 			work, err := handler.Prepare(context.Background(), Invocation{
 				Request:    test.request,
 				Generation: 4,
-				StartedAt:  "2026-07-11T20:00:30Z",
 			}, test.failure)
 			if err != nil {
 				t.Fatalf("prepare degradation: %v", err)
@@ -174,9 +173,7 @@ func TestFailureHandlerBoundsRetriesAndPreservesOperationKind(t *testing.T) {
 	handler := newFailureTestHandler(t, store, policy)
 	request := checkpointRequest("checkpoint", store.state.ConversationID)
 
-	first, err := handler.Prepare(context.Background(), Invocation{
-		Request: request, Generation: 1, StartedAt: "2026-07-11T20:00:30Z",
-	},
+	first, err := handler.Prepare(context.Background(), Invocation{Request: request, Generation: 1},
 		NewAttemptFailure(FailureKindProviderOutputInvalid, errors.New("invalid output")))
 	if err != nil {
 		t.Fatalf("prepare first retry: %v", err)
@@ -192,7 +189,7 @@ func TestFailureHandlerBoundsRetriesAndPreservesOperationKind(t *testing.T) {
 	exhaustedRequest.RetryAttempt = len(policy.Delays)
 	exhaustedRequest.RecoverableRetry = true
 	exhausted, err := handler.Prepare(context.Background(), Invocation{
-		Request: exhaustedRequest, Generation: 3, StartedAt: "2026-07-11T20:00:30Z",
+		Request: exhaustedRequest, Generation: 3,
 	}, NewAttemptFailure(FailureKindProviderUnavailable, errors.New("still unavailable")))
 	if err != nil {
 		t.Fatalf("prepare exhausted retry: %v", err)
@@ -447,7 +444,7 @@ func newFailureTestHandler(
 		store,
 		WithFailureRetryPolicy(policy),
 		WithFailureHandlerClock(func() time.Time {
-			return time.Date(2030, 7, 11, 20, 1, 0, 0, time.UTC)
+			return time.Date(2026, 7, 11, 20, 1, 0, 0, time.UTC)
 		}),
 		WithFailureHandlerIDGenerator(func(prefix string) (string, error) {
 			mu.Lock()

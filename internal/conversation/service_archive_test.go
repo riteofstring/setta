@@ -129,7 +129,6 @@ func TestServiceRejectsArchiveWhileConversationInputRoutingIsPending(t *testing.
 				commit.RouterContext.InputSequence = work.Input.Sequence
 				commit.RoutingAttempt = work.RoutingAttempt
 				commit.DecidedAt = "2026-07-11T20:00:01.3Z"
-				commit = withTestConversationRouteAttempt(commit)
 				if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
 					t.Fatalf("CommitConversationRouteDecision: %v", err)
 				}
@@ -185,7 +184,7 @@ func TestServiceRejectsConversationInputRetryAfterArchive(t *testing.T) {
 	input := archiveRoutingInput("input-archive-retry", created.Conversation.ID)
 	acceptConversationRoutingInput(t, store, input, "2026-07-11T20:00:01.1Z")
 	work := claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-11T20:00:01.2Z")
-	if err := store.FailConversationInputRouting(ctx, withTestConversationRoutingFailureAttempt(ConversationInputRoutingFailure{
+	if err := store.FailConversationInputRouting(ctx, ConversationInputRoutingFailure{
 		ConversationID: input.ConversationID,
 		InputID:        input.ID,
 		RoutingAttempt: work.RoutingAttempt,
@@ -196,7 +195,7 @@ func TestServiceRejectsConversationInputRetryAfterArchive(t *testing.T) {
 			DiagnosticReference: "archive-routing-test",
 		},
 		FailedAt: "2026-07-11T20:00:01.3Z",
-	})); err != nil {
+	}); err != nil {
 		t.Fatalf("FailConversationInputRouting: %v", err)
 	}
 	if _, err := service.ArchiveTopic(ctx, workspaceID, created.Conversation.ID); err != nil {
