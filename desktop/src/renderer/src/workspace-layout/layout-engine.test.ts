@@ -8,6 +8,7 @@ import {
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { WorkspaceLayoutStore } from "./layout-store";
 import type {
+  OpenPaneRequest,
   WorkspaceScene,
   PaneRenderItem,
   PaneRuntimeState,
@@ -15,7 +16,7 @@ import type {
   SurfaceId,
   SurfaceKind,
 } from "./types";
-import { createRealWorkspaceScene } from "./workspace-scene";
+import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
 
 const viewport: Rect = {
   height: 900,
@@ -37,31 +38,26 @@ describe("workspace browser-pane layout engine", () => {
     });
   });
 
-  test("generates the Phase 6 terminal/git graph benchmark scene without losing earlier surfaces", () => {
+  test("generates a mixed DOM and browser benchmark scene", () => {
     const scene = generateBenchmarkScene();
     const browserPanes = scene.panes.filter((pane) => pane.surfaceKind === "browser");
-    const gitGraphPanes = scene.panes.filter((pane) => pane.surfaceKind === "git-graph");
-    const workflowGraphPanes = scene.panes.filter((pane) => pane.surfaceKind === "workflow-graph");
-    const terminalPanes = scene.panes.filter((pane) => pane.surfaceKind === "fake-terminal");
+    const heavyDomPanes = scene.panes.filter((pane) => pane.surfaceKind === "fake-heavy-dom");
 
-    expect(scene.id).toBe("phase-6-terminal-git-graph-benchmark");
+    expect(scene.id).toBe("workspace-dom-browser-benchmark");
     expect(scene.totalPanes).toBe(phaseOneFakePaneCount);
     expect(scene.targetVisiblePanes).toBe(phaseOneVisiblePaneCount);
     expect(scene.visibleColumnCount).toBe(8);
     expect(scene.panesPerColumn).toBe(5);
     expect(scene.columns).toHaveLength(100);
     expect(scene.paneById.get("workspace_pane_0")?.surfaceKind).toBe("fake-dom");
-    expect(scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("fake-long-chat");
+    expect(scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("fake-heavy-dom");
     expect(scene.paneById.get("workspace_pane_2")?.surfaceKind).toBe("settings-dom");
-    expect(scene.paneById.get("workspace_pane_3")?.surfaceKind).toBe("chat-dom");
-    expect(scene.paneById.get("workspace_pane_4")?.surfaceKind).toBe("workflow-graph");
-    expect(scene.paneById.get("workspace_pane_5")?.surfaceKind).toBe("fake-terminal");
-    expect(scene.paneById.get("workspace_pane_6")?.surfaceKind).toBe("git-graph");
-    expect(scene.panes.some((pane) => pane.surfaceKind === "fake-heavy-dom")).toBe(true);
-    expect(workflowGraphPanes.length).toBeGreaterThanOrEqual(20);
-    expect(gitGraphPanes.length).toBeGreaterThanOrEqual(6);
-    expect(terminalPanes.length).toBeGreaterThanOrEqual(6);
-    expect(browserPanes.length).toBeGreaterThanOrEqual(20);
+    expect(scene.paneById.get("workspace_pane_3")?.surfaceKind).toBe("fake-dom");
+    expect(scene.paneById.get("workspace_pane_4")?.surfaceKind).toBe("fake-heavy-dom");
+    expect(scene.paneById.get("workspace_pane_5")?.surfaceKind).toBe("fake-heavy-dom");
+    expect(scene.paneById.get("workspace_pane_6")?.surfaceKind).toBe("fake-heavy-dom");
+    expect(heavyDomPanes).toHaveLength(148);
+    expect(browserPanes).toHaveLength(62);
     expect(
       scene.panes
         .slice(0, phaseOneVisiblePaneCount)
@@ -160,7 +156,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("uses resized row height when spacing vertical planes", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:resized-plane-spacing",
       workspaceName: "Repo",
@@ -208,7 +204,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps same-slot columns in vertical planes at the same width", () => {
-    const { scene } = createRealWorkspaceScene({
+    const { scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:vertical-lane-width",
       workspaceName: "Repo",
@@ -309,7 +305,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("navigation snaps focused pane left edge to the viewport lane", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:left-snap",
       workspaceName: "Repo",
@@ -333,7 +329,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("navigation keeps split-down panes in the current vertical camera row", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:top-snap",
       workspaceName: "Repo",
@@ -360,7 +356,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps every pane attached to a visible column after moving out of a vertical stack", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:move-stack-pane",
       workspaceName: "Repo",
@@ -384,12 +380,27 @@ describe("real workspace layout column sizing", () => {
     const engine = new WorkspaceLikeLayoutEngine(createSparseGeneratedPaneScene());
 
     const paneId = engine.openPane({
-      surfaceKind: "terminal",
+      surfaceKind: "browser",
       title: "Build",
     });
 
     expect(paneId).toBe("workspace_pane_9");
     expect(engine.toScene().paneById.get(paneId)?.surfaceId).toBe("workspace_surface_9");
+  });
+
+  test("rejects an invalid near-pane binding before inserting its column", () => {
+    const engine = createRealEngine();
+    const before = engine.toScene();
+    const invalidRequest = {
+      surfaceKind: "easy-button",
+      title: "Missing binding",
+    } as unknown as OpenPaneRequest;
+
+    expect(() => engine.openPaneNearPane("workspace_pane_0", "right", invalidRequest)).toThrow(
+      "easy-button panes require an easyButtonConfig conversation binding",
+    );
+    expect(engine.toScene().columns).toEqual(before.columns);
+    expect(engine.toScene().panes).toEqual(before.panes);
   });
 
   test("overview renders the whole real workspace as scaled columns", () => {
@@ -720,8 +731,8 @@ describe("real workspace layout column sizing", () => {
     expect(movedColumn.idealWidthSpec).toEqual(targetColumn.idealWidthSpec);
     expect(movedPane).toMatchObject({
       columnId: movedColumn.columnId,
-      surfaceKind: "chat-dom",
-      title: "Chat",
+      surfaceKind: "empty-frame",
+      title: "Frame",
       tone: "cyan",
       weight: 1,
     });
@@ -871,7 +882,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("overview keeps split-down panes vertically stacked inside their column", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:overview-stack",
       workspaceName: "Repo",
@@ -889,7 +900,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("split to plane below creates a separate horizontal plane and snaps into view", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:split-plane-below",
       workspaceName: "Repo",
@@ -922,7 +933,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("split to plane above the first plane keeps persisted plane indexes non-negative", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:split-plane-above-first",
       workspaceName: "Repo",
@@ -941,7 +952,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("split to plane below inserts at the focused horizontal slot", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:split-plane-slot",
       workspaceName: "Repo",
@@ -950,7 +961,7 @@ describe("real workspace layout column sizing", () => {
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
     store.focusPaneBySurfaceKind("settings-dom");
     const firstLowerPaneId = store.splitFocusedPaneToPlane("down");
-    store.focusPaneBySurfaceKind("workflow-graph");
+    store.focusPaneBySurfaceKind("easy-button");
 
     const focusedPaneIdBeforeSplit = store.focusedPaneId();
     const secondLowerPaneId = store.splitFocusedPaneToPlane("down");
@@ -988,7 +999,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("up and down navigation crosses horizontal planes by visual position", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:plane-navigation",
       workspaceName: "Repo",
@@ -1005,7 +1016,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("right navigation stops at the end of the current horizontal plane", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:right-wrap-plane",
       workspaceName: "Repo",
@@ -1022,7 +1033,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("left navigation stops at the beginning of the current horizontal plane", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:left-wrap-plane",
       workspaceName: "Repo",
@@ -1031,7 +1042,7 @@ describe("real workspace layout column sizing", () => {
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
     store.splitFocusedPaneToPlane("down");
 
-    store.focusPaneBySurfaceKind("chat-dom");
+    store.focusPaneBySurfaceKind("empty-frame");
     const focusedPaneBeforeMove = store.focusedPaneId();
     store.moveFocus("left");
 
@@ -1039,7 +1050,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("left and right navigation stay on a single-pane horizontal plane", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:single-pane-plane-wrap",
       workspaceName: "Repo",
@@ -1056,7 +1067,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("overview lays out separate horizontal planes vertically", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:overview-planes",
       workspaceName: "Repo",
@@ -1075,7 +1086,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("overview applies vertical scroll offset as pan", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:overview-pan",
       workspaceName: "Repo",
@@ -1132,7 +1143,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps the focused column visible after a viewport resize", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:resize-focus",
       workspaceName: "Repo",
@@ -1160,7 +1171,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps the focused column to the right of a reserved sidebar inset", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:sidebar-resize-focus",
       workspaceName: "Repo",
@@ -1194,7 +1205,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps the focused end column snapped left as width narrows", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:resize-end-focus",
       workspaceName: "Repo",
@@ -1226,7 +1237,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps split-down panes in their plane during viewport height resize", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:resize-row-focus",
       workspaceName: "Repo",
@@ -1324,7 +1335,7 @@ function maxVisualWidth(items: readonly PaneRenderItem[]): number {
 function createRealEngine(
   options?: ConstructorParameters<typeof WorkspaceLikeLayoutEngine>[1],
 ): WorkspaceLikeLayoutEngine {
-  const { scene } = createRealWorkspaceScene({
+  const { scene } = createWorkspaceLayoutTestScene({
     storedLayout: null,
     workspaceId: "setta:workspace-layout:engine-test",
     workspaceName: "Repo",
@@ -1332,13 +1343,13 @@ function createRealEngine(
   const builder = new WorkspaceLikeLayoutEngine(scene);
   builder.openPane({
     adjacentToColumnId: "workspace_column_3",
-    surfaceKind: "terminal",
+    surfaceKind: "browser",
     title: "Logs",
     tone: "green",
   });
   builder.openPane({
     adjacentToColumnId: "workspace_column_4",
-    surfaceKind: "chat-dom",
+    surfaceKind: "fake-heavy-dom",
     title: "Notes",
     tone: "cyan",
   });
@@ -1369,8 +1380,8 @@ function createSparseGeneratedPaneScene(): WorkspaceScene {
       sequence: 0,
       subtitle: "Repo",
       surfaceId: "workspace_surface_0",
-      surfaceKind: "chat-dom",
-      title: "Chat",
+      surfaceKind: "empty-frame",
+      title: "Frame",
       tone: "cyan",
       weight: 1,
     },
@@ -1381,8 +1392,8 @@ function createSparseGeneratedPaneScene(): WorkspaceScene {
       sequence: 8,
       subtitle: "Old",
       surfaceId: "workspace_surface_8",
-      surfaceKind: "chat-dom",
-      title: "Old Chat",
+      surfaceKind: "settings-dom",
+      title: "Settings",
       tone: "cyan",
       weight: 1,
     },
