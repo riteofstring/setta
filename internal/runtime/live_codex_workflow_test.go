@@ -596,6 +596,9 @@ func doRuntimeJSON[T any](t *testing.T, client *http.Client, request *http.Reque
 
 func requireRuntimeLiveCodexChatGPTAuth(t *testing.T) {
 	t.Helper()
+	if os.Getenv("SETTA_LIVE_CODEX") != "1" {
+		t.Skip("set SETTA_LIVE_CODEX=1 to run the ChatGPT-authenticated Codex integration")
+	}
 
 	manager := codexapp.NewManager(codexapp.ManagerConfig{
 		Process: codexapp.ProcessConfig{
