@@ -2,7 +2,10 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete. All phases are implemented and ready for final audit.
+**Status:** In progress. Phase 3 conversation lifecycle is next: add the
+missing durable topic-conversation archive command through the production
+service, HTTP registry, generated desktop IPC, renderer, and deterministic
+Electron workflow paths.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1924,7 +1927,10 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Status:** Complete.
+**Status:** In progress. The core conversation-keyed cutover is complete, but
+the final audit found no production command that can archive a durable topic
+conversation even though the domain, persistence schema, navigator filtering,
+and required HTTP surface define archive behavior.
 
 Implement:
 
