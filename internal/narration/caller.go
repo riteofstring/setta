@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
@@ -48,21 +49,49 @@ type CallResult struct {
 	StructuredOutput json.RawMessage
 	NarratorOutput   *NarratorCallOutput
 	CheckpointOutput *CheckpointOutput
+	StartedAt        string
+	EndedAt          string
 }
 
 type Caller struct {
 	models   *ModelResolver
 	provider FreshStructuredCallProvider
+	now      func() time.Time
 }
 
-func NewCaller(models *ModelResolver, provider FreshStructuredCallProvider) (*Caller, error) {
+type CallerOption func(*Caller) error
+
+func WithCallerClock(now func() time.Time) CallerOption {
+	return func(caller *Caller) error {
+		if now == nil {
+			return errors.New("narrator caller clock is required")
+		}
+		caller.now = now
+		return nil
+	}
+}
+
+func NewCaller(
+	models *ModelResolver,
+	provider FreshStructuredCallProvider,
+	options ...CallerOption,
+) (*Caller, error) {
 	if models == nil {
 		return nil, errors.New("narrator caller model resolver is required")
 	}
 	if provider == nil {
 		return nil, errors.New("narrator caller structured provider is required")
 	}
-	return &Caller{models: models, provider: provider}, nil
+	caller := &Caller{models: models, provider: provider, now: time.Now}
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("narrator caller option must not be nil")
+		}
+		if err := option(caller); err != nil {
+			return nil, err
+		}
+	}
+	return caller, nil
 }
 
 func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult, error) {
@@ -74,6 +103,7 @@ func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult
 		return CallResult{}, err
 	}
 	result := preparedCallResult(request, prepared)
+	result.StartedAt = caller.timestamp()
 	resolution, err := caller.resolveModel(ctx, prepared)
 	result.Model = cloneModelResolution(resolution)
 	if err != nil {
@@ -87,6 +117,10 @@ func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult
 	result.ProviderTurnID = providerResult.ProviderTurnID
 	result.OutputBytes = len(providerResult.Output)
 	result.StructuredOutput = append(json.RawMessage{}, providerResult.Output...)
+	result.EndedAt, err = caller.timestampAfter(result.StartedAt)
+	if err != nil {
+		return result, err
+	}
 	if err := validateIdentifier("narrator provider thread id", result.ProviderThreadID); err != nil {
 		return result, err
 	}
@@ -100,13 +134,29 @@ func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult
 }
 
 func validateCaller(caller *Caller, ctx context.Context) error {
-	if caller == nil || caller.models == nil || caller.provider == nil {
+	if caller == nil || caller.models == nil || caller.provider == nil || caller.now == nil {
 		return errors.New("narrator caller is required")
 	}
 	if ctx == nil {
 		return errors.New("narrator call context is required")
 	}
 	return ctx.Err()
+}
+
+func (caller *Caller) timestamp() string {
+	return caller.now().UTC().Format(time.RFC3339Nano)
+}
+
+func (caller *Caller) timestampAfter(previous string) (string, error) {
+	previousTime, err := time.Parse(time.RFC3339Nano, previous)
+	if err != nil {
+		return "", fmt.Errorf("parse narrator call start time: %w", err)
+	}
+	candidate := caller.now().UTC()
+	if !candidate.After(previousTime) {
+		candidate = previousTime.Add(time.Nanosecond)
+	}
+	return candidate.Format(time.RFC3339Nano), nil
 }
 
 func (caller *Caller) resolveModel(

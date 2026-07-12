@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-3 and Phase 4 items 1-4 are complete
+**Status:** In progress; Phases 0-3 and Phase 4 items 1-5 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1655,7 +1655,7 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Progress:** Items 1-4 complete.
+**Progress:** Items 1-5 complete.
 
 Implement:
 
@@ -2858,3 +2858,38 @@ Implementation is in progress under this plan.
   ChatGPT-authenticated live structured-output and full thread/fork lifecycle
   tests passed with `OPENAI_API_KEY` removed. Generated inputs and outputs
   changed: none. Phase 4 item 5 remains next and was not started.
+- 2026-07-12: Completed Phase 4 item 5. Successful working and terminal
+  projections now commit their permitted contiguous observed-cursor advance,
+  current focus revision, immutable milestones, optional topic descriptor, and
+  required final summary in one serialized SQLite writer transaction. Topic
+  descriptor output updates both reconstructable narrator state and the durable
+  conversation projection. Every state, conversation, and narration mutation
+  publishes its existing typed conversation event from the same transaction;
+  a failed publication, stale cursor, or gapped trajectory rolls back the
+  entire output commit. Terminal commits additionally require a terminal turn
+  and matching terminal trajectory event at the exact source boundary.
+- 2026-07-12: Explicit status replies use a separate atomic commit that records
+  the question, answer, source range, and successful narrator invocation while
+  preserving `observedThroughSequence`, checkpoint state, current focus, and
+  focus revision exactly. The narrator output adapter freezes and revalidates
+  the structured result before returning the actor's bounded commit closure,
+  records exact requested/resolved model settings, provider thread/turn/request
+  references, context byte counts, and call timing, and rejects mismatched
+  generations or caller-owned mutation. Checkpoint calls now use the same
+  prepared-commit adapter without acquiring a second persistence path.
+- 2026-07-12: Focused file/complexity, vet, test, and dead-code gates passed,
+  as did the joint race-enabled conversation/narration suites, 50 repeated
+  race-enabled output-adapter runs, 30 repeated race-enabled persistence runs,
+  desktop typecheck/build, and the deterministic production Electron topic
+  workflow at
+  `.recordings/topic-conversation-pane-projection/20260712T115524632Z/`.
+  ChatGPT-authenticated live structured output passed with `OPENAI_API_KEY`
+  removed. The unchanged full Phase 2 live fork characterization was not clean:
+  one run's semantic isolation probe answered `YES`, and its focused rerun did
+  not receive `activity_started` before the existing wait expired. No
+  `internal/agent` code changed in this slice, so these results are recorded as
+  live-characterization failures rather than evidence against the successful
+  narrator call or persistence path. Generated inputs and outputs changed:
+  none; the Codex source reference was not needed because no provider protocol
+  behavior changed. Phase 4 item 6, typed degradation and retry behavior, is
+  next with no implementation blocker.

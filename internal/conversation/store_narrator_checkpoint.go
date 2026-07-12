@@ -68,7 +68,7 @@ func (store *Store) CommitNarratorCheckpoint(
 	}
 	var committed NarratorState
 	_, err := store.Transact(ctx, "commit narrator checkpoint", func(transaction *WriteTransaction) error {
-		state, err := readNarratorStateForCheckpoint(transaction, request.ConversationID)
+		state, err := readNarratorStateForMutation(transaction, request.ConversationID)
 		if err != nil {
 			return err
 		}
@@ -108,7 +108,7 @@ func (store *Store) CommitNarratorCheckpoint(
 	return committed, nil
 }
 
-func readNarratorStateForCheckpoint(
+func readNarratorStateForMutation(
 	transaction *WriteTransaction,
 	conversationID string,
 ) (NarratorState, error) {
@@ -123,7 +123,7 @@ WHERE conversation_id = ?
 		return NarratorState{}, stateConflict("narrator state", conversationID, "state does not exist")
 	}
 	if err != nil {
-		return NarratorState{}, fmt.Errorf("read narrator state for checkpoint %s: %w", conversationID, err)
+		return NarratorState{}, fmt.Errorf("read narrator state for mutation %s: %w", conversationID, err)
 	}
 	return state, nil
 }
