@@ -1,4 +1,8 @@
-import type { SpeechCapabilities, SpeechTranscriptionSession } from "@generated/backend";
+import type {
+  MasterInputModality,
+  SpeechCapabilities,
+  SpeechTranscriptionSession,
+} from "@generated/backend";
 
 import type {
   AppShellMasterController,
@@ -143,7 +147,7 @@ export class AppShellSpeechCaptureController {
       completedConversationTranscript: null,
       completedTranscript: masterSnapshot.completedTranscript,
       conversationSubmission: { type: "idle" },
-      masterSubmission: masterSnapshot.submission,
+      masterSubmission: voiceMasterSubmission(masterSnapshot.submission),
       preference: dependencies.readPreference(),
       runtimeId: null,
     };
@@ -151,7 +155,7 @@ export class AppShellSpeechCaptureController {
       const snapshot = this.masterSubmission.getSnapshot();
       this.updateSnapshot({
         completedTranscript: snapshot.completedTranscript,
-        masterSubmission: snapshot.submission,
+        masterSubmission: voiceMasterSubmission(snapshot.submission),
       });
     });
     this.conversationSubmission.subscribe(() => {
@@ -389,7 +393,7 @@ export class AppShellSpeechCaptureController {
       this.snapshotValue.completedConversationTranscript,
       this.snapshotValue.completedTranscript,
       this.snapshotValue.conversationSubmission,
-      this.snapshotValue.masterSubmission,
+      this.masterSubmission.getSnapshot().submission,
     );
     if (!failure) {
       return false;
@@ -649,23 +653,62 @@ function masterSubmissionCaptureFailure(
   completedTranscript: CompletedGlobalSpeechTranscript | null,
   submission: MasterInputSubmissionState,
 ): { code: SpeechCaptureFailureCode; message: string } | null {
-  if (!completedTranscript) {
-    if (submission.type === "submitting" || submission.type === "failed") {
-      throw new Error("global master submission state is missing its completed transcript");
-    }
-    return null;
-  }
   switch (submission.type) {
-    case "submitting":
+    case "submitting": {
+      validateMasterSubmissionTranscript(completedTranscript, submission.input.modality);
       return {
         code: "master_submission_pending",
-        message: "The previous voice request is still being submitted to Setta.",
+        message:
+          submission.input.modality === "voice"
+            ? "The previous voice request is still being submitted to Setta."
+            : "The previous text request is still being submitted to Setta.",
       };
+    }
     case "failed":
-      return { code: "master_submission_failed", message: submission.message };
+      validateMasterSubmissionTranscript(completedTranscript, submission.input.modality);
+      return {
+        code: "master_submission_failed",
+        message:
+          submission.input.modality === "voice"
+            ? submission.message
+            : "Retry or discard the failed text request before starting voice capture.",
+      };
     case "accepted":
+      if (completedTranscript) {
+        throw new Error("completed transcript has an invalid accepted master submission state");
+      }
+      return null;
     case "idle":
-      throw new Error("completed transcript has an invalid global master submission state");
+      if (completedTranscript) {
+        throw new Error("completed transcript has an invalid idle master submission state");
+      }
+      return null;
+    default:
+      return assertNever(submission);
+  }
+}
+
+function validateMasterSubmissionTranscript(
+  completedTranscript: CompletedGlobalSpeechTranscript | null,
+  modality: MasterInputModality,
+): void {
+  if (modality === "voice" && !completedTranscript) {
+    throw new Error("voice master submission state is missing its completed transcript");
+  }
+  if (modality === "text" && completedTranscript) {
+    throw new Error("text master submission state has an unrelated completed voice transcript");
+  }
+}
+
+function voiceMasterSubmission(submission: MasterInputSubmissionState): MasterInputSubmissionState {
+  switch (submission.type) {
+    case "submitting":
+    case "failed":
+      return submission.input.modality === "voice" ? submission : { type: "idle" };
+    case "accepted":
+      return submission.accepted.input.modality === "voice" ? submission : { type: "idle" };
+    case "idle":
+      return submission;
     default:
       return assertNever(submission);
   }

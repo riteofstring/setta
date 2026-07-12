@@ -275,6 +275,43 @@ describe("app-shell speech capture controller", () => {
     info.mockRestore();
   });
 
+  test("blocks voice capture behind typed master work without presenting it as voice", async () => {
+    const pendingText = deferred<AcceptedMasterInput>();
+    const submit = vi
+      .fn<(request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>>()
+      .mockImplementationOnce(() => pendingText.promise)
+      .mockRejectedValueOnce(new Error("private typed submission failure"));
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const harness = createHarness({ submitMasterInput: submit });
+    await harness.connectAndEnable();
+
+    harness.masterController.submitText("Typed request still submitting");
+    expect(harness.controller.getSnapshot().masterSubmission).toEqual({ type: "idle" });
+    await harness.startMaster();
+    expect(harness.currentCapture()).toEqual({
+      code: "master_submission_pending",
+      message: "The previous text request is still being submitted to Setta.",
+      type: "failed",
+    });
+    expect(harness.mediaConstraints).toEqual([]);
+
+    pendingText.reject(new Error("private typed submission failure"));
+    await waitForMasterControllerSubmission(harness.masterController, "failed");
+    expect(harness.controller.getSnapshot().masterSubmission).toEqual({ type: "idle" });
+    await harness.startMaster();
+    expect(harness.currentCapture()).toEqual({
+      code: "master_submission_failed",
+      message: "Retry or discard the failed text request before starting voice capture.",
+      type: "failed",
+    });
+    expect(harness.mediaConstraints).toEqual([]);
+
+    harness.masterController.retry();
+    await waitForMasterControllerSubmission(harness.masterController, "failed");
+    expect(harness.controller.getSnapshot().masterSubmission).toEqual({ type: "idle" });
+    info.mockRestore();
+  });
+
   test("retains failed conversation delivery for exact retry and explicit discard", async () => {
     const acceptedRetry = deferred<AcceptedConversationInput>();
     const submit = vi
@@ -759,6 +796,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
     },
     mediaConstraints,
     masterInputRequests,
+    masterController,
     preferenceWrites,
     startMaster: () => controller.start(masterSpeechCaptureRequest()),
     stream,
@@ -818,6 +856,19 @@ function createHarness(overrides: HarnessOverrides = {}) {
       throw new Error("Realtime transport was not created");
     },
   };
+}
+
+async function waitForMasterControllerSubmission(
+  controller: AppShellMasterController,
+  type: ReturnType<AppShellMasterController["getSnapshot"]>["submission"]["type"],
+): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (controller.getSnapshot().submission.type === type) {
+      return;
+    }
+    await flushPromises();
+  }
+  throw new Error(`master controller submission did not reach ${type}`);
 }
 
 function activeCaptureRequest(
