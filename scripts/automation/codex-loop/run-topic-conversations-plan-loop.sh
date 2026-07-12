@@ -386,7 +386,7 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 OUTPUT_DIR="$(cd "${OUTPUT_DIR}" && pwd -P)"
 
-AGENT_ONE_PROMPT="Implement the next incomplete step in ${PLAN_PATH}. Use ${CODEX_REFERENCE_REPO} as the Codex source reference when needed. Verify and commit the work, and update the plan. If the plan is already fully implemented, make no changes and return exactly ${FINAL_AUDIT_SENTINEL}."
+AGENT_ONE_PROMPT="Implement the next incomplete step in ${PLAN_PATH}. Use ${CODEX_REFERENCE_REPO} as the Codex source reference when needed. Verify and commit it. Keep only the plan's concise status fields current when needed; never add a progress log. If the plan is already fully implemented, make no changes and return exactly ${FINAL_AUDIT_SENTINEL}."
 
 log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
@@ -433,10 +433,10 @@ while true; do
     && [[ "${implementer_head}" == "${iteration_start_head}" ]] \
     && repo_is_clean; then
     final_audit="1"
-    reviewer_prompt="Audit the whole implementation against ${PLAN_PATH}. Do not implement remaining plan steps. Return exactly ${COMPLETION_SENTINEL} only if the whole plan is complete, or exactly ${BLOCKED_SENTINEL} if an external blocker prevents completion. Otherwise record the next missing work in the plan, commit that plan update if needed, and return a brief audit summary."
+    reviewer_prompt="Audit the whole implementation against ${PLAN_PATH}. Do not implement remaining plan steps. Return exactly ${COMPLETION_SENTINEL} only if the whole plan is complete, or exactly ${BLOCKED_SENTINEL} if an external blocker prevents completion. Otherwise return a brief summary of the next missing work. Correct and commit a concise status field only if it is stale; never add a progress log."
     log_info "Agent 1 requested the final whole-plan audit."
   else
-    reviewer_prompt="Review only Agent 1's work from this iteration (${iteration_start_head}..${implementer_head}, plus any uncommitted changes) against ${PLAN_PATH}. Fix, verify, and commit issues, then stop. Do not start the next plan step. Return exactly ${BLOCKED_SENTINEL} if the review uncovers an external blocker. Otherwise return a brief review summary."
+    reviewer_prompt="Review only Agent 1's work from this iteration (${iteration_start_head}..${implementer_head}, plus any uncommitted changes) against ${PLAN_PATH}. Fix, verify, and commit issues, then stop. Do not start the next plan step. Keep only concise plan status fields current when needed; never add a progress log. Return exactly ${BLOCKED_SENTINEL} if the review uncovers an external blocker. Otherwise return a brief review summary."
   fi
   run_agent "agent-2" "${reviewer_prompt}" "${run_dir}" "${AGENT_TWO_REASONING_EFFORT}" 1
   require_clean_repo "after agent-2 review"
@@ -450,7 +450,7 @@ while true; do
 
   if [[ "${reviewer_message}" == "${BLOCKED_SENTINEL}" ]]; then
     require_clean_repo "at blocked stop"
-    log_info "Agent 2 returned ${BLOCKED_SENTINEL}; see the plan progress log and ${reviewer_last_message}."
+    log_info "Agent 2 returned ${BLOCKED_SENTINEL}; see ${reviewer_last_message}."
     exit 2
   fi
 

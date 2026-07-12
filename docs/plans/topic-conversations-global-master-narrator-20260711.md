@@ -1914,26 +1914,36 @@ Exit criteria:
 
 ### Phase 5: Global speech infrastructure
 
-**Status:** In progress. The app-shell capture owner, shell master intake, and
-typed voice-catalog/selection foundations exist. Next, replace the master-only
-final transcript handoff with the typed destination and durable pane-input
-intake in item 2; then continue with item 4.
+**Status:** In progress. The next step is remaining item 1 below.
 
-Implement:
+Existing foundation:
 
-1. App-shell microphone controller and global preference.
-2. Typed capture destination and requested input mode frozen at capture start.
-   Shell transcripts enter master intake; pane transcripts enter durable
-   conversation input intake in default `route` or explicit override mode.
-3. Typed provider voice catalog plus global master and per-conversation
-   narrator voice selections.
-4. Stable `auto_distinct` allocator, exact overrides, finite-catalog reuse, and
-   explicit unavailable-voice behavior.
-5. Generic speech synthesis contracts keyed by narration/master event and
+- app-shell microphone controller and global preference
+- finalized shell transcript delivery to durable master intake
+- typed provider voice catalog plus global master and per-conversation narrator
+  voice-selection foundations
+
+Remaining sequence:
+
+1. Add Go-owned `ConversationInputMode` and `ConversationInput` validation,
+   schema, idempotent persistence, committed intake event, and focused store
+   tests. Do not add HTTP, generated, or renderer wiring in this slice.
+2. Register conversation-input intake in the Go HTTP endpoint registry,
+   regenerate contracts, and wire the active-runtime main/preload boundary.
+3. Add the typed `master | conversation(conversationId, inputMode)` destination
+   to the app-shell capture controller and pane capture requests. Freeze the
+   destination, source pane, and requested mode at capture start.
+4. Deliver finalized pane transcripts exactly once to conversation input intake
+   in default `route` or explicit override mode, including frozen-input retry,
+   discard, runtime-switch handling, and deterministic production Electron
+   coverage. Preserve the existing shell-to-master path.
+5. Implement stable `auto_distinct` allocation, exact overrides,
+   finite-catalog reuse, and explicit unavailable-voice behavior.
+6. Add generic speech synthesis contracts keyed by narration/master event and
    resolved speaker voice.
-6. One source-aware playback queue with explicit priority and supersession.
-7. Global speaking/capture state rendered by panes and app chrome.
-8. Delete Easy Button-owned speech controllers, Easy Run speech endpoints, and
+7. Add one source-aware playback queue with explicit priority and supersession.
+8. Render global speaking/capture state in panes and app chrome.
+9. Delete Easy Button-owned speech controllers, Easy Run speech endpoints, and
    pane-local playback subscriptions.
 
 Exit criteria:
