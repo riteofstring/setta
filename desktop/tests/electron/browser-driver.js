@@ -29,31 +29,6 @@
     return { body: document.body.innerText, clicked: true, reason: "clicked" };
   }
 
-  function clickButtonContainingText({ text }) {
-    const button = Array.from(document.querySelectorAll("button")).find((candidate) =>
-      candidate.innerText.includes(text),
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return { body: document.body.innerText, clicked: false, reason: "missing-button" };
-    }
-    if (button.disabled) {
-      return { body: document.body.innerText, clicked: false, reason: "disabled-button" };
-    }
-    button.click();
-    return { body: document.body.innerText, clicked: true, reason: "clicked" };
-  }
-
-  function clickButtonContainingTextByRole({ role, text }) {
-    const button = Array.from(document.querySelectorAll(`button[role="${cssEscape(role)}"]`)).find(
-      (candidate) => candidate.innerText.includes(text),
-    );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { body: document.body.innerText, clicked: false };
-    }
-    button.click();
-    return { body: document.body.innerText, clicked: true };
-  }
-
   function dispatchLayoutSnapshot({ trigger }) {
     window.dispatchEvent(
       new CustomEvent("setta:record-layout-snapshot", {
@@ -92,11 +67,9 @@
     ...globalThis.__settaE2EDriver,
     bodyText,
     clickButton,
-    clickButtonContainingText,
-    clickButtonContainingTextByRole,
     dispatchLayoutSnapshot,
     elementValue,
     setInputValue,
-    version: "setta-e2e-driver-v12",
+    version: "setta-e2e-driver-v13",
   };
 })();

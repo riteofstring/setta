@@ -19,21 +19,10 @@ const sidebarWorkflowWorkspaceCount = 3000;
 const workflowTimeoutMs = 15_000;
 const shutdownTimeoutMs = 10_000;
 
-export const liveWorkflowTimeoutMs = 120_000;
-
 let launchVisible = false;
 
 export function configureChatWorkflowHarness({ visible }) {
   launchVisible = Boolean(visible);
-}
-
-export async function waitForAssistantTextRendered(client, timeoutMs) {
-  await waitForState(
-    client,
-    driverCallExpression("visibleAssistantTexts"),
-    (value) => value.assistantTexts.length > 0,
-    timeoutMs,
-  );
 }
 
 export async function stopLaunchedContext(context) {
@@ -42,58 +31,6 @@ export async function stopLaunchedContext(context) {
   }
   context.client?.close();
   await stopElectron(context.electron);
-}
-
-export async function openWorkspace(client, workspaceRoot, backend) {
-  await waitForTexts(client, ["Runtime", "Conversations"]);
-  await clickButtonByAria(client, "Open project folder");
-  await waitForTexts(client, ["workspace-root", "Start a conversation for this workspace."]);
-  const session = await waitForBackendState(
-    async () => backend.get("/workspace-session"),
-    (value) => Boolean(value.selectedWorkspaceId),
-  );
-  return session.selectedWorkspaceId;
-}
-
-export async function createChat(client, backend, workspaceId) {
-  await waitForRendererWorkspace(client, workspaceId);
-  const before = await backend.post("/chat/conversations/list", { workspaceId });
-  const existing = new Set(before.conversations.map((item) => item.conversation.id));
-  await clickButtonByAria(client, "New chat");
-  await waitForTexts(client, ["New chat"]);
-  await waitForComposerReady(client);
-  const after = await waitForBackendState(
-    async () => backend.post("/chat/conversations/list", { workspaceId }),
-    (value) => value.conversations.some((item) => !existing.has(item.conversation.id)),
-  );
-  const created = after.conversations.find((item) => !existing.has(item.conversation.id));
-  if (!created) {
-    throw new Error("new conversation was not returned by the backend");
-  }
-  await waitForState(
-    client,
-    driverCallExpression("selectedConversation"),
-    (value) => value.selectedConversationId === created.conversation.id,
-  );
-  return created.conversation.id;
-}
-
-async function waitForRendererWorkspace(client, workspaceId) {
-  await waitForState(
-    client,
-    driverCallExpression("rendererWorkspace"),
-    (value) => value.workspaceId === workspaceId,
-  );
-}
-
-export async function submitComposer(client, text, buttonLabel) {
-  await waitForComposerReady(client);
-  await setInputValue(client, 'textarea[aria-label="Ask Setta"]', text);
-  await clickButtonByAria(client, buttonLabel);
-}
-
-async function waitForComposerReady(client) {
-  await waitForState(client, driverCallExpression("composerReady"), (value) => value.ready);
 }
 
 export async function setInputValue(client, selector, value) {
@@ -112,44 +49,6 @@ export async function clickButtonByAria(client, label) {
   await clickWorkflowButton(client, "aria-label", label, `button was not clickable: ${label}`);
 }
 
-export async function clickButtonByText(client, text) {
-  await clickWorkflowButton(client, "text", text, `button was not clickable: ${text}`);
-}
-
-export async function clickButtonContainingText(client, text) {
-  await waitForState(
-    client,
-    buttonContainingTextClickExpression(text),
-    (value) => value.clicked,
-  ).catch((error) => {
-    throw new Error(`button containing text was not clickable: ${text}: ${error.message}`);
-  });
-}
-
-export async function clickButtonContainingTextByRole(client, role, text) {
-  await waitForState(
-    client,
-    buttonContainingTextByRoleClickExpression(role, text),
-    (value) => value.clicked,
-  ).catch((error) => {
-    throw new Error(
-      `button with role ${role} containing text was not clickable: ${text}: ${error.message}`,
-    );
-  });
-}
-
-export async function scrollSidebarNavigationTo(client, scrollTop) {
-  const scrolled = await client.driver("scrollSidebarNavigationTo", { scrollTop });
-  if (!scrolled) {
-    throw new Error("sidebar navigation list was not mounted");
-  }
-  await delay(100);
-}
-
-export async function sidebarMetrics(client) {
-  return client.driver("sidebarMetrics");
-}
-
 async function clickWorkflowButton(client, kind, value, errorMessage) {
   await waitForState(client, buttonClickExpression(kind, value), (state) => state.clicked).catch(
     (error) => {
@@ -160,14 +59,6 @@ async function clickWorkflowButton(client, kind, value, errorMessage) {
 
 function buttonClickExpression(kind, value) {
   return driverCallExpression("clickButton", { kind, value });
-}
-
-function buttonContainingTextClickExpression(text) {
-  return driverCallExpression("clickButtonContainingText", { text });
-}
-
-function buttonContainingTextByRoleClickExpression(role, text) {
-  return driverCallExpression("clickButtonContainingTextByRole", { role, text });
 }
 
 export async function waitForText(client, text, timeoutMs = workflowTimeoutMs) {
@@ -181,13 +72,6 @@ export async function waitForTexts(client, texts, timeoutMs = workflowTimeoutMs)
     (value) => texts.every((text) => value.body.includes(text)),
     timeoutMs,
   );
-}
-
-export async function assertTextAbsent(client, text) {
-  const body = await client.driver("bodyText");
-  if (body.body.includes(text)) {
-    throw new Error(`unexpected rendered text: ${text}`);
-  }
 }
 
 export async function waitForState(client, expression, isReady, timeoutMs = workflowTimeoutMs) {
@@ -204,16 +88,6 @@ export async function waitForState(client, expression, isReady, timeoutMs = work
     await delay(100);
   }
   throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
-}
-
-export async function waitForDriverState(
-  client,
-  method,
-  args,
-  isReady,
-  timeoutMs = workflowTimeoutMs,
-) {
-  return waitForState(client, driverCallExpression(method, args), isReady, timeoutMs);
 }
 
 export async function backendProbe(recordingDir) {
@@ -316,211 +190,6 @@ export async function waitForBackendState(readState, isReady, timeoutMs = workfl
     await delay(100);
   }
   throw new Error(`timed out waiting for backend state: ${JSON.stringify(lastValue)}`);
-}
-
-export async function waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, status) {
-  return waitForBackendState(async () => {
-    const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-    return (
-      list.runs.find(
-        (run) => run.promptSummary === prompt && (status === null || run.status === status),
-      ) ?? null
-    );
-  }, Boolean);
-}
-
-export async function waitForRunStatus(backend, workspaceId, conversationId, runId, expected) {
-  const { status, timeoutMs } =
-    typeof expected === "string" ? { status: expected, timeoutMs: undefined } : expected;
-  return waitForBackendState(
-    async () => {
-      const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-      return list.runs.find((run) => run.id === runId) ?? null;
-    },
-    (run) => run?.status === status,
-    timeoutMs,
-  );
-}
-
-export async function assertNoRunWithPrompt(backend, workspaceId, conversationId, prompt) {
-  const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-  if (list.runs.some((run) => run.promptSummary === prompt)) {
-    throw new Error(`slash command was recorded as a run prompt: ${prompt}`);
-  }
-}
-
-export async function waitForCommandResult(
-  backend,
-  workspaceId,
-  conversationId,
-  expectedText,
-  timeoutMs = workflowTimeoutMs,
-) {
-  return waitForBackendState(
-    async () =>
-      backend.post("/chat/messages/page", {
-        conversationId,
-        limit: 80,
-        workspaceId,
-      }),
-    (page) =>
-      page.messages.some(
-        (message) => message.role === "command" && messageText(message).includes(expectedText),
-      ),
-    timeoutMs,
-  );
-}
-
-export async function waitForLinkedCodexRef(
-  backend,
-  workspaceId,
-  conversationId,
-  timeoutMs = workflowTimeoutMs,
-) {
-  return waitForBackendState(
-    async () => backend.post("/chat/conversations/list", { workspaceId }),
-    (value) => {
-      const item = value.conversations.find(
-        (candidate) => candidate.conversation.id === conversationId,
-      );
-      return Boolean(
-        item?.conversation.harnessRefs.some(
-          (ref) => ref.harness === "codex" && ref.status === "linked" && ref.threadId !== "",
-        ),
-      );
-    },
-    timeoutMs,
-  );
-}
-
-export async function waitForGoalStatus(
-  backend,
-  workspaceId,
-  conversationId,
-  status,
-  timeoutMs = workflowTimeoutMs,
-) {
-  return waitForBackendState(
-    async () =>
-      backend.post("/chat/messages/page", {
-        conversationId,
-        limit: 80,
-        workspaceId,
-      }),
-    (page) => (status === null ? page.goal === null : page.goal?.status === status),
-    timeoutMs,
-  );
-}
-
-export async function assertNoLinkedCodexRef(backend, workspaceId, conversationId) {
-  const value = await backend.post("/chat/conversations/list", { workspaceId });
-  const item = value.conversations.find(
-    (candidate) => candidate.conversation.id === conversationId,
-  );
-  if (
-    item?.conversation.harnessRefs.some(
-      (ref) => ref.harness === "codex" && ref.status === "linked" && ref.threadId !== "",
-    )
-  ) {
-    throw new Error(`conversation ${conversationId} unexpectedly has a linked codex ref`);
-  }
-}
-
-export async function assertNoActiveRun(backend, workspaceId, conversationId) {
-  const active = await waitForBackendState(
-    async () => backend.post("/chat/runs/active", { conversationId, workspaceId }),
-    (value) => !value.hasActiveRun,
-  );
-  if (active.run !== null && active.run !== undefined) {
-    throw new Error(
-      `active run payload was present after terminal state: ${JSON.stringify(active)}`,
-    );
-  }
-}
-
-export async function assertRunsDrainedSequentially(backend, workspaceId, conversationId, runIds) {
-  const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-  const runsById = new Map(list.runs.map((run) => [run.id, run]));
-  const runs = runIds.map((runId) => {
-    const run = runsById.get(runId);
-    if (!run) {
-      throw new Error(`run ${runId} was not returned by /chat/runs/list`);
-    }
-    return run;
-  });
-  for (const run of runs) {
-    if (run.status !== "completed" || run.startedAt === "" || run.completedAt === "") {
-      throw new Error(`run did not complete with timestamps: ${JSON.stringify(run)}`);
-    }
-  }
-  for (let index = 1; index < runs.length; index += 1) {
-    const previousCompletedAt = Date.parse(runs[index - 1].completedAt);
-    const currentStartedAt = Date.parse(runs[index].startedAt);
-    if (currentStartedAt < previousCompletedAt) {
-      throw new Error(
-        `queued run ${runs[index].id} started before ${runs[index - 1].id} completed: ${JSON.stringify(runs)}`,
-      );
-    }
-  }
-}
-
-export async function assertQueuedRunNotPromoted(
-  backend,
-  workspaceId,
-  conversationId,
-  { activeRunId, queuedRunId, terminalStatus },
-) {
-  await waitForRunStatus(backend, workspaceId, conversationId, activeRunId, terminalStatus);
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-  const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-  const queued = list.runs.find((run) => run.id === queuedRunId);
-  if (!queued) {
-    throw new Error(`queued run ${queuedRunId} was not returned by /chat/runs/list`);
-  }
-  if (queued.status !== "queued") {
-    throw new Error(`queued run ${queuedRunId} status = ${queued.status}, want queued`);
-  }
-  if (queued.startedAt !== "" || queued.assistantMessageId !== "") {
-    throw new Error(`queued run ${queuedRunId} was partially promoted: ${JSON.stringify(queued)}`);
-  }
-  const page = await backend.post("/chat/messages/page", {
-    conversationId,
-    limit: 40,
-    workspaceId,
-  });
-  if (!page.queue.runs.some((run) => run.id === queuedRunId)) {
-    throw new Error(`queued run ${queuedRunId} was not present in page queue state`);
-  }
-  const queuedAssistant = page.messages.find(
-    (message) => message.runId === queuedRunId && message.role === "assistant",
-  );
-  if (queuedAssistant) {
-    throw new Error(
-      `queued run ${queuedRunId} has assistant message: ${JSON.stringify(queuedAssistant)}`,
-    );
-  }
-}
-
-export async function assertAssistantCompleted(backend, workspaceId, conversationId, runId) {
-  const page = await backend.post("/chat/messages/page", {
-    conversationId,
-    limit: 40,
-    workspaceId,
-  });
-  const assistant = page.messages.find(
-    (message) => message.runId === runId && message.role === "assistant",
-  );
-  if (!assistant || assistant.status !== "complete" || messageText(assistant).trim() === "") {
-    throw new Error(
-      `assistant response for run ${runId} was not complete: ${JSON.stringify(assistant)}`,
-    );
-  }
-}
-
-function messageText(message) {
-  return message.parts
-    .map((part) => (part.type === "text" ? (part.text?.text ?? "") : ""))
-    .join("");
 }
 
 export async function launchContext(fixture, recordingDir, options = {}) {
@@ -793,106 +462,12 @@ export function failureWithLogs(error, logs) {
   return new Error(`${message}\nElectron output:\n${logs.join("")}`);
 }
 
-export async function assertRecordingEvidence(recordingDir, expected) {
-  await assertNoIpcFailures(recordingDir, expected.expectedIpcFailures ?? []);
-  await assertLayoutSnapshotsRecorded(recordingDir);
-  const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
-  for (const channel of expected.ipcChannels) {
-    if (!ipc.some((entry) => entry.type === "ipc_finish" && entry.channel === channel)) {
-      throw new Error(`recording missing successful IPC channel: ${channel}`);
-    }
-  }
-  const backend = await readJsonLines(join(recordingDir, "backend-http.jsonl"));
-  const workflowState = await readJsonLinesOptional(join(recordingDir, "workflow-state.jsonl"));
-  for (const path of expected.backendPaths) {
-    if (
-      !backend.some(
-        (entry) =>
-          entry.type === "backend_http_response" &&
-          entry.status === 200 &&
-          entry.url.includes(path),
-      ) &&
-      !workflowState.some(
-        (entry) => entry.type === "backend_request" && entry.status === 200 && entry.path === path,
-      )
-    ) {
-      throw new Error(`recording missing successful backend path: ${path}`);
-    }
-  }
-}
-
-async function assertLayoutSnapshotsRecorded(recordingDir) {
-  const snapshots = await waitForLayoutSnapshots(recordingDir);
-  if (snapshots.length === 0) {
-    throw new Error(`recording missing renderer layout snapshots: ${recordingDir}`);
-  }
-  if (!snapshots.some((entry) => entry.chatDetailPane && entry.composer)) {
-    throw new Error(`recording layout snapshots never captured chat regions: ${recordingDir}`);
-  }
-}
-
-async function waitForLayoutSnapshots(recordingDir) {
-  const startedAt = Date.now();
-  let snapshots = [];
-  while (Date.now() - startedAt < 2_000) {
-    const rendererEvents = await readJsonLines(join(recordingDir, "renderer-events.jsonl"));
-    snapshots = rendererEvents.filter((entry) => entry.type === "layout_snapshot");
-    if (snapshots.some((entry) => entry.chatDetailPane && entry.composer)) {
-      return snapshots;
-    }
-    await delay(50);
-  }
-  return snapshots;
-}
-
-async function assertNoIpcFailures(recordingDir, expectedIpcFailures) {
-  const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
-  const failures = ipc.filter(
-    (entry) =>
-      entry.type === "ipc_failure" &&
-      !isExpectedInitialTerminalAttachMiss(entry) &&
-      !isExpectedBackgroundTerminalUnsupportedKill(entry) &&
-      !expectedIpcFailures.some((isExpected) => isExpected(entry)),
-  );
-  if (failures.length > 0) {
-    throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
-  }
-}
-
-function isExpectedInitialTerminalAttachMiss(entry) {
-  return (
-    entry.channel === "terminal:attach" &&
-    typeof entry.error?.message === "string" &&
-    entry.error.message.includes("terminal session not found")
-  );
-}
-
-function isExpectedBackgroundTerminalUnsupportedKill(entry) {
-  return (
-    (entry.channel === "chat:kill-background-terminal" ||
-      entry.channel === "chat:kill-all-background-terminals") &&
-    typeof entry.error?.message === "string" &&
-    entry.error.message.includes("does not support provider termination")
-  );
-}
-
 async function readJsonLines(path) {
   const content = await readFile(path, "utf8");
   return content
     .split("\n")
     .filter((line) => line.trim() !== "")
     .map((line) => JSON.parse(line));
-}
-
-async function readJsonLinesOptional(path) {
-  try {
-    return await readJsonLines(path);
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return [];
-    }
-    throw error;
-  }
 }
 
 export async function appendWorkflowState(recordingDir, value) {
