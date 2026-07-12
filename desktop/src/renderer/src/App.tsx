@@ -18,6 +18,7 @@ import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
+import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
 import type { MasterInputFocusHints } from "./features/global-speech/global-speech-master-submission";
 import type { SpeechCaptureRequester } from "./features/global-speech/speech-capture-destination";
 import { cn } from "./lib/utils";
@@ -156,13 +157,18 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     return shell();
   }
   return (
-    <AppShellSpeechCaptureProvider
-      focusHints={masterInputFocusHints}
-      runtimeId={runtime.connectedRuntimeId}
-      setta={setta}
-    >
-      {(speechCapture) => shell(speechCapture)}
-    </AppShellSpeechCaptureProvider>
+    <AppShellSpeechPlaybackProvider runtimeId={runtime.connectedRuntimeId} setta={setta}>
+      {(playback) => (
+        <AppShellSpeechCaptureProvider
+          focusHints={masterInputFocusHints}
+          onCaptureStart={playback.preemptForCapture}
+          runtimeId={runtime.connectedRuntimeId}
+          setta={setta}
+        >
+          {(speechCapture) => shell(speechCapture)}
+        </AppShellSpeechCaptureProvider>
+      )}
+    </AppShellSpeechPlaybackProvider>
   );
 }
 

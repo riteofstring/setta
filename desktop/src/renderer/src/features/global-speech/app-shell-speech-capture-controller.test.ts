@@ -113,6 +113,26 @@ describe("app-shell speech capture controller", () => {
     expect(harness.clearTimer).toHaveBeenCalledOnce();
   });
 
+  test("preempts playback only when a new recording lifecycle begins", async () => {
+    const onCaptureStart = vi.fn();
+    const harness = createHarness({ onCaptureStart });
+
+    await harness.controller.synchronizeRuntime("runtime_capture");
+    await harness.startMaster();
+    expect(onCaptureStart).not.toHaveBeenCalled();
+
+    harness.controller.setEnabled(true);
+    const start = harness.startMaster();
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await start;
+    expect(onCaptureStart).toHaveBeenCalledOnce();
+
+    await harness.startMaster();
+    expect(harness.currentCapture().type).toBe("committing");
+    expect(onCaptureStart).toHaveBeenCalledOnce();
+  });
+
   test("freezes a pane conversation destination and mode for the full capture lifecycle", async () => {
     const harness = createHarness();
     await harness.connectAndEnable();
@@ -599,6 +619,7 @@ describe("app-shell speech capture controller", () => {
 interface HarnessOverrides {
   createTranscriptionSession?: () => Promise<SpeechTranscriptionSession>;
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  onCaptureStart?: () => void;
   readCapabilities?: () => Promise<SpeechCapabilities>;
   readPreference?: AppShellSpeechCaptureControllerDependencies["readPreference"];
   submitConversationInput?: (
@@ -644,6 +665,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
       return overrides.getUserMedia ? overrides.getUserMedia(constraints) : stream;
     },
     now: () => new Date("2026-07-12T18:00:00Z"),
+    onCaptureStart: overrides.onCaptureStart ?? (() => {}),
     readCapabilities: overrides.readCapabilities ?? (async () => capabilities()),
     readFocusHints: () => ({
       focusedConversationId: null,

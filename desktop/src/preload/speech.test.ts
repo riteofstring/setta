@@ -23,14 +23,18 @@ describe("preload speech API", () => {
     const api = exposed.setta as SettaAPI;
     await api.speech.readCapabilities();
     await api.speech.readMasterVoiceSelection?.();
-    await api.speech.synthesize?.({
-      resolvedVoiceId: "cedar",
-      source: {
-        conversationId: "conversation-speech",
-        eventId: "status-reply-speech",
-        speaker: "narrator",
+    await api.speech.synthesize?.(
+      {
+        resolvedVoiceId: "cedar",
+        source: {
+          conversationId: "conversation-speech",
+          eventId: "status-reply-speech",
+          speaker: "narrator",
+        },
       },
-    });
+      "speech-operation",
+    );
+    await api.speech.cancelSynthesis?.("speech-operation");
     await api.speech.updateMasterVoiceSelection?.({
       requestedVoiceId: "cedar",
       selection: "exact",
@@ -43,14 +47,18 @@ describe("preload speech API", () => {
       [
         ipcChannels.speechSynthesize,
         {
-          resolvedVoiceId: "cedar",
-          source: {
-            conversationId: "conversation-speech",
-            eventId: "status-reply-speech",
-            speaker: "narrator",
+          operationId: "speech-operation",
+          request: {
+            resolvedVoiceId: "cedar",
+            source: {
+              conversationId: "conversation-speech",
+              eventId: "status-reply-speech",
+              speaker: "narrator",
+            },
           },
         },
       ],
+      [ipcChannels.speechCancelSynthesis, "speech-operation"],
       [
         ipcChannels.speechUpdateMasterVoiceSelection,
         { requestedVoiceId: "cedar", selection: "exact" },

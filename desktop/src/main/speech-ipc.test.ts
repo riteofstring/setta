@@ -83,7 +83,10 @@ describe("speech IPC handlers", () => {
         speaker: "narrator" as const,
       },
     };
-    const audio = await invoke(handlers, ipcChannels.speechSynthesize, synthesisRequest);
+    const audio = await invoke(handlers, ipcChannels.speechSynthesize, {
+      operationId: "speech-operation",
+      request: synthesisRequest,
+    });
 
     expect(backend.createSpeechTranscriptionSession).toHaveBeenCalledWith({});
     expect(capabilities).toMatchObject({ providerStatus: "configured" });
@@ -91,7 +94,9 @@ describe("speech IPC handlers", () => {
     expect(updatedMasterVoice).toMatchObject({ resolvedVoiceId: "cedar", selection: "exact" });
     expect(session).toMatchObject({ clientSecret });
     expect(audio).toMatchObject({ audioBase64, resolvedVoiceId: "cedar" });
-    expect(backend.synthesizeSpeech).toHaveBeenCalledWith(synthesisRequest);
+    expect(backend.synthesizeSpeech).toHaveBeenCalledWith(synthesisRequest, {
+      signal: expect.any(AbortSignal),
+    });
     expect(observer.finished).toHaveBeenCalledTimes(5);
     const observedResults = observer.finished.mock.calls.map(([event]) => event.result);
     expect(observedResults).toEqual([
@@ -109,6 +114,49 @@ describe("speech IPC handlers", () => {
     ]);
     expect(JSON.stringify(observer.finished.mock.calls)).not.toContain(clientSecret);
     expect(JSON.stringify(observer.finished.mock.calls)).not.toContain(audioBase64);
+  });
+
+  test("cancels an active synthesis operation through its backend abort signal", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const backend = {
+      synthesizeSpeech: vi.fn(
+        async (_request: unknown, options: { signal?: AbortSignal } | undefined) =>
+          new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener(
+              "abort",
+              () => reject(new DOMException("aborted", "AbortError")),
+              { once: true },
+            );
+          }),
+      ),
+    } as unknown as BackendClient;
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireBackendClient: () => backend,
+    });
+    const request = {
+      operationId: "speech-cancel",
+      request: {
+        resolvedVoiceId: "cedar",
+        source: {
+          conversationId: "conversation-speech",
+          eventId: "status-reply-speech",
+          speaker: "narrator",
+        },
+      },
+    };
+
+    const synthesis = invoke(handlers, ipcChannels.speechSynthesize, request);
+    await invoke(handlers, ipcChannels.speechCancelSynthesis, request.operationId);
+
+    await expect(synthesis).rejects.toMatchObject({ name: "AbortError" });
+    expect(backend.synthesizeSpeech).toHaveBeenCalledWith(request.request, {
+      signal: expect.objectContaining({ aborted: true }),
+    });
   });
 });
 

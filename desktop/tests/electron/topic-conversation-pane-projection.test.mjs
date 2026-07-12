@@ -61,7 +61,8 @@ const fixture = await createElectronFixture(workflowName);
 const fakeCodex = await installFakeTopicCodex(fixture);
 const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
-let statusSpeechAudio;
+let statusCapturePreemption;
+let statusSpeechPlayback;
 
 try {
   context = await launchElectronCdpContext({
@@ -254,6 +255,10 @@ try {
     (snapshot) => snapshot.conversation.status === "working",
   );
   const statusQuestion = "What is the primary agent doing?";
+  const synthesisRequestCountBeforeStatus = speechProvider.requests.length;
+  await context.client.evaluate(
+    "globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(false)",
+  );
   assertDriverAction(
     await context.client.driver("topicConversationAskStatus", {
       conversationId: alpha.id,
@@ -283,11 +288,60 @@ try {
     (snapshot) => snapshot.narration.events.some((event) => event.kind === "status_reply"),
   );
   assertNarratorStatusIsolation(alphaBeforeStatus, alphaAfterStatus, statusQuestion);
-  statusSpeechAudio = await synthesizeNarrationStatus(
+  statusSpeechPlayback = await waitForAutomaticNarrationStatusPlayback(
     context.client,
     speechProvider,
-    alphaAfterStatus,
+    synthesisRequestCountBeforeStatus,
+    expectedNarratorStatusReply,
     alpha.narratorVoiceId,
+  );
+  const statusEvent = alphaAfterStatus.narration.events.find(
+    (event) => event.kind === "status_reply",
+  );
+  if (!statusEvent) {
+    throw new Error("status narration event was unavailable for automatic playback");
+  }
+  const recordedStatusSynthesis = await waitForRecordedSpeechSynthesis(
+    secondLaunchDir,
+    statusEvent.id,
+  );
+  assertRecordedNarrationSynthesis(
+    recordedStatusSynthesis,
+    alpha.id,
+    statusEvent.id,
+    alpha.narratorVoiceId,
+  );
+  const playbackBeforeCapture = await context.client.evaluate(
+    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+  );
+  assertDriverAction(
+    await context.client.driver("topicConversationVoiceCapture", {
+      conversationId: alpha.id,
+    }),
+    "requested",
+  );
+  statusCapturePreemption = await waitForState(
+    context.client,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    (state) =>
+      state.mediaRequestCount === playbackBeforeCapture.mediaRequestCount + 1 &&
+      state.audioPauseCount === playbackBeforeCapture.audioPauseCount + 1,
+    workflowTimeoutMs,
+  );
+  assertDriverAction(
+    await context.client.driver("topicConversationVoiceCapture", {
+      conversationId: alpha.id,
+    }),
+    "requested",
+  );
+  await waitForState(
+    context.client,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    (state) => state.commitCount === playbackBeforeCapture.commitCount + 1,
+    workflowTimeoutMs,
+  );
+  await context.client.evaluate(
+    "globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(true)",
   );
 
   await submitAndWaitForQueue(context.client, alpha.id, "artifact alpha", 1);
@@ -507,12 +561,8 @@ try {
     reopenedWorking,
     reloadedWorking,
     status: "passed",
-    statusSpeechAudio: {
-      format: statusSpeechAudio.format,
-      mediaType: statusSpeechAudio.mediaType,
-      resolvedVoiceId: statusSpeechAudio.resolvedVoiceId,
-      source: statusSpeechAudio.source,
-    },
+    statusCapturePreemption,
+    statusSpeechPlayback,
     statusWhileWorking,
     workspaceId,
     workspaceName: basename(fixture.workspaceRoot),
@@ -754,62 +804,64 @@ async function updateNarratorVoice(client, request) {
   );
 }
 
-async function synthesizeNarrationStatus(client, provider, snapshot, resolvedVoiceId) {
-  const event = snapshot.narration.events.find((candidate) => candidate.kind === "status_reply");
-  if (!event) {
-    throw new Error("status narration event was unavailable for speech synthesis");
+async function waitForAutomaticNarrationStatusPlayback(
+  client,
+  provider,
+  initialRequestCount,
+  text,
+  resolvedVoiceId,
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    const request = provider.requests
+      .slice(initialRequestCount)
+      .find(
+        (candidate) =>
+          candidate.path === "/v1/audio/speech" &&
+          candidate.input === text &&
+          candidate.voice === resolvedVoiceId,
+      );
+    if (request) {
+      const audio = await waitForState(
+        client,
+        "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+        (state) => state.audioPlayCount > state.audioEndCount,
+        workflowTimeoutMs,
+      );
+      provider.assertHealthy();
+      return { audio, providerRequest: request };
+    }
+    await client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.finishAllAudio()");
+    await delay(20);
   }
-  const request = {
-    resolvedVoiceId,
-    source: {
-      conversationId: snapshot.conversation.id,
-      eventId: event.id,
-      speaker: "narrator",
-    },
-  };
-  const audio = await client.evaluate(`window.setta.speech.synthesize(${JSON.stringify(request)})`);
-  assertSynthesizedNarrationAudio(audio, request);
-  provider.assertHealthy();
-  assertNarrationSynthesisProviderRequest(
-    provider.requests.at(-1),
-    event.statusReply.text,
-    resolvedVoiceId,
-  );
-  return audio;
+  throw new Error("automatic narrator status playback did not reach the speech provider");
 }
 
-function assertSynthesizedNarrationAudio(audio, request) {
+function assertRecordedNarrationSynthesis(
+  event,
+  conversationId,
+  narrationEventId,
+  resolvedVoiceId,
+) {
+  const operation = event.args?.[0];
   if (
-    audio?.mediaType !== "audio/wav" ||
-    audio.format !== "wav" ||
-    typeof audio.audioBase64 !== "string" ||
-    !audio.audioBase64.startsWith("UklGR") ||
-    audio.resolvedVoiceId !== request.resolvedVoiceId
+    event.channel !== "speech:synthesize" ||
+    typeof operation?.operationId !== "string" ||
+    !operation.operationId.startsWith("speech_") ||
+    operation.request?.resolvedVoiceId !== resolvedVoiceId
   ) {
-    throw new Error(`invalid synthesized narration audio: ${JSON.stringify(audio)}`);
+    throw new Error(`automatic narration synthesis source drifted: ${JSON.stringify(event)}`);
   }
-  assertSpeechSourceMatches(audio.source, request.source);
+  assertRecordedNarratorSource(operation.request.source, conversationId, narrationEventId, event);
 }
 
-function assertSpeechSourceMatches(actual, expected) {
+function assertRecordedNarratorSource(source, conversationId, narrationEventId, event) {
   if (
-    actual?.speaker !== expected.speaker ||
-    actual.eventId !== expected.eventId ||
-    actual.conversationId !== expected.conversationId
+    source?.speaker !== "narrator" ||
+    source.conversationId !== conversationId ||
+    source.eventId !== narrationEventId
   ) {
-    throw new Error(`synthesized narration source changed: ${JSON.stringify(actual)}`);
-  }
-}
-
-function assertNarrationSynthesisProviderRequest(providerRequest, text, resolvedVoiceId) {
-  if (
-    providerRequest?.path !== "/v1/audio/speech" ||
-    providerRequest.input !== text ||
-    providerRequest.voice !== resolvedVoiceId
-  ) {
-    throw new Error(
-      `speech synthesis did not use authoritative status text and voice: ${JSON.stringify(providerRequest)}`,
-    );
+    throw new Error(`automatic narration synthesis source drifted: ${JSON.stringify(event)}`);
   }
 }
 
@@ -824,6 +876,24 @@ async function installScriptedRealtimeBrowser(client) {
   await client.evaluate(
     `globalThis.__settaSpeechRealtimeBrowserFixture.setTranscript(${JSON.stringify(paneSpeechTranscript)})`,
   );
+}
+
+async function waitForRecordedSpeechSynthesis(artifactDirectory, narrationEventId) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    const events = await readJsonLinesWhileAppending(join(artifactDirectory, "ipc.jsonl"));
+    const synthesis = events.find(
+      (event) =>
+        event.type === "ipc_start" &&
+        event.channel === "speech:synthesize" &&
+        event.args?.[0]?.request?.source?.eventId === narrationEventId,
+    );
+    if (synthesis) {
+      return synthesis;
+    }
+    await delay(20);
+  }
+  throw new Error(`speech synthesis IPC was not recorded for narration ${narrationEventId}`);
 }
 
 async function waitForRecordedPaneSpeechInput(artifactDirectory, conversationId, sourcePaneId) {

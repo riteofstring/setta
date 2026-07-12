@@ -9,7 +9,14 @@
   const originalFetch = globalThis.fetch.bind(globalThis);
   const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   const originalPeerConnection = globalThis.RTCPeerConnection;
+  const originalAudio = globalThis.Audio;
+  const activeAudio = new Set();
   const state = {
+    audioAutoEnd: true,
+    audioCreateCount: 0,
+    audioEndCount: 0,
+    audioPauseCount: 0,
+    audioPlayCount: 0,
     channelOpen: false,
     commitCount: 0,
     connectionCount: 0,
@@ -17,6 +24,47 @@
     stoppedTrackCount: 0,
     transcript: "Keep this pane transcript exact.",
   };
+
+  class ScriptedAudio {
+    constructor(url) {
+      this.currentTime = 0;
+      this.listeners = { ended: new Set(), error: new Set() };
+      this.url = url;
+      activeAudio.add(this);
+      state.audioCreateCount += 1;
+    }
+
+    addEventListener(type, listener) {
+      this.listeners[type].add(listener);
+    }
+
+    pause() {
+      state.audioPauseCount += 1;
+      activeAudio.delete(this);
+    }
+
+    play() {
+      state.audioPlayCount += 1;
+      if (state.audioAutoEnd) {
+        queueMicrotask(() => this.finish());
+      }
+      return Promise.resolve();
+    }
+
+    removeEventListener(type, listener) {
+      this.listeners[type].delete(listener);
+    }
+
+    finish() {
+      if (!activeAudio.delete(this)) {
+        return;
+      }
+      state.audioEndCount += 1;
+      for (const listener of this.listeners.ended) {
+        listener();
+      }
+    }
+  }
 
   class ScriptedDataChannel {
     constructor() {
@@ -132,8 +180,15 @@
     });
   };
   globalThis.RTCPeerConnection = ScriptedPeerConnection;
+  globalThis.Audio = ScriptedAudio;
   globalThis.__settaSpeechRealtimeBrowserFixture = {
+    finishAllAudio() {
+      for (const audio of [...activeAudio]) {
+        audio.finish();
+      }
+    },
     restore() {
+      globalThis.Audio = originalAudio;
       globalThis.fetch = originalFetch;
       globalThis.RTCPeerConnection = originalPeerConnection;
       navigator.mediaDevices.getUserMedia = originalGetUserMedia;
@@ -141,6 +196,9 @@
     },
     setTranscript(transcript) {
       state.transcript = transcript;
+    },
+    setAudioAutoEnd(autoEnd) {
+      state.audioAutoEnd = autoEnd;
     },
     snapshot() {
       return { ...state };

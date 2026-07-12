@@ -440,10 +440,11 @@ export interface SettaAPI {
     submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
   };
   speech: {
+    cancelSynthesis?: (operationId: string) => Promise<void>;
     createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
     readCapabilities: () => Promise<SpeechCapabilities>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
-    synthesize?: (request: SpeechSynthesisRequest) => Promise<SpeechAudio>;
+    synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
     updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
   };
   appearance: {

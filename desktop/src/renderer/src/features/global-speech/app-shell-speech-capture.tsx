@@ -34,11 +34,13 @@ const AppShellSpeechCaptureContext = createContext<AppShellSpeechCaptureContextV
 export function AppShellSpeechCaptureProvider({
   children,
   focusHints,
+  onCaptureStart,
   runtimeId,
   setta,
 }: {
   children: ReactNode | ((requester: SpeechCaptureRequester) => ReactNode);
   focusHints: MasterInputFocusHints;
+  onCaptureStart?: () => void;
   runtimeId: string | null;
   setta: SettaAPI;
 }) {
@@ -47,7 +49,7 @@ export function AppShellSpeechCaptureProvider({
   const [controller] = useState(
     () =>
       new AppShellSpeechCaptureController(
-        browserControllerDependencies(setta, () => focusHintsRef.current),
+        browserControllerDependencies(setta, () => focusHintsRef.current, onCaptureStart),
       ),
   );
   const [effectLifetime] = useState(() => new AppShellSpeechCaptureEffectLifetime());
@@ -112,6 +114,7 @@ export class AppShellSpeechCaptureEffectLifetime {
 function browserControllerDependencies(
   setta: SettaAPI,
   readFocusHints: () => MasterInputFocusHints,
+  onCaptureStart: (() => void) | undefined,
 ): AppShellSpeechCaptureControllerDependencies {
   return {
     clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
@@ -120,6 +123,7 @@ function browserControllerDependencies(
     createTransport: createRealtimeTranscriptionTransport,
     getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
     now: () => new Date(),
+    onCaptureStart: onCaptureStart ?? (() => {}),
     readCapabilities: () => setta.speech.readCapabilities(),
     readFocusHints,
     readPreference: readBrowserGlobalMicrophonePreference,

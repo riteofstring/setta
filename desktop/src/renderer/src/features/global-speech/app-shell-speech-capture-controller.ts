@@ -106,6 +106,7 @@ export interface AppShellSpeechCaptureControllerDependencies
   createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
   createTransport: typeof createRealtimeTranscriptionTransport;
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  onCaptureStart: () => void;
   readCapabilities: () => Promise<SpeechCapabilities>;
   readPreference: () => GlobalMicrophonePreference;
   setTimeout: (handler: () => void, delayMs: number) => unknown;
@@ -234,6 +235,7 @@ export class AppShellSpeechCaptureController {
     if (!runtimeId || availability.type !== "configured") {
       throw new Error("global speech capture start validation returned inconsistent state");
     }
+    this.dependencies.onCaptureStart();
     const lifecycle = this.beginLifecycle();
     const activeState = {
       captureSessionId: this.dependencies.createCaptureSessionId(),

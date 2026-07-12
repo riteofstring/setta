@@ -2,6 +2,10 @@ import type { IpcMain } from "electron";
 
 import type { BackendClient } from "@generated/backend";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
+import {
+  type SpeechSynthesisIpcRequest,
+  validateSpeechSynthesisOperationId,
+} from "@shared/speech-ipc";
 
 interface SpeechIpcRegistration {
   ipcMain: Pick<IpcMain, "handle">;
@@ -14,6 +18,10 @@ export function registerSpeechIpcHandlers({
   ipcObserver,
   requireBackendClient,
 }: SpeechIpcRegistration): void {
+  const synthesisOperations = new SpeechSynthesisOperations();
+  handleIpc(ipcMain, "speechCancelSynthesis", async (_event, operationId) => {
+    synthesisOperations.cancel(operationId);
+  });
   handleIpc(
     ipcMain,
     "speechReadCapabilities",
@@ -41,9 +49,43 @@ export function registerSpeechIpcHandlers({
   handleIpc(
     ipcMain,
     "speechSynthesize",
-    async (_event, request) => requireBackendClient().synthesizeSpeech(request),
+    async (_event, operation) =>
+      synthesisOperations.run(operation, (request, signal) =>
+        requireBackendClient().synthesizeSpeech(request, { signal }),
+      ),
     observerWithRedactedAudio(ipcObserver),
   );
+}
+
+class SpeechSynthesisOperations {
+  private readonly active = new Map<string, AbortController>();
+
+  cancel(operationId: string): void {
+    validateSpeechSynthesisOperationId(operationId);
+    this.active.get(operationId)?.abort();
+  }
+
+  async run(
+    operation: SpeechSynthesisIpcRequest,
+    synthesize: (
+      request: SpeechSynthesisIpcRequest["request"],
+      signal: AbortSignal,
+    ) => ReturnType<BackendClient["synthesizeSpeech"]>,
+  ) {
+    validateSpeechSynthesisOperationId(operation.operationId);
+    if (this.active.has(operation.operationId)) {
+      throw new Error("Speech synthesis operation is already active.");
+    }
+    const controller = new AbortController();
+    this.active.set(operation.operationId, controller);
+    try {
+      return await synthesize(operation.request, controller.signal);
+    } finally {
+      if (this.active.get(operation.operationId) === controller) {
+        this.active.delete(operation.operationId);
+      }
+    }
+  }
 }
 
 function observerWithRedactedResult(observer: IpcObserver | undefined): IpcObserver | undefined {
