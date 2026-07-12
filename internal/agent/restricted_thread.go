@@ -122,13 +122,21 @@ func (runtime *Runtime) StartRestrictedThread(
 }
 
 func (runtime *Runtime) rejectRestrictedThread(threadID string, cause error) error {
-	if threadID == "" {
-		return cause
-	}
+	return runtime.rejectRestrictedThreads(cause, threadID)
+}
+
+func (runtime *Runtime) rejectRestrictedThreads(cause error, threadIDs ...string) error {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), restrictedThreadCleanupTimeout)
 	defer cancel()
-	if err := runtime.UnsubscribeThread(cleanupCtx, threadID); err != nil {
-		return errors.Join(cause, fmt.Errorf("unsubscribe rejected restricted thread %s: %w", threadID, err))
+	seen := make(map[string]bool, len(threadIDs))
+	for _, threadID := range threadIDs {
+		if threadID == "" || seen[threadID] {
+			continue
+		}
+		seen[threadID] = true
+		if err := runtime.UnsubscribeThread(cleanupCtx, threadID); err != nil {
+			cause = errors.Join(cause, fmt.Errorf("unsubscribe rejected restricted thread %s: %w", threadID, err))
+		}
 	}
 	return cause
 }
@@ -159,14 +167,31 @@ func (runtime *Runtime) ResumeRestrictedThread(
 	}
 	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadResume, params)
 	if err != nil {
-		return Thread{}, fmt.Errorf("resume restricted agent thread %s: %w", threadID, err)
+		return Thread{}, runtime.rejectRestrictedThread(
+			threadID,
+			fmt.Errorf("resume restricted agent thread %s: %w", threadID, err),
+		)
 	}
 	response, err := codexapp.DecodeThreadResumeResponse(raw)
 	if err != nil {
-		return Thread{}, fmt.Errorf("decode restricted agent thread resume %s: %w", threadID, err)
+		return Thread{}, runtime.rejectRestrictedThread(
+			threadID,
+			fmt.Errorf("decode restricted agent thread resume %s: %w", threadID, err),
+		)
 	}
 	if response.Thread.ID != threadID {
-		return Thread{}, fmt.Errorf("restricted agent thread resumed as %s, want %s", response.Thread.ID, threadID)
+		return Thread{}, runtime.rejectRestrictedThreads(
+			fmt.Errorf("restricted agent thread resumed as %s, want %s", response.Thread.ID, threadID),
+			threadID,
+			response.Thread.ID,
+		)
+	}
+	thread, err := providerThread(response.Thread, response.Model)
+	if err != nil {
+		return Thread{}, runtime.rejectRestrictedThread(
+			threadID,
+			fmt.Errorf("map restricted agent thread resume %s: %w", threadID, err),
+		)
 	}
 	if err := validateRestrictedThreadResponse(request, restrictedThreadResponse{
 		ApprovalPolicy:        response.ApprovalPolicy,
@@ -179,9 +204,12 @@ func (runtime *Runtime) ResumeRestrictedThread(
 		ServiceTier:           response.ServiceTier,
 		Thread:                response.Thread,
 	}); err != nil {
-		return Thread{}, fmt.Errorf("validate restricted agent thread resume %s: %w", threadID, err)
+		return Thread{}, runtime.rejectRestrictedThread(
+			threadID,
+			fmt.Errorf("validate restricted agent thread resume %s: %w", threadID, err),
+		)
 	}
-	return providerThread(response.Thread, response.Model)
+	return thread, nil
 }
 
 func validateRestrictedThreadRuntimeRequest(
@@ -274,13 +302,27 @@ func validateRestrictedThreadResponse(
 	request RestrictedThreadRequest,
 	response restrictedThreadResponse,
 ) error {
+	return validateRestrictedModelThreadResponse(
+		request.WorkspaceRoot,
+		request.Invocation,
+		false,
+		response,
+	)
+}
+
+func validateRestrictedModelThreadResponse(
+	workspaceRoot string,
+	invocation Invocation,
+	expectedEphemeral bool,
+	response restrictedThreadResponse,
+) error {
 	if err := validateRestrictedThreadPolicies(response); err != nil {
 		return err
 	}
-	if err := validateRestrictedThreadSelection(request.Invocation, response); err != nil {
+	if err := validateRestrictedThreadSelection(invocation, response); err != nil {
 		return err
 	}
-	return validateRestrictedThreadIsolation(request.WorkspaceRoot, response)
+	return validateRestrictedThreadIsolation(workspaceRoot, expectedEphemeral, response)
 }
 
 func validateRestrictedThreadPolicies(response restrictedThreadResponse) error {
@@ -319,6 +361,7 @@ func validateRestrictedThreadSelection(
 
 func validateRestrictedThreadIsolation(
 	workspaceRoot string,
+	expectedEphemeral bool,
 	response restrictedThreadResponse,
 ) error {
 	if !sameWorkspaceRoot(workspaceRoot, string(response.CWD)) ||
@@ -331,7 +374,10 @@ func validateRestrictedThreadIsolation(
 	if len(response.InstructionSources) != 0 {
 		return errors.New("restricted thread response contains external instruction sources")
 	}
-	if response.Thread.Ephemeral {
+	if response.Thread.Ephemeral != expectedEphemeral {
+		if expectedEphemeral {
+			return errors.New("restricted thread must be ephemeral")
+		}
 		return errors.New("restricted thread must be durable")
 	}
 	if response.Thread.ForkedFromId != nil || response.Thread.ParentThreadId != nil {

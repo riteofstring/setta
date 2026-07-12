@@ -191,6 +191,7 @@ func (runtime *Runtime) startFreshStructuredThread(
 	dynamicTools := []codexapp.DynamicToolSpec{}
 	environments := []codexapp.TurnEnvironmentParams{}
 	capabilityRoots := []codexapp.SelectedCapabilityRoot{}
+	runtimeWorkspaceRoots := []codexapp.AbsolutePathBuf{}
 	developerInstructions := freshStructuredDeveloperInstructions(request.DeveloperInstructions)
 	params := codexapp.ThreadStartParams{
 		AllowProviderModelFallback: &allowFallback,
@@ -202,6 +203,7 @@ func (runtime *Runtime) startFreshStructuredThread(
 		DynamicTools:               &dynamicTools,
 		Environments:               &environments,
 		Ephemeral:                  &ephemeral,
+		RuntimeWorkspaceRoots:      &runtimeWorkspaceRoots,
 		Sandbox:                    &sandbox,
 		SelectedCapabilityRoots:    &capabilityRoots,
 		ServiceTier:                nullableServiceTier(request.Invocation.ServiceTier),
@@ -215,23 +217,38 @@ func (runtime *Runtime) startFreshStructuredThread(
 	if err != nil {
 		return "", fmt.Errorf("decode fresh structured call thread: %w", err)
 	}
-	if response.Thread.ID == "" {
-		return "", errors.New("fresh structured call thread response has no provider thread id")
-	}
-	if !response.Thread.Ephemeral {
-		return "", errors.New("fresh structured call provider thread is not ephemeral")
-	}
-	if response.Model != request.Invocation.Model {
-		return "", fmt.Errorf(
-			"fresh structured call model resolved as %s, want %s",
-			response.Model,
-			request.Invocation.Model,
+	thread, err := providerThread(response.Thread, response.Model)
+	if err != nil {
+		return "", runtime.rejectRestrictedThread(
+			response.Thread.ID,
+			fmt.Errorf("map fresh structured call thread: %w", err),
 		)
 	}
-	if err := session.OwnThread(response.Thread.ID); err != nil {
-		return "", err
+	if err := validateRestrictedModelThreadResponse(
+		request.WorkspaceRoot,
+		request.Invocation,
+		true,
+		restrictedThreadResponse{
+			ApprovalPolicy:        response.ApprovalPolicy,
+			CWD:                   response.CWD,
+			InstructionSources:    response.InstructionSources,
+			Model:                 response.Model,
+			ReasoningEffort:       response.ReasoningEffort,
+			RuntimeWorkspaceRoots: response.RuntimeWorkspaceRoots,
+			Sandbox:               response.Sandbox,
+			ServiceTier:           response.ServiceTier,
+			Thread:                response.Thread,
+		},
+	); err != nil {
+		return "", runtime.rejectRestrictedThread(
+			thread.ID,
+			fmt.Errorf("validate fresh structured call thread: %w", err),
+		)
 	}
-	return response.Thread.ID, nil
+	if err := session.OwnThread(thread.ID); err != nil {
+		return "", runtime.rejectRestrictedThread(thread.ID, err)
+	}
+	return thread.ID, nil
 }
 
 func (runtime *Runtime) startFreshStructuredTurn(

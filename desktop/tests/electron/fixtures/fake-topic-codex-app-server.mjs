@@ -825,18 +825,19 @@ function assertRestrictedThreadConfig(config) {
 
 function assertRestrictedFeatures(features) {
   assertCondition(features.apps === false, "apps feature");
+  assertCondition(features.auth_elicitation === false, "auth elicitation feature");
   assertCondition(features.browser_use === false, "browser feature");
   assertCondition(features.hooks === false, "hooks feature");
   assertCondition(features.multi_agent === false, "multi-agent feature");
   assertCondition(features.plugins === false, "plugins feature");
+  assertCondition(features.shell_snapshot === false, "shell snapshot feature");
   assertCondition(features.shell_tool === false, "shell feature");
+  assertCondition(features.tool_call_mcp_elicitation === false, "MCP elicitation feature");
+  assertCondition(features.unified_exec === false, "unified exec feature");
 }
 
 function assertRestrictedThreadCapabilities(params) {
-  assertCondition(
-    Array.isArray(params.runtimeWorkspaceRoots) || params.ephemeral === true,
-    "runtime workspace roots",
-  );
+  assertEmptyArray(params.runtimeWorkspaceRoots, "runtime workspace roots");
 }
 
 function assertRestrictedThreadStartCapabilities(params) {

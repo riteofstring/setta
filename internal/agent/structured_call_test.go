@@ -147,6 +147,26 @@ func TestFreshStructuredCallRequiresStrictRestrictedContract(t *testing.T) {
 	}
 }
 
+func TestFreshStructuredCallRejectsAndUnsubscribesProviderIsolationDrift(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	request := fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
+	request.DeveloperInstructions = "SIMULATE_RESTRICTED_RESPONSE_DRIFT"
+
+	if _, err := runtime.RunFreshStructuredCall(ctx, request); err == nil ||
+		!strings.Contains(err.Error(), "runtime workspace roots") {
+		t.Fatalf("fresh structured isolation drift error = %v", err)
+	}
+	status, err := runtime.UnsubscribeThreadWithStatus(ctx, "thread-1")
+	if err != nil {
+		t.Fatalf("read rejected structured thread subscription status: %v", err)
+	}
+	if status != ThreadUnsubscribeStatusNotSubscribed {
+		t.Fatalf("rejected structured thread subscription status = %s, want %s", status, ThreadUnsubscribeStatusNotSubscribed)
+	}
+}
+
 func fakeFreshStructuredCallRequest(t *testing.T, input string) FreshStructuredCallRequest {
 	t.Helper()
 	schema, err := json.Marshal(map[string]any{

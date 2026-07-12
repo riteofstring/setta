@@ -17,6 +17,7 @@ type fakeAgentServerState struct {
 	pending              map[string]fakePendingApproval
 	structured           map[string]bool
 	cleanupRequestOnTurn map[string]bool
+	unsubscribed         map[string]bool
 }
 
 type fakePendingApproval struct {
@@ -32,6 +33,7 @@ func runFakeAgentAppServer() {
 		pending:              map[string]fakePendingApproval{},
 		structured:           map[string]bool{},
 		cleanupRequestOnTurn: map[string]bool{},
+		unsubscribed:         map[string]bool{},
 	}
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -59,7 +61,7 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 	case "thread/start":
 		handleFakeAgentThreadStart(state, message)
 	case "thread/resume":
-		handleFakeAgentThreadResume(message)
+		handleFakeAgentThreadResume(state, message)
 	case "thread/read":
 		threadID := fakeAgentStringParam(message, "threadId")
 		thread := fakeAgentThread(threadID)
@@ -91,11 +93,7 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 		}
 		writeFakeAgentResponse(message["id"], map[string]any{})
 	case "thread/unsubscribe":
-		status := "unsubscribed"
-		if fakeAgentRequiredString(fakeAgentParams(message), "threadId") == "thread-not-loaded" {
-			status = "notLoaded"
-		}
-		writeFakeAgentResponse(message["id"], map[string]any{"status": status})
+		handleFakeAgentThreadUnsubscribe(state, message)
 	case "thread/backgroundTerminals/terminate":
 		writeFakeAgentResponse(message["id"], map[string]any{"terminated": true})
 	case "turn/start":
@@ -107,6 +105,19 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 	default:
 		writeFakeAgentError(message["id"], -32601, "unsupported fake method "+method)
 	}
+}
+
+func handleFakeAgentThreadUnsubscribe(state *fakeAgentServerState, message map[string]any) {
+	status := "unsubscribed"
+	threadID := fakeAgentRequiredString(fakeAgentParams(message), "threadId")
+	if threadID == "thread-not-loaded" {
+		status = "notLoaded"
+	} else if state.unsubscribed[threadID] {
+		status = "notSubscribed"
+	} else {
+		state.unsubscribed[threadID] = true
+	}
+	writeFakeAgentResponse(message["id"], map[string]any{"status": status})
 }
 
 func handleFakeAgentThreadFork(state *fakeAgentServerState, message map[string]any) {
@@ -187,10 +198,17 @@ func handleFakeAgentThreadStart(state *fakeAgentServerState, message map[string]
 	if !ephemeral {
 		state.threads = append(state.threads, threadID)
 	}
-	writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(thread, params, model))
+	response := fakeAgentThreadOperationResponse(thread, params, model)
+	if structured && strings.Contains(
+		fakeAgentRequiredString(params, "developerInstructions"),
+		"SIMULATE_RESTRICTED_RESPONSE_DRIFT",
+	) {
+		response["runtimeWorkspaceRoots"] = []any{"/tmp/unexpected-runtime-root"}
+	}
+	writeFakeAgentResponse(message["id"], response)
 }
 
-func handleFakeAgentThreadResume(message map[string]any) {
+func handleFakeAgentThreadResume(state *fakeAgentServerState, message map[string]any) {
 	params := fakeAgentParams(message)
 	threadID := fakeAgentRequiredString(params, "threadId")
 	thread := fakeAgentThread(threadID)
@@ -202,7 +220,12 @@ func handleFakeAgentThreadResume(message map[string]any) {
 		model = requestedModel
 		assertFakeRestrictedDurableThreadResume(params)
 	}
-	writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(thread, params, model))
+	response := fakeAgentThreadOperationResponse(thread, params, model)
+	if threadID == "thread-restricted-response-drift" {
+		response["sandbox"] = fakeAgentSandboxPolicy("workspace-write")
+	}
+	delete(state.unsubscribed, threadID)
+	writeFakeAgentResponse(message["id"], response)
 }
 
 func assertFakeFreshStructuredThreadStart(params map[string]any) {
@@ -220,6 +243,7 @@ func assertFakeFreshStructuredThreadStart(params map[string]any) {
 	}
 	assertFakeEmptyArray(params, "dynamicTools")
 	assertFakeEmptyArray(params, "environments")
+	assertFakeEmptyArray(params, "runtimeWorkspaceRoots")
 	assertFakeEmptyArray(params, "selectedCapabilityRoots")
 	config, ok := params["config"].(map[string]any)
 	if !ok || config["web_search"] != "disabled" {
@@ -230,7 +254,9 @@ func assertFakeFreshStructuredThreadStart(params map[string]any) {
 	}
 	features, ok := config["features"].(map[string]any)
 	if !ok || features["image_generation"] != false || features["plugins"] != false ||
-		features["apps"] != false || features["multi_agent"] != false || features["shell_tool"] != false {
+		features["apps"] != false || features["multi_agent"] != false ||
+		features["shell_snapshot"] != false || features["shell_tool"] != false ||
+		features["tool_call_mcp_elicitation"] != false || features["unified_exec"] != false {
 		panic("fresh structured thread must disable external capability features")
 	}
 	assertFakeRestrictedConfig(params, config)

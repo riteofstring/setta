@@ -80,6 +80,34 @@ func TestRestrictedThreadRejectsUnresolvedOrPrivilegedInvocation(t *testing.T) {
 	}
 }
 
+func TestRestrictedThreadUnsubscribesProviderResumeThatDriftsPolicy(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	request := RestrictedThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation: Invocation{
+			Model:           "gpt-narrator-test",
+			ReasoningEffort: "low",
+			PermissionMode:  PermissionModeReadOnly,
+			ApprovalMode:    ApprovalModeNever,
+		},
+		DeveloperInstructions: "You are Setta's restricted global master.",
+	}
+	threadID := "thread-restricted-response-drift"
+	if _, err := runtime.ResumeRestrictedThread(ctx, threadID, request); err == nil ||
+		!strings.Contains(err.Error(), "permission mode") {
+		t.Fatalf("restricted resume policy drift error = %v", err)
+	}
+	status, err := runtime.UnsubscribeThreadWithStatus(ctx, threadID)
+	if err != nil {
+		t.Fatalf("read rejected resume subscription status: %v", err)
+	}
+	if status != ThreadUnsubscribeStatusNotSubscribed {
+		t.Fatalf("rejected resume subscription status = %s, want %s", status, ThreadUnsubscribeStatusNotSubscribed)
+	}
+}
+
 func TestForkThreadParamsPinsReasoningAndClearsInheritedServiceTier(t *testing.T) {
 	params, err := forkThreadParams(ForkThreadRequest{
 		ParentThreadID: "thread-parent",

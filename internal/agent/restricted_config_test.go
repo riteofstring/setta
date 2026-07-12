@@ -43,7 +43,18 @@ func TestReadRestrictedModelThreadConfigDisablesEffectiveExternalCapabilities(t 
 	if err := json.Unmarshal(config["features"], &features); err != nil {
 		t.Fatalf("decode feature overrides: %v", err)
 	}
-	for _, feature := range []string{"apps", "browser_use", "hooks", "multi_agent", "plugins", "shell_tool"} {
+	for _, feature := range []string{
+		"apps",
+		"auth_elicitation",
+		"browser_use",
+		"hooks",
+		"multi_agent",
+		"plugins",
+		"shell_snapshot",
+		"shell_tool",
+		"tool_call_mcp_elicitation",
+		"unified_exec",
+	} {
 		if enabled, found := features[feature]; !found || enabled {
 			t.Fatalf("restricted feature %s = %t found=%t", feature, enabled, found)
 		}
