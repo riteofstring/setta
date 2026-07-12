@@ -24,7 +24,6 @@ type GlobalSpeechCaptureActiveState = Exclude<SpeechCaptureState, { type: "faile
 
 export type GlobalSpeechCapturePresentation =
   | { source: null; state: "idle" }
-  | { source: null; state: "disabled" }
   | { message: string; source: null; state: "unavailable" }
   | {
       source: GlobalSpeechSource;
@@ -71,7 +70,6 @@ export interface GlobalSpeechPresentationSource {
 export type ShellSpeechCaptureAction =
   | "cancel"
   | "commit"
-  | "enable_and_start"
   | "retry_conversation"
   | "retry_master"
   | "start"
@@ -153,12 +151,6 @@ function inactiveCapturePresentation(
       state: "failed",
     };
   }
-  if (snapshot.preference.type === "failed") {
-    return { message: snapshot.preference.message, source: null, state: "unavailable" };
-  }
-  if (!snapshot.preference.enabled) {
-    return { source: null, state: "disabled" };
-  }
   return captureAvailabilityPresentation(snapshot.availability);
 }
 
@@ -233,7 +225,6 @@ const failedCaptureActions = {
 const shellCaptureActions = {
   committing: null,
   connecting: "cancel",
-  disabled: "enable_and_start",
   idle: "start",
   listening: "commit",
   requesting_permission: "cancel",
@@ -277,7 +268,6 @@ export function shellSpeechCaptureControlLabel(
 const shellCaptureLabelers = {
   committing: (destination) => `Finishing the voice request for ${destination}`,
   connecting: (destination) => `Connecting voice capture for ${destination}`,
-  disabled: () => "Enable the microphone and start a voice request for Setta",
   idle: () => "Start a voice request for Setta",
   listening: (destination) => `Listening for ${destination}`,
   requesting_permission: (destination) => `Requesting microphone access for ${destination}`,
@@ -290,7 +280,6 @@ const shellCaptureLabelers = {
 const shellCaptureControlLabelers = {
   committing: (destination) => `Finishing the voice request for ${destination}`,
   connecting: (destination) => `Cancel the voice request for ${destination}`,
-  disabled: () => "Enable the microphone and start a voice request for Setta",
   idle: () => "Start a voice request for Setta",
   listening: (destination) => `Finish the voice request for ${destination}`,
   requesting_permission: (destination) => `Cancel the voice request for ${destination}`,
@@ -342,8 +331,6 @@ export function shellSpeechStatusLabel(
   switch (capture.state) {
     case "idle":
       return null;
-    case "disabled":
-      return "Voice off";
     case "unavailable":
       return "Voice unavailable";
     default:
@@ -352,7 +339,6 @@ export function shellSpeechStatusLabel(
 }
 
 const passiveCaptureStates = new Set<GlobalSpeechCapturePresentation["state"]>([
-  "disabled",
   "idle",
   "unavailable",
 ]);
@@ -491,7 +477,6 @@ function paneCaptureActivity(
 const paneCaptureActivityLabels = {
   committing: "Finishing voice request",
   connecting: "Connecting voice",
-  disabled: null,
   idle: null,
   listening: "Listening",
   requesting_permission: "Requesting microphone",
@@ -584,7 +569,6 @@ function paneVoiceControl(
 const paneVoiceControls = {
   committing: activePaneVoiceControl,
   connecting: activePaneVoiceControl,
-  disabled: () => ({ disabled: true, label: "Global microphone capture is disabled" }),
   idle: () => ({ disabled: false, label: "Start a voice request for this conversation" }),
   requesting_permission: activePaneVoiceControl,
   submitting: activePaneVoiceControl,

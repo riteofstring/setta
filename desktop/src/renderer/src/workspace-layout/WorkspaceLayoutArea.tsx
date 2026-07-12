@@ -92,6 +92,7 @@ import {
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import { useWorkspaceLayoutSnapshot, useWorkspaceLayoutTarget } from "./workspace-layout-state";
 import {
+  WorkspaceInitialEasyButtonPane,
   WorkspaceLayoutLoading,
   useWorkspaceUILayoutLoad,
   useWorkspaceUILayoutPersistence,
@@ -104,6 +105,7 @@ const overviewDragThresholdPx = 6;
 export function WorkspaceLayoutArea({
   focusConversationRequest = null,
   focusSurfaceRequest = null,
+  initialEasyButtonPaneStartup = null,
   onConversationPresentationError,
   onToggleProjectPane,
   platform,
@@ -122,12 +124,20 @@ export function WorkspaceLayoutArea({
     return <WorkspaceFirstRunSurface platform={platform} status={workspaceTarget.status} />;
   }
   if (layoutLoad.status === "loading") {
-    return <WorkspaceLayoutLoading mode={mode} platform={platform} workspaceId={workspaceId} />;
+    return (
+      <WorkspaceLayoutLoading
+        initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
+        mode={mode}
+        platform={platform}
+        workspaceId={workspaceId}
+      />
+    );
   }
   return (
     <WorkspaceLayoutRuntimeArea
       focusConversationRequest={focusConversationRequest}
       focusSurfaceRequest={focusSurfaceRequest}
+      initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
       initialLayout={layoutLoad.layout}
       layoutLoadError={layoutLoad.error}
       mode={mode}
@@ -148,6 +158,7 @@ export function WorkspaceLayoutArea({
 function WorkspaceLayoutRuntimeArea({
   focusConversationRequest,
   focusSurfaceRequest,
+  initialEasyButtonPaneStartup,
   initialLayout,
   layoutLoadError,
   mode,
@@ -886,6 +897,7 @@ function WorkspaceLayoutRuntimeArea({
       data-testid="workspace-layout-area"
       ref={rootRef}
     >
+      <WorkspaceInitialEasyButtonPane startup={initialEasyButtonPaneStartup} />
       <WorkspaceAvailabilityNotice workspaceId={workspaceId} workspaceName={workspaceName} />
       <WorkspaceLayoutRecoveryNotice
         message={layoutRecoveryMessage}

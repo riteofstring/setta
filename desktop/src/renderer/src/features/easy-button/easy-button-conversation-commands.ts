@@ -633,7 +633,12 @@ async function presentRelatedConversation(
       hydrateConversationProjectionSnapshot(snapshot);
       title = snapshot.conversation.title;
     }
-    await presentConversationPane({ conversationId, title, workspaceId });
+    await presentConversationPane({
+      conversationId,
+      title,
+      viewAction: "focus-or-open",
+      workspaceId,
+    });
   } catch (error) {
     setError(errorMessage(error));
   }

@@ -24,6 +24,7 @@ import {
   type SidebarNavigationItem,
 } from "./workspace-sidebar-model";
 import { SidebarNavigationRow } from "./workspace-sidebar-navigation-rows";
+import type { ConversationPanePresentationRequest } from "../workspace-layout/conversation-pane-coordinator";
 
 const sidebarNavigationMaxHeight = 480;
 const sidebarNavigationRowHeight = 36;
@@ -46,6 +47,7 @@ interface WorkspaceSidebarProps {
     workspaceId: string,
     conversationId: string,
     title: string,
+    viewAction: ConversationPanePresentationRequest["viewAction"],
   ) => Promise<void>;
   recentWorkspaces: readonly WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
@@ -389,7 +391,12 @@ async function executeSidebarNavigationCommand(
       if (command.workspaceId !== actions.selectedWorkspaceId) {
         await actions.selectWorkspace(command.workspaceId);
       }
-      await actions.presentConversation(command.workspaceId, command.conversationId, command.title);
+      await actions.presentConversation(
+        command.workspaceId,
+        command.conversationId,
+        command.title,
+        command.viewAction,
+      );
       return;
     case "removeRecentWorkspace":
       await actions.removeRecent(command.workspaceId);

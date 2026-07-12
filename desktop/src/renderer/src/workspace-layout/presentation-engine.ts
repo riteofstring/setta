@@ -353,7 +353,11 @@ export class PresentationEngine {
     syncPaneTitleSlot(title, paneChromeTitleModel(pane, paneTitleOverrideFromHost(binding.host)));
     const actionStrip = this.ensurePaneActionStrip(topBar);
     const paneActionKey = paneActionStateKey(item);
-    if (binding.lastPaneActionKey !== paneActionKey) {
+    if (
+      binding.lastPaneActionKey !== paneActionKey ||
+      actionStrip.dataset.paneId !== item.paneId ||
+      actionStrip.childElementCount !== paneChromeActions.length
+    ) {
       actionStrip.dataset.paneId = item.paneId;
       let visibleActionCount = 0;
       for (const action of paneChromeActions) {

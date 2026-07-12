@@ -38,6 +38,10 @@ import {
 } from "./easy-button-conversation-commands";
 import { conversationComposerBindings } from "./easy-button-conversation-composer-bindings";
 import {
+  conversationControlAction,
+  type EasyButtonControlMode,
+} from "./easy-button-conversation-control";
+import {
   type EasyButtonNarratorStatusReply,
   latestNarratorStatusReply,
   NarratorDegradationStatus,
@@ -217,7 +221,7 @@ export function EasyButtonProjectionSurface({
       style={conversationPaletteStyle(view.paletteId)}
     >
       <EasyButtonPresentationChrome
-        archived={view.archived || readOnly}
+        archived={projectionSurfaceReadOnly(view, readOnly)}
         profile={view.presentationProfile}
         rootRef={rootRef}
         workspaceId={view.workspaceId}
@@ -230,6 +234,10 @@ export function EasyButtonProjectionSurface({
       />
     </section>
   );
+}
+
+function projectionSurfaceReadOnly(view: EasyButtonProjectionView, readOnly: boolean): boolean {
+  return view.archived || readOnly;
 }
 
 function EasyButtonProjectionContent({
@@ -259,7 +267,12 @@ function EasyButtonProjectionContent({
           <div className="easy-button-agent-chip-slot">
             <AgentChip activeAgentCount={view.activeAgentCount} viewState={view.viewState} />
           </div>
-          <ConversationControl commands={commands} readOnly={readOnly} speech={speech} view={view} />
+          <ConversationControl
+            commands={commands}
+            readOnly={readOnly}
+            speech={speech}
+            view={view}
+          />
           <CaptionSlot view={view} />
           <ConversationActionSlot commands={readOnly ? undefined : commands} view={view} />
         </div>
@@ -298,44 +311,6 @@ function ConversationControl({
       </button>
     </div>
   );
-}
-
-export type EasyButtonControlMode = "stop-listening" | "talk";
-
-export interface EasyButtonControlAction {
-  disabled: boolean;
-  label: string;
-  mode: EasyButtonControlMode;
-  onClick: (() => void) | undefined;
-}
-
-/* The giant control is always the pane's voice/talk button — clicking it dictates
-   into this conversation, and speaking while a run is working simply queues the
-   follow-up. It flips to a stop affordance only while this pane is actively
-   listening. Stopping a run is a separate, smaller control in the composer, so the
-   big button never stops meaning "talk to your agent." */
-export function conversationControlAction(
-  commands: EasyButtonConversationCommands | undefined,
-  readOnly: boolean,
-  speech: PaneSpeechPresentation | null | undefined,
-): EasyButtonControlAction {
-  const bindings = conversationComposerBindings(readOnly ? undefined : commands);
-  const listening = speech?.captureState === "listening" && speech.captureScope === "this_pane";
-  if (listening) {
-    return {
-      disabled: false,
-      label: speech?.voiceControlLabel ?? "Finish this voice request",
-      mode: "stop-listening",
-      onClick: bindings.onVoiceCapture,
-    };
-  }
-  return {
-    disabled:
-      !bindings.onVoiceCapture || !bindings.available || (speech?.voiceControlDisabled ?? false),
-    label: speech?.voiceControlLabel ?? "Start a voice request for this conversation",
-    mode: "talk",
-    onClick: bindings.onVoiceCapture,
-  };
 }
 
 function ConversationActionSlot({

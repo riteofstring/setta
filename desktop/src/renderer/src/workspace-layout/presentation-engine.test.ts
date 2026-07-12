@@ -626,6 +626,32 @@ describe("workspace presentation engine", () => {
     });
   });
 
+  test("rebuilds pane actions when imperative chrome is removed without a state change", () => {
+    const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
+    const host = fakePaneHost("workspace_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new WorkspaceMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    const item = {
+      ...renderItem("workspace_pane_0", "workspace_surface_0", false),
+      focused: true,
+    };
+    presentation.mount([host], null);
+    presentation.apply([item], { resizePhase: "idle" });
+
+    const actionStrip = requiredChromeElement(host, ".workspace-pane-action-strip");
+    (actionStrip as unknown as FakeElement).children.splice(0);
+    presentation.apply([item], { resizePhase: "idle" });
+
+    expect(paneActionSnapshot(host)).toMatchObject({
+      actionOrder: ["split-down", "add-above", "add-below", "maximize", "close"],
+      controlsVisible: "true",
+      visibleActions: ["split-down", "add-above", "add-below", "maximize", "close"],
+    });
+  });
+
   test("keeps close and maximize visible during overview", () => {
     const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");
@@ -827,6 +853,7 @@ function chromeChildForSelector(children: FakeElement[], selector: string): Fake
 
 interface FakeElement {
   append: (...children: FakeElement[]) => void;
+  readonly childElementCount: number;
   classList: {
     add: (value: string) => void;
     contains: (value: string) => boolean;
@@ -877,6 +904,9 @@ function fakeElement(tagName: string, ownerDocument: FakeElement["ownerDocument"
         classNames.add(value);
       },
       contains: (value: string) => classNames.has(value),
+    },
+    get childElementCount() {
+      return children.length;
     },
     children,
     contentEditable: "false",

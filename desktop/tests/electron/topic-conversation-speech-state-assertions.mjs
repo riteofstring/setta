@@ -6,8 +6,11 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import { captureScreenshot, waitForState } from "./electron-cdp-harness.mjs";
 
 export async function verifyIdleGlobalSpeech(client, timeoutMs) {
+  await assertTopBarHasNoVoiceArea(client, timeoutMs);
+  await openMasterOverlayForSpeech(client, timeoutMs);
   const state = await waitForShellSpeechState(client, () => true, timeoutMs);
   assertIdleShellSpeech(state);
+  await closeMasterOverlay(client, timeoutMs);
   return state;
 }
 
@@ -70,6 +73,7 @@ export async function verifyConversationCapturePresentation({
     sourcePaneId,
     transcriptPreview,
   );
+  await openMasterOverlayForSpeech(client, timeoutMs);
   const shell = await waitForShellSpeechState(
     client,
     (candidate) =>
@@ -88,6 +92,7 @@ export async function verifyConversationCapturePresentation({
     shell,
   );
   await captureScreenshot(client, artifactPath);
+  await closeMasterOverlay(client, timeoutMs);
   return { shell, surfaces: state.surfaces };
 }
 
@@ -104,6 +109,7 @@ export async function verifyNarratorPlaybackPresentation({
     timeoutMs,
   );
   assertNarratorPlaybackAttribution(state.surfaces, conversationId);
+  await openMasterOverlayForSpeech(client, timeoutMs);
   const shell = await waitForShellSpeechState(
     client,
     (candidate) =>
@@ -116,6 +122,7 @@ export async function verifyNarratorPlaybackPresentation({
     shell,
   );
   await captureScreenshot(client, artifactPath);
+  await closeMasterOverlay(client, timeoutMs);
   return { shell, surfaces: state.surfaces };
 }
 
@@ -128,6 +135,7 @@ export async function exercisePaneFreeShellCapture({
   workspaceId,
 }) {
   const before = await client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()");
+  await openMasterOverlayForSpeech(client, timeoutMs);
   assertDriverAction(await client.driver("topicConversationShellSpeechCapture", {}), "clicked");
   const listening = await waitForShellSpeechState(
     client,
@@ -479,6 +487,75 @@ function waitForShellSpeechState(client, ready, timeoutMs) {
     client,
     driverCallExpression("topicConversationShellSpeechState", {}),
     ready,
+    timeoutMs,
+  );
+}
+
+async function assertTopBarHasNoVoiceArea(client, timeoutMs) {
+  await waitForState(
+    client,
+    `(() => {
+      const topBar = document.querySelector('[data-testid="shell-top-bar"]');
+      return {
+        speechStatusPresent: Boolean(topBar?.querySelector('[data-testid="shell-speech-status"]')),
+        voiceOffPresent: Array.from(topBar?.querySelectorAll("*") ?? []).some(
+          (element) => element.childElementCount === 0 && element.textContent?.trim() === "Voice off",
+        ),
+      };
+    })()`,
+    (state) => !state.speechStatusPresent && !state.voiceOffPresent,
+    timeoutMs,
+  );
+}
+
+export async function openMasterOverlayForSpeech(client, timeoutMs) {
+  const alreadyOpen = await client.evaluate(
+    "Boolean(document.querySelector('[data-testid=\"master-overlay\"]'))",
+  );
+  if (!alreadyOpen) {
+    const clicked = await client.evaluate(`(() => {
+      const button = document.querySelector('[data-testid="master-overlay-button"]');
+      if (!(button instanceof HTMLButtonElement) || button.disabled) {
+        return false;
+      }
+      button.click();
+      return true;
+    })()`);
+    if (!clicked) {
+      throw new Error("Ask Setta could not be opened for its voice control");
+    }
+  }
+  await waitForState(
+    client,
+    `(() => ({
+      open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+      voiceControlPresent: Boolean(
+        document.querySelector('[data-testid="master-overlay"] [data-testid="shell-speech-status"]'),
+      ),
+    }))()`,
+    (state) => state.open && state.voiceControlPresent,
+    timeoutMs,
+  );
+}
+
+async function closeMasterOverlay(client, timeoutMs) {
+  const clicked = await client.evaluate(`(() => {
+    const button = Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === "Close Ask Setta",
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error("Ask Setta could not be closed after checking its voice control");
+  }
+  await waitForState(
+    client,
+    "Boolean(document.querySelector('[data-testid=\"master-overlay\"]'))",
+    (open) => !open,
     timeoutMs,
   );
 }

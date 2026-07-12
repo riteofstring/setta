@@ -35,6 +35,7 @@ describe("real workspace layout scene", () => {
 
   test("defines default pane limits for surviving workspace surfaces", () => {
     expect(defaultRealWorkspacePaneLimits).toEqual({
+      browser: 10,
       "easy-button": 10,
       "empty-frame": 10,
       "settings-dom": 1,
@@ -119,6 +120,47 @@ describe("real workspace layout scene", () => {
       easyButtonConfig,
     );
     expect(restored.scene.paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
+  });
+
+  test("serializes and restores a Browser pane as a product surface", () => {
+    const workspaceId = "workspace_api";
+    const initial = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId,
+      workspaceName: "Repo",
+    });
+    const store = new WorkspaceLayoutStore(
+      new WorkspaceLikeLayoutEngine(initial.scene),
+      initial.scene,
+      initial.focusedPaneId,
+    );
+    const paneId = store.openPane({
+      subtitle: "workspace browser surface",
+      surfaceKind: "browser",
+      title: "Browser",
+      tone: "green",
+    });
+
+    const persisted = workspaceUILayoutFromScene(
+      workspaceId,
+      store.toScene(),
+      store.focusedPaneId(),
+    );
+    const restored = createRealWorkspaceScene({
+      storedLayout: persisted,
+      workspaceId,
+      workspaceName: "Ignored after restore",
+    });
+
+    expect(persisted.panes.find((pane) => pane.paneId === paneId)).toMatchObject({
+      easyButtonConfig: null,
+      surfaceKind: "browser",
+    });
+    expect(restored.scene.paneById.get(paneId)).toMatchObject({
+      surfaceKind: "browser",
+      title: "Browser",
+      tone: "green",
+    });
   });
 
   test("opens and restores multiple easy button views of one conversation", () => {

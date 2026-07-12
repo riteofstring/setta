@@ -19,11 +19,6 @@ import {
 } from "./app-shell-speech-capture-controller";
 import type { AppShellSpeechPlaybackController } from "./app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "./global-speech-presentation";
-import {
-  readGlobalMicrophonePreference,
-  type GlobalMicrophonePreference,
-  writeGlobalMicrophonePreference,
-} from "./global-microphone-preference";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
 
 export interface AppShellSpeechCaptureContextValue {
@@ -141,7 +136,6 @@ function browserControllerDependencies(
     onCaptureEnd: onCaptureEnd ?? (() => {}),
     onCaptureStart: onCaptureStart ?? (() => {}),
     readCapabilities: () => setta.speech.readCapabilities(),
-    readPreference: readBrowserGlobalMicrophonePreference,
     settleConversationInput: async (accepted, completed) => {
       if (!setta.conversations.waitInputState) {
         throw new Error("the desktop conversation routing boundary is unavailable");
@@ -162,22 +156,5 @@ function browserControllerDependencies(
       }
       return setta.conversations.submitInput(request);
     },
-    writePreference: writeBrowserGlobalMicrophonePreference,
   };
-}
-
-function readBrowserGlobalMicrophonePreference(): GlobalMicrophonePreference {
-  try {
-    return readGlobalMicrophonePreference(globalThis.localStorage);
-  } catch {
-    return { message: "The global microphone preference could not be read.", type: "failed" };
-  }
-}
-
-function writeBrowserGlobalMicrophonePreference(enabled: boolean): GlobalMicrophonePreference {
-  try {
-    return writeGlobalMicrophonePreference(globalThis.localStorage, enabled);
-  } catch {
-    return { message: "The global microphone preference could not be saved.", type: "failed" };
-  }
 }

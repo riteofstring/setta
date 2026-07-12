@@ -32,6 +32,7 @@ import {
 } from "./topic-conversation-fork-workflow.mjs";
 import { readJsonLinesWhileAppending } from "./topic-conversation-master-overlay-assertions.mjs";
 import { narratorCaughtUp } from "./topic-conversation-projection-assertions.mjs";
+import { openMasterOverlayForSpeech } from "./topic-conversation-speech-state-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-speech-arbitration";
@@ -124,6 +125,7 @@ try {
       ),
     ),
   );
+  await openMasterOverlayForSpeech(context.client, workflowTimeoutMs);
   await waitForShellSpeechState(
     context.client,
     (state) => state.playbackState === "idle" && state.sourceConversationId === "",

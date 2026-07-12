@@ -1,4 +1,4 @@
-/* global Event, HTMLButtonElement, HTMLInputElement, HTMLSelectElement, document, window */
+/* global Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
   const version = "setta-topic-conversation-presentation-configuration-driver-v1";
@@ -8,9 +8,9 @@
   }
   Object.assign(driver, {
     presentationConfigurationConversationState,
+    presentationConfigurationConversationTogglePoint,
     presentationConfigurationFindTopic,
     presentationConfigurationGlobalState,
-    presentationConfigurationOpenConversation,
     presentationConfigurationOpenGlobalTab,
     presentationConfigurationOpenSettings,
     presentationConfigurationReadConversation,
@@ -108,16 +108,6 @@
     return { master, narratorDefault };
   }
 
-  function presentationConfigurationOpenConversation({ conversationId }) {
-    const details = conversationConfiguration(conversationId);
-    if (!details) {
-      return { conversationId, opened: false };
-    }
-    details.open = true;
-    details.dispatchEvent(new Event("toggle"));
-    return { conversationId, opened: true };
-  }
-
   function presentationConfigurationConversationState({ conversationId }) {
     const surface = conversationSurface(conversationId);
     const details = conversationConfiguration(conversationId);
@@ -143,6 +133,20 @@
       ready: true,
       saveEnabled: buttonEnabled(save),
       surfacePalette: surface?.dataset.conversationPalette ?? "",
+    };
+  }
+
+  function presentationConfigurationConversationTogglePoint({ conversationId }) {
+    const summary = conversationConfiguration(conversationId)?.querySelector("summary");
+    if (!(summary instanceof HTMLElement)) {
+      return { conversationId, ok: false, x: 0, y: 0 };
+    }
+    const rect = summary.getBoundingClientRect();
+    return {
+      conversationId,
+      ok: rect.width > 0 && rect.height > 0,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
     };
   }
 

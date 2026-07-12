@@ -23,6 +23,7 @@ export type SidebarNavigationCommand =
       conversationId: string;
       title: string;
       type: "presentConversation";
+      viewAction: "focus-or-open" | "open-new-view";
       workspaceId: string;
     }
   | { type: "removeRecentWorkspace"; workspaceId: string };
@@ -42,7 +43,11 @@ export type SidebarNavigationItem =
       workspace: WorkspaceSummary;
     }
   | {
-      commands: { archive: SidebarNavigationCommand; primary: SidebarNavigationCommand };
+      commands: {
+        archive: SidebarNavigationCommand;
+        openNewView: SidebarNavigationCommand;
+        primary: SidebarNavigationCommand;
+      };
       focused: boolean;
       id: string;
       item: NavigatorItem;
@@ -212,6 +217,14 @@ function conversationItem(
         conversationId,
         title: item.conversation.title,
         type: "presentConversation",
+        viewAction: "focus-or-open",
+        workspaceId,
+      },
+      openNewView: {
+        conversationId,
+        title: item.conversation.title,
+        type: "presentConversation",
+        viewAction: "open-new-view",
         workspaceId,
       },
     },

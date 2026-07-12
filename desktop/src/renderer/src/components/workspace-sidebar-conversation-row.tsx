@@ -11,6 +11,7 @@ export function ConversationNavigatorRow({
   item,
   lineageParentTitle,
   openPaneCount,
+  openNewView,
   present,
   readOnly,
 }: {
@@ -20,6 +21,7 @@ export function ConversationNavigatorRow({
   item: NavigatorItem;
   lineageParentTitle: string | null;
   openPaneCount: number;
+  openNewView: () => Promise<void>;
   present: () => Promise<void>;
   readOnly: boolean;
 }) {
@@ -54,6 +56,13 @@ export function ConversationNavigatorRow({
         </span>
         <ConversationPaneCount count={openPaneCount} />
       </button>
+      <ConversationOpenNewViewButton
+        busy={busy}
+        conversationId={conversation.id}
+        openPaneCount={openPaneCount}
+        openNewView={openNewView}
+        title={conversation.title}
+      />
       <button
         aria-label={`Archive ${conversation.title}`}
         className="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-sm bg-background/95 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-focus-within/conversation-row:opacity-100 group-hover/conversation-row:opacity-100"
@@ -73,6 +82,39 @@ export function ConversationNavigatorRow({
         <Archive className="h-3.5 w-3.5" />
       </button>
     </div>
+  );
+}
+
+function ConversationOpenNewViewButton({
+  busy,
+  conversationId,
+  openPaneCount,
+  openNewView,
+  title,
+}: {
+  busy: boolean;
+  conversationId: string;
+  openPaneCount: number;
+  openNewView: () => Promise<void>;
+  title: string;
+}) {
+  if (openPaneCount <= 0) {
+    return null;
+  }
+  const label = `Open another view of ${title}`;
+  return (
+    <button
+      aria-label={label}
+      className="absolute right-8 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-sm bg-background/95 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-focus-within/conversation-row:opacity-100 group-hover/conversation-row:opacity-100"
+      data-conversation-id={conversationId}
+      data-testid="conversation-open-new-view"
+      disabled={busy}
+      onClick={() => void openNewView()}
+      title={label}
+      type="button"
+    >
+      <Copy className="h-3.5 w-3.5" />
+    </button>
   );
 }
 

@@ -5,7 +5,7 @@ export type ColumnId = string;
 export type SurfaceId = string;
 
 export type ProductSurfaceKind = PersistedSurfaceKind;
-type DiagnosticSurfaceKind = "browser" | "fake-dom" | "fake-heavy-dom" | "snapshot";
+type DiagnosticSurfaceKind = "fake-dom" | "fake-heavy-dom" | "snapshot";
 export type SurfaceKind = ProductSurfaceKind | DiagnosticSurfaceKind;
 export type NonEasyButtonSurfaceKind = Exclude<SurfaceKind, "easy-button">;
 

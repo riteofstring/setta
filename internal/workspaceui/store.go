@@ -415,7 +415,7 @@ func validColumnWidthUnit(unit ColumnWidthUnit) bool {
 
 func validSurfaceKind(kind SurfaceKind) bool {
 	switch kind {
-	case SurfaceKindEasyButton, SurfaceKindEmptyFrame, SurfaceKindSettingsDOM:
+	case SurfaceKindBrowser, SurfaceKindEasyButton, SurfaceKindEmptyFrame, SurfaceKindSettingsDOM:
 		return true
 	default:
 		return false

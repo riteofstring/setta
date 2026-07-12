@@ -105,6 +105,8 @@ import { assertEasyButtonBindingPersistence } from "./topic-conversation-pane-bi
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
 const workflowTimeoutMs = 50_000;
+const initialThreadStartDelayMs = 900;
+const initialPanePlaceholderBudgetMs = 500;
 const cancelledMasterText = "Cancel active master route.";
 const shellClarificationText = "Clarify the shell topic.";
 const typedMasterOverlayText = "Focus Alpha topic.";
@@ -150,6 +152,7 @@ try {
       OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
+      SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS: String(initialThreadStartDelayMs),
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
@@ -159,9 +162,19 @@ try {
   await context.client.installDriver();
   let backend = await backendProbe(firstLaunchDir);
   runtimeDeviceTokens.push(backend.deviceToken);
+  const workspaceOpenStartedAt = Date.now();
   const workspaceId = await openWorkspace(context.client);
+  const initialPanePlaceholder = await assertImmediateInitialEasyButtonPlaceholder(
+    context.client,
+    workspaceOpenStartedAt,
+  );
+  await captureScreenshot(context.client, join(artifactDir, "initial-easy-button-startup.png"));
   const initialConversation = await waitForInitialConversation(backend, workspaceId);
   await assertInitialEasyButtonExperience(context.client, initialConversation.conversation.id);
+  await assertNavigatorOpensAnotherEasyButtonView(
+    context.client,
+    initialConversation.conversation.id,
+  );
   await exerciseCodexAccountNotificationWorkflow({
     backend,
     client: context.client,
@@ -221,7 +234,6 @@ try {
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   assertPersistedNarratorVoice(await listTopics(backend, workspaceId), exhaustedVoice);
-  await enableGlobalMicrophone(context.client);
   cancelledMasterInput = await exerciseVerifiedMasterCancellation({
     artifactDirectory: firstLaunchDir,
     backend,
@@ -249,6 +261,7 @@ try {
       OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
+      SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS: String(initialThreadStartDelayMs),
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
@@ -1112,6 +1125,7 @@ try {
     workingConversationInput: acceptedWorkingConversationInput,
     duplicated,
     exhaustedVoice,
+    initialPanePlaceholder,
     noPaneTerminalSpeech,
     reloaded,
     reopenedWorking,
@@ -1198,18 +1212,73 @@ async function waitForInitialConversation(backend, workspaceId) {
 }
 
 async function assertInitialEasyButtonExperience(client, conversationId) {
-  await waitForState(
+  const state = await waitForState(
     client,
     driverCallExpression("topicConversationStartupState", { conversationId }),
-    (state) =>
-      !state.createControlPresent &&
-      !state.searchControlPresent &&
-      state.visiblePaneCount === 1 &&
-      state.easyButtonPaneCount === 1 &&
-      state.emptyFramePaneCount === 0 &&
-      state.matchingSurfaceCount === 1,
+    initialEasyButtonExperienceReady,
     workflowTimeoutMs,
   );
+  await waitForNavigator(client, conversationId, 1, workflowTimeoutMs);
+  assertDriverAction(
+    await client.driver("topicConversationTogglePaneMaximized", { paneId: state.paneId }),
+    "clicked",
+  );
+  await waitForState(
+    client,
+    driverCallExpression("topicConversationNavigatorState", { conversationId }),
+    (navigator) => navigator.maximizedPaneId === state.paneId,
+    workflowTimeoutMs,
+  );
+  assertDriverAction(
+    await client.driver("topicConversationTogglePaneMaximized", { paneId: state.paneId }),
+    "clicked",
+  );
+  await waitForState(
+    client,
+    driverCallExpression("topicConversationNavigatorState", { conversationId }),
+    (navigator) => navigator.maximizedPaneId === "",
+    workflowTimeoutMs,
+  );
+}
+
+function initialEasyButtonExperienceReady(state) {
+  return [
+    !state.createControlPresent,
+    !state.searchControlPresent,
+    !state.startupPanePresent,
+    !state.topBarSpeechStatusPresent,
+    !state.voiceOffPresent,
+    state.actionCount === 5,
+    state.visiblePaneCount === 1,
+    state.easyButtonPaneCount === 1,
+    state.emptyFramePaneCount === 0,
+    state.matchingSurfaceCount === 1,
+  ].every(Boolean);
+}
+
+async function assertImmediateInitialEasyButtonPlaceholder(client, workspaceOpenStartedAt) {
+  const state = await waitForState(
+    client,
+    driverCallExpression("topicConversationStartupState", { conversationId: "" }),
+    (candidate) => candidate.startupPanePresent,
+    initialPanePlaceholderBudgetMs,
+  );
+  const latencyMs = Date.now() - workspaceOpenStartedAt;
+  if (latencyMs > initialPanePlaceholderBudgetMs) {
+    throw new Error(
+      `initial Easy Button placeholder missed its ${initialPanePlaceholderBudgetMs}ms budget: ${latencyMs}ms`,
+    );
+  }
+  return { latencyMs, startupState: state.startupState };
+}
+
+async function assertNavigatorOpensAnotherEasyButtonView(client, conversationId) {
+  assertDriverAction(
+    await client.driver("topicConversationOpenNewViewFromNavigator", { conversationId }),
+    "clicked",
+  );
+  await waitForNavigator(client, conversationId, 2, workflowTimeoutMs);
+  await closeConversationPane(client, conversationId);
   await waitForNavigator(client, conversationId, 1, workflowTimeoutMs);
 }
 
@@ -1297,12 +1366,6 @@ function assertRecordedNarratorSource(source, conversationId, narrationEventId, 
   ) {
     throw new Error(`automatic narration synthesis source drifted: ${JSON.stringify(event)}`);
   }
-}
-
-async function enableGlobalMicrophone(client) {
-  await client.evaluate(
-    'localStorage.setItem("setta.global-speech.microphone-enabled.v1", "enabled")',
-  );
 }
 
 async function installScriptedRealtimeBrowser(client) {

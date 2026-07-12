@@ -8,6 +8,7 @@ export interface ConversationPanePresentationRequest {
   conversationId: string;
   preferredPaneId?: string | null;
   title: string;
+  viewAction: "focus-or-open" | "open-new-view";
   workspaceId: string;
 }
 
@@ -58,6 +59,7 @@ function presentationTargetRequest(payload: {
     conversationId: payload.target.conversationId,
     preferredPaneId: payload.target.preferredPaneId,
     title: payload.target.title,
+    viewAction: "focus-or-open",
     workspaceId: payload.target.workspaceId,
   };
 }
@@ -111,10 +113,7 @@ export function presentConversationPane(
         pane.easyButtonConfig.conversationId === request.conversationId,
     )
     .map((pane) => pane.paneId);
-  const existingPaneId =
-    request.preferredPaneId && matchingPaneIds.includes(request.preferredPaneId)
-      ? request.preferredPaneId
-      : store.mostRecentlyFocusedPaneId(matchingPaneIds);
+  const existingPaneId = matchingConversationPaneId(store, request, matchingPaneIds);
   if (existingPaneId !== null) {
     clearMaximizedPane(store);
     store.focusPane(existingPaneId);
@@ -141,6 +140,20 @@ export function presentConversationPane(
   }
   clearMaximizedPane(store);
   return { kind: "opened", paneId: store.openPane(paneRequest) };
+}
+
+function matchingConversationPaneId(
+  store: WorkspaceLayoutStore,
+  request: ConversationPanePresentationRequest,
+  matchingPaneIds: readonly string[],
+): string | null {
+  if (request.viewAction === "open-new-view") {
+    return null;
+  }
+  if (request.preferredPaneId && matchingPaneIds.includes(request.preferredPaneId)) {
+    return request.preferredPaneId;
+  }
+  return store.mostRecentlyFocusedPaneId(matchingPaneIds);
 }
 
 function clearMaximizedPane(store: WorkspaceLayoutStore): void {

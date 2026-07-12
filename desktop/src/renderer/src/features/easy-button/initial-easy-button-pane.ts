@@ -16,6 +16,8 @@ type InitialEasyButtonPaneDecision =
   | { kind: "satisfied" }
   | { kind: "wait" };
 
+export type InitialEasyButtonPaneStartup = "creating" | "loading" | "opening" | null;
+
 export function initialEasyButtonPaneDecision(
   navigator: ConversationNavigatorWorkspaceState | undefined,
   openConversationCount: number | undefined,
@@ -56,7 +58,7 @@ export function useInitialEasyButtonPane({
   selectedWorkspaceId: string;
   selectedWorkspaceAvailable: boolean;
   setta: SettaAPI;
-}): void {
+}): InitialEasyButtonPaneStartup {
   const navigatorWorkspaces = useConversationNavigatorStore((state) => state.workspaces);
   const syncNavigatorWorkspaces = useConversationNavigatorStore((state) => state.syncWorkspaces);
   const paneWorkspaces = useConversationPaneStore((state) => state.workspaces);
@@ -133,6 +135,74 @@ export function useInitialEasyButtonPane({
     setta,
     targetKey,
   ]);
+
+  const prerequisite = initialEasyButtonStartupPrerequisite({
+    handled: handledKeysRef.current.has(targetKey ?? ""),
+    navigatorLoading: navigator?.loading,
+    navigatorReady: navigator !== undefined,
+    paneWorkspaceReady: paneWorkspace !== undefined,
+    runtimeConnected: targetKey !== null,
+    selectedWorkspaceAvailable,
+    selectedWorkspaceReady: selectedWorkspaceId !== "",
+  });
+  if (prerequisite !== "ready") {
+    return prerequisite;
+  }
+  return initialEasyButtonStartupForDecision(decision);
+}
+
+function initialEasyButtonStartupPrerequisite({
+  handled,
+  navigatorLoading,
+  navigatorReady,
+  paneWorkspaceReady,
+  runtimeConnected,
+  selectedWorkspaceAvailable,
+  selectedWorkspaceReady,
+}: {
+  handled: boolean;
+  navigatorLoading: boolean | undefined;
+  navigatorReady: boolean;
+  paneWorkspaceReady: boolean;
+  runtimeConnected: boolean;
+  selectedWorkspaceAvailable: boolean;
+  selectedWorkspaceReady: boolean;
+}): Exclude<InitialEasyButtonPaneStartup, "creating" | "opening"> | "ready" {
+  if (!selectedWorkspaceReady) {
+    return null;
+  }
+  if (!selectedWorkspaceAvailable) {
+    return null;
+  }
+  if (!runtimeConnected) {
+    return "loading";
+  }
+  if (!paneWorkspaceReady) {
+    return "loading";
+  }
+  if (!navigatorReady) {
+    return "loading";
+  }
+  if (navigatorLoading) {
+    return "loading";
+  }
+  return handled ? null : "ready";
+}
+
+function initialEasyButtonStartupForDecision(
+  decision: InitialEasyButtonPaneDecision,
+): InitialEasyButtonPaneStartup {
+  switch (decision.kind) {
+    case "create":
+      return "creating";
+    case "present":
+      return "opening";
+    case "satisfied":
+    case "wait":
+      return null;
+    default:
+      return assertNever(decision);
+  }
 }
 
 async function fulfillInitialEasyButtonPane({
@@ -162,6 +232,7 @@ async function fulfillInitialEasyButtonPane({
     target = {
       conversationId: snapshot.conversation.id,
       title: snapshot.conversation.title,
+      viewAction: "focus-or-open",
       workspaceId: snapshot.conversation.workspaceId,
     };
   }
@@ -176,10 +247,15 @@ function presentationRequest(item: NavigatorItem): ConversationPanePresentationR
   return {
     conversationId: item.conversation.id,
     title: item.conversation.title,
+    viewAction: "focus-or-open",
     workspaceId: item.conversation.workspaceId,
   };
 }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "The initial conversation could not be opened.";
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled initial Easy Button pane decision: ${String(value)}`);
 }

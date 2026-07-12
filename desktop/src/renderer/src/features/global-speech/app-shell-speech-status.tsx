@@ -332,7 +332,6 @@ function executeShellCaptureAction(
 const shellCaptureActionExecutors = {
   cancel: (controller) => controller.cancel(),
   commit: (controller) => controller.commit(),
-  enable_and_start: enableAndStartShellCapture,
   retry_conversation: (controller) => controller.retryConversationSubmission(),
   retry_master: (controller) => controller.retryMasterSubmission(),
   start: startShellCapture,
@@ -340,13 +339,6 @@ const shellCaptureActionExecutors = {
   NonNullable<ReturnType<typeof shellSpeechCaptureAction>>,
   (controller: AppShellSpeechCaptureController) => void
 >;
-
-function enableAndStartShellCapture(controller: AppShellSpeechCaptureController): void {
-  const preference = controller.setEnabled(true);
-  if (preference.type === "ready" && preference.enabled) {
-    startShellCapture(controller);
-  }
-}
 
 function startShellCapture(controller: AppShellSpeechCaptureController): void {
   void controller.start(masterSpeechCaptureRequest());
@@ -400,7 +392,6 @@ function shellCaptureGlyphKind(capture: GlobalSpeechCapturePresentation): ShellC
 const shellCaptureGlyphKinds = {
   committing: "loading",
   connecting: "loading",
-  disabled: "microphone",
   idle: "microphone",
   listening: "stop",
   requesting_permission: "loading",

@@ -355,6 +355,7 @@ export function ConversationPresentationConfiguration({
     <details
       className="easy-button-chrome-config"
       data-testid="conversation-presentation-configuration"
+      data-workspace-pane-interactive-control="true"
     >
       <summary
         aria-label="Voice and color settings"

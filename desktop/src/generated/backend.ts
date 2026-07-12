@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 57;
-export const backendContractSchemaHash = "sha256:60745be67f662015b331802e6ba8592b7c8c576f409ef18067b09070960378bf";
+export const backendProtocolVersion = 58;
+export const backendContractSchemaHash = "sha256:891b7f058732e09613505cd9ccb5b22c7699bb36f878eeefadb657f67c27fa3e";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -162,13 +162,15 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "easy-button" | "empty-frame" | "settings-dom";
+export type SurfaceKind = "browser" | "easy-button" | "empty-frame" | "settings-dom";
 
-export const surfaceKindValues = ["easy-button", "empty-frame", "settings-dom"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["browser", "easy-button", "empty-frame", "settings-dom"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "browser":
+      return decoded;
     case "easy-button":
       return decoded;
     case "empty-frame":
@@ -1742,6 +1744,10 @@ export type WorkspaceUIPane = {
   tone: PaneTone;
   weight: number;
 } & (
+  | {
+      surfaceKind: "browser";
+      easyButtonConfig: null;
+    }
   | {
       surfaceKind: "easy-button";
       easyButtonConfig: EasyButtonPaneConfig;
@@ -4010,6 +4016,16 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
     weight: decodeNumber(requireField(record, "weight", "WorkspaceUIPane"), "WorkspaceUIPane.weight"),
   };
   switch (result.surfaceKind) {
+    case "browser": {
+      if (result.easyButtonConfig !== null) {
+        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is browser");
+      }
+      return {
+        ...result,
+        surfaceKind: "browser",
+        easyButtonConfig: null,
+      };
+    }
     case "easy-button": {
       if (result.easyButtonConfig === null) {
         throw new Error("WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button");

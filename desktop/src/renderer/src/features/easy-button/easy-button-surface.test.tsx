@@ -21,7 +21,6 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { useConversationStore } from "../../stores/conversation-store";
 import {
-  conversationControlAction,
   EasyButtonProjectionSurface,
   EasyButtonSurface,
   easyButtonConversationProjection,
@@ -35,6 +34,7 @@ import {
   requestEasyButtonSpeechCapture,
   type EasyButtonConversationCommands,
 } from "./easy-button-conversation-commands";
+import { conversationControlAction } from "./easy-button-conversation-control";
 
 const workspaceId = "workspace_topic";
 const timestamp = "2026-07-11T20:00:00Z";

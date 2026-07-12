@@ -11,6 +11,7 @@ import {
   captureScreenshot,
   clickEnabledButtonByAria,
   createElectronFixture,
+  dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
@@ -419,18 +420,28 @@ async function presentConversation(client, conversationId) {
 }
 
 async function openConversationConfiguration(client, conversationId) {
-  await waitForState(
+  const state = await waitForState(
     client,
     driverCallExpression("presentationConfigurationConversationState", { conversationId }),
     (state) => state.ready && state.narratorVoiceOptionCount > 1,
     workflowTimeoutMs,
   );
-  const opened = await client.driver("presentationConfigurationOpenConversation", {
+  if (state.open) {
+    return;
+  }
+  const point = await client.driver("presentationConfigurationConversationTogglePoint", {
     conversationId,
   });
-  if (!opened.opened) {
+  if (!point.ok) {
     throw new Error(`Conversation ${conversationId} presentation controls were unavailable`);
   }
+  await dispatchMouseClick(client, point);
+  await waitForState(
+    client,
+    driverCallExpression("presentationConfigurationConversationState", { conversationId }),
+    (current) => current.ready && current.open,
+    workflowTimeoutMs,
+  );
 }
 
 function waitForConversationSettings(

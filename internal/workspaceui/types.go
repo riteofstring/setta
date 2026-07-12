@@ -14,6 +14,7 @@ const (
 type SurfaceKind string
 
 const (
+	SurfaceKindBrowser     SurfaceKind = "browser"
 	SurfaceKindEasyButton  SurfaceKind = "easy-button"
 	SurfaceKindEmptyFrame  SurfaceKind = "empty-frame"
 	SurfaceKindSettingsDOM SurfaceKind = "settings-dom"
@@ -103,6 +104,10 @@ func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
 		Discriminator: "surfaceKind",
 		Variants: []ContractDiscriminatedStructVariant{
 			{
+				DiscriminatorValue: string(SurfaceKindBrowser),
+				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
+			},
+			{
 				DiscriminatorValue: string(SurfaceKindEasyButton),
 				Fields: []ContractDiscriminatedStructField{{
 					Name:    "easyButtonConfig",
@@ -133,6 +138,7 @@ func ContractValueSets() []ContractValueSet {
 		{
 			Name: "SurfaceKind",
 			Values: []string{
+				string(SurfaceKindBrowser),
 				string(SurfaceKindEasyButton),
 				string(SurfaceKindEmptyFrame),
 				string(SurfaceKindSettingsDOM),

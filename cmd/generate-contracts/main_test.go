@@ -397,6 +397,7 @@ func TestRenderWorkspaceUIPaneRequiresDiscriminatedConversationBinding(t *testin
 	output := buffer.String()
 	for _, want := range []string{
 		"export type WorkspaceUIPane = {",
+		"surfaceKind: \"browser\";\n      easyButtonConfig: null;",
 		"surfaceKind: \"easy-button\";\n      easyButtonConfig: EasyButtonPaneConfig;",
 		"surfaceKind: \"empty-frame\";\n      easyButtonConfig: null;",
 		"surfaceKind: \"settings-dom\";\n      easyButtonConfig: null;",

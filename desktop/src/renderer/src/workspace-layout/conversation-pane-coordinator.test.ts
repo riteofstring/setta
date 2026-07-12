@@ -21,12 +21,38 @@ describe("conversation pane coordinator", () => {
     const result = presentConversationPane(store, {
       conversationId: "conversation_shared",
       title: "Shared topic",
+      viewAction: "focus-or-open",
       workspaceId: "workspace_api",
     });
 
     expect(result).toEqual({ kind: "focused", paneId: second });
     expect(store.focusedPaneId()).toBe(second);
     expect(store.toScene().totalPanes).toBe(paneCount);
+  });
+
+  test("opens another Easy Button view when duplicate presentation is requested", () => {
+    const store = workspaceStore();
+    const existingPaneId = store.openPane(boundRequest("conversation_shared"));
+    const paneCount = store.toScene().totalPanes;
+
+    const result = presentConversationPane(store, {
+      conversationId: "conversation_shared",
+      title: "Shared topic",
+      viewAction: "open-new-view",
+      workspaceId: "workspace_api",
+    });
+
+    expect(result.kind).toBe("opened");
+    if (result.kind !== "opened") {
+      throw new Error(`conversation pane was not opened: ${JSON.stringify(result)}`);
+    }
+    expect(result.paneId).not.toBe(existingPaneId);
+    expect(store.toScene().totalPanes).toBe(paneCount + 1);
+    expect(
+      store
+        .toScene()
+        .panes.filter((pane) => pane.easyButtonConfig?.conversationId === "conversation_shared"),
+    ).toHaveLength(2);
   });
 
   test("opens a typed Easy Button view when the conversation has no pane", () => {
@@ -36,6 +62,7 @@ describe("conversation pane coordinator", () => {
     const result = presentConversationPane(store, {
       conversationId: "conversation_zero_panes",
       title: "Persistent topic",
+      viewAction: "focus-or-open",
       workspaceId: "workspace_api",
     });
 
@@ -66,6 +93,7 @@ describe("conversation pane coordinator", () => {
       conversationId: "conversation_shared",
       preferredPaneId: preferred,
       title: "Shared topic",
+      viewAction: "focus-or-open",
       workspaceId: "workspace_api",
     });
 
@@ -99,6 +127,7 @@ describe("conversation pane coordinator", () => {
       conversationId: "conversation_shared",
       preferredPaneId: "pane_shared",
       title: "Shared topic",
+      viewAction: "focus-or-open",
       workspaceId: "workspace_api",
     });
   });
@@ -111,6 +140,7 @@ describe("conversation pane coordinator", () => {
     const result = presentConversationPane(store, {
       conversationId: "conversation_shared",
       title: "Shared topic",
+      viewAction: "focus-or-open",
       workspaceId: "workspace_api",
     });
 
@@ -126,6 +156,7 @@ describe("conversation pane coordinator", () => {
     const result = presentConversationPane(store, {
       conversationId: "conversation_zero_panes",
       title: "Persistent topic",
+      viewAction: "focus-or-open",
       workspaceId: "workspace_api",
     });
 
@@ -141,6 +172,7 @@ describe("conversation pane coordinator", () => {
     const result = presentConversationPane(workspaceStore(), {
       conversationId: "conversation_other",
       title: "Other",
+      viewAction: "focus-or-open",
       workspaceId: "workspace_other",
     });
 

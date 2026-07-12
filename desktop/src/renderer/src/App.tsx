@@ -30,7 +30,6 @@ import {
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
 import type { AppShellSpeechCaptureController } from "./features/global-speech/app-shell-speech-capture-controller";
 import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
-import { AppShellSpeechStatus } from "./features/global-speech/app-shell-speech-status";
 import type { GlobalSpeechPresentationSource } from "./features/global-speech/global-speech-presentation";
 import { cn } from "./lib/utils";
 import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
@@ -160,7 +159,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const setInitialConversationError = useCallback((message: string | null) => {
     setConversationPresentationError(message);
   }, []);
-  useInitialEasyButtonPane({
+  const initialEasyButtonPaneStartup = useInitialEasyButtonPane({
     activeWorkspaceIds,
     connectedRuntimeId: runtime.connectedRuntimeId,
     onError: setInitialConversationError,
@@ -170,9 +169,14 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     setta,
   });
   const presentConversation = useCallback(
-    async (workspaceId: string, conversationId: string, title: string): Promise<void> => {
+    async (
+      workspaceId: string,
+      conversationId: string,
+      title: string,
+      viewAction: ConversationPanePresentationRequest["viewAction"],
+    ): Promise<void> => {
       try {
-        await presentConversationRequest({ conversationId, title, workspaceId });
+        await presentConversationRequest({ conversationId, title, viewAction, workspaceId });
       } catch (error) {
         setConversationPresentationError(
           error instanceof Error ? error.message : "The conversation pane could not be opened.",
@@ -221,7 +225,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       inert={masterOverlayOpen || undefined}
     >
       <AppChromeControls
-        globalSpeechAvailable={Boolean(speechCapture)}
         master={master}
         masterOverlayOpen={masterOverlayOpen}
         mobileViewport={mobileViewport}
@@ -248,6 +251,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         <WorkspaceLayoutArea
           focusConversationRequest={workspaceConversationFocusRequest}
           focusSurfaceRequest={workspaceSurfaceFocusRequest}
+          initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
           onConversationPresentationError={setConversationPresentationError}
           onToggleProjectPane={toggleProjectPane}
           platform={platform}
@@ -434,6 +438,7 @@ function ProjectPane({
     workspaceId: string,
     conversationId: string,
     title: string,
+    viewAction: ConversationPanePresentationRequest["viewAction"],
   ) => Promise<void>;
   setWidth: (width: number) => void;
   viewportWidth: number;
@@ -507,7 +512,6 @@ export function sidebarWorkspaceBusy(
 }
 
 function AppChromeControls({
-  globalSpeechAvailable,
   master,
   masterOverlayOpen,
   mobileViewport,
@@ -516,7 +520,6 @@ function AppChromeControls({
   projectPaneOpen,
   setProjectPaneOpen,
 }: {
-  globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
   masterOverlayOpen: boolean;
   mobileViewport: boolean;
@@ -530,7 +533,6 @@ function AppChromeControls({
   }
   return (
     <DesktopShellTopBar
-      globalSpeechAvailable={globalSpeechAvailable}
       master={master}
       masterOverlayOpen={masterOverlayOpen}
       onOpenSettings={openSettingsPane}
@@ -542,7 +544,6 @@ function AppChromeControls({
 }
 
 function DesktopShellTopBar({
-  globalSpeechAvailable,
   master,
   masterOverlayOpen,
   onOpenSettings,
@@ -550,7 +551,6 @@ function DesktopShellTopBar({
   projectPaneOpen,
   setProjectPaneOpen,
 }: {
-  globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
   masterOverlayOpen: boolean;
   onOpenSettings: () => void;
@@ -601,7 +601,6 @@ function DesktopShellTopBar({
           </div>
         </TooltipProvider>
       </div>
-      {globalSpeechAvailable ? <AppShellSpeechStatus /> : null}
       <div className="setta-shell-top-bar-right">
         <SettaLogoMark className="setta-shell-top-bar-logo" height={12} />
       </div>

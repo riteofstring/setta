@@ -9,7 +9,6 @@ import type {
   CompletedGlobalSpeechTranscript,
   MasterInputSubmissionState,
 } from "../global-master/app-shell-master-controller";
-import type { GlobalMicrophonePreference } from "./global-microphone-preference";
 import {
   RealtimeTranscriptionError,
   type RealtimeTranscriptionErrorCode,
@@ -48,12 +47,10 @@ export type SpeechCaptureFailureCode =
   | "malformed_event"
   | "master_submission_failed"
   | "master_submission_pending"
-  | "microphone_disabled"
   | "microphone_permission_denied"
   | "microphone_unavailable"
   | "no_speech"
   | "not_configured"
-  | "preference_unavailable"
   | "protocol_violation"
   | "provider_rate_limited"
   | "provider_rejected"
@@ -98,7 +95,6 @@ export interface AppShellSpeechCaptureSnapshot {
   completedTranscript: CompletedGlobalSpeechTranscript | null;
   conversationSubmission: ConversationInputSubmissionState;
   masterSubmission: MasterInputSubmissionState;
-  preference: GlobalMicrophonePreference;
   runtimeId: string | null;
 }
 
@@ -111,10 +107,8 @@ export interface AppShellSpeechCaptureControllerDependencies extends GlobalSpeec
   onCaptureEnd: () => void;
   onCaptureStart: () => void;
   readCapabilities: () => Promise<SpeechCapabilities>;
-  readPreference: () => GlobalMicrophonePreference;
   setTimeout: (handler: () => void, delayMs: number) => unknown;
   support: () => SpeechCaptureSupport;
-  writePreference: (enabled: boolean) => GlobalMicrophonePreference;
 }
 
 export class AppShellSpeechCaptureController {
@@ -148,7 +142,6 @@ export class AppShellSpeechCaptureController {
       completedTranscript: masterSnapshot.completedTranscript,
       conversationSubmission: { type: "idle" },
       masterSubmission: voiceMasterSubmission(masterSnapshot.submission),
-      preference: dependencies.readPreference(),
       runtimeId: null,
     };
     this.unsubscribeMasterSubmission = this.masterSubmission.subscribe(() => {
@@ -206,21 +199,6 @@ export class AppShellSpeechCaptureController {
     const generation = this.capabilityGeneration;
     this.updateSnapshot({ availability: { type: "loading" } });
     await this.loadCapabilities(generation, runtimeId);
-  };
-
-  setEnabled = (enabled: boolean): GlobalMicrophonePreference => {
-    this.assertUsable();
-    const preference = this.dependencies.writePreference(enabled);
-    if (preference.type === "failed" || !preference.enabled) {
-      this.resetCapture();
-      this.updateSnapshot({
-        capture: { type: "idle" },
-        preference,
-      });
-      return preference;
-    }
-    this.updateSnapshot({ preference });
-    return preference;
   };
 
   start = async (requestedCapture: SpeechCaptureRequest): Promise<void> => {
@@ -414,10 +392,6 @@ export class AppShellSpeechCaptureController {
   }
 
   private captureStartFailure(): { code: SpeechCaptureFailureCode; message: string } | null {
-    const preferenceFailure = capturePreferenceFailure(this.snapshotValue.preference);
-    if (preferenceFailure) {
-      return preferenceFailure;
-    }
     return captureAvailabilityFailure(
       this.snapshotValue.availability,
       this.snapshotValue.runtimeId,
@@ -732,21 +706,6 @@ function voiceMasterSubmission(submission: MasterInputSubmissionState): MasterIn
     default:
       return assertNever(submission);
   }
-}
-
-function capturePreferenceFailure(
-  preference: GlobalMicrophonePreference,
-): { code: SpeechCaptureFailureCode; message: string } | null {
-  if (preference.type === "failed") {
-    return { code: "preference_unavailable", message: preference.message };
-  }
-  if (!preference.enabled) {
-    return {
-      code: "microphone_disabled",
-      message: "Global microphone capture is disabled.",
-    };
-  }
-  return null;
 }
 
 function captureAvailabilityFailure(

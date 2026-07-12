@@ -18,6 +18,7 @@
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
+      topicConversationOpenNewViewFromNavigator,
       topicConversationRespondApproval,
       topicConversationShellSpeechCapture,
       topicConversationShellSpeechState,
@@ -80,7 +81,13 @@
     const visibleHosts = Array.from(
       document.querySelectorAll('[data-testid="workspace-pane-host"][data-visible="true"]'),
     );
+    const matchingSurface = Array.from(
+      document.querySelectorAll('[data-testid="easy-button-surface"]'),
+    ).find((surface) => datasetValue(surface, "conversationId") === conversationId);
+    const matchingHost = matchingSurface?.closest('[data-testid="workspace-pane-host"]');
+    const startupPane = document.querySelector('[data-testid="initial-easy-button-pane"]');
     return {
+      actionCount: matchingHost?.querySelectorAll("[data-workspace-pane-action]").length ?? 0,
       createControlPresent:
         document.querySelector('[data-testid="conversation-create-form"]') !== null,
       easyButtonPaneCount: visibleHosts.filter(
@@ -92,8 +99,19 @@
       matchingSurfaceCount: Array.from(
         document.querySelectorAll('[data-testid="easy-button-surface"]'),
       ).filter((surface) => datasetValue(surface, "conversationId") === conversationId).length,
+      paneId: datasetValue(matchingHost, "paneId"),
       searchControlPresent:
         document.querySelector('input[aria-label="Search conversations"]') !== null,
+      startupPanePresent: startupPane !== null,
+      startupState: datasetValue(startupPane, "startupState"),
+      topBarSpeechStatusPresent: Boolean(
+        document
+          .querySelector('[data-testid="shell-top-bar"]')
+          ?.querySelector('[data-testid="shell-speech-status"]'),
+      ),
+      voiceOffPresent: Array.from(document.querySelectorAll("body *")).some(
+        (element) => element.childElementCount === 0 && element.textContent?.trim() === "Voice off",
+      ),
       visiblePaneCount: visibleHosts.length,
     };
   }
@@ -122,91 +140,104 @@
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return {
       surfaces: Array.from(document.querySelectorAll('[data-testid="easy-button-surface"]')).map(
-        (surface) => {
-          const host = surface.closest('[data-testid="workspace-pane-host"]');
-          const topBar = host?.querySelector(".workspace-pane-top-bar");
-          const helper = surface.querySelector('[data-testid="easy-button-helper"]');
-          const error = surface.querySelector('[data-testid="easy-button-error"]');
-          const input = surface.querySelector('[data-testid="easy-button-input"]');
-          const agentText = surface.querySelector('[data-testid="easy-button-agent-text"]');
-          const approval = surface.querySelector('[data-testid="easy-button-approval"]');
-          const artifacts = surface.querySelectorAll(
-            '[data-testid="easy-button-artifacts"] [data-artifact-id]',
-          );
-          const summary = surface.querySelector('[data-testid="easy-button-summary-text"]');
-          const statusQuestion = surface.querySelector(".easy-button-status-question");
-          const statusReply = surface.querySelector(".easy-button-status-reply-text");
-          // Voice moved onto the giant control: it is the voice affordance whenever
-          // its mode is "talk" (start) or "stop-listening" (finish this pane's capture).
-          const control = surface.querySelector('[data-testid="easy-button-control"]');
-          const controlMode = control?.getAttribute("data-easy-button-control-mode") ?? "";
-          const controlIsVoice = controlMode === "talk" || controlMode === "stop-listening";
-          const voiceCapture = controlIsVoice ? control : null;
-          const side = surface.querySelector('[data-testid="easy-button-side-conversation"]');
-          const sideParentStatus = surface.querySelector(
-            '[data-testid="easy-button-side-parent-status"]',
-          );
-          const sideTranscript = surface.querySelector(
-            '[data-testid="easy-button-side-transcript"]',
-          );
-          const lineage = surface.querySelector('[data-testid="easy-button-fork-lineage"]');
-          const clarification = surface.querySelector('[data-testid="easy-button-clarification"]');
-          return {
-            agentText: elementText(agentText),
-            archived: datasetValue(surface, "easyButtonArchived") === "true",
-            approvalId: datasetValue(approval, "approvalId"),
-            artifactCount: artifacts.length,
-            artifactText: Array.from(artifacts).map(elementText).join("\n"),
-            captureState: datasetValue(surface, "easyButtonCapture"),
-            captureScope: datasetValue(surface, "easyButtonCaptureScope"),
-            clarificationText: elementText(clarification),
-            conversationId: datasetValue(surface, "conversationId"),
-            errorText: elementText(error),
-            eventCursorSequence: Number(datasetValue(surface, "easyButtonEventCursor") || "0"),
-            helperText: elementText(helper),
-            hostAccentDark: host.style.getPropertyValue("--conversation-accent-dark"),
-            hostConversationId: datasetValue(host, "conversationId"),
-            hostFocusRing: computedStyleValue(host, "--workspace-pane-focus-ring"),
-            hostFocusShadow: computedStyleValue(host, "--workspace-pane-focus-shadow"),
-            hostPaletteId: datasetValue(host, "conversationPalette"),
-            inputDisabled: inputIsDisabled(input),
-            paneId: datasetValue(host, "paneId"),
-            paletteId: datasetValue(surface, "conversationPalette"),
-            playbackScope: datasetValue(surface, "easyButtonPlaybackScope"),
-            playbackState: datasetValue(surface, "easyButtonPlayback"),
-            projectionStatus: datasetValue(surface, "easyButtonProjection"),
-            queueCount: Number(datasetValue(surface, "easyButtonQueueCount") || "0"),
-            forkParentConversationId: datasetValue(lineage, "forkParentConversationId"),
-            forkParentTitle: elementText(lineage),
-            sideId: datasetValue(side, "sideConversationId"),
-            sideParentStatus: datasetValue(sideParentStatus, "parentConversationStatus"),
-            sideStatus: datasetValue(side, "sideConversationStatus"),
-            sideTranscriptText: elementText(sideTranscript),
-            speechState: datasetValue(surface, "easyButtonSpeech"),
-            state: datasetValue(surface, "easyButtonState"),
-            status: datasetValue(surface, "easyButtonStatus"),
-            statusQuestion: elementText(statusQuestion),
-            statusReplyText: elementText(statusReply),
-            summaryText: elementText(summary),
-            speechActivityText: elementText(
-              surface.querySelector('[data-testid="easy-button-speech-activity"]'),
-            ),
-            speechTranscriptText: elementText(
-              surface.querySelector('[data-testid="easy-button-speech-transcript"]'),
-            ),
-            title: surface.getAttribute("aria-label") ?? "",
-            topBarBackgroundImage: computedStyleValue(topBar, "background-image"),
-            trajectoryEventCount: Number(datasetValue(surface, "easyButtonTrajectoryCount") || "0"),
-            trajectoryHasEarlier:
-              datasetValue(surface, "easyButtonTrajectoryHasEarlier") === "true",
-            voiceCaptureLabel: voiceCapture?.getAttribute("aria-label") ?? "",
-            voiceCaptureAvailable:
-              voiceCapture instanceof HTMLButtonElement && !voiceCapture.disabled,
-          };
-        },
+        topicConversationSurfaceSnapshot,
       ),
       workspaceId: datasetValue(area, "workspaceId"),
     };
+  }
+
+  function topicConversationSurfaceSnapshot(surface) {
+    const elements = conversationSurfaceElements(surface);
+    const voice = conversationSurfaceVoiceControl(elements.control);
+    return {
+      agentText: elementText(elements.agentText),
+      archived: datasetValue(surface, "easyButtonArchived") === "true",
+      approvalId: datasetValue(elements.approval, "approvalId"),
+      artifactCount: elements.artifacts.length,
+      artifactText: Array.from(elements.artifacts).map(elementText).join("\n"),
+      captureState: datasetValue(surface, "easyButtonCapture"),
+      captureScope: datasetValue(surface, "easyButtonCaptureScope"),
+      clarificationText: elementText(elements.clarification),
+      conversationId: datasetValue(surface, "conversationId"),
+      errorText: elementText(elements.error),
+      eventCursorSequence: numericDatasetValue(surface, "easyButtonEventCursor"),
+      forkParentConversationId: datasetValue(elements.lineage, "forkParentConversationId"),
+      forkParentTitle: elementText(elements.lineage),
+      helperText: elementText(elements.helper),
+      hostAccentDark: elements.host.style.getPropertyValue("--conversation-accent-dark"),
+      hostConversationId: datasetValue(elements.host, "conversationId"),
+      hostFocusRing: computedStyleValue(elements.host, "--workspace-pane-focus-ring"),
+      hostFocusShadow: computedStyleValue(elements.host, "--workspace-pane-focus-shadow"),
+      hostPaletteId: datasetValue(elements.host, "conversationPalette"),
+      inputDisabled: inputIsDisabled(elements.input),
+      paneId: datasetValue(elements.host, "paneId"),
+      paletteId: datasetValue(surface, "conversationPalette"),
+      playbackScope: datasetValue(surface, "easyButtonPlaybackScope"),
+      playbackState: datasetValue(surface, "easyButtonPlayback"),
+      projectionStatus: datasetValue(surface, "easyButtonProjection"),
+      queueCount: numericDatasetValue(surface, "easyButtonQueueCount"),
+      sideId: datasetValue(elements.side, "sideConversationId"),
+      sideParentStatus: datasetValue(elements.sideParentStatus, "parentConversationStatus"),
+      sideStatus: datasetValue(elements.side, "sideConversationStatus"),
+      sideTranscriptText: elementText(elements.sideTranscript),
+      speechActivityText: elementText(elements.speechActivity),
+      speechState: datasetValue(surface, "easyButtonSpeech"),
+      speechTranscriptText: elementText(elements.speechTranscript),
+      state: datasetValue(surface, "easyButtonState"),
+      status: datasetValue(surface, "easyButtonStatus"),
+      statusQuestion: elementText(elements.statusQuestion),
+      statusReplyText: elementText(elements.statusReply),
+      summaryText: elementText(elements.summary),
+      title: attributeValue(surface, "aria-label"),
+      topBarBackgroundImage: computedStyleValue(elements.topBar, "background-image"),
+      trajectoryEventCount: numericDatasetValue(surface, "easyButtonTrajectoryCount"),
+      trajectoryHasEarlier: datasetValue(surface, "easyButtonTrajectoryHasEarlier") === "true",
+      voiceCaptureAvailable: voice.available,
+      voiceCaptureLabel: voice.label,
+    };
+  }
+
+  function conversationSurfaceElements(surface) {
+    const host = surface.closest('[data-testid="workspace-pane-host"]');
+    if (!(host instanceof HTMLElement)) {
+      throw new Error("Easy Button surface is missing its workspace pane host");
+    }
+    return {
+      agentText: surface.querySelector('[data-testid="easy-button-agent-text"]'),
+      approval: surface.querySelector('[data-testid="easy-button-approval"]'),
+      artifacts: surface.querySelectorAll(
+        '[data-testid="easy-button-artifacts"] [data-artifact-id]',
+      ),
+      clarification: surface.querySelector('[data-testid="easy-button-clarification"]'),
+      control: surface.querySelector('[data-testid="easy-button-control"]'),
+      error: surface.querySelector('[data-testid="easy-button-error"]'),
+      helper: surface.querySelector('[data-testid="easy-button-helper"]'),
+      host,
+      input: surface.querySelector('[data-testid="easy-button-input"]'),
+      lineage: surface.querySelector('[data-testid="easy-button-fork-lineage"]'),
+      side: surface.querySelector('[data-testid="easy-button-side-conversation"]'),
+      sideParentStatus: surface.querySelector('[data-testid="easy-button-side-parent-status"]'),
+      sideTranscript: surface.querySelector('[data-testid="easy-button-side-transcript"]'),
+      speechActivity: surface.querySelector('[data-testid="easy-button-speech-activity"]'),
+      speechTranscript: surface.querySelector('[data-testid="easy-button-speech-transcript"]'),
+      statusQuestion: surface.querySelector(".easy-button-status-question"),
+      statusReply: surface.querySelector(".easy-button-status-reply-text"),
+      summary: surface.querySelector('[data-testid="easy-button-summary-text"]'),
+      topBar: host.querySelector(".workspace-pane-top-bar"),
+    };
+  }
+
+  function conversationSurfaceVoiceControl(control) {
+    if (!(control instanceof HTMLButtonElement)) {
+      return { available: false, label: "" };
+    }
+    switch (control.getAttribute("data-easy-button-control-mode")) {
+      case "talk":
+      case "stop-listening":
+        return { available: !control.disabled, label: attributeValue(control, "aria-label") };
+      default:
+        return { available: false, label: "" };
+    }
   }
 
   function topicConversationSubmit({ conversationId, paneId = null, text }) {
@@ -433,10 +464,21 @@
     return { clicked: true, conversationId };
   }
 
+  function topicConversationOpenNewViewFromNavigator({ conversationId }) {
+    const button = Array.from(
+      document.querySelectorAll('[data-testid="conversation-open-new-view"]'),
+    ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { clicked: false, conversationId };
+    }
+    button.click();
+    return { clicked: true, conversationId };
+  }
+
   async function topicConversationRequestPresentation({ conversationId, title, workspaceId }) {
     const detail = {
       completion: null,
-      request: { conversationId, title, workspaceId },
+      request: { conversationId, title, viewAction: "focus-or-open", workspaceId },
     };
     window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
     if (!(detail.completion instanceof Promise)) {
@@ -498,6 +540,14 @@
 
   function datasetValue(element, key) {
     return element instanceof HTMLElement ? (element.dataset[key] ?? "") : "";
+  }
+
+  function numericDatasetValue(element, key) {
+    return Number(datasetValue(element, key));
+  }
+
+  function attributeValue(element, name) {
+    return element?.getAttribute(name) ?? "";
   }
 
   function elementText(element) {

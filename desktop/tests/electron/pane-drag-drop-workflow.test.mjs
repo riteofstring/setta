@@ -56,6 +56,7 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
+  await waitForInitialEasyButtonStartupToSettle(context.client);
   await persistFourColumnLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -370,6 +371,15 @@ async function persistFourColumnLayout(client, workspaceId) {
     await window.setta.workspace.saveUILayout(${JSON.stringify(fourColumnLayout(workspaceId))});
     return true;
   })()`);
+}
+
+async function waitForInitialEasyButtonStartupToSettle(client) {
+  await waitForState(
+    client,
+    "Boolean(document.querySelector('[data-testid=\"initial-easy-button-pane\"]'))",
+    (present) => !present,
+    workflowTimeoutMs,
+  );
 }
 
 function fourColumnLayout(workspaceId) {

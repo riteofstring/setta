@@ -26,6 +26,7 @@ import type {
   AppShellMasterSnapshot,
   MasterInteractionState,
 } from "./app-shell-master-controller";
+import { AppShellSpeechStatus } from "../global-speech/app-shell-speech-status";
 
 interface MasterOverlayShortcutEvent {
   altKey: boolean;
@@ -220,6 +221,7 @@ function MasterOverlay({
               {synchronousError}
             </div>
           ) : null}
+          <AppShellSpeechStatus />
           <form className="setta-master-overlay-composer" onSubmit={submit}>
             <textarea
               aria-label="Ask Setta"

@@ -4,6 +4,9 @@ import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
 
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
+const initialThreadStartDelayMs = optionalNonNegativeIntegerEnvironment(
+  "SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS",
+);
 const persistedState = readPersistedState();
 let threadCounter = persistedState.threadCounter;
 let turnCounter = persistedState.turnCounter;
@@ -137,12 +140,31 @@ function startThread(message) {
   if (restricted) {
     assertRestrictedThreadParams(params, true);
   }
+  const delayInitialResponse = threadCounter === 0 && initialThreadStartDelayMs > 0;
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
   const state = startThreadState(params, threadId, restricted);
   threads.set(threadId, state);
   persistState();
-  respond(message.id, threadOperationResponse(fakeThread(threadId), state));
+  const sendResponse = () =>
+    respond(message.id, threadOperationResponse(fakeThread(threadId), state));
+  if (delayInitialResponse) {
+    setTimeout(sendResponse, initialThreadStartDelayMs);
+    return;
+  }
+  sendResponse();
+}
+
+function optionalNonNegativeIntegerEnvironment(name) {
+  const raw = process.env[name] ?? "";
+  if (raw === "") {
+    return 0;
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${name} must be a non-negative integer`);
+  }
+  return value;
 }
 
 function startThreadState(params, threadId, restricted) {

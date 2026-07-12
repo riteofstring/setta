@@ -58,10 +58,19 @@ try {
   const afterOpen = await waitForSettingsPanel(context.client);
   await captureScreenshot(context.client, join(artifactDir, "after-settings-open.png"));
 
+  await openBrowserPane(context.client);
+  const browserOpened = await waitForBrowserPane(context.client, workspaceId);
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  const browserRestored = await waitForBrowserPane(context.client, workspaceId);
+  await captureScreenshot(context.client, join(artifactDir, "browser-restored.png"));
+
   await writeJson(join(artifactDir, "summary.json"), {
     afterOpen,
     artifactDir,
     beforeOpen,
+    browserOpened,
+    browserRestored,
     status: "passed",
     workspaceName: basename(fixture.workspaceRoot),
   });
@@ -147,6 +156,37 @@ async function waitForSettingsPanel(client) {
   );
 }
 
+async function openBrowserPane(client) {
+  await clickEnabledButtonByAria(client, "New frame", workflowTimeoutMs);
+  const clicked = await client.evaluate(`(() => {
+    const menu = document.querySelector('[role="menu"][aria-label="New frame options"]');
+    const button = Array.from(menu?.querySelectorAll("button") ?? []).find(
+      (candidate) => candidate.textContent?.trim().startsWith("Browser"),
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error("Browser pane menu action was not clickable");
+  }
+}
+
+async function waitForBrowserPane(client, workspaceId) {
+  return waitForState(
+    client,
+    browserStateExpression(),
+    (state) =>
+      state.workspaceId === workspaceId &&
+      state.paneCount === 4 &&
+      state.browserVisible &&
+      !state.layoutRecoveryVisible,
+    workflowTimeoutMs,
+  );
+}
+
 async function safeSettingsState(client) {
   try {
     return await client.evaluate(settingsStateExpression());
@@ -170,6 +210,23 @@ function settingsStateExpression() {
       paneCount: Number(area instanceof HTMLElement ? area.dataset.paneCount ?? "0" : "0"),
       settingsPanelReady: Boolean(document.querySelector("#settings-subtab-theme")),
       surfaceKinds: hosts.map((host) => host.dataset.surfaceKind ?? ""),
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+    };
+  })()`;
+}
+
+function browserStateExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const browser = document.querySelector(
+      '[data-testid="workspace-pane-host"][data-visible="true"][data-surface-kind="browser"]',
+    );
+    return {
+      browserVisible: browser instanceof HTMLElement,
+      layoutRecoveryVisible: Boolean(
+        document.querySelector('[data-testid="workspace-layout-recovery"]'),
+      ),
+      paneCount: Number(area instanceof HTMLElement ? area.dataset.paneCount ?? "0" : "0"),
       workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
     };
   })()`;

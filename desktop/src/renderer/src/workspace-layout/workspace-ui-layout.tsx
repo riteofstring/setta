@@ -1,7 +1,9 @@
 import type { WorkspaceUILayout } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
+import { LoaderCircle, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { InitialEasyButtonPaneStartup } from "../features/easy-button/initial-easy-button-pane";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { workspaceUILayoutFromScene } from "./workspace-scene";
 import type { WorkspaceRuntime } from "./workspace-runtime";
@@ -27,10 +29,12 @@ export type WorkspaceUILayoutLoad =
     };
 
 export function WorkspaceLayoutLoading({
+  initialEasyButtonPaneStartup,
   mode,
   platform,
   workspaceId,
 }: {
+  initialEasyButtonPaneStartup: InitialEasyButtonPaneStartup;
   mode: WorkspaceSceneMode;
   platform: DesktopPlatform;
   workspaceId: string;
@@ -47,8 +51,53 @@ export function WorkspaceLayoutLoading({
       data-workspace-mode={mode}
       data-workspace-id={workspaceId}
       data-testid="workspace-layout-area"
-    />
+    >
+      <WorkspaceInitialEasyButtonPane startup={initialEasyButtonPaneStartup} />
+    </section>
   );
+}
+
+export function WorkspaceInitialEasyButtonPane({
+  startup,
+}: {
+  startup: InitialEasyButtonPaneStartup;
+}) {
+  if (startup === null) {
+    return null;
+  }
+  return (
+    <article
+      aria-busy="true"
+      aria-label="Easy Button conversation is starting"
+      className="app-no-drag absolute inset-2 z-40 grid min-h-0 grid-rows-[42px_minmax(0,1fr)] overflow-hidden rounded-[20px] border border-cyan-400/50 bg-background shadow-2xl"
+      data-startup-state={startup}
+      data-testid="initial-easy-button-pane"
+    >
+      <header className="flex items-center gap-2 border-b border-cyan-400/30 px-4 text-sm text-foreground">
+        <Sparkles aria-hidden="true" className="h-4 w-4 text-cyan-300" />
+        <span>Easy Button</span>
+      </header>
+      <main className="grid place-items-center">
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
+          {initialEasyButtonStartupLabel(startup)}
+        </p>
+      </main>
+    </article>
+  );
+}
+
+function initialEasyButtonStartupLabel(startup: Exclude<InitialEasyButtonPaneStartup, null>) {
+  switch (startup) {
+    case "creating":
+      return "Starting conversation…";
+    case "loading":
+      return "Preparing Easy Button…";
+    case "opening":
+      return "Opening conversation…";
+    default:
+      return assertNever(startup);
+  }
 }
 
 export function useWorkspaceUILayoutLoad(
@@ -214,4 +263,8 @@ function shouldLoadWorkspaceUILayout(workspaceId: string, mode: WorkspaceSceneMo
 
 function layoutOperationErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Workspace layout operation failed";
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled Easy Button startup state: ${String(value)}`);
 }

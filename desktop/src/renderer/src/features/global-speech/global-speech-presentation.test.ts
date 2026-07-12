@@ -89,8 +89,8 @@ describe("global speech presentation", () => {
     );
     expect(
       shellSpeechStatusLabel(
-        { source: null, state: "disabled" },
-        "Enable the microphone",
+        { source: null, state: "idle" },
+        "Start a voice request for Setta",
         "Alpha topic narrator is speaking",
       ),
     ).toBe("Alpha topic narrator is speaking");
@@ -121,15 +121,11 @@ describe("global speech presentation", () => {
     });
   });
 
-  test("keeps microphone disablement and frozen submission retry explicit", () => {
-    const disabled = globalSpeechCapturePresentation(
-      captureSnapshot({ preference: { enabled: false, type: "ready" } }),
-    );
-    expect(disabled).toEqual({ source: null, state: "disabled" });
-    expect(shellSpeechCaptureAction(disabled)).toBe("enable_and_start");
-    expect(shellSpeechCaptureControlLabel(disabled)).toBe(
-      "Enable the microphone and start a voice request for Setta",
-    );
+  test("keeps direct capture and frozen submission retry explicit", () => {
+    const idle = globalSpeechCapturePresentation(captureSnapshot());
+    expect(idle).toEqual({ source: null, state: "idle" });
+    expect(shellSpeechCaptureAction(idle)).toBe("start");
+    expect(shellSpeechCaptureControlLabel(idle)).toBe("Start a voice request for Setta");
 
     const input = conversationInput();
     const failed = globalSpeechCapturePresentation(
@@ -180,7 +176,6 @@ function captureSnapshot(
     completedTranscript: null,
     conversationSubmission: { type: "idle" },
     masterSubmission: { type: "idle" },
-    preference: { enabled: true, type: "ready" },
     runtimeId: "runtime-speech",
     ...overrides,
   };

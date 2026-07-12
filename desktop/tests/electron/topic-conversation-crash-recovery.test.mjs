@@ -17,7 +17,6 @@ import {
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   readJsonLinesOptional,
-  reloadPage,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
@@ -40,7 +39,10 @@ import {
   hasFinalNarrationForEveryTurn,
   narratorCaughtUp,
 } from "./topic-conversation-projection-assertions.mjs";
-import { safeTopicConversationSurfaceStates } from "./topic-conversation-speech-state-assertions.mjs";
+import {
+  openMasterOverlayForSpeech,
+  safeTopicConversationSurfaceStates,
+} from "./topic-conversation-speech-state-assertions.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -80,7 +82,6 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  await enableGlobalMicrophoneAndReload(context.client);
   const backend = await backendProbe(firstLaunchDir);
   const workspaceId = await openWorkspace(context.client);
 
@@ -352,6 +353,7 @@ try {
           event.turnId === narratorBeforeCrash.turns.turns[0]?.id && event.kind === "final_summary",
       ),
   );
+  await openMasterOverlayForSpeech(context.client, workflowTimeoutMs);
   const speechAfterCrash = await waitForState(
     context.client,
     driverCallExpression("topicConversationShellSpeechState", {}),
@@ -425,14 +427,6 @@ async function prepareRenderer(client) {
   await client.installDriver();
 }
 
-async function enableGlobalMicrophoneAndReload(client) {
-  await client.evaluate(
-    'localStorage.setItem("setta.global-speech.microphone-enabled.v1", "enabled")',
-  );
-  await reloadPage(client);
-  await prepareRenderer(client);
-}
-
 async function openWorkspace(client) {
   const initial = await waitForState(
     client,
@@ -457,12 +451,9 @@ function validWorkspaceId(workspaceId) {
 }
 
 function speechSafelyResetAfterRestart(state) {
-  const expectedCaptureLabels = {
-    disabled: "Enable the microphone and start a voice request for Setta",
-    idle: "Start a voice request for Setta",
-  };
   return (
-    expectedCaptureLabels[state.captureState] === state.captureLabel &&
+    state.captureState === "idle" &&
+    state.captureLabel === "Start a voice request for Setta" &&
     state.captureAvailable &&
     state.playbackState === "idle" &&
     state.sourceConversationId === "" &&
