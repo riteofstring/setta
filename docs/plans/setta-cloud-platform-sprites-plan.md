@@ -2,8 +2,10 @@
 
 **Date:** 2026-07-13
 
-**Status:** Plan of record; implementation has not started. Phase 0 is
-complete; Phase 1a is next.
+**Status:** Plan of record. Phase 0 is complete; Phase 1a is in progress
+(access re-established, leftover probe Sprite characterized and destroyed;
+structured probe battery pending). See
+`docs/reports/2026-07-13-sprites-phase1a-probes.md`.
 
 **Branch:** `setta-3-cloud-platform`, created from `setta-3` at
 `de4bae2e4`.
@@ -1222,3 +1224,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   depth one, with non-overlapping ownership. Recorded that prose guides agent
   behavior but per-agent effort requires supported Codex custom-agent
   configuration and otherwise inherits from the parent session.
+- 2026-07-13: Began Phase 1a. Reinstalled the `sprite` CLI (`v0.0.1-rc45`) and
+  re-authenticated to org `setta-100`. Characterized and destroyed a leftover
+  probe Sprite (`setta-phase1a-20260713-a1`), recording base image (Ubuntu
+  26.04, kernel `6.12.91-fly`), tooling (node 22.20, python 3.13.7, podman 5.7,
+  docker absent), and the management surface. Early observations: a
+  `tail -f /dev/null` keepalive kept the Sprite billing ~7h despite zero load
+  (idle-to-zero defeated); the default `sprite` account has passwordless sudo
+  and `/.sprite/api.sock` is world-writable (isolation stop-condition needs the
+  adversarial socket-authorization probe); raw-IP egress to `1.1.1.1:443` was
+  blocked. Found public evidence that Fly supports the customer-per-Sprite
+  model (community threads; $20–$2000 plan ladder gating concurrent-active/warm
+  Sprites; no-plan cap of 10), so the formal Fly inquiry is deferred to a
+  pre-beta gate. Recorded that the Pre-Code Cost Baseline omits the subscription
+  plan layer, which changes per-user economics. Full evidence in
+  `docs/reports/2026-07-13-sprites-phase1a-probes.md`. Adversarial probes
+  (socket authorization, network bypass, hostile-load cost cutoff) held for
+  explicit go-ahead.
