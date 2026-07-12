@@ -331,6 +331,44 @@ Documentation-only commits require diff inspection and directly relevant
 checks only. Record when the full executable workflow is skipped for that
 reason.
 
+### Agent execution policy
+
+Use GPT-5.6 Sol at high reasoning effort for the lead agent when it is
+available. The lead owns task decomposition, synthesis, scope control, and
+every phase-exit or stop/go decision.
+
+Use subagents sparingly and only for concrete, bounded work that can proceed
+independently:
+
+- Default subagents to medium reasoning effort for documentation research,
+  evidence collection, mechanical probes, narrow implementation, and focused
+  test execution.
+- Use high reasoning effort for a security or adversarial review, an
+  architecture decision, ambiguous or conflicting evidence, and an independent
+  phase-exit assessment.
+- Run no more than two subagents concurrently and keep delegation depth at one.
+  Do not create recursive agent trees.
+- Give each subagent one non-overlapping question, experiment, or code area.
+  Assign one writer per file or experiment; research and review agents are
+  read-only unless the lead explicitly assigns an isolated edit.
+- Require each subagent to return evidence, commands or sources used,
+  uncertainties, and a bounded recommendation. The lead must inspect and
+  synthesize the result rather than treating a subagent conclusion as a gate
+  decision.
+- Escalate a specific medium-effort task to high only when its result is
+  ambiguous, security-sensitive, or materially affects a stop condition. Do
+  not run all work at high effort by default.
+
+This section is an execution policy, not proof of the active Codex
+configuration. Built-in subagents inherit the parent session's model and
+reasoning effort unless a project-scoped custom-agent configuration overrides
+them. Before relying on a medium/high split, confirm the active client supports
+per-agent `model_reasoning_effort`; otherwise record that subagents inherited
+the lead's high setting and still follow the role, concurrency, and ownership
+rules above. Do not add custom-agent configuration until repeated execution
+shows that the prose policy is insufficient or the measured cost/latency gain
+justifies another persistent repository surface.
+
 ### Integration discipline
 
 - Do not merge `setta-3-cloud-runs-2` wholesale.
@@ -1177,3 +1215,10 @@ Stop and reassess rather than hiding the problem if any of these occur:
   from a raw HTTPS URL to `origin/setta-3-cloud-runs-2`; local and origin state
   then reported zero ahead and zero behind. Phase 1a is the next execution
   gate.
+- 2026-07-13: Added the agent execution policy for the plan: GPT-5.6 Sol at
+  high effort for lead synthesis and gates; medium-effort subagents for bounded
+  routine work; high-effort subagents only for security, architecture,
+  ambiguity, or independent gate review; at most two concurrent subagents,
+  depth one, with non-overlapping ownership. Recorded that prose guides agent
+  behavior but per-agent effort requires supported Codex custom-agent
+  configuration and otherwise inherits from the parent session.
