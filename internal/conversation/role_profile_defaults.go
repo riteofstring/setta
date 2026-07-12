@@ -47,3 +47,28 @@ func DefaultNarratorRoleProfile() RoleProfile {
 		},
 	}
 }
+
+// DefaultSideAgentRoleProfile is independent from both the primary agent and
+// narrator. Side agents can inspect inherited workspace context, but their
+// provider sandbox cannot mutate the workspace.
+func DefaultSideAgentRoleProfile() RoleProfile {
+	modelID := "gpt-5.6-luna"
+	return RoleProfile{
+		Role:            RoleSideAgent,
+		Provider:        ProviderCodex,
+		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
+		ReasoningEffort: ReasoningEffortMedium,
+		PermissionProfile: PermissionProfile{
+			ApprovalPolicy:            ApprovalPolicyOnRequest,
+			ProviderPermissionProfile: ":read-only",
+			ToolAccess:                ToolAccessPolicy{Mode: ToolAccessAll, AllowedTools: []string{}},
+			WorkspaceMutation:         false,
+			Approvals:                 true,
+		},
+		ContextBudget: ContextBudget{
+			MaxInputBytes:        256 * 1024,
+			MaxInputTokens:       64 * 1024,
+			ReservedOutputTokens: 8 * 1024,
+		},
+	}
+}

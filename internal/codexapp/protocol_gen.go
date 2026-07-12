@@ -3988,7 +3988,7 @@ type ThreadForkParams struct {
 	Model                 *string                     `json:"model,omitempty"`
 	ModelProvider         *string                     `json:"modelProvider,omitempty"`
 	Sandbox               *SandboxMode                `json:"sandbox,omitempty"`
-	ServiceTier           *string                     `json:"serviceTier,omitempty"`
+	ServiceTier           *CodexNullableString        `json:"serviceTier,omitempty"`
 	ThreadID              string                      `json:"threadId"`
 	ThreadSource          *ThreadSource               `json:"threadSource,omitempty"`
 }

@@ -2,8 +2,10 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -18,6 +20,36 @@ func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
 	assertFakeForkAndCleanup(t, ctx, runtime, thread)
 	assertFakeModelResolution(t, ctx, runtime)
 	assertFakeReconciliation(t, ctx, runtime, thread)
+}
+
+func TestForkThreadParamsPinsReasoningAndClearsInheritedServiceTier(t *testing.T) {
+	params, err := forkThreadParams(ForkThreadRequest{
+		ParentThreadID: "thread-parent",
+		WorkspaceRoot:  t.TempDir(),
+		Invocation: Invocation{
+			Model:           "gpt-5.6-luna",
+			ReasoningEffort: "medium",
+			PermissionMode:  PermissionModeReadOnly,
+			ApprovalMode:    ApprovalModeOnRequest,
+		},
+		Ephemeral: true,
+	})
+	if err != nil {
+		t.Fatalf("forkThreadParams: %v", err)
+	}
+	if params.Config == nil || string((*params.Config)["model_reasoning_effort"]) != `"medium"` {
+		t.Fatalf("fork config = %+v", params.Config)
+	}
+	if params.ServiceTier == nil {
+		t.Fatal("fork service tier override was omitted instead of explicitly cleared")
+	}
+	encoded, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("marshal fork params: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"serviceTier":null`) {
+		t.Fatalf("fork params = %s, want explicit null service tier", encoded)
+	}
 }
 
 func assertFakeThreadLifecycle(t *testing.T, ctx context.Context, runtime *Runtime) Thread {

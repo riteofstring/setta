@@ -37,7 +37,7 @@ import {
   assertDriverAction,
   assertNavigator,
   conversationSurfaces,
-  exerciseDurableForkWorkflow,
+  exerciseSideAndDurableForkWorkflow,
   hasReadyConversation,
   waitForNavigator,
 } from "./topic-conversation-fork-workflow.mjs";
@@ -639,7 +639,7 @@ try {
     forkSnapshot: alphaForkSnapshot,
     forkTerminalSnapshot: alphaForkTerminalSnapshot,
     forkTopic: alphaFork,
-  } = await exerciseDurableForkWorkflow({
+  } = await exerciseSideAndDurableForkWorkflow({
     backend,
     client: context.client,
     forkTitle: "Alpha durable fork",

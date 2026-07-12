@@ -69,6 +69,21 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 	)
 	assertForkTopicCommand(t, service, forked)
 
+	postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/sides/create",
+		CreateSideConversationRequest{
+			WorkspaceID:          "workspace-api",
+			ParentConversationID: "conversation-api",
+			ParentPaneID:         "pane-api",
+		},
+		http.StatusOK,
+	)
+	if service.command != "create_side" || service.commandParentPaneID != "pane-api" {
+		t.Fatalf("side command = %q pane = %q", service.command, service.commandParentPaneID)
+	}
+
 	for _, command := range []struct {
 		name string
 		path string
@@ -469,6 +484,7 @@ type httpTestConversationService struct {
 	commandWorkspaceID      string
 	commandConversationID   string
 	commandForkedAtTurnID   string
+	commandParentPaneID     string
 	commandText             string
 	commandTitle            string
 	approval                conversation.ConversationApprovalResponse
@@ -529,6 +545,17 @@ func (service *httpTestConversationService) ForkTopic(
 	}
 	forked.EventCursor.StreamID = "conversation:" + forked.Conversation.ID
 	return forked, nil
+}
+
+func (service *httpTestConversationService) CreateSideConversation(
+	_ context.Context,
+	workspaceID string,
+	parentConversationID string,
+	parentPaneID string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("create_side", workspaceID, parentConversationID, "")
+	service.commandParentPaneID = parentPaneID
+	return service.snapshot, nil
 }
 
 func (service *httpTestConversationService) UpdateNarratorVoiceSelection(

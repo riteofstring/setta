@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 28;
-export const backendContractSchemaHash = "sha256:b87705492d537afac4cd305db4fe3f9a16605e3a27dd22db7ed5d7f79485d333";
+export const backendProtocolVersion = 29;
+export const backendContractSchemaHash = "sha256:bccad7cd68989237f9e08785841f0d4b0b03ed5f27492dd67d21b028bb8cdb72";
 
 export type DeviceScope = "full";
 
@@ -4791,6 +4791,12 @@ export interface ForkTopicConversationRequest {
   title: string;
 }
 
+export interface CreateSideConversationRequest {
+  workspaceId: string;
+  parentConversationId: string;
+  parentPaneId: string;
+}
+
 export interface ReadConversationSnapshotRequest {
   workspaceId: string;
   conversationId: string;
@@ -8561,6 +8567,11 @@ export const backendEndpoints = {
     path: "/conversations/forks/create",
     requestBodyLimitBytes: 4194304,
   },
+  CreateSideConversation: {
+    method: "POST",
+    path: "/conversations/sides/create",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadConversationSnapshot: {
     method: "POST",
     path: "/conversations/snapshot/read",
@@ -10927,6 +10938,16 @@ export function decodeForkTopicConversationRequest(value: unknown): ForkTopicCon
     parentConversationId: decodeString(requireField(record, "parentConversationId", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.parentConversationId"),
     forkedAtTurnId: decodeString(requireField(record, "forkedAtTurnId", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.forkedAtTurnId"),
     title: decodeString(requireField(record, "title", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.title"),
+  };
+}
+
+export function decodeCreateSideConversationRequest(value: unknown): CreateSideConversationRequest {
+  const record = assertRecord(value, "CreateSideConversationRequest");
+  assertKnownFields(record, "CreateSideConversationRequest", ["workspaceId", "parentConversationId", "parentPaneId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateSideConversationRequest"), "CreateSideConversationRequest.workspaceId"),
+    parentConversationId: decodeString(requireField(record, "parentConversationId", "CreateSideConversationRequest"), "CreateSideConversationRequest.parentConversationId"),
+    parentPaneId: decodeString(requireField(record, "parentPaneId", "CreateSideConversationRequest"), "CreateSideConversationRequest.parentPaneId"),
   };
 }
 
@@ -16210,6 +16231,7 @@ export interface BackendClient {
   readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest, options?: BackendRequestOptions) => Promise<ReadWorkflowExecutionActivityResponse>;
   createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   forkTopicConversation: (request: ForkTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  createSideConversation: (request: CreateSideConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   listTopicConversations: (request: ListTopicConversationsRequest, options?: BackendRequestOptions) => Promise<NavigatorPage>;
   sendTopicConversationTurn: (request: SendTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
@@ -16568,6 +16590,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.ForkTopicConversation,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    createSideConversation: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.CreateSideConversation,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

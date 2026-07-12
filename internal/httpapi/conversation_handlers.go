@@ -73,6 +73,45 @@ func (handler handler) forkTopicConversation(response http.ResponseWriter, reque
 	writeConversationSnapshot(response, snapshot)
 }
 
+func (handler handler) createSideConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload CreateSideConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(
+		payload.WorkspaceID,
+		payload.ParentConversationID,
+	); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_side_conversation_create_request", err.Error())
+		return
+	}
+	if strings.TrimSpace(payload.ParentPaneID) == "" ||
+		payload.ParentPaneID != strings.TrimSpace(payload.ParentPaneID) {
+		writeError(
+			response,
+			http.StatusBadRequest,
+			"invalid_side_conversation_create_request",
+			"parent pane id is required without surrounding whitespace",
+		)
+		return
+	}
+	snapshot, err := service.CreateSideConversation(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ParentConversationID,
+		payload.ParentPaneID,
+	)
+	if err != nil {
+		writeConversationError(response, "create_side_conversation_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
 func (handler handler) sendTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
 	handler.runTopicConversationTextCommand(response, request, "send", func(
 		ctx context.Context,

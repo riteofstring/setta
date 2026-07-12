@@ -3,6 +3,7 @@ import type {
   AskTopicConversationNarratorStatusRequest,
   ConversationEventCursor,
   ConversationSnapshot,
+  CreateSideConversationRequest,
   CreateTopicConversationRequest,
   ForkTopicConversationRequest,
   ListTopicConversationsRequest,
@@ -19,6 +20,7 @@ import type {
 
 export const conversationIpcChannels = {
   conversationAskNarratorStatus: "conversation:ask-narrator-status",
+  conversationCreateSide: "conversation:create-side",
   conversationCreateTopic: "conversation:create-topic",
   conversationForkTopic: "conversation:fork-topic",
   conversationListTopicConversations: "conversation:list-topic-conversations",
@@ -49,6 +51,10 @@ export interface ConversationEventReleaseRequest {
 export interface ConversationIpc {
   conversationAskNarratorStatus: {
     args: [request: AskTopicConversationNarratorStatusRequest];
+    result: ConversationSnapshot;
+  };
+  conversationCreateSide: {
+    args: [request: CreateSideConversationRequest];
     result: ConversationSnapshot;
   };
   conversationCreateTopic: {

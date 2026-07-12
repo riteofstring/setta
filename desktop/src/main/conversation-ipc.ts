@@ -25,6 +25,12 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationCreateSide",
+    async (_event, request) => requireBackendClient().createSideConversation(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationCreateTopic",
     async (_event, request) => requireBackendClient().createTopicConversation(request),
     ipcObserver,

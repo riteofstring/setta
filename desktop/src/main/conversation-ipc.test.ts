@@ -16,6 +16,7 @@ describe("conversation IPC handlers", () => {
     const snapshot = { conversation: { id: "conversation_api" } };
     const backendMethods = {
       askTopicConversationNarratorStatus: vi.fn(async () => snapshot),
+      createSideConversation: vi.fn(async () => snapshot),
       createTopicConversation: vi.fn(async () => snapshot),
       forkTopicConversation: vi.fn(async () => snapshot),
       listTopicConversations,
@@ -68,6 +69,12 @@ describe("conversation IPC handlers", () => {
       ...target,
       question: "What is happening?",
     });
+    const sideRequest = {
+      parentConversationId: "conversation_api",
+      parentPaneId: "pane_api",
+      workspaceId: "workspace_api",
+    };
+    await invokeHandler(handlers, ipcChannels.conversationCreateSide, sideRequest);
     await requiredHandler(handlers, ipcChannels.conversationCreateTopic)({} as IpcMainInvokeEvent, {
       title: "Topic",
       workspaceId: "workspace_api",
@@ -112,6 +119,7 @@ describe("conversation IPC handlers", () => {
       ...target,
       question: "What is happening?",
     });
+    expect(backendMethods.createSideConversation).toHaveBeenCalledWith(sideRequest);
     expect(backendMethods.createTopicConversation).toHaveBeenCalledWith({
       title: "Topic",
       workspaceId: "workspace_api",

@@ -378,9 +378,17 @@ func TestRenderEmitsObjectDecoderDeclarations(t *testing.T) {
 	}
 }
 
-func TestRenderPreservesThreadSettingsServiceTierNullSemantics(t *testing.T) {
+func TestRenderPreservesServiceTierOverrideNullSemantics(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.schemas = map[string]jsonSchema{
+		"ThreadForkParams": {
+			Type: "object",
+			Properties: map[string]jsonSchema{
+				"serviceTier": {Type: []any{"string", "null"}},
+				"threadId":    {Type: "string"},
+			},
+			Required: []string{"threadId"},
+		},
 		"ThreadSettingsUpdateParams": {
 			Type: "object",
 			Properties: map[string]jsonSchema{
@@ -395,8 +403,8 @@ func TestRenderPreservesThreadSettingsServiceTierNullSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render protocol: %v", err)
 	}
-	if !strings.Contains(string(output), "ServiceTier *CodexNullableString `json:\"serviceTier,omitempty\"`") {
-		t.Fatalf("output = %s, want nullable serviceTier override", output)
+	if count := strings.Count(string(output), "ServiceTier *CodexNullableString `json:\"serviceTier,omitempty\"`"); count != 2 {
+		t.Fatalf("nullable serviceTier override count = %d, want 2\n%s", count, output)
 	}
 }
 

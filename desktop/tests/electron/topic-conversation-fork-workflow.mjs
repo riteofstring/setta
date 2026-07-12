@@ -2,6 +2,59 @@ import { waitForBackendState } from "./chat-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import { reloadPage, waitForSelector, waitForState } from "./electron-cdp-harness.mjs";
 
+export async function exerciseSideAndDurableForkWorkflow(args) {
+  const { parentSnapshot } = await exerciseEphemeralSideForkWorkflow(args);
+  return exerciseDurableForkWorkflow({
+    ...args,
+    parentSnapshot,
+  });
+}
+
+export async function exerciseEphemeralSideForkWorkflow({
+  backend,
+  client,
+  parentSnapshot,
+  parentTopic,
+  timeoutMs,
+  workspaceId,
+}) {
+  const surfaces = await waitForConversationSurfaces(
+    client,
+    (candidates) => conversationSurfaces(candidates, parentTopic.id).length > 0,
+    timeoutMs,
+  );
+  const parentPane = conversationSurfaces(surfaces.surfaces, parentTopic.id)[0];
+  assertCondition(parentPane?.paneId, "parent pane is unavailable for side fork", { surfaces });
+  const created = await createSide(client, {
+    parentConversationId: parentTopic.id,
+    parentPaneId: parentPane.paneId,
+    workspaceId,
+  });
+  const side = assertEphemeralSideCreation(created, parentSnapshot, parentPane.paneId);
+  const parentAfterSide = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.eventCursor.sequence === created.eventCursor.sequence &&
+      snapshot.sideConversations.some((candidate) => candidate.id === side.id),
+    timeoutMs,
+  );
+  assertSideDidNotContaminateParent(parentSnapshot, parentAfterSide);
+  const page = await backend.post("/conversations/navigator/list", {
+    cursor: null,
+    limit: 100,
+    query: "",
+    workspaceId,
+  });
+  assertCondition(
+    page.items.every((item) => item.conversation.id !== side.id),
+    "ephemeral side entered the durable conversation navigator",
+    { page, side },
+  );
+  return { parentSnapshot: parentAfterSide, side };
+}
+
 export async function exerciseDurableForkWorkflow({
   backend,
   client,
@@ -229,6 +282,10 @@ async function forkTopic(client, request) {
   return client.evaluate(`window.setta.conversations.fork(${JSON.stringify(request)})`);
 }
 
+async function createSide(client, request) {
+  return client.evaluate(`window.setta.conversations.createSide(${JSON.stringify(request)})`);
+}
+
 async function waitForConversationSurfaces(client, ready, timeoutMs) {
   return waitForState(
     client,
@@ -288,6 +345,81 @@ function narratorObservedThroughTerminalSequence(snapshot) {
   return (
     snapshot.narratorState.observedThroughSequence >= snapshot.conversation.lastTrajectorySequence
   );
+}
+
+function assertEphemeralSideCreation(created, parent, paneId) {
+  const side = created.sideConversations.find((candidate) => candidate.parentPaneId === paneId);
+  const sourceTurn = parent.turns.turns.at(-1);
+  const context = { created, paneId, parent, side, sourceTurn };
+  assertCondition(side, "side record is missing from parent snapshot", context);
+  assertCondition(
+    side.parentConversationId === parent.conversation.id,
+    "side parent drifted",
+    context,
+  );
+  assertCondition(side.status === "active" && side.failure === null, "side is not active", context);
+  assertCondition(
+    side.providerThreadId && side.providerThreadId !== parent.threadBinding?.threadId,
+    "side provider thread is not independent",
+    context,
+  );
+  assertCondition(
+    side.sourceProviderTurnId === sourceTurn?.providerTurnId &&
+      side.sourceTrajectorySequence === parent.conversation.lastTrajectorySequence,
+    "side source boundary drifted",
+    context,
+  );
+  assertSideInvocation(side, context);
+  assertCondition(
+    created.eventCursor.sequence === parent.eventCursor.sequence + 2,
+    "side lifecycle did not publish preparing and active commits",
+    context,
+  );
+  return side;
+}
+
+function assertSideInvocation(side, context) {
+  const invocation = side.resolvedSideAgentInvocation;
+  assertCondition(invocation.role === "side_agent", "side invocation role drifted", context);
+  assertCondition(
+    invocation.requested.modelSelection.modelId === "gpt-5.6-luna" &&
+      invocation.resolved.modelId === "gpt-5.6-luna" &&
+      invocation.resolved.reasoningEffort === "medium",
+    "side invocation model drifted",
+    context,
+  );
+  assertCondition(
+    invocation.resolved.permissionProfile.providerPermissionProfile === ":read-only" &&
+      invocation.resolved.permissionProfile.workspaceMutation === false,
+    "side invocation permissions drifted",
+    context,
+  );
+  assertCondition(
+    invocation.outcome === "running" &&
+      invocation.providerReferences.threadId === side.providerThreadId,
+    "side invocation lifecycle drifted",
+    context,
+  );
+}
+
+function assertSideDidNotContaminateParent(before, after) {
+  const context = { after, before };
+  for (const field of [
+    "conversation",
+    "turns",
+    "queue",
+    "threadBinding",
+    "trajectory",
+    "artifacts",
+    "narratorState",
+    "narration",
+  ]) {
+    assertCondition(
+      JSON.stringify(after[field]) === JSON.stringify(before[field]),
+      `side fork contaminated parent ${field}`,
+      context,
+    );
+  }
 }
 
 function assertCondition(condition, message, context) {

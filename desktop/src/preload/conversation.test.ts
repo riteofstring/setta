@@ -15,6 +15,7 @@ describe("preload topic conversation API", () => {
     expect(Object.keys(api.conversations).sort()).toEqual([
       "askStatus",
       "create",
+      "createSide",
       "fork",
       "list",
       "onEvent",
@@ -40,6 +41,11 @@ describe("preload topic conversation API", () => {
       forkedAtTurnId: "turn_api",
       parentConversationId: target.conversationId,
       title: "Forked API topic",
+      workspaceId: target.workspaceId,
+    };
+    const sideRequest = {
+      parentConversationId: target.conversationId,
+      parentPaneId: "pane_api",
       workspaceId: target.workspaceId,
     };
     const turn = { ...target, text: "Continue the topic" };
@@ -79,6 +85,7 @@ describe("preload topic conversation API", () => {
       inputRequest,
       listRequest,
       release,
+      sideRequest,
       subscription,
       target,
       turn,
@@ -93,6 +100,7 @@ describe("preload topic conversation API", () => {
 
     expectInvokeCalls(invoke, [
       [ipcChannels.conversationAskNarratorStatus, { ...target, question: "What is happening?" }],
+      [ipcChannels.conversationCreateSide, sideRequest],
       [ipcChannels.conversationCreateTopic, { title: "API topic", workspaceId: "workspace_api" }],
       [ipcChannels.conversationForkTopic, forkRequest],
       [ipcChannels.conversationListTopicConversations, listRequest],
@@ -145,6 +153,7 @@ async function invokeConversationCommands(
     inputRequest: Parameters<NonNullable<SettaAPI["conversations"]["submitInput"]>>[0];
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
     release: Parameters<SettaAPI["conversations"]["release"]>[0];
+    sideRequest: Parameters<SettaAPI["conversations"]["createSide"]>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
     target: Parameters<SettaAPI["conversations"]["read"]>[0];
     turn: Parameters<SettaAPI["conversations"]["send"]>[0];
@@ -152,6 +161,7 @@ async function invokeConversationCommands(
   },
 ) {
   await api.conversations.askStatus({ ...requests.target, question: "What is happening?" });
+  await api.conversations.createSide(requests.sideRequest);
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
   await api.conversations.fork(requests.forkRequest);
   await api.conversations.list(requests.listRequest);

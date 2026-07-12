@@ -52,6 +52,7 @@ type WorkspaceActivityService interface {
 type ConversationService interface {
 	CreateTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	ForkTopic(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
+	CreateSideConversation(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
 	SendTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
 	QueueTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
 	SteerTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)

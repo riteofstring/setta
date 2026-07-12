@@ -240,18 +240,19 @@ func (resolver serviceTestWorkspaceResolver) ResolveActiveWorkspace(id string) (
 }
 
 type serviceTestAgentRuntime struct {
-	mu           sync.Mutex
-	controls     map[string]chan string
-	controlLog   []string
-	forkErr      error
-	forkRequests []agent.ForkThreadRequest
-	forkResponse *agent.Thread
-	lastApproval *agent.ApprovalResponse
-	runRequests  []agent.TurnRequest
-	started      chan string
-	threads      int
-	turns        int
-	unsubscribed []string
+	mu              sync.Mutex
+	controls        map[string]chan string
+	controlLog      []string
+	forkErr         error
+	forkRequests    []agent.ForkThreadRequest
+	forkResponse    *agent.Thread
+	lastApproval    *agent.ApprovalResponse
+	resolveRequests []agent.Invocation
+	runRequests     []agent.TurnRequest
+	started         chan string
+	threads         int
+	turns           int
+	unsubscribed    []string
 }
 
 func newServiceTestAgentRuntime() *serviceTestAgentRuntime {
@@ -265,6 +266,9 @@ func (runtime *serviceTestAgentRuntime) ResolveInvocation(
 	_ context.Context,
 	request agent.Invocation,
 ) (agent.ResolvedInvocation, error) {
+	runtime.mu.Lock()
+	runtime.resolveRequests = append(runtime.resolveRequests, request)
+	runtime.mu.Unlock()
 	return agent.ResolvedInvocation{
 		Requested:       request,
 		Model:           request.Model,
@@ -307,7 +311,8 @@ func (runtime *serviceTestAgentRuntime) ForkThread(
 	return agent.Thread{
 		ID:           fmt.Sprintf("provider-thread-%d", runtime.threads),
 		SessionID:    fmt.Sprintf("session-%d", runtime.threads),
-		Model:        "gpt-5.6-sol",
+		Model:        request.Invocation.Model,
+		Ephemeral:    request.Ephemeral,
 		ForkedFromID: &parentThreadID,
 	}, nil
 }
@@ -547,6 +552,24 @@ func (runtime *serviceTestAgentRuntime) durableForkRequests() []agent.ForkThread
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	return append([]agent.ForkThreadRequest{}, runtime.forkRequests...)
+}
+
+func (runtime *serviceTestAgentRuntime) sideForkRequests() []agent.ForkThreadRequest {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	requests := make([]agent.ForkThreadRequest, 0)
+	for _, request := range runtime.forkRequests {
+		if request.Ephemeral {
+			requests = append(requests, request)
+		}
+	}
+	return requests
+}
+
+func (runtime *serviceTestAgentRuntime) invocationResolutions() []agent.Invocation {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	return append([]agent.Invocation{}, runtime.resolveRequests...)
 }
 
 func (runtime *serviceTestAgentRuntime) turnRequests() []agent.TurnRequest {

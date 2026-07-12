@@ -61,7 +61,11 @@ function initialize(message) {
 
 function listModels(message) {
   respond(message.id, {
-    data: [fakeModel("gpt-5.6-sol", "high", true), fakeModel("gpt-5.4-mini", "low", false)],
+    data: [
+      fakeModel("gpt-5.6-sol", "high", true),
+      fakeModel("gpt-5.6-luna", "medium", false),
+      fakeModel("gpt-5.4-mini", "low", false),
+    ],
     nextCursor: null,
   });
 }
@@ -89,33 +93,76 @@ function startThread(message) {
 }
 
 function forkThread(message) {
-  const parentThreadId = requiredString(message.params, "threadId");
+  const params = message.params ?? {};
+  const parentThreadId = requiredString(params, "threadId");
   const parent = threads.get(parentThreadId);
   if (!parent) {
     respondError(message.id, -32602, `unknown parent thread ${parentThreadId}`);
     return;
   }
-  const lastTurnId = requiredString(message.params, "lastTurnId");
-  const sourceIndex = parent.turnIds.indexOf(lastTurnId);
-  const sourceTurn = turns.get(lastTurnId);
-  if (sourceIndex < 0 || sourceTurn?.status !== "completed") {
-    respondError(message.id, -32602, `fork source ${lastTurnId} is not a completed parent turn`);
-    return;
-  }
+  const ephemeral = params.ephemeral === true;
+  const sourceTurnIds = forkSourceTurns(message, parent, ephemeral);
+  if (!sourceTurnIds) return;
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
-  const state = {
-    ephemeral: message.params?.ephemeral === true,
-    forkedFromId: parentThreadId,
-    id: threadId,
-    model: requiredString(message.params, "model"),
-    turnIds: parent.turnIds.slice(0, sourceIndex + 1),
-  };
+  const state = forkThreadState(params, parentThreadId, threadId, ephemeral, sourceTurnIds);
   threads.set(threadId, state);
   persistState();
   const thread = fakeThread(threadId);
   thread.turns = state.turnIds.map((turnId) => turns.get(turnId));
   respond(message.id, threadOperationResponse(thread, state));
+}
+
+function forkSourceTurns(message, parent, ephemeral) {
+  if (ephemeral) return ephemeralSideSourceTurns(message, parent);
+  return durableForkSourceTurns(message, parent);
+}
+
+function forkThreadState(params, parentThreadId, threadId, ephemeral, sourceTurnIds) {
+  return {
+    approvalPolicy: params.approvalPolicy ?? null,
+    developerInstructions: params.developerInstructions ?? null,
+    ephemeral,
+    forkedFromId: parentThreadId,
+    id: threadId,
+    model: requiredString(params, "model"),
+    sandbox: params.sandbox ?? null,
+    turnIds: sourceTurnIds,
+  };
+}
+
+function durableForkSourceTurns(message, parent) {
+  const lastTurnId = requiredString(message.params, "lastTurnId");
+  const sourceIndex = parent.turnIds.indexOf(lastTurnId);
+  const sourceTurn = turns.get(lastTurnId);
+  if (sourceIndex < 0 || sourceTurn?.status !== "completed") {
+    respondError(message.id, -32602, `fork source ${lastTurnId} is not a completed parent turn`);
+    return null;
+  }
+  return parent.turnIds.slice(0, sourceIndex + 1);
+}
+
+function ephemeralSideSourceTurns(message, parent) {
+  const params = message.params ?? {};
+  if (!validEphemeralSideSettings(params)) {
+    respondError(message.id, -32602, "ephemeral side fork settings drifted");
+    return null;
+  }
+  return [...parent.turnIds];
+}
+
+function validEphemeralSideSettings(params) {
+  const config = params.config ?? {};
+  const instructions = params.developerInstructions ?? "";
+  return [
+    !Object.hasOwn(params, "lastTurnId"),
+    params.model === "gpt-5.6-luna",
+    params.approvalPolicy === "on-request",
+    params.sandbox === "read-only",
+    params.serviceTier === null,
+    config.model_reasoning_effort === "medium",
+    instructions.includes("ephemeral side conversation"),
+  ].every(Boolean);
 }
 
 function resumeThread(message) {
@@ -468,15 +515,21 @@ function fakeThread(threadId) {
 
 function threadOperationResponse(thread, state) {
   return {
-    approvalPolicy: state.ephemeral ? "never" : "on-request",
+    approvalPolicy: state.approvalPolicy ?? "on-request",
     approvalsReviewer: "user",
     cwd: "/tmp/setta-topic-codex",
     model: state.model,
     modelProvider: "fake",
-    reasoningEffort: state.model === "gpt-5.4-mini" ? "low" : "high",
-    sandbox: state.ephemeral ? "read-only" : "workspace-write",
+    reasoningEffort: modelReasoningEffort(state.model),
+    sandbox: state.sandbox ?? "workspace-write",
     thread,
   };
+}
+
+function modelReasoningEffort(model) {
+  if (model === "gpt-5.4-mini") return "low";
+  if (model === "gpt-5.6-luna") return "medium";
+  return "high";
 }
 
 function fakeTurn(turnId, status) {

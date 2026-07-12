@@ -57,6 +57,10 @@ func agentInvocation(profile RoleProfile) (agent.Invocation, error) {
 	if profile.Role != RoleAgent {
 		return agent.Invocation{}, fmt.Errorf("topic turn requires agent role profile, got %s", profile.Role)
 	}
+	return providerInvocation(profile)
+}
+
+func providerInvocation(profile RoleProfile) (agent.Invocation, error) {
 	invocation := agent.Invocation{
 		ReasoningEffort: string(profile.ReasoningEffort),
 		ServiceTier:     cloneStringPointer(profile.ServiceTier),
@@ -67,7 +71,7 @@ func agentInvocation(profile RoleProfile) (agent.Invocation, error) {
 	case ModelSelectionProviderDefault:
 		invocation.ModelSelectionProviderDefault = true
 	default:
-		return agent.Invocation{}, fmt.Errorf("unsupported topic agent model selection %q", profile.ModelSelection.Mode)
+		return agent.Invocation{}, fmt.Errorf("unsupported %s model selection %q", profile.Role, profile.ModelSelection.Mode)
 	}
 	switch profile.PermissionProfile.ProviderPermissionProfile {
 	case ":read-only":

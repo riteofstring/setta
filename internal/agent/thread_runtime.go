@@ -231,20 +231,44 @@ func forkThreadParams(request ForkThreadRequest) (codexapp.ThreadForkParams, err
 	if err != nil {
 		return codexapp.ThreadForkParams{}, err
 	}
+	config, err := forkThreadConfig(request.Invocation)
+	if err != nil {
+		return codexapp.ThreadForkParams{}, err
+	}
 	params := codexapp.ThreadForkParams{
 		ApprovalPolicy:        approvalPolicy,
+		Config:                config,
 		CWD:                   &request.WorkspaceRoot,
 		DeveloperInstructions: optionalStringPointer(request.DeveloperInstructions),
 		Ephemeral:             &request.Ephemeral,
 		LastTurnId:            cloneString(request.LastTurnID),
 		Sandbox:               &sandbox,
-		ServiceTier:           cloneString(request.Invocation.ServiceTier),
+		ServiceTier:           forkThreadServiceTier(request.Invocation.ServiceTier),
 		ThreadID:              request.ParentThreadID,
 	}
 	if !request.Invocation.ModelSelectionProviderDefault {
 		params.Model = &request.Invocation.Model
 	}
 	return params, nil
+}
+
+func forkThreadConfig(invocation Invocation) (*map[string]json.RawMessage, error) {
+	if invocation.ReasoningEffort == "" {
+		return nil, nil
+	}
+	effort, err := json.Marshal(invocation.ReasoningEffort)
+	if err != nil {
+		return nil, fmt.Errorf("encode fork reasoning effort: %w", err)
+	}
+	config := map[string]json.RawMessage{"model_reasoning_effort": effort}
+	return &config, nil
+}
+
+func forkThreadServiceTier(serviceTier *string) *codexapp.CodexNullableString {
+	if serviceTier == nil {
+		return codexapp.CodexNullString()
+	}
+	return codexapp.CodexString(*serviceTier)
 }
 
 func providerThreadPolicies(invocation Invocation) (*codexapp.AskForApproval, codexapp.SandboxMode, error) {
