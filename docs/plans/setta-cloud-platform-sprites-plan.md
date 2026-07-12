@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-13
 
-**Status:** Plan of record; implementation has not started. Phase 0 branch
-creation and plan authoring are complete.
+**Status:** Plan of record; implementation has not started. Phase 0 is
+complete; Phase 1a is next.
 
 **Branch:** `setta-3-cloud-platform`, created from `setta-3` at
 `de4bae2e4`.
@@ -293,13 +293,12 @@ Before porting source code:
 4. Confirm this branch has a clean worktree before each porting slice.
 
 At the 2026-07-13 review, `setta-3-cloud-runs-2` was clean and fully committed
-at `39bc2e719`. Its local tracking state reported 20 commits ahead of
-`origin/setta-3-cloud-runs-2` and zero behind; a fresh remote comparison could
-not be authenticated from this worktree, so the user will confirm that state
-while pushing or otherwise backing up the branch. Its dedicated worktree
-protects it from ordinary working-tree mistakes, but linked worktrees share one
-Git object database and are not an independent backup. The remaining Phase 0
-item is therefore off-repository recovery, not additional local committing.
+at `39bc2e719`. Its dedicated worktree protects it from ordinary working-tree
+mistakes, but linked worktrees share one Git object database and are not an
+independent backup. The branch was subsequently pushed to GitHub and verified
+through the GitHub API at the full SHA
+`39bc2e719ed898ef2c66ce75c40ffb2891056fd2`, with local and origin tracking
+state at zero ahead and zero behind.
 
 ### Frequent commits are required
 
@@ -689,7 +688,7 @@ boundary; broad outbound access must remain an explicit higher-risk mode.
 - [x] Create `setta-3-cloud-platform` from `setta-3` at `de4bae2e4` and attach
   it to a dedicated worktree through `worktree.sh`.
 - [x] Write and commit this plan before implementation.
-- [ ] Back up `setta-3-cloud-runs-2` at `39bc2e719` or its documented
+- [x] Back up `setta-3-cloud-runs-2` at `39bc2e719` or its documented
   descendant.
 
 Exit: the clean platform branch and source branch are both recoverable.
@@ -1172,3 +1171,9 @@ Stop and reassess rather than hiding the problem if any of these occur:
   monitoring, dogfooding, and pricing gates. Kept the user experience to one
   automatic Cloud Dev path and reduced the beta to one active agent, one
   package, and two release rings.
+- 2026-07-13: Completed Phase 0 by pushing `setta-3-cloud-runs-2` to GitHub at
+  `39bc2e719ed898ef2c66ce75c40ffb2891056fd2` and independently verifying the
+  remote ref through the GitHub API. Corrected the branch-specific upstream
+  from a raw HTTPS URL to `origin/setta-3-cloud-runs-2`; local and origin state
+  then reported zero ahead and zero behind. Phase 1a is the next execution
+  gate.
