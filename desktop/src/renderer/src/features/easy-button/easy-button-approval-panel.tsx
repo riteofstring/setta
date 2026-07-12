@@ -79,7 +79,7 @@ function ApprovalQuestionField({
   value: string;
 }) {
   const label = question.header || question.question;
-  if (question.options.length > 0 && !question.allowsOther) {
+  if (!question.secret && question.options.length > 0 && !question.allowsOther) {
     return (
       <label className="easy-button-approval-question">
         <span>{question.question}</span>
@@ -99,15 +99,18 @@ function ApprovalQuestionField({
       </label>
     );
   }
-  const listId = question.options.length > 0 ? `approval-options-${question.id}` : undefined;
+  const listId =
+    !question.secret && question.options.length > 0 ? `approval-options-${question.id}` : undefined;
   return (
     <label className="easy-button-approval-question">
       <span>{question.question}</span>
       <input
         aria-label={label}
+        autoComplete={question.secret ? "off" : undefined}
         disabled={pending}
         list={listId}
         onChange={(event) => setValue(event.target.value)}
+        type={question.secret ? "password" : "text"}
         value={value}
       />
       <ApprovalSuggestions listId={listId} options={question.options} />

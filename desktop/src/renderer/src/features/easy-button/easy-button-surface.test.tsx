@@ -10,6 +10,7 @@ import type {
   Role,
   RoleProfile,
   TopicConversation,
+  TrajectoryApprovalRequest,
   TrajectoryEvent,
 } from "@generated/backend";
 import { renderToString } from "react-dom/server";
@@ -23,6 +24,7 @@ import {
   easyButtonConversationProjection,
   easyButtonProjectionView,
 } from "./easy-button-surface";
+import { ConversationApprovalPanel } from "./easy-button-approval-panel";
 
 const workspaceId = "workspace_topic";
 const timestamp = "2026-07-11T20:00:00Z";
@@ -169,6 +171,57 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain('aria-label="Conversation work cancelled"');
     expect(html).toContain("Work cancelled");
     expect(html).not.toContain('data-easy-button-glyph="completed"');
+  });
+
+  test("does not present an unresolved approval from a terminal prior turn", () => {
+    const snapshot = completedSnapshot("conversation_stale_approval", "Stale approval", "teal");
+    const request = approvalRequest("approval_stale", true);
+    snapshot.trajectory.events.push(
+      approvalRequestedTrajectory(snapshot.conversation.id, snapshot.turns.turns[0]!.id, request),
+    );
+    snapshot.conversation.lastTrajectorySequence = 2;
+
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+
+    expect(view.pendingApproval).toBeNull();
+  });
+
+  test("renders secret structured input with a password control", () => {
+    const approval = approvalRequest("approval_secret", true);
+    approval.questions[0] = {
+      ...approval.questions[0]!,
+      allowsOther: false,
+      options: ["fixed-secret"],
+    };
+    const html = renderToString(
+      <ConversationApprovalPanel approval={approval} pending={false} submit={() => {}} />,
+    );
+
+    expect(html).toContain('type="password"');
+    expect(html).toContain('autoComplete="off"');
+    expect(html).not.toContain("<select");
+  });
+
+  test("counts subagents only for the currently running turn", () => {
+    const snapshot = workingSnapshot("conversation_subagent_scope", "Subagent scope", "teal");
+    const running = snapshot.turns.turns[0]!;
+    const prior = {
+      ...running,
+      endedAt: timestamp,
+      id: "turn_prior",
+      providerTurnId: "provider_turn_prior",
+      resolvedInvocation: resolvedInvocation("agent", "succeeded"),
+      status: "completed" as const,
+    };
+    snapshot.turns.turns = [prior, running];
+    snapshot.trajectory.events.push(
+      subagentStartedTrajectory(snapshot.conversation.id, prior.id, "subagent_prior", 2),
+    );
+    snapshot.conversation.lastTrajectorySequence = 2;
+
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+
+    expect(view.activeAgentCount).toBe(1);
   });
 });
 
@@ -416,6 +469,73 @@ function userInputTrajectory(
     turnStarted: null,
     turnSteered: null,
     userInputAccepted: { delivery: "normal", input: { text: `Work on ${title}` } },
+  };
+}
+
+function approvalRequestedTrajectory(
+  conversationId: string,
+  turnId: string,
+  approval: TrajectoryApprovalRequest,
+): TrajectoryEvent {
+  return {
+    ...userInputTrajectory(conversationId, turnId, "approval"),
+    actor: "provider",
+    approvalRequested: { approval },
+    id: `trajectory_${approval.id}`,
+    kind: "approval_requested",
+    sequence: 2,
+    userInputAccepted: null,
+  };
+}
+
+function subagentStartedTrajectory(
+  conversationId: string,
+  turnId: string,
+  subagentId: string,
+  sequence: number,
+): TrajectoryEvent {
+  return {
+    ...userInputTrajectory(conversationId, turnId, "subagent"),
+    actor: "agent",
+    id: `trajectory_${subagentId}`,
+    kind: "subagent_started",
+    sequence,
+    subagentStarted: {
+      subagent: {
+        id: subagentId,
+        message: "review",
+        modelId: null,
+        providerThreadId: subagentId,
+        reasoningEffort: null,
+        status: "running",
+      },
+    },
+    userInputAccepted: null,
+  };
+}
+
+function approvalRequest(id: string, secret: boolean): TrajectoryApprovalRequest {
+  return {
+    body: "Provide the requested scope.",
+    command: null,
+    cwd: null,
+    filePaths: [],
+    id,
+    kind: "structured_input",
+    providerItemId: `provider_${id}`,
+    questions: [
+      {
+        allowsOther: secret,
+        header: "Scope",
+        id: "scope",
+        options: secret ? [] : ["focused"],
+        question: "Which scope?",
+        secret,
+      },
+    ],
+    requestedAt: timestamp,
+    requestedPermissionProfile: null,
+    title: "Scope",
   };
 }
 

@@ -290,7 +290,13 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         const stream = { keepAlive: false, stop: () => {} };
         stream.stop = subscribeWebBackendEventStream({
           baseURL,
-          cursorForEvent: cursorFromStreamedEvent,
+          cursorForEvent: (event) =>
+            event.payload.type === "conversation.resync_required"
+              ? {
+                  sequence: event.payload.currentSequence,
+                  streamId: event.payload.currentStreamId,
+                }
+              : cursorFromStreamedEvent(event),
           decode: decodeConversationEvent,
           endpoint: {
             ...backendEndpoints.ConversationEventStream,
@@ -298,6 +304,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           },
           fetchImpl: rawFetch,
           initialCursor: request.cursor,
+          isCursorResetEvent: (event) => event.payload.type === "conversation.resync_required",
           sendEvent: (event) => {
             for (const listener of conversationEventListeners) {
               listener(event);

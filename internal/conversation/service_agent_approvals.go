@@ -90,6 +90,7 @@ func populateStructuredApproval(result *TrajectoryApprovalRequest, approval *age
 			Question:    question.Question,
 			Options:     append([]string{}, question.Options...),
 			AllowsOther: len(question.Options) == 0,
+			Secret:      question.Secret,
 		})
 	}
 }

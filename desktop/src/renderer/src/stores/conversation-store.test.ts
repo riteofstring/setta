@@ -242,6 +242,31 @@ describe("conversation store", () => {
     });
   });
 
+  test("accepts an authoritative server snapshot behind a stale local cursor", () => {
+    hydrate(conversationA, 7);
+    useConversationStore
+      .getState()
+      .applyEvent(serverResyncEvent(conversationA, 3, 7, 3, "The durable cursor moved."));
+
+    expect(projection(conversationA).resync).toEqual({
+      detail: "The durable cursor moved.",
+      minimumCursor: { sequence: 3, streamId: conversationStreamId(conversationA) },
+      reason: "server_required",
+    });
+
+    useConversationStore
+      .getState()
+      .hydrateSnapshot(
+        workspaceId,
+        conversationA,
+        conversationSnapshot(conversationA, 3, "Authoritative title"),
+      );
+
+    expect(projection(conversationA).resync).toBeNull();
+    expect(projection(conversationA).snapshot?.eventCursor.sequence).toBe(3);
+    expect(projection(conversationA).snapshot?.conversation.title).toBe("Authoritative title");
+  });
+
   test.each([
     { envelopeSequence: 1, source: "duplicate" },
     { envelopeSequence: 5, source: "gapped" },

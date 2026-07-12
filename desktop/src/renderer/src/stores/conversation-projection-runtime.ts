@@ -1,5 +1,6 @@
 import type { ConversationEvent, ConversationSnapshot } from "@generated/backend";
 
+import type { ConversationProjection } from "./conversation-projection";
 import { useConversationNavigatorStore } from "./conversation-navigator-store";
 import { useConversationStore } from "./conversation-store";
 
@@ -113,17 +114,62 @@ function resyncConversationProjection(workspaceId: string, conversationId: strin
   if (current) {
     return current;
   }
-  const resync = window.setta.conversations
-    .read({ conversationId, workspaceId })
-    .then((snapshot) => hydrateConversationProjectionSnapshot(snapshot))
+  const requestGeneration = generation;
+  const resync = refreshConversationProjectionUntilCurrent(
+    workspaceId,
+    conversationId,
+    requestGeneration,
+  )
     .catch((error: unknown) => {
-      useConversationStore.getState().failSnapshotLoad(workspaceId, conversationId, error);
+      if (requestGeneration === generation) {
+        useConversationStore.getState().failSnapshotLoad(workspaceId, conversationId, error);
+      }
     })
     .finally(() => {
-      resyncs.delete(key);
+      if (requestGeneration === generation) {
+        resyncs.delete(key);
+      }
     });
   resyncs.set(key, resync);
   return resync;
+}
+
+async function refreshConversationProjectionUntilCurrent(
+  workspaceId: string,
+  conversationId: string,
+  requestGeneration: number,
+): Promise<void> {
+  while (requestGeneration === generation) {
+    const before = useConversationStore.getState().conversations.get(conversationId)?.resync;
+    if (!before) {
+      return;
+    }
+    const snapshot = await window.setta.conversations.read({ conversationId, workspaceId });
+    if (requestGeneration !== generation) {
+      return;
+    }
+    hydrateConversationProjectionSnapshot(snapshot);
+    const after = useConversationStore.getState().conversations.get(conversationId)?.resync;
+    if (!after) {
+      return;
+    }
+    if (resyncRequirementsEqual(before, after)) {
+      throw new Error(
+        `Conversation snapshot cursor ${snapshot.eventCursor.streamId}:${snapshot.eventCursor.sequence} did not satisfy resync cursor ${after.minimumCursor.streamId}:${after.minimumCursor.sequence}.`,
+      );
+    }
+  }
+}
+
+function resyncRequirementsEqual(
+  left: NonNullable<ConversationProjection["resync"]>,
+  right: NonNullable<ConversationProjection["resync"]>,
+): boolean {
+  return (
+    left.reason === right.reason &&
+    left.minimumCursor.streamId === right.minimumCursor.streamId &&
+    left.minimumCursor.sequence === right.minimumCursor.sequence
+  );
 }
 
 function projectionIsRetained(

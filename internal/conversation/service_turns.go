@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"setta/internal/agent"
@@ -43,11 +44,14 @@ func (service *Service) SendTurn(
 		return ConversationSnapshot{}, err
 	}
 	if err := service.launchTurnLocked(workspaceSummary.RootPath, workspaceID, turn, 0); err != nil {
-		_ = service.persistUnexpectedTurnEnd(context.Background(), &activeConversationTurn{
+		persistErr := service.persistUnexpectedTurnEnd(context.Background(), &activeConversationTurn{
 			conversationID: conversationID,
 			turnID:         turn.ID,
 			workspaceID:    workspaceID,
 		}, err)
+		if persistErr != nil {
+			return ConversationSnapshot{}, errors.Join(err, fmt.Errorf("persist rejected turn launch: %w", persistErr))
+		}
 		return ConversationSnapshot{}, err
 	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
@@ -72,10 +76,10 @@ func (service *Service) QueueTurn(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if service.activeFor(conversationID) == nil {
+	if _, err := service.activeTurnForQueue(snapshot); err != nil {
 		return ConversationSnapshot{}, &CommandConflictError{
 			ConversationID: conversationID,
-			Reason:         "queue requires an active turn",
+			Reason:         err.Error(),
 		}
 	}
 	if len(snapshot.Queue) >= MaxSnapshotQueuedTurns {
@@ -165,7 +169,9 @@ func buildAcceptedTurnMutation(
 		RequestedRoleProfile: roleProfileForTurn(snapshot),
 	}
 	conversation := snapshot.Conversation
-	conversation.Status = ConversationStatusWorking
+	if delivery == TurnDeliveryNormal {
+		conversation.Status = ConversationStatusWorking
+	}
 	conversation.UpdatedAt = now
 	accepted := TrajectoryEvent{
 		ID:             ids.acceptedTrajectoryID,
@@ -269,27 +275,30 @@ func (service *Service) SteerTurn(
 	conversationID string,
 	text string,
 ) (ConversationSnapshot, error) {
+	if err := service.requireOpen(); err != nil {
+		return ConversationSnapshot{}, err
+	}
 	if err := validateAuthoredText(text); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	active, err := service.requireControllableTurn(conversationID)
+	control, err := service.controllableTurnState(ctx, workspaceID, conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
 	request := agent.TurnControlRequest{
 		ConversationID:   conversationID,
-		ProviderThreadID: active.providerThreadID,
-		ProviderTurnID:   active.providerTurnID,
-		ClientInputID:    active.turnID + "_steer",
+		ProviderThreadID: control.active.providerThreadID,
+		ProviderTurnID:   control.active.providerTurnID,
+		ClientInputID:    control.active.turnID + "_steer",
 		Text:             text,
 	}
 	if err := service.agent.SteerTurn(ctx, request); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if err := service.persistSteering(ctx, workspaceID, conversationID, active.turnID, text); err != nil {
+	if err := service.persistSteering(ctx, control.snapshot, control.turn.ID, text); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
@@ -300,25 +309,27 @@ func (service *Service) StopTurn(
 	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
+	if err := service.requireOpen(); err != nil {
+		return ConversationSnapshot{}, err
+	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	active, err := service.requireControllableTurn(conversationID)
+	control, err := service.controllableTurnState(ctx, workspaceID, conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if err := service.agent.InterruptTurn(ctx, agent.TurnControlRequest{
 		ConversationID:   conversationID,
-		ProviderThreadID: active.providerThreadID,
-		ProviderTurnID:   active.providerTurnID,
+		ProviderThreadID: control.active.providerThreadID,
+		ProviderTurnID:   control.active.providerTurnID,
 	}); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if err := service.persistInterruption(
 		ctx,
-		workspaceID,
-		conversationID,
-		active.turnID,
+		control.snapshot,
+		control.turn.ID,
 		TurnInterruptionUserRequested,
 	); err != nil {
 		return ConversationSnapshot{}, err
@@ -332,14 +343,28 @@ func (service *Service) SubmitApproval(
 	conversationID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
+	if err := service.requireOpen(); err != nil {
+		return ConversationSnapshot{}, err
+	}
 	if err := response.Validate(); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	active, err := service.requireControllableTurn(conversationID)
+	control, err := service.controllableTurnState(ctx, workspaceID, conversationID)
 	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	pending := pendingApprovalsForTurn(control.snapshot, control.turn.ID)
+	request, ok := pending[response.ApprovalID]
+	if !ok {
+		return ConversationSnapshot{}, &CommandConflictError{
+			ConversationID: conversationID,
+			Reason:         "approval is not pending: " + response.ApprovalID,
+		}
+	}
+	if err := validateApprovalResponseForRequest(request, response); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	agentResponse, err := agentApprovalResponse(response)
@@ -351,10 +376,11 @@ func (service *Service) SubmitApproval(
 	}
 	if err := service.persistApprovalResolution(
 		ctx,
-		workspaceID,
-		conversationID,
-		active.turnID,
+		control.snapshot,
+		control.turn.ID,
+		request,
 		response,
+		len(pending) > 1,
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -395,15 +421,28 @@ func (service *Service) launchTurnLocked(
 		turnID:      turn.ID,
 		workspaceID: workspaceID,
 	}
-	service.activeMu.Lock()
-	if service.active[turn.ConversationID] != nil {
-		service.activeMu.Unlock()
-		return &CommandConflictError{ConversationID: turn.ConversationID, Reason: "turn already active"}
+	if err := service.reserveActiveTurn(active); err != nil {
+		return err
 	}
-	service.active[turn.ConversationID] = active
-	service.activeMu.Unlock()
-	service.turns.Add(1)
 	go service.runTurn(active)
+	return nil
+}
+
+func (service *Service) reserveActiveTurn(active *activeConversationTurn) error {
+	service.lifecycleMu.Lock()
+	defer service.lifecycleMu.Unlock()
+	if service.closing {
+		return errors.New("conversation service is shutting down")
+	}
+	service.activeMu.Lock()
+	defer service.activeMu.Unlock()
+	if service.active[active.conversationID] != nil {
+		return &CommandConflictError{ConversationID: active.conversationID, Reason: "turn already active"}
+	}
+	service.active[active.conversationID] = active
+	// Shutdown holds lifecycleMu while it closes admission, so no positive Add
+	// can race a Wait that observed a zero counter.
+	service.turns.Add(1)
 	return nil
 }
 
@@ -418,15 +457,74 @@ func (service *Service) activeFor(conversationID string) *activeConversationTurn
 	return &copy
 }
 
-func (service *Service) requireControllableTurn(conversationID string) (*activeConversationTurn, error) {
+func (service *Service) activeTurnForQueue(snapshot ConversationSnapshot) (*activeConversationTurn, error) {
+	conversationID := snapshot.Conversation.ID
 	active := service.activeFor(conversationID)
 	if active == nil {
-		return nil, &CommandConflictError{ConversationID: conversationID, Reason: "no active turn"}
+		return nil, fmt.Errorf("queue requires an active turn")
 	}
-	if active.providerTurnID == "" {
-		return nil, &CommandConflictError{ConversationID: conversationID, Reason: "provider turn is still starting"}
+	turn, err := findConversationTurn(snapshot, active.turnID)
+	if err != nil {
+		return nil, fmt.Errorf("active turn is unavailable from the bounded snapshot: %w", err)
+	}
+	if turn.Status != TurnStatusQueued && turn.Status != TurnStatusRunning {
+		return nil, fmt.Errorf("queue requires an active turn, got %s", turn.Status)
 	}
 	return active, nil
+}
+
+type controllableConversationTurn struct {
+	active   *activeConversationTurn
+	snapshot ConversationSnapshot
+	turn     ConversationTurn
+}
+
+func (service *Service) controllableTurnState(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+) (controllableConversationTurn, error) {
+	snapshot, err := service.snapshotLocked(ctx, workspaceID, conversationID)
+	if err != nil {
+		return controllableConversationTurn{}, err
+	}
+	active := service.activeFor(conversationID)
+	if active == nil {
+		return controllableConversationTurn{}, &CommandConflictError{
+			ConversationID: conversationID,
+			Reason:         "no active turn",
+		}
+	}
+	if active.providerTurnID == "" {
+		return controllableConversationTurn{}, &CommandConflictError{
+			ConversationID: conversationID,
+			Reason:         "provider turn is still starting",
+		}
+	}
+	turn, err := findConversationTurn(snapshot, active.turnID)
+	if err != nil {
+		return controllableConversationTurn{}, err
+	}
+	if turn.Status != TurnStatusRunning || turn.ProviderTurnID == nil {
+		return controllableConversationTurn{}, &CommandConflictError{
+			ConversationID: conversationID,
+			Reason:         fmt.Sprintf("turn %s is %s", turn.ID, turn.Status),
+		}
+	}
+	if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
+		return controllableConversationTurn{}, &CommandConflictError{
+			ConversationID: conversationID,
+			Reason:         "agent thread is not linked",
+		}
+	}
+	if snapshot.ThreadBinding.ThreadID != active.providerThreadID ||
+		*turn.ProviderTurnID != active.providerTurnID {
+		return controllableConversationTurn{}, &CommandConflictError{
+			ConversationID: conversationID,
+			Reason:         "active provider turn does not match durable state",
+		}
+	}
+	return controllableConversationTurn{active: active, snapshot: snapshot, turn: turn}, nil
 }
 
 func validateAuthoredText(text string) error {

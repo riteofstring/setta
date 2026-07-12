@@ -699,11 +699,14 @@ func validateApprovalResolutionWithoutAnswer(resolution TrajectoryApprovalResolu
 	if resolution.Response != "" {
 		return fmt.Errorf("approval decision %s must not include a response", resolution.Decision)
 	}
+	if resolution.SecretsRedacted {
+		return fmt.Errorf("approval decision %s cannot report redacted secrets", resolution.Decision)
+	}
 	return nil
 }
 
 func validateAnsweredApprovalResolution(resolution TrajectoryApprovalResolution) error {
-	if len(resolution.Answers) == 0 && strings.TrimSpace(resolution.Response) == "" {
+	if len(resolution.Answers) == 0 && strings.TrimSpace(resolution.Response) == "" && !resolution.SecretsRedacted {
 		return fmt.Errorf("answered approval requires answers or response")
 	}
 	if resolution.Response != "" && strings.TrimSpace(resolution.Response) != resolution.Response {

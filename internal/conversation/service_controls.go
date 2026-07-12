@@ -9,8 +9,7 @@ import (
 
 func (service *Service) persistSteering(
 	ctx context.Context,
-	workspaceID string,
-	conversationID string,
+	snapshot ConversationSnapshot,
 	turnID string,
 	text string,
 ) error {
@@ -22,12 +21,11 @@ func (service *Service) persistSteering(
 	if err != nil {
 		return err
 	}
-	return service.persistControlTrajectory(
+	return service.persistControlTrajectoryFromSnapshot(
 		ctx,
-		workspaceID,
-		conversationID,
+		snapshot,
 		turnID,
-		ConversationStatusWorking,
+		snapshot.Conversation.Status,
 		[]TrajectoryEvent{
 			{
 				ID:    acceptedID,
@@ -50,8 +48,7 @@ func (service *Service) persistSteering(
 
 func (service *Service) persistInterruption(
 	ctx context.Context,
-	workspaceID string,
-	conversationID string,
+	snapshot ConversationSnapshot,
 	turnID string,
 	reason TurnInterruptionReason,
 ) error {
@@ -59,12 +56,11 @@ func (service *Service) persistInterruption(
 	if err != nil {
 		return err
 	}
-	return service.persistControlTrajectory(
+	return service.persistControlTrajectoryFromSnapshot(
 		ctx,
-		workspaceID,
-		conversationID,
+		snapshot,
 		turnID,
-		ConversationStatusWorking,
+		snapshot.Conversation.Status,
 		[]TrajectoryEvent{{
 			ID:              eventID,
 			Kind:            TrajectoryEventTurnInterrupted,
@@ -76,69 +72,64 @@ func (service *Service) persistInterruption(
 
 func (service *Service) persistApprovalResolution(
 	ctx context.Context,
-	workspaceID string,
-	conversationID string,
+	snapshot ConversationSnapshot,
 	turnID string,
+	request TrajectoryApprovalRequest,
 	response ConversationApprovalResponse,
+	otherApprovalsPending bool,
 ) error {
-	snapshot, err := service.snapshotLocked(ctx, workspaceID, conversationID)
-	if err != nil {
-		return err
-	}
-	if !snapshotHasPendingApproval(snapshot, response.ApprovalID) {
-		return &CommandConflictError{
-			ConversationID: conversationID,
-			Reason:         "approval is not pending: " + response.ApprovalID,
-		}
-	}
 	eventID, err := service.newID("trajectory")
 	if err != nil {
 		return err
 	}
-	answers := cloneConversationApprovalAnswers(response.Answers)
+	answers, secretsRedacted := durableConversationApprovalAnswers(request, response.Answers)
+	status := ConversationStatusWorking
+	if otherApprovalsPending {
+		status = ConversationStatusWaitingForApproval
+	}
 	return service.persistControlTrajectoryFromSnapshot(
 		ctx,
 		snapshot,
 		turnID,
-		ConversationStatusWorking,
+		status,
 		[]TrajectoryEvent{{
 			ID:    eventID,
 			Kind:  TrajectoryEventApprovalResolved,
 			Actor: TrajectoryActorUser,
 			ApprovalResolved: &TrajectoryApprovalResolved{Resolution: TrajectoryApprovalResolution{
-				ApprovalID: response.ApprovalID,
-				Decision:   response.Decision,
-				Response:   response.Response,
-				Answers:    answers,
+				ApprovalID:      response.ApprovalID,
+				Decision:        response.Decision,
+				Response:        response.Response,
+				Answers:         answers,
+				SecretsRedacted: secretsRedacted,
 			}},
 		}},
 	)
 }
 
-func cloneConversationApprovalAnswers(answers []ConversationApprovalAnswer) []ConversationApprovalAnswer {
+func durableConversationApprovalAnswers(
+	request TrajectoryApprovalRequest,
+	answers []ConversationApprovalAnswer,
+) ([]ConversationApprovalAnswer, bool) {
+	secret := map[string]bool{}
+	for _, question := range request.Questions {
+		secret[question.ID] = question.Secret
+	}
 	result := make([]ConversationApprovalAnswer, 0, len(answers))
+	secretsRedacted := false
 	for _, answer := range answers {
+		// Secret values are delivered to the provider but never copied into the
+		// durable trajectory that later renderer and narrator projections read.
+		if secret[answer.QuestionID] {
+			secretsRedacted = true
+			continue
+		}
 		result = append(result, ConversationApprovalAnswer{
 			QuestionID: answer.QuestionID,
 			Answers:    append([]string{}, answer.Answers...),
 		})
 	}
-	return result
-}
-
-func (service *Service) persistControlTrajectory(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-	turnID string,
-	status ConversationStatus,
-	events []TrajectoryEvent,
-) error {
-	snapshot, err := service.snapshotLocked(ctx, workspaceID, conversationID)
-	if err != nil {
-		return err
-	}
-	return service.persistControlTrajectoryFromSnapshot(ctx, snapshot, turnID, status, events)
+	return result, secretsRedacted
 }
 
 func (service *Service) persistControlTrajectoryFromSnapshot(
@@ -148,15 +139,9 @@ func (service *Service) persistControlTrajectoryFromSnapshot(
 	status ConversationStatus,
 	events []TrajectoryEvent,
 ) error {
-	turn, err := findConversationTurn(snapshot, turnID)
+	turn, err := controlTrajectoryTurn(snapshot, turnID)
 	if err != nil {
 		return err
-	}
-	if turn.Status != TurnStatusRunning {
-		return &CommandConflictError{
-			ConversationID: snapshot.Conversation.ID,
-			Reason:         fmt.Sprintf("turn %s is %s", turn.ID, turn.Status),
-		}
 	}
 	now := advanceTimestamp(snapshot.Conversation.UpdatedAt, service.timestamp())
 	providerThreadID := snapshot.ThreadBinding.ThreadID
@@ -210,17 +195,107 @@ func (service *Service) persistControlTrajectoryFromSnapshot(
 	return err
 }
 
-func snapshotHasPendingApproval(snapshot ConversationSnapshot, approvalID string) bool {
-	pending := false
-	for _, event := range snapshot.Trajectory.Events {
-		if event.ApprovalRequested != nil && event.ApprovalRequested.Approval.ID == approvalID {
-			pending = true
+func controlTrajectoryTurn(snapshot ConversationSnapshot, turnID string) (ConversationTurn, error) {
+	turn, err := findConversationTurn(snapshot, turnID)
+	if err != nil {
+		return ConversationTurn{}, err
+	}
+	if turn.Status != TurnStatusRunning {
+		return ConversationTurn{}, &CommandConflictError{
+			ConversationID: snapshot.Conversation.ID,
+			Reason:         fmt.Sprintf("turn %s is %s", turn.ID, turn.Status),
 		}
-		if event.ApprovalResolved != nil && event.ApprovalResolved.Resolution.ApprovalID == approvalID {
-			pending = false
+	}
+	if snapshot.ThreadBinding == nil || turn.ProviderTurnID == nil {
+		return ConversationTurn{}, &CommandConflictError{
+			ConversationID: snapshot.Conversation.ID,
+			Reason:         "running turn is missing durable provider references",
+		}
+	}
+	return turn, nil
+}
+
+func pendingApprovalsForTurn(
+	snapshot ConversationSnapshot,
+	turnID string,
+) map[string]TrajectoryApprovalRequest {
+	pending := map[string]TrajectoryApprovalRequest{}
+	for _, event := range snapshot.Trajectory.Events {
+		if event.TurnID == nil || *event.TurnID != turnID {
+			continue
+		}
+		if event.ApprovalRequested != nil {
+			request := event.ApprovalRequested.Approval
+			pending[request.ID] = request
+		}
+		if event.ApprovalResolved != nil {
+			delete(pending, event.ApprovalResolved.Resolution.ApprovalID)
 		}
 	}
 	return pending
+}
+
+func validateApprovalResponseForRequest(
+	request TrajectoryApprovalRequest,
+	response ConversationApprovalResponse,
+) error {
+	switch request.Kind {
+	case TrajectoryApprovalKindStructuredInput, TrajectoryApprovalKindUserInput:
+		if response.Decision == TrajectoryApprovalDecisionCancelled {
+			return nil
+		}
+		if response.Decision != TrajectoryApprovalDecisionAnswered {
+			return fmt.Errorf("%s approval requires an answered or cancelled decision", request.Kind)
+		}
+		return validateStructuredApprovalAnswers(request, response.Answers)
+	case TrajectoryApprovalKindCommand,
+		TrajectoryApprovalKindFileChange,
+		TrajectoryApprovalKindPermission:
+		switch response.Decision {
+		case TrajectoryApprovalDecisionApproved,
+			TrajectoryApprovalDecisionDenied,
+			TrajectoryApprovalDecisionCancelled:
+			return nil
+		default:
+			return fmt.Errorf("%s approval does not accept decision %s", request.Kind, response.Decision)
+		}
+	case TrajectoryApprovalKindMCPElicitation:
+		return nil
+	default:
+		return fmt.Errorf("unsupported conversation approval kind %q", request.Kind)
+	}
+}
+
+func validateStructuredApprovalAnswers(
+	request TrajectoryApprovalRequest,
+	answers []ConversationApprovalAnswer,
+) error {
+	byQuestion := make(map[string]ConversationApprovalAnswer, len(answers))
+	for _, answer := range answers {
+		byQuestion[answer.QuestionID] = answer
+	}
+	if len(byQuestion) != len(request.Questions) {
+		return fmt.Errorf("structured approval requires one answer for each question")
+	}
+	for _, question := range request.Questions {
+		answer, ok := byQuestion[question.ID]
+		if !ok {
+			return fmt.Errorf("structured approval answer is required for question %s", question.ID)
+		}
+		if question.AllowsOther || len(question.Options) == 0 {
+			continue
+		}
+		allowed := map[string]bool{}
+		for _, option := range question.Options {
+			allowed[option] = true
+		}
+		for _, value := range answer.Answers {
+			if !allowed[value] {
+				return fmt.Errorf("structured approval answer %q is not an option for question %s", value, question.ID)
+			}
+		}
+	}
+	return nil
 }
 
 func agentApprovalResponse(response ConversationApprovalResponse) (agent.ApprovalResponse, error) {

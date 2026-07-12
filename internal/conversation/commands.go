@@ -41,7 +41,21 @@ func (response ConversationApprovalResponse) Validate() error {
 	if err := validateIdentifier("conversation approval id", response.ApprovalID); err != nil {
 		return err
 	}
-	switch response.Decision {
+	return validateConversationApprovalDecisionFields(response)
+}
+
+func validateConversationApprovalDecisionFields(response ConversationApprovalResponse) error {
+	if err := validateConversationApprovalDecision(response.Decision); err != nil {
+		return err
+	}
+	if err := validateConversationApprovalAnswers(response.Answers); err != nil {
+		return err
+	}
+	return validateConversationApprovalDecisionPayload(response)
+}
+
+func validateConversationApprovalDecision(decision TrajectoryApprovalDecision) error {
+	switch decision {
 	case TrajectoryApprovalDecisionApproved,
 		TrajectoryApprovalDecisionDenied,
 		TrajectoryApprovalDecisionCancelled,
@@ -49,13 +63,17 @@ func (response ConversationApprovalResponse) Validate() error {
 	case TrajectoryApprovalDecisionApprovedForSession:
 		return fmt.Errorf("conversation approvals do not support session-wide decisions")
 	default:
-		return fmt.Errorf("unsupported conversation approval decision %q", response.Decision)
+		return fmt.Errorf("unsupported conversation approval decision %q", decision)
 	}
-	if response.Answers == nil {
+	return nil
+}
+
+func validateConversationApprovalAnswers(answers []ConversationApprovalAnswer) error {
+	if answers == nil {
 		return fmt.Errorf("conversation approval answers must be an array")
 	}
 	seen := map[string]bool{}
-	for _, answer := range response.Answers {
+	for _, answer := range answers {
 		if err := answer.Validate(); err != nil {
 			return err
 		}
@@ -63,6 +81,28 @@ func (response ConversationApprovalResponse) Validate() error {
 			return fmt.Errorf("conversation approval answer %q is duplicated", answer.QuestionID)
 		}
 		seen[answer.QuestionID] = true
+	}
+	return nil
+}
+
+func validateConversationApprovalDecisionPayload(response ConversationApprovalResponse) error {
+	switch response.Decision {
+	case TrajectoryApprovalDecisionAnswered:
+		if len(response.Answers) == 0 {
+			return fmt.Errorf("answered conversation approval requires structured answers")
+		}
+		if response.Response != "" {
+			return fmt.Errorf("free-form conversation approval responses are not supported")
+		}
+	case TrajectoryApprovalDecisionApproved,
+		TrajectoryApprovalDecisionDenied,
+		TrajectoryApprovalDecisionCancelled:
+		if len(response.Answers) != 0 {
+			return fmt.Errorf("conversation approval decision %s must not include structured answers", response.Decision)
+		}
+		if response.Response != "" {
+			return fmt.Errorf("conversation approval decision %s must not include a response", response.Decision)
+		}
 	}
 	return nil
 }

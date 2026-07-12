@@ -95,7 +95,7 @@ func (service *Service) buildUnexpectedTurnEnd(
 	if err != nil {
 		return unexpectedTurnEndMutation{}, err
 	}
-	if len(queue) > 0 && conversationStatus == ConversationStatusIdle {
+	if len(queue) > 0 {
 		conversationStatus = ConversationStatusWorking
 	}
 	conversation := snapshot.Conversation

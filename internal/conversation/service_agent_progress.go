@@ -299,6 +299,11 @@ func (service *Service) conversationActivityTrajectory(
 	event agent.Event,
 	now string,
 ) (TrajectoryEvent, *Artifact, error) {
+	if event.Activity != nil &&
+		event.Activity.Kind == agent.ActivityKindSubagent &&
+		event.Kind == agent.EventKindActivityCompleted {
+		return conversationSubagentTrajectory(trajectory, event)
+	}
 	activity, err := conversationActivity(event.Activity, active.request.WorkspaceRoot)
 	if err != nil {
 		return TrajectoryEvent{}, nil, err
@@ -398,6 +403,8 @@ func conversationActivity(activity *agent.ActivityEvent, workspaceRoot string) (
 	case agent.ActivityKindTool:
 		result.Kind = TrajectoryActivityDynamicTool
 		result.Tool = &result.Title
+	case agent.ActivityKindCollaboration:
+		result.Kind = TrajectoryActivityOther
 	case agent.ActivityKindSubagent:
 		result.Kind = TrajectoryActivitySubagent
 	case agent.ActivityKindArtifact:
@@ -408,6 +415,43 @@ func conversationActivity(activity *agent.ActivityEvent, workspaceRoot string) (
 		return TrajectoryActivity{}, fmt.Errorf("unsupported agent activity kind %q", activity.Kind)
 	}
 	return result, result.Validate()
+}
+
+func conversationSubagentTrajectory(
+	trajectory TrajectoryEvent,
+	event agent.Event,
+) (TrajectoryEvent, *Artifact, error) {
+	activity := event.Activity
+	if activity == nil {
+		return TrajectoryEvent{}, nil, fmt.Errorf("agent subagent activity payload is required")
+	}
+	providerThreadID := strings.TrimSpace(activity.Summary)
+	if providerThreadID == "" {
+		return TrajectoryEvent{}, nil, fmt.Errorf("agent subagent activity requires provider thread id")
+	}
+	subagent := Subagent{
+		ID:               providerThreadID,
+		ProviderThreadID: providerThreadID,
+		Message:          stringPointerValue(activity.Title),
+	}
+	trajectory.Actor = TrajectoryActorAgent
+	switch activity.Status {
+	case "started":
+		subagent.Status = SubagentStatusRunning
+		trajectory.Kind = TrajectoryEventSubagentStarted
+		trajectory.SubagentStarted = &TrajectorySubagentStarted{Subagent: subagent}
+	case "interacted":
+		subagent.Status = SubagentStatusRunning
+		trajectory.Kind = TrajectoryEventSubagentUpdated
+		trajectory.SubagentUpdated = &TrajectorySubagentUpdated{Subagent: subagent}
+	case "interrupted":
+		subagent.Status = SubagentStatusInterrupted
+		trajectory.Kind = TrajectoryEventSubagentCompleted
+		trajectory.SubagentCompleted = &TrajectorySubagentCompleted{Subagent: subagent}
+	default:
+		return TrajectoryEvent{}, nil, fmt.Errorf("unsupported provider subagent activity %q", activity.Status)
+	}
+	return trajectory, nil, nil
 }
 
 func (service *Service) activityTrajectory(

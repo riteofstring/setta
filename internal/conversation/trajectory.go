@@ -198,6 +198,7 @@ type TrajectoryApprovalQuestion struct {
 	Question    string   `json:"question"`
 	Options     []string `json:"options"`
 	AllowsOther bool     `json:"allowsOther"`
+	Secret      bool     `json:"secret"`
 }
 
 type TrajectoryApprovalRequest struct {
@@ -215,11 +216,12 @@ type TrajectoryApprovalRequest struct {
 }
 
 type TrajectoryApprovalResolution struct {
-	ApprovalID string                       `json:"approvalId"`
-	Decision   TrajectoryApprovalDecision   `json:"decision"`
-	Response   string                       `json:"response"`
-	Answers    []ConversationApprovalAnswer `json:"answers"`
-	ResolvedAt string                       `json:"resolvedAt"`
+	ApprovalID      string                       `json:"approvalId"`
+	Decision        TrajectoryApprovalDecision   `json:"decision"`
+	Response        string                       `json:"response"`
+	Answers         []ConversationApprovalAnswer `json:"answers"`
+	SecretsRedacted bool                         `json:"secretsRedacted"`
+	ResolvedAt      string                       `json:"resolvedAt"`
 }
 
 type Subagent struct {

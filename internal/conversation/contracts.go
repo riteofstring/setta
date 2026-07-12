@@ -11,8 +11,11 @@ import (
 const (
 	ConversationContractSchemaVersion = 1
 
-	MaxSnapshotTurns             = 50
-	MaxSnapshotQueuedTurns       = 50
+	MaxSnapshotQueuedTurns = 50
+	// A bounded snapshot must retain the running turn in addition to every
+	// accepted queued turn. Keep this relationship owner-defined here so a
+	// full queue cannot evict the turn that progress and controls target.
+	MaxSnapshotTurns             = MaxSnapshotQueuedTurns + 1
 	MaxSnapshotTrajectoryEvents  = 200
 	MaxSnapshotArtifacts         = 100
 	MaxSnapshotNarrationEvents   = 100

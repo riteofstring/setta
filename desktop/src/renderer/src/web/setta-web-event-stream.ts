@@ -21,6 +21,7 @@ export interface WebEventStreamOptions<T> {
   endpoint: { method: string; path: string };
   fetchImpl: BackendFetch;
   initialCursor?: StreamCursor;
+  isCursorResetEvent?: (event: T) => boolean;
   lifecycle?: (status: BackendEventStreamStatus) => void;
   sendEvent: (event: T) => void;
   streamName: string;
@@ -118,13 +119,22 @@ async function streamWebEventsOnce<T>(
     }
     const event = decodeStreamMessage(message, options.decode, options.streamName);
     const nextCursor = options.cursorForEvent(event, message);
-    if (nextCursor.streamId === cursor.streamId && nextCursor.sequence <= cursor.sequence) {
+    const resetsCursor = options.isCursorResetEvent?.(event) ?? false;
+    if (streamEventIsDuplicate(cursor, nextCursor, resetsCursor)) {
       continue;
     }
     cursor = nextCursor;
     options.sendEvent(event);
   }
   return cursor;
+}
+
+function streamEventIsDuplicate(
+  current: StreamCursor,
+  next: StreamCursor,
+  resetsCursor: boolean,
+): boolean {
+  return !resetsCursor && next.streamId === current.streamId && next.sequence <= current.sequence;
 }
 
 function decodeStreamMessage<T>(

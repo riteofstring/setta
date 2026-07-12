@@ -158,6 +158,12 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
     },
     upsertSnapshot: (snapshot) => {
       const workspaceId = snapshot.conversation.workspaceId;
+      // A bounded snapshot is not evidence that the conversation matches the
+      // backend-owned navigator query. Keep filtered pages authoritative
+      // instead of guessing at full-text search semantics in the renderer.
+      if (get().query.trim() !== "" || !activeWorkspaceIds.has(workspaceId)) {
+        return;
+      }
       const current = get().workspaces[workspaceId] ?? {
         error: null,
         items: [],

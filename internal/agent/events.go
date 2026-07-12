@@ -56,12 +56,13 @@ type PlanEvent struct {
 type ActivityKind string
 
 const (
-	ActivityKindCommand    ActivityKind = "command"
-	ActivityKindFileChange ActivityKind = "file_change"
-	ActivityKindTool       ActivityKind = "tool"
-	ActivityKindSubagent   ActivityKind = "subagent"
-	ActivityKindArtifact   ActivityKind = "artifact"
-	ActivityKindOther      ActivityKind = "other"
+	ActivityKindCommand       ActivityKind = "command"
+	ActivityKindFileChange    ActivityKind = "file_change"
+	ActivityKindTool          ActivityKind = "tool"
+	ActivityKindCollaboration ActivityKind = "collaboration"
+	ActivityKindSubagent      ActivityKind = "subagent"
+	ActivityKindArtifact      ActivityKind = "artifact"
+	ActivityKindOther         ActivityKind = "other"
 )
 
 type ActivityEvent struct {

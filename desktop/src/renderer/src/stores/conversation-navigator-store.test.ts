@@ -1,4 +1,5 @@
 import type {
+  ConversationSnapshot,
   ListTopicConversationsRequest,
   NavigatorItem,
   NavigatorPage,
@@ -137,6 +138,18 @@ describe("conversation navigator store", () => {
       loading: false,
     });
   });
+
+  test("does not inject snapshots into backend-owned filtered results", async () => {
+    installConversationAPI(vi.fn(async () => ({ items: [], nextCursor: null })));
+    useConversationNavigatorStore.getState().setQuery("matching");
+    await useConversationNavigatorStore.getState().syncWorkspaces(["workspace_api"]);
+
+    useConversationNavigatorStore
+      .getState()
+      .upsertSnapshot(navigatorSnapshot("conversation_unmatched", "workspace_api"));
+
+    expect(useConversationNavigatorStore.getState().workspaces.workspace_api?.items).toEqual([]);
+  });
 });
 
 const testTime = "2026-07-11T20:00:00Z";
@@ -177,5 +190,37 @@ function navigatorItem(id: string, workspaceId: string): NavigatorItem {
       resolvedPaletteId: "sky",
       updatedAt: testTime,
     },
+  };
+}
+
+function navigatorSnapshot(id: string, workspaceId: string): ConversationSnapshot {
+  const item = navigatorItem(id, workspaceId);
+  return {
+    artifacts: { artifacts: [], hasEarlier: false },
+    branch: null,
+    conversation: item.conversation,
+    eventCursor: { sequence: 0, streamId: `conversation:${id}` },
+    narration: { events: [], hasEarlier: false },
+    narratorState: {
+      checkpointText: "",
+      checkpointThroughSequence: 0,
+      conversationId: id,
+      currentFocus: "",
+      currentFocusRevision: 0,
+      degradation: null,
+      lastInvocationAt: null,
+      observedThroughSequence: 0,
+      status: "ready",
+      topicDescriptor: "",
+      updatedAt: testTime,
+    },
+    presentationProfile: item.presentationProfile,
+    queue: [],
+    roleProfileOverrides: [],
+    schemaVersion: 1,
+    sideConversations: [],
+    threadBinding: null,
+    trajectory: { events: [], hasEarlier: false },
+    turns: { hasEarlier: false, turns: [] },
   };
 }

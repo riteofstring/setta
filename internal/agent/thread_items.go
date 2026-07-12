@@ -140,7 +140,7 @@ func collabAgentActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	}
 	return ActivityEvent{
 		ProviderItemID: item.CollabAgentToolCall.ID,
-		Kind:           ActivityKindSubagent,
+		Kind:           ActivityKindCollaboration,
 		Status:         string(item.CollabAgentToolCall.Status),
 		Title:          string(item.CollabAgentToolCall.Tool),
 		Summary:        fmt.Sprintf("%d receiver thread(s)", len(item.CollabAgentToolCall.ReceiverThreadIds)),

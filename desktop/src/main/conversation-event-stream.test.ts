@@ -5,8 +5,8 @@ import { describe, expect, test, vi } from "vitest";
 import { startConversationEventStream } from "./conversation-event-stream";
 
 describe("conversation event stream", () => {
-  test("resumes one conversation from its snapshot cursor and forwards a typed resync", async () => {
-    const event = resyncEvent(8);
+  test("resumes one conversation and forwards an authoritative cursor rollback", async () => {
+    const event = resyncEvent(3);
     const forwarded: ConversationEvent[] = [];
     const fetchImpl: BackendFetch = vi.fn(async (input, init) => {
       expect(input.toString()).toBe(

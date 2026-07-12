@@ -120,6 +120,10 @@ function emitTurnScenario(threadId, turnId, text) {
     heldTurns.set(turnId, { threadId, text });
     return;
   }
+  if (text.includes("command approval")) {
+    requestCommandApproval(threadId, turnId);
+    return;
+  }
   if (text.includes("approval")) {
     requestApproval(threadId, turnId);
     return;
@@ -186,6 +190,20 @@ function requestApproval(threadId, turnId) {
   });
 }
 
+function requestCommandApproval(threadId, turnId) {
+  approvalCounter += 1;
+  const requestId = `topic-approval-${approvalCounter}`;
+  pendingApprovals.set(requestId, { threadId, turnId });
+  request(requestId, "item/commandExecution/requestApproval", {
+    command: "printf denied",
+    itemId: `approval-item-${turnId}`,
+    reason: "Verify the deny path",
+    startedAtMs: Date.now(),
+    threadId,
+    turnId,
+  });
+}
+
 function handleClientResponse(message) {
   const requestId = String(message.id);
   const pending = pendingApprovals.get(requestId);
@@ -196,8 +214,15 @@ function handleClientResponse(message) {
   if (!message.result) {
     throw new Error(`approval ${requestId} did not include a result`);
   }
+  const denied = message.result.decision === "decline";
   setImmediate(() => {
-    emitAgentMessage(pending.threadId, pending.turnId, "Approval answered and work completed.");
+    emitAgentMessage(
+      pending.threadId,
+      pending.turnId,
+      denied
+        ? "Command approval denied and work completed."
+        : "Approval answered and work completed.",
+    );
     completeTurn(pending.threadId, pending.turnId, "completed");
   });
 }

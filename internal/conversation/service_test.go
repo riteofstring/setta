@@ -228,16 +228,18 @@ func (resolver serviceTestWorkspaceResolver) ResolveActiveWorkspace(id string) (
 }
 
 type serviceTestAgentRuntime struct {
-	mu       sync.Mutex
-	controls map[string]chan string
-	started  chan string
-	turns    int
+	mu           sync.Mutex
+	controls     map[string]chan string
+	controlLog   []string
+	lastApproval *agent.ApprovalResponse
+	started      chan string
+	turns        int
 }
 
 func newServiceTestAgentRuntime() *serviceTestAgentRuntime {
 	return &serviceTestAgentRuntime{
 		controls: map[string]chan string{},
-		started:  make(chan string, 16),
+		started:  make(chan string, MaxSnapshotQueuedTurns+4),
 	}
 }
 
@@ -263,7 +265,7 @@ func (runtime *serviceTestAgentRuntime) StartThread(
 }
 
 func (runtime *serviceTestAgentRuntime) RunTurn(
-	_ context.Context,
+	ctx context.Context,
 	request agent.TurnRequest,
 	sink agent.EventSink,
 ) (agent.TurnResult, error) {
@@ -285,26 +287,126 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 		return agent.TurnResult{}, err
 	}
 	runtime.started <- request.Text
-	if request.Text == "approval" {
-		approval := base
-		approval.Kind = agent.EventKindApprovalRequested
-		approval.Approval = &agent.ApprovalRequest{
-			ID: "approval-" + providerTurnID, ProviderItemID: "approval-item", Kind: agent.ApprovalKindUserInput,
-			Title: "Scope", Body: "Choose scope", Questions: []agent.ApprovalQuestion{{
-				ID: "scope", Header: "Scope", Question: "Which scope?", Options: []string{"focused"},
-			}},
-		}
-		if err := sink.HandleAgentEvent(approval); err != nil {
+	return runtime.runTestTurnScenario(ctx, request.Text, sink, base, control)
+}
+
+func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
+	ctx context.Context,
+	text string,
+	sink agent.EventSink,
+	base agent.Event,
+	control <-chan string,
+) (agent.TurnResult, error) {
+	switch text {
+	case "approval", "secret approval":
+		if err := runtime.runApprovalScenario(ctx, text == "secret approval", sink, base, control); err != nil {
 			return agent.TurnResult{}, err
 		}
-		<-control
-	} else if request.Text == "hold" || request.Text == "hold cancel" {
-		action := <-control
-		if action == "interrupt" {
-			return runtime.emitTerminal(sink, base, agent.TurnOutcomeInterrupted)
+	case "subagent":
+		if err := runtime.emitSubagentLifecycle(sink, base); err != nil {
+			return agent.TurnResult{}, err
+		}
+	case "missing terminal":
+		return agent.TurnResult{
+			ProviderThreadID: base.ProviderThreadID,
+			ProviderTurnID:   base.ProviderTurnID,
+			Outcome:          agent.TurnOutcomeCompleted,
+		}, nil
+	case "mismatched provider scope":
+		mismatched := base
+		mismatched.ProviderThreadID = "provider-thread-other"
+		mismatched.Kind = agent.EventKindAgentTextCompleted
+		mismatched.Text = &agent.TextEvent{
+			ProviderItemID: "message-mismatched",
+			Text:           "must not persist",
+		}
+		if err := sink.HandleAgentEvent(mismatched); err != nil {
+			return agent.TurnResult{}, err
+		}
+	case "hold", "hold cancel", "hold fail", "hold after failure":
+		return runtime.runHeldScenario(ctx, text, sink, base, control)
+	}
+	return runtime.emitCompletedTurn(sink, base, text)
+}
+
+func (runtime *serviceTestAgentRuntime) runApprovalScenario(
+	ctx context.Context,
+	secret bool,
+	sink agent.EventSink,
+	base agent.Event,
+	control <-chan string,
+) error {
+	approval := base
+	approval.Kind = agent.EventKindApprovalRequested
+	approval.Approval = &agent.ApprovalRequest{
+		ID: "approval-" + base.ProviderTurnID, ProviderItemID: "approval-item", Kind: agent.ApprovalKindUserInput,
+		Title: "Scope", Body: "Choose scope", Questions: []agent.ApprovalQuestion{{
+			ID: "scope", Header: "Scope", Question: "Which scope?", Options: []string{"focused"}, Secret: secret,
+		}},
+	}
+	if err := sink.HandleAgentEvent(approval); err != nil {
+		return err
+	}
+	select {
+	case <-control:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (runtime *serviceTestAgentRuntime) runHeldScenario(
+	ctx context.Context,
+	text string,
+	sink agent.EventSink,
+	base agent.Event,
+	control <-chan string,
+) (agent.TurnResult, error) {
+	var action string
+	select {
+	case action = <-control:
+	case <-ctx.Done():
+		return agent.TurnResult{}, ctx.Err()
+	}
+	if action == "interrupt" {
+		return runtime.emitTerminal(sink, base, agent.TurnOutcomeInterrupted)
+	}
+	if text != "hold fail" {
+		return runtime.emitCompletedTurn(sink, base, text)
+	}
+	message := "scripted held failure"
+	terminal := base
+	terminal.Kind = agent.EventKindTurnTerminal
+	terminal.Terminal = &agent.TerminalEvent{Outcome: agent.TurnOutcomeFailed, Error: &message}
+	if err := sink.HandleAgentEvent(terminal); err != nil {
+		return agent.TurnResult{}, err
+	}
+	return agent.TurnResult{
+		ProviderThreadID: base.ProviderThreadID,
+		ProviderTurnID:   base.ProviderTurnID,
+		Outcome:          agent.TurnOutcomeFailed,
+	}, nil
+}
+
+func (runtime *serviceTestAgentRuntime) emitSubagentLifecycle(
+	sink agent.EventSink,
+	base agent.Event,
+) error {
+	for _, status := range []string{"started", "interacted", "interrupted"} {
+		event := base
+		event.Kind = agent.EventKindActivityCompleted
+		event.Activity = &agent.ActivityEvent{
+			ProviderItemID: "subagent-item-" + status,
+			Kind:           agent.ActivityKindSubagent,
+			Status:         status,
+			Title:          "reviewer",
+			Summary:        "provider-subagent-thread",
+		}
+		if err := sink.HandleAgentEvent(event); err != nil {
+			return err
 		}
 	}
-	return runtime.emitCompletedTurn(sink, base, request.Text)
+	return nil
 }
 
 func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
@@ -362,6 +464,10 @@ func (runtime *serviceTestAgentRuntime) InterruptTurn(_ context.Context, request
 }
 
 func (runtime *serviceTestAgentRuntime) SubmitApproval(response agent.ApprovalResponse) error {
+	runtime.mu.Lock()
+	copy := response
+	runtime.lastApproval = &copy
+	runtime.mu.Unlock()
 	providerTurnID := response.RequestID[len("approval-"):]
 	runtime.signal(providerTurnID, "approval")
 	return nil
@@ -372,8 +478,25 @@ func (*serviceTestAgentRuntime) UnsubscribeThread(context.Context, string) error
 func (runtime *serviceTestAgentRuntime) signal(providerTurnID string, value string) {
 	runtime.mu.Lock()
 	control := runtime.controls[providerTurnID]
+	runtime.controlLog = append(runtime.controlLog, providerTurnID+":"+value)
 	runtime.mu.Unlock()
 	control <- value
+}
+
+func (runtime *serviceTestAgentRuntime) controlsSent() []string {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	return append([]string{}, runtime.controlLog...)
+}
+
+func (runtime *serviceTestAgentRuntime) submittedApproval() *agent.ApprovalResponse {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	if runtime.lastApproval == nil {
+		return nil
+	}
+	copy := *runtime.lastApproval
+	return &copy
 }
 
 func (runtime *serviceTestAgentRuntime) waitForStart(t *testing.T, text string) {

@@ -204,6 +204,34 @@ try {
   }
 
   assertDriverAction(
+    await context.client.driver("topicConversationSubmit", {
+      conversationId: alpha.id,
+      text: "command approval denial",
+    }),
+    "submitted",
+  );
+  const awaitingDenial = await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) => surface.approvalId !== "" && surface.helperText === "Waiting for approval",
+  );
+  assertDriverAction(
+    await context.client.driver("topicConversationDenyApproval", {
+      conversationId: alpha.id,
+    }),
+    "denied",
+  );
+  await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) =>
+      surface.state === "complete" &&
+      surface.status === "completed" &&
+      surface.approvalId === "" &&
+      surface.summaryText.includes("Command approval denied and work completed"),
+  );
+
+  assertDriverAction(
     await context.client.driver("topicConversationStop", { conversationId: beta.id }),
     "stopped",
   );
@@ -236,7 +264,7 @@ try {
     workspaceId,
     alpha.id,
     (snapshot) =>
-      snapshot.turns.turns.length === 3 &&
+      snapshot.turns.turns.length === 4 &&
       snapshot.turns.turns.every((turn) => turn.status === "completed"),
   );
   const betaSnapshot = await waitForConversationSnapshot(
@@ -249,6 +277,7 @@ try {
       snapshot.turns.turns[1]?.status === "failed",
   );
   assertAlphaLifecycle(alphaSnapshot, awaitingApproval.approvalId);
+  assertDeniedApproval(alphaSnapshot, awaitingDenial.approvalId);
   assertBetaLifecycle(betaSnapshot);
 
   await captureScreenshot(context.client, join(artifactDir, "commands-complete.png"));
@@ -540,6 +569,21 @@ function assertAlphaApproval(snapshot, approvalId) {
   const answers = resolutionEvent.approvalResolved.resolution.answers;
   if (answers.length !== 1 || answers[0].answers[0] !== "focused") {
     throw new Error(`Alpha approval answer is incomplete: ${JSON.stringify(snapshot)}`);
+  }
+}
+
+function assertDeniedApproval(snapshot, approvalId) {
+  const resolution = snapshot.trajectory.events.find(
+    (event) =>
+      event.approvalResolved && event.approvalResolved.resolution.approvalId === approvalId,
+  )?.approvalResolved?.resolution;
+  if (
+    !resolution ||
+    resolution.decision !== "denied" ||
+    resolution.response !== "" ||
+    resolution.answers.length !== 0
+  ) {
+    throw new Error(`Alpha denied approval lifecycle is incomplete: ${JSON.stringify(snapshot)}`);
   }
 }
 

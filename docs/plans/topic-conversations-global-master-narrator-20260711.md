@@ -2550,3 +2550,31 @@ Implementation is in progress under this plan.
   contrary provider evidence. The supply-chain audit again reported the
   pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4, fixed in Go 1.26.5;
   this slice changed no dependency manifest or toolchain pin.
+- 2026-07-11: The Phase 3 item 6 review hardened the conversation command
+  lifecycle without beginning item 7. A full queue now retains its controllable
+  running turn, queueing during approval preserves the approval state, terminal
+  failure keeps accepted promotion working, controls validate durable workspace
+  and provider scope before side effects, missing terminal notifications fail
+  explicitly, and shutdown admission no longer races the turn wait group.
+  Approval decisions are request-specific, denial persists without invalid
+  free-form text, secret questions stay masked and their answers are redacted
+  from durable trajectory, stale approvals are not projected, and Codex
+  subagent activity projects through the typed lifecycle. Authoritative event
+  cursor rollback and resync-read races are handled in both desktop and web
+  projections, while filtered navigator pages remain backend-owned. Protocol
+  version 18, the contract schema snapshot, and generated backend TypeScript
+  were regenerated from the Go owners.
+- 2026-07-11: Review verification passed the conversation package and focused
+  conversation HTTP endpoints under the race detector, all 1,184 desktop tests,
+  desktop typecheck/build/lint/dead-code checks, the clean
+  `./check_quality.sh --git-changes` gate, the ChatGPT-authenticated live topic
+  workflow, and the live thread/fork characterization without `OPENAI_API_KEY`.
+  The production Electron workflow passed with queueing, steering, structured
+  approval, command denial, terminal outcomes, close/reopen, active reload, and
+  persistence evidence under
+  `.recordings/topic-conversation-pane-projection/20260712T075055072Z/`. The
+  broad gate reached the already retired chat Electron workflow and failed on
+  its removed `New chat` control; a deliberately broad HTTP race run likewise
+  reproduced pre-existing legacy chat/workflow response mutation races. The
+  supply-chain audit still reports only the recorded Go 1.26.4
+  `GO-2026-5856` finding. Phase 3 item 7 remains next and was not started.

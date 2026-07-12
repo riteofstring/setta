@@ -113,7 +113,11 @@ export function hydratedConversationProjection(
   if (current?.resync && !cursorCovers(snapshot.eventCursor, current.resync.minimumCursor)) {
     return projectionAfterStaleSnapshot(current);
   }
-  if (current?.snapshot && snapshotIsOlder(snapshot, current.snapshot)) {
+  if (
+    current?.snapshot &&
+    current.resync?.reason !== "server_required" &&
+    snapshotIsOlder(snapshot, current.snapshot)
+  ) {
     return projectionAfterStaleSnapshot(current);
   }
   return {
@@ -536,13 +540,53 @@ function projectionWithTypedResync(
   current: ConversationProjection,
   requirement: ConversationResyncRequirement,
 ): ConversationProjection {
+  if (requirement.reason === "server_required") {
+    return projectionWithServerResync(current, requirement);
+  }
+  return projectionWithLocalResync(current, requirement);
+}
+
+function projectionWithServerResync(
+  current: ConversationProjection,
+  requirement: ConversationResyncRequirement,
+): ConversationProjection {
+  const existing = current.resync;
+  if (
+    existing?.reason === requirement.reason &&
+    existing.detail === requirement.detail &&
+    cursorsEqual(existing.minimumCursor, requirement.minimumCursor)
+  ) {
+    return current;
+  }
+  return projectionWithResync(current, requirement);
+}
+
+function projectionWithLocalResync(
+  current: ConversationProjection,
+  requirement: ConversationResyncRequirement,
+): ConversationProjection {
   const existing = current.resync;
   if (!existing) {
-    if (current.snapshot && cursorCovers(current.snapshot.eventCursor, requirement.minimumCursor)) {
-      return current;
-    }
-    return projectionWithResync(current, requirement);
+    return projectionWithoutExistingResync(current, requirement);
   }
+  return projectionWithExistingResync(current, existing, requirement);
+}
+
+function projectionWithoutExistingResync(
+  current: ConversationProjection,
+  requirement: ConversationResyncRequirement,
+): ConversationProjection {
+  if (current.snapshot && cursorCovers(current.snapshot.eventCursor, requirement.minimumCursor)) {
+    return current;
+  }
+  return projectionWithResync(current, requirement);
+}
+
+function projectionWithExistingResync(
+  current: ConversationProjection,
+  existing: ConversationResyncRequirement,
+  requirement: ConversationResyncRequirement,
+): ConversationProjection {
   if (existing.minimumCursor.streamId !== requirement.minimumCursor.streamId) {
     return projectionWithResync(current, requirement);
   }
@@ -557,6 +601,10 @@ function projectionWithTypedResync(
     return current;
   }
   return projectionWithResync(current, requirement);
+}
+
+function cursorsEqual(left: ConversationEventCursor, right: ConversationEventCursor): boolean {
+  return left.streamId === right.streamId && left.sequence === right.sequence;
 }
 
 function projectionWithLaterResyncCursor(

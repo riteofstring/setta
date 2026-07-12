@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v5";
+  const version = "setta-topic-conversation-pane-projection-driver-v6";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -12,6 +12,7 @@
       topicConversationPaneProjectionVersion: version,
       topicConversationCloseOneBoundPane,
       topicConversationCreate,
+      topicConversationDenyApproval,
       topicConversationNavigatorState,
       topicConversationOpenBoundPane,
       topicConversationRespondApproval,
@@ -167,6 +168,20 @@
     }
     button.click();
     return { answered: true, conversationId };
+  }
+
+  function topicConversationDenyApproval({ conversationId }) {
+    const approval = conversationSurface(conversationId)?.querySelector(
+      '[data-testid="easy-button-approval"]',
+    );
+    const button = Array.from(approval?.querySelectorAll("button") ?? []).find(
+      (candidate) => candidate.textContent?.trim() === "Deny",
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { conversationId, denied: false };
+    }
+    button.click();
+    return { conversationId, denied: true };
   }
 
   function topicConversationOpenBoundPane({ conversationId }) {

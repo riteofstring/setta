@@ -53,16 +53,23 @@ func (service *Service) runTurn(active *activeConversationTurn) {
 func (service *Service) finishRunTurn(active *activeConversationTurn, runErr error) {
 	lock := service.conversationLock(active.conversationID)
 	lock.Lock()
-	if runErr != nil {
-		_ = service.persistUnexpectedTurnEnd(context.Background(), active, runErr)
+	if runErr == nil {
+		runErr = errors.New("agent runtime ended without a durable terminal event")
 	}
+	// The provider result is not the durable source of truth. Re-read the turn
+	// even on a nil runtime error so a missing terminal notification is made
+	// explicit instead of leaving a running record behind while queued work is
+	// promoted.
+	persisted := service.persistUnexpectedTurnEnd(context.Background(), active, runErr) == nil
 	service.activeMu.Lock()
 	if current := service.active[active.conversationID]; current != nil && current.turnID == active.turnID {
 		delete(service.active, active.conversationID)
 	}
 	service.activeMu.Unlock()
 	lock.Unlock()
-	service.promoteNextTurn(active.workspaceID, active.conversationID)
+	if persisted {
+		service.promoteNextTurn(active.workspaceID, active.conversationID)
+	}
 }
 
 func (service *Service) promoteNextTurn(workspaceID string, conversationID string) {
@@ -113,6 +120,28 @@ func (service *Service) handleAgentEvent(
 ) error {
 	if event.ConversationID != active.conversationID || event.TurnID != active.turnID {
 		return fmt.Errorf("agent event scope %s/%s does not match %s/%s", event.ConversationID, event.TurnID, active.conversationID, active.turnID)
+	}
+	if event.ProviderThreadID != active.providerThreadID {
+		return fmt.Errorf(
+			"agent event provider thread %s does not match %s",
+			event.ProviderThreadID,
+			active.providerThreadID,
+		)
+	}
+	if event.ProviderTurnID == "" {
+		return errors.New("agent event provider turn id is required")
+	}
+	if event.Kind != agent.EventKindTurnStarted {
+		if active.providerTurnID == "" {
+			return errors.New("agent progress arrived before the provider turn started")
+		}
+		if event.ProviderTurnID != active.providerTurnID {
+			return fmt.Errorf(
+				"agent event provider turn %s does not match %s",
+				event.ProviderTurnID,
+				active.providerTurnID,
+			)
+		}
 	}
 	lock := service.conversationLock(active.conversationID)
 	lock.Lock()
@@ -428,6 +457,12 @@ func (service *Service) prepareTurnTerminal(
 	conversationStatus, err = applyProviderTerminalOutcome(&turn, &trajectory, event, now, conversationStatus)
 	if err != nil {
 		return turnTerminalMutation{}, err
+	}
+	if len(snapshot.Queue) > 0 {
+		// A failed active turn is terminal for that turn, not for already
+		// accepted queued work. Keep the aggregate working while promotion is
+		// pending so the renderer and navigator do not present a false terminal.
+		conversationStatus = ConversationStatusWorking
 	}
 	turn.EndedAt = &now
 	conversation := snapshot.Conversation

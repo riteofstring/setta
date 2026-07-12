@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 17;
-export const backendContractSchemaHash = "sha256:f19940aff9ad6765a2373f1ec2f8eb4d3f58cb9862b8d98618d5366e3a92fabd";
+export const backendProtocolVersion = 18;
+export const backendContractSchemaHash = "sha256:6eb3ad13246e099bf03ce6d0ae48e11da9e6ba50dc3ebd2ba883f3a18f2fd526";
 
 export type DeviceScope = "full";
 
@@ -4551,6 +4551,7 @@ export interface TrajectoryApprovalQuestion {
   question: string;
   options: string[];
   allowsOther: boolean;
+  secret: boolean;
 }
 
 export interface TrajectoryApprovalRequest {
@@ -4581,6 +4582,7 @@ export interface TrajectoryApprovalResolution {
   decision: TrajectoryApprovalDecision;
   response: string;
   answers: ConversationApprovalAnswer[];
+  secretsRedacted: boolean;
   resolvedAt: string;
 }
 
@@ -10656,13 +10658,14 @@ export function decodeTrajectoryFileChangeCompleted(value: unknown): TrajectoryF
 
 export function decodeTrajectoryApprovalQuestion(value: unknown): TrajectoryApprovalQuestion {
   const record = assertRecord(value, "TrajectoryApprovalQuestion");
-  assertKnownFields(record, "TrajectoryApprovalQuestion", ["id", "header", "question", "options", "allowsOther"]);
+  assertKnownFields(record, "TrajectoryApprovalQuestion", ["id", "header", "question", "options", "allowsOther", "secret"]);
   return {
     id: decodeString(requireField(record, "id", "TrajectoryApprovalQuestion"), "TrajectoryApprovalQuestion.id"),
     header: decodeString(requireField(record, "header", "TrajectoryApprovalQuestion"), "TrajectoryApprovalQuestion.header"),
     question: decodeString(requireField(record, "question", "TrajectoryApprovalQuestion"), "TrajectoryApprovalQuestion.question"),
     options: decodeArray(requireField(record, "options", "TrajectoryApprovalQuestion"), "TrajectoryApprovalQuestion.options", (item) => decodeString(item, "TrajectoryApprovalQuestion.options item")),
     allowsOther: decodeBoolean(requireField(record, "allowsOther", "TrajectoryApprovalQuestion"), "TrajectoryApprovalQuestion.allowsOther"),
+    secret: decodeBoolean(requireField(record, "secret", "TrajectoryApprovalQuestion"), "TrajectoryApprovalQuestion.secret"),
   };
 }
 
@@ -10703,12 +10706,13 @@ export function decodeConversationApprovalAnswer(value: unknown): ConversationAp
 
 export function decodeTrajectoryApprovalResolution(value: unknown): TrajectoryApprovalResolution {
   const record = assertRecord(value, "TrajectoryApprovalResolution");
-  assertKnownFields(record, "TrajectoryApprovalResolution", ["approvalId", "decision", "response", "answers", "resolvedAt"]);
+  assertKnownFields(record, "TrajectoryApprovalResolution", ["approvalId", "decision", "response", "answers", "secretsRedacted", "resolvedAt"]);
   return {
     approvalId: decodeString(requireField(record, "approvalId", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.approvalId"),
     decision: decodeTrajectoryApprovalDecision(requireField(record, "decision", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.decision"),
     response: decodeString(requireField(record, "response", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.response"),
     answers: decodeArray(requireField(record, "answers", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.answers", (item) => decodeConversationApprovalAnswer(item)),
+    secretsRedacted: decodeBoolean(requireField(record, "secretsRedacted", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.secretsRedacted"),
     resolvedAt: decodeString(requireField(record, "resolvedAt", "TrajectoryApprovalResolution"), "TrajectoryApprovalResolution.resolvedAt"),
   };
 }

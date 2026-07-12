@@ -25,6 +25,10 @@ import {
 import { setHostPaneChromeTitle } from "../../workspace-layout/pane-title-metadata";
 import { conversationPaletteStyle } from "./conversation-palette-style";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
+import {
+  pendingConversationApproval,
+  type PendingConversationApproval,
+} from "./easy-button-approval-projection";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
 import { ArtifactRail, HighlightRail, type EasyButtonMilestone } from "./easy-button-rails";
 import {
@@ -45,11 +49,6 @@ type EasyButtonProjectionStatus =
 interface EasyButtonSurfaceProps {
   conversationId: string | null;
   workspaceId?: string | null;
-}
-
-interface PendingConversationApproval {
-  approval: TrajectoryApprovalRequest;
-  turnId: string;
 }
 
 export interface EasyButtonProjectionView {
@@ -212,7 +211,7 @@ function useEasyButtonConversationCommands(
               answers,
               approvalId: approval.id,
               decision,
-              response: decision === "denied" ? "Denied in Easy Button" : "",
+              response: "",
             },
           }),
         false,
@@ -390,6 +389,7 @@ function projectConversationSnapshot(
   projectionStatus: EasyButtonProjectionStatus,
 ): EasyButtonProjectionView {
   const latestTurn = latestConversationTurn(snapshot.turns.turns);
+  const runningTurnId = runningConversationTurnID(snapshot);
   const viewState = conversationViewState(snapshot.conversation, latestTurn);
   const statusTone = conversationStatusTone(snapshot.conversation, latestTurn);
   return {
@@ -407,7 +407,10 @@ function projectConversationSnapshot(
     milestones: milestoneViews(snapshot.narration.events, snapshot.turns.turns),
     narratorDegradation: narratorDegradationMessage(snapshot.narratorState),
     paletteId: snapshot.presentationProfile.resolvedPaletteId,
-    pendingApproval: pendingConversationApproval(snapshot.trajectory.events),
+    pendingApproval:
+      snapshot.conversation.status === "waiting_for_approval" && runningTurnId
+        ? pendingConversationApproval(snapshot.trajectory.events, runningTurnId)
+        : null,
     projectionStatus,
     queuedTurnCount: snapshot.queue.length,
     statusTone,
@@ -436,6 +439,10 @@ function activeConversationTurnID(
     return activeTurn.id;
   }
   return latestTurn ? latestTurn.id : null;
+}
+
+function runningConversationTurnID(snapshot: ConversationSnapshot): string | null {
+  return snapshot.turns.turns.findLast((turn) => turn.status === "running")?.id ?? null;
 }
 
 function conversationProjectionError(
@@ -717,32 +724,15 @@ function terminalFallbackText(
   }
 }
 
-function pendingConversationApproval(
-  trajectory: readonly TrajectoryEvent[],
-): PendingConversationApproval | null {
-  const resolved = new Set<string>();
-  for (let index = trajectory.length - 1; index >= 0; index -= 1) {
-    const event = trajectory[index];
-    if (!event) {
-      continue;
-    }
-    const resolution = event.approvalResolved ? event.approvalResolved.resolution : null;
-    if (resolution) {
-      resolved.add(resolution.approvalId);
-    }
-    const approval = event.approvalRequested ? event.approvalRequested.approval : null;
-    if (approval && event.turnId && !resolved.has(approval.id)) {
-      return { approval, turnId: event.turnId };
-    }
-  }
-  return null;
-}
-
 function activeAgentCount(snapshot: ConversationSnapshot, viewState: EasyButtonViewState): number {
   if (viewState !== "working") {
     return 0;
   }
-  const subagents = latestSubagents(snapshot.trajectory.events);
+  const runningTurnId = runningConversationTurnID(snapshot);
+  if (!runningTurnId) {
+    return 0;
+  }
+  const subagents = latestSubagents(snapshot.trajectory.events, runningTurnId);
   let activeSubagents = 0;
   for (const subagent of subagents.values()) {
     if (subagent.status === "pending_init" || subagent.status === "running") {
@@ -771,9 +761,15 @@ function latestAgentText(events: readonly TrajectoryEvent[], turnId: string | nu
   return text.trim();
 }
 
-function latestSubagents(events: readonly TrajectoryEvent[]): Map<string, Subagent> {
+function latestSubagents(
+  events: readonly TrajectoryEvent[],
+  turnId: string,
+): Map<string, Subagent> {
   const subagents = new Map<string, Subagent>();
   for (const event of events) {
+    if (event.turnId !== turnId) {
+      continue;
+    }
     const subagent = subagentFromEvent(event);
     if (subagent) {
       subagents.set(subagent.id, subagent);
