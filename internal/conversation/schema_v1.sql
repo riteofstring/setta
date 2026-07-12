@@ -336,11 +336,30 @@ CREATE TABLE master_inputs (
   id TEXT NOT NULL UNIQUE,
   input_text TEXT NOT NULL,
   input_modality TEXT NOT NULL CHECK (input_modality IN ('voice', 'text')),
+  input_source TEXT NOT NULL CHECK (input_source IN ('shell', 'conversation_escalation')),
   submitted_at TEXT NOT NULL,
   accepted_at TEXT NOT NULL,
   focused_workspace_id TEXT,
   focused_conversation_id TEXT,
-  focused_pane_id TEXT
+  focused_pane_id TEXT,
+  originating_workspace_id TEXT,
+  originating_conversation_id TEXT,
+  originating_pane_id TEXT,
+  originating_conversation_input_id TEXT,
+  UNIQUE(originating_conversation_input_id),
+  FOREIGN KEY (originating_conversation_id, originating_conversation_input_id)
+    REFERENCES conversation_inputs(conversation_id, id),
+  CHECK (
+    (input_source = 'shell'
+      AND originating_workspace_id IS NULL
+      AND originating_conversation_id IS NULL
+      AND originating_pane_id IS NULL
+      AND originating_conversation_input_id IS NULL)
+    OR (input_source = 'conversation_escalation'
+      AND originating_workspace_id IS NOT NULL
+      AND originating_conversation_id IS NOT NULL
+      AND originating_conversation_input_id IS NOT NULL)
+  )
 ) STRICT;
 
 CREATE INDEX master_inputs_accepted_idx

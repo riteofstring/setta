@@ -56,9 +56,10 @@ func validateAcceptedMasterInputRequest(
 		return errors.New("master input must be normalized before persistence")
 	}
 	return (master.AcceptedMasterInput{
-		Sequence:   1,
-		Input:      input,
-		AcceptedAt: acceptedAt,
+		Sequence:      1,
+		Input:         input,
+		ReplyDelivery: master.ReplyDeliveryForInput(input),
+		AcceptedAt:    acceptedAt,
 	}).Validate()
 }
 
@@ -80,22 +81,33 @@ func acceptMasterInputTransaction(
 		return existing, false, nil
 	}
 
-	accepted := master.AcceptedMasterInput{Input: input, AcceptedAt: acceptedAt}
+	accepted := master.AcceptedMasterInput{
+		Input:         input,
+		ReplyDelivery: master.ReplyDeliveryForInput(input),
+		AcceptedAt:    acceptedAt,
+	}
 	if err := tx.QueryRowContext(ctx, `
 INSERT INTO master_inputs (
-  id, input_text, input_modality, submitted_at, accepted_at,
-  focused_workspace_id, focused_conversation_id, focused_pane_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  id, input_text, input_modality, input_source, submitted_at, accepted_at,
+  focused_workspace_id, focused_conversation_id, focused_pane_id,
+  originating_workspace_id, originating_conversation_id, originating_pane_id,
+  originating_conversation_input_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING sequence
 `,
 		input.ID,
 		input.Text,
 		input.Modality,
+		input.Source,
 		input.SubmittedAt,
 		acceptedAt,
 		nullableString(input.FocusedWorkspaceID),
 		nullableString(input.FocusedConversationID),
 		nullableString(input.FocusedPaneID),
+		nullableString(input.OriginatingWorkspaceID),
+		nullableString(input.OriginatingConversationID),
+		nullableString(input.OriginatingPaneID),
+		nullableString(input.OriginatingConversationInputID),
 	).Scan(&accepted.Sequence); err != nil {
 		return master.AcceptedMasterInput{}, false, fmt.Errorf("insert master input %s: %w", input.ID, err)
 	}
@@ -166,9 +178,15 @@ func readMasterInputRow(
 	var focusedWorkspaceID sql.NullString
 	var focusedConversationID sql.NullString
 	var focusedPaneID sql.NullString
+	var originatingWorkspaceID sql.NullString
+	var originatingConversationID sql.NullString
+	var originatingPaneID sql.NullString
+	var originatingConversationInputID sql.NullString
 	err := query.QueryRowContext(ctx, `
-SELECT sequence, id, input_text, input_modality, submitted_at, accepted_at,
-       focused_workspace_id, focused_conversation_id, focused_pane_id
+SELECT sequence, id, input_text, input_modality, input_source, submitted_at, accepted_at,
+       focused_workspace_id, focused_conversation_id, focused_pane_id,
+       originating_workspace_id, originating_conversation_id, originating_pane_id,
+       originating_conversation_input_id
 FROM master_inputs
 WHERE id = ?
 `, inputID).Scan(
@@ -176,11 +194,16 @@ WHERE id = ?
 		&accepted.Input.ID,
 		&accepted.Input.Text,
 		&accepted.Input.Modality,
+		&accepted.Input.Source,
 		&accepted.Input.SubmittedAt,
 		&accepted.AcceptedAt,
 		&focusedWorkspaceID,
 		&focusedConversationID,
 		&focusedPaneID,
+		&originatingWorkspaceID,
+		&originatingConversationID,
+		&originatingPaneID,
+		&originatingConversationInputID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return master.AcceptedMasterInput{}, false, nil
@@ -191,6 +214,11 @@ WHERE id = ?
 	accepted.Input.FocusedWorkspaceID = optionalMasterInputString(focusedWorkspaceID)
 	accepted.Input.FocusedConversationID = optionalMasterInputString(focusedConversationID)
 	accepted.Input.FocusedPaneID = optionalMasterInputString(focusedPaneID)
+	accepted.Input.OriginatingWorkspaceID = optionalMasterInputString(originatingWorkspaceID)
+	accepted.Input.OriginatingConversationID = optionalMasterInputString(originatingConversationID)
+	accepted.Input.OriginatingPaneID = optionalMasterInputString(originatingPaneID)
+	accepted.Input.OriginatingConversationInputID = optionalMasterInputString(originatingConversationInputID)
+	accepted.ReplyDelivery = master.ReplyDeliveryForInput(accepted.Input)
 	if err := accepted.Validate(); err != nil {
 		return master.AcceptedMasterInput{}, false, &CorruptStateError{
 			Path: dbPath,

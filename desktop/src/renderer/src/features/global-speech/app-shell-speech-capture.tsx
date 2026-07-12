@@ -5,11 +5,11 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 
+import type { AppShellMasterController } from "../global-master/app-shell-master-controller";
 import {
   AppShellSpeechCaptureController,
   type AppShellSpeechCaptureControllerDependencies,
@@ -24,7 +24,6 @@ import {
   writeGlobalMicrophonePreference,
 } from "./global-microphone-preference";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
-import type { MasterInputFocusHints } from "./global-speech-master-submission";
 
 export interface AppShellSpeechCaptureContextValue {
   controller: AppShellSpeechCaptureController;
@@ -39,7 +38,7 @@ export function useAppShellSpeechCapture(): AppShellSpeechCaptureContextValue | 
 
 export function AppShellSpeechCaptureProvider({
   children,
-  focusHints,
+  master,
   onCaptureEnd,
   onCaptureStart,
   playback,
@@ -52,24 +51,18 @@ export function AppShellSpeechCaptureProvider({
         controller: AppShellSpeechCaptureController,
         presentation: GlobalSpeechPresentationSource,
       ) => ReactNode);
-  focusHints: MasterInputFocusHints;
+  master: AppShellMasterController;
   onCaptureEnd?: () => void;
   onCaptureStart?: () => void;
   playback: AppShellSpeechPlaybackController;
   runtimeId: string | null;
   setta: SettaAPI;
 }) {
-  const focusHintsRef = useRef(focusHints);
-  focusHintsRef.current = focusHints;
   const [controller] = useState(
     () =>
       new AppShellSpeechCaptureController(
-        browserControllerDependencies(
-          setta,
-          () => focusHintsRef.current,
-          onCaptureStart,
-          onCaptureEnd,
-        ),
+        browserControllerDependencies(setta, onCaptureStart, onCaptureEnd),
+        master,
       ),
   );
   const [effectLifetime] = useState(() => new AppShellSpeechCaptureEffectLifetime());
@@ -134,7 +127,6 @@ export class AppShellSpeechCaptureEffectLifetime {
 
 function browserControllerDependencies(
   setta: SettaAPI,
-  readFocusHints: () => MasterInputFocusHints,
   onCaptureStart: (() => void) | undefined,
   onCaptureEnd: (() => void) | undefined,
 ): AppShellSpeechCaptureControllerDependencies {
@@ -148,16 +140,9 @@ function browserControllerDependencies(
     onCaptureEnd: onCaptureEnd ?? (() => {}),
     onCaptureStart: onCaptureStart ?? (() => {}),
     readCapabilities: () => setta.speech.readCapabilities(),
-    readFocusHints,
     readPreference: readBrowserGlobalMicrophonePreference,
     setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
     support: browserSpeechCaptureSupport,
-    submitMasterInput: (request) => {
-      if (!setta.master) {
-        return Promise.reject(new Error("the desktop master input boundary is unavailable"));
-      }
-      return setta.master.submitInput(request);
-    },
     submitConversationInput: (request) => {
       if (!setta.conversations.submitInput) {
         return Promise.reject(new Error("the desktop conversation input boundary is unavailable"));

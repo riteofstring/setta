@@ -459,6 +459,9 @@ function structuredInputRouteKind(context, allowed) {
   if (!Array.isArray(allowed)) {
     return null;
   }
+  if (isMasterEscalationRoute(context, allowed)) {
+    return "escalate_to_master";
+  }
   const status = context.authoritative?.conversation?.status;
   if (status === "idle") {
     return allowed.includes("send_to_parent") ? "send_to_parent" : null;
@@ -467,6 +470,13 @@ function structuredInputRouteKind(context, allowed) {
     return null;
   }
   return activeStructuredInputRouteKind(context, allowed);
+}
+
+function isMasterEscalationRoute(context, allowed) {
+  return (
+    context.input?.input?.text === "route unrelated request through global master" &&
+    allowed.includes("escalate_to_master")
+  );
 }
 
 function activeStructuredInputRouteKind(context, allowed) {

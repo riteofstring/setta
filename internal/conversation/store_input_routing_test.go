@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+
+	"setta/internal/master"
 )
 
 func TestStoreClaimsAndDispatchesConversationInputsInConversationOrder(t *testing.T) {
@@ -106,9 +108,12 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 			seedConversationInputTargets(t, store, conversationID)
 			input := validConversationInput("input_" + string(kind))
 			input.ConversationID = conversationID
-			if kind == ConversationRouteDecisionKindCreateSideConversation {
-				paneID := "pane_origin"
+			paneID := "pane_origin"
+			if kind == ConversationRouteDecisionKindCreateSideConversation ||
+				kind == ConversationRouteDecisionKindEscalateToMaster {
 				input.SourcePaneID = &paneID
+			}
+			if kind == ConversationRouteDecisionKindCreateSideConversation {
 				seedConversationRoutePaneBinding(t, store, conversationID, paneID)
 			}
 			switch kind {
@@ -137,7 +142,50 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 				wantStatus = ConversationInputStatusAwaitingClarification
 			}
 			assertConversationInputStatus(t, store, input.ID, wantStatus)
+			if kind == ConversationRouteDecisionKindEscalateToMaster {
+				assertRoutedMasterInput(t, store, input, commit)
+			}
 		})
+	}
+}
+
+func assertRoutedMasterInput(
+	t *testing.T,
+	store *Store,
+	input ConversationInput,
+	commit ConversationRouteDecisionCommit,
+) {
+	t.Helper()
+	masterInputID := commit.ResultingCommand.EscalateToMaster.MasterInputID
+	accepted, found, err := store.ReadMasterInput(context.Background(), masterInputID)
+	if err != nil {
+		t.Fatalf("ReadMasterInput(%s): %v", masterInputID, err)
+	}
+	if !found || accepted.Input.Source != master.MasterInputSourceConversationEscalation ||
+		accepted.Input.Text != commit.ResultingCommand.EscalateToMaster.Input.Text ||
+		accepted.Input.Modality != master.MasterInputModalityText ||
+		accepted.Input.OriginatingWorkspaceID == nil ||
+		*accepted.Input.OriginatingWorkspaceID != "workspace" ||
+		accepted.Input.OriginatingConversationID == nil ||
+		*accepted.Input.OriginatingConversationID != input.ConversationID ||
+		accepted.Input.OriginatingPaneID == nil ||
+		*accepted.Input.OriginatingPaneID != *input.SourcePaneID ||
+		accepted.Input.OriginatingConversationInputID == nil ||
+		*accepted.Input.OriginatingConversationInputID != input.ID ||
+		!master.EqualReplyDeliveries(
+			accepted.ReplyDelivery,
+			master.ReplyDeliveryForInput(accepted.Input),
+		) {
+		t.Fatalf("routed master input = %+v found=%v", accepted, found)
+	}
+	events, err := store.ReadCommittedStreamEvents(
+		context.Background(),
+		master.InputStreamID,
+		0,
+		10,
+	)
+	if err != nil || len(events) != 1 || events[0].Kind != master.InputAcceptedEventKind {
+		t.Fatalf("routed master input events = %+v err=%v", events, err)
 	}
 }
 
@@ -532,6 +580,41 @@ func TestStoreRollsBackConversationRouteDecisionAndStatusTogether(t *testing.T) 
 	}
 	if got := countRows(t, store, "conversation_route_decisions"); got != 0 {
 		t.Fatalf("route decisions after rollback = %d, want 0", got)
+	}
+	assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
+}
+
+func TestStoreRollsBackMasterEscalationAndDecisionTogether(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_alpha")
+	paneID := "pane_origin"
+	input := validConversationInput("input_atomic_master")
+	input.SourcePaneID = &paneID
+	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+	claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
+	decision, command := validConversationRouteDecisionAndCommand(
+		ConversationRouteDecisionKindEscalateToMaster,
+		input.Text,
+	)
+	commit := validConversationRouteDecisionCommit("decision_atomic_master", decision, command)
+	commit.InputID = input.ID
+	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	appendTestOutboxEvents(t, store, []CommittedEventDraft{
+		transactionTestEventDraft(
+			master.AcceptedInputEventID(command.EscalateToMaster.MasterInputID),
+			"test:master-input-collision",
+			map[string]string{"state": "existing"},
+		),
+	})
+
+	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err == nil {
+		t.Fatal("CommitConversationRouteDecision succeeded despite master input event collision")
+	}
+	if got := countRows(t, store, "conversation_route_decisions"); got != 0 {
+		t.Fatalf("route decisions after rollback = %d, want 0", got)
+	}
+	if got := countRows(t, store, "master_inputs"); got != 0 {
+		t.Fatalf("master inputs after rollback = %d, want 0", got)
 	}
 	assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
 }

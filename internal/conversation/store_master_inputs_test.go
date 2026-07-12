@@ -18,6 +18,7 @@ func TestStoreAcceptsMasterInputIdempotentlyWithCommittedEvent(t *testing.T) {
 		ID:                    "input_alpha",
 		Text:                  "  Route this exact voice transcript.  ",
 		Modality:              master.MasterInputModalityVoice,
+		Source:                master.MasterInputSourceShell,
 		SubmittedAt:           "2026-07-12T18:00:00Z",
 		FocusedWorkspaceID:    &workspaceID,
 		FocusedConversationID: &conversationID,
@@ -80,6 +81,7 @@ func TestStoreRejectsChangedMasterInputIdempotencyKey(t *testing.T) {
 		ID:          "input_conflict",
 		Text:        "First request",
 		Modality:    master.MasterInputModalityVoice,
+		Source:      master.MasterInputSourceShell,
 		SubmittedAt: "2026-07-12T18:00:00Z",
 	}
 	if _, err := store.AcceptMasterInput(context.Background(), input, "2026-07-12T18:00:01Z"); err != nil {
@@ -101,6 +103,7 @@ func TestStoreSerializesConcurrentDuplicateMasterInputAcceptance(t *testing.T) {
 		ID:          "input_concurrent",
 		Text:        "Concurrent retry",
 		Modality:    master.MasterInputModalityVoice,
+		Source:      master.MasterInputSourceShell,
 		SubmittedAt: "2026-07-12T18:00:00Z",
 	}
 	const callers = 24
@@ -139,6 +142,7 @@ func TestStoreClassifiesMalformedMasterInputAsCorruptState(t *testing.T) {
 		ID:          "input_corrupt",
 		Text:        "Corrupt after acceptance",
 		Modality:    master.MasterInputModalityVoice,
+		Source:      master.MasterInputSourceShell,
 		SubmittedAt: "2026-07-12T18:00:00Z",
 	}
 	if _, err := store.AcceptMasterInput(context.Background(), input, "2026-07-12T18:00:01Z"); err != nil {

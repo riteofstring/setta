@@ -20,6 +20,7 @@ func TestServiceNormalizesAndSubmitsInputToDurableBoundary(t *testing.T) {
 		ID:                 "input_alpha",
 		Text:               "  Keep exact text.  ",
 		Modality:           MasterInputModalityVoice,
+		Source:             MasterInputSourceShell,
 		SubmittedAt:        "2026-07-12T18:00:00.000Z",
 		FocusedWorkspaceID: &workspaceID,
 	}
@@ -52,6 +53,7 @@ func TestServiceRejectsInvalidDependenciesAndStoreResults(t *testing.T) {
 		ID:          "input_invalid_store",
 		Text:        "Route this",
 		Modality:    MasterInputModalityText,
+		Source:      MasterInputSourceShell,
 		SubmittedAt: "2026-07-12T18:00:00Z",
 	})
 	if err == nil {
@@ -69,6 +71,7 @@ func TestServicePreservesTypedStoreConflict(t *testing.T) {
 		ID:          "input_conflict",
 		Text:        "Route this",
 		Modality:    MasterInputModalityVoice,
+		Source:      MasterInputSourceShell,
 		SubmittedAt: "2026-07-12T18:00:00Z",
 	})
 	if !errors.Is(err, conflict) {
@@ -93,9 +96,38 @@ func (store *recordingInputStore) AcceptMasterInput(
 	}
 	store.input = cloneInput(input)
 	store.acceptedAt = acceptedAt
-	accepted := AcceptedMasterInput{Sequence: 1, Input: cloneInput(input), AcceptedAt: acceptedAt}
+	accepted := AcceptedMasterInput{
+		Sequence:      1,
+		Input:         cloneInput(input),
+		ReplyDelivery: ReplyDeliveryForInput(input),
+		AcceptedAt:    acceptedAt,
+	}
 	if store.invalid {
 		accepted.Sequence = 0
 	}
 	return accepted, nil
+}
+
+func TestServiceRejectsRendererAuthoredConversationEscalation(t *testing.T) {
+	store := &recordingInputStore{}
+	service, err := newService(store, time.Now)
+	if err != nil {
+		t.Fatalf("newService: %v", err)
+	}
+	workspaceID := "workspace_alpha"
+	conversationID := "conversation_alpha"
+	conversationInputID := "input_alpha"
+	_, err = service.SubmitInput(context.Background(), MasterInput{
+		ID:                             "master_input_escalation",
+		Text:                           "Route this elsewhere.",
+		Modality:                       MasterInputModalityText,
+		Source:                         MasterInputSourceConversationEscalation,
+		SubmittedAt:                    "2026-07-12T18:00:00Z",
+		OriginatingWorkspaceID:         &workspaceID,
+		OriginatingConversationID:      &conversationID,
+		OriginatingConversationInputID: &conversationInputID,
+	})
+	if err == nil || store.input.ID != "" {
+		t.Fatalf("SubmitInput escalation error=%v stored=%+v", err, store.input)
+	}
 }

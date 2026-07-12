@@ -41,6 +41,9 @@ func (service *Service) SubmitInput(ctx context.Context, input MasterInput) (Acc
 	if err != nil {
 		return AcceptedMasterInput{}, err
 	}
+	if normalized.Source != MasterInputSourceShell {
+		return AcceptedMasterInput{}, errors.New("conversation-escalation master input must come from a validated local route decision")
+	}
 	acceptedAt := service.now().UTC().Format(time.RFC3339Nano)
 	accepted, err := service.store.AcceptMasterInput(ctx, normalized, acceptedAt)
 	if err != nil {

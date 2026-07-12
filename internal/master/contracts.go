@@ -6,11 +6,20 @@ type ContractValueSet struct {
 }
 
 func ContractValueSets() []ContractValueSet {
-	return []ContractValueSet{{
-		Name: "MasterInputModality",
-		Values: []string{
-			string(MasterInputModalityText),
-			string(MasterInputModalityVoice),
+	return []ContractValueSet{
+		{
+			Name: "MasterInputModality",
+			Values: []string{
+				string(MasterInputModalityText),
+				string(MasterInputModalityVoice),
+			},
 		},
-	}}
+		{
+			Name: "MasterInputSource",
+			Values: []string{
+				string(MasterInputSourceShell),
+				string(MasterInputSourceConversationEscalation),
+			},
+		},
+	}
 }

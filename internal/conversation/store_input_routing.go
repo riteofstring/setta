@@ -342,6 +342,9 @@ func commitConversationRouteDecisionTransaction(
 	if err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}
+	if err := applyConversationRouteDecisionCommand(transaction, dbPath, root, commit); err != nil {
+		return ConversationRouteDecisionRecord{}, err
+	}
 	if err := applyConversationRouteDecisionStatus(transaction, root, active, commit); err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}

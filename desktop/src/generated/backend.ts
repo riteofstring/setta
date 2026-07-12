@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 33;
-export const backendContractSchemaHash = "sha256:a5fb2a6452b3f78441aa7b04fb1723a54449bbd8761818e85cf95fc8ffa8a151";
+export const backendProtocolVersion = 34;
+export const backendContractSchemaHash = "sha256:1d9e6f6558415f4eaf50af8a2c072e630f8683a358f09ed8de99bd7febd61be2";
 
 export type DeviceScope = "full";
 
@@ -1623,6 +1623,22 @@ export function decodeMasterInputModality(value: unknown, label = "MasterInputMo
     case "text":
       return decoded;
     case "voice":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type MasterInputSource = "shell" | "conversation_escalation";
+
+export const masterInputSourceValues = ["shell", "conversation_escalation"] as const satisfies readonly MasterInputSource[];
+
+export function decodeMasterInputSource(value: unknown, label = "MasterInputSource"): MasterInputSource {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "shell":
+      return decoded;
+    case "conversation_escalation":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -5260,19 +5276,33 @@ export interface MasterInput {
   id: string;
   text: string;
   modality: MasterInputModality;
+  source: MasterInputSource;
   submittedAt: string;
   focusedWorkspaceId: string | null;
   focusedConversationId: string | null;
   focusedPaneId: string | null;
+  originatingWorkspaceId: string | null;
+  originatingConversationId: string | null;
+  originatingPaneId: string | null;
+  originatingConversationInputId: string | null;
 }
 
 export interface SubmitMasterInputRequest {
   input: MasterInput;
 }
 
+export interface MasterReplyDelivery {
+  showInMasterOverlay: boolean;
+  originatingWorkspaceId: string | null;
+  originatingConversationId: string | null;
+  originatingPaneId: string | null;
+  originatingConversationInputId: string | null;
+}
+
 export interface AcceptedMasterInput {
   sequence: number;
   input: MasterInput;
+  replyDelivery: MasterReplyDelivery;
   acceptedAt: string;
 }
 
@@ -11919,15 +11949,20 @@ export function decodeDiscardConversationInputRequest(value: unknown): DiscardCo
 
 export function decodeMasterInput(value: unknown): MasterInput {
   const record = assertRecord(value, "MasterInput");
-  assertKnownFields(record, "MasterInput", ["id", "text", "modality", "submittedAt", "focusedWorkspaceId", "focusedConversationId", "focusedPaneId"]);
+  assertKnownFields(record, "MasterInput", ["id", "text", "modality", "source", "submittedAt", "focusedWorkspaceId", "focusedConversationId", "focusedPaneId", "originatingWorkspaceId", "originatingConversationId", "originatingPaneId", "originatingConversationInputId"]);
   return {
     id: decodeString(requireField(record, "id", "MasterInput"), "MasterInput.id"),
     text: decodeString(requireField(record, "text", "MasterInput"), "MasterInput.text"),
     modality: decodeMasterInputModality(requireField(record, "modality", "MasterInput"), "MasterInput.modality"),
+    source: decodeMasterInputSource(requireField(record, "source", "MasterInput"), "MasterInput.source"),
     submittedAt: decodeString(requireField(record, "submittedAt", "MasterInput"), "MasterInput.submittedAt"),
     focusedWorkspaceId: decodeNullable(requireField(record, "focusedWorkspaceId", "MasterInput"), "MasterInput.focusedWorkspaceId", (item) => decodeString(item, "MasterInput.focusedWorkspaceId")),
     focusedConversationId: decodeNullable(requireField(record, "focusedConversationId", "MasterInput"), "MasterInput.focusedConversationId", (item) => decodeString(item, "MasterInput.focusedConversationId")),
     focusedPaneId: decodeNullable(requireField(record, "focusedPaneId", "MasterInput"), "MasterInput.focusedPaneId", (item) => decodeString(item, "MasterInput.focusedPaneId")),
+    originatingWorkspaceId: decodeNullable(requireField(record, "originatingWorkspaceId", "MasterInput"), "MasterInput.originatingWorkspaceId", (item) => decodeString(item, "MasterInput.originatingWorkspaceId")),
+    originatingConversationId: decodeNullable(requireField(record, "originatingConversationId", "MasterInput"), "MasterInput.originatingConversationId", (item) => decodeString(item, "MasterInput.originatingConversationId")),
+    originatingPaneId: decodeNullable(requireField(record, "originatingPaneId", "MasterInput"), "MasterInput.originatingPaneId", (item) => decodeString(item, "MasterInput.originatingPaneId")),
+    originatingConversationInputId: decodeNullable(requireField(record, "originatingConversationInputId", "MasterInput"), "MasterInput.originatingConversationInputId", (item) => decodeString(item, "MasterInput.originatingConversationInputId")),
   };
 }
 
@@ -11939,12 +11974,25 @@ export function decodeSubmitMasterInputRequest(value: unknown): SubmitMasterInpu
   };
 }
 
+export function decodeMasterReplyDelivery(value: unknown): MasterReplyDelivery {
+  const record = assertRecord(value, "MasterReplyDelivery");
+  assertKnownFields(record, "MasterReplyDelivery", ["showInMasterOverlay", "originatingWorkspaceId", "originatingConversationId", "originatingPaneId", "originatingConversationInputId"]);
+  return {
+    showInMasterOverlay: decodeBoolean(requireField(record, "showInMasterOverlay", "MasterReplyDelivery"), "MasterReplyDelivery.showInMasterOverlay"),
+    originatingWorkspaceId: decodeNullable(requireField(record, "originatingWorkspaceId", "MasterReplyDelivery"), "MasterReplyDelivery.originatingWorkspaceId", (item) => decodeString(item, "MasterReplyDelivery.originatingWorkspaceId")),
+    originatingConversationId: decodeNullable(requireField(record, "originatingConversationId", "MasterReplyDelivery"), "MasterReplyDelivery.originatingConversationId", (item) => decodeString(item, "MasterReplyDelivery.originatingConversationId")),
+    originatingPaneId: decodeNullable(requireField(record, "originatingPaneId", "MasterReplyDelivery"), "MasterReplyDelivery.originatingPaneId", (item) => decodeString(item, "MasterReplyDelivery.originatingPaneId")),
+    originatingConversationInputId: decodeNullable(requireField(record, "originatingConversationInputId", "MasterReplyDelivery"), "MasterReplyDelivery.originatingConversationInputId", (item) => decodeString(item, "MasterReplyDelivery.originatingConversationInputId")),
+  };
+}
+
 export function decodeAcceptedMasterInput(value: unknown): AcceptedMasterInput {
   const record = assertRecord(value, "AcceptedMasterInput");
-  assertKnownFields(record, "AcceptedMasterInput", ["sequence", "input", "acceptedAt"]);
+  assertKnownFields(record, "AcceptedMasterInput", ["sequence", "input", "replyDelivery", "acceptedAt"]);
   return {
     sequence: decodeInteger(requireField(record, "sequence", "AcceptedMasterInput"), "AcceptedMasterInput.sequence"),
     input: decodeMasterInput(requireField(record, "input", "AcceptedMasterInput")),
+    replyDelivery: decodeMasterReplyDelivery(requireField(record, "replyDelivery", "AcceptedMasterInput")),
     acceptedAt: decodeString(requireField(record, "acceptedAt", "AcceptedMasterInput"), "AcceptedMasterInput.acceptedAt"),
   };
 }

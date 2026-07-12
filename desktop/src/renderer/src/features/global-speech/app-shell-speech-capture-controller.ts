@@ -1,5 +1,10 @@
 import type { SpeechCapabilities, SpeechTranscriptionSession } from "@generated/backend";
 
+import type {
+  AppShellMasterController,
+  CompletedGlobalSpeechTranscript,
+  MasterInputSubmissionState,
+} from "../global-master/app-shell-master-controller";
 import type { GlobalMicrophonePreference } from "./global-microphone-preference";
 import {
   RealtimeTranscriptionError,
@@ -15,12 +20,6 @@ import {
   GlobalSpeechConversationSubmissionController,
   type GlobalSpeechConversationSubmissionDependencies,
 } from "./global-speech-conversation-submission";
-import {
-  type CompletedGlobalSpeechTranscript,
-  GlobalSpeechMasterSubmissionController,
-  type GlobalSpeechMasterSubmissionDependencies,
-  type MasterInputSubmissionState,
-} from "./global-speech-master-submission";
 import {
   speechAvailabilityForCapabilities,
   type SpeechCaptureAvailability,
@@ -99,8 +98,7 @@ export interface AppShellSpeechCaptureSnapshot {
   runtimeId: string | null;
 }
 
-export interface AppShellSpeechCaptureControllerDependencies
-  extends GlobalSpeechConversationSubmissionDependencies, GlobalSpeechMasterSubmissionDependencies {
+export interface AppShellSpeechCaptureControllerDependencies extends GlobalSpeechConversationSubmissionDependencies {
   clearTimeout: (handle: unknown) => void;
   createCaptureSessionId: () => string;
   createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
@@ -125,26 +123,31 @@ export class AppShellSpeechCaptureController {
   private disposed = false;
   private durationTimer: unknown = null;
   private lifecycleSequence = 0;
-  private readonly masterSubmission: GlobalSpeechMasterSubmissionController;
+  private readonly masterSubmission: AppShellMasterController;
+  private readonly unsubscribeMasterSubmission: () => void;
   private snapshotValue: AppShellSpeechCaptureSnapshot;
   private stream: MediaStream | null = null;
   private transport: RealtimeTranscriptionTransport | null = null;
 
-  constructor(dependencies: AppShellSpeechCaptureControllerDependencies) {
+  constructor(
+    dependencies: AppShellSpeechCaptureControllerDependencies,
+    masterSubmission: AppShellMasterController,
+  ) {
     this.dependencies = dependencies;
     this.conversationSubmission = new GlobalSpeechConversationSubmissionController(dependencies);
-    this.masterSubmission = new GlobalSpeechMasterSubmissionController(dependencies);
+    this.masterSubmission = masterSubmission;
+    const masterSnapshot = masterSubmission.getSnapshot();
     this.snapshotValue = {
       availability: { type: "disconnected" },
       capture: { type: "idle" },
       completedConversationTranscript: null,
-      completedTranscript: null,
+      completedTranscript: masterSnapshot.completedTranscript,
       conversationSubmission: { type: "idle" },
-      masterSubmission: { type: "idle" },
+      masterSubmission: masterSnapshot.submission,
       preference: dependencies.readPreference(),
       runtimeId: null,
     };
-    this.masterSubmission.subscribe(() => {
+    this.unsubscribeMasterSubmission = this.masterSubmission.subscribe(() => {
       const snapshot = this.masterSubmission.getSnapshot();
       this.updateSnapshot({
         completedTranscript: snapshot.completedTranscript,
@@ -169,6 +172,7 @@ export class AppShellSpeechCaptureController {
 
   synchronizeRuntime = async (runtimeId: string | null): Promise<void> => {
     this.assertUsable();
+    this.masterSubmission.synchronizeRuntime(runtimeId);
     if (runtimeId === this.snapshotValue.runtimeId) {
       return;
     }
@@ -176,7 +180,6 @@ export class AppShellSpeechCaptureController {
     const generation = this.capabilityGeneration;
     this.resetCapture(false);
     this.conversationSubmission.reset();
-    this.masterSubmission.reset();
     this.updateSnapshot({
       availability: runtimeId ? { type: "loading" } : { type: "disconnected" },
       capture: { type: "idle" },
@@ -338,7 +341,7 @@ export class AppShellSpeechCaptureController {
     this.capabilityGeneration += 1;
     this.resetCapture(false);
     this.conversationSubmission.dispose();
-    this.masterSubmission.dispose();
+    this.unsubscribeMasterSubmission();
     this.listeners.clear();
   };
 
@@ -480,7 +483,7 @@ export class AppShellSpeechCaptureController {
     this.updateSnapshot({ capture: { type: "idle" } });
     switch (request.destination.type) {
       case "master":
-        this.masterSubmission.submitTranscript(captureSessionId, runtimeId, transcript);
+        this.masterSubmission.submitVoiceTranscript(captureSessionId, runtimeId, transcript);
         return;
       case "conversation":
         this.conversationSubmission.submitTranscript({

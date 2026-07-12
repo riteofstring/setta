@@ -15,6 +15,13 @@ describe("master IPC handlers", () => {
     const accepted = {
       acceptedAt: "2026-07-12T18:00:01Z",
       input: request.input,
+      replyDelivery: {
+        originatingConversationId: null,
+        originatingConversationInputId: null,
+        originatingPaneId: null,
+        originatingWorkspaceId: null,
+        showInMasterOverlay: true,
+      },
       sequence: 7,
     };
     const backend = {
@@ -43,6 +50,11 @@ function masterInputRequest(): SubmitMasterInputRequest {
       focusedWorkspaceId: "workspace_alpha",
       id: "input_alpha",
       modality: "voice",
+      originatingConversationId: null,
+      originatingConversationInputId: null,
+      originatingPaneId: null,
+      originatingWorkspaceId: null,
+      source: "shell",
       submittedAt: "2026-07-12T18:00:00Z",
       text: "Route this voice request",
     },

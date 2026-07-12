@@ -1,3 +1,5 @@
+import { waitForBackendState } from "./chat-workflow-harness.mjs";
+
 export async function submitConversationInput(client, request) {
   return client.evaluate(`window.setta.conversations.submitInput(${JSON.stringify(request)})`);
 }
@@ -87,6 +89,117 @@ export function assertQueuedConversationInputRoutingState(state, expectedInput) 
     state.decisions[0].routerContext,
     state.input.sequence,
   );
+}
+
+export function assertEscalatedConversationInputRoutingState(
+  state,
+  expectedInput,
+  expectedSequence = 3,
+) {
+  assertRoutingState(
+    state,
+    expectedInput,
+    {
+      failureCode: null,
+      failureRetryable: null,
+      routingAttempt: 1,
+      status: "dispatched",
+    },
+    "master-escalated",
+    1,
+    expectedSequence,
+  );
+  const decision = state.decisions[0];
+  const actual = {
+    commandKind: decision.resultingCommand.kind,
+    commandText: decision.resultingCommand.escalateToMaster?.input?.text,
+    decisionKind: decision.decision.kind,
+    decisionText: decision.decision.escalateToMaster?.input?.text,
+    masterInputId: decision.resultingCommand.escalateToMaster?.masterInputId,
+    source: decision.source,
+  };
+  const expected = {
+    commandKind: "escalate_to_master",
+    commandText: expectedInput.text,
+    decisionKind: "escalate_to_master",
+    decisionText: expectedInput.text,
+    masterInputId: actual.masterInputId,
+    source: "conversation_router",
+  };
+  assertEqualJSON(actual, expected, "conversation-router master escalation");
+  assertNonEmptyString(actual.masterInputId, "routed master input id");
+}
+
+export async function escalateToMaster(client, topic, paneId, workspaceId) {
+  const request = {
+    input: {
+      conversationId: topic.id,
+      id: "conversation_input_master_escalation",
+      modality: "voice",
+      replyToInputId: null,
+      requestedMode: "route",
+      sourcePaneId: paneId,
+      submittedAt: "2026-07-13T20:00:00Z",
+      text: "route unrelated request through global master",
+    },
+  };
+  const accepted = await submitConversationInput(client, request);
+  const state = await waitForBackendState(
+    () => readConversationInputRoutingState(client, workspaceId, request),
+    (candidate) => candidate.input?.status === "dispatched",
+    50_000,
+  );
+  assertEscalatedConversationInputRoutingState(state, request.input);
+  assertRoutedConversationInputReceipt(
+    accepted,
+    await submitConversationInput(client, request),
+    request.input,
+    3,
+  );
+  await assertRoutedMasterInputExists(client, state);
+  return {
+    accepted,
+    assertPersisted: async (nextClient) => {
+      const persisted = await readConversationInputRoutingState(nextClient, workspaceId, request);
+      assertEscalatedConversationInputRoutingState(persisted, request.input);
+      await assertRoutedMasterInputExists(nextClient, persisted);
+    },
+    request,
+    state,
+  };
+}
+
+export async function assertRoutedMasterInputExists(client, routingState) {
+  const masterInputId =
+    routingState.decisions[0]?.resultingCommand?.escalateToMaster?.masterInputId;
+  assertNonEmptyString(masterInputId, "routed master input id");
+  const request = {
+    input: {
+      focusedConversationId: null,
+      focusedPaneId: null,
+      focusedWorkspaceId: null,
+      id: masterInputId,
+      modality: "text",
+      originatingConversationId: null,
+      originatingConversationInputId: null,
+      originatingPaneId: null,
+      originatingWorkspaceId: null,
+      source: "shell",
+      submittedAt: "2026-07-13T21:00:00Z",
+      text: "This shell input must conflict with the durable linked escalation.",
+    },
+  };
+  const result = await client.evaluate(`(async () => {
+	  try {
+		await window.setta.master.submitInput(${JSON.stringify(request)});
+		return { accepted: true, message: "" };
+	  } catch (error) {
+		return { accepted: false, message: error instanceof Error ? error.message : String(error) };
+	  }
+	})()`);
+  if (result?.accepted || !result?.message.includes("already accepted with different content")) {
+    throw new Error(`routed master input is not durable: ${JSON.stringify(result)}`);
+  }
 }
 
 function assertRoutedConversationInputState(state, expectedInput, expectedRoute) {

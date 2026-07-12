@@ -51,6 +51,7 @@ import {
   assertDispatchedConversationInputRoutingState,
   assertQueuedConversationInputRoutingState,
   assertRoutedConversationInputReceipt,
+  escalateToMaster,
   readConversationInputRoutingState,
   submitConversationInput,
 } from "./topic-conversation-input-routing-assertions.mjs";
@@ -447,6 +448,7 @@ try {
     workingConversationInputRequest.input,
     2,
   );
+  const masterEscalation = await escalateToMaster(context.client, alpha, alphaPaneId, workspaceId);
 
   await submitAndWaitForQueue(context.client, alpha.id, "artifact alpha", 1);
   await submitAndWaitForQueue(context.client, alpha.id, "approval alpha", 2);
@@ -744,6 +746,7 @@ try {
     ),
     workingConversationInputRequest.input,
   );
+  await masterEscalation.assertPersisted(context.client);
   const reloaded = await verifyReloadedConversationProjections({
     alpha,
     beta,
@@ -818,6 +821,7 @@ try {
     closedWorkingSnapshot,
     concurrent,
     conversationInput: acceptedConversationInput,
+    masterEscalation,
     workingConversationInput: acceptedWorkingConversationInput,
     duplicated,
     exhaustedVoice,

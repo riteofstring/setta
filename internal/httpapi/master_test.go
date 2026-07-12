@@ -24,6 +24,7 @@ func TestMasterInputEndpointAcceptsTypedGlobalVoiceSubmission(t *testing.T) {
 		ID:                    "input_alpha",
 		Text:                  "  Keep the finalized transcript exact.  ",
 		Modality:              master.MasterInputModalityVoice,
+		Source:                master.MasterInputSourceShell,
 		SubmittedAt:           "2026-07-12T18:00:00Z",
 		FocusedWorkspaceID:    &workspaceID,
 		FocusedConversationID: &conversationID,
@@ -116,7 +117,7 @@ func TestMasterInputEndpointRejectsUnknownAndOversizedPayloads(t *testing.T) {
 		t,
 		handler,
 		"/master/inputs/submit",
-		`{"input":{"id":"input","text":"request","modality":"voice","submittedAt":"2026-07-12T18:00:00Z","focusedWorkspaceId":null,"focusedConversationId":null,"focusedPaneId":null,"workspaceId":"removed"}}`,
+		`{"input":{"id":"input","text":"request","modality":"voice","source":"shell","submittedAt":"2026-07-12T18:00:00Z","focusedWorkspaceId":null,"focusedConversationId":null,"focusedPaneId":null,"originatingWorkspaceId":null,"originatingConversationId":null,"originatingPaneId":null,"originatingConversationInputId":null,"workspaceId":"removed"}}`,
 		http.StatusBadRequest,
 	)
 	if unknown.Error.Code != "invalid_json" || service.calls != 0 {
@@ -156,9 +157,10 @@ func (service *fakeHTTPMasterInputService) SubmitInput(
 		return master.AcceptedMasterInput{}, service.err
 	}
 	return master.AcceptedMasterInput{
-		Sequence:   1,
-		Input:      input,
-		AcceptedAt: "2026-07-12T18:00:01Z",
+		Sequence:      1,
+		Input:         input,
+		ReplyDelivery: master.ReplyDeliveryForInput(input),
+		AcceptedAt:    "2026-07-12T18:00:01Z",
 	}, nil
 }
 
@@ -167,6 +169,7 @@ func validSubmitMasterInputRequest() SubmitMasterInputRequest {
 		ID:          "input_alpha",
 		Text:        "Route this request",
 		Modality:    master.MasterInputModalityVoice,
+		Source:      master.MasterInputSourceShell,
 		SubmittedAt: "2026-07-12T18:00:00Z",
 	}}
 }

@@ -202,6 +202,11 @@ function voiceMasterInputRequest() {
       focusedWorkspaceId: null,
       id: "master_input_global_speech_e2e",
       modality: "voice",
+      originatingConversationId: null,
+      originatingConversationInputId: null,
+      originatingPaneId: null,
+      originatingWorkspaceId: null,
+      source: "shell",
       submittedAt: "2026-07-12T18:00:00Z",
       text: "  Reopen the exact conversation about global speech.  ",
     },
@@ -213,12 +218,22 @@ async function submitMasterInput(client, request) {
 }
 
 function assertIdempotentMasterInput(first, duplicate, expectedInput) {
+  const firstSummary = acceptedMasterInputSummary(first);
+  const expectedFirst = {
+    ...firstSummary,
+    input: masterInputSummary(expectedInput),
+    replyDelivery: {
+      showInMasterOverlay: true,
+      originatingWorkspaceId: null,
+      originatingConversationId: null,
+      originatingPaneId: null,
+      originatingConversationInputId: null,
+    },
+    sequence: 1,
+  };
   if (
-    first?.sequence !== 1 ||
-    duplicate?.sequence !== first.sequence ||
-    duplicate.acceptedAt !== first.acceptedAt ||
-    !masterInputsEqual(first.input, expectedInput) ||
-    !masterInputsEqual(duplicate.input, expectedInput)
+    JSON.stringify(firstSummary) !== JSON.stringify(expectedFirst) ||
+    JSON.stringify(acceptedMasterInputSummary(duplicate)) !== JSON.stringify(firstSummary)
   ) {
     throw new Error(
       `master input was not accepted idempotently: ${JSON.stringify({ duplicate, first })}`,
@@ -226,16 +241,31 @@ function assertIdempotentMasterInput(first, duplicate, expectedInput) {
   }
 }
 
-function masterInputsEqual(left, right) {
-  return (
-    left?.id === right.id &&
-    left.text === right.text &&
-    left.modality === right.modality &&
-    left.submittedAt === right.submittedAt &&
-    left.focusedWorkspaceId === right.focusedWorkspaceId &&
-    left.focusedConversationId === right.focusedConversationId &&
-    left.focusedPaneId === right.focusedPaneId
-  );
+function acceptedMasterInputSummary(accepted) {
+  return {
+    acceptedAt: accepted?.acceptedAt,
+    input: masterInputSummary(accepted?.input),
+    replyDelivery: accepted?.replyDelivery,
+    sequence: accepted?.sequence,
+  };
+}
+
+function masterInputSummary(input) {
+  const value = input ?? {};
+  return {
+    focusedConversationId: value.focusedConversationId,
+    focusedPaneId: value.focusedPaneId,
+    focusedWorkspaceId: value.focusedWorkspaceId,
+    id: value.id,
+    modality: value.modality,
+    originatingConversationId: value.originatingConversationId,
+    originatingConversationInputId: value.originatingConversationInputId,
+    originatingPaneId: value.originatingPaneId,
+    originatingWorkspaceId: value.originatingWorkspaceId,
+    source: value.source,
+    submittedAt: value.submittedAt,
+    text: value.text,
+  };
 }
 
 async function assertChangedMasterInputConflicts(client, request) {

@@ -17,11 +17,12 @@ import { ResizablePane } from "./components/resizable-pane";
 import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
+import { AppShellMasterProvider } from "./features/global-master/app-shell-master";
+import type { MasterInputFocusHints } from "./features/global-master/app-shell-master-controller";
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
 import type { AppShellSpeechCaptureController } from "./features/global-speech/app-shell-speech-capture-controller";
 import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
 import { AppShellSpeechStatus } from "./features/global-speech/app-shell-speech-status";
-import type { MasterInputFocusHints } from "./features/global-speech/global-speech-master-submission";
 import type { GlobalSpeechPresentationSource } from "./features/global-speech/global-speech-presentation";
 import { cn } from "./lib/utils";
 import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
@@ -162,20 +163,28 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     return shell();
   }
   return (
-    <AppShellSpeechPlaybackProvider runtimeId={runtime.connectedRuntimeId} setta={setta}>
-      {(playback) => (
-        <AppShellSpeechCaptureProvider
-          focusHints={masterInputFocusHints}
-          onCaptureEnd={playback.resumeAfterCapture}
-          onCaptureStart={playback.preemptForCapture}
-          playback={playback}
-          runtimeId={runtime.connectedRuntimeId}
-          setta={setta}
-        >
-          {(speechCapture, speechPresentation) => shell(speechCapture, speechPresentation)}
-        </AppShellSpeechCaptureProvider>
+    <AppShellMasterProvider
+      focusHints={masterInputFocusHints}
+      runtimeId={runtime.connectedRuntimeId}
+      setta={setta}
+    >
+      {(master) => (
+        <AppShellSpeechPlaybackProvider runtimeId={runtime.connectedRuntimeId} setta={setta}>
+          {(playback) => (
+            <AppShellSpeechCaptureProvider
+              master={master}
+              onCaptureEnd={playback.resumeAfterCapture}
+              onCaptureStart={playback.preemptForCapture}
+              playback={playback}
+              runtimeId={runtime.connectedRuntimeId}
+              setta={setta}
+            >
+              {(speechCapture, speechPresentation) => shell(speechCapture, speechPresentation)}
+            </AppShellSpeechCaptureProvider>
+          )}
+        </AppShellSpeechPlaybackProvider>
       )}
-    </AppShellSpeechPlaybackProvider>
+    </AppShellMasterProvider>
   );
 }
 

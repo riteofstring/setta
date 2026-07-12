@@ -18,26 +18,48 @@ const (
 )
 
 type MasterInputModality string
+type MasterInputSource string
 
 const (
 	MasterInputModalityText  MasterInputModality = "text"
 	MasterInputModalityVoice MasterInputModality = "voice"
+
+	MasterInputSourceShell                  MasterInputSource = "shell"
+	MasterInputSourceConversationEscalation MasterInputSource = "conversation_escalation"
 )
 
 type MasterInput struct {
-	ID                    string              `json:"id"`
-	Text                  string              `json:"text"`
-	Modality              MasterInputModality `json:"modality"`
-	SubmittedAt           string              `json:"submittedAt"`
-	FocusedWorkspaceID    *string             `json:"focusedWorkspaceId"`
-	FocusedConversationID *string             `json:"focusedConversationId"`
-	FocusedPaneID         *string             `json:"focusedPaneId"`
+	ID                             string              `json:"id"`
+	Text                           string              `json:"text"`
+	Modality                       MasterInputModality `json:"modality"`
+	Source                         MasterInputSource   `json:"source"`
+	SubmittedAt                    string              `json:"submittedAt"`
+	FocusedWorkspaceID             *string             `json:"focusedWorkspaceId"`
+	FocusedConversationID          *string             `json:"focusedConversationId"`
+	FocusedPaneID                  *string             `json:"focusedPaneId"`
+	OriginatingWorkspaceID         *string             `json:"originatingWorkspaceId"`
+	OriginatingConversationID      *string             `json:"originatingConversationId"`
+	OriginatingPaneID              *string             `json:"originatingPaneId"`
+	OriginatingConversationInputID *string             `json:"originatingConversationInputId"`
+}
+
+// MasterReplyDelivery is derived from the trusted source linkage on a master
+// input. Every reply remains visible in the one shared master overlay; a local
+// escalation additionally carries the exact conversation/input/pane target
+// that may receive the same route result or clarification.
+type MasterReplyDelivery struct {
+	ShowInMasterOverlay            bool    `json:"showInMasterOverlay"`
+	OriginatingWorkspaceID         *string `json:"originatingWorkspaceId"`
+	OriginatingConversationID      *string `json:"originatingConversationId"`
+	OriginatingPaneID              *string `json:"originatingPaneId"`
+	OriginatingConversationInputID *string `json:"originatingConversationInputId"`
 }
 
 type AcceptedMasterInput struct {
-	Sequence   int         `json:"sequence"`
-	Input      MasterInput `json:"input"`
-	AcceptedAt string      `json:"acceptedAt"`
+	Sequence      int                 `json:"sequence"`
+	Input         MasterInput         `json:"input"`
+	ReplyDelivery MasterReplyDelivery `json:"replyDelivery"`
+	AcceptedAt    string              `json:"acceptedAt"`
 }
 
 type InputConflictError struct {
@@ -54,31 +76,14 @@ func IsInputConflict(err error) bool {
 }
 
 func NormalizeInput(input MasterInput) (MasterInput, error) {
-	if err := ValidateInputID(input.ID); err != nil {
+	if err := validateMasterInputContent(input); err != nil {
 		return MasterInput{}, err
-	}
-	if strings.TrimSpace(input.Text) == "" {
-		return MasterInput{}, errors.New("master input text is required")
-	}
-	if len(input.Text) > MaxInputTextBytes {
-		return MasterInput{}, fmt.Errorf("master input text exceeds %d bytes", MaxInputTextBytes)
-	}
-	switch input.Modality {
-	case MasterInputModalityText, MasterInputModalityVoice:
-	default:
-		return MasterInput{}, fmt.Errorf("unsupported master input modality %q", input.Modality)
 	}
 	submittedAt, err := normalizeTimestamp("master input submittedAt", input.SubmittedAt)
 	if err != nil {
 		return MasterInput{}, err
 	}
-	if err := validateOptionalFocusHint("master input focused workspace id", input.FocusedWorkspaceID); err != nil {
-		return MasterInput{}, err
-	}
-	if err := validateOptionalFocusHint("master input focused conversation id", input.FocusedConversationID); err != nil {
-		return MasterInput{}, err
-	}
-	if err := validateOptionalFocusHint("master input focused pane id", input.FocusedPaneID); err != nil {
+	if err := validateMasterInputReferences(input); err != nil {
 		return MasterInput{}, err
 	}
 	normalized := cloneInput(input)
@@ -109,6 +114,10 @@ func (accepted AcceptedMasterInput) Validate() error {
 	if !EqualInputs(normalized, accepted.Input) {
 		return errors.New("accepted master input is not normalized")
 	}
+	wantDelivery := ReplyDeliveryForInput(normalized)
+	if !EqualReplyDeliveries(accepted.ReplyDelivery, wantDelivery) {
+		return errors.New("accepted master input reply delivery does not match its source")
+	}
 	acceptedAt, err := normalizeTimestamp("master input acceptedAt", accepted.AcceptedAt)
 	if err != nil {
 		return err
@@ -120,18 +129,56 @@ func (accepted AcceptedMasterInput) Validate() error {
 }
 
 func EqualInputs(left MasterInput, right MasterInput) bool {
+	return equalMasterInputCore(left, right) &&
+		equalMasterInputFocus(left, right) &&
+		equalMasterInputOrigin(left, right)
+}
+
+func equalMasterInputCore(left MasterInput, right MasterInput) bool {
 	return left.ID == right.ID &&
 		left.Text == right.Text &&
 		left.Modality == right.Modality &&
-		left.SubmittedAt == right.SubmittedAt &&
-		equalOptionalString(left.FocusedWorkspaceID, right.FocusedWorkspaceID) &&
+		left.Source == right.Source &&
+		left.SubmittedAt == right.SubmittedAt
+}
+
+func equalMasterInputFocus(left MasterInput, right MasterInput) bool {
+	return equalOptionalString(left.FocusedWorkspaceID, right.FocusedWorkspaceID) &&
 		equalOptionalString(left.FocusedConversationID, right.FocusedConversationID) &&
 		equalOptionalString(left.FocusedPaneID, right.FocusedPaneID)
 }
 
+func equalMasterInputOrigin(left MasterInput, right MasterInput) bool {
+	return equalOptionalString(left.OriginatingWorkspaceID, right.OriginatingWorkspaceID) &&
+		equalOptionalString(left.OriginatingConversationID, right.OriginatingConversationID) &&
+		equalOptionalString(left.OriginatingPaneID, right.OriginatingPaneID) &&
+		equalOptionalString(left.OriginatingConversationInputID, right.OriginatingConversationInputID)
+}
+
 func CloneAcceptedInput(accepted AcceptedMasterInput) AcceptedMasterInput {
 	accepted.Input = cloneInput(accepted.Input)
+	accepted.ReplyDelivery = cloneReplyDelivery(accepted.ReplyDelivery)
 	return accepted
+}
+
+func ReplyDeliveryForInput(input MasterInput) MasterReplyDelivery {
+	delivery := MasterReplyDelivery{ShowInMasterOverlay: true}
+	if input.Source != MasterInputSourceConversationEscalation {
+		return delivery
+	}
+	delivery.OriginatingWorkspaceID = cloneString(input.OriginatingWorkspaceID)
+	delivery.OriginatingConversationID = cloneString(input.OriginatingConversationID)
+	delivery.OriginatingPaneID = cloneString(input.OriginatingPaneID)
+	delivery.OriginatingConversationInputID = cloneString(input.OriginatingConversationInputID)
+	return delivery
+}
+
+func EqualReplyDeliveries(left MasterReplyDelivery, right MasterReplyDelivery) bool {
+	return left.ShowInMasterOverlay == right.ShowInMasterOverlay &&
+		equalOptionalString(left.OriginatingWorkspaceID, right.OriginatingWorkspaceID) &&
+		equalOptionalString(left.OriginatingConversationID, right.OriginatingConversationID) &&
+		equalOptionalString(left.OriginatingPaneID, right.OriginatingPaneID) &&
+		equalOptionalString(left.OriginatingConversationInputID, right.OriginatingConversationInputID)
 }
 
 func AcceptedInputEventID(inputID string) string {
@@ -143,6 +190,77 @@ func validateOptionalFocusHint(label string, value *string) error {
 		return nil
 	}
 	return validateBoundedIdentifier(label, *value, MaxFocusHintBytes)
+}
+
+func validateMasterInputContent(input MasterInput) error {
+	if err := ValidateInputID(input.ID); err != nil {
+		return err
+	}
+	if strings.TrimSpace(input.Text) == "" {
+		return errors.New("master input text is required")
+	}
+	if len(input.Text) > MaxInputTextBytes {
+		return fmt.Errorf("master input text exceeds %d bytes", MaxInputTextBytes)
+	}
+	switch input.Modality {
+	case MasterInputModalityText, MasterInputModalityVoice:
+	default:
+		return fmt.Errorf("unsupported master input modality %q", input.Modality)
+	}
+	switch input.Source {
+	case MasterInputSourceShell, MasterInputSourceConversationEscalation:
+		return nil
+	default:
+		return fmt.Errorf("unsupported master input source %q", input.Source)
+	}
+}
+
+func validateMasterInputReferences(input MasterInput) error {
+	references := []struct {
+		label string
+		value *string
+	}{
+		{label: "master input focused workspace id", value: input.FocusedWorkspaceID},
+		{label: "master input focused conversation id", value: input.FocusedConversationID},
+		{label: "master input focused pane id", value: input.FocusedPaneID},
+		{label: "master input originating workspace id", value: input.OriginatingWorkspaceID},
+		{label: "master input originating conversation id", value: input.OriginatingConversationID},
+		{label: "master input originating pane id", value: input.OriginatingPaneID},
+		{label: "master input originating conversation input id", value: input.OriginatingConversationInputID},
+	}
+	for _, reference := range references {
+		if err := validateOptionalFocusHint(reference.label, reference.value); err != nil {
+			return err
+		}
+	}
+	return validateMasterInputSourceLinkage(input)
+}
+
+func validateMasterInputSourceLinkage(input MasterInput) error {
+	originating := []*string{
+		input.OriginatingWorkspaceID,
+		input.OriginatingConversationID,
+		input.OriginatingPaneID,
+		input.OriginatingConversationInputID,
+	}
+	switch input.Source {
+	case MasterInputSourceShell:
+		for _, value := range originating {
+			if value != nil {
+				return errors.New("shell master input cannot contain originating conversation linkage")
+			}
+		}
+		return nil
+	case MasterInputSourceConversationEscalation:
+		if input.OriginatingWorkspaceID == nil ||
+			input.OriginatingConversationID == nil ||
+			input.OriginatingConversationInputID == nil {
+			return errors.New("conversation-escalation master input requires originating workspace, conversation, and input ids")
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported master input source %q", input.Source)
+	}
 }
 
 func validateBoundedIdentifier(label string, value string, maximumBytes int) error {
@@ -177,7 +295,19 @@ func cloneInput(input MasterInput) MasterInput {
 	input.FocusedWorkspaceID = cloneString(input.FocusedWorkspaceID)
 	input.FocusedConversationID = cloneString(input.FocusedConversationID)
 	input.FocusedPaneID = cloneString(input.FocusedPaneID)
+	input.OriginatingWorkspaceID = cloneString(input.OriginatingWorkspaceID)
+	input.OriginatingConversationID = cloneString(input.OriginatingConversationID)
+	input.OriginatingPaneID = cloneString(input.OriginatingPaneID)
+	input.OriginatingConversationInputID = cloneString(input.OriginatingConversationInputID)
 	return input
+}
+
+func cloneReplyDelivery(delivery MasterReplyDelivery) MasterReplyDelivery {
+	delivery.OriginatingWorkspaceID = cloneString(delivery.OriginatingWorkspaceID)
+	delivery.OriginatingConversationID = cloneString(delivery.OriginatingConversationID)
+	delivery.OriginatingPaneID = cloneString(delivery.OriginatingPaneID)
+	delivery.OriginatingConversationInputID = cloneString(delivery.OriginatingConversationInputID)
+	return delivery
 }
 
 func cloneString(value *string) *string {

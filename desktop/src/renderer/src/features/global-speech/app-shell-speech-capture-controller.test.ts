@@ -10,6 +10,7 @@ import {
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
+import { AppShellMasterController } from "../global-master/app-shell-master-controller";
 import {
   AppShellSpeechCaptureController,
   type AppShellSpeechCaptureControllerDependencies,
@@ -103,6 +104,11 @@ describe("app-shell speech capture controller", () => {
           focusedWorkspaceId: "workspace_capture",
           id: "capture_1",
           modality: "voice",
+          originatingConversationId: null,
+          originatingConversationInputId: null,
+          originatingPaneId: null,
+          originatingWorkspaceId: null,
+          source: "shell",
           submittedAt: "2026-07-12T18:00:00Z",
           text: "  Provider final, unchanged.  ",
         },
@@ -251,6 +257,13 @@ describe("app-shell speech capture controller", () => {
     acceptedRetry.resolve({
       acceptedAt: "2026-07-12T18:00:02Z",
       input: harness.masterInputRequests[1]!.input,
+      replyDelivery: {
+        originatingConversationId: null,
+        originatingConversationInputId: null,
+        originatingPaneId: null,
+        originatingWorkspaceId: null,
+        showInMasterOverlay: true,
+      },
       sequence: 1,
     });
     await flushPromises();
@@ -674,11 +687,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
     onCaptureEnd: overrides.onCaptureEnd ?? (() => {}),
     onCaptureStart: overrides.onCaptureStart ?? (() => {}),
     readCapabilities: overrides.readCapabilities ?? (async () => capabilities()),
-    readFocusHints: () => ({
-      focusedConversationId: null,
-      focusedPaneId: null,
-      focusedWorkspaceId: "workspace_capture",
-    }),
     readPreference:
       overrides.readPreference ?? (() => ({ enabled: false, type: "ready" as const })),
     setTimeout: (handler, delayMs) => {
@@ -687,17 +695,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
       return Symbol("timer");
     },
     support: overrides.support ?? (() => ({ supported: true })),
-    submitMasterInput: async (request) => {
-      masterInputRequests.push(request);
-      if (overrides.submitMasterInput) {
-        return overrides.submitMasterInput(request);
-      }
-      return {
-        acceptedAt: "2026-07-12T18:00:01Z",
-        input: request.input,
-        sequence: 1,
-      };
-    },
     submitConversationInput: async (request) => {
       conversationInputRequests.push(request);
       if (overrides.submitConversationInput) {
@@ -717,7 +714,34 @@ function createHarness(overrides: HarnessOverrides = {}) {
         return { enabled, type: "ready" };
       }),
   };
-  const controller = new AppShellSpeechCaptureController(dependencies);
+  const masterController = new AppShellMasterController({
+    createInputId: () => "unused_text_input",
+    now: dependencies.now,
+    readFocusHints: () => ({
+      focusedConversationId: null,
+      focusedPaneId: null,
+      focusedWorkspaceId: "workspace_capture",
+    }),
+    submitMasterInput: async (request) => {
+      masterInputRequests.push(request);
+      if (overrides.submitMasterInput) {
+        return overrides.submitMasterInput(request);
+      }
+      return {
+        acceptedAt: "2026-07-12T18:00:01Z",
+        input: request.input,
+        replyDelivery: {
+          originatingConversationId: null,
+          originatingConversationInputId: null,
+          originatingPaneId: null,
+          originatingWorkspaceId: null,
+          showInMasterOverlay: true,
+        },
+        sequence: 1,
+      };
+    },
+  });
+  const controller = new AppShellSpeechCaptureController(dependencies, masterController);
   return {
     clearTimer,
     connectAndEnable: async () => {
