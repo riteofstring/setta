@@ -246,7 +246,8 @@ func characterizeLiveActiveFork(t *testing.T, fixture liveFixture, _ Thread) {
 	drainLiveParentSignals(parent)
 	sideInvocation := liveSideInvocation()
 	forks := createLiveActiveForks(t, fixture, parent, sideInvocation)
-	assertLiveActiveSnapshot(t, forks.auditAtFork)
+	assertLiveDurableAuditSnapshot(t, forks.auditAtFork)
+	assertLiveEphemeralForkResponseSnapshot(t, forks.activeAtFork)
 	awaitLiveActiveParent(t, parent)
 	assertLiveForkIsolation(t, fixture, forks, sideInvocation)
 	logLiveForkCharacterization(t, forks)
@@ -450,7 +451,7 @@ func assertLiveForkDidNotWait(t *testing.T, done <-chan struct{}, description st
 	}
 }
 
-func assertLiveActiveSnapshot(t *testing.T, snapshot []ThreadTurn) {
+func assertLiveDurableAuditSnapshot(t *testing.T, snapshot []ThreadTurn) {
 	t.Helper()
 	if !threadHistoryContains(Thread{Turns: snapshot}, "ACTIVE_PARENT_FINISHED") {
 		t.Fatalf("unbounded active-turn snapshot omitted current user input: %+v", snapshot)
@@ -460,6 +461,23 @@ func assertLiveActiveSnapshot(t *testing.T, snapshot []ThreadTurn) {
 	}
 	if !threadHistoryHasTurnStatus(snapshot, "interrupted") {
 		t.Fatalf("active-turn snapshot did not mark its cloned in-flight turn interrupted: %+v", snapshot)
+	}
+}
+
+func assertLiveEphemeralForkResponseSnapshot(t *testing.T, snapshot []ThreadTurn) {
+	t.Helper()
+	thread := Thread{Turns: snapshot}
+	if !threadHistoryContains(thread, "ACTIVE_PARENT_FINISHED") {
+		t.Fatalf("ephemeral active-turn response omitted current user input: %+v", snapshot)
+	}
+	if !threadHistoryAgentMessageContains(thread, "ACTIVE_PARENT_STARTING") {
+		t.Fatalf("ephemeral active-turn response omitted public commentary: %+v", snapshot)
+	}
+	if threadHistoryHasType(snapshot, "commandExecution") {
+		t.Fatalf("ephemeral active-turn response unexpectedly contains the in-flight command: %+v", snapshot)
+	}
+	if !threadHistoryHasTurnStatus(snapshot, "inProgress") {
+		t.Fatalf("ephemeral active-turn response did not project the source turn in progress: %+v", snapshot)
 	}
 }
 
@@ -516,7 +534,7 @@ func probeLiveEphemeralFork(t *testing.T, fixture liveFixture, activeFork Thread
 func logLiveForkCharacterization(t *testing.T, forks liveForkSnapshots) {
 	t.Helper()
 	t.Logf(
-		"active-turn fork characterization: ephemeral turns=%d items=%d and durable audit turns=%d items=%d returned while parent was active; user input/commentary were present, cloned active turn was interrupted, in-flight command was absent, later parent assistant output was absent, and the parent completed; completed-boundary fork turns=%d",
+		"active-turn fork characterization: ephemeral response turns=%d items=%d projected the source turn in progress, while the durable audit response turns=%d items=%d marked the cloned turn interrupted; both returned while the parent was active, included user input/commentary, omitted the in-flight command and later parent output, and left the parent to complete; completed-boundary fork turns=%d",
 		len(forks.activeAtFork),
 		threadItemCount(forks.activeAtFork),
 		len(forks.auditAtFork),
