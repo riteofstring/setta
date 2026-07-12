@@ -856,7 +856,16 @@ function NarratorStatus({ message }: { message: string | null }) {
   if (!message) {
     return null;
   }
-  return <p className="easy-button-narrator-status">Narration degraded — {message}</p>;
+  return (
+    <p
+      aria-live="polite"
+      className="easy-button-narrator-status"
+      data-testid="easy-button-narrator-status"
+      role="status"
+    >
+      {message}
+    </p>
+  );
 }
 
 function SwirlField() {

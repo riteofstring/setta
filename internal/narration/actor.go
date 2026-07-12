@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"setta/internal/conversation"
 )
@@ -21,12 +22,30 @@ var (
 // registry.
 type PreparedCommit func(context.Context) error
 
-// Worker prepares one commit without mutating durable narrator state. Prepare
-// must honor cancellation, although generation invalidation also prevents a
-// late checkpoint response from committing when a provider returns after it
-// was cancelled.
+// RetryDirective asks the actor to enqueue the same typed operation after a
+// recoverable failure commit succeeds. Waiting is push-based and cancellable;
+// it never holds the conversation actor or SQLite writer.
+type RetryDirective struct {
+	Request Request
+	After   time.Duration
+}
+
+// PreparedWork contains exactly one bounded durable commit. A successful
+// provider attempt has no CompletionError or Retry. A handled narrator failure
+// commits its typed degradation first, then completes the original receipt
+// with CompletionError and optionally schedules Retry.
+type PreparedWork struct {
+	Commit          PreparedCommit
+	CompletionError error
+	Retry           *RetryDirective
+}
+
+// Worker prepares one bounded result without mutating durable narrator state.
+// Prepare must honor cancellation, although generation invalidation also
+// prevents a late checkpoint response from committing when a provider returns
+// after it was cancelled.
 type Worker interface {
-	Prepare(context.Context, Invocation) (PreparedCommit, error)
+	Prepare(context.Context, Invocation) (PreparedWork, error)
 }
 
 type Invocation struct {
@@ -91,7 +110,7 @@ type submission struct {
 
 type invocationResult struct {
 	generation uint64
-	commit     PreparedCommit
+	work       PreparedWork
 	err        error
 }
 
@@ -105,9 +124,11 @@ type activeInvocation struct {
 type conversationActor struct {
 	conversationID string
 	worker         Worker
+	retryWait      RetryWait
 	rootCtx        context.Context
 	rootCancel     context.CancelFunc
 	submissions    chan submission
+	retries        chan queuedRequest
 	stop           chan struct{}
 	loopDone       chan struct{}
 	done           chan struct{}
@@ -115,14 +136,16 @@ type conversationActor struct {
 	workers        sync.WaitGroup
 }
 
-func newConversationActor(conversationID string, worker Worker) *conversationActor {
+func newConversationActor(conversationID string, worker Worker, retryWait RetryWait) *conversationActor {
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	actor := &conversationActor{
 		conversationID: conversationID,
 		worker:         worker,
+		retryWait:      retryWait,
 		rootCtx:        rootCtx,
 		rootCancel:     rootCancel,
 		submissions:    make(chan submission),
+		retries:        make(chan queuedRequest),
 		stop:           make(chan struct{}),
 		loopDone:       make(chan struct{}),
 		done:           make(chan struct{}),
@@ -208,6 +231,17 @@ func (actor *conversationActor) run() {
 				return
 			}
 			state.accept(actor, command)
+		case retry := <-actor.retries:
+			if actor.stopping() {
+				retry.receipt.complete(fmt.Errorf(
+					"narrator request %s: %w",
+					retry.request.ID,
+					ErrMailboxClosed,
+				))
+				state.stop()
+				return
+			}
+			state.acceptQueued(actor, retry)
 		case prepared := <-result:
 			if actor.stopping() {
 				state.stop()
@@ -235,9 +269,13 @@ type actorState struct {
 }
 
 func (state *actorState) accept(actor *conversationActor, command submission) {
-	priority := requestPriority(command.queued.request)
-	state.queues[priority] = append(state.queues[priority], command.queued)
+	state.acceptQueued(actor, command.queued)
 	close(command.ack)
+}
+
+func (state *actorState) acceptQueued(actor *conversationActor, queued queuedRequest) {
+	priority := requestPriority(queued.request)
+	state.queues[priority] = append(state.queues[priority], queued)
 	if state.active != nil &&
 		state.active.queued.request.Kind == RequestKindCheckpoint &&
 		priority < priorityCheckpoint {
@@ -303,11 +341,11 @@ func (state *actorState) startNext(actor *conversationActor) {
 	actor.workers.Add(1)
 	go func() {
 		defer actor.workers.Done()
-		commit, err := actor.worker.Prepare(invocationCtx, Invocation{
+		work, err := actor.worker.Prepare(invocationCtx, Invocation{
 			Request:    queued.request,
 			Generation: generation,
 		})
-		result <- invocationResult{generation: generation, commit: commit, err: err}
+		result <- invocationResult{generation: generation, work: work, err: err}
 	}()
 }
 
@@ -346,14 +384,15 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 		))
 		return
 	}
-	if result.commit == nil {
+	if err := validatePreparedWork(active.queued.request, result.work); err != nil {
 		active.queued.receipt.complete(fmt.Errorf(
-			"prepare narrator request %s: worker returned no commit",
+			"prepare narrator request %s: %w",
 			active.queued.request.ID,
+			err,
 		))
 		return
 	}
-	if err := result.commit(actor.rootCtx); err != nil {
+	if err := result.work.Commit(actor.rootCtx); err != nil {
 		active.queued.receipt.complete(fmt.Errorf(
 			"commit narrator request %s: %w",
 			active.queued.request.ID,
@@ -361,7 +400,82 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 		))
 		return
 	}
-	active.queued.receipt.complete(nil)
+	if result.work.Retry != nil {
+		actor.scheduleRetry(*result.work.Retry)
+	}
+	active.queued.receipt.complete(result.work.CompletionError)
+}
+
+func validatePreparedWork(request Request, work PreparedWork) error {
+	if work.Commit == nil {
+		return errors.New("worker returned no commit")
+	}
+	if work.Retry == nil {
+		return nil
+	}
+	return validatePreparedRetry(request, work.CompletionError, *work.Retry)
+}
+
+func validatePreparedRetry(
+	request Request,
+	completionError error,
+	retry RetryDirective,
+) error {
+	if completionError == nil {
+		return errors.New("worker returned a retry without a completion error")
+	}
+	if retry.After <= 0 {
+		return errors.New("worker returned a non-positive retry delay")
+	}
+	if err := retry.Request.Validate(); err != nil {
+		return fmt.Errorf("validate retry request: %w", err)
+	}
+	if err := validateRetryOperation(request, retry.Request); err != nil {
+		return err
+	}
+	return validateRetryIdentity(request, retry.Request)
+}
+
+func validateRetryOperation(request Request, retry Request) error {
+	if retry.ConversationID != request.ConversationID ||
+		retry.Kind != request.Kind || retry.Trigger != request.Trigger {
+		return errors.New("worker retry changed the conversation operation")
+	}
+	return nil
+}
+
+func validateRetryIdentity(request Request, retry Request) error {
+	if retry.ID == request.ID ||
+		retry.RetryAttempt != request.RetryAttempt+1 ||
+		!retry.RecoverableRetry {
+		return errors.New("worker retry has an invalid identity or attempt")
+	}
+	return nil
+}
+
+func (actor *conversationActor) scheduleRetry(directive RetryDirective) {
+	retry := queuedRequest{request: directive.Request, receipt: newReceipt()}
+	actor.workers.Add(1)
+	go func() {
+		defer actor.workers.Done()
+		if err := actor.retryWait(actor.rootCtx, directive.After); err != nil {
+			retry.receipt.complete(fmt.Errorf(
+				"wait to retry narrator request %s: %w",
+				retry.request.ID,
+				err,
+			))
+			return
+		}
+		select {
+		case actor.retries <- retry:
+		case <-actor.rootCtx.Done():
+			retry.receipt.complete(fmt.Errorf(
+				"narrator request %s: %w",
+				retry.request.ID,
+				ErrMailboxClosed,
+			))
+		}
+	}()
 }
 
 func (state *actorState) stop() {

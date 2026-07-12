@@ -97,22 +97,26 @@ func NewCaller(
 
 func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult, error) {
 	if err := validateCaller(caller, ctx); err != nil {
-		return CallResult{}, err
+		return CallResult{}, narratorCallFailure(ctx, FailureKindInternal, err)
 	}
 	prepared, err := prepareCallRequest(request)
 	if err != nil {
-		return CallResult{}, err
+		return CallResult{}, narratorCallFailure(ctx, FailureKindInternal, err)
 	}
 	result := preparedCallResult(request, prepared)
 	result.StartedAt = caller.timestamp()
 	resolution, err := caller.resolveModel(ctx, prepared)
 	result.Model = cloneModelResolution(resolution)
 	if err != nil {
-		return result, err
+		kind := FailureKindConfigurationInvalid
+		if errors.Is(err, ErrContextBudgetExceeded) {
+			kind = FailureKindContextBudgetExceeded
+		}
+		return result, narratorCallFailure(ctx, kind, err)
 	}
 	providerResult, err := caller.runProviderCall(ctx, request, prepared, resolution)
 	if err != nil {
-		return result, err
+		return result, narratorCallFailure(ctx, FailureKindProviderUnavailable, err)
 	}
 	result.ProviderThreadID = providerResult.ProviderThreadID
 	result.ProviderTurnID = providerResult.ProviderTurnID
@@ -120,19 +124,32 @@ func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult
 	result.StructuredOutput = append(json.RawMessage{}, providerResult.Output...)
 	result.EndedAt, err = caller.timestampAfter(result.StartedAt)
 	if err != nil {
-		return result, err
+		return result, narratorCallFailure(ctx, FailureKindInternal, err)
 	}
 	if err := validateIdentifier("narrator provider thread id", result.ProviderThreadID); err != nil {
-		return result, err
+		return result, narratorCallFailure(ctx, FailureKindProviderOutputInvalid, err)
 	}
 	if err := validateIdentifier("narrator provider turn id", result.ProviderTurnID); err != nil {
-		return result, err
+		return result, narratorCallFailure(ctx, FailureKindProviderOutputInvalid, err)
 	}
 	if err := decodeCallOutput(&result, prepared, providerResult.Output); err != nil {
-		return result, err
+		return result, narratorCallFailure(ctx, FailureKindProviderOutputInvalid, err)
 	}
 	result.witness = newSuccessfulCallWitness(request.WorkspaceRoot, prepared.input, result)
 	return result, nil
+}
+
+func narratorCallFailure(ctx context.Context, kind FailureKind, err error) error {
+	if err == nil {
+		return nil
+	}
+	if ctx != nil && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if errors.Is(err, context.Canceled) {
+		return err
+	}
+	return NewAttemptFailure(kind, err)
 }
 
 func validateCaller(caller *Caller, ctx context.Context) error {
@@ -170,14 +187,27 @@ func (caller *Caller) resolveModel(
 		return ModelResolution{}, err
 	}
 	if prepared.inputBytes > resolution.RequestedProfile.ContextBudget.MaxInputBytes {
-		return resolution, fmt.Errorf(
-			"narrator %s context has %d bytes, resolved role budget allows %d",
-			prepared.kind,
-			prepared.inputBytes,
-			resolution.RequestedProfile.ContextBudget.MaxInputBytes,
-		)
+		return resolution, &ContextBudgetError{
+			Kind:          contextKindForRequest(prepared.kind),
+			MaxInputBytes: resolution.RequestedProfile.ContextBudget.MaxInputBytes,
+			RequiredBytes: prepared.inputBytes,
+			Reason:        "the serialized call context exceeds the freshly resolved role budget",
+		}
 	}
 	return resolution, nil
+}
+
+func contextKindForRequest(kind RequestKind) ContextKind {
+	switch kind {
+	case RequestKindProjection:
+		return ContextKindProjection
+	case RequestKindStatus:
+		return ContextKindStatus
+	case RequestKindCheckpoint:
+		return ContextKindCheckpoint
+	default:
+		panic(fmt.Sprintf("validated narrator request has unsupported context kind %q", kind))
+	}
 }
 
 func (caller *Caller) runProviderCall(

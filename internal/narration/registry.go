@@ -4,23 +4,59 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 )
+
+// RetryWait blocks only its dedicated timer goroutine until a retry becomes
+// eligible or the actor shuts down. Tests replace it with an event-driven
+// waiter; production uses one cancellable timer and never polls.
+type RetryWait func(context.Context, time.Duration) error
+
+type RegistryOption func(*registryConfig) error
+
+type registryConfig struct {
+	retryWait RetryWait
+}
+
+func WithRetryWait(wait RetryWait) RegistryOption {
+	return func(config *registryConfig) error {
+		if wait == nil {
+			return errors.New("narrator retry wait is required")
+		}
+		config.retryWait = wait
+		return nil
+	}
+}
 
 // Registry lazily creates exactly one mailbox actor for each conversation.
 // Worker.Prepare may run concurrently for different conversations, while each
 // conversation's prepared commits remain serialized by its actor.
 type Registry struct {
-	worker Worker
-	mu     sync.Mutex
-	actors map[string]*conversationActor
-	closed bool
+	worker    Worker
+	retryWait RetryWait
+	mu        sync.Mutex
+	actors    map[string]*conversationActor
+	closed    bool
 }
 
-func NewRegistry(worker Worker) (*Registry, error) {
+func NewRegistry(worker Worker, options ...RegistryOption) (*Registry, error) {
 	if worker == nil {
 		return nil, errors.New("narrator registry worker is required")
 	}
-	return &Registry{worker: worker, actors: map[string]*conversationActor{}}, nil
+	config := registryConfig{retryWait: waitForRetry}
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("narrator registry option must not be nil")
+		}
+		if err := option(&config); err != nil {
+			return nil, err
+		}
+	}
+	return &Registry{
+		worker:    worker,
+		retryWait: config.retryWait,
+		actors:    map[string]*conversationActor{},
+	}, nil
 }
 
 func (registry *Registry) Submit(ctx context.Context, request Request) (*Receipt, error) {
@@ -37,11 +73,28 @@ func (registry *Registry) Submit(ctx context.Context, request Request) (*Receipt
 	}
 	actor := registry.actors[request.ConversationID]
 	if actor == nil {
-		actor = newConversationActor(request.ConversationID, registry.worker)
+		actor = newConversationActor(request.ConversationID, registry.worker, registry.retryWait)
 		registry.actors[request.ConversationID] = actor
 	}
 	registry.mu.Unlock()
 	return actor.submit(ctx, request)
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	if ctx == nil {
+		return errors.New("narrator retry context is required")
+	}
+	if delay <= 0 {
+		return errors.New("narrator retry delay must be positive")
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (registry *Registry) Shutdown(ctx context.Context) error {

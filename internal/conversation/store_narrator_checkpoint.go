@@ -78,6 +78,8 @@ func (store *Store) CommitNarratorCheckpoint(
 		state.CheckpointThroughSequence = request.CoveredThroughSequence
 		state.CheckpointText = request.HistoricalSummary
 		state.LastInvocationAt = &request.CommittedAt
+		state.Status = NarratorStatusReady
+		state.Degradation = nil
 		state.UpdatedAt = request.CommittedAt
 		if err := transaction.UpdateNarratorState(request.Expected, state); err != nil {
 			return err

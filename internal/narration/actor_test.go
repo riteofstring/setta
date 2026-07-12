@@ -14,9 +14,9 @@ import (
 
 const narratorActorTestTimeout = 5 * time.Second
 
-type workerFunc func(context.Context, Invocation) (PreparedCommit, error)
+type workerFunc func(context.Context, Invocation) (PreparedWork, error)
 
-func (worker workerFunc) Prepare(ctx context.Context, invocation Invocation) (PreparedCommit, error) {
+func (worker workerFunc) Prepare(ctx context.Context, invocation Invocation) (PreparedWork, error) {
 	return worker(ctx, invocation)
 }
 
@@ -27,7 +27,7 @@ func TestRegistryPrioritizesOneConversationMailbox(t *testing.T) {
 	var committed []string
 	activePreparations := 0
 	maxPreparations := 0
-	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedCommit, error) {
+	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedWork, error) {
 		mu.Lock()
 		activePreparations++
 		if activePreparations > maxPreparations {
@@ -39,18 +39,18 @@ func TestRegistryPrioritizesOneConversationMailbox(t *testing.T) {
 			select {
 			case <-releaseBlocker:
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				return PreparedWork{}, ctx.Err()
 			}
 		}
 		mu.Lock()
 		activePreparations--
 		mu.Unlock()
-		return func(context.Context) error {
+		return successfulPreparedWork(func(context.Context) error {
 			mu.Lock()
 			committed = append(committed, invocation.Request.ID)
 			mu.Unlock()
 			return nil
-		}, nil
+		}), nil
 	})
 	registry := newTestRegistry(t, worker)
 	blocker := submitTestRequest(t, registry, projectionRequest(
@@ -111,16 +111,16 @@ func TestRegistryPrioritizesOneConversationMailbox(t *testing.T) {
 func TestRegistryRunsDifferentConversationActorsConcurrently(t *testing.T) {
 	started := make(chan string, 3)
 	releaseFirst := make(chan struct{})
-	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedCommit, error) {
+	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedWork, error) {
 		started <- invocation.Request.ID
 		if invocation.Request.ID == "conversation-a-first" {
 			select {
 			case <-releaseFirst:
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				return PreparedWork{}, ctx.Err()
 			}
 		}
-		return func(context.Context) error { return nil }, nil
+		return successfulPreparedWork(func(context.Context) error { return nil }), nil
 	})
 	registry := newTestRegistry(t, worker)
 	first := submitTestRequest(t, registry, projectionRequest(
@@ -167,7 +167,7 @@ func TestCheckpointRetryIsCancelledAndItsLateResponseCannotCommit(t *testing.T) 
 	var mu sync.Mutex
 	var committed []string
 	var invocations []Invocation
-	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedCommit, error) {
+	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedWork, error) {
 		mu.Lock()
 		invocations = append(invocations, invocation)
 		mu.Unlock()
@@ -178,12 +178,12 @@ func TestCheckpointRetryIsCancelledAndItsLateResponseCannotCommit(t *testing.T) 
 			<-releaseLateResponse
 			close(checkpointReturned)
 		}
-		return func(context.Context) error {
+		return successfulPreparedWork(func(context.Context) error {
 			mu.Lock()
 			committed = append(committed, invocation.Request.ID)
 			mu.Unlock()
 			return nil
-		}, nil
+		}), nil
 	})
 	registry := newTestRegistry(t, worker)
 	checkpoint := submitTestRequest(t, registry, checkpointRetryRequest("checkpoint", "conversation-stale"))
@@ -216,14 +216,14 @@ func TestCheckpointRetryIsCancelledAndItsLateResponseCannotCommit(t *testing.T) 
 func TestRegistryShutdownCancelsActiveAndRejectsPendingWork(t *testing.T) {
 	activeStarted := make(chan struct{})
 	cancellationObserved := make(chan struct{})
-	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedCommit, error) {
+	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedWork, error) {
 		if invocation.Request.ID != "active" {
-			return nil, fmt.Errorf("unexpected preparation for %s", invocation.Request.ID)
+			return PreparedWork{}, fmt.Errorf("unexpected preparation for %s", invocation.Request.ID)
 		}
 		close(activeStarted)
 		<-ctx.Done()
 		close(cancellationObserved)
-		return nil, ctx.Err()
+		return PreparedWork{}, ctx.Err()
 	})
 	registry := newTestRegistry(t, worker)
 	active := submitTestRequest(t, registry, projectionRequest(
@@ -247,6 +247,128 @@ func TestRegistryShutdownCancelsActiveAndRejectsPendingWork(t *testing.T) {
 	_, err := registry.Submit(context.Background(), statusRequest("after-close", "conversation-shutdown"))
 	if !errors.Is(err, ErrMailboxClosed) {
 		t.Fatalf("submit after shutdown error = %v, want ErrMailboxClosed", err)
+	}
+}
+
+func TestRegistryDoesNotScheduleRetryWhenFailureCommitDoesNotCommit(t *testing.T) {
+	sentinel := errors.New("degradation store unavailable")
+	retryStarted := make(chan time.Duration, 1)
+	worker := workerFunc(func(context.Context, Invocation) (PreparedWork, error) {
+		return PreparedWork{
+			Commit:          func(context.Context) error { return sentinel },
+			CompletionError: errors.New("narrator degraded"),
+			Retry: &RetryDirective{
+				Request: retryRequest("retry-after-commit", "conversation-commit-failure"),
+				After:   time.Second,
+			},
+		}, nil
+	})
+	registry, err := NewRegistry(worker, WithRetryWait(func(context.Context, time.Duration) error {
+		retryStarted <- time.Second
+		return nil
+	}))
+	if err != nil {
+		t.Fatalf("NewRegistry: %v", err)
+	}
+	receipt := submitTestRequest(t, registry, projectionRequest(
+		"initial",
+		"conversation-commit-failure",
+		conversation.NarrationTriggerPhaseActivityCompleted,
+	))
+	if err := waitReceiptError(t, receipt); !errors.Is(err, sentinel) {
+		t.Fatalf("failure commit receipt error = %v, want sentinel", err)
+	}
+	select {
+	case <-retryStarted:
+		t.Fatal("retry started before its degradation commit succeeded")
+	default:
+	}
+	shutdownTestRegistry(t, registry)
+}
+
+func TestRegistryShutdownCancelsPendingRetryTimer(t *testing.T) {
+	retryStarted := make(chan struct{})
+	retryCancelled := make(chan struct{})
+	worker := workerFunc(func(_ context.Context, invocation Invocation) (PreparedWork, error) {
+		retry := retryRequest("retry-after-shutdown", invocation.Request.ConversationID)
+		retry.Trigger = invocation.Request.Trigger
+		return PreparedWork{
+			Commit:          func(context.Context) error { return nil },
+			CompletionError: errors.New("narrator degraded"),
+			Retry:           &RetryDirective{Request: retry, After: time.Minute},
+		}, nil
+	})
+	registry, err := NewRegistry(worker, WithRetryWait(func(ctx context.Context, _ time.Duration) error {
+		close(retryStarted)
+		<-ctx.Done()
+		close(retryCancelled)
+		return ctx.Err()
+	}))
+	if err != nil {
+		t.Fatalf("NewRegistry: %v", err)
+	}
+	receipt := submitTestRequest(t, registry, projectionRequest(
+		"initial",
+		"conversation-retry-shutdown",
+		conversation.NarrationTriggerPhaseActivityCompleted,
+	))
+	if err := waitReceiptError(t, receipt); err == nil {
+		t.Fatal("degraded receipt error = nil")
+	}
+	waitSignal(t, retryStarted, "pending retry timer")
+	shutdownTestRegistry(t, registry)
+	waitSignal(t, retryCancelled, "pending retry cancellation")
+}
+
+func TestPreparedWorkRejectsMalformedRetryDirective(t *testing.T) {
+	request := projectionRequest("initial", "conversation", conversation.NarrationTriggerPlanChanged)
+	validRetry := retryRequest("retry", request.ConversationID)
+	validRetry.Trigger = request.Trigger
+	tests := []struct {
+		name string
+		work PreparedWork
+	}{
+		{name: "missing commit", work: PreparedWork{}},
+		{
+			name: "retry without failure",
+			work: PreparedWork{
+				Commit: func(context.Context) error { return nil },
+				Retry:  &RetryDirective{Request: validRetry, After: time.Second},
+			},
+		},
+		{
+			name: "zero delay",
+			work: PreparedWork{
+				Commit:          func(context.Context) error { return nil },
+				CompletionError: errors.New("degraded"),
+				Retry:           &RetryDirective{Request: validRetry},
+			},
+		},
+		{
+			name: "same identity",
+			work: PreparedWork{
+				Commit:          func(context.Context) error { return nil },
+				CompletionError: errors.New("degraded"),
+				Retry: &RetryDirective{
+					Request: Request{
+						ID:               request.ID,
+						ConversationID:   request.ConversationID,
+						Kind:             request.Kind,
+						Trigger:          request.Trigger,
+						RecoverableRetry: true,
+						RetryAttempt:     1,
+					},
+					After: time.Second,
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := validatePreparedWork(request, test.work); err == nil {
+				t.Fatal("validatePreparedWork() error = nil")
+			}
+		})
 	}
 }
 
@@ -291,6 +413,26 @@ func TestRequestValidationRejectsMismatchedKindsAndTriggers(t *testing.T) {
 				Kind:             RequestKindProjection,
 				Trigger:          conversation.NarrationTrigger("unknown"),
 				RecoverableRetry: true,
+			},
+		},
+		{
+			name: "retry flag without attempt",
+			request: Request{
+				ID:               "retry",
+				ConversationID:   "conversation",
+				Kind:             RequestKindProjection,
+				Trigger:          conversation.NarrationTriggerPlanChanged,
+				RecoverableRetry: true,
+			},
+		},
+		{
+			name: "retry attempt without flag",
+			request: Request{
+				ID:             "retry",
+				ConversationID: "conversation",
+				Kind:           RequestKindProjection,
+				Trigger:        conversation.NarrationTriggerPlanChanged,
+				RetryAttempt:   1,
 			},
 		},
 		{
@@ -390,6 +532,10 @@ func waitValue(t *testing.T, values <-chan string, label string) string {
 	}
 }
 
+func successfulPreparedWork(commit PreparedCommit) PreparedWork {
+	return PreparedWork{Commit: commit}
+}
+
 func projectionRequest(
 	id string,
 	conversationID string,
@@ -414,6 +560,7 @@ func retryRequest(id string, conversationID string) Request {
 		Kind:             RequestKindProjection,
 		Trigger:          conversation.NarrationTriggerPhaseActivityCompleted,
 		RecoverableRetry: true,
+		RetryAttempt:     1,
 	}
 }
 
@@ -429,5 +576,6 @@ func checkpointRequest(id string, conversationID string) Request {
 func checkpointRetryRequest(id string, conversationID string) Request {
 	request := checkpointRequest(id, conversationID)
 	request.RecoverableRetry = true
+	request.RetryAttempt = 1
 	return request
 }

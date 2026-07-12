@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-3 and Phase 4 items 1-5 are complete
+**Status:** In progress; Phases 0-3 and Phase 4 items 1-6 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1655,7 +1655,7 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Progress:** Items 1-5 complete.
+**Progress:** Items 1-6 complete.
 
 Implement:
 
@@ -2911,3 +2911,37 @@ Implementation is in progress under this plan.
   ChatGPT-authenticated live structured output passed with `OPENAI_API_KEY`
   removed. Generated inputs and outputs changed: none. Phase 4 item 6 remains
   next and was not started.
+- 2026-07-12: Completed Phase 4 item 6. Narrator failures now cross an explicit
+  typed boundary for provider unavailability, invalid provider output, model
+  configuration, required-context budget, durable-state availability or
+  corruption, and internal-contract failure. Classification is based on the
+  stage that observed the error or repository-owned typed errors; no error-text
+  heuristic decides retryability. A failed attempt atomically persists a safe
+  `NarratorDegradation` plus its conversation-stream state event while retaining
+  both cursors, the checkpoint, current focus, topic descriptor, prior
+  narration, and the primary agent turn unchanged. The submitting boundary
+  receives a typed degraded error with the diagnostic reference only after that
+  state commit succeeds.
+- 2026-07-12: Recoverable projection and checkpoint failures use the narrator
+  actor's finite one-, five-, and thirty-second retry policy. Each timer is
+  push-based, cancellable on shutdown, preserves the original typed operation,
+  increments an explicit attempt, and enters below new automatic/status/urgent
+  work; a checkpoint retry remains supersedable by higher-priority work. A
+  failed degradation commit cannot schedule a retry, exact status requests do
+  not produce a delayed unsolicited answer, and nonrecoverable or exhausted
+  failures remain visibly degraded. A successful projection, status call, or
+  checkpoint retry clears degradation. The Easy Button renders the persisted
+  safe failure message while retaining the last valid focus instead of adding
+  a mechanical replacement highlight or implying that the agent stopped.
+- 2026-07-12: Focused conversation/narration tests, vet, file/complexity and
+  dead-code checks passed, as did the joint race-enabled suites and 100 repeated
+  race-enabled retry ordering, checkpoint supersession, and shutdown runs. All
+  1,122 desktop tests, desktop typecheck, production build, and the deterministic
+  production Electron topic workflow passed; evidence is under
+  `.recordings/topic-conversation-pane-projection/20260712T124318056Z/`.
+  ChatGPT-authenticated live structured output and the live backend topic
+  workflow passed with `OPENAI_API_KEY` removed. Generated inputs and outputs
+  changed: none; the Codex source reference was not needed because this slice
+  adds failure handling around the established structured-call protocol rather
+  than changing provider wire behavior. Phase 4 item 7, the explicit narrator
+  status command path, is next with no implementation blocker.

@@ -131,6 +131,12 @@ describe("Easy Button topic conversation projection", () => {
     expect(view.focusStatus).toBe("stale");
     expect(view.narratorDegradation).toBe("Narrator model is unavailable.");
     expect(view.activeAgentCount).toBe(1);
+
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+    expect(html).toContain('data-testid="easy-button-narrator-status"');
+    expect(html).toContain("Narrator model is unavailable.");
+    expect(html).toContain("Implement Approval topic");
+    expect(html).not.toContain("Narration degraded");
   });
 
   test("keeps loading and failed refresh state explicit while retaining a snapshot", () => {

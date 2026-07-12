@@ -27,6 +27,9 @@ type Request struct {
 	// RecoverableRetry changes scheduling priority without erasing the
 	// projection, status, or checkpoint operation that must be prepared.
 	RecoverableRetry bool
+	// RetryAttempt is zero for an externally submitted operation and advances
+	// once for each actor-scheduled recovery attempt.
+	RetryAttempt int
 }
 
 func (request Request) Validate() error {
@@ -35,6 +38,16 @@ func (request Request) Validate() error {
 	}
 	if err := validateIdentifier("narrator request conversation id", request.ConversationID); err != nil {
 		return err
+	}
+	if request.RetryAttempt < 0 {
+		return fmt.Errorf("narrator request %s retry attempt must be non-negative", request.ID)
+	}
+	if request.RecoverableRetry != (request.RetryAttempt > 0) {
+		return fmt.Errorf(
+			"narrator request %s recoverable retry flag does not match attempt %d",
+			request.ID,
+			request.RetryAttempt,
+		)
 	}
 	switch request.Kind {
 	case RequestKindProjection:
