@@ -44,6 +44,7 @@ const topics = [
   { text: "hold simultaneous audio alpha", title: "Audio arbitration alpha" },
   { text: "hold simultaneous audio beta", title: "Audio arbitration beta" },
 ];
+const completionInput = "complete simultaneous audio now";
 
 if (options.help) {
   console.log(
@@ -139,17 +140,21 @@ try {
   );
   const audioBaseline = await browserAudioSnapshot(context.client);
   const providerRequestBaseline = speechProvider.requests.length;
-  const stopRequests = createdTopics.map((topic) => ({
-    conversationId: topic.id,
-    workspaceId,
-  }));
-  await context.client.evaluate(`Promise.all(
-    ${JSON.stringify(stopRequests)}.map((request) => window.setta.conversations.stop(request))
-  )`);
+  const completionActions = await Promise.all(
+    createdTopics.map((topic) =>
+      context.client.driver("topicConversationSubmit", {
+        conversationId: topic.id,
+        text: completionInput,
+      }),
+    ),
+  );
+  for (const action of completionActions) {
+    assertDriverAction(action, "submitted");
+  }
 
   const terminalSnapshots = await waitForBackendState(
     () => readConversationSnapshots(backend, workspaceId, createdTopics),
-    (snapshots) => snapshots.every(cancelledTurnHasFinalNarration),
+    (snapshots) => snapshots.every(completedTurnHasFinalNarration),
     workflowTimeoutMs,
   );
   const terminalEvents = terminalSnapshots.map((snapshot, index) =>
@@ -252,6 +257,12 @@ try {
     (state) => state.playbackState === "idle" && state.sourceConversationId === "",
   );
   const arbitration = assertCompletedArbitration(completedPlayback, finalEventIds);
+  const supersessions = assertTerminalSupersessions(
+    playbackSupersessions(
+      await readJsonLinesWhileAppending(join(artifactDir, "renderer-console.jsonl")),
+    ),
+    terminalEvents,
+  );
   speechProvider.assertHealthy();
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -262,6 +273,7 @@ try {
     conversations: createdTopics,
     finalEvents,
     status: "passed",
+    supersessions,
     workspaceId,
   });
   console.log(`Electron topic conversation speech arbitration passed: ${artifactDir}`);
@@ -334,15 +346,15 @@ function workingNarratorIsCaughtUp(snapshot) {
   );
 }
 
-function cancelledTurnHasFinalNarration(snapshot) {
-  const cancelledTurnIds = new Set(
-    snapshot.turns.turns.filter((turn) => turn.status === "cancelled").map((turn) => turn.id),
+function completedTurnHasFinalNarration(snapshot) {
+  const completedTurnIds = new Set(
+    snapshot.turns.turns.filter((turn) => turn.status === "completed").map((turn) => turn.id),
   );
   return (
     snapshot.conversation.status === "idle" &&
-    cancelledTurnIds.size === 1 &&
+    completedTurnIds.size === 1 &&
     snapshot.narration.events.some(
-      (event) => event.kind === "final_summary" && cancelledTurnIds.has(event.turnId),
+      (event) => event.kind === "final_summary" && completedTurnIds.has(event.turnId),
     ) &&
     narratorCaughtUp(snapshot)
   );
@@ -351,20 +363,25 @@ function cancelledTurnHasFinalNarration(snapshot) {
 function terminalNarrationEvents(snapshot, workingSnapshot, authoredText) {
   const turn = snapshot.turns.turns.find(
     (candidate) =>
-      candidate.authoredInput.text === authoredText && candidate.status === "cancelled",
+      candidate.authoredInput.text === authoredText && candidate.status === "completed",
   );
   if (!turn) {
-    throw new Error(`cancelled arbitration turn is missing: ${JSON.stringify(snapshot.turns)}`);
+    throw new Error(`completed arbitration turn is missing: ${JSON.stringify(snapshot.turns)}`);
   }
   const priorEventIds = new Set(workingSnapshot.narration.events.map((event) => event.id));
   const events = snapshot.narration.events.filter(
     (event) => event.turnId === turn.id && !priorEventIds.has(event.id),
   );
+  const milestones = events.filter((event) => event.kind === "milestone");
   const finals = events.filter((event) => event.kind === "final_summary");
-  if (finals.length !== 1 || typeof finals[0].finalSummary?.text !== "string") {
+  if (
+    milestones.length !== 1 ||
+    finals.length !== 1 ||
+    typeof finals[0].finalSummary?.text !== "string"
+  ) {
     throw new Error(`terminal arbitration narration is invalid: ${JSON.stringify(events)}`);
   }
-  return { events, final: finals[0] };
+  return { events, final: finals[0], milestone: milestones[0] };
 }
 
 async function waitForConversationSurfaces(client, ready) {
@@ -407,6 +424,14 @@ async function waitForPlaybackObservations(artifactDirectory, ready) {
 }
 
 function playbackObservations(records) {
+  return speechConsolePayloads(records, "speech_playback");
+}
+
+function playbackSupersessions(records) {
+  return speechConsolePayloads(records, "speech_playback_supersession");
+}
+
+function speechConsolePayloads(records, type) {
   const observations = [];
   for (const record of records) {
     if (record.type !== "renderer_console" || typeof record.message !== "string") {
@@ -418,7 +443,7 @@ function playbackObservations(records) {
     } catch {
       continue;
     }
-    if (payload?.type === "speech_playback") {
+    if (payload?.type === type) {
       observations.push(payload);
     }
   }
@@ -542,4 +567,68 @@ function assertCompletedArbitration(observations, finalEventIds) {
     );
   }
   return { completedOrder, enqueueOrder, playOrder };
+}
+
+function assertTerminalSupersessions(supersessions, terminalEvents) {
+  const expectedFinalIds = new Set(terminalEvents.map(({ final }) => final.id));
+  const matching = supersessions.filter((decision) =>
+    expectedFinalIds.has(decision.superseding.source.eventId),
+  );
+  const asserted = terminalEvents.map((terminal) => assertTerminalSupersession(matching, terminal));
+  if (matching.length !== terminalEvents.length) {
+    throw new Error(`terminal supersession count is invalid: ${JSON.stringify(matching)}`);
+  }
+  return asserted;
+}
+
+function assertTerminalSupersession(supersessions, { final, milestone }) {
+  const decisions = supersessions.filter(
+    (decision) => decision.superseding.source.eventId === final.id,
+  );
+  if (decisions.length !== 1) {
+    throw new Error(
+      `terminal milestone supersession count is invalid: ${JSON.stringify({ decisions, final, milestone })}`,
+    );
+  }
+  const decision = decisions[0];
+  const actual = terminalSupersessionShape(decision);
+  const expected = {
+    reason: "final_summary_covers_unplayed_milestone",
+    superseded: {
+      conversationId: final.conversationId,
+      eventId: milestone.id,
+      kind: "milestone",
+      turnId: final.turnId,
+    },
+    superseding: {
+      conversationId: final.conversationId,
+      eventId: final.id,
+      kind: "final_summary",
+      turnId: final.turnId,
+    },
+  };
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(
+      `terminal milestone supersession was not explicit: ${JSON.stringify({ actual, expected })}`,
+    );
+  }
+  return decision;
+}
+
+function terminalSupersessionShape(decision) {
+  return {
+    reason: decision.reason,
+    superseded: {
+      conversationId: decision.superseded.source.conversationId,
+      eventId: decision.superseded.source.eventId,
+      kind: decision.superseded.kind,
+      turnId: decision.superseded.turnId,
+    },
+    superseding: {
+      conversationId: decision.superseding.source.conversationId,
+      eventId: decision.superseding.source.eventId,
+      kind: decision.superseding.kind,
+      turnId: decision.superseding.turnId,
+    },
+  };
 }

@@ -12,6 +12,8 @@ const threads = new Map(persistedState.threads.map((thread) => [thread.id, threa
 const turns = new Map(persistedState.turns.map((turn) => [turn.id, turn]));
 const heldTurns = new Map();
 const pendingApprovals = new Map();
+const simultaneousCompletionInput = "complete simultaneous audio now";
+const pendingSimultaneousCompletions = [];
 const failedNarratorObjectives = new Set();
 const heldStructuredKeys = new Set(persistedState.heldStructuredKeys);
 const heldTurnStartKeys = new Set(persistedState.heldTurnStartKeys);
@@ -769,7 +771,11 @@ const sideConversationInputs = new Set([
   "side provider failure",
 ]);
 
-const steeringInputs = new Set(["finish the parent after side work", "steer alpha now"]);
+const steeringInputs = new Set([
+  simultaneousCompletionInput,
+  "finish the parent after side work",
+  "steer alpha now",
+]);
 
 const exactStructuredInputRoutes = [
   { inputs: new Set(["What is the primary agent doing?"]), kind: "answer_as_narrator" },
@@ -838,7 +844,7 @@ function emitStructuredProjection(threadId, turnId, context) {
   const output = {
     currentFocus: `Evaluated ${objective} through sequence ${observedThroughSequence}.`,
     kind: "working_projection",
-    milestones: [`Narrator evaluated ${objective} through sequence ${observedThroughSequence}.`],
+    milestones: projectionMilestones(context, objective, observedThroughSequence),
     observedThroughSequence,
     topicDescriptor: null,
   };
@@ -848,6 +854,17 @@ function emitStructuredProjection(threadId, turnId, context) {
   }
   emitAgentMessage(threadId, turnId, JSON.stringify(output));
   completeTurn(threadId, turnId, "completed");
+}
+
+function projectionMilestones(context, objective, observedThroughSequence) {
+  const simultaneousCompletionSteering =
+    context.authoritative?.currentInstructions?.acceptedSteering?.some(
+      (steering) => steering.input?.text === simultaneousCompletionInput,
+    );
+  if (context.requestedChannel !== "terminal_projection" && simultaneousCompletionSteering) {
+    return [];
+  }
+  return [`Narrator evaluated ${objective} through sequence ${observedThroughSequence}.`];
 }
 
 function holdStructuredTurnOnce(context) {
@@ -952,11 +969,23 @@ function steerTurn(message) {
   heldTurns.delete(turnId);
   respond(message.id, { turnId });
   const text = turnInputText(message.params);
-  setImmediate(() => {
-    emitTextDelta(held.threadId, turnId, `Steered with ${text}. `);
-    emitAgentMessage(held.threadId, turnId, `Steering completed ${held.text}.`);
-    completeTurn(held.threadId, turnId, "completed");
-  });
+  const completion = { held, text, turnId };
+  if (text === simultaneousCompletionInput) {
+    pendingSimultaneousCompletions.push(completion);
+    if (pendingSimultaneousCompletions.length !== 2) {
+      return;
+    }
+    const simultaneous = pendingSimultaneousCompletions.splice(0);
+    setImmediate(() => simultaneous.forEach(completeSteeredTurn));
+    return;
+  }
+  setImmediate(() => completeSteeredTurn(completion));
+}
+
+function completeSteeredTurn({ held, text, turnId }) {
+  emitTextDelta(held.threadId, turnId, `Steered with ${text}. `);
+  emitAgentMessage(held.threadId, turnId, `Steering completed ${held.text}.`);
+  completeTurn(held.threadId, turnId, "completed");
 }
 
 function interruptTurn(message) {
