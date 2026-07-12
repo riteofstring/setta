@@ -69,6 +69,17 @@ func requireConversationService(response http.ResponseWriter, service Conversati
 	return service
 }
 
+func requireConversationInputService(
+	response http.ResponseWriter,
+	service ConversationInputService,
+) ConversationInputService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "conversation_input_service_unavailable", "conversation input service is not available")
+		return nil
+	}
+	return service
+}
+
 func requireConversationNavigatorService(
 	response http.ResponseWriter,
 	service ConversationNavigatorService,
@@ -268,6 +279,30 @@ func writeConversationError(response http.ResponseWriter, code string, err error
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())
+}
+
+func writeConversationInputError(response http.ResponseWriter, err error) {
+	if conversation.IsConversationInputConflict(err) {
+		writeError(response, http.StatusConflict, "conversation_input_conflict", err.Error())
+		return
+	}
+	if conversation.IsConversationNotFound(err) {
+		writeError(response, http.StatusNotFound, "conversation_not_found", err.Error())
+		return
+	}
+	if conversation.IsStateConflict(err) {
+		writeError(response, http.StatusConflict, "conversation_input_state_conflict", err.Error())
+		return
+	}
+	if conversation.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_conversation_input_state", err.Error())
+		return
+	}
+	if conversation.IsPersistenceError(err) {
+		writeError(response, http.StatusInternalServerError, "persist_conversation_input_failed", err.Error())
+		return
+	}
+	writeError(response, http.StatusBadRequest, "invalid_conversation_input", err.Error())
 }
 
 func writeNarratorStatusError(response http.ResponseWriter, err error) {

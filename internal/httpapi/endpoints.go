@@ -85,6 +85,7 @@ var apiEndpoints = []endpoint{
 	post[SubmitTopicConversationApprovalRequest, conversation.ConversationSnapshot]("SubmitTopicConversationApproval", "/conversations/approvals/submit", handler.submitTopicConversationApproval),
 	post[AskTopicConversationNarratorStatusRequest, conversation.ConversationSnapshot]("AskTopicConversationNarratorStatus", "/conversations/narrator/status", handler.askTopicConversationNarratorStatus),
 	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
+	postWithRequestBodyLimit[SubmitConversationInputRequest, conversation.AcceptedConversationInput]("SubmitConversationInput", "/conversations/inputs/submit", conversationInputRequestBodyLimitBytes, handler.submitConversationInput),
 	postWithRequestBodyLimit[SubmitMasterInputRequest, master.AcceptedMasterInput]("SubmitMasterInput", "/master/inputs/submit", masterInputRequestBodyLimitBytes, handler.submitMasterInput),
 	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
 	get[speech.MasterVoiceSelection]("ReadMasterVoiceSelection", "/speech/voices/master", handler.readMasterVoiceSelection),

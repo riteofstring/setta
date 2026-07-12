@@ -1,4 +1,5 @@
 import type {
+  AcceptedConversationInput,
   AcceptedMasterInput,
   AskTopicConversationNarratorStatusRequest,
   AppearancePresetList,
@@ -126,6 +127,7 @@ import type {
   SplitSemanticNodeRequest,
   SubmitApprovalRequest,
   StopTopicConversationTurnRequest,
+  SubmitConversationInputRequest,
   SubmitTopicConversationApprovalRequest,
   StopWorkflowNodeRunRequest,
   SubmitMasterInputRequest,
@@ -420,6 +422,7 @@ export interface SettaAPI {
     send: (request: SendTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     steer: (request: SteerTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     stop: (request: StopTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
+    submitInput?: (request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>;
     submitApproval: (
       request: SubmitTopicConversationApprovalRequest,
     ) => Promise<ConversationSnapshot>;

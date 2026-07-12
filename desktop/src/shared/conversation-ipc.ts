@@ -1,4 +1,5 @@
 import type {
+  AcceptedConversationInput,
   AskTopicConversationNarratorStatusRequest,
   ConversationEventCursor,
   ConversationSnapshot,
@@ -10,6 +11,7 @@ import type {
   SendTopicConversationTurnRequest,
   SteerTopicConversationTurnRequest,
   StopTopicConversationTurnRequest,
+  SubmitConversationInputRequest,
   SubmitTopicConversationApprovalRequest,
 } from "@generated/backend";
 
@@ -23,6 +25,7 @@ export const conversationIpcChannels = {
   conversationSendTurn: "conversation:send-turn",
   conversationSteerTurn: "conversation:steer-turn",
   conversationStopTurn: "conversation:stop-turn",
+  conversationSubmitInput: "conversation:submit-input",
   conversationSubmitApproval: "conversation:submit-approval",
   conversationSubscribeEvents: "conversation:subscribe-events",
 } as const;
@@ -75,6 +78,10 @@ export interface ConversationIpc {
   conversationStopTurn: {
     args: [request: StopTopicConversationTurnRequest];
     result: ConversationSnapshot;
+  };
+  conversationSubmitInput: {
+    args: [request: SubmitConversationInputRequest];
+    result: AcceptedConversationInput;
   };
   conversationSubmitApproval: {
     args: [request: SubmitTopicConversationApprovalRequest];

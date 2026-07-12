@@ -74,6 +74,20 @@ try {
       hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
   );
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
+  const conversationInputRequest = paneConversationInputRequest(
+    alpha.id,
+    requiredConversationSurface(initial.surfaces, alpha.id).paneId,
+  );
+  const acceptedConversationInput = await submitConversationInput(
+    context.client,
+    conversationInputRequest,
+  );
+  assertIdempotentConversationInput(
+    acceptedConversationInput,
+    await submitConversationInput(context.client, conversationInputRequest),
+    conversationInputRequest.input,
+  );
+  await assertChangedConversationInputConflicts(context.client, conversationInputRequest);
 
   await context.client.driver("topicConversationOpenBoundPane", { conversationId: alpha.id });
   const duplicated = await waitForConversationSurfaces(
@@ -331,6 +345,11 @@ try {
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
+  assertIdempotentConversationInput(
+    acceptedConversationInput,
+    await submitConversationInput(context.client, conversationInputRequest),
+    conversationInputRequest.input,
+  );
   const reloaded = await waitForConversationSurfaces(
     context.client,
     (surfaces) =>
@@ -361,6 +380,7 @@ try {
     betaSnapshot,
     closedWorkingSnapshot,
     concurrent,
+    conversationInput: acceptedConversationInput,
     duplicated,
     reloaded,
     reopenedWorking,
@@ -470,6 +490,80 @@ function listTopics(backend, workspaceId) {
     query: "",
     workspaceId,
   });
+}
+
+function paneConversationInputRequest(conversationId, sourcePaneId) {
+  return {
+    input: {
+      conversationId,
+      id: "conversation_input_alpha_e2e",
+      modality: "voice",
+      replyToInputId: null,
+      requestedMode: "route",
+      sourcePaneId,
+      submittedAt: "2026-07-12T18:00:00Z",
+      text: "  Keep this pane transcript exact.  ",
+    },
+  };
+}
+
+async function submitConversationInput(client, request) {
+  return client.evaluate(`window.setta.conversations.submitInput(${JSON.stringify(request)})`);
+}
+
+function assertIdempotentConversationInput(first, duplicate, expectedInput) {
+  if (!validConversationInputReceipt(first, expectedInput) || !sameInputReceipt(first, duplicate)) {
+    throw new Error(
+      `conversation input was not accepted idempotently: ${JSON.stringify({ duplicate, first })}`,
+    );
+  }
+}
+
+function validConversationInputReceipt(receipt, expectedInput) {
+  return (
+    receipt?.sequence === 1 &&
+    receipt.status === "accepted" &&
+    conversationInputsEqual(receipt.input, expectedInput)
+  );
+}
+
+function sameInputReceipt(first, duplicate) {
+  return (
+    duplicate?.sequence === first.sequence &&
+    duplicate.status === first.status &&
+    duplicate.acceptedAt === first.acceptedAt &&
+    conversationInputsEqual(duplicate.input, first.input)
+  );
+}
+
+function conversationInputsEqual(left, right) {
+  return (
+    left?.id === right.id &&
+    left.conversationId === right.conversationId &&
+    left.sourcePaneId === right.sourcePaneId &&
+    left.replyToInputId === right.replyToInputId &&
+    left.text === right.text &&
+    left.modality === right.modality &&
+    left.requestedMode === right.requestedMode &&
+    left.submittedAt === right.submittedAt
+  );
+}
+
+async function assertChangedConversationInputConflicts(client, request) {
+  const changed = {
+    input: { ...request.input, text: "Changed content for the same conversation input id" },
+  };
+  const result = await client.evaluate(`(async () => {
+    try {
+      await window.setta.conversations.submitInput(${JSON.stringify(changed)});
+      return { accepted: true, message: "" };
+    } catch (error) {
+      return { accepted: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  })()`);
+  if (result?.accepted || !result?.message.includes("already accepted with different content")) {
+    throw new Error(`changed conversation input id did not conflict: ${JSON.stringify(result)}`);
+  }
 }
 
 async function submitAndWaitForQueue(client, conversationId, text, queueCount) {

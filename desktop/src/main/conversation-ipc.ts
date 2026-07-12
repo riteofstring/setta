@@ -67,6 +67,12 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationSubmitInput",
+    async (_event, request) => requireBackendClient().submitConversationInput(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationSubmitApproval",
     async (_event, request) => requireBackendClient().submitTopicConversationApproval(request),
     ipcObserver,

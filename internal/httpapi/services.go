@@ -83,6 +83,10 @@ type NarratorStatusService interface {
 	AskStatus(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
 }
 
+type ConversationInputService interface {
+	SubmitInput(context.Context, conversation.ConversationInput) (conversation.AcceptedConversationInput, error)
+}
+
 type MasterInputService interface {
 	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
 }
@@ -256,6 +260,7 @@ type HandlerConfig struct {
 	AppearanceService            AppearanceService
 	Metadata                     BackendMetadata
 	ChatService                  ChatService
+	ConversationInputService     ConversationInputService
 	ConversationNavigatorService ConversationNavigatorService
 	ConversationService          ConversationService
 	MasterInputService           MasterInputService
@@ -280,6 +285,7 @@ type handler struct {
 	appearanceService            AppearanceService
 	metadata                     BackendMetadata
 	chatService                  ChatService
+	conversationInputService     ConversationInputService
 	conversationNavigatorService ConversationNavigatorService
 	conversationService          ConversationService
 	masterInputService           MasterInputService
@@ -313,6 +319,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		appearanceService:            config.AppearanceService,
 		metadata:                     config.Metadata,
 		chatService:                  config.ChatService,
+		conversationInputService:     config.ConversationInputService,
 		conversationNavigatorService: config.ConversationNavigatorService,
 		conversationService:          config.ConversationService,
 		masterInputService:           config.MasterInputService,

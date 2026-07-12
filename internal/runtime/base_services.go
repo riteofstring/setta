@@ -19,18 +19,19 @@ import (
 )
 
 type runtimeBaseServices struct {
-	appearanceService   *appearance.Service
-	chatService         *chat.Service
-	codexManager        *codexapp.Manager
-	conversationService *conversation.Service
-	conversationStore   *conversation.Store
-	masterInputService  *master.Service
-	narratorService     *narration.Service
-	speechService       *speech.Service
-	workspaceService    *workspacesession.Service
-	workspaceUIService  *workspaceui.Service
-	workflowService     *orchestrator.Service
-	workflowStore       *orchestrator.Store
+	appearanceService        *appearance.Service
+	chatService              *chat.Service
+	codexManager             *codexapp.Manager
+	conversationService      *conversation.Service
+	conversationInputService *conversation.InputService
+	conversationStore        *conversation.Store
+	masterInputService       *master.Service
+	narratorService          *narration.Service
+	speechService            *speech.Service
+	workspaceService         *workspacesession.Service
+	workspaceUIService       *workspaceui.Service
+	workflowService          *orchestrator.Service
+	workflowStore            *orchestrator.Store
 }
 
 func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
@@ -63,18 +64,19 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 	}
 	closeFoundationOnFailure = false
 	return runtimeBaseServices{
-		appearanceService:   foundation.appearanceService,
-		chatService:         chatService,
-		codexManager:        foundation.codexManager,
-		conversationService: foundation.conversationService,
-		conversationStore:   foundation.conversationStore,
-		masterInputService:  foundation.masterInputService,
-		narratorService:     foundation.narratorService,
-		speechService:       speechService,
-		workspaceService:    foundation.workspaceService,
-		workspaceUIService:  foundation.workspaceUIService,
-		workflowService:     workflowService,
-		workflowStore:       workflowStore,
+		appearanceService:        foundation.appearanceService,
+		chatService:              chatService,
+		codexManager:             foundation.codexManager,
+		conversationService:      foundation.conversationService,
+		conversationInputService: foundation.conversationInputService,
+		conversationStore:        foundation.conversationStore,
+		masterInputService:       foundation.masterInputService,
+		narratorService:          foundation.narratorService,
+		speechService:            speechService,
+		workspaceService:         foundation.workspaceService,
+		workspaceUIService:       foundation.workspaceUIService,
+		workflowService:          workflowService,
+		workflowStore:            workflowStore,
 	}, nil
 }
 
@@ -100,14 +102,15 @@ func closeRuntimeServicesBeforeSpeechFailure(
 }
 
 type runtimeFoundation struct {
-	appearanceService   *appearance.Service
-	codexManager        *codexapp.Manager
-	conversationService *conversation.Service
-	conversationStore   *conversation.Store
-	masterInputService  *master.Service
-	narratorService     *narration.Service
-	workspaceService    *workspacesession.Service
-	workspaceUIService  *workspaceui.Service
+	appearanceService        *appearance.Service
+	codexManager             *codexapp.Manager
+	conversationService      *conversation.Service
+	conversationInputService *conversation.InputService
+	conversationStore        *conversation.Store
+	masterInputService       *master.Service
+	narratorService          *narration.Service
+	workspaceService         *workspacesession.Service
+	workspaceUIService       *workspaceui.Service
 }
 
 func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
@@ -126,6 +129,11 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	conversationStore, err := conversation.NewStore(config.AppDataDir)
 	if err != nil {
 		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
+	}
+	conversationInputService, err := conversation.NewInputService(conversationStore)
+	if err != nil {
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("create conversation input service: %w", err)
 	}
 	masterInputService, err := master.NewService(conversationStore)
 	if err != nil {
@@ -161,13 +169,14 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		return runtimeFoundation{}, fmt.Errorf("recover narrator trajectory: %w", err)
 	}
 	return runtimeFoundation{
-		appearanceService:   appearanceService,
-		codexManager:        codexManager,
-		conversationService: conversationService,
-		conversationStore:   conversationStore,
-		masterInputService:  masterInputService,
-		narratorService:     narratorService,
-		workspaceService:    workspaceService,
-		workspaceUIService:  workspaceUIService,
+		appearanceService:        appearanceService,
+		codexManager:             codexManager,
+		conversationService:      conversationService,
+		conversationInputService: conversationInputService,
+		conversationStore:        conversationStore,
+		masterInputService:       masterInputService,
+		narratorService:          narratorService,
+		workspaceService:         workspaceService,
+		workspaceUIService:       workspaceUIService,
 	}, nil
 }

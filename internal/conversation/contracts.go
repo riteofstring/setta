@@ -933,6 +933,9 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 
 func ContractValueSets() []ContractValueSet {
 	return []ContractValueSet{
+		contractValueSet("ConversationInputModality", ConversationInputModalityText, ConversationInputModalityVoice),
+		contractValueSet("ConversationInputMode", ConversationInputModeRoute, ConversationInputModeSend, ConversationInputModeQueue, ConversationInputModeSteer, ConversationInputModeAskNarrator, ConversationInputModeSide, ConversationInputModeFork),
+		contractValueSet("ConversationInputStatus", ConversationInputStatusAccepted, ConversationInputStatusRouting, ConversationInputStatusAwaitingClarification, ConversationInputStatusDispatched, ConversationInputStatusFailed),
 		contractValueSet("ConversationStatus", ConversationStatusIdle, ConversationStatusWorking, ConversationStatusWaitingForApproval, ConversationStatusFailed),
 		contractValueSet("TurnDelivery", TurnDeliveryNormal, TurnDeliveryQueued, TurnDeliverySteering),
 		contractValueSet("TurnStatus", TurnStatusQueued, TurnStatusRunning, TurnStatusCompleted, TurnStatusCancelled, TurnStatusFailed),

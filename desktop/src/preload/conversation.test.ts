@@ -24,6 +24,7 @@ describe("preload topic conversation API", () => {
       "steer",
       "stop",
       "submitApproval",
+      "submitInput",
       "subscribe",
     ]);
     const listRequest = {
@@ -48,8 +49,21 @@ describe("preload topic conversation API", () => {
         response: "",
       },
     };
+    const inputRequest = {
+      input: {
+        conversationId: "conversation_api",
+        id: "input_api",
+        modality: "voice" as const,
+        replyToInputId: null,
+        requestedMode: "route" as const,
+        sourcePaneId: "pane_api",
+        submittedAt: "2026-07-12T18:00:00Z",
+        text: "Route this pane input",
+      },
+    };
     await invokeConversationCommands(api, {
       approval,
+      inputRequest,
       listRequest,
       release,
       subscription,
@@ -72,6 +86,7 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationQueueTurn, turn],
       [ipcChannels.conversationSteerTurn, turn],
       [ipcChannels.conversationStopTurn, target],
+      [ipcChannels.conversationSubmitInput, inputRequest],
       [ipcChannels.conversationSubmitApproval, approval],
       [ipcChannels.conversationSubscribeEvents, subscription],
       [ipcChannels.conversationReleaseEvents, release],
@@ -110,6 +125,7 @@ async function invokeConversationCommands(
   api: SettaAPI,
   requests: {
     approval: Parameters<SettaAPI["conversations"]["submitApproval"]>[0];
+    inputRequest: Parameters<NonNullable<SettaAPI["conversations"]["submitInput"]>>[0];
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
     release: Parameters<SettaAPI["conversations"]["release"]>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
@@ -125,6 +141,11 @@ async function invokeConversationCommands(
   await api.conversations.queue(requests.turn);
   await api.conversations.steer(requests.turn);
   await api.conversations.stop(requests.target);
+  const submitInput = api.conversations.submitInput;
+  if (!submitInput) {
+    throw new Error("conversation input intake is unavailable");
+  }
+  await submitInput(requests.inputRequest);
   await api.conversations.submitApproval(requests.approval);
   await api.conversations.subscribe(requests.subscription);
   await api.conversations.release(requests.release);

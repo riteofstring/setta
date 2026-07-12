@@ -142,6 +142,7 @@ const api: SettaAPI = {
     send: (request) => invoke("conversationSendTurn", request),
     steer: (request) => invoke("conversationSteerTurn", request),
     stop: (request) => invoke("conversationStopTurn", request),
+    submitInput: (request) => invoke("conversationSubmitInput", request),
     submitApproval: (request) => invoke("conversationSubmitApproval", request),
     subscribe: (request) => invoke("conversationSubscribeEvents", request),
   },

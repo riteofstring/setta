@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-4 and the initial global-speech foundations
-are complete. AI routing, side/fork execution, the remaining speech work,
-obsolete-surface deletion, and final acceptance remain.
+**Status:** In progress. Phases 0-4 and Phase 5 items 1-2 are complete. AI
+routing, side/fork execution, the remaining speech work, obsolete-surface
+deletion, and final acceptance remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1914,8 +1914,7 @@ Exit criteria:
 
 ### Phase 5: Global speech infrastructure
 
-**Status:** In progress. Item 1 is complete; the next step is remaining item 2
-below.
+**Status:** In progress. Items 1-2 are complete; the next step is item 3 below.
 
 Existing foundation:
 

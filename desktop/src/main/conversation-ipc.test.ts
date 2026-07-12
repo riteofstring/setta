@@ -1,4 +1,4 @@
-import type { BackendClient } from "@generated/backend";
+import type { BackendClient, SubmitConversationInputRequest } from "@generated/backend";
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { ipcChannels } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
@@ -23,6 +23,12 @@ describe("conversation IPC handlers", () => {
       sendTopicConversationTurn: vi.fn(async () => snapshot),
       steerTopicConversationTurn: vi.fn(async () => snapshot),
       stopTopicConversationTurn: vi.fn(async () => snapshot),
+      submitConversationInput: vi.fn(async (request: SubmitConversationInputRequest) => ({
+        acceptedAt: "2026-07-12T18:00:01Z",
+        input: request.input,
+        sequence: 1,
+        status: "accepted" as const,
+      })),
       submitTopicConversationApproval: vi.fn(async () => snapshot),
     };
     const backend = backendMethods as unknown as BackendClient;
@@ -57,6 +63,8 @@ describe("conversation IPC handlers", () => {
     await invokeHandler(handlers, ipcChannels.conversationQueueTurn, turn);
     await invokeHandler(handlers, ipcChannels.conversationSteerTurn, turn);
     await invokeHandler(handlers, ipcChannels.conversationStopTurn, target);
+    const inputRequest = conversationInputRequest();
+    await invokeHandler(handlers, ipcChannels.conversationSubmitInput, inputRequest);
     await invokeHandler(handlers, ipcChannels.conversationSubmitApproval, {
       ...target,
       response: { answers: [], approvalId: "approval", decision: "approved", response: "" },
@@ -87,6 +95,7 @@ describe("conversation IPC handlers", () => {
     expect(backendMethods.queueTopicConversationTurn).toHaveBeenCalledWith(turn);
     expect(backendMethods.steerTopicConversationTurn).toHaveBeenCalledWith(turn);
     expect(backendMethods.stopTopicConversationTurn).toHaveBeenCalledWith(target);
+    expect(backendMethods.submitConversationInput).toHaveBeenCalledWith(inputRequest);
     expect(conversationEvents.subscribe).toHaveBeenCalledWith(
       sender,
       subscription,
@@ -95,6 +104,21 @@ describe("conversation IPC handlers", () => {
     expect(conversationEvents.release).toHaveBeenCalledWith(sender, target, true);
   });
 });
+
+function conversationInputRequest(): SubmitConversationInputRequest {
+  return {
+    input: {
+      conversationId: "conversation_api",
+      id: "input_api",
+      modality: "voice",
+      replyToInputId: null,
+      requestedMode: "route",
+      sourcePaneId: "pane_api",
+      submittedAt: "2026-07-12T18:00:00Z",
+      text: "Route this pane input",
+    },
+  };
+}
 
 type ConversationHandler = Parameters<IpcMain["handle"]>[1];
 
